@@ -111,7 +111,7 @@ function App() {
       const workflow = {
         version: '1.0',
         nodes: nodes.map((n) => n.data.comfyData || {}),
-        edges: edges.map((e) => e.data.comfyData || {}),
+        edges: edges.map((e) => e.data?.comfyData || {}),
       };
       const success = await window.electronAPI.exportWorkflow(workflow);
       if (success) {
