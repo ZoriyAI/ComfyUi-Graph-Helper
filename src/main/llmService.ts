@@ -1,4 +1,4 @@
-import { streamText, LanguageModel } from 'ai';
+import { streamText, LanguageModel, isStepCount } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createTestLLMModel } from './testLLMTransport';
 
@@ -60,7 +60,9 @@ class MainLLMService {
       model,
       messages,
       tools,
-      toolCallConcurrency: 1, // Execute tools sequentially to avoid revision conflicts
+      // Default stopWhen is one step, which never feeds tool results back to the model.
+      stopWhen: isStepCount(4),
+      toolCallConcurrency: 1,
     });
 
     console.log('[MainLLMService] Consuming fullStream...');

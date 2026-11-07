@@ -11,7 +11,8 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,
-    "types": ["node", "vite/client"]
+    "types": ["node", "vite/client"],
+    "noEmit": true
   },
   "include": ["src/renderer/**/*"],
   "exclude": ["node_modules", "dist"]

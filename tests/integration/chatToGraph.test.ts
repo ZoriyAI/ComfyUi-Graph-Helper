@@ -78,7 +78,7 @@ describe('Chat-to-Graph Integration', () => {
 
         // Step 3: Final text response
         console.log('[TEST] Step 3: text response');
-        onChunk({ type: 'text-delta', content: { textDelta: 'I have added a TestNode and annotated it.' } });
+        onChunk({ type: 'text-delta', content: { text: 'I have added a TestNode and annotated it.' } });
         onChunk({ type: 'done' });
       }
     );

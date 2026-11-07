@@ -1,11 +1,50 @@
-import { LanguageModelV4, LanguageModelV4StreamPart } from '@ai-sdk/provider';
+import { LanguageModelV4, LanguageModelV4Prompt, LanguageModelV4StreamPart } from '@ai-sdk/provider';
 import { convertArrayToReadableStream } from '@ai-sdk/provider-utils/test';
 
 /**
- * TEST-ONLY deterministic LLM transport
- * 
- * Single-turn response with all tool calls and completion text
+ * TEST-ONLY model. Each doStream call is one SDK step.
+ * The next step is chosen from tool results the SDK places on the prompt
+ * after execute() resolves. The model does not call tools itself.
  */
+const COMPLETION = 'I have added a TestNode and annotated it.';
+
+interface ToolResultRecord {
+  toolName: string;
+  value: unknown;
+}
+
+function collectToolResults(prompt: LanguageModelV4Prompt | undefined): ToolResultRecord[] {
+  const found: ToolResultRecord[] = [];
+  for (const message of prompt ?? []) {
+    if (!Array.isArray(message.content)) continue;
+    for (const part of message.content) {
+      if (!part || part.type !== 'tool-result') continue;
+      const output = 'output' in part ? part.output : undefined;
+      const value = output && typeof output === 'object' && 'value' in output
+        ? output.value
+        : undefined;
+      found.push({ toolName: part.toolName, value });
+    }
+  }
+  return found;
+}
+
+function nodeIdFrom(value: unknown): string | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const nodeId = (value as { nodeId?: unknown }).nodeId;
+  return typeof nodeId === 'string' && nodeId.length > 0 ? nodeId : null;
+}
+
+function finish(unified: 'stop' | 'tool-calls'): LanguageModelV4StreamPart {
+  return {
+    type: 'finish',
+    finishReason: { unified, raw: unified },
+    usage: {
+      inputTokens: { total: 10, noCache: 10, cacheRead: 0, cacheWrite: 0 },
+      outputTokens: { total: 20, text: 20, reasoning: 0 },
+    },
+  };
+}
 
 export function createTestLLMModel(): LanguageModelV4 {
   return {
@@ -19,51 +58,58 @@ export function createTestLLMModel(): LanguageModelV4 {
     },
 
     async doStream(options) {
-      console.log('[TestLLM] doStream called');
-      
+      const prompt = options.prompt;
+      const results = collectToolResults(prompt);
+      const addNode = results.find((result) => result.toolName === 'addNode');
+      const annotate = results.find((result) => result.toolName === 'annotateNode');
       const parts: LanguageModelV4StreamPart[] = [];
 
-      // Tool call 1: addNode
-      console.log('[TestLLM] Part 1: addNode tool-call');
-      parts.push({
-        type: 'tool-call',
-        toolCallId: 'call-add-node',
-        toolName: 'addNode',
-        input: JSON.stringify({ nodeType: 'TestNode', title: 'AI Test Node', x: 200, y: 200 }),
-      });
+      console.log(
+        '[TestLLM] doStream results:',
+        results.map((result) => result.toolName).join(',') || '(none)'
+      );
 
-      // Tool call 2: annotateNode (with placeholder nodeId)
-      console.log('[TestLLM] Part 2: annotateNode tool-call');
-      parts.push({
-        type: 'tool-call',
-        toolCallId: 'call-annotate',
-        toolName: 'annotateNode',
-        input: JSON.stringify({ nodeId: 'LATEST_NODE', annotation: 'AI added annotation' }),
-      });
-
-      // Completion text
-      console.log('[TestLLM] Parts 3-N: completion text');
-      const textId = 'text-1';
-      parts.push({ type: 'text-start', id: textId });
-      
-      const text = 'I have added a TestNode and annotated it.';
-      for (const char of text) {
-        parts.push({ type: 'text-delta', id: textId, delta: char });
+      if (!addNode) {
+        parts.push({
+          type: 'tool-call',
+          toolCallId: 'call-add-node',
+          toolName: 'addNode',
+          input: JSON.stringify({ nodeType: 'TestNode', title: 'AI Test Node', x: 200, y: 200 }),
+        });
+        parts.push(finish('tool-calls'));
+      } else if (!annotate) {
+        const nodeId = nodeIdFrom(addNode.value);
+        console.log('[TestLLM] addNode result nodeId:', nodeId);
+        if (!nodeId) {
+          const textId = 'text-missing-node';
+          parts.push({ type: 'text-start', id: textId });
+          parts.push({
+            type: 'text-delta',
+            id: textId,
+            delta: 'addNode finished without a node id.',
+          });
+          parts.push({ type: 'text-end', id: textId });
+          parts.push(finish('stop'));
+        } else {
+          parts.push({
+            type: 'tool-call',
+            toolCallId: 'call-annotate',
+            toolName: 'annotateNode',
+            input: JSON.stringify({ nodeId, annotation: 'AI added annotation' }),
+          });
+          parts.push(finish('tool-calls'));
+        }
+      } else {
+        const textId = 'text-1';
+        parts.push({ type: 'text-start', id: textId });
+        for (const char of COMPLETION) {
+          parts.push({ type: 'text-delta', id: textId, delta: char });
+        }
+        parts.push({ type: 'text-end', id: textId });
+        parts.push(finish('stop'));
       }
-      
-      parts.push({ type: 'text-end', id: textId });
 
-      // Finish
-      parts.push({
-        type: 'finish',
-        finishReason: { unified: 'stop', raw: 'stop' },
-        usage: {
-          inputTokens: { total: 10, noCache: 10, cacheRead: 0, cacheWrite: 0 },
-          outputTokens: { total: 20, text: 20, reasoning: 0 },
-        },
-      });
-
-      console.log(`[TestLLM] Returning ${parts.length} parts total`);
+      console.log(`[TestLLM] Returning ${parts.length} parts`);
 
       return {
         stream: convertArrayToReadableStream(parts),

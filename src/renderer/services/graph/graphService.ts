@@ -3,6 +3,33 @@ import { useGraphStore } from '../../state/graphState';
 import { useRevisionStore } from '../../state/revisionState';
 import { GraphRevision } from '../../types/revisions';
 
+function semanticNode(node: GraphNode) {
+  return {
+    id: node.id,
+    type: node.type,
+    x: node.position?.x ?? null,
+    y: node.position?.y ?? null,
+    comfyType: node.data?.comfyType ?? null,
+    title: node.data?.title ?? null,
+    parameters: node.data?.parameters ?? {},
+    annotations: node.data?.annotations ?? [],
+    inputs: node.data?.inputs ?? [],
+    outputs: node.data?.outputs ?? [],
+    locked: node.data?.locked ?? false,
+  };
+}
+
+function semanticEdge(edge: GraphEdge) {
+  return {
+    id: edge.id,
+    source: edge.source,
+    target: edge.target,
+    sourceHandle: edge.sourceHandle ?? null,
+    targetHandle: edge.targetHandle ?? null,
+    dataType: edge.data?.dataType ?? null,
+  };
+}
+
 /**
  * Unified graph service for all graph operations
  * Used by both manual UI actions and AI tool calls
@@ -42,10 +69,11 @@ export class GraphService {
 
     const { nodes, edges } = useGraphStore.getState();
 
-    // Simple comparison via JSON stringify
+    // Compare workflow fields only. React Flow writes measured size and
+    // selection onto the same node objects between tool calls; those are not edits.
     return (
-      JSON.stringify(nodes) !== JSON.stringify(revision.nodes) ||
-      JSON.stringify(edges) !== JSON.stringify(revision.edges)
+      JSON.stringify(nodes.map(semanticNode)) !== JSON.stringify(revision.nodes.map(semanticNode)) ||
+      JSON.stringify(edges.map(semanticEdge)) !== JSON.stringify(revision.edges.map(semanticEdge))
     );
   }
 
@@ -162,22 +190,7 @@ export class GraphService {
    */
   annotateNode(nodeId: string, annotation: string, source: 'user' | 'ai'): boolean {
     const { nodes } = useGraphStore.getState();
-    
-    // Handle LATEST_NODE placeholder (for test fixtures)
-    let targetNodeId = nodeId;
-    if (nodeId === 'LATEST_NODE') {
-      // Find most recently added node (highest timestamp in ID)
-      const sortedNodes = [...nodes].sort((a, b) => {
-        const aTime = parseInt(a.id.split('-')[1]) || 0;
-        const bTime = parseInt(b.id.split('-')[1]) || 0;
-        return bTime - aTime;
-      });
-      if (sortedNodes.length > 0) {
-        targetNodeId = sortedNodes[0].id;
-        console.log(`[GraphService] Resolved LATEST_NODE to ${targetNodeId}`);
-      }
-    }
-    
+    const targetNodeId = nodeId;
     const node = nodes.find((n) => n.id === targetNodeId);
 
     if (!node) {

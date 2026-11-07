@@ -37,7 +37,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     messages: Array<{ role: string; content: string }>,
     toolSpecs: Array<{ name: string; description: string; parameters: any }>,
     onChunk: (chunk: { type: string; content: any }) => void,
-    onToolExecute: (request: { tool: string; args: any; resultChannel: string; executeId?: string }) => void
+    onToolExecute: (request: { tool: string; args: any; resultChannel: string; executeId?: string; toolCallId?: string }) => void
   ) => {
     const channel = `llm-stream-${Date.now()}`;
     ipcRenderer.on(channel, (_event, chunk) => onChunk(chunk));
@@ -72,7 +72,7 @@ export interface ElectronAPI {
     messages: Array<{ role: string; content: string }>,
     toolSpecs: Array<{ name: string; description: string; parameters: any }>,
     onChunk: (chunk: { type: string; content: any }) => void,
-    onToolExecute: (request: { tool: string; args: any; resultChannel: string; executeId?: string }) => void
+    onToolExecute: (request: { tool: string; args: any; resultChannel: string; executeId?: string; toolCallId?: string }) => void
   ) => Promise<void>;
   sendToolResult: (resultChannel: string, result: any) => void;
 }

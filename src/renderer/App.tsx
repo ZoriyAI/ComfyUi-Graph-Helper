@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import GraphCanvas from './components/graph/GraphCanvas';
 import ChatPanel from './components/chat/ChatPanel';
 import { useGraphStore } from './state/graphState';
@@ -9,6 +9,27 @@ import { getChatService } from './services/llm/chatService';
 function App() {
   const { nodes, addNode } = useGraphStore();
   const { addMessage } = useChatStore();
+  const [provider, setProvider] = useState('');
+  const [apiKey, setApiKey] = useState('');
+  const [providerNote, setProviderNote] = useState('No provider selected. Nothing is sent.');
+
+  const applyProvider = async (next: string, key: string) => {
+    if (next === 'test') {
+      await window.electronAPI.llmSetConfig({ provider: 'test', model: 'test-fixture' });
+      setProviderNote('TEST fixture is on. Replies are scripted and are not a live model or your ComfyUI server.');
+      return;
+    }
+    if (next === 'openai') {
+      await window.electronAPI.llmSetConfig({
+        provider: 'openai',
+        model: 'gpt-4',
+        apiKey: key,
+      });
+      setProviderNote(key
+        ? 'OpenAI key stays in this window only. It is not written to disk.'
+        : 'OpenAI is selected with no key. The next send will fail before any graph change.');
+    }
+  };
 
   // Initialize with sample nodes if empty
   useEffect(() => {
@@ -17,8 +38,9 @@ function App() {
         {
           id: 'node-1',
           type: 'comfy',
-          position: { x: 100, y: 150 },
+          position: { x: 80, y: 180 },
           data: {
+            demo: true,
             comfyType: 'LoadImage',
             title: 'Load Image',
             inputs: [],
@@ -31,8 +53,9 @@ function App() {
         {
           id: 'node-2',
           type: 'comfy',
-          position: { x: 400, y: 150 },
+          position: { x: 560, y: 180 },
           data: {
+            demo: true,
             comfyType: 'KSampler',
             title: 'KSampler',
             inputs: [
@@ -61,7 +84,7 @@ function App() {
         id: 'welcome',
         role: 'assistant',
         content:
-          'Welcome to ComfyUI Graph Builder! I can help you build and modify workflows. Try asking me to add nodes, connect them, or explain what they do.',
+          'The two nodes on the canvas are a local DEMO sample, not a discovered ComfyUI catalog. Pick TEST fixture in the header for a scripted add-and-annotate reply, or OpenAI with a session key. This app does not call your ComfyUI server.',
         timestamp: Date.now(),
       });
     }
@@ -82,119 +105,72 @@ function App() {
     }
   };
 
-  const handleImport = async () => {
-    try {
-      const workflow = await window.electronAPI.importWorkflow();
-      if (workflow) {
-        console.log('[App] Imported workflow:', workflow);
-        // Import logic will be implemented
-      }
-    } catch (error) {
-      console.error('[App] Import error:', error);
-    }
-  };
-
-  const handleExport = async () => {
-    try {
-      const { nodes, edges } = useGraphStore.getState();
-      const workflow = {
-        version: '1.0',
-        nodes: nodes.map((n) => n.data.comfyData || {}),
-        edges: edges.map((e) => e.data?.comfyData || {}),
-      };
-      const success = await window.electronAPI.exportWorkflow(workflow);
-      if (success) {
-        console.log('[App] Exported successfully');
-      }
-    } catch (error) {
-      console.error('[App] Export error:', error);
-    }
-  };
-
   return (
-    <div
-      style={{
-        width: '100vw',
-        height: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-      }}
-    >
-      {/* Header */}
-      <div
-        style={{
-          padding: '12px 16px',
-          borderBottom: '1px solid #e0e0e0',
-          background: 'white',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
-        <h1 style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>
+    <div className="app-shell">
+      <header className="app-header">
+        <h1 className="app-title">
           ComfyUI Graph Builder
+          <small>Local demo graph. Not connected to a ComfyUI server.</small>
         </h1>
-
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button
-            onClick={handleImport}
-            style={{
-              padding: '6px 12px',
-              background: 'white',
-              border: '1px solid #ccc',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              fontSize: '13px',
-            }}
-          >
+        <div className="header-actions">
+          <div className="provider-controls">
+            <label>
+              Chat provider
+              <select
+                id="chat-provider"
+                aria-label="Chat provider"
+                value={provider}
+                onChange={(event) => {
+                  const next = event.target.value;
+                  setProvider(next);
+                  void applyProvider(next, apiKey);
+                }}
+              >
+                <option value="">Not configured</option>
+                <option value="test">TEST fixture</option>
+                <option value="openai">OpenAI session</option>
+              </select>
+            </label>
+            {provider === 'openai' ? (
+              <label>
+                Session API key
+                <input
+                  type="password"
+                  aria-label="OpenAI session API key"
+                  autoComplete="off"
+                  value={apiKey}
+                  placeholder="Not saved"
+                  onChange={(event) => {
+                    const key = event.target.value;
+                    setApiKey(key);
+                    void applyProvider('openai', key);
+                  }}
+                />
+              </label>
+            ) : null}
+          </div>
+          <p className="provider-note">{providerNote}</p>
+          <button type="button" className="ghost-button" disabled title="ComfyUI workflow import is not implemented.">
             Import
           </button>
-          <button
-            onClick={handleExport}
-            style={{
-              padding: '6px 12px',
-              background: 'white',
-              border: '1px solid #ccc',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              fontSize: '13px',
-            }}
-          >
+          <button type="button" className="ghost-button" disabled title="ComfyUI workflow export is not implemented.">
             Export
           </button>
         </div>
-      </div>
-
-      {/* Main content */}
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-        {/* Graph canvas - 70% */}
-        <div style={{ flex: '0 0 70%' }}>
+      </header>
+      <div className="app-body">
+        <div className="graph-pane">
           <GraphCanvas />
         </div>
-
-        {/* Chat panel - 30% */}
-        <div style={{ flex: '0 0 30%', minWidth: '350px' }}>
+        <div className="chat-pane">
           <ChatPanel onSendMessage={handleSendMessage} onPause={handlePause} />
         </div>
       </div>
-
-      {/* Status bar */}
-      <div
-        style={{
-          padding: '6px 16px',
-          borderTop: '1px solid #e0e0e0',
-          background: '#fafafa',
-          fontSize: '12px',
-          color: '#666',
-          display: 'flex',
-          gap: '16px',
-        }}
-      >
+      <footer className="status-bar">
         <span>{nodes.length} nodes</span>
         <span>Platform: {window.electronAPI?.platform || 'unknown'}</span>
         <span>Electron: {window.electronAPI?.versions?.electron || 'N/A'}</span>
-      </div>
+      </footer>
     </div>
   );
 }

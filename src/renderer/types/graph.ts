@@ -21,6 +21,8 @@ export interface ComfyNodeData extends Record<string, unknown> {
   parameters: Record<string, unknown>;
   annotations?: string[];
   locked?: boolean;
+  /** Local sample marker. Not a ComfyUI field and not sent as catalog metadata. */
+  demo?: boolean;
   // Preserve original ComfyUI data for roundtrip
   comfyData?: Record<string, unknown>;
 }

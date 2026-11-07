@@ -122,9 +122,10 @@ function setupIPC() {
                 tools[spec.name] = {
                     description: spec.description,
                     parameters: spec.parameters,
-                    execute: async (args) => {
+                    execute: async (args, options) => {
                         const executeId = `exec-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
-                        console.log(`[IPC:${executeId}] Tool ${spec.name} execute START, args:`, JSON.stringify(args));
+                        const toolCallId = options?.toolCallId;
+                        console.log(`[IPC:${executeId}] Tool ${spec.name} execute START, toolCallId=${toolCallId || 'none'}`);
                         const resultChannel = `tool-result-${executeId}`;
                         const resultPromise = new Promise((resolve) => {
                             console.log(`[IPC:${executeId}] Registering result listener on ${resultChannel}`);
@@ -138,6 +139,7 @@ function setupIPC() {
                                 args,
                                 resultChannel,
                                 executeId,
+                                toolCallId,
                             });
                         });
                         console.log(`[IPC:${executeId}] Awaiting result promise...`);
@@ -153,7 +155,7 @@ function setupIPC() {
                 chunkCount++;
                 console.log(`[IPC] Chunk ${chunkCount}: type=${chunk.type}`);
                 if (chunk.type === 'text-delta' || chunk.type === 'text-start' || chunk.type === 'text-end') {
-                    console.log('[IPC] Text chunk:', chunk.type, chunk.content?.textDelta || '');
+                    console.log('[IPC] Text chunk:', chunk.type, chunk.content?.text || '');
                 }
                 window.webContents.send(responseChannel, chunk);
             }

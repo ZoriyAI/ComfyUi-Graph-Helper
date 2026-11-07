@@ -31,7 +31,12 @@ class ChatService {
     const { messages, addMessage } = useChatStore.getState();
 
     // Add user message
-    addMessage({ id: `msg-${Date.now()}`, role: 'user', content, timestamp: Date.now() });
+    addMessage({
+      id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      role: 'user',
+      content,
+      timestamp: Date.now(),
+    });
 
     // CRITICAL: Create base revision BEFORE sending to model
     // This captures the graph state that the model "sees"
@@ -82,6 +87,82 @@ class ChatService {
     let assistantContent = '';
     let currentAssistantMessageId: string | null = null;
     const currentToolCalls: Map<string, any> = new Map();
+    const settledById = new Map<string, { status: 'success' | 'error'; result: any; error?: string }>();
+    const settledByName = new Map<string, { status: 'success' | 'error'; result: any; error?: string }>();
+
+    const publishToolCalls = () => {
+      if (!currentAssistantMessageId) {
+        currentAssistantMessageId = `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        addMessage({
+          id: currentAssistantMessageId,
+          role: 'assistant',
+          content: assistantContent,
+          timestamp: Date.now(),
+          toolCalls: Array.from(currentToolCalls.values()),
+        });
+        return;
+      }
+      const { messages } = useChatStore.getState();
+      const msgIndex = messages.findIndex((m) => m.id === currentAssistantMessageId);
+      if (msgIndex < 0) return;
+      const updated = [...messages];
+      updated[msgIndex] = {
+        ...updated[msgIndex],
+        content: assistantContent,
+        toolCalls: Array.from(currentToolCalls.values()),
+      };
+      useChatStore.setState({ messages: updated });
+    };
+
+    const applyRecord = (call: any, record: { status: 'success' | 'error'; result: any; error?: string }) => {
+      call.status = record.status;
+      call.result = record.result;
+      call.error = record.error;
+    };
+
+    const settleTool = (
+      id: string | undefined,
+      name: string | undefined,
+      status: 'success' | 'error',
+      result: any,
+      error?: string
+    ) => {
+      const record = { status, result, error };
+      if (id) settledById.set(id, record);
+      if (id && currentToolCalls.has(id)) {
+        applyRecord(currentToolCalls.get(id), record);
+        publishToolCalls();
+        return;
+      }
+      const pending = name
+        ? Array.from(currentToolCalls.values()).find((call) => call.name === name && call.status === 'pending')
+        : undefined;
+      if (pending) {
+        applyRecord(pending, record);
+        if (id && pending.id !== id) {
+          currentToolCalls.delete(pending.id);
+          pending.id = id;
+          currentToolCalls.set(id, pending);
+        }
+        publishToolCalls();
+        return;
+      }
+      if (name) settledByName.set(name, record);
+    };
+
+    const noteToolCall = (id: string, name: string) => {
+      const prior = settledById.get(id) || (name ? settledByName.get(name) : undefined);
+      if (name && settledByName.get(name) === prior) settledByName.delete(name);
+      currentToolCalls.set(id, {
+        id,
+        name,
+        arguments: {},
+        status: prior?.status ?? 'pending',
+        result: prior?.result,
+        error: prior?.error,
+      });
+      publishToolCalls();
+    };
 
     
 
@@ -92,13 +173,13 @@ class ChatService {
         (chunk) => {
           console.log('[ChatService] Received chunk:', chunk.type);
 
-          if (chunk.type === 'text-delta' && chunk.content.textDelta) {
-            console.log('[ChatService] text-delta:', chunk.content.textDelta);
-            assistantContent += chunk.content.textDelta;
+          if (chunk.type === 'text-delta' && chunk.content.text) {
+            console.log('[ChatService] text-delta:', chunk.content.text);
+            assistantContent += chunk.content.text;
 
             // Update or create assistant message
             if (!currentAssistantMessageId) {
-              currentAssistantMessageId = `msg-${Date.now()}`;
+              currentAssistantMessageId = `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
               addMessage({
                 id: currentAssistantMessageId,
                 role: 'assistant',
@@ -120,62 +201,27 @@ class ChatService {
               }
             }
           } else if (chunk.type === 'tool-call') {
-            // Tool call started
-            const toolCall = {
-              id: chunk.content.toolCallId || `tool-${Date.now()}`,
-              name: chunk.content.toolName,
-              arguments: {},
-              status: 'pending' as const,
-            };
-            currentToolCalls.set(toolCall.id, toolCall);
-
-            // Create or update message with tool call
-            if (!currentAssistantMessageId) {
-              currentAssistantMessageId = `msg-${Date.now()}`;
-              addMessage({
-                id: currentAssistantMessageId,
-                role: 'assistant',
-                content: assistantContent,
-                timestamp: Date.now(),
-                toolCalls: Array.from(currentToolCalls.values()),
-              });
-            } else {
-              const { messages } = useChatStore.getState();
-              const msgIndex = messages.findIndex((m) => m.id === currentAssistantMessageId);
-              if (msgIndex >= 0) {
-                const updated = [...messages];
-                updated[msgIndex] = {
-                  ...updated[msgIndex],
-                  toolCalls: Array.from(currentToolCalls.values()),
-                };
-                useChatStore.setState({ messages: updated });
-              }
-            }
-          } else if (chunk.type === 'tool-result') {
-            // Tool result received
-            const toolCallId = chunk.content.toolCallId;
-            const result = chunk.content.result;
-            const existingCall = currentToolCalls.get(toolCallId);
-
-            if (existingCall) {
-              existingCall.status = result.success ? 'success' : 'error';
-              existingCall.error = result.error;
-              existingCall.result = result;
-              currentToolCalls.set(toolCallId, existingCall);
-
-              // Update message
-              if (currentAssistantMessageId) {
-                const { messages } = useChatStore.getState();
-                const msgIndex = messages.findIndex((m) => m.id === currentAssistantMessageId);
-                if (msgIndex >= 0) {
-                  const updated = [...messages];
-                  updated[msgIndex] = {
-                    ...updated[msgIndex],
-                    toolCalls: Array.from(currentToolCalls.values()),
-                  };
-                  useChatStore.setState({ messages: updated });
-                }
-              }
+            const id = chunk.content.toolCallId || `tool-${Date.now()}`;
+            const name = chunk.content.toolName || 'tool';
+            noteToolCall(id, name);
+          } else if (chunk.type === 'tool-result' || chunk.type === 'tool-error') {
+            // AI SDK fullStream puts the execute() return value on `output`.
+            // Older fixtures used `result`. Missing either must not throw.
+            const output = chunk.content?.output !== undefined ? chunk.content.output : chunk.content?.result;
+            const id = chunk.content?.toolCallId;
+            const name = chunk.content?.toolName;
+            if (chunk.type === 'tool-error') {
+              const message = output?.message || output?.error || 'Tool failed';
+              settleTool(id, name, 'error', output, String(message));
+            } else if (output !== undefined) {
+              const failed = output?.success === false;
+              settleTool(
+                id,
+                name,
+                failed ? 'error' : 'success',
+                output,
+                failed ? output?.error || output?.message : undefined
+              );
             }
           } else if (chunk.type === 'done') {
             this.isStreaming = false;
@@ -190,7 +236,7 @@ class ChatService {
 
             if (!currentAssistantMessageId) {
               addMessage({
-                id: `msg-${Date.now()}`,
+                id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
                 role: 'assistant',
                 content: `Error: ${errorMessage}`,
                 timestamp: Date.now(),
@@ -207,30 +253,13 @@ class ChatService {
           const result = await this.executeTool(request.tool, request.args);
           
           console.log(`[ChatService:${executeId}] Tool executed, result:`, result);
-          
-          // Update tool call status in current message
-          // Find the pending tool call for this tool
-          const { messages } = useChatStore.getState();
-          if (currentAssistantMessageId) {
-            const msgIndex = messages.findIndex((m) => m.id === currentAssistantMessageId);
-            if (msgIndex >= 0) {
-              const toolCall = Array.from(currentToolCalls.values()).find(tc => tc.name === request.tool && tc.status === 'pending');
-              if (toolCall) {
-                toolCall.status = result.success ? 'success' : 'error';
-                toolCall.result = result;
-                toolCall.error = result.error;
-                currentToolCalls.set(toolCall.id, toolCall);
-                
-                const updated = [...messages];
-                updated[msgIndex] = {
-                  ...updated[msgIndex],
-                  toolCalls: Array.from(currentToolCalls.values()),
-                };
-                useChatStore.setState({ messages: updated });
-                console.log(`[ChatService:${executeId}] Updated tool status to ${toolCall.status}`);
-              }
-            }
-          }
+          settleTool(
+            request.toolCallId,
+            request.tool,
+            result?.success ? 'success' : 'error',
+            result,
+            result?.error || result?.message
+          );
           
           console.log(`[ChatService:${executeId}] Sending result to channel: ${request.resultChannel}`);
           window.electronAPI.sendToolResult(request.resultChannel, result);
@@ -240,7 +269,7 @@ class ChatService {
     } catch (error: any) {
       console.error('[ChatService] Stream error:', error);
       addMessage({
-        id: `msg-${Date.now()}`,
+        id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         role: 'assistant',
         content: `Error: ${error.message}`,
         timestamp: Date.now(),

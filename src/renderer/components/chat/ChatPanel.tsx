@@ -12,77 +12,23 @@ export default function ChatPanel({ onSendMessage, onPause }: ChatPanelProps) {
   const { messages, isStreaming, isPaused } = useChatStore();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to bottom on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-        borderLeft: '1px solid #e0e0e0',
-        background: 'white',
-      }}
-    >
-      {/* Header */}
-      <div
-        style={{
-          padding: '16px',
-          borderBottom: '1px solid #e0e0e0',
-          fontWeight: 600,
-          fontSize: '16px',
-          background: '#fafafa',
-        }}
-      >
+    <div className="chat-panel">
+      <div className="chat-header">
         Chat
-        {isStreaming && (
-          <span
-            style={{
-              marginLeft: '8px',
-              fontSize: '12px',
-              color: '#666',
-              fontWeight: 400,
-            }}
-          >
-            {isPaused ? '⏸ Paused' : '⏳ Streaming...'}
-          </span>
-        )}
+        {isStreaming ? (
+          <span className="stream-state">{isPaused ? 'Paused' : 'Streaming'}</span>
+        ) : null}
       </div>
-
-      {/* Messages */}
-      <div
-        style={{
-          flex: 1,
-          overflowY: 'auto',
-          padding: '16px',
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
+      <div className="chat-log">
         {messages.length === 0 ? (
-          <div
-            style={{
-              flex: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              textAlign: 'center',
-              color: '#999',
-              padding: '20px',
-            }}
-          >
-            <div>
-              <div style={{ fontSize: '36px', marginBottom: '12px' }}>💬</div>
-              <div style={{ fontSize: '14px' }}>
-                Start a conversation to build your workflow
-              </div>
-              <div style={{ fontSize: '12px', marginTop: '8px' }}>
-                Try: "Add a KSampler node" or "Connect these nodes"
-              </div>
-            </div>
+          <div className="chat-empty">
+            <strong>No messages yet</strong>
+            <p>The canvas starts with a labeled demo graph. Choose TEST fixture for a scripted reply, or OpenAI for a live session key.</p>
           </div>
         ) : (
           <>
@@ -93,15 +39,7 @@ export default function ChatPanel({ onSendMessage, onPause }: ChatPanelProps) {
           </>
         )}
       </div>
-
-      {/* Input */}
-      <div
-        style={{
-          padding: '16px',
-          borderTop: '1px solid #e0e0e0',
-          background: '#fafafa',
-        }}
-      >
+      <div className="chat-compose">
         <MessageInput
           onSend={onSendMessage}
           onPause={onPause}

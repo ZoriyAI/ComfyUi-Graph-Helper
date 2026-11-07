@@ -57,7 +57,7 @@ export default function GraphCanvas() {
   );
 
   return (
-    <div style={{ width: '100%', height: '100%', background: '#fafafa' }}>
+    <div className="graph-canvas">
       <ReactFlow
         nodes={nodes}
         edges={edges}

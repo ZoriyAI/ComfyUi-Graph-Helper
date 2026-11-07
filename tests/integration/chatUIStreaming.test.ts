@@ -116,7 +116,7 @@ describe('Chat UI Streaming', () => {
         await new Promise((r) => setTimeout(r, 5));
 
         // Final text
-        onChunk({ type: 'text-delta', content: { textDelta: 'Done!' } });
+        onChunk({ type: 'text-delta', content: { text: 'Done!' } });
         onChunk({ type: 'done' });
       }
     );
@@ -184,5 +184,39 @@ describe('Chat UI Streaming', () => {
     expect(assistantMsg?.toolCalls?.[0].error).toBe('Missing nodeType');
 
     console.log('[TEST] ✓ Failed tool correctly marked as error\n');
+  });
+
+  it('applies official SDK output when the tool-result chunk arrives before the tool-call', async () => {
+    mockElectronAPI.llmStreamChat.mockImplementation(async (_messages, _specs, onChunk) => {
+      onChunk({
+        type: 'tool-result',
+        content: {
+          type: 'tool-result',
+          toolCallId: 'call-add-node',
+          toolName: 'addNode',
+          output: { success: true, nodeId: 'node-from-sdk' },
+        },
+      });
+      onChunk({
+        type: 'tool-call',
+        content: {
+          type: 'tool-call',
+          toolCallId: 'call-add-node',
+          toolName: 'addNode',
+          input: { nodeType: 'TestNode' },
+        },
+      });
+      onChunk({ type: 'text-delta', content: { type: 'text-delta', id: 'text-1', text: 'Done!' } });
+      onChunk({ type: 'done' });
+    });
+
+    const chatService = getChatService();
+    await chatService.sendMessage('Add a test node');
+
+    const assistantMsg = useChatStore.getState().messages.find((m) => m.role === 'assistant');
+    expect(assistantMsg?.content).toBe('Done!');
+    expect(assistantMsg?.toolCalls?.[0].status).toBe('success');
+    expect(assistantMsg?.toolCalls?.[0].name).toBe('addNode');
+    expect(useChatStore.getState().isStreaming).toBe(false);
   });
 });

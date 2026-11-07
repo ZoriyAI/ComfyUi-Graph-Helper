@@ -83,7 +83,7 @@ describe('E2E Chat Flow', () => {
           });
           
           // Step 3: text completion
-          onChunk({ type: 'text-delta', content: { textDelta: 'Done!' } });
+          onChunk({ type: 'text-delta', content: { text: 'Done!' } });
           onChunk({ type: 'done' });
         }),
         sendToolResult: vi.fn(),

@@ -15,8 +15,12 @@ import * as os from 'os';
  * 6. annotateNode tool status: SUCCESS  
  * 7. Final assistant text contains expected completion
  * 8. No error messages
- * 9. Busy flag false, Send button usable
+ * 9. Busy cleared: empty Send stays disabled; a nonempty draft (not sent)
+ *    enables Send while the input stays enabled
  */
+const EXPECTED_REPLY = 'I have added a TestNode and annotated it.';
+const MAIN_LOG = '/opt/cursor/artifacts/strict-main-process.log';
+const RENDERER_LOG = '/opt/cursor/artifacts/strict-renderer-console.log';
 
 test('STRICT: Complete chat-to-graph with annotation, statuses, completion', async () => {
   // Create fresh temporary user data directory
@@ -24,6 +28,7 @@ test('STRICT: Complete chat-to-graph with annotation, statuses, completion', asy
   console.log('[STRICT] Using fresh profile:', tempUserData);
 
   const consoleLogs: string[] = [];
+  const mainChunks: string[] = [];
   
   const electronApp = await electron.launch({
     args: [
@@ -36,7 +41,11 @@ test('STRICT: Complete chat-to-graph with annotation, statuses, completion', asy
     },
   });
 
-  // Capture console logs from Electron processes
+  const child = electronApp.process();
+  child.stdout?.on('data', (buf) => mainChunks.push(buf.toString()));
+  child.stderr?.on('data', (buf) => mainChunks.push(buf.toString()));
+
+  // Renderer console (Playwright). Main stdout/stderr is the child process above.
   electronApp.on('console', (msg) => {
     const text = `[${msg.type()}] ${msg.text()}`;
     consoleLogs.push(text);
@@ -60,34 +69,35 @@ test('STRICT: Complete chat-to-graph with annotation, statuses, completion', asy
 
   console.log('[STRICT] Initial state BEFORE config:', initialState);
 
-  // Configure TEST provider
-  await window.evaluate(async () => {
-    await (window as any).electronAPI.llmSetConfig({
-      provider: 'test',
-      model: 'test-fixture',
-    });
-  });
+  await window.screenshot({ path: '/opt/cursor/artifacts/dark-idle.png', fullPage: true });
 
-  await window.waitForTimeout(500);
+  // Visible TEST opt-in. Not a live model and not the user's ComfyUI server.
+  await window.locator('#chat-provider').selectOption('test');
+  await window.getByText('TEST fixture is on').waitFor();
 
-  // Send message via UI
-  const input = window.locator('input[type="text"]').first();
+  const input = window.locator('input[aria-label="Chat message"]');
   await input.fill('Add a test node');
   await input.press('Enter');
 
   console.log('[STRICT] Message sent, waiting for completion...');
 
-  // Wait for completion with conditions (not fixed sleep)
-  // Check that: streaming stops AND new node appears
+  // Busy clears when the input is enabled again. Final reply is checked on its own below.
   await window.waitForFunction(
-    () => {
-      const inputEl = document.querySelector('input[type="text"]') as HTMLInputElement;
+    (expectedReply) => {
+      const inputEl = document.querySelector('input[aria-label="Chat message"]') as HTMLInputElement;
       const nodes = document.querySelectorAll('.react-flow__node');
-      const hasNewNode = Array.from(nodes).some((n: any) => 
+      const hasNewNode = Array.from(nodes).some((n: any) =>
         n.textContent?.includes('AI Test Node')
       );
-      return inputEl && !inputEl.disabled && hasNewNode;
+      const pageText = document.body?.innerText || '';
+      return Boolean(
+        inputEl &&
+          !inputEl.disabled &&
+          hasNewNode &&
+          pageText.includes(expectedReply)
+      );
     },
+    EXPECTED_REPLY,
     { timeout: 30000 }
   );
 
@@ -115,10 +125,13 @@ test('STRICT: Complete chat-to-graph with annotation, statuses, completion', asy
       el.textContent?.includes('annotated')
     );
     
-    const messageTexts = chatMessages.map((m: any) => m.textContent);
-    const hasCompletionText = messageTexts.some((t: string) => 
-      t.includes('added') && t.includes('annotated')
-    );
+    const messageTexts = chatMessages.map((m: any) => m.textContent || '');
+    const pageText = document.body?.innerText || '';
+    const hasCompletionText = pageText.includes('I have added a TestNode and annotated it.');
+    const toolStatus = (name: string) =>
+      document.querySelector(`[data-tool-name="${name}"]`)?.getAttribute('data-tool-status');
+    const addNodeSuccess = toolStatus('addNode') === 'success';
+    const annotateNodeSuccess = toolStatus('annotateNode') === 'success';
     
     // Check for errors
     const errors = Array.from(document.querySelectorAll('div')).filter((el: any) =>
@@ -126,7 +139,7 @@ test('STRICT: Complete chat-to-graph with annotation, statuses, completion', asy
     );
     
     // Check input state
-    const inputEl = document.querySelector('input[type="text"]') as HTMLInputElement;
+    const inputEl = document.querySelector('input[aria-label="Chat message"]') as HTMLInputElement;
     const sendButton = document.querySelector('button[type="submit"]') as HTMLButtonElement;
     
     return {
@@ -136,6 +149,9 @@ test('STRICT: Complete chat-to-graph with annotation, statuses, completion', asy
       newNodeText,
       hasAnnotationInUI,
       hasCompletionText,
+      addNodeSuccess,
+      annotateNodeSuccess,
+      pageText,
       errorCount: errors.length,
       errorTexts: errors.slice(0, 3).map((e: any) => e.textContent?.substring(0, 100)),
       inputEnabled: inputEl && !inputEl.disabled,
@@ -144,16 +160,13 @@ test('STRICT: Complete chat-to-graph with annotation, statuses, completion', asy
     };
   });
 
-  console.log('[STRICT] Final state:', JSON.stringify(finalState, null, 2));
-
-  // Take screenshot AFTER all assertions captured
-  await window.screenshot({ 
-    path: '/opt/cursor/artifacts/strict-e2e-final.png', 
-    fullPage: true 
-  });
+  const stateForLog = { ...finalState, pageText: undefined, messageTexts: finalState.messageTexts };
+  console.log('[STRICT] Final state:', JSON.stringify(stateForLog, null, 2));
+  fs.writeFileSync(MAIN_LOG, mainChunks.join(''));
+  fs.writeFileSync(RENDERER_LOG, consoleLogs.join('\n'));
 
   // ACCEPTANCE ASSERTIONS (ALL must pass)
-  
+
   // 2. ID set difference exactly 1
   const newIds = finalState.nodeIds.filter(id => !initialState.nodeIds.includes(id));
   console.log('[STRICT] NEW node IDs:', newIds);
@@ -164,22 +177,61 @@ test('STRICT: Complete chat-to-graph with annotation, statuses, completion', asy
   expect(finalState.newNodeId).toBeTruthy();
   expect(finalState.newNodeText).toContain('AI Test Node');
 
-  // 4. Annotation rendered in UI
+  // 4. Annotation rendered on that exact new node
+  const exactNodeText = await window.locator(`[data-id="${newIds[0]}"]`).innerText();
+  expect(exactNodeText).toContain('AI Test Node');
+  expect(exactNodeText).toContain('AI added annotation');
   expect(finalState.hasAnnotationInUI).toBe(true);
 
-  // 5-6. Tool statuses: SUCCESS (check message texts contain success indicators)
-  // Note: Current UI may not show explicit "SUCCESS" badges, 
-  // but absence of errors + completion text implies success
-  
-  // 7. Final completion text
+  // 5-6. Tool statuses: SUCCESS
+  expect(finalState.addNodeSuccess).toBe(true);
+  expect(finalState.annotateNodeSuccess).toBe(true);
+
+  // 7. Final assistant text, checked apart from the busy control
   expect(finalState.hasCompletionText).toBe(true);
+  expect(finalState.pageText).toContain(EXPECTED_REPLY);
 
   // 8. No errors
   expect(finalState.errorCount).toBe(0);
-  
-  // 9. Input/Send enabled (not busy)
+
+  // 9. Busy cleared. Empty Send stays disabled.
   expect(finalState.inputEnabled).toBe(true);
-  expect(finalState.sendEnabled).toBe(true);
+  expect(finalState.sendEnabled).toBe(false);
+  const emptyValue = await input.inputValue();
+  expect(emptyValue).toBe('');
+
+  // Nonempty next draft is NOT sent. Send becomes usable only because busy is clear.
+  const draft = 'Next graph edit';
+  await input.fill(draft);
+  const afterDraft = await window.evaluate(() => {
+    const inputEl = document.querySelector('input[aria-label="Chat message"]') as HTMLInputElement;
+    const sendButton = document.querySelector('button[type="submit"]') as HTMLButtonElement;
+    const nodes = Array.from(document.querySelectorAll('.react-flow__node'));
+    return {
+      inputValue: inputEl?.value || '',
+      inputEnabled: Boolean(inputEl && !inputEl.disabled),
+      sendEnabled: Boolean(sendButton && !sendButton.disabled),
+      nodeIds: nodes.map((n: any) => (n as HTMLElement).dataset.id || 'unknown'),
+      sentDraft: Array.from(document.querySelectorAll('div')).some((el) => {
+        const text = (el.textContent || '').trim();
+        return text === 'Next graph edit';
+      }),
+    };
+  });
+  expect(afterDraft.inputValue).toBe(draft);
+  expect(afterDraft.sentDraft).toBe(false);
+  expect(afterDraft.inputEnabled).toBe(true);
+  expect(afterDraft.sendEnabled).toBe(true);
+  expect(afterDraft.nodeIds).toEqual(finalState.nodeIds);
+
+  await window.screenshot({
+    path: '/opt/cursor/artifacts/strict-e2e-success.png',
+    fullPage: true,
+  });
+  await window.screenshot({
+    path: '/opt/cursor/artifacts/dark-completed.png',
+    fullPage: true,
+  });
 
   await electronApp.close();
 
@@ -215,18 +267,10 @@ test('STRICT: Readable error with no graph mutation on failure', async () => {
     };
   });
 
-  // Configure with invalid provider to trigger error
-  await window.evaluate(async () => {
-    await (window as any).electronAPI.llmSetConfig({
-      provider: 'openai',
-      model: 'gpt-4',
-      // No API key - should fail
-    });
-  });
+  await window.locator('#chat-provider').selectOption('openai');
+  await window.getByText('OpenAI is selected with no key').waitFor();
 
-  await window.waitForTimeout(500);
-
-  const input = window.locator('input[type="text"]').first();
+  const input = window.locator('input[aria-label="Chat message"]');
   await input.fill('Add a node');
   await input.press('Enter');
 
