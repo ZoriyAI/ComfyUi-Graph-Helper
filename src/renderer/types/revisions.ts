@@ -1,0 +1,42 @@
+import { GraphNode, GraphEdge } from './graph';
+
+/**
+ * Graph revision for tracking changes
+ */
+export interface GraphRevision {
+  id: string;
+  timestamp: number;
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  parentRevisionId?: string;
+  description?: string;
+  source: 'user' | 'ai' | 'import' | 'system';
+}
+
+/**
+ * Action types for graph operations
+ */
+export type ActionType =
+  | 'add-node'
+  | 'remove-node'
+  | 'update-node'
+  | 'add-edge'
+  | 'remove-edge'
+  | 'update-edge'
+  | 'annotate-node';
+
+/**
+ * Graph action
+ */
+export interface GraphAction {
+  id: string;
+  type: ActionType;
+  timestamp: number;
+  beforeRevisionId: string;
+  afterRevisionId?: string;
+  payload: unknown;
+  source: 'user' | 'ai';
+  status: 'pending' | 'applied' | 'failed' | 'conflict' | 'cancelled';
+  error?: string;
+  result?: any; // Result data from action execution (e.g. nodeId from add-node)
+}

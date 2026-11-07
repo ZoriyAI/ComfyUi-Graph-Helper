@@ -1,0 +1,60 @@
+{
+  "version": "1.0",
+  "nodes": [
+    {
+      "id": 1,
+      "type": "LoadImage",
+      "pos": [100, 100],
+      "size": [200, 100],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [1]
+        }
+      ],
+      "properties": {
+        "title": "Load Image"
+      },
+      "widgets_values": ["example.png"]
+    },
+    {
+      "id": 2,
+      "type": "SaveImage",
+      "pos": [400, 100],
+      "size": [200, 100],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 1
+        }
+      ],
+      "properties": {
+        "title": "Save Image"
+      },
+      "widgets_values": ["output"]
+    }
+  ],
+  "links": [
+    {
+      "id": 1,
+      "origin_id": 1,
+      "origin_slot": 0,
+      "target_id": 2,
+      "target_slot": 0,
+      "type": "IMAGE"
+    }
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "test_field": "preserve_this"
+  }
+}

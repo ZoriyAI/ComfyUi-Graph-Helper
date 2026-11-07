@@ -1,0 +1,141 @@
+{
+  "researched_date": "2026-11-07",
+  "timezone": "Europe/Berlin (CET)",
+  "scope": "Official documentation research; no repository audit or implementation",
+  "sources": [
+    {
+      "url": "https://developer.mozilla.org/en-US/docs/Web/API/View_Transition_API",
+      "title": "View Transition API - Web APIs | MDN",
+      "publish_date": null,
+      "evidence_file": "motion-extract-core.json",
+      "content_mode": "full_content_capped_22000_or_20000",
+      "characters": 15890
+    },
+    {
+      "url": "https://reactflow.dev/learn/advanced-use/accessibility",
+      "title": "Accessibility - React Flow",
+      "publish_date": null,
+      "evidence_file": "motion-extract-core.json",
+      "content_mode": "full_content_capped_22000_or_20000",
+      "characters": 7301
+    },
+    {
+      "url": "https://motion.dev/docs/react-motion-component",
+      "title": "Motion component",
+      "publish_date": null,
+      "evidence_file": "motion-extract-core.json",
+      "content_mode": "full_content_capped_22000_or_20000",
+      "characters": 22000
+    },
+    {
+      "url": "https://reactflow.dev/learn/advanced-use/performance",
+      "title": "Performance - React Flow",
+      "publish_date": null,
+      "evidence_file": "motion-extract-core.json",
+      "content_mode": "full_content_capped_22000_or_20000",
+      "characters": 5562
+    },
+    {
+      "url": "https://motion.dev/docs/react-accessibility",
+      "title": "Accessibility",
+      "publish_date": null,
+      "evidence_file": "motion-extract-core.json",
+      "content_mode": "full_content_capped_22000_or_20000",
+      "characters": 4863
+    },
+    {
+      "url": "https://www.w3.org/WAI/WCAG21/Understanding/animation-from-interactions.html",
+      "title": "Understanding Success Criterion 2.3.3: Animation from Interactions | WAI | W3C",
+      "publish_date": null,
+      "evidence_file": "motion-extract-core.json",
+      "content_mode": "full_content_capped_22000_or_20000",
+      "characters": 9155
+    },
+    {
+      "url": "https://web.dev/learn/accessibility/motion",
+      "title": "Flashing and moving content",
+      "publish_date": null,
+      "evidence_file": "motion-extract-core.json",
+      "content_mode": "full_content_capped_22000_or_20000",
+      "characters": 22000
+    },
+    {
+      "url": "https://fluent2.microsoft.design/motion",
+      "title": "Motion - Fluent 2 Design System",
+      "publish_date": null,
+      "evidence_file": "motion-extract-supplement.json",
+      "content_mode": "full_content_capped_22000_or_20000",
+      "characters": 8686
+    },
+    {
+      "url": "https://reactflow.dev/learn/customization/theming",
+      "title": "Theming - React Flow",
+      "publish_date": null,
+      "evidence_file": "motion-extract-supplement.json",
+      "content_mode": "full_content_capped_22000_or_20000",
+      "characters": 11643
+    },
+    {
+      "url": "https://motion.dev/docs/react-installation",
+      "title": "Installation guide for Motion for React",
+      "publish_date": null,
+      "evidence_file": "motion-extract-supplement.json",
+      "content_mode": "full_content_capped_22000_or_20000",
+      "characters": 2161
+    },
+    {
+      "url": "https://github.com/motiondivision/motion",
+      "title": "GitHub - motiondivision/motion: A modern animation library for React and JavaScript · GitHub",
+      "publish_date": null,
+      "evidence_file": "motion-extract-supplement.json",
+      "content_mode": "full_content_capped_22000_or_20000",
+      "characters": 6759
+    },
+    {
+      "url": "https://web.dev/articles/animations-guide",
+      "title": "Browser compatibility",
+      "publish_date": null,
+      "evidence_file": "motion-extract-supplement.json",
+      "content_mode": "full_content_capped_22000_or_20000",
+      "characters": 20000
+    },
+    {
+      "url": "https://web.dev/articles/animations-guide",
+      "title": "Browser compatibility",
+      "publish_date": null,
+      "evidence_file": "motion-rendering-extract.json",
+      "content_mode": "targeted_excerpts",
+      "characters": 9507
+    },
+    {
+      "url": "https://registry.npmjs.org/motion/latest",
+      "evidence_file": "motion-registry.json",
+      "observed_version": "14.10.1",
+      "license": "MIT",
+      "peerDependencies": {
+        "react": "^18.0.0 || ^19.0.0",
+        "remix": "^3.1.0",
+        "react-dom": "^18.0.0 || ^19.0.0"
+      },
+      "peerDependenciesMeta": {
+        "react": {
+          "optional": true
+        },
+        "remix": {
+          "optional": true
+        },
+        "react-dom": {
+          "optional": true
+        }
+      }
+    }
+  ],
+  "search_files": [
+    "motion-search.json",
+    "motion-search-supplement.json"
+  ],
+  "extraction_errors": [],
+  "warnings": [
+    "Full content capped; rendering article additionally read via targeted excerpts. Initial extract calls warned no objective supplied; targeted rendering call has no warnings."
+  ]
+}
