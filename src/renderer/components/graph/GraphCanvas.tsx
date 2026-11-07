@@ -27,14 +27,14 @@ export default function GraphCanvas() {
 
   const onNodesChange: OnNodesChange = useCallback(
     (changes) => {
-      setNodes(applyNodeChanges(changes, nodes));
+      setNodes(applyNodeChanges(changes, nodes) as typeof nodes);
     },
     [nodes, setNodes]
   );
 
   const onEdgesChange: OnEdgesChange = useCallback(
     (changes) => {
-      setEdges(applyEdgeChanges(changes, edges));
+      setEdges(applyEdgeChanges(changes, edges) as typeof edges);
     },
     [edges, setEdges]
   );

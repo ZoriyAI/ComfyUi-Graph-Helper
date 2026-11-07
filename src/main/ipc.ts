@@ -1,7 +1,8 @@
-import { ipcMain, dialog } from 'electron';
+import { ipcMain, dialog, BrowserWindow } from 'electron';
 import * as fs from 'fs';
 import { IPC_CHANNELS } from '../shared/ipc-channels';
 import { getDatabase } from './database';
+import { mainLLMService } from './llmService';
 
 export function setupIPC() {
   // File operations

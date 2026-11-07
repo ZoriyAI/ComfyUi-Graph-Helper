@@ -21,4 +21,15 @@ export const IPC_CHANNELS = {
   FILE_IMPORT_WORKFLOW: 'file:import-workflow',
   FILE_EXPORT_WORKFLOW: 'file:export-workflow',
   FILE_SELECT_DIRECTORY: 'file:select-directory',
+  
+  // LLM operations (main process only)
+  LLM_SET_CONFIG: 'llm:set-config',
+  LLM_STREAM_CHAT: 'llm:stream-chat',
+  LLM_CANCEL: 'llm:cancel',
+  
+  // Action executor control
+  ACTION_PAUSE: 'action:pause',
+  ACTION_RESUME: 'action:resume',
+  ACTION_CANCEL: 'action:cancel',
+  ACTION_GET_STATUS: 'action:get-status',
 } as const;

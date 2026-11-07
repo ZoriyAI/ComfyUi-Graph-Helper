@@ -2,7 +2,9 @@ import React from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
 import { ComfyNodeData } from '../../../types/graph';
 
-export default function ComfyNode({ data, selected }: NodeProps<ComfyNodeData>) {
+export default function ComfyNode({ data: rawData, selected }: NodeProps) {
+  const data = rawData as ComfyNodeData;
+
   return (
     <div
       style={{
@@ -34,49 +36,25 @@ export default function ComfyNode({ data, selected }: NodeProps<ComfyNodeData>) 
       ))}
 
       {/* Node header */}
-      <div
-        style={{
-          fontWeight: 600,
-          marginBottom: '8px',
-          fontSize: '14px',
-          color: '#333',
-        }}
-      >
+      <div style={{ fontWeight: 600, marginBottom: '8px', fontSize: '14px', color: '#333' }}>
         {data.title || data.comfyType}
       </div>
 
       {/* Node type */}
-      <div
-        style={{
-          fontSize: '11px',
-          color: '#666',
-          marginBottom: '8px',
-          fontFamily: 'monospace',
-        }}
-      >
+      <div style={{ fontSize: '11px', color: '#666', marginBottom: '8px', fontFamily: 'monospace' }}>
         {data.comfyType}
       </div>
 
       {/* Parameters */}
       {Object.keys(data.parameters).length > 0 && (
-        <div
-          style={{
-            marginTop: '8px',
-            padding: '6px',
-            background: '#f9f9f9',
-            borderRadius: '4px',
-            fontSize: '11px',
-          }}
-        >
+        <div style={{ marginTop: '8px', padding: '6px', background: '#f9f9f9', borderRadius: '4px', fontSize: '11px' }}>
           {Object.entries(data.parameters)
             .slice(0, 3)
             .map(([key, value]) => (
               <div key={key} style={{ marginBottom: '2px' }}>
                 <span style={{ color: '#666' }}>{key}:</span>{' '}
                 <span style={{ color: '#333', fontWeight: 500 }}>
-                  {String(value).length > 20
-                    ? String(value).substring(0, 20) + '...'
-                    : String(value)}
+                  {String(value).length > 20 ? String(value).substring(0, 20) + '...' : String(value)}
                 </span>
               </div>
             ))}
@@ -90,31 +68,22 @@ export default function ComfyNode({ data, selected }: NodeProps<ComfyNodeData>) 
 
       {/* Annotations */}
       {data.annotations && data.annotations.length > 0 && (
-        <div
-          style={{
-            marginTop: '8px',
-            padding: '6px',
-            background: '#e3f2fd',
-            borderRadius: '4px',
-            fontSize: '11px',
-            color: '#1976d2',
-            borderLeft: '3px solid #1a73e8',
-          }}
-        >
+        <div style={{
+          marginTop: '8px',
+          padding: '6px',
+          background: '#e3f2fd',
+          borderRadius: '4px',
+          fontSize: '11px',
+          color: '#1976d2',
+          borderLeft: '3px solid #1a73e8',
+        }}>
           💡 {data.annotations[0]}
         </div>
       )}
 
       {/* Locked indicator */}
       {data.locked && (
-        <div
-          style={{
-            position: 'absolute',
-            top: '8px',
-            right: '8px',
-            fontSize: '12px',
-          }}
-        >
+        <div style={{ position: 'absolute', top: '8px', right: '8px', fontSize: '12px' }}>
           🔒
         </div>
       )}

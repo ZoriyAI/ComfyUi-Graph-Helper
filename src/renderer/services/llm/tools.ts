@@ -3,52 +3,39 @@ import { z } from 'zod';
 import { getGraphService } from '../graph/graphService';
 import { getActionExecutor } from '../actions/actionExecutor';
 import { GraphAction } from '../../types/revisions';
-import { useRevisionStore } from '../../state/revisionState';
 
 /**
  * Tool definitions for LLM to manipulate graph
- * 
- * CRITICAL: Each tool captures baseRevisionId at call time
- * to detect conflicts with manual edits
+ * All tools properly typed for AI SDK v7
  */
 
 export const graphTools = {
-  /**
-   * Get current graph state for context
-   */
   getCurrentGraph: tool({
-    description: 'Get the current workflow graph state including all nodes, connections, and selection',
+    description: 'Get the current workflow graph state including all nodes and connections',
     parameters: z.object({}),
     execute: async () => {
       const graphService = getGraphService();
-      const state = graphService.getCurrentGraphState();
-      
       return {
         success: true,
-        graph: state,
+        graph: graphService.getCurrentGraphState(),
         timestamp: Date.now(),
       };
     },
   }),
 
-  /**
-   * Add a node to the graph
-   */
   addNode: tool({
     description: 'Add a new node to the ComfyUI workflow graph',
     parameters: z.object({
-      nodeType: z.string().describe('ComfyUI node class type (e.g., "KSampler", "LoadImage", "SaveImage")'),
-      title: z.string().optional().describe('Optional display title for the node'),
-      x: z.number().optional().describe('X position on canvas (defaults to center)'),
-      y: z.number().optional().describe('Y position on canvas (defaults to center)'),
-      parameters: z.record(z.unknown()).optional().describe('Node parameters (e.g., {"steps": 20, "cfg": 7.0})'),
+      nodeType: z.string().describe('ComfyUI node class type (e.g., "KSampler", "LoadImage")'),
+      title: z.string().optional(),
+      x: z.number().optional(),
+      y: z.number().optional(),
+      parameters: z.record(z.unknown()).optional(),
     }),
     execute: async (args) => {
       const graphService = getGraphService();
-      
-      // Capture base revision BEFORE planning this action
       const baseRevision = graphService.createRevision('system', 'Before AI add-node');
-      
+
       const action: GraphAction = {
         id: `action-${Date.now()}`,
         type: 'add-node',
@@ -59,47 +46,42 @@ export const graphTools = {
         status: 'pending',
       };
 
-      const executor = getActionExecutor();
-      await executor.queueAction(action);
+      await getActionExecutor().queueAction(action);
 
-      // Check if it was applied or conflicted
       if (action.status === 'conflict') {
         return {
-          success: false,
-          conflict: true,
+          success: false as const,
+          conflict: true as const,
           message: action.error || 'Graph was modified, action cancelled',
         };
       }
 
       if (action.status === 'failed') {
         return {
-          success: false,
-          error: action.error,
+          success: false as const,
+          error: action.error || 'Unknown error',
         };
       }
 
       return {
-        success: true,
+        success: true as const,
         message: `Added ${args.nodeType} node`,
         nodeType: args.nodeType,
       };
     },
   }),
 
-  /**
-   * Connect two nodes
-   */
   connectNodes: tool({
-    description: 'Connect two nodes by creating an edge between their ports',
+    description: 'Connect two nodes by creating an edge',
     parameters: z.object({
-      sourceNodeId: z.string().describe('ID of the source node'),
-      sourceOutputIndex: z.number().describe('Index of the output port on source node (0-based)'),
-      targetNodeId: z.string().describe('ID of the target node'),
-      targetInputIndex: z.number().describe('Index of the input port on target node (0-based)'),
+      sourceNodeId: z.string(),
+      sourceOutputIndex: z.number(),
+      targetNodeId: z.string(),
+      targetInputIndex: z.number(),
     }),
     execute: async (args) => {
       const graphService = getGraphService();
-      const baseRevision = graphService.createRevision('system', 'Before AI connect-nodes');
+      const baseRevision = graphService.createRevision('system', 'Before AI connect');
 
       const action: GraphAction = {
         id: `action-${Date.now()}`,
@@ -111,43 +93,27 @@ export const graphTools = {
         status: 'pending',
       };
 
-      const executor = getActionExecutor();
-      await executor.queueAction(action);
+      await getActionExecutor().queueAction(action);
 
       if (action.status === 'conflict') {
-        return {
-          success: false,
-          conflict: true,
-          message: action.error || 'Graph was modified, action cancelled',
-        };
+        return { success: false as const, conflict: true as const, message: action.error || 'Conflict' };
       }
 
-      if (action.status === 'failed') {
-        return {
-          success: false,
-          error: action.error,
-        };
-      }
-
-      return {
-        success: true,
-        message: `Connected ${args.sourceNodeId} to ${args.targetNodeId}`,
-      };
+      return action.status === 'applied'
+        ? { success: true as const, message: `Connected ${args.sourceNodeId} to ${args.targetNodeId}` }
+        : { success: false as const, error: action.error || 'Failed' };
     },
   }),
 
-  /**
-   * Update node parameters
-   */
   updateNode: tool({
     description: 'Update parameters of an existing node',
     parameters: z.object({
-      nodeId: z.string().describe('ID of the node to update'),
-      parameters: z.record(z.unknown()).describe('Parameters to update (e.g., {"steps": 30})'),
+      nodeId: z.string(),
+      parameters: z.record(z.unknown()),
     }),
     execute: async (args) => {
       const graphService = getGraphService();
-      const baseRevision = graphService.createRevision('system', 'Before AI update-node');
+      const baseRevision = graphService.createRevision('system', 'Before AI update');
 
       const action: GraphAction = {
         id: `action-${Date.now()}`,
@@ -159,43 +125,25 @@ export const graphTools = {
         status: 'pending',
       };
 
-      const executor = getActionExecutor();
-      await executor.queueAction(action);
+      await getActionExecutor().queueAction(action);
 
-      if (action.status === 'conflict') {
-        return {
-          success: false,
-          conflict: true,
-          message: action.error || 'Graph was modified, action cancelled',
-        };
-      }
-
-      if (action.status === 'failed') {
-        return {
-          success: false,
-          error: action.error,
-        };
-      }
-
-      return {
-        success: true,
-        message: `Updated node ${args.nodeId}`,
-      };
+      return action.status === 'applied'
+        ? { success: true as const, message: `Updated node ${args.nodeId}` }
+        : action.status === 'conflict'
+        ? { success: false as const, conflict: true as const, message: action.error || 'Conflict' }
+        : { success: false as const, error: action.error || 'Failed' };
     },
   }),
 
-  /**
-   * Annotate a node with explanation
-   */
   annotateNode: tool({
-    description: 'Add an explanation or annotation to a node (visible to user)',
+    description: 'Add an explanation to a node (visible to user)',
     parameters: z.object({
-      nodeId: z.string().describe('ID of the node to annotate'),
-      annotation: z.string().describe('Annotation text to add'),
+      nodeId: z.string(),
+      annotation: z.string(),
     }),
     execute: async (args) => {
       const graphService = getGraphService();
-      const baseRevision = graphService.createRevision('system', 'Before AI annotate-node');
+      const baseRevision = graphService.createRevision('system', 'Before AI annotate');
 
       const action: GraphAction = {
         id: `action-${Date.now()}`,
@@ -207,42 +155,22 @@ export const graphTools = {
         status: 'pending',
       };
 
-      const executor = getActionExecutor();
-      await executor.queueAction(action);
+      await getActionExecutor().queueAction(action);
 
-      if (action.status === 'conflict') {
-        return {
-          success: false,
-          conflict: true,
-          message: action.error || 'Graph was modified, action cancelled',
-        };
-      }
-
-      if (action.status === 'failed') {
-        return {
-          success: false,
-          error: action.error,
-        };
-      }
-
-      return {
-        success: true,
-        message: `Annotated node ${args.nodeId}`,
-      };
+      return action.status === 'applied'
+        ? { success: true as const, message: `Annotated node ${args.nodeId}` }
+        : { success: false as const, error: action.error || 'Failed' };
     },
   }),
 
-  /**
-   * Remove a node from the graph
-   */
   removeNode: tool({
-    description: 'Remove a node from the workflow graph',
+    description: 'Remove a node from the workflow',
     parameters: z.object({
-      nodeId: z.string().describe('ID of the node to remove'),
+      nodeId: z.string(),
     }),
     execute: async (args) => {
       const graphService = getGraphService();
-      const baseRevision = graphService.createRevision('system', 'Before AI remove-node');
+      const baseRevision = graphService.createRevision('system', 'Before AI remove');
 
       const action: GraphAction = {
         id: `action-${Date.now()}`,
@@ -254,28 +182,11 @@ export const graphTools = {
         status: 'pending',
       };
 
-      const executor = getActionExecutor();
-      await executor.queueAction(action);
+      await getActionExecutor().queueAction(action);
 
-      if (action.status === 'conflict') {
-        return {
-          success: false,
-          conflict: true,
-          message: action.error || 'Graph was modified, action cancelled',
-        };
-      }
-
-      if (action.status === 'failed') {
-        return {
-          success: false,
-          error: action.error,
-        };
-      }
-
-      return {
-        success: true,
-        message: `Removed node ${args.nodeId}`,
-      };
+      return action.status === 'applied'
+        ? { success: true as const, message: `Removed node ${args.nodeId}` }
+        : { success: false as const, error: action.error || 'Failed' };
     },
   }),
 };
