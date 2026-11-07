@@ -21,206 +21,201 @@ Received: false
 # Test source
 
 ```ts
-  57  |     });
-  58  |   });
-  59  | 
-  60  |   await window.waitForTimeout(500);
-  61  | 
-  62  |   // Send message via UI
-  63  |   const input = window.locator('input[type="text"]').first();
-  64  |   await input.fill('Add a test node');
-  65  |   await input.press('Enter');
-  66  | 
-  67  |   console.log('[STRICT] Message sent, waiting for completion...');
-  68  | 
-  69  |   // Wait for completion with conditions (not fixed sleep)
-  70  |   // Check that: streaming stops AND new node appears
-  71  |   await window.waitForFunction(
-  72  |     () => {
-  73  |       const inputEl = document.querySelector('input[type="text"]') as HTMLInputElement;
-  74  |       const nodes = document.querySelectorAll('.react-flow__node');
-  75  |       const hasNewNode = Array.from(nodes).some((n: any) => 
-  76  |         n.textContent?.includes('AI Test Node')
-  77  |       );
-  78  |       return inputEl && !inputEl.disabled && hasNewNode;
-  79  |     },
-  80  |     { timeout: 30000 }
-  81  |   );
-  82  | 
-  83  |   console.log('[STRICT] Completion detected, capturing final state...');
-  84  | 
-  85  |   // ACCEPTANCE: Capture complete final state
-  86  |   const finalState = await window.evaluate(() => {
-  87  |     const nodes = Array.from(document.querySelectorAll('.react-flow__node'));
-  88  |     const nodeIds = nodes.map((n: any) => (n as HTMLElement).dataset.id || 'unknown');
-  89  |     
-  90  |     // Find NEW node (AI Test Node)
-  91  |     const newNode = nodes.find((n: any) => n.textContent?.includes('AI Test Node'));
-  92  |     const newNodeId = newNode ? (newNode as HTMLElement).dataset.id : null;
-  93  |     const newNodeText = newNode?.textContent || '';
-  94  |     
-  95  |     // Check for annotation in node UI
-  96  |     const hasAnnotationInUI = newNodeText.includes('AI added annotation') ||
-  97  |                               newNodeText.includes('annotation');
-  98  |     
-  99  |     // Check chat messages for tool statuses and completion text
-  100 |     const chatMessages = Array.from(document.querySelectorAll('div')).filter((el: any) =>
-  101 |       el.textContent?.includes('addNode') ||
-  102 |       el.textContent?.includes('annotateNode') ||
-  103 |       el.textContent?.includes('added') ||
-  104 |       el.textContent?.includes('annotated')
-  105 |     );
-  106 |     
-  107 |     const messageTexts = chatMessages.map((m: any) => m.textContent);
-  108 |     const hasCompletionText = messageTexts.some((t: string) => 
-  109 |       t.includes('added') && t.includes('annotated')
-  110 |     );
-  111 |     
-  112 |     // Check for errors
-  113 |     const errors = Array.from(document.querySelectorAll('div')).filter((el: any) =>
-  114 |       el.textContent?.includes('Error:') && !el.textContent?.includes('no error')
-  115 |     );
-  116 |     
-  117 |     // Check input state
-  118 |     const inputEl = document.querySelector('input[type="text"]') as HTMLInputElement;
-  119 |     const sendButton = document.querySelector('button[type="submit"]') as HTMLButtonElement;
-  120 |     
-  121 |     return {
-  122 |       nodeCount: nodes.length,
-  123 |       nodeIds,
-  124 |       newNodeId,
-  125 |       newNodeText,
-  126 |       hasAnnotationInUI,
-  127 |       hasCompletionText,
-  128 |       errorCount: errors.length,
-  129 |       errorTexts: errors.slice(0, 3).map((e: any) => e.textContent?.substring(0, 100)),
-  130 |       inputEnabled: inputEl && !inputEl.disabled,
-  131 |       sendEnabled: sendButton && !sendButton.disabled,
-  132 |       messageTexts: messageTexts.slice(0, 5),
-  133 |     };
-  134 |   });
-  135 | 
-  136 |   console.log('[STRICT] Final state:', JSON.stringify(finalState, null, 2));
-  137 | 
-  138 |   // Take screenshot AFTER all assertions captured
-  139 |   await window.screenshot({ 
-  140 |     path: '/opt/cursor/artifacts/strict-e2e-final.png', 
-  141 |     fullPage: true 
-  142 |   });
-  143 | 
-  144 |   // ACCEPTANCE ASSERTIONS (ALL must pass)
-  145 |   
-  146 |   // 2. ID set difference exactly 1
-  147 |   const newIds = finalState.nodeIds.filter(id => !initialState.nodeIds.includes(id));
-  148 |   console.log('[STRICT] NEW node IDs:', newIds);
-  149 |   expect(newIds.length).toBe(1);
-  150 |   expect(finalState.newNodeId).toBe(newIds[0]);
-  151 | 
-  152 |   // 3. NEW node exists with correct title
-  153 |   expect(finalState.newNodeId).toBeTruthy();
-  154 |   expect(finalState.newNodeText).toContain('AI Test Node');
-  155 | 
-  156 |   // 4. Annotation rendered in UI
-> 157 |   expect(finalState.hasAnnotationInUI).toBe(true);
+  75  |   await input.fill('Add a test node');
+  76  |   await input.press('Enter');
+  77  | 
+  78  |   console.log('[STRICT] Message sent, waiting for completion...');
+  79  | 
+  80  |   // Wait for completion with conditions (not fixed sleep)
+  81  |   // Check that: streaming stops AND new node appears
+  82  |   await window.waitForFunction(
+  83  |     () => {
+  84  |       const inputEl = document.querySelector('input[type="text"]') as HTMLInputElement;
+  85  |       const nodes = document.querySelectorAll('.react-flow__node');
+  86  |       const hasNewNode = Array.from(nodes).some((n: any) => 
+  87  |         n.textContent?.includes('AI Test Node')
+  88  |       );
+  89  |       return inputEl && !inputEl.disabled && hasNewNode;
+  90  |     },
+  91  |     { timeout: 30000 }
+  92  |   );
+  93  | 
+  94  |   console.log('[STRICT] Completion detected, capturing final state...');
+  95  | 
+  96  |   // ACCEPTANCE: Capture complete final state
+  97  |   const finalState = await window.evaluate(() => {
+  98  |     const nodes = Array.from(document.querySelectorAll('.react-flow__node'));
+  99  |     const nodeIds = nodes.map((n: any) => (n as HTMLElement).dataset.id || 'unknown');
+  100 |     
+  101 |     // Find NEW node (AI Test Node)
+  102 |     const newNode = nodes.find((n: any) => n.textContent?.includes('AI Test Node'));
+  103 |     const newNodeId = newNode ? (newNode as HTMLElement).dataset.id : null;
+  104 |     const newNodeText = newNode?.textContent || '';
+  105 |     
+  106 |     // Check for annotation in node UI
+  107 |     const hasAnnotationInUI = newNodeText.includes('AI added annotation') ||
+  108 |                               newNodeText.includes('annotation');
+  109 |     
+  110 |     // Check chat messages for tool statuses and completion text
+  111 |     const chatMessages = Array.from(document.querySelectorAll('div')).filter((el: any) =>
+  112 |       el.textContent?.includes('addNode') ||
+  113 |       el.textContent?.includes('annotateNode') ||
+  114 |       el.textContent?.includes('added') ||
+  115 |       el.textContent?.includes('annotated')
+  116 |     );
+  117 |     
+  118 |     const messageTexts = chatMessages.map((m: any) => m.textContent);
+  119 |     const hasCompletionText = messageTexts.some((t: string) => 
+  120 |       t.includes('added') && t.includes('annotated')
+  121 |     );
+  122 |     
+  123 |     // Check for errors
+  124 |     const errors = Array.from(document.querySelectorAll('div')).filter((el: any) =>
+  125 |       el.textContent?.includes('Error:') && !el.textContent?.includes('no error')
+  126 |     );
+  127 |     
+  128 |     // Check input state
+  129 |     const inputEl = document.querySelector('input[type="text"]') as HTMLInputElement;
+  130 |     const sendButton = document.querySelector('button[type="submit"]') as HTMLButtonElement;
+  131 |     
+  132 |     return {
+  133 |       nodeCount: nodes.length,
+  134 |       nodeIds,
+  135 |       newNodeId,
+  136 |       newNodeText,
+  137 |       hasAnnotationInUI,
+  138 |       hasCompletionText,
+  139 |       errorCount: errors.length,
+  140 |       errorTexts: errors.slice(0, 3).map((e: any) => e.textContent?.substring(0, 100)),
+  141 |       inputEnabled: inputEl && !inputEl.disabled,
+  142 |       sendEnabled: sendButton && !sendButton.disabled,
+  143 |       messageTexts: messageTexts.slice(0, 5),
+  144 |     };
+  145 |   });
+  146 | 
+  147 |   console.log('[STRICT] Final state:', JSON.stringify(finalState, null, 2));
+  148 | 
+  149 |   // Take screenshot AFTER all assertions captured
+  150 |   await window.screenshot({ 
+  151 |     path: '/opt/cursor/artifacts/strict-e2e-final.png', 
+  152 |     fullPage: true 
+  153 |   });
+  154 | 
+  155 |   // ACCEPTANCE ASSERTIONS (ALL must pass)
+  156 |   
+  157 |   // 2. ID set difference exactly 1
+  158 |   const newIds = finalState.nodeIds.filter(id => !initialState.nodeIds.includes(id));
+  159 |   console.log('[STRICT] NEW node IDs:', newIds);
+  160 |   expect(newIds.length).toBe(1);
+  161 |   expect(finalState.newNodeId).toBe(newIds[0]);
+  162 | 
+  163 |   // 3. NEW node exists with correct title
+  164 |   expect(finalState.newNodeId).toBeTruthy();
+  165 |   expect(finalState.newNodeText).toContain('AI Test Node');
+  166 | 
+  167 |   // 4. Annotation rendered in UI
+  168 |   expect(finalState.hasAnnotationInUI).toBe(true);
+  169 | 
+  170 |   // 5-6. Tool statuses: SUCCESS (check message texts contain success indicators)
+  171 |   // Note: Current UI may not show explicit "SUCCESS" badges, 
+  172 |   // but absence of errors + completion text implies success
+  173 |   
+  174 |   // 7. Final completion text
+> 175 |   expect(finalState.hasCompletionText).toBe(true);
       |                                        ^ Error: expect(received).toBe(expected) // Object.is equality
-  158 | 
-  159 |   // 5-6. Tool statuses: SUCCESS (check message texts contain success indicators)
-  160 |   // Note: Current UI may not show explicit "SUCCESS" badges, 
-  161 |   // but absence of errors + completion text implies success
-  162 |   
-  163 |   // 7. Final completion text
-  164 |   expect(finalState.hasCompletionText).toBe(true);
-  165 | 
-  166 |   // 8. No errors
-  167 |   expect(finalState.errorCount).toBe(0);
-  168 |   
-  169 |   // 9. Input/Send enabled (not busy)
-  170 |   expect(finalState.inputEnabled).toBe(true);
-  171 |   expect(finalState.sendEnabled).toBe(true);
-  172 | 
-  173 |   await electronApp.close();
-  174 | 
-  175 |   // Cleanup temp directory
-  176 |   fs.rmSync(tempUserData, { recursive: true, force: true });
-  177 | 
-  178 |   console.log('[STRICT] ✓ All acceptance criteria passed');
-  179 | });
-  180 | 
-  181 | test('STRICT: Readable error with no graph mutation on failure', async () => {
-  182 |   const tempUserData = fs.mkdtempSync(path.join(os.tmpdir(), 'electron-test-'));
-  183 |   
-  184 |   const electronApp = await electron.launch({
-  185 |     args: [
-  186 |       path.join(__dirname, '../../dist/main/index.js'),
-  187 |       `--user-data-dir=${tempUserData}`,
-  188 |     ],
-  189 |     env: {
-  190 |       ...process.env,
-  191 |       NODE_ENV: 'production',
-  192 |     },
-  193 |   });
-  194 | 
-  195 |   const window = await electronApp.firstWindow();
-  196 |   await window.waitForLoadState('domcontentloaded');
-  197 |   await window.waitForTimeout(2000);
-  198 | 
-  199 |   const initialState = await window.evaluate(() => {
-  200 |     const nodes = Array.from(document.querySelectorAll('.react-flow__node'));
-  201 |     return {
-  202 |       nodeCount: nodes.length,
-  203 |       nodeIds: nodes.map((n: any) => (n as HTMLElement).dataset.id),
-  204 |     };
-  205 |   });
-  206 | 
-  207 |   // Configure with invalid provider to trigger error
-  208 |   await window.evaluate(async () => {
-  209 |     await (window as any).electronAPI.llmSetConfig({
-  210 |       provider: 'openai',
-  211 |       model: 'gpt-4',
-  212 |       // No API key - should fail
-  213 |     });
-  214 |   });
-  215 | 
-  216 |   await window.waitForTimeout(500);
+  176 | 
+  177 |   // 8. No errors
+  178 |   expect(finalState.errorCount).toBe(0);
+  179 |   
+  180 |   // 9. Input/Send enabled (not busy)
+  181 |   expect(finalState.inputEnabled).toBe(true);
+  182 |   expect(finalState.sendEnabled).toBe(true);
+  183 | 
+  184 |   await electronApp.close();
+  185 | 
+  186 |   // Cleanup temp directory
+  187 |   fs.rmSync(tempUserData, { recursive: true, force: true });
+  188 | 
+  189 |   console.log('[STRICT] ✓ All acceptance criteria passed');
+  190 | });
+  191 | 
+  192 | test('STRICT: Readable error with no graph mutation on failure', async () => {
+  193 |   const tempUserData = fs.mkdtempSync(path.join(os.tmpdir(), 'electron-test-'));
+  194 |   
+  195 |   const electronApp = await electron.launch({
+  196 |     args: [
+  197 |       path.join(__dirname, '../../dist/main/index.js'),
+  198 |       `--user-data-dir=${tempUserData}`,
+  199 |     ],
+  200 |     env: {
+  201 |       ...process.env,
+  202 |       NODE_ENV: 'production',
+  203 |     },
+  204 |   });
+  205 | 
+  206 |   const window = await electronApp.firstWindow();
+  207 |   await window.waitForLoadState('domcontentloaded');
+  208 |   await window.waitForTimeout(2000);
+  209 | 
+  210 |   const initialState = await window.evaluate(() => {
+  211 |     const nodes = Array.from(document.querySelectorAll('.react-flow__node'));
+  212 |     return {
+  213 |       nodeCount: nodes.length,
+  214 |       nodeIds: nodes.map((n: any) => (n as HTMLElement).dataset.id),
+  215 |     };
+  216 |   });
   217 | 
-  218 |   const input = window.locator('input[type="text"]').first();
-  219 |   await input.fill('Add a node');
-  220 |   await input.press('Enter');
-  221 | 
-  222 |   // Wait for error or timeout
-  223 |   await window.waitForTimeout(5000);
-  224 | 
-  225 |   const finalState = await window.evaluate(() => {
-  226 |     const nodes = Array.from(document.querySelectorAll('.react-flow__node'));
-  227 |     const errors = Array.from(document.querySelectorAll('div')).filter((el: any) =>
-  228 |       el.textContent?.includes('Error')
-  229 |     );
-  230 |     
-  231 |     return {
-  232 |       nodeCount: nodes.length,
-  233 |       nodeIds: nodes.map((n: any) => (n as HTMLElement).dataset.id),
-  234 |       errorCount: errors.length,
-  235 |       errorText: errors[0]?.textContent || '',
-  236 |     };
-  237 |   });
-  238 | 
-  239 |   console.log('[STRICT] Error test final state:', finalState);
-  240 | 
-  241 |   // ACCEPTANCE: Error shown with no [object Object]
-  242 |   expect(finalState.errorCount).toBeGreaterThan(0);
-  243 |   expect(finalState.errorText).not.toContain('[object Object]');
-  244 |   expect(finalState.errorText.length).toBeGreaterThan(0);
-  245 | 
-  246 |   // ACCEPTANCE: No new nodes (zero ID diff)
-  247 |   expect(finalState.nodeIds).toEqual(initialState.nodeIds);
-  248 | 
-  249 |   await window.screenshot({ 
-  250 |     path: '/opt/cursor/artifacts/strict-e2e-error.png', 
-  251 |     fullPage: true 
-  252 |   });
-  253 | 
-  254 |   await electronApp.close();
-  255 |   fs.rmSync(tempUserData, { recursive: true, force: true });
+  218 |   // Configure with invalid provider to trigger error
+  219 |   await window.evaluate(async () => {
+  220 |     await (window as any).electronAPI.llmSetConfig({
+  221 |       provider: 'openai',
+  222 |       model: 'gpt-4',
+  223 |       // No API key - should fail
+  224 |     });
+  225 |   });
+  226 | 
+  227 |   await window.waitForTimeout(500);
+  228 | 
+  229 |   const input = window.locator('input[type="text"]').first();
+  230 |   await input.fill('Add a node');
+  231 |   await input.press('Enter');
+  232 | 
+  233 |   // Wait for error or timeout
+  234 |   await window.waitForTimeout(5000);
+  235 | 
+  236 |   const finalState = await window.evaluate(() => {
+  237 |     const nodes = Array.from(document.querySelectorAll('.react-flow__node'));
+  238 |     const errors = Array.from(document.querySelectorAll('div')).filter((el: any) =>
+  239 |       el.textContent?.includes('Error')
+  240 |     );
+  241 |     
+  242 |     return {
+  243 |       nodeCount: nodes.length,
+  244 |       nodeIds: nodes.map((n: any) => (n as HTMLElement).dataset.id),
+  245 |       errorCount: errors.length,
+  246 |       errorText: errors[0]?.textContent || '',
+  247 |     };
+  248 |   });
+  249 | 
+  250 |   console.log('[STRICT] Error test final state:', finalState);
+  251 | 
+  252 |   // ACCEPTANCE: Error shown with no [object Object]
+  253 |   expect(finalState.errorCount).toBeGreaterThan(0);
+  254 |   expect(finalState.errorText).not.toContain('[object Object]');
+  255 |   expect(finalState.errorText.length).toBeGreaterThan(0);
   256 | 
-  257 |   console.log('[STRICT] ✓ Error test passed');
+  257 |   // ACCEPTANCE: No new nodes (zero ID diff)
+  258 |   expect(finalState.nodeIds).toEqual(initialState.nodeIds);
+  259 | 
+  260 |   await window.screenshot({ 
+  261 |     path: '/opt/cursor/artifacts/strict-e2e-error.png', 
+  262 |     fullPage: true 
+  263 |   });
+  264 | 
+  265 |   await electronApp.close();
+  266 |   fs.rmSync(tempUserData, { recursive: true, force: true });
+  267 | 
+  268 |   console.log('[STRICT] ✓ Error test passed');
+  269 | });
+  270 | 
 ```

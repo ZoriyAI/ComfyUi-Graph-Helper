@@ -1,4 +1,5 @@
 import { useChatStore } from '../../state/chatState';
+import { useRevisionStore } from '../../state/revisionState';
 import { getGraphService } from '../graph/graphService';
 import { getActionExecutor } from '../actions/actionExecutor';
 import { GraphAction } from '../../types/revisions';
@@ -89,9 +90,10 @@ class ChatService {
         messageHistory,
         toolSpecs,
         (chunk) => {
-          
+          console.log('[ChatService] Received chunk:', chunk.type);
 
           if (chunk.type === 'text-delta' && chunk.content.textDelta) {
+            console.log('[ChatService] text-delta:', chunk.content.textDelta);
             assistantContent += chunk.content.textDelta;
 
             // Update or create assistant message
@@ -197,9 +199,42 @@ class ChatService {
           }
         },
         async (request) => {
-          console.log('[ChatService] Tool execute request:', request.tool);
+          const executeId = request.executeId || 'unknown';
+          console.log(`[ChatService:${executeId}] Tool execute request: ${request.tool}`);
+          console.log(`[ChatService:${executeId}] Args:`, request.args);
+          console.log(`[ChatService:${executeId}] Result channel: ${request.resultChannel}`);
+          
           const result = await this.executeTool(request.tool, request.args);
+          
+          console.log(`[ChatService:${executeId}] Tool executed, result:`, result);
+          
+          // Update tool call status in current message
+          // Find the pending tool call for this tool
+          const { messages } = useChatStore.getState();
+          if (currentAssistantMessageId) {
+            const msgIndex = messages.findIndex((m) => m.id === currentAssistantMessageId);
+            if (msgIndex >= 0) {
+              const toolCall = Array.from(currentToolCalls.values()).find(tc => tc.name === request.tool && tc.status === 'pending');
+              if (toolCall) {
+                toolCall.status = result.success ? 'success' : 'error';
+                toolCall.result = result;
+                toolCall.error = result.error;
+                currentToolCalls.set(toolCall.id, toolCall);
+                
+                const updated = [...messages];
+                updated[msgIndex] = {
+                  ...updated[msgIndex],
+                  toolCalls: Array.from(currentToolCalls.values()),
+                };
+                useChatStore.setState({ messages: updated });
+                console.log(`[ChatService:${executeId}] Updated tool status to ${toolCall.status}`);
+              }
+            }
+          }
+          
+          console.log(`[ChatService:${executeId}] Sending result to channel: ${request.resultChannel}`);
           window.electronAPI.sendToolResult(request.resultChannel, result);
+          console.log(`[ChatService:${executeId}] Result sent`);
         }
       );
     } catch (error: any) {
@@ -250,15 +285,14 @@ class ChatService {
     y?: number;
     parameters?: Record<string, unknown>;
   }): Promise<any> {
-    if (!this.currentBaseRevisionId) {
-      return { success: false, error: 'No base revision set' };
-    }
+    // Capture FRESH base revision for this tool execution (multi-tool support)
+    const { currentRevisionId } = useRevisionStore.getState();
 
     const action: GraphAction = {
       id: `a-${Date.now()}`,
       type: 'add-node',
       timestamp: Date.now(),
-      beforeRevisionId: this.currentBaseRevisionId,
+      beforeRevisionId: currentRevisionId || '',
       payload: args,
       source: 'ai',
       status: 'pending',
@@ -270,9 +304,6 @@ class ChatService {
     } else if (action.status === 'failed') {
       return { success: false, error: action.error || 'Failed to add node' };
     } else {
-      // Update base revision for next tool call (sequential AI operations)
-      const newRevision = getGraphService().createRevision('system', 'After AI addNode');
-      this.currentBaseRevisionId = newRevision.id;
       console.log(`[ChatService] addNode result:`, action.result);
       return { 
         success: true, 
@@ -284,15 +315,14 @@ class ChatService {
   }
 
   private async executeAnnotateNode(args: { nodeId: string; annotation: string }): Promise<any> {
-    if (!this.currentBaseRevisionId) {
-      return { success: false, error: 'No base revision set' };
-    }
+    // Capture FRESH base revision for this tool execution (multi-tool support)
+    const { currentRevisionId } = useRevisionStore.getState();
 
     const action: GraphAction = {
       id: `a-${Date.now()}`,
       type: 'annotate-node',
       timestamp: Date.now(),
-      beforeRevisionId: this.currentBaseRevisionId,
+      beforeRevisionId: currentRevisionId || '',
       payload: args,
       source: 'ai',
       status: 'pending',
@@ -300,9 +330,6 @@ class ChatService {
     await getActionExecutor().queueAction(action);
 
     if (action.status === 'applied') {
-      // Update base revision for next tool call
-      const newRevision = getGraphService().createRevision('system', 'After AI annotateNode');
-      this.currentBaseRevisionId = newRevision.id;
       return { success: true, message: `Annotated node ${args.nodeId}` };
     } else {
       return { success: false, error: action.error || 'Failed to annotate' };

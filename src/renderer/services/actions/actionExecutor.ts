@@ -62,9 +62,10 @@ export class ActionExecutor {
 
       // Execute the action
       try {
+        console.log(`[ActionExecutor] Executing action ${action.id} (type: ${action.type})`);
         await this.executeAction(action);
         action.status = 'applied';
-        console.log(`[ActionExecutor] Action ${action.id} applied successfully`);
+        console.log(`[ActionExecutor] Action ${action.id} applied successfully, result:`, action.result);
       } catch (error) {
         action.status = 'failed';
         action.error = (error as Error).message;

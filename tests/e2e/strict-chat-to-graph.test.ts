@@ -23,6 +23,8 @@ test('STRICT: Complete chat-to-graph with annotation, statuses, completion', asy
   const tempUserData = fs.mkdtempSync(path.join(os.tmpdir(), 'electron-test-'));
   console.log('[STRICT] Using fresh profile:', tempUserData);
 
+  const consoleLogs: string[] = [];
+  
   const electronApp = await electron.launch({
     args: [
       path.join(__dirname, '../../dist/main/index.js'),
@@ -32,6 +34,15 @@ test('STRICT: Complete chat-to-graph with annotation, statuses, completion', asy
       ...process.env,
       NODE_ENV: 'production',
     },
+  });
+
+  // Capture console logs from Electron processes
+  electronApp.on('console', (msg) => {
+    const text = `[${msg.type()}] ${msg.text()}`;
+    consoleLogs.push(text);
+    if (text.includes('[TestLLM]') || text.includes('[IPC:') || text.includes('ChatService:') || text.includes('ActionExecutor')) {
+      console.log('[ELECTRON]', text);
+    }
   });
 
   const window = await electronApp.firstWindow();

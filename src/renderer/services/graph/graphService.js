@@ -120,18 +120,32 @@ export class GraphService {
      */
     annotateNode(nodeId, annotation, source) {
         const { nodes } = useGraphStore.getState();
-        const node = nodes.find((n) => n.id === nodeId);
+        // Handle LATEST_NODE placeholder (for test fixtures)
+        let targetNodeId = nodeId;
+        if (nodeId === 'LATEST_NODE') {
+            // Find most recently added node (highest timestamp in ID)
+            const sortedNodes = [...nodes].sort((a, b) => {
+                const aTime = parseInt(a.id.split('-')[1]) || 0;
+                const bTime = parseInt(b.id.split('-')[1]) || 0;
+                return bTime - aTime;
+            });
+            if (sortedNodes.length > 0) {
+                targetNodeId = sortedNodes[0].id;
+                console.log(`[GraphService] Resolved LATEST_NODE to ${targetNodeId}`);
+            }
+        }
+        const node = nodes.find((n) => n.id === targetNodeId);
         if (!node) {
-            console.warn(`[GraphService] Node ${nodeId} not found`);
+            console.warn(`[GraphService] Node ${targetNodeId} not found`);
             return false;
         }
-        this.createRevision(source, `Annotate node ${nodeId}`);
+        this.createRevision(source, `Annotate node ${targetNodeId}`);
         const annotations = node.data.annotations || [];
-        useGraphStore.getState().updateNode(nodeId, {
+        useGraphStore.getState().updateNode(targetNodeId, {
             annotations: [...annotations, annotation],
         });
-        this.createRevision(source, `Annotated node ${nodeId}`);
-        console.log(`[GraphService] Annotated node ${nodeId} (source: ${source})`);
+        this.createRevision(source, `Annotated node ${targetNodeId}`);
+        console.log(`[GraphService] Annotated node ${targetNodeId} (source: ${source})`);
         return true;
     }
     /**

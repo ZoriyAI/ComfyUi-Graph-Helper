@@ -102,37 +102,58 @@ export function setupIPC() {
         throw new Error('Window not found');
       }
 
+      console.log(`[IPC] LLM_STREAM_CHAT handler START`);
+      
       try {
         // Build AI SDK tools with IPC round-trip for execution
         const tools: Record<string, any> = {};
+        console.log(`[IPC] Building tools...`);
         for (const spec of toolSpecs) {
           tools[spec.name] = {
             description: spec.description,
             parameters: spec.parameters,
             execute: async (args: any) => {
-              console.log(`[IPC] Tool ${spec.name} called with args:`, JSON.stringify(args));
-              // Request renderer to execute tool
+              const executeId = `exec-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+              console.log(`[IPC:${executeId}] Tool ${spec.name} execute START, args:`, JSON.stringify(args));
+              
+              const resultChannel = `tool-result-${executeId}`;
               const resultPromise = new Promise((resolve) => {
-                const resultChannel = `tool-result-${Date.now()}-${Math.random()}`;
+                console.log(`[IPC:${executeId}] Registering result listener on ${resultChannel}`);
+                
                 ipcMain.once(resultChannel, (_e, result) => {
-                  console.log(`[IPC] Tool ${spec.name} result:`, JSON.stringify(result));
+                  console.log(`[IPC:${executeId}] Tool ${spec.name} result RECEIVED:`, JSON.stringify(result));
                   resolve(result);
                 });
+                
+                console.log(`[IPC:${executeId}] Sending tool-execute to renderer`);
                 window.webContents.send('tool-execute', {
                   tool: spec.name,
                   args,
                   resultChannel,
+                  executeId,
                 });
               });
-              return await resultPromise;
+              
+              console.log(`[IPC:${executeId}] Awaiting result promise...`);
+              const result = await resultPromise;
+              console.log(`[IPC:${executeId}] Execute promise RESOLVED`);
+              return result;
             },
           };
         }
 
+        console.log(`[IPC] Tools built, starting stream consumption...`);
+        let chunkCount = 0;
         for await (const chunk of mainLLMService.streamChatWithTools(messages, tools)) {
+          chunkCount++;
+          console.log(`[IPC] Chunk ${chunkCount}: type=${chunk.type}`);
+          if (chunk.type === 'text-delta' || chunk.type === 'text-start' || chunk.type === 'text-end') {
+            console.log('[IPC] Text chunk:', chunk.type, chunk.content?.textDelta || '');
+          }
           window.webContents.send(responseChannel, chunk);
         }
 
+        console.log(`[IPC] Stream complete after ${chunkCount} chunks, sending done`);
         window.webContents.send(responseChannel, { type: 'done' });
       } catch (error: any) {
         console.error('[IPC] LLM stream error:', error.message);

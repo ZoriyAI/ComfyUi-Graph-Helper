@@ -60,11 +60,17 @@ class MainLLMService {
       model,
       messages,
       tools,
+      toolCallConcurrency: 1, // Execute tools sequentially to avoid revision conflicts
     });
 
+    console.log('[MainLLMService] Consuming fullStream...');
+    let partCount = 0;
     for await (const part of result.fullStream) {
+      partCount++;
+      console.log(`[MainLLMService] Part ${partCount}: type=${part.type}`);
       yield { type: part.type, content: part };
     }
+    console.log(`[MainLLMService] fullStream complete, ${partCount} parts yielded`);
   }
 }
 
