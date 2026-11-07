@@ -3,15 +3,23 @@ import { getGraphService } from '../graph/graphService';
 import { getActionExecutor } from '../actions/actionExecutor';
 class ChatService {
     isStreaming = false;
+    currentBaseRevisionId = null;
     async sendMessage(content) {
+        console.log(`[ChatService] sendMessage called: "${content}"`);
         if (this.isStreaming) {
             console.warn('[ChatService] Already streaming');
             return;
         }
         this.isStreaming = true;
+        useChatStore.setState({ isStreaming: true, isPaused: false });
         const { messages, addMessage } = useChatStore.getState();
         // Add user message
         addMessage({ id: `msg-${Date.now()}`, role: 'user', content, timestamp: Date.now() });
+        // CRITICAL: Create base revision BEFORE sending to model
+        // This captures the graph state that the model "sees"
+        const baseRevision = getGraphService().createRevision('system', 'Before AI conversation turn');
+        this.currentBaseRevisionId = baseRevision.id;
+        console.log(`[ChatService] Base revision captured: ${baseRevision.id}, stored, verify: ${this.currentBaseRevisionId}`);
         // Prepare tool specs (no execute functions - those stay in renderer)
         const toolSpecs = [
             {
@@ -49,33 +57,102 @@ class ChatService {
         }));
         messageHistory.push({ role: 'user', content });
         let assistantContent = '';
+        let currentAssistantMessageId = null;
+        const currentToolCalls = new Map();
         try {
             await window.electronAPI.llmStreamChat(messageHistory, toolSpecs, (chunk) => {
                 console.log('[ChatService] Chunk:', chunk.type);
                 if (chunk.type === 'text-delta' && chunk.content.textDelta) {
                     assistantContent += chunk.content.textDelta;
-                }
-                else if (chunk.type === 'done') {
-                    // Add final assistant message
-                    if (assistantContent) {
+                    // Update or create assistant message
+                    if (!currentAssistantMessageId) {
+                        currentAssistantMessageId = `msg-${Date.now()}`;
                         addMessage({
-                            id: `msg-${Date.now()}`,
+                            id: currentAssistantMessageId,
                             role: 'assistant',
                             content: assistantContent,
                             timestamp: Date.now(),
+                            toolCalls: [],
                         });
                     }
+                    else {
+                        // Update existing message
+                        const { messages } = useChatStore.getState();
+                        const msgIndex = messages.findIndex((m) => m.id === currentAssistantMessageId);
+                        if (msgIndex >= 0) {
+                            const updated = [...messages];
+                            updated[msgIndex] = {
+                                ...updated[msgIndex],
+                                content: assistantContent,
+                            };
+                            useChatStore.setState({ messages: updated });
+                        }
+                    }
+                }
+                else if (chunk.type === 'tool-call') {
+                    // Tool call started
+                    const toolCall = {
+                        id: chunk.content.toolCallId || `tool-${Date.now()}`,
+                        name: chunk.content.toolName,
+                        arguments: {},
+                        status: 'pending',
+                    };
+                    currentToolCalls.set(toolCall.id, toolCall);
+                    // Update message with tool call
+                    if (currentAssistantMessageId) {
+                        const { messages } = useChatStore.getState();
+                        const msgIndex = messages.findIndex((m) => m.id === currentAssistantMessageId);
+                        if (msgIndex >= 0) {
+                            const updated = [...messages];
+                            updated[msgIndex] = {
+                                ...updated[msgIndex],
+                                toolCalls: Array.from(currentToolCalls.values()),
+                            };
+                            useChatStore.setState({ messages: updated });
+                        }
+                    }
+                }
+                else if (chunk.type === 'tool-result') {
+                    // Tool result received
+                    const toolCallId = chunk.content.toolCallId;
+                    const result = chunk.content.result;
+                    const existingCall = currentToolCalls.get(toolCallId);
+                    if (existingCall) {
+                        existingCall.status = result.success ? 'success' : 'error';
+                        existingCall.error = result.error;
+                        existingCall.result = result;
+                        currentToolCalls.set(toolCallId, existingCall);
+                        // Update message
+                        if (currentAssistantMessageId) {
+                            const { messages } = useChatStore.getState();
+                            const msgIndex = messages.findIndex((m) => m.id === currentAssistantMessageId);
+                            if (msgIndex >= 0) {
+                                const updated = [...messages];
+                                updated[msgIndex] = {
+                                    ...updated[msgIndex],
+                                    toolCalls: Array.from(currentToolCalls.values()),
+                                };
+                                useChatStore.setState({ messages: updated });
+                            }
+                        }
+                    }
+                }
+                else if (chunk.type === 'done') {
                     this.isStreaming = false;
+                    useChatStore.setState({ isStreaming: false });
                 }
                 else if (chunk.type === 'error') {
                     console.error('[ChatService] Error:', chunk.content);
-                    addMessage({
-                        id: `msg-${Date.now()}`,
-                        role: 'assistant',
-                        content: `Error: ${chunk.content}`,
-                        timestamp: Date.now(),
-                    });
                     this.isStreaming = false;
+                    useChatStore.setState({ isStreaming: false });
+                    if (!currentAssistantMessageId) {
+                        addMessage({
+                            id: `msg-${Date.now()}`,
+                            role: 'assistant',
+                            content: `Error: ${chunk.content}`,
+                            timestamp: Date.now(),
+                        });
+                    }
                 }
             }, async (request) => {
                 console.log('[ChatService] Tool execute request:', request.tool);
@@ -92,7 +169,21 @@ class ChatService {
                 timestamp: Date.now(),
             });
             this.isStreaming = false;
+            useChatStore.setState({ isStreaming: false });
         }
+    }
+    cancel() {
+        this.isStreaming = false;
+        useChatStore.setState({ isStreaming: false, isPaused: false });
+        console.log('[ChatService] Streaming cancelled');
+    }
+    pause() {
+        useChatStore.setState({ isPaused: true });
+        console.log('[ChatService] Streaming paused');
+    }
+    resume() {
+        useChatStore.setState({ isPaused: false });
+        console.log('[ChatService] Streaming resumed');
     }
     async executeTool(toolName, args) {
         console.log(`[ChatService] Executing tool ${toolName}:`, args);
@@ -107,12 +198,14 @@ class ChatService {
         }
     }
     async executeAddNode(args) {
-        const baseRev = getGraphService().createRevision('system', 'Before AI add');
+        if (!this.currentBaseRevisionId) {
+            return { success: false, error: 'No base revision set' };
+        }
         const action = {
             id: `a-${Date.now()}`,
             type: 'add-node',
             timestamp: Date.now(),
-            beforeRevisionId: baseRev.id,
+            beforeRevisionId: this.currentBaseRevisionId,
             payload: args,
             source: 'ai',
             status: 'pending',
@@ -129,12 +222,14 @@ class ChatService {
         }
     }
     async executeAnnotateNode(args) {
-        const baseRev = getGraphService().createRevision('system', 'Before AI annotate');
+        if (!this.currentBaseRevisionId) {
+            return { success: false, error: 'No base revision set' };
+        }
         const action = {
             id: `a-${Date.now()}`,
             type: 'annotate-node',
             timestamp: Date.now(),
-            beforeRevisionId: baseRev.id,
+            beforeRevisionId: this.currentBaseRevisionId,
             payload: args,
             source: 'ai',
             status: 'pending',

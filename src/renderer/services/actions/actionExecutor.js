@@ -35,6 +35,7 @@ export class ActionExecutor {
             // CRITICAL: Check if graph changed since action was planned
             const graphService = getGraphService();
             const hasConflict = graphService.hasChangedSince(action.beforeRevisionId);
+            console.log(`[ActionExecutor] Conflict check: baseRev=${action.beforeRevisionId}, changed=${hasConflict}`);
             if (hasConflict) {
                 action.status = 'conflict';
                 action.error = 'Graph state changed since this action was planned';

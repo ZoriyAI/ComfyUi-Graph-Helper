@@ -4,9 +4,25 @@ import GraphCanvas from './components/graph/GraphCanvas';
 import ChatPanel from './components/chat/ChatPanel';
 import { useGraphStore } from './state/graphState';
 import { useChatStore } from './state/chatState';
+import { getChatService } from './services/llm/chatService';
 function App() {
     const { nodes, addNode } = useGraphStore();
     const { addMessage } = useChatStore();
+    // Initialize LLM with TEST fixture
+    useEffect(() => {
+        // Configure TEST fixture provider (explicitly marked as test mode)
+        window.electronAPI
+            .llmSetConfig({
+            provider: 'test',
+            model: 'test-fixture',
+        })
+            .then(() => {
+            console.log('[App] LLM configured with TEST fixture transport');
+        })
+            .catch((err) => {
+            console.error('[App] Failed to configure LLM:', err);
+        });
+    }, []);
     // Initialize with sample nodes if empty
     useEffect(() => {
         if (nodes.length === 0) {
@@ -61,28 +77,18 @@ function App() {
         }
     }, []);
     const handleSendMessage = (content) => {
-        // Add user message
-        const userMessageId = `msg-${Date.now()}`;
-        addMessage({
-            id: userMessageId,
-            role: 'user',
-            content,
-            timestamp: Date.now(),
-        });
-        // Mock AI response (will be replaced with real LLM)
-        setTimeout(() => {
-            const assistantMessageId = `msg-${Date.now() + 1}`;
-            addMessage({
-                id: assistantMessageId,
-                role: 'assistant',
-                content: `I received your request: "${content}". Full LLM integration is being implemented. For now, you can manually edit the graph by dragging nodes and creating connections.`,
-                timestamp: Date.now(),
-            });
-        }, 500);
+        const chatService = getChatService();
+        chatService.sendMessage(content);
     };
     const handlePause = () => {
-        useChatStore.setState({ isPaused: true });
-        console.log('[App] Paused AI operation');
+        const chatService = getChatService();
+        const { isPaused } = useChatStore.getState();
+        if (isPaused) {
+            chatService.resume();
+        }
+        else {
+            chatService.pause();
+        }
     };
     const handleImport = async () => {
         try {

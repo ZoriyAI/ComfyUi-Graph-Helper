@@ -26,6 +26,7 @@ class ChatService {
     }
 
     this.isStreaming = true;
+    useChatStore.setState({ isStreaming: true, isPaused: false });
     const { messages, addMessage } = useChatStore.getState();
 
     // Add user message
@@ -78,35 +79,119 @@ class ChatService {
     messageHistory.push({ role: 'user', content });
 
     let assistantContent = '';
+    let currentAssistantMessageId: string | null = null;
+    const currentToolCalls: Map<string, any> = new Map();
 
     try {
       await window.electronAPI.llmStreamChat(
         messageHistory,
         toolSpecs,
         (chunk) => {
-          console.log('[ChatService] Chunk:', chunk.type);
+          console.log('[ChatService] Chunk type:', chunk.type);
+          console.log('[ChatService] Chunk keys:', Object.keys(chunk));
+
           if (chunk.type === 'text-delta' && chunk.content.textDelta) {
             assistantContent += chunk.content.textDelta;
-          } else if (chunk.type === 'done') {
-            // Add final assistant message
-            if (assistantContent) {
+
+            // Update or create assistant message
+            if (!currentAssistantMessageId) {
+              currentAssistantMessageId = `msg-${Date.now()}`;
               addMessage({
-                id: `msg-${Date.now()}`,
+                id: currentAssistantMessageId,
                 role: 'assistant',
                 content: assistantContent,
                 timestamp: Date.now(),
+                toolCalls: [],
               });
+            } else {
+              // Update existing message
+              const { messages } = useChatStore.getState();
+              const msgIndex = messages.findIndex((m) => m.id === currentAssistantMessageId);
+              if (msgIndex >= 0) {
+                const updated = [...messages];
+                updated[msgIndex] = {
+                  ...updated[msgIndex],
+                  content: assistantContent,
+                };
+                useChatStore.setState({ messages: updated });
+              }
             }
+          } else if (chunk.type === 'tool-call') {
+            // Tool call started
+            console.log('[ChatService] Tool call:', chunk.content.toolName);
+            const toolCall = {
+              id: chunk.content.toolCallId || `tool-${Date.now()}`,
+              name: chunk.content.toolName,
+              arguments: {},
+              status: 'pending' as const,
+            };
+            currentToolCalls.set(toolCall.id, toolCall);
+
+            // Create or update message with tool call
+            if (!currentAssistantMessageId) {
+              currentAssistantMessageId = `msg-${Date.now()}`;
+              console.log('[ChatService] Creating assistant message with tool call');
+              addMessage({
+                id: currentAssistantMessageId,
+                role: 'assistant',
+                content: assistantContent,
+                timestamp: Date.now(),
+                toolCalls: Array.from(currentToolCalls.values()),
+              });
+            } else {
+              const { messages } = useChatStore.getState();
+              const msgIndex = messages.findIndex((m) => m.id === currentAssistantMessageId);
+              if (msgIndex >= 0) {
+                const updated = [...messages];
+                updated[msgIndex] = {
+                  ...updated[msgIndex],
+                  toolCalls: Array.from(currentToolCalls.values()),
+                };
+                useChatStore.setState({ messages: updated });
+              }
+            }
+          } else if (chunk.type === 'tool-result') {
+            // Tool result received
+            const toolCallId = chunk.content.toolCallId;
+            const result = chunk.content.result;
+            const existingCall = currentToolCalls.get(toolCallId);
+
+            if (existingCall) {
+              existingCall.status = result.success ? 'success' : 'error';
+              existingCall.error = result.error;
+              existingCall.result = result;
+              currentToolCalls.set(toolCallId, existingCall);
+
+              // Update message
+              if (currentAssistantMessageId) {
+                const { messages } = useChatStore.getState();
+                const msgIndex = messages.findIndex((m) => m.id === currentAssistantMessageId);
+                if (msgIndex >= 0) {
+                  const updated = [...messages];
+                  updated[msgIndex] = {
+                    ...updated[msgIndex],
+                    toolCalls: Array.from(currentToolCalls.values()),
+                  };
+                  useChatStore.setState({ messages: updated });
+                }
+              }
+            }
+          } else if (chunk.type === 'done') {
             this.isStreaming = false;
+            useChatStore.setState({ isStreaming: false });
           } else if (chunk.type === 'error') {
             console.error('[ChatService] Error:', chunk.content);
-            addMessage({
-              id: `msg-${Date.now()}`,
-              role: 'assistant',
-              content: `Error: ${chunk.content}`,
-              timestamp: Date.now(),
-            });
             this.isStreaming = false;
+            useChatStore.setState({ isStreaming: false });
+
+            if (!currentAssistantMessageId) {
+              addMessage({
+                id: `msg-${Date.now()}`,
+                role: 'assistant',
+                content: `Error: ${chunk.content}`,
+                timestamp: Date.now(),
+              });
+            }
           }
         },
         async (request) => {
@@ -124,7 +209,24 @@ class ChatService {
         timestamp: Date.now(),
       });
       this.isStreaming = false;
+      useChatStore.setState({ isStreaming: false });
     }
+  }
+
+  cancel(): void {
+    this.isStreaming = false;
+    useChatStore.setState({ isStreaming: false, isPaused: false });
+    console.log('[ChatService] Streaming cancelled');
+  }
+
+  pause(): void {
+    useChatStore.setState({ isPaused: true });
+    console.log('[ChatService] Streaming paused');
+  }
+
+  resume(): void {
+    useChatStore.setState({ isPaused: false });
+    console.log('[ChatService] Streaming resumed');
   }
 
   private async executeTool(toolName: string, args: any): Promise<any> {
