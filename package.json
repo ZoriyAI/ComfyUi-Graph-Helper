@@ -1,0 +1,47 @@
+{
+  "name": "comfyui-graph-builder",
+  "version": "0.1.0",
+  "description": "Collaborative visual ComfyUI workflow builder with LLM assistance",
+  "main": "dist/main/index.js",
+  "scripts": {
+    "dev:vite": "vite",
+    "dev:electron": "npm run build:main && NODE_ENV=development electron .",
+    "dev": "concurrently \"npm run dev:vite\" \"npm run dev:electron\"",
+    "build:main": "tsc --project tsconfig.main.json",
+    "build:renderer": "tsc && vite build",
+    "build": "npm run build:main && npm run build:renderer",
+    "watch": "tsc --watch",
+    "test": "vitest",
+    "type-check": "tsc --noEmit",
+    "lint": "eslint src/"
+  },
+  "keywords": [
+    "comfyui",
+    "workflow",
+    "graph",
+    "llm",
+    "electron"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^26.6.6",
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
+    "@vitejs/plugin-react": "^6.2.1",
+    "concurrently": "^10.0.7",
+    "electron": "^45.2.3",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.6",
+    "vitest": "^2.1.9"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/client": "^2.4.0",
+    "@xyflow/react": "^12.12.1",
+    "better-sqlite3": "^11.10.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "zustand": "^5.1.0"
+  }
+}
