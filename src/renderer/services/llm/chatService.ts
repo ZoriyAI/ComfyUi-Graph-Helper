@@ -36,9 +36,7 @@ class ChatService {
     // This captures the graph state that the model "sees"
     const baseRevision = getGraphService().createRevision('system', 'Before AI conversation turn');
     this.currentBaseRevisionId = baseRevision.id;
-    console.log(
-      `[ChatService] Base revision captured: ${baseRevision.id}, stored, verify: ${this.currentBaseRevisionId}`
-    );
+    console.log(`[ChatService] Base revision captured: ${baseRevision.id}`);
 
     // Prepare tool specs (no execute functions - those stay in renderer)
     const toolSpecs: ToolSpec[] = [
@@ -72,23 +70,26 @@ class ChatService {
     ];
 
     // Prepare message history for AI
+    
     const messageHistory = messages.map((m) => ({
       role: m.role as 'user' | 'assistant' | 'system',
       content: m.content,
     }));
     messageHistory.push({ role: 'user', content });
+    
 
     let assistantContent = '';
     let currentAssistantMessageId: string | null = null;
     const currentToolCalls: Map<string, any> = new Map();
+
+    
 
     try {
       await window.electronAPI.llmStreamChat(
         messageHistory,
         toolSpecs,
         (chunk) => {
-          console.log('[ChatService] Chunk type:', chunk.type);
-          console.log('[ChatService] Chunk keys:', Object.keys(chunk));
+          
 
           if (chunk.type === 'text-delta' && chunk.content.textDelta) {
             assistantContent += chunk.content.textDelta;
@@ -118,7 +119,6 @@ class ChatService {
             }
           } else if (chunk.type === 'tool-call') {
             // Tool call started
-            console.log('[ChatService] Tool call:', chunk.content.toolName);
             const toolCall = {
               id: chunk.content.toolCallId || `tool-${Date.now()}`,
               name: chunk.content.toolName,
@@ -130,7 +130,6 @@ class ChatService {
             // Create or update message with tool call
             if (!currentAssistantMessageId) {
               currentAssistantMessageId = `msg-${Date.now()}`;
-              console.log('[ChatService] Creating assistant message with tool call');
               addMessage({
                 id: currentAssistantMessageId,
                 role: 'assistant',
@@ -268,6 +267,9 @@ class ChatService {
     } else if (action.status === 'failed') {
       return { success: false, error: action.error || 'Failed to add node' };
     } else {
+      // Update base revision for next tool call (sequential AI operations)
+      const newRevision = getGraphService().createRevision('system', 'After AI addNode');
+      this.currentBaseRevisionId = newRevision.id;
       return { success: true, message: `Added ${args.nodeType} node`, nodeType: args.nodeType };
     }
   }
@@ -289,6 +291,9 @@ class ChatService {
     await getActionExecutor().queueAction(action);
 
     if (action.status === 'applied') {
+      // Update base revision for next tool call
+      const newRevision = getGraphService().createRevision('system', 'After AI annotateNode');
+      this.currentBaseRevisionId = newRevision.id;
       return { success: true, message: `Annotated node ${args.nodeId}` };
     } else {
       return { success: false, error: action.error || 'Failed to annotate' };

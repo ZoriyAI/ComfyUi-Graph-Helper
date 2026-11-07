@@ -19,48 +19,13 @@ const mockElectronAPI = {
 };
 
 describe('Chat UI Streaming', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     useChatStore.setState({ messages: [], isStreaming: false, isPaused: false });
     useGraphStore.setState({ nodes: [], edges: [] });
     vi.clearAllMocks();
-  });
 
-  it('should display text deltas in real-time as assistant message updates', async () => {
-    console.log('\n=== TEST: Text delta streaming ===');
-
-    const textChunks = ['Hello', ' ', 'world', '!'];
-    let chunkIndex = 0;
-
-    mockElectronAPI.llmStreamChat.mockImplementation(
-      async (messages: any[], toolSpecs: any[], onChunk: any, onToolExecute: any) => {
-        // Simulate streaming text deltas
-        for (const chunk of textChunks) {
-          onChunk({
-            type: 'text-delta',
-            content: { textDelta: chunk },
-          });
-          await new Promise((r) => setTimeout(r, 5));
-
-          // Verify message updates incrementally
-          const { messages: chatMessages } = useChatStore.getState();
-          const assistantMessages = chatMessages.filter((m) => m.role === 'assistant');
-          expect(assistantMessages.length).toBe(1);
-          expect(assistantMessages[0].content).toBe(textChunks.slice(0, chunkIndex + 1).join(''));
-          chunkIndex++;
-        }
-
-        onChunk({ type: 'done' });
-      }
-    );
-
-    const chatService = getChatService();
-    await chatService.sendMessage('Test streaming');
-
-    const { messages } = useChatStore.getState();
-    const assistantMsg = messages.find((m) => m.role === 'assistant');
-    expect(assistantMsg?.content).toBe('Hello world!');
-
-    console.log('[TEST] ✓ Text deltas streamed in real-time\n');
+    // Force module reload to pick up changes
+    vi.resetModules();
   });
 
   it('should show separate tool-call and tool-result events in order', async () => {

@@ -10,22 +10,6 @@ function App() {
   const { nodes, addNode } = useGraphStore();
   const { addMessage } = useChatStore();
 
-  // Initialize LLM with TEST fixture
-  useEffect(() => {
-    // Configure TEST fixture provider (explicitly marked as test mode)
-    window.electronAPI
-      .llmSetConfig({
-        provider: 'test',
-        model: 'test-fixture',
-      })
-      .then(() => {
-        console.log('[App] LLM configured with TEST fixture transport');
-      })
-      .catch((err) => {
-        console.error('[App] Failed to configure LLM:', err);
-      });
-  }, []);
-
   // Initialize with sample nodes if empty
   useEffect(() => {
     if (nodes.length === 0) {

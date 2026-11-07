@@ -19,7 +19,7 @@ class ChatService {
         // This captures the graph state that the model "sees"
         const baseRevision = getGraphService().createRevision('system', 'Before AI conversation turn');
         this.currentBaseRevisionId = baseRevision.id;
-        console.log(`[ChatService] Base revision captured: ${baseRevision.id}, stored, verify: ${this.currentBaseRevisionId}`);
+        console.log(`[ChatService] Base revision captured: ${baseRevision.id}`);
         // Prepare tool specs (no execute functions - those stay in renderer)
         const toolSpecs = [
             {
@@ -61,7 +61,6 @@ class ChatService {
         const currentToolCalls = new Map();
         try {
             await window.electronAPI.llmStreamChat(messageHistory, toolSpecs, (chunk) => {
-                console.log('[ChatService] Chunk:', chunk.type);
                 if (chunk.type === 'text-delta' && chunk.content.textDelta) {
                     assistantContent += chunk.content.textDelta;
                     // Update or create assistant message
@@ -98,8 +97,18 @@ class ChatService {
                         status: 'pending',
                     };
                     currentToolCalls.set(toolCall.id, toolCall);
-                    // Update message with tool call
-                    if (currentAssistantMessageId) {
+                    // Create or update message with tool call
+                    if (!currentAssistantMessageId) {
+                        currentAssistantMessageId = `msg-${Date.now()}`;
+                        addMessage({
+                            id: currentAssistantMessageId,
+                            role: 'assistant',
+                            content: assistantContent,
+                            timestamp: Date.now(),
+                            toolCalls: Array.from(currentToolCalls.values()),
+                        });
+                    }
+                    else {
                         const { messages } = useChatStore.getState();
                         const msgIndex = messages.findIndex((m) => m.id === currentAssistantMessageId);
                         if (msgIndex >= 0) {
@@ -218,6 +227,9 @@ class ChatService {
             return { success: false, error: action.error || 'Failed to add node' };
         }
         else {
+            // Update base revision for next tool call (sequential AI operations)
+            const newRevision = getGraphService().createRevision('system', 'After AI addNode');
+            this.currentBaseRevisionId = newRevision.id;
             return { success: true, message: `Added ${args.nodeType} node`, nodeType: args.nodeType };
         }
     }
@@ -236,6 +248,9 @@ class ChatService {
         };
         await getActionExecutor().queueAction(action);
         if (action.status === 'applied') {
+            // Update base revision for next tool call
+            const newRevision = getGraphService().createRevision('system', 'After AI annotateNode');
+            this.currentBaseRevisionId = newRevision.id;
             return { success: true, message: `Annotated node ${args.nodeId}` };
         }
         else {

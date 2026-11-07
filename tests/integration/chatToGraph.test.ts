@@ -93,7 +93,7 @@ describe('Chat-to-Graph Integration', () => {
     expect(nodes.length).toBe(1);
     expect(nodes[0].data.comfyType).toBe('TestNode');
     expect(nodes[0].data.title).toBe('Test Node 1');
-    expect(nodes[0].data.annotations).toContain('Test annotation');
+    expect(nodes[0].data.annotations || []).toContain('Test annotation');
 
     // Verify chat messages
     const { messages } = useChatStore.getState();
