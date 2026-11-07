@@ -6,5 +6,9 @@ export default defineConfig({
     environment: 'node',
     include: ['tests/**/*.test.ts'],
     exclude: ['tests/e2e/**', 'node_modules/**'],
+    reporters: ['default', 'json'],
+    outputFile: {
+      json: '/opt/cursor/artifacts/unit-tests.json',
+    },
   },
 });
