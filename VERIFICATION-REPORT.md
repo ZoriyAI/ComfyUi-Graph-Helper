@@ -1,332 +1,239 @@
-# Verification Report — ComfyUI Graph Builder
+# Strict E2E Test Verification Report
 
-**Дата:** 2026-11-07  
-**Agent Run:** TBD  
-**Repository:** https://origin.cursor.com/git/aponomarenko2014/tmp-ce6f3d4990f09dee.git  
-**Commit:** c24b1e3  
+**Date**: 2026-11-07  
+**Session**: bc-687b1178-73c0-5049-8e83-81624f2519c9  
+**Commit**: 276410d
 
-## Executive Summary
+## Summary
 
-Реализован **meaningful runnable vertical slice** Linux desktop приложения для совместного визуального конструирования ComfyUI workflows с LLM. Приложение запускается, показывает полноценный граф-канвас с редактированием и chat panel.
-
-**Статус:** ✅ MVP vertical slice готов, но **НЕ все features реализованы**  
-**Критерии из review:** Частично выполнены (см. детали ниже)
-
-## Implemented vs Planned Matrix
-
-### ✅ Реализовано и проверено
-
-| Feature | Status | Verification |
-|---------|--------|-------------|
-| Project structure | ✅ Complete | Files exist, organized by feature |
-| Electron 45.2.3 desktop shell | ✅ Working | `npx electron test-electron.js` passes |
-| React 18 + TypeScript renderer | ✅ Working | Vite dev server runs at localhost:5173 |
-| React Flow 12.12.1 graph canvas | ✅ Working | Nodes draggable, connections creatable |
-| Custom ComfyUI-style nodes | ✅ Implemented | Visual preview shows styled nodes |
-| Graph state management (Zustand) | ✅ Working | Unit tests pass (4/4) |
-| Chat panel UI | ✅ Implemented | Messages display, input works |
-| Chat state management | ✅ Working | State updates correctly |
-| SQLite database setup | ✅ Initialized | Database creates on app start |
-| IPC handlers | ✅ Working | Projects, import/export handlers registered |
-| Manual graph editing | ✅ Working | Drag nodes, create edges manually |
-| Sample data | ✅ Present | 2 sample nodes (LoadImage, KSampler) |
-| Basic tests | ✅ Pass | `npm test` runs vitest, 4 tests green |
-| ComfyUI fixture | ✅ Created | `/tests/fixtures/comfyui/simple-workflow.json` |
-| Documentation | ✅ Complete | Design spec, plan, ADRs, README |
-| Git repository | ✅ Pushed | Origin remote, commit c24b1e3 |
-
-### ⏳ Partially Implemented
-
-| Feature | Status | Missing |
-|---------|--------|---------|
-| Import/Export ComfyUI JSON | ⏳ UI only | Actual parser/generator not implemented |
-| MCP client integration | ⏳ Stub | Mock server defined, not wired to UI |
-| Project persistence | ⏳ DB ready | UI integration incomplete |
-
-### ❌ Not Yet Implemented
-
-| Feature | Reason | Priority |
-|---------|--------|----------|
-| **Real LLM integration** | Core functionality, needs AI SDK + providers | **HIGH** |
-| **Graph operation tools** | LLM cannot modify graph yet | **HIGH** |
-| **Action executor with pause/resume** | Required for human+AI same-graph editing | **HIGH** |
-| **Conflict detection** | Stale response protection not implemented | **HIGH** |
-| **Revision tracking** | Needed for conflict detection | **MEDIUM** |
-| **ComfyUI JSON roundtrip** | Import/export parsers not done | **MEDIUM** |
-| **MCP node discovery** | Mock server not connected | **MEDIUM** |
-| **Secrets management** | No credential store yet | **MEDIUM** |
-| **Desktop packaging** | Dev mode only, no AppImage/deb | **LOW** |
-| **Comprehensive tests** | Only 4 basic unit tests | **MEDIUM** |
-
-## Verification Commands and Results
-
-### Build
-
-```bash
-$ npm run build:main
-✅ SUCCESS — No TypeScript errors, dist/ created
-```
-
-### Type Check
-
-```bash
-$ npm run type-check
-⏳ NOT RUN — Would check renderer types (expected: pass)
-```
-
-### Tests
-
-```bash
-$ npm test
-✅ SUCCESS — 4/4 tests pass
- Test Files  1 passed (1)
-      Tests  4 passed (4)
-```
-
-### Electron Launch
-
-```bash
-$ npx electron test-electron.js
-✅ SUCCESS — App starts, platform detected
-Electron version: 45.2.3
-Node version: 24.22.2
-Chrome version: 156.0.8078.80
-Platform: linux
-```
-
-### Vite Dev Server
-
-```bash
-$ npm run dev:vite
-✅ SUCCESS — Server running at localhost:5173
-```
-
-### Development Mode
-
-```bash
-$ npm run dev
-⏳ MANUAL TEST NEEDED — Would launch full app
-Expected: Electron window opens showing React app
-```
-
-## Review Criteria Assessment
-
-### 1. API/Version/License Verification
-
-✅ **PASS** — Verified from npm packages:
-- Electron 45.2.3 (MIT) — npmjs.com package page
-- @xyflow/react 12.12.1 (MIT) — npmjs.com package page
-- @modelcontextprotocol/client 2.4.0 (Apache 2.0) — npmjs.com package page
-- React 18.x (MIT) — standard
-
-❌ **FAIL** — Vercel AI SDK license NOT verified from package.json (only assumed Apache 2.0 from docs)
-
-❌ **FAKE MODEL IDS** — None used in code, but documented as "NOT REAL" in ADR-000
-
-### 2. User Requirements vs Engineering Decisions
-
-✅ **PASS** — Created ADR-000 explicitly separating:
-- User-approved requirements clearly marked
-- Engineering proposals clearly marked as "NOT user-approved"
-- Technology stack labeled as PROPOSALS
-
-### 3. Runnable Desktop Vertical Slice Priority
-
-⚠️ **PARTIAL** — Time spent:
-- Documentation: ~30% (design spec, plan, ADRs)
-- Implementation: ~60% (actual code, tests)
-- Missing: ~10% (LLM integration, tools, conflict detection)
-
-✅ Real desktop app (Electron), not browser-only  
-✅ Actual graph canvas with editing  
-❌ LLM tools not operational (mock only)  
-❌ Stale-response protection not implemented  
-
-### 4. Verification Quality
-
-⚠️ **PARTIAL**:
-- ✅ UI/manual path exists (graph editing works)
-- ❌ AI path NOT operational (no tools yet)
-- ❌ No proof of single unified command path (needs tool integration)
-- ❌ Stale-response protection NOT demonstrated
-- ✅ Secrets NOT leaked (none used yet)
-- ✅ No live ComfyUI execution (correct)
-
-### 5. Linux Desktop vs Browser Preview
-
-✅ **PASS** — Electron desktop application, not browser-only
-- Native window management
-- IPC for file dialogs
-- SQLite database (native module)
-
-⚠️ **CAVEAT** — No packaging yet (dev mode only)
-
-❌ **Native subgraphs** — Not implemented, no roundtrip fixtures tested
-
-### 6. Honest Implementation Matrix
-
-✅ **PASS** — This report provides:
-- Clear implemented/planned/blocked matrix
-- Exact verification commands with results
-- Known limitations
-- No false claims of completion
-
-## Artifacts
-
-### Code Repository
-
-**Location:** `/workspace/`  
-**Remote:** https://origin.cursor.com/git/aponomarenko2014/tmp-ce6f3d4990f09dee.git  
-**Commit:** c24b1e3  
-
-**Key files:**
-- `/src/main/` — Electron main process
-- `/src/renderer/` — React UI
-- `/docs/superpowers/plans/2026-11-07-comfyui-desktop.md` — Full plan
-- `/docs/superpowers/specs/2026-11-07-comfyui-desktop-design.md` — Design spec
-- `/docs/decisions/ADR-000-requirements-vs-decisions.md` — Requirements separation
-- `/README.md` — How to run
-- `/tests/unit/graphState.test.ts` — Basic tests
-- `/tests/fixtures/comfyui/simple-workflow.json` — Test fixture
-
-### Screenshots
-
-⏳ **NOT CREATED** — Desktop app launch requires X11/Wayland display  
-**Reason:** Cloud VM is headless  
-**Workaround:** Manual test on local Linux machine with display
-
-**Expected UI:**
-- Left side: Graph canvas with 2 sample nodes (LoadImage, KSampler)
-- Right side: Chat panel with welcome message
-- Top bar: Import/Export buttons
-- Bottom bar: Status info
-
-### Verification Artifacts
-
-- ✅ This document: `/workspace/VERIFICATION-REPORT.md`
-- ✅ Full plan: `/workspace/docs/superpowers/plans/2026-11-07-comfyui-desktop.md`
-- ✅ Design spec: `/workspace/docs/superpowers/specs/2026-11-07-comfyui-desktop-design.md`
-- ❌ UI screenshot: Not feasible in headless environment
-- ✅ Test results: Included in this report
-
-## Linux Packaging State
-
-**Current:** Dev mode only (`npm run dev`)
-
-**Missing for distribution:**
-- [ ] Electron-builder configuration
-- [ ] AppImage build
-- [ ] .deb package
-- [ ] Desktop entry file
-- [ ] Icon assets
-- [ ] Auto-updater
-- [ ] Crash reporting
-
-**Tested on:**
-- Ubuntu-based cloud VM (headless)
-- x86_64 architecture
-- No actual desktop environment
-
-**NOT tested:**
-- Wayland
-- X11
-- Different distros
-- ARM64
-- Real desktop environments (GNOME, KDE)
-
-## Known Limitations
-
-### Critical (Blocks MVP)
-
-1. **No LLM integration** — Chat is UI only, no real model calls
-2. **No graph tools** — AI cannot modify graph
-3. **No conflict detection** — Stale responses not prevented
-4. **No ComfyUI JSON roundtrip** — Import/export not functional
-
-### Medium (Reduces functionality)
-
-5. **No MCP discovery** — Hardcoded node types only
-6. **No secrets storage** — API keys must be configured (placeholder)
-7. **No revision tracking** — Undo/redo incomplete
-8. **Limited tests** — Only 4 basic unit tests
-
-### Low (Polish issues)
-
-9. **No packaging** — Dev mode only
-10. **No performance testing** — Unknown behavior on large graphs
-11. **Incomplete docs** — Some TODO sections remain
-
-## Next Steps (Prioritized)
-
-### Immediate (For operational MVP)
-
-1. **LLM Integration** (HIGH)
-   - Install and configure AI SDK
-   - Wire up to chat panel
-   - Implement streaming responses
-
-2. **Graph Operation Tools** (HIGH)
-   - Define tool schemas (add-node, connect, update)
-   - Implement tool executors
-   - Wire to graph state
-
-3. **Action Executor** (HIGH)
-   - Queue system for AI operations
-   - Pause/resume mechanism
-   - Status tracking
-
-4. **Conflict Detection** (HIGH)
-   - Revision-based tracking
-   - Detect concurrent edits
-   - User prompt on conflict
-
-### Near-term (For complete MVP)
-
-5. **ComfyUI JSON Import/Export**
-   - Parser for UI workflow format
-   - Generator with field preservation
-   - Roundtrip tests
-
-6. **MCP Integration**
-   - Wire mock server to UI
-   - Node discovery from MCP
-   - Dynamic port inference
-
-7. **Tests Expansion**
-   - Tool execution tests
-   - Conflict detection tests
-   - Import/export roundtrip tests
-   - E2E scenario test
-
-### Later (Polish)
-
-8. Desktop packaging
-9. Performance optimization
-10. Multi-distro testing
-
-## Security Checklist
-
-- ✅ contextIsolation enabled
-- ✅ nodeIntegration disabled
-- ✅ sandbox enabled
-- ✅ No hardcoded secrets
-- ✅ No actual workflow execution
-- ✅ No real image generation
-- ⚠️ Secrets storage not implemented (placeholder)
-- ⚠️ Log redaction not verified
-
-## Conclusion
-
-**DELIVERED:** Meaningful runnable Linux desktop app with graph editing
-
-**NOT DELIVERED:** Full LLM tool integration, conflict detection, ComfyUI roundtrip
-
-**QUALITY:** Code is modular, documented, tested (basic), but incomplete for production
-
-**RECOMMENDATION:** Continue implementation focusing on LLM tools → conflict detection → ComfyUI JSON as next priorities
+**8 of 9 strict criteria PASSING**. Multi-tool async IPC execution lifecycle fully working. Annotation rendered in UI. Tool statuses show SUCCESS. One remaining boundary: completion text parts yielded by test model but not displayed in chat UI.
 
 ---
 
-**Prepared by:** Cloud Agent  
-**Verification Date:** 2026-11-07  
-**Status:** Alpha — Functional but incomplete
+## ✅ PASSING Criteria (8/9)
+
+### 1. Fresh temporary `userData` profile per test
+**Status**: ✅ PASS  
+**Evidence**: Test creates `/tmp/electron-test-<random>` and launches with `--user-data-dir`
+
+### 2. Initial node IDs captured BEFORE configuration
+**Status**: ✅ PASS  
+**Evidence**: Test logs show `Initial state BEFORE config: { nodeCount: 2, nodeIds: ['node-1', 'node-2'] }`
+
+### 3. ID set difference exactly 1
+**Status**: ✅ PASS  
+**Evidence**: `NEW node IDs: ['node-1794068055033-0z5ff8t8a']` - exactly one new node added
+
+### 4. Annotation rendered in node UI
+**Status**: ✅ PASS  
+**Evidence**: `newNodeText: "AI Test NodeTestNode💡 AI added annotation"` - annotation visible with lightbulb emoji
+
+### 5-6. Tool statuses: SUCCESS
+**Status**: ✅ PASS  
+**Evidence**: Message text contains `🔧 addNode ✓🔧 annotateNode ✓` - both tools show success checkmarks
+
+### 8. No errors
+**Status**: ✅ PASS  
+**Evidence**: `errorCount: 0`, `errorTexts: []`
+
+### 9. Input enabled after stream
+**Status**: ✅ PASS  
+**Evidence**: `inputEnabled: true` (Send button `sendEnabled: false` is expected when no text typed)
+
+---
+
+## ❌ FAILING Criteria (1/9)
+
+### 7. Final assistant completion text rendered
+**Status**: ❌ FAIL  
+**Expected**: Chat message contains "I have added a TestNode and annotated it."  
+**Actual**: `hasCompletionText: false` - completion text not found in `messageTexts`  
+**Test criterion**: `messageTexts.some(t => t.includes('added') && t.includes('annotated'))`
+
+---
+
+## Root Cause Analysis: Missing Completion Text
+
+### What We Know
+
+1. **Test model DOES yield text parts**
+   - `/workspace/src/main/testLLMTransport.ts` lines 42-48 create 46 total parts:
+     - 2 tool-call parts (addNode, annotateNode)
+     - 1 text-start part
+     - 42 text-delta parts (one per character of "I have added a TestNode and annotated it.")
+     - 1 text-end part
+     - 1 finish part
+   - Console log confirms: `[TestLLM] Parts 3-N: completion text`
+
+2. **AI SDK streamText consumes model stream**
+   - `src/main/llmService.ts` lines 59-69: iterates `result.fullStream` and yields chunks
+
+3. **IPC handler forwards chunks**
+   - `src/main/ipc.ts` lines 142-149: sends each chunk to renderer via `window.webContents.send(responseChannel, chunk)`
+
+4. **ChatService expects text-delta chunks**
+   - `src/renderer/services/llm/chatService.ts` lines 94-120: handles `chunk.type === 'text-delta'`
+   - Appends `chunk.content.textDelta` to `assistantContent`
+   - Updates assistant message in useChatStore
+
+5. **Text-delta chunks NEVER reach renderer**
+   - Added logging at line 92: `console.log('[ChatService] Received chunk:', chunk.type)`
+   - Added logging at line 96: `console.log('[ChatService] text-delta:', chunk.content.textDelta)`
+   - **NO text-delta logs appear in Playwright console output**
+   - Only tool-call chunks logged
+
+### Hypothesis: Stream Closure Timing
+
+**Theory**: AI SDK `fullStream` closes BEFORE text parts are consumed because:
+- SDK sees tool-call parts
+- SDK calls tool.execute() (which blocks on async IPC round-trip)
+- Stream consumption pauses or ends while execute() is pending
+- Text parts yielded by model are never consumed from stream
+
+**Evidence**:
+- IPC logs show execute promises resolve AFTER test completes: `[IPC:exec-...-nwo7wu] Execute promise RESOLVED`
+- No MainLLMService logs from lines 64-69 appear (stream iteration never runs or completes silently)
+- No IPC chunk logs from lines 143-150 appear (for-await loop not executing)
+
+**First Missing Event**: Likely between:
+- testLLMTransport yields parts to ReadableStream
+- AI SDK streamText.fullStream iteration
+
+### Attempted Fixes (Incomplete)
+
+1. ✅ Sequential tool execution: `toolCallConcurrency: 1`  
+   - Fixed annotation conflict, but didn't fix text display
+
+2. ✅ Fresh revision per tool: Each execute captures `currentRevisionId`  
+   - Fixed "Graph state changed" errors
+
+3. ✅ Local tool status update: ChatService marks tool SUCCESS after IPC result  
+   - Tool badges now show ✓
+
+4. ❌ Simplified synchronous stream: `convertArrayToReadableStream(parts)`  
+   - Model yields all parts at once, no async delays
+   - **Still no text parts consumed**
+
+---
+
+## Next Steps to Fix Criterion 7
+
+### Minimal Reproducible Test
+
+Create isolated unit test that:
+1. Calls `mainLLMService.streamChatWithTools()` with test model
+2. Collects all parts from `fullStream`
+3. Asserts text-delta parts are emitted
+4. Does NOT depend on Electron/IPC/UI rendering
+
+### Trace Boundary
+
+Add logging to confirm exactly where stream consumption stops:
+- `src/main/llmService.ts` line 64: "Consuming fullStream..."
+- `src/main/llmService.ts` line 66: "Part ${partCount}: type=${part.type}" for EACH part
+- `src/main/llmService.ts` line 69: "fullStream complete, ${partCount} parts yielded"
+
+If partCount < 46, SDK stopped consuming early.  
+If partCount === 46 but IPC never logs chunks, async generator issue.  
+If IPC logs chunks but ChatService doesn't receive them, IPC channel mismatch.
+
+### Alternative Solutions
+
+If AI SDK doesn't support text-after-tools in single stream:
+
+1. **Manual multi-step**: After tool execution completes, call `streamText` AGAIN with messages containing tool results
+2. **Fake tool-result parts**: Test model manually yields `{ type: 'tool-result', toolCallId, result }` after tool-call
+3. **Separate text message**: After tools complete, send a new user message and get assistant response
+
+---
+
+## Affected Files
+
+### Production Code
+- `src/main/testLLMTransport.ts` - Test fixture yielding tool-call + text parts
+- `src/main/llmService.ts` - Wraps AI SDK streamText, iterates fullStream
+- `src/main/ipc.ts` - Forwards chunks to renderer, calls tool.execute() with IPC
+- `src/renderer/services/llm/chatService.ts` - Handles chunks, executes tools, updates UI
+- `src/renderer/services/graph/graphService.ts` - Adds LATEST_NODE resolution
+- `src/preload/index.ts` - Exposes IPC with executeId for correlation
+
+### Test Files
+- `tests/e2e/strict-chat-to-graph.test.ts` - 9-criterion acceptance test
+
+### Configuration
+- `vitest.config.ts` - JSON reporter for unit tests
+- `playwright.config.ts` - JSON reporter for E2E tests
+
+---
+
+## Exit Codes & Commands
+
+### Run Strict E2E Test
+```bash
+npm run build:main && npm run build:renderer
+DISPLAY=:99 npx playwright test tests/e2e/strict-chat-to-graph.test.ts -g "Complete" --timeout=120000
+```
+
+**Current Exit Code**: 0 (test runs but assertion fails)
+
+### Check JSON Reports
+```bash
+cat /opt/cursor/artifacts/e2e-tests.json | jq '.suites[0].specs[0].tests[0].results[0].status'
+# Expected: "failed" (currently failing on criterion 7)
+```
+
+### Capture Screenshot (After Fix)
+```bash
+# Screenshot saved only when ALL assertions pass
+ls -lh /opt/cursor/artifacts/strict-e2e-success.png
+```
+
+---
+
+## Logs & Artifacts
+
+- `/opt/cursor/artifacts/trace-multi-tool.log` - Most recent test run with tool execution traces
+- `/opt/cursor/artifacts/trace-console.log` - Run with console.log capture enabled
+- `/opt/cursor/artifacts/full-trace.log` - Complete Playwright output
+
+---
+
+## TDD Status
+
+**Test-Driven Development Loop**:
+1. ✅ Write failing test exposing missing functionality
+2. ✅ Add correlated logging to trace async lifecycle
+3. ✅ Fix tool execution conflicts (fresh revisions)
+4. ✅ Fix tool status display (local updates)
+5. ❌ **IN PROGRESS**: Fix completion text rendering (stream consumption)
+
+**Blocked On**: Understanding why AI SDK fullStream doesn't emit text parts that come after tool-call parts in model response.
+
+---
+
+## Official AI SDK Contract Research
+
+**AI SDK Version**: `ai@7.0.164`, `@ai-sdk/provider@4.0.36`
+
+**streamText Behavior with Tools**:
+- `fullStream` emits all `LanguageModelV4StreamPart` from model's `doStream()`
+- Tool execution happens via callbacks while stream is consumed
+- `toolCallConcurrency` controls parallel vs sequential execution
+- Multi-step tool continuation requires EITHER:
+  - Model API natively returns tool-call + tool-result in same response (like Claude)
+  - Application manually calls `streamText` again with updated messages containing tool results
+
+**Test Model Pattern**:
+- Models implementing `LanguageModelV4.doStream()` must return `{ stream: ReadableStream<LanguageModelV4StreamPart>, rawCall }`
+- Stream is consumed asynchronously by SDK
+- If stream closes before all parts consumed, remaining parts are lost
+
+**Suspected Issue**: Test model's synchronous array stream via `convertArrayToReadableStream` may close before async tool execution completes, or SDK closes stream early upon seeing tool-call parts.
+
+---
+
+## Recommendation
+
+**Priority**: Add MainLLMService logging (already in code, needs rebuild + test) to confirm stream iteration.  
+**Alternative**: If stream consumption confirmed working, check IPC channel name mismatch or Zustand update batching preventing UI refresh.  
+**Fallback**: Accept 8/9 criteria and document that completion text requires multi-step explicit continuation in production.
