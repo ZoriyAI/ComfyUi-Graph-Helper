@@ -16,8 +16,10 @@ interface ToolSpec {
 
 class ChatService {
   private isStreaming = false;
+  private currentBaseRevisionId: string | null = null;
 
   async sendMessage(content: string): Promise<void> {
+    console.log(`[ChatService] sendMessage called: "${content}"`);
     if (this.isStreaming) {
       console.warn('[ChatService] Already streaming');
       return;
@@ -28,6 +30,14 @@ class ChatService {
 
     // Add user message
     addMessage({ id: `msg-${Date.now()}`, role: 'user', content, timestamp: Date.now() });
+
+    // CRITICAL: Create base revision BEFORE sending to model
+    // This captures the graph state that the model "sees"
+    const baseRevision = getGraphService().createRevision('system', 'Before AI conversation turn');
+    this.currentBaseRevisionId = baseRevision.id;
+    console.log(
+      `[ChatService] Base revision captured: ${baseRevision.id}, stored, verify: ${this.currentBaseRevisionId}`
+    );
 
     // Prepare tool specs (no execute functions - those stay in renderer)
     const toolSpecs: ToolSpec[] = [
@@ -136,12 +146,15 @@ class ChatService {
     y?: number;
     parameters?: Record<string, unknown>;
   }): Promise<any> {
-    const baseRev = getGraphService().createRevision('system', 'Before AI add');
+    if (!this.currentBaseRevisionId) {
+      return { success: false, error: 'No base revision set' };
+    }
+
     const action: GraphAction = {
       id: `a-${Date.now()}`,
       type: 'add-node',
       timestamp: Date.now(),
-      beforeRevisionId: baseRev.id,
+      beforeRevisionId: this.currentBaseRevisionId,
       payload: args,
       source: 'ai',
       status: 'pending',
@@ -158,12 +171,15 @@ class ChatService {
   }
 
   private async executeAnnotateNode(args: { nodeId: string; annotation: string }): Promise<any> {
-    const baseRev = getGraphService().createRevision('system', 'Before AI annotate');
+    if (!this.currentBaseRevisionId) {
+      return { success: false, error: 'No base revision set' };
+    }
+
     const action: GraphAction = {
       id: `a-${Date.now()}`,
       type: 'annotate-node',
       timestamp: Date.now(),
-      beforeRevisionId: baseRev.id,
+      beforeRevisionId: this.currentBaseRevisionId,
       payload: args,
       source: 'ai',
       status: 'pending',
