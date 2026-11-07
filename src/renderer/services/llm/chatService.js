@@ -151,14 +151,17 @@ class ChatService {
                     useChatStore.setState({ isStreaming: false });
                 }
                 else if (chunk.type === 'error') {
-                    console.error('[ChatService] Error:', chunk.content);
+                    const errorMessage = typeof chunk.content === 'string'
+                        ? chunk.content
+                        : chunk.content?.error?.message || chunk.content?.message || JSON.stringify(chunk.content);
+                    console.error('[ChatService] Error:', errorMessage);
                     this.isStreaming = false;
                     useChatStore.setState({ isStreaming: false });
                     if (!currentAssistantMessageId) {
                         addMessage({
                             id: `msg-${Date.now()}`,
                             role: 'assistant',
-                            content: `Error: ${chunk.content}`,
+                            content: `Error: ${errorMessage}`,
                             timestamp: Date.now(),
                         });
                     }
@@ -230,7 +233,13 @@ class ChatService {
             // Update base revision for next tool call (sequential AI operations)
             const newRevision = getGraphService().createRevision('system', 'After AI addNode');
             this.currentBaseRevisionId = newRevision.id;
-            return { success: true, message: `Added ${args.nodeType} node`, nodeType: args.nodeType };
+            console.log(`[ChatService] addNode result:`, action.result);
+            return {
+                success: true,
+                message: `Added ${args.nodeType} node`,
+                nodeType: args.nodeType,
+                nodeId: action.result?.nodeId, // Return nodeId for subsequent tool calls
+            };
         }
     }
     async executeAnnotateNode(args) {

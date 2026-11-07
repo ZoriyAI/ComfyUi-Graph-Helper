@@ -31,7 +31,7 @@ class MainLLMService {
 
     if (this.config.provider === 'test') {
       console.log('[MainLLMService] Using TEST fixture transport');
-      return createTestLLMModel() as any;
+      return createTestLLMModel();
     }
 
     if (this.config.provider === 'openai') {

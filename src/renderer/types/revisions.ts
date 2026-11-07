@@ -38,4 +38,5 @@ export interface GraphAction {
   source: 'user' | 'ai';
   status: 'pending' | 'applied' | 'failed' | 'conflict' | 'cancelled';
   error?: string;
+  result?: any; // Result data from action execution (e.g. nodeId from add-node)
 }

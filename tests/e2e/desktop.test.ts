@@ -111,7 +111,7 @@ test('Desktop smoke: TEST fixture IPC chat interaction', async () => {
   });
 
   // Wait for config to propagate
-  await window.waitForTimeout(500);
+  await window.waitForTimeout(1000);
 
   // Send chat message via UI
   console.log('[SMOKE] Sending chat message via UI');
@@ -120,22 +120,41 @@ test('Desktop smoke: TEST fixture IPC chat interaction', async () => {
   await messageInput.press('Enter');
 
   // Wait for AI operations to complete
-  await window.waitForTimeout(4000);
+  await window.waitForTimeout(8000);
 
-  // Verify nodes added to canvas
-  const result = await window.evaluate(() => {
-    const nodes = document.querySelectorAll('.react-flow__node');
-    const toolStatuses = document.querySelectorAll('[data-tool-status]');
+  // Get initial state
+  const initialState = await window.evaluate(() => {
+    const nodes = Array.from(document.querySelectorAll('.react-flow__node'));
     return {
-      nodeCount: nodes.length,
-      toolStatusCount: toolStatuses.length,
-      hasNodes: nodes.length > 0,
+      initialNodeCount: nodes.length,
+      initialNodeTitles: nodes.map((n: any) => n.textContent?.split('\n')[0]).filter(Boolean),
     };
   });
 
-  console.log('[SMOKE] Graph result:', result);
-  expect(result.hasNodes).toBe(true);
-  expect(result.nodeCount).toBeGreaterThan(0);
+  console.log('[SMOKE] Initial state:', initialState);
+
+  // Wait for AI operations
+  await window.waitForTimeout(1000);
+
+  // Verify NEW nodes added and annotated
+  const finalState = await window.evaluate(() => {
+    const nodes = Array.from(document.querySelectorAll('.react-flow__node'));
+    const newNode = nodes.find((n: any) => n.textContent?.includes('AI Test Node'));
+    
+    return {
+      finalNodeCount: nodes.length,
+      hasNewNode: !!newNode,
+      newNodeText: newNode?.textContent || '',
+      nodeCountIncreased: nodes.length > 2,
+    };
+  });
+
+  console.log('[SMOKE] Final state:', finalState);
+  
+  // Verify AI added node successfully
+  expect(finalState.hasNewNode).toBe(true);
+  expect(finalState.newNodeText).toContain('AI Test Node');
+  expect(finalState.newNodeText).toContain('TestNode');
 
   // Take screenshot of test mode with nodes
   const screenshotPath = '/opt/cursor/artifacts/desktop-test-fixture.png';

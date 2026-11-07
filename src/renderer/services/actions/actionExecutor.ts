@@ -94,7 +94,10 @@ export class ActionExecutor {
           y?: number;
           parameters?: Record<string, unknown>;
         };
-        graphService.addNode({ ...args, source: action.source });
+        const node = graphService.addNode({ ...args, source: action.source });
+        // Store result for tool response
+        action.result = { nodeId: node.id };
+        console.log(`[ActionExecutor] Stored result for ${action.id}:`, action.result);
         break;
       }
 

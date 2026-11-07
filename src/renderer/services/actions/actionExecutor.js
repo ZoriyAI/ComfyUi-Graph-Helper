@@ -70,7 +70,10 @@ export class ActionExecutor {
         switch (action.type) {
             case 'add-node': {
                 const args = action.payload;
-                graphService.addNode({ ...args, source: action.source });
+                const node = graphService.addNode({ ...args, source: action.source });
+                // Store result for tool response
+                action.result = { nodeId: node.id };
+                console.log(`[ActionExecutor] Stored result for ${action.id}:`, action.result);
                 break;
             }
             case 'remove-node': {

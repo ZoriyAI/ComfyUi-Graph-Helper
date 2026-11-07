@@ -1,118 +1,126 @@
+import { LanguageModelV4, LanguageModelV4StreamPart } from '@ai-sdk/provider';
+import { convertArrayToReadableStream } from '@ai-sdk/provider-utils/test';
+
 /**
- * TEST-ONLY injectable deterministic LLM transport
- * Simulates AI SDK tool calling with predictable addNode -> annotateNode sequence
+ * TEST-ONLY deterministic LLM transport using official AI SDK test utilities
+ * Simulates tool calling: addNode -> capture ID -> annotateNode with that ID -> text completion
  */
 
-interface TestScenario {
-  name: string;
-  steps: Array<{
-    type: 'text' | 'tool-call';
-    text?: string;
-    toolName?: string;
-    toolArgs?: any;
-  }>;
-}
+export function createTestLLMModel(): LanguageModelV4 {
+  let capturedNodeId: string | null = null;
 
-const TEST_SCENARIO: TestScenario = {
-  name: 'Add node and annotate',
-  steps: [
-    {
-      type: 'tool-call',
-      toolName: 'addNode',
-      toolArgs: { nodeType: 'TestNode', title: 'Test Node 1', x: 100, y: 100 },
+  return {
+    specificationVersion: 'v4' as const,
+    provider: 'test',
+    modelId: 'test-fixture',
+    supportedUrls: {},
+
+    async doGenerate() {
+      throw new Error('Use doStream for test transport');
     },
-    {
-      type: 'tool-call',
-      toolName: 'annotateNode',
-      toolArgs: { nodeId: 'will-be-replaced-with-actual-node-id', annotation: 'Test annotation' },
-    },
-    {
-      type: 'text',
-      text: 'I have added a TestNode and annotated it.',
-    },
-  ],
-};
 
-export class TestLLMModel {
-  readonly specificationVersion = 'v4';
-  readonly provider = 'test';
-  readonly modelId = 'test-fixture';
-  readonly defaultObjectGenerationMode = 'json' as const;
+    async doStream(options) {
+      console.log('[TestLLM] Starting test stream');
 
-  private lastNodeId: string | null = null;
+      const parts: LanguageModelV4StreamPart[] = [];
 
-  async doGenerate(): Promise<any> {
-    throw new Error('Use doStream for test transport');
-  }
+      // Step 1: addNode tool call
+      parts.push({
+        type: 'tool-call',
+        toolCallId: 'call-add-node',
+        toolName: 'addNode',
+        input: JSON.stringify({ nodeType: 'TestNode', title: 'AI Test Node', x: 200, y: 200 }),
+      });
 
-  async doStream(options: any): Promise<any> {
-    const self = this;
-    let stepIndex = 0;
+      // Execute addNode and capture result
+      const addNodeTool = (options as any).tools?.addNode;
+      if (addNodeTool?.execute) {
+        const addNodeResult = await addNodeTool.execute({
+          nodeType: 'TestNode',
+          title: 'AI Test Node',
+          x: 200,
+          y: 200,
+        });
+        console.log('[TestLLM] addNode result:', addNodeResult);
 
-    return {
-      stream: (async function* () {
-        for (const step of TEST_SCENARIO.steps) {
-          if (step.type === 'tool-call') {
-            // Replace placeholder node ID if needed
-            let args = step.toolArgs;
-            if (step.toolName === 'annotateNode' && self.lastNodeId) {
-              args = { ...args, nodeId: self.lastNodeId };
-            }
-
-            const toolCallId = `call-${stepIndex++}`;
-            yield {
-              type: 'tool-call' as const,
-              toolCallType: 'function' as const,
-              toolCallId,
-              toolName: step.toolName!,
-              args: JSON.stringify(args),
-            };
-
-            // Simulate tool result
-            const toolResult = options.tools?.[step.toolName!];
-            if (toolResult?.execute) {
-              const result = await toolResult.execute(args);
-              console.log(`[TestLLM] Tool ${step.toolName} executed:`, result);
-
-              // Capture node ID from addNode
-              if (step.toolName === 'addNode' && result.success) {
-                // Extract from graph state (will be set by action executor)
-                // For now, we'll use a mock pattern
-                self.lastNodeId = `test-node-${Date.now()}`;
-              }
-
-              yield {
-                type: 'tool-result' as const,
-                toolCallType: 'function' as const,
-                toolCallId,
-                toolName: step.toolName!,
-                args: JSON.stringify(args),
-                result,
-              };
-            }
-          } else if (step.type === 'text') {
-            for (const char of step.text!) {
-              yield {
-                type: 'text-delta' as const,
-                textDelta: char,
-              };
-              await new Promise((r) => setTimeout(r, 5));
-            }
-          }
+        // Capture nodeId from result
+        if (addNodeResult.success && addNodeResult.nodeId) {
+          capturedNodeId = addNodeResult.nodeId;
+          console.log('[TestLLM] Captured nodeId:', capturedNodeId);
         }
 
-        yield {
-          type: 'finish' as const,
-          finishReason: 'stop' as const,
-          usage: { promptTokens: 10, completionTokens: 20 },
-        };
-      })(),
-      rawCall: { rawPrompt: null, rawSettings: {} },
-      warnings: [],
-    };
-  }
-}
+        parts.push({
+          type: 'tool-result',
+          toolCallId: 'call-add-node',
+          toolName: 'addNode',
+          result: addNodeResult,
+        });
+      }
 
-export function createTestLLMModel(): any {
-  return new TestLLMModel();
+      // Step 2: annotateNode tool call with captured ID
+      if (capturedNodeId) {
+        parts.push({
+          type: 'tool-call',
+          toolCallId: 'call-annotate',
+          toolName: 'annotateNode',
+          input: JSON.stringify({ nodeId: capturedNodeId, annotation: 'AI added annotation' }),
+        });
+
+        const annotateTool = (options as any).tools?.annotateNode;
+        if (annotateTool?.execute) {
+          const annotateResult = await annotateTool.execute({
+            nodeId: capturedNodeId,
+            annotation: 'AI added annotation',
+          });
+          console.log('[TestLLM] annotateNode result:', annotateResult);
+
+          parts.push({
+            type: 'tool-result',
+            toolCallId: 'call-annotate',
+            toolName: 'annotateNode',
+            result: annotateResult,
+          });
+        }
+      }
+
+      // Step 3: Text completion
+      const textId = 'text-1';
+      parts.push({
+        type: 'text-start',
+        id: textId,
+      });
+
+      const text = 'I have added a TestNode and annotated it.';
+      for (const char of text) {
+        parts.push({
+          type: 'text-delta',
+          id: textId,
+          delta: char,
+        });
+      }
+
+      parts.push({
+        type: 'text-end',
+        id: textId,
+      });
+
+      // Step 4: Finish
+      parts.push({
+        type: 'finish',
+        finishReason: { unified: 'stop', raw: 'stop' },
+        usage: {
+          inputTokens: { total: 10, noCache: 10, cacheRead: 0, cacheWrite: 0 },
+          outputTokens: { total: 20, text: 20, reasoning: 0 },
+        },
+      });
+
+      console.log('[TestLLM] Stream contains', parts.length, 'parts');
+
+      // Use official SDK helper to convert array to ReadableStream
+      return {
+        stream: convertArrayToReadableStream(parts),
+        rawCall: { rawPrompt: null, rawSettings: {} },
+      };
+    },
+  };
 }
