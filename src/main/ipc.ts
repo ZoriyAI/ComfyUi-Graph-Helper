@@ -87,5 +87,59 @@ export function setupIPC() {
     }));
   });
 
+  // LLM operations
+  ipcMain.handle(IPC_CHANNELS.LLM_SET_CONFIG, async (_event, config) => {
+    console.log('[IPC] Setting LLM config (credentials NOT logged)');
+    mainLLMService.setConfig(config);
+  });
+
+  ipcMain.handle(
+    IPC_CHANNELS.LLM_STREAM_CHAT,
+    async (event, messages: any[], toolSpecs: any[], responseChannel: string) => {
+      console.log(`[IPC] Starting LLM stream with ${messages.length} messages, ${toolSpecs.length} tools`);
+      const window = BrowserWindow.fromWebContents(event.sender);
+      if (!window) {
+        throw new Error('Window not found');
+      }
+
+      try {
+        // Build AI SDK tools with IPC round-trip for execution
+        const tools: Record<string, any> = {};
+        for (const spec of toolSpecs) {
+          tools[spec.name] = {
+            description: spec.description,
+            parameters: spec.parameters,
+            execute: async (args: any) => {
+              console.log(`[IPC] Tool ${spec.name} called with args:`, JSON.stringify(args));
+              // Request renderer to execute tool
+              const resultPromise = new Promise((resolve) => {
+                const resultChannel = `tool-result-${Date.now()}-${Math.random()}`;
+                ipcMain.once(resultChannel, (_e, result) => {
+                  console.log(`[IPC] Tool ${spec.name} result:`, JSON.stringify(result));
+                  resolve(result);
+                });
+                window.webContents.send('tool-execute', {
+                  tool: spec.name,
+                  args,
+                  resultChannel,
+                });
+              });
+              return await resultPromise;
+            },
+          };
+        }
+
+        for await (const chunk of mainLLMService.streamChatWithTools(messages, tools)) {
+          window.webContents.send(responseChannel, chunk);
+        }
+
+        window.webContents.send(responseChannel, { type: 'done' });
+      } catch (error: any) {
+        console.error('[IPC] LLM stream error:', error.message);
+        window.webContents.send(responseChannel, { type: 'error', content: error.message });
+      }
+    }
+  );
+
   console.log('[IPC] Handlers registered');
 }

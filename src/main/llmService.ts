@@ -1,5 +1,6 @@
 import { streamText, LanguageModel } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
+import { createTestLLMModel } from './testLLMTransport';
 
 /**
  * Main-process LLM service
@@ -26,6 +27,11 @@ class MainLLMService {
     if (!this.config) {
       console.warn('[MainLLMService] No config set');
       return null;
+    }
+
+    if (this.config.provider === 'test') {
+      console.log('[MainLLMService] Using TEST fixture transport');
+      return createTestLLMModel() as any;
     }
 
     if (this.config.provider === 'openai') {
