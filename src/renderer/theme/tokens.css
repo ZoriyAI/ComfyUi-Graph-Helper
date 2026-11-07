@@ -1,27 +1,27 @@
 :root {
   color-scheme: dark;
-  --bg: #14171c;
-  --bg-raised: #1c2128;
-  --bg-sunken: #101317;
-  --bg-hover: #262d38;
-  --line: #313844;
-  --text: #e7ecf2;
-  --text-dim: #9aa6b5;
-  --text-faint: #6e7b8b;
-  --accent: #3ecfb2;
-  --accent-2: #8b7cff;
-  --danger: #e15d6a;
-  --warn: #e2a14a;
-  --ok: #3ecf8e;
-  --focus: #8b7cff;
-  --type-image: #3ecfb2;
-  --type-latent: #8b7cff;
-  --type-model: #e2a14a;
-  --type-conditioning: #5eb0ff;
-  --type-vae: #d47ad4;
-  --type-clip: #7fd0a4;
-  --type-unknown: #8b939c;
-  --on-accent: #fff;
+  --bg: #101217;
+  --bg-raised: #181c24;
+  --bg-sunken: #0c0f14;
+  --bg-hover: #263041;
+  --line: #313a4a;
+  --text: #e7ecf4;
+  --text-dim: #a8b3c7;
+  --text-faint: #8b97ab;
+  --accent: #64d9f3;
+  --accent-2: #b59aff;
+  --danger: #ff8a95;
+  --warn: #f0c46c;
+  --ok: #75d6a0;
+  --focus: #b59aff;
+  --type-image: #64d9f3;
+  --type-latent: #b59aff;
+  --type-model: #f0c46c;
+  --type-conditioning: #7eb6ff;
+  --type-vae: #f0a0e0;
+  --type-clip: #8ee0b0;
+  --type-unknown: #8b97ab;
+  --on-accent: #101217;
   --on-warn: #1a1408;
   --bubble-user: #243044;
   --bubble-user-line: #3a4d68;
@@ -38,7 +38,8 @@
   --motion-shift: 8px;
   --motion-ease-out: cubic-bezier(0.2, 0, 0, 1);
   --motion-ease-in: cubic-bezier(0.4, 0, 1, 1);
-  font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+  --radius: 12px;
+  font-family: "Geist Variable", "Segoe UI", sans-serif;
 }
 
 html[data-motion="reduced"] {

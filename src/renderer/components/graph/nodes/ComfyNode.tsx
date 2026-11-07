@@ -28,8 +28,11 @@ export default function ComfyNode({ data: rawData, selected }: NodeProps) {
     <div className={`graph-node${selected ? ' is-selected' : ''}${data.locked ? ' is-locked' : ''}`} data-demo={data.demo ? 'true' : 'false'} data-primary-type={primary}>
       {data.demo ? <span className="demo-flag">DEMO</span> : null}
       {data.locked ? <span className="lock-flag">Locked</span> : null}
-      <div className="graph-node-title">{data.title || data.comfyType}</div>
-      <div className="graph-node-type">{data.comfyType}</div>
+      <div className="graph-node-head">
+        <div className="graph-node-title">{data.title || data.comfyType}</div>
+        <div className="graph-node-type">{data.comfyType}</div>
+      </div>
+      <div className="graph-node-body">
       {data.inputs.length > 0 ? (
         <ul className="port-list" aria-label="Inputs">
           {data.inputs.map((port) => (
@@ -61,6 +64,7 @@ export default function ComfyNode({ data: rawData, selected }: NodeProps) {
           {data.annotations[0]}
         </div>
       ) : null}
+      </div>
     </div>
   );
 }

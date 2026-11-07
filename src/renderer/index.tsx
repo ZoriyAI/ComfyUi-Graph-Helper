@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import '@fontsource-variable/geist';
 import './theme/tokens.css';
 import './theme.css';
 

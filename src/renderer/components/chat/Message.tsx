@@ -1,5 +1,7 @@
 import React from 'react';
+import { motion } from 'motion/react';
 import { ChatMessage } from '../../types/chat';
+import { useMotionPolicy } from '../../ui/policy';
 
 const STATUS_LABEL = {
   pending: 'pending',
@@ -13,9 +15,15 @@ interface MessageProps {
 
 export default function Message({ message }: MessageProps) {
   const isUser = message.role === 'user';
+  const policy = useMotionPolicy();
 
   return (
-    <div className={`message-row${isUser ? ' is-user' : ''}`}>
+    <motion.div
+      className={`message-row${isUser ? ' is-user' : ''}`}
+      initial={policy.instant ? false : { opacity: 0, y: policy.shift }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: policy.enter, ease: [0.2, 0, 0, 1] }}
+    >
       <div className={`message-bubble${!isUser && message.content.startsWith('Error') ? ' is-error' : ''}`}>
         <div className="message-body">{message.content}</div>
         {message.toolCalls && message.toolCalls.length > 0 ? (
@@ -33,6 +41,6 @@ export default function Message({ message }: MessageProps) {
         ) : null}
         <div className="message-time">{new Date(message.timestamp).toLocaleTimeString()}</div>
       </div>
-    </div>
+    </motion.div>
   );
 }

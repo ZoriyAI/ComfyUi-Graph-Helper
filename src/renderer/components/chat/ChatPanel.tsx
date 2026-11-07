@@ -1,4 +1,5 @@
 import React, { useRef, useEffect } from 'react';
+import { MessageSquare } from 'lucide-react';
 import { useChatStore } from '../../state/chatState';
 import { useGraphStore } from '../../state/graphState';
 import Message from './Message';
@@ -37,6 +38,7 @@ export default function ChatPanel({ onSendMessage, onPause }: ChatPanelProps) {
       <div className="chat-log">
         {messages.length === 0 ? (
           <div className="chat-empty">
+            <MessageSquare size={18} aria-hidden="true" />
             <strong>No messages yet</strong>
             <p>
               {nodeCount === 0

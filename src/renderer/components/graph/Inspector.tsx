@@ -14,6 +14,7 @@ export default function Inspector() {
   ];
   return (
     <section className="inspector" role="region" aria-label="Inspector">
+      <p className="inspector-kicker">Inspector</p>
       <h2>{data.title || data.comfyType}</h2>
       <p className="inspector-type">{data.comfyType}</p>
       <div className="inspector-ports">
