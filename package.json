@@ -5,15 +5,16 @@
   "main": "dist/main/index.js",
   "scripts": {
     "dev:vite": "vite",
-    "dev:electron": "npm run build:main && NODE_ENV=development electron .",
+    "dev:electron": "npm run rebuild:native && npm run build:main && node scripts/assert-current-main.js && NODE_ENV=development electron .",
     "dev": "concurrently \"npm run dev:vite\" \"npm run dev:electron\"",
     "build:main": "tsc --project tsconfig.main.json",
     "build:renderer": "tsc && vite build",
     "build": "npm run build:main && npm run build:renderer",
     "watch": "tsc --watch",
-    "test": "vitest",
+    "start": "npm run rebuild:native && npm run build && node scripts/assert-current-main.js && electron .",
+    "test": "vitest run",
     "rebuild:native": "electron-rebuild -f -w better-sqlite3",
-    "type-check": "tsc --noEmit",
+    "type-check": "tsc --project tsconfig.main.json --noEmit && tsc --noEmit",
     "lint": "eslint src/"
   },
   "keywords": [

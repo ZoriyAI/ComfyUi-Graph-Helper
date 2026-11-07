@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { nonSecretDefaults, type NonSecretSettings, type SettingsRead } from '../../../shared/config/schema';
+import { consumeSecretSave } from './secretSave';
 
 export default function SettingsPanel() {
   const [values, setValues] = useState<NonSecretSettings>(nonSecretDefaults);
@@ -40,16 +41,12 @@ export default function SettingsPanel() {
   };
 
   const saveKey = async () => {
-    try {
-      const result = await window.electronAPI.saveSecret(secret);
-      setSecret('');
-      setSecretNote(result.status === 'secret-storage-blocked'
-        ? 'secret-storage-blocked. The key was not written.'
-        : 'The key was not written.');
-    } catch {
-      setSecret('');
-      setSecretNote('The key was not written.');
-    }
+    const outcome = await consumeSecretSave(
+      (value) => window.electronAPI.saveSecret(value),
+      secret,
+    );
+    setSecret(outcome.secret);
+    setSecretNote(outcome.note);
   };
 
   return (

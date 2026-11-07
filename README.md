@@ -59,30 +59,25 @@ src/
 - npm или pnpm
 - Linux (tested on Ubuntu-based, Wayland/X11 compatibility TBD)
 
-### Development
+### Bootstrap check
+
+`npm test` loads `better-sqlite3` for the host Node ABI created by `npm ci`. `rebuild:native` (`electron-rebuild -f -w better-sqlite3`) replaces that binary with Electron's ABI, so the unit suite and `type-check` run first. `type-check` is `tsc --noEmit` for the main project and the renderer project; it does not load the native module. `build` runs `build:main` and then `build:renderer`, rewriting `dist/` before Electron starts. `node scripts/assert-current-main.js` exits 2 with `OLD_TRACKED_DIST` when `dist/main/index.js` has no `webSecurity: true` or `dist/main/database.js` does not reference `./settings/migrate`. `dev:electron` and `start` run the native rebuild, the build, and that check before `electron .`. Playwright still launches `dist/main/index.js`; the check runs before it.
 
 ```bash
-# Install dependencies
-npm install
-
-# Run development mode
-npm run dev
-
-# Build
-npm run build
-
-# Type check
-npm run type-check
-
-# Tests
+npm ci
 npm test
+npm run type-check
+npm run rebuild:native
+npm run build
+node scripts/assert-current-main.js
+./node_modules/.bin/electron scripts/electron-sqlite-probe.js
+npx playwright test tests/e2e/strict-chat-to-graph.test.ts
+npx playwright test tests/e2e/key-clear.test.ts
 ```
 
 ### Development mode
 
-Development mode запускает:
-1. Vite dev server (port 5173) для React app
-2. Electron main process подключается к dev server
+`npm run dev` starts the Vite server and `dev:electron`. The Electron command rebuilds the native module, compiles the current main process, refuses the tracked pre-bootstrap `dist/main`, then connects to the Vite server. Run `npm test` before that rebuild when the host ABI binary is still required.
 
 ## Current Implementation Status
 
@@ -125,6 +120,7 @@ Development mode запускает:
 
 1. **Launch app:**
    ```bash
+   npm test
    npm run dev
    ```
 
