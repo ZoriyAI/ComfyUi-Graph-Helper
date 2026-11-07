@@ -1,0 +1,77 @@
+import type Database from 'better-sqlite3';
+import {
+  nonSecretDefaults,
+  nonSecretSettingsSchema,
+  type NonSecretSettings,
+  type SecretSaveResult,
+  type SettingsRead,
+} from '../../shared/config/schema';
+
+type SettingsRow = {
+  theme: string;
+  motion: string;
+  provider: string;
+  model: string;
+  comfy_origin: string;
+};
+
+function rowToInput(row: SettingsRow): unknown {
+  return {
+    theme: row.theme,
+    motion: row.motion,
+    provider: row.provider,
+    model: row.model,
+    comfyOrigin: row.comfy_origin,
+  };
+}
+
+export function readSettings(db: Database.Database): SettingsRead {
+  const row = db.prepare('SELECT theme, motion, provider, model, comfy_origin FROM settings WHERE id = 1').get() as
+    | SettingsRow
+    | undefined;
+  if (!row) {
+    return { source: 'default', values: nonSecretDefaults };
+  }
+  const parsed = nonSecretSettingsSchema.safeParse(rowToInput(row));
+  if (!parsed.success) {
+    return { source: 'corrupt' };
+  }
+  return { source: 'stored', values: parsed.data };
+}
+
+export function saveSettings(db: Database.Database, input: unknown): { ok: true; values: NonSecretSettings } | { ok: false; error: string } {
+  const parsed = nonSecretSettingsSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: 'Settings do not match the schema' };
+  }
+  const values = parsed.data;
+  const write = db.transaction(() => {
+    db.prepare(
+      `INSERT INTO settings (id, theme, motion, provider, model, comfy_origin, updated_at)
+       VALUES (1, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         theme = excluded.theme,
+         motion = excluded.motion,
+         provider = excluded.provider,
+         model = excluded.model,
+         comfy_origin = excluded.comfy_origin,
+         updated_at = excluded.updated_at`
+    ).run(values.theme, values.motion, values.provider, values.model, values.comfyOrigin, Date.now());
+  });
+  write.immediate();
+  return { ok: true, values };
+}
+
+export function secretRecordCount(db: Database.Database): number {
+  const row = db.prepare('SELECT COUNT(*) AS count FROM secret_records').get() as { count: number };
+  return row.count;
+}
+
+export function attemptSaveSecret(db: Database.Database): SecretSaveResult {
+  const before = secretRecordCount(db);
+  const after = secretRecordCount(db);
+  if (after !== before) {
+    throw new Error('secret_records changed during a blocked save');
+  }
+  return { status: 'secret-storage-blocked' };
+}

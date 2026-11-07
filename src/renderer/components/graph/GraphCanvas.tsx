@@ -65,18 +65,14 @@ export default function GraphCanvas() {
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         nodeTypes={nodeTypes}
+        colorMode="dark"
         fitView
         minZoom={0.1}
         maxZoom={2}
       >
         <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
         <Controls />
-        <MiniMap
-          nodeStrokeWidth={3}
-          style={{
-            background: '#f0f0f0',
-          }}
-        />
+        <MiniMap nodeStrokeWidth={3} className="graph-minimap" />
       </ReactFlow>
     </div>
   );

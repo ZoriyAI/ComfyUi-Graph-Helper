@@ -20,7 +20,11 @@ class MainLLMService {
 
   setConfig(config: LLMConfig): void {
     console.log('[MainLLMService] Config updated (credentials NOT logged)');
-    this.config = config;
+    this.config = {
+      provider: config.provider,
+      model: config.model,
+      baseURL: config.baseURL,
+    };
   }
 
   getModel(): LanguageModel | null {
@@ -36,8 +40,8 @@ class MainLLMService {
 
     if (this.config.provider === 'openai') {
       const openai = createOpenAI({
-        apiKey: this.config.apiKey || process.env.OPENAI_API_KEY,
-        baseURL: this.config.baseURL,
+        apiKey: '',
+        baseURL: this.config.baseURL ?? 'https://api.openai.com/v1',
       });
       return openai(this.config.model);
     }

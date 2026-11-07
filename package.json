@@ -12,6 +12,7 @@
     "build": "npm run build:main && npm run build:renderer",
     "watch": "tsc --watch",
     "test": "vitest",
+    "rebuild:native": "electron-rebuild -f -w better-sqlite3",
     "type-check": "tsc --noEmit",
     "lint": "eslint src/"
   },
@@ -25,6 +26,7 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
+    "@electron/rebuild": "4.2.1",
     "@playwright/test": "^1.65.0",
     "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^26.6.6",

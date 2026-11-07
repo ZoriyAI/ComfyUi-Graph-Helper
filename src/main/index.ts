@@ -14,6 +14,7 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,
+      webSecurity: true,
     },
   });
 
@@ -31,9 +32,14 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
-  initDatabase();
-  setupIPC();
-  createWindow();
+  try {
+    initDatabase();
+    setupIPC();
+    createWindow();
+  } catch (error) {
+    console.error('[App] Startup failed', error);
+    app.exit(1);
+  }
 });
 
 app.on('window-all-closed', () => {

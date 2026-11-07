@@ -22,6 +22,11 @@ export const IPC_CHANNELS = {
   FILE_EXPORT_WORKFLOW: 'file:export-workflow',
   FILE_SELECT_DIRECTORY: 'file:select-directory',
   
+  // Non-secret settings. Secret saves are rejected without a write.
+  SETTINGS_GET: 'settings:get',
+  SETTINGS_SAVE: 'settings:save',
+  SETTINGS_SAVE_SECRET: 'settings:save-secret',
+
   // LLM operations (main process only)
   LLM_SET_CONFIG: 'llm:set-config',
   LLM_STREAM_CHAT: 'llm:stream-chat',

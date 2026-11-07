@@ -9,6 +9,9 @@ const IPC_CHANNELS = {
   DB_LIST_PROJECTS: 'db:list-projects',
   LLM_SET_CONFIG: 'llm:set-config',
   LLM_STREAM_CHAT: 'llm:stream-chat',
+  SETTINGS_GET: 'settings:get',
+  SETTINGS_SAVE: 'settings:save',
+  SETTINGS_SAVE_SECRET: 'settings:save-secret',
 } as const;
 
 // Expose safe IPC API to renderer
@@ -29,6 +32,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveProject: (project: any) => ipcRenderer.invoke(IPC_CHANNELS.DB_SAVE_PROJECT, project),
   loadProject: (id: string) => ipcRenderer.invoke(IPC_CHANNELS.DB_LOAD_PROJECT, id),
   listProjects: () => ipcRenderer.invoke(IPC_CHANNELS.DB_LIST_PROJECTS),
+
+  getSettings: () => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_GET),
+  saveSettings: (input: unknown) => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SAVE, input),
+  saveSecret: (value: string) => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SAVE_SECRET, value),
 
   // LLM operations
   llmSetConfig: (config: { provider: string; model: string; apiKey?: string; baseURL?: string }) =>
@@ -62,6 +69,12 @@ export interface ElectronAPI {
   saveProject: (project: any) => Promise<{ success: boolean }>;
   loadProject: (id: string) => Promise<any>;
   listProjects: () => Promise<any[]>;
+  getSettings: () => Promise<
+    | { source: 'default' | 'stored'; values: { theme: 'graphite'; motion: 'system' | 'on' | 'off'; provider: '' | 'test' | 'openai'; model: string; comfyOrigin: string } }
+    | { source: 'corrupt' }
+  >;
+  saveSettings: (input: unknown) => Promise<{ ok: true; values: { theme: 'graphite'; motion: 'system' | 'on' | 'off'; provider: '' | 'test' | 'openai'; model: string; comfyOrigin: string } } | { ok: false; error: string }>;
+  saveSecret: (value: string) => Promise<{ status: 'secret-storage-blocked' }>;
   llmSetConfig: (config: {
     provider: string;
     model: string;

@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import { IPC_CHANNELS } from '../shared/ipc-channels';
 import { getDatabase } from './database';
 import { mainLLMService } from './llmService';
+import { attemptSaveSecret, readSettings, saveSettings } from './settings/repository';
 
 export function setupIPC() {
   // File operations
@@ -85,6 +86,18 @@ export function setupIPC() {
       graph_data: JSON.parse(row.graph_data),
       metadata: JSON.parse(row.metadata),
     }));
+  });
+
+  ipcMain.handle(IPC_CHANNELS.SETTINGS_GET, () => {
+    return readSettings(getDatabase());
+  });
+
+  ipcMain.handle(IPC_CHANNELS.SETTINGS_SAVE, (_event, input: unknown) => {
+    return saveSettings(getDatabase(), input);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.SETTINGS_SAVE_SECRET, () => {
+    return attemptSaveSecret(getDatabase());
   });
 
   // LLM operations
