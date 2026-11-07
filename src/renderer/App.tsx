@@ -12,6 +12,7 @@ function App() {
   const { nodes } = useGraphStore();
   const [provider, setProvider] = useState('');
   const [providerNote, setProviderNote] = useState('No provider selected. Nothing is sent.');
+  const [workflowNote, setWorkflowNote] = useState('');
 
   useEffect(() => {
     window.electronAPI.readProjection(DESKTOP_PROJECT_ID).then(applyProjection).catch((error) => {
@@ -37,6 +38,31 @@ function App() {
   const handleSendMessage = (content: string) => {
     const chatService = getChatService();
     chatService.sendMessage(content);
+  };
+
+  const handleImport = async () => {
+    const result = await window.electronAPI.importWorkflow();
+    if (!result || result.status === 'cancelled') return;
+    if (result.projection) applyProjection(result.projection);
+    if (result.status === 'rejected') {
+      const reason = result.result && typeof result.result === 'object' && 'error' in result.result ? String(result.result.error) : 'Import was rejected.';
+      setWorkflowNote(reason);
+      return;
+    }
+    const report = result.result && typeof result.result === 'object' ? result.result as { formatVersion?: number; missingNodes?: string[]; missingModels?: Array<{ directory: string; name: string }> } : {};
+    const missingNodes = report.missingNodes ?? [];
+    const missingModels = report.missingModels ?? [];
+    const nodeText = missingNodes.length > 0 ? `Missing nodes: ${missingNodes.join(', ')}.` : 'No missing nodes.';
+    const modelText = missingModels.length > 0
+      ? `Missing models: ${missingModels.map((model) => `${model.directory}/${model.name}`).join(', ')}.`
+      : 'No missing models.';
+    setWorkflowNote(`Imported format ${report.formatVersion}. ${nodeText} ${modelText}`);
+  };
+
+  const handleExport = async () => {
+    const result = await window.electronAPI.exportWorkflow();
+    if (!result.ok && result.canceled) return;
+    setWorkflowNote(result.ok ? 'Exported the current workflow.' : result.error || 'Export failed.');
   };
 
   const handlePause = () => {
@@ -77,12 +103,13 @@ function App() {
             </label>
           </div>
           <p className="provider-note">{providerNote}</p>
-          <button type="button" className="ghost-button" disabled title="ComfyUI workflow import is not implemented.">
+          <button type="button" className="ghost-button" onClick={() => void handleImport()}>
             Import
           </button>
-          <button type="button" className="ghost-button" disabled title="ComfyUI workflow export is not implemented.">
+          <button type="button" className="ghost-button" onClick={() => void handleExport()}>
             Export
           </button>
+          {workflowNote ? <p className="workflow-report">{workflowNote}</p> : null}
         </div>
       </header>
       <SettingsPanel />

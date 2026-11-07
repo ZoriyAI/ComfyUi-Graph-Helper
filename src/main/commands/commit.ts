@@ -10,11 +10,21 @@ import {
   type Projection,
   type RunStart,
 } from '../../shared/commands/types';
+import { ensureCatalog, readCatalog } from '../catalog/repository';
 import { inferInputs, inferOutputs } from '../../shared/graph/ports';
 import { DESKTOP_PROJECT_ID } from '../../shared/project';
+import {
+  missingDeps,
+  patchWidgets,
+  projectWorkflow,
+  type WorkflowDocumentState,
+} from '../../shared/workflow/codec';
 
 class CommandSignal extends Error {
-  constructor(readonly status: 'conflict' | 'rejected') {
+  constructor(
+    readonly status: 'conflict' | 'rejected',
+    readonly detail: unknown = null,
+  ) {
     super(status);
   }
 }
@@ -22,6 +32,7 @@ class CommandSignal extends Error {
 interface Snapshot {
   nodes: Array<Record<string, any>>;
   edges: Array<Record<string, any>>;
+  document: WorkflowDocumentState | null;
 }
 
 interface RevisionRow {
@@ -29,6 +40,7 @@ interface RevisionRow {
   rev_seq: number;
   nodes: string;
   edges: string;
+  document: string | null;
 }
 
 function readCurrent(db: Database.Database, projectId: string): { revisionId: string; revSeq: number; snapshot: Snapshot } | null {
@@ -36,15 +48,26 @@ function readCurrent(db: Database.Database, projectId: string): { revisionId: st
     | { current_revision_id: string | null }
     | undefined;
   if (!project?.current_revision_id) return null;
-  const revision = db.prepare('SELECT id, rev_seq, nodes, edges FROM graph_revisions WHERE id = ?').get(project.current_revision_id) as
+  const revision = db.prepare('SELECT id, rev_seq, nodes, edges, document FROM graph_revisions WHERE id = ?').get(project.current_revision_id) as
     | RevisionRow
     | undefined;
   if (!revision) return null;
   return {
     revisionId: revision.id,
     revSeq: revision.rev_seq,
-    snapshot: { nodes: JSON.parse(revision.nodes), edges: JSON.parse(revision.edges) },
+    snapshot: {
+      nodes: JSON.parse(revision.nodes),
+      edges: JSON.parse(revision.edges),
+      document: parseDocument(revision.document),
+    },
   };
+}
+
+function parseDocument(raw: string | null | undefined): WorkflowDocumentState | null {
+  if (!raw || raw === '{}') return null;
+  const parsed = JSON.parse(raw) as WorkflowDocumentState;
+  if (!parsed?.raw || (parsed.formatVersion !== 1 && parsed.formatVersion !== 0.4)) return null;
+  return parsed;
 }
 
 export function readProjection(db: Database.Database, projectId: string): Projection | null {
@@ -89,15 +112,16 @@ export function ensureProject(db: Database.Database, projectId: string, name = p
     }
     db.prepare(
       `INSERT INTO graph_revisions
-        (id, project_id, timestamp, nodes, edges, parent_revision_id, description, source, rev_seq)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    ).run(revisionId, projectId, now, '[]', '[]', null, 'Initial', 'system', 1);
+        (id, project_id, timestamp, nodes, edges, parent_revision_id, description, source, rev_seq, document)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(revisionId, projectId, now, '[]', '[]', null, 'Initial', 'system', 1, '{}');
   });
   write.immediate();
 }
 
 export function ensureWorkspace(db: Database.Database): void {
   ensureProject(db, DESKTOP_PROJECT_ID, 'Desktop');
+  ensureCatalog(db);
 }
 
 function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutation): { snapshot: Snapshot; result: Record<string, unknown> } {
@@ -122,20 +146,21 @@ function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutat
         annotations: [],
       },
     });
-    return { snapshot: { nodes, edges }, result: { nodeId, nodeType: payload.nodeType } };
+    return { snapshot: { nodes, edges, document: snapshot.document }, result: { nodeId, nodeType: payload.nodeType } };
   }
   if (payload.type === 'annotate-node') {
     const node = nodes.find((item) => item.id === payload.nodeId);
     if (!node) throw new CommandSignal('rejected');
     const annotations = Array.isArray(node.data.annotations) ? node.data.annotations : [];
     node.data = { ...node.data, annotations: [...annotations, payload.annotation] };
-    return { snapshot: { nodes, edges }, result: { nodeId: payload.nodeId } };
+    return { snapshot: { nodes, edges, document: snapshot.document }, result: { nodeId: payload.nodeId } };
   }
   if (payload.type === 'remove-node') {
     return {
       snapshot: {
         nodes: nodes.filter((node) => node.id !== payload.nodeId),
         edges: edges.filter((edge) => edge.source !== payload.nodeId && edge.target !== payload.nodeId),
+        document: snapshot.document,
       },
       result: { nodeId: payload.nodeId },
     };
@@ -144,7 +169,31 @@ function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutat
     const node = nodes.find((item) => item.id === payload.nodeId);
     if (!node) throw new CommandSignal('rejected');
     node.position = { x: payload.x, y: payload.y };
-    return { snapshot: { nodes, edges }, result: { nodeId: payload.nodeId } };
+    return { snapshot: { nodes, edges, document: snapshot.document }, result: { nodeId: payload.nodeId } };
+  }
+  if (payload.type === 'set-parameter') {
+    const node = nodes.find((item) => item.id === payload.nodeId);
+    if (!node) throw new CommandSignal('rejected');
+    const comfy = node.data.comfy && typeof node.data.comfy === 'object' ? { ...node.data.comfy } : {};
+    patchWidgets(comfy, payload.key, payload.value, payload.widgetIndex);
+    node.data = {
+      ...node.data,
+      parameters: { ...(node.data.parameters ?? {}), [payload.key]: payload.value },
+      comfy,
+    };
+    return { snapshot: { nodes, edges, document: snapshot.document }, result: { nodeId: payload.nodeId, key: payload.key } };
+  }
+  if (payload.type === 'retarget-edge') {
+    const edge = edges.find((item) => item.id === payload.edgeId);
+    if (!edge) throw new CommandSignal('rejected');
+    edge.target = payload.target;
+    edge.targetHandle = payload.targetHandle;
+    return { snapshot: { nodes, edges, document: snapshot.document }, result: { edgeId: payload.edgeId } };
+  }
+  if (payload.type === 'import-workflow') {
+    const projected = projectWorkflow(payload.document);
+    if ('error' in projected) throw new CommandSignal('rejected', { error: projected.error });
+    return { snapshot: projected.snapshot, result: { formatVersion: projected.snapshot.document?.formatVersion ?? null } };
   }
   if (payload.type === 'connect') {
     const edgeId = `edge-${actionId}`;
@@ -156,10 +205,14 @@ function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutat
       targetHandle: payload.targetHandle,
       data: { dataType: 'unknown' },
     });
-    return { snapshot: { nodes, edges }, result: { edgeId } };
+    return { snapshot: { nodes, edges, document: snapshot.document }, result: { edgeId } };
   }
   return {
-    snapshot: { nodes, edges: edges.filter((edge) => edge.id !== payload.edgeId) },
+    snapshot: {
+      nodes,
+      edges: edges.filter((edge) => edge.id !== payload.edgeId),
+      document: snapshot.document,
+    },
     result: { edgeId: payload.edgeId },
   };
 }
@@ -218,13 +271,19 @@ export function commitCommand(
       }
 
       const applied = applyMutation(current.snapshot, request.actionId, request.payload);
+      if (request.payload.type === 'import-workflow') {
+        applied.result = {
+          ...applied.result,
+          ...missingDeps(request.payload.document, readCatalog(db)),
+        };
+      }
       const nextSeq = current.revSeq + 1;
       const revisionId = `rev-${request.projectId}-${nextSeq}`;
       const now = Date.now();
       db.prepare(
         `INSERT INTO graph_revisions
-          (id, project_id, timestamp, nodes, edges, parent_revision_id, description, source, rev_seq)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          (id, project_id, timestamp, nodes, edges, parent_revision_id, description, source, rev_seq, document)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).run(
         revisionId,
         request.projectId,
@@ -235,6 +294,7 @@ export function commitCommand(
         request.payload.type,
         request.actor === 'ai' ? 'ai' : 'user',
         nextSeq,
+        JSON.stringify(applied.snapshot.document ?? {}),
       );
       db.prepare('UPDATE projects SET current_revision_id = ?, updated_at = ? WHERE id = ?').run(revisionId, now, request.projectId);
       db.prepare(
@@ -265,7 +325,7 @@ export function commitCommand(
     return { ...outcome, projection: readProjection(db, request.projectId) };
   } catch (error) {
     if (error instanceof CommandSignal) {
-      return { status: error.status, projection: readProjection(db, request.projectId), result: null };
+      return { status: error.status, projection: readProjection(db, request.projectId), result: error.detail };
     }
     throw error;
   }

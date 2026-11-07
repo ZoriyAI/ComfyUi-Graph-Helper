@@ -4,6 +4,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 const IPC_CHANNELS = {
   FILE_IMPORT_WORKFLOW: 'file:import-workflow',
   FILE_EXPORT_WORKFLOW: 'file:export-workflow',
+  WORKFLOW_EXPORT_DOCUMENT: 'workflow:export-document',
   DB_SAVE_PROJECT: 'db:save-project',
   DB_LOAD_PROJECT: 'db:load-project',
   DB_LIST_PROJECTS: 'db:list-projects',
@@ -33,7 +34,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // File operations
   importWorkflow: () => ipcRenderer.invoke(IPC_CHANNELS.FILE_IMPORT_WORKFLOW),
-  exportWorkflow: (workflow: any) => ipcRenderer.invoke(IPC_CHANNELS.FILE_EXPORT_WORKFLOW, workflow),
+  exportWorkflow: () => ipcRenderer.invoke(IPC_CHANNELS.FILE_EXPORT_WORKFLOW),
+  exportWorkflowDocument: () => ipcRenderer.invoke(IPC_CHANNELS.WORKFLOW_EXPORT_DOCUMENT),
 
   // Project operations
   saveProject: (project: any) => ipcRenderer.invoke(IPC_CHANNELS.DB_SAVE_PROJECT, project),
@@ -78,8 +80,9 @@ export interface ElectronAPI {
     chrome: string;
     electron: string;
   };
-  importWorkflow: () => Promise<any>;
-  exportWorkflow: (workflow: any) => Promise<boolean>;
+  importWorkflow: () => Promise<import('../shared/commands/types').CommandResponse | { status: 'cancelled'; projection: null; result: null }>;
+  exportWorkflow: () => Promise<{ ok: true } | { ok: false; canceled?: boolean; error?: string }>;
+  exportWorkflowDocument: () => Promise<{ ok: true; workflow: Record<string, unknown> } | { ok: false; error: string }>;
   saveProject: (project: any) => Promise<{ success: boolean }>;
   loadProject: (id: string) => Promise<any>;
   listProjects: () => Promise<any[]>;

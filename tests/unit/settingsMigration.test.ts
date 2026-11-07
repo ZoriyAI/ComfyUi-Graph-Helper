@@ -69,7 +69,7 @@ describe('settings migration', () => {
     db.close();
 
     const reopened = new Database(dbPath);
-    expect(schemaVersion(reopened)).toBe(2);
+    expect(schemaVersion(reopened)).toBe(3);
     expect(readSettings(reopened)).toMatchObject({
       source: 'stored',
       values: {

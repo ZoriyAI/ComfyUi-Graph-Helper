@@ -1,10 +1,13 @@
 import { ipcMain, dialog, BrowserWindow } from 'electron';
+import { randomUUID } from 'crypto';
 import * as fs from 'fs';
 import { IPC_CHANNELS } from '../shared/ipc-channels';
 import { getDatabase } from './database';
 import { mainLLMService } from './llmService';
 import { attemptSaveSecret, readSettings, saveSettings } from './settings/repository';
 import { cancelRun, commitCommand, pauseRun, readProjection, resumeRun, startRun, switchProject } from './commands/commit';
+import { DESKTOP_PROJECT_ID } from '../shared/project';
+import { exportWorkflow, type GraphSnapshot } from '../shared/workflow/codec';
 import type { CommandResponse, GraphMutation } from '../shared/commands/types';
 
 export function setupIPC() {
@@ -14,29 +17,30 @@ export function setupIPC() {
       filters: [{ name: 'ComfyUI Workflow', extensions: ['json'] }],
       properties: ['openFile'],
     });
-
     if (result.canceled || result.filePaths.length === 0) {
-      return null;
+      return { status: 'cancelled', projection: null, result: null };
     }
-
-    const filePath = result.filePaths[0];
-    const content = fs.readFileSync(filePath, 'utf-8');
-    return JSON.parse(content);
+    try {
+      const document = JSON.parse(fs.readFileSync(result.filePaths[0], 'utf-8'));
+      return importWorkflowDocument(document);
+    } catch {
+      return { status: 'rejected', projection: readProjection(getDatabase(), DESKTOP_PROJECT_ID), result: { error: 'Workflow JSON could not be parsed.' } };
+    }
   });
 
-  ipcMain.handle(IPC_CHANNELS.FILE_EXPORT_WORKFLOW, async (_event, workflow) => {
+  ipcMain.handle(IPC_CHANNELS.FILE_EXPORT_WORKFLOW, async () => {
+    const exported = exportWorkflowDocument();
+    if (!exported.ok) return exported;
     const result = await dialog.showSaveDialog({
       filters: [{ name: 'ComfyUI Workflow', extensions: ['json'] }],
       defaultPath: 'workflow.json',
     });
-
-    if (result.canceled || !result.filePath) {
-      return false;
-    }
-
-    fs.writeFileSync(result.filePath, JSON.stringify(workflow, null, 2), 'utf-8');
-    return true;
+    if (result.canceled || !result.filePath) return { ok: false, canceled: true };
+    fs.writeFileSync(result.filePath, JSON.stringify(exported.workflow, null, 2), 'utf-8');
+    return { ok: true };
   });
+
+  ipcMain.handle(IPC_CHANNELS.WORKFLOW_EXPORT_DOCUMENT, () => exportWorkflowDocument());
 
   // Project operations
   ipcMain.handle(IPC_CHANNELS.DB_SAVE_PROJECT, async (_event, project) => {
@@ -203,6 +207,27 @@ export function setupIPC() {
   );
 
   console.log('[IPC] Handlers registered');
+}
+
+function importWorkflowDocument(document: unknown) {
+  const db = getDatabase();
+  const current = readProjection(db, DESKTOP_PROJECT_ID);
+  if (!current) return { status: 'rejected', projection: null, result: { error: 'Project is not ready.' } };
+  return commitCommand(db, {
+    projectId: DESKTOP_PROJECT_ID,
+    actionId: `import-${randomUUID()}`,
+    expectedRevisionId: current.currentRevisionId,
+    actor: 'manual',
+    runId: null,
+    payload: { type: 'import-workflow', document },
+  });
+}
+
+function exportWorkflowDocument() {
+  const projection = readProjection(getDatabase(), DESKTOP_PROJECT_ID);
+  if (!projection) return { ok: false as const, error: 'Project is not ready.' };
+  const snapshot = projection.snapshot as GraphSnapshot;
+  return exportWorkflow(snapshot, new Date().toISOString());
 }
 
 function mutationFromTool(name: string, args: Record<string, unknown> | undefined): GraphMutation | null {

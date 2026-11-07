@@ -100,6 +100,23 @@ function columnNames(db: Database.Database, table: string): string[] {
   return (db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>).map((column) => column.name);
 }
 
+function applyVersion3(db: Database.Database): void {
+  if (!columnNames(db, 'graph_revisions').includes('document')) {
+    db.exec("ALTER TABLE graph_revisions ADD COLUMN document TEXT NOT NULL DEFAULT '{}'");
+  }
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS node_catalog (
+      class_type TEXT PRIMARY KEY,
+      pack TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS model_catalog (
+      directory TEXT NOT NULL,
+      name TEXT NOT NULL,
+      PRIMARY KEY (directory, name)
+    );
+  `);
+}
+
 function applyVersion2(db: Database.Database): void {
   if (!columnNames(db, 'projects').includes('current_revision_id')) {
     db.exec('ALTER TABLE projects ADD COLUMN current_revision_id TEXT');
@@ -113,10 +130,11 @@ function applyVersion2(db: Database.Database): void {
  * Version 0 has no schema_migrations table.
  * Version 1 adds settings, runs, applied_commands, and secret_records.
  * Version 2 adds the current revision pointer and monotonic rev_seq.
+ * Version 3 stores the workflow document and the local node/model catalog.
  */
 export function migrate(db: Database.Database, options?: { failBeforeVersionStamp?: boolean }): void {
   const version = schemaVersion(db);
-  if (version > 2) {
+  if (version > 3) {
     throw new Error(`Unsupported schema version ${version}`);
   }
   if (version < 1) {
@@ -133,6 +151,13 @@ export function migrate(db: Database.Database, options?: { failBeforeVersionStam
     const apply = db.transaction(() => {
       applyVersion2(db);
       db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (2, ?)').run(Date.now());
+    });
+    apply.immediate();
+  }
+  if (schemaVersion(db) === 2) {
+    const apply = db.transaction(() => {
+      applyVersion3(db);
+      db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (3, ?)').run(Date.now());
     });
     apply.immediate();
   }

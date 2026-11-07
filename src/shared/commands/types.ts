@@ -35,6 +35,23 @@ export const mutationSchema = z.discriminatedUnion('type', [
     type: z.literal('remove-edge'),
     edgeId: z.string().min(1),
   }),
+  z.object({
+    type: z.literal('import-workflow'),
+    document: z.record(z.string(), z.unknown()),
+  }),
+  z.object({
+    type: z.literal('set-parameter'),
+    nodeId: z.string().min(1),
+    key: z.string().min(1),
+    value: z.unknown(),
+    widgetIndex: z.number().int().nonnegative().optional(),
+  }),
+  z.object({
+    type: z.literal('retarget-edge'),
+    edgeId: z.string().min(1),
+    target: z.string().min(1),
+    targetHandle: z.string().min(1),
+  }),
 ]);
 
 export type GraphMutation = z.infer<typeof mutationSchema>;
@@ -60,7 +77,7 @@ export interface ActiveRun {
 
 export interface Projection {
   projectId: string;
-  snapshot: { nodes: unknown[]; edges: unknown[] };
+  snapshot: { nodes: unknown[]; edges: unknown[]; document?: unknown };
   currentRevisionId: string;
   revSeq: number;
   activeRun: ActiveRun | null;
