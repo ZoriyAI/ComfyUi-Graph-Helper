@@ -27,6 +27,14 @@ export const IPC_CHANNELS = {
   SETTINGS_SAVE: 'settings:save',
   SETTINGS_SAVE_SECRET: 'settings:save-secret',
 
+  COMMAND_COMMIT: 'command:commit',
+  COMMAND_START_RUN: 'command:start-run',
+  COMMAND_RESUME_RUN: 'command:resume-run',
+  COMMAND_PAUSE_RUN: 'command:pause-run',
+  COMMAND_CANCEL_RUN: 'command:cancel-run',
+  COMMAND_SWITCH_PROJECT: 'command:switch-project',
+  COMMAND_READ_PROJECTION: 'command:read-projection',
+
   // LLM operations (main process only)
   LLM_SET_CONFIG: 'llm:set-config',
   LLM_STREAM_CHAT: 'llm:stream-chat',

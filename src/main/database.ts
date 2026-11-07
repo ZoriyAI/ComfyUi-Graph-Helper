@@ -1,5 +1,6 @@
 import Database from 'better-sqlite3';
 import { app } from 'electron';
+import { ensureWorkspace } from './commands/commit';
 import { databasePath } from '../shared/database-path';
 import { migrate } from './settings/migrate';
 
@@ -17,7 +18,8 @@ export function initDatabase(): void {
   const dbPath = databasePath(userDataDir);
   console.log('[Database] Opening', dbPath);
   db = openDatabase(dbPath);
-  console.log('[Database] Schema version 1 ready');
+  ensureWorkspace(db);
+  console.log('[Database] Schema ready');
 }
 
 export function getDatabase(): Database.Database {

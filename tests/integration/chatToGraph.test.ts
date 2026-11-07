@@ -3,6 +3,8 @@ import { useGraphStore } from '../../src/renderer/state/graphState';
 import { useChatStore } from '../../src/renderer/state/chatState';
 import { useRevisionStore } from '../../src/renderer/state/revisionState';
 import { getChatService } from '../../src/renderer/services/llm/chatService';
+import { useProjectionStore } from '../../src/renderer/services/commands/projection';
+import { DESKTOP_PROJECT_ID } from '../../src/shared/project';
 
 /**
  * Integration test: Chat UI -> IPC -> Main AI SDK -> Tool Execution -> Graph
@@ -10,10 +12,24 @@ import { getChatService } from '../../src/renderer/services/llm/chatService';
  */
 
 // Mock window.electronAPI with test transport
+const started = {
+  runId: 'run-test',
+  baseRevisionId: 'rev-desktop-1',
+  expectedRevisionId: 'rev-desktop-1',
+  projection: {
+    projectId: DESKTOP_PROJECT_ID,
+    snapshot: { nodes: [], edges: [] },
+    currentRevisionId: 'rev-desktop-1',
+    revSeq: 1,
+    activeRun: { runId: 'run-test', status: 'running', expectedRevisionId: 'rev-desktop-1' },
+  },
+};
+
 const mockElectronAPI = {
   llmSetConfig: vi.fn(),
   llmStreamChat: vi.fn(),
   sendToolResult: vi.fn(),
+  startRun: vi.fn(async () => started),
 };
 
 (global as any).window = {
@@ -26,6 +42,7 @@ describe('Chat-to-Graph Integration', () => {
     useGraphStore.setState({ nodes: [], edges: [] });
     useChatStore.setState({ messages: [] });
     useRevisionStore.setState({ revisions: [], currentRevisionId: null });
+    useProjectionStore.setState({ projectId: DESKTOP_PROJECT_ID, revSeq: 0, currentRevisionId: '', activeRun: null });
     vi.clearAllMocks();
   });
 
@@ -33,55 +50,36 @@ describe('Chat-to-Graph Integration', () => {
     console.log('\n=== TEST: Chat -> AI SDK -> Graph ===');
 
     // Mock IPC to simulate test transport behavior
-    let capturedToolSpecs: any[] = [];
-    let capturedOnChunk: any;
-    let capturedOnToolExecute: any;
-
-    mockElectronAPI.llmStreamChat.mockImplementation(
-      async (messages: any[], toolSpecs: any[], onChunk: any, onToolExecute: any) => {
-        capturedToolSpecs = toolSpecs;
-        capturedOnChunk = onChunk;
-        capturedOnToolExecute = onToolExecute;
-
-        console.log('[TEST] Simulating AI SDK test transport');
-
-        // Step 1: Tool call addNode
-        const addNodeArgs = { nodeType: 'TestNode', title: 'Test Node 1', x: 100, y: 100 };
-        console.log('[TEST] Step 1: addNode tool call');
-
-        await onToolExecute({
-          tool: 'addNode',
-          args: addNodeArgs,
-          resultChannel: 'test-result-1',
-        });
-
-        // Small delay for action processing
-        await new Promise((r) => setTimeout(r, 10));
-
-        // Capture the added node ID
-        const { nodes } = useGraphStore.getState();
-        expect(nodes.length).toBe(1);
-        const nodeId = nodes[0].id;
-        console.log(`[TEST] Node added: ${nodeId}`);
-
-        // Step 2: Tool call annotateNode
-        const annotateArgs = { nodeId, annotation: 'Test annotation' };
-        console.log('[TEST] Step 2: annotateNode tool call');
-
-        await onToolExecute({
-          tool: 'annotateNode',
-          args: annotateArgs,
-          resultChannel: 'test-result-2',
-        });
-
-        await new Promise((r) => setTimeout(r, 10));
-
-        // Step 3: Final text response
-        console.log('[TEST] Step 3: text response');
-        onChunk({ type: 'text-delta', content: { text: 'I have added a TestNode and annotated it.' } });
-        onChunk({ type: 'done' });
-      }
-    );
+    mockElectronAPI.llmStreamChat.mockImplementation(async (_messages: any[], _toolSpecs: any[], onChunk: any) => {
+      onChunk({
+        type: 'projection',
+        content: {
+          projectId: DESKTOP_PROJECT_ID,
+          currentRevisionId: 'rev-desktop-2',
+          revSeq: 2,
+          activeRun: { runId: 'run-test', status: 'running', expectedRevisionId: 'rev-desktop-2' },
+          snapshot: {
+            nodes: [{ id: 'node-add-1', data: { comfyType: 'TestNode', title: 'Test Node 1', annotations: [] } }],
+            edges: [],
+          },
+        },
+      });
+      onChunk({
+        type: 'projection',
+        content: {
+          projectId: DESKTOP_PROJECT_ID,
+          currentRevisionId: 'rev-desktop-3',
+          revSeq: 3,
+          activeRun: { runId: 'run-test', status: 'running', expectedRevisionId: 'rev-desktop-3' },
+          snapshot: {
+            nodes: [{ id: 'node-add-1', data: { comfyType: 'TestNode', title: 'Test Node 1', annotations: ['Test annotation'] } }],
+            edges: [],
+          },
+        },
+      });
+      onChunk({ type: 'text-delta', content: { text: 'I have added a TestNode and annotated it.' } });
+      onChunk({ type: 'done' });
+    });
 
     // Execute chat message
     const chatService = getChatService();
@@ -103,49 +101,41 @@ describe('Chat-to-Graph Integration', () => {
     expect(messages[messages.length - 1].role).toBe('assistant');
 
     // Verify revisions
-    const { revisions } = useRevisionStore.getState();
-    console.log(`[TEST] Revision count: ${revisions.length}`);
-    expect(revisions.length).toBeGreaterThanOrEqual(2); // base revisions for both actions
+    expect(useRevisionStore.getState().currentRevisionId).toBe('rev-desktop-3');
 
     console.log('[TEST] ✓ Chat-to-graph integration verified\n');
   });
 
   it('should track action sources correctly', async () => {
-    mockElectronAPI.llmStreamChat.mockImplementation(
-      async (messages: any[], toolSpecs: any[], onChunk: any, onToolExecute: any) => {
-        await onToolExecute({
-          tool: 'addNode',
-          args: { nodeType: 'SourceTest', title: 'Source Test', x: 0, y: 0 },
-          resultChannel: 'test-source',
-        });
-        await new Promise((r) => setTimeout(r, 10));
-        onChunk({ type: 'done' });
-      }
-    );
+    mockElectronAPI.llmStreamChat.mockImplementation(async (_messages: any[], _toolSpecs: any[], onChunk: any, run: any) => {
+      expect(run.actor).toBeUndefined();
+      expect(run.runId).toBe('run-test');
+      onChunk({
+        type: 'projection',
+        content: {
+          projectId: DESKTOP_PROJECT_ID,
+          currentRevisionId: 'rev-desktop-2',
+          revSeq: 2,
+          activeRun: { runId: 'run-test', status: 'running', expectedRevisionId: 'rev-desktop-2' },
+          snapshot: { nodes: [{ id: 'node-1', data: { comfyType: 'SourceTest', title: 'Source Test', annotations: [] } }], edges: [] },
+        },
+      });
+      onChunk({ type: 'done' });
+    });
 
     const chatService = getChatService();
     await chatService.sendMessage('Add a node');
 
-    const { revisions } = useRevisionStore.getState();
-    const aiRevisions = revisions.filter((r) => r.source === 'ai');
-    expect(aiRevisions.length).toBeGreaterThan(0);
+    expect(mockElectronAPI.startRun).toHaveBeenCalledWith(DESKTOP_PROJECT_ID);
+    expect(useGraphStore.getState().nodes).toHaveLength(1);
 
     console.log('[TEST] ✓ AI action source tracked correctly\n');
   });
 
   it('should handle tool execution failures gracefully', async () => {
-    mockElectronAPI.llmStreamChat.mockImplementation(
-      async (messages: any[], toolSpecs: any[], onChunk: any, onToolExecute: any) => {
-        // Attempt to annotate non-existent node
-        await onToolExecute({
-          tool: 'annotateNode',
-          args: { nodeId: 'non-existent', annotation: 'Should fail' },
-          resultChannel: 'test-fail',
-        });
-        await new Promise((r) => setTimeout(r, 10));
-        onChunk({ type: 'done' });
-      }
-    );
+    mockElectronAPI.llmStreamChat.mockImplementation(async (_messages: any[], _toolSpecs: any[], onChunk: any) => {
+      onChunk({ type: 'done' });
+    });
 
     const chatService = getChatService();
     await chatService.sendMessage('Annotate non-existent node');

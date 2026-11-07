@@ -4,6 +4,8 @@ import { IPC_CHANNELS } from '../shared/ipc-channels';
 import { getDatabase } from './database';
 import { mainLLMService } from './llmService';
 import { attemptSaveSecret, readSettings, saveSettings } from './settings/repository';
+import { cancelRun, commitCommand, pauseRun, readProjection, resumeRun, startRun, switchProject } from './commands/commit';
+import type { CommandResponse, GraphMutation } from '../shared/commands/types';
 
 export function setupIPC() {
   // File operations
@@ -100,6 +102,34 @@ export function setupIPC() {
     return attemptSaveSecret(getDatabase());
   });
 
+  ipcMain.handle(IPC_CHANNELS.COMMAND_COMMIT, (_event, input: unknown) => {
+    return commitCommand(getDatabase(), input);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.COMMAND_START_RUN, (_event, projectId: string) => {
+    return startRun(getDatabase(), projectId);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.COMMAND_RESUME_RUN, (_event, projectId: string) => {
+    return resumeRun(getDatabase(), projectId);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.COMMAND_PAUSE_RUN, (_event, projectId: string, runId: string) => {
+    return pauseRun(getDatabase(), projectId, runId);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.COMMAND_CANCEL_RUN, (_event, projectId: string, runId: string) => {
+    return cancelRun(getDatabase(), projectId, runId);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.COMMAND_SWITCH_PROJECT, (_event, projectId: string) => {
+    return switchProject(getDatabase(), projectId);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.COMMAND_READ_PROJECTION, (_event, projectId: string) => {
+    return readProjection(getDatabase(), projectId);
+  });
+
   // LLM operations
   ipcMain.handle(IPC_CHANNELS.LLM_SET_CONFIG, async (_event, config) => {
     console.log('[IPC] Setting LLM config (credentials NOT logged)');
@@ -108,7 +138,7 @@ export function setupIPC() {
 
   ipcMain.handle(
     IPC_CHANNELS.LLM_STREAM_CHAT,
-    async (event, messages: any[], toolSpecs: any[], responseChannel: string) => {
+    async (event, messages: any[], toolSpecs: any[], responseChannel: string, runContext: { projectId: string; runId: string; expectedRevisionId: string }) => {
       console.log(`[IPC] Starting LLM stream with ${messages.length} messages, ${toolSpecs.length} tools`);
       const window = BrowserWindow.fromWebContents(event.sender);
       if (!window) {
@@ -120,39 +150,34 @@ export function setupIPC() {
       try {
         // Build AI SDK tools with IPC round-trip for execution
         const tools: Record<string, any> = {};
+        let expectedRevisionId = runContext.expectedRevisionId;
         console.log(`[IPC] Building tools...`);
         for (const spec of toolSpecs) {
           tools[spec.name] = {
             description: spec.description,
             parameters: spec.parameters,
             execute: async (args: any, options?: { toolCallId?: string }) => {
-              const executeId = `exec-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
-              const toolCallId = options?.toolCallId;
-              console.log(`[IPC:${executeId}] Tool ${spec.name} execute START, toolCallId=${toolCallId || 'none'}`);
-              
-              const resultChannel = `tool-result-${executeId}`;
-              const resultPromise = new Promise((resolve) => {
-                console.log(`[IPC:${executeId}] Registering result listener on ${resultChannel}`);
-                
-                ipcMain.once(resultChannel, (_e, result) => {
-                  console.log(`[IPC:${executeId}] Tool ${spec.name} result RECEIVED:`, JSON.stringify(result));
-                  resolve(result);
-                });
-                
-                console.log(`[IPC:${executeId}] Sending tool-execute to renderer`);
-                window.webContents.send('tool-execute', {
-                  tool: spec.name,
-                  args,
-                  resultChannel,
-                  executeId,
-                  toolCallId,
-                });
+              const toolCallId = options?.toolCallId || `${spec.name}-missing-id`;
+              const payload = mutationFromTool(spec.name, args);
+              console.log(`[IPC] Tool ${spec.name} commit ${toolCallId}`);
+              if (!payload) {
+                return { success: false, error: `Unknown tool: ${spec.name}` };
+              }
+              const outcome = commitCommand(getDatabase(), {
+                projectId: runContext.projectId,
+                runId: runContext.runId,
+                actionId: toolCallId,
+                expectedRevisionId,
+                actor: 'ai',
+                payload,
               });
-              
-              console.log(`[IPC:${executeId}] Awaiting result promise...`);
-              const result = await resultPromise;
-              console.log(`[IPC:${executeId}] Execute promise RESOLVED`);
-              return result;
+              if (outcome.status === 'applied' && outcome.projection?.activeRun) {
+                expectedRevisionId = outcome.projection.activeRun.expectedRevisionId;
+              }
+              if (outcome.projection) {
+                window.webContents.send(responseChannel, { type: 'projection', content: outcome.projection });
+              }
+              return toolOutcome(spec.name, args, outcome);
             },
           };
         }
@@ -178,4 +203,38 @@ export function setupIPC() {
   );
 
   console.log('[IPC] Handlers registered');
+}
+
+function mutationFromTool(name: string, args: Record<string, unknown> | undefined): GraphMutation | null {
+  const input = args ?? {};
+  if (name === 'addNode' && typeof input.nodeType === 'string') {
+    return {
+      type: 'add-node',
+      nodeType: input.nodeType,
+      title: typeof input.title === 'string' ? input.title : undefined,
+      x: typeof input.x === 'number' ? input.x : undefined,
+      y: typeof input.y === 'number' ? input.y : undefined,
+      parameters: input.parameters && typeof input.parameters === 'object' ? input.parameters as Record<string, unknown> : undefined,
+    };
+  }
+  if (name === 'annotateNode' && typeof input.nodeId === 'string' && typeof input.annotation === 'string') {
+    return { type: 'annotate-node', nodeId: input.nodeId, annotation: input.annotation };
+  }
+  return null;
+}
+
+function toolOutcome(name: string, args: Record<string, unknown> | undefined, outcome: CommandResponse) {
+  if (outcome.status === 'applied' || outcome.status === 'historical') {
+    const result = outcome.result as { nodeId?: string; nodeType?: string } | null;
+    if (name === 'addNode') {
+      return {
+        success: true,
+        message: `Added ${result?.nodeType || args?.nodeType || 'node'} node`,
+        nodeType: result?.nodeType || args?.nodeType,
+        nodeId: result?.nodeId,
+      };
+    }
+    return { success: true, message: `Annotated node ${result?.nodeId || ''}` };
+  }
+  return { success: false, conflict: outcome.status === 'conflict', error: outcome.status };
 }

@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useChatStore } from '../../src/renderer/state/chatState';
 import { useGraphStore } from '../../src/renderer/state/graphState';
 import { getChatService } from '../../src/renderer/services/llm/chatService';
+import { useProjectionStore } from '../../src/renderer/services/commands/projection';
+import { DESKTOP_PROJECT_ID } from '../../src/shared/project';
 
 /**
  * Integration test: Real streaming to Chat UI
@@ -12,6 +14,18 @@ const mockElectronAPI = {
   llmSetConfig: vi.fn(),
   llmStreamChat: vi.fn(),
   sendToolResult: vi.fn(),
+  startRun: vi.fn(async () => ({
+    runId: 'run-test',
+    baseRevisionId: 'rev-desktop-1',
+    expectedRevisionId: 'rev-desktop-1',
+    projection: {
+      projectId: DESKTOP_PROJECT_ID,
+      snapshot: { nodes: [], edges: [] },
+      currentRevisionId: 'rev-desktop-1',
+      revSeq: 1,
+      activeRun: { runId: 'run-test', status: 'running', expectedRevisionId: 'rev-desktop-1' },
+    },
+  })),
 };
 
 (global as any).window = {
@@ -22,6 +36,7 @@ describe('Chat UI Streaming', () => {
   beforeEach(async () => {
     useChatStore.setState({ messages: [], isStreaming: false, isPaused: false });
     useGraphStore.setState({ nodes: [], edges: [] });
+    useProjectionStore.setState({ projectId: DESKTOP_PROJECT_ID, revSeq: 0, currentRevisionId: '', activeRun: null });
     vi.clearAllMocks();
 
     // Force module reload to pick up changes
@@ -53,13 +68,6 @@ describe('Chat UI Streaming', () => {
         expect(assistantMsg?.toolCalls?.length).toBe(1);
         expect(assistantMsg?.toolCalls?.[0].status).toBe('pending');
         expect(assistantMsg?.toolCalls?.[0].name).toBe('addNode');
-
-        // Execute tool
-        await onToolExecute({
-          tool: 'addNode',
-          args: { nodeType: 'TestNode' },
-          resultChannel: 'result-1',
-        });
 
         // Tool result
         console.log('[TEST] Sending tool-result event (success)');
@@ -96,13 +104,6 @@ describe('Chat UI Streaming', () => {
         assistantMsg = chatMessages.find((m) => m.role === 'assistant');
         expect(assistantMsg?.toolCalls?.length).toBe(2);
         expect(assistantMsg?.toolCalls?.[1].status).toBe('pending');
-
-        // Execute second tool
-        await onToolExecute({
-          tool: 'annotateNode',
-          args: { nodeId: 'test', annotation: 'Test' },
-          resultChannel: 'result-2',
-        });
 
         // Second result
         onChunk({
@@ -151,13 +152,6 @@ describe('Chat UI Streaming', () => {
         });
 
         await new Promise((r) => setTimeout(r, 5));
-
-        // Execute tool that will fail
-        await onToolExecute({
-          tool: 'addNode',
-          args: {},
-          resultChannel: 'result-fail',
-        });
 
         // Return failure result
         onChunk({

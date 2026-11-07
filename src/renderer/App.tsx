@@ -1,15 +1,23 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import GraphCanvas from './components/graph/GraphCanvas';
 import ChatPanel from './components/chat/ChatPanel';
 import SettingsPanel from './components/settings/SettingsPanel';
 import { useGraphStore } from './state/graphState';
 import { useChatStore } from './state/chatState';
+import { applyProjection } from './services/commands/projection';
+import { DESKTOP_PROJECT_ID } from '../shared/project';
 import { getChatService } from './services/llm/chatService';
 
 function App() {
   const { nodes } = useGraphStore();
   const [provider, setProvider] = useState('');
   const [providerNote, setProviderNote] = useState('No provider selected. Nothing is sent.');
+
+  useEffect(() => {
+    window.electronAPI.readProjection(DESKTOP_PROJECT_ID).then(applyProjection).catch((error) => {
+      console.error('[App] Projection load failed:', error);
+    });
+  }, []);
 
   const applyProvider = async (next: string) => {
     if (next === 'test') {

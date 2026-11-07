@@ -12,6 +12,13 @@ const IPC_CHANNELS = {
   SETTINGS_GET: 'settings:get',
   SETTINGS_SAVE: 'settings:save',
   SETTINGS_SAVE_SECRET: 'settings:save-secret',
+  COMMAND_COMMIT: 'command:commit',
+  COMMAND_START_RUN: 'command:start-run',
+  COMMAND_RESUME_RUN: 'command:resume-run',
+  COMMAND_PAUSE_RUN: 'command:pause-run',
+  COMMAND_CANCEL_RUN: 'command:cancel-run',
+  COMMAND_SWITCH_PROJECT: 'command:switch-project',
+  COMMAND_READ_PROJECTION: 'command:read-projection',
 } as const;
 
 // Expose safe IPC API to renderer
@@ -37,6 +44,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveSettings: (input: unknown) => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SAVE, input),
   saveSecret: (value: string) => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SAVE_SECRET, value),
 
+  commitCommand: (input: unknown) => ipcRenderer.invoke(IPC_CHANNELS.COMMAND_COMMIT, input),
+  startRun: (projectId: string) => ipcRenderer.invoke(IPC_CHANNELS.COMMAND_START_RUN, projectId),
+  resumeRun: (projectId: string) => ipcRenderer.invoke(IPC_CHANNELS.COMMAND_RESUME_RUN, projectId),
+  pauseRun: (projectId: string, runId: string) => ipcRenderer.invoke(IPC_CHANNELS.COMMAND_PAUSE_RUN, projectId, runId),
+  cancelRun: (projectId: string, runId: string) => ipcRenderer.invoke(IPC_CHANNELS.COMMAND_CANCEL_RUN, projectId, runId),
+  switchProject: (projectId: string) => ipcRenderer.invoke(IPC_CHANNELS.COMMAND_SWITCH_PROJECT, projectId),
+  readProjection: (projectId: string) => ipcRenderer.invoke(IPC_CHANNELS.COMMAND_READ_PROJECTION, projectId),
+
   // LLM operations
   llmSetConfig: (config: { provider: string; model: string; apiKey?: string; baseURL?: string }) =>
     ipcRenderer.invoke(IPC_CHANNELS.LLM_SET_CONFIG, config),
@@ -44,12 +59,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     messages: Array<{ role: string; content: string }>,
     toolSpecs: Array<{ name: string; description: string; parameters: any }>,
     onChunk: (chunk: { type: string; content: any }) => void,
-    onToolExecute: (request: { tool: string; args: any; resultChannel: string; executeId?: string; toolCallId?: string }) => void
+    run: { projectId: string; runId: string; expectedRevisionId: string },
   ) => {
     const channel = `llm-stream-${Date.now()}`;
     ipcRenderer.on(channel, (_event, chunk) => onChunk(chunk));
-    ipcRenderer.on('tool-execute', (_event, request) => onToolExecute(request));
-    return ipcRenderer.invoke(IPC_CHANNELS.LLM_STREAM_CHAT, messages, toolSpecs, channel);
+    return ipcRenderer.invoke(IPC_CHANNELS.LLM_STREAM_CHAT, messages, toolSpecs, channel, run);
   },
   sendToolResult: (resultChannel: string, result: any) => {
     ipcRenderer.send(resultChannel, result);
@@ -75,6 +89,13 @@ export interface ElectronAPI {
   >;
   saveSettings: (input: unknown) => Promise<{ ok: true; values: { theme: 'graphite'; motion: 'system' | 'on' | 'off'; provider: '' | 'test' | 'openai'; model: string; comfyOrigin: string } } | { ok: false; error: string }>;
   saveSecret: (value: string) => Promise<{ status: 'secret-storage-blocked' }>;
+  commitCommand: (input: unknown) => Promise<import('../shared/commands/types').CommandResponse>;
+  startRun: (projectId: string) => Promise<import('../shared/commands/types').RunStart>;
+  resumeRun: (projectId: string) => Promise<import('../shared/commands/types').RunStart>;
+  pauseRun: (projectId: string, runId: string) => Promise<import('../shared/commands/types').CommandResponse>;
+  cancelRun: (projectId: string, runId: string) => Promise<import('../shared/commands/types').CommandResponse>;
+  switchProject: (projectId: string) => Promise<import('../shared/commands/types').Projection | null>;
+  readProjection: (projectId: string) => Promise<import('../shared/commands/types').Projection | null>;
   llmSetConfig: (config: {
     provider: string;
     model: string;
@@ -85,7 +106,7 @@ export interface ElectronAPI {
     messages: Array<{ role: string; content: string }>,
     toolSpecs: Array<{ name: string; description: string; parameters: any }>,
     onChunk: (chunk: { type: string; content: any }) => void,
-    onToolExecute: (request: { tool: string; args: any; resultChannel: string; executeId?: string; toolCallId?: string }) => void
+    run: { projectId: string; runId: string; expectedRevisionId: string },
   ) => Promise<void>;
   sendToolResult: (resultChannel: string, result: any) => void;
 }

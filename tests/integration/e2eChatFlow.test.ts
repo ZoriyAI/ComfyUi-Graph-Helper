@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useChatStore } from '../../src/renderer/state/chatState';
 import { useGraphStore } from '../../src/renderer/state/graphState';
 import { getChatService } from '../../src/renderer/services/llm/chatService';
+import { useProjectionStore } from '../../src/renderer/services/commands/projection';
+import { DESKTOP_PROJECT_ID } from '../../src/shared/project';
 
 /**
  * E2E chat flow test
@@ -14,75 +16,61 @@ describe('E2E Chat Flow', () => {
     // Reset stores
     useChatStore.setState({ messages: [], isStreaming: false, isPaused: false });
     useGraphStore.setState({ nodes: [], edges: [] });
+    useProjectionStore.setState({ projectId: DESKTOP_PROJECT_ID, revSeq: 0, currentRevisionId: '', activeRun: null });
 
     // Mock electronAPI
     (global as any).window = {
       electronAPI: {
         llmSetConfig: vi.fn().mockResolvedValue(undefined),
-        llmStreamChat: vi.fn(async (messages, toolSpecs, onChunk, onToolExecute) => {
-          console.log('[MOCK] llmStreamChat called');
-          
-          // Simulate AI SDK test fixture flow
-          // Step 1: addNode tool call
+        startRun: vi.fn(async () => ({
+          runId: 'run-test',
+          baseRevisionId: 'rev-desktop-1',
+          expectedRevisionId: 'rev-desktop-1',
+          projection: {
+            projectId: DESKTOP_PROJECT_ID,
+            snapshot: { nodes: [], edges: [] },
+            currentRevisionId: 'rev-desktop-1',
+            revSeq: 1,
+            activeRun: { runId: 'run-test', status: 'running', expectedRevisionId: 'rev-desktop-1' },
+          },
+        })),
+        llmStreamChat: vi.fn(async (_messages, _toolSpecs, onChunk) => {
           onChunk({ type: 'tool-call', content: { toolCallId: 'call-1', toolName: 'addNode' } });
-          
-          // Wait for tool execution request
-          await new Promise(resolve => setTimeout(resolve, 10));
-          
-          // Simulate tool execute callback
-          const addNodeResult: any = await new Promise((resolve) => {
-            // Mock sendToolResult BEFORE calling onToolExecute
-            (window.electronAPI as any).sendToolResult = (channel: string, result: any) => {
-              console.log('[MOCK] Tool result:', result);
-              resolve(result);
-            };
-            
-            // Execute tool (will call sendToolResult async)
-            onToolExecute({
-              tool: 'addNode',
-              args: { nodeType: 'TestNode', title: 'AI Test Node', x: 200, y: 200 },
-              resultChannel: 'result-1',
-            });
+          onChunk({
+            type: 'projection',
+            content: {
+              projectId: DESKTOP_PROJECT_ID,
+              currentRevisionId: 'rev-desktop-2',
+              revSeq: 2,
+              activeRun: { runId: 'run-test', status: 'running', expectedRevisionId: 'rev-desktop-2' },
+              snapshot: {
+                nodes: [{ id: 'node-call-1', data: { comfyType: 'TestNode', title: 'AI Test Node', annotations: [] } }],
+                edges: [],
+              },
+            },
           });
-          
-          // Send tool result back
-          onChunk({ 
-            type: 'tool-result', 
-            content: { 
-              toolCallId: 'call-1', 
-              result: addNodeResult 
-            } 
+          onChunk({
+            type: 'tool-result',
+            content: { toolCallId: 'call-1', result: { success: true, nodeId: 'node-call-1' } },
           });
-          
-          // Step 2: annotateNode tool call
-          const nodeId = addNodeResult.nodeId;
-          console.log('[MOCK] Using nodeId:', nodeId);
           onChunk({ type: 'tool-call', content: { toolCallId: 'call-2', toolName: 'annotateNode' } });
-          
-          await new Promise(resolve => setTimeout(resolve, 10));
-          
-          const annotateResult = await new Promise((resolve) => {
-            (window.electronAPI as any).sendToolResult = (channel: string, result: any) => {
-              console.log('[MOCK] Annotate result:', result);
-              resolve(result);
-            };
-            
-            onToolExecute({
-              tool: 'annotateNode',
-              args: { nodeId, annotation: 'AI added annotation' },
-              resultChannel: 'result-2',
-            });
+          onChunk({
+            type: 'projection',
+            content: {
+              projectId: DESKTOP_PROJECT_ID,
+              currentRevisionId: 'rev-desktop-3',
+              revSeq: 3,
+              activeRun: { runId: 'run-test', status: 'running', expectedRevisionId: 'rev-desktop-3' },
+              snapshot: {
+                nodes: [{ id: 'node-call-1', data: { comfyType: 'TestNode', title: 'AI Test Node', annotations: ['AI added annotation'] } }],
+                edges: [],
+              },
+            },
           });
-          
-          onChunk({ 
-            type: 'tool-result', 
-            content: { 
-              toolCallId: 'call-2', 
-              result: annotateResult 
-            } 
+          onChunk({
+            type: 'tool-result',
+            content: { toolCallId: 'call-2', result: { success: true } },
           });
-          
-          // Step 3: text completion
           onChunk({ type: 'text-delta', content: { text: 'Done!' } });
           onChunk({ type: 'done' });
         }),

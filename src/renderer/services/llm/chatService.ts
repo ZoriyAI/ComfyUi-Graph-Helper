@@ -1,12 +1,10 @@
 import { useChatStore } from '../../state/chatState';
-import { useRevisionStore } from '../../state/revisionState';
-import { getGraphService } from '../graph/graphService';
-import { getActionExecutor } from '../actions/actionExecutor';
-import { GraphAction } from '../../types/revisions';
+import { DESKTOP_PROJECT_ID } from '../../../shared/project';
+import type { Projection } from '../../../shared/commands/types';
+import { applyProjection } from '../commands/projection';
 
 /**
- * Renderer chat service that integrates with main-process AI SDK
- * Tools execute in renderer context with full graph access
+ * Renderer chat service. Tool mutations commit in the main process.
  */
 
 interface ToolSpec {
@@ -18,6 +16,7 @@ interface ToolSpec {
 class ChatService {
   private isStreaming = false;
   private currentBaseRevisionId: string | null = null;
+  private currentRunId: string | null = null;
 
   async sendMessage(content: string): Promise<void> {
     console.log(`[ChatService] sendMessage called: "${content}"`);
@@ -38,11 +37,11 @@ class ChatService {
       timestamp: Date.now(),
     });
 
-    // CRITICAL: Create base revision BEFORE sending to model
-    // This captures the graph state that the model "sees"
-    const baseRevision = getGraphService().createRevision('system', 'Before AI conversation turn');
-    this.currentBaseRevisionId = baseRevision.id;
-    console.log(`[ChatService] Base revision captured: ${baseRevision.id}`);
+    const started = await window.electronAPI.startRun(DESKTOP_PROJECT_ID);
+    applyProjection(started.projection);
+    this.currentBaseRevisionId = started.baseRevisionId;
+    this.currentRunId = started.runId;
+    console.log(`[ChatService] Base revision captured: ${started.baseRevisionId}`);
 
     // Prepare tool specs (no execute functions - those stay in renderer)
     const toolSpecs: ToolSpec[] = [
@@ -173,7 +172,9 @@ class ChatService {
         (chunk) => {
           console.log('[ChatService] Received chunk:', chunk.type);
 
-          if (chunk.type === 'text-delta' && chunk.content.text) {
+          if (chunk.type === 'projection') {
+            applyProjection(chunk.content as Projection);
+          } else if (chunk.type === 'text-delta' && chunk.content.text) {
             console.log('[ChatService] text-delta:', chunk.content.text);
             assistantContent += chunk.content.text;
 
@@ -244,27 +245,11 @@ class ChatService {
             }
           }
         },
-        async (request) => {
-          const executeId = request.executeId || 'unknown';
-          console.log(`[ChatService:${executeId}] Tool execute request: ${request.tool}`);
-          console.log(`[ChatService:${executeId}] Args:`, request.args);
-          console.log(`[ChatService:${executeId}] Result channel: ${request.resultChannel}`);
-          
-          const result = await this.executeTool(request.tool, request.args);
-          
-          console.log(`[ChatService:${executeId}] Tool executed, result:`, result);
-          settleTool(
-            request.toolCallId,
-            request.tool,
-            result?.success ? 'success' : 'error',
-            result,
-            result?.error || result?.message
-          );
-          
-          console.log(`[ChatService:${executeId}] Sending result to channel: ${request.resultChannel}`);
-          window.electronAPI.sendToolResult(request.resultChannel, result);
-          console.log(`[ChatService:${executeId}] Result sent`);
-        }
+        {
+          projectId: DESKTOP_PROJECT_ID,
+          runId: started.runId,
+          expectedRevisionId: started.expectedRevisionId,
+        },
       );
     } catch (error: any) {
       console.error('[ChatService] Stream error:', error);
@@ -285,84 +270,20 @@ class ChatService {
     console.log('[ChatService] Streaming cancelled');
   }
 
-  pause(): void {
+  async pause(): Promise<void> {
     useChatStore.setState({ isPaused: true });
-    console.log('[ChatService] Streaming paused');
+    if (this.currentRunId) {
+      const result = await window.electronAPI.pauseRun(DESKTOP_PROJECT_ID, this.currentRunId);
+      applyProjection(result.projection);
+    }
   }
 
-  resume(): void {
+  async resume(): Promise<void> {
+    const started = await window.electronAPI.resumeRun(DESKTOP_PROJECT_ID);
+    this.currentRunId = started.runId;
+    this.currentBaseRevisionId = started.baseRevisionId;
+    applyProjection(started.projection);
     useChatStore.setState({ isPaused: false });
-    console.log('[ChatService] Streaming resumed');
-  }
-
-  private async executeTool(toolName: string, args: any): Promise<any> {
-    console.log(`[ChatService] Executing tool ${toolName}:`, args);
-
-    if (toolName === 'addNode') {
-      return this.executeAddNode(args);
-    } else if (toolName === 'annotateNode') {
-      return this.executeAnnotateNode(args);
-    } else {
-      return { success: false, error: `Unknown tool: ${toolName}` };
-    }
-  }
-
-  private async executeAddNode(args: {
-    nodeType: string;
-    title?: string;
-    x?: number;
-    y?: number;
-    parameters?: Record<string, unknown>;
-  }): Promise<any> {
-    // Capture FRESH base revision for this tool execution (multi-tool support)
-    const { currentRevisionId } = useRevisionStore.getState();
-
-    const action: GraphAction = {
-      id: `a-${Date.now()}`,
-      type: 'add-node',
-      timestamp: Date.now(),
-      beforeRevisionId: currentRevisionId || '',
-      payload: args,
-      source: 'ai',
-      status: 'pending',
-    };
-    await getActionExecutor().queueAction(action);
-
-    if (action.status === 'conflict') {
-      return { success: false, conflict: true, message: action.error || 'Conflict detected' };
-    } else if (action.status === 'failed') {
-      return { success: false, error: action.error || 'Failed to add node' };
-    } else {
-      console.log(`[ChatService] addNode result:`, action.result);
-      return { 
-        success: true, 
-        message: `Added ${args.nodeType} node`, 
-        nodeType: args.nodeType,
-        nodeId: action.result?.nodeId, // Return nodeId for subsequent tool calls
-      };
-    }
-  }
-
-  private async executeAnnotateNode(args: { nodeId: string; annotation: string }): Promise<any> {
-    // Capture FRESH base revision for this tool execution (multi-tool support)
-    const { currentRevisionId } = useRevisionStore.getState();
-
-    const action: GraphAction = {
-      id: `a-${Date.now()}`,
-      type: 'annotate-node',
-      timestamp: Date.now(),
-      beforeRevisionId: currentRevisionId || '',
-      payload: args,
-      source: 'ai',
-      status: 'pending',
-    };
-    await getActionExecutor().queueAction(action);
-
-    if (action.status === 'applied') {
-      return { success: true, message: `Annotated node ${args.nodeId}` };
-    } else {
-      return { success: false, error: action.error || 'Failed to annotate' };
-    }
   }
 }
 
