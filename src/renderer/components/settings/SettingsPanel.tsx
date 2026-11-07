@@ -1,12 +1,23 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { nonSecretDefaults, type NonSecretSettings, type SettingsRead } from '../../../shared/config/schema';
 import { consumeSecretSave } from './secretSave';
 
+function applyMotion(motion: NonSecretSettings['motion']) {
+  document.documentElement.dataset.motion = motion;
+}
+
 export default function SettingsPanel() {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const openerRef = useRef<HTMLButtonElement>(null);
   const [values, setValues] = useState<NonSecretSettings>(nonSecretDefaults);
   const [settingsNote, setSettingsNote] = useState('Settings are not saved yet.');
   const [secret, setSecret] = useState('');
   const [secretNote, setSecretNote] = useState('Key storage is not available.');
+
+  useEffect(() => {
+    applyMotion(values.motion);
+  }, [values.motion]);
 
   useEffect(() => {
     let cancelled = false;
@@ -17,6 +28,7 @@ export default function SettingsPanel() {
         return;
       }
       setValues(read.values);
+      applyMotion(read.values.motion);
       setSettingsNote(read.source === 'stored' ? 'Restored non-secret settings.' : 'Defaults are shown and are not written yet.');
     }).catch(() => {
       if (!cancelled) setSettingsNote('Settings could not be read.');
@@ -34,6 +46,7 @@ export default function SettingsPanel() {
         return;
       }
       setValues(result.values);
+      applyMotion(result.values.motion);
       setSettingsNote('Non-secret settings saved.');
     } catch {
       setSettingsNote('Settings could not be saved.');
@@ -49,54 +62,83 @@ export default function SettingsPanel() {
     setSecretNote(outcome.note);
   };
 
+  const dialog = (
+      <dialog
+        ref={dialogRef}
+        className="settings-dialog"
+        aria-label="Settings"
+        onClose={() => openerRef.current?.focus()}
+      >
+        <form className="settings-strip" onSubmit={(event) => event.preventDefault()}>
+          <h2 className="settings-heading">Settings</h2>
+          <p className="settings-lead">Project connection and motion. Nothing here starts a ComfyUI queue.</p>
+          <label>
+            Comfy origin
+            <input
+              aria-label="Comfy origin"
+              value={values.comfyOrigin}
+              onChange={(event) => setValues({ ...values, comfyOrigin: event.target.value })}
+            />
+          </label>
+          <label>
+            Model
+            <input
+              aria-label="Model"
+              value={values.model}
+              onChange={(event) => setValues({ ...values, model: event.target.value })}
+            />
+          </label>
+          <label>
+            Motion
+            <select
+              aria-label="Motion"
+              value={values.motion}
+              onChange={(event) => setValues({ ...values, motion: event.target.value as NonSecretSettings['motion'] })}
+            >
+              <option value="system">System</option>
+              <option value="on">On</option>
+              <option value="reduced">Reduced</option>
+              <option value="off">Off</option>
+            </select>
+          </label>
+          <button type="button" className="ghost-button" onClick={() => { void save(); }}>
+            Save settings
+          </button>
+          <p className="provider-note">{settingsNote}</p>
+          <label>
+            API key
+            <input
+              type="password"
+              aria-label="API key"
+              autoComplete="off"
+              value={secret}
+              onChange={(event) => setSecret(event.target.value)}
+            />
+          </label>
+          <button type="button" className="ghost-button" onClick={() => { void saveKey(); }}>
+            Save key
+          </button>
+          <p className="provider-note">{secretNote}</p>
+          <div className="settings-actions">
+            <button type="button" className="ghost-button" onClick={() => dialogRef.current?.close()}>
+              Close
+            </button>
+          </div>
+        </form>
+      </dialog>
+  );
+
   return (
-    <section className="settings-strip" aria-label="Settings">
-      <label>
-        Comfy origin
-        <input
-          aria-label="Comfy origin"
-          value={values.comfyOrigin}
-          onChange={(event) => setValues({ ...values, comfyOrigin: event.target.value })}
-        />
-      </label>
-      <label>
-        Model
-        <input
-          aria-label="Model"
-          value={values.model}
-          onChange={(event) => setValues({ ...values, model: event.target.value })}
-        />
-      </label>
-      <label>
-        Motion
-        <select
-          aria-label="Motion"
-          value={values.motion}
-          onChange={(event) => setValues({ ...values, motion: event.target.value as NonSecretSettings['motion'] })}
-        >
-          <option value="system">System</option>
-          <option value="on">On</option>
-          <option value="off">Off</option>
-        </select>
-      </label>
-      <button type="button" className="ghost-button" onClick={() => { void save(); }}>
-        Save settings
+    <>
+      <button
+        ref={openerRef}
+        type="button"
+        className="ghost-button"
+        onClick={() => dialogRef.current?.showModal()}
+      >
+        Settings
       </button>
-      <p className="provider-note">{settingsNote}</p>
-      <label>
-        API key
-        <input
-          type="password"
-          aria-label="API key"
-          autoComplete="off"
-          value={secret}
-          onChange={(event) => setSecret(event.target.value)}
-        />
-      </label>
-      <button type="button" className="ghost-button" onClick={() => { void saveKey(); }}>
-        Save key
-      </button>
-      <p className="provider-note">{secretNote}</p>
-    </section>
+      {createPortal(dialog, document.body)}
+    </>
   );
 }

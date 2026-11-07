@@ -4,8 +4,11 @@ import {
   Background,
   Controls,
   MiniMap,
+  BaseEdge,
+  getBezierPath,
   Connection,
   NodeTypes,
+  EdgeProps,
   OnNodesChange,
   OnEdgesChange,
   applyNodeChanges,
@@ -20,6 +23,32 @@ import { submitManual } from '../../services/commands/projection';
 const nodeTypes: NodeTypes = {
   comfy: ComfyNode,
 };
+
+const TYPE_STROKE: Record<string, string> = {
+  IMAGE: 'var(--type-image)',
+  LATENT: 'var(--type-latent)',
+  MODEL: 'var(--type-model)',
+  CONDITIONING: 'var(--type-conditioning)',
+  VAE: 'var(--type-vae)',
+  CLIP: 'var(--type-clip)',
+};
+
+function typeStroke(dataType: unknown) {
+  return TYPE_STROKE[String(dataType)] || 'var(--type-unknown)';
+}
+
+function TypedEdge({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, selected }: EdgeProps) {
+  const [path] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition });
+  const record = data as { dataType?: string } | undefined;
+  return (
+    <BaseEdge
+      path={path}
+      style={{ stroke: typeStroke(record?.dataType), strokeWidth: selected ? 2.5 : 1.75 }}
+    />
+  );
+}
+
+const edgeTypes = { default: TypedEdge };
 
 export default function GraphCanvas() {
   const { nodes, edges, setNodes, setEdges } = useGraphStore();
@@ -82,14 +111,24 @@ export default function GraphCanvas() {
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         colorMode="dark"
         fitView
+        fitViewOptions={{ padding: 0.2 }}
         minZoom={0.1}
         maxZoom={2}
       >
         <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
-        <Controls />
-        <MiniMap nodeStrokeWidth={3} className="graph-minimap" />
+        <Controls position="top-left" />
+        <MiniMap
+          position="bottom-left"
+          nodeStrokeWidth={3}
+          className="graph-minimap"
+          nodeColor={(node) => {
+            const data = node.data as { outputs?: Array<{ dataType?: string }>; inputs?: Array<{ dataType?: string }> };
+            return typeStroke(data.outputs?.[0]?.dataType || data.inputs?.[0]?.dataType);
+          }}
+        />
       </ReactFlow>
     </div>
   );

@@ -16,7 +16,7 @@ export default function Message({ message }: MessageProps) {
 
   return (
     <div className={`message-row${isUser ? ' is-user' : ''}`}>
-      <div className="message-bubble">
+      <div className={`message-bubble${!isUser && message.content.startsWith('Error') ? ' is-error' : ''}`}>
         <div className="message-body">{message.content}</div>
         {message.toolCalls && message.toolCalls.length > 0 ? (
           <div className="tool-list">

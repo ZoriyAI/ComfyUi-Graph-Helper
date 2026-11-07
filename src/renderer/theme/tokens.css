@@ -30,5 +30,40 @@
   --shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
   --minimap-mask: rgba(20, 23, 28, 0.72);
   --attribution: rgba(16, 19, 23, 0.8);
+  --scrim: rgba(8, 10, 14, 0.72);
+  --motion-feedback: 100ms;
+  --motion-enter: 160ms;
+  --motion-exit: 120ms;
+  --motion-panel: 200ms;
+  --motion-shift: 8px;
+  --motion-ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --motion-ease-in: cubic-bezier(0.4, 0, 1, 1);
   font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+}
+
+html[data-motion="reduced"] {
+  --motion-feedback: 60ms;
+  --motion-enter: 60ms;
+  --motion-exit: 60ms;
+  --motion-panel: 60ms;
+  --motion-shift: 0px;
+}
+
+html[data-motion="off"] {
+  --motion-feedback: 0ms;
+  --motion-enter: 0ms;
+  --motion-exit: 0ms;
+  --motion-panel: 0ms;
+  --motion-shift: 0px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-motion="system"],
+  html:not([data-motion]) {
+    --motion-feedback: 60ms;
+    --motion-enter: 60ms;
+    --motion-exit: 60ms;
+    --motion-panel: 60ms;
+    --motion-shift: 0px;
+  }
 }

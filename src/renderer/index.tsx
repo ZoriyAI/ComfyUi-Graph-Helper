@@ -4,6 +4,8 @@ import App from './App';
 import './theme/tokens.css';
 import './theme.css';
 
+document.documentElement.dataset.motion = 'system';
+
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
 );

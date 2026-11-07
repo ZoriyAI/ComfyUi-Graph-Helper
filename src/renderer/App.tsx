@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import GraphCanvas from './components/graph/GraphCanvas';
+import Inspector from './components/graph/Inspector';
 import ChatPanel from './components/chat/ChatPanel';
 import SettingsPanel from './components/settings/SettingsPanel';
 import { useGraphStore } from './state/graphState';
@@ -78,11 +79,19 @@ function App() {
   return (
     <div className="app-shell">
       <header className="app-header">
-        <h1 className="app-title">
-          ComfyUI Graph Builder
-          <small>Not connected to a ComfyUI server.</small>
-        </h1>
+        <div className="brand">
+          <h1 className="app-title">ComfyUI Graph Builder</h1>
+          <span className="project-chip">Project Desktop</span>
+        </div>
         <div className="header-actions">
+          <button
+            type="button"
+            className="ghost-button"
+            disabled
+            title="ComfyUI is not connected. This build does not start a queue."
+          >
+            ComfyUI not connected
+          </button>
           <div className="provider-controls">
             <label>
               Chat provider
@@ -101,23 +110,40 @@ function App() {
                 <option value="openai">OpenAI session</option>
               </select>
             </label>
+            <p className="provider-note">{providerNote}</p>
           </div>
-          <p className="provider-note">{providerNote}</p>
           <button type="button" className="ghost-button" onClick={() => void handleImport()}>
             Import
           </button>
           <button type="button" className="ghost-button" onClick={() => void handleExport()}>
             Export
           </button>
+          <button
+            type="button"
+            className="ghost-button"
+            disabled
+            title="Undo is not available in this build. Each commit stays in the revision history."
+          >
+            Undo
+          </button>
+          <button
+            type="button"
+            className="ghost-button"
+            disabled
+            title="Redo is not available in this build."
+          >
+            Redo
+          </button>
+          <SettingsPanel />
           {workflowNote ? <p className="workflow-report">{workflowNote}</p> : null}
         </div>
       </header>
-      <SettingsPanel />
       <div className="app-body">
         <div className="graph-pane">
           <GraphCanvas />
         </div>
         <div className="chat-pane">
+          <Inspector />
           <ChatPanel onSendMessage={handleSendMessage} onPause={handlePause} />
         </div>
       </div>

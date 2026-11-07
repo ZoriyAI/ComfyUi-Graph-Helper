@@ -39,6 +39,7 @@ test('blocked secret IPC clears the field and leaves the fake marker out of sqli
     env: { ...process.env, NODE_ENV: 'production' },
   });
   const window = await app.firstWindow();
+  await window.getByRole('button', { name: 'Settings', exact: true }).click();
   const input = window.locator('input[aria-label="API key"]');
   const secretNote = window.locator('.settings-strip p.provider-note').nth(1);
   await input.waitFor();

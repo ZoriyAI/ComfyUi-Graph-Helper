@@ -87,10 +87,10 @@ export interface ElectronAPI {
   loadProject: (id: string) => Promise<any>;
   listProjects: () => Promise<any[]>;
   getSettings: () => Promise<
-    | { source: 'default' | 'stored'; values: { theme: 'graphite'; motion: 'system' | 'on' | 'off'; provider: '' | 'test' | 'openai'; model: string; comfyOrigin: string } }
+    | { source: 'default' | 'stored'; values: { theme: 'graphite'; motion: 'system' | 'on' | 'reduced' | 'off'; provider: '' | 'test' | 'openai'; model: string; comfyOrigin: string } }
     | { source: 'corrupt' }
   >;
-  saveSettings: (input: unknown) => Promise<{ ok: true; values: { theme: 'graphite'; motion: 'system' | 'on' | 'off'; provider: '' | 'test' | 'openai'; model: string; comfyOrigin: string } } | { ok: false; error: string }>;
+  saveSettings: (input: unknown) => Promise<{ ok: true; values: { theme: 'graphite'; motion: 'system' | 'on' | 'reduced' | 'off'; provider: '' | 'test' | 'openai'; model: string; comfyOrigin: string } } | { ok: false; error: string }>;
   saveSecret: (value: string) => Promise<{ status: 'secret-storage-blocked' }>;
   commitCommand: (input: unknown) => Promise<import('../shared/commands/types').CommandResponse>;
   startRun: (projectId: string) => Promise<import('../shared/commands/types').RunStart>;

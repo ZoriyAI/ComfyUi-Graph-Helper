@@ -13,7 +13,15 @@ export default function ChatPanel({ onSendMessage, onPause }: ChatPanelProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const end = messagesEndRef.current;
+    const log = end?.parentElement;
+    if (!end || !log) return;
+    const distance = log.scrollHeight - log.scrollTop - log.clientHeight;
+    if (messages.length > 1 && distance >= 120) return;
+    const motion = document.documentElement.dataset.motion || 'system';
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const behavior: ScrollBehavior = motion === 'off' || motion === 'reduced' || (motion === 'system' && reduce) ? 'auto' : 'smooth';
+    end.scrollIntoView({ behavior });
   }, [messages]);
 
   return (
@@ -28,7 +36,7 @@ export default function ChatPanel({ onSendMessage, onPause }: ChatPanelProps) {
         {messages.length === 0 ? (
           <div className="chat-empty">
             <strong>No messages yet</strong>
-            <p>The canvas starts with a labeled demo graph. Choose TEST fixture for a scripted reply, or OpenAI for a live session key.</p>
+            <p>The graph is empty. Import a workflow or describe a change. TEST fixture replies are scripted and are not a live model.</p>
           </div>
         ) : (
           <>
