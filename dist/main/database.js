@@ -44,12 +44,13 @@ const path = __importStar(require("path"));
 const electron_1 = require("electron");
 let db = null;
 function initDatabase() {
-    const dbPath = path.join(electron_1.app.getPath('userData'), 'comfyui-desktop.db');
-    console.log('[Database] Initializing at:', dbPath);
-    db = new better_sqlite3_1.default(dbPath);
-    db.pragma('journal_mode = WAL'); // Better performance
-    // Create tables
-    db.exec(`
+    try {
+        const dbPath = path.join(electron_1.app.getPath('userData'), 'comfyui-desktop.db');
+        console.log('[Database] Initializing at:', dbPath);
+        db = new better_sqlite3_1.default(dbPath);
+        db.pragma('journal_mode = WAL'); // Better performance
+        // Create tables
+        db.exec(`
     CREATE TABLE IF NOT EXISTS projects (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -85,7 +86,12 @@ function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_chat_project ON chat_messages(project_id);
     CREATE INDEX IF NOT EXISTS idx_revisions_project ON graph_revisions(project_id);
   `);
-    console.log('[Database] Initialized successfully');
+        console.log('[Database] Initialized successfully');
+    }
+    catch (error) {
+        console.error('[Database] Failed to initialize:', error);
+        db = null;
+    }
 }
 function getDatabase() {
     if (!db) {

@@ -5,11 +5,12 @@ import { app } from 'electron';
 let db: Database.Database | null = null;
 
 export function initDatabase() {
-  const dbPath = path.join(app.getPath('userData'), 'comfyui-desktop.db');
-  console.log('[Database] Initializing at:', dbPath);
-  
-  db = new Database(dbPath);
-  db.pragma('journal_mode = WAL'); // Better performance
+  try {
+    const dbPath = path.join(app.getPath('userData'), 'comfyui-desktop.db');
+    console.log('[Database] Initializing at:', dbPath);
+    
+    db = new Database(dbPath);
+    db.pragma('journal_mode = WAL'); // Better performance
 
   // Create tables
   db.exec(`
@@ -49,7 +50,11 @@ export function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_revisions_project ON graph_revisions(project_id);
   `);
 
-  console.log('[Database] Initialized successfully');
+    console.log('[Database] Initialized successfully');
+  } catch (error) {
+    console.error('[Database] Failed to initialize:', error);
+    db = null;
+  }
 }
 
 export function getDatabase(): Database.Database {

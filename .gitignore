@@ -11,6 +11,10 @@ dist/
 build/
 out/
 
+# Prevent stale JS in source dirs (TypeScript should compile to dist/ only)
+src/**/*.js
+!src/**/*.config.js
+
 # Environment
 .env
 .env.local
