@@ -13,7 +13,7 @@ export interface PortDefinition {
 /**
  * Data stored in each node
  */
-export interface ComfyNodeData {
+export interface ComfyNodeData extends Record<string, unknown> {
   comfyType: string; // ComfyUI class_type
   title?: string;
   inputs: PortDefinition[];
@@ -33,7 +33,7 @@ export type GraphNode = Node<ComfyNodeData, 'comfy'>;
 /**
  * Data stored in each edge
  */
-export interface EdgeData {
+export interface EdgeData extends Record<string, unknown> {
   dataType: string;
   // Preserve original ComfyUI data for roundtrip
   comfyData?: Record<string, unknown>;
