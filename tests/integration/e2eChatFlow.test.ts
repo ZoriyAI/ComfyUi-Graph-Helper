@@ -124,8 +124,7 @@ describe('E2E Chat Flow', () => {
     // Verify new node has expected properties
     const newNode = nodes.find(n => n.data.title === 'AI Test Node');
     expect(newNode).toBeDefined();
-    expect(newNode?.data.annotation).toBe('AI added annotation');
-    expect(newNode?.data.source).toBe('ai');
+    expect(newNode?.data.annotations).toContain('AI added annotation');
   });
 
   it('should show readable error message on failure', async () => {

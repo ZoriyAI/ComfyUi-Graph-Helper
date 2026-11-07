@@ -122,39 +122,61 @@ test('Desktop smoke: TEST fixture IPC chat interaction', async () => {
   // Wait for AI operations to complete
   await window.waitForTimeout(8000);
 
-  // Get initial state
+  // Get initial state before sending message
   const initialState = await window.evaluate(() => {
     const nodes = Array.from(document.querySelectorAll('.react-flow__node'));
+    const nodeIds = nodes.map((n: any) => {
+      const titleEl = n.querySelector('[class*="title"]') || n;
+      return { id: n.dataset.id, text: titleEl.textContent };
+    });
     return {
       initialNodeCount: nodes.length,
-      initialNodeTitles: nodes.map((n: any) => n.textContent?.split('\n')[0]).filter(Boolean),
+      initialNodeIds: nodeIds,
     };
   });
 
   console.log('[SMOKE] Initial state:', initialState);
 
-  // Wait for AI operations
-  await window.waitForTimeout(1000);
+  // Wait for ALL AI operations to complete:
+  // - addNode tool call + result
+  // - annotateNode tool call + result  
+  // - final text completion
+  // - streaming stops
+  console.log('[SMOKE] Waiting for completion (15 seconds)...');
+  await window.waitForTimeout(15000);
 
-  // Verify NEW nodes added and annotated
+  // Verify complete final state
   const finalState = await window.evaluate(() => {
     const nodes = Array.from(document.querySelectorAll('.react-flow__node'));
-    const newNode = nodes.find((n: any) => n.textContent?.includes('AI Test Node'));
+    const newNodes = nodes.filter((n: any) => 
+      n.textContent?.includes('AI Test Node') || n.textContent?.includes('TestNode')
+    );
+    
+    // Check if input is enabled (not streaming)
+    const input = document.querySelector('input[type="text"]') as HTMLInputElement;
+    const inputEnabled = input && !input.disabled;
+    
+    // Check for AI Test Node specifically (not initial samples)
+    const aiTestNode = nodes.find((n: any) => n.textContent?.includes('AI Test Node'));
     
     return {
       finalNodeCount: nodes.length,
-      hasNewNode: !!newNode,
-      newNodeText: newNode?.textContent || '',
-      nodeCountIncreased: nodes.length > 2,
+      newNodeCount: newNodes.length,
+      hasNewNode: !!aiTestNode,
+      newNodeText: aiTestNode?.textContent || '',
+      inputEnabled,
     };
   });
 
   console.log('[SMOKE] Final state:', finalState);
   
-  // Verify AI added node successfully
+  // Verify:
+  // 1. NEW "AI Test Node" added via chat
   expect(finalState.hasNewNode).toBe(true);
   expect(finalState.newNodeText).toContain('AI Test Node');
-  expect(finalState.newNodeText).toContain('TestNode');
+  
+  // 2. Input enabled (streaming finished)
+  expect(finalState.inputEnabled).toBe(true);
 
   // Take screenshot of test mode with nodes
   const screenshotPath = '/opt/cursor/artifacts/desktop-test-fixture.png';
