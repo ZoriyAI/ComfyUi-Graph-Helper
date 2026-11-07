@@ -1,5 +1,14 @@
 import type Database from 'better-sqlite3';
-import { SEEDED_NODE_TYPES, type CatalogView } from '../../shared/workflow/codec';
+import type { CatalogView } from '../../shared/workflow/codec';
+
+export const SEEDED_NODE_TYPES = [
+  'CheckpointLoaderSimple',
+  'CLIPTextEncode',
+  'KSampler',
+  'VAEDecode',
+  'SaveImage',
+  'LoadImage',
+] as const;
 
 export function ensureCatalog(db: Database.Database): void {
   const insert = db.prepare('INSERT OR IGNORE INTO node_catalog (class_type, pack) VALUES (?, ?)');

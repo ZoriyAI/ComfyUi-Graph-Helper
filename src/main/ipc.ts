@@ -36,7 +36,11 @@ export function setupIPC() {
       defaultPath: 'workflow.json',
     });
     if (result.canceled || !result.filePath) return { ok: false, canceled: true };
-    fs.writeFileSync(result.filePath, JSON.stringify(exported.workflow, null, 2), 'utf-8');
+    try {
+      fs.writeFileSync(result.filePath, JSON.stringify(exported.workflow, null, 2), 'utf-8');
+    } catch {
+      return { ok: false, error: 'The workflow file could not be written.' };
+    }
     return { ok: true };
   });
 

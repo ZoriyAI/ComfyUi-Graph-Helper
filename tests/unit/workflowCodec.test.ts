@@ -207,4 +207,133 @@ describe('workflow codec', () => {
     expect(api['1'].inputs.ckpt_name).toBe('old.safetensors');
     db.close();
   });
+
+  it('gives a new v1 connection a numeric link id and does not lower lastLinkId', () => {
+    const db = openDb();
+    const imported = importWorkflow(db, uiV1, 'import-connect-v1');
+    const connected = commitCommand(db, {
+      projectId: DESKTOP_PROJECT_ID,
+      actionId: 'connect-1',
+      expectedRevisionId: imported.projection!.currentRevisionId,
+      actor: 'manual',
+      runId: null,
+      payload: { type: 'connect', source: '1', target: '2', sourceHandle: 'out-0', targetHandle: 'in-0' },
+    });
+    expect(connected.status).toBe('applied');
+    expect(connected.result).toMatchObject({ linkId: 10 });
+    const exported = exportWorkflow(connected.projection!.snapshot as never, '2026-11-08T00:00:00.000Z');
+    expect(exported.ok).toBe(true);
+    if (!exported.ok) return;
+    const links = exported.workflow.links as Array<Record<string, unknown>>;
+    const created = links.find((link) => link.id === 10);
+    expect(created).toMatchObject({ id: 10, origin_id: 1, origin_slot: 0, target_id: 2, target_slot: 0, type: 'MODEL' });
+    expect(typeof created?.id).toBe('number');
+    expect((exported.workflow.state as { lastLinkId: number }).lastLinkId).toBeGreaterThanOrEqual(10);
+    const nodes = exported.workflow.nodes as Array<Record<string, any>>;
+    expect(nodes[1].inputs[0].link).toBe(10);
+    expect(nodes[0].outputs[0].links).toEqual(expect.arrayContaining([9, 10]));
+    db.close();
+  });
+
+  it('gives a new 0.4 connection a numeric tuple id and keeps last_link_id monotonic', () => {
+    const db = openDb();
+    const document = {
+      version: 0.4,
+      last_node_id: 2,
+      last_link_id: 4,
+      nodes: [
+        {
+          id: 1,
+          type: 'LoadImage',
+          pos: [0, 0],
+          size: [10, 10],
+          flags: {},
+          order: 0,
+          mode: 0,
+          properties: {},
+          outputs: [{ name: 'IMAGE', type: 'IMAGE', links: [], slot_index: 0 }],
+        },
+        {
+          id: 2,
+          type: 'SaveImage',
+          pos: [20, 0],
+          size: [10, 10],
+          flags: {},
+          order: 1,
+          mode: 0,
+          properties: {},
+          inputs: [{ name: 'images', type: 'IMAGE', link: null, slot_index: 0 }],
+        },
+      ],
+      links: [],
+      groups: [],
+    };
+    const imported = importWorkflow(db, document, 'import-connect-v04');
+    const connected = commitCommand(db, {
+      projectId: DESKTOP_PROJECT_ID,
+      actionId: 'connect-v04',
+      expectedRevisionId: imported.projection!.currentRevisionId,
+      actor: 'manual',
+      runId: null,
+      payload: { type: 'connect', source: '1', target: '2', sourceHandle: 'out-0', targetHandle: 'in-0' },
+    });
+    expect(connected.status).toBe('applied');
+    const exported = exportWorkflow(connected.projection!.snapshot as never, '2026-11-08T00:00:00.000Z');
+    expect(exported.ok).toBe(true);
+    if (!exported.ok) return;
+    expect(exported.workflow.links).toEqual([[5, 1, 0, 2, 0, 'IMAGE']]);
+    expect(exported.workflow.last_link_id).toBeGreaterThanOrEqual(5);
+    const nodes = exported.workflow.nodes as Array<Record<string, any>>;
+    expect(nodes[1].inputs[0].link).toBe(5);
+    expect(nodes[0].outputs[0].links).toEqual([5]);
+    db.close();
+  });
+
+  it('does not lower lastNodeId after a node is removed', () => {
+    const db = openDb();
+    const imported = importWorkflow(db, uiV1, 'import-remove');
+    const removed = commitCommand(db, {
+      projectId: DESKTOP_PROJECT_ID,
+      actionId: 'remove-3',
+      expectedRevisionId: imported.projection!.currentRevisionId,
+      actor: 'manual',
+      runId: null,
+      payload: { type: 'remove-node', nodeId: '3' },
+    });
+    expect(removed.status).toBe('applied');
+    const exported = exportWorkflow(removed.projection!.snapshot as never, '2026-11-08T00:00:00.000Z');
+    expect(exported.ok).toBe(true);
+    if (!exported.ok) return;
+    expect((exported.workflow.nodes as unknown[]).map((node) => (node as { id: number }).id)).toEqual([1, 2]);
+    expect((exported.workflow.state as { lastNodeId: number }).lastNodeId).toBeGreaterThanOrEqual(3);
+    db.close();
+  });
+
+  it('rejects an array widget write without an index and a retarget to a missing node', () => {
+    const db = openDb();
+    const imported = importWorkflow(db, uiV1, 'import-reject');
+    const rejectedParam = commitCommand(db, {
+      projectId: DESKTOP_PROJECT_ID,
+      actionId: 'param-missing-index',
+      expectedRevisionId: imported.projection!.currentRevisionId,
+      actor: 'manual',
+      runId: null,
+      payload: { type: 'set-parameter', nodeId: '2', key: 'text', value: 'new' },
+    });
+    expect(rejectedParam.status).toBe('rejected');
+    expect(rejectedParam.result).toEqual({ error: 'widgetIndex is required when widgets_values is an array.' });
+    const node = (readProjection(db, DESKTOP_PROJECT_ID)!.snapshot.nodes as Array<Record<string, any>>).find((item) => item.id === '2');
+    expect(node?.data.comfy.widgets_values).toEqual(['old', { extra: true }]);
+    const rejectedLink = commitCommand(db, {
+      projectId: DESKTOP_PROJECT_ID,
+      actionId: 'retarget-missing',
+      expectedRevisionId: imported.projection!.currentRevisionId,
+      actor: 'manual',
+      runId: null,
+      payload: { type: 'retarget-edge', edgeId: 'link-9', target: '99', targetHandle: 'in-0' },
+    });
+    expect(rejectedLink.status).toBe('rejected');
+    expect(rejectedLink.result).toEqual({ error: 'Target node was not found.' });
+    db.close();
+  });
 });

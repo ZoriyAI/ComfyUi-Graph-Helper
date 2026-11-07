@@ -15,8 +15,11 @@ import { inferInputs, inferOutputs } from '../../shared/graph/ports';
 import { DESKTOP_PROJECT_ID } from '../../shared/project';
 import {
   missingDeps,
+  nextLinkId,
+  numericSlot,
   patchWidgets,
   projectWorkflow,
+  rememberLinkId,
   type WorkflowDocumentState,
 } from '../../shared/workflow/codec';
 
@@ -174,6 +177,10 @@ function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutat
   if (payload.type === 'set-parameter') {
     const node = nodes.find((item) => item.id === payload.nodeId);
     if (!node) throw new CommandSignal('rejected');
+    const widgets = node.data?.comfy?.widgets_values;
+    if (Array.isArray(widgets) && payload.widgetIndex === undefined) {
+      throw new CommandSignal('rejected', { error: 'widgetIndex is required when widgets_values is an array.' });
+    }
     const comfy = node.data.comfy && typeof node.data.comfy === 'object' ? { ...node.data.comfy } : {};
     patchWidgets(comfy, payload.key, payload.value, payload.widgetIndex);
     node.data = {
@@ -186,6 +193,13 @@ function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutat
   if (payload.type === 'retarget-edge') {
     const edge = edges.find((item) => item.id === payload.edgeId);
     if (!edge) throw new CommandSignal('rejected');
+    const target = nodes.find((item) => item.id === payload.target);
+    const inputs = Array.isArray(target?.data?.inputs) ? target.data.inputs : [];
+    if (!target || !inputs.some((input: { id?: string }) => input.id === payload.targetHandle)) {
+      throw new CommandSignal('rejected', {
+        error: target ? 'Target handle is not an input on that node.' : 'Target node was not found.',
+      });
+    }
     edge.target = payload.target;
     edge.targetHandle = payload.targetHandle;
     return { snapshot: { nodes, edges, document: snapshot.document }, result: { edgeId: payload.edgeId } };
@@ -196,16 +210,39 @@ function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutat
     return { snapshot: projected.snapshot, result: { formatVersion: projected.snapshot.document?.formatVersion ?? null } };
   }
   if (payload.type === 'connect') {
-    const edgeId = `edge-${actionId}`;
+    const originSlot = numericSlot(payload.sourceHandle);
+    const targetSlot = numericSlot(payload.targetHandle);
+    if (originSlot === null || targetSlot === null) {
+      throw new CommandSignal('rejected', { error: 'Connection slots must be numbers.' });
+    }
+    const source = nodes.find((item) => item.id === payload.source);
+    const port = Array.isArray(source?.data?.outputs)
+      ? source.data.outputs.find((item: { id?: string }) => item.id === payload.sourceHandle)
+      : undefined;
+    const dataType = typeof port?.dataType === 'string' ? port.dataType : '';
+    const linkId = nextLinkId({ nodes, edges, document: snapshot.document });
+    const originId = /^\d+$/.test(payload.source) ? Number(payload.source) : payload.source;
+    const targetId = /^\d+$/.test(payload.target) ? Number(payload.target) : payload.target;
+    const comfyLink = snapshot.document?.formatVersion === 0.4
+      ? [linkId, originId, originSlot, targetId, targetSlot, dataType]
+      : { id: linkId, origin_id: originId, origin_slot: originSlot, target_id: targetId, target_slot: targetSlot, type: dataType };
+    const edgeId = `link-${linkId}`;
     edges.push({
       id: edgeId,
       source: payload.source,
       target: payload.target,
       sourceHandle: payload.sourceHandle,
       targetHandle: payload.targetHandle,
-      data: { dataType: 'unknown' },
+      data: { dataType, linkId, comfyLink },
     });
-    return { snapshot: { nodes, edges, document: snapshot.document }, result: { edgeId } };
+    return {
+      snapshot: {
+        nodes,
+        edges,
+        document: snapshot.document ? rememberLinkId(snapshot.document, linkId) : snapshot.document,
+      },
+      result: { edgeId, linkId },
+    };
   }
   return {
     snapshot: {

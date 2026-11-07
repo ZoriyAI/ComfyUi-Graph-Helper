@@ -26,17 +26,6 @@ export interface MissingReport {
 
 export type WorkflowKind = 'ui-v1' | 'ui-v0.4' | 'api-prompt' | 'unknown';
 
-const SEEDED = [
-  'CheckpointLoaderSimple',
-  'CLIPTextEncode',
-  'KSampler',
-  'VAEDecode',
-  'SaveImage',
-  'LoadImage',
-] as const;
-
-export const SEEDED_NODE_TYPES: readonly string[] = SEEDED;
-
 export function classifyWorkflow(document: unknown): WorkflowKind {
   if (!document || typeof document !== 'object' || Array.isArray(document)) return 'unknown';
   const record = document as Record<string, unknown>;
@@ -211,6 +200,58 @@ export function projectWorkflow(document: unknown): { snapshot: GraphSnapshot } 
   };
 }
 
+export function numericSlot(handle: unknown): number | null {
+  const text = String(handle ?? '');
+  const match = /^(?:in|out)-(.*)$/.exec(text);
+  const body = match ? match[1] : text;
+  return /^\d+$/.test(body) ? Number(body) : null;
+}
+
+export function collectNumericIds(values: unknown[]): number[] {
+  return values.filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
+}
+
+export function monotonicCounter(stored: unknown, current: number[]): number {
+  const base = typeof stored === 'number' && Number.isFinite(stored) ? stored : 0;
+  return current.reduce((max, value) => Math.max(max, value), base);
+}
+
+export function nextLinkId(snapshot: GraphSnapshot): number {
+  const raw = snapshot.document?.raw;
+  const state = raw?.state && typeof raw.state === 'object' ? (raw.state as Record<string, unknown>) : {};
+  const fromLinks = Array.isArray(raw?.links)
+    ? raw.links.flatMap((link) => {
+        if (Array.isArray(link) && typeof link[0] === 'number') return [link[0]];
+        if (link && typeof link === 'object' && !Array.isArray(link) && typeof (link as { id?: unknown }).id === 'number') {
+          return [(link as { id: number }).id];
+        }
+        return [];
+      })
+    : [];
+  const fromEdges = snapshot.edges.flatMap((edge) => {
+    const ids: number[] = [];
+    if (typeof edge.data?.linkId === 'number') ids.push(edge.data.linkId);
+    const stored = edge.data?.comfyLink;
+    if (Array.isArray(stored) && typeof stored[0] === 'number') ids.push(stored[0]);
+    if (stored && typeof stored === 'object' && !Array.isArray(stored) && typeof stored.id === 'number') ids.push(stored.id);
+    if (typeof edge.id === 'string' && /^link-\d+$/.test(edge.id)) ids.push(Number(edge.id.slice(5)));
+    return ids;
+  });
+  return monotonicCounter(state.lastLinkId, [typeof raw?.last_link_id === 'number' ? raw.last_link_id : 0, ...fromLinks, ...fromEdges]) + 1;
+}
+
+export function rememberLinkId(document: WorkflowDocumentState, linkId: number): WorkflowDocumentState {
+  const raw = { ...document.raw };
+  if (document.formatVersion === WORKFLOW_FORMAT_V1) {
+    const state = raw.state && typeof raw.state === 'object' ? { ...(raw.state as Record<string, unknown>) } : {};
+    state.lastLinkId = monotonicCounter(state.lastLinkId, [linkId]);
+    raw.state = state;
+    return { formatVersion: document.formatVersion, raw };
+  }
+  raw.last_link_id = monotonicCounter(raw.last_link_id, [linkId]);
+  return { formatVersion: document.formatVersion, raw };
+}
+
 function slotNumber(handle: unknown): number | string {
   const text = String(handle ?? '');
   const match = /^(?:in|out)-(.*)$/.exec(text);
@@ -252,18 +293,25 @@ function edgeToLink(edge: Record<string, any>, formatVersion: WorkflowFormat): u
       record.type,
     ];
   }
-  const id = typeof edge.id === 'string' && edge.id.startsWith('link-') ? edge.id.slice(5) : edge.id;
-  const numericId = /^\d+$/.test(String(id)) ? Number(id) : id;
+  const parsed = typeof edge.data?.linkId === 'number'
+    ? edge.data.linkId
+    : typeof edge.id === 'string' && /^link-\d+$/.test(edge.id)
+      ? Number(edge.id.slice(5))
+      : null;
+  const numericId = parsed ?? 0;
+  const origin = typeof originSlot === 'number' ? originSlot : 0;
+  const target = typeof targetSlot === 'number' ? targetSlot : 0;
+  const linkType = typeof edge.data?.dataType === 'string' ? edge.data.dataType : '';
   if (formatVersion === WORKFLOW_FORMAT_V04) {
-    return [numericId, coerceId(edge.source, null), originSlot, coerceId(edge.target, null), targetSlot, edge.data?.dataType ?? ''];
+    return [numericId, coerceId(edge.source, null), origin, coerceId(edge.target, null), target, linkType];
   }
   return {
     id: numericId,
-    origin_id: edge.source,
-    origin_slot: originSlot,
-    target_id: edge.target,
-    target_slot: targetSlot,
-    type: edge.data?.dataType ?? '',
+    origin_id: /^\d+$/.test(String(edge.source)) ? Number(edge.source) : edge.source,
+    origin_slot: origin,
+    target_id: /^\d+$/.test(String(edge.target)) ? Number(edge.target) : edge.target,
+    target_slot: target,
+    type: linkType,
   };
 }
 
@@ -351,13 +399,16 @@ export function exportWorkflow(snapshot: GraphSnapshot, exportedAt: string): { o
     nodes: exportedNodes,
     links,
   };
+  const numericNodeIds = collectNumericIds(exportedNodes.map((node) => node.id));
+  const numericLinkIds = collectNumericIds(links.map((link) => (Array.isArray(link) ? link[0] : (link as { id?: unknown }).id)));
   if (formatVersion === WORKFLOW_FORMAT_V1) {
     const state = raw.state && typeof raw.state === 'object' ? { ...(raw.state as Record<string, unknown>) } : {};
-    const numericNodeIds = exportedNodes.map((node) => node.id).filter((id): id is number => typeof id === 'number');
-    const numericLinkIds = links.map((link) => (Array.isArray(link) ? link[0] : (link as { id?: unknown }).id)).filter((id): id is number => typeof id === 'number');
-    state.lastNodeId = numericNodeIds.length ? Math.max(...numericNodeIds) : state.lastNodeId ?? 0;
-    state.lastLinkId = numericLinkIds.length ? Math.max(...numericLinkIds) : state.lastLinkId ?? 0;
+    state.lastNodeId = monotonicCounter(state.lastNodeId, numericNodeIds);
+    state.lastLinkId = monotonicCounter(state.lastLinkId, numericLinkIds);
     workflow.state = state;
+  } else {
+    workflow.last_node_id = monotonicCounter(raw.last_node_id, numericNodeIds);
+    workflow.last_link_id = monotonicCounter(raw.last_link_id, numericLinkIds);
   }
   const extra = raw.extra && typeof raw.extra === 'object' ? { ...(raw.extra as Record<string, unknown>) } : {};
   if (extra.info && typeof extra.info === 'object') {
