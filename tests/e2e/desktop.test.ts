@@ -42,6 +42,21 @@ test('Desktop smoke: app window loads with production renderer', async () => {
   expect(graphCanvas).toBeGreaterThan(0);
   expect(chatPanel).toBeGreaterThan(0);
 
+  // Verify preload API is available
+  const apiStatus = await window.evaluate(() => {
+    const api = (window as any).electronAPI;
+    return {
+      available: !!api,
+      platform: api?.platform || 'N/A',
+      electron: api?.versions?.electron || 'N/A',
+    };
+  });
+
+  console.log('[SMOKE] electronAPI status:', apiStatus);
+  expect(apiStatus.available).toBe(true);
+  expect(apiStatus.platform).not.toBe('N/A');
+  expect(apiStatus.electron).not.toBe('N/A');
+
   // Take screenshot
   const screenshotPath = '/opt/cursor/artifacts/desktop-smoke.png';
   await window.screenshot({ path: screenshotPath, fullPage: true });
@@ -69,8 +84,8 @@ test('Desktop smoke: app window loads with production renderer', async () => {
   console.log('[SMOKE] ✓ Desktop smoke passed');
 });
 
-test('Desktop smoke: disconnected mode screenshot', async () => {
-  console.log('[SMOKE] Taking disconnected mode screenshot');
+test('Desktop smoke: TEST fixture IPC chat interaction', async () => {
+  console.log('[SMOKE] Starting TEST fixture mode');
 
   const electronApp = await electron.launch({
     args: [path.join(__dirname, '../../dist/main/index.js')],
@@ -84,11 +99,49 @@ test('Desktop smoke: disconnected mode screenshot', async () => {
   await window.waitForLoadState('domcontentloaded');
   await window.waitForTimeout(2000);
 
-  // Take screenshot of default disconnected state
-  const screenshotPath = '/opt/cursor/artifacts/desktop-disconnected.png';
+  // Configure TEST provider via electronAPI
+  console.log('[SMOKE] Configuring TEST fixture via IPC');
+  await window.evaluate(async () => {
+    const api = (window as any).electronAPI;
+    await api.llmSetConfig({
+      provider: 'test',
+      model: 'test-fixture',
+    });
+    console.log('[TEST MODE] Test fixture configured via IPC');
+  });
+
+  // Wait for config to propagate
+  await window.waitForTimeout(500);
+
+  // Send chat message via UI
+  console.log('[SMOKE] Sending chat message via UI');
+  const messageInput = window.locator('input[type="text"]').first();
+  await messageInput.fill('Add a test node');
+  await messageInput.press('Enter');
+
+  // Wait for AI operations to complete
+  await window.waitForTimeout(4000);
+
+  // Verify nodes added to canvas
+  const result = await window.evaluate(() => {
+    const nodes = document.querySelectorAll('.react-flow__node');
+    const toolStatuses = document.querySelectorAll('[data-tool-status]');
+    return {
+      nodeCount: nodes.length,
+      toolStatusCount: toolStatuses.length,
+      hasNodes: nodes.length > 0,
+    };
+  });
+
+  console.log('[SMOKE] Graph result:', result);
+  expect(result.hasNodes).toBe(true);
+  expect(result.nodeCount).toBeGreaterThan(0);
+
+  // Take screenshot of test mode with nodes
+  const screenshotPath = '/opt/cursor/artifacts/desktop-test-fixture.png';
   await window.screenshot({ path: screenshotPath, fullPage: true });
-  console.log('[SMOKE] Disconnected mode screenshot:', screenshotPath);
+  console.log('[SMOKE] TEST fixture screenshot:', screenshotPath);
 
   await electronApp.close();
-  console.log('[SMOKE] ✓ Disconnected mode captured');
+  console.log('[SMOKE] ✓ TEST fixture IPC interaction verified');
 });

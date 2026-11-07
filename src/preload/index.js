@@ -1,5 +1,14 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import { IPC_CHANNELS } from '../shared/ipc-channels';
+// IPC channel constants (inlined for sandbox-compatible preload)
+const IPC_CHANNELS = {
+    FILE_IMPORT_WORKFLOW: 'file:import-workflow',
+    FILE_EXPORT_WORKFLOW: 'file:export-workflow',
+    DB_SAVE_PROJECT: 'db:save-project',
+    DB_LOAD_PROJECT: 'db:load-project',
+    DB_LIST_PROJECTS: 'db:list-projects',
+    LLM_SET_CONFIG: 'llm:set-config',
+    LLM_STREAM_CHAT: 'llm:stream-chat',
+};
 // Expose safe IPC API to renderer
 contextBridge.exposeInMainWorld('electronAPI', {
     // Platform info
