@@ -61,10 +61,46 @@ const typedWorkflow = {
   ],
 };
 
-async function duration(page: import('@playwright/test').Page, selector: string, property: 'animationDuration' | 'transitionDuration') {
+type ElectronPage = import('@playwright/test').Page;
+
+function durationParts(raw: string) {
+  return raw.split(',').map((part) => part.trim()).filter(Boolean);
+}
+
+async function duration(page: ElectronPage, selector: string, property: 'animationDuration' | 'transitionDuration') {
   return page.locator(selector).first().evaluate((element, name) => getComputedStyle(element).getPropertyValue(
     name === 'animationDuration' ? 'animation-duration' : 'transition-duration',
   ), property);
+}
+
+async function expectDuration(page: ElectronPage, selector: string, property: 'animationDuration' | 'transitionDuration', expected: string) {
+  await expect.poll(async () => {
+    const parts = durationParts(await duration(page, selector, property));
+    return parts.length > 0 && parts.every((part) => part === expected);
+  }).toBe(true);
+}
+
+async function storedMotion(page: ElectronPage) {
+  return page.evaluate(async () => {
+    const bridge = (window as unknown as { electronAPI: { getSettings: () => Promise<{ values?: { motion: string } }> } }).electronAPI;
+    const read = await bridge.getSettings();
+    return read.values?.motion ?? '';
+  });
+}
+
+async function activeMotion(page: ElectronPage) {
+  return page.evaluate(() => document.documentElement.dataset.motion ?? '');
+}
+
+async function shift(page: ElectronPage) {
+  return page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--motion-shift').trim());
+}
+
+async function topHit(page: ElectronPage) {
+  return page.evaluate(() => {
+    const node = document.elementFromPoint(Math.floor(window.innerWidth / 2), Math.floor(window.innerHeight / 2));
+    return node?.closest('dialog') ? 'dialog' : 'page';
+  });
 }
 
 test('motion policy, dialog focus, and real workspace captures', async () => {
@@ -88,41 +124,103 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
   await expect.poll(async () => dialog.evaluate((element) => getComputedStyle(element).opacity)).toBe('1');
   await window.screenshot({ path: path.join(artifactDir, 'ui-settings.png') });
 
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    await window.keyboard.press('Escape');
-    await expect(dialog).toHaveJSProperty('open', false);
-    await settings.click();
-    await expect(dialog).toHaveJSProperty('open', true);
-  }
   await window.keyboard.press('Escape');
   await expect(dialog).toHaveJSProperty('open', false);
-  const hit = await window.evaluate(() => document.elementFromPoint(24, 80)?.closest('dialog') ? 'dialog' : 'page');
-  expect(hit).toBe('page');
+  await expect.poll(async () => window.evaluate(() => (
+    document.activeElement instanceof HTMLButtonElement && document.activeElement.textContent === 'Settings'
+  ))).toBe(true);
+  await expect.poll(() => topHit(window)).toBe('page');
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await settings.click();
+    await expect(dialog).toHaveJSProperty('open', true);
+    await window.keyboard.press('Escape');
+    await expect(dialog).toHaveJSProperty('open', false);
+  }
+  await expect.poll(() => topHit(window)).toBe('page');
+
+  await settings.click();
+  await dialog.evaluate((element: HTMLDialogElement) => {
+    element.close();
+    element.showModal();
+  });
+  await expect(dialog).toHaveJSProperty('open', true);
+  await expect.poll(async () => dialog.evaluate((element) => getComputedStyle(element).opacity)).toBe('1');
+  await window.keyboard.press('Escape');
+  await expect.poll(() => topHit(window)).toBe('page');
 
   await settings.click();
   await window.getByLabel('Motion').selectOption('off');
-  await window.getByRole('button', { name: 'Save settings' }).click();
-  await expect(window.getByText('Non-secret settings saved.')).toBeVisible();
-  const storedOff = await window.evaluate(async () => {
-    const bridge = (window as unknown as { electronAPI: { getSettings: () => Promise<{ source: string; values?: { motion: string } }> } }).electronAPI;
-    return bridge.getSettings();
-  });
-  expect(storedOff.values?.motion).toBe('off');
-  await expect.poll(async () => duration(window, 'dialog.settings-dialog', 'animationDuration')).toBe('0s');
-  expect(await window.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--motion-shift').trim())).toBe('0px');
+  expect(await activeMotion(window)).toBe('system');
+  await window.getByRole('button', { name: 'Close' }).click();
+  await expect(dialog).toHaveJSProperty('open', false);
+  expect(await storedMotion(window)).toBe('system');
+  expect(await activeMotion(window)).toBe('system');
+  await settings.click();
+  await expect(window.getByLabel('Motion')).toHaveValue('system');
 
   await window.getByLabel('Motion').selectOption('reduced');
+  expect(await activeMotion(window)).toBe('system');
   await window.getByRole('button', { name: 'Save settings' }).click();
-  await expect.poll(async () => duration(window, 'dialog.settings-dialog', 'animationDuration')).toBe('0.06s');
-  expect(await window.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--motion-shift').trim())).toBe('0px');
+  await expect(window.getByText('Non-secret settings saved.')).toBeVisible();
+  expect(await storedMotion(window)).toBe('reduced');
+  expect(await activeMotion(window)).toBe('reduced');
+  await expectDuration(window, 'dialog.settings-dialog', 'transitionDuration', '0.06s');
+  expect(await shift(window)).toBe('0px');
 
   await window.getByLabel('Motion').selectOption('on');
+  expect(await activeMotion(window)).toBe('reduced');
   await window.getByRole('button', { name: 'Save settings' }).click();
-  await expect.poll(async () => duration(window, 'dialog.settings-dialog', 'animationDuration')).toBe('0.2s');
-  const prefersReduce = await window.evaluate(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-  expect(await duration(window, 'dialog.settings-dialog', 'animationDuration')).toBe('0.2s');
-  console.log(`PREFERS_REDUCE ${prefersReduce}`);
-  await window.keyboard.press('Escape');
+  expect(await storedMotion(window)).toBe('on');
+  expect(await activeMotion(window)).toBe('on');
+  await expectDuration(window, 'dialog.settings-dialog', 'transitionDuration', '0.16s');
+  expect(await shift(window)).toBe('8px');
+  const onExit = await dialog.evaluate((element: HTMLDialogElement) => {
+    element.close();
+    return getComputedStyle(element).transitionDuration;
+  });
+  expect(durationParts(onExit).every((part) => part === '0.12s')).toBe(true);
+  console.log(`ON_EXIT ${onExit}`);
+  await expect.poll(() => topHit(window)).toBe('page');
+
+  await window.reload();
+  await window.locator('#chat-provider').waitFor();
+  await expect.poll(() => activeMotion(window)).toBe('on');
+  expect(await storedMotion(window)).toBe('on');
+  await settings.click();
+  await expectDuration(window, 'dialog.settings-dialog', 'transitionDuration', '0.16s');
+
+  await window.emulateMedia({ reducedMotion: 'reduce' });
+  expect(await activeMotion(window)).toBe('on');
+  await expectDuration(window, 'dialog.settings-dialog', 'transitionDuration', '0.16s');
+  expect(await shift(window)).toBe('8px');
+  console.log('ON_PLUS_OS_REDUCE 0.16s 8px');
+
+  await window.getByLabel('Motion').selectOption('system');
+  await window.getByRole('button', { name: 'Save settings' }).click();
+  expect(await storedMotion(window)).toBe('system');
+  expect(await activeMotion(window)).toBe('system');
+  await expectDuration(window, 'dialog.settings-dialog', 'transitionDuration', '0.06s');
+  expect(await shift(window)).toBe('0px');
+  console.log('SYSTEM_PLUS_OS_REDUCE 0.06s 0px');
+
+  await window.emulateMedia({ reducedMotion: 'no-preference' });
+  await expectDuration(window, 'dialog.settings-dialog', 'transitionDuration', '0.16s');
+  expect(await shift(window)).toBe('8px');
+
+  await window.getByLabel('Motion').selectOption('off');
+  await window.getByRole('button', { name: 'Save settings' }).click();
+  expect(await storedMotion(window)).toBe('off');
+  expect(await activeMotion(window)).toBe('off');
+  await expectDuration(window, 'dialog.settings-dialog', 'transitionDuration', '0s');
+  await expectDuration(window, '.ghost-button', 'transitionDuration', '0s');
+  const offExit = await dialog.evaluate((element: HTMLDialogElement) => {
+    element.close();
+    return getComputedStyle(element).transitionDuration;
+  });
+  expect(durationParts(offExit).every((part) => part === '0s')).toBe(true);
+  console.log(`OFF_EXIT ${offExit}`);
+  await expect.poll(() => topHit(window)).toBe('page');
 
   const current = await window.evaluate(async () => {
     const bridge = (window as unknown as { electronAPI: { readProjection: (id: string) => Promise<{ currentRevisionId: string }> } }).electronAPI;
@@ -142,7 +240,36 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
   expect(imported.status).toBe('applied');
   await window.reload();
   await window.locator('#chat-provider').waitFor();
+  await expect.poll(() => activeMotion(window)).toBe('off');
+  expect(await storedMotion(window)).toBe('off');
   await expect(window.locator('.react-flow__node')).toHaveCount(3);
+  await expect(window.getByText('The graph is empty.')).toHaveCount(0);
+  await expect(window.getByText('Describe a change. TEST fixture replies are scripted and are not a live model.')).toBeVisible();
+  await expectDuration(window, '.graph-node', 'animationDuration', '0s');
+  await expectDuration(window, '.ghost-button', 'transitionDuration', '0s');
+  const dash = await window.evaluate(() => {
+    const edge = document.createElement('div');
+    edge.className = 'react-flow__edge animated';
+    edge.innerHTML = '<svg><path class="probe-dash" /></svg>';
+    document.body.append(edge);
+    const offName = getComputedStyle(edge.querySelector('path') as Element).animationName;
+    document.documentElement.dataset.motion = 'on';
+    const onName = getComputedStyle(edge.querySelector('path') as Element).animationName;
+    document.documentElement.dataset.motion = 'off';
+    edge.remove();
+    return { offName, onName };
+  });
+  expect(dash.offName).toBe('none');
+  expect(dash.onName).toBe('dashdraw');
+  console.log(`DASH ${dash.offName} ${dash.onName}`);
+  const overlap = await window.locator('.port-list li[data-port-side="input"]').first().evaluate((row) => {
+    const handle = row.querySelector('.react-flow__handle')?.getBoundingClientRect();
+    const swatch = row.querySelector('.port-swatch')?.getBoundingClientRect();
+    if (!handle || !swatch) return true;
+    const separated = handle.right <= swatch.left || swatch.right <= handle.left;
+    return !separated;
+  });
+  expect(overlap).toBe(false);
   await window.locator('.react-flow__controls-fitview').click();
   await expect.poll(async () => window.locator('.graph-node').first().evaluate((element) => getComputedStyle(element).opacity)).toBe('1');
   await window.screenshot({ path: path.join(artifactDir, 'ui-typed-ports.png') });

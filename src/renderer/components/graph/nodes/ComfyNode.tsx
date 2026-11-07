@@ -4,7 +4,7 @@ import { ComfyNodeData, PortDefinition } from '../../../types/graph';
 
 function PortRow({ port, kind }: { port: PortDefinition; kind: 'target' | 'source' }) {
   return (
-    <li data-port-type={port.dataType}>
+    <li data-port-type={port.dataType} data-port-side={kind === 'target' ? 'input' : 'output'}>
       <Handle
         type={kind}
         position={kind === 'target' ? Position.Left : Position.Right}

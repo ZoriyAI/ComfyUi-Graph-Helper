@@ -1,5 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { useChatStore } from '../../state/chatState';
+import { useGraphStore } from '../../state/graphState';
 import Message from './Message';
 import MessageInput from './MessageInput';
 
@@ -10,6 +11,7 @@ interface ChatPanelProps {
 
 export default function ChatPanel({ onSendMessage, onPause }: ChatPanelProps) {
   const { messages, isStreaming, isPaused } = useChatStore();
+  const nodeCount = useGraphStore((state) => state.nodes.length);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -36,7 +38,11 @@ export default function ChatPanel({ onSendMessage, onPause }: ChatPanelProps) {
         {messages.length === 0 ? (
           <div className="chat-empty">
             <strong>No messages yet</strong>
-            <p>The graph is empty. Import a workflow or describe a change. TEST fixture replies are scripted and are not a live model.</p>
+            <p>
+              {nodeCount === 0
+                ? 'The graph is empty. Import a workflow or describe a change. TEST fixture replies are scripted and are not a live model.'
+                : 'Describe a change. TEST fixture replies are scripted and are not a live model.'}
+            </p>
           </div>
         ) : (
           <>

@@ -10,14 +10,11 @@ function applyMotion(motion: NonSecretSettings['motion']) {
 export default function SettingsPanel() {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const openerRef = useRef<HTMLButtonElement>(null);
+  const savedRef = useRef<NonSecretSettings>(nonSecretDefaults);
   const [values, setValues] = useState<NonSecretSettings>(nonSecretDefaults);
   const [settingsNote, setSettingsNote] = useState('Settings are not saved yet.');
   const [secret, setSecret] = useState('');
   const [secretNote, setSecretNote] = useState('Key storage is not available.');
-
-  useEffect(() => {
-    applyMotion(values.motion);
-  }, [values.motion]);
 
   useEffect(() => {
     let cancelled = false;
@@ -27,6 +24,7 @@ export default function SettingsPanel() {
         setSettingsNote('Stored settings are corrupt and were left unchanged.');
         return;
       }
+      savedRef.current = read.values;
       setValues(read.values);
       applyMotion(read.values.motion);
       setSettingsNote(read.source === 'stored' ? 'Restored non-secret settings.' : 'Defaults are shown and are not written yet.');
@@ -45,6 +43,7 @@ export default function SettingsPanel() {
         setSettingsNote(result.error);
         return;
       }
+      savedRef.current = result.values;
       setValues(result.values);
       applyMotion(result.values.motion);
       setSettingsNote('Non-secret settings saved.');
@@ -67,7 +66,10 @@ export default function SettingsPanel() {
         ref={dialogRef}
         className="settings-dialog"
         aria-label="Settings"
-        onClose={() => openerRef.current?.focus()}
+        onClose={() => {
+          setValues(savedRef.current);
+          openerRef.current?.focus();
+        }}
       >
         <form className="settings-strip" onSubmit={(event) => event.preventDefault()}>
           <h2 className="settings-heading">Settings</h2>
