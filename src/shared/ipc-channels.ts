@@ -39,6 +39,7 @@ export const IPC_CHANNELS = {
 
   // LLM operations (main process only)
   LLM_SET_CONFIG: 'llm:set-config',
+  LLM_GET_CONFIG: 'llm:get-config',
   LLM_STREAM_CHAT: 'llm:stream-chat',
   LLM_CANCEL: 'llm:cancel',
   

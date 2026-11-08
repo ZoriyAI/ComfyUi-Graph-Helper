@@ -12,7 +12,18 @@ import { upsertObjectInfo } from './catalog/repository';
 import { exportWorkflow, type GraphSnapshot } from '../shared/workflow/codec';
 import type { CommandResponse, GraphMutation } from '../shared/commands/types';
 
+function adoptStoredChatRuntime(): void {
+  const read = readSettings(getDatabase());
+  if (read.source === 'corrupt') return;
+  mainLLMService.setConfig({
+    provider: read.values.provider,
+    model: read.values.model,
+    baseURL: read.values.baseURL,
+  });
+}
+
 export function setupIPC() {
+  adoptStoredChatRuntime();
   // File operations
   ipcMain.handle(IPC_CHANNELS.FILE_IMPORT_WORKFLOW, async () => {
     const result = await dialog.showOpenDialog({
@@ -114,7 +125,15 @@ export function setupIPC() {
   });
 
   ipcMain.handle(IPC_CHANNELS.SETTINGS_SAVE, (_event, input: unknown) => {
-    return saveSettings(getDatabase(), input);
+    const result = saveSettings(getDatabase(), input);
+    if (result.ok) {
+      mainLLMService.setConfig({
+        provider: result.values.provider,
+        model: result.values.model,
+        baseURL: result.values.baseURL,
+      });
+    }
+    return result;
   });
 
   ipcMain.handle(IPC_CHANNELS.SETTINGS_SAVE_SECRET, () => {
@@ -152,7 +171,11 @@ export function setupIPC() {
   // LLM operations
   ipcMain.handle(IPC_CHANNELS.LLM_SET_CONFIG, async (_event, config) => {
     console.log('[IPC] Setting LLM config (credentials NOT logged)');
-    mainLLMService.setConfig(config);
+    mainLLMService.setConfig(config ?? {});
+  });
+
+  ipcMain.handle(IPC_CHANNELS.LLM_GET_CONFIG, () => {
+    return mainLLMService.nextSendConfig();
   });
 
   ipcMain.handle(

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import GraphCanvas from './components/graph/GraphCanvas';
 import Inspector from './components/graph/Inspector';
 import ChatPanel from './components/chat/ChatPanel';
@@ -7,10 +7,18 @@ import { useGraphStore } from './state/graphState';
 import { useChatStore } from './state/chatState';
 import { applyProjection } from './services/commands/projection';
 import { DESKTOP_PROJECT_ID } from '../shared/project';
+import type { NonSecretSettings } from '../shared/config/schema';
 import { getChatService } from './services/llm/chatService';
+
+function noteForProvider(provider: string): string {
+  if (provider === 'test') return 'TEST fixture is on. Replies are scripted and are not a live model or your ComfyUI server.';
+  if (provider === 'openai') return 'OpenAI is selected with no key. The next send will fail before any graph change.';
+  return 'No provider selected. Nothing is sent.';
+}
 
 function App() {
   const { nodes } = useGraphStore();
+  const sessionOverride = useRef(false);
   const [provider, setProvider] = useState('');
   const [providerNote, setProviderNote] = useState('No provider selected. Nothing is sent.');
   const [workflowNote, setWorkflowNote] = useState('');
@@ -21,10 +29,21 @@ function App() {
     });
   }, []);
 
+  const showStoredRuntime = (values: NonSecretSettings) => {
+    setProvider(values.provider);
+    setProviderNote(noteForProvider(values.provider));
+    return window.electronAPI.llmSetConfig({
+      provider: values.provider,
+      model: values.model,
+      baseURL: values.baseURL,
+    });
+  };
+
   const applyProvider = async (next: string) => {
+    sessionOverride.current = true;
     if (next === 'test') {
       await window.electronAPI.llmSetConfig({ provider: 'test', model: 'test-fixture' });
-      setProviderNote('TEST fixture is on. Replies are scripted and are not a live model or your ComfyUI server.');
+      setProviderNote(noteForProvider(next));
       return;
     }
     if (next === 'openai') {
@@ -32,8 +51,11 @@ function App() {
         provider: 'openai',
         model: '',
       });
-      setProviderNote('OpenAI is selected with no key. The next send will fail before any graph change.');
+      setProviderNote(noteForProvider(next));
+      return;
     }
+    await window.electronAPI.llmSetConfig({ provider: '', model: '', baseURL: '' });
+    setProviderNote(noteForProvider(''));
   };
 
   const handleSendMessage = (content: string) => {
@@ -147,7 +169,16 @@ function App() {
           >
             Redo
           </button>
-          <SettingsPanel />
+          <SettingsPanel
+            onRead={(values) => {
+              if (sessionOverride.current) return;
+              void showStoredRuntime(values);
+            }}
+            onSaved={(values) => {
+              sessionOverride.current = false;
+              void showStoredRuntime(values);
+            }}
+          />
           {workflowNote ? <p className="workflow-report">{workflowNote}</p> : null}
         </div>
       </header>

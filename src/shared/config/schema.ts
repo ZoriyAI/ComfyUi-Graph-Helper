@@ -21,6 +21,8 @@ export const nonSecretSettingsSchema = z.object({
 
 export type NonSecretSettings = z.infer<typeof nonSecretSettingsSchema>;
 
+export type ChatRuntimeConfig = Pick<NonSecretSettings, 'provider' | 'model' | 'baseURL'>;
+
 export const nonSecretDefaults: NonSecretSettings = {
   theme: 'graphite',
   motion: 'system',

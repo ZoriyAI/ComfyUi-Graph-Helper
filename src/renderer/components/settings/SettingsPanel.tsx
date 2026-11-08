@@ -7,10 +7,20 @@ function applyMotion(motion: NonSecretSettings['motion']) {
   document.documentElement.dataset.motion = motion;
 }
 
-export default function SettingsPanel() {
+export default function SettingsPanel({
+  onRead,
+  onSaved,
+}: {
+  onRead: (values: NonSecretSettings) => void;
+  onSaved: (values: NonSecretSettings) => void;
+}) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const openerRef = useRef<HTMLButtonElement>(null);
   const savedRef = useRef<NonSecretSettings>(nonSecretDefaults);
+  const onReadRef = useRef(onRead);
+  const onSavedRef = useRef(onSaved);
+  onReadRef.current = onRead;
+  onSavedRef.current = onSaved;
   const [values, setValues] = useState<NonSecretSettings>(nonSecretDefaults);
   const [settingsNote, setSettingsNote] = useState('Settings are not saved yet.');
   const [secret, setSecret] = useState('');
@@ -28,6 +38,7 @@ export default function SettingsPanel() {
       setValues(read.values);
       applyMotion(read.values.motion);
       setSettingsNote(read.source === 'stored' ? 'Restored non-secret settings.' : 'Defaults are shown and are not written yet.');
+      onReadRef.current(read.values);
     }).catch(() => {
       if (!cancelled) setSettingsNote('Settings could not be read.');
     });
@@ -47,6 +58,7 @@ export default function SettingsPanel() {
       setValues(result.values);
       applyMotion(result.values.motion);
       setSettingsNote('Non-secret settings saved.');
+      onSavedRef.current(result.values);
     } catch {
       setSettingsNote('Settings could not be saved.');
     }

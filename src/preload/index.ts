@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import type { NonSecretSettings, SettingsRead } from '../shared/config/schema';
+import type { ChatRuntimeConfig, NonSecretSettings, SettingsRead } from '../shared/config/schema';
 
 // IPC channel constants (inlined for sandbox-compatible preload)
 const IPC_CHANNELS = {
@@ -11,6 +11,7 @@ const IPC_CHANNELS = {
   DB_LOAD_PROJECT: 'db:load-project',
   DB_LIST_PROJECTS: 'db:list-projects',
   LLM_SET_CONFIG: 'llm:set-config',
+  LLM_GET_CONFIG: 'llm:get-config',
   LLM_STREAM_CHAT: 'llm:stream-chat',
   SETTINGS_GET: 'settings:get',
   SETTINGS_SAVE: 'settings:save',
@@ -60,6 +61,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // LLM operations
   llmSetConfig: (config: { provider: string; model: string; apiKey?: string; baseURL?: string }) =>
     ipcRenderer.invoke(IPC_CHANNELS.LLM_SET_CONFIG, config),
+  llmGetConfig: () => ipcRenderer.invoke(IPC_CHANNELS.LLM_GET_CONFIG) as Promise<ChatRuntimeConfig>,
   llmStreamChat: (
     messages: Array<{ role: string; content: string }>,
     toolSpecs: Array<{ name: string; description: string; parameters: any }>,
@@ -110,6 +112,7 @@ export interface ElectronAPI {
     apiKey?: string;
     baseURL?: string;
   }) => Promise<void>;
+  llmGetConfig: () => Promise<ChatRuntimeConfig>;
   llmStreamChat: (
     messages: Array<{ role: string; content: string }>,
     toolSpecs: Array<{ name: string; description: string; parameters: any }>,

@@ -32,11 +32,22 @@ async function openSettings(window: Page) {
   return window.locator('dialog.settings-dialog');
 }
 
-test('provider, model, and base URL survive an Electron relaunch in the same sqlite file', async () => {
+async function runtimeConfig(window: Page) {
+  return window.evaluate(async () => {
+    const bridge = (window as unknown as {
+      electronAPI: { llmGetConfig: () => Promise<{ provider: string; model: string; baseURL: string }> };
+    }).electronAPI;
+    return bridge.llmGetConfig();
+  });
+}
+
+test('stored provider, model, and base URL are what the next send would use after relaunch', async () => {
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'provider-settings-'));
   const appRoot = path.join(__dirname, '../..');
   const app = await launch(userData);
   const window = await app.firstWindow();
+  await expect(window.locator('#chat-provider')).toHaveValue('');
+  await expect.poll(() => runtimeConfig(window)).toEqual({ provider: '', model: '', baseURL: '' });
   const dialog = await openSettings(window);
   await expect(dialog.getByText('Defaults are shown and are not written yet.')).toBeVisible();
 
@@ -47,6 +58,9 @@ test('provider, model, and base URL survive an Electron relaunch in the same sql
   await expect(dialog.getByText('Non-secret settings saved.')).toBeVisible();
   await expect(dialog.getByRole('textbox', { name: 'Model', exact: true })).toHaveValue('fixture-model');
   await expect(dialog.getByRole('textbox', { name: 'Base URL', exact: true })).toHaveValue('https://example.test/v1');
+  await expect(window.locator('#chat-provider')).toHaveValue('openai');
+  const savedRuntime = { provider: 'openai', model: 'fixture-model', baseURL: 'https://example.test/v1' };
+  await expect.poll(() => runtimeConfig(window)).toEqual(savedRuntime);
 
   await dialog.getByRole('textbox', { name: 'Base URL', exact: true }).fill('notaurl');
   await dialog.getByRole('button', { name: 'Save settings' }).click();
@@ -55,6 +69,8 @@ test('provider, model, and base URL survive an Electron relaunch in the same sql
   await dialog.getByRole('textbox', { name: 'Model', exact: true }).fill(MARKER);
   await dialog.getByRole('button', { name: 'Save settings' }).click();
   await expect(dialog.getByText('Settings cannot store a secret')).toBeVisible();
+  await expect(window.locator('#chat-provider')).toHaveValue('openai');
+  await expect.poll(() => runtimeConfig(window)).toEqual(savedRuntime);
 
   const stored = await settingsRow(app, appRoot);
   expect(stored.row).toEqual({ provider: 'openai', model: 'fixture-model', base_url: 'https://example.test/v1' });
@@ -69,7 +85,8 @@ test('provider, model, and base URL survive an Electron relaunch in the same sql
 
   const reopened = await launch(userData);
   const again = await reopened.firstWindow();
-  await expect(again.locator('#chat-provider')).toHaveValue('');
+  await expect.poll(() => runtimeConfig(again)).toEqual(savedRuntime);
+  await expect(again.locator('#chat-provider')).toHaveValue('openai');
   const restored = await openSettings(again);
   await expect(restored.getByText('Restored non-secret settings.')).toBeVisible();
   await expect(restored.getByRole('combobox', { name: 'Provider', exact: true })).toHaveValue('openai');
@@ -78,5 +95,18 @@ test('provider, model, and base URL survive an Electron relaunch in the same sql
   const reread = await settingsRow(reopened, appRoot);
   expect(reread.row).toEqual({ provider: 'openai', model: 'fixture-model', base_url: 'https://example.test/v1' });
   expect(reread.secrets).toBe(0);
+
+  await restored.getByRole('combobox', { name: 'Provider', exact: true }).selectOption('test');
+  await restored.getByRole('textbox', { name: 'Model', exact: true }).fill('test-fixture');
+  await restored.getByRole('textbox', { name: 'Base URL', exact: true }).fill('https://fixture.example/v1');
+  await restored.getByRole('button', { name: 'Save settings' }).click();
+  await expect(restored.getByText('Non-secret settings saved.')).toBeVisible();
+  await expect(again.locator('#chat-provider')).toHaveValue('test');
+  await expect.poll(() => runtimeConfig(again)).toEqual({
+    provider: 'test',
+    model: 'test-fixture',
+    baseURL: 'https://fixture.example/v1',
+  });
+  await expect(again.getByRole('textbox', { name: 'Chat message' })).toHaveValue('');
   await reopened.close();
 });

@@ -1,5 +1,6 @@
 import { streamText, LanguageModel, isStepCount } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
+import type { ChatRuntimeConfig } from '../shared/config/schema';
 import { createTestLLMModel } from './testLLMTransport';
 
 /**
@@ -18,12 +19,29 @@ interface LLMConfig {
 class MainLLMService {
   private config: LLMConfig | null = null;
 
-  setConfig(config: LLMConfig): void {
+  /**
+   * Stores the non-secret provider, model, and base URL for the next send.
+   * Does not construct a client and does not send a request. An API key on the input is ignored.
+   */
+  setConfig(config: { provider?: unknown; model?: unknown; baseURL?: unknown; apiKey?: unknown }): void {
     console.log('[MainLLMService] Config updated (credentials NOT logged)');
+    if (config.provider !== 'openai' && config.provider !== 'test') {
+      this.config = null;
+      return;
+    }
     this.config = {
       provider: config.provider,
-      model: config.model,
-      baseURL: config.baseURL,
+      model: typeof config.model === 'string' ? config.model : '',
+      baseURL: typeof config.baseURL === 'string' ? config.baseURL : undefined,
+    };
+  }
+
+  nextSendConfig(): ChatRuntimeConfig {
+    if (!this.config) return { provider: '', model: '', baseURL: '' };
+    return {
+      provider: this.config.provider,
+      model: this.config.model,
+      baseURL: this.config.baseURL ?? '',
     };
   }
 
