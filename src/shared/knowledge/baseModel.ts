@@ -33,6 +33,8 @@ const RULES: ReadonlyArray<readonly [BaseModelFamily, RegExp]> = [
   ['qwen-image', new RegExp(`${L}qwen${SEP}image`)],
   ['zimage', new RegExp(`${L}z${SEP}image`)],
   ['hunyuan', /hunyuan/],
+  // Civitai "Flux.1 Krea" is a Flux.1 dev fine-tune; plain "krea"/"krea2" is Krea 2, its own architecture.
+  ['flux1', new RegExp(`${L}flux${SEP}1${SEP}krea`)],
   ['krea', new RegExp(`${L}krea${R}`)],
   ['chroma', new RegExp(`${L}(?:chroma|kroma)${R}`)],
   ['flux2', new RegExp(`${L}flux${SEP}2(?!\\d)`)],
@@ -55,10 +57,9 @@ const SIDECAR_ALIASES: Record<string, BaseModelFamily> = {
   'zimageturbo': 'zimage',
 };
 
-/** A refinement narrows a family to one of its fine-tunes (Pony is an SDXL fine-tune; Krea is a Flux.1 one). */
+/** A refinement narrows a family to one of its fine-tunes (Pony and Illustrious are SDXL fine-tunes). */
 const REFINES: Partial<Record<BaseModelFamily, BaseModelFamily[]>> = {
   sdxl: ['pony', 'illustrious'],
-  flux1: ['krea'],
 };
 
 /**
@@ -138,7 +139,6 @@ function baseName(filename: string | null | undefined): string {
  */
 const COMPATIBLE_GROUPS: BaseModelFamily[][] = [
   ['sdxl', 'pony', 'illustrious'],
-  ['flux1', 'krea'],
   ['wan2.1', 'wan2.2'],
 ];
 

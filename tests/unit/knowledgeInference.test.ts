@@ -37,6 +37,7 @@ describe('base model inference', () => {
     expect(inferBaseModel({ metadata: { 'modelspec.architecture': 'flux-1-dev/lora' } })).toEqual({ family: 'flux1', evidence: 'metadata' });
     expect(inferBaseModel({ metadata: { 'modelspec.architecture': 'stable-diffusion-v1/lora' } })).toEqual({ family: 'sd15', evidence: 'metadata' });
     expect(inferBaseModel({ metadata: { ss_base_model_version: 'sd_v1' } })).toEqual({ family: 'sd15', evidence: 'metadata' });
+    expect(inferBaseModel({ metadata: { ss_base_model_version: 'krea2', 'modelspec.architecture': 'krea2/lora' } })).toEqual({ family: 'krea', evidence: 'metadata' });
     expect(inferBaseModel({ metadata: { ss_base_model_version: 'sdxl_base_v1-0', ss_sd_model_name: 'ponyDiffusionV6XL_v6.safetensors' } }))
       .toEqual({ family: 'pony', evidence: 'metadata' });
     expect(inferBaseModel({ metadata: { ss_base_model_version: 'sdxl_base_v1-0' }, sidecarBaseModel: 'Illustrious' }))
@@ -48,7 +49,7 @@ describe('base model inference', () => {
   it('reads Civitai sidecar labels', () => {
     const table: Array<[string, string]> = [
       ['SD 1.5', 'sd15'], ['SD 2.1', 'sd2'], ['SDXL 1.0', 'sdxl'], ['Pony', 'pony'], ['Illustrious', 'illustrious'],
-      ['NoobAI', 'illustrious'], ['Flux.1 D', 'flux1'], ['Flux.1 Krea', 'krea'], ['Flux.2 D', 'flux2'], ['Qwen', 'qwen-image'],
+      ['NoobAI', 'illustrious'], ['Flux.1 D', 'flux1'], ['Flux.1 Krea', 'flux1'], ['krea2', 'krea'], ['Flux.2 D', 'flux2'], ['Qwen', 'qwen-image'],
       ['Wan Video 2.2 I2V-A14B', 'wan2.2'], ['Wan Video 14B t2v', 'wan2.1'], ['LTXV2', 'ltx2'], ['Hunyuan Video', 'hunyuan'],
       ['ZImageTurbo', 'zimage'], ['Chroma', 'chroma'], ['SD 3.5 Large', 'sd3'], ['Kolors', 'kolors'], ['PixArt a', 'pixart'],
       ['AuraFlow', 'auraflow'], ['Stable Cascade', 'cascade'], ['Other', 'unknown'],
@@ -60,7 +61,8 @@ describe('base model inference', () => {
 
   it('keeps related lineages compatible and unknown silent', () => {
     expect(familiesCompatible('sdxl', 'pony')).toBe(true);
-    expect(familiesCompatible('flux1', 'krea')).toBe(true);
+    expect(familiesCompatible('flux1', 'krea')).toBe(false);
+    expect(familiesCompatible('wan2.1', 'wan2.2')).toBe(true);
     expect(familiesCompatible('unknown', 'flux1')).toBe(true);
     expect(familiesCompatible('sdxl', 'flux1')).toBe(false);
     expect(familiesCompatible('sd15', 'sdxl')).toBe(false);

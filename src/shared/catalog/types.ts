@@ -8,6 +8,8 @@ export interface CatalogInput {
   name: string;
   type: string;
   widget: boolean;
+  /** From the object_info group: true under input.required, false under input.optional. */
+  required?: boolean;
 }
 
 export interface CatalogOutput {
@@ -22,6 +24,9 @@ export interface CatalogNode {
   /** Frontend display name and category as the server reports them. Empty when unknown. */
   displayName?: string;
   category?: string;
+  /** object_info description and output_node. */
+  description?: string;
+  outputNode?: boolean;
   inputs: CatalogInput[];
   outputs: CatalogOutput[];
   /** widgets_values slot names. Empty when widgetOrderReliable is false. */

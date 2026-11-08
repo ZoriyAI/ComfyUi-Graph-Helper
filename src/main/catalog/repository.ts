@@ -2,6 +2,8 @@ import type Database from 'better-sqlite3';
 import type { ParsedObjectInfo } from '../../shared/catalog/objectInfo';
 import type { CatalogInput, CatalogModel, CatalogNode, CatalogOutput, CatalogView } from '../../shared/catalog/types';
 import type { McpModelFile, McpNodeClass } from '../../shared/mcp/catalogSource';
+import { inferBaseModel } from '../../shared/knowledge/baseModel';
+import { kindFromDirectory } from '../../shared/knowledge/modelKind';
 
 export const SEEDED_NODE_TYPES = [
   'CheckpointLoaderSimple',
@@ -48,47 +50,173 @@ type CatalogRow = {
  * Stores node classes an MCP server listed. Inputs, outputs, and widget order already in the row are kept,
  * because the class list does not carry them; a later object_info read fills them.
  */
-export function upsertNodeClasses(db: Database.Database, classes: McpNodeClass[]): number {
+export function upsertNodeClasses(db: Database.Database, classes: McpNodeClass[], syncedAt: number | null = null): number {
   const upsert = db.prepare(`
-    INSERT INTO node_catalog (class_type, pack, python_module, display_name, category)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO node_catalog (class_type, pack, python_module, display_name, category, pack_name, synced_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(class_type) DO UPDATE SET
       pack = excluded.pack,
       python_module = excluded.python_module,
       display_name = excluded.display_name,
-      category = excluded.category
+      category = excluded.category,
+      pack_name = excluded.pack_name,
+      synced_at = COALESCE(excluded.synced_at, node_catalog.synced_at)
   `);
   const write = db.transaction(() => {
-    for (const item of classes) upsert.run(item.classType, item.module, item.module, item.displayName, item.category);
+    for (const item of classes) {
+      upsert.run(item.classType, item.module, item.module, item.displayName, item.category, packNameFromModule(item.module), syncedAt);
+    }
   });
   write.immediate();
   return classes.length;
 }
 
-/** Stores model files an MCP server listed, with the size when it reported one. */
-export function upsertModelFiles(db: Database.Database, files: McpModelFile[]): number {
+/**
+ * The pack a Python module belongs to. ComfyUI loads custom packs as `custom_nodes.<folder>[.sub]`;
+ * everything else (nodes, comfy_extras.*, comfy_api_nodes.*) ships with ComfyUI itself.
+ */
+export function packNameFromModule(module: string): string {
+  const match = /^custom_nodes[./\\]([^./\\]+)/.exec(module);
+  return match ? match[1] : 'core';
+}
+
+/** Stores model files an MCP server listed, with the size and root folder when it reported them. */
+export function upsertModelFiles(
+  db: Database.Database,
+  files: Array<McpModelFile & { rootPath?: string | null }>,
+  syncedAt: number | null = null,
+): number {
   const upsert = db.prepare(`
-    INSERT INTO model_catalog (directory, name, size_bytes) VALUES (?, ?, ?)
-    ON CONFLICT(directory, name) DO UPDATE SET size_bytes = COALESCE(excluded.size_bytes, model_catalog.size_bytes)
+    INSERT INTO model_catalog (directory, name, size_bytes, root_path, synced_at) VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(directory, name) DO UPDATE SET
+      size_bytes = COALESCE(excluded.size_bytes, model_catalog.size_bytes),
+      root_path = COALESCE(excluded.root_path, model_catalog.root_path),
+      synced_at = COALESCE(excluded.synced_at, model_catalog.synced_at)
   `);
   const write = db.transaction(() => {
-    for (const file of files) upsert.run(file.directory, file.name, file.sizeBytes);
+    for (const file of files) upsert.run(file.directory, file.name, file.sizeBytes, file.rootPath ?? null, syncedAt);
   });
   write.immediate();
   return files.length;
 }
 
-export function upsertObjectInfo(db: Database.Database, parsed: ParsedObjectInfo): { nodes: number; models: number; skipped: string[] } {
+/**
+ * Fills kind and base model from the folder and file name for every model that metadata enrichment
+ * has not reached yet. Enriched rows keep what the header and sidecar proved.
+ */
+export function inferModelsFromNames(db: Database.Database): number {
+  const rows = db.prepare('SELECT directory, name FROM model_catalog WHERE enriched_at IS NULL').all() as Array<{ directory: string; name: string }>;
+  const update = db.prepare('UPDATE model_catalog SET kind = ?, base_model = ?, base_model_evidence = ? WHERE directory = ? AND name = ?');
+  const write = db.transaction(() => {
+    for (const row of rows) {
+      const guess = inferBaseModel({ filename: row.name });
+      update.run(kindFromDirectory(row.directory), guess.family, guess.evidence, row.directory, row.name);
+    }
+  });
+  write.immediate();
+  return rows.length;
+}
+
+export interface NodePackRow {
+  name: string;
+  version: string | null;
+  commitSha: string | null;
+  installedState: string;
+  importState: string;
+  classCount: number | null;
+}
+
+/** Replaces the pack list: a pack the server no longer lists is gone from ComfyUI too. */
+export function replaceNodePacks(db: Database.Database, packs: NodePackRow[], syncedAt: number): number {
+  const insert = db.prepare(`
+    INSERT INTO node_packs (name, version, commit_sha, installed_state, import_state, class_count, synced_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `);
+  const write = db.transaction(() => {
+    db.prepare('DELETE FROM node_packs').run();
+    for (const pack of packs) {
+      insert.run(pack.name, pack.version, pack.commitSha, pack.installedState, pack.importState, pack.classCount, syncedAt);
+    }
+  });
+  write.immediate();
+  return packs.length;
+}
+
+export interface ModelEnrichment {
+  kind: string;
+  baseModel: string;
+  baseModelEvidence: string;
+  triggerWords: string[];
+  description: string;
+  sourceUrl: string | null;
+  metadata: Record<string, string>;
+  enrichedAt: number;
+}
+
+export function writeModelEnrichment(db: Database.Database, directory: string, name: string, value: ModelEnrichment): void {
+  db.prepare(`
+    UPDATE model_catalog SET kind = ?, base_model = ?, base_model_evidence = ?, trigger_words = ?, description = ?,
+      source_url = ?, metadata_json = ?, enriched_at = ?
+    WHERE directory = ? AND name = ?
+  `).run(
+    value.kind,
+    value.baseModel,
+    value.baseModelEvidence,
+    JSON.stringify(value.triggerWords),
+    value.description,
+    value.sourceUrl,
+    JSON.stringify(value.metadata),
+    value.enrichedAt,
+    directory,
+    name,
+  );
+}
+
+export interface CatalogCounts {
+  nodeClasses: number;
+  detailedClasses: number;
+  packs: number;
+  models: number;
+  enrichedModels: number;
+}
+
+export function catalogCounts(db: Database.Database): CatalogCounts {
+  const count = (sql: string) => (db.prepare(sql).get() as { n: number }).n;
+  return {
+    nodeClasses: count('SELECT COUNT(*) AS n FROM node_catalog'),
+    detailedClasses: count("SELECT COUNT(*) AS n FROM node_catalog WHERE inputs_json NOT IN ('[]', '')"),
+    packs: count('SELECT COUNT(*) AS n FROM node_packs'),
+    models: count('SELECT COUNT(*) AS n FROM model_catalog'),
+    enrichedModels: count('SELECT COUNT(*) AS n FROM model_catalog WHERE enriched_at IS NOT NULL'),
+  };
+}
+
+/**
+ * Display name, category, and description from object_info only overwrite stored text when present,
+ * so a class list read through MCP is not blanked by an object_info without those fields.
+ */
+export function upsertObjectInfo(
+  db: Database.Database,
+  parsed: ParsedObjectInfo,
+  syncedAt: number | null = null,
+): { nodes: number; models: number; skipped: string[] } {
   const seed = db.prepare('INSERT OR IGNORE INTO node_catalog (class_type, pack) VALUES (?, ?)');
   const upsert = db.prepare(`
-    INSERT INTO node_catalog (class_type, pack, python_module, inputs_json, outputs_json, widget_order_json)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO node_catalog (class_type, pack, python_module, inputs_json, outputs_json, widget_order_json,
+      display_name, category, description, output_node, pack_name, synced_at)
+    VALUES (?, ?, ?, ?, ?, ?, COALESCE(?, ''), COALESCE(?, ''), COALESCE(?, ''), ?, ?, ?)
     ON CONFLICT(class_type) DO UPDATE SET
       pack = excluded.pack,
       python_module = excluded.python_module,
       inputs_json = excluded.inputs_json,
       outputs_json = excluded.outputs_json,
-      widget_order_json = excluded.widget_order_json
+      widget_order_json = excluded.widget_order_json,
+      display_name = CASE WHEN excluded.display_name <> '' THEN excluded.display_name ELSE node_catalog.display_name END,
+      category = CASE WHEN excluded.category <> '' THEN excluded.category ELSE node_catalog.category END,
+      description = CASE WHEN excluded.description <> '' THEN excluded.description ELSE node_catalog.description END,
+      output_node = excluded.output_node,
+      pack_name = excluded.pack_name,
+      synced_at = COALESCE(excluded.synced_at, node_catalog.synced_at)
   `);
   const model = db.prepare('INSERT OR IGNORE INTO model_catalog (directory, name) VALUES (?, ?)');
   const write = db.transaction(() => {
@@ -101,6 +229,12 @@ export function upsertObjectInfo(db: Database.Database, parsed: ParsedObjectInfo
         JSON.stringify(node.inputs),
         JSON.stringify(node.outputs),
         serializeWidgetOrder(node),
+        node.displayName ?? null,
+        node.category ?? null,
+        node.description ?? null,
+        node.outputNode ? 1 : 0,
+        packNameFromModule(node.pythonModule),
+        syncedAt,
       );
     }
     for (const row of parsed.models) model.run(row.directory, row.name);
