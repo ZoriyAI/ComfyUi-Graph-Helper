@@ -1,5 +1,6 @@
 import { test, expect, _electron as electron } from '@playwright/test';
 import { pickOption } from './pickOption';
+import { useEnglish } from './locale';
 import { attachRuntimeWatch, finishRuntime, logLocalFont, readLocalFont } from './runtimeWatch';
 import { typedWorkflow } from './fixtures/typedWorkflow';
 import * as fs from 'fs';
@@ -107,6 +108,7 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
     env: { ...process.env, NODE_ENV: 'production' },
   });
   const window = await electronApp.firstWindow();
+  await useEnglish(window);
   const runtimeWatch = await attachRuntimeWatch(electronApp, window);
   await window.locator('#chat-provider').waitFor();
   await expect(window.getByText('The graph is empty.')).toBeVisible();

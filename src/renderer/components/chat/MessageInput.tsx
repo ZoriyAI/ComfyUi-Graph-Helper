@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface MessageInputProps {
   onSend: (content: string) => void;
@@ -15,6 +16,7 @@ export default function MessageInput({
   isPaused,
   disabled = false,
 }: MessageInputProps) {
+  const { t } = useTranslation();
   const [input, setInput] = useState('');
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -42,7 +44,7 @@ export default function MessageInput({
       <div className="composer-field">
         <textarea
           ref={inputRef}
-          aria-label="Chat message"
+          aria-label={String(t('chat.messageLabel'))}
           aria-describedby="composer-keys"
           rows={2}
           value={input}
@@ -54,18 +56,18 @@ export default function MessageInput({
               submit();
             }
           }}
-          placeholder="Ask for a graph change"
+          placeholder={String(t('chat.placeholder'))}
           disabled={disabled || isStreaming}
         />
-        <p id="composer-keys" className="field-hint">Enter sends. Shift+Enter adds a line.</p>
+        <p id="composer-keys" className="field-hint">{t('chat.keys')}</p>
       </div>
       {isStreaming && !isPaused ? (
         <button type="button" className="pause-button" onClick={onPause}>
-          Pause
+          {t('chat.pause')}
         </button>
       ) : null}
       <button type="submit" className="send-button" disabled={!input.trim() || disabled || isStreaming}>
-        Send
+        {t('chat.send')}
       </button>
     </form>
   );

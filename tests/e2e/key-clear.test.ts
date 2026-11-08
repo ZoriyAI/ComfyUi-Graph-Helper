@@ -1,4 +1,5 @@
 import { test, expect, _electron as electron } from '@playwright/test';
+import { useEnglish } from './locale';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -39,6 +40,7 @@ test('blocked secret IPC leaves the disabled key controls empty and the marker o
     env: { ...process.env, NODE_ENV: 'production' },
   });
   const window = await app.firstWindow();
+  await useEnglish(window);
   await window.getByRole('button', { name: 'Settings', exact: true }).click();
   const input = window.locator('input[aria-label="API key"]');
   await expect(input).toBeDisabled();

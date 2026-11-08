@@ -55,6 +55,7 @@ describe('settings migration', () => {
         model: '',
         baseURL: '',
         comfyOrigin: '',
+        language: 'ru',
       },
     });
     expect(db.prepare('SELECT COUNT(*) AS count FROM settings').get()).toEqual({ count: 0 });
@@ -70,7 +71,7 @@ describe('settings migration', () => {
     db.close();
 
     const reopened = new Database(dbPath);
-    expect(schemaVersion(reopened)).toBe(5);
+    expect(schemaVersion(reopened)).toBe(6);
     expect(readSettings(reopened)).toMatchObject({
       source: 'stored',
       values: {
@@ -79,6 +80,7 @@ describe('settings migration', () => {
         model: 'stored-model',
         baseURL: '',
         comfyOrigin: 'http://127.0.0.1:8188',
+        language: 'ru',
       },
     });
     reopened.close();
@@ -107,7 +109,7 @@ describe('settings migration', () => {
       CREATE TABLE model_catalog (directory TEXT NOT NULL, name TEXT NOT NULL, PRIMARY KEY (directory, name));
     `);
     migrate(db);
-    expect(schemaVersion(db)).toBe(5);
+    expect(schemaVersion(db)).toBe(6);
     const columns = db.prepare('PRAGMA table_info(node_catalog)').all() as Array<{ name: string }>;
     expect(columns.map((column) => column.name)).toEqual([
       'class_type',
@@ -122,9 +124,9 @@ describe('settings migration', () => {
       python_module: string;
     };
     expect(row).toEqual({ pack: 'core', python_module: 'nodes' });
-    db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (6, 1)').run();
-    expect(() => migrate(db)).toThrow(/Unsupported schema version 6/);
-    expect(schemaVersion(db)).toBe(6);
+    db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (7, 1)').run();
+    expect(() => migrate(db)).toThrow(/Unsupported schema version 7/);
+    expect(schemaVersion(db)).toBe(7);
     db.close();
   });
 
@@ -146,10 +148,10 @@ describe('settings migration', () => {
       VALUES (1, 'graphite', 'off', 'openai', 'kept-model', 'http://127.0.0.1:8188', 1);
     `);
     migrate(db);
-    expect(schemaVersion(db)).toBe(5);
+    expect(schemaVersion(db)).toBe(6);
     expect(readSettings(db)).toMatchObject({
       source: 'stored',
-      values: { provider: 'openai', model: 'kept-model', baseURL: '', motion: 'off' },
+      values: { provider: 'openai', model: 'kept-model', baseURL: '', motion: 'off', language: 'en' },
     });
     db.close();
   });

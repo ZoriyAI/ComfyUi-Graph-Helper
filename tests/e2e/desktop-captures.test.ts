@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { denseWorkflow, hundredNodeWorkflow } from './fixtures/denseWorkflow';
+import { useEnglish } from './locale';
 import { attachRuntimeWatch, finishRuntime, logLocalFont, readLocalFont } from './runtimeWatch';
 
 const artifactDir = '/opt/cursor/artifacts';
@@ -102,6 +103,7 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
     env: { ...process.env, NODE_ENV: 'production' },
   });
   const window = await electronApp.firstWindow();
+  await useEnglish(window);
   const runtimeWatch = await attachRuntimeWatch(electronApp, window);
   await window.locator('#chat-provider').waitFor();
 

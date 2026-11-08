@@ -1,4 +1,5 @@
 import React, { useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useChatStore } from '../../state/chatState';
 import { useGraphStore } from '../../state/graphState';
 import Message from './Message';
@@ -10,6 +11,7 @@ interface ChatPanelProps {
 }
 
 export default function ChatPanel({ onSendMessage, onPause }: ChatPanelProps) {
+  const { t } = useTranslation();
   const { messages, isStreaming, isPaused } = useChatStore();
   const nodeCount = useGraphStore((state) => state.nodes.length);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -29,19 +31,17 @@ export default function ChatPanel({ onSendMessage, onPause }: ChatPanelProps) {
   return (
     <div className="chat-panel">
       <div className="chat-header">
-        Assistant
+        {t('dock.assistant')}
         {isStreaming ? (
-          <span className="stream-state">{isPaused ? 'Paused' : 'Streaming'}</span>
+          <span className="stream-state">{isPaused ? t('chat.paused') : t('chat.streaming')}</span>
         ) : null}
       </div>
       <div className="chat-log">
         {messages.length === 0 ? (
           <div className="chat-empty">
-            <strong>No messages yet</strong>
+            <strong>{t('chat.emptyTitle')}</strong>
             <p>
-              {nodeCount === 0
-                ? 'Import a workflow or describe a change. TEST fixture replies are scripted and are not a live model.'
-                : 'Describe a change. TEST fixture replies are scripted and are not a live model.'}
+              {nodeCount === 0 ? t('chat.emptyWithoutGraph') : t('chat.emptyWithGraph')}
             </p>
           </div>
         ) : (

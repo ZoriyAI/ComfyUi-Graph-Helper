@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import Hint from '../../ui/Hint';
 import { TabsContent, TabsList, TabsRoot, TabsTrigger } from '../../ui/Tabs';
 import ChatPanel from '../chat/ChatPanel';
@@ -6,6 +7,7 @@ import Inspector from '../graph/Inspector';
 import { canUseSplit, dockRange, useDockStore, type DockTab } from '../../state/dockState';
 
 export function ToolSplitter() {
+  const { t } = useTranslation();
   const collapsed = useDockStore((state) => state.collapsed);
   const split = useDockStore((state) => state.split);
   const width = useDockStore((state) => state.width);
@@ -40,7 +42,7 @@ export function ToolSplitter() {
       className="tool-separator"
       role="separator"
       aria-orientation="vertical"
-      aria-label="Resize tools"
+      aria-label={String(t('dock.resize'))}
       aria-controls="tool-dock"
       aria-valuemin={range.min}
       aria-valuemax={range.max}
@@ -70,6 +72,7 @@ export function ToolSplitter() {
 }
 
 export function ToolToggles() {
+  const { t } = useTranslation();
   const collapsed = useDockStore((state) => state.collapsed);
   const tab = useDockStore((state) => state.tab);
   const split = useDockStore((state) => state.split);
@@ -85,7 +88,7 @@ export function ToolToggles() {
   }, []);
 
   const splitAllowed = canUseSplit(viewport);
-  const splitReason = 'Show both stays off until the window is at least 1280px and the canvas can stay at least 560px.';
+  const splitReason = String(t('dock.showBothReason'));
 
   return (
     <>
@@ -95,7 +98,7 @@ export function ToolToggles() {
         aria-pressed={!collapsed && (split || tab === 'inspector')}
         onClick={() => show('inspector')}
       >
-        Inspector
+        {t('dock.inspector')}
       </button>
       <button
         type="button"
@@ -103,17 +106,17 @@ export function ToolToggles() {
         aria-pressed={!collapsed && (split || tab === 'assistant')}
         onClick={() => show('assistant')}
       >
-        Assistant
+        {t('dock.assistant')}
       </button>
       {splitAllowed ? (
         <button
           type="button"
           className="ghost-button"
           aria-pressed={split}
-          title="Show Inspector and Assistant together"
+          title={String(t('dock.showBothTitle'))}
           onClick={() => setSplit(!split)}
         >
-          Show both
+          {t('dock.showBoth')}
         </button>
       ) : (
         <Hint label={splitReason}>
@@ -124,7 +127,7 @@ export function ToolToggles() {
             aria-describedby="show-both-reason"
             disabled
           >
-            Show both
+            {t('dock.showBoth')}
           </button>
         </Hint>
       )}
@@ -135,7 +138,7 @@ export function ToolToggles() {
         aria-pressed={collapsed}
         onClick={() => setCollapsed(!collapsed)}
       >
-        {collapsed ? 'Show tools' : 'Hide tools'}
+        {collapsed ? t('dock.showTools') : t('dock.hideTools')}
       </button>
     </>
   );
@@ -148,6 +151,7 @@ export default function Dock({
   onSendMessage: (content: string) => void;
   onPause: () => void;
 }) {
+  const { t } = useTranslation();
   const collapsed = useDockStore((state) => state.collapsed);
   const tab = useDockStore((state) => state.tab);
   const split = useDockStore((state) => state.split);
@@ -160,7 +164,7 @@ export default function Dock({
       style={{ width }}
       hidden={collapsed}
       id="tool-dock"
-      aria-label="Inspector and assistant"
+      aria-label={String(t('dock.region'))}
     >
       <ToolSplitter />
       <TabsRoot
@@ -168,9 +172,9 @@ export default function Dock({
         onValueChange={(next) => show(next as DockTab)}
         className="dock-tabs"
       >
-        <TabsList className="dock-tablist" aria-label="Tools">
-          <TabsTrigger className="dock-tab" value="inspector">Inspector</TabsTrigger>
-          <TabsTrigger className="dock-tab" value="assistant">Assistant</TabsTrigger>
+        <TabsList className="dock-tablist" aria-label={String(t('dock.tools'))}>
+          <TabsTrigger className="dock-tab" value="inspector">{t('dock.inspector')}</TabsTrigger>
+          <TabsTrigger className="dock-tab" value="assistant">{t('dock.assistant')}</TabsTrigger>
         </TabsList>
         <div className="dock-panels">
           <TabsContent className="dock-panel" value="inspector" forceMount>

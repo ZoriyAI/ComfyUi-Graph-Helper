@@ -1,6 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { secretBearingFields, settingsWriteError } from '../../../shared/config/draft';
 import { nonSecretDefaults, type NonSecretSettings, type SettingsRead } from '../../../shared/config/schema';
+import { explainError, languageOf, type AppLanguage, type Translator } from '../../../shared/i18n';
+import { applyLanguage } from '../../i18n';
 import {
   DialogClose,
   DialogContent,
@@ -24,25 +27,12 @@ function sameSettings(left: NonSecretSettings, right: NonSecretSettings) {
     && left.provider === right.provider
     && left.model === right.model
     && left.baseURL === right.baseURL
-    && left.comfyOrigin === right.comfyOrigin;
+    && left.comfyOrigin === right.comfyOrigin
+    && left.language === right.language;
 }
 
-const PROVIDERS = [
-  { value: '', label: 'Not configured' },
-  { value: 'test', label: 'TEST fixture' },
-  { value: 'openai', label: 'OpenAI' },
-];
-
-const MOTION = [
-  { value: 'system', label: 'System' },
-  { value: 'on', label: 'On' },
-  { value: 'reduced', label: 'Reduced' },
-  { value: 'off', label: 'Off' },
-];
-
-const KEY_REASON = 'Key storage is not available. The key is not written. Cancel does not store a key.';
-
 type Section = 'connection' | 'assistant' | 'appearance';
+type NoteState = { kind: 'key'; key: string } | { kind: 'error'; code: string };
 
 export default function SettingsPanel({
   onRead,
@@ -51,6 +41,8 @@ export default function SettingsPanel({
   onRead: (values: NonSecretSettings) => void;
   onSaved: (values: NonSecretSettings) => void;
 }) {
+  const { t } = useTranslation();
+  const translate: Translator = (key, options) => (options ? String(t(key, options)) : String(t(key)));
   const savedRef = useRef<NonSecretSettings>(nonSecretDefaults);
   const onReadRef = useRef(onRead);
   const onSavedRef = useRef(onSaved);
@@ -59,7 +51,7 @@ export default function SettingsPanel({
   const [open, setOpen] = useState(false);
   const [section, setSection] = useState<Section>('connection');
   const [values, setValues] = useState<NonSecretSettings>(nonSecretDefaults);
-  const [settingsNote, setSettingsNote] = useState('Settings are not saved yet.');
+  const [note, setNote] = useState<NoteState>({ kind: 'key', key: 'settings.notSavedYet' });
   const [pending, setPending] = useState(false);
   const [container, setContainer] = useState<HTMLElement | null>(null);
 
@@ -67,21 +59,28 @@ export default function SettingsPanel({
     let cancelled = false;
     window.electronAPI.getSettings().then((read: SettingsRead) => {
       if (cancelled) return;
+      const language = languageOf(read);
+      applyLanguage(language);
       if (read.source === 'stored' && read.values) {
         savedRef.current = read.values;
         setValues(read.values);
-        setSettingsNote('Restored non-secret settings.');
+        setNote({ kind: 'key', key: 'settings.restored' });
         applyMotion(read.values.motion);
         onReadRef.current(read.values);
         return;
       }
       if (read.source === 'corrupt') {
-        setSettingsNote('Stored settings could not be read. Defaults are shown and are not written yet.');
+        const fallback = { ...nonSecretDefaults, language: 'en' as const };
+        savedRef.current = fallback;
+        setValues(fallback);
+        setNote({ kind: 'key', key: 'settings.corrupt' });
         return;
       }
-      setSettingsNote('Defaults are shown and are not written yet.');
+      savedRef.current = nonSecretDefaults;
+      setValues(nonSecretDefaults);
+      setNote({ kind: 'key', key: 'settings.defaults' });
     }).catch(() => {
-      if (!cancelled) setSettingsNote('Settings could not be read.');
+      if (!cancelled) setNote({ kind: 'key', key: 'settings.unread' });
     });
     return () => {
       cancelled = true;
@@ -90,6 +89,7 @@ export default function SettingsPanel({
 
   const discard = () => {
     setValues(savedRef.current);
+    applyLanguage(savedRef.current.language);
     setPending(false);
   };
   const closeFromEscape = () => {
@@ -116,7 +116,12 @@ export default function SettingsPanel({
   const draftError = settingsWriteError(values);
   const dirty = !sameSettings(values, savedRef.current);
   const saveDisabled = pending || !dirty || draftError !== null;
-  const note = draftError ?? settingsNote;
+  const explained = draftError
+    ? explainError(translate, draftError)
+    : note.kind === 'error'
+      ? explainError(translate, note.code)
+      : null;
+  const statusText = explained?.summary ?? translate(note.kind === 'key' ? note.key : 'settings.saveFailed');
   const invalidFields = draftError === 'Settings cannot store a secret' ? secretBearingFields(values) : [];
   const fieldError = (name: string) => (
     invalidFields.includes(name)
@@ -130,21 +135,38 @@ export default function SettingsPanel({
     try {
       const result = await window.electronAPI.saveSettings(values);
       if (!result.ok) {
-        setSettingsNote(result.error);
+        setNote({ kind: 'error', code: result.error });
         return;
       }
       savedRef.current = result.values;
       setValues(result.values);
-      setSettingsNote('Non-secret settings saved.');
+      setNote({ kind: 'key', key: 'settings.saved' });
       applyMotion(result.values.motion);
+      applyLanguage(result.values.language);
       onSavedRef.current(result.values);
       setOpen(false);
     } catch {
-      setSettingsNote('Settings could not be saved.');
+      setNote({ kind: 'key', key: 'settings.saveFailed' });
     } finally {
       setPending(false);
     }
   };
+
+  const providers = [
+    { value: '', label: String(t('settings.providerNone')) },
+    { value: 'test', label: String(t('settings.providerTest')) },
+    { value: 'openai', label: String(t('settings.providerOpenAI')) },
+  ];
+  const motionOptions = [
+    { value: 'system', label: String(t('settings.motionSystem')) },
+    { value: 'on', label: String(t('settings.motionOn')) },
+    { value: 'reduced', label: String(t('settings.motionReduced')) },
+    { value: 'off', label: String(t('settings.motionOff')) },
+  ];
+  const languages = [
+    { value: 'en', label: String(t('settings.languageEnglish')) },
+    { value: 'ru', label: String(t('settings.languageRussian')) },
+  ];
 
   return (
     <DialogRoot
@@ -156,7 +178,7 @@ export default function SettingsPanel({
       }}
     >
       <DialogTrigger asChild>
-        <button type="button" className="ghost-button">Settings</button>
+        <button type="button" className="ghost-button">{t('shell.settings')}</button>
       </DialogTrigger>
       <DialogPortal>
         <DialogOverlay className="dialog-overlay" />
@@ -184,9 +206,9 @@ export default function SettingsPanel({
           }}
         >
           <header className="settings-header">
-            <DialogTitle className="settings-heading">Settings</DialogTitle>
+            <DialogTitle className="settings-heading">{t('settings.title')}</DialogTitle>
             <DialogDescription id="settings-lead" className="settings-lead">
-              Non-secret preferences. A section change does not write.
+              {t('settings.lead')}
             </DialogDescription>
           </header>
           <TabsRoot
@@ -195,89 +217,102 @@ export default function SettingsPanel({
             orientation="vertical"
             className="settings-layout"
           >
-            <TabsList className="settings-nav" aria-label="Settings sections" tabIndex={-1}>
-              <TabsTrigger className="settings-tab" value="connection" tabIndex={section === 'connection' ? 0 : -1}>Connection</TabsTrigger>
-              <TabsTrigger className="settings-tab" value="assistant" tabIndex={section === 'assistant' ? 0 : -1}>Assistant</TabsTrigger>
-              <TabsTrigger className="settings-tab" value="appearance" tabIndex={section === 'appearance' ? 0 : -1}>Appearance & Motion</TabsTrigger>
+            <TabsList className="settings-nav" aria-label={String(t('settings.sections'))} tabIndex={-1}>
+              <TabsTrigger className="settings-tab" value="connection" tabIndex={section === 'connection' ? 0 : -1}>{t('settings.connection')}</TabsTrigger>
+              <TabsTrigger className="settings-tab" value="assistant" tabIndex={section === 'assistant' ? 0 : -1}>{t('settings.assistant')}</TabsTrigger>
+              <TabsTrigger className="settings-tab" value="appearance" tabIndex={section === 'appearance' ? 0 : -1}>{t('settings.appearance')}</TabsTrigger>
             </TabsList>
             <TabsContent className="settings-panel" value="connection" tabIndex={-1}>
-              <h3>Connection</h3>
+              <h3>{t('settings.connection')}</h3>
               <label className="field">
-                Comfy origin
+                {t('settings.comfyOrigin')}
                 <input
-                  aria-label="Comfy origin"
+                  aria-label={String(t('settings.comfyOrigin'))}
                   value={values.comfyOrigin}
                   onChange={(event) => setValues((current) => ({ ...current, comfyOrigin: event.target.value }))}
                   {...fieldError('comfyOrigin')}
                 />
               </label>
-              <p className="field-hint">Used only as a label. This build does not connect or queue.</p>
+              <p className="field-hint">{t('settings.comfyOriginHint')}</p>
               <label className="field">
-                API key
+                {t('settings.apiKey')}
                 <input
                   type="password"
-                  aria-label="API key"
+                  aria-label={String(t('settings.apiKey'))}
                   aria-describedby="key-unavailable"
                   value=""
                   disabled
                   readOnly
                 />
               </label>
-              <p id="key-unavailable" className="field-hint">{KEY_REASON}</p>
+              <p id="key-unavailable" className="field-hint">{t('settings.keyReason')}</p>
               <button type="button" className="ghost-button" disabled>
-                Save key
+                {t('settings.saveKey')}
               </button>
             </TabsContent>
             <TabsContent className="settings-panel" value="assistant" tabIndex={-1}>
-              <h3>Assistant</h3>
+              <h3>{t('settings.assistant')}</h3>
               <SelectField
-                label="Provider"
+                label={String(t('settings.provider'))}
                 value={values.provider}
-                options={PROVIDERS}
+                options={providers}
                 container={container}
                 onChange={(provider) => setValues((current) => ({ ...current, provider: provider as NonSecretSettings['provider'] }))}
               />
               <label className="field">
-                Model
+                {t('settings.model')}
                 <input
-                  aria-label="Model"
+                  aria-label={String(t('settings.model'))}
                   value={values.model}
                   onChange={(event) => setValues((current) => ({ ...current, model: event.target.value }))}
                   {...fieldError('model')}
                 />
               </label>
               <label className="field">
-                Base URL
+                {t('settings.baseUrl')}
                 <input
-                  aria-label="Base URL"
+                  aria-label={String(t('settings.baseUrl'))}
                   value={values.baseURL}
                   onChange={(event) => setValues((current) => ({ ...current, baseURL: event.target.value }))}
                   {...fieldError('baseURL')}
                 />
               </label>
-              <p className="field-hint">An http(s) origin, or empty. A secret in any field blocks the save.</p>
+              <p className="field-hint">{t('settings.baseUrlHint')}</p>
             </TabsContent>
             <TabsContent className="settings-panel" value="appearance" tabIndex={-1}>
-              <h3>Appearance & Motion</h3>
+              <h3>{t('settings.appearance')}</h3>
               <SelectField
-                label="Motion"
+                label={String(t('settings.motion'))}
                 value={values.motion}
-                options={MOTION}
+                options={motionOptions}
                 container={container}
                 onChange={(motion) => setValues((current) => ({ ...current, motion: motion as NonSecretSettings['motion'] }))}
               />
-              <p className="field-hint">System, On, Reduced, or Off. The choice applies after Save, not while drafting.</p>
+              <p className="field-hint">{t('settings.motionHint')}</p>
+              <SelectField
+                id="settings-language"
+                label={String(t('settings.language'))}
+                value={values.language}
+                options={languages}
+                container={container}
+                onChange={(language) => {
+                  const next = language as AppLanguage;
+                  setValues((current) => ({ ...current, language: next }));
+                  applyLanguage(next);
+                }}
+              />
+              <p className="field-hint">{t('settings.languageHint')}</p>
             </TabsContent>
           </TabsRoot>
           <footer className="settings-actions">
-            <p id="settings-draft-error" className="provider-note" role="status">{note}</p>
-            <p className="field-hint">{KEY_REASON}</p>
+            <p id="settings-draft-error" className="provider-note" role="status">{statusText}</p>
+            <p className="field-hint">{t('settings.keyReason')}</p>
             <div className="settings-buttons">
               <button type="button" className="send-button settings-save" disabled={saveDisabled} onClick={() => void save()}>
-                <span className="settings-save-reserve" aria-hidden="true">Save settings</span>
-                <span className="settings-save-current">{pending ? 'Saving…' : 'Save settings'}</span>
+                <span className="settings-save-reserve" aria-hidden="true">{t('settings.save')}</span>
+                <span className="settings-save-current">{pending ? t('settings.saving') : t('settings.save')}</span>
               </button>
-              <DialogClose className="ghost-button">Cancel</DialogClose>
+              <DialogClose className="ghost-button">{t('settings.cancel')}</DialogClose>
             </div>
           </footer>
         </DialogContent>

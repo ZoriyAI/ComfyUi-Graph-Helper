@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Handle, Position, NodeProps } from '@xyflow/react';
 import { ComfyNodeData, PortDefinition } from '../../../types/graph';
 
@@ -19,25 +20,26 @@ function PortRow({ port, kind }: { port: PortDefinition; kind: 'target' | 'sourc
 }
 
 export default function ComfyNode({ data: rawData, selected }: NodeProps) {
+  const { t } = useTranslation();
   const data = rawData as ComfyNodeData;
   const parameters = Object.entries(data.parameters || {});
   const primary = data.outputs[0]?.dataType || data.inputs[0]?.dataType || 'unknown';
 
   return (
     <div className={`graph-node${selected ? ' is-selected' : ''}${data.locked ? ' is-locked' : ''}`} data-demo={data.demo ? 'true' : 'false'} data-primary-type={primary}>
-      {data.demo ? <span className="demo-flag">DEMO</span> : null}
-      {data.locked ? <span className="lock-flag">Locked</span> : null}
+      {data.demo ? <span className="demo-flag">{t('node.demo')}</span> : null}
+      {data.locked ? <span className="lock-flag">{t('node.locked')}</span> : null}
       <div className="graph-node-title">{data.title || data.comfyType}</div>
       <div className="graph-node-type">{data.comfyType}</div>
       {data.inputs.length > 0 ? (
-        <ul className="port-list" aria-label="Inputs">
+        <ul className="port-list" aria-label={String(t('node.inputs'))}>
           {data.inputs.map((port) => (
             <PortRow key={port.id} port={port} kind="target" />
           ))}
         </ul>
       ) : null}
       {data.outputs.length > 0 ? (
-        <ul className="port-list" aria-label="Outputs">
+        <ul className="port-list" aria-label={String(t('node.outputs'))}>
           {data.outputs.map((port) => (
             <PortRow key={port.id} port={port} kind="source" />
           ))}
@@ -51,12 +53,12 @@ export default function ComfyNode({ data: rawData, selected }: NodeProps) {
               <span>{String(value).length > 24 ? `${String(value).slice(0, 24)}…` : String(value)}</span>
             </div>
           ))}
-          {parameters.length > 3 ? <div className="param-key">+{parameters.length - 3} more</div> : null}
+          {parameters.length > 3 ? <div className="param-key">{t('node.more', { count: parameters.length - 3 })}</div> : null}
         </div>
       ) : null}
       {data.annotations && data.annotations.length > 0 ? (
         <div className="node-annotation">
-          <span className="note-label">Note: </span>
+          <span className="note-label">{t('node.note')} </span>
           {data.annotations[0]}
         </div>
       ) : null}

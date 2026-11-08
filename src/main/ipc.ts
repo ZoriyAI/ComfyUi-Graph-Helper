@@ -11,6 +11,11 @@ import { assertObjectInfoSize, ObjectInfoError, parseObjectInfo } from '../share
 import { upsertObjectInfo } from './catalog/repository';
 import { exportWorkflow, type GraphSnapshot } from '../shared/workflow/codec';
 import type { CommandResponse, GraphMutation } from '../shared/commands/types';
+import { fileDialogCopy, languageOf } from '../shared/i18n';
+
+function dialogCopy() {
+  return fileDialogCopy(languageOf(readSettings(getDatabase())));
+}
 
 function adoptStoredChatRuntime(): void {
   const read = readSettings(getDatabase());
@@ -26,8 +31,11 @@ export function setupIPC() {
   adoptStoredChatRuntime();
   // File operations
   ipcMain.handle(IPC_CHANNELS.FILE_IMPORT_WORKFLOW, async () => {
+    const copy = dialogCopy().importWorkflow;
     const result = await dialog.showOpenDialog({
-      filters: [{ name: 'ComfyUI Workflow', extensions: ['json'] }],
+      title: copy.title,
+      buttonLabel: copy.buttonLabel,
+      filters: [{ name: copy.filter, extensions: ['json'] }],
       properties: ['openFile'],
     });
     if (result.canceled || result.filePaths.length === 0) {
@@ -42,8 +50,11 @@ export function setupIPC() {
   });
 
   ipcMain.handle(IPC_CHANNELS.FILE_IMPORT_CATALOG, async () => {
+    const copy = dialogCopy().importCatalog;
     const result = await dialog.showOpenDialog({
-      filters: [{ name: 'ComfyUI object_info', extensions: ['json'] }],
+      title: copy.title,
+      buttonLabel: copy.buttonLabel,
+      filters: [{ name: copy.filter, extensions: ['json'] }],
       properties: ['openFile'],
     });
     if (result.canceled || result.filePaths.length === 0) return { status: 'cancelled' as const };
@@ -53,8 +64,11 @@ export function setupIPC() {
   ipcMain.handle(IPC_CHANNELS.FILE_EXPORT_WORKFLOW, async () => {
     const exported = exportWorkflowDocument();
     if (!exported.ok) return exported;
+    const copy = dialogCopy().exportWorkflow;
     const result = await dialog.showSaveDialog({
-      filters: [{ name: 'ComfyUI Workflow', extensions: ['json'] }],
+      title: copy.title,
+      buttonLabel: copy.buttonLabel,
+      filters: [{ name: copy.filter, extensions: ['json'] }],
       defaultPath: 'workflow.json',
     });
     if (result.canceled || !result.filePath) return { ok: false, canceled: true };

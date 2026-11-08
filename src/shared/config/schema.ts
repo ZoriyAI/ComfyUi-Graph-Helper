@@ -17,6 +17,7 @@ export const nonSecretSettingsSchema = z.object({
   model: z.string().trim().max(200),
   baseURL: z.string().trim().max(500).refine(httpOriginOrEmpty).default(''),
   comfyOrigin: z.string().max(500),
+  language: z.enum(['en', 'ru']).default('ru'),
 });
 
 export type NonSecretSettings = z.infer<typeof nonSecretSettingsSchema>;
@@ -30,6 +31,7 @@ export const nonSecretDefaults: NonSecretSettings = {
   model: '',
   baseURL: '',
   comfyOrigin: '',
+  language: 'ru',
 };
 
 export type SettingsRead =

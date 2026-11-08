@@ -1,4 +1,5 @@
 import { test, expect, _electron as electron } from '@playwright/test';
+import { useEnglish } from './locale';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -31,6 +32,7 @@ test('import projects a workflow onto the canvas and export keeps unknown fields
     env: { ...process.env, NODE_ENV: 'production' },
   });
   const window = await electronApp.firstWindow();
+  await useEnglish(window);
   await window.locator('#chat-provider').waitFor();
   await expect(window.getByRole('button', { name: 'Import' })).toBeEnabled();
   await expect(window.getByRole('button', { name: 'Export' })).toBeEnabled();
@@ -80,6 +82,7 @@ test('Import and Export buttons use the file dialogs, and cancel does not change
     env: { ...process.env, NODE_ENV: 'production' },
   });
   const window = await electronApp.firstWindow();
+  await useEnglish(window);
   await window.locator('#chat-provider').waitFor();
   await electronApp.evaluate(({ dialog }, paths) => {
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [paths.source] });

@@ -133,10 +133,12 @@ function applyVersion2(db: Database.Database): void {
  * Version 3 stores the workflow document and the local node/model catalog.
  * Version 4 adds object_info guidance columns on node_catalog.
  * Version 5 adds the non-secret LLM base URL on the single settings row.
+ * Version 6 adds the interface language. Existing rows default to English.
+ * A profile with no settings row still uses the application default, Russian.
  */
 export function migrate(db: Database.Database, options?: { failBeforeVersionStamp?: boolean }): void {
   const version = schemaVersion(db);
-  if (version > 5) {
+  if (version > 6) {
     throw new Error(`Unsupported schema version ${version}`);
   }
   if (version < 1) {
@@ -177,6 +179,13 @@ export function migrate(db: Database.Database, options?: { failBeforeVersionStam
     });
     apply.immediate();
   }
+  if (schemaVersion(db) === 5) {
+    const apply = db.transaction(() => {
+      applyVersion6(db);
+      db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (6, ?)').run(Date.now());
+    });
+    apply.immediate();
+  }
 }
 
 function applyVersion4(db: Database.Database): void {
@@ -200,5 +209,13 @@ function applyVersion5(db: Database.Database): void {
   if (!settings) return;
   if (!columnNames(db, 'settings').includes('base_url')) {
     db.exec("ALTER TABLE settings ADD COLUMN base_url TEXT NOT NULL DEFAULT ''");
+  }
+}
+
+function applyVersion6(db: Database.Database): void {
+  const settings = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'settings'").get();
+  if (!settings) return;
+  if (!columnNames(db, 'settings').includes('language')) {
+    db.exec("ALTER TABLE settings ADD COLUMN language TEXT NOT NULL DEFAULT 'en'");
   }
 }

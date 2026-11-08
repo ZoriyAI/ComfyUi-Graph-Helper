@@ -1,5 +1,6 @@
 import { test, expect, _electron as electron } from '@playwright/test';
 import { pickOption } from './pickOption';
+import { useEnglish } from './locale';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -57,6 +58,7 @@ test('STRICT: Complete chat-to-graph with annotation, statuses, completion', asy
 
   const window = await electronApp.firstWindow();
   await window.waitForLoadState('domcontentloaded');
+  await useEnglish(window);
   await window.waitForTimeout(2000);
 
   // ACCEPTANCE 1: Capture initial node IDs BEFORE any interaction
@@ -259,6 +261,7 @@ test('STRICT: Readable error with no graph mutation on failure', async () => {
 
   const window = await electronApp.firstWindow();
   await window.waitForLoadState('domcontentloaded');
+  await useEnglish(window);
   await window.waitForTimeout(2000);
 
   const initialState = await window.evaluate(() => {

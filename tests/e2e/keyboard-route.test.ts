@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { denseWorkflow } from './fixtures/denseWorkflow';
+import { useEnglish } from './locale';
 
 function zoneOf(page: Page) {
   return page.evaluate(() => {
@@ -31,6 +32,7 @@ test('keyboard route reaches a node and keeps graph shortcuts out of fields', as
   window.on('pageerror', (error) => {
     errors.push(error instanceof Error ? error.message : String(error));
   });
+  await useEnglish(window);
   await window.locator('#chat-provider').waitFor();
   const absent = await window.evaluate(() => ({
     menu: document.querySelector('[role="menu"]') == null,

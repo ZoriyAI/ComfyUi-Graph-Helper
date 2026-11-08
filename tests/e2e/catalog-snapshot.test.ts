@@ -1,4 +1,5 @@
 import { test, expect, _electron as electron } from '@playwright/test';
+import { useEnglish } from './locale';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -77,6 +78,7 @@ test('catalog snapshot import persists guidance and workflow missing-deps use it
     env: { ...process.env, NODE_ENV: 'production' },
   });
   const window = await electronApp.firstWindow();
+  await useEnglish(window);
   await window.locator('#chat-provider').waitFor();
   const appRoot = path.join(__dirname, '../..');
   await electronApp.evaluate(({ dialog }, paths) => {

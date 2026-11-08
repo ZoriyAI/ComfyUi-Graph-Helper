@@ -1,4 +1,5 @@
 import { test, expect, _electron as electron } from '@playwright/test';
+import { useEnglish } from './locale';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -23,6 +24,7 @@ test('Desktop smoke: app window loads with production renderer', async () => {
   // Get main window
   const window = await electronApp.firstWindow();
   console.log('[SMOKE] Window opened');
+  await useEnglish(window);
 
   // Wait for app to load
   await window.waitForLoadState('domcontentloaded');
@@ -99,6 +101,7 @@ test('Desktop smoke: TEST fixture IPC chat interaction', async () => {
 
   const window = await electronApp.firstWindow();
   await window.waitForLoadState('domcontentloaded');
+  await useEnglish(window);
   await window.waitForTimeout(2000);
 
   // Configure TEST provider via electronAPI

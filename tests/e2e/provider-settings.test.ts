@@ -4,6 +4,7 @@ import * as os from 'os';
 import * as path from 'path';
 import type { ElectronApplication, Page } from '@playwright/test';
 import { pickOption } from './pickOption';
+import { useEnglish } from './locale';
 
 const MARKER = 'sk-fakemarker';
 
@@ -49,10 +50,19 @@ test('stored provider, model, and base URL are what the next send would use afte
   const appRoot = path.join(__dirname, '../..');
   const app = await launch(userData);
   const window = await app.firstWindow();
+  await window.locator('.app-shell').waitFor();
+  await expect(window.locator('html')).toHaveAttribute('lang', 'ru');
   await expect(window.locator('#chat-provider')).toHaveAttribute('data-value', '');
   await expect.poll(() => runtimeConfig(window)).toEqual({ provider: '', model: '', baseURL: '' });
+  await window.getByRole('button', { name: 'Настройки', exact: true }).click();
+  const fresh = window.locator('[role="dialog"].settings-dialog');
+  await fresh.getByRole('tab', { name: 'Ассистент' }).click();
+  await expect(fresh.getByText('Показаны значения по умолчанию, они ещё не записаны.')).toBeVisible();
+  await expect(fresh.getByRole('button', { name: 'Сохранить настройки' })).toBeDisabled();
+  await fresh.getByRole('button', { name: 'Отмена' }).click();
+  await useEnglish(window);
   const dialog = await openSettings(window);
-  await expect(dialog.getByText('Defaults are shown and are not written yet.')).toBeVisible();
+  await expect(dialog.getByText('Restored non-secret settings.')).toBeVisible();
   await expect(dialog.getByRole('button', { name: 'Save settings' })).toBeDisabled();
 
   await pickOption(window, 'Provider', 'OpenAI', dialog);

@@ -15,6 +15,7 @@ type SettingsRow = {
   model: string;
   base_url: string;
   comfy_origin: string;
+  language: string;
 };
 
 function rowToInput(row: SettingsRow): unknown {
@@ -25,11 +26,12 @@ function rowToInput(row: SettingsRow): unknown {
     model: row.model,
     baseURL: row.base_url,
     comfyOrigin: row.comfy_origin,
+    language: row.language,
   };
 }
 
 export function readSettings(db: Database.Database): SettingsRead {
-  const row = db.prepare('SELECT theme, motion, provider, model, base_url, comfy_origin FROM settings WHERE id = 1').get() as
+  const row = db.prepare('SELECT theme, motion, provider, model, base_url, comfy_origin, language FROM settings WHERE id = 1').get() as
     | SettingsRow
     | undefined;
   if (!row) {
@@ -53,8 +55,8 @@ export function saveSettings(db: Database.Database, input: unknown): { ok: true;
   const values = parsed.data;
   const write = db.transaction(() => {
     db.prepare(
-      `INSERT INTO settings (id, theme, motion, provider, model, comfy_origin, base_url, updated_at)
-       VALUES (1, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO settings (id, theme, motion, provider, model, comfy_origin, base_url, language, updated_at)
+       VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          theme = excluded.theme,
          motion = excluded.motion,
@@ -62,8 +64,18 @@ export function saveSettings(db: Database.Database, input: unknown): { ok: true;
          model = excluded.model,
          comfy_origin = excluded.comfy_origin,
          base_url = excluded.base_url,
+         language = excluded.language,
          updated_at = excluded.updated_at`
-    ).run(values.theme, values.motion, values.provider, values.model, values.comfyOrigin, values.baseURL, Date.now());
+    ).run(
+      values.theme,
+      values.motion,
+      values.provider,
+      values.model,
+      values.comfyOrigin,
+      values.baseURL,
+      values.language,
+      Date.now(),
+    );
   });
   write.immediate();
   return { ok: true, values };

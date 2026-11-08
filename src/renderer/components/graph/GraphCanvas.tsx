@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ReactFlow,
   Background,
@@ -64,6 +65,7 @@ function ZoomReporter() {
 }
 
 export default function GraphCanvas() {
+  const { t } = useTranslation();
   const { nodes, edges, setNodes, setEdges } = useGraphStore();
   const [fitDuration, setFitDuration] = useState(() => fitDurationMs());
 
@@ -132,7 +134,7 @@ export default function GraphCanvas() {
   return (
     <div className="graph-canvas" data-fit-duration={fitDuration}>
       {nodes.length === 0 ? (
-        <p className="canvas-empty">The graph is empty. Import a workflow or describe a change.</p>
+        <p className="canvas-empty">{t('graph.empty')}</p>
       ) : null}
       <ReactFlow
         nodes={nodes}
@@ -154,6 +156,19 @@ export default function GraphCanvas() {
         minZoom={0.1}
         maxZoom={2}
         multiSelectionKeyCode={['Meta', 'Control']}
+        ariaLabelConfig={{
+          'node.a11yDescription.default': String(t('graph.nodeDefault')),
+          'node.a11yDescription.keyboardDisabled': String(t('graph.nodeKeyboard')),
+          'node.a11yDescription.ariaLiveMessage': ({ direction, x, y }) => String(t('graph.nodeMoved', { direction, x, y })),
+          'edge.a11yDescription.default': String(t('graph.edgeDefault')),
+          'controls.ariaLabel': String(t('graph.controls')),
+          'controls.zoomIn.ariaLabel': String(t('graph.zoomIn')),
+          'controls.zoomOut.ariaLabel': String(t('graph.zoomOut')),
+          'controls.fitView.ariaLabel': String(t('graph.fitView')),
+          'controls.interactive.ariaLabel': String(t('graph.interactive')),
+          'minimap.ariaLabel': String(t('graph.minimap')),
+          'handle.ariaLabel': String(t('graph.handle')),
+        }}
       >
         <ZoomReporter />
         <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
