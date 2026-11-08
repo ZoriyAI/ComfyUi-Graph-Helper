@@ -1,6 +1,10 @@
 import { useChatStore } from '../../state/chatState';
 import { useGraphStore } from '../../state/graphState';
 import { agentGraphContext } from '../../../shared/agent/context';
+import { translateKnownError, type Translator } from '../../../shared/i18n';
+import { i18n } from '../../i18n';
+
+const translate: Translator = (key, options) => (options ? String(i18n.t(key, options)) : String(i18n.t(key)));
 import { DESKTOP_PROJECT_ID } from '../../../shared/project';
 import type { Projection } from '../../../shared/commands/types';
 import { applyProjection } from '../commands/projection';
@@ -275,10 +279,11 @@ class ChatService {
             useChatStore.setState({ isStreaming: false });
 
             if (!currentAssistantMessageId) {
+              const shown = translateKnownError(translate, errorMessage) ?? errorMessage;
               addMessage({
                 id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
                 role: 'assistant',
-                content: `Error: ${errorMessage}`,
+                content: `Error: ${shown}`,
                 timestamp: Date.now(),
               });
             }
@@ -292,10 +297,11 @@ class ChatService {
       );
     } catch (error: any) {
       console.error('[ChatService] Stream error:', error);
+      const shown = translateKnownError(translate, String(error.message ?? '')) ?? String(error.message ?? '');
       addMessage({
         id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         role: 'assistant',
-        content: `Error: ${error.message}`,
+        content: `Error: ${shown}`,
         timestamp: Date.now(),
       });
       this.isStreaming = false;

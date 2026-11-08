@@ -2,6 +2,7 @@ import type Database from 'better-sqlite3';
 import { carriesSecret } from '../../shared/config/draft';
 import { isUnprotectedCipher } from '../../shared/config/secretPolicy';
 import {
+  coerceLegacyComfyOrigin,
   nonSecretDefaults,
   nonSecretSettingsSchema,
   type NonSecretSettings,
@@ -38,7 +39,7 @@ export function readSettings(db: Database.Database): SettingsRead {
   if (!row) {
     return { source: 'default', values: nonSecretDefaults };
   }
-  const parsed = nonSecretSettingsSchema.safeParse(rowToInput(row));
+  const parsed = nonSecretSettingsSchema.safeParse(coerceLegacyComfyOrigin(rowToInput(row)));
   if (!parsed.success) {
     return { source: 'corrupt' };
   }

@@ -99,10 +99,11 @@ function App() {
       return;
     }
     if (next === 'openai' || next === 'local') {
+      const sameProvider = storedRuntime.current.provider === next;
       await window.electronAPI.llmSetConfig({
         provider: next,
-        model: storedRuntime.current.model,
-        baseURL: storedRuntime.current.baseURL,
+        model: sameProvider ? storedRuntime.current.model : '',
+        baseURL: sameProvider ? storedRuntime.current.baseURL : '',
       });
       setProvider(next);
       return;

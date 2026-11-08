@@ -10,6 +10,15 @@ function httpOriginOrEmpty(value: string): boolean {
   }
 }
 
+/** Read path only. An older row may contain a label that is not an http(s) origin. */
+export function coerceLegacyComfyOrigin(input: unknown): unknown {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return input;
+  const record = { ...(input as Record<string, unknown>) };
+  const origin = typeof record.comfyOrigin === 'string' ? record.comfyOrigin.trim() : record.comfyOrigin;
+  if (typeof origin === 'string' && !httpOriginOrEmpty(origin)) record.comfyOrigin = '';
+  return record;
+}
+
 export const nonSecretSettingsSchema = z.object({
   theme: z.literal('graphite'),
   motion: z.enum(['system', 'on', 'reduced', 'off']),

@@ -150,6 +150,47 @@ describe('prerelease agent configuration', () => {
     fetchSpy.mockRestore();
   });
 
+  it('does not send a cloud key to an http address from a local endpoint or an unlocked store', async () => {
+    const marker = 'cloud-marker-not-a-key';
+    const seen: string[] = [];
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const headers = new Headers(init?.headers);
+      seen.push(`${String(input)} auth=${headers.get('authorization') ?? ''}`);
+      return new Response('{}', { status: 400, headers: { 'content-type': 'application/json' } });
+    });
+    try {
+      mainLLMService.setConfig({
+        provider: 'local',
+        model: 'fixture-local',
+        baseURL: 'http://127.0.0.1:9/v1',
+      });
+      mainLLMService.setConfig({
+        provider: 'openai',
+        model: 'fixture-model',
+        baseURL: 'http://127.0.0.1:9/v1',
+      });
+      mainLLMService.setSessionKey(marker);
+      await expect(mainLLMService.streamChatWithTools([{ role: 'user', content: 'hi' }], {}).next()).rejects.toThrow(
+        'Cloud key is not sent to an http address.',
+      );
+      mainLLMService.setSessionKey('');
+      mainLLMService.setConfig({
+        provider: 'openai',
+        model: 'fixture-model',
+        baseURL: 'http://192.168.1.20:1234/v1',
+      });
+      mainLLMService.holdOsKey(marker);
+      await expect(mainLLMService.streamChatWithTools([{ role: 'user', content: 'hi' }], {}).next()).rejects.toThrow(
+        'Cloud key is not sent to an http address.',
+      );
+      expect(seen).toEqual([]);
+      expect(seen.join('\n')).not.toContain(marker);
+      expect(seen.some((line) => line.startsWith('http:'))).toBe(false);
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
   it('sends a local request only to the saved endpoint and does not attach a session key', async () => {
     const seen: string[] = [];
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {

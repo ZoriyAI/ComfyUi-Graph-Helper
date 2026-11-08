@@ -27,6 +27,18 @@ function httpEndpoint(value: string | undefined): boolean {
   }
 }
 
+/** Empty means the official https endpoint. A cloud key is never attached to http or userinfo. */
+function httpsCloudEndpoint(value: string | undefined): boolean {
+  const base = value?.trim() ?? '';
+  if (base === '') return true;
+  try {
+    const url = new URL(base);
+    return url.protocol === 'https:' && url.username === '' && url.password === '';
+  } catch {
+    return false;
+  }
+}
+
 export type KeySource = 'none' | 'session' | 'os';
 
 class MainLLMService {
@@ -77,6 +89,9 @@ class MainLLMService {
 
   private sendBlock(): string | null {
     if (!this.config) return 'Model not configured';
+    if (this.config.provider === 'openai' && this.sessionKey && !httpsCloudEndpoint(this.config.baseURL)) {
+      return 'Cloud key is not sent to an http address.';
+    }
     if (this.config.provider === 'openai' && !this.sessionKey) return 'Cloud model has no key for this session.';
     if (this.config.provider === 'openai' && this.config.model.trim() === '') return 'Cloud model has no model id.';
     if (this.config.provider === 'local' && !httpEndpoint(this.config.baseURL)) return 'Local model has no endpoint.';
@@ -105,9 +120,10 @@ class MainLLMService {
     }
 
     if (this.config.provider === 'openai') {
+      if (!httpsCloudEndpoint(this.config.baseURL)) return null;
       const openai = createOpenAI({
         apiKey: this.sessionKey ?? '',
-        baseURL: this.config.baseURL || 'https://api.openai.com/v1',
+        baseURL: this.config.baseURL?.trim() || 'https://api.openai.com/v1',
       });
       return openai(this.config.model);
     }

@@ -87,6 +87,40 @@ describe('settings migration', () => {
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
+  it('keeps a legacy comfy origin from discarding the stored settings row', () => {
+    const db = new Database(':memory:');
+    migrate(db);
+    expect(schemaVersion(db)).toBe(7);
+    db.prepare(
+      `INSERT INTO settings (id, theme, motion, provider, model, comfy_origin, base_url, language, updated_at)
+       VALUES (1, 'graphite', 'reduced', 'openai', 'stored-model', 'localhost:8188', 'https://example.test/v1', 'ru', 1)`,
+    ).run();
+    expect(readSettings(db)).toEqual({
+      source: 'stored',
+      values: {
+        theme: 'graphite',
+        motion: 'reduced',
+        provider: 'openai',
+        model: 'stored-model',
+        baseURL: 'https://example.test/v1',
+        comfyOrigin: '',
+        language: 'ru',
+      },
+    });
+    const raw = db.prepare('SELECT comfy_origin FROM settings WHERE id = 1').get() as { comfy_origin: string };
+    expect(raw.comfy_origin).toBe('localhost:8188');
+    expect(saveSettings(db, {
+      theme: 'graphite',
+      motion: 'reduced',
+      provider: 'openai',
+      model: 'stored-model',
+      baseURL: 'https://example.test/v1',
+      comfyOrigin: 'localhost:8188',
+      language: 'ru',
+    })).toEqual({ ok: false, error: 'Settings do not match the schema' });
+    db.close();
+  });
+
   it('does not replace a corrupt settings row with defaults', () => {
     const db = new Database(':memory:');
     migrate(db);

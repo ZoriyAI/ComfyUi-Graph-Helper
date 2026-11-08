@@ -35,6 +35,7 @@ const ERROR_KEYS: Record<string, string> = {
   'The project file could not be written.': 'errors.writeProject',
   'Cloud model has no key for this session.': 'errors.cloudKey',
   'Cloud model has no model id.': 'errors.cloudModel',
+  'Cloud key is not sent to an http address.': 'errors.cloudHttp',
   'Local model has no endpoint.': 'errors.localEndpoint',
   'Local model has no model id.': 'errors.localModel',
   'Comfy origin is empty.': 'errors.comfyEmpty',
@@ -66,6 +67,11 @@ export function createTranslator(language: AppLanguage): Translator {
   (options as InitOptions & { initImmediate: boolean }).initImmediate = false;
   instance.init(options);
   return (key, options) => String(instance.t(key, options ?? {}));
+}
+
+export function translateKnownError(translate: Translator, code: string): string | null {
+  const key = ERROR_KEYS[code];
+  return key ? translate(key) : null;
 }
 
 export function explainError(translate: Translator, code: string): { summary: string; diagnostic: string | null } {
