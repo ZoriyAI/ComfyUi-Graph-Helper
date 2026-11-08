@@ -6,6 +6,8 @@ const IPC_CHANNELS = {
   FILE_IMPORT_WORKFLOW: 'file:import-workflow',
   FILE_IMPORT_CATALOG: 'file:import-catalog',
   FILE_EXPORT_WORKFLOW: 'file:export-workflow',
+  FILE_OPEN_PROJECT: 'file:open-project',
+  FILE_SAVE_PROJECT: 'file:save-project',
   WORKFLOW_EXPORT_DOCUMENT: 'workflow:export-document',
   DB_SAVE_PROJECT: 'db:save-project',
   DB_LOAD_PROJECT: 'db:load-project',
@@ -40,6 +42,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   importCatalog: () => ipcRenderer.invoke(IPC_CHANNELS.FILE_IMPORT_CATALOG),
   exportWorkflow: () => ipcRenderer.invoke(IPC_CHANNELS.FILE_EXPORT_WORKFLOW),
   exportWorkflowDocument: () => ipcRenderer.invoke(IPC_CHANNELS.WORKFLOW_EXPORT_DOCUMENT),
+  openProject: () => ipcRenderer.invoke(IPC_CHANNELS.FILE_OPEN_PROJECT),
+  saveProjectFile: () => ipcRenderer.invoke(IPC_CHANNELS.FILE_SAVE_PROJECT),
 
   // Project operations
   saveProject: (project: any) => ipcRenderer.invoke(IPC_CHANNELS.DB_SAVE_PROJECT, project),
@@ -93,6 +97,8 @@ export interface ElectronAPI {
   >;
   exportWorkflow: () => Promise<{ ok: true } | { ok: false; canceled?: boolean; error?: string }>;
   exportWorkflowDocument: () => Promise<{ ok: true; workflow: Record<string, unknown> } | { ok: false; error: string }>;
+  openProject: () => Promise<import('../shared/commands/types').CommandResponse | { status: 'cancelled'; projection: null; result: null }>;
+  saveProjectFile: () => Promise<{ ok: true } | { ok: false; canceled?: boolean; error?: string }>;
   saveProject: (project: any) => Promise<{ success: boolean }>;
   loadProject: (id: string) => Promise<any>;
   listProjects: () => Promise<any[]>;

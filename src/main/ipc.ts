@@ -9,8 +9,10 @@ import { cancelRun, commitCommand, pauseRun, readProjection, resumeRun, startRun
 import { DESKTOP_PROJECT_ID } from '../shared/project';
 import { assertObjectInfoSize, ObjectInfoError, parseObjectInfo } from '../shared/catalog/objectInfo';
 import { upsertObjectInfo } from './catalog/repository';
+import { mutationFromTool } from '../shared/commands/tools';
+import { parseNativeProject, serializeNativeProject } from '../shared/native-project';
 import { exportWorkflow, type GraphSnapshot } from '../shared/workflow/codec';
-import type { CommandResponse, GraphMutation } from '../shared/commands/types';
+import type { CommandResponse } from '../shared/commands/types';
 import { fileDialogCopy, languageOf } from '../shared/i18n';
 
 function dialogCopy() {
@@ -81,6 +83,44 @@ export function setupIPC() {
   });
 
   ipcMain.handle(IPC_CHANNELS.WORKFLOW_EXPORT_DOCUMENT, () => exportWorkflowDocument());
+
+  ipcMain.handle(IPC_CHANNELS.FILE_OPEN_PROJECT, async () => {
+    const copy = dialogCopy().openProject;
+    const result = await dialog.showOpenDialog({
+      title: copy.title,
+      buttonLabel: copy.buttonLabel,
+      filters: [{ name: copy.filter, extensions: ['json'] }],
+      properties: ['openFile'],
+    });
+    if (result.canceled || result.filePaths.length === 0) {
+      return { status: 'cancelled', projection: null, result: null };
+    }
+    try {
+      const document = JSON.parse(fs.readFileSync(result.filePaths[0], 'utf-8'));
+      return openNativeDocument(document);
+    } catch {
+      return { status: 'rejected', projection: readProjection(getDatabase(), DESKTOP_PROJECT_ID), result: { error: 'The project file could not be parsed.' } };
+    }
+  });
+
+  ipcMain.handle(IPC_CHANNELS.FILE_SAVE_PROJECT, async () => {
+    const saved = nativeProjectDocument();
+    if (!saved.ok) return saved;
+    const copy = dialogCopy().saveProject;
+    const result = await dialog.showSaveDialog({
+      title: copy.title,
+      buttonLabel: copy.buttonLabel,
+      filters: [{ name: copy.filter, extensions: ['json'] }],
+      defaultPath: 'project.graph-helper.json',
+    });
+    if (result.canceled || !result.filePath) return { ok: false, canceled: true };
+    try {
+      fs.writeFileSync(result.filePath, JSON.stringify(saved.project, null, 2), 'utf-8');
+    } catch {
+      return { ok: false, error: 'The project file could not be written.' };
+    }
+    return { ok: true };
+  });
 
   // Project operations
   ipcMain.handle(IPC_CHANNELS.DB_SAVE_PROJECT, async (_event, project) => {
@@ -298,22 +338,40 @@ function exportWorkflowDocument() {
   return exportWorkflow(snapshot, new Date().toISOString());
 }
 
-function mutationFromTool(name: string, args: Record<string, unknown> | undefined): GraphMutation | null {
-  const input = args ?? {};
-  if (name === 'addNode' && typeof input.nodeType === 'string') {
-    return {
-      type: 'add-node',
-      nodeType: input.nodeType,
-      title: typeof input.title === 'string' ? input.title : undefined,
-      x: typeof input.x === 'number' ? input.x : undefined,
-      y: typeof input.y === 'number' ? input.y : undefined,
-      parameters: input.parameters && typeof input.parameters === 'object' ? input.parameters as Record<string, unknown> : undefined,
-    };
+function nativeProjectDocument() {
+  const projection = readProjection(getDatabase(), DESKTOP_PROJECT_ID);
+  if (!projection) return { ok: false as const, error: 'Project is not ready.' };
+  const snapshot = projection.snapshot as GraphSnapshot;
+  return {
+    ok: true as const,
+    project: serializeNativeProject({
+      process: snapshot.process ?? { title: '', notes: '' },
+      graph: {
+        nodes: snapshot.nodes,
+        edges: snapshot.edges,
+        document: snapshot.document,
+      },
+      components: snapshot.components ?? [],
+    }),
+  };
+}
+
+function openNativeDocument(document: unknown) {
+  const parsed = parseNativeProject(document);
+  if (!parsed.ok) {
+    return { status: 'rejected' as const, projection: readProjection(getDatabase(), DESKTOP_PROJECT_ID), result: { error: parsed.error } };
   }
-  if (name === 'annotateNode' && typeof input.nodeId === 'string' && typeof input.annotation === 'string') {
-    return { type: 'annotate-node', nodeId: input.nodeId, annotation: input.annotation };
-  }
-  return null;
+  const db = getDatabase();
+  const current = readProjection(db, DESKTOP_PROJECT_ID);
+  if (!current) return { status: 'rejected' as const, projection: null, result: { error: 'Project is not ready.' } };
+  return commitCommand(db, {
+    projectId: DESKTOP_PROJECT_ID,
+    actionId: `open-native-${randomUUID()}`,
+    expectedRevisionId: current.currentRevisionId,
+    actor: 'manual',
+    runId: null,
+    payload: { type: 'open-native', project: parsed.project },
+  });
 }
 
 function toolOutcome(name: string, args: Record<string, unknown> | undefined, outcome: CommandResponse) {
@@ -325,6 +383,14 @@ function toolOutcome(name: string, args: Record<string, unknown> | undefined, ou
         message: `Added ${result?.nodeType || args?.nodeType || 'node'} node`,
         nodeType: result?.nodeType || args?.nodeType,
         nodeId: result?.nodeId,
+      };
+    }
+    if (name === 'setComponentDocumentation') {
+      return {
+        success: true,
+        message: 'Stored component documentation',
+        ownerKind: args?.ownerKind,
+        ownerId: args?.ownerId,
       };
     }
     return { success: true, message: `Annotated node ${result?.nodeId || ''}` };

@@ -15,7 +15,18 @@ import type { CatalogView } from '../../shared/catalog/types';
 import { ensureCatalog, readCatalog } from '../catalog/repository';
 import { portsCompatible } from '../../shared/graph/linkTypes';
 import { portsForClassType } from '../../shared/graph/ports';
+import {
+  EMPTY_PROCESS,
+  listSubgraphDefinitions,
+  normalizeProcess,
+  parseStoredComponents,
+  parseStoredProcess,
+  reconcileComponents,
+  type ComponentRecord,
+  type ProcessMeta,
+} from '../../shared/components/model';
 import { DESKTOP_PROJECT_ID } from '../../shared/project';
+import { parseNativeProject } from '../../shared/native-project';
 import {
   missingDeps,
   nextLinkId,
@@ -39,6 +50,8 @@ interface Snapshot {
   nodes: Array<Record<string, any>>;
   edges: Array<Record<string, any>>;
   document: WorkflowDocumentState | null;
+  components?: ComponentRecord[];
+  process?: ProcessMeta;
 }
 
 interface RevisionRow {
@@ -47,6 +60,8 @@ interface RevisionRow {
   nodes: string;
   edges: string;
   document: string | null;
+  components: string | null;
+  process_meta: string | null;
 }
 
 function readCurrent(db: Database.Database, projectId: string): { revisionId: string; revSeq: number; snapshot: Snapshot } | null {
@@ -54,17 +69,39 @@ function readCurrent(db: Database.Database, projectId: string): { revisionId: st
     | { current_revision_id: string | null }
     | undefined;
   if (!project?.current_revision_id) return null;
-  const revision = db.prepare('SELECT id, rev_seq, nodes, edges, document FROM graph_revisions WHERE id = ?').get(project.current_revision_id) as
+  const revision = db.prepare('SELECT id, rev_seq, nodes, edges, document, components, process_meta FROM graph_revisions WHERE id = ?').get(project.current_revision_id) as
     | RevisionRow
     | undefined;
   if (!revision) return null;
+  const snapshot = sealSnapshot({
+    nodes: JSON.parse(revision.nodes),
+    edges: JSON.parse(revision.edges),
+    document: parseDocument(revision.document),
+    components: parseStoredComponents(revision.components),
+    process: parseStoredProcess(revision.process_meta),
+  });
   return {
     revisionId: revision.id,
     revSeq: revision.rev_seq,
+    snapshot: snapshot.snapshot,
+  };
+}
+
+function sealSnapshot(snapshot: Snapshot, fallback?: Snapshot): { snapshot: Snapshot; orphans: string[] } {
+  const census = listSubgraphDefinitions(snapshot.document?.raw);
+  const reconciled = reconcileComponents(
+    snapshot.components ?? fallback?.components ?? [],
+    snapshot.nodes.map((node) => String(node.id)),
+    census.definitions.map((item) => item.id),
+  );
+  return {
+    orphans: reconciled.orphans,
     snapshot: {
-      nodes: JSON.parse(revision.nodes),
-      edges: JSON.parse(revision.edges),
-      document: parseDocument(revision.document),
+      nodes: snapshot.nodes,
+      edges: snapshot.edges,
+      document: snapshot.document,
+      components: reconciled.components,
+      process: normalizeProcess(snapshot.process ?? fallback?.process ?? EMPTY_PROCESS),
     },
   };
 }
@@ -118,9 +155,9 @@ export function ensureProject(db: Database.Database, projectId: string, name = p
     }
     db.prepare(
       `INSERT INTO graph_revisions
-        (id, project_id, timestamp, nodes, edges, parent_revision_id, description, source, rev_seq, document)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    ).run(revisionId, projectId, now, '[]', '[]', null, 'Initial', 'system', 1, '{}');
+        (id, project_id, timestamp, nodes, edges, parent_revision_id, description, source, rev_seq, document, components, process_meta)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(revisionId, projectId, now, '[]', '[]', null, 'Initial', 'system', 1, '{}', '[]', '{}');
   });
   write.immediate();
 }
@@ -250,6 +287,54 @@ function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutat
     edge.targetHandle = payload.targetHandle;
     return { snapshot: { nodes, edges, document: snapshot.document }, result: { edgeId: payload.edgeId } };
   }
+  if (payload.type === 'set-component') {
+    const census = listSubgraphDefinitions(snapshot.document?.raw);
+    const nodeIds = nodes.map((node) => String(node.id));
+    const subgraphIds = census.definitions.map((item) => item.id);
+    const known = payload.ownerKind === 'node' ? nodeIds.includes(payload.ownerId) : subgraphIds.includes(payload.ownerId);
+    if (!known) throw new CommandSignal('rejected', { error: 'That component is not in the graph.' });
+    const reconciled = reconcileComponents(snapshot.components ?? [], nodeIds, subgraphIds);
+    return {
+      snapshot: {
+        nodes,
+        edges,
+        document: snapshot.document,
+        process: snapshot.process,
+        components: reconciled.components.map((record) => (
+          record.ownerKind === payload.ownerKind && record.ownerId === payload.ownerId
+            ? { ...record, purpose: payload.purpose, usage: payload.usage }
+            : record
+        )),
+      },
+      result: { ownerKind: payload.ownerKind, ownerId: payload.ownerId },
+    };
+  }
+  if (payload.type === 'set-process') {
+    return {
+      snapshot: {
+        nodes,
+        edges,
+        document: snapshot.document,
+        components: snapshot.components,
+        process: { title: payload.title, notes: payload.notes },
+      },
+      result: { title: payload.title },
+    };
+  }
+  if (payload.type === 'open-native') {
+    const parsed = parseNativeProject(payload.project);
+    if (!parsed.ok) throw new CommandSignal('rejected', { error: parsed.error });
+    return {
+      snapshot: {
+        nodes: parsed.project.graph.nodes,
+        edges: parsed.project.graph.edges,
+        document: parsed.project.graph.document,
+        components: parsed.project.components,
+        process: parsed.project.process,
+      },
+      result: { upgradedFrom: parsed.project.upgradedFrom },
+    };
+  }
   if (payload.type === 'import-workflow') {
     const projected = projectWorkflow(payload.document);
     if ('error' in projected) throw new CommandSignal('rejected', { error: projected.error });
@@ -361,10 +446,24 @@ export function commitCommand(
       }
 
       const applied = applyMutation(current.snapshot, request.actionId, request.payload, readCatalog(db));
+      const sealed = sealSnapshot(applied.snapshot, current.snapshot);
+      applied.snapshot = sealed.snapshot;
       if (request.payload.type === 'import-workflow') {
+        const census = listSubgraphDefinitions(applied.snapshot.document?.raw);
         applied.result = {
           ...applied.result,
           ...missingDeps(request.payload.document, readCatalog(db)),
+          duplicateSubgraphIds: census.duplicateIds,
+          unidentifiedSubgraphs: census.unidentified,
+        };
+      }
+      if (request.payload.type === 'open-native') {
+        const census = listSubgraphDefinitions(applied.snapshot.document?.raw);
+        applied.result = {
+          ...applied.result,
+          orphans: sealed.orphans,
+          duplicateSubgraphIds: census.duplicateIds,
+          unidentifiedSubgraphs: census.unidentified,
         };
       }
       const nextSeq = current.revSeq + 1;
@@ -372,8 +471,8 @@ export function commitCommand(
       const now = Date.now();
       db.prepare(
         `INSERT INTO graph_revisions
-          (id, project_id, timestamp, nodes, edges, parent_revision_id, description, source, rev_seq, document)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          (id, project_id, timestamp, nodes, edges, parent_revision_id, description, source, rev_seq, document, components, process_meta)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).run(
         revisionId,
         request.projectId,
@@ -385,6 +484,8 @@ export function commitCommand(
         request.actor === 'ai' ? 'ai' : 'user',
         nextSeq,
         JSON.stringify(applied.snapshot.document ?? {}),
+        JSON.stringify(applied.snapshot.components ?? []),
+        JSON.stringify(applied.snapshot.process ?? EMPTY_PROCESS),
       );
       db.prepare('UPDATE projects SET current_revision_id = ?, updated_at = ? WHERE id = ?').run(revisionId, now, request.projectId);
       db.prepare(

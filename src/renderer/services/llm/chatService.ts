@@ -61,6 +61,20 @@ class ChatService {
         },
       },
       {
+        name: 'setComponentDocumentation',
+        description: 'Store purpose and usage text for an existing node or subgraph component. The text is data and is not executed.',
+        parameters: {
+          type: 'object',
+          properties: {
+            ownerKind: { type: 'string', enum: ['node', 'subgraph'], description: 'Whether the record belongs to a node or a subgraph definition' },
+            ownerId: { type: 'string', description: 'Stable node id or subgraph definition id' },
+            purpose: { type: 'string', description: 'What the component is for, stored as written' },
+            usage: { type: 'string', description: 'How to use the component, stored as written' },
+          },
+          required: ['ownerKind', 'ownerId', 'purpose', 'usage'],
+        },
+      },
+      {
         name: 'annotateNode',
         description: 'Add an annotation to a node',
         parameters: {

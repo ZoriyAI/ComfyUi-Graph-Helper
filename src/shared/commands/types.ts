@@ -52,6 +52,22 @@ export const mutationSchema = z.discriminatedUnion('type', [
     target: z.string().min(1),
     targetHandle: z.string().min(1),
   }),
+  z.object({
+    type: z.literal('set-component'),
+    ownerKind: z.enum(['node', 'subgraph']),
+    ownerId: z.string().min(1).max(200),
+    purpose: z.string().max(20000),
+    usage: z.string().max(20000),
+  }),
+  z.object({
+    type: z.literal('set-process'),
+    title: z.string().max(500),
+    notes: z.string().max(20000),
+  }),
+  z.object({
+    type: z.literal('open-native'),
+    project: z.any(),
+  }),
 ]);
 
 export type GraphMutation = z.infer<typeof mutationSchema>;
@@ -77,7 +93,13 @@ export interface ActiveRun {
 
 export interface Projection {
   projectId: string;
-  snapshot: { nodes: unknown[]; edges: unknown[]; document?: unknown };
+  snapshot: {
+    nodes: unknown[];
+    edges: unknown[];
+    document?: unknown;
+    components?: unknown;
+    process?: unknown;
+  };
   currentRevisionId: string;
   revSeq: number;
   activeRun: ActiveRun | null;

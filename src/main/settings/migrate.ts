@@ -135,10 +135,11 @@ function applyVersion2(db: Database.Database): void {
  * Version 5 adds the non-secret LLM base URL on the single settings row.
  * Version 6 adds the interface language. Existing rows default to English.
  * A profile with no settings row still uses the application default, Russian.
+ * Version 7 stores app component records and process metadata on each graph revision.
  */
 export function migrate(db: Database.Database, options?: { failBeforeVersionStamp?: boolean }): void {
   const version = schemaVersion(db);
-  if (version > 6) {
+  if (version > 7) {
     throw new Error(`Unsupported schema version ${version}`);
   }
   if (version < 1) {
@@ -185,6 +186,25 @@ export function migrate(db: Database.Database, options?: { failBeforeVersionStam
       db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (6, ?)').run(Date.now());
     });
     apply.immediate();
+  }
+  if (schemaVersion(db) === 6) {
+    const apply = db.transaction(() => {
+      applyVersion7(db);
+      db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (7, ?)').run(Date.now());
+    });
+    apply.immediate();
+  }
+}
+
+function applyVersion7(db: Database.Database): void {
+  const revisions = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'graph_revisions'").get();
+  if (!revisions) return;
+  const columns = columnNames(db, 'graph_revisions');
+  if (!columns.includes('components')) {
+    db.exec("ALTER TABLE graph_revisions ADD COLUMN components TEXT NOT NULL DEFAULT '[]'");
+  }
+  if (!columns.includes('process_meta')) {
+    db.exec("ALTER TABLE graph_revisions ADD COLUMN process_meta TEXT NOT NULL DEFAULT '{}'");
   }
 }
 

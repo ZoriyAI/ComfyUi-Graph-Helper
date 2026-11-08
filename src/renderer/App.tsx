@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { FolderInput, FolderOutput, Redo2, Undo2, Unplug } from 'lucide-react';
+import { FolderInput, FolderOpen, FolderOutput, Redo2, Save, Undo2, Unplug } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import GraphCanvas from './components/graph/GraphCanvas';
 import Dock, { ToolToggles } from './components/shell/Dock';
@@ -18,6 +18,8 @@ type WorkflowNote =
   | { kind: 'imported'; version: string; missingNodes: string[]; missingModels: string[] }
   | { kind: 'catalog'; nodes: number; models: number; skipped: number }
   | { kind: 'exported' }
+  | { kind: 'saved-project' }
+  | { kind: 'opened-project' }
   | { kind: 'error'; code: string }
   | null;
 
@@ -39,6 +41,10 @@ function WorkflowReport({ note }: { note: WorkflowNote }) {
     summary = translate('workflow.catalogImported', note);
   } else if (note.kind === 'exported') {
     summary = translate('workflow.exported');
+  } else if (note.kind === 'saved-project') {
+    summary = translate('workflow.savedProject');
+  } else if (note.kind === 'opened-project') {
+    summary = translate('workflow.openedProject');
   } else {
     const explained = explainError(translate, note.code);
     summary = explained.summary;
@@ -139,6 +145,24 @@ function App() {
     setWorkflowNote(result.ok ? { kind: 'exported' } : { kind: 'error', code: result.error || 'Export failed.' });
   };
 
+  const handleOpenProject = async () => {
+    const result = await window.electronAPI.openProject();
+    if (!result || result.status === 'cancelled') return;
+    if (result.projection) applyProjection(result.projection);
+    if (result.status === 'rejected') {
+      const reason = result.result && typeof result.result === 'object' && 'error' in result.result ? String(result.result.error) : 'The native project file is not valid.';
+      setWorkflowNote({ kind: 'error', code: reason });
+      return;
+    }
+    setWorkflowNote({ kind: 'opened-project' });
+  };
+
+  const handleSaveProject = async () => {
+    const result = await window.electronAPI.saveProjectFile();
+    if (!result.ok && result.canceled) return;
+    setWorkflowNote(result.ok ? { kind: 'saved-project' } : { kind: 'error', code: result.error || 'The project file could not be written.' });
+  };
+
   const handlePause = () => {
     const chatService = getChatService();
     const { isPaused } = useChatStore.getState();
@@ -159,6 +183,16 @@ function App() {
           <span className="product-mark" aria-hidden="true" />
           <h1 className="app-title">{t('shell.title')}</h1>
           <span className="project-chip" title={String(t('shell.project'))}>{t('shell.project')}</span>
+          <span className="project-actions">
+            <button type="button" className="ghost-button project-file-button" aria-label={String(t('project.open'))} onClick={() => void handleOpenProject()}>
+              <FolderOpen size={16} aria-hidden="true" />
+              <span className="project-file-label">{t('project.open')}</span>
+            </button>
+            <button type="button" className="ghost-button project-file-button" aria-label={String(t('project.save'))} onClick={() => void handleSaveProject()}>
+              <Save size={16} aria-hidden="true" />
+              <span className="project-file-label">{t('project.save')}</span>
+            </button>
+          </span>
         </div>
         <div className="header-status">
           <Hint label={String(t('status.comfyDisconnectedHint'))}>

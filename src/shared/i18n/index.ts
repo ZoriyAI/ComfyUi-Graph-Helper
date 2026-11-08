@@ -27,7 +27,15 @@ const ERROR_KEYS: Record<string, string> = {
   'Workflow JSON is not UI format 1 or legacy 0.4.': 'errors.workflowFormat',
   'Import was rejected.': 'errors.rejected',
   'Export failed.': 'errors.exportFailed',
+  'That component is not in the graph.': 'errors.componentMissing',
+  'This file is not a Graph Helper project.': 'errors.nativeFormat',
+  'The native project file is not valid.': 'errors.nativeShape',
+  'The native project repeats a component owner.': 'errors.nativeDuplicate',
+  'The project file could not be parsed.': 'errors.parseProject',
+  'The project file could not be written.': 'errors.writeProject',
 };
+
+const NATIVE_VERSION_PREFIX = 'Unsupported native project version ';
 
 export function createTranslator(language: AppLanguage): Translator {
   const instance = i18next.createInstance();
@@ -53,6 +61,10 @@ export function createTranslator(language: AppLanguage): Translator {
 export function explainError(translate: Translator, code: string): { summary: string; diagnostic: string | null } {
   const key = ERROR_KEYS[code];
   if (key) return { summary: translate(key), diagnostic: null };
+  if (code.startsWith(NATIVE_VERSION_PREFIX)) {
+    const version = code.slice(NATIVE_VERSION_PREFIX.length).replace(/\.$/, '');
+    return { summary: translate('errors.nativeVersion', { version }), diagnostic: redactDiagnostic(code) };
+  }
   return { summary: translate('errors.unknown'), diagnostic: redactDiagnostic(code) };
 }
 
@@ -87,6 +99,16 @@ export function fileDialogCopy(language: AppLanguage) {
       title: translate('dialog.exportTitle'),
       buttonLabel: translate('dialog.exportButton'),
       filter: translate('dialog.workflowFilter'),
+    },
+    openProject: {
+      title: translate('dialog.openProjectTitle'),
+      buttonLabel: translate('dialog.openProjectButton'),
+      filter: translate('dialog.projectFilter'),
+    },
+    saveProject: {
+      title: translate('dialog.saveProjectTitle'),
+      buttonLabel: translate('dialog.saveProjectButton'),
+      filter: translate('dialog.projectFilter'),
     },
   };
 }

@@ -131,9 +131,10 @@ describe('workflow codec', () => {
     expect(workflow.definitions).toEqual({ subgraphs: [{ id: 'sg', unknownField: 'keep-sg' }] });
     expect(workflow.groups).toEqual([{ title: 'Box', bounding: [1, 2, 3, 4], custom: 'keep-group' }]);
     expect((workflow.state as { customState: string }).customState).toBe('keep-state');
-    expect((workflow.extra as { mystery: number; info: { modified: string }; graphHelper: { formatVersion: number } }).mystery).toBe(1);
+    expect((workflow.extra as { mystery: number; info: { modified: string }; graphHelper?: unknown }).mystery).toBe(1);
     expect((workflow.extra as { info: { modified: string } }).info.modified).toBe('2026-11-08T00:00:00.000Z');
-    expect((workflow.extra as { graphHelper: { formatVersion: number } }).graphHelper.formatVersion).toBe(1);
+    expect((workflow.extra as { graphHelper?: unknown }).graphHelper).toBeUndefined();
+    expect(JSON.stringify(workflow)).not.toContain('graphHelper');
     const nodes = workflow.nodes as Array<Record<string, any>>;
     expect(nodes.map((node) => node.id)).toEqual([1, 2, 3]);
     expect(nodes[0].pos).toEqual([30, 40]);

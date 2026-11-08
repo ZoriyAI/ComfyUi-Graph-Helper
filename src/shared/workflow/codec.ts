@@ -1,4 +1,6 @@
 import type { CatalogView } from '../catalog/types';
+import type { ComponentRecord, ProcessMeta } from '../components/model';
+import { EMPTY_PROCESS } from '../components/model';
 
 export const WORKFLOW_FORMAT_V1 = 1;
 export const WORKFLOW_FORMAT_V04 = 0.4;
@@ -14,6 +16,28 @@ export interface GraphSnapshot {
   nodes: Array<Record<string, any>>;
   edges: Array<Record<string, any>>;
   document: WorkflowDocumentState | null;
+  components?: ComponentRecord[];
+  process?: ProcessMeta;
+}
+
+/** Keys this app owns. Comfy export drops them at every depth and never writes them. */
+export const APP_OWNED_EXPORT_KEYS = new Set([
+  'graphHelper',
+  'componentRecords',
+  'appComponents',
+  'comfyGraphHelper',
+  'processMeta',
+]);
+
+export function omitAppOwned(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map((item) => omitAppOwned(item));
+  if (!value || typeof value !== 'object') return value;
+  const next: Record<string, unknown> = {};
+  for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+    if (APP_OWNED_EXPORT_KEYS.has(key)) continue;
+    next[key] = omitAppOwned(child);
+  }
+  return next;
 }
 
 export type { CatalogView } from '../catalog/types';
@@ -195,6 +219,8 @@ export function projectWorkflow(document: unknown): { snapshot: GraphSnapshot } 
       nodes,
       edges,
       document: { formatVersion, raw },
+      components: [],
+      process: { ...EMPTY_PROCESS },
     },
   };
 }
@@ -413,9 +439,8 @@ export function exportWorkflow(snapshot: GraphSnapshot, exportedAt: string): { o
   if (extra.info && typeof extra.info === 'object') {
     extra.info = { ...(extra.info as Record<string, unknown>), modified: exportedAt };
   }
-  extra.graphHelper = { formatVersion, exportedAt };
   workflow.extra = extra;
-  return { ok: true, workflow };
+  return { ok: true, workflow: omitAppOwned(workflow) as Record<string, unknown> };
 }
 
 export function missingDeps(document: unknown, catalog: CatalogView): MissingReport {

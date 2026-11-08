@@ -1,9 +1,15 @@
 import { create } from 'zustand';
+import type { ComponentRecord, ProcessMeta } from '../../shared/components/model';
+import { EMPTY_PROCESS } from '../../shared/components/model';
+import type { WorkflowDocumentState } from '../../shared/workflow/codec';
 import { GraphNode, GraphEdge } from '../types/graph';
 
 interface GraphState {
   nodes: GraphNode[];
   edges: GraphEdge[];
+  components: ComponentRecord[];
+  process: ProcessMeta;
+  document: WorkflowDocumentState | null;
   selectedNodeIds: string[];
   selectedEdgeIds: string[];
   zoom: number;
@@ -25,6 +31,9 @@ interface GraphState {
 export const useGraphStore = create<GraphState>((set) => ({
   nodes: [],
   edges: [],
+  components: [],
+  process: { ...EMPTY_PROCESS },
+  document: null,
   selectedNodeIds: [],
   selectedEdgeIds: [],
   zoom: 1,
