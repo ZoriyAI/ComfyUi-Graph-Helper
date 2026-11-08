@@ -18,7 +18,6 @@ export default function MessageInput({ onSend, isStreaming, disabled = false }: 
   const [input, setInput] = useState('');
   const [intent, setIntent] = useState<ComposerIntent>('ask');
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   useEffect(() => {
     const field = inputRef.current;
@@ -33,15 +32,6 @@ export default function MessageInput({ onSend, isStreaming, disabled = false }: 
     }
   };
 
-  const moveIntent = (event: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
-    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight' && event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
-    event.preventDefault();
-    const step = event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -1 : 1;
-    const next = (index + step + INTENTS.length) % INTENTS.length;
-    setIntent(INTENTS[next]);
-    optionRefs.current[next]?.focus();
-  };
-
   return (
     <form
       className={`chat-form ${styles.form}`}
@@ -51,19 +41,15 @@ export default function MessageInput({ onSend, isStreaming, disabled = false }: 
       }}
     >
       <div className={styles.intentRow}>
-        <div className={styles.intent} role="radiogroup" aria-label={String(t('chat.intentLabel'))}>
-          {INTENTS.map((item, index) => (
+        <div className={styles.intent} role="group" aria-label={String(t('chat.intentLabel'))}>
+          {INTENTS.map((item) => (
             <button
               key={item}
-              ref={(element) => { optionRefs.current[index] = element; }}
               type="button"
-              role="radio"
-              aria-checked={intent === item}
-              tabIndex={intent === item ? 0 : -1}
+              aria-pressed={intent === item}
               className={styles.intentOption}
               data-intent={item}
               onClick={() => setIntent(item)}
-              onKeyDown={(event) => moveIntent(event, index)}
             >
               {item === 'ask' ? t('chat.intentAsk') : t('chat.intentBuild')}
             </button>

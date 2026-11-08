@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BookOpen, Crosshair, Hammer, Lightbulb, Search, Sparkles, Wrench, type LucideIcon } from 'lucide-react';
 import type { ExplanationAspect, ObjectRef } from '../../../shared/contracts';
@@ -93,6 +93,27 @@ function BuildActions({ call }: { call: ToolCall }) {
   );
 }
 
+/** Arguments behind a disclosure. Rendered only while open, so hidden values never duplicate text on the canvas. */
+function ArgumentList({ args }: { args: Array<{ key: string; value: string }> }) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  return (
+    <details className={styles.args} open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>
+      <summary>{t('chat.toolArguments')}</summary>
+      {open ? (
+        <dl className={styles.argList}>
+          {args.map((item) => (
+            <React.Fragment key={item.key}>
+              <dt>{item.key}</dt>
+              <dd>{item.value}</dd>
+            </React.Fragment>
+          ))}
+        </dl>
+      ) : null}
+    </details>
+  );
+}
+
 /** One tool call: family icon, label, status, compact arguments, outcome, and the action that fits its family. */
 export default function ToolCard({ call }: { call: ToolCall }) {
   const { t } = useTranslation();
@@ -129,19 +150,7 @@ export default function ToolCard({ call }: { call: ToolCall }) {
         <p className={styles.summary}>{outcome}</p>
       ) : null}
       {call.kind === 'build' ? <BuildActions call={call} /> : null}
-      {args.length > 0 ? (
-        <details className={styles.args}>
-          <summary>{t('chat.toolArguments')}</summary>
-          <dl className={styles.argList}>
-            {args.map((item) => (
-              <React.Fragment key={item.key}>
-                <dt>{item.key}</dt>
-                <dd>{item.value}</dd>
-              </React.Fragment>
-            ))}
-          </dl>
-        </details>
-      ) : null}
+      {args.length > 0 ? <ArgumentList args={args} /> : null}
     </div>
   );
 }

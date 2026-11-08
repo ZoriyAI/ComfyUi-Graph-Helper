@@ -33,7 +33,8 @@ test('explain this: provenance card, stored explanation, history after restart',
 
   // Empty chat offers quick prompts and the Ask/Build mode.
   await expect(window.getByRole('button', { name: 'What can I build with my models?' })).toBeVisible();
-  await expect(window.getByRole('radio', { name: 'Ask' })).toHaveAttribute('aria-checked', 'true');
+  await expect(window.getByRole('button', { name: 'Ask', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(window.getByRole('button', { name: 'Build', exact: true })).toHaveAttribute('aria-pressed', 'false');
 
   const input = window.locator('textarea[aria-label="Chat message"]');
   await input.fill('explain this');
