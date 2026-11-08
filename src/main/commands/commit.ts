@@ -129,6 +129,30 @@ export function ensureWorkspace(db: Database.Database): void {
   ensureCatalog(db);
 }
 
+function arrayWidgetIndex(
+  widgets: unknown[],
+  catalog: CatalogView,
+  classType: string,
+  key: string,
+  payloadIndex: number | undefined,
+): number {
+  if (payloadIndex !== undefined && (!Number.isInteger(payloadIndex) || payloadIndex < 0 || payloadIndex >= widgets.length)) {
+    throw new CommandSignal('rejected', { error: 'widgetIndex is outside widgets_values.' });
+  }
+  const catalogNode = catalog.nodes.find((item) => item.classType === classType);
+  const orderUsable = !!catalogNode && catalogNode.widgetOrderReliable !== false && widgets.length === catalogNode.widgetOrder.length;
+  const catalogIndex = orderUsable ? widgetIndexFor(catalog, classType, key) : undefined;
+  if (orderUsable && catalogIndex !== undefined && payloadIndex !== undefined && payloadIndex !== catalogIndex) {
+    throw new CommandSignal('rejected', { error: 'widgetIndex does not match the catalog widget order.' });
+  }
+  if (orderUsable && catalogIndex !== undefined) return catalogIndex;
+  if (payloadIndex !== undefined) return payloadIndex;
+  if (catalogNode && (catalogNode.widgetOrderReliable === false || widgets.length !== catalogNode.widgetOrder.length)) {
+    throw new CommandSignal('rejected', { error: 'Catalog widget order does not match widgets_values.' });
+  }
+  throw new CommandSignal('rejected', { error: 'widgetIndex is required when widgets_values is an array.' });
+}
+
 function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutation, catalog: CatalogView): { snapshot: Snapshot; result: Record<string, unknown> } {
   const nodes: Array<Record<string, any>> = snapshot.nodes.map((node) => ({
     ...node,
@@ -180,11 +204,9 @@ function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutat
     const node = nodes.find((item) => item.id === payload.nodeId);
     if (!node) throw new CommandSignal('rejected');
     const widgets = node.data?.comfy?.widgets_values;
-    const resolved = widgetIndexFor(catalog, String(node.data?.comfyType ?? ''), payload.key);
-    const widgetIndex = resolved !== undefined ? resolved : payload.widgetIndex;
-    if (Array.isArray(widgets) && widgetIndex === undefined) {
-      throw new CommandSignal('rejected', { error: 'widgetIndex is required when widgets_values is an array.' });
-    }
+    const widgetIndex = Array.isArray(widgets)
+      ? arrayWidgetIndex(widgets, catalog, String(node.data?.comfyType ?? ''), payload.key, payload.widgetIndex)
+      : payload.widgetIndex;
     const comfy = node.data.comfy && typeof node.data.comfy === 'object' ? { ...node.data.comfy } : {};
     patchWidgets(comfy, payload.key, payload.value, widgetIndex);
     node.data = {

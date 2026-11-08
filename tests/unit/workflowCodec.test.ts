@@ -321,7 +321,7 @@ describe('workflow codec', () => {
       payload: { type: 'set-parameter', nodeId: '2', key: 'text', value: 'new' },
     });
     expect(rejectedParam.status).toBe('rejected');
-    expect(rejectedParam.result).toEqual({ error: 'widgetIndex is required when widgets_values is an array.' });
+    expect(rejectedParam.result).toEqual({ error: 'Catalog widget order does not match widgets_values.' });
     const node = (readProjection(db, DESKTOP_PROJECT_ID)!.snapshot.nodes as Array<Record<string, any>>).find((item) => item.id === '2');
     expect(node?.data.comfy.widgets_values).toEqual(['old', { extra: true }]);
     const rejectedLink = commitCommand(db, {

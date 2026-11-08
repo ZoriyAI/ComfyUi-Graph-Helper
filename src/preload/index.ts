@@ -84,7 +84,7 @@ export interface ElectronAPI {
   };
   importWorkflow: () => Promise<import('../shared/commands/types').CommandResponse | { status: 'cancelled'; projection: null; result: null }>;
   importCatalog: () => Promise<
-    | { status: 'applied'; result: { nodes: number; models: number } }
+    | { status: 'applied'; result: { nodes: number; models: number; skipped: string[] } }
     | { status: 'cancelled' }
     | { status: 'rejected'; error: string }
   >;

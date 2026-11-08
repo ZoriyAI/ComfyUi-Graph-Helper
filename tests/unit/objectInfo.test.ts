@@ -95,7 +95,7 @@ describe('object_info catalog', () => {
   it('upserts guidance without dropping seed types that are absent from the file', () => {
     const db = openDb();
     const parsed = parseObjectInfo(snapshot);
-    expect(upsertObjectInfo(db, parsed)).toEqual({ nodes: 3, models: 2 });
+    expect(upsertObjectInfo(db, parsed)).toEqual({ nodes: 3, models: 2, skipped: [] });
     const catalog = readCatalog(db);
     for (const classType of SEEDED_NODE_TYPES) {
       expect(catalog.nodeTypes).toContain(classType);
@@ -206,6 +206,185 @@ describe('object_info catalog', () => {
     }, readCatalog(db));
     expect(report.missingNodes).toEqual(['NotInCatalog']);
     expect(report.missingModels).toEqual([{ directory: 'checkpoints', name: 'missing.safetensors' }]);
+    db.close();
+  });
+
+  it('adds the frontend control slot for an implicit seed and a string control mode', () => {
+    const parsed = parseObjectInfo({
+      SeedNode: {
+        input: { required: { seed: ['INT', { default: 0 }], steps: ['INT'] } },
+        input_order: { required: ['seed', 'steps'] },
+        output: ['LATENT'],
+        python_module: 'nodes',
+      },
+      NoiseNode: {
+        input: { required: { noise_seed: ['INT', { control_after_generate: 'fixed' }], cfg: ['FLOAT'] } },
+        input_order: { required: ['noise_seed', 'cfg'] },
+        output: ['LATENT'],
+        python_module: 'nodes',
+      },
+    });
+    expect(parsed.nodes.find((node) => node.classType === 'SeedNode')?.widgetOrder).toEqual([
+      'seed',
+      'seed::control_after_generate',
+      'steps',
+    ]);
+    expect(parsed.nodes.find((node) => node.classType === 'NoiseNode')?.widgetOrder).toEqual([
+      'noise_seed',
+      'noise_seed::control_after_generate',
+      'cfg',
+    ]);
+  });
+
+  it('rejects a named write when widgets_values is shorter than the catalog order and leaves the node unchanged', () => {
+    const db = openDb();
+    upsertObjectInfo(db, parseObjectInfo({
+      SeedNode: {
+        input: { required: { seed: ['INT', { default: 0 }], steps: ['INT'] } },
+        input_order: { required: ['seed', 'steps'] },
+        output: ['LATENT'],
+        python_module: 'nodes',
+      },
+      NoiseNode: {
+        input: { required: { noise_seed: ['INT', { control_after_generate: 'fixed' }], cfg: ['FLOAT'] } },
+        input_order: { required: ['noise_seed', 'cfg'] },
+        output: ['LATENT'],
+        python_module: 'nodes',
+      },
+      ColorNode: {
+        input: { required: { tint: ['COLOR'], strength: ['INT'] } },
+        input_order: { required: ['tint', 'strength'] },
+        output: ['IMAGE'],
+        python_module: 'nodes',
+      },
+    }));
+    const cases = [
+      { type: 'SeedNode', key: 'steps', widgets: [1, 20] },
+      { type: 'NoiseNode', key: 'cfg', widgets: [5, 8] },
+      { type: 'ColorNode', key: 'strength', widgets: ['#ff0000', 1] },
+    ];
+    let expected = readProjection(db, DESKTOP_PROJECT_ID)!.currentRevisionId;
+    for (const [index, item] of cases.entries()) {
+      const imported = commitCommand(db, {
+        projectId: DESKTOP_PROJECT_ID,
+        actionId: `import-mismatch-${index}`,
+        expectedRevisionId: expected,
+        actor: 'manual',
+        runId: null,
+        payload: {
+          type: 'import-workflow',
+          document: {
+            version: 1,
+            state: { lastNodeId: 1, lastLinkId: 0 },
+            nodes: [{
+              id: 1,
+              type: item.type,
+              pos: [0, 0],
+              size: [1, 1],
+              flags: {},
+              order: 0,
+              mode: 0,
+              properties: {},
+              widgets_values: item.widgets,
+            }],
+            links: [],
+          },
+        },
+      });
+      expect(imported.status).toBe('applied');
+      const before = JSON.stringify(readProjection(db, DESKTOP_PROJECT_ID));
+      const rejected = commitCommand(db, {
+        projectId: DESKTOP_PROJECT_ID,
+        actionId: `param-mismatch-${index}`,
+        expectedRevisionId: imported.projection!.currentRevisionId,
+        actor: 'manual',
+        runId: null,
+        payload: { type: 'set-parameter', nodeId: '1', key: item.key, value: 99 },
+      });
+      expect(rejected.status).toBe('rejected');
+      expect(rejected.result).toEqual({ error: 'Catalog widget order does not match widgets_values.' });
+      expect(JSON.stringify(readProjection(db, DESKTOP_PROJECT_ID))).toBe(before);
+      expected = imported.projection!.currentRevisionId;
+    }
+    const color = readCatalog(db).nodes.find((node) => node.classType === 'ColorNode');
+    expect(color?.widgetOrderReliable).toBe(false);
+    expect(color?.widgetOrder).toEqual([]);
+    db.close();
+  });
+
+  it('rejects a payload widgetIndex that disagrees with the catalog slot', () => {
+    const db = openDb();
+    upsertObjectInfo(db, parseObjectInfo(snapshot));
+    const current = readProjection(db, DESKTOP_PROJECT_ID)!;
+    const imported = commitCommand(db, {
+      projectId: DESKTOP_PROJECT_ID,
+      actionId: 'import-disagree',
+      expectedRevisionId: current.currentRevisionId,
+      actor: 'manual',
+      runId: null,
+      payload: {
+        type: 'import-workflow',
+        document: {
+          version: 1,
+          state: { lastNodeId: 1, lastLinkId: 0 },
+          nodes: [{
+            id: 1,
+            type: 'KSampler',
+            pos: [0, 0],
+            size: [1, 1],
+            flags: {},
+            order: 0,
+            mode: 0,
+            properties: {},
+            widgets_values: [1, 'fixed', 20, 'euler'],
+          }],
+          links: [],
+        },
+      },
+    });
+    const before = JSON.stringify(readProjection(db, DESKTOP_PROJECT_ID));
+    const rejected = commitCommand(db, {
+      projectId: DESKTOP_PROJECT_ID,
+      actionId: 'param-disagree',
+      expectedRevisionId: imported.projection!.currentRevisionId,
+      actor: 'manual',
+      runId: null,
+      payload: { type: 'set-parameter', nodeId: '1', key: 'steps', value: 99, widgetIndex: 0 },
+    });
+    expect(rejected.status).toBe('rejected');
+    expect(rejected.result).toEqual({ error: 'widgetIndex does not match the catalog widget order.' });
+    const outside = commitCommand(db, {
+      projectId: DESKTOP_PROJECT_ID,
+      actionId: 'param-outside',
+      expectedRevisionId: imported.projection!.currentRevisionId,
+      actor: 'manual',
+      runId: null,
+      payload: { type: 'set-parameter', nodeId: '1', key: 'steps', value: 99, widgetIndex: 9 },
+    });
+    expect(outside.status).toBe('rejected');
+    expect(outside.result).toEqual({ error: 'widgetIndex is outside widgets_values.' });
+    expect(JSON.stringify(readProjection(db, DESKTOP_PROJECT_ID))).toBe(before);
+    db.close();
+  });
+
+  it('keeps a combo-list output and skips one broken node def', () => {
+    const db = openDb();
+    const parsed = parseObjectInfo({
+      ComboOut: {
+        input: { required: {} },
+        output: [['a.safetensors', 'b.safetensors']],
+        python_module: 'nodes',
+      },
+      Broken: null,
+    });
+    expect(parsed.skipped).toEqual(['Broken']);
+    expect(parsed.nodes[0].outputs).toEqual([{ name: 'COMBO', type: 'COMBO' }]);
+    const saved = upsertObjectInfo(db, parsed);
+    expect(saved.skipped).toEqual(['Broken']);
+    const catalog = readCatalog(db);
+    expect(catalog.nodeTypes).toContain('ComboOut');
+    expect(catalog.nodeTypes).not.toContain('Broken');
+    for (const classType of SEEDED_NODE_TYPES) expect(catalog.nodeTypes).toContain(classType);
     db.close();
   });
 });

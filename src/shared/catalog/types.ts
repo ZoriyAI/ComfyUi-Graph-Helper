@@ -21,7 +21,13 @@ export interface CatalogNode {
   pythonModule: string;
   inputs: CatalogInput[];
   outputs: CatalogOutput[];
+  /** widgets_values slot names. Empty when widgetOrderReliable is false. */
   widgetOrder: string[];
+  /**
+   * False when a frontend widget type has no stable widgets_values layout here.
+   * widgetIndexFor must then return undefined.
+   */
+  widgetOrderReliable?: boolean;
 }
 
 export interface CatalogView {

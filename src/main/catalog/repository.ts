@@ -38,7 +38,7 @@ export function readCatalog(db: Database.Database): CatalogView {
   return { nodeTypes: nodes.map((node) => node.classType), models, nodes };
 }
 
-export function upsertObjectInfo(db: Database.Database, parsed: ParsedObjectInfo): { nodes: number; models: number } {
+export function upsertObjectInfo(db: Database.Database, parsed: ParsedObjectInfo): { nodes: number; models: number; skipped: string[] } {
   const seed = db.prepare('INSERT OR IGNORE INTO node_catalog (class_type, pack) VALUES (?, ?)');
   const upsert = db.prepare(`
     INSERT INTO node_catalog (class_type, pack, python_module, inputs_json, outputs_json, widget_order_json)
@@ -60,13 +60,18 @@ export function upsertObjectInfo(db: Database.Database, parsed: ParsedObjectInfo
         node.pythonModule,
         JSON.stringify(node.inputs),
         JSON.stringify(node.outputs),
-        JSON.stringify(node.widgetOrder),
+        serializeWidgetOrder(node),
       );
     }
     for (const row of parsed.models) model.run(row.directory, row.name);
   });
   write.immediate();
-  return { nodes: parsed.nodes.length, models: parsed.models.length };
+  return { nodes: parsed.nodes.length, models: parsed.models.length, skipped: parsed.skipped };
+}
+
+function serializeWidgetOrder(node: { widgetOrder: string[]; widgetOrderReliable?: boolean }): string {
+  if (node.widgetOrderReliable === false) return JSON.stringify({ reliable: false, order: [] });
+  return JSON.stringify(node.widgetOrder);
 }
 
 function nodeFromRow(row: {
@@ -83,8 +88,23 @@ function nodeFromRow(row: {
     pythonModule: typeof row.python_module === 'string' ? row.python_module : 'nodes',
     inputs: parseInputs(row.inputs_json),
     outputs: parseOutputs(row.outputs_json),
-    widgetOrder: parseNames(row.widget_order_json),
+    ...parseWidgetOrder(row.widget_order_json),
   };
+}
+
+function parseWidgetOrder(text: string): { widgetOrder: string[]; widgetOrderReliable: boolean } {
+  try {
+    const value = JSON.parse(text);
+    if (Array.isArray(value)) {
+      return { widgetOrder: value.filter((item): item is string => typeof item === 'string'), widgetOrderReliable: true };
+    }
+    if (value && typeof value === 'object' && (value as { reliable?: unknown }).reliable === false) {
+      return { widgetOrder: [], widgetOrderReliable: false };
+    }
+  } catch {
+    return { widgetOrder: [], widgetOrderReliable: true };
+  }
+  return { widgetOrder: [], widgetOrderReliable: true };
 }
 
 function parseInputs(text: string): CatalogInput[] {
@@ -103,10 +123,6 @@ function parseOutputs(text: string): CatalogOutput[] {
     if (typeof row.name !== 'string' || typeof row.type !== 'string') return [];
     return [{ name: row.name, type: row.type }];
   });
-}
-
-function parseNames(text: string): string[] {
-  return parseArray(text).filter((item): item is string => typeof item === 'string');
 }
 
 function parseArray(text: string): unknown[] {

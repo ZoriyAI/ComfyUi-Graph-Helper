@@ -5,6 +5,27 @@ import type { CatalogInput, CatalogNode, CatalogOutput, CatalogView } from './ty
 export const MAX_OBJECT_INFO_BYTES = 32 * 1024 * 1024;
 
 const WIDGET_TYPES = new Set(['INT', 'FLOAT', 'STRING', 'BOOLEAN', 'COMBO']);
+/**
+ * Frontend widget constructors whose widgets_values layout is not reproduced here.
+ * ComfyUI_frontend src/scripts/widgets.ts @98700cfc (ComfyWidgets keys beyond the five scalars).
+ */
+const OPAQUE_WIDGET_TYPES = new Set([
+  'MARKDOWN',
+  'IMAGEUPLOAD',
+  'COLOR',
+  'IMAGECOMPARE',
+  'BOUNDING_BOX',
+  'CHART',
+  'GALLERIA',
+  'PAINTER',
+  'TEXTAREA',
+  'CURVE',
+  'RANGE',
+  'BOUNDING_BOXES',
+  'COLORS',
+]);
+/** control_after_generate enum from nodeDefSchema.ts CONTROL_OPTIONS @98700cfc. */
+const CONTROL_MODES = new Set(['fixed', 'increment', 'decrement', 'randomize']);
 
 export class ObjectInfoError extends Error {
   constructor(message: string) {
@@ -16,6 +37,7 @@ export class ObjectInfoError extends Error {
 export interface ParsedObjectInfo {
   nodes: CatalogNode[];
   models: Array<{ directory: string; name: string }>;
+  skipped: string[];
 }
 
 export function assertObjectInfoSize(bytes: number): void {
@@ -27,9 +49,11 @@ export function assertObjectInfoSize(bytes: number): void {
 /**
  * Parse a GET /object_info document: a map of class name to NodeInfo.
  * Input specs follow ComfyUI INPUT_TYPES JSON: [type, options?] or a legacy combo [string[], options?].
- * Widget slots follow input_order required then optional.
- * control_after_generate and image_upload each add the extra widgets_values slot the frontend writes
- * (comfy.comfy_types.node_typing.InputTypeOptions).
+ * Widget slots follow input_order required then optional, matching ComfyUI_frontend @98700cfc:
+ * - useIntWidget.ts: INT control_after_generate, and seed/noise_seed when the field is omitted
+ * - nodeDefSchema.ts: control_after_generate boolean | fixed|increment|decrement|randomize; isMediaUploadComboInput
+ * - widgets.ts: the control combo is the next widgets_values slot
+ * One invalid node def is skipped. A non-object root is rejected. If every node is skipped, the snapshot is rejected.
  */
 export function parseObjectInfo(document: unknown): ParsedObjectInfo {
   if (!document || typeof document !== 'object' || Array.isArray(document)) {
@@ -38,43 +62,60 @@ export function parseObjectInfo(document: unknown): ParsedObjectInfo {
   const record = document as Record<string, unknown>;
   const nodes: CatalogNode[] = [];
   const models: Array<{ directory: string; name: string }> = [];
+  const skipped: string[] = [];
   const seenModels = new Set<string>();
   for (const [classType, value] of Object.entries(record)) {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) {
-      throw new ObjectInfoError('Catalog snapshot is not object_info.');
-    }
-    const info = value as Record<string, unknown>;
-    const pythonModule = pythonModuleOf(info);
-    const { inputs, widgetOrder } = inputsOf(info);
-    const outputs = outputsOf(info);
-    nodes.push({
-      classType,
-      pack: pythonModule,
-      pythonModule,
-      inputs,
-      outputs,
-      widgetOrder,
-    });
-    for (const input of inputs) {
-      if (!input.widget) continue;
-      const directory = modelDirectoryFor(classType, input.name);
-      if (!directory) continue;
-      for (const name of comboNames(info, input.name)) {
-        const key = `${directory}/${name}`;
-        if (seenModels.has(key)) continue;
-        seenModels.add(key);
-        models.push({ directory, name });
+    try {
+      const node = parseNode(classType, value);
+      nodes.push(node);
+      for (const input of node.inputs) {
+        if (!input.widget || !WIDGET_TYPES.has(input.type)) continue;
+        const directory = modelDirectoryFor(classType, input.name);
+        if (!directory) continue;
+        for (const name of comboNames(value as Record<string, unknown>, input.name)) {
+          const key = `${directory}/${name}`;
+          if (seenModels.has(key)) continue;
+          seenModels.add(key);
+          models.push({ directory, name });
+        }
       }
+    } catch (error) {
+      if (error instanceof ObjectInfoError) {
+        skipped.push(classType);
+        continue;
+      }
+      throw error;
     }
   }
-  return { nodes, models };
+  if (nodes.length === 0 && skipped.length > 0) {
+    throw new ObjectInfoError('Catalog snapshot is not object_info.');
+  }
+  return { nodes, models, skipped };
 }
 
 export function widgetIndexFor(catalog: CatalogView, classType: string, key: string): number | undefined {
   const node = catalog.nodes.find((item) => item.classType === classType);
-  if (!node) return undefined;
+  if (!node || node.widgetOrderReliable === false) return undefined;
   const index = node.widgetOrder.indexOf(key);
   return index >= 0 ? index : undefined;
+}
+
+function parseNode(classType: string, value: unknown): CatalogNode {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new ObjectInfoError('Catalog snapshot is not object_info.');
+  }
+  const info = value as Record<string, unknown>;
+  const pythonModule = pythonModuleOf(info);
+  const { inputs, widgetOrder, widgetOrderReliable } = inputsOf(info);
+  return {
+    classType,
+    pack: pythonModule,
+    pythonModule,
+    inputs,
+    outputs: outputsOf(info),
+    widgetOrder: widgetOrderReliable ? widgetOrder : [],
+    widgetOrderReliable,
+  };
 }
 
 function pythonModuleOf(info: Record<string, unknown>): string {
@@ -87,17 +128,22 @@ function pythonModuleOf(info: Record<string, unknown>): string {
 
 function outputsOf(info: Record<string, unknown>): CatalogOutput[] {
   if (info.output === undefined) return [];
-  if (!Array.isArray(info.output) || info.output.some((item) => typeof item !== 'string')) {
-    throw new ObjectInfoError('Catalog snapshot is not object_info.');
-  }
+  if (!Array.isArray(info.output)) throw new ObjectInfoError('Catalog snapshot is not object_info.');
   const names = Array.isArray(info.output_name) ? info.output_name : [];
-  return info.output.map((type, index) => ({
-    type,
-    name: typeof names[index] === 'string' ? names[index] : type,
-  }));
+  return info.output.map((item, index) => {
+    const type = outputTypeOf(item);
+    return { type, name: typeof names[index] === 'string' ? names[index] : type };
+  });
 }
 
-function inputsOf(info: Record<string, unknown>): { inputs: CatalogInput[]; widgetOrder: string[] } {
+/** zComfyOutputTypesSpec: each output is a string or a string[] combo list. */
+function outputTypeOf(item: unknown): string {
+  if (typeof item === 'string' && item.length > 0) return item;
+  if (Array.isArray(item) && item.every((part) => typeof part === 'string')) return 'COMBO';
+  throw new ObjectInfoError('Catalog snapshot is not object_info.');
+}
+
+function inputsOf(info: Record<string, unknown>): { inputs: CatalogInput[]; widgetOrder: string[]; widgetOrderReliable: boolean } {
   if (info.input !== undefined && (!info.input || typeof info.input !== 'object' || Array.isArray(info.input))) {
     throw new ObjectInfoError('Catalog snapshot is not object_info.');
   }
@@ -105,6 +151,7 @@ function inputsOf(info: Record<string, unknown>): { inputs: CatalogInput[]; widg
   const order = inputOrderOf(info.input_order);
   const inputs: CatalogInput[] = [];
   const widgetOrder: string[] = [];
+  let widgetOrderReliable = true;
   for (const group of ['required', 'optional'] as const) {
     const specs = groupSpecs(input[group]);
     const names = order[group] ?? Object.keys(specs);
@@ -112,16 +159,16 @@ function inputsOf(info: Record<string, unknown>): { inputs: CatalogInput[]; widg
     for (const name of [...names, ...Object.keys(specs)]) {
       if (seen.has(name) || !(name in specs)) continue;
       seen.add(name);
-      const spec = specs[name];
-      const parsed = parseSpec(spec);
+      const parsed = parseSpec(name, specs[name]);
+      if (parsed.opaque) widgetOrderReliable = false;
       inputs.push({ name, type: parsed.type, widget: parsed.widget });
       if (!parsed.widget) continue;
       widgetOrder.push(name);
       if (parsed.controlAfterGenerate) widgetOrder.push(`${name}::control_after_generate`);
-      if (parsed.imageUpload) widgetOrder.push(`${name}::image_upload`);
+      if (parsed.mediaUpload) widgetOrder.push(`${name}::media_upload`);
     }
   }
-  return { inputs, widgetOrder };
+  return { inputs, widgetOrder, widgetOrderReliable };
 }
 
 function inputOrderOf(value: unknown): { required?: string[]; optional?: string[] } {
@@ -152,25 +199,56 @@ function groupSpecs(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
-function parseSpec(spec: unknown): { type: string; widget: boolean; controlAfterGenerate: boolean; imageUpload: boolean } {
+function parseSpec(name: string, spec: unknown): { type: string; widget: boolean; opaque: boolean; controlAfterGenerate: boolean; mediaUpload: boolean } {
   if (!Array.isArray(spec) || spec.length === 0) {
     throw new ObjectInfoError('Catalog snapshot is not object_info.');
   }
   const options = spec[1] && typeof spec[1] === 'object' && !Array.isArray(spec[1]) ? (spec[1] as Record<string, unknown>) : {};
   const forceInput = options.forceInput === true;
   if (Array.isArray(spec[0])) {
-    return { type: 'COMBO', widget: !forceInput, controlAfterGenerate: options.control_after_generate === true, imageUpload: options.image_upload === true };
+    const widget = !forceInput;
+    return {
+      type: 'COMBO',
+      widget,
+      opaque: false,
+      controlAfterGenerate: widget && hasControlAfterGenerate('COMBO', name, options),
+      mediaUpload: widget && isMediaUpload(options),
+    };
   }
   if (typeof spec[0] !== 'string' || spec[0].length === 0) {
     throw new ObjectInfoError('Catalog snapshot is not object_info.');
   }
-  const widget = !forceInput && WIDGET_TYPES.has(spec[0]);
+  const opaque = !forceInput && isOpaqueWidgetType(spec[0]);
+  const widget = !forceInput && (WIDGET_TYPES.has(spec[0]) || opaque);
   return {
     type: spec[0],
     widget,
-    controlAfterGenerate: widget && options.control_after_generate === true,
-    imageUpload: widget && options.image_upload === true,
+    opaque,
+    controlAfterGenerate: widget && !opaque && hasControlAfterGenerate(spec[0], name, options),
+    mediaUpload: widget && !opaque && spec[0] === 'COMBO' && isMediaUpload(options),
   };
+}
+
+function isOpaqueWidgetType(type: string): boolean {
+  return OPAQUE_WIDGET_TYPES.has(type) || /^COMFY_.*_V3$/.test(type);
+}
+
+/**
+ * useIntWidget.ts @98700cfc:
+ * control_after_generate ?? ['seed','noise_seed'].includes(name)
+ * nodeDefSchema.ts: the field is boolean or fixed|increment|decrement|randomize.
+ * COMBO uses that truthy value only; the seed-name default is INT-only.
+ */
+function hasControlAfterGenerate(type: string, name: string, options: Record<string, unknown>): boolean {
+  const value = options.control_after_generate;
+  if (value === true || (typeof value === 'string' && CONTROL_MODES.has(value))) return true;
+  if (value !== undefined) return false;
+  return type === 'INT' && (name === 'seed' || name === 'noise_seed');
+}
+
+/** nodeDefSchema.ts isMediaUploadComboInput @98700cfc. */
+function isMediaUpload(options: Record<string, unknown>): boolean {
+  return options.image_upload === true || options.video_upload === true || options.animated_image_upload === true;
 }
 
 function comboNames(info: Record<string, unknown>, inputName: string): string[] {

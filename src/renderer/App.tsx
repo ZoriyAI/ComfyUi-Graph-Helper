@@ -67,7 +67,7 @@ function App() {
       setWorkflowNote(result.error);
       return;
     }
-    setWorkflowNote(`Catalog snapshot imported. Nodes: ${result.result.nodes}. Models: ${result.result.models}.`);
+    setWorkflowNote(`Catalog snapshot imported. Nodes: ${result.result.nodes}. Models: ${result.result.models}. Skipped: ${result.result.skipped.length}.`);
   };
 
   const handleExport = async () => {

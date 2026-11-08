@@ -68,8 +68,10 @@ test('catalog snapshot import persists guidance and workflow missing-deps use it
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'catalog-snapshot-'));
   const source = path.join(userData, 'object_info.json');
   const broken = path.join(userData, 'broken.json');
+  const arrayFile = path.join(userData, 'array.json');
   fs.writeFileSync(source, JSON.stringify(snapshot));
   fs.writeFileSync(broken, '{');
+  fs.writeFileSync(arrayFile, '[]');
   const electronApp = await electron.launch({
     args: [path.join(__dirname, '../../dist/main/index.js'), `--user-data-dir=${userData}`],
     env: { ...process.env, NODE_ENV: 'production' },
@@ -81,7 +83,7 @@ test('catalog snapshot import persists guidance and workflow missing-deps use it
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [paths.source] });
   }, { source });
   await window.getByRole('button', { name: 'Catalog snapshot', exact: true }).click();
-  await expect(window.getByText('Catalog snapshot imported. Nodes: 2. Models: 2.')).toBeVisible();
+  await expect(window.getByText('Catalog snapshot imported. Nodes: 2. Models: 2. Skipped: 0.')).toBeVisible();
 
   const stored = await electronApp.evaluate(async ({ app }, { appRoot: root }) => {
     const nodeModule = process.getBuiltinModule('module');
@@ -140,5 +142,21 @@ test('catalog snapshot import persists guidance and workflow missing-deps use it
     return count.count;
   }, { appRoot });
   expect(afterReject).toBe(rows.length);
+
+  await electronApp.evaluate(({ dialog }, paths) => {
+    dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [paths.arrayFile] });
+  }, { arrayFile });
+  await window.getByRole('button', { name: 'Catalog snapshot', exact: true }).click();
+  await expect(window.getByText('Catalog snapshot is not object_info.')).toBeVisible();
+  const afterArray = await electronApp.evaluate(async ({ app }, { appRoot: root }) => {
+    const nodeModule = process.getBuiltinModule('module');
+    const nodePath = process.getBuiltinModule('path');
+    const Database = nodeModule.createRequire(nodePath.join(root, 'package.json'))('better-sqlite3');
+    const db = new Database(nodePath.join(app.getPath('userData'), 'comfyui-desktop.db'), { readonly: true, fileMustExist: true });
+    const count = db.prepare('SELECT COUNT(*) AS count FROM node_catalog').get() as { count: number };
+    db.close();
+    return count.count;
+  }, { appRoot });
+  expect(afterArray).toBe(rows.length);
   await electronApp.close();
 });
