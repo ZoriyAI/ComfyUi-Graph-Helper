@@ -41,7 +41,7 @@ export default function SettingsPanel({
 }: {
   onRead: (values: NonSecretSettings) => void;
   onSaved: (values: NonSecretSettings) => void;
-  onSession: (held: boolean) => void;
+  onSession: (source: 'none' | 'session' | 'os') => void;
 }) {
   const { t } = useTranslation();
   const translate: Translator = (key, options) => (options ? String(t(key, options)) : String(t(key)));
@@ -57,8 +57,11 @@ export default function SettingsPanel({
   const [pending, setPending] = useState(false);
   const [container, setContainer] = useState<HTMLElement | null>(null);
   const [sessionKey, setSessionKey] = useState('');
+  const [osKey, setOsKey] = useState('');
   const [sessionNote, setSessionNote] = useState('');
   const [secretReason, setSecretReason] = useState('');
+  const [secretPersist, setSecretPersist] = useState(false);
+  const [secretStored, setSecretStored] = useState(false);
   const [actionNote, setActionNote] = useState('');
   const onSessionRef = useRef(onSession);
   onSessionRef.current = onSession;
@@ -66,7 +69,10 @@ export default function SettingsPanel({
   useEffect(() => {
     let cancelled = false;
     window.electronAPI.secretStatus().then((status) => {
-      if (!cancelled) setSecretReason(status.reason);
+      if (cancelled) return;
+      setSecretReason(status.reason);
+      setSecretPersist(status.persist);
+      setSecretStored(status.stored);
     }).catch(() => undefined);
     window.electronAPI.getSettings().then((read: SettingsRead) => {
       if (cancelled) return;
@@ -144,13 +150,34 @@ export default function SettingsPanel({
     const held = await window.electronAPI.llmSetSessionKey(sessionKey);
     setSessionKey('');
     setSessionNote(String(t(held.held ? 'settings.sessionHeld' : 'settings.sessionCleared')));
-    onSessionRef.current(held.held);
+    onSessionRef.current(held.source);
   };
   const clearSession = async () => {
     const held = await window.electronAPI.llmSetSessionKey('');
     setSessionKey('');
     setSessionNote(String(t('settings.sessionCleared')));
-    onSessionRef.current(held.held);
+    onSessionRef.current(held.source);
+  };
+  const storeOsKey = async () => {
+    const saved = await window.electronAPI.saveSecret(osKey);
+    setOsKey('');
+    const status = await window.electronAPI.secretStatus();
+    setSecretReason(status.reason);
+    setSecretPersist(status.persist);
+    setSecretStored(status.stored);
+    if (saved.status !== 'stored') {
+      setActionNote(explainError(translate, status.reason).summary);
+      return;
+    }
+    const session = await window.electronAPI.llmSessionStatus();
+    onSessionRef.current(session.source);
+  };
+  const removeStoredKey = async () => {
+    await window.electronAPI.forgetSecret();
+    setSecretStored(false);
+    setOsKey('');
+    onSessionRef.current('none');
+    setSessionNote(String(t('settings.storedRemoved')));
   };
   const readCatalog = async () => {
     const result = await window.electronAPI.readComfy();
@@ -289,21 +316,49 @@ export default function SettingsPanel({
                 </button>
               </div>
               {actionNote ? <p className="field-hint" role="status">{actionNote}</p> : null}
-              <label className="field">
-                {t('settings.apiKey')}
-                <input
-                  type="password"
-                  aria-label={String(t('settings.apiKey'))}
-                  aria-describedby="key-unavailable"
-                  value=""
-                  disabled
-                  readOnly
-                />
-              </label>
-              <p id="key-unavailable" className="field-hint">{t('settings.keyReason')}</p>
-              <button type="button" className="ghost-button" disabled>
-                {t('settings.saveKey')}
-              </button>
+              {secretPersist ? (
+                <>
+                  <label className="field">
+                    {t('settings.osKey')}
+                    <input
+                      type="password"
+                      autoComplete="off"
+                      aria-label={String(t('settings.osKey'))}
+                      value={osKey}
+                      onChange={(event) => setOsKey(event.target.value)}
+                    />
+                  </label>
+                  <div className="settings-buttons">
+                    <button type="button" className="ghost-button" disabled={osKey.length === 0} onClick={() => void storeOsKey()}>
+                      {t('settings.saveStoredKey')}
+                    </button>
+                    {secretStored ? (
+                      <button type="button" className="ghost-button" onClick={() => void removeStoredKey()}>
+                        {t('settings.removeStored')}
+                      </button>
+                    ) : null}
+                  </div>
+                  {secretStored ? <p className="field-hint" role="status">{t('settings.storedKey')}</p> : null}
+                </>
+              ) : (
+                <>
+                  <label className="field">
+                    {t('settings.apiKey')}
+                    <input
+                      type="password"
+                      aria-label={String(t('settings.apiKey'))}
+                      aria-describedby="key-unavailable"
+                      value=""
+                      disabled
+                      readOnly
+                    />
+                  </label>
+                  <p id="key-unavailable" className="field-hint">{t('settings.keyReason')}</p>
+                  <button type="button" className="ghost-button" disabled>
+                    {t('settings.saveKey')}
+                  </button>
+                </>
+              )}
               <label className="field">
                 {t('settings.sessionKey')}
                 <input

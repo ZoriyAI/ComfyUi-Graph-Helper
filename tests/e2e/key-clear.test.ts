@@ -32,12 +32,15 @@ function scanSqlite(userData: string, phase: string): void {
 
 test('blocked secret IPC leaves the disabled key controls empty and the marker out of sqlite', async () => {
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'key-clear-'));
+  const env = { ...process.env, NODE_ENV: 'production' };
+  delete env.DBUS_SESSION_BUS_ADDRESS;
+  delete env.GNOME_KEYRING_CONTROL;
   const app = await electron.launch({
     args: [
       path.join(__dirname, '../../dist/main/index.js'),
       `--user-data-dir=${userData}`,
     ],
-    env: { ...process.env, NODE_ENV: 'production' },
+    env,
   });
   const window = await app.firstWindow();
   await useEnglish(window);

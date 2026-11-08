@@ -1,5 +1,5 @@
 import { safeStorage } from 'electron';
-import type { SecretProbe } from '../../shared/config/secretPolicy';
+import { isUnprotectedCipher, type SecretProbe } from '../../shared/config/secretPolicy';
 
 const OS_PASSWORD_MANAGERS = new Set(['gnome_libsecret', 'kwallet', 'kwallet5', 'kwallet6']);
 const CANARY = 'comfy-graph-helper-canary';
@@ -24,16 +24,19 @@ export async function probeSecretBackend(): Promise<SecretProbe> {
   }
   let roundtrip = false;
   let plaintextInCipher = true;
+  let unprotectedCipher = false;
   const eligible = process.platform !== 'linux' || OS_PASSWORD_MANAGERS.has(backend);
   if (encryptionAvailable && eligible && backend !== 'basic_text') {
     try {
       const cipher = await safeStorage.encryptStringAsync(CANARY);
       plaintextInCipher = cipher.includes(Buffer.from(CANARY));
+      unprotectedCipher = isUnprotectedCipher(cipher);
       const back = await safeStorage.decryptStringAsync(cipher);
       roundtrip = back.result === CANARY && !plaintextInCipher;
     } catch {
       roundtrip = false;
       plaintextInCipher = true;
+      unprotectedCipher = false;
     }
   }
   return {
@@ -42,5 +45,6 @@ export async function probeSecretBackend(): Promise<SecretProbe> {
     encryptionAvailable,
     roundtrip,
     plaintextInCipher,
+    unprotectedCipher,
   };
 }

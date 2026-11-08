@@ -4,9 +4,9 @@ import * as fs from 'fs';
 import { IPC_CHANNELS } from '../shared/ipc-channels';
 import { getDatabase } from './database';
 import { mainLLMService } from './llmService';
-import { attemptSaveSecret, readSettings, saveSecretIfProven, saveSettings } from './settings/repository';
+import { attemptSaveSecret, forgetProviderKey, readProviderKeyCipher, readSettings, saveSecretIfProven, saveSettings } from './settings/repository';
 import { probeSecretBackend } from './settings/secretProbe';
-import { secretPersistenceDecision } from '../shared/config/secretPolicy';
+import { isUnprotectedCipher, secretPersistenceDecision } from '../shared/config/secretPolicy';
 import { applyComfyRead } from './comfy/read';
 import { missingOnGraph } from '../shared/graph/compatibility';
 import { cancelRun, commitCommand, pauseRun, readProjection, resumeRun, startRun, switchProject } from './commands/commit';
@@ -43,8 +43,22 @@ function adoptStoredChatRuntime(): void {
   });
 }
 
-export function setupIPC() {
+async function adoptStoredKey(): Promise<void> {
+  const decision = await secretStatus();
+  if (!decision.persist) return;
+  const cipher = readProviderKeyCipher(getDatabase());
+  if (!cipher || isUnprotectedCipher(cipher)) return;
+  try {
+    const opened = await safeStorage.decryptStringAsync(cipher);
+    if (opened.result) mainLLMService.holdOsKey(opened.result);
+  } catch {
+    // The OS store did not unlock the ciphertext. Memory stays empty.
+  }
+}
+
+export async function setupIPC(): Promise<void> {
   adoptStoredChatRuntime();
+  await adoptStoredKey();
   // File operations
   ipcMain.handle(IPC_CHANNELS.FILE_IMPORT_WORKFLOW, async () => {
     const copy = dialogCopy().importWorkflow;
@@ -208,10 +222,21 @@ export function setupIPC() {
     const decision = await secretStatus();
     if (!decision.persist || typeof value !== 'string' || value.length === 0) return attemptSaveSecret(getDatabase());
     const cipher = await safeStorage.encryptStringAsync(value);
-    return saveSecretIfProven(getDatabase(), decision, value, cipher);
+    const saved = saveSecretIfProven(getDatabase(), decision, value, cipher);
+    if (saved.status === 'stored') mainLLMService.holdOsKey(value);
+    return saved;
   });
 
-  ipcMain.handle(IPC_CHANNELS.SETTINGS_SECRET_STATUS, () => secretStatus());
+  ipcMain.handle(IPC_CHANNELS.SETTINGS_FORGET_SECRET, () => {
+    forgetProviderKey(getDatabase());
+    mainLLMService.setSessionKey('');
+    return { status: 'removed' as const };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.SETTINGS_SECRET_STATUS, async () => {
+    const decision = await secretStatus();
+    return { ...decision, stored: readProviderKeyCipher(getDatabase()) != null };
+  });
 
   ipcMain.handle(IPC_CHANNELS.COMFY_READ, async () => {
     const read = readSettings(getDatabase());

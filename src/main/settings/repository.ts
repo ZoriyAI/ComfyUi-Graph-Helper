@@ -1,5 +1,6 @@
 import type Database from 'better-sqlite3';
 import { carriesSecret } from '../../shared/config/draft';
+import { isUnprotectedCipher } from '../../shared/config/secretPolicy';
 import {
   nonSecretDefaults,
   nonSecretSettingsSchema,
@@ -102,10 +103,23 @@ export function saveSecretIfProven(
   plain: string,
   ciphertext: Buffer,
 ): { status: 'stored' } | SecretSaveResult {
-  if (!decision.persist || ciphertext.includes(Buffer.from(plain))) return attemptSaveSecret(db);
+  if (!decision.persist || ciphertext.includes(Buffer.from(plain)) || isUnprotectedCipher(ciphertext)) {
+    return attemptSaveSecret(db);
+  }
   db.prepare(
     `INSERT INTO secret_records (name, ciphertext) VALUES (?, ?)
      ON CONFLICT(name) DO UPDATE SET ciphertext = excluded.ciphertext`
   ).run('provider-key', ciphertext);
   return { status: 'stored' };
+}
+
+export function readProviderKeyCipher(db: Database.Database): Buffer | null {
+  const row = db.prepare('SELECT ciphertext FROM secret_records WHERE name = ?').get('provider-key') as
+    | { ciphertext: Buffer }
+    | undefined;
+  return row ? Buffer.from(row.ciphertext) : null;
+}
+
+export function forgetProviderKey(db: Database.Database): void {
+  db.prepare('DELETE FROM secret_records WHERE name = ?').run('provider-key');
 }

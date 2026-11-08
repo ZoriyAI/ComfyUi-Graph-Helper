@@ -1,7 +1,11 @@
 import { app, BrowserWindow } from 'electron';
 import * as path from 'path';
+import { passwordStoreFlag } from '../shared/config/passwordStore';
 import { initDatabase, closeDatabase } from './database';
 import { setupIPC } from './ipc';
+
+const storeFlag = passwordStoreFlag(process.env.XDG_CURRENT_DESKTOP, process.argv);
+if (storeFlag) app.commandLine.appendSwitch('password-store', storeFlag);
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -31,10 +35,10 @@ function createWindow() {
   });
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   try {
     initDatabase();
-    setupIPC();
+    await setupIPC();
     createWindow();
   } catch (error) {
     console.error('[App] Startup failed', error);

@@ -40,6 +40,8 @@ const ERROR_KEYS: Record<string, string> = {
   'Comfy origin is empty.': 'errors.comfyEmpty',
   'Comfy origin was not read.': 'errors.comfyUnread',
   'OS key storage is not an OS password manager, so a key is not written.': 'errors.secretOs',
+  'OS key storage proved encryption.': 'errors.secretProved',
+  'OS key storage fell back to an unprotected cipher, so a key is not written.': 'errors.secretFallback',
   'OS key storage did not prove encryption, so a key is not written.': 'errors.secretUnproven',
 };
 

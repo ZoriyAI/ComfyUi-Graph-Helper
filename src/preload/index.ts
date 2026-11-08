@@ -20,6 +20,7 @@ const IPC_CHANNELS = {
   SETTINGS_GET: 'settings:get',
   SETTINGS_SAVE: 'settings:save',
   SETTINGS_SAVE_SECRET: 'settings:save-secret',
+  SETTINGS_FORGET_SECRET: 'settings:forget-secret',
   SETTINGS_SECRET_STATUS: 'settings:secret-status',
   COMFY_READ: 'comfy:read',
   GRAPH_COMPATIBILITY: 'graph:compatibility',
@@ -58,7 +59,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getSettings: () => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_GET),
   saveSettings: (input: unknown) => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SAVE, input),
   saveSecret: (value: string) => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SAVE_SECRET, value),
-  secretStatus: () => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SECRET_STATUS) as Promise<{ persist: boolean; backend: string; reason: string }>,
+  forgetSecret: () => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_FORGET_SECRET) as Promise<{ status: 'removed' }>,
+  secretStatus: () => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SECRET_STATUS) as Promise<{ persist: boolean; backend: string; reason: string; stored: boolean }>,
   readComfy: () => ipcRenderer.invoke(IPC_CHANNELS.COMFY_READ) as Promise<
     | { ok: true; version: string; devices: number; nodes: number; models: number; skipped: string[] }
     | { ok: false; error: string }
@@ -80,8 +82,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   llmSetConfig: (config: { provider: string; model: string; apiKey?: string; baseURL?: string }) =>
     ipcRenderer.invoke(IPC_CHANNELS.LLM_SET_CONFIG, config),
   llmGetConfig: () => ipcRenderer.invoke(IPC_CHANNELS.LLM_GET_CONFIG) as Promise<ChatRuntimeConfig>,
-  llmSetSessionKey: (value: string) => ipcRenderer.invoke(IPC_CHANNELS.LLM_SET_SESSION_KEY, value) as Promise<{ held: boolean }>,
-  llmSessionStatus: () => ipcRenderer.invoke(IPC_CHANNELS.LLM_SESSION_STATUS) as Promise<{ held: boolean }>,
+  llmSetSessionKey: (value: string) => ipcRenderer.invoke(IPC_CHANNELS.LLM_SET_SESSION_KEY, value) as Promise<{ held: boolean; source: 'none' | 'session' | 'os' }>,
+  llmSessionStatus: () => ipcRenderer.invoke(IPC_CHANNELS.LLM_SESSION_STATUS) as Promise<{ held: boolean; source: 'none' | 'session' | 'os' }>,
   llmStreamChat: (
     messages: Array<{ role: string; content: string }>,
     toolSpecs: Array<{ name: string; description: string; parameters: any }>,
@@ -121,7 +123,8 @@ export interface ElectronAPI {
   getSettings: () => Promise<SettingsRead>;
   saveSettings: (input: unknown) => Promise<{ ok: true; values: NonSecretSettings } | { ok: false; error: string }>;
   saveSecret: (value: string) => Promise<{ status: 'secret-storage-blocked' | 'stored' }>;
-  secretStatus: () => Promise<{ persist: boolean; backend: string; reason: string }>;
+  forgetSecret: () => Promise<{ status: 'removed' }>;
+  secretStatus: () => Promise<{ persist: boolean; backend: string; reason: string; stored: boolean }>;
   readComfy: () => Promise<
     | { ok: true; version: string; devices: number; nodes: number; models: number; skipped: string[] }
     | { ok: false; error: string }
@@ -144,8 +147,8 @@ export interface ElectronAPI {
     baseURL?: string;
   }) => Promise<void>;
   llmGetConfig: () => Promise<ChatRuntimeConfig>;
-  llmSetSessionKey: (value: string) => Promise<{ held: boolean }>;
-  llmSessionStatus: () => Promise<{ held: boolean }>;
+  llmSetSessionKey: (value: string) => Promise<{ held: boolean; source: 'none' | 'session' | 'os' }>;
+  llmSessionStatus: () => Promise<{ held: boolean; source: 'none' | 'session' | 'os' }>;
   llmStreamChat: (
     messages: Array<{ role: string; content: string }>,
     toolSpecs: Array<{ name: string; description: string; parameters: any }>,

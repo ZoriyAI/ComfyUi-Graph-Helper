@@ -64,20 +64,25 @@ function App() {
   const sessionOverride = useRef(false);
   const storedRuntime = useRef<ChatRuntimeConfig>({ provider: '', model: '', baseURL: '' });
   const [provider, setProvider] = useState('');
-  const [sessionHeld, setSessionHeld] = useState(false);
+  const [keySource, setKeySource] = useState<'none' | 'session' | 'os'>('none');
   const [workflowNote, setWorkflowNote] = useState<WorkflowNote>(null);
   const providerNote = provider === 'test'
     ? t('provider.test')
     : provider === 'local'
       ? t('provider.local')
       : provider === 'openai'
-        ? (sessionHeld ? t('provider.openaiHeld') : t('provider.openai'))
+        ? (keySource === 'os'
+          ? t('provider.openaiStored')
+          : keySource === 'session'
+            ? t('provider.openaiHeld')
+            : t('provider.openai'))
         : t('provider.none');
 
   useEffect(() => {
     window.electronAPI.readProjection(DESKTOP_PROJECT_ID).then(applyProjection).catch((error) => {
       console.error('[App] Projection load failed:', error);
     });
+    window.electronAPI.llmSessionStatus().then((status) => setKeySource(status.source)).catch(() => undefined);
   }, []);
 
   const showStoredRuntime = (values: NonSecretSettings) => {
@@ -216,7 +221,7 @@ function App() {
               if (sessionOverride.current) return;
               void showStoredRuntime(values);
             }}
-            onSession={setSessionHeld}
+            onSession={setKeySource}
             onSaved={(values) => {
               sessionOverride.current = false;
               void showStoredRuntime(values);

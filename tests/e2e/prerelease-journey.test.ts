@@ -65,9 +65,12 @@ test('prerelease journey configures a provider, builds a process, and exports a 
   const nativePath = path.join(userData, 'project.graph-helper.json');
   const comfyPath = path.join(userData, 'workflow.json');
   fs.mkdirSync('/opt/cursor/artifacts', { recursive: true });
+  const env = { ...process.env, NODE_ENV: 'production' };
+  delete env.DBUS_SESSION_BUS_ADDRESS;
+  delete env.GNOME_KEYRING_CONTROL;
   const electronApp = await electron.launch({
     args: [path.join(__dirname, '../../dist/main/index.js'), `--user-data-dir=${userData}`],
-    env: { ...process.env, NODE_ENV: 'production' },
+    env,
   });
   try {
     const window = await electronApp.firstWindow();

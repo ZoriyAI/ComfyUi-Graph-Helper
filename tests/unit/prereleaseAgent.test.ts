@@ -1,8 +1,9 @@
 import http from 'http';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import Database from 'better-sqlite3';
-import { secretPersistenceDecision } from '../../src/shared/config/secretPolicy';
-import { saveSettings, saveSecretIfProven, secretRecordCount } from '../../src/main/settings/repository';
+import { isUnprotectedCipher, secretPersistenceDecision } from '../../src/shared/config/secretPolicy';
+import { passwordStoreFlag } from '../../src/shared/config/passwordStore';
+import { forgetProviderKey, readProviderKeyCipher, saveSettings, saveSecretIfProven, secretRecordCount } from '../../src/main/settings/repository';
 import { migrate } from '../../src/main/settings/migrate';
 import { mainLLMService } from '../../src/main/llmService';
 import { applyComfyRead } from '../../src/main/comfy/read';
@@ -44,6 +45,7 @@ describe('prerelease agent configuration', () => {
       encryptionAvailable: true,
       roundtrip: false,
       plaintextInCipher: true,
+      unprotectedCipher: false,
     })).toEqual({
       persist: false,
       reason: 'OS key storage is not an OS password manager, so a key is not written.',
@@ -54,7 +56,25 @@ describe('prerelease agent configuration', () => {
       encryptionAvailable: true,
       roundtrip: true,
       plaintextInCipher: false,
+      unprotectedCipher: true,
+    })).toEqual({
+      persist: false,
+      reason: 'OS key storage fell back to an unprotected cipher, so a key is not written.',
+    });
+    expect(secretPersistenceDecision({
+      platform: 'linux',
+      backend: 'gnome_libsecret',
+      encryptionAvailable: true,
+      roundtrip: true,
+      plaintextInCipher: false,
+      unprotectedCipher: false,
     }).persist).toBe(true);
+    expect(isUnprotectedCipher(Buffer.from('v10'))).toBe(true);
+    expect(isUnprotectedCipher(Buffer.from('v11abc'))).toBe(false);
+    expect(passwordStoreFlag(undefined, [])).toBe('gnome-libsecret');
+    expect(passwordStoreFlag('ubuntu:GNOME', [])).toBeNull();
+    expect(passwordStoreFlag('KDE', [])).toBeNull();
+    expect(passwordStoreFlag('Hyprland', ['--password-store=kwallet6'])).toBeNull();
   });
 
   it('writes ciphertext only after a proven decision and never the plaintext', () => {
@@ -69,6 +89,12 @@ describe('prerelease agent configuration', () => {
     expect(Buffer.from(row.ciphertext).includes(Buffer.from('session-marker'))).toBe(false);
     const leaked = saveSecretIfProven(db, { persist: true }, 'session-marker', Buffer.from('session-marker'));
     expect(leaked).toEqual({ status: 'secret-storage-blocked' });
+    const fallback = saveSecretIfProven(db, { persist: true }, 'session-marker', Buffer.from('v10fallback'));
+    expect(fallback).toEqual({ status: 'secret-storage-blocked' });
+    expect(readProviderKeyCipher(db)?.includes(Buffer.from('v10'))).toBe(false);
+    forgetProviderKey(db);
+    expect(readProviderKeyCipher(db)).toBeNull();
+    expect(secretRecordCount(db)).toBe(0);
     db.close();
   });
 
@@ -110,7 +136,7 @@ describe('prerelease agent configuration', () => {
       baseURL: 'https://example.test/v1',
       apiKey: 'session-marker',
     });
-    expect(mainLLMService.sessionStatus()).toEqual({ held: false });
+    expect(mainLLMService.sessionStatus()).toEqual({ held: false, source: 'none' });
     await expect(mainLLMService.streamChatWithTools([{ role: 'user', content: 'hi' }], {}).next()).rejects.toThrow(
       'Cloud model has no key for this session.',
     );

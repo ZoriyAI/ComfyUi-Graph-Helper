@@ -30,6 +30,7 @@ export const IPC_CHANNELS = {
   SETTINGS_GET: 'settings:get',
   SETTINGS_SAVE: 'settings:save',
   SETTINGS_SAVE_SECRET: 'settings:save-secret',
+  SETTINGS_FORGET_SECRET: 'settings:forget-secret',
   SETTINGS_SECRET_STATUS: 'settings:secret-status',
   COMFY_READ: 'comfy:read',
   GRAPH_COMPATIBILITY: 'graph:compatibility',

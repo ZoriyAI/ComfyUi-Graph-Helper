@@ -27,9 +27,12 @@ function httpEndpoint(value: string | undefined): boolean {
   }
 }
 
+export type KeySource = 'none' | 'session' | 'os';
+
 class MainLLMService {
   private config: LLMConfig | null = null;
   private sessionKey: string | null = null;
+  private sessionSource: KeySource = 'none';
 
   /**
    * Stores the non-secret provider, model, and base URL for the next send.
@@ -48,18 +51,28 @@ class MainLLMService {
     };
   }
 
-  /** Holds a cloud key in memory. The value is not returned, logged, or written. */
-  setSessionKey(value: unknown): { held: boolean } {
+  /** Holds a cloud key in memory for this process. The value is not returned, logged, or written. */
+  setSessionKey(value: unknown): { held: boolean; source: KeySource } {
     if (typeof value !== 'string' || value.length === 0 || value.length > 4000) {
       this.sessionKey = null;
-      return { held: false };
+      this.sessionSource = 'none';
+      return { held: false, source: 'none' };
     }
     this.sessionKey = value;
-    return { held: true };
+    this.sessionSource = 'session';
+    return { held: true, source: 'session' };
   }
 
-  sessionStatus(): { held: boolean } {
-    return { held: this.sessionKey != null && this.sessionKey.length > 0 };
+  /** Holds a key just decrypted from OS storage. Does not write SQLite. */
+  holdOsKey(value: string): void {
+    if (value.length === 0 || value.length > 4000) return;
+    this.sessionKey = value;
+    this.sessionSource = 'os';
+  }
+
+  sessionStatus(): { held: boolean; source: KeySource } {
+    const held = this.sessionKey != null && this.sessionKey.length > 0;
+    return { held, source: held ? this.sessionSource : 'none' };
   }
 
   private sendBlock(): string | null {
