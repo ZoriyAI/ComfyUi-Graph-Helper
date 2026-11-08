@@ -42,16 +42,22 @@ export function applyProjection(incoming: Projection | null | undefined): boolea
   return useProjectionStore.getState().apply(incoming);
 }
 
-export async function submitManual(actionId: string, payload: unknown) {
-  const displayed = useProjectionStore.getState();
-  const result = await window.electronAPI.commitCommand({
-    projectId: displayed.projectId,
-    actionId,
-    expectedRevisionId: displayed.currentRevisionId,
-    actor: 'manual',
-    runId: null,
-    payload,
+let manualQueue: Promise<unknown> = Promise.resolve();
+
+export function submitManual(actionId: string, payload: unknown) {
+  const run = manualQueue.then(async () => {
+    const displayed = useProjectionStore.getState();
+    const result = await window.electronAPI.commitCommand({
+      projectId: displayed.projectId,
+      actionId,
+      expectedRevisionId: displayed.currentRevisionId,
+      actor: 'manual',
+      runId: null,
+      payload,
+    });
+    applyProjection(result.projection);
+    return result;
   });
-  applyProjection(result.projection);
-  return result;
+  manualQueue = run.then(() => undefined, () => undefined);
+  return run;
 }

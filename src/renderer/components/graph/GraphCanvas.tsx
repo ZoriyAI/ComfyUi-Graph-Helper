@@ -140,6 +140,12 @@ export default function GraphCanvas() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onBeforeDelete={() => {
+          const active = document.activeElement;
+          const inGraph = active instanceof Element && active.closest('.react-flow') != null;
+          const blocked = active instanceof Element && active.closest('[role="dialog"], [role="listbox"], .select-content') != null;
+          return Promise.resolve(inGraph && !blocked);
+        }}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         colorMode="dark"
