@@ -112,10 +112,11 @@ html[data-motion="reduced"] .react-flow__connection .animated { animation: none;
 .send-button:not(:disabled) { background: var(--accent-2); border-color: transparent; color: var(--on-accent); }
 .pause-button { background: var(--warn); border-color: transparent; color: var(--on-warn); }
 .app-body { flex: 1; display: flex; min-height: 0; }
-.graph-pane { flex: 1 1 auto; min-width: 560px; }
-.tool-separator { flex: 0 0 8px; width: 8px; cursor: col-resize; position: relative; background: transparent; touch-action: none; }
+.graph-pane { flex: 1 1 auto; min-width: 0; }
+.dock { position: relative; }
+.tool-separator { position: absolute; left: -4px; top: 0; bottom: 0; width: 8px; z-index: 2; cursor: col-resize; background: transparent; touch-action: none; }
 .tool-separator::before { content: ""; position: absolute; top: 12px; bottom: 12px; left: 3px; width: 1px; background: var(--line); }
-.dock { flex: 0 0 auto; display: flex; flex-direction: column; border-left: 1px solid var(--line); background: var(--surface); min-height: 0; min-width: 0; }
+.dock { position: relative; flex: 0 0 auto; display: flex; flex-direction: column; border-left: 1px solid var(--line); background: var(--surface); min-height: 0; min-width: 0; }
 .dock[hidden] { display: none; }
 .dock-tabs, .dock-panels, .dock-panel { display: flex; flex-direction: column; min-height: 0; min-width: 0; flex: 1; }
 .dock-tablist { display: flex; gap: 4px; padding: 8px; border-bottom: 1px solid var(--line); }
@@ -250,8 +251,9 @@ html[data-motion="reduced"] .react-flow__connection .animated { animation: none;
 .message-time { margin-top: 6px; text-align: right; color: var(--text-faint); font-size: 10px; }
 .chat-compose { border-top: 1px solid var(--line); }
 .chat-form { display: flex; gap: 8px; width: 100%; align-items: flex-end; }
+.composer-field { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .chat-form textarea {
-  flex: 1;
+  width: 100%;
   resize: vertical;
   min-height: 56px;
   max-height: 120px;
@@ -279,6 +281,7 @@ html[data-motion="reduced"] .react-flow__connection .animated { animation: none;
   translate: -50% -50%;
   width: min(840px, calc(100vw - 48px));
   max-height: min(640px, calc(100vh - 48px));
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   padding: 0;
@@ -306,13 +309,13 @@ html[data-motion="reduced"] .react-flow__connection .animated { animation: none;
   transition-duration: var(--motion-exit);
   animation: dialog-out var(--motion-exit) var(--motion-ease-in);
 }
-.settings-header, .settings-actions { padding: 16px; }
+.settings-header, .settings-actions { padding: 16px; flex: 0 0 auto; }
 .settings-header { border-bottom: 1px solid var(--line); }
-.settings-layout { display: flex; min-height: 0; flex: 1; }
+.settings-layout { display: flex; min-height: 0; flex: 1 1 auto; overflow: hidden; }
 .settings-nav { flex: 0 0 176px; display: flex; flex-direction: column; gap: 4px; padding: 8px; border-right: 1px solid var(--line); }
 .settings-tab { min-height: 32px; text-align: left; border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--text); padding: 6px 10px; }
 .settings-tab[data-state="active"] { background: var(--bg-hover); border-color: var(--control-border); }
-.settings-panel { flex: 1; min-width: 0; overflow: auto; padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+.settings-panel { flex: 1; min-width: 0; min-height: 0; overflow: auto; padding: 16px; display: flex; flex-direction: column; gap: 8px; }
 .settings-panel h3 { margin: 0; font-size: 14px; line-height: 20px; font-weight: 600; color: var(--text); }
 .settings-actions { display: flex; flex-direction: column; align-items: stretch; gap: 8px; border-top: 1px solid var(--line); }
 .settings-buttons { display: flex; justify-content: flex-end; gap: 8px; }

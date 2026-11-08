@@ -1,9 +1,18 @@
 import React, { useEffect, useRef, useState } from 'react';
-import * as Dialog from '@radix-ui/react-dialog';
-import * as Tabs from '@radix-ui/react-tabs';
 import { settingsWriteError } from '../../../shared/config/draft';
 import { nonSecretDefaults, type NonSecretSettings, type SettingsRead } from '../../../shared/config/schema';
+import {
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogOverlay,
+  DialogPortal,
+  DialogRoot,
+  DialogTitle,
+  DialogTrigger,
+} from '../../ui/Dialog';
 import SelectField from '../../ui/SelectField';
+import { TabsContent, TabsList, TabsRoot, TabsTrigger } from '../../ui/Tabs';
 
 function applyMotion(motion: NonSecretSettings['motion']) {
   document.documentElement.dataset.motion = motion;
@@ -120,6 +129,7 @@ export default function SettingsPanel({
       setSettingsNote('Non-secret settings saved.');
       applyMotion(result.values.motion);
       onSavedRef.current(result.values);
+      setOpen(false);
     } catch {
       setSettingsNote('Settings could not be saved.');
     } finally {
@@ -128,7 +138,7 @@ export default function SettingsPanel({
   };
 
   return (
-    <Dialog.Root
+    <DialogRoot
       modal
       open={open}
       onOpenChange={(next) => {
@@ -136,12 +146,12 @@ export default function SettingsPanel({
         setOpen(next);
       }}
     >
-      <Dialog.Trigger asChild>
+      <DialogTrigger asChild>
         <button type="button" className="ghost-button">Settings</button>
-      </Dialog.Trigger>
-      <Dialog.Portal>
-        <Dialog.Overlay className="dialog-overlay" />
-        <Dialog.Content
+      </DialogTrigger>
+      <DialogPortal>
+        <DialogOverlay className="dialog-overlay" />
+        <DialogContent
           ref={setContainer}
           className="settings-dialog"
           aria-describedby="settings-lead"
@@ -163,23 +173,23 @@ export default function SettingsPanel({
           }}
         >
           <header className="settings-header">
-            <Dialog.Title className="settings-heading">Settings</Dialog.Title>
-            <Dialog.Description id="settings-lead" className="settings-lead">
+            <DialogTitle className="settings-heading">Settings</DialogTitle>
+            <DialogDescription id="settings-lead" className="settings-lead">
               Non-secret preferences. A section change does not write.
-            </Dialog.Description>
+            </DialogDescription>
           </header>
-          <Tabs.Root
+          <TabsRoot
             value={section}
             onValueChange={(next) => setSection(next as Section)}
             orientation="vertical"
             className="settings-layout"
           >
-            <Tabs.List className="settings-nav" aria-label="Settings sections">
-              <Tabs.Trigger className="settings-tab" value="connection">Connection</Tabs.Trigger>
-              <Tabs.Trigger className="settings-tab" value="assistant">Assistant</Tabs.Trigger>
-              <Tabs.Trigger className="settings-tab" value="appearance">Appearance & Motion</Tabs.Trigger>
-            </Tabs.List>
-            <Tabs.Content className="settings-panel" value="connection" tabIndex={-1}>
+            <TabsList className="settings-nav" aria-label="Settings sections">
+              <TabsTrigger className="settings-tab" value="connection">Connection</TabsTrigger>
+              <TabsTrigger className="settings-tab" value="assistant">Assistant</TabsTrigger>
+              <TabsTrigger className="settings-tab" value="appearance">Appearance & Motion</TabsTrigger>
+            </TabsList>
+            <TabsContent className="settings-panel" value="connection" tabIndex={-1}>
               <h3>Connection</h3>
               <label className="field">
                 Comfy origin
@@ -204,8 +214,8 @@ export default function SettingsPanel({
               <button type="button" className="ghost-button" disabled>
                 Save key
               </button>
-            </Tabs.Content>
-            <Tabs.Content className="settings-panel" value="assistant" tabIndex={-1}>
+            </TabsContent>
+            <TabsContent className="settings-panel" value="assistant" tabIndex={-1}>
               <h3>Assistant</h3>
               <SelectField
                 label="Provider"
@@ -231,8 +241,8 @@ export default function SettingsPanel({
                 />
               </label>
               <p className="field-hint">An http(s) origin, or empty. A secret in any field blocks the save.</p>
-            </Tabs.Content>
-            <Tabs.Content className="settings-panel" value="appearance" tabIndex={-1}>
+            </TabsContent>
+            <TabsContent className="settings-panel" value="appearance" tabIndex={-1}>
               <h3>Appearance & Motion</h3>
               <SelectField
                 label="Motion"
@@ -242,8 +252,8 @@ export default function SettingsPanel({
                 onChange={(motion) => setValues((current) => ({ ...current, motion: motion as NonSecretSettings['motion'] }))}
               />
               <p className="field-hint">System, On, Reduced, or Off. The choice applies after Save, not while drafting.</p>
-            </Tabs.Content>
-          </Tabs.Root>
+            </TabsContent>
+          </TabsRoot>
           <footer className="settings-actions">
             <p className="provider-note" role="status">{note}</p>
             <p id="key-unavailable" className="field-hint">{KEY_REASON}</p>
@@ -251,11 +261,11 @@ export default function SettingsPanel({
               <button type="button" className="send-button" disabled={saveDisabled} onClick={() => void save()}>
                 {pending ? 'Saving…' : 'Save settings'}
               </button>
-              <Dialog.Close className="ghost-button">Cancel</Dialog.Close>
+              <DialogClose className="ghost-button">Cancel</DialogClose>
             </div>
           </footer>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+        </DialogContent>
+      </DialogPortal>
+    </DialogRoot>
   );
 }

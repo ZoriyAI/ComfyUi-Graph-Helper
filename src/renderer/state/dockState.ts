@@ -5,18 +5,19 @@ export const TAB_MAX = 440;
 export const SPLIT_MIN = 560;
 export const SPLIT_MAX = 720;
 export const CANVAS_MIN = 560;
-const SEPARATOR = 8;
 
 export type DockTab = 'inspector' | 'assistant';
 
 export function canUseSplit(viewport: number): boolean {
-  return viewport >= 1280 && viewport - SEPARATOR - SPLIT_MIN >= CANVAS_MIN;
+  return viewport >= 1280 && viewport - SPLIT_MIN >= CANVAS_MIN;
 }
 
 export function dockRange(split: boolean, viewport: number): { min: number; max: number } {
-  const maxByCanvas = Math.max(0, viewport - SEPARATOR - CANVAS_MIN);
-  if (split) return { min: SPLIT_MIN, max: Math.min(SPLIT_MAX, maxByCanvas) };
-  return { min: TAB_MIN, max: Math.min(TAB_MAX, Math.max(TAB_MIN, maxByCanvas)) };
+  if (split) {
+    const maxByCanvas = Math.max(SPLIT_MIN, viewport - CANVAS_MIN);
+    return { min: SPLIT_MIN, max: Math.min(SPLIT_MAX, maxByCanvas) };
+  }
+  return { min: TAB_MIN, max: TAB_MAX };
 }
 
 interface DockUi {

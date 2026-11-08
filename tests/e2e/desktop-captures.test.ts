@@ -83,6 +83,13 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
     expect(borderRatio).toBeGreaterThanOrEqual(3);
     expect(Math.min(...typeRatios)).toBeGreaterThanOrEqual(3);
     expect(metrics.undoDisabled).toBe(true);
+    if (width === 1024) {
+      const canvas = await window.locator('.graph-pane').evaluate((element) => Math.round(element.getBoundingClientRect().width));
+      const dock = await window.locator('.dock').evaluate((element) => Math.round(element.getBoundingClientRect().width));
+      console.log(`CANVAS_1024 ${canvas} dock=${dock}`);
+      expect(dock).toBe(336);
+      expect(canvas).toBe(688);
+    }
     await window.screenshot({ path: path.join(artifactDir, `desktop-${name}-empty.png`) });
     const showBoth = window.getByRole('button', { name: 'Show both' });
     if (width >= 1280) await expect(showBoth).toBeEnabled();

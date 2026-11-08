@@ -39,22 +39,26 @@ export default function MessageInput({
         submit();
       }}
     >
-      <textarea
-        ref={inputRef}
-        aria-label="Chat message"
-        rows={2}
-        value={input}
-        onChange={(event) => setInput(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.nativeEvent.isComposing || event.keyCode === 229) return;
-          if (event.key === 'Enter' && !event.shiftKey) {
-            event.preventDefault();
-            submit();
-          }
-        }}
-        placeholder="Ask for a graph change"
-        disabled={disabled || isStreaming}
-      />
+      <div className="composer-field">
+        <textarea
+          ref={inputRef}
+          aria-label="Chat message"
+          aria-describedby="composer-keys"
+          rows={2}
+          value={input}
+          onChange={(event) => setInput(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+            if (event.key === 'Enter' && !event.shiftKey) {
+              event.preventDefault();
+              submit();
+            }
+          }}
+          placeholder="Ask for a graph change"
+          disabled={disabled || isStreaming}
+        />
+        <p id="composer-keys" className="field-hint">Enter sends. Shift+Enter adds a line.</p>
+      </div>
       {isStreaming && !isPaused ? (
         <button type="button" className="pause-button" onClick={onPause}>
           Pause

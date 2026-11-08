@@ -164,6 +164,17 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
   const dialog = window.locator('[role="dialog"].settings-dialog');
   await settings.click();
   await expect(dialog).toHaveAttribute('data-state', 'open');
+  await expect(window.getByRole('button', { name: 'Save settings' })).toBeDisabled();
+  const backgroundInert = await window.evaluate(() => {
+    let node = document.querySelector('.document-bar');
+    while (node) {
+      if (node.getAttribute('aria-hidden') === 'true') return true;
+      node = node.parentElement;
+    }
+    return false;
+  });
+  expect(backgroundInert).toBe(true);
+  await window.keyboard.press('Tab');
   await expect.poll(async () => window.evaluate(() => document.activeElement?.closest('[role="dialog"]') != null)).toBe(true);
   await expect.poll(async () => dialog.evaluate((element) => getComputedStyle(element).opacity)).toBe('1');
   await window.screenshot({ path: path.join(artifactDir, 'ui-settings.png') });
@@ -226,20 +237,30 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
 
   await pickOption(window, 'Motion', 'Reduced');
   expect(await activeMotion(window)).toBe('system');
+  await expect(window.getByRole('button', { name: 'Save settings' })).toBeEnabled();
   await window.getByRole('button', { name: 'Save settings' }).click();
-  await expect(window.getByText('Non-secret settings saved.')).toBeVisible();
+  await expect(dialog).toHaveCount(0);
+  await expect.poll(async () => window.evaluate(() => (
+    document.activeElement instanceof HTMLButtonElement && document.activeElement.textContent === 'Settings'
+  ))).toBe(true);
   expect(await storedMotion(window)).toBe('reduced');
   expect(await activeMotion(window)).toBe('reduced');
-  await expectDuration(window, '.settings-dialog', 'transitionDuration', '0.06s');
   expect(await shift(window)).toBe('0px');
+  await settings.click();
+  await showMotion(window);
+  await expect(window.getByRole('combobox', { name: 'Motion', exact: true })).toHaveAttribute('data-value', 'reduced');
+  await expectDuration(window, '.settings-dialog', 'transitionDuration', '0.06s');
 
   await pickOption(window, 'Motion', 'On');
   expect(await activeMotion(window)).toBe('reduced');
   await window.getByRole('button', { name: 'Save settings' }).click();
+  await expect(dialog).toHaveCount(0);
   expect(await storedMotion(window)).toBe('on');
   expect(await activeMotion(window)).toBe('on');
-  await expectDuration(window, '.settings-dialog', 'transitionDuration', '0.16s');
   expect(await shift(window)).toBe('8px');
+  await settings.click();
+  await showMotion(window);
+  await expectDuration(window, '.settings-dialog', 'transitionDuration', '0.16s');
   await armExit(window);
   await window.keyboard.press('Escape');
   const onExit = await readExit(window);
@@ -272,10 +293,13 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
 
   await pickOption(window, 'Motion', 'System');
   await window.getByRole('button', { name: 'Save settings' }).click();
+  await expect(dialog).toHaveCount(0);
   expect(await storedMotion(window)).toBe('system');
   expect(await activeMotion(window)).toBe('system');
-  await expectDuration(window, '.settings-dialog', 'transitionDuration', '0.06s');
   expect(await shift(window)).toBe('0px');
+  await settings.click();
+  await showMotion(window);
+  await expectDuration(window, '.settings-dialog', 'transitionDuration', '0.06s');
   console.log('SYSTEM_PLUS_OS_REDUCE 0.06s 0px');
 
   await window.emulateMedia({ reducedMotion: 'no-preference' });
@@ -284,10 +308,13 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
 
   await pickOption(window, 'Motion', 'Off');
   await window.getByRole('button', { name: 'Save settings' }).click();
+  await expect(dialog).toHaveCount(0);
   expect(await storedMotion(window)).toBe('off');
   expect(await activeMotion(window)).toBe('off');
-  await expectDuration(window, '.settings-dialog', 'transitionDuration', '0s');
   await expectDuration(window, '.ghost-button', 'transitionDuration', '0s');
+  await settings.click();
+  await showMotion(window);
+  await expectDuration(window, '.settings-dialog', 'transitionDuration', '0s');
   await armExit(window);
   await window.keyboard.press('Escape');
   const offExit = await readExit(window);

@@ -53,21 +53,28 @@ test('stored provider, model, and base URL are what the next send would use afte
   await expect.poll(() => runtimeConfig(window)).toEqual({ provider: '', model: '', baseURL: '' });
   const dialog = await openSettings(window);
   await expect(dialog.getByText('Defaults are shown and are not written yet.')).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Save settings' })).toBeDisabled();
 
   await pickOption(window, 'Provider', 'OpenAI', dialog);
   await dialog.getByRole('textbox', { name: 'Model', exact: true }).fill('  fixture-model  ');
   await dialog.getByRole('textbox', { name: 'Base URL', exact: true }).fill(' https://example.test/v1 ');
+  await expect(dialog.getByRole('button', { name: 'Save settings' })).toBeEnabled();
   await dialog.getByRole('button', { name: 'Save settings' }).click();
-  await expect(dialog.getByText('Non-secret settings saved.')).toBeVisible();
-  await expect(dialog.getByRole('textbox', { name: 'Model', exact: true })).toHaveValue('fixture-model');
-  await expect(dialog.getByRole('textbox', { name: 'Base URL', exact: true })).toHaveValue('https://example.test/v1');
+  await expect(dialog).toHaveCount(0);
+  await expect.poll(async () => window.evaluate(() => (
+    document.activeElement instanceof HTMLButtonElement && document.activeElement.textContent === 'Settings'
+  ))).toBe(true);
   await expect(window.locator('#chat-provider')).toHaveAttribute('data-value', 'openai');
   const savedRuntime = { provider: 'openai', model: 'fixture-model', baseURL: 'https://example.test/v1' };
   await expect.poll(() => runtimeConfig(window)).toEqual(savedRuntime);
+  const savedDialog = await openSettings(window);
+  await expect(savedDialog.getByRole('button', { name: 'Save settings' })).toBeDisabled();
+  await expect(savedDialog.getByRole('textbox', { name: 'Model', exact: true })).toHaveValue('fixture-model');
+  await expect(savedDialog.getByRole('textbox', { name: 'Base URL', exact: true })).toHaveValue('https://example.test/v1');
 
-  await dialog.getByRole('textbox', { name: 'Base URL', exact: true }).fill('notaurl');
-  await expect(dialog.getByRole('button', { name: 'Save settings' })).toBeDisabled();
-  await expect(dialog.getByText('Settings do not match the schema')).toBeVisible();
+  await savedDialog.getByRole('textbox', { name: 'Base URL', exact: true }).fill('notaurl');
+  await expect(savedDialog.getByRole('button', { name: 'Save settings' })).toBeDisabled();
+  await expect(savedDialog.getByText('Settings do not match the schema')).toBeVisible();
   const schemaReject = await window.evaluate(async () => {
     const bridge = (window as unknown as { electronAPI: { saveSettings: (input: unknown) => Promise<{ ok: boolean; error?: string }> } }).electronAPI;
     return bridge.saveSettings({
@@ -81,9 +88,9 @@ test('stored provider, model, and base URL are what the next send would use afte
   });
   expect(schemaReject).toEqual({ ok: false, error: 'Settings do not match the schema' });
 
-  await dialog.getByRole('textbox', { name: 'Model', exact: true }).fill(MARKER);
-  await expect(dialog.getByRole('button', { name: 'Save settings' })).toBeDisabled();
-  await expect(dialog.getByText('Settings cannot store a secret')).toBeVisible();
+  await savedDialog.getByRole('textbox', { name: 'Model', exact: true }).fill(MARKER);
+  await expect(savedDialog.getByRole('button', { name: 'Save settings' })).toBeDisabled();
+  await expect(savedDialog.getByText('Settings cannot store a secret')).toBeVisible();
   const secretReject = await window.evaluate(async (marker) => {
     const bridge = (window as unknown as { electronAPI: { saveSettings: (input: unknown) => Promise<{ ok: boolean; error?: string }> } }).electronAPI;
     return bridge.saveSettings({
@@ -127,15 +134,16 @@ test('stored provider, model, and base URL are what the next send would use afte
   await restored.getByRole('textbox', { name: 'Model', exact: true }).fill('test-fixture');
   await restored.getByRole('textbox', { name: 'Base URL', exact: true }).fill('https://fixture.example/v1');
   await restored.getByRole('button', { name: 'Save settings' }).click();
-  await expect(restored.getByText('Non-secret settings saved.')).toBeVisible();
+  await expect(restored).toHaveCount(0);
+  await expect.poll(async () => again.evaluate(() => (
+    document.activeElement instanceof HTMLButtonElement && document.activeElement.textContent === 'Settings'
+  ))).toBe(true);
   await expect(again.locator('#chat-provider')).toHaveAttribute('data-value', 'test');
   await expect.poll(() => runtimeConfig(again)).toEqual({
     provider: 'test',
     model: 'test-fixture',
     baseURL: 'https://fixture.example/v1',
   });
-  await restored.getByRole('button', { name: 'Cancel' }).click();
-  await expect(restored).toHaveCount(0);
   await again.getByRole('tab', { name: 'Assistant' }).click();
   await expect(again.getByRole('textbox', { name: 'Chat message' })).toHaveValue('');
   await reopened.close();

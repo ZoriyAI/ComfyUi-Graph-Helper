@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { FolderInput, FolderOutput, Redo2, Undo2, Unplug } from 'lucide-react';
 import GraphCanvas from './components/graph/GraphCanvas';
-import Dock, { ToolSplitter, ToolToggles } from './components/shell/Dock';
+import Dock, { ToolToggles } from './components/shell/Dock';
 import SettingsPanel from './components/settings/SettingsPanel';
 import Hint from './ui/Hint';
 import SelectField from './ui/SelectField';
@@ -196,7 +196,6 @@ function App() {
         <div className="graph-pane">
           <GraphCanvas />
         </div>
-        <ToolSplitter />
         <Dock onSendMessage={handleSendMessage} onPause={handlePause} />
       </div>
       <footer className="status-bar">

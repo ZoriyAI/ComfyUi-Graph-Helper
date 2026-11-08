@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import * as Tabs from '@radix-ui/react-tabs';
+import { TabsContent, TabsList, TabsRoot, TabsTrigger } from '../../ui/Tabs';
 import ChatPanel from '../chat/ChatPanel';
 import Inspector from '../graph/Inspector';
 import { canUseSplit, dockRange, useDockStore, type DockTab } from '../../state/dockState';
@@ -147,24 +147,25 @@ export default function Dock({
       hidden={collapsed}
       aria-label="Inspector and assistant"
     >
-      <Tabs.Root
+      <ToolSplitter />
+      <TabsRoot
         value={tab}
         onValueChange={(next) => show(next as DockTab)}
         className="dock-tabs"
       >
-        <Tabs.List className="dock-tablist" aria-label="Tools">
-          <Tabs.Trigger className="dock-tab" value="inspector">Inspector</Tabs.Trigger>
-          <Tabs.Trigger className="dock-tab" value="assistant">Assistant</Tabs.Trigger>
-        </Tabs.List>
+        <TabsList className="dock-tablist" aria-label="Tools">
+          <TabsTrigger className="dock-tab" value="inspector">Inspector</TabsTrigger>
+          <TabsTrigger className="dock-tab" value="assistant">Assistant</TabsTrigger>
+        </TabsList>
         <div className="dock-panels">
-          <Tabs.Content className="dock-panel" value="inspector" forceMount>
+          <TabsContent className="dock-panel" value="inspector" forceMount>
             <Inspector />
-          </Tabs.Content>
-          <Tabs.Content className="dock-panel" value="assistant" forceMount>
+          </TabsContent>
+          <TabsContent className="dock-panel" value="assistant" forceMount>
             <ChatPanel onSendMessage={onSendMessage} onPause={onPause} />
-          </Tabs.Content>
+          </TabsContent>
         </div>
-      </Tabs.Root>
+      </TabsRoot>
     </aside>
   );
 }
