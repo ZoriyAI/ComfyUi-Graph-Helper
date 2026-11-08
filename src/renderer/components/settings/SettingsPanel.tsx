@@ -37,9 +37,11 @@ type NoteState = { kind: 'key'; key: string } | { kind: 'error'; code: string };
 export default function SettingsPanel({
   onRead,
   onSaved,
+  onSession,
 }: {
   onRead: (values: NonSecretSettings) => void;
   onSaved: (values: NonSecretSettings) => void;
+  onSession: (held: boolean) => void;
 }) {
   const { t } = useTranslation();
   const translate: Translator = (key, options) => (options ? String(t(key, options)) : String(t(key)));
@@ -54,9 +56,18 @@ export default function SettingsPanel({
   const [note, setNote] = useState<NoteState>({ kind: 'key', key: 'settings.notSavedYet' });
   const [pending, setPending] = useState(false);
   const [container, setContainer] = useState<HTMLElement | null>(null);
+  const [sessionKey, setSessionKey] = useState('');
+  const [sessionNote, setSessionNote] = useState('');
+  const [secretReason, setSecretReason] = useState('');
+  const [actionNote, setActionNote] = useState('');
+  const onSessionRef = useRef(onSession);
+  onSessionRef.current = onSession;
 
   useEffect(() => {
     let cancelled = false;
+    window.electronAPI.secretStatus().then((status) => {
+      if (!cancelled) setSecretReason(status.reason);
+    }).catch(() => undefined);
     window.electronAPI.getSettings().then((read: SettingsRead) => {
       if (cancelled) return;
       const language = languageOf(read);
@@ -129,6 +140,40 @@ export default function SettingsPanel({
       : {}
   );
 
+  const holdSession = async () => {
+    const held = await window.electronAPI.llmSetSessionKey(sessionKey);
+    setSessionKey('');
+    setSessionNote(String(t(held.held ? 'settings.sessionHeld' : 'settings.sessionCleared')));
+    onSessionRef.current(held.held);
+  };
+  const clearSession = async () => {
+    const held = await window.electronAPI.llmSetSessionKey('');
+    setSessionKey('');
+    setSessionNote(String(t('settings.sessionCleared')));
+    onSessionRef.current(held.held);
+  };
+  const readCatalog = async () => {
+    const result = await window.electronAPI.readComfy();
+    if (!result.ok) {
+      setActionNote(explainError(translate, result.error).summary);
+      return;
+    }
+    setActionNote(String(t('settings.comfyRead', { version: result.version, devices: result.devices, nodes: result.nodes })));
+  };
+  const checkGraph = async () => {
+    const result = await window.electronAPI.graphCompatibility();
+    if (!result.ok) {
+      setActionNote(explainError(translate, result.error).summary);
+      return;
+    }
+    const none = String(t('settings.noneMissing'));
+    const models = result.missingModels.map((model) => `${model.directory}/${model.name}`);
+    setActionNote(String(t('settings.graphChecked', {
+      nodes: result.missingNodes.length > 0 ? result.missingNodes.join(', ') : none,
+      models: models.length > 0 ? models.join(', ') : none,
+    })));
+  };
+
   const save = async () => {
     if (saveDisabled) return;
     setPending(true);
@@ -156,6 +201,7 @@ export default function SettingsPanel({
     { value: '', label: String(t('settings.providerNone')) },
     { value: 'test', label: String(t('settings.providerTest')) },
     { value: 'openai', label: String(t('settings.providerOpenAI')) },
+    { value: 'local', label: String(t('settings.providerLocal')) },
   ];
   const motionOptions = [
     { value: 'system', label: String(t('settings.motionSystem')) },
@@ -234,6 +280,15 @@ export default function SettingsPanel({
                 />
               </label>
               <p className="field-hint">{t('settings.comfyOriginHint')}</p>
+              <div className="settings-buttons">
+                <button type="button" className="ghost-button" disabled={pending || dirty || values.comfyOrigin.trim() === ''} onClick={() => void readCatalog()}>
+                  {t('settings.readComfy')}
+                </button>
+                <button type="button" className="ghost-button" disabled={pending} onClick={() => void checkGraph()}>
+                  {t('settings.checkGraph')}
+                </button>
+              </div>
+              {actionNote ? <p className="field-hint" role="status">{actionNote}</p> : null}
               <label className="field">
                 {t('settings.apiKey')}
                 <input
@@ -249,6 +304,26 @@ export default function SettingsPanel({
               <button type="button" className="ghost-button" disabled>
                 {t('settings.saveKey')}
               </button>
+              <label className="field">
+                {t('settings.sessionKey')}
+                <input
+                  type="password"
+                  autoComplete="off"
+                  aria-label={String(t('settings.sessionKey'))}
+                  value={sessionKey}
+                  onChange={(event) => setSessionKey(event.target.value)}
+                />
+              </label>
+              <p className="field-hint">{secretReason ? explainError(translate, secretReason).summary : ''}</p>
+              <div className="settings-buttons">
+                <button type="button" className="ghost-button" disabled={sessionKey.length === 0} onClick={() => void holdSession()}>
+                  {t('settings.useSession')}
+                </button>
+                <button type="button" className="ghost-button" onClick={() => void clearSession()}>
+                  {t('settings.clearSession')}
+                </button>
+              </div>
+              {sessionNote ? <p className="field-hint" role="status">{sessionNote}</p> : null}
             </TabsContent>
             <TabsContent className="settings-panel" value="assistant" tabIndex={-1}>
               <h3>{t('settings.assistant')}</h3>

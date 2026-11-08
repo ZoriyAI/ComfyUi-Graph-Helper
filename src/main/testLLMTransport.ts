@@ -35,6 +35,71 @@ function nodeIdFrom(value: unknown): string | null {
   return typeof nodeId === 'string' && nodeId.length > 0 ? nodeId : null;
 }
 
+function latestUserText(prompt: LanguageModelV4Prompt | undefined): string {
+  let text = '';
+  for (const message of prompt ?? []) {
+    if (message.role !== 'user') continue;
+    if (typeof message.content === 'string') {
+      text = message.content;
+      continue;
+    }
+    if (!Array.isArray(message.content)) continue;
+    text = message.content.map((part) => (part && part.type === 'text' ? part.text : '')).join('');
+  }
+  return text;
+}
+
+function toolCall(id: string, name: string, input: unknown): LanguageModelV4StreamPart {
+  return { type: 'tool-call', toolCallId: id, toolName: name, input: JSON.stringify(input) };
+}
+
+function textParts(message: string): LanguageModelV4StreamPart[] {
+  const textId = 'text-process';
+  return [
+    { type: 'text-start', id: textId },
+    { type: 'text-delta', id: textId, delta: message },
+    { type: 'text-end', id: textId },
+    finish('stop'),
+  ];
+}
+
+/** TEST fixture path for the prerelease journey. It is not a live model. */
+function processFixtureParts(prompt: LanguageModelV4Prompt | undefined): LanguageModelV4StreamPart[] {
+  const results = collectToolResults(prompt);
+  const addNode = results.find((result) => result.toolName === 'addNode');
+  const docs = results.find((result) => result.toolName === 'setComponentDocumentation');
+  const process = results.find((result) => result.toolName === 'setProcess');
+  if (!addNode) {
+    return [
+      toolCall('call-add-node', 'addNode', { nodeType: 'TestNode', title: 'Fixture step', x: 120, y: 120 }),
+      finish('tool-calls'),
+    ];
+  }
+  const nodeId = nodeIdFrom(addNode.value);
+  if (!nodeId) return textParts('addNode finished without a node id.');
+  if (!docs) {
+    return [
+      toolCall('call-docs', 'setComponentDocumentation', {
+        ownerKind: 'node',
+        ownerId: nodeId,
+        purpose: 'Fixture node purpose',
+        usage: 'Connect it in Comfy after export.',
+      }),
+      finish('tool-calls'),
+    ];
+  }
+  if (!process) {
+    return [
+      toolCall('call-process', 'setProcess', {
+        title: 'Fixture process',
+        notes: 'The TEST fixture stored this note. It is not a live model.',
+      }),
+      finish('tool-calls'),
+    ];
+  }
+  return textParts('TEST fixture only: I added a node, stored what it is for, and named the process. Export the workflow and run it in your ComfyUI.');
+}
+
 function finish(unified: 'stop' | 'tool-calls'): LanguageModelV4StreamPart {
   return {
     type: 'finish',
@@ -59,6 +124,13 @@ export function createTestLLMModel(): LanguageModelV4 {
 
     async doStream(options) {
       const prompt = options.prompt;
+      if (latestUserText(prompt).includes('Build the process fixture')) {
+        const parts = processFixtureParts(prompt);
+        return {
+          stream: convertArrayToReadableStream(parts),
+          rawCall: { rawPrompt: null, rawSettings: {} },
+        };
+      }
       const results = collectToolResults(prompt);
       const addNode = results.find((result) => result.toolName === 'addNode');
       const annotate = results.find((result) => result.toolName === 'annotateNode');

@@ -14,10 +14,15 @@ const IPC_CHANNELS = {
   DB_LIST_PROJECTS: 'db:list-projects',
   LLM_SET_CONFIG: 'llm:set-config',
   LLM_GET_CONFIG: 'llm:get-config',
+  LLM_SET_SESSION_KEY: 'llm:set-session-key',
+  LLM_SESSION_STATUS: 'llm:session-status',
   LLM_STREAM_CHAT: 'llm:stream-chat',
   SETTINGS_GET: 'settings:get',
   SETTINGS_SAVE: 'settings:save',
   SETTINGS_SAVE_SECRET: 'settings:save-secret',
+  SETTINGS_SECRET_STATUS: 'settings:secret-status',
+  COMFY_READ: 'comfy:read',
+  GRAPH_COMPATIBILITY: 'graph:compatibility',
   COMMAND_COMMIT: 'command:commit',
   COMMAND_START_RUN: 'command:start-run',
   COMMAND_RESUME_RUN: 'command:resume-run',
@@ -53,6 +58,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getSettings: () => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_GET),
   saveSettings: (input: unknown) => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SAVE, input),
   saveSecret: (value: string) => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SAVE_SECRET, value),
+  secretStatus: () => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SECRET_STATUS) as Promise<{ persist: boolean; backend: string; reason: string }>,
+  readComfy: () => ipcRenderer.invoke(IPC_CHANNELS.COMFY_READ) as Promise<
+    | { ok: true; version: string; devices: number; nodes: number; models: number; skipped: string[] }
+    | { ok: false; error: string }
+  >,
+  graphCompatibility: () => ipcRenderer.invoke(IPC_CHANNELS.GRAPH_COMPATIBILITY) as Promise<
+    | { ok: true; missingNodes: string[]; missingModels: Array<{ directory: string; name: string }> }
+    | { ok: false; error: string }
+  >,
 
   commitCommand: (input: unknown) => ipcRenderer.invoke(IPC_CHANNELS.COMMAND_COMMIT, input),
   startRun: (projectId: string) => ipcRenderer.invoke(IPC_CHANNELS.COMMAND_START_RUN, projectId),
@@ -66,6 +80,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   llmSetConfig: (config: { provider: string; model: string; apiKey?: string; baseURL?: string }) =>
     ipcRenderer.invoke(IPC_CHANNELS.LLM_SET_CONFIG, config),
   llmGetConfig: () => ipcRenderer.invoke(IPC_CHANNELS.LLM_GET_CONFIG) as Promise<ChatRuntimeConfig>,
+  llmSetSessionKey: (value: string) => ipcRenderer.invoke(IPC_CHANNELS.LLM_SET_SESSION_KEY, value) as Promise<{ held: boolean }>,
+  llmSessionStatus: () => ipcRenderer.invoke(IPC_CHANNELS.LLM_SESSION_STATUS) as Promise<{ held: boolean }>,
   llmStreamChat: (
     messages: Array<{ role: string; content: string }>,
     toolSpecs: Array<{ name: string; description: string; parameters: any }>,
@@ -104,7 +120,16 @@ export interface ElectronAPI {
   listProjects: () => Promise<any[]>;
   getSettings: () => Promise<SettingsRead>;
   saveSettings: (input: unknown) => Promise<{ ok: true; values: NonSecretSettings } | { ok: false; error: string }>;
-  saveSecret: (value: string) => Promise<{ status: 'secret-storage-blocked' }>;
+  saveSecret: (value: string) => Promise<{ status: 'secret-storage-blocked' | 'stored' }>;
+  secretStatus: () => Promise<{ persist: boolean; backend: string; reason: string }>;
+  readComfy: () => Promise<
+    | { ok: true; version: string; devices: number; nodes: number; models: number; skipped: string[] }
+    | { ok: false; error: string }
+  >;
+  graphCompatibility: () => Promise<
+    | { ok: true; missingNodes: string[]; missingModels: Array<{ directory: string; name: string }> }
+    | { ok: false; error: string }
+  >;
   commitCommand: (input: unknown) => Promise<import('../shared/commands/types').CommandResponse>;
   startRun: (projectId: string) => Promise<import('../shared/commands/types').RunStart>;
   resumeRun: (projectId: string) => Promise<import('../shared/commands/types').RunStart>;
@@ -119,6 +144,8 @@ export interface ElectronAPI {
     baseURL?: string;
   }) => Promise<void>;
   llmGetConfig: () => Promise<ChatRuntimeConfig>;
+  llmSetSessionKey: (value: string) => Promise<{ held: boolean }>;
+  llmSessionStatus: () => Promise<{ held: boolean }>;
   llmStreamChat: (
     messages: Array<{ role: string; content: string }>,
     toolSpecs: Array<{ name: string; description: string; parameters: any }>,

@@ -1,4 +1,6 @@
 import { useChatStore } from '../../state/chatState';
+import { useGraphStore } from '../../state/graphState';
+import { agentGraphContext } from '../../../shared/agent/context';
 import { DESKTOP_PROJECT_ID } from '../../../shared/project';
 import type { Projection } from '../../../shared/commands/types';
 import { applyProjection } from '../commands/projection';
@@ -75,6 +77,18 @@ class ChatService {
         },
       },
       {
+        name: 'setProcess',
+        description: 'Store the process title and notes. The text is data and is not executed.',
+        parameters: {
+          type: 'object',
+          properties: {
+            title: { type: 'string', description: 'Process title' },
+            notes: { type: 'string', description: 'How to use the process, stored as written' },
+          },
+          required: ['title', 'notes'],
+        },
+      },
+      {
         name: 'annotateNode',
         description: 'Add an annotation to a node',
         parameters: {
@@ -90,10 +104,21 @@ class ChatService {
 
     // Prepare message history for AI
     
-    const messageHistory = messages.map((m) => ({
-      role: m.role as 'user' | 'assistant' | 'system',
-      content: m.content,
-    }));
+    const graph = useGraphStore.getState();
+    const messageHistory = [
+      {
+        role: 'system' as const,
+        content: agentGraphContext({
+          nodes: graph.nodes,
+          components: graph.components,
+          process: graph.process,
+        }),
+      },
+      ...messages.map((m) => ({
+        role: m.role as 'user' | 'assistant' | 'system',
+        content: m.content,
+      })),
+    ];
     messageHistory.push({ role: 'user', content });
     
 

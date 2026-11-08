@@ -33,6 +33,14 @@ const ERROR_KEYS: Record<string, string> = {
   'The native project repeats a component owner.': 'errors.nativeDuplicate',
   'The project file could not be parsed.': 'errors.parseProject',
   'The project file could not be written.': 'errors.writeProject',
+  'Cloud model has no key for this session.': 'errors.cloudKey',
+  'Cloud model has no model id.': 'errors.cloudModel',
+  'Local model has no endpoint.': 'errors.localEndpoint',
+  'Local model has no model id.': 'errors.localModel',
+  'Comfy origin is empty.': 'errors.comfyEmpty',
+  'Comfy origin was not read.': 'errors.comfyUnread',
+  'OS key storage is not an OS password manager, so a key is not written.': 'errors.secretOs',
+  'OS key storage did not prove encryption, so a key is not written.': 'errors.secretUnproven',
 };
 
 const NATIVE_VERSION_PREFIX = 'Unsupported native project version ';

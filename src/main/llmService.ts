@@ -10,14 +10,26 @@ import { createTestLLMModel } from './testLLMTransport';
  */
 
 interface LLMConfig {
-  provider: 'openai' | 'test';
+  provider: 'openai' | 'test' | 'local';
   model: string;
-  apiKey?: string; // EPHEMERAL - not saved
   baseURL?: string;
+}
+
+const LOCAL_PLACEHOLDER = 'local';
+
+function httpEndpoint(value: string | undefined): boolean {
+  if (!value) return false;
+  try {
+    const url = new URL(value);
+    return (url.protocol === 'http:' || url.protocol === 'https:') && url.username === '' && url.password === '';
+  } catch {
+    return false;
+  }
 }
 
 class MainLLMService {
   private config: LLMConfig | null = null;
+  private sessionKey: string | null = null;
 
   /**
    * Stores the non-secret provider, model, and base URL for the next send.
@@ -25,7 +37,7 @@ class MainLLMService {
    */
   setConfig(config: { provider?: unknown; model?: unknown; baseURL?: unknown; apiKey?: unknown }): void {
     console.log('[MainLLMService] Config updated (credentials NOT logged)');
-    if (config.provider !== 'openai' && config.provider !== 'test') {
+    if (config.provider !== 'openai' && config.provider !== 'test' && config.provider !== 'local') {
       this.config = null;
       return;
     }
@@ -34,6 +46,29 @@ class MainLLMService {
       model: typeof config.model === 'string' ? config.model : '',
       baseURL: typeof config.baseURL === 'string' ? config.baseURL : undefined,
     };
+  }
+
+  /** Holds a cloud key in memory. The value is not returned, logged, or written. */
+  setSessionKey(value: unknown): { held: boolean } {
+    if (typeof value !== 'string' || value.length === 0 || value.length > 4000) {
+      this.sessionKey = null;
+      return { held: false };
+    }
+    this.sessionKey = value;
+    return { held: true };
+  }
+
+  sessionStatus(): { held: boolean } {
+    return { held: this.sessionKey != null && this.sessionKey.length > 0 };
+  }
+
+  private sendBlock(): string | null {
+    if (!this.config) return 'Model not configured';
+    if (this.config.provider === 'openai' && !this.sessionKey) return 'Cloud model has no key for this session.';
+    if (this.config.provider === 'openai' && this.config.model.trim() === '') return 'Cloud model has no model id.';
+    if (this.config.provider === 'local' && !httpEndpoint(this.config.baseURL)) return 'Local model has no endpoint.';
+    if (this.config.provider === 'local' && this.config.model.trim() === '') return 'Local model has no model id.';
+    return null;
   }
 
   nextSendConfig(): ChatRuntimeConfig {
@@ -58,10 +93,20 @@ class MainLLMService {
 
     if (this.config.provider === 'openai') {
       const openai = createOpenAI({
-        apiKey: '',
-        baseURL: this.config.baseURL ?? 'https://api.openai.com/v1',
+        apiKey: this.sessionKey ?? '',
+        baseURL: this.config.baseURL || 'https://api.openai.com/v1',
       });
       return openai(this.config.model);
+    }
+
+    if (this.config.provider === 'local') {
+      const local = createOpenAI({
+        apiKey: LOCAL_PLACEHOLDER,
+        baseURL: this.config.baseURL,
+        name: 'local',
+      });
+      // Local OpenAI-compatible servers expose chat completions, not the Responses API.
+      return local.chat(this.config.model);
     }
 
     return null;
@@ -71,6 +116,8 @@ class MainLLMService {
     messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
     tools: Record<string, any>
   ): AsyncGenerator<{ type: string; content: any }> {
+    const blocked = this.sendBlock();
+    if (blocked) throw new Error(blocked);
     const model = this.getModel();
     if (!model) {
       throw new Error('Model not configured');
@@ -83,7 +130,7 @@ class MainLLMService {
       messages,
       tools,
       // Default stopWhen is one step, which never feeds tool results back to the model.
-      stopWhen: isStepCount(4),
+      stopWhen: isStepCount(6),
       toolCallConcurrency: 1,
     });
 

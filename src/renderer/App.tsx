@@ -10,7 +10,7 @@ import { useGraphStore } from './state/graphState';
 import { useChatStore } from './state/chatState';
 import { applyProjection } from './services/commands/projection';
 import { DESKTOP_PROJECT_ID } from '../shared/project';
-import type { NonSecretSettings } from '../shared/config/schema';
+import type { ChatRuntimeConfig, NonSecretSettings } from '../shared/config/schema';
 import { explainError, type Translator } from '../shared/i18n';
 import { getChatService } from './services/llm/chatService';
 
@@ -62,13 +62,17 @@ function App() {
   const { t } = useTranslation();
   const { nodes, zoom } = useGraphStore();
   const sessionOverride = useRef(false);
+  const storedRuntime = useRef<ChatRuntimeConfig>({ provider: '', model: '', baseURL: '' });
   const [provider, setProvider] = useState('');
+  const [sessionHeld, setSessionHeld] = useState(false);
   const [workflowNote, setWorkflowNote] = useState<WorkflowNote>(null);
   const providerNote = provider === 'test'
     ? t('provider.test')
-    : provider === 'openai'
-      ? t('provider.openai')
-      : t('provider.none');
+    : provider === 'local'
+      ? t('provider.local')
+      : provider === 'openai'
+        ? (sessionHeld ? t('provider.openaiHeld') : t('provider.openai'))
+        : t('provider.none');
 
   useEffect(() => {
     window.electronAPI.readProjection(DESKTOP_PROJECT_ID).then(applyProjection).catch((error) => {
@@ -77,25 +81,23 @@ function App() {
   }, []);
 
   const showStoredRuntime = (values: NonSecretSettings) => {
+    storedRuntime.current = { provider: values.provider, model: values.model, baseURL: values.baseURL };
     setProvider(values.provider);
-    return window.electronAPI.llmSetConfig({
-      provider: values.provider,
-      model: values.model,
-      baseURL: values.baseURL,
-    });
+    return window.electronAPI.llmSetConfig(storedRuntime.current);
   };
 
   const applyProvider = async (next: string) => {
     sessionOverride.current = true;
     if (next === 'test') {
-      await window.electronAPI.llmSetConfig({ provider: 'test', model: 'test-fixture' });
+      await window.electronAPI.llmSetConfig({ provider: 'test', model: 'test-fixture', baseURL: '' });
       setProvider(next);
       return;
     }
-    if (next === 'openai') {
+    if (next === 'openai' || next === 'local') {
       await window.electronAPI.llmSetConfig({
-        provider: 'openai',
-        model: '',
+        provider: next,
+        model: storedRuntime.current.model,
+        baseURL: storedRuntime.current.baseURL,
       });
       setProvider(next);
       return;
@@ -214,6 +216,7 @@ function App() {
               if (sessionOverride.current) return;
               void showStoredRuntime(values);
             }}
+            onSession={setSessionHeld}
             onSaved={(values) => {
               sessionOverride.current = false;
               void showStoredRuntime(values);
@@ -260,6 +263,7 @@ function App() {
             { value: '', label: String(t('provider.notConfigured')) },
             { value: 'test', label: String(t('provider.testFixture')) },
             { value: 'openai', label: String(t('provider.openaiSession')) },
+            { value: 'local', label: String(t('provider.localChip')) },
           ]}
           onChange={(next) => {
             setProvider(next);

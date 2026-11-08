@@ -30,6 +30,9 @@ export const IPC_CHANNELS = {
   SETTINGS_GET: 'settings:get',
   SETTINGS_SAVE: 'settings:save',
   SETTINGS_SAVE_SECRET: 'settings:save-secret',
+  SETTINGS_SECRET_STATUS: 'settings:secret-status',
+  COMFY_READ: 'comfy:read',
+  GRAPH_COMPATIBILITY: 'graph:compatibility',
 
   COMMAND_COMMIT: 'command:commit',
   COMMAND_START_RUN: 'command:start-run',
@@ -42,6 +45,8 @@ export const IPC_CHANNELS = {
   // LLM operations (main process only)
   LLM_SET_CONFIG: 'llm:set-config',
   LLM_GET_CONFIG: 'llm:get-config',
+  LLM_SET_SESSION_KEY: 'llm:set-session-key',
+  LLM_SESSION_STATUS: 'llm:session-status',
   LLM_STREAM_CHAT: 'llm:stream-chat',
   LLM_CANCEL: 'llm:cancel',
   

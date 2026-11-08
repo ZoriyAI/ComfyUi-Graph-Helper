@@ -94,3 +94,18 @@ export function attemptSaveSecret(db: Database.Database): SecretSaveResult {
   }
   return { status: 'secret-storage-blocked' };
 }
+
+/** Writes ciphertext only when the caller already proved an OS password manager. */
+export function saveSecretIfProven(
+  db: Database.Database,
+  decision: { persist: boolean },
+  plain: string,
+  ciphertext: Buffer,
+): { status: 'stored' } | SecretSaveResult {
+  if (!decision.persist || ciphertext.includes(Buffer.from(plain))) return attemptSaveSecret(db);
+  db.prepare(
+    `INSERT INTO secret_records (name, ciphertext) VALUES (?, ?)
+     ON CONFLICT(name) DO UPDATE SET ciphertext = excluded.ciphertext`
+  ).run('provider-key', ciphertext);
+  return { status: 'stored' };
+}

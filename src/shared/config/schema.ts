@@ -13,11 +13,15 @@ function httpOriginOrEmpty(value: string): boolean {
 export const nonSecretSettingsSchema = z.object({
   theme: z.literal('graphite'),
   motion: z.enum(['system', 'on', 'reduced', 'off']),
-  provider: z.union([z.literal(''), z.literal('test'), z.literal('openai')]),
+  provider: z.union([z.literal(''), z.literal('test'), z.literal('openai'), z.literal('local')]),
   model: z.string().trim().max(200),
   baseURL: z.string().trim().max(500).refine(httpOriginOrEmpty).default(''),
-  comfyOrigin: z.string().max(500),
+  comfyOrigin: z.string().trim().max(500).refine(httpOriginOrEmpty).default(''),
   language: z.enum(['en', 'ru']).default('ru'),
+}).superRefine((value, ctx) => {
+  if (value.provider !== 'local') return;
+  if (value.baseURL === '') ctx.addIssue({ code: 'custom', path: ['baseURL'], message: 'local endpoint' });
+  if (value.model.trim() === '') ctx.addIssue({ code: 'custom', path: ['model'], message: 'local model' });
 });
 
 export type NonSecretSettings = z.infer<typeof nonSecretSettingsSchema>;

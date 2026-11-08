@@ -1,19 +1,33 @@
-import { ipcMain, dialog, BrowserWindow } from 'electron';
+import { ipcMain, dialog, BrowserWindow, safeStorage } from 'electron';
 import { randomUUID } from 'crypto';
 import * as fs from 'fs';
 import { IPC_CHANNELS } from '../shared/ipc-channels';
 import { getDatabase } from './database';
 import { mainLLMService } from './llmService';
-import { attemptSaveSecret, readSettings, saveSettings } from './settings/repository';
+import { attemptSaveSecret, readSettings, saveSecretIfProven, saveSettings } from './settings/repository';
+import { probeSecretBackend } from './settings/secretProbe';
+import { secretPersistenceDecision } from '../shared/config/secretPolicy';
+import { applyComfyRead } from './comfy/read';
+import { missingOnGraph } from '../shared/graph/compatibility';
 import { cancelRun, commitCommand, pauseRun, readProjection, resumeRun, startRun, switchProject } from './commands/commit';
 import { DESKTOP_PROJECT_ID } from '../shared/project';
 import { assertObjectInfoSize, ObjectInfoError, parseObjectInfo } from '../shared/catalog/objectInfo';
-import { upsertObjectInfo } from './catalog/repository';
+import { readCatalog, upsertObjectInfo } from './catalog/repository';
 import { mutationFromTool } from '../shared/commands/tools';
 import { parseNativeProject, serializeNativeProject } from '../shared/native-project';
 import { exportWorkflow, type GraphSnapshot } from '../shared/workflow/codec';
 import type { CommandResponse } from '../shared/commands/types';
 import { fileDialogCopy, languageOf } from '../shared/i18n';
+
+let secretDecision: { persist: boolean; backend: string; reason: string } | null = null;
+
+async function secretStatus() {
+  if (secretDecision) return secretDecision;
+  const probe = await probeSecretBackend();
+  const decision = secretPersistenceDecision(probe);
+  secretDecision = { persist: decision.persist, backend: probe.backend, reason: decision.reason };
+  return secretDecision;
+}
 
 function dialogCopy() {
   return fileDialogCopy(languageOf(readSettings(getDatabase())));
@@ -190,8 +204,28 @@ export function setupIPC() {
     return result;
   });
 
-  ipcMain.handle(IPC_CHANNELS.SETTINGS_SAVE_SECRET, () => {
-    return attemptSaveSecret(getDatabase());
+  ipcMain.handle(IPC_CHANNELS.SETTINGS_SAVE_SECRET, async (_event, value: unknown) => {
+    const decision = await secretStatus();
+    if (!decision.persist || typeof value !== 'string' || value.length === 0) return attemptSaveSecret(getDatabase());
+    const cipher = await safeStorage.encryptStringAsync(value);
+    return saveSecretIfProven(getDatabase(), decision, value, cipher);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.SETTINGS_SECRET_STATUS, () => secretStatus());
+
+  ipcMain.handle(IPC_CHANNELS.COMFY_READ, async () => {
+    const read = readSettings(getDatabase());
+    const origin = read.source === 'corrupt' ? '' : read.values.comfyOrigin;
+    if (!origin) return { ok: false as const, error: 'Comfy origin is empty.' };
+    return applyComfyRead(getDatabase(), origin, globalThis.fetch);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.GRAPH_COMPATIBILITY, () => {
+    const projection = readProjection(getDatabase(), DESKTOP_PROJECT_ID);
+    if (!projection) return { ok: false as const, error: 'Project is not ready.' };
+    const nodes = Array.isArray(projection.snapshot.nodes) ? projection.snapshot.nodes as Array<{ data?: { comfyType?: unknown } }> : [];
+    const report = missingOnGraph(nodes, readCatalog(getDatabase()), projection.snapshot.document);
+    return { ok: true as const, ...report };
   });
 
   ipcMain.handle(IPC_CHANNELS.COMMAND_COMMIT, (_event, input: unknown) => {
@@ -231,6 +265,13 @@ export function setupIPC() {
   ipcMain.handle(IPC_CHANNELS.LLM_GET_CONFIG, () => {
     return mainLLMService.nextSendConfig();
   });
+
+  ipcMain.handle(IPC_CHANNELS.LLM_SET_SESSION_KEY, (_event, value: unknown) => {
+    console.log('[IPC] Session key updated (value NOT logged)');
+    return mainLLMService.setSessionKey(value);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.LLM_SESSION_STATUS, () => mainLLMService.sessionStatus());
 
   ipcMain.handle(
     IPC_CHANNELS.LLM_STREAM_CHAT,
@@ -392,6 +433,9 @@ function toolOutcome(name: string, args: Record<string, unknown> | undefined, ou
         ownerKind: args?.ownerKind,
         ownerId: args?.ownerId,
       };
+    }
+    if (name === 'setProcess') {
+      return { success: true, message: 'Stored the process', title: args?.title };
     }
     return { success: true, message: `Annotated node ${result?.nodeId || ''}` };
   }

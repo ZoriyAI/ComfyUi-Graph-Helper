@@ -543,12 +543,12 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
   logLocalFont(await readLocalFont(window));
   await finishRuntime(electronApp, window, runtimeWatch, {
     console: [{
-      text: "[ChatService] Error: Incorrect API key provided: ''. You can find your API key at https://platform.openai.com/account/api-keys.",
-      reason: 'This test selects OpenAI with no key and clicks Send. ChatService logs that handled failure, and the assistant shows the same text.',
+      text: '[ChatService] Error: Cloud model has no key for this session.',
+      reason: 'OpenAI is selected with no session key. The send stops in the main process before any provider request.',
     }],
     remotePrefix: [{
       prefix: 'https://api.openai.com/',
-      reason: 'The same Send uses the main-process provider client. The Electron session itself stays on local schemes.',
+      reason: 'A cloud send with a session key would use the main-process provider client. This run has no key, so that request is not expected.',
     }],
   });
   await electronApp.close();

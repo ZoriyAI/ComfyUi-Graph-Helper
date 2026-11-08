@@ -37,5 +37,11 @@ export function mutationFromTool(name: string, args: Record<string, unknown> | u
       usage,
     };
   }
+  if (name === 'setProcess') {
+    const title = text(input.title, 500);
+    const notes = text(input.notes, 20000);
+    if (title == null || notes == null) return null;
+    return { type: 'set-process', title, notes };
+  }
   return null;
 }
