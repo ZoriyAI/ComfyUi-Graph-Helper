@@ -14,6 +14,7 @@
     "start": "npm run rebuild:native && npm run build && node scripts/assert-current-main.js && electron .",
     "test": "vitest run",
     "rebuild:native": "electron-rebuild -f -w better-sqlite3",
+    "package:linux": "npm run rebuild:native && npm run build && node scripts/assert-current-main.js && electron-forge make --platform linux && node scripts/smoke-linux-package.js",
     "type-check": "tsc --project tsconfig.main.json --noEmit && tsc --noEmit",
     "lint": "eslint src/"
   },
@@ -27,6 +28,8 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
+    "@electron-forge/cli": "8.0.1",
+    "@electron-forge/maker-deb": "8.0.1",
     "@electron/rebuild": "4.2.1",
     "@playwright/test": "^1.65.0",
     "@types/better-sqlite3": "^9.6.0",

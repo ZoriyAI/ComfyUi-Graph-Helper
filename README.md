@@ -220,6 +220,16 @@ npm test
 - Teaching mode
 - Multi-language support
 
+## Linux package
+
+The desktop `.deb` is built with [Electron Forge](https://www.electronjs.org/docs/latest/tutorial/tutorial-packaging) `8.0.1` and [`@electron-forge/maker-deb`](https://www.electronforge.io/config/makers/deb) `8.0.1` (MIT). Forge uses `@electron/packager` `20.3.0` (BSD-2-Clause). On this Ubuntu builder the deb maker needs `dpkg` and `fakeroot`. Forge can also make an RPM where the `rpm` package is installed; it is not installed here, so this checkpoint does not emit one.
+
+```bash
+npm run package:linux
+```
+
+That rebuilds `better-sqlite3` for Electron, builds `dist/`, checks the current main process, then runs `electron-forge make --platform linux`. The packaged executable loads `dist/main/index.js` and the built renderer. It does not start the Vite dev server. Artifacts under `out/` and the `.deb` are build outputs and are not committed.
+
 ## Contributing
 
 Проект находится в активной разработке. 
