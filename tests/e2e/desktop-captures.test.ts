@@ -310,19 +310,24 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
     };
     const input = document.querySelector('input[aria-label="Comfy origin"]');
     const disabled = document.querySelector('input[aria-label="API key"]');
+    const osKey = document.querySelector('input[aria-label="OS storage key"]');
     const save = document.querySelector('.settings-save');
     const handle = document.querySelector('.graph-node .react-flow__handle');
     const edge = document.querySelector('.react-flow__edge path');
     const inputStyle = paint(input);
     const disabledStyle = paint(disabled);
+    const osStyle = paint(osKey);
     const saveStyle = paint(save);
     return {
       inputColor: inputStyle?.color ?? '',
       inputBg: inputStyle?.backgroundColor ?? '',
       inputBorder: inputStyle?.borderTopColor ?? '',
+      keyMode: disabled ? 'disabled' : osKey ? 'os' : 'missing',
       disabledColor: disabledStyle?.color ?? '',
       disabledBg: disabledStyle?.backgroundColor ?? '',
       disabledBorder: disabledStyle?.borderTopColor ?? '',
+      osColor: osStyle?.color ?? '',
+      osBg: osStyle?.backgroundColor ?? '',
       dialogBg: paint(document.querySelector('.settings-dialog'))?.backgroundColor ?? '',
       saveColor: saveStyle?.color ?? '',
       saveBg: saveStyle?.backgroundColor ?? '',
@@ -351,13 +356,18 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
   };
   console.log(`RENDERED_CONTRAST ${Object.entries(pairs).map(([name, value]) => `${name}=${value.toFixed(2)}`).join(' ')}`);
   console.log(`RENDERED_COLORS input=${rendered.inputBg}/${rendered.inputBorder} disabled=${rendered.disabledBg}/${rendered.disabledBorder} save=${rendered.saveBg}/${rendered.saveColor} focus=${rendered.focusOutline} on ${rendered.focusNeighbor} selected=${rendered.selectedOutline} on ${rendered.selectedNeighbor} port=${rendered.port} on ${rendered.nodeBg} edge=${rendered.edge} on ${rendered.canvasBg}`);
-  expect(rendered.inputBg).not.toBe(rendered.disabledBg);
   expect(rendered.focusMatches).toBe(true);
   expect(rendered.focusStyle).not.toBe('none');
   expect(pairs.inputText).toBeGreaterThanOrEqual(4.5);
-  expect(pairs.disabledText).toBeGreaterThanOrEqual(4.5);
   expect(pairs.inputBorder).toBeGreaterThanOrEqual(3);
-  expect(pairs.disabledBorder).toBeLessThanOrEqual(pairs.inputBorder);
+  if (rendered.keyMode === 'disabled') {
+    expect(rendered.inputBg).not.toBe(rendered.disabledBg);
+    expect(pairs.disabledText).toBeGreaterThanOrEqual(4.5);
+    expect(pairs.disabledBorder).toBeLessThanOrEqual(pairs.inputBorder);
+  } else {
+    expect(rendered.keyMode).toBe('os');
+    expect(contrast(rendered.osColor, rendered.osBg)).toBeGreaterThanOrEqual(4.5);
+  }
   expect(pairs.save).toBeGreaterThanOrEqual(4.5);
   expect(pairs.focus).toBeGreaterThanOrEqual(3);
   expect(pairs.selected).toBeGreaterThanOrEqual(3);
