@@ -1,0 +1,18 @@
+.iconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: background-color var(--motion-feedback) var(--motion-ease-out), color var(--motion-feedback) var(--motion-ease-out);
+}
+.iconButton:hover:not(:disabled) { background: var(--surface-hover); color: var(--text); }
+.iconButton:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.iconButton:disabled { color: var(--text-faint); cursor: not-allowed; }
+.iconButton[aria-pressed="true"], .iconButton[data-active="true"] { background: var(--surface-active); color: var(--text); }
+.md { width: 32px; height: 32px; }
+.sm { width: 28px; height: 28px; }

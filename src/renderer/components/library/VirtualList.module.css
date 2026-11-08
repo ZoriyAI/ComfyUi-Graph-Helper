@@ -1,0 +1,14 @@
+.list {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  outline: none;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+.list:focus-visible { box-shadow: inset 0 0 0 2px var(--focus); }
+.spacer { position: relative; width: 100%; }
+.window { position: absolute; left: 0; right: 0; top: 0; }
+.row { position: relative; box-sizing: border-box; }

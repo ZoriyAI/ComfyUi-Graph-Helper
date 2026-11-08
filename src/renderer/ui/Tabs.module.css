@@ -1,0 +1,21 @@
+.list { display: flex; gap: 2px; }
+.list[aria-orientation="vertical"] { flex-direction: column; }
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 4px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  cursor: pointer;
+  transition: background-color var(--motion-feedback) var(--motion-ease-out), color var(--motion-feedback) var(--motion-ease-out);
+}
+.trigger:hover { color: var(--text); background: var(--surface-hover); }
+.trigger[data-state="active"] { color: var(--text); background: var(--surface-active); border-color: var(--border-strong); }
+.trigger:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.content:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }

@@ -114,7 +114,9 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
   await expect(window.getByText('The graph is empty.')).toBeVisible();
   await window.evaluate(() => (document.activeElement instanceof HTMLElement ? document.activeElement.blur() : undefined));
   const route: string[] = [];
-  for (let step = 0; step < 40 && new Set(route).size < 4; step += 1) {
+  // The library rail sits between the toolbar and the canvas; its stops count as 'other'.
+  const zones = ['shell', 'toolbar', 'canvas', 'dock'];
+  for (let step = 0; step < 60 && !zones.every((zone) => route.includes(zone)); step += 1) {
     await window.keyboard.press('Tab');
     route.push(await window.evaluate(() => {
       const element = document.activeElement;
@@ -218,7 +220,8 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
   }
   await expect(window.getByRole('tab', { name: 'Inspector' })).toHaveAttribute('data-state', 'active');
   await expect(window.getByRole('button', { name: 'Undo' })).toBeDisabled();
-  await expect(window.getByRole('button', { name: 'ComfyUI not connected' })).toBeDisabled();
+  // The sync indicator replaced the old disabled "ComfyUI not connected" chip.
+  await expect(window.locator('.document-bar .sync-indicator')).toHaveAttribute('data-sync-state', /^(never|idle|error)$/);
   await window.screenshot({ path: path.join(artifactDir, 'ui-empty.png') });
 
   const settings = window.getByRole('button', { name: 'Settings', exact: true });

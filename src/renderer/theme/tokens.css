@@ -1,54 +1,140 @@
+/*
+ * Design tokens. Owned by the Shell workstream.
+ * Night palette with layered surfaces: canvas -> panel -> raised -> overlay, each one step lighter,
+ * with a 1px border, a top inner highlight and a soft shadow. Other workstreams add only --canvas-* / --chat-*.
+ * Measured text contrast for every surface is in theme/CONTRAST.md (checked by tests/unit/contrast.test.ts).
+ */
 :root {
   color-scheme: dark;
-  --bg: #0c1017;
-  --surface: #141b26;
-  --bg-raised: #1b2533;
-  --bg-sunken: #0c1017;
-  --bg-hover: #243247;
-  --line: #2a3648;
-  --control-border: #63738a;
+
+  /* Layered surfaces */
+  --surface-canvas: #0a0e15;
+  --surface-panel: #111824;
+  --surface-raised: #182131;
+  --surface-overlay: #1f2a3d;
+  --surface-sunken: #0c1119;
+  --surface-hover: #243247;
+  --surface-active: #2b3b55;
+  --highlight-top: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+
+  /* Borders */
+  --border-subtle: #222d3e;
+  --border: #2a3648;
+  --border-strong: #63738a;
+
+  /* Text */
   --text: #e8eef7;
   --text-dim: #a3b1c6;
   --text-faint: #8b9bb0;
+  --text-mono: #c6d2e3;
+
+  /* Roles */
   --accent: #65d9ed;
-  --accent-2: #65d9ed;
-  --danger: #ff9da8;
-  --warn: #f6ce7c;
-  --ok: #82ddb3;
+  --accent-strong: #8ae6f4;
+  --accent-soft: rgba(101, 217, 237, 0.14);
+  --ai: #b7a5ff;
+  --ai-soft: rgba(183, 165, 255, 0.16);
   --focus: #b7a5ff;
-  --type-image: #3ecfb2;
-  --type-latent: #8b7cff;
-  --type-model: #e2a14a;
-  --type-conditioning: #5eb0ff;
-  --type-vae: #d47ad4;
-  --type-clip: #7fd0a4;
-  --type-unknown: #8b939c;
+  --warn: #f6ce7c;
+  --warn-soft: rgba(246, 206, 124, 0.14);
+  --danger: #ff9db4;
+  --danger-strong: #ff6f93;
+  --danger-soft: rgba(255, 111, 147, 0.14);
+  --ok: #82ddb3;
+  --ok-soft: rgba(130, 221, 179, 0.14);
   --on-accent: #071218;
   --on-warn: #1a1408;
+  --on-danger: #1d0710;
+
+  /* Port types, after ComfyUI so the knowledge carries over */
+  --type-model: #b8a7f2;
+  --type-clip: #f2d65c;
+  --type-vae: #ff7a7a;
+  --type-conditioning: #ffad5c;
+  --type-latent: #f59ae6;
+  --type-image: #6cc0f5;
+  --type-mask: #7fd88b;
+  --type-controlnet: #3fd6bf;
+  --type-string: #a9b4c4;
+  --type-int: #9aa6b8;
+  --type-float: #8d9aad;
+  --type-boolean: #b5bfcc;
+  --type-unknown: #8b939c;
+
+  /* Provenance (explanations) */
+  --prov-fact: #82ddb3;
+  --prov-inference: #b7a5ff;
+  --prov-web: #6cc0f5;
+  --prov-user: #f6ce7c;
+
+  /* Elevation: shadow below, highlight on top */
+  --elev-0: none;
+  --elev-1: var(--highlight-top), 0 1px 2px rgba(0, 0, 0, 0.32);
+  --elev-2: var(--highlight-top), 0 4px 12px rgba(0, 0, 0, 0.34);
+  --elev-3: var(--highlight-top), 0 12px 32px rgba(0, 0, 0, 0.44);
+
+  /* Radii */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-pill: 999px;
+
+  /* Type scale */
+  --font-sans: "Geist", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-md: 14px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+
+  /* Legacy aliases. The canvas and chat rules still read these; keep them pointing at the layers. */
+  --bg: #0a0e15;
+  --surface: #111824;
+  --bg-raised: #182131;
+  --bg-sunken: #0c1119;
+  --bg-hover: #243247;
+  --line: #2a3648;
+  --control-border: #63738a;
+  --accent-2: #65d9ed;
   --bubble-user: #243044;
   --bubble-user-line: #3a4d68;
-  --xy-dot: #2a3140;
+  --xy-dot: #232c3a;
   --minimap-node: #3a4454;
   --shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
-  --minimap-mask: rgba(20, 23, 28, 0.72);
-  --attribution: rgba(16, 19, 23, 0.8);
-  --scrim: rgba(8, 10, 14, 0.72);
+  --minimap-mask: rgba(10, 14, 21, 0.72);
+  --attribution: rgba(10, 14, 21, 0.8);
+  --scrim: rgba(5, 8, 12, 0.72);
+
+  /* Motion. Explanatory animation is the product: tour, pulse and reveal are its clocks. */
   --motion-feedback: 100ms;
   --motion-enter: 160ms;
   --motion-exit: 120ms;
   --motion-panel: 200ms;
+  --motion-reveal: 320ms;
+  --motion-pulse: 1400ms;
+  --motion-tour: 600ms;
   --motion-shift: 8px;
   --motion-ease-out: cubic-bezier(0.2, 0, 0, 1);
   --motion-ease-in: cubic-bezier(0.4, 0, 1, 1);
-  font-family: "Geist", system-ui, sans-serif;
+  --motion-spring: cubic-bezier(0.34, 1.36, 0.64, 1);
+
+  font-family: var(--font-sans);
 }
 
+/* Reduced: short fades only; pulses and the tour camera become static highlights. */
 html[data-motion="reduced"] {
   --motion-feedback: 60ms;
   --motion-enter: 60ms;
   --motion-exit: 60ms;
   --motion-panel: 60ms;
+  --motion-reveal: 60ms;
+  --motion-pulse: 0ms;
+  --motion-tour: 0ms;
   --motion-shift: 0px;
+  --motion-spring: var(--motion-ease-out);
 }
 
 html[data-motion="off"] {
@@ -56,7 +142,11 @@ html[data-motion="off"] {
   --motion-enter: 0ms;
   --motion-exit: 0ms;
   --motion-panel: 0ms;
+  --motion-reveal: 0ms;
+  --motion-pulse: 0ms;
+  --motion-tour: 0ms;
   --motion-shift: 0px;
+  --motion-spring: var(--motion-ease-out);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -66,6 +156,10 @@ html[data-motion="off"] {
     --motion-enter: 60ms;
     --motion-exit: 60ms;
     --motion-panel: 60ms;
+    --motion-reveal: 60ms;
+    --motion-pulse: 0ms;
+    --motion-tour: 0ms;
     --motion-shift: 0px;
+    --motion-spring: var(--motion-ease-out);
   }
 }

@@ -1,0 +1,20 @@
+.rail {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+  border-right: 1px solid var(--border);
+  background: var(--surface-panel);
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.02);
+}
+.inner { display: flex; flex-direction: column; min-height: 0; min-width: 0; flex: 1 1 auto; }
+.panel { width: 300px; }
+.strip { width: 48px; align-items: center; padding: 8px 0; gap: 4px; }
+.head { display: flex; align-items: center; gap: 4px; padding: 8px 8px 8px 10px; }
+.tabs { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; }
+.tablist { flex: 1 1 auto; }
+.tab { flex: 1 1 0; min-height: 28px; padding: 2px 8px; font-size: var(--text-sm); }
+.content { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; }
+.content[data-state="inactive"] { display: none; }
+.stripRule { width: 24px; height: 1px; margin: 4px 0; background: var(--border); }

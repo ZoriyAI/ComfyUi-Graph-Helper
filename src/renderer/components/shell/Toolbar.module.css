@@ -1,0 +1,31 @@
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 40px;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-panel);
+  overflow: hidden;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+}
+.toolbar :global(.ghost-button) { min-height: 30px; padding: 4px 8px; font-size: var(--text-sm); }
+:global(html[lang="ru"]) .toolbar { gap: 2px; padding: 0 4px; }
+:global(html[lang="ru"]) .toolbar :global(.ghost-button) { padding: 2px 5px; gap: 4px; font-size: var(--text-xs); }
+.rule { width: 1px; height: 16px; background: var(--border); flex: 0 0 auto; }
+.spacer { flex: 1 1 auto; }
+.toolbar :global(.field) { flex-direction: row; align-items: center; }
+.toolbar :global(.field-label) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.toolbar :global(.select-trigger) {
+  min-width: max-content;
+  width: auto;
+  max-width: none;
+  flex: 0 0 auto;
+  height: 30px;
+  min-height: 30px;
+  padding: 4px 8px;
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+:global(html[lang="ru"]) .toolbar :global(.select-trigger) { font-size: var(--text-xs); padding: 4px 6px; }

@@ -1,0 +1,46 @@
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color var(--motion-feedback) var(--motion-ease-out), border-color var(--motion-feedback) var(--motion-ease-out);
+}
+.trigger:hover { background: var(--surface-hover); color: var(--text); }
+.trigger:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.trigger[data-state="open"] { border-color: var(--border-strong); background: var(--surface-hover); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-faint); flex: 0 0 auto; }
+.idle .dot { background: var(--ok); }
+.error { color: var(--danger); border-color: var(--danger-soft); }
+.error .dot { background: var(--danger); }
+.running { color: var(--accent); }
+.label { overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
+
+.panel { display: flex; flex-direction: column; gap: 10px; }
+.head { display: flex; align-items: center; gap: 8px; }
+.title { margin: 0; font-size: var(--text-md); line-height: 20px; font-weight: 600; }
+.counts { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; margin: 0; font-size: var(--text-sm); }
+.counts dt { color: var(--text-dim); }
+.counts dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; color: var(--text); }
+.note { margin: 0; color: var(--text-dim); font-size: var(--text-xs); line-height: 18px; }
+.errorNote { margin: 0; color: var(--danger); font-size: var(--text-xs); line-height: 18px; overflow-wrap: anywhere; }
+.auto { display: flex; flex-direction: column; gap: 8px; padding-top: 10px; border-top: 1px solid var(--border); }
+.interval { display: flex; align-items: center; gap: 8px; color: var(--text-dim); font-size: var(--text-xs); }
+.interval input {
+  width: 80px;
+  min-height: 28px;
+  padding: 4px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  color: var(--text);
+}
+.interval input:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.actions { display: flex; justify-content: flex-end; gap: 8px; }

@@ -32,6 +32,10 @@ interface UiState {
   /** When true the viewport follows the agent's commits; any manual action turns it off. */
   followAgent: boolean;
   tour: TourState | null;
+  /** Revision sequence at the last project open/save; the app bar shows "unsaved" when the graph moved past it. */
+  savedRevSeq: number | null;
+  /** Bumped when the local catalog changes outside sync (catalog snapshot import); libraries re-read. */
+  catalogVersion: number;
 
   setSelection: (refs: ObjectRef[]) => void;
   setFocus: (ref: ObjectRef | null) => void;
@@ -42,16 +46,34 @@ interface UiState {
   setTourIndex: (index: number) => void;
   setTourPlaying: (playing: boolean) => void;
   stopTour: () => void;
+  markSaved: (revSeq: number) => void;
+  bumpCatalog: () => void;
+}
+
+/** Below this window width the rail starts as an icon strip, so the canvas keeps room for explanatory animation. */
+export const RAIL_AUTO_COLLAPSE = 1440;
+export const RAIL_WIDTH = 300;
+export const RAIL_STRIP = 48;
+
+function initialRailOpen(): boolean {
+  return typeof window === 'undefined' ? true : window.innerWidth >= RAIL_AUTO_COLLAPSE;
+}
+
+/** True when the displayed revision is not the one last opened or saved. */
+export function isDirty(savedRevSeq: number | null, revSeq: number): boolean {
+  return savedRevSeq !== null && revSeq !== savedRevSeq;
 }
 
 export const useUiStore = create<UiState>((set) => ({
   selection: [],
   focusRef: null,
   contextTarget: null,
-  railOpen: true,
+  railOpen: initialRailOpen(),
   railTab: 'nodes',
   followAgent: false,
   tour: null,
+  savedRevSeq: null,
+  catalogVersion: 0,
 
   setSelection: (selection) => set({ selection }),
   setFocus: (focusRef) => set({ focusRef }),
@@ -64,4 +86,6 @@ export const useUiStore = create<UiState>((set) => ({
   )),
   setTourPlaying: (playing) => set((state) => (state.tour ? { tour: { ...state.tour, playing } } : {})),
   stopTour: () => set({ tour: null }),
+  markSaved: (savedRevSeq) => set({ savedRevSeq }),
+  bumpCatalog: () => set((state) => ({ catalogVersion: state.catalogVersion + 1 })),
 }));
