@@ -1,4 +1,5 @@
 import { ipcMain, dialog, BrowserWindow, safeStorage } from 'electron';
+import { jsonSchema } from 'ai';
 import { randomUUID } from 'crypto';
 import * as fs from 'fs';
 import { IPC_CHANNELS } from '../shared/ipc-channels';
@@ -315,9 +316,12 @@ export async function setupIPC(): Promise<void> {
         let expectedRevisionId = runContext.expectedRevisionId;
         console.log(`[IPC] Building tools...`);
         for (const spec of toolSpecs) {
+          const schema = spec.parameters && typeof spec.parameters === 'object'
+            ? spec.parameters
+            : { type: 'object', properties: {} };
           tools[spec.name] = {
             description: spec.description,
-            parameters: spec.parameters,
+            inputSchema: jsonSchema(schema),
             execute: async (args: any, options?: { toolCallId?: string }) => {
               const toolCallId = options?.toolCallId || `${spec.name}-missing-id`;
               const payload = mutationFromTool(spec.name, args);

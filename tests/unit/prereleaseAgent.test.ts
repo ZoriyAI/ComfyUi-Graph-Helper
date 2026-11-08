@@ -320,6 +320,35 @@ describe('prerelease agent configuration', () => {
       { nodes: [] },
     );
     expect(report.missingNodes).toEqual(['TestNode']);
+    expect(report.missingModels).toEqual([]);
+    const withModel = missingOnGraph(
+      [{
+        data: {
+          comfyType: 'CheckpointLoaderSimple',
+          parameters: { ckpt_name: 'portrait.safetensors', seed: 1 },
+        },
+      }],
+      {
+        nodeTypes: ['CheckpointLoaderSimple'],
+        models: [{ directory: 'checkpoints', name: 'other.safetensors' }],
+        nodes: [],
+      },
+      { nodes: [], models: [{ directory: 'checkpoints', name: 'from-document.safetensors' }] },
+    );
+    expect(withModel.missingModels).toEqual([
+      { directory: 'checkpoints', name: 'from-document.safetensors' },
+      { directory: 'checkpoints', name: 'portrait.safetensors' },
+    ]);
+    const present = missingOnGraph(
+      [{ data: { comfyType: 'CheckpointLoaderSimple', parameters: { ckpt_name: 'other.safetensors' } } }],
+      {
+        nodeTypes: ['CheckpointLoaderSimple'],
+        models: [{ directory: 'checkpoints', name: 'other.safetensors' }],
+        nodes: [],
+      },
+      null,
+    );
+    expect(present.missingModels).toEqual([]);
     expect(agentGraphContext({
       nodes: [{ id: 'node-1', data: { comfyType: 'TestNode', title: 'Fixture step' } }],
       components: [{ ownerKind: 'node', ownerId: 'node-1', purpose: 'Fixture node purpose', usage: 'Connect it.' }],
