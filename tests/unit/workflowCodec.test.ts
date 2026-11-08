@@ -59,7 +59,7 @@ const uiV1 = {
       mode: 0,
       properties: {},
       widgets_values: ['old', { extra: true }],
-      inputs: [{ name: 'clip', type: 'CLIP', link: null, slot_index: 0 }],
+      inputs: [{ name: 'clip', type: 'MODEL', link: null, slot_index: 0 }],
     },
     {
       id: 3,

@@ -13,7 +13,8 @@ import {
 import { widgetIndexFor } from '../../shared/catalog/objectInfo';
 import type { CatalogView } from '../../shared/catalog/types';
 import { ensureCatalog, readCatalog } from '../catalog/repository';
-import { inferInputs, inferOutputs } from '../../shared/graph/ports';
+import { portsCompatible } from '../../shared/graph/linkTypes';
+import { portsForClassType } from '../../shared/graph/ports';
 import { DESKTOP_PROJECT_ID } from '../../shared/project';
 import {
   missingDeps,
@@ -153,6 +154,20 @@ function arrayWidgetIndex(
   throw new CommandSignal('rejected', { error: 'widgetIndex is required when widgets_values is an array.' });
 }
 
+function portById(node: Record<string, any>, kind: 'inputs' | 'outputs', handle: string): { dataType: string } | null {
+  const ports = Array.isArray(node.data?.[kind]) ? node.data[kind] : [];
+  const port = ports.find((item: { id?: string; dataType?: unknown }) => item.id === handle);
+  return port && typeof port.dataType === 'string' ? { dataType: port.dataType } : null;
+}
+
+function inputPort(node: Record<string, any>, handle: string): { dataType: string } | null {
+  return portById(node, 'inputs', handle);
+}
+
+function outputPort(node: Record<string, any>, handle: string): { dataType: string } | null {
+  return portById(node, 'outputs', handle);
+}
+
 function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutation, catalog: CatalogView): { snapshot: Snapshot; result: Record<string, unknown> } {
   const nodes: Array<Record<string, any>> = snapshot.nodes.map((node) => ({
     ...node,
@@ -162,6 +177,7 @@ function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutat
   const edges: Array<Record<string, any>> = snapshot.edges.map((edge) => ({ ...edge }));
   if (payload.type === 'add-node') {
     const nodeId = `node-${actionId}`;
+    const ports = portsForClassType(payload.nodeType, catalog);
     nodes.push({
       id: nodeId,
       type: 'comfy',
@@ -169,8 +185,8 @@ function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutat
       data: {
         comfyType: payload.nodeType,
         title: payload.title || payload.nodeType,
-        inputs: inferInputs(payload.nodeType),
-        outputs: inferOutputs(payload.nodeType),
+        inputs: ports.inputs,
+        outputs: ports.outputs,
         parameters: payload.parameters ?? {},
         annotations: [],
       },
@@ -220,11 +236,15 @@ function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutat
     const edge = edges.find((item) => item.id === payload.edgeId);
     if (!edge) throw new CommandSignal('rejected');
     const target = nodes.find((item) => item.id === payload.target);
-    const inputs = Array.isArray(target?.data?.inputs) ? target.data.inputs : [];
-    if (!target || !inputs.some((input: { id?: string }) => input.id === payload.targetHandle)) {
-      throw new CommandSignal('rejected', {
-        error: target ? 'Target handle is not an input on that node.' : 'Target node was not found.',
-      });
+    if (!target) throw new CommandSignal('rejected', { error: 'Target node was not found.' });
+    const input = inputPort(target, payload.targetHandle);
+    if (!input) throw new CommandSignal('rejected', { error: 'Target handle is not an input on that node.' });
+    const source = nodes.find((item) => item.id === edge.source);
+    if (!source) throw new CommandSignal('rejected', { error: 'Source node was not found.' });
+    const output = outputPort(source, String(edge.sourceHandle ?? ''));
+    if (!output) throw new CommandSignal('rejected', { error: 'Source handle is not an output on that node.' });
+    if (!portsCompatible(output.dataType, input.dataType)) {
+      throw new CommandSignal('rejected', { error: 'Port types cannot be connected.' });
     }
     edge.target = payload.target;
     edge.targetHandle = payload.targetHandle;
@@ -242,10 +262,17 @@ function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutat
       throw new CommandSignal('rejected', { error: 'Connection slots must be numbers.' });
     }
     const source = nodes.find((item) => item.id === payload.source);
-    const port = Array.isArray(source?.data?.outputs)
-      ? source.data.outputs.find((item: { id?: string }) => item.id === payload.sourceHandle)
-      : undefined;
-    const dataType = typeof port?.dataType === 'string' ? port.dataType : '';
+    if (!source) throw new CommandSignal('rejected', { error: 'Source node was not found.' });
+    const output = outputPort(source, String(payload.sourceHandle ?? ''));
+    if (!output) throw new CommandSignal('rejected', { error: 'Source handle is not an output on that node.' });
+    const target = nodes.find((item) => item.id === payload.target);
+    if (!target) throw new CommandSignal('rejected', { error: 'Target node was not found.' });
+    const input = inputPort(target, String(payload.targetHandle ?? ''));
+    if (!input) throw new CommandSignal('rejected', { error: 'Target handle is not an input on that node.' });
+    if (!portsCompatible(output.dataType, input.dataType)) {
+      throw new CommandSignal('rejected', { error: 'Port types cannot be connected.' });
+    }
+    const dataType = output.dataType;
     const linkId = nextLinkId({ nodes, edges, document: snapshot.document });
     const originId = /^\d+$/.test(payload.source) ? Number(payload.source) : payload.source;
     const targetId = /^\d+$/.test(payload.target) ? Number(payload.target) : payload.target;

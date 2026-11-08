@@ -1,3 +1,5 @@
+import type { CatalogNode, CatalogView } from '../catalog/types';
+
 export interface PortDefinition {
   id: string;
   name: string;
@@ -41,4 +43,36 @@ export function inferInputs(nodeType: string): PortDefinition[] {
 
 export function inferOutputs(nodeType: string): PortDefinition[] {
   return OUTPUTS[nodeType] || [{ id: 'out-0', name: 'OUTPUT', dataType: 'unknown', optional: false }];
+}
+
+/**
+ * object_info required then optional inputs, then the output array, become in-N / out-N.
+ * A seed row is pack "core" with empty sockets and is not a port definition.
+ * An imported class uses these sockets, including a class that declares none.
+ */
+export function portsForClassType(nodeType: string, catalog: CatalogView): { inputs: PortDefinition[]; outputs: PortDefinition[] } {
+  const found = catalog.nodes.find((node) => node.classType === nodeType);
+  if (found && !isSeedPlaceholder(found)) return portsFromCatalog(found);
+  return { inputs: inferInputs(nodeType), outputs: inferOutputs(nodeType) };
+}
+
+function isSeedPlaceholder(node: CatalogNode): boolean {
+  return node.pack === 'core' && node.inputs.length === 0 && node.outputs.length === 0;
+}
+
+function portsFromCatalog(node: CatalogNode): { inputs: PortDefinition[]; outputs: PortDefinition[] } {
+  return {
+    inputs: node.inputs.map((input, index) => ({
+      id: `in-${index}`,
+      name: input.name,
+      dataType: input.type,
+      optional: false,
+    })),
+    outputs: node.outputs.map((output, index) => ({
+      id: `out-${index}`,
+      name: output.name,
+      dataType: output.type,
+      optional: false,
+    })),
+  };
 }
