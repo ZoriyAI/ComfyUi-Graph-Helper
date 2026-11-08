@@ -77,7 +77,7 @@ describe('object_info catalog', () => {
     const parsed = parseObjectInfo(snapshot);
     const sampler = parsed.nodes.find((node) => node.classType === 'KSampler');
     expect(sampler?.widgetOrder).toEqual(['seed', 'seed::control_after_generate', 'steps', 'sampler_name']);
-    expect(sampler?.inputs.find((input) => input.name === 'model')).toEqual({ name: 'model', type: 'MODEL', widget: false });
+    expect(sampler?.inputs.find((input) => input.name === 'model')).toEqual({ name: 'model', type: 'MODEL', widget: false, required: true });
     expect(parsed.models).toEqual([
       { directory: 'checkpoints', name: 'known.safetensors' },
       { directory: 'vae', name: 'vae.safetensors' },
@@ -637,7 +637,7 @@ describe('object_info catalog', () => {
       },
     });
     const alias = parsed.nodes.find((node) => node.classType === 'SeedAlias');
-    expect(alias?.inputs.find((input) => input.name === 'seed')).toEqual({ name: 'seed', type: 'MY_SEED', widget: true });
+    expect(alias?.inputs.find((input) => input.name === 'seed')).toEqual({ name: 'seed', type: 'MY_SEED', widget: true, required: true });
     expect(alias?.widgetOrder).toEqual(['seed', 'seed::control_after_generate', 'steps']);
     expect(alias?.widgetOrderReliable).not.toBe(false);
     const color = parsed.nodes.find((node) => node.classType === 'ColorAlias');

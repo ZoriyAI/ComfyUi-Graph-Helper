@@ -115,11 +115,22 @@ function parseNode(classType: string, value: unknown): CatalogNode {
     classType,
     pack: pythonModule,
     pythonModule,
+    ...optionalText(info),
+    outputNode: info.output_node === true,
     inputs,
     outputs: outputsOf(info),
     widgetOrder: widgetOrderReliable ? widgetOrder : [],
     widgetOrderReliable,
   };
+}
+
+/** display_name, category, description are informative only; a wrong type is dropped, not fatal. */
+function optionalText(info: Record<string, unknown>): { displayName?: string; category?: string; description?: string } {
+  const out: { displayName?: string; category?: string; description?: string } = {};
+  if (typeof info.display_name === 'string' && info.display_name !== '') out.displayName = info.display_name;
+  if (typeof info.category === 'string' && info.category !== '') out.category = info.category;
+  if (typeof info.description === 'string' && info.description !== '') out.description = info.description;
+  return out;
 }
 
 function pythonModuleOf(info: Record<string, unknown>): string {
@@ -165,7 +176,7 @@ function inputsOf(info: Record<string, unknown>): { inputs: CatalogInput[]; widg
       seen.add(name);
       const parsed = parseSpec(name, specs[name]);
       if (parsed.opaque) widgetOrderReliable = false;
-      inputs.push({ name, type: parsed.type, widget: parsed.widget });
+      inputs.push({ name, type: parsed.type, widget: parsed.widget, required: group === 'required' });
       if (!parsed.widget) continue;
       widgetOrder.push(name);
       if (parsed.controlAfterGenerate) widgetOrder.push(`${name}::control_after_generate`);

@@ -4,12 +4,13 @@ import type { McpSession, McpToolCallResult } from '../../shared/mcp/catalogSour
 import {
   comfyUrlFromStudioInfo,
   parseLocalModelsMarkdown,
-  readModelFiles,
   readNodeClasses,
   toolPayload,
   type McpModelFile,
 } from '../../shared/mcp/catalogSource';
-import { upsertModelFiles, upsertNodeClasses, upsertObjectInfo } from '../catalog/repository';
+import { inferModelsFromNames, replaceNodePacks, upsertModelFiles, upsertNodeClasses, upsertObjectInfo } from '../catalog/repository';
+import { identityFromStudioInfo, readModelFilesWithRoots, readNodePacks, type ServerIdentity } from './inventory';
+import { McpRefusedError, readOnlySession } from './readOnly';
 import { parseObjectInfo } from '../../shared/catalog/objectInfo';
 import { applyComfyRead } from '../comfy/read';
 
@@ -20,6 +21,8 @@ export interface McpReadSuccess {
   /** Tool names the server listed. Shown to the user, not acted on. */
   tools: number;
   nodes: number;
+  /** Node packs the server listed; 0 when it lists none. */
+  packs: number;
   models: number;
   /** Where the full object_info came from: this MCP connection, the native URL the server named, or nowhere. */
   objectInfo: 'mcp' | 'native' | 'none';
@@ -57,15 +60,24 @@ export const connectStreamableHttp: McpSessionFactory = async (url, token) => {
   };
 };
 
-function failure(error: unknown): McpReadFailure {
+/** Fixed messages only: a transport error text could echo request headers. */
+export function failure(error: unknown): McpReadFailure {
+  if (error instanceof McpRefusedError) return { ok: false, error: error.message };
   const message = error instanceof Error ? error.message : '';
   if (/401|unauthorized/i.test(message)) return { ok: false, error: 'MCP server refused the token.' };
   return { ok: false, error: 'MCP server was not read.' };
 }
 
+/** What one catalog read learned beyond the counts the renderer sees. Stays in main. */
+export interface CatalogReadDetail {
+  result: McpReadSuccess;
+  toolNames: Set<string>;
+  identity: ServerIdentity;
+}
+
 /**
  * Reads the ComfyUI inventory through one MCP connection and stores it in the catalog tables.
- * Order: list tools; node classes from studio_capabilities; model files from models or list_local_models;
+ * Order: list tools; node classes and packs from studio_capabilities; model files from models or list_local_models;
  * then the full object_info either from comfy_api or, when the server names its native URL, from that URL by GET.
  * Nothing is queued and nothing is written on the server.
  */
@@ -75,65 +87,93 @@ export async function readCatalogViaMcp(
   fetchImpl: typeof fetch,
   factory: McpSessionFactory = connectStreamableHttp,
 ): Promise<McpReadSuccess | McpReadFailure> {
-  if (!config.url) return { ok: false, error: 'MCP server URL is empty.' };
-  let session: McpSession;
+  const opened = await openReadOnlySession(config, factory);
+  if (!opened.ok) return opened;
   try {
-    session = await factory(config.url, config.token);
-  } catch (error) {
-    return failure(error);
-  }
-  const skipped: string[] = [];
-  try {
-    const tools = new Set((await session.listTools()).map((tool) => tool.name));
-    if (tools.size === 0) return { ok: false, error: 'MCP server lists no tools.' };
-
-    let nodes = 0;
-    if (tools.has('studio_capabilities')) {
-      const classes = await readNodeClasses(session);
-      nodes = upsertNodeClasses(db, classes);
-    } else {
-      skipped.push('node classes');
-    }
-
-    let files: McpModelFile[] = [];
-    if (tools.has('models')) {
-      files = await readModelFiles(session);
-    } else if (tools.has('list_local_models')) {
-      const payload = toolPayload(await session.callTool('list_local_models', { action: 'list' }));
-      files = typeof payload === 'string' ? parseLocalModelsMarkdown(payload) : [];
-    } else {
-      skipped.push('model files');
-    }
-    const models = upsertModelFiles(db, files);
-
-    let objectInfo: McpReadSuccess['objectInfo'] = 'none';
-    let comfyUrl: string | null = null;
-    if (tools.has('studio_info')) {
-      comfyUrl = comfyUrlFromStudioInfo(toolPayload(await session.callTool('studio_info', { action: 'describe' })));
-    }
-    if (tools.has('comfy_api')) {
-      const payload = toolPayload(await session.callTool('comfy_api', { method: 'GET', route: '/object_info' }));
-      const read = payload && typeof payload === 'object' && !('error' in (payload as object)) ? payload : null;
-      if (read) {
-        try {
-          upsertObjectInfo(db, parseObjectInfo(read));
-          objectInfo = 'mcp';
-        } catch {
-          skipped.push('object_info through comfy_api');
-        }
-      } else {
-        skipped.push('object_info through comfy_api');
-      }
-    }
-    if (objectInfo === 'none' && comfyUrl) {
-      const native = await applyComfyRead(db, comfyUrl, fetchImpl);
-      if (native.ok) objectInfo = 'native';
-      else skipped.push('object_info from the native URL');
-    }
-    return { ok: true, tools: tools.size, nodes, models, objectInfo, comfyUrl, skipped };
+    const detail = await readCatalogWithSession(db, opened.session, fetchImpl, Date.now());
+    return 'ok' in detail ? detail : detail.result;
   } catch (error) {
     return failure(error);
   } finally {
-    await session.close().catch(() => undefined);
+    await opened.session.close().catch(() => undefined);
   }
+}
+
+/** Connects and wraps the session in the read-only allowlist. Every MCP call in the app goes through this. */
+export async function openReadOnlySession(
+  config: { url: string; token: string | null },
+  factory: McpSessionFactory,
+): Promise<{ ok: true; session: McpSession } | McpReadFailure> {
+  if (!config.url) return { ok: false, error: 'MCP server URL is empty.' };
+  try {
+    return { ok: true, session: readOnlySession(await factory(config.url, config.token)) };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+/** The catalog part of a read on an already open, read-only session. Throws on transport errors. */
+export async function readCatalogWithSession(
+  db: Database.Database,
+  session: McpSession,
+  fetchImpl: typeof fetch,
+  now: number,
+): Promise<CatalogReadDetail | McpReadFailure> {
+  const skipped: string[] = [];
+  const tools = new Set((await session.listTools()).map((tool) => tool.name));
+  if (tools.size === 0) return { ok: false, error: 'MCP server lists no tools.' };
+
+  let nodes = 0;
+  let packs = 0;
+  if (tools.has('studio_capabilities')) {
+    nodes = upsertNodeClasses(db, await readNodeClasses(session), now);
+    packs = replaceNodePacks(db, await readNodePacks(session), now);
+  } else {
+    skipped.push('node classes');
+  }
+
+  let files: Array<McpModelFile & { rootPath?: string | null }> = [];
+  if (tools.has('models')) {
+    files = await readModelFilesWithRoots(session);
+  } else if (tools.has('list_local_models')) {
+    const payload = toolPayload(await session.callTool('list_local_models', { action: 'list' }));
+    files = typeof payload === 'string' ? parseLocalModelsMarkdown(payload) : [];
+  } else {
+    skipped.push('model files');
+  }
+  const models = upsertModelFiles(db, files, now);
+
+  let objectInfo: McpReadSuccess['objectInfo'] = 'none';
+  let comfyUrl: string | null = null;
+  let identity: ServerIdentity = { installationId: null, comfyuiUrl: null };
+  if (tools.has('studio_info')) {
+    const payload = toolPayload(await session.callTool('studio_info', { action: 'describe' }));
+    comfyUrl = comfyUrlFromStudioInfo(payload);
+    identity = { ...identityFromStudioInfo(payload), comfyuiUrl: comfyUrl };
+  }
+  if (tools.has('comfy_api')) {
+    const payload = toolPayload(await session.callTool('comfy_api', { method: 'GET', route: '/object_info' }));
+    const read = payload && typeof payload === 'object' && !('error' in (payload as object)) ? payload : null;
+    if (read) {
+      try {
+        upsertObjectInfo(db, parseObjectInfo(read), now);
+        objectInfo = 'mcp';
+      } catch {
+        skipped.push('object_info through comfy_api');
+      }
+    } else {
+      skipped.push('object_info through comfy_api');
+    }
+  }
+  if (objectInfo === 'none' && comfyUrl) {
+    const native = await applyComfyRead(db, comfyUrl, fetchImpl);
+    if (native.ok) objectInfo = 'native';
+    else skipped.push('object_info from the native URL');
+  }
+  inferModelsFromNames(db);
+  return {
+    result: { ok: true, tools: tools.size, nodes, packs, models, objectInfo, comfyUrl, skipped },
+    toolNames: tools,
+    identity,
+  };
 }
