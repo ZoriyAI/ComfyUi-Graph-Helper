@@ -1,6 +1,15 @@
 import type { CatalogView } from '../catalog/types';
 import type { ComponentRecord, ProcessMeta } from '../components/model';
 import { EMPTY_PROCESS } from '../components/model';
+import {
+  SUBGRAPH_INPUT_NODE_ID,
+  SUBGRAPH_INSTANCE_KIND,
+  SUBGRAPH_OUTPUT_NODE_ID,
+  instancePorts,
+  type GroupRecord,
+  type SubgraphDefinition,
+  type SubgraphSlot,
+} from '../graph/subgraphs';
 
 export const WORKFLOW_FORMAT_V1 = 1;
 export const WORKFLOW_FORMAT_V04 = 0.4;
@@ -18,6 +27,10 @@ export interface GraphSnapshot {
   document: WorkflowDocumentState | null;
   components?: ComponentRecord[];
   process?: ProcessMeta;
+  /** Modelled native subgraph definitions. Undefined only on snapshots written before they were modelled. */
+  subgraphs?: SubgraphDefinition[];
+  /** Root-canvas groups. Undefined only on snapshots written before they were modelled. */
+  groups?: GroupRecord[];
 }
 
 /** Keys this app owns. Comfy export drops them at every depth and never writes them. */
@@ -177,32 +190,28 @@ function readLink(link: unknown): NormalLink | null {
   return null;
 }
 
-export function projectWorkflow(document: unknown): { snapshot: GraphSnapshot } | { error: string } {
-  const kind = classifyWorkflow(document);
-  if (kind === 'api-prompt') return { error: 'API prompt is not a canvas workflow.' };
-  if (kind === 'unknown') return { error: 'Workflow JSON is not UI format 1 or legacy 0.4.' };
-  const raw = document as Record<string, unknown>;
-  const formatVersion = kind === 'ui-v1' ? WORKFLOW_FORMAT_V1 : WORKFLOW_FORMAT_V04;
-  const nodes = (raw.nodes as unknown[]).map((item) => {
-    const source = item && typeof item === 'object' ? (item as Record<string, unknown>) : {};
-    const inputs = portsFrom(source.inputs, 'in');
-    const outputs = portsFrom(source.outputs, 'out');
-    return {
-      id: String(source.id),
-      type: 'comfy',
-      position: readPos(source.pos),
-      data: {
-        comfyType: String(source.type),
-        title: typeof source.title === 'string' ? source.title : String(source.type),
-        inputs,
-        outputs,
-        parameters: parametersFrom(source.widgets_values),
-        annotations: [],
-        comfy: source,
-      },
-    };
-  });
-  const edges = (Array.isArray(raw.links) ? raw.links : []).flatMap((link) => {
+function projectNode(item: unknown): Record<string, any> {
+  const source = item && typeof item === 'object' ? (item as Record<string, unknown>) : {};
+  const inputs = portsFrom(source.inputs, 'in');
+  const outputs = portsFrom(source.outputs, 'out');
+  return {
+    id: String(source.id),
+    type: 'comfy',
+    position: readPos(source.pos),
+    data: {
+      comfyType: String(source.type),
+      title: typeof source.title === 'string' ? source.title : String(source.type),
+      inputs,
+      outputs,
+      parameters: parametersFrom(source.widgets_values),
+      annotations: [],
+      comfy: source,
+    },
+  };
+}
+
+function projectLinks(links: unknown): Array<Record<string, any>> {
+  return (Array.isArray(links) ? links : []).flatMap((link) => {
     const normal = readLink(link);
     if (!normal) return [];
     return [{
@@ -214,6 +223,17 @@ export function projectWorkflow(document: unknown): { snapshot: GraphSnapshot } 
       data: { dataType: normal.dataType, comfyLink: normal.raw },
     }];
   });
+}
+
+export function projectWorkflow(document: unknown): { snapshot: GraphSnapshot } | { error: string } {
+  const kind = classifyWorkflow(document);
+  if (kind === 'api-prompt') return { error: 'API prompt is not a canvas workflow.' };
+  if (kind === 'unknown') return { error: 'Workflow JSON is not UI format 1 or legacy 0.4.' };
+  const raw = document as Record<string, unknown>;
+  const formatVersion = kind === 'ui-v1' ? WORKFLOW_FORMAT_V1 : WORKFLOW_FORMAT_V04;
+  const nodes = (raw.nodes as unknown[]).map(projectNode);
+  const edges = projectLinks(raw.links);
+  const lifted = liftSubgraphsAndGroups(raw, nodes);
   return {
     snapshot: {
       nodes,
@@ -221,6 +241,8 @@ export function projectWorkflow(document: unknown): { snapshot: GraphSnapshot } 
       document: { formatVersion, raw },
       components: [],
       process: { ...EMPTY_PROCESS },
+      subgraphs: lifted.subgraphs,
+      groups: lifted.groups,
     },
   };
 }
@@ -253,7 +275,8 @@ export function nextLinkId(snapshot: GraphSnapshot): number {
         return [];
       })
     : [];
-  const fromEdges = snapshot.edges.flatMap((edge) => {
+  const allEdges = [...snapshot.edges, ...(snapshot.subgraphs ?? []).flatMap((definition) => definition.edges)];
+  const fromEdges = allEdges.flatMap((edge) => {
     const ids: number[] = [];
     if (typeof edge.data?.linkId === 'number') ids.push(edge.data.linkId);
     const stored = edge.data?.comfyLink;
@@ -285,7 +308,8 @@ function slotNumber(handle: unknown): number | string {
 }
 
 function coerceId(id: unknown, sample: unknown): string | number {
-  if (typeof sample === 'number' && /^\d+$/.test(String(id))) return Number(id);
+  // Negative ids are the subgraph boundary nodes (-10 input, -20 output) inside a definition.
+  if (typeof sample === 'number' && /^-?\d+$/.test(String(id))) return Number(id);
   return String(id);
 }
 
@@ -332,9 +356,9 @@ function edgeToLink(edge: Record<string, any>, formatVersion: WorkflowFormat): u
   }
   return {
     id: numericId,
-    origin_id: /^\d+$/.test(String(edge.source)) ? Number(edge.source) : edge.source,
+    origin_id: /^-?\d+$/.test(String(edge.source)) ? Number(edge.source) : edge.source,
     origin_slot: origin,
-    target_id: /^\d+$/.test(String(edge.target)) ? Number(edge.target) : edge.target,
+    target_id: /^-?\d+$/.test(String(edge.target)) ? Number(edge.target) : edge.target,
     target_slot: target,
     type: linkType,
   };
@@ -408,7 +432,7 @@ export function widgetsFromParameters(
   return { ok: true, values: spec.widgetOrder.map((name) => (name in parameters ? parameters[name] : null)) };
 }
 
-function exportedNode(node: Record<string, any>, catalog?: CatalogView): Record<string, unknown> {
+function exportedNode(node: Record<string, any>, catalog?: CatalogView, lenient = false): Record<string, unknown> {
   const hasComfy = node.data?.comfy && typeof node.data.comfy === 'object';
   const source: Record<string, unknown> = hasComfy
     ? { ...(node.data.comfy as Record<string, unknown>) }
@@ -436,9 +460,15 @@ function exportedNode(node: Record<string, any>, catalog?: CatalogView): Record<
     ? parameters as Record<string, unknown>
     : {};
   if (Object.keys(record).length === 0) return source;
-  if (!catalog) throw new ExportRefused(WIDGET_ORDER_UNRELIABLE);
+  if (!catalog) {
+    if (lenient) return source;
+    throw new ExportRefused(WIDGET_ORDER_UNRELIABLE);
+  }
   const placed = widgetsFromParameters(String(node.data?.comfyType ?? ''), record, catalog);
-  if (!placed.ok) throw new ExportRefused(placed.error);
+  if (!placed.ok) {
+    if (lenient) return source;
+    throw new ExportRefused(placed.error);
+  }
   source.widgets_values = placed.values;
   return source;
 }
@@ -455,28 +485,29 @@ export function exportWorkflow(snapshot: GraphSnapshot, exportedAt: string, cata
   const raw = snapshot.document?.raw ? { ...snapshot.document.raw } : {};
   const links = snapshot.edges.map((edge) => edgeToLink(edge, formatVersion));
   let exportedNodes: Array<Record<string, unknown>>;
+  const workflow: Record<string, unknown> = { ...raw };
   try {
     exportedNodes = snapshot.nodes.map((node) => {
       const next = exportedNode(node, catalog);
       syncSlots(next, links);
       return next;
     });
+    writeSubgraphsAndGroups(workflow, raw, snapshot, catalog, false);
   } catch (error) {
     if (error instanceof ExportRefused) return { ok: false, error: error.message };
     throw error;
   }
-  const workflow: Record<string, unknown> = {
-    ...raw,
-    version: formatVersion,
-    nodes: exportedNodes,
-    links,
-  };
+  workflow.version = formatVersion;
+  workflow.nodes = exportedNodes;
+  workflow.links = links;
   const numericNodeIds = collectNumericIds(exportedNodes.map((node) => node.id));
   const numericLinkIds = collectNumericIds(links.map((link) => (Array.isArray(link) ? link[0] : (link as { id?: unknown }).id)));
   if (formatVersion === WORKFLOW_FORMAT_V1) {
     const state = raw.state && typeof raw.state === 'object' ? { ...(raw.state as Record<string, unknown>) } : {};
     state.lastNodeId = monotonicCounter(state.lastNodeId, numericNodeIds);
     state.lastLinkId = monotonicCounter(state.lastLinkId, numericLinkIds);
+    const groupIds = collectNumericIds(((workflow.groups as unknown[] | undefined) ?? []).map((group) => (group as { id?: unknown })?.id));
+    if (groupIds.length > 0) state.lastGroupId = monotonicCounter(state.lastGroupId, groupIds);
     workflow.state = state;
   } else {
     workflow.last_node_id = monotonicCounter(raw.last_node_id, numericNodeIds);
@@ -565,4 +596,329 @@ export function patchWidgets(comfy: Record<string, unknown>, key: string, value:
   if (widgets && typeof widgets === 'object' && !Array.isArray(widgets)) {
     comfy.widgets_values = { ...(widgets as Record<string, unknown>), [key]: value };
   }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Native subgraphs and groups.
+//
+// Assumptions, taken from the ComfyUI_frontend workflow schema (zSubgraphDefinition, zSubgraphIO,
+// zExportedSubgraphIONode) and not checked against a running frontend by our tests:
+// - `definitions.subgraphs[]` entries are workflow-1 graphs (version, state, nodes, links as objects, groups,
+//   config, extra) plus `id` (uuid), `revision`, `name`, `inputNode`/`outputNode` ({id, bounding}),
+//   `inputs[]`/`outputs[]` ({id, name, type, linkIds}), `widgets[]`, and optionally their own `definitions`.
+// - Inside a definition, a link with origin_id -10 starts at subgraph input slot `origin_slot`;
+//   a link with target_id -20 ends at subgraph output slot `target_slot`.
+// - An instance node has `type = definition.id` and one input/output per boundary slot, in slot order.
+// - The frontend flattens nested definitions into the root list on save. We keep the placement we imported
+//   and add new definitions to the root list.
+// - Groups are `{id?, title, bounding: [x, y, w, h], color?, font_size?, flags?}`. Membership is not native:
+//   a node belongs to a group when its position lies inside the bounding.
+// What our tests prove: these shapes survive our own import → edit → export, unknown fields included.
+// ---------------------------------------------------------------------------------------------
+
+const DEFINITION_HEAVY_KEYS = ['nodes', 'links', 'inputs', 'outputs'] as const;
+const NODE_TITLE_HEIGHT = 30;
+const GROUP_TITLE_HEIGHT = 34;
+const GROUP_PADDING = 10;
+const DEFAULT_NODE_SIZE: [number, number] = [200, 80];
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function newSlotId(): string {
+  return globalThis.crypto.randomUUID();
+}
+
+function slotsFrom(value: unknown, kind: 'input' | 'output'): SubgraphSlot[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item, index) => {
+    const record = isPlainRecord(item) ? item : {};
+    const { id, name, type, linkIds: _linkIds, ...rest } = record;
+    return {
+      // ComfyUI_frontend requires a slot id; one that is missing is minted here and exported from now on.
+      id: typeof id === 'string' && id.length > 0 ? id : newSlotId(),
+      name: typeof name === 'string' ? name : `${kind}-${index}`,
+      type: dataTypeOf(type),
+      raw: rest,
+    };
+  });
+}
+
+function liftDefinition(item: Record<string, unknown>, nestedIn: string | null): SubgraphDefinition {
+  const raw: Record<string, unknown> = { ...item };
+  // Heavy keys become empty placeholders: their presence still tells export to write them.
+  for (const key of DEFINITION_HEAVY_KEYS) if (key in raw) raw[key] = [];
+  if (isPlainRecord(raw.definitions) && Array.isArray(raw.definitions.subgraphs)) {
+    raw.definitions = { ...raw.definitions, subgraphs: [] };
+  }
+  const id = String(item.id);
+  return {
+    id,
+    name: typeof item.name === 'string' && item.name.length > 0 ? item.name : id,
+    inputs: slotsFrom(item.inputs, 'input'),
+    outputs: slotsFrom(item.outputs, 'output'),
+    nodes: Array.isArray(item.nodes) ? item.nodes.map(projectNode) : [],
+    edges: projectLinks(item.links),
+    nestedIn,
+    raw,
+  };
+}
+
+/** Lift `definitions.subgraphs` (with nested lists) and `groups` out of a native workflow document. */
+export function liftSubgraphsAndGroups(
+  raw: Record<string, unknown>,
+  nodes: Array<Record<string, any>>,
+): { subgraphs: SubgraphDefinition[]; groups: GroupRecord[] } {
+  const subgraphs: SubgraphDefinition[] = [];
+  const seen = new Set<string>();
+  let opaque = 0;
+  const walk = (container: unknown, parent: string | null) => {
+    if (!isPlainRecord(container) || !Array.isArray(container.subgraphs)) return;
+    for (const item of container.subgraphs) {
+      if (!isPlainRecord(item)) continue;
+      if (typeof item.id !== 'string' || item.id.length === 0 || seen.has(item.id)) {
+        // Unidentified or repeated: keep it verbatim where it was, never invent an id for export.
+        subgraphs.push({ id: `opaque-${opaque++}`, name: '', inputs: [], outputs: [], nodes: [], edges: [], nestedIn: parent, opaque: true, raw: item });
+        continue;
+      }
+      seen.add(item.id);
+      subgraphs.push(liftDefinition(item, parent));
+      walk(item.definitions, item.id);
+    }
+  };
+  walk(raw.definitions, null);
+  markInstances(nodes, subgraphs);
+  for (const definition of subgraphs) markInstances(definition.nodes, subgraphs);
+  return { subgraphs, groups: liftGroups(raw.groups, nodes) };
+}
+
+/** Give nodes whose class type is a modelled definition the instance markers and definition-derived ports. */
+export function markInstances(nodes: Array<Record<string, any>>, subgraphs: SubgraphDefinition[]): void {
+  for (const node of nodes) {
+    const definition = subgraphs.find((item) => !item.opaque && item.id === node.data?.comfyType);
+    if (!definition) continue;
+    const ports = instancePorts(definition);
+    node.data = { ...node.data, kind: SUBGRAPH_INSTANCE_KIND, subgraphId: definition.id, inputs: ports.inputs, outputs: ports.outputs };
+  }
+}
+
+function readBounding(value: unknown): [number, number, number, number] | undefined {
+  if (!Array.isArray(value) || value.length < 4) return undefined;
+  const numbers = value.slice(0, 4).map((item) => (typeof item === 'number' && Number.isFinite(item) ? item : NaN));
+  return numbers.some(Number.isNaN) ? undefined : [numbers[0], numbers[1], numbers[2], numbers[3]];
+}
+
+function positionInside(position: { x: number; y: number } | undefined, bounding: [number, number, number, number]): boolean {
+  if (!position) return false;
+  const [x, y, w, h] = bounding;
+  return position.x >= x && position.x <= x + w && position.y >= y && position.y <= y + h;
+}
+
+function liftGroups(value: unknown, nodes: Array<Record<string, any>>): GroupRecord[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item, index) => {
+    if (!isPlainRecord(item)) return [];
+    const bounding = readBounding(item.bounding);
+    const group: GroupRecord = {
+      id: item.id != null ? String(item.id) : `imported-${index}`,
+      title: typeof item.title === 'string' ? item.title : '',
+      nodeIds: bounding ? nodes.filter((node) => positionInside(node.position, bounding)).map((node) => String(node.id)) : [],
+      raw: item,
+    };
+    if (bounding) group.bounding = bounding;
+    if (typeof item.color === 'string') group.color = item.color;
+    return [group];
+  });
+}
+
+function nodeSize(node: Record<string, any>): [number, number] {
+  const size = node.data?.comfy?.size;
+  if (Array.isArray(size) && typeof size[0] === 'number' && typeof size[1] === 'number') return [size[0], size[1]];
+  if (isPlainRecord(size) && typeof size['0'] === 'number' && typeof size['1'] === 'number') return [size['0'] as number, size['1'] as number];
+  return DEFAULT_NODE_SIZE;
+}
+
+/** A group rectangle around member nodes, with room for the node and group title bars (LiteGraph defaults). */
+export function groupBounding(members: Array<Record<string, any>>): [number, number, number, number] {
+  if (members.length === 0) return [0, 0, 0, 0];
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const node of members) {
+    const x = node.position?.x ?? 0;
+    const y = node.position?.y ?? 0;
+    const [w, h] = nodeSize(node);
+    minX = Math.min(minX, x);
+    minY = Math.min(minY, y);
+    maxX = Math.max(maxX, x + w);
+    maxY = Math.max(maxY, y + h);
+  }
+  const top = minY - NODE_TITLE_HEIGHT - GROUP_TITLE_HEIGHT - GROUP_PADDING;
+  return [minX - GROUP_PADDING, top, maxX - minX + GROUP_PADDING * 2, maxY - top + GROUP_PADDING];
+}
+
+function exportGroup(group: GroupRecord, nodes: Array<Record<string, any>>): Record<string, unknown> {
+  const members = nodes.filter((node) => group.nodeIds.includes(String(node.id)));
+  const stored = group.bounding;
+  const bounding = stored && members.every((node) => positionInside(node.position, stored))
+    ? stored
+    : members.length > 0 ? groupBounding(members) : stored ?? [0, 0, 0, 0];
+  const out: Record<string, unknown> = { ...(group.raw ?? {}) };
+  if (!group.raw) out.id = /^\d+$/.test(group.id) ? Number(group.id) : group.id;
+  out.title = group.title;
+  out.bounding = [...bounding];
+  if (group.color !== undefined) out.color = group.color;
+  else delete out.color;
+  return out;
+}
+
+function boundaryLinkIds(links: unknown[], side: 'input' | 'output', slot: number): Array<number | string> {
+  return links.flatMap((link) => {
+    const normal = readLink(link);
+    if (!normal) return [];
+    if (side === 'input' && normal.originId === SUBGRAPH_INPUT_NODE_ID && normal.originSlot === String(slot)) return [normal.id];
+    if (side === 'output' && normal.targetId === SUBGRAPH_OUTPUT_NODE_ID && normal.targetSlot === String(slot)) return [normal.id];
+    return [];
+  });
+}
+
+function exportSlots(slots: SubgraphSlot[], links: unknown[], side: 'input' | 'output'): Array<Record<string, unknown>> {
+  return slots.map((slot, index) => ({
+    ...(slot.raw ?? {}),
+    id: slot.id,
+    name: slot.name,
+    type: slot.type,
+    linkIds: boundaryLinkIds(links, side, index),
+  }));
+}
+
+function exportDefinition(
+  definition: SubgraphDefinition,
+  all: SubgraphDefinition[],
+  catalog: CatalogView | undefined,
+  lenient: boolean,
+): Record<string, unknown> {
+  if (definition.opaque) return definition.raw;
+  const raw = definition.raw;
+  const links = definition.edges.map((edge) => edgeToLink(edge, WORKFLOW_FORMAT_V1));
+  const nodes = definition.nodes.map((node) => {
+    const next = exportedNode(node, catalog, lenient);
+    syncSlots(next, links);
+    return next;
+  });
+  const out: Record<string, unknown> = { ...raw, id: definition.id };
+  if ('name' in raw || definition.name !== definition.id) out.name = definition.name;
+  const inputs = exportSlots(definition.inputs, links, 'input');
+  const outputs = exportSlots(definition.outputs, links, 'output');
+  if ('inputs' in raw || inputs.length > 0) out.inputs = inputs;
+  if ('outputs' in raw || outputs.length > 0) out.outputs = outputs;
+  if ('nodes' in raw || nodes.length > 0) out.nodes = nodes;
+  if ('links' in raw || links.length > 0) out.links = links;
+  const children = all.filter((item) => item.nestedIn === definition.id).map((item) => exportDefinition(item, all, catalog, lenient));
+  if (children.length > 0 || (isPlainRecord(raw.definitions) && Array.isArray(raw.definitions.subgraphs))) {
+    out.definitions = { ...(isPlainRecord(raw.definitions) ? raw.definitions : {}), subgraphs: children };
+  }
+  if (isPlainRecord(raw.state)) {
+    out.state = {
+      ...raw.state,
+      lastNodeId: monotonicCounter(raw.state.lastNodeId, collectNumericIds(nodes.map((node) => node.id))),
+      lastLinkId: monotonicCounter(raw.state.lastLinkId, collectNumericIds(links.map((link) => (link as { id?: unknown }).id))),
+    };
+  }
+  return out;
+}
+
+/** Root-level definitions: those imported at root, plus any whose recorded parent is gone. */
+function rootDefinitions(subgraphs: SubgraphDefinition[]): SubgraphDefinition[] {
+  const parents = new Set(subgraphs.filter((item) => !item.opaque).map((item) => item.id));
+  return subgraphs.filter((item) => item.nestedIn === null || !parents.has(item.nestedIn));
+}
+
+function writeSubgraphsAndGroups(
+  target: Record<string, unknown>,
+  raw: Record<string, unknown>,
+  snapshot: GraphSnapshot,
+  catalog: CatalogView | undefined,
+  lenient: boolean,
+): void {
+  if (snapshot.subgraphs !== undefined) {
+    const roots = rootDefinitions(snapshot.subgraphs).map((item) => exportDefinition(item, snapshot.subgraphs!, catalog, lenient));
+    const existing = isPlainRecord(raw.definitions) ? raw.definitions : null;
+    if (roots.length > 0 || (existing && Array.isArray(existing.subgraphs))) {
+      target.definitions = { ...(existing ?? {}), subgraphs: roots };
+    }
+  }
+  if (snapshot.groups !== undefined && (snapshot.groups.length > 0 || Array.isArray(raw.groups))) {
+    target.groups = snapshot.groups.map((group) => exportGroup(group, snapshot.nodes));
+  }
+}
+
+/**
+ * Keep `document.raw.definitions` and `document.raw.groups` a native mirror of the modelled subgraphs and groups,
+ * so readers of the raw document (the inspector census, missing-node checks) see what the model holds.
+ * The mirror never refuses: nodes whose widget order is unknown are written without widgets_values.
+ */
+export function mirrorDocument(snapshot: GraphSnapshot): WorkflowDocumentState | null {
+  if (snapshot.subgraphs === undefined && snapshot.groups === undefined) return snapshot.document;
+  const hasModel = modelledCount(snapshot) > 0;
+  if (!snapshot.document && !hasModel) return null;
+  const document = snapshot.document ?? { formatVersion: WORKFLOW_FORMAT_V1, raw: {} };
+  const raw = { ...document.raw };
+  writeSubgraphsAndGroups(raw, document.raw, snapshot, undefined, true);
+  return { formatVersion: document.formatVersion, raw };
+}
+
+function modelledCount(snapshot: GraphSnapshot): number {
+  return (snapshot.subgraphs ?? []).filter((item) => !item.opaque).length;
+}
+
+/** Next numeric node id, never lower than the stored counter or any id on the canvas or inside a definition. */
+export function nextNodeId(snapshot: GraphSnapshot): number {
+  const raw = snapshot.document?.raw;
+  const state = isPlainRecord(raw?.state) ? raw!.state as Record<string, unknown> : {};
+  const ids = [
+    ...snapshot.nodes.map((node) => node.id),
+    ...(snapshot.subgraphs ?? []).flatMap((definition) => definition.nodes.map((node) => node.id)),
+  ].flatMap((id) => (/^\d+$/.test(String(id)) ? [Number(id)] : []));
+  return monotonicCounter(state.lastNodeId, [typeof raw?.last_node_id === 'number' ? raw.last_node_id : 0, ...ids]) + 1;
+}
+
+export function rememberNodeId(document: WorkflowDocumentState, nodeId: number): WorkflowDocumentState {
+  const raw = { ...document.raw };
+  if (document.formatVersion === WORKFLOW_FORMAT_V1) {
+    const state = isPlainRecord(raw.state) ? { ...raw.state } : {};
+    state.lastNodeId = monotonicCounter(state.lastNodeId, [nodeId]);
+    raw.state = state;
+  } else {
+    raw.last_node_id = monotonicCounter(raw.last_node_id, [nodeId]);
+  }
+  return { formatVersion: document.formatVersion, raw };
+}
+
+/** A new edge with a native link record in the document's format. Definitions always use format 1 links. */
+export function makeEdge(
+  linkId: number,
+  source: string,
+  sourceHandle: string,
+  target: string,
+  targetHandle: string,
+  dataType: string,
+  formatVersion: WorkflowFormat,
+): Record<string, any> {
+  const id = (value: string) => (/^-?\d+$/.test(value) ? Number(value) : value);
+  const originSlot = numericSlot(sourceHandle) ?? 0;
+  const targetSlot = numericSlot(targetHandle) ?? 0;
+  const comfyLink = formatVersion === WORKFLOW_FORMAT_V04
+    ? [linkId, id(source), originSlot, id(target), targetSlot, dataType]
+    : { id: linkId, origin_id: id(source), origin_slot: originSlot, target_id: id(target), target_slot: targetSlot, type: dataType };
+  return {
+    id: `link-${linkId}`,
+    source,
+    target,
+    sourceHandle,
+    targetHandle,
+    data: { dataType, linkId, comfyLink },
+  };
 }

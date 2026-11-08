@@ -1,23 +1,92 @@
-import type { GraphMutation } from './types';
+import type { CatalogView } from '../catalog/types';
+import type { ProposalDraft } from '../contracts/proposals';
+import { portsForClassType } from '../graph/ports';
+import { mutationSchema, type GraphMutation } from './types';
+
+/**
+ * Optional lookups that let tolerant tool arguments (port indices, port names) resolve to handle ids.
+ * Without them an index N resolves to `in-N` / `out-N`, which matches imported and catalog ports.
+ */
+export interface ToolContext {
+  snapshot?: { nodes: Array<Record<string, any>> };
+  catalog?: CatalogView;
+}
+
+const NOTE_MAX = 2000;
 
 function text(value: unknown, max: number): string | null {
   if (typeof value !== 'string' || value.length > max) return null;
   return value;
 }
 
-/** Map a model tool call onto a graph command. Tool text is stored as data. */
-export function mutationFromTool(name: string, args: Record<string, unknown> | undefined): GraphMutation | null {
-  const input = args ?? {};
+function str(value: unknown): string | undefined {
+  if (typeof value === 'string' && value.length > 0) return value;
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  return undefined;
+}
+
+function num(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+function record(value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;
+}
+
+function portsOf(nodeId: string, direction: 'input' | 'output', context?: ToolContext): Array<{ id: string; name: string }> {
+  const node = context?.snapshot?.nodes.find((item) => String(item.id) === nodeId);
+  const key = direction === 'input' ? 'inputs' : 'outputs';
+  if (node && Array.isArray(node.data?.[key])) return node.data[key];
+  const classType = node?.data?.comfyType;
+  if (typeof classType === 'string' && context?.catalog) return portsForClassType(classType, context.catalog)[key];
+  return [];
+}
+
+/** A handle id from a handle, a port name, or a slot index. */
+function resolveHandle(nodeId: string, direction: 'input' | 'output', handle: unknown, index: unknown, context?: ToolContext): string | undefined {
+  const prefix = direction === 'input' ? 'in' : 'out';
+  const ports = portsOf(nodeId, direction, context);
+  const given = str(handle);
+  if (given !== undefined) {
+    if (/^(in|out)-/.test(given)) return given;
+    const named = ports.find((port) => port.name === given);
+    if (named) return named.id;
+    if (/^\d+$/.test(given)) return ports[Number(given)]?.id ?? `${prefix}-${given}`;
+    return given;
+  }
+  const slot = num(index);
+  if (slot === undefined || !Number.isInteger(slot) || slot < 0) return undefined;
+  return ports[slot]?.id ?? `${prefix}-${slot}`;
+}
+
+function subgraphIO(value: unknown, direction: 'input' | 'output', context?: ToolContext) {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) return null;
+  const list = [];
+  for (const item of value) {
+    const io = record(item);
+    const nodeId = str(io?.nodeId);
+    if (!io || !nodeId) return null;
+    const handle = resolveHandle(nodeId, direction, io.handle, io.index ?? io.slot, context);
+    if (!handle) return null;
+    const port = portsOf(nodeId, direction, context).find((item) => item.id === handle) as { name?: string; dataType?: string } | undefined;
+    const name = str(io.name) ?? port?.name;
+    const type = str(io.type) ?? port?.dataType;
+    if (!name || !type) return null;
+    list.push({ name, type, nodeId, handle });
+  }
+  return list;
+}
+
+function draft(name: string, input: Record<string, unknown>, context?: ToolContext): unknown {
   if (name === 'addNode' && typeof input.nodeType === 'string') {
     return {
       type: 'add-node',
       nodeType: input.nodeType,
       title: typeof input.title === 'string' ? input.title : undefined,
-      x: typeof input.x === 'number' ? input.x : undefined,
-      y: typeof input.y === 'number' ? input.y : undefined,
-      parameters: input.parameters && typeof input.parameters === 'object' && !Array.isArray(input.parameters)
-        ? input.parameters as Record<string, unknown>
-        : undefined,
+      x: num(input.x),
+      y: num(input.y),
+      parameters: record(input.parameters),
     };
   }
   if (name === 'annotateNode' && typeof input.nodeId === 'string' && typeof input.annotation === 'string') {
@@ -29,13 +98,7 @@ export function mutationFromTool(name: string, args: Record<string, unknown> | u
     if ((input.ownerKind !== 'node' && input.ownerKind !== 'subgraph') || typeof input.ownerId !== 'string' || purpose == null || usage == null) {
       return null;
     }
-    return {
-      type: 'set-component',
-      ownerKind: input.ownerKind,
-      ownerId: input.ownerId,
-      purpose,
-      usage,
-    };
+    return { type: 'set-component', ownerKind: input.ownerKind, ownerId: input.ownerId, purpose, usage };
   }
   if (name === 'setProcess') {
     const title = text(input.title, 500);
@@ -43,5 +106,71 @@ export function mutationFromTool(name: string, args: Record<string, unknown> | u
     if (title == null || notes == null) return null;
     return { type: 'set-process', title, notes };
   }
+  if (name === 'connectNodes') {
+    // Both { source, target, sourceHandle, targetHandle } and { sourceNodeId, targetNodeId, *Handle | *Index }.
+    const source = str(input.sourceNodeId ?? input.source);
+    const target = str(input.targetNodeId ?? input.target);
+    if (!source || !target) return null;
+    const sourceHandle = resolveHandle(source, 'output', input.sourceHandle, input.sourceOutputIndex ?? input.sourceIndex, context);
+    const targetHandle = resolveHandle(target, 'input', input.targetHandle, input.targetInputIndex ?? input.targetIndex, context);
+    if (!sourceHandle || !targetHandle) return null;
+    return { type: 'connect', source, target, sourceHandle, targetHandle };
+  }
+  if (name === 'setParameter') {
+    const nodeId = str(input.nodeId);
+    const key = str(input.key);
+    if (!nodeId || !key || !('value' in input)) return null;
+    const widgetIndex = num(input.widgetIndex);
+    return { type: 'set-parameter', nodeId, key, value: input.value, ...(widgetIndex !== undefined ? { widgetIndex } : {}) };
+  }
+  if (name === 'removeNode') {
+    const nodeId = str(input.nodeId);
+    return nodeId ? { type: 'remove-node', nodeId } : null;
+  }
+  if (name === 'createSubgraph') {
+    const nodeIds = Array.isArray(input.nodeIds) ? input.nodeIds.map(str) : null;
+    if (!nodeIds || nodeIds.some((id) => id === undefined)) return null;
+    const inputs = subgraphIO(input.inputs, 'input', context);
+    const outputs = subgraphIO(input.outputs, 'output', context);
+    if (!inputs || !outputs) return null;
+    return { type: 'create-subgraph', name: input.name, nodeIds, inputs, outputs };
+  }
+  if (name === 'insertSubgraph') {
+    return {
+      type: 'insert-subgraph',
+      definitionId: input.definitionId,
+      x: num(input.x) ?? 300,
+      y: num(input.y) ?? 200,
+      title: typeof input.title === 'string' ? input.title : undefined,
+    };
+  }
   return null;
+}
+
+/** Map a model tool call onto a graph command. Tool text is stored as data. Invalid arguments map to null. */
+export function mutationFromTool(name: string, args: Record<string, unknown> | undefined, context?: ToolContext): GraphMutation | null {
+  const candidate = draft(name, args ?? {}, context);
+  if (!candidate) return null;
+  const parsed = mutationSchema.safeParse(candidate);
+  return parsed.success ? parsed.data : null;
+}
+
+const PROPOSAL_TOOLS: Record<string, { build: string; kind: ProposalDraft['kind'] }> = {
+  proposeNode: { build: 'addNode', kind: 'add-node' },
+  proposeConnection: { build: 'connectNodes', kind: 'connect' },
+  proposeParameter: { build: 'setParameter', kind: 'set-parameter' },
+  proposeSubgraph: { build: 'createSubgraph', kind: 'create-subgraph' },
+};
+
+/**
+ * Map a proposal tool call to a ghost draft. Arguments are those of the build twin plus `note`.
+ * The caller adds projectId, runId and revisionId and stores it with createProposal.
+ */
+export function proposalFromTool(name: string, args: Record<string, unknown> | undefined, context?: ToolContext): ProposalDraft | null {
+  const spec = PROPOSAL_TOOLS[name];
+  if (!spec) return null;
+  const { note, ...rest } = args ?? {};
+  const payload = mutationFromTool(spec.build, rest, context);
+  if (!payload || payload.type !== spec.kind) return null;
+  return { kind: spec.kind, payload, note: typeof note === 'string' ? note.slice(0, NOTE_MAX) : '' };
 }

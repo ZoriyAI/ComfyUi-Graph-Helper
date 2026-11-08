@@ -150,7 +150,7 @@ test('prerelease journey configures a provider, builds a process, and exports a 
       components: Array<{ ownerId: string; purpose: string }>;
     };
     expect(native.format).toBe('comfy-graph-helper-project');
-    expect(native.version).toBe(1);
+    expect(native.version).toBe(2);
     expect(native.process.title).toBe(PROCESS_TITLE);
     expect(native.components.find((item) => item.ownerId === 'node-call-add-node')?.purpose).toBe(PURPOSE);
 

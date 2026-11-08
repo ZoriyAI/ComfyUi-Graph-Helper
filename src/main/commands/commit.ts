@@ -27,7 +27,12 @@ import {
 } from '../../shared/components/model';
 import { DESKTOP_PROJECT_ID } from '../../shared/project';
 import { parseNativeProject } from '../../shared/native-project';
+import type { GroupRecord, SubgraphDefinition } from '../../shared/graph/subgraphs';
+import { applyGraphOp, GraphOpError, isGraphOp } from './graphOps';
+import { supersedeForMissingNodes } from '../proposals/supersede';
 import {
+  liftSubgraphsAndGroups,
+  mirrorDocument,
   missingDeps,
   nextLinkId,
   numericSlot,
@@ -53,6 +58,8 @@ interface Snapshot {
   document: WorkflowDocumentState | null;
   components?: ComponentRecord[];
   process?: ProcessMeta;
+  subgraphs?: SubgraphDefinition[];
+  groups?: GroupRecord[];
 }
 
 interface RevisionRow {
@@ -74,44 +81,86 @@ function readCurrent(db: Database.Database, projectId: string): { revisionId: st
     | RevisionRow
     | undefined;
   if (!revision) return null;
-  const snapshot = sealSnapshot({
-    nodes: JSON.parse(revision.nodes),
-    edges: JSON.parse(revision.edges),
-    document: parseDocument(revision.document),
-    components: parseStoredComponents(revision.components),
-    process: parseStoredProcess(revision.process_meta),
-  });
   return {
     revisionId: revision.id,
     revSeq: revision.rev_seq,
-    snapshot: snapshot.snapshot,
+    snapshot: snapshotFromRow(revision),
   };
+}
+
+function snapshotFromRow(revision: Pick<RevisionRow, 'nodes' | 'edges' | 'document' | 'components' | 'process_meta'>): Snapshot {
+  const nodes = JSON.parse(revision.nodes) as Array<Record<string, any>>;
+  const stored = decodeDocumentColumn(revision.document, nodes);
+  return sealSnapshot({
+    nodes,
+    edges: JSON.parse(revision.edges),
+    document: stored.document,
+    components: parseStoredComponents(revision.components),
+    process: parseStoredProcess(revision.process_meta),
+    subgraphs: stored.subgraphs,
+    groups: stored.groups,
+  }).snapshot;
+}
+
+/**
+ * The `document` column holds the native document state plus the modelled `subgraphs` and `groups`
+ * (no migration needed). Rows written before subgraphs were modelled lift them from the raw document.
+ */
+function decodeDocumentColumn(
+  raw: string | null | undefined,
+  nodes: Array<Record<string, any>>,
+): { document: WorkflowDocumentState | null; subgraphs: SubgraphDefinition[]; groups: GroupRecord[] } {
+  const parsed = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
+  const document = parseDocument(parsed);
+  const lifted = document ? liftSubgraphsAndGroups(document.raw, nodes) : { subgraphs: [], groups: [] };
+  return {
+    document,
+    subgraphs: Array.isArray(parsed.subgraphs) ? (parsed.subgraphs as SubgraphDefinition[]) : lifted.subgraphs,
+    groups: Array.isArray(parsed.groups) ? (parsed.groups as GroupRecord[]) : lifted.groups,
+  };
+}
+
+function encodeDocumentColumn(snapshot: Snapshot): string {
+  return JSON.stringify({
+    ...(snapshot.document ?? {}),
+    subgraphs: snapshot.subgraphs ?? [],
+    groups: snapshot.groups ?? [],
+  });
+}
+
+function subgraphIds(subgraphs: SubgraphDefinition[]): string[] {
+  return subgraphs.filter((item) => !item.opaque).map((item) => item.id);
 }
 
 function sealSnapshot(snapshot: Snapshot, fallback?: Snapshot): { snapshot: Snapshot; orphans: string[] } {
-  const census = listSubgraphDefinitions(snapshot.document?.raw);
+  const subgraphs = snapshot.subgraphs ?? fallback?.subgraphs ?? [];
+  const nodeIds = snapshot.nodes.map((node) => String(node.id));
+  const present = new Set(nodeIds);
+  // Group membership follows the canvas: a removed node leaves every group.
+  const groups = (snapshot.groups ?? fallback?.groups ?? []).map((group) => (
+    group.nodeIds.every((id) => present.has(id)) ? group : { ...group, nodeIds: group.nodeIds.filter((id) => present.has(id)) }
+  ));
   const reconciled = reconcileComponents(
     snapshot.components ?? fallback?.components ?? [],
-    snapshot.nodes.map((node) => String(node.id)),
-    census.definitions.map((item) => item.id),
+    nodeIds,
+    subgraphIds(subgraphs),
   );
-  return {
-    orphans: reconciled.orphans,
-    snapshot: {
-      nodes: snapshot.nodes,
-      edges: snapshot.edges,
-      document: snapshot.document,
-      components: reconciled.components,
-      process: normalizeProcess(snapshot.process ?? fallback?.process ?? EMPTY_PROCESS),
-    },
+  const sealed: Snapshot = {
+    nodes: snapshot.nodes,
+    edges: snapshot.edges,
+    document: snapshot.document,
+    components: reconciled.components,
+    process: normalizeProcess(snapshot.process ?? fallback?.process ?? EMPTY_PROCESS),
+    subgraphs,
+    groups,
   };
+  sealed.document = mirrorDocument(sealed);
+  return { orphans: reconciled.orphans, snapshot: sealed };
 }
 
-function parseDocument(raw: string | null | undefined): WorkflowDocumentState | null {
-  if (!raw || raw === '{}') return null;
-  const parsed = JSON.parse(raw) as WorkflowDocumentState;
-  if (!parsed?.raw || (parsed.formatVersion !== 1 && parsed.formatVersion !== 0.4)) return null;
-  return parsed;
+function parseDocument(parsed: Record<string, unknown> | null): WorkflowDocumentState | null {
+  if (!parsed || !parsed.raw || typeof parsed.raw !== 'object' || (parsed.formatVersion !== 1 && parsed.formatVersion !== 0.4)) return null;
+  return { formatVersion: parsed.formatVersion, raw: parsed.raw as Record<string, unknown> };
 }
 
 export function readProjection(db: Database.Database, projectId: string): Projection | null {
@@ -158,7 +207,7 @@ export function ensureProject(db: Database.Database, projectId: string, name = p
       `INSERT INTO graph_revisions
         (id, project_id, timestamp, nodes, edges, parent_revision_id, description, source, rev_seq, document, components, process_meta)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    ).run(revisionId, projectId, now, '[]', '[]', null, 'Initial', 'system', 1, '{}', '[]', '{}');
+    ).run(revisionId, projectId, now, '[]', '[]', null, 'Initial', 'system', 1, '{"subgraphs":[],"groups":[]}', '[]', '{}');
   });
   write.immediate();
 }
@@ -324,12 +373,11 @@ function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutat
     return { snapshot: { nodes, edges, document: snapshot.document }, result: { edgeId: payload.edgeId } };
   }
   if (payload.type === 'set-component') {
-    const census = listSubgraphDefinitions(snapshot.document?.raw);
     const nodeIds = nodes.map((node) => String(node.id));
-    const subgraphIds = census.definitions.map((item) => item.id);
-    const known = payload.ownerKind === 'node' ? nodeIds.includes(payload.ownerId) : subgraphIds.includes(payload.ownerId);
+    const definitionIds = subgraphIds(snapshot.subgraphs ?? []);
+    const known = payload.ownerKind === 'node' ? nodeIds.includes(payload.ownerId) : definitionIds.includes(payload.ownerId);
     if (!known) throw new CommandSignal('rejected', { error: 'That component is not in the graph.' });
-    const reconciled = reconcileComponents(snapshot.components ?? [], nodeIds, subgraphIds);
+    const reconciled = reconcileComponents(snapshot.components ?? [], nodeIds, definitionIds);
     return {
       snapshot: {
         nodes,
@@ -360,13 +408,21 @@ function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutat
   if (payload.type === 'open-native') {
     const parsed = parseNativeProject(payload.project);
     if (!parsed.ok) throw new CommandSignal('rejected', { error: parsed.error });
+    const graphNodes = parsed.project.graph.nodes as Array<Record<string, any>>;
+    const document = parsed.project.graph.document;
+    // A version 1 file has no modelled subgraphs or groups; lift them from its native document.
+    const lifted = document && (!parsed.project.subgraphs || !parsed.project.groups)
+      ? liftSubgraphsAndGroups(document.raw, graphNodes)
+      : { subgraphs: [], groups: [] };
     return {
       snapshot: {
-        nodes: parsed.project.graph.nodes,
+        nodes: graphNodes,
         edges: parsed.project.graph.edges,
-        document: parsed.project.graph.document,
+        document,
         components: parsed.project.components,
         process: parsed.project.process,
+        subgraphs: parsed.project.subgraphs ?? lifted.subgraphs,
+        groups: parsed.project.groups ?? lifted.groups,
       },
       result: { upgradedFrom: parsed.project.upgradedFrom },
     };
@@ -375,6 +431,15 @@ function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutat
     const projected = projectWorkflow(payload.document);
     if ('error' in projected) throw new CommandSignal('rejected', { error: projected.error });
     return { snapshot: projected.snapshot, result: { formatVersion: projected.snapshot.document?.formatVersion ?? null } };
+  }
+  if (isGraphOp(payload)) {
+    try {
+      const applied = applyGraphOp(snapshot, actionId, payload);
+      return { snapshot: applied.snapshot as Snapshot, result: applied.result };
+    } catch (error) {
+      if (error instanceof GraphOpError) throw new CommandSignal('rejected', { error: error.message });
+      throw error;
+    }
   }
   if (payload.type === 'connect') {
     const originSlot = numericSlot(payload.sourceHandle);
@@ -418,6 +483,7 @@ function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutat
       result: { edgeId, linkId },
     };
   }
+  if (payload.type !== 'remove-edge') throw new CommandSignal('rejected');
   return {
     snapshot: {
       nodes,
@@ -519,7 +585,7 @@ export function commitCommand(
         request.payload.type,
         request.actor === 'ai' ? 'ai' : 'user',
         nextSeq,
-        JSON.stringify(applied.snapshot.document ?? {}),
+        encodeDocumentColumn(applied.snapshot),
         JSON.stringify(applied.snapshot.components ?? []),
         JSON.stringify(applied.snapshot.process ?? EMPTY_PROCESS),
       );
@@ -544,6 +610,9 @@ export function commitCommand(
           request.runId,
         );
       }
+      const remaining = new Set(applied.snapshot.nodes.map((node) => String(node.id)));
+      const vanished = current.snapshot.nodes.map((node) => String(node.id)).filter((id) => !remaining.has(id));
+      if (vanished.length > 0) supersedeForMissingNodes(db, request.projectId, vanished, request.payload.type);
       if (options?.failBeforeCommit) {
         throw new Error('commit failed before stamp');
       }
@@ -610,4 +679,23 @@ export function switchProject(db: Database.Database, fromProjectId: string): Pro
     db.prepare(`UPDATE runs SET status = 'closed' WHERE project_id = ? AND status IN ('running', 'paused')`).run(fromProjectId);
   }).immediate();
   return readProjection(db, fromProjectId);
+}
+
+/** Read-only revision history, oldest first, capped. Never moves the current pointer. */
+export function listRevisions(db: Database.Database, projectId: string, limit = 2000): Array<{ id: string; revSeq: number; timestamp: number; description: string | null; source: string }> {
+  const rows = db
+    .prepare(
+      `SELECT id, rev_seq, timestamp, description, source FROM graph_revisions
+       WHERE project_id = ? ORDER BY rev_seq ASC, rowid ASC LIMIT ?`,
+    )
+    .all(projectId, limit) as Array<{ id: string; rev_seq: number; timestamp: number; description: string | null; source: string }>;
+  return rows.map((row) => ({ id: row.id, revSeq: row.rev_seq, timestamp: row.timestamp, description: row.description, source: row.source }));
+}
+
+/** The snapshot of any revision of a project, sealed the same way as the current one; null when it is not there. */
+export function loadRevision(db: Database.Database, projectId: string, revisionId: string): Projection['snapshot'] | null {
+  const revision = db
+    .prepare('SELECT id, rev_seq, nodes, edges, document, components, process_meta FROM graph_revisions WHERE id = ? AND project_id = ?')
+    .get(revisionId, projectId) as RevisionRow | undefined;
+  return revision ? snapshotFromRow(revision) : null;
 }

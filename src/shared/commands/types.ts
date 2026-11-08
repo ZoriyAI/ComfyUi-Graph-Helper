@@ -1,4 +1,12 @@
 import { z } from 'zod';
+import type { GroupRecord, SubgraphDefinition } from '../graph/subgraphs';
+
+export const subgraphIOSchema = z.object({
+  name: z.string().min(1).max(200),
+  type: z.string().min(1).max(200),
+  nodeId: z.string().min(1),
+  handle: z.string().min(1),
+});
 
 export const mutationSchema = z.discriminatedUnion('type', [
   z.object({
@@ -68,6 +76,55 @@ export const mutationSchema = z.discriminatedUnion('type', [
     type: z.literal('open-native'),
     project: z.any(),
   }),
+  z.object({
+    type: z.literal('create-subgraph'),
+    name: z.string().min(1).max(200),
+    nodeIds: z.array(z.string().min(1)).min(1),
+    inputs: z.array(subgraphIOSchema).default([]),
+    outputs: z.array(subgraphIOSchema).default([]),
+  }),
+  z.object({
+    type: z.literal('insert-subgraph'),
+    definitionId: z.string().min(1),
+    x: z.number(),
+    y: z.number(),
+    title: z.string().max(500).optional(),
+  }),
+  z.object({
+    type: z.literal('add-subgraph-io'),
+    definitionId: z.string().min(1),
+    direction: z.enum(['input', 'output']),
+    name: z.string().min(1).max(200),
+    /** The slot data type. Named dataType because `type` is the mutation discriminator. */
+    dataType: z.string().min(1).max(200),
+    nodeId: z.string().min(1),
+    handle: z.string().min(1),
+  }),
+  z.object({
+    type: z.literal('remove-subgraph-io'),
+    definitionId: z.string().min(1),
+    direction: z.enum(['input', 'output']),
+    slotId: z.string().min(1),
+  }),
+  z.object({
+    type: z.literal('rename-subgraph'),
+    definitionId: z.string().min(1),
+    name: z.string().min(1).max(200),
+  }),
+  z.object({
+    type: z.literal('dissolve-subgraph'),
+    nodeId: z.string().min(1),
+  }),
+  z.object({
+    type: z.literal('add-group'),
+    title: z.string().max(500),
+    nodeIds: z.array(z.string().min(1)).min(1),
+    color: z.string().max(64).optional(),
+  }),
+  z.object({
+    type: z.literal('remove-group'),
+    groupId: z.string().min(1),
+  }),
 ]);
 
 export type GraphMutation = z.infer<typeof mutationSchema>;
@@ -99,6 +156,10 @@ export interface Projection {
     document?: unknown;
     components?: unknown;
     process?: unknown;
+    /** Modelled native subgraph definitions (see shared/graph/subgraphs.ts). */
+    subgraphs?: SubgraphDefinition[];
+    /** Root-canvas groups. */
+    groups?: GroupRecord[];
   };
   currentRevisionId: string;
   revSeq: number;
