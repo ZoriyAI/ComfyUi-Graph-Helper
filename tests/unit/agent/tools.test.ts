@@ -123,13 +123,19 @@ describe('agent tools factory', () => {
     expect(pushed).toEqual([{ channel: IPC_CHANNELS.PROPOSALS_EVENT, payload: proposals.created }]);
   });
 
-  it('refuses a proposal without a note or whose shape the engine has not mapped', async () => {
+  it('refuses a proposal without a note or with a shape the engine cannot map', async () => {
     const { call, proposals } = setup();
     expect(await call('proposeNode', { nodeType: 'KSampler' })).toMatchObject({ success: false });
-    const unmapped = await call('proposeConnection', { source: 'a', sourceHandle: '0', target: 'b', targetHandle: '0', note: 'Link them.' });
+    // A connection with no target has no mutation, so nothing is proposed.
+    const unmapped = await call('proposeConnection', { source: 'a', sourceHandle: '0', note: 'Link them.' });
     expect(unmapped.success).toBe(false);
     expect(unmapped.error).toContain(PROPOSAL_BUILD_TWIN.proposeConnection);
     expect(proposals.created).toEqual([]);
+    // The engine maps the full shape, so the same tool then drafts a connect proposal.
+    const mapped = await call('proposeConnection', { source: 'a', sourceHandle: '0', target: 'b', targetHandle: '0', note: 'Link them.' });
+    expect(mapped).toMatchObject({ success: true, kind: 'connect' });
+    expect(proposals.created).toHaveLength(1);
+    expect(proposals.created[0].payload).toMatchObject({ type: 'connect', source: 'a', target: 'b' });
   });
 
   it('reports a failing proposal repository as a tool error', async () => {
