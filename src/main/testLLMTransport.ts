@@ -143,6 +143,61 @@ function loaderFixtureParts(prompt: LanguageModelV4Prompt | undefined): Language
   return textParts('TEST fixture only: the loader parameter is in the export. Run that workflow in your ComfyUI.');
 }
 
+/** Reads `success` and `error` from a tool result value without trusting its shape. */
+function outcomeOf(value: unknown): { success: boolean; error: string } {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return { success: false, error: 'no result' };
+  const record = value as { success?: unknown; error?: unknown };
+  return { success: record.success !== false, error: typeof record.error === 'string' ? record.error : '' };
+}
+
+/**
+ * TEST fixture for one main-side tool call followed by a short completion. It is not a live model.
+ * Keyed by user text so the older scenarios above keep their exact behaviour.
+ */
+function singleToolFixtureParts(
+  prompt: LanguageModelV4Prompt | undefined,
+  call: { id: string; name: string; input: unknown },
+  done: string,
+): LanguageModelV4StreamPart[] {
+  const result = collectToolResults(prompt).find((item) => item.toolName === call.name);
+  if (!result) return [toolCall(call.id, call.name, call.input), finish('tool-calls')];
+  const outcome = outcomeOf(result.value);
+  if (!outcome.success) return textParts(`TEST fixture only: ${call.name} failed: ${outcome.error}`);
+  return textParts(done);
+}
+
+const SCRIPTED: Array<{ match: RegExp; call: { id: string; name: string; input: unknown }; done: string }> = [
+  {
+    match: /propose a sampler/i,
+    call: {
+      id: 'call-propose-sampler',
+      name: 'proposeNode',
+      input: {
+        nodeType: 'KSampler',
+        title: 'Sampler',
+        x: 420,
+        y: 200,
+        note: 'The sampler turns noise into an image using the model and both prompts.',
+      },
+    },
+    done: 'TEST fixture only: I put a KSampler on the canvas as a ghost. Accept it if you want it in the graph.',
+  },
+  {
+    match: /explain this/i,
+    call: {
+      id: 'call-explain',
+      name: 'explain',
+      input: {
+        owner: { kind: 'nodeClass', id: 'KSampler', classType: 'KSampler' },
+        aspect: 'what',
+        text: 'KSampler denoises a latent step by step, guided by the model and the conditioning.',
+        provenance: 'inference',
+      },
+    },
+    done: 'TEST fixture only: I saved a short explanation to KSampler. It is an inference, not a fact from your catalog.',
+  },
+];
+
 function finish(unified: 'stop' | 'tool-calls'): LanguageModelV4StreamPart {
   return {
     type: 'finish',
@@ -177,6 +232,13 @@ export function createTestLLMModel(): LanguageModelV4 {
       if (latestUserText(prompt).includes('Build the loader fixture')) {
         return {
           stream: convertArrayToReadableStream(loaderFixtureParts(prompt)),
+          rawCall: { rawPrompt: null, rawSettings: {} },
+        };
+      }
+      const scripted = SCRIPTED.find((entry) => entry.match.test(latestUserText(prompt)));
+      if (scripted) {
+        return {
+          stream: convertArrayToReadableStream(singleToolFixtureParts(prompt, scripted.call, scripted.done)),
           rawCall: { rawPrompt: null, rawSettings: {} },
         };
       }
