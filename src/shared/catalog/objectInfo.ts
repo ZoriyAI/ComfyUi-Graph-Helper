@@ -50,9 +50,13 @@ export function assertObjectInfoSize(bytes: number): void {
  * Parse a GET /object_info document: a map of class name to NodeInfo.
  * Input specs follow ComfyUI INPUT_TYPES JSON: [type, options?] or a legacy combo [string[], options?].
  * Widget slots follow input_order required then optional, matching ComfyUI_frontend @98700cfc:
- * - useIntWidget.ts: INT control_after_generate, and seed/noise_seed when the field is omitted
- * - nodeDefSchema.ts: control_after_generate boolean | fixed|increment|decrement|randomize; isMediaUploadComboInput
- * - widgets.ts: the control combo is the next widgets_values slot
+ * - litegraphService.addInputWidget: constructor type is widgetType ?? type
+ * - useIntWidget: INT control_after_generate, and seed/noise_seed when the field is omitted; one extra slot
+ * - useFloatWidget: FLOAT control_after_generate only; one extra slot (addValueControlWidget, addFilterList false)
+ * - useComboWidget addComboWidget: ordinary combo calls addValueControlWidgets with no options,
+ *   so widgets.ts adds control_after_generate and control_filter_list. multi_select is not that path.
+ * - useStringWidget / useBooleanWidget do not add a control widget
+ * - LGraphNode.serialize keeps a widget unless widget.serialize === false; the flag on options does not drop these slots
  * One invalid node def is skipped. A non-object root is rejected. If every node is skipped, the snapshot is rejected.
  */
 export function parseObjectInfo(document: unknown): ParsedObjectInfo {
@@ -165,6 +169,7 @@ function inputsOf(info: Record<string, unknown>): { inputs: CatalogInput[]; widg
       if (!parsed.widget) continue;
       widgetOrder.push(name);
       if (parsed.controlAfterGenerate) widgetOrder.push(`${name}::control_after_generate`);
+      if (parsed.controlFilterList) widgetOrder.push(`${name}::control_filter_list`);
       if (parsed.mediaUpload) widgetOrder.push(`${name}::media_upload`);
     }
   }
@@ -199,34 +204,46 @@ function groupSpecs(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
-function parseSpec(name: string, spec: unknown): { type: string; widget: boolean; opaque: boolean; controlAfterGenerate: boolean; mediaUpload: boolean } {
+function parseSpec(name: string, spec: unknown): {
+  type: string;
+  widget: boolean;
+  opaque: boolean;
+  controlAfterGenerate: boolean;
+  controlFilterList: boolean;
+  mediaUpload: boolean;
+} {
   if (!Array.isArray(spec) || spec.length === 0) {
     throw new ObjectInfoError('Catalog snapshot is not object_info.');
   }
   const options = spec[1] && typeof spec[1] === 'object' && !Array.isArray(spec[1]) ? (spec[1] as Record<string, unknown>) : {};
   const forceInput = options.forceInput === true;
-  if (Array.isArray(spec[0])) {
-    const widget = !forceInput;
-    return {
-      type: 'COMBO',
-      widget,
-      opaque: false,
-      controlAfterGenerate: widget && hasControlAfterGenerate('COMBO', name, options),
-      mediaUpload: widget && isMediaUpload(options),
-    };
-  }
+  if (Array.isArray(spec[0])) return describeInput('COMBO', options, forceInput, name);
   if (typeof spec[0] !== 'string' || spec[0].length === 0) {
     throw new ObjectInfoError('Catalog snapshot is not object_info.');
   }
-  const opaque = !forceInput && isOpaqueWidgetType(spec[0]);
-  const widget = !forceInput && (WIDGET_TYPES.has(spec[0]) || opaque);
+  return describeInput(spec[0], options, forceInput, name);
+}
+
+/** Link type stays the object_info type. The widget constructor is widgetType ?? that type. */
+function describeInput(linkType: string, options: Record<string, unknown>, forceInput: boolean, name: string) {
+  const constructorType = widgetConstructorType(linkType, options);
+  const opaque = !forceInput && isOpaqueWidgetType(constructorType);
+  const widget = !forceInput && (WIDGET_TYPES.has(constructorType) || opaque);
+  const controlAfterGenerate = widget && !opaque && hasControlAfterGenerate(constructorType, name, options);
+  const ordinaryCombo = constructorType === 'COMBO' && options.multi_select !== true;
   return {
-    type: spec[0],
+    type: linkType,
     widget,
     opaque,
-    controlAfterGenerate: widget && !opaque && hasControlAfterGenerate(spec[0], name, options),
-    mediaUpload: widget && !opaque && spec[0] === 'COMBO' && isMediaUpload(options),
+    controlAfterGenerate,
+    controlFilterList: controlAfterGenerate && ordinaryCombo,
+    mediaUpload: widget && !opaque && constructorType === 'COMBO' && isMediaUpload(options),
   };
+}
+
+function widgetConstructorType(linkType: string, options: Record<string, unknown>): string {
+  const override = options.widgetType;
+  return typeof override === 'string' && override.length > 0 ? override : linkType;
 }
 
 function isOpaqueWidgetType(type: string): boolean {
@@ -234,12 +251,14 @@ function isOpaqueWidgetType(type: string): boolean {
 }
 
 /**
- * useIntWidget.ts @98700cfc:
- * control_after_generate ?? ['seed','noise_seed'].includes(name)
- * nodeDefSchema.ts: the field is boolean or fixed|increment|decrement|randomize.
- * COMBO uses that truthy value only; the seed-name default is INT-only.
+ * Control widgets exist only on INT, FLOAT, and COMBO constructors @98700cfc.
+ * INT: control_after_generate ?? seed/noise_seed (useIntWidget).
+ * FLOAT and COMBO: only a truthy control_after_generate (useFloatWidget / useComboWidget).
+ * STRING and BOOLEAN constructors never add one.
+ * The field is boolean or fixed|increment|decrement|randomize (CONTROL_OPTIONS).
  */
 function hasControlAfterGenerate(type: string, name: string, options: Record<string, unknown>): boolean {
+  if (type !== 'INT' && type !== 'FLOAT' && type !== 'COMBO') return false;
   const value = options.control_after_generate;
   if (value === true || (typeof value === 'string' && CONTROL_MODES.has(value))) return true;
   if (value !== undefined) return false;

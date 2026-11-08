@@ -387,4 +387,302 @@ describe('object_info catalog', () => {
     for (const classType of SEEDED_NODE_TYPES) expect(catalog.nodeTypes).toContain(classType);
     db.close();
   });
+
+  it('writes a named widget at the frontend slot for seed control and combo control', () => {
+    const db = openDb();
+    const parsed = parseObjectInfo({
+      SeedNode: {
+        input: { required: { seed: ['INT', { default: 0 }], steps: ['INT'] } },
+        input_order: { required: ['seed', 'steps'] },
+        output: ['LATENT'],
+        python_module: 'nodes',
+      },
+      NoiseNode: {
+        input: { required: { noise_seed: ['INT', { control_after_generate: 'fixed' }], cfg: ['FLOAT'] } },
+        input_order: { required: ['noise_seed', 'cfg'] },
+        output: ['LATENT'],
+        python_module: 'nodes',
+      },
+      ChoiceNode: {
+        input: {
+          required: {
+            choice: [['a', 'b'], { control_after_generate: true }],
+            count: ['INT', { default: 1 }],
+          },
+        },
+        input_order: { required: ['choice', 'count'] },
+        output: ['LATENT'],
+        python_module: 'nodes',
+      },
+      AmountNode: {
+        input: { required: { cfg: ['FLOAT', { control_after_generate: true }] } },
+        output: ['FLOAT'],
+        python_module: 'nodes',
+      },
+    });
+    expect(parsed.nodes.find((node) => node.classType === 'ChoiceNode')?.widgetOrder).toEqual([
+      'choice',
+      'choice::control_after_generate',
+      'choice::control_filter_list',
+      'count',
+    ]);
+    expect(parsed.nodes.find((node) => node.classType === 'AmountNode')?.widgetOrder).toEqual([
+      'cfg',
+      'cfg::control_after_generate',
+    ]);
+    upsertObjectInfo(db, parsed);
+    const current = readProjection(db, DESKTOP_PROJECT_ID)!;
+    const cases = [
+      {
+        type: 'SeedNode',
+        key: 'steps',
+        widgets: [1, 'randomize', 20],
+        next: [1, 'randomize', 99],
+      },
+      {
+        type: 'NoiseNode',
+        key: 'cfg',
+        widgets: [5, 'fixed', 8],
+        next: [5, 'fixed', 99],
+      },
+      {
+        type: 'ChoiceNode',
+        key: 'choice',
+        widgets: ['a', 'randomize', '', 1],
+        next: ['b', 'randomize', '', 1],
+        value: 'b',
+      },
+    ];
+    let expected = current.currentRevisionId;
+    for (const [index, item] of cases.entries()) {
+      const imported = commitCommand(db, {
+        projectId: DESKTOP_PROJECT_ID,
+        actionId: `import-layout-${index}`,
+        expectedRevisionId: expected,
+        actor: 'manual',
+        runId: null,
+        payload: {
+          type: 'import-workflow',
+          document: {
+            version: 1,
+            state: { lastNodeId: 1, lastLinkId: 0 },
+            nodes: [{
+              id: 1,
+              type: item.type,
+              pos: [0, 0],
+              size: [1, 1],
+              flags: {},
+              order: 0,
+              mode: 0,
+              properties: {},
+              widgets_values: item.widgets,
+            }],
+            links: [],
+          },
+        },
+      });
+      expect(imported.status).toBe('applied');
+      const changed = commitCommand(db, {
+        projectId: DESKTOP_PROJECT_ID,
+        actionId: `param-layout-${index}`,
+        expectedRevisionId: imported.projection!.currentRevisionId,
+        actor: 'manual',
+        runId: null,
+        payload: { type: 'set-parameter', nodeId: '1', key: item.key, value: item.value ?? 99 },
+      });
+      expect(changed.status).toBe('applied');
+      const node = (readProjection(db, DESKTOP_PROJECT_ID)!.snapshot.nodes as Array<Record<string, any>>)[0];
+      expect(node.data.comfy.widgets_values).toEqual(item.next);
+      expected = changed.projection!.currentRevisionId;
+    }
+    db.close();
+  });
+
+  it('does not invent a control slot for STRING or BOOLEAN, and does not write the wrong index', () => {
+    const db = openDb();
+    const parsed = parseObjectInfo({
+      TextNode: {
+        input: {
+          required: {
+            text: ['STRING', { control_after_generate: true }],
+            enabled: ['BOOLEAN', { control_after_generate: 'randomize' }],
+          },
+        },
+        input_order: { required: ['text', 'enabled'] },
+        output: ['STRING'],
+        python_module: 'nodes',
+      },
+      MixedNode: {
+        input: {
+          required: {
+            choice: [['a', 'b'], { control_after_generate: true }],
+            text: ['STRING', { control_after_generate: true }],
+          },
+        },
+        input_order: { required: ['choice', 'text'] },
+        output: ['STRING'],
+        python_module: 'nodes',
+      },
+    });
+    expect(parsed.nodes.find((node) => node.classType === 'TextNode')?.widgetOrder).toEqual(['text', 'enabled']);
+    expect(parsed.nodes.find((node) => node.classType === 'MixedNode')?.widgetOrder).toEqual([
+      'choice',
+      'choice::control_after_generate',
+      'choice::control_filter_list',
+      'text',
+    ]);
+    upsertObjectInfo(db, parsed);
+    let expected = readProjection(db, DESKTOP_PROJECT_ID)!.currentRevisionId;
+    const phantom = commitCommand(db, {
+      projectId: DESKTOP_PROJECT_ID,
+      actionId: 'import-phantom',
+      expectedRevisionId: expected,
+      actor: 'manual',
+      runId: null,
+      payload: {
+        type: 'import-workflow',
+        document: {
+          version: 1,
+          state: { lastNodeId: 1, lastLinkId: 0 },
+          nodes: [{
+            id: 1,
+            type: 'TextNode',
+            pos: [0, 0],
+            size: [1, 1],
+            flags: {},
+            order: 0,
+            mode: 0,
+            properties: {},
+            widgets_values: ['hello', 'randomize', true],
+          }],
+          links: [],
+        },
+      },
+    });
+    expect(phantom.status).toBe('applied');
+    const beforePhantom = JSON.stringify(readProjection(db, DESKTOP_PROJECT_ID));
+    const rejected = commitCommand(db, {
+      projectId: DESKTOP_PROJECT_ID,
+      actionId: 'param-phantom',
+      expectedRevisionId: phantom.projection!.currentRevisionId,
+      actor: 'manual',
+      runId: null,
+      payload: { type: 'set-parameter', nodeId: '1', key: 'text', value: 99 },
+    });
+    expect(rejected.status).toBe('rejected');
+    expect(rejected.result).toEqual({ error: 'Catalog widget order does not match widgets_values.' });
+    expect(JSON.stringify(readProjection(db, DESKTOP_PROJECT_ID))).toBe(beforePhantom);
+
+    expected = phantom.projection!.currentRevisionId;
+    const mixed = commitCommand(db, {
+      projectId: DESKTOP_PROJECT_ID,
+      actionId: 'import-mixed',
+      expectedRevisionId: expected,
+      actor: 'manual',
+      runId: null,
+      payload: {
+        type: 'import-workflow',
+        document: {
+          version: 1,
+          state: { lastNodeId: 1, lastLinkId: 0 },
+          nodes: [{
+            id: 1,
+            type: 'MixedNode',
+            pos: [0, 0],
+            size: [1, 1],
+            flags: {},
+            order: 0,
+            mode: 0,
+            properties: {},
+            widgets_values: ['a', 'randomize', '', 'hi'],
+          }],
+          links: [],
+        },
+      },
+    });
+    expect(mixed.status).toBe('applied');
+    const written = commitCommand(db, {
+      projectId: DESKTOP_PROJECT_ID,
+      actionId: 'param-text',
+      expectedRevisionId: mixed.projection!.currentRevisionId,
+      actor: 'manual',
+      runId: null,
+      payload: { type: 'set-parameter', nodeId: '1', key: 'text', value: 99 },
+    });
+    expect(written.status).toBe('applied');
+    const node = (readProjection(db, DESKTOP_PROJECT_ID)!.snapshot.nodes as Array<Record<string, any>>)[0];
+    expect(node.data.comfy.widgets_values).toEqual(['a', 'randomize', '', 99]);
+    db.close();
+  });
+
+  it('treats widgetType as the widget constructor, including an implicit INT seed', () => {
+    const db = openDb();
+    const parsed = parseObjectInfo({
+      SeedAlias: {
+        input: {
+          required: {
+            seed: ['MY_SEED', { widgetType: 'INT' }],
+            steps: ['INT'],
+          },
+        },
+        input_order: { required: ['seed', 'steps'] },
+        output: ['LATENT'],
+        python_module: 'nodes',
+      },
+      ColorAlias: {
+        input: { required: { tint: ['CUSTOM', { widgetType: 'COLOR' }], strength: ['INT'] } },
+        input_order: { required: ['tint', 'strength'] },
+        output: ['IMAGE'],
+        python_module: 'nodes',
+      },
+    });
+    const alias = parsed.nodes.find((node) => node.classType === 'SeedAlias');
+    expect(alias?.inputs.find((input) => input.name === 'seed')).toEqual({ name: 'seed', type: 'MY_SEED', widget: true });
+    expect(alias?.widgetOrder).toEqual(['seed', 'seed::control_after_generate', 'steps']);
+    expect(alias?.widgetOrderReliable).not.toBe(false);
+    const color = parsed.nodes.find((node) => node.classType === 'ColorAlias');
+    expect(color?.widgetOrderReliable).toBe(false);
+    expect(color?.widgetOrder).toEqual([]);
+    upsertObjectInfo(db, parsed);
+    const current = readProjection(db, DESKTOP_PROJECT_ID)!;
+    const imported = commitCommand(db, {
+      projectId: DESKTOP_PROJECT_ID,
+      actionId: 'import-alias',
+      expectedRevisionId: current.currentRevisionId,
+      actor: 'manual',
+      runId: null,
+      payload: {
+        type: 'import-workflow',
+        document: {
+          version: 1,
+          state: { lastNodeId: 1, lastLinkId: 0 },
+          nodes: [{
+            id: 1,
+            type: 'SeedAlias',
+            pos: [0, 0],
+            size: [1, 1],
+            flags: {},
+            order: 0,
+            mode: 0,
+            properties: {},
+            widgets_values: [1, 'randomize', 20],
+          }],
+          links: [],
+        },
+      },
+    });
+    expect(imported.status).toBe('applied');
+    const changed = commitCommand(db, {
+      projectId: DESKTOP_PROJECT_ID,
+      actionId: 'param-alias-steps',
+      expectedRevisionId: imported.projection!.currentRevisionId,
+      actor: 'manual',
+      runId: null,
+      payload: { type: 'set-parameter', nodeId: '1', key: 'steps', value: 99 },
+    });
+    expect(changed.status).toBe('applied');
+    const node = (readProjection(db, DESKTOP_PROJECT_ID)!.snapshot.nodes as Array<Record<string, any>>)[0];
+    expect(node.data.comfy.widgets_values).toEqual([1, 'randomize', 99]);
+    db.close();
+  });
 });
