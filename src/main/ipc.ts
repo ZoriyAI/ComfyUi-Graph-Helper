@@ -7,6 +7,8 @@ import { mainLLMService } from './llmService';
 import { attemptSaveSecret, readSettings, saveSettings } from './settings/repository';
 import { cancelRun, commitCommand, pauseRun, readProjection, resumeRun, startRun, switchProject } from './commands/commit';
 import { DESKTOP_PROJECT_ID } from '../shared/project';
+import { assertObjectInfoSize, ObjectInfoError, parseObjectInfo } from '../shared/catalog/objectInfo';
+import { upsertObjectInfo } from './catalog/repository';
 import { exportWorkflow, type GraphSnapshot } from '../shared/workflow/codec';
 import type { CommandResponse, GraphMutation } from '../shared/commands/types';
 
@@ -26,6 +28,15 @@ export function setupIPC() {
     } catch {
       return { status: 'rejected', projection: readProjection(getDatabase(), DESKTOP_PROJECT_ID), result: { error: 'Workflow JSON could not be parsed.' } };
     }
+  });
+
+  ipcMain.handle(IPC_CHANNELS.FILE_IMPORT_CATALOG, async () => {
+    const result = await dialog.showOpenDialog({
+      filters: [{ name: 'ComfyUI object_info', extensions: ['json'] }],
+      properties: ['openFile'],
+    });
+    if (result.canceled || result.filePaths.length === 0) return { status: 'cancelled' as const };
+    return importCatalogFile(result.filePaths[0]);
   });
 
   ipcMain.handle(IPC_CHANNELS.FILE_EXPORT_WORKFLOW, async () => {
@@ -225,6 +236,22 @@ function importWorkflowDocument(document: unknown) {
     runId: null,
     payload: { type: 'import-workflow', document },
   });
+}
+
+function importCatalogFile(filePath: string) {
+  try {
+    const size = fs.statSync(filePath).size;
+    assertObjectInfoSize(size);
+    const bytes = fs.readFileSync(filePath);
+    assertObjectInfoSize(bytes.length);
+    const parsed = parseObjectInfo(JSON.parse(bytes.toString('utf8')));
+    const result = upsertObjectInfo(getDatabase(), parsed);
+    return { status: 'applied' as const, result };
+  } catch (error) {
+    if (error instanceof ObjectInfoError) return { status: 'rejected' as const, error: error.message };
+    if (error instanceof SyntaxError) return { status: 'rejected' as const, error: 'Catalog JSON could not be parsed.' };
+    return { status: 'rejected' as const, error: 'Catalog snapshot could not be read.' };
+  }
 }
 
 function exportWorkflowDocument() {

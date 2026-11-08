@@ -131,10 +131,11 @@ function applyVersion2(db: Database.Database): void {
  * Version 1 adds settings, runs, applied_commands, and secret_records.
  * Version 2 adds the current revision pointer and monotonic rev_seq.
  * Version 3 stores the workflow document and the local node/model catalog.
+ * Version 4 adds object_info guidance columns on node_catalog.
  */
 export function migrate(db: Database.Database, options?: { failBeforeVersionStamp?: boolean }): void {
   const version = schemaVersion(db);
-  if (version > 3) {
+  if (version > 4) {
     throw new Error(`Unsupported schema version ${version}`);
   }
   if (version < 1) {
@@ -160,5 +161,28 @@ export function migrate(db: Database.Database, options?: { failBeforeVersionStam
       db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (3, ?)').run(Date.now());
     });
     apply.immediate();
+  }
+  if (schemaVersion(db) === 3) {
+    const apply = db.transaction(() => {
+      applyVersion4(db);
+      db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (4, ?)').run(Date.now());
+    });
+    apply.immediate();
+  }
+}
+
+function applyVersion4(db: Database.Database): void {
+  const columns = columnNames(db, 'node_catalog');
+  if (!columns.includes('python_module')) {
+    db.exec("ALTER TABLE node_catalog ADD COLUMN python_module TEXT NOT NULL DEFAULT 'nodes'");
+  }
+  if (!columns.includes('inputs_json')) {
+    db.exec("ALTER TABLE node_catalog ADD COLUMN inputs_json TEXT NOT NULL DEFAULT '[]'");
+  }
+  if (!columns.includes('outputs_json')) {
+    db.exec("ALTER TABLE node_catalog ADD COLUMN outputs_json TEXT NOT NULL DEFAULT '[]'");
+  }
+  if (!columns.includes('widget_order_json')) {
+    db.exec("ALTER TABLE node_catalog ADD COLUMN widget_order_json TEXT NOT NULL DEFAULT '[]'");
   }
 }

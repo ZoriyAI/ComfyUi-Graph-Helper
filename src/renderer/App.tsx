@@ -60,6 +60,16 @@ function App() {
     setWorkflowNote(`Imported format ${report.formatVersion}. ${nodeText} ${modelText}`);
   };
 
+  const handleCatalog = async () => {
+    const result = await window.electronAPI.importCatalog();
+    if (!result || result.status === 'cancelled') return;
+    if (result.status === 'rejected') {
+      setWorkflowNote(result.error);
+      return;
+    }
+    setWorkflowNote(`Catalog snapshot imported. Nodes: ${result.result.nodes}. Models: ${result.result.models}.`);
+  };
+
   const handleExport = async () => {
     const result = await window.electronAPI.exportWorkflow();
     if (!result.ok && result.canceled) return;
@@ -114,6 +124,9 @@ function App() {
           </div>
           <button type="button" className="ghost-button" onClick={() => void handleImport()}>
             Import
+          </button>
+          <button type="button" className="ghost-button" onClick={() => void handleCatalog()}>
+            Catalog snapshot
           </button>
           <button type="button" className="ghost-button" onClick={() => void handleExport()}>
             Export

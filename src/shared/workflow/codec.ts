@@ -1,3 +1,5 @@
+import type { CatalogView } from '../catalog/types';
+
 export const WORKFLOW_FORMAT_V1 = 1;
 export const WORKFLOW_FORMAT_V04 = 0.4;
 
@@ -14,10 +16,7 @@ export interface GraphSnapshot {
   document: WorkflowDocumentState | null;
 }
 
-export interface CatalogView {
-  nodeTypes: string[];
-  models: Array<{ directory: string; name: string }>;
-}
+export type { CatalogView } from '../catalog/types';
 
 export interface MissingReport {
   missingNodes: string[];
@@ -421,25 +420,51 @@ export function exportWorkflow(snapshot: GraphSnapshot, exportedAt: string): { o
 
 export function missingDeps(document: unknown, catalog: CatalogView): MissingReport {
   const record = document && typeof document === 'object' ? (document as Record<string, unknown>) : {};
-  const nodes = Array.isArray(record.nodes) ? record.nodes : [];
   const types = new Set<string>();
-  for (const node of nodes) {
-    if (node && typeof node === 'object' && typeof (node as { type?: unknown }).type === 'string') {
-      types.add((node as { type: string }).type);
+  const modelRows: unknown[] = Array.isArray(record.models) ? [...record.models] : [];
+  for (const node of workflowNodes(record)) {
+    if (typeof node.type === 'string') types.add(node.type);
+    const properties = node.properties;
+    if (properties && typeof properties === 'object' && !Array.isArray(properties)) {
+      const models = (properties as { models?: unknown }).models;
+      if (Array.isArray(models)) modelRows.push(...models);
     }
   }
   const knownNodes = new Set(catalog.nodeTypes);
   const missingNodes = [...types].filter((type) => !knownNodes.has(type)).sort();
-  const models = Array.isArray(record.models) ? record.models : [];
   const knownModels = new Set(catalog.models.map((model) => `${model.directory}/${model.name}`));
-  const missingModels = models.flatMap((model) => {
+  const seen = new Set<string>();
+  const missingModels = modelRows.flatMap((model) => {
     if (!model || typeof model !== 'object') return [];
     const row = model as { directory?: unknown; name?: unknown };
     if (typeof row.directory !== 'string' || typeof row.name !== 'string') return [];
     const key = `${row.directory}/${row.name}`;
-    return knownModels.has(key) ? [] : [{ directory: row.directory, name: row.name }];
+    if (knownModels.has(key) || seen.has(key)) return [];
+    seen.add(key);
+    return [{ directory: row.directory, name: row.name }];
   });
   return { missingNodes, missingModels };
+}
+
+function workflowNodes(record: Record<string, unknown>): Array<{ type?: unknown; properties?: unknown }> {
+  const found: Array<{ type?: unknown; properties?: unknown }> = [];
+  const take = (list: unknown) => {
+    if (!Array.isArray(list)) return;
+    for (const node of list) {
+      if (node && typeof node === 'object') found.push(node as { type?: unknown; properties?: unknown });
+    }
+  };
+  take(record.nodes);
+  const definitions = record.definitions;
+  const subgraphs = definitions && typeof definitions === 'object' && !Array.isArray(definitions)
+    ? (definitions as { subgraphs?: unknown }).subgraphs
+    : undefined;
+  if (Array.isArray(subgraphs)) {
+    for (const subgraph of subgraphs) {
+      if (subgraph && typeof subgraph === 'object') take((subgraph as { nodes?: unknown }).nodes);
+    }
+  }
+  return found;
 }
 
 export function toApiPrompt(snapshot: GraphSnapshot): Record<string, { class_type: string; inputs: Record<string, unknown> }> {

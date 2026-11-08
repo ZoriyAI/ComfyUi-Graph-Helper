@@ -150,7 +150,7 @@ describe('workflow codec', () => {
     ]);
 
     db.prepare('INSERT INTO model_catalog (directory, name) VALUES (?, ?)').run('checkpoints', 'model.safetensors');
-    expect(missingDeps(uiV1, { nodeTypes: ['CheckpointLoaderSimple', 'CLIPTextEncode', 'MissingNode'], models: [{ directory: 'checkpoints', name: 'model.safetensors' }] }).missingModels).toEqual([]);
+    expect(missingDeps(uiV1, { nodeTypes: ['CheckpointLoaderSimple', 'CLIPTextEncode', 'MissingNode'], models: [{ directory: 'checkpoints', name: 'model.safetensors' }], nodes: [] }).missingModels).toEqual([]);
     db.close();
   });
 

@@ -10,6 +10,8 @@ import {
   type Projection,
   type RunStart,
 } from '../../shared/commands/types';
+import { widgetIndexFor } from '../../shared/catalog/objectInfo';
+import type { CatalogView } from '../../shared/catalog/types';
 import { ensureCatalog, readCatalog } from '../catalog/repository';
 import { inferInputs, inferOutputs } from '../../shared/graph/ports';
 import { DESKTOP_PROJECT_ID } from '../../shared/project';
@@ -127,7 +129,7 @@ export function ensureWorkspace(db: Database.Database): void {
   ensureCatalog(db);
 }
 
-function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutation): { snapshot: Snapshot; result: Record<string, unknown> } {
+function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutation, catalog: CatalogView): { snapshot: Snapshot; result: Record<string, unknown> } {
   const nodes: Array<Record<string, any>> = snapshot.nodes.map((node) => ({
     ...node,
     data: { ...node.data },
@@ -178,11 +180,13 @@ function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutat
     const node = nodes.find((item) => item.id === payload.nodeId);
     if (!node) throw new CommandSignal('rejected');
     const widgets = node.data?.comfy?.widgets_values;
-    if (Array.isArray(widgets) && payload.widgetIndex === undefined) {
+    const resolved = widgetIndexFor(catalog, String(node.data?.comfyType ?? ''), payload.key);
+    const widgetIndex = resolved !== undefined ? resolved : payload.widgetIndex;
+    if (Array.isArray(widgets) && widgetIndex === undefined) {
       throw new CommandSignal('rejected', { error: 'widgetIndex is required when widgets_values is an array.' });
     }
     const comfy = node.data.comfy && typeof node.data.comfy === 'object' ? { ...node.data.comfy } : {};
-    patchWidgets(comfy, payload.key, payload.value, payload.widgetIndex);
+    patchWidgets(comfy, payload.key, payload.value, widgetIndex);
     node.data = {
       ...node.data,
       parameters: { ...(node.data.parameters ?? {}), [payload.key]: payload.value },
@@ -307,7 +311,7 @@ export function commitCommand(
         throw new CommandSignal('conflict');
       }
 
-      const applied = applyMutation(current.snapshot, request.actionId, request.payload);
+      const applied = applyMutation(current.snapshot, request.actionId, request.payload, readCatalog(db));
       if (request.payload.type === 'import-workflow') {
         applied.result = {
           ...applied.result,

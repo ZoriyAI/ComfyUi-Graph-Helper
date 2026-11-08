@@ -69,7 +69,7 @@ describe('settings migration', () => {
     db.close();
 
     const reopened = new Database(dbPath);
-    expect(schemaVersion(reopened)).toBe(3);
+    expect(schemaVersion(reopened)).toBe(4);
     expect(readSettings(reopened)).toMatchObject({
       source: 'stored',
       values: {
@@ -92,6 +92,37 @@ describe('settings migration', () => {
     expect(readSettings(db).source).toBe('corrupt');
     const row = db.prepare('SELECT theme FROM settings WHERE id = 1').get() as { theme: string };
     expect(row.theme).toBe('not-a-theme');
+    db.close();
+  });
+
+  it('keeps a version 3 catalog row when guidance columns are added', () => {
+    const db = new Database(':memory:');
+    db.exec(`
+      CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, applied_at INTEGER NOT NULL);
+      INSERT INTO schema_migrations (version, applied_at) VALUES (3, 1);
+      CREATE TABLE node_catalog (class_type TEXT PRIMARY KEY, pack TEXT NOT NULL);
+      INSERT INTO node_catalog (class_type, pack) VALUES ('CheckpointLoaderSimple', 'core');
+      CREATE TABLE model_catalog (directory TEXT NOT NULL, name TEXT NOT NULL, PRIMARY KEY (directory, name));
+    `);
+    migrate(db);
+    expect(schemaVersion(db)).toBe(4);
+    const columns = db.prepare('PRAGMA table_info(node_catalog)').all() as Array<{ name: string }>;
+    expect(columns.map((column) => column.name)).toEqual([
+      'class_type',
+      'pack',
+      'python_module',
+      'inputs_json',
+      'outputs_json',
+      'widget_order_json',
+    ]);
+    const row = db.prepare('SELECT pack, python_module FROM node_catalog WHERE class_type = ?').get('CheckpointLoaderSimple') as {
+      pack: string;
+      python_module: string;
+    };
+    expect(row).toEqual({ pack: 'core', python_module: 'nodes' });
+    db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (5, 1)').run();
+    expect(() => migrate(db)).toThrow(/Unsupported schema version 5/);
+    expect(schemaVersion(db)).toBe(5);
     db.close();
   });
 

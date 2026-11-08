@@ -19,6 +19,7 @@ export const IPC_CHANNELS = {
   
   // File operations
   FILE_IMPORT_WORKFLOW: 'file:import-workflow',
+  FILE_IMPORT_CATALOG: 'file:import-catalog',
   FILE_EXPORT_WORKFLOW: 'file:export-workflow',
   WORKFLOW_EXPORT_DOCUMENT: 'workflow:export-document',
   FILE_SELECT_DIRECTORY: 'file:select-directory',
