@@ -49,7 +49,7 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
     const metrics = await window.evaluate(() => {
       const styles = getComputedStyle(document.documentElement);
       const title = document.querySelector('.app-title');
-      const note = document.querySelector('.provider-note');
+      const note = document.querySelector('.provider-chip');
       const disabled = document.querySelector('.ghost-button:disabled');
       const read = (element: Element | null) => element ? getComputedStyle(element).color : '';
       const undo = document.querySelector('button[disabled]');
@@ -89,9 +89,25 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
       console.log(`CANVAS_1024 ${canvas} dock=${dock}`);
       expect(dock).toBe(336);
       expect(canvas).toBe(688);
-      const toolbarOverflow = await window.locator('.workspace-toolbar').evaluate((element) => element.scrollWidth - element.clientWidth);
-      console.log(`TOOLBAR_1024 overflow=${toolbarOverflow}`);
-      expect(toolbarOverflow).toBe(0);
+      const toolbar = await window.locator('.workspace-toolbar').evaluate((element) => {
+        const trigger = element.querySelector('#chat-provider');
+        const value = trigger?.querySelector('span');
+        const range = document.createRange();
+        if (value) range.selectNodeContents(value);
+        return {
+          overflow: element.scrollWidth - element.clientWidth,
+          height: Math.round(element.getBoundingClientRect().height),
+          lines: value ? range.getClientRects().length : 0,
+          valueHeight: value ? Math.round(value.getBoundingClientRect().height) : 0,
+          label: value?.textContent ?? '',
+        };
+      });
+      console.log(`TOOLBAR_1024 overflow=${toolbar.overflow} height=${toolbar.height} lines=${toolbar.lines} valueHeight=${toolbar.valueHeight} label=${toolbar.label}`);
+      expect(toolbar.overflow).toBe(0);
+      expect(toolbar.height).toBe(40);
+      expect(toolbar.lines).toBe(1);
+      expect(toolbar.valueHeight).toBeLessThanOrEqual(20);
+      expect(toolbar.label).toBe('Not configured');
     }
     await window.screenshot({ path: path.join(artifactDir, `desktop-${name}-empty.png`) });
     const showBoth = window.getByRole('button', { name: 'Show both' });
@@ -147,12 +163,88 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
   await window.locator('.react-flow__controls-fitview').click();
   await window.screenshot({ path: path.join(artifactDir, 'desktop-1280-graph.png') });
   await window.screenshot({ path: path.join(artifactDir, 'desktop-1280-inspector.png') });
+  await window.getByRole('button', { name: 'Settings', exact: true }).click();
+  const contrastDialog = window.locator('[role="dialog"].settings-dialog');
+  await contrastDialog.getByRole('tab', { name: 'Connection' }).click();
+  await contrastDialog.getByRole('textbox', { name: 'Comfy origin' }).fill('https://example.test');
+  await contrastDialog.getByRole('textbox', { name: 'Comfy origin' }).focus();
+  await window.keyboard.press('Tab');
+  await window.keyboard.press('Shift+Tab');
+  await expect.poll(async () => contrastDialog.getByRole('button', { name: 'Save settings' }).evaluate((button) => getComputedStyle(button).backgroundColor)).toBe('rgb(101, 217, 237)');
+  const rendered = await window.evaluate(() => {
+    const paint = (element: Element | null, pseudo?: string) => element ? getComputedStyle(element, pseudo) : null;
+    const neighbor = (element: Element | null) => {
+      let node = element?.parentElement ?? null;
+      while (node) {
+        const color = getComputedStyle(node).backgroundColor;
+        const parts = color.match(/[\d.]+/g)?.map(Number) ?? [];
+        if (parts.length < 4 || parts[3] > 0.9) return color;
+        node = node.parentElement;
+      }
+      return 'rgb(0, 0, 0)';
+    };
+    const input = document.querySelector('input[aria-label="Comfy origin"]');
+    const disabled = document.querySelector('input[aria-label="API key"]');
+    const save = [...document.querySelectorAll('button')].find((button) => button.textContent === 'Save settings') ?? null;
+    const handle = document.querySelector('.graph-node .react-flow__handle');
+    const edge = document.querySelector('.react-flow__edge path');
+    const inputStyle = paint(input);
+    const disabledStyle = paint(disabled);
+    const saveStyle = paint(save);
+    return {
+      inputColor: inputStyle?.color ?? '',
+      inputBg: inputStyle?.backgroundColor ?? '',
+      inputBorder: inputStyle?.borderTopColor ?? '',
+      disabledColor: disabledStyle?.color ?? '',
+      disabledBg: disabledStyle?.backgroundColor ?? '',
+      disabledBorder: disabledStyle?.borderTopColor ?? '',
+      dialogBg: paint(document.querySelector('.settings-dialog'))?.backgroundColor ?? '',
+      saveColor: saveStyle?.color ?? '',
+      saveBg: saveStyle?.backgroundColor ?? '',
+      focusOutline: inputStyle?.outlineColor ?? '',
+      focusNeighbor: neighbor(input),
+      port: paint(handle, '::after')?.backgroundColor ?? '',
+      nodeBg: paint(handle?.closest('.graph-node') ?? null)?.backgroundColor ?? '',
+      edge: paint(edge)?.stroke ?? '',
+      canvasBg: paint(document.querySelector('.graph-canvas'))?.backgroundColor ?? '',
+    };
+  });
+  const pairs = {
+    inputText: contrast(rendered.inputColor, rendered.inputBg),
+    disabledText: contrast(rendered.disabledColor, rendered.disabledBg),
+    inputBorder: contrast(rendered.inputBorder, rendered.dialogBg),
+    disabledBorder: contrast(rendered.disabledBorder, rendered.dialogBg),
+    save: contrast(rendered.saveColor, rendered.saveBg),
+    focus: contrast(rendered.focusOutline, rendered.focusNeighbor),
+    port: contrast(rendered.port, rendered.nodeBg),
+    edge: contrast(rendered.edge, rendered.canvasBg),
+  };
+  console.log(`RENDERED_CONTRAST ${Object.entries(pairs).map(([name, value]) => `${name}=${value.toFixed(2)}`).join(' ')}`);
+  console.log(`RENDERED_COLORS input=${rendered.inputBg}/${rendered.inputBorder} disabled=${rendered.disabledBg}/${rendered.disabledBorder} save=${rendered.saveBg}/${rendered.saveColor} focus=${rendered.focusOutline} on ${rendered.focusNeighbor} port=${rendered.port} on ${rendered.nodeBg} edge=${rendered.edge} on ${rendered.canvasBg}`);
+  expect(rendered.inputBg).not.toBe(rendered.disabledBg);
+  expect(pairs.inputText).toBeGreaterThanOrEqual(4.5);
+  expect(pairs.disabledText).toBeGreaterThanOrEqual(4.5);
+  expect(pairs.inputBorder).toBeGreaterThanOrEqual(3);
+  expect(pairs.disabledBorder).toBeGreaterThanOrEqual(3);
+  expect(pairs.save).toBeGreaterThanOrEqual(4.5);
+  expect(pairs.focus).toBeGreaterThanOrEqual(3);
+  expect(pairs.port).toBeGreaterThanOrEqual(3);
+  expect(pairs.edge).toBeGreaterThanOrEqual(3);
+  await window.keyboard.press('Escape');
+  await expect(contrastDialog).toHaveCount(0);
   await window.getByRole('tab', { name: 'Assistant' }).click();
   await window.screenshot({ path: path.join(artifactDir, 'desktop-1280-assistant.png') });
   await window.getByRole('button', { name: 'Show both' }).click();
   await expect(window.getByRole('region', { name: 'Inspector' })).toBeVisible();
   await expect(window.getByRole('textbox', { name: 'Chat message' })).toBeVisible();
   await window.screenshot({ path: path.join(artifactDir, 'desktop-1280-split.png') });
+  const osScale = await electronApp.evaluate(({ screen }) => {
+    const display = screen.getPrimaryDisplay();
+    return { scaleFactor: display.scaleFactor, size: display.size, workArea: display.workAreaSize };
+  });
+  console.log(`OS_SCALE ${JSON.stringify(osScale)} limit=this Linux session cannot change the host display scale; setZoomFactor below is page zoom, not OS DPI`);
+  expect(osScale.scaleFactor).toBeGreaterThan(0);
+
   const zoomTo = async (factor: number) => {
     await electronApp.evaluate(({ BrowserWindow }, next) => {
       BrowserWindow.getAllWindows()[0].webContents.setZoomFactor(next);
@@ -192,6 +284,32 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
   await window.reload();
   await window.locator('#chat-provider').waitFor();
   await expect(window.locator('.react-flow__node')).toHaveCount(100);
-  console.log(`NODES_100 ${Date.now() - started}ms`);
+  await expect(window.locator('.react-flow__edge')).toHaveCount(150);
+  console.log(`NODES_100 ${Date.now() - started}ms edges=150`);
+  const pan = await window.evaluate(async () => {
+    const pane = document.querySelector('.react-flow__pane');
+    if (!(pane instanceof HTMLElement)) return { frames: 0, elapsed: 0 };
+    const rect = pane.getBoundingClientRect();
+    const start = performance.now();
+    const times: number[] = [];
+    const point = (x: number, y: number) => ({ clientX: x, clientY: y, bubbles: true, cancelable: true });
+    pane.dispatchEvent(new PointerEvent('pointerdown', { ...point(rect.left + 40, rect.top + 40), pointerId: 1, buttons: 1 }));
+    const done = new Promise<void>((resolve) => {
+      const tick = (now: number) => {
+        times.push(now);
+        const step = times.length;
+        pane.dispatchEvent(new PointerEvent('pointermove', { ...point(rect.left + 40 + step, rect.top + 40), pointerId: 1, buttons: 1 }));
+        if (performance.now() - start < 400) requestAnimationFrame(tick);
+        else resolve();
+      };
+      requestAnimationFrame(tick);
+    });
+    await done;
+    pane.dispatchEvent(new PointerEvent('pointerup', { ...point(rect.left + 80, rect.top + 40), pointerId: 1 }));
+    const elapsed = times.length > 1 ? times[times.length - 1] - times[0] : 0;
+    return { frames: times.length, elapsed: Math.round(elapsed) };
+  });
+  console.log(`PAN_FRAMES ${pan.frames} elapsed=${pan.elapsed}ms`);
+  expect(pan.frames).toBeGreaterThan(1);
   await electronApp.close();
 });

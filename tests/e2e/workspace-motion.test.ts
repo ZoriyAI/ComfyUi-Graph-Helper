@@ -108,6 +108,58 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
   const window = await electronApp.firstWindow();
   await window.locator('#chat-provider').waitFor();
   await expect(window.getByText('The graph is empty.')).toBeVisible();
+  await window.evaluate(() => (document.activeElement instanceof HTMLElement ? document.activeElement.blur() : undefined));
+  const route: string[] = [];
+  for (let step = 0; step < 40 && new Set(route).size < 4; step += 1) {
+    await window.keyboard.press('Tab');
+    route.push(await window.evaluate(() => {
+      const element = document.activeElement;
+      if (element?.closest('.document-bar')) return 'shell';
+      if (element?.closest('.workspace-toolbar')) return 'toolbar';
+      if (element?.closest('.react-flow')) return 'canvas';
+      if (element?.closest('#tool-dock')) return 'dock';
+      return 'other';
+    }));
+  }
+  console.log(`KEYBOARD_ROUTE ${route.join('>')}`);
+  expect(route.indexOf('shell')).toBeGreaterThanOrEqual(0);
+  expect(route.indexOf('toolbar')).toBeGreaterThan(route.indexOf('shell'));
+  expect(route.indexOf('canvas')).toBeGreaterThan(route.indexOf('toolbar'));
+  expect(route.indexOf('dock')).toBeGreaterThan(route.indexOf('canvas'));
+  for (let step = 0; step < 40; step += 1) {
+    const onSettings = await window.evaluate(() => (
+      document.activeElement instanceof HTMLButtonElement && document.activeElement.textContent === 'Settings'
+    ));
+    if (onSettings) break;
+    await window.keyboard.press('Tab');
+  }
+  await window.keyboard.press('Enter');
+  const routeDialog = window.locator('[role="dialog"].settings-dialog');
+  await expect(routeDialog).toHaveAttribute('data-state', 'open');
+  await window.keyboard.press('Shift+Tab');
+  await expect.poll(async () => window.evaluate(() => document.activeElement?.textContent?.trim() ?? '')).toBe('Connection');
+  await window.keyboard.press('ArrowDown');
+  await expect.poll(async () => window.evaluate(() => document.activeElement?.textContent?.trim() ?? '')).toBe('Assistant');
+  await window.keyboard.press('ArrowDown');
+  await expect.poll(async () => window.evaluate(() => document.activeElement?.textContent?.trim() ?? '')).toBe('Appearance & Motion');
+  await window.keyboard.press('Tab');
+  await expect.poll(async () => window.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? '')).toBe('Motion');
+  await window.keyboard.press('Enter');
+  await expect(window.getByRole('option', { name: 'System', exact: true })).toBeVisible();
+  await window.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(undefined)))));
+  let selectEscapes = 0;
+  for (; selectEscapes < 2 && await window.locator('.select-content[data-state="open"]').count() > 0; selectEscapes += 1) {
+    await window.keyboard.press('Escape');
+  }
+  console.log(`NESTED_ESCAPE presses=${selectEscapes}`);
+  await expect(window.locator('.select-content')).toHaveCount(0);
+  await expect(routeDialog).toHaveAttribute('data-state', 'open');
+  await window.keyboard.press('Escape');
+  await expect(routeDialog).toHaveCount(0);
+  await expect.poll(async () => window.evaluate(() => (
+    document.activeElement instanceof HTMLButtonElement && document.activeElement.textContent === 'Settings'
+  ))).toBe(true);
+  console.log('KEYBOARD_ROUTE settings>nested-select>escape>restore');
   const separator = window.getByRole('separator', { name: 'Resize tools' });
   const dockMin = await separator.getAttribute('aria-valuemin');
   const dockMax = await separator.getAttribute('aria-valuemax');
@@ -191,22 +243,23 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
       .map((element) => element.getAttribute('aria-label') || element.textContent || '');
   });
   expect(focusables.length).toBeGreaterThan(1);
+  const focusMarker = () => window.evaluate(() => {
+    const element = document.activeElement;
+    return element?.getAttribute('aria-label') || element?.textContent?.trim() || '';
+  });
   await window.evaluate(() => {
     const dialog = document.querySelector('[role="dialog"]');
     const items = [...dialog!.querySelectorAll<HTMLElement>('button, input, textarea, select, [role="tab"], [role="combobox"]')]
       .filter((element) => !element.closest('[hidden]') && !element.hasAttribute('disabled') && element.getAttribute('aria-disabled') !== 'true' && element.tabIndex >= 0 && element.getClientRects().length > 0);
     items[0].focus();
   });
+  const firstMarker = await focusMarker();
+  const lastMarker = focusables[focusables.length - 1].trim();
   await window.keyboard.press('Shift+Tab');
-  await expect.poll(async () => window.evaluate(() => document.activeElement?.closest('[role="dialog"]') != null)).toBe(true);
-  await window.evaluate(() => {
-    const dialog = document.querySelector('[role="dialog"]');
-    const items = [...dialog!.querySelectorAll<HTMLElement>('button, input, textarea, select, [role="tab"], [role="combobox"]')]
-      .filter((element) => !element.closest('[hidden]') && !element.hasAttribute('disabled') && element.getAttribute('aria-disabled') !== 'true' && element.tabIndex >= 0 && element.getClientRects().length > 0);
-    items[items.length - 1].focus();
-  });
+  await expect.poll(focusMarker).toBe(lastMarker);
+  expect(lastMarker).not.toBe(firstMarker);
   await window.keyboard.press('Tab');
-  await expect.poll(async () => window.evaluate(() => document.activeElement?.closest('[role="dialog"]') != null)).toBe(true);
+  await expect.poll(focusMarker).toBe(firstMarker);
   const columns = [];
   for (const label of ['Connection', 'Assistant', 'Appearance & Motion']) {
     await dialog.getByRole('tab', { name: label }).click();
@@ -214,16 +267,22 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
       const box = panel.getBoundingClientRect();
       const dialogBox = panel.closest('[role="dialog"]')!.getBoundingClientRect();
       const inactive = [...panel.parentElement!.querySelectorAll('.settings-panel')].filter((item) => item !== panel);
+      const control = panel.querySelector('input, [role="combobox"]');
+      const controlBox = control?.getBoundingClientRect();
       return {
         x: Math.round(box.x),
         width: Math.round(box.width),
         floor: Math.round(dialogBox.width - 176 - 16),
+        controlWidth: controlBox ? Math.round(controlBox.width) : 0,
         inactiveHidden: inactive.every((item) => getComputedStyle(item).display === 'none'),
       };
     });
     expect(sample.inactiveHidden).toBe(true);
     expect(sample.width).toBeGreaterThanOrEqual(sample.floor);
-    columns.push(`${sample.x}:${sample.width}`);
+    expect(sample.controlWidth).toBeGreaterThanOrEqual(420);
+    expect(sample.controlWidth).toBeLessThanOrEqual(520);
+    expect(sample.controlWidth).toBeLessThan(sample.width - 48);
+    columns.push(`${sample.x}:${sample.width}:${sample.controlWidth}`);
   }
   expect(new Set(columns).size).toBe(1);
   console.log(`SETTINGS_COLUMNS ${columns[0]}`);

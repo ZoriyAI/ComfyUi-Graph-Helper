@@ -105,21 +105,41 @@ export function hundredNodeWorkflow() {
     return {
       id,
       type: 'CheckpointLoaderSimple',
-      pos: [(index % 10) * 240, Math.floor(index / 10) * 160],
+      pos: [(index % 10) * 280, Math.floor(index / 10) * 180],
       size: [200, 80],
       flags: {},
       order: index,
       mode: 0,
       properties: {},
       title: `Node ${id}`,
-      inputs: [],
+      inputs: [{ name: dataType, type: dataType, link: null as number | null }],
       outputs: [{ name: dataType, type: dataType, links: [] as number[] }],
     };
   });
+  const groups = TYPE_CYCLE.map(() => [] as number[]);
+  nodes.forEach((node, index) => groups[index % TYPE_CYCLE.length].push(node.id));
+  const links: Array<{ id: number; origin_id: number; origin_slot: number; target_id: number; target_slot: number; type: string }> = [];
+  let linkId = 1;
+  TYPE_CYCLE.forEach((dataType, groupIndex) => {
+    const ids = groups[groupIndex];
+    for (let offset = 1; links.filter((link) => link.type === dataType).length < 25 && offset < ids.length; offset += 1) {
+      for (let index = 0; index + offset < ids.length && links.filter((link) => link.type === dataType).length < 25; index += 1) {
+        links.push({
+          id: linkId,
+          origin_id: ids[index],
+          origin_slot: 0,
+          target_id: ids[index + offset],
+          target_slot: 0,
+          type: dataType,
+        });
+        linkId += 1;
+      }
+    }
+  });
   return {
     version: 1,
-    state: { lastNodeId: 100, lastLinkId: 0 },
+    state: { lastNodeId: 100, lastLinkId: links.length },
     nodes,
-    links: [],
+    links,
   };
 }

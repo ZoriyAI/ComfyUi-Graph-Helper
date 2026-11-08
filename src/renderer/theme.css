@@ -19,7 +19,14 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .document-bar { justify-content: space-between; height: 48px; padding: 0 12px; border-bottom: 1px solid var(--line); }
 .workspace-toolbar { height: 40px; padding: 0 8px; gap: 4px; border-bottom: 1px solid var(--line); overflow: hidden; flex-wrap: nowrap; }
 .workspace-toolbar .ghost-button { padding: 4px 8px; }
-.workspace-toolbar .select-trigger { min-width: 0; width: auto; max-width: 148px; flex: 0 1 148px; }
+.workspace-toolbar .select-trigger {
+  min-width: max-content;
+  width: auto;
+  max-width: none;
+  flex: 0 0 auto;
+  height: 32px;
+  white-space: nowrap;
+}
 .ghost-button, .status-chip { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 .hint-target { display: inline-flex; }
 .hint-content { z-index: 40; max-width: 240px; padding: 6px 8px; border-radius: 6px; background: var(--bg-raised); color: var(--text); border: 1px solid var(--line); font-size: 12px; line-height: 18px; }
@@ -38,6 +45,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   padding: 0 10px;
   font-size: 12px;
 }
+.provider-chip { max-width: 240px; overflow: hidden; text-overflow: ellipsis; }
 .banner { margin: 0; padding: 6px 12px; font-size: 12px; line-height: 18px; color: var(--text-dim); background: var(--bg-raised); }
 .select-trigger {
   background: var(--bg-sunken);
@@ -57,7 +65,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   color: var(--text);
 }
 .field input:disabled {
-  border-color: var(--line);
+  border-color: var(--text-faint);
   background: var(--surface);
   color: var(--text-faint);
   -webkit-text-fill-color: var(--text-faint);
@@ -340,6 +348,11 @@ html[data-motion="reduced"] .react-flow__connection .animated { animation: none;
 .settings-panel[data-state="inactive"],
 .settings-panel[hidden] { display: none; }
 .settings-panel h3 { margin: 0; font-size: 14px; line-height: 20px; font-weight: 600; color: var(--text); }
+.settings-panel .field { width: min(100%, 65ch); font-size: 14px; line-height: 20px; }
+.settings-panel .select-trigger { width: 100%; font-size: 14px; line-height: 20px; }
+.settings-panel > .field-hint,
+.settings-panel > h3,
+.settings-panel > .ghost-button { width: min(100%, 65ch); }
 .settings-actions { display: flex; flex-direction: column; align-items: stretch; gap: 8px; border-top: 1px solid var(--line); }
 .settings-buttons { display: flex; justify-content: flex-end; gap: 8px; }
 .settings-heading { margin: 0; font-size: 18px; line-height: 24px; font-weight: 600; color: var(--text); }

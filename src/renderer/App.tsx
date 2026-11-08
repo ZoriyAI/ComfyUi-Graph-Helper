@@ -132,6 +132,9 @@ function App() {
               ComfyUI not connected
             </button>
           </Hint>
+          <Hint label={providerNote}>
+            <span className="status-chip provider-chip" role="status" title={providerNote}>{providerNote}</span>
+          </Hint>
           <SettingsPanel
             onRead={(values) => {
               if (sessionOverride.current) return;
@@ -190,7 +193,6 @@ function App() {
           }}
         />
       </div>
-      {providerNote ? <p className="provider-note banner">{providerNote}</p> : null}
       {workflowNote ? <p className="workflow-report banner" role="status">{workflowNote}</p> : null}
       <div className="app-body">
         <div className="graph-pane">

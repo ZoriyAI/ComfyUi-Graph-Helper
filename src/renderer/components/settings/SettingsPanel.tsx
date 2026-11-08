@@ -184,10 +184,10 @@ export default function SettingsPanel({
             orientation="vertical"
             className="settings-layout"
           >
-            <TabsList className="settings-nav" aria-label="Settings sections">
-              <TabsTrigger className="settings-tab" value="connection">Connection</TabsTrigger>
-              <TabsTrigger className="settings-tab" value="assistant">Assistant</TabsTrigger>
-              <TabsTrigger className="settings-tab" value="appearance">Appearance & Motion</TabsTrigger>
+            <TabsList className="settings-nav" aria-label="Settings sections" tabIndex={-1}>
+              <TabsTrigger className="settings-tab" value="connection" tabIndex={section === 'connection' ? 0 : -1}>Connection</TabsTrigger>
+              <TabsTrigger className="settings-tab" value="assistant" tabIndex={section === 'assistant' ? 0 : -1}>Assistant</TabsTrigger>
+              <TabsTrigger className="settings-tab" value="appearance" tabIndex={section === 'appearance' ? 0 : -1}>Appearance & Motion</TabsTrigger>
             </TabsList>
             <TabsContent className="settings-panel" value="connection" tabIndex={-1}>
               <h3>Connection</h3>
