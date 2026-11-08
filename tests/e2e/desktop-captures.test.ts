@@ -89,6 +89,9 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
       console.log(`CANVAS_1024 ${canvas} dock=${dock}`);
       expect(dock).toBe(336);
       expect(canvas).toBe(688);
+      const toolbarOverflow = await window.locator('.workspace-toolbar').evaluate((element) => element.scrollWidth - element.clientWidth);
+      console.log(`TOOLBAR_1024 overflow=${toolbarOverflow}`);
+      expect(toolbarOverflow).toBe(0);
     }
     await window.screenshot({ path: path.join(artifactDir, `desktop-${name}-empty.png`) });
     const showBoth = window.getByRole('button', { name: 'Show both' });

@@ -17,9 +17,9 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   border-color: var(--line);
 }
 .document-bar { justify-content: space-between; height: 48px; padding: 0 12px; border-bottom: 1px solid var(--line); }
-.workspace-toolbar { height: 40px; padding: 0 8px; gap: 4px; border-bottom: 1px solid var(--line); overflow-x: auto; flex-wrap: nowrap; }
+.workspace-toolbar { height: 40px; padding: 0 8px; gap: 4px; border-bottom: 1px solid var(--line); overflow: hidden; flex-wrap: nowrap; }
 .workspace-toolbar .ghost-button { padding: 4px 8px; }
-.workspace-toolbar .select-trigger { min-width: 132px; }
+.workspace-toolbar .select-trigger { min-width: 0; width: auto; max-width: 148px; flex: 0 1 148px; }
 .ghost-button, .status-chip { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 .hint-target { display: inline-flex; }
 .hint-content { z-index: 40; max-width: 240px; padding: 6px 8px; border-radius: 6px; background: var(--bg-raised); color: var(--text); border: 1px solid var(--line); font-size: 12px; line-height: 18px; }
