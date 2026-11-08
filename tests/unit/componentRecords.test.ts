@@ -168,7 +168,7 @@ describe('component records and native projects', () => {
       graph: { nodes: snapshot.nodes, edges: snapshot.edges, document: snapshot.document },
       components: snapshot.components!,
     });
-    expect(native).toMatchObject({ format: 'comfy-graph-helper-project', version: 1 });
+    expect(native).toMatchObject({ format: 'comfy-graph-helper-project', version: 2 });
     expect(JSON.stringify(native)).toContain(PURPOSE);
     expect(JSON.stringify(native)).toContain(PROCESS_NOTES);
 
@@ -208,8 +208,8 @@ describe('component records and native projects', () => {
     expect(opened.result).toMatchObject({ upgradedFrom: 0, orphans: [] });
     expect((current(db).snapshot as GraphSnapshot).nodes).toHaveLength(1);
 
-    const future = parseNativeProject({ ...native, version: 2 });
-    expect(future).toEqual({ ok: false, error: 'Unsupported native project version 2.' });
+    const future = parseNativeProject({ ...native, version: 3 });
+    expect(future).toEqual({ ok: false, error: 'Unsupported native project version 3.' });
     const duplicate = parseNativeProject({
       ...native,
       components: [...(native.components as unknown[]), (native.components as unknown[])[0]],
