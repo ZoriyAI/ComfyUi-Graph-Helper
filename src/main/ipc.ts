@@ -1,5 +1,4 @@
-import { ipcMain, dialog, BrowserWindow, safeStorage } from 'electron';
-import { jsonSchema } from 'ai';
+import { ipcMain, dialog, safeStorage } from 'electron';
 import { randomUUID } from 'crypto';
 import * as fs from 'fs';
 import { IPC_CHANNELS } from '../shared/ipc-channels';
@@ -19,10 +18,8 @@ import { cancelRun, commitCommand, pauseRun, readProjection, resumeRun, startRun
 import { DESKTOP_PROJECT_ID } from '../shared/project';
 import { assertObjectInfoSize, ObjectInfoError, parseObjectInfo } from '../shared/catalog/objectInfo';
 import { readCatalog, upsertObjectInfo } from './catalog/repository';
-import { mutationFromTool } from '../shared/commands/tools';
 import { parseNativeProject, serializeNativeProject } from '../shared/native-project';
 import { exportWorkflow, type GraphSnapshot } from '../shared/workflow/codec';
-import type { CommandResponse } from '../shared/commands/types';
 import { fileDialogCopy, languageOf } from '../shared/i18n';
 
 let secretDecision: { persist: boolean; backend: string; reason: string } | null = null;
@@ -322,74 +319,7 @@ export async function setupIPC(): Promise<void> {
 
   ipcMain.handle(IPC_CHANNELS.LLM_SESSION_STATUS, () => mainLLMService.sessionStatus());
 
-  ipcMain.handle(
-    IPC_CHANNELS.LLM_STREAM_CHAT,
-    async (event, messages: any[], toolSpecs: any[], responseChannel: string, runContext: { projectId: string; runId: string; expectedRevisionId: string }) => {
-      console.log(`[IPC] Starting LLM stream with ${messages.length} messages, ${toolSpecs.length} tools`);
-      const window = BrowserWindow.fromWebContents(event.sender);
-      if (!window) {
-        throw new Error('Window not found');
-      }
-
-      console.log(`[IPC] LLM_STREAM_CHAT handler START`);
-      
-      try {
-        // Build AI SDK tools with IPC round-trip for execution
-        const tools: Record<string, any> = {};
-        let expectedRevisionId = runContext.expectedRevisionId;
-        console.log(`[IPC] Building tools...`);
-        for (const spec of toolSpecs) {
-          const schema = spec.parameters && typeof spec.parameters === 'object'
-            ? spec.parameters
-            : { type: 'object', properties: {} };
-          tools[spec.name] = {
-            description: spec.description,
-            inputSchema: jsonSchema(schema),
-            execute: async (args: any, options?: { toolCallId?: string }) => {
-              const toolCallId = options?.toolCallId || `${spec.name}-missing-id`;
-              const payload = mutationFromTool(spec.name, args);
-              console.log(`[IPC] Tool ${spec.name} commit ${toolCallId}`);
-              if (!payload) {
-                return { success: false, error: `Unknown tool: ${spec.name}` };
-              }
-              const outcome = commitCommand(getDatabase(), {
-                projectId: runContext.projectId,
-                runId: runContext.runId,
-                actionId: toolCallId,
-                expectedRevisionId,
-                actor: 'ai',
-                payload,
-              });
-              if (outcome.status === 'applied' && outcome.projection?.activeRun) {
-                expectedRevisionId = outcome.projection.activeRun.expectedRevisionId;
-              }
-              if (outcome.projection) {
-                window.webContents.send(responseChannel, { type: 'projection', content: outcome.projection });
-              }
-              return toolOutcome(spec.name, args, outcome);
-            },
-          };
-        }
-
-        console.log(`[IPC] Tools built, starting stream consumption...`);
-        let chunkCount = 0;
-        for await (const chunk of mainLLMService.streamChatWithTools(messages, tools)) {
-          chunkCount++;
-          console.log(`[IPC] Chunk ${chunkCount}: type=${chunk.type}`);
-          if (chunk.type === 'text-delta' || chunk.type === 'text-start' || chunk.type === 'text-end') {
-            console.log('[IPC] Text chunk:', chunk.type, chunk.content?.text || '');
-          }
-          window.webContents.send(responseChannel, chunk);
-        }
-
-        console.log(`[IPC] Stream complete after ${chunkCount} chunks, sending done`);
-        window.webContents.send(responseChannel, { type: 'done' });
-      } catch (error: any) {
-        console.error('[IPC] LLM stream error:', error.message);
-        window.webContents.send(responseChannel, { type: 'error', content: error.message });
-      }
-    }
-  );
+  // llm:stream-chat and chat history are registered by registerAgentIpc (src/main/ipc/agentIpc.ts).
 
   console.log('[IPC] Handlers registered');
 }
@@ -465,33 +395,4 @@ function openNativeDocument(document: unknown) {
     runId: null,
     payload: { type: 'open-native', project: parsed.project },
   });
-}
-
-function toolOutcome(name: string, args: Record<string, unknown> | undefined, outcome: CommandResponse) {
-  if (outcome.status === 'applied' || outcome.status === 'historical') {
-    const result = outcome.result as { nodeId?: string; nodeType?: string } | null;
-    if (name === 'addNode') {
-      return {
-        success: true,
-        message: `Added ${result?.nodeType || args?.nodeType || 'node'} node`,
-        nodeType: result?.nodeType || args?.nodeType,
-        nodeId: result?.nodeId,
-      };
-    }
-    if (name === 'setComponentDocumentation') {
-      return {
-        success: true,
-        message: 'Stored component documentation',
-        ownerKind: args?.ownerKind,
-        ownerId: args?.ownerId,
-      };
-    }
-    if (name === 'setProcess') {
-      return { success: true, message: 'Stored the process', title: args?.title };
-    }
-    return { success: true, message: `Annotated node ${result?.nodeId || ''}` };
-  }
-  const detail = outcome.result as { error?: unknown } | null;
-  const reason = typeof detail?.error === 'string' ? detail.error : outcome.status;
-  return { success: false, conflict: outcome.status === 'conflict', error: reason };
 }
