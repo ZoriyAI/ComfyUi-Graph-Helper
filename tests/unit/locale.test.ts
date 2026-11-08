@@ -7,6 +7,7 @@ import {
   explainError,
   fileDialogCopy,
   formatClock,
+  moveAnnouncement,
   redactDiagnostic,
   ru,
 } from '../../src/shared/i18n';
@@ -100,6 +101,23 @@ describe('locale catalog', () => {
     expect(unknown.diagnostic).not.toContain('sk-abcDEF123');
     expect(unknown.diagnostic).toContain('Incorrect API key');
     expect(redactDiagnostic('Bearer sk-live-token')).not.toContain('sk-live');
+    expect(redactDiagnostic('sk-proj-AbC123_def-GHI456')).toBe('[redacted]');
+    expect(redactDiagnostic('sk-svcacct-AbC123_def')).toBe('[redacted]');
+    expect(redactDiagnostic('token sk-example-secret rejected')).toBe('token [redacted] rejected');
+    expect(redactDiagnostic("Error: key 'sk-proj-AbC123_def-GHI456' rejected")).not.toMatch(/AbC123|GHI456|sk-proj|sk-example/);
+  });
+
+  it('localizes the four React Flow move directions', () => {
+    const english = createTranslator('en');
+    const russian = createTranslator('ru');
+    const words: Record<string, string> = { up: 'вверх', down: 'вниз', left: 'влево', right: 'вправо' };
+    for (const direction of ['up', 'down', 'left', 'right']) {
+      const sentence = moveAnnouncement(russian, direction, 12, 34);
+      expect(sentence).toContain(words[direction]);
+      expect(sentence).not.toMatch(/\b(up|down|left|right)\b/);
+      expect(sentence).toMatch(/\p{Script=Cyrillic}/u);
+      expect(moveAnnouncement(english, direction, 12, 34)).toContain(direction);
+    }
   });
 
   it('localizes file dialog copy without changing the English filter names', () => {

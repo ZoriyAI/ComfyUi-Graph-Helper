@@ -71,7 +71,24 @@ export function explainError(translate: Translator, code: string): { summary: st
 export function redactDiagnostic(value: string): string {
   return value
     .replace(/Bearer\s+\S+/gi, 'Bearer [redacted]')
-    .replace(/\bsk-[A-Za-z0-9]+/g, '[redacted]');
+    .replace(/\bsk-[A-Za-z0-9_-]+/g, '[redacted]');
+}
+
+const MOVE_DIRECTIONS: Record<string, string> = {
+  up: 'graph.directionUp',
+  down: 'graph.directionDown',
+  left: 'graph.directionLeft',
+  right: 'graph.directionRight',
+};
+
+/** React Flow reports direction as up, down, left, or right. The announcement uses the catalog word. */
+export function moveAnnouncement(translate: Translator, direction: string, x: number, y: number): string {
+  const key = MOVE_DIRECTIONS[direction];
+  return translate('graph.nodeMoved', {
+    direction: key ? translate(key) : direction,
+    x,
+    y,
+  });
 }
 
 export function formatClock(timestamp: number, language: AppLanguage, timeZone?: string): string {

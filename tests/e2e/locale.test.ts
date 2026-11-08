@@ -1,8 +1,133 @@
-import { test, expect, _electron as electron } from '@playwright/test';
+import { test, expect, _electron as electron, type Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { catalogLeaves, en, ru, type Catalog } from '../../src/shared/i18n';
 import { denseWorkflow } from './fixtures/denseWorkflow';
+
+const ALLOWED_COPY = new Set([
+  'ComfyUI Graph Builder',
+  'English',
+  'OpenAI',
+  'TEST',
+  'Русский',
+]);
+
+function leaf(catalog: Catalog, key: string): string {
+  const value = key.split('.').reduce<unknown>((current, part) => {
+    if (current == null || typeof current !== 'object') return undefined;
+    return (current as Record<string, unknown>)[part];
+  }, catalog);
+  return typeof value === 'string' ? value : '';
+}
+
+function foreignPhrases(active: 'en' | 'ru'): string[] {
+  const own = active === 'en' ? en : ru;
+  const other = active === 'en' ? ru : en;
+  const phrases = new Set<string>();
+  for (const key of catalogLeaves(en)) {
+    const foreign = leaf(other, key);
+    const local = leaf(own, key);
+    if (!foreign || foreign === local || ALLOWED_COPY.has(foreign)) continue;
+    for (const part of foreign.split(/\{\{[^}]+\}\}/g)) {
+      const segment = part.trim();
+      const letters = segment.match(/\p{L}/gu)?.length ?? 0;
+      if (letters >= 2 && !ALLOWED_COPY.has(segment)) phrases.add(segment);
+    }
+  }
+  return [...phrases];
+}
+
+function phraseAppears(haystack: string, phrase: string): boolean {
+  if (/^[\p{L}\p{N}]+$/u.test(phrase)) {
+    const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, 'u').test(haystack);
+  }
+  return haystack.includes(phrase);
+}
+
+function unexpectedCopy(text: string, language: 'en' | 'ru'): string[] {
+  const hits: string[] = [];
+  for (const key of catalogLeaves(en)) {
+    if (text.includes(key)) hits.push(`raw key ${key}`);
+  }
+  for (const phrase of foreignPhrases(language)) {
+    if (phraseAppears(text, phrase)) hits.push(phrase);
+  }
+  return hits;
+}
+
+async function collectSurface(window: Page): Promise<string> {
+  return window.locator('body').evaluate((root) => {
+    const shown = (element: Element) => {
+      if (!(element instanceof HTMLElement)) return false;
+      if (element.closest('[hidden]')) return false;
+      const style = getComputedStyle(element);
+      if (style.display === 'none' || style.visibility === 'hidden') return false;
+      return element.getClientRects().length > 0;
+    };
+    const parts: string[] = [];
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    let node = walker.nextNode();
+    while (node) {
+      const parent = node.parentElement;
+      const text = node.textContent?.replace(/\s+/g, ' ').trim();
+      if (parent && text && shown(parent)) parts.push(text);
+      node = walker.nextNode();
+    }
+    root.querySelectorAll<HTMLElement>('*').forEach((element) => {
+      if (!shown(element)) return;
+      for (const name of ['aria-label', 'title', 'placeholder', 'aria-description']) {
+        const value = element.getAttribute(name)?.replace(/\s+/g, ' ').trim();
+        if (value) parts.push(value);
+      }
+    });
+    return parts.join('\n');
+  });
+}
+
+async function assertChromeLanguage(window: Page, language: 'en' | 'ru') {
+  const text = await collectSurface(window);
+  expect(unexpectedCopy(text, language), `${language} chrome`).toEqual([]);
+}
+
+async function expectLocalizedChrome(window: Page, language: 'en' | 'ru') {
+  const copy = language === 'ru'
+    ? {
+      settings: 'Настройки',
+      inspector: 'Инспектор',
+      assistant: 'Ассистент',
+      tabs: ['Подключение', 'Ассистент', 'Оформление и движение'],
+      model: 'Модель',
+    }
+    : {
+      settings: 'Settings',
+      inspector: 'Inspector',
+      assistant: 'Assistant',
+      tabs: ['Connection', 'Assistant', 'Appearance & Motion'],
+      model: 'Model',
+    };
+  await window.setViewportSize({ width: 1280, height: 800 });
+  await assertChromeLanguage(window, language);
+  await window.getByRole('tab', { name: copy.assistant, exact: true }).click();
+  await assertChromeLanguage(window, language);
+  await window.getByRole('tab', { name: copy.inspector, exact: true }).click();
+  await assertChromeLanguage(window, language);
+  await window.getByRole('button', { name: copy.settings, exact: true }).click();
+  const dialog = window.locator('[role="dialog"].settings-dialog');
+  await expect(dialog).toHaveAttribute('data-state', 'open');
+  for (const tab of copy.tabs) {
+    await dialog.getByRole('tab', { name: tab, exact: true }).click();
+    await assertChromeLanguage(window, language);
+  }
+  await dialog.getByRole('tab', { name: copy.tabs[1], exact: true }).click();
+  const model = dialog.getByRole('textbox', { name: copy.model, exact: true });
+  await model.fill('sk-example-secret');
+  await assertChromeLanguage(window, language);
+  await model.fill('');
+  await window.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+}
 
 function launch(userData: string) {
   return electron.launch({
@@ -48,6 +173,8 @@ test('Russian is the new-profile default and English persists through reopen', a
     expect(toolbar.lines).toBe(1);
     expect(toolbar.label).toBe('Не настроено');
   }
+
+  await expectLocalizedChrome(window, 'ru');
 
   await window.setViewportSize({ width: 1024, height: 800 });
   await window.getByRole('button', { name: 'Настройки', exact: true }).click();
@@ -147,6 +274,7 @@ test('Russian is the new-profile default and English persists through reopen', a
   await again.locator('.app-shell').waitFor();
   await expect(again.locator('html')).toHaveAttribute('lang', 'en');
   await expect(again.getByRole('button', { name: 'Settings', exact: true })).toBeVisible();
+  await expectLocalizedChrome(again, 'en');
   await again.getByRole('button', { name: 'Settings', exact: true }).click();
   const restored = again.locator('[role="dialog"].settings-dialog');
   await restored.getByRole('tab', { name: 'Appearance & Motion' }).click();

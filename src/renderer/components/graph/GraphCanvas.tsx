@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { moveAnnouncement, type Translator } from '../../../shared/i18n';
 import {
   ReactFlow,
   Background,
@@ -159,7 +160,10 @@ export default function GraphCanvas() {
         ariaLabelConfig={{
           'node.a11yDescription.default': String(t('graph.nodeDefault')),
           'node.a11yDescription.keyboardDisabled': String(t('graph.nodeKeyboard')),
-          'node.a11yDescription.ariaLiveMessage': ({ direction, x, y }) => String(t('graph.nodeMoved', { direction, x, y })),
+          'node.a11yDescription.ariaLiveMessage': ({ direction, x, y }) => {
+            const translate: Translator = (key, options) => (options ? String(t(key, options)) : String(t(key)));
+            return moveAnnouncement(translate, String(direction), x, y);
+          },
           'edge.a11yDescription.default': String(t('graph.edgeDefault')),
           'controls.ariaLabel': String(t('graph.controls')),
           'controls.zoomIn.ariaLabel': String(t('graph.zoomIn')),
