@@ -100,6 +100,49 @@ function processFixtureParts(prompt: LanguageModelV4Prompt | undefined): Languag
   return textParts('TEST fixture only: I added a node, stored what it is for, and named the process. Export the workflow and run it in your ComfyUI.');
 }
 
+/** TEST fixture for a loader whose parameter must survive export. It is not a live model. */
+function loaderFixtureParts(prompt: LanguageModelV4Prompt | undefined): LanguageModelV4StreamPart[] {
+  const results = collectToolResults(prompt);
+  const addNode = results.find((result) => result.toolName === 'addNode');
+  const docs = results.find((result) => result.toolName === 'setComponentDocumentation');
+  const process = results.find((result) => result.toolName === 'setProcess');
+  if (!addNode) {
+    return [
+      toolCall('call-add-loader', 'addNode', {
+        nodeType: 'CheckpointLoaderSimple',
+        title: 'Portrait loader',
+        x: 80,
+        y: 80,
+        parameters: { ckpt_name: 'portrait.safetensors' },
+      }),
+      finish('tool-calls'),
+    ];
+  }
+  const nodeId = nodeIdFrom(addNode.value);
+  if (!nodeId) return textParts('addNode finished without a node id.');
+  if (!docs) {
+    return [
+      toolCall('call-docs-loader', 'setComponentDocumentation', {
+        ownerKind: 'node',
+        ownerId: nodeId,
+        purpose: 'Loads the portrait checkpoint',
+        usage: 'Connect MODEL to the sampler.',
+      }),
+      finish('tool-calls'),
+    ];
+  }
+  if (!process) {
+    return [
+      toolCall('call-process-loader', 'setProcess', {
+        title: 'Portrait process',
+        notes: 'Keep the loader.',
+      }),
+      finish('tool-calls'),
+    ];
+  }
+  return textParts('TEST fixture only: the loader parameter is in the export. Run that workflow in your ComfyUI.');
+}
+
 function finish(unified: 'stop' | 'tool-calls'): LanguageModelV4StreamPart {
   return {
     type: 'finish',
@@ -128,6 +171,12 @@ export function createTestLLMModel(): LanguageModelV4 {
         const parts = processFixtureParts(prompt);
         return {
           stream: convertArrayToReadableStream(parts),
+          rawCall: { rawPrompt: null, rawSettings: {} },
+        };
+      }
+      if (latestUserText(prompt).includes('Build the loader fixture')) {
+        return {
+          stream: convertArrayToReadableStream(loaderFixtureParts(prompt)),
           rawCall: { rawPrompt: null, rawSettings: {} },
         };
       }

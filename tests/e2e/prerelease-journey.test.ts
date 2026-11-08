@@ -181,3 +181,98 @@ test('prerelease journey configures a provider, builds a process, and exports a 
     await new Promise<void>((resolve) => server.close(() => resolve()));
   }
 });
+
+test('object info import lets the agent export a loader parameter', async () => {
+  const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'loader-export-'));
+  const catalogPath = path.join(userData, 'object_info.json');
+  const nativePath = path.join(userData, 'project.graph-helper.json');
+  const comfyPath = path.join(userData, 'workflow.json');
+  fs.writeFileSync(catalogPath, JSON.stringify({
+    CheckpointLoaderSimple: {
+      input: {
+        required: {
+          ckpt_name: [['known.safetensors'], { tooltip: 'The name of the checkpoint (model) to load.' }],
+        },
+      },
+      input_order: { required: ['ckpt_name'] },
+      output: ['MODEL', 'CLIP', 'VAE'],
+      output_name: ['MODEL', 'CLIP', 'VAE'],
+      python_module: 'nodes',
+    },
+  }));
+  const env = { ...process.env, NODE_ENV: 'production' };
+  delete env.DBUS_SESSION_BUS_ADDRESS;
+  delete env.GNOME_KEYRING_CONTROL;
+  const electronApp = await electron.launch({
+    args: [path.join(__dirname, '../../dist/main/index.js'), `--user-data-dir=${userData}`],
+    env,
+  });
+  try {
+    const window = await electronApp.firstWindow();
+    await window.setViewportSize({ width: 1440, height: 900 });
+    await useEnglish(window);
+    await electronApp.evaluate(({ dialog }, paths) => {
+      dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [paths.catalogPath] });
+    }, { catalogPath });
+    await window.getByRole('button', { name: 'Catalog snapshot', exact: true }).click();
+    await expect(window.getByText('Catalog snapshot imported. Nodes: 1. Models: 1. Skipped: 0.')).toBeVisible();
+
+    await pickOption(window, 'Chat provider', 'TEST fixture');
+    await window.getByText('TEST fixture is on').waitFor();
+    await window.getByRole('tab', { name: 'Assistant' }).click();
+    const input = window.locator('textarea[aria-label="Chat message"]');
+    await input.fill('Build the loader fixture');
+    await input.press('Enter');
+    await expect(window.getByText('TEST fixture only: the loader parameter is in the export.')).toBeVisible({ timeout: 30000 });
+    await window.getByRole('tab', { name: 'Inspector' }).click();
+    await window.locator('.react-flow__node', { hasText: 'Portrait loader' }).click();
+    const nodeForm = window.locator('[data-component-owner="node:node-call-add-loader"]');
+    await expect(nodeForm.locator('textarea').nth(0)).toHaveValue('Loads the portrait checkpoint');
+    await expect(window.locator('#process-title')).toHaveValue('Portrait process');
+
+    await window.getByRole('button', { name: 'Settings', exact: true }).click();
+    const check = window.locator('[role="dialog"].settings-dialog');
+    await check.getByRole('button', { name: 'Check this graph' }).click();
+    await expect(check.getByText('Missing models: checkpoints/portrait.safetensors.')).toBeVisible();
+    await check.getByRole('button', { name: 'Cancel' }).click();
+
+    await electronApp.evaluate(({ dialog: fileDialog }, paths) => {
+      fileDialog.showSaveDialog = async () => ({ canceled: false, filePath: paths.nativePath });
+      fileDialog.showOpenDialog = async () => ({ canceled: false, filePaths: [paths.nativePath] });
+    }, { nativePath });
+    await window.getByRole('button', { name: 'Save project' }).click();
+    await expect(window.getByText('Saved the native project.')).toBeVisible();
+    const native = JSON.parse(fs.readFileSync(nativePath, 'utf8')) as {
+      format: string;
+      process: { title: string };
+      components: Array<{ ownerId: string; purpose: string }>;
+    };
+    expect(native.format).toBe('comfy-graph-helper-project');
+    expect(native.process.title).toBe('Portrait process');
+    expect(native.components.find((item) => item.ownerId === 'node-call-add-loader')?.purpose).toBe('Loads the portrait checkpoint');
+
+    await electronApp.evaluate(({ dialog: fileDialog }, paths) => {
+      fileDialog.showSaveDialog = async () => ({ canceled: false, filePath: paths.comfyPath });
+    }, { comfyPath });
+    await window.getByRole('button', { name: 'Export', exact: true }).click();
+    await expect(window.getByText('Exported the current workflow.')).toBeVisible();
+    const exported = fs.readFileSync(comfyPath, 'utf8');
+    expect(exported).not.toContain('Loads the portrait checkpoint');
+    expect(exported).not.toContain('Portrait process');
+    expect(exported).not.toContain('graphHelper');
+    expect(exported).not.toContain('componentRecords');
+    const workflow = JSON.parse(exported) as { nodes: Array<{ title?: string; type?: string; widgets_values?: unknown[] }> };
+    expect(workflow.nodes).toHaveLength(1);
+    expect(workflow.nodes[0]?.type).toBe('CheckpointLoaderSimple');
+    expect(workflow.nodes[0]?.title).toBe('Portrait loader');
+    expect(workflow.nodes[0]?.widgets_values).toEqual(['portrait.safetensors']);
+
+    await nodeForm.locator('textarea').nth(0).fill('Temporary edit');
+    await nodeForm.getByRole('button', { name: 'Save documentation' }).click();
+    await window.getByRole('button', { name: 'Open project' }).click();
+    await expect(window.getByText('Opened the native project.')).toBeVisible();
+    await expect(window.locator('[data-component-owner="node:node-call-add-loader"] textarea').nth(0)).toHaveValue('Loads the portrait checkpoint');
+  } finally {
+    await electronApp.close();
+  }
+});
