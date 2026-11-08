@@ -371,7 +371,7 @@ export default function Inspector() {
             <button
               key={item.id}
               type="button"
-              className="ghost-button subgraph-pick"
+              className={`ghost-button subgraph-pick ${styles.pick}`}
               aria-pressed={activeSubgraph?.id === item.id}
               onClick={() => setSubgraphId(item.id)}
             >

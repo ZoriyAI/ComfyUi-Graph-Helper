@@ -9,7 +9,7 @@
     var(--bg, #0c1017);
 }
 .flowHost { position: absolute; inset: 0; }
-.empty.empty { z-index: 1; }
+.empty.empty { position: absolute; z-index: 1; left: 50%; top: 50%; translate: -50% -50%; margin: 0; max-width: 280px; text-align: center; color: var(--text-dim, #a3b1c6); pointer-events: none; }
 .replaying .flowHost { filter: saturate(0.6) brightness(0.85); }
 .replaying .flowHost::after {
   content: "";

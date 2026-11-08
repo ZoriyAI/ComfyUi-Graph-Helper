@@ -58,3 +58,4 @@ textarea.field { min-height: 64px; resize: vertical; }
 .rename { display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
 .actions { display: flex; gap: 6px; flex-wrap: wrap; }
 .subgraphs { display: flex; flex-direction: column; gap: 4px; }
+.pick.pick { justify-content: flex-start; text-align: left; height: auto; white-space: normal; }
