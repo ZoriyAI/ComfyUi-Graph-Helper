@@ -1,0 +1,48 @@
+import type { Explanation, ExplanationAspect, ObjectRef } from '../../../shared/contracts';
+
+/** Pure helpers for the Explain panel. */
+
+export const ASPECTS: readonly ExplanationAspect[] = ['what', 'why', 'connect', 'next', 'risk'];
+
+/** Knowledge about a class or a model file is shared across projects and not tied to a revision. */
+export function isGlobalOwner(ref: ObjectRef): boolean {
+  return ref.kind === 'nodeClass' || ref.kind === 'model';
+}
+
+/**
+ * True when the explanation was written against another graph revision than the current one.
+ * Global knowledge (revisionId null) never goes stale; an unknown current revision proves nothing.
+ */
+export function isStale(explanation: Pick<Explanation, 'revisionId'>, currentRevisionId: string | null | undefined): boolean {
+  if (!explanation.revisionId || !currentRevisionId) return false;
+  return explanation.revisionId !== currentRevisionId;
+}
+
+/** Explanations by aspect in ASPECTS order, newest first inside each aspect. Aspects with none are left out. */
+export function groupByAspect(list: readonly Explanation[]): Array<{ aspect: ExplanationAspect; items: Explanation[] }> {
+  return ASPECTS.flatMap((aspect) => {
+    const items = list.filter((item) => item.aspect === aspect).sort((a, b) => b.createdAt - a.createdAt);
+    return items.length > 0 ? [{ aspect, items }] : [];
+  });
+}
+
+export function missingAspects(list: readonly Explanation[]): ExplanationAspect[] {
+  const present = new Set(list.map((item) => item.aspect));
+  return ASPECTS.filter((aspect) => !present.has(aspect));
+}
+
+/** The newest `limit` explanations, newest first. */
+export function recentExplanations(list: readonly Explanation[], limit = 20): Explanation[] {
+  return [...list].sort((a, b) => b.createdAt - a.createdAt).slice(0, limit);
+}
+
+/** Only http(s) links are shown as sources; anything else is not a link. */
+export function safeSourceUrl(value: string | null | undefined): string | null {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
