@@ -1,0 +1,42 @@
+.overlay { position: fixed; inset: 0; z-index: 50; background: var(--scrim); }
+.content {
+  position: fixed;
+  z-index: 60;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.024), transparent 30%), var(--surface-raised);
+  color: var(--text);
+  box-shadow: var(--elev-3);
+  opacity: 0;
+  transform: translateY(var(--motion-shift));
+  transition-property: opacity, transform;
+  transition-duration: var(--motion-exit);
+  transition-timing-function: var(--motion-ease-in);
+}
+.content:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.content[data-state="open"] {
+  opacity: 1;
+  transform: none;
+  transition-duration: var(--motion-enter);
+  transition-timing-function: var(--motion-ease-out);
+  animation: dialogIn var(--motion-enter) var(--motion-ease-out);
+}
+.content[data-state="closed"] {
+  opacity: 0;
+  transform: translateY(var(--motion-shift));
+  transition-duration: var(--motion-exit);
+  animation: dialogOut var(--motion-exit) var(--motion-ease-in);
+}
+:global(html[data-motion="off"]) .content { animation: none; }
+@keyframes dialogIn {
+  from { opacity: 0; transform: translateY(var(--motion-shift)); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes dialogOut {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translateY(var(--motion-shift)); }
+}

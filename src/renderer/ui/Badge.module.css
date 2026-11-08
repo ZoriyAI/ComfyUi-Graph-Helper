@@ -1,0 +1,51 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  min-width: 0;
+  height: 20px;
+  padding: 0 7px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  background: var(--surface-raised);
+  color: var(--text-dim);
+  font-size: var(--text-xs);
+  line-height: 18px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+.pill { border-radius: var(--radius-pill); height: 24px; padding: 0 10px; }
+.text { overflow: hidden; text-overflow: ellipsis; }
+.dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; background: var(--badge-hue, var(--text-faint)); }
+.mono { font-family: var(--font-mono); }
+
+.neutral { }
+.accent { background: var(--accent-soft); border-color: transparent; color: var(--accent); }
+.ai { background: var(--ai-soft); border-color: transparent; color: var(--ai); }
+.warn { background: var(--warn-soft); border-color: transparent; color: var(--warn); }
+.danger { background: var(--danger-soft); border-color: transparent; color: var(--danger); }
+.ok { background: var(--ok-soft); border-color: transparent; color: var(--ok); }
+
+/* Provenance */
+.fact { --badge-hue: var(--prov-fact); }
+.inference { --badge-hue: var(--prov-inference); }
+.web { --badge-hue: var(--prov-web); }
+.user { --badge-hue: var(--prov-user); }
+
+/* Hues for families and kinds come from the port-type palette so meaning carries over. */
+.hueModel { --badge-hue: var(--type-model); }
+.hueClip { --badge-hue: var(--type-clip); }
+.hueVae { --badge-hue: var(--type-vae); }
+.hueConditioning { --badge-hue: var(--type-conditioning); }
+.hueLatent { --badge-hue: var(--type-latent); }
+.hueImage { --badge-hue: var(--type-image); }
+.hueMask { --badge-hue: var(--type-mask); }
+.hueControlnet { --badge-hue: var(--type-controlnet); }
+.hueAccent { --badge-hue: var(--accent); }
+.hueAi { --badge-hue: var(--ai); }
+.hueWarn { --badge-hue: var(--warn); }
+.hueNone { --badge-hue: var(--text-faint); }
