@@ -123,7 +123,7 @@ test('node and subgraph records persist in the native project and stay out of Co
     components: Array<{ ownerId: string; purpose: string; usage: string }>;
   };
   expect(native.format).toBe('comfy-graph-helper-project');
-  expect(native.version).toBe(1);
+  expect(native.version).toBe(2);
   expect(native.process.title).toBe('Portrait process');
   expect(native.components.find((item) => item.ownerId === '7')).toMatchObject({ purpose: PURPOSE, usage: `${USAGE.slice(0, -1)}` });
   expect(native.components.find((item) => item.ownerId === NESTED)?.usage).toBe(NESTED_USAGE);
