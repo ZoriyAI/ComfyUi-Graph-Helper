@@ -20,8 +20,10 @@
 
 .head { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .icon { flex: none; color: var(--chat-tool-accent); }
-.label { font-weight: 650; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.label { flex: 0 1 auto; min-width: 0; font-weight: 650; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rawName {
+  flex: 0 10 auto;
+  min-width: 0;
   font-family: var(--font-mono, ui-monospace, "SFMono-Regular", Menlo, monospace);
   color: var(--text-faint);
   font-size: 11px;
