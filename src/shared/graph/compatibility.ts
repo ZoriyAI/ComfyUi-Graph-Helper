@@ -2,7 +2,7 @@ import type { CatalogView } from '../catalog/types';
 import { modelDirectoryFor } from '../catalog/modelFolders';
 import { missingDeps, type MissingReport } from '../workflow/codec';
 
-interface GraphNodeLike {
+export interface GraphNodeLike {
   data?: {
     comfyType?: unknown;
     parameters?: unknown;
@@ -16,7 +16,7 @@ function stringMap(value: unknown): Record<string, unknown> {
 }
 
 /** Model filenames the canvas node actually stores, including ones the agent set as parameters. */
-function canvasModelRefs(node: GraphNodeLike, catalog: CatalogView): Array<{ directory: string; name: string }> {
+export function canvasModelRefs(node: GraphNodeLike, catalog: CatalogView): Array<{ directory: string; name: string }> {
   const type = node.data?.comfyType;
   if (typeof type !== 'string' || type === '') return [];
   const values = { ...stringMap(node.data?.parameters) };
