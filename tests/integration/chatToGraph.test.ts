@@ -5,6 +5,7 @@ import { useRevisionStore } from '../../src/renderer/state/revisionState';
 import { getChatService } from '../../src/renderer/services/llm/chatService';
 import { useProjectionStore } from '../../src/renderer/services/commands/projection';
 import { DESKTOP_PROJECT_ID } from '../../src/shared/project';
+import { BUILD_TOOL_SPECS } from '../../src/shared/commands/toolSpecs';
 
 /**
  * Integration test: Chat UI -> IPC -> Main AI SDK -> Tool Execution -> Graph
@@ -107,9 +108,12 @@ describe('Chat-to-Graph Integration', () => {
   });
 
   it('should track action sources correctly', async () => {
-    mockElectronAPI.llmStreamChat.mockImplementation(async (_messages: any[], _toolSpecs: any[], onChunk: any, run: any) => {
+    mockElectronAPI.llmStreamChat.mockImplementation(async (_messages: any[], toolSpecs: any[], onChunk: any, run: any, context: any) => {
       expect(run.actor).toBeUndefined();
       expect(run.runId).toBe('run-test');
+      // Build tool specs come from the shared list; the turn context is the 5th argument.
+      expect(toolSpecs.map((spec: { name: string }) => spec.name)).toEqual(BUILD_TOOL_SPECS.map((spec) => spec.name));
+      expect(context).toMatchObject({ intent: 'chat', selection: [] });
       onChunk({
         type: 'projection',
         content: {
