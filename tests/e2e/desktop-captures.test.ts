@@ -34,7 +34,7 @@ function contrast(a: string, b: string): number {
   return (lighter + 0.05) / (darker + 0.05);
 }
 
-async function expectSettledGraph(window: Page) {
+async function readSettledGraph(window: Page) {
   const duration = Number(await window.locator('.graph-canvas').getAttribute('data-fit-duration')) || 0;
   const started = Date.now();
   let previous = '';
@@ -44,7 +44,7 @@ async function expectSettledGraph(window: Page) {
     previous = next;
     return stable ? next : '';
   }).not.toBe('');
-  const fit = await window.evaluate(() => {
+  return window.evaluate(() => {
     const pane = document.querySelector('.react-flow__pane')?.getBoundingClientRect();
     const map = document.querySelector('.graph-minimap')?.getBoundingClientRect();
     const transform = getComputedStyle(document.querySelector('.react-flow__viewport')!).transform;
@@ -78,6 +78,10 @@ async function expectSettledGraph(window: Page) {
       zoom,
     };
   });
+}
+
+async function expectSettledGraph(window: Page) {
+  const fit = await readSettledGraph(window);
   expect(fit.missing).toBe(false);
   expect(fit.width).toBe(144);
   expect(fit.height).toBe(96);
@@ -450,7 +454,7 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
     const win = BrowserWindow.getAllWindows()[0];
     return { maximizable: win.isMaximizable(), fullScreenable: win.isFullScreenable() };
   });
-  console.log(`WINDOW_CHROME native frame maximizable=${chrome.maximizable} fullScreenable=${chrome.fullScreenable}; custom titlebar is absent, so move/maximize/double-click on a drag region is N/A`);
+  console.log(`WINDOW_CHROME native frame maximizable=${chrome.maximizable} fullScreenable=${chrome.fullScreenable}; custom titlebar is absent, so double-click and user-drag on a drag region are N/A`);
   const maximized = await electronApp.evaluate(async ({ BrowserWindow }) => {
     const win = BrowserWindow.getAllWindows()[0];
     const wait = () => new Promise((resolve) => setTimeout(resolve, 300));
@@ -472,6 +476,53 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
     expect(maximized.during.bounds.height).toBeGreaterThan(maximized.before.height);
     expect(maximized.restored).toBe(true);
   }
+  await window.setViewportSize({ width: 1280, height: 800 });
+  const pageBeforeFrame = await window.evaluate(() => `${window.innerWidth}x${window.innerHeight}`);
+  const resizedDuring = await electronApp.evaluate(async ({ BrowserWindow }) => {
+    const win = BrowserWindow.getAllWindows()[0];
+    const before = win.getBounds();
+    win.setBounds({
+      x: before.x,
+      y: before.y,
+      width: Math.max(960, before.width - 160),
+      height: Math.max(640, before.height - 120),
+    });
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    return { before, during: win.getBounds() };
+  });
+  const pageDuringResize = await window.evaluate(() => `${window.innerWidth}x${window.innerHeight}`);
+  const resizedAfter = await electronApp.evaluate(async ({ BrowserWindow }, before) => {
+    const win = BrowserWindow.getAllWindows()[0];
+    win.setBounds(before);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    return win.getBounds();
+  }, resizedDuring.before);
+  const resizedFrame = { ...resizedDuring, after: resizedAfter };
+  console.log(`WINDOW_RESIZE before=${resizedFrame.before.width}x${resizedFrame.before.height} during=${resizedFrame.during.width}x${resizedFrame.during.height} after=${resizedFrame.after.width}x${resizedFrame.after.height} page=${pageBeforeFrame}→${pageDuringResize}`);
+  expect(resizedFrame.during.width).not.toBe(resizedFrame.before.width);
+  expect(resizedFrame.during.height).not.toBe(resizedFrame.before.height);
+  expect(Math.abs(resizedFrame.after.width - resizedFrame.before.width)).toBeLessThanOrEqual(2);
+  expect(Math.abs(resizedFrame.after.height - resizedFrame.before.height)).toBeLessThanOrEqual(2);
+  if (pageDuringResize === pageBeforeFrame) {
+    console.log('WINDOW_RESIZE page-locked: Playwright viewport did not track the native frame. The proof is the measured bounds change.');
+  }
+  const movedFrame = await electronApp.evaluate(async ({ BrowserWindow }) => {
+    const win = BrowserWindow.getAllWindows()[0];
+    const wait = () => new Promise((resolve) => setTimeout(resolve, 300));
+    const before = win.getPosition();
+    win.setPosition(before[0] + 48, before[1] + 36);
+    await wait();
+    const during = win.getPosition();
+    win.setPosition(before[0], before[1]);
+    await wait();
+    const after = win.getPosition();
+    return { before, during, after };
+  });
+  console.log(`WINDOW_MOVE before=${movedFrame.before[0]},${movedFrame.before[1]} during=${movedFrame.during[0]},${movedFrame.during[1]} after=${movedFrame.after[0]},${movedFrame.after[1]}`);
+  expect(movedFrame.during[0]).not.toBe(movedFrame.before[0]);
+  expect(movedFrame.during[1]).not.toBe(movedFrame.before[1]);
+  expect(Math.abs(movedFrame.after[0] - movedFrame.before[0])).toBeLessThanOrEqual(2);
+  expect(Math.abs(movedFrame.after[1] - movedFrame.before[1])).toBeLessThanOrEqual(2);
   await window.setViewportSize({ width: 1280, height: 800 });
   expect(osScale.scaleFactor).toBeGreaterThan(0);
 
@@ -517,6 +568,15 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
   await expect(window.locator('.react-flow__edge')).toHaveCount(150);
   console.log(`NODES_100 ${Date.now() - started}ms edges=150`);
   await window.locator('.react-flow__controls-fitview').click();
+  const fit100 = await readSettledGraph(window);
+  console.log(`MINIMAP_100 ${fit100.width}x${fit100.height} overlaps=${fit100.hits.length}${fit100.hits.length ? ` ${fit100.hits.slice(0, 3).join('|')}` : ''}`);
+  console.log(`NODES_100_INSIDE ${fit100.nodes} outside=${fit100.outside.length} zoom=${fit100.zoom.toFixed(4)}${fit100.outside.length ? ` ${fit100.outside.slice(0, 3).join('|')}` : ''}`);
+  expect(fit100.missing).toBe(false);
+  expect(fit100.width).toBe(144);
+  expect(fit100.height).toBe(96);
+  expect(fit100.nodes).toBe(100);
+  expect(fit100.hits).toEqual([]);
+  expect(fit100.outside).toEqual([]);
   const before = await window.locator('.react-flow__viewport').evaluate((element) => getComputedStyle(element).transform);
   const spot = await window.evaluate(() => {
     const pane = document.querySelector('.react-flow__pane')?.getBoundingClientRect();
