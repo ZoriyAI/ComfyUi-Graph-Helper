@@ -18,11 +18,12 @@ export default function Inspector() {
     return (
       <section className="inspector" role="region" aria-label="Inspector">
         <h2>Inspector</h2>
-        <p className="inspector-empty">Select a node to see its ports and parameters.</p>
+        <p className="inspector-empty">Select a node to see its ports.</p>
       </section>
     );
   }
   const data = node.data as ComfyNodeData;
+  const parameters = Object.entries(data.parameters || {});
   const ports = [
     ...data.inputs.map((port) => ({ ...port, direction: 'in' })),
     ...data.outputs.map((port) => ({ ...port, direction: 'out' })),
@@ -31,6 +32,7 @@ export default function Inspector() {
     <section className="inspector" role="region" aria-label="Inspector">
       <h2>{data.title || data.comfyType}</h2>
       <p className="inspector-type">{data.comfyType}</p>
+      <h3>Ports</h3>
       <div className="inspector-ports">
         {ports.map((port) => (
           <div key={`${port.direction}-${port.id}`} className="inspector-port" data-port-type={port.dataType}>
@@ -40,6 +42,17 @@ export default function Inspector() {
           </div>
         ))}
       </div>
+      <h3>Properties</h3>
+      {parameters.length === 0 ? <p className="inspector-empty">No parameters on this node.</p> : (
+        <div className="inspector-ports">
+          {parameters.map(([key, value]) => (
+            <div key={key} className="inspector-port">
+              <span className="port-name">{key}</span>
+              <span className="port-type">{String(value)}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </section>
   );
 }

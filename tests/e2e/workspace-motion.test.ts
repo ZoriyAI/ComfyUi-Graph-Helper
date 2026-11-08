@@ -111,13 +111,19 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
   const separator = window.getByRole('separator', { name: 'Resize tools' });
   const dockMin = await separator.getAttribute('aria-valuemin');
   const dockMax = await separator.getAttribute('aria-valuemax');
+  await expect(separator).toHaveAttribute('aria-controls', 'tool-dock');
   await separator.focus();
   await window.keyboard.press('End');
   await expect(separator).toHaveAttribute('aria-valuenow', dockMax || '');
   await window.keyboard.press('Home');
   await expect(separator).toHaveAttribute('aria-valuenow', dockMin || '');
+  const grown = String(Math.min(Number(dockMax), Number(dockMin) + 16));
+  await window.keyboard.press('ArrowLeft');
+  await expect(separator).toHaveAttribute('aria-valuenow', grown);
   await window.keyboard.press('ArrowRight');
-  await expect(separator).toHaveAttribute('aria-valuenow', String(Math.min(Number(dockMax), Number(dockMin) + 16)));
+  await expect(separator).toHaveAttribute('aria-valuenow', dockMin || '');
+  await window.keyboard.press('ArrowLeft');
+  await expect(separator).toHaveAttribute('aria-valuenow', grown);
   console.log(`DOCK_RANGE ${dockMin} ${dockMax}`);
   await window.getByRole('tab', { name: 'Assistant' }).click();
   const draft = window.locator('textarea[aria-label="Chat message"]');
@@ -127,9 +133,12 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
   });
   const draftScroll = await draft.evaluate((element) => element.scrollTop);
   await window.getByRole('tab', { name: 'Inspector' }).click();
+  const widthBeforeHide = await separator.getAttribute('aria-valuenow');
+  expect(widthBeforeHide).toBe(grown);
   await window.getByRole('button', { name: 'Hide tools' }).click();
   await expect(window.getByRole('tab', { name: 'Inspector' })).toHaveCount(0);
   await window.getByRole('button', { name: 'Show tools' }).click();
+  await expect(separator).toHaveAttribute('aria-valuenow', widthBeforeHide || '');
   await window.getByRole('tab', { name: 'Assistant' }).click();
   await expect(draft).toHaveValue(/draft 19/);
   expect(await draft.evaluate((element) => element.scrollTop)).toBe(draftScroll);
@@ -174,8 +183,50 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
     return false;
   });
   expect(backgroundInert).toBe(true);
+  const focusables = await window.evaluate(() => {
+    const dialog = document.querySelector('[role="dialog"]');
+    if (!dialog) return [];
+    return [...dialog.querySelectorAll<HTMLElement>('button, input, textarea, select, [role="tab"], [role="combobox"]')]
+      .filter((element) => !element.closest('[hidden]') && !element.hasAttribute('disabled') && element.getAttribute('aria-disabled') !== 'true' && element.tabIndex >= 0 && element.getClientRects().length > 0)
+      .map((element) => element.getAttribute('aria-label') || element.textContent || '');
+  });
+  expect(focusables.length).toBeGreaterThan(1);
+  await window.evaluate(() => {
+    const dialog = document.querySelector('[role="dialog"]');
+    const items = [...dialog!.querySelectorAll<HTMLElement>('button, input, textarea, select, [role="tab"], [role="combobox"]')]
+      .filter((element) => !element.closest('[hidden]') && !element.hasAttribute('disabled') && element.getAttribute('aria-disabled') !== 'true' && element.tabIndex >= 0 && element.getClientRects().length > 0);
+    items[0].focus();
+  });
+  await window.keyboard.press('Shift+Tab');
+  await expect.poll(async () => window.evaluate(() => document.activeElement?.closest('[role="dialog"]') != null)).toBe(true);
+  await window.evaluate(() => {
+    const dialog = document.querySelector('[role="dialog"]');
+    const items = [...dialog!.querySelectorAll<HTMLElement>('button, input, textarea, select, [role="tab"], [role="combobox"]')]
+      .filter((element) => !element.closest('[hidden]') && !element.hasAttribute('disabled') && element.getAttribute('aria-disabled') !== 'true' && element.tabIndex >= 0 && element.getClientRects().length > 0);
+    items[items.length - 1].focus();
+  });
   await window.keyboard.press('Tab');
   await expect.poll(async () => window.evaluate(() => document.activeElement?.closest('[role="dialog"]') != null)).toBe(true);
+  const columns = [];
+  for (const label of ['Connection', 'Assistant', 'Appearance & Motion']) {
+    await dialog.getByRole('tab', { name: label }).click();
+    const sample = await dialog.locator('.settings-panel[data-state="active"]').evaluate((panel) => {
+      const box = panel.getBoundingClientRect();
+      const dialogBox = panel.closest('[role="dialog"]')!.getBoundingClientRect();
+      const inactive = [...panel.parentElement!.querySelectorAll('.settings-panel')].filter((item) => item !== panel);
+      return {
+        x: Math.round(box.x),
+        width: Math.round(box.width),
+        floor: Math.round(dialogBox.width - 176 - 16),
+        inactiveHidden: inactive.every((item) => getComputedStyle(item).display === 'none'),
+      };
+    });
+    expect(sample.inactiveHidden).toBe(true);
+    expect(sample.width).toBeGreaterThanOrEqual(sample.floor);
+    columns.push(`${sample.x}:${sample.width}`);
+  }
+  expect(new Set(columns).size).toBe(1);
+  console.log(`SETTINGS_COLUMNS ${columns[0]}`);
   await expect.poll(async () => dialog.evaluate((element) => getComputedStyle(element).opacity)).toBe('1');
   await window.screenshot({ path: path.join(artifactDir, 'ui-settings.png') });
 
@@ -317,13 +368,18 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
   await expectDuration(window, '.settings-dialog', 'transitionDuration', '0s');
   await armExit(window);
   await window.keyboard.press('Escape');
-  const offExit = await readExit(window);
+  const offExit = (await readExit(window)) || '';
   const offExitToken = await window.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--motion-exit').trim());
-  const offExitParts = durationParts(offExit);
-  expect(offExitParts.every((part) => part === '0s')).toBe(true);
   expect(offExitToken).toBe('0s');
-  console.log(`OFF_EXIT measured=${offExit || 'unmounted-immediately'} token=${offExitToken}`);
   await expect(dialog).toHaveCount(0);
+  if (offExit.trim() === '') {
+    expect(offExit).toBe('');
+  } else {
+    const offExitParts = durationParts(offExit);
+    expect(offExitParts.length).toBeGreaterThan(0);
+    expect(offExitParts.every((part) => part === '0s')).toBe(true);
+  }
+  console.log(`OFF_EXIT measured=${offExit || 'unmounted-immediately'} token=${offExitToken}`);
   await expect.poll(() => topHit(window)).toBe('page');
   await armEnter(window);
   await settings.click();

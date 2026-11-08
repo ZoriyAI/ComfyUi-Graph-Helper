@@ -157,7 +157,7 @@ export default function SettingsPanel({
           aria-describedby="settings-lead"
           onOpenAutoFocus={(event) => {
             event.preventDefault();
-            const panel = document.querySelector('.settings-panel');
+            const panel = document.querySelector('.settings-panel[data-state="active"]');
             panel?.querySelector<HTMLElement>('input:not([disabled]), [role="combobox"]')?.focus();
           }}
           onEscapeKeyDown={(event) => {
@@ -211,6 +211,7 @@ export default function SettingsPanel({
                   readOnly
                 />
               </label>
+              <p id="key-unavailable" className="field-hint">{KEY_REASON}</p>
               <button type="button" className="ghost-button" disabled>
                 Save key
               </button>
@@ -256,7 +257,7 @@ export default function SettingsPanel({
           </TabsRoot>
           <footer className="settings-actions">
             <p className="provider-note" role="status">{note}</p>
-            <p id="key-unavailable" className="field-hint">{KEY_REASON}</p>
+            <p className="field-hint">{KEY_REASON}</p>
             <div className="settings-buttons">
               <button type="button" className="send-button" disabled={saveDisabled} onClick={() => void save()}>
                 {pending ? 'Saving…' : 'Save settings'}

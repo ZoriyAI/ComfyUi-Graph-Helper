@@ -151,7 +151,8 @@ export default function GraphCanvas() {
         <Controls position="top-left" />
         <MiniMap
           position="bottom-left"
-          nodeStrokeWidth={3}
+          style={{ width: 144, height: 96 }}
+          nodeStrokeWidth={1}
           className="graph-minimap"
           nodeColor={(node) => {
             const data = node.data as { outputs?: Array<{ dataType?: string }>; inputs?: Array<{ dataType?: string }> };

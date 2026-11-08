@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import Hint from '../../ui/Hint';
 import { TabsContent, TabsList, TabsRoot, TabsTrigger } from '../../ui/Tabs';
 import ChatPanel from '../chat/ChatPanel';
 import Inspector from '../graph/Inspector';
@@ -40,6 +41,7 @@ export function ToolSplitter() {
       role="separator"
       aria-orientation="vertical"
       aria-label="Resize tools"
+      aria-controls="tool-dock"
       aria-valuemin={range.min}
       aria-valuemax={range.max}
       aria-valuenow={Math.round(width)}
@@ -57,8 +59,9 @@ export function ToolSplitter() {
         drag.current = null;
       }}
       onKeyDown={(event) => {
-        if (event.key === 'ArrowRight') setWidth(clamp(width + 16));
-        if (event.key === 'ArrowLeft') setWidth(clamp(width - 16));
+        if (event.key === 'ArrowLeft' || event.key === 'ArrowRight' || event.key === 'Home' || event.key === 'End') event.preventDefault();
+        if (event.key === 'ArrowLeft') setWidth(clamp(width + 16));
+        if (event.key === 'ArrowRight') setWidth(clamp(width - 16));
         if (event.key === 'Home') setWidth(range.min);
         if (event.key === 'End') setWidth(range.max);
       }}
@@ -102,19 +105,30 @@ export function ToolToggles() {
       >
         Assistant
       </button>
-      <button
-        type="button"
-        className="ghost-button"
-        aria-pressed={split}
-        disabled={!splitAllowed}
-        title={splitAllowed ? 'Show Inspector and Assistant together' : splitReason}
-        onClick={() => {
-          if (!splitAllowed) return;
-          setSplit(!split);
-        }}
-      >
-        Show both
-      </button>
+      {splitAllowed ? (
+        <button
+          type="button"
+          className="ghost-button"
+          aria-pressed={split}
+          title="Show Inspector and Assistant together"
+          onClick={() => setSplit(!split)}
+        >
+          Show both
+        </button>
+      ) : (
+        <Hint label={splitReason}>
+          <button
+            type="button"
+            className="ghost-button"
+            aria-pressed={false}
+            aria-describedby="show-both-reason"
+            disabled
+          >
+            Show both
+          </button>
+        </Hint>
+      )}
+      <span id="show-both-reason" className="sr-only">{splitReason}</span>
       <button
         type="button"
         className="ghost-button"
@@ -145,6 +159,7 @@ export default function Dock({
       className={split ? 'dock is-split' : 'dock'}
       style={{ width }}
       hidden={collapsed}
+      id="tool-dock"
       aria-label="Inspector and assistant"
     >
       <ToolSplitter />
