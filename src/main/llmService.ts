@@ -1,5 +1,7 @@
 import { streamText, LanguageModel, isStepCount } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
+import { createAnthropic } from '@ai-sdk/anthropic';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import type { ChatRuntimeConfig } from '../shared/config/schema';
 import { createTestLLMModel } from './testLLMTransport';
 
@@ -9,13 +11,30 @@ import { createTestLLMModel } from './testLLMTransport';
  * Renderer never sees API keys
  */
 
+export type ChatProvider = 'openai' | 'anthropic' | 'google' | 'test' | 'local';
+type CloudProvider = 'openai' | 'anthropic' | 'google';
+
+const PROVIDERS: readonly ChatProvider[] = ['openai', 'anthropic', 'google', 'test', 'local'];
+const CLOUD: readonly CloudProvider[] = ['openai', 'anthropic', 'google'];
+
+/** Official endpoints. Passed explicitly so an environment variable never redirects a held key. */
+const OFFICIAL_BASE: Record<CloudProvider, string> = {
+  openai: 'https://api.openai.com/v1',
+  anthropic: 'https://api.anthropic.com/v1',
+  google: 'https://generativelanguage.googleapis.com/v1beta',
+};
+
 interface LLMConfig {
-  provider: 'openai' | 'test' | 'local';
+  provider: ChatProvider;
   model: string;
   baseURL?: string;
 }
 
 const LOCAL_PLACEHOLDER = 'local';
+
+function isCloud(provider: ChatProvider): provider is CloudProvider {
+  return (CLOUD as readonly string[]).includes(provider);
+}
 
 function httpEndpoint(value: string | undefined): boolean {
   if (!value) return false;
@@ -41,6 +60,11 @@ function httpsCloudEndpoint(value: string | undefined): boolean {
 
 export type KeySource = 'none' | 'session' | 'os';
 
+export interface StreamOptions {
+  /** Upper bound on model steps. Each tool round trip is one step. */
+  maxSteps?: number;
+}
+
 class MainLLMService {
   private config: LLMConfig | null = null;
   private sessionKey: string | null = null;
@@ -52,12 +76,12 @@ class MainLLMService {
    */
   setConfig(config: { provider?: unknown; model?: unknown; baseURL?: unknown; apiKey?: unknown }): void {
     console.log('[MainLLMService] Config updated (credentials NOT logged)');
-    if (config.provider !== 'openai' && config.provider !== 'test' && config.provider !== 'local') {
+    if (typeof config.provider !== 'string' || !(PROVIDERS as readonly string[]).includes(config.provider)) {
       this.config = null;
       return;
     }
     this.config = {
-      provider: config.provider,
+      provider: config.provider as ChatProvider,
       model: typeof config.model === 'string' ? config.model : '',
       baseURL: typeof config.baseURL === 'string' ? config.baseURL : undefined,
     };
@@ -87,15 +111,22 @@ class MainLLMService {
     return { held, source: held ? this.sessionSource : 'none' };
   }
 
-  private sendBlock(): string | null {
+  /** The provider of the next send, or '' when nothing is configured. */
+  currentProvider(): ChatProvider | '' {
+    return this.config?.provider ?? '';
+  }
+
+  /** Why the next send would not leave this process, or null when it may. Checked before any client exists. */
+  sendBlock(): string | null {
     if (!this.config) return 'Model not configured';
-    if (this.config.provider === 'openai' && this.sessionKey && !httpsCloudEndpoint(this.config.baseURL)) {
-      return 'Cloud key is not sent to an http address.';
+    const { provider } = this.config;
+    if (isCloud(provider)) {
+      if (this.sessionKey && !httpsCloudEndpoint(this.config.baseURL)) return 'Cloud key is not sent to an http address.';
+      if (!this.sessionKey) return 'Cloud model has no key for this session.';
+      if (this.config.model.trim() === '') return 'Cloud model has no model id.';
     }
-    if (this.config.provider === 'openai' && !this.sessionKey) return 'Cloud model has no key for this session.';
-    if (this.config.provider === 'openai' && this.config.model.trim() === '') return 'Cloud model has no model id.';
-    if (this.config.provider === 'local' && !httpEndpoint(this.config.baseURL)) return 'Local model has no endpoint.';
-    if (this.config.provider === 'local' && this.config.model.trim() === '') return 'Local model has no model id.';
+    if (provider === 'local' && !httpEndpoint(this.config.baseURL)) return 'Local model has no endpoint.';
+    if (provider === 'local' && this.config.model.trim() === '') return 'Local model has no model id.';
     return null;
   }
 
@@ -108,42 +139,65 @@ class MainLLMService {
     };
   }
 
+  private cloudBase(provider: CloudProvider): string | null {
+    if (!httpsCloudEndpoint(this.config?.baseURL)) return null;
+    return this.config?.baseURL?.trim() || OFFICIAL_BASE[provider];
+  }
+
   getModel(): LanguageModel | null {
     if (!this.config) {
       console.warn('[MainLLMService] No config set');
       return null;
     }
+    const { provider, model } = this.config;
 
-    if (this.config.provider === 'test') {
+    if (provider === 'test') {
       console.log('[MainLLMService] Using TEST fixture transport');
       return createTestLLMModel();
     }
 
-    if (this.config.provider === 'openai') {
-      if (!httpsCloudEndpoint(this.config.baseURL)) return null;
-      const openai = createOpenAI({
-        apiKey: this.sessionKey ?? '',
-        baseURL: this.config.baseURL?.trim() || 'https://api.openai.com/v1',
-      });
-      return openai(this.config.model);
+    if (isCloud(provider)) {
+      const baseURL = this.cloudBase(provider);
+      if (!baseURL) return null;
+      const apiKey = this.sessionKey ?? '';
+      if (provider === 'openai') return createOpenAI({ apiKey, baseURL })(model);
+      if (provider === 'anthropic') return createAnthropic({ apiKey, baseURL })(model);
+      return createGoogleGenerativeAI({ apiKey, baseURL })(model);
     }
 
-    if (this.config.provider === 'local') {
+    if (provider === 'local') {
       const local = createOpenAI({
         apiKey: LOCAL_PLACEHOLDER,
         baseURL: this.config.baseURL,
         name: 'local',
       });
-      // Local OpenAI-compatible servers expose chat completions, not the Responses API.
-      return local.chat(this.config.model);
+      // Local OpenAI-compatible servers (Ollama at http://localhost:11434/v1, LM Studio, vLLM)
+      // expose chat completions, not the Responses API.
+      return local.chat(model);
     }
 
     return null;
   }
 
+  /**
+   * The provider-executed web search tool, or null when the provider has none.
+   * Only for the official endpoint: a custom https base is often a compatible gateway without these tools.
+   * Building the tool sends nothing and needs no key.
+   */
+  nativeSearchTool(): unknown | null {
+    if (!this.config || !isCloud(this.config.provider)) return null;
+    if ((this.config.baseURL?.trim() ?? '') !== '') return null;
+    const { provider } = this.config;
+    // The key is not attached here; a tool definition never carries it.
+    if (provider === 'openai') return createOpenAI({ apiKey: '' }).tools.webSearch();
+    if (provider === 'anthropic') return createAnthropic({ apiKey: '' }).tools.webSearch_20250305({ maxUses: 5 });
+    return createGoogleGenerativeAI({ apiKey: '' }).tools.googleSearch({});
+  }
+
   async* streamChatWithTools(
     messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
-    tools: Record<string, any>
+    tools: Record<string, any>,
+    options: StreamOptions = {},
   ): AsyncGenerator<{ type: string; content: any }> {
     const blocked = this.sendBlock();
     if (blocked) throw new Error(blocked);
@@ -165,7 +219,8 @@ class MainLLMService {
       messages: dialog,
       tools,
       // Default stopWhen is one step, which never feeds tool results back to the model.
-      stopWhen: isStepCount(6),
+      // A teaching turn reads the catalog, maybe the web, then proposes: allow a few rounds.
+      stopWhen: isStepCount(options.maxSteps ?? 12),
       toolCallConcurrency: 1,
     });
 
@@ -180,4 +235,5 @@ class MainLLMService {
   }
 }
 
+export { MainLLMService };
 export const mainLLMService = new MainLLMService();

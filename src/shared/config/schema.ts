@@ -22,7 +22,7 @@ export function coerceLegacyComfyOrigin(input: unknown): unknown {
 export const nonSecretSettingsSchema = z.object({
   theme: z.literal('graphite'),
   motion: z.enum(['system', 'on', 'reduced', 'off']),
-  provider: z.union([z.literal(''), z.literal('test'), z.literal('openai'), z.literal('local')]),
+  provider: z.union([z.literal(''), z.literal('test'), z.literal('openai'), z.literal('anthropic'), z.literal('google'), z.literal('local')]),
   model: z.string().trim().max(200),
   baseURL: z.string().trim().max(500).refine(httpOriginOrEmpty).default(''),
   comfyOrigin: z.string().trim().max(500).refine(httpOriginOrEmpty).default(''),
