@@ -36,6 +36,7 @@ const ERROR_KEYS: Record<string, string> = {
   'Cloud model has no key for this session.': 'errors.cloudKey',
   'Cloud model has no model id.': 'errors.cloudModel',
   'Cloud key is not sent to an http address.': 'errors.cloudHttp',
+  'Catalog widget order is not reliable, so those values are not exported.': 'errors.widgetOrder',
   'Local model has no endpoint.': 'errors.localEndpoint',
   'Local model has no model id.': 'errors.localModel',
   'Comfy origin is empty.': 'errors.comfyEmpty',

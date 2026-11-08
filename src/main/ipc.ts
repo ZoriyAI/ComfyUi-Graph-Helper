@@ -405,7 +405,7 @@ function exportWorkflowDocument() {
   const projection = readProjection(getDatabase(), DESKTOP_PROJECT_ID);
   if (!projection) return { ok: false as const, error: 'Project is not ready.' };
   const snapshot = projection.snapshot as GraphSnapshot;
-  return exportWorkflow(snapshot, new Date().toISOString());
+  return exportWorkflow(snapshot, new Date().toISOString(), readCatalog(getDatabase()));
 }
 
 function nativeProjectDocument() {
@@ -468,5 +468,7 @@ function toolOutcome(name: string, args: Record<string, unknown> | undefined, ou
     }
     return { success: true, message: `Annotated node ${result?.nodeId || ''}` };
   }
-  return { success: false, conflict: outcome.status === 'conflict', error: outcome.status };
+  const detail = outcome.result as { error?: unknown } | null;
+  const reason = typeof detail?.error === 'string' ? detail.error : outcome.status;
+  return { success: false, conflict: outcome.status === 'conflict', error: reason };
 }

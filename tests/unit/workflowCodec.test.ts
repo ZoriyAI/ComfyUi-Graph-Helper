@@ -3,7 +3,7 @@ import Database from 'better-sqlite3';
 import { commitCommand, ensureWorkspace, readProjection } from '../../src/main/commands/commit';
 import { migrate } from '../../src/main/settings/migrate';
 import { DESKTOP_PROJECT_ID } from '../../src/shared/project';
-import { classifyWorkflow, exportWorkflow, missingDeps, projectWorkflow, toApiPrompt } from '../../src/shared/workflow/codec';
+import { WIDGET_ORDER_UNRELIABLE, classifyWorkflow, exportWorkflow, missingDeps, projectWorkflow, toApiPrompt } from '../../src/shared/workflow/codec';
 
 function openDb(): Database.Database {
   const db = new Database(':memory:');
@@ -335,6 +335,124 @@ describe('workflow codec', () => {
     });
     expect(rejectedLink.status).toBe('rejected');
     expect(rejectedLink.result).toEqual({ error: 'Target node was not found.' });
+    db.close();
+  });
+
+  it('exports an agent-added loader title and checkpoint, and refuses an unreliable widget order', () => {
+    const catalog = {
+      nodeTypes: ['CheckpointLoaderSimple'],
+      models: [],
+      nodes: [{
+        classType: 'CheckpointLoaderSimple',
+        pack: 'nodes',
+        pythonModule: 'nodes',
+        inputs: [{ name: 'ckpt_name', type: 'COMBO', widget: true }],
+        outputs: [],
+        widgetOrder: ['ckpt_name'],
+        widgetOrderReliable: true,
+      }],
+    };
+    const snapshot = {
+      nodes: [{
+        id: 'node-live',
+        type: 'comfy',
+        position: { x: 120, y: 80 },
+        data: {
+          comfyType: 'CheckpointLoaderSimple',
+          title: 'Portrait loader',
+          parameters: { ckpt_name: 'portrait.safetensors' },
+          inputs: [],
+          outputs: [],
+          annotations: [],
+        },
+      }],
+      edges: [],
+      document: null,
+      components: [{
+        id: 'component:node:node-live',
+        ownerKind: 'node',
+        ownerId: 'node-live',
+        purpose: 'Loads the portrait checkpoint',
+        usage: 'Connect it',
+      }],
+      process: { title: 'Portrait process', notes: 'Keep the loader' },
+    };
+    const exported = exportWorkflow(snapshot as never, '2026-11-08T00:00:00.000Z', catalog);
+    expect(exported.ok).toBe(true);
+    if (!exported.ok) return;
+    const text = JSON.stringify(exported.workflow);
+    expect(text).not.toContain('graphHelper');
+    expect(text).not.toContain('componentRecords');
+    expect(text).not.toContain('Loads the portrait checkpoint');
+    expect(text).not.toContain('Portrait process');
+    const node = (exported.workflow.nodes as Array<Record<string, unknown>>)[0];
+    expect(node.title).toBe('Portrait loader');
+    expect(node.type).toBe('CheckpointLoaderSimple');
+    expect(node.widgets_values).toEqual(['portrait.safetensors']);
+
+    const unreliable = exportWorkflow(snapshot as never, '2026-11-08T00:00:00.000Z', {
+      ...catalog,
+      nodes: [{ ...catalog.nodes[0], widgetOrderReliable: false, widgetOrder: [] }],
+    });
+    expect(unreliable).toEqual({ ok: false, error: WIDGET_ORDER_UNRELIABLE });
+  });
+
+  it('writes agent parameters into widgets_values and rejects a parameter the order cannot place', () => {
+    const db = openDb();
+    db.prepare('UPDATE node_catalog SET widget_order_json = ? WHERE class_type = ?').run(JSON.stringify(['ckpt_name']), 'CheckpointLoaderSimple');
+    const current = readProjection(db, DESKTOP_PROJECT_ID)!;
+    const added = commitCommand(db, {
+      projectId: DESKTOP_PROJECT_ID,
+      actionId: 'add-loader',
+      expectedRevisionId: current.currentRevisionId,
+      actor: 'manual',
+      runId: null,
+      payload: {
+        type: 'add-node',
+        nodeType: 'CheckpointLoaderSimple',
+        title: 'Portrait loader',
+        parameters: { ckpt_name: 'portrait.safetensors' },
+        x: 10,
+        y: 20,
+      },
+    });
+    expect(added.status).toBe('applied');
+    const changed = commitCommand(db, {
+      projectId: DESKTOP_PROJECT_ID,
+      actionId: 'set-ckpt',
+      expectedRevisionId: added.projection!.currentRevisionId,
+      actor: 'manual',
+      runId: null,
+      payload: { type: 'set-parameter', nodeId: 'node-add-loader', key: 'ckpt_name', value: 'other.safetensors' },
+    });
+    expect(changed.status).toBe('applied');
+    const exported = exportWorkflow(changed.projection!.snapshot as never, '2026-11-08T00:00:00.000Z');
+    expect(exported.ok).toBe(true);
+    if (!exported.ok) return;
+    const node = (exported.workflow.nodes as Array<Record<string, unknown>>)[0];
+    expect(node.title).toBe('Portrait loader');
+    expect(node.widgets_values).toEqual(['other.safetensors']);
+    expect(JSON.stringify(exported.workflow)).not.toContain('graphHelper');
+
+    db.prepare('UPDATE node_catalog SET widget_order_json = ? WHERE class_type = ?').run(
+      JSON.stringify({ reliable: false, order: [] }),
+      'CheckpointLoaderSimple',
+    );
+    const refused = commitCommand(db, {
+      projectId: DESKTOP_PROJECT_ID,
+      actionId: 'add-unreliable',
+      expectedRevisionId: changed.projection!.currentRevisionId,
+      actor: 'manual',
+      runId: null,
+      payload: {
+        type: 'add-node',
+        nodeType: 'CheckpointLoaderSimple',
+        title: 'Nope',
+        parameters: { ckpt_name: 'x.safetensors' },
+      },
+    });
+    expect(refused.status).toBe('rejected');
+    expect(refused.result).toEqual({ error: WIDGET_ORDER_UNRELIABLE });
     db.close();
   });
 });

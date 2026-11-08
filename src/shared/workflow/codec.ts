@@ -389,8 +389,28 @@ function syncSlots(node: Record<string, unknown>, links: unknown[]): void {
   }
 }
 
-function exportedNode(node: Record<string, any>): Record<string, unknown> {
-  const source: Record<string, unknown> = node.data?.comfy && typeof node.data.comfy === 'object'
+export const WIDGET_ORDER_UNRELIABLE = 'Catalog widget order is not reliable, so those values are not exported.';
+
+/** Place parameter values into a widgets_values array. Unknown or unreliable order is a refusal, not a guess. */
+export function widgetsFromParameters(
+  classType: string,
+  parameters: Record<string, unknown>,
+  catalog: CatalogView,
+): { ok: true; values: unknown[] } | { ok: false; error: string } {
+  const spec = catalog.nodes.find((item) => item.classType === classType);
+  const keys = Object.keys(parameters);
+  if (!spec || spec.widgetOrderReliable === false) {
+    return keys.length === 0 ? { ok: true, values: [] } : { ok: false, error: WIDGET_ORDER_UNRELIABLE };
+  }
+  if (keys.some((key) => !spec.widgetOrder.includes(key))) {
+    return { ok: false, error: WIDGET_ORDER_UNRELIABLE };
+  }
+  return { ok: true, values: spec.widgetOrder.map((name) => (name in parameters ? parameters[name] : null)) };
+}
+
+function exportedNode(node: Record<string, any>, catalog?: CatalogView): Record<string, unknown> {
+  const hasComfy = node.data?.comfy && typeof node.data.comfy === 'object';
+  const source: Record<string, unknown> = hasComfy
     ? { ...(node.data.comfy as Record<string, unknown>) }
     : {
         id: node.id,
@@ -403,21 +423,48 @@ function exportedNode(node: Record<string, any>): Record<string, unknown> {
         properties: {},
       };
   source.pos = writePos(source.pos, { x: node.position?.x ?? 0, y: node.position?.y ?? 0 });
+  if (!hasComfy) {
+    const title = typeof node.data?.title === 'string' && node.data.title !== '' ? node.data.title : node.data?.comfyType;
+    if (typeof title === 'string' && title !== '') source.title = title;
+  }
   if (node.data?.comfy?.widgets_values !== undefined) {
     source.widgets_values = node.data.comfy.widgets_values;
+    return source;
   }
+  const parameters = node.data?.parameters;
+  const record = parameters && typeof parameters === 'object' && !Array.isArray(parameters)
+    ? parameters as Record<string, unknown>
+    : {};
+  if (Object.keys(record).length === 0) return source;
+  if (!catalog) throw new ExportRefused(WIDGET_ORDER_UNRELIABLE);
+  const placed = widgetsFromParameters(String(node.data?.comfyType ?? ''), record, catalog);
+  if (!placed.ok) throw new ExportRefused(placed.error);
+  source.widgets_values = placed.values;
   return source;
 }
 
-export function exportWorkflow(snapshot: GraphSnapshot, exportedAt: string): { ok: true; workflow: Record<string, unknown> } | { ok: false; error: string } {
+class ExportRefused extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ExportRefused';
+  }
+}
+
+export function exportWorkflow(snapshot: GraphSnapshot, exportedAt: string, catalog?: CatalogView): { ok: true; workflow: Record<string, unknown> } | { ok: false; error: string } {
   const formatVersion = snapshot.document?.formatVersion ?? WORKFLOW_FORMAT_V1;
   const raw = snapshot.document?.raw ? { ...snapshot.document.raw } : {};
   const links = snapshot.edges.map((edge) => edgeToLink(edge, formatVersion));
-  const exportedNodes = snapshot.nodes.map((node) => {
-    const next = exportedNode(node);
-    syncSlots(next, links);
-    return next;
-  });
+  let exportedNodes: Array<Record<string, unknown>>;
+  try {
+    exportedNodes = snapshot.nodes.map((node) => {
+      const next = exportedNode(node, catalog);
+      syncSlots(next, links);
+      return next;
+    });
+  } catch (error) {
+    if (error instanceof ExportRefused) return { ok: false, error: error.message };
+    throw error;
+  }
   const workflow: Record<string, unknown> = {
     ...raw,
     version: formatVersion,

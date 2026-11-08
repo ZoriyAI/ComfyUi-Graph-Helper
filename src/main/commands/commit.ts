@@ -34,6 +34,7 @@ import {
   patchWidgets,
   projectWorkflow,
   rememberLinkId,
+  widgetsFromParameters,
   type WorkflowDocumentState,
 } from '../../shared/workflow/codec';
 
@@ -215,17 +216,37 @@ function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutat
   if (payload.type === 'add-node') {
     const nodeId = `node-${actionId}`;
     const ports = portsForClassType(payload.nodeType, catalog);
+    const parameters = payload.parameters ?? {};
+    const placed = widgetsFromParameters(payload.nodeType, parameters, catalog);
+    if (!placed.ok) throw new CommandSignal('rejected', { error: placed.error });
+    const title = payload.title || payload.nodeType;
+    const x = payload.x ?? 300;
+    const y = payload.y ?? 200;
+    const spec = catalog.nodes.find((item) => item.classType === payload.nodeType);
+    const comfy: Record<string, unknown> = {
+      id: nodeId,
+      type: payload.nodeType,
+      title,
+      pos: [x, y],
+      size: [200, 80],
+      flags: {},
+      order: 0,
+      mode: 0,
+      properties: {},
+    };
+    if (spec && spec.widgetOrderReliable !== false) comfy.widgets_values = placed.values;
     nodes.push({
       id: nodeId,
       type: 'comfy',
-      position: { x: payload.x ?? 300, y: payload.y ?? 200 },
+      position: { x, y },
       data: {
         comfyType: payload.nodeType,
-        title: payload.title || payload.nodeType,
+        title,
         inputs: ports.inputs,
         outputs: ports.outputs,
-        parameters: payload.parameters ?? {},
+        parameters,
         annotations: [],
+        comfy,
       },
     });
     return { snapshot: { nodes, edges, document: snapshot.document }, result: { nodeId, nodeType: payload.nodeType } };
@@ -256,17 +277,32 @@ function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutat
   if (payload.type === 'set-parameter') {
     const node = nodes.find((item) => item.id === payload.nodeId);
     if (!node) throw new CommandSignal('rejected');
-    const widgets = node.data?.comfy?.widgets_values;
-    const widgetIndex = Array.isArray(widgets)
-      ? arrayWidgetIndex(widgets, catalog, String(node.data?.comfyType ?? ''), payload.key, payload.widgetIndex)
-      : payload.widgetIndex;
-    const comfy = node.data.comfy && typeof node.data.comfy === 'object' ? { ...node.data.comfy } : {};
-    patchWidgets(comfy, payload.key, payload.value, widgetIndex);
-    node.data = {
-      ...node.data,
-      parameters: { ...(node.data.parameters ?? {}), [payload.key]: payload.value },
-      comfy,
+    const classType = String(node.data?.comfyType ?? '');
+    const parameters = { ...(node.data.parameters ?? {}), [payload.key]: payload.value };
+    const comfy = node.data.comfy && typeof node.data.comfy === 'object' ? { ...node.data.comfy } : {
+      id: node.id,
+      type: classType,
+      title: node.data?.title || classType,
+      pos: [node.position?.x ?? 0, node.position?.y ?? 0],
+      size: [200, 80],
+      flags: {},
+      order: 0,
+      mode: 0,
+      properties: {},
     };
+    if (comfy.widgets_values === undefined) {
+      const placed = widgetsFromParameters(classType, parameters, catalog);
+      if (!placed.ok) throw new CommandSignal('rejected', { error: placed.error });
+      const spec = catalog.nodes.find((item) => item.classType === classType);
+      if (spec && spec.widgetOrderReliable !== false) comfy.widgets_values = placed.values;
+    } else {
+      const widgets = comfy.widgets_values;
+      const widgetIndex = Array.isArray(widgets)
+        ? arrayWidgetIndex(widgets, catalog, classType, payload.key, payload.widgetIndex)
+        : payload.widgetIndex;
+      patchWidgets(comfy, payload.key, payload.value, widgetIndex);
+    }
+    node.data = { ...node.data, parameters, comfy };
     return { snapshot: { nodes, edges, document: snapshot.document }, result: { nodeId: payload.nodeId, key: payload.key } };
   }
   if (payload.type === 'retarget-edge') {
