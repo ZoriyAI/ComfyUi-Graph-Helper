@@ -84,3 +84,25 @@ describe('model kind inference', () => {
     expect(inferModelKind('checkpoints', { ss_network_module: 'networks.lora' })).toBe('lora');
   });
 });
+
+describe('knowledge labels', () => {
+  it('has an English and Russian label for every family, kind, evidence, provenance, and aspect', async () => {
+    const { createTranslator } = await import('../../src/shared/i18n');
+    const { BASE_MODEL_FAMILIES, MODEL_KINDS, PROVENANCES, EXPLANATION_ASPECTS } = await import('../../src/shared/knowledge/schemas');
+    const labels = await import('../../src/shared/knowledge/labels');
+    const keys = [
+      ...BASE_MODEL_FAMILIES.map(labels.familyLabelKey),
+      ...MODEL_KINDS.map(labels.kindLabelKey),
+      ...(['metadata', 'sidecar', 'filename', 'web', 'none'] as const).map(labels.evidenceLabelKey),
+      ...PROVENANCES.map(labels.provenanceLabelKey),
+      ...EXPLANATION_ASPECTS.map(labels.aspectLabelKey),
+      'sync.state.running', 'check.missingNodes',
+    ];
+    for (const language of ['en', 'ru'] as const) {
+      const t = createTranslator(language);
+      for (const key of keys) expect(t(key), `${language} ${key}`).not.toBe(key);
+    }
+    expect(createTranslator('en')(labels.familyLabelKey('wan2.1'))).toBe('Wan 2.1');
+    expect(createTranslator('ru')('check.typeMismatchesItem', { sourceType: 'VAE', targetType: 'CONDITIONING' })).toContain('CONDITIONING');
+  });
+});
