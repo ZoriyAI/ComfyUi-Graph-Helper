@@ -28,6 +28,7 @@ function sameSettings(left: NonSecretSettings, right: NonSecretSettings) {
     && left.model === right.model
     && left.baseURL === right.baseURL
     && left.comfyOrigin === right.comfyOrigin
+    && left.mcpUrl === right.mcpUrl
     && left.language === right.language;
 }
 
@@ -63,6 +64,8 @@ export default function SettingsPanel({
   const [secretPersist, setSecretPersist] = useState(false);
   const [secretStored, setSecretStored] = useState(false);
   const [actionNote, setActionNote] = useState('');
+  const [mcpTokenDraft, setMcpTokenDraft] = useState('');
+  const [mcpNote, setMcpNote] = useState('');
   const onSessionRef = useRef(onSession);
   onSessionRef.current = onSession;
 
@@ -187,6 +190,30 @@ export default function SettingsPanel({
     }
     setActionNote(String(t('settings.comfyRead', { version: result.version, devices: result.devices, nodes: result.nodes })));
   };
+  const readMcp = async () => {
+    setActionNote(String(t('settings.saving')));
+    const result = await window.electronAPI.readMcp();
+    if (!result.ok) {
+      setActionNote(explainError(translate, result.error).summary);
+      return;
+    }
+    const objectInfo = String(t(
+      result.objectInfo === 'mcp' ? 'settings.mcpObjectInfoMcp' : result.objectInfo === 'native' ? 'settings.mcpObjectInfoNative' : 'settings.mcpObjectInfoNone',
+    ));
+    const summary = String(t('settings.mcpRead', { tools: result.tools, nodes: result.nodes, models: result.models, objectInfo }));
+    const skipped = result.skipped.length > 0 ? ` ${String(t('settings.mcpSkipped', { items: result.skipped.join(', ') }))}` : '';
+    setActionNote(`${summary}${skipped}`);
+  };
+  const holdMcpToken = async () => {
+    const held = await window.electronAPI.mcpSetToken(mcpTokenDraft);
+    setMcpTokenDraft('');
+    setMcpNote(String(t(held.held ? 'settings.mcpTokenHeld' : 'settings.mcpTokenCleared')));
+  };
+  const clearMcpToken = async () => {
+    await window.electronAPI.mcpSetToken('');
+    setMcpTokenDraft('');
+    setMcpNote(String(t('settings.mcpTokenCleared')));
+  };
   const checkGraph = async () => {
     const result = await window.electronAPI.graphCompatibility();
     if (!result.ok) {
@@ -307,7 +334,39 @@ export default function SettingsPanel({
                 />
               </label>
               <p className="field-hint">{t('settings.comfyOriginHint')}</p>
+              <label className="field">
+                {t('settings.mcpUrl')}
+                <input
+                  aria-label={String(t('settings.mcpUrl'))}
+                  value={values.mcpUrl}
+                  onChange={(event) => setValues((current) => ({ ...current, mcpUrl: event.target.value }))}
+                  {...fieldError('mcpUrl')}
+                />
+              </label>
+              <p className="field-hint">{t('settings.mcpUrlHint')}</p>
+              <label className="field">
+                {t('settings.mcpToken')}
+                <input
+                  type="password"
+                  autoComplete="off"
+                  aria-label={String(t('settings.mcpToken'))}
+                  value={mcpTokenDraft}
+                  onChange={(event) => setMcpTokenDraft(event.target.value)}
+                />
+              </label>
               <div className="settings-buttons">
+                <button type="button" className="ghost-button" disabled={mcpTokenDraft.length === 0} onClick={() => void holdMcpToken()}>
+                  {t('settings.useMcpToken')}
+                </button>
+                <button type="button" className="ghost-button" onClick={() => void clearMcpToken()}>
+                  {t('settings.clearMcpToken')}
+                </button>
+              </div>
+              {mcpNote ? <p className="field-hint" role="status">{mcpNote}</p> : null}
+              <div className="settings-buttons">
+                <button type="button" className="ghost-button" disabled={pending || dirty || values.mcpUrl.trim() === ''} onClick={() => void readMcp()}>
+                  {t('settings.readMcp')}
+                </button>
                 <button type="button" className="ghost-button" disabled={pending || dirty || values.comfyOrigin.trim() === ''} onClick={() => void readCatalog()}>
                   {t('settings.readComfy')}
                 </button>

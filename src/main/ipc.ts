@@ -9,6 +9,8 @@ import { attemptSaveSecret, forgetProviderKey, readProviderKeyCipher, readSettin
 import { probeSecretBackend } from './settings/secretProbe';
 import { isUnprotectedCipher, secretPersistenceDecision } from '../shared/config/secretPolicy';
 import { applyComfyRead } from './comfy/read';
+import { readCatalogViaMcp } from './mcp/client';
+import { mcpToken, mcpTokenStatus, setMcpToken } from './mcp/token';
 import { missingOnGraph } from '../shared/graph/compatibility';
 import { cancelRun, commitCommand, pauseRun, readProjection, resumeRun, startRun, switchProject } from './commands/commit';
 import { DESKTOP_PROJECT_ID } from '../shared/project';
@@ -245,6 +247,20 @@ export async function setupIPC(): Promise<void> {
     if (!origin) return { ok: false as const, error: 'Comfy origin is empty.' };
     return applyComfyRead(getDatabase(), origin, globalThis.fetch);
   });
+
+  ipcMain.handle(IPC_CHANNELS.MCP_READ, async () => {
+    const read = readSettings(getDatabase());
+    const url = read.source === 'corrupt' ? '' : read.values.mcpUrl;
+    if (!url) return { ok: false as const, error: 'MCP server URL is empty.' };
+    return readCatalogViaMcp(getDatabase(), { url, token: mcpToken() }, globalThis.fetch);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.MCP_SET_TOKEN, (_event, value: unknown) => {
+    console.log('[IPC] MCP token updated (value NOT logged)');
+    return setMcpToken(value);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.MCP_TOKEN_STATUS, () => mcpTokenStatus());
 
   ipcMain.handle(IPC_CHANNELS.GRAPH_COMPATIBILITY, () => {
     const projection = readProjection(getDatabase(), DESKTOP_PROJECT_ID);

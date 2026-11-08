@@ -26,6 +26,8 @@ export const nonSecretSettingsSchema = z.object({
   model: z.string().trim().max(200),
   baseURL: z.string().trim().max(500).refine(httpOriginOrEmpty).default(''),
   comfyOrigin: z.string().trim().max(500).refine(httpOriginOrEmpty).default(''),
+  /** Streamable HTTP MCP endpoint of the ComfyUI MCP server, or empty. The token is never part of this row. */
+  mcpUrl: z.string().trim().max(500).refine(httpOriginOrEmpty).default(''),
   language: z.enum(['en', 'ru']).default('ru'),
 }).superRefine((value, ctx) => {
   if (value.provider !== 'local') return;
@@ -44,6 +46,7 @@ export const nonSecretDefaults: NonSecretSettings = {
   model: '',
   baseURL: '',
   comfyOrigin: '',
+  mcpUrl: '',
   language: 'ru',
 };
 

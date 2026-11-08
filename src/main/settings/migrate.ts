@@ -136,10 +136,12 @@ function applyVersion2(db: Database.Database): void {
  * Version 6 adds the interface language. Existing rows default to English.
  * A profile with no settings row still uses the application default, Russian.
  * Version 7 stores app component records and process metadata on each graph revision.
+ * Version 8 adds the MCP server URL on the settings row, display name and category on node_catalog,
+ * and the file size on model_catalog, so a catalog read through MCP keeps what the server reports.
  */
 export function migrate(db: Database.Database, options?: { failBeforeVersionStamp?: boolean }): void {
   const version = schemaVersion(db);
-  if (version > 7) {
+  if (version > 8) {
     throw new Error(`Unsupported schema version ${version}`);
   }
   if (version < 1) {
@@ -193,6 +195,28 @@ export function migrate(db: Database.Database, options?: { failBeforeVersionStam
       db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (7, ?)').run(Date.now());
     });
     apply.immediate();
+  }
+  if (schemaVersion(db) === 7) {
+    const apply = db.transaction(() => {
+      applyVersion8(db);
+      db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (8, ?)').run(Date.now());
+    });
+    apply.immediate();
+  }
+}
+
+function applyVersion8(db: Database.Database): void {
+  const tables = tableNames(db);
+  if (tables.includes('settings') && !columnNames(db, 'settings').includes('mcp_url')) {
+    db.exec("ALTER TABLE settings ADD COLUMN mcp_url TEXT NOT NULL DEFAULT ''");
+  }
+  if (tables.includes('node_catalog')) {
+    const columns = columnNames(db, 'node_catalog');
+    if (!columns.includes('display_name')) db.exec("ALTER TABLE node_catalog ADD COLUMN display_name TEXT NOT NULL DEFAULT ''");
+    if (!columns.includes('category')) db.exec("ALTER TABLE node_catalog ADD COLUMN category TEXT NOT NULL DEFAULT ''");
+  }
+  if (tables.includes('model_catalog') && !columnNames(db, 'model_catalog').includes('size_bytes')) {
+    db.exec('ALTER TABLE model_catalog ADD COLUMN size_bytes INTEGER');
   }
 }
 

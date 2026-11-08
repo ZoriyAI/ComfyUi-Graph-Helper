@@ -23,6 +23,9 @@ const IPC_CHANNELS = {
   SETTINGS_FORGET_SECRET: 'settings:forget-secret',
   SETTINGS_SECRET_STATUS: 'settings:secret-status',
   COMFY_READ: 'comfy:read',
+  MCP_READ: 'mcp:read',
+  MCP_SET_TOKEN: 'mcp:set-token',
+  MCP_TOKEN_STATUS: 'mcp:token-status',
   GRAPH_COMPATIBILITY: 'graph:compatibility',
   COMMAND_COMMIT: 'command:commit',
   COMMAND_START_RUN: 'command:start-run',
@@ -65,6 +68,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     | { ok: true; version: string; devices: number; nodes: number; models: number; skipped: string[] }
     | { ok: false; error: string }
   >,
+  readMcp: () => ipcRenderer.invoke(IPC_CHANNELS.MCP_READ) as Promise<
+    | { ok: true; tools: number; nodes: number; models: number; objectInfo: 'mcp' | 'native' | 'none'; comfyUrl: string | null; skipped: string[] }
+    | { ok: false; error: string }
+  >,
+  mcpSetToken: (value: string) => ipcRenderer.invoke(IPC_CHANNELS.MCP_SET_TOKEN, value) as Promise<{ held: boolean }>,
+  mcpTokenStatus: () => ipcRenderer.invoke(IPC_CHANNELS.MCP_TOKEN_STATUS) as Promise<{ held: boolean }>,
   graphCompatibility: () => ipcRenderer.invoke(IPC_CHANNELS.GRAPH_COMPATIBILITY) as Promise<
     | { ok: true; missingNodes: string[]; missingModels: Array<{ directory: string; name: string }> }
     | { ok: false; error: string }
@@ -129,6 +138,12 @@ export interface ElectronAPI {
     | { ok: true; version: string; devices: number; nodes: number; models: number; skipped: string[] }
     | { ok: false; error: string }
   >;
+  readMcp: () => Promise<
+    | { ok: true; tools: number; nodes: number; models: number; objectInfo: 'mcp' | 'native' | 'none'; comfyUrl: string | null; skipped: string[] }
+    | { ok: false; error: string }
+  >;
+  mcpSetToken: (value: string) => Promise<{ held: boolean }>;
+  mcpTokenStatus: () => Promise<{ held: boolean }>;
   graphCompatibility: () => Promise<
     | { ok: true; missingNodes: string[]; missingModels: Array<{ directory: string; name: string }> }
     | { ok: false; error: string }

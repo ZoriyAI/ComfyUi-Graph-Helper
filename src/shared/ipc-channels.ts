@@ -33,6 +33,9 @@ export const IPC_CHANNELS = {
   SETTINGS_FORGET_SECRET: 'settings:forget-secret',
   SETTINGS_SECRET_STATUS: 'settings:secret-status',
   COMFY_READ: 'comfy:read',
+  MCP_READ: 'mcp:read',
+  MCP_SET_TOKEN: 'mcp:set-token',
+  MCP_TOKEN_STATUS: 'mcp:token-status',
   GRAPH_COMPATIBILITY: 'graph:compatibility',
 
   COMMAND_COMMIT: 'command:commit',

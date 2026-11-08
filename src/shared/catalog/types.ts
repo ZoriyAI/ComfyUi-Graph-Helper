@@ -19,6 +19,9 @@ export interface CatalogNode {
   classType: string;
   pack: string;
   pythonModule: string;
+  /** Frontend display name and category as the server reports them. Empty when unknown. */
+  displayName?: string;
+  category?: string;
   inputs: CatalogInput[];
   outputs: CatalogOutput[];
   /** widgets_values slot names. Empty when widgetOrderReliable is false. */
@@ -30,8 +33,15 @@ export interface CatalogNode {
   widgetOrderReliable?: boolean;
 }
 
+export interface CatalogModel {
+  directory: string;
+  name: string;
+  /** File size when the MCP server reported one. */
+  sizeBytes?: number | null;
+}
+
 export interface CatalogView {
   nodeTypes: string[];
-  models: Array<{ directory: string; name: string }>;
+  models: CatalogModel[];
   nodes: CatalogNode[];
 }
