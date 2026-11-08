@@ -1,0 +1,50 @@
+.root {
+  --canvas-dim: rgba(8, 10, 14, 0.55);
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--focus, #b7a5ff) 5%, transparent), transparent 60%),
+    var(--bg, #0c1017);
+}
+.flowHost { position: absolute; inset: 0; }
+.empty.empty { z-index: 1; }
+.replaying .flowHost { filter: saturate(0.6) brightness(0.85); }
+.replaying .flowHost::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: var(--canvas-dim);
+  mix-blend-mode: multiply;
+}
+.replayBanner {
+  position: absolute;
+  z-index: 6;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 6px 12px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--warn, #f6ce7c) 50%, var(--line, #2a3648));
+  background: var(--bg-raised, #1b2533);
+  color: var(--text, #e8eef7);
+  font-size: 13px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+.dropping .flowHost { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent, #65d9ed) 60%, transparent); }
+.dropHint {
+  position: absolute;
+  z-index: 6;
+  bottom: 16px;
+  right: 16px;
+  margin: 0;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: var(--bg-raised, #1b2533);
+  color: var(--accent, #65d9ed);
+  font-size: 12px;
+  pointer-events: none;
+}

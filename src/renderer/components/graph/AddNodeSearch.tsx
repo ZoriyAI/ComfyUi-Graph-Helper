@@ -1,0 +1,108 @@
+import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useReactFlow } from '@xyflow/react';
+import type { NodeClassSummary } from '../../../shared/contracts/knowledge';
+import { useCanvasStore } from './canvasStore';
+import { commitManual } from './commit';
+import styles from './Toolbar.module.css';
+
+/**
+ * Add-node search: type, pick with arrows and Enter, and the node lands where the person asked
+ * (right-click position) or in the middle of the view. Commits `add-node` through commitManual.
+ */
+export default function AddNodeSearch() {
+  const { t } = useTranslation();
+  const search = useCanvasStore((state) => state.addSearch);
+  const close = useCanvasStore((state) => state.closeAddSearch);
+  const flow = useReactFlow();
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<NodeClassSummary[]>([]);
+  const [active, setActive] = useState(0);
+  const input = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (search.open) {
+      setQuery('');
+      setResults([]);
+      setActive(0);
+      window.setTimeout(() => input.current?.focus(), 0);
+    }
+  }, [search.open]);
+
+  useEffect(() => {
+    if (!search.open) return undefined;
+    let live = true;
+    const bridge = window.electronAPI;
+    const timer = window.setTimeout(() => {
+      if (!bridge?.searchNodeTypes) return;
+      void bridge.searchNodeTypes({ query: query.trim(), limit: 12 }).catch(() => []).then((found) => {
+        if (live) {
+          setResults(found);
+          setActive(0);
+        }
+      });
+    }, 120);
+    return () => {
+      live = false;
+      window.clearTimeout(timer);
+    };
+  }, [query, search.open]);
+
+  if (!search.open) return null;
+
+  const pick = (item: NodeClassSummary | undefined) => {
+    const classType = item?.classType ?? query.trim();
+    if (!classType) return;
+    const at = search.at ?? (() => {
+      const box = document.querySelector('.react-flow')?.getBoundingClientRect();
+      return box ? flow.screenToFlowPosition({ x: box.left + box.width / 2, y: box.top + box.height / 2 }) : { x: 0, y: 0 };
+    })();
+    void commitManual({ type: 'add-node', nodeType: classType, x: Math.round(at.x), y: Math.round(at.y) });
+    close();
+  };
+
+  const listId = 'canvas-add-node-results';
+  return (
+    <div className={styles.search} role="dialog" aria-label={String(t('canvas.addNode'))}>
+      <input
+        ref={input}
+        className={styles.searchInput}
+        value={query}
+        placeholder={String(t('canvas.addSearchPlaceholder'))}
+        aria-label={String(t('canvas.addSearchLabel'))}
+        aria-controls={listId}
+        aria-activedescendant={results[active] ? `${listId}-${active}` : undefined}
+        onChange={(event) => setQuery(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'ArrowDown') setActive((index) => Math.min(results.length - 1, index + 1));
+          else if (event.key === 'ArrowUp') setActive((index) => Math.max(0, index - 1));
+          else if (event.key === 'Enter') pick(results[active]);
+          else if (event.key === 'Escape') close();
+          else return;
+          event.preventDefault();
+          event.stopPropagation();
+        }}
+        onBlur={(event) => {
+          if (!event.currentTarget.parentElement?.contains(event.relatedTarget as Node | null)) close();
+        }}
+      />
+      <ul id={listId} className={styles.results} role="listbox" aria-label={String(t('canvas.addSearchLabel'))}>
+        {results.length === 0 ? <li className={styles.empty}>{t('canvas.noResults')}</li> : results.map((item, index) => (
+          <li
+            key={item.classType}
+            id={`${listId}-${index}`}
+            role="option"
+            aria-selected={index === active}
+            className={styles.result}
+            tabIndex={-1}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => pick(item)}
+          >
+            <span>{item.displayName || item.classType}</span>
+            <span className={styles.resultMeta}>{item.category}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}

@@ -1,0 +1,22 @@
+.svg { position: absolute; left: 0; top: 0; width: 1px; height: 1px; overflow: visible; pointer-events: none; }
+.path { fill: none; stroke-width: 2; stroke-dasharray: 4 6; opacity: 0.9; animation: march 800ms linear infinite; filter: drop-shadow(0 0 3px currentColor); }
+.hint {
+  position: absolute;
+  transform: translateX(-50%);
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--bg-raised, #1b2533) 94%, transparent);
+  border: 1px solid var(--line, #2a3648);
+  color: var(--text, #e8eef7);
+  font-size: 12px;
+  line-height: 18px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+@keyframes march { to { stroke-dashoffset: -20; } }
+:global(html[data-motion="off"]) .path,
+:global(html[data-motion="reduced"]) .path { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  :global(html[data-motion="system"]) .path,
+  :global(html:not([data-motion])) .path { animation: none; }
+}
