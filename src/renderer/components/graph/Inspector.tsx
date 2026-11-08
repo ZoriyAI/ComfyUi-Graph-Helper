@@ -33,21 +33,24 @@ function DocsEditor({
   const dirty = draftPurpose !== purpose || draftUsage !== usage;
   const purposeId = `component-purpose-${ownerKind}-${ownerId}`;
   const usageId = `component-usage-${ownerKind}-${ownerId}`;
+  const save = () => {
+    if (!dirty || pending) return;
+    setPending(true);
+    void submitManual(`component-${crypto.randomUUID()}`, {
+      type: 'set-component',
+      ownerKind,
+      ownerId,
+      purpose: draftPurpose,
+      usage: draftUsage,
+    }).finally(() => setPending(false));
+  };
   return (
     <form
       className="inspector-docs"
       data-component-owner={`${ownerKind}:${ownerId}`}
       onSubmit={(event) => {
         event.preventDefault();
-        if (!dirty || pending) return;
-        setPending(true);
-        void submitManual(`component-${crypto.randomUUID()}`, {
-          type: 'set-component',
-          ownerKind,
-          ownerId,
-          purpose: draftPurpose,
-          usage: draftUsage,
-        }).finally(() => setPending(false));
+        save();
       }}
     >
       <h3>{heading}</h3>
@@ -68,7 +71,7 @@ function DocsEditor({
         onChange={(event) => setDraftUsage(event.target.value)}
       />
       <p id={`${usageId}-hint`} className="inspector-empty">{t('inspector.usageHint')}</p>
-      <button type="submit" className="ghost-button" disabled={!dirty || pending}>{t('inspector.saveDocs')}</button>
+      <button type="button" className="ghost-button" disabled={!dirty || pending} onClick={save}>{t('inspector.saveDocs')}</button>
     </form>
   );
 }
@@ -106,6 +109,15 @@ export default function Inspector() {
     ...data.outputs.map((port) => ({ ...port, direction: 'out' as const })),
   ] : [];
   const processDirty = processTitle !== process.title || processNotes !== process.notes;
+  const saveProcess = () => {
+    if (!processDirty || processPending) return;
+    setProcessPending(true);
+    void submitManual(`process-${crypto.randomUUID()}`, {
+      type: 'set-process',
+      title: processTitle,
+      notes: processNotes,
+    }).finally(() => setProcessPending(false));
+  };
 
   return (
     <section className="inspector" role="region" aria-label={label}>
@@ -195,21 +207,25 @@ export default function Inspector() {
         data-component-owner="process"
         onSubmit={(event) => {
           event.preventDefault();
-          if (!processDirty || processPending) return;
-          setProcessPending(true);
-          void submitManual(`process-${crypto.randomUUID()}`, {
-            type: 'set-process',
-            title: processTitle,
-            notes: processNotes,
-          }).finally(() => setProcessPending(false));
+          saveProcess();
         }}
       >
         <h3>{t('inspector.process')}</h3>
         <label htmlFor="process-title">{t('inspector.processTitle')}</label>
-        <input id="process-title" value={processTitle} onChange={(event) => setProcessTitle(event.target.value)} />
+        <input
+          id="process-title"
+          value={processTitle}
+          onChange={(event) => setProcessTitle(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              saveProcess();
+            }
+          }}
+        />
         <label htmlFor="process-notes">{t('inspector.processNotes')}</label>
         <textarea id="process-notes" value={processNotes} onChange={(event) => setProcessNotes(event.target.value)} />
-        <button type="submit" className="ghost-button" disabled={!processDirty || processPending}>{t('inspector.saveProcess')}</button>
+        <button type="button" className="ghost-button" disabled={!processDirty || processPending} onClick={saveProcess}>{t('inspector.saveProcess')}</button>
       </form>
     </section>
   );
