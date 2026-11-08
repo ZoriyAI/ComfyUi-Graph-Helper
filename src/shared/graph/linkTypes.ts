@@ -3,6 +3,8 @@
  * src/lib/litegraph/src/LiteGraphGlobal.ts @98700cfc
  * Called as LiteGraph.isValidConnection(output.type, input.type) from
  * LGraphNode.connectSlots @07d5bd50.
+ * Input slot order is separate: litegraphService.addInputs / addInputSocket /
+ * addInputWidget @98700cfc place every socket before every widget.
  * '' and '*' match any type. A comma-separated list matches when any pair matches.
  * The comparison is case-insensitive. EVENT and ACTION are both -1 in that file.
  */

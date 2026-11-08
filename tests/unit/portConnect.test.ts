@@ -5,7 +5,9 @@ import { upsertObjectInfo } from '../../src/main/catalog/repository';
 import { migrate } from '../../src/main/settings/migrate';
 import { parseObjectInfo } from '../../src/shared/catalog/objectInfo';
 import { portsCompatible } from '../../src/shared/graph/linkTypes';
+import { inferInputs } from '../../src/shared/graph/ports';
 import { DESKTOP_PROJECT_ID } from '../../src/shared/project';
+import { exportWorkflow } from '../../src/shared/workflow/codec';
 
 function openDb(): Database.Database {
   const db = new Database(':memory:');
@@ -251,6 +253,117 @@ describe('catalog ports and connection types', () => {
     expect(
       (readProjection(db, DESKTOP_PROJECT_ID)!.snapshot.edges as Array<Record<string, any>>).find((item) => item.id === 'link-1'),
     ).toMatchObject({ target: 'node-add-other', targetHandle: 'in-0', data: { dataType: 'IMAGE' } });
+    db.close();
+  });
+
+  it('numbers mixed widget and socket inputs as frontend slots', () => {
+    const db = openDb();
+    const beforeSampler = manual(db, 'before-sampler', { type: 'add-node', nodeType: 'KSampler' });
+    const beforeEncode = manual(db, 'before-encode', { type: 'add-node', nodeType: 'CLIPTextEncode' });
+    expect(beforeSampler.status).toBe('applied');
+    expect(beforeEncode.status).toBe('applied');
+    const hardcodedSampler = nodeData(db, 'node-before-sampler').inputs;
+    const hardcodedEncode = nodeData(db, 'node-before-encode').inputs;
+    expect(hardcodedSampler).toEqual(inferInputs('KSampler'));
+    expect(hardcodedEncode).toEqual(inferInputs('CLIPTextEncode'));
+
+    upsertObjectInfo(db, parseObjectInfo({
+      CLIPTextEncode: {
+        input: {
+          required: {
+            text: ['STRING', { multiline: true }],
+            clip: ['CLIP'],
+          },
+        },
+        input_order: { required: ['text', 'clip'] },
+        output: ['CONDITIONING'],
+        output_name: ['CONDITIONING'],
+        python_module: 'nodes',
+      },
+      KSampler: {
+        input: {
+          required: {
+            model: ['MODEL'],
+            seed: ['INT', { default: 0, control_after_generate: true }],
+            steps: ['INT', { default: 20 }],
+            cfg: ['FLOAT', { default: 8 }],
+            sampler_name: [['euler', 'ddim']],
+            scheduler: [['normal', 'karras']],
+            positive: ['CONDITIONING'],
+            negative: ['CONDITIONING'],
+            latent_image: ['LATENT'],
+            denoise: ['FLOAT', { default: 1 }],
+          },
+        },
+        input_order: {
+          required: ['model', 'seed', 'steps', 'cfg', 'sampler_name', 'scheduler', 'positive', 'negative', 'latent_image', 'denoise'],
+        },
+        output: ['LATENT'],
+        output_name: ['LATENT'],
+        python_module: 'nodes',
+      },
+    }));
+
+    expect(manual(db, 'encode', { type: 'add-node', nodeType: 'CLIPTextEncode' }).status).toBe('applied');
+    expect(manual(db, 'sampler', { type: 'add-node', nodeType: 'KSampler' }).status).toBe('applied');
+    expect(manual(db, 'loader', { type: 'add-node', nodeType: 'CheckpointLoaderSimple' }).status).toBe('applied');
+
+    const encodeInputs = nodeData(db, 'node-encode').inputs;
+    const samplerInputs = nodeData(db, 'node-sampler').inputs;
+    expect(encodeInputs).toEqual([
+      { id: 'in-0', name: 'clip', dataType: 'CLIP', optional: false },
+      { id: 'in-1', name: 'text', dataType: 'STRING', optional: false },
+    ]);
+    expect(encodeInputs).toEqual(hardcodedEncode);
+    expect(samplerInputs.slice(0, 4)).toEqual(hardcodedSampler);
+    expect(samplerInputs).toEqual([
+      { id: 'in-0', name: 'model', dataType: 'MODEL', optional: false },
+      { id: 'in-1', name: 'positive', dataType: 'CONDITIONING', optional: false },
+      { id: 'in-2', name: 'negative', dataType: 'CONDITIONING', optional: false },
+      { id: 'in-3', name: 'latent_image', dataType: 'LATENT', optional: false },
+      { id: 'in-4', name: 'seed', dataType: 'INT', optional: false },
+      { id: 'in-5', name: 'steps', dataType: 'INT', optional: false },
+      { id: 'in-6', name: 'cfg', dataType: 'FLOAT', optional: false },
+      { id: 'in-7', name: 'sampler_name', dataType: 'COMBO', optional: false },
+      { id: 'in-8', name: 'scheduler', dataType: 'COMBO', optional: false },
+      { id: 'in-9', name: 'denoise', dataType: 'FLOAT', optional: false },
+    ]);
+
+    const clip = manual(db, 'connect-clip', {
+      type: 'connect',
+      source: 'node-loader',
+      target: 'node-encode',
+      sourceHandle: 'out-1',
+      targetHandle: 'in-0',
+    });
+    expect(clip.status).toBe('applied');
+    const positive = manual(db, 'connect-positive', {
+      type: 'connect',
+      source: 'node-encode',
+      target: 'node-sampler',
+      sourceHandle: 'out-0',
+      targetHandle: 'in-1',
+    });
+    expect(positive.status).toBe('applied');
+
+    const before = readProjection(db, DESKTOP_PROJECT_ID);
+    const text = manual(db, 'connect-text', {
+      type: 'connect',
+      source: 'node-loader',
+      target: 'node-encode',
+      sourceHandle: 'out-1',
+      targetHandle: 'in-1',
+    });
+    expect(text.status).toBe('rejected');
+    expect(text.result).toEqual({ error: 'Port types cannot be connected.' });
+    expect(readProjection(db, DESKTOP_PROJECT_ID)).toEqual(before);
+
+    const exported = exportWorkflow(before!.snapshot as never, '2026-11-08T00:00:00.000Z');
+    expect(exported.ok).toBe(true);
+    if (!exported.ok) return;
+    const links = exported.workflow.links as Array<Record<string, unknown>>;
+    expect(links.find((link) => link.target_id === 'node-encode')).toMatchObject({ target_slot: 0, type: 'CLIP' });
+    expect(links.find((link) => link.target_id === 'node-sampler')).toMatchObject({ target_slot: 1, type: 'CONDITIONING' });
     db.close();
   });
 });

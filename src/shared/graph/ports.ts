@@ -46,9 +46,14 @@ export function inferOutputs(nodeType: string): PortDefinition[] {
 }
 
 /**
- * object_info required then optional inputs, then the output array, become in-N / out-N.
- * A seed row is pack "core" with empty sockets and is not a port definition.
- * An imported class uses these sockets, including a class that declares none.
+ * Imported object_info supplies the sockets. A seed row is pack "core" with empty
+ * sockets and is not a port definition. An imported class with no sockets stays empty.
+ *
+ * Input slot numbers follow ComfyUI_frontend src/services/litegraphService.ts @98700cfc:
+ * addInputs adds every socket first (addInputSocket skips widget types unless forceInput),
+ * then widget inputs (addInputWidget). Order inside each group is the parser order
+ * (input_order required, then optional, then remaining keys). in-N is that combined index.
+ * Outputs stay in output-array order.
  */
 export function portsForClassType(nodeType: string, catalog: CatalogView): { inputs: PortDefinition[]; outputs: PortDefinition[] } {
   const found = catalog.nodes.find((node) => node.classType === nodeType);
@@ -61,8 +66,10 @@ function isSeedPlaceholder(node: CatalogNode): boolean {
 }
 
 function portsFromCatalog(node: CatalogNode): { inputs: PortDefinition[]; outputs: PortDefinition[] } {
+  const sockets = node.inputs.filter((input) => input.widget === false);
+  const widgets = node.inputs.filter((input) => input.widget === true);
   return {
-    inputs: node.inputs.map((input, index) => ({
+    inputs: [...sockets, ...widgets].map((input, index) => ({
       id: `in-${index}`,
       name: input.name,
       dataType: input.type,
