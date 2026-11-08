@@ -3,6 +3,7 @@ import { jsonSchema } from 'ai';
 import { commitCommand } from '../commands/commit';
 import { mutationFromTool } from '../../shared/commands/tools';
 import type { CommandResponse, Projection } from '../../shared/commands/types';
+import type { AgentRunContext } from '../../shared/contracts';
 
 export interface RendererToolSpec {
   name: string;
@@ -10,11 +11,7 @@ export interface RendererToolSpec {
   parameters?: unknown;
 }
 
-export interface RunContext {
-  projectId: string;
-  runId: string;
-  expectedRevisionId: string;
-}
+export type RunContext = AgentRunContext;
 
 /** Ids a command result may carry; copied onto the tool result so the model can refer to them next. */
 const RESULT_IDS = ['nodeId', 'nodeType', 'edgeId', 'linkId', 'definitionId', 'subgraphId', 'groupId', 'key'] as const;

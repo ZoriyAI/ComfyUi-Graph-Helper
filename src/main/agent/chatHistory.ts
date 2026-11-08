@@ -1,7 +1,7 @@
 import type Database from 'better-sqlite3';
 import { z } from 'zod';
 import { carriesSecret } from '../../shared/config/draft';
-import type { ChatRecord } from '../../shared/contracts';
+import type { ChatRecord, ChatSaveResult } from '../../shared/contracts';
 
 export const CHAT_CONTENT_CAP = 50_000;
 const TOOL_CALLS_CAP = 200_000;
@@ -17,7 +17,7 @@ const chatRecordSchema = z.object({
   toolCalls: z.array(z.unknown()).nullable(),
 });
 
-export type ChatSaveResult = { ok: true } | { ok: false; error: string };
+export type { ChatSaveResult } from '../../shared/contracts';
 
 /** Same heuristic the settings repository uses: an api key marker, an sk- key, or a bearer token. */
 function secretShaped(text: string): boolean {

@@ -18,3 +18,16 @@ export interface ChatRecord {
   graphRevisionId: string | null;
   toolCalls: unknown[] | null;
 }
+
+/** 4th argument of llm:stream-chat: the run the turn commits build tools into. */
+export interface AgentRunContext {
+  projectId: string;
+  runId: string;
+  expectedRevisionId: string;
+}
+
+/** chat:save-message result. `error` explains a refusal (schema, secret-shaped content, unknown project). */
+export interface ChatSaveResult {
+  ok: boolean;
+  error?: string;
+}
