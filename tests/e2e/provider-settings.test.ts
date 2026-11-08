@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import type { ElectronApplication, Page } from '@playwright/test';
+import { pickOption } from './pickOption';
 
 const MARKER = 'sk-fakemarker';
 
@@ -29,7 +30,7 @@ async function settingsRow(app: ElectronApplication, appRoot: string) {
 async function openSettings(window: Page) {
   await window.locator('#chat-provider').waitFor();
   await window.getByRole('button', { name: 'Settings', exact: true }).click();
-  return window.locator('dialog.settings-dialog');
+  return window.locator('[role="dialog"].settings-dialog');
 }
 
 async function runtimeConfig(window: Page) {
@@ -46,19 +47,19 @@ test('stored provider, model, and base URL are what the next send would use afte
   const appRoot = path.join(__dirname, '../..');
   const app = await launch(userData);
   const window = await app.firstWindow();
-  await expect(window.locator('#chat-provider')).toHaveValue('');
+  await expect(window.locator('#chat-provider')).toHaveAttribute('data-value', '');
   await expect.poll(() => runtimeConfig(window)).toEqual({ provider: '', model: '', baseURL: '' });
   const dialog = await openSettings(window);
   await expect(dialog.getByText('Defaults are shown and are not written yet.')).toBeVisible();
 
-  await dialog.getByRole('combobox', { name: 'Provider', exact: true }).selectOption('openai');
+  await pickOption(window, 'Provider', 'OpenAI', dialog);
   await dialog.getByRole('textbox', { name: 'Model', exact: true }).fill('  fixture-model  ');
   await dialog.getByRole('textbox', { name: 'Base URL', exact: true }).fill(' https://example.test/v1 ');
   await dialog.getByRole('button', { name: 'Save settings' }).click();
   await expect(dialog.getByText('Non-secret settings saved.')).toBeVisible();
   await expect(dialog.getByRole('textbox', { name: 'Model', exact: true })).toHaveValue('fixture-model');
   await expect(dialog.getByRole('textbox', { name: 'Base URL', exact: true })).toHaveValue('https://example.test/v1');
-  await expect(window.locator('#chat-provider')).toHaveValue('openai');
+  await expect(window.locator('#chat-provider')).toHaveAttribute('data-value', 'openai');
   const savedRuntime = { provider: 'openai', model: 'fixture-model', baseURL: 'https://example.test/v1' };
   await expect.poll(() => runtimeConfig(window)).toEqual(savedRuntime);
 
@@ -69,7 +70,7 @@ test('stored provider, model, and base URL are what the next send would use afte
   await dialog.getByRole('textbox', { name: 'Model', exact: true }).fill(MARKER);
   await dialog.getByRole('button', { name: 'Save settings' }).click();
   await expect(dialog.getByText('Settings cannot store a secret')).toBeVisible();
-  await expect(window.locator('#chat-provider')).toHaveValue('openai');
+  await expect(window.locator('#chat-provider')).toHaveAttribute('data-value', 'openai');
   await expect.poll(() => runtimeConfig(window)).toEqual(savedRuntime);
 
   const stored = await settingsRow(app, appRoot);
@@ -86,22 +87,22 @@ test('stored provider, model, and base URL are what the next send would use afte
   const reopened = await launch(userData);
   const again = await reopened.firstWindow();
   await expect.poll(() => runtimeConfig(again)).toEqual(savedRuntime);
-  await expect(again.locator('#chat-provider')).toHaveValue('openai');
+  await expect(again.locator('#chat-provider')).toHaveAttribute('data-value', 'openai');
   const restored = await openSettings(again);
   await expect(restored.getByText('Restored non-secret settings.')).toBeVisible();
-  await expect(restored.getByRole('combobox', { name: 'Provider', exact: true })).toHaveValue('openai');
+  await expect(restored.getByRole('combobox', { name: 'Provider', exact: true })).toHaveAttribute('data-value', 'openai');
   await expect(restored.getByRole('textbox', { name: 'Model', exact: true })).toHaveValue('fixture-model');
   await expect(restored.getByRole('textbox', { name: 'Base URL', exact: true })).toHaveValue('https://example.test/v1');
   const reread = await settingsRow(reopened, appRoot);
   expect(reread.row).toEqual({ provider: 'openai', model: 'fixture-model', base_url: 'https://example.test/v1' });
   expect(reread.secrets).toBe(0);
 
-  await restored.getByRole('combobox', { name: 'Provider', exact: true }).selectOption('test');
+  await pickOption(again, 'Provider', 'TEST fixture', restored);
   await restored.getByRole('textbox', { name: 'Model', exact: true }).fill('test-fixture');
   await restored.getByRole('textbox', { name: 'Base URL', exact: true }).fill('https://fixture.example/v1');
   await restored.getByRole('button', { name: 'Save settings' }).click();
   await expect(restored.getByText('Non-secret settings saved.')).toBeVisible();
-  await expect(again.locator('#chat-provider')).toHaveValue('test');
+  await expect(again.locator('#chat-provider')).toHaveAttribute('data-value', 'test');
   await expect.poll(() => runtimeConfig(again)).toEqual({
     provider: 'test',
     model: 'test-fixture',

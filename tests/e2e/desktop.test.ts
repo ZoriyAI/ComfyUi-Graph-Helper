@@ -1,6 +1,7 @@
 import { test, expect, _electron as electron } from '@playwright/test';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as os from 'os';
 
 /**
  * Electron desktop smoke test
@@ -34,7 +35,7 @@ test('Desktop smoke: app window loads with production renderer', async () => {
 
   // Verify main elements exist
   const graphCanvas = await window.locator('[data-testid="graph-canvas"], .react-flow').count();
-  const chatPanel = await window.locator('text=Chat').count();
+  const chatPanel = await window.locator('text=Assistant').count();
 
   console.log('[SMOKE] Graph canvas elements:', graphCanvas);
   console.log('[SMOKE] Chat panel elements:', chatPanel);
@@ -86,9 +87,10 @@ test('Desktop smoke: app window loads with production renderer', async () => {
 
 test('Desktop smoke: TEST fixture IPC chat interaction', async () => {
   console.log('[SMOKE] Starting TEST fixture mode');
+  const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'desktop-fixture-'));
 
   const electronApp = await electron.launch({
-    args: [path.join(__dirname, '../../dist/main/index.js')],
+    args: [path.join(__dirname, '../../dist/main/index.js'), `--user-data-dir=${userData}`],
     env: {
       ...process.env,
       NODE_ENV: 'production',

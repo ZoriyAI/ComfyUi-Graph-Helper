@@ -3,9 +3,19 @@ import { useGraphStore } from '../../state/graphState';
 import { ComfyNodeData } from '../../types/graph';
 
 export default function Inspector() {
-  const node = useGraphStore((state) => state.nodes.find((item) => item.selected));
+  const nodes = useGraphStore((state) => state.nodes);
+  const selected = nodes.filter((item) => item.selected);
+  if (selected.length > 1) {
+    return (
+      <section className="inspector" role="region" aria-label="Inspector">
+        <h2>{selected.length} nodes selected</h2>
+        <p className="inspector-type">Shared edits are not available. Select one node to see its ports.</p>
+      </section>
+    );
+  }
+  const node = selected[0];
   if (!node) {
-    return <p className="inspector-empty">No node selected.</p>;
+    return <p className="inspector-empty">Select a node to see its ports and parameters.</p>;
   }
   const data = node.data as ComfyNodeData;
   const ports = [

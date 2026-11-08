@@ -1,19 +1,21 @@
 :root {
   color-scheme: dark;
-  --bg: #14171c;
-  --bg-raised: #1c2128;
-  --bg-sunken: #101317;
-  --bg-hover: #262d38;
-  --line: #313844;
-  --text: #e7ecf2;
-  --text-dim: #9aa6b5;
-  --text-faint: #6e7b8b;
-  --accent: #3ecfb2;
-  --accent-2: #8b7cff;
-  --danger: #e15d6a;
-  --warn: #e2a14a;
-  --ok: #3ecf8e;
-  --focus: #8b7cff;
+  --bg: #0c1017;
+  --surface: #141b26;
+  --bg-raised: #1b2533;
+  --bg-sunken: #0c1017;
+  --bg-hover: #243247;
+  --line: #2a3648;
+  --control-border: #63738a;
+  --text: #e8eef7;
+  --text-dim: #a3b1c6;
+  --text-faint: #8b9bb0;
+  --accent: #65d9ed;
+  --accent-2: #65d9ed;
+  --danger: #ff9da8;
+  --warn: #f6ce7c;
+  --ok: #82ddb3;
+  --focus: #b7a5ff;
   --type-image: #3ecfb2;
   --type-latent: #8b7cff;
   --type-model: #e2a14a;
@@ -21,7 +23,7 @@
   --type-vae: #d47ad4;
   --type-clip: #7fd0a4;
   --type-unknown: #8b939c;
-  --on-accent: #fff;
+  --on-accent: #071218;
   --on-warn: #1a1408;
   --bubble-user: #243044;
   --bubble-user-line: #3a4d68;
@@ -38,7 +40,7 @@
   --motion-shift: 8px;
   --motion-ease-out: cubic-bezier(0.2, 0, 0, 1);
   --motion-ease-in: cubic-bezier(0.4, 0, 1, 1);
-  font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+  font-family: "Geist", system-ui, sans-serif;
 }
 
 html[data-motion="reduced"] {

@@ -1,8 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { FolderInput, FolderOutput, Redo2, Undo2, Unplug } from 'lucide-react';
 import GraphCanvas from './components/graph/GraphCanvas';
-import Inspector from './components/graph/Inspector';
-import ChatPanel from './components/chat/ChatPanel';
+import Dock from './components/shell/Dock';
 import SettingsPanel from './components/settings/SettingsPanel';
+import Hint from './ui/Hint';
+import SelectField from './ui/SelectField';
 import { useGraphStore } from './state/graphState';
 import { useChatStore } from './state/chatState';
 import { applyProjection } from './services/commands/projection';
@@ -108,67 +110,28 @@ function App() {
     }
   };
 
+  const selectedCount = nodes.filter((node) => node.selected).length;
+
   return (
     <div className="app-shell">
-      <header className="app-header">
+      <header className="document-bar">
         <div className="brand">
+          <span className="product-mark" aria-hidden="true" />
           <h1 className="app-title">ComfyUI Graph Builder</h1>
-          <span className="project-chip">Project Desktop</span>
+          <span className="project-chip" title="Project Desktop">Project Desktop</span>
         </div>
-        <div className="header-actions">
-          <button
-            type="button"
-            className="ghost-button"
-            disabled
-            title="ComfyUI is not connected. This build does not start a queue."
-          >
-            ComfyUI not connected
-          </button>
-          <div className="provider-controls">
-            <label>
-              Chat provider
-              <select
-                id="chat-provider"
-                aria-label="Chat provider"
-                value={provider}
-                onChange={(event) => {
-                  const next = event.target.value;
-                  setProvider(next);
-                  void applyProvider(next);
-                }}
-              >
-                <option value="">Not configured</option>
-                <option value="test">TEST fixture</option>
-                <option value="openai">OpenAI session</option>
-              </select>
-            </label>
-            <p className="provider-note">{providerNote}</p>
-          </div>
-          <button type="button" className="ghost-button" onClick={() => void handleImport()}>
-            Import
-          </button>
-          <button type="button" className="ghost-button" onClick={() => void handleCatalog()}>
-            Catalog snapshot
-          </button>
-          <button type="button" className="ghost-button" onClick={() => void handleExport()}>
-            Export
-          </button>
-          <button
-            type="button"
-            className="ghost-button"
-            disabled
-            title="Undo is not available in this build. Each commit stays in the revision history."
-          >
-            Undo
-          </button>
-          <button
-            type="button"
-            className="ghost-button"
-            disabled
-            title="Redo is not available in this build."
-          >
-            Redo
-          </button>
+        <div className="header-status">
+          <Hint label="ComfyUI is not connected. This build does not start a queue.">
+            <button
+              type="button"
+              className="status-chip"
+              disabled
+              title="ComfyUI is not connected. This build does not start a queue."
+            >
+              <Unplug size={16} aria-hidden="true" />
+              ComfyUI not connected
+            </button>
+          </Hint>
           <SettingsPanel
             onRead={(values) => {
               if (sessionOverride.current) return;
@@ -179,22 +142,64 @@ function App() {
               void showStoredRuntime(values);
             }}
           />
-          {workflowNote ? <p className="workflow-report">{workflowNote}</p> : null}
         </div>
       </header>
+      <div className="workspace-toolbar" role="toolbar" aria-label="Workspace">
+        <button type="button" className="ghost-button" onClick={() => void handleImport()}>
+          <FolderInput size={16} aria-hidden="true" />
+          Import
+        </button>
+        <button type="button" className="ghost-button" onClick={() => void handleCatalog()}>Catalog snapshot</button>
+        <button type="button" className="ghost-button" onClick={() => void handleExport()}>
+          <FolderOutput size={16} aria-hidden="true" />
+          Export
+        </button>
+        <span className="toolbar-rule" aria-hidden="true" />
+        <Hint label="Undo is not available in this build. Each commit stays in the revision history.">
+          <button
+            type="button"
+            className="ghost-button"
+            disabled
+            title="Undo is not available in this build. Each commit stays in the revision history."
+          >
+            <Undo2 size={16} aria-hidden="true" />
+            Undo
+          </button>
+        </Hint>
+        <Hint label="Redo is not available in this build.">
+          <button type="button" className="ghost-button" disabled title="Redo is not available in this build.">
+            <Redo2 size={16} aria-hidden="true" />
+            Redo
+          </button>
+        </Hint>
+        <span className="toolbar-rule" aria-hidden="true" />
+        <SelectField
+          id="chat-provider"
+          label="Chat provider"
+          value={provider}
+          options={[
+            { value: '', label: 'Not configured' },
+            { value: 'test', label: 'TEST fixture' },
+            { value: 'openai', label: 'OpenAI session' },
+          ]}
+          onChange={(next) => {
+            setProvider(next);
+            void applyProvider(next);
+          }}
+        />
+      </div>
+      {providerNote ? <p className="provider-note banner">{providerNote}</p> : null}
+      {workflowNote ? <p className="workflow-report banner" role="status">{workflowNote}</p> : null}
       <div className="app-body">
         <div className="graph-pane">
           <GraphCanvas />
         </div>
-        <div className="chat-pane">
-          <Inspector />
-          <ChatPanel onSendMessage={handleSendMessage} onPause={handlePause} />
-        </div>
+        <Dock onSendMessage={handleSendMessage} onPause={handlePause} />
       </div>
       <footer className="status-bar">
         <span>{nodes.length} nodes</span>
-        <span>Platform: {window.electronAPI?.platform || 'unknown'}</span>
-        <span>Electron: {window.electronAPI?.versions?.electron || 'N/A'}</span>
+        <span>{selectedCount === 0 ? 'No selection' : `${selectedCount} selected`}</span>
+        <span>Not connected</span>
       </footer>
     </div>
   );

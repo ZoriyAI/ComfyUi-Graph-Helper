@@ -1,65 +1,11 @@
 import { test, expect, _electron as electron } from '@playwright/test';
+import { pickOption } from './pickOption';
+import { typedWorkflow } from './fixtures/typedWorkflow';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 
 const artifactDir = '/opt/cursor/artifacts';
-
-const typedWorkflow = {
-  version: 1,
-  state: { lastNodeId: 3, lastLinkId: 2 },
-  nodes: [
-    {
-      id: 1,
-      type: 'CheckpointLoaderSimple',
-      pos: [40, 80],
-      size: [240, 140],
-      flags: {},
-      order: 0,
-      mode: 0,
-      properties: {},
-      title: 'Checkpoint',
-      inputs: [],
-      outputs: [
-        { name: 'MODEL', type: 'MODEL', links: [] },
-        { name: 'CLIP', type: 'CLIP', links: [2] },
-        { name: 'VAE', type: 'VAE', links: [] },
-      ],
-    },
-    {
-      id: 2,
-      type: 'CLIPTextEncode',
-      pos: [360, 40],
-      size: [240, 120],
-      flags: {},
-      order: 1,
-      mode: 0,
-      properties: {},
-      title: 'Positive',
-      inputs: [{ name: 'clip', type: 'CLIP', link: 2 }],
-      outputs: [{ name: 'CONDITIONING', type: 'CONDITIONING', links: [] }],
-    },
-    {
-      id: 3,
-      type: 'VAEDecode',
-      pos: [360, 220],
-      size: [240, 120],
-      flags: {},
-      order: 2,
-      mode: 0,
-      properties: {},
-      title: 'Decode',
-      inputs: [
-        { name: 'samples', type: 'LATENT', link: null },
-        { name: 'vae', type: 'VAE', link: null },
-      ],
-      outputs: [{ name: 'IMAGE', type: 'IMAGE', links: [] }],
-    },
-  ],
-  links: [
-    { id: 2, origin_id: 1, origin_slot: 1, target_id: 2, target_slot: 0, type: 'CLIP' },
-  ],
-};
 
 type ElectronPage = import('@playwright/test').Page;
 
@@ -99,7 +45,7 @@ async function shift(page: ElectronPage) {
 async function topHit(page: ElectronPage) {
   return page.evaluate(() => {
     const node = document.elementFromPoint(Math.floor(window.innerWidth / 2), Math.floor(window.innerHeight / 2));
-    return node?.closest('dialog') ? 'dialog' : 'page';
+    return node?.closest('[role="dialog"]') ? 'dialog' : 'page';
   });
 }
 
@@ -117,15 +63,15 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
   await window.screenshot({ path: path.join(artifactDir, 'ui-empty.png') });
 
   const settings = window.getByRole('button', { name: 'Settings', exact: true });
-  const dialog = window.locator('dialog.settings-dialog');
+  const dialog = window.locator('[role="dialog"].settings-dialog');
   await settings.click();
-  await expect(dialog).toHaveJSProperty('open', true);
-  await expect.poll(async () => window.evaluate(() => document.activeElement?.closest('dialog') != null)).toBe(true);
+  await expect(dialog).toHaveAttribute('data-state', 'open');
+  await expect.poll(async () => window.evaluate(() => document.activeElement?.closest('[role="dialog"]') != null)).toBe(true);
   await expect.poll(async () => dialog.evaluate((element) => getComputedStyle(element).opacity)).toBe('1');
   await window.screenshot({ path: path.join(artifactDir, 'ui-settings.png') });
 
   await window.keyboard.press('Escape');
-  await expect(dialog).toHaveJSProperty('open', false);
+  await expect(dialog).toHaveAttribute('data-state', 'closed');
   await expect.poll(async () => window.evaluate(() => (
     document.activeElement instanceof HTMLButtonElement && document.activeElement.textContent === 'Settings'
   ))).toBe(true);
@@ -133,52 +79,49 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
 
   for (let attempt = 0; attempt < 3; attempt += 1) {
     await settings.click();
-    await expect(dialog).toHaveJSProperty('open', true);
+    await expect(dialog).toHaveAttribute('data-state', 'open');
     await window.keyboard.press('Escape');
-    await expect(dialog).toHaveJSProperty('open', false);
+    await expect(dialog).toHaveAttribute('data-state', 'closed');
   }
   await expect.poll(() => topHit(window)).toBe('page');
 
   await settings.click();
-  await dialog.evaluate((element: HTMLDialogElement) => {
-    element.close();
-    element.showModal();
-  });
-  await expect(dialog).toHaveJSProperty('open', true);
+  await window.keyboard.press('Escape');
+  await expect(dialog).toHaveAttribute('data-state', 'closed');
+  await settings.click();
+  await expect(dialog).toHaveAttribute('data-state', 'open');
   await expect.poll(async () => dialog.evaluate((element) => getComputedStyle(element).opacity)).toBe('1');
   await window.keyboard.press('Escape');
   await expect.poll(() => topHit(window)).toBe('page');
 
   await settings.click();
-  await window.getByLabel('Motion').selectOption('off');
+  await pickOption(window, 'Motion', 'Off');
   expect(await activeMotion(window)).toBe('system');
   await window.getByRole('button', { name: 'Close' }).click();
-  await expect(dialog).toHaveJSProperty('open', false);
+  await expect(dialog).toHaveAttribute('data-state', 'closed');
   expect(await storedMotion(window)).toBe('system');
   expect(await activeMotion(window)).toBe('system');
   await settings.click();
-  await expect(window.getByLabel('Motion')).toHaveValue('system');
+  await expect(window.getByRole('combobox', { name: 'Motion', exact: true })).toHaveAttribute('data-value', 'system');
 
-  await window.getByLabel('Motion').selectOption('reduced');
+  await pickOption(window, 'Motion', 'Reduced');
   expect(await activeMotion(window)).toBe('system');
   await window.getByRole('button', { name: 'Save settings' }).click();
   await expect(window.getByText('Non-secret settings saved.')).toBeVisible();
   expect(await storedMotion(window)).toBe('reduced');
   expect(await activeMotion(window)).toBe('reduced');
-  await expectDuration(window, 'dialog.settings-dialog', 'transitionDuration', '0.06s');
+  await expectDuration(window, '.settings-dialog', 'transitionDuration', '0.06s');
   expect(await shift(window)).toBe('0px');
 
-  await window.getByLabel('Motion').selectOption('on');
+  await pickOption(window, 'Motion', 'On');
   expect(await activeMotion(window)).toBe('reduced');
   await window.getByRole('button', { name: 'Save settings' }).click();
   expect(await storedMotion(window)).toBe('on');
   expect(await activeMotion(window)).toBe('on');
-  await expectDuration(window, 'dialog.settings-dialog', 'transitionDuration', '0.16s');
+  await expectDuration(window, '.settings-dialog', 'transitionDuration', '0.16s');
   expect(await shift(window)).toBe('8px');
-  const onExit = await dialog.evaluate((element: HTMLDialogElement) => {
-    element.close();
-    return getComputedStyle(element).transitionDuration;
-  });
+  await window.keyboard.press('Escape');
+  const onExit = await dialog.evaluate((element) => getComputedStyle(element).transitionDuration);
   expect(durationParts(onExit).every((part) => part === '0.12s')).toBe(true);
   console.log(`ON_EXIT ${onExit}`);
   await expect.poll(() => topHit(window)).toBe('page');
@@ -188,36 +131,34 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
   await expect.poll(() => activeMotion(window)).toBe('on');
   expect(await storedMotion(window)).toBe('on');
   await settings.click();
-  await expectDuration(window, 'dialog.settings-dialog', 'transitionDuration', '0.16s');
+  await expectDuration(window, '.settings-dialog', 'transitionDuration', '0.16s');
 
   await window.emulateMedia({ reducedMotion: 'reduce' });
   expect(await activeMotion(window)).toBe('on');
-  await expectDuration(window, 'dialog.settings-dialog', 'transitionDuration', '0.16s');
+  await expectDuration(window, '.settings-dialog', 'transitionDuration', '0.16s');
   expect(await shift(window)).toBe('8px');
   console.log('ON_PLUS_OS_REDUCE 0.16s 8px');
 
-  await window.getByLabel('Motion').selectOption('system');
+  await pickOption(window, 'Motion', 'System');
   await window.getByRole('button', { name: 'Save settings' }).click();
   expect(await storedMotion(window)).toBe('system');
   expect(await activeMotion(window)).toBe('system');
-  await expectDuration(window, 'dialog.settings-dialog', 'transitionDuration', '0.06s');
+  await expectDuration(window, '.settings-dialog', 'transitionDuration', '0.06s');
   expect(await shift(window)).toBe('0px');
   console.log('SYSTEM_PLUS_OS_REDUCE 0.06s 0px');
 
   await window.emulateMedia({ reducedMotion: 'no-preference' });
-  await expectDuration(window, 'dialog.settings-dialog', 'transitionDuration', '0.16s');
+  await expectDuration(window, '.settings-dialog', 'transitionDuration', '0.16s');
   expect(await shift(window)).toBe('8px');
 
-  await window.getByLabel('Motion').selectOption('off');
+  await pickOption(window, 'Motion', 'Off');
   await window.getByRole('button', { name: 'Save settings' }).click();
   expect(await storedMotion(window)).toBe('off');
   expect(await activeMotion(window)).toBe('off');
-  await expectDuration(window, 'dialog.settings-dialog', 'transitionDuration', '0s');
+  await expectDuration(window, '.settings-dialog', 'transitionDuration', '0s');
   await expectDuration(window, '.ghost-button', 'transitionDuration', '0s');
-  const offExit = await dialog.evaluate((element: HTMLDialogElement) => {
-    element.close();
-    return getComputedStyle(element).transitionDuration;
-  });
+  await window.keyboard.press('Escape');
+  const offExit = await dialog.evaluate((element) => getComputedStyle(element).transitionDuration);
   expect(durationParts(offExit).every((part) => part === '0s')).toBe(true);
   console.log(`OFF_EXIT ${offExit}`);
   await expect.poll(() => topHit(window)).toBe('page');
@@ -279,7 +220,7 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
   await expect(window.getByRole('region', { name: 'Inspector' })).toContainText('MODEL');
   await window.screenshot({ path: path.join(artifactDir, 'ui-inspector.png') });
 
-  await window.locator('#chat-provider').selectOption('openai');
+  await pickOption(window, 'Chat provider', 'OpenAI session');
   await expect(window.getByText('OpenAI is selected with no key.')).toBeVisible();
   await window.locator('input[aria-label="Chat message"]').fill('Add a node');
   await window.getByRole('button', { name: 'Send' }).click();

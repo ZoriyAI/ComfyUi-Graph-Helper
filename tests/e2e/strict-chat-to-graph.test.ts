@@ -1,4 +1,5 @@
 import { test, expect, _electron as electron } from '@playwright/test';
+import { pickOption } from './pickOption';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -72,7 +73,7 @@ test('STRICT: Complete chat-to-graph with annotation, statuses, completion', asy
   await window.screenshot({ path: '/opt/cursor/artifacts/dark-idle.png', fullPage: true });
 
   // Visible TEST opt-in. Not a live model and not the user's ComfyUI server.
-  await window.locator('#chat-provider').selectOption('test');
+  await pickOption(window, 'Chat provider', 'TEST fixture');
   await window.getByText('TEST fixture is on').waitFor();
 
   const input = window.locator('input[aria-label="Chat message"]');
@@ -267,7 +268,7 @@ test('STRICT: Readable error with no graph mutation on failure', async () => {
     };
   });
 
-  await window.locator('#chat-provider').selectOption('openai');
+  await pickOption(window, 'Chat provider', 'OpenAI session');
   await window.getByText('OpenAI is selected with no key').waitFor();
 
   const input = window.locator('input[aria-label="Chat message"]');

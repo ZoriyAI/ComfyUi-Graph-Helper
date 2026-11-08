@@ -29,7 +29,7 @@ export default function ChatPanel({ onSendMessage, onPause }: ChatPanelProps) {
   return (
     <div className="chat-panel">
       <div className="chat-header">
-        Chat
+        Assistant
         {isStreaming ? (
           <span className="stream-state">{isPaused ? 'Paused' : 'Streaming'}</span>
         ) : null}
