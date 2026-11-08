@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import * as Select from '@radix-ui/react-select';
+
+export const CLOSE_OPEN_SELECT = 'close-open-select';
 
 export interface SelectOption {
   value: string;
@@ -23,10 +25,18 @@ export default function SelectField({
   onChange: (value: string) => void;
   container?: HTMLElement | null;
 }) {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    const close = () => setOpen(false);
+    window.addEventListener(CLOSE_OPEN_SELECT, close);
+    return () => window.removeEventListener(CLOSE_OPEN_SELECT, close);
+  }, []);
   return (
     <div className="field">
       <span className="field-label" id={id ? `${id}-label` : undefined}>{label}</span>
       <Select.Root
+        open={open}
+        onOpenChange={setOpen}
         value={value === '' ? EMPTY : value}
         onValueChange={(next) => {
           const stored = next === EMPTY ? '' : next;

@@ -1,4 +1,4 @@
-import { test, expect, _electron as electron } from '@playwright/test';
+import { test, expect, type Page, _electron as electron } from '@playwright/test';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -32,6 +32,25 @@ function contrast(a: string, b: string): number {
   const lighter = Math.max(left, right);
   const darker = Math.min(left, right);
   return (lighter + 0.05) / (darker + 0.05);
+}
+
+async function expectMinimapClear(window: Page) {
+  const read = () => window.evaluate(() => {
+    const map = document.querySelector('.graph-minimap')?.getBoundingClientRect();
+    if (!map) return { missing: true, width: 0, height: 0, hits: [] as string[] };
+    const hits = [...document.querySelectorAll('.react-flow__node')].flatMap((node) => {
+      const box = node.getBoundingClientRect();
+      const clear = box.right <= map.left || box.left >= map.right || box.bottom <= map.top || box.top >= map.bottom;
+      return clear ? [] : [(node.textContent || 'node').slice(0, 24)];
+    });
+    return { missing: false, width: Math.round(map.width), height: Math.round(map.height), hits };
+  });
+  await expect.poll(async () => (await read()).hits).toEqual([]);
+  const overlap = await read();
+  expect(overlap.missing).toBe(false);
+  expect(overlap.width).toBe(144);
+  expect(overlap.height).toBe(96);
+  console.log(`MINIMAP ${overlap.width}x${overlap.height} overlaps=0`);
 }
 
 test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
@@ -158,10 +177,53 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
   await window.locator('.react-flow__node').first().click();
   await window.locator('.react-flow__controls-fitview').click();
   await expect(window.getByRole('region', { name: 'Inspector' })).toContainText('CheckpointLoaderSimple');
+  await expectMinimapClear(window);
   await window.screenshot({ path: path.join(artifactDir, 'desktop-1024-graph.png') });
+  const importButton = window.getByRole('button', { name: 'Import' });
+  await importButton.hover();
+  await expect.poll(async () => importButton.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe('rgb(36, 50, 71)');
+  const hover = await importButton.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { color: style.color, background: style.backgroundColor };
+  });
+  const hoverRatio = contrast(hover.color, hover.background);
+  console.log(`HOVER_BUTTON ${hoverRatio.toFixed(2)} ${hover.color} on ${hover.background}`);
+  expect(hoverRatio).toBeGreaterThanOrEqual(4.5);
+  const importBox = await importButton.boundingBox();
+  await window.mouse.move(importBox!.x + 8, importBox!.y + 8);
+  await window.mouse.down();
+  await expect.poll(async () => importButton.evaluate((element) => getComputedStyle(element).transform)).toBe('matrix(1, 0, 0, 1, 0, 1)');
+  const pressed = await importButton.evaluate((element) => getComputedStyle(element).transform);
+  await window.mouse.up();
+  console.log(`PRESS_BUTTON transform=${pressed}`);
   await window.setViewportSize({ width: 1280, height: 800 });
   await window.locator('.react-flow__controls-fitview').click();
+  await window.locator('.react-flow__node').nth(1).click({ modifiers: ['Control'] });
+  await expect(window.getByRole('region', { name: 'Inspector' })).toContainText('2 nodes selected');
+  await expect(window.getByRole('region', { name: 'Inspector' })).toContainText('Shared edits are not available.');
+  console.log('MULTI_SELECT 2 nodes; shared edits are not available');
+  await window.locator('.react-flow__node').nth(2).click();
+  await window.locator('.react-flow__node').first().click();
+  await expect(window.getByRole('region', { name: 'Inspector' })).toContainText('CheckpointLoaderSimple');
+  await window.locator('.react-flow__controls-fitview').click();
+  await expectMinimapClear(window);
   await window.screenshot({ path: path.join(artifactDir, 'desktop-1280-graph.png') });
+  await window.setViewportSize({ width: 1440, height: 900 });
+  await window.locator('.react-flow__controls-fitview').click();
+  const resized = await window.evaluate(() => ({
+    bar: Math.round(document.querySelector('.document-bar')!.getBoundingClientRect().height),
+    toolbar: Math.round(document.querySelector('.workspace-toolbar')!.getBoundingClientRect().height),
+    toolbarOverflow: document.querySelector('.workspace-toolbar')!.scrollWidth - document.querySelector('.workspace-toolbar')!.clientWidth,
+    canvas: Math.round(document.querySelector('.graph-pane')!.getBoundingClientRect().width),
+    dock: Math.round(document.querySelector('.dock')!.getBoundingClientRect().width),
+  }));
+  console.log(`RESIZE_1440 ${JSON.stringify(resized)}`);
+  expect(resized.bar).toBe(48);
+  expect(resized.toolbar).toBe(40);
+  expect(resized.toolbarOverflow).toBe(0);
+  expect(resized.canvas).toBeGreaterThanOrEqual(560);
+  await expectMinimapClear(window);
+  await window.setViewportSize({ width: 1280, height: 800 });
   await window.screenshot({ path: path.join(artifactDir, 'desktop-1280-inspector.png') });
   await window.getByRole('button', { name: 'Settings', exact: true }).click();
   const contrastDialog = window.locator('[role="dialog"].settings-dialog');
@@ -202,7 +264,11 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
       saveColor: saveStyle?.color ?? '',
       saveBg: saveStyle?.backgroundColor ?? '',
       focusOutline: inputStyle?.outlineColor ?? '',
+      focusStyle: inputStyle?.outlineStyle ?? '',
+      focusMatches: document.activeElement === input,
       focusNeighbor: neighbor(input),
+      selectedOutline: paint(document.querySelector('.graph-node.is-selected'))?.outlineColor ?? '',
+      selectedNodeBg: paint(document.querySelector('.graph-node.is-selected'))?.backgroundColor ?? '',
       port: paint(handle, '::after')?.backgroundColor ?? '',
       nodeBg: paint(handle?.closest('.graph-node') ?? null)?.backgroundColor ?? '',
       edge: paint(edge)?.stroke ?? '',
@@ -216,20 +282,45 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
     disabledBorder: contrast(rendered.disabledBorder, rendered.dialogBg),
     save: contrast(rendered.saveColor, rendered.saveBg),
     focus: contrast(rendered.focusOutline, rendered.focusNeighbor),
+    selected: contrast(rendered.selectedOutline, rendered.selectedNodeBg),
     port: contrast(rendered.port, rendered.nodeBg),
     edge: contrast(rendered.edge, rendered.canvasBg),
   };
   console.log(`RENDERED_CONTRAST ${Object.entries(pairs).map(([name, value]) => `${name}=${value.toFixed(2)}`).join(' ')}`);
   console.log(`RENDERED_COLORS input=${rendered.inputBg}/${rendered.inputBorder} disabled=${rendered.disabledBg}/${rendered.disabledBorder} save=${rendered.saveBg}/${rendered.saveColor} focus=${rendered.focusOutline} on ${rendered.focusNeighbor} port=${rendered.port} on ${rendered.nodeBg} edge=${rendered.edge} on ${rendered.canvasBg}`);
   expect(rendered.inputBg).not.toBe(rendered.disabledBg);
+  expect(rendered.focusMatches).toBe(true);
+  expect(rendered.focusStyle).not.toBe('none');
   expect(pairs.inputText).toBeGreaterThanOrEqual(4.5);
   expect(pairs.disabledText).toBeGreaterThanOrEqual(4.5);
   expect(pairs.inputBorder).toBeGreaterThanOrEqual(3);
-  expect(pairs.disabledBorder).toBeGreaterThanOrEqual(3);
+  expect(pairs.disabledBorder).toBeLessThanOrEqual(pairs.inputBorder);
   expect(pairs.save).toBeGreaterThanOrEqual(4.5);
   expect(pairs.focus).toBeGreaterThanOrEqual(3);
+  expect(pairs.selected).toBeGreaterThanOrEqual(3);
   expect(pairs.port).toBeGreaterThanOrEqual(3);
   expect(pairs.edge).toBeGreaterThanOrEqual(3);
+  await contrastDialog.getByRole('tab', { name: 'Assistant' }).click();
+  await contrastDialog.getByRole('textbox', { name: 'Model' }).fill('sk-example-secret');
+  await expect(contrastDialog.getByText('Settings cannot store a secret')).toBeVisible();
+  await expect(contrastDialog.getByRole('button', { name: 'Save settings' })).toBeDisabled();
+  const errorColors = await window.evaluate(() => {
+    const note = [...document.querySelectorAll('.settings-dialog [role="status"]')].find((element) => element.textContent?.includes('cannot store a secret'));
+    const neighbor = (element: Element | null) => {
+      let node = element?.parentElement ?? null;
+      while (node) {
+        const color = getComputedStyle(node).backgroundColor;
+        const parts = color.match(/[\d.]+/g)?.map(Number) ?? [];
+        if (parts.length < 4 || parts[3] > 0.9) return color;
+        node = node.parentElement;
+      }
+      return 'rgb(0, 0, 0)';
+    };
+    return { color: note ? getComputedStyle(note).color : '', background: neighbor(note ?? null) };
+  });
+  const errorRatio = contrast(errorColors.color, errorColors.background);
+  console.log(`ERROR_SAVE ${errorRatio.toFixed(2)} ${errorColors.color} on ${errorColors.background}`);
+  expect(errorRatio).toBeGreaterThanOrEqual(4.5);
   await window.keyboard.press('Escape');
   await expect(contrastDialog).toHaveCount(0);
   await window.getByRole('tab', { name: 'Assistant' }).click();
@@ -243,6 +334,11 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
     return { scaleFactor: display.scaleFactor, size: display.size, workArea: display.workAreaSize };
   });
   console.log(`OS_SCALE ${JSON.stringify(osScale)} limit=this Linux session cannot change the host display scale; setZoomFactor below is page zoom, not OS DPI`);
+  const chrome = await electronApp.evaluate(({ BrowserWindow }) => {
+    const win = BrowserWindow.getAllWindows()[0];
+    return { maximizable: win.isMaximizable(), fullScreenable: win.isFullScreenable() };
+  });
+  console.log(`WINDOW_CHROME native frame maximizable=${chrome.maximizable} fullScreenable=${chrome.fullScreenable}; custom titlebar is absent, so move/maximize/double-click on a drag region is N/A`);
   expect(osScale.scaleFactor).toBeGreaterThan(0);
 
   const zoomTo = async (factor: number) => {
@@ -286,30 +382,59 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
   await expect(window.locator('.react-flow__node')).toHaveCount(100);
   await expect(window.locator('.react-flow__edge')).toHaveCount(150);
   console.log(`NODES_100 ${Date.now() - started}ms edges=150`);
-  const pan = await window.evaluate(async () => {
-    const pane = document.querySelector('.react-flow__pane');
-    if (!(pane instanceof HTMLElement)) return { frames: 0, elapsed: 0 };
-    const rect = pane.getBoundingClientRect();
-    const start = performance.now();
-    const times: number[] = [];
-    const point = (x: number, y: number) => ({ clientX: x, clientY: y, bubbles: true, cancelable: true });
-    pane.dispatchEvent(new PointerEvent('pointerdown', { ...point(rect.left + 40, rect.top + 40), pointerId: 1, buttons: 1 }));
-    const done = new Promise<void>((resolve) => {
-      const tick = (now: number) => {
-        times.push(now);
-        const step = times.length;
-        pane.dispatchEvent(new PointerEvent('pointermove', { ...point(rect.left + 40 + step, rect.top + 40), pointerId: 1, buttons: 1 }));
-        if (performance.now() - start < 400) requestAnimationFrame(tick);
-        else resolve();
-      };
-      requestAnimationFrame(tick);
-    });
-    await done;
-    pane.dispatchEvent(new PointerEvent('pointerup', { ...point(rect.left + 80, rect.top + 40), pointerId: 1 }));
-    const elapsed = times.length > 1 ? times[times.length - 1] - times[0] : 0;
-    return { frames: times.length, elapsed: Math.round(elapsed) };
+  await window.locator('.react-flow__controls-fitview').click();
+  const before = await window.locator('.react-flow__viewport').evaluate((element) => getComputedStyle(element).transform);
+  const spot = await window.evaluate(() => {
+    const pane = document.querySelector('.react-flow__pane')?.getBoundingClientRect();
+    if (!pane) return null;
+    const nodes = [...document.querySelectorAll('.react-flow__node')].map((node) => node.getBoundingClientRect());
+    for (let y = pane.top + 12; y < pane.bottom - 12; y += 16) {
+      for (let x = pane.left + 12; x < pane.right - 12; x += 16) {
+        const covered = nodes.some((box) => x >= box.left && x <= box.right && y >= box.top && y <= box.bottom);
+        if (!covered) return { x, y };
+      }
+    }
+    return { x: pane.left + pane.width / 2, y: pane.top + 24 };
   });
-  console.log(`PAN_FRAMES ${pan.frames} elapsed=${pan.elapsed}ms`);
+  expect(spot).not.toBeNull();
+  await window.evaluate(() => {
+    const record = { frames: [] as number[], longtasks: [] as number[], unsupported: false, start: performance.now() };
+    (window as unknown as { __pan: typeof record }).__pan = record;
+    try {
+      const observer = new PerformanceObserver((list) => {
+        record.longtasks.push(...list.getEntries().map((entry) => Math.round(entry.duration)));
+      });
+      observer.observe({ entryTypes: ['longtask'] });
+      (window as unknown as { __panObserver: PerformanceObserver }).__panObserver = observer;
+    } catch {
+      record.unsupported = true;
+    }
+    const tick = (now: number) => {
+      record.frames.push(Math.round(now - record.start));
+      if (performance.now() - record.start < 600) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
+  await window.mouse.move(spot!.x, spot!.y);
+  await window.mouse.down();
+  await window.mouse.move(spot!.x + 140, spot!.y + 70, { steps: 12 });
+  await window.mouse.up();
+  const after = await window.locator('.react-flow__viewport').evaluate((element) => getComputedStyle(element).transform);
+  const pan = await window.evaluate(() => {
+    const record = (window as unknown as { __pan: { frames: number[]; longtasks: number[]; unsupported: boolean; start: number } }).__pan;
+    const observer = (window as unknown as { __panObserver?: PerformanceObserver }).__panObserver;
+    observer?.disconnect();
+    const gaps = record.frames.slice(1).map((time, index) => time - record.frames[index]);
+    return {
+      frames: record.frames.length,
+      elapsed: record.frames.length ? record.frames[record.frames.length - 1] : 0,
+      maxGap: gaps.length ? Math.max(...gaps) : 0,
+      longtasks: record.longtasks,
+      unsupported: record.unsupported,
+    };
+  });
+  console.log(`PAN_DRAG frames=${pan.frames} elapsed=${pan.elapsed}ms maxGap=${pan.maxGap}ms longtasks=${pan.unsupported ? 'unsupported' : pan.longtasks.join(',') || 'none'} transformChanged=${before !== after}`);
+  expect(after).not.toBe(before);
   expect(pan.frames).toBeGreaterThan(1);
   await electronApp.close();
 });

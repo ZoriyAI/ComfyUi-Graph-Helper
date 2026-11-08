@@ -52,6 +52,8 @@ function TypedEdge({ sourceX, sourceY, targetX, targetY, sourcePosition, targetP
 
 const edgeTypes = { default: TypedEdge };
 
+const fitPadding = { top: '40px', right: '24px', bottom: '112px', left: '168px' } as const;
+
 function ZoomReporter() {
   const { zoom } = useViewport();
   const setZoom = useGraphStore((state) => state.setZoom);
@@ -142,13 +144,14 @@ export default function GraphCanvas() {
         edgeTypes={edgeTypes}
         colorMode="dark"
         fitView
-        fitViewOptions={{ padding: 0.2, duration: fitDuration }}
+        fitViewOptions={{ padding: fitPadding, duration: fitDuration }}
         minZoom={0.1}
         maxZoom={2}
+        multiSelectionKeyCode={['Meta', 'Control']}
       >
         <ZoomReporter />
         <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
-        <Controls position="top-left" />
+        <Controls position="top-left" fitViewOptions={{ padding: fitPadding, duration: fitDuration }} />
         <MiniMap
           position="bottom-left"
           style={{ width: 144, height: 96 }}

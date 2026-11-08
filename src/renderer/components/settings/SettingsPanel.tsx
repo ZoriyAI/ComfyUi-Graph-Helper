@@ -11,7 +11,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '../../ui/Dialog';
-import SelectField from '../../ui/SelectField';
+import SelectField, { CLOSE_OPEN_SELECT } from '../../ui/SelectField';
 import { TabsContent, TabsList, TabsRoot, TabsTrigger } from '../../ui/Tabs';
 
 function applyMotion(motion: NonSecretSettings['motion']) {
@@ -102,7 +102,10 @@ export default function SettingsPanel({
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
-      if (document.querySelector('.select-content[data-state="open"]')) return;
+      if (document.querySelector('.select-content[data-state="open"]')) {
+        window.dispatchEvent(new Event(CLOSE_OPEN_SELECT));
+        return;
+      }
       if (!document.querySelector('.settings-dialog[data-state="open"]')) return;
       closeFromEscapeRef.current();
     };
@@ -161,7 +164,9 @@ export default function SettingsPanel({
             panel?.querySelector<HTMLElement>('input:not([disabled]), [role="combobox"]')?.focus();
           }}
           onEscapeKeyDown={(event) => {
-            if (document.querySelector('.select-content[data-state="open"]')) event.preventDefault();
+            if (!document.querySelector('.select-content[data-state="open"]')) return;
+            event.preventDefault();
+            window.dispatchEvent(new Event(CLOSE_OPEN_SELECT));
           }}
           onPointerDownOutside={(event) => {
             const target = event.target;

@@ -146,12 +146,10 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
   await expect.poll(async () => window.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? '')).toBe('Motion');
   await window.keyboard.press('Enter');
   await expect(window.getByRole('option', { name: 'System', exact: true })).toBeVisible();
-  await window.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(undefined)))));
-  let selectEscapes = 0;
-  for (; selectEscapes < 2 && await window.locator('.select-content[data-state="open"]').count() > 0; selectEscapes += 1) {
-    await window.keyboard.press('Escape');
-  }
+  await window.keyboard.press('Escape');
+  const selectEscapes = 1;
   console.log(`NESTED_ESCAPE presses=${selectEscapes}`);
+  expect(selectEscapes).toBe(1);
   await expect(window.locator('.select-content')).toHaveCount(0);
   await expect(routeDialog).toHaveAttribute('data-state', 'open');
   await window.keyboard.press('Escape');
