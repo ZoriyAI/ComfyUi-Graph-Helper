@@ -1,85 +1,63 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { FolderInput, FolderOpen, FolderOutput, Redo2, Save, Undo2, Unplug } from 'lucide-react';
+import { Settings as SettingsIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import GraphCanvas from './components/graph/GraphCanvas';
-import Dock, { ToolToggles } from './components/shell/Dock';
+import GraphWorkspace from './components/graph/GraphWorkspace';
+import Dock from './components/shell/Dock';
+import AppBar from './components/shell/AppBar';
+import Toolbar from './components/shell/Toolbar';
+import Rail from './components/shell/Rail';
+import StatusBar from './components/shell/StatusBar';
+import { describeNote, type WorkflowNote } from './components/shell/notices';
+import styles from './components/shell/AppShell.module.css';
 import SettingsPanel from './components/settings/SettingsPanel';
-import Hint from './ui/Hint';
-import SelectField from './ui/SelectField';
-import { useGraphStore } from './state/graphState';
 import { useChatStore } from './state/chatState';
-import { applyProjection } from './services/commands/projection';
+import { useDockStore } from './state/dockState';
+import { startSyncSubscription, useKnowledgeStore } from './state/knowledgeState';
+import { startProposalsSubscription } from './state/proposalsState';
+import { useUiStore } from './state/uiState';
+import { applyProjection, useProjectionStore } from './services/commands/projection';
+import { getChatService } from './services/llm/chatService';
+import { showToast } from './ui/toastStore';
+import { cx } from './ui/cx';
 import { DESKTOP_PROJECT_ID } from '../shared/project';
 import type { ChatRuntimeConfig, NonSecretSettings } from '../shared/config/schema';
-import { explainError, type Translator } from '../shared/i18n';
-import { getChatService } from './services/llm/chatService';
+import type { Translator } from '../shared/i18n';
 
-type WorkflowNote =
-  | { kind: 'imported'; version: string; missingNodes: string[]; missingModels: string[] }
-  | { kind: 'catalog'; nodes: number; models: number; skipped: number }
-  | { kind: 'exported' }
-  | { kind: 'saved-project' }
-  | { kind: 'opened-project' }
-  | { kind: 'error'; code: string }
-  | null;
+type KeySource = 'none' | 'session' | 'os';
+const CLOUD_PROVIDERS = new Set(['openai', 'anthropic', 'google']);
 
-function WorkflowReport({ note }: { note: WorkflowNote }) {
-  const { t } = useTranslation();
-  if (!note) return null;
-  const translate: Translator = (key, options) => (options ? String(t(key, options)) : String(t(key)));
-  let summary = '';
-  let diagnostic: string | null = null;
-  if (note.kind === 'imported') {
-    const nodeText = note.missingNodes.length > 0
-      ? translate('workflow.missingNodes', { names: note.missingNodes.join(', ') })
-      : translate('workflow.noMissingNodes');
-    const modelText = note.missingModels.length > 0
-      ? translate('workflow.missingModels', { names: note.missingModels.join(', ') })
-      : translate('workflow.noMissingModels');
-    summary = translate('workflow.imported', { version: note.version, nodeText, modelText });
-  } else if (note.kind === 'catalog') {
-    summary = translate('workflow.catalogImported', note);
-  } else if (note.kind === 'exported') {
-    summary = translate('workflow.exported');
-  } else if (note.kind === 'saved-project') {
-    summary = translate('workflow.savedProject');
-  } else if (note.kind === 'opened-project') {
-    summary = translate('workflow.openedProject');
-  } else {
-    const explained = explainError(translate, note.code);
-    summary = explained.summary;
-    diagnostic = explained.diagnostic;
-  }
-  return (
-    <p className="workflow-report banner" role="status">
-      <span>{summary}</span>
-      {diagnostic ? <span className="workflow-diagnostic"> {diagnostic}</span> : null}
-    </p>
-  );
+/** The provider chip text: which provider, and where its key lives. Never the key. */
+export function providerNoteKey(provider: string, keySource: KeySource): string {
+  if (provider === 'test') return 'provider.test';
+  if (provider === 'local') return 'provider.local';
+  if (provider === 'openai') return keySource === 'os' ? 'provider.openaiStored' : keySource === 'session' ? 'provider.openaiHeld' : 'provider.openai';
+  if (provider === 'anthropic') return keySource === 'os' ? 'provider.cloudStored' : keySource === 'session' ? 'provider.anthropicHeld' : 'provider.anthropic';
+  if (provider === 'google') return keySource === 'os' ? 'provider.cloudStored' : keySource === 'session' ? 'provider.googleHeld' : 'provider.google';
+  return 'provider.none';
+}
+
+function markCurrentSaved() {
+  useUiStore.getState().markSaved(useProjectionStore.getState().revSeq);
 }
 
 function App() {
   const { t } = useTranslation();
-  const { nodes, zoom } = useGraphStore();
   const sessionOverride = useRef(false);
   const storedRuntime = useRef<ChatRuntimeConfig>({ provider: '', model: '', baseURL: '' });
   const [provider, setProvider] = useState('');
-  const [keySource, setKeySource] = useState<'none' | 'session' | 'os'>('none');
-  const [workflowNote, setWorkflowNote] = useState<WorkflowNote>(null);
-  const providerNote = provider === 'test'
-    ? t('provider.test')
-    : provider === 'local'
-      ? t('provider.local')
-      : provider === 'openai'
-        ? (keySource === 'os'
-          ? t('provider.openaiStored')
-          : keySource === 'session'
-            ? t('provider.openaiHeld')
-            : t('provider.openai'))
-        : t('provider.none');
+  const [keySource, setKeySource] = useState<KeySource>('none');
+  const translate: Translator = (key, options) => (options ? String(t(key, options)) : String(t(key)));
+  const providerNote = String(t(providerNoteKey(provider, keySource)));
+  const notify = (note: WorkflowNote) => showToast(describeNote(note, translate));
 
   useEffect(() => {
-    window.electronAPI.readProjection(DESKTOP_PROJECT_ID).then(applyProjection).catch((error) => {
+    // Both are idempotent; the canvas and the sync indicator may call them too.
+    startSyncSubscription();
+    startProposalsSubscription();
+    window.electronAPI.readProjection(DESKTOP_PROJECT_ID).then((projection) => {
+      applyProjection(projection);
+      markCurrentSaved();
+    }).catch((error) => {
       console.error('[App] Projection load failed:', error);
     });
     window.electronAPI.llmSessionStatus().then((status) => setKeySource(status.source)).catch(() => undefined);
@@ -98,7 +76,7 @@ function App() {
       setProvider(next);
       return;
     }
-    if (next === 'openai' || next === 'local') {
+    if (CLOUD_PROVIDERS.has(next) || next === 'local') {
       const sameProvider = storedRuntime.current.provider === next;
       await window.electronAPI.llmSetConfig({
         provider: next,
@@ -113,8 +91,13 @@ function App() {
   };
 
   const handleSendMessage = (content: string) => {
+    getChatService().sendMessage(content);
+  };
+
+  const handlePause = () => {
     const chatService = getChatService();
-    chatService.sendMessage(content);
+    if (useChatStore.getState().isPaused) chatService.resume();
+    else chatService.pause();
   };
 
   const handleImport = async () => {
@@ -123,34 +106,33 @@ function App() {
     if (result.projection) applyProjection(result.projection);
     if (result.status === 'rejected') {
       const reason = result.result && typeof result.result === 'object' && 'error' in result.result ? String(result.result.error) : 'Import was rejected.';
-      setWorkflowNote({ kind: 'error', code: reason });
+      notify({ kind: 'error', code: reason });
       return;
     }
     const report = result.result && typeof result.result === 'object' ? result.result as { formatVersion?: number; missingNodes?: string[]; missingModels?: Array<{ directory: string; name: string }> } : {};
-    const missingNodes = report.missingNodes ?? [];
-    const missingModels = (report.missingModels ?? []).map((model) => `${model.directory}/${model.name}`);
-    setWorkflowNote({ kind: 'imported', version: String(report.formatVersion ?? '—'), missingNodes, missingModels });
+    notify({
+      kind: 'imported',
+      version: String(report.formatVersion ?? '—'),
+      missingNodes: report.missingNodes ?? [],
+      missingModels: (report.missingModels ?? []).map((model) => `${model.directory}/${model.name}`),
+    });
   };
 
   const handleCatalog = async () => {
     const result = await window.electronAPI.importCatalog();
     if (!result || result.status === 'cancelled') return;
     if (result.status === 'rejected') {
-      setWorkflowNote({ kind: 'error', code: result.error });
+      notify({ kind: 'error', code: result.error });
       return;
     }
-    setWorkflowNote({
-      kind: 'catalog',
-      nodes: result.result.nodes,
-      models: result.result.models,
-      skipped: result.result.skipped.length,
-    });
+    useUiStore.getState().bumpCatalog();
+    notify({ kind: 'catalog', nodes: result.result.nodes, models: result.result.models, skipped: result.result.skipped.length });
   };
 
   const handleExport = async () => {
     const result = await window.electronAPI.exportWorkflow();
     if (!result.ok && result.canceled) return;
-    setWorkflowNote(result.ok ? { kind: 'exported' } : { kind: 'error', code: result.error || 'Export failed.' });
+    notify(result.ok ? { kind: 'exported' } : { kind: 'error', code: result.error || 'Export failed.' });
   };
 
   const handleOpenProject = async () => {
@@ -159,65 +141,46 @@ function App() {
     if (result.projection) applyProjection(result.projection);
     if (result.status === 'rejected') {
       const reason = result.result && typeof result.result === 'object' && 'error' in result.result ? String(result.result.error) : 'The native project file is not valid.';
-      setWorkflowNote({ kind: 'error', code: reason });
+      notify({ kind: 'error', code: reason });
       return;
     }
-    setWorkflowNote({ kind: 'opened-project' });
+    markCurrentSaved();
+    notify({ kind: 'opened-project' });
   };
 
   const handleSaveProject = async () => {
     const result = await window.electronAPI.saveProjectFile();
     if (!result.ok && result.canceled) return;
-    setWorkflowNote(result.ok ? { kind: 'saved-project' } : { kind: 'error', code: result.error || 'The project file could not be written.' });
+    if (result.ok) markCurrentSaved();
+    notify(result.ok ? { kind: 'saved-project' } : { kind: 'error', code: result.error || 'The project file could not be written.' });
   };
 
-  const handlePause = () => {
-    const chatService = getChatService();
-    const { isPaused } = useChatStore.getState();
-    if (isPaused) {
-      chatService.resume();
-    } else {
-      chatService.pause();
-    }
+  const handleCheckGraph = () => {
+    useDockStore.getState().show('check');
+    void useKnowledgeStore.getState().runCheck().catch(() => undefined);
   };
 
-  const selectedCount = nodes.filter((node) => node.selected).length;
-  const translate: Translator = (key, options) => (options ? String(t(key, options)) : String(t(key)));
+  const providerOptions = [
+    { value: '', label: String(t('provider.notConfigured')) },
+    { value: 'test', label: String(t('provider.testFixture')) },
+    { value: 'openai', label: String(t('provider.openaiSession')) },
+    { value: 'anthropic', label: String(t('provider.anthropicSession')) },
+    { value: 'google', label: String(t('provider.googleSession')) },
+    { value: 'local', label: String(t('provider.localChip')) },
+  ];
 
   return (
-    <div className="app-shell">
-      <header className="document-bar">
-        <div className="brand">
-          <span className="product-mark" aria-hidden="true" />
-          <h1 className="app-title">{t('shell.title')}</h1>
-          <span className="project-chip" title={String(t('shell.project'))}>{t('shell.project')}</span>
-          <span className="project-actions">
-            <button type="button" className="ghost-button project-file-button" aria-label={String(t('project.open'))} onClick={() => void handleOpenProject()}>
-              <FolderOpen size={16} aria-hidden="true" />
-              <span className="project-file-label">{t('project.open')}</span>
-            </button>
-            <button type="button" className="ghost-button project-file-button" aria-label={String(t('project.save'))} onClick={() => void handleSaveProject()}>
-              <Save size={16} aria-hidden="true" />
-              <span className="project-file-label">{t('project.save')}</span>
-            </button>
-          </span>
-        </div>
-        <div className="header-status">
-          <Hint label={String(t('status.comfyDisconnectedHint'))}>
-            <button
-              type="button"
-              className="status-chip"
-              disabled
-              title={String(t('status.comfyDisconnectedHint'))}
-            >
-              <Unplug size={16} aria-hidden="true" />
-              {t('status.comfyDisconnected')}
-            </button>
-          </Hint>
-          <Hint label={String(providerNote)}>
-            <span className="status-chip provider-chip" role="status" title={String(providerNote)}>{providerNote}</span>
-          </Hint>
+    <div className={cx(styles.shell, 'app-shell')}>
+      <AppBar
+        provider={provider}
+        providerNote={providerNote}
+        onOpenProject={() => void handleOpenProject()}
+        onSaveProject={() => void handleSaveProject()}
+        onCheckGraph={handleCheckGraph}
+        onExport={() => void handleExport()}
+        settings={(
           <SettingsPanel
+            triggerIcon={<SettingsIcon size={16} />}
             onRead={(values) => {
               if (sessionOverride.current) return;
               void showStoredRuntime(values);
@@ -228,68 +191,26 @@ function App() {
               void showStoredRuntime(values);
             }}
           />
-        </div>
-      </header>
-      <div className="workspace-toolbar" role="toolbar" aria-label={String(t('toolbar.aria'))}>
-        <button type="button" className="ghost-button" onClick={() => void handleImport()}>
-          <FolderInput size={16} aria-hidden="true" />
-          {t('toolbar.import')}
-        </button>
-        <button type="button" className="ghost-button" onClick={() => void handleCatalog()}>{t('toolbar.catalog')}</button>
-        <button type="button" className="ghost-button" onClick={() => void handleExport()}>
-          <FolderOutput size={16} aria-hidden="true" />
-          {t('toolbar.export')}
-        </button>
-        <span className="toolbar-rule" aria-hidden="true" />
-        <Hint label={String(t('toolbar.undoHint'))}>
-          <button
-            type="button"
-            className="ghost-button"
-            disabled
-            title={String(t('toolbar.undoHint'))}
-          >
-            <Undo2 size={16} aria-hidden="true" />
-            {t('toolbar.undo')}
-          </button>
-        </Hint>
-        <Hint label={String(t('toolbar.redoHint'))}>
-          <button type="button" className="ghost-button" disabled title={String(t('toolbar.redoHint'))}>
-            <Redo2 size={16} aria-hidden="true" />
-            {t('toolbar.redo')}
-          </button>
-        </Hint>
-        <span className="toolbar-rule" aria-hidden="true" />
-        <ToolToggles />
-        <span className="toolbar-rule" aria-hidden="true" />
-        <SelectField
-          id="chat-provider"
-          label={String(t('provider.label'))}
-          value={provider}
-          options={[
-            { value: '', label: String(t('provider.notConfigured')) },
-            { value: 'test', label: String(t('provider.testFixture')) },
-            { value: 'openai', label: String(t('provider.openaiSession')) },
-            { value: 'local', label: String(t('provider.localChip')) },
-          ]}
-          onChange={(next) => {
-            setProvider(next);
-            void applyProvider(next);
-          }}
-        />
-      </div>
-      <WorkflowReport note={workflowNote} />
-      <div className="app-body">
-        <div className="graph-pane">
-          <GraphCanvas />
-        </div>
+        )}
+      />
+      <Toolbar
+        provider={provider}
+        providerOptions={providerOptions}
+        onProvider={(next) => {
+          setProvider(next);
+          void applyProvider(next);
+        }}
+        onImport={() => void handleImport()}
+        onCatalog={() => void handleCatalog()}
+      />
+      <div className={cx(styles.body, 'app-body')}>
+        <Rail />
+        <main className={cx(styles.canvas, 'graph-pane')}>
+          <GraphWorkspace />
+        </main>
         <Dock onSendMessage={handleSendMessage} onPause={handlePause} />
       </div>
-      <footer className="status-bar">
-        <span>{translate('status.nodes', { count: nodes.length })}</span>
-        <span>{selectedCount === 0 ? t('status.noSelection') : translate('status.selected', { count: selectedCount })}</span>
-        <span>{translate('status.zoom', { percent: Math.round(zoom * 100) })}</span>
-        <span>{t('status.notConnected')}</span>
-      </footer>
+      <StatusBar />
     </div>
   );
 }

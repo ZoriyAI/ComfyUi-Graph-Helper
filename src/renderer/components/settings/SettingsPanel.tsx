@@ -14,8 +14,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '../../ui/Dialog';
+import Button from '../../ui/Button';
 import SelectField, { CLOSE_OPEN_SELECT } from '../../ui/SelectField';
 import { TabsContent, TabsList, TabsRoot, TabsTrigger } from '../../ui/Tabs';
+import { cx } from '../../ui/cx';
+import SyncSection from './SyncSection';
+import styles from './SettingsPanel.module.css';
 
 function applyMotion(motion: NonSecretSettings['motion']) {
   document.documentElement.dataset.motion = motion;
@@ -32,17 +36,30 @@ function sameSettings(left: NonSecretSettings, right: NonSecretSettings) {
     && left.language === right.language;
 }
 
-type Section = 'connection' | 'assistant' | 'appearance';
+type Section = 'connection' | 'assistant' | 'appearance' | 'sync';
+const SECTIONS: Section[] = ['connection', 'assistant', 'appearance', 'sync'];
+const SECTION_LABELS: Record<Section, string> = {
+  connection: 'settings.connection',
+  assistant: 'settings.assistant',
+  appearance: 'settings.appearance',
+  sync: 'settings.sync',
+};
 type NoteState = { kind: 'key'; key: string } | { kind: 'error'; code: string };
 
+/**
+ * Settings dialog. Non-secret values save together and fail closed (a secret in any field blocks the save);
+ * keys and tokens go only to memory or OS storage through their own buttons. Sync applies at once.
+ */
 export default function SettingsPanel({
   onRead,
   onSaved,
   onSession,
+  triggerIcon,
 }: {
   onRead: (values: NonSecretSettings) => void;
   onSaved: (values: NonSecretSettings) => void;
   onSession: (source: 'none' | 'session' | 'os') => void;
+  triggerIcon?: React.ReactNode;
 }) {
   const { t } = useTranslation();
   const translate: Translator = (key, options) => (options ? String(t(key, options)) : String(t(key)));
@@ -255,8 +272,15 @@ export default function SettingsPanel({
     { value: '', label: String(t('settings.providerNone')) },
     { value: 'test', label: String(t('settings.providerTest')) },
     { value: 'openai', label: String(t('settings.providerOpenAI')) },
+    { value: 'anthropic', label: String(t('settings.providerAnthropic')) },
+    { value: 'google', label: String(t('settings.providerGoogle')) },
     { value: 'local', label: String(t('settings.providerLocal')) },
   ];
+  const providerHint = values.provider === 'local'
+    ? String(t('settings.providerLocalHint'))
+    : values.provider === 'openai' || values.provider === 'anthropic' || values.provider === 'google'
+      ? String(t('settings.cloudBaseUrlHint'))
+      : '';
   const motionOptions = [
     { value: 'system', label: String(t('settings.motionSystem')) },
     { value: 'on', label: String(t('settings.motionOn')) },
@@ -267,6 +291,10 @@ export default function SettingsPanel({
     { value: 'en', label: String(t('settings.languageEnglish')) },
     { value: 'ru', label: String(t('settings.languageRussian')) },
   ];
+  const panelClass = cx(styles.panel, 'settings-panel');
+  const fieldClass = cx(styles.field, 'field');
+  const hintClass = cx(styles.hint, 'field-hint');
+  const rowClass = cx(styles.buttons, 'settings-buttons');
 
   return (
     <DialogRoot
@@ -278,13 +306,13 @@ export default function SettingsPanel({
       }}
     >
       <DialogTrigger asChild>
-        <button type="button" className="ghost-button">{t('shell.settings')}</button>
+        <Button size="sm" icon={triggerIcon}>{t('shell.settings')}</Button>
       </DialogTrigger>
       <DialogPortal>
-        <DialogOverlay className="dialog-overlay" />
+        <DialogOverlay />
         <DialogContent
           ref={setContainer}
-          className="settings-dialog"
+          className={cx(styles.dialog, 'settings-dialog')}
           aria-describedby="settings-lead"
           onOpenAutoFocus={(event) => {
             event.preventDefault();
@@ -305,9 +333,9 @@ export default function SettingsPanel({
             if (target instanceof Element && target.closest('.select-content')) event.preventDefault();
           }}
         >
-          <header className="settings-header">
-            <DialogTitle className="settings-heading">{t('settings.title')}</DialogTitle>
-            <DialogDescription id="settings-lead" className="settings-lead">
+          <header className={cx(styles.header, 'settings-header')}>
+            <DialogTitle className={cx(styles.heading, 'settings-heading')}>{t('settings.title')}</DialogTitle>
+            <DialogDescription id="settings-lead" className={cx(styles.lead, 'settings-lead')}>
               {t('settings.lead')}
             </DialogDescription>
           </header>
@@ -315,16 +343,18 @@ export default function SettingsPanel({
             value={section}
             onValueChange={(next) => setSection(next as Section)}
             orientation="vertical"
-            className="settings-layout"
+            className={cx(styles.layout, 'settings-layout')}
           >
-            <TabsList className="settings-nav" aria-label={String(t('settings.sections'))} tabIndex={-1}>
-              <TabsTrigger className="settings-tab" value="connection" tabIndex={section === 'connection' ? 0 : -1}>{t('settings.connection')}</TabsTrigger>
-              <TabsTrigger className="settings-tab" value="assistant" tabIndex={section === 'assistant' ? 0 : -1}>{t('settings.assistant')}</TabsTrigger>
-              <TabsTrigger className="settings-tab" value="appearance" tabIndex={section === 'appearance' ? 0 : -1}>{t('settings.appearance')}</TabsTrigger>
+            <TabsList className={cx(styles.nav, 'settings-nav')} aria-label={String(t('settings.sections'))} tabIndex={-1}>
+              {SECTIONS.map((item) => (
+                <TabsTrigger key={item} className={cx(styles.tab, 'settings-tab')} value={item} tabIndex={section === item ? 0 : -1}>
+                  {t(SECTION_LABELS[item])}
+                </TabsTrigger>
+              ))}
             </TabsList>
-            <TabsContent className="settings-panel" value="connection" tabIndex={-1}>
+            <TabsContent className={panelClass} value="connection" tabIndex={-1}>
               <h3>{t('settings.connection')}</h3>
-              <label className="field">
+              <label className={fieldClass}>
                 {t('settings.comfyOrigin')}
                 <input
                   aria-label={String(t('settings.comfyOrigin'))}
@@ -333,8 +363,8 @@ export default function SettingsPanel({
                   {...fieldError('comfyOrigin')}
                 />
               </label>
-              <p className="field-hint">{t('settings.comfyOriginHint')}</p>
-              <label className="field">
+              <p className={hintClass}>{t('settings.comfyOriginHint')}</p>
+              <label className={fieldClass}>
                 {t('settings.mcpUrl')}
                 <input
                   aria-label={String(t('settings.mcpUrl'))}
@@ -343,8 +373,8 @@ export default function SettingsPanel({
                   {...fieldError('mcpUrl')}
                 />
               </label>
-              <p className="field-hint">{t('settings.mcpUrlHint')}</p>
-              <label className="field">
+              <p className={hintClass}>{t('settings.mcpUrlHint')}</p>
+              <label className={fieldClass}>
                 {t('settings.mcpToken')}
                 <input
                   type="password"
@@ -354,30 +384,30 @@ export default function SettingsPanel({
                   onChange={(event) => setMcpTokenDraft(event.target.value)}
                 />
               </label>
-              <div className="settings-buttons">
-                <button type="button" className="ghost-button" disabled={mcpTokenDraft.length === 0} onClick={() => void holdMcpToken()}>
+              <div className={rowClass}>
+                <Button size="sm" disabled={mcpTokenDraft.length === 0} onClick={() => void holdMcpToken()}>
                   {t('settings.useMcpToken')}
-                </button>
-                <button type="button" className="ghost-button" onClick={() => void clearMcpToken()}>
+                </Button>
+                <Button size="sm" onClick={() => void clearMcpToken()}>
                   {t('settings.clearMcpToken')}
-                </button>
+                </Button>
               </div>
-              {mcpNote ? <p className="field-hint" role="status">{mcpNote}</p> : null}
-              <div className="settings-buttons">
-                <button type="button" className="ghost-button" disabled={pending || dirty || values.mcpUrl.trim() === ''} onClick={() => void readMcp()}>
+              {mcpNote ? <p className={hintClass} role="status">{mcpNote}</p> : null}
+              <div className={rowClass}>
+                <Button size="sm" variant="subtle" disabled={pending || dirty || values.mcpUrl.trim() === ''} onClick={() => void readMcp()}>
                   {t('settings.readMcp')}
-                </button>
-                <button type="button" className="ghost-button" disabled={pending || dirty || values.comfyOrigin.trim() === ''} onClick={() => void readCatalog()}>
+                </Button>
+                <Button size="sm" variant="subtle" disabled={pending || dirty || values.comfyOrigin.trim() === ''} onClick={() => void readCatalog()}>
                   {t('settings.readComfy')}
-                </button>
-                <button type="button" className="ghost-button" disabled={pending} onClick={() => void checkGraph()}>
+                </Button>
+                <Button size="sm" variant="subtle" disabled={pending} onClick={() => void checkGraph()}>
                   {t('settings.checkGraph')}
-                </button>
+                </Button>
               </div>
-              {actionNote ? <p className="field-hint" role="status">{actionNote}</p> : null}
+              {actionNote ? <p className={hintClass} role="status">{actionNote}</p> : null}
               {secretPersist ? (
                 <>
-                  <label className="field">
+                  <label className={fieldClass}>
                     {t('settings.osKey')}
                     <input
                       type="password"
@@ -387,21 +417,21 @@ export default function SettingsPanel({
                       onChange={(event) => setOsKey(event.target.value)}
                     />
                   </label>
-                  <div className="settings-buttons">
-                    <button type="button" className="ghost-button" disabled={osKey.length === 0} onClick={() => void storeOsKey()}>
+                  <div className={rowClass}>
+                    <Button size="sm" disabled={osKey.length === 0} onClick={() => void storeOsKey()}>
                       {t('settings.saveStoredKey')}
-                    </button>
+                    </Button>
                     {secretStored ? (
-                      <button type="button" className="ghost-button" onClick={() => void removeStoredKey()}>
+                      <Button size="sm" variant="danger" onClick={() => void removeStoredKey()}>
                         {t('settings.removeStored')}
-                      </button>
+                      </Button>
                     ) : null}
                   </div>
-                  {secretStored ? <p className="field-hint" role="status">{t('settings.storedKey')}</p> : null}
+                  {secretStored ? <p className={hintClass} role="status">{t('settings.storedKey')}</p> : null}
                 </>
               ) : (
                 <>
-                  <label className="field">
+                  <label className={fieldClass}>
                     {t('settings.apiKey')}
                     <input
                       type="password"
@@ -412,13 +442,13 @@ export default function SettingsPanel({
                       readOnly
                     />
                   </label>
-                  <p id="key-unavailable" className="field-hint">{t('settings.keyReason')}</p>
-                  <button type="button" className="ghost-button" disabled>
+                  <p id="key-unavailable" className={hintClass}>{t('settings.keyReason')}</p>
+                  <Button size="sm" className={styles.single} disabled>
                     {t('settings.saveKey')}
-                  </button>
+                  </Button>
                 </>
               )}
-              <label className="field">
+              <label className={fieldClass}>
                 {t('settings.sessionKey')}
                 <input
                   type="password"
@@ -428,18 +458,18 @@ export default function SettingsPanel({
                   onChange={(event) => setSessionKey(event.target.value)}
                 />
               </label>
-              <p className="field-hint">{secretReason ? explainError(translate, secretReason).summary : ''}</p>
-              <div className="settings-buttons">
-                <button type="button" className="ghost-button" disabled={sessionKey.length === 0} onClick={() => void holdSession()}>
+              <p className={hintClass}>{secretReason ? explainError(translate, secretReason).summary : ''}</p>
+              <div className={rowClass}>
+                <Button size="sm" disabled={sessionKey.length === 0} onClick={() => void holdSession()}>
                   {t('settings.useSession')}
-                </button>
-                <button type="button" className="ghost-button" onClick={() => void clearSession()}>
+                </Button>
+                <Button size="sm" onClick={() => void clearSession()}>
                   {t('settings.clearSession')}
-                </button>
+                </Button>
               </div>
-              {sessionNote ? <p className="field-hint" role="status">{sessionNote}</p> : null}
+              {sessionNote ? <p className={hintClass} role="status">{sessionNote}</p> : null}
             </TabsContent>
-            <TabsContent className="settings-panel" value="assistant" tabIndex={-1}>
+            <TabsContent className={panelClass} value="assistant" tabIndex={-1}>
               <h3>{t('settings.assistant')}</h3>
               <SelectField
                 label={String(t('settings.provider'))}
@@ -448,7 +478,8 @@ export default function SettingsPanel({
                 container={container}
                 onChange={(provider) => setValues((current) => ({ ...current, provider: provider as NonSecretSettings['provider'] }))}
               />
-              <label className="field">
+              {providerHint ? <p className={hintClass}>{providerHint}</p> : null}
+              <label className={fieldClass}>
                 {t('settings.model')}
                 <input
                   aria-label={String(t('settings.model'))}
@@ -457,7 +488,7 @@ export default function SettingsPanel({
                   {...fieldError('model')}
                 />
               </label>
-              <label className="field">
+              <label className={fieldClass}>
                 {t('settings.baseUrl')}
                 <input
                   aria-label={String(t('settings.baseUrl'))}
@@ -466,9 +497,9 @@ export default function SettingsPanel({
                   {...fieldError('baseURL')}
                 />
               </label>
-              <p className="field-hint">{t('settings.baseUrlHint')}</p>
+              <p className={hintClass}>{t('settings.baseUrlHint')}</p>
             </TabsContent>
-            <TabsContent className="settings-panel" value="appearance" tabIndex={-1}>
+            <TabsContent className={panelClass} value="appearance" tabIndex={-1}>
               <h3>{t('settings.appearance')}</h3>
               <SelectField
                 label={String(t('settings.motion'))}
@@ -477,7 +508,7 @@ export default function SettingsPanel({
                 container={container}
                 onChange={(motion) => setValues((current) => ({ ...current, motion: motion as NonSecretSettings['motion'] }))}
               />
-              <p className="field-hint">{t('settings.motionHint')}</p>
+              <p className={hintClass}>{t('settings.motionHint')}</p>
               <SelectField
                 id="settings-language"
                 label={String(t('settings.language'))}
@@ -490,18 +521,24 @@ export default function SettingsPanel({
                   applyLanguage(next);
                 }}
               />
-              <p className="field-hint">{t('settings.languageHint')}</p>
+              <p className={hintClass}>{t('settings.languageHint')}</p>
+            </TabsContent>
+            <TabsContent className={panelClass} value="sync" tabIndex={-1}>
+              <h3>{t('settings.sync')}</h3>
+              <SyncSection fieldClass={fieldClass} hintClass={hintClass} rowClass={rowClass} />
             </TabsContent>
           </TabsRoot>
-          <footer className="settings-actions">
-            <p id="settings-draft-error" className="provider-note" role="status">{statusText}</p>
-            <p className="field-hint">{t('settings.keyReason')}</p>
-            <div className="settings-buttons">
-              <button type="button" className="send-button settings-save" disabled={saveDisabled} onClick={() => void save()}>
-                <span className="settings-save-reserve" aria-hidden="true">{t('settings.save')}</span>
+          <footer className={cx(styles.actions, 'settings-actions')}>
+            <p id="settings-draft-error" className={cx(styles.status, 'provider-note')} role="status">{statusText}</p>
+            <p className={hintClass}>{t('settings.keyReason')}</p>
+            <div className={rowClass}>
+              <Button variant="primary" className={cx(styles.save, 'settings-save')} disabled={saveDisabled} onClick={() => void save()}>
+                <span className={styles.saveReserve} aria-hidden="true">{t('settings.save')}</span>
                 <span className="settings-save-current">{pending ? t('settings.saving') : t('settings.save')}</span>
-              </button>
-              <DialogClose className="ghost-button">{t('settings.cancel')}</DialogClose>
+              </Button>
+              <DialogClose asChild>
+                <Button>{t('settings.cancel')}</Button>
+              </DialogClose>
             </div>
           </footer>
         </DialogContent>

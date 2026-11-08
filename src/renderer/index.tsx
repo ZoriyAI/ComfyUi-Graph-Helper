@@ -1,17 +1,20 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { I18nextProvider } from 'react-i18next';
-import App from './App';
-import { i18n, startI18n } from './i18n';
-import MotionRoot from './motion/MotionRoot';
-import { HintProvider } from './ui/Hint';
-import { languageOf, type AppLanguage } from '../shared/i18n';
 import '@fontsource/geist/400.css';
 import '@fontsource/geist/600.css';
 import '@fontsource/geist/cyrillic-400.css';
 import '@fontsource/geist/cyrillic-600.css';
+// Global tokens and base rules first, so component CSS Modules (imported below through App) come later
+// in the cascade and win at equal specificity.
 import './theme/tokens.css';
 import './theme.css';
+import App from './App';
+import { i18n, startI18n } from './i18n';
+import MotionRoot from './motion/MotionRoot';
+import { HintProvider } from './ui/Hint';
+import { ToastProvider } from './ui/Toast';
+import { languageOf, type AppLanguage } from '../shared/i18n';
 
 document.documentElement.dataset.motion = 'system';
 
@@ -33,7 +36,9 @@ async function boot() {
       <I18nextProvider i18n={i18n}>
         <MotionRoot>
           <HintProvider>
-            <App />
+            <ToastProvider>
+              <App />
+            </ToastProvider>
           </HintProvider>
         </MotionRoot>
       </I18nextProvider>

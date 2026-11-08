@@ -149,9 +149,12 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
     if (width === 1024) {
       const canvas = await window.locator('.graph-pane').evaluate((element) => Math.round(element.getBoundingClientRect().width));
       const dock = await window.locator('.dock').evaluate((element) => Math.round(element.getBoundingClientRect().width));
-      console.log(`CANVAS_1024 ${canvas} dock=${dock}`);
+      const rail = await window.locator('.rail').evaluate((element) => Math.round(element.getBoundingClientRect().width));
+      console.log(`CANVAS_1024 ${canvas} dock=${dock} rail=${rail}`);
       expect(dock).toBe(336);
-      expect(canvas).toBe(688);
+      // Below 1440 the library rail is an icon strip (48px) beside the canvas.
+      expect(rail).toBe(48);
+      expect(canvas).toBe(1024 - 336 - rail);
       const toolbar = await window.locator('.workspace-toolbar').evaluate((element) => {
         const trigger = element.querySelector('#chat-provider');
         const value = trigger?.querySelector('span');
@@ -264,14 +267,15 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
     toolbarOverflow: document.querySelector('.workspace-toolbar')!.scrollWidth - document.querySelector('.workspace-toolbar')!.clientWidth,
     canvas: Math.round(document.querySelector('.graph-pane')!.getBoundingClientRect().width),
     dock: Math.round(document.querySelector('.dock')!.getBoundingClientRect().width),
+    rail: Math.round(document.querySelector('.rail')!.getBoundingClientRect().width),
   }));
   console.log(`RESIZE_1440 from=1024 zoom=${zoom1440.toFixed(4)} ${JSON.stringify(resized)}`);
   expect(resized.bar).toBe(48);
   expect(resized.toolbar).toBe(40);
   expect(resized.toolbarOverflow).toBe(0);
   expect(resized.dock).toBe(336);
-  expect(resized.canvas).toBeGreaterThanOrEqual(1440 - resized.dock);
-  expect(resized.canvas).toBeLessThanOrEqual(1440 - resized.dock + 2);
+  expect(resized.canvas).toBeGreaterThanOrEqual(1440 - resized.dock - resized.rail);
+  expect(resized.canvas).toBeLessThanOrEqual(1440 - resized.dock - resized.rail + 2);
   await window.setViewportSize({ width: 1280, height: 800 });
   await window.locator('.react-flow__controls-fitview').click();
   const zoom1280 = await expectSettledGraph(window);
