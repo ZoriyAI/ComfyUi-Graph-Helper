@@ -54,6 +54,24 @@ export const IPC_CHANNELS = {
   LLM_STREAM_CHAT: 'llm:stream-chat',
   LLM_CANCEL: 'llm:cancel',
   
+  // Knowledge and sync (KB workstream)
+  KNOWLEDGE_SEARCH_NODES: 'knowledge:search-nodes',
+  KNOWLEDGE_NODE_DETAIL: 'knowledge:node-detail',
+  KNOWLEDGE_SEARCH_MODELS: 'knowledge:search-models',
+  KNOWLEDGE_MODEL_DETAIL: 'knowledge:model-detail',
+  KNOWLEDGE_LIST_EXPLANATIONS: 'knowledge:list-explanations',
+  KNOWLEDGE_SAVE_EXPLANATION: 'knowledge:save-explanation',
+  KNOWLEDGE_CHECK_GRAPH: 'knowledge:check-graph',
+  SYNC_STATUS: 'sync:status',
+  SYNC_NOW: 'sync:now',
+  SYNC_SET_AUTO: 'sync:set-auto',
+  SYNC_EVENT: 'sync:event',
+
+  // Proposals / ghosts (Engine workstream)
+  PROPOSALS_LIST: 'proposals:list',
+  PROPOSALS_RESOLVE: 'proposals:resolve',
+  PROPOSALS_EVENT: 'proposals:event',
+
   // Action executor control
   ACTION_PAUSE: 'action:pause',
   ACTION_RESUME: 'action:resume',

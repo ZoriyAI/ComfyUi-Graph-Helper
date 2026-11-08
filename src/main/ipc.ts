@@ -10,6 +10,9 @@ import { probeSecretBackend } from './settings/secretProbe';
 import { isUnprotectedCipher, secretPersistenceDecision } from '../shared/config/secretPolicy';
 import { applyComfyRead } from './comfy/read';
 import { readCatalogViaMcp } from './mcp/client';
+import { registerKnowledgeIpc } from './ipc/knowledgeIpc';
+import { registerEngineIpc } from './ipc/engineIpc';
+import { registerAgentIpc } from './ipc/agentIpc';
 import { mcpToken, mcpTokenStatus, setMcpToken } from './mcp/token';
 import { missingOnGraph } from '../shared/graph/compatibility';
 import { cancelRun, commitCommand, pauseRun, readProjection, resumeRun, startRun, switchProject } from './commands/commit';
@@ -62,6 +65,10 @@ async function adoptStoredKey(): Promise<void> {
 export async function setupIPC(): Promise<void> {
   adoptStoredChatRuntime();
   await adoptStoredKey();
+  // Domain handlers. Each workstream owns its register function; see docs/superpowers/specs/2026-11-08-helper-brief.md.
+  registerKnowledgeIpc(ipcMain);
+  registerEngineIpc(ipcMain);
+  registerAgentIpc(ipcMain);
   // File operations
   ipcMain.handle(IPC_CHANNELS.FILE_IMPORT_WORKFLOW, async () => {
     const copy = dialogCopy().importWorkflow;

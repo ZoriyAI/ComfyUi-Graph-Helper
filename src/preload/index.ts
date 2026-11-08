@@ -1,5 +1,23 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type { ChatRuntimeConfig, NonSecretSettings, SettingsRead } from '../shared/config/schema';
+import type {
+  AgentTurnContext,
+  ChatRecord,
+  Explanation,
+  ExplanationInput,
+  GraphCheckReport,
+  ListExplanationsRequest,
+  ModelDetail,
+  ModelSummary,
+  NodeClassDetail,
+  NodeClassSummary,
+  Proposal,
+  ProposalResolution,
+  ResolveProposalRequest,
+  SearchModelsRequest,
+  SearchNodesRequest,
+  SyncStatus,
+} from '../shared/contracts';
 
 // IPC channel constants (inlined for sandbox-compatible preload)
 const IPC_CHANNELS = {
@@ -34,6 +52,22 @@ const IPC_CHANNELS = {
   COMMAND_CANCEL_RUN: 'command:cancel-run',
   COMMAND_SWITCH_PROJECT: 'command:switch-project',
   COMMAND_READ_PROJECTION: 'command:read-projection',
+  CHAT_SAVE_MESSAGE: 'chat:save-message',
+  CHAT_LOAD_HISTORY: 'chat:load-history',
+  KNOWLEDGE_SEARCH_NODES: 'knowledge:search-nodes',
+  KNOWLEDGE_NODE_DETAIL: 'knowledge:node-detail',
+  KNOWLEDGE_SEARCH_MODELS: 'knowledge:search-models',
+  KNOWLEDGE_MODEL_DETAIL: 'knowledge:model-detail',
+  KNOWLEDGE_LIST_EXPLANATIONS: 'knowledge:list-explanations',
+  KNOWLEDGE_SAVE_EXPLANATION: 'knowledge:save-explanation',
+  KNOWLEDGE_CHECK_GRAPH: 'knowledge:check-graph',
+  SYNC_STATUS: 'sync:status',
+  SYNC_NOW: 'sync:now',
+  SYNC_SET_AUTO: 'sync:set-auto',
+  SYNC_EVENT: 'sync:event',
+  PROPOSALS_LIST: 'proposals:list',
+  PROPOSALS_RESOLVE: 'proposals:resolve',
+  PROPOSALS_EVENT: 'proposals:event',
 } as const;
 
 // Expose safe IPC API to renderer
@@ -98,13 +132,44 @@ contextBridge.exposeInMainWorld('electronAPI', {
     toolSpecs: Array<{ name: string; description: string; parameters: any }>,
     onChunk: (chunk: { type: string; content: any }) => void,
     run: { projectId: string; runId: string; expectedRevisionId: string },
+    context?: AgentTurnContext,
   ) => {
     const channel = `llm-stream-${Date.now()}`;
     ipcRenderer.on(channel, (_event, chunk) => onChunk(chunk));
-    return ipcRenderer.invoke(IPC_CHANNELS.LLM_STREAM_CHAT, messages, toolSpecs, channel, run);
+    return ipcRenderer.invoke(IPC_CHANNELS.LLM_STREAM_CHAT, messages, toolSpecs, channel, run, context);
   },
   sendToolResult: (resultChannel: string, result: any) => {
     ipcRenderer.send(resultChannel, result);
+  },
+
+  // Chat history (Agent workstream)
+  loadChatHistory: (projectId: string) => ipcRenderer.invoke(IPC_CHANNELS.CHAT_LOAD_HISTORY, projectId) as Promise<ChatRecord[]>,
+  saveChatMessage: (record: ChatRecord) => ipcRenderer.invoke(IPC_CHANNELS.CHAT_SAVE_MESSAGE, record) as Promise<{ ok: boolean }>,
+
+  // Knowledge and sync (KB workstream)
+  searchNodeTypes: (request: SearchNodesRequest) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_SEARCH_NODES, request) as Promise<NodeClassSummary[]>,
+  nodeTypeDetail: (classType: string) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_NODE_DETAIL, classType) as Promise<NodeClassDetail | null>,
+  searchModels: (request: SearchModelsRequest) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_SEARCH_MODELS, request) as Promise<ModelSummary[]>,
+  modelDetail: (directory: string, name: string) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_MODEL_DETAIL, { directory, name }) as Promise<ModelDetail | null>,
+  listExplanations: (request: ListExplanationsRequest) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_LIST_EXPLANATIONS, request) as Promise<Explanation[]>,
+  saveExplanation: (input: ExplanationInput) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_SAVE_EXPLANATION, input) as Promise<Explanation>,
+  checkGraph: (projectId: string) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_CHECK_GRAPH, projectId) as Promise<GraphCheckReport>,
+  syncStatus: () => ipcRenderer.invoke(IPC_CHANNELS.SYNC_STATUS) as Promise<SyncStatus>,
+  syncNow: () => ipcRenderer.invoke(IPC_CHANNELS.SYNC_NOW) as Promise<SyncStatus>,
+  syncSetAuto: (enabled: boolean, intervalMinutes: number) => ipcRenderer.invoke(IPC_CHANNELS.SYNC_SET_AUTO, { enabled, intervalMinutes }) as Promise<SyncStatus>,
+  onSyncEvent: (listener: (status: SyncStatus) => void) => {
+    const handler = (_event: unknown, status: SyncStatus) => listener(status);
+    ipcRenderer.on(IPC_CHANNELS.SYNC_EVENT, handler);
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.SYNC_EVENT, handler);
+  },
+
+  // Proposals / ghosts (Engine workstream)
+  listProposals: (projectId: string) => ipcRenderer.invoke(IPC_CHANNELS.PROPOSALS_LIST, projectId) as Promise<Proposal[]>,
+  resolveProposal: (request: ResolveProposalRequest) => ipcRenderer.invoke(IPC_CHANNELS.PROPOSALS_RESOLVE, request) as Promise<ProposalResolution>,
+  onProposalsEvent: (listener: (proposals: Proposal[]) => void) => {
+    const handler = (_event: unknown, proposals: Proposal[]) => listener(proposals);
+    ipcRenderer.on(IPC_CHANNELS.PROPOSALS_EVENT, handler);
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.PROPOSALS_EVENT, handler);
   },
 });
 
@@ -169,8 +234,25 @@ export interface ElectronAPI {
     toolSpecs: Array<{ name: string; description: string; parameters: any }>,
     onChunk: (chunk: { type: string; content: any }) => void,
     run: { projectId: string; runId: string; expectedRevisionId: string },
+    context?: AgentTurnContext,
   ) => Promise<void>;
   sendToolResult: (resultChannel: string, result: any) => void;
+  loadChatHistory: (projectId: string) => Promise<ChatRecord[]>;
+  saveChatMessage: (record: ChatRecord) => Promise<{ ok: boolean }>;
+  searchNodeTypes: (request: SearchNodesRequest) => Promise<NodeClassSummary[]>;
+  nodeTypeDetail: (classType: string) => Promise<NodeClassDetail | null>;
+  searchModels: (request: SearchModelsRequest) => Promise<ModelSummary[]>;
+  modelDetail: (directory: string, name: string) => Promise<ModelDetail | null>;
+  listExplanations: (request: ListExplanationsRequest) => Promise<Explanation[]>;
+  saveExplanation: (input: ExplanationInput) => Promise<Explanation>;
+  checkGraph: (projectId: string) => Promise<GraphCheckReport>;
+  syncStatus: () => Promise<SyncStatus>;
+  syncNow: () => Promise<SyncStatus>;
+  syncSetAuto: (enabled: boolean, intervalMinutes: number) => Promise<SyncStatus>;
+  onSyncEvent: (listener: (status: SyncStatus) => void) => () => void;
+  listProposals: (projectId: string) => Promise<Proposal[]>;
+  resolveProposal: (request: ResolveProposalRequest) => Promise<ProposalResolution>;
+  onProposalsEvent: (listener: (proposals: Proposal[]) => void) => () => void;
 }
 
 declare global {

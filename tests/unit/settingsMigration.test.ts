@@ -72,7 +72,7 @@ describe('settings migration', () => {
     db.close();
 
     const reopened = new Database(dbPath);
-    expect(schemaVersion(reopened)).toBe(8);
+    expect(schemaVersion(reopened)).toBe(9);
     expect(readSettings(reopened)).toMatchObject({
       source: 'stored',
       values: {
@@ -91,7 +91,7 @@ describe('settings migration', () => {
   it('keeps a legacy comfy origin from discarding the stored settings row', () => {
     const db = new Database(':memory:');
     migrate(db);
-    expect(schemaVersion(db)).toBe(8);
+    expect(schemaVersion(db)).toBe(9);
     db.prepare(
       `INSERT INTO settings (id, theme, motion, provider, model, comfy_origin, base_url, language, updated_at)
        VALUES (1, 'graphite', 'reduced', 'openai', 'stored-model', 'localhost:8188', 'https://example.test/v1', 'ru', 1)`,
@@ -145,7 +145,7 @@ describe('settings migration', () => {
       CREATE TABLE model_catalog (directory TEXT NOT NULL, name TEXT NOT NULL, PRIMARY KEY (directory, name));
     `);
     migrate(db);
-    expect(schemaVersion(db)).toBe(8);
+    expect(schemaVersion(db)).toBe(9);
     const columns = db.prepare('PRAGMA table_info(node_catalog)').all() as Array<{ name: string }>;
     expect(columns.map((column) => column.name)).toEqual([
       'class_type',
@@ -156,15 +156,19 @@ describe('settings migration', () => {
       'widget_order_json',
       'display_name',
       'category',
+      'description',
+      'pack_name',
+      'output_node',
+      'synced_at',
     ]);
     const row = db.prepare('SELECT pack, python_module FROM node_catalog WHERE class_type = ?').get('CheckpointLoaderSimple') as {
       pack: string;
       python_module: string;
     };
     expect(row).toEqual({ pack: 'core', python_module: 'nodes' });
-    db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (9, 1)').run();
-    expect(() => migrate(db)).toThrow(/Unsupported schema version 9/);
-    expect(schemaVersion(db)).toBe(9);
+    db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (10, 1)').run();
+    expect(() => migrate(db)).toThrow(/Unsupported schema version 10/);
+    expect(schemaVersion(db)).toBe(10);
     db.close();
   });
 
@@ -186,7 +190,7 @@ describe('settings migration', () => {
       VALUES (1, 'graphite', 'off', 'openai', 'kept-model', 'http://127.0.0.1:8188', 1);
     `);
     migrate(db);
-    expect(schemaVersion(db)).toBe(8);
+    expect(schemaVersion(db)).toBe(9);
     expect(readSettings(db)).toMatchObject({
       source: 'stored',
       values: { provider: 'openai', model: 'kept-model', baseURL: '', motion: 'off', language: 'en' },

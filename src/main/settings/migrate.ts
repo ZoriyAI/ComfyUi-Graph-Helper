@@ -138,10 +138,12 @@ function applyVersion2(db: Database.Database): void {
  * Version 7 stores app component records and process metadata on each graph revision.
  * Version 8 adds the MCP server URL on the settings row, display name and category on node_catalog,
  * and the file size on model_catalog, so a catalog read through MCP keeps what the server reports.
+ * Version 9 adds the knowledge layer: model kind, base-model family, trigger words and metadata on
+ * model_catalog; description and pack on node_catalog; node_packs, explanations, proposals and sync_state.
  */
 export function migrate(db: Database.Database, options?: { failBeforeVersionStamp?: boolean }): void {
   const version = schemaVersion(db);
-  if (version > 8) {
+  if (version > 9) {
     throw new Error(`Unsupported schema version ${version}`);
   }
   if (version < 1) {
@@ -203,6 +205,84 @@ export function migrate(db: Database.Database, options?: { failBeforeVersionStam
     });
     apply.immediate();
   }
+  if (schemaVersion(db) === 8) {
+    const apply = db.transaction(() => {
+      applyVersion9(db);
+      db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (9, ?)').run(Date.now());
+    });
+    apply.immediate();
+  }
+}
+
+function addColumn(db: Database.Database, table: string, column: string, definition: string): void {
+  if (!columnNames(db, table).includes(column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+}
+
+function applyVersion9(db: Database.Database): void {
+  const tables = tableNames(db);
+  if (tables.includes('model_catalog')) {
+    addColumn(db, 'model_catalog', 'kind', "TEXT NOT NULL DEFAULT 'other'");
+    addColumn(db, 'model_catalog', 'base_model', "TEXT NOT NULL DEFAULT 'unknown'");
+    addColumn(db, 'model_catalog', 'base_model_evidence', "TEXT NOT NULL DEFAULT 'none'");
+    addColumn(db, 'model_catalog', 'trigger_words', "TEXT NOT NULL DEFAULT '[]'");
+    addColumn(db, 'model_catalog', 'description', "TEXT NOT NULL DEFAULT ''");
+    addColumn(db, 'model_catalog', 'source_url', 'TEXT');
+    addColumn(db, 'model_catalog', 'metadata_json', "TEXT NOT NULL DEFAULT '{}'");
+    addColumn(db, 'model_catalog', 'root_path', 'TEXT');
+    addColumn(db, 'model_catalog', 'sha256', 'TEXT');
+    addColumn(db, 'model_catalog', 'synced_at', 'INTEGER');
+    addColumn(db, 'model_catalog', 'enriched_at', 'INTEGER');
+  }
+  if (tables.includes('node_catalog')) {
+    addColumn(db, 'node_catalog', 'description', "TEXT NOT NULL DEFAULT ''");
+    addColumn(db, 'node_catalog', 'pack_name', "TEXT NOT NULL DEFAULT ''");
+    addColumn(db, 'node_catalog', 'output_node', 'INTEGER NOT NULL DEFAULT 0');
+    addColumn(db, 'node_catalog', 'synced_at', 'INTEGER');
+  }
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS node_packs (
+      name TEXT PRIMARY KEY,
+      version TEXT,
+      commit_sha TEXT,
+      installed_state TEXT NOT NULL DEFAULT '',
+      import_state TEXT NOT NULL DEFAULT '',
+      class_count INTEGER,
+      synced_at INTEGER
+    );
+    CREATE TABLE IF NOT EXISTS explanations (
+      id TEXT PRIMARY KEY,
+      project_id TEXT,
+      owner_kind TEXT NOT NULL,
+      owner_id TEXT NOT NULL,
+      owner_json TEXT NOT NULL DEFAULT '{}',
+      aspect TEXT NOT NULL,
+      text TEXT NOT NULL,
+      provenance TEXT NOT NULL,
+      source_url TEXT,
+      revision_id TEXT,
+      created_by TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_explanations_owner ON explanations(owner_kind, owner_id);
+    CREATE INDEX IF NOT EXISTS idx_explanations_project ON explanations(project_id);
+    CREATE TABLE IF NOT EXISTS proposals (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      run_id TEXT,
+      kind TEXT NOT NULL,
+      status TEXT NOT NULL,
+      payload TEXT NOT NULL,
+      note TEXT NOT NULL DEFAULT '',
+      revision_id TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      resolved_at INTEGER
+    );
+    CREATE INDEX IF NOT EXISTS idx_proposals_project_status ON proposals(project_id, status);
+    CREATE TABLE IF NOT EXISTS sync_state (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+  `);
 }
 
 function applyVersion8(db: Database.Database): void {

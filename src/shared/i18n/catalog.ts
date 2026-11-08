@@ -214,6 +214,25 @@ export const en = {
     saveFailed: 'Settings could not be saved.',
     notSavedYet: 'Settings are not saved yet.',
   },
+  // Phase 1/2 namespaces. Each workstream fills only its own object (see docs/superpowers/specs/2026-11-08-helper-brief.md).
+  knowledge: {
+  },
+  sync: {
+  },
+  check: {
+  },
+  proposals: {
+  },
+  agent: {
+  },
+  library: {
+  },
+  canvas: {
+  },
+  explain: {
+  },
+  contextMenu: {
+  },
   errors: {
     secret: 'Settings cannot store a secret',
     schema: 'Settings do not match the schema',
@@ -490,6 +509,25 @@ export const ru = {
     saved: 'Настройки без секретов сохранены.',
     saveFailed: 'Настройки не удалось сохранить.',
     notSavedYet: 'Настройки ещё не сохранены.',
+  },
+  // Phase 1/2 namespaces. Each workstream fills only its own object (see docs/superpowers/specs/2026-11-08-helper-brief.md).
+  knowledge: {
+  },
+  sync: {
+  },
+  check: {
+  },
+  proposals: {
+  },
+  agent: {
+  },
+  library: {
+  },
+  canvas: {
+  },
+  explain: {
+  },
+  contextMenu: {
   },
   errors: {
     secret: 'Настройки не могут хранить секрет',
