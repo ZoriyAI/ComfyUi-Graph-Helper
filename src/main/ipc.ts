@@ -270,7 +270,9 @@ export async function setupIPC(): Promise<void> {
     const projection = readProjection(getDatabase(), DESKTOP_PROJECT_ID);
     if (!projection) return { ok: false as const, error: 'Project is not ready.' };
     const nodes = Array.isArray(projection.snapshot.nodes) ? projection.snapshot.nodes as Array<{ data?: { comfyType?: unknown } }> : [];
-    const report = missingOnGraph(nodes, readCatalog(getDatabase()), projection.snapshot.document);
+    // The snapshot stores { formatVersion, raw }; the dependency scan reads the raw workflow document.
+    const documentState = projection.snapshot.document as { raw?: unknown } | null | undefined;
+    const report = missingOnGraph(nodes, readCatalog(getDatabase()), documentState?.raw ?? null);
     return { ok: true as const, ...report };
   });
 
