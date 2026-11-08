@@ -147,11 +147,9 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
   await window.keyboard.press('Enter');
   await expect(window.getByRole('option', { name: 'System', exact: true })).toBeVisible();
   await window.keyboard.press('Escape');
-  const selectEscapes = 1;
-  console.log(`NESTED_ESCAPE presses=${selectEscapes}`);
-  expect(selectEscapes).toBe(1);
   await expect(window.locator('.select-content')).toHaveCount(0);
   await expect(routeDialog).toHaveAttribute('data-state', 'open');
+  console.log('NESTED_ESCAPE one-press list-closed dialog-open');
   await window.keyboard.press('Escape');
   await expect(routeDialog).toHaveCount(0);
   await expect.poll(async () => window.evaluate(() => (

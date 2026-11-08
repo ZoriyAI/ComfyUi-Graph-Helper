@@ -34,23 +34,59 @@ function contrast(a: string, b: string): number {
   return (lighter + 0.05) / (darker + 0.05);
 }
 
-async function expectMinimapClear(window: Page) {
-  const read = () => window.evaluate(() => {
+async function expectSettledGraph(window: Page) {
+  const duration = Number(await window.locator('.graph-canvas').getAttribute('data-fit-duration')) || 0;
+  const started = Date.now();
+  let previous = '';
+  await expect.poll(async () => {
+    const next = await window.locator('.react-flow__viewport').evaluate((element) => getComputedStyle(element).transform);
+    const stable = previous !== '' && next === previous && Date.now() - started >= duration;
+    previous = next;
+    return stable ? next : '';
+  }).not.toBe('');
+  const fit = await window.evaluate(() => {
+    const pane = document.querySelector('.react-flow__pane')?.getBoundingClientRect();
     const map = document.querySelector('.graph-minimap')?.getBoundingClientRect();
-    if (!map) return { missing: true, width: 0, height: 0, hits: [] as string[] };
-    const hits = [...document.querySelectorAll('.react-flow__node')].flatMap((node) => {
+    const transform = getComputedStyle(document.querySelector('.react-flow__viewport')!).transform;
+    const zoom = Number(transform.match(/matrix\(([-0-9.eE]+)/)?.[1] ?? '0');
+    const nodes = [...document.querySelectorAll('.react-flow__node')];
+    const outside = pane ? nodes.flatMap((node) => {
+      const box = node.getBoundingClientRect();
+      const overflow = {
+        left: pane.left - box.left,
+        right: box.right - pane.right,
+        top: pane.top - box.top,
+        bottom: box.bottom - pane.bottom,
+      };
+      const clipped = overflow.left > 1 || overflow.right > 1 || overflow.top > 1 || overflow.bottom > 1;
+      if (!clipped) return [];
+      const name = (node.textContent || 'node').slice(0, 24);
+      return [`${name} L${overflow.left.toFixed(1)} R${overflow.right.toFixed(1)} T${overflow.top.toFixed(1)} B${overflow.bottom.toFixed(1)}`];
+    }) : ['pane-missing'];
+    const hits = map ? nodes.flatMap((node) => {
       const box = node.getBoundingClientRect();
       const clear = box.right <= map.left || box.left >= map.right || box.bottom <= map.top || box.top >= map.bottom;
       return clear ? [] : [(node.textContent || 'node').slice(0, 24)];
-    });
-    return { missing: false, width: Math.round(map.width), height: Math.round(map.height), hits };
+    }) : ['minimap-missing'];
+    return {
+      missing: !map,
+      width: map ? Math.round(map.width) : 0,
+      height: map ? Math.round(map.height) : 0,
+      hits,
+      outside,
+      nodes: nodes.length,
+      zoom,
+    };
   });
-  await expect.poll(async () => (await read()).hits).toEqual([]);
-  const overlap = await read();
-  expect(overlap.missing).toBe(false);
-  expect(overlap.width).toBe(144);
-  expect(overlap.height).toBe(96);
-  console.log(`MINIMAP ${overlap.width}x${overlap.height} overlaps=0`);
+  expect(fit.missing).toBe(false);
+  expect(fit.width).toBe(144);
+  expect(fit.height).toBe(96);
+  expect(fit.hits).toEqual([]);
+  expect(fit.outside).toEqual([]);
+  expect(fit.nodes).toBeGreaterThan(0);
+  console.log(`MINIMAP ${fit.width}x${fit.height} overlaps=0`);
+  console.log(`NODES_INSIDE ${fit.nodes} outside=0 zoom=${fit.zoom.toFixed(4)}`);
+  return fit.zoom;
 }
 
 test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
@@ -177,11 +213,19 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
   await window.locator('.react-flow__node').first().click();
   await window.locator('.react-flow__controls-fitview').click();
   await expect(window.getByRole('region', { name: 'Inspector' })).toContainText('CheckpointLoaderSimple');
-  await expectMinimapClear(window);
+  const zoom1024 = await expectSettledGraph(window);
   await window.screenshot({ path: path.join(artifactDir, 'desktop-1024-graph.png') });
   const importButton = window.getByRole('button', { name: 'Import' });
   await importButton.hover();
-  await expect.poll(async () => importButton.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe('rgb(36, 50, 71)');
+  await expect.poll(async () => importButton.evaluate((element) => {
+    const token = getComputedStyle(document.documentElement).getPropertyValue('--bg-hover').trim();
+    const probe = document.createElement('span');
+    probe.style.color = token;
+    document.body.appendChild(probe);
+    const resolved = getComputedStyle(probe).color;
+    probe.remove();
+    return getComputedStyle(element).backgroundColor === resolved;
+  })).toBe(true);
   const hover = await importButton.evaluate((element) => {
     const style = getComputedStyle(element);
     return { color: style.color, background: style.backgroundColor };
@@ -189,15 +233,42 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
   const hoverRatio = contrast(hover.color, hover.background);
   console.log(`HOVER_BUTTON ${hoverRatio.toFixed(2)} ${hover.color} on ${hover.background}`);
   expect(hoverRatio).toBeGreaterThanOrEqual(4.5);
+  const pressPolicy = await importButton.evaluate(() => {
+    const motion = document.documentElement.dataset.motion || '';
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const shift = motion === 'on' || ((motion === 'system' || motion === '') && !reduce);
+    return { motion, reduce, shift };
+  });
   const importBox = await importButton.boundingBox();
   await window.mouse.move(importBox!.x + 8, importBox!.y + 8);
   await window.mouse.down();
-  await expect.poll(async () => importButton.evaluate((element) => getComputedStyle(element).transform)).toBe('matrix(1, 0, 0, 1, 0, 1)');
+  const expectedPress = pressPolicy.shift ? 'matrix(1, 0, 0, 1, 0, 1)' : 'none';
+  await expect.poll(async () => importButton.evaluate((element) => getComputedStyle(element).transform)).toBe(expectedPress);
   const pressed = await importButton.evaluate((element) => getComputedStyle(element).transform);
   await window.mouse.up();
-  console.log(`PRESS_BUTTON transform=${pressed}`);
+  console.log(`PRESS_BUTTON transform=${pressed} motion=${pressPolicy.motion} reduce=${pressPolicy.reduce}`);
+  await window.setViewportSize({ width: 1440, height: 900 });
+  await window.locator('.react-flow__controls-fitview').click();
+  const zoom1440 = await expectSettledGraph(window);
+  const resized = await window.evaluate(() => ({
+    bar: Math.round(document.querySelector('.document-bar')!.getBoundingClientRect().height),
+    toolbar: Math.round(document.querySelector('.workspace-toolbar')!.getBoundingClientRect().height),
+    toolbarOverflow: document.querySelector('.workspace-toolbar')!.scrollWidth - document.querySelector('.workspace-toolbar')!.clientWidth,
+    canvas: Math.round(document.querySelector('.graph-pane')!.getBoundingClientRect().width),
+    dock: Math.round(document.querySelector('.dock')!.getBoundingClientRect().width),
+  }));
+  console.log(`RESIZE_1440 from=1024 zoom=${zoom1440.toFixed(4)} ${JSON.stringify(resized)}`);
+  expect(resized.bar).toBe(48);
+  expect(resized.toolbar).toBe(40);
+  expect(resized.toolbarOverflow).toBe(0);
+  expect(resized.dock).toBe(336);
+  expect(resized.canvas).toBeGreaterThanOrEqual(1440 - resized.dock);
+  expect(resized.canvas).toBeLessThanOrEqual(1440 - resized.dock + 2);
   await window.setViewportSize({ width: 1280, height: 800 });
   await window.locator('.react-flow__controls-fitview').click();
+  const zoom1280 = await expectSettledGraph(window);
+  expect(zoom1024).not.toBe(zoom1280);
+  console.log(`FIT_ZOOM 1024=${zoom1024.toFixed(4)} 1280=${zoom1280.toFixed(4)} 1440=${zoom1440.toFixed(4)}`);
   await window.locator('.react-flow__node').nth(1).click({ modifiers: ['Control'] });
   await expect(window.getByRole('region', { name: 'Inspector' })).toContainText('2 nodes selected');
   await expect(window.getByRole('region', { name: 'Inspector' })).toContainText('Shared edits are not available.');
@@ -206,24 +277,8 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
   await window.locator('.react-flow__node').first().click();
   await expect(window.getByRole('region', { name: 'Inspector' })).toContainText('CheckpointLoaderSimple');
   await window.locator('.react-flow__controls-fitview').click();
-  await expectMinimapClear(window);
+  await expectSettledGraph(window);
   await window.screenshot({ path: path.join(artifactDir, 'desktop-1280-graph.png') });
-  await window.setViewportSize({ width: 1440, height: 900 });
-  await window.locator('.react-flow__controls-fitview').click();
-  const resized = await window.evaluate(() => ({
-    bar: Math.round(document.querySelector('.document-bar')!.getBoundingClientRect().height),
-    toolbar: Math.round(document.querySelector('.workspace-toolbar')!.getBoundingClientRect().height),
-    toolbarOverflow: document.querySelector('.workspace-toolbar')!.scrollWidth - document.querySelector('.workspace-toolbar')!.clientWidth,
-    canvas: Math.round(document.querySelector('.graph-pane')!.getBoundingClientRect().width),
-    dock: Math.round(document.querySelector('.dock')!.getBoundingClientRect().width),
-  }));
-  console.log(`RESIZE_1440 ${JSON.stringify(resized)}`);
-  expect(resized.bar).toBe(48);
-  expect(resized.toolbar).toBe(40);
-  expect(resized.toolbarOverflow).toBe(0);
-  expect(resized.canvas).toBeGreaterThanOrEqual(560);
-  await expectMinimapClear(window);
-  await window.setViewportSize({ width: 1280, height: 800 });
   await window.screenshot({ path: path.join(artifactDir, 'desktop-1280-inspector.png') });
   await window.getByRole('button', { name: 'Settings', exact: true }).click();
   const contrastDialog = window.locator('[role="dialog"].settings-dialog');
@@ -268,7 +323,7 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
       focusMatches: document.activeElement === input,
       focusNeighbor: neighbor(input),
       selectedOutline: paint(document.querySelector('.graph-node.is-selected'))?.outlineColor ?? '',
-      selectedNodeBg: paint(document.querySelector('.graph-node.is-selected'))?.backgroundColor ?? '',
+      selectedNeighbor: paint(document.querySelector('.graph-canvas'))?.backgroundColor ?? '',
       port: paint(handle, '::after')?.backgroundColor ?? '',
       nodeBg: paint(handle?.closest('.graph-node') ?? null)?.backgroundColor ?? '',
       edge: paint(edge)?.stroke ?? '',
@@ -282,12 +337,12 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
     disabledBorder: contrast(rendered.disabledBorder, rendered.dialogBg),
     save: contrast(rendered.saveColor, rendered.saveBg),
     focus: contrast(rendered.focusOutline, rendered.focusNeighbor),
-    selected: contrast(rendered.selectedOutline, rendered.selectedNodeBg),
+    selected: contrast(rendered.selectedOutline, rendered.selectedNeighbor),
     port: contrast(rendered.port, rendered.nodeBg),
     edge: contrast(rendered.edge, rendered.canvasBg),
   };
   console.log(`RENDERED_CONTRAST ${Object.entries(pairs).map(([name, value]) => `${name}=${value.toFixed(2)}`).join(' ')}`);
-  console.log(`RENDERED_COLORS input=${rendered.inputBg}/${rendered.inputBorder} disabled=${rendered.disabledBg}/${rendered.disabledBorder} save=${rendered.saveBg}/${rendered.saveColor} focus=${rendered.focusOutline} on ${rendered.focusNeighbor} port=${rendered.port} on ${rendered.nodeBg} edge=${rendered.edge} on ${rendered.canvasBg}`);
+  console.log(`RENDERED_COLORS input=${rendered.inputBg}/${rendered.inputBorder} disabled=${rendered.disabledBg}/${rendered.disabledBorder} save=${rendered.saveBg}/${rendered.saveColor} focus=${rendered.focusOutline} on ${rendered.focusNeighbor} selected=${rendered.selectedOutline} on ${rendered.selectedNeighbor} port=${rendered.port} on ${rendered.nodeBg} edge=${rendered.edge} on ${rendered.canvasBg}`);
   expect(rendered.inputBg).not.toBe(rendered.disabledBg);
   expect(rendered.focusMatches).toBe(true);
   expect(rendered.focusStyle).not.toBe('none');
@@ -316,10 +371,17 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
       }
       return 'rgb(0, 0, 0)';
     };
-    return { color: note ? getComputedStyle(note).color : '', background: neighbor(note ?? null) };
+    const field = document.querySelector('input[aria-label="Model"]');
+    return {
+      color: note ? getComputedStyle(note).color : '',
+      background: neighbor(note ?? null),
+      role: note?.getAttribute('role') ?? '',
+      invalid: field?.getAttribute('aria-invalid') ?? '',
+      describedBy: field?.getAttribute('aria-describedby') ?? '',
+    };
   });
   const errorRatio = contrast(errorColors.color, errorColors.background);
-  console.log(`ERROR_SAVE ${errorRatio.toFixed(2)} ${errorColors.color} on ${errorColors.background}`);
+  console.log(`INVALID_FIELD_SAVE_BLOCKED ${errorRatio.toFixed(2)} ${errorColors.color} on ${errorColors.background} role=${errorColors.role || 'none'} aria-invalid=${errorColors.invalid || 'none'} aria-describedby=${errorColors.describedBy || 'none'}`);
   expect(errorRatio).toBeGreaterThanOrEqual(4.5);
   await window.keyboard.press('Escape');
   await expect(contrastDialog).toHaveCount(0);
