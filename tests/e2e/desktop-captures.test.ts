@@ -361,6 +361,31 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
   expect(pairs.selected).toBeGreaterThanOrEqual(3);
   expect(pairs.port).toBeGreaterThanOrEqual(3);
   expect(pairs.edge).toBeGreaterThanOrEqual(3);
+  const shellPairs = await window.evaluate(() => {
+    const opaqueBackground = (element: Element | null) => {
+      let node = element;
+      while (node) {
+        const color = getComputedStyle(node).backgroundColor;
+        const parts = color.match(/[\d.]+/g)?.map(Number) ?? [];
+        if (parts.length < 4 || parts[3] > 0.9) return color;
+        node = node.parentElement;
+      }
+      return 'rgb(0, 0, 0)';
+    };
+    const read = (selector: string) => {
+      const element = document.querySelector(selector);
+      return {
+        color: element ? getComputedStyle(element).color : '',
+        background: opaqueBackground(element),
+      };
+    };
+    return { text: read('.app-title'), muted: read('.provider-chip') };
+  });
+  const textSurface = contrast(shellPairs.text.color, shellPairs.text.background);
+  const mutedSurface = contrast(shellPairs.muted.color, shellPairs.muted.background);
+  expect(textSurface).toBeGreaterThanOrEqual(4.5);
+  expect(mutedSurface).toBeGreaterThanOrEqual(4.5);
+  console.log(`CONTRAST_PAIRS text/surface=${textSurface.toFixed(2)} ${shellPairs.text.color} on ${shellPairs.text.background} alpha=1 muted/surface=${mutedSurface.toFixed(2)} ${shellPairs.muted.color} on ${shellPairs.muted.background} alpha=1 accent/on-accent=${pairs.save.toFixed(2)} ${rendered.saveColor} on ${rendered.saveBg} alpha=1 focus/neighbor=${pairs.focus.toFixed(2)} ${rendered.focusOutline} on ${rendered.focusNeighbor} alpha=1 selected/canvas=${pairs.selected.toFixed(2)} ${rendered.selectedOutline} on ${rendered.selectedNeighbor} alpha=1 input/field=${pairs.inputText.toFixed(2)} ${rendered.inputColor} on ${rendered.inputBg} alpha=1`);
   const saveButton = contrastDialog.locator('.settings-save');
   const saveWidth = Math.round((await saveButton.boundingBox())?.width ?? 0);
   await window.evaluate(() => {
@@ -432,6 +457,7 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
   });
   const errorRatio = contrast(errorColors.color, errorColors.background);
   console.log(`INVALID_FIELD_SAVE_BLOCKED ${errorRatio.toFixed(2)} ${errorColors.color} on ${errorColors.background} role=${errorColors.role || 'none'} aria-invalid=${errorColors.invalid || 'none'} aria-describedby=${errorColors.describedBy || 'none'}`);
+  console.log(`CONTRAST_PAIRS invalid/surface=${errorRatio.toFixed(2)} ${errorColors.color} on ${errorColors.background} alpha=1`);
   expect(errorRatio).toBeGreaterThanOrEqual(4.5);
   expect(errorColors.invalid).toBe('true');
   expect(errorColors.describedBy).toBe('settings-draft-error');
