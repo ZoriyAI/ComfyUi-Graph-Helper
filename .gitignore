@@ -56,3 +56,6 @@ tmp/
 temp/
 *.tmp
 test-electron.js
+
+# Playwright artifacts
+test-results/
