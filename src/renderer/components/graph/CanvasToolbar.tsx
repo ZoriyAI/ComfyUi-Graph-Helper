@@ -24,7 +24,8 @@ export async function acceptAllProposals(): Promise<void> {
 
 /**
  * Floating canvas toolbar: add node, fit, zoom, follow the helper, the tour player, replay, and
- * proposal / build controls when they apply. Outside `.react-flow` so canvas shortcuts never fire from it.
+ * proposal / build controls when they apply. Mounted as a React Flow Panel so it sits in the canvas tab zone;
+ * onBeforeDelete and React Flow's input check keep graph shortcuts out of its search field.
  */
 export default function CanvasToolbar() {
   const { t } = useTranslation();

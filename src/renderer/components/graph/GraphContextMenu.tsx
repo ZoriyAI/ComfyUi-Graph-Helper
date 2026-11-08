@@ -84,6 +84,11 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
   const definition = subgraphs.find((item) => item.id === activeSubgraphId);
 
   const onContextMenu = useCallback((event: React.MouseEvent) => {
+    // The canvas toolbar and its search are controls, not graph objects: no canvas menu there.
+    if ((event.target as Element).closest?.('[role="toolbar"], [role="dialog"]')) {
+      event.preventDefault();
+      return;
+    }
     const next = targetFromElement(event.target as Element, flow.screenToFlowPosition({ x: event.clientX, y: event.clientY }));
     setTarget(next);
     const ref: ObjectRef | null = next.kind === 'node'

@@ -5,10 +5,10 @@ import { useGraphStore } from '../../state/graphState';
 import { startProposalsSubscription } from '../../state/proposalsState';
 import { useCanvasStore } from './canvasStore';
 import CanvasFlow from './CanvasFlow';
-import CanvasToolbar from './CanvasToolbar';
 import SubgraphBreadcrumb from './SubgraphBreadcrumb';
 import { commitManual } from './commit';
 import { dropToAddNode, MODEL_DRAG_TYPE, NODE_DRAG_TYPE } from './lib/modelLoaders';
+import { useMotionLevel } from './lib/motion';
 import styles from './GraphWorkspace.module.css';
 
 function acceptsDrag(event: React.DragEvent): boolean {
@@ -34,6 +34,8 @@ function Workspace() {
   const empty = useGraphStore((state) => state.nodes.length === 0 && state.activeSubgraphId === null);
   const replaying = useCanvasStore((state) => Boolean(state.replay));
   const [dragging, setDragging] = useState(false);
+  // React Flow fit duration under the motion policy (motion/policy.ts fitDurationMs); e2e reads it.
+  const fitDuration = useMotionLevel() === 'full' ? 200 : 0;
 
   useEffect(() => {
     startProposalsSubscription();
@@ -65,14 +67,13 @@ function Workspace() {
   return (
     <div
       className={`graph-canvas ${styles.root}${replaying ? ` ${styles.replaying}` : ''}${dragging ? ` ${styles.dropping}` : ''}`}
-      data-fit-duration={undefined}
+      data-fit-duration={fitDuration}
       onDragOver={onDragOver}
       onDragLeave={() => setDragging(false)}
       onDrop={onDrop}
     >
       {empty ? <p className={`canvas-empty ${styles.empty}`}>{t('graph.empty')}</p> : null}
       <CanvasFlow />
-      <CanvasToolbar />
       <SubgraphBreadcrumb />
       <ReplayBanner />
       {dragging ? <p className={styles.dropHint} aria-hidden="true">{t('canvas.dropHere')}</p> : null}

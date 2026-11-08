@@ -19,7 +19,7 @@ export function EdgePulse({ path, color, motion, target }: { path: string; color
     <g className={styles.pulses} data-flow="pulse" style={{ '--canvas-pulse-color': color } as React.CSSProperties}>
       {[0, 1, 2].map((index) => (
         <circle key={index} r={index === 0 ? 4 : 3} fill={color} className={styles.pulse}>
-          <animateMotion dur={`${seconds}s`} begin={`${(index * seconds) / 3}s`} repeatCount="indefinite" path={path} />
+          <animateMotion dur={`${seconds}s`} begin={`-${((index * seconds) / 3).toFixed(3)}s`} repeatCount="indefinite" path={path} />
         </circle>
       ))}
     </g>

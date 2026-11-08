@@ -3,7 +3,9 @@ import { useTranslation } from 'react-i18next';
 import {
   ReactFlow,
   Background,
+  Controls,
   MiniMap,
+  Panel,
   BackgroundVariant,
   applyEdgeChanges,
   applyNodeChanges,
@@ -38,7 +40,7 @@ import GraphContextMenu from './GraphContextMenu';
 import { CanvasViewContext, type CanvasView } from './CanvasContext';
 import { useCanvasStore } from './canvasStore';
 import { commitManual } from './commit';
-import { FIT_PADDING } from './CanvasToolbar';
+import CanvasToolbar, { FIT_PADDING } from './CanvasToolbar';
 import { connectCandidates, type AssistNode } from './lib/connectAssist';
 import { flowingEdges } from './lib/flow';
 import { definitionView } from './lib/subgraphView';
@@ -319,6 +321,10 @@ export default function CanvasFlow() {
           >
             <ZoomReporter />
             <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
+            <Controls position="top-left" fitViewOptions={{ padding: FIT_PADDING, duration: fitDuration }} />
+            <Panel position="top-center" className="nopan nowheel nodrag">
+              <CanvasToolbar />
+            </Panel>
             <MiniMap
               position="bottom-left"
               style={{ width: 144, height: 96 }}

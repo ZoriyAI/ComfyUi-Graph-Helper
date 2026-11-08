@@ -74,12 +74,14 @@ export function PortRow({ nodeId, port, side, connected, focusable, live = true 
           tabIndex={focusable ? 0 : -1}
           aria-label={label}
           title={empty ? String(t('node.emptyRequired')) : undefined}
-          onFocus={() => {
+          onFocus={(event) => {
+            // Keyboard focus selects and explains the port; a mouse press (drag, right-click) does not.
+            if (!event.currentTarget.matches(':focus-visible')) return;
             setFocusedPort(portRef(nodeId, port.id, side, port.name));
             start();
           }}
           onBlur={() => {
-            setFocusedPort(null);
+            if (useCanvasStore.getState().focusedPort) setFocusedPort(null);
             stop();
           }}
           onMouseEnter={(event) => {
@@ -105,8 +107,8 @@ export function PortRow({ nodeId, port, side, connected, focusable, live = true 
           }}
         />
       ) : <span className={`${styles.handle} ${styles.dot}`} aria-hidden="true" />}
-      <span className={styles.portName}>{port.name}</span>
-      {port.name.toLowerCase() === port.dataType.toLowerCase() ? null : <span className={styles.portType}>{port.dataType}</span>}
+      <span className={`${styles.portName} port-name`}>{port.name}</span>
+      {port.name.toLowerCase() === port.dataType.toLowerCase() ? null : <span className={`${styles.portType} port-type`}>{port.dataType}</span>}
     </li>
   );
 }

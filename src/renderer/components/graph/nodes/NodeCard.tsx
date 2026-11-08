@@ -84,14 +84,14 @@ export default function NodeCard({ id, data, state, connected, live = true, head
         </div>
       </div>
       {data.inputs.length > 0 ? (
-        <ul className={styles.ports} aria-label={String(t('node.inputs'))}>
+        <ul className={`${styles.ports} port-list`} aria-label={String(t('node.inputs'))}>
           {data.inputs.map((port) => (
             <PortRow key={port.id} nodeId={id} port={port} side="input" connected={connected.has(`in:${port.id}`)} focusable={Boolean(state.selected)} live={live} />
           ))}
         </ul>
       ) : null}
       {data.outputs.length > 0 ? (
-        <ul className={styles.ports} aria-label={String(t('node.outputs'))}>
+        <ul className={`${styles.ports} port-list`} aria-label={String(t('node.outputs'))}>
           {data.outputs.map((port) => (
             <PortRow key={port.id} nodeId={id} port={port} side="output" connected={connected.has(`out:${port.id}`)} focusable={Boolean(state.selected)} live={live} />
           ))}

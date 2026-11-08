@@ -1,9 +1,5 @@
 .toolbar {
-  position: absolute;
-  z-index: 6;
-  top: 12px;
-  left: 50%;
-  transform: translateX(-50%);
+  position: relative;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -71,7 +67,7 @@
 .resultMeta { color: var(--text-faint, #8b9bb0); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .empty { padding: 6px 8px; color: var(--text-dim, #a3b1c6); font-size: 13px; }
 
-.crumbBar { position: absolute; z-index: 5; top: 56px; left: 12px; display: flex; flex-direction: column; gap: 4px; max-width: calc(100% - 24px); }
+.crumbBar { position: absolute; z-index: 5; top: 56px; left: 64px; display: flex; flex-direction: column; gap: 4px; max-width: calc(100% - 76px); }
 .crumbs {
   display: inline-flex;
   align-items: center;
