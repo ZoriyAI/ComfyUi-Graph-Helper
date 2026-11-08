@@ -117,7 +117,8 @@ test('Desktop smoke: TEST fixture IPC chat interaction', async () => {
 
   // Send chat message via UI
   console.log('[SMOKE] Sending chat message via UI');
-  const messageInput = window.locator('input[type="text"]').first();
+  await window.getByRole('tab', { name: 'Assistant' }).click();
+  const messageInput = window.locator('textarea[aria-label="Chat message"]');
   await messageInput.fill('Add a test node');
   await messageInput.press('Enter');
 
@@ -155,7 +156,7 @@ test('Desktop smoke: TEST fixture IPC chat interaction', async () => {
     );
     
     // Check if input is enabled (not streaming)
-    const input = document.querySelector('input[type="text"]') as HTMLInputElement;
+    const input = document.querySelector('textarea[aria-label="Chat message"]') as HTMLTextAreaElement;
     const inputEnabled = input && !input.disabled;
     
     // Check for AI Test Node specifically (not initial samples)

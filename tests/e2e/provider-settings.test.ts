@@ -30,7 +30,9 @@ async function settingsRow(app: ElectronApplication, appRoot: string) {
 async function openSettings(window: Page) {
   await window.locator('#chat-provider').waitFor();
   await window.getByRole('button', { name: 'Settings', exact: true }).click();
-  return window.locator('[role="dialog"].settings-dialog');
+  const dialog = window.locator('[role="dialog"].settings-dialog');
+  await dialog.getByRole('tab', { name: 'Assistant' }).click();
+  return dialog;
 }
 
 async function runtimeConfig(window: Page) {
@@ -64,12 +66,36 @@ test('stored provider, model, and base URL are what the next send would use afte
   await expect.poll(() => runtimeConfig(window)).toEqual(savedRuntime);
 
   await dialog.getByRole('textbox', { name: 'Base URL', exact: true }).fill('notaurl');
-  await dialog.getByRole('button', { name: 'Save settings' }).click();
+  await expect(dialog.getByRole('button', { name: 'Save settings' })).toBeDisabled();
   await expect(dialog.getByText('Settings do not match the schema')).toBeVisible();
+  const schemaReject = await window.evaluate(async () => {
+    const bridge = (window as unknown as { electronAPI: { saveSettings: (input: unknown) => Promise<{ ok: boolean; error?: string }> } }).electronAPI;
+    return bridge.saveSettings({
+      theme: 'graphite',
+      motion: 'system',
+      provider: 'openai',
+      model: 'fixture-model',
+      baseURL: 'notaurl',
+      comfyOrigin: '',
+    });
+  });
+  expect(schemaReject).toEqual({ ok: false, error: 'Settings do not match the schema' });
 
   await dialog.getByRole('textbox', { name: 'Model', exact: true }).fill(MARKER);
-  await dialog.getByRole('button', { name: 'Save settings' }).click();
+  await expect(dialog.getByRole('button', { name: 'Save settings' })).toBeDisabled();
   await expect(dialog.getByText('Settings cannot store a secret')).toBeVisible();
+  const secretReject = await window.evaluate(async (marker) => {
+    const bridge = (window as unknown as { electronAPI: { saveSettings: (input: unknown) => Promise<{ ok: boolean; error?: string }> } }).electronAPI;
+    return bridge.saveSettings({
+      theme: 'graphite',
+      motion: 'system',
+      provider: 'openai',
+      model: marker,
+      baseURL: 'notaurl',
+      comfyOrigin: '',
+    });
+  }, MARKER);
+  expect(secretReject).toEqual({ ok: false, error: 'Settings cannot store a secret' });
   await expect(window.locator('#chat-provider')).toHaveAttribute('data-value', 'openai');
   await expect.poll(() => runtimeConfig(window)).toEqual(savedRuntime);
 
@@ -108,6 +134,9 @@ test('stored provider, model, and base URL are what the next send would use afte
     model: 'test-fixture',
     baseURL: 'https://fixture.example/v1',
   });
+  await restored.getByRole('button', { name: 'Cancel' }).click();
+  await expect(restored).toHaveCount(0);
+  await again.getByRole('tab', { name: 'Assistant' }).click();
   await expect(again.getByRole('textbox', { name: 'Chat message' })).toHaveValue('');
   await reopened.close();
 });

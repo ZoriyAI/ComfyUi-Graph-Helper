@@ -29,7 +29,7 @@ function scanSqlite(userData: string, phase: string): void {
   expect(sawDatabase).toBe(true);
 }
 
-test('blocked secret IPC clears the field and leaves the fake marker out of sqlite files', async () => {
+test('blocked secret IPC leaves the disabled key controls empty and the marker out of sqlite', async () => {
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'key-clear-'));
   const app = await electron.launch({
     args: [
@@ -41,14 +41,17 @@ test('blocked secret IPC clears the field and leaves the fake marker out of sqli
   const window = await app.firstWindow();
   await window.getByRole('button', { name: 'Settings', exact: true }).click();
   const input = window.locator('input[aria-label="API key"]');
-  const secretNote = window.locator('.settings-strip p.provider-note').nth(1);
-  await input.waitFor();
-  await input.fill(FAKE_MARKER);
-  await window.getByRole('button', { name: 'Save key' }).click();
-  await secretNote.filter({ hasText: 'secret-storage-blocked. The key was not written.' }).waitFor();
-  const field = await input.inputValue();
-  console.log(`IPC_DONE note=secret-storage-blocked field_empty=${field === ''}`);
-  expect(field).toBe('');
+  await expect(input).toBeDisabled();
+  await expect(window.getByRole('button', { name: 'Save key' })).toBeDisabled();
+  await expect(window.getByText('Key storage is not available. The key is not written. Cancel does not store a key.')).toBeVisible();
+  const result = await window.evaluate(async (marker) => {
+    const bridge = (window as unknown as { electronAPI: { saveSecret: (value: string) => Promise<{ status: string }> } }).electronAPI;
+    return bridge.saveSecret(marker);
+  }, FAKE_MARKER);
+  expect(result).toEqual({ status: 'secret-storage-blocked' });
+  expect(await input.inputValue()).toBe('');
+  expect(await input.isDisabled()).toBe(true);
+  console.log('IPC_DONE status=secret-storage-blocked field_disabled=true');
   scanSqlite(userData, 'AFTER_IPC');
   await app.close();
   scanSqlite(userData, 'AFTER_CLOSE');

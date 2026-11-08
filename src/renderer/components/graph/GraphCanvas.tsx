@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ReactFlow,
   Background,
@@ -14,9 +14,11 @@ import {
   applyNodeChanges,
   applyEdgeChanges,
   BackgroundVariant,
+  useViewport,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { useGraphStore } from '../../state/graphState';
+import { fitDurationMs } from '../../motion/policy';
 import ComfyNode from './nodes/ComfyNode';
 import { submitManual } from '../../services/commands/projection';
 
@@ -50,8 +52,31 @@ function TypedEdge({ sourceX, sourceY, targetX, targetY, sourcePosition, targetP
 
 const edgeTypes = { default: TypedEdge };
 
+function ZoomReporter() {
+  const { zoom } = useViewport();
+  const setZoom = useGraphStore((state) => state.setZoom);
+  useEffect(() => {
+    setZoom(zoom);
+  }, [setZoom, zoom]);
+  return null;
+}
+
 export default function GraphCanvas() {
   const { nodes, edges, setNodes, setEdges } = useGraphStore();
+  const [fitDuration, setFitDuration] = useState(() => fitDurationMs());
+
+  useEffect(() => {
+    const read = () => setFitDuration(fitDurationMs());
+    read();
+    const observer = new MutationObserver(read);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-motion'] });
+    const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+    media.addEventListener('change', read);
+    return () => {
+      observer.disconnect();
+      media.removeEventListener('change', read);
+    };
+  }, []);
 
   const onNodesChange: OnNodesChange = useCallback(
     (changes) => {
@@ -103,7 +128,10 @@ export default function GraphCanvas() {
   }, []);
 
   return (
-    <div className="graph-canvas">
+    <div className="graph-canvas" data-fit-duration={fitDuration}>
+      {nodes.length === 0 ? (
+        <p className="canvas-empty">The graph is empty. Import a workflow or describe a change.</p>
+      ) : null}
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -114,10 +142,11 @@ export default function GraphCanvas() {
         edgeTypes={edgeTypes}
         colorMode="dark"
         fitView
-        fitViewOptions={{ padding: 0.2 }}
+        fitViewOptions={{ padding: 0.2, duration: fitDuration }}
         minZoom={0.1}
         maxZoom={2}
       >
+        <ZoomReporter />
         <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
         <Controls position="top-left" />
         <MiniMap

@@ -15,7 +15,12 @@ export default function Inspector() {
   }
   const node = selected[0];
   if (!node) {
-    return <p className="inspector-empty">Select a node to see its ports and parameters.</p>;
+    return (
+      <section className="inspector" role="region" aria-label="Inspector">
+        <h2>Inspector</h2>
+        <p className="inspector-empty">Select a node to see its ports and parameters.</p>
+      </section>
+    );
   }
   const data = node.data as ComfyNodeData;
   const ports = [
@@ -29,7 +34,6 @@ export default function Inspector() {
       <div className="inspector-ports">
         {ports.map((port) => (
           <div key={`${port.direction}-${port.id}`} className="inspector-port" data-port-type={port.dataType}>
-            <span className="port-swatch" aria-hidden="true" />
             <span>{port.direction === 'in' ? 'In' : 'Out'}</span>
             <span className="port-name">{port.name}</span>
             {port.name.toLowerCase() === port.dataType.toLowerCase() ? null : <span className="port-type">{port.dataType}</span>}

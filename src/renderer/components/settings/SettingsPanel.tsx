@@ -1,11 +1,21 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
+import * as Tabs from '@radix-ui/react-tabs';
+import { settingsWriteError } from '../../../shared/config/draft';
 import { nonSecretDefaults, type NonSecretSettings, type SettingsRead } from '../../../shared/config/schema';
 import SelectField from '../../ui/SelectField';
-import { consumeSecretSave } from './secretSave';
 
 function applyMotion(motion: NonSecretSettings['motion']) {
   document.documentElement.dataset.motion = motion;
+}
+
+function sameSettings(left: NonSecretSettings, right: NonSecretSettings) {
+  return left.theme === right.theme
+    && left.motion === right.motion
+    && left.provider === right.provider
+    && left.model === right.model
+    && left.baseURL === right.baseURL
+    && left.comfyOrigin === right.comfyOrigin;
 }
 
 const PROVIDERS = [
@@ -21,6 +31,10 @@ const MOTION = [
   { value: 'off', label: 'Off' },
 ];
 
+const KEY_REASON = 'Key storage is not available. The key is not written. Cancel does not store a key.';
+
+type Section = 'connection' | 'assistant' | 'appearance';
+
 export default function SettingsPanel({
   onRead,
   onSaved,
@@ -28,46 +42,35 @@ export default function SettingsPanel({
   onRead: (values: NonSecretSettings) => void;
   onSaved: (values: NonSecretSettings) => void;
 }) {
-  const openerRef = useRef<HTMLButtonElement>(null);
   const savedRef = useRef<NonSecretSettings>(nonSecretDefaults);
   const onReadRef = useRef(onRead);
   const onSavedRef = useRef(onSaved);
   onReadRef.current = onRead;
   onSavedRef.current = onSaved;
   const [open, setOpen] = useState(false);
+  const [section, setSection] = useState<Section>('connection');
   const [values, setValues] = useState<NonSecretSettings>(nonSecretDefaults);
   const [settingsNote, setSettingsNote] = useState('Settings are not saved yet.');
-  const [secret, setSecret] = useState('');
-  const [secretNote, setSecretNote] = useState('Key storage is not available.');
-
-  const wasOpen = useRef(false);
-  useEffect(() => {
-    if (open) {
-      wasOpen.current = true;
-      const frame = requestAnimationFrame(() => {
-        document.querySelector<HTMLElement>('.settings-dialog input')?.focus();
-      });
-      return () => cancelAnimationFrame(frame);
-    }
-    if (wasOpen.current) {
-      wasOpen.current = false;
-      openerRef.current?.focus();
-    }
-  }, [open]);
+  const [pending, setPending] = useState(false);
+  const [container, setContainer] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     window.electronAPI.getSettings().then((read: SettingsRead) => {
       if (cancelled) return;
-      if (read.source === 'corrupt') {
-        setSettingsNote('Stored settings are corrupt and were left unchanged.');
+      if (read.source === 'stored' && read.values) {
+        savedRef.current = read.values;
+        setValues(read.values);
+        setSettingsNote('Restored non-secret settings.');
+        applyMotion(read.values.motion);
+        onReadRef.current(read.values);
         return;
       }
-      savedRef.current = read.values;
-      setValues(read.values);
-      applyMotion(read.values.motion);
-      setSettingsNote(read.source === 'stored' ? 'Restored non-secret settings.' : 'Defaults are shown and are not written yet.');
-      onReadRef.current(read.values);
+      if (read.source === 'corrupt') {
+        setSettingsNote('Stored settings could not be read. Defaults are shown and are not written yet.');
+        return;
+      }
+      setSettingsNote('Defaults are shown and are not written yet.');
     }).catch(() => {
       if (!cancelled) setSettingsNote('Settings could not be read.');
     });
@@ -78,10 +81,34 @@ export default function SettingsPanel({
 
   const discard = () => {
     setValues(savedRef.current);
+    setPending(false);
+  };
+  const closeFromEscape = () => {
+    discard();
     setOpen(false);
   };
+  const closeFromEscapeRef = useRef(closeFromEscape);
+  closeFromEscapeRef.current = closeFromEscape;
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      if (document.querySelector('.select-content[data-state="open"]')) return;
+      if (!document.querySelector('.settings-dialog[data-state="open"]')) return;
+      closeFromEscapeRef.current();
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, []);
+
+  const draftError = settingsWriteError(values);
+  const dirty = !sameSettings(values, savedRef.current);
+  const saveDisabled = pending || !dirty || draftError !== null;
+  const note = draftError ?? settingsNote;
 
   const save = async () => {
+    if (saveDisabled) return;
+    setPending(true);
     try {
       const result = await window.electronAPI.saveSettings(values);
       if (!result.ok) {
@@ -90,36 +117,45 @@ export default function SettingsPanel({
       }
       savedRef.current = result.values;
       setValues(result.values);
-      applyMotion(result.values.motion);
       setSettingsNote('Non-secret settings saved.');
+      applyMotion(result.values.motion);
       onSavedRef.current(result.values);
     } catch {
       setSettingsNote('Settings could not be saved.');
+    } finally {
+      setPending(false);
     }
   };
 
-  const saveKey = async () => {
-    const outcome = await consumeSecretSave(
-      (value) => window.electronAPI.saveSecret(value),
-      secret,
-    );
-    setSecret(outcome.secret);
-    setSecretNote(outcome.note);
-  };
-
   return (
-    <Dialog.Root modal={false} open={open} onOpenChange={(next) => { if (!next) discard(); else setOpen(true); }}>
+    <Dialog.Root
+      modal
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) discard();
+        setOpen(next);
+      }}
+    >
       <Dialog.Trigger asChild>
-        <button ref={openerRef} type="button" className="ghost-button">Settings</button>
+        <button type="button" className="ghost-button">Settings</button>
       </Dialog.Trigger>
-      <Dialog.Portal forceMount>
+      <Dialog.Portal>
         <Dialog.Overlay className="dialog-overlay" />
         <Dialog.Content
-          className="settings-dialog settings-strip"
+          ref={setContainer}
+          className="settings-dialog"
           aria-describedby="settings-lead"
-          onCloseAutoFocus={(event) => {
+          onOpenAutoFocus={(event) => {
             event.preventDefault();
-            openerRef.current?.focus();
+            const panel = document.querySelector('.settings-panel');
+            panel?.querySelector<HTMLElement>('input:not([disabled]), [role="combobox"]')?.focus();
+          }}
+          onEscapeKeyDown={(event) => {
+            if (document.querySelector('.select-content[data-state="open"]')) event.preventDefault();
+          }}
+          onPointerDownOutside={(event) => {
+            const target = event.target;
+            if (target instanceof Element && target.closest('.select-content')) event.preventDefault();
           }}
           onInteractOutside={(event) => {
             const target = event.target;
@@ -128,83 +164,95 @@ export default function SettingsPanel({
         >
           <header className="settings-header">
             <Dialog.Title className="settings-heading">Settings</Dialog.Title>
-            <p id="settings-lead" className="settings-lead">Connection, assistant, and motion. Nothing here starts a ComfyUI queue.</p>
+            <Dialog.Description id="settings-lead" className="settings-lead">
+              Non-secret preferences. A section change does not write.
+            </Dialog.Description>
           </header>
-          <div className="settings-body">
-            <section className="settings-section" aria-label="Connection">
+          <Tabs.Root
+            value={section}
+            onValueChange={(next) => setSection(next as Section)}
+            orientation="vertical"
+            className="settings-layout"
+          >
+            <Tabs.List className="settings-nav" aria-label="Settings sections">
+              <Tabs.Trigger className="settings-tab" value="connection">Connection</Tabs.Trigger>
+              <Tabs.Trigger className="settings-tab" value="assistant">Assistant</Tabs.Trigger>
+              <Tabs.Trigger className="settings-tab" value="appearance">Appearance & Motion</Tabs.Trigger>
+            </Tabs.List>
+            <Tabs.Content className="settings-panel" value="connection" tabIndex={-1}>
               <h3>Connection</h3>
               <label className="field">
                 Comfy origin
                 <input
                   aria-label="Comfy origin"
                   value={values.comfyOrigin}
-                  onChange={(event) => setValues({ ...values, comfyOrigin: event.target.value })}
+                  onChange={(event) => setValues((current) => ({ ...current, comfyOrigin: event.target.value }))}
                 />
               </label>
-              <p className="field-hint">Live queue and generation stay off in this build.</p>
-            </section>
-            <section className="settings-section" aria-label="Assistant">
+              <p className="field-hint">Used only as a label. This build does not connect or queue.</p>
+              <label className="field">
+                API key
+                <input
+                  type="password"
+                  aria-label="API key"
+                  aria-describedby="key-unavailable"
+                  value=""
+                  disabled
+                  readOnly
+                />
+              </label>
+              <button type="button" className="ghost-button" disabled>
+                Save key
+              </button>
+            </Tabs.Content>
+            <Tabs.Content className="settings-panel" value="assistant" tabIndex={-1}>
               <h3>Assistant</h3>
               <SelectField
                 label="Provider"
                 value={values.provider}
                 options={PROVIDERS}
-                onChange={(provider) => setValues({ ...values, provider: provider as NonSecretSettings['provider'] })}
+                container={container}
+                onChange={(provider) => setValues((current) => ({ ...current, provider: provider as NonSecretSettings['provider'] }))}
               />
               <label className="field">
                 Model
                 <input
                   aria-label="Model"
-                  autoComplete="off"
                   value={values.model}
-                  onChange={(event) => setValues({ ...values, model: event.target.value })}
+                  onChange={(event) => setValues((current) => ({ ...current, model: event.target.value }))}
                 />
               </label>
               <label className="field">
                 Base URL
                 <input
                   aria-label="Base URL"
-                  autoComplete="off"
-                  spellCheck={false}
                   value={values.baseURL}
-                  onChange={(event) => setValues({ ...values, baseURL: event.target.value })}
+                  onChange={(event) => setValues((current) => ({ ...current, baseURL: event.target.value }))}
                 />
               </label>
-              <p className="provider-note">{settingsNote}</p>
-              <label className="field">
-                API key
-                <input
-                  type="password"
-                  aria-label="API key"
-                  autoComplete="off"
-                  value={secret}
-                  onChange={(event) => setSecret(event.target.value)}
-                />
-              </label>
-              <p className="field-hint">Key storage is not available. The key is not written. Cancel does not store a key.</p>
-              <button type="button" className="ghost-button" onClick={() => { void saveKey(); }}>
-                Save key
-              </button>
-              <p className="provider-note">{secretNote}</p>
-            </section>
-            <section className="settings-section" aria-label="Appearance and motion">
-              <h3>Appearance and motion</h3>
+              <p className="field-hint">An http(s) origin, or empty. A secret in any field blocks the save.</p>
+            </Tabs.Content>
+            <Tabs.Content className="settings-panel" value="appearance" tabIndex={-1}>
+              <h3>Appearance & Motion</h3>
               <SelectField
                 label="Motion"
                 value={values.motion}
                 options={MOTION}
-                onChange={(motion) => setValues({ ...values, motion: motion as NonSecretSettings['motion'] })}
+                container={container}
+                onChange={(motion) => setValues((current) => ({ ...current, motion: motion as NonSecretSettings['motion'] }))}
               />
-              <p className="field-hint">System follows the operating system. On, Reduced, and Off apply after Save settings. Dark is the only theme.</p>
-            </section>
-          </div>
+              <p className="field-hint">System, On, Reduced, or Off. The choice applies after Save, not while drafting.</p>
+            </Tabs.Content>
+          </Tabs.Root>
           <footer className="settings-actions">
-            <button type="button" className="ghost-button" onClick={() => { void save(); }}>
-              Save settings
-            </button>
-            <Dialog.Close asChild>
-              <button type="button" className="ghost-button">Close</button>
-            </Dialog.Close>
+            <p className="provider-note" role="status">{note}</p>
+            <p id="key-unavailable" className="field-hint">{KEY_REASON}</p>
+            <div className="settings-buttons">
+              <button type="button" className="send-button" disabled={saveDisabled} onClick={() => void save()}>
+                {pending ? 'Saving…' : 'Save settings'}
+              </button>
+              <Dialog.Close className="ghost-button">Cancel</Dialog.Close>
+            </div>
           </footer>
         </Dialog.Content>
       </Dialog.Portal>

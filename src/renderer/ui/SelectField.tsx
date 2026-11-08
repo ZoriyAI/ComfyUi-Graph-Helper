@@ -14,28 +14,30 @@ export default function SelectField({
   value,
   options,
   onChange,
+  container,
 }: {
   id?: string;
   label: string;
   value: string;
   options: SelectOption[];
   onChange: (value: string) => void;
+  container?: HTMLElement | null;
 }) {
   return (
     <div className="field">
       <span className="field-label" id={id ? `${id}-label` : undefined}>{label}</span>
-        <Select.Root
-          value={value === '' ? EMPTY : value}
-          onValueChange={(next) => {
-            const stored = next === EMPTY ? '' : next;
-            if (stored !== value) onChange(stored);
-          }}
-        >
+      <Select.Root
+        value={value === '' ? EMPTY : value}
+        onValueChange={(next) => {
+          const stored = next === EMPTY ? '' : next;
+          if (stored !== value) onChange(stored);
+        }}
+      >
         <Select.Trigger id={id} className="select-trigger" aria-label={label} data-value={value}>
           <Select.Value />
           <Select.Icon className="select-icon" aria-hidden="true">▾</Select.Icon>
         </Select.Trigger>
-        <Select.Portal>
+        <Select.Portal container={container ?? undefined}>
           <Select.Content className="select-content" position="popper" sideOffset={4}>
             <Select.Viewport>
               {options.map((option) => (

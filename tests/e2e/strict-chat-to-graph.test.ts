@@ -76,7 +76,8 @@ test('STRICT: Complete chat-to-graph with annotation, statuses, completion', asy
   await pickOption(window, 'Chat provider', 'TEST fixture');
   await window.getByText('TEST fixture is on').waitFor();
 
-  const input = window.locator('input[aria-label="Chat message"]');
+  await window.getByRole('tab', { name: 'Assistant' }).click();
+  const input = window.locator('textarea[aria-label="Chat message"]');
   await input.fill('Add a test node');
   await input.press('Enter');
 
@@ -85,7 +86,7 @@ test('STRICT: Complete chat-to-graph with annotation, statuses, completion', asy
   // Busy clears when the input is enabled again. Final reply is checked on its own below.
   await window.waitForFunction(
     (expectedReply) => {
-      const inputEl = document.querySelector('input[aria-label="Chat message"]') as HTMLInputElement;
+      const inputEl = document.querySelector('textarea[aria-label="Chat message"]') as HTMLTextAreaElement;
       const nodes = document.querySelectorAll('.react-flow__node');
       const hasNewNode = Array.from(nodes).some((n: any) =>
         n.textContent?.includes('AI Test Node')
@@ -140,7 +141,7 @@ test('STRICT: Complete chat-to-graph with annotation, statuses, completion', asy
     );
     
     // Check input state
-    const inputEl = document.querySelector('input[aria-label="Chat message"]') as HTMLInputElement;
+    const inputEl = document.querySelector('textarea[aria-label="Chat message"]') as HTMLTextAreaElement;
     const sendButton = document.querySelector('button[type="submit"]') as HTMLButtonElement;
     
     return {
@@ -205,7 +206,7 @@ test('STRICT: Complete chat-to-graph with annotation, statuses, completion', asy
   const draft = 'Next graph edit';
   await input.fill(draft);
   const afterDraft = await window.evaluate(() => {
-    const inputEl = document.querySelector('input[aria-label="Chat message"]') as HTMLInputElement;
+    const inputEl = document.querySelector('textarea[aria-label="Chat message"]') as HTMLTextAreaElement;
     const sendButton = document.querySelector('button[type="submit"]') as HTMLButtonElement;
     const nodes = Array.from(document.querySelectorAll('.react-flow__node'));
     return {
@@ -271,7 +272,8 @@ test('STRICT: Readable error with no graph mutation on failure', async () => {
   await pickOption(window, 'Chat provider', 'OpenAI session');
   await window.getByText('OpenAI is selected with no key').waitFor();
 
-  const input = window.locator('input[aria-label="Chat message"]');
+  await window.getByRole('tab', { name: 'Assistant' }).click();
+  const input = window.locator('textarea[aria-label="Chat message"]');
   await input.fill('Add a node');
   await input.press('Enter');
 

@@ -40,7 +40,7 @@ export default function ChatPanel({ onSendMessage, onPause }: ChatPanelProps) {
             <strong>No messages yet</strong>
             <p>
               {nodeCount === 0
-                ? 'The graph is empty. Import a workflow or describe a change. TEST fixture replies are scripted and are not a live model.'
+                ? 'Import a workflow or describe a change. TEST fixture replies are scripted and are not a live model.'
                 : 'Describe a change. TEST fixture replies are scripted and are not a live model.'}
             </p>
           </div>

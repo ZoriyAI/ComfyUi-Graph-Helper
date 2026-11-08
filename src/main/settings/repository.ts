@@ -1,4 +1,5 @@
 import type Database from 'better-sqlite3';
+import { carriesSecret } from '../../shared/config/draft';
 import {
   nonSecretDefaults,
   nonSecretSettingsSchema,
@@ -15,18 +16,6 @@ type SettingsRow = {
   base_url: string;
   comfy_origin: string;
 };
-
-const SECRET_FIELD = /^(api[_-]?key|token|secret|password|authorization|credential)$/i;
-
-function carriesSecret(input: unknown): boolean {
-  if (!input || typeof input !== 'object' || Array.isArray(input)) return false;
-  for (const [key, value] of Object.entries(input)) {
-    if (SECRET_FIELD.test(key)) return true;
-    if (typeof value !== 'string') continue;
-    if (/sk-[A-Za-z0-9]/.test(value) || /api[_-]?key\s*[:=]/i.test(value) || /bearer\s+\S/i.test(value)) return true;
-  }
-  return false;
-}
 
 function rowToInput(row: SettingsRow): unknown {
   return {

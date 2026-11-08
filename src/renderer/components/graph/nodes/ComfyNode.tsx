@@ -10,9 +10,8 @@ function PortRow({ port, kind }: { port: PortDefinition; kind: 'target' | 'sourc
         position={kind === 'target' ? Position.Left : Position.Right}
         id={port.id}
         data-port-type={port.dataType}
-        style={{ top: '50%' }}
+        style={{ top: '50%', width: 24, height: 24 }}
       />
-      <span className="port-swatch" aria-hidden="true" />
       <span className="port-name">{port.name}</span>
       {port.name.toLowerCase() === port.dataType.toLowerCase() ? null : <span className="port-type">{port.dataType}</span>}
     </li>

@@ -49,6 +49,56 @@ async function topHit(page: ElectronPage) {
   });
 }
 
+async function showMotion(page: ElectronPage) {
+  await page.getByRole('tab', { name: 'Appearance & Motion' }).click();
+}
+
+async function armExit(page: ElectronPage) {
+  await page.evaluate(() => {
+    const root = document.querySelector('.settings-dialog');
+    (window as unknown as { __exitDuration: Promise<string> }).__exitDuration = new Promise((resolve) => {
+      if (!root) {
+        resolve('missing');
+        return;
+      }
+      const observer = new MutationObserver(() => {
+        if (root.getAttribute('data-state') === 'closed') {
+          observer.disconnect();
+          resolve(getComputedStyle(root).transitionDuration);
+        }
+      });
+      observer.observe(root, { attributes: true, attributeFilter: ['data-state'] });
+    });
+  });
+}
+
+async function readExit(page: ElectronPage) {
+  return page.evaluate(() => (window as unknown as { __exitDuration: Promise<string> }).__exitDuration);
+}
+
+async function armEnter(page: ElectronPage) {
+  await page.evaluate(() => {
+    (window as unknown as { __enterTimes: Promise<number[]> }).__enterTimes = new Promise((resolve) => {
+      const samples: number[] = [];
+      const start = performance.now();
+      const tick = () => {
+        const node = document.querySelector('.settings-dialog');
+        if (node) {
+          const times = node.getAnimations().flatMap((anim) => typeof anim.currentTime === 'number' ? [anim.currentTime] : []);
+          if (times.length > 0) samples.push(Math.max(...times));
+        }
+        if (performance.now() - start < 1500) requestAnimationFrame(tick);
+        else resolve(samples);
+      };
+      requestAnimationFrame(tick);
+    });
+  });
+}
+
+async function readEnter(page: ElectronPage) {
+  return page.evaluate(() => (window as unknown as { __enterTimes: Promise<number[]> }).__enterTimes);
+}
+
 test('motion policy, dialog focus, and real workspace captures', async () => {
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'workspace-motion-'));
   const electronApp = await electron.launch({
@@ -58,6 +108,54 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
   const window = await electronApp.firstWindow();
   await window.locator('#chat-provider').waitFor();
   await expect(window.getByText('The graph is empty.')).toBeVisible();
+  const separator = window.getByRole('separator', { name: 'Resize tools' });
+  const dockMin = await separator.getAttribute('aria-valuemin');
+  const dockMax = await separator.getAttribute('aria-valuemax');
+  await separator.focus();
+  await window.keyboard.press('End');
+  await expect(separator).toHaveAttribute('aria-valuenow', dockMax || '');
+  await window.keyboard.press('Home');
+  await expect(separator).toHaveAttribute('aria-valuenow', dockMin || '');
+  await window.keyboard.press('ArrowRight');
+  await expect(separator).toHaveAttribute('aria-valuenow', String(Math.min(Number(dockMax), Number(dockMin) + 16)));
+  console.log(`DOCK_RANGE ${dockMin} ${dockMax}`);
+  await window.getByRole('tab', { name: 'Assistant' }).click();
+  const draft = window.locator('textarea[aria-label="Chat message"]');
+  await draft.fill(Array.from({ length: 20 }, (_, index) => `draft ${index}`).join('\n'));
+  await draft.evaluate((element) => {
+    element.scrollTop = 36;
+  });
+  const draftScroll = await draft.evaluate((element) => element.scrollTop);
+  await window.getByRole('tab', { name: 'Inspector' }).click();
+  await window.getByRole('button', { name: 'Hide tools' }).click();
+  await expect(window.getByRole('tab', { name: 'Inspector' })).toHaveCount(0);
+  await window.getByRole('button', { name: 'Show tools' }).click();
+  await window.getByRole('tab', { name: 'Assistant' }).click();
+  await expect(draft).toHaveValue(/draft 19/);
+  expect(await draft.evaluate((element) => element.scrollTop)).toBe(draftScroll);
+  await draft.press('Shift+Enter');
+  await expect(draft).toHaveValue(/\n$/);
+  await expect(window.locator('.message-row')).toHaveCount(0);
+  await draft.fill('composing');
+  await draft.evaluate((element) => {
+    const event = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+    Object.defineProperty(event, 'isComposing', { value: true });
+    element.dispatchEvent(event);
+  });
+  await expect(draft).toHaveValue('composing');
+  await expect(window.locator('.message-row')).toHaveCount(0);
+  await draft.fill('');
+  await window.getByRole('tab', { name: 'Inspector' }).click();
+  const showBoth = window.getByRole('button', { name: 'Show both' });
+  if (await showBoth.isEnabled()) {
+    await showBoth.click();
+    await expect(window.getByRole('region', { name: 'Inspector' })).toBeVisible();
+    await expect(window.getByRole('textbox', { name: 'Chat message' })).toBeVisible();
+    await window.getByRole('button', { name: 'Inspector', exact: true }).click();
+  } else {
+    await expect(showBoth).toBeDisabled();
+  }
+  await expect(window.getByRole('tab', { name: 'Inspector' })).toHaveAttribute('data-state', 'active');
   await expect(window.getByRole('button', { name: 'Undo' })).toBeDisabled();
   await expect(window.getByRole('button', { name: 'ComfyUI not connected' })).toBeDisabled();
   await window.screenshot({ path: path.join(artifactDir, 'ui-empty.png') });
@@ -71,7 +169,7 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
   await window.screenshot({ path: path.join(artifactDir, 'ui-settings.png') });
 
   await window.keyboard.press('Escape');
-  await expect(dialog).toHaveAttribute('data-state', 'closed');
+  await expect(dialog).toHaveCount(0);
   await expect.poll(async () => window.evaluate(() => (
     document.activeElement instanceof HTMLButtonElement && document.activeElement.textContent === 'Settings'
   ))).toBe(true);
@@ -81,13 +179,13 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
     await settings.click();
     await expect(dialog).toHaveAttribute('data-state', 'open');
     await window.keyboard.press('Escape');
-    await expect(dialog).toHaveAttribute('data-state', 'closed');
+    await expect(dialog).toHaveCount(0);
   }
   await expect.poll(() => topHit(window)).toBe('page');
 
   await settings.click();
   await window.keyboard.press('Escape');
-  await expect(dialog).toHaveAttribute('data-state', 'closed');
+  await expect(dialog).toHaveCount(0);
   await settings.click();
   await expect(dialog).toHaveAttribute('data-state', 'open');
   await expect.poll(async () => dialog.evaluate((element) => getComputedStyle(element).opacity)).toBe('1');
@@ -95,13 +193,35 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
   await expect.poll(() => topHit(window)).toBe('page');
 
   await settings.click();
+  await showMotion(window);
+  const motion = window.getByRole('combobox', { name: 'Motion', exact: true });
+  await motion.click();
+  await expect(window.getByRole('option', { name: 'Off', exact: true })).toBeVisible();
+  await window.keyboard.press('ArrowDown');
+  await window.keyboard.press('End');
+  await expect(window.locator('.select-item[data-highlighted]')).toContainText('Off');
+  await window.keyboard.press('Home');
+  await expect(window.locator('.select-item[data-highlighted]')).toContainText('System');
+  await window.keyboard.press('Escape');
+  await expect(window.getByRole('option', { name: 'Off', exact: true })).toHaveCount(0);
+  await expect(window.locator('.select-content')).toHaveCount(0);
+  await expect(dialog).toHaveAttribute('data-state', 'open');
+  await window.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await expect.poll(async () => window.evaluate(() => (
+    document.activeElement instanceof HTMLButtonElement && document.activeElement.textContent === 'Settings'
+  ))).toBe(true);
+
+  await settings.click();
+  await showMotion(window);
   await pickOption(window, 'Motion', 'Off');
   expect(await activeMotion(window)).toBe('system');
-  await window.getByRole('button', { name: 'Close' }).click();
-  await expect(dialog).toHaveAttribute('data-state', 'closed');
+  await window.getByRole('button', { name: 'Cancel' }).click();
+  await expect(dialog).toHaveCount(0);
   expect(await storedMotion(window)).toBe('system');
   expect(await activeMotion(window)).toBe('system');
   await settings.click();
+  await showMotion(window);
   await expect(window.getByRole('combobox', { name: 'Motion', exact: true })).toHaveAttribute('data-value', 'system');
 
   await pickOption(window, 'Motion', 'Reduced');
@@ -120,17 +240,28 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
   expect(await activeMotion(window)).toBe('on');
   await expectDuration(window, '.settings-dialog', 'transitionDuration', '0.16s');
   expect(await shift(window)).toBe('8px');
+  await armExit(window);
   await window.keyboard.press('Escape');
-  const onExit = await dialog.evaluate((element) => getComputedStyle(element).transitionDuration);
+  const onExit = await readExit(window);
   expect(durationParts(onExit).every((part) => part === '0.12s')).toBe(true);
   console.log(`ON_EXIT ${onExit}`);
+  await expect(dialog).toHaveCount(0);
   await expect.poll(() => topHit(window)).toBe('page');
+  await armEnter(window);
+  await settings.click();
+  const onFrames = await readEnter(window);
+  console.log(`ON_ENTER_FRAMES ${onFrames.join(',')}`);
+  expect(onFrames.length).toBeGreaterThan(1);
+  expect(onFrames[onFrames.length - 1]).toBeGreaterThan(onFrames[0]);
+  await window.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
 
   await window.reload();
   await window.locator('#chat-provider').waitFor();
   await expect.poll(() => activeMotion(window)).toBe('on');
   expect(await storedMotion(window)).toBe('on');
   await settings.click();
+  await showMotion(window);
   await expectDuration(window, '.settings-dialog', 'transitionDuration', '0.16s');
 
   await window.emulateMedia({ reducedMotion: 'reduce' });
@@ -157,11 +288,24 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
   expect(await activeMotion(window)).toBe('off');
   await expectDuration(window, '.settings-dialog', 'transitionDuration', '0s');
   await expectDuration(window, '.ghost-button', 'transitionDuration', '0s');
+  await armExit(window);
   await window.keyboard.press('Escape');
-  const offExit = await dialog.evaluate((element) => getComputedStyle(element).transitionDuration);
-  expect(durationParts(offExit).every((part) => part === '0s')).toBe(true);
-  console.log(`OFF_EXIT ${offExit}`);
+  const offExit = await readExit(window);
+  const offExitToken = await window.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--motion-exit').trim());
+  const offExitParts = durationParts(offExit);
+  expect(offExitParts.every((part) => part === '0s')).toBe(true);
+  expect(offExitToken).toBe('0s');
+  console.log(`OFF_EXIT measured=${offExit || 'unmounted-immediately'} token=${offExitToken}`);
+  await expect(dialog).toHaveCount(0);
   await expect.poll(() => topHit(window)).toBe('page');
+  await armEnter(window);
+  await settings.click();
+  const offFrames = await readEnter(window);
+  console.log(`OFF_ENTER_FRAMES ${offFrames.join(',')}`);
+  const offAdvance = offFrames.length > 1 ? offFrames[offFrames.length - 1] - offFrames[0] : 0;
+  expect(offAdvance).toBe(0);
+  await window.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
 
   const current = await window.evaluate(async () => {
     const bridge = (window as unknown as { electronAPI: { readProjection: (id: string) => Promise<{ currentRevisionId: string }> } }).electronAPI;
@@ -185,44 +329,72 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
   expect(await storedMotion(window)).toBe('off');
   await expect(window.locator('.react-flow__node')).toHaveCount(3);
   await expect(window.getByText('The graph is empty.')).toHaveCount(0);
+  await window.getByRole('tab', { name: 'Assistant' }).click();
   await expect(window.getByText('Describe a change. TEST fixture replies are scripted and are not a live model.')).toBeVisible();
   await expectDuration(window, '.graph-node', 'animationDuration', '0s');
   await expectDuration(window, '.ghost-button', 'transitionDuration', '0s');
-  const dash = await window.evaluate(() => {
+  const dash = await window.evaluate(async () => {
     const edge = document.createElement('div');
     edge.className = 'react-flow__edge animated';
     edge.innerHTML = '<svg><path class="probe-dash" /></svg>';
     document.body.append(edge);
-    const offName = getComputedStyle(edge.querySelector('path') as Element).animationName;
+    const path = edge.querySelector('path') as Element;
+    const offName = getComputedStyle(path).animationName;
     document.documentElement.dataset.motion = 'on';
-    const onName = getComputedStyle(edge.querySelector('path') as Element).animationName;
+    const onName = getComputedStyle(path).animationName;
+    const before = getComputedStyle(path).strokeDashoffset;
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    const after = getComputedStyle(path).strokeDashoffset;
     document.documentElement.dataset.motion = 'off';
+    const offBefore = getComputedStyle(path).strokeDashoffset;
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    const offAfter = getComputedStyle(path).strokeDashoffset;
     edge.remove();
-    return { offName, onName };
+    return { offName, onName, before, after, offBefore, offAfter };
   });
   expect(dash.offName).toBe('none');
   expect(dash.onName).toBe('dashdraw');
-  console.log(`DASH ${dash.offName} ${dash.onName}`);
-  const overlap = await window.locator('.port-list li[data-port-side="input"]').first().evaluate((row) => {
+  expect(dash.before).not.toBe(dash.after);
+  expect(dash.offBefore).toBe(dash.offAfter);
+  console.log(`DASH ${dash.offName} ${dash.onName} on ${dash.before}->${dash.after} off ${dash.offBefore}`);
+  await expect(window.locator('.graph-canvas')).toHaveAttribute('data-fit-duration', '0');
+  await window.evaluate(() => { document.documentElement.dataset.motion = 'on'; });
+  await expect(window.locator('.graph-canvas')).toHaveAttribute('data-fit-duration', '200');
+  await window.evaluate(() => { document.documentElement.dataset.motion = 'off'; });
+  await expect(window.locator('.graph-canvas')).toHaveAttribute('data-fit-duration', '0');
+  console.log('FIT_DURATION 0/200/0');
+  const ports = await window.locator('.port-list li[data-port-side="input"]').first().evaluate((row) => {
     const handle = row.querySelector('.react-flow__handle')?.getBoundingClientRect();
-    const swatch = row.querySelector('.port-swatch')?.getBoundingClientRect();
-    if (!handle || !swatch) return true;
-    const separated = handle.right <= swatch.left || swatch.right <= handle.left;
-    return !separated;
+    const name = row.querySelector('.port-name')?.getBoundingClientRect();
+    const type = row.getAttribute('data-port-type') || '';
+    if (!handle || !name) return { hit: false, typeShown: false, overlaps: true, swatch: true };
+    const overlaps = handle.right > name.left + 0.5 && name.right > handle.left + 0.5 && handle.bottom > name.top + 0.5 && name.bottom > handle.top + 0.5;
+    return {
+      hit: handle.width >= 24 && handle.height >= 24,
+      typeShown: (row.textContent || '').toLowerCase().includes(type.toLowerCase()),
+      overlaps,
+      swatch: row.querySelector('.port-swatch') != null,
+    };
   });
-  expect(overlap).toBe(false);
+  expect(ports.swatch).toBe(false);
+  expect(ports.hit).toBe(true);
+  expect(ports.typeShown).toBe(true);
+  expect(ports.overlaps).toBe(false);
   await window.locator('.react-flow__controls-fitview').click();
   await expect.poll(async () => window.locator('.graph-node').first().evaluate((element) => getComputedStyle(element).opacity)).toBe('1');
   await window.screenshot({ path: path.join(artifactDir, 'ui-typed-ports.png') });
 
+  await window.getByRole('tab', { name: 'Inspector' }).click();
   await window.locator('.react-flow__node').first().click();
+  await expect(window.locator('.status-bar')).toContainText(/Zoom \d+%/);
   await expect(window.getByRole('region', { name: 'Inspector' })).toContainText('CheckpointLoaderSimple');
   await expect(window.getByRole('region', { name: 'Inspector' })).toContainText('MODEL');
   await window.screenshot({ path: path.join(artifactDir, 'ui-inspector.png') });
 
   await pickOption(window, 'Chat provider', 'OpenAI session');
   await expect(window.getByText('OpenAI is selected with no key.')).toBeVisible();
-  await window.locator('input[aria-label="Chat message"]').fill('Add a node');
+  await window.getByRole('tab', { name: 'Assistant' }).click();
+  await window.locator('textarea[aria-label="Chat message"]').fill('Add a node');
   await window.getByRole('button', { name: 'Send' }).click();
   await expect(window.locator('.message-body', { hasText: 'Error' }).first()).toBeVisible();
   await window.screenshot({ path: path.join(artifactDir, 'ui-error.png') });

@@ -1,11 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { MotionConfig } from 'motion/react';
+import { motionIsFull } from './policy';
 
 function effectiveReduced(): boolean {
-  const mode = document.documentElement.dataset.motion || 'system';
-  const osReduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const full = mode === 'on' || (mode === 'system' && !osReduce);
-  return !full;
+  return !motionIsFull();
 }
 
 /** CSS tokens stay the measured policy. MotionConfig only stops transform/layout when not fully on. */
@@ -25,5 +23,9 @@ export default function MotionRoot({ children }: { children: React.ReactNode }) 
     };
   }, []);
 
-  return <MotionConfig reducedMotion={reduced ? 'always' : 'never'}>{children}</MotionConfig>;
+  return (
+    <MotionConfig reducedMotion={reduced ? 'always' : 'never'} transition={reduced ? { duration: 0 } : undefined}>
+      {children}
+    </MotionConfig>
+  );
 }

@@ -16,14 +16,14 @@ export default function MessageInput({
   disabled = false,
 }: MessageInputProps) {
   const [input, setInput] = useState('');
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    if (!isStreaming && inputRef.current) inputRef.current.focus();
+    const field = inputRef.current;
+    if (!isStreaming && field && field.offsetParent !== null) field.focus();
   }, [isStreaming]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const submit = () => {
     const trimmed = input.trim();
     if (trimmed && !disabled && !isStreaming) {
       onSend(trimmed);
@@ -32,13 +32,26 @@ export default function MessageInput({
   };
 
   return (
-    <form className="chat-form" onSubmit={handleSubmit}>
-      <input
+    <form
+      className="chat-form"
+      onSubmit={(event) => {
+        event.preventDefault();
+        submit();
+      }}
+    >
+      <textarea
         ref={inputRef}
-        type="text"
         aria-label="Chat message"
+        rows={2}
         value={input}
-        onChange={(e) => setInput(e.target.value)}
+        onChange={(event) => setInput(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+          if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            submit();
+          }
+        }}
         placeholder="Ask for a graph change"
         disabled={disabled || isStreaming}
       />

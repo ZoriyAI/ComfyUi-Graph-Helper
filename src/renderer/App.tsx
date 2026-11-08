@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { FolderInput, FolderOutput, Redo2, Undo2, Unplug } from 'lucide-react';
 import GraphCanvas from './components/graph/GraphCanvas';
-import Dock from './components/shell/Dock';
+import Dock, { ToolSplitter, ToolToggles } from './components/shell/Dock';
 import SettingsPanel from './components/settings/SettingsPanel';
 import Hint from './ui/Hint';
 import SelectField from './ui/SelectField';
@@ -19,7 +19,7 @@ function noteForProvider(provider: string): string {
 }
 
 function App() {
-  const { nodes } = useGraphStore();
+  const { nodes, zoom } = useGraphStore();
   const sessionOverride = useRef(false);
   const [provider, setProvider] = useState('');
   const [providerNote, setProviderNote] = useState('No provider selected. Nothing is sent.');
@@ -173,6 +173,8 @@ function App() {
           </button>
         </Hint>
         <span className="toolbar-rule" aria-hidden="true" />
+        <ToolToggles />
+        <span className="toolbar-rule" aria-hidden="true" />
         <SelectField
           id="chat-provider"
           label="Chat provider"
@@ -194,11 +196,13 @@ function App() {
         <div className="graph-pane">
           <GraphCanvas />
         </div>
+        <ToolSplitter />
         <Dock onSendMessage={handleSendMessage} onPause={handlePause} />
       </div>
       <footer className="status-bar">
         <span>{nodes.length} nodes</span>
         <span>{selectedCount === 0 ? 'No selection' : `${selectedCount} selected`}</span>
+        <span>Zoom {Math.round(zoom * 100)}%</span>
         <span>Not connected</span>
       </footer>
     </div>

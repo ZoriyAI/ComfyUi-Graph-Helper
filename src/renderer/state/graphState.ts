@@ -6,6 +6,7 @@ interface GraphState {
   edges: GraphEdge[];
   selectedNodeIds: string[];
   selectedEdgeIds: string[];
+  zoom: number;
 
   // Actions
   setNodes: (nodes: GraphNode[]) => void;
@@ -18,6 +19,7 @@ interface GraphState {
   setSelection: (nodeIds: string[], edgeIds: string[]) => void;
   clearGraph: () => void;
   loadGraph: (nodes: GraphNode[], edges: GraphEdge[]) => void;
+  setZoom: (zoom: number) => void;
 }
 
 export const useGraphStore = create<GraphState>((set) => ({
@@ -25,6 +27,7 @@ export const useGraphStore = create<GraphState>((set) => ({
   edges: [],
   selectedNodeIds: [],
   selectedEdgeIds: [],
+  zoom: 1,
 
   setNodes: (nodes) => set({ nodes }),
 
@@ -64,4 +67,6 @@ export const useGraphStore = create<GraphState>((set) => ({
 
   loadGraph: (nodes, edges) =>
     set({ nodes, edges, selectedNodeIds: [], selectedEdgeIds: [] }),
+
+  setZoom: (zoom) => set({ zoom }),
 }));
