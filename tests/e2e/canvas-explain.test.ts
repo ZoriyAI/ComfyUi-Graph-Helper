@@ -4,6 +4,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { denseWorkflow } from './fixtures/denseWorkflow';
 import { useEnglish } from './locale';
+import { pickOption } from './pickOption';
 
 test('canvas explains: context menu, tour, connect assist, subgraph breadcrumb and replay', async () => {
   const errors: string[] = [];
@@ -95,6 +96,18 @@ test('canvas explains: context menu, tour, connect assist, subgraph breadcrumb a
   const after = await api('readProjection', ['desktop']) as { currentRevisionId: string };
   expect(after.currentRevisionId).toBe(before.currentRevisionId);
   await expect(window.locator('.react-flow__node')).toHaveCount(11);
+
+  // Ghost: the TEST fixture proposes a node; it stays a ghost until accepted, then becomes a real node.
+  await pickOption(window, 'Chat provider', 'TEST fixture');
+  await window.getByRole('tab', { name: 'Assistant' }).click();
+  await window.locator('textarea[aria-label="Chat message"]').fill('propose a sampler');
+  await window.getByRole('button', { name: 'Send' }).click();
+  const ghost = window.locator('[data-ghost-kind="add-node"]');
+  await expect(ghost).toBeVisible({ timeout: 15000 });
+  await expect(window.locator('.react-flow__node')).toHaveCount(11);
+  await ghost.getByRole('button', { name: 'Accept' }).click();
+  await expect(window.locator('.react-flow__node')).toHaveCount(12);
+  await expect(ghost).toHaveCount(0);
 
   expect(errors).toEqual([]);
   await app.close();
