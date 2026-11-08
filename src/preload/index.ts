@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
+import type { NonSecretSettings, SettingsRead } from '../shared/config/schema';
 
 // IPC channel constants (inlined for sandbox-compatible preload)
 const IPC_CHANNELS = {
@@ -93,11 +94,8 @@ export interface ElectronAPI {
   saveProject: (project: any) => Promise<{ success: boolean }>;
   loadProject: (id: string) => Promise<any>;
   listProjects: () => Promise<any[]>;
-  getSettings: () => Promise<
-    | { source: 'default' | 'stored'; values: { theme: 'graphite'; motion: 'system' | 'on' | 'reduced' | 'off'; provider: '' | 'test' | 'openai'; model: string; comfyOrigin: string } }
-    | { source: 'corrupt' }
-  >;
-  saveSettings: (input: unknown) => Promise<{ ok: true; values: { theme: 'graphite'; motion: 'system' | 'on' | 'reduced' | 'off'; provider: '' | 'test' | 'openai'; model: string; comfyOrigin: string } } | { ok: false; error: string }>;
+  getSettings: () => Promise<SettingsRead>;
+  saveSettings: (input: unknown) => Promise<{ ok: true; values: NonSecretSettings } | { ok: false; error: string }>;
   saveSecret: (value: string) => Promise<{ status: 'secret-storage-blocked' }>;
   commitCommand: (input: unknown) => Promise<import('../shared/commands/types').CommandResponse>;
   startRun: (projectId: string) => Promise<import('../shared/commands/types').RunStart>;

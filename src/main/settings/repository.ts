@@ -12,8 +12,21 @@ type SettingsRow = {
   motion: string;
   provider: string;
   model: string;
+  base_url: string;
   comfy_origin: string;
 };
+
+const SECRET_FIELD = /^(api[_-]?key|token|secret|password|authorization|credential)$/i;
+
+function carriesSecret(input: unknown): boolean {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return false;
+  for (const [key, value] of Object.entries(input)) {
+    if (SECRET_FIELD.test(key)) return true;
+    if (typeof value !== 'string') continue;
+    if (/sk-[A-Za-z0-9]/.test(value) || /api[_-]?key\s*[:=]/i.test(value) || /bearer\s+\S/i.test(value)) return true;
+  }
+  return false;
+}
 
 function rowToInput(row: SettingsRow): unknown {
   return {
@@ -21,12 +34,13 @@ function rowToInput(row: SettingsRow): unknown {
     motion: row.motion,
     provider: row.provider,
     model: row.model,
+    baseURL: row.base_url,
     comfyOrigin: row.comfy_origin,
   };
 }
 
 export function readSettings(db: Database.Database): SettingsRead {
-  const row = db.prepare('SELECT theme, motion, provider, model, comfy_origin FROM settings WHERE id = 1').get() as
+  const row = db.prepare('SELECT theme, motion, provider, model, base_url, comfy_origin FROM settings WHERE id = 1').get() as
     | SettingsRow
     | undefined;
   if (!row) {
@@ -40,6 +54,9 @@ export function readSettings(db: Database.Database): SettingsRead {
 }
 
 export function saveSettings(db: Database.Database, input: unknown): { ok: true; values: NonSecretSettings } | { ok: false; error: string } {
+  if (carriesSecret(input)) {
+    return { ok: false, error: 'Settings cannot store a secret' };
+  }
   const parsed = nonSecretSettingsSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: 'Settings do not match the schema' };
@@ -47,16 +64,17 @@ export function saveSettings(db: Database.Database, input: unknown): { ok: true;
   const values = parsed.data;
   const write = db.transaction(() => {
     db.prepare(
-      `INSERT INTO settings (id, theme, motion, provider, model, comfy_origin, updated_at)
-       VALUES (1, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO settings (id, theme, motion, provider, model, comfy_origin, base_url, updated_at)
+       VALUES (1, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          theme = excluded.theme,
          motion = excluded.motion,
          provider = excluded.provider,
          model = excluded.model,
          comfy_origin = excluded.comfy_origin,
+         base_url = excluded.base_url,
          updated_at = excluded.updated_at`
-    ).run(values.theme, values.motion, values.provider, values.model, values.comfyOrigin, Date.now());
+    ).run(values.theme, values.motion, values.provider, values.model, values.comfyOrigin, values.baseURL, Date.now());
   });
   write.immediate();
   return { ok: true, values };

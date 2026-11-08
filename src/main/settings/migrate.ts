@@ -132,10 +132,11 @@ function applyVersion2(db: Database.Database): void {
  * Version 2 adds the current revision pointer and monotonic rev_seq.
  * Version 3 stores the workflow document and the local node/model catalog.
  * Version 4 adds object_info guidance columns on node_catalog.
+ * Version 5 adds the non-secret LLM base URL on the single settings row.
  */
 export function migrate(db: Database.Database, options?: { failBeforeVersionStamp?: boolean }): void {
   const version = schemaVersion(db);
-  if (version > 4) {
+  if (version > 5) {
     throw new Error(`Unsupported schema version ${version}`);
   }
   if (version < 1) {
@@ -169,6 +170,13 @@ export function migrate(db: Database.Database, options?: { failBeforeVersionStam
     });
     apply.immediate();
   }
+  if (schemaVersion(db) === 4) {
+    const apply = db.transaction(() => {
+      applyVersion5(db);
+      db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (5, ?)').run(Date.now());
+    });
+    apply.immediate();
+  }
 }
 
 function applyVersion4(db: Database.Database): void {
@@ -184,5 +192,13 @@ function applyVersion4(db: Database.Database): void {
   }
   if (!columns.includes('widget_order_json')) {
     db.exec("ALTER TABLE node_catalog ADD COLUMN widget_order_json TEXT NOT NULL DEFAULT '[]'");
+  }
+}
+
+function applyVersion5(db: Database.Database): void {
+  const settings = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'settings'").get();
+  if (!settings) return;
+  if (!columnNames(db, 'settings').includes('base_url')) {
+    db.exec("ALTER TABLE settings ADD COLUMN base_url TEXT NOT NULL DEFAULT ''");
   }
 }

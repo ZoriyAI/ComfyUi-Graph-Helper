@@ -83,11 +83,34 @@ export default function SettingsPanel() {
             />
           </label>
           <label>
+            Provider
+            <select
+              aria-label="Provider"
+              value={values.provider}
+              onChange={(event) => setValues({ ...values, provider: event.target.value as NonSecretSettings['provider'] })}
+            >
+              <option value="">Not configured</option>
+              <option value="test">TEST fixture</option>
+              <option value="openai">OpenAI</option>
+            </select>
+          </label>
+          <label>
             Model
             <input
               aria-label="Model"
+              autoComplete="off"
               value={values.model}
               onChange={(event) => setValues({ ...values, model: event.target.value })}
+            />
+          </label>
+          <label>
+            Base URL
+            <input
+              aria-label="Base URL"
+              autoComplete="off"
+              spellCheck={false}
+              value={values.baseURL}
+              onChange={(event) => setValues({ ...values, baseURL: event.target.value })}
             />
           </label>
           <label>

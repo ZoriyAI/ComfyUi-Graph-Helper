@@ -53,6 +53,7 @@ describe('settings migration', () => {
         motion: 'system',
         provider: '',
         model: '',
+        baseURL: '',
         comfyOrigin: '',
       },
     });
@@ -69,13 +70,14 @@ describe('settings migration', () => {
     db.close();
 
     const reopened = new Database(dbPath);
-    expect(schemaVersion(reopened)).toBe(4);
+    expect(schemaVersion(reopened)).toBe(5);
     expect(readSettings(reopened)).toMatchObject({
       source: 'stored',
       values: {
         motion: 'off',
         provider: 'openai',
         model: 'stored-model',
+        baseURL: '',
         comfyOrigin: 'http://127.0.0.1:8188',
       },
     });
@@ -105,7 +107,7 @@ describe('settings migration', () => {
       CREATE TABLE model_catalog (directory TEXT NOT NULL, name TEXT NOT NULL, PRIMARY KEY (directory, name));
     `);
     migrate(db);
-    expect(schemaVersion(db)).toBe(4);
+    expect(schemaVersion(db)).toBe(5);
     const columns = db.prepare('PRAGMA table_info(node_catalog)').all() as Array<{ name: string }>;
     expect(columns.map((column) => column.name)).toEqual([
       'class_type',
@@ -120,9 +122,120 @@ describe('settings migration', () => {
       python_module: string;
     };
     expect(row).toEqual({ pack: 'core', python_module: 'nodes' });
-    db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (5, 1)').run();
-    expect(() => migrate(db)).toThrow(/Unsupported schema version 5/);
+    db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (6, 1)').run();
+    expect(() => migrate(db)).toThrow(/Unsupported schema version 6/);
+    expect(schemaVersion(db)).toBe(6);
+    db.close();
+  });
+
+  it('adds an empty base URL when a version 4 settings row is opened', () => {
+    const db = new Database(':memory:');
+    db.exec(`
+      CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, applied_at INTEGER NOT NULL);
+      INSERT INTO schema_migrations (version, applied_at) VALUES (4, 1);
+      CREATE TABLE settings (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        theme TEXT NOT NULL,
+        motion TEXT NOT NULL,
+        provider TEXT NOT NULL,
+        model TEXT NOT NULL,
+        comfy_origin TEXT NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+      INSERT INTO settings (id, theme, motion, provider, model, comfy_origin, updated_at)
+      VALUES (1, 'graphite', 'off', 'openai', 'kept-model', 'http://127.0.0.1:8188', 1);
+    `);
+    migrate(db);
     expect(schemaVersion(db)).toBe(5);
+    expect(readSettings(db)).toMatchObject({
+      source: 'stored',
+      values: { provider: 'openai', model: 'kept-model', baseURL: '', motion: 'off' },
+    });
+    db.close();
+  });
+
+  it('stores provider, model, and base URL, and rejects secrets or a bad URL', () => {
+    const db = new Database(':memory:');
+    migrate(db);
+    const saved = saveSettings(db, {
+      theme: 'graphite',
+      motion: 'system',
+      provider: 'openai',
+      model: '  fixture-model  ',
+      baseURL: ' https://example.test/v1 ',
+      comfyOrigin: '',
+    });
+    expect(saved).toMatchObject({
+      ok: true,
+      values: { provider: 'openai', model: 'fixture-model', baseURL: 'https://example.test/v1' },
+    });
+
+    const invalid = saveSettings(db, {
+      theme: 'graphite',
+      motion: 'system',
+      provider: 'openai',
+      model: 'fixture-model',
+      baseURL: 'notaurl',
+      comfyOrigin: '',
+    });
+    expect(invalid).toEqual({ ok: false, error: 'Settings do not match the schema' });
+
+    const secretField = saveSettings(db, {
+      theme: 'graphite',
+      motion: 'system',
+      provider: 'openai',
+      model: 'fixture-model',
+      baseURL: 'https://example.test/v1',
+      comfyOrigin: '',
+      apiKey: 'fake-marker-not-a-key',
+    });
+    expect(secretField).toEqual({ ok: false, error: 'Settings cannot store a secret' });
+
+    const secretModel = saveSettings(db, {
+      theme: 'graphite',
+      motion: 'system',
+      provider: 'openai',
+      model: 'sk-fakemarker',
+      baseURL: 'https://example.test/v1',
+      comfyOrigin: '',
+    });
+    expect(secretModel).toEqual({ ok: false, error: 'Settings cannot store a secret' });
+
+    const embedded = saveSettings(db, {
+      theme: 'graphite',
+      motion: 'system',
+      provider: 'openai',
+      model: 'fixture-model',
+      baseURL: 'https://user:pass@example.test/v1',
+      comfyOrigin: '',
+    });
+    expect(embedded).toEqual({ ok: false, error: 'Settings do not match the schema' });
+
+    expect(readSettings(db)).toMatchObject({
+      source: 'stored',
+      values: { provider: 'openai', model: 'fixture-model', baseURL: 'https://example.test/v1' },
+    });
+    expect(secretRecordCount(db)).toBe(0);
+    const raw = JSON.stringify(db.prepare('SELECT * FROM settings').all());
+    expect(raw).not.toContain('fake-marker-not-a-key');
+    expect(raw).not.toContain('sk-fakemarker');
+    expect(raw).not.toContain('user:pass');
+    db.close();
+  });
+
+  it('normalizes an empty provider, model, and base URL without writing a secret', () => {
+    const db = new Database(':memory:');
+    migrate(db);
+    const saved = saveSettings(db, {
+      theme: 'graphite',
+      motion: 'system',
+      provider: '',
+      model: '   ',
+      baseURL: '   ',
+      comfyOrigin: '',
+    });
+    expect(saved).toMatchObject({ ok: true, values: { provider: '', model: '', baseURL: '' } });
+    expect(secretRecordCount(db)).toBe(0);
     db.close();
   });
 
