@@ -41,7 +41,10 @@ export const objectRefSchema = z.object({
   name: shortText.optional(),
 });
 
-const limitSchema = z.number().int().min(1).max(200).optional();
+/** The agent prompt builder lists the whole catalog, so a search may ask for up to this many rows. */
+export const SEARCH_LIMIT_MAX = 10000;
+export const SEARCH_LIMIT_DEFAULT = 30;
+const limitSchema = z.number().int().min(1).max(SEARCH_LIMIT_MAX).optional();
 
 export const searchNodesSchema = z.object({
   query: z.string().max(200),

@@ -98,3 +98,14 @@ export interface SyncStatus {
 export interface SearchNodesRequest { query: string; category?: string; limit?: number }
 export interface SearchModelsRequest { query: string; directory?: string; baseModel?: BaseModelFamily; kind?: ModelKind; limit?: number }
 export interface ListExplanationsRequest { projectId?: string | null; owner?: ObjectRef }
+
+/** Catalog totals for the agent prompt and the status bar. byFamily is grouped by kind and base family. */
+export interface CatalogCounts {
+  nodeClasses: number;
+  detailedClasses: number;
+  packs: number;
+  models: number;
+  enrichedModels: number;
+  byKind: Array<{ kind: ModelKind; count: number }>;
+  byFamily: Array<{ kind: ModelKind; baseModel: BaseModelFamily; count: number }>;
+}

@@ -2,6 +2,7 @@ import type Database from 'better-sqlite3';
 import { randomUUID } from 'crypto';
 import type {
   BaseModelFamily,
+  CatalogCounts,
   Evidence,
   Explanation,
   ExplanationInput,
@@ -20,10 +21,13 @@ import {
   explanationInputSchema,
   listExplanationsSchema,
   MODEL_KINDS,
+  SEARCH_LIMIT_DEFAULT,
+  SEARCH_LIMIT_MAX,
   searchModelsSchema,
   searchNodesSchema,
 } from '../../shared/knowledge/schemas';
 import { rankMatch } from '../../shared/knowledge/search';
+import { catalogTotals } from '../catalog/repository';
 
 export { checkGraph } from './check';
 
@@ -33,8 +37,8 @@ export { checkGraph } from './check';
  * because the agent calls these without passing through IPC.
  */
 
-const DEFAULT_LIMIT = 30;
-const MAX_LIMIT = 200;
+const DEFAULT_LIMIT = SEARCH_LIMIT_DEFAULT;
+const MAX_LIMIT = SEARCH_LIMIT_MAX;
 
 function limitOf(value: number | undefined): number {
   if (value === undefined || !Number.isFinite(value)) return DEFAULT_LIMIT;
@@ -209,6 +213,20 @@ export function modelDetail(db: Database.Database, directory: string, name: stri
     syncedAt: row.synced_at ?? null,
     enrichedAt: row.enriched_at ?? null,
   };
+}
+
+/**
+ * Totals plus model counts per kind and per kind and base family, largest first.
+ * An empty query with a large limit in the search functions lists the rows behind these numbers.
+ */
+export function catalogCounts(db: Database.Database): CatalogCounts {
+  const byKind = (db.prepare('SELECT kind, COUNT(*) AS count FROM model_catalog GROUP BY kind ORDER BY count DESC, kind').all() as Array<{ kind: string; count: number }>)
+    .map((row) => ({ kind: asKind(row.kind), count: row.count }));
+  const byFamily = (db.prepare(
+    'SELECT kind, base_model, COUNT(*) AS count FROM model_catalog GROUP BY kind, base_model ORDER BY count DESC, kind, base_model',
+  ).all() as Array<{ kind: string; base_model: string; count: number }>)
+    .map((row) => ({ kind: asKind(row.kind), baseModel: asFamily(row.base_model), count: row.count }));
+  return { ...catalogTotals(db), byKind, byFamily };
 }
 
 /** owner_kind and owner_id split objectKey at its first colon, so a port keeps nodeId, direction, and name. */

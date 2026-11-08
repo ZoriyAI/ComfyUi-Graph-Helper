@@ -5,7 +5,7 @@ import { inferBaseModel } from '../../shared/knowledge/baseModel';
 import { inferModelKind } from '../../shared/knowledge/modelKind';
 import { civitaiUrl, parseModelMetadata, plainText, triggerWordsOf, type ParsedModelMetadata } from '../../shared/knowledge/enrichment';
 import { SYNC_INTERVAL_DEFAULT_MINUTES, SYNC_INTERVAL_MAX_MINUTES, SYNC_INTERVAL_MIN_MINUTES } from '../../shared/knowledge/schemas';
-import { catalogCounts, writeModelEnrichment } from '../catalog/repository';
+import { catalogTotals, writeModelEnrichment } from '../catalog/repository';
 import { readSettings } from '../settings/repository';
 import { connectStreamableHttp, failure, openReadOnlySession, readCatalogWithSession, type McpSessionFactory } from './client';
 import { McpRefusedError } from './readOnly';
@@ -116,7 +116,7 @@ export class SyncService {
       mcpUrl: this.deps.readUrl(db),
       tokenHeld: this.deps.token() != null,
       auto: autoOf(state),
-      counts: catalogCounts(db),
+      counts: catalogTotals(db),
       progress: this.running ? this.progress : null,
     };
   }

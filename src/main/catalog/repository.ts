@@ -172,7 +172,7 @@ export function writeModelEnrichment(db: Database.Database, directory: string, n
   );
 }
 
-export interface CatalogCounts {
+export interface CatalogTotals {
   nodeClasses: number;
   detailedClasses: number;
   packs: number;
@@ -180,7 +180,7 @@ export interface CatalogCounts {
   enrichedModels: number;
 }
 
-export function catalogCounts(db: Database.Database): CatalogCounts {
+export function catalogTotals(db: Database.Database): CatalogTotals {
   const count = (sql: string) => (db.prepare(sql).get() as { n: number }).n;
   return {
     nodeClasses: count('SELECT COUNT(*) AS n FROM node_catalog'),
