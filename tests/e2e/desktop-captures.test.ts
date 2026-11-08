@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { denseWorkflow, hundredNodeWorkflow } from './fixtures/denseWorkflow';
+import { attachRuntimeWatch, finishRuntime, logLocalFont, readLocalFont } from './runtimeWatch';
 
 const artifactDir = '/opt/cursor/artifacts';
 
@@ -101,6 +102,7 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
     env: { ...process.env, NODE_ENV: 'production' },
   });
   const window = await electronApp.firstWindow();
+  const runtimeWatch = await attachRuntimeWatch(electronApp, window);
   await window.locator('#chat-provider').waitFor();
 
   const measure = async (width: number, height: number, name: string) => {
@@ -630,5 +632,7 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
   console.log(`PAN_DRAG frames=${pan.frames} elapsed=${pan.elapsed}ms maxGap=${pan.maxGap}ms longtasks=${pan.unsupported ? 'unsupported' : pan.longtasks.join(',') || 'none'} transformChanged=${before !== after}`);
   expect(after).not.toBe(before);
   expect(pan.frames).toBeGreaterThan(1);
+  logLocalFont(await readLocalFont(window));
+  await finishRuntime(electronApp, window, runtimeWatch, { console: [], remotePrefix: [] });
   await electronApp.close();
 });

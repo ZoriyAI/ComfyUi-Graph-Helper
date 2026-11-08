@@ -1,5 +1,6 @@
 import { test, expect, _electron as electron } from '@playwright/test';
 import { pickOption } from './pickOption';
+import { attachRuntimeWatch, finishRuntime, logLocalFont, readLocalFont } from './runtimeWatch';
 import { typedWorkflow } from './fixtures/typedWorkflow';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -106,6 +107,7 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
     env: { ...process.env, NODE_ENV: 'production' },
   });
   const window = await electronApp.firstWindow();
+  const runtimeWatch = await attachRuntimeWatch(electronApp, window);
   await window.locator('#chat-provider').waitFor();
   await expect(window.getByText('The graph is empty.')).toBeVisible();
   await window.evaluate(() => (document.activeElement instanceof HTMLElement ? document.activeElement.blur() : undefined));
@@ -536,5 +538,16 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
   await window.getByRole('button', { name: 'Send' }).click();
   await expect(window.locator('.message-body', { hasText: 'Error' }).first()).toBeVisible();
   await window.screenshot({ path: path.join(artifactDir, 'ui-error.png') });
+  logLocalFont(await readLocalFont(window));
+  await finishRuntime(electronApp, window, runtimeWatch, {
+    console: [{
+      text: "[ChatService] Error: Incorrect API key provided: ''. You can find your API key at https://platform.openai.com/account/api-keys.",
+      reason: 'This test selects OpenAI with no key and clicks Send. ChatService logs that handled failure, and the assistant shows the same text.',
+    }],
+    remotePrefix: [{
+      prefix: 'https://api.openai.com/',
+      reason: 'The same Send uses the main-process provider client. The Electron session itself stays on local schemes.',
+    }],
+  });
   await electronApp.close();
 });
