@@ -93,6 +93,9 @@ export function newToolCall(id: string, name: string, args: Record<string, unkno
   return { id, name, toolName: name, kind: toolKind(name), args, status: 'pending' };
 }
 
+/** Error marker of a call that was saved before it finished; the card shows chat.interrupted for it. */
+export const INTERRUPTED_ERROR = 'interrupted';
+
 /** Largest result kept in a saved message, as JSON characters. Larger results keep only their message. */
 export const SAVED_RESULT_CAP = 4000;
 const SAVED_ARG_CAP = 2000;
@@ -158,7 +161,7 @@ function toolCallFromSaved(value: unknown, index: number): ToolCall | null {
   const error = stringField(value, 'error');
   if (error) call.error = error;
   // A call saved while pending never finished; it is shown as failed rather than spinning forever.
-  if (value.status === 'pending') call.error = call.error ?? 'Interrupted';
+  if (value.status === 'pending') call.error = call.error ?? INTERRUPTED_ERROR;
   const proposalId = stringField(value, 'proposalId');
   const explanationId = stringField(value, 'explanationId');
   if (proposalId) call.proposalId = proposalId;

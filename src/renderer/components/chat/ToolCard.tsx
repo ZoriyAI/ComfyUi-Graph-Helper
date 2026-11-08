@@ -6,7 +6,7 @@ import { aspectLabelKey } from '../../../shared/knowledge/labels';
 import type { ToolCall, ToolKind } from '../../types/chat';
 import { useGraphStore } from '../../state/graphState';
 import { useUiStore } from '../../state/uiState';
-import { asObjectRef, isRecord } from '../../services/llm/chatModel';
+import { asObjectRef, INTERRUPTED_ERROR, isRecord } from '../../services/llm/chatModel';
 import ProvenanceBadge, { isProvenance } from '../explain/ProvenanceBadge';
 import { objectLabel } from './objectLabel';
 import ProposalCard from './ProposalCard';
@@ -119,6 +119,9 @@ export default function ToolCard({ call }: { call: ToolCall }) {
       </div>
       {isExplain ? <ExplainBody call={call} /> : null}
       {call.kind === 'proposal' && call.proposalId ? <ProposalCard proposalId={call.proposalId} result={call.result} /> : null}
+      {call.status === 'error' && call.error === INTERRUPTED_ERROR ? (
+        <p className={`tool-diagnostic ${styles.error}`}>{t('chat.interrupted')}</p>
+      ) : null}
       {call.status === 'error' && outcome ? (
         <p className={`tool-diagnostic ${styles.error}`}>{outcome}</p>
       ) : null}

@@ -155,13 +155,32 @@ describe('chat service turn context and routing', () => {
     });
     await new ChatService().sendMessage('Add a test node');
     await tick();
-    const records = api.saveChatMessage.mock.calls.map((call) => call[0]);
+    // Saving is an upsert by id: the last write of each message is what history holds.
+    const byId = new Map<string, ChatRecord>();
+    for (const [record] of api.saveChatMessage.mock.calls) byId.set(record.id, record);
+    const records = [...byId.values()];
     expect(records).toHaveLength(2);
     expect(records[0]).toMatchObject({ projectId: DESKTOP_PROJECT_ID, role: 'user', content: 'Add a test node', graphRevisionId: 'rev-ctx-0', toolCalls: null });
     expect(records[1]).toMatchObject({ role: 'assistant', content: 'Done!', graphRevisionId: 'rev-ctx-1' });
     expect(records[1].toolCalls).toEqual([
       expect.objectContaining({ id: 'c1', toolName: 'addNode', kind: 'build', status: 'success', args: { nodeType: 'TestNode' } }),
     ]);
+  });
+
+  it('saves the finished turn when chunks arrive after the invoke settled', async () => {
+    api.llmStreamChat.mockImplementation(async (_m, _s, onChunk) => {
+      onChunk({ type: 'tool-call', content: { toolCallId: 'late', toolName: 'explain', input: {} } });
+      setTimeout(() => {
+        onChunk({ type: 'tool-result', content: { toolCallId: 'late', toolName: 'explain', output: { success: true, explanationId: 'exp-1', owner: explanation.owner, provenance: 'inference' } } });
+        onChunk({ type: 'done' });
+      }, 0);
+    });
+    await new ChatService().sendMessage('explain this');
+    await tick();
+    await tick();
+    const last = api.saveChatMessage.mock.calls.at(-1)?.[0];
+    expect(last?.role).toBe('assistant');
+    expect(last?.toolCalls?.[0]).toMatchObject({ toolName: 'explain', status: 'success', explanationId: 'exp-1' });
   });
 
   it('saves an error reply too', async () => {

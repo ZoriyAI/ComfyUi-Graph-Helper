@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { parseInline, parseMarkdownLite } from '../../src/renderer/components/chat/markdownLite';
 import {
   chatRecordFromMessage,
+  INTERRUPTED_ERROR,
   messageFromChatRecord,
   newToolCall,
   parseToolArgs,
@@ -161,7 +162,7 @@ describe('ChatRecord mapping', () => {
     expect(back.toolCalls?.[0]).toMatchObject({ id: 'call-1', name: 'proposeNode', toolName: 'proposeNode', kind: 'proposal', status: 'success', proposalId: 'p-1', args: { nodeType: 'KSampler', note: 'why' } });
     const pending = messageFromChatRecord({ ...record, toolCalls: [{ id: 'x', toolName: 'addNode', status: 'pending' }, 'junk', { nope: true }] });
     expect(pending.toolCalls).toHaveLength(1);
-    expect(pending.toolCalls?.[0]).toMatchObject({ status: 'error', kind: 'build' });
+    expect(pending.toolCalls?.[0]).toMatchObject({ status: 'error', kind: 'build', error: INTERRUPTED_ERROR });
   });
 });
 

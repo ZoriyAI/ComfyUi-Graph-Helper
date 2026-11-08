@@ -265,6 +265,8 @@ export class ChatService {
           }
         } else if (chunk.type === 'done') {
           finish();
+          // 'done' is the last chunk of the turn; the invoke can settle before late chunks arrive, so save here too.
+          this.persist(currentAssistant());
         } else if (chunk.type === 'error') {
           const errorMessage = errorText(chunk.content);
           console.error('[ChatService] Error:', errorMessage);
@@ -274,6 +276,7 @@ export class ChatService {
             currentAssistantMessageId = newId();
             addMessage({ id: currentAssistantMessageId, role: 'assistant', content: `Error: ${shown}`, timestamp: Date.now() });
           }
+          this.persist(currentAssistant());
         }
       };
 

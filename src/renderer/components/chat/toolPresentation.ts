@@ -1,7 +1,7 @@
 import { AGENT_BUILD_TOOLS, AGENT_KNOWLEDGE_TOOLS, AGENT_PROPOSAL_TOOLS, AGENT_READ_TOOLS, type ObjectRef } from '../../../shared/contracts';
 import { redactDiagnostic } from '../../../shared/i18n';
 import type { ToolCall } from '../../types/chat';
-import { isRecord } from '../../services/llm/chatModel';
+import { INTERRUPTED_ERROR, isRecord } from '../../services/llm/chatModel';
 
 /** Pure helpers that turn a tool call into what its card shows. */
 
@@ -39,7 +39,7 @@ export function compactArgs(args: Record<string, unknown>, omit: readonly string
 
 /** The one-line outcome a tool reported (`message`), redacted; null when it said nothing readable. */
 export function resultMessage(call: ToolCall): string | null {
-  if (call.status === 'error') return call.error ? redactDiagnostic(call.error) : null;
+  if (call.status === 'error') return call.error && call.error !== INTERRUPTED_ERROR ? redactDiagnostic(call.error) : null;
   if (!isRecord(call.result)) return null;
   const message = call.result.message;
   return typeof message === 'string' && message.trim() ? redactDiagnostic(message.trim()) : null;
