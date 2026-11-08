@@ -124,10 +124,16 @@ class MainLLMService {
     }
 
     console.log(`[MainLLMService] Starting stream with ${Object.keys(tools).length} tools`);
+    const instructions = messages
+      .filter((message) => message.role === 'system')
+      .map((message) => message.content)
+      .join('\n');
+    const dialog = messages.filter((message) => message.role !== 'system');
 
     const result = streamText({
       model,
-      messages,
+      instructions: instructions || undefined,
+      messages: dialog,
       tools,
       // Default stopWhen is one step, which never feeds tool results back to the model.
       stopWhen: isStepCount(6),

@@ -210,6 +210,42 @@ describe('prerelease agent configuration', () => {
     db.close();
   });
 
+  it('sends graph instructions beside the user message', async () => {
+    const calls: string[] = [];
+    mainLLMService.setConfig({ provider: 'test', model: 'test-fixture' });
+    let reply = '';
+    for await (const part of mainLLMService.streamChatWithTools([
+      {
+        role: 'system',
+        content: agentGraphContext({ nodes: [], components: [], process: { title: '', notes: '' } }),
+      },
+      { role: 'user', content: 'Build the process fixture' },
+    ], {
+      addNode: {
+        description: 'Add',
+        parameters: { type: 'object', properties: { nodeType: { type: 'string' }, title: { type: 'string' } }, required: ['nodeType'] },
+        execute: async (args: { title?: string }) => {
+          calls.push(args.title ?? '');
+          return { success: true, nodeId: 'node-1', nodeType: 'TestNode' };
+        },
+      },
+      setComponentDocumentation: {
+        description: 'Docs',
+        parameters: { type: 'object', properties: {} },
+        execute: async () => ({ success: true }),
+      },
+      setProcess: {
+        description: 'Process',
+        parameters: { type: 'object', properties: {} },
+        execute: async () => ({ success: true }),
+      },
+    })) {
+      if (part.type === 'text-delta') reply += String(part.content.text ?? '');
+    }
+    expect(calls).toContain('Fixture step');
+    expect(reply).toContain('TEST fixture only:');
+  });
+
   it('reports canvas node types that are absent from the catalog', () => {
     const report = missingOnGraph(
       [{ data: { comfyType: 'TestNode' } }, { data: { comfyType: 'CheckpointLoaderSimple' } }],
