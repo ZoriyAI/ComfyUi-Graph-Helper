@@ -14,6 +14,8 @@ import type {
   Proposal,
   ProposalResolution,
   ResolveProposalRequest,
+  RevisionSnapshot,
+  RevisionSummary,
   SearchModelsRequest,
   SearchNodesRequest,
   SyncStatus,
@@ -68,6 +70,8 @@ const IPC_CHANNELS = {
   PROPOSALS_LIST: 'proposals:list',
   PROPOSALS_RESOLVE: 'proposals:resolve',
   PROPOSALS_EVENT: 'proposals:event',
+  GRAPH_LIST_REVISIONS: 'graph:list-revisions',
+  GRAPH_LOAD_REVISION: 'graph:load-revision',
 } as const;
 
 // Expose safe IPC API to renderer
@@ -171,6 +175,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on(IPC_CHANNELS.PROPOSALS_EVENT, handler);
     return () => ipcRenderer.removeListener(IPC_CHANNELS.PROPOSALS_EVENT, handler);
   },
+
+  // Revision history for the replay player (Canvas workstream; handlers in main/ipc/engineIpc.ts)
+  listRevisions: (projectId: string) => ipcRenderer.invoke(IPC_CHANNELS.GRAPH_LIST_REVISIONS, projectId) as Promise<RevisionSummary[]>,
+  loadRevision: (projectId: string, revisionId: string) => ipcRenderer.invoke(IPC_CHANNELS.GRAPH_LOAD_REVISION, { projectId, revisionId }) as Promise<RevisionSnapshot | null>,
 });
 
 // Type declaration for renderer
@@ -253,6 +261,10 @@ export interface ElectronAPI {
   listProposals: (projectId: string) => Promise<Proposal[]>;
   resolveProposal: (request: ResolveProposalRequest) => Promise<ProposalResolution>;
   onProposalsEvent: (listener: (proposals: Proposal[]) => void) => () => void;
+  /** Revision rows of a project, oldest first (at most REVISION_LIST_LIMIT). */
+  listRevisions: (projectId: string) => Promise<RevisionSummary[]>;
+  /** Snapshot of one revision, read-only; null when it does not exist. Never changes the current revision. */
+  loadRevision: (projectId: string, revisionId: string) => Promise<RevisionSnapshot | null>;
 }
 
 declare global {

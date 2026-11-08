@@ -4,6 +4,7 @@ import type { Projection } from '../../../shared/commands/types';
 import type { ComponentRecord } from '../../../shared/components/model';
 import { DESKTOP_PROJECT_ID } from '../../../shared/project';
 import type { WorkflowDocumentState } from '../../../shared/workflow/codec';
+import type { GroupRecord, SubgraphDefinition } from '../../../shared/graph/subgraphs';
 import { useGraphStore } from '../../state/graphState';
 import { useRevisionStore } from '../../state/revisionState';
 import type { GraphEdge, GraphNode } from '../../types/graph';
@@ -44,6 +45,8 @@ export const useProjectionStore = create<DisplayedProjection>((set, get) => ({
         notes: typeof process.notes === 'string' ? process.notes : '',
       },
       document: (incoming.snapshot.document ?? null) as WorkflowDocumentState | null,
+      subgraphs: Array.isArray(incoming.snapshot.subgraphs) ? incoming.snapshot.subgraphs as SubgraphDefinition[] : [],
+      groups: Array.isArray(incoming.snapshot.groups) ? incoming.snapshot.groups as GroupRecord[] : [],
     });
     useRevisionStore.getState().setCurrentRevision(incoming.currentRevisionId);
     set({
