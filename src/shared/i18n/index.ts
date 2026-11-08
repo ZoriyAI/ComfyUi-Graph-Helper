@@ -49,6 +49,21 @@ const ERROR_KEYS: Record<string, string> = {
   'OS key storage proved encryption.': 'errors.secretProved',
   'OS key storage fell back to an unprotected cipher, so a key is not written.': 'errors.secretFallback',
   'OS key storage did not prove encryption, so a key is not written.': 'errors.secretUnproven',
+  'The proposal payload is not a graph change.': 'proposals.errors.payload',
+  'The proposal kind does not match its payload.': 'proposals.errors.kind',
+  'Proposal was not found.': 'proposals.errors.missing',
+  'The request does not match the schema.': 'proposals.errors.request',
+  'Subgraphs need workflow format 1.': 'proposals.errors.subgraphFormat',
+  'Node was not found.': 'proposals.errors.nodeMissing',
+  'A node is already inside a subgraph.': 'proposals.errors.nodeInside',
+  'Subgraph definition was not found.': 'proposals.errors.definitionMissing',
+  'That node is not a subgraph instance.': 'proposals.errors.notInstance',
+  'That port is not on the inner node.': 'proposals.errors.portMissing',
+  'That inner input is already connected.': 'proposals.errors.portTaken',
+  'Port types cannot be connected.': 'proposals.errors.portType',
+  'A boundary slot repeats an inner port.': 'proposals.errors.slotRepeated',
+  'Subgraph slot was not found.': 'proposals.errors.slotMissing',
+  'Group was not found.': 'proposals.errors.groupMissing',
 };
 
 const NATIVE_VERSION_PREFIX = 'Unsupported native project version ';

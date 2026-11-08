@@ -680,3 +680,22 @@ export function switchProject(db: Database.Database, fromProjectId: string): Pro
   }).immediate();
   return readProjection(db, fromProjectId);
 }
+
+/** Read-only revision history, oldest first, capped. Never moves the current pointer. */
+export function listRevisions(db: Database.Database, projectId: string, limit = 2000): Array<{ id: string; revSeq: number; timestamp: number; description: string | null; source: string }> {
+  const rows = db
+    .prepare(
+      `SELECT id, rev_seq, timestamp, description, source FROM graph_revisions
+       WHERE project_id = ? ORDER BY rev_seq ASC, rowid ASC LIMIT ?`,
+    )
+    .all(projectId, limit) as Array<{ id: string; rev_seq: number; timestamp: number; description: string | null; source: string }>;
+  return rows.map((row) => ({ id: row.id, revSeq: row.rev_seq, timestamp: row.timestamp, description: row.description, source: row.source }));
+}
+
+/** The snapshot of any revision of a project, sealed the same way as the current one; null when it is not there. */
+export function loadRevision(db: Database.Database, projectId: string, revisionId: string): Projection['snapshot'] | null {
+  const revision = db
+    .prepare('SELECT id, rev_seq, nodes, edges, document, components, process_meta FROM graph_revisions WHERE id = ? AND project_id = ?')
+    .get(revisionId, projectId) as RevisionRow | undefined;
+  return revision ? snapshotFromRow(revision) : null;
+}
