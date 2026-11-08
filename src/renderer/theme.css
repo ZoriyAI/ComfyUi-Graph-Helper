@@ -355,6 +355,9 @@ html[data-motion="reduced"] .react-flow__connection .animated { animation: none;
 .settings-panel > .ghost-button { width: min(100%, 65ch); }
 .settings-actions { display: flex; flex-direction: column; align-items: stretch; gap: 8px; border-top: 1px solid var(--line); }
 .settings-buttons { display: flex; justify-content: flex-end; gap: 8px; }
+.settings-save { display: inline-grid; grid-template-areas: "label"; justify-items: center; }
+.settings-save > span { grid-area: label; }
+.settings-save-reserve { visibility: hidden; }
 .settings-heading { margin: 0; font-size: 18px; line-height: 24px; font-weight: 600; color: var(--text); }
 .settings-lead { margin: 4px 0 0; color: var(--text-dim); font-size: 12px; }
 @keyframes dialog-in {

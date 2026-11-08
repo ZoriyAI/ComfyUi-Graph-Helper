@@ -302,7 +302,7 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
     };
     const input = document.querySelector('input[aria-label="Comfy origin"]');
     const disabled = document.querySelector('input[aria-label="API key"]');
-    const save = [...document.querySelectorAll('button')].find((button) => button.textContent === 'Save settings') ?? null;
+    const save = document.querySelector('.settings-save');
     const handle = document.querySelector('.graph-node .react-flow__handle');
     const edge = document.querySelector('.react-flow__edge path');
     const inputStyle = paint(input);
@@ -355,6 +355,50 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
   expect(pairs.selected).toBeGreaterThanOrEqual(3);
   expect(pairs.port).toBeGreaterThanOrEqual(3);
   expect(pairs.edge).toBeGreaterThanOrEqual(3);
+  const saveButton = contrastDialog.locator('.settings-save');
+  const saveWidth = Math.round((await saveButton.boundingBox())?.width ?? 0);
+  await window.evaluate(() => {
+    const button = document.querySelector('.settings-save');
+    const record = {
+      seen: false,
+      label: '',
+      disabled: false,
+      width: 0,
+      dialogOpen: false,
+      note: '',
+      progress: false,
+    };
+    (window as unknown as { __pendingSave: typeof record }).__pendingSave = record;
+    if (!button) return;
+    const observer = new MutationObserver(() => {
+      const current = button.querySelector('.settings-save-current')?.textContent ?? '';
+      if (current !== 'Saving…') return;
+      record.seen = true;
+      record.label = current;
+      record.disabled = button instanceof HTMLButtonElement && button.disabled;
+      record.width = Math.round(button.getBoundingClientRect().width);
+      record.dialogOpen = !!document.querySelector('.settings-dialog[data-state="open"]');
+      record.note = document.querySelector('#settings-draft-error')?.textContent ?? '';
+      record.progress = !!document.querySelector('.settings-dialog [role="progressbar"], .settings-dialog progress');
+    });
+    observer.observe(button, { subtree: true, childList: true, characterData: true, attributes: true });
+    (window as unknown as { __pendingObserver: MutationObserver }).__pendingObserver = observer;
+  });
+  await saveButton.click();
+  await expect(contrastDialog).toHaveCount(0);
+  const pendingSave = await window.evaluate(() => {
+    (window as unknown as { __pendingObserver?: MutationObserver }).__pendingObserver?.disconnect();
+    return (window as unknown as { __pendingSave: { seen: boolean; label: string; disabled: boolean; width: number; dialogOpen: boolean; note: string; progress: boolean } }).__pendingSave;
+  });
+  console.log(`PENDING_SAVE ${JSON.stringify(pendingSave)} beforeWidth=${saveWidth}`);
+  expect(pendingSave.seen).toBe(true);
+  expect(pendingSave.label).toBe('Saving…');
+  expect(pendingSave.disabled).toBe(true);
+  expect(pendingSave.dialogOpen).toBe(true);
+  expect(pendingSave.note).not.toBe('Non-secret settings saved.');
+  expect(pendingSave.progress).toBe(false);
+  expect(pendingSave.width).toBe(saveWidth);
+  await window.getByRole('button', { name: 'Settings', exact: true }).click();
   await contrastDialog.getByRole('tab', { name: 'Assistant' }).click();
   await contrastDialog.getByRole('textbox', { name: 'Model' }).fill('sk-example-secret');
   await expect(contrastDialog.getByText('Settings cannot store a secret')).toBeVisible();
@@ -383,6 +427,12 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
   const errorRatio = contrast(errorColors.color, errorColors.background);
   console.log(`INVALID_FIELD_SAVE_BLOCKED ${errorRatio.toFixed(2)} ${errorColors.color} on ${errorColors.background} role=${errorColors.role || 'none'} aria-invalid=${errorColors.invalid || 'none'} aria-describedby=${errorColors.describedBy || 'none'}`);
   expect(errorRatio).toBeGreaterThanOrEqual(4.5);
+  expect(errorColors.invalid).toBe('true');
+  expect(errorColors.describedBy).toBe('settings-draft-error');
+  expect(errorColors.role).toBe('status');
+  await expect(contrastDialog.locator('#settings-draft-error')).toHaveText('Settings cannot store a secret');
+  await expect(contrastDialog.getByRole('textbox', { name: 'Base URL' })).not.toHaveAttribute('aria-invalid', 'true');
+  console.log('IPC_SAVE_FAILED not-shown: saveSettings returns ok:false for a secret or a schema mismatch, and Save is disabled before that call. No existing mock lets the dialog receive ok:false.');
   await window.keyboard.press('Escape');
   await expect(contrastDialog).toHaveCount(0);
   await window.getByRole('tab', { name: 'Assistant' }).click();
@@ -401,6 +451,28 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
     return { maximizable: win.isMaximizable(), fullScreenable: win.isFullScreenable() };
   });
   console.log(`WINDOW_CHROME native frame maximizable=${chrome.maximizable} fullScreenable=${chrome.fullScreenable}; custom titlebar is absent, so move/maximize/double-click on a drag region is N/A`);
+  const maximized = await electronApp.evaluate(async ({ BrowserWindow }) => {
+    const win = BrowserWindow.getAllWindows()[0];
+    const wait = () => new Promise((resolve) => setTimeout(resolve, 300));
+    if (win.isMaximized()) win.unmaximize();
+    await wait();
+    const before = win.getBounds();
+    win.maximize();
+    await wait();
+    const during = { maximized: win.isMaximized(), bounds: win.getBounds() };
+    if (during.maximized) win.unmaximize();
+    await wait();
+    return { before, during, restored: !win.isMaximized(), after: win.getBounds() };
+  });
+  if (!maximized.during.maximized) {
+    console.log('WINDOW_MAXIMIZE blocked: the native frame did not enter the maximized state. Capability flags are not the action.');
+  } else {
+    console.log(`WINDOW_MAXIMIZE before=${maximized.before.width}x${maximized.before.height} during=${maximized.during.bounds.width}x${maximized.during.bounds.height} restored=${maximized.restored}`);
+    expect(maximized.during.bounds.width).toBeGreaterThan(maximized.before.width);
+    expect(maximized.during.bounds.height).toBeGreaterThan(maximized.before.height);
+    expect(maximized.restored).toBe(true);
+  }
+  await window.setViewportSize({ width: 1280, height: 800 });
   expect(osScale.scaleFactor).toBeGreaterThan(0);
 
   const zoomTo = async (factor: number) => {

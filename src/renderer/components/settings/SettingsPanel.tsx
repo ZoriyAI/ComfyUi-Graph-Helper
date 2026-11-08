@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { settingsWriteError } from '../../../shared/config/draft';
+import { secretBearingFields, settingsWriteError } from '../../../shared/config/draft';
 import { nonSecretDefaults, type NonSecretSettings, type SettingsRead } from '../../../shared/config/schema';
 import {
   DialogClose,
@@ -117,6 +117,12 @@ export default function SettingsPanel({
   const dirty = !sameSettings(values, savedRef.current);
   const saveDisabled = pending || !dirty || draftError !== null;
   const note = draftError ?? settingsNote;
+  const invalidFields = draftError === 'Settings cannot store a secret' ? secretBearingFields(values) : [];
+  const fieldError = (name: string) => (
+    invalidFields.includes(name)
+      ? { 'aria-invalid': true as const, 'aria-describedby': 'settings-draft-error' }
+      : {}
+  );
 
   const save = async () => {
     if (saveDisabled) return;
@@ -202,6 +208,7 @@ export default function SettingsPanel({
                   aria-label="Comfy origin"
                   value={values.comfyOrigin}
                   onChange={(event) => setValues((current) => ({ ...current, comfyOrigin: event.target.value }))}
+                  {...fieldError('comfyOrigin')}
                 />
               </label>
               <p className="field-hint">Used only as a label. This build does not connect or queue.</p>
@@ -236,6 +243,7 @@ export default function SettingsPanel({
                   aria-label="Model"
                   value={values.model}
                   onChange={(event) => setValues((current) => ({ ...current, model: event.target.value }))}
+                  {...fieldError('model')}
                 />
               </label>
               <label className="field">
@@ -244,6 +252,7 @@ export default function SettingsPanel({
                   aria-label="Base URL"
                   value={values.baseURL}
                   onChange={(event) => setValues((current) => ({ ...current, baseURL: event.target.value }))}
+                  {...fieldError('baseURL')}
                 />
               </label>
               <p className="field-hint">An http(s) origin, or empty. A secret in any field blocks the save.</p>
@@ -261,11 +270,12 @@ export default function SettingsPanel({
             </TabsContent>
           </TabsRoot>
           <footer className="settings-actions">
-            <p className="provider-note" role="status">{note}</p>
+            <p id="settings-draft-error" className="provider-note" role="status">{note}</p>
             <p className="field-hint">{KEY_REASON}</p>
             <div className="settings-buttons">
-              <button type="button" className="send-button" disabled={saveDisabled} onClick={() => void save()}>
-                {pending ? 'Saving…' : 'Save settings'}
+              <button type="button" className="send-button settings-save" disabled={saveDisabled} onClick={() => void save()}>
+                <span className="settings-save-reserve" aria-hidden="true">Save settings</span>
+                <span className="settings-save-current">{pending ? 'Saving…' : 'Save settings'}</span>
               </button>
               <DialogClose className="ghost-button">Cancel</DialogClose>
             </div>
