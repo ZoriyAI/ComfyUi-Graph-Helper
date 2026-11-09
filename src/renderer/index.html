@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <!-- Strict policy for the built app. The Vite dev server relaxes it (inline refresh preamble, HMR socket); see vite.config.ts.
-       frame-ancestors is not listed: Chromium ignores it in a meta tag and logs an error; no remote page loads here. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+       Small fonts are inlined by Vite as data: URIs, so font-src allows data:. frame-ancestors is not listed: Chromium ignores it in a meta tag and logs an error; no remote page loads here. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ComfyUI Graph Builder</title>
 </head>

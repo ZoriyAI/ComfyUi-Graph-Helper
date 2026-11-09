@@ -86,10 +86,16 @@ function appVersion(): string {
 }
 
 // Expose safe IPC API to renderer
+/** How long a stream listener may outlive its call when no terminal chunk arrives. */
+const STREAM_LISTENER_GRACE_MS = 60_000;
+
+/** After an `error` chunk, later chunks of the same turn still arrive within this window. */
+const STREAM_ERROR_GRACE_MS = 5_000;
+
 /** A stream turn ends with a `done` or an `error` chunk. */
-function isStreamEnd(chunk: unknown): boolean {
+function streamEnd(chunk: unknown): 'done' | 'error' | null {
   const type = chunk && typeof chunk === 'object' ? (chunk as { type?: unknown }).type : undefined;
-  return type === 'done' || type === 'error';
+  return type === 'done' || type === 'error' ? type : null;
 }
 
 contextBridge.exposeInMainWorld('electronAPI', {
@@ -162,18 +168,26 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // One listener per turn, removed when the turn ends so listeners do not pile up across turns.
     const listener = (_event: unknown, chunk: { type: string; content: any }) => {
       onChunk(chunk);
-      if (isStreamEnd(chunk)) ipcRenderer.removeListener(channel, listener);
+      const end = streamEnd(chunk);
+      // 'done' is always the last chunk. An 'error' part can also come from the model stream before the
+      // turn's own terminal chunk, so after an error the listener stays a moment for what follows.
+      if (end === 'done') ipcRenderer.removeListener(channel, listener);
+      else if (end === 'error') setTimeout(() => ipcRenderer.removeListener(channel, listener), STREAM_ERROR_GRACE_MS);
     };
     ipcRenderer.on(channel, listener);
     const release = () => ipcRenderer.removeListener(channel, listener);
+    // The reply and the chunks travel separately and the reply can arrive first, so the listener normally goes
+    // with the terminal chunk. A turn whose terminal chunk never comes (window torn down) is released later.
+    const releaseLater = () => {
+      setTimeout(release, STREAM_LISTENER_GRACE_MS);
+    };
     return ipcRenderer.invoke(IPC_CHANNELS.LLM_STREAM_CHAT, messages, toolSpecs, channel, run, context).then(
       (value) => {
-        // Chunks are sent before the reply on the same pipe; anything after the reply is not part of this turn.
-        release();
+        releaseLater();
         return value;
       },
       (error) => {
-        release();
+        releaseLater();
         throw error;
       },
     );
