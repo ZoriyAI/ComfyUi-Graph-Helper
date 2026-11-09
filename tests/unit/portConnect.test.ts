@@ -77,18 +77,18 @@ describe('catalog ports and connection types', () => {
     const db = openDb();
     const seeded = manual(db, 'add-seed', { type: 'add-node', nodeType: 'KSampler' });
     expect(seeded.status).toBe('applied');
-    expect(nodeData(db, 'node-add-seed').inputs).toEqual([
+    expect(nodeData(db, '1').inputs).toEqual([
       { id: 'in-0', name: 'model', dataType: 'MODEL', optional: false },
       { id: 'in-1', name: 'positive', dataType: 'CONDITIONING', optional: false },
       { id: 'in-2', name: 'negative', dataType: 'CONDITIONING', optional: false },
       { id: 'in-3', name: 'latent_image', dataType: 'LATENT', optional: false },
     ]);
-    expect(nodeData(db, 'node-add-seed').outputs).toEqual([{ id: 'out-0', name: 'LATENT', dataType: 'LATENT', optional: false }]);
+    expect(nodeData(db, '1').outputs).toEqual([{ id: 'out-0', name: 'LATENT', dataType: 'LATENT', optional: false }]);
 
     const unknown = manual(db, 'add-unknown', { type: 'add-node', nodeType: 'TestNode' });
     expect(unknown.status).toBe('applied');
-    expect(nodeData(db, 'node-add-unknown').inputs).toEqual([]);
-    expect(nodeData(db, 'node-add-unknown').outputs).toEqual([
+    expect(nodeData(db, '2').inputs).toEqual([]);
+    expect(nodeData(db, '2').outputs).toEqual([
       { id: 'out-0', name: 'OUTPUT', dataType: 'unknown', optional: false },
     ]);
 
@@ -98,23 +98,23 @@ describe('catalog ports and connection types', () => {
     const empty = manual(db, 'add-empty', { type: 'add-node', nodeType: 'EmptyImported' });
     expect(source.status).toBe('applied');
     expect(sink.status).toBe('applied');
-    expect(nodeData(db, 'node-add-source').outputs).toEqual([
+    expect(nodeData(db, '3').outputs).toEqual([
       { id: 'out-0', name: 'IMAGE', dataType: 'IMAGE', optional: false },
       { id: 'out-1', name: 'ANY', dataType: '*', optional: false },
       { id: 'out-2', name: 'MASK', dataType: 'MASK', optional: false },
       { id: 'out-3', name: 'image', dataType: 'image', optional: false },
     ]);
-    expect(nodeData(db, 'node-add-source').inputs).toEqual([]);
-    expect(nodeData(db, 'node-add-sink').inputs).toEqual([
+    expect(nodeData(db, '3').inputs).toEqual([]);
+    expect(nodeData(db, '4').inputs).toEqual([
       { id: 'in-0', name: 'images', dataType: 'IMAGE', optional: false },
       { id: 'in-1', name: 'model', dataType: 'MODEL', optional: false },
       { id: 'in-2', name: 'any', dataType: '*', optional: false },
       { id: 'in-3', name: 'listed', dataType: 'IMAGE,MASK', optional: false },
     ]);
-    expect(nodeData(db, 'node-add-sink').outputs).toEqual([{ id: 'out-0', name: 'LATENT', dataType: 'LATENT', optional: false }]);
+    expect(nodeData(db, '4').outputs).toEqual([{ id: 'out-0', name: 'LATENT', dataType: 'LATENT', optional: false }]);
     expect(empty.status).toBe('applied');
-    expect(nodeData(db, 'node-add-empty').inputs).toEqual([]);
-    expect(nodeData(db, 'node-add-empty').outputs).toEqual([]);
+    expect(nodeData(db, '5').inputs).toEqual([]);
+    expect(nodeData(db, '5').outputs).toEqual([]);
     db.close();
   });
 
@@ -127,8 +127,8 @@ describe('catalog ports and connection types', () => {
 
     const accepted = manual(db, 'connect-image', {
       type: 'connect',
-      source: 'node-add-source',
-      target: 'node-add-sink',
+      source: '1',
+      target: '2',
       sourceHandle: 'out-0',
       targetHandle: 'in-0',
     });
@@ -137,8 +137,8 @@ describe('catalog ports and connection types', () => {
       (item) => item.id === 'link-1',
     );
     expect(edge).toMatchObject({
-      source: 'node-add-source',
-      target: 'node-add-sink',
+      source: '1',
+      target: '2',
       sourceHandle: 'out-0',
       targetHandle: 'in-0',
       data: { dataType: 'IMAGE' },
@@ -146,8 +146,8 @@ describe('catalog ports and connection types', () => {
 
     const wildcard = manual(db, 'connect-wild', {
       type: 'connect',
-      source: 'node-add-source',
-      target: 'node-add-sink',
+      source: '1',
+      target: '2',
       sourceHandle: 'out-1',
       targetHandle: 'in-1',
     });
@@ -159,8 +159,8 @@ describe('catalog ports and connection types', () => {
 
     const listed = manual(db, 'connect-list', {
       type: 'connect',
-      source: 'node-add-source',
-      target: 'node-add-sink',
+      source: '1',
+      target: '2',
       sourceHandle: 'out-2',
       targetHandle: 'in-3',
     });
@@ -168,8 +168,8 @@ describe('catalog ports and connection types', () => {
 
     const cased = manual(db, 'connect-case', {
       type: 'connect',
-      source: 'node-add-source',
-      target: 'node-add-other',
+      source: '1',
+      target: '3',
       sourceHandle: 'out-3',
       targetHandle: 'in-0',
     });
@@ -182,8 +182,8 @@ describe('catalog ports and connection types', () => {
     const before = readProjection(db, DESKTOP_PROJECT_ID);
     const mismatch = manual(db, 'connect-mismatch', {
       type: 'connect',
-      source: 'node-add-source',
-      target: 'node-add-sink',
+      source: '1',
+      target: '2',
       sourceHandle: 'out-0',
       targetHandle: 'in-1',
     });
@@ -194,7 +194,7 @@ describe('catalog ports and connection types', () => {
     const missing = manual(db, 'connect-missing', {
       type: 'connect',
       source: 'node-missing',
-      target: 'node-add-sink',
+      target: '2',
       sourceHandle: 'out-0',
       targetHandle: 'in-0',
     });
@@ -204,7 +204,7 @@ describe('catalog ports and connection types', () => {
 
     const missingTarget = manual(db, 'connect-missing-target', {
       type: 'connect',
-      source: 'node-add-source',
+      source: '1',
       target: 'node-missing',
       sourceHandle: 'out-0',
       targetHandle: 'in-0',
@@ -214,8 +214,8 @@ describe('catalog ports and connection types', () => {
 
     const wrongOutput = manual(db, 'connect-wrong-output', {
       type: 'connect',
-      source: 'node-add-source',
-      target: 'node-add-sink',
+      source: '1',
+      target: '2',
       sourceHandle: 'out-9',
       targetHandle: 'in-0',
     });
@@ -224,8 +224,8 @@ describe('catalog ports and connection types', () => {
 
     const wrongInput = manual(db, 'connect-wrong-input', {
       type: 'connect',
-      source: 'node-add-source',
-      target: 'node-add-sink',
+      source: '1',
+      target: '2',
       sourceHandle: 'out-0',
       targetHandle: 'in-9',
     });
@@ -236,7 +236,7 @@ describe('catalog ports and connection types', () => {
     const retarget = manual(db, 'retarget-mismatch', {
       type: 'retarget-edge',
       edgeId: 'link-1',
-      target: 'node-add-sink',
+      target: '2',
       targetHandle: 'in-1',
     });
     expect(retarget.status).toBe('rejected');
@@ -246,13 +246,13 @@ describe('catalog ports and connection types', () => {
     const moved = manual(db, 'retarget-match', {
       type: 'retarget-edge',
       edgeId: 'link-1',
-      target: 'node-add-other',
+      target: '3',
       targetHandle: 'in-0',
     });
     expect(moved.status).toBe('applied');
     expect(
       (readProjection(db, DESKTOP_PROJECT_ID)!.snapshot.edges as Array<Record<string, any>>).find((item) => item.id === 'link-1'),
-    ).toMatchObject({ target: 'node-add-other', targetHandle: 'in-0', data: { dataType: 'IMAGE' } });
+    ).toMatchObject({ target: '3', targetHandle: 'in-0', data: { dataType: 'IMAGE' } });
     db.close();
   });
 
@@ -262,8 +262,8 @@ describe('catalog ports and connection types', () => {
     const beforeEncode = manual(db, 'before-encode', { type: 'add-node', nodeType: 'CLIPTextEncode' });
     expect(beforeSampler.status).toBe('applied');
     expect(beforeEncode.status).toBe('applied');
-    const hardcodedSampler = nodeData(db, 'node-before-sampler').inputs;
-    const hardcodedEncode = nodeData(db, 'node-before-encode').inputs;
+    const hardcodedSampler = nodeData(db, '1').inputs;
+    const hardcodedEncode = nodeData(db, '2').inputs;
     expect(hardcodedSampler).toEqual(inferInputs('KSampler'));
     expect(hardcodedEncode).toEqual(inferInputs('CLIPTextEncode'));
 
@@ -308,8 +308,8 @@ describe('catalog ports and connection types', () => {
     expect(manual(db, 'sampler', { type: 'add-node', nodeType: 'KSampler' }).status).toBe('applied');
     expect(manual(db, 'loader', { type: 'add-node', nodeType: 'CheckpointLoaderSimple' }).status).toBe('applied');
 
-    const encodeInputs = nodeData(db, 'node-encode').inputs;
-    const samplerInputs = nodeData(db, 'node-sampler').inputs;
+    const encodeInputs = nodeData(db, '3').inputs;
+    const samplerInputs = nodeData(db, '4').inputs;
     expect(encodeInputs).toEqual([
       { id: 'in-0', name: 'clip', dataType: 'CLIP', optional: false },
       { id: 'in-1', name: 'text', dataType: 'STRING', optional: false },
@@ -331,16 +331,16 @@ describe('catalog ports and connection types', () => {
 
     const clip = manual(db, 'connect-clip', {
       type: 'connect',
-      source: 'node-loader',
-      target: 'node-encode',
+      source: '5',
+      target: '3',
       sourceHandle: 'out-1',
       targetHandle: 'in-0',
     });
     expect(clip.status).toBe('applied');
     const positive = manual(db, 'connect-positive', {
       type: 'connect',
-      source: 'node-encode',
-      target: 'node-sampler',
+      source: '3',
+      target: '4',
       sourceHandle: 'out-0',
       targetHandle: 'in-1',
     });
@@ -349,8 +349,8 @@ describe('catalog ports and connection types', () => {
     const before = readProjection(db, DESKTOP_PROJECT_ID);
     const text = manual(db, 'connect-text', {
       type: 'connect',
-      source: 'node-loader',
-      target: 'node-encode',
+      source: '5',
+      target: '3',
       sourceHandle: 'out-1',
       targetHandle: 'in-1',
     });
@@ -362,8 +362,8 @@ describe('catalog ports and connection types', () => {
     expect(exported.ok).toBe(true);
     if (!exported.ok) return;
     const links = exported.workflow.links as Array<Record<string, unknown>>;
-    expect(links.find((link) => link.target_id === 'node-encode')).toMatchObject({ target_slot: 0, type: 'CLIP' });
-    expect(links.find((link) => link.target_id === 'node-sampler')).toMatchObject({ target_slot: 1, type: 'CONDITIONING' });
+    expect(links.find((link) => link.target_id === 3)).toMatchObject({ target_slot: 0, type: 'CLIP' });
+    expect(links.find((link) => link.target_id === 4)).toMatchObject({ target_slot: 1, type: 'CONDITIONING' });
     db.close();
   });
 });

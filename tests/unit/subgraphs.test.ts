@@ -161,9 +161,9 @@ describe('create-subgraph', () => {
     const db = openDb();
     commit(db, 'a', { type: 'add-node', nodeType: 'CheckpointLoaderSimple', x: 0, y: 0 });
     commit(db, 'b', { type: 'add-node', nodeType: 'VAEDecode', x: 300, y: 0 });
-    const created = commit(db, 'sg', { type: 'create-subgraph', name: 'Decode', nodeIds: ['node-b'], inputs: [], outputs: [] });
+    const created = commit(db, 'sg', { type: 'create-subgraph', name: 'Decode', nodeIds: ['2'], inputs: [], outputs: [] });
     expect(created.status).toBe('applied');
-    expect(created.result).toMatchObject({ nodeId: 'node-sg' });
+    expect(created.result).toMatchObject({ nodeId: '3' });
     const snapshot = snap(db);
     expect(snapshot.document?.formatVersion).toBe(1);
     expect(listSubgraphDefinitions(snapshot.document?.raw).definitions).toHaveLength(1);

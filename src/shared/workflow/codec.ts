@@ -238,13 +238,25 @@ export function projectWorkflow(document: unknown): { snapshot: GraphSnapshot } 
     snapshot: {
       nodes,
       edges,
-      document: { formatVersion, raw },
+      document: { formatVersion, raw: storedRaw(raw) },
       components: [],
       process: { ...EMPTY_PROCESS },
       subgraphs: lifted.subgraphs,
       groups: lifted.groups,
     },
   };
+}
+
+/**
+ * The stored document keeps everything of the native file except its canvas content: `nodes` and `links`
+ * become empty placeholders (their presence keeps the key order on export), because the live canvas is the
+ * snapshot's nodes and edges. A stale copy would make missing-node checks report removed nodes.
+ */
+export function storedRaw(raw: Record<string, unknown>): Record<string, unknown> {
+  const next = { ...raw };
+  if ('nodes' in next) next.nodes = [];
+  if ('links' in next) next.links = next.links === null ? null : [];
+  return next;
 }
 
 export function numericSlot(handle: unknown): number | null {
@@ -406,7 +418,9 @@ function syncSlots(node: Record<string, unknown>, links: unknown[]): void {
       const record = { ...(output as Record<string, unknown>) };
       const slot = String(record.slot_index ?? index);
       if ('links' in record || ends.some((link) => link.originId === id)) {
-        record.links = ends.filter((link) => link.originId === id && link.originSlot === slot).map((link) => link.id);
+        const linked = ends.filter((link) => link.originId === id && link.originSlot === slot).map((link) => link.id);
+        // Legacy files write `links: null` on an unconnected output; keep it as it was.
+        record.links = linked.length === 0 && record.links === null ? null : linked;
       }
       return record;
     });
@@ -447,6 +461,7 @@ function exportedNode(node: Record<string, any>, catalog?: CatalogView, lenient 
         properties: {},
       };
   source.pos = writePos(source.pos, { x: node.position?.x ?? 0, y: node.position?.y ?? 0 });
+  if (/^-?\d+$/.test(String(node.id))) source.id = Number(node.id);
   if (!hasComfy) {
     const title = typeof node.data?.title === 'string' && node.data.title !== '' ? node.data.title : node.data?.comfyType;
     if (typeof title === 'string' && title !== '') source.title = title;
@@ -480,9 +495,19 @@ class ExportRefused extends Error {
   }
 }
 
-export function exportWorkflow(snapshot: GraphSnapshot, exportedAt: string, catalog?: CatalogView): { ok: true; workflow: Record<string, unknown> } | { ok: false; error: string } {
-  const formatVersion = snapshot.document?.formatVersion ?? WORKFLOW_FORMAT_V1;
-  const raw = snapshot.document?.raw ? { ...snapshot.document.raw } : {};
+export function exportWorkflow(source: GraphSnapshot, exportedAt: string, catalog?: CatalogView): { ok: true; workflow: Record<string, unknown> } | { ok: false; error: string } {
+  const formatVersion = source.document?.formatVersion ?? WORKFLOW_FORMAT_V1;
+  const raw = source.document?.raw ? { ...source.document.raw } : {};
+  const rootState = isPlainRecord(raw.state) ? raw.state : {};
+  const renumbered = renumberNodeIds(source.nodes, source.edges, counterOf(formatVersion === WORKFLOW_FORMAT_V1 ? rootState.lastNodeId : raw.last_node_id));
+  const snapshot: GraphSnapshot = {
+    ...source,
+    nodes: renumbered.nodes,
+    edges: renumbered.edges,
+    groups: source.groups?.map((group) => (
+      group.nodeIds.some((id) => renumbered.map.has(id)) ? { ...group, nodeIds: group.nodeIds.map((id) => renumbered.map.get(id) ?? id) } : group
+    )),
+  };
   const links = snapshot.edges.map((edge) => edgeToLink(edge, formatVersion));
   let exportedNodes: Array<Record<string, unknown>>;
   const workflow: Record<string, unknown> = { ...raw };
@@ -499,7 +524,7 @@ export function exportWorkflow(snapshot: GraphSnapshot, exportedAt: string, cata
   }
   workflow.version = formatVersion;
   workflow.nodes = exportedNodes;
-  workflow.links = links;
+  workflow.links = links.length === 0 && raw.links === null ? null : links;
   const numericNodeIds = collectNumericIds(exportedNodes.map((node) => node.id));
   const numericLinkIds = collectNumericIds(links.map((link) => (Array.isArray(link) ? link[0] : (link as { id?: unknown }).id)));
   if (formatVersion === WORKFLOW_FORMAT_V1) {
@@ -521,12 +546,101 @@ export function exportWorkflow(snapshot: GraphSnapshot, exportedAt: string, cata
   return { ok: true, workflow: omitAppOwned(workflow) as Record<string, unknown> };
 }
 
+function counterOf(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
+
+/**
+ * Give every node whose id is not a number (canvases from before numeric ids) the next free number, in node
+ * order, so export is deterministic and ComfyUI gets numeric ids. Edges and their native links follow.
+ */
+export function renumberNodeIds(
+  nodes: Array<Record<string, any>>,
+  edges: Array<Record<string, any>>,
+  counter: number,
+): { nodes: Array<Record<string, any>>; edges: Array<Record<string, any>>; map: Map<string, string> } {
+  const map = new Map<string, string>();
+  let next = nodes.reduce((max, node) => (/^-?\d+$/.test(String(node.id)) ? Math.max(max, Number(node.id)) : max), counter);
+  for (const node of nodes) {
+    const id = String(node.id);
+    if (/^-?\d+$/.test(id) || map.has(id)) continue;
+    next += 1;
+    map.set(id, String(next));
+  }
+  if (map.size === 0) return { nodes, edges, map };
+  const renamed = nodes.map((node) => {
+    const id = map.get(String(node.id));
+    if (!id) return node;
+    const comfy = isPlainRecord(node.data?.comfy) ? { ...node.data.comfy, id: Number(id) } : node.data?.comfy;
+    return { ...node, id, data: { ...node.data, ...(comfy ? { comfy } : {}) } };
+  });
+  const relinked = edges.map((edge) => {
+    const source = map.get(String(edge.source));
+    const target = map.get(String(edge.target));
+    if (!source && !target) return edge;
+    let comfyLink = edge.data?.comfyLink;
+    if (Array.isArray(comfyLink)) {
+      comfyLink = comfyLink.slice();
+      if (source) comfyLink[1] = Number(source);
+      if (target) comfyLink[3] = Number(target);
+    } else if (isPlainRecord(comfyLink)) {
+      comfyLink = { ...comfyLink, ...(source ? { origin_id: Number(source) } : {}), ...(target ? { target_id: Number(target) } : {}) };
+    }
+    return {
+      ...edge,
+      source: source ?? edge.source,
+      target: target ?? edge.target,
+      ...(edge.data ? { data: { ...edge.data, ...(comfyLink !== undefined ? { comfyLink } : {}) } } : {}),
+    };
+  });
+  return { nodes: renamed, edges: relinked, map };
+}
+
+/** Node types the ComfyUI frontend implements itself; they never appear in object_info. */
+export const FRONTEND_NODE_TYPES: ReadonlySet<string> = new Set(['Note', 'MarkdownNote', 'Reroute', 'PrimitiveNode']);
+
+/** Ids of every subgraph definition in a native document, nested lists included. */
+export function documentDefinitionIds(document: unknown): Set<string> {
+  const ids = new Set<string>();
+  const walk = (container: unknown) => {
+    if (!isPlainRecord(container) || !Array.isArray(container.subgraphs)) return;
+    for (const item of container.subgraphs) {
+      if (!isPlainRecord(item)) continue;
+      if (typeof item.id === 'string' && item.id.length > 0) ids.add(item.id);
+      walk(item.definitions);
+    }
+  };
+  if (isPlainRecord(document)) walk(document.definitions);
+  return ids;
+}
+
+/** Nodes inside the subgraph definitions of a native document, nested lists included. */
+export function documentDefinitionNodes(document: unknown): Array<Record<string, unknown>> {
+  const found: Array<Record<string, unknown>> = [];
+  const walk = (container: unknown) => {
+    if (!isPlainRecord(container) || !Array.isArray(container.subgraphs)) return;
+    for (const item of container.subgraphs) {
+      if (!isPlainRecord(item)) continue;
+      if (Array.isArray(item.nodes)) for (const node of item.nodes) if (isPlainRecord(node)) found.push(node);
+      walk(item.definitions);
+    }
+  };
+  if (isPlainRecord(document)) walk(document.definitions);
+  return found;
+}
+
+/** A node type a missing-node check must not report: frontend-only, or an instance of a definition in the document. */
+export function isLocalNodeType(type: string, definitionIds: ReadonlySet<string>): boolean {
+  return FRONTEND_NODE_TYPES.has(type) || definitionIds.has(type);
+}
+
 export function missingDeps(document: unknown, catalog: CatalogView): MissingReport {
   const record = document && typeof document === 'object' ? (document as Record<string, unknown>) : {};
   const types = new Set<string>();
+  const local = documentDefinitionIds(record);
   const modelRows: unknown[] = Array.isArray(record.models) ? [...record.models] : [];
   for (const node of workflowNodes(record)) {
-    if (typeof node.type === 'string') types.add(node.type);
+    if (typeof node.type === 'string' && !isLocalNodeType(node.type, local)) types.add(node.type);
     const properties = node.properties;
     if (properties && typeof properties === 'object' && !Array.isArray(properties)) {
       const models = (properties as { models?: unknown }).models;
@@ -558,31 +672,8 @@ function workflowNodes(record: Record<string, unknown>): Array<{ type?: unknown;
     }
   };
   take(record.nodes);
-  const definitions = record.definitions;
-  const subgraphs = definitions && typeof definitions === 'object' && !Array.isArray(definitions)
-    ? (definitions as { subgraphs?: unknown }).subgraphs
-    : undefined;
-  if (Array.isArray(subgraphs)) {
-    for (const subgraph of subgraphs) {
-      if (subgraph && typeof subgraph === 'object') take((subgraph as { nodes?: unknown }).nodes);
-    }
-  }
+  take(documentDefinitionNodes(record));
   return found;
-}
-
-export function toApiPrompt(snapshot: GraphSnapshot): Record<string, { class_type: string; inputs: Record<string, unknown> }> {
-  const prompt: Record<string, { class_type: string; inputs: Record<string, unknown> }> = {};
-  for (const node of snapshot.nodes) {
-    const inputs: Record<string, unknown> = { ...(node.data?.parameters ?? {}) };
-    for (const edge of snapshot.edges) {
-      if (edge.target !== node.id) continue;
-      const port = (node.data?.inputs ?? []).find((item: { id: string; name: string }) => item.id === edge.targetHandle);
-      const name = port?.name || String(edge.targetHandle);
-      inputs[name] = [edge.source, slotNumber(edge.sourceHandle)];
-    }
-    prompt[String(node.id)] = { class_type: String(node.data?.comfyType ?? ''), inputs };
-  }
-  return prompt;
 }
 
 export function patchWidgets(comfy: Record<string, unknown>, key: string, value: unknown, widgetIndex?: number): void {
@@ -715,6 +806,13 @@ function positionInside(position: { x: number; y: number } | undefined, bounding
   return position.x >= x && position.x <= x + w && position.y >= y && position.y <= y + h;
 }
 
+/** A node belongs to a group when its centre lies inside the group rectangle (as LiteGraph decides). */
+function centreInside(node: Record<string, any>, bounding: [number, number, number, number]): boolean {
+  if (!node.position) return false;
+  const [w, h] = nodeSize(node);
+  return positionInside({ x: (node.position.x ?? 0) + w / 2, y: (node.position.y ?? 0) + h / 2 }, bounding);
+}
+
 function liftGroups(value: unknown, nodes: Array<Record<string, any>>): GroupRecord[] {
   if (!Array.isArray(value)) return [];
   return value.flatMap((item, index) => {
@@ -723,7 +821,7 @@ function liftGroups(value: unknown, nodes: Array<Record<string, any>>): GroupRec
     const group: GroupRecord = {
       id: item.id != null ? String(item.id) : `imported-${index}`,
       title: typeof item.title === 'string' ? item.title : '',
-      nodeIds: bounding ? nodes.filter((node) => positionInside(node.position, bounding)).map((node) => String(node.id)) : [],
+      nodeIds: bounding ? nodes.filter((node) => centreInside(node, bounding)).map((node) => String(node.id)) : [],
       raw: item,
     };
     if (bounding) group.bounding = bounding;
@@ -762,7 +860,7 @@ export function groupBounding(members: Array<Record<string, any>>): [number, num
 function exportGroup(group: GroupRecord, nodes: Array<Record<string, any>>): Record<string, unknown> {
   const members = nodes.filter((node) => group.nodeIds.includes(String(node.id)));
   const stored = group.bounding;
-  const bounding = stored && members.every((node) => positionInside(node.position, stored))
+  const bounding = stored && members.every((node) => centreInside(node, stored))
     ? stored
     : members.length > 0 ? groupBounding(members) : stored ?? [0, 0, 0, 0];
   const out: Record<string, unknown> = { ...(group.raw ?? {}) };
@@ -802,8 +900,9 @@ function exportDefinition(
 ): Record<string, unknown> {
   if (definition.opaque) return definition.raw;
   const raw = definition.raw;
-  const links = definition.edges.map((edge) => edgeToLink(edge, WORKFLOW_FORMAT_V1));
-  const nodes = definition.nodes.map((node) => {
+  const renumbered = renumberNodeIds(definition.nodes, definition.edges, counterOf(isPlainRecord(raw.state) ? raw.state.lastNodeId : 0));
+  const links = renumbered.edges.map((edge) => edgeToLink(edge, WORKFLOW_FORMAT_V1));
+  const nodes = renumbered.nodes.map((node) => {
     const next = exportedNode(node, catalog, lenient);
     syncSlots(next, links);
     return next;
@@ -861,11 +960,13 @@ function writeSubgraphsAndGroups(
  * The mirror never refuses: nodes whose widget order is unknown are written without widgets_values.
  */
 export function mirrorDocument(snapshot: GraphSnapshot): WorkflowDocumentState | null {
-  if (snapshot.subgraphs === undefined && snapshot.groups === undefined) return snapshot.document;
+  if (snapshot.subgraphs === undefined && snapshot.groups === undefined) {
+    return snapshot.document ? { formatVersion: snapshot.document.formatVersion, raw: storedRaw(snapshot.document.raw) } : null;
+  }
   const hasModel = modelledCount(snapshot) > 0;
   if (!snapshot.document && !hasModel) return null;
   const document = snapshot.document ?? { formatVersion: WORKFLOW_FORMAT_V1, raw: {} };
-  const raw = { ...document.raw };
+  const raw = storedRaw(document.raw);
   writeSubgraphsAndGroups(raw, document.raw, snapshot, undefined, true);
   return { formatVersion: document.formatVersion, raw };
 }

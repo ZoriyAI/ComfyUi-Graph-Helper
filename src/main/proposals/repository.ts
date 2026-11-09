@@ -3,9 +3,10 @@ import type Database from 'better-sqlite3';
 import type { Proposal, ProposalInput, ProposalKind, ProposalResolution, ResolveProposalRequest } from '../../shared/contracts/proposals';
 import { PROPOSAL_KINDS } from '../../shared/contracts/proposals';
 import { mutationSchema, type CommandResponse } from '../../shared/commands/types';
-import { commitCommand, readProjection } from '../commands/commit';
+import { commitCommand, loadRevision, readProjection } from '../commands/commit';
 import { proposalsChanged } from './events';
 import { listProposals, readProposal } from './store';
+import { nodeRefsOf } from './supersede';
 
 export { listProposals } from './store';
 export { setProposalsNotifier, proposalsChanged, type ProposalsNotifier } from './events';
@@ -73,6 +74,32 @@ function finish(db: Database.Database, id: string, status: Proposal['status'], n
 }
 
 /**
+ * Why a proposal no longer fits the graph, or null: the graph was replaced (import or opened project) after it
+ * was made, or a node it names is gone or now has a different class type.
+ */
+function staleReason(db: Database.Database, proposal: Proposal, nodes: Array<Record<string, any>>): string | null {
+  const replaced = db
+    .prepare(
+      `SELECT description FROM graph_revisions
+       WHERE project_id = ? AND description IN ('import-workflow', 'open-native')
+         AND rev_seq > (SELECT rev_seq FROM graph_revisions WHERE id = ? AND project_id = ?)
+       ORDER BY rev_seq DESC LIMIT 1`,
+    )
+    .get(proposal.projectId, proposal.revisionId, proposal.projectId) as { description: string } | undefined;
+  if (replaced) return `the graph was replaced by ${replaced.description}`;
+  const refs = [...new Set(nodeRefsOf(proposal.payload))];
+  if (refs.length === 0) return null;
+  const now = new Map(nodes.map((node) => [String(node.id), node]));
+  const gone = refs.filter((id) => !now.has(id));
+  if (gone.length > 0) return `node ${gone.join(', ')} is not in the graph`;
+  const then = loadRevision(db, proposal.projectId, proposal.revisionId);
+  if (!then) return null;
+  const before = new Map((then.nodes as Array<Record<string, any>>).map((node) => [String(node.id), node]));
+  const changed = refs.filter((id) => before.has(id) && before.get(id)!.data?.comfyType !== now.get(id)!.data?.comfyType);
+  return changed.length > 0 ? `node ${changed.join(', ')} changed type` : null;
+}
+
+/**
  * Reject marks the ghost rejected. Accept commits its payload through commitCommand as a manual action
  * `proposal-<id>` against the current revision; a refusal or conflict supersedes the ghost with the reason.
  * A proposal that is no longer open is returned as it is, with no command.
@@ -88,6 +115,12 @@ export function resolveProposal(db: Database.Database, request: ResolveProposalR
   }
   const projection = readProjection(db, proposal.projectId);
   if (!projection) throw new ProposalError(PROPOSAL_ERRORS.project);
+  const stale = staleReason(db, proposal, projection.snapshot.nodes as Array<Record<string, any>>);
+  if (stale) {
+    const superseded = finish(db, proposal.id, 'superseded', `${proposal.note}${proposal.note ? ' ' : ''}[superseded: ${stale}]`);
+    notify(db, proposal.projectId);
+    return { proposal: superseded, command: null };
+  }
   const command = commitCommand(db, {
     projectId: proposal.projectId,
     actionId: `proposal-${proposal.id}`,
@@ -96,8 +129,9 @@ export function resolveProposal(db: Database.Database, request: ResolveProposalR
     runId: null,
     payload: proposal.payload,
   });
+  // The proposal's own commit may have marked it superseded (it removed a node it names); accepted wins, note restored.
   const resolved = command.status === 'applied' || command.status === 'historical'
-    ? finish(db, proposal.id, 'accepted')
+    ? finish(db, proposal.id, 'accepted', proposal.note)
     : finish(db, proposal.id, 'superseded', `${proposal.note}${proposal.note ? ' ' : ''}[superseded: ${reasonOf(command)}]`);
   notify(db, proposal.projectId);
   return { proposal: resolved, command };
