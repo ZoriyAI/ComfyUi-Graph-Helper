@@ -41,6 +41,7 @@ import LiveBuildStrip from './layers/LiveBuildStrip';
 import GraphContextMenu from './GraphContextMenu';
 import { CanvasViewContext, type CanvasView } from './CanvasContext';
 import { useCanvasStore } from './canvasStore';
+import { usePreferencesStore } from '../../state/preferencesState';
 import { commitManual } from './commit';
 import CanvasToolbar, { FIT_PADDING } from './CanvasToolbar';
 import { connectCandidates, type AssistNode } from './lib/connectAssist';
@@ -107,6 +108,7 @@ export default function CanvasFlow() {
   const focusRef = useUiStore((state) => state.focusRef);
   const tour = useUiStore((state) => state.tour);
   const minimapOn = useCanvasStore((state) => state.minimapOn);
+  const gridSize = usePreferencesStore((state) => state.preferences.canvas.gridSize);
   const check = useKnowledgeStore((state) => state.check);
   const [fitDuration, setFitDuration] = useState(() => fitDurationMs());
 
@@ -331,7 +333,7 @@ export default function CanvasFlow() {
             }}
           >
             <ZoomReporter />
-            <Background variant={BackgroundVariant.Dots} gap={18} size={1} color="var(--canvas-dot)" />
+            <Background variant={BackgroundVariant.Dots} gap={gridSize} size={1} color="var(--canvas-dot)" />
             <Panel position="top-center" className="nopan nowheel nodrag">
               <CanvasToolbar />
             </Panel>

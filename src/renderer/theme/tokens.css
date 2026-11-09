@@ -182,3 +182,74 @@ html[data-motion="off"] {
     --motion-spring: var(--motion-ease-out);
   }
 }
+
+/*
+ * Preferences ▸ Appearance (additive). `data-accent` swaps the action colour; text on it stays --on-accent,
+ * every accent below keeps ≥ 7:1 against it. `data-density="compact"` tightens the type scale one step.
+ * `data-glow="reduced"` removes the soft glows and canvas light. The `*-scope` forms drive the live preview
+ * in Settings ▸ Appearance before Save.
+ */
+html[data-accent="violet"],
+[data-accent-scope="violet"] {
+  --accent: #b7a5ff;
+  --accent-strong: #cfc3ff;
+  --accent-soft: rgba(183, 165, 255, 0.14);
+  --accent-2: #b7a5ff;
+  --accent-gradient: linear-gradient(180deg, #cfc3ff 0%, #b7a5ff 55%, #a08cf5 100%);
+  --accent-gradient-hover: linear-gradient(180deg, #ddd4ff 0%, #c4b6ff 55%, #ad9bf8 100%);
+  --glow-accent: 0 0 0 1px rgba(183, 165, 255, 0.4), 0 4px 16px -2px rgba(183, 165, 255, 0.36);
+}
+
+html[data-accent="mint"],
+[data-accent-scope="mint"] {
+  --accent: #82ddb3;
+  --accent-strong: #a5ead0;
+  --accent-soft: rgba(130, 221, 179, 0.14);
+  --accent-2: #82ddb3;
+  --accent-gradient: linear-gradient(180deg, #a5ead0 0%, #82ddb3 55%, #6acb9f 100%);
+  --accent-gradient-hover: linear-gradient(180deg, #bcf0dc 0%, #95e4c1 55%, #78d4aa 100%);
+  --glow-accent: 0 0 0 1px rgba(130, 221, 179, 0.4), 0 4px 16px -2px rgba(130, 221, 179, 0.34);
+}
+
+html[data-accent="amber"],
+[data-accent-scope="amber"] {
+  --accent: #f6ce7c;
+  --accent-strong: #f9dda2;
+  --accent-soft: rgba(246, 206, 124, 0.14);
+  --accent-2: #f6ce7c;
+  --accent-gradient: linear-gradient(180deg, #f9dda2 0%, #f6ce7c 55%, #eebd5c 100%);
+  --accent-gradient-hover: linear-gradient(180deg, #fbe6bb 0%, #f8d690 55%, #f1c46a 100%);
+  --glow-accent: 0 0 0 1px rgba(246, 206, 124, 0.4), 0 4px 16px -2px rgba(246, 206, 124, 0.32);
+}
+
+html[data-density="compact"],
+[data-density-scope="compact"] {
+  --text-md: 13px;
+  --text-lg: 15px;
+  --text-xl: 18px;
+}
+
+html[data-glow="reduced"],
+[data-glow-scope="reduced"] {
+  --glow-accent: 0 0 0 1px var(--accent-soft);
+  --glow-ai: 0 0 0 1px var(--ai-soft);
+  --canvas-glow: transparent;
+  --canvas-glow-2: transparent;
+}
+
+/* Preview resets: the preview card shows the draft even when <html> carries another saved choice. */
+[data-accent-scope="cyan"] {
+  --accent: #65d9ed;
+  --accent-strong: #8ae6f4;
+  --accent-soft: rgba(101, 217, 237, 0.14);
+  --accent-2: #65d9ed;
+  --accent-gradient: linear-gradient(180deg, #8ae6f4 0%, #65d9ed 55%, #4cc6de 100%);
+  --accent-gradient-hover: linear-gradient(180deg, #a3eef8 0%, #7ae0f1 55%, #5ccfe4 100%);
+  --glow-accent: 0 0 0 1px rgba(101, 217, 237, 0.4), 0 4px 16px -2px rgba(101, 217, 237, 0.38);
+}
+
+[data-density-scope="comfortable"] {
+  --text-md: 14px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+}

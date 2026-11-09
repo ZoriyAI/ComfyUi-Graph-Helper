@@ -80,7 +80,7 @@ test('prerelease journey configures a provider, builds a process, and exports a 
     const dialog = window.locator('[role="dialog"].settings-dialog');
     await dialog.getByRole('textbox', { name: 'Comfy origin', exact: true }).fill(origin);
     await dialog.getByRole('tab', { name: 'Assistant' }).click();
-    await pickOption(window, 'Provider', 'Local endpoint', dialog);
+    await dialog.getByRole('radio', { name: 'Local endpoint', exact: true }).click();
     await dialog.getByRole('textbox', { name: 'Model', exact: true }).fill('fixture-local');
     await dialog.getByRole('textbox', { name: 'Base URL', exact: true }).fill('http://127.0.0.1:9/v1');
     await dialog.getByRole('button', { name: 'Save settings' }).click();
@@ -94,6 +94,8 @@ test('prerelease journey configures a provider, builds a process, and exports a 
     await expect(restored.getByRole('textbox', { name: 'Base URL', exact: true })).toHaveValue('http://127.0.0.1:9/v1');
     await restored.getByRole('tab', { name: 'Connection' }).click();
     await expect(restored.getByRole('textbox', { name: 'Comfy origin', exact: true })).toHaveValue(origin);
+    // Keys moved from Connection to their own section, Models & keys.
+    await restored.getByRole('tab', { name: 'Models & keys' }).click();
     await expect(restored.getByRole('textbox', { name: 'API key', exact: true })).toBeDisabled();
     await expect(restored.getByRole('button', { name: 'Save key' })).toBeDisabled();
     const session = restored.getByRole('textbox', { name: 'Session key', exact: true });
@@ -108,6 +110,7 @@ test('prerelease journey configures a provider, builds a process, and exports a 
     expect(blocked).toEqual({ status: 'secret-storage-blocked' });
     expect(containsMarker(userData)).toBeNull();
 
+    await restored.getByRole('tab', { name: 'Connection' }).click();
     await restored.getByRole('button', { name: 'Read Comfy catalog' }).click();
     await expect(restored.getByText('Read Comfy fixture-0. Devices: 1. Nodes: 1.')).toBeVisible();
     expect(hits).toEqual(['GET /system_stats', 'GET /object_info']);

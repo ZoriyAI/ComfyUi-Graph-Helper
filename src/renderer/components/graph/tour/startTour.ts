@@ -1,3 +1,4 @@
+import { currentPreferences } from '../../../state/preferencesState';
 import { i18n } from '../../../i18n';
 import { useGraphStore } from '../../../state/graphState';
 import { useUiStore } from '../../../state/uiState';
@@ -32,7 +33,7 @@ export async function startGraphTour(options: { fromNodeId?: string; playing?: b
     return String(i18n.t('canvas.neutralStep', { inputs: list(node.data.inputs), outputs: list(node.data.outputs) }));
   });
   const ui = useUiStore.getState();
-  ui.startTour(steps, options.playing ?? true);
+  ui.startTour(steps, options.playing ?? currentPreferences().canvas.tourAutoplay);
   if (options.fromNodeId) {
     const index = stepIndexOf(steps, options.fromNodeId);
     if (index > 0) ui.setTourIndex(index);

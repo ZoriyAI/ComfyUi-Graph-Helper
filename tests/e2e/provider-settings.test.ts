@@ -3,7 +3,6 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import type { ElectronApplication, Page } from '@playwright/test';
-import { pickOption } from './pickOption';
 import { useEnglish } from './locale';
 
 const MARKER = 'sk-fakemarker';
@@ -65,7 +64,8 @@ test('stored provider, model, and base URL are what the next send would use afte
   await expect(dialog.getByText('Restored non-secret settings.')).toBeVisible();
   await expect(dialog.getByRole('button', { name: 'Save settings' })).toBeDisabled();
 
-  await pickOption(window, 'Provider', 'OpenAI', dialog);
+  // Provider is a radio-card group in the Preferences window (it was a select).
+  await dialog.getByRole('radio', { name: 'OpenAI', exact: true }).click();
   await dialog.getByRole('textbox', { name: 'Model', exact: true }).fill('  fixture-model  ');
   await dialog.getByRole('textbox', { name: 'Base URL', exact: true }).fill(' https://example.test/v1 ');
   await expect(dialog.getByRole('button', { name: 'Save settings' })).toBeEnabled();
@@ -133,14 +133,14 @@ test('stored provider, model, and base URL are what the next send would use afte
   await expect(again.locator('#chat-provider')).toHaveAttribute('data-value', 'openai');
   const restored = await openSettings(again);
   await expect(restored.getByText('Restored non-secret settings.')).toBeVisible();
-  await expect(restored.getByRole('combobox', { name: 'Provider', exact: true })).toHaveAttribute('data-value', 'openai');
+  await expect(restored.getByRole('radio', { name: 'OpenAI', exact: true })).toHaveAttribute('aria-checked', 'true');
   await expect(restored.getByRole('textbox', { name: 'Model', exact: true })).toHaveValue('fixture-model');
   await expect(restored.getByRole('textbox', { name: 'Base URL', exact: true })).toHaveValue('https://example.test/v1');
   const reread = await settingsRow(reopened, appRoot);
   expect(reread.row).toEqual({ provider: 'openai', model: 'fixture-model', base_url: 'https://example.test/v1' });
   expect(reread.secrets).toBe(0);
 
-  await pickOption(again, 'Provider', 'TEST fixture', restored);
+  await restored.getByRole('radio', { name: 'TEST fixture', exact: true }).click();
   await restored.getByRole('textbox', { name: 'Model', exact: true }).fill('test-fixture');
   await restored.getByRole('textbox', { name: 'Base URL', exact: true }).fill('https://fixture.example/v1');
   await restored.getByRole('button', { name: 'Save settings' }).click();

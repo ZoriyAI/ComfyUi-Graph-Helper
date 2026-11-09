@@ -11,6 +11,8 @@ import { createBuildTools, type RendererToolSpec, type RunContext } from './buil
 import { buildSystemPrompt, catalogSummaryText } from './prompt';
 import { createAgentTools, type KnowledgeApi, type ProposalApi } from './tools';
 import type { FetchLike } from './web';
+import { readPreferences } from '../settings/repository';
+import type { Preferences } from '../../shared/config/preferences';
 
 type ChatMessage = { role: 'system' | 'user' | 'assistant'; content: string };
 
@@ -31,6 +33,8 @@ export interface AgentTurnOptions {
   knowledge?: KnowledgeApi;
   proposals?: ProposalApi;
   fetchImpl?: FetchLike;
+  /** Preferences for this turn. Default: read from the settings row now, so a save applies to the next turn. */
+  preferences?: Preferences;
 }
 
 function dialog(input: unknown): ChatMessage[] {
@@ -50,8 +54,6 @@ function specs(input: unknown): RendererToolSpec[] {
 
 const BUILD = new Set<string>(AGENT_BUILD_TOOLS);
 const RECENT_LIMIT = 30;
-/** A step-by-step build is one tool call per step: a text-to-image graph alone is about sixteen. */
-const MAX_STEPS = 48;
 
 /** The person's recent commands for the prompt; a read failure only drops that section. */
 function readRecent(db: Database.Database, projectId: string): RecentCommand[] {
@@ -73,6 +75,8 @@ export async function runAgentTurn(options: AgentTurnOptions): Promise<void> {
   const llm = options.llm ?? mainLLMService;
   const knowledge = options.knowledge ?? knowledgeRepository;
   try {
+    const preferences = options.preferences ?? readPreferences(db);
+    const { assistant, privacy } = preferences;
     const context = parseTurnContext(options.context, options.language);
     const messages = dialog(options.messages);
     const question = [...messages].reverse().find((message) => message.role === 'user')?.content ?? '';
@@ -82,9 +86,10 @@ export async function runAgentTurn(options: AgentTurnOptions): Promise<void> {
     const selectedIds = context.selection.filter((ref) => ref.kind === 'node').map((ref) => ref.id);
     const system = buildSystemPrompt({
       context,
-      graph: projection ? summarizeGraph(projection.snapshot, { selectedIds }) : null,
+      graph: projection ? summarizeGraph(projection.snapshot, { selectedIds, omitValues: !privacy.sendFieldValues }) : null,
       catalog: catalogSummaryText(db, knowledge, question),
       recent: readRecent(db, run.projectId),
+      preferences: { ...assistant, sendFieldValues: privacy.sendFieldValues },
     });
 
     const mainTools = createAgentTools({
@@ -96,7 +101,10 @@ export async function runAgentTurn(options: AgentTurnOptions): Promise<void> {
       proposals: options.proposals,
       fetchImpl: options.fetchImpl,
       notify: options.notify,
-      nativeSearch: llm.nativeSearchTool(),
+      nativeSearch: assistant.allowWebSearch ? llm.nativeSearchTool() : null,
+      allowWebSearch: assistant.allowWebSearch,
+      allowFetchPage: assistant.allowFetchPage,
+      omitValues: !privacy.sendFieldValues,
     });
     const rendererSpecs = specs(options.toolSpecs);
     const buildTools = createBuildTools(rendererSpecs, {
@@ -114,7 +122,11 @@ export async function runAgentTurn(options: AgentTurnOptions): Promise<void> {
     }
 
     console.log(`[Agent] Turn with ${messages.length} messages, ${Object.keys(tools).length} tools, intent=${context.intent}`);
-    for await (const chunk of llm.streamChatWithTools([{ role: 'system', content: system }, ...messages], tools as Record<string, any>, { maxSteps: MAX_STEPS })) {
+    for await (const chunk of llm.streamChatWithTools([{ role: 'system', content: system }, ...messages], tools as Record<string, any>, {
+      maxSteps: assistant.maxStepsPerTurn,
+      allowWebSearch: assistant.allowWebSearch,
+      allowFetchPage: assistant.allowFetchPage,
+    })) {
       send(chunk);
     }
     send({ type: 'done' });

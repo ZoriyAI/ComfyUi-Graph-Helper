@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import type { ChatRuntimeConfig, NonSecretSettings } from '../../shared/config/schema';
+import { isPreferenceProvider } from '../../shared/config/preferences';
+import { currentPreferences } from './preferencesState';
 
 /** Where the provider's key lives right now: nowhere, in memory for this session, or in OS storage. */
 export type KeySource = 'none' | 'session' | 'os';
@@ -72,10 +74,12 @@ export const useProviderStore = create<ProviderState>((set, get) => ({
     }
     if (CLOUD_PROVIDERS.has(next) || next === 'local') {
       const sameProvider = stored.provider === next;
+      // Another provider comes back with the model and base URL it had last (Preferences ▸ providers).
+      const remembered = isPreferenceProvider(next) ? currentPreferences().providers[next] : { model: '', baseURL: '' };
       await window.electronAPI.llmSetConfig({
         provider: next,
-        model: sameProvider ? stored.model : '',
-        baseURL: sameProvider ? stored.baseURL : '',
+        model: sameProvider ? stored.model : remembered.model,
+        baseURL: sameProvider ? stored.baseURL : remembered.baseURL,
       });
       return;
     }

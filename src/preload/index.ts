@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type { ChatRuntimeConfig, NonSecretSettings, SettingsRead } from '../shared/config/schema';
+import type { Preferences } from '../shared/config/preferences';
 import type {
   AgentTurnContext,
   ChatRecord,
@@ -57,6 +58,8 @@ const IPC_CHANNELS = {
   COMMAND_READ_PROJECTION: 'command:read-projection',
   CHAT_SAVE_MESSAGE: 'chat:save-message',
   CHAT_LOAD_HISTORY: 'chat:load-history',
+  CHAT_CLEAR_HISTORY: 'chat:clear-history',
+  LLM_PROBE: 'llm:probe',
   KNOWLEDGE_SEARCH_NODES: 'knowledge:search-nodes',
   KNOWLEDGE_NODE_DETAIL: 'knowledge:node-detail',
   KNOWLEDGE_SEARCH_MODELS: 'knowledge:search-models',
@@ -75,6 +78,12 @@ const IPC_CHANNELS = {
   GRAPH_LOAD_REVISION: 'graph:load-revision',
 } as const;
 
+/** The app version main passes as `--app-version=…` (a sandboxed preload cannot read package.json). */
+function appVersion(): string {
+  const flag = (process.argv ?? []).find((arg) => arg.startsWith('--app-version='));
+  return flag ? flag.slice('--app-version='.length).slice(0, 40) : '';
+}
+
 // Expose safe IPC API to renderer
 contextBridge.exposeInMainWorld('electronAPI', {
   // Platform info
@@ -83,6 +92,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     node: process.versions.node,
     chrome: process.versions.chrome,
     electron: process.versions.electron,
+    app: appVersion(),
   },
 
   // File operations
@@ -133,6 +143,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   llmGetConfig: () => ipcRenderer.invoke(IPC_CHANNELS.LLM_GET_CONFIG) as Promise<ChatRuntimeConfig>,
   llmSetSessionKey: (value: string) => ipcRenderer.invoke(IPC_CHANNELS.LLM_SET_SESSION_KEY, value) as Promise<{ held: boolean; source: 'none' | 'session' | 'os' }>,
   llmSessionStatus: () => ipcRenderer.invoke(IPC_CHANNELS.LLM_SESSION_STATUS) as Promise<{ held: boolean; source: 'none' | 'session' | 'os' }>,
+  llmProbe: (draft: { provider: string; model: string; baseURL: string }) => ipcRenderer.invoke(IPC_CHANNELS.LLM_PROBE, draft) as Promise<LlmProbeResult>,
   llmStreamChat: (
     messages: Array<{ role: string; content: string }>,
     toolSpecs: Array<{ name: string; description: string; parameters: any }>,
@@ -151,6 +162,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Chat history (Agent workstream)
   loadChatHistory: (projectId: string) => ipcRenderer.invoke(IPC_CHANNELS.CHAT_LOAD_HISTORY, projectId) as Promise<ChatRecord[]>,
   saveChatMessage: (record: ChatRecord) => ipcRenderer.invoke(IPC_CHANNELS.CHAT_SAVE_MESSAGE, record) as Promise<{ ok: boolean }>,
+  clearChatHistory: (projectId: string) => ipcRenderer.invoke(IPC_CHANNELS.CHAT_CLEAR_HISTORY, projectId) as Promise<{ ok: true; removed: number } | { ok: false; error: string }>,
 
   // Knowledge and sync (KB workstream)
   searchNodeTypes: (request: SearchNodesRequest) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_SEARCH_NODES, request) as Promise<NodeClassSummary[]>,
@@ -183,6 +195,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   loadRevision: (projectId: string, revisionId: string) => ipcRenderer.invoke(IPC_CHANNELS.GRAPH_LOAD_REVISION, { projectId, revisionId }) as Promise<RevisionSnapshot | null>,
 });
 
+export type LlmProbeResult =
+  | { ok: true; latencyMs: number; provider: string; model: string }
+  | { ok: false; error: string; latencyMs: number | null };
+
+export type SettingsSaveResult =
+  | { ok: true; values: NonSecretSettings; preferences?: Preferences }
+  | { ok: false; error: string };
+
 // Type declaration for renderer
 export interface ElectronAPI {
   platform: string;
@@ -190,6 +210,8 @@ export interface ElectronAPI {
     node: string;
     chrome: string;
     electron: string;
+    /** package.json version, passed by main; '' when unknown. */
+    app?: string;
   };
   importWorkflow: () => Promise<import('../shared/commands/types').CommandResponse | { status: 'cancelled'; projection: null; result: null }>;
   importCatalog: () => Promise<
@@ -205,7 +227,8 @@ export interface ElectronAPI {
   loadProject: (id: string) => Promise<any>;
   listProjects: () => Promise<any[]>;
   getSettings: () => Promise<SettingsRead>;
-  saveSettings: (input: unknown) => Promise<{ ok: true; values: NonSecretSettings } | { ok: false; error: string }>;
+  /** `input.preferences`, when present, is a patch merged onto the stored preferences. */
+  saveSettings: (input: unknown) => Promise<SettingsSaveResult>;
   saveSecret: (value: string) => Promise<{ status: 'secret-storage-blocked' | 'stored' }>;
   forgetSecret: () => Promise<{ status: 'removed' }>;
   secretStatus: () => Promise<{ persist: boolean; backend: string; reason: string; stored: boolean }>;
@@ -240,6 +263,8 @@ export interface ElectronAPI {
   llmGetConfig: () => Promise<ChatRuntimeConfig>;
   llmSetSessionKey: (value: string) => Promise<{ held: boolean; source: 'none' | 'session' | 'os' }>;
   llmSessionStatus: () => Promise<{ held: boolean; source: 'none' | 'session' | 'os' }>;
+  /** Settings ▸ Assistant ▸ Check connection. Errors come back redacted. */
+  llmProbe: (draft: { provider: string; model: string; baseURL: string }) => Promise<LlmProbeResult>;
   llmStreamChat: (
     messages: Array<{ role: string; content: string }>,
     toolSpecs: Array<{ name: string; description: string; parameters: any }>,
@@ -250,6 +275,7 @@ export interface ElectronAPI {
   sendToolResult: (resultChannel: string, result: any) => void;
   loadChatHistory: (projectId: string) => Promise<ChatRecord[]>;
   saveChatMessage: (record: ChatRecord) => Promise<{ ok: boolean }>;
+  clearChatHistory: (projectId: string) => Promise<{ ok: true; removed: number } | { ok: false; error: string }>;
   searchNodeTypes: (request: SearchNodesRequest) => Promise<NodeClassSummary[]>;
   nodeTypeDetail: (classType: string) => Promise<NodeClassDetail | null>;
   searchModels: (request: SearchModelsRequest) => Promise<ModelSummary[]>;
