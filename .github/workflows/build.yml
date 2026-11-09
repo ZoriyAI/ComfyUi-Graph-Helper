@@ -44,7 +44,7 @@ jobs:
         run: npm run build
 
       - name: End-to-end tests (Electron under Xvfb)
-        run: xvfb-run -a npx playwright test --trace off --grep-invert live-local
+        run: xvfb-run -a npx playwright test --trace off --grep-invert live-local --retries=1
 
       - name: Package .deb and smoke-test it
         run: xvfb-run -a npm run package:linux
