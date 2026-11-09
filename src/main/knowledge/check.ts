@@ -161,7 +161,7 @@ function baseModelMismatches(db: Database.Database, nodes: CanvasNode[], edges: 
       const loraBase = familyOf(db, lora.directory, lora.name);
       for (const base of bases) {
         const otherBase = familyOf(db, base.ref.directory, base.ref.name);
-        if (familiesCompatible(loraBase, otherBase)) continue;
+        if (familiesCompatible(loraBase, otherBase, { left: lora.name, right: base.ref.name })) continue;
         found.push({ nodeId: String(node.id), model: lora.name, modelBase: loraBase, otherNodeId: base.id, otherModel: base.ref.name, otherBase });
       }
     }

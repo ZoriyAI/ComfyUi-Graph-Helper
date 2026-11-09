@@ -35,6 +35,8 @@ const RULES: ReadonlyArray<readonly [BaseModelFamily, RegExp]> = [
   ['hunyuan', /hunyuan/],
   // Civitai "Flux.1 Krea" is a Flux.1 dev fine-tune; plain "krea"/"krea2" is Krea 2, its own architecture.
   ['flux1', new RegExp(`${L}flux${SEP}1${SEP}krea`)],
+  // A file naming both Krea and Flux ("krea-flux-lora") is the Flux.1 Krea fine-tune, not Krea 2.
+  ['flux1', new RegExp(`^(?=.*${L}flux(?!${SEP}2(?!\\d)))(?=.*${L}krea${R})`)],
   ['krea', new RegExp(`${L}krea${R}`)],
   ['chroma', new RegExp(`${L}(?:chroma|kroma)${R}`)],
   ['flux2', new RegExp(`${L}flux${SEP}2(?!\\d)`)],
@@ -47,8 +49,14 @@ const RULES: ReadonlyArray<readonly [BaseModelFamily, RegExp]> = [
   ['auraflow', new RegExp(`${L}aura${SEP}flow`)],
   ['cascade', new RegExp(`${L}(?:stable${SEP})?cascade${R}`)],
   ['sdxl', new RegExp(`${L}(?:sd${SEP}xl|stable${SEP}diffusion${SEP}xl)${R}`)],
+  // A bare "XL" word ("juggernautXL", "RealVisXL_V5", "animagine-xl"): after Pony and Illustrious, which are XL too.
+  ['sdxl', new RegExp(`${L}xl${R}`)],
   ['sd2', new RegExp(`${L}(?:sd${SEP}v?${SEP}2(?:${SEP}[01])?(?!\\d)|stable${SEP}diffusion${SEP}v?${SEP}2(?!\\d))`)],
+  // The SD 2.x release names: "v2-1_768-ema-pruned", "768-v-ema".
+  ['sd2', new RegExp(`${L}(?:v${SEP}2-[01](?!\\d)|768${SEP}v${R})`)],
   ['sd15', new RegExp(`${L}(?:sd${SEP}v?${SEP}1(?:${SEP}5)?(?!\\d)|stable${SEP}diffusion${SEP}v?${SEP}1(?!\\d))`)],
+  // The SD 1.5 release names: "v1-5-pruned-emaonly"; "v1.5" only next to a release word, since it is also a plain version.
+  ['sd15', new RegExp(`${L}v${SEP}1(?:-5(?!\\d)|\\.5${SEP}(?:pruned|ema|inpainting|base)${R})`)],
 ];
 
 /** Sidecar labels Civitai uses that carry no version text the rules above can read. */
@@ -142,8 +150,32 @@ const COMPATIBLE_GROUPS: BaseModelFamily[][] = [
   ['wan2.1', 'wan2.2'],
 ];
 
-/** True when either side is unknown or both sit in one lineage. */
-export function familiesCompatible(left: BaseModelFamily, right: BaseModelFamily): boolean {
-  if (left === 'unknown' || right === 'unknown' || left === right) return true;
-  return COMPATIBLE_GROUPS.some((group) => group.includes(left) && group.includes(right));
+/** Families whose models come in parameter sizes that do not share LoRAs (Wan 1.3B / 5B / 14B). */
+const SIZED_FAMILIES = new Set<BaseModelFamily>(['wan2.1', 'wan2.2']);
+
+/** The parameter size a file name states ("wan2.2_ti2v_5B", "Wan2_1-T2V-14B"), or null. */
+export function parameterSizeOf(filename: string | null | undefined): string | null {
+  if (!filename) return null;
+  const match = /(?<![a-z0-9.])(1[._]3|5|14)\s*b(?![a-z])/.exec(normalize(baseName(filename)));
+  return match ? match[1].replace('_', '.') : null;
+}
+
+/**
+ * True when either side is unknown or both sit in one lineage. For sized families, file names that state
+ * different parameter sizes (a 5B LoRA on a 14B model) are not compatible.
+ */
+export function familiesCompatible(
+  left: BaseModelFamily,
+  right: BaseModelFamily,
+  names?: { left?: string | null; right?: string | null },
+): boolean {
+  if (left === 'unknown' || right === 'unknown') return true;
+  const sameLineage = left === right || COMPATIBLE_GROUPS.some((group) => group.includes(left) && group.includes(right));
+  if (!sameLineage) return false;
+  if (names && SIZED_FAMILIES.has(left) && SIZED_FAMILIES.has(right)) {
+    const leftSize = parameterSizeOf(names.left);
+    const rightSize = parameterSizeOf(names.right);
+    if (leftSize && rightSize && leftSize !== rightSize) return false;
+  }
+  return true;
 }
