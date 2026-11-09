@@ -167,7 +167,8 @@ test('first run: connect, sync from MCP, browse the library, build, check and ex
     await app.evaluate(({ dialog: fileDialog }, filePath) => {
       fileDialog.showSaveDialog = async () => ({ canceled: false, filePath });
     }, builtPath);
-    await window.getByRole('button', { name: 'Export', exact: true }).click();
+    // The library nodes above are still unconnected, so the export guard asks first.
+    await exportPastGuard(window, { guard: true });
     await expect.poll(() => fs.existsSync(builtPath), { timeout: 10000 }).toBe(true);
     const built = JSON.parse(fs.readFileSync(builtPath, 'utf8')) as { nodes: Array<{ type: string; widgets_values?: unknown[] }> };
     const checked = built.nodes.filter((node) => node.type === 'KSampler' || node.type === 'CheckpointLoaderSimple');

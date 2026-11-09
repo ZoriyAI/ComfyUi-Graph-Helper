@@ -159,3 +159,16 @@ describe('undo pointer', () => {
     expect(planUndo(base, 'r9', EMPTY_SESSION, { running: false })).toMatchObject({ pointer: null, undo: null, redo: null });
   });
 });
+
+describe('export guard findings', () => {
+  it('lists the check rows and unset widgets once', async () => {
+    const { exportGuardFindings } = await import('../../src/renderer/commands/exportGuard');
+    const report = {
+      ok: false, missingNodes: [], missingModels: [{ nodeId: '1', directory: 'checkpoints', name: 'x.safetensors' }], typeMismatches: [],
+      baseModelMismatches: [], unconnectedRequiredInputs: [], unknownNodeTypes: [],
+      unsetWidgets: [{ nodeId: '2', classType: 'KSampler', name: 'seed' }],
+    };
+    expect(exportGuardFindings(report).map((item) => item.textKey)).toEqual(['check.missingModelsItem', 'check.unsetWidgetsItem']);
+    expect(exportGuardFindings(null)).toEqual([]);
+  });
+});

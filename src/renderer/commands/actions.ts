@@ -6,7 +6,8 @@ import { getChatService } from '../services/llm/chatService';
 import { useUiStore } from '../state/uiState';
 import { useDockStore } from '../state/dockState';
 import { useGraphStore } from '../state/graphState';
-import { checkFindingCount, useKnowledgeStore } from '../state/knowledgeState';
+import { useKnowledgeStore } from '../state/knowledgeState';
+import { exportGuardFindings } from './exportGuard';
 import { useCanvasStore } from '../components/graph/canvasStore';
 import { commitManual } from '../components/graph/commit';
 import { askAbout } from '../components/graph/askAbout';
@@ -74,7 +75,7 @@ export async function exportWorkflowFile(): Promise<void> {
   let findings = 0;
   try {
     const report = await useKnowledgeStore.getState().runCheck(useProjectionStore.getState().projectId);
-    findings = checkFindingCount(report);
+    findings = exportGuardFindings(report).length;
   } catch {
     findings = 0;
   }

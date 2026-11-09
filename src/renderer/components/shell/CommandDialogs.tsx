@@ -8,7 +8,7 @@ import { allCommands, type CommandGroup } from '../../commands/registry';
 import { exportWorkflowNow, startNewProject } from '../../commands/actions';
 import { useKnowledgeStore } from '../../state/knowledgeState';
 import { useDockStore } from '../../state/dockState';
-import { findingsOf } from '../check/checkModel';
+import { exportGuardFindings } from '../../commands/exportGuard';
 import { useUiStore } from '../../state/uiState';
 import { version } from '../../../../package.json';
 import styles from './CommandDialogs.module.css';
@@ -133,7 +133,7 @@ const GUARD_ROWS = 6;
 function ExportGuardDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const { t } = useTranslation();
   const report = useKnowledgeStore((state) => state.check);
-  const findings = report ? findingsOf(report) : [];
+  const findings = exportGuardFindings(report);
   const shown = findings.slice(0, GUARD_ROWS);
   const close = () => onOpenChange(false);
   return (
