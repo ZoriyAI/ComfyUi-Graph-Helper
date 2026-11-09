@@ -6,14 +6,13 @@ import { useEnglish } from './locale';
 
 const FAKE_KEY = 'sk-proj-E2EFAKEKEY0123456789abcd';
 
-test('diagnostics: log file, Help menu copy and open, no key in the report, window state kept', async () => {
+test('diagnostics: log file, Help menu copy and open, no key in the report, window state saved', async () => {
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'diagnostics-'));
-  const launch = () => electron.launch({
+  const electronApp = await electron.launch({
     args: [path.join(__dirname, '../../dist/main/index.js'), `--user-data-dir=${userData}`],
     env: { ...process.env, NODE_ENV: 'production' },
   });
-  let electronApp = await launch();
-  let window = await electronApp.firstWindow();
+  const window = await electronApp.firstWindow();
   const pageErrors: string[] = [];
   const consoleErrors: string[] = [];
   window.on('pageerror', (error) => pageErrors.push(error.message));
@@ -62,22 +61,14 @@ test('diagnostics: log file, Help menu copy and open, no key in the report, wind
   expect(clipboard).toContain('# ComfyUI Graph Helper diagnostics');
   expect(clipboard).not.toContain(FAKE_KEY);
 
-  // Window bounds are remembered across launches.
+  // Window bounds are saved on close (restoring them is covered by tests/unit/windowState.test.ts; a second
+  // launch here would sit on top of windows of tests running in parallel).
   await electronApp.evaluate(({ BrowserWindow }) => {
     BrowserWindow.getAllWindows()[0].setBounds({ x: 40, y: 30, width: 1000, height: 700 });
   });
-  await window.waitForTimeout(800);
   await electronApp.close();
   const saved = JSON.parse(fs.readFileSync(path.join(userData, 'window-state.json'), 'utf8'));
   expect(saved).toMatchObject({ width: 1000, height: 700, maximized: false });
-
-  electronApp = await launch();
-  window = await electronApp.firstWindow();
-  await window.locator('.app-shell').waitFor({ timeout: 20000 });
-  const bounds = await electronApp.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getBounds());
-  expect(bounds.width).toBe(1000);
-  expect(bounds.height).toBe(700);
-  await electronApp.close();
 
   expect(pageErrors).toEqual([]);
   expect(consoleErrors).toEqual([]);
