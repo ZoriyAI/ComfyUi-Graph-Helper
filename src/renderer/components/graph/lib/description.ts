@@ -148,6 +148,8 @@ export type CardSide = 'bottom' | 'right' | 'left' | 'top';
 export interface CardPlacement {
   side: CardSide;
   compact: boolean;
+  /** True when no free place was found and this is the least covering one (only for a card that was asked for). */
+  covers?: boolean;
 }
 
 /** Gap between a node and its card under or above it, in screen pixels (NodeToolbar's offset). */
@@ -189,7 +191,12 @@ function blocked(box: Box): Box {
   return { x: box.x - HANDLE_REACH, y: box.y, width: box.width + HANDLE_REACH * 2, height: box.height };
 }
 
-function covered(rect: Box, others: Box[]): number {
+/** The area of `rect` that lies outside `bounds`. */
+function outside(rect: Box, bounds: Box): number {
+  return rect.width * rect.height - overlap(rect, bounds);
+}
+
+function coveredBy(rect: Box, others: Box[]): number {
   let total = 0;
   for (const other of others) total += overlap(rect, blocked(other));
   return total;
@@ -197,7 +204,7 @@ function covered(rect: Box, others: Box[]): number {
 
 /**
  * Overlap avoidance for one card. Tries under the node, then right, then left, then above, at full size; then a
- * compact one-line card under the node. A card nobody asked for gets null (a dot) when even that would cover
+ * compact one-line card (about the node's width) in the same order. A card nobody asked for gets null (a dot) when even that would cover
  * another node or its ports. A card that was asked for (`required`: selected, hovered, tour…) always gets a
  * place: the first free one, else the one that covers least (it is drawn above other cards).
  */
@@ -212,9 +219,12 @@ export function placeCard(input: {
   required: boolean;
   /** Sides to try, in order (the tour keeps the top for its callout). */
   sides?: CardSide[];
+  /** The visible part of the canvas: a card asked for must not land outside it (or under the floating toolbar). */
+  bounds?: Box | null;
 }): CardPlacement | null {
-  const { node, others, zoom, size, compactSize, required } = input;
+  const { node, others, zoom, size, compactSize, required, bounds } = input;
   const sides = input.sides ?? SIDES;
+  const covered = (rect: Box, list: Box[]) => coveredBy(rect, list) + (bounds ? outside(rect, bounds) : 0);
   let best: { placement: CardPlacement; cost: number } | null = null;
   const consider = (placement: CardPlacement, cost: number) => {
     if (!best || cost < best.cost) best = { placement, cost };
@@ -225,12 +235,15 @@ export function placeCard(input: {
     consider({ side, compact: false }, cost);
   }
   if (compactSize) {
-    const cost = covered(cardRect(node, 'bottom', compactSize, zoom), others);
-    if (cost === 0) return { side: 'bottom', compact: true };
-    consider({ side: 'bottom', compact: true }, cost);
+    for (const side of sides) {
+      const cost = covered(cardRect(node, side, compactSize, zoom), others);
+      if (cost === 0) return { side, compact: true };
+      consider({ side, compact: true }, cost);
+    }
   }
   if (!required) return null;
-  return (best as { placement: CardPlacement } | null)?.placement ?? { side: 'bottom', compact: false };
+  const fallback = (best as { placement: CardPlacement } | null)?.placement ?? { side: 'bottom' as const, compact: false };
+  return { ...fallback, covers: true };
 }
 
 /** Other nodes that a card of at most `reach` flow units around `node` could touch (a cheap first cut). */

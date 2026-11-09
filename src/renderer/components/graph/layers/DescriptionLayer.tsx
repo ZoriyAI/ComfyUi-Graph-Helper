@@ -16,6 +16,7 @@ import { askAbout } from '../askAbout';
 import { useCanvasView } from '../CanvasContext';
 import { useCanvasStore } from '../canvasStore';
 import {
+  HANDLE_REACH,
   descriptionVisibility,
   firstLine,
   neighbourBoxes,
@@ -209,6 +210,8 @@ interface CardProps {
   /** The node's box and the boxes of nodes near it, in flow coordinates, for overlap avoidance. */
   box: Box | null;
   neighbours: Box[];
+  /** The visible canvas in flow coordinates; given to cards someone asked for, so they open where they can be read. */
+  bounds: Box | null;
 }
 
 function sameBox(a: Box | null, b: Box | null): boolean {
@@ -230,21 +233,24 @@ function sameCard(previous: CardProps, next: CardProps): boolean {
     && previous.hovered === next.hovered && previous.focused === next.focused && previous.revealed === next.revealed
     && previous.node.data === next.node.data && previous.node.id === next.node.id
     && (previous.node.measured?.width ?? previous.node.width) === (next.node.measured?.width ?? next.node.width)
-    && sameBox(previous.box, next.box) && sameBoxes(previous.neighbours, next.neighbours);
+    && sameBox(previous.box, next.box) && sameBoxes(previous.neighbours, next.neighbours) && sameBox(previous.bounds, next.bounds);
 }
 
-/** The card's rendered size in screen pixels, kept current while it grows (expand, edit) or shrinks. */
-function useMeasuredSize(): [React.RefCallback<HTMLElement>, { width: number; height: number } | null] {
-  const [size, setSize] = useState<{ width: number; height: number } | null>(null);
+/**
+ * The card's rendered height in screen pixels, by form (expanded or not) and width, kept current while it grows
+ * (an edit) or shrinks. Keeping the forms apart lets a card try the expanded form without flip-flopping.
+ */
+function useMeasuredHeights(): [React.RefCallback<HTMLElement>, Record<string, number>] {
+  const [heights, setHeights] = useState<Record<string, number>>({});
   const observer = useRef<ResizeObserver | null>(null);
   const ref = React.useCallback((element: HTMLElement | null) => {
     observer.current?.disconnect();
     observer.current = null;
     if (!element) return;
     const read = () => {
-      const width = Math.round(element.offsetWidth);
+      const key = `${element.dataset.expanded ?? 'false'}:${Math.round(element.offsetWidth)}`;
       const height = Math.round(element.offsetHeight);
-      setSize((current) => (current && current.width === width && current.height === height ? current : { width, height }));
+      setHeights((current) => (current[key] === height ? current : { ...current, [key]: height }));
     };
     read();
     if (typeof ResizeObserver === 'undefined') return;
@@ -252,11 +258,11 @@ function useMeasuredSize(): [React.RefCallback<HTMLElement>, { width: number; he
     observer.current.observe(element);
   }, []);
   useLayoutEffect(() => () => observer.current?.disconnect(), []);
-  return [ref, size];
+  return [ref, heights];
 }
 
 const DescriptionCard = React.memo(function DescriptionCard(props: CardProps) {
-  const { node, spotlight, readOnly, purpose, mode, selected, inSelection, hovered, focused, revealed, box, neighbours } = props;
+  const { node, spotlight, readOnly, purpose, mode, selected, inSelection, hovered, focused, revealed, box, neighbours, bounds } = props;
   const { t } = useTranslation();
   const data = node.data;
   const instance = data.kind === 'subgraph-instance';
@@ -286,36 +292,49 @@ const DescriptionCard = React.memo(function DescriptionCard(props: CardProps) {
   const show = useCanvasStore((state) => state.showDescription);
   const zoom = useStore(zoomOf);
   const [editing, setEditing] = useState(false);
-  const [measureRef, measured] = useMeasuredSize();
+  const [measureRef, heights] = useMeasuredHeights();
   const spot = spotlight?.nodeId === node.id;
   const fallback = spot && spotlight ? spotlight.text.trim() : '';
   const demand: DescriptionDemand = {
     selected: selected || inSelection, hovered, focused, tour: spot, revealed, pinned: expandedByPerson, editing,
   };
   const visibility = descriptionVisibility({ mode, content, demand, fallback: Boolean(fallback) });
-  // Expanded: the tour step, an edit, the person's click, or the only selected node (unless the person collapsed it).
-  const expanded = spot || editing || expandedByPerson || (selected && !collapsedByPerson);
+  // Expanded on purpose: the tour step, an edit, the person's click. The only selected node expands too (unless the
+  // person collapsed it), but only where the expanded card has room; otherwise it stays one line (the Inspector has it all).
+  const expandedOnPurpose = spot || editing || expandedByPerson;
+  const wantsExpanded = expandedOnPurpose || (selected && !collapsedByPerson);
   const name = nodeName(data, detail?.displayName);
   const asked = spot || editing || selected || inSelection || hovered || focused || expandedByPerson;
   const raised = spot || editing || selected || hovered || focused;
 
   const nodeWidth = node.measured?.width ?? node.width ?? 240;
+  // Inside the node's own width minus the handle reach on both sides, so it clears ports of nodes that touch this one.
+  const squeezedWidth = Math.floor(Math.max(SQUEEZED_MIN_WIDTH, Math.min(MAX_WIDTH, (nodeWidth - HANDLE_REACH * 2) * zoom - 2)));
+  const plan = useMemo(() => {
+    const widthFor = (open: boolean) => Math.round(Math.min(MAX_WIDTH, Math.max(zoom < COMPACT_ZOOM && !open ? COMPACT_MIN_WIDTH : MIN_WIDTH, nodeWidth * zoom)));
+    const place = (open: boolean): CardPlacement | null => {
+      if (visibility !== 'card' || !box) return { side: 'bottom', compact: false };
+      const width = widthFor(open);
+      const height = heights[`${open}:${width}`] ?? (open ? EXPANDED_HEIGHT : COLLAPSED_HEIGHT);
+      return placeCard({
+        node: box,
+        others: neighbours,
+        zoom,
+        size: { width, height },
+        compactSize: open ? null : { width: Math.min(squeezedWidth, width), height: LINE_HEIGHT },
+        required: asked,
+        sides: spot ? ['bottom', 'right', 'left'] : undefined,
+        bounds,
+      });
+    };
+    if (wantsExpanded) {
+      const open = place(true);
+      if (expandedOnPurpose || (open && !open.covers)) return { expanded: true, width: widthFor(true), placement: open };
+    }
+    return { expanded: false, width: widthFor(false), placement: place(false) };
+  }, [visibility, box, neighbours, zoom, nodeWidth, heights, squeezedWidth, asked, spot, bounds, wantsExpanded, expandedOnPurpose]);
+  const { expanded, width, placement } = plan;
   const zoomCompact = zoom < COMPACT_ZOOM && !expanded;
-  const width = Math.round(Math.min(MAX_WIDTH, Math.max(zoomCompact ? COMPACT_MIN_WIDTH : MIN_WIDTH, nodeWidth * zoom)));
-  const height = measured && measured.width === width ? measured.height : (expanded ? EXPANDED_HEIGHT : COLLAPSED_HEIGHT);
-  const squeezedWidth = Math.round(Math.max(SQUEEZED_MIN_WIDTH, Math.min(width, nodeWidth * zoom)));
-  const placement: CardPlacement | null = useMemo(() => {
-    if (visibility !== 'card' || !box) return { side: 'bottom', compact: false };
-    return placeCard({
-      node: box,
-      others: neighbours,
-      zoom,
-      size: { width, height },
-      compactSize: expanded ? null : { width: squeezedWidth, height: LINE_HEIGHT },
-      required: asked,
-      sides: spot ? ['bottom', 'right', 'left'] : undefined,
-    });
-  }, [visibility, box, neighbours, zoom, width, height, expanded, squeezedWidth, asked, spot]);
 
   if (hidden || (visibility === 'dot') || (visibility === 'card' && !placement)) {
     // A closed card, class knowledge waiting for a look, or a card with no free room: a dot on the node's edge.
@@ -357,7 +376,7 @@ const DescriptionCard = React.memo(function DescriptionCard(props: CardProps) {
       <section
         ref={measureRef}
         className={`description-card ${styles.card}`}
-        style={{ width: squeezed ? squeezedWidth : width }}
+        style={{ width: squeezed ? Math.min(squeezedWidth, width) : width }}
         data-description-node={node.id}
         data-description-scope={content?.scope ?? 'none'}
         data-expanded={expanded ? 'true' : 'false'}
@@ -516,6 +535,14 @@ function useCardDemand(selectedIds: string[]): void {
   }, [store]);
 }
 
+/** Room kept free at the canvas edges, and under the floating toolbar at the top, in screen pixels. */
+const EDGE_PX = 8;
+const TOOLBAR_PX = 64;
+type View = [number, number, number, number, number];
+/** Pan, zoom and canvas size, rounded so sub-pixel pans do not re-place cards. */
+const viewOf = (state: ReactFlowState): View => [Math.round(state.transform[0]), Math.round(state.transform[1]), state.transform[2], state.width, state.height];
+const sameView = (a: View, b: View) => a.every((value, index) => value === b[index]);
+
 /** Widest a card can reach from its node, in screen pixels: neighbours farther than this cannot be covered. */
 const REACH_PX = MAX_WIDTH + 40;
 
@@ -583,6 +610,14 @@ export default function DescriptionLayer() {
   }, [boxes, zoom]);
 
   const single = selectedIds.length === 1 ? selectedIds[0] : null;
+  const view = useStore(viewOf, sameView);
+  const bounds = useMemo<Box | null>(() => {
+    const [tx, ty, scale] = view;
+    if (!(view[3] > 0 && view[4] > 0 && scale > 0)) return null;
+    const left = EDGE_PX;
+    const top = TOOLBAR_PX;
+    return { x: (left - tx) / scale, y: (top - ty) / scale, width: (view[3] - left - EDGE_PX) / scale, height: (view[4] - top - EDGE_PX) / scale };
+  }, [view]);
   return (
     <>
       {nodes.map((node) => (node.type === 'comfy' && !pending.includes(node.id) && node.id !== speaking
@@ -601,6 +636,7 @@ export default function DescriptionLayer() {
             revealed={node.id === revealedId}
             box={boxes.get(node.id) ?? null}
             neighbours={neighbours.get(node.id) ?? NO_BOXES}
+            bounds={node.selected || node.id === hoveredId || node.id === focusedId || node.id === spotlight?.nodeId ? bounds : null}
           />
         )
         : null))}

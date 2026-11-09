@@ -176,8 +176,11 @@ describe('card placement avoids other nodes and their ports', () => {
     expect(placeCard({ node, others, zoom: 1, size: tight, compactSize: compact, required: false })).toEqual({ side: 'bottom', compact: true });
     const closer = others.map((box, index) => (index === 0 ? { ...box, y: 112 } : box));
     expect(placeCard({ node, others: closer, zoom: 1, size: tight, compactSize: compact, required: false })).toBeNull();
+    // One line of room above (but not under): the compact card goes on top.
+    const roomAbove = closer.map((box, index) => (index === 3 ? { ...box, y: -200 } : box));
+    expect(placeCard({ node, others: roomAbove, zoom: 1, size: tight, compactSize: compact, required: false })).toEqual({ side: 'top', compact: true });
     // Asked for (selected, hovered): it always gets the least covered place.
-    expect(placeCard({ node, others: closer, zoom: 1, size: tight, compactSize: null, required: true })).not.toBeNull();
+    expect(placeCard({ node, others: closer, zoom: 1, size: tight, compactSize: null, required: true })).toMatchObject({ covers: true });
     // An expanded card cannot shrink.
     expect(placeCard({ node, others, zoom: 1, size: tight, compactSize: null, required: false })).toBeNull();
   });
@@ -186,6 +189,13 @@ describe('card placement avoids other nodes and their ports', () => {
     const below: Box = { x: 0, y: 125, width: 200, height: 100 };
     expect(placeCard({ node, others: [below], zoom: 1, size, compactSize: null, required: false, sides: ['bottom'] })).toBeNull();
     expect(placeCard({ node, others: [below], zoom: 4, size, compactSize: null, required: false, sides: ['bottom'] })).toEqual({ side: 'bottom', compact: false });
+  });
+
+  it('keeps a card someone asked for inside the visible canvas', () => {
+    // The node sits at the bottom edge of the view: under it is off screen, to the right is free.
+    const bounds: Box = { x: -500, y: -500, width: 1000, height: 610 };
+    expect(placeCard({ node, others: [], zoom: 1, size, compactSize: null, required: true, bounds })).toEqual({ side: 'right', compact: false });
+    expect(placeCard({ node, others: [], zoom: 1, size, compactSize: null, required: true })).toEqual({ side: 'bottom', compact: false });
   });
 
   it('only looks at neighbours a card could reach', () => {

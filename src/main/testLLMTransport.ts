@@ -194,6 +194,24 @@ const SCRIPTED: Array<{ match: RegExp; call: { id: string; name: string; input: 
     done: 'TEST fixture only: I put a KSampler on the canvas as a ghost. Accept it if you want it in the graph.',
   },
   {
+    // "explain node 4 (KSampler)": an explanation owned by one node, not its class.
+    match: /explain node (\S+) \((\w+)\)/i,
+    call: {
+      id: 'call-explain-node',
+      name: 'explain',
+      input: (text: string) => {
+        const found = /explain node (\S+) \((\w+)\)/i.exec(text);
+        return {
+          owner: { kind: 'node', id: found?.[1] ?? '', classType: found?.[2] ?? '' },
+          aspect: 'why',
+          text: 'This sampler renders prompt A; its latent goes to Decode.',
+          provenance: 'inference',
+        };
+      },
+    },
+    done: 'TEST fixture only: I saved why this node is here. It is an inference about this graph.',
+  },
+  {
     match: /explain this/i,
     call: {
       id: 'call-explain',

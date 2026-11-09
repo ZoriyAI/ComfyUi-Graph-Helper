@@ -59,12 +59,10 @@ test('canvas explains: context menu, tour, connect assist, subgraph breadcrumb a
   await expect(window.locator('[data-tour-step]')).toHaveCount(0);
 
   // What to connect: compatible ports light up and a hint names the best candidate.
-  // Every core node now has a seeded description card, and on this dense layout the Decode card covers the
-  // Sample output port and other nodes' titles. Cards are covered by canvas-descriptions.test.ts; keep them off
-  // for the rest of this test, which is about ports, subgraphs, replay and ghosts.
-  const descriptionsToggle = window.getByRole('button', { name: 'Descriptions on the canvas' });
-  await descriptionsToggle.click();
-  await expect(window.locator('.description-card')).toHaveCount(0);
+  // Descriptions stay in their default mode (own notes only): the seeded class knowledge waits behind dots,
+  // and a card that does open never covers a port, so nothing blocks the handle.
+  await expect(window.getByRole('button', { name: 'Descriptions on the canvas' })).toHaveAttribute('data-descriptions-mode', 'own');
+  await expect(window.locator('[data-knowledge-dot]').first()).toBeVisible();
   const handle = window.locator('.react-flow__node').filter({ hasText: 'Sample' }).first().locator('.react-flow__handle.source').first();
   await handle.click({ button: 'right' });
   await window.getByRole('menuitem', { name: 'Suggest a connection' }).click();
