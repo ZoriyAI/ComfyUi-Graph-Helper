@@ -4,14 +4,17 @@ import type { Preferences } from '../shared/config/preferences';
 import type {
   AgentTurnContext,
   ChatRecord,
+  ConnectionSuggestions,
   Explanation,
   ExplanationInput,
   GraphCheckReport,
   ListExplanationsRequest,
+  LocalDiscovery,
   McpAuthProbe,
   McpOAuthLoginResult,
   McpOAuthStatus,
   ModelDetail,
+  ModelListResult,
   ModelSummary,
   NodeClassDetail,
   NodeClassVerdict,
@@ -71,6 +74,9 @@ const IPC_CHANNELS = {
   CHAT_LOAD_HISTORY: 'chat:load-history',
   CHAT_CLEAR_HISTORY: 'chat:clear-history',
   LLM_PROBE: 'llm:probe',
+  LLM_LIST_MODELS: 'llm:list-models',
+  LLM_DISCOVER_LOCAL: 'llm:discover-local',
+  SETTINGS_CONNECTION_SUGGESTIONS: 'settings:connection-suggestions',
   KNOWLEDGE_SEARCH_NODES: 'knowledge:search-nodes',
   KNOWLEDGE_NODE_DETAIL: 'knowledge:node-detail',
   KNOWLEDGE_SEARCH_MODELS: 'knowledge:search-models',
@@ -178,6 +184,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   llmSetSessionKey: (value: string) => ipcRenderer.invoke(IPC_CHANNELS.LLM_SET_SESSION_KEY, value) as Promise<{ held: boolean; source: 'none' | 'session' | 'os' }>,
   llmSessionStatus: () => ipcRenderer.invoke(IPC_CHANNELS.LLM_SESSION_STATUS) as Promise<{ held: boolean; source: 'none' | 'session' | 'os' }>,
   llmProbe: (draft: { provider: string; model: string; baseURL: string }) => ipcRenderer.invoke(IPC_CHANNELS.LLM_PROBE, draft) as Promise<LlmProbeResult>,
+  llmListModels: (draft: { provider: string; model?: string; baseURL: string }) => ipcRenderer.invoke(IPC_CHANNELS.LLM_LIST_MODELS, draft) as Promise<ModelListResult>,
+  llmDiscoverLocal: () => ipcRenderer.invoke(IPC_CHANNELS.LLM_DISCOVER_LOCAL) as Promise<LocalDiscovery>,
+  connectionSuggestions: (probe?: boolean) => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_CONNECTION_SUGGESTIONS, probe === true) as Promise<ConnectionSuggestions>,
   llmStreamChat: (
     messages: Array<{ role: string; content: string }>,
     toolSpecs: Array<{ name: string; description: string; parameters: any }>,
@@ -349,6 +358,12 @@ export interface ElectronAPI {
   llmSessionStatus: () => Promise<{ held: boolean; source: 'none' | 'session' | 'os' }>;
   /** Settings ▸ Assistant ▸ Check connection. Errors come back redacted. */
   llmProbe: (draft: { provider: string; model: string; baseURL: string }) => Promise<LlmProbeResult>;
+  /** Settings ▸ Assistant: the models the draft provider or local server offers. A cloud key is used in main only. */
+  llmListModels: (draft: { provider: string; model?: string; baseURL: string }) => Promise<ModelListResult>;
+  /** Settings ▸ Assistant ▸ Find local servers: the MCP server's Ollama targets and servers answering on this computer. */
+  llmDiscoverLocal: () => Promise<LocalDiscovery>;
+  /** Settings ▸ Connection: reported, saved and recent addresses; with `probe`, also a ComfyUI answering on this computer. */
+  connectionSuggestions: (probe?: boolean) => Promise<ConnectionSuggestions>;
   llmStreamChat: (
     messages: Array<{ role: string; content: string }>,
     toolSpecs: Array<{ name: string; description: string; parameters: any }>,

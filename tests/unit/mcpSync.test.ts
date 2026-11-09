@@ -105,7 +105,14 @@ afterEach(() => vi.restoreAllMocks());
 
 describe('read-only MCP allowlist', () => {
   it('allows only reading actions and refuses everything else at the session', async () => {
-    expect(Object.keys(READ_ONLY_TOOLS).sort()).toEqual(['comfy_api', 'list_local_models', 'model_metadata', 'models', 'studio_capabilities', 'studio_info']);
+    expect(Object.keys(READ_ONLY_TOOLS).sort()).toEqual(['comfy_api', 'list_local_models', 'model_metadata', 'models', 'ollama_models', 'ollama_targets', 'studio_capabilities', 'studio_info']);
+    expect(isReadOnlyCall('ollama_targets', {})).toBe(true);
+    expect(isReadOnlyCall('ollama_targets', { target: 'ollama_5090' })).toBe(false);
+    expect(isReadOnlyCall('ollama_models', { target: 'ollama_5090' })).toBe(true);
+    expect(isReadOnlyCall('ollama_models', {})).toBe(false);
+    expect(isReadOnlyCall('ollama_models', { target: '' })).toBe(false);
+    expect(isReadOnlyCall('ollama_models', { target: 'x'.repeat(101) })).toBe(false);
+    expect(isReadOnlyCall('ollama_models', { target: 'ollama_5090', model: 'qwen3:14b' })).toBe(false);
     expect(isReadOnlyCall('models', { action: 'list' })).toBe(true);
     expect(isReadOnlyCall('models', { action: 'inspect' })).toBe(false);
     expect(isReadOnlyCall('models', { action: 'download' })).toBe(false);
@@ -117,7 +124,7 @@ describe('read-only MCP allowlist', () => {
     expect(isReadOnlyCall('comfy_api', { method: 'get', route: '/object_info' })).toBe(false);
     expect(isReadOnlyCall('list_local_models', { action: 'list' })).toBe(true);
     expect(isReadOnlyCall('list_local_models', { action: 'list', model_type: 'loras' })).toBe(true);
-    for (const tool of ['install_custom_node', 'download_model', 'nodepacks', 'workflow_run', 'enqueue_workflow', 'restart_comfyui', 'clear_vram', 'stage_file', 'artifact_import_begin', 'toString', '__proto__']) {
+    for (const tool of ['install_custom_node', 'download_model', 'nodepacks', 'ollama_pull', 'ollama_load', 'ollama_unload', 'ollama_chat', 'ollama', 'workflow_run', 'enqueue_workflow', 'restart_comfyui', 'clear_vram', 'stage_file', 'artifact_import_begin', 'toString', '__proto__']) {
       expect(isReadOnlyCall(tool, { action: 'list' }), tool).toBe(false);
     }
     const calls: FakeOptions['calls'] = [];

@@ -35,6 +35,11 @@ const ERROR_KEYS: Record<string, string> = {
   'The project file could not be parsed.': 'errors.parseProject',
   'The project file could not be written.': 'errors.writeProject',
   'Cloud model has no key for this session.': 'errors.cloudKey',
+  'The model list could not be read.': 'errors.modelListUnread',
+  'The server did not send the model list in time.': 'errors.modelListTimeout',
+  'The server did not answer.': 'errors.modelListUnreachable',
+  'The provider refused the key.': 'errors.modelListRefused',
+  'The server answered without a model list.': 'errors.modelListShape',
   'Cloud model has no model id.': 'errors.cloudModel',
   'Cloud key is not sent to an http address.': 'errors.cloudHttp',
   'Catalog widget order is not reliable, so those values are not exported.': 'errors.widgetOrder',
@@ -105,6 +110,8 @@ const BUILD_TOOL_NAMES = new Set(['addNode', 'connectNodes', 'setParameter', 're
 const MCP_UNREACHABLE = /^MCP server unreachable: ([A-Za-z0-9.:\[\]_-]{1,255})\.$/;
 const COMFY_NOT_RUNNING = /^ComfyUI is not running at ([A-Za-z0-9.:\[\]_-]{1,255}) — node ports were not updated; start ComfyUI and sync again\.$/;
 const MCP_SECTION = /^MCP catalog section could not be read: (node classes|node packs|model files)\.$/;
+/** src/main/llm/modelList.ts modelListHttpError. */
+const MODEL_LIST_HTTP = /^The server answered HTTP (\d{3}) to the model list request\.$/;
 const SECTION_KEYS: Record<string, string> = {
   'node classes': 'sync.section.nodeClasses',
   'node packs': 'sync.section.nodePacks',
@@ -118,6 +125,8 @@ function translatePattern(translate: Translator, code: string): string | null {
   if (unreachable) return translate('errors.mcpUnreachable', { host: unreachable[1] });
   const comfy = COMFY_NOT_RUNNING.exec(code);
   if (comfy) return translate('errors.comfyNotRunning', { host: comfy[1] });
+  const listHttp = MODEL_LIST_HTTP.exec(code);
+  if (listHttp) return translate('errors.modelListHttp', { status: listHttp[1] });
   const section = MCP_SECTION.exec(code);
   if (section) return translate('errors.mcpSection', { section: translate(SECTION_KEYS[section[1]]) });
   const unavailable = UNAVAILABLE_TOOL.exec(code);

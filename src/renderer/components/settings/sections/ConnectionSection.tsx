@@ -1,24 +1,45 @@
 import React, { useEffect, useState } from 'react';
-import type { McpOAuthStatus } from '../../../../shared/contracts';
+import { Radar } from 'lucide-react';
+import type { ConnectionSuggestions, McpOAuthStatus } from '../../../../shared/contracts';
 import { useTranslation } from 'react-i18next';
 import { explainError, type Translator } from '../../../../shared/i18n';
 import Badge from '../../../ui/Badge';
 import Button from '../../../ui/Button';
+import SuggestField from '../../../ui/SuggestField';
 import { refreshSyncStatus, useKnowledgeStore } from '../../../state/knowledgeState';
 import { formatSyncTime, syncView } from '../../sync/syncView';
 import { mcpUrlNeedsHttps } from '../../../../shared/mcp/loopback';
 import styles from '../SettingsPanel.module.css';
 import { fieldClass, hintClass, rowClass, SectionHead, type DraftProps } from './common';
+import { addressSuggestions } from './pickerItems';
 
 const STATE_TONES = { never: 'neutral', idle: 'ok', running: 'accent', error: 'danger' } as const;
 
 /** Settings ▸ Connection: the MCP server URL, the Comfy origin, and the read-only checks. */
-export default function ConnectionSection({ values, setValues, fieldError, pending, dirty }: DraftProps) {
+export default function ConnectionSection({ values, setValues, fieldError, pending, dirty, container }: DraftProps) {
   const { t } = useTranslation();
   const translate: Translator = (key, options) => (options ? String(t(key, options)) : String(t(key)));
   const status = useKnowledgeStore((state) => state.sync);
   const view = syncView(status);
   const [actionNote, setActionNote] = useState('');
+  const [known, setKnown] = useState<ConnectionSuggestions | null>(null);
+  const [looking, setLooking] = useState(false);
+  // Addresses to pick from: what the MCP server named, what is saved, what was used before, what answers here.
+  // Opening the section reads only what the app already knows; the button also looks on this computer.
+  const lookForAddresses = (probe: boolean) => {
+    setLooking(true);
+    window.electronAPI.connectionSuggestions(probe)
+      .then(setKnown)
+      .catch(() => setKnown({ comfyOrigins: [], mcpUrls: [] }))
+      .finally(() => setLooking(false));
+  };
+  useEffect(() => {
+    lookForAddresses(false);
+  }, []);
+  const comfyOptions = addressSuggestions(known?.comfyOrigins ?? [], translate);
+  const mcpOptions = addressSuggestions(known?.mcpUrls ?? [], translate);
+  const addressAction = { label: String(t('picker.lookAgain')), onClick: () => lookForAddresses(true), loading: looking, disabled: pending, icon: <Radar size={14} aria-hidden="true" /> };
+  const addressStatus = looking ? { text: String(t('picker.addressesLoading')) } : null;
 
   const readCatalog = async () => {
     const result = await window.electronAPI.readComfy();
@@ -59,27 +80,33 @@ export default function ConnectionSection({ values, setValues, fieldError, pendi
   return (
     <>
       <SectionHead title={String(t('preferences.connectionTitle'))} lead={String(t('preferences.lead.connection'))} />
-      <label className={fieldClass}>
-        {t('settings.comfyOrigin')}
-        <input
-          aria-label={String(t('settings.comfyOrigin'))}
-          value={values.comfyOrigin}
-          spellCheck={false}
-          onChange={(event) => setValues((current) => ({ ...current, comfyOrigin: event.target.value }))}
-          {...fieldError('comfyOrigin')}
-        />
-      </label>
+      <SuggestField
+        className={fieldClass}
+        label={String(t('settings.comfyOrigin'))}
+        value={values.comfyOrigin}
+        onChange={(text) => setValues((current) => ({ ...current, comfyOrigin: text }))}
+        inputProps={fieldError('comfyOrigin')}
+        suggestions={comfyOptions}
+        pickerLabel={String(t('picker.comfyList'))}
+        placeholder={String(t('picker.addressPlaceholder', { count: comfyOptions.length }))}
+        emptyText={String(t('picker.addressEmpty'))}
+        action={addressAction}
+        status={addressStatus}
+        container={container}
+      />
       <p className={hintClass}>{t('settings.comfyOriginHint')}</p>
-      <label className={fieldClass}>
-        {t('settings.mcpUrl')}
-        <input
-          aria-label={String(t('settings.mcpUrl'))}
-          value={values.mcpUrl}
-          spellCheck={false}
-          onChange={(event) => setValues((current) => ({ ...current, mcpUrl: event.target.value }))}
-          {...fieldError('mcpUrl')}
-        />
-      </label>
+      <SuggestField
+        className={fieldClass}
+        label={String(t('settings.mcpUrl'))}
+        value={values.mcpUrl}
+        onChange={(text) => setValues((current) => ({ ...current, mcpUrl: text }))}
+        inputProps={fieldError('mcpUrl')}
+        suggestions={mcpOptions}
+        pickerLabel={String(t('picker.mcpList'))}
+        placeholder={String(t('picker.addressPlaceholder', { count: mcpOptions.length }))}
+        emptyText={String(t('picker.addressEmpty'))}
+        container={container}
+      />
       <p className={hintClass}>{t('settings.mcpUrlHint')}</p>
       {mcpUrlNeedsHttps(values.mcpUrl) ? <p className={styles.errorNote} role="alert">{t('errors.mcpHttps')}</p> : null}
       <McpSignIn savedUrl={!dirty && values.mcpUrl.trim() !== ''} disabled={pending} />

@@ -63,6 +63,12 @@ export const IPC_CHANNELS = {
   LLM_STREAM_CHAT: 'llm:stream-chat',
   /** Checks a draft provider/model/base URL with one tiny request. Never part of a chat turn. */
   LLM_PROBE: 'llm:probe',
+  /** The models a draft provider / base URL offers, for the Settings picker. The key stays in main. */
+  LLM_LIST_MODELS: 'llm:list-models',
+  /** Local OpenAI-compatible servers: named by the MCP server, or answering on this computer. */
+  LLM_DISCOVER_LOCAL: 'llm:discover-local',
+  /** Addresses to pick from in Settings ▸ Connection. */
+  SETTINGS_CONNECTION_SUGGESTIONS: 'settings:connection-suggestions',
   LLM_CANCEL: 'llm:cancel',
   
   // Knowledge and sync (KB workstream)

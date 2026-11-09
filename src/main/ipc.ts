@@ -16,8 +16,11 @@ import { registerEngineIpc } from './ipc/engineIpc';
 import { registerAgentIpc } from './ipc/agentIpc';
 import { registerDiagnosticsIpc } from './ipc/diagnosticsIpc';
 import { mcpOriginOf, mcpTokenFor, mcpTokenStatus, releaseMcpTokenIfOriginChanged, setMcpToken } from './mcp/token';
-import { configureMcpOAuth, loginToMcp, logoutFromMcp, oauthStatus } from './mcp/oauth';
+import { configureMcpOAuth, loginToMcp, logoutFromMcp, mcpOAuth, oauthStatus } from './mcp/oauth';
 import { detectMcpAuth } from './mcp/detect';
+import { connectStreamableHttp, openReadOnlySession } from './mcp/client';
+import { discoverLocalServers, type OpenMcp } from './llm/localDiscovery';
+import { connectionSuggestions, rememberSavedAddresses } from './settings/connectionSuggestions';
 import { browserOpener } from './mcp/browser';
 import { reportedComfyUrl, syncService } from './mcp/sync';
 import { saveProjectRecord } from './ipc/projectRecord';
@@ -277,8 +280,15 @@ export async function setupIPC(): Promise<void> {
   });
 
   ipcMain.handle(IPC_CHANNELS.SETTINGS_SAVE, (_event, input: unknown) => {
+    const before = savedEndpoints();
     const result = saveSettings(getDatabase(), input);
     if (result.ok) {
+      // Addresses the person used before are offered again in Settings ▸ Connection.
+      try {
+        rememberSavedAddresses(getDatabase(), before, { comfyOrigin: result.values.comfyOrigin, mcpUrl: result.values.mcpUrl });
+      } catch {
+        // History is a convenience; a failed write never fails the save.
+      }
       refreshBlockedWebOrigins();
       // A token given for one MCP server is not sent to another.
       releaseMcpTokenIfOriginChanged(result.values.mcpUrl);
@@ -447,6 +457,37 @@ export async function setupIPC(): Promise<void> {
     const input = draft && typeof draft === 'object' ? draft as Record<string, unknown> : {};
     return mainLLMService.probe({ provider: input.provider, model: input.model, baseURL: input.baseURL });
   });
+
+  // Settings ▸ Assistant ▸ model list. A cloud request carries the key held in main; the renderer gets ids only.
+  ipcMain.handle(IPC_CHANNELS.LLM_LIST_MODELS, (_event, draft: unknown) => {
+    const input = draft && typeof draft === 'object' ? draft as Record<string, unknown> : {};
+    return mainLLMService.listModels({ provider: input.provider, model: input.model, baseURL: input.baseURL });
+  });
+
+  // Settings ▸ Assistant ▸ Find local servers: the MCP server's Ollama targets (read-only tools) and loopback probes.
+  ipcMain.handle(IPC_CHANNELS.LLM_DISCOVER_LOCAL, () => {
+    const url = savedEndpoints().mcpUrl;
+    const openMcp: OpenMcp | null = url ? async () => {
+      // The same offer as a sync makes: what the person chose in Settings ▸ Connection, else whatever is held.
+      const read = readSettings(getDatabase());
+      const mode = read.source === 'corrupt' ? '' : read.values.mcpAuth;
+      const token = mode === 'none' || mode === 'oauth' ? null : mcpTokenFor(url);
+      let authProvider = null;
+      if (!token && mode !== 'none' && mode !== 'token') {
+        try {
+          authProvider = (await mcpOAuth()?.backgroundProvider(url)) ?? null;
+        } catch {
+          authProvider = null;
+        }
+      }
+      return openReadOnlySession({ url, token, authProvider }, connectStreamableHttp);
+    } : null;
+    return discoverLocalServers({ fetchImpl: (...args) => globalThis.fetch(...args), openMcp });
+  });
+
+  ipcMain.handle(IPC_CHANNELS.SETTINGS_CONNECTION_SUGGESTIONS, (_event, probe: unknown) => (
+    connectionSuggestions(getDatabase(), (...args) => globalThis.fetch(...args), { probe: probe === true })
+  ));
 
   // llm:stream-chat and chat history are registered by registerAgentIpc (src/main/ipc/agentIpc.ts).
 

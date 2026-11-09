@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { PlugZap } from 'lucide-react';
+import { PlugZap, Radar, RefreshCw } from 'lucide-react';
+import type { LocalServer, ModelChoice } from '../../../../shared/contracts/pickers';
 import type { NonSecretSettings } from '../../../../shared/config/schema';
 import { CONTEXT_TOKENS, isPreferenceProvider, MODEL_SUGGESTIONS, STEP_LIMIT, type PreferenceProvider } from '../../../../shared/config/preferences';
 import { contextWindowFor } from '../../../../shared/agent/contextWindow';
@@ -11,11 +12,13 @@ import Button from '../../../ui/Button';
 import NumberField from '../../../ui/NumberField';
 import RadioCards from '../../../ui/RadioCards';
 import SelectField from '../../../ui/SelectField';
+import SuggestField, { type SuggestStatus } from '../../../ui/SuggestField';
 import Switch from '../../../ui/Switch';
 import { cx } from '../../../ui/cx';
 import { providerKeyState, useProviderStore, type ProviderKeyState } from '../../../state/providerState';
 import styles from '../SettingsPanel.module.css';
 import { fieldClass, Group, hintClass, patchSection, rowClass, SectionHead, type DraftProps } from './common';
+import { listable, modelSuggestions, serverFor, serverSuggestions, withKnownFacts } from './pickerItems';
 
 const PROVIDERS: Array<{ value: NonSecretSettings['provider']; labelKey: string; descriptionKey: string }> = [
   { value: '', labelKey: 'settings.providerNone', descriptionKey: 'preferences.providerDesc.none' },
@@ -30,14 +33,62 @@ const KEY_TONES: Record<ProviderKeyState, BadgeTone> = { none: 'neutral', test: 
 
 type ProbeNote = { kind: 'idle' } | { kind: 'running' } | { kind: 'ok'; ms: number } | { kind: 'failed'; error: string };
 
+type ModelList = { kind: 'idle' } | { kind: 'loading' } | { kind: 'ok'; models: ModelChoice[]; source: string } | { kind: 'failed'; error: string };
+type Discovery = { kind: 'idle' } | { kind: 'loading' } | { kind: 'done'; servers: LocalServer[]; notes: string[] };
+
+/** Typing in the base URL asks again after a short pause, not on every key. */
+const LIST_DEBOUNCE_MS = 450;
+
 /** Settings ▸ Assistant: provider cards, model and base URL, Check connection, and how the helper behaves. */
 export default function AssistantSection({ values, setValues, prefs, setPrefs, container, fieldError, pending }: DraftProps) {
   const { t } = useTranslation();
   const translate: Translator = (key, options) => (options ? String(t(key, options)) : String(t(key)));
   const keySource = useProviderStore((state) => state.keySource);
   const [probe, setProbe] = useState<ProbeNote>({ kind: 'idle' });
+  const [modelList, setModelList] = useState<ModelList>({ kind: 'idle' });
+  const [listTick, setListTick] = useState(0);
+  const [discovery, setDiscovery] = useState<Discovery>({ kind: 'idle' });
+  const listRequest = useRef(0);
+  const discoveryStarted = useRef(false);
   const provider = values.provider;
   const remembered: PreferenceProvider | null = isPreferenceProvider(provider) ? provider : null;
+  const errorText = (code: string) => {
+    const explained = explainError(translate, code);
+    return explained.diagnostic ?? explained.summary;
+  };
+
+  // The model list follows the provider, the base URL and the key: whenever one changes, the list is read again.
+  useEffect(() => {
+    const ticket = ++listRequest.current;
+    if (!listable(provider, values.baseURL)) {
+      setModelList({ kind: 'idle' });
+      return undefined;
+    }
+    const timer = setTimeout(() => {
+      setModelList({ kind: 'loading' });
+      window.electronAPI.llmListModels({ provider, baseURL: values.baseURL })
+        .then((result) => {
+          if (ticket !== listRequest.current) return;
+          setModelList(result.ok ? { kind: 'ok', models: result.models, source: result.source } : { kind: 'failed', error: result.error });
+        })
+        .catch(() => {
+          if (ticket === listRequest.current) setModelList({ kind: 'failed', error: 'The model list could not be read.' });
+        });
+    }, LIST_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [provider, values.baseURL, keySource, listTick]);
+
+  const findServers = () => {
+    discoveryStarted.current = true;
+    setDiscovery({ kind: 'loading' });
+    window.electronAPI.llmDiscoverLocal()
+      .then((found) => setDiscovery({ kind: 'done', servers: found.servers, notes: found.notes }))
+      .catch(() => setDiscovery({ kind: 'done', servers: [], notes: [] }));
+  };
+  // A local provider looks for servers once by itself, so the list is there when the section opens.
+  useEffect(() => {
+    if (provider === 'local' && !discoveryStarted.current) findServers();
+  }, [provider]);
 
   const chooseProvider = (next: string) => {
     const value = next as NonSecretSettings['provider'];
@@ -82,6 +133,38 @@ export default function AssistantSection({ values, setValues, prefs, setPrefs, c
     model: values.model || '—',
     source: t(chosenWindow.source === 'override' ? 'preferences.contextSourceOverride' : chosenWindow.source === 'known' ? 'preferences.contextSourceKnown' : 'preferences.contextSourceDefault'),
   }));
+  const servers = discovery.kind === 'done' ? discovery.servers : [];
+  const known = provider === 'local' ? serverFor(servers, values.baseURL)?.models : undefined;
+  const models = modelList.kind === 'ok' ? withKnownFacts(modelList.models, known) : [];
+  const chosenModel = models.find((model) => model.id === values.model.trim());
+  const modelStatus: SuggestStatus | null = modelList.kind === 'loading'
+    ? { text: String(t('picker.modelsLoading')) }
+    : modelList.kind === 'ok'
+      ? models.length > 0
+        ? { text: String(t('picker.modelsFound', { count: models.length, source: modelList.source })), tone: 'good' }
+        : { text: String(t('picker.modelsNone', { source: modelList.source })) }
+      : modelList.kind === 'failed'
+        ? { text: String(t('picker.modelsFailed', { error: errorText(modelList.error) })), tone: 'bad' }
+        : provider === 'local'
+          ? { text: String(t('picker.modelsNeedServer')) }
+          : null;
+  const discoveryStatus: SuggestStatus | null = discovery.kind === 'loading'
+    ? { text: String(t('picker.serversLoading')) }
+    : discovery.kind === 'done'
+      ? {
+        text: [
+          String(servers.length > 0 ? t('picker.serversFound', { count: servers.length }) : t('picker.serversNone')),
+          ...discovery.notes.map((note) => String(t('picker.serversNote', { note: errorText(note) }))),
+        ].join(' '),
+        tone: servers.length > 0 ? 'good' : 'neutral',
+      }
+      : null;
+  // Picking a server fills the address (the model list follows) and, while no model is chosen, its default model.
+  const pickServer = (value: string) => {
+    setRuntime('baseURL', value);
+    const server = serverFor(servers, value);
+    if (server?.defaultModel && values.model.trim() === '') setRuntime('model', server.defaultModel);
+  };
   const probeText = probe.kind === 'ok'
     ? String(t('preferences.checkOk', { ms: probe.ms }))
     : probe.kind === 'failed'
@@ -112,17 +195,46 @@ export default function AssistantSection({ values, setValues, prefs, setPrefs, c
         })}
       />
       {providerHint ? <p className={hintClass}>{providerHint}</p> : null}
-      <label className={fieldClass}>
-        {t('settings.model')}
-        <input
-          aria-label={String(t('settings.model'))}
-          value={values.model}
-          spellCheck={false}
-          onChange={(event) => setRuntime('model', event.target.value)}
-          {...fieldError('model')}
+      {provider === 'local' ? (
+        <SuggestField
+          className={fieldClass}
+          label={String(t('settings.baseUrl'))}
+          value={values.baseURL}
+          onChange={(text) => setRuntime('baseURL', text)}
+          onPick={pickServer}
+          inputProps={fieldError('baseURL')}
+          suggestions={serverSuggestions(servers, translate)}
+          pickerLabel={String(t('picker.serverList'))}
+          placeholder={String(t('picker.serverPlaceholder', { count: servers.length }))}
+          emptyText={String(t('picker.serverEmpty'))}
+          action={{ label: String(t('picker.findServers')), onClick: findServers, loading: discovery.kind === 'loading', disabled: pending, icon: <Radar size={14} aria-hidden="true" /> }}
+          status={discoveryStatus}
+          container={container}
         />
-      </label>
-      {remembered ? (
+      ) : null}
+      {provider === 'local' ? <p className={hintClass}>{t('settings.baseUrlHint')}</p> : null}
+      <SuggestField
+        className={fieldClass}
+        label={String(t('settings.model'))}
+        value={values.model}
+        onChange={(text) => setRuntime('model', text)}
+        inputProps={fieldError('model')}
+        suggestions={modelSuggestions(models, translate)}
+        pickerLabel={String(t('picker.modelList'))}
+        placeholder={String(t('picker.modelPlaceholder', { count: models.length }))}
+        emptyText={String(t('picker.modelEmpty'))}
+        action={listable(provider, values.baseURL) ? {
+          label: String(t('picker.refreshModels')),
+          onClick: () => setListTick((tick) => tick + 1),
+          loading: modelList.kind === 'loading',
+          disabled: pending,
+          icon: <RefreshCw size={14} aria-hidden="true" />,
+        } : undefined}
+        status={modelStatus}
+        container={container}
+      />
+      {chosenModel?.tools === false ? <p className={styles.errorNote} role="alert">{t('picker.modelsNoTools')}</p> : null}
+      {remembered && !(modelList.kind === 'ok' && models.length > 0) ? (
         <div className={styles.suggestions}>
           <span className={hintClass}>{t('preferences.suggestions')}</span>
           <div className={styles.chips}>
@@ -141,17 +253,19 @@ export default function AssistantSection({ values, setValues, prefs, setPrefs, c
           </div>
         </div>
       ) : null}
-      <label className={fieldClass}>
-        {t('settings.baseUrl')}
-        <input
-          aria-label={String(t('settings.baseUrl'))}
-          value={values.baseURL}
-          spellCheck={false}
-          onChange={(event) => setRuntime('baseURL', event.target.value)}
-          {...fieldError('baseURL')}
-        />
-      </label>
-      <p className={hintClass}>{t('settings.baseUrlHint')}</p>
+      {provider !== 'local' ? (
+        <label className={fieldClass}>
+          {t('settings.baseUrl')}
+          <input
+            aria-label={String(t('settings.baseUrl'))}
+            value={values.baseURL}
+            spellCheck={false}
+            onChange={(event) => setRuntime('baseURL', event.target.value)}
+            {...fieldError('baseURL')}
+          />
+        </label>
+      ) : null}
+      {provider !== 'local' ? <p className={hintClass}>{t('settings.baseUrlHint')}</p> : null}
       <div className={cx(rowClass, styles.rowStart)}>
         <Button
           size="sm"
