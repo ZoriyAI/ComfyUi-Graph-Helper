@@ -35,10 +35,12 @@ export interface PageText {
 
 export const SEARCH_ENDPOINT = 'https://html.duckduckgo.com/html/?q=';
 export const WEB_TIMEOUT_MS = 10_000;
+/** Protective: search results come from an outside page; eight links are what one search answer needs. */
 export const MAX_RESULTS = 8;
 /** Protective: a web page is outside data. Both numbers are stated in the fetchPage description and Preferences. */
 export const PAGE_BYTE_CAP = FETCH_PAGE_BYTE_CAP;
 export const PAGE_TEXT_CAP = FETCH_PAGE_TEXT_CAP;
+/** Protective: a redirect chain longer than three is refused with an error the model sees. */
 export const MAX_REDIRECTS = 3;
 
 const USER_AGENT = 'ComfyUI-Graph-Helper/0.1 (+read-only page reader)';

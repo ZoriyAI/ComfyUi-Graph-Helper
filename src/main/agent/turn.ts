@@ -67,6 +67,7 @@ function specs(input: unknown): RendererToolSpec[] {
 }
 
 const BUILD = new Set<string>(AGENT_BUILD_TOOLS);
+/** A recency window, not a cap on data: the prompt says when the list is the latest 30 only; the graph is complete. */
 const RECENT_LIMIT = 30;
 
 /**
@@ -93,6 +94,7 @@ function priorityIds(context: AgentTurnContext, recent: RecentCommand[]): string
   const asked = context.objectRef;
   if (asked?.kind === 'node') ids.push(asked.id);
   if (asked?.nodeId) ids.push(asked.nodeId);
+  // Which nodes a compact (300+ node) prompt writes in full; every node is listed either way.
   for (const command of recent.slice(-10)) ids.push(...command.ids);
   return [...new Set(ids)];
 }
@@ -154,6 +156,7 @@ export async function runAgentTurn(options: AgentTurnOptions): Promise<void> {
       graph: projection ? summarizeGraph(projection.snapshot, { selectedIds, priorityIds: priorityIds(context, recent), omitValues: !privacy.sendFieldValues }) : null,
       catalog: catalogSummaryText(db, knowledge, question),
       recent,
+      recentWindow: RECENT_LIMIT,
       question,
       preferences: { ...assistant, sendFieldValues: privacy.sendFieldValues },
     }));

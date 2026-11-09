@@ -195,12 +195,12 @@ describe('getGraph paging and the prompt cap (item 3)', () => {
 });
 
 describe('turn context, language, history, loop guard (items 7, 9, 10)', () => {
-  it('drops a bad selection item instead of the whole context, and clips to 200', () => {
+  it('drops a bad selection item instead of the whole context, and keeps a large selection whole', () => {
     const parsed = parseTurnContext({ intent: 'build', selection: [{ kind: 'node', id: 'n1' }, { kind: 'bogus', id: 'x' }, 42, { kind: 'node', id: 'n2' }] }, 'en');
     expect(parsed.intent).toBe('build');
     expect(parsed.selection.map((ref) => ref.id)).toEqual(['n1', 'n2']);
     const big = parseTurnContext({ intent: 'ask', selection: Array.from({ length: 250 }, (_, index) => ({ kind: 'node', id: `n${index}` })) }, 'ru');
-    expect(big.selection).toHaveLength(200);
+    expect(big.selection).toHaveLength(250);
     expect(big.language).toBe('ru');
   });
 

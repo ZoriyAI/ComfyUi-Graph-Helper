@@ -245,6 +245,25 @@ describe('history by context window', () => {
   });
 });
 
+describe('catalog searches: no maximum, and "more" when the list goes on', () => {
+  it('returns the default 20 with more: true, and any larger limit the model asks for', async () => {
+    const db = openDb();
+    const rows = Array.from({ length: 75 }, (_, index) => ({ classType: `Node${index}` }));
+    const knowledge = { ...fakeKnowledge(), searchNodeClasses: (_db: unknown, request: { limit?: number }) => rows.slice(0, request.limit ?? 30) } as any;
+    const tools = createAgentTools({ db, projectId: DESKTOP_PROJECT_ID, runId: null, revision: 'r', knowledge, proposals: fakeProposals() });
+    const call = (args: unknown) => (tools.searchNodeTypes as AgentToolDefinition).execute(args) as Promise<any>;
+    const first = await call({ query: '' });
+    expect(first.results).toHaveLength(20);
+    expect(first.more).toBe(true);
+    expect(first.note).toContain('More than 20 match');
+    const all = await call({ query: '', limit: 500 });
+    expect(all.results).toHaveLength(75);
+    expect(all.more).toBeUndefined();
+    expect(MAIN_TOOL_SPECS.searchNodeTypes.parameters).not.toHaveProperty('properties.limit.maximum');
+    expect(MAIN_TOOL_SPECS.findInstalledModels.parameters).not.toHaveProperty('properties.limit.maximum');
+  });
+});
+
 describe('external page cap: higher and stated', () => {
   it('reads up to 10 MB and returns up to 60k characters, and the tool description says so', () => {
     expect(PAGE_BYTE_CAP).toBe(10 * 1024 * 1024);

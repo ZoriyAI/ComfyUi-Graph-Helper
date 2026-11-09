@@ -31,7 +31,7 @@ export interface PortHandle { handle: string; name: string; type: string }
 
 function portHandles(value: unknown, prefix: 'in' | 'out'): PortHandle[] {
   if (!Array.isArray(value)) return [];
-  return value.slice(0, 60).map((port, index) => {
+  return value.map((port, index) => {
     const item = (port && typeof port === 'object' ? port : {}) as { id?: unknown; name?: unknown; dataType?: unknown; type?: unknown };
     return {
       handle: typeof item.id === 'string' && item.id !== '' ? item.id : `${prefix}-${index}`,

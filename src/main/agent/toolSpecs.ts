@@ -50,13 +50,13 @@ export const MAIN_TOOL_SPECS: Record<AgentReadTool | AgentKnowledgeTool | AgentP
     },
   },
   searchNodeTypes: {
-    description: 'Search node classes installed in this person\'s ComfyUI by name, display name, or category.',
+    description: 'Search node classes installed in this person\'s ComfyUI by name, display name, or category. 20 results by default; more: true means more match (pass a larger limit).',
     parameters: {
       type: 'object',
       properties: {
         query: { type: 'string', description: 'Words to look for, e.g. "sampler" or "upscale".' },
         category: { type: 'string', description: 'Optional category prefix, e.g. "sampling".' },
-        limit: { type: 'integer', minimum: 1, maximum: 50 },
+        limit: { type: 'integer', minimum: 1, description: 'Results to return (default 20, no maximum).' },
       },
       required: ['query'],
     },
@@ -70,7 +70,7 @@ export const MAIN_TOOL_SPECS: Record<AgentReadTool | AgentKnowledgeTool | AgentP
     },
   },
   findInstalledModels: {
-    description: 'Search model files on this person\'s disk (checkpoints, LoRAs, VAEs, …) with their base-model family.',
+    description: 'Search model files on this person\'s disk (checkpoints, LoRAs, VAEs, …) with their base-model family. 20 results by default; more: true means more match (pass a larger limit).',
     parameters: {
       type: 'object',
       properties: {
@@ -78,7 +78,7 @@ export const MAIN_TOOL_SPECS: Record<AgentReadTool | AgentKnowledgeTool | AgentP
         directory: { type: 'string', description: 'ComfyUI models directory, e.g. "loras" or "checkpoints".' },
         baseModel: { type: 'string', enum: BASE_FAMILIES },
         kind: { type: 'string', enum: MODEL_KINDS },
-        limit: { type: 'integer', minimum: 1, maximum: 50 },
+        limit: { type: 'integer', minimum: 1, description: 'Results to return (default 20, no maximum).' },
       },
       required: ['query'],
     },

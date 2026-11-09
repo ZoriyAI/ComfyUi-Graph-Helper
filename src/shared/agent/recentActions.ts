@@ -33,7 +33,7 @@ export function recentPayload(type: string, payload: Record<string, unknown>, re
     }
     for (const key of ['nodeIds'] as const) {
       const list = source[key];
-      if (Array.isArray(list)) for (const item of list.slice(0, 20)) if (typeof item === 'string') ids.add(item);
+      if (Array.isArray(list)) for (const item of list) if (typeof item === 'string') ids.add(item);
     }
   }
   return { payload: kept, ids: [...ids] };
@@ -98,7 +98,7 @@ export function recentActionsText(commands: RecentCommand[], summary: GraphSumma
   const phrases = manual
     .filter((command, index) => command.type !== 'move-node' || lastMove.get(str(command.payload.nodeId)) === index)
     .map((command) => describeCommand(command, summary));
-  const selected = selectedIds.slice(0, 20).map((id) => safeText(id, 80)).filter((id) => id !== '');
+  const selected = selectedIds.map((id) => safeText(id, 80)).filter((id) => id !== '');
   if (selected.length > 0) phrases.push(`selected ${selected.length === 1 ? 'node' : 'nodes'} ${selected.join(', ')}`);
   return phrases.join('; ');
 }
