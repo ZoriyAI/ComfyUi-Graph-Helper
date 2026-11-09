@@ -196,7 +196,12 @@ test('first run: connect, sync from MCP, browse the library, build, check and ex
       expect(WRITE_TOOLS as readonly string[]).not.toContain(call.tool);
       expect(isReadOnlyCall(String(call.tool), call.args ?? {})).toBe(true);
     }
-    expect(fake.calls.every((call) => call.authorized)).toBe(true);
+    // "Check" knocks without credentials on purpose (that is how it learns a token is needed) and is turned away
+    // before any tool runs; every tool call afterwards carried the token.
+    expect(toolCalls.every((call) => call.authorized)).toBe(true);
+    const anonymous = fake.calls.filter((call) => !call.authorized);
+    expect(anonymous.length).toBeGreaterThan(0);
+    expect(anonymous.some((call) => call.method === 'tools/call')).toBe(false);
     expect(fake.comfyHits).toEqual(['GET /system_stats', 'GET /object_info']);
     expect(containsMarker(userData, TOKEN)).toBeNull();
     expect(errors).toEqual([]);
