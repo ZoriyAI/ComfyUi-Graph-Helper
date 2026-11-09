@@ -294,6 +294,51 @@ async function fit(page) {
     await page.setViewportSize({ width: 1440, height: 900 });
   });
 
+  // Live build: an empty canvas, the TEST fixture builds a text-to-image graph step by step. One shot mid-build
+  // (a node with its speech-bubble why and the live-build strip), one after the run (description cards).
+  await step('live-build', async () => {
+    await page.evaluate(async () => {
+      const api = window.electronAPI;
+      for (const proposal of await api.listProposals('desktop')) {
+        if (proposal.status === 'proposed') await api.resolveProposal({ projectId: 'desktop', proposalId: proposal.id, decision: 'reject' });
+      }
+      const projection = await api.readProjection('desktop');
+      return api.commitCommand({
+        projectId: 'desktop',
+        actionId: `shot-clear-${Date.now()}`,
+        expectedRevisionId: projection.currentRevisionId,
+        actor: 'manual',
+        runId: null,
+        payload: { type: 'import-workflow', document: { last_node_id: 0, last_link_id: 0, nodes: [], links: [], version: 0.4 } },
+      });
+    });
+    await page.reload();
+    await page.locator('.app-shell').waitFor();
+    await page.waitForTimeout(1200);
+    const follow = page.getByRole('button', { name: /follow the helper|следить за помощником/i }).first();
+    if ((await follow.getAttribute('aria-pressed')) !== 'true') await follow.click();
+    await page.getByRole('tab', { name: /assistant|ассист/i }).first().click();
+    await page.locator('#chat-provider').click();
+    await page.waitForTimeout(300);
+    await page.getByRole('option', { name: /TEST|фикстура/i }).first().click();
+    await page.waitForTimeout(300);
+    const input = page.locator('textarea[aria-label]').first();
+    await input.fill('build a text to image graph');
+    await input.press('Enter');
+    await page.waitForTimeout(1500 - 450);
+    await shot(page, '22-en-live-build-mid');
+    await page.locator('[data-build-callout]').filter({ hasText: 'sampler removes noise' }).first().waitFor({ timeout: 30000 });
+    // The next step replaces the bubble within a second: take this one as soon as its pop-in has played.
+    await page.waitForTimeout(380);
+    const samplerShot = path.join(outDir, '22b-en-live-build-sampler.png');
+    await page.screenshot({ path: samplerShot, fullPage: false });
+    taken.push(samplerShot);
+    await page.locator('[data-live-build]').waitFor({ state: 'detached', timeout: 60000 });
+    await page.waitForTimeout(4500);
+    await fit(page);
+    await shot(page, '23-en-live-build-done');
+  });
+
   fs.writeFileSync(path.join(outDir, 'console-errors.txt'), errors.join('\n'));
   console.log('console errors:', errors.length);
   console.log(`screenshots (${taken.length}):\n${taken.join('\n')}`);
