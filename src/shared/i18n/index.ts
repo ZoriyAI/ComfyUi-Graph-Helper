@@ -86,9 +86,19 @@ const ERROR_KEYS: Record<string, string> = {
 /** McpRefusedError text carries the tool name; it is translated with the name kept. */
 const MCP_REFUSED = /^MCP tool call refused: ([A-Za-z0-9_.-]{1,80}) is not on the read-only list\.$/;
 
+/** AI SDK NoSuchToolError: the model asked for a tool this turn does not offer (a build tool in an Ask turn). */
+const UNAVAILABLE_TOOL = /Model tried to call unavailable tool '([A-Za-z0-9_.-]{1,80})'/;
+const BUILD_TOOL_NAMES = new Set(['addNode', 'connectNodes', 'setParameter', 'removeNode', 'createSubgraph', 'insertSubgraph', 'annotateNode', 'setComponentDocumentation', 'setProcess']);
+
 function translatePattern(translate: Translator, code: string): string | null {
   const refused = MCP_REFUSED.exec(code);
   if (refused) return translate('errors.mcpRefused', { tool: refused[1] });
+  const unavailable = UNAVAILABLE_TOOL.exec(code);
+  if (unavailable) {
+    return BUILD_TOOL_NAMES.has(unavailable[1])
+      ? translate('errors.buildToolInAsk', { tool: unavailable[1] })
+      : translate('errors.toolUnavailable', { tool: unavailable[1] });
+  }
   return null;
 }
 

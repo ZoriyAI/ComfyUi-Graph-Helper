@@ -332,7 +332,8 @@ export class ChatService {
             const message = isRecord(source)
               ? (typeof source.message === 'string' ? source.message : typeof source.error === 'string' ? source.error : 'Tool failed')
               : typeof source === 'string' ? source : 'Tool failed';
-            settleTool(id, name, { status: 'error', result: output, error: message });
+            // Raw SDK errors (NoSuchToolError and friends) read as a stack of tool names; show the catalog sentence.
+            settleTool(id, name, { status: 'error', result: output, error: translateKnownError(translate, message) ?? message });
           } else if (output !== undefined) {
             const settled = settleFromResult(output);
             settleTool(id, name, { status: settled.status, result: output, error: settled.error });
