@@ -6,7 +6,7 @@ import { getChatService } from '../services/llm/chatService';
 import { useUiStore } from '../state/uiState';
 import { useDockStore } from '../state/dockState';
 import { useGraphStore } from '../state/graphState';
-import { useKnowledgeStore } from '../state/knowledgeState';
+import { checkFindingCount, useKnowledgeStore } from '../state/knowledgeState';
 import { useCanvasStore } from '../components/graph/canvasStore';
 import { commitManual } from '../components/graph/commit';
 import { askAbout } from '../components/graph/askAbout';
@@ -66,7 +66,27 @@ export async function importCatalogSnapshot(): Promise<void> {
   notify({ kind: 'catalog', nodes: result.result.nodes, models: result.result.models, skipped: result.result.skipped.length });
 }
 
+/**
+ * File ▸ Export: checks the graph first. With findings, the export guard dialog asks (Open check, Export
+ * anyway, Cancel); with none, or when the check itself cannot run, the file dialog opens at once.
+ */
 export async function exportWorkflowFile(): Promise<void> {
+  let findings = 0;
+  try {
+    const report = await useKnowledgeStore.getState().runCheck(useProjectionStore.getState().projectId);
+    findings = checkFindingCount(report);
+  } catch {
+    findings = 0;
+  }
+  if (findings > 0) {
+    useUiStore.getState().setDialog('export-guard');
+    return;
+  }
+  await exportWorkflowNow();
+}
+
+/** Writes the workflow file without a check: the export guard's "Export anyway". */
+export async function exportWorkflowNow(): Promise<void> {
   const result = await window.electronAPI.exportWorkflow();
   if (!result.ok && result.canceled) return;
   notify(result.ok ? { kind: 'exported' } : { kind: 'error', code: result.error || 'Export failed.' });
