@@ -12,6 +12,7 @@ import type { Projection } from '../../shared/commands/types';
 import type { AgentProposalTool, ObjectRef, ProposalKind } from '../../shared/contracts';
 import { MAIN_TOOL_SPECS } from './toolSpecs';
 import { fetchPageText, searchWebFallback, type FetchLike } from './web';
+import { validateNodeClass } from '../knowledge/nodeClassGuard';
 
 /** The knowledge functions the agent reads through. Defaults to the KB repository. */
 export type KnowledgeApi = Pick<typeof knowledgeRepository,
@@ -212,6 +213,8 @@ export function createAgentTools(deps: AgentToolDeps): Record<string, AgentToolD
     if (!payload) return fail(`${name} cannot be proposed yet: the ${twin} shape is not mapped to a graph change.`);
     const kind = PROPOSAL_KINDS.find((item) => item === payload.type);
     if (!kind) return fail(`${name} produced a ${payload.type} change, which is not a proposal kind.`);
+    const guard = payload.type === 'add-node' ? validateNodeClass(db, payload.nodeType) : null;
+    if (guard && !guard.ok) return { ...fail(guard.error), suggestions: guard.suggestions };
     const proposal = proposals.createProposal(db, {
       projectId,
       runId: deps.runId,
@@ -231,6 +234,7 @@ export function createAgentTools(deps: AgentToolDeps): Record<string, AgentToolD
       proposalId: proposal.id,
       kind,
       note: proposal.note,
+      ...(guard?.ok && guard.warning ? { warning: guard.warning } : {}),
     };
   });
 

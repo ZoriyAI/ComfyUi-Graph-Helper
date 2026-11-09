@@ -13,6 +13,7 @@ import type {
   ModelDetail,
   ModelSummary,
   NodeClassDetail,
+  NodeClassVerdict,
   NodeClassSummary,
   Proposal,
   ProposalResolution,
@@ -73,6 +74,7 @@ const IPC_CHANNELS = {
   KNOWLEDGE_LIST_EXPLANATIONS: 'knowledge:list-explanations',
   KNOWLEDGE_SAVE_EXPLANATION: 'knowledge:save-explanation',
   KNOWLEDGE_CHECK_GRAPH: 'knowledge:check-graph',
+  KNOWLEDGE_VALIDATE_NODE_CLASS: 'knowledge:validate-node-class',
   SYNC_STATUS: 'sync:status',
   SYNC_NOW: 'sync:now',
   SYNC_SET_AUTO: 'sync:set-auto',
@@ -214,6 +216,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Knowledge and sync (KB workstream)
   searchNodeTypes: (request: SearchNodesRequest) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_SEARCH_NODES, request) as Promise<NodeClassSummary[]>,
   nodeTypeDetail: (classType: string) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_NODE_DETAIL, classType) as Promise<NodeClassDetail | null>,
+  validateNodeClass: (classType: string) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_VALIDATE_NODE_CLASS, classType) as Promise<NodeClassVerdict>,
   searchModels: (request: SearchModelsRequest) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_SEARCH_MODELS, request) as Promise<ModelSummary[]>,
   modelDetail: (directory: string, name: string) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_MODEL_DETAIL, { directory, name }) as Promise<ModelDetail | null>,
   listExplanations: (request: ListExplanationsRequest) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_LIST_EXPLANATIONS, request) as Promise<Explanation[]>,
@@ -335,6 +338,7 @@ export interface ElectronAPI {
   clearChatHistory: (projectId: string) => Promise<{ ok: true; removed: number } | { ok: false; error: string }>;
   searchNodeTypes: (request: SearchNodesRequest) => Promise<NodeClassSummary[]>;
   nodeTypeDetail: (classType: string) => Promise<NodeClassDetail | null>;
+  validateNodeClass: (classType: string) => Promise<NodeClassVerdict>;
   searchModels: (request: SearchModelsRequest) => Promise<ModelSummary[]>;
   modelDetail: (directory: string, name: string) => Promise<ModelDetail | null>;
   listExplanations: (request: ListExplanationsRequest) => Promise<Explanation[]>;

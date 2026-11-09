@@ -123,6 +123,11 @@ export interface SyncStatus {
   enrichmentPaused?: boolean;
 }
 
+/** The guard before a node class is added (main/knowledge/nodeClassGuard.ts). */
+export type NodeClassVerdict =
+  | { ok: true; known: boolean; portsKnown: boolean; warning?: string }
+  | { ok: false; error: string; suggestions: string[] };
+
 export interface SearchNodesRequest { query: string; category?: string; limit?: number }
 export interface SearchModelsRequest { query: string; directory?: string; baseModel?: BaseModelFamily; kind?: ModelKind; limit?: number }
 export interface ListExplanationsRequest { projectId?: string | null; owner?: ObjectRef }

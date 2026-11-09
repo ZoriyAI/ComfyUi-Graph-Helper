@@ -23,6 +23,7 @@ import {
   searchModels,
   searchNodeClasses,
 } from './repository';
+import { validateNodeClass } from './nodeClassGuard';
 
 export type KnowledgeHandler = (...args: unknown[]) => unknown;
 
@@ -76,6 +77,7 @@ export function knowledgeHandlers(deps: { db: () => Database.Database; sync: Syn
       return saveExplanation(db(), { ...parsed, provenance: 'user', createdBy: 'user' } as ExplanationInput);
     },
     [IPC_CHANNELS.KNOWLEDGE_CHECK_GRAPH]: (projectId) => checkGraph(db(), projectIdSchema.parse(projectId)),
+    [IPC_CHANNELS.KNOWLEDGE_VALIDATE_NODE_CLASS]: (classType) => validateNodeClass(db(), classTypeSchema.parse(classType)),
     [IPC_CHANNELS.SYNC_STATUS]: () => sync.status(db()),
     [IPC_CHANNELS.SYNC_NOW]: () => sync.runSync(db(), deps.fetchImpl),
     [IPC_CHANNELS.SYNC_SET_AUTO]: (request) => {

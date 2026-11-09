@@ -6,7 +6,7 @@ import Hint from '../../ui/Hint';
 import SelectField from '../../ui/SelectField';
 import Shortcut from '../../ui/Shortcut';
 import { cx } from '../../ui/cx';
-import { runCommand, useCommandState } from '../../commands/registry';
+import { hintOf, runCommand, useCommandState } from '../../commands/registry';
 import { useGraphStore } from '../../state/graphState';
 import { isDirty, useUiStore } from '../../state/uiState';
 import { useKnowledgeStore, selectCheckCount } from '../../state/knowledgeState';
@@ -25,7 +25,7 @@ export function ToolButton({ id, children }: { id: string; children?: React.Reac
   if (!command) return null;
   const Icon = command.icon;
   const label = String(t(command.labelKey));
-  const hint = !enabled && command.hintKey ? String(t(command.hintKey)) : label;
+  const hint = hintOf(id) ?? (!enabled && command.hintKey ? String(t(command.hintKey)) : label);
   return (
     <Hint label={hint} side="bottom" shortcut={command.shortcut && enabled ? <Shortcut shortcut={command.shortcut} /> : undefined}>
       <Button
