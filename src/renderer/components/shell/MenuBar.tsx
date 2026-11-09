@@ -9,7 +9,7 @@ import menuStyles from '../../ui/Menu.module.css';
 import SyncIndicator from '../sync/SyncIndicator';
 import { allCommands, getCommand, runCommand, useCommandStates } from '../../commands/registry';
 import { rememberFocusBeforeMenuBar, restoreFocusAfterMenuBar } from '../../commands/hotkeys';
-import { LANGUAGE_CHOICES, MOTION_CHOICES, providerCommandId } from '../../commands/appCommands';
+import { DESCRIPTION_MODE_CHOICES, LANGUAGE_CHOICES, MOTION_CHOICES, providerCommandId } from '../../commands/appCommands';
 import { PROVIDER_CHOICES, providerKeyState, providerNoteKey, useProviderStore } from '../../state/providerState';
 import styles from './MenuBar.module.css';
 
@@ -45,7 +45,8 @@ const MENUS: Array<{ value: string; labelKey: string; entries: Entry[] }> = [
     entries: [
       command('view.fit'), command('view.zoomIn'), command('view.zoomOut'), command('view.zoomReset'), separator,
       check('view.rail'), check('view.dock'), check('view.showBoth'), separator,
-      check('view.descriptions'), check('view.minimap'), check('view.followAgent'), separator,
+      { kind: 'radio', labelKey: 'menu.descriptions', ids: DESCRIPTION_MODE_CHOICES.map((choice) => `view.descriptions.${choice.value}`), valueOf: (id) => id.slice('view.descriptions.'.length) },
+      check('view.minimap'), check('view.followAgent'), separator,
       { kind: 'radio', labelKey: 'menu.language', ids: LANGUAGE_CHOICES.map((choice) => `view.language.${choice.value}`), valueOf: (id) => id.slice('view.language.'.length) },
       { kind: 'radio', labelKey: 'menu.motion', ids: MOTION_CHOICES.map((choice) => `view.motion.${choice.value}`), valueOf: (id) => id.slice('view.motion.'.length) },
     ],

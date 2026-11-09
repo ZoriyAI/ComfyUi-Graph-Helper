@@ -20,6 +20,7 @@ import { openProposals, useProposalsStore } from '../state/proposalsState';
 import { PROVIDER_CHOICES, useProviderStore } from '../state/providerState';
 import { useProjectionStore } from '../services/commands/projection';
 import { useCanvasStore } from '../components/graph/canvasStore';
+import type { DescriptionsMode } from '../../shared/config/preferences';
 import { acceptAllProposals } from '../components/graph/CanvasToolbar';
 import { openReplay } from '../components/graph/ReplayPlayer';
 import { startGraphTour } from '../components/graph/tour/startTour';
@@ -46,6 +47,13 @@ function motionMode(): string {
 export function providerCommandId(value: string): string {
   return `assistant.provider.${value || 'none'}`;
 }
+
+/** The three description modes, as the View menu lists them. */
+export const DESCRIPTION_MODE_CHOICES: Array<{ value: DescriptionsMode; labelKey: string }> = [
+  { value: 'own', labelKey: 'canvas.descriptionsOwn' },
+  { value: 'all', labelKey: 'canvas.descriptionsAll' },
+  { value: 'off', labelKey: 'canvas.descriptionsOff' },
+];
 
 export const MOTION_CHOICES: Array<{ value: 'system' | 'on' | 'reduced' | 'off'; labelKey: string }> = [
   { value: 'system', labelKey: 'settings.motionSystem' },
@@ -154,9 +162,15 @@ export function buildAppCommands(): Command[] {
     },
     {
       id: 'view.descriptions', group: 'view', labelKey: 'menu.descriptions', hintKey: 'canvas.descriptions', icon: MessageSquareText, enabled: always,
-      checked: () => useCanvasStore.getState().descriptionsOn,
-      run: () => useCanvasStore.getState().setDescriptionsOn(!useCanvasStore.getState().descriptionsOn),
+      checked: () => useCanvasStore.getState().descriptionsMode !== 'off',
+      // Cycles own → all → off; the View menu picks a mode directly through view.descriptions.<mode>.
+      run: () => useCanvasStore.getState().cycleDescriptionsMode(),
     },
+    ...DESCRIPTION_MODE_CHOICES.map((choice): Command => ({
+      id: `view.descriptions.${choice.value}`, group: 'view', labelKey: choice.labelKey, enabled: always,
+      checked: () => useCanvasStore.getState().descriptionsMode === choice.value,
+      run: () => useCanvasStore.getState().setDescriptionsMode(choice.value),
+    })),
     {
       id: 'view.minimap', group: 'view', labelKey: 'menu.minimap', icon: MapIcon, enabled: always,
       checked: () => useCanvasStore.getState().minimapOn,

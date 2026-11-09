@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { CheckCheck, ChevronLeft, ChevronRight, Compass, FastForward, MessageSquareText, Navigation, Pause, Play, Plus, Square } from 'lucide-react';
+import { CheckCheck, ChevronLeft, ChevronRight, Compass, FastForward, MessageSquareText, MessagesSquare, Navigation, Pause, Play, Plus, Square } from 'lucide-react';
 import { Controls } from '@xyflow/react';
 import { openProposals, useProposalsStore } from '../../state/proposalsState';
 import { useUiStore } from '../../state/uiState';
@@ -12,6 +12,12 @@ import { fitDurationMs } from '../../motion/policy';
 import { startGraphTour } from './tour/startTour';
 import { runCommand } from '../../commands/registry';
 import styles from './Toolbar.module.css';
+
+const DESCRIPTION_TITLES = {
+  own: 'canvas.descriptionsTitleOwn',
+  all: 'canvas.descriptionsTitleAll',
+  off: 'canvas.descriptionsTitleOff',
+} as const;
 
 /** Room for the floating toolbar above and the minimap in the bottom-right corner, so a fit never hides a node. */
 export const FIT_PADDING = { top: '76px', right: '32px', bottom: '128px', left: '32px' } as const;
@@ -25,7 +31,7 @@ export async function acceptAllProposals(): Promise<void> {
 }
 
 /**
- * Floating canvas toolbar: add node, React Flow's zoom / fit / interactivity controls, follow the helper, description cards on/off, the tour player, replay, and
+ * Floating canvas toolbar: add node, React Flow's zoom / fit / interactivity controls, follow the helper, description cards (own / all / off), the tour player, replay, and
  * proposal / build controls when they apply. Mounted as a React Flow Panel so it sits in the canvas tab zone;
  * onBeforeDelete and React Flow's input check keep graph shortcuts out of its search field.
  */
@@ -39,7 +45,7 @@ export default function CanvasToolbar() {
   const proposals = useProposalsStore((state) => state.proposals);
   const pending = useCanvasStore((state) => state.pending.length);
   const replaying = useCanvasStore((state) => Boolean(state.replay));
-  const descriptionsOn = useCanvasStore((state) => state.descriptionsOn);
+  const descriptionsMode = useCanvasStore((state) => state.descriptionsMode);
   const open = openProposals(proposals).length;
   const duration = fitDurationMs();
 
@@ -62,8 +68,17 @@ export default function CanvasToolbar() {
         <button type="button" className={styles.button} aria-pressed={followAgent} onClick={() => void runCommand('view.followAgent')} title={String(t('canvas.followAgent'))} aria-label={String(t('canvas.followAgent'))}>
           <Navigation size={16} aria-hidden="true" />
         </button>
-        <button type="button" className={styles.button} aria-pressed={descriptionsOn} onClick={() => void runCommand('view.descriptions')} title={String(t('canvas.descriptions'))} aria-label={String(t('canvas.descriptions'))}>
-          <MessageSquareText size={16} aria-hidden="true" />
+        {/* Cycles own → all → off; the tooltip names the mode, the label stays the same for assistive tech. */}
+        <button
+          type="button"
+          className={styles.button}
+          aria-pressed={descriptionsMode !== 'off'}
+          data-descriptions-mode={descriptionsMode}
+          onClick={() => void runCommand('view.descriptions')}
+          title={String(t(DESCRIPTION_TITLES[descriptionsMode]))}
+          aria-label={String(t('canvas.descriptions'))}
+        >
+          {descriptionsMode === 'all' ? <MessagesSquare size={16} aria-hidden="true" /> : <MessageSquareText size={16} aria-hidden="true" />}
         </button>
       </span>
       <span className={styles.group}>

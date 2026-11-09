@@ -1,7 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronUp, MessageCircleQuestion, Pencil, X } from 'lucide-react';
-import { NodeToolbar, Position, useNodes, useStore, type Node, type ReactFlowState } from '@xyflow/react';
+import { NodeToolbar, Position, useNodes, useStore, useStoreApi, type Node, type ReactFlowState } from '@xyflow/react';
 import { objectKey, type ObjectRef } from '../../../../shared/contracts/objects';
 import type { Explanation } from '../../../../shared/contracts/knowledge';
 import { DESKTOP_PROJECT_ID } from '../../../../shared/project';
@@ -15,7 +15,20 @@ import type { ComfyNodeData } from '../../../types/graph';
 import { askAbout } from '../askAbout';
 import { useCanvasView } from '../CanvasContext';
 import { useCanvasStore } from '../canvasStore';
-import { firstLine, selectDescription, type DescriptionContent, type DescriptionPart } from '../lib/description';
+import {
+  descriptionVisibility,
+  firstLine,
+  neighbourBoxes,
+  placeCard,
+  selectDescription,
+  type Box,
+  type CardPlacement,
+  type CardSide,
+  type DescriptionContent,
+  type DescriptionDemand,
+  type DescriptionPart,
+  type DescriptionsMode,
+} from '../lib/description';
 import { nodeRef } from '../lib/selection';
 import { useNodeDetail } from '../nodeInfo';
 import styles from './DescriptionLayer.module.css';
@@ -26,7 +39,21 @@ const MAX_WIDTH = 420;
 /** Below this zoom nodes are small: collapsed cards get compact (narrower, a provenance dot instead of the badge). */
 const COMPACT_ZOOM = 0.75;
 const COMPACT_MIN_WIDTH = 132;
+/** The one-line card a crowded node falls back to: about its own width, one line high. */
+const SQUEEZED_MIN_WIDTH = 96;
+const LINE_HEIGHT = 30;
+/** First guesses of a card's height before it is measured. */
+const COLLAPSED_HEIGHT = 34;
+const EXPANDED_HEIGHT = 140;
+/** Hover: the card opens after the pointer rests this long, and closes this long after it leaves. */
+export const HOVER_OPEN_MS = 400;
+export const HOVER_CLOSE_MS = 300;
+/** Cards of nodes the person is looking at (selected, hovered, focused, the tour step) draw above other cards. */
+const RAISED_Z = 2000;
 const EMPTY: Explanation[] = [];
+const NO_BOXES: Box[] = [];
+const POSITIONS: Record<CardSide, Position> = { bottom: Position.Bottom, top: Position.Top, right: Position.Right, left: Position.Left };
+const OFFSETS: Record<CardSide, number> = { bottom: 8, top: 8, right: 14, left: 14 };
 
 /** Owners already asked for; the knowledge store keeps the lists current after that (explain results, saves). */
 const requested = new Set<string>();
@@ -54,9 +81,12 @@ export function useDescriptionSpotlight(): DescriptionSpotlight | null {
   return null;
 }
 
-/** True when the node's description card is on screen, so the tour and the build leave the text to it. */
+/**
+ * True when the node's description card is on screen, so the tour and the build leave the text to it. The tour
+ * step's card shows in every mode but off (own mode opens it on demand), so only off and a closed card count.
+ */
 export function useDescriptionCardShown(nodeId: string | undefined): boolean {
-  return useCanvasStore((state) => Boolean(nodeId) && state.descriptionsOn && !state.hiddenDescriptions[nodeId ?? '']);
+  return useCanvasStore((state) => Boolean(nodeId) && state.descriptionsMode !== 'off' && !state.hiddenDescriptions[nodeId ?? '']);
 }
 
 const zoomOf = (state: ReactFlowState) => state.transform[2];
@@ -168,16 +198,65 @@ interface CardProps {
   spotlight: DescriptionSpotlight | null;
   readOnly: boolean;
   purpose: string | undefined;
+  mode: DescriptionsMode;
+  /** Selected, and the only selected node: selection expands its card. */
+  selected: boolean;
+  /** Selected among several: the card shows, collapsed. */
+  inSelection: boolean;
+  hovered: boolean;
+  focused: boolean;
+  revealed: boolean;
+  /** The node's box and the boxes of nodes near it, in flow coordinates, for overlap avoidance. */
+  box: Box | null;
+  neighbours: Box[];
 }
 
-/** Re-render a card only when what it shows changes; a drag of another node leaves it alone. */
+function sameBox(a: Box | null, b: Box | null): boolean {
+  if (a === b) return true;
+  return Boolean(a && b) && a!.x === b!.x && a!.y === b!.y && a!.width === b!.width && a!.height === b!.height;
+}
+
+function sameBoxes(a: Box[], b: Box[]): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let index = 0; index < a.length; index += 1) if (!sameBox(a[index], b[index])) return false;
+  return true;
+}
+
+/** Re-render a card only when what it shows changes; a drag of a far-away node leaves it alone. */
 function sameCard(previous: CardProps, next: CardProps): boolean {
   return previous.spotlight === next.spotlight && previous.readOnly === next.readOnly && previous.purpose === next.purpose
+    && previous.mode === next.mode && previous.selected === next.selected && previous.inSelection === next.inSelection
+    && previous.hovered === next.hovered && previous.focused === next.focused && previous.revealed === next.revealed
     && previous.node.data === next.node.data && previous.node.id === next.node.id
-    && (previous.node.measured?.width ?? previous.node.width) === (next.node.measured?.width ?? next.node.width);
+    && (previous.node.measured?.width ?? previous.node.width) === (next.node.measured?.width ?? next.node.width)
+    && sameBox(previous.box, next.box) && sameBoxes(previous.neighbours, next.neighbours);
 }
 
-const DescriptionCard = React.memo(function DescriptionCard({ node, spotlight, readOnly, purpose }: CardProps) {
+/** The card's rendered size in screen pixels, kept current while it grows (expand, edit) or shrinks. */
+function useMeasuredSize(): [React.RefCallback<HTMLElement>, { width: number; height: number } | null] {
+  const [size, setSize] = useState<{ width: number; height: number } | null>(null);
+  const observer = useRef<ResizeObserver | null>(null);
+  const ref = React.useCallback((element: HTMLElement | null) => {
+    observer.current?.disconnect();
+    observer.current = null;
+    if (!element) return;
+    const read = () => {
+      const width = Math.round(element.offsetWidth);
+      const height = Math.round(element.offsetHeight);
+      setSize((current) => (current && current.width === width && current.height === height ? current : { width, height }));
+    };
+    read();
+    if (typeof ResizeObserver === 'undefined') return;
+    observer.current = new ResizeObserver(read);
+    observer.current.observe(element);
+  }, []);
+  useLayoutEffect(() => () => observer.current?.disconnect(), []);
+  return [ref, size];
+}
+
+const DescriptionCard = React.memo(function DescriptionCard(props: CardProps) {
+  const { node, spotlight, readOnly, purpose, mode, selected, inSelection, hovered, focused, revealed, box, neighbours } = props;
   const { t } = useTranslation();
   const data = node.data;
   const instance = data.kind === 'subgraph-instance';
@@ -196,53 +275,97 @@ const DescriptionCard = React.memo(function DescriptionCard({ node, spotlight, r
   const shared = useKnowledgeStore((state) => (classRef ? state.explanations[objectKey(classRef)] ?? EMPTY : EMPTY));
   const detail = useNodeDetail(instance ? undefined : data.comfyType);
   const content = useMemo(
-    () => selectDescription({ own, shared, catalog: detail?.description, purpose }),
-    [own, shared, detail?.description, purpose],
+    () => selectDescription({ own, shared, catalog: detail?.description, purpose }, { preferOwn: mode === 'own' }),
+    [own, shared, detail?.description, purpose, mode],
   );
   const hidden = useCanvasStore((state) => Boolean(state.hiddenDescriptions[node.id]));
   const expandedByPerson = useCanvasStore((state) => Boolean(state.expandedDescriptions[node.id]));
+  const collapsedByPerson = useCanvasStore((state) => Boolean(state.collapsedDescriptions[node.id]));
   const setExpanded = useCanvasStore((state) => state.setDescriptionExpanded);
   const hide = useCanvasStore((state) => state.hideDescription);
   const show = useCanvasStore((state) => state.showDescription);
   const zoom = useStore(zoomOf);
   const [editing, setEditing] = useState(false);
+  const [measureRef, measured] = useMeasuredSize();
   const spot = spotlight?.nodeId === node.id;
-  const expanded = expandedByPerson || spot || editing;
+  const fallback = spot && spotlight ? spotlight.text.trim() : '';
+  const demand: DescriptionDemand = {
+    selected: selected || inSelection, hovered, focused, tour: spot, revealed, pinned: expandedByPerson, editing,
+  };
+  const visibility = descriptionVisibility({ mode, content, demand, fallback: Boolean(fallback) });
+  // Expanded: the tour step, an edit, the person's click, or the only selected node (unless the person collapsed it).
+  const expanded = spot || editing || expandedByPerson || (selected && !collapsedByPerson);
   const name = nodeName(data, detail?.displayName);
+  const asked = spot || editing || selected || inSelection || hovered || focused || expandedByPerson;
+  const raised = spot || editing || selected || hovered || focused;
 
-  if (hidden) {
+  const nodeWidth = node.measured?.width ?? node.width ?? 240;
+  const zoomCompact = zoom < COMPACT_ZOOM && !expanded;
+  const width = Math.round(Math.min(MAX_WIDTH, Math.max(zoomCompact ? COMPACT_MIN_WIDTH : MIN_WIDTH, nodeWidth * zoom)));
+  const height = measured && measured.width === width ? measured.height : (expanded ? EXPANDED_HEIGHT : COLLAPSED_HEIGHT);
+  const squeezedWidth = Math.round(Math.max(SQUEEZED_MIN_WIDTH, Math.min(width, nodeWidth * zoom)));
+  const placement: CardPlacement | null = useMemo(() => {
+    if (visibility !== 'card' || !box) return { side: 'bottom', compact: false };
+    return placeCard({
+      node: box,
+      others: neighbours,
+      zoom,
+      size: { width, height },
+      compactSize: expanded ? null : { width: squeezedWidth, height: LINE_HEIGHT },
+      required: asked,
+      sides: spot ? ['bottom', 'right', 'left'] : undefined,
+    });
+  }, [visibility, box, neighbours, zoom, width, height, expanded, squeezedWidth, asked, spot]);
+
+  if (hidden || (visibility === 'dot') || (visibility === 'card' && !placement)) {
+    // A closed card, class knowledge waiting for a look, or a card with no free room: a dot on the node's edge.
+    const closed = hidden;
     return (
       <NodeToolbar nodeId={node.id} isVisible position={Position.Bottom} offset={-5} className="nopan nodrag">
         <button
           type="button"
           className={styles.dot}
-          data-description-dot={node.id}
-          aria-label={`${String(t('canvas.descriptionShow'))}: ${name}`}
-          title={String(t('canvas.descriptionShow'))}
-          onClick={() => show(node.id)}
+          data-description-dot={closed ? node.id : undefined}
+          data-knowledge-dot={closed ? undefined : node.id}
+          aria-label={`${String(t(closed ? 'canvas.descriptionShow' : 'canvas.descriptionRead'))}: ${name}`}
+          title={String(t(closed ? 'canvas.descriptionShow' : 'canvas.descriptionRead'))}
+          onClick={() => (closed ? show(node.id) : setExpanded(node.id, true))}
         />
       </NodeToolbar>
     );
   }
+  if (visibility === 'none' || !placement) return null;
 
-  const fallback = spot && spotlight ? spotlight.text.trim() : '';
-  if (!content && !fallback && !editing) return null;
-
-  const compact = zoom < COMPACT_ZOOM && !expanded;
-  const width = Math.round(Math.min(MAX_WIDTH, Math.max(compact ? COMPACT_MIN_WIDTH : MIN_WIDTH, (node.measured?.width ?? node.width ?? 240) * zoom)));
+  const squeezed = placement.compact;
+  const compact = zoomCompact || squeezed;
   const primary = content?.primary;
   const summary = primary ? firstLine(primary.text) : fallback || String(t('canvas.descriptionEmpty'));
-  const toggle = () => setExpanded(node.id, !expandedByPerson);
+  const toggle = () => setExpanded(node.id, !expanded);
   const canAsk = !readOnly && !content?.explained;
+  const reason = spot ? 'tour' : editing ? 'edit' : selected || inSelection ? 'selected' : expandedByPerson ? 'pinned'
+    : hovered ? 'hover' : focused ? 'focus' : revealed ? 'build' : undefined;
   return (
-    <NodeToolbar nodeId={node.id} isVisible position={Position.Bottom} offset={8} className="nopan nodrag">
+    <NodeToolbar
+      nodeId={node.id}
+      isVisible
+      position={POSITIONS[placement.side]}
+      align={placement.side === 'left' || placement.side === 'right' ? 'start' : 'center'}
+      offset={OFFSETS[placement.side]}
+      className="nopan nodrag"
+      style={raised ? { zIndex: RAISED_Z } : undefined}
+    >
       <section
+        ref={measureRef}
         className={`description-card ${styles.card}`}
-        style={{ width }}
+        style={{ width: squeezed ? squeezedWidth : width }}
         data-description-node={node.id}
         data-description-scope={content?.scope ?? 'none'}
         data-expanded={expanded ? 'true' : 'false'}
         data-compact={compact ? 'true' : undefined}
+        data-squeezed={squeezed ? 'true' : undefined}
+        data-side={placement.side}
+        data-raised={raised ? 'true' : undefined}
+        data-on-demand={mode === 'all' ? undefined : reason}
         data-spotlight={spot ? 'true' : undefined}
         aria-label={String(t('canvas.descriptionLabel', { name }))}
         aria-live={spot ? 'polite' : undefined}
@@ -300,19 +423,127 @@ const DescriptionCard = React.memo(function DescriptionCard({ node, spotlight, r
   );
 }, sameCard);
 
+function typingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.isContentEditable) return true;
+  return Boolean(target.closest('input, textarea, select, [role="dialog"], [role="menu"], [role="listbox"]'));
+}
+
+function focusVisible(element: HTMLElement): boolean {
+  try {
+    return element.matches(':focus-visible');
+  } catch {
+    return true;
+  }
+}
+
+/** The node a DOM element belongs to: the node itself, its card, or its dot. */
+function nodeIdOf(target: EventTarget | null): string | null {
+  if (!(target instanceof Element)) return null;
+  const card = target.closest<HTMLElement>('[data-description-node], [data-knowledge-dot], [data-description-dot]');
+  if (card) return card.dataset.descriptionNode ?? card.dataset.knowledgeDot ?? card.dataset.descriptionDot ?? null;
+  const node = target.closest<HTMLElement>('.react-flow__node');
+  return node?.dataset.id ?? null;
+}
+
 /**
- * Description blocks on the canvas: one card under every node that has something to say, anchored with
- * React Flow's NodeToolbar so it follows drags, pans and zooms while its text stays a readable size.
- * The toolbar's "Descriptions" button turns all cards off; each card can be hidden on its own (a dot brings it
- * back). The tour step gets its card expanded; a node the live build just revealed shows its bubble first. Cards live in the project
- * (explanations, catalog, component records) and never in the exported workflow.
+ * Hover and keyboard focus for on-demand cards: the pointer resting HOVER_OPEN_MS on a node (or its card) opens
+ * its card, leaving for HOVER_CLOSE_MS closes it; keyboard focus on a node opens it at once. Escape collapses
+ * every card (expanded, hovered, revealed by the build) without taking the selection away.
+ */
+function useCardDemand(selectedIds: string[]): void {
+  const store = useCanvasStore;
+  const selectedRef = useRef(selectedIds);
+  selectedRef.current = selectedIds;
+  useEffect(() => {
+    if (typeof document === 'undefined') return undefined;
+    let openTimer: number | undefined;
+    let closeTimer: number | undefined;
+    let target: string | null = null;
+    const clearTimers = () => {
+      window.clearTimeout(openTimer);
+      window.clearTimeout(closeTimer);
+    };
+    const onOver = (event: PointerEvent) => {
+      const id = nodeIdOf(event.target);
+      if (id === target) return;
+      target = id;
+      clearTimers();
+      const current = store.getState().hoveredDescription;
+      if (id && id === current) return;
+      if (current) closeTimer = window.setTimeout(() => store.getState().setHoveredDescription(null), HOVER_CLOSE_MS);
+      if (id) openTimer = window.setTimeout(() => store.getState().setHoveredDescription(id), HOVER_OPEN_MS);
+    };
+    const onLeaveWindow = () => {
+      target = null;
+      clearTimers();
+      if (store.getState().hoveredDescription) closeTimer = window.setTimeout(() => store.getState().setHoveredDescription(null), HOVER_CLOSE_MS);
+    };
+    const onFocusIn = (event: FocusEvent) => {
+      const element = event.target instanceof HTMLElement ? event.target : null;
+      // Only a node with keyboard focus counts (a click focuses it too, but the selection covers that);
+      // a button inside a card keeps what it had.
+      if (element?.classList.contains('react-flow__node') && element.dataset.id && focusVisible(element)) {
+        store.getState().setFocusedDescription(element.dataset.id);
+      } else if (!element?.closest('[data-description-node]')) {
+        store.getState().setFocusedDescription(null);
+      }
+    };
+    const onFocusOut = (event: FocusEvent) => {
+      // Focus went nowhere (a click on the pane): the node is no longer focused.
+      if (event.relatedTarget === null) store.getState().setFocusedDescription(null);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || typingTarget(event.target)) return;
+      clearTimers();
+      target = null;
+      store.getState().setFocusedDescription(null);
+      store.getState().collapseDescriptions(selectedRef.current);
+    };
+    document.addEventListener('pointerover', onOver);
+    document.documentElement.addEventListener('pointerleave', onLeaveWindow);
+    document.addEventListener('focusin', onFocusIn);
+    document.addEventListener('focusout', onFocusOut);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      clearTimers();
+      document.removeEventListener('pointerover', onOver);
+      document.documentElement.removeEventListener('pointerleave', onLeaveWindow);
+      document.removeEventListener('focusin', onFocusIn);
+      document.removeEventListener('focusout', onFocusOut);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [store]);
+}
+
+/** Widest a card can reach from its node, in screen pixels: neighbours farther than this cannot be covered. */
+const REACH_PX = MAX_WIDTH + 40;
+
+/**
+ * Description blocks on the canvas, anchored with React Flow's NodeToolbar so they follow drags, pans and zooms
+ * while their text stays a readable size. Three modes (toolbar button, View menu, Settings ▸ Canvas):
+ * - own (default): a card where the node has its own text (node explanation, component purpose); class
+ *   knowledge (built-in seeds, class explanations, the catalog) waits behind a dot until the node is hovered,
+ *   selected, focused, the tour step, or just revealed by the live build;
+ * - all: a card under every node that has something to say;
+ * - off: dots only.
+ * A card that would cover another node or its ports moves to the right, the left or above, or shrinks to one
+ * line, or (when nobody asked for it) stays a dot. Each card can be closed on its own (a dot brings it back).
+ * Cards live in the project (explanations, catalog, component records) and never in the exported workflow.
  */
 export default function DescriptionLayer() {
-  const on = useCanvasStore((state) => state.descriptionsOn);
+  const mode = useCanvasStore((state) => state.descriptionsMode);
   const pending = useCanvasStore((state) => state.pending);
   // While the live build's bubble speaks for a node that just appeared, its card waits; then the bubble collapses into it.
   const speaking = useCanvasStore((state) => (state.callout && (state.callout.kind ?? 'node') === 'node' ? state.callout.nodeId : null));
+  const hoveredId = useCanvasStore((state) => state.hoveredDescription);
+  const focusedId = useCanvasStore((state) => state.focusedDescription);
+  const revealedId = useCanvasStore((state) => state.revealedDescription);
+  const collapsed = useCanvasStore((state) => state.collapsedDescriptions);
+  const keepCollapsed = useCanvasStore((state) => state.keepCollapsed);
   const nodes = useNodes();
+  const flowStore = useStoreApi();
+  const zoom = useStore(zoomOf);
   const spotlight = useDescriptionSpotlight();
   const { readOnly } = useCanvasView();
   const components = useGraphStore((state) => state.components);
@@ -322,11 +553,56 @@ export default function DescriptionLayer() {
     for (const item of components) if (item.ownerKind === 'node' && !map.has(item.ownerId)) map.set(item.ownerId, item.purpose);
     return map;
   }, [components]);
-  if (!on) return null;
+  const selectedIds = useMemo(() => nodes.filter((node) => node.selected).map((node) => node.id), [nodes]);
+  const selectedKey = selectedIds.join(' ');
+  useCardDemand(selectedIds);
+  useEffect(() => {
+    keepCollapsed(selectedKey ? selectedKey.split(' ') : []);
+  }, [selectedKey, collapsed, keepCollapsed]);
+
+  // Node boxes in flow coordinates (absolute positions, measured sizes), and for each node the ones near it.
+  const boxes = useMemo(() => {
+    const lookup = flowStore.getState().nodeLookup;
+    const map = new Map<string, Box>();
+    for (const node of nodes) {
+      const internal = lookup.get(node.id);
+      const at = internal?.internals.positionAbsolute ?? node.position;
+      const width = node.measured?.width ?? node.width;
+      const height = node.measured?.height ?? node.height;
+      if (!width || !height || node.hidden || pending.includes(node.id)) continue;
+      map.set(node.id, { x: at.x, y: at.y, width, height });
+    }
+    return map;
+  }, [nodes, flowStore, pending]);
+  const neighbours = useMemo(() => {
+    const all = [...boxes.values()];
+    const reach = REACH_PX / (zoom > 0 ? zoom : 1);
+    const map = new Map<string, Box[]>();
+    for (const [id, box] of boxes) map.set(id, neighbourBoxes(box, all, reach));
+    return map;
+  }, [boxes, zoom]);
+
+  const single = selectedIds.length === 1 ? selectedIds[0] : null;
   return (
     <>
       {nodes.map((node) => (node.type === 'comfy' && !pending.includes(node.id) && node.id !== speaking
-        ? <DescriptionCard key={node.id} node={node as ComfyFlowNode} spotlight={spotlight} readOnly={readOnly} purpose={purposes.get(node.id)} />
+        ? (
+          <DescriptionCard
+            key={node.id}
+            node={node as ComfyFlowNode}
+            spotlight={spotlight}
+            readOnly={readOnly}
+            purpose={purposes.get(node.id)}
+            mode={mode}
+            selected={node.id === single}
+            inSelection={Boolean(node.selected) && node.id !== single}
+            hovered={node.id === hoveredId}
+            focused={node.id === focusedId}
+            revealed={node.id === revealedId}
+            box={boxes.get(node.id) ?? null}
+            neighbours={neighbours.get(node.id) ?? NO_BOXES}
+          />
+        )
         : null))}
     </>
   );
