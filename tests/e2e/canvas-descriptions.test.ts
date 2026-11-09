@@ -37,9 +37,14 @@ test('description cards: explain result on the canvas, toggle, edit in place', a
   await window.reload();
   await expect(window.locator('.react-flow__node')).toHaveCount(12);
 
-  // Nothing is explained yet and the catalog is empty: no cards.
+  // Nothing is explained yet and the catalog is empty, but every node here is a core class: the built-in knowledge
+  // (seeded in the interface language) gives each one a card with a "Fact" badge.
   const cards = window.locator('.description-card');
-  await expect(cards).toHaveCount(0);
+  await expect(cards).toHaveCount(12);
+  const seeded = window.getByRole('region', { name: 'Description of Sample', exact: true });
+  await expect(seeded).toHaveAttribute('data-description-scope', 'nodeClass');
+  await expect(seeded.locator('[data-provenance="fact"]').first()).toHaveText('Fact');
+  await expect(seeded).toContainText('The main sampler');
 
   // The TEST fixture saves an inference about the KSampler class; the card appears under each KSampler at once.
   await pickOption(window, 'Chat provider', 'TEST fixture');
@@ -54,7 +59,7 @@ test('description cards: explain result on the canvas, toggle, edit in place', a
   await expect(card).toHaveAttribute('data-description-scope', 'nodeClass');
   await expect(card.locator('[data-provenance="inference"]')).toHaveText('Inference');
   await expect(card).toContainText('KSampler denoises a latent step by step');
-  await expect(cards).toHaveCount(2);
+  await expect(cards).toHaveCount(12);
 
   // The toolbar switch turns every card off and back on.
   const toggle = window.getByRole('button', { name: 'Descriptions on the canvas' });
@@ -63,7 +68,7 @@ test('description cards: explain result on the canvas, toggle, edit in place', a
   await expect(toggle).toHaveAttribute('aria-pressed', 'false');
   await expect(cards).toHaveCount(0);
   await toggle.click();
-  await expect(cards).toHaveCount(2);
+  await expect(cards).toHaveCount(12);
 
   // One card can be closed; the dot on the node brings it back.
   await card.getByRole('button', { name: 'Hide the description: Sample' }).click();
@@ -74,7 +79,9 @@ test('description cards: explain result on the canvas, toggle, edit in place', a
   // Expand, edit in place, save: the node gets its own "user" explanation and the card shows it.
   await card.locator('button[aria-expanded]').click();
   await expect(card).toHaveAttribute('data-expanded', 'true');
-  await card.getByRole('button', { name: 'Edit the description' }).click();
+  // With every core node carrying a seeded card, a neighbouring card can overlap this one: use the keyboard.
+  await card.getByRole('button', { name: 'Edit the description' }).focus();
+  await window.keyboard.press('Enter');
   const field = card.getByRole('textbox', { name: 'Description text' });
   await expect(field).toHaveValue('KSampler denoises a latent step by step, guided by the model and the conditioning.');
   await field.fill('Turns the noisy latent into the picture for prompt A.');
