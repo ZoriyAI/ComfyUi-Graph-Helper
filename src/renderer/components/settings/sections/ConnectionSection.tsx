@@ -113,6 +113,7 @@ function McpSignIn({ savedUrl, disabled }: { savedUrl: boolean; disabled: boolea
   const [status, setStatus] = useState<McpOAuthStatus | null>(null);
   const [waiting, setWaiting] = useState(false);
   const [note, setNote] = useState('');
+  const [info, setInfo] = useState('');
   const language = i18n.language === 'en' ? 'en' : 'ru';
 
   useEffect(() => {
@@ -122,11 +123,13 @@ function McpSignIn({ savedUrl, disabled }: { savedUrl: boolean; disabled: boolea
 
   const signIn = async () => {
     setNote('');
+    setInfo('');
     setWaiting(true);
     setStatus((current) => ({ state: 'pending', persisted: current?.persisted ?? false }));
     try {
       const result = await window.electronAPI.mcpOAuthLogin();
       if (!result.ok) setNote(explainError(translate, result.error).summary);
+      else if (result.anonymous) setInfo(String(t('settings.oauthNotNeeded')));
     } finally {
       setWaiting(false);
       setStatus(await window.electronAPI.mcpOAuthStatus().catch(() => null));
@@ -135,6 +138,7 @@ function McpSignIn({ savedUrl, disabled }: { savedUrl: boolean; disabled: boolea
   };
   const signOut = async () => {
     setNote('');
+    setInfo('');
     setStatus(await window.electronAPI.mcpOAuthLogout().catch(() => null));
     refreshSyncStatus();
   };
@@ -164,6 +168,7 @@ function McpSignIn({ savedUrl, disabled }: { savedUrl: boolean; disabled: boolea
           </Button>
         ) : null}
       </div>
+      {info ? <p className={hintClass} role="status">{info}</p> : null}
       {note ? <p className={styles.errorNote} role="alert">{note}</p> : null}
     </div>
   );

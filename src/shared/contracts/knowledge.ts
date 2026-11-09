@@ -121,6 +121,8 @@ export interface SyncStatus {
   metadata?: { done: number; total: number };
   /** Background metadata reading was paused by the person; it resumes with the next run. */
   enrichmentPaused?: boolean;
+  /** How the last successful run authenticated: the manual token, the browser sign-in, or nothing (the server needs none). */
+  authMode?: 'token' | 'oauth' | 'anonymous' | null;
 }
 
 /** The guard before a node class is added (main/knowledge/nodeClassGuard.ts). */

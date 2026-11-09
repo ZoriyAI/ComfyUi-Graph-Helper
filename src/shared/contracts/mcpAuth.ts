@@ -9,4 +9,5 @@ export interface McpOAuthStatus {
   persisted: boolean;
 }
 
-export type McpOAuthLoginResult = { ok: true; expiresAt?: number } | { ok: false; error: string };
+/** `anonymous`: the server accepted a connection without credentials, so no sign-in happened and none is needed. */
+export type McpOAuthLoginResult = { ok: true; expiresAt?: number; anonymous?: boolean } | { ok: false; error: string };

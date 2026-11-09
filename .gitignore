@@ -59,3 +59,6 @@ test-electron.js
 
 # Playwright artifacts
 test-results/
+
+# Agent worktrees created by the coding assistant
+.claude/worktrees/

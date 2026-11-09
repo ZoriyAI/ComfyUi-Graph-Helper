@@ -81,6 +81,24 @@ export type McpSessionFactory = (url: string, token: string | null, authProvider
 
 /** Sync error when the stored OAuth sign-in no longer works. Same sentence as oauth.ts SIGN_IN_AGAIN. */
 export const MCP_SIGN_IN_AGAIN = 'MCP sign-in has expired. Sign in through the browser again.';
+/** The server answered 401 to a connection that carried no credentials: it wants a browser sign-in or a token. */
+export const MCP_NEEDS_SIGN_IN = 'MCP server requires sign-in.';
+export const mcpUnreachableError = (host: string) => `MCP server unreachable: ${host}.`;
+
+const NETWORK_CODE = /^(ECONNREFUSED|ENOTFOUND|EAI_AGAIN|ETIMEDOUT|ECONNRESET|EHOSTUNREACH|ENETUNREACH|EPIPE|UND_ERR_[A-Z_]+)$/;
+const NETWORK_MESSAGE = /fetch failed|ECONNREFUSED|ENOTFOUND|EAI_AGAIN|ETIMEDOUT|ECONNRESET|EHOSTUNREACH|ENETUNREACH|socket hang up|network|^timeout$/i;
+
+/** True when an error (or one of its causes) says the server could not be reached at all. */
+export function isNetworkError(error: unknown): boolean {
+  let current: unknown = error;
+  for (let depth = 0; depth < 6 && current && typeof current === 'object'; depth += 1) {
+    const { code, message, cause } = current as { code?: unknown; message?: unknown; cause?: unknown };
+    if (typeof code === 'string' && NETWORK_CODE.test(code)) return true;
+    if (typeof message === 'string' && NETWORK_MESSAGE.test(message)) return true;
+    current = cause;
+  }
+  return false;
+}
 
 /** Connects over Streamable HTTP. A token is sent as a bearer header and is never logged. */
 export const connectStreamableHttp: McpSessionFactory = async (url, token, authProvider) => {
@@ -115,11 +133,16 @@ export const connectStreamableHttp: McpSessionFactory = async (url, token, authP
   };
 };
 
-/** Fixed messages only: a transport error text could echo request headers. */
-export function failure(error: unknown): McpReadFailure {
+/**
+ * Fixed messages only: a transport error text could echo request headers. A 401 means "refused the token" when
+ * credentials were sent and "requires sign-in" when none were: the server, not the app, decides whether it wants any.
+ */
+export function failure(error: unknown, options: { authenticated?: boolean } = {}): McpReadFailure {
   if (error instanceof McpRefusedError || error instanceof McpPageError) return { ok: false, error: redactSecrets(error.message) };
-  const message = error instanceof Error ? error.message : '';
-  if (/401|unauthorized/i.test(message)) return { ok: false, error: 'MCP server refused the token.' };
+  const message = error instanceof Error ? `${error.name} ${error.message}` : '';
+  if (/401|unauthorized/i.test(message)) {
+    return { ok: false, error: options.authenticated === false ? MCP_NEEDS_SIGN_IN : 'MCP server refused the token.' };
+  }
   return { ok: false, error: 'MCP server was not read.' };
 }
 
@@ -167,7 +190,7 @@ export async function openReadOnlySession(
     return { ok: true, session: readOnlySession(await factory(config.url, config.token, authProvider)) };
   } catch (error) {
     if (authProvider && (authProvider as { signInRequired?: boolean }).signInRequired) return { ok: false, error: MCP_SIGN_IN_AGAIN };
-    return failure(error);
+    return failure(error, { authenticated: config.token != null || authProvider != null });
   }
 }
 

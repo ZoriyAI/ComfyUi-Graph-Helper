@@ -66,13 +66,26 @@ describe('sync against the fake MCP server', () => {
     expect(zimage[0]?.baseModel).toBe('zimage');
   }, 30_000);
 
-  it('reports a refused token with the fixed message and never stores it', async () => {
+  it('reports a 401 as "requires sign-in" without credentials and as "refused the token" with a wrong one', async () => {
     fake = await startFakeMcp({ token: TOKEN });
     const db = openDb();
-    const status = await service(fake.url, null).runSync(db);
-    expect(status.state).toBe('error');
-    expect(status.lastError).toBe('MCP server refused the token.');
+    const anonymous = await service(fake.url, null).runSync(db);
+    expect(anonymous.state).toBe('error');
+    expect(anonymous.lastError).toBe('MCP server requires sign-in.');
+    const wrong = await service(fake.url, 'not-the-token').runSync(db);
+    expect(wrong.state).toBe('error');
+    expect(wrong.lastError).toBe('MCP server refused the token.');
     expect(fake.calls.some((call) => call.method === 'tools/call')).toBe(false);
+    expect(JSON.stringify(fake.calls)).not.toContain('not-the-token');
+  }, 30_000);
+
+  it('syncs a server that needs no token without any credentials and remembers that', async () => {
+    fake = await startFakeMcp();
+    const db = openDb();
+    const status = await service(fake.url, null).runSync(db);
+    expect(status.state).toBe('idle');
+    expect(status.authMode).toBe('anonymous');
+    expect(status.counts.models).toBeGreaterThan(0);
   }, 30_000);
 });
 

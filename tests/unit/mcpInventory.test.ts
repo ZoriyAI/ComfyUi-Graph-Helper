@@ -1,0 +1,100 @@
+import { describe, expect, it } from 'vitest';
+import { readModelFilesWithRoots } from '../../src/main/mcp/inventory';
+import { McpPageError } from '../../src/shared/mcp/catalogSource';
+import type { McpSession, McpToolCallResult } from '../../src/shared/mcp/catalogSource';
+
+function json(value: unknown): McpToolCallResult {
+  return { content: [{ type: 'text', text: JSON.stringify(value) }] };
+}
+
+type Row = Record<string, unknown>;
+
+/** TEST fixture: the current server shape. The plain listing names categories; files come one category at a time, paged. */
+function categoryFirstServer(files: Record<string, Row[]>, options: { failing?: string[]; pageSize?: number } = {}) {
+  const calls: Row[] = [];
+  const session: McpSession = {
+    async listTools() {
+      return [{ name: 'models' }];
+    },
+    async callTool(name, args) {
+      calls.push({ name, ...args });
+      if (name !== 'models') throw new Error(`unexpected ${name}`);
+      const category = typeof args.category === 'string' ? args.category : null;
+      if (!category) {
+        const categories = ['.cache', ...Object.keys(files)];
+        return json({ items: categories.map((item) => ({ category: item })), total: categories.length, complete: true });
+      }
+      if (options.failing?.includes(category)) return { isError: true, content: [{ type: 'text', text: 'boom' }] };
+      const rows = files[category] ?? [];
+      const size = options.pageSize ?? rows.length;
+      const start = typeof args.cursor === 'string' ? Number(args.cursor) : 0;
+      const page = rows.slice(start, start + size);
+      const next = start + size < rows.length ? String(start + size) : null;
+      return json({ items: page, next_cursor: next, total: rows.length, complete: next === null });
+    },
+    async close() {},
+  };
+  return { session, calls };
+}
+
+describe('model files from the current server', () => {
+  const files = {
+    loras: [
+      { category: 'loras', filename: 'style.safetensors', root_path: '/models/loras', size_bytes: 10 },
+      { category: 'loras', filename: '.cache/huggingface/.gitignore', root_path: '/models/loras', size_bytes: 1 },
+      { category: 'loras', filename: 'detail.safetensors', root_path: '/models/loras', size_bytes: 20 },
+      { category: 'loras', filename: 'readme.txt', root_path: '/models/loras', size_bytes: 3 },
+    ],
+    checkpoints: [{ category: 'checkpoints', filename: 'base.safetensors', root_path: '/models/checkpoints', size_bytes: 30 }],
+    LLM: [],
+  };
+
+  it('expands every category row into its own paged listing and keeps only loader files', async () => {
+    const { session, calls } = categoryFirstServer(files, { pageSize: 2 });
+    const read = await readModelFilesWithRoots(session);
+    expect(read.complete).toBe(true);
+    expect(read.items.map((item) => `${item.directory}/${item.name}`).sort()).toEqual([
+      'checkpoints/base.safetensors', 'loras/detail.safetensors', 'loras/style.safetensors',
+    ]);
+    expect(read.items.find((item) => item.name === 'detail.safetensors')).toMatchObject({ sizeBytes: 20, rootPath: '/models/loras' });
+    // The plain listing, then one listing per category (the hidden .cache folder is not a category); loras took two pages.
+    const categories = calls.filter((call) => call.name === 'models').map((call) => call.category ?? '(all)');
+    expect(categories).toEqual(['(all)', 'loras', 'loras', 'checkpoints', 'LLM']);
+    expect(calls.some((call) => call.category === '.cache')).toBe(false);
+  });
+
+  it('keeps the other folders when one category fails and marks the run incomplete', async () => {
+    const { session } = categoryFirstServer(files, { failing: ['loras'] });
+    const read = await readModelFilesWithRoots(session);
+    expect(read.complete).toBe(false);
+    expect(read.items.map((item) => item.name)).toEqual(['base.safetensors']);
+  });
+
+  it('fails the section only when every category failed', async () => {
+    const { session } = categoryFirstServer(files, { failing: ['loras', 'checkpoints', 'LLM'] });
+    await expect(readModelFilesWithRoots(session)).rejects.toBeInstanceOf(McpPageError);
+  });
+
+  it('still reads an older server that lists files in the plain listing', async () => {
+    const session: McpSession = {
+      async listTools() {
+        return [{ name: 'models' }];
+      },
+      async callTool(_name, args) {
+        if (typeof args.category === 'string') throw new Error('older servers take no category');
+        return json({ items: [
+          { category: 'loras', filename: 'a.safetensors', root_path: '/m/loras', size_bytes: 1 },
+          { category: 'loras', filename: 'a.safetensors', root_path: '/m/loras', size_bytes: 1 },
+          { category: 'vae', filename: 'v.pt' },
+        ] });
+      },
+      async close() {},
+    };
+    const read = await readModelFilesWithRoots(session);
+    expect(read.complete).toBe(true);
+    expect(read.items).toEqual([
+      { directory: 'loras', name: 'a.safetensors', sizeBytes: 1, rootPath: '/m/loras' },
+      { directory: 'vae', name: 'v.pt', sizeBytes: null, rootPath: null },
+    ]);
+  });
+});
