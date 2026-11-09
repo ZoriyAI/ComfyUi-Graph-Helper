@@ -50,7 +50,7 @@ test('blocked secret IPC leaves the disabled key controls empty and the marker o
   const input = window.locator('input[aria-label="API key"]');
   await expect(input).toBeDisabled();
   await expect(window.getByRole('button', { name: 'Save key' })).toBeDisabled();
-  const keyReason = 'Key storage is not available. The key is not written. Cancel does not store a key.';
+  const keyReason = 'The system password store is not available on this computer, so keys live only until the app closes.';
   await expect(window.getByRole('tabpanel', { name: 'Models & keys' }).getByText(keyReason)).toBeVisible();
   await expect(window.getByRole('contentinfo').getByText(keyReason)).toBeVisible();
   const result = await window.evaluate(async (marker) => {
