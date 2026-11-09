@@ -175,7 +175,7 @@ export default function NodeLibrary() {
                   draggable
                   title={String(t('library.dragHint'))}
                   onDragStart={(event) => {
-                    event.dataTransfer.setData(NODE_DRAG_TYPE, JSON.stringify({ classType: row.node.classType }));
+                    event.dataTransfer.setData(NODE_DRAG_TYPE, JSON.stringify({ classType: row.node.classType, title: row.node.displayName || undefined }));
                     event.dataTransfer.setData('text/plain', row.node.classType);
                     event.dataTransfer.effectAllowed = 'copy';
                   }}

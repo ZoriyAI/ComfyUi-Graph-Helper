@@ -145,6 +145,8 @@ describe('library drops', () => {
     const read = (map: Record<string, string>) => (type: string) => map[type] ?? '';
     expect(dropToAddNode(read({ [NODE_DRAG_TYPE]: JSON.stringify({ classType: 'KSampler' }) }))).toEqual({ nodeType: 'KSampler', parameters: {} });
     expect(dropToAddNode(read({ [MODEL_DRAG_TYPE]: JSON.stringify({ directory: 'loras', name: 'x.safetensors' }) }))).toEqual({ nodeType: 'LoraLoader', parameters: { lora_name: 'x.safetensors' } });
+    expect(dropToAddNode(read({ [NODE_DRAG_TYPE]: JSON.stringify({ classType: 'LoraLoader', title: 'Load LoRA' }) }))).toEqual({ nodeType: 'LoraLoader', parameters: {}, title: 'Load LoRA' });
+    expect(dropToAddNode(read({ [NODE_DRAG_TYPE]: JSON.stringify({ classType: 'KSampler', title: 'KSampler' }) }))).toEqual({ nodeType: 'KSampler', parameters: {} });
     expect(dropToAddNode(read({ [NODE_DRAG_TYPE]: 'not json' }))).toBeNull();
     expect(dropToAddNode(read({ [MODEL_DRAG_TYPE]: JSON.stringify({ directory: 'loras' }) }))).toBeNull();
     expect(dropToAddNode(read({}))).toBeNull();
