@@ -169,6 +169,7 @@ export default function ModelsSection({ provider, onSession, mcpUrl }: { provide
       </Group>
 
       <Group title={String(t('preferences.mcpTitle'))}>
+        <p className={hintClass}>{t('settings.mcpTokenAlternative')}</p>
         <label className={fieldClass}>
           {t('settings.mcpToken')}
           <input type="password" autoComplete="off" aria-label={String(t('settings.mcpToken'))} value={mcpTokenDraft} onChange={(event) => setMcpTokenDraft(event.target.value)} />

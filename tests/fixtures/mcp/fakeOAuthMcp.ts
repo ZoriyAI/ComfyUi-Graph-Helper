@@ -32,6 +32,8 @@ export interface FakeOAuthMcp {
   expireAccessTokens(): void;
   /** Makes every refresh token issued so far invalid at the token endpoint. */
   revokeRefreshTokens(): void;
+  /** From now on, answer authorized MCP requests with a 307 to `url` (null: stop). */
+  redirectMcpTo(url: string | null): void;
   close(): Promise<void>;
 }
 
@@ -281,6 +283,9 @@ export async function startFakeOAuthMcp(options: FakeOAuthMcpOptions = {}): Prom
       for (const key of access.keys()) access.set(key, 0);
     },
     revokeRefreshTokens: () => refresh.clear(),
+    redirectMcpTo: (url) => {
+      options.redirectMcpTo = url ?? undefined;
+    },
     close: () => new Promise<void>((resolve) => {
       server.closeAllConnections?.();
       server.close(() => resolve());
