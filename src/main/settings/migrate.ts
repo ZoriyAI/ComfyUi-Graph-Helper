@@ -140,10 +140,11 @@ function applyVersion2(db: Database.Database): void {
  * and the file size on model_catalog, so a catalog read through MCP keeps what the server reports.
  * Version 9 adds the knowledge layer: model kind, base-model family, trigger words and metadata on
  * model_catalog; description and pack on node_catalog; node_packs, explanations, proposals and sync_state.
+ * Version 10 adds preferences_json on the settings row: the validated preferences model (never a secret).
  */
 export function migrate(db: Database.Database, options?: { failBeforeVersionStamp?: boolean }): void {
   const version = schemaVersion(db);
-  if (version > 9) {
+  if (version > 10) {
     throw new Error(`Unsupported schema version ${version}`);
   }
   if (version < 1) {
@@ -212,6 +213,17 @@ export function migrate(db: Database.Database, options?: { failBeforeVersionStam
     });
     apply.immediate();
   }
+  if (schemaVersion(db) === 9) {
+    const apply = db.transaction(() => {
+      applyVersion10(db);
+      db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (10, ?)').run(Date.now());
+    });
+    apply.immediate();
+  }
+}
+
+function applyVersion10(db: Database.Database): void {
+  if (tableNames(db).includes('settings')) addColumn(db, 'settings', 'preferences_json', "TEXT NOT NULL DEFAULT '{}'");
 }
 
 function addColumn(db: Database.Database, table: string, column: string, definition: string): void {

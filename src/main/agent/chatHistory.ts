@@ -95,3 +95,14 @@ export function loadChatHistory(db: Database.Database, projectId: unknown): Chat
     }];
   });
 }
+
+/** Preferences ▸ Privacy ▸ Clear chat history: removes every stored message of one project. */
+export function clearChatHistory(db: Database.Database, projectId: unknown): { ok: true; removed: number } | { ok: false; error: string } {
+  if (typeof projectId !== 'string' || projectId === '' || projectId.length > 200) return { ok: false, error: 'Chat history could not be cleared.' };
+  try {
+    const result = db.prepare('DELETE FROM chat_messages WHERE project_id = ?').run(projectId);
+    return { ok: true, removed: result.changes };
+  } catch {
+    return { ok: false, error: 'Chat history could not be cleared.' };
+  }
+}

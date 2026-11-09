@@ -1,9 +1,9 @@
 import { BrowserWindow, type IpcMain } from 'electron';
 import { IPC_CHANNELS } from '../../shared/ipc-channels';
 import { getDatabase } from '../database';
-import { readSettings } from '../settings/repository';
+import { readPreferences, readSettings } from '../settings/repository';
 import { runAgentTurn } from '../agent/turn';
-import { loadChatHistory, saveChatMessage } from '../agent/chatHistory';
+import { clearChatHistory, loadChatHistory, saveChatMessage } from '../agent/chatHistory';
 import type { RunContext } from '../agent/buildTools';
 
 function settingsLanguage(): 'en' | 'ru' {
@@ -38,5 +38,12 @@ export function registerAgentIpc(ipcMain: IpcMain): void {
 
   ipcMain.handle(IPC_CHANNELS.CHAT_LOAD_HISTORY, (_event, projectId: unknown) => loadChatHistory(getDatabase(), projectId));
 
-  ipcMain.handle(IPC_CHANNELS.CHAT_SAVE_MESSAGE, (_event, record: unknown) => saveChatMessage(getDatabase(), record));
+  // Preferences ▸ Privacy ▸ "Save chat history" off: messages stay in the window and are not written.
+  ipcMain.handle(IPC_CHANNELS.CHAT_SAVE_MESSAGE, (_event, record: unknown) => {
+    const db = getDatabase();
+    if (!readPreferences(db).privacy.saveChatHistory) return { ok: true as const };
+    return saveChatMessage(db, record);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.CHAT_CLEAR_HISTORY, (_event, projectId: unknown) => clearChatHistory(getDatabase(), projectId));
 }

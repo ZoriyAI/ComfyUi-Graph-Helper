@@ -187,6 +187,23 @@ describe('sync service', () => {
     db.close();
   });
 
+  it('reads Preferences ▸ Sync on each run: scope "all" enriches every folder, per run caps the count', async () => {
+    const db = openDb();
+    db.prepare('UPDATE settings SET preferences_json = ? WHERE id = 1').run(JSON.stringify({ sync: { enrichmentScope: 'all', enrichPerRun: 10 } }));
+    const { sync } = service({ calls: [] });
+    await sync.runSync(db);
+    expect(modelDetail(db, 'sams', 'sam_vit_b.pth')).toMatchObject({ enriched: true });
+
+    const capped = openDb();
+    capped.prepare('UPDATE settings SET preferences_json = ? WHERE id = 1').run(JSON.stringify({ sync: { enrichmentScope: 'loaders', enrichPerRun: 10 } }));
+    const limited = service({ calls: [] }, { readEnrichment: () => ({ scope: 'loaders', perRun: 2 }) });
+    const status = await limited.sync.runSync(capped);
+    expect(status.counts.enrichedModels).toBe(2);
+    expect(modelDetail(capped, 'sams', 'sam_vit_b.pth')).toMatchObject({ enriched: false });
+    db.close();
+    capped.close();
+  });
+
   it('enriches from names and keeps going when the metadata tool is missing', async () => {
     const db = openDb();
     const calls: FakeOptions['calls'] = [];

@@ -53,6 +53,8 @@ export interface GraphSummary {
 export interface SummarizeOptions {
   /** Node ids the person has selected (the projection itself does not carry the selection). */
   selectedIds?: readonly string[];
+  /** Preferences ▸ Privacy ▸ "Send field values" off: the summary carries no widget values at all. */
+  omitValues?: boolean;
 }
 
 const NODE_CAP = 60;
@@ -191,7 +193,7 @@ export function summarizeGraph(
       inputs: ports(data.inputs),
       outputs: ports(data.outputs),
       purpose: purposeOf(id),
-      parameters: parametersOf(data),
+      parameters: options.omitValues ? [] : parametersOf(data),
       position: positionOf(node),
       size: sizeOf(node, data),
       selected: selected.has(id) || node.selected === true,

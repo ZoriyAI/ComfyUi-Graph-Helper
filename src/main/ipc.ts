@@ -325,6 +325,12 @@ export async function setupIPC(): Promise<void> {
 
   ipcMain.handle(IPC_CHANNELS.LLM_SESSION_STATUS, () => mainLLMService.sessionStatus());
 
+  // Settings ▸ Assistant ▸ Check connection: one tiny request with the draft runtime and the held key.
+  ipcMain.handle(IPC_CHANNELS.LLM_PROBE, (_event, draft: unknown) => {
+    const input = draft && typeof draft === 'object' ? draft as Record<string, unknown> : {};
+    return mainLLMService.probe({ provider: input.provider, model: input.model, baseURL: input.baseURL });
+  });
+
   // llm:stream-chat and chat history are registered by registerAgentIpc (src/main/ipc/agentIpc.ts).
 
   console.log('[IPC] Handlers registered');
