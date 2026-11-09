@@ -50,7 +50,7 @@ test('preferences window: sections, appearance, a recorded shortcut, a canvas to
   await expect(dialog.getByRole('textbox', { name: 'Session key', exact: true })).toBeVisible();
   await expect(dialog.getByRole('table', { name: 'Where secrets are' })).toBeVisible();
   await nav.getByRole('tab', { name: 'Sync' }).click();
-  await expect(dialog.getByRole('spinbutton', { name: 'Models per run' })).toHaveValue('40');
+  await expect(dialog.getByRole('spinbutton', { name: 'Models per batch' })).toHaveValue('50');
   await nav.getByRole('tab', { name: 'Privacy' }).click();
   await expect(dialog.getByRole('switch', { name: 'Send field values to the model' })).toHaveAttribute('aria-checked', 'true');
   await expect(dialog.locator('li.web-limits')).toContainText('60,000 characters');

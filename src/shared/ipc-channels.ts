@@ -73,6 +73,7 @@ export const IPC_CHANNELS = {
   SYNC_STATUS: 'sync:status',
   SYNC_NOW: 'sync:now',
   SYNC_SET_AUTO: 'sync:set-auto',
+  SYNC_PAUSE_ENRICHMENT: 'sync:pause-enrichment',
   SYNC_EVENT: 'sync:event',
 
   // Proposals / ghosts (Engine workstream)

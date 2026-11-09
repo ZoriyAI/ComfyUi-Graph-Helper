@@ -249,8 +249,11 @@ function packItems() {
   }));
 }
 
-function modelItems() {
-  return MODELS.map((model) => ({
+function modelItems(extraLoras = 0) {
+  const extra = Array.from({ length: extraLoras }, (_, index) => ({
+    category: 'loras', filename: `extra_lora_${String(index).padStart(3, '0')}.safetensors`, size: 100_000_000,
+  }));
+  return [...MODELS, ...extra].map((model) => ({
     category: model.category,
     filename: model.filename,
     root_path: `/srv/comfyui/models/${model.category}`,
@@ -278,7 +281,7 @@ function text(value: unknown, isError = false) {
   return { content: [{ type: 'text', text: typeof value === 'string' ? value : JSON.stringify(value) }], isError };
 }
 
-function callTool(name: string, args: Record<string, unknown>, comfyUrl: string) {
+function callTool(name: string, args: Record<string, unknown>, comfyUrl: string, extraLoras = 0) {
   switch (name) {
     case 'studio_info':
       return text({
@@ -294,7 +297,7 @@ function callTool(name: string, args: Record<string, unknown>, comfyUrl: string)
       return text({ items: ['checkpoints', 'loras', 'vae', 'controlnet'].map((category) => ({ category, root_count: 1 })), next_cursor: null, total: 4 });
     case 'models':
       if (args.action !== 'list') return text({ error: { code: 'FAKE_NOT_IMPLEMENTED' } }, true);
-      return text(page(modelItems(), args));
+      return text(page(modelItems(extraLoras), args));
     case 'model_metadata': {
       const key = `${String(args.category)}/${String(args.name)}`;
       const found = METADATA[key];
@@ -343,11 +346,20 @@ function startComfyFixture(hits: string[]): { server: http.Server } {
   return { server };
 }
 
-export async function startFakeMcp(options: { token?: string } = {}): Promise<FakeMcp> {
+export interface FakeMcpOptions {
+  token?: string;
+  /** Extra LoRA files (extra_lora_000.safetensors …) on top of MODELS, for a catalog that needs many metadata batches. */
+  extraLoras?: number;
+  /** studio_info names a ComfyUI address where nothing listens (ComfyUI not running). */
+  comfyDown?: boolean;
+}
+
+export async function startFakeMcp(options: FakeMcpOptions = {}): Promise<FakeMcp> {
   const calls: FakeMcpCall[] = [];
   const comfyHits: string[] = [];
   const comfy = startComfyFixture(comfyHits);
   const comfyPort = await listen(comfy.server);
+  if (options.comfyDown) await new Promise<void>((resolve) => comfy.server.close(() => resolve()));
   const comfyUrl = `http://127.0.0.1:${comfyPort}`;
   let sessionCounter = 0;
   const sessions = new Set<string>();
@@ -421,7 +433,7 @@ export async function startFakeMcp(options: { token?: string } = {}): Promise<Fa
         return;
       }
       if (method === 'tools/list') result = { tools: TOOL_DEFS };
-      else if (method === 'tools/call') result = callTool(String(params.name), record.args ?? {}, comfyUrl);
+      else if (method === 'tools/call') result = callTool(String(params.name), record.args ?? {}, comfyUrl, options.extraLoras ?? 0);
       else if (method === 'ping') result = {};
       else {
         res.writeHead(200, headers);
@@ -435,6 +447,10 @@ export async function startFakeMcp(options: { token?: string } = {}): Promise<Fa
   const port = await listen(server);
   const close = () => Promise.all([server, comfy.server].map((s) => new Promise<void>((resolve) => {
     s.closeAllConnections?.();
+    if (!s.listening) {
+      resolve();
+      return;
+    }
     s.close(() => resolve());
   }))).then(() => undefined);
   return { url: `http://127.0.0.1:${port}/mcp`, comfyUrl, calls, comfyHits, close };

@@ -72,6 +72,9 @@ const ERROR_KEYS: Record<string, string> = {
   'Subgraph slot was not found.': 'proposals.errors.slotMissing',
   'Group was not found.': 'proposals.errors.groupMissing',
   'Model metadata could not be read.': 'errors.metadataUnread',
+  'Node ports were not updated: the MCP server did not name a ComfyUI address.': 'errors.nodePortsNoUrl',
+  'Node ports were not updated: the ComfyUI address the server named is not on this computer or saved in Settings.': 'errors.nodePortsNotAllowed',
+  'Model metadata reading stopped after 5 failed reads in a row; it continues at the next sync.': 'errors.metadataStopped',
   'MCP catalog page could not be read.': 'errors.mcpPage',
   'MCP server URL must use https unless it is on this machine.': 'errors.mcpHttps',
   'Explanations cannot store a secret.': 'errors.explanationSecret',
@@ -96,9 +99,25 @@ const MCP_REFUSED = /^MCP tool call refused: ([A-Za-z0-9_.-]{1,80}) is not on th
 const UNAVAILABLE_TOOL = /Model tried to call unavailable tool '([A-Za-z0-9_.-]{1,80})'/;
 const BUILD_TOOL_NAMES = new Set(['addNode', 'connectNodes', 'setParameter', 'removeNode', 'createSubgraph', 'insertSubgraph', 'annotateNode', 'setComponentDocumentation', 'setProcess']);
 
+/** Sync errors and warnings that carry a host or a catalog section (src/main/mcp/sync.ts). */
+const MCP_UNREACHABLE = /^MCP server unreachable: ([A-Za-z0-9.:\[\]_-]{1,255})\.$/;
+const COMFY_NOT_RUNNING = /^ComfyUI is not running at ([A-Za-z0-9.:\[\]_-]{1,255}) — node ports were not updated; start ComfyUI and sync again\.$/;
+const MCP_SECTION = /^MCP catalog section could not be read: (node classes|node packs|model files)\.$/;
+const SECTION_KEYS: Record<string, string> = {
+  'node classes': 'sync.section.nodeClasses',
+  'node packs': 'sync.section.nodePacks',
+  'model files': 'sync.section.modelFiles',
+};
+
 function translatePattern(translate: Translator, code: string): string | null {
   const refused = MCP_REFUSED.exec(code);
   if (refused) return translate('errors.mcpRefused', { tool: refused[1] });
+  const unreachable = MCP_UNREACHABLE.exec(code);
+  if (unreachable) return translate('errors.mcpUnreachable', { host: unreachable[1] });
+  const comfy = COMFY_NOT_RUNNING.exec(code);
+  if (comfy) return translate('errors.comfyNotRunning', { host: comfy[1] });
+  const section = MCP_SECTION.exec(code);
+  if (section) return translate('errors.mcpSection', { section: translate(SECTION_KEYS[section[1]]) });
   const unavailable = UNAVAILABLE_TOOL.exec(code);
   if (unavailable) {
     return BUILD_TOOL_NAMES.has(unavailable[1])

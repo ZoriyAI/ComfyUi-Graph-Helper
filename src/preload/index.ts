@@ -76,6 +76,7 @@ const IPC_CHANNELS = {
   SYNC_STATUS: 'sync:status',
   SYNC_NOW: 'sync:now',
   SYNC_SET_AUTO: 'sync:set-auto',
+  SYNC_PAUSE_ENRICHMENT: 'sync:pause-enrichment',
   SYNC_EVENT: 'sync:event',
   PROPOSALS_LIST: 'proposals:list',
   PROPOSALS_RESOLVE: 'proposals:resolve',
@@ -221,6 +222,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   syncStatus: () => ipcRenderer.invoke(IPC_CHANNELS.SYNC_STATUS) as Promise<SyncStatus>,
   syncNow: () => ipcRenderer.invoke(IPC_CHANNELS.SYNC_NOW) as Promise<SyncStatus>,
   syncSetAuto: (enabled: boolean, intervalMinutes: number) => ipcRenderer.invoke(IPC_CHANNELS.SYNC_SET_AUTO, { enabled, intervalMinutes }) as Promise<SyncStatus>,
+  syncPauseEnrichment: () => ipcRenderer.invoke(IPC_CHANNELS.SYNC_PAUSE_ENRICHMENT) as Promise<SyncStatus>,
   onSyncEvent: (listener: (status: SyncStatus) => void) => {
     const handler = (_event: unknown, status: SyncStatus) => listener(status);
     ipcRenderer.on(IPC_CHANNELS.SYNC_EVENT, handler);
@@ -341,6 +343,8 @@ export interface ElectronAPI {
   syncStatus: () => Promise<SyncStatus>;
   syncNow: () => Promise<SyncStatus>;
   syncSetAuto: (enabled: boolean, intervalMinutes: number) => Promise<SyncStatus>;
+  /** Stops background model-metadata reading until the next sync. */
+  syncPauseEnrichment: () => Promise<SyncStatus>;
   onSyncEvent: (listener: (status: SyncStatus) => void) => () => void;
   listProposals: (projectId: string) => Promise<Proposal[]>;
   resolveProposal: (request: ResolveProposalRequest) => Promise<ProposalResolution>;

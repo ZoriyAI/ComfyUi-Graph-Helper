@@ -76,6 +76,10 @@ test('first run: connect, sync from MCP, browse the library, build, check and ex
     expect(counts[1]).toBe(String(CLASSES.length));
     expect(counts[2]).toBe(String(PACKS.length));
     expect(Number(counts[3])).toBeGreaterThanOrEqual(25);
+    // The small fake catalog is read in one batch: no background reading is left, and the details are shown.
+    await expect(indicator).not.toHaveAttribute('data-sync-enriching', 'true');
+    await expect(popover.getByText('Model metadata', { exact: true })).toBeVisible();
+    await expect(popover.getByText('Duration', { exact: true })).toBeVisible();
     await indicator.click();
     await expect(popover).toHaveCount(0);
 

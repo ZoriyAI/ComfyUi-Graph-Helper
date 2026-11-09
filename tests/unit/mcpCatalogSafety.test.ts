@@ -109,6 +109,30 @@ describe('catalog listings that remove what the server dropped', () => {
     const notItems: McpSession = { ...pages, async callTool() { return json({ error: 'nope' }); } };
     await expect(readAllPages(notItems, 'models', {}, 10)).rejects.toBeInstanceOf(McpPageError);
   });
+
+  it('has no page cap: reads every page until the server reports the end, and stops on a cursor loop', async () => {
+    const many: McpSession = {
+      async listTools() { return []; },
+      async callTool(_name, args) {
+        const index = Number(args.cursor ?? 0);
+        return json({ items: [{ n: index }], next_cursor: index < 1199 ? String(index + 1) : null });
+      },
+      async close() {},
+    };
+    const read = await readAllPages(many, 'models', {});
+    expect(read).toMatchObject({ complete: true });
+    expect(read.items).toHaveLength(1200);
+    const looping: McpSession = {
+      ...many,
+      async callTool(_name, args) {
+        const index = Number(args.cursor ?? 0);
+        return json({ items: [{ n: index }], next_cursor: String((index + 1) % 3) });
+      },
+    };
+    const loop = await readAllPages(looping, 'models', {});
+    expect(loop).toMatchObject({ complete: false });
+    expect(loop.items).toHaveLength(4);
+  });
 });
 
 describe('MCP URL and ComfyUI URL checks', () => {

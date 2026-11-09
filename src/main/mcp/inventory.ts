@@ -18,9 +18,9 @@ export type McpModelFileWithRoot = McpModelFile & { rootPath: string | null };
 
 /**
  * `models` action list, keeping root_path: with several roots per folder the root tells same-named files apart.
- * Throws McpPageError when any page fails; `complete` is false when the listing stopped early.
+ * Reads until the server reports the end; throws McpPageError when any page fails; `complete` is false on a cursor loop.
  */
-export async function readModelFilesWithRoots(session: McpSession, pageLimit = 1000, maxPages = 500): Promise<PagedItems<McpModelFileWithRoot>> {
+export async function readModelFilesWithRoots(session: McpSession, pageLimit = 1000, maxPages?: number): Promise<PagedItems<McpModelFileWithRoot>> {
   const files: McpModelFileWithRoot[] = [];
   const seen = new Set<string>();
   const read = await readAllPages(session, 'models', { action: 'list', limit: pageLimit }, maxPages);
@@ -43,7 +43,7 @@ export async function readModelFilesWithRoots(session: McpSession, pageLimit = 1
 }
 
 /** `studio_capabilities` section nodes, kind packs. */
-export async function readNodePacks(session: McpSession, pageLimit = 100, maxPages = 50): Promise<PagedItems<NodePackRow>> {
+export async function readNodePacks(session: McpSession, pageLimit = 100, maxPages?: number): Promise<PagedItems<NodePackRow>> {
   const packs: NodePackRow[] = [];
   const seen = new Set<string>();
   const read = await readAllPages(session, 'studio_capabilities', { section: 'nodes', kind: 'packs', limit: pageLimit }, maxPages);

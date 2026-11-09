@@ -99,7 +99,27 @@ export interface SyncStatus {
   signedIn?: boolean;
   auto: { enabled: boolean; intervalMinutes: number };
   counts: { nodeClasses: number; detailedClasses: number; packs: number; models: number; enrichedModels: number };
+  /**
+   * While a run is in flight: its phase ('connect', 'catalog', 'enrich'). After a successful listing, while model
+   * metadata is still being read in the background, phase 'enrichment' with state 'idle'.
+   */
   progress: { phase: string; done: number; total: number } | null;
+  /** When the next automatic run is due (ms since epoch); null when auto sync is off. Optional for older callers. */
+  nextRunAt?: number | null;
+  /** The first run after startup is scheduled and has not started yet ("Starting…"). */
+  startupPending?: boolean;
+  /** When the last run started, and how long it took (listing plus the first metadata batch). */
+  lastRunAt?: number | null;
+  lastRunDurationMs?: number | null;
+  /**
+   * Non-fatal problems of the last successful run, as fixed English sentences (translated like lastError):
+   * ComfyUI not reachable for node ports, an MCP catalog section that could not be read completely.
+   */
+  warnings?: string[];
+  /** Model files in the enrichment scope, and how many of them carry metadata. */
+  metadata?: { done: number; total: number };
+  /** Background metadata reading was paused by the person; it resumes with the next run. */
+  enrichmentPaused?: boolean;
 }
 
 export interface SearchNodesRequest { query: string; category?: string; limit?: number }
