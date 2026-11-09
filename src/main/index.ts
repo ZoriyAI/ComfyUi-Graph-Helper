@@ -14,7 +14,7 @@ import { createTranslator, languageOf, type AppLanguage } from '../shared/i18n';
 import type { SyncStatus } from '../shared/contracts/knowledge';
 
 /**
- * package.json productName ("ComfyUI Graph Helper") names the package, the bundle and the desktop entry. Inside
+ * package.json productName ("Graph Helper for ComfyUI") names the package, the bundle and the desktop entry. Inside
  * the app the name stays the package name, as before: it names the profile folder (database, window state,
  * logs) and the OS keyring entry the provider key is encrypted under, so an update keeps both. --user-data-dir
  * still wins (tests).
@@ -22,7 +22,7 @@ import type { SyncStatus } from '../shared/contracts/knowledge';
 const STABLE_APP_NAME = 'comfyui-graph-builder';
 // Only when package.json's productName is in effect (installed, or `electron .`); a bare script launch (tests)
 // keeps Electron's own name and folder.
-if (app.getName() === 'ComfyUI Graph Helper') {
+if (['ComfyUI Graph Helper', 'Graph Helper for ComfyUI'].includes(app.getName())) {
   app.setName(STABLE_APP_NAME);
   if (!app.commandLine.hasSwitch('user-data-dir')) app.setPath('userData', path.join(app.getPath('appData'), STABLE_APP_NAME));
 }
