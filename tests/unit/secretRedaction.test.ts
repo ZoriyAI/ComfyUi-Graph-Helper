@@ -76,7 +76,7 @@ describe('sync and engine error translation', () => {
     const ru = createTranslator('ru');
     for (const code of [
       'Model metadata could not be read.', 'MCP catalog page could not be read.', 'MCP server URL must use https unless it is on this machine.',
-      'Connection slots must be numbers.', 'Source node was not found.', 'Target node was not found.', 'Source handle is not an output on that node.',
+      'Connection slots must be numbers.', 'Connection was not found.', 'Source node was not found.', 'Target node was not found.', 'Source handle is not an output on that node.',
       'Target handle is not an input on that node.', 'Catalog widget order does not match widgets_values.', 'widgetIndex is outside widgets_values.',
       'widgetIndex does not match the catalog widget order.', 'widgetIndex is required when widgets_values is an array.',
       'Explanations cannot store a secret.', 'The project record does not match the schema.', 'The request did not come from the app window.',

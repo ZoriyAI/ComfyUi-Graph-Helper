@@ -72,6 +72,7 @@ const ERROR_KEYS: Record<string, string> = {
   'The project record does not match the schema.': 'errors.projectRecord',
   'The request did not come from the app window.': 'errors.untrustedSender',
   'Connection slots must be numbers.': 'errors.slotsNumbers',
+  'Connection was not found.': 'errors.connectionMissing',
   'Source node was not found.': 'errors.sourceMissing',
   'Target node was not found.': 'errors.targetMissing',
   'Source handle is not an output on that node.': 'errors.sourceHandle',
