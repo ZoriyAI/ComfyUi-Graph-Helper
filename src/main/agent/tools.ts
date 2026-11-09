@@ -76,8 +76,9 @@ const objectRefSchema = z.object({
 const schemas = {
   getGraph: z.object({
     offset: z.number().int().min(0).optional(),
-    limit: z.number().int().min(1).max(500).optional(),
-    ids: z.array(z.string().max(200)).max(500).optional(),
+    // No maximum: the person's graph is read whole when the model asks for it.
+    limit: z.number().int().min(1).optional(),
+    ids: z.array(z.string().max(200)).optional(),
   }).passthrough(),
   searchNodeTypes: z.object({ query: z.string().max(200), category: z.string().max(200).optional(), limit: z.number().int().min(1).max(50).optional() }),
   describeNodeType: z.object({ classType: z.string().min(1).max(200) }),
@@ -229,7 +230,7 @@ export function createAgentTools(deps: AgentToolDeps): Record<string, AgentToolD
       return {
         success: true,
         revisionId: projection.currentRevisionId,
-        ...summarizeGraph(projection.snapshot, { offset: args.offset, limit: args.limit ?? GRAPH_PAGE_LIMIT, ids: args.ids, omitValues: deps.omitValues === true }),
+        ...summarizeGraph(projection.snapshot, { offset: args.offset, limit: args.limit ?? GRAPH_PAGE_LIMIT, ids: args.ids, omitValues: deps.omitValues === true, fullText: true }),
       };
     }),
     searchNodeTypes: define('searchNodeTypes', schemas.searchNodeTypes, (args) => ({
