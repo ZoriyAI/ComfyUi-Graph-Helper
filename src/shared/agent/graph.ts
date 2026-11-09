@@ -68,6 +68,8 @@ export interface SummarizeOptions {
   limit?: number;
   /** Only these nodes (and the connections that touch them). Overrides offset. */
   ids?: readonly string[];
+  /** Preferences ▸ Privacy ▸ "Send field values" off: the summary carries no widget values at all. */
+  omitValues?: boolean;
 }
 
 /** Nodes the prompt lists before it asks the model to page with getGraph. */
@@ -211,7 +213,7 @@ export function summarizeGraph(
       inputs: ports(data.inputs, 'in'),
       outputs: ports(data.outputs, 'out'),
       purpose: purposeOf(id),
-      parameters: parametersOf(data),
+      parameters: options.omitValues ? [] : parametersOf(data),
       position: positionOf(node),
       size: sizeOf(node, data),
       selected: selected.has(id) || node.selected === true,

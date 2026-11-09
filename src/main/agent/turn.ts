@@ -18,6 +18,8 @@ import { buildSystemPrompt, catalogSummaryText } from './prompt';
 import { errorMessage } from './streamParts';
 import { createAgentTools, type KnowledgeApi, type ProposalApi } from './tools';
 import type { FetchLike } from './web';
+import { readPreferences } from '../settings/repository';
+import type { Preferences } from '../../shared/config/preferences';
 
 type ChatMessage = { role: 'system' | 'user' | 'assistant'; content: string };
 
@@ -40,6 +42,8 @@ export interface AgentTurnOptions {
   knowledge?: KnowledgeApi;
   proposals?: ProposalApi;
   fetchImpl?: FetchLike;
+  /** Preferences for this turn. Default: read from the settings row now, so a save applies to the next turn. */
+  preferences?: Preferences;
 }
 
 function dialog(input: unknown): ChatMessage[] {
@@ -61,12 +65,14 @@ function specs(input: unknown): RendererToolSpec[] {
 
 const BUILD = new Set<string>(AGENT_BUILD_TOOLS);
 const RECENT_LIMIT = 30;
-/** A step-by-step build is one tool call per step: a text-to-image graph alone is about sixteen. */
-const MAX_STEPS = 48;
 
-/** Build tools exist only in a build turn; ask and chat turns read, explain and propose ghosts (ghost by default). */
-export function buildToolsAllowed(context: AgentTurnContext): boolean {
-  return context.intent === 'build';
+/**
+ * Build tools exist in a build turn, and in a chat turn when the person set "build directly" as their default
+ * (Preferences ▸ Assistant). Ask turns, and chat turns by default, read, explain and propose ghosts.
+ */
+export function buildToolsAllowed(context: AgentTurnContext, defaultIntent?: 'ask' | 'build'): boolean {
+  if (context.intent === 'build') return true;
+  return context.intent === 'chat' && defaultIntent === 'build';
 }
 
 /** The person's recent commands for the prompt; a read failure only drops that section. */
@@ -115,6 +121,8 @@ export async function runAgentTurn(options: AgentTurnOptions): Promise<void> {
   const knowledge = options.knowledge ?? knowledgeRepository;
   let terminal: { type: string; content?: unknown } = { type: 'done' };
   try {
+    const preferences = options.preferences ?? readPreferences(db);
+    const { assistant, privacy } = preferences;
     const context = parseTurnContext(options.context, options.language);
     const messages = trimHistory(dialog(options.messages)).map((message) => ({ ...message, content: redact(message.content) }));
     const question = [...messages].reverse().find((message) => message.role === 'user')?.content ?? '';
@@ -128,10 +136,11 @@ export async function runAgentTurn(options: AgentTurnOptions): Promise<void> {
     const selectedIds = context.selection.filter((ref) => ref.kind === 'node').map((ref) => ref.id);
     const system = redact(buildSystemPrompt({
       context,
-      graph: projection ? summarizeGraph(projection.snapshot, { selectedIds, priorityIds: priorityIds(context, recent) }) : null,
+      graph: projection ? summarizeGraph(projection.snapshot, { selectedIds, priorityIds: priorityIds(context, recent), omitValues: !privacy.sendFieldValues }) : null,
       catalog: catalogSummaryText(db, knowledge, question),
       recent,
       question,
+      preferences: { ...assistant, sendFieldValues: privacy.sendFieldValues },
     }));
 
     // Port names and slot indices resolve against the current snapshot and the installed catalog.
@@ -157,12 +166,15 @@ export async function runAgentTurn(options: AgentTurnOptions): Promise<void> {
       proposals: options.proposals,
       fetchImpl: options.fetchImpl,
       notify: options.notify,
-      nativeSearch: llm.nativeSearchTool(),
+      nativeSearch: assistant.allowWebSearch ? llm.nativeSearchTool() : null,
+      allowWebSearch: assistant.allowWebSearch,
+      allowFetchPage: assistant.allowFetchPage,
+      omitValues: !privacy.sendFieldValues,
       toolContext,
       signal: options.signal,
     });
     const tools: Record<string, unknown> = { ...mainTools };
-    if (buildToolsAllowed(context)) {
+    if (buildToolsAllowed(context, assistant.defaultIntent)) {
       const buildTools = createBuildTools(specs(options.toolSpecs), {
         db,
         run,
@@ -179,7 +191,12 @@ export async function runAgentTurn(options: AgentTurnOptions): Promise<void> {
     }
 
     console.log(`[Agent] Turn with ${messages.length} messages, ${Object.keys(tools).length} tools, intent=${context.intent}`);
-    for await (const chunk of llm.streamChatWithTools([{ role: 'system', content: system }, ...messages], tools as Record<string, any>, { maxSteps: MAX_STEPS, abortSignal: options.signal })) {
+    for await (const chunk of llm.streamChatWithTools([{ role: 'system', content: system }, ...messages], tools as Record<string, any>, {
+      maxSteps: assistant.maxStepsPerTurn,
+      allowWebSearch: assistant.allowWebSearch,
+      allowFetchPage: assistant.allowFetchPage,
+      abortSignal: options.signal,
+    })) {
       if (options.signal?.aborted) break;
       send(chunk);
     }

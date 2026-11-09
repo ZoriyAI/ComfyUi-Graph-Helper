@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { databasePath } from '../../src/shared/database-path';
+import { preferencesDefaults } from '../../src/shared/config/preferences';
 import { migrate, schemaVersion, tableNames } from '../../src/main/settings/migrate';
 import { attemptSaveSecret, readSettings, saveSettings, secretRecordCount } from '../../src/main/settings/repository';
 
@@ -46,7 +47,10 @@ describe('settings migration', () => {
     const dbPath = databasePath(dir);
     const db = new Database(dbPath);
     migrate(db);
-    expect(readSettings(db)).toEqual({
+    const { preferences: initialPreferences, ...initial } = readSettings(db);
+    // Preferences (v10) are additive on the read; a fresh profile reads the defaults.
+    expect(initialPreferences).toEqual(preferencesDefaults);
+    expect(initial).toEqual({
       source: 'default',
       values: {
         theme: 'graphite',
@@ -72,7 +76,7 @@ describe('settings migration', () => {
     db.close();
 
     const reopened = new Database(dbPath);
-    expect(schemaVersion(reopened)).toBe(9);
+    expect(schemaVersion(reopened)).toBe(10);
     expect(readSettings(reopened)).toMatchObject({
       source: 'stored',
       values: {
@@ -91,12 +95,14 @@ describe('settings migration', () => {
   it('keeps a legacy comfy origin from discarding the stored settings row', () => {
     const db = new Database(':memory:');
     migrate(db);
-    expect(schemaVersion(db)).toBe(9);
+    expect(schemaVersion(db)).toBe(10);
     db.prepare(
       `INSERT INTO settings (id, theme, motion, provider, model, comfy_origin, base_url, language, updated_at)
        VALUES (1, 'graphite', 'reduced', 'openai', 'stored-model', 'localhost:8188', 'https://example.test/v1', 'ru', 1)`,
     ).run();
-    expect(readSettings(db)).toEqual({
+    const { preferences: legacyPreferences, ...legacy } = readSettings(db);
+    expect(legacyPreferences).toEqual(preferencesDefaults);
+    expect(legacy).toEqual({
       source: 'stored',
       values: {
         theme: 'graphite',
@@ -145,7 +151,7 @@ describe('settings migration', () => {
       CREATE TABLE model_catalog (directory TEXT NOT NULL, name TEXT NOT NULL, PRIMARY KEY (directory, name));
     `);
     migrate(db);
-    expect(schemaVersion(db)).toBe(9);
+    expect(schemaVersion(db)).toBe(10);
     const columns = db.prepare('PRAGMA table_info(node_catalog)').all() as Array<{ name: string }>;
     expect(columns.map((column) => column.name)).toEqual([
       'class_type',
@@ -166,9 +172,9 @@ describe('settings migration', () => {
       python_module: string;
     };
     expect(row).toEqual({ pack: 'core', python_module: 'nodes' });
-    db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (10, 1)').run();
-    expect(() => migrate(db)).toThrow(/Unsupported schema version 10/);
-    expect(schemaVersion(db)).toBe(10);
+    db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (11, 1)').run();
+    expect(() => migrate(db)).toThrow(/Unsupported schema version 11/);
+    expect(schemaVersion(db)).toBe(11);
     db.close();
   });
 
@@ -190,7 +196,7 @@ describe('settings migration', () => {
       VALUES (1, 'graphite', 'off', 'openai', 'kept-model', 'http://127.0.0.1:8188', 1);
     `);
     migrate(db);
-    expect(schemaVersion(db)).toBe(9);
+    expect(schemaVersion(db)).toBe(10);
     expect(readSettings(db)).toMatchObject({
       source: 'stored',
       values: { provider: 'openai', model: 'kept-model', baseURL: '', motion: 'off', language: 'en' },

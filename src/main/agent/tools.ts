@@ -37,6 +37,12 @@ export interface AgentToolDeps {
   toolContext?: () => ToolContext | undefined;
   /** Aborted when the turn is cancelled: nothing more is written. */
   signal?: AbortSignal;
+  /** Preferences ▸ Assistant: false leaves searchWeb out of the tool set. Default true. */
+  allowWebSearch?: boolean;
+  /** Preferences ▸ Assistant: false leaves fetchPage out of the tool set. Default true. */
+  allowFetchPage?: boolean;
+  /** Preferences ▸ Privacy: true makes getGraph omit every widget value. */
+  omitValues?: boolean;
 }
 
 export interface AgentToolDefinition {
@@ -222,7 +228,7 @@ export function createAgentTools(deps: AgentToolDeps): Record<string, AgentToolD
       return {
         success: true,
         revisionId: projection.currentRevisionId,
-        ...summarizeGraph(projection.snapshot, { offset: args.offset, limit: args.limit ?? GRAPH_PAGE_LIMIT, ids: args.ids }),
+        ...summarizeGraph(projection.snapshot, { offset: args.offset, limit: args.limit ?? GRAPH_PAGE_LIMIT, ids: args.ids, omitValues: deps.omitValues === true }),
       };
     }),
     searchNodeTypes: define('searchNodeTypes', schemas.searchNodeTypes, (args) => ({
@@ -281,6 +287,8 @@ export function createAgentTools(deps: AgentToolDeps): Record<string, AgentToolD
     proposeSubgraph: propose('proposeSubgraph'),
   };
 
+  if (deps.allowFetchPage === false) delete tools.fetchPage;
+  if (deps.allowWebSearch === false) return tools;
   const native = deps.nativeSearch === undefined ? null : deps.nativeSearch;
   tools.searchWeb = native ?? define('searchWeb', schemas.searchWeb, async (args) => ({
     success: true,

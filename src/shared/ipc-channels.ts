@@ -16,6 +16,7 @@ export const IPC_CHANNELS = {
   // Chat operations
   CHAT_SAVE_MESSAGE: 'chat:save-message',
   CHAT_LOAD_HISTORY: 'chat:load-history',
+  CHAT_CLEAR_HISTORY: 'chat:clear-history',
   
   // File operations
   FILE_IMPORT_WORKFLOW: 'file:import-workflow',
@@ -53,6 +54,8 @@ export const IPC_CHANNELS = {
   LLM_SET_SESSION_KEY: 'llm:set-session-key',
   LLM_SESSION_STATUS: 'llm:session-status',
   LLM_STREAM_CHAT: 'llm:stream-chat',
+  /** Checks a draft provider/model/base URL with one tiny request. Never part of a chat turn. */
+  LLM_PROBE: 'llm:probe',
   LLM_CANCEL: 'llm:cancel',
   
   // Knowledge and sync (KB workstream)

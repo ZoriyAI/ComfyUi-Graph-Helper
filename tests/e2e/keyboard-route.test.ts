@@ -100,10 +100,15 @@ test('keyboard route reaches a node and keeps graph shortcuts out of fields', as
   await expect(dialog).toHaveAttribute('data-state', 'open');
   await window.keyboard.press('Shift+Tab');
   await expect.poll(async () => window.evaluate(() => document.activeElement?.textContent?.trim() ?? '')).toBe('Connection');
-  await window.keyboard.press('ArrowDown');
+  // The section list is Assistant · Models & keys · Connection · Sync · Canvas · Appearance & Motion · …
+  await window.keyboard.press('ArrowUp');
+  await expect.poll(async () => window.evaluate(() => document.activeElement?.textContent?.trim() ?? '')).toBe('Models & keys');
+  await window.keyboard.press('ArrowUp');
   await expect.poll(async () => window.evaluate(() => document.activeElement?.textContent?.trim() ?? '')).toBe('Assistant');
-  await window.keyboard.press('ArrowDown');
-  await expect.poll(async () => window.evaluate(() => document.activeElement?.textContent?.trim() ?? '')).toBe('Appearance & Motion');
+  for (const label of ['Models & keys', 'Connection', 'Sync', 'Canvas', 'Appearance & Motion']) {
+    await window.keyboard.press('ArrowDown');
+    await expect.poll(async () => window.evaluate(() => document.activeElement?.textContent?.trim() ?? '')).toBe(label);
+  }
   await window.keyboard.press('Tab');
   await expect.poll(async () => window.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? '')).toBe('Motion');
   await window.keyboard.press('Enter');
@@ -158,7 +163,8 @@ test('keyboard route reaches a node and keeps graph shortcuts out of fields', as
   await expectKept(beforeControl);
   await window.keyboard.press('Shift+Tab');
   await expect.poll(async () => window.evaluate(() => document.activeElement?.textContent?.trim() ?? '')).toBe('Appearance & Motion');
-  await window.keyboard.press('ArrowUp');
+  // Assistant is the first section now: Home reaches it.
+  await window.keyboard.press('Home');
   await expect.poll(async () => window.evaluate(() => document.activeElement?.textContent?.trim() ?? '')).toBe('Assistant');
   for (let step = 0; step < 6; step += 1) {
     await window.keyboard.press('Tab');

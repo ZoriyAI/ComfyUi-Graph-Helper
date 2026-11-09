@@ -9,6 +9,14 @@ import {
   type SecretSaveResult,
   type SettingsRead,
 } from '../../shared/config/schema';
+import {
+  mergePreferences,
+  parsePreferences,
+  preferencesCarrySecret,
+  preferencesDefaults,
+  preferencesSchema,
+  type Preferences,
+} from '../../shared/config/preferences';
 
 type SettingsRow = {
   theme: string;
@@ -38,23 +46,58 @@ export function readSettings(db: Database.Database): SettingsRead {
   const row = db.prepare('SELECT theme, motion, provider, model, base_url, comfy_origin, mcp_url, language FROM settings WHERE id = 1').get() as
     | SettingsRow
     | undefined;
+  const preferences = readPreferences(db);
   if (!row) {
-    return { source: 'default', values: nonSecretDefaults };
+    return { source: 'default', values: nonSecretDefaults, preferences };
   }
   const parsed = nonSecretSettingsSchema.safeParse(coerceLegacyComfyOrigin(rowToInput(row)));
   if (!parsed.success) {
-    return { source: 'corrupt' };
+    return { source: 'corrupt', preferences };
   }
-  return { source: 'stored', values: parsed.data };
+  return { source: 'stored', values: parsed.data, preferences };
 }
 
-export function saveSettings(db: Database.Database, input: unknown): { ok: true; values: NonSecretSettings } | { ok: false; error: string } {
-  if (carriesSecret(input)) {
+/**
+ * The preferences on the settings row, whole and valid: missing or broken fields read as defaults.
+ * Main-process consumers (prompt, step limit, sync) call this on each use, so a save applies to the next turn.
+ */
+export function readPreferences(db: Database.Database): Preferences {
+  try {
+    const row = db.prepare('SELECT preferences_json FROM settings WHERE id = 1').get() as { preferences_json: string } | undefined;
+    return row ? parsePreferences(row.preferences_json) : parsePreferences({});
+  } catch {
+    // A database before v10 has no column yet.
+    return JSON.parse(JSON.stringify(preferencesDefaults)) as Preferences;
+  }
+}
+
+export type SettingsSaveResult =
+  | { ok: true; values: NonSecretSettings; preferences: Preferences }
+  | { ok: false; error: string };
+
+/**
+ * Saves the non-secret row. An optional `preferences` field is a patch merged onto the stored preferences
+ * (sections merge field by field; shortcuts replace the map). Fail-closed: a secret-shaped value anywhere,
+ * in the row or in the preferences, blocks the whole save before validation.
+ */
+export function saveSettings(db: Database.Database, input: unknown): SettingsSaveResult {
+  const { preferences: patch, ...row } = input && typeof input === 'object' && !Array.isArray(input)
+    ? input as Record<string, unknown>
+    : { preferences: undefined };
+  if (carriesSecret(input) || carriesSecret(row) || (patch !== undefined && preferencesCarrySecret(patch))) {
     return { ok: false, error: 'Settings cannot store a secret' };
   }
-  const parsed = nonSecretSettingsSchema.safeParse(input);
+  const parsed = nonSecretSettingsSchema.safeParse(row);
   if (!parsed.success) {
     return { ok: false, error: 'Settings do not match the schema' };
+  }
+  let preferences = readPreferences(db);
+  if (patch !== undefined) {
+    const merged = preferencesSchema.safeParse(mergePreferences(preferences, patch));
+    if (!merged.success || preferencesCarrySecret(merged.data)) {
+      return { ok: false, error: merged.success ? 'Settings cannot store a secret' : 'Settings do not match the schema' };
+    }
+    preferences = merged.data;
   }
   const values = parsed.data;
   const write = db.transaction(() => {
@@ -82,9 +125,12 @@ export function saveSettings(db: Database.Database, input: unknown): { ok: true;
       values.language,
       Date.now(),
     );
+    if (patch !== undefined) {
+      db.prepare('UPDATE settings SET preferences_json = ? WHERE id = 1').run(JSON.stringify(preferences));
+    }
   });
   write.immediate();
-  return { ok: true, values };
+  return { ok: true, values, preferences };
 }
 
 export function secretRecordCount(db: Database.Database): number {

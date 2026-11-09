@@ -19,6 +19,8 @@ function createWindow() {
       contextIsolation: true,
       sandbox: true,
       webSecurity: true,
+      // The renderer's About section reads the app version from preload `versions.app`.
+      additionalArguments: [`--app-version=${app.getVersion()}`],
     },
   });
 
