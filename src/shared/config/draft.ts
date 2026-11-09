@@ -2,8 +2,69 @@ import { nonSecretSettingsSchema } from './schema';
 
 const SECRET_FIELD = /^(api[_-]?key|token|secret|password|authorization|credential)$/i;
 
+const KEYISH = '(?:api[_-]?key|apikey|access[_-]?token|auth[_-]?token|token|secret|password|passwd|credential|private[_-]?key|client[_-]?secret)';
+
+/**
+ * Secret shapes, each matching the secret value itself so it can be replaced. Provider keys are anchored on a
+ * word start, so "mask-like", "risk-", "task-" and "loras/mask-xl_v1" are not keys.
+ */
+const SECRET_PATTERNS: readonly RegExp[] = [
+  // OpenAI / Anthropic style keys. Six characters after the prefix keeps short test markers ("sk-abc123") covered.
+  /\bsk-(?:ant-|proj-|svcacct-|live-|test-)?[A-Za-z0-9_-]{6,}/g,
+  /\bAIza[0-9A-Za-z_-]{30,}/g,
+  /\bhf_[A-Za-z0-9]{20,}/g,
+  /\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{20,}/g,
+  /\bgithub_pat_[A-Za-z0-9_]{20,}/g,
+  /\bgsk_[A-Za-z0-9]{20,}/g,
+  /\bxox[abposr]-[A-Za-z0-9-]{10,}/g,
+  /\bbearer\s+[^\s"',;]+/gi,
+  /\bauthorization\s*[:=]\s*["']?basic\s+[A-Za-z0-9+/=._-]+/gi,
+  /\bapi[_-]?key\s*[:=]\s*["']?[^\s"',;}]*/gi,
+  new RegExp(`"${KEYISH}"\\s*:\\s*"[^"]+"`, 'gi'),
+  new RegExp(`'${KEYISH}'\\s*:\\s*'[^']+'`, 'gi'),
+  /[?&](?:access_token|token|key|api_key|apikey|auth|sig|signature)=[A-Za-z0-9._~%+/-]{16,}/gi,
+  // A long base64 or hex run right after a key-ish word ("token: 3f9a…", "secret=QmFz…").
+  new RegExp(`\\b${KEYISH}\\w*["']?\\s*(?:[:=]|is)\\s*["']?(?:[A-Fa-f0-9]{32,}|[A-Za-z0-9+/_-]{32,}={0,2})`, 'gi'),
+];
+
 function valueCarriesSecret(value: string): boolean {
-  return /sk-[A-Za-z0-9]/.test(value) || /api[_-]?key\s*[:=]/i.test(value) || /bearer\s+\S/i.test(value);
+  return SECRET_PATTERNS.some((pattern) => {
+    pattern.lastIndex = 0;
+    const found = pattern.test(value);
+    pattern.lastIndex = 0;
+    return found;
+  });
+}
+
+/** Replaces every secret-shaped run in free text with "[redacted]". Plain prose and file names pass unchanged. */
+export function redactSecrets(text: string): string {
+  if (typeof text !== 'string' || text === '') return text;
+  let result = text;
+  for (const pattern of SECRET_PATTERNS) {
+    pattern.lastIndex = 0;
+    result = result.replace(pattern, '[redacted]');
+  }
+  return result;
+}
+
+/** True when free text holds a secret shape. */
+export function textCarriesSecret(text: string): boolean {
+  return typeof text === 'string' && valueCarriesSecret(text);
+}
+
+/**
+ * A redactor for values this process holds (a provider key, an MCP token): every exact occurrence is replaced,
+ * whatever it looks like. Values shorter than four characters are ignored so that they cannot blank ordinary text.
+ */
+export function exactMatchRedactor(values: ReadonlyArray<string | null | undefined>): (text: string) => string {
+  const held = [...new Set(values.filter((value): value is string => typeof value === 'string' && value.length >= 4))]
+    .sort((left, right) => right.length - left.length);
+  return (text: string) => {
+    if (typeof text !== 'string' || held.length === 0) return text;
+    let result = text;
+    for (const value of held) result = result.split(value).join('[redacted]');
+    return result;
+  };
 }
 
 /** Same reject-before-parse check the settings repository uses. No secret is stored. */

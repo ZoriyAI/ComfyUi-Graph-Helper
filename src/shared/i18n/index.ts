@@ -1,5 +1,6 @@
 import i18next, { type InitOptions } from 'i18next';
 import { en, ru } from './catalog';
+import { redactSecrets } from '../config/draft';
 
 export { en, ru } from './catalog';
 export type { Catalog } from './catalog';
@@ -105,9 +106,7 @@ export function explainError(translate: Translator, code: string): { summary: st
 }
 
 export function redactDiagnostic(value: string): string {
-  return value
-    .replace(/Bearer\s+\S+/gi, 'Bearer [redacted]')
-    .replace(/\bsk-[A-Za-z0-9_-]+/g, '[redacted]');
+  return redactSecrets(value.replace(/Bearer\s+\S+/gi, 'Bearer [redacted]'));
 }
 
 const MOVE_DIRECTIONS: Record<string, string> = {
