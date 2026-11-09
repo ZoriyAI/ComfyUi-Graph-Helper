@@ -103,7 +103,7 @@ test('node and subgraph records persist in the native project and stay out of Co
   await nestedForm.locator('textarea').nth(1).fill(NESTED_USAGE);
   await nestedForm.getByRole('button', { name: 'Save documentation' }).click();
   await expect(nestedForm.getByRole('button', { name: 'Save documentation' })).toBeDisabled();
-  await expect(window.getByText('This build does not open a subgraph canvas.')).toBeVisible();
+  await expect(window.getByText('Open an instance on the canvas to see its nodes.')).toBeVisible();
   await expect(window.getByText('A group is not a subgraph.')).toHaveCount(0);
 
   await window.locator('#process-title').fill('Portrait process');
