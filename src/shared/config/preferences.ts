@@ -26,7 +26,7 @@ export type PreferenceProvider = typeof PREFERENCE_PROVIDERS[number];
  */
 export const STEP_LIMIT = { min: 4, max: 200, default: 60 } as const;
 /** Context window override in tokens; 0 means auto (from the model id, 32k when unknown). */
-export const CONTEXT_TOKENS = { min: 0, max: 10_000_000, default: 0, step: 1024 } as const;
+export const CONTEXT_TOKENS = { min: 0, max: 10_000_000, default: 0, step: 1000 } as const;
 export const ENRICH_PER_RUN = { min: 10, max: 200, default: 40 } as const;
 export const BUILD_PACE = { min: 300, max: 2000, default: 820, step: 20 } as const;
 export const GRID_SIZE = { min: 8, max: 48, default: 18, step: 2 } as const;
