@@ -520,6 +520,8 @@ function useCardDemand(selectedIds: string[]): void {
       store.getState().collapseDescriptions(selectedRef.current);
     };
     document.addEventListener('pointerover', onOver);
+    // A move also counts, so the pointer picks its node up again after a leave it did not make (a window on top).
+    document.addEventListener('pointermove', onOver, { passive: true });
     document.documentElement.addEventListener('pointerleave', onLeaveWindow);
     document.addEventListener('focusin', onFocusIn);
     document.addEventListener('focusout', onFocusOut);
@@ -527,6 +529,7 @@ function useCardDemand(selectedIds: string[]): void {
     return () => {
       clearTimers();
       document.removeEventListener('pointerover', onOver);
+      document.removeEventListener('pointermove', onOver);
       document.documentElement.removeEventListener('pointerleave', onLeaveWindow);
       document.removeEventListener('focusin', onFocusIn);
       document.removeEventListener('focusout', onFocusOut);

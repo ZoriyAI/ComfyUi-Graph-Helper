@@ -41,8 +41,19 @@ test('description cards: dots for class knowledge, hover, node explanation, mode
   const cards = window.locator('.description-card');
   const dots = window.locator('[data-knowledge-dot]');
   const toggle = window.getByRole('button', { name: 'Descriptions on the canvas' });
-  const sampleNode = window.locator('.react-flow__node[data-id="4"]');
   const away = async () => window.mouse.move(700, 880);
+  // Rest the pointer on a node until its card opens. Parallel workers share one X display, and a window opening
+  // on top can send this one a pointer leave (which rightly closes the hover), so move again until it holds.
+  const hoverFor = async (nodeId: string, name: string) => {
+    const region = window.getByRole('region', { name: `Description of ${name}`, exact: true });
+    let nudge = 0;
+    await expect(async () => {
+      nudge = (nudge + 1) % 4;
+      await window.locator(`.react-flow__node[data-id="${nodeId}"]`).hover({ position: { x: 40 + nudge * 6, y: 60 + nudge * 4 } });
+      await expect(region).toBeVisible({ timeout: 1500 });
+    }).toPass({ timeout: 15000 });
+    return region;
+  };
 
   // Nothing is explained yet and the catalog is empty, but every node here is a core class with built-in knowledge.
   // The default mode (own notes only) keeps that class knowledge behind a dot on each node: no card covers the graph.
@@ -54,9 +65,7 @@ test('description cards: dots for class knowledge, hover, node explanation, mode
   await expect(window.getByRole('button', { name: 'Read the description: Sample', exact: true })).toBeVisible();
 
   // Hovering a node for a moment shows its (collapsed) card; moving away closes it again.
-  await sampleNode.hover();
-  const card = window.getByRole('region', { name: 'Description of Sample', exact: true });
-  await expect(card).toBeVisible();
+  const card = await hoverFor('4', 'Sample');
   await expect(card).toHaveAttribute('data-on-demand', 'hover');
   await expect(card).toHaveAttribute('data-expanded', 'false');
   await expect(card).toHaveAttribute('data-description-scope', 'nodeClass');
@@ -77,8 +86,7 @@ test('description cards: dots for class knowledge, hover, node explanation, mode
   await input.press('Enter');
   await expect(window.locator('[data-tool-name="explain"]')).toHaveAttribute('data-tool-status', 'success', { timeout: 30000 });
   await expect(cards).toHaveCount(0);
-  await sampleNode.hover();
-  await expect(card).toBeVisible();
+  await hoverFor('4', 'Sample');
   await expect(card.locator('[data-provenance="inference"]').first()).toHaveText('Inference');
   await expect(card).toContainText('KSampler denoises a latent step by step');
   await away();
@@ -169,8 +177,7 @@ test('description cards: dots for class knowledge, hover, node explanation, mode
   await window.keyboard.press('Escape');
   await expect(window.locator('.description-card[data-expanded="true"]')).toHaveCount(0);
   await expect(window.getByRole('button', { name: 'Read the description: Sample B', exact: true })).toBeVisible();
-  await window.locator('.react-flow__node[data-id="8"]').hover();
-  await expect(window.getByRole('region', { name: 'Description of Sample B', exact: true })).toHaveAttribute('data-description-scope', 'nodeClass');
+  await expect(await hoverFor('8', 'Sample B')).toHaveAttribute('data-description-scope', 'nodeClass');
 
   expect(errors).toEqual([]);
   await app.close();
