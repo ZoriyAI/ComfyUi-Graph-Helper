@@ -6,6 +6,7 @@ import { useRevisionStore } from '../../state/revisionState';
 import { useUiStore } from '../../state/uiState';
 import { agentGraphContext } from '../../../shared/agent/context';
 import { translateKnownError, type Translator } from '../../../shared/i18n';
+import { providerErrorKey, TOOL_CAPABLE_EXAMPLES } from '../../../shared/agent/providerErrors';
 import { BUILD_TOOL_SPECS } from '../../../shared/commands/toolSpecs';
 import type { AgentBuildStep, AgentTurnContext, Explanation } from '../../../shared/contracts';
 import { useCanvasStore } from '../../components/graph/canvasStore';
@@ -44,6 +45,13 @@ type Settled = { status: 'success' | 'error'; result: unknown; error?: string };
 
 function newId(): string {
   return `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/** A local model that cannot call tools gets an explanation; other errors keep the catalog sentence or the raw text. */
+function shownError(provider: string, raw: string): string {
+  const key = providerErrorKey(provider, raw);
+  if (key) return translate(key, { examples: TOOL_CAPABLE_EXAMPLES.join(', ') });
+  return translateKnownError(translate, raw) ?? raw;
 }
 
 function errorText(content: unknown): string {
@@ -203,10 +211,12 @@ export class ChatService {
       useChatStore.setState({ isStreaming: false });
     };
 
+    let provider = '';
     try {
       // No provider means nothing can be sent. Say so in the chat instead of failing a stream.
       const getConfig = window.electronAPI?.llmGetConfig;
       const config = typeof getConfig === 'function' ? await getConfig().catch(() => null) : null;
+      provider = config?.provider ?? '';
       if (config && !config.provider) {
         addMessage({ id: newId(), role: 'assistant', content: translate('chat.noProvider'), timestamp: Date.now() });
         finish();
@@ -347,7 +357,7 @@ export class ChatService {
           console.error('[ChatService] Error:', errorMessage);
           finish();
           if (!currentAssistantMessageId) {
-            const shown = translateKnownError(translate, errorMessage) ?? errorMessage;
+            const shown = shownError(provider, errorMessage);
             currentAssistantMessageId = newId();
             addMessage({ id: currentAssistantMessageId, role: 'assistant', content: `Error: ${shown}`, timestamp: Date.now() });
           }
@@ -369,7 +379,7 @@ export class ChatService {
     } catch (error) {
       const raw = error instanceof Error ? error.message : errorText(error);
       console.error('[ChatService] Stream error:', raw);
-      const shown = translateKnownError(translate, raw) ?? raw;
+      const shown = shownError(provider, raw);
       if (!currentAssistantMessageId && current()) {
         currentAssistantMessageId = newId();
         addMessage({ id: currentAssistantMessageId, role: 'assistant', content: `Error: ${shown}`, timestamp: Date.now() });
