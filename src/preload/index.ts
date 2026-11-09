@@ -11,6 +11,8 @@ import type {
   ListExplanationsRequest,
   LocalDiscovery,
   McpAuthProbe,
+  McpTokenStatus,
+  SecretStoreInfo,
   McpOAuthLoginResult,
   McpOAuthStatus,
   ModelDetail,
@@ -58,6 +60,9 @@ const IPC_CHANNELS = {
   MCP_SAVE_TOKEN: 'mcp:save-token',
   MCP_FORGET_TOKEN: 'mcp:forget-token',
   MCP_DETECT_AUTH: 'mcp:detect-auth',
+  MCP_SAVE_TOKEN_FILE: 'mcp:save-token-file',
+  SECRET_STORE_GET: 'secret:store-get',
+  SECRET_STORE_SET: 'secret:store-set',
   MCP_OAUTH_LOGIN: 'mcp:oauth-login',
   MCP_OAUTH_LOGOUT: 'mcp:oauth-logout',
   MCP_OAUTH_STATUS: 'mcp:oauth-status',
@@ -163,8 +168,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     | { ok: false; error: string }
   >,
   mcpSetToken: (value: string, forUrl?: string) => ipcRenderer.invoke(IPC_CHANNELS.MCP_SET_TOKEN, value, forUrl) as Promise<{ held: boolean }>,
-  mcpTokenStatus: () => ipcRenderer.invoke(IPC_CHANNELS.MCP_TOKEN_STATUS) as Promise<{ held: boolean; source: 'none' | 'session' | 'os'; stored: boolean }>,
-  mcpSaveToken: (value: string, forUrl?: string) => ipcRenderer.invoke(IPC_CHANNELS.MCP_SAVE_TOKEN, value, forUrl) as Promise<{ status: 'stored' | 'secret-storage-blocked' }>,
+  mcpTokenStatus: () => ipcRenderer.invoke(IPC_CHANNELS.MCP_TOKEN_STATUS) as Promise<McpTokenStatus>,
+  /** Without a value, the token held for this session is the one saved. */
+  mcpSaveToken: (value?: string, forUrl?: string) => ipcRenderer.invoke(IPC_CHANNELS.MCP_SAVE_TOKEN, value, forUrl) as Promise<{ status: 'stored' | 'secret-storage-blocked' }>,
+  mcpSaveTokenFile: (forUrl?: string) => ipcRenderer.invoke(IPC_CHANNELS.MCP_SAVE_TOKEN_FILE, forUrl) as Promise<{ status: 'stored' | 'missing' }>,
+  secretStore: () => ipcRenderer.invoke(IPC_CHANNELS.SECRET_STORE_GET) as Promise<SecretStoreInfo>,
+  setSecretStore: (choice: SecretStoreInfo['override']) => ipcRenderer.invoke(IPC_CHANNELS.SECRET_STORE_SET, choice) as Promise<{ ok: boolean }>,
   mcpForgetToken: () => ipcRenderer.invoke(IPC_CHANNELS.MCP_FORGET_TOKEN) as Promise<{ status: 'removed' }>,
   mcpDetectAuth: (url?: string) => ipcRenderer.invoke(IPC_CHANNELS.MCP_DETECT_AUTH, url) as Promise<McpAuthProbe>,
   mcpOAuthLogin: () => ipcRenderer.invoke(IPC_CHANNELS.MCP_OAUTH_LOGIN) as Promise<McpOAuthLoginResult>,
@@ -334,8 +343,11 @@ export interface ElectronAPI {
   >;
   /** `forUrl`: the MCP URL the token is for (e.g. the draft being saved); defaults to the saved URL. */
   mcpSetToken: (value: string, forUrl?: string) => Promise<{ held: boolean }>;
-  mcpTokenStatus: () => Promise<{ held: boolean; source: 'none' | 'session' | 'os'; stored: boolean }>;
-  mcpSaveToken: (value: string, forUrl?: string) => Promise<{ status: 'stored' | 'secret-storage-blocked' }>;
+  mcpTokenStatus: () => Promise<McpTokenStatus>;
+  mcpSaveTokenFile: (forUrl?: string) => Promise<{ status: 'stored' | 'missing' }>;
+  secretStore: () => Promise<SecretStoreInfo>;
+  setSecretStore: (choice: SecretStoreInfo['override']) => Promise<{ ok: boolean }>;
+  mcpSaveToken: (value?: string, forUrl?: string) => Promise<{ status: 'stored' | 'secret-storage-blocked' }>;
   mcpForgetToken: () => Promise<{ status: 'removed' }>;
   /** Signs in to the saved MCP URL through the system browser; resolves when the browser comes back (or fails). */
   mcpDetectAuth: (url?: string) => Promise<McpAuthProbe>;

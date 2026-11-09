@@ -61,11 +61,14 @@ test('first run: connect, sync from MCP, browse the library, build, check and ex
     await dialog.getByRole('button', { name: 'Check', exact: true }).click();
     await expect(dialog.getByText('The server needs a token — “Token” is selected.')).toBeVisible();
     await expect(dialog.getByRole('radio', { name: 'Token', exact: true })).toBeChecked();
+    // Pasting is enough: the app applies the token and asks the server whether it takes it.
     const token = dialog.getByRole('textbox', { name: 'Access token', exact: true });
+    await expect(token).toBeFocused();
     await token.fill(TOKEN);
-    await dialog.getByRole('button', { name: 'Use in this session' }).click();
+    await expect(dialog.getByText(/Token accepted: the server answers \(\d+ tools\)/)).toBeVisible({ timeout: 15000 });
     await expect(token).toHaveValue('');
     await expect(dialog.getByRole('status', { name: 'Access token' })).toHaveText('The token is kept until restart.');
+    await expect(dialog.getByRole('button', { name: 'Forget token' })).toBeVisible();
     await dialog.getByRole('button', { name: 'Save settings' }).click();
     await expect(dialog).toHaveCount(0);
 

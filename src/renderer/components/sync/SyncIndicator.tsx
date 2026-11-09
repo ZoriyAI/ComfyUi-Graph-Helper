@@ -12,7 +12,8 @@ import {
   clampInterval, formatDuration, formatSyncTime, isEnriching, MIN_INTERVAL_MINUTES, syncSummary, syncTransition, syncView, type SyncState,
 } from './syncView';
 import styles from './SyncIndicator.module.css';
-import { explainError, redactDiagnostic, translateKnownError } from '../../../shared/i18n';
+import { explainError, redactDiagnostic, translateKnownError, type Translator } from '../../../shared/i18n';
+import { accessErrorText } from '../settings/mcpAccess';
 import { i18n as appI18n } from '../../i18n';
 
 /**
@@ -75,6 +76,9 @@ export default function SyncIndicator() {
   /** Main stores fixed English sentences; show the catalog wording, or the redacted text when it is not one of them. */
   const errorText = (error: string) => translateKnownError((key, options) => String(t(key, (options ?? {}) as Record<string, string>)), error) ?? redactDiagnostic(error);
   const status = useKnowledgeStore((state) => state.sync);
+  const translate: Translator = (key, options) => (options ? String(t(key, options)) : String(t(key)));
+  // "Requires sign-in" becomes "paste the token" or "sign in" when the person already chose how to get in.
+  const lastErrorText = (error: string) => accessErrorText(error, status, translate);
   const view = syncView(status);
   const previous = useRef<SyncState | null>(null);
   const [interval, setIntervalDraft] = useState(String(MIN_INTERVAL_MINUTES));
@@ -118,7 +122,7 @@ export default function SyncIndicator() {
         id: 'sync-result',
         tone: 'error',
         title: String(t('sync.state.error')),
-        description: status.lastError ? String(t('sync.lastError', { error: errorText(status.lastError) })) : null,
+        description: status.lastError ? String(t('sync.lastError', { error: lastErrorText(status.lastError) })) : null,
       });
     }
   }, [view.state]);
@@ -215,7 +219,7 @@ export default function SyncIndicator() {
           {view.warned ? (status?.warnings ?? []).map((warning) => (
             <p key={warning} className={styles.warnNote}>{t('sync.warning', { warning: errorText(warning) })}</p>
           )) : null}
-          {status?.lastError && view.state === 'error' ? <p className={styles.errorNote}>{t('sync.lastError', { error: errorText(status.lastError) })}</p> : null}
+          {status?.lastError && view.state === 'error' ? <p className={styles.errorNote}>{t('sync.lastError', { error: lastErrorText(status.lastError) })}</p> : null}
           {view.hintKey ? <p className={styles.note}>{t(view.hintKey)}</p> : null}
           {note ? <p className={styles.note} role="status">{note}</p> : null}
           <div className={styles.auto}>

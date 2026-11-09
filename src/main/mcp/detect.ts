@@ -3,7 +3,7 @@
  * offer the person the right choice: no sign-in, a pasted token, or the browser sign-in. Nothing is written anywhere.
  */
 
-import { connectStreamableHttp, failure, isNetworkError, MCP_NEEDS_SIGN_IN, mcpUnreachableError, mcpUrlError, type McpSessionFactory } from './client';
+import { connectStreamableHttp, failure, isNetworkError, MCP_NEEDS_SIGN_IN, mcpUnreachableError, mcpUrlError, type McpReadFailure, type McpSessionFactory } from './client';
 import type { McpAuthProbe } from '../../shared/contracts/mcpAuth';
 
 /** Protective: metadata documents are small; a server that answers slowly is reported as such, not waited for. */
@@ -12,29 +12,40 @@ export const METADATA_TIMEOUT_MS = 5_000;
 export type { McpAuthProbe };
 
 /**
- * Connects once without credentials. Accepted: 'none'. Refused with 401: 'oauth' when the server publishes OAuth
- * metadata (RFC 9728 resource metadata named in WWW-Authenticate, or the well-known documents on its origin), else
- * 'token'. Unreachable servers and other failures come back as fixed sentences.
+ * Connects once without credentials. Accepted: 'none'. Refused with 401: when a token is held it is tried next
+ * and the answer says whether the server accepted it; otherwise 'oauth' when the server publishes OAuth metadata
+ * (RFC 9728 resource metadata named in WWW-Authenticate, or the well-known documents on its origin), else 'token'.
+ * Unreachable servers and other failures come back as fixed sentences.
  */
 export async function detectMcpAuth(
   url: string,
-  factory: McpSessionFactory = connectStreamableHttp,
-  fetchImpl: typeof fetch = (...args) => globalThis.fetch(...args),
+  options: { token?: string | null; factory?: McpSessionFactory; fetchImpl?: typeof fetch } = {},
 ): Promise<McpAuthProbe> {
+  const factory = options.factory ?? connectStreamableHttp;
+  const fetchImpl = options.fetchImpl ?? ((...args: Parameters<typeof fetch>) => globalThis.fetch(...args));
   const urlError = mcpUrlError(url);
   if (urlError) return { ok: false, error: urlError };
-  try {
-    const session = await factory(url, null, null);
+  const attempt = async (token: string | null): Promise<{ tools: number } | McpReadFailure> => {
     try {
-      const tools = (await session.listTools()).length;
-      return { ok: true, mode: 'none', tools };
-    } finally {
-      await session.close().catch(() => undefined);
+      const session = await factory(url, token, null);
+      try {
+        return { tools: (await session.listTools()).length };
+      } finally {
+        await session.close().catch(() => undefined);
+      }
+    } catch (error) {
+      if (isNetworkError(error)) return { ok: false, error: mcpUnreachableError(hostOf(url)) };
+      return failure(error, { authenticated: token != null });
     }
-  } catch (error) {
-    if (isNetworkError(error)) return { ok: false, error: mcpUnreachableError(hostOf(url)) };
-    const classified = failure(error, { authenticated: false });
-    if (classified.error !== MCP_NEEDS_SIGN_IN) return classified;
+  };
+  const anonymous = await attempt(null);
+  if ('tools' in anonymous) return { ok: true, mode: 'none', tools: anonymous.tools };
+  if (anonymous.error !== MCP_NEEDS_SIGN_IN) return anonymous;
+  if (options.token) {
+    const withToken = await attempt(options.token);
+    if ('tools' in withToken) return { ok: true, mode: 'token', tokenAccepted: true, tools: withToken.tools };
+    if (withToken.error === 'MCP server refused the token.') return { ok: true, mode: 'token', tokenAccepted: false };
+    return withToken;
   }
   return { ok: true, mode: (await advertisesOAuth(url, fetchImpl)) ? 'oauth' : 'token' };
 }

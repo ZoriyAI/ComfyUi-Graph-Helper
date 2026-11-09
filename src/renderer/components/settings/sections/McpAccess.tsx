@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { McpAuthMode } from '../../../../shared/config/schema';
 import type { McpOAuthStatus } from '../../../../shared/contracts';
@@ -20,7 +20,7 @@ const HINTS: Record<AccessChoice, string> = { none: 'settings.accessNoneHint', t
  * or through a browser sign-in. Native radios in a fieldset, so arrow keys and screen readers work as everywhere;
  * only the chosen option is expanded, the others stay one title line. The choice is part of the settings draft.
  */
-export default function McpAccess({ value, savedValue, onChange, mcpUrl, savedUrl, disabled }: {
+export default function McpAccess({ value, savedValue, onChange, mcpUrl, savedUrl, disabled, focusToken = 0 }: {
   value: McpAuthMode;
   /** The stored choice, to say that a changed one applies after Save. */
   savedValue: McpAuthMode;
@@ -30,6 +30,8 @@ export default function McpAccess({ value, savedValue, onChange, mcpUrl, savedUr
   /** The address is saved and unchanged, so the browser sign-in can go to it. */
   savedUrl: boolean;
   disabled: boolean;
+  /** Bumped by the parent when "Check" found that the server wants a token: the field takes focus. */
+  focusToken?: number;
 }) {
   const { t } = useTranslation();
   const name = useId();
@@ -58,7 +60,7 @@ export default function McpAccess({ value, savedValue, onChange, mcpUrl, savedUr
               {checked ? (
                 <div className={styles.body}>
                   <p id={hintId} className={hintClass}>{t(HINTS[choice])}</p>
-                  {choice === 'token' ? <TokenPanel mcpUrl={mcpUrl} /> : null}
+                  {choice === 'token' ? <TokenPanel mcpUrl={mcpUrl} focusRequest={focusToken} /> : null}
                   {choice === 'oauth' ? <McpSignIn savedUrl={savedUrl} disabled={disabled} /> : null}
                 </div>
               ) : null}
@@ -72,16 +74,27 @@ export default function McpAccess({ value, savedValue, onChange, mcpUrl, savedUr
   );
 }
 
+/** Typing or pasting applies the token after this pause, not on every key. */
+const APPLY_DEBOUNCE_MS = 600;
+
+type Verdict = { kind: 'idle' } | { kind: 'checking' } | { kind: 'accepted'; tools: number } | { kind: 'rejected' } | { kind: 'notNeeded' } | { kind: 'failed'; text: string };
+
 /**
- * The pasted token. It goes only through its own IPC (memory for this session, or the OS password manager); the
- * field is emptied once handed over and the token is never shown back. Main binds it to the address it is for.
+ * The pasted token. It is applied the moment it is pasted (held for this session) and checked against the server
+ * right away, so the person sees "accepted" or "not accepted" without pressing anything. Remembering it for the
+ * next start is one button: the OS password manager when it proved encryption, else the app folder file the person
+ * chooses knowingly. The token goes only through its own IPC and is never shown back; main binds it to the address.
  */
-function TokenPanel({ mcpUrl }: { mcpUrl: string }) {
+function TokenPanel({ mcpUrl, focusRequest }: { mcpUrl: string; focusRequest: number }) {
   const { t } = useTranslation();
+  const translate: Translator = (key, options) => (options ? String(t(key, options)) : String(t(key)));
   const [draft, setDraft] = useState('');
-  const [status, setStatus] = useState<TokenStatus>({ held: false, source: 'none', stored: false });
+  const [status, setStatus] = useState<TokenStatus>({ held: false, source: 'none', stored: false, inFile: false });
   const [canStore, setCanStore] = useState(true);
+  const [verdict, setVerdict] = useState<Verdict>({ kind: 'idle' });
   const [note, setNote] = useState('');
+  const input = useRef<HTMLInputElement | null>(null);
+  const applyTicket = useRef(0);
 
   const refresh = async () => {
     const [token, secret] = await Promise.all([window.electronAPI.mcpTokenStatus(), window.electronAPI.secretStatus()]);
@@ -91,43 +104,76 @@ function TokenPanel({ mcpUrl }: { mcpUrl: string }) {
   useEffect(() => {
     void refresh().catch(() => undefined);
   }, []);
+  useEffect(() => {
+    if (focusRequest > 0) input.current?.focus();
+  }, [focusRequest]);
   // Every change is shown at once, here and in the sync indicator; nothing waits for Save.
   const after = async () => {
     await refresh().catch(() => undefined);
     refreshSyncStatus();
   };
 
-  const holdForSession = async () => {
+  // Paste → hold for this session → ask the server whether it takes the token.
+  useEffect(() => {
+    if (draft.length === 0) return undefined;
+    const ticket = ++applyTicket.current;
+    const timer = setTimeout(() => {
+      void (async () => {
+        setNote('');
+        setVerdict({ kind: 'checking' });
+        await window.electronAPI.mcpSetToken(draft, mcpUrl);
+        let probe: Awaited<ReturnType<typeof window.electronAPI.mcpDetectAuth>>;
+        try {
+          probe = await window.electronAPI.mcpDetectAuth(mcpUrl);
+        } catch {
+          probe = { ok: false, error: 'MCP server was not read.' };
+        }
+        if (ticket !== applyTicket.current) return;
+        if (!probe.ok) setVerdict({ kind: 'failed', text: explainError(translate, probe.error).summary });
+        else if (probe.mode === 'none') setVerdict({ kind: 'notNeeded' });
+        else if (probe.mode === 'token' && probe.tokenAccepted === true) setVerdict({ kind: 'accepted', tools: probe.tools ?? 0 });
+        else if (probe.mode === 'token' && probe.tokenAccepted === false) setVerdict({ kind: 'rejected' });
+        else setVerdict({ kind: 'failed', text: translate('settings.tokenUnverified') });
+        // Accepted or not needed: the field empties, the token lives in main. Rejected: the text stays to be fixed.
+        if (probe.ok && (probe.mode === 'none' || (probe.mode === 'token' && probe.tokenAccepted === true))) setDraft('');
+        await after();
+      })();
+    }, APPLY_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft, mcpUrl]);
+
+  const remember = async () => {
     setNote('');
-    await window.electronAPI.mcpSetToken(draft, mcpUrl);
-    setDraft('');
+    const saved = await window.electronAPI.mcpSaveToken(undefined, mcpUrl);
+    if (saved.status !== 'stored') setNote(String(t('settings.tokenStorageBlocked')));
     await after();
   };
-  const saveInStorage = async () => {
+  const rememberInFile = async () => {
     setNote('');
-    const saved = await window.electronAPI.mcpSaveToken(draft, mcpUrl);
-    // Refused: the pasted text stays in the field so "Use in this session" still works without pasting again.
-    if (saved.status === 'stored') setDraft('');
-    else setNote(String(t('settings.tokenStorageBlocked')));
+    const saved = await window.electronAPI.mcpSaveTokenFile(mcpUrl);
+    if (saved.status !== 'stored') setNote(String(t('settings.tokenPlaceNone')));
     await after();
   };
-  const removeSaved = async () => {
+  const forget = async () => {
     setNote('');
+    setVerdict({ kind: 'idle' });
     await window.electronAPI.mcpForgetToken();
     await after();
   };
-  const forgetSession = async () => {
-    setNote('');
-    await window.electronAPI.mcpSetToken('');
-    await after();
-  };
 
-  const saved = status.source === 'os' || status.stored;
+  const remembered = status.source === 'os' || status.stored || status.source === 'file' || status.inFile;
+  const verdictText = verdict.kind === 'checking' ? t('settings.tokenChecking')
+    : verdict.kind === 'accepted' ? t('settings.tokenAccepted', { tools: verdict.tools })
+      : verdict.kind === 'rejected' ? t('settings.tokenRejected')
+        : verdict.kind === 'notNeeded' ? t('settings.tokenNotNeeded')
+          : verdict.kind === 'failed' ? verdict.text : '';
   return (
     <div className={cx(styles.panel, 'mcp-token')}>
       <label className={fieldClass}>
         {t('settings.tokenField')}
         <input
+          ref={input}
           type="password"
           autoComplete="off"
           spellCheck={false}
@@ -136,19 +182,25 @@ function TokenPanel({ mcpUrl }: { mcpUrl: string }) {
           onChange={(event) => setDraft(event.target.value)}
         />
       </label>
-      <div className={rowClass}>
-        <Button size="sm" disabled={draft.length === 0} onClick={() => void holdForSession()}>{t('settings.tokenUseSession')}</Button>
-        {canStore ? (
-          <Button size="sm" disabled={draft.length === 0} onClick={() => void saveInStorage()}>{t('settings.tokenSave')}</Button>
-        ) : null}
-        {saved ? <Button size="sm" variant="danger" onClick={() => void removeSaved()}>{t('settings.tokenRemoveSaved')}</Button> : null}
-        {!saved && status.held ? <Button size="sm" variant="subtle" onClick={() => void forgetSession()}>{t('settings.tokenForget')}</Button> : null}
-      </div>
+      <p className={hintClass}>{t('settings.tokenPasteHint')}</p>
+      {verdictText ? (
+        <p className={cx(hintClass, verdict.kind === 'rejected' || verdict.kind === 'failed' ? settingsStyles.errorNote : undefined)} role="status">{verdictText}</p>
+      ) : null}
       <p className={hintClass} role="status" aria-label={String(t('settings.tokenField'))}>
-        <span className={cx(settingsStyles.placeDot, (status.held || saved) && settingsStyles.placeOn)} aria-hidden="true" />
+        <span className={cx(settingsStyles.placeDot, (status.held || remembered) && settingsStyles.placeOn)} aria-hidden="true" />
         {t(tokenPlaceKey(status))}
       </p>
-      {!canStore ? <p className={hintClass}>{t('settings.tokenNoStorage')}</p> : null}
+      <div className={rowClass}>
+        {status.held && !remembered && canStore ? (
+          <Button size="sm" onClick={() => void remember()}>{t('settings.tokenRemember')}</Button>
+        ) : null}
+        {status.held && !remembered && !canStore ? (
+          <Button size="sm" onClick={() => void rememberInFile()}>{t('settings.tokenRememberFile')}</Button>
+        ) : null}
+        {status.held || remembered ? <Button size="sm" variant="subtle" onClick={() => void forget()}>{t('settings.tokenForget')}</Button> : null}
+      </div>
+      {status.held && !remembered && !canStore ? <p className={hintClass}>{t('settings.tokenRememberFileHint')}</p> : null}
+      {remembered ? <p className={hintClass}>{t('settings.tokenRemembered')}</p> : null}
       <p className={hintClass}>{t('settings.tokenPrivacy')}</p>
       {note ? <p className={settingsStyles.errorNote} role="alert">{note}</p> : null}
     </div>

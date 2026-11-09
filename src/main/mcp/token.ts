@@ -1,9 +1,10 @@
 /**
- * Holds the MCP bearer token in process memory only. It is never written, returned, or logged.
- * The token is tied to the MCP origin it was given for: when the saved MCP URL moves to another origin,
- * the token is dropped so it is never sent to a server it was not meant for.
+ * Holds the MCP bearer token in process memory. It is never returned or logged. Where it came from is remembered:
+ * pasted for this session, unlocked from the OS password manager, or read from the app folder file the person
+ * chose on a computer without a password store. The token is tied to the MCP origin it was given for: when the
+ * saved MCP URL moves to another origin, the token is dropped so it is never sent to a server it was not meant for.
  */
-export type McpTokenSource = 'none' | 'session' | 'os';
+export type McpTokenSource = 'none' | 'session' | 'os' | 'file';
 
 let token: string | null = null;
 let heldFor: string | null = null;

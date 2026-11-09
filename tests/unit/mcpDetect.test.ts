@@ -37,6 +37,14 @@ describe('what the MCP server wants from a connection', () => {
     expect(JSON.stringify(server.calls)).not.toContain('fixture-token-not-a-secret');
   });
 
+  it('tries a held token against the 401 and says whether the server took it', async () => {
+    const server = await plain({ token: 'fixture-token-not-a-secret' });
+    expect(await detectMcpAuth(server.url, { token: 'fixture-token-not-a-secret' })).toEqual({ ok: true, mode: 'token', tokenAccepted: true, tools: expect.any(Number) });
+    expect(await detectMcpAuth(server.url, { token: 'wrong-token' })).toEqual({ ok: true, mode: 'token', tokenAccepted: false });
+    expect(JSON.stringify(server.calls)).not.toContain('fixture-token-not-a-secret');
+    expect(JSON.stringify(server.calls)).not.toContain('wrong-token');
+  });
+
   it('reports "oauth" when the server answers 401 and publishes resource metadata', async () => {
     const server = await oauth();
     expect(await detectMcpAuth(server.mcpUrl)).toEqual({ ok: true, mode: 'oauth' });

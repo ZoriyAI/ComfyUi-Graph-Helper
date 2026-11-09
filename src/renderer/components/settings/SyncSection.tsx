@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Pause, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { redactDiagnostic, translateKnownError, type Translator } from '../../../shared/i18n';
+import { accessErrorText } from './mcpAccess';
 import { ENRICH_PAUSE_MS, ENRICH_PER_RUN, MCP_CALL_TIMEOUT_MS, type Preferences } from '../../../shared/config/preferences';
 import { startSyncSubscription, useKnowledgeStore } from '../../state/knowledgeState';
 import Button from '../../ui/Button';
@@ -76,7 +77,7 @@ export default function SyncSection({
         <p key={warning} className={hintClass}>{t('sync.warning', { warning: translateKnownError(translate, warning) ?? redactDiagnostic(warning) })}</p>
       )) : null}
       {status?.enrichmentPaused && status.metadata ? <p className={hintClass}>{t('sync.paused', { done: status.metadata.done, total: status.metadata.total })}</p> : null}
-      {status?.lastError && view.state === 'error' ? <p className={hintClass}>{t('sync.lastError', { error: translateKnownError(translate, status.lastError) ?? redactDiagnostic(status.lastError) })}</p> : null}
+      {status?.lastError && view.state === 'error' ? <p className={hintClass}>{t('sync.lastError', { error: accessErrorText(status.lastError, status, translate) })}</p> : null}
       {view.hintKey ? <p className={hintClass}>{t(view.hintKey)}</p> : null}
       <Switch
         label={t('sync.auto')}

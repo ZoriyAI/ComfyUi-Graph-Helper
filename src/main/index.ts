@@ -2,6 +2,7 @@ import { app, BrowserWindow, dialog, Menu, screen, session, shell, type WebConte
 import * as path from 'path';
 import * as fs from 'fs';
 import { passwordStoreFlag } from '../shared/config/passwordStore';
+import { readPasswordStoreOverride } from './settings/passwordStoreOverride';
 import { initDatabase, closeDatabase, getDatabase } from './database';
 import { setupIPC } from './ipc';
 import { appEntryUrl, isTrustedAppUrl, setTrustedAppUrl } from './ipc/guard';
@@ -117,7 +118,8 @@ function logSyncRuns(): void {
   });
 }
 
-const storeFlag = passwordStoreFlag(process.env.XDG_CURRENT_DESKTOP, process.argv);
+// Settings ▸ Privacy ▸ Password store: the person's choice wins over the desktop heuristic. Read before ready.
+const storeFlag = readPasswordStoreOverride(app.getPath('userData')) ?? passwordStoreFlag(process.env.XDG_CURRENT_DESKTOP, process.argv);
 if (storeFlag) app.commandLine.appendSwitch('password-store', storeFlag);
 
 let mainWindow: BrowserWindow | null = null;

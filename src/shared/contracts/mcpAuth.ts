@@ -19,5 +19,25 @@ export type McpOAuthLoginResult = { ok: true; expiresAt?: number; anonymous?: bo
  */
 export type McpAuthProbe =
   | { ok: true; mode: 'none'; tools: number }
-  | { ok: true; mode: 'oauth' | 'token' }
+  | { ok: true; mode: 'oauth' }
+  /** `tokenAccepted`: a held token was tried against the 401; absent when none was held. */
+  | { ok: true; mode: 'token'; tokenAccepted?: boolean; tools?: number }
   | { ok: false; error: string };
+
+/** Where the MCP token lives right now, as the Connection screen shows it; never the token. */
+export interface McpTokenStatus {
+  held: boolean;
+  source: 'none' | 'session' | 'os' | 'file';
+  /** OS password manager holds ciphertext for the saved MCP origin. */
+  stored: boolean;
+  /** The app folder file holds the token for the saved MCP origin (the person's explicit choice). */
+  inFile: boolean;
+}
+
+/** Settings ▸ Privacy ▸ "Password store": what the app found and what the person chose for the next start. */
+export interface SecretStoreInfo {
+  backend: string;
+  persist: boolean;
+  reason: string;
+  override: 'gnome-libsecret' | 'kwallet6' | 'kwallet5' | 'kwallet' | null;
+}

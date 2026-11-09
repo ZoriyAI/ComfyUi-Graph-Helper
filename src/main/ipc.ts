@@ -1,4 +1,4 @@
-import { ipcMain as rawIpcMain, dialog, safeStorage } from 'electron';
+import { ipcMain as rawIpcMain, app, dialog, safeStorage } from 'electron';
 import { guardedIpcMain } from './ipc/guard';
 import { randomUUID } from 'crypto';
 import * as fs from 'fs';
@@ -15,7 +15,9 @@ import { registerKnowledgeIpc } from './ipc/knowledgeIpc';
 import { registerEngineIpc } from './ipc/engineIpc';
 import { registerAgentIpc } from './ipc/agentIpc';
 import { registerDiagnosticsIpc } from './ipc/diagnosticsIpc';
-import { mcpOriginOf, mcpTokenFor, mcpTokenStatus, releaseMcpTokenIfOriginChanged, setMcpToken } from './mcp/token';
+import { mcpOriginOf, mcpToken, mcpTokenFor, mcpTokenStatus, releaseMcpTokenIfOriginChanged, setMcpToken } from './mcp/token';
+import { readTokenFile, removeTokenFile, tokenFileHolds, writeTokenFile } from './mcp/tokenFile';
+import { isPasswordStoreChoice, readPasswordStoreOverride, writePasswordStoreOverride } from './settings/passwordStoreOverride';
 import { configureMcpOAuth, loginToMcp, logoutFromMcp, mcpOAuth, oauthStatus } from './mcp/oauth';
 import { detectMcpAuth } from './mcp/detect';
 import { connectStreamableHttp, openReadOnlySession } from './mcp/client';
@@ -90,21 +92,31 @@ function mcpTokenRecordName(url: string | null | undefined): string | null {
   return origin ? `mcp-token:${origin}` : null;
 }
 
-/** A manual MCP token saved in the OS password manager is held again at startup, for the saved MCP origin only. */
+/**
+ * A manual MCP token saved for the saved MCP origin is held again at startup: from the OS password manager when
+ * it proved encryption, else from the app folder file the person chose on a computer without a password store.
+ */
 async function adoptStoredMcpToken(): Promise<void> {
-  const decision = await secretStatus();
-  if (!decision.persist) return;
   const url = savedEndpoints().mcpUrl;
-  const name = mcpTokenRecordName(url);
-  if (!name) return;
-  const cipher = readSecretCipher(getDatabase(), name);
-  if (!cipher || isUnprotectedCipher(cipher)) return;
-  try {
-    const opened = await safeStorage.decryptStringAsync(cipher);
-    if (opened.result) setMcpToken(opened.result, url, 'os');
-  } catch {
-    // The OS store did not unlock the ciphertext. Memory stays empty.
+  const origin = mcpOriginOf(url);
+  if (!origin) return;
+  const decision = await secretStatus();
+  if (decision.persist) {
+    const cipher = readSecretCipher(getDatabase(), `mcp-token:${origin}`);
+    if (cipher && !isUnprotectedCipher(cipher)) {
+      try {
+        const opened = await safeStorage.decryptStringAsync(cipher);
+        if (opened.result) {
+          setMcpToken(opened.result, url, 'os');
+          return;
+        }
+      } catch {
+        // The OS store did not unlock the ciphertext; the file, if any, is tried next.
+      }
+    }
   }
+  const file = readTokenFile(app.getPath('userData'));
+  if (file && file.origin === origin) setMcpToken(file.token, url, 'file');
 }
 
 /** Wires the MCP OAuth manager to safeStorage (same fail-closed probe as the model key) and the system browser. */
@@ -344,7 +356,8 @@ export async function setupIPC(): Promise<void> {
   ipcMain.handle(IPC_CHANNELS.MCP_DETECT_AUTH, async (_event, forUrl?: unknown) => {
     const url = typeof forUrl === 'string' && forUrl.length > 0 && forUrl.length <= 2000 ? forUrl : savedEndpoints().mcpUrl;
     if (!url) return { ok: false as const, error: 'MCP server URL is empty.' };
-    return detectMcpAuth(url);
+    // A held token is tried against a 401, so "Check" also says whether the pasted token is accepted.
+    return detectMcpAuth(url, { token: mcpTokenFor(url) });
   });
 
   ipcMain.handle(IPC_CHANNELS.MCP_SET_TOKEN, (_event, value: unknown, forUrl?: unknown) => {
@@ -355,30 +368,64 @@ export async function setupIPC(): Promise<void> {
   });
 
   ipcMain.handle(IPC_CHANNELS.MCP_TOKEN_STATUS, () => {
-    const name = mcpTokenRecordName(savedEndpoints().mcpUrl);
-    return { ...mcpTokenStatus(), stored: name != null && readSecretCipher(getDatabase(), name) != null };
+    const url = savedEndpoints().mcpUrl;
+    const name = mcpTokenRecordName(url);
+    return {
+      ...mcpTokenStatus(),
+      stored: name != null && readSecretCipher(getDatabase(), name) != null,
+      inFile: tokenFileHolds(app.getPath('userData'), mcpOriginOf(url)),
+    };
   });
+
+  /** The token to remember: the one just pasted, or the one already held for this session. Never logged. */
+  const tokenToRemember = (value: unknown): string | null => {
+    if (typeof value === 'string' && value.length > 0 && value.length <= 8000) return value;
+    return mcpToken();
+  };
 
   // The manual token can be kept in the OS password manager under the same fail-closed rule as the model key.
   ipcMain.handle(IPC_CHANNELS.MCP_SAVE_TOKEN, async (_event, value: unknown, forUrl?: unknown) => {
     const decision = await secretStatus();
     const url = typeof forUrl === 'string' && forUrl.length > 0 && forUrl.length <= 2000 ? forUrl : savedEndpoints().mcpUrl;
     const name = mcpTokenRecordName(url);
-    if (!decision.persist || typeof value !== 'string' || value.length === 0 || value.length > 8000 || !name) {
-      return attemptSaveSecret(getDatabase());
-    }
-    const cipher = await safeStorage.encryptStringAsync(value);
-    const saved = saveNamedSecretIfProven(getDatabase(), decision, name, value, cipher);
-    if (saved.status === 'stored') setMcpToken(value, url, 'os');
+    const text = tokenToRemember(value);
+    if (!decision.persist || !text || !name) return attemptSaveSecret(getDatabase());
+    const cipher = await safeStorage.encryptStringAsync(text);
+    const saved = saveNamedSecretIfProven(getDatabase(), decision, name, text, cipher);
+    if (saved.status === 'stored') setMcpToken(text, url, 'os');
     console.log(`[IPC] MCP token save: ${saved.status} (value NOT logged)`);
     return saved;
+  });
+
+  // The person's explicit choice on a computer without a password store: the token in an owner-only file.
+  ipcMain.handle(IPC_CHANNELS.MCP_SAVE_TOKEN_FILE, (_event, forUrl?: unknown) => {
+    const url = typeof forUrl === 'string' && forUrl.length > 0 && forUrl.length <= 2000 ? forUrl : savedEndpoints().mcpUrl;
+    const origin = mcpOriginOf(url);
+    const text = tokenToRemember(undefined);
+    if (!origin || !text) return { status: 'missing' as const };
+    writeTokenFile(app.getPath('userData'), origin, text);
+    setMcpToken(text, url, 'file');
+    console.log('[IPC] MCP token remembered in the app folder file (value NOT logged)');
+    return { status: 'stored' as const };
   });
 
   ipcMain.handle(IPC_CHANNELS.MCP_FORGET_TOKEN, () => {
     const name = mcpTokenRecordName(savedEndpoints().mcpUrl);
     if (name) forgetSecret(getDatabase(), name);
+    removeTokenFile(app.getPath('userData'));
     setMcpToken('');
     return { status: 'removed' as const };
+  });
+
+  // Settings ▸ Privacy ▸ Password store: what was found, and the choice for the next start.
+  ipcMain.handle(IPC_CHANNELS.SECRET_STORE_GET, async () => {
+    const decision = await secretStatus();
+    return { backend: decision.backend, persist: decision.persist, reason: decision.reason, override: readPasswordStoreOverride(app.getPath('userData')) };
+  });
+  ipcMain.handle(IPC_CHANNELS.SECRET_STORE_SET, (_event, choice: unknown) => {
+    if (choice !== null && !isPasswordStoreChoice(choice)) return { ok: false };
+    writePasswordStoreOverride(app.getPath('userData'), choice);
+    return { ok: true };
   });
 
   // OAuth sign-in for the saved MCP URL. The renderer gets status only; tokens stay in main.

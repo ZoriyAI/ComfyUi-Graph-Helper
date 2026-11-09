@@ -8,7 +8,7 @@ import Button from '../../../ui/Button';
 import SuggestField from '../../../ui/SuggestField';
 import { useKnowledgeStore } from '../../../state/knowledgeState';
 import { syncView } from '../../sync/syncView';
-import { detectionNote, type DetectionNote } from '../mcpAccess';
+import { accessErrorText, detectionNote, type DetectionNote } from '../mcpAccess';
 import McpAccess from './McpAccess';
 import { mcpUrlNeedsHttps } from '../../../../shared/mcp/loopback';
 import styles from '../SettingsPanel.module.css';
@@ -50,6 +50,7 @@ export default function ConnectionSection({ values, setValues, saved, fieldError
   const [detecting, setDetecting] = useState(false);
   const [detected, setDetected] = useState<DetectionNote | null>(null);
   const [checkedUrl, setCheckedUrl] = useState('');
+  const [focusToken, setFocusToken] = useState(0);
   const mcpUrl = values.mcpUrl.trim();
   const checkAccess = async () => {
     setDetecting(true);
@@ -58,6 +59,9 @@ export default function ConnectionSection({ values, setValues, saved, fieldError
       const note = detectionNote(await window.electronAPI.mcpDetectAuth(mcpUrl), translate);
       const mode = note.mode;
       if (mode) setValues((current) => ({ ...current, mcpAuth: mode }));
+      // The server wants a token and none is accepted yet: the next thing to do is paste it, so the field takes focus.
+      if (mode === 'token' && note.tone !== 'good') setFocusToken((count) => count + 1);
+      else if (mode === 'token' && !status?.tokenHeld) setFocusToken((count) => count + 1);
       setDetected(note);
     } catch {
       setDetected({ mode: null, text: explainError(translate, 'MCP server was not read.').summary, tone: 'bad' });
@@ -90,7 +94,7 @@ export default function ConnectionSection({ values, setValues, saved, fieldError
     setActionNote(String(t('settings.saving')));
     const result = await window.electronAPI.readMcp();
     if (!result.ok) {
-      setActionNote(explainError(translate, result.error).summary);
+      setActionNote(accessErrorText(result.error, status, translate));
       return;
     }
     const objectInfo = String(t(
@@ -140,6 +144,7 @@ export default function ConnectionSection({ values, setValues, saved, fieldError
         mcpUrl={values.mcpUrl}
         savedUrl={mcpUrl !== '' && mcpUrl === saved.mcpUrl.trim()}
         disabled={pending}
+        focusToken={focusToken}
       />
       {/* The ComfyUI address itself is optional: the server names it. It comes after the things everyone needs. */}
       <SuggestField
