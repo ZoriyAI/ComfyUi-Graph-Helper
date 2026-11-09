@@ -8,6 +8,8 @@ import { mcpToken } from './mcp/token';
 import { containsExact, exactMatchRedactor, redactSecrets } from '../shared/agent/redact';
 import { failureStreakReached, forwardPart, type Redact } from './agent/streamParts';
 import { STEP_LIMIT } from '../shared/config/preferences';
+import type { ModelListResult } from '../shared/contracts/pickers';
+import { listCloudModels, listLocalModels } from './llm/modelList';
 
 /**
  * Main-process LLM service
@@ -269,6 +271,32 @@ class MainLLMService {
       return { ok: false, error: redactProbeError(message, [this.sessionKey]), latencyMs: Math.max(0, Math.round(now() - started)) };
     } finally {
       clearTimeout(timer);
+    }
+  }
+
+  /**
+   * Settings ▸ Assistant ▸ model list: which models the draft provider offers. Local servers are asked at the
+   * draft base URL; cloud providers at the official (or configured https) base with the key held here, which is
+   * never returned or logged. Without a key nothing is sent. Errors are fixed sentences with any key redacted.
+   */
+  async listModels(draft: ProbeDraft, fetchImpl: typeof fetch = (...args) => globalThis.fetch(...args)): Promise<ModelListResult> {
+    const provider = typeof draft.provider === 'string' && (PROVIDERS as readonly string[]).includes(draft.provider) ? draft.provider as ChatProvider : null;
+    if (!provider) return { ok: false, error: 'Model not configured' };
+    const baseURL = typeof draft.baseURL === 'string' ? draft.baseURL.trim() : '';
+    if (provider === 'test') return { ok: true, models: [{ id: 'test-fixture' }], source: 'test' };
+    try {
+      if (provider === 'local') {
+        if (!httpEndpoint(baseURL)) return { ok: false, error: 'Local model has no endpoint.' };
+        return await listLocalModels(baseURL, fetchImpl);
+      }
+      const config: LLMConfig = { provider, model: '', baseURL };
+      const base = this.cloudBase(provider as CloudProvider, config);
+      if (!base) return { ok: false, error: 'Cloud key is not sent to an http address.' };
+      if (!this.sessionKey) return { ok: false, error: 'Cloud model has no key for this session.' };
+      const result = await listCloudModels(provider as CloudProvider, base, this.sessionKey, fetchImpl);
+      return result.ok ? result : { ok: false, error: redactProbeError(result.error, [this.sessionKey]) };
+    } catch {
+      return { ok: false, error: 'The model list could not be read.' };
     }
   }
 

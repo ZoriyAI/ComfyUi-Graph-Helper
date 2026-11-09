@@ -126,12 +126,14 @@ function enrichOrder(directory: string): number {
   return 2;
 }
 
-function readState(db: Database.Database): Record<string, string> {
+/** All sync_state rows as a key → value map. Also the store for small app state such as address history. */
+export function readState(db: Database.Database): Record<string, string> {
   const rows = db.prepare('SELECT key, value FROM sync_state').all() as Array<{ key: string; value: string }>;
   return Object.fromEntries(rows.map((row) => [row.key, row.value]));
 }
 
-function writeState(db: Database.Database, values: Record<string, string>): void {
+/** Upserts sync_state rows in one transaction. */
+export function writeState(db: Database.Database, values: Record<string, string>): void {
   const upsert = db.prepare('INSERT INTO sync_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
   db.transaction(() => {
     for (const [key, value] of Object.entries(values)) upsert.run(key, value);

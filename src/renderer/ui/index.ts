@@ -18,6 +18,7 @@ export { default as Breadcrumb, type BreadcrumbItem } from './Breadcrumb';
 export * from './Dialog';
 export * from './Tabs';
 export { default as SelectField, CLOSE_OPEN_SELECT, type SelectOption } from './SelectField';
+export { default as SuggestField, type Suggestion, type SuggestFieldProps, type SuggestStatus } from './SuggestField';
 export { default as Hint, HintProvider } from './Hint';
 export { default as RadioCards, type RadioCardOption, type RadioCardsProps } from './RadioCards';
 export { default as NumberField, clampNumber, type NumberFieldProps } from './NumberField';
