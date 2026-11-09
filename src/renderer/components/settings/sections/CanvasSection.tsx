@@ -31,7 +31,6 @@ export default function CanvasSection({ prefs, setPrefs }: DraftProps) {
         min={BUILD_PACE.min}
         max={BUILD_PACE.max}
         step={BUILD_PACE.step}
-        unit="ms"
         hint={String(t('preferences.buildPaceHint'))}
         onChange={(next) => set({ buildPaceMs: next })}
         {...number('preferences.buildPace')}
@@ -42,7 +41,6 @@ export default function CanvasSection({ prefs, setPrefs }: DraftProps) {
         min={GRID_SIZE.min}
         max={GRID_SIZE.max}
         step={GRID_SIZE.step}
-        unit="px"
         hint={String(t('preferences.gridSizeHint'))}
         onChange={(next) => set({ gridSize: next })}
         {...number('preferences.gridSize')}

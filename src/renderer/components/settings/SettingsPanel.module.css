@@ -152,7 +152,8 @@
 .table tbody tr:hover { background: var(--surface-hover); }
 .placeDot { display: inline-block; width: 8px; height: 8px; margin-right: 8px; border-radius: 50%; background: var(--text-faint); }
 .placeOn { background: var(--ok); }
-.shortcutTable tbody th { width: 42%; }
+.shortcutTable { width: min(100%, 92ch); }
+.shortcutTable tbody th { width: 38%; }
 .chordCell { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 34px; }
 .chord { display: inline-flex; }
 .none { color: var(--text-faint); font-style: italic; }

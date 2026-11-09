@@ -9,7 +9,7 @@ export interface RadioCardOption {
   description?: string;
   /** Drawn before the title (a swatch, a status dot). Decorative. */
   leading?: React.ReactNode;
-  /** Drawn after the title (a badge). Decorative unless it carries its own label. */
+  /** Drawn under the description (a status badge). Not part of the accessible name. */
   trailing?: React.ReactNode;
 }
 
@@ -74,9 +74,9 @@ export default function RadioCards({ label, hideLabel, value, options, onChange,
                 <span className={styles.mark} aria-hidden="true" />
                 {option.leading ? <span className={styles.leading} aria-hidden="true">{option.leading}</span> : null}
                 <span id={titleId} className={styles.title}>{option.title}</span>
-                {option.trailing ? <span className={styles.trailing}>{option.trailing}</span> : null}
               </span>
               {option.description ? <span id={descriptionId} className={styles.description}>{option.description}</span> : null}
+              {option.trailing ? <span className={styles.trailing}>{option.trailing}</span> : null}
             </button>
           );
         })}

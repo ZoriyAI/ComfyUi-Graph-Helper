@@ -25,6 +25,8 @@ export interface BuildStepInfo {
 
 /** The extra pause after the reveal animation so a person can read one sentence. */
 export const READ_PAUSE_MS = 500;
+/** The default full-motion step: the 320 ms reveal plus the reading pause (Preferences ▸ Canvas default). */
+const DEFAULT_PACE_MS = 820;
 /** How long a callout stays when no next step replaces it. */
 export const CALLOUT_HOLD_MS = 4000;
 /** With "follow the helper" on, the camera travels too: give each step this much more time. */
@@ -39,12 +41,11 @@ const BACKLOG_FACTOR = 0.6;
  */
 export function stepDelayMs(input: { revealMs: number; motion: MotionLevel; follow: boolean; queued: number; paceMs?: number }): number {
   if (input.motion === 'off') return 0;
-  const full = Math.max(0, input.revealMs) + READ_PAUSE_MS;
-  // Preferences ▸ Canvas ▸ Build pace is the full-motion step; reduced motion keeps the same share of reading time.
+  // Preferences ▸ Canvas ▸ Build pace is the full-motion step; reduced motion keeps the reading share of it.
   const pace = typeof input.paceMs === 'number' && Number.isFinite(input.paceMs) && input.paceMs > 0 ? input.paceMs : null;
   let delay = input.motion === 'full'
-    ? (pace ?? full)
-    : (pace === null ? READ_PAUSE_MS : Math.round(pace * (READ_PAUSE_MS / Math.max(1, full))));
+    ? (pace ?? Math.max(0, input.revealMs) + READ_PAUSE_MS)
+    : (pace === null ? READ_PAUSE_MS : Math.round(pace * (READ_PAUSE_MS / DEFAULT_PACE_MS)));
   if (input.follow) delay *= FOLLOW_FACTOR;
   if (input.queued > BACKLOG) delay *= BACKLOG_FACTOR;
   return Math.round(delay);

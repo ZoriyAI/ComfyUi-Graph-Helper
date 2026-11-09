@@ -323,6 +323,38 @@ async function captureToolbarAndHelp(page, prefix) {
     await page.waitForTimeout(300);
   });
 
+  // Preferences window, one state per section (Russian).
+  const SECTIONS = [
+    ['assistant', 'Ассистент'], ['models', 'Модели и ключи'], ['connection', 'Подключение'], ['sync', 'Синхронизация'],
+    ['canvas', 'Холст'], ['appearance', 'Оформление и движение'], ['shortcuts', 'Горячие клавиши'], ['privacy', 'Приватность'],
+    ['about', 'О программе'],
+  ];
+  await step('settings-sections', async () => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.getByRole('button', { name: /^(settings|настройки)$/i }).first().click();
+    const dialog = page.locator('[role="dialog"].settings-dialog');
+    await dialog.waitFor();
+    for (const [id, label] of SECTIONS) {
+      await step(`settings-${id}`, async () => {
+        await dialog.getByRole('tab', { name: label, exact: true }).click();
+        await shot(page, `15-ru-settings-${id}`);
+      });
+    }
+    await step('settings-appearance-preview', async () => {
+      await dialog.getByRole('tab', { name: 'Оформление и движение', exact: true }).click();
+      await dialog.getByRole('radio', { name: 'Фиолетовый', exact: true }).click();
+      await shot(page, '15-ru-settings-appearance-violet');
+    });
+    await step('settings-shortcut-recording', async () => {
+      await dialog.getByRole('tab', { name: 'Горячие клавиши', exact: true }).click();
+      await dialog.getByRole('button', { name: /Изменить сочетание для «Показать всё/ }).first().click();
+      await shot(page, '15-ru-settings-shortcuts-recording');
+      await page.keyboard.press('Escape');
+    });
+    await dialog.getByRole('button', { name: 'Отмена', exact: true }).click();
+    await page.waitForTimeout(300);
+  });
+
   await step('dock-1024', async () => {
     await page.setViewportSize({ width: 1024, height: 768 });
     await page.waitForTimeout(500);

@@ -1,8 +1,8 @@
-.group { display: flex; flex-direction: column; gap: 6px; width: min(100%, 72ch); }
+.group { display: flex; flex-direction: column; gap: 6px; width: min(100%, 80ch); }
 .label { color: var(--text-dim); font-size: var(--text-md); line-height: 20px; }
 .cards { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
 .cols2 { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
-.cols4 { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+.cols4 { grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); }
 .card {
   display: flex;
   flex-direction: column;
@@ -20,6 +20,8 @@
   transition: border-color var(--motion-feedback) var(--motion-ease-out), background-color var(--motion-feedback) var(--motion-ease-out);
 }
 .compact .card { min-height: 0; padding: 8px 10px; }
+.compact .head { gap: 6px; }
+.compact .title { white-space: nowrap; }
 .card:hover { background: var(--surface-hover); border-color: var(--border-strong); }
 .card:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .checked, .checked:hover { border-color: var(--accent); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
@@ -34,6 +36,6 @@
 }
 .checked .mark { border-color: var(--accent); background: radial-gradient(circle, var(--accent) 0 4px, var(--surface-canvas) 4.5px); }
 .leading { display: inline-flex; align-items: center; }
-.title { flex: 1 1 auto; min-width: 0; font-size: var(--text-md); line-height: 20px; font-weight: 600; overflow-wrap: anywhere; }
-.trailing { display: inline-flex; align-items: center; flex: 0 0 auto; }
+.title { flex: 1 1 auto; min-width: 0; font-size: var(--text-md); line-height: 20px; font-weight: 600; overflow-wrap: break-word; }
+.trailing { display: flex; align-items: center; padding-left: 22px; margin-top: 2px; }
 .description { color: var(--text-dim); font-size: var(--text-xs); line-height: 16px; padding-left: 22px; }

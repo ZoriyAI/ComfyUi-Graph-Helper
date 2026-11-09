@@ -116,7 +116,8 @@ export default function ShortcutsSection({ prefs, setPrefs }: DraftProps) {
                 return (
                   <tr key={row.id} className={cx(clash && styles.conflictRow)} data-command={row.id} data-recording={isRecording ? 'true' : undefined}>
                     <th scope="row">{row.label}</th>
-                    <td className={styles.chordCell}>
+                    <td>
+                      <div className={styles.chordCell}>
                       {isRecording ? (
                         <span className={styles.recording} role="status">{t('preferences.recording')}</span>
                       ) : row.chord ? (
@@ -137,6 +138,7 @@ export default function ShortcutsSection({ prefs, setPrefs }: DraftProps) {
                           {t('preferences.conflict', { command: clash.map((id) => labels[id] ?? id).join(', ') })}
                         </Badge>
                       ) : null}
+                      </div>
                     </td>
                     <td className={styles.actionsCell}>
                       <Button
