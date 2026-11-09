@@ -183,12 +183,14 @@ describe('getGraph paging and the prompt cap (item 3)', () => {
     expect((await call({ ids: ['n5', 'n300'] })).nodes.map((node: any) => node.id)).toEqual(['n5', 'n300']);
   });
 
-  it('keeps selected, asked-about and recently touched nodes in the prompt past the cap and points to getGraph({ offset })', () => {
-    const summary = summarizeGraph(many(100), { selectedIds: ['n90'], priorityIds: ['n95', 'n99'] });
+  it('keeps selected, asked-about and recently touched nodes on any page and points to getGraph({ offset })', () => {
+    const summary = summarizeGraph(many(100), { selectedIds: ['n90'], priorityIds: ['n95', 'n99'], limit: 60 });
     const ids = summary.nodes.map((node) => node.id);
     expect(ids).toHaveLength(63);
     expect(ids).toEqual(expect.arrayContaining(['n0', 'n59', 'n90', 'n95', 'n99']));
     expect(graphSummaryText(summary)).toContain('37 more nodes not listed; call getGraph({ offset: 60 })');
+    // The prompt itself has no cap: without a limit every node is listed.
+    expect(summarizeGraph(many(100)).nodes).toHaveLength(100);
   });
 });
 
@@ -221,7 +223,7 @@ describe('turn context, language, history, loop guard (items 7, 9, 10)', () => {
       { role: 'assistant', content: 'd'.repeat(5_000) },
       { role: 'user', content: 'last' },
     ];
-    const kept = trimHistory(messages);
+    const kept = trimHistory(messages, 6_000).messages;
     expect(kept.map((message) => message.content[0])).toEqual(['c', 'd', 'l']);
     // A tool message is never left without the call before it.
     const withTool = trimHistory([
@@ -229,9 +231,9 @@ describe('turn context, language, history, loop guard (items 7, 9, 10)', () => {
       { role: 'assistant', content: [{ type: 'tool-call' }] },
       { role: 'tool', content: [{ type: 'tool-result' }] },
       { role: 'user', content: 'now' },
-    ], 40);
+    ], 40).messages;
     expect(withTool.map((message) => message.role)).toEqual(['user']);
-    expect(trimHistory([{ role: 'user', content: 'z'.repeat(50_000) }])).toHaveLength(1);
+    expect(trimHistory([{ role: 'user', content: 'z'.repeat(50_000) }], 6_000).messages).toHaveLength(1);
   });
 
   it('stops after three failed or conflicted tool results in a row', () => {

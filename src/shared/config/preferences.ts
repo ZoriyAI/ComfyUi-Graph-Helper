@@ -20,7 +20,13 @@ function httpOriginOrEmpty(value: string): boolean {
 export const PREFERENCE_PROVIDERS = ['openai', 'anthropic', 'google', 'local'] as const;
 export type PreferenceProvider = typeof PREFERENCE_PROVIDERS[number];
 
-export const STEP_LIMIT = { min: 4, max: 48, default: 24 } as const;
+/**
+ * Model steps per turn before the helper pauses at a checkpoint (each tool round trip is one step). Reaching it
+ * never ends the work: the chat shows "paused — Continue / Stop" and Continue resumes the same run.
+ */
+export const STEP_LIMIT = { min: 4, max: 200, default: 60 } as const;
+/** Context window override in tokens; 0 means auto (from the model id, 32k when unknown). */
+export const CONTEXT_TOKENS = { min: 0, max: 10_000_000, default: 0, step: 1024 } as const;
 export const ENRICH_PER_RUN = { min: 10, max: 200, default: 40 } as const;
 export const BUILD_PACE = { min: 300, max: 2000, default: 820, step: 20 } as const;
 export const GRID_SIZE = { min: 8, max: 48, default: 18, step: 2 } as const;
@@ -45,6 +51,8 @@ export const preferencesSchema = z.object({
     /** ask: suggestions appear as ghosts first; build: the helper builds directly unless asked to suggest. */
     defaultIntent: z.enum(['ask', 'build']).default('ask'),
     maxStepsPerTurn: int(STEP_LIMIT),
+    /** Tokens of the model's context window the history budget is taken from; 0 = auto. */
+    contextTokens: int(CONTEXT_TOKENS),
     allowWebSearch: z.boolean().default(true),
     allowFetchPage: z.boolean().default(true),
     /** ui follows the interface language. */

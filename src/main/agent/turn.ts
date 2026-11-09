@@ -1,5 +1,5 @@
 import type Database from 'better-sqlite3';
-import { closeRun, listRecentCommands, readProjection } from '../commands/commit';
+import { closeRun, listRecentCommands, pauseRun, readProjection } from '../commands/commit';
 import { readCatalog } from '../catalog/repository';
 import { mainLLMService } from '../llmService';
 import * as knowledgeRepository from '../knowledge/repository';
@@ -13,7 +13,8 @@ import type { Projection } from '../../shared/commands/types';
 import type { RecentCommand } from '../../shared/agent/recentActions';
 import type { AgentTurnContext } from '../../shared/contracts';
 import { createBuildTools, type RendererToolSpec, type RunContext } from './buildTools';
-import { trimHistory } from './history';
+import { omittedHistoryText, trimHistory } from './history';
+import { contextWindowFor, historyBudgetTokens } from '../../shared/agent/contextWindow';
 import { buildSystemPrompt, catalogSummaryText } from './prompt';
 import { errorMessage } from './streamParts';
 import { createAgentTools, type KnowledgeApi, type ProposalApi } from './tools';
@@ -38,7 +39,9 @@ export interface AgentTurnOptions {
   notify: (channel: string, payload: unknown) => void;
   /** Aborted by llm:cancel or when the window goes away: the provider request and the tool loop stop. */
   signal?: AbortSignal;
-  llm?: Pick<typeof mainLLMService, 'streamChatWithTools' | 'nativeSearchTool'> & Partial<Pick<typeof mainLLMService, 'redact'>>;
+  llm?: Pick<typeof mainLLMService, 'streamChatWithTools' | 'nativeSearchTool'> & Partial<Pick<typeof mainLLMService, 'redact' | 'charsPerToken'>>;
+  /** Model id for the context window table. Default: the configured model of the next send. */
+  model?: string;
   knowledge?: KnowledgeApi;
   proposals?: ProposalApi;
   fetchImpl?: FetchLike;
@@ -94,6 +97,16 @@ function priorityIds(context: AgentTurnContext, recent: RecentCommand[]): string
   return [...new Set(ids)];
 }
 
+/** Pauses the turn's run at a checkpoint (step limit, failure streak). */
+function pauseIfRunning(db: Database.Database, run: RunContext): void {
+  try {
+    const active = readProjection(db, run.projectId)?.activeRun;
+    if (active && active.runId === run.runId && active.status === 'running') pauseRun(db, run.projectId, run.runId);
+  } catch (error) {
+    console.warn('[Agent] Run was not paused:', error instanceof Error ? error.message.slice(0, 200) : 'unknown error');
+  }
+}
+
 /** Closes the turn's run when it is still running. A paused run stays paused so Resume can reopen it. */
 function closeIfRunning(db: Database.Database, run: RunContext): Projection | null {
   try {
@@ -111,7 +124,9 @@ function closeIfRunning(db: Database.Database, run: RunContext): Projection | nu
  * (the renderer cannot see the catalog or the action log). Chunk protocol: the fullStream parts with only the
  * fields the chat uses (main/agent/streamParts.ts), 'projection' on commits followed by 'build-step' for a step
  * tool (addNode, connectNodes, …; content AgentBuildStep), then a final 'projection' after the run is closed,
- * then 'done' or 'error'. Renderers that do not know 'build-step' ignore it.
+ * then 'done' or 'error'. When the loop stopped on a guard (step checkpoint, failed tools) a 'turn-paused' chunk
+ * ({ reason, steps, canContinue }) comes before the final projection and the run stays paused for Continue.
+ * Renderers that do not know 'build-step' or 'turn-paused' ignore them.
  */
 export async function runAgentTurn(options: AgentTurnOptions): Promise<void> {
   const { db, send } = options;
@@ -124,8 +139,8 @@ export async function runAgentTurn(options: AgentTurnOptions): Promise<void> {
     const preferences = options.preferences ?? readPreferences(db);
     const { assistant, privacy } = preferences;
     const context = parseTurnContext(options.context, options.language);
-    const messages = trimHistory(dialog(options.messages)).map((message) => ({ ...message, content: redact(message.content) }));
-    const question = [...messages].reverse().find((message) => message.role === 'user')?.content ?? '';
+    const whole = dialog(options.messages).map((message) => ({ ...message, content: redact(message.content) }));
+    const question = [...whole].reverse().find((message) => message.role === 'user')?.content ?? '';
     const projection: Projection | null = readProjection(db, run.projectId);
     // The engine keeps the run's expected revision current (a manual commit or a resumed run moves it).
     const active = projection?.activeRun;
@@ -134,7 +149,7 @@ export async function runAgentTurn(options: AgentTurnOptions): Promise<void> {
 
     const recent = readRecent(db, run.projectId);
     const selectedIds = context.selection.filter((ref) => ref.kind === 'node').map((ref) => ref.id);
-    const system = redact(buildSystemPrompt({
+    const prompt = redact(buildSystemPrompt({
       context,
       graph: projection ? summarizeGraph(projection.snapshot, { selectedIds, priorityIds: priorityIds(context, recent), omitValues: !privacy.sendFieldValues }) : null,
       catalog: catalogSummaryText(db, knowledge, question),
@@ -142,6 +157,14 @@ export async function runAgentTurn(options: AgentTurnOptions): Promise<void> {
       question,
       preferences: { ...assistant, sendFieldValues: privacy.sendFieldValues },
     }));
+
+    // History budget: 70 % of the model's context window (Preferences ▸ Assistant overrides it) minus the prompt.
+    const window = contextWindowFor(options.model ?? mainLLMService.nextSendConfig().model, assistant.contextTokens);
+    const charsPerToken = (llm.charsPerToken ?? (() => 4)).call(llm);
+    const trimmed = trimHistory(whole, historyBudgetTokens(window.tokens, prompt.length, charsPerToken), charsPerToken);
+    const messages = trimmed.messages;
+    const system = trimmed.omitted > 0 ? `${prompt}\n\n${omittedHistoryText(trimmed.omitted)}` : prompt;
+    if (trimmed.omitted > 0) console.log(`[Agent] ${trimmed.omitted} earlier messages left out (window ${window.tokens} tokens, ${window.source})`);
 
     // Port names and slot indices resolve against the current snapshot and the installed catalog.
     let catalog: CatalogView | undefined;
@@ -198,6 +221,10 @@ export async function runAgentTurn(options: AgentTurnOptions): Promise<void> {
       abortSignal: options.signal,
     })) {
       if (options.signal?.aborted) break;
+      if (chunk.type === 'turn-paused') {
+        // A checkpoint, not an end: the run stays paused so Continue (resume) carries on with the same run.
+        pauseIfRunning(db, run);
+      }
       send(chunk);
     }
   } catch (error) {
