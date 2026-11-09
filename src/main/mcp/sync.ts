@@ -670,6 +670,23 @@ function identityRecord(identity: ServerIdentity): Record<string, string | null>
   return { installation_id: identity.installationId, comfyui_url: identity.comfyuiUrl };
 }
 
+/**
+ * The ComfyUI address the MCP server named at the last successful sync, with whatever port it uses, or null.
+ * Main refuses it in the agent's page reader; no port is assumed anywhere.
+ */
+export function reportedComfyUrl(db: Database.Database): string | null {
+  try {
+    const raw = readState(db).server_identity;
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== 'object') return null;
+    const url = (parsed as Record<string, unknown>).comfyui_url;
+    return typeof url === 'string' && url !== '' ? url : null;
+  } catch {
+    return null;
+  }
+}
+
 async function readMetadata(session: McpSession, directory: string, name: string): Promise<ParsedModelMetadata | null> {
   try {
     const result = await session.callTool('model_metadata', { action: 'read', category: directory, name });

@@ -3,7 +3,7 @@ import Database from 'better-sqlite3';
 import { migrate } from '../../src/main/settings/migrate';
 import { modelDetail, searchModels } from '../../src/main/knowledge/repository';
 import {
-  catalogWarnings, classifySyncError, METADATA_STOPPED, NODE_PORTS_NO_URL, STARTUP_DELAY_MS, SyncService,
+  catalogWarnings, classifySyncError, METADATA_STOPPED, NODE_PORTS_NO_URL, reportedComfyUrl, STARTUP_DELAY_MS, SyncService,
 } from '../../src/main/mcp/sync';
 import { createTranslator, translateKnownError } from '../../src/shared/i18n';
 import { isReadOnlyCall, McpRefusedError, readOnlySession, READ_ONLY_TOOLS } from '../../src/main/mcp/readOnly';
@@ -244,6 +244,7 @@ describe('sync service', () => {
     expect(JSON.stringify(seen)).not.toContain(TOKEN);
     expect(JSON.parse((db.prepare("SELECT value FROM sync_state WHERE key = 'server_identity'").get() as { value: string }).value))
       .toEqual({ installation_id: 'home-comfyui', comfyui_url: null });
+    expect(reportedComfyUrl(db)).toBeNull();
     for (const spy of logs) expect(JSON.stringify(spy.mock.calls)).not.toContain(TOKEN);
     expect(JSON.stringify(db.prepare('SELECT * FROM sync_state').all())).not.toContain(TOKEN);
 
@@ -528,6 +529,24 @@ describe('background metadata reading', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe('reported ComfyUI address', () => {
+  it('returns the address the server named, with its own port, and null for a missing or broken row', () => {
+    const db = new Database(':memory:');
+    migrate(db);
+    expect(reportedComfyUrl(db)).toBeNull();
+    const put = db.prepare("INSERT INTO sync_state (key, value) VALUES ('server_identity', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value");
+    put.run(JSON.stringify({ installation_id: 'home', comfyui_url: 'http://127.0.0.1:28188' }));
+    expect(reportedComfyUrl(db)).toBe('http://127.0.0.1:28188');
+    put.run(JSON.stringify({ installation_id: 'home', comfyui_url: 'http://192.168.0.7:8188' }));
+    expect(reportedComfyUrl(db)).toBe('http://192.168.0.7:8188');
+    put.run(JSON.stringify({ installation_id: 'home', comfyui_url: null }));
+    expect(reportedComfyUrl(db)).toBeNull();
+    put.run('{not json');
+    expect(reportedComfyUrl(db)).toBeNull();
+    db.close();
   });
 });
 

@@ -18,7 +18,7 @@ import { registerDiagnosticsIpc } from './ipc/diagnosticsIpc';
 import { mcpOriginOf, mcpTokenFor, mcpTokenStatus, releaseMcpTokenIfOriginChanged, setMcpToken } from './mcp/token';
 import { configureMcpOAuth, loginToMcp, logoutFromMcp, oauthStatus } from './mcp/oauth';
 import { browserOpener } from './mcp/browser';
-import { syncService } from './mcp/sync';
+import { reportedComfyUrl, syncService } from './mcp/sync';
 import { saveProjectRecord } from './ipc/projectRecord';
 import { redactSecrets } from '../shared/config/draft';
 import { setBlockedWebOrigins } from './agent/web';
@@ -38,9 +38,20 @@ function savedEndpoints(): { comfyOrigin: string; mcpUrl: string } {
   return read.source === 'corrupt' ? { comfyOrigin: '', mcpUrl: '' } : { comfyOrigin: read.values.comfyOrigin, mcpUrl: read.values.mcpUrl };
 }
 
-/** The page reader must never reach the saved ComfyUI; refreshed whenever settings change. */
-function refreshBlockedWebOrigins(comfyOrigin: string): void {
-  setBlockedWebOrigins([comfyOrigin]);
+/**
+ * The agent's page reader must never reach the person's ComfyUI or MCP server, at whatever address and port they
+ * run: the saved Comfy origin, the MCP server origin and the ComfyUI address the server reported at the last sync.
+ * Refreshed whenever settings change and after every sync; no port number is built in.
+ */
+function refreshBlockedWebOrigins(): void {
+  const { comfyOrigin, mcpUrl } = savedEndpoints();
+  let reported: string | null = null;
+  try {
+    reported = reportedComfyUrl(getDatabase());
+  } catch {
+    // Without a readable database only the saved addresses are refused.
+  }
+  setBlockedWebOrigins([comfyOrigin, mcpOriginOf(mcpUrl), reported]);
 }
 
 function dialogCopy() {
@@ -126,7 +137,9 @@ export async function setupIPC(): Promise<void> {
   await adoptStoredKey();
   await adoptStoredMcpToken();
   await setupMcpOAuth();
-  refreshBlockedWebOrigins(savedEndpoints().comfyOrigin);
+  refreshBlockedWebOrigins();
+  // A sync may learn a new ComfyUI address from the server; the page reader refuses it from then on.
+  syncService.onStatus(() => refreshBlockedWebOrigins());
   // Domain handlers. Each workstream owns its register function; see docs/superpowers/specs/2026-11-08-helper-brief.md.
   registerKnowledgeIpc(ipcMain);
   registerEngineIpc(ipcMain);
@@ -265,7 +278,7 @@ export async function setupIPC(): Promise<void> {
   ipcMain.handle(IPC_CHANNELS.SETTINGS_SAVE, (_event, input: unknown) => {
     const result = saveSettings(getDatabase(), input);
     if (result.ok) {
-      refreshBlockedWebOrigins(result.values.comfyOrigin);
+      refreshBlockedWebOrigins();
       // A token given for one MCP server is not sent to another.
       releaseMcpTokenIfOriginChanged(result.values.mcpUrl);
       reseedCoreKnowledge(getDatabase(), result.values.language);

@@ -14,6 +14,7 @@ import {
   publicWebUrl,
   SEARCH_CHALLENGE_ERROR,
   searchWebFallback,
+  blockedWebOriginsSnapshot,
   setBlockedWebOrigins,
   vetWebTarget,
   type FetchLike,
@@ -178,7 +179,7 @@ describe('address checks', () => {
     for (const url of [
       'http://localhost./', 'http://[::7f00:1]/', 'http://[64:ff9b::7f00:1]/', 'http://198.18.0.1/', 'http://[::ffff:127.0.0.1]/',
       'http://[fec0::1]/', 'http://[fd00::1]/', 'http://[fe80::1]/', 'http://[ff02::1]/', 'http://224.0.0.1/', 'http://100.64.0.1/',
-      'http://0x7f.1/', 'http://2130706433/', 'https://example.com:8443/', 'http://example.com:28188/',
+      'http://0x7f.1/', 'http://2130706433/', 'https://example.com:8443/', 'http://example.com:8080/',
     ]) {
       expect(publicWebUrl(url), url).toBeNull();
     }
@@ -194,16 +195,26 @@ describe('address checks', () => {
     expect(publicWebUrl('http://1.1.1.1/')?.hostname).toBe('1.1.1.1');
   });
 
-  it('refuses the saved ComfyUI origin even when it is public', async () => {
-    setBlockedWebOrigins(['https://comfy.example.net']);
+  it('refuses the configured ComfyUI and MCP origins even when they are public; no port number is built in', async () => {
+    // What main passes: the saved Comfy origin, the MCP server origin, the ComfyUI address the server reported,
+    // plus the empty and broken values an unset field or a corrupt state row would produce.
+    setBlockedWebOrigins(['https://comfy.example.net', 'https://mcp.example.org/home/mcp', null, '', undefined, 'http://127.0.0.1:28188', 'not a url', 'ftp://x.example']);
     try {
+      expect(blockedWebOriginsSnapshot()).toEqual(['https://comfy.example.net', 'https://mcp.example.org', 'http://127.0.0.1:28188']);
       expect(publicWebUrl('https://comfy.example.net/object_info')).toBeNull();
       expect(publicWebUrl('https://comfy.example.net:443/')).toBeNull();
+      expect(publicWebUrl('https://mcp.example.org/')).toBeNull();
+      expect(publicWebUrl('https://mcp.example.org/any/other/path')).toBeNull();
+      // Same host on another port is another origin.
       expect(publicWebUrl('http://comfy.example.net/')).not.toBeNull();
+      expect(publicWebUrl('https://docs.comfy.org/')).not.toBeNull();
     } finally {
       setBlockedWebOrigins([]);
     }
+    expect(blockedWebOriginsSnapshot()).toEqual([]);
     expect(publicWebUrl('https://other.example/', { blockedOrigins: ['https://other.example'] })).toBeNull();
+    // The person's ComfyUI port is whatever they configured; the guard carries no port of its own.
+    expect(publicWebUrl('https://comfy.example.net/')).not.toBeNull();
   });
 
   it('connects to the pinned address whatever the host name says', async () => {

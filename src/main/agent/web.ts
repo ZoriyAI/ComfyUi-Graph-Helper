@@ -5,8 +5,10 @@
  *
  * Every hop is checked by the address its host resolves to, not by the host text: a name that resolves to
  * this machine, a private, shared, link-local, multicast or tunnelling range is refused, as are ports other
- * than 80/443 (the search host aside), port 28188, and the saved ComfyUI origin. Without an injected fetch
- * the connection is pinned to the checked address, so a second DNS answer (rebinding) cannot redirect it.
+ * than 80/443 (the search host aside) and the configured ComfyUI and MCP origins, whatever ports they use.
+ * No port number is built in: the origins come from Settings and from what the MCP server reports. Without an
+ * injected fetch the connection is pinned to the checked address, so a second DNS answer (rebinding) cannot
+ * redirect it.
  */
 
 import dns from 'node:dns/promises';
@@ -133,7 +135,7 @@ export type LookupAll = (hostname: string) => Promise<Array<{ address: string; f
 export interface WebGuardOptions {
   /** Resolves a host to every address. Defaults to `dns.lookup({ all: true })`. Tests pass a stub. */
   lookup?: LookupAll;
-  /** Origins that must never be read, e.g. the saved ComfyUI origin. Added to the ones set with setBlockedWebOrigins. */
+  /** Origins that must never be read, e.g. the configured ComfyUI origin. Added to the ones set with setBlockedWebOrigins. */
   blockedOrigins?: string[];
 }
 
@@ -141,13 +143,30 @@ const defaultLookup: LookupAll = (hostname) => dns.lookup(hostname, { all: true,
 
 let blockedWebOrigins: string[] = [];
 
-/** Origins the page reader must refuse whatever they resolve to. Main sets the saved ComfyUI origin here. */
+/**
+ * Origins the page reader must refuse whatever they resolve to. Main sets the saved ComfyUI origin, the MCP server
+ * origin and the ComfyUI address the MCP server reported, each with the port the person actually uses; it refreshes
+ * them whenever Settings change or a sync learns a new address. Empty and unparsable entries are ignored.
+ */
 export function setBlockedWebOrigins(origins: ReadonlyArray<string | null | undefined>): void {
-  blockedWebOrigins = origins.filter((origin): origin is string => typeof origin === 'string' && origin !== '');
+  const kept: string[] = [];
+  for (const origin of origins) {
+    if (typeof origin !== 'string' || origin === '') continue;
+    try {
+      const url = new URL(origin);
+      if (url.protocol !== 'http:' && url.protocol !== 'https:') continue;
+      if (!kept.includes(url.origin)) kept.push(url.origin);
+    } catch {
+      // Not an address; nothing to refuse.
+    }
+  }
+  blockedWebOrigins = kept;
 }
 
-/** The ComfyUI MCP default port. Never read through a page link, whatever host names it. */
-const COMFY_MCP_PORT = '28188';
+/** The origins currently refused, for tests and diagnostics. */
+export function blockedWebOriginsSnapshot(): string[] {
+  return [...blockedWebOrigins];
+}
 
 function ipv4Parts(host: string): number[] | null {
   if (net.isIPv4(host) !== true) return null;
@@ -247,8 +266,8 @@ function matchesBlockedOrigin(url: URL, extra: string[] = []): boolean {
 
 /**
  * Syntax check only: public http(s) without userinfo, on port 80 or 443 (any port for the search host),
- * not a local name, not a literal private address, not the saved ComfyUI origin. A host name passes here
- * and is checked again by the addresses it resolves to before anything is sent.
+ * not a local name, not a literal private address, not a configured ComfyUI or MCP origin. A host name passes
+ * here and is checked again by the addresses it resolves to before anything is sent.
  */
 export function publicWebUrl(value: string, options: WebGuardOptions = {}): URL | null {
   let url: URL;
@@ -267,7 +286,6 @@ export function publicWebUrl(value: string, options: WebGuardOptions = {}): URL 
   if (!host.includes('.') && !host.includes(':')) return null;
   if (net.isIP(host) !== 0 && isBlockedAddress(host)) return null;
   const port = effectivePort(url);
-  if (port === COMFY_MCP_PORT) return null;
   if (!isSearchHost(host) && port !== '80' && port !== '443') return null;
   if (matchesBlockedOrigin(url, options.blockedOrigins)) return null;
   return url;
