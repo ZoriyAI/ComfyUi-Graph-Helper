@@ -30,6 +30,28 @@ export const MCP_CALL_TIMEOUT_MS = 30_000;
 export const BUILD_PACE = { min: 300, max: 2000, default: 820, step: 20 } as const;
 export const GRID_SIZE = { min: 8, max: 48, default: 18, step: 2 } as const;
 
+/**
+ * Description cards on the canvas. own: a card only where the node has its own text (a node explanation or a
+ * component purpose); class knowledge waits for hover, selection or focus behind a dot. all: every node that has
+ * anything to say. off: dots only. The order is the toolbar cycle.
+ */
+export const DESCRIPTION_MODES = ['own', 'all', 'off'] as const;
+export type DescriptionsMode = typeof DESCRIPTION_MODES[number];
+
+/**
+ * The description mode a canvas section stands for. `descriptions` wins; a row written before it existed
+ * keeps its old switch: on reads as own, off as off.
+ */
+export function descriptionsModeOf(canvas: { descriptions?: DescriptionsMode | undefined; showDescriptions?: boolean } | null | undefined): DescriptionsMode {
+  if (canvas?.descriptions && (DESCRIPTION_MODES as readonly string[]).includes(canvas.descriptions)) return canvas.descriptions;
+  return canvas?.showDescriptions === false ? 'off' : 'own';
+}
+
+/** What to save for a mode: the mode itself and the old switch beside it, so an older reader still agrees on/off. */
+export function descriptionsPatch(mode: DescriptionsMode): { descriptions: DescriptionsMode; showDescriptions: boolean } {
+  return { descriptions: mode, showDescriptions: mode !== 'off' };
+}
+
 /** 'Mod+Shift+K', 'F1', 'Shift+1', 'Delete', or '' for "no shortcut". */
 const CHORD = /^((Mod|Ctrl|Shift|Alt)\+)*([A-Z0-9]|F([1-9]|1[0-2])|[=\-/,.;']|\+|Delete|Backspace|Enter|Escape|Tab|Space|Home|End|PageUp|PageDown|Insert|ArrowUp|ArrowDown|ArrowLeft|ArrowRight|`|\[|\]|\\)$/;
 const COMMAND_ID = /^[a-z][A-Za-z0-9]*(\.[A-Za-z0-9]+)*$/;
@@ -70,7 +92,10 @@ export const preferencesSchema = z.object({
     enrichPauseMs: int(ENRICH_PAUSE_MS),
   }).prefault({}),
   canvas: z.object({
+    /** Old on/off switch, still read (and written beside `descriptions`) for rows saved before the mode existed. */
     showDescriptions: z.boolean().default(true),
+    /** own / all / off; absent on older rows, where descriptionsModeOf derives it from showDescriptions. */
+    descriptions: z.enum(DESCRIPTION_MODES).optional(),
     showMinimap: z.boolean().default(true),
     followAgent: z.boolean().default(false),
     buildPaceMs: int(BUILD_PACE),
@@ -104,6 +129,8 @@ export type PreferencesPatch = {
 export const preferencesDefaults: Preferences = preferencesSchema.parse({});
 
 const SECTIONS = Object.keys(preferencesDefaults) as PreferenceSection[];
+/** Fields without a default, so they are absent from preferencesDefaults but still kept when they parse. */
+const OPTIONAL_FIELDS: Partial<Record<PreferenceSection, string[]>> = { canvas: ['descriptions'] };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
@@ -148,7 +175,7 @@ export function parsePreferences(input: unknown): Preferences {
     }
     const target = result[section] as Record<string, unknown>;
     for (const [field, value] of Object.entries(stored)) {
-      if (!(field in target)) continue;
+      if (!(field in target) && !OPTIONAL_FIELDS[section]?.includes(field)) continue;
       const candidate = { ...(result as Preferences), [section]: { ...target, [field]: value } };
       const parsed = preferencesSchema.safeParse(candidate);
       if (parsed.success && !preferencesCarrySecret(value)) target[field] = (parsed.data[section] as Record<string, unknown>)[field];

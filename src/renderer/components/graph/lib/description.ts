@@ -1,4 +1,7 @@
 import type { Explanation, Provenance } from '../../../../shared/contracts/knowledge';
+import { DESCRIPTION_MODES, type DescriptionsMode } from '../../../../shared/config/preferences';
+
+export { DESCRIPTION_MODES, descriptionsModeOf, type DescriptionsMode } from '../../../../shared/config/preferences';
 
 /** Where the text of a description card comes from, in priority order. */
 export type DescriptionScope = 'node' | 'nodeClass' | 'catalog' | 'component';
@@ -59,16 +62,181 @@ function fromExplanations(list: Explanation[] | undefined, scope: 'node' | 'node
  * 4. the component record purpose (project documentation; its author is not recorded, so it reads as an inference).
  * Returns null when nothing is known, and the canvas shows no card for the node.
  */
-export function selectDescription(sources: DescriptionSources): DescriptionContent | null {
+export function selectDescription(sources: DescriptionSources, options: { preferOwn?: boolean } = {}): DescriptionContent | null {
   const own = fromExplanations(sources.own, 'node');
   if (own) return own;
+  const purpose = sources.purpose?.trim();
+  const component: DescriptionContent | null = purpose
+    ? { scope: 'component', primary: { text: purpose, provenance: 'inference', aspect: 'what' }, why: null, explained: false }
+    : null;
+  // In "own" mode what the project wrote for this node (its component purpose) speaks before class knowledge,
+  // so the card that is always on shows the node's own text and does not change on hover.
+  if (options.preferOwn && component) return component;
   const shared = fromExplanations(sources.shared, 'nodeClass');
   if (shared) return shared;
   const catalog = sources.catalog?.trim();
   if (catalog) return { scope: 'catalog', primary: { text: catalog, provenance: 'fact', aspect: 'what' }, why: null, explained: false };
-  const purpose = sources.purpose?.trim();
-  if (purpose) return { scope: 'component', primary: { text: purpose, provenance: 'inference', aspect: 'what' }, why: null, explained: false };
-  return null;
+  return component;
+}
+
+/** True when the text belongs to this node (its own explanation or its component purpose), not to its class. */
+export function ownsDescription(content: DescriptionContent | null): boolean {
+  return content?.scope === 'node' || content?.scope === 'component';
+}
+
+/** The toolbar cycle: own → all → off → own. */
+export function nextDescriptionsMode(mode: DescriptionsMode): DescriptionsMode {
+  return DESCRIPTION_MODES[(DESCRIPTION_MODES.indexOf(mode) + 1) % DESCRIPTION_MODES.length];
+}
+
+/** Why a card is asked for right now, whatever the mode says about cards that are always on. */
+export interface DescriptionDemand {
+  selected?: boolean;
+  /** The pointer rested on the node (or its card) for the hover delay. */
+  hovered?: boolean;
+  /** The node has keyboard focus. */
+  focused?: boolean;
+  /** The node is the current tour step. */
+  tour?: boolean;
+  /** The live build just revealed the node. */
+  revealed?: boolean;
+  /** The person expanded the card (or opened it from its dot). */
+  pinned?: boolean;
+  editing?: boolean;
+}
+
+export function demanded(demand: DescriptionDemand): boolean {
+  return Boolean(demand.selected || demand.hovered || demand.focused || demand.tour || demand.revealed || demand.pinned || demand.editing);
+}
+
+/**
+ * What a node shows under it:
+ * - 'card' — the description card;
+ * - 'dot' — a small knowledge dot ("there is something to read"; a click opens the card);
+ * - 'none' — nothing (nothing is known about the node).
+ * all: a card wherever there is content. own: a card for the node's own text; class knowledge (seeds, class
+ * explanations, the catalog) only on demand, a dot otherwise. off: dots only, except a card the person opened
+ * from its dot or is editing. A tour step without any content still gets a card for its text (except off,
+ * where the tour's own callout speaks).
+ */
+export function descriptionVisibility(input: {
+  mode: DescriptionsMode;
+  content: DescriptionContent | null;
+  demand: DescriptionDemand;
+  /** The tour has text for the node even when nothing is stored. */
+  fallback?: boolean;
+}): 'card' | 'dot' | 'none' {
+  const { mode, content, demand } = input;
+  if (demand.editing) return 'card';
+  if (!content) return mode !== 'off' && demand.tour && input.fallback ? 'card' : 'none';
+  if (mode === 'off') return demand.pinned ? 'card' : 'dot';
+  if (mode === 'all') return 'card';
+  return ownsDescription(content) || demanded(demand) ? 'card' : 'dot';
+}
+
+/** A rectangle in flow coordinates. */
+export interface Box {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export type CardSide = 'bottom' | 'right' | 'left' | 'top';
+
+/** Where a card goes: a side of its node, full or compact (one truncated line); null means "only a dot". */
+export interface CardPlacement {
+  side: CardSide;
+  compact: boolean;
+}
+
+/** Gap between a node and its card under or above it, in screen pixels (NodeToolbar's offset). */
+export const CARD_GAP = 8;
+/** Gap beside a node: wide enough to clear the node's own port handles. */
+export const CARD_SIDE_GAP = 14;
+/** How far port handles reach out of a node's box, in flow units; other nodes' boxes grow by this sideways. */
+export const HANDLE_REACH = 8;
+const SIDES: CardSide[] = ['bottom', 'right', 'left', 'top'];
+
+/**
+ * The flow-space rectangle a card of `size` screen pixels covers on `side` of `node` at `zoom`, the way
+ * NodeToolbar lays it out: centred under / above, top-aligned beside.
+ */
+export function cardRect(node: Box, side: CardSide, size: { width: number; height: number }, zoom: number): Box {
+  const z = zoom > 0 ? zoom : 1;
+  const width = size.width / z;
+  const height = size.height / z;
+  switch (side) {
+    case 'bottom':
+      return { x: node.x + (node.width - width) / 2, y: node.y + node.height + CARD_GAP / z, width, height };
+    case 'top':
+      return { x: node.x + (node.width - width) / 2, y: node.y - CARD_GAP / z - height, width, height };
+    case 'right':
+      return { x: node.x + node.width + CARD_SIDE_GAP / z, y: node.y, width, height };
+    case 'left':
+      return { x: node.x - CARD_SIDE_GAP / z - width, y: node.y, width, height };
+  }
+}
+
+function overlap(a: Box, b: Box): number {
+  const w = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
+  const h = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
+  return w > 0 && h > 0 ? w * h : 0;
+}
+
+/** The box another node blocks: its own box plus the port handles sticking out on its left and right. */
+function blocked(box: Box): Box {
+  return { x: box.x - HANDLE_REACH, y: box.y, width: box.width + HANDLE_REACH * 2, height: box.height };
+}
+
+function covered(rect: Box, others: Box[]): number {
+  let total = 0;
+  for (const other of others) total += overlap(rect, blocked(other));
+  return total;
+}
+
+/**
+ * Overlap avoidance for one card. Tries under the node, then right, then left, then above, at full size; then a
+ * compact one-line card under the node. A card nobody asked for gets null (a dot) when even that would cover
+ * another node or its ports. A card that was asked for (`required`: selected, hovered, tour…) always gets a
+ * place: the first free one, else the one that covers least (it is drawn above other cards).
+ */
+export function placeCard(input: {
+  node: Box;
+  others: Box[];
+  zoom: number;
+  /** The card's size in screen pixels. */
+  size: { width: number; height: number };
+  /** The compact form's size in screen pixels; null when the card cannot shrink (expanded, editing). */
+  compactSize: { width: number; height: number } | null;
+  required: boolean;
+  /** Sides to try, in order (the tour keeps the top for its callout). */
+  sides?: CardSide[];
+}): CardPlacement | null {
+  const { node, others, zoom, size, compactSize, required } = input;
+  const sides = input.sides ?? SIDES;
+  let best: { placement: CardPlacement; cost: number } | null = null;
+  const consider = (placement: CardPlacement, cost: number) => {
+    if (!best || cost < best.cost) best = { placement, cost };
+  };
+  for (const side of sides) {
+    const cost = covered(cardRect(node, side, size, zoom), others);
+    if (cost === 0) return { side, compact: false };
+    consider({ side, compact: false }, cost);
+  }
+  if (compactSize) {
+    const cost = covered(cardRect(node, 'bottom', compactSize, zoom), others);
+    if (cost === 0) return { side: 'bottom', compact: true };
+    consider({ side: 'bottom', compact: true }, cost);
+  }
+  if (!required) return null;
+  return (best as { placement: CardPlacement } | null)?.placement ?? { side: 'bottom', compact: false };
+}
+
+/** Other nodes that a card of at most `reach` flow units around `node` could touch (a cheap first cut). */
+export function neighbourBoxes(node: Box, boxes: Box[], reach: number): Box[] {
+  const area = { x: node.x - reach, y: node.y - reach, width: node.width + reach * 2, height: node.height + reach * 2 };
+  return boxes.filter((box) => box !== node && overlap(area, blocked(box)) > 0);
 }
 
 /** The first line of a text, for the collapsed card. */

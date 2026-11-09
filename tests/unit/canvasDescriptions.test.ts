@@ -3,7 +3,18 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { commitCommand, ensureWorkspace, readProjection } from '../../src/main/commands/commit';
 import { listExplanations, saveExplanation } from '../../src/main/knowledge/repository';
 import { migrate } from '../../src/main/settings/migrate';
-import { firstLine, selectDescription } from '../../src/renderer/components/graph/lib/description';
+import {
+  cardRect,
+  descriptionVisibility,
+  descriptionsModeOf,
+  firstLine,
+  neighbourBoxes,
+  nextDescriptionsMode,
+  placeCard,
+  selectDescription,
+  type Box,
+} from '../../src/renderer/components/graph/lib/description';
+import { parsePreferences, preferencesSchema } from '../../src/shared/config/preferences';
 import { setCanvasPersist, useCanvasStore } from '../../src/renderer/components/graph/canvasStore';
 import type { Explanation } from '../../src/shared/contracts/knowledge';
 import { DESKTOP_PROJECT_ID } from '../../src/shared/project';
@@ -60,25 +71,170 @@ describe('description card content priority', () => {
   });
 });
 
+describe('description modes', () => {
+  it('reads the mode, migrating the old boolean (on = own, off = off) and keeping the old key readable', () => {
+    expect(descriptionsModeOf({ showDescriptions: true })).toBe('own');
+    expect(descriptionsModeOf({ showDescriptions: false })).toBe('off');
+    expect(descriptionsModeOf({})).toBe('own');
+    expect(descriptionsModeOf(null)).toBe('own');
+    expect(descriptionsModeOf({ showDescriptions: false, descriptions: 'all' })).toBe('all');
+    expect(descriptionsModeOf({ showDescriptions: true, descriptions: 'off' })).toBe('off');
+    // A row saved before the mode existed parses without it, and the old switch still decides.
+    expect(descriptionsModeOf(parsePreferences({ canvas: { showDescriptions: false } }).canvas)).toBe('off');
+    expect(descriptionsModeOf(parsePreferences({}).canvas)).toBe('own');
+    expect(parsePreferences({ canvas: { descriptions: 'all' } }).canvas.descriptions).toBe('all');
+    // A bad mode falls back on its own, the rest of the row stays.
+    const mixed = parsePreferences({ canvas: { descriptions: 'loud', showDescriptions: false, gridSize: 24 } }).canvas;
+    expect(mixed).toMatchObject({ showDescriptions: false, gridSize: 24 });
+    expect(mixed.descriptions).toBeUndefined();
+    expect(descriptionsModeOf(mixed)).toBe('off');
+    expect(preferencesSchema.safeParse({ canvas: { descriptions: 'own' } }).success).toBe(true);
+  });
+
+  it('cycles own, all, off', () => {
+    expect(nextDescriptionsMode('own')).toBe('all');
+    expect(nextDescriptionsMode('all')).toBe('off');
+    expect(nextDescriptionsMode('off')).toBe('own');
+  });
+});
+
+describe('description visibility', () => {
+  const seeded = selectDescription({ shared: [explanation({ owner: { kind: 'nodeClass', id: 'KSampler', classType: 'KSampler' }, aspect: 'what', text: 'The main sampler', provenance: 'fact', createdBy: 'seed' })] });
+  const catalog = selectDescription({ catalog: 'Samples a latent.' });
+  const owned = selectDescription({ own: [explanation({ aspect: 'what', text: 'Makes portrait A', provenance: 'inference' })] });
+  const purpose = selectDescription({ catalog: 'Samples a latent.', purpose: 'Portrait pass' }, { preferOwn: true });
+
+  it('own mode: a card for the node\'s own text, a dot for class knowledge until someone looks', () => {
+    expect(descriptionVisibility({ mode: 'own', content: owned, demand: {} })).toBe('card');
+    expect(descriptionVisibility({ mode: 'own', content: purpose, demand: {} })).toBe('card');
+    expect(descriptionVisibility({ mode: 'own', content: seeded, demand: {} })).toBe('dot');
+    expect(descriptionVisibility({ mode: 'own', content: catalog, demand: {} })).toBe('dot');
+    for (const demand of [{ hovered: true }, { selected: true }, { focused: true }, { tour: true }, { revealed: true }, { pinned: true }, { editing: true }]) {
+      expect(descriptionVisibility({ mode: 'own', content: seeded, demand }), JSON.stringify(demand)).toBe('card');
+    }
+    expect(descriptionVisibility({ mode: 'own', content: null, demand: { hovered: true } })).toBe('none');
+    // A tour step with nothing stored still gets its card for the tour text.
+    expect(descriptionVisibility({ mode: 'own', content: null, demand: { tour: true }, fallback: true })).toBe('card');
+  });
+
+  it('all mode shows every card; off shows dots (a card only when opened from its dot or edited)', () => {
+    expect(descriptionVisibility({ mode: 'all', content: seeded, demand: {} })).toBe('card');
+    expect(descriptionVisibility({ mode: 'all', content: catalog, demand: {} })).toBe('card');
+    expect(descriptionVisibility({ mode: 'off', content: owned, demand: {} })).toBe('dot');
+    expect(descriptionVisibility({ mode: 'off', content: seeded, demand: { hovered: true, selected: true, tour: true } })).toBe('dot');
+    expect(descriptionVisibility({ mode: 'off', content: seeded, demand: { pinned: true } })).toBe('card');
+    expect(descriptionVisibility({ mode: 'off', content: null, demand: { tour: true }, fallback: true })).toBe('none');
+  });
+
+  it('own mode puts the component purpose before class knowledge; the default priority keeps it last', () => {
+    expect(purpose).toMatchObject({ scope: 'component', primary: { text: 'Portrait pass' } });
+    expect(selectDescription({ catalog: 'Samples a latent.', purpose: 'Portrait pass' })).toMatchObject({ scope: 'catalog' });
+    expect(selectDescription({ own: [explanation({ aspect: 'what', text: 'node text' })], purpose: 'p' }, { preferOwn: true })).toMatchObject({ scope: 'node' });
+  });
+});
+
+describe('card placement avoids other nodes and their ports', () => {
+  const node: Box = { x: 0, y: 0, width: 200, height: 100 };
+  const size = { width: 220, height: 34 };
+  const compact = { width: 200, height: 30 };
+
+  it('lays rectangles out the way NodeToolbar does', () => {
+    expect(cardRect(node, 'bottom', size, 1)).toEqual({ x: -10, y: 108, width: 220, height: 34 });
+    expect(cardRect(node, 'top', size, 2)).toEqual({ x: 45, y: -21, width: 110, height: 17 });
+    expect(cardRect(node, 'right', size, 1)).toEqual({ x: 214, y: 0, width: 220, height: 34 });
+    expect(cardRect(node, 'left', size, 1)).toEqual({ x: -234, y: 0, width: 220, height: 34 });
+  });
+
+  it('stays under the node when nothing is there', () => {
+    expect(placeCard({ node, others: [], zoom: 1, size, compactSize: compact, required: false })).toEqual({ side: 'bottom', compact: false });
+  });
+
+  it('moves right, then left, then above when the room under the node is taken', () => {
+    const below: Box = { x: 0, y: 130, width: 200, height: 100 };
+    expect(placeCard({ node, others: [below], zoom: 1, size, compactSize: compact, required: false })).toEqual({ side: 'right', compact: false });
+    const right: Box = { x: 240, y: 0, width: 200, height: 100 };
+    expect(placeCard({ node, others: [below, right], zoom: 1, size, compactSize: compact, required: false })).toEqual({ side: 'left', compact: false });
+    const left: Box = { x: -260, y: 0, width: 200, height: 100 };
+    expect(placeCard({ node, others: [below, right, left], zoom: 1, size, compactSize: compact, required: false })).toEqual({ side: 'top', compact: false });
+  });
+
+  it('counts the port handles sticking out of a neighbour as covered', () => {
+    // A neighbour whose box starts 4 units right of where the card ends: its input handles reach into the card.
+    const card = cardRect(node, 'bottom', size, 1);
+    const handles: Box = { x: card.x + card.width + 4, y: 100, width: 200, height: 100 };
+    expect(placeCard({ node, others: [handles], zoom: 1, size, compactSize: compact, required: false })?.side).not.toBe('bottom');
+  });
+
+  it('falls back to a one-line compact card, then to a dot when nobody asked for the card', () => {
+    const tight = { width: 220, height: 120 };
+    const others: Box[] = [
+      { x: -40, y: 145, width: 280, height: 100 }, // under, 45 below the node: room for one line only
+      { x: 230, y: -200, width: 200, height: 400 },
+      { x: -230, y: -200, width: 200, height: 400 },
+      { x: -40, y: -160, width: 280, height: 140 },
+    ];
+    expect(placeCard({ node, others, zoom: 1, size: tight, compactSize: compact, required: false })).toEqual({ side: 'bottom', compact: true });
+    const closer = others.map((box, index) => (index === 0 ? { ...box, y: 112 } : box));
+    expect(placeCard({ node, others: closer, zoom: 1, size: tight, compactSize: compact, required: false })).toBeNull();
+    // Asked for (selected, hovered): it always gets the least covered place.
+    expect(placeCard({ node, others: closer, zoom: 1, size: tight, compactSize: null, required: true })).not.toBeNull();
+    // An expanded card cannot shrink.
+    expect(placeCard({ node, others, zoom: 1, size: tight, compactSize: null, required: false })).toBeNull();
+  });
+
+  it('scales with zoom: a card that covers at full zoom fits when zoomed in', () => {
+    const below: Box = { x: 0, y: 125, width: 200, height: 100 };
+    expect(placeCard({ node, others: [below], zoom: 1, size, compactSize: null, required: false, sides: ['bottom'] })).toBeNull();
+    expect(placeCard({ node, others: [below], zoom: 4, size, compactSize: null, required: false, sides: ['bottom'] })).toEqual({ side: 'bottom', compact: false });
+  });
+
+  it('only looks at neighbours a card could reach', () => {
+    const near: Box = { x: 250, y: 0, width: 100, height: 100 };
+    const far: Box = { x: 2000, y: 0, width: 100, height: 100 };
+    expect(neighbourBoxes(node, [node, near, far], 460)).toEqual([near]);
+  });
+});
+
 describe('description toggles in the canvas store', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     setCanvasPersist(null);
-    useCanvasStore.setState({ descriptionsOn: true, hiddenDescriptions: {}, expandedDescriptions: {} });
+    useCanvasStore.setState({
+      descriptionsMode: 'own', descriptionsOn: true, hiddenDescriptions: {}, expandedDescriptions: {}, collapsedDescriptions: {},
+      hoveredDescription: null, focusedDescription: null, revealedDescription: null, callout: null,
+    });
   });
 
-  it('remembers the global toggle in preferences and hides cards per node', () => {
-    const saved: Array<Record<string, boolean | undefined>> = [];
+  it('starts in own mode, cycles through the modes and remembers each with the old switch beside it', () => {
+    const saved: Array<Record<string, unknown>> = [];
     setCanvasPersist((patch) => saved.push(patch));
     const store = useCanvasStore.getState();
+    expect(store.descriptionsMode).toBe('own');
     expect(store.descriptionsOn).toBe(true);
-    store.setDescriptionsOn(false);
-    expect(useCanvasStore.getState().descriptionsOn).toBe(false);
-    expect(saved).toEqual([{ showDescriptions: false }]);
+    store.cycleDescriptionsMode();
+    expect(useCanvasStore.getState().descriptionsMode).toBe('all');
+    store.cycleDescriptionsMode();
+    expect(useCanvasStore.getState()).toMatchObject({ descriptionsMode: 'off', descriptionsOn: false });
+    store.cycleDescriptionsMode();
+    expect(useCanvasStore.getState().descriptionsMode).toBe('own');
+    expect(saved).toEqual([
+      { descriptions: 'all', showDescriptions: true },
+      { descriptions: 'off', showDescriptions: false },
+      { descriptions: 'own', showDescriptions: true },
+    ]);
+    // The on/off setter of older callers: off is off, on keeps a mode that is already on.
+    store.setDescriptionsMode('all');
     store.setDescriptionsOn(true);
+    expect(useCanvasStore.getState().descriptionsMode).toBe('all');
+    store.setDescriptionsOn(false);
+    store.setDescriptionsOn(true);
+    expect(useCanvasStore.getState().descriptionsMode).toBe('own');
     store.setMinimapOn(false);
-    expect(saved).toEqual([{ showDescriptions: false }, { showDescriptions: true }, { showMinimap: false }]);
+    expect(saved.at(-1)).toEqual({ showMinimap: false });
+  });
 
+  it('expands, collapses, hides cards per node, and Escape collapses all', () => {
+    const store = useCanvasStore.getState();
     store.setDescriptionExpanded('3', true);
     expect(useCanvasStore.getState().expandedDescriptions).toEqual({ 3: true });
     store.hideDescription('3');
@@ -87,11 +243,30 @@ describe('description toggles in the canvas store', () => {
     store.hideDescription('4');
     store.showDescription('3');
     expect(useCanvasStore.getState().hiddenDescriptions).toEqual({ 4: true });
+
+    // Collapsing a card expanded by its selection keeps it collapsed until the selection lets go.
+    store.setDescriptionExpanded('5', false);
+    expect(useCanvasStore.getState().collapsedDescriptions).toEqual({ 5: true });
+    store.keepCollapsed(['5']);
+    expect(useCanvasStore.getState().collapsedDescriptions).toEqual({ 5: true });
+    store.keepCollapsed([]);
+    expect(useCanvasStore.getState().collapsedDescriptions).toEqual({});
+
+    store.setDescriptionExpanded('6', true);
+    store.setHoveredDescription('7');
+    store.setCallout({ nodeId: '8', title: 'Sampler', text: 'why', kind: 'node' });
+    expect(useCanvasStore.getState().revealedDescription).toBe('8');
+    store.setCallout(null);
+    expect(useCanvasStore.getState().revealedDescription).toBe('8');
+    store.collapseDescriptions(['9']);
+    expect(useCanvasStore.getState()).toMatchObject({
+      expandedDescriptions: {}, collapsedDescriptions: { 9: true }, hoveredDescription: null, revealedDescription: null,
+    });
   });
 
   it('keeps working when the preferences writer fails', () => {
     setCanvasPersist(() => { throw new Error('denied'); });
-    expect(() => useCanvasStore.getState().setDescriptionsOn(false)).not.toThrow();
+    expect(() => useCanvasStore.getState().setDescriptionsMode('off')).not.toThrow();
     expect(useCanvasStore.getState().descriptionsOn).toBe(false);
   });
 });

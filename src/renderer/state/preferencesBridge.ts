@@ -1,5 +1,5 @@
 import type { Preferences } from '../../shared/config/preferences';
-import { parsePreferences } from '../../shared/config/preferences';
+import { descriptionsModeOf, parsePreferences } from '../../shared/config/preferences';
 import { setShortcutOverrides } from '../commands/registry';
 import { setCanvasPersist, useCanvasStore } from '../components/graph/canvasStore';
 import { applyAppearance, savePreferencesPatch, usePreferencesStore } from './preferencesState';
@@ -68,8 +68,9 @@ function apply(next: Preferences, previous: Preferences | null): void {
   applyAppearance(next.appearance);
   setShortcutOverrides(next.shortcuts);
   const canvas = useCanvasStore.getState();
-  if (!previous || previous.canvas.showDescriptions !== next.canvas.showDescriptions) {
-    if (canvas.descriptionsOn !== next.canvas.showDescriptions) useCanvasStore.setState({ descriptionsOn: next.canvas.showDescriptions });
+  const mode = descriptionsModeOf(next.canvas);
+  if (!previous || descriptionsModeOf(previous.canvas) !== mode) {
+    if (canvas.descriptionsMode !== mode) useCanvasStore.setState({ descriptionsMode: mode, descriptionsOn: mode !== 'off' });
   }
   if (!previous || previous.canvas.showMinimap !== next.canvas.showMinimap) {
     if (canvas.minimapOn !== next.canvas.showMinimap) useCanvasStore.setState({ minimapOn: next.canvas.showMinimap });

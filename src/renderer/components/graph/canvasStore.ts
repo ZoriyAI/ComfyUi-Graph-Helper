@@ -4,6 +4,8 @@ import type { RevisionSnapshot, RevisionSummary } from '../../../shared/contract
 import type { AgentViewport } from '../../../shared/contracts/agent';
 import type { ConnectFrom } from './lib/connectAssist';
 import type { BuildItem, BuildStepInfo } from './lib/buildQueue';
+import { descriptionsPatch, type DescriptionsMode } from '../../../shared/config/preferences';
+import { nextDescriptionsMode } from './lib/description';
 
 /**
  * Ephemeral canvas state: what the explanatory layers are showing right now.
@@ -19,7 +21,12 @@ export interface ReplayState {
 }
 
 /** Where a canvas toggle is remembered: Preferences ▸ Canvas in SQLite (state/preferencesBridge installs it). */
-export type CanvasPersist = (patch: { showDescriptions?: boolean; showMinimap?: boolean }) => void;
+export type CanvasPersist = (patch: CanvasPatch) => void;
+export interface CanvasPatch {
+  showDescriptions?: boolean;
+  descriptions?: DescriptionsMode;
+  showMinimap?: boolean;
+}
 
 let persist: CanvasPersist | null = null;
 
@@ -28,7 +35,7 @@ export function setCanvasPersist(next: CanvasPersist | null): void {
   persist = next;
 }
 
-function remember(patch: { showDescriptions?: boolean; showMinimap?: boolean }): void {
+function remember(patch: CanvasPatch): void {
   try {
     persist?.(patch);
   } catch {
@@ -96,7 +103,9 @@ interface CanvasState {
   replay: ReplayState | null;
   /** Add-node search: open, and where the node goes (flow coordinates) when picked. */
   addSearch: { open: boolean; at: { x: number; y: number } | null };
-  /** Description cards under the nodes: all on or off (remembered in Preferences ▸ Canvas). */
+  /** Description cards under the nodes: own / all / off (remembered in Preferences ▸ Canvas). */
+  descriptionsMode: DescriptionsMode;
+  /** True unless the mode is off (the toolbar button's pressed state; kept for older readers). */
   descriptionsOn: boolean;
   /** The minimap in the canvas corner (remembered in Preferences ▸ Canvas). */
   minimapOn: boolean;
@@ -104,6 +113,14 @@ interface CanvasState {
   hiddenDescriptions: Record<string, true>;
   /** Nodes whose card is expanded. */
   expandedDescriptions: Record<string, true>;
+  /** Selected nodes whose card the person collapsed (selection no longer expands it until it is reselected). */
+  collapsedDescriptions: Record<string, true>;
+  /** The node the pointer rests on (after the hover delay), whose card shows on demand. */
+  hoveredDescription: string | null;
+  /** The node with keyboard focus, whose card shows on demand. */
+  focusedDescription: string | null;
+  /** The node the live build revealed last; its card shows on demand once the bubble is gone. */
+  revealedDescription: string | null;
 
   setConnectFrom: (from: ConnectFrom | null, pinned?: boolean) => void;
   setFocusedPort: (ref: ObjectRef | null) => void;
@@ -127,6 +144,14 @@ interface CanvasState {
   openAddSearch: (at: { x: number; y: number } | null) => void;
   closeAddSearch: () => void;
   setDescriptionsOn: (on: boolean) => void;
+  setDescriptionsMode: (mode: DescriptionsMode) => void;
+  cycleDescriptionsMode: () => void;
+  setHoveredDescription: (nodeId: string | null) => void;
+  setFocusedDescription: (nodeId: string | null) => void;
+  /** Escape: every expanded card collapses, hover and build reveals let go. */
+  collapseDescriptions: (selected: string[]) => void;
+  /** Forget the person's collapse of cards whose node is no longer selected. */
+  keepCollapsed: (selected: string[]) => void;
   setMinimapOn: (on: boolean) => void;
   hideDescription: (nodeId: string) => void;
   showDescription: (nodeId: string) => void;
@@ -145,7 +170,7 @@ function withoutIds(record: Record<string, true>, ids: string[]): Record<string,
   return next;
 }
 
-export const useCanvasStore = create<CanvasState>((set) => ({
+export const useCanvasStore = create<CanvasState>((set, get) => ({
   connectFrom: null,
   connectPinned: false,
   focusedPort: null,
@@ -162,10 +187,15 @@ export const useCanvasStore = create<CanvasState>((set) => ({
   manualInFlight: 0,
   replay: null,
   addSearch: { open: false, at: null },
+  descriptionsMode: 'own',
   descriptionsOn: true,
   minimapOn: true,
   hiddenDescriptions: {},
   expandedDescriptions: {},
+  collapsedDescriptions: {},
+  hoveredDescription: null,
+  focusedDescription: null,
+  revealedDescription: null,
 
   setConnectFrom: (connectFrom, pinned = false) => set({ connectFrom, connectPinned: connectFrom ? pinned : false }),
   setFocusedPort: (focusedPort) => set({ focusedPort }),
@@ -187,7 +217,7 @@ export const useCanvasStore = create<CanvasState>((set) => ({
   setLive: (live) => set({ live }),
   addFading: (nodes) => set((state) => ({ fading: [...state.fading.filter((item) => !nodes.some((node) => node.id === item.id)), ...nodes] })),
   clearFading: (ids) => set((state) => ({ fading: state.fading.filter((item) => !ids.includes(item.id)) })),
-  setCallout: (callout) => set({ callout }),
+  setCallout: (callout) => set(callout && (callout.kind ?? 'node') === 'node' ? { callout, revealedDescription: callout.nodeId } : { callout }),
   setViewport: (viewport) => set((state) => (
     state.viewport && state.viewport.x === viewport.x && state.viewport.y === viewport.y && state.viewport.zoom === viewport.zoom
       && state.viewport.width === viewport.width && state.viewport.height === viewport.height
@@ -201,10 +231,27 @@ export const useCanvasStore = create<CanvasState>((set) => ({
   patchReplay: (patch) => set((state) => (state.replay ? { replay: { ...state.replay, ...patch } } : {})),
   openAddSearch: (at) => set({ addSearch: { open: true, at } }),
   closeAddSearch: () => set({ addSearch: { open: false, at: null } }),
-  setDescriptionsOn: (descriptionsOn) => {
-    set({ descriptionsOn });
-    remember({ showDescriptions: descriptionsOn });
+  setDescriptionsOn: (on) => {
+    const current = get().descriptionsMode;
+    get().setDescriptionsMode(on ? (current === 'off' ? 'own' : current) : 'off');
   },
+  setDescriptionsMode: (descriptionsMode) => {
+    set({ descriptionsMode, descriptionsOn: descriptionsMode !== 'off' });
+    remember(descriptionsPatch(descriptionsMode));
+  },
+  cycleDescriptionsMode: () => get().setDescriptionsMode(nextDescriptionsMode(get().descriptionsMode)),
+  setHoveredDescription: (hoveredDescription) => set((state) => (state.hoveredDescription === hoveredDescription ? {} : { hoveredDescription })),
+  setFocusedDescription: (focusedDescription) => set((state) => (state.focusedDescription === focusedDescription ? {} : { focusedDescription })),
+  collapseDescriptions: (selected) => set({
+    expandedDescriptions: {},
+    collapsedDescriptions: withIds({}, selected),
+    hoveredDescription: null,
+    revealedDescription: null,
+  }),
+  keepCollapsed: (selected) => set((state) => {
+    const kept = Object.keys(state.collapsedDescriptions).filter((id) => selected.includes(id));
+    return kept.length === Object.keys(state.collapsedDescriptions).length ? {} : { collapsedDescriptions: withIds({}, kept) };
+  }),
   setMinimapOn: (minimapOn) => {
     set({ minimapOn });
     remember({ showMinimap: minimapOn });
@@ -216,5 +263,6 @@ export const useCanvasStore = create<CanvasState>((set) => ({
   showDescription: (nodeId) => set((state) => ({ hiddenDescriptions: withoutIds(state.hiddenDescriptions, [nodeId]) })),
   setDescriptionExpanded: (nodeId, expanded) => set((state) => ({
     expandedDescriptions: expanded ? withIds(state.expandedDescriptions, [nodeId]) : withoutIds(state.expandedDescriptions, [nodeId]),
+    collapsedDescriptions: expanded ? withoutIds(state.collapsedDescriptions, [nodeId]) : withIds(state.collapsedDescriptions, [nodeId]),
   })),
 }));
