@@ -5,9 +5,10 @@ import { nonSecretSettingsSchema, nonSecretDefaults } from '../../../src/shared/
 const KEY = 'provider-matrix-marker';
 
 const CLOUD = [
-  { provider: 'openai', modelProvider: 'openai.responses', searchId: 'openai.web_search' },
-  { provider: 'anthropic', modelProvider: 'anthropic.messages', searchId: 'anthropic.web_search_20250305' },
-  { provider: 'google', modelProvider: 'google.generative-ai', searchId: 'google.google_search' },
+  { provider: 'openai', modelProvider: 'openai.responses', searchId: 'openai.web_search', searchModel: 'fixture-model' },
+  { provider: 'anthropic', modelProvider: 'anthropic.messages', searchId: 'anthropic.web_search_20250305', searchModel: 'fixture-model' },
+  // Google's search tool is offered only on Gemini 3; earlier models would lose every function tool.
+  { provider: 'google', modelProvider: 'google.generative-ai', searchId: 'google.google_search', searchModel: 'gemini-3-pro-preview' },
 ] as const;
 
 describe('chat providers', () => {
@@ -57,13 +58,13 @@ describe('chat providers', () => {
       });
 
       it('offers the provider web search only on the official endpoint', () => {
-        service.setConfig({ provider: entry.provider, model: 'fixture-model', baseURL: '' });
+        service.setConfig({ provider: entry.provider, model: entry.searchModel, baseURL: '' });
         const tool = service.nativeSearchTool() as { type: string; id: string };
         expect(tool.type).toBe('provider');
         expect(tool.id).toBe(entry.searchId);
         expect(JSON.stringify(tool.id)).not.toContain(KEY);
 
-        service.setConfig({ provider: entry.provider, model: 'fixture-model', baseURL: 'https://gateway.example.test/v1' });
+        service.setConfig({ provider: entry.provider, model: entry.searchModel, baseURL: 'https://gateway.example.test/v1' });
         expect(service.nativeSearchTool()).toBeNull();
       });
 
@@ -74,6 +75,15 @@ describe('chat providers', () => {
       });
     });
   }
+
+  it('offers no Google search tool before Gemini 3', () => {
+    for (const model of ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro', '']) {
+      service.setConfig({ provider: 'google', model, baseURL: '' });
+      expect(service.nativeSearchTool(), model).toBeNull();
+    }
+    service.setConfig({ provider: 'google', model: 'gemini-3-flash', baseURL: '' });
+    expect(service.nativeSearchTool()).not.toBeNull();
+  });
 
   it('treats local as an OpenAI-compatible chat completions endpoint such as Ollama', () => {
     service.setConfig({ provider: 'local', model: 'llama3.2', baseURL: '' });

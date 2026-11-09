@@ -79,6 +79,8 @@ test('STRICT: Complete chat-to-graph with annotation, statuses, completion', asy
   await window.getByText('TEST fixture is on').waitFor();
 
   await window.getByRole('tab', { name: 'Assistant' }).click();
+  // Build tools exist only in a build turn: switch the composer to Build.
+  await window.getByRole('group', { name: 'Mode' }).getByRole('button', { name: 'Build', exact: true }).click();
   const input = window.locator('textarea[aria-label="Chat message"]');
   await input.fill('Add a test node');
   await input.press('Enter');

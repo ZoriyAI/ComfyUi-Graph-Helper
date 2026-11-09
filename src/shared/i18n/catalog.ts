@@ -731,6 +731,8 @@ export const en = {
   },
   canvas: {
     toolbar: 'Canvas tools',
+    editRefused: 'That edit was not applied',
+    editConflict: 'The graph changed first; the canvas shows the current graph.',
     addNode: 'Add node',
     addSearchLabel: 'Node type',
     addSearchPlaceholder: 'Search nodes',
@@ -1773,6 +1775,8 @@ export const ru = {
   },
   canvas: {
     toolbar: 'Инструменты холста',
+    editRefused: 'Изменение не применено',
+    editConflict: 'Граф успел измениться; на холсте показан текущий граф.',
     addNode: 'Добавить узел',
     addSearchLabel: 'Тип узла',
     addSearchPlaceholder: 'Поиск узлов',

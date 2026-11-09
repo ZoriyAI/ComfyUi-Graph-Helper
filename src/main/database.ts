@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3';
 import { app } from 'electron';
-import { ensureWorkspace } from './commands/commit';
+import { closeStaleRuns, ensureWorkspace } from './commands/commit';
 import { databasePath } from '../shared/database-path';
 import { migrate } from './settings/migrate';
 
@@ -19,6 +19,8 @@ export function initDatabase(): void {
   console.log('[Database] Opening', dbPath);
   db = openDatabase(dbPath);
   ensureWorkspace(db);
+  // No turn survives a restart: runs left open by the previous session would block or confuse the next one.
+  closeStaleRuns(db);
   console.log('[Database] Schema ready');
 }
 

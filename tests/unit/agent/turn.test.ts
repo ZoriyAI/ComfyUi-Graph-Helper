@@ -65,14 +65,17 @@ describe('agent turn (llm:stream-chat)', () => {
   });
 
   it('keeps the legacy build flow: tool-call, projection, tool-result, text, done', async () => {
-    const { db, chunks, types, systems } = await turn('Add a test node');
+    const { db, chunks, types, systems } = await turn('Add a test node', { context: { intent: 'build', selection: [] } });
     expect(types[types.length - 1]).toBe('done');
     expect(types).not.toContain('error');
     // A projection is pushed while the tool executes, before the SDK yields the matching tool-call part.
     const order = types.filter((type) => ['tool-call', 'tool-result', 'text-delta'].includes(type));
     expect(order.slice(0, 4)).toEqual(['tool-call', 'tool-result', 'tool-call', 'tool-result']);
     expect(order).toContain('text-delta');
-    expect(types.filter((type) => type === 'projection')).toHaveLength(2);
+    // Two commits, then the projection of the closed run before done.
+    expect(types.filter((type) => type === 'projection')).toHaveLength(3);
+    expect(types[types.length - 2]).toBe('projection');
+    expect(readProjection(db, DESKTOP_PROJECT_ID)?.activeRun).toBeNull();
     expect(types.indexOf('projection')).toBeLessThan(types.indexOf('tool-result'));
     const results = chunks.filter((chunk) => chunk.type === 'tool-result').map((chunk) => chunk.content.output);
     expect(results[0]).toMatchObject({ success: true, nodeType: 'TestNode' });
@@ -87,7 +90,9 @@ describe('agent turn (llm:stream-chat)', () => {
   it('proposes a ghost instead of committing and pushes the proposal list', async () => {
     const { db, chunks, pushed, proposals, types } = await turn('Please propose a sampler', { context: { intent: 'chat', selection: [] } });
     expect(types).toContain('tool-call');
-    expect(types).not.toContain('projection');
+    // No commit: the only projection is the closed run's, right before done.
+    expect(types.filter((type) => type === 'projection')).toHaveLength(1);
+    expect(types[types.length - 2]).toBe('projection');
     expect(types[types.length - 1]).toBe('done');
     expect(proposals.created).toHaveLength(1);
     expect(proposals.created[0].payload).toMatchObject({ type: 'add-node', nodeType: 'KSampler' });
@@ -109,6 +114,7 @@ describe('agent turn (llm:stream-chat)', () => {
     mainLLMService.setConfig({ provider: 'openai', model: 'x' });
     mainLLMService.setSessionKey('');
     const { chunks } = await turn('hello');
-    expect(chunks).toEqual([{ type: 'error', content: 'Cloud model has no key for this session.' }]);
+    expect(chunks.filter((chunk) => chunk.type !== 'projection')).toEqual([{ type: 'error', content: 'Cloud model has no key for this session.' }]);
+    expect(chunks[chunks.length - 1].type).toBe('error');
   });
 });

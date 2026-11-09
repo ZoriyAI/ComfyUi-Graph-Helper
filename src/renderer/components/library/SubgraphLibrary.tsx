@@ -35,7 +35,7 @@ export default function SubgraphLibrary() {
     const position = placementFor(state.nodes, viewport, pane ? { width: pane.width, height: pane.height } : null, insertCount);
     insertCount += 1;
     try {
-      const result = await submitManual(`library-insert-${Date.now()}`, {
+      const result = await submitManual(`library-insert-${crypto.randomUUID()}`, {
         type: 'insert-subgraph',
         definitionId: definition.id,
         x: position.x,

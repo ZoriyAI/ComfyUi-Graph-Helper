@@ -33,20 +33,27 @@ export interface RevealStep {
  */
 export function revealSteps(diff: GraphDiff, edges: EdgeLike[]): RevealStep[] {
   const newNodes = new Set(diff.addedNodes);
-  const newEdges = edges.filter((edge) => diff.addedEdges.includes(edge.id));
+  const added = new Set(diff.addedEdges);
+  const newEdges = edges.filter((edge) => added.has(edge.id));
   const steps: RevealStep[] = [];
   const shown = new Set<string>();
   const placed = new Set<string>();
+  let waiting = newEdges;
   const flush = () => {
-    for (const edge of newEdges) {
+    if (waiting.length === 0) return;
+    const still: EdgeLike[] = [];
+    for (const edge of waiting) {
       if (placed.has(edge.id)) continue;
       const sourceReady = !newNodes.has(edge.source) || shown.has(edge.source);
       const targetReady = !newNodes.has(edge.target) || shown.has(edge.target);
       if (sourceReady && targetReady) {
         steps.push({ kind: 'edge', id: edge.id });
         placed.add(edge.id);
+      } else {
+        still.push(edge);
       }
     }
+    waiting = still;
   };
   flush();
   for (const id of diff.addedNodes) {

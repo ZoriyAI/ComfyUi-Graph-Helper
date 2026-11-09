@@ -82,7 +82,8 @@ describe('proposals', () => {
     expect(resolution.proposal.resolvedAt).not.toBeNull();
     const nodes = current(db).snapshot.nodes as Array<Record<string, any>>;
     expect(nodes.map((node) => node.data.title)).toEqual(['VAEDecode', 'Ghost']);
-    expect(nodes[1].id).toBe(`node-proposal-${proposal.id}`);
+    expect(nodes[1].id).toBe('2');
+    expect(resolution.command?.result).toMatchObject({ nodeId: '2' });
     const audit = db.prepare('SELECT actor, run_id FROM applied_commands WHERE action_id = ?').get(`proposal-${proposal.id}`);
     expect(audit).toEqual({ actor: 'manual', run_id: null });
     expect(pushes).toEqual([[]]);

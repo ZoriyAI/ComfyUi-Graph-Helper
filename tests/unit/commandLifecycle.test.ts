@@ -4,6 +4,8 @@ import { acceptsProjection } from '../../src/shared/commands/reconcile';
 import { DESKTOP_PROJECT_ID } from '../../src/shared/project';
 import {
   cancelRun,
+  closeRun,
+  closeStaleRuns,
   commitCommand,
   ensureProject,
   ensureWorkspace,
@@ -76,7 +78,7 @@ describe('command lifecycle', () => {
     db.close();
   });
 
-  it('conflicts when a manual edit happens before the first AI tool', () => {
+  it('conflicts an AI tool that still sends the revision from before a manual edit, and moves the run on', () => {
     const db = openDb();
     const started = startRun(db, DESKTOP_PROJECT_ID);
     const edited = manual(db, started.expectedRevisionId, 'manual-1', {
@@ -92,22 +94,25 @@ describe('command lifecycle', () => {
     expect(blocked.status).toBe('conflict');
     expect(nodesOf(db).map((node) => node.data.comfyType)).toEqual(['HumanNode']);
     const expected = db.prepare('SELECT expected_revision_id FROM runs WHERE run_id = ?').get(started.runId) as { expected_revision_id: string };
-    expect(expected.expected_revision_id).toBe(started.expectedRevisionId);
+    expect(expected.expected_revision_id).toBe(edited.projection!.currentRevisionId);
+    expect(edited.projection!.activeRun?.expectedRevisionId).toBe(edited.projection!.currentRevisionId);
     db.close();
   });
 
-  it('conflicts when AI sends the fresh current revision after a manual edit', () => {
+  it('continues the run from the person\'s state when AI sends the fresh revision after a manual edit', () => {
     const db = openDb();
     const started = startRun(db, DESKTOP_PROJECT_ID);
     const edited = manual(db, started.expectedRevisionId, 'manual-1', { type: 'add-node', nodeType: 'HumanNode' });
-    const blocked = ai(db, started.runId, edited.projection!.currentRevisionId, 'add-1', {
+    expect(edited.projection!.activeRun?.expectedRevisionId).toBe(edited.projection!.currentRevisionId);
+    const next = ai(db, started.runId, edited.projection!.activeRun!.expectedRevisionId, 'add-1', {
       type: 'add-node',
       nodeType: 'TestNode',
     });
-    expect(blocked.status).toBe('conflict');
-    expect(nodesOf(db)).toHaveLength(1);
-    const expected = db.prepare('SELECT expected_revision_id FROM runs WHERE run_id = ?').get(started.runId) as { expected_revision_id: string };
-    expect(expected.expected_revision_id).toBe(started.expectedRevisionId);
+    expect(next.status).toBe('applied');
+    expect(nodesOf(db).map((node) => node.data.comfyType)).toEqual(['HumanNode', 'TestNode']);
+    const again = manual(db, next.projection!.currentRevisionId, 'manual-2', { type: 'move-node', nodeId: '1', x: 5, y: 5 });
+    expect(again.status).toBe('applied');
+    expect(ai(db, started.runId, again.projection!.activeRun!.expectedRevisionId, 'add-2', { type: 'add-node', nodeType: 'Later' }).status).toBe('applied');
     expect(edited.projection!.currentRevisionId).not.toBe(started.expectedRevisionId);
     db.close();
   });
@@ -242,27 +247,47 @@ describe('command lifecycle', () => {
     db.close();
   });
 
-  it('starts and resumes a new snapshot run without returning an old run to running', () => {
+  it('resumes the paused run with the same id, and starts a new one only when none is paused', () => {
     const db = openDb();
     const first = startRun(db, DESKTOP_PROJECT_ID);
     pauseRun(db, DESKTOP_PROJECT_ID, first.runId);
+    const edited = manual(db, first.expectedRevisionId, 'manual-paused', { type: 'add-node', nodeType: 'HumanNode' });
     const resumed = resumeRun(db, DESKTOP_PROJECT_ID);
-    expect(resumed.runId).not.toBe(first.runId);
-    expect(resumed.baseRevisionId).toBe(resumed.expectedRevisionId);
-    expect(resumed.baseRevisionId).toBe(readProjection(db, DESKTOP_PROJECT_ID)!.currentRevisionId);
-    expect(pauseRun(db, DESKTOP_PROJECT_ID, first.runId).status).toBe('applied');
-    expect(db.prepare('SELECT status FROM runs WHERE run_id = ?').get(first.runId)).toEqual({ status: 'paused' });
-    expect(db.prepare('SELECT status FROM runs WHERE run_id = ?').get(resumed.runId)).toEqual({ status: 'running' });
+    expect(resumed.runId).toBe(first.runId);
+    expect(resumed.expectedRevisionId).toBe(edited.projection!.currentRevisionId);
+    expect(resumed.projection.activeRun).toEqual({ runId: first.runId, status: 'running', expectedRevisionId: edited.projection!.currentRevisionId });
+    expect(db.prepare('SELECT status FROM runs WHERE run_id = ?').get(first.runId)).toEqual({ status: 'running' });
+    expect(ai(db, first.runId, resumed.expectedRevisionId, 'after-resume', { type: 'add-node', nodeType: 'TestNode' }).status).toBe('applied');
+    closeRun(db, DESKTOP_PROJECT_ID, first.runId);
+    const fresh = resumeRun(db, DESKTOP_PROJECT_ID);
+    expect(fresh.runId).not.toBe(first.runId);
+    expect(fresh.baseRevisionId).toBe(readProjection(db, DESKTOP_PROJECT_ID)!.currentRevisionId);
     db.close();
   });
 
-  it('lets manual commit without an AI run and does not move another run expected', () => {
+  it('startRun closes the other open runs; closing leaves no open run; closeStaleRuns closes leftovers', () => {
+    const db = openDb();
+    const a = startRun(db, DESKTOP_PROJECT_ID);
+    const b = startRun(db, DESKTOP_PROJECT_ID);
+    expect(db.prepare('SELECT status FROM runs WHERE run_id = ?').get(a.runId)).toEqual({ status: 'closed' });
+    expect(readProjection(db, DESKTOP_PROJECT_ID)!.activeRun?.runId).toBe(b.runId);
+    closeRun(db, DESKTOP_PROJECT_ID, b.runId);
+    expect(readProjection(db, DESKTOP_PROJECT_ID)!.activeRun).toBeNull();
+    expect(db.prepare(`SELECT COUNT(*) AS n FROM runs WHERE status IN ('running', 'paused')`).get()).toEqual({ n: 0 });
+    const c = startRun(db, DESKTOP_PROJECT_ID);
+    pauseRun(db, DESKTOP_PROJECT_ID, c.runId);
+    expect(closeStaleRuns(db)).toBe(1);
+    expect(readProjection(db, DESKTOP_PROJECT_ID)!.activeRun).toBeNull();
+    db.close();
+  });
+
+  it('lets manual commit without an AI run and moves the open run on to the new revision', () => {
     const db = openDb();
     const started = startRun(db, DESKTOP_PROJECT_ID);
     const edited = manual(db, started.expectedRevisionId, 'manual-1', { type: 'add-node', nodeType: 'HumanNode' });
     expect(edited.status).toBe('applied');
     expect(db.prepare('SELECT expected_revision_id FROM runs WHERE run_id = ?').get(started.runId)).toEqual({
-      expected_revision_id: started.expectedRevisionId,
+      expected_revision_id: edited.projection!.currentRevisionId,
     });
     const disguised = commitCommand(db, {
       projectId: DESKTOP_PROJECT_ID,
@@ -274,7 +299,7 @@ describe('command lifecycle', () => {
     });
     expect(disguised.status).toBe('rejected');
     expect(db.prepare('SELECT expected_revision_id FROM runs WHERE run_id = ?').get(started.runId)).toEqual({
-      expected_revision_id: started.expectedRevisionId,
+      expected_revision_id: edited.projection!.currentRevisionId,
     });
     db.close();
   });

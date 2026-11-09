@@ -20,6 +20,7 @@ import {
   rememberLinkId,
   rememberNodeId,
   type GraphSnapshot,
+  type WorkflowDocumentState,
 } from '../../shared/workflow/codec';
 
 /** A refusal with a stable English message; commit turns it into a `rejected` response. */
@@ -57,39 +58,37 @@ export function isGraphOp(payload: GraphMutation): boolean {
   return GRAPH_OPS.has(payload.type);
 }
 
-/** Allocates node and link ids for one command, keeping the document counters monotonic. */
-class Ids {
+/** A blank format-1 document: the counters a canvas without an imported workflow allocates ids from. */
+export function blankDocument(): WorkflowDocumentState {
+  return { formatVersion: WORKFLOW_FORMAT_V1, raw: { state: { lastNodeId: 0, lastLinkId: 0, lastGroupId: 0, lastRerouteId: 0 } } };
+}
+
+/**
+ * Allocates numeric node and link ids for one command, keeping the document counters monotonic.
+ * A canvas with no document gets a blank one, so its ids start at 1 and never repeat after a removal.
+ */
+export class Ids {
   private nodeCounter: number;
   private linkCounter: number;
-  private nodeSerial = 0;
 
-  constructor(private readonly work: GraphSnapshot, private readonly actionId: string) {
+  constructor(private readonly work: GraphSnapshot) {
+    if (!this.work.document) this.work.document = blankDocument();
     this.nodeCounter = nextNodeId(work);
     this.linkCounter = nextLinkId(work);
   }
 
   node(taken: Set<string>): string {
-    if (this.work.document) {
-      while (taken.has(String(this.nodeCounter))) this.nodeCounter += 1;
-      const id = this.nodeCounter;
-      this.nodeCounter += 1;
-      this.work.document = rememberNodeId(this.work.document, id);
-      return String(id);
-    }
-    // Without a native document the canvas uses action-derived ids, as add-node does.
-    let id = this.nodeSerial === 0 ? `node-${this.actionId}` : `node-${this.actionId}-${this.nodeSerial}`;
-    while (taken.has(id)) {
-      this.nodeSerial += 1;
-      id = `node-${this.actionId}-${this.nodeSerial}`;
-    }
-    this.nodeSerial += 1;
-    return id;
+    while (taken.has(String(this.nodeCounter))) this.nodeCounter += 1;
+    const id = this.nodeCounter;
+    this.nodeCounter += 1;
+    this.work.document = rememberNodeId(this.work.document!, id);
+    return String(id);
   }
 
   link(): number {
     const id = this.linkCounter;
     this.linkCounter += 1;
-    if (this.work.document) this.work.document = rememberLinkId(this.work.document, id);
+    this.work.document = rememberLinkId(this.work.document!, id);
     return id;
   }
 }
@@ -404,6 +403,39 @@ function renameSubgraph(work: GraphSnapshot, payload: Extract<GraphMutation, { t
   return { definitionId: definition.id, name: payload.name };
 }
 
+/**
+ * Values the instance holds for promoted widgets (`properties.proxyWidgets` = [[innerNodeId, widgetName], ...],
+ * paired by position with the instance's widgets_values) go back to the inner nodes, so dissolving does not
+ * reset what the person set on the instance. Inner nodes with keyed widgets_values take them by name;
+ * positional ones by the index the inner node's own `widgets` list (when stored) gives the name.
+ */
+function promoteInstanceValues(instance: Node, restored: Node[], idMap: Map<string, string>): void {
+  const comfy = instance.data?.comfy;
+  const proxies = comfy?.properties?.proxyWidgets;
+  const values = comfy?.widgets_values;
+  if (!Array.isArray(proxies) || !Array.isArray(values)) return;
+  proxies.forEach((pair: unknown, index: number) => {
+    if (!Array.isArray(pair) || pair.length < 2 || index >= values.length) return;
+    const target = restored.find((node) => String(node.id) === (idMap.get(String(pair[0])) ?? String(pair[0])));
+    const inner = target?.data?.comfy;
+    if (!target || !inner || typeof inner !== 'object') return;
+    const name = String(pair[1]);
+    const widgets = inner.widgets_values;
+    if (widgets && typeof widgets === 'object' && !Array.isArray(widgets)) {
+      inner.widgets_values = { ...widgets, [name]: values[index] };
+      target.data.parameters = { ...(target.data.parameters ?? {}), [name]: values[index] };
+      return;
+    }
+    const names = Array.isArray(inner.widgets) ? inner.widgets.map((item: { name?: unknown }) => String(item?.name ?? '')) : [];
+    const slot = names.indexOf(name);
+    if (Array.isArray(widgets) && slot >= 0 && slot < widgets.length) {
+      const copy = widgets.slice();
+      copy[slot] = values[index];
+      inner.widgets_values = copy;
+    }
+  });
+}
+
 function dissolveSubgraph(work: GraphSnapshot, ids: Ids, payload: Extract<GraphMutation, { type: 'dissolve-subgraph' }>) {
   const instance = work.nodes.find((node) => String(node.id) === payload.nodeId);
   if (!instance) fail(SUBGRAPH_ERRORS.nodeMissing);
@@ -427,6 +459,7 @@ function dissolveSubgraph(work: GraphSnapshot, ids: Ids, payload: Extract<GraphM
     if (copy.data?.comfy && typeof copy.data.comfy === 'object') copy.data.comfy = { ...copy.data.comfy, id: idValue(id) };
     return copy;
   });
+  promoteInstanceValues(instance, restored, idMap);
   const mapped = (id: unknown) => idMap.get(String(id)) ?? String(id);
   const isBoundary = (edge: Edge) => String(edge.source) === SUBGRAPH_INPUT_NODE_ID || String(edge.target) === SUBGRAPH_OUTPUT_NODE_ID;
   const created: Edge[] = [];
@@ -435,16 +468,28 @@ function dissolveSubgraph(work: GraphSnapshot, ids: Ids, payload: Extract<GraphM
     created.push(makeEdge(ids.link(), mapped(edge.source), String(edge.sourceHandle), mapped(edge.target), String(edge.targetHandle), String(edge.data?.dataType ?? ''), format));
   }
   const instanceId = String(instance.id);
+  const leaving = work.edges.filter((edge) => String(edge.source) === instanceId);
   for (const outer of work.edges.filter((edge) => String(edge.target) === instanceId)) {
     const slot = slotIndex(outer.targetHandle);
     const targets = definition.edges.filter((edge) => String(edge.source) === SUBGRAPH_INPUT_NODE_ID && slotIndex(edge.sourceHandle) === slot);
     for (const inner of targets) {
-      created.push(makeEdge(ids.link(), String(outer.source), String(outer.sourceHandle), mapped(inner.target), String(inner.targetHandle), String(outer.data?.dataType ?? definition.inputs[slot]?.type ?? ''), format));
+      const dataType = String(outer.data?.dataType ?? definition.inputs[slot]?.type ?? '');
+      if (String(inner.target) === SUBGRAPH_OUTPUT_NODE_ID) {
+        // A pass-through (input slot wired straight to an output slot): join the outer source to the outer targets.
+        const outSlot = slotIndex(inner.targetHandle);
+        for (const next of leaving.filter((edge) => slotIndex(edge.sourceHandle) === outSlot)) {
+          created.push(makeEdge(ids.link(), String(outer.source), String(outer.sourceHandle), String(next.target), String(next.targetHandle), dataType, format));
+        }
+        continue;
+      }
+      created.push(makeEdge(ids.link(), String(outer.source), String(outer.sourceHandle), mapped(inner.target), String(inner.targetHandle), dataType, format));
     }
   }
-  for (const outer of work.edges.filter((edge) => String(edge.source) === instanceId)) {
+  for (const outer of leaving) {
     const slot = slotIndex(outer.sourceHandle);
-    const sources = definition.edges.filter((edge) => String(edge.target) === SUBGRAPH_OUTPUT_NODE_ID && slotIndex(edge.targetHandle) === slot);
+    const sources = definition.edges.filter((edge) => (
+      String(edge.target) === SUBGRAPH_OUTPUT_NODE_ID && slotIndex(edge.targetHandle) === slot && String(edge.source) !== SUBGRAPH_INPUT_NODE_ID
+    ));
     for (const inner of sources) {
       created.push(makeEdge(ids.link(), mapped(inner.source), String(inner.sourceHandle), String(outer.target), String(outer.targetHandle), String(outer.data?.dataType ?? definition.outputs[slot]?.type ?? ''), format));
     }
@@ -494,7 +539,7 @@ function removeGroup(work: GraphSnapshot, payload: Extract<GraphMutation, { type
  * Apply a subgraph or group mutation to a copy of the snapshot. Inputs are never mutated.
  * Throws GraphOpError for a refusal.
  */
-export function applyGraphOp(snapshot: GraphSnapshot, actionId: string, payload: GraphMutation): { snapshot: GraphSnapshot; result: Record<string, unknown> } {
+export function applyGraphOp(snapshot: GraphSnapshot, _actionId: string, payload: GraphMutation): { snapshot: GraphSnapshot; result: Record<string, unknown> } {
   const work: GraphSnapshot = {
     ...snapshot,
     nodes: structuredClone(snapshot.nodes),
@@ -502,7 +547,7 @@ export function applyGraphOp(snapshot: GraphSnapshot, actionId: string, payload:
     subgraphs: structuredClone(snapshot.subgraphs ?? []),
     groups: structuredClone(snapshot.groups ?? []),
   };
-  const ids = new Ids(work, actionId);
+  const ids = new Ids(work);
   let result: Record<string, unknown>;
   switch (payload.type) {
     case 'create-subgraph': result = createSubgraph(work, ids, payload); break;

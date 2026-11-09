@@ -121,6 +121,8 @@ test('Desktop smoke: TEST fixture IPC chat interaction', async () => {
   // Send chat message via UI
   console.log('[SMOKE] Sending chat message via UI');
   await window.getByRole('tab', { name: 'Assistant' }).click();
+  // Build tools exist only in a build turn: switch the composer to Build.
+  await window.getByRole('group', { name: 'Mode' }).getByRole('button', { name: 'Build', exact: true }).click();
   const messageInput = window.locator('textarea[aria-label="Chat message"]');
   await messageInput.fill('Add a test node');
   await messageInput.press('Enter');

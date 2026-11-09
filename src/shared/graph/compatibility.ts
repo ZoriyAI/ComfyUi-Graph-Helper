@@ -1,6 +1,6 @@
 import type { CatalogView } from '../catalog/types';
 import { modelDirectoryFor } from '../catalog/modelFolders';
-import { missingDeps, type MissingReport } from '../workflow/codec';
+import { documentDefinitionIds, documentDefinitionNodes, isLocalNodeType, missingDeps, type MissingReport } from '../workflow/codec';
 
 export interface GraphNodeLike {
   data?: {
@@ -49,9 +49,14 @@ export function missingOnGraph(nodes: GraphNodeLike[], catalog: CatalogView, doc
   const knownModels = new Set(catalog.models.map((model) => `${model.directory}/${model.name}`));
   const models = new Map<string, { directory: string; name: string }>();
   for (const model of fromDocument.missingModels) models.set(`${model.directory}/${model.name}`, model);
-  for (const node of nodes) {
+  // Subgraph instances and frontend-only nodes are never in object_info; nodes inside definitions count too.
+  const local = documentDefinitionIds(document);
+  const inner: GraphNodeLike[] = documentDefinitionNodes(document).map((node) => ({
+    data: { comfyType: node.type, comfy: { widgets_values: node.widgets_values } },
+  }));
+  for (const node of [...nodes, ...inner]) {
     const type = node.data?.comfyType;
-    if (typeof type === 'string' && type !== '' && !known.has(type)) missing.add(type);
+    if (typeof type === 'string' && type !== '' && !known.has(type) && !isLocalNodeType(type, local)) missing.add(type);
     for (const model of canvasModelRefs(node, catalog)) {
       const key = `${model.directory}/${model.name}`;
       if (!knownModels.has(key)) models.set(key, model);

@@ -30,7 +30,8 @@ describe('prompt honours Preferences ▸ Assistant and Privacy', () => {
 
   it('defaults: ghosts first, the interface language, short answers, field values visible', () => {
     const prompt = buildSystemPrompt({ context, graph: summarizeGraph(SNAPSHOT), catalog: '' });
-    expect(prompt).toContain('suggest changes as ghosts with propose* tools unless the person explicitly asks you to build');
+    // Ghost by default: a chat turn has no build tools and says so.
+    expect(prompt).toContain('Build tools are not available in this turn. Suggest graph changes as ghosts with propose* tools');
     expect(prompt).toContain('Answer in English.');
     expect(prompt).toContain('Length: keep answers short');
     expect(prompt).toContain('fields: text=a red fox in snow');

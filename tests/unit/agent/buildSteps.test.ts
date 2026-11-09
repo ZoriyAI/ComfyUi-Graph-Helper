@@ -115,6 +115,7 @@ describe('TEST transport: build a text to image graph', () => {
       messages: [{ role: 'user', content: 'build a text to image graph' }],
       toolSpecs: BUILD_TOOL_SPECS,
       run: { projectId: DESKTOP_PROJECT_ID, runId: run.runId, expectedRevisionId: run.expectedRevisionId },
+      context: { intent: 'build', selection: [] },
       language: 'en',
       send: (chunk) => chunks.push(chunk),
       notify: () => undefined,

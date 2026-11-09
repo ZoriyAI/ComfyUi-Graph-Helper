@@ -37,7 +37,7 @@ export async function addNodeFromLibrary(node: Pick<NodeClassSummary, 'classType
   const position = placementFor(state.nodes, viewport, paneSize(), addCount);
   addCount += 1;
   try {
-    const result = await submitManual(`library-add-${Date.now()}`, {
+    const result = await submitManual(`library-add-${crypto.randomUUID()}`, {
       type: 'add-node',
       nodeType: node.classType,
       title: node.displayName || undefined,
