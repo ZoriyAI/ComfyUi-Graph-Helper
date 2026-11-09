@@ -14,6 +14,7 @@ import http from 'node:http';
 import https from 'node:https';
 import net from 'node:net';
 import { Readable } from 'node:stream';
+import { FETCH_PAGE_BYTE_CAP, FETCH_PAGE_TEXT_CAP, megabytes } from '../../shared/agent/limits';
 
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -28,13 +29,18 @@ export interface PageText {
   title: string;
   text: string;
   truncated: boolean;
+  /** Present when truncated: which protective limit cut the page, so the model can say so. */
+  note?: string;
 }
 
 export const SEARCH_ENDPOINT = 'https://html.duckduckgo.com/html/?q=';
 export const WEB_TIMEOUT_MS = 10_000;
+/** Protective: search results come from an outside page; eight links are what one search answer needs. */
 export const MAX_RESULTS = 8;
-export const PAGE_BYTE_CAP = 2 * 1024 * 1024;
-export const PAGE_TEXT_CAP = 12_000;
+/** Protective: a web page is outside data. Both numbers are stated in the fetchPage description and Preferences. */
+export const PAGE_BYTE_CAP = FETCH_PAGE_BYTE_CAP;
+export const PAGE_TEXT_CAP = FETCH_PAGE_TEXT_CAP;
+/** Protective: a redirect chain longer than three is refused with an error the model sees. */
 export const MAX_REDIRECTS = 3;
 
 const USER_AGENT = 'ComfyUI-Graph-Helper/0.1 (+read-only page reader)';
@@ -478,11 +484,16 @@ export async function fetchPageText(rawUrl: string, fetchImpl?: FetchLike, optio
       const isHtml = /html|xml/i.test(type);
       const extracted = isHtml ? htmlToText(body.text) : { title: '', text: body.text.trim() };
       const truncated = body.capped || extracted.text.length > PAGE_TEXT_CAP;
+      const note = body.capped
+        ? `Only the first ${megabytes(PAGE_BYTE_CAP)} of this page were downloaded (protective limit); the text ends early.`
+        : `The page text has ${extracted.text.length} characters; the first ${PAGE_TEXT_CAP} are returned (protective limit).`;
       return {
         url: target.url.toString(),
+        // A page title is outside data; 300 characters is more than any real title.
         title: extracted.title.slice(0, 300),
         text: extracted.text.slice(0, PAGE_TEXT_CAP),
         truncated,
+        ...(truncated ? { note } : {}),
       };
     }
   } finally {

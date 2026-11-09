@@ -262,6 +262,44 @@ function textToImageParts(prompt: LanguageModelV4Prompt | undefined): LanguageMo
   return [toolCall(`call-t2i-${results.length + 1}`, next.name, next.input(ids)), finish('tool-calls')];
 }
 
+/** Steps of the long-chain scenario: more than the default step checkpoint (60), so the turn pauses once. */
+export const LONG_CHAIN_STEPS = 70;
+const LONG_CHAIN = /build a long chain|построй длинную цепочку/i;
+
+function anyUserText(prompt: LanguageModelV4Prompt | undefined, pattern: RegExp): boolean {
+  for (const message of prompt ?? []) {
+    if (message.role !== 'user') continue;
+    const text = typeof message.content === 'string'
+      ? message.content
+      : Array.isArray(message.content) ? message.content.map((part) => (part && part.type === 'text' ? part.text : '')).join('') : '';
+    if (pattern.test(text)) return true;
+  }
+  return false;
+}
+
+function systemText(prompt: LanguageModelV4Prompt | undefined): string {
+  return (prompt ?? []).filter((message) => message.role === 'system').map((message) => (typeof message.content === 'string' ? message.content : '')).join('\n');
+}
+
+/**
+ * TEST fixture "build a long chain": 70 addNode steps titled "Chain step N", one per model step. Progress is read
+ * from the graph in the system prompt (nodes built by earlier turns) plus this turn's addNode results, so a
+ * Continue after the step checkpoint picks up where the previous turn paused. It is not a live model.
+ */
+function longChainParts(prompt: LanguageModelV4Prompt | undefined): LanguageModelV4StreamPart[] {
+  const built = [...systemText(prompt).matchAll(/"Chain step (\d+)"/g)].map((match) => Number(match[1]));
+  const before = built.length > 0 ? Math.max(...built) : 0;
+  const results = collectToolResults(prompt).filter((result) => result.toolName === 'addNode');
+  const failed = results.find((result) => !outcomeOf(result.value).success);
+  if (failed) return textParts(`TEST fixture only: a chain step failed: ${outcomeOf(failed.value).error}`);
+  const next = before + results.length + 1;
+  if (next > LONG_CHAIN_STEPS) return textParts(`TEST fixture only: the long chain is complete with ${LONG_CHAIN_STEPS} steps.`);
+  return [
+    toolCall(`call-chain-${next}`, 'addNode', { nodeType: 'TestNode', title: `Chain step ${next}`, x: 120 + (next % 10) * 240, y: 120 + Math.floor(next / 10) * 160, why: `Step ${next} of the long chain.` }),
+    finish('tool-calls'),
+  ];
+}
+
 function finish(unified: 'stop' | 'tool-calls'): LanguageModelV4StreamPart {
   return {
     type: 'finish',
@@ -296,6 +334,13 @@ export function createTestLLMModel(): LanguageModelV4 {
       if (latestUserText(prompt).includes('Build the loader fixture')) {
         return {
           stream: convertArrayToReadableStream(loaderFixtureParts(prompt)),
+          rawCall: { rawPrompt: null, rawSettings: {} },
+        };
+      }
+      const latest = latestUserText(prompt);
+      if (LONG_CHAIN.test(latest) || (/^\s*(continue|продолжай)\s*$/i.test(latest) && anyUserText(prompt, LONG_CHAIN))) {
+        return {
+          stream: convertArrayToReadableStream(longChainParts(prompt)),
           rawCall: { rawPrompt: null, rawSettings: {} },
         };
       }

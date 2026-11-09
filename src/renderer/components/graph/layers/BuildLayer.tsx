@@ -15,6 +15,8 @@ import { CALLOUT_HOLD_MS, calloutText, parameterChanges, stepCounter, stepDelayM
 import { motionLevel, motionMs, useMotionLevel } from '../lib/motion';
 import { useNodeInfoStore } from '../nodeInfo';
 import { useCenterOn } from './TourLayer';
+import { FIT_PADDING } from '../CanvasToolbar';
+import { fitDurationMs } from '../../../motion/policy';
 import styles from './Callout.module.css';
 
 /** How long the "changed by the helper" mark stays on a node after an agent edit. */
@@ -23,6 +25,8 @@ const AI_MARK_MS = 6000;
 const BUBBLE_LIFT_PX = 110;
 /** Following never zooms in past this, so the next steps around the node stay in view. */
 const FOLLOW_MAX_ZOOM = 1.1;
+/** The fit after a finished build does not zoom in past 1:1, like the canvas's own auto fit. */
+const BUILD_FIT_MAX_ZOOM = 1;
 
 function later(ms: number, run: () => void): void {
   window.setTimeout(run, ms);
@@ -231,6 +235,20 @@ export default function BuildLayer() {
     }, delay);
     return () => window.clearTimeout(timer);
   }, [head, centerOn]);
+
+  // The build finished (run over, every step shown) while not following: part of the graph may be off-screen,
+  // so the view fits it once. The fit duration follows the motion policy (instant unless motion is full).
+  const activeRun = useProjectionStore((state) => state.activeRun);
+  const liveRunId = useCanvasStore((state) => state.live.runId);
+  const liveShown = useCanvasStore((state) => state.live.shown);
+  const fittedRun = useRef<string | null>(null);
+  useEffect(() => {
+    if (activeRun || queue.length > 0 || !liveRunId || liveShown === 0 || fittedRun.current === liveRunId) return;
+    fittedRun.current = liveRunId;
+    if (useUiStore.getState().followAgent) return;
+    // Next frame, so the last revealed node has been measured. Not cancelled on re-render: it runs once per build.
+    window.requestAnimationFrame(() => void flow.fitView({ padding: FIT_PADDING, duration: fitDurationMs(), maxZoom: BUILD_FIT_MAX_ZOOM }));
+  }, [activeRun, queue.length, liveRunId, liveShown, flow]);
 
   // A callout stays ~4 s unless the next step replaces it; then the description card carries the text.
   useEffect(() => {

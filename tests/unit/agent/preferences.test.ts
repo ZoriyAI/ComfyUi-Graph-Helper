@@ -121,7 +121,7 @@ describe('agent turn reads preferences from the settings row', () => {
   it('uses the defaults when nothing is stored', async () => {
     const db = openDb();
     const seen = await turnWith(db);
-    expect(seen.options).toEqual({ maxSteps: 24, allowWebSearch: true, allowFetchPage: true });
+    expect(seen.options).toEqual({ maxSteps: 60, allowWebSearch: true, allowFetchPage: true });
     expect(seen.tools).toEqual(expect.arrayContaining(['searchWeb', 'fetchPage']));
     expect(seen.nativeAsked).toBe(1);
     db.close();
@@ -185,8 +185,8 @@ describe('llm service: step limit, tool filter, probe', () => {
 
   it('clamps the step limit and drops switched-off web tools', () => {
     expect(clampSteps(2)).toBe(4);
-    expect(clampSteps(100)).toBe(48);
-    expect(clampSteps(Number.NaN)).toBe(24);
+    expect(clampSteps(500)).toBe(200);
+    expect(clampSteps(Number.NaN)).toBe(60);
     expect(clampSteps(12.4)).toBe(12);
     const tools = { searchWeb: 1, fetchPage: 2, getGraph: 3 };
     expect(Object.keys(toolsForSend(tools, {}))).toEqual(['searchWeb', 'fetchPage', 'getGraph']);

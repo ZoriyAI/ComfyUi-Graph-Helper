@@ -38,8 +38,9 @@ describe('app commands', () => {
       'file.settings', 'help.about']) {
       expect(byId.has(id), id).toBe(true);
     }
-    // Undo and redo stay off with their hint until the build has them.
+    // Undo and redo go through the engine; with no history they are off and say so.
     expect(byId.get('edit.undo')?.enabled()).toBe(false);
-    expect(byId.get('edit.undo')?.hintKey).toBe('toolbar.undoHint');
+    expect(byId.get('edit.undo')?.hint).toBeTypeOf('function');
+    expect(byId.get('edit.redo')?.hint).toBeTypeOf('function');
   });
 });

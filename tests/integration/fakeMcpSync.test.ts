@@ -24,12 +24,12 @@ function openDb(): Database.Database {
   return db;
 }
 
-function service(url: string, token: string | null): SyncService {
+function service(url: string, token: string | null, enrichment: { perRun: number; pauseMs: number } = { perRun: 40, pauseMs: 0 }): SyncService {
   return new SyncService({
     readUrl: () => url,
     token: () => token,
     checkTokenOrigin: () => undefined,
-    readEnrichment: () => ({ scope: 'loaders', perRun: 40 }),
+    readEnrichment: () => ({ scope: 'loaders', ...enrichment }),
   });
 }
 
@@ -73,6 +73,54 @@ describe('sync against the fake MCP server', () => {
     expect(status.state).toBe('error');
     expect(status.lastError).toBe('MCP server refused the token.');
     expect(fake.calls.some((call) => call.method === 'tools/call')).toBe(false);
+  }, 30_000);
+});
+
+describe('sync lifecycle against the fake MCP server', () => {
+  it('reads the metadata of a 130-file catalog in batches until every file is enriched', async () => {
+    fake = await startFakeMcp({ token: TOKEN, extraLoras: 100 });
+    const db = openDb();
+    const sync = service(fake.url, TOKEN, { perRun: 25, pauseMs: 20 });
+    const first = await sync.runSync(db);
+    expect(first).toMatchObject({ state: 'idle', lastError: null, warnings: [], progress: { phase: 'enrichment', done: 25, total: 130 } });
+    expect(first.counts.models).toBe(modelFileCount() + 100);
+    await sync.whenEnrichmentDone();
+    const done = sync.status(db);
+    expect(done).toMatchObject({ state: 'idle', progress: null, metadata: { done: 130, total: 130 } });
+    const reads = fake.calls.filter((call) => call.method === 'tools/call' && call.tool === 'model_metadata');
+    // Header files only: the two .pth files are named, not read.
+    expect(reads).toHaveLength(128);
+    expect(new Set(reads.map((call) => `${call.args?.category}/${call.args?.name}`)).size).toBe(128);
+    // One session for the listing and every batch, closed at the end.
+    expect(fake.calls.filter((call) => call.method === 'initialize')).toHaveLength(1);
+    expect(fake.calls.filter((call) => call.method === 'DELETE').length).toBeLessThanOrEqual(1);
+    for (const call of fake.calls.filter((item) => item.method === 'tools/call')) {
+      expect(READ_ONLY_TOOLS[call.tool!](call.args ?? {})).toBe(true);
+    }
+    sync.stop();
+  }, 60_000);
+
+  it('says ComfyUI is not running when the node ports could not be refreshed', async () => {
+    fake = await startFakeMcp({ token: TOKEN, comfyDown: true });
+    const db = openDb();
+    const sync = service(fake.url, TOKEN);
+    const status = await sync.runSync(db);
+    const host = new URL(fake.comfyUrl).host;
+    expect(status).toMatchObject({ state: 'idle', lastError: null });
+    expect(status.warnings).toEqual([`ComfyUI is not running at ${host} — node ports were not updated; start ComfyUI and sync again.`]);
+    expect(status.counts.nodeClasses).toBe(CLASSES.length);
+    expect(status.counts.detailedClasses).toBe(0);
+    sync.stop();
+  }, 30_000);
+
+  it('says the MCP server is unreachable when nothing listens at its address', async () => {
+    fake = await startFakeMcp({ token: TOKEN });
+    const url = fake.url;
+    await fake.close();
+    fake = null;
+    const db = openDb();
+    const status = await service(url, TOKEN).runSync(db);
+    expect(status).toMatchObject({ state: 'error', lastError: `MCP server unreachable: ${new URL(url).host}.` });
   }, 30_000);
 });
 

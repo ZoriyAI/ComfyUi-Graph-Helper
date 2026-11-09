@@ -70,9 +70,11 @@ export const IPC_CHANNELS = {
   KNOWLEDGE_LIST_EXPLANATIONS: 'knowledge:list-explanations',
   KNOWLEDGE_SAVE_EXPLANATION: 'knowledge:save-explanation',
   KNOWLEDGE_CHECK_GRAPH: 'knowledge:check-graph',
+  KNOWLEDGE_VALIDATE_NODE_CLASS: 'knowledge:validate-node-class',
   SYNC_STATUS: 'sync:status',
   SYNC_NOW: 'sync:now',
   SYNC_SET_AUTO: 'sync:set-auto',
+  SYNC_PAUSE_ENRICHMENT: 'sync:pause-enrichment',
   SYNC_EVENT: 'sync:event',
 
   // Proposals / ghosts (Engine workstream)

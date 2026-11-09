@@ -9,7 +9,7 @@ import { useUiStore } from '../../state/uiState';
 import { useDockStore } from '../../state/dockState';
 import { openProposals, useProposalsStore } from '../../state/proposalsState';
 import type { GraphEdge, GraphNode, PortDefinition } from '../../types/graph';
-import { askAbout } from './askAbout';
+import { askAbout, askWhatFlows } from './askAbout';
 import { useCanvasStore } from './canvasStore';
 import { commitManual } from './commit';
 import { boundsOf, nodeRect, ghostNodePosition } from './lib/geometry';
@@ -225,7 +225,7 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
       const targetName = nodeName(nodes.find((node) => node.id === edge.target)) || edge.target;
       const type = String(edge.data?.dataType ?? '');
       items.push(
-        item('flows', t('contextMenu.whatFlows'), () => askAbout(ref, say('contextMenu.askFlows', { type, source, target: targetName }))),
+        item('flows', t('contextMenu.whatFlows'), () => void askWhatFlows(edge.id, type, say('contextMenu.askFlows', { type, source, target: targetName }))),
         item('why', t('contextMenu.whyEdge'), () => askAbout(ref, say('contextMenu.askWhyEdge', { source, target: targetName }))),
         separator('s1'),
         item('remove', t('contextMenu.disconnect'), () => void commitManual({ type: 'remove-edge', edgeId: edge.id }), { danger: true, disabled: !canBuild }),

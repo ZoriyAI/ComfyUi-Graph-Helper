@@ -36,14 +36,14 @@ function openDb(): Database.Database {
 describe('preferences schema', () => {
   it('fills every section with its defaults', () => {
     expect(preferencesDefaults).toEqual({
-      assistant: { defaultIntent: 'ask', maxStepsPerTurn: 24, allowWebSearch: true, allowFetchPage: true, answerLanguage: 'ui', verbosity: 'short' },
+      assistant: { defaultIntent: 'ask', maxStepsPerTurn: 60, contextTokens: 0, allowWebSearch: true, allowFetchPage: true, answerLanguage: 'ui', verbosity: 'short' },
       providers: {
         openai: { model: '', baseURL: '' },
         anthropic: { model: '', baseURL: '' },
         google: { model: '', baseURL: '' },
         local: { model: '', baseURL: '' },
       },
-      sync: { enrichmentScope: 'loaders', enrichPerRun: 40 },
+      sync: { enrichmentScope: 'loaders', enrichPerRun: 50, enrichPauseMs: 1500 },
       canvas: { showDescriptions: true, showMinimap: true, followAgent: false, buildPaceMs: 820, tourAutoplay: true, gridSize: 18 },
       appearance: { density: 'comfortable', accent: 'cyan', reduceGlow: false },
       shortcuts: {},
@@ -54,8 +54,12 @@ describe('preferences schema', () => {
 
   it('enforces the ranges and enums', () => {
     expect(preferencesSchema.safeParse({ assistant: { maxStepsPerTurn: 3 } }).success).toBe(false);
-    expect(preferencesSchema.safeParse({ assistant: { maxStepsPerTurn: 49 } }).success).toBe(false);
-    expect(preferencesSchema.safeParse({ sync: { enrichPerRun: 201 } }).success).toBe(false);
+    expect(preferencesSchema.safeParse({ assistant: { maxStepsPerTurn: 201 } }).success).toBe(false);
+    expect(preferencesSchema.safeParse({ assistant: { contextTokens: -1 } }).success).toBe(false);
+    expect(preferencesSchema.safeParse({ sync: { enrichPerRun: 1000 } }).success).toBe(true);
+    expect(preferencesSchema.safeParse({ sync: { enrichPerRun: 1001 } }).success).toBe(false);
+    expect(preferencesSchema.safeParse({ sync: { enrichPerRun: 9 } }).success).toBe(false);
+    expect(preferencesSchema.safeParse({ sync: { enrichPauseMs: 10_001 } }).success).toBe(false);
     expect(preferencesSchema.safeParse({ canvas: { buildPaceMs: 299 } }).success).toBe(false);
     expect(preferencesSchema.safeParse({ appearance: { accent: 'pink' } }).success).toBe(false);
     expect(preferencesSchema.safeParse({ providers: { openai: { baseURL: 'notaurl' } } }).success).toBe(false);
@@ -69,13 +73,13 @@ describe('preferences schema', () => {
 
   it('reads a broken or partial store field by field, never failing as a whole', () => {
     const read = parsePreferences({
-      assistant: { maxStepsPerTurn: 99, verbosity: 'normal' },
+      assistant: { maxStepsPerTurn: 999, verbosity: 'normal' },
       canvas: { showMinimap: false, gridSize: 'big' },
       shortcuts: { 'view.fit': 'Shift+2', 'bad id': 'Mod+K', 'file.open': 'Nope+Q' },
       providers: { local: { model: 'qwen2.5', baseURL: 'http://127.0.0.1:11434/v1' }, openai: { model: 'sk-live-abcdef123456' } },
       extra: 'ignored',
     });
-    expect(read.assistant).toMatchObject({ maxStepsPerTurn: 24, verbosity: 'normal' });
+    expect(read.assistant).toMatchObject({ maxStepsPerTurn: 60, verbosity: 'normal' });
     expect(read.canvas).toMatchObject({ showMinimap: false, gridSize: 18 });
     expect(read.shortcuts).toEqual({ 'view.fit': 'Shift+2' });
     expect(read.providers.local).toEqual({ model: 'qwen2.5', baseURL: 'http://127.0.0.1:11434/v1' });
@@ -164,7 +168,7 @@ describe('preferences on the settings row (migration v10)', () => {
       .toEqual({ ok: false, error: 'Settings cannot store a secret' });
     expect(saveSettings(db, { ...ROW, model: 'changed', preferences: { shortcuts: { token: 'Mod+K' } } }))
       .toEqual({ ok: false, error: 'Settings cannot store a secret' });
-    expect(saveSettings(db, { ...ROW, model: 'changed', preferences: { assistant: { maxStepsPerTurn: 100 } } }))
+    expect(saveSettings(db, { ...ROW, model: 'changed', preferences: { assistant: { maxStepsPerTurn: 300 } } }))
       .toEqual({ ok: false, error: 'Settings do not match the schema' });
     expect(saveSettings(db, { ...ROW, model: 'changed', preferences: { nope: 1 } }))
       .toEqual({ ok: false, error: 'Settings do not match the schema' });

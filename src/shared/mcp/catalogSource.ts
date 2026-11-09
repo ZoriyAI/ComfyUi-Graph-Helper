@@ -64,21 +64,25 @@ export class McpPageError extends Error {
 /** Every item of a paged listing, and whether the listing ran to its natural end. */
 export interface PagedItems<T> {
   items: T[];
-  /** False when the server echoed the same cursor or the page cap was reached: rows may be missing. */
+  /** False when the server handed back a cursor it had already given (a loop): rows may be missing. */
   complete: boolean;
 }
 
 /**
- * Calls one paged tool until next_cursor runs out. An error page anywhere makes the whole read fail
- * (McpPageError), so a half listing is never taken for the full one.
+ * Calls one paged tool until the server reports the end (no next_cursor, or an empty page). There is no page cap:
+ * the owner's install is read in full. Two protections stay: an error or malformed page anywhere makes the whole read
+ * fail (McpPageError), so a half listing is never taken for the full one; and a cursor the server already handed out
+ * (an echo or a cycle) ends the read as incomplete instead of looping forever.
+ * `maxPages` is only a test hook; it defaults to no limit.
  */
 export async function readAllPages(
   session: McpSession,
   tool: string,
   baseArgs: Record<string, unknown>,
-  maxPages: number,
+  maxPages = Number.POSITIVE_INFINITY,
 ): Promise<PagedItems<Record<string, unknown>>> {
   const items: Array<Record<string, unknown>> = [];
+  const seenCursors = new Set<string>();
   let cursor: string | undefined;
   for (let page = 0; page < maxPages; page += 1) {
     const args: Record<string, unknown> = { ...baseArgs };
@@ -93,8 +97,9 @@ export async function readAllPages(
     }
     const next = payload.next_cursor;
     if (typeof next !== 'string' || next === '' || payload.items.length === 0) return { items, complete: true };
-    // A server that hands back the cursor it was given would loop forever.
-    if (next === cursor) return { items, complete: false };
+    // A server that hands back a cursor it already gave would loop forever.
+    if (next === cursor || seenCursors.has(next)) return { items, complete: false };
+    seenCursors.add(next);
     cursor = next;
   }
   return { items, complete: false };
@@ -104,7 +109,7 @@ export async function readAllPages(
  * Reads every page of `studio_capabilities` section nodes, kind classes.
  * Each item carries class_type, module, display_name, category. Inputs and outputs are not here.
  */
-export async function readNodeClassesPaged(session: McpSession, pageLimit = 100, maxPages = 200): Promise<PagedItems<McpNodeClass>> {
+export async function readNodeClassesPaged(session: McpSession, pageLimit = 100, maxPages?: number): Promise<PagedItems<McpNodeClass>> {
   const read = await readAllPages(session, 'studio_capabilities', { section: 'nodes', kind: 'classes', limit: pageLimit }, maxPages);
   const classes: McpNodeClass[] = [];
   const seen = new Set<string>();
@@ -122,7 +127,7 @@ export async function readNodeClassesPaged(session: McpSession, pageLimit = 100,
   return { items: classes, complete: read.complete };
 }
 
-export async function readNodeClasses(session: McpSession, pageLimit = 100, maxPages = 200): Promise<McpNodeClass[]> {
+export async function readNodeClasses(session: McpSession, pageLimit = 100, maxPages?: number): Promise<McpNodeClass[]> {
   return (await readNodeClassesPaged(session, pageLimit, maxPages)).items;
 }
 
@@ -136,7 +141,7 @@ export function isModelFile(filename: string): boolean {
  * Reads every page of `models` action list. Items carry category, filename, size_bytes.
  * Directory listings are category-only rows and are skipped.
  */
-export async function readModelFiles(session: McpSession, pageLimit = 1000, maxPages = 500): Promise<McpModelFile[]> {
+export async function readModelFiles(session: McpSession, pageLimit = 1000, maxPages?: number): Promise<McpModelFile[]> {
   const read = await readAllPages(session, 'models', { action: 'list', limit: pageLimit }, maxPages);
   const files: McpModelFile[] = [];
   const seen = new Set<string>();

@@ -68,7 +68,8 @@ export interface Explanation {
   sourceUrl: string | null;
   /** Graph revision the explanation was written against; null for global knowledge. */
   revisionId: string | null;
-  createdBy: 'ai' | 'user' | 'sync';
+  /** 'seed': built-in teaching knowledge written by the app itself (src/main/knowledge/seedCore.ts). */
+  createdBy: 'ai' | 'user' | 'sync' | 'seed';
   createdAt: number;
 }
 
@@ -82,6 +83,11 @@ export interface GraphCheckReport {
   baseModelMismatches: Array<{ nodeId: string; model: string; modelBase: BaseModelFamily; otherNodeId: string; otherModel: string; otherBase: BaseModelFamily }>;
   unconnectedRequiredInputs: Array<{ nodeId: string; input: string; type: string }>;
   unknownNodeTypes: string[];
+  /**
+   * Widgets with no value and no catalog default: export would write null there and ComfyUI would refuse the
+   * workflow. Optional so reports written before it existed still read; absent means none.
+   */
+  unsetWidgets?: Array<{ nodeId: string; classType: string; name: string }>;
 }
 
 export interface SyncStatus {
@@ -94,8 +100,33 @@ export interface SyncStatus {
   signedIn?: boolean;
   auto: { enabled: boolean; intervalMinutes: number };
   counts: { nodeClasses: number; detailedClasses: number; packs: number; models: number; enrichedModels: number };
+  /**
+   * While a run is in flight: its phase ('connect', 'catalog', 'enrich'). After a successful listing, while model
+   * metadata is still being read in the background, phase 'enrichment' with state 'idle'.
+   */
   progress: { phase: string; done: number; total: number } | null;
+  /** When the next automatic run is due (ms since epoch); null when auto sync is off. Optional for older callers. */
+  nextRunAt?: number | null;
+  /** The first run after startup is scheduled and has not started yet ("Starting…"). */
+  startupPending?: boolean;
+  /** When the last run started, and how long it took (listing plus the first metadata batch). */
+  lastRunAt?: number | null;
+  lastRunDurationMs?: number | null;
+  /**
+   * Non-fatal problems of the last successful run, as fixed English sentences (translated like lastError):
+   * ComfyUI not reachable for node ports, an MCP catalog section that could not be read completely.
+   */
+  warnings?: string[];
+  /** Model files in the enrichment scope, and how many of them carry metadata. */
+  metadata?: { done: number; total: number };
+  /** Background metadata reading was paused by the person; it resumes with the next run. */
+  enrichmentPaused?: boolean;
 }
+
+/** The guard before a node class is added (main/knowledge/nodeClassGuard.ts). */
+export type NodeClassVerdict =
+  | { ok: true; known: boolean; portsKnown: boolean; warning?: string }
+  | { ok: false; error: string; suggestions: string[] };
 
 export interface SearchNodesRequest { query: string; category?: string; limit?: number }
 export interface SearchModelsRequest { query: string; directory?: string; baseModel?: BaseModelFamily; kind?: ModelKind; limit?: number }

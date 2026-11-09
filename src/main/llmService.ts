@@ -7,6 +7,7 @@ import { createTestLLMModel } from './testLLMTransport';
 import { mcpToken } from './mcp/token';
 import { containsExact, exactMatchRedactor, redactSecrets } from '../shared/agent/redact';
 import { failureStreakReached, forwardPart, type Redact } from './agent/streamParts';
+import { STEP_LIMIT } from '../shared/config/preferences';
 
 /**
  * Main-process LLM service
@@ -85,12 +86,30 @@ export function dropEmptyAssistant(messages: StreamMessage[]): StreamMessage[] {
 }
 
 
-export const MAX_STEPS_FLOOR = 4;
-export const MAX_STEPS_CEILING = 48;
+export const MAX_STEPS_FLOOR = STEP_LIMIT.min;
+export const MAX_STEPS_CEILING = STEP_LIMIT.max;
 
 export function clampSteps(value: number | undefined): number {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return 24;
+  if (typeof value !== 'number' || !Number.isFinite(value)) return STEP_LIMIT.default;
   return Math.max(MAX_STEPS_FLOOR, Math.min(MAX_STEPS_CEILING, Math.round(value)));
+}
+
+/** Why a turn stopped before the model finished: the step checkpoint or the failure-streak guard. */
+export type PauseReason = 'step-limit' | 'failure-streak';
+export interface TurnPaused { reason: PauseReason; steps: number; canContinue: true; failures?: number }
+
+/**
+ * The 'turn-paused' chunk content when the loop stopped on a guard rather than on the model's own answer, or null.
+ * The step checkpoint applies when the last step still asked for tools; the failure guard when the last
+ * `FAILURE_STREAK_LIMIT` tool results all failed.
+ */
+export function pauseOf(steps: ReadonlyArray<{ finishReason?: unknown; content?: ReadonlyArray<unknown> }>, maxSteps: number): TurnPaused | null {
+  if (steps.length === 0) return null;
+  const last = steps[steps.length - 1];
+  if (last.finishReason !== 'tool-calls') return null;
+  if (failureStreakReached(FAILURE_STREAK_LIMIT)({ steps })) return { reason: 'failure-streak', steps: steps.length, canContinue: true, failures: FAILURE_STREAK_LIMIT };
+  if (steps.length >= maxSteps) return { reason: 'step-limit', steps: steps.length, canContinue: true };
+  return null;
 }
 
 /** Tools offered for one send: the web tools leave the set when the person switched them off. */
@@ -348,6 +367,7 @@ class MainLLMService {
       ? { role: 'system' as const, content: text, providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' } } } }
       : text || undefined;
 
+    const maxSteps = clampSteps(options.maxSteps);
     const result = streamText({
       model,
       instructions,
@@ -355,8 +375,9 @@ class MainLLMService {
       tools: offered,
       // Default stopWhen is one step, which never feeds tool results back to the model.
       // A teaching turn reads the catalog, maybe the web, then proposes: allow a few rounds.
+      // Both guards end the stream with a visible 'turn-paused' chunk (below), never silently.
       stopWhen: [
-        isStepCount(options.maxSteps === undefined ? 12 : clampSteps(options.maxSteps)),
+        isStepCount(maxSteps),
         failureStreakReached(FAILURE_STREAK_LIMIT),
       ],
       toolCallConcurrency: 1,
@@ -379,6 +400,37 @@ class MainLLMService {
       yield forwarded;
     }
     console.log(`[MainLLMService] fullStream complete, ${partCount} parts yielded`);
+    if (options.abortSignal?.aborted) return;
+    let steps: ReadonlyArray<{ finishReason?: unknown; content?: ReadonlyArray<unknown>; usage?: { inputTokens?: number } }> = [];
+    try {
+      steps = await result.steps;
+    } catch {
+      steps = [];
+    }
+    this.noteUsage(messages, steps);
+    const paused = pauseOf(steps, maxSteps);
+    if (paused) {
+      console.log(`[MainLLMService] Turn paused: ${paused.reason} after ${paused.steps} steps`);
+      yield { type: 'turn-paused', content: paused };
+    }
+  }
+
+  /** Characters per token measured on the last send (the provider's input-token count of its first step), or null. */
+  private measuredCharsPerToken: { model: string; ratio: number } | null = null;
+
+  private noteUsage(messages: StreamMessage[], steps: ReadonlyArray<{ usage?: { inputTokens?: number } }>): void {
+    const tokens = steps[0]?.usage?.inputTokens;
+    const chars = messages.reduce((sum, message) => sum + message.content.length, 0);
+    if (typeof tokens !== 'number' || !Number.isFinite(tokens) || tokens < 200 || chars < 800) return;
+    // Tool schemas also count as input tokens, so the measure leans low; clamp to a sane range.
+    const ratio = Math.max(2, Math.min(6, chars / tokens));
+    this.measuredCharsPerToken = { model: `${this.config?.provider ?? ''}/${this.config?.model ?? ''}`, ratio };
+  }
+
+  /** ~4 characters per token, or what the previous send of the same model measured. */
+  charsPerToken(): number {
+    const key = `${this.config?.provider ?? ''}/${this.config?.model ?? ''}`;
+    return this.measuredCharsPerToken?.model === key ? this.measuredCharsPerToken.ratio : 4;
   }
 }
 

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Trash2 } from 'lucide-react';
 import { DESKTOP_PROJECT_ID } from '../../../../shared/project';
+import { FETCH_PAGE_BYTE_CAP, FETCH_PAGE_TEXT_CAP, megabytes } from '../../../../shared/agent/limits';
 import Button from '../../../ui/Button';
 import Switch from '../../../ui/Switch';
 import { cx } from '../../../ui/cx';
@@ -40,6 +41,7 @@ export default function PrivacySection({ prefs, setPrefs }: DraftProps) {
           <li className={privacy.sendFieldValues ? styles.factOn : styles.factOff}>{t(privacy.sendFieldValues ? 'preferences.sentValuesOn' : 'preferences.sentValuesOff')}</li>
           <li className={styles.factOff}>{t('preferences.sentNever')}</li>
           <li>{t('preferences.keysLive')}</li>
+          <li className="web-limits">{t('preferences.webLimits', { bytes: megabytes(FETCH_PAGE_BYTE_CAP), chars: FETCH_PAGE_TEXT_CAP })}</li>
         </ul>
       </Group>
       <div className={cx(rowClass, styles.rowStart)}>

@@ -38,7 +38,7 @@ import AboutSection from './sections/AboutSection';
 import { fieldClass, hintClass, patchSection, rowClass, SectionHead, type DraftProps } from './sections/common';
 import { SETTINGS_SECTIONS, useUiStore, type SettingsSection } from '../../state/uiState';
 import { usePreferencesStore } from '../../state/preferencesState';
-import { refreshSyncStatus } from '../../state/knowledgeState';
+import { refreshSyncStatus, useKnowledgeStore } from '../../state/knowledgeState';
 import { SETTINGS_CHANGED } from '../../commands/events';
 import styles from './SettingsPanel.module.css';
 
@@ -170,6 +170,11 @@ export default function SettingsPanel({
     setOpen(true);
   }, [settingsRequest]);
 
+  // A note about the last save belongs to that visit; reopening shows the stored settings, not a stale "saved".
+  useEffect(() => {
+    if (open) setNote((current) => (current.kind === 'error' || current.key === 'settings.saved' || current.key === 'settings.saveFailed' ? { kind: 'key', key: 'settings.restored' } : current));
+  }, [open]);
+
   // The menu or a canvas toggle saved a change: what is stored moved, so the form starts from it.
   useEffect(() => {
     const onChanged = (event: Event) => {
@@ -237,6 +242,8 @@ export default function SettingsPanel({
         setNote({ kind: 'error', code: result.error });
         return;
       }
+      // A new language reseeds the built-in knowledge in the main process; cached explanations follow it.
+      if (savedRef.current.language !== result.values.language) void useKnowledgeStore.getState().reloadExplanations();
       savedRef.current = result.values;
       setValues(result.values);
       const stored = result.preferences ?? prefs;

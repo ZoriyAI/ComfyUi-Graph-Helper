@@ -5,6 +5,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { pickOption } from './pickOption';
 import { useEnglish } from './locale';
+import { exportPastGuard } from './exportGuard';
 
 /**
  * TEST fixture agent plus a local HTTP catalog fixture.
@@ -48,6 +49,12 @@ test('prerelease journey configures a provider, builds a process, and exports a 
         SeedNode: {
           input: { required: { seed: ['INT', { default: 0 }] } },
           input_order: { required: ['seed'] },
+          output: ['LATENT'],
+          python_module: 'nodes',
+        },
+        // The TEST fixture adds TestNode. Once a catalog is read, the helper refuses classes it does not list.
+        TestNode: {
+          input: { required: {} },
           output: ['LATENT'],
           python_module: 'nodes',
         },
@@ -112,7 +119,7 @@ test('prerelease journey configures a provider, builds a process, and exports a 
 
     await restored.getByRole('tab', { name: 'Connection' }).click();
     await restored.getByRole('button', { name: 'Read Comfy catalog' }).click();
-    await expect(restored.getByText('Read Comfy fixture-0. Devices: 1. Nodes: 1.')).toBeVisible();
+    await expect(restored.getByText('Read Comfy fixture-0. Devices: 1. Nodes: 2.')).toBeVisible();
     expect(hits).toEqual(['GET /system_stats', 'GET /object_info']);
     await window.screenshot({ path: '/opt/cursor/artifacts/pr13-prerelease-settings.png' });
     await restored.getByRole('button', { name: 'Cancel' }).click();
@@ -137,7 +144,7 @@ test('prerelease journey configures a provider, builds a process, and exports a 
     await window.getByRole('button', { name: 'Settings', exact: true }).click();
     const check = window.locator('[role="dialog"].settings-dialog');
     await check.getByRole('button', { name: 'Check this graph' }).click();
-    await expect(check.getByText('Missing nodes: TestNode. Missing models: none.')).toBeVisible();
+    await expect(check.getByText('Missing nodes: none. Missing models: none.')).toBeVisible();
     await check.getByRole('button', { name: 'Cancel' }).click();
     await expect(check).toHaveCount(0);
     await window.screenshot({ path: '/opt/cursor/artifacts/pr13-prerelease-process.png' });
@@ -162,8 +169,7 @@ test('prerelease journey configures a provider, builds a process, and exports a 
     await electronApp.evaluate(({ dialog: fileDialog }, paths) => {
       fileDialog.showSaveDialog = async () => ({ canceled: false, filePath: paths.comfyPath });
     }, { comfyPath });
-    await window.getByRole('button', { name: 'Export', exact: true }).click();
-    await expect(window.getByText('Exported the current workflow.')).toBeVisible();
+    await exportPastGuard(window);
     const exported = fs.readFileSync(comfyPath, 'utf8');
     expect(exported).not.toContain(PURPOSE);
     expect(exported).not.toContain(PROCESS_TITLE);
@@ -261,8 +267,7 @@ test('object info import lets the agent export a loader parameter', async () => 
     await electronApp.evaluate(({ dialog: fileDialog }, paths) => {
       fileDialog.showSaveDialog = async () => ({ canceled: false, filePath: paths.comfyPath });
     }, { comfyPath });
-    await window.getByRole('button', { name: 'Export', exact: true }).click();
-    await expect(window.getByText('Exported the current workflow.')).toBeVisible();
+    await exportPastGuard(window);
     const exported = fs.readFileSync(comfyPath, 'utf8');
     expect(exported).not.toContain('Loads the portrait checkpoint');
     expect(exported).not.toContain('Portrait process');

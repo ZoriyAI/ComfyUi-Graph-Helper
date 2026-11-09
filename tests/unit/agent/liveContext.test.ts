@@ -47,12 +47,12 @@ const SNAPSHOT = {
 };
 
 describe('graph summary sees every field', () => {
-  it('lists parameters clipped to 200 characters, positions, size, lock, mode, selection, groups and subgraphs', () => {
+  it('lists whole parameters, positions, size, lock, mode, selection, groups and subgraphs', () => {
     const summary = summarizeGraph(SNAPSHOT, { selectedIds: ['4'] });
     const positive = summary.nodes[0];
     expect(positive.parameters[0].name).toBe('text');
-    expect(positive.parameters[0].value.length).toBe(201);
-    expect(positive.parameters[0].value.endsWith('…')).toBe(true);
+    // 479 characters: under the prompt's 2000-character mark, so nothing is shortened.
+    expect(positive.parameters[0].value).toBe(LONG.trim());
     expect(positive.position).toEqual({ x: 10, y: 21 });
     const sampler = summary.nodes[1];
     expect(sampler.parameters).toEqual([{ name: 'widget[0]', value: '42' }, { name: 'widget[1]', value: 'fixed' }, { name: 'widget[2]', value: '30' }]);

@@ -13,6 +13,7 @@ import type {
   ModelDetail,
   ModelSummary,
   NodeClassDetail,
+  NodeClassVerdict,
   NodeClassSummary,
   Proposal,
   ProposalResolution,
@@ -73,9 +74,11 @@ const IPC_CHANNELS = {
   KNOWLEDGE_LIST_EXPLANATIONS: 'knowledge:list-explanations',
   KNOWLEDGE_SAVE_EXPLANATION: 'knowledge:save-explanation',
   KNOWLEDGE_CHECK_GRAPH: 'knowledge:check-graph',
+  KNOWLEDGE_VALIDATE_NODE_CLASS: 'knowledge:validate-node-class',
   SYNC_STATUS: 'sync:status',
   SYNC_NOW: 'sync:now',
   SYNC_SET_AUTO: 'sync:set-auto',
+  SYNC_PAUSE_ENRICHMENT: 'sync:pause-enrichment',
   SYNC_EVENT: 'sync:event',
   PROPOSALS_LIST: 'proposals:list',
   PROPOSALS_RESOLVE: 'proposals:resolve',
@@ -216,6 +219,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Knowledge and sync (KB workstream)
   searchNodeTypes: (request: SearchNodesRequest) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_SEARCH_NODES, request) as Promise<NodeClassSummary[]>,
   nodeTypeDetail: (classType: string) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_NODE_DETAIL, classType) as Promise<NodeClassDetail | null>,
+  validateNodeClass: (classType: string) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_VALIDATE_NODE_CLASS, classType) as Promise<NodeClassVerdict>,
   searchModels: (request: SearchModelsRequest) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_SEARCH_MODELS, request) as Promise<ModelSummary[]>,
   modelDetail: (directory: string, name: string) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_MODEL_DETAIL, { directory, name }) as Promise<ModelDetail | null>,
   listExplanations: (request: ListExplanationsRequest) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_LIST_EXPLANATIONS, request) as Promise<Explanation[]>,
@@ -224,6 +228,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   syncStatus: () => ipcRenderer.invoke(IPC_CHANNELS.SYNC_STATUS) as Promise<SyncStatus>,
   syncNow: () => ipcRenderer.invoke(IPC_CHANNELS.SYNC_NOW) as Promise<SyncStatus>,
   syncSetAuto: (enabled: boolean, intervalMinutes: number) => ipcRenderer.invoke(IPC_CHANNELS.SYNC_SET_AUTO, { enabled, intervalMinutes }) as Promise<SyncStatus>,
+  syncPauseEnrichment: () => ipcRenderer.invoke(IPC_CHANNELS.SYNC_PAUSE_ENRICHMENT) as Promise<SyncStatus>,
   onSyncEvent: (listener: (status: SyncStatus) => void) => {
     const handler = (_event: unknown, status: SyncStatus) => listener(status);
     ipcRenderer.on(IPC_CHANNELS.SYNC_EVENT, handler);
@@ -281,8 +286,8 @@ export interface ElectronAPI {
     | { status: 'cancelled' }
     | { status: 'rejected'; error: string }
   >;
-  exportWorkflow: () => Promise<{ ok: true } | { ok: false; canceled?: boolean; error?: string }>;
-  exportWorkflowDocument: () => Promise<{ ok: true; workflow: Record<string, unknown> } | { ok: false; error: string }>;
+  exportWorkflow: () => Promise<{ ok: true; unsetWidgets?: Array<{ nodeId: string; classType: string; name: string }> } | { ok: false; canceled?: boolean; error?: string }>;
+  exportWorkflowDocument: () => Promise<{ ok: true; workflow: Record<string, unknown>; unsetWidgets?: Array<{ nodeId: string; classType: string; name: string }> } | { ok: false; error: string }>;
   openProject: () => Promise<import('../shared/commands/types').CommandResponse | { status: 'cancelled'; projection: null; result: null }>;
   saveProjectFile: () => Promise<{ ok: true } | { ok: false; canceled?: boolean; error?: string }>;
   saveProject: (project: any) => Promise<{ success: boolean }>;
@@ -349,6 +354,7 @@ export interface ElectronAPI {
   clearChatHistory: (projectId: string) => Promise<{ ok: true; removed: number } | { ok: false; error: string }>;
   searchNodeTypes: (request: SearchNodesRequest) => Promise<NodeClassSummary[]>;
   nodeTypeDetail: (classType: string) => Promise<NodeClassDetail | null>;
+  validateNodeClass: (classType: string) => Promise<NodeClassVerdict>;
   searchModels: (request: SearchModelsRequest) => Promise<ModelSummary[]>;
   modelDetail: (directory: string, name: string) => Promise<ModelDetail | null>;
   listExplanations: (request: ListExplanationsRequest) => Promise<Explanation[]>;
@@ -357,6 +363,8 @@ export interface ElectronAPI {
   syncStatus: () => Promise<SyncStatus>;
   syncNow: () => Promise<SyncStatus>;
   syncSetAuto: (enabled: boolean, intervalMinutes: number) => Promise<SyncStatus>;
+  /** Stops background model-metadata reading until the next sync. */
+  syncPauseEnrichment: () => Promise<SyncStatus>;
   onSyncEvent: (listener: (status: SyncStatus) => void) => () => void;
   listProposals: (projectId: string) => Promise<Proposal[]>;
   resolveProposal: (request: ResolveProposalRequest) => Promise<ProposalResolution>;

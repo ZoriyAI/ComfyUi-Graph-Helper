@@ -41,13 +41,19 @@ test('preferences window: sections, appearance, a recorded shortcut, a canvas to
   await expect(dialog.getByRole('radiogroup', { name: 'Provider' })).toBeVisible();
   await expect(dialog.getByRole('radio', { name: 'Not configured', exact: true })).toHaveAttribute('aria-checked', 'true');
   await expect(dialog.getByRole('button', { name: 'Check connection' })).toBeDisabled();
+  // Steps per answer is a checkpoint (default 60, up to 200); the context window is auto (0); web limits are stated.
+  await expect(dialog.getByRole('spinbutton', { name: 'Steps per answer' })).toHaveValue('60');
+  await expect(dialog.getByRole('spinbutton', { name: 'Steps per answer' })).toHaveAttribute('max', '200');
+  await expect(dialog.getByRole('spinbutton', { name: 'Context window (tokens)' })).toHaveValue('0');
+  await expect(dialog.locator('p.web-limits')).toContainText('at most 10 MB of a web page');
   await nav.getByRole('tab', { name: 'Models & keys' }).click();
   await expect(dialog.getByRole('textbox', { name: 'Session key', exact: true })).toBeVisible();
   await expect(dialog.getByRole('table', { name: 'Where secrets are' })).toBeVisible();
   await nav.getByRole('tab', { name: 'Sync' }).click();
-  await expect(dialog.getByRole('spinbutton', { name: 'Models per run' })).toHaveValue('40');
+  await expect(dialog.getByRole('spinbutton', { name: 'Models per batch' })).toHaveValue('50');
   await nav.getByRole('tab', { name: 'Privacy' }).click();
   await expect(dialog.getByRole('switch', { name: 'Send field values to the model' })).toHaveAttribute('aria-checked', 'true');
+  await expect(dialog.locator('li.web-limits')).toContainText('60,000 characters');
   await nav.getByRole('tab', { name: 'About' }).click();
   await expect(dialog.getByText(/^Version \d+\.\d+\.\d+/)).toBeVisible();
 

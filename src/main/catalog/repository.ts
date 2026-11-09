@@ -203,11 +203,15 @@ export interface CatalogTotals {
 export function catalogTotals(db: Database.Database): CatalogTotals {
   const count = (sql: string) => (db.prepare(sql).get() as { n: number }).n;
   return {
-    nodeClasses: count('SELECT COUNT(*) AS n FROM node_catalog'),
+    // The seeded placeholder rows (ensureCatalog) are not synced classes: before a sync or an object_info import
+    // they have neither synced_at nor inputs, and the count stays 0.
+    nodeClasses: count("SELECT COUNT(*) AS n FROM node_catalog WHERE synced_at IS NOT NULL OR inputs_json NOT IN ('[]', '')"),
     detailedClasses: count("SELECT COUNT(*) AS n FROM node_catalog WHERE inputs_json NOT IN ('[]', '')"),
     packs: count('SELECT COUNT(*) AS n FROM node_packs'),
     models: count('SELECT COUNT(*) AS n FROM model_catalog'),
-    enrichedModels: count('SELECT COUNT(*) AS n FROM model_catalog WHERE enriched_at IS NOT NULL'),
+    // Files whose header or sidecar actually said something. Reading a file that had no metadata is not enrichment.
+    enrichedModels: count(`SELECT COUNT(*) AS n FROM model_catalog WHERE enriched_at IS NOT NULL AND (
+      metadata_json NOT IN ('{}', '') OR trigger_words NOT IN ('[]', '') OR base_model_evidence IN ('metadata', 'sidecar'))`),
   };
 }
 
@@ -299,9 +303,15 @@ function parseWidgetOrder(text: string): { widgetOrder: string[]; widgetOrderRel
 function parseInputs(text: string): CatalogInput[] {
   return parseArray(text).flatMap((item) => {
     if (!item || typeof item !== 'object') return [];
-    const row = item as { name?: unknown; type?: unknown; widget?: unknown };
+    const row = item as { name?: unknown; type?: unknown; widget?: unknown; required?: unknown; default?: unknown; options?: unknown; controlDefault?: unknown };
     if (typeof row.name !== 'string' || typeof row.type !== 'string') return [];
-    return [{ name: row.name, type: row.type, widget: row.widget === true }];
+    const input: CatalogInput = { name: row.name, type: row.type, widget: row.widget === true };
+    if (typeof row.required === 'boolean') input.required = row.required;
+    // Defaults live inside inputs_json; rows stored before they existed simply have none.
+    if (input.widget && row.default !== undefined) input.default = row.default;
+    if (input.widget && Array.isArray(row.options)) input.options = row.options.filter((option): option is string => typeof option === 'string');
+    if (input.widget && typeof row.controlDefault === 'string') input.controlDefault = row.controlDefault;
+    return [input];
   });
 }
 

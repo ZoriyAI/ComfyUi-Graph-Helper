@@ -12,12 +12,16 @@ const objectRef = z.object({
   name: z.string().max(500).optional(),
 });
 
-const SELECTION_CAP = 200;
+/**
+ * Protective (IPC input): a selection is the person's own data, so the guard sits far past any real canvas;
+ * select-all on a 10000-node graph still arrives whole.
+ */
+const SELECTION_CAP = 100_000;
 
 export const agentTurnContextSchema = z.object({
   intent: z.enum(['ask', 'build', 'chat']).default('chat').catch('chat'),
   objectRef: objectRef.optional().catch(undefined),
-  // Each item is checked on its own: a bad ref is dropped, the rest of the selection stays (at most 200).
+  // Each item is checked on its own: a bad ref is dropped, the rest of the selection stays.
   selection: z.array(z.unknown()).default([]).catch([]).transform((items) => items.flatMap((item) => {
     const parsed = objectRef.safeParse(item);
     return parsed.success ? [parsed.data] : [];

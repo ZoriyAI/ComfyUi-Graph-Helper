@@ -12,6 +12,7 @@ import type { Projection } from '../../shared/commands/types';
 import type { AgentProposalTool, ObjectRef, ProposalKind } from '../../shared/contracts';
 import { MAIN_TOOL_SPECS } from './toolSpecs';
 import { fetchPageText, searchWebFallback, type FetchLike } from './web';
+import { validateNodeClass } from '../knowledge/nodeClassGuard';
 
 /** The knowledge functions the agent reads through. Defaults to the KB repository. */
 export type KnowledgeApi = Pick<typeof knowledgeRepository,
@@ -55,11 +56,21 @@ type Failure = { success: false; error: string };
 
 const fail = (error: string): Failure => ({ success: false, error });
 
+/** Default number of catalog search results; the model may ask for more, and is told when more exist. */
+const SEARCH_PAGE = 20;
+
+/** Search results with `more: true` and a note when the list goes on past `limit`, so nothing is left out silently. */
+function page<T>(rows: T[], limit: number): { success: true; results: T[]; more?: true; note?: string } {
+  if (rows.length <= limit) return { success: true, results: rows };
+  return { success: true, results: rows.slice(0, limit), more: true, note: `More than ${limit} match; pass a larger limit or a narrower query to see the rest.` };
+}
+
 function errorText(error: unknown, fallback: string): string {
   const message = error instanceof Error ? error.message : '';
   // Messages from our repositories are plain sentences; anything secret-shaped is replaced.
   if (!message || carriesSecret({ message })) return fallback;
-  return message.slice(0, 300);
+  // Protective: an error sentence, not the person's data; a stack or an echoed request stays out of the prompt.
+  return message.length > 300 ? `${message.slice(0, 300)}…` : message;
 }
 
 const objectRefSchema = z.object({
@@ -76,17 +87,19 @@ const objectRefSchema = z.object({
 const schemas = {
   getGraph: z.object({
     offset: z.number().int().min(0).optional(),
-    limit: z.number().int().min(1).max(500).optional(),
-    ids: z.array(z.string().max(200)).max(500).optional(),
+    // No maximum: the person's graph is read whole when the model asks for it.
+    limit: z.number().int().min(1).optional(),
+    ids: z.array(z.string().max(200)).optional(),
   }).passthrough(),
-  searchNodeTypes: z.object({ query: z.string().max(200), category: z.string().max(200).optional(), limit: z.number().int().min(1).max(50).optional() }),
+  // Catalog searches read the person's own catalog: no maximum beyond the repository's 10000-row guard.
+  searchNodeTypes: z.object({ query: z.string().max(200), category: z.string().max(200).optional(), limit: z.number().int().min(1).optional() }),
   describeNodeType: z.object({ classType: z.string().min(1).max(200) }),
   findInstalledModels: z.object({
     query: z.string().max(200),
     directory: z.string().max(200).optional(),
     baseModel: z.string().max(40).optional(),
     kind: z.string().max(40).optional(),
-    limit: z.number().int().min(1).max(50).optional(),
+    limit: z.number().int().min(1).optional(),
   }),
   describeModel: z.object({ directory: z.string().min(1).max(200), name: z.string().min(1).max(500) }),
   checkGraph: z.object({}).passthrough(),
@@ -200,6 +213,8 @@ export function createAgentTools(deps: AgentToolDeps): Record<string, AgentToolD
     if (!payload) return fail(`${name} cannot be proposed yet: the ${twin} shape is not mapped to a graph change.`);
     const kind = PROPOSAL_KINDS.find((item) => item === payload.type);
     if (!kind) return fail(`${name} produced a ${payload.type} change, which is not a proposal kind.`);
+    const guard = payload.type === 'add-node' ? validateNodeClass(db, payload.nodeType) : null;
+    if (guard && !guard.ok) return { ...fail(guard.error), suggestions: guard.suggestions };
     const proposal = proposals.createProposal(db, {
       projectId,
       runId: deps.runId,
@@ -219,6 +234,7 @@ export function createAgentTools(deps: AgentToolDeps): Record<string, AgentToolD
       proposalId: proposal.id,
       kind,
       note: proposal.note,
+      ...(guard?.ok && guard.warning ? { warning: guard.warning } : {}),
     };
   });
 
@@ -229,28 +245,28 @@ export function createAgentTools(deps: AgentToolDeps): Record<string, AgentToolD
       return {
         success: true,
         revisionId: projection.currentRevisionId,
-        ...summarizeGraph(projection.snapshot, { offset: args.offset, limit: args.limit ?? GRAPH_PAGE_LIMIT, ids: args.ids, omitValues: deps.omitValues === true }),
+        ...summarizeGraph(projection.snapshot, { offset: args.offset, limit: args.limit ?? GRAPH_PAGE_LIMIT, ids: args.ids, omitValues: deps.omitValues === true, fullText: true }),
       };
     }),
-    searchNodeTypes: define('searchNodeTypes', schemas.searchNodeTypes, (args) => ({
-      success: true,
-      results: knowledge.searchNodeClasses(db, { query: args.query, category: args.category, limit: args.limit ?? 20 }),
-    })),
+    searchNodeTypes: define('searchNodeTypes', schemas.searchNodeTypes, (args) => {
+      const limit = args.limit ?? SEARCH_PAGE;
+      return page(knowledge.searchNodeClasses(db, { query: args.query, category: args.category, limit: limit + 1 }), limit);
+    }),
     describeNodeType: define('describeNodeType', schemas.describeNodeType, (args) => {
       const detail = knowledge.nodeClassDetail(db, args.classType);
       if (!detail) return fail(`${args.classType} is not installed in this ComfyUI catalog.`);
       return { success: true, provenance: detail.detailed ? 'fact' : 'inference', node: withHandles(detail) };
     }),
-    findInstalledModels: define('findInstalledModels', schemas.findInstalledModels, (args) => ({
-      success: true,
-      results: knowledge.searchModels(db, {
+    findInstalledModels: define('findInstalledModels', schemas.findInstalledModels, (args) => {
+      const limit = args.limit ?? SEARCH_PAGE;
+      return page(knowledge.searchModels(db, {
         query: args.query,
         directory: args.directory,
         baseModel: args.baseModel as never,
         kind: args.kind as never,
-        limit: args.limit ?? 20,
-      }),
-    })),
+        limit: limit + 1,
+      }), limit);
+    }),
     describeModel: define('describeModel', schemas.describeModel, (args) => {
       const detail = knowledge.modelDetail(db, args.directory, args.name);
       if (!detail) return fail(`${args.directory}/${args.name} is not in the model catalog.`);

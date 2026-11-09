@@ -125,6 +125,11 @@ export const mutationSchema = z.discriminatedUnion('type', [
     type: z.literal('remove-group'),
     groupId: z.string().min(1),
   }),
+  z.object({
+    /** Undo/redo: copies an earlier revision's snapshot into a new revision. History never rewinds. */
+    type: z.literal('restore-revision'),
+    revisionId: z.string().min(1).max(400),
+  }),
 ]);
 
 export type GraphMutation = z.infer<typeof mutationSchema>;

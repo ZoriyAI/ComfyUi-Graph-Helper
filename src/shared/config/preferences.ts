@@ -20,8 +20,19 @@ function httpOriginOrEmpty(value: string): boolean {
 export const PREFERENCE_PROVIDERS = ['openai', 'anthropic', 'google', 'local'] as const;
 export type PreferenceProvider = typeof PREFERENCE_PROVIDERS[number];
 
-export const STEP_LIMIT = { min: 4, max: 48, default: 24 } as const;
-export const ENRICH_PER_RUN = { min: 10, max: 200, default: 40 } as const;
+/**
+ * Model steps per turn before the helper pauses at a checkpoint (each tool round trip is one step). Reaching it
+ * never ends the work: the chat shows "paused — Continue / Stop" and Continue resumes the same run.
+ */
+export const STEP_LIMIT = { min: 4, max: 200, default: 60 } as const;
+/** Context window override in tokens; 0 means auto (from the model id, 32k when unknown). */
+export const CONTEXT_TOKENS = { min: 0, max: 10_000_000, default: 0, step: 1000 } as const;
+/** Model files whose metadata is read in one batch. Pacing only: batches continue until every file is read. */
+export const ENRICH_PER_RUN = { min: 10, max: 1000, default: 50 } as const;
+/** Pause between two metadata batches, so a large install is read without hammering the MCP server. */
+export const ENRICH_PAUSE_MS = { min: 0, max: 10_000, default: 1500, step: 250 } as const;
+/** Network timeout of one MCP tool call during a sync (fixed; a stalled server must not hold a sync open). */
+export const MCP_CALL_TIMEOUT_MS = 30_000;
 export const BUILD_PACE = { min: 300, max: 2000, default: 820, step: 20 } as const;
 export const GRID_SIZE = { min: 8, max: 48, default: 18, step: 2 } as const;
 
@@ -45,6 +56,8 @@ export const preferencesSchema = z.object({
     /** ask: suggestions appear as ghosts first; build: the helper builds directly unless asked to suggest. */
     defaultIntent: z.enum(['ask', 'build']).default('ask'),
     maxStepsPerTurn: int(STEP_LIMIT),
+    /** Tokens of the model's context window the history budget is taken from; 0 = auto. */
+    contextTokens: int(CONTEXT_TOKENS),
     allowWebSearch: z.boolean().default(true),
     allowFetchPage: z.boolean().default(true),
     /** ui follows the interface language. */
@@ -60,7 +73,9 @@ export const preferencesSchema = z.object({
   sync: z.object({
     /** loaders: only loader folders (checkpoints, loras, …); all: every model folder. */
     enrichmentScope: z.enum(['loaders', 'all']).default('loaders'),
+    /** Batch size of the background metadata reading (not a stop). */
     enrichPerRun: int(ENRICH_PER_RUN),
+    enrichPauseMs: int(ENRICH_PAUSE_MS),
   }).prefault({}),
   canvas: z.object({
     showDescriptions: z.boolean().default(true),

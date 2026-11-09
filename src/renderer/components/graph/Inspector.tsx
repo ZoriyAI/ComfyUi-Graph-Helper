@@ -6,6 +6,7 @@ import { objectKey, type ObjectRef } from '../../../shared/contracts/objects';
 import type { Explanation, Provenance } from '../../../shared/contracts/knowledge';
 import { useGraphStore } from '../../state/graphState';
 import { useKnowledgeStore } from '../../state/knowledgeState';
+import { edgeKnowledge, linkTypeRef } from './lib/linkTypeKnowledge';
 import type { ComfyNodeData, GraphEdge, GraphNode } from '../../types/graph';
 import Illustration from './illustrations/Illustration';
 import { askAbout } from './askAbout';
@@ -78,19 +79,25 @@ const PROVENANCE_KEY: Record<Provenance, string> = {
   user: 'inspector.provenanceUser',
 };
 
-/** The latest explanation lines for one or more owners, with their provenance badges. */
-function Explanations({ refs }: { refs: ObjectRef[] }) {
+/**
+ * The latest explanation lines for one or more owners, with their provenance badges. `fallback` (an edge's data
+ * type) is shown only when the owners have nothing of their own.
+ */
+function Explanations({ refs, fallback = null }: { refs: ObjectRef[]; fallback?: ObjectRef | null }) {
   const { t } = useTranslation();
   const keys = refs.map(objectKey);
+  const fallbackKey = fallback ? objectKey(fallback) : '';
   const cache = useKnowledgeStore((state) => state.explanations);
   const load = useKnowledgeStore((state) => state.loadExplanations);
-  const joined = keys.join('|');
+  const joined = [...keys, fallbackKey].join('|');
   useEffect(() => {
-    for (const ref of refs) void load(ref).catch(() => []);
+    for (const ref of [...refs, ...(fallback ? [fallback] : [])]) void load(ref).catch(() => []);
     // refs are rebuilt each render; their keys say when they changed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [joined, load]);
-  const list: Explanation[] = keys.flatMap((key) => cache[key] ?? []).sort((left, right) => right.createdAt - left.createdAt).slice(0, 4);
+  const own = keys.flatMap((key) => cache[key] ?? []);
+  const list: Explanation[] = edgeKnowledge(own, fallbackKey ? cache[fallbackKey] : undefined)
+    .sort((left, right) => right.createdAt - left.createdAt).slice(0, 4);
   return (
     <div className={styles.explanations}>
       <h3 className={styles.h3}>{t('inspector.explanations')}</h3>
@@ -289,7 +296,7 @@ function EdgeSection({ edge, nodes }: { edge: GraphEdge; nodes: GraphNode[] }) {
         <dd className={styles.mono}>{type}</dd>
       </dl>
       <p className={styles.description}>{t('inspector.edgeFlows', { type, source: output?.name ?? edge.sourceHandle ?? '', target: input?.name ?? edge.targetHandle ?? '' })}</p>
-      <Explanations refs={[ref]} />
+      <Explanations refs={[ref]} fallback={linkTypeRef(type)} />
     </>
   );
 }
