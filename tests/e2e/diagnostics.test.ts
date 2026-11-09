@@ -61,14 +61,12 @@ test('diagnostics: log file, Help menu copy and open, no key in the report, wind
   expect(clipboard).toContain('# ComfyUI Graph Helper diagnostics');
   expect(clipboard).not.toContain(FAKE_KEY);
 
-  // Window bounds are saved on close (restoring them is covered by tests/unit/windowState.test.ts; a second
-  // launch here would sit on top of windows of tests running in parallel).
-  await electronApp.evaluate(({ BrowserWindow }) => {
-    BrowserWindow.getAllWindows()[0].setBounds({ x: 40, y: 30, width: 1000, height: 700 });
-  });
+  // Window bounds are saved on close (restoring them is covered by tests/unit/windowState.test.ts). The window
+  // is not moved or relaunched here: that would land on top of windows of tests running in parallel.
+  const bounds = await electronApp.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getNormalBounds());
   await electronApp.close();
   const saved = JSON.parse(fs.readFileSync(path.join(userData, 'window-state.json'), 'utf8'));
-  expect(saved).toMatchObject({ width: 1000, height: 700, maximized: false });
+  expect(saved).toMatchObject({ width: bounds.width, height: bounds.height, maximized: false });
 
   expect(pageErrors).toEqual([]);
   expect(consoleErrors).toEqual([]);
