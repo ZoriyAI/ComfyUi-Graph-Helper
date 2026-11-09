@@ -6,7 +6,7 @@ import { IPC_CHANNELS } from '../shared/ipc-channels';
 import { getDatabase } from './database';
 import { reseedCoreKnowledge } from './knowledge/seedCore';
 import { mainLLMService } from './llmService';
-import { attemptSaveSecret, forgetProviderKey, readProviderKeyCipher, readSettings, saveSecretIfProven, saveSettings } from './settings/repository';
+import { attemptSaveSecret, forgetProviderKey, forgetSecret, readProviderKeyCipher, readSecretCipher, readSettings, saveNamedSecretIfProven, saveSecretIfProven, saveSettings } from './settings/repository';
 import { secretStatus } from './settings/secretDecision';
 import { isUnprotectedCipher } from '../shared/config/secretPolicy';
 import { applyComfyRead } from './comfy/read';
@@ -15,7 +15,7 @@ import { registerKnowledgeIpc } from './ipc/knowledgeIpc';
 import { registerEngineIpc } from './ipc/engineIpc';
 import { registerAgentIpc } from './ipc/agentIpc';
 import { registerDiagnosticsIpc } from './ipc/diagnosticsIpc';
-import { mcpTokenFor, mcpTokenStatus, releaseMcpTokenIfOriginChanged, setMcpToken } from './mcp/token';
+import { mcpOriginOf, mcpTokenFor, mcpTokenStatus, releaseMcpTokenIfOriginChanged, setMcpToken } from './mcp/token';
 import { configureMcpOAuth, loginToMcp, logoutFromMcp, oauthStatus } from './mcp/oauth';
 import { browserOpener } from './mcp/browser';
 import { syncService } from './mcp/sync';
@@ -70,6 +70,28 @@ async function adoptStoredKey(): Promise<void> {
   }
 }
 
+function mcpTokenRecordName(url: string | null | undefined): string | null {
+  const origin = mcpOriginOf(url);
+  return origin ? `mcp-token:${origin}` : null;
+}
+
+/** A manual MCP token saved in the OS password manager is held again at startup, for the saved MCP origin only. */
+async function adoptStoredMcpToken(): Promise<void> {
+  const decision = await secretStatus();
+  if (!decision.persist) return;
+  const url = savedEndpoints().mcpUrl;
+  const name = mcpTokenRecordName(url);
+  if (!name) return;
+  const cipher = readSecretCipher(getDatabase(), name);
+  if (!cipher || isUnprotectedCipher(cipher)) return;
+  try {
+    const opened = await safeStorage.decryptStringAsync(cipher);
+    if (opened.result) setMcpToken(opened.result, url, 'os');
+  } catch {
+    // The OS store did not unlock the ciphertext. Memory stays empty.
+  }
+}
+
 /** Wires the MCP OAuth manager to safeStorage (same fail-closed probe as the model key) and the system browser. */
 async function setupMcpOAuth(): Promise<void> {
   const manager = configureMcpOAuth({
@@ -102,6 +124,7 @@ export async function setupIPC(): Promise<void> {
   const ipcMain = guardedIpcMain(rawIpcMain);
   adoptStoredChatRuntime();
   await adoptStoredKey();
+  await adoptStoredMcpToken();
   await setupMcpOAuth();
   refreshBlockedWebOrigins(savedEndpoints().comfyOrigin);
   // Domain handlers. Each workstream owns its register function; see docs/superpowers/specs/2026-11-08-helper-brief.md.
@@ -300,7 +323,32 @@ export async function setupIPC(): Promise<void> {
     return setMcpToken(value, url);
   });
 
-  ipcMain.handle(IPC_CHANNELS.MCP_TOKEN_STATUS, () => mcpTokenStatus());
+  ipcMain.handle(IPC_CHANNELS.MCP_TOKEN_STATUS, () => {
+    const name = mcpTokenRecordName(savedEndpoints().mcpUrl);
+    return { ...mcpTokenStatus(), stored: name != null && readSecretCipher(getDatabase(), name) != null };
+  });
+
+  // The manual token can be kept in the OS password manager under the same fail-closed rule as the model key.
+  ipcMain.handle(IPC_CHANNELS.MCP_SAVE_TOKEN, async (_event, value: unknown, forUrl?: unknown) => {
+    const decision = await secretStatus();
+    const url = typeof forUrl === 'string' && forUrl.length > 0 && forUrl.length <= 2000 ? forUrl : savedEndpoints().mcpUrl;
+    const name = mcpTokenRecordName(url);
+    if (!decision.persist || typeof value !== 'string' || value.length === 0 || value.length > 8000 || !name) {
+      return attemptSaveSecret(getDatabase());
+    }
+    const cipher = await safeStorage.encryptStringAsync(value);
+    const saved = saveNamedSecretIfProven(getDatabase(), decision, name, value, cipher);
+    if (saved.status === 'stored') setMcpToken(value, url, 'os');
+    console.log(`[IPC] MCP token save: ${saved.status} (value NOT logged)`);
+    return saved;
+  });
+
+  ipcMain.handle(IPC_CHANNELS.MCP_FORGET_TOKEN, () => {
+    const name = mcpTokenRecordName(savedEndpoints().mcpUrl);
+    if (name) forgetSecret(getDatabase(), name);
+    setMcpToken('');
+    return { status: 'removed' as const };
+  });
 
   // OAuth sign-in for the saved MCP URL. The renderer gets status only; tokens stay in main.
   ipcMain.handle(IPC_CHANNELS.MCP_OAUTH_LOGIN, async () => {

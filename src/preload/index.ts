@@ -51,6 +51,8 @@ const IPC_CHANNELS = {
   MCP_READ: 'mcp:read',
   MCP_SET_TOKEN: 'mcp:set-token',
   MCP_TOKEN_STATUS: 'mcp:token-status',
+  MCP_SAVE_TOKEN: 'mcp:save-token',
+  MCP_FORGET_TOKEN: 'mcp:forget-token',
   MCP_OAUTH_LOGIN: 'mcp:oauth-login',
   MCP_OAUTH_LOGOUT: 'mcp:oauth-logout',
   MCP_OAUTH_STATUS: 'mcp:oauth-status',
@@ -146,7 +148,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     | { ok: false; error: string }
   >,
   mcpSetToken: (value: string, forUrl?: string) => ipcRenderer.invoke(IPC_CHANNELS.MCP_SET_TOKEN, value, forUrl) as Promise<{ held: boolean }>,
-  mcpTokenStatus: () => ipcRenderer.invoke(IPC_CHANNELS.MCP_TOKEN_STATUS) as Promise<{ held: boolean }>,
+  mcpTokenStatus: () => ipcRenderer.invoke(IPC_CHANNELS.MCP_TOKEN_STATUS) as Promise<{ held: boolean; source: 'none' | 'session' | 'os'; stored: boolean }>,
+  mcpSaveToken: (value: string, forUrl?: string) => ipcRenderer.invoke(IPC_CHANNELS.MCP_SAVE_TOKEN, value, forUrl) as Promise<{ status: 'stored' | 'secret-storage-blocked' }>,
+  mcpForgetToken: () => ipcRenderer.invoke(IPC_CHANNELS.MCP_FORGET_TOKEN) as Promise<{ status: 'removed' }>,
   mcpOAuthLogin: () => ipcRenderer.invoke(IPC_CHANNELS.MCP_OAUTH_LOGIN) as Promise<McpOAuthLoginResult>,
   mcpOAuthLogout: () => ipcRenderer.invoke(IPC_CHANNELS.MCP_OAUTH_LOGOUT) as Promise<McpOAuthStatus>,
   mcpOAuthStatus: () => ipcRenderer.invoke(IPC_CHANNELS.MCP_OAUTH_STATUS) as Promise<McpOAuthStatus>,
@@ -309,7 +313,9 @@ export interface ElectronAPI {
   >;
   /** `forUrl`: the MCP URL the token is for (e.g. the draft being saved); defaults to the saved URL. */
   mcpSetToken: (value: string, forUrl?: string) => Promise<{ held: boolean }>;
-  mcpTokenStatus: () => Promise<{ held: boolean }>;
+  mcpTokenStatus: () => Promise<{ held: boolean; source: 'none' | 'session' | 'os'; stored: boolean }>;
+  mcpSaveToken: (value: string, forUrl?: string) => Promise<{ status: 'stored' | 'secret-storage-blocked' }>;
+  mcpForgetToken: () => Promise<{ status: 'removed' }>;
   /** Signs in to the saved MCP URL through the system browser; resolves when the browser comes back (or fails). */
   mcpOAuthLogin: () => Promise<McpOAuthLoginResult>;
   /** Forgets the browser sign-in for the saved MCP URL's origin. */

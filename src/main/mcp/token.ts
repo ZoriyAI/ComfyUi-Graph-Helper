@@ -3,8 +3,15 @@
  * The token is tied to the MCP origin it was given for: when the saved MCP URL moves to another origin,
  * the token is dropped so it is never sent to a server it was not meant for.
  */
+export type McpTokenSource = 'none' | 'session' | 'os';
+
 let token: string | null = null;
 let heldFor: string | null = null;
+let source: McpTokenSource = 'none';
+
+export function mcpOriginOf(url: string | null | undefined): string | null {
+  return originOf(url);
+}
 
 function originOf(url: string | null | undefined): string | null {
   if (!url) return null;
@@ -15,15 +22,17 @@ function originOf(url: string | null | undefined): string | null {
   }
 }
 
-export function setMcpToken(value: unknown, forUrl?: string | null): { held: boolean } {
+export function setMcpToken(value: unknown, forUrl?: string | null, from: Exclude<McpTokenSource, 'none'> = 'session'): { held: boolean; source: McpTokenSource } {
   if (typeof value !== 'string' || value.length === 0 || value.length > 8000) {
     token = null;
     heldFor = null;
-    return { held: false };
+    source = 'none';
+    return { held: false, source };
   }
   token = value;
   heldFor = originOf(forUrl);
-  return { held: true };
+  source = from;
+  return { held: true, source };
 }
 
 export function mcpToken(): string | null {
@@ -44,6 +53,7 @@ export function releaseMcpTokenIfOriginChanged(url: string | null | undefined): 
   if (origin !== heldFor) {
     token = null;
     heldFor = null;
+    source = 'none';
   }
 }
 
@@ -53,6 +63,6 @@ export function mcpTokenFor(url: string | null | undefined): string | null {
   return token;
 }
 
-export function mcpTokenStatus(): { held: boolean } {
-  return { held: token != null };
+export function mcpTokenStatus(): { held: boolean; source: McpTokenSource } {
+  return { held: token != null, source: token != null ? source : 'none' };
 }

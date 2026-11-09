@@ -30,6 +30,8 @@ export default function ModelsSection({ provider, onSession, mcpUrl }: { provide
   const [secretStored, setSecretStored] = useState(false);
   const [keySource, setKeySource] = useState<KeySource>('none');
   const [mcpHeld, setMcpHeld] = useState(false);
+  const [mcpSource, setMcpSource] = useState<'none' | 'session' | 'os'>('none');
+  const [mcpStored, setMcpStored] = useState(false);
   const [mcpTokenDraft, setMcpTokenDraft] = useState('');
   const [mcpNote, setMcpNote] = useState('');
 
@@ -44,6 +46,8 @@ export default function ModelsSection({ provider, onSession, mcpUrl }: { provide
     setSecretStored(status.stored);
     setKeySource(session.source);
     setMcpHeld(mcp.held);
+    setMcpSource(mcp.source);
+    setMcpStored(mcp.stored);
     return { status, session };
   };
 
@@ -93,11 +97,30 @@ export default function ModelsSection({ provider, onSession, mcpUrl }: { provide
     await window.electronAPI.mcpSetToken('');
     setMcpTokenDraft('');
     setMcpHeld(false);
+    setMcpSource('none');
     setMcpNote(String(t('settings.mcpTokenCleared')));
+  };
+  const storeMcpToken = async () => {
+    const saved = await window.electronAPI.mcpSaveToken(mcpTokenDraft, mcpUrl);
+    setMcpTokenDraft('');
+    await refresh().catch(() => undefined);
+    if (saved.status !== 'stored') {
+      const status = await window.electronAPI.secretStatus();
+      setMcpNote(explainError(translate, status.reason).summary);
+      return;
+    }
+    setMcpNote(String(t('settings.mcpTokenStored')));
+  };
+  const removeStoredMcpToken = async () => {
+    await window.electronAPI.mcpForgetToken();
+    setMcpTokenDraft('');
+    await refresh().catch(() => undefined);
+    setMcpNote(String(t('settings.mcpTokenStoredRemoved')));
   };
   const forgetEverything = async () => {
     await window.electronAPI.llmSetSessionKey('');
     await window.electronAPI.mcpSetToken('');
+    await window.electronAPI.mcpForgetToken();
     await window.electronAPI.forgetSecret();
     setSessionKey('');
     setOsKey('');
@@ -128,7 +151,7 @@ export default function ModelsSection({ provider, onSession, mcpUrl }: { provide
           </tr>
           <tr>
             <th scope="row">{t('preferences.mcpTokenRow')}</th>
-            <td><span className={cx(styles.placeDot, mcpHeld && styles.placeOn)} aria-hidden="true" />{t(mcpHeld ? 'preferences.placeSession' : 'preferences.placeNone')}</td>
+            <td><span className={cx(styles.placeDot, (mcpHeld || mcpStored) && styles.placeOn)} aria-hidden="true" />{t(mcpSource === 'os' || (!mcpHeld && mcpStored) ? 'preferences.placeOs' : mcpHeld ? 'preferences.placeSession' : 'preferences.placeNone')}</td>
           </tr>
         </tbody>
       </table>
@@ -176,8 +199,15 @@ export default function ModelsSection({ provider, onSession, mcpUrl }: { provide
         </label>
         <div className={rowClass}>
           <Button size="sm" disabled={mcpTokenDraft.length === 0} onClick={() => void holdMcpToken()}>{t('settings.useMcpToken')}</Button>
+          {secretPersist ? (
+            <Button size="sm" disabled={mcpTokenDraft.length === 0} onClick={() => void storeMcpToken()}>{t('settings.saveMcpToken')}</Button>
+          ) : null}
           <Button size="sm" onClick={() => void clearMcpToken()}>{t('settings.clearMcpToken')}</Button>
+          {mcpStored ? (
+            <Button size="sm" onClick={() => void removeStoredMcpToken()}>{t('settings.removeStoredMcpToken')}</Button>
+          ) : null}
         </div>
+        {!secretPersist ? <p className={hintClass}>{t('settings.mcpTokenNoStorage')}</p> : null}
         {mcpNote ? <p className={hintClass} role="status">{mcpNote}</p> : null}
       </Group>
 
