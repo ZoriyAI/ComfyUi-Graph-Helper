@@ -156,17 +156,28 @@ function outcomeOf(value: unknown): { success: boolean; error: string } {
  */
 function singleToolFixtureParts(
   prompt: LanguageModelV4Prompt | undefined,
-  call: { id: string; name: string; input: unknown },
+  call: { id: string; name: string; input: unknown | ((text: string) => unknown) },
   done: string,
 ): LanguageModelV4StreamPart[] {
   const result = collectToolResults(prompt).find((item) => item.toolName === call.name);
-  if (!result) return [toolCall(call.id, call.name, call.input), finish('tool-calls')];
+  const input = typeof call.input === 'function' ? (call.input as (text: string) => unknown)(latestUserText(prompt)) : call.input;
+  if (!result) return [toolCall(call.id, call.name, input), finish('tool-calls')];
   const outcome = outcomeOf(result.value);
   if (!outcome.success) return textParts(`TEST fixture only: ${call.name} failed: ${outcome.error}`);
   return textParts(done);
 }
 
-const SCRIPTED: Array<{ match: RegExp; call: { id: string; name: string; input: unknown }; done: string }> = [
+const SCRIPTED: Array<{ match: RegExp; call: { id: string; name: string; input: unknown | ((text: string) => unknown) }; done: string }> = [
+  {
+    // Library ▸ "Ask about this model" (en and ru wording): a read-only catalog lookup, valid in Ask and Build turns.
+    match: /(?:What is the model|Что это за модель) \S/i,
+    call: {
+      id: 'call-find-model',
+      name: 'findInstalledModels',
+      input: (text: string) => ({ query: (/(?:model|модель) (\S+?)(?:,|\s|$)/i.exec(text)?.[1] ?? '').slice(0, 200), limit: 5 }),
+    },
+    done: 'TEST fixture only: I looked this model up in your synced catalog. Its base family and trigger words are in the tool result.',
+  },
   {
     match: /propose a sampler/i,
     call: {
