@@ -56,3 +56,14 @@ describe('secret detection', () => {
     expect(exactMatchRedactor([])('unchanged')).toBe('unchanged');
   });
 });
+
+import { isUnprotectedCipher } from '../../src/shared/config/secretPolicy';
+
+describe('unprotected cipher check', () => {
+  it('reads v10 as the hardcoded fallback on Linux only', () => {
+    expect(isUnprotectedCipher(Buffer.from('v10abc'), 'linux')).toBe(true);
+    expect(isUnprotectedCipher(Buffer.from('v11abc'), 'linux')).toBe(false);
+    expect(isUnprotectedCipher(Buffer.from('v10abc'), 'darwin')).toBe(false);
+    expect(isUnprotectedCipher(Buffer.from('v10abc'), 'win32')).toBe(false);
+  });
+});

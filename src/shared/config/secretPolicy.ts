@@ -13,8 +13,16 @@ export interface SecretProbe {
   unprotectedCipher: boolean;
 }
 
-/** Chromium marks the hardcoded-password fallback with this prefix. OS storage uses another. */
-export function isUnprotectedCipher(cipher: Uint8Array): boolean {
+function currentPlatform(): string {
+  return typeof process !== 'undefined' && typeof process.platform === 'string' ? process.platform : '';
+}
+
+/**
+ * On Linux Chromium marks the hardcoded-password fallback with `v10`; a real keyring cipher is `v11`.
+ * macOS Keychain and Windows DPAPI ciphers also start with `v10` and are protected, so the check is Linux-only.
+ */
+export function isUnprotectedCipher(cipher: Uint8Array, platform: string = currentPlatform()): boolean {
+  if (platform !== 'linux') return false;
   return cipher.length >= 3 && cipher[0] === 0x76 && cipher[1] === 0x31 && cipher[2] === 0x30;
 }
 
