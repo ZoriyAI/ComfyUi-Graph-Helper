@@ -76,13 +76,30 @@ function summaryOf(row: NodeRow): NodeClassSummary {
   };
 }
 
+/** Lower-case words of a query. "flux lora" is two words, each of which must match. */
+function queryTokens(query: string): string[] {
+  return query.trim().toLowerCase().split(/\s+/).filter((token) => token !== '');
+}
+
+/** Sum over tokens of the best rank any field gives it; Infinity when a token matches no field. */
+function rankTokens(fields: Array<string | null | undefined>, tokens: string[]): number {
+  let total = 0;
+  for (const token of tokens) {
+    const best = Math.min(...fields.map((field) => rankMatch(field ?? '', token)));
+    if (best === Infinity) return Infinity;
+    total += best;
+  }
+  return total;
+}
+
 /**
  * Case-insensitive search over class type, display name, category, and pack.
- * Rank: prefix, then whole word, then substring; the best field wins. A category filter also matches subcategories.
+ * Rank: prefix, then whole word, then substring; each word of the query must match some field and
+ * the best field per word is summed. A category filter also matches subcategories.
  */
 export function searchNodeClasses(db: Database.Database, request: SearchNodesRequest): NodeClassSummary[] {
   const parsed = searchNodesSchema.parse(request);
-  const query = parsed.query.trim().toLowerCase();
+  const tokens = queryTokens(parsed.query);
   const rows = db.prepare(`SELECT ${NODE_COLUMNS} FROM node_catalog`).all() as NodeRow[];
   const category = parsed.category?.trim().toLowerCase();
   const scored: Array<{ row: NodeRow; score: number }> = [];
@@ -90,7 +107,7 @@ export function searchNodeClasses(db: Database.Database, request: SearchNodesReq
     const rowCategory = (row.category ?? '').toLowerCase();
     if (category && rowCategory !== category && !rowCategory.startsWith(`${category}/`)) continue;
     const fields = [row.class_type, row.display_name, row.category, packOf(row)];
-    const score = query === '' ? 0 : Math.min(...fields.map((field) => rankMatch(field ?? '', query)));
+    const score = rankTokens(fields, tokens);
     if (score === Infinity) continue;
     scored.push({ row, score });
   }
@@ -183,14 +200,13 @@ export function searchModels(db: Database.Database, request: SearchModelsRequest
     where.push('kind = ?');
     args.push(parsed.kind);
   }
-  const query = parsed.query.trim().toLowerCase();
-  if (query) {
-    where.push('instr(lower(name), ?) > 0');
-    args.push(query);
-  }
+  const tokens = queryTokens(parsed.query);
   const sql = `SELECT ${MODEL_COLUMNS} FROM model_catalog${where.length ? ` WHERE ${where.join(' AND ')}` : ''}`;
   const rows = db.prepare(sql).all(...args) as ModelRow[];
-  const ranked = rows.map((row) => ({ row, score: query ? rankMatch(row.name, query) : 0 }));
+  // The file name ranks first; folder, kind, and base family let "flux lora" find a Flux file in loras/.
+  const ranked = rows
+    .map((row) => ({ row, score: rankTokens([row.name, row.directory, row.kind, row.base_model], tokens) }))
+    .filter((item) => item.score !== Infinity);
   ranked.sort((left, right) => left.score - right.score
     || left.row.directory.localeCompare(right.row.directory)
     || left.row.name.localeCompare(right.row.name));
