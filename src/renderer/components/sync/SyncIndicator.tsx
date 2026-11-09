@@ -43,6 +43,9 @@ export default function SyncIndicator() {
   const view = syncView(status);
   const previous = useRef<SyncState | null>(null);
   const [interval, setIntervalDraft] = useState(String(MIN_INTERVAL_MINUTES));
+  const [open, setOpen] = useState(false);
+  const openRef = useRef(false);
+  openRef.current = open;
   const language = i18n.language === 'en' ? 'en' : 'ru';
 
   useEffect(() => {
@@ -57,6 +60,9 @@ export default function SyncIndicator() {
     const transition = syncTransition(previous.current, view.state);
     previous.current = view.state;
     if (!status || !transition) return;
+    // The open popover already shows the result. A toast on top of it would also take the first Escape
+    // (Radix closes the newest layer), leaving the popover open.
+    if (openRef.current) return;
     if (transition === 'done') {
       showToast({
         id: 'sync-result',
@@ -86,7 +92,7 @@ export default function SyncIndicator() {
   const phase = progress ? (i18n.exists(phaseKey) ? String(t(phaseKey)) : progress.phase) : '';
 
   return (
-    <PopoverRoot>
+    <PopoverRoot open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
           type="button"

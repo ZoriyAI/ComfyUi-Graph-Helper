@@ -53,6 +53,8 @@ import { typeColor } from './lib/typeColors';
 import styles from './GraphWorkspace.module.css';
 
 const nodeTypes: NodeTypes = { comfy: ComfyNode, boundary: BoundaryNodeView };
+/** Automatic fits (first nodes, a new level) never zoom past 100 %: one node must not fill the canvas. */
+const AUTO_FIT_MAX_ZOOM = 1;
 const edgeTypes: EdgeTypes = { default: TypedEdge };
 
 type LevelNode = GraphNode | BoundaryNode;
@@ -163,7 +165,7 @@ export default function CanvasFlow() {
 
   // A new level gets a fresh camera.
   useEffect(() => {
-    const frame = window.requestAnimationFrame(() => void flow.fitView({ padding: FIT_PADDING, duration: fitDurationMs() }));
+    const frame = window.requestAnimationFrame(() => void flow.fitView({ padding: FIT_PADDING, duration: fitDurationMs(), maxZoom: AUTO_FIT_MAX_ZOOM }));
     return () => window.cancelAnimationFrame(frame);
   }, [mode, activeSubgraphId, flow]);
 
@@ -311,7 +313,7 @@ export default function CanvasFlow() {
             colorMode="dark"
             attributionPosition="bottom-left"
             fitView
-            fitViewOptions={{ padding: FIT_PADDING, duration: fitDuration }}
+            fitViewOptions={{ padding: FIT_PADDING, duration: fitDuration, maxZoom: AUTO_FIT_MAX_ZOOM }}
             minZoom={0.1}
             maxZoom={2}
             multiSelectionKeyCode={['Meta', 'Control']}

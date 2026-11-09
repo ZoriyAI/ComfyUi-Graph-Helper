@@ -1,10 +1,13 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'motion/react';
-import { FolderInput, Ghost, MessageCircleQuestion, RefreshCw } from 'lucide-react';
+import { FolderInput, Ghost, MessageCircleQuestion, Plug, RefreshCw } from 'lucide-react';
 import Button from '../../ui/Button';
 import { motionIsFull } from '../../motion/policy';
 import { runSyncNow } from '../sync/SyncIndicator';
+import { syncView } from '../sync/syncView';
+import { useKnowledgeStore } from '../../state/knowledgeState';
+import { useUiStore } from '../../state/uiState';
 import styles from './Onboarding.module.css';
 
 const STEPS = [
@@ -20,6 +23,8 @@ const STEPS = [
 export default function Onboarding({ onImport }: { onImport?: () => void }) {
   const { t } = useTranslation();
   const full = motionIsFull();
+  // On a fresh profile there is no MCP address yet: "Sync now" would only fail, so the first step opens Connection.
+  const noServer = syncView(useKnowledgeStore((state) => state.sync)).blocked === 'noUrl';
   return (
     <motion.section
       className={`canvas-empty ${styles.root}`}
@@ -43,9 +48,15 @@ export default function Onboarding({ onImport }: { onImport?: () => void }) {
           ))}
         </ol>
         <div className={styles.actions}>
-          <Button variant="primary" icon={<RefreshCw size={16} />} onClick={() => void runSyncNow().catch(() => undefined)}>
-            {t('sync.now')}
-          </Button>
+          {noServer ? (
+            <Button variant="primary" icon={<Plug size={16} />} onClick={() => useUiStore.getState().openSettings('connection')}>
+              {t('canvas.onboardConnect')}
+            </Button>
+          ) : (
+            <Button variant="primary" icon={<RefreshCw size={16} />} onClick={() => void runSyncNow().catch(() => undefined)}>
+              {t('sync.now')}
+            </Button>
+          )}
           {onImport ? (
             <Button variant="subtle" icon={<FolderInput size={16} />} onClick={onImport}>
               {t('canvas.onboardImport')}

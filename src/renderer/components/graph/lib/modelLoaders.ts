@@ -17,6 +17,8 @@ const LOADERS: Record<string, { nodeType: string; parameter: string }> = {
 export interface LoaderDrop {
   nodeType: string;
   parameters: Record<string, unknown>;
+  /** The display name the library showed, so a dropped node reads the same as a double-clicked one. */
+  title?: string;
 }
 
 export function loaderForModel(directory: string, name: string): LoaderDrop | null {
@@ -43,7 +45,9 @@ export function dropToAddNode(read: (type: string) => string): LoaderDrop | null
   if (node) {
     const value = parse(node);
     const classType = value?.classType;
-    return typeof classType === 'string' && classType !== '' ? { nodeType: classType, parameters: {} } : null;
+    if (typeof classType !== 'string' || classType === '') return null;
+    const title = typeof value?.title === 'string' ? value.title.trim().slice(0, 200) : '';
+    return title !== '' && title !== classType ? { nodeType: classType, parameters: {}, title } : { nodeType: classType, parameters: {} };
   }
   const model = read(MODEL_DRAG_TYPE);
   if (model) {

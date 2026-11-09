@@ -16,6 +16,12 @@
   /* Toasts never block the canvas or the dock: only their buttons take the pointer. */
   pointer-events: none;
 }
+/*
+ * While a modal dialog is open its header sits where toasts usually appear. Toasts move to the bottom edge and
+ * between the scrim (50) and the dialog (60): readable below the dialog when the window has room, never covering
+ * the dialog's title or its Save and Cancel buttons on a short window.
+ */
+:global(body:has(.dialog-overlay)) .viewport { top: auto; bottom: 16px; z-index: 55; }
 .toast {
   position: relative;
   display: grid;
