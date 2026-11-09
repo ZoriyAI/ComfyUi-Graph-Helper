@@ -277,6 +277,7 @@ export class SyncService {
         metadata: { done: 0, total: 0 },
         enrichmentPaused: false,
         authMode: null,
+        authChoice: '',
       };
     }
     const state = readState(db);
@@ -309,6 +310,7 @@ export class SyncService {
       metadata,
       enrichmentPaused: this.enrichmentPaused,
       authMode: authModeOf(state),
+      authChoice: this.readAuthMode(db),
     };
   }
 

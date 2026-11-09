@@ -11,6 +11,8 @@ export type FlatSection = 'assistant' | 'sync' | 'canvas' | 'appearance' | 'priv
 export interface DraftProps {
   values: NonSecretSettings;
   setValues: React.Dispatch<React.SetStateAction<NonSecretSettings>>;
+  /** What is stored now (the draft starts from it); a section can tell a saved value from a drafted one. */
+  saved: NonSecretSettings;
   prefs: Preferences;
   setPrefs: React.Dispatch<React.SetStateAction<Preferences>>;
   container: HTMLElement | null;

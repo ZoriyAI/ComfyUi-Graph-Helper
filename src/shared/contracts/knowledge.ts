@@ -123,6 +123,11 @@ export interface SyncStatus {
   enrichmentPaused?: boolean;
   /** How the last successful run authenticated: the manual token, the browser sign-in, or nothing (the server needs none). */
   authMode?: 'token' | 'oauth' | 'anonymous' | null;
+  /**
+   * How the person chose to reach the server in Settings ▸ Connection ('' = not chosen yet). The hints name the
+   * fix for that choice instead of listing every way in. Optional for older callers.
+   */
+  authChoice?: '' | 'none' | 'token' | 'oauth';
 }
 
 /** The guard before a node class is added (main/knowledge/nodeClassGuard.ts). */

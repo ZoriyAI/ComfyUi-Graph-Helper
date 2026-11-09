@@ -216,7 +216,7 @@ export default function SyncIndicator() {
             <p key={warning} className={styles.warnNote}>{t('sync.warning', { warning: errorText(warning) })}</p>
           )) : null}
           {status?.lastError && view.state === 'error' ? <p className={styles.errorNote}>{t('sync.lastError', { error: errorText(status.lastError) })}</p> : null}
-          {view.blocked ? <p className={styles.note}>{t(view.blocked === 'noUrl' ? 'sync.noUrl' : 'sync.noToken')}</p> : null}
+          {view.hintKey ? <p className={styles.note}>{t(view.hintKey)}</p> : null}
           {note ? <p className={styles.note} role="status">{note}</p> : null}
           <div className={styles.auto}>
             <Switch

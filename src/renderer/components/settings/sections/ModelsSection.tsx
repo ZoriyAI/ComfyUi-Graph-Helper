@@ -10,13 +10,11 @@ import { fieldClass, Group, hintClass, rowClass, SectionHead } from './common';
 type KeySource = 'none' | 'session' | 'os';
 
 /**
- * Settings ▸ Models & keys: the model key (session memory or OS storage), the MCP token, where each secret
- * is right now, and one button that forgets them all. Keys go only through their own IPC; none is in the draft.
+ * Settings ▸ Models & keys: the model provider's key (session memory or OS storage), where it is right now, and one
+ * button that forgets every secret. The server access token lives in Settings ▸ Connection, where its use is chosen.
+ * Keys go only through their own IPC; none is in the draft.
  */
-export default function ModelsSection({ provider, onSession, mcpUrl }: { provider: string; onSession: (source: KeySource) => void
-  /** The MCP URL in the current settings draft; the token is held for that origin. */
-  mcpUrl: string;
-}) {
+export default function ModelsSection({ provider, onSession }: { provider: string; onSession: (source: KeySource) => void }) {
   const { t } = useTranslation();
   const translate: Translator = (key, options) => (options ? String(t(key, options)) : String(t(key)));
   const onSessionRef = useRef(onSession);
@@ -29,25 +27,16 @@ export default function ModelsSection({ provider, onSession, mcpUrl }: { provide
   const [secretPersist, setSecretPersist] = useState(false);
   const [secretStored, setSecretStored] = useState(false);
   const [keySource, setKeySource] = useState<KeySource>('none');
-  const [mcpHeld, setMcpHeld] = useState(false);
-  const [mcpSource, setMcpSource] = useState<'none' | 'session' | 'os'>('none');
-  const [mcpStored, setMcpStored] = useState(false);
-  const [mcpTokenDraft, setMcpTokenDraft] = useState('');
-  const [mcpNote, setMcpNote] = useState('');
 
   const refresh = async () => {
-    const [status, session, mcp] = await Promise.all([
+    const [status, session] = await Promise.all([
       window.electronAPI.secretStatus(),
       window.electronAPI.llmSessionStatus(),
-      window.electronAPI.mcpTokenStatus(),
     ]);
     setSecretReason(status.reason);
     setSecretPersist(status.persist);
     setSecretStored(status.stored);
     setKeySource(session.source);
-    setMcpHeld(mcp.held);
-    setMcpSource(mcp.source);
-    setMcpStored(mcp.stored);
     return { status, session };
   };
 
@@ -87,36 +76,6 @@ export default function ModelsSection({ provider, onSession, mcpUrl }: { provide
     onSessionRef.current('none');
     setSessionNote(String(t('settings.storedRemoved')));
   };
-  const holdMcpToken = async () => {
-    const held = await window.electronAPI.mcpSetToken(mcpTokenDraft, mcpUrl);
-    setMcpTokenDraft('');
-    setMcpHeld(held.held);
-    setMcpNote(String(t(held.held ? 'settings.mcpTokenHeld' : 'settings.mcpTokenCleared')));
-  };
-  const clearMcpToken = async () => {
-    await window.electronAPI.mcpSetToken('');
-    setMcpTokenDraft('');
-    setMcpHeld(false);
-    setMcpSource('none');
-    setMcpNote(String(t('settings.mcpTokenCleared')));
-  };
-  const storeMcpToken = async () => {
-    const saved = await window.electronAPI.mcpSaveToken(mcpTokenDraft, mcpUrl);
-    setMcpTokenDraft('');
-    await refresh().catch(() => undefined);
-    if (saved.status !== 'stored') {
-      const status = await window.electronAPI.secretStatus();
-      setMcpNote(explainError(translate, status.reason).summary);
-      return;
-    }
-    setMcpNote(String(t('settings.mcpTokenStored')));
-  };
-  const removeStoredMcpToken = async () => {
-    await window.electronAPI.mcpForgetToken();
-    setMcpTokenDraft('');
-    await refresh().catch(() => undefined);
-    setMcpNote(String(t('settings.mcpTokenStoredRemoved')));
-  };
   const forgetEverything = async () => {
     await window.electronAPI.llmSetSessionKey('');
     await window.electronAPI.mcpSetToken('');
@@ -124,7 +83,6 @@ export default function ModelsSection({ provider, onSession, mcpUrl }: { provide
     await window.electronAPI.forgetSecret();
     setSessionKey('');
     setOsKey('');
-    setMcpTokenDraft('');
     await refresh().catch(() => undefined);
     onSessionRef.current('none');
     setActionNote(String(t('preferences.forgotAll')));
@@ -148,10 +106,6 @@ export default function ModelsSection({ provider, onSession, mcpUrl }: { provide
           <tr>
             <th scope="row">{t('preferences.providerKeyRow')}{providerName}</th>
             <td><span className={cx(styles.placeDot, keyPlace !== 'preferences.placeNone' && styles.placeOn)} aria-hidden="true" />{t(keyPlace)}</td>
-          </tr>
-          <tr>
-            <th scope="row">{t('preferences.mcpTokenRow')}</th>
-            <td><span className={cx(styles.placeDot, (mcpHeld || mcpStored) && styles.placeOn)} aria-hidden="true" />{t(mcpSource === 'os' || (!mcpHeld && mcpStored) ? 'preferences.placeOs' : mcpHeld ? 'preferences.placeSession' : 'preferences.placeNone')}</td>
           </tr>
         </tbody>
       </table>
@@ -189,26 +143,6 @@ export default function ModelsSection({ provider, onSession, mcpUrl }: { provide
           <Button size="sm" onClick={() => void clearSession()}>{t('settings.clearSession')}</Button>
         </div>
         {sessionNote ? <p className={hintClass} role="status">{sessionNote}</p> : null}
-      </Group>
-
-      <Group title={String(t('preferences.mcpTitle'))}>
-        <p className={hintClass}>{t('settings.mcpTokenAlternative')}</p>
-        <label className={fieldClass}>
-          {t('settings.mcpToken')}
-          <input type="password" autoComplete="off" aria-label={String(t('settings.mcpToken'))} value={mcpTokenDraft} onChange={(event) => setMcpTokenDraft(event.target.value)} />
-        </label>
-        <div className={rowClass}>
-          <Button size="sm" disabled={mcpTokenDraft.length === 0} onClick={() => void holdMcpToken()}>{t('settings.useMcpToken')}</Button>
-          {secretPersist ? (
-            <Button size="sm" disabled={mcpTokenDraft.length === 0} onClick={() => void storeMcpToken()}>{t('settings.saveMcpToken')}</Button>
-          ) : null}
-          <Button size="sm" onClick={() => void clearMcpToken()}>{t('settings.clearMcpToken')}</Button>
-          {mcpStored ? (
-            <Button size="sm" onClick={() => void removeStoredMcpToken()}>{t('settings.removeStoredMcpToken')}</Button>
-          ) : null}
-        </div>
-        {!secretPersist ? <p className={hintClass}>{t('settings.mcpTokenNoStorage')}</p> : null}
-        {mcpNote ? <p className={hintClass} role="status">{mcpNote}</p> : null}
       </Group>
 
       <Group>

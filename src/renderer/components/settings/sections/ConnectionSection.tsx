@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { Radar } from 'lucide-react';
-import type { ConnectionSuggestions, McpOAuthStatus } from '../../../../shared/contracts';
+import { Radar, ShieldCheck } from 'lucide-react';
+import type { ConnectionSuggestions } from '../../../../shared/contracts';
 import { useTranslation } from 'react-i18next';
 import { explainError, type Translator } from '../../../../shared/i18n';
 import Badge from '../../../ui/Badge';
 import Button from '../../../ui/Button';
 import SuggestField from '../../../ui/SuggestField';
-import { refreshSyncStatus, useKnowledgeStore } from '../../../state/knowledgeState';
-import { formatSyncTime, syncView } from '../../sync/syncView';
+import { useKnowledgeStore } from '../../../state/knowledgeState';
+import { syncView } from '../../sync/syncView';
+import { detectionNote, type DetectionNote } from '../mcpAccess';
+import McpAccess from './McpAccess';
 import { mcpUrlNeedsHttps } from '../../../../shared/mcp/loopback';
 import styles from '../SettingsPanel.module.css';
 import { fieldClass, hintClass, rowClass, SectionHead, type DraftProps } from './common';
@@ -15,8 +17,11 @@ import { addressSuggestions } from './pickerItems';
 
 const STATE_TONES = { never: 'neutral', idle: 'ok', running: 'accent', error: 'danger' } as const;
 
-/** Settings ▸ Connection: the MCP server URL, the Comfy origin, and the read-only checks. */
-export default function ConnectionSection({ values, setValues, fieldError, pending, dirty, container }: DraftProps) {
+/**
+ * Settings ▸ Connection: the Comfy origin, the MCP server address with "Check", how the app gets into that server
+ * (no sign-in, a token, or a browser sign-in), and the read-only checks.
+ */
+export default function ConnectionSection({ values, setValues, saved, fieldError, pending, dirty, container }: DraftProps) {
   const { t } = useTranslation();
   const translate: Translator = (key, options) => (options ? String(t(key, options)) : String(t(key)));
   const status = useKnowledgeStore((state) => state.sync);
@@ -40,6 +45,38 @@ export default function ConnectionSection({ values, setValues, fieldError, pendi
   const mcpOptions = addressSuggestions(known?.mcpUrls ?? [], translate);
   const addressAction = { label: String(t('picker.lookAgain')), onClick: () => lookForAddresses(true), loading: looking, disabled: pending, icon: <Radar size={14} aria-hidden="true" /> };
   const addressStatus = looking ? { text: String(t('picker.addressesLoading')) } : null;
+
+  // "Check" asks the server at the typed address (saved or not) what it wants, and selects that in the draft.
+  const [detecting, setDetecting] = useState(false);
+  const [detected, setDetected] = useState<DetectionNote | null>(null);
+  const [checkedUrl, setCheckedUrl] = useState('');
+  const mcpUrl = values.mcpUrl.trim();
+  const checkAccess = async () => {
+    setDetecting(true);
+    setDetected(null);
+    try {
+      const note = detectionNote(await window.electronAPI.mcpDetectAuth(mcpUrl), translate);
+      const mode = note.mode;
+      if (mode) setValues((current) => ({ ...current, mcpAuth: mode }));
+      setDetected(note);
+    } catch {
+      setDetected({ mode: null, text: explainError(translate, 'MCP server was not read.').summary, tone: 'bad' });
+    } finally {
+      setCheckedUrl(mcpUrl);
+      setDetecting(false);
+    }
+  };
+  // The sentence is about the address it checked; a new address makes it stale.
+  const detectStatus = detecting
+    ? { text: String(t('settings.checkingAccess')) }
+    : detected && checkedUrl === mcpUrl ? { text: detected.text, tone: detected.tone } : null;
+  const checkAction = {
+    label: String(t('settings.checkAccess')),
+    onClick: () => void checkAccess(),
+    loading: detecting,
+    disabled: pending || mcpUrl === '',
+    icon: <ShieldCheck size={14} aria-hidden="true" />,
+  };
 
   const readCatalog = async () => {
     const result = await window.electronAPI.readComfy();
@@ -105,14 +142,23 @@ export default function ConnectionSection({ values, setValues, fieldError, pendi
         pickerLabel={String(t('picker.mcpList'))}
         placeholder={String(t('picker.addressPlaceholder', { count: mcpOptions.length }))}
         emptyText={String(t('picker.addressEmpty'))}
+        action={checkAction}
+        status={detectStatus}
         container={container}
       />
       <p className={hintClass}>{t('settings.mcpUrlHint')}</p>
       {mcpUrlNeedsHttps(values.mcpUrl) ? <p className={styles.errorNote} role="alert">{t('errors.mcpHttps')}</p> : null}
-      <McpSignIn savedUrl={!dirty && values.mcpUrl.trim() !== ''} disabled={pending} />
+      <McpAccess
+        value={values.mcpAuth}
+        savedValue={saved.mcpAuth}
+        onChange={(mcpAuth) => setValues((current) => ({ ...current, mcpAuth }))}
+        mcpUrl={values.mcpUrl}
+        savedUrl={mcpUrl !== '' && mcpUrl === saved.mcpUrl.trim()}
+        disabled={pending}
+      />
       <div className={styles.stateLine}>
         <Badge tone={STATE_TONES[view.state]}>{t('preferences.connectionState', { state: t(view.labelKey) })}</Badge>
-        {view.blocked ? <span className={hintClass}>{t(view.blocked === 'noUrl' ? 'sync.noUrl' : 'sync.noToken')}</span> : null}
+        {view.hintKey ? <span className={hintClass}>{t(view.hintKey)}</span> : null}
       </div>
       <div className={rowClass}>
         <Button size="sm" variant="subtle" disabled={pending || dirty || values.mcpUrl.trim() === ''} onClick={() => void readMcp()}>
@@ -127,76 +173,5 @@ export default function ConnectionSection({ values, setValues, fieldError, pendi
       </div>
       {actionNote ? <p className={hintClass} role="status">{actionNote}</p> : null}
     </>
-  );
-}
-
-/**
- * "Sign in through the browser": OAuth to the saved MCP URL. Main opens the system browser and keeps the tokens;
- * this row only shows the status. The manual token in Models & keys stays as the alternative.
- */
-function McpSignIn({ savedUrl, disabled }: { savedUrl: boolean; disabled: boolean }) {
-  const { t, i18n } = useTranslation();
-  const translate: Translator = (key, options) => (options ? String(t(key, options)) : String(t(key)));
-  const [status, setStatus] = useState<McpOAuthStatus | null>(null);
-  const [waiting, setWaiting] = useState(false);
-  const [note, setNote] = useState('');
-  const [info, setInfo] = useState('');
-  const language = i18n.language === 'en' ? 'en' : 'ru';
-
-  useEffect(() => {
-    if (!savedUrl) return;
-    void window.electronAPI.mcpOAuthStatus().then(setStatus).catch(() => undefined);
-  }, [savedUrl]);
-
-  const signIn = async () => {
-    setNote('');
-    setInfo('');
-    setWaiting(true);
-    setStatus((current) => ({ state: 'pending', persisted: current?.persisted ?? false }));
-    try {
-      const result = await window.electronAPI.mcpOAuthLogin();
-      if (!result.ok) setNote(explainError(translate, result.error).summary);
-      else if (result.anonymous) setInfo(String(t('settings.oauthNotNeeded')));
-    } finally {
-      setWaiting(false);
-      setStatus(await window.electronAPI.mcpOAuthStatus().catch(() => null));
-      refreshSyncStatus();
-    }
-  };
-  const signOut = async () => {
-    setNote('');
-    setInfo('');
-    setStatus(await window.electronAPI.mcpOAuthLogout().catch(() => null));
-    refreshSyncStatus();
-  };
-
-  const state = waiting ? 'pending' : status?.state ?? 'none';
-  let label = String(t('settings.oauthNone'));
-  if (state === 'pending') label = String(t('settings.oauthPending'));
-  else if (state === 'expired') label = String(t('settings.oauthExpired'));
-  else if (state === 'authorized') {
-    label = status?.expiresAt
-      ? String(t('settings.oauthAuthorized', { time: formatSyncTime(status.expiresAt, language) }))
-      : String(t('settings.oauthAuthorizedOpen'));
-    label += ` ${String(t(status?.persisted ? 'settings.oauthStored' : 'settings.oauthSessionOnly'))}`;
-  }
-
-  return (
-    <div className="mcp-sign-in" data-oauth-state={state}>
-      <p className={hintClass}><strong>{t('settings.oauthTitle')}</strong> {t('settings.oauthHint')}</p>
-      <p className={hintClass} role="status" aria-label={String(t('settings.oauthTitle'))}>{savedUrl ? label : t('settings.oauthSaveFirst')}</p>
-      <div className={rowClass}>
-        <Button size="sm" disabled={disabled || !savedUrl || waiting} loading={waiting} onClick={() => void signIn()}>
-          {t('settings.oauthSignIn')}
-        </Button>
-        {state === 'authorized' || state === 'expired' ? (
-          <Button size="sm" variant="subtle" disabled={disabled || waiting} onClick={() => void signOut()}>
-            {t('settings.oauthSignOut')}
-          </Button>
-        ) : null}
-      </div>
-      {info ? <p className={hintClass} role="status">{info}</p> : null}
-      {note ? <p className={styles.errorNote} role="alert">{note}</p> : null}
-    </div>
   );
 }

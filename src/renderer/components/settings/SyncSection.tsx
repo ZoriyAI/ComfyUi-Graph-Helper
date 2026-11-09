@@ -77,7 +77,7 @@ export default function SyncSection({
       )) : null}
       {status?.enrichmentPaused && status.metadata ? <p className={hintClass}>{t('sync.paused', { done: status.metadata.done, total: status.metadata.total })}</p> : null}
       {status?.lastError && view.state === 'error' ? <p className={hintClass}>{t('sync.lastError', { error: translateKnownError(translate, status.lastError) ?? redactDiagnostic(status.lastError) })}</p> : null}
-      {view.blocked ? <p className={hintClass}>{t(view.blocked === 'noUrl' ? 'sync.noUrl' : 'sync.noToken')}</p> : null}
+      {view.hintKey ? <p className={hintClass}>{t(view.hintKey)}</p> : null}
       <Switch
         label={t('sync.auto')}
         checked={status?.auto.enabled ?? false}
