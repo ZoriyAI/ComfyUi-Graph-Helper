@@ -5,6 +5,7 @@ import { NodeToolbar, Position, useReactFlow } from '@xyflow/react';
 import { useUiStore } from '../../../state/uiState';
 import Illustration from '../illustrations/Illustration';
 import { motionMs, useMotionLevel } from '../lib/motion';
+import { useDescriptionCardShown } from './DescriptionLayer';
 import styles from './Callout.module.css';
 
 /** How long an autoplayed step stays: enough to read one sentence and watch the pulses once or twice. */
@@ -46,6 +47,8 @@ export default function TourLayer() {
   const centerOn = useCenterOn();
   const step = tour ? tour.steps[tour.index] : undefined;
   const stepId = step?.ref.id;
+  // The step's text lives in the node's description card (expanded while the step is on) when cards are on.
+  const textInCard = useDescriptionCardShown(step?.ref.kind === 'node' ? stepId : undefined);
 
   useEffect(() => {
     if (stepId) centerOn(stepId);
@@ -102,7 +105,7 @@ export default function TourLayer() {
             <Illustration key={step.ref.id} classType={step.ref.classType} animate={!staticMode} hoverPlay />
             <div>
               <h3 className={styles.title}>{step.title}</h3>
-              <p className={styles.text}>{step.text}</p>
+              {textInCard ? null : <p className={styles.text}>{step.text}</p>}
             </div>
           </div>
           <footer className={styles.foot}>

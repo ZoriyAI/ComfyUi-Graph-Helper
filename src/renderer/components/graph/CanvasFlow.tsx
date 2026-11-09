@@ -34,6 +34,7 @@ import GroupLayer from './layers/GroupLayer';
 import GhostLayer from './layers/GhostLayer';
 import ConnectAssistLayer from './layers/ConnectAssistLayer';
 import TourLayer from './layers/TourLayer';
+import DescriptionLayer from './layers/DescriptionLayer';
 import BuildLayer from './layers/BuildLayer';
 import GraphContextMenu from './GraphContextMenu';
 import { CanvasViewContext, type CanvasView } from './CanvasContext';
@@ -343,6 +344,7 @@ export default function CanvasFlow() {
             <GroupLayer />
             <GhostLayer />
             <ConnectAssistLayer />
+            <DescriptionLayer />
             <TourLayer />
             <BuildLayer />
           </ReactFlow>

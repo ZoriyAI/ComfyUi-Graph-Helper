@@ -11,6 +11,7 @@ import { changedNodes, diffGraph, revealSteps } from '../lib/graphDiff';
 import { motionLevel, motionMs, readingPaceMs, useMotionLevel } from '../lib/motion';
 import { useNodeInfoStore } from '../nodeInfo';
 import { useCenterOn } from './TourLayer';
+import { useDescriptionCardShown } from './DescriptionLayer';
 import styles from './Callout.module.css';
 
 /** How long the "changed by the helper" mark stays on a node after an agent edit. */
@@ -34,6 +35,8 @@ export default function BuildLayer() {
   const pending = useCanvasStore((state) => state.pending);
   const callout = useCanvasStore((state) => state.callout);
   const centerOn = useCenterOn();
+  // With description cards on, the revealed node's card expands and carries the text; no second callout.
+  const inCard = useDescriptionCardShown(callout?.nodeId);
   const previous = useRef<{ nodes: GraphNode[]; edges: GraphEdge[] } | null>(null);
 
   useEffect(() => {
@@ -108,7 +111,7 @@ export default function BuildLayer() {
     return () => window.clearTimeout(timer);
   }, [pending.length, callout]);
 
-  if (!callout) return null;
+  if (!callout || inCard) return null;
   return (
     <NodeToolbar nodeId={callout.nodeId} isVisible position={Position.Bottom} offset={12}>
       <section className={`${styles.callout} ${styles.build}`} aria-live="polite" aria-label={callout.title}>

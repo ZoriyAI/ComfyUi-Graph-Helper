@@ -13,6 +13,7 @@ interface MessageInputProps {
 
 const INTENTS: readonly ComposerIntent[] = ['ask', 'build'];
 
+/** Chat composer: the Ask/Build mode and its hint on top, the full-width message field, then key help and Send. */
 export default function MessageInput({ onSend, isStreaming, disabled = false }: MessageInputProps) {
   const { t } = useTranslation();
   const [input, setInput] = useState('');
@@ -57,27 +58,27 @@ export default function MessageInput({ onSend, isStreaming, disabled = false }: 
         </div>
         <span className={styles.intentHint}>{intent === 'ask' ? t('chat.intentAskHint') : t('chat.intentBuildHint')}</span>
       </div>
+      <div className={`composer-field ${styles.field}`}>
+        <textarea
+          ref={inputRef}
+          aria-label={String(t('chat.messageLabel'))}
+          aria-describedby="composer-keys"
+          rows={2}
+          value={input}
+          onChange={(event) => setInput(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+            if (event.key === 'Enter' && !event.shiftKey) {
+              event.preventDefault();
+              submit();
+            }
+          }}
+          placeholder={String(t('chat.placeholder'))}
+          disabled={disabled || isStreaming}
+        />
+      </div>
       <div className={styles.row}>
-        <div className={`composer-field ${styles.field}`}>
-          <textarea
-            ref={inputRef}
-            aria-label={String(t('chat.messageLabel'))}
-            aria-describedby="composer-keys"
-            rows={2}
-            value={input}
-            onChange={(event) => setInput(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.nativeEvent.isComposing || event.keyCode === 229) return;
-              if (event.key === 'Enter' && !event.shiftKey) {
-                event.preventDefault();
-                submit();
-              }
-            }}
-            placeholder={String(t('chat.placeholder'))}
-            disabled={disabled || isStreaming}
-          />
-          <p id="composer-keys" className="field-hint">{t('chat.keys')}</p>
-        </div>
+        <p id="composer-keys" className={`field-hint ${styles.keys}`}>{t('chat.keys')}</p>
         <button type="submit" className="send-button" disabled={!input.trim() || disabled || isStreaming}>
           {t('chat.send')}
         </button>

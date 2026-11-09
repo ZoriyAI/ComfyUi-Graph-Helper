@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { CheckCheck, ChevronLeft, ChevronRight, Compass, FastForward, Navigation, Pause, Play, Plus, Square } from 'lucide-react';
+import { CheckCheck, ChevronLeft, ChevronRight, Compass, FastForward, MessageSquareText, Navigation, Pause, Play, Plus, Square } from 'lucide-react';
 import { Controls } from '@xyflow/react';
 import { openProposals, useProposalsStore } from '../../state/proposalsState';
 import { useUiStore } from '../../state/uiState';
@@ -24,7 +24,7 @@ export async function acceptAllProposals(): Promise<void> {
 }
 
 /**
- * Floating canvas toolbar: add node, React Flow's zoom / fit / interactivity controls, follow the helper, the tour player, replay, and
+ * Floating canvas toolbar: add node, React Flow's zoom / fit / interactivity controls, follow the helper, description cards on/off, the tour player, replay, and
  * proposal / build controls when they apply. Mounted as a React Flow Panel so it sits in the canvas tab zone;
  * onBeforeDelete and React Flow's input check keep graph shortcuts out of its search field.
  */
@@ -40,6 +40,8 @@ export default function CanvasToolbar() {
   const pending = useCanvasStore((state) => state.pending.length);
   const replaying = useCanvasStore((state) => Boolean(state.replay));
   const openSearch = useCanvasStore((state) => state.openAddSearch);
+  const descriptionsOn = useCanvasStore((state) => state.descriptionsOn);
+  const setDescriptionsOn = useCanvasStore((state) => state.setDescriptionsOn);
   const open = openProposals(proposals).length;
   const duration = fitDurationMs();
 
@@ -61,6 +63,9 @@ export default function CanvasToolbar() {
         />
         <button type="button" className={styles.button} aria-pressed={followAgent} onClick={() => setFollowAgent(!followAgent)} title={String(t('canvas.followAgent'))} aria-label={String(t('canvas.followAgent'))}>
           <Navigation size={16} aria-hidden="true" />
+        </button>
+        <button type="button" className={styles.button} aria-pressed={descriptionsOn} onClick={() => setDescriptionsOn(!descriptionsOn)} title={String(t('canvas.descriptions'))} aria-label={String(t('canvas.descriptions'))}>
+          <MessageSquareText size={16} aria-hidden="true" />
         </button>
       </span>
       <span className={styles.group}>
