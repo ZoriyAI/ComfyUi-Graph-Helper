@@ -92,3 +92,11 @@ describe('sync and engine error translation', () => {
     expect(translateKnownError(en, 'something else')).toBeNull();
   });
 });
+
+describe('redaction keeps structure', () => {
+  it('keeps prefixes and JSON validity', () => {
+    expect(redactSecrets('Authorization: Bearer xyz')).toBe('Authorization: Bearer [redacted]');
+    expect(redactSecrets('api_key=abc123')).toBe('api_key=[redacted]');
+    expect(JSON.parse(redactSecrets('{"apiKey":"plain-value-123","token":"sk-zzz999","name":"x"}'))).toEqual({ apiKey: '[redacted]', token: '[redacted]', name: 'x' });
+  });
+});

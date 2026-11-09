@@ -5,7 +5,8 @@ const SECRET_FIELD = /^(api[_-]?key|token|secret|password|authorization|credenti
 const KEYISH = '(?:api[_-]?key|apikey|access[_-]?token|auth[_-]?token|token|secret|password|passwd|credential|private[_-]?key|client[_-]?secret)';
 
 /**
- * Secret shapes, each matching the secret value itself so it can be replaced. Provider keys are anchored on a
+ * Secret shapes. Where a pattern captures a prefix (group 1: "Bearer ", "api_key=", "token: "), the prefix stays
+ * readable and only the value is replaced. Provider keys are anchored on a
  * word start, so "mask-like", "risk-", "task-" and "loras/mask-xl_v1" are not keys.
  */
 const SECRET_PATTERNS: readonly RegExp[] = [
@@ -17,14 +18,15 @@ const SECRET_PATTERNS: readonly RegExp[] = [
   /\bgithub_pat_[A-Za-z0-9_]{20,}/g,
   /\bgsk_[A-Za-z0-9]{20,}/g,
   /\bxox[abposr]-[A-Za-z0-9-]{10,}/g,
-  /\bbearer\s+[^\s"',;]+/gi,
-  /\bauthorization\s*[:=]\s*["']?basic\s+[A-Za-z0-9+/=._-]+/gi,
-  /\bapi[_-]?key\s*[:=]\s*["']?[^\s"',;}]*/gi,
-  new RegExp(`"${KEYISH}"\\s*:\\s*"[^"]+"`, 'gi'),
-  new RegExp(`'${KEYISH}'\\s*:\\s*'[^']+'`, 'gi'),
+  /\b(bearer\s+)[^\s"',;]+/gi,
+  /\b(authorization\s*[:=]\s*["']?basic\s+)[A-Za-z0-9+/=._-]+/gi,
+  /\b(api[_-]?key\s*[:=]\s*["']?)[^\s"',;}]*/gi,
+  // JSON-quoted fields keep their key and quotes, so redacted JSON still parses.
+  new RegExp(`("${KEYISH}"\\s*:\\s*")[^"]+(?=")`, 'gi'),
+  new RegExp(`('${KEYISH}'\\s*:\\s*')[^']+(?=')`, 'gi'),
   /[?&](?:access_token|token|key|api_key|apikey|auth|sig|signature)=[A-Za-z0-9._~%+/-]{16,}/gi,
   // A long base64 or hex run right after a key-ish word ("token: 3f9a…", "secret=QmFz…").
-  new RegExp(`\\b${KEYISH}\\w*["']?\\s*(?:[:=]|is)\\s*["']?(?:[A-Fa-f0-9]{32,}|[A-Za-z0-9+/_-]{32,}={0,2})`, 'gi'),
+  new RegExp(`(\\b${KEYISH}\\w*["']?\\s*(?:[:=]|is)\\s*["']?)(?:[A-Fa-f0-9]{32,}|[A-Za-z0-9+/_-]{32,}={0,2})`, 'gi'),
 ];
 
 function valueCarriesSecret(value: string): boolean {
@@ -42,7 +44,7 @@ export function redactSecrets(text: string): string {
   let result = text;
   for (const pattern of SECRET_PATTERNS) {
     pattern.lastIndex = 0;
-    result = result.replace(pattern, '[redacted]');
+    result = result.replace(pattern, (_match: string, prefix?: unknown) => (typeof prefix === 'string' ? `${prefix}[redacted]` : '[redacted]'));
   }
   return result;
 }
