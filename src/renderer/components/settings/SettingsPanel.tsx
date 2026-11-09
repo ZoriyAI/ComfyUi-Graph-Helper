@@ -38,6 +38,7 @@ import AboutSection from './sections/AboutSection';
 import { fieldClass, hintClass, patchSection, rowClass, SectionHead, type DraftProps } from './sections/common';
 import { SETTINGS_SECTIONS, useUiStore, type SettingsSection } from '../../state/uiState';
 import { usePreferencesStore } from '../../state/preferencesState';
+import { refreshSyncStatus } from '../../state/knowledgeState';
 import { SETTINGS_CHANGED } from '../../commands/events';
 import styles from './SettingsPanel.module.css';
 
@@ -247,6 +248,7 @@ export default function SettingsPanel({
       applyLanguage(result.values.language);
       onSavedRef.current(result.values);
       setOpen(false);
+      refreshSyncStatus();
     } catch {
       setNote({ kind: 'key', key: 'settings.saveFailed' });
     } finally {
@@ -269,6 +271,8 @@ export default function SettingsPanel({
       onOpenChange={(next) => {
         if (!next) discard();
         setOpen(next);
+        // The MCP token is held (or cleared) inside this dialog without a save; show its effect at once.
+        if (!next) refreshSyncStatus();
       }}
     >
       <DialogTrigger asChild>

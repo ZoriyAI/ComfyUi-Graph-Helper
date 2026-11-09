@@ -55,13 +55,15 @@ export default function SyncSection({
     <>
       <p className={hintClass} role="status">
         {t(view.labelKey)}
-        {status ? ` · ${String(t('sync.summary', {
+        {/* Before the first sync the counts are only the built-in seed nodes and the sentence would read
+            "Last sync Not synced yet"; say "Not synced yet" alone. */}
+        {status && status.lastSyncAt ? ` · ${String(t('sync.summary', {
           nodes: status.counts.nodeClasses,
           packs: status.counts.packs,
           models: status.counts.models,
           enriched: status.counts.enrichedModels,
-          time: status.lastSyncAt ? formatSyncTime(status.lastSyncAt, language) : String(t('settings.syncNever')),
-        }))}` : ''}
+          time: formatSyncTime(status.lastSyncAt, language),
+        }))}` : status ? ` · ${String(t('settings.syncNever'))}` : ''}
       </p>
       {status?.lastError && view.state === 'error' ? <p className={hintClass}>{t('sync.lastError', { error: translateKnownError(translate, status.lastError) ?? redactDiagnostic(status.lastError) })}</p> : null}
       {view.blocked ? <p className={hintClass}>{t(view.blocked === 'noUrl' ? 'sync.noUrl' : 'sync.noToken')}</p> : null}

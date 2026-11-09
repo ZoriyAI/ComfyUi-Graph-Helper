@@ -1,7 +1,10 @@
 import type Database from 'better-sqlite3';
 import { upsertObjectInfo } from '../catalog/repository';
 import { redactSecrets } from '../../shared/config/draft';
+import { isLoopbackHost } from '../../shared/mcp/loopback';
 import { assertObjectInfoSize, MAX_OBJECT_INFO_BYTES, ObjectInfoError, parseObjectInfo } from '../../shared/catalog/objectInfo';
+
+export { isLoopbackHost };
 
 const READ_TIMEOUT_MS = 8000;
 
@@ -92,14 +95,6 @@ export async function applyComfyRead(db: Database.Database, origin: string, fetc
     if (error instanceof SyntaxError) return { ok: false, error: 'Catalog JSON could not be parsed.' };
     return { ok: false, error: 'Comfy origin was not read.' };
   }
-}
-
-/** localhost, 127.0.0.0/8 and ::1: addresses that stay on this machine. */
-export function isLoopbackHost(hostname: string): boolean {
-  const host = hostname.toLowerCase().replace(/^\[|\]$/g, '').replace(/\.+$/, '');
-  if (host === 'localhost' || host.endsWith('.localhost')) return true;
-  if (/^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host)) return true;
-  return host === '::1' || host === '0:0:0:0:0:0:0:1';
 }
 
 /**

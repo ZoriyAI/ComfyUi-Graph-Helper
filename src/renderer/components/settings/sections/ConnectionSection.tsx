@@ -5,6 +5,7 @@ import Badge from '../../../ui/Badge';
 import Button from '../../../ui/Button';
 import { useKnowledgeStore } from '../../../state/knowledgeState';
 import { syncView } from '../../sync/syncView';
+import { mcpUrlNeedsHttps } from '../../../../shared/mcp/loopback';
 import styles from '../SettingsPanel.module.css';
 import { fieldClass, hintClass, rowClass, SectionHead, type DraftProps } from './common';
 
@@ -79,6 +80,7 @@ export default function ConnectionSection({ values, setValues, fieldError, pendi
         />
       </label>
       <p className={hintClass}>{t('settings.mcpUrlHint')}</p>
+      {mcpUrlNeedsHttps(values.mcpUrl) ? <p className={styles.errorNote} role="alert">{t('errors.mcpHttps')}</p> : null}
       <div className={styles.stateLine}>
         <Badge tone={STATE_TONES[view.state]}>{t('preferences.connectionState', { state: t(view.labelKey) })}</Badge>
         {view.blocked ? <span className={hintClass}>{t(view.blocked === 'noUrl' ? 'sync.noUrl' : 'sync.noToken')}</span> : null}

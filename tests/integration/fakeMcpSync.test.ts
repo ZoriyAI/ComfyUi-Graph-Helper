@@ -75,3 +75,16 @@ describe('sync against the fake MCP server', () => {
     expect(fake.calls.some((call) => call.method === 'tools/call')).toBe(false);
   }, 30_000);
 });
+
+describe('mcpUrlNeedsHttps (Settings ▸ Connection warning)', () => {
+  it('flags plain http to another machine only', async () => {
+    const { mcpUrlNeedsHttps } = await import('../../src/shared/mcp/loopback');
+    expect(mcpUrlNeedsHttps('http://example.com/mcp')).toBe(true);
+    expect(mcpUrlNeedsHttps('http://192.168.1.20:8000/mcp')).toBe(true);
+    expect(mcpUrlNeedsHttps('https://llm.propriq.io/home_comfyui/mcp')).toBe(false);
+    expect(mcpUrlNeedsHttps('http://127.0.0.1:8000/mcp')).toBe(false);
+    expect(mcpUrlNeedsHttps('http://localhost:8000/mcp')).toBe(false);
+    expect(mcpUrlNeedsHttps('')).toBe(false);
+    expect(mcpUrlNeedsHttps('not a url')).toBe(false);
+  });
+});
