@@ -3,18 +3,49 @@ import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/cli
 import type { McpSession, McpToolCallResult } from '../../shared/mcp/catalogSource';
 import {
   comfyUrlFromStudioInfo,
+  McpPageError,
   parseLocalModelsMarkdown,
-  readNodeClasses,
+  readNodeClassesPaged,
   toolPayload,
-  type McpModelFile,
 } from '../../shared/mcp/catalogSource';
-import { inferModelsFromNames, replaceNodePacks, upsertModelFiles, upsertNodeClasses, upsertObjectInfo } from '../catalog/repository';
+import {
+  inferModelsFromNames,
+  removeStaleModelFiles,
+  removeStaleNodeClasses,
+  replaceNodePacks,
+  upsertModelFiles,
+  upsertNodeClasses,
+  upsertObjectInfo,
+} from '../catalog/repository';
 import { identityFromStudioInfo, readModelFilesWithRoots, readNodePacks, type ServerIdentity } from './inventory';
 import { McpRefusedError, readOnlySession } from './readOnly';
 import { parseObjectInfo } from '../../shared/catalog/objectInfo';
-import { applyComfyRead } from '../comfy/read';
+import { acceptedComfyUrl, applyComfyRead, isLoopbackHost } from '../comfy/read';
+import { readSettings } from '../settings/repository';
 
 const CONNECT_TIMEOUT_MS = 15000;
+/** One tool call may take this long; a stalled server must not hold a sync open forever. */
+export const CALL_TIMEOUT_MS = 30_000;
+
+export const MCP_HTTPS_ERROR = 'MCP server URL must use https unless it is on this machine.';
+
+/**
+ * The bearer token rides on every MCP request, so a URL off this machine must be https.
+ * Returns the fixed error text, or null when the URL may be used.
+ */
+export function mcpUrlError(value: string): string | null {
+  if (!value) return 'MCP server URL is empty.';
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return 'MCP server was not read.';
+  }
+  if (url.username || url.password) return 'MCP server was not read.';
+  if (url.protocol === 'https:') return null;
+  if (url.protocol === 'http:' && isLoopbackHost(url.hostname)) return null;
+  return MCP_HTTPS_ERROR;
+}
 
 export interface McpReadSuccess {
   ok: true;
@@ -44,15 +75,26 @@ export const connectStreamableHttp: McpSessionFactory = async (url, token) => {
     requestInit: token ? { headers: { Authorization: `Bearer ${token}` } } : undefined,
   });
   const client = new Client({ name: 'comfyui-graph-helper', version: '0.1.0' });
-  const timer = new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), CONNECT_TIMEOUT_MS));
-  await Promise.race([client.connect(transport), timer]);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error('timeout')), CONNECT_TIMEOUT_MS);
+  });
+  try {
+    await Promise.race([client.connect(transport), timeout]);
+  } catch (error) {
+    // A connect that lost the race may still finish later; close it so no transport is left open.
+    await client.close().catch(() => undefined);
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
   return {
     async listTools() {
-      const result = await client.listTools();
+      const result = await client.listTools(undefined, { timeout: CALL_TIMEOUT_MS });
       return result.tools.map((tool) => ({ name: tool.name }));
     },
     async callTool(name, args) {
-      return (await client.callTool({ name, arguments: args })) as McpToolCallResult;
+      return (await client.callTool({ name, arguments: args }, { timeout: CALL_TIMEOUT_MS })) as McpToolCallResult;
     },
     async close() {
       await client.close();
@@ -62,7 +104,7 @@ export const connectStreamableHttp: McpSessionFactory = async (url, token) => {
 
 /** Fixed messages only: a transport error text could echo request headers. */
 export function failure(error: unknown): McpReadFailure {
-  if (error instanceof McpRefusedError) return { ok: false, error: error.message };
+  if (error instanceof McpRefusedError || error instanceof McpPageError) return { ok: false, error: error.message };
   const message = error instanceof Error ? error.message : '';
   if (/401|unauthorized/i.test(message)) return { ok: false, error: 'MCP server refused the token.' };
   return { ok: false, error: 'MCP server was not read.' };
@@ -104,11 +146,31 @@ export async function openReadOnlySession(
   config: { url: string; token: string | null },
   factory: McpSessionFactory,
 ): Promise<{ ok: true; session: McpSession } | McpReadFailure> {
-  if (!config.url) return { ok: false, error: 'MCP server URL is empty.' };
+  const urlError = mcpUrlError(config.url);
+  if (urlError) return { ok: false, error: urlError };
   try {
     return { ok: true, session: readOnlySession(await factory(config.url, config.token)) };
   } catch (error) {
     return failure(error);
+  }
+}
+
+/** A paged listing, or null when one of its pages failed. Transport errors and refusals still throw. */
+async function pagedOrNull<T>(read: () => Promise<T>): Promise<T | null> {
+  try {
+    return await read();
+  } catch (error) {
+    if (error instanceof McpPageError) return null;
+    throw error;
+  }
+}
+
+function savedComfyOrigin(db: Database.Database): string | null {
+  try {
+    const read = readSettings(db);
+    return read.source === 'corrupt' ? null : read.values.comfyOrigin || null;
+  } catch {
+    return null;
   }
 }
 
@@ -123,25 +185,45 @@ export async function readCatalogWithSession(
   const tools = new Set((await session.listTools()).map((tool) => tool.name));
   if (tools.size === 0) return { ok: false, error: 'MCP server lists no tools.' };
 
+  // Rows this run stores carry `now`; after a complete listing, older synced rows are gone from the server.
   let nodes = 0;
   let packs = 0;
   if (tools.has('studio_capabilities')) {
-    nodes = upsertNodeClasses(db, await readNodeClasses(session), now);
-    packs = replaceNodePacks(db, await readNodePacks(session), now);
+    const classes = await pagedOrNull(() => readNodeClassesPaged(session));
+    if (classes) {
+      nodes = upsertNodeClasses(db, classes.items, now);
+      if (classes.complete) removeStaleNodeClasses(db, now);
+    } else {
+      skipped.push('node classes');
+    }
+    const packList = await pagedOrNull(() => readNodePacks(session));
+    if (packList) packs = replaceNodePacks(db, packList.items, now, packList.complete);
+    else skipped.push('node packs');
   } else {
     skipped.push('node classes');
   }
 
-  let files: Array<McpModelFile & { rootPath?: string | null }> = [];
+  let models = 0;
   if (tools.has('models')) {
-    files = await readModelFilesWithRoots(session);
+    const listed = await pagedOrNull(() => readModelFilesWithRoots(session));
+    if (listed) {
+      models = upsertModelFiles(db, listed.items, now);
+      if (listed.complete) removeStaleModelFiles(db, now);
+    } else {
+      skipped.push('model files');
+    }
   } else if (tools.has('list_local_models')) {
-    const payload = toolPayload(await session.callTool('list_local_models', { action: 'list' }));
-    files = typeof payload === 'string' ? parseLocalModelsMarkdown(payload) : [];
+    const result = await session.callTool('list_local_models', { action: 'list' });
+    const payload = toolPayload(result);
+    if (!result.isError && typeof payload === 'string') {
+      models = upsertModelFiles(db, parseLocalModelsMarkdown(payload), now);
+      removeStaleModelFiles(db, now);
+    } else {
+      skipped.push('model files');
+    }
   } else {
     skipped.push('model files');
   }
-  const models = upsertModelFiles(db, files, now);
 
   let objectInfo: McpReadSuccess['objectInfo'] = 'none';
   let comfyUrl: string | null = null;
@@ -166,8 +248,10 @@ export async function readCatalogWithSession(
     }
   }
   if (objectInfo === 'none' && comfyUrl) {
-    const native = await applyComfyRead(db, comfyUrl, fetchImpl);
-    if (native.ok) objectInfo = 'native';
+    // Only this machine or the origin the person saved: the server must not steer reads elsewhere.
+    const nativeUrl = acceptedComfyUrl(comfyUrl, savedComfyOrigin(db));
+    const native = nativeUrl ? await applyComfyRead(db, nativeUrl, fetchImpl) : null;
+    if (native?.ok) objectInfo = 'native';
     else skipped.push('object_info from the native URL');
   }
   inferModelsFromNames(db);

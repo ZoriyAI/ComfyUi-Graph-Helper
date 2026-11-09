@@ -1,5 +1,5 @@
-import type { McpModelFile, McpSession } from '../../shared/mcp/catalogSource';
-import { isModelFile, toolPayload } from '../../shared/mcp/catalogSource';
+import type { McpModelFile, McpSession, PagedItems } from '../../shared/mcp/catalogSource';
+import { isModelFile, readAllPages } from '../../shared/mcp/catalogSource';
 import type { NodePackRow } from '../catalog/repository';
 
 function record(value: unknown): Record<string, unknown> | null {
@@ -14,45 +14,22 @@ function textOrNull(value: unknown): string | null {
   return typeof value === 'string' && value !== '' ? value : null;
 }
 
-/** Calls one paged tool until next_cursor runs out, handing each item to `take`. */
-async function readPages(
-  session: McpSession,
-  tool: string,
-  baseArgs: Record<string, unknown>,
-  take: (item: Record<string, unknown>) => void,
-  maxPages: number,
-): Promise<void> {
-  let cursor: string | undefined;
-  for (let page = 0; page < maxPages; page += 1) {
-    const args: Record<string, unknown> = { ...baseArgs };
-    if (cursor) args.cursor = cursor;
-    const payload = record(toolPayload(await session.callTool(tool, args)));
-    if (!payload || !Array.isArray(payload.items)) return;
-    for (const item of payload.items) {
-      const row = record(item);
-      if (row) take(row);
-    }
-    const next = payload.next_cursor;
-    if (typeof next !== 'string' || next === '' || payload.items.length === 0) return;
-    cursor = next;
-  }
-}
-
 export type McpModelFileWithRoot = McpModelFile & { rootPath: string | null };
 
 /**
- * `models` action list, keeping root_path: with several roots per folder, `inspect` needs
- * root_path + filename as an absolute location (brief §4).
+ * `models` action list, keeping root_path: with several roots per folder the root tells same-named files apart.
+ * Throws McpPageError when any page fails; `complete` is false when the listing stopped early.
  */
-export async function readModelFilesWithRoots(session: McpSession, pageLimit = 1000, maxPages = 500): Promise<McpModelFileWithRoot[]> {
+export async function readModelFilesWithRoots(session: McpSession, pageLimit = 1000, maxPages = 500): Promise<PagedItems<McpModelFileWithRoot>> {
   const files: McpModelFileWithRoot[] = [];
   const seen = new Set<string>();
-  await readPages(session, 'models', { action: 'list', limit: pageLimit }, (row) => {
+  const read = await readAllPages(session, 'models', { action: 'list', limit: pageLimit }, maxPages);
+  for (const row of read.items) {
     const directory = text(row.category);
     const name = text(row.filename);
-    if (!directory || !name || !isModelFile(name)) return;
+    if (!directory || !name || !isModelFile(name)) continue;
     const key = `${directory}/${name}`;
-    if (seen.has(key)) return;
+    if (seen.has(key)) continue;
     seen.add(key);
     const size = row.size_bytes;
     files.push({
@@ -61,17 +38,18 @@ export async function readModelFilesWithRoots(session: McpSession, pageLimit = 1
       sizeBytes: typeof size === 'number' && Number.isFinite(size) ? size : null,
       rootPath: textOrNull(row.root_path),
     });
-  }, maxPages);
-  return files;
+  }
+  return { items: files, complete: read.complete };
 }
 
 /** `studio_capabilities` section nodes, kind packs. */
-export async function readNodePacks(session: McpSession, pageLimit = 100, maxPages = 50): Promise<NodePackRow[]> {
+export async function readNodePacks(session: McpSession, pageLimit = 100, maxPages = 50): Promise<PagedItems<NodePackRow>> {
   const packs: NodePackRow[] = [];
   const seen = new Set<string>();
-  await readPages(session, 'studio_capabilities', { section: 'nodes', kind: 'packs', limit: pageLimit }, (row) => {
+  const read = await readAllPages(session, 'studio_capabilities', { section: 'nodes', kind: 'packs', limit: pageLimit }, maxPages);
+  for (const row of read.items) {
     const name = text(row.name);
-    if (!name || seen.has(name)) return;
+    if (!name || seen.has(name)) continue;
     seen.add(name);
     const count = row.imported_class_count;
     packs.push({
@@ -82,8 +60,8 @@ export async function readNodePacks(session: McpSession, pageLimit = 100, maxPag
       importState: text(row.import_state),
       classCount: typeof count === 'number' && Number.isFinite(count) ? count : null,
     });
-  }, maxPages);
-  return packs;
+  }
+  return { items: packs, complete: read.complete };
 }
 
 export interface ServerIdentity {

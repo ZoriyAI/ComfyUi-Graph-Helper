@@ -126,20 +126,40 @@ export interface NodePackRow {
   classCount: number | null;
 }
 
-/** Replaces the pack list: a pack the server no longer lists is gone from ComfyUI too. */
-export function replaceNodePacks(db: Database.Database, packs: NodePackRow[], syncedAt: number): number {
-  const insert = db.prepare(`
+/**
+ * Stores the pack list. After a complete listing a pack the server no longer lists is gone from ComfyUI too,
+ * so the list is replaced; after an incomplete one (echoed cursor, page cap) packs are only added or updated.
+ * A listing with a failed page never reaches this function.
+ */
+export function replaceNodePacks(db: Database.Database, packs: NodePackRow[], syncedAt: number, complete = true): number {
+  const upsert = db.prepare(`
     INSERT INTO node_packs (name, version, commit_sha, installed_state, import_state, class_count, synced_at)
     VALUES (?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(name) DO UPDATE SET version = excluded.version, commit_sha = excluded.commit_sha,
+      installed_state = excluded.installed_state, import_state = excluded.import_state,
+      class_count = excluded.class_count, synced_at = excluded.synced_at
   `);
   const write = db.transaction(() => {
-    db.prepare('DELETE FROM node_packs').run();
+    if (complete) db.prepare('DELETE FROM node_packs').run();
     for (const pack of packs) {
-      insert.run(pack.name, pack.version, pack.commitSha, pack.installedState, pack.importState, pack.classCount, syncedAt);
+      upsert.run(pack.name, pack.version, pack.commitSha, pack.installedState, pack.importState, pack.classCount, syncedAt);
     }
   });
   write.immediate();
   return packs.length;
+}
+
+/**
+ * After a complete class listing: drops classes an earlier sync stored that this run did not see.
+ * Rows never synced (seeded or imported from a file) have no synced_at and stay.
+ */
+export function removeStaleNodeClasses(db: Database.Database, runStartedAt: number): number {
+  return db.prepare('DELETE FROM node_catalog WHERE synced_at IS NOT NULL AND synced_at < ?').run(runStartedAt).changes;
+}
+
+/** After a complete model listing: drops model files an earlier sync stored that this run did not see. */
+export function removeStaleModelFiles(db: Database.Database, runStartedAt: number): number {
+  return db.prepare('DELETE FROM model_catalog WHERE synced_at IS NOT NULL AND synced_at < ?').run(runStartedAt).changes;
 }
 
 export interface ModelEnrichment {

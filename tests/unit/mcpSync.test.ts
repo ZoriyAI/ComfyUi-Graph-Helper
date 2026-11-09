@@ -91,21 +91,71 @@ describe('read-only MCP allowlist', () => {
   it('allows only reading actions and refuses everything else at the session', async () => {
     expect(Object.keys(READ_ONLY_TOOLS).sort()).toEqual(['comfy_api', 'list_local_models', 'model_metadata', 'models', 'studio_capabilities', 'studio_info']);
     expect(isReadOnlyCall('models', { action: 'list' })).toBe(true);
-    expect(isReadOnlyCall('models', { action: 'inspect' })).toBe(true);
+    expect(isReadOnlyCall('models', { action: 'inspect' })).toBe(false);
     expect(isReadOnlyCall('models', { action: 'download' })).toBe(false);
     expect(isReadOnlyCall('models', { action: 'remove' })).toBe(false);
     expect(isReadOnlyCall('model_metadata', { action: 'propose' })).toBe(false);
     expect(isReadOnlyCall('model_metadata', { action: 'fetch_civitai' })).toBe(false);
     expect(isReadOnlyCall('comfy_api', { method: 'POST', route: '/prompt' })).toBe(false);
-    expect(isReadOnlyCall('comfy_api', { method: 'get', route: '/object_info' })).toBe(true);
+    expect(isReadOnlyCall('comfy_api', { method: 'GET', route: '/object_info' })).toBe(true);
+    expect(isReadOnlyCall('comfy_api', { method: 'get', route: '/object_info' })).toBe(false);
     expect(isReadOnlyCall('list_local_models', { action: 'list' })).toBe(true);
+    expect(isReadOnlyCall('list_local_models', { action: 'list', model_type: 'loras' })).toBe(true);
     for (const tool of ['install_custom_node', 'download_model', 'nodepacks', 'workflow_run', 'enqueue_workflow', 'restart_comfyui', 'clear_vram', 'stage_file', 'artifact_import_begin', 'toString', '__proto__']) {
       expect(isReadOnlyCall(tool, { action: 'list' }), tool).toBe(false);
     }
     const calls: FakeOptions['calls'] = [];
     const guarded = readOnlySession(fakeSession({ calls }));
+    await expect(guarded.callTool('comfy_api', { method: 'GET', route: '/object_info', body: '{}' })).rejects.toBeInstanceOf(McpRefusedError);
     await expect(guarded.callTool('models', { action: 'remove', filename: 'x' })).rejects.toBeInstanceOf(McpRefusedError);
     await expect(guarded.callTool('enqueue_workflow', {})).rejects.toBeInstanceOf(McpRefusedError);
+    expect(calls).toEqual([]);
+  });
+});
+
+describe('strict read-only argument shapes', () => {
+  const allowed: Array<[string, Record<string, unknown>]> = [
+    ['comfy_api', { method: 'GET', route: '/system_stats' }],
+    ['studio_info', { action: 'describe' }],
+    ['studio_info', { action: 'paths' }],
+    ['studio_capabilities', { section: 'nodes', kind: 'classes', limit: 100, cursor: 'abc' }],
+    ['studio_capabilities', { section: 'models' }],
+    ['models', { action: 'list', category: 'loras', limit: 10, cursor: '2' }],
+    ['model_metadata', { action: 'read', category: 'loras', name: 'x.safetensors' }],
+    ['list_local_models', { action: 'list' }],
+  ];
+  const refused: Array<[string, Record<string, unknown>]> = [
+    ['comfy_api', { method: 'GET', route: '/prompt' }],
+    ['comfy_api', { method: 'GET', route: '/object_info', body: {} }],
+    ['comfy_api', { method: 'POST', route: '/object_info' }],
+    ['comfy_api', { method: 'DELETE', route: '/queue' }],
+    ['comfy_api', { method: 'GET', route: '/history', query: 'x' }],
+    ['studio_info', { action: 'restart' }],
+    ['studio_info', {}],
+    ['studio_info', { action: 'describe', extra: 1 }],
+    ['studio_capabilities', { section: 'jobs' }],
+    ['studio_capabilities', { section: 'nodes', kind: 'install' }],
+    ['studio_capabilities', { section: 'nodes', kind: 'classes', limit: 0 }],
+    ['studio_capabilities', { section: 'nodes', action: 'install' }],
+    ['models', { action: 'inspect', root_path: '/m', filename: 'x' }],
+    ['models', { action: 'list', filename: 'x' }],
+    ['models', { action: 'download', url: 'https://x' }],
+    ['model_metadata', { action: 'read', category: 'loras' }],
+    ['model_metadata', { action: 'read', category: 'loras', name: 'x', write: true }],
+    ['model_metadata', { action: 'write', category: 'loras', name: 'x' }],
+    ['list_local_models', { action: 'list', path: '/etc' }],
+    ['list_local_models', { action: 'delete' }],
+  ];
+
+  it('accepts the shapes the app sends', () => {
+    for (const [tool, args] of allowed) expect(isReadOnlyCall(tool, args), `${tool} ${JSON.stringify(args)}`).toBe(true);
+  });
+
+  it('refuses every other shape, including extra fields', async () => {
+    for (const [tool, args] of refused) expect(isReadOnlyCall(tool, args), `${tool} ${JSON.stringify(args)}`).toBe(false);
+    const calls: FakeOptions['calls'] = [];
+    const guarded = readOnlySession(fakeSession({ calls }));
+    for (const [tool, args] of refused) await expect(guarded.callTool(tool, args)).rejects.toBeInstanceOf(McpRefusedError);
     expect(calls).toEqual([]);
   });
 });

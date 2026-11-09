@@ -92,3 +92,35 @@ export async function applyComfyRead(db: Database.Database, origin: string, fetc
     return { ok: false, error: 'Comfy origin was not read.' };
   }
 }
+
+/** localhost, 127.0.0.0/8 and ::1: addresses that stay on this machine. */
+export function isLoopbackHost(hostname: string): boolean {
+  const host = hostname.toLowerCase().replace(/^\[|\]$/g, '').replace(/\.+$/, '');
+  if (host === 'localhost' || host.endsWith('.localhost')) return true;
+  if (/^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host)) return true;
+  return host === '::1' || host === '0:0:0:0:0:0:0:1';
+}
+
+/**
+ * A ComfyUI URL an MCP server reported is read only when it stays on this machine or is the origin the person
+ * saved; otherwise a server could point the app at any address on the network. Returns the origin to read, or null.
+ */
+export function acceptedComfyUrl(reported: string | null, savedOrigin: string | null | undefined): string | null {
+  if (!reported) return null;
+  let url: URL;
+  try {
+    url = new URL(reported);
+  } catch {
+    return null;
+  }
+  if ((url.protocol !== 'http:' && url.protocol !== 'https:') || url.username || url.password) return null;
+  if (isLoopbackHost(url.hostname)) return url.origin;
+  if (savedOrigin) {
+    try {
+      if (new URL(savedOrigin).origin === url.origin) return url.origin;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
