@@ -158,7 +158,8 @@ export default function ConnectionSection({ values, setValues, saved, fieldError
       />
       <div className={styles.stateLine}>
         <Badge tone={STATE_TONES[view.state]}>{t('preferences.connectionState', { state: t(view.labelKey) })}</Badge>
-        {view.hintKey ? <span className={hintClass}>{t(view.hintKey)}</span> : null}
+        {/* "Set the address first" is moot while one is typed right above. */}
+        {view.hintKey && !(view.hintKey === 'sync.noUrl' && mcpUrl !== '') ? <span className={hintClass}>{t(view.hintKey)}</span> : null}
       </div>
       <div className={rowClass}>
         <Button size="sm" variant="subtle" disabled={pending || dirty || values.mcpUrl.trim() === ''} onClick={() => void readMcp()}>

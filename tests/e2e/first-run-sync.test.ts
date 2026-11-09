@@ -10,7 +10,7 @@ import { CLASSES, PACKS, READ_TOOLS, startFakeMcp, WRITE_TOOLS } from '../fixtur
 
 /**
  * The README first-run path against a fake MCP server on loopback (labelled fixture, not the owner's server):
- * Settings ▸ Connection and Models & keys, Sync ▸ Sync now, the library, Ask about a model (TEST provider),
+ * Settings ▸ Connection (address, Check, token), Sync ▸ Sync now, the library, Ask about a model (TEST provider),
  * adding nodes from the library, Check graph and Export. The fake server logs every call; only read-only tools
  * with read-only arguments may appear there.
  */
@@ -57,10 +57,15 @@ test('first run: connect, sync from MCP, browse the library, build, check and ex
     const mcpUrl = dialog.getByRole('textbox', { name: 'MCP server URL', exact: true });
     await expect(mcpUrl).toBeVisible();
     await mcpUrl.fill(fake.url);
-    await dialog.getByRole('tab', { name: 'Models & keys' }).click();
-    await dialog.getByRole('textbox', { name: 'MCP token', exact: true }).fill(TOKEN);
-    await dialog.getByRole('button', { name: 'Use token for this session' }).click();
-    await expect(dialog.getByText('The MCP token is held for this session only. It was not written.')).toBeVisible();
+    // "Check" asks the server: this one wants a token, so "Token" is selected and its field opens right there.
+    await dialog.getByRole('button', { name: 'Check', exact: true }).click();
+    await expect(dialog.getByText('The server needs a token — “Token” is selected.')).toBeVisible();
+    await expect(dialog.getByRole('radio', { name: 'Token', exact: true })).toBeChecked();
+    const token = dialog.getByRole('textbox', { name: 'Access token', exact: true });
+    await token.fill(TOKEN);
+    await dialog.getByRole('button', { name: 'Use in this session' }).click();
+    await expect(token).toHaveValue('');
+    await expect(dialog.getByRole('status', { name: 'Access token' })).toHaveText('The token is kept until restart.');
     await dialog.getByRole('button', { name: 'Save settings' }).click();
     await expect(dialog).toHaveCount(0);
 
