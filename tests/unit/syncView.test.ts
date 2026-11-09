@@ -46,3 +46,36 @@ describe('sync view: credentials are the server\'s call', () => {
     expect(syncView(status({ state: 'error', lastError: 'MCP server was not read.' })).needsSignIn).toBe(false);
   });
 });
+
+describe('sync view: the hint follows the access the person chose', () => {
+  const asked = { state: 'error' as const, lastError: NEEDS_SIGN_IN };
+
+  it('names the fix for the chosen access', () => {
+    expect(syncView(status({ ...asked, authChoice: 'token' })).hintKey).toBe('sync.needsToken');
+    expect(syncView(status({ ...asked, authChoice: 'oauth' })).hintKey).toBe('sync.needsBrowser');
+    expect(syncView(status({ ...asked, authChoice: '' })).hintKey).toBe('sync.needsChoice');
+    expect(syncView(status({ ...asked, authChoice: 'none' })).hintKey).toBe('sync.needsChoice');
+    // An older main without the field: nothing chosen.
+    expect(syncView(status(asked)).hintKey).toBe('sync.needsChoice');
+    expect(syncView(status({ mcpUrl: '' })).hintKey).toBe('sync.noUrl');
+    expect(syncView(status({})).hintKey).toBeNull();
+  });
+
+  it('counts only the credentials the chosen access sends', () => {
+    // "No sign-in" sends nothing, so a held token or sign-in does not unblock it.
+    expect(syncView(status({ ...asked, authChoice: 'none', tokenHeld: true, signedIn: true })).blocked).toBe('noToken');
+    // "Token" ignores a browser sign-in; "Sign in through the browser" ignores a token.
+    expect(syncView(status({ ...asked, authChoice: 'token', signedIn: true })).blocked).toBe('noToken');
+    expect(syncView(status({ ...asked, authChoice: 'token', tokenHeld: true })).blocked).toBeNull();
+    expect(syncView(status({ ...asked, authChoice: 'oauth', tokenHeld: true })).blocked).toBe('noToken');
+    expect(syncView(status({ ...asked, authChoice: 'oauth', signedIn: true })).blocked).toBeNull();
+  });
+
+  it('offers the browser sign-in only where it would be used', () => {
+    expect(syncView(status({ ...asked, authChoice: 'oauth' })).needsSignIn).toBe(true);
+    expect(syncView(status({ ...asked, authChoice: '' })).needsSignIn).toBe(true);
+    expect(syncView(status({ ...asked, authChoice: 'token' })).needsSignIn).toBe(false);
+    expect(syncView(status({ ...asked, authChoice: 'none' })).needsSignIn).toBe(false);
+    expect(syncView(status({ state: 'error', lastError: SIGN_IN_AGAIN, authChoice: 'token' })).needsSignIn).toBe(false);
+  });
+});
