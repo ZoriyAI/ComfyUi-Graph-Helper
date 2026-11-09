@@ -9,7 +9,12 @@ import { ENRICH_PAUSE_MS, ENRICH_PER_RUN } from '../../shared/config/preferences
 import { catalogTotals, writeModelEnrichment } from '../catalog/repository';
 import { readPreferences, readSettings } from '../settings/repository';
 import type { OAuthClientProvider } from '@modelcontextprotocol/client';
-import { connectStreamableHttp, failure, MCP_SIGN_IN_AGAIN, openReadOnlySession, readCatalogWithSession, type McpReadSuccess, type McpSessionFactory } from './client';
+import {
+  connectStreamableHttp, failure, isNetworkError, MCP_NEEDS_SIGN_IN, MCP_SIGN_IN_AGAIN, mcpUnreachableError, openReadOnlySession,
+  readCatalogWithSession, type McpReadSuccess, type McpSessionFactory,
+} from './client';
+
+export { isNetworkError, mcpUnreachableError } from './client';
 import { mcpOAuth } from './oauth';
 import { McpRefusedError } from './readOnly';
 import { mcpToken, releaseMcpTokenIfOriginChanged } from './token';
@@ -34,7 +39,6 @@ const ALL_FAILED = 'Model metadata could not be read.';
 export const METADATA_STOPPED = 'Model metadata reading stopped after 5 failed reads in a row; it continues at the next sync.';
 export const NODE_PORTS_NO_URL = 'Node ports were not updated: the MCP server did not name a ComfyUI address.';
 export const NODE_PORTS_NOT_ALLOWED = 'Node ports were not updated: the ComfyUI address the server named is not on this computer or saved in Settings.';
-export const mcpUnreachableError = (host: string) => `MCP server unreachable: ${host}.`;
 export const comfyNotRunningWarning = (host: string) => `ComfyUI is not running at ${host} — node ports were not updated; start ComfyUI and sync again.`;
 export const sectionUnreadWarning = (section: string) => `MCP catalog section could not be read: ${section}.`;
 
@@ -157,21 +161,6 @@ function isHeaderFile(name: string): boolean {
   return /\.(safetensors|sft)$/i.test(name);
 }
 
-const NETWORK_CODE = /^(ECONNREFUSED|ENOTFOUND|EAI_AGAIN|ETIMEDOUT|ECONNRESET|EHOSTUNREACH|ENETUNREACH|EPIPE|UND_ERR_[A-Z_]+)$/;
-const NETWORK_MESSAGE = /fetch failed|ECONNREFUSED|ENOTFOUND|EAI_AGAIN|ETIMEDOUT|ECONNRESET|EHOSTUNREACH|ENETUNREACH|socket hang up|network|^timeout$/i;
-
-/** True when an error (or one of its causes) says the server could not be reached at all. */
-export function isNetworkError(error: unknown): boolean {
-  let current: unknown = error;
-  for (let depth = 0; depth < 6 && current && typeof current === 'object'; depth += 1) {
-    const { code, message, cause } = current as { code?: unknown; message?: unknown; cause?: unknown };
-    if (typeof code === 'string' && NETWORK_CODE.test(code)) return true;
-    if (typeof message === 'string' && NETWORK_MESSAGE.test(message)) return true;
-    current = cause;
-  }
-  return false;
-}
-
 function hostOf(url: string | null): string | null {
   if (!url) return null;
   try {
@@ -201,6 +190,12 @@ export function catalogWarnings(result: McpReadSuccess): string[] {
     else if (!result.comfyUrl) warnings.push(NODE_PORTS_NO_URL);
   }
   return warnings;
+}
+
+/** How the last successful connection authenticated: the manual token, the browser sign-in, or nothing at all. */
+function authModeOf(state: Record<string, string>): SyncStatus['authMode'] {
+  const value = state.auth_mode;
+  return value === 'token' || value === 'oauth' || value === 'anonymous' ? value : null;
 }
 
 function readWarnings(state: Record<string, string>): string[] {
@@ -274,6 +269,7 @@ export class SyncService {
         warnings: [],
         metadata: { done: 0, total: 0 },
         enrichmentPaused: false,
+        authMode: null,
       };
     }
     const state = readState(db);
@@ -305,6 +301,7 @@ export class SyncService {
       warnings: readWarnings(state),
       metadata,
       enrichmentPaused: this.enrichmentPaused,
+      authMode: authModeOf(state),
     };
   }
 
@@ -388,11 +385,19 @@ export class SyncService {
     run.resolve();
   }
 
-  private hasCredentials(db: Database.Database): boolean {
+  /**
+   * Whether a startup run can reach the server: credentials are held, the server accepted an anonymous connection
+   * before, or it has not yet said that it wants a sign-in. Whether credentials are needed is the server's call;
+   * one that asked for them is not retried until a token or a browser sign-in appears.
+   */
+  private canConnect(db: Database.Database): boolean {
     try {
       const url = this.deps.readUrl(db);
       if (!url) return false;
-      return this.deps.token() != null || this.deps.signedIn(url);
+      if (this.deps.token() != null || this.deps.signedIn(url)) return true;
+      const state = readState(db);
+      if (state.auth_mode === 'anonymous') return true;
+      return state.last_error !== MCP_NEEDS_SIGN_IN && state.last_error !== MCP_SIGN_IN_AGAIN;
     } catch {
       return false;
     }
@@ -406,7 +411,7 @@ export class SyncService {
     const interval = auto.intervalMinutes * 60_000;
     const now = this.deps.now();
     let delay = interval;
-    if (startup && this.hasCredentials(db)) {
+    if (startup && this.canConnect(db)) {
       const lastSyncAt = numberOrNull(state.last_sync_at);
       if (lastSyncAt == null || now - lastSyncAt >= interval) {
         delay = this.deps.startupDelayMs ?? STARTUP_DELAY_MS;
@@ -510,6 +515,8 @@ export class SyncService {
       return;
     }
     const session = opened.session;
+    // Remembered so the indicator knows whether this server needs any credentials at all.
+    writeState(db, { auth_mode: token ? 'token' : this.deps.signedIn(url) ? 'oauth' : 'anonymous' });
     let handedOver = false;
     try {
       this.setProgress(db, 'catalog', 0, 0);

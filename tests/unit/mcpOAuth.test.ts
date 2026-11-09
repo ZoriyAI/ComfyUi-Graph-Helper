@@ -14,6 +14,7 @@ import {
 import { SyncService } from '../../src/main/mcp/sync';
 import { isReadOnlyCall } from '../../src/main/mcp/readOnly';
 import { startFakeOAuthMcp, type FakeOAuthMcp } from '../fixtures/mcp/fakeOAuthMcp';
+import { startFakeMcp } from '../fixtures/mcp/fakeMcpServer';
 
 /** TEST fixture only: a fake OAuth + MCP server on 127.0.0.1 (tests/fixtures/mcp/fakeOAuthMcp.ts). No real network. */
 
@@ -287,6 +288,32 @@ describe('MCP OAuth sign-in', () => {
       return { listTools: async () => [], callTool: async () => ({ content: [] }), close: async () => undefined };
     });
     expect(seen).toEqual([{ token: 'manual-token', provider: null }]);
+  });
+});
+
+describe('sign-in on servers that need none', () => {
+  it('reports that a server without authentication needs no sign-in and opens no browser', async () => {
+    const plain = await startFakeMcp();
+    try {
+      const db = openDb(plain.url);
+      const result = await manager(db).login(plain.url);
+      expect(result).toEqual({ ok: true, anonymous: true });
+      expect(opened).toEqual([]);
+      expect(await manager(db).status(plain.url)).toMatchObject({ state: 'none' });
+      // The server saw an ordinary anonymous initialize, nothing else.
+      expect(plain.calls.every((call) => call.authorized)).toBe(true);
+      db.close();
+    } finally {
+      await plain.close();
+    }
+  });
+
+  it('names an unreachable server instead of "sign-in did not finish"', async () => {
+    const url = 'http://127.0.0.1:1/mcp';
+    const db = openDb(url);
+    expect(await manager(db).login(url)).toEqual({ ok: false, error: 'MCP server unreachable: 127.0.0.1:1.' });
+    expect(opened).toEqual([]);
+    db.close();
   });
 });
 

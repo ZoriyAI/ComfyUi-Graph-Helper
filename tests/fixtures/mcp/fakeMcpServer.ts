@@ -295,9 +295,16 @@ function callTool(name: string, args: Record<string, unknown>, comfyUrl: string,
       if (args.section === 'nodes' && args.kind === 'packs') return text(page(packItems(), args));
       if (args.section === 'nodes') return text(page(classItems(), args));
       return text({ items: ['checkpoints', 'loras', 'vae', 'controlnet'].map((category) => ({ category, root_count: 1 })), next_cursor: null, total: 4 });
-    case 'models':
+    case 'models': {
       if (args.action !== 'list') return text({ error: { code: 'FAKE_NOT_IMPLEMENTED' } }, true);
-      return text(page(modelItems(extraLoras), args));
+      const all = modelItems(extraLoras);
+      // Like the real server: the plain listing names categories only; files are listed one category at a time.
+      if (typeof args.category !== 'string') {
+        const categories = [...new Set(all.map((item) => item.category))];
+        return text({ items: [{ category: '.cache' }, ...categories.map((category) => ({ category }))], total: categories.length + 1, complete: true });
+      }
+      return text(page(all.filter((item) => item.category === args.category), args, { coverage: 'filesystem_regular_files_symlinks_not_followed' }));
+    }
     case 'model_metadata': {
       const key = `${String(args.category)}/${String(args.name)}`;
       const found = METADATA[key];

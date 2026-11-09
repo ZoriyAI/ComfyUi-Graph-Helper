@@ -50,6 +50,7 @@ const ERROR_KEYS: Record<string, string> = {
   'MCP server URL is empty.': 'errors.mcpEmpty',
   'MCP server was not read.': 'errors.mcpUnread',
   'MCP server refused the token.': 'errors.mcpToken',
+  'MCP server requires sign-in.': 'errors.mcpNeedsSignIn',
   'MCP server lists no tools.': 'errors.mcpNoTools',
   'Sign-in did not finish in time.': 'errors.signInTimeout',
   'Sign-in was cancelled in the browser.': 'errors.signInDenied',

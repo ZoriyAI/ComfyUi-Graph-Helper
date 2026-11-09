@@ -6,6 +6,7 @@ import {
   catalogWarnings, classifySyncError, METADATA_STOPPED, NODE_PORTS_NO_URL, reportedComfyUrl, STARTUP_DELAY_MS, SyncService,
 } from '../../src/main/mcp/sync';
 import { createTranslator, translateKnownError } from '../../src/shared/i18n';
+import { MCP_NEEDS_SIGN_IN, openReadOnlySession } from '../../src/main/mcp/client';
 import { isReadOnlyCall, McpRefusedError, readOnlySession, READ_ONLY_TOOLS } from '../../src/main/mcp/readOnly';
 import type { McpSession, McpToolCallResult } from '../../src/shared/mcp/catalogSource';
 import type { SyncStatus } from '../../src/shared/contracts/knowledge';
@@ -46,19 +47,22 @@ function fakeSession(options: FakeOptions): McpSession {
       if (name === 'studio_capabilities') {
         return json({ items: [{ class_type: 'LoraLoader', module: 'nodes', display_name: 'Load LoRA', category: 'loaders' }] });
       }
-      if (name === 'models' && options.models) {
-        return json({ items: options.models.map((model) => ({ ...model, root_path: `/m/${model.category}`, size_bytes: 1 })) });
-      }
       if (name === 'models') {
-        return json({
-          items: [
+        // Like the current server: the plain listing names categories only; files come one category at a time.
+        const catalog = options.models
+          ? options.models.map((model) => ({ ...model, root_path: `/m/${model.category}`, size_bytes: 1 }))
+          : [
             { category: 'loras', filename: 'zimage_style.safetensors', root_path: '/m/loras', size_bytes: 10 },
             { category: 'loras', filename: 'Band_Shirt_Crop_Top_SDXL.safetensors', root_path: '/m/loras', size_bytes: 11 },
             { category: 'loras', filename: 'old.pt', root_path: '/m/loras', size_bytes: 12 },
             { category: 'checkpoints', filename: 'mystery.safetensors', root_path: '/m/checkpoints', size_bytes: 13 },
             { category: 'sams', filename: 'sam_vit_b.pth', root_path: '/m/sams', size_bytes: 14 },
-          ],
-        });
+          ];
+        if (typeof args.category !== 'string') {
+          const categories = [...new Set(catalog.map((row) => row.category)), '.cache'];
+          return json({ items: categories.map((category) => ({ category })), total: categories.length, complete: true });
+        }
+        return json({ items: catalog.filter((row) => row.category === args.category), complete: true });
       }
       if (name === 'model_metadata') {
         const answer = options.metadata?.(String(args.name)) ?? json({ model_explorer: 'unavailable', embedded_metadata: {}, civitai_sidecar: null });
@@ -429,13 +433,26 @@ describe('sync at startup', () => {
       expect(recent.tokens).toHaveLength(0);
       recent.sync.stop();
 
+      // Whether credentials are needed is the server's call: a fresh address is tried without any.
       const fresh = openDb();
       fresh.prepare("INSERT INTO sync_state (key, value) VALUES ('auto_enabled', '1'), ('auto_interval_minutes', '30')").run();
       const anonymous = service({ calls: [] }, { now: () => now, token: () => null, signedIn: () => false, authProvider: async () => null });
-      expect(anonymous.sync.start(fresh)).toMatchObject({ startupPending: false, nextRunAt: now + 30 * 60_000 });
-      await vi.advanceTimersByTimeAsync(STARTUP_DELAY_MS * 2);
-      expect(anonymous.tokens).toHaveLength(0);
+      expect(anonymous.sync.start(fresh)).toMatchObject({ startupPending: true, nextRunAt: now + STARTUP_DELAY_MS });
       anonymous.sync.stop();
+
+      // A server that answered "sign in" is not retried at startup until a token or a sign-in appears.
+      fresh.prepare("INSERT INTO sync_state (key, value) VALUES ('last_error', ?)").run(MCP_NEEDS_SIGN_IN);
+      const refused = service({ calls: [] }, { now: () => now, token: () => null, signedIn: () => false, authProvider: async () => null });
+      expect(refused.sync.start(fresh)).toMatchObject({ startupPending: false, nextRunAt: now + 30 * 60_000 });
+      await vi.advanceTimersByTimeAsync(STARTUP_DELAY_MS * 2);
+      expect(refused.tokens).toHaveLength(0);
+      refused.sync.stop();
+      // ...unless that server accepted an anonymous connection since.
+      fresh.prepare("INSERT INTO sync_state (key, value) VALUES ('auth_mode', 'anonymous')").run();
+      const accepted = service({ calls: [] }, { now: () => now, token: () => null, signedIn: () => false, authProvider: async () => null });
+      expect(accepted.sync.start(fresh)).toMatchObject({ startupPending: true });
+      accepted.sync.stop();
+      fresh.prepare("DELETE FROM sync_state WHERE key IN ('last_error', 'auth_mode')").run();
 
       // A browser sign-in counts as credentials.
       const signed = service({ calls: [] }, { now: () => now, token: () => null, signedIn: () => true, authProvider: async () => null });
@@ -553,6 +570,47 @@ describe('reported ComfyUI address', () => {
     expect(reportedComfyUrl(db)).toBeNull();
     put.run('{not json');
     expect(reportedComfyUrl(db)).toBeNull();
+    db.close();
+  });
+});
+
+describe('servers without authentication', () => {
+  it('tells a server that wants a sign-in apart from one that refused a token', async () => {
+    const unauthorized = async () => {
+      throw Object.assign(new Error('Unauthorized'), { name: 'UnauthorizedError' });
+    };
+    expect(await openReadOnlySession({ url: 'https://mcp.example.test/mcp', token: null }, unauthorized)).toEqual({ ok: false, error: MCP_NEEDS_SIGN_IN });
+    expect(await openReadOnlySession({ url: 'https://mcp.example.test/mcp', token: TOKEN }, unauthorized)).toEqual({ ok: false, error: 'MCP server refused the token.' });
+    expect(translateKnownError(createTranslator('ru'), MCP_NEEDS_SIGN_IN)).toContain('MCP-сервер требует входа');
+  });
+
+  it('syncs without any credentials when the server accepts the connection, and remembers how it connected', async () => {
+    const db = openDb();
+    const anonymous = service({ calls: [] }, { token: () => null, signedIn: () => false, authProvider: async () => null });
+    const status = await anonymous.sync.runSync(db);
+    expect(status).toMatchObject({ state: 'idle', tokenHeld: false, signedIn: false, authMode: 'anonymous' });
+    expect(anonymous.tokens).toEqual([null]);
+    expect(status.counts.models).toBeGreaterThan(0);
+
+    const withToken = service({ calls: [] });
+    expect((await withToken.sync.runSync(db)).authMode).toBe('token');
+    const signed = service({ calls: [] }, { token: () => null, signedIn: () => true, authProvider: async () => null });
+    expect((await signed.sync.runSync(db)).authMode).toBe('oauth');
+    db.close();
+  });
+
+  it('reports "requires sign-in" when a server answers 401 to a connection without credentials', async () => {
+    const db = openDb();
+    const refused = service({ calls: [] }, {
+      token: () => null,
+      signedIn: () => false,
+      authProvider: async () => null,
+      factory: async () => {
+        throw Object.assign(new Error('Unauthorized'), { name: 'UnauthorizedError' });
+      },
+    });
+    const status = await refused.sync.runSync(db);
+    expect(status).toMatchObject({ state: 'error', lastError: MCP_NEEDS_SIGN_IN, authMode: null });
     db.close();
   });
 });

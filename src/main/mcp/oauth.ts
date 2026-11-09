@@ -16,7 +16,8 @@ import { en, ru } from '../../shared/i18n/catalog';
 import { isUnprotectedCipher } from '../../shared/config/secretPolicy';
 import { forgetSecret, readSecretCipher, saveNamedSecretIfProven } from '../settings/repository';
 import { isLoopbackHost } from '../comfy/read';
-import { MCP_SIGN_IN_AGAIN, mcpUrlError } from './client';
+import { isNetworkError, MCP_SIGN_IN_AGAIN, mcpUnreachableError, mcpUrlError } from './client';
+import { redactSecrets } from '../../shared/config/draft';
 
 /**
  * OAuth sign-in to the configured MCP server (authorization code + PKCE S256, dynamic client registration,
@@ -525,6 +526,14 @@ export class McpOAuthManager {
     const origin = originOf(url);
     this.pending.get(origin)?.cancel();
     const entry = await this.load(origin);
+    // Whether a sign-in is needed is the server's call: one that accepts a plain connection gets no OAuth hunt.
+    const plain = await this.connectOnce(url, null);
+    if (!plain.error) {
+      entry.expired = false;
+      this.changed();
+      return { ok: true, anonymous: true };
+    }
+    if (isNetworkError(plain.error)) return { ok: false, error: mcpUnreachableError(new URL(url).host) };
     let redirect: LoopbackRedirect;
     try {
       redirect = await startLoopbackRedirect({
@@ -552,6 +561,9 @@ export class McpOAuthManager {
       const status = await this.status(url);
       return { ok: true, ...(status.expiresAt !== undefined ? { expiresAt: status.expiresAt } : {}) };
     } catch (error) {
+      // The fixed sentence reaches the person; the cause goes to the log for "Copy diagnostics", without secrets.
+      const cause = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+      console.warn(`[MCP OAuth] sign-in did not finish: ${redactSecrets(cause).slice(0, 300)}`);
       return { ok: false, error: loginError(error) };
     } finally {
       redirect.close();
@@ -577,8 +589,9 @@ export class McpOAuthManager {
     return this.status(url);
   }
 
-  private async connectOnce(url: string, provider: McpOAuthProvider): Promise<{ transport: StreamableHTTPClientTransport; error: unknown }> {
-    const transport = new StreamableHTTPClientTransport(new URL(url), { authProvider: provider });
+  /** One connect attempt; with `provider` null the connection carries no credentials at all. */
+  private async connectOnce(url: string, provider: McpOAuthProvider | null): Promise<{ transport: StreamableHTTPClientTransport; error: unknown }> {
+    const transport = new StreamableHTTPClientTransport(new URL(url), provider ? { authProvider: provider } : undefined);
     const client = new Client({ name: 'comfyui-graph-helper', version: '0.1.0' });
     let timer: ReturnType<typeof setTimeout> | undefined;
     const timeout = new Promise<never>((_, reject) => {

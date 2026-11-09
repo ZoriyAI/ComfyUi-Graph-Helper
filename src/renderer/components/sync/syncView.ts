@@ -4,6 +4,8 @@ export type SyncState = SyncStatus['state'];
 
 /** The stored sentence for an expired browser sign-in (main/mcp/client.ts MCP_SIGN_IN_AGAIN). */
 const SIGN_IN_AGAIN = 'MCP sign-in has expired. Sign in through the browser again.';
+/** The stored sentence for a server that answered 401 to a connection without credentials (MCP_NEEDS_SIGN_IN). */
+const NEEDS_SIGN_IN = 'MCP server requires sign-in.';
 
 export interface SyncView {
   state: SyncState;
@@ -13,7 +15,11 @@ export interface SyncView {
   labelParams?: Record<string, number>;
   /** 0..1 while a phase with a known total runs; null when indeterminate or idle. */
   fraction: number | null;
-  /** True when the server address is missing, or neither a token nor a browser sign-in is held, so "Sync now" would fail. */
+  /**
+   * 'noUrl' when the server address is missing. 'noToken' when the server has asked for a sign-in and neither a token
+   * nor a browser sign-in is held. Whether credentials are needed is the server's call, so a run is never blocked
+   * before the server has answered, and a server that accepted an anonymous connection never blocks.
+   */
   blocked: 'noUrl' | 'noToken' | null;
   /** Model metadata is still being read in the background after a successful listing. */
   enriching: boolean;
@@ -38,7 +44,8 @@ export function syncView(status: SyncStatus | null): SyncView {
   const enriching = isEnriching(status);
   const busy = state === 'running' || enriching;
   const fraction = busy && progress && progress.total > 0 ? Math.min(1, progress.done / progress.total) : null;
-  const blocked = !status || status.mcpUrl.trim() === '' ? 'noUrl' : !status.tokenHeld && !status.signedIn ? 'noToken' : null;
+  const noCredentials = status != null && !status.tokenHeld && !status.signedIn && status.authMode !== 'anonymous';
+  const blocked = !status || status.mcpUrl.trim() === '' ? 'noUrl' : noCredentials && status.lastError === NEEDS_SIGN_IN ? 'noToken' : null;
   let labelKey = `sync.state.${state}`;
   let labelParams: Record<string, number> | undefined;
   if (enriching && progress) {
@@ -48,7 +55,8 @@ export function syncView(status: SyncStatus | null): SyncView {
     labelKey = 'sync.state.starting';
   }
   const warned = state === 'idle' && (status?.warnings?.length ?? 0) > 0;
-  const needsSignIn = blocked === 'noToken' || (state === 'error' && status?.lastError === SIGN_IN_AGAIN);
+  const needsSignIn = blocked === 'noToken'
+    || (state === 'error' && (status?.lastError === SIGN_IN_AGAIN || status?.lastError === NEEDS_SIGN_IN));
   return { state, labelKey, labelParams, fraction, blocked, enriching, busy, warned, needsSignIn };
 }
 

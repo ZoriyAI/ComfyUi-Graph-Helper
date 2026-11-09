@@ -161,9 +161,11 @@ describe('sync view', () => {
   it('derives state, progress and what blocks a sync', () => {
     expect(syncView(null)).toMatchObject({ state: 'never', fraction: null, blocked: 'noUrl' });
     expect(syncView(status)).toMatchObject({ state: 'running', labelKey: 'sync.state.running', fraction: 0.25, blocked: null });
-    expect(syncView({ ...status, tokenHeld: false }).blocked).toBe('noToken');
+    // Credentials are the server's call: no token alone blocks nothing; the server has to have asked for a sign-in.
+    expect(syncView({ ...status, tokenHeld: false }).blocked).toBeNull();
+    expect(syncView({ ...status, tokenHeld: false, state: 'error', lastError: 'MCP server requires sign-in.' }).blocked).toBe('noToken');
     // A browser sign-in counts as auth: the "no token" hint is not shown.
-    expect(syncView({ ...status, tokenHeld: false, signedIn: true }).blocked).toBeNull();
+    expect(syncView({ ...status, tokenHeld: false, signedIn: true, state: 'error', lastError: 'MCP server requires sign-in.' }).blocked).toBeNull();
     expect(syncView({ ...status, progress: { phase: 'connect', done: 0, total: 0 } }).fraction).toBeNull();
   });
 
@@ -177,7 +179,8 @@ describe('sync view', () => {
     expect(createTranslator('ru')(enriching.labelKey, enriching.labelParams)).toBe('Чтение метаданных моделей: 120 / 316');
     expect(syncView({ ...idle, warnings: ['x'] }).warned).toBe(true);
     expect(syncView({ ...idle, state: 'error', lastError: 'MCP sign-in has expired. Sign in through the browser again.' }).needsSignIn).toBe(true);
-    expect(syncView({ ...idle, tokenHeld: false }).needsSignIn).toBe(true);
+    expect(syncView({ ...idle, tokenHeld: false }).needsSignIn).toBe(false);
+    expect(syncView({ ...idle, tokenHeld: false, state: 'error', lastError: 'MCP server requires sign-in.' }).needsSignIn).toBe(true);
     expect(syncView(idle).needsSignIn).toBe(false);
   });
 
