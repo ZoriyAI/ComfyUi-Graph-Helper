@@ -26,6 +26,7 @@ import { startGraphTour } from '../components/graph/tour/startTour';
 import { runSyncNow, setAutoSync } from '../components/sync/SyncIndicator';
 import { RAIL_WIDTH } from '../state/uiState';
 import { savePreferencesPatch } from '../state/preferencesState';
+import { buildDiagnosticsCommands } from './diagnosticsCommands';
 
 const always = () => true;
 const never = () => false;
@@ -268,6 +269,7 @@ export function installAppCommands(): () => void {
     addCommandStateSource(domSource('lang')),
     addCommandStateSource(resizeSource),
     registerCommands(buildAppCommands()),
+    registerCommands(buildDiagnosticsCommands()),
   ];
   installed = () => {
     for (const off of offs) off();

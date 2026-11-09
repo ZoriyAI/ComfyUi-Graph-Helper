@@ -85,4 +85,9 @@ export const IPC_CHANNELS = {
   ACTION_RESUME: 'action:resume',
   ACTION_CANCEL: 'action:cancel',
   ACTION_GET_STATUS: 'action:get-status',
+
+  // Diagnostics: log folder, redacted report, renderer error reports
+  DIAGNOSTICS_COLLECT: 'diagnostics:collect',
+  DIAGNOSTICS_OPEN_LOGS: 'diagnostics:open-logs',
+  DIAGNOSTICS_RENDERER_ERROR: 'diagnostics:renderer-error',
 } as const;

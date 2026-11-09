@@ -82,6 +82,9 @@ const IPC_CHANNELS = {
   PROPOSALS_EVENT: 'proposals:event',
   GRAPH_LIST_REVISIONS: 'graph:list-revisions',
   GRAPH_LOAD_REVISION: 'graph:load-revision',
+  DIAGNOSTICS_COLLECT: 'diagnostics:collect',
+  DIAGNOSTICS_OPEN_LOGS: 'diagnostics:open-logs',
+  DIAGNOSTICS_RENDERER_ERROR: 'diagnostics:renderer-error',
 } as const;
 
 /** The app version main passes as `--app-version=…` (a sandboxed preload cannot read package.json). */
@@ -239,7 +242,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Revision history for the replay player (Canvas workstream; handlers in main/ipc/engineIpc.ts)
   listRevisions: (projectId: string) => ipcRenderer.invoke(IPC_CHANNELS.GRAPH_LIST_REVISIONS, projectId) as Promise<RevisionSummary[]>,
   loadRevision: (projectId: string, revisionId: string) => ipcRenderer.invoke(IPC_CHANNELS.GRAPH_LOAD_REVISION, { projectId, revisionId }) as Promise<RevisionSnapshot | null>,
+
+  // Diagnostics (Help menu, error boundary, renderer error reports)
+  collectDiagnostics: () => ipcRenderer.invoke(IPC_CHANNELS.DIAGNOSTICS_COLLECT) as Promise<string>,
+  openLogsFolder: () => ipcRenderer.invoke(IPC_CHANNELS.DIAGNOSTICS_OPEN_LOGS) as Promise<{ ok: true } | { ok: false; error: string }>,
+  reportRendererError: (report: RendererErrorReport) => ipcRenderer.invoke(IPC_CHANNELS.DIAGNOSTICS_RENDERER_ERROR, report) as Promise<{ logged: boolean }>,
 });
+
+/** What the renderer sends about an error; main clips, redacts and rate-limits it. */
+export interface RendererErrorReport {
+  kind: 'error' | 'unhandledrejection' | 'boundary';
+  message: string;
+  source?: string;
+  stack?: string;
+}
 
 export type LlmProbeResult =
   | { ok: true; latencyMs: number; provider: string; model: string }
@@ -349,6 +365,12 @@ export interface ElectronAPI {
   listRevisions: (projectId: string) => Promise<RevisionSummary[]>;
   /** Snapshot of one revision, read-only; null when it does not exist. Never changes the current revision. */
   loadRevision: (projectId: string, revisionId: string) => Promise<RevisionSnapshot | null>;
+  /** Help ▸ Copy diagnostics: a redacted text report (versions, settings without secrets, log tail). */
+  collectDiagnostics: () => Promise<string>;
+  /** Help ▸ Open logs folder. */
+  openLogsFolder: () => Promise<{ ok: true } | { ok: false; error: string }>;
+  /** Logs a renderer error in main (redacted, rate-limited). */
+  reportRendererError: (report: RendererErrorReport) => Promise<{ logged: boolean }>;
 }
 
 declare global {

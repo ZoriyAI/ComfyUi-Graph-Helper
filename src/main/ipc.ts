@@ -13,6 +13,7 @@ import { readCatalogViaMcp } from './mcp/client';
 import { registerKnowledgeIpc } from './ipc/knowledgeIpc';
 import { registerEngineIpc } from './ipc/engineIpc';
 import { registerAgentIpc } from './ipc/agentIpc';
+import { registerDiagnosticsIpc } from './ipc/diagnosticsIpc';
 import { mcpTokenFor, mcpTokenStatus, releaseMcpTokenIfOriginChanged, setMcpToken } from './mcp/token';
 import { configureMcpOAuth, loginToMcp, logoutFromMcp, oauthStatus } from './mcp/oauth';
 import { browserOpener } from './mcp/browser';
@@ -106,6 +107,7 @@ export async function setupIPC(): Promise<void> {
   registerKnowledgeIpc(ipcMain);
   registerEngineIpc(ipcMain);
   registerAgentIpc(ipcMain);
+  registerDiagnosticsIpc(ipcMain);
   // File operations
   ipcMain.handle(IPC_CHANNELS.FILE_IMPORT_WORKFLOW, async () => {
     const copy = dialogCopy().importWorkflow;
@@ -275,7 +277,12 @@ export async function setupIPC(): Promise<void> {
     const read = readSettings(getDatabase());
     const origin = read.source === 'corrupt' ? '' : read.values.comfyOrigin;
     if (!origin) return { ok: false as const, error: 'Comfy origin is empty.' };
-    return applyComfyRead(getDatabase(), origin, globalThis.fetch);
+    const started = Date.now();
+    console.log('[Comfy] Reading /system_stats and /object_info');
+    const result = await applyComfyRead(getDatabase(), origin, globalThis.fetch);
+    if (result.ok) console.log(`[Comfy] Read ${result.nodes} node classes, ${result.models} models in ${Date.now() - started} ms (skipped ${result.skipped.length})`);
+    else console.warn(`[Comfy] Read failed after ${Date.now() - started} ms: ${result.error}`);
+    return result;
   });
 
   ipcMain.handle(IPC_CHANNELS.MCP_READ, async () => {
