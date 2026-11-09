@@ -23,7 +23,11 @@ const ID_KEYS = ['nodeId', 'edgeId', 'source', 'target', 'groupId', 'definitionI
 
 /** The payload a recent command keeps, and the ids it touched. */
 export function recentPayload(type: string, payload: Record<string, unknown>, result: Record<string, unknown> | null): { payload: Record<string, unknown>; ids: string[] } {
-  const kept = BULKY.has(type) ? { type } : payload;
+  const kept = BULKY.has(type)
+    ? { type }
+    : type === 'restore-revision' && typeof result?.restoredRevSeq === 'number'
+      ? { ...payload, revSeq: result.restoredRevSeq }
+      : payload;
   const ids = new Set<string>();
   for (const source of [payload, result ?? {}]) {
     for (const key of ID_KEYS) {
@@ -81,6 +85,7 @@ export function describeCommand(command: RecentCommand, summary: GraphSummary | 
     case 'remove-subgraph-io': return `removed a subgraph ${p.direction === 'output' ? 'output' : 'input'}`;
     case 'add-group': return `grouped nodes ${Array.isArray(p.nodeIds) ? p.nodeIds.map((id) => safeText(str(id), 40)).join(', ') : '?'}${str(p.title) ? ` as "${safeText(str(p.title), 80)}"` : ''}`;
     case 'remove-group': return `removed group ${safeText(str(p.groupId), 80)}`;
+    case 'restore-revision': return `restored revision ${round(p.revSeq)}`;
     default: return safeText(command.type, 40);
   }
 }

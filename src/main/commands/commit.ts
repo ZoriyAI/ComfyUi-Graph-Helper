@@ -28,16 +28,21 @@ import {
 import { DESKTOP_PROJECT_ID } from '../../shared/project';
 import { parseNativeProject } from '../../shared/native-project';
 import type { GroupRecord, SubgraphDefinition } from '../../shared/graph/subgraphs';
-import { applyGraphOp, GraphOpError, Ids, isGraphOp } from './graphOps';
+import { applyGraphOp, blankDocument, GraphOpError, Ids, isGraphOp } from './graphOps';
 import { supersedeAllOpen, supersedeForMissingNodes } from '../proposals/supersede';
 import { recentPayload, type RecentCommand } from '../../shared/agent/recentActions';
+import type { RevisionSummary } from '../../shared/contracts/revisions';
 import {
   liftSubgraphsAndGroups,
   mirrorDocument,
   missingDeps,
+  nextLinkId,
+  nextNodeId,
   numericSlot,
   patchWidgets,
   projectWorkflow,
+  rememberLinkId,
+  rememberNodeId,
   widgetsFromParameters,
   type GraphSnapshot,
   type WorkflowDocumentState,
@@ -517,6 +522,34 @@ function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutat
   };
 }
 
+/**
+ * restore-revision (undo/redo): the named revision's whole snapshot (nodes, edges, document, components,
+ * process, subgraphs, groups) becomes the next revision. The id counters stay where the current revision has
+ * them, so a node made after an undo never takes the id of a node the undo took away.
+ */
+function restoreRevision(
+  db: Database.Database,
+  projectId: string,
+  revisionId: string,
+  current: Snapshot,
+): { snapshot: Snapshot; result: Record<string, unknown> } {
+  const row = db
+    .prepare('SELECT id, rev_seq, nodes, edges, document, components, process_meta FROM graph_revisions WHERE id = ? AND project_id = ?')
+    .get(revisionId, projectId) as RevisionRow | undefined;
+  if (!row) throw new CommandSignal('rejected', { error: 'Revision was not found.' });
+  const restored = snapshotFromRow(row);
+  const lastNode = nextNodeId(current) - 1;
+  const lastLink = nextLinkId(current) - 1;
+  let document = restored.document;
+  if (!document && (lastNode > 0 || lastLink > 0)) document = blankDocument();
+  if (document && lastNode > 0 && nextNodeId({ ...restored, document }) - 1 < lastNode) document = rememberNodeId(document, lastNode);
+  if (document && lastLink > 0 && nextLinkId({ ...restored, document }) - 1 < lastLink) document = rememberLinkId(document, lastLink);
+  return {
+    snapshot: { ...restored, document },
+    result: { revisionId: row.id, restoredRevSeq: row.rev_seq },
+  };
+}
+
 interface CatalogWatch {
   version: Database.Statement;
   view: CatalogView | null;
@@ -608,7 +641,9 @@ export function commitCommand(
       }
 
       const catalog = cachedCatalog(db);
-      const applied = applyMutation(current.snapshot, request.actionId, request.payload, catalog);
+      const applied = request.payload.type === 'restore-revision'
+        ? restoreRevision(db, request.projectId, request.payload.revisionId, current.snapshot)
+        : applyMutation(current.snapshot, request.actionId, request.payload, catalog);
       const sealed = sealSnapshot(applied.snapshot, current.snapshot);
       applied.snapshot = sealed.snapshot;
       if (request.payload.type === 'import-workflow') {
@@ -787,14 +822,45 @@ export function switchProject(db: Database.Database, fromProjectId: string): Pro
 }
 
 /** Read-only revision history: the newest `limit` revisions, oldest first. Never moves the current pointer. */
-export function listRevisions(db: Database.Database, projectId: string, limit = 2000): Array<{ id: string; revSeq: number; timestamp: number; description: string | null; source: string }> {
+export function listRevisions(db: Database.Database, projectId: string, limit = 2000): RevisionSummary[] {
   const rows = db
     .prepare(
-      `SELECT id, rev_seq, timestamp, description, source FROM graph_revisions
-       WHERE project_id = ? ORDER BY rev_seq DESC, rowid DESC LIMIT ?`,
+      `SELECT r.id, r.rev_seq, r.timestamp, r.description, r.source, a.actor, a.result_json,
+         CASE WHEN r.description IN ('import-workflow', 'open-native') THEN NULL ELSE a.payload_canonical END AS payload_canonical
+       FROM graph_revisions r
+       LEFT JOIN applied_commands a ON a.result_revision_id = r.id AND a.project_id = r.project_id
+       WHERE r.project_id = ? ORDER BY r.rev_seq DESC, r.rowid DESC LIMIT ?`,
     )
-    .all(projectId, limit) as Array<{ id: string; rev_seq: number; timestamp: number; description: string | null; source: string }>;
-  return rows.reverse().map((row) => ({ id: row.id, revSeq: row.rev_seq, timestamp: row.timestamp, description: row.description, source: row.source }));
+    .all(projectId, limit) as Array<{
+      id: string; rev_seq: number; timestamp: number; description: string | null; source: string;
+      actor: string | null; result_json: string | null; payload_canonical: string | null;
+    }>;
+  return rows.reverse().map((row) => {
+    const type = row.description ?? '';
+    const parsed = row.payload_canonical ? parseRecord(row.payload_canonical) : null;
+    const result = row.result_json ? parseRecord(row.result_json) : null;
+    const payload = parsed ? recentPayload(type, parsed, result).payload : row.actor ? { type } : null;
+    const restored = type === 'restore-revision' && typeof result?.revisionId === 'string' ? result.revisionId : null;
+    return {
+      id: row.id,
+      revSeq: row.rev_seq,
+      timestamp: row.timestamp,
+      description: row.description,
+      source: row.source,
+      actor: row.actor === 'ai' ? 'ai' as const : row.actor === 'manual' ? 'manual' as const : null,
+      payload,
+      restoredRevisionId: restored,
+    };
+  });
+}
+
+function parseRecord(text: string): Record<string, unknown> | null {
+  try {
+    const value: unknown = JSON.parse(text);
+    return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null;
+  } catch {
+    return null;
+  }
 }
 
 /** The snapshot of any revision of a project, sealed the same way as the current one; null when it is not there. */
