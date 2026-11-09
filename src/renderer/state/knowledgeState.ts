@@ -87,6 +87,14 @@ export function selectCheckCount(state: Pick<KnowledgeState, 'check'>): number |
 let subscribed = false;
 
 /** Reads the sync status once and keeps it current from main-process pushes. Safe to call more than once. */
+/**
+ * Re-reads the sync status. Main pushes a status only around a sync run, so a saved MCP address or a token held in
+ * Settings would otherwise keep showing "Set the MCP server address in Settings first" until the next run.
+ */
+export function refreshSyncStatus(): void {
+  void window.electronAPI.syncStatus().then((status) => useKnowledgeStore.getState().setSync(status)).catch(() => undefined);
+}
+
 export function startSyncSubscription(): void {
   if (subscribed) return;
   subscribed = true;

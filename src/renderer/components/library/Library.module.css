@@ -81,6 +81,9 @@
 .categoryDot[data-on="true"] { background: var(--row-hue, var(--ok)); border-color: var(--row-hue, var(--ok)); box-shadow: 0 0 8px var(--row-hue, transparent); }
 .badges { display: flex; align-items: center; gap: 4px; min-width: 0; overflow: hidden; margin-top: 2px; }
 .badges > * { flex: 0 1 auto; }
+/* Family and kind badges keep their width (an ellipsis inside a short badge reads as "Lo…"); the size gives way. */
+.badges > :not(.meta2) { flex-shrink: 0; }
+.badges > .meta2 { flex-shrink: 1; min-width: 0; }
 .meta2 { color: var(--text-dim); font-size: 11px; line-height: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .modelRow { height: calc(100% - 2px); }
 .ask { opacity: 0; transition: opacity var(--motion-feedback) var(--motion-ease-out); }

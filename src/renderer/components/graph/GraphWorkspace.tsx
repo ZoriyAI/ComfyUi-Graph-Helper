@@ -74,6 +74,7 @@ function Workspace({ onImportWorkflow }: GraphWorkspaceProps) {
     void commitManual({
       type: 'add-node',
       nodeType: add.nodeType,
+      ...(add.title ? { title: add.title } : {}),
       x: Math.round(at.x),
       y: Math.round(at.y),
       ...(Object.keys(add.parameters).length > 0 ? { parameters: add.parameters } : {}),

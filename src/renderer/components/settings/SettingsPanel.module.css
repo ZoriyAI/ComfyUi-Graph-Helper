@@ -206,3 +206,5 @@
 .about { display: flex; align-items: center; gap: 12px; }
 .aboutMark { width: 40px; height: 40px; border-radius: 10px; background: var(--accent-gradient); box-shadow: var(--glow-accent); }
 .aboutName { margin: 0; color: var(--text); font-size: var(--text-lg); font-weight: 600; }
+/* A field value the app will refuse later (an http MCP URL off this machine): said while it is typed. */
+.errorNote { margin: 0; color: var(--danger); font-size: var(--text-xs); line-height: 18px; max-width: 60ch; }

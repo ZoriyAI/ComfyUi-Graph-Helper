@@ -10,6 +10,7 @@ import {
   moveAnnouncement,
   redactDiagnostic,
   ru,
+  translateKnownError,
 } from '../../src/shared/i18n';
 import { nonSecretDefaults } from '../../src/shared/config/schema';
 import { migrate, schemaVersion } from '../../src/main/settings/migrate';
@@ -191,5 +192,17 @@ describe('language preference', () => {
     expect(rejected).toEqual({ ok: false, error: 'Settings do not match the schema' });
     expect(readSettings(db)).toMatchObject({ source: 'stored', values: { language: 'en' } });
     db.close();
+  });
+});
+
+describe('unavailable tool errors', () => {
+  it('turns the SDK NoSuchToolError text into a catalog sentence that names the mode', () => {
+    const raw = "AI_NoSuchToolError: Model tried to call unavailable tool 'addNode'. Available tools: getGraph, searchNodeTypes.";
+    expect(translateKnownError(createTranslator('en'), raw)).toBe(
+      'The assistant tried to change the graph (addNode), but the composer is in Ask mode. Switch to Build and ask again; nothing was changed.',
+    );
+    expect(translateKnownError(createTranslator('ru'), raw)).toContain('«Строить»');
+    expect(translateKnownError(createTranslator('en'), "Model tried to call unavailable tool 'mystery'. Available tools: x."))
+      .toBe('The assistant asked for a tool that is not available here (mystery). Nothing was changed.');
   });
 });
