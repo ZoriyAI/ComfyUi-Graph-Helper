@@ -127,7 +127,7 @@ test('prerelease journey configures a provider, builds a process, and exports a 
     await expect(window.getByText('TEST fixture only: I added a node, stored what it is for, and named the process.')).toBeVisible({ timeout: 30000 });
     await window.getByRole('tab', { name: 'Inspector' }).click();
     await window.getByText('Fixture step').click();
-    const nodeForm = window.locator('[data-component-owner="node:node-call-add-node"]');
+    const nodeForm = window.locator('[data-component-owner="node:1"]');
     await expect(nodeForm.locator('textarea').nth(0)).toHaveValue(PURPOSE);
     await expect(nodeForm.locator('textarea').nth(1)).toHaveValue('Connect it in Comfy after export.');
     await expect(window.locator('#process-title')).toHaveValue(PROCESS_TITLE);
@@ -155,7 +155,7 @@ test('prerelease journey configures a provider, builds a process, and exports a 
     expect(native.format).toBe('comfy-graph-helper-project');
     expect(native.version).toBe(2);
     expect(native.process.title).toBe(PROCESS_TITLE);
-    expect(native.components.find((item) => item.ownerId === 'node-call-add-node')?.purpose).toBe(PURPOSE);
+    expect(native.components.find((item) => item.ownerId === '1')?.purpose).toBe(PURPOSE);
 
     await electronApp.evaluate(({ dialog: fileDialog }, paths) => {
       fileDialog.showSaveDialog = async () => ({ canceled: false, filePath: paths.comfyPath });
@@ -176,7 +176,7 @@ test('prerelease journey configures a provider, builds a process, and exports a 
     await nodeForm.getByRole('button', { name: 'Save documentation' }).click();
     await window.getByRole('button', { name: 'Open project' }).click();
     await expect(window.getByText('Opened the native project.')).toBeVisible();
-    await expect(window.locator('[data-component-owner="node:node-call-add-node"] textarea').nth(0)).toHaveValue(PURPOSE);
+    await expect(window.locator('[data-component-owner="node:1"] textarea').nth(0)).toHaveValue(PURPOSE);
     expect(containsMarker(userData)).toBeNull();
     expect(hits.filter((hit) => hit.startsWith('POST'))).toEqual([]);
   } finally {
@@ -229,7 +229,7 @@ test('object info import lets the agent export a loader parameter', async () => 
     await expect(window.getByText('TEST fixture only: the loader parameter is in the export.')).toBeVisible({ timeout: 30000 });
     await window.getByRole('tab', { name: 'Inspector' }).click();
     await window.locator('.react-flow__node', { hasText: 'Portrait loader' }).click();
-    const nodeForm = window.locator('[data-component-owner="node:node-call-add-loader"]');
+    const nodeForm = window.locator('[data-component-owner="node:1"]');
     await expect(nodeForm.locator('textarea').nth(0)).toHaveValue('Loads the portrait checkpoint');
     await expect(window.locator('#process-title')).toHaveValue('Portrait process');
 
@@ -252,7 +252,7 @@ test('object info import lets the agent export a loader parameter', async () => 
     };
     expect(native.format).toBe('comfy-graph-helper-project');
     expect(native.process.title).toBe('Portrait process');
-    expect(native.components.find((item) => item.ownerId === 'node-call-add-loader')?.purpose).toBe('Loads the portrait checkpoint');
+    expect(native.components.find((item) => item.ownerId === '1')?.purpose).toBe('Loads the portrait checkpoint');
 
     await electronApp.evaluate(({ dialog: fileDialog }, paths) => {
       fileDialog.showSaveDialog = async () => ({ canceled: false, filePath: paths.comfyPath });
@@ -274,7 +274,7 @@ test('object info import lets the agent export a loader parameter', async () => 
     await nodeForm.getByRole('button', { name: 'Save documentation' }).click();
     await window.getByRole('button', { name: 'Open project' }).click();
     await expect(window.getByText('Opened the native project.')).toBeVisible();
-    await expect(window.locator('[data-component-owner="node:node-call-add-loader"] textarea').nth(0)).toHaveValue('Loads the portrait checkpoint');
+    await expect(window.locator('[data-component-owner="node:1"] textarea').nth(0)).toHaveValue('Loads the portrait checkpoint');
   } finally {
     await electronApp.close();
   }

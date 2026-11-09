@@ -117,12 +117,14 @@ test('IPC scenarios keep one canonical graph', async () => {
     actor: 'ai',
     payload: { type: 'add-node', nodeType: 'TestNode' },
   }]);
+  // The person's edit moves the run on: the stale revision conflicts, the current one continues the run.
   expect(stale.status).toBe('conflict');
-  expect(fresh.status).toBe('conflict');
+  expect(human.projection.activeRun.expectedRevisionId).toBe(human.projection.currentRevisionId);
+  expect(fresh.status).toBe('applied');
   const beforeState = await dbState('manual-before');
-  expect(beforeState.runs[0].expected_revision_id).toBe(before.expectedRevisionId);
-  expect(beforeState.project!.current_revision_id).toBe(human.projection.currentRevisionId);
-  expect(JSON.parse(beforeState.revision!.nodes)).toHaveLength(1);
+  expect(beforeState.runs[0].expected_revision_id).toBe(fresh.projection.currentRevisionId);
+  expect(beforeState.project!.current_revision_id).toBe(fresh.projection.currentRevisionId);
+  expect(JSON.parse(beforeState.revision!.nodes)).toHaveLength(2);
 
   const between = await api('startRun', ['manual-between']);
   const added = await api('commitCommand', [{
@@ -315,13 +317,13 @@ test('IPC scenarios keep one canonical graph', async () => {
   const oldRun = await api('startRun', ['resume']);
   await api('pauseRun', ['resume', oldRun.runId]);
   const resumed = await api('resumeRun', ['resume']);
-  expect(resumed.runId).not.toBe(oldRun.runId);
+  // Resume reopens the paused run itself.
+  expect(resumed.runId).toBe(oldRun.runId);
   const resumeState = await dbState('resume');
   expect(resumeState.runs.map((run: { run_id: string; status: string }) => [run.run_id, run.status])).toEqual([
-    [oldRun.runId, 'paused'],
-    [resumed.runId, 'running'],
+    [oldRun.runId, 'running'],
   ]);
-  expect(resumed.baseRevisionId).toBe(resumeState.project!.current_revision_id);
+  expect(resumed.expectedRevisionId).toBe(resumeState.project!.current_revision_id);
 
   const manualRun = await api('startRun', ['manual-only']);
   const manualOnly = await api('commitCommand', [{
@@ -333,7 +335,7 @@ test('IPC scenarios keep one canonical graph', async () => {
     payload: { type: 'add-node', nodeType: 'HumanNode' },
   }]);
   expect(manualOnly.status).toBe('applied');
-  expect((await dbState('manual-only')).runs[0].expected_revision_id).toBe(manualRun.expectedRevisionId);
+  expect((await dbState('manual-only')).runs[0].expected_revision_id).toBe(manualOnly.projection.currentRevisionId);
   const disguised = await api('commitCommand', [{
     projectId: 'manual-only',
     runId: manualRun.runId,
