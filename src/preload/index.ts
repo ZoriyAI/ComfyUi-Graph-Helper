@@ -106,6 +106,11 @@ function appVersion(): string {
   return flag ? flag.slice('--app-version='.length).slice(0, 40) : '';
 }
 
+/** A switch main passes as a plain argument (never a secret). */
+function hasFlag(flag: string): boolean {
+  return (process.argv ?? []).includes(flag);
+}
+
 // Expose safe IPC API to renderer
 /** How long a stream listener may outlive its call when no terminal chunk arrives. */
 const STREAM_LISTENER_GRACE_MS = 60_000;
@@ -128,6 +133,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     electron: process.versions.electron,
     app: appVersion(),
   },
+  /** Build switches from main. `testProvider`: the scripted TEST fixture is offered (unpackaged runs and tests only). */
+  flags: { testProvider: hasFlag('--test-provider=1') },
 
   // File operations
   importWorkflow: () => ipcRenderer.invoke(IPC_CHANNELS.FILE_IMPORT_WORKFLOW),
@@ -296,6 +303,8 @@ export interface ElectronAPI {
     /** package.json version, passed by main; '' when unknown. */
     app?: string;
   };
+  /** Build switches from main. `testProvider`: the scripted TEST fixture is offered (unpackaged runs and tests only). */
+  flags: { testProvider: boolean };
   importWorkflow: () => Promise<import('../shared/commands/types').CommandResponse | { status: 'cancelled'; projection: null; result: null }>;
   importCatalog: () => Promise<
     | { status: 'applied'; result: { nodes: number; models: number; skipped: string[] } }

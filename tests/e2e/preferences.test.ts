@@ -39,7 +39,7 @@ test('preferences window: sections, appearance, a recorded shortcut, a canvas to
   // The left list moves between sections; each shows its own content.
   await nav.getByRole('tab', { name: 'Assistant' }).click();
   await expect(dialog.getByRole('radiogroup', { name: 'Provider' })).toBeVisible();
-  await expect(dialog.getByRole('radio', { name: 'Not configured', exact: true })).toHaveAttribute('aria-checked', 'true');
+  await expect(dialog.getByRole('radio', { name: 'Not chosen', exact: true })).toHaveAttribute('aria-checked', 'true');
   await expect(dialog.getByRole('button', { name: 'Check connection' })).toBeDisabled();
   // Steps per answer is a checkpoint (default 60, up to 200); the context window is auto (0); web limits are stated.
   await expect(dialog.getByRole('spinbutton', { name: 'Steps per answer' })).toHaveValue('60');

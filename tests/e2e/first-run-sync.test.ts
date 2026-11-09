@@ -52,7 +52,7 @@ test('first run: connect, sync from MCP, browse the library, build, check and ex
     await useEnglish(window);
 
     // A fresh profile has no MCP address: the empty canvas sends the person to Settings ▸ Connection.
-    await window.getByRole('button', { name: 'Connect to ComfyUI…' }).click();
+    await window.getByRole('button', { name: 'Connect…' }).click();
     const dialog = window.locator('[role="dialog"].settings-dialog');
     const mcpUrl = dialog.getByRole('textbox', { name: 'MCP server URL', exact: true });
     await expect(mcpUrl).toBeVisible();

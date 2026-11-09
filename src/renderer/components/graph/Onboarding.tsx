@@ -1,30 +1,92 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'motion/react';
-import { FolderInput, Ghost, MessageCircleQuestion, Plug, RefreshCw } from 'lucide-react';
+import { Check, FolderInput, MessageCircleQuestion, Plug, RefreshCw, Sparkles } from 'lucide-react';
 import Button from '../../ui/Button';
 import { motionIsFull } from '../../motion/policy';
 import { runSyncNow } from '../sync/SyncIndicator';
 import { syncView } from '../sync/syncView';
 import { useKnowledgeStore } from '../../state/knowledgeState';
 import { useUiStore } from '../../state/uiState';
+import { providerKeyState, useProviderStore } from '../../state/providerState';
+import { focusChat } from '../../commands/actions';
+import { explainError, type Translator } from '../../../shared/i18n';
 import styles from './Onboarding.module.css';
 
-const STEPS = [
-  { icon: <RefreshCw size={18} aria-hidden="true" />, title: 'canvas.onboardSyncTitle', body: 'canvas.onboardSyncBody', tone: 'accent' },
-  { icon: <MessageCircleQuestion size={18} aria-hidden="true" />, title: 'canvas.onboardAskTitle', body: 'canvas.onboardAskBody', tone: 'ai' },
-  { icon: <Ghost size={18} aria-hidden="true" />, title: 'canvas.onboardBuildTitle', body: 'canvas.onboardBuildBody', tone: 'ghost' },
-] as const;
+type StepState = 'todo' | 'busy' | 'done' | 'problem';
+
+interface Step {
+  key: string;
+  icon: React.ReactNode;
+  tone: 'accent' | 'ai' | 'ghost';
+  title: string;
+  text: string;
+  state: StepState;
+  action?: { label: string; onClick: () => void; icon?: React.ReactNode; primary?: boolean };
+}
+
+const PROVIDER_NAMES: Record<string, string> = { openai: 'OpenAI', anthropic: 'Anthropic', google: 'Google', test: 'TEST' };
 
 /**
- * The empty canvas: three steps (sync, ask, build with ghosts) and the two ways to begin. Keeps the legacy
- * `.canvas-empty` class and the `graph.empty` sentence. The parent fades it out when the first node lands.
+ * The empty canvas is the person's first screen, so it leads them through the three things that make the helper
+ * useful: connect ComfyUI and read it, choose who answers, ask. Each step shows where it stands right now and the
+ * one button that moves it on. Keeps the legacy `.canvas-empty` class and the `graph.empty` sentence; the parent
+ * fades it out when the first node lands.
  */
 export default function Onboarding({ onImport }: { onImport?: () => void }) {
   const { t } = useTranslation();
+  const translate: Translator = (key, options) => (options ? String(t(key, options)) : String(t(key)));
   const full = motionIsFull();
-  // On a fresh profile there is no MCP address yet: "Sync now" would only fail, so the first step opens Connection.
-  const noServer = syncView(useKnowledgeStore((state) => state.sync)).blocked === 'noUrl';
+  const openSettings = useUiStore((state) => state.openSettings);
+
+  // Step 1: ComfyUI connected and read. The sync status says where that stands.
+  const status = useKnowledgeStore((state) => state.sync);
+  const view = syncView(status);
+  const counts = status?.counts;
+  const wasRead = status?.state === 'idle' && counts != null && (counts.nodeClasses > 0 || counts.models > 0);
+  let connect: Step;
+  const connectBase = { key: 'connect', icon: <Plug size={18} aria-hidden="true" />, tone: 'accent' as const, title: translate('canvas.onboardConnectTitle') };
+  if (view.blocked === 'noUrl') {
+    connect = { ...connectBase, state: 'todo', text: translate('canvas.onboardConnectBody'), action: { label: translate('canvas.onboardConnect'), onClick: () => openSettings('connection'), icon: <Plug size={16} aria-hidden="true" />, primary: true } };
+  } else if (status?.state === 'running' || status?.startupPending) {
+    connect = { ...connectBase, state: 'busy', text: translate('canvas.onboardReading') };
+  } else if (status?.state === 'error') {
+    connect = { ...connectBase, state: 'problem', text: explainError(translate, status.lastError ?? '').summary, action: { label: translate('canvas.onboardOpenConnection'), onClick: () => openSettings('connection') } };
+  } else if (wasRead && counts) {
+    connect = { ...connectBase, state: 'done', text: translate('canvas.onboardReadDone', { nodes: counts.nodeClasses, models: counts.models }) };
+  } else {
+    connect = { ...connectBase, state: 'todo', text: translate('canvas.onboardReadBody'), action: { label: translate('canvas.onboardRead'), onClick: () => void runSyncNow().catch(() => undefined), icon: <RefreshCw size={16} aria-hidden="true" />, primary: true } };
+  }
+
+  // Step 2: someone to answer. A cloud helper without its key cannot answer yet.
+  const provider = useProviderStore((state) => state.provider);
+  const keySource = useProviderStore((state) => state.keySource);
+  const stored = useProviderStore((state) => state.stored);
+  const keyState = providerKeyState(provider, keySource);
+  const helperBase = { key: 'helper', icon: <Sparkles size={18} aria-hidden="true" />, tone: 'ai' as const, title: translate('canvas.onboardHelperTitle') };
+  let helper: Step;
+  if (provider === '') {
+    helper = { ...helperBase, state: 'todo', text: translate('canvas.onboardHelperBody'), action: { label: translate('canvas.onboardChooseHelper'), onClick: () => openSettings('assistant'), icon: <Sparkles size={16} aria-hidden="true" />, primary: connect.state === 'done' } };
+  } else if (keyState === 'missing') {
+    helper = { ...helperBase, state: 'problem', text: translate('canvas.onboardHelperNeedsKey'), action: { label: translate('canvas.onboardAddKey'), onClick: () => openSettings('models') } };
+  } else {
+    const name = stored.provider === provider && stored.model ? stored.model : provider === 'local' ? translate('canvas.onboardLocalModel') : PROVIDER_NAMES[provider] ?? provider;
+    helper = { ...helperBase, state: 'done', text: translate('canvas.onboardHelperReady', { name }) };
+  }
+
+  // Step 3: ask. Always possible; it is the point of the app.
+  const ready = connect.state === 'done' && helper.state === 'done';
+  const ask: Step = {
+    key: 'ask',
+    icon: <MessageCircleQuestion size={18} aria-hidden="true" />,
+    tone: 'ghost',
+    title: translate('canvas.onboardAskTitle'),
+    text: translate('canvas.onboardAskBody'),
+    state: 'todo',
+    action: { label: translate('canvas.onboardAsk'), onClick: focusChat, icon: <MessageCircleQuestion size={16} aria-hidden="true" />, primary: ready },
+  };
+
+  const steps = [connect, helper, ask];
   return (
     <motion.section
       className={`canvas-empty ${styles.root}`}
@@ -36,33 +98,34 @@ export default function Onboarding({ onImport }: { onImport?: () => void }) {
     >
       <div className={styles.card}>
         <h2 id="canvas-onboard-title" className={styles.title}>{t('canvas.onboardTitle')}</h2>
-        <p className={styles.lead}>{t('graph.empty')}</p>
+        <p className={styles.lead}>{t('graph.empty')} {t('canvas.onboardLead')}</p>
         <ol className={styles.steps} aria-label={String(t('canvas.onboardSteps'))}>
-          {STEPS.map((step, index) => (
-            <li key={step.title} className={styles.step} data-tone={step.tone}>
-              <span className={styles.icon}>{step.icon}</span>
+          {steps.map((step, index) => (
+            <li key={step.key} className={styles.step} data-tone={step.tone} data-state={step.state} data-step={step.key}>
+              <span className={styles.icon}>{step.state === 'done' ? <Check size={18} aria-hidden="true" /> : step.icon}</span>
               <span className={styles.number} aria-hidden="true">{index + 1}</span>
-              <span className={styles.stepTitle}>{t(step.title)}</span>
-              <span className={styles.stepBody}>{t(step.body)}</span>
+              <span className={styles.stepTitle}>{step.title}</span>
+              <span className={styles.stepBody} role={step.state === 'busy' || step.state === 'problem' ? 'status' : undefined}>
+                {step.state === 'done' ? <span className={styles.srOnly}>{t('canvas.onboardDone')} </span> : null}
+                {step.text}
+              </span>
+              {step.action ? (
+                <span className={styles.stepAction}>
+                  <Button size="sm" variant={step.action.primary ? 'primary' : 'subtle'} icon={step.action.icon} onClick={step.action.onClick}>
+                    {step.action.label}
+                  </Button>
+                </span>
+              ) : null}
             </li>
           ))}
         </ol>
-        <div className={styles.actions}>
-          {noServer ? (
-            <Button variant="primary" icon={<Plug size={16} />} onClick={() => useUiStore.getState().openSettings('connection')}>
-              {t('canvas.onboardConnect')}
-            </Button>
-          ) : (
-            <Button variant="primary" icon={<RefreshCw size={16} />} onClick={() => void runSyncNow().catch(() => undefined)}>
-              {t('sync.now')}
-            </Button>
-          )}
-          {onImport ? (
-            <Button variant="subtle" icon={<FolderInput size={16} />} onClick={onImport}>
+        {onImport ? (
+          <div className={styles.actions}>
+            <Button variant="subtle" icon={<FolderInput size={16} aria-hidden="true" />} onClick={onImport}>
               {t('canvas.onboardImport')}
             </Button>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
       </div>
     </motion.section>
   );

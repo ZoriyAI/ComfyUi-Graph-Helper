@@ -55,7 +55,7 @@ test('stored provider, model, and base URL are what the next send would use afte
   await expect.poll(() => runtimeConfig(window)).toEqual({ provider: '', model: '', baseURL: '' });
   await window.getByRole('button', { name: 'Настройки', exact: true }).click();
   const fresh = window.locator('[role="dialog"].settings-dialog');
-  await fresh.getByRole('tab', { name: 'Ассистент' }).click();
+  await fresh.getByRole('tab', { name: 'Помощник' }).click();
   await expect(fresh.getByText('Показаны значения по умолчанию, они ещё не записаны.')).toBeVisible();
   await expect(fresh.getByRole('button', { name: 'Сохранить настройки' })).toBeDisabled();
   await fresh.getByRole('button', { name: 'Отмена' }).click();

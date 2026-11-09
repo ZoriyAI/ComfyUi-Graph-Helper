@@ -1,5 +1,6 @@
 import { app, BrowserWindow, dialog, Menu, screen, session, shell, type WebContents } from 'electron';
 import * as path from 'path';
+import * as fs from 'fs';
 import { passwordStoreFlag } from '../shared/config/passwordStore';
 import { initDatabase, closeDatabase, getDatabase } from './database';
 import { setupIPC } from './ipc';
@@ -147,6 +148,19 @@ app.on('web-contents-created', (_event, contents) => hardenContents(contents));
 /** The window icon on Linux (other platforms take it from the bundle). */
 const ICON_PATH = path.join(__dirname, '../../resources/icon.png');
 
+
+/** The version a person should see: the app's own, also unpackaged, where Electron reports its own version instead. */
+function displayVersion(): string {
+  if (app.isPackaged) return app.getVersion();
+  try {
+    const raw = fs.readFileSync(path.join(app.getAppPath(), 'package.json'), 'utf8');
+    const version = (JSON.parse(raw) as { version?: unknown }).version;
+    return typeof version === 'string' ? version : app.getVersion();
+  } catch {
+    return app.getVersion();
+  }
+}
+
 function createWindow() {
   const stateFile = path.join(app.getPath('userData'), WINDOW_STATE_FILE);
   let workAreas: Array<{ x: number; y: number; width: number; height: number }> = [];
@@ -166,8 +180,9 @@ function createWindow() {
       contextIsolation: true,
       sandbox: true,
       webSecurity: true,
-      // The renderer's About section reads the app version from preload `versions.app`.
-      additionalArguments: [`--app-version=${app.getVersion()}`],
+      // The renderer's About section reads the app version from preload `versions.app`; the scripted TEST fixture
+      // is a developer tool and is offered only when the app runs unpackaged (development and tests).
+      additionalArguments: [`--app-version=${displayVersion()}`, ...(app.isPackaged ? [] : ['--test-provider=1'])],
     },
   });
 

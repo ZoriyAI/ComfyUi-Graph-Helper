@@ -10,7 +10,7 @@ import SyncIndicator from '../sync/SyncIndicator';
 import { allCommands, getCommand, hintOf, runCommand, useCommandStates } from '../../commands/registry';
 import { rememberFocusBeforeMenuBar, restoreFocusAfterMenuBar } from '../../commands/hotkeys';
 import { DESCRIPTION_MODE_CHOICES, LANGUAGE_CHOICES, MOTION_CHOICES, providerCommandId } from '../../commands/appCommands';
-import { PROVIDER_CHOICES, providerKeyState, providerNoteKey, useProviderStore } from '../../state/providerState';
+import { providerChoices, providerKeyState, providerNoteKey, useProviderStore } from '../../state/providerState';
 import styles from './MenuBar.module.css';
 
 /** One entry of a menu: a command, a check or radio row, a submenu, or a rule. */
@@ -67,7 +67,7 @@ const MENUS: Array<{ value: string; labelKey: string; entries: Entry[] }> = [
     entries: [
       command('assistant.focusChat'), command('assistant.askSelection'), separator,
       command('assistant.pause'), command('assistant.resume'), command('assistant.end'), separator,
-      { kind: 'radio', labelKey: 'menu.provider', ids: PROVIDER_CHOICES.map((choice) => providerCommandId(choice.value)), valueOf: (id) => id },
+      { kind: 'radio', labelKey: 'menu.provider', ids: providerChoices().map((choice) => providerCommandId(choice.value)), valueOf: (id) => id },
       command('assistant.settings'),
     ],
   },
@@ -100,7 +100,7 @@ function ProviderChip() {
   const provider = useProviderStore((state) => state.provider);
   const keySource = useProviderStore((state) => state.keySource);
   const note = String(t(providerNoteKey(provider, keySource)));
-  const choice = PROVIDER_CHOICES.find((item) => item.value === provider) ?? PROVIDER_CHOICES[0];
+  const choice = providerChoices().find((item) => item.value === provider) ?? providerChoices()[0];
   return (
     <Hint label={note} side="bottom">
       <span className={cx(styles.chip, 'status-chip', 'provider-chip')} data-provider={provider || 'none'} role="status">

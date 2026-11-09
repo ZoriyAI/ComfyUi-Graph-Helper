@@ -67,11 +67,11 @@ describe('locale catalog', () => {
     expect(english('status.nodes', { count: 1 })).toBe('1 node');
     expect(english('status.nodes', { count: 12 })).toBe('12 nodes');
     expect(english('status.nodes', { count: 1280 })).toBe('1,280 nodes');
-    expect(russian('status.nodes', { count: 1 })).toBe('1 узел');
-    expect(russian('status.nodes', { count: 2 })).toBe('2 узла');
-    expect(russian('status.nodes', { count: 5 })).toBe('5 узлов');
-    expect(russian('status.nodes', { count: 21 })).toBe('21 узел');
-    expect(russian('status.nodes', { count: 1280 }).replace(/\s/g, ' ')).toBe('1 280 узлов');
+    expect(russian('status.nodes', { count: 1 })).toBe('1 нода');
+    expect(russian('status.nodes', { count: 2 })).toBe('2 ноды');
+    expect(russian('status.nodes', { count: 5 })).toBe('5 нод');
+    expect(russian('status.nodes', { count: 21 })).toBe('21 нода');
+    expect(russian('status.nodes', { count: 1280 }).replace(/\s/g, ' ')).toBe('1 280 нод');
     expect(english('status.zoom', { percent: 100 })).toBe('Zoom 100%');
     expect(russian('status.zoom', { percent: 100 })).toBe('Масштаб 100%');
     expect(formatClock(Date.UTC(2026, 0, 2, 15, 4), 'en', 'UTC')).toMatch(/3:04/);

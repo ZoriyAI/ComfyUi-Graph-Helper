@@ -99,8 +99,8 @@ async function expectLocalizedChrome(window: Page, language: 'en' | 'ru') {
     ? {
       settings: 'Настройки',
       inspector: 'Инспектор',
-      assistant: 'Ассистент',
-      tabs: ['Подключение', 'Ассистент', 'Оформление и движение'],
+      assistant: 'Помощник',
+      tabs: ['Подключение', 'Помощник', 'Оформление и движение'],
       model: 'Модель',
     }
     : {
@@ -174,7 +174,7 @@ test('Russian is the new-profile default and English persists through reopen', a
     expect(toolbar.overflow).toBe(0);
     expect(toolbar.height).toBe(36);
     expect(toolbar.lines).toBe(1);
-    expect(toolbar.label).toBe('Не настроено');
+    expect(toolbar.label).toBe('Не выбран');
   }
 
   await expectLocalizedChrome(window, 'ru');
@@ -210,7 +210,7 @@ test('Russian is the new-profile default and English persists through reopen', a
   await expect(window.getByRole('button', { name: 'Настройки', exact: true })).toBeVisible();
 
   await window.getByRole('button', { name: 'Настройки', exact: true }).click();
-  await dialog.getByRole('tab', { name: 'Ассистент' }).click();
+  await dialog.getByRole('tab', { name: 'Помощник' }).click();
   await dialog.getByRole('textbox', { name: 'Модель', exact: true }).fill('sk-example-secret');
   await expect(dialog.getByText('Настройки не могут хранить секрет')).toBeVisible();
   await expect(dialog.getByRole('textbox', { name: 'Модель', exact: true })).toHaveAttribute('aria-invalid', 'true');

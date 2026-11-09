@@ -174,7 +174,7 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
       expect(toolbar.height).toBe(36);
       expect(toolbar.lines).toBe(1);
       expect(toolbar.valueHeight).toBeLessThanOrEqual(20);
-      expect(toolbar.label).toBe('Not configured');
+      expect(toolbar.label).toBe('Not chosen');
     }
     await window.screenshot({ path: path.join(artifactDir, `desktop-${name}-empty.png`) });
     const showBoth = window.getByRole('button', { name: 'Show both' });
@@ -443,7 +443,7 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
   expect(pendingSave.label).toBe('Saving…');
   expect(pendingSave.disabled).toBe(true);
   expect(pendingSave.dialogOpen).toBe(true);
-  expect(pendingSave.note).not.toBe('Non-secret settings saved.');
+  expect(pendingSave.note).not.toBe('Settings saved.');
   expect(pendingSave.progress).toBe(false);
   expect(pendingSave.width).toBe(saveWidth);
   await window.getByRole('button', { name: 'Settings', exact: true }).click();

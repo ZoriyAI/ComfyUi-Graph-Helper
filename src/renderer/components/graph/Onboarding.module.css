@@ -82,6 +82,15 @@
 }
 .stepTitle { color: var(--text); font-size: var(--text-sm); line-height: 18px; font-weight: 600; }
 .stepBody { color: var(--text-dim); font-size: var(--text-xs); line-height: 17px; }
+.stepAction { display: flex; margin-top: 6px; }
+.srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+/* Where the step stands: done glows green, a problem turns the icon red, a busy step pulses. */
+.step[data-state="done"] { --step-hue: var(--ok, #58c48a); border-color: color-mix(in srgb, var(--ok, #58c48a) 35%, var(--border-subtle)); }
+.step[data-state="done"] .stepBody { color: var(--text); }
+.step[data-state="problem"] { --step-hue: var(--danger, #ff6b6b); }
+.step[data-state="busy"] .icon { animation: onboard-pulse 1.4s ease-in-out infinite; }
+@keyframes onboard-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+@media (prefers-reduced-motion: reduce) { .step[data-state="busy"] .icon { animation: none; } }
 .actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 6px; }
 @container (max-width: 700px) {
   .steps { grid-template-columns: 1fr; }

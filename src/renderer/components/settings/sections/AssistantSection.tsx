@@ -15,7 +15,7 @@ import SelectField from '../../../ui/SelectField';
 import SuggestField, { type SuggestStatus } from '../../../ui/SuggestField';
 import Switch from '../../../ui/Switch';
 import { cx } from '../../../ui/cx';
-import { providerKeyState, useProviderStore, type ProviderKeyState } from '../../../state/providerState';
+import { providerKeyState, useProviderStore, type ProviderKeyState, testProviderOffered } from '../../../state/providerState';
 import styles from '../SettingsPanel.module.css';
 import { fieldClass, Group, hintClass, patchSection, rowClass, SectionHead, type DraftProps } from './common';
 import { listable, modelSuggestions, serverFor, serverSuggestions, withKnownFacts } from './pickerItems';
@@ -179,7 +179,7 @@ export default function AssistantSection({ values, setValues, prefs, setPrefs, c
         value={provider}
         onChange={chooseProvider}
         columns={3}
-        options={PROVIDERS.map((item) => {
+        options={PROVIDERS.filter((item) => item.value !== 'test' || testProviderOffered()).map((item) => {
           const state = providerKeyState(item.value, keySource);
           return {
             value: item.value,

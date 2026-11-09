@@ -21,6 +21,20 @@ export const PROVIDER_CHOICES: Array<{ value: string; labelKey: string }> = [
   { value: 'local', labelKey: 'provider.localChip' },
 ];
 
+/**
+ * The scripted TEST fixture is a developer tool. A packaged app's preload says `testProvider: false` and it is not
+ * offered; unpackaged runs (development, tests) and unit tests without a preload keep it.
+ */
+export function testProviderOffered(): boolean {
+  const flags = typeof window !== 'undefined' ? window.electronAPI?.flags : undefined;
+  return flags ? flags.testProvider === true : true;
+}
+
+/** The provider choices this build offers a person: PROVIDER_CHOICES without the TEST fixture in a packaged app. */
+export function providerChoices(): Array<{ value: string; labelKey: string }> {
+  return testProviderOffered() ? PROVIDER_CHOICES : PROVIDER_CHOICES.filter((choice) => choice.value !== 'test');
+}
+
 /** The provider chip text: which provider, and where its key lives. Never the key. */
 export function providerNoteKey(provider: string, keySource: KeySource): string {
   if (provider === 'test') return 'provider.test';

@@ -325,7 +325,7 @@ async function captureToolbarAndHelp(page, prefix) {
 
   // Preferences window, one state per section (Russian).
   const SECTIONS = [
-    ['assistant', 'Ассистент'], ['models', 'Модели и ключи'], ['connection', 'Подключение'], ['sync', 'Синхронизация'],
+    ['assistant', 'Помощник'], ['models', 'Модели и ключи'], ['connection', 'Подключение'], ['sync', 'Синхронизация'],
     ['canvas', 'Холст'], ['appearance', 'Оформление и движение'], ['shortcuts', 'Горячие клавиши'], ['privacy', 'Приватность'],
     ['about', 'О программе'],
   ];

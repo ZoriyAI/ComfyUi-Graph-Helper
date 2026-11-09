@@ -10,7 +10,7 @@ import { hintOf, runCommand, useCommandState } from '../../commands/registry';
 import { useGraphStore } from '../../state/graphState';
 import { isDirty, useUiStore } from '../../state/uiState';
 import { useKnowledgeStore, selectCheckCount } from '../../state/knowledgeState';
-import { PROVIDER_CHOICES, useProviderStore } from '../../state/providerState';
+import { providerChoices, useProviderStore } from '../../state/providerState';
 import { useProjectionStore } from '../../services/commands/projection';
 import styles from './Toolbar.module.css';
 
@@ -87,7 +87,7 @@ export default function Toolbar({ settings }: { settings?: React.ReactNode }) {
   const { t } = useTranslation();
   const provider = useProviderStore((state) => state.provider);
   const choose = useProviderStore((state) => state.choose);
-  const options = PROVIDER_CHOICES.map((choice) => ({ value: choice.value, label: String(t(choice.labelKey)) }));
+  const options = providerChoices().map((choice) => ({ value: choice.value, label: String(t(choice.labelKey)) }));
   return (
     <div className={cx(styles.toolbar, 'workspace-toolbar')} role="toolbar" aria-label={String(t('toolbar.aria'))}>
       <ToolButton id="file.new" />

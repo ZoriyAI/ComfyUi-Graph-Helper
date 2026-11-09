@@ -20,7 +20,7 @@ import { useGraphStore } from '../state/graphState';
 import { useChatStore } from '../state/chatState';
 import { useKnowledgeStore } from '../state/knowledgeState';
 import { openProposals, useProposalsStore } from '../state/proposalsState';
-import { PROVIDER_CHOICES, useProviderStore } from '../state/providerState';
+import { providerChoices, useProviderStore } from '../state/providerState';
 import { useProjectionStore } from '../services/commands/projection';
 import { useCanvasStore } from '../components/graph/canvasStore';
 import type { DescriptionsMode } from '../../shared/config/preferences';
@@ -222,7 +222,7 @@ export function buildAppCommands(): Command[] {
       run: resumeRun,
     },
     { id: 'assistant.end', group: 'assistant', labelKey: 'menu.endRun', icon: Square, enabled: () => useProjectionStore.getState().activeRun !== null, run: endRun },
-    ...PROVIDER_CHOICES.map((choice): Command => ({
+    ...providerChoices().map((choice): Command => ({
       id: providerCommandId(choice.value), group: 'assistant', labelKey: choice.labelKey, enabled: always,
       checked: () => useProviderStore.getState().provider === choice.value,
       run: () => useProviderStore.getState().choose(choice.value),
