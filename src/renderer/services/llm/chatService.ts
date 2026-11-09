@@ -124,6 +124,10 @@ export class ChatService {
   private currentBaseRevisionId: string | null = null;
   private currentRunId: string | null = null;
   private historyLoaded = false;
+  /** Increments per turn and on cancel, so a finished or cancelled turn cannot flip the state of a newer one. */
+  private turnToken = 0;
+  /** A run reopened by resume(): the next turn continues it instead of starting a new run. */
+  private resumed: { runId: string; expectedRevisionId: string } | null = null;
 
   /** Loads saved messages once per project when the chat is still empty. Safe to call more than once. */
   async loadHistory(projectId: string = DESKTOP_PROJECT_ID): Promise<void> {
@@ -164,6 +168,8 @@ export class ChatService {
       return;
     }
     const turn = completeContext(context);
+    const token = ++this.turnToken;
+    const current = () => token === this.turnToken;
 
     this.isStreaming = true;
     useChatStore.setState({ isStreaming: true, isPaused: false });
@@ -189,19 +195,12 @@ export class ChatService {
       ? useChatStore.getState().messages.find((m) => m.id === currentAssistantMessageId)
       : undefined);
 
-    let activeRunId: string | null = null;
+    // The main process closes the run when the turn ends (a paused run stays paused for Resume) and sends the
+    // projection; this only ends the streaming state, and only for the turn that is still current.
     const finish = () => {
+      if (!current()) return;
       this.isStreaming = false;
       useChatStore.setState({ isStreaming: false });
-      // The turn is over: close the run so later commits are refused and the run strip goes quiet.
-      const runId = activeRunId;
-      activeRunId = null;
-      const close = window.electronAPI?.closeRun;
-      if (runId && typeof close === 'function') {
-        void close(DESKTOP_PROJECT_ID, runId)
-          .then((result) => { if (result?.projection) applyProjection(result.projection); })
-          .catch(() => undefined);
-      }
     };
 
     try {
@@ -213,11 +212,19 @@ export class ChatService {
         finish();
         return;
       }
-      const started = await window.electronAPI.startRun(DESKTOP_PROJECT_ID);
-      activeRunId = started.runId;
-      applyProjection(started.projection);
-      this.currentBaseRevisionId = started.baseRevisionId;
-      this.currentRunId = started.runId;
+      let run: { runId: string; expectedRevisionId: string };
+      if (this.resumed) {
+        // Resume reopened the paused run: this turn continues it.
+        run = this.resumed;
+        this.resumed = null;
+      } else {
+        const started = await window.electronAPI.startRun(DESKTOP_PROJECT_ID);
+        applyProjection(started.projection);
+        this.currentBaseRevisionId = started.baseRevisionId;
+        run = { runId: started.runId, expectedRevisionId: started.expectedRevisionId };
+      }
+      this.currentRunId = run.runId;
+      if (!current()) return;
 
       const graph = useGraphStore.getState();
       const messageHistory: Array<{ role: 'user' | 'assistant' | 'system'; content: string }> = [
@@ -301,6 +308,8 @@ export class ChatService {
       };
 
       const onChunk = (chunk: StreamChunk) => {
+        // A projection is the graph's truth whichever turn sent it; anything else from a cancelled turn is dropped.
+        if (chunk.type !== 'projection' && !current()) return;
         const body = isRecord(chunk.content) ? chunk.content : {};
         if (chunk.type === 'projection') {
           applyProjection(chunk.content as Projection);
@@ -351,8 +360,8 @@ export class ChatService {
         onChunk,
         {
           projectId: DESKTOP_PROJECT_ID,
-          runId: started.runId,
-          expectedRevisionId: started.expectedRevisionId,
+          runId: run.runId,
+          expectedRevisionId: run.expectedRevisionId,
         },
         turn,
       );
@@ -360,7 +369,7 @@ export class ChatService {
       const raw = error instanceof Error ? error.message : errorText(error);
       console.error('[ChatService] Stream error:', raw);
       const shown = translateKnownError(translate, raw) ?? raw;
-      if (!currentAssistantMessageId) {
+      if (!currentAssistantMessageId && current()) {
         currentAssistantMessageId = newId();
         addMessage({ id: currentAssistantMessageId, role: 'assistant', content: `Error: ${shown}`, timestamp: Date.now() });
       }
@@ -370,18 +379,24 @@ export class ChatService {
     }
   }
 
-  /** Stops showing the stream and cancels the run, so later build tools of this turn are refused. */
+  /**
+   * Stops the turn: aborts the main-process stream (llm:cancel), then cancels the run so nothing else of
+   * this turn is committed or proposed. The cancelled turn can no longer change the streaming state.
+   */
   cancel(): void {
+    this.turnToken += 1;
     this.isStreaming = false;
+    this.resumed = null;
     useChatStore.setState({ isStreaming: false, isPaused: false });
     const runId = this.currentRunId;
+    const llmCancel = window.electronAPI?.llmCancel;
     const cancelRun = window.electronAPI?.cancelRun;
-    if (runId && typeof cancelRun === 'function') {
-      void Promise.resolve()
-        .then(() => cancelRun(DESKTOP_PROJECT_ID, runId))
-        .then((result) => applyProjection(result?.projection))
-        .catch((error: unknown) => console.warn('[ChatService] Cancel failed:', errorText(error)));
-    }
+    void Promise.resolve()
+      .then(() => (typeof llmCancel === 'function' ? llmCancel(runId ?? undefined) : undefined))
+      .catch((error: unknown) => console.warn('[ChatService] Stream cancel failed:', errorText(error)))
+      .then(() => (runId && typeof cancelRun === 'function' ? cancelRun(DESKTOP_PROJECT_ID, runId) : undefined))
+      .then((result) => { if (result?.projection) applyProjection(result.projection); })
+      .catch((error: unknown) => console.warn('[ChatService] Cancel failed:', errorText(error)));
   }
 
   async pause(): Promise<void> {
@@ -392,10 +407,12 @@ export class ChatService {
     }
   }
 
+  /** Reopens the paused run (same run id); the next turn continues it instead of starting a new run. */
   async resume(): Promise<void> {
     const started = await window.electronAPI.resumeRun(DESKTOP_PROJECT_ID);
     this.currentRunId = started.runId;
     this.currentBaseRevisionId = started.baseRevisionId;
+    this.resumed = { runId: started.runId, expectedRevisionId: started.expectedRevisionId };
     applyProjection(started.projection);
     useChatStore.setState({ isPaused: false });
   }

@@ -1,7 +1,8 @@
 import type Database from 'better-sqlite3';
+import { randomUUID } from 'crypto';
 import { jsonSchema } from 'ai';
 import { commitCommand } from '../commands/commit';
-import { mutationFromTool } from '../../shared/commands/tools';
+import { mutationFromTool, type ToolContext } from '../../shared/commands/tools';
 import { WHY_MAX } from '../../shared/commands/toolSpecs';
 import { carriesSecret } from '../../shared/config/draft';
 import type { CommandResponse, Projection } from '../../shared/commands/types';
@@ -26,15 +27,40 @@ const BUILD_MESSAGES: Record<string, string> = {
   insertSubgraph: 'Inserted the subgraph',
 };
 
+export interface PortHandle { handle: string; name: string; type: string }
+
+function portHandles(value: unknown, prefix: 'in' | 'out'): PortHandle[] {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, 60).map((port, index) => {
+    const item = (port && typeof port === 'object' ? port : {}) as { id?: unknown; name?: unknown; dataType?: unknown; type?: unknown };
+    return {
+      handle: typeof item.id === 'string' && item.id !== '' ? item.id : `${prefix}-${index}`,
+      name: typeof item.name === 'string' ? item.name : '',
+      type: typeof item.dataType === 'string' ? item.dataType : typeof item.type === 'string' ? item.type : '',
+    };
+  });
+}
+
+/** The new node's ports with the handles connectNodes takes, read from the projection the commit returned. */
+export function nodePorts(projection: Projection | null | undefined, nodeId: unknown): { inputs: PortHandle[]; outputs: PortHandle[] } | null {
+  if (!projection || (typeof nodeId !== 'string' && typeof nodeId !== 'number')) return null;
+  const node = (projection.snapshot.nodes as Array<{ id?: unknown; data?: { inputs?: unknown; outputs?: unknown } }>)
+    .find((item) => String(item.id) === String(nodeId));
+  if (!node) return null;
+  return { inputs: portHandles(node.data?.inputs, 'in'), outputs: portHandles(node.data?.outputs, 'out') };
+}
+
 export function toolOutcome(name: string, args: Record<string, unknown> | undefined, outcome: CommandResponse) {
   if (outcome.status === 'applied' || outcome.status === 'historical') {
     const result = outcome.result as Record<string, unknown> | null;
     if (name === 'addNode') {
+      const ports = nodePorts(outcome.projection, result?.nodeId);
       return {
         success: true,
         message: `Added ${result?.nodeType || args?.nodeType || 'node'} node`,
         nodeType: result?.nodeType || args?.nodeType,
         nodeId: result?.nodeId,
+        ...(ports ?? {}),
       };
     }
     if (name === 'setComponentDocumentation') {
@@ -138,6 +164,8 @@ export function createBuildTools(
     onRevision?: (revisionId: string) => void;
     onBuildStep?: (step: AgentBuildStep) => void;
     saveWhy?: SaveWhy;
+    /** Current snapshot and catalog, so a port name or slot index resolves to the handle the canvas uses. */
+    toolContext?: () => ToolContext | undefined;
   },
 ): Record<string, { description?: string; inputSchema: ReturnType<typeof jsonSchema>; execute: (args: Record<string, unknown>, call?: { toolCallId?: string }) => Promise<unknown> }> {
   const tools: Record<string, { description?: string; inputSchema: ReturnType<typeof jsonSchema>; execute: (args: Record<string, unknown>, call?: { toolCallId?: string }) => Promise<unknown> }> = {};
@@ -151,8 +179,16 @@ export function createBuildTools(
       description: spec.description,
       inputSchema: jsonSchema(schema as Parameters<typeof jsonSchema>[0]),
       execute: async (args: Record<string, unknown>, call?: { toolCallId?: string }) => {
-        const toolCallId = call?.toolCallId || `${spec.name}-missing-id`;
-        const payload = mutationFromTool(spec.name, args);
+        const toolCallId = call?.toolCallId || randomUUID();
+        // A provider reuses call ids across turns (and the TEST fixture always does): scope them to the run.
+        const actionId = `${options.run.runId}:${toolCallId}`;
+        let context: ToolContext | undefined;
+        try {
+          context = options.toolContext?.();
+        } catch {
+          context = undefined;
+        }
+        const payload = mutationFromTool(spec.name, args, context);
         console.log(`[Agent] Tool ${spec.name} commit ${toolCallId}`);
         if (!payload) {
           return { success: false, error: `Unknown tool: ${spec.name}` };
@@ -160,7 +196,7 @@ export function createBuildTools(
         const outcome = commitCommand(options.db, {
           projectId: options.run.projectId,
           runId: options.run.runId,
-          actionId: toolCallId,
+          actionId,
           expectedRevisionId,
           actor: 'ai',
           payload,

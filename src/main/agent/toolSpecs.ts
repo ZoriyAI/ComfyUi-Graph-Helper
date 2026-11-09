@@ -38,8 +38,15 @@ export const OBJECT_REF_SCHEMA = {
 
 export const MAIN_TOOL_SPECS: Record<AgentReadTool | AgentKnowledgeTool | AgentProposalTool, AgentToolSpec> = {
   getGraph: {
-    description: 'Read the current graph: node ids, class types, titles, ports, connections, every widget value (values that look like secrets are [redacted]), positions, sizes, groups and subgraphs.',
-    parameters: { type: 'object', properties: {} },
+    description: 'Read the current graph: node ids, class types, titles, ports with their handles (in-N / out-N), connections, every widget value (values that look like secrets are [redacted]), positions, sizes, groups and subgraphs. Pages of 200 nodes: when nextOffset is not null, call again with that offset; or pass ids to read specific nodes.',
+    parameters: {
+      type: 'object',
+      properties: {
+        offset: { type: 'integer', minimum: 0, description: 'First node of the page in graph order (default 0).' },
+        limit: { type: 'integer', minimum: 1, maximum: 500, description: 'Nodes per page (default 200).' },
+        ids: { type: 'array', items: { type: 'string' }, description: 'Only these node ids and the connections that touch them.' },
+      },
+    },
   },
   searchNodeTypes: {
     description: 'Search node classes installed in this person\'s ComfyUI by name, display name, or category.',
@@ -54,7 +61,7 @@ export const MAIN_TOOL_SPECS: Record<AgentReadTool | AgentKnowledgeTool | AgentP
     },
   },
   describeNodeType: {
-    description: 'Inputs, outputs, widgets, and description of one installed node class.',
+    description: 'Inputs, outputs, widgets, and description of one installed node class. Each input and output carries its handle (in-N / out-N, in socket order) for connectNodes and proposeConnection.',
     parameters: {
       type: 'object',
       properties: { classType: { type: 'string', description: 'Exact ComfyUI class type, e.g. "KSampler".' } },

@@ -121,6 +121,8 @@ test('prerelease journey configures a provider, builds a process, and exports a 
     await pickOption(window, 'Chat provider', 'TEST fixture');
     await window.getByText('TEST fixture is on').waitFor();
     await window.getByRole('tab', { name: 'Assistant' }).click();
+    // Build tools exist only in a build turn: switch the composer to Build.
+    await window.getByRole('group', { name: 'Mode' }).getByRole('button', { name: 'Build', exact: true }).click();
     const input = window.locator('textarea[aria-label="Chat message"]');
     await input.fill('Build the process fixture');
     await input.press('Enter');
@@ -223,6 +225,8 @@ test('object info import lets the agent export a loader parameter', async () => 
     await pickOption(window, 'Chat provider', 'TEST fixture');
     await window.getByText('TEST fixture is on').waitFor();
     await window.getByRole('tab', { name: 'Assistant' }).click();
+    // Build tools exist only in a build turn: switch the composer to Build.
+    await window.getByRole('group', { name: 'Mode' }).getByRole('button', { name: 'Build', exact: true }).click();
     const input = window.locator('textarea[aria-label="Chat message"]');
     await input.fill('Build the loader fixture');
     await input.press('Enter');
