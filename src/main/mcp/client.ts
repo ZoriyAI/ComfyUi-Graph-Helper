@@ -1,5 +1,5 @@
 import type Database from 'better-sqlite3';
-import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
+import { Client, StreamableHTTPClientTransport, type OAuthClientProvider } from '@modelcontextprotocol/client';
 import type { McpSession, McpToolCallResult } from '../../shared/mcp/catalogSource';
 import {
   comfyUrlFromStudioInfo,
@@ -68,13 +68,20 @@ export interface McpReadFailure {
   error: string;
 }
 
-export type McpSessionFactory = (url: string, token: string | null) => Promise<McpSession>;
+/**
+ * Opens a session. Auth source: a manual bearer `token`, or else an OAuth `authProvider` (the SDK then adds the
+ * bearer, refreshes on 401, and never follows a redirect to another origin).
+ */
+export type McpSessionFactory = (url: string, token: string | null, authProvider?: OAuthClientProvider | null) => Promise<McpSession>;
+
+/** Sync error when the stored OAuth sign-in no longer works. Same sentence as oauth.ts SIGN_IN_AGAIN. */
+export const MCP_SIGN_IN_AGAIN = 'MCP sign-in has expired. Sign in through the browser again.';
 
 /** Connects over Streamable HTTP. A token is sent as a bearer header and is never logged. */
-export const connectStreamableHttp: McpSessionFactory = async (url, token) => {
-  const transport = new StreamableHTTPClientTransport(new URL(url), {
-    requestInit: token ? { headers: { Authorization: `Bearer ${token}` } } : undefined,
-  });
+export const connectStreamableHttp: McpSessionFactory = async (url, token, authProvider) => {
+  const transport = new StreamableHTTPClientTransport(new URL(url), token
+    ? { requestInit: { headers: { Authorization: `Bearer ${token}` } } }
+    : authProvider ? { authProvider } : undefined);
   const client = new Client({ name: 'comfyui-graph-helper', version: '0.1.0' });
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
@@ -126,7 +133,7 @@ export interface CatalogReadDetail {
  */
 export async function readCatalogViaMcp(
   db: Database.Database,
-  config: { url: string; token: string | null },
+  config: { url: string; token: string | null; authProvider?: OAuthClientProvider | null },
   fetchImpl: typeof fetch,
   factory: McpSessionFactory = connectStreamableHttp,
 ): Promise<McpReadSuccess | McpReadFailure> {
@@ -144,14 +151,17 @@ export async function readCatalogViaMcp(
 
 /** Connects and wraps the session in the read-only allowlist. Every MCP call in the app goes through this. */
 export async function openReadOnlySession(
-  config: { url: string; token: string | null },
+  config: { url: string; token: string | null; authProvider?: OAuthClientProvider | null },
   factory: McpSessionFactory,
 ): Promise<{ ok: true; session: McpSession } | McpReadFailure> {
   const urlError = mcpUrlError(config.url);
   if (urlError) return { ok: false, error: urlError };
+  // A manual token wins; the OAuth provider is used only without one.
+  const authProvider = config.token ? null : config.authProvider ?? null;
   try {
-    return { ok: true, session: readOnlySession(await factory(config.url, config.token)) };
+    return { ok: true, session: readOnlySession(await factory(config.url, config.token, authProvider)) };
   } catch (error) {
+    if (authProvider && (authProvider as { signInRequired?: boolean }).signInRequired) return { ok: false, error: MCP_SIGN_IN_AGAIN };
     return failure(error);
   }
 }

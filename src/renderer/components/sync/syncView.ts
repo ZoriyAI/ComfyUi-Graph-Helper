@@ -8,7 +8,7 @@ export interface SyncView {
   labelKey: string;
   /** 0..1 while a phase with a known total runs; null when indeterminate or idle. */
   fraction: number | null;
-  /** True when the server address or the token is missing, so "Sync now" would fail. */
+  /** True when the server address is missing, or neither a token nor a browser sign-in is held, so "Sync now" would fail. */
   blocked: 'noUrl' | 'noToken' | null;
 }
 
@@ -19,7 +19,7 @@ export function syncView(status: SyncStatus | null): SyncView {
   const state: SyncState = status?.state ?? 'never';
   const progress = status?.progress ?? null;
   const fraction = state === 'running' && progress && progress.total > 0 ? Math.min(1, progress.done / progress.total) : null;
-  const blocked = !status || status.mcpUrl.trim() === '' ? 'noUrl' : !status.tokenHeld ? 'noToken' : null;
+  const blocked = !status || status.mcpUrl.trim() === '' ? 'noUrl' : !status.tokenHeld && !status.signedIn ? 'noToken' : null;
   return { state, labelKey: `sync.state.${state}`, fraction, blocked };
 }
 

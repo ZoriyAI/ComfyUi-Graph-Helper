@@ -154,14 +154,38 @@ export function saveSecretIfProven(
   plain: string,
   ciphertext: Buffer,
 ): { status: 'stored' } | SecretSaveResult {
+  return saveNamedSecretIfProven(db, decision, 'provider-key', plain, ciphertext);
+}
+
+/**
+ * The same fail-closed rule for any named secret record (e.g. `mcp-oauth-tokens:<origin>`): ciphertext is written
+ * only after the OS password manager proved encryption, and never when it contains the plaintext or uses the
+ * unprotected fallback cipher.
+ */
+export function saveNamedSecretIfProven(
+  db: Database.Database,
+  decision: { persist: boolean },
+  name: string,
+  plain: string,
+  ciphertext: Buffer,
+): { status: 'stored' } | SecretSaveResult {
   if (!decision.persist || ciphertext.includes(Buffer.from(plain)) || isUnprotectedCipher(ciphertext)) {
     return attemptSaveSecret(db);
   }
   db.prepare(
     `INSERT INTO secret_records (name, ciphertext) VALUES (?, ?)
      ON CONFLICT(name) DO UPDATE SET ciphertext = excluded.ciphertext`
-  ).run('provider-key', ciphertext);
+  ).run(name, ciphertext);
   return { status: 'stored' };
+}
+
+export function readSecretCipher(db: Database.Database, name: string): Buffer | null {
+  const row = db.prepare('SELECT ciphertext FROM secret_records WHERE name = ?').get(name) as { ciphertext: Buffer } | undefined;
+  return row ? Buffer.from(row.ciphertext) : null;
+}
+
+export function forgetSecret(db: Database.Database, name: string): void {
+  db.prepare('DELETE FROM secret_records WHERE name = ?').run(name);
 }
 
 export function readProviderKeyCipher(db: Database.Database): Buffer | null {
