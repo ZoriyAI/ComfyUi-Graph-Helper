@@ -37,9 +37,14 @@ const BACKLOG_FACTOR = 0.6;
  * Wait before the next item appears: the reveal animation plus a reading pause, slower when the camera
  * follows, faster with a long backlog. No wait at all when motion is off (everything is shown at once).
  */
-export function stepDelayMs(input: { revealMs: number; motion: MotionLevel; follow: boolean; queued: number }): number {
+export function stepDelayMs(input: { revealMs: number; motion: MotionLevel; follow: boolean; queued: number; paceMs?: number }): number {
   if (input.motion === 'off') return 0;
-  let delay = (input.motion === 'full' ? Math.max(0, input.revealMs) : 0) + READ_PAUSE_MS;
+  const full = Math.max(0, input.revealMs) + READ_PAUSE_MS;
+  // Preferences ▸ Canvas ▸ Build pace is the full-motion step; reduced motion keeps the same share of reading time.
+  const pace = typeof input.paceMs === 'number' && Number.isFinite(input.paceMs) && input.paceMs > 0 ? input.paceMs : null;
+  let delay = input.motion === 'full'
+    ? (pace ?? full)
+    : (pace === null ? READ_PAUSE_MS : Math.round(pace * (READ_PAUSE_MS / Math.max(1, full))));
   if (input.follow) delay *= FOLLOW_FACTOR;
   if (input.queued > BACKLOG) delay *= BACKLOG_FACTOR;
   return Math.round(delay);

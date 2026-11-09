@@ -22,6 +22,7 @@ import { applyProjection, useProjectionStore } from './services/commands/project
 import { getChatService } from './services/llm/chatService';
 import { installAppCommands } from './commands/appCommands';
 import { installHotkeys } from './commands/hotkeys';
+import { installPreferences } from './state/preferencesBridge';
 import { importWorkflowFile } from './commands/actions';
 import { cx } from './ui/cx';
 import { DESKTOP_PROJECT_ID } from '../shared/project';
@@ -51,6 +52,7 @@ function App() {
     startProposalsSubscription();
     const offCommands = installAppCommands();
     const offHotkeys = installHotkeys();
+    const offPreferences = installPreferences();
     window.electronAPI.readProjection(DESKTOP_PROJECT_ID).then((projection) => {
       applyProjection(projection);
       markCurrentSaved();
@@ -59,6 +61,7 @@ function App() {
     });
     window.electronAPI.llmSessionStatus().then((status) => useProviderStore.getState().setKeySource(status.source)).catch(() => undefined);
     return () => {
+      offPreferences();
       offHotkeys();
       offCommands();
     };

@@ -45,11 +45,13 @@ test('blocked secret IPC leaves the disabled key controls empty and the marker o
   const window = await app.firstWindow();
   await useEnglish(window);
   await window.getByRole('button', { name: 'Settings', exact: true }).click();
+  // Keys live in Settings ▸ Models & keys (they were on the Connection section).
+  await window.locator('[role="dialog"].settings-dialog').getByRole('tab', { name: 'Models & keys' }).click();
   const input = window.locator('input[aria-label="API key"]');
   await expect(input).toBeDisabled();
   await expect(window.getByRole('button', { name: 'Save key' })).toBeDisabled();
   const keyReason = 'Key storage is not available. The key is not written. Cancel does not store a key.';
-  await expect(window.getByRole('tabpanel', { name: 'Connection' }).getByText(keyReason)).toBeVisible();
+  await expect(window.getByRole('tabpanel', { name: 'Models & keys' }).getByText(keyReason)).toBeVisible();
   await expect(window.getByRole('contentinfo').getByText(keyReason)).toBeVisible();
   const result = await window.evaluate(async (marker) => {
     const bridge = (window as unknown as { electronAPI: { saveSecret: (value: string) => Promise<{ status: string }> } }).electronAPI;

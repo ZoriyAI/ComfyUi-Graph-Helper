@@ -4,7 +4,7 @@ import { commitCommand, ensureWorkspace, readProjection } from '../../src/main/c
 import { listExplanations, saveExplanation } from '../../src/main/knowledge/repository';
 import { migrate } from '../../src/main/settings/migrate';
 import { firstLine, selectDescription } from '../../src/renderer/components/graph/lib/description';
-import { DESCRIPTIONS_KEY, useCanvasStore } from '../../src/renderer/components/graph/canvasStore';
+import { setCanvasPersist, useCanvasStore } from '../../src/renderer/components/graph/canvasStore';
 import type { Explanation } from '../../src/shared/contracts/knowledge';
 import { DESKTOP_PROJECT_ID } from '../../src/shared/project';
 import { exportWorkflow, type GraphSnapshot } from '../../src/shared/workflow/codec';
@@ -63,19 +63,21 @@ describe('description card content priority', () => {
 describe('description toggles in the canvas store', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+    setCanvasPersist(null);
     useCanvasStore.setState({ descriptionsOn: true, hiddenDescriptions: {}, expandedDescriptions: {} });
   });
 
-  it('remembers the global toggle in localStorage and hides cards per node', () => {
-    const storage = new Map<string, string>();
-    vi.stubGlobal('window', { localStorage: { getItem: (key: string) => storage.get(key) ?? null, setItem: (key: string, value: string) => storage.set(key, value) } });
+  it('remembers the global toggle in preferences and hides cards per node', () => {
+    const saved: Array<Record<string, boolean | undefined>> = [];
+    setCanvasPersist((patch) => saved.push(patch));
     const store = useCanvasStore.getState();
     expect(store.descriptionsOn).toBe(true);
     store.setDescriptionsOn(false);
     expect(useCanvasStore.getState().descriptionsOn).toBe(false);
-    expect(storage.get(DESCRIPTIONS_KEY)).toBe('off');
+    expect(saved).toEqual([{ showDescriptions: false }]);
     store.setDescriptionsOn(true);
-    expect(storage.get(DESCRIPTIONS_KEY)).toBe('on');
+    store.setMinimapOn(false);
+    expect(saved).toEqual([{ showDescriptions: false }, { showDescriptions: true }, { showMinimap: false }]);
 
     store.setDescriptionExpanded('3', true);
     expect(useCanvasStore.getState().expandedDescriptions).toEqual({ 3: true });
@@ -87,8 +89,8 @@ describe('description toggles in the canvas store', () => {
     expect(useCanvasStore.getState().hiddenDescriptions).toEqual({ 4: true });
   });
 
-  it('keeps working when storage is unavailable', () => {
-    vi.stubGlobal('window', { localStorage: { getItem: () => { throw new Error('denied'); }, setItem: () => { throw new Error('denied'); } } });
+  it('keeps working when the preferences writer fails', () => {
+    setCanvasPersist(() => { throw new Error('denied'); });
     expect(() => useCanvasStore.getState().setDescriptionsOn(false)).not.toThrow();
     expect(useCanvasStore.getState().descriptionsOn).toBe(false);
   });

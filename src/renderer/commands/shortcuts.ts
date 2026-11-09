@@ -53,6 +53,13 @@ function codesFor(key: string): string[] {
     case '/': return ['Slash', 'NumpadDivide'];
     case ',': return ['Comma'];
     case '.': return ['Period'];
+    case ';': return ['Semicolon'];
+    case "'": return ['Quote'];
+    case '`': return ['Backquote'];
+    case '[': return ['BracketLeft'];
+    case ']': return ['BracketRight'];
+    case '\\': return ['Backslash'];
+    case 'Space': return ['Space'];
     default: return [];
   }
 }
@@ -63,6 +70,7 @@ function keysFor(key: string): string[] {
   if (key === '=' || key === '+') return ['=', '+'];
   if (key === 'Delete') return ['Delete'];
   if (key === 'Escape') return ['Escape', 'Esc'];
+  if (key === 'Space') return [' '];
   return [key];
 }
 
@@ -112,4 +120,51 @@ export function shortcutKeys(shortcut: string, platform: Platform = detectPlatfo
   if (parsed.alt) caps.push('Alt');
   if (parsed.shift) caps.push('Shift');
   return [...caps, key];
+}
+
+const CODE_KEYS: Record<string, string> = {
+  Equal: '=', Minus: '-', Slash: '/', Comma: ',', Period: '.', Semicolon: ';', Quote: "'", Backquote: '`',
+  BracketLeft: '[', BracketRight: ']', Backslash: '\\', NumpadAdd: '=', NumpadSubtract: '-', NumpadDivide: '/',
+};
+const NAMED_KEYS = new Set([
+  'Delete', 'Backspace', 'Enter', 'Escape', 'Tab', 'Home', 'End', 'PageUp', 'PageDown', 'Insert',
+  'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
+]);
+const MODIFIER_KEYS = new Set(['Control', 'Shift', 'Alt', 'Meta', 'AltGraph', 'OS', 'Hyper', 'Super', 'CapsLock', 'Fn']);
+
+/**
+ * The shortcut string a key press records (Preferences ▸ Shortcuts), or null for a lone modifier or a key
+ * that cannot be a shortcut. Letters and digits come from the physical key, so a Russian layout records 'Mod+S'.
+ * Ctrl on Linux and Windows (⌘ on macOS) becomes `Mod`.
+ */
+export function chordFromEvent(event: KeyLike, platform: Platform = detectPlatform()): string | null {
+  if (MODIFIER_KEYS.has(event.key)) return null;
+  let key: string | null = null;
+  const code = event.code ?? '';
+  if (/^Key[A-Z]$/.test(code)) key = code.slice(3);
+  else if (/^(Digit|Numpad)[0-9]$/.test(code)) key = code.slice(-1);
+  else if (CODE_KEYS[code]) key = CODE_KEYS[code];
+  else if (/^F([1-9]|1[0-2])$/.test(event.key)) key = event.key;
+  else if (NAMED_KEYS.has(event.key)) key = event.key;
+  else if (event.key === ' ' || code === 'Space') key = 'Space';
+  else if (/^[a-z0-9]$/i.test(event.key)) key = event.key.toUpperCase();
+  if (!key) return null;
+  const parts: string[] = [];
+  const mod = platform === 'mac' ? event.metaKey : event.ctrlKey;
+  const ctrl = platform === 'mac' && event.ctrlKey;
+  if (mod) parts.push('Mod');
+  if (ctrl) parts.push('Ctrl');
+  if (event.altKey) parts.push('Alt');
+  if (event.shiftKey) parts.push('Shift');
+  parts.push(key);
+  return parts.join('+');
+}
+
+/** Two shortcuts are the same chord: same modifiers, same key (order and case do not matter). */
+export function sameChord(left: string, right: string): boolean {
+  if (!left || !right) return false;
+  const a = parseShortcut(left);
+  const b = parseShortcut(right);
+  const key = (value: string) => (value === '+' ? '=' : value);
+  return a.mod === b.mod && a.ctrl === b.ctrl && a.shift === b.shift && a.alt === b.alt && key(a.key) === key(b.key);
 }

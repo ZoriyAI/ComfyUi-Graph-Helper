@@ -10,6 +10,7 @@ import { toolLabelKey } from '../../chat/toolPresentation';
 import Illustration from '../illustrations/Illustration';
 import { useCanvasStore, type BuildCallout, type FadingNode } from '../canvasStore';
 import { changedNodes, diffGraph, revealSteps } from '../lib/graphDiff';
+import { currentPreferences } from '../../../state/preferencesState';
 import { CALLOUT_HOLD_MS, calloutText, parameterChanges, stepCounter, stepDelayMs, type BuildItem } from '../lib/buildQueue';
 import { motionLevel, motionMs, useMotionLevel } from '../lib/motion';
 import { useNodeInfoStore } from '../nodeInfo';
@@ -220,6 +221,7 @@ export default function BuildLayer() {
       motion: motionLevel(),
       follow: useUiStore.getState().followAgent,
       queued: useCanvasStore.getState().queue.length,
+      paceMs: currentPreferences().canvas.buildPaceMs,
     });
     const timer = window.setTimeout(() => {
       const canvas = useCanvasStore.getState();
