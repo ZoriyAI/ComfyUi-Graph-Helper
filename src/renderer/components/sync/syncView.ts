@@ -21,13 +21,18 @@ export interface SyncView {
    * before the server has answered, and a server that accepted an anonymous connection never blocks.
    */
   blocked: 'noUrl' | 'noToken' | null;
+  /**
+   * i18n key of the sentence that tells the person what to do about `blocked`, worded for the access they chose in
+   * Settings ▸ Connection: paste the token, sign in, or (nothing chosen, or "no sign-in") choose one of the two.
+   */
+  hintKey: string | null;
   /** Model metadata is still being read in the background after a successful listing. */
   enriching: boolean;
   /** The ring is shown: a run or background enrichment. */
   busy: boolean;
   /** The last successful run left warnings (ComfyUI offline, a section not read). */
   warned: boolean;
-  /** A browser sign-in would fix the current problem. */
+  /** A browser sign-in would fix the current problem (and would be used: the chosen access allows it). */
   needsSignIn: boolean;
 }
 
@@ -44,8 +49,15 @@ export function syncView(status: SyncStatus | null): SyncView {
   const enriching = isEnriching(status);
   const busy = state === 'running' || enriching;
   const fraction = busy && progress && progress.total > 0 ? Math.min(1, progress.done / progress.total) : null;
-  const noCredentials = status != null && !status.tokenHeld && !status.signedIn && status.authMode !== 'anonymous';
+  // Main sends only what the chosen access allows ('none' sends nothing), so only that counts as held here.
+  const choice = status?.authChoice ?? '';
+  const tokenCounts = choice !== 'none' && choice !== 'oauth' && status?.tokenHeld === true;
+  const signInCounts = choice !== 'none' && choice !== 'token' && status?.signedIn === true;
+  const noCredentials = status != null && !tokenCounts && !signInCounts && status.authMode !== 'anonymous';
   const blocked = !status || status.mcpUrl.trim() === '' ? 'noUrl' : noCredentials && status.lastError === NEEDS_SIGN_IN ? 'noToken' : null;
+  let hintKey: string | null = null;
+  if (blocked === 'noUrl') hintKey = 'sync.noUrl';
+  else if (blocked === 'noToken') hintKey = choice === 'token' ? 'sync.needsToken' : choice === 'oauth' ? 'sync.needsBrowser' : 'sync.needsChoice';
   let labelKey = `sync.state.${state}`;
   let labelParams: Record<string, number> | undefined;
   if (enriching && progress) {
@@ -55,9 +67,11 @@ export function syncView(status: SyncStatus | null): SyncView {
     labelKey = 'sync.state.starting';
   }
   const warned = state === 'idle' && (status?.warnings?.length ?? 0) > 0;
-  const needsSignIn = blocked === 'noToken'
-    || (state === 'error' && (status?.lastError === SIGN_IN_AGAIN || status?.lastError === NEEDS_SIGN_IN));
-  return { state, labelKey, labelParams, fraction, blocked, enriching, busy, warned, needsSignIn };
+  // The browser sign-in button helps only when that sign-in would be used: chosen, or nothing chosen yet.
+  const browserMayHelp = choice === '' || choice === 'oauth';
+  const needsSignIn = browserMayHelp && (blocked === 'noToken'
+    || (state === 'error' && (status?.lastError === SIGN_IN_AGAIN || status?.lastError === NEEDS_SIGN_IN)));
+  return { state, labelKey, labelParams, fraction, blocked, hintKey, enriching, busy, warned, needsSignIn };
 }
 
 /** Clamp what a person typed into the interval field to the range main accepts. */

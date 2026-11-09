@@ -40,6 +40,8 @@ import { SETTINGS_SECTIONS, useUiStore, type SettingsSection } from '../../state
 import { usePreferencesStore } from '../../state/preferencesState';
 import { refreshSyncStatus, useKnowledgeStore } from '../../state/knowledgeState';
 import { SETTINGS_CHANGED } from '../../commands/events';
+import { showToast } from '../../ui/toastStore';
+import { detectionNote, shouldDetectAfterSave } from './mcpAccess';
 import styles from './SettingsPanel.module.css';
 
 function applyMotion(motion: NonSecretSettings['motion']) {
@@ -54,6 +56,7 @@ function sameSettings(left: NonSecretSettings, right: NonSecretSettings) {
     && left.baseURL === right.baseURL
     && left.comfyOrigin === right.comfyOrigin
     && left.mcpUrl === right.mcpUrl
+    && left.mcpAuth === right.mcpAuth
     && left.language === right.language;
 }
 
@@ -233,6 +236,26 @@ export default function SettingsPanel({
       : {}
   );
 
+  /**
+   * After a save that set a new MCP address without choosing how to get in, ask the server and store its answer,
+   * so a person who only pastes the address ends up with the right access. The dialog is closed by then: the
+   * sentence comes as a toast, and SETTINGS_CHANGED brings the stored choice into the form.
+   */
+  const detectAccessAfterSave = async (stored: NonSecretSettings, storedPrefs: Preferences) => {
+    try {
+      const note = detectionNote(await window.electronAPI.mcpDetectAuth(stored.mcpUrl), translate);
+      if (note.mode) {
+        const again = await window.electronAPI.saveSettings({ ...stored, mcpAuth: note.mode, preferences: storedPrefs });
+        if (!again.ok) return;
+        window.dispatchEvent(new CustomEvent<NonSecretSettings>(SETTINGS_CHANGED, { detail: again.values }));
+        refreshSyncStatus();
+      }
+      showToast({ id: 'mcp-access', tone: note.tone === 'good' ? 'success' : 'warn', title: note.text });
+    } catch {
+      // Nothing was chosen; "Check" in Settings ▸ Connection asks again.
+    }
+  };
+
   const save = async () => {
     if (saveDisabled) return;
     setPending(true);
@@ -244,6 +267,7 @@ export default function SettingsPanel({
       }
       // A new language reseeds the built-in knowledge in the main process; cached explanations follow it.
       if (savedRef.current.language !== result.values.language) void useKnowledgeStore.getState().reloadExplanations();
+      const detect = shouldDetectAfterSave(savedRef.current, result.values);
       savedRef.current = result.values;
       setValues(result.values);
       const stored = result.preferences ?? prefs;
@@ -256,6 +280,7 @@ export default function SettingsPanel({
       onSavedRef.current(result.values);
       setOpen(false);
       refreshSyncStatus();
+      if (detect) void detectAccessAfterSave(result.values, stored);
     } catch {
       setNote({ kind: 'key', key: 'settings.saveFailed' });
     } finally {
@@ -263,7 +288,7 @@ export default function SettingsPanel({
     }
   };
 
-  const draft: DraftProps = { values, setValues, prefs, setPrefs, container, fieldError, pending, dirty };
+  const draft: DraftProps = { values, setValues, saved: savedRef.current, prefs, setPrefs, container, fieldError, pending, dirty };
   const panelClass = cx(styles.panel, 'settings-panel');
   const panel = (id: SettingsSection, children: React.ReactNode) => (
     <TabsContent key={id} className={panelClass} value={id} tabIndex={-1} forceMount>
@@ -341,7 +366,7 @@ export default function SettingsPanel({
               })}
             </TabsList>
             {panel('assistant', <AssistantSection {...draft} />)}
-            {panel('models', <ModelsSection provider={values.provider} mcpUrl={values.mcpUrl} onSession={(source) => onSessionRef.current(source)} />)}
+            {panel('models', <ModelsSection provider={values.provider} onSession={(source) => onSessionRef.current(source)} />)}
             {panel('connection', <ConnectionSection {...draft} />)}
             {panel('sync', (
               <>

@@ -30,7 +30,8 @@ test('signs in to the MCP server through the browser and syncs without a manual 
     let dialog = window.locator('[role="dialog"].settings-dialog');
     await dialog.getByRole('tab', { name: 'Connection' }).click();
     await dialog.getByRole('textbox', { name: 'MCP server URL', exact: true }).fill(fake.mcpUrl);
-    await expect(dialog.getByText('Save the MCP server URL first.')).toBeVisible();
+    await dialog.getByRole('radio', { name: 'Sign in through the browser', exact: true }).check();
+    await expect(dialog.getByText('First save the server address with “Save settings” below, then sign in.')).toBeVisible();
     await dialog.getByRole('button', { name: 'Save settings' }).click();
     await expect(dialog).toHaveCount(0);
 
