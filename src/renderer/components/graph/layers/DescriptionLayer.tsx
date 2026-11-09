@@ -10,6 +10,7 @@ import { useKnowledgeStore } from '../../../state/knowledgeState';
 import { useRevisionStore } from '../../../state/revisionState';
 import { useUiStore } from '../../../state/uiState';
 import { ProvenanceBadge } from '../../../ui';
+import { provenanceLabelKey } from '../../../../shared/knowledge/labels';
 import type { ComfyNodeData } from '../../../types/graph';
 import { askAbout } from '../askAbout';
 import { useCanvasView } from '../CanvasContext';
@@ -22,6 +23,9 @@ import styles from './DescriptionLayer.module.css';
 /** Smallest card width in screen pixels; wider nodes give their own (zoomed) width, up to MAX_WIDTH. */
 const MIN_WIDTH = 220;
 const MAX_WIDTH = 420;
+/** Below this zoom nodes are small: collapsed cards get compact (narrower, a provenance dot instead of the badge). */
+const COMPACT_ZOOM = 0.75;
+const COMPACT_MIN_WIDTH = 132;
 const EMPTY: Explanation[] = [];
 
 /** Owners already asked for; the knowledge store keeps the lists current after that (explain results, saves). */
@@ -213,7 +217,8 @@ function DescriptionCard({ node, spotlight, readOnly }: { node: ComfyFlowNode; s
   const fallback = spot && spotlight ? spotlight.text.trim() : '';
   if (!content && !fallback && !editing) return null;
 
-  const width = Math.round(Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, (node.measured?.width ?? node.width ?? 240) * zoom)));
+  const compact = zoom < COMPACT_ZOOM && !expanded;
+  const width = Math.round(Math.min(MAX_WIDTH, Math.max(compact ? COMPACT_MIN_WIDTH : MIN_WIDTH, (node.measured?.width ?? node.width ?? 240) * zoom)));
   const primary = content?.primary;
   const summary = primary ? firstLine(primary.text) : fallback || String(t('canvas.descriptionEmpty'));
   const toggle = () => setExpanded(node.id, !expandedByPerson);
@@ -226,6 +231,7 @@ function DescriptionCard({ node, spotlight, readOnly }: { node: ComfyFlowNode; s
         data-description-node={node.id}
         data-description-scope={content?.scope ?? 'none'}
         data-expanded={expanded ? 'true' : 'false'}
+        data-compact={compact ? 'true' : undefined}
         data-spotlight={spot ? 'true' : undefined}
         aria-label={String(t('canvas.descriptionLabel', { name }))}
         aria-live={spot ? 'polite' : undefined}
@@ -238,7 +244,12 @@ function DescriptionCard({ node, spotlight, readOnly }: { node: ComfyFlowNode; s
             title={String(expanded ? t('canvas.descriptionCollapse') : t('canvas.descriptionExpand'))}
             onClick={toggle}
           >
-            {primary ? <span className={styles.badge} data-provenance={primary.provenance}><ProvenanceBadge provenance={primary.provenance} /></span> : null}
+            {primary && compact ? (
+              <span className={styles.provDot} data-provenance={primary.provenance} title={String(t(provenanceLabelKey(primary.provenance)))}>
+                <span className="sr-only">{t(provenanceLabelKey(primary.provenance))}</span>
+              </span>
+            ) : null}
+            {primary && !compact ? <span className={styles.badge} data-provenance={primary.provenance}><ProvenanceBadge provenance={primary.provenance} /></span> : null}
             <span className={styles.line}>{expanded ? null : summary}</span>
             {expanded ? <ChevronUp size={14} aria-hidden="true" className={styles.chevron} /> : <ChevronDown size={14} aria-hidden="true" className={styles.chevron} />}
           </button>
@@ -264,9 +275,8 @@ function DescriptionCard({ node, spotlight, readOnly }: { node: ComfyFlowNode; s
                         {t('canvas.descriptionAsk')}
                       </button>
                     ) : null}
-                    <button type="button" className={styles.action} onClick={() => setEditing(true)}>
+                    <button type="button" className={`${styles.action} ${styles.square}`} aria-label={String(t('canvas.descriptionEdit'))} title={String(t('canvas.descriptionEdit'))} onClick={() => setEditing(true)}>
                       <Pencil size={13} aria-hidden="true" />
-                      {t('canvas.descriptionEdit')}
                     </button>
                   </div>
                 )}

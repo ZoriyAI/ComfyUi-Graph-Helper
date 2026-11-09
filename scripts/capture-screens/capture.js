@@ -188,6 +188,40 @@ async function fit(page) {
     await shot(page, '12-ru-check');
   });
 
+  // Description cards: a few explanations with different sources, cards collapsed at the fit zoom, then one
+  // card expanded at 100 %.
+  await step('descriptions', async () => {
+    await page.evaluate(async () => {
+      const api = window.electronAPI;
+      const projection = await api.readProjection('desktop');
+      const revisionId = projection.currentRevisionId;
+      const save = (id, classType, aspect, text, provenance) => api.saveExplanation({
+        projectId: 'desktop', owner: { kind: 'node', id, classType }, aspect, text, provenance,
+        sourceUrl: null, revisionId, createdBy: provenance === 'user' ? 'user' : 'ai',
+      });
+      await save('1', 'CheckpointLoaderSimple', 'what', 'Загружает чекпойнт: веса модели, текстовый энкодер CLIP и VAE одним файлом.', 'fact');
+      await save('2', 'CLIPTextEncode', 'what', 'Превращает позитивный промпт в условие, к которому семплер тянет картинку.', 'inference');
+      await save('4', 'KSampler', 'why', 'Здесь он делает 20 шагов с CFG 7: баланс между точностью промпта и чистотой картинки.', 'user');
+      await save('5', 'VAEDecode', 'what', 'Разворачивает латент обратно в пиксели.', 'inference');
+    });
+    await page.reload();
+    await page.locator('.app-shell').waitFor();
+    await page.waitForTimeout(1500);
+    await fit(page);
+    await page.waitForTimeout(600);
+    await shot(page, '11b-ru-descriptions-fit');
+    const node = page.locator('.react-flow__node').filter({ hasText: 'KSampler' }).first();
+    const box = await node.boundingBox();
+    await zoomTo100(page, box.x + box.width / 2, box.y + box.height / 2);
+    await page.waitForTimeout(300);
+    const card = page.locator('.description-card[data-description-node="4"]');
+    await card.locator('button[aria-expanded]').click();
+    await page.waitForTimeout(500);
+    await shot(page, '11c-ru-description-expanded-100');
+    await card.locator('button[aria-expanded]').click();
+    await fit(page);
+  });
+
   await step('library-nodes-toast', async () => {
     await page.getByRole('tab', { name: /ноды|nodes/i }).first().click();
     const row = page.locator('#node-library-list [role="option"]').nth(1);

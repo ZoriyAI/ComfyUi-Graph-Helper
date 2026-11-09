@@ -39,6 +39,14 @@
   outline-offset: 1px;
 }
 .badge { flex: 0 0 auto; display: inline-flex; }
+/* Compact cards (zoomed out) carry the source as a coloured dot; the label stays for screen readers and the tooltip. */
+.card[data-compact="true"] { padding: 2px 2px 2px 6px; opacity: 0.92; }
+.card[data-compact="true"] .summary { min-height: 20px; }
+.provDot { flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; background: var(--text-faint, #8b9bb0); }
+.provDot[data-provenance="fact"] { background: var(--prov-fact, #82ddb3); }
+.provDot[data-provenance="inference"] { background: var(--prov-inference, #b7a5ff); }
+.provDot[data-provenance="web"] { background: var(--prov-web, #6cc0f5); }
+.provDot[data-provenance="user"] { background: var(--prov-user, #f6ce7c); }
 .line {
   flex: 1 1 auto;
   min-width: 0;
@@ -66,7 +74,7 @@
 .partHead { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
 .partLabel { color: var(--text-faint, #8b9bb0); font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; }
 .text { margin: 0; color: var(--text, #e8eef7); font-size: var(--text-sm, 13px); line-height: 19px; white-space: pre-wrap; overflow-wrap: anywhere; }
-.actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 8px; }
+.actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; margin-top: 8px; }
 .action, .aspect {
   display: inline-flex;
   align-items: center;
@@ -80,8 +88,10 @@
   font: inherit;
   font-size: var(--text-xs, 12px);
   cursor: pointer;
+  white-space: nowrap;
   transition: background-color var(--motion-feedback, 100ms) var(--motion-ease-out, ease-out);
 }
+.square { width: 24px; padding: 0; justify-content: center; }
 .action:hover:not(:disabled), .aspect:hover { background: var(--surface-hover, #243247); }
 .action:disabled { color: var(--text-faint, #8b9bb0); cursor: not-allowed; }
 .primary { background-color: var(--accent, #65d9ed); background-image: var(--accent-gradient); border-color: transparent; color: var(--on-accent, #071218); }
