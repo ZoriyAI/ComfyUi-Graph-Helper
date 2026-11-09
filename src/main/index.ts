@@ -1,13 +1,37 @@
-import { app, BrowserWindow, Menu } from 'electron';
+import { app, BrowserWindow, Menu, session, type WebContents } from 'electron';
 import * as path from 'path';
 import { passwordStoreFlag } from '../shared/config/passwordStore';
 import { initDatabase, closeDatabase } from './database';
 import { setupIPC } from './ipc';
+import { appEntryUrl, isTrustedAppUrl, setTrustedAppUrl } from './ipc/guard';
 
 const storeFlag = passwordStoreFlag(process.env.XDG_CURRENT_DESKTOP, process.argv);
 if (storeFlag) app.commandLine.appendSwitch('password-store', storeFlag);
 
 let mainWindow: BrowserWindow | null = null;
+
+const DEVELOPMENT = process.env.NODE_ENV === 'development';
+const RENDERER_INDEX = path.join(__dirname, '../renderer/index.html');
+const DEV_SERVER_URL = 'http://localhost:5173/';
+// IPC handlers and navigation checks compare against this one URL.
+setTrustedAppUrl(appEntryUrl({ development: DEVELOPMENT, devServerUrl: DEV_SERVER_URL, rendererIndexPath: RENDERER_INDEX }));
+
+/**
+ * The app page may not leave itself: no navigation to another URL, no new windows, no webviews.
+ * Applied to every web contents the app creates, not only the main window.
+ */
+function hardenContents(contents: WebContents): void {
+  contents.on('will-navigate', (event, url) => {
+    if (!isTrustedAppUrl(url)) event.preventDefault();
+  });
+  contents.on('will-redirect', (event, url) => {
+    if (!isTrustedAppUrl(url)) event.preventDefault();
+  });
+  contents.on('will-attach-webview', (event) => event.preventDefault());
+  contents.setWindowOpenHandler(() => ({ action: 'deny' }));
+}
+
+app.on('web-contents-created', (_event, contents) => hardenContents(contents));
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -28,8 +52,9 @@ function createWindow() {
   mainWindow.setMenuBarVisibility(false);
 
   // Load app
-  if (process.env.NODE_ENV === 'development') {
-    mainWindow.loadURL('http://localhost:5173');
+  hardenContents(mainWindow.webContents);
+  if (DEVELOPMENT) {
+    mainWindow.loadURL(DEV_SERVER_URL);
     mainWindow.webContents.openDevTools();
     // Without the default menu its DevTools accelerator is gone; keep Ctrl+Shift+I in development.
     mainWindow.webContents.on('before-input-event', (event, input) => {
@@ -40,7 +65,7 @@ function createWindow() {
       mainWindow?.webContents.toggleDevTools();
     });
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
+    mainWindow.loadFile(RENDERER_INDEX);
   }
 
   mainWindow.on('closed', () => {
@@ -50,6 +75,10 @@ function createWindow() {
 
 app.whenReady().then(async () => {
   try {
+    // No camera, microphone, notifications, geolocation or any other permission. Writing to the clipboard
+    // (the "copy link" button) is the one exception; reading it is not.
+    session.defaultSession.setPermissionRequestHandler((_contents, permission, callback) => callback(permission === 'clipboard-sanitized-write'));
+    session.defaultSession.setPermissionCheckHandler((_contents, permission) => permission === 'clipboard-sanitized-write');
     initDatabase();
     await setupIPC();
     Menu.setApplicationMenu(null);

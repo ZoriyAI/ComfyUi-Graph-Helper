@@ -9,7 +9,7 @@ import { catalogTotals, writeModelEnrichment } from '../catalog/repository';
 import { readPreferences, readSettings } from '../settings/repository';
 import { connectStreamableHttp, failure, openReadOnlySession, readCatalogWithSession, type McpSessionFactory } from './client';
 import { McpRefusedError } from './readOnly';
-import { mcpToken } from './token';
+import { mcpToken, releaseMcpTokenIfOriginChanged } from './token';
 import type { ServerIdentity } from './inventory';
 
 /** Loader folders whose files carry a safetensors header worth reading. */
@@ -30,6 +30,8 @@ export interface SyncDeps {
   enrichLimit?: number;
   /** Preferences ▸ Sync, read on each run: which folders to enrich and how many files per run. */
   readEnrichment: (db: Database.Database) => { scope: 'loaders' | 'all'; perRun: number };
+  /** Called with the MCP URL before each connect; drops a token held for another origin. */
+  checkTokenOrigin: (url: string) => void;
 }
 
 type Listener = (status: SyncStatus) => void;
@@ -47,7 +49,44 @@ const defaultDeps: SyncDeps = {
     const { sync } = readPreferences(db);
     return { scope: sync.enrichmentScope, perRun: sync.enrichPerRun };
   },
+  checkTokenOrigin: releaseMcpTokenIfOriginChanged,
 };
+
+/** sync_state key holding failed metadata reads: { "directory/name": { attempts, lastAt } }. */
+export const ENRICH_FAILURES_KEY = 'enrich_failures';
+const HOUR = 60 * 60_000;
+
+/** How long a file waits after its n-th failed metadata read: 1 h, then 6 h, then 24 h. */
+export function enrichBackoffMs(attempts: number): number {
+  if (attempts <= 0) return 0;
+  if (attempts === 1) return HOUR;
+  if (attempts === 2) return 6 * HOUR;
+  return 24 * HOUR;
+}
+
+type FailureMap = Record<string, { attempts: number; lastAt: number }>;
+
+function readFailures(state: Record<string, string>): FailureMap {
+  try {
+    const value = JSON.parse(state[ENRICH_FAILURES_KEY] ?? '{}') as unknown;
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+    const result: FailureMap = {};
+    for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+      const item = entry as { attempts?: unknown; lastAt?: unknown } | null;
+      if (item && typeof item.attempts === 'number' && typeof item.lastAt === 'number') result[key] = { attempts: item.attempts, lastAt: item.lastAt };
+    }
+    return result;
+  } catch {
+    return {};
+  }
+}
+
+/** LoRAs first (they carry trigger words and base models people ask about), then checkpoints, then the rest. */
+function enrichOrder(directory: string): number {
+  if (directory === 'loras') return 0;
+  if (directory === 'checkpoints') return 1;
+  return 2;
+}
 
 function readState(db: Database.Database): Record<string, string> {
   const rows = db.prepare('SELECT key, value FROM sync_state').all() as Array<{ key: string; value: string }>;
@@ -188,7 +227,9 @@ export class SyncService {
   }
 
   private async execute(db: Database.Database, fetchImpl: typeof fetch, factory: McpSessionFactory): Promise<void> {
-    const opened = await openReadOnlySession({ url: this.deps.readUrl(db), token: this.deps.token() }, factory);
+    const url = this.deps.readUrl(db);
+    this.deps.checkTokenOrigin(url);
+    const opened = await openReadOnlySession({ url, token: this.deps.token() }, factory);
     if (!opened.ok) {
       writeState(db, { last_error: opened.error });
       return;
@@ -221,24 +262,44 @@ export class SyncService {
       // Defaults: loader folders, 40 per run.
     }
     const limit = this.deps.enrichLimit ?? enrichment.perRun;
-    const rows = (enrichment.scope === 'all'
-      ? db.prepare('SELECT directory, name FROM model_catalog WHERE enriched_at IS NULL ORDER BY directory, name LIMIT ?').all(limit)
+    const candidates = (enrichment.scope === 'all'
+      ? db.prepare('SELECT directory, name FROM model_catalog WHERE enriched_at IS NULL').all()
       : db.prepare(
-        `SELECT directory, name FROM model_catalog WHERE enriched_at IS NULL AND directory IN (${ENRICH_DIRECTORIES.map(() => '?').join(', ')})
-         ORDER BY directory, name LIMIT ?`,
-      ).all(...ENRICH_DIRECTORIES, limit)) as Array<{ directory: string; name: string }>;
+        `SELECT directory, name FROM model_catalog WHERE enriched_at IS NULL AND directory IN (${ENRICH_DIRECTORIES.map(() => '?').join(', ')})`,
+      ).all(...ENRICH_DIRECTORIES)) as Array<{ directory: string; name: string }>;
+    const now = this.deps.now();
+    const failures = readFailures(readState(db));
+    // A file whose read failed waits out its backoff and does not take a slot from the others.
+    const rows = candidates
+      .filter((row) => {
+        const failure = failures[`${row.directory}/${row.name}`];
+        return !failure || now - failure.lastAt >= enrichBackoffMs(failure.attempts);
+      })
+      .sort((left, right) => enrichOrder(left.directory) - enrichOrder(right.directory)
+        || left.directory.localeCompare(right.directory)
+        || left.name.localeCompare(right.name))
+      .slice(0, Math.max(0, limit));
     let attempted = 0;
     let failed = 0;
     for (const [index, row] of rows.entries()) {
       this.setProgress(db, 'enrich', index, rows.length);
+      const key = `${row.directory}/${row.name}`;
       let parsed: ParsedModelMetadata | null = null;
       if (hasTool && isHeaderFile(row.name)) {
         attempted += 1;
         parsed = await readMetadata(session, row.directory, row.name);
-        if (!parsed) failed += 1;
+        if (!parsed) {
+          // Not enriched: the name-based guess stays and the read is retried after the backoff.
+          failed += 1;
+          const previous = failures[key];
+          failures[key] = { attempts: (previous?.attempts ?? 0) + 1, lastAt: this.deps.now() };
+          continue;
+        }
       }
+      delete failures[key];
       writeModelEnrichment(db, row.directory, row.name, enrichmentOf(row.directory, row.name, parsed, this.deps.now()));
     }
+    writeState(db, { [ENRICH_FAILURES_KEY]: JSON.stringify(failures) });
     if (rows.length > 0) this.setProgress(db, 'enrich', rows.length, rows.length);
     return attempted > 0 && failed === attempted ? ALL_FAILED : null;
   }

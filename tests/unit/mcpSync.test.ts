@@ -196,7 +196,8 @@ describe('sync service', () => {
       mcpUrl: 'https://mcp.example.test/mcp',
       tokenHeld: true,
       auto: { enabled: false, intervalMinutes: 30 },
-      counts: { nodeClasses: 1, packs: 2, models: 5, enrichedModels: 4 },
+      // zimage_style read, old.pt named only; the two failed reads stay unenriched for a retry.
+      counts: { nodeClasses: 1, packs: 2, models: 5, enrichedModels: 2 },
       progress: null,
     });
     expect(db.prepare('SELECT name, class_count, synced_at FROM node_packs ORDER BY name').all()).toEqual([
@@ -214,8 +215,13 @@ describe('sync service', () => {
       rootPath: '/m/loras',
       enriched: true,
     });
-    expect(modelDetail(db, 'loras', 'Band_Shirt_Crop_Top_SDXL.safetensors')).toMatchObject({ baseModel: 'sdxl', baseModelEvidence: 'filename', enriched: true });
-    expect(modelDetail(db, 'checkpoints', 'mystery.safetensors')).toMatchObject({ baseModel: 'unknown', baseModelEvidence: 'none', kind: 'checkpoint', enriched: true });
+    expect(modelDetail(db, 'loras', 'Band_Shirt_Crop_Top_SDXL.safetensors')).toMatchObject({ baseModel: 'sdxl', baseModelEvidence: 'filename', enriched: false });
+    expect(modelDetail(db, 'checkpoints', 'mystery.safetensors')).toMatchObject({ baseModel: 'unknown', baseModelEvidence: 'none', kind: 'checkpoint', enriched: false });
+    const failures = JSON.parse((db.prepare("SELECT value FROM sync_state WHERE key = 'enrich_failures'").get() as { value: string }).value);
+    expect(failures).toEqual({
+      'loras/Band_Shirt_Crop_Top_SDXL.safetensors': { attempts: 1, lastAt: 1_700_000_000_000 },
+      'checkpoints/mystery.safetensors': { attempts: 1, lastAt: 1_700_000_000_000 },
+    });
     // Not a loader folder: no enrichment, but the name inference still ran.
     expect(modelDetail(db, 'sams', 'sam_vit_b.pth')).toMatchObject({ kind: 'other', enriched: false });
     // Only header files are read; old.pt is enriched from its name without a call.
@@ -229,7 +235,7 @@ describe('sync service', () => {
     for (const spy of logs) expect(JSON.stringify(spy.mock.calls)).not.toContain(TOKEN);
     expect(JSON.stringify(db.prepare('SELECT * FROM sync_state').all())).not.toContain(TOKEN);
 
-    // A second run has nothing left to enrich but keeps file-name inference for every model.
+    // A second run within the hour skips the failed files and keeps file-name inference for every model.
     calls.length = 0;
     await sync.runSync(db);
     expect(calls.filter((call) => call.name === 'model_metadata')).toEqual([]);
@@ -268,7 +274,37 @@ describe('sync service', () => {
     const db = openDb();
     const { sync } = service({ calls: [], metadata: () => new Error('down') });
     const status = await sync.runSync(db);
-    expect(status).toMatchObject({ state: 'error', lastError: 'Model metadata could not be read.', counts: { enrichedModels: 4 } });
+    expect(status).toMatchObject({ state: 'error', lastError: 'Model metadata could not be read.', counts: { enrichedModels: 1 } });
+    db.close();
+  });
+
+  it('retries failed metadata reads with a growing backoff, LoRAs first', async () => {
+    const db = openDb();
+    const calls: FakeOptions['calls'] = [];
+    let clock = 1_700_000_000_000;
+    let healthy = false;
+    const { sync } = service({
+      calls,
+      metadata: () => (healthy ? json({ model_explorer: 'unavailable', embedded_metadata: { ss_base_model_version: 'sdxl_base_v1-0' }, civitai_sidecar: null }) : new Error('down')),
+    }, { now: () => clock });
+    const reads = () => calls.filter((call) => call.name === 'model_metadata').map((call) => `${call.args.category}/${call.args.name}`);
+    await sync.runSync(db);
+    expect(reads()).toEqual(['loras/Band_Shirt_Crop_Top_SDXL.safetensors', 'loras/zimage_style.safetensors', 'checkpoints/mystery.safetensors']);
+    const steps: Array<[number, number]> = [[30 * 60_000, 0], [31 * 60_000, 3], [5 * 3_600_000, 0], [3_600_000 + 1, 3], [23 * 3_600_000, 0], [3_600_000 + 1, 3], [24 * 3_600_000, 3]];
+    for (const [advance, expected] of steps) {
+      calls.length = 0;
+      clock += advance;
+      await sync.runSync(db);
+      expect(reads(), `after +${advance}`).toHaveLength(expected);
+    }
+    const failures = JSON.parse((db.prepare("SELECT value FROM sync_state WHERE key = 'enrich_failures'").get() as { value: string }).value);
+    expect(failures['loras/zimage_style.safetensors'].attempts).toBe(5);
+    expect(modelDetail(db, 'loras', 'zimage_style.safetensors')).toMatchObject({ enriched: false });
+    healthy = true;
+    clock += 24 * 3_600_000;
+    await sync.runSync(db);
+    expect(modelDetail(db, 'loras', 'zimage_style.safetensors')).toMatchObject({ enriched: true, baseModel: 'sdxl', baseModelEvidence: 'metadata' });
+    expect(JSON.parse((db.prepare("SELECT value FROM sync_state WHERE key = 'enrich_failures'").get() as { value: string }).value)).toEqual({});
     db.close();
   });
 

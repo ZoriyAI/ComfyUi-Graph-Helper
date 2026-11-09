@@ -1,4 +1,5 @@
-import { ipcMain, dialog, safeStorage } from 'electron';
+import { ipcMain as rawIpcMain, dialog, safeStorage } from 'electron';
+import { guardedIpcMain } from './ipc/guard';
 import { randomUUID } from 'crypto';
 import * as fs from 'fs';
 import { IPC_CHANNELS } from '../shared/ipc-channels';
@@ -12,7 +13,9 @@ import { readCatalogViaMcp } from './mcp/client';
 import { registerKnowledgeIpc } from './ipc/knowledgeIpc';
 import { registerEngineIpc } from './ipc/engineIpc';
 import { registerAgentIpc } from './ipc/agentIpc';
-import { mcpToken, mcpTokenStatus, setMcpToken } from './mcp/token';
+import { mcpTokenFor, mcpTokenStatus, releaseMcpTokenIfOriginChanged, setMcpToken } from './mcp/token';
+import { saveProjectRecord } from './ipc/projectRecord';
+import { setBlockedWebOrigins } from './agent/web';
 import { missingOnGraph } from '../shared/graph/compatibility';
 import { cancelRun, closeRun, commitCommand, pauseRun, readProjection, resumeRun, startRun, switchProject } from './commands/commit';
 import { DESKTOP_PROJECT_ID } from '../shared/project';
@@ -30,6 +33,17 @@ async function secretStatus() {
   const decision = secretPersistenceDecision(probe);
   secretDecision = { persist: decision.persist, backend: probe.backend, reason: decision.reason };
   return secretDecision;
+}
+
+/** The saved ComfyUI origin and MCP URL, or empty strings when settings are unreadable. */
+function savedEndpoints(): { comfyOrigin: string; mcpUrl: string } {
+  const read = readSettings(getDatabase());
+  return read.source === 'corrupt' ? { comfyOrigin: '', mcpUrl: '' } : { comfyOrigin: read.values.comfyOrigin, mcpUrl: read.values.mcpUrl };
+}
+
+/** The page reader must never reach the saved ComfyUI; refreshed whenever settings change. */
+function refreshBlockedWebOrigins(comfyOrigin: string): void {
+  setBlockedWebOrigins([comfyOrigin]);
 }
 
 function dialogCopy() {
@@ -60,8 +74,11 @@ async function adoptStoredKey(): Promise<void> {
 }
 
 export async function setupIPC(): Promise<void> {
+  // Every handler below, and the domain handlers, check that the sender is the app's own page.
+  const ipcMain = guardedIpcMain(rawIpcMain);
   adoptStoredChatRuntime();
   await adoptStoredKey();
+  refreshBlockedWebOrigins(savedEndpoints().comfyOrigin);
   // Domain handlers. Each workstream owns its register function; see docs/superpowers/specs/2026-11-08-helper-brief.md.
   registerKnowledgeIpc(ipcMain);
   registerEngineIpc(ipcMain);
@@ -158,24 +175,7 @@ export async function setupIPC(): Promise<void> {
   });
 
   // Project operations
-  ipcMain.handle(IPC_CHANNELS.DB_SAVE_PROJECT, async (_event, project) => {
-    const db = getDatabase();
-    const stmt = db.prepare(`
-      INSERT OR REPLACE INTO projects (id, name, created_at, updated_at, graph_data, metadata)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `);
-
-    stmt.run(
-      project.id,
-      project.name,
-      project.created_at,
-      project.updated_at,
-      JSON.stringify(project.graph_data),
-      JSON.stringify(project.metadata || {})
-    );
-
-    return { success: true };
-  });
+  ipcMain.handle(IPC_CHANNELS.DB_SAVE_PROJECT, (_event, project: unknown) => saveProjectRecord(getDatabase(), project));
 
   ipcMain.handle(IPC_CHANNELS.DB_LOAD_PROJECT, async (_event, id) => {
     const db = getDatabase();
@@ -216,6 +216,9 @@ export async function setupIPC(): Promise<void> {
   ipcMain.handle(IPC_CHANNELS.SETTINGS_SAVE, (_event, input: unknown) => {
     const result = saveSettings(getDatabase(), input);
     if (result.ok) {
+      refreshBlockedWebOrigins(result.values.comfyOrigin);
+      // A token given for one MCP server is not sent to another.
+      releaseMcpTokenIfOriginChanged(result.values.mcpUrl);
       mainLLMService.setConfig({
         provider: result.values.provider,
         model: result.values.model,
@@ -253,15 +256,16 @@ export async function setupIPC(): Promise<void> {
   });
 
   ipcMain.handle(IPC_CHANNELS.MCP_READ, async () => {
-    const read = readSettings(getDatabase());
-    const url = read.source === 'corrupt' ? '' : read.values.mcpUrl;
+    const url = savedEndpoints().mcpUrl;
     if (!url) return { ok: false as const, error: 'MCP server URL is empty.' };
-    return readCatalogViaMcp(getDatabase(), { url, token: mcpToken() }, globalThis.fetch);
+    return readCatalogViaMcp(getDatabase(), { url, token: mcpTokenFor(url) }, globalThis.fetch);
   });
 
-  ipcMain.handle(IPC_CHANNELS.MCP_SET_TOKEN, (_event, value: unknown) => {
+  ipcMain.handle(IPC_CHANNELS.MCP_SET_TOKEN, (_event, value: unknown, forUrl?: unknown) => {
     console.log('[IPC] MCP token updated (value NOT logged)');
-    return setMcpToken(value);
+    // The token is bound to the MCP origin it is meant for: the URL being saved alongside it, or the saved one.
+    const url = typeof forUrl === 'string' && forUrl.length > 0 && forUrl.length <= 2000 ? forUrl : savedEndpoints().mcpUrl;
+    return setMcpToken(value, url);
   });
 
   ipcMain.handle(IPC_CHANNELS.MCP_TOKEN_STATUS, () => mcpTokenStatus());

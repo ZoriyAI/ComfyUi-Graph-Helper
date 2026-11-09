@@ -15,8 +15,17 @@ import MotionRoot from './motion/MotionRoot';
 import { HintProvider } from './ui/Hint';
 import { ToastProvider } from './ui/Toast';
 import { languageOf, type AppLanguage } from '../shared/i18n';
+import { isForeignDrag } from './dropGuard';
 
 document.documentElement.dataset.motion = 'system';
+
+// A file or link dropped outside a drop target would navigate the app window to it; see dropGuard.ts.
+for (const name of ['dragover', 'drop'] as const) {
+  document.addEventListener(name, (event) => {
+    const types = Array.from(event.dataTransfer?.types ?? []);
+    if (isForeignDrag(types)) event.preventDefault();
+  });
+}
 
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement

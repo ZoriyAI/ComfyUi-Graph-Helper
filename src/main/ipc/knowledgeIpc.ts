@@ -1,5 +1,6 @@
 import { BrowserWindow, type IpcMain } from 'electron';
 import { IPC_CHANNELS } from '../../shared/ipc-channels';
+import { guardedHandle } from './guard';
 import type { SyncStatus } from '../../shared/contracts/knowledge';
 import { getDatabase } from '../database';
 import { knowledgeHandlers } from '../knowledge/handlers';
@@ -26,7 +27,7 @@ function broadcast(status: SyncStatus): void {
 export function registerKnowledgeIpc(ipcMain: IpcMain): void {
   const handlers = knowledgeHandlers({ db: getDatabase, sync: syncService, fetchImpl: globalThis.fetch });
   for (const [channel, handler] of Object.entries(handlers)) {
-    ipcMain.handle(channel, (_event, ...args: unknown[]) => handler(...args));
+    guardedHandle(ipcMain, channel, (_event, ...args: unknown[]) => handler(...args));
   }
   syncService.onStatus(broadcast);
   syncService.start(getDatabase());

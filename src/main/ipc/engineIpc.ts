@@ -2,6 +2,7 @@ import type { IpcMain } from 'electron';
 import type Database from 'better-sqlite3';
 import { z } from 'zod';
 import { IPC_CHANNELS } from '../../shared/ipc-channels';
+import { guardedHandle } from './guard';
 import type { Proposal, ProposalResolution } from '../../shared/contracts/proposals';
 import { REVISION_LIST_LIMIT, type RevisionSnapshot, type RevisionSummary } from '../../shared/contracts/revisions';
 import { listRevisions, loadRevision } from '../commands/commit';
@@ -64,8 +65,8 @@ export function registerEngineIpc(ipcMain: IpcMain, getDb?: () => Database.Datab
   const database = getDb ?? (() => (require('../database') as typeof import('../database')).getDatabase());
   const handlers = engineHandlers(database);
   setProposalsNotifier((_projectId, open) => broadcast(IPC_CHANNELS.PROPOSALS_EVENT, open));
-  ipcMain.handle(IPC_CHANNELS.PROPOSALS_LIST, (_event, projectId: unknown) => handlers.listProposals(projectId));
-  ipcMain.handle(IPC_CHANNELS.PROPOSALS_RESOLVE, (_event, request: unknown) => handlers.resolveProposal(request));
-  ipcMain.handle(IPC_CHANNELS.GRAPH_LIST_REVISIONS, (_event, projectId: unknown) => handlers.listRevisions(projectId));
-  ipcMain.handle(IPC_CHANNELS.GRAPH_LOAD_REVISION, (_event, request: unknown) => handlers.loadRevision(request));
+  guardedHandle(ipcMain, IPC_CHANNELS.PROPOSALS_LIST, (_event, projectId: unknown) => handlers.listProposals(projectId));
+  guardedHandle(ipcMain, IPC_CHANNELS.PROPOSALS_RESOLVE, (_event, request: unknown) => handlers.resolveProposal(request));
+  guardedHandle(ipcMain, IPC_CHANNELS.GRAPH_LIST_REVISIONS, (_event, projectId: unknown) => handlers.listRevisions(projectId));
+  guardedHandle(ipcMain, IPC_CHANNELS.GRAPH_LOAD_REVISION, (_event, request: unknown) => handlers.loadRevision(request));
 }

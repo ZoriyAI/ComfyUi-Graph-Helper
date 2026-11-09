@@ -85,6 +85,12 @@ function appVersion(): string {
 }
 
 // Expose safe IPC API to renderer
+/** A stream turn ends with a `done` or an `error` chunk. */
+function isStreamEnd(chunk: unknown): boolean {
+  const type = chunk && typeof chunk === 'object' ? (chunk as { type?: unknown }).type : undefined;
+  return type === 'done' || type === 'error';
+}
+
 contextBridge.exposeInMainWorld('electronAPI', {
   // Platform info
   platform: process.platform,
@@ -121,7 +127,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     | { ok: true; tools: number; nodes: number; models: number; objectInfo: 'mcp' | 'native' | 'none'; comfyUrl: string | null; skipped: string[] }
     | { ok: false; error: string }
   >,
-  mcpSetToken: (value: string) => ipcRenderer.invoke(IPC_CHANNELS.MCP_SET_TOKEN, value) as Promise<{ held: boolean }>,
+  mcpSetToken: (value: string, forUrl?: string) => ipcRenderer.invoke(IPC_CHANNELS.MCP_SET_TOKEN, value, forUrl) as Promise<{ held: boolean }>,
   mcpTokenStatus: () => ipcRenderer.invoke(IPC_CHANNELS.MCP_TOKEN_STATUS) as Promise<{ held: boolean }>,
   graphCompatibility: () => ipcRenderer.invoke(IPC_CHANNELS.GRAPH_COMPATIBILITY) as Promise<
     | { ok: true; missingNodes: string[]; missingModels: Array<{ directory: string; name: string }> }
@@ -151,9 +157,25 @@ contextBridge.exposeInMainWorld('electronAPI', {
     run: { projectId: string; runId: string; expectedRevisionId: string },
     context?: AgentTurnContext,
   ) => {
-    const channel = `llm-stream-${Date.now()}`;
-    ipcRenderer.on(channel, (_event, chunk) => onChunk(chunk));
-    return ipcRenderer.invoke(IPC_CHANNELS.LLM_STREAM_CHAT, messages, toolSpecs, channel, run, context);
+    const channel = `llm-stream-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    // One listener per turn, removed when the turn ends so listeners do not pile up across turns.
+    const listener = (_event: unknown, chunk: { type: string; content: any }) => {
+      onChunk(chunk);
+      if (isStreamEnd(chunk)) ipcRenderer.removeListener(channel, listener);
+    };
+    ipcRenderer.on(channel, listener);
+    const release = () => ipcRenderer.removeListener(channel, listener);
+    return ipcRenderer.invoke(IPC_CHANNELS.LLM_STREAM_CHAT, messages, toolSpecs, channel, run, context).then(
+      (value) => {
+        // Chunks are sent before the reply on the same pipe; anything after the reply is not part of this turn.
+        release();
+        return value;
+      },
+      (error) => {
+        release();
+        throw error;
+      },
+    );
   },
   sendToolResult: (resultChannel: string, result: any) => {
     ipcRenderer.send(resultChannel, result);
@@ -240,7 +262,8 @@ export interface ElectronAPI {
     | { ok: true; tools: number; nodes: number; models: number; objectInfo: 'mcp' | 'native' | 'none'; comfyUrl: string | null; skipped: string[] }
     | { ok: false; error: string }
   >;
-  mcpSetToken: (value: string) => Promise<{ held: boolean }>;
+  /** `forUrl`: the MCP URL the token is for (e.g. the draft being saved); defaults to the saved URL. */
+  mcpSetToken: (value: string, forUrl?: string) => Promise<{ held: boolean }>;
   mcpTokenStatus: () => Promise<{ held: boolean }>;
   graphCompatibility: () => Promise<
     | { ok: true; missingNodes: string[]; missingModels: Array<{ directory: string; name: string }> }
