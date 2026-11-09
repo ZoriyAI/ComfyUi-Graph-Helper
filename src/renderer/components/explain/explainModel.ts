@@ -6,7 +6,7 @@ export const ASPECTS: readonly ExplanationAspect[] = ['what', 'why', 'connect', 
 
 /** Knowledge about a class or a model file is shared across projects and not tied to a revision. */
 export function isGlobalOwner(ref: ObjectRef): boolean {
-  return ref.kind === 'nodeClass' || ref.kind === 'model';
+  return ref.kind === 'nodeClass' || ref.kind === 'model' || ref.kind === 'linkType' || ref.kind === 'family';
 }
 
 /**
@@ -31,9 +31,18 @@ export function missingAspects(list: readonly Explanation[]): ExplanationAspect[
   return ASPECTS.filter((aspect) => !present.has(aspect));
 }
 
-/** The newest `limit` explanations, newest first. */
+/** The newest `limit` explanations, newest first. Built-in seeds are reference, not history, and stay out. */
 export function recentExplanations(list: readonly Explanation[], limit = 20): Explanation[] {
-  return [...list].sort((a, b) => b.createdAt - a.createdAt).slice(0, limit);
+  return list.filter((item) => item.createdBy !== 'seed').sort((a, b) => b.createdAt - a.createdAt).slice(0, limit);
+}
+
+/**
+ * The source link shown under an explanation: web findings always carry theirs; a built-in seed shows the official
+ * docs page its fact comes from. Other records do not show links (the agent could write any URL beside a "fact").
+ */
+export function shownSourceUrl(item: Pick<Explanation, 'provenance' | 'createdBy' | 'sourceUrl'>): string | null {
+  if (item.provenance === 'web' || (item.createdBy === 'seed' && item.provenance === 'fact')) return safeSourceUrl(item.sourceUrl);
+  return null;
 }
 
 /** Only http(s) links are shown as sources; anything else is not a link. */

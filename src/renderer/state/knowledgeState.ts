@@ -23,12 +23,17 @@ interface KnowledgeState {
   recent: Explanation[];
   setSync: (status: SyncStatus) => void;
   loadExplanations: (owner: ObjectRef, projectId?: string) => Promise<Explanation[]>;
+  /** Loads every owner already loaded again, e.g. after the interface language changed the built-in knowledge. */
+  reloadExplanations: () => Promise<void>;
   addExplanation: (explanation: Explanation) => void;
   loadRecent: (projectId?: string) => Promise<Explanation[]>;
   /** Saves through knowledge:save-explanation and adds the stored record to the cache. */
   saveExplanation: (input: ExplanationInput) => Promise<Explanation>;
   runCheck: (projectId?: string) => Promise<GraphCheckReport>;
 }
+
+/** Owners loaded so far, so a reload can ask for them again. */
+const loadedOwners = new Map<string, { owner: ObjectRef; projectId: string }>();
 
 export const useKnowledgeStore = create<KnowledgeState>((set, get) => ({
   sync: null,
@@ -38,6 +43,7 @@ export const useKnowledgeStore = create<KnowledgeState>((set, get) => ({
   recent: [],
   setSync: (sync) => set({ sync }),
   loadExplanations: async (owner, projectId = DESKTOP_PROJECT_ID) => {
+    loadedOwners.set(objectKey(owner), { owner, projectId });
     const list = await window.electronAPI.listExplanations({ projectId, owner });
     set((state) => {
       const ids = new Set(list.map((item) => item.id));
@@ -47,6 +53,9 @@ export const useKnowledgeStore = create<KnowledgeState>((set, get) => ({
       };
     });
     return list;
+  },
+  reloadExplanations: async () => {
+    await Promise.all([...loadedOwners.values()].map(({ owner, projectId }) => get().loadExplanations(owner, projectId).catch(() => [])));
   },
   addExplanation: (explanation) => set((state) => {
     const key = objectKey(explanation.owner);

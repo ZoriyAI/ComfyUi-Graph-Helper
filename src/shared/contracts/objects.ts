@@ -2,7 +2,11 @@
  * A reference to one thing a person can point at in the app.
  * Used by explanations, the context menu question, agent context, and proposals.
  */
-export type ObjectKind = 'node' | 'port' | 'edge' | 'subgraph' | 'group' | 'nodeClass' | 'model' | 'process';
+/**
+ * 'linkType': a ComfyUI data type such as MODEL or LATENT (id = the type name).
+ * 'family': a base-model family such as sdxl or flux1 (id = the BaseModelFamily value).
+ */
+export type ObjectKind = 'node' | 'port' | 'edge' | 'subgraph' | 'group' | 'nodeClass' | 'model' | 'process' | 'linkType' | 'family';
 
 export interface ObjectRef {
   kind: ObjectKind;

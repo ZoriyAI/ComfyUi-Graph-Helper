@@ -1,5 +1,6 @@
 import React, { forwardRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { familyNote } from '../../shared/knowledge/coreKnowledge';
 import type { BaseModelFamily, ModelKind, Provenance } from '../../shared/contracts';
 import { familyLabelKey, kindLabelKey, provenanceLabelKey } from '../../shared/knowledge/labels';
 import styles from './Badge.module.css';
@@ -64,8 +65,10 @@ export function ProvenanceBadge({ provenance, className }: { provenance: Provena
 }
 
 export function FamilyBadge({ family, className }: { family: BaseModelFamily; className?: string }) {
-  const { t } = useTranslation();
-  return <Badge hue={familyHue(family)} className={className}>{t(familyLabelKey(family))}</Badge>;
+  const { t, i18n } = useTranslation();
+  // The built-in note about the family (what it needs, which LoRAs fit) as the badge tooltip.
+  const note = familyNote(family, (i18n.language || 'ru').toLowerCase().startsWith('en') ? 'en' : 'ru');
+  return <Badge hue={familyHue(family)} className={className} title={note ? `${note.what}\n\n${note.risk}` : undefined}>{t(familyLabelKey(family))}</Badge>;
 }
 
 export function KindBadge({ kind, className }: { kind: ModelKind; className?: string }) {
