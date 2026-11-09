@@ -21,6 +21,10 @@ export const READ_ONLY_SCHEMAS = {
   list_local_models: z.object({ action: z.literal('list'), model_type: name.optional() }).strict(),
   model_metadata: z.object({ action: z.literal('read'), category: name, name }).strict(),
   comfy_api: z.object({ method: z.literal('GET'), route: z.enum(['/object_info', '/system_stats']) }).strict(),
+  // Settings ▸ Assistant: the Ollama servers the MCP server runs and the models each one lists. Both only read;
+  // ollama_pull / ollama_load / ollama_unload / ollama_chat are not listed and stay refused.
+  ollama_targets: z.object({}).strict(),
+  ollama_models: z.object({ target: z.string().min(1).max(100) }).strict(),
 } as const;
 
 /**
