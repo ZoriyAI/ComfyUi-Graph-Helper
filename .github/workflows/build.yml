@@ -6,6 +6,11 @@ on:
     tags: ['v*']
   pull_request:
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Create a release with this tag (e.g. v0.2.0); leave empty for a plain build'
+        required: false
+        default: ''
 
 concurrency:
   group: build-${{ github.ref }}
@@ -64,10 +69,13 @@ jobs:
           path: test-results
           if-no-files-found: ignore
 
-      - name: Release on tag
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Release on tag or on request
+        if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ inputs.release_tag || github.ref_name }}
+          target_commitish: ${{ github.sha }}
+          name: ComfyUI Graph Helper ${{ inputs.release_tag || github.ref_name }}
           files: out/make/deb/x64/*.deb
-          body_path: docs/releases/${{ github.ref_name }}.md
+          body_path: docs/releases/${{ inputs.release_tag || github.ref_name }}.md
           generate_release_notes: true
