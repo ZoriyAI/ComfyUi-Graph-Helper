@@ -4,8 +4,8 @@ import { z } from 'zod';
 import * as knowledgeRepository from '../knowledge/repository';
 import * as proposalRepository from '../proposals/repository';
 import { readProjection } from '../commands/commit';
-import { mutationFromTool } from '../../shared/commands/tools';
-import { summarizeGraph } from '../../shared/agent/graph';
+import { mutationFromTool, type ToolContext } from '../../shared/commands/tools';
+import { GRAPH_PAGE_LIMIT, summarizeGraph } from '../../shared/agent/graph';
 import { carriesSecret } from '../../shared/config/draft';
 import { IPC_CHANNELS } from '../../shared/ipc-channels';
 import type { Projection } from '../../shared/commands/types';
@@ -33,6 +33,10 @@ export interface AgentToolDeps {
   /** Provider-executed web search tool, or null for the main-process fallback. */
   nativeSearch?: unknown | null;
   readGraph?: (db: Database.Database, projectId: string) => Projection | null;
+  /** Snapshot and catalog for resolving port names and slot indices in proposals. */
+  toolContext?: () => ToolContext | undefined;
+  /** Aborted when the turn is cancelled: nothing more is written. */
+  signal?: AbortSignal;
 }
 
 export interface AgentToolDefinition {
@@ -64,7 +68,11 @@ const objectRefSchema = z.object({
 });
 
 const schemas = {
-  getGraph: z.object({}).passthrough(),
+  getGraph: z.object({
+    offset: z.number().int().min(0).optional(),
+    limit: z.number().int().min(1).max(500).optional(),
+    ids: z.array(z.string().max(200)).max(500).optional(),
+  }).passthrough(),
   searchNodeTypes: z.object({ query: z.string().max(200), category: z.string().max(200).optional(), limit: z.number().int().min(1).max(50).optional() }),
   describeNodeType: z.object({ classType: z.string().min(1).max(200) }),
   findInstalledModels: z.object({
@@ -110,6 +118,18 @@ function globalOwner(owner: ObjectRef): boolean {
   return owner.kind === 'nodeClass' || owner.kind === 'model';
 }
 
+/** Inputs in slot order (sockets first, then widget inputs, as ComfyUI adds them) with their handles. */
+function withHandles<T extends { inputs?: unknown; outputs?: unknown }>(detail: T): T {
+  const inputs = Array.isArray(detail.inputs) ? detail.inputs as Array<Record<string, unknown>> : [];
+  const outputs = Array.isArray(detail.outputs) ? detail.outputs as Array<Record<string, unknown>> : [];
+  const ordered = [...inputs.filter((input) => input.widget !== true), ...inputs.filter((input) => input.widget === true)];
+  return {
+    ...detail,
+    inputs: ordered.map((input, index) => ({ ...input, handle: `in-${index}` })),
+    outputs: outputs.map((output, index) => ({ ...output, handle: `out-${index}` })),
+  };
+}
+
 function webSource(value: string | undefined): string | null {
   if (!value) return null;
   try {
@@ -131,6 +151,23 @@ export function createAgentTools(deps: AgentToolDeps): Record<string, AgentToolD
   const readGraph = deps.readGraph ?? readProjection;
   const revision = () => (typeof deps.revision === 'function' ? deps.revision() : deps.revision);
   const { db, projectId } = deps;
+  const context = (): ToolContext | undefined => {
+    try {
+      return deps.toolContext?.();
+    } catch {
+      return undefined;
+    }
+  };
+  /** Why this turn may no longer write, or null while its run is still running. */
+  const stopped = (): string | null => {
+    if (deps.signal?.aborted) return 'The turn was cancelled; nothing was saved.';
+    if (!deps.runId) return null;
+    const active = readGraph(db, projectId)?.activeRun;
+    if (!active || active.runId !== deps.runId || active.status !== 'running') {
+      return 'The run is no longer running (cancelled, paused, or closed); nothing was saved.';
+    }
+    return null;
+  };
 
   const define = <T>(name: keyof typeof MAIN_TOOL_SPECS, schema: z.ZodType<T>, run: (args: T) => unknown | Promise<unknown>): AgentToolDefinition => ({
     description: MAIN_TOOL_SPECS[name].description,
@@ -149,8 +186,10 @@ export function createAgentTools(deps: AgentToolDeps): Record<string, AgentToolD
   const propose = (name: AgentProposalTool): AgentToolDefinition => define(name, schemas.proposal, (args) => {
     const { note, ...rest } = args as { note: string } & Record<string, unknown>;
     if (carriesSecret({ note })) return fail('The note looks like it carries a secret.');
+    const halt = stopped();
+    if (halt) return fail(halt);
     const twin = PROPOSAL_BUILD_TWIN[name];
-    const payload = mutationFromTool(twin, rest);
+    const payload = mutationFromTool(twin, rest, context());
     if (!payload) return fail(`${name} cannot be proposed yet: the ${twin} shape is not mapped to a graph change.`);
     const kind = PROPOSAL_KINDS.find((item) => item === payload.type);
     if (!kind) return fail(`${name} produced a ${payload.type} change, which is not a proposal kind.`);
@@ -177,10 +216,14 @@ export function createAgentTools(deps: AgentToolDeps): Record<string, AgentToolD
   });
 
   const tools: Record<string, AgentToolDefinition | unknown> = {
-    getGraph: define('getGraph', schemas.getGraph, () => {
+    getGraph: define('getGraph', schemas.getGraph, (args) => {
       const projection = readGraph(db, projectId);
       if (!projection) return fail('Project is not ready.');
-      return { success: true, revisionId: projection.currentRevisionId, ...summarizeGraph(projection.snapshot) };
+      return {
+        success: true,
+        revisionId: projection.currentRevisionId,
+        ...summarizeGraph(projection.snapshot, { offset: args.offset, limit: args.limit ?? GRAPH_PAGE_LIMIT, ids: args.ids }),
+      };
     }),
     searchNodeTypes: define('searchNodeTypes', schemas.searchNodeTypes, (args) => ({
       success: true,
@@ -189,7 +232,7 @@ export function createAgentTools(deps: AgentToolDeps): Record<string, AgentToolD
     describeNodeType: define('describeNodeType', schemas.describeNodeType, (args) => {
       const detail = knowledge.nodeClassDetail(db, args.classType);
       if (!detail) return fail(`${args.classType} is not installed in this ComfyUI catalog.`);
-      return { success: true, provenance: detail.detailed ? 'fact' : 'inference', node: detail };
+      return { success: true, provenance: detail.detailed ? 'fact' : 'inference', node: withHandles(detail) };
     }),
     findInstalledModels: define('findInstalledModels', schemas.findInstalledModels, (args) => ({
       success: true,
@@ -214,6 +257,8 @@ export function createAgentTools(deps: AgentToolDeps): Record<string, AgentToolD
     })),
     explain: define('explain', schemas.explain, (args) => {
       if (carriesSecret({ text: args.text })) return fail('The explanation looks like it carries a secret and was not saved.');
+      const halt = stopped();
+      if (halt) return fail(halt);
       const sourceUrl = webSource(args.sourceUrl);
       if (args.provenance === 'web' && !sourceUrl) return fail('A web explanation needs the http(s) sourceUrl it came from.');
       const owner = args.owner as ObjectRef;

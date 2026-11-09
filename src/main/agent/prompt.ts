@@ -2,6 +2,7 @@ import type Database from 'better-sqlite3';
 import type { AgentTurnContext, ModelSummary, ObjectRef } from '../../shared/contracts';
 import { graphSummaryText, safeText, type GraphSummary } from '../../shared/agent/graph';
 import { recentActionsText, type RecentCommand } from '../../shared/agent/recentActions';
+import { redactSecrets } from '../../shared/agent/redact';
 import type { KnowledgeApi } from './tools';
 
 /**
@@ -103,7 +104,7 @@ const ROLE = [
 const PRINCIPLES = [
   'Principles:',
   '1. Propose, do not build. Suggestions go on the canvas as ghosts with proposeNode, proposeConnection, proposeParameter, proposeSubgraph. The person accepts or rejects them.',
-  '2. Build directly (addNode, connectNodes, setParameter, createSubgraph, …) only when the person explicitly asked you to build, make, or show an example, or the turn intent is build.',
+  '2. Build directly (addNode, connectNodes, setParameter, createSubgraph, …) only in a build turn (the person chose Build). In any other turn propose instead; the person accepts the ghosts or switches to Build.',
   '3. Never claim a workflow ran or produced an image. Nothing runs here: the person exports the workflow and runs it in ComfyUI.',
   '4. Mark where knowledge comes from, honestly, in the text too: fact (catalog, object_info, file metadata), inference (your reasoning from names and context), web (found online, give the link).',
   '5. Prefer what is installed. If a node or model is missing, name it and say the person installs it themselves; never offer to install or download anything.',
@@ -130,17 +131,31 @@ const TOOL_GUIDANCE = [
   '- searchWeb / fetchPage: only when the catalog cannot answer. Cite the link.',
   '- explain: when you answer about a specific object, save the short answer to it with the right aspect (what, why, connect, next, risk) and provenance.',
   '- propose*: the default way to suggest graph changes; each needs a one-sentence note.',
-  '- Build tools: only on an explicit request to build or show an example. Each takes `why`.',
+  '- Build tools: only in a build turn. Each takes `why`.',
+  '- Ports: the graph lists them as name (in-N) / name (out-N). connectNodes and proposeConnection take that handle, the port name, or the slot index.',
 ].join('\n');
+
+const NO_BUILD = 'Build tools are not available in this turn. Suggest graph changes as ghosts with propose* tools; the person accepts them, or switches the composer to Build and asks again if they want you to build.';
 
 function intentLine(context: AgentTurnContext): string {
   if (context.intent === 'build') return 'Turn intent: build. The person asked you to build or show an example: use build tools directly, one step per call, each with its why.';
-  if (context.intent === 'ask') return 'Turn intent: ask. Answer the question about the object; save the answer with explain. Do not change the graph.';
-  return 'Turn intent: chat. Talk it through; suggest changes as ghosts with propose* tools unless the person explicitly asks you to build.';
+  if (context.intent === 'ask') return `Turn intent: ask. Answer the question about the object; save the answer with explain. ${NO_BUILD}`;
+  return `Turn intent: chat. Talk it through. ${NO_BUILD}`;
 }
 
-function languageLine(context: AgentTurnContext): string {
-  return context.language === 'ru' ? 'Answer in Russian.' : 'Answer in English.';
+/** 'ru' or 'en' when the text is clearly written in it, otherwise null. */
+export function writtenLanguage(text: string): 'en' | 'ru' | null {
+  const cyrillic = (text.match(/[\u0400-\u04FF]/g) ?? []).length;
+  const latin = (text.match(/[A-Za-z]/g) ?? []).length;
+  if (cyrillic >= 3 && cyrillic >= (cyrillic + latin) * 0.3) return 'ru';
+  if (cyrillic === 0 && latin >= 12) return 'en';
+  return null;
+}
+
+/** The language the person wrote in when it is clear, otherwise the interface language. */
+function languageLine(context: AgentTurnContext, question = ''): string {
+  const language = writtenLanguage(question) ?? context.language;
+  return language === 'ru' ? 'Answer in Russian.' : 'Answer in English.';
 }
 
 export interface SystemPromptInput {
@@ -149,6 +164,8 @@ export interface SystemPromptInput {
   catalog: string;
   /** Recent applied commands (listRecentCommands); only the person's own are rendered. */
   recent?: RecentCommand[];
+  /** The person's latest message, for the answer language. */
+  question?: string;
 }
 
 /** "On screen: …": the flow-space rectangle the canvas shows and the nodes inside it. */
@@ -184,19 +201,19 @@ export function recentText(context: AgentTurnContext, graph: GraphSummary | null
 export function buildSystemPrompt(input: SystemPromptInput): string {
   const { context } = input;
   const focus: string[] = [];
-  if (context.objectRef) focus.push(`The person asked about: ${describeRef(context.objectRef)}.`);
+  if (context.objectRef) focus.push(redactSecrets(`The person asked about: ${describeRef(context.objectRef)}.`));
   const selection = (context.selection ?? []).slice(0, 20);
-  if (selection.length > 0) focus.push(`Selected on the canvas: ${selection.map(describeRef).join('; ')}.`);
+  if (selection.length > 0) focus.push(redactSecrets(`Selected on the canvas: ${selection.map(describeRef).join('; ')}.`));
   return [
     ROLE,
     PRINCIPLES,
     intentLine(context),
-    languageLine(context),
-    input.catalog,
+    languageLine(context, input.question),
+    redactSecrets(input.catalog),
     SEEING,
-    `Current graph:\n${input.graph ? graphSummaryText(input.graph) : 'The project is not ready.'}`,
-    viewportText(context, input.graph),
-    recentText(context, input.graph, input.recent),
+    `Current graph:\n${input.graph ? redactSecrets(graphSummaryText(input.graph)) : 'The project is not ready.'}`,
+    redactSecrets(viewportText(context, input.graph)),
+    redactSecrets(recentText(context, input.graph, input.recent)),
     ...focus,
     TOOL_GUIDANCE,
     BUILD_STEPS,

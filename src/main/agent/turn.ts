@@ -1,14 +1,21 @@
 import type Database from 'better-sqlite3';
-import { listRecentCommands, readProjection } from '../commands/commit';
+import { closeRun, listRecentCommands, readProjection } from '../commands/commit';
+import { readCatalog } from '../catalog/repository';
 import { mainLLMService } from '../llmService';
 import * as knowledgeRepository from '../knowledge/repository';
 import { summarizeGraph } from '../../shared/agent/graph';
 import { parseTurnContext } from '../../shared/agent/turnContext';
+import { redactSecrets } from '../../shared/agent/redact';
 import { AGENT_BUILD_TOOLS } from '../../shared/contracts/agentTools';
+import type { ToolContext } from '../../shared/commands/tools';
+import type { CatalogView } from '../../shared/catalog/types';
 import type { Projection } from '../../shared/commands/types';
 import type { RecentCommand } from '../../shared/agent/recentActions';
+import type { AgentTurnContext } from '../../shared/contracts';
 import { createBuildTools, type RendererToolSpec, type RunContext } from './buildTools';
+import { trimHistory } from './history';
 import { buildSystemPrompt, catalogSummaryText } from './prompt';
+import { errorMessage } from './streamParts';
 import { createAgentTools, type KnowledgeApi, type ProposalApi } from './tools';
 import type { FetchLike } from './web';
 
@@ -27,7 +34,9 @@ export interface AgentTurnOptions {
   send: (chunk: { type: string; content?: unknown }) => void;
   /** Push on a named channel (proposals:event). */
   notify: (channel: string, payload: unknown) => void;
-  llm?: Pick<typeof mainLLMService, 'streamChatWithTools' | 'nativeSearchTool'>;
+  /** Aborted by llm:cancel or when the window goes away: the provider request and the tool loop stop. */
+  signal?: AbortSignal;
+  llm?: Pick<typeof mainLLMService, 'streamChatWithTools' | 'nativeSearchTool'> & Partial<Pick<typeof mainLLMService, 'redact'>>;
   knowledge?: KnowledgeApi;
   proposals?: ProposalApi;
   fetchImpl?: FetchLike;
@@ -39,6 +48,8 @@ function dialog(input: unknown): ChatMessage[] {
     if (!item || typeof item !== 'object') return [];
     const { role, content } = item as { role?: unknown; content?: unknown };
     if ((role !== 'user' && role !== 'assistant') || typeof content !== 'string') return [];
+    // A tool-only assistant turn has no text; providers such as Gemini reject an empty part.
+    if (role === 'assistant' && content.trim() === '') return [];
     return [{ role, content }];
   });
 }
@@ -53,6 +64,11 @@ const RECENT_LIMIT = 30;
 /** A step-by-step build is one tool call per step: a text-to-image graph alone is about sixteen. */
 const MAX_STEPS = 48;
 
+/** Build tools exist only in a build turn; ask and chat turns read, explain and propose ghosts (ghost by default). */
+export function buildToolsAllowed(context: AgentTurnContext): boolean {
+  return context.intent === 'build';
+}
+
 /** The person's recent commands for the prompt; a read failure only drops that section. */
 function readRecent(db: Database.Database, projectId: string): RecentCommand[] {
   try {
@@ -62,30 +78,75 @@ function readRecent(db: Database.Database, projectId: string): RecentCommand[] {
   }
 }
 
+/** Nodes the prompt lists even past its cap: the selection, the object asked about, nodes touched recently. */
+function priorityIds(context: AgentTurnContext, recent: RecentCommand[]): string[] {
+  const ids = context.selection.flatMap((ref) => (ref.kind === 'node' ? [ref.id] : ref.nodeId ? [ref.nodeId] : []));
+  const asked = context.objectRef;
+  if (asked?.kind === 'node') ids.push(asked.id);
+  if (asked?.nodeId) ids.push(asked.nodeId);
+  for (const command of recent.slice(-10)) ids.push(...command.ids);
+  return [...new Set(ids)];
+}
+
+/** Closes the turn's run when it is still running. A paused run stays paused so Resume can reopen it. */
+function closeIfRunning(db: Database.Database, run: RunContext): Projection | null {
+  try {
+    const active = readProjection(db, run.projectId)?.activeRun;
+    if (active && active.runId === run.runId && active.status === 'running') return closeRun(db, run.projectId, run.runId).projection;
+    return readProjection(db, run.projectId);
+  } catch (error) {
+    console.warn('[Agent] Run was not closed:', error instanceof Error ? error.message.slice(0, 200) : 'unknown error');
+    return null;
+  }
+}
+
 /**
  * One llm:stream-chat turn. The renderer's system messages are replaced by the main-built teaching prompt
- * (the renderer cannot see the catalog or the action log). Chunk protocol: every fullStream part, 'projection' on
- * commits followed by 'build-step' for a step tool (addNode, connectNodes, …; content AgentBuildStep), then
- * 'done' or 'error'. Renderers that do not know 'build-step' ignore it.
+ * (the renderer cannot see the catalog or the action log). Chunk protocol: the fullStream parts with only the
+ * fields the chat uses (main/agent/streamParts.ts), 'projection' on commits followed by 'build-step' for a step
+ * tool (addNode, connectNodes, …; content AgentBuildStep), then a final 'projection' after the run is closed,
+ * then 'done' or 'error'. Renderers that do not know 'build-step' ignore it.
  */
 export async function runAgentTurn(options: AgentTurnOptions): Promise<void> {
-  const { db, run, send } = options;
+  const { db, send } = options;
+  let run = options.run;
   const llm = options.llm ?? mainLLMService;
+  const redact = (text: string) => (llm.redact ?? mainLLMService.redact)(redactSecrets(text));
   const knowledge = options.knowledge ?? knowledgeRepository;
+  let terminal: { type: string; content?: unknown } = { type: 'done' };
   try {
     const context = parseTurnContext(options.context, options.language);
-    const messages = dialog(options.messages);
+    const messages = trimHistory(dialog(options.messages)).map((message) => ({ ...message, content: redact(message.content) }));
     const question = [...messages].reverse().find((message) => message.role === 'user')?.content ?? '';
+    const projection: Projection | null = readProjection(db, run.projectId);
+    // The engine keeps the run's expected revision current (a manual commit or a resumed run moves it).
+    const active = projection?.activeRun;
+    if (active && active.runId === run.runId && active.expectedRevisionId) run = { ...run, expectedRevisionId: active.expectedRevisionId };
     let revision = run.expectedRevisionId;
 
-    const projection: Projection | null = readProjection(db, run.projectId);
+    const recent = readRecent(db, run.projectId);
     const selectedIds = context.selection.filter((ref) => ref.kind === 'node').map((ref) => ref.id);
-    const system = buildSystemPrompt({
+    const system = redact(buildSystemPrompt({
       context,
-      graph: projection ? summarizeGraph(projection.snapshot, { selectedIds }) : null,
+      graph: projection ? summarizeGraph(projection.snapshot, { selectedIds, priorityIds: priorityIds(context, recent) }) : null,
       catalog: catalogSummaryText(db, knowledge, question),
-      recent: readRecent(db, run.projectId),
-    });
+      recent,
+      question,
+    }));
+
+    // Port names and slot indices resolve against the current snapshot and the installed catalog.
+    let catalog: CatalogView | undefined;
+    const toolContext = (): ToolContext => {
+      if (!catalog) {
+        try {
+          catalog = readCatalog(db);
+        } catch {
+          catalog = { nodeTypes: [], models: [], nodes: [] };
+        }
+      }
+      const snapshot = readProjection(db, run.projectId)?.snapshot as ToolContext['snapshot'] | undefined;
+      return { snapshot, catalog };
+    };
 
     const mainTools = createAgentTools({
       db,
@@ -97,30 +158,42 @@ export async function runAgentTurn(options: AgentTurnOptions): Promise<void> {
       fetchImpl: options.fetchImpl,
       notify: options.notify,
       nativeSearch: llm.nativeSearchTool(),
+      toolContext,
+      signal: options.signal,
     });
-    const rendererSpecs = specs(options.toolSpecs);
-    const buildTools = createBuildTools(rendererSpecs, {
-      db,
-      run,
-      onProjection: (next) => send({ type: 'projection', content: next }),
-      onRevision: (next) => { revision = next; },
-      onBuildStep: (step) => send({ type: 'build-step', content: step }),
-      saveWhy: (database, input) => knowledge.saveExplanation(database, input),
-    });
-    // Main tools first; a renderer spec replaces one only when it is a build tool.
     const tools: Record<string, unknown> = { ...mainTools };
-    for (const [name, definition] of Object.entries(buildTools)) {
-      if (BUILD.has(name) || !(name in tools)) tools[name] = definition;
+    if (buildToolsAllowed(context)) {
+      const buildTools = createBuildTools(specs(options.toolSpecs), {
+        db,
+        run,
+        onProjection: (next) => send({ type: 'projection', content: next }),
+        onRevision: (next) => { revision = next; },
+        onBuildStep: (step) => send({ type: 'build-step', content: step }),
+        saveWhy: (database, input) => knowledge.saveExplanation(database, input),
+        toolContext,
+      });
+      // Main tools first; a renderer spec replaces one only when it is a build tool.
+      for (const [name, definition] of Object.entries(buildTools)) {
+        if (BUILD.has(name) || !(name in tools)) tools[name] = definition;
+      }
     }
 
     console.log(`[Agent] Turn with ${messages.length} messages, ${Object.keys(tools).length} tools, intent=${context.intent}`);
-    for await (const chunk of llm.streamChatWithTools([{ role: 'system', content: system }, ...messages], tools as Record<string, any>, { maxSteps: MAX_STEPS })) {
+    for await (const chunk of llm.streamChatWithTools([{ role: 'system', content: system }, ...messages], tools as Record<string, any>, { maxSteps: MAX_STEPS, abortSignal: options.signal })) {
+      if (options.signal?.aborted) break;
       send(chunk);
     }
-    send({ type: 'done' });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'The assistant could not complete the request.';
-    console.error('[Agent] LLM stream error:', message);
-    send({ type: 'error', content: message });
+    if (options.signal?.aborted) {
+      console.log('[Agent] Turn cancelled');
+    } else {
+      const message = errorMessage(error, redact);
+      console.error('[Agent] LLM stream error:', message);
+      terminal = { type: 'error', content: message };
+    }
+  } finally {
+    const closed = closeIfRunning(db, run);
+    if (closed) send({ type: 'projection', content: closed });
+    send(terminal);
   }
 }

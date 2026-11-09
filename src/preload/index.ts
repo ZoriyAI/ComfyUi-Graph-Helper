@@ -37,6 +37,7 @@ const IPC_CHANNELS = {
   LLM_SET_SESSION_KEY: 'llm:set-session-key',
   LLM_SESSION_STATUS: 'llm:session-status',
   LLM_STREAM_CHAT: 'llm:stream-chat',
+  LLM_CANCEL: 'llm:cancel',
   SETTINGS_GET: 'settings:get',
   SETTINGS_SAVE: 'settings:save',
   SETTINGS_SAVE_SECRET: 'settings:save-secret',
@@ -144,6 +145,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on(channel, (_event, chunk) => onChunk(chunk));
     return ipcRenderer.invoke(IPC_CHANNELS.LLM_STREAM_CHAT, messages, toolSpecs, channel, run, context);
   },
+  llmCancel: (runId?: string) => ipcRenderer.invoke(IPC_CHANNELS.LLM_CANCEL, runId) as Promise<{ cancelled: number }>,
   sendToolResult: (resultChannel: string, result: any) => {
     ipcRenderer.send(resultChannel, result);
   },
@@ -247,6 +249,8 @@ export interface ElectronAPI {
     run: { projectId: string; runId: string; expectedRevisionId: string },
     context?: AgentTurnContext,
   ) => Promise<void>;
+  /** Aborts the main-process turn of this window for runId (every turn of the window when omitted). */
+  llmCancel: (runId?: string) => Promise<{ cancelled: number }>;
   sendToolResult: (resultChannel: string, result: any) => void;
   loadChatHistory: (projectId: string) => Promise<ChatRecord[]>;
   saveChatMessage: (record: ChatRecord) => Promise<{ ok: boolean }>;

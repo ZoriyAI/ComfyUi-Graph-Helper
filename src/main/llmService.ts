@@ -4,6 +4,9 @@ import { createAnthropic } from '@ai-sdk/anthropic';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import type { ChatRuntimeConfig } from '../shared/config/schema';
 import { createTestLLMModel } from './testLLMTransport';
+import { mcpToken } from './mcp/token';
+import { containsExact, exactMatchRedactor, redactSecrets } from '../shared/agent/redact';
+import { failureStreakReached, forwardPart, type Redact } from './agent/streamParts';
 
 /**
  * Main-process LLM service
@@ -63,6 +66,18 @@ export type KeySource = 'none' | 'session' | 'os';
 export interface StreamOptions {
   /** Upper bound on model steps. Each tool round trip is one step. */
   maxSteps?: number;
+  /** Aborts the provider request and the tool loop (llm:cancel, window gone). */
+  abortSignal?: AbortSignal;
+}
+
+/** The loop stops after this many failed or conflicted tool results in a row. */
+export const FAILURE_STREAK_LIMIT = 3;
+
+type StreamMessage = { role: 'system' | 'user' | 'assistant'; content: string };
+
+/** Gemini rejects a content with no parts: an assistant turn that only called tools has no text to send. */
+export function dropEmptyAssistant(messages: StreamMessage[]): StreamMessage[] {
+  return messages.filter((message) => message.role !== 'assistant' || message.content.trim() !== '');
 }
 
 class MainLLMService {
@@ -104,6 +119,19 @@ class MainLLMService {
     if (value.length === 0 || value.length > 4000) return;
     this.sessionKey = value;
     this.sessionSource = 'os';
+  }
+
+  /** The held LLM key and MCP token, for exact-match redaction only. Never returned to a caller. */
+  private heldValues(): string[] {
+    return [this.sessionKey, mcpToken()].filter((value): value is string => typeof value === 'string' && value.length > 0);
+  }
+
+  /** Heuristic redaction plus exact redaction of the held key and MCP token. */
+  redact: Redact = (text: string): string => exactMatchRedactor(this.heldValues())(redactSecrets(text));
+
+  /** True when the exact held key or MCP token appears in the text. */
+  containsHeldSecret(text: string): boolean {
+    return containsExact(this.heldValues(), text);
   }
 
   sessionStatus(): { held: boolean; source: KeySource } {
@@ -187,15 +215,18 @@ class MainLLMService {
   nativeSearchTool(): unknown | null {
     if (!this.config || !isCloud(this.config.provider)) return null;
     if ((this.config.baseURL?.trim() ?? '') !== '') return null;
-    const { provider } = this.config;
+    const { provider, model } = this.config;
     // The key is not attached here; a tool definition never carries it.
     if (provider === 'openai') return createOpenAI({ apiKey: '' }).tools.webSearch();
     if (provider === 'anthropic') return createAnthropic({ apiKey: '' }).tools.webSearch_20250305({ maxUses: 5 });
+    // Before Gemini 3, @ai-sdk/google sends only the search tool when it is present and drops every
+    // function tool. Those models use the main-process search fallback instead.
+    if (!model.trim().toLowerCase().startsWith('gemini-3')) return null;
     return createGoogleGenerativeAI({ apiKey: '' }).tools.googleSearch({});
   }
 
   async* streamChatWithTools(
-    messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
+    messages: StreamMessage[],
     tools: Record<string, any>,
     options: StreamOptions = {},
   ): AsyncGenerator<{ type: string; content: any }> {
@@ -207,29 +238,42 @@ class MainLLMService {
     }
 
     console.log(`[MainLLMService] Starting stream with ${Object.keys(tools).length} tools`);
-    const instructions = messages
+    const text = messages
       .filter((message) => message.role === 'system')
       .map((message) => message.content)
       .join('\n');
-    const dialog = messages.filter((message) => message.role !== 'system');
+    const dialog = dropEmptyAssistant(messages.filter((message) => message.role !== 'system'));
+    // The system prompt is the stable prefix of every step: cache it on Anthropic.
+    const instructions = text && this.config?.provider === 'anthropic'
+      ? { role: 'system' as const, content: text, providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' } } } }
+      : text || undefined;
 
     const result = streamText({
       model,
-      instructions: instructions || undefined,
+      instructions,
       messages: dialog,
       tools,
       // Default stopWhen is one step, which never feeds tool results back to the model.
       // A teaching turn reads the catalog, maybe the web, then proposes: allow a few rounds.
-      stopWhen: isStepCount(options.maxSteps ?? 12),
+      stopWhen: [isStepCount(options.maxSteps ?? 12), failureStreakReached(FAILURE_STREAK_LIMIT)],
       toolCallConcurrency: 1,
+      abortSignal: options.abortSignal,
     });
 
-    console.log('[MainLLMService] Consuming fullStream...');
     let partCount = 0;
+    let wroteText = false;
+    let breakBeforeText = false;
     for await (const part of result.fullStream) {
       partCount++;
-      console.log(`[MainLLMService] Part ${partCount}: type=${part.type}`);
-      yield { type: part.type, content: part };
+      if (part.type === 'start-step') breakBeforeText = wroteText;
+      const forwarded = forwardPart(part as unknown as { type: string } & Record<string, unknown>, this.redact);
+      if (part.type === 'text-delta' && typeof forwarded.content.text === 'string' && forwarded.content.text !== '') {
+        // Text of a later step starts a new paragraph instead of running into the previous step's words.
+        if (breakBeforeText) forwarded.content.text = `\n\n${forwarded.content.text}`;
+        breakBeforeText = false;
+        wroteText = true;
+      }
+      yield forwarded;
     }
     console.log(`[MainLLMService] fullStream complete, ${partCount} parts yielded`);
   }

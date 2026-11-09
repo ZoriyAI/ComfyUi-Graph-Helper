@@ -5,7 +5,8 @@ import { carriesSecret } from '../config/draft';
  * value, positions, sizes, the selection, groups and subgraph instances. The agent sees what the person sees.
  * The only filter is redaction: a value that looks like a key or token becomes "[redacted]" and never reaches a prompt.
  */
-export interface GraphPortSummary { slot: number; name: string; type: string }
+/** `handle` is what connectNodes takes (in-N / out-N, in socket order). */
+export interface GraphPortSummary { slot: number; handle: string; name: string; type: string }
 export interface GraphParameterSummary { name: string; value: string }
 export interface GraphNodeSummary {
   id: string;
@@ -48,14 +49,32 @@ export interface GraphSummary {
   processTitle: string;
   omittedNodes: number;
   omittedEdges: number;
+  /** Nodes in the whole graph. */
+  totalNodes: number;
+  /** Where this page starts in graph order. */
+  offset: number;
+  /** The offset of the next page, or null when the listing reached the end. */
+  nextOffset: number | null;
 }
 
 export interface SummarizeOptions {
   /** Node ids the person has selected (the projection itself does not carry the selection). */
   selectedIds?: readonly string[];
+  /** Nodes listed even past the cap: the selection, the object asked about, nodes touched recently. */
+  priorityIds?: readonly string[];
+  /** First node of the page in graph order. Default 0. */
+  offset?: number;
+  /** Nodes per page. Default 60 (the prompt); getGraph uses 200. */
+  limit?: number;
+  /** Only these nodes (and the connections that touch them). Overrides offset. */
+  ids?: readonly string[];
 }
 
-const NODE_CAP = 60;
+/** Nodes the prompt lists before it asks the model to page with getGraph. */
+export const PROMPT_NODE_CAP = 60;
+/** Default page size of the getGraph tool. */
+export const GRAPH_PAGE_LIMIT = 200;
+const PRIORITY_CAP = 40;
 const EDGE_CAP = 120;
 const TEXT_CAP = 160;
 /** Each widget value is clipped to this many characters. */
@@ -104,11 +123,12 @@ function finite(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
-function ports(value: unknown): GraphPortSummary[] {
+function ports(value: unknown, prefix: 'in' | 'out'): GraphPortSummary[] {
   if (!Array.isArray(value)) return [];
   return value.slice(0, 40).map((port, slot) => {
     const item = record(port) ?? {};
-    return { slot, name: safeText(item.name, 80), type: safeText(item.dataType ?? item.type, 40) };
+    const handle = typeof item.id === 'string' && /^(in|out)-\d+$/.test(item.id) ? item.id : `${prefix}-${slot}`;
+    return { slot, handle, name: safeText(item.name, 80), type: safeText(item.dataType ?? item.type, 40) };
   });
 }
 
@@ -188,8 +208,8 @@ export function summarizeGraph(
       id,
       classType: safeText(data.comfyType ?? node.type, 120) || 'unknown',
       title: safeText(data.title),
-      inputs: ports(data.inputs),
-      outputs: ports(data.outputs),
+      inputs: ports(data.inputs, 'in'),
+      outputs: ports(data.outputs, 'out'),
       purpose: purposeOf(id),
       parameters: parametersOf(data),
       position: positionOf(node),
@@ -237,15 +257,43 @@ export function summarizeGraph(
       inner: Array.isArray(definition.nodes) ? definition.nodes.length : 0,
     };
   });
+  const total = all.length;
+  const limit = Math.max(1, Math.floor(options.limit ?? PROMPT_NODE_CAP));
+  let listed: GraphNodeSummary[];
+  let offset = 0;
+  let nextOffset: number | null = null;
+  if (options.ids && options.ids.length > 0) {
+    const wanted = new Set(options.ids.map(String));
+    listed = all.filter((node) => wanted.has(node.id)).slice(0, limit);
+  } else {
+    offset = Math.min(Math.max(0, Math.floor(options.offset ?? 0)), total);
+    listed = all.slice(offset, offset + limit);
+    nextOffset = offset + limit < total ? offset + limit : null;
+    // The selection, the object asked about, and recently touched nodes are always listed, even past the cap.
+    const shown = new Set(listed.map((node) => node.id));
+    const priority = new Set([...(options.priorityIds ?? []), ...selected].map(String));
+    const extra = all.filter((node) => (priority.has(node.id) || node.selected) && !shown.has(node.id)).slice(0, PRIORITY_CAP);
+    listed = [...listed, ...extra];
+  }
+  const listedIds = new Set(listed.map((node) => node.id));
+  const touching = edges.filter((edge) => listedIds.has(edge.source) || listedIds.has(edge.target));
+  const edgeCap = Math.max(EDGE_CAP, limit * 2);
   return {
-    nodes: all.slice(0, NODE_CAP),
-    edges: edges.slice(0, EDGE_CAP),
+    nodes: listed,
+    edges: touching.slice(0, edgeCap),
     groups,
     subgraphs,
     processTitle: safeText(record(snapshot?.process)?.title),
-    omittedNodes: Math.max(0, all.length - NODE_CAP),
-    omittedEdges: Math.max(0, edges.length - EDGE_CAP),
+    omittedNodes: Math.max(0, total - listed.length),
+    omittedEdges: Math.max(0, edges.length - Math.min(touching.length, edgeCap)),
+    totalNodes: total,
+    offset,
+    nextOffset,
   };
+}
+
+function portsText(list: GraphPortSummary[]): string {
+  return list.map((port) => `${port.name || port.type || '?'} (${port.handle})`).join(', ');
 }
 
 function nodeLine(node: GraphNodeSummary): string[] {
@@ -258,6 +306,11 @@ function nodeLine(node: GraphNodeSummary): string[] {
   if (flags.length > 0) parts.push(`[${flags.join(', ')}]`);
   if (node.purpose) parts.push(`purpose: ${node.purpose}`);
   const lines = [parts.join(' ')];
+  const io = [
+    node.inputs.length > 0 ? `inputs: ${portsText(node.inputs)}` : '',
+    node.outputs.length > 0 ? `outputs: ${portsText(node.outputs)}` : '',
+  ].filter((part) => part !== '');
+  if (io.length > 0) lines.push(`  ${io.join('; ')}`);
   if (node.parameters.length > 0) {
     lines.push(`  fields: ${node.parameters.map((item) => `${item.name}=${item.value}`).join('; ')}`);
   }
@@ -268,7 +321,10 @@ function nodeLine(node: GraphNodeSummary): string[] {
 export function graphSummaryText(summary: GraphSummary): string {
   if (summary.nodes.length === 0) return 'The graph is empty.';
   const lines = summary.nodes.flatMap(nodeLine);
-  if (summary.omittedNodes > 0) lines.push(`(${summary.omittedNodes} more nodes not listed; call getGraph)`);
+  if (summary.omittedNodes > 0) {
+    const page = summary.nextOffset !== null ? `getGraph({ offset: ${summary.nextOffset} })` : 'getGraph with ids';
+    lines.push(`(${summary.omittedNodes} more nodes not listed; call ${page} to read them)`);
+  }
   const links = summary.edges.map((edge) => {
     const from = `${edge.source}.${edge.sourceName || edge.sourceHandle}`;
     const to = `${edge.target}.${edge.targetName || edge.targetHandle}`;

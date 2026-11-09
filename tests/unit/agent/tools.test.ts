@@ -55,7 +55,10 @@ describe('agent tools factory', () => {
   it('reads the catalog through the knowledge repository', async () => {
     const { call } = setup();
     expect((await call('searchNodeTypes', { query: 'sampler' })).results.map((item: any) => item.classType)).toEqual(['KSampler']);
-    expect((await call('describeNodeType', { classType: 'KSampler' })).node.outputs).toEqual([{ name: 'LATENT', type: 'LATENT' }]);
+    const described = (await call('describeNodeType', { classType: 'KSampler' })).node;
+    expect(described.outputs).toEqual([{ name: 'LATENT', type: 'LATENT', handle: 'out-0' }]);
+    // Sockets first, then widget inputs, as ComfyUI numbers the slots.
+    expect(described.inputs.map((input: any) => [input.name, input.handle])).toEqual([['model', 'in-0'], ['seed', 'in-1']]);
     expect(await call('describeNodeType', { classType: 'Missing' })).toMatchObject({ success: false });
     expect((await call('findInstalledModels', { query: 'portrait', kind: 'lora' })).results).toHaveLength(2);
     expect((await call('describeModel', { directory: 'loras', name: 'portrait_flux.safetensors' })).model.triggerWords).toEqual(['ptdetail']);

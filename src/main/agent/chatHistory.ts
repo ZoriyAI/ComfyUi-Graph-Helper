@@ -1,6 +1,7 @@
 import type Database from 'better-sqlite3';
 import { z } from 'zod';
-import { carriesSecret } from '../../shared/config/draft';
+import { redactSecrets } from '../../shared/agent/redact';
+import { mainLLMService } from '../llmService';
 import type { ChatRecord, ChatSaveResult } from '../../shared/contracts';
 
 export const CHAT_CONTENT_CAP = 50_000;
@@ -19,20 +20,24 @@ const chatRecordSchema = z.object({
 
 export type { ChatSaveResult } from '../../shared/contracts';
 
-/** Same heuristic the settings repository uses: an api key marker, an sk- key, or a bearer token. */
-function secretShaped(text: string): boolean {
-  return carriesSecret({ text });
-}
+/** True when the exact held LLM key or MCP token is in the text. */
+export type HeldSecretCheck = (text: string) => boolean;
 
 /**
- * Stores one chat message. Content over 50k characters is cut. A message whose text or tool calls
- * look like a secret is refused, so a pasted key never lands in SQLite in plain text.
+ * Stores one chat message. Content over 50k characters is cut. Secret-shaped substrings (an sk- key, an api
+ * key assignment, a bearer token) are replaced with [redacted] before the write, so the rest of the message is
+ * kept. A message that contains the exact held LLM key or MCP token is refused outright.
  */
-export function saveChatMessage(db: Database.Database, input: unknown): ChatSaveResult {
+export function saveChatMessage(
+  db: Database.Database,
+  input: unknown,
+  heldSecret: HeldSecretCheck = (text) => mainLLMService.containsHeldSecret(text),
+): ChatSaveResult {
   const parsed = chatRecordSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: 'Chat message does not match the schema.' };
   const record = parsed.data;
-  if (secretShaped(record.content)) return { ok: false, error: 'Chat message looks like it carries a secret and was not stored.' };
+  if (heldSecret(record.content)) return { ok: false, error: 'Chat message contains the held key or token and was not stored.' };
+  const content = redactSecrets(record.content.slice(0, CHAT_CONTENT_CAP));
   let toolCalls: string | null = null;
   if (record.toolCalls) {
     try {
@@ -41,7 +46,13 @@ export function saveChatMessage(db: Database.Database, input: unknown): ChatSave
       return { ok: false, error: 'Tool calls could not be serialized.' };
     }
     if (toolCalls.length > TOOL_CALLS_CAP) return { ok: false, error: 'Tool calls are too large to store.' };
-    if (secretShaped(toolCalls)) return { ok: false, error: 'Tool calls look like they carry a secret and were not stored.' };
+    if (heldSecret(toolCalls)) return { ok: false, error: 'Tool calls contain the held key or token and were not stored.' };
+    toolCalls = redactSecrets(toolCalls);
+    try {
+      JSON.parse(toolCalls);
+    } catch {
+      return { ok: false, error: 'Tool calls could not be stored after redaction.' };
+    }
   }
   try {
     db.prepare(`
@@ -51,7 +62,7 @@ export function saveChatMessage(db: Database.Database, input: unknown): ChatSave
       record.id,
       record.projectId,
       record.role,
-      record.content.slice(0, CHAT_CONTENT_CAP),
+      content,
       record.timestamp,
       record.graphRevisionId,
       toolCalls,

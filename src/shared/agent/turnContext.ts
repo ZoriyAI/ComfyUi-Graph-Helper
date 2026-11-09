@@ -12,11 +12,17 @@ const objectRef = z.object({
   name: z.string().max(500).optional(),
 });
 
+const SELECTION_CAP = 200;
+
 export const agentTurnContextSchema = z.object({
-  intent: z.enum(['ask', 'build', 'chat']).default('chat'),
-  objectRef: objectRef.optional(),
-  selection: z.array(objectRef).max(200).default([]),
-  language: z.enum(['en', 'ru']).optional(),
+  intent: z.enum(['ask', 'build', 'chat']).default('chat').catch('chat'),
+  objectRef: objectRef.optional().catch(undefined),
+  // Each item is checked on its own: a bad ref is dropped, the rest of the selection stays (at most 200).
+  selection: z.array(z.unknown()).default([]).catch([]).transform((items) => items.flatMap((item) => {
+    const parsed = objectRef.safeParse(item);
+    return parsed.success ? [parsed.data] : [];
+  }).slice(0, SELECTION_CAP)),
+  language: z.enum(['en', 'ru']).optional().catch(undefined),
   viewport: z.object({
     x: z.number().finite(),
     y: z.number().finite(),
