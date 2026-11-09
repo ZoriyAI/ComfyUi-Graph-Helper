@@ -58,6 +58,28 @@ describe('knowledge IPC handlers', () => {
     db.close();
   });
 
+  it('saves a renderer explanation as the person\'s, refuses secrets and incomplete port owners', async () => {
+    const { handlers, db } = setup();
+    const base = { projectId: DESKTOP_PROJECT_ID, aspect: 'what', sourceUrl: null, revisionId: null };
+    const forged = await handlers[IPC_CHANNELS.KNOWLEDGE_SAVE_EXPLANATION]({
+      ...base, owner: { kind: 'node', id: '1' }, text: 'Claims to be a fact.', provenance: 'fact', createdBy: 'sync',
+    });
+    expect(forged).toMatchObject({ provenance: 'user', createdBy: 'user' });
+    await expect(handlers[IPC_CHANNELS.KNOWLEDGE_SAVE_EXPLANATION]({
+      ...base, owner: { kind: 'node', id: '1' }, text: 'my key is sk-proj-AbC123_def-GHI456', provenance: 'user', createdBy: 'user',
+    })).rejects.toThrow('Explanations cannot store a secret.');
+    await expect(handlers[IPC_CHANNELS.KNOWLEDGE_SAVE_EXPLANATION]({
+      ...base, owner: { kind: 'port', id: 'p' }, text: 'A port.', provenance: 'user', createdBy: 'user',
+    })).rejects.toThrow('Knowledge request is not valid.');
+    expect(await handlers[IPC_CHANNELS.KNOWLEDGE_SAVE_EXPLANATION]({
+      ...base, owner: { kind: 'port', id: 'p', nodeId: '1', direction: 'input', portName: 'model' }, text: 'A port.', provenance: 'user', createdBy: 'user',
+    })).toMatchObject({ provenance: 'user' });
+    expect(await handlers[IPC_CHANNELS.KNOWLEDGE_SAVE_EXPLANATION]({
+      ...base, owner: { kind: 'node', id: '1' }, text: 'The mask-like face LoRA is loras/mask-xl_v1.safetensors.', provenance: 'user', createdBy: 'user',
+    })).toMatchObject({ provenance: 'user' });
+    db.close();
+  });
+
   it('reports sync status, refuses a too-short interval, and syncs without a URL as an error', async () => {
     const { handlers, db } = setup();
     expect(await handlers[IPC_CHANNELS.SYNC_STATUS]()).toMatchObject({ state: 'never', tokenHeld: false });

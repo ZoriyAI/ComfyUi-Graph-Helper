@@ -1,5 +1,6 @@
 import type Database from 'better-sqlite3';
 import { upsertObjectInfo } from '../catalog/repository';
+import { redactSecrets } from '../../shared/config/draft';
 import { assertObjectInfoSize, MAX_OBJECT_INFO_BYTES, ObjectInfoError, parseObjectInfo } from '../../shared/catalog/objectInfo';
 
 const READ_TIMEOUT_MS = 8000;
@@ -46,7 +47,7 @@ async function getJson(fetchImpl: typeof fetch, url: URL): Promise<{ ok: true; v
     assertObjectInfoSize(Buffer.byteLength(text));
     return { ok: true, value: JSON.parse(text) as unknown };
   } catch (error) {
-    if (error instanceof ObjectInfoError) return { ok: false, error: error.message };
+    if (error instanceof ObjectInfoError) return { ok: false, error: redactSecrets(error.message) };
     return { ok: false, error: 'Comfy origin was not read.' };
   } finally {
     clearTimeout(timer);
@@ -87,7 +88,7 @@ export async function applyComfyRead(db: Database.Database, origin: string, fetc
       skipped: stored.skipped,
     };
   } catch (error) {
-    if (error instanceof ObjectInfoError) return { ok: false, error: error.message };
+    if (error instanceof ObjectInfoError) return { ok: false, error: redactSecrets(error.message) };
     if (error instanceof SyntaxError) return { ok: false, error: 'Catalog JSON could not be parsed.' };
     return { ok: false, error: 'Comfy origin was not read.' };
   }

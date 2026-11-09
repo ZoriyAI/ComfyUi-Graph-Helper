@@ -88,6 +88,18 @@ export const explanationInputSchema = z.object({
   createdBy: z.enum(['ai', 'user', 'sync']),
 });
 
+/** A port owner names its node, side, and port; without them the note cannot be shown on the port. */
+export function ownerIsComplete(owner: { kind: string; nodeId?: string; direction?: string; portName?: string }): boolean {
+  if (owner.kind !== 'port') return true;
+  return Boolean(owner.nodeId) && Boolean(owner.direction) && Boolean(owner.portName);
+}
+
+/** The renderer's save: the same shape, with a port owner that names its node, side, and port. */
+export const userExplanationInputSchema = explanationInputSchema.refine((input) => ownerIsComplete(input.owner), {
+  message: 'A port owner needs nodeId, direction, and portName.',
+  path: ['owner'],
+});
+
 export const projectIdSchema = z.string().min(1).max(200);
 export const classTypeSchema = z.string().min(1).max(500);
 

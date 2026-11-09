@@ -15,6 +15,7 @@ import { registerEngineIpc } from './ipc/engineIpc';
 import { registerAgentIpc } from './ipc/agentIpc';
 import { mcpTokenFor, mcpTokenStatus, releaseMcpTokenIfOriginChanged, setMcpToken } from './mcp/token';
 import { saveProjectRecord } from './ipc/projectRecord';
+import { redactSecrets } from '../shared/config/draft';
 import { setBlockedWebOrigins } from './agent/web';
 import { missingOnGraph } from '../shared/graph/compatibility';
 import { cancelRun, closeRun, commitCommand, pauseRun, readProjection, resumeRun, startRun, switchProject } from './commands/commit';
@@ -364,7 +365,7 @@ function importCatalogFile(filePath: string) {
     const result = upsertObjectInfo(getDatabase(), parsed);
     return { status: 'applied' as const, result };
   } catch (error) {
-    if (error instanceof ObjectInfoError) return { status: 'rejected' as const, error: error.message };
+    if (error instanceof ObjectInfoError) return { status: 'rejected' as const, error: redactSecrets(error.message) };
     if (error instanceof SyntaxError) return { status: 'rejected' as const, error: 'Catalog JSON could not be parsed.' };
     return { status: 'rejected' as const, error: 'Catalog snapshot could not be read.' };
   }

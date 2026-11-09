@@ -22,6 +22,7 @@ import { McpRefusedError, readOnlySession } from './readOnly';
 import { parseObjectInfo } from '../../shared/catalog/objectInfo';
 import { acceptedComfyUrl, applyComfyRead, isLoopbackHost } from '../comfy/read';
 import { readSettings } from '../settings/repository';
+import { redactSecrets } from '../../shared/config/draft';
 
 const CONNECT_TIMEOUT_MS = 15000;
 /** One tool call may take this long; a stalled server must not hold a sync open forever. */
@@ -104,7 +105,7 @@ export const connectStreamableHttp: McpSessionFactory = async (url, token) => {
 
 /** Fixed messages only: a transport error text could echo request headers. */
 export function failure(error: unknown): McpReadFailure {
-  if (error instanceof McpRefusedError || error instanceof McpPageError) return { ok: false, error: error.message };
+  if (error instanceof McpRefusedError || error instanceof McpPageError) return { ok: false, error: redactSecrets(error.message) };
   const message = error instanceof Error ? error.message : '';
   if (/401|unauthorized/i.test(message)) return { ok: false, error: 'MCP server refused the token.' };
   return { ok: false, error: 'MCP server was not read.' };

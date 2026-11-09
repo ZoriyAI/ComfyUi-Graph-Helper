@@ -10,6 +10,7 @@ import { readPreferences, readSettings } from '../settings/repository';
 import { connectStreamableHttp, failure, openReadOnlySession, readCatalogWithSession, type McpSessionFactory } from './client';
 import { McpRefusedError } from './readOnly';
 import { mcpToken, releaseMcpTokenIfOriginChanged } from './token';
+import { redactSecrets } from '../../shared/config/draft';
 import type { ServerIdentity } from './inventory';
 
 /** Loader folders whose files carry a safetensors header worth reading. */
@@ -231,7 +232,7 @@ export class SyncService {
     this.deps.checkTokenOrigin(url);
     const opened = await openReadOnlySession({ url, token: this.deps.token() }, factory);
     if (!opened.ok) {
-      writeState(db, { last_error: opened.error });
+      writeState(db, { last_error: redactSecrets(opened.error) });
       return;
     }
     const session = opened.session;
@@ -240,7 +241,7 @@ export class SyncService {
       const now = this.deps.now();
       const read = await readCatalogWithSession(db, session, fetchImpl, now);
       if ('ok' in read) {
-        writeState(db, { last_error: read.error });
+        writeState(db, { last_error: redactSecrets(read.error) });
         return;
       }
       writeState(db, { server_identity: JSON.stringify(identityRecord(read.identity)) });

@@ -4,7 +4,7 @@ import { IPC_CHANNELS } from '../../shared/ipc-channels';
 import type { ExplanationInput, ListExplanationsRequest, SearchModelsRequest, SearchNodesRequest } from '../../shared/contracts/knowledge';
 import {
   classTypeSchema,
-  explanationInputSchema,
+  userExplanationInputSchema,
   listExplanationsSchema,
   modelKeySchema,
   projectIdSchema,
@@ -13,6 +13,7 @@ import {
   setAutoSchema,
 } from '../../shared/knowledge/schemas';
 import type { SyncService } from '../mcp/sync';
+import { carriesSecret, textCarriesSecret } from '../../shared/config/draft';
 import {
   checkGraph,
   listExplanations,
@@ -25,8 +26,10 @@ import {
 
 export type KnowledgeHandler = (...args: unknown[]) => unknown;
 
+export const EXPLANATION_SECRET_ERROR = 'Explanations cannot store a secret.';
+
 /** Messages our own code throws on purpose; anything else becomes a generic message so no internals leak. */
-const PUBLIC_MESSAGES = new Set(['Project was not found.']);
+const PUBLIC_MESSAGES = new Set(['Project was not found.', EXPLANATION_SECRET_ERROR]);
 
 export class KnowledgeRequestError extends Error {
   constructor(message: string) {
@@ -66,7 +69,12 @@ export function knowledgeHandlers(deps: { db: () => Database.Database; sync: Syn
       return modelDetail(db(), key.directory, key.name);
     },
     [IPC_CHANNELS.KNOWLEDGE_LIST_EXPLANATIONS]: (request) => listExplanations(db(), listExplanationsSchema.parse(request ?? {}) as ListExplanationsRequest),
-    [IPC_CHANNELS.KNOWLEDGE_SAVE_EXPLANATION]: (input) => saveExplanation(db(), explanationInputSchema.parse(input) as ExplanationInput),
+    [IPC_CHANNELS.KNOWLEDGE_SAVE_EXPLANATION]: (input) => {
+      const parsed = userExplanationInputSchema.parse(input);
+      if (textCarriesSecret(parsed.text) || carriesSecret({ sourceUrl: parsed.sourceUrl ?? '' })) throw new KnowledgeRequestError(EXPLANATION_SECRET_ERROR);
+      // What the person writes in the app is theirs, whatever the request claims.
+      return saveExplanation(db(), { ...parsed, provenance: 'user', createdBy: 'user' } as ExplanationInput);
+    },
     [IPC_CHANNELS.KNOWLEDGE_CHECK_GRAPH]: (projectId) => checkGraph(db(), projectIdSchema.parse(projectId)),
     [IPC_CHANNELS.SYNC_STATUS]: () => sync.status(db()),
     [IPC_CHANNELS.SYNC_NOW]: () => sync.runSync(db(), deps.fetchImpl),
