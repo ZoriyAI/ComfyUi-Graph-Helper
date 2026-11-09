@@ -17,6 +17,13 @@ export const agentTurnContextSchema = z.object({
   objectRef: objectRef.optional(),
   selection: z.array(objectRef).max(200).default([]),
   language: z.enum(['en', 'ru']).optional(),
+  viewport: z.object({
+    x: z.number().finite(),
+    y: z.number().finite(),
+    zoom: z.number().finite().positive(),
+    width: z.number().finite().nonnegative().optional(),
+    height: z.number().finite().nonnegative().optional(),
+  }).optional().catch(undefined),
 });
 
 /** Validates the renderer's turn context. Anything malformed falls back to a plain chat turn. */

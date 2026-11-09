@@ -7,7 +7,9 @@ import { useUiStore } from '../../state/uiState';
 import { agentGraphContext } from '../../../shared/agent/context';
 import { translateKnownError, type Translator } from '../../../shared/i18n';
 import { BUILD_TOOL_SPECS } from '../../../shared/commands/toolSpecs';
-import type { AgentTurnContext } from '../../../shared/contracts';
+import type { AgentBuildStep, AgentTurnContext, Explanation } from '../../../shared/contracts';
+import { useCanvasStore } from '../../components/graph/canvasStore';
+import { stepKey } from '../../components/graph/lib/buildQueue';
 import { DESKTOP_PROJECT_ID } from '../../../shared/project';
 import type { Projection } from '../../../shared/commands/types';
 import type { ChatMessage, ToolCall } from '../../types/chat';
@@ -31,7 +33,10 @@ const translate: Translator = (key, options) => (options ? String(i18n.t(key, op
  * Renderer chat service. Build tools commit in the main process; this service streams the turn,
  * keeps the chat store current, routes explain/proposal results to their stores, and persists messages.
  *
- * Stream protocol (main/ipc/agentIpc.ts): text-delta, tool-call, tool-result, tool-error, projection, done, error.
+ * Stream protocol (main/agent/turn.ts): text-delta, tool-call, tool-result, tool-error, projection, build-step, done, error.
+ * A build-step (AgentBuildStep) follows the projection of a build tool commit: its `why` goes to the canvas
+ * queue (the live build's callout) and its saved explanation straight into the knowledge store, so the node's
+ * description card has it the moment the node appears.
  */
 
 type StreamChunk = { type: string; content?: unknown };
@@ -55,13 +60,51 @@ function errorText(content: unknown): string {
   }
 }
 
-/** The context a plain composer send carries: intent chat, the canvas selection, the interface language. */
+/** The context a plain composer send carries: intent chat, the canvas selection and camera, the interface language. */
 export function defaultTurnContext(): AgentTurnContext {
+  const viewport = useCanvasStore.getState().viewport;
   return {
     intent: 'chat',
     selection: useUiStore.getState().selection,
     language: turnLanguage(i18n.language || i18n.resolvedLanguage),
+    ...(viewport ? { viewport } : {}),
   };
+}
+
+function isExplanation(value: unknown): value is Explanation {
+  return isRecord(value) && typeof value.id === 'string' && typeof value.text === 'string' && isRecord(value.owner)
+    && typeof value.owner.kind === 'string' && typeof value.owner.id === 'string' && typeof value.aspect === 'string';
+}
+
+/** Reads a build-step chunk without trusting its shape; null when it is not one. */
+export function parseBuildStep(content: unknown): AgentBuildStep | null {
+  if (!isRecord(content) || typeof content.toolName !== 'string' || typeof content.why !== 'string') return null;
+  const id = (value: unknown) => (typeof value === 'string' && value !== '' ? value : undefined);
+  return {
+    toolName: content.toolName as AgentBuildStep['toolName'],
+    toolCallId: id(content.toolCallId) ?? '',
+    nodeId: id(content.nodeId),
+    edgeId: id(content.edgeId),
+    subgraphId: id(content.subgraphId),
+    key: id(content.key),
+    why: content.why,
+    explanationId: id(content.explanationId) ?? null,
+    explanation: isExplanation(content.explanation) ? content.explanation : null,
+    revisionId: id(content.revisionId) ?? '',
+  };
+}
+
+/** Hands one build step to the canvas queue and its saved explanation to the knowledge store. */
+export function acceptBuildStep(content: unknown): void {
+  const step = parseBuildStep(content);
+  if (!step) return;
+  if (step.explanation) useKnowledgeStore.getState().addExplanation(step.explanation);
+  const key = stepKey(step);
+  if (key) useCanvasStore.getState().noteBuildStep(key, { toolName: step.toolName, why: step.why });
+  if (step.toolName === 'removeNode' && step.why) {
+    const canvas = useCanvasStore.getState();
+    canvas.setLive({ ...canvas.live, why: step.why });
+  }
 }
 
 function completeContext(context?: Partial<AgentTurnContext>): AgentTurnContext {
@@ -72,6 +115,7 @@ function completeContext(context?: Partial<AgentTurnContext>): AgentTurnContext 
     selection: context.selection ?? base.selection,
     language: context.language ?? base.language,
     ...(context.objectRef ? { objectRef: context.objectRef } : {}),
+    ...(context.viewport ?? base.viewport ? { viewport: context.viewport ?? base.viewport } : {}),
   };
 }
 
@@ -260,6 +304,8 @@ export class ChatService {
         const body = isRecord(chunk.content) ? chunk.content : {};
         if (chunk.type === 'projection') {
           applyProjection(chunk.content as Projection);
+        } else if (chunk.type === 'build-step') {
+          acceptBuildStep(chunk.content);
         } else if (chunk.type === 'text-delta' && typeof body.text === 'string' && body.text) {
           assistantContent += body.text;
           publish({ content: assistantContent });

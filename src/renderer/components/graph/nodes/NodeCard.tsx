@@ -66,6 +66,7 @@ export default function NodeCard({ id, data, state, connected, live = true, head
       data-demo={data.demo ? 'true' : 'false'}
       data-primary-type={primary}
       data-node-kind={state.subgraph ? 'subgraph-instance' : 'node'}
+      data-build-pending={state.pending ? 'true' : undefined}
       style={{ '--canvas-accent': accent } as React.CSSProperties}
     >
       <div className={styles.header}>

@@ -1,11 +1,12 @@
 import type Database from 'better-sqlite3';
-import { readProjection } from '../commands/commit';
+import { listRecentCommands, readProjection } from '../commands/commit';
 import { mainLLMService } from '../llmService';
 import * as knowledgeRepository from '../knowledge/repository';
 import { summarizeGraph } from '../../shared/agent/graph';
 import { parseTurnContext } from '../../shared/agent/turnContext';
 import { AGENT_BUILD_TOOLS } from '../../shared/contracts/agentTools';
 import type { Projection } from '../../shared/commands/types';
+import type { RecentCommand } from '../../shared/agent/recentActions';
 import { createBuildTools, type RendererToolSpec, type RunContext } from './buildTools';
 import { buildSystemPrompt, catalogSummaryText } from './prompt';
 import { createAgentTools, type KnowledgeApi, type ProposalApi } from './tools';
@@ -48,11 +49,24 @@ function specs(input: unknown): RendererToolSpec[] {
 }
 
 const BUILD = new Set<string>(AGENT_BUILD_TOOLS);
+const RECENT_LIMIT = 30;
+/** A step-by-step build is one tool call per step: a text-to-image graph alone is about sixteen. */
+const MAX_STEPS = 48;
+
+/** The person's recent commands for the prompt; a read failure only drops that section. */
+function readRecent(db: Database.Database, projectId: string): RecentCommand[] {
+  try {
+    return listRecentCommands(db, projectId, RECENT_LIMIT, { actor: 'manual' });
+  } catch {
+    return [];
+  }
+}
 
 /**
  * One llm:stream-chat turn. The renderer's system messages are replaced by the main-built teaching prompt
- * (the renderer cannot see the catalog and must not ship widget values). Chunk protocol is unchanged:
- * every fullStream part, then 'projection' on commits, then 'done' or 'error'.
+ * (the renderer cannot see the catalog or the action log). Chunk protocol: every fullStream part, 'projection' on
+ * commits followed by 'build-step' for a step tool (addNode, connectNodes, …; content AgentBuildStep), then
+ * 'done' or 'error'. Renderers that do not know 'build-step' ignore it.
  */
 export async function runAgentTurn(options: AgentTurnOptions): Promise<void> {
   const { db, run, send } = options;
@@ -65,10 +79,12 @@ export async function runAgentTurn(options: AgentTurnOptions): Promise<void> {
     let revision = run.expectedRevisionId;
 
     const projection: Projection | null = readProjection(db, run.projectId);
+    const selectedIds = context.selection.filter((ref) => ref.kind === 'node').map((ref) => ref.id);
     const system = buildSystemPrompt({
       context,
-      graph: projection ? summarizeGraph(projection.snapshot) : null,
+      graph: projection ? summarizeGraph(projection.snapshot, { selectedIds }) : null,
       catalog: catalogSummaryText(db, knowledge, question),
+      recent: readRecent(db, run.projectId),
     });
 
     const mainTools = createAgentTools({
@@ -88,6 +104,8 @@ export async function runAgentTurn(options: AgentTurnOptions): Promise<void> {
       run,
       onProjection: (next) => send({ type: 'projection', content: next }),
       onRevision: (next) => { revision = next; },
+      onBuildStep: (step) => send({ type: 'build-step', content: step }),
+      saveWhy: (database, input) => knowledge.saveExplanation(database, input),
     });
     // Main tools first; a renderer spec replaces one only when it is a build tool.
     const tools: Record<string, unknown> = { ...mainTools };
@@ -96,7 +114,7 @@ export async function runAgentTurn(options: AgentTurnOptions): Promise<void> {
     }
 
     console.log(`[Agent] Turn with ${messages.length} messages, ${Object.keys(tools).length} tools, intent=${context.intent}`);
-    for await (const chunk of llm.streamChatWithTools([{ role: 'system', content: system }, ...messages], tools as Record<string, any>)) {
+    for await (const chunk of llm.streamChatWithTools([{ role: 'system', content: system }, ...messages], tools as Record<string, any>, { maxSteps: MAX_STEPS })) {
       send(chunk);
     }
     send({ type: 'done' });
