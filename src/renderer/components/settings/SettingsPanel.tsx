@@ -170,6 +170,11 @@ export default function SettingsPanel({
     setOpen(true);
   }, [settingsRequest]);
 
+  // A note about the last save belongs to that visit; reopening shows the stored settings, not a stale "saved".
+  useEffect(() => {
+    if (open) setNote((current) => (current.kind === 'error' || current.key === 'settings.saved' || current.key === 'settings.saveFailed' ? { kind: 'key', key: 'settings.restored' } : current));
+  }, [open]);
+
   // The menu or a canvas toggle saved a change: what is stored moved, so the form starts from it.
   useEffect(() => {
     const onChanged = (event: Event) => {

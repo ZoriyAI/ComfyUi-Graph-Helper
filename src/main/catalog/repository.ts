@@ -203,11 +203,15 @@ export interface CatalogTotals {
 export function catalogTotals(db: Database.Database): CatalogTotals {
   const count = (sql: string) => (db.prepare(sql).get() as { n: number }).n;
   return {
-    nodeClasses: count('SELECT COUNT(*) AS n FROM node_catalog'),
+    // The seeded placeholder rows (ensureCatalog) are not synced classes: before a sync or an object_info import
+    // they have neither synced_at nor inputs, and the count stays 0.
+    nodeClasses: count("SELECT COUNT(*) AS n FROM node_catalog WHERE synced_at IS NOT NULL OR inputs_json NOT IN ('[]', '')"),
     detailedClasses: count("SELECT COUNT(*) AS n FROM node_catalog WHERE inputs_json NOT IN ('[]', '')"),
     packs: count('SELECT COUNT(*) AS n FROM node_packs'),
     models: count('SELECT COUNT(*) AS n FROM model_catalog'),
-    enrichedModels: count('SELECT COUNT(*) AS n FROM model_catalog WHERE enriched_at IS NOT NULL'),
+    // Files whose header or sidecar actually said something. Reading a file that had no metadata is not enrichment.
+    enrichedModels: count(`SELECT COUNT(*) AS n FROM model_catalog WHERE enriched_at IS NOT NULL AND (
+      metadata_json NOT IN ('{}', '') OR trigger_words NOT IN ('[]', '') OR base_model_evidence IN ('metadata', 'sidecar'))`),
   };
 }
 

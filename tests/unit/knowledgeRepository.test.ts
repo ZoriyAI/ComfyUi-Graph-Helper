@@ -187,7 +187,8 @@ describe('knowledge repository: models', () => {
     expect(modelDetail(db, 'loras', 'missing.safetensors')).toBeNull();
     expect(searchModels(db, { query: '', limit: 10000 })).toHaveLength(5);
     expect(catalogCounts(db)).toEqual({
-      nodeClasses: 9,
+      // Seeded placeholder rows that no sync or object_info filled are not counted.
+      nodeClasses: 6,
       detailedClasses: 6,
       packs: 0,
       models: 5,
