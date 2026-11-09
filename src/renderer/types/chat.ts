@@ -25,6 +25,21 @@ export interface ToolCall {
 }
 
 /**
+ * A turn that stopped on a guard instead of the model's own answer (main sends 'turn-paused'). The run stays
+ * paused; Continue resumes it and sends "continue" with `context`, Stop cancels it.
+ */
+export interface TurnCheckpoint {
+  reason: 'step-limit' | 'failure-streak';
+  steps: number;
+  /** Failed tool results in a row, for the failure-streak reason. */
+  failures?: number;
+  /** The context of the paused turn; Continue sends with it. */
+  context?: AgentTurnContext;
+  /** open: buttons shown; continued / stopped: what the person chose; closed: a later turn moved on. */
+  state: 'open' | 'continued' | 'stopped' | 'closed';
+}
+
+/**
  * Chat message
  */
 export interface ChatMessage {
@@ -36,4 +51,6 @@ export interface ChatMessage {
   toolCalls?: ToolCall[];
   /** The turn context a person's message was sent with; drives the "about" chip. Not persisted. */
   context?: AgentTurnContext;
+  /** Set on the assistant message of a turn that paused at a checkpoint. Not persisted. */
+  checkpoint?: TurnCheckpoint;
 }

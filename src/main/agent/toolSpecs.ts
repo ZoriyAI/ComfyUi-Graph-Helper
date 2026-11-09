@@ -1,4 +1,5 @@
 import type { AgentKnowledgeTool, AgentProposalTool, AgentReadTool } from '../../shared/contracts/agentTools';
+import { FETCH_PAGE_BYTE_CAP, FETCH_PAGE_TEXT_CAP, GRAPH_PAGE_DEFAULT, megabytes } from '../../shared/agent/limits';
 
 /**
  * JSON-schema specs for the tools that run in main. Build-tool specs still come from the renderer.
@@ -38,24 +39,24 @@ export const OBJECT_REF_SCHEMA = {
 
 export const MAIN_TOOL_SPECS: Record<AgentReadTool | AgentKnowledgeTool | AgentProposalTool, AgentToolSpec> = {
   getGraph: {
-    description: 'Read the current graph: node ids, class types, titles, ports with their handles (in-N / out-N), connections, every widget value (values that look like secrets are [redacted]), positions, sizes, groups and subgraphs. Pages of 200 nodes: when nextOffset is not null, call again with that offset; or pass ids to read specific nodes.',
+    description: `Read the current graph: node ids, class types, titles, ports with their handles (in-N / out-N), every connection that touches the listed nodes, every widget value in full (values that look like secrets are [redacted]), positions, sizes, groups and subgraphs. Pages of ${GRAPH_PAGE_DEFAULT} nodes by default (any larger limit is allowed): when nextOffset is not null, call again with that offset until it is null; or pass ids to read specific nodes.`,
     parameters: {
       type: 'object',
       properties: {
         offset: { type: 'integer', minimum: 0, description: 'First node of the page in graph order (default 0).' },
-        limit: { type: 'integer', minimum: 1, maximum: 500, description: 'Nodes per page (default 200).' },
+        limit: { type: 'integer', minimum: 1, description: `Nodes per page (default ${GRAPH_PAGE_DEFAULT}, no maximum).` },
         ids: { type: 'array', items: { type: 'string' }, description: 'Only these node ids and the connections that touch them.' },
       },
     },
   },
   searchNodeTypes: {
-    description: 'Search node classes installed in this person\'s ComfyUI by name, display name, or category.',
+    description: 'Search node classes installed in this person\'s ComfyUI by name, display name, or category. 20 results by default; more: true means more match (pass a larger limit).',
     parameters: {
       type: 'object',
       properties: {
         query: { type: 'string', description: 'Words to look for, e.g. "sampler" or "upscale".' },
         category: { type: 'string', description: 'Optional category prefix, e.g. "sampling".' },
-        limit: { type: 'integer', minimum: 1, maximum: 50 },
+        limit: { type: 'integer', minimum: 1, description: 'Results to return (default 20, no maximum).' },
       },
       required: ['query'],
     },
@@ -69,7 +70,7 @@ export const MAIN_TOOL_SPECS: Record<AgentReadTool | AgentKnowledgeTool | AgentP
     },
   },
   findInstalledModels: {
-    description: 'Search model files on this person\'s disk (checkpoints, LoRAs, VAEs, …) with their base-model family.',
+    description: 'Search model files on this person\'s disk (checkpoints, LoRAs, VAEs, …) with their base-model family. 20 results by default; more: true means more match (pass a larger limit).',
     parameters: {
       type: 'object',
       properties: {
@@ -77,7 +78,7 @@ export const MAIN_TOOL_SPECS: Record<AgentReadTool | AgentKnowledgeTool | AgentP
         directory: { type: 'string', description: 'ComfyUI models directory, e.g. "loras" or "checkpoints".' },
         baseModel: { type: 'string', enum: BASE_FAMILIES },
         kind: { type: 'string', enum: MODEL_KINDS },
-        limit: { type: 'integer', minimum: 1, maximum: 50 },
+        limit: { type: 'integer', minimum: 1, description: 'Results to return (default 20, no maximum).' },
       },
       required: ['query'],
     },
@@ -106,7 +107,7 @@ export const MAIN_TOOL_SPECS: Record<AgentReadTool | AgentKnowledgeTool | AgentP
     },
   },
   fetchPage: {
-    description: 'Read one public web page as plain text (first 12000 characters). Only http(s) public addresses.',
+    description: `Read one public web page as plain text. Protective limits: at most ${megabytes(FETCH_PAGE_BYTE_CAP)} of the page is downloaded and at most ${FETCH_PAGE_TEXT_CAP} characters of its text are returned; past either, the result says truncated: true. Only http(s) public addresses.`,
     parameters: {
       type: 'object',
       properties: { url: { type: 'string', description: 'http(s) address' } },

@@ -4,9 +4,13 @@ import { redactSecrets } from '../../shared/agent/redact';
 import { mainLLMService } from '../llmService';
 import type { ChatRecord, ChatSaveResult } from '../../shared/contracts';
 
-export const CHAT_CONTENT_CAP = 50_000;
-const TOOL_CALLS_CAP = 200_000;
-const HISTORY_LIMIT = 500;
+/**
+ * Protective (one SQLite row): a message longer than this is stored with a visible "[… N characters not stored]"
+ * tail instead of being cut silently. A million characters is far past any typed message or model answer.
+ */
+export const CHAT_CONTENT_CAP = 1_000_000;
+/** Protective (one SQLite row): tool calls larger than this are refused with an error the chat logs. */
+const TOOL_CALLS_CAP = 5_000_000;
 
 const chatRecordSchema = z.object({
   id: z.string().min(1).max(200),
@@ -24,7 +28,7 @@ export type { ChatSaveResult } from '../../shared/contracts';
 export type HeldSecretCheck = (text: string) => boolean;
 
 /**
- * Stores one chat message. Content over 50k characters is cut. Secret-shaped substrings (an sk- key, an api
+ * Stores one chat message. Content over a million characters is stored with a marker saying how much was left out. Secret-shaped substrings (an sk- key, an api
  * key assignment, a bearer token) are replaced with [redacted] before the write, so the rest of the message is
  * kept. A message that contains the exact held LLM key or MCP token is refused outright.
  */
@@ -37,7 +41,9 @@ export function saveChatMessage(
   if (!parsed.success) return { ok: false, error: 'Chat message does not match the schema.' };
   const record = parsed.data;
   if (heldSecret(record.content)) return { ok: false, error: 'Chat message contains the held key or token and was not stored.' };
-  const content = redactSecrets(record.content.slice(0, CHAT_CONTENT_CAP));
+  const content = redactSecrets(record.content.length > CHAT_CONTENT_CAP
+    ? `${record.content.slice(0, CHAT_CONTENT_CAP)}\n[… ${record.content.length - CHAT_CONTENT_CAP} characters not stored]`
+    : record.content);
   let toolCalls: string | null = null;
   if (record.toolCalls) {
     try {
@@ -83,15 +89,15 @@ function parseToolCalls(value: unknown): unknown[] | null {
   }
 }
 
-/** The latest 500 messages of a project, oldest first. */
+/** Every stored message of a project, oldest first. The person's own chat is never cut to a count. */
 export function loadChatHistory(db: Database.Database, projectId: unknown): ChatRecord[] {
   if (typeof projectId !== 'string' || projectId === '') return [];
   const rows = db.prepare(`
     SELECT * FROM (
       SELECT id, project_id, role, content, timestamp, graph_revision_id, tool_calls, rowid AS seq
-      FROM chat_messages WHERE project_id = ? ORDER BY timestamp DESC, seq DESC LIMIT ?
+      FROM chat_messages WHERE project_id = ?
     ) ORDER BY timestamp ASC, seq ASC
-  `).all(projectId, HISTORY_LIMIT) as Array<Record<string, unknown>>;
+  `).all(projectId) as Array<Record<string, unknown>>;
   return rows.flatMap((row) => {
     const role = row.role;
     if (role !== 'user' && role !== 'assistant' && role !== 'system') return [];

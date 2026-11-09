@@ -89,7 +89,7 @@ describe('page text', () => {
 
   it('follows up to three public redirects and returns clipped text without credentials', async () => {
     const seen: Seen[] = [];
-    const long = `<html><title>Doc</title><body><p>${'word '.repeat(5000)}</p></body></html>`;
+    const long = `<html><title>Doc</title><body><p>${'word '.repeat(15000)}</p></body></html>`;
     const fetchImpl = fakeFetch({
       'https://a.example/': () => new Response(null, { status: 301, headers: { location: 'https://b.example/' } }),
       'https://b.example/': () => new Response(null, { status: 302, headers: { location: '/page' } }),
@@ -100,6 +100,7 @@ describe('page text', () => {
     expect(page.title).toBe('Doc');
     expect(page.text.length).toBe(PAGE_TEXT_CAP);
     expect(page.truncated).toBe(true);
+    expect(page.note).toContain(`the first ${PAGE_TEXT_CAP} are returned (protective limit)`);
     expect(seen.map((item) => item.url)).toEqual(['https://a.example/', 'https://b.example/', 'https://b.example/page']);
     for (const item of seen) {
       const headers = new Headers(item.init?.headers);
