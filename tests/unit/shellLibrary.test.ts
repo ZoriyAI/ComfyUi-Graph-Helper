@@ -12,7 +12,8 @@ import {
   scrollIntoRow,
   windowRange,
 } from '../../src/renderer/components/library/libraryModel';
-import { clampInterval, syncTransition, syncView } from '../../src/renderer/components/sync/syncView';
+import { clampInterval, syncSummary, syncTransition, syncView } from '../../src/renderer/components/sync/syncView';
+import { createTranslator } from '../../src/shared/i18n';
 import { MAX_TOASTS, queueToast, type ToastItem } from '../../src/renderer/ui/toastStore';
 import { dockRange, normalizeDockTab, TAB_DEFAULT, TAB_MAX, TAB_MIN } from '../../src/renderer/state/dockState';
 import { isDirty } from '../../src/renderer/state/uiState';
@@ -164,6 +165,36 @@ describe('sync view', () => {
     // A browser sign-in counts as auth: the "no token" hint is not shown.
     expect(syncView({ ...status, tokenHeld: false, signedIn: true }).blocked).toBeNull();
     expect(syncView({ ...status, progress: { phase: 'connect', done: 0, total: 0 } }).fraction).toBeNull();
+  });
+
+  it('shows startup, background enrichment, warnings and the sign-in need', () => {
+    const idle: SyncStatus = { ...status, state: 'idle', progress: null };
+    expect(syncView({ ...idle, startupPending: true })).toMatchObject({ labelKey: 'sync.state.starting', busy: false });
+    const enriching = syncView({ ...idle, progress: { phase: 'enrichment', done: 120, total: 316 } });
+    expect(enriching).toMatchObject({ state: 'idle', labelKey: 'sync.enriching', labelParams: { done: 120, total: 316 }, enriching: true, busy: true });
+    expect(enriching.fraction).toBeCloseTo(120 / 316);
+    expect(createTranslator('en')(enriching.labelKey, enriching.labelParams)).toBe('Reading model metadata: 120 / 316');
+    expect(createTranslator('ru')(enriching.labelKey, enriching.labelParams)).toBe('Чтение метаданных моделей: 120 / 316');
+    expect(syncView({ ...idle, warnings: ['x'] }).warned).toBe(true);
+    expect(syncView({ ...idle, state: 'error', lastError: 'MCP sign-in has expired. Sign in through the browser again.' }).needsSignIn).toBe(true);
+    expect(syncView({ ...idle, tokenHeld: false }).needsSignIn).toBe(true);
+    expect(syncView(idle).needsSignIn).toBe(false);
+  });
+
+  it('summarises a run in one toast line', () => {
+    const done: SyncStatus = {
+      ...status,
+      state: 'idle',
+      counts: { nodeClasses: 3272, detailedClasses: 3271, packs: 74, models: 1987, enrichedModels: 40 },
+      metadata: { done: 40, total: 316 },
+      progress: { phase: 'enrichment', done: 40, total: 316 },
+    };
+    const summary = syncSummary(done);
+    expect(createTranslator('en')(summary.key, summary.params))
+      .toBe('Synced: 3272 node classes (3271 with ports), 74 packs, 1987 models; metadata 40/316, continuing…');
+    const finished = syncSummary({ ...done, progress: null, metadata: { done: 316, total: 316 } });
+    expect(createTranslator('ru')(finished.key, finished.params))
+      .toBe('Синхронизировано: классов нод 3272 (с портами 3271), паков 74, моделей 1987; метаданные 316/316');
   });
 
   it('toasts only the end of a run', () => {
