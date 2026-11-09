@@ -61,7 +61,7 @@ test('stored provider, model, and base URL are what the next send would use afte
   await fresh.getByRole('button', { name: 'Отмена' }).click();
   await useEnglish(window);
   const dialog = await openSettings(window);
-  await expect(dialog.getByText('Restored non-secret settings.')).toBeVisible();
+  await expect(dialog.getByText('Settings loaded.')).toBeVisible();
   await expect(dialog.getByRole('button', { name: 'Save settings' })).toBeDisabled();
 
   // Provider is a radio-card group in the Preferences window (it was a select).
@@ -132,7 +132,7 @@ test('stored provider, model, and base URL are what the next send would use afte
   await expect.poll(() => runtimeConfig(again)).toEqual(savedRuntime);
   await expect(again.locator('#chat-provider')).toHaveAttribute('data-value', 'openai');
   const restored = await openSettings(again);
-  await expect(restored.getByText('Restored non-secret settings.')).toBeVisible();
+  await expect(restored.getByText('Settings loaded.')).toBeVisible();
   await expect(restored.getByRole('radio', { name: 'OpenAI', exact: true })).toHaveAttribute('aria-checked', 'true');
   await expect(restored.getByRole('textbox', { name: 'Model', exact: true })).toHaveValue('fixture-model');
   await expect(restored.getByRole('textbox', { name: 'Base URL', exact: true })).toHaveValue('https://example.test/v1');

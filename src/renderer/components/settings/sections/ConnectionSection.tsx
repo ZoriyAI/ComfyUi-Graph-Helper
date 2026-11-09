@@ -119,21 +119,6 @@ export default function ConnectionSection({ values, setValues, saved, fieldError
       <SectionHead title={String(t('preferences.connectionTitle'))} lead={String(t('preferences.lead.connection'))} />
       <SuggestField
         className={fieldClass}
-        label={String(t('settings.comfyOrigin'))}
-        value={values.comfyOrigin}
-        onChange={(text) => setValues((current) => ({ ...current, comfyOrigin: text }))}
-        inputProps={fieldError('comfyOrigin')}
-        suggestions={comfyOptions}
-        pickerLabel={String(t('picker.comfyList'))}
-        placeholder={String(t('picker.addressPlaceholder', { count: comfyOptions.length }))}
-        emptyText={String(t('picker.addressEmpty'))}
-        action={addressAction}
-        status={addressStatus}
-        container={container}
-      />
-      <p className={hintClass}>{t('settings.comfyOriginHint')}</p>
-      <SuggestField
-        className={fieldClass}
         label={String(t('settings.mcpUrl'))}
         value={values.mcpUrl}
         onChange={(text) => setValues((current) => ({ ...current, mcpUrl: text }))}
@@ -156,6 +141,22 @@ export default function ConnectionSection({ values, setValues, saved, fieldError
         savedUrl={mcpUrl !== '' && mcpUrl === saved.mcpUrl.trim()}
         disabled={pending}
       />
+      {/* The ComfyUI address itself is optional: the server names it. It comes after the things everyone needs. */}
+      <SuggestField
+        className={fieldClass}
+        label={String(t('settings.comfyOrigin'))}
+        value={values.comfyOrigin}
+        onChange={(text) => setValues((current) => ({ ...current, comfyOrigin: text }))}
+        inputProps={fieldError('comfyOrigin')}
+        suggestions={comfyOptions}
+        pickerLabel={String(t('picker.comfyList'))}
+        placeholder={String(t('picker.addressPlaceholder', { count: comfyOptions.length }))}
+        emptyText={String(t('picker.addressEmpty'))}
+        action={addressAction}
+        status={addressStatus}
+        container={container}
+      />
+      <p className={hintClass}>{t('settings.comfyOriginHint')}</p>
       <div className={styles.stateLine}>
         <Badge tone={STATE_TONES[view.state]}>{t('preferences.connectionState', { state: t(view.labelKey) })}</Badge>
         {/* "Set the address first" is moot while one is typed right above. */}
