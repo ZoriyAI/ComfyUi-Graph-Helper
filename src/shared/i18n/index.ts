@@ -62,6 +62,7 @@ const ERROR_KEYS: Record<string, string> = {
   'The request does not match the schema.': 'proposals.errors.request',
   'Subgraphs need workflow format 1.': 'proposals.errors.subgraphFormat',
   'Node was not found.': 'proposals.errors.nodeMissing',
+  'Revision was not found.': 'errors.revisionMissing',
   'A node is already inside a subgraph.': 'proposals.errors.nodeInside',
   'Subgraph definition was not found.': 'proposals.errors.definitionMissing',
   'That node is not a subgraph instance.': 'proposals.errors.notInstance',

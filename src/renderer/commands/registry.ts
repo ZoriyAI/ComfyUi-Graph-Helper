@@ -14,6 +14,8 @@ export interface Command {
   labelKey: string;
   /** i18n key of a longer explanation (tooltip, or why the command is off). */
   hintKey?: string;
+  /** A live tooltip ("Undo: connect 2 → 4"), already translated. Wins over hintKey when it returns text. */
+  hint?: () => string | undefined;
   icon?: LucideIcon;
   /** 'Mod+S', 'Mod+Shift+Z', 'F1'. Mod is Ctrl on Linux and Windows, ⌘ on macOS. */
   shortcut?: string;
@@ -153,6 +155,17 @@ function subscribeAll(listener: () => void): () => void {
   };
 }
 
+/** The live tooltip of a command, or undefined. */
+export function hintOf(id: string): string | undefined {
+  const command = commands.get(id);
+  if (!command?.hint) return undefined;
+  try {
+    return command.hint();
+  } catch {
+    return undefined;
+  }
+}
+
 export interface CommandState {
   command: Command | undefined;
   enabled: boolean;
@@ -160,7 +173,7 @@ export interface CommandState {
 }
 
 function snapshotKey(ids: readonly string[]): string {
-  return `${revision}|${ids.map((id) => `${isEnabled(id) ? 1 : 0}${String(isChecked(id))}`).join(',')}`;
+  return `${revision}|${ids.map((id) => `${isEnabled(id) ? 1 : 0}${String(isChecked(id))}${hintOf(id) ?? ''}`).join(',')}`;
 }
 
 /**
