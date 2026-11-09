@@ -66,7 +66,7 @@ export function describeCommand(command: RecentCommand, summary: GraphSummary | 
     case 'remove-edge': return `removed connection ${safeText(str(p.edgeId), 80)}`;
     case 'retarget-edge': return `moved connection ${safeText(str(p.edgeId), 80)} to ${port(summary, str(p.target), str(p.targetHandle), 'inputs')}`;
     case 'set-parameter': return `set ${safeText(str(p.nodeId), 80)}.${safeText(str(p.key), 80)} = ${safeParameter(str(p.key), p.value)}`;
-    case 'add-node': return `added ${safeText(str(p.nodeType), 120)}${command.ids.find((id) => id.startsWith('node-')) ? ` as ${nodeName(command.ids.find((id) => id.startsWith('node-'))!)}` : ''}`;
+    case 'add-node': return `added ${safeText(str(p.nodeType), 120)}${command.ids[0] ? ` as ${nodeName(command.ids[0])}` : ''}`;
     case 'remove-node': return `removed ${nodeName(str(p.nodeId))}`;
     case 'annotate-node': return `annotated ${nodeName(str(p.nodeId))}`;
     case 'set-component': return `wrote what ${safeText(str(p.ownerKind), 20)} ${safeText(str(p.ownerId), 80)} is for`;

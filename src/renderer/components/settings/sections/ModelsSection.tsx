@@ -13,7 +13,10 @@ type KeySource = 'none' | 'session' | 'os';
  * Settings ▸ Models & keys: the model key (session memory or OS storage), the MCP token, where each secret
  * is right now, and one button that forgets them all. Keys go only through their own IPC; none is in the draft.
  */
-export default function ModelsSection({ provider, onSession }: { provider: string; onSession: (source: KeySource) => void }) {
+export default function ModelsSection({ provider, onSession, mcpUrl }: { provider: string; onSession: (source: KeySource) => void
+  /** The MCP URL in the current settings draft; the token is held for that origin. */
+  mcpUrl: string;
+}) {
   const { t } = useTranslation();
   const translate: Translator = (key, options) => (options ? String(t(key, options)) : String(t(key)));
   const onSessionRef = useRef(onSession);
@@ -81,7 +84,7 @@ export default function ModelsSection({ provider, onSession }: { provider: strin
     setSessionNote(String(t('settings.storedRemoved')));
   };
   const holdMcpToken = async () => {
-    const held = await window.electronAPI.mcpSetToken(mcpTokenDraft);
+    const held = await window.electronAPI.mcpSetToken(mcpTokenDraft, mcpUrl);
     setMcpTokenDraft('');
     setMcpHeld(held.held);
     setMcpNote(String(t(held.held ? 'settings.mcpTokenHeld' : 'settings.mcpTokenCleared')));

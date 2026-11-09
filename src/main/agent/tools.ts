@@ -153,7 +153,8 @@ function webSource(value: string | undefined): string | null {
 export function createAgentTools(deps: AgentToolDeps): Record<string, AgentToolDefinition | unknown> {
   const knowledge = deps.knowledge ?? knowledgeRepository;
   const proposals = deps.proposals ?? proposalRepository;
-  const fetchImpl = deps.fetchImpl ?? ((input: string, init?: RequestInit) => globalThis.fetch(input, init));
+  // No default fetch: without an injected fetch, web.ts connects to the vetted address itself (pinned request).
+  const fetchImpl = deps.fetchImpl;
   const readGraph = deps.readGraph ?? readProjection;
   const revision = () => (typeof deps.revision === 'function' ? deps.revision() : deps.revision);
   const { db, projectId } = deps;

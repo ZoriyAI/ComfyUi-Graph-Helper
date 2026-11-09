@@ -330,7 +330,7 @@ export default function SettingsPanel({
               })}
             </TabsList>
             {panel('assistant', <AssistantSection {...draft} />)}
-            {panel('models', <ModelsSection provider={values.provider} onSession={(source) => onSessionRef.current(source)} />)}
+            {panel('models', <ModelsSection provider={values.provider} mcpUrl={values.mcpUrl} onSession={(source) => onSessionRef.current(source)} />)}
             {panel('connection', <ConnectionSection {...draft} />)}
             {panel('sync', (
               <>
