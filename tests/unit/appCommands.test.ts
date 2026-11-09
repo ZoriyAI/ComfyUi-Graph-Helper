@@ -32,7 +32,7 @@ describe('app commands', () => {
       'assistant.focusChat': 'Mod+/', 'help.shortcuts': 'F1', 'view.stopExplaining': 'Escape',
     };
     for (const [id, shortcut] of Object.entries(expected)) expect(byId.get(id)?.shortcut, id).toBe(shortcut);
-    for (const id of ['file.catalog', 'graph.dissolveSubgraph', 'graph.addGroup', 'view.fit', 'view.showBoth', 'view.descriptions',
+    for (const id of ['file.catalog', 'graph.dissolveSubgraph', 'graph.addGroup', 'view.fit', 'view.showBoth', 'view.descriptions', 'view.descriptions.own', 'view.descriptions.all', 'view.descriptions.off',
       'view.minimap', 'view.followAgent', 'graph.tour', 'graph.replay', 'graph.acceptAll', 'assistant.askSelection', 'assistant.pause',
       'assistant.resume', 'assistant.end', 'assistant.provider.none', 'assistant.provider.test', 'sync.now', 'sync.auto', 'sync.settings',
       'file.settings', 'help.about']) {

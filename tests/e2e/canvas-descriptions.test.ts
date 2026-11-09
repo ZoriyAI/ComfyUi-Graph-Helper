@@ -164,7 +164,10 @@ test('description cards: dots for class knowledge, hover, node explanation, mode
   await expect(card).toContainText('Turns the noisy latent into the picture for prompt A.');
   const stored = await api('listExplanations', [{ projectId: 'desktop', owner: { kind: 'node', id: '4', classType: 'KSampler' } }]) as Array<{ text: string; provenance: string; aspect: string; createdBy: string }>;
   expect(stored.some((item) => item.provenance === 'user' && item.createdBy === 'user' && item.aspect === 'what' && item.text.startsWith('Turns the noisy latent'))).toBe(true);
-  // The other KSampler only has class knowledge: a dot until someone looks.
+  // The other KSampler only has class knowledge: a dot until someone looks. (Escape first, so the expanded
+  // Sample card is back to one line and cannot sit under the pointer.)
+  await window.keyboard.press('Escape');
+  await expect(window.locator('.description-card[data-expanded="true"]')).toHaveCount(0);
   await expect(window.getByRole('button', { name: 'Read the description: Sample B', exact: true })).toBeVisible();
   await window.locator('.react-flow__node[data-id="8"]').hover();
   await expect(window.getByRole('region', { name: 'Description of Sample B', exact: true })).toHaveAttribute('data-description-scope', 'nodeClass');
