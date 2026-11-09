@@ -1,4 +1,5 @@
-import type { CatalogView } from '../catalog/types';
+import { slotDefault } from '../catalog/objectInfo';
+import type { CatalogNode, CatalogView } from '../catalog/types';
 import type { ComponentRecord, ProcessMeta } from '../components/model';
 import { EMPTY_PROCESS } from '../components/model';
 import {
@@ -429,22 +430,104 @@ function syncSlots(node: Record<string, unknown>, links: unknown[]): void {
 
 export const WIDGET_ORDER_UNRELIABLE = 'Catalog widget order is not reliable, so those values are not exported.';
 
-/** Place parameter values into a widgets_values array. Unknown or unreliable order is a refusal, not a guess. */
+/** A widgets_values slot that has neither a value nor a catalog default; export writes null there. */
+export interface UnsetWidget {
+  nodeId: string;
+  classType: string;
+  name: string;
+}
+
+function isUnset(value: unknown): boolean {
+  return value === undefined || value === null;
+}
+
+/** The catalog spec whose widget order can place values, or undefined when it cannot. */
+function reliableSpec(catalog: CatalogView, classType: string): CatalogNode | undefined {
+  const spec = catalog.nodes.find((item) => item.classType === classType);
+  return spec && spec.widgetOrderReliable !== false ? spec : undefined;
+}
+
+/**
+ * Place parameter values into a widgets_values array. Unknown or unreliable order is a refusal, not a guess.
+ * A slot the parameters leave unset takes the catalog default (objectInfo.ts slotDefault); only a slot with no
+ * default stays null, and its name is listed in `unset`.
+ */
 export function widgetsFromParameters(
   classType: string,
   parameters: Record<string, unknown>,
   catalog: CatalogView,
-): { ok: true; values: unknown[] } | { ok: false; error: string } {
+): { ok: true; values: unknown[]; unset: string[] } | { ok: false; error: string } {
   const spec = catalog.nodes.find((item) => item.classType === classType);
   const keys = Object.keys(parameters);
   if (!spec || spec.widgetOrderReliable === false) {
-    return keys.length === 0 ? { ok: true, values: [] } : { ok: false, error: WIDGET_ORDER_UNRELIABLE };
+    return keys.length === 0 ? { ok: true, values: [], unset: [] } : { ok: false, error: WIDGET_ORDER_UNRELIABLE };
   }
   if (keys.some((key) => !spec.widgetOrder.includes(key))) {
     return { ok: false, error: WIDGET_ORDER_UNRELIABLE };
   }
-  return { ok: true, values: spec.widgetOrder.map((name) => (name in parameters ? parameters[name] : null)) };
+  const unset: string[] = [];
+  const values = spec.widgetOrder.map((name) => {
+    if (!isUnset(parameters[name])) return parameters[name];
+    const fallback = slotDefault(spec, name);
+    if (fallback.known) return fallback.value;
+    unset.push(name);
+    return null;
+  });
+  return { ok: true, values, unset };
 }
+
+/**
+ * Fill the null slots of a stored widgets_values array with catalog defaults. Values that are set are never
+ * changed, so an imported workflow keeps every value it carried. Only an array laid out exactly like the catalog
+ * order is touched; anything else is returned as it was, with no slot reported.
+ */
+export function fillWidgetDefaults(
+  classType: string,
+  widgets: unknown,
+  catalog: CatalogView | undefined,
+): { values: unknown; unset: string[] } {
+  const spec = catalog ? reliableSpec(catalog, classType) : undefined;
+  if (!spec || !Array.isArray(widgets) || widgets.length !== spec.widgetOrder.length) return { values: widgets, unset: [] };
+  const unset: string[] = [];
+  const values = widgets.map((value, index) => {
+    if (!isUnset(value)) return value;
+    const name = spec.widgetOrder[index];
+    const fallback = slotDefault(spec, name);
+    if (fallback.known) return fallback.value;
+    unset.push(name);
+    return null;
+  });
+  return { values, unset };
+}
+
+/**
+ * The widgets_values export writes for one canvas node, and the slots that stay null because nothing set them
+ * and the catalog has no default. Undefined values mean export writes no widgets_values for the node.
+ */
+export function exportedWidgets(
+  node: Record<string, any>,
+  catalog: CatalogView | undefined,
+): { ok: true; values: unknown[] | undefined; unset: string[] } | { ok: false; error: string } {
+  const classType = String(node.data?.comfyType ?? '');
+  const stored = node.data?.comfy?.widgets_values;
+  if (stored !== undefined) {
+    const filled = fillWidgetDefaults(classType, stored, catalog);
+    return { ok: true, values: filled.values as unknown[], unset: filled.unset };
+  }
+  const parameters = node.data?.parameters;
+  const record = parameters && typeof parameters === 'object' && !Array.isArray(parameters)
+    ? parameters as Record<string, unknown>
+    : {};
+  const spec = catalog ? reliableSpec(catalog, classType) : undefined;
+  if (Object.keys(record).length === 0 && (!spec || spec.widgetOrder.length === 0)) return { ok: true, values: undefined, unset: [] };
+  if (!catalog) return { ok: false, error: WIDGET_ORDER_UNRELIABLE };
+  const placed = widgetsFromParameters(classType, record, catalog);
+  if (!placed.ok) return placed;
+  return { ok: true, values: placed.values, unset: placed.unset };
+}
+
+/** Collects unset widgets while exportWorkflow runs; export is synchronous, so one slot is enough. */
+let unsetCollector: UnsetWidget[] | null = null;
 
 function exportedNode(node: Record<string, any>, catalog?: CatalogView, lenient = false): Record<string, unknown> {
   const hasComfy = node.data?.comfy && typeof node.data.comfy === 'object';
@@ -466,25 +549,16 @@ function exportedNode(node: Record<string, any>, catalog?: CatalogView, lenient 
     const title = typeof node.data?.title === 'string' && node.data.title !== '' ? node.data.title : node.data?.comfyType;
     if (typeof title === 'string' && title !== '') source.title = title;
   }
-  if (node.data?.comfy?.widgets_values !== undefined) {
-    source.widgets_values = node.data.comfy.widgets_values;
-    return source;
-  }
-  const parameters = node.data?.parameters;
-  const record = parameters && typeof parameters === 'object' && !Array.isArray(parameters)
-    ? parameters as Record<string, unknown>
-    : {};
-  if (Object.keys(record).length === 0) return source;
-  if (!catalog) {
-    if (lenient) return source;
-    throw new ExportRefused(WIDGET_ORDER_UNRELIABLE);
-  }
-  const placed = widgetsFromParameters(String(node.data?.comfyType ?? ''), record, catalog);
+  const placed = exportedWidgets(node, catalog);
   if (!placed.ok) {
     if (lenient) return source;
     throw new ExportRefused(placed.error);
   }
-  source.widgets_values = placed.values;
+  if (placed.values !== undefined) source.widgets_values = placed.values;
+  if (unsetCollector && placed.unset.length > 0) {
+    const classType = String(node.data?.comfyType ?? '');
+    for (const name of placed.unset) unsetCollector.push({ nodeId: String(source.id ?? node.id), classType, name });
+  }
   return source;
 }
 
@@ -495,7 +569,15 @@ class ExportRefused extends Error {
   }
 }
 
-export function exportWorkflow(source: GraphSnapshot, exportedAt: string, catalog?: CatalogView): { ok: true; workflow: Record<string, unknown> } | { ok: false; error: string } {
+/**
+ * The ComfyUI workflow for a snapshot. Unset widgets take their catalog default; `unsetWidgets` lists the slots
+ * written as null because neither a value nor a default exists, so the UI can warn before the file is used.
+ */
+export function exportWorkflow(
+  source: GraphSnapshot,
+  exportedAt: string,
+  catalog?: CatalogView,
+): { ok: true; workflow: Record<string, unknown>; unsetWidgets: UnsetWidget[] } | { ok: false; error: string } {
   const formatVersion = source.document?.formatVersion ?? WORKFLOW_FORMAT_V1;
   const raw = source.document?.raw ? { ...source.document.raw } : {};
   const rootState = isPlainRecord(raw.state) ? raw.state : {};
@@ -511,6 +593,8 @@ export function exportWorkflow(source: GraphSnapshot, exportedAt: string, catalo
   const links = snapshot.edges.map((edge) => edgeToLink(edge, formatVersion));
   let exportedNodes: Array<Record<string, unknown>>;
   const workflow: Record<string, unknown> = { ...raw };
+  const unsetWidgets: UnsetWidget[] = [];
+  unsetCollector = unsetWidgets;
   try {
     exportedNodes = snapshot.nodes.map((node) => {
       const next = exportedNode(node, catalog);
@@ -521,6 +605,8 @@ export function exportWorkflow(source: GraphSnapshot, exportedAt: string, catalo
   } catch (error) {
     if (error instanceof ExportRefused) return { ok: false, error: error.message };
     throw error;
+  } finally {
+    unsetCollector = null;
   }
   workflow.version = formatVersion;
   workflow.nodes = exportedNodes;
@@ -543,7 +629,7 @@ export function exportWorkflow(source: GraphSnapshot, exportedAt: string, catalo
     extra.info = { ...(extra.info as Record<string, unknown>), modified: exportedAt };
   }
   workflow.extra = extra;
-  return { ok: true, workflow: omitAppOwned(workflow) as Record<string, unknown> };
+  return { ok: true, workflow: omitAppOwned(workflow) as Record<string, unknown>, unsetWidgets };
 }
 
 function counterOf(value: unknown): number {

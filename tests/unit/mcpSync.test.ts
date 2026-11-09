@@ -207,8 +207,9 @@ describe('sync service', () => {
       mcpUrl: 'https://mcp.example.test/mcp',
       tokenHeld: true,
       auto: { enabled: false, intervalMinutes: 30 },
-      // zimage_style read, old.pt named only; the two failed reads stay unenriched for a retry.
-      counts: { nodeClasses: 1, packs: 2, models: 5, enrichedModels: 2 },
+      // zimage_style read with metadata; old.pt was named only, so it does not count as a model with metadata.
+      // The two failed reads stay unenriched for a retry.
+      counts: { nodeClasses: 1, packs: 2, models: 5, enrichedModels: 1 },
       progress: null,
     });
     expect(db.prepare('SELECT name, class_count, synced_at FROM node_packs ORDER BY name').all()).toEqual([
@@ -265,7 +266,9 @@ describe('sync service', () => {
     const capped = openDb();
     const limited = service({ calls: [] }, { readEnrichment: () => ({ scope: 'loaders', perRun: 2, pauseMs: 0 }) });
     const status = await limited.sync.runSync(capped);
-    expect(status.counts.enrichedModels).toBe(2);
+    // The batch holds two reads; their headers were empty, so they are read but carry no metadata.
+    expect((capped.prepare('SELECT COUNT(*) AS n FROM model_catalog WHERE enriched_at IS NOT NULL').get() as { n: number }).n).toBe(2);
+    expect(status.counts.enrichedModels).toBe(0);
     expect(status).toMatchObject({ state: 'idle', progress: { phase: 'enrichment', done: 2, total: 4 } });
     await limited.sync.whenEnrichmentDone();
     expect(limited.sync.status(capped)).toMatchObject({ state: 'idle', progress: null, metadata: { done: 4, total: 4 } });
@@ -279,9 +282,11 @@ describe('sync service', () => {
     const calls: FakeOptions['calls'] = [];
     const { sync } = service({ calls, tools: ['studio_capabilities', 'models'] }, { enrichLimit: 2, batchPauseMs: 0 });
     const status = await sync.runSync(db);
-    expect(status).toMatchObject({ state: 'idle', lastError: null, counts: { enrichedModels: 2 } });
+    // Name-only inference is not metadata: nothing counts as a model with metadata.
+    expect(status).toMatchObject({ state: 'idle', lastError: null, counts: { enrichedModels: 0 } });
+    expect((db.prepare('SELECT COUNT(*) AS n FROM model_catalog WHERE enriched_at IS NOT NULL').get() as { n: number }).n).toBe(2);
     await sync.whenEnrichmentDone();
-    expect(sync.status(db).counts.enrichedModels).toBe(4);
+    expect((db.prepare('SELECT COUNT(*) AS n FROM model_catalog WHERE enriched_at IS NOT NULL').get() as { n: number }).n).toBe(4);
     expect(calls.some((call) => call.name === 'model_metadata')).toBe(false);
     db.close();
   });
@@ -290,7 +295,7 @@ describe('sync service', () => {
     const db = openDb();
     const { sync } = service({ calls: [], metadata: () => new Error('down') });
     const status = await sync.runSync(db);
-    expect(status).toMatchObject({ state: 'error', lastError: 'Model metadata could not be read.', counts: { enrichedModels: 1 } });
+    expect(status).toMatchObject({ state: 'error', lastError: 'Model metadata could not be read.', counts: { enrichedModels: 0 } });
     db.close();
   });
 

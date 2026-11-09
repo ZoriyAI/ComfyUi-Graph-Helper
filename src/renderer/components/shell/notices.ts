@@ -5,7 +5,7 @@ import type { ToastInput } from '../../ui/toastStore';
 export type WorkflowNote =
   | { kind: 'imported'; version: string; missingNodes: string[]; missingModels: string[] }
   | { kind: 'catalog'; nodes: number; models: number; skipped: number }
-  | { kind: 'exported' }
+  | { kind: 'exported'; unset?: string[] }
   | { kind: 'saved-project' }
   | { kind: 'opened-project' }
   | { kind: 'error'; code: string };
@@ -29,7 +29,18 @@ export function describeNote(note: WorkflowNote, translate: Translator): ToastIn
     };
   }
   if (note.kind === 'catalog') return { id: WORKFLOW_NOTE_ID, tone: 'success', title: translate('workflow.catalogImported', note) };
-  if (note.kind === 'exported') return { id: WORKFLOW_NOTE_ID, tone: 'success', title: translate('workflow.exported') };
+  if (note.kind === 'exported') {
+    if (note.unset && note.unset.length > 0) {
+      return {
+        id: WORKFLOW_NOTE_ID,
+        tone: 'warn',
+        title: translate('workflow.exported'),
+        description: translate('workflow.exportedUnset', { names: note.unset.join(', ') }),
+        duration: 15000,
+      };
+    }
+    return { id: WORKFLOW_NOTE_ID, tone: 'success', title: translate('workflow.exported') };
+  }
   if (note.kind === 'saved-project') return { id: WORKFLOW_NOTE_ID, tone: 'success', title: translate('workflow.savedProject') };
   if (note.kind === 'opened-project') return { id: WORKFLOW_NOTE_ID, tone: 'success', title: translate('workflow.openedProject') };
   const explained = explainError(translate, note.code);
