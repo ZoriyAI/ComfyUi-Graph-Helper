@@ -1,5 +1,6 @@
 import type { IpcMain, IpcMainInvokeEvent } from 'electron';
 import { pathToFileURL } from 'url';
+import { log } from '../log';
 
 /**
  * Every IPC handler checks that the request came from the app's own page. A frame that navigated elsewhere,
@@ -49,17 +50,28 @@ export function isTrustedSender(event: Pick<IpcMainInvokeEvent, 'senderFrame'>):
   return isTrustedAppUrl(url);
 }
 
-/** Wraps one handler with the sender check. */
-export function guardHandler<T extends Handler>(handler: T): Handler {
+function senderUrl(event: Pick<IpcMainInvokeEvent, 'senderFrame'>): string {
+  try {
+    return String(event.senderFrame?.url ?? 'unknown').slice(0, 200);
+  } catch {
+    return 'unknown';
+  }
+}
+
+/** Wraps one handler with the sender check. A refusal is logged with the channel and the sender's URL. */
+export function guardHandler<T extends Handler>(handler: T, channel = 'unknown'): Handler {
   return (event, ...args) => {
-    if (!isTrustedSender(event)) throw new Error(UNTRUSTED_SENDER_ERROR);
+    if (!isTrustedSender(event)) {
+      log.warn(`[IPC] Refused ${channel}: sender ${senderUrl(event)} is not the app window`);
+      throw new Error(UNTRUSTED_SENDER_ERROR);
+    }
     return handler(event, ...args);
   };
 }
 
 /** ipcMain.handle with the sender check. */
 export function guardedHandle(ipc: Pick<IpcMain, 'handle'>, channel: string, handler: Handler): void {
-  ipc.handle(channel, guardHandler(handler));
+  ipc.handle(channel, guardHandler(handler, channel));
 }
 
 /**

@@ -5,7 +5,6 @@ import { readCatalog, upsertObjectInfo, SEEDED_NODE_TYPES } from '../../src/main
 import { migrate } from '../../src/main/settings/migrate';
 import {
   assertObjectInfoSize,
-  MAX_OBJECT_INFO_BYTES,
   ObjectInfoError,
   parseObjectInfo,
 } from '../../src/shared/catalog/objectInfo';
@@ -85,11 +84,12 @@ describe('object_info catalog', () => {
     expect(parsed.nodes.find((node) => node.classType === 'VAELoader')?.pythonModule).toBe('custom_nodes.example');
   });
 
-  it('rejects a non-object snapshot and a file past the size cap', () => {
+  it('rejects a non-object snapshot and a nonsense size, but never caps a real size', () => {
     expect(() => parseObjectInfo([])).toThrow(ObjectInfoError);
     expect(() => parseObjectInfo({ KSampler: null })).toThrow(/not object_info/);
-    expect(() => assertObjectInfoSize(MAX_OBJECT_INFO_BYTES + 1)).toThrow(/too large/);
-    expect(() => assertObjectInfoSize(MAX_OBJECT_INFO_BYTES)).not.toThrow();
+    expect(() => assertObjectInfoSize(Number.NaN)).toThrow(ObjectInfoError);
+    expect(() => assertObjectInfoSize(-1)).toThrow(ObjectInfoError);
+    expect(() => assertObjectInfoSize(2 * 1024 * 1024 * 1024)).not.toThrow();
   });
 
   it('upserts guidance without dropping seed types that are absent from the file', () => {

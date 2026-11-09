@@ -34,10 +34,22 @@ describe('chat history', () => {
     expect(loadChatHistory(db, 42)).toEqual([]);
   });
 
-  it('caps content at 50k characters', () => {
+  it('stores long messages whole up to the 1M row guard, and says what was left out past it', () => {
     const db = openDb();
-    expect(saveChatMessage(db, record({ content: 'x'.repeat(CHAT_CONTENT_CAP + 10) }))).toEqual({ ok: true });
-    expect(loadChatHistory(db, DESKTOP_PROJECT_ID)[0].content).toHaveLength(CHAT_CONTENT_CAP);
+    expect(saveChatMessage(db, record({ id: 'long', content: 'y'.repeat(200_000) }))).toEqual({ ok: true });
+    expect(loadChatHistory(db, DESKTOP_PROJECT_ID)[0].content).toHaveLength(200_000);
+    expect(saveChatMessage(db, record({ id: 'huge', timestamp: 5, content: 'x'.repeat(CHAT_CONTENT_CAP + 10) }))).toEqual({ ok: true });
+    const huge = loadChatHistory(db, DESKTOP_PROJECT_ID).find((item) => item.id === 'huge')!;
+    expect(huge.content.startsWith('x'.repeat(CHAT_CONTENT_CAP))).toBe(true);
+    expect(huge.content.endsWith('[… 10 characters not stored]')).toBe(true);
+  });
+
+  it('loads every stored message, not only the latest 500', () => {
+    const db = openDb();
+    for (let index = 0; index < 650; index += 1) saveChatMessage(db, record({ id: `m${index}`, timestamp: index + 1, content: `m${index}` }));
+    const loaded = loadChatHistory(db, DESKTOP_PROJECT_ID);
+    expect(loaded).toHaveLength(650);
+    expect(loaded[0].content).toBe('m0');
   });
 
   it('redacts secret-shaped text instead of refusing the message', () => {

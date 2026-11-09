@@ -7,7 +7,7 @@ import Shortcut from '../../ui/Shortcut';
 import { cx } from '../../ui/cx';
 import menuStyles from '../../ui/Menu.module.css';
 import SyncIndicator from '../sync/SyncIndicator';
-import { allCommands, getCommand, runCommand, useCommandStates } from '../../commands/registry';
+import { allCommands, getCommand, hintOf, runCommand, useCommandStates } from '../../commands/registry';
 import { rememberFocusBeforeMenuBar, restoreFocusAfterMenuBar } from '../../commands/hotkeys';
 import { DESCRIPTION_MODE_CHOICES, LANGUAGE_CHOICES, MOTION_CHOICES, providerCommandId } from '../../commands/appCommands';
 import { PROVIDER_CHOICES, providerKeyState, providerNoteKey, useProviderStore } from '../../state/providerState';
@@ -79,7 +79,7 @@ const MENUS: Array<{ value: string; labelKey: string; entries: Entry[] }> = [
   {
     value: 'help',
     labelKey: 'menu.help',
-    entries: [command('help.shortcuts'), separator, command('help.about')],
+    entries: [command('help.shortcuts'), separator, command('help.openLogs'), command('help.copyDiagnostics'), separator, command('help.about')],
   },
 ];
 
@@ -189,7 +189,7 @@ export default function MenuBar() {
     }
     const Icon = item.icon;
     return (
-      <Menubar.Item key={entry.id} className={cx(menuStyles.item, styles.item)} disabled={!enabled} onSelect={() => choose(entry.id)} data-command={entry.id}>
+      <Menubar.Item key={entry.id} className={cx(menuStyles.item, styles.item)} disabled={!enabled} onSelect={() => choose(entry.id)} data-command={entry.id} title={hintOf(entry.id)}>
         {Icon ? <span className={menuStyles.itemIcon} aria-hidden="true"><Icon size={14} aria-hidden="true" /></span> : null}
         <Label id={entry.id} />
         <ShortcutHint id={entry.id} />

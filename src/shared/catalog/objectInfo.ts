@@ -1,8 +1,6 @@
 import { modelDirectoryFor } from './modelFolders';
 import type { CatalogInput, CatalogNode, CatalogOutput, CatalogView } from './types';
 
-/** A full ComfyUI /object_info payload is large. Reject anything past 32 MiB before parse. */
-export const MAX_OBJECT_INFO_BYTES = 32 * 1024 * 1024;
 
 const WIDGET_TYPES = new Set(['INT', 'FLOAT', 'STRING', 'BOOLEAN', 'COMBO']);
 /**
@@ -40,8 +38,9 @@ export interface ParsedObjectInfo {
   skipped: string[];
 }
 
+/** No size cap: the owner's own ComfyUI is read whole, however large. Only a nonsense size is refused. */
 export function assertObjectInfoSize(bytes: number): void {
-  if (!Number.isFinite(bytes) || bytes < 0 || bytes > MAX_OBJECT_INFO_BYTES) {
+  if (!Number.isFinite(bytes) || bytes < 0) {
     throw new ObjectInfoError('Catalog snapshot is too large.');
   }
 }

@@ -13,6 +13,7 @@ import type {
   ModelDetail,
   ModelSummary,
   NodeClassDetail,
+  NodeClassVerdict,
   NodeClassSummary,
   Proposal,
   ProposalResolution,
@@ -73,6 +74,7 @@ const IPC_CHANNELS = {
   KNOWLEDGE_LIST_EXPLANATIONS: 'knowledge:list-explanations',
   KNOWLEDGE_SAVE_EXPLANATION: 'knowledge:save-explanation',
   KNOWLEDGE_CHECK_GRAPH: 'knowledge:check-graph',
+  KNOWLEDGE_VALIDATE_NODE_CLASS: 'knowledge:validate-node-class',
   SYNC_STATUS: 'sync:status',
   SYNC_NOW: 'sync:now',
   SYNC_SET_AUTO: 'sync:set-auto',
@@ -83,6 +85,9 @@ const IPC_CHANNELS = {
   PROPOSALS_EVENT: 'proposals:event',
   GRAPH_LIST_REVISIONS: 'graph:list-revisions',
   GRAPH_LOAD_REVISION: 'graph:load-revision',
+  DIAGNOSTICS_COLLECT: 'diagnostics:collect',
+  DIAGNOSTICS_OPEN_LOGS: 'diagnostics:open-logs',
+  DIAGNOSTICS_RENDERER_ERROR: 'diagnostics:renderer-error',
 } as const;
 
 /** The app version main passes as `--app-version=…` (a sandboxed preload cannot read package.json). */
@@ -214,6 +219,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Knowledge and sync (KB workstream)
   searchNodeTypes: (request: SearchNodesRequest) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_SEARCH_NODES, request) as Promise<NodeClassSummary[]>,
   nodeTypeDetail: (classType: string) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_NODE_DETAIL, classType) as Promise<NodeClassDetail | null>,
+  validateNodeClass: (classType: string) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_VALIDATE_NODE_CLASS, classType) as Promise<NodeClassVerdict>,
   searchModels: (request: SearchModelsRequest) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_SEARCH_MODELS, request) as Promise<ModelSummary[]>,
   modelDetail: (directory: string, name: string) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_MODEL_DETAIL, { directory, name }) as Promise<ModelDetail | null>,
   listExplanations: (request: ListExplanationsRequest) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_LIST_EXPLANATIONS, request) as Promise<Explanation[]>,
@@ -241,7 +247,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Revision history for the replay player (Canvas workstream; handlers in main/ipc/engineIpc.ts)
   listRevisions: (projectId: string) => ipcRenderer.invoke(IPC_CHANNELS.GRAPH_LIST_REVISIONS, projectId) as Promise<RevisionSummary[]>,
   loadRevision: (projectId: string, revisionId: string) => ipcRenderer.invoke(IPC_CHANNELS.GRAPH_LOAD_REVISION, { projectId, revisionId }) as Promise<RevisionSnapshot | null>,
+
+  // Diagnostics (Help menu, error boundary, renderer error reports)
+  collectDiagnostics: () => ipcRenderer.invoke(IPC_CHANNELS.DIAGNOSTICS_COLLECT) as Promise<string>,
+  openLogsFolder: () => ipcRenderer.invoke(IPC_CHANNELS.DIAGNOSTICS_OPEN_LOGS) as Promise<{ ok: true } | { ok: false; error: string }>,
+  reportRendererError: (report: RendererErrorReport) => ipcRenderer.invoke(IPC_CHANNELS.DIAGNOSTICS_RENDERER_ERROR, report) as Promise<{ logged: boolean }>,
 });
+
+/** What the renderer sends about an error; main clips, redacts and rate-limits it. */
+export interface RendererErrorReport {
+  kind: 'error' | 'unhandledrejection' | 'boundary';
+  message: string;
+  source?: string;
+  stack?: string;
+}
 
 export type LlmProbeResult =
   | { ok: true; latencyMs: number; provider: string; model: string }
@@ -335,6 +354,7 @@ export interface ElectronAPI {
   clearChatHistory: (projectId: string) => Promise<{ ok: true; removed: number } | { ok: false; error: string }>;
   searchNodeTypes: (request: SearchNodesRequest) => Promise<NodeClassSummary[]>;
   nodeTypeDetail: (classType: string) => Promise<NodeClassDetail | null>;
+  validateNodeClass: (classType: string) => Promise<NodeClassVerdict>;
   searchModels: (request: SearchModelsRequest) => Promise<ModelSummary[]>;
   modelDetail: (directory: string, name: string) => Promise<ModelDetail | null>;
   listExplanations: (request: ListExplanationsRequest) => Promise<Explanation[]>;
@@ -353,6 +373,12 @@ export interface ElectronAPI {
   listRevisions: (projectId: string) => Promise<RevisionSummary[]>;
   /** Snapshot of one revision, read-only; null when it does not exist. Never changes the current revision. */
   loadRevision: (projectId: string, revisionId: string) => Promise<RevisionSnapshot | null>;
+  /** Help ▸ Copy diagnostics: a redacted text report (versions, settings without secrets, log tail). */
+  collectDiagnostics: () => Promise<string>;
+  /** Help ▸ Open logs folder. */
+  openLogsFolder: () => Promise<{ ok: true } | { ok: false; error: string }>;
+  /** Logs a renderer error in main (redacted, rate-limited). */
+  reportRendererError: (report: RendererErrorReport) => Promise<{ logged: boolean }>;
 }
 
 declare global {

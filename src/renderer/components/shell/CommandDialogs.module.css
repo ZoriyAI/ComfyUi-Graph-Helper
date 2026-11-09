@@ -37,3 +37,16 @@
 .keys { display: inline-flex; gap: 8px; }
 .note { color: var(--text-faint); }
 .footer { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 20px 16px; border-top: 1px solid var(--border-subtle); }
+.findings {
+  margin: 0;
+  padding: 8px 20px 12px 36px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow: auto;
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text);
+  font-size: var(--text-sm);
+  line-height: 19px;
+}
+.finding { overflow-wrap: anywhere; }

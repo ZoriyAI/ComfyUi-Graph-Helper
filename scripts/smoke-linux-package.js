@@ -23,7 +23,8 @@ function fail(message) {
 }
 
 async function main() {
-  const bundle = path.join(root, 'out', `${pkg.name}-linux-x64`);
+  // The packager names the folder after productName; the executable keeps the package name (forge.config.js).
+  const bundle = path.join(root, 'out', `${pkg.productName || pkg.name}-linux-x64`);
   const exe = path.join(bundle, pkg.name);
   if (!fs.existsSync(exe)) fail(`PACKAGED_EXECUTABLE_MISSING ${exe}`);
 

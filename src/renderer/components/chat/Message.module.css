@@ -61,3 +61,34 @@
 @media (prefers-reduced-motion: reduce) {
   :global(html[data-motion="system"]) .cursor { animation: none; }
 }
+.checkpoint {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line));
+  border-left: 3px solid var(--accent);
+  background: var(--bg-raised);
+  font-size: 12px;
+  line-height: 18px;
+}
+.checkpointHead { display: flex; align-items: center; gap: 6px; font-weight: 650; color: var(--text); }
+.checkpointHead svg { flex: none; color: var(--accent); }
+.checkpointHint { margin: 0; color: var(--text-dim); }
+.checkpointActions { display: flex; flex-wrap: wrap; gap: 6px; }
+.checkpointButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+.checkpointButton:first-child { border-color: var(--accent); }
+.checkpointButton:disabled { opacity: 0.5; cursor: default; }
+.checkpointButton:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }

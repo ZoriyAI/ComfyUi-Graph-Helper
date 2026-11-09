@@ -4,7 +4,31 @@ import { useReactFlow } from '@xyflow/react';
 import type { NodeClassSummary } from '../../../shared/contracts/knowledge';
 import { useCanvasStore } from './canvasStore';
 import { commitManual } from './commit';
+import { showToast } from '../../ui/toastStore';
+import { i18n } from '../../i18n';
 import styles from './Toolbar.module.css';
+
+/**
+ * Commits add-node after the class guard: an unknown class (with a synced catalog) is refused with the
+ * nearest installed names; the guard being unreachable does not block the edit.
+ */
+async function addCheckedNode(classType: string, at: { x: number; y: number }): Promise<void> {
+  const t = (key: string, options?: Record<string, unknown>) => String(i18n.t(key, options ?? {}));
+  const verdict = await window.electronAPI?.validateNodeClass?.(classType).catch(() => null);
+  if (verdict && !verdict.ok) {
+    showToast({
+      id: 'add-node-unknown-class',
+      tone: 'warn',
+      title: String(t('nodeGuard.unknownClass', { classType })),
+      description: verdict.suggestions.length > 0
+        ? String(t('nodeGuard.didYouMean', { list: verdict.suggestions.join(', ') }))
+        : String(t('nodeGuard.notInCatalog')),
+      duration: 6000,
+    });
+    return;
+  }
+  await commitManual({ type: 'add-node', nodeType: classType, x: Math.round(at.x), y: Math.round(at.y) });
+}
 
 /**
  * Add-node search: type, pick with arrows and Enter, and the node lands where the person asked
@@ -57,8 +81,8 @@ export default function AddNodeSearch() {
       const box = document.querySelector('.react-flow')?.getBoundingClientRect();
       return box ? flow.screenToFlowPosition({ x: box.left + box.width / 2, y: box.top + box.height / 2 }) : { x: 0, y: 0 };
     })();
-    void commitManual({ type: 'add-node', nodeType: classType, x: Math.round(at.x), y: Math.round(at.y) });
     close();
+    void addCheckedNode(classType, at);
   };
 
   const listId = 'canvas-add-node-results';

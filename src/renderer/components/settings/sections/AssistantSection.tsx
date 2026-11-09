@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PlugZap } from 'lucide-react';
 import type { NonSecretSettings } from '../../../../shared/config/schema';
-import { isPreferenceProvider, MODEL_SUGGESTIONS, STEP_LIMIT, type PreferenceProvider } from '../../../../shared/config/preferences';
+import { CONTEXT_TOKENS, isPreferenceProvider, MODEL_SUGGESTIONS, STEP_LIMIT, type PreferenceProvider } from '../../../../shared/config/preferences';
+import { contextWindowFor } from '../../../../shared/agent/contextWindow';
+import { FETCH_PAGE_BYTE_CAP, FETCH_PAGE_TEXT_CAP, megabytes } from '../../../../shared/agent/limits';
 import { explainError, type Translator } from '../../../../shared/i18n';
 import Badge, { type BadgeTone } from '../../../ui/Badge';
 import Button from '../../../ui/Button';
@@ -73,6 +75,13 @@ export default function AssistantSection({ values, setValues, prefs, setPrefs, c
       ? String(t('settings.cloudBaseUrlHint'))
       : '';
   const assistant = prefs.assistant;
+  const chosenWindow = contextWindowFor(values.model, assistant.contextTokens);
+  const autoWindow = contextWindowFor(values.model, 0);
+  const contextHint = String(t('preferences.contextTokensHint', {
+    tokens: assistant.contextTokens > 0 ? chosenWindow.tokens : autoWindow.tokens,
+    model: values.model || '—',
+    source: t(chosenWindow.source === 'override' ? 'preferences.contextSourceOverride' : chosenWindow.source === 'known' ? 'preferences.contextSourceKnown' : 'preferences.contextSourceDefault'),
+  }));
   const probeText = probe.kind === 'ok'
     ? String(t('preferences.checkOk', { ms: probe.ms }))
     : probe.kind === 'failed'
@@ -180,9 +189,21 @@ export default function AssistantSection({ values, setValues, prefs, setPrefs, c
           increaseLabel={String(t('preferences.increase', { label: t('preferences.maxSteps') }))}
           onChange={(next) => patchSection(setPrefs, 'assistant', { maxStepsPerTurn: next })}
         />
+        <NumberField
+          label={String(t('preferences.contextTokens'))}
+          value={assistant.contextTokens}
+          min={CONTEXT_TOKENS.min}
+          max={CONTEXT_TOKENS.max}
+          step={CONTEXT_TOKENS.step}
+          hint={contextHint}
+          decreaseLabel={String(t('preferences.decrease', { label: t('preferences.contextTokens') }))}
+          increaseLabel={String(t('preferences.increase', { label: t('preferences.contextTokens') }))}
+          onChange={(next) => patchSection(setPrefs, 'assistant', { contextTokens: next })}
+        />
         <Switch label={t('preferences.allowWebSearch')} checked={assistant.allowWebSearch} onCheckedChange={(next) => patchSection(setPrefs, 'assistant', { allowWebSearch: next })} />
         <Switch label={t('preferences.allowFetchPage')} checked={assistant.allowFetchPage} onCheckedChange={(next) => patchSection(setPrefs, 'assistant', { allowFetchPage: next })} />
         <p className={hintClass}>{t('preferences.webHint')}</p>
+        <p className={cx(hintClass, 'web-limits')}>{t('preferences.webLimits', { bytes: megabytes(FETCH_PAGE_BYTE_CAP), chars: FETCH_PAGE_TEXT_CAP })}</p>
         <SelectField
           label={String(t('preferences.answerLanguage'))}
           value={assistant.answerLanguage}

@@ -6,13 +6,14 @@ import { useRevisionStore } from '../../state/revisionState';
 import { useUiStore } from '../../state/uiState';
 import { agentGraphContext } from '../../../shared/agent/context';
 import { translateKnownError, type Translator } from '../../../shared/i18n';
+import { providerErrorKey, TOOL_CAPABLE_EXAMPLES } from '../../../shared/agent/providerErrors';
 import { BUILD_TOOL_SPECS } from '../../../shared/commands/toolSpecs';
 import type { AgentBuildStep, AgentTurnContext, Explanation } from '../../../shared/contracts';
 import { useCanvasStore } from '../../components/graph/canvasStore';
 import { stepKey } from '../../components/graph/lib/buildQueue';
 import { DESKTOP_PROJECT_ID } from '../../../shared/project';
 import type { Projection } from '../../../shared/commands/types';
-import type { ChatMessage, ToolCall } from '../../types/chat';
+import type { ChatMessage, ToolCall, TurnCheckpoint } from '../../types/chat';
 import { i18n } from '../../i18n';
 import { applyProjection } from '../commands/projection';
 import {
@@ -33,7 +34,9 @@ const translate: Translator = (key, options) => (options ? String(i18n.t(key, op
  * Renderer chat service. Build tools commit in the main process; this service streams the turn,
  * keeps the chat store current, routes explain/proposal results to their stores, and persists messages.
  *
- * Stream protocol (main/agent/turn.ts): text-delta, tool-call, tool-result, tool-error, projection, build-step, done, error.
+ * Stream protocol (main/agent/turn.ts): text-delta, tool-call, tool-result, tool-error, projection, build-step,
+ * turn-paused, done, error. A turn-paused chunk ({ reason, steps, canContinue }) means the loop reached the step
+ * checkpoint or the failed-tools guard: the run stays paused and the turn's message gets a Continue / Stop card.
  * A build-step (AgentBuildStep) follows the projection of a build tool commit: its `why` goes to the canvas
  * queue (the live build's callout) and its saved explanation straight into the knowledge store, so the node's
  * description card has it the moment the node appears.
@@ -44,6 +47,13 @@ type Settled = { status: 'success' | 'error'; result: unknown; error?: string };
 
 function newId(): string {
   return `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/** A local model that cannot call tools gets an explanation; other errors keep the catalog sentence or the raw text. */
+function shownError(provider: string, raw: string): string {
+  const key = providerErrorKey(provider, raw);
+  if (key) return translate(key, { examples: TOOL_CAPABLE_EXAMPLES.join(', ') });
+  return translateKnownError(translate, raw) ?? raw;
 }
 
 function errorText(content: unknown): string {
@@ -92,6 +102,24 @@ export function parseBuildStep(content: unknown): AgentBuildStep | null {
     explanation: isExplanation(content.explanation) ? content.explanation : null,
     revisionId: id(content.revisionId) ?? '',
   };
+}
+
+/** Reads a turn-paused chunk without trusting its shape; null when it is not one. */
+export function parseTurnPaused(content: unknown): Omit<TurnCheckpoint, 'state' | 'context'> | null {
+  if (!isRecord(content)) return null;
+  const reason = content.reason === 'step-limit' || content.reason === 'failure-streak' ? content.reason : null;
+  if (!reason) return null;
+  const steps = typeof content.steps === 'number' && Number.isFinite(content.steps) ? Math.max(0, Math.round(content.steps)) : 0;
+  const failures = typeof content.failures === 'number' && Number.isFinite(content.failures) ? Math.round(content.failures) : undefined;
+  return { reason, steps, ...(failures !== undefined ? { failures } : {}) };
+}
+
+/** Marks every open checkpoint card as moved past: a new turn supersedes its buttons. */
+function closeOpenCheckpoints(): void {
+  const { messages, updateMessage } = useChatStore.getState();
+  for (const message of messages) {
+    if (message.checkpoint?.state === 'open') updateMessage(message.id, { checkpoint: { ...message.checkpoint, state: 'closed' } });
+  }
 }
 
 /** Hands one build step to the canvas queue and its saved explanation to the knowledge store. */
@@ -172,6 +200,7 @@ export class ChatService {
     const current = () => token === this.turnToken;
 
     this.isStreaming = true;
+    closeOpenCheckpoints();
     useChatStore.setState({ isStreaming: true, isPaused: false });
     const { messages, addMessage } = useChatStore.getState();
 
@@ -186,6 +215,7 @@ export class ChatService {
     this.persist(userMessage);
 
     let assistantContent = '';
+    let pausedAtCheckpoint = false;
     let currentAssistantMessageId: string | null = null;
     const currentToolCalls = new Map<string, ToolCall>();
     const settledById = new Map<string, Settled>();
@@ -203,10 +233,12 @@ export class ChatService {
       useChatStore.setState({ isStreaming: false });
     };
 
+    let provider = '';
     try {
       // No provider means nothing can be sent. Say so in the chat instead of failing a stream.
       const getConfig = window.electronAPI?.llmGetConfig;
       const config = typeof getConfig === 'function' ? await getConfig().catch(() => null) : null;
+      provider = config?.provider ?? '';
       if (config && !config.provider) {
         addMessage({ id: newId(), role: 'assistant', content: translate('chat.noProvider'), timestamp: Date.now() });
         finish();
@@ -315,6 +347,12 @@ export class ChatService {
           applyProjection(chunk.content as Projection);
         } else if (chunk.type === 'build-step') {
           acceptBuildStep(chunk.content);
+        } else if (chunk.type === 'turn-paused') {
+          const paused = parseTurnPaused(chunk.content);
+          if (paused) {
+            pausedAtCheckpoint = true;
+            publish({ checkpoint: { ...paused, context: turn, state: 'open' } });
+          }
         } else if (chunk.type === 'text-delta' && typeof body.text === 'string' && body.text) {
           assistantContent += body.text;
           publish({ content: assistantContent });
@@ -340,6 +378,8 @@ export class ChatService {
           }
         } else if (chunk.type === 'done') {
           finish();
+          // The run is paused at the checkpoint, not closed: the status bar and the card say so.
+          if (pausedAtCheckpoint && current()) useChatStore.setState({ isPaused: true });
           // 'done' is the last chunk of the turn; the invoke can settle before late chunks arrive, so save here too.
           this.persist(currentAssistant());
         } else if (chunk.type === 'error') {
@@ -347,7 +387,7 @@ export class ChatService {
           console.error('[ChatService] Error:', errorMessage);
           finish();
           if (!currentAssistantMessageId) {
-            const shown = translateKnownError(translate, errorMessage) ?? errorMessage;
+            const shown = shownError(provider, errorMessage);
             currentAssistantMessageId = newId();
             addMessage({ id: currentAssistantMessageId, role: 'assistant', content: `Error: ${shown}`, timestamp: Date.now() });
           }
@@ -369,7 +409,7 @@ export class ChatService {
     } catch (error) {
       const raw = error instanceof Error ? error.message : errorText(error);
       console.error('[ChatService] Stream error:', raw);
-      const shown = translateKnownError(translate, raw) ?? raw;
+      const shown = shownError(provider, raw);
       if (!currentAssistantMessageId && current()) {
         currentAssistantMessageId = newId();
         addMessage({ id: currentAssistantMessageId, role: 'assistant', content: `Error: ${shown}`, timestamp: Date.now() });
@@ -416,6 +456,33 @@ export class ChatService {
     this.resumed = { runId: started.runId, expectedRevisionId: started.expectedRevisionId };
     applyProjection(started.projection);
     useChatStore.setState({ isPaused: false });
+  }
+
+  /**
+   * Continue on a checkpoint card: reopens the paused run (resume) and sends "continue" with the paused turn's
+   * context, so a long build carries on across checkpoints in the same run.
+   */
+  async continueFromCheckpoint(messageId: string): Promise<void> {
+    const message = useChatStore.getState().messages.find((item) => item.id === messageId);
+    const checkpoint = message?.checkpoint;
+    if (!checkpoint || checkpoint.state !== 'open' || this.isStreaming) return;
+    useChatStore.getState().updateMessage(messageId, { checkpoint: { ...checkpoint, state: 'continued' } });
+    try {
+      await this.resume();
+    } catch (error) {
+      console.warn('[ChatService] Resume failed; continuing in a new run:', errorText(error));
+    }
+    const word = translate('chat.continueMessage');
+    await this.sendMessage(word && word !== 'chat.continueMessage' ? word : 'continue', checkpoint.context);
+  }
+
+  /** Stop on a checkpoint card: the paused run is cancelled; changes already applied stay. */
+  stopAtCheckpoint(messageId: string): void {
+    const message = useChatStore.getState().messages.find((item) => item.id === messageId);
+    const checkpoint = message?.checkpoint;
+    if (!checkpoint || checkpoint.state !== 'open') return;
+    useChatStore.getState().updateMessage(messageId, { checkpoint: { ...checkpoint, state: 'stopped' } });
+    this.cancel();
   }
 
   /** The revision the current run started from, for callers that show it. */

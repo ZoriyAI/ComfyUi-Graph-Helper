@@ -23,7 +23,11 @@ const ID_KEYS = ['nodeId', 'edgeId', 'source', 'target', 'groupId', 'definitionI
 
 /** The payload a recent command keeps, and the ids it touched. */
 export function recentPayload(type: string, payload: Record<string, unknown>, result: Record<string, unknown> | null): { payload: Record<string, unknown>; ids: string[] } {
-  const kept = BULKY.has(type) ? { type } : payload;
+  const kept = BULKY.has(type)
+    ? { type }
+    : type === 'restore-revision' && typeof result?.restoredRevSeq === 'number'
+      ? { ...payload, revSeq: result.restoredRevSeq }
+      : payload;
   const ids = new Set<string>();
   for (const source of [payload, result ?? {}]) {
     for (const key of ID_KEYS) {
@@ -33,7 +37,7 @@ export function recentPayload(type: string, payload: Record<string, unknown>, re
     }
     for (const key of ['nodeIds'] as const) {
       const list = source[key];
-      if (Array.isArray(list)) for (const item of list.slice(0, 20)) if (typeof item === 'string') ids.add(item);
+      if (Array.isArray(list)) for (const item of list) if (typeof item === 'string') ids.add(item);
     }
   }
   return { payload: kept, ids: [...ids] };
@@ -81,6 +85,7 @@ export function describeCommand(command: RecentCommand, summary: GraphSummary | 
     case 'remove-subgraph-io': return `removed a subgraph ${p.direction === 'output' ? 'output' : 'input'}`;
     case 'add-group': return `grouped nodes ${Array.isArray(p.nodeIds) ? p.nodeIds.map((id) => safeText(str(id), 40)).join(', ') : '?'}${str(p.title) ? ` as "${safeText(str(p.title), 80)}"` : ''}`;
     case 'remove-group': return `removed group ${safeText(str(p.groupId), 80)}`;
+    case 'restore-revision': return `restored revision ${round(p.revSeq)}`;
     default: return safeText(command.type, 40);
   }
 }
@@ -98,7 +103,7 @@ export function recentActionsText(commands: RecentCommand[], summary: GraphSumma
   const phrases = manual
     .filter((command, index) => command.type !== 'move-node' || lastMove.get(str(command.payload.nodeId)) === index)
     .map((command) => describeCommand(command, summary));
-  const selected = selectedIds.slice(0, 20).map((id) => safeText(id, 80)).filter((id) => id !== '');
+  const selected = selectedIds.map((id) => safeText(id, 80)).filter((id) => id !== '');
   if (selected.length > 0) phrases.push(`selected ${selected.length === 1 ? 'node' : 'nodes'} ${selected.join(', ')}`);
   return phrases.join('; ');
 }

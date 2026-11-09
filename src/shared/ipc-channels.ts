@@ -70,6 +70,7 @@ export const IPC_CHANNELS = {
   KNOWLEDGE_LIST_EXPLANATIONS: 'knowledge:list-explanations',
   KNOWLEDGE_SAVE_EXPLANATION: 'knowledge:save-explanation',
   KNOWLEDGE_CHECK_GRAPH: 'knowledge:check-graph',
+  KNOWLEDGE_VALIDATE_NODE_CLASS: 'knowledge:validate-node-class',
   SYNC_STATUS: 'sync:status',
   SYNC_NOW: 'sync:now',
   SYNC_SET_AUTO: 'sync:set-auto',
@@ -86,4 +87,9 @@ export const IPC_CHANNELS = {
   ACTION_RESUME: 'action:resume',
   ACTION_CANCEL: 'action:cancel',
   ACTION_GET_STATUS: 'action:get-status',
+
+  // Diagnostics: log folder, redacted report, renderer error reports
+  DIAGNOSTICS_COLLECT: 'diagnostics:collect',
+  DIAGNOSTICS_OPEN_LOGS: 'diagnostics:open-logs',
+  DIAGNOSTICS_RENDERER_ERROR: 'diagnostics:renderer-error',
 } as const;

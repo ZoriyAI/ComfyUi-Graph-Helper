@@ -5,6 +5,7 @@
  */
 
 const FORWARDED = ['id', 'text', 'toolCallId', 'toolName', 'input', 'output', 'finishReason'] as const;
+/** Protective: provider errors can echo a request; 500 characters (with "…") is enough to say what went wrong. */
 const ERROR_CAP = 500;
 
 export type Redact = (text: string) => string;

@@ -2,6 +2,7 @@ import type Database from 'better-sqlite3';
 import { randomUUID } from 'crypto';
 import { jsonSchema } from 'ai';
 import { commitCommand } from '../commands/commit';
+import { validateNodeClass } from '../knowledge/nodeClassGuard';
 import { mutationFromTool, type ToolContext } from '../../shared/commands/tools';
 import { WHY_MAX } from '../../shared/commands/toolSpecs';
 import { carriesSecret } from '../../shared/config/draft';
@@ -31,7 +32,7 @@ export interface PortHandle { handle: string; name: string; type: string }
 
 function portHandles(value: unknown, prefix: 'in' | 'out'): PortHandle[] {
   if (!Array.isArray(value)) return [];
-  return value.slice(0, 60).map((port, index) => {
+  return value.map((port, index) => {
     const item = (port && typeof port === 'object' ? port : {}) as { id?: unknown; name?: unknown; dataType?: unknown; type?: unknown };
     return {
       handle: typeof item.id === 'string' && item.id !== '' ? item.id : `${prefix}-${index}`,
@@ -193,6 +194,9 @@ export function createBuildTools(
         if (!payload) {
           return { success: false, error: `Unknown tool: ${spec.name}` };
         }
+        // An unknown class is refused once the catalog is synced, with the nearest installed names.
+        const guard = payload.type === 'add-node' ? validateNodeClass(options.db, payload.nodeType) : null;
+        if (guard && !guard.ok) return { success: false, error: guard.error, suggestions: guard.suggestions };
         const outcome = commitCommand(options.db, {
           projectId: options.run.projectId,
           runId: options.run.runId,
@@ -210,7 +214,8 @@ export function createBuildTools(
           : null;
         if (outcome.projection) options.onProjection?.(outcome.projection);
         if (step) options.onBuildStep?.(step);
-        const result = toolOutcome(spec.name, args, outcome);
+        const outcomeResult = toolOutcome(spec.name, args, outcome);
+        const result = guard?.ok && guard.warning && outcomeResult.success ? { ...outcomeResult, warning: guard.warning } : outcomeResult;
         return step && step.why ? { ...result, why: step.why, explanationId: step.explanationId } : result;
       },
     };

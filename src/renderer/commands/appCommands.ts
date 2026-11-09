@@ -6,6 +6,9 @@ import {
 import { i18n } from '../i18n';
 import { addCommandStateSource, registerCommands, type Command } from './registry';
 import { canvasHandle } from './canvasHandle';
+import { canRedo, canUndo, installUndoHistory, redo, redoHint, undo, undoHint } from './undo';
+import { useUndoStore } from '../state/undoState';
+import { installPortsNotice } from '../services/portsNotice';
 import {
   addGroup, askAboutSelection, canEditGraph, checkGraph, createSubgraph, deleteSelection, dissolveSubgraph, endRun, exportWorkflowFile, focusChat,
   importCatalogSnapshot, importWorkflowFile, openAddNode, openProjectFile, pauseRun, requestNewProject, resumeRun, saveProjectFile,
@@ -27,9 +30,9 @@ import { startGraphTour } from '../components/graph/tour/startTour';
 import { runSyncNow, setAutoSync } from '../components/sync/SyncIndicator';
 import { RAIL_WIDTH } from '../state/uiState';
 import { savePreferencesPatch } from '../state/preferencesState';
+import { buildDiagnosticsCommands } from './diagnosticsCommands';
 
 const always = () => true;
-const never = () => false;
 
 function hasNodes(): boolean {
   return useGraphStore.getState().nodes.length > 0;
@@ -81,8 +84,8 @@ export function buildAppCommands(): Command[] {
     { id: 'file.quit', group: 'file', labelKey: 'menu.quit', icon: LogOut, shortcut: 'Mod+Q', enabled: always, run: () => window.close() },
 
     // Edit
-    { id: 'edit.undo', group: 'edit', labelKey: 'toolbar.undo', hintKey: 'toolbar.undoHint', icon: Undo2, shortcut: 'Mod+Z', enabled: never, run: () => undefined },
-    { id: 'edit.redo', group: 'edit', labelKey: 'toolbar.redo', hintKey: 'toolbar.redoHint', icon: Redo2, shortcut: 'Mod+Shift+Z', enabled: never, run: () => undefined },
+    { id: 'edit.undo', group: 'edit', labelKey: 'toolbar.undo', hintKey: 'toolbar.undoNone', hint: undoHint, icon: Undo2, shortcut: 'Mod+Z', enabled: canUndo, run: undo },
+    { id: 'edit.redo', group: 'edit', labelKey: 'toolbar.redo', hintKey: 'toolbar.redoNone', hint: redoHint, icon: Redo2, shortcut: 'Mod+Shift+Z', enabled: canRedo, run: redo },
     { id: 'edit.selectAll', group: 'edit', labelKey: 'menu.selectAll', icon: SquareDashedMousePointer, shortcut: 'Mod+A', enabled: () => canEditGraph() && hasNodes(), run: selectAllNodes },
     {
       id: 'edit.delete', group: 'edit', labelKey: 'menu.deleteSelection', icon: Trash2, shortcut: 'Delete', shortcutDisplayOnly: true,
@@ -278,10 +281,15 @@ export function installAppCommands(): () => void {
     addCommandStateSource(useProposalsStore.subscribe),
     addCommandStateSource(useProviderStore.subscribe),
     addCommandStateSource(useProjectionStore.subscribe),
+    addCommandStateSource(useUndoStore.subscribe),
+    installUndoHistory(),
+    // Not a command, but installed once with them: the "ports unknown" toast when a node is added.
+    installPortsNotice(),
     addCommandStateSource(domSource('data-motion')),
     addCommandStateSource(domSource('lang')),
     addCommandStateSource(resizeSource),
     registerCommands(buildAppCommands()),
+    registerCommands(buildDiagnosticsCommands()),
   ];
   installed = () => {
     for (const off of offs) off();

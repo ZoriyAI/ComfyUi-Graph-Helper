@@ -1,9 +1,120 @@
-import { app, BrowserWindow, Menu, session, type WebContents } from 'electron';
+import { app, BrowserWindow, dialog, Menu, screen, session, shell, type WebContents } from 'electron';
 import * as path from 'path';
 import { passwordStoreFlag } from '../shared/config/passwordStore';
-import { initDatabase, closeDatabase } from './database';
+import { initDatabase, closeDatabase, getDatabase } from './database';
 import { setupIPC } from './ipc';
 import { appEntryUrl, isTrustedAppUrl, setTrustedAppUrl } from './ipc/guard';
+import { addLogRedactor, initLog, log, logsDir, routeConsole } from './log';
+import { installCrashHandlers } from './crash';
+import { clampWindowState, readWindowState, trackWindowState, WINDOW_STATE_FILE } from './windowState';
+import { mainLLMService } from './llmService';
+import { readSettings } from './settings/repository';
+import { syncService } from './mcp/sync';
+import { createTranslator, languageOf, type AppLanguage } from '../shared/i18n';
+import type { SyncStatus } from '../shared/contracts/knowledge';
+
+/**
+ * package.json productName ("ComfyUI Graph Helper") names the package, the bundle and the desktop entry. Inside
+ * the app the name stays the package name, as before: it names the profile folder (database, window state,
+ * logs) and the OS keyring entry the provider key is encrypted under, so an update keeps both. --user-data-dir
+ * still wins (tests).
+ */
+const STABLE_APP_NAME = 'comfyui-graph-builder';
+// Only when package.json's productName is in effect (installed, or `electron .`); a bare script launch (tests)
+// keeps Electron's own name and folder.
+if (app.getName() === 'ComfyUI Graph Helper') {
+  app.setName(STABLE_APP_NAME);
+  if (!app.commandLine.hasSwitch('user-data-dir')) app.setPath('userData', path.join(app.getPath('appData'), STABLE_APP_NAME));
+}
+
+// The log goes to <userData>/logs/main.log; stdout keeps a copy except in the packaged app.
+initLog({ dir: path.join(app.getPath('userData'), 'logs'), mirror: !app.isPackaged || process.env.NODE_ENV === 'development' });
+routeConsole();
+addLogRedactor((text) => mainLLMService.redact(text));
+log.info(
+  `[App] Start ComfyUI Graph Helper ${app.getVersion()} electron=${process.versions.electron} chrome=${process.versions.chrome} `
+  + `node=${process.versions.node} platform=${process.platform}/${process.arch} packaged=${app.isPackaged}`,
+);
+log.info(`[App] Paths userData=${app.getPath('userData')} logs=${logsDir()}`);
+
+/** The settings language, or Russian (the default) when the database cannot be read yet. */
+function uiLanguage(): AppLanguage {
+  try {
+    return languageOf(readSettings(getDatabase()));
+  } catch {
+    return 'ru';
+  }
+}
+
+let quitting = false;
+app.on('before-quit', () => {
+  quitting = true;
+});
+
+installCrashHandlers({
+  notify: (_kind, error) => {
+    if (quitting || !app.isReady()) return;
+    const t = createTranslator(uiLanguage());
+    const detail = mainLLMService.redact(error instanceof Error ? error.message : String(error)).slice(0, 500);
+    const options = {
+      type: 'warning' as const,
+      title: t('diagnostics.errorTitle'),
+      message: t('diagnostics.errorMessage'),
+      detail,
+      buttons: [t('diagnostics.ok'), t('diagnostics.openLogs')],
+      defaultId: 0,
+      cancelId: 0,
+      noLink: true,
+    };
+    const shown = mainWindow && !mainWindow.isDestroyed() ? dialog.showMessageBox(mainWindow, options) : dialog.showMessageBox(options);
+    void shown.then((choice) => {
+      const dir = logsDir();
+      if (choice.response === 1 && dir) void shell.openPath(dir);
+    }).catch(() => undefined);
+  },
+});
+
+app.on('render-process-gone', (_event, contents, details) => {
+  log.error(`[App] Renderer process gone reason=${details.reason} exitCode=${details.exitCode}`);
+  if (quitting || details.reason === 'clean-exit' || contents.isDestroyed()) return;
+  const owner = BrowserWindow.fromWebContents(contents);
+  if (!owner || owner.isDestroyed()) return;
+  const t = createTranslator(uiLanguage());
+  void dialog.showMessageBox(owner, {
+    type: 'error',
+    title: t('diagnostics.rendererGoneTitle'),
+    message: t('diagnostics.rendererGoneMessage'),
+    buttons: [t('diagnostics.reload'), t('diagnostics.close')],
+    defaultId: 0,
+    cancelId: 1,
+    noLink: true,
+  }).then((choice) => {
+    if (choice.response === 0 && !contents.isDestroyed()) contents.reload();
+  }).catch(() => undefined);
+});
+
+app.on('child-process-gone', (_event, details) => {
+  if (details.reason !== 'clean-exit') log.warn(`[App] Child process gone type=${details.type} reason=${details.reason} exitCode=${details.exitCode}`);
+});
+
+/** One log line when a sync starts and one when it ends, with the counts or the error. */
+function logSyncRuns(): void {
+  let previous: SyncStatus['state'] | null = null;
+  let started = 0;
+  syncService.onStatus((status) => {
+    if (status.state === 'running' && previous !== 'running') {
+      started = Date.now();
+      log.info('[Sync] Start');
+    } else if (status.state !== 'running' && previous === 'running') {
+      const counts = status.counts;
+      log.info(
+        `[Sync] End state=${status.state} ms=${Date.now() - started} classes=${counts.nodeClasses} detailed=${counts.detailedClasses} `
+        + `packs=${counts.packs} models=${counts.models} enriched=${counts.enrichedModels}${status.lastError ? ` error=${status.lastError}` : ''}`,
+      );
+    }
+    previous = status.state;
+  });
+}
 
 const storeFlag = passwordStoreFlag(process.env.XDG_CURRENT_DESKTOP, process.argv);
 if (storeFlag) app.commandLine.appendSwitch('password-store', storeFlag);
@@ -33,10 +144,22 @@ function hardenContents(contents: WebContents): void {
 
 app.on('web-contents-created', (_event, contents) => hardenContents(contents));
 
+/** The window icon on Linux (other platforms take it from the bundle). */
+const ICON_PATH = path.join(__dirname, '../../resources/icon.png');
+
 function createWindow() {
+  const stateFile = path.join(app.getPath('userData'), WINDOW_STATE_FILE);
+  let workAreas: Array<{ x: number; y: number; width: number; height: number }> = [];
+  try {
+    const primary = screen.getPrimaryDisplay();
+    workAreas = [primary.workArea, ...screen.getAllDisplays().filter((display) => display.id !== primary.id).map((display) => display.workArea)];
+  } catch {
+    workAreas = [];
+  }
+  const restored = clampWindowState(readWindowState(stateFile), workAreas);
   mainWindow = new BrowserWindow({
-    width: 1400,
-    height: 900,
+    ...restored.bounds,
+    ...(process.platform === 'linux' ? { icon: ICON_PATH } : {}),
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
       nodeIntegration: false,
@@ -47,6 +170,9 @@ function createWindow() {
       additionalArguments: [`--app-version=${app.getVersion()}`],
     },
   });
+
+  if (restored.maximized) mainWindow.maximize();
+  trackWindowState(mainWindow, stateFile);
 
   // The renderer draws the only menu bar (File · Edit · View …); Electron's default menu would be a second one.
   mainWindow.setMenuBarVisibility(false);
@@ -80,11 +206,18 @@ app.whenReady().then(async () => {
     session.defaultSession.setPermissionRequestHandler((_contents, permission, callback) => callback(permission === 'clipboard-sanitized-write'));
     session.defaultSession.setPermissionCheckHandler((_contents, permission) => permission === 'clipboard-sanitized-write');
     initDatabase();
+    const settings = readSettings(getDatabase());
+    log.info(`[Settings] Read source=${settings.source}${settings.source === 'corrupt' ? '' : ` provider=${settings.values.provider || 'none'} language=${settings.values.language}`}`);
     await setupIPC();
+    logSyncRuns();
     Menu.setApplicationMenu(null);
     createWindow();
   } catch (error) {
-    console.error('[App] Startup failed', error);
+    log.error('[App] Startup failed', error);
+    // Truly fatal: nothing can run without the database and the handlers. Say so before exiting.
+    const t = createTranslator(uiLanguage());
+    const detail = mainLLMService.redact(error instanceof Error ? error.message : String(error)).slice(0, 500);
+    dialog.showErrorBox(t('diagnostics.startupFailedTitle'), `${t('diagnostics.startupFailedMessage', { logs: logsDir() ?? '' })}\n\n${detail}`);
     app.exit(1);
   }
 });

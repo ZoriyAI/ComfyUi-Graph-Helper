@@ -1,10 +1,13 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'motion/react';
+import { PauseCircle, Play, Square } from 'lucide-react';
 import { formatClock, redactDiagnostic, type AppLanguage } from '../../../shared/i18n';
 import { useGraphStore } from '../../state/graphState';
 import { useUiStore } from '../../state/uiState';
-import type { ChatMessage } from '../../types/chat';
+import { useChatStore } from '../../state/chatState';
+import { getChatService } from '../../services/llm/chatService';
+import type { ChatMessage, TurnCheckpoint } from '../../types/chat';
 import MarkdownLite from './MarkdownLite';
 import { objectLabel } from './objectLabel';
 import ToolCard from './ToolCard';
@@ -22,6 +25,42 @@ const CARD_MOTION = {
   exit: { opacity: 0 },
   transition: { duration: 0.16 },
 } as const;
+
+/**
+ * The card of a turn that paused at a guard: why (step checkpoint or failed tools), and Continue / Stop while it
+ * is open. Continue resumes the same run and sends "continue"; Stop cancels the run.
+ */
+function CheckpointCard({ messageId, checkpoint }: { messageId: string; checkpoint: TurnCheckpoint }) {
+  const { t } = useTranslation();
+  const busy = useChatStore((state) => state.isStreaming);
+  const reason = checkpoint.reason === 'failure-streak'
+    ? t('chat.checkpointFailures', { failures: checkpoint.failures ?? 3, steps: checkpoint.steps })
+    : t('chat.checkpointSteps', { steps: checkpoint.steps });
+  const outcome = checkpoint.state === 'continued' ? t('chat.checkpointContinued') : checkpoint.state === 'stopped' ? t('chat.checkpointStopped') : '';
+  return (
+    <div className={`turn-checkpoint ${styles.checkpoint}`} role="group" aria-label={String(t('chat.checkpointLabel'))} data-reason={checkpoint.reason} data-state={checkpoint.state}>
+      <div className={styles.checkpointHead}>
+        <PauseCircle size={14} aria-hidden="true" />
+        <span className="checkpoint-reason">{reason}</span>
+      </div>
+      {checkpoint.state === 'open' ? (
+        <>
+          <p className={styles.checkpointHint}>{checkpoint.reason === 'failure-streak' ? t('chat.checkpointFailuresHint') : t('chat.checkpointStepsHint')}</p>
+          <div className={styles.checkpointActions}>
+            <button type="button" className={`checkpoint-continue ${styles.checkpointButton}`} disabled={busy} onClick={() => void getChatService().continueFromCheckpoint(messageId)}>
+              <Play size={12} aria-hidden="true" />
+              {t('chat.continue')}
+            </button>
+            <button type="button" className={`checkpoint-stop ${styles.checkpointButton}`} title={String(t('chat.stopHint'))} onClick={() => getChatService().stopAtCheckpoint(messageId)}>
+              <Square size={12} aria-hidden="true" />
+              {t('chat.stop')}
+            </button>
+          </div>
+        </>
+      ) : outcome ? <p className={`checkpoint-outcome ${styles.checkpointHint}`}>{outcome}</p> : null}
+    </div>
+  );
+}
 
 export default function Message({ message, streaming = false }: MessageProps) {
   const { t, i18n } = useTranslation();
@@ -75,6 +114,7 @@ export default function Message({ message, streaming = false }: MessageProps) {
             </AnimatePresence>
           </div>
         ) : null}
+        {message.checkpoint ? <CheckpointCard messageId={message.id} checkpoint={message.checkpoint} /> : null}
         <div className={`message-time ${styles.time}`}>{formatClock(message.timestamp, language)}</div>
       </div>
     </div>

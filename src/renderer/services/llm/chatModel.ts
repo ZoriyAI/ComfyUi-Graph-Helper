@@ -96,9 +96,13 @@ export function newToolCall(id: string, name: string, args: Record<string, unkno
 /** Error marker of a call that was saved before it finished; the card shows chat.interrupted for it. */
 export const INTERRUPTED_ERROR = 'interrupted';
 
-/** Largest result kept in a saved message, as JSON characters. Larger results keep only their message. */
-export const SAVED_RESULT_CAP = 4000;
-const SAVED_ARG_CAP = 2000;
+/**
+ * Largest tool result kept in a saved chat message, as JSON characters. A larger one keeps its message and ids
+ * with `truncated: true` in the saved result the card shows. Only the stored copy of the card is shortened: the graph, the
+ * catalog and the live turn are never cut, and the row stays well under the 5 MB store guard in main.
+ */
+export const SAVED_RESULT_CAP = 20_000;
+const SAVED_ARG_CAP = 20_000;
 
 function capped(value: unknown, cap: number): unknown {
   if (value === undefined) return undefined;
