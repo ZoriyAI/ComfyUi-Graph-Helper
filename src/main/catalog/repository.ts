@@ -299,9 +299,15 @@ function parseWidgetOrder(text: string): { widgetOrder: string[]; widgetOrderRel
 function parseInputs(text: string): CatalogInput[] {
   return parseArray(text).flatMap((item) => {
     if (!item || typeof item !== 'object') return [];
-    const row = item as { name?: unknown; type?: unknown; widget?: unknown };
+    const row = item as { name?: unknown; type?: unknown; widget?: unknown; required?: unknown; default?: unknown; options?: unknown; controlDefault?: unknown };
     if (typeof row.name !== 'string' || typeof row.type !== 'string') return [];
-    return [{ name: row.name, type: row.type, widget: row.widget === true }];
+    const input: CatalogInput = { name: row.name, type: row.type, widget: row.widget === true };
+    if (typeof row.required === 'boolean') input.required = row.required;
+    // Defaults live inside inputs_json; rows stored before they existed simply have none.
+    if (input.widget && row.default !== undefined) input.default = row.default;
+    if (input.widget && Array.isArray(row.options)) input.options = row.options.filter((option): option is string => typeof option === 'string');
+    if (input.widget && typeof row.controlDefault === 'string') input.controlDefault = row.controlDefault;
+    return [input];
   });
 }
 
