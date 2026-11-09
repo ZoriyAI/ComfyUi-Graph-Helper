@@ -16,6 +16,11 @@ import { HintProvider } from './ui/Hint';
 import { ToastProvider } from './ui/Toast';
 import { languageOf, type AppLanguage } from '../shared/i18n';
 import { isForeignDrag } from './dropGuard';
+import ErrorBoundary from './ErrorBoundary';
+import { installRendererErrorReporting } from './services/diagnostics/diagnostics';
+
+// Uncaught errors and unhandled rejections are written to the main log (redacted, rate-limited).
+installRendererErrorReporting();
 
 document.documentElement.dataset.motion = 'system';
 
@@ -46,7 +51,9 @@ async function boot() {
         <MotionRoot>
           <HintProvider>
             <ToastProvider>
-              <App />
+              <ErrorBoundary>
+                <App />
+              </ErrorBoundary>
             </ToastProvider>
           </HintProvider>
         </MotionRoot>
