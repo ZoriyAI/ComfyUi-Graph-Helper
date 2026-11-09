@@ -20,8 +20,12 @@ import type { SyncStatus } from '../shared/contracts/knowledge';
  * still wins (tests).
  */
 const STABLE_APP_NAME = 'comfyui-graph-builder';
-app.setName(STABLE_APP_NAME);
-if (!app.commandLine.hasSwitch('user-data-dir')) app.setPath('userData', path.join(app.getPath('appData'), STABLE_APP_NAME));
+// Only when package.json's productName is in effect (installed, or `electron .`); a bare script launch (tests)
+// keeps Electron's own name and folder.
+if (app.getName() === 'ComfyUI Graph Helper') {
+  app.setName(STABLE_APP_NAME);
+  if (!app.commandLine.hasSwitch('user-data-dir')) app.setPath('userData', path.join(app.getPath('appData'), STABLE_APP_NAME));
+}
 
 // The log goes to <userData>/logs/main.log; stdout keeps a copy except in the packaged app.
 initLog({ dir: path.join(app.getPath('userData'), 'logs'), mirror: !app.isPackaged || process.env.NODE_ENV === 'development' });
