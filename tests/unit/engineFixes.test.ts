@@ -279,3 +279,20 @@ describe('engine: catalog cache and codec details', () => {
     expect((result.workflow.nodes as Rec[])[0].outputs[0].links).toBeNull();
   });
 });
+
+describe('engine: dissolve keeps promoted values', () => {
+  it('writes the instance widget values back into the inner nodes', () => {
+    const db = openDb();
+    const wf: Rec = structuredClone(nestedSubgraphWorkflow);
+    const definition = wf.definitions.subgraphs[0];
+    const inner = definition.nodes.find((node: Rec) => node.type !== wf.definitions.subgraphs[1]?.id) as Rec;
+    inner.widgets_values = { seed: 1 };
+    wf.nodes[1].properties = { ...(wf.nodes[1].properties ?? {}), proxyWidgets: [[String(inner.id), 'seed']] };
+    wf.nodes[1].widgets_values = [42];
+    expect(commit(db, 'imp', { type: 'import-workflow', document: wf }).status).toBe('applied');
+    expect(commit(db, 'dis', { type: 'dissolve-subgraph', nodeId: String(wf.nodes[1].id) }).status).toBe('applied');
+    const restored = (snap(db).nodes as Rec[]).find((node) => node.data.comfyType === inner.type)!;
+    expect(restored.data.comfy.widgets_values).toEqual({ seed: 42 });
+    db.close();
+  });
+});

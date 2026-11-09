@@ -163,7 +163,21 @@ function Part({ part, label, showBadge }: { part: DescriptionPart; label?: strin
  * component purpose) with the badge of its source. Collapsed it shows the first line; expanded, the full
  * what / why text, an edit form that saves a "user" explanation, and "Ask" when nothing is explained yet.
  */
-function DescriptionCard({ node, spotlight, readOnly }: { node: ComfyFlowNode; spotlight: DescriptionSpotlight | null; readOnly: boolean }) {
+interface CardProps {
+  node: ComfyFlowNode;
+  spotlight: DescriptionSpotlight | null;
+  readOnly: boolean;
+  purpose: string | undefined;
+}
+
+/** Re-render a card only when what it shows changes; a drag of another node leaves it alone. */
+function sameCard(previous: CardProps, next: CardProps): boolean {
+  return previous.spotlight === next.spotlight && previous.readOnly === next.readOnly && previous.purpose === next.purpose
+    && previous.node.data === next.node.data && previous.node.id === next.node.id
+    && (previous.node.measured?.width ?? previous.node.width) === (next.node.measured?.width ?? next.node.width);
+}
+
+const DescriptionCard = React.memo(function DescriptionCard({ node, spotlight, readOnly, purpose }: CardProps) {
   const { t } = useTranslation();
   const data = node.data;
   const instance = data.kind === 'subgraph-instance';
@@ -181,7 +195,6 @@ function DescriptionCard({ node, spotlight, readOnly }: { node: ComfyFlowNode; s
   const own = useKnowledgeStore((state) => state.explanations[objectKey(ref)] ?? EMPTY);
   const shared = useKnowledgeStore((state) => (classRef ? state.explanations[objectKey(classRef)] ?? EMPTY : EMPTY));
   const detail = useNodeDetail(instance ? undefined : data.comfyType);
-  const purpose = useGraphStore((state) => state.components.find((item) => item.ownerKind === 'node' && item.ownerId === node.id)?.purpose);
   const content = useMemo(
     () => selectDescription({ own, shared, catalog: detail?.description, purpose }),
     [own, shared, detail?.description, purpose],
@@ -285,7 +298,7 @@ function DescriptionCard({ node, spotlight, readOnly }: { node: ComfyFlowNode; s
       </section>
     </NodeToolbar>
   );
-}
+}, sameCard);
 
 /**
  * Description blocks on the canvas: one card under every node that has something to say, anchored with
@@ -302,11 +315,18 @@ export default function DescriptionLayer() {
   const nodes = useNodes();
   const spotlight = useDescriptionSpotlight();
   const { readOnly } = useCanvasView();
+  const components = useGraphStore((state) => state.components);
+  // One lookup table for every card instead of a scan of all records per card.
+  const purposes = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const item of components) if (item.ownerKind === 'node' && !map.has(item.ownerId)) map.set(item.ownerId, item.purpose);
+    return map;
+  }, [components]);
   if (!on) return null;
   return (
     <>
       {nodes.map((node) => (node.type === 'comfy' && !pending.includes(node.id) && node.id !== speaking
-        ? <DescriptionCard key={node.id} node={node as ComfyFlowNode} spotlight={spotlight} readOnly={readOnly} />
+        ? <DescriptionCard key={node.id} node={node as ComfyFlowNode} spotlight={spotlight} readOnly={readOnly} purpose={purposes.get(node.id)} />
         : null))}
     </>
   );

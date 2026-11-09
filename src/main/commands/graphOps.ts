@@ -403,6 +403,39 @@ function renameSubgraph(work: GraphSnapshot, payload: Extract<GraphMutation, { t
   return { definitionId: definition.id, name: payload.name };
 }
 
+/**
+ * Values the instance holds for promoted widgets (`properties.proxyWidgets` = [[innerNodeId, widgetName], ...],
+ * paired by position with the instance's widgets_values) go back to the inner nodes, so dissolving does not
+ * reset what the person set on the instance. Inner nodes with keyed widgets_values take them by name;
+ * positional ones by the index the inner node's own `widgets` list (when stored) gives the name.
+ */
+function promoteInstanceValues(instance: Node, restored: Node[], idMap: Map<string, string>): void {
+  const comfy = instance.data?.comfy;
+  const proxies = comfy?.properties?.proxyWidgets;
+  const values = comfy?.widgets_values;
+  if (!Array.isArray(proxies) || !Array.isArray(values)) return;
+  proxies.forEach((pair: unknown, index: number) => {
+    if (!Array.isArray(pair) || pair.length < 2 || index >= values.length) return;
+    const target = restored.find((node) => String(node.id) === (idMap.get(String(pair[0])) ?? String(pair[0])));
+    const inner = target?.data?.comfy;
+    if (!target || !inner || typeof inner !== 'object') return;
+    const name = String(pair[1]);
+    const widgets = inner.widgets_values;
+    if (widgets && typeof widgets === 'object' && !Array.isArray(widgets)) {
+      inner.widgets_values = { ...widgets, [name]: values[index] };
+      target.data.parameters = { ...(target.data.parameters ?? {}), [name]: values[index] };
+      return;
+    }
+    const names = Array.isArray(inner.widgets) ? inner.widgets.map((item: { name?: unknown }) => String(item?.name ?? '')) : [];
+    const slot = names.indexOf(name);
+    if (Array.isArray(widgets) && slot >= 0 && slot < widgets.length) {
+      const copy = widgets.slice();
+      copy[slot] = values[index];
+      inner.widgets_values = copy;
+    }
+  });
+}
+
 function dissolveSubgraph(work: GraphSnapshot, ids: Ids, payload: Extract<GraphMutation, { type: 'dissolve-subgraph' }>) {
   const instance = work.nodes.find((node) => String(node.id) === payload.nodeId);
   if (!instance) fail(SUBGRAPH_ERRORS.nodeMissing);
@@ -426,6 +459,7 @@ function dissolveSubgraph(work: GraphSnapshot, ids: Ids, payload: Extract<GraphM
     if (copy.data?.comfy && typeof copy.data.comfy === 'object') copy.data.comfy = { ...copy.data.comfy, id: idValue(id) };
     return copy;
   });
+  promoteInstanceValues(instance, restored, idMap);
   const mapped = (id: unknown) => idMap.get(String(id)) ?? String(id);
   const isBoundary = (edge: Edge) => String(edge.source) === SUBGRAPH_INPUT_NODE_ID || String(edge.target) === SUBGRAPH_OUTPUT_NODE_ID;
   const created: Edge[] = [];
