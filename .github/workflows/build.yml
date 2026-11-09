@@ -1,0 +1,72 @@
+name: Build and package
+
+on:
+  push:
+    branches: ['**']
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    name: Linux (tests, e2e, .deb)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: System packages for Electron, Xvfb and the deb maker
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends fakeroot dpkg xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 libasound2t64 libxss1
+
+      - name: Install
+        run: npm ci
+
+      - name: Unit and integration tests
+        run: npm test
+
+      - name: Type check
+        run: npm run type-check
+
+      - name: Build
+        run: npm run build
+
+      - name: End-to-end tests (Electron under Xvfb)
+        run: xvfb-run -a npx playwright test --trace off --grep-invert live-local
+
+      - name: Package .deb and smoke-test it
+        run: xvfb-run -a npm run package:linux
+
+      - name: Upload .deb
+        uses: actions/upload-artifact@v4
+        with:
+          name: comfyui-graph-helper-deb
+          path: out/make/deb/x64/*.deb
+          if-no-files-found: error
+
+      - name: Upload Playwright results on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: test-results
+          if-no-files-found: ignore
+
+      - name: Release on tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: out/make/deb/x64/*.deb
+          generate_release_notes: true
