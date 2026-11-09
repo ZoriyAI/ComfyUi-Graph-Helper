@@ -16,6 +16,25 @@ export interface ReplayState {
   loading: boolean;
 }
 
+/** localStorage key that remembers whether description cards are on. */
+export const DESCRIPTIONS_KEY = 'helper.canvas.descriptions';
+
+function readDescriptionsOn(): boolean {
+  try {
+    return typeof window === 'undefined' || window.localStorage.getItem(DESCRIPTIONS_KEY) !== 'off';
+  } catch {
+    return true;
+  }
+}
+
+function writeDescriptionsOn(on: boolean): void {
+  try {
+    window.localStorage.setItem(DESCRIPTIONS_KEY, on ? 'on' : 'off');
+  } catch {
+    // Storage can be unavailable; the toggle still works for this session.
+  }
+}
+
 export interface BuildCallout {
   nodeId: string;
   title: string;
@@ -41,6 +60,12 @@ interface CanvasState {
   replay: ReplayState | null;
   /** Add-node search: open, and where the node goes (flow coordinates) when picked. */
   addSearch: { open: boolean; at: { x: number; y: number } | null };
+  /** Description cards under the nodes: all on or off (remembered in localStorage). */
+  descriptionsOn: boolean;
+  /** Nodes whose card the person closed; a dot on the node brings it back. */
+  hiddenDescriptions: Record<string, true>;
+  /** Nodes whose card is expanded. */
+  expandedDescriptions: Record<string, true>;
 
   setConnectFrom: (from: ConnectFrom | null, pinned?: boolean) => void;
   setFocusedPort: (ref: ObjectRef | null) => void;
@@ -56,6 +81,10 @@ interface CanvasState {
   patchReplay: (patch: Partial<ReplayState>) => void;
   openAddSearch: (at: { x: number; y: number } | null) => void;
   closeAddSearch: () => void;
+  setDescriptionsOn: (on: boolean) => void;
+  hideDescription: (nodeId: string) => void;
+  showDescription: (nodeId: string) => void;
+  setDescriptionExpanded: (nodeId: string, expanded: boolean) => void;
 }
 
 function withIds(record: Record<string, true>, ids: string[]): Record<string, true> {
@@ -81,6 +110,9 @@ export const useCanvasStore = create<CanvasState>((set) => ({
   manualInFlight: 0,
   replay: null,
   addSearch: { open: false, at: null },
+  descriptionsOn: readDescriptionsOn(),
+  hiddenDescriptions: {},
+  expandedDescriptions: {},
 
   setConnectFrom: (connectFrom, pinned = false) => set({ connectFrom, connectPinned: connectFrom ? pinned : false }),
   setFocusedPort: (focusedPort) => set({ focusedPort }),
@@ -96,4 +128,16 @@ export const useCanvasStore = create<CanvasState>((set) => ({
   patchReplay: (patch) => set((state) => (state.replay ? { replay: { ...state.replay, ...patch } } : {})),
   openAddSearch: (at) => set({ addSearch: { open: true, at } }),
   closeAddSearch: () => set({ addSearch: { open: false, at: null } }),
+  setDescriptionsOn: (descriptionsOn) => {
+    writeDescriptionsOn(descriptionsOn);
+    set({ descriptionsOn });
+  },
+  hideDescription: (nodeId) => set((state) => ({
+    hiddenDescriptions: withIds(state.hiddenDescriptions, [nodeId]),
+    expandedDescriptions: withoutIds(state.expandedDescriptions, [nodeId]),
+  })),
+  showDescription: (nodeId) => set((state) => ({ hiddenDescriptions: withoutIds(state.hiddenDescriptions, [nodeId]) })),
+  setDescriptionExpanded: (nodeId, expanded) => set((state) => ({
+    expandedDescriptions: expanded ? withIds(state.expandedDescriptions, [nodeId]) : withoutIds(state.expandedDescriptions, [nodeId]),
+  })),
 }));
