@@ -42,7 +42,7 @@ test('keyboard route reaches a node and keeps graph shortcuts out of fields', as
     titlebar: document.querySelector('.titlebar, .window-controls') == null,
   }));
   expect(absent).toEqual({ menu: true, checkbox: true, radio: true, switch: true, titlebar: true });
-  console.log('CONTROL_NA command-menu checkbox radio switch custom-titlebar reason=the product does not implement them');
+  console.log('CONTROL_AT_REST menu checkbox radio switch custom-titlebar absent; menus, check and radio items exist only while a menu-bar menu is open');
 
   const current = await window.evaluate(async () => {
     const bridge = (window as unknown as { electronAPI: { readProjection: (id: string) => Promise<{ currentRevisionId: string }> } }).electronAPI;

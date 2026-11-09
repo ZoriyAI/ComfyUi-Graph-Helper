@@ -89,25 +89,27 @@ export async function runCommand(id: string): Promise<boolean> {
 
 /**
  * Stores whose changes can flip a command's enabled or checked state. The app registers its zustand
- * stores here once; hooks re-read the commands they show when any of them changes.
+ * stores here once; hooks re-read the commands they show when any of them changes. A source added after
+ * a hook subscribed still reaches it, because every source feeds the same listener set.
  */
 type Subscribe = (listener: () => void) => () => void;
-const sources = new Set<Subscribe>();
+
+function notify(): void {
+  for (const listener of listeners) listener();
+}
 
 export function addCommandStateSource(subscribe: Subscribe): () => void {
-  sources.add(subscribe);
+  const off = subscribe(notify);
   emit();
   return () => {
-    sources.delete(subscribe);
+    off();
   };
 }
 
 function subscribeAll(listener: () => void): () => void {
   listeners.add(listener);
-  const offs = [...sources].map((subscribe) => subscribe(listener));
   return () => {
     listeners.delete(listener);
-    for (const off of offs) off();
   };
 }
 

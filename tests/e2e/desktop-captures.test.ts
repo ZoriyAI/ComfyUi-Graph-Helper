@@ -111,7 +111,8 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
     await window.setViewportSize({ width, height });
     const metrics = await window.evaluate(() => {
       const styles = getComputedStyle(document.documentElement);
-      const title = document.querySelector('.app-title');
+      // The menu bar's own text (a menu title) on the bar surface.
+      const title = document.querySelector('.document-bar [role="menuitem"]');
       const note = document.querySelector('.provider-chip');
       const disabled = document.querySelector('.ghost-button:disabled');
       const read = (element: Element | null) => element ? getComputedStyle(element).color : '';
@@ -170,7 +171,7 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
       });
       console.log(`TOOLBAR_1024 overflow=${toolbar.overflow} height=${toolbar.height} lines=${toolbar.lines} valueHeight=${toolbar.valueHeight} label=${toolbar.label}`);
       expect(toolbar.overflow).toBe(0);
-      expect(toolbar.height).toBe(40);
+      expect(toolbar.height).toBe(36);
       expect(toolbar.lines).toBe(1);
       expect(toolbar.valueHeight).toBeLessThanOrEqual(20);
       expect(toolbar.label).toBe('Not configured');
@@ -270,8 +271,8 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
     rail: Math.round(document.querySelector('.rail')!.getBoundingClientRect().width),
   }));
   console.log(`RESIZE_1440 from=1024 zoom=${zoom1440.toFixed(4)} ${JSON.stringify(resized)}`);
-  expect(resized.bar).toBe(48);
-  expect(resized.toolbar).toBe(40);
+  expect(resized.bar).toBe(32);
+  expect(resized.toolbar).toBe(36);
   expect(resized.toolbarOverflow).toBe(0);
   expect(resized.dock).toBe(336);
   expect(resized.canvas).toBeGreaterThanOrEqual(1440 - resized.dock - resized.rail);
@@ -395,7 +396,7 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
         background: opaqueBackground(element),
       };
     };
-    return { text: read('.app-title'), muted: read('.provider-chip') };
+    return { text: read('.document-bar [role="menuitem"]'), muted: read('.provider-chip') };
   });
   const textSurface = contrast(shellPairs.text.color, shellPairs.text.background);
   const mutedSurface = contrast(shellPairs.muted.color, shellPairs.muted.background);

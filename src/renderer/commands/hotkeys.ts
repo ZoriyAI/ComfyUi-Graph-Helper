@@ -1,4 +1,4 @@
-import { allCommands, isEnabled, runCommand, type Command } from './registry';
+import { allCommands, runCommand, type Command } from './registry';
 import { detectPlatform, matchesShortcut, type KeyLike, type Platform } from './shortcuts';
 
 /** Shortcuts that still work while typing in a field or inside an open menu or dialog. */
@@ -13,7 +13,7 @@ export interface FocusContext {
 
 /** Where the key went, read from the DOM. */
 export function focusContext(target: EventTarget | null, doc: Document = document): FocusContext {
-  const element = target instanceof Element ? target : null;
+  const element = typeof Element !== 'undefined' && target instanceof Element ? target : null;
   const editable = Boolean(element && (
     element.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"]')
     || (element instanceof HTMLElement && element.isContentEditable)
@@ -41,7 +41,13 @@ export function commandForKey(event: KeyLike, context: FocusContext, commands: C
     if (!command.shortcut || command.shortcutDisplayOnly) continue;
     if (!matchesShortcut(event, command.shortcut, platform)) continue;
     if (!shortcutAllowed(command.shortcut, context)) return null;
-    return isEnabled(command.id) ? command : null;
+    let enabled = false;
+    try {
+      enabled = command.enabled();
+    } catch {
+      enabled = false;
+    }
+    return enabled ? command : null;
   }
   return null;
 }

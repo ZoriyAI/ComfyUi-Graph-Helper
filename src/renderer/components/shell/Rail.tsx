@@ -10,6 +10,7 @@ import { RAIL_AUTO_COLLAPSE, RAIL_STRIP, RAIL_WIDTH, useUiStore, type RailTab } 
 import NodeLibrary from '../library/NodeLibrary';
 import ModelLibrary from '../library/ModelLibrary';
 import SubgraphLibrary from '../library/SubgraphLibrary';
+import { runCommand } from '../../commands/registry';
 import styles from './Rail.module.css';
 
 const TABS: Array<{ value: RailTab; label: string; icon: React.ReactNode }> = [
@@ -73,7 +74,7 @@ export default function Rail() {
                     <TabsTrigger key={item.value} value={item.value} className={styles.tab}>{t(item.label)}</TabsTrigger>
                   ))}
                 </TabsList>
-                <IconButton size="sm" label={String(t('shell.railCollapse'))} aria-controls="library-rail" aria-expanded onClick={() => setRail(false)}>
+                <IconButton size="sm" label={String(t('shell.railCollapse'))} aria-controls="library-rail" aria-expanded onClick={() => void runCommand('view.rail')}>
                   <PanelLeftClose size={16} aria-hidden="true" />
                 </IconButton>
               </div>
@@ -93,7 +94,7 @@ export default function Rail() {
             exit={{ opacity: 0 }}
             transition={{ duration: duration / 2 }}
           >
-            <IconButton label={String(t('shell.railExpand'))} aria-controls="library-rail" aria-expanded={false} onClick={() => setRail(true)}>
+            <IconButton label={String(t('shell.railExpand'))} aria-controls="library-rail" aria-expanded={false} onClick={() => void runCommand('view.rail')}>
               <PanelLeftOpen size={18} aria-hidden="true" />
             </IconButton>
             <span className={styles.stripRule} aria-hidden="true" />

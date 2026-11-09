@@ -10,6 +10,7 @@ import { useCanvasStore } from './canvasStore';
 import { revealAllNow } from './layers/BuildLayer';
 import { fitDurationMs } from '../../motion/policy';
 import { startGraphTour } from './tour/startTour';
+import { runCommand } from '../../commands/registry';
 import styles from './Toolbar.module.css';
 
 /** Room for the floating toolbar above and the minimap in the bottom-right corner, so a fit never hides a node. */
@@ -31,7 +32,6 @@ export async function acceptAllProposals(): Promise<void> {
 export default function CanvasToolbar() {
   const { t } = useTranslation();
   const followAgent = useUiStore((state) => state.followAgent);
-  const setFollowAgent = useUiStore((state) => state.setFollowAgent);
   const tour = useUiStore((state) => state.tour);
   const setTourIndex = useUiStore((state) => state.setTourIndex);
   const setTourPlaying = useUiStore((state) => state.setTourPlaying);
@@ -39,16 +39,14 @@ export default function CanvasToolbar() {
   const proposals = useProposalsStore((state) => state.proposals);
   const pending = useCanvasStore((state) => state.pending.length);
   const replaying = useCanvasStore((state) => Boolean(state.replay));
-  const openSearch = useCanvasStore((state) => state.openAddSearch);
   const descriptionsOn = useCanvasStore((state) => state.descriptionsOn);
-  const setDescriptionsOn = useCanvasStore((state) => state.setDescriptionsOn);
   const open = openProposals(proposals).length;
   const duration = fitDurationMs();
 
   return (
     <div className={styles.toolbar} role="toolbar" aria-label={String(t('canvas.toolbar'))}>
       <span className={styles.group}>
-        <button type="button" className={`${styles.button} ${styles.primary}`} onClick={() => openSearch(null)} disabled={replaying} title={String(t('canvas.addNode'))} aria-label={String(t('canvas.addNode'))}>
+        <button type="button" className={`${styles.button} ${styles.primary}`} onClick={() => void runCommand('graph.addNode')} disabled={replaying} title={String(t('canvas.addNode'))} aria-label={String(t('canvas.addNode'))}>
           <Plus size={16} aria-hidden="true" />
         </button>
         <AddNodeSearch />
@@ -61,10 +59,10 @@ export default function CanvasToolbar() {
           position="top-left"
           fitViewOptions={{ padding: FIT_PADDING, duration }}
         />
-        <button type="button" className={styles.button} aria-pressed={followAgent} onClick={() => setFollowAgent(!followAgent)} title={String(t('canvas.followAgent'))} aria-label={String(t('canvas.followAgent'))}>
+        <button type="button" className={styles.button} aria-pressed={followAgent} onClick={() => void runCommand('view.followAgent')} title={String(t('canvas.followAgent'))} aria-label={String(t('canvas.followAgent'))}>
           <Navigation size={16} aria-hidden="true" />
         </button>
-        <button type="button" className={styles.button} aria-pressed={descriptionsOn} onClick={() => setDescriptionsOn(!descriptionsOn)} title={String(t('canvas.descriptions'))} aria-label={String(t('canvas.descriptions'))}>
+        <button type="button" className={styles.button} aria-pressed={descriptionsOn} onClick={() => void runCommand('view.descriptions')} title={String(t('canvas.descriptions'))} aria-label={String(t('canvas.descriptions'))}>
           <MessageSquareText size={16} aria-hidden="true" />
         </button>
       </span>

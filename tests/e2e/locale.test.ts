@@ -169,7 +169,7 @@ test('Russian is the new-profile default and English persists through reopen', a
     const toolbar = await toolbarFit(window);
     console.log(`LOCALE_TOOLBAR_${width} ${JSON.stringify(toolbar)}`);
     expect(toolbar.overflow).toBe(0);
-    expect(toolbar.height).toBe(40);
+    expect(toolbar.height).toBe(36);
     expect(toolbar.lines).toBe(1);
     expect(toolbar.label).toBe('Не настроено');
   }

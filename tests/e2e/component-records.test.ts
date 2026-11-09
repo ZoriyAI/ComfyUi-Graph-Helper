@@ -170,7 +170,7 @@ test('node and subgraph records persist in the native project and stay out of Co
   expect(openBox!.x).toBeGreaterThanOrEqual(0);
   expect(openBox!.x + openBox!.width).toBeLessThanOrEqual(1024);
   const bar = await window.locator('.document-bar').evaluate((element) => Math.round(element.getBoundingClientRect().height));
-  expect(bar).toBe(48);
+  expect(bar).toBe(32);
 
   await russianForm.locator('textarea').nth(0).fill('Временная правка');
   await russianForm.getByRole('button', { name: 'Сохранить описание' }).click();
