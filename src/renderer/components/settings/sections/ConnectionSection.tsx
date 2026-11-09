@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import type { McpOAuthStatus } from '../../../../shared/contracts';
 import { useTranslation } from 'react-i18next';
 import { explainError, type Translator } from '../../../../shared/i18n';
 import Badge from '../../../ui/Badge';
 import Button from '../../../ui/Button';
-import { useKnowledgeStore } from '../../../state/knowledgeState';
-import { syncView } from '../../sync/syncView';
+import { refreshSyncStatus, useKnowledgeStore } from '../../../state/knowledgeState';
+import { formatSyncTime, syncView } from '../../sync/syncView';
 import { mcpUrlNeedsHttps } from '../../../../shared/mcp/loopback';
 import styles from '../SettingsPanel.module.css';
 import { fieldClass, hintClass, rowClass, SectionHead, type DraftProps } from './common';
@@ -81,6 +82,7 @@ export default function ConnectionSection({ values, setValues, fieldError, pendi
       </label>
       <p className={hintClass}>{t('settings.mcpUrlHint')}</p>
       {mcpUrlNeedsHttps(values.mcpUrl) ? <p className={styles.errorNote} role="alert">{t('errors.mcpHttps')}</p> : null}
+      <McpSignIn savedUrl={!dirty && values.mcpUrl.trim() !== ''} disabled={pending} />
       <div className={styles.stateLine}>
         <Badge tone={STATE_TONES[view.state]}>{t('preferences.connectionState', { state: t(view.labelKey) })}</Badge>
         {view.blocked ? <span className={hintClass}>{t(view.blocked === 'noUrl' ? 'sync.noUrl' : 'sync.noToken')}</span> : null}
@@ -98,5 +100,71 @@ export default function ConnectionSection({ values, setValues, fieldError, pendi
       </div>
       {actionNote ? <p className={hintClass} role="status">{actionNote}</p> : null}
     </>
+  );
+}
+
+/**
+ * "Sign in through the browser": OAuth to the saved MCP URL. Main opens the system browser and keeps the tokens;
+ * this row only shows the status. The manual token in Models & keys stays as the alternative.
+ */
+function McpSignIn({ savedUrl, disabled }: { savedUrl: boolean; disabled: boolean }) {
+  const { t, i18n } = useTranslation();
+  const translate: Translator = (key, options) => (options ? String(t(key, options)) : String(t(key)));
+  const [status, setStatus] = useState<McpOAuthStatus | null>(null);
+  const [waiting, setWaiting] = useState(false);
+  const [note, setNote] = useState('');
+  const language = i18n.language === 'en' ? 'en' : 'ru';
+
+  useEffect(() => {
+    if (!savedUrl) return;
+    void window.electronAPI.mcpOAuthStatus().then(setStatus).catch(() => undefined);
+  }, [savedUrl]);
+
+  const signIn = async () => {
+    setNote('');
+    setWaiting(true);
+    setStatus((current) => ({ state: 'pending', persisted: current?.persisted ?? false }));
+    try {
+      const result = await window.electronAPI.mcpOAuthLogin();
+      if (!result.ok) setNote(explainError(translate, result.error).summary);
+    } finally {
+      setWaiting(false);
+      setStatus(await window.electronAPI.mcpOAuthStatus().catch(() => null));
+      refreshSyncStatus();
+    }
+  };
+  const signOut = async () => {
+    setNote('');
+    setStatus(await window.electronAPI.mcpOAuthLogout().catch(() => null));
+    refreshSyncStatus();
+  };
+
+  const state = waiting ? 'pending' : status?.state ?? 'none';
+  let label = String(t('settings.oauthNone'));
+  if (state === 'pending') label = String(t('settings.oauthPending'));
+  else if (state === 'expired') label = String(t('settings.oauthExpired'));
+  else if (state === 'authorized') {
+    label = status?.expiresAt
+      ? String(t('settings.oauthAuthorized', { time: formatSyncTime(status.expiresAt, language) }))
+      : String(t('settings.oauthAuthorizedOpen'));
+    label += ` ${String(t(status?.persisted ? 'settings.oauthStored' : 'settings.oauthSessionOnly'))}`;
+  }
+
+  return (
+    <div className="mcp-sign-in" data-oauth-state={state}>
+      <p className={hintClass}><strong>{t('settings.oauthTitle')}</strong> {t('settings.oauthHint')}</p>
+      <p className={hintClass} role="status" aria-label={String(t('settings.oauthTitle'))}>{savedUrl ? label : t('settings.oauthSaveFirst')}</p>
+      <div className={rowClass}>
+        <Button size="sm" disabled={disabled || !savedUrl || waiting} loading={waiting} onClick={() => void signIn()}>
+          {t('settings.oauthSignIn')}
+        </Button>
+        {state === 'authorized' || state === 'expired' ? (
+          <Button size="sm" variant="subtle" disabled={disabled || waiting} onClick={() => void signOut()}>
+            {t('settings.oauthSignOut')}
+          </Button>
+        ) : null}
+      </div>
+      {note ? <p className={styles.errorNote} role="alert">{note}</p> : null}
+    </div>
   );
 }
