@@ -25,6 +25,7 @@ import { openReplay } from '../components/graph/ReplayPlayer';
 import { startGraphTour } from '../components/graph/tour/startTour';
 import { runSyncNow, setAutoSync } from '../components/sync/SyncIndicator';
 import { RAIL_WIDTH } from '../state/uiState';
+import { savePreferencesPatch } from '../state/preferencesState';
 
 const always = () => true;
 const never = () => false;
@@ -164,7 +165,12 @@ export function buildAppCommands(): Command[] {
     {
       id: 'view.followAgent', group: 'view', labelKey: 'canvas.followAgent', icon: Navigation, enabled: always,
       checked: () => useUiStore.getState().followAgent,
-      run: () => useUiStore.getState().setFollowAgent(!useUiStore.getState().followAgent),
+      run: () => {
+        const next = !useUiStore.getState().followAgent;
+        useUiStore.getState().setFollowAgent(next);
+        // The explicit toggle is remembered; the canvas switching it off on a manual pan is not.
+        void savePreferencesPatch({ canvas: { followAgent: next } });
+      },
     },
     {
       id: 'view.stopExplaining', group: 'view', labelKey: 'menu.stopExplaining', shortcut: 'Escape',

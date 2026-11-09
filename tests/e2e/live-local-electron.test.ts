@@ -2,7 +2,6 @@ import { test, expect, _electron as electron } from '@playwright/test';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { pickOption } from './pickOption';
 import { useEnglish } from './locale';
 
 /**
@@ -54,7 +53,7 @@ test('live local model adds a loader and the export keeps its parameter', async 
     await window.getByRole('button', { name: 'Settings', exact: true }).click();
     const settings = window.locator('[role="dialog"].settings-dialog');
     await settings.getByRole('tab', { name: 'Assistant' }).click();
-    await pickOption(window, 'Provider', 'Local endpoint', settings);
+    await settings.getByRole('radio', { name: 'Local endpoint', exact: true }).click();
     await settings.getByRole('textbox', { name: 'Model', exact: true }).fill('qwen2.5-0.5b-instruct');
     await settings.getByRole('textbox', { name: 'Base URL', exact: true }).fill(LOCAL_BASE);
     await settings.getByRole('button', { name: 'Save settings' }).click();

@@ -18,24 +18,21 @@ export interface ReplayState {
   loading: boolean;
 }
 
-/** localStorage key that remembers whether description cards are on. */
-export const DESCRIPTIONS_KEY = 'helper.canvas.descriptions';
-/** localStorage key that remembers whether the minimap is shown. */
-export const MINIMAP_KEY = 'helper.canvas.minimap';
+/** Where a canvas toggle is remembered: Preferences ▸ Canvas in SQLite (state/preferencesBridge installs it). */
+export type CanvasPersist = (patch: { showDescriptions?: boolean; showMinimap?: boolean }) => void;
 
-function readToggle(key: string): boolean {
-  try {
-    return typeof window === 'undefined' || window.localStorage.getItem(key) !== 'off';
-  } catch {
-    return true;
-  }
+let persist: CanvasPersist | null = null;
+
+/** Installs (or removes) the writer the description and minimap toggles save through. */
+export function setCanvasPersist(next: CanvasPersist | null): void {
+  persist = next;
 }
 
-function writeToggle(key: string, on: boolean): void {
+function remember(patch: { showDescriptions?: boolean; showMinimap?: boolean }): void {
   try {
-    window.localStorage.setItem(key, on ? 'on' : 'off');
+    persist?.(patch);
   } catch {
-    // Storage can be unavailable; the toggle still works for this session.
+    // The toggle still works for this session.
   }
 }
 
@@ -99,9 +96,9 @@ interface CanvasState {
   replay: ReplayState | null;
   /** Add-node search: open, and where the node goes (flow coordinates) when picked. */
   addSearch: { open: boolean; at: { x: number; y: number } | null };
-  /** Description cards under the nodes: all on or off (remembered in localStorage). */
+  /** Description cards under the nodes: all on or off (remembered in Preferences ▸ Canvas). */
   descriptionsOn: boolean;
-  /** The minimap in the canvas corner (remembered in localStorage). */
+  /** The minimap in the canvas corner (remembered in Preferences ▸ Canvas). */
   minimapOn: boolean;
   /** Nodes whose card the person closed; a dot on the node brings it back. */
   hiddenDescriptions: Record<string, true>;
@@ -165,8 +162,8 @@ export const useCanvasStore = create<CanvasState>((set) => ({
   manualInFlight: 0,
   replay: null,
   addSearch: { open: false, at: null },
-  descriptionsOn: readToggle(DESCRIPTIONS_KEY),
-  minimapOn: readToggle(MINIMAP_KEY),
+  descriptionsOn: true,
+  minimapOn: true,
   hiddenDescriptions: {},
   expandedDescriptions: {},
 
@@ -205,12 +202,12 @@ export const useCanvasStore = create<CanvasState>((set) => ({
   openAddSearch: (at) => set({ addSearch: { open: true, at } }),
   closeAddSearch: () => set({ addSearch: { open: false, at: null } }),
   setDescriptionsOn: (descriptionsOn) => {
-    writeToggle(DESCRIPTIONS_KEY, descriptionsOn);
     set({ descriptionsOn });
+    remember({ showDescriptions: descriptionsOn });
   },
   setMinimapOn: (minimapOn) => {
-    writeToggle(MINIMAP_KEY, minimapOn);
     set({ minimapOn });
+    remember({ showMinimap: minimapOn });
   },
   hideDescription: (nodeId) => set((state) => ({
     hiddenDescriptions: withIds(state.hiddenDescriptions, [nodeId]),

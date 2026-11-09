@@ -1,14 +1,34 @@
 import React, { useEffect, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { ENRICH_PER_RUN, type Preferences } from '../../../shared/config/preferences';
 import { startSyncSubscription, useKnowledgeStore } from '../../state/knowledgeState';
 import Button from '../../ui/Button';
+import NumberField from '../../ui/NumberField';
+import SelectField from '../../ui/SelectField';
 import Switch from '../../ui/Switch';
 import { runSyncNow, setAutoSync } from '../sync/SyncIndicator';
 import { clampInterval, formatSyncTime, MIN_INTERVAL_MINUTES, syncView } from '../sync/syncView';
 
-/** Settings › Sync: auto-sync, interval, last result, Sync now. Applies at once; Save is not needed. */
-export default function SyncSection({ fieldClass, hintClass, rowClass }: { fieldClass: string; hintClass: string; rowClass: string }) {
+/**
+ * Settings › Sync: auto-sync, interval, last result, Sync now (these apply at once), and what the enrichment
+ * reads per run (preferences, saved with Save settings).
+ */
+export default function SyncSection({
+  fieldClass,
+  hintClass,
+  rowClass,
+  sync,
+  onSyncChange,
+  container,
+}: {
+  fieldClass: string;
+  hintClass: string;
+  rowClass: string;
+  sync?: Preferences['sync'];
+  onSyncChange?: (patch: Partial<Preferences['sync']>) => void;
+  container?: HTMLElement | null;
+}) {
   const { t, i18n } = useTranslation();
   const language = i18n.language === 'en' ? 'en' : 'ru';
   const status = useKnowledgeStore((state) => state.sync);
@@ -31,7 +51,6 @@ export default function SyncSection({ fieldClass, hintClass, rowClass }: { field
 
   return (
     <>
-      <p className={hintClass}>{t('settings.syncLead')}</p>
       <p className={hintClass} role="status">
         {t(view.labelKey)}
         {status ? ` · ${String(t('sync.summary', {
@@ -74,6 +93,31 @@ export default function SyncSection({ fieldClass, hintClass, rowClass }: { field
         </Button>
       </div>
       {note ? <p className={hintClass} role="status">{note}</p> : null}
+      {sync && onSyncChange ? (
+        <>
+          <SelectField
+            label={String(t('preferences.enrichmentScope'))}
+            value={sync.enrichmentScope}
+            options={[
+              { value: 'loaders', label: String(t('preferences.scopeLoaders')) },
+              { value: 'all', label: String(t('preferences.scopeAll')) },
+            ]}
+            container={container}
+            onChange={(next) => onSyncChange({ enrichmentScope: next as 'loaders' | 'all' })}
+          />
+          <NumberField
+            label={String(t('preferences.enrichPerRun'))}
+            value={sync.enrichPerRun}
+            min={ENRICH_PER_RUN.min}
+            max={ENRICH_PER_RUN.max}
+            step={10}
+            hint={String(t('preferences.enrichPerRunHint'))}
+            decreaseLabel={String(t('preferences.decrease', { label: t('preferences.enrichPerRun') }))}
+            increaseLabel={String(t('preferences.increase', { label: t('preferences.enrichPerRun') }))}
+            onChange={(next) => onSyncChange({ enrichPerRun: next })}
+          />
+        </>
+      ) : null}
     </>
   );
 }

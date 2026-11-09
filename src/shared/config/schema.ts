@@ -1,3 +1,4 @@
+import type { Preferences } from './preferences';
 import { z } from 'zod';
 
 function httpOriginOrEmpty(value: string): boolean {
@@ -50,9 +51,13 @@ export const nonSecretDefaults: NonSecretSettings = {
   language: 'ru',
 };
 
+/**
+ * `preferences` is additive: the validated preferences model (src/shared/config/preferences.ts) read with the row.
+ * Older callers ignore it.
+ */
 export type SettingsRead =
-  | { source: 'default'; values: NonSecretSettings }
-  | { source: 'stored'; values: NonSecretSettings }
-  | { source: 'corrupt' };
+  | { source: 'default'; values: NonSecretSettings; preferences?: Preferences }
+  | { source: 'stored'; values: NonSecretSettings; preferences?: Preferences }
+  | { source: 'corrupt'; preferences?: Preferences };
 
 export type SecretSaveResult = { status: 'secret-storage-blocked' };

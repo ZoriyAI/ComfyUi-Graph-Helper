@@ -144,10 +144,15 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
   await expect(routeDialog).toHaveAttribute('data-state', 'open');
   await window.keyboard.press('Shift+Tab');
   await expect.poll(async () => window.evaluate(() => document.activeElement?.textContent?.trim() ?? '')).toBe('Connection');
-  await window.keyboard.press('ArrowDown');
+  // The section list is Assistant · Models & keys · Connection · Sync · Canvas · Appearance & Motion · …
+  await window.keyboard.press('ArrowUp');
+  await expect.poll(async () => window.evaluate(() => document.activeElement?.textContent?.trim() ?? '')).toBe('Models & keys');
+  await window.keyboard.press('ArrowUp');
   await expect.poll(async () => window.evaluate(() => document.activeElement?.textContent?.trim() ?? '')).toBe('Assistant');
-  await window.keyboard.press('ArrowDown');
-  await expect.poll(async () => window.evaluate(() => document.activeElement?.textContent?.trim() ?? '')).toBe('Appearance & Motion');
+  for (const label of ['Models & keys', 'Connection', 'Sync', 'Canvas', 'Appearance & Motion']) {
+    await window.keyboard.press('ArrowDown');
+    await expect.poll(async () => window.evaluate(() => document.activeElement?.textContent?.trim() ?? '')).toBe(label);
+  }
   await window.keyboard.press('Tab');
   await expect.poll(async () => window.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? '')).toBe('Motion');
   await window.keyboard.press('Enter');

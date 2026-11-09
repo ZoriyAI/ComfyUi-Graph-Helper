@@ -6,7 +6,7 @@ import { inferModelKind } from '../../shared/knowledge/modelKind';
 import { civitaiUrl, parseModelMetadata, plainText, triggerWordsOf, type ParsedModelMetadata } from '../../shared/knowledge/enrichment';
 import { SYNC_INTERVAL_DEFAULT_MINUTES, SYNC_INTERVAL_MAX_MINUTES, SYNC_INTERVAL_MIN_MINUTES } from '../../shared/knowledge/schemas';
 import { catalogTotals, writeModelEnrichment } from '../catalog/repository';
-import { readSettings } from '../settings/repository';
+import { readPreferences, readSettings } from '../settings/repository';
 import { connectStreamableHttp, failure, openReadOnlySession, readCatalogWithSession, type McpSessionFactory } from './client';
 import { McpRefusedError } from './readOnly';
 import { mcpToken } from './token';
@@ -26,7 +26,10 @@ export interface SyncDeps {
   fetchImpl: typeof fetch;
   factory: McpSessionFactory;
   now: () => number;
-  enrichLimit: number;
+  /** Fixed per-run limit (tests). When absent, Preferences ▸ Sync ▸ "Models per run" is read on each run. */
+  enrichLimit?: number;
+  /** Preferences ▸ Sync, read on each run: which folders to enrich and how many files per run. */
+  readEnrichment: (db: Database.Database) => { scope: 'loaders' | 'all'; perRun: number };
 }
 
 type Listener = (status: SyncStatus) => void;
@@ -40,7 +43,10 @@ const defaultDeps: SyncDeps = {
   fetchImpl: (...args) => globalThis.fetch(...args),
   factory: connectStreamableHttp,
   now: () => Date.now(),
-  enrichLimit: DEFAULT_ENRICH_LIMIT,
+  readEnrichment: (db) => {
+    const { sync } = readPreferences(db);
+    return { scope: sync.enrichmentScope, perRun: sync.enrichPerRun };
+  },
 };
 
 function readState(db: Database.Database): Record<string, string> {
@@ -208,11 +214,19 @@ export class SyncService {
 
   /** Returns an error only when every metadata read failed; partial failures still make progress. */
   private async enrich(db: Database.Database, session: McpSession, hasTool: boolean): Promise<string | null> {
-    const placeholders = ENRICH_DIRECTORIES.map(() => '?').join(', ');
-    const rows = db.prepare(
-      `SELECT directory, name FROM model_catalog WHERE enriched_at IS NULL AND directory IN (${placeholders})
-       ORDER BY directory, name LIMIT ?`,
-    ).all(...ENRICH_DIRECTORIES, this.deps.enrichLimit) as Array<{ directory: string; name: string }>;
+    let enrichment: { scope: 'loaders' | 'all'; perRun: number } = { scope: 'loaders', perRun: DEFAULT_ENRICH_LIMIT };
+    try {
+      enrichment = this.deps.readEnrichment(db);
+    } catch {
+      // Defaults: loader folders, 40 per run.
+    }
+    const limit = this.deps.enrichLimit ?? enrichment.perRun;
+    const rows = (enrichment.scope === 'all'
+      ? db.prepare('SELECT directory, name FROM model_catalog WHERE enriched_at IS NULL ORDER BY directory, name LIMIT ?').all(limit)
+      : db.prepare(
+        `SELECT directory, name FROM model_catalog WHERE enriched_at IS NULL AND directory IN (${ENRICH_DIRECTORIES.map(() => '?').join(', ')})
+         ORDER BY directory, name LIMIT ?`,
+      ).all(...ENRICH_DIRECTORIES, limit)) as Array<{ directory: string; name: string }>;
     let attempted = 0;
     let failed = 0;
     for (const [index, row] of rows.entries()) {
