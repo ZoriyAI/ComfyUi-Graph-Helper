@@ -8,6 +8,7 @@ import { addCommandStateSource, registerCommands, type Command } from './registr
 import { canvasHandle } from './canvasHandle';
 import { canRedo, canUndo, installUndoHistory, redo, redoHint, undo, undoHint } from './undo';
 import { useUndoStore } from '../state/undoState';
+import { installPortsNotice } from '../services/portsNotice';
 import {
   addGroup, askAboutSelection, canEditGraph, checkGraph, createSubgraph, deleteSelection, dissolveSubgraph, endRun, exportWorkflowFile, focusChat,
   importCatalogSnapshot, importWorkflowFile, openAddNode, openProjectFile, pauseRun, requestNewProject, resumeRun, saveProjectFile,
@@ -267,6 +268,8 @@ export function installAppCommands(): () => void {
     addCommandStateSource(useProjectionStore.subscribe),
     addCommandStateSource(useUndoStore.subscribe),
     installUndoHistory(),
+    // Not a command, but installed once with them: the "ports unknown" toast when a node is added.
+    installPortsNotice(),
     addCommandStateSource(domSource('data-motion')),
     addCommandStateSource(domSource('lang')),
     addCommandStateSource(resizeSource),

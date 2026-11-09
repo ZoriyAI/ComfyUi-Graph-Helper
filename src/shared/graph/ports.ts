@@ -38,6 +38,11 @@ const OUTPUTS: Record<string, PortDefinition[]> = {
   ],
 };
 
+/** True when the app ships the ports of this class itself (the core seed classes), synced or not. */
+export function hasBuiltinPorts(nodeType: string): boolean {
+  return Object.prototype.hasOwnProperty.call(INPUTS, nodeType) || Object.prototype.hasOwnProperty.call(OUTPUTS, nodeType);
+}
+
 export function inferInputs(nodeType: string): PortDefinition[] {
   return INPUTS[nodeType] || [];
 }

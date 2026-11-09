@@ -107,8 +107,13 @@ export const en = {
     addGroup: 'group nodes',
     removeGroup: 'remove a group',
     other: 'a change ({{type}})',
+  },
+  nodeGuard: {
     portsUnknown: 'Ports for this node are unknown: sync ComfyUI with the server running',
-    portsUnknownBody: '{{type}} was added without inputs or outputs. Connections become possible after a sync.',
+    portsUnknownBody: '{{type}} was added without its inputs and outputs. They appear after a sync.',
+    unknownClass: 'Unknown node class {{classType}}',
+    didYouMean: 'Did you mean: {{list}}?',
+    notInCatalog: 'It is not in the synced ComfyUI catalog.',
   },
   exportGuard: {
     title_one: 'The workflow has {{count, number}} issue',
@@ -1217,8 +1222,13 @@ export const ru = {
     addGroup: 'группировку нод',
     removeGroup: 'удаление группы',
     other: 'изменение ({{type}})',
+  },
+  nodeGuard: {
     portsUnknown: 'Порты этой ноды неизвестны: синхронизируйте ComfyUI при запущенном сервере',
-    portsUnknownBody: '{{type}} добавлена без входов и выходов. Связи станут доступны после синхронизации.',
+    portsUnknownBody: '{{type}} добавлена без своих входов и выходов. Они появятся после синхронизации.',
+    unknownClass: 'Неизвестный класс ноды {{classType}}',
+    didYouMean: 'Возможно, вы имели в виду: {{list}}?',
+    notInCatalog: 'Его нет в синхронизированном каталоге ComfyUI.',
   },
   exportGuard: {
     title_one: 'В workflow {{count, number}} проблема',
