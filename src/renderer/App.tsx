@@ -21,6 +21,7 @@ import { useProviderStore } from './state/providerState';
 import { applyProjection, useProjectionStore } from './services/commands/projection';
 import { getChatService } from './services/llm/chatService';
 import { installAppCommands } from './commands/appCommands';
+import { useCommandState } from './commands/registry';
 import { installHotkeys } from './commands/hotkeys';
 import { installPreferences } from './state/preferencesBridge';
 import { importWorkflowFile } from './commands/actions';
@@ -45,6 +46,8 @@ const SettingsButton = forwardRef<HTMLButtonElement, React.ButtonHTMLAttributes<
 
 function App() {
   const { t } = useTranslation();
+  // Preferences ▸ Shortcuts may move or remove Mod+, ; the hint shows what the command has now.
+  const settingsShortcut = useCommandState('file.settings').command?.shortcut;
 
   useEffect(() => {
     // Both are idempotent; the canvas and the sync indicator may call them too.
@@ -78,7 +81,7 @@ function App() {
   };
 
   const settings = (
-    <Hint label={String(t('shell.settings'))} side="bottom" shortcut={<Shortcut shortcut="Mod+," />}>
+    <Hint label={String(t('shell.settings'))} side="bottom" shortcut={settingsShortcut ? <Shortcut shortcut={settingsShortcut} /> : undefined}>
       <SettingsPanel
         trigger={<SettingsButton />}
         onRead={(values) => void useProviderStore.getState().showStored(values)}

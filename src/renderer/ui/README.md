@@ -26,6 +26,8 @@ or the file directly.
 | `Dialog*` | `DialogRoot/Trigger/Portal/Overlay/Content/Title/Description/Close` | `DialogOverlay` and `DialogContent` are styled (elevation 3, enter/exit on motion tokens). |
 | `Tabs*` | `TabsRoot/List/Trigger/Content` | Styled Radix tabs; contexts restyle through their own modules. |
 | `SelectField` | `id?, label, value, options, onChange, container?, className?` | Radix select. Keeps `field`, `select-trigger`, `select-content`, `select-item` classes and `data-value`. `CLOSE_OPEN_SELECT` window event closes an open list. |
+| `RadioCards` | `label, value, options: { value, title, description?, leading?, trailing? }[], onChange, columns?, compact?, hideLabel?` | A radio group drawn as cards (role radiogroup / radio, roving tab stop, arrows select). The card's name is its title only. |
+| `NumberField` | `label, value, min, max, step?, unit?, hint?, onChange, decreaseLabel, increaseLabel` | A spinbutton with − / + buttons; typing is clamped to the range and step on blur or Enter. `clampNumber` exported. |
 | `Hint`, `HintProvider` | `label`, `side?` | Radix tooltip. Keeps `hint-target` / `hint-content`. |
 
 Depth: frame bars use `--bar-sheen` / `--shadow-bar`, side panels `--panel-sheen` / `--panel-edge`, hoverable cards
