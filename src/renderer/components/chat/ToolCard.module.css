@@ -52,6 +52,16 @@
 
 .summary { margin: 0; color: var(--text-dim); overflow-wrap: anywhere; }
 .error { margin: 0; color: var(--danger); overflow-wrap: anywhere; }
+.why { margin: 0; color: var(--text); overflow-wrap: anywhere; }
+.whyLabel {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 0 6px;
+  border-radius: var(--radius-pill, 999px);
+  background: var(--ai-soft);
+  color: var(--ai);
+  font-size: var(--text-xs, 12px);
+}
 .explanationText { margin: 0; color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere; }
 .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; color: var(--text-dim); }
 

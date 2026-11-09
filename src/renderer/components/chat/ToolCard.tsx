@@ -10,6 +10,7 @@ import { asObjectRef, INTERRUPTED_ERROR, isRecord } from '../../services/llm/cha
 import ProvenanceBadge, { isProvenance } from '../explain/ProvenanceBadge';
 import { objectLabel } from './objectLabel';
 import ProposalCard from './ProposalCard';
+import { useCanvasStore } from '../graph/canvasStore';
 import { buildTargetRef, compactArgs, resultMessage, toolLabelKey } from './toolPresentation';
 import styles from './ToolCard.module.css';
 
@@ -28,9 +29,16 @@ const OMIT_ARGS: Record<ToolKind, readonly string[]> = {
   read: [],
   knowledge: ['text', 'owner'],
   proposal: ['note'],
-  build: ['purpose', 'usage', 'notes', 'annotation'],
+  build: ['purpose', 'usage', 'notes', 'annotation', 'why'],
   other: [],
 };
+
+/** The node a build step is about, for centring the canvas: the node itself, or an edge's target. */
+function centreNode(target: ObjectRef, edges: Array<{ id: string; target: string }>): string | null {
+  if (target.kind === 'node') return target.id;
+  if (target.kind === 'edge') return edges.find((edge) => edge.id === target.id)?.target ?? null;
+  return null;
+}
 
 function ShowButton({ target, label }: { target: ObjectRef; label: string }) {
   const { t } = useTranslation();
@@ -40,7 +48,11 @@ function ShowButton({ target, label }: { target: ObjectRef; label: string }) {
       type="button"
       className={styles.action}
       aria-label={String(t('chat.toolShowLabel', { object: label }))}
-      onClick={() => setFocus(target)}
+      onClick={() => {
+        setFocus(target);
+        const nodeId = centreNode(target, useGraphStore.getState().edges);
+        if (nodeId) useCanvasStore.getState().requestCenter(nodeId);
+      }}
     >
       <Crosshair size={14} aria-hidden="true" />
       {t('chat.toolShow')}
@@ -148,6 +160,12 @@ export default function ToolCard({ call }: { call: ToolCall }) {
       ) : null}
       {call.status === 'success' && outcome && !isExplain && call.kind !== 'proposal' ? (
         <p className={styles.summary}>{outcome}</p>
+      ) : null}
+      {call.kind === 'build' && typeof call.args.why === 'string' && call.args.why.trim() && call.status !== 'error' ? (
+        <p className={styles.why} data-build-why>
+          <span className={styles.whyLabel}>{t('chat.toolWhy')}</span>
+          {call.args.why.trim()}
+        </p>
       ) : null}
       {call.kind === 'build' ? <BuildActions call={call} /> : null}
       {args.length > 0 ? <ArgumentList args={args} /> : null}

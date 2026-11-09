@@ -42,7 +42,7 @@ function ensureLoaded(ref: ObjectRef | null): void {
   });
 }
 
-/** The node the tour or the step-by-step build is showing, and what it would say without a card. */
+/** The node the tour is showing, and what it would say without a card. */
 export interface DescriptionSpotlight {
   nodeId: string;
   text: string;
@@ -50,9 +50,7 @@ export interface DescriptionSpotlight {
 
 export function useDescriptionSpotlight(): DescriptionSpotlight | null {
   const step = useUiStore((state) => (state.tour ? state.tour.steps[state.tour.index] : undefined));
-  const callout = useCanvasStore((state) => state.callout);
   if (step?.ref.kind === 'node') return { nodeId: step.ref.id, text: step.text };
-  if (callout) return { nodeId: callout.nodeId, text: callout.text };
   return null;
 }
 
@@ -293,19 +291,21 @@ function DescriptionCard({ node, spotlight, readOnly }: { node: ComfyFlowNode; s
  * Description blocks on the canvas: one card under every node that has something to say, anchored with
  * React Flow's NodeToolbar so it follows drags, pans and zooms while its text stays a readable size.
  * The toolbar's "Descriptions" button turns all cards off; each card can be hidden on its own (a dot brings it
- * back). The tour step and the node the build just revealed get their card expanded. Cards live in the project
+ * back). The tour step gets its card expanded; a node the live build just revealed shows its bubble first. Cards live in the project
  * (explanations, catalog, component records) and never in the exported workflow.
  */
 export default function DescriptionLayer() {
   const on = useCanvasStore((state) => state.descriptionsOn);
   const pending = useCanvasStore((state) => state.pending);
+  // While the live build's bubble speaks for a node that just appeared, its card waits; then the bubble collapses into it.
+  const speaking = useCanvasStore((state) => (state.callout && (state.callout.kind ?? 'node') === 'node' ? state.callout.nodeId : null));
   const nodes = useNodes();
   const spotlight = useDescriptionSpotlight();
   const { readOnly } = useCanvasView();
   if (!on) return null;
   return (
     <>
-      {nodes.map((node) => (node.type === 'comfy' && !pending.includes(node.id)
+      {nodes.map((node) => (node.type === 'comfy' && !pending.includes(node.id) && node.id !== speaking
         ? <DescriptionCard key={node.id} node={node as ComfyFlowNode} spotlight={spotlight} readOnly={readOnly} />
         : null))}
     </>

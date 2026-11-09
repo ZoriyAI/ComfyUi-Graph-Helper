@@ -1,7 +1,9 @@
 import { create } from 'zustand';
 import type { ObjectRef } from '../../../shared/contracts/objects';
 import type { RevisionSnapshot, RevisionSummary } from '../../../shared/contracts/revisions';
+import type { AgentViewport } from '../../../shared/contracts/agent';
 import type { ConnectFrom } from './lib/connectAssist';
+import type { BuildItem, BuildStepInfo } from './lib/buildQueue';
 
 /**
  * Ephemeral canvas state: what the explanatory layers are showing right now.
@@ -36,9 +38,34 @@ function writeDescriptionsOn(on: boolean): void {
 }
 
 export interface BuildCallout {
+  /** The node the bubble points at. */
   nodeId: string;
   title: string;
   text: string;
+  /** The build item the callout is about (node id, edge id, param key); absent for older callers. */
+  key?: string;
+  kind?: BuildItem['kind'];
+  /** Tool name of the step (addNode, connectNodes, …), for the label. */
+  toolName?: string;
+  step?: { index: number; total: number };
+  change?: BuildItem['change'];
+}
+
+/** The live build of the current agent run: how many steps are on screen and what the last one said. */
+export interface LiveBuild {
+  runId: string | null;
+  shown: number;
+  why: string;
+}
+
+/** A node the agent removed, fading out where it stood. */
+export interface FadingNode {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  title: string;
 }
 
 interface CanvasState {
@@ -52,9 +79,19 @@ interface CanvasState {
   justAdded: Record<string, true>;
   /** Nodes an agent commit touched; they pulse once. */
   aiTouched: Record<string, true>;
-  /** Step-by-step build: ids waiting their turn, hidden until revealed. */
+  /** Step-by-step build: node and edge ids waiting their turn, hidden until revealed (derived from `queue`). */
   pending: string[];
+  /** Step-by-step build: everything waiting its turn, in order. */
+  queue: BuildItem[];
+  /** What build-step chunks said, by item key. */
+  stepInfo: Record<string, BuildStepInfo>;
+  live: LiveBuild;
+  fading: FadingNode[];
   callout: BuildCallout | null;
+  /** The canvas camera and size, for the agent's turn context. */
+  viewport: AgentViewport | null;
+  /** A request to centre a node (the chat's "Show"); the nonce makes a repeat request count. */
+  centerRequest: { nodeId: string; nonce: number } | null;
   /** Manual commits in flight; their projections do not start a build reveal. */
   manualInFlight: number;
   replay: ReplayState | null;
@@ -74,7 +111,14 @@ interface CanvasState {
   markAiTouched: (ids: string[]) => void;
   clearAiTouched: (ids: string[]) => void;
   setPending: (ids: string[]) => void;
+  setQueue: (items: BuildItem[]) => void;
+  noteBuildStep: (key: string, info: BuildStepInfo) => void;
+  setLive: (live: LiveBuild) => void;
+  addFading: (nodes: FadingNode[]) => void;
+  clearFading: (ids: string[]) => void;
   setCallout: (callout: BuildCallout | null) => void;
+  setViewport: (viewport: AgentViewport) => void;
+  requestCenter: (nodeId: string) => void;
   beginManual: () => void;
   endManual: () => void;
   setReplay: (replay: ReplayState | null) => void;
@@ -106,7 +150,13 @@ export const useCanvasStore = create<CanvasState>((set) => ({
   justAdded: {},
   aiTouched: {},
   pending: [],
+  queue: [],
+  stepInfo: {},
+  live: { runId: null, shown: 0, why: '' },
+  fading: [],
   callout: null,
+  viewport: null,
+  centerRequest: null,
   manualInFlight: 0,
   replay: null,
   addSearch: { open: false, at: null },
@@ -120,8 +170,28 @@ export const useCanvasStore = create<CanvasState>((set) => ({
   clearAdded: (ids) => set((state) => ({ justAdded: withoutIds(state.justAdded, ids) })),
   markAiTouched: (ids) => set((state) => ({ aiTouched: withIds(state.aiTouched, ids) })),
   clearAiTouched: (ids) => set((state) => ({ aiTouched: withoutIds(state.aiTouched, ids) })),
-  setPending: (pending) => set({ pending }),
+  setPending: (pending) => set((state) => ({ pending, queue: state.queue.filter((item) => item.kind === 'param' || pending.includes(item.key)) })),
+  setQueue: (queue) => set({ queue, pending: queue.filter((item) => item.kind !== 'param').map((item) => item.key) }),
+  noteBuildStep: (key, info) => set((state) => {
+    const stepInfo = { ...state.stepInfo, [key]: info };
+    // The step may already be on screen (motion off, or a slow chunk): give its callout the agent's words now.
+    const callout = state.callout && state.callout.key === key && info.why
+      ? { ...state.callout, text: info.why, toolName: info.toolName }
+      : state.callout;
+    const live = callout !== state.callout && info.why ? { ...state.live, why: info.why } : state.live;
+    return { stepInfo, callout, live };
+  }),
+  setLive: (live) => set({ live }),
+  addFading: (nodes) => set((state) => ({ fading: [...state.fading.filter((item) => !nodes.some((node) => node.id === item.id)), ...nodes] })),
+  clearFading: (ids) => set((state) => ({ fading: state.fading.filter((item) => !ids.includes(item.id)) })),
   setCallout: (callout) => set({ callout }),
+  setViewport: (viewport) => set((state) => (
+    state.viewport && state.viewport.x === viewport.x && state.viewport.y === viewport.y && state.viewport.zoom === viewport.zoom
+      && state.viewport.width === viewport.width && state.viewport.height === viewport.height
+      ? {}
+      : { viewport }
+  )),
+  requestCenter: (nodeId) => set((state) => ({ centerRequest: { nodeId, nonce: (state.centerRequest?.nonce ?? 0) + 1 } })),
   beginManual: () => set((state) => ({ manualInFlight: state.manualInFlight + 1 })),
   endManual: () => set((state) => ({ manualInFlight: Math.max(0, state.manualInFlight - 1) })),
   setReplay: (replay) => set({ replay }),

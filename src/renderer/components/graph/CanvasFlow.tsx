@@ -9,6 +9,7 @@ import {
   applyEdgeChanges,
   applyNodeChanges,
   useReactFlow,
+  useStore,
   useViewport,
   type Connection,
   type Edge,
@@ -36,6 +37,7 @@ import ConnectAssistLayer from './layers/ConnectAssistLayer';
 import TourLayer from './layers/TourLayer';
 import DescriptionLayer from './layers/DescriptionLayer';
 import BuildLayer from './layers/BuildLayer';
+import LiveBuildStrip from './layers/LiveBuildStrip';
 import GraphContextMenu from './GraphContextMenu';
 import { CanvasViewContext, type CanvasView } from './CanvasContext';
 import { useCanvasStore } from './canvasStore';
@@ -54,12 +56,19 @@ const edgeTypes: EdgeTypes = { default: TypedEdge };
 
 type LevelNode = GraphNode | BoundaryNode;
 
+/** Reports the camera: zoom to the graph store, and the whole viewport (with the canvas size) for the agent's turn context. */
 function ZoomReporter() {
-  const { zoom } = useViewport();
+  const { x, y, zoom } = useViewport();
+  const width = useStore((state) => state.width);
+  const height = useStore((state) => state.height);
   const setZoom = useGraphStore((state) => state.setZoom);
+  const setViewport = useCanvasStore((state) => state.setViewport);
   useEffect(() => {
     setZoom(zoom);
   }, [setZoom, zoom]);
+  useEffect(() => {
+    setViewport({ x: Math.round(x), y: Math.round(y), zoom: Math.round(zoom * 1000) / 1000, width: Math.round(width), height: Math.round(height) });
+  }, [setViewport, x, y, zoom, width, height]);
   return null;
 }
 
@@ -347,6 +356,7 @@ export default function CanvasFlow() {
             <DescriptionLayer />
             <TourLayer />
             <BuildLayer />
+            <LiveBuildStrip />
           </ReactFlow>
         </div>
       </GraphContextMenu>
