@@ -65,7 +65,31 @@ const ERROR_KEYS: Record<string, string> = {
   'A boundary slot repeats an inner port.': 'proposals.errors.slotRepeated',
   'Subgraph slot was not found.': 'proposals.errors.slotMissing',
   'Group was not found.': 'proposals.errors.groupMissing',
+  'Model metadata could not be read.': 'errors.metadataUnread',
+  'MCP catalog page could not be read.': 'errors.mcpPage',
+  'MCP server URL must use https unless it is on this machine.': 'errors.mcpHttps',
+  'Explanations cannot store a secret.': 'errors.explanationSecret',
+  'The project record does not match the schema.': 'errors.projectRecord',
+  'The request did not come from the app window.': 'errors.untrustedSender',
+  'Connection slots must be numbers.': 'errors.slotsNumbers',
+  'Source node was not found.': 'errors.sourceMissing',
+  'Target node was not found.': 'errors.targetMissing',
+  'Source handle is not an output on that node.': 'errors.sourceHandle',
+  'Target handle is not an input on that node.': 'errors.targetHandle',
+  'Catalog widget order does not match widgets_values.': 'errors.widgetOrderMismatch',
+  'widgetIndex does not match the catalog widget order.': 'errors.widgetIndexMismatch',
+  'widgetIndex is outside widgets_values.': 'errors.widgetIndexOutside',
+  'widgetIndex is required when widgets_values is an array.': 'errors.widgetIndexRequired',
 };
+
+/** McpRefusedError text carries the tool name; it is translated with the name kept. */
+const MCP_REFUSED = /^MCP tool call refused: ([A-Za-z0-9_.-]{1,80}) is not on the read-only list\.$/;
+
+function translatePattern(translate: Translator, code: string): string | null {
+  const refused = MCP_REFUSED.exec(code);
+  if (refused) return translate('errors.mcpRefused', { tool: refused[1] });
+  return null;
+}
 
 const NATIVE_VERSION_PREFIX = 'Unsupported native project version ';
 
@@ -92,12 +116,14 @@ export function createTranslator(language: AppLanguage): Translator {
 
 export function translateKnownError(translate: Translator, code: string): string | null {
   const key = ERROR_KEYS[code];
-  return key ? translate(key) : null;
+  return key ? translate(key) : translatePattern(translate, code);
 }
 
 export function explainError(translate: Translator, code: string): { summary: string; diagnostic: string | null } {
   const key = ERROR_KEYS[code];
   if (key) return { summary: translate(key), diagnostic: null };
+  const pattern = translatePattern(translate, code);
+  if (pattern) return { summary: pattern, diagnostic: null };
   if (code.startsWith(NATIVE_VERSION_PREFIX)) {
     const version = code.slice(NATIVE_VERSION_PREFIX.length).replace(/\.$/, '');
     return { summary: translate('errors.nativeVersion', { version }), diagnostic: redactDiagnostic(code) };

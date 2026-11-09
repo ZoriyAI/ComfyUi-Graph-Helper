@@ -10,6 +10,7 @@ import { showToast } from '../../ui/toastStore';
 import { cx } from '../../ui/cx';
 import { clampInterval, formatSyncTime, MIN_INTERVAL_MINUTES, syncTransition, syncView, type SyncState } from './syncView';
 import styles from './SyncIndicator.module.css';
+import { redactDiagnostic, translateKnownError } from '../../../shared/i18n';
 
 /** Starts or refreshes a sync. Shared by the indicator, the library empty states and settings. */
 export async function runSyncNow(): Promise<void> {
@@ -36,6 +37,8 @@ export async function setAutoSync(enabled: boolean, intervalMinutes: number): Pr
  */
 export default function SyncIndicator() {
   const { t, i18n } = useTranslation();
+  /** Main stores fixed English sentences; show the catalog wording, or the redacted text when it is not one of them. */
+  const errorText = (error: string) => translateKnownError((key, options) => String(t(key, (options ?? {}) as Record<string, string>)), error) ?? redactDiagnostic(error);
   const status = useKnowledgeStore((state) => state.sync);
   const view = syncView(status);
   const previous = useRef<SyncState | null>(null);
@@ -72,7 +75,7 @@ export default function SyncIndicator() {
         id: 'sync-result',
         tone: 'error',
         title: String(t('sync.state.error')),
-        description: status.lastError ? String(t('sync.lastError', { error: status.lastError })) : null,
+        description: status.lastError ? String(t('sync.lastError', { error: errorText(status.lastError) })) : null,
       });
     }
   }, [view.state]);
@@ -121,7 +124,7 @@ export default function SyncIndicator() {
           <p className={styles.note}>
             {status?.lastSyncAt ? t('settings.syncLast', { time: formatSyncTime(status.lastSyncAt, language) }) : t('settings.syncNever')}
           </p>
-          {status?.lastError && view.state === 'error' ? <p className={styles.errorNote}>{t('sync.lastError', { error: status.lastError })}</p> : null}
+          {status?.lastError && view.state === 'error' ? <p className={styles.errorNote}>{t('sync.lastError', { error: errorText(status.lastError) })}</p> : null}
           {view.blocked ? <p className={styles.note}>{t(view.blocked === 'noUrl' ? 'sync.noUrl' : 'sync.noToken')}</p> : null}
           <div className={styles.auto}>
             <Switch

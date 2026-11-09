@@ -67,3 +67,28 @@ describe('unprotected cipher check', () => {
     expect(isUnprotectedCipher(Buffer.from('v10abc'), 'win32')).toBe(false);
   });
 });
+
+import { createTranslator, translateKnownError } from '../../src/shared/i18n';
+
+describe('sync and engine error translation', () => {
+  it('maps the fixed English sentences in both languages', () => {
+    const en = createTranslator('en');
+    const ru = createTranslator('ru');
+    for (const code of [
+      'Model metadata could not be read.', 'MCP catalog page could not be read.', 'MCP server URL must use https unless it is on this machine.',
+      'Connection slots must be numbers.', 'Source node was not found.', 'Target node was not found.', 'Source handle is not an output on that node.',
+      'Target handle is not an input on that node.', 'Catalog widget order does not match widgets_values.', 'widgetIndex is outside widgets_values.',
+      'widgetIndex does not match the catalog widget order.', 'widgetIndex is required when widgets_values is an array.',
+      'Explanations cannot store a secret.', 'The project record does not match the schema.', 'The request did not come from the app window.',
+    ]) {
+      const english = translateKnownError(en, code);
+      const russian = translateKnownError(ru, code);
+      expect(english, code).toBeTruthy();
+      expect(russian, code).toBeTruthy();
+      expect(russian).not.toBe(english);
+    }
+    expect(translateKnownError(en, 'MCP tool call refused: download_model is not on the read-only list.')).toBe('The MCP tool download_model is not on the read-only list, so it was not called.');
+    expect(translateKnownError(ru, 'MCP tool call refused: download_model is not on the read-only list.')).toContain('download_model');
+    expect(translateKnownError(en, 'something else')).toBeNull();
+  });
+});
