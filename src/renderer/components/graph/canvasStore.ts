@@ -18,18 +18,20 @@ export interface ReplayState {
 
 /** localStorage key that remembers whether description cards are on. */
 export const DESCRIPTIONS_KEY = 'helper.canvas.descriptions';
+/** localStorage key that remembers whether the minimap is shown. */
+export const MINIMAP_KEY = 'helper.canvas.minimap';
 
-function readDescriptionsOn(): boolean {
+function readToggle(key: string): boolean {
   try {
-    return typeof window === 'undefined' || window.localStorage.getItem(DESCRIPTIONS_KEY) !== 'off';
+    return typeof window === 'undefined' || window.localStorage.getItem(key) !== 'off';
   } catch {
     return true;
   }
 }
 
-function writeDescriptionsOn(on: boolean): void {
+function writeToggle(key: string, on: boolean): void {
   try {
-    window.localStorage.setItem(DESCRIPTIONS_KEY, on ? 'on' : 'off');
+    window.localStorage.setItem(key, on ? 'on' : 'off');
   } catch {
     // Storage can be unavailable; the toggle still works for this session.
   }
@@ -62,6 +64,8 @@ interface CanvasState {
   addSearch: { open: boolean; at: { x: number; y: number } | null };
   /** Description cards under the nodes: all on or off (remembered in localStorage). */
   descriptionsOn: boolean;
+  /** The minimap in the canvas corner (remembered in localStorage). */
+  minimapOn: boolean;
   /** Nodes whose card the person closed; a dot on the node brings it back. */
   hiddenDescriptions: Record<string, true>;
   /** Nodes whose card is expanded. */
@@ -82,6 +86,7 @@ interface CanvasState {
   openAddSearch: (at: { x: number; y: number } | null) => void;
   closeAddSearch: () => void;
   setDescriptionsOn: (on: boolean) => void;
+  setMinimapOn: (on: boolean) => void;
   hideDescription: (nodeId: string) => void;
   showDescription: (nodeId: string) => void;
   setDescriptionExpanded: (nodeId: string, expanded: boolean) => void;
@@ -110,7 +115,8 @@ export const useCanvasStore = create<CanvasState>((set) => ({
   manualInFlight: 0,
   replay: null,
   addSearch: { open: false, at: null },
-  descriptionsOn: readDescriptionsOn(),
+  descriptionsOn: readToggle(DESCRIPTIONS_KEY),
+  minimapOn: readToggle(MINIMAP_KEY),
   hiddenDescriptions: {},
   expandedDescriptions: {},
 
@@ -129,8 +135,12 @@ export const useCanvasStore = create<CanvasState>((set) => ({
   openAddSearch: (at) => set({ addSearch: { open: true, at } }),
   closeAddSearch: () => set({ addSearch: { open: false, at: null } }),
   setDescriptionsOn: (descriptionsOn) => {
-    writeDescriptionsOn(descriptionsOn);
+    writeToggle(DESCRIPTIONS_KEY, descriptionsOn);
     set({ descriptionsOn });
+  },
+  setMinimapOn: (minimapOn) => {
+    writeToggle(MINIMAP_KEY, minimapOn);
+    set({ minimapOn });
   },
   hideDescription: (nodeId) => set((state) => ({
     hiddenDescriptions: withIds(state.hiddenDescriptions, [nodeId]),

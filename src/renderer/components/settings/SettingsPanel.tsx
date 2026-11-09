@@ -19,6 +19,8 @@ import SelectField, { CLOSE_OPEN_SELECT } from '../../ui/SelectField';
 import { TabsContent, TabsList, TabsRoot, TabsTrigger } from '../../ui/Tabs';
 import { cx } from '../../ui/cx';
 import SyncSection from './SyncSection';
+import { useUiStore } from '../../state/uiState';
+import { SETTINGS_CHANGED } from '../../commands/events';
 import styles from './SettingsPanel.module.css';
 
 function applyMotion(motion: NonSecretSettings['motion']) {
@@ -55,11 +57,14 @@ export default function SettingsPanel({
   onSaved,
   onSession,
   triggerIcon,
+  trigger,
 }: {
   onRead: (values: NonSecretSettings) => void;
   onSaved: (values: NonSecretSettings) => void;
   onSession: (source: 'none' | 'session' | 'os') => void;
   triggerIcon?: React.ReactNode;
+  /** The button that opens the dialog (focus returns to it). Defaults to a small "Settings" button. */
+  trigger?: React.ReactElement;
 }) {
   const { t } = useTranslation();
   const translate: Translator = (key, options) => (options ? String(t(key, options)) : String(t(key)));
@@ -122,6 +127,26 @@ export default function SettingsPanel({
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  // File ▸ Settings, Sync ▸ Sync settings and Mod+, open the dialog, optionally on one section.
+  const settingsRequest = useUiStore((state) => state.settingsRequest);
+  useEffect(() => {
+    if (!settingsRequest) return;
+    if (settingsRequest.section) setSection(settingsRequest.section);
+    setOpen(true);
+  }, [settingsRequest]);
+
+  // The menu saved a language or motion change: what is stored moved, so the form starts from it.
+  useEffect(() => {
+    const onChanged = (event: Event) => {
+      const values = (event as CustomEvent<NonSecretSettings>).detail;
+      if (!values) return;
+      savedRef.current = values;
+      setValues(values);
+    };
+    window.addEventListener(SETTINGS_CHANGED, onChanged);
+    return () => window.removeEventListener(SETTINGS_CHANGED, onChanged);
   }, []);
 
   const discard = () => {
@@ -306,7 +331,7 @@ export default function SettingsPanel({
       }}
     >
       <DialogTrigger asChild>
-        <Button size="sm" icon={triggerIcon}>{t('shell.settings')}</Button>
+        {trigger ?? <Button size="sm" icon={triggerIcon}>{t('shell.settings')}</Button>}
       </DialogTrigger>
       <DialogPortal>
         <DialogOverlay />

@@ -1,0 +1,15 @@
+.shortcut { display: inline-flex; align-items: center; gap: 2px; white-space: nowrap; }
+.key { min-width: 18px; height: 18px; padding: 0 4px; font-size: 11px; line-height: 14px; }
+/* In menus the shortcut is a quiet right-aligned hint: flat caps, no frame. */
+.quiet { gap: 1px; }
+.quiet .key {
+  min-width: 0;
+  height: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+}
+.joiner { color: var(--text-faint); font-size: 11px; }

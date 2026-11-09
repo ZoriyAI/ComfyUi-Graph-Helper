@@ -29,3 +29,6 @@
 @keyframes menuIn { from { opacity: 0; transform: translateY(-2px); } to { opacity: 1; transform: none; } }
 :global(html[data-motion="off"]) .content,
 :global(html[data-motion="reduced"]) .content { animation: none; }
+.label { flex: 1 1 auto; min-width: 0; }
+.shortcut { margin-left: auto; padding-left: 20px; color: var(--text-dim); flex: 0 0 auto; }
+.item[data-disabled] .shortcut { color: var(--text-faint); }

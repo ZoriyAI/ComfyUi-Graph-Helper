@@ -15,6 +15,7 @@ import { canUseSplit, dockRange, normalizeDockTab, useDockStore, type DockTab } 
 import { RAIL_STRIP, RAIL_WIDTH, useUiStore } from '../../state/uiState';
 import { DESKTOP_PROJECT_ID } from '../../../shared/project';
 import { motionIsFull } from '../../motion/policy';
+import { runCommand, useCommandState } from '../../commands/registry';
 import styles from './Dock.module.css';
 
 function useViewportWidth(): number {
@@ -100,29 +101,24 @@ function useLabelsFit(labels: string[]): [React.RefObject<HTMLDivElement>, boole
   return [ref, fits];
 }
 
-/** Dock header actions: show Inspector and Assistant side by side, and hide the dock. */
+/**
+ * Dock header actions: show Inspector and Assistant side by side, and hide the dock. Both run the
+ * View-menu commands (view.showBoth, view.dock), so the menu bar and these buttons agree.
+ */
 function DockActions() {
   const { t } = useTranslation();
-  const split = useDockStore((state) => state.split);
-  const setCollapsed = useDockStore((state) => state.setCollapsed);
-  const setSplit = useDockStore((state) => state.setSplit);
-  const viewport = useViewportWidth();
-  const splitAllowed = canUseSplit(viewport);
+  const showBoth = useCommandState('view.showBoth');
   const splitReason = String(t('dock.showBothReason'));
 
   return (
     <div className={styles.actions}>
-      {splitAllowed ? (
+      {showBoth.enabled ? (
         <IconButton
           size="sm"
           label={String(t('dock.showBoth'))}
           title={String(t('dock.showBothTitle'))}
-          aria-pressed={split}
-          onClick={() => {
-            const next = !split;
-            if (next && window.innerWidth - RAIL_WIDTH - 560 < 560) useUiStore.getState().setRail(false);
-            setSplit(next);
-          }}
+          aria-pressed={Boolean(showBoth.checked)}
+          onClick={() => void runCommand('view.showBoth')}
         >
           <Columns2 size={16} aria-hidden="true" />
         </IconButton>
@@ -134,7 +130,7 @@ function DockActions() {
         </Hint>
       )}
       <span id="show-both-reason" className="sr-only">{splitReason}</span>
-      <IconButton size="sm" label={String(t('dock.hideTools'))} aria-controls="tool-dock" aria-expanded onClick={() => setCollapsed(true)}>
+      <IconButton size="sm" label={String(t('dock.hideTools'))} aria-controls="tool-dock" aria-expanded onClick={() => void runCommand('view.dock')}>
         <PanelRightClose size={16} aria-hidden="true" />
       </IconButton>
     </div>
@@ -162,10 +158,9 @@ function DockStrip() {
   const { t } = useTranslation();
   const tab = useDockStore((state) => state.tab);
   const show = useDockStore((state) => state.show);
-  const setCollapsed = useDockStore((state) => state.setCollapsed);
   return (
     <div className={cx(styles.strip, 'dock-strip')}>
-      <IconButton label={String(t('dock.showTools'))} aria-controls="tool-dock" aria-expanded={false} onClick={() => setCollapsed(false)}>
+      <IconButton label={String(t('dock.showTools'))} aria-controls="tool-dock" aria-expanded={false} onClick={() => void runCommand('view.dock')}>
         <PanelRightOpen size={18} aria-hidden="true" />
       </IconButton>
       <span className={styles.stripRule} aria-hidden="true" />

@@ -1,25 +1,50 @@
-/* The second row: file and edit actions plus the provider. A quieter strip under the elevated app bar. */
+/* The compact toolbar under the menu bar: 36 px of icon buttons in groups, then provider and project. */
 .toolbar {
   position: relative;
   z-index: 3;
   display: flex;
   align-items: center;
-  gap: 4px;
-  height: 40px;
-  padding: 0 8px;
+  gap: 1px;
+  height: 36px;
+  padding: 0 6px;
   border-bottom: 1px solid var(--border);
   background-color: var(--surface-panel);
-  background-image: linear-gradient(180deg, rgba(0, 0, 0, 0.12), transparent 10px);
-  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.02), 0 6px 14px -10px rgba(0, 0, 0, 0.8);
+  box-shadow: 0 6px 14px -10px rgba(0, 0, 0, 0.8);
   overflow: hidden;
   flex: 0 0 auto;
   flex-wrap: nowrap;
 }
-.toolbar :global(.ghost-button) { min-height: 30px; padding: 4px 8px; font-size: var(--text-sm); color: var(--text-dim); }
+.tool {
+  width: 28px;
+  min-height: 28px;
+  height: 28px;
+  padding: 0;
+  gap: 0;
+  border-radius: var(--radius-xs);
+  color: var(--text-dim);
+}
 .toolbar :global(.ghost-button:hover:not(:disabled)) { color: var(--text); }
-.toolbar :global(.ghost-button:disabled) { color: var(--text-faint); }
-.rule { width: 1px; height: 16px; margin: 0 4px; background: var(--border); flex: 0 0 auto; }
+.tool:disabled { color: var(--text-faint); }
+.tool[aria-pressed="true"] { color: var(--accent); background: rgba(101, 217, 237, 0.1); border-color: transparent; }
+.withBadge { width: auto; padding: 0 6px; gap: 4px; }
+.count { height: 16px; padding: 0 4px; font-size: 11px; font-variant-numeric: tabular-nums; }
+.rule { width: 1px; height: 16px; margin: 0 5px; background: var(--border); flex: 0 0 auto; }
 .spacer { flex: 1 1 auto; }
+.project {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 220px;
+  padding: 0 6px;
+  color: var(--text-dim);
+  font-size: var(--text-xs);
+  line-height: 18px;
+  white-space: nowrap;
+}
+/* Room for about 24 characters; longer names truncate with the full name in the tooltip. */
+.projectName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 24ch; }
+.dirty { width: 6px; height: 6px; border-radius: 50%; background: var(--warn); flex: 0 0 auto; }
 .toolbar :global(.field) { flex-direction: row; align-items: center; }
 .toolbar :global(.field-label) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 .toolbar :global(.select-trigger) {
@@ -27,14 +52,14 @@
   width: auto;
   max-width: none;
   flex: 0 0 auto;
-  height: 30px;
-  min-height: 30px;
-  padding: 4px 10px;
+  height: 26px;
+  min-height: 26px;
+  padding: 2px 8px;
   border-color: var(--border);
-  border-radius: var(--radius-pill);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent), var(--surface-raised);
-  box-shadow: var(--highlight-top), 0 1px 2px rgba(0, 0, 0, 0.3);
-  font-size: var(--text-sm);
+  border-radius: var(--radius-xs);
+  background: var(--surface-raised);
+  box-shadow: none;
+  font-size: var(--text-xs);
   white-space: nowrap;
 }
 .toolbar :global(.select-trigger:hover) { border-color: var(--border-strong); }

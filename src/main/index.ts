@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, Menu } from 'electron';
 import * as path from 'path';
 import { passwordStoreFlag } from '../shared/config/passwordStore';
 import { initDatabase, closeDatabase } from './database';
@@ -22,10 +22,21 @@ function createWindow() {
     },
   });
 
+  // The renderer draws the only menu bar (File · Edit · View …); Electron's default menu would be a second one.
+  mainWindow.setMenuBarVisibility(false);
+
   // Load app
   if (process.env.NODE_ENV === 'development') {
     mainWindow.loadURL('http://localhost:5173');
     mainWindow.webContents.openDevTools();
+    // Without the default menu its DevTools accelerator is gone; keep Ctrl+Shift+I in development.
+    mainWindow.webContents.on('before-input-event', (event, input) => {
+      if (input.type !== 'keyDown') return;
+      const toggle = (input.control || input.meta) && input.shift && input.key.toLowerCase() === 'i';
+      if (!toggle) return;
+      event.preventDefault();
+      mainWindow?.webContents.toggleDevTools();
+    });
   } else {
     mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
   }
@@ -39,6 +50,7 @@ app.whenReady().then(async () => {
   try {
     initDatabase();
     await setupIPC();
+    Menu.setApplicationMenu(null);
     createWindow();
   } catch (error) {
     console.error('[App] Startup failed', error);

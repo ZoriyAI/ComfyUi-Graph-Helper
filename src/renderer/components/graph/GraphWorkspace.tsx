@@ -11,6 +11,9 @@ import SubgraphBreadcrumb from './SubgraphBreadcrumb';
 import { commitManual } from './commit';
 import { dropToAddNode, MODEL_DRAG_TYPE, NODE_DRAG_TYPE } from './lib/modelLoaders';
 import { useMotionLevel } from './lib/motion';
+import { FIT_PADDING } from './CanvasToolbar';
+import { fitDurationMs } from '../../motion/policy';
+import { setCanvasHandle } from '../../commands/canvasHandle';
 import styles from './GraphWorkspace.module.css';
 
 function acceptsDrag(event: React.DragEvent): boolean {
@@ -42,6 +45,17 @@ function Workspace({ onImportWorkflow }: GraphWorkspaceProps) {
   useEffect(() => {
     startProposalsSubscription();
   }, []);
+
+  // The camera, for View ▸ Fit / Zoom in the menu bar and their shortcuts.
+  useEffect(() => {
+    setCanvasHandle({
+      fit: () => void flow.fitView({ padding: FIT_PADDING, duration: fitDurationMs() }),
+      zoomIn: () => void flow.zoomIn({ duration: fitDurationMs() }),
+      zoomOut: () => void flow.zoomOut({ duration: fitDurationMs() }),
+      zoomReset: () => void flow.zoomTo(1, { duration: fitDurationMs() }),
+    });
+    return () => setCanvasHandle(null);
+  }, [flow]);
 
   const onDragOver = useCallback((event: React.DragEvent) => {
     if (!acceptsDrag(event) || replaying) return;

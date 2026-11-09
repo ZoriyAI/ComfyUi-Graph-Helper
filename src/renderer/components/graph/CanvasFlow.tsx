@@ -97,6 +97,7 @@ export default function CanvasFlow() {
   const setConnectFrom = useCanvasStore((state) => state.setConnectFrom);
   const focusRef = useUiStore((state) => state.focusRef);
   const tour = useUiStore((state) => state.tour);
+  const minimapOn = useCanvasStore((state) => state.minimapOn);
   const check = useKnowledgeStore((state) => state.check);
   const [fitDuration, setFitDuration] = useState(() => fitDurationMs());
 
@@ -325,7 +326,7 @@ export default function CanvasFlow() {
             <Panel position="top-center" className="nopan nowheel nodrag">
               <CanvasToolbar />
             </Panel>
-            {nodes.length > 0 ? (
+            {nodes.length > 0 && minimapOn ? (
               <MiniMap
                 position="bottom-right"
                 style={{ width: 144, height: 96 }}

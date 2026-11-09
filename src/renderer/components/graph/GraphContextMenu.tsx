@@ -12,10 +12,12 @@ import type { GraphEdge, GraphNode, PortDefinition } from '../../types/graph';
 import { askAbout } from './askAbout';
 import { useCanvasStore } from './canvasStore';
 import { commitManual } from './commit';
-import { acceptAllProposals, FIT_PADDING } from './CanvasToolbar';
 import { boundsOf, nodeRect, ghostNodePosition } from './lib/geometry';
 import { nodeRef, portRef } from './lib/selection';
 import { fitDurationMs } from '../../motion/policy';
+import { getCommand, isEnabled, runCommand } from '../../commands/registry';
+import { addGroup, createSubgraph, dissolveSubgraph, openAddNode } from '../../commands/actions';
+import Shortcut from '../../ui/Shortcut';
 import { startGraphTour } from './tour/startTour';
 import styles from './GraphContextMenu.module.css';
 
@@ -78,7 +80,6 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
   const setSelection = useUiStore((state) => state.setSelection);
   const proposals = useProposalsStore((state) => state.proposals);
   const setConnectFrom = useCanvasStore((state) => state.setConnectFrom);
-  const openSearch = useCanvasStore((state) => state.openAddSearch);
   const nodes = levelNodes as GraphNode[];
   const inDefinition = activeSubgraphId !== null;
   const definition = subgraphs.find((item) => item.id === activeSubgraphId);
@@ -120,11 +121,21 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
   const selectionFor = (nodeId: string) => (selectedIds.includes(nodeId) ? selectedIds : [nodeId]);
   const say = (key: string, values: Record<string, string>) => String(t(key, values));
   const items: React.ReactNode[] = [];
-  const item = (key: string, label: string, run: () => void, options: { danger?: boolean; disabled?: boolean } = {}) => (
+  const item = (key: string, label: string, run: () => void, options: { danger?: boolean; disabled?: boolean; shortcut?: string } = {}) => (
     <Menu.Item key={key} className={`${styles.item}${options.danger ? ` ${styles.danger}` : ''}`} disabled={options.disabled} onSelect={run}>
-      {label}
+      <span className={styles.label}>{label}</span>
+      {options.shortcut ? <Shortcut shortcut={options.shortcut} quiet className={styles.shortcut} /> : null}
     </Menu.Item>
   );
+  /** A registry command: the same label, shortcut and enabled state as in the menu bar. */
+  const commandItem = (id: string, run?: () => void, options: { disabled?: boolean } = {}) => {
+    const command = getCommand(id);
+    if (!command) return null;
+    return item(id, String(t(command.labelKey)), run ?? (() => void runCommand(id)), {
+      shortcut: command.shortcut,
+      disabled: options.disabled || (!run && !isEnabled(id)),
+    });
+  };
   const separator = (key: string) => <Menu.Separator key={key} className={styles.separator} />;
   const canBuild = !readOnly && !inDefinition;
 
@@ -147,18 +158,12 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
       if (instance) {
         items.push(
           item('enter', t('contextMenu.enter'), () => enter(definitionId), { disabled: readOnly }),
-          item('dissolve', t('contextMenu.dissolve'), () => void commitManual({ type: 'dissolve-subgraph', nodeId: node.id }), { disabled: !canBuild }),
+          item('dissolve', t('contextMenu.dissolve'), () => void dissolveSubgraph(node.id), { disabled: !canBuild }),
         );
       }
       items.push(
-        item('subgraph', t('contextMenu.createSubgraph'), () => void commitManual({
-          type: 'create-subgraph',
-          name: String(t('contextMenu.subgraphName')),
-          nodeIds: selectionFor(node.id),
-          inputs: [],
-          outputs: [],
-        }), { disabled: !canBuild }),
-        item('group', t('contextMenu.addGroup'), () => void commitManual({ type: 'add-group', title: String(t('contextMenu.groupTitle')), nodeIds: selectionFor(node.id) }), { disabled: !canBuild }),
+        commandItem('graph.createSubgraph', () => void createSubgraph(selectionFor(node.id)), { disabled: !canBuild }),
+        commandItem('graph.addGroup', () => void addGroup(selectionFor(node.id)), { disabled: !canBuild }),
         item('docs', t('contextMenu.componentDocs'), () => {
           setSelection([ref]);
           useGraphStore.setState((state) => ({ nodes: state.nodes.map((item) => ({ ...item, selected: item.id === node.id })) }));
@@ -166,7 +171,7 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
           window.setTimeout(() => document.getElementById(`component-purpose-node-${node.id}`)?.focus(), 60);
         }, { disabled: inDefinition || readOnly }),
         separator('s2'),
-        item('remove', t('contextMenu.remove'), () => void commitManual({ type: 'remove-node', nodeId: node.id }), { danger: true, disabled: !canBuild }),
+        item('remove', t('contextMenu.remove'), () => void commitManual({ type: 'remove-node', nodeId: node.id }), { danger: true, disabled: !canBuild, shortcut: 'Delete' }),
       );
     }
   } else if (target.kind === 'port') {
@@ -240,7 +245,7 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
     const at = target.at;
     const definitions = modelledSubgraphs(subgraphs);
     const open = openProposals(proposals);
-    items.push(item('add', t('contextMenu.addNode'), () => openSearch(at), { disabled: !canBuild }));
+    items.push(commandItem('graph.addNode', () => openAddNode(at), { disabled: !canBuild }));
     items.push(
       <Menu.Sub key="insert">
         <Menu.SubTrigger className={styles.item} disabled={!canBuild}>{t('contextMenu.insertSubgraph')}</Menu.SubTrigger>
@@ -268,8 +273,8 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
       const box = boundsOf(rects, 40);
       if (box) void flow.fitBounds(box, { duration: fitDurationMs() });
     }, { disabled: open.length === 0 || inDefinition }));
-    if (open.length >= 2) items.push(item('accept-all', t('contextMenu.acceptAll'), () => void acceptAllProposals(), { disabled: readOnly || inDefinition }));
-    items.push(separator('s1'), item('fit', t('contextMenu.fit'), () => void flow.fitView({ padding: FIT_PADDING, duration: fitDurationMs() })));
+    if (open.length >= 2) items.push(commandItem('graph.acceptAll'));
+    items.push(separator('s1'), commandItem('view.fit'));
   }
 
   return (

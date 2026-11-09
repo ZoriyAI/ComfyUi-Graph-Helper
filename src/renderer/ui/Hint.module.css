@@ -14,3 +14,5 @@
 .content[data-state="delayed-open"] { animation: hintIn var(--motion-enter) var(--motion-ease-out); }
 :global(html[data-motion="off"]) .content { animation: none; }
 @keyframes hintIn { from { opacity: 0; } to { opacity: 1; } }
+.withShortcut { display: inline-flex; align-items: center; gap: 10px; }
+.shortcut { display: inline-flex; align-items: center; gap: 2px; flex: 0 0 auto; }

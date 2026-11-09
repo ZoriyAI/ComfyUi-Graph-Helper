@@ -7,6 +7,14 @@ import { clampIndex, nextPlayIndex, playStartIndex } from './lib/replay';
 import { readingPaceMs } from './lib/motion';
 import styles from './Toolbar.module.css';
 
+/** Opens the replay on the newest revision. Shared by the canvas toolbar and the Graph ▸ Replay command. */
+export async function openReplay(projectId: string = useProjectionStore.getState().projectId): Promise<void> {
+  const bridge = window.electronAPI;
+  if (!bridge?.listRevisions) return;
+  const revisions = await bridge.listRevisions(projectId).catch(() => []);
+  useCanvasStore.getState().setReplay({ revisions, index: Math.max(0, revisions.length - 1), playing: false, snapshot: null, loading: revisions.length > 0 });
+}
+
 /**
  * Replay of how the graph grew: a slider over the revision history. The chosen revision is drawn as a
  * read-only overlay (CanvasFlow swaps in its snapshot and blocks commits); the current revision never changes.
@@ -18,12 +26,7 @@ export default function ReplayPlayer() {
   const patchReplay = useCanvasStore((state) => state.patchReplay);
   const projectId = useProjectionStore((state) => state.projectId);
 
-  const open = async () => {
-    const bridge = window.electronAPI;
-    if (!bridge?.listRevisions) return;
-    const revisions = await bridge.listRevisions(projectId).catch(() => []);
-    setReplay({ revisions, index: Math.max(0, revisions.length - 1), playing: false, snapshot: null, loading: revisions.length > 0 });
-  };
+  const open = () => openReplay(projectId);
 
   const revisionId = replay ? replay.revisions[replay.index]?.id : undefined;
   useEffect(() => {

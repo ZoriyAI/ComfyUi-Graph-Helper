@@ -14,6 +14,12 @@ export interface TourStep {
   text: string;
 }
 
+/** Shell dialogs opened from the menu bar or a hotkey. */
+export type ShellDialog = 'shortcuts' | 'about' | 'new-project';
+
+/** Settings sections the menu can open the dialog on. */
+export type SettingsSection = 'connection' | 'assistant' | 'appearance' | 'sync';
+
 export interface TourState {
   steps: TourStep[];
   index: number;
@@ -36,6 +42,10 @@ interface UiState {
   savedRevSeq: number | null;
   /** Bumped when the local catalog changes outside sync (catalog snapshot import); libraries re-read. */
   catalogVersion: number;
+  /** A request to open the settings dialog (the seq changes each time), from the menu or a hotkey. */
+  settingsRequest: { section: SettingsSection | null; seq: number } | null;
+  /** The open shell dialog (shortcuts, about, new-project confirmation); null when none. */
+  dialog: ShellDialog | null;
 
   setSelection: (refs: ObjectRef[]) => void;
   setFocus: (ref: ObjectRef | null) => void;
@@ -48,6 +58,8 @@ interface UiState {
   stopTour: () => void;
   markSaved: (revSeq: number) => void;
   bumpCatalog: () => void;
+  openSettings: (section?: SettingsSection) => void;
+  setDialog: (dialog: ShellDialog | null) => void;
 }
 
 /** Below this window width the rail starts as an icon strip, so the canvas keeps room for explanatory animation. */
@@ -74,6 +86,8 @@ export const useUiStore = create<UiState>((set) => ({
   tour: null,
   savedRevSeq: null,
   catalogVersion: 0,
+  settingsRequest: null,
+  dialog: null,
 
   setSelection: (selection) => set({ selection }),
   setFocus: (focusRef) => set({ focusRef }),
@@ -88,4 +102,6 @@ export const useUiStore = create<UiState>((set) => ({
   stopTour: () => set({ tour: null }),
   markSaved: (savedRevSeq) => set({ savedRevSeq }),
   bumpCatalog: () => set((state) => ({ catalogVersion: state.catalogVersion + 1 })),
+  openSettings: (section) => set((state) => ({ settingsRequest: { section: section ?? null, seq: (state.settingsRequest?.seq ?? 0) + 1 } })),
+  setDialog: (dialog) => set({ dialog }),
 }));
