@@ -8,7 +8,8 @@ export type CheckFindingType =
   | 'typeMismatches'
   | 'baseModelMismatches'
   | 'unconnectedRequiredInputs'
-  | 'unknownNodeTypes';
+  | 'unknownNodeTypes'
+  | 'unsetWidgets';
 
 export const CHECK_FINDING_TYPES: readonly CheckFindingType[] = [
   'missingNodes',
@@ -17,6 +18,7 @@ export const CHECK_FINDING_TYPES: readonly CheckFindingType[] = [
   'baseModelMismatches',
   'unconnectedRequiredInputs',
   'unknownNodeTypes',
+  'unsetWidgets',
 ];
 
 export interface CheckFinding {
@@ -64,6 +66,7 @@ export function findingsOf(report: GraphCheckReport, resolvePort?: PortResolver)
     });
   });
   report.unknownNodeTypes.forEach((classType) => add('unknownNodeTypes', classType, { classType }, { kind: 'nodeClass', id: classType, classType }));
+  (report.unsetWidgets ?? []).forEach((item) => add('unsetWidgets', `${item.nodeId}:${item.name}`, { ...item }, { kind: 'node', id: item.nodeId, classType: item.classType }));
   return out;
 }
 
@@ -83,5 +86,6 @@ export function checkFindingCount(report: GraphCheckReport | null | undefined): 
     + report.typeMismatches.length
     + report.baseModelMismatches.length
     + report.unconnectedRequiredInputs.length
-    + report.unknownNodeTypes.length;
+    + report.unknownNodeTypes.length
+    + (report.unsetWidgets ?? []).length;
 }

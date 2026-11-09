@@ -90,6 +90,7 @@ export const en = {
     rejected: 'Import was rejected.',
     catalogImported: 'Catalog snapshot imported. Nodes: {{nodes, number}}. Models: {{models, number}}. Skipped: {{skipped, number}}.',
     exported: 'Exported the current workflow.',
+    exportedUnset: 'These widgets have no value and no default, so ComfyUI will ask for them: {{names}}.',
     exportFailed: 'Export failed.',
     savedProject: 'Saved the native project.',
     openedProject: 'Opened the native project.',
@@ -594,6 +595,8 @@ export const en = {
     unconnectedRequiredInputsItem: 'Input {{input}} ({{type}}) on node {{nodeId}} needs a connection.',
     unknownNodeTypes: 'Unknown node types',
     unknownNodeTypesItem: '{{classType}} is not in the synced catalog.',
+    unsetWidgets: 'Widgets with no value',
+    unsetWidgetsItem: 'Widget {{name}} on {{classType}} node {{nodeId}} has no value and no default; set it before export.',
   },
   proposals: {
     title: 'Suggestions',
@@ -1138,6 +1141,7 @@ export const ru = {
     rejected: 'Импорт отклонён.',
     catalogImported: 'Снимок каталога импортирован. Узлы: {{nodes, number}}. Модели: {{models, number}}. Пропущено: {{skipped, number}}.',
     exported: 'Текущий рабочий процесс экспортирован.',
+    exportedUnset: 'У этих виджетов нет значения и значения по умолчанию, ComfyUI попросит их задать: {{names}}.',
     exportFailed: 'Экспорт не выполнен.',
     savedProject: 'Нативный проект сохранён.',
     openedProject: 'Нативный проект открыт.',
@@ -1642,6 +1646,8 @@ export const ru = {
     unconnectedRequiredInputsItem: 'Входу {{input}} ({{type}}) ноды {{nodeId}} нужна связь.',
     unknownNodeTypes: 'Неизвестные типы нод',
     unknownNodeTypesItem: '{{classType}} нет в синхронизированном каталоге.',
+    unsetWidgets: 'Виджеты без значения',
+    unsetWidgetsItem: 'У виджета {{name}} ноды {{classType}} {{nodeId}} нет значения и значения по умолчанию; задайте его до экспорта.',
   },
   proposals: {
     title: 'Предложения',

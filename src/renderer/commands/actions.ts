@@ -69,7 +69,14 @@ export async function importCatalogSnapshot(): Promise<void> {
 export async function exportWorkflowFile(): Promise<void> {
   const result = await window.electronAPI.exportWorkflow();
   if (!result.ok && result.canceled) return;
-  notify(result.ok ? { kind: 'exported' } : { kind: 'error', code: result.error || 'Export failed.' });
+  if (!result.ok) {
+    notify({ kind: 'error', code: result.error || 'Export failed.' });
+    return;
+  }
+  const unset = result.unsetWidgets ?? [];
+  notify(unset.length > 0
+    ? { kind: 'exported', unset: unset.map((item) => `${item.classType} #${item.nodeId} ${item.name}`) }
+    : { kind: 'exported' });
 }
 
 export async function openProjectFile(): Promise<void> {

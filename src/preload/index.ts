@@ -257,8 +257,8 @@ export interface ElectronAPI {
     | { status: 'cancelled' }
     | { status: 'rejected'; error: string }
   >;
-  exportWorkflow: () => Promise<{ ok: true } | { ok: false; canceled?: boolean; error?: string }>;
-  exportWorkflowDocument: () => Promise<{ ok: true; workflow: Record<string, unknown> } | { ok: false; error: string }>;
+  exportWorkflow: () => Promise<{ ok: true; unsetWidgets?: Array<{ nodeId: string; classType: string; name: string }> } | { ok: false; canceled?: boolean; error?: string }>;
+  exportWorkflowDocument: () => Promise<{ ok: true; workflow: Record<string, unknown>; unsetWidgets?: Array<{ nodeId: string; classType: string; name: string }> } | { ok: false; error: string }>;
   openProject: () => Promise<import('../shared/commands/types').CommandResponse | { status: 'cancelled'; projection: null; result: null }>;
   saveProjectFile: () => Promise<{ ok: true } | { ok: false; canceled?: boolean; error?: string }>;
   saveProject: (project: any) => Promise<{ success: boolean }>;

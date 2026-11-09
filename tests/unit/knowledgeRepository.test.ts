@@ -333,6 +333,7 @@ describe('knowledge repository: graph check', () => {
       baseModelMismatches: [],
       unconnectedRequiredInputs: [],
       unknownNodeTypes: [],
+      unsetWidgets: [],
     });
     expect(() => checkGraph(db, 'nope')).toThrow(/not found/);
     db.close();
