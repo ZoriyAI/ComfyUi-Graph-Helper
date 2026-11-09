@@ -11,7 +11,7 @@ const db = new Database(':memory:');
 
 const SNAPSHOT = {
   nodes: [
-    { id: 'node-1', data: { comfyType: 'CheckpointLoaderSimple', title: 'Loader', outputs: [{ name: 'MODEL', dataType: 'MODEL' }], parameters: { ckpt_name: 'secret-widget-value' }, comfy: { widgets_values: ['secret-widget-value'] } } },
+    { id: 'node-1', data: { comfyType: 'CheckpointLoaderSimple', title: 'Loader', outputs: [{ name: 'MODEL', dataType: 'MODEL' }], parameters: { ckpt_name: 'portrait.safetensors', api_key: 'plain-looking-value', note: 'use sk-live1234567 here' }, comfy: { widgets_values: ['portrait.safetensors'] } } },
     { id: 'node-2', data: { comfyType: 'KSampler', title: 'Sampler', inputs: [{ name: 'model', dataType: 'MODEL' }] } },
   ],
   edges: [{ id: 'link-1', source: 'node-1', sourceHandle: '0', target: 'node-2', targetHandle: '0', data: { dataType: 'MODEL' } }],
@@ -59,7 +59,12 @@ describe('teaching system prompt', () => {
     expect(prompt).not.toContain('anime_lines');
     expect(prompt).toContain('proposeNode');
     expect(prompt).not.toContain(KEY);
-    expect(prompt).not.toContain('secret-widget-value');
+    // Every field is visible; secret-looking values and credential-named widgets are redacted.
+    expect(prompt).toContain('fields: ckpt_name=portrait.safetensors; api_key=[redacted]; note=[redacted]');
+    expect(prompt).not.toContain('plain-looking-value');
+    expect(prompt).not.toContain('sk-live1234567');
+    expect(prompt).toContain('You see every field and the person\'s recent actions; refer to them by node id and title.');
+    expect(prompt).toContain('give `why` every time');
   });
 
   it('degrades to "not synced yet" when the knowledge stub throws', () => {

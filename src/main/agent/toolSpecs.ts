@@ -38,7 +38,7 @@ export const OBJECT_REF_SCHEMA = {
 
 export const MAIN_TOOL_SPECS: Record<AgentReadTool | AgentKnowledgeTool | AgentProposalTool, AgentToolSpec> = {
   getGraph: {
-    description: 'Read the current graph: node ids, class types, titles, ports, and connections. Widget values are not included.',
+    description: 'Read the current graph: node ids, class types, titles, ports, connections, every widget value (values that look like secrets are [redacted]), positions, sizes, groups and subgraphs.',
     parameters: { type: 'object', properties: {} },
   },
   searchNodeTypes: {

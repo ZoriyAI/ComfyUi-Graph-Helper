@@ -17,6 +17,14 @@ const GHOST = 'Shows a grey ghost only; the graph changes when the person accept
 const DIRECT = 'Changes the graph now. Use only when the person explicitly asked to build.';
 
 const nodeId = { type: 'string', description: 'Node id as shown in the graph' };
+/** Longest `why` a build step keeps. */
+export const WHY_MAX = 600;
+const whyProp = {
+  type: 'string',
+  maxLength: WHY_MAX,
+  description: 'One sentence for the person, shown next to the node as it appears; stored as the node\'s description. Give it on every step.',
+};
+const withWhy = (properties: Record<string, Record<string, unknown>>) => ({ ...properties, why: whyProp });
 const noteProp = { type: 'string', maxLength: 2000, description: 'Short reason shown next to the ghost. Stored as data.' };
 const ioItem = {
   type: 'object',
@@ -70,17 +78,17 @@ function spec(
 }
 
 export const BUILD_TOOL_SPECS: GraphToolSpec[] = [
-  spec('addNode', `Add a node. ${DIRECT} ${DATA}`, addNodeProps, ['nodeType']),
-  spec('connectNodes', `Connect an output to an input. Pass sourceNodeId and targetNodeId with a handle or slot index. ${DIRECT} ${DATA}`, connectProps, []),
-  spec('setParameter', `Set one widget value on a node. ${DIRECT} ${DATA}`, parameterProps, ['nodeId', 'key', 'value']),
-  spec('removeNode', `Remove a node and its links. ${DIRECT} ${DATA}`, { nodeId }, ['nodeId']),
-  spec('createSubgraph', `Move selected nodes into a new subgraph; one subgraph node replaces them. ${DIRECT} ${DATA}`, subgraphProps, ['name', 'nodeIds']),
-  spec('insertSubgraph', `Place another instance of an existing subgraph definition. ${DIRECT} ${DATA}`, {
+  spec('addNode', `Add a node. ${DIRECT} ${DATA}`, withWhy(addNodeProps), ['nodeType']),
+  spec('connectNodes', `Connect an output to an input. Pass sourceNodeId and targetNodeId with a handle or slot index. ${DIRECT} ${DATA}`, withWhy(connectProps), []),
+  spec('setParameter', `Set one widget value on a node. ${DIRECT} ${DATA}`, withWhy(parameterProps), ['nodeId', 'key', 'value']),
+  spec('removeNode', `Remove a node and its links. ${DIRECT} ${DATA}`, withWhy({ nodeId }), ['nodeId']),
+  spec('createSubgraph', `Move selected nodes into a new subgraph; one subgraph node replaces them. ${DIRECT} ${DATA}`, withWhy(subgraphProps), ['name', 'nodeIds']),
+  spec('insertSubgraph', `Place another instance of an existing subgraph definition. ${DIRECT} ${DATA}`, withWhy({
     definitionId: { type: 'string', description: 'Subgraph definition id' },
     x: { type: 'number', description: 'X position on the canvas' },
     y: { type: 'number', description: 'Y position on the canvas' },
     title: { type: 'string', description: 'Node title' },
-  }, ['definitionId']),
+  }), ['definitionId']),
   spec('annotateNode', `Add an annotation to a node. ${DATA}`, {
     nodeId,
     annotation: { type: 'string', description: 'Annotation text' },

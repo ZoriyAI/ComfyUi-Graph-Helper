@@ -1,0 +1,104 @@
+import { safeParameter, safeText, slotName, type GraphSummary } from './graph';
+
+/**
+ * One applied graph command, as listRecentCommands (main/commands/commit.ts) reads it back from
+ * applied_commands joined to graph_revisions. Bulky payloads (a whole imported workflow, an opened project)
+ * keep only their type.
+ */
+export interface RecentCommand {
+  actionId: string;
+  actor: 'ai' | 'manual';
+  /** Mutation type: move-node, connect, set-parameter, … */
+  type: string;
+  /** Node, edge, group and subgraph ids the command touched (from its payload and its result). */
+  ids: string[];
+  timestamp: number;
+  revisionId: string;
+  /** The mutation payload without bulky fields. Values are raw here; recentActionsText redacts them. */
+  payload: Record<string, unknown>;
+}
+
+const BULKY = new Set(['import-workflow', 'open-native']);
+const ID_KEYS = ['nodeId', 'edgeId', 'source', 'target', 'groupId', 'definitionId'] as const;
+
+/** The payload a recent command keeps, and the ids it touched. */
+export function recentPayload(type: string, payload: Record<string, unknown>, result: Record<string, unknown> | null): { payload: Record<string, unknown>; ids: string[] } {
+  const kept = BULKY.has(type) ? { type } : payload;
+  const ids = new Set<string>();
+  for (const source of [payload, result ?? {}]) {
+    for (const key of ID_KEYS) {
+      const value = source[key];
+      if (typeof value === 'string' && value !== '') ids.add(value);
+      if (typeof value === 'number') ids.add(String(value));
+    }
+    for (const key of ['nodeIds'] as const) {
+      const list = source[key];
+      if (Array.isArray(list)) for (const item of list.slice(0, 20)) if (typeof item === 'string') ids.add(item);
+    }
+  }
+  return { payload: kept, ids: [...ids] };
+}
+
+function str(value: unknown): string {
+  return typeof value === 'string' ? value : typeof value === 'number' ? String(value) : '';
+}
+
+function round(value: unknown): string {
+  return typeof value === 'number' && Number.isFinite(value) ? String(Math.round(value)) : '?';
+}
+
+function nodeName(id: string): string {
+  return `node ${safeText(id, 80) || '?'}`;
+}
+
+function port(summary: GraphSummary | null, nodeId: string, handle: string, side: 'inputs' | 'outputs'): string {
+  const node = summary?.nodes.find((item) => item.id === nodeId);
+  const name = node ? slotName(node[side], handle) : '';
+  return `${safeText(nodeId, 80)}:${name || safeText(handle, 40)}`;
+}
+
+/** One command as a short phrase: "moved node 4 to (780,120)", "set 4.steps = 30", … Values are redacted. */
+export function describeCommand(command: RecentCommand, summary: GraphSummary | null): string {
+  const p = command.payload;
+  switch (command.type) {
+    case 'move-node': return `moved ${nodeName(str(p.nodeId))} to (${round(p.x)},${round(p.y)})`;
+    case 'connect': return `connected ${port(summary, str(p.source), str(p.sourceHandle), 'outputs')} → ${port(summary, str(p.target), str(p.targetHandle), 'inputs')}`;
+    case 'remove-edge': return `removed connection ${safeText(str(p.edgeId), 80)}`;
+    case 'retarget-edge': return `moved connection ${safeText(str(p.edgeId), 80)} to ${port(summary, str(p.target), str(p.targetHandle), 'inputs')}`;
+    case 'set-parameter': return `set ${safeText(str(p.nodeId), 80)}.${safeText(str(p.key), 80)} = ${safeParameter(str(p.key), p.value)}`;
+    case 'add-node': return `added ${safeText(str(p.nodeType), 120)}${command.ids.find((id) => id.startsWith('node-')) ? ` as ${nodeName(command.ids.find((id) => id.startsWith('node-'))!)}` : ''}`;
+    case 'remove-node': return `removed ${nodeName(str(p.nodeId))}`;
+    case 'annotate-node': return `annotated ${nodeName(str(p.nodeId))}`;
+    case 'set-component': return `wrote what ${safeText(str(p.ownerKind), 20)} ${safeText(str(p.ownerId), 80)} is for`;
+    case 'set-process': return `named the process "${safeText(str(p.title), 80)}"`;
+    case 'import-workflow': return 'imported a workflow';
+    case 'open-native': return 'opened a project';
+    case 'create-subgraph': return `made subgraph "${safeText(str(p.name), 80)}" from nodes ${Array.isArray(p.nodeIds) ? p.nodeIds.map((id) => safeText(str(id), 40)).join(', ') : '?'}`;
+    case 'insert-subgraph': return `placed subgraph ${safeText(str(p.definitionId), 80)}`;
+    case 'dissolve-subgraph': return `dissolved subgraph ${nodeName(str(p.nodeId))}`;
+    case 'rename-subgraph': return `renamed subgraph ${safeText(str(p.definitionId), 80)} to "${safeText(str(p.name), 80)}"`;
+    case 'add-subgraph-io': return `exposed ${port(summary, str(p.nodeId), str(p.handle), p.direction === 'output' ? 'outputs' : 'inputs')} as a subgraph ${p.direction === 'output' ? 'output' : 'input'}`;
+    case 'remove-subgraph-io': return `removed a subgraph ${p.direction === 'output' ? 'output' : 'input'}`;
+    case 'add-group': return `grouped nodes ${Array.isArray(p.nodeIds) ? p.nodeIds.map((id) => safeText(str(id), 40)).join(', ') : '?'}${str(p.title) ? ` as "${safeText(str(p.title), 80)}"` : ''}`;
+    case 'remove-group': return `removed group ${safeText(str(p.groupId), 80)}`;
+    default: return safeText(command.type, 40);
+  }
+}
+
+/**
+ * The person's recent actions, oldest first, as one line for the prompt. Repeated moves of the same node
+ * collapse to the last one. The selection (from the turn context) closes the line.
+ */
+export function recentActionsText(commands: RecentCommand[], summary: GraphSummary | null, selectedIds: readonly string[] = []): string {
+  const manual = commands.filter((command) => command.actor === 'manual');
+  const lastMove = new Map<string, number>();
+  manual.forEach((command, index) => {
+    if (command.type === 'move-node') lastMove.set(str(command.payload.nodeId), index);
+  });
+  const phrases = manual
+    .filter((command, index) => command.type !== 'move-node' || lastMove.get(str(command.payload.nodeId)) === index)
+    .map((command) => describeCommand(command, summary));
+  const selected = selectedIds.slice(0, 20).map((id) => safeText(id, 80)).filter((id) => id !== '');
+  if (selected.length > 0) phrases.push(`selected ${selected.length === 1 ? 'node' : 'nodes'} ${selected.join(', ')}`);
+  return phrases.join('; ');
+}

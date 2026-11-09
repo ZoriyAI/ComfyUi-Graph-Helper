@@ -198,6 +198,59 @@ const SCRIPTED: Array<{ match: RegExp; call: { id: string; name: string; input: 
   },
 ];
 
+/** One step of the scripted text-to-image build: a tool call that may refer to nodes added earlier by name. */
+interface BuildScriptStep {
+  name: 'addNode' | 'connectNodes';
+  /** For addNode: the name later steps use for the node it adds. */
+  as?: string;
+  input: (ids: Record<string, string>) => Record<string, unknown>;
+}
+
+const connect = (from: string, out: string, to: string, input: string, why: string): BuildScriptStep => ({
+  name: 'connectNodes',
+  input: (ids) => ({ sourceNodeId: ids[from], sourceHandle: out, targetNodeId: ids[to], targetHandle: input, why }),
+});
+
+/** TEST fixture: a text-to-image graph built one step at a time, each step with its why. It is not a live model. */
+const TEXT_TO_IMAGE: BuildScriptStep[] = [
+  { name: 'addNode', as: 'loader', input: () => ({ nodeType: 'CheckpointLoaderSimple', title: 'Load Checkpoint', x: 0, y: 220, why: 'Everything starts with a checkpoint: it brings the model, the text encoder (CLIP) and the VAE in one file.' }) },
+  { name: 'addNode', as: 'positive', input: () => ({ nodeType: 'CLIPTextEncode', title: 'Positive prompt', x: 380, y: 40, why: 'This turns the words you want in the picture into conditioning the sampler can follow.' }) },
+  { name: 'addNode', as: 'negative', input: () => ({ nodeType: 'CLIPTextEncode', title: 'Negative prompt', x: 380, y: 300, why: 'A second encoder for what you do not want, so the sampler can steer away from it.' }) },
+  { name: 'addNode', as: 'latent', input: () => ({ nodeType: 'EmptyLatentImage', title: 'Empty Latent Image', x: 380, y: 560, why: 'The blank canvas in latent space: its width and height decide the size of the picture.' }) },
+  { name: 'addNode', as: 'sampler', input: () => ({ nodeType: 'KSampler', title: 'KSampler', x: 780, y: 220, why: 'The sampler removes noise step by step, guided by the model and both prompts. This is where the image is made.' }) },
+  connect('loader', 'out-0', 'sampler', 'in-0', 'The sampler needs the model weights to know how to denoise.'),
+  connect('loader', 'out-1', 'positive', 'in-0', 'The positive prompt is read by the CLIP that came with the checkpoint.'),
+  connect('loader', 'out-1', 'negative', 'in-0', 'The negative prompt uses the same CLIP, so both prompts speak the same language.'),
+  connect('positive', 'out-0', 'sampler', 'in-1', 'What you want goes into the sampler\'s positive input.'),
+  connect('negative', 'out-0', 'sampler', 'in-2', 'What you do not want goes into the negative input.'),
+  connect('latent', 'out-0', 'sampler', 'in-3', 'The empty latent is the noise the sampler starts from.'),
+  { name: 'addNode', as: 'decode', input: () => ({ nodeType: 'VAEDecode', title: 'VAE Decode', x: 1160, y: 220, why: 'The sampler works in latent space; the VAE decoder turns that latent into real pixels.' }) },
+  connect('sampler', 'out-0', 'decode', 'in-0', 'The finished latent from the sampler is what gets decoded.'),
+  connect('loader', 'out-2', 'decode', 'in-1', 'Decoding needs the VAE from the same checkpoint.'),
+  { name: 'addNode', as: 'save', input: () => ({ nodeType: 'SaveImage', title: 'Save Image', x: 1500, y: 220, why: 'Save Image writes the picture to ComfyUI\'s output folder when you run the workflow there.' }) },
+  connect('decode', 'out-0', 'save', 'in-0', 'The decoded image goes to Save Image.'),
+];
+
+function textToImageParts(prompt: LanguageModelV4Prompt | undefined): LanguageModelV4StreamPart[] {
+  const results = collectToolResults(prompt).filter((result) => result.toolName === 'addNode' || result.toolName === 'connectNodes');
+  const ids: Record<string, string> = {};
+  for (let index = 0; index < results.length; index += 1) {
+    const step = TEXT_TO_IMAGE[index];
+    const outcome = outcomeOf(results[index].value);
+    if (!outcome.success) return textParts(`TEST fixture only: step ${index + 1} failed: ${outcome.error}`);
+    if (step?.as) {
+      const nodeId = nodeIdFrom(results[index].value);
+      if (!nodeId) return textParts('addNode finished without a node id.');
+      ids[step.as] = nodeId;
+    }
+  }
+  const next = TEXT_TO_IMAGE[results.length];
+  if (!next) {
+    return textParts('TEST fixture only: I built a text-to-image graph step by step: checkpoint, two prompts, an empty latent, the sampler, the decoder and Save Image. Each node carries why it is there. Export it and run it in your ComfyUI.');
+  }
+  return [toolCall(`call-t2i-${results.length + 1}`, next.name, next.input(ids)), finish('tool-calls')];
+}
+
 function finish(unified: 'stop' | 'tool-calls'): LanguageModelV4StreamPart {
   return {
     type: 'finish',
@@ -232,6 +285,12 @@ export function createTestLLMModel(): LanguageModelV4 {
       if (latestUserText(prompt).includes('Build the loader fixture')) {
         return {
           stream: convertArrayToReadableStream(loaderFixtureParts(prompt)),
+          rawCall: { rawPrompt: null, rawSettings: {} },
+        };
+      }
+      if (/build a text to image graph/i.test(latestUserText(prompt))) {
+        return {
+          stream: convertArrayToReadableStream(textToImageParts(prompt)),
           rawCall: { rawPrompt: null, rawSettings: {} },
         };
       }

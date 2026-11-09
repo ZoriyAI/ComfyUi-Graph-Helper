@@ -30,6 +30,7 @@ import { parseNativeProject } from '../../shared/native-project';
 import type { GroupRecord, SubgraphDefinition } from '../../shared/graph/subgraphs';
 import { applyGraphOp, GraphOpError, isGraphOp } from './graphOps';
 import { supersedeForMissingNodes } from '../proposals/supersede';
+import { recentPayload, type RecentCommand } from '../../shared/agent/recentActions';
 import {
   liftSubgraphsAndGroups,
   mirrorDocument,
@@ -703,4 +704,50 @@ export function loadRevision(db: Database.Database, projectId: string, revisionI
     .prepare('SELECT id, rev_seq, nodes, edges, document, components, process_meta FROM graph_revisions WHERE id = ? AND project_id = ?')
     .get(revisionId, projectId) as RevisionRow | undefined;
   return revision ? snapshotFromRow(revision) : null;
+}
+
+/**
+ * The last applied commands of a project, oldest first among the newest `limit`, with who did them, the
+ * mutation type, the ids they touched and when. The source of "what the person did recently" in the agent
+ * prompt. Commands that made no revision (refused, historical) are not in applied_commands.
+ */
+export function listRecentCommands(
+  db: Database.Database,
+  projectId: string,
+  limit = 30,
+  options: { actor?: 'ai' | 'manual' } = {},
+): RecentCommand[] {
+  const cap = Math.max(1, Math.min(200, Math.floor(limit)));
+  const rows = db
+    .prepare(
+      `SELECT a.action_id, a.actor, a.payload_canonical, a.result_json, a.result_revision_id, r.timestamp, r.rev_seq
+       FROM applied_commands a JOIN graph_revisions r ON r.id = a.result_revision_id AND r.project_id = a.project_id
+       WHERE a.project_id = ? AND (? IS NULL OR a.actor = ?)
+       ORDER BY r.rev_seq DESC, r.rowid DESC LIMIT ?`,
+    )
+    .all(projectId, options.actor ?? null, options.actor ?? null, cap) as Array<{
+      action_id: string; actor: string; payload_canonical: string; result_json: string; result_revision_id: string; timestamp: number; rev_seq: number;
+    }>;
+  const parse = (text: string): Record<string, unknown> | null => {
+    try {
+      const value: unknown = JSON.parse(text);
+      return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null;
+    } catch {
+      return null;
+    }
+  };
+  return rows.reverse().flatMap((row) => {
+    const payload = parse(row.payload_canonical);
+    if (!payload || typeof payload.type !== 'string') return [];
+    const kept = recentPayload(payload.type, payload, parse(row.result_json));
+    return [{
+      actionId: row.action_id,
+      actor: row.actor === 'ai' ? 'ai' as const : 'manual' as const,
+      type: payload.type,
+      ids: kept.ids,
+      timestamp: row.timestamp,
+      revisionId: row.result_revision_id,
+      payload: kept.payload,
+    }];
+  });
 }

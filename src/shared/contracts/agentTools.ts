@@ -12,4 +12,7 @@ export type AgentReadTool = (typeof AGENT_READ_TOOLS)[number];
 export type AgentKnowledgeTool = (typeof AGENT_KNOWLEDGE_TOOLS)[number];
 export type AgentProposalTool = (typeof AGENT_PROPOSAL_TOOLS)[number];
 export type AgentBuildTool = (typeof AGENT_BUILD_TOOLS)[number];
+/** Build tools that take a `why` and show as one step of the live build on the canvas. */
+export const BUILD_STEP_TOOLS = ['addNode', 'connectNodes', 'setParameter', 'createSubgraph', 'insertSubgraph', 'removeNode'] as const satisfies readonly AgentBuildTool[];
+export type BuildStepTool = (typeof BUILD_STEP_TOOLS)[number];
 export type AgentTool = AgentReadTool | AgentKnowledgeTool | AgentProposalTool | AgentBuildTool;

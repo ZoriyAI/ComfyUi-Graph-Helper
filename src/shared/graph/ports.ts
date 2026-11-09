@@ -28,6 +28,7 @@ const INPUTS: Record<string, PortDefinition[]> = {
 const OUTPUTS: Record<string, PortDefinition[]> = {
   LoadImage: [{ id: 'out-0', name: 'IMAGE', dataType: 'IMAGE', optional: false }],
   KSampler: [{ id: 'out-0', name: 'LATENT', dataType: 'LATENT', optional: false }],
+  EmptyLatentImage: [{ id: 'out-0', name: 'LATENT', dataType: 'LATENT', optional: false }],
   VAEDecode: [{ id: 'out-0', name: 'IMAGE', dataType: 'IMAGE', optional: false }],
   CLIPTextEncode: [{ id: 'out-0', name: 'CONDITIONING', dataType: 'CONDITIONING', optional: false }],
   CheckpointLoaderSimple: [
