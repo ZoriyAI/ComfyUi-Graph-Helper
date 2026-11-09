@@ -76,12 +76,12 @@ export default function MessageInput({ onSend, isStreaming, disabled = false }: 
           placeholder={String(t('chat.placeholder'))}
           disabled={disabled || isStreaming}
         />
-      </div>
-      <div className={styles.row}>
-        <p id="composer-keys" className={`field-hint ${styles.keys}`}>{t('chat.keys')}</p>
-        <button type="submit" className="send-button" disabled={!input.trim() || disabled || isStreaming}>
-          {t('chat.send')}
-        </button>
+        <div className={styles.row}>
+          <p id="composer-keys" className={`field-hint ${styles.keys}`}>{t('chat.keys')}</p>
+          <button type="submit" className="send-button" disabled={!input.trim() || disabled || isStreaming}>
+            {t('chat.send')}
+          </button>
+        </div>
       </div>
     </form>
   );
