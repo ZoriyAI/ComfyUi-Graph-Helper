@@ -7,7 +7,7 @@ import { cx } from '../../ui/cx';
 import { useGraphStore } from '../../state/graphState';
 import { isDirty, useUiStore } from '../../state/uiState';
 import { useProjectionStore } from '../../services/commands/projection';
-import { useKnowledgeStore } from '../../state/knowledgeState';
+import { useKnowledgeStore, selectCheckCount } from '../../state/knowledgeState';
 import type { GraphCheckReport } from '../../../shared/contracts';
 import Badge from '../../ui/Badge';
 import SyncIndicator from '../sync/SyncIndicator';
@@ -45,7 +45,7 @@ export default function AppBar({ provider, providerNote, onOpenProject, onSavePr
   const savedRevSeq = useUiStore((state) => state.savedRevSeq);
   const dirty = isDirty(savedRevSeq, revSeq);
   const name = title.trim() || String(t('shell.untitled'));
-  const findings = useKnowledgeStore((state) => checkCount(state.check));
+  const findings = useKnowledgeStore(selectCheckCount);
 
   return (
     <header className={cx(styles.bar, 'document-bar')}>
