@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'motion/react';
 import { Check, X } from 'lucide-react';
@@ -193,6 +193,18 @@ export default function GhostLayer() {
   useLayoutKey();
   const open = useMemo(() => openProposals(proposals), [proposals]);
   const order = useMemo(() => unplacedOrder(open), [open]);
+  // A ghost keeps the spot it first got, so selecting another node does not make it jump.
+  const placed = useRef(new Map<string, { x: number; y: number }>());
+  const openIds = new Set(open.map((proposal) => proposal.id));
+  for (const id of placed.current.keys()) if (!openIds.has(id)) placed.current.delete(id);
+  const spotOf = (proposal: Proposal, payload: Payload<'add-node'>) => {
+    const known = placed.current.get(proposal.id);
+    if (known) return known;
+    const spot = ghostNodePosition(payload, nodes, order.get(proposal.id) ?? 0);
+    // Remember it only once the graph is on screen and measured; before that the spot is provisional.
+    if (nodes.length > 0 && nodes.every((node) => node.measured?.height)) placed.current.set(proposal.id, spot);
+    return spot;
+  };
   if (inDefinition || replaying) return null;
   return (
     <ViewportPortal>
@@ -202,7 +214,7 @@ export default function GhostLayer() {
             const payload = proposal.payload;
             switch (payload.type) {
               case 'add-node':
-                return <AddNodeGhost key={proposal.id} proposal={proposal} payload={payload} at={ghostNodePosition(payload, nodes, order.get(proposal.id) ?? 0)} />;
+                return <AddNodeGhost key={proposal.id} proposal={proposal} payload={payload} at={spotOf(proposal, payload)} />;
               case 'connect':
                 return <ConnectGhost key={proposal.id} proposal={proposal} payload={payload} />;
               case 'set-parameter':

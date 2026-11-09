@@ -1,5 +1,27 @@
-.empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 24px 16px; text-align: center; color: var(--text-dim); }
-.icon { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: var(--radius-lg); background: var(--surface-raised); box-shadow: var(--elev-1); color: var(--accent); }
+.empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 32px 18px 24px; text-align: center; color: var(--text-dim); }
+/* The icon sits in a raised tile with a soft accent halo, so an empty region still reads as part of the tool. */
+.icon {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  margin-bottom: 6px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0) 70%), var(--surface-raised);
+  box-shadow: var(--highlight-top), 0 6px 16px -6px rgba(0, 0, 0, 0.6), 0 0 28px -6px rgba(101, 217, 237, 0.35);
+  color: var(--accent);
+}
+.icon::before {
+  content: "";
+  position: absolute;
+  inset: -14px;
+  z-index: -1;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(101, 217, 237, 0.12), transparent 70%);
+}
 .title { margin: 0; color: var(--text); font-size: var(--text-md); line-height: 20px; font-weight: 600; }
-.body { margin: 0; max-width: 34ch; font-size: var(--text-sm); line-height: 18px; }
-.actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 4px; }
+.body { margin: 0; max-width: 34ch; font-size: var(--text-sm); line-height: 19px; }
+.actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 6px; }

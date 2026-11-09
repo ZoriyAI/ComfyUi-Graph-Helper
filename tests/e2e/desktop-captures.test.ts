@@ -226,7 +226,7 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
   await expect(window.getByRole('region', { name: 'Inspector' })).toContainText('CheckpointLoaderSimple');
   const zoom1024 = await expectSettledGraph(window);
   await window.screenshot({ path: path.join(artifactDir, 'desktop-1024-graph.png') });
-  const importButton = window.getByRole('button', { name: 'Import' });
+  const importButton = window.getByRole('button', { name: 'Import', exact: true });
   await importButton.hover();
   await expect.poll(async () => importButton.evaluate((element) => {
     const token = getComputedStyle(document.documentElement).getPropertyValue('--bg-hover').trim();

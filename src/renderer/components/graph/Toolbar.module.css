@@ -1,24 +1,40 @@
+/* Floating canvas toolbar: a raised pill over the canvas with its groups separated by hairlines. */
 .toolbar {
   position: relative;
   display: flex;
   align-items: center;
   gap: 6px;
-  max-width: calc(100% - 24px);
+  width: max-content;
   padding: 4px;
   border-radius: 12px;
-  border: 1px solid var(--line, #2a3648);
-  background: color-mix(in srgb, var(--bg-raised, #1b2533) 92%, transparent);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 8px 24px rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(8px);
+  border: 1px solid var(--border, #2a3648);
+  background-color: var(--surface-raised, #182131);
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0) 60%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 1px 2px rgba(0, 0, 0, 0.4),
+    0 12px 28px -8px rgba(0, 0, 0, 0.6);
 }
 .group { position: relative; display: inline-flex; align-items: center; gap: 2px; }
-.group + .group { padding-left: 6px; border-left: 1px solid var(--line, #2a3648); }
-.button {
+.group + .group { padding-left: 6px; }
+.group + .group::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 5px;
+  bottom: 5px;
+  width: 1px;
+  background: linear-gradient(180deg, transparent, var(--border-strong, #63738a), transparent);
+  opacity: 0.55;
+}
+.button,
+.controls :global(.react-flow__controls-button) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
   min-width: 30px;
+  width: auto;
   height: 30px;
   padding: 0 6px;
   border-radius: 8px;
@@ -28,12 +44,44 @@
   font: inherit;
   font-size: 13px;
   cursor: pointer;
-  transition: background-color var(--motion-feedback, 100ms) var(--motion-ease-out, ease-out);
+  transition: background-color var(--motion-feedback, 100ms) var(--motion-ease-out, ease-out), color var(--motion-feedback, 100ms) var(--motion-ease-out, ease-out);
 }
-.button:hover:not(:disabled) { background: var(--bg-hover, #243247); }
-.button:focus-visible { outline: 2px solid var(--focus, #b7a5ff); outline-offset: 1px; }
+.button:hover:not(:disabled),
+.controls :global(.react-flow__controls-button:hover) { background: var(--surface-hover, #243247); color: var(--accent, #65d9ed); }
+.button:focus-visible,
+.controls :global(.react-flow__controls-button:focus-visible) { outline: 2px solid var(--focus, #b7a5ff); outline-offset: 1px; }
 .button:disabled { color: var(--text-faint, #8b9bb0); cursor: not-allowed; }
-.button[aria-pressed="true"] { background: color-mix(in srgb, var(--accent, #65d9ed) 18%, transparent); border-color: color-mix(in srgb, var(--accent, #65d9ed) 50%, transparent); color: var(--accent, #65d9ed); }
+.button[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--accent, #65d9ed) 16%, transparent);
+  border-color: color-mix(in srgb, var(--accent, #65d9ed) 45%, transparent);
+  color: var(--accent, #65d9ed);
+  box-shadow: 0 0 12px -2px color-mix(in srgb, var(--accent, #65d9ed) 45%, transparent);
+}
+/* Add node is the toolbar's primary action: accent gradient and a faint glow. */
+.button.primary:not(:disabled) {
+  background-color: var(--accent, #65d9ed);
+  background-image: var(--accent-gradient);
+  border-color: rgba(138, 230, 244, 0.6);
+  color: var(--on-accent, #071218);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), var(--glow-accent);
+}
+.button.primary:hover:not(:disabled) { background-image: var(--accent-gradient-hover); color: var(--on-accent, #071218); }
+/* React Flow's Controls panel, laid into the toolbar instead of floating in a corner. */
+.toolbar .controls.controls {
+  position: static;
+  inset: auto;
+  margin: 0;
+  display: inline-flex;
+  flex-direction: row;
+  gap: 2px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  transform: none;
+}
+.controls :global(.react-flow__controls-button) { border-right: 1px solid transparent; }
+.controls :global(.react-flow__controls-button svg) { width: 13px; height: 13px; max-width: 13px; max-height: 13px; fill: currentColor; }
 .wide { padding: 0 10px; }
 .label { padding: 0 6px; color: var(--text-dim, #a3b1c6); font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .slider { width: 140px; accent-color: var(--accent, #65d9ed); }
@@ -67,7 +115,7 @@
 .resultMeta { color: var(--text-faint, #8b9bb0); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .empty { padding: 6px 8px; color: var(--text-dim, #a3b1c6); font-size: 13px; }
 
-.crumbBar { position: absolute; z-index: 5; top: 56px; left: 64px; display: flex; flex-direction: column; gap: 4px; max-width: calc(100% - 76px); }
+.crumbBar { position: absolute; z-index: 5; top: 64px; left: 16px; display: flex; flex-direction: column; gap: 4px; max-width: calc(100% - 32px); }
 .crumbs {
   display: inline-flex;
   align-items: center;

@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { CheckCheck, ChevronLeft, ChevronRight, Compass, FastForward, Maximize, Navigation, Pause, Play, Plus, Square, ZoomIn, ZoomOut } from 'lucide-react';
-import { useReactFlow } from '@xyflow/react';
+import { CheckCheck, ChevronLeft, ChevronRight, Compass, FastForward, Navigation, Pause, Play, Plus, Square } from 'lucide-react';
+import { Controls } from '@xyflow/react';
 import { openProposals, useProposalsStore } from '../../state/proposalsState';
 import { useUiStore } from '../../state/uiState';
 import AddNodeSearch from './AddNodeSearch';
@@ -12,7 +12,8 @@ import { fitDurationMs } from '../../motion/policy';
 import { startGraphTour } from './tour/startTour';
 import styles from './Toolbar.module.css';
 
-export const FIT_PADDING = { top: '72px', right: '24px', bottom: '24px', left: '168px' } as const;
+/** Room for the floating toolbar above and the minimap in the bottom-right corner, so a fit never hides a node. */
+export const FIT_PADDING = { top: '76px', right: '32px', bottom: '128px', left: '32px' } as const;
 
 /** Accept every open proposal, one at a time so each commit sees the revision the previous one made. */
 export async function acceptAllProposals(): Promise<void> {
@@ -23,13 +24,12 @@ export async function acceptAllProposals(): Promise<void> {
 }
 
 /**
- * Floating canvas toolbar: add node, fit, zoom, follow the helper, the tour player, replay, and
+ * Floating canvas toolbar: add node, React Flow's zoom / fit / interactivity controls, follow the helper, the tour player, replay, and
  * proposal / build controls when they apply. Mounted as a React Flow Panel so it sits in the canvas tab zone;
  * onBeforeDelete and React Flow's input check keep graph shortcuts out of its search field.
  */
 export default function CanvasToolbar() {
   const { t } = useTranslation();
-  const flow = useReactFlow();
   const followAgent = useUiStore((state) => state.followAgent);
   const setFollowAgent = useUiStore((state) => state.setFollowAgent);
   const tour = useUiStore((state) => state.tour);
@@ -46,21 +46,19 @@ export default function CanvasToolbar() {
   return (
     <div className={styles.toolbar} role="toolbar" aria-label={String(t('canvas.toolbar'))}>
       <span className={styles.group}>
-        <button type="button" className={styles.button} onClick={() => openSearch(null)} disabled={replaying} title={String(t('canvas.addNode'))} aria-label={String(t('canvas.addNode'))}>
+        <button type="button" className={`${styles.button} ${styles.primary}`} onClick={() => openSearch(null)} disabled={replaying} title={String(t('canvas.addNode'))} aria-label={String(t('canvas.addNode'))}>
           <Plus size={16} aria-hidden="true" />
         </button>
         <AddNodeSearch />
       </span>
       <span className={styles.group}>
-        <button type="button" className={styles.button} onClick={() => void flow.fitView({ padding: FIT_PADDING, duration })} title={String(t('canvas.fit'))} aria-label={String(t('canvas.fit'))}>
-          <Maximize size={16} aria-hidden="true" />
-        </button>
-        <button type="button" className={styles.button} onClick={() => void flow.zoomIn({ duration })} title={String(t('canvas.zoomIn'))} aria-label={String(t('canvas.zoomIn'))}>
-          <ZoomIn size={16} aria-hidden="true" />
-        </button>
-        <button type="button" className={styles.button} onClick={() => void flow.zoomOut({ duration })} title={String(t('canvas.zoomOut'))} aria-label={String(t('canvas.zoomOut'))}>
-          <ZoomOut size={16} aria-hidden="true" />
-        </button>
+        {/* React Flow's own controls (zoom in, zoom out, fit, interactivity), drawn as part of this toolbar. */}
+        <Controls
+          className={styles.controls}
+          orientation="horizontal"
+          position="top-left"
+          fitViewOptions={{ padding: FIT_PADDING, duration }}
+        />
         <button type="button" className={styles.button} aria-pressed={followAgent} onClick={() => setFollowAgent(!followAgent)} title={String(t('canvas.followAgent'))} aria-label={String(t('canvas.followAgent'))}>
           <Navigation size={16} aria-hidden="true" />
         </button>

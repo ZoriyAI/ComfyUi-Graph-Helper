@@ -5,7 +5,7 @@
   padding: 12px;
   min-height: 0;
   overflow: auto;
-  background: var(--bg-raised);
+  background: transparent;
   color: var(--text);
   font-size: 13px;
   line-height: 20px;
@@ -45,7 +45,7 @@
   border-radius: 8px;
   border: 1px solid var(--line);
   border-left: 3px solid var(--warn);
-  background: var(--surface);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 60%), var(--surface-raised);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 .row[data-type="missingNodes"], .row[data-type="typeMismatches"], .row[data-type="unknownNodeTypes"] { border-left-color: var(--danger); }
@@ -69,5 +69,5 @@
 .button:hover:not(:disabled) { background: var(--bg-hover); }
 .button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .button:disabled { opacity: 0.55; cursor: default; }
-.primary { background: var(--accent-2); border-color: transparent; color: var(--on-accent); }
-.primary:hover:not(:disabled) { background: color-mix(in srgb, var(--accent-2) 85%, white); }
+.primary { background-color: var(--accent-2); background-image: var(--accent-gradient); border-color: rgba(138, 230, 244, 0.6); color: var(--on-accent); font-weight: 600; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), var(--glow-accent); }
+.primary:hover:not(:disabled) { background-color: var(--accent-2); background-image: var(--accent-gradient-hover); }

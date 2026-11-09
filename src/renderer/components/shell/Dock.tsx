@@ -1,6 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { motion } from 'motion/react';
+import { Columns2, Lightbulb, ListChecks, PanelRightClose, PanelRightOpen, SlidersHorizontal, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import Button from '../../ui/Button';
+import IconButton from '../../ui/IconButton';
 import Hint from '../../ui/Hint';
 import Splitter from '../../ui/Splitter';
 import { TabsContent, TabsList, TabsRoot, TabsTrigger } from '../../ui/Tabs';
@@ -12,6 +14,7 @@ import Inspector from '../graph/Inspector';
 import { canUseSplit, dockRange, normalizeDockTab, useDockStore, type DockTab } from '../../state/dockState';
 import { RAIL_STRIP, RAIL_WIDTH, useUiStore } from '../../state/uiState';
 import { DESKTOP_PROJECT_ID } from '../../../shared/project';
+import { motionIsFull } from '../../motion/policy';
 import styles from './Dock.module.css';
 
 function useViewportWidth(): number {
@@ -65,59 +68,121 @@ export function ToolSplitter() {
   );
 }
 
-/** Toolbar buttons that open dock tabs, split the dock, or hide it. */
-export function ToolToggles() {
+/** Measures text the way the dock tabs draw it, so the header knows whether full labels fit. */
+let measureContext: CanvasRenderingContext2D | null = null;
+function textWidth(text: string): number {
+  if (!measureContext) measureContext = document.createElement('canvas').getContext('2d');
+  if (!measureContext) return text.length * 7.5;
+  measureContext.font = `600 13px ${getComputedStyle(document.documentElement).getPropertyValue('--font-sans') || 'sans-serif'}`;
+  return measureContext.measureText(text).width;
+}
+
+/** Icon 16 + gap 6 + padding 2x10 + border 2 around each label, 2px between tabs, a little slack. */
+function fullTabsWidth(labels: string[]): number {
+  return labels.reduce((sum, label) => sum + Math.ceil(textWidth(label)) + 44, 0) + (labels.length - 1) * 2 + 8;
+}
+
+/** Whether the tab labels fit beside the header actions; below that only the active tab keeps its label. */
+function useLabelsFit(labels: string[]): [React.RefObject<HTMLDivElement>, boolean] {
+  const ref = useRef<HTMLDivElement>(null);
+  const [fits, setFits] = useState(true);
+  const key = labels.join('|');
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!element) return undefined;
+    const needed = fullTabsWidth(key.split('|'));
+    const measure = () => setFits(element.clientWidth >= needed);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [key]);
+  return [ref, fits];
+}
+
+/** Dock header actions: show Inspector and Assistant side by side, and hide the dock. */
+function DockActions() {
   const { t } = useTranslation();
-  const collapsed = useDockStore((state) => state.collapsed);
-  const tab = useDockStore((state) => state.tab);
   const split = useDockStore((state) => state.split);
   const setCollapsed = useDockStore((state) => state.setCollapsed);
   const setSplit = useDockStore((state) => state.setSplit);
-  const show = useDockStore((state) => state.show);
   const viewport = useViewportWidth();
   const splitAllowed = canUseSplit(viewport);
   const splitReason = String(t('dock.showBothReason'));
 
   return (
-    <>
-      <Button aria-pressed={!collapsed && (split || tab === 'inspector')} onClick={() => show('inspector')}>
-        {t('dock.inspector')}
-      </Button>
-      <Button aria-pressed={!collapsed && (split || tab === 'assistant')} onClick={() => show('assistant')}>
-        {t('dock.assistant')}
-      </Button>
+    <div className={styles.actions}>
       {splitAllowed ? (
-        <Button
-          aria-pressed={split}
+        <IconButton
+          size="sm"
+          label={String(t('dock.showBoth'))}
           title={String(t('dock.showBothTitle'))}
+          aria-pressed={split}
           onClick={() => {
             const next = !split;
             if (next && window.innerWidth - RAIL_WIDTH - 560 < 560) useUiStore.getState().setRail(false);
             setSplit(next);
           }}
         >
-          {t('dock.showBoth')}
-        </Button>
+          <Columns2 size={16} aria-hidden="true" />
+        </IconButton>
       ) : (
         <Hint label={splitReason}>
-          <Button aria-pressed={false} aria-describedby="show-both-reason" disabled>
-            {t('dock.showBoth')}
-          </Button>
+          <IconButton size="sm" label={String(t('dock.showBoth'))} title="" aria-pressed={false} aria-describedby="show-both-reason" disabled>
+            <Columns2 size={16} aria-hidden="true" />
+          </IconButton>
         </Hint>
       )}
       <span id="show-both-reason" className="sr-only">{splitReason}</span>
-      <Button aria-pressed={collapsed} onClick={() => setCollapsed(!collapsed)}>
-        {collapsed ? t('dock.showTools') : t('dock.hideTools')}
-      </Button>
-    </>
+      <IconButton size="sm" label={String(t('dock.hideTools'))} aria-controls="tool-dock" aria-expanded onClick={() => setCollapsed(true)}>
+        <PanelRightClose size={16} aria-hidden="true" />
+      </IconButton>
+    </div>
   );
 }
 
-const TABS: Array<{ value: DockTab; label: string; splitMember: boolean }> = [
-  { value: 'assistant', label: 'dock.assistant', splitMember: true },
-  { value: 'explain', label: 'dock.explain', splitMember: false },
-  { value: 'inspector', label: 'dock.inspector', splitMember: true },
-  { value: 'check', label: 'dock.check', splitMember: false },
+/** While split, the header names both panes; each name leaves the split on that pane. */
+function SplitTitles() {
+  const { t } = useTranslation();
+  const show = useDockStore((state) => state.show);
+  return (
+    <div className={styles.splitTitles} role="group" aria-label={String(t('dock.tools'))}>
+      {TABS.filter((item) => item.splitMember).map((item) => (
+        <button key={item.value} type="button" className={styles.splitTitle} onClick={() => show(item.value)}>
+          <span className={styles.tabIcon} aria-hidden="true">{item.icon}</span>
+          <span>{t(item.label)}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** The collapsed dock: a strip of icons on the right edge, mirroring the library rail. */
+function DockStrip() {
+  const { t } = useTranslation();
+  const tab = useDockStore((state) => state.tab);
+  const show = useDockStore((state) => state.show);
+  const setCollapsed = useDockStore((state) => state.setCollapsed);
+  return (
+    <div className={cx(styles.strip, 'dock-strip')}>
+      <IconButton label={String(t('dock.showTools'))} aria-controls="tool-dock" aria-expanded={false} onClick={() => setCollapsed(false)}>
+        <PanelRightOpen size={18} aria-hidden="true" />
+      </IconButton>
+      <span className={styles.stripRule} aria-hidden="true" />
+      {TABS.map((item) => (
+        <IconButton key={item.value} label={String(t(item.label))} active={item.value === tab} onClick={() => show(item.value)}>
+          {item.icon}
+        </IconButton>
+      ))}
+    </div>
+  );
+}
+
+const TABS: Array<{ value: DockTab; label: string; splitMember: boolean; icon: React.ReactNode }> = [
+  { value: 'assistant', label: 'dock.assistant', splitMember: true, icon: <Sparkles size={16} aria-hidden="true" /> },
+  { value: 'explain', label: 'dock.explain', splitMember: false, icon: <Lightbulb size={16} aria-hidden="true" /> },
+  { value: 'inspector', label: 'dock.inspector', splitMember: true, icon: <SlidersHorizontal size={16} aria-hidden="true" /> },
+  { value: 'check', label: 'dock.check', splitMember: false, icon: <ListChecks size={16} aria-hidden="true" /> },
 ];
 
 /**
@@ -131,6 +196,9 @@ export default function Dock({ onSendMessage, onPause }: { onSendMessage: (conte
   const split = useDockStore((state) => state.split);
   const width = useDockStore((state) => state.width);
   const show = useDockStore((state) => state.show);
+  const labels = TABS.map((item) => String(t(item.label)));
+  const [tabsRef, labelsFit] = useLabelsFit(labels);
+  const slide = motionIsFull() ? 0.2 : 0;
 
   const panels: Record<DockTab, React.ReactNode> = {
     assistant: <ChatDock onSendMessage={onSendMessage} onPause={onPause} />,
@@ -140,36 +208,54 @@ export default function Dock({ onSendMessage, onPause }: { onSendMessage: (conte
   };
 
   return (
-    <aside
-      className={cx(styles.dock, split && styles.split, 'dock', split && 'is-split')}
-      style={{ width }}
-      hidden={collapsed}
-      id="tool-dock"
-      aria-label={String(t('dock.region'))}
-    >
-      <ToolSplitter />
-      <TabsRoot value={tab} onValueChange={(next) => show(normalizeDockTab(next))} className={cx(styles.tabs, 'dock-tabs')}>
-        <TabsList className={cx(styles.tablist, 'dock-tablist')} aria-label={String(t('dock.tools'))}>
-          {TABS.map((item) => (
-            <TabsTrigger key={item.value} className={cx(styles.tab, 'dock-tab')} value={item.value}>
-              <span>{t(item.label)}</span>
-            </TabsTrigger>
-          ))}
-        </TabsList>
-        <div className={cx(styles.panels, 'dock-panels')}>
-          {TABS.map((item) => (
-            <TabsContent
-              key={item.value}
-              className={cx(styles.panel, 'dock-panel')}
-              value={item.value}
-              data-split-member={item.splitMember ? 'true' : 'false'}
-              forceMount
-            >
-              {panels[item.value]}
-            </TabsContent>
-          ))}
-        </div>
-      </TabsRoot>
-    </aside>
+    <>
+      <aside
+        className={cx(styles.dock, split && styles.split, 'dock', split && 'is-split')}
+        style={{ width }}
+        hidden={collapsed}
+        id="tool-dock"
+        aria-label={String(t('dock.region'))}
+      >
+        <ToolSplitter />
+        <TabsRoot value={tab} onValueChange={(next) => show(normalizeDockTab(next))} className={cx(styles.tabs, 'dock-tabs')}>
+          <div className={cx(styles.header, 'dock-header')}>
+            {split ? <SplitTitles /> : null}
+            <div ref={tabsRef} className={styles.tabsWrap}>
+              <TabsList className={cx(styles.tablist, 'dock-tablist')} aria-label={String(t('dock.tools'))}>
+                {TABS.map((item, index) => {
+                  const active = item.value === tab;
+                  const iconOnly = !labelsFit && !active;
+                  const trigger = (
+                    <TabsTrigger key={item.value} className={cx(styles.tab, iconOnly && styles.iconTab, 'dock-tab')} value={item.value}>
+                      <span className={styles.tabIcon} aria-hidden="true">{item.icon}</span>
+                      <span className={iconOnly ? 'sr-only' : styles.tabLabel}>{labels[index]}</span>
+                      {active && !collapsed ? (
+                        <motion.span layoutId="dock-tab-underline" className={styles.underline} transition={{ duration: slide, ease: [0.2, 0, 0, 1] }} aria-hidden="true" />
+                      ) : null}
+                    </TabsTrigger>
+                  );
+                  return iconOnly ? <Hint key={item.value} label={labels[index]} side="bottom">{trigger}</Hint> : trigger;
+                })}
+              </TabsList>
+            </div>
+            <DockActions />
+          </div>
+          <div className={cx(styles.panels, 'dock-panels')}>
+            {TABS.map((item) => (
+              <TabsContent
+                key={item.value}
+                className={cx(styles.panel, 'dock-panel')}
+                value={item.value}
+                data-split-member={item.splitMember ? 'true' : 'false'}
+                forceMount
+              >
+                {panels[item.value]}
+              </TabsContent>
+            ))}
+          </div>
+        </TabsRoot>
+      </aside>
+      {collapsed ? <DockStrip /> : null}
+    </>
   );
 }

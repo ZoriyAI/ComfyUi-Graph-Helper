@@ -3,7 +3,7 @@ import { Settings as SettingsIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import GraphWorkspace from './components/graph/GraphWorkspace';
 import Dock from './components/shell/Dock';
-import AppBar from './components/shell/AppBar';
+import AppBar, { type ProviderKeyState } from './components/shell/AppBar';
 import Toolbar from './components/shell/Toolbar';
 import Rail from './components/shell/Rail';
 import StatusBar from './components/shell/StatusBar';
@@ -34,6 +34,14 @@ export function providerNoteKey(provider: string, keySource: KeySource): string 
   if (provider === 'anthropic') return keySource === 'os' ? 'provider.cloudStored' : keySource === 'session' ? 'provider.anthropicHeld' : 'provider.anthropic';
   if (provider === 'google') return keySource === 'os' ? 'provider.cloudStored' : keySource === 'session' ? 'provider.googleHeld' : 'provider.google';
   return 'provider.none';
+}
+
+/** The colour of the provider chip's dot: where the key stands, never the key. */
+export function providerKeyState(provider: string, keySource: KeySource): ProviderKeyState {
+  if (provider === 'test') return 'test';
+  if (provider === 'local') return 'ok';
+  if (CLOUD_PROVIDERS.has(provider)) return keySource === 'os' ? 'ok' : keySource === 'session' ? 'session' : 'missing';
+  return 'none';
 }
 
 function markCurrentSaved() {
@@ -174,6 +182,8 @@ function App() {
       <AppBar
         provider={provider}
         providerNote={providerNote}
+        providerLabel={providerOptions.find((option) => option.value === provider)?.label ?? providerOptions[0].label}
+        providerKey={providerKeyState(provider, keySource)}
         onOpenProject={() => void handleOpenProject()}
         onSaveProject={() => void handleSaveProject()}
         onCheckGraph={handleCheckGraph}
@@ -206,7 +216,7 @@ function App() {
       <div className={cx(styles.body, 'app-body')}>
         <Rail />
         <main className={cx(styles.canvas, 'graph-pane')}>
-          <GraphWorkspace />
+          <GraphWorkspace onImportWorkflow={() => void handleImport()} />
         </main>
         <Dock onSendMessage={handleSendMessage} onPause={handlePause} />
       </div>

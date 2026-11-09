@@ -158,10 +158,18 @@ describe('ghost and group geometry', () => {
   ];
 
   it('places add-node ghosts at their position, else stacked right of the graph', () => {
-    expect(ghostNodePosition({ type: 'add-node', nodeType: 'X', x: 5, y: 6 }, nodes)).toEqual({ x: 5, y: 6 });
+    expect(ghostNodePosition({ type: 'add-node', nodeType: 'X', x: 5, y: 600 }, nodes)).toEqual({ x: 5, y: 600 });
     expect(ghostNodePosition({ type: 'add-node', nodeType: 'X' }, nodes, 0)).toEqual({ x: 620, y: 0 });
-    expect(ghostNodePosition({ type: 'add-node', nodeType: 'X' }, nodes, 1)).toEqual({ x: 620, y: 152 });
+    expect(ghostNodePosition({ type: 'add-node', nodeType: 'X' }, nodes, 1)).toEqual({ x: 620, y: 232 });
     expect(ghostNodePosition({ type: 'add-node', nodeType: 'X' }, [], 0)).toEqual({ x: 0, y: 0 });
+  });
+
+  it('never puts a ghost on top of a node', () => {
+    // A proposed position on node a moves to free space right of the graph.
+    expect(ghostNodePosition({ type: 'add-node', nodeType: 'X', x: 5, y: 6 }, nodes)).toEqual({ x: 620, y: 0 });
+    // With a selection the ghost goes right of the selected node, below anything in that column.
+    const selected = [{ ...nodes[0], selected: true }, nodes[1]];
+    expect(ghostNodePosition({ type: 'add-node', nodeType: 'X' }, selected)).toEqual({ x: 280, y: 202 });
   });
 
   it('numbers only unplaced add-node ghosts', () => {

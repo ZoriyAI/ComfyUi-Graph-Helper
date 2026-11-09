@@ -54,16 +54,18 @@ export default function StatusBar() {
 
   return (
     <footer className={cx(styles.bar, 'status-bar')} aria-label={String(t('status.region'))}>
-      <span className={cx(styles.item, styles.mono)}>{t('status.nodes', { count: nodes.length })}</span>
-      <span className={cx(styles.item, styles.mono)}>{t('status.edges', { count: edgeCount })}</span>
-      <span className={styles.item}>{selected === 0 ? t('status.noSelection') : t('status.selected', { count: selected })}</span>
-      <span className={cx(styles.item, styles.mono)}>{t('status.zoom', { percent: Math.round(zoom * 100) })}</span>
-      {revSeq > 0 ? <span className={cx(styles.item, styles.mono)}>{t('status.revision', { rev: revSeq })}</span> : null}
+      <span className={styles.group}>
+        <span className={cx(styles.item, styles.mono)}>{t('status.nodes', { count: nodes.length })}</span>
+        <span className={cx(styles.item, styles.mono)}>{t('status.edges', { count: edgeCount })}</span>
+        <span className={styles.item}>{selected === 0 ? t('status.noSelection') : t('status.selected', { count: selected })}</span>
+        <span className={cx(styles.item, styles.mono)}>{t('status.zoom', { percent: Math.round(zoom * 100) })}</span>
+        {revSeq > 0 ? <span className={cx(styles.item, styles.mono)}>{t('status.revision', { rev: revSeq })}</span> : null}
+      </span>
       <span className={styles.spacer} />
       {activeRun ? (
         <span className={styles.run} data-status={activeRun.status} role="status">
           <span className={styles.runDot} aria-hidden="true" />
-          {t(activeRun.status === 'paused' ? 'status.runPaused' : 'status.runRunning')}
+          <span className={styles.runText}>{t(activeRun.status === 'paused' ? 'status.runPaused' : 'status.runRunning')}</span>
           {activeRun.status === 'running' ? (
             <button type="button" className={styles.runButton} onClick={() => void pauseRun().catch(() => undefined)}>
               <Pause size={10} aria-hidden="true" /> {t('status.pauseRun')}
@@ -73,13 +75,15 @@ export default function StatusBar() {
               <Play size={10} aria-hidden="true" /> {t('status.resumeRun')}
             </button>
           )}
-          <button type="button" className={styles.runButton} onClick={() => void cancelRun(projectId, activeRun.runId).catch(() => undefined)}>
-            <Square size={10} aria-hidden="true" /> {t('status.cancelRun')}
+          <button type="button" className={cx(styles.runButton, styles.endButton)} onClick={() => void cancelRun(projectId, activeRun.runId).catch(() => undefined)}>
+            <Square size={9} aria-hidden="true" /> {t('status.cancelRun')}
           </button>
         </span>
       ) : null}
-      <span className={styles.item}>{t('status.language', { language })}</span>
-      <span className={styles.item}>{t('status.motion', { mode: t(MOTION_KEYS[motion] ?? 'settings.motionSystem') })}</span>
+      <span className={styles.group}>
+        <span className={styles.item}>{t('status.language', { language })}</span>
+        <span className={styles.item}>{t('status.motion', { mode: t(MOTION_KEYS[motion] ?? 'settings.motionSystem') })}</span>
+      </span>
     </footer>
   );
 }

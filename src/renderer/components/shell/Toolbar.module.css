@@ -1,19 +1,24 @@
+/* The second row: file and edit actions plus the provider. A quieter strip under the elevated app bar. */
 .toolbar {
+  position: relative;
+  z-index: 3;
   display: flex;
   align-items: center;
   gap: 4px;
   height: 40px;
   padding: 0 8px;
   border-bottom: 1px solid var(--border);
-  background: var(--surface-panel);
+  background-color: var(--surface-panel);
+  background-image: linear-gradient(180deg, rgba(0, 0, 0, 0.12), transparent 10px);
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.02), 0 6px 14px -10px rgba(0, 0, 0, 0.8);
   overflow: hidden;
   flex: 0 0 auto;
   flex-wrap: nowrap;
 }
-.toolbar :global(.ghost-button) { min-height: 30px; padding: 4px 8px; font-size: var(--text-sm); }
-:global(html[lang="ru"]) .toolbar { gap: 2px; padding: 0 4px; }
-:global(html[lang="ru"]) .toolbar :global(.ghost-button) { padding: 2px 5px; gap: 4px; font-size: var(--text-xs); }
-.rule { width: 1px; height: 16px; background: var(--border); flex: 0 0 auto; }
+.toolbar :global(.ghost-button) { min-height: 30px; padding: 4px 8px; font-size: var(--text-sm); color: var(--text-dim); }
+.toolbar :global(.ghost-button:hover:not(:disabled)) { color: var(--text); }
+.toolbar :global(.ghost-button:disabled) { color: var(--text-faint); }
+.rule { width: 1px; height: 16px; margin: 0 4px; background: var(--border); flex: 0 0 auto; }
 .spacer { flex: 1 1 auto; }
 .toolbar :global(.field) { flex-direction: row; align-items: center; }
 .toolbar :global(.field-label) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
@@ -24,8 +29,12 @@
   flex: 0 0 auto;
   height: 30px;
   min-height: 30px;
-  padding: 4px 8px;
+  padding: 4px 10px;
+  border-color: var(--border);
+  border-radius: var(--radius-pill);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent), var(--surface-raised);
+  box-shadow: var(--highlight-top), 0 1px 2px rgba(0, 0, 0, 0.3);
   font-size: var(--text-sm);
   white-space: nowrap;
 }
-:global(html[lang="ru"]) .toolbar :global(.select-trigger) { font-size: var(--text-xs); padding: 4px 6px; }
+.toolbar :global(.select-trigger:hover) { border-color: var(--border-strong); }

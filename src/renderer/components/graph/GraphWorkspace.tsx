@@ -1,10 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
 import { ReactFlowProvider, useReactFlow } from '@xyflow/react';
 import { useGraphStore } from '../../state/graphState';
 import { startProposalsSubscription } from '../../state/proposalsState';
 import { useCanvasStore } from './canvasStore';
 import CanvasFlow from './CanvasFlow';
+import Onboarding from './Onboarding';
 import SubgraphBreadcrumb from './SubgraphBreadcrumb';
 import { commitManual } from './commit';
 import { dropToAddNode, MODEL_DRAG_TYPE, NODE_DRAG_TYPE } from './lib/modelLoaders';
@@ -28,7 +30,7 @@ function ReplayBanner() {
   );
 }
 
-function Workspace() {
+function Workspace({ onImportWorkflow }: GraphWorkspaceProps) {
   const { t } = useTranslation();
   const flow = useReactFlow();
   const empty = useGraphStore((state) => state.nodes.length === 0 && state.activeSubgraphId === null);
@@ -72,7 +74,7 @@ function Workspace() {
       onDragLeave={() => setDragging(false)}
       onDrop={onDrop}
     >
-      {empty ? <p className={`canvas-empty ${styles.empty}`}>{t('graph.empty')}</p> : null}
+      <AnimatePresence>{empty && !replaying ? <Onboarding key="onboarding" onImport={onImportWorkflow} /> : null}</AnimatePresence>
       <CanvasFlow />
       <SubgraphBreadcrumb />
       <ReplayBanner />
@@ -87,10 +89,15 @@ function Workspace() {
  * The shell renders it once and passes nothing; state flows through the stores
  * (graphState, proposalsState, uiState) and questions go out through services/ask.ts.
  */
-export default function GraphWorkspace() {
+export interface GraphWorkspaceProps {
+  /** Opens the workflow import (the empty-canvas onboarding offers it). */
+  onImportWorkflow?: () => void;
+}
+
+export default function GraphWorkspace({ onImportWorkflow }: GraphWorkspaceProps = {}) {
   return (
     <ReactFlowProvider>
-      <Workspace />
+      <Workspace onImportWorkflow={onImportWorkflow} />
     </ReactFlowProvider>
   );
 }

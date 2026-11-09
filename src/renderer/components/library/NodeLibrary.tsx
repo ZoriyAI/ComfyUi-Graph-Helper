@@ -15,6 +15,8 @@ import { showToast } from '../../ui/toastStore';
 import { runSyncNow } from '../sync/SyncIndicator';
 import { flattenGroups, groupByCategory, NODE_DRAG_TYPE, placementFor, type LibraryRow, type Viewport } from './libraryModel';
 import VirtualList from './VirtualList';
+import { categoryAccent } from '../graph/lib/typeColors';
+import { cx } from '../../ui/cx';
 import styles from './Library.module.css';
 
 const ROW_HEIGHT = 40;
@@ -162,6 +164,7 @@ export default function NodeLibrary() {
                   onClick={() => toggle(row.category)}
                 >
                   <span className={styles.chevron} aria-hidden="true"><ChevronDown size={12} /></span>
+                  <span className={styles.headerDot} style={{ '--row-hue': categoryAccent(row.category, undefined) } as React.CSSProperties} aria-hidden="true" />
                   <span className={styles.headerName}>{row.category}</span>
                   <span className={styles.count} aria-label={String(t('status.nodes', { count: row.count }))}>{row.count}</span>
                 </div>
@@ -178,8 +181,9 @@ export default function NodeLibrary() {
                   }}
                 >
                   <span
-                    className={styles.detailDot}
+                    className={cx(styles.detailDot, styles.categoryDot)}
                     data-on={row.node.detailed ? 'true' : 'false'}
+                    style={{ '--row-hue': categoryAccent(row.node.category, undefined) } as React.CSSProperties}
                     title={String(t(row.node.detailed ? 'library.detailed' : 'library.notDetailed'))}
                     aria-label={String(t(row.node.detailed ? 'library.detailed' : 'library.notDetailed'))}
                     role="img"

@@ -73,6 +73,25 @@
   --elev-2: var(--highlight-top), 0 4px 12px rgba(0, 0, 0, 0.34);
   --elev-3: var(--highlight-top), 0 12px 32px rgba(0, 0, 0, 0.44);
 
+  /* Depth for the frame: bars and panels get a vertical sheen, a top inner highlight and a soft drop. */
+  --bar-sheen: linear-gradient(180deg, #172132 0%, #121a27 100%);
+  --bar-sheen-bottom: linear-gradient(0deg, #151e2d 0%, #111824 100%);
+  --panel-sheen: linear-gradient(180deg, #131c2a 0%, #111824 120px);
+  --panel-edge: inset 1px 0 0 rgba(255, 255, 255, 0.035);
+  --shadow-bar: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 1px 0 rgba(0, 0, 0, 0.5), 0 10px 24px -12px rgba(0, 0, 0, 0.7);
+  --shadow-lift: var(--highlight-top), 0 2px 4px rgba(0, 0, 0, 0.3), 0 10px 22px -6px rgba(0, 0, 0, 0.5);
+  --accent-gradient: linear-gradient(180deg, #8ae6f4 0%, #65d9ed 55%, #4cc6de 100%);
+  --accent-gradient-hover: linear-gradient(180deg, #a3eef8 0%, #7ae0f1 55%, #5ccfe4 100%);
+  --glow-accent: 0 0 0 1px rgba(101, 217, 237, 0.4), 0 4px 16px -2px rgba(101, 217, 237, 0.38);
+  --glow-ai: 0 0 0 1px rgba(183, 165, 255, 0.4), 0 4px 16px -2px rgba(183, 165, 255, 0.34);
+  --focus-ring: 0 0 0 2px var(--surface-canvas), 0 0 0 4px var(--focus);
+  --canvas-dot: #1d2939;
+  --canvas-glow: rgba(126, 140, 255, 0.07);
+  --canvas-glow-2: rgba(101, 217, 237, 0.045);
+  --canvas-vignette: rgba(3, 5, 9, 0.55);
+  --scrollbar-thumb: #303e53;
+  --scrollbar-thumb-hover: #4a5b74;
+
   /* Radii */
   --radius-xs: 4px;
   --radius-sm: 6px;
@@ -101,7 +120,7 @@
   --accent-2: #65d9ed;
   --bubble-user: #243044;
   --bubble-user-line: #3a4d68;
-  --xy-dot: #232c3a;
+  --xy-dot: #1d2939;
   --minimap-node: #3a4454;
   --shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
   --minimap-mask: rgba(10, 14, 21, 0.72);

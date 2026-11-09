@@ -7,7 +7,7 @@ or the file directly.
 
 | Component | Props (beyond native ones) | Notes |
 |---|---|---|
-| `Button` | `variant: 'primary' \| 'ghost' \| 'subtle' \| 'danger'` (ghost), `size: 'sm' \| 'md'`, `loading`, `icon` | forwardRef. Ghost also carries the legacy `ghost-button` class. Press shifts 1px only with full motion. |
+| `Button` | `variant: 'primary' \| 'ghost' \| 'subtle' \| 'danger'` (ghost), `size: 'sm' \| 'md'`, `loading`, `icon` | forwardRef. Ghost also carries the legacy `ghost-button` class. Primary: accent gradient and a faint glow. Press shifts 1px only with full motion. |
 | `IconButton` | `label` (required, accessible name and tooltip), `size`, `active` | forwardRef. Icon-only. |
 | `Badge` / `Chip` | `tone: neutral \| accent \| ai \| warn \| danger \| ok`, `hue` (dot from the port-type palette), `pill`, `mono`, `icon` | `Chip` = pill badge. Helpers: `ProvenanceBadge {provenance}`, `FamilyBadge {family}`, `KindBadge {kind}`, `StatusBadge {status}`. `familyHue` / `kindHue` map values to hues. |
 | `Surface` | `elevation: 0..3`, `as`, `rounded`, `flush` | Layered night surface: lighter per level, 1px border, top inner highlight, shadow. |
@@ -27,6 +27,10 @@ or the file directly.
 | `Tabs*` | `TabsRoot/List/Trigger/Content` | Styled Radix tabs; contexts restyle through their own modules. |
 | `SelectField` | `id?, label, value, options, onChange, container?, className?` | Radix select. Keeps `field`, `select-trigger`, `select-content`, `select-item` classes and `data-value`. `CLOSE_OPEN_SELECT` window event closes an open list. |
 | `Hint`, `HintProvider` | `label`, `side?` | Radix tooltip. Keeps `hint-target` / `hint-content`. |
+
+Depth: frame bars use `--bar-sheen` / `--shadow-bar`, side panels `--panel-sheen` / `--panel-edge`, hoverable cards
+`--shadow-lift`, primary actions `--accent-gradient` over `background-color: var(--accent)` (computed colour stays the
+accent) with `--glow-accent`. Scrollbars are themed globally in `theme/base.css`.
 
 Rules: no inline styles except dynamic geometry; no `any`; every control keyboard reachable with a visible focus
 ring (`--focus`); text contrast per `theme/CONTRAST.md`.

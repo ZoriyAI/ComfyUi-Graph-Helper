@@ -21,6 +21,7 @@ export interface PositionedNode {
   width?: number;
   height?: number;
   data?: { parameters?: Record<string, unknown>; title?: string; comfyType?: string };
+  selected?: boolean;
 }
 
 export function nodeRect(node: PositionedNode): Rect {
@@ -53,12 +54,54 @@ export function groupRect(group: GroupRecord, nodes: PositionedNode[]): Rect | n
   return null;
 }
 
-/** Where an add-node ghost sits: its proposed position, else to the right of everything on the canvas. */
+/** Gap kept between a ghost and the nodes around it. */
+export const GHOST_GAP = 32;
+/** Room a ghost card takes when placed in free space (a catalog node with ports is taller than the default). */
+const GHOST_SIZE = { width: DEFAULT_NODE_SIZE.width, height: 200 };
+
+function overlaps(a: Rect, b: Rect, gap: number): boolean {
+  return a.x < b.x + b.width + gap && a.x + a.width + gap > b.x && a.y < b.y + b.height + gap && a.y + a.height + gap > b.y;
+}
+
+/**
+ * First free slot for a ghost at column `x`, starting at `y` and moving down past whatever it would cover.
+ * `order` stacks several unplaced ghosts in the same column.
+ */
+function freeSlot(x: number, y: number, rects: Rect[], order: number): { x: number; y: number } {
+  let top = y;
+  let skipped = 0;
+  for (let guard = 0; guard < 200; guard += 1) {
+    const slot = { x, y: top, ...GHOST_SIZE };
+    const hit = rects.find((rect) => overlaps(slot, rect, GHOST_GAP));
+    if (!hit) {
+      if (skipped === order) return { x, y: top };
+      skipped += 1;
+      top += GHOST_SIZE.height + GHOST_GAP;
+      continue;
+    }
+    top = hit.y + hit.height + GHOST_GAP;
+  }
+  return { x, y: top };
+}
+
+/**
+ * Where an add-node ghost sits: its proposed position when that is free; otherwise in free space to the right
+ * of the selected node, or to the right of the whole graph. A ghost never lands on top of an existing node.
+ */
 export function ghostNodePosition(payload: Extract<GraphMutation, { type: 'add-node' }>, nodes: PositionedNode[], order = 0): { x: number; y: number } {
-  if (typeof payload.x === 'number' && typeof payload.y === 'number') return { x: payload.x, y: payload.y };
-  const bounds = boundsOf(nodes.map(nodeRect));
-  if (!bounds) return { x: 0, y: order * (DEFAULT_NODE_SIZE.height + 32) };
-  return { x: bounds.x + bounds.width + 80, y: bounds.y + order * (DEFAULT_NODE_SIZE.height + 32) };
+  const rects = nodes.map(nodeRect);
+  if (typeof payload.x === 'number' && typeof payload.y === 'number') {
+    const proposed = { x: payload.x, y: payload.y, ...GHOST_SIZE };
+    if (!rects.some((rect) => overlaps(proposed, rect, 0))) return { x: payload.x, y: payload.y };
+  }
+  const bounds = boundsOf(rects);
+  if (!bounds) return { x: 0, y: order * (DEFAULT_NODE_SIZE.height + GHOST_GAP) };
+  const selected = nodes.find((node) => node.selected);
+  if (selected) {
+    const anchor = nodeRect(selected);
+    return freeSlot(anchor.x + anchor.width + 80, anchor.y, rects, order);
+  }
+  return freeSlot(bounds.x + bounds.width + 80, bounds.y, rects, order);
 }
 
 /** The dashed outline of a create-subgraph ghost: around the nodes it would pull in. */

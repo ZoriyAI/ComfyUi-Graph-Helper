@@ -34,7 +34,7 @@ test('import projects a workflow onto the canvas and export keeps unknown fields
   const window = await electronApp.firstWindow();
   await useEnglish(window);
   await window.locator('#chat-provider').waitFor();
-  await expect(window.getByRole('button', { name: 'Import' })).toBeEnabled();
+  await expect(window.getByRole('button', { name: 'Import', exact: true })).toBeEnabled();
   await expect(window.getByRole('button', { name: 'Export' })).toBeEnabled();
 
   const current = await window.evaluate(async () => {
@@ -88,7 +88,7 @@ test('Import and Export buttons use the file dialogs, and cancel does not change
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [paths.source] });
     dialog.showSaveDialog = async () => ({ canceled: false, filePath: paths.saved });
   }, { source, saved });
-  await window.getByRole('button', { name: 'Import' }).click();
+  await window.getByRole('button', { name: 'Import', exact: true }).click();
   await expect(window.locator('.react-flow__node')).toHaveCount(1);
   await window.getByRole('button', { name: 'Export' }).click();
   const written = JSON.parse(fs.readFileSync(saved, 'utf8')) as { vendor?: { keep?: boolean } };
@@ -96,7 +96,7 @@ test('Import and Export buttons use the file dialogs, and cancel does not change
   await electronApp.evaluate(({ dialog }) => {
     dialog.showOpenDialog = async () => ({ canceled: true, filePaths: [] });
   });
-  await window.getByRole('button', { name: 'Import' }).click();
+  await window.getByRole('button', { name: 'Import', exact: true }).click();
   await expect(window.locator('.react-flow__node')).toHaveCount(1);
   await electronApp.close();
 });

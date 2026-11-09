@@ -23,9 +23,16 @@ export function checkCount(check: GraphCheckReport | null): number | null {
     + check.baseModelMismatches.length + check.unconnectedRequiredInputs.length + check.unknownNodeTypes.length;
 }
 
+/** How the provider's key stands, shown as the colour of the chip's dot. */
+export type ProviderKeyState = 'none' | 'test' | 'ok' | 'session' | 'missing';
+
 export interface AppBarProps {
   provider: string;
+  /** The full sentence (tooltip and screen readers). */
   providerNote: string;
+  /** Short visible label: the provider name. */
+  providerLabel: string;
+  providerKey: ProviderKeyState;
   onOpenProject: () => void;
   onSaveProject: () => void;
   onCheckGraph: () => void;
@@ -38,7 +45,7 @@ export interface AppBarProps {
  * Top frame bar (`.document-bar`): mark, project name and unsaved state, project file actions,
  * sync indicator, provider chip, Check graph, Export, Settings.
  */
-export default function AppBar({ provider, providerNote, onOpenProject, onSaveProject, onCheckGraph, onExport, settings }: AppBarProps) {
+export default function AppBar({ provider, providerNote, providerLabel, providerKey, onOpenProject, onSaveProject, onCheckGraph, onExport, settings }: AppBarProps) {
   const { t } = useTranslation();
   const title = useGraphStore((state) => state.process.title);
   const revSeq = useProjectionStore((state) => state.revSeq);
@@ -68,8 +75,11 @@ export default function AppBar({ provider, providerNote, onOpenProject, onSavePr
       <div className={cx(styles.status, 'header-status')}>
         <SyncIndicator />
         <Hint label={providerNote}>
-          <span className={cx(styles.chip, 'status-chip', 'provider-chip')} data-provider={provider || 'none'} role="status" title={providerNote}>
-            {providerNote}
+          <span className={cx(styles.chip, 'status-chip', 'provider-chip')} data-provider={provider || 'none'} role="status">
+            <span className={styles.keyDot} data-key={providerKey} aria-hidden="true" />
+            <span className={styles.chipLabel} aria-hidden="true">{providerLabel}</span>
+            {/* The sentence stays in the status region for screen readers; sighted people read it in the tooltip. */}
+            <span className="sr-only">{providerNote}</span>
           </span>
         </Hint>
         <span className={styles.rule} aria-hidden="true" />

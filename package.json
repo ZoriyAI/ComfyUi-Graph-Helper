@@ -16,7 +16,8 @@
     "rebuild:native": "electron-rebuild -f -w better-sqlite3",
     "package:linux": "npm run rebuild:native && npm run build && node scripts/assert-current-main.js && electron-forge make --platform linux && node scripts/smoke-linux-package.js",
     "type-check": "tsc --project tsconfig.main.json --noEmit && tsc --noEmit",
-    "lint": "eslint src/"
+    "lint": "eslint src/",
+    "shots": "xvfb-run -a -s \"-screen 0 1600x1000x24\" node scripts/capture-screens/capture.js"
   },
   "keywords": [
     "comfyui",

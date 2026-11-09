@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import {
   ReactFlow,
   Background,
-  Controls,
   MiniMap,
   Panel,
   BackgroundVariant,
@@ -297,6 +296,7 @@ export default function CanvasFlow() {
             nodesConnectable={!readOnly}
             elementsSelectable={!readOnly}
             colorMode="dark"
+            attributionPosition="bottom-left"
             fitView
             fitViewOptions={{ padding: FIT_PADDING, duration: fitDuration }}
             minZoom={0.1}
@@ -320,21 +320,26 @@ export default function CanvasFlow() {
             }}
           >
             <ZoomReporter />
-            <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
-            <Controls position="top-left" fitViewOptions={{ padding: FIT_PADDING, duration: fitDuration }} />
+            <Background variant={BackgroundVariant.Dots} gap={18} size={1} color="var(--canvas-dot)" />
             <Panel position="top-center" className="nopan nowheel nodrag">
               <CanvasToolbar />
             </Panel>
-            <MiniMap
-              position="bottom-left"
-              style={{ width: 144, height: 96 }}
-              nodeStrokeWidth={1}
-              className="graph-minimap"
-              nodeColor={(node) => {
-                const data = node.data as { outputs?: Array<{ dataType?: string }>; inputs?: Array<{ dataType?: string }> };
-                return typeColor(data.outputs?.[0]?.dataType || data.inputs?.[0]?.dataType);
-              }}
-            />
+            {nodes.length > 0 ? (
+              <MiniMap
+                position="bottom-right"
+                style={{ width: 144, height: 96 }}
+                nodeStrokeWidth={0}
+                nodeBorderRadius={4}
+                maskColor="rgba(5, 8, 13, 0.62)"
+                maskStrokeColor="rgba(101, 217, 237, 0.55)"
+                maskStrokeWidth={1.5}
+                className="graph-minimap"
+                nodeColor={(node) => {
+                  const data = node.data as { outputs?: Array<{ dataType?: string }>; inputs?: Array<{ dataType?: string }> };
+                  return typeColor(data.outputs?.[0]?.dataType || data.inputs?.[0]?.dataType);
+                }}
+              />
+            ) : null}
             <GroupLayer />
             <GhostLayer />
             <ConnectAssistLayer />

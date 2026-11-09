@@ -5,7 +5,6 @@ import Button from '../../ui/Button';
 import Hint from '../../ui/Hint';
 import SelectField from '../../ui/SelectField';
 import { cx } from '../../ui/cx';
-import { ToolToggles } from './Dock';
 import styles from './Toolbar.module.css';
 
 export interface ProviderOption {
@@ -13,7 +12,7 @@ export interface ProviderOption {
   label: string;
 }
 
-/** Workspace toolbar (`.workspace-toolbar`): import, catalog snapshot, history, dock toggles, chat provider. */
+/** Workspace toolbar (`.workspace-toolbar`): import, catalog snapshot, history, chat provider. Dock controls live in the dock header. */
 export default function Toolbar({
   provider,
   providerOptions,
@@ -39,8 +38,6 @@ export default function Toolbar({
       <Hint label={String(t('toolbar.redoHint'))}>
         <Button icon={<Redo2 size={16} />} disabled title={String(t('toolbar.redoHint'))}>{t('toolbar.redo')}</Button>
       </Hint>
-      <span className={styles.rule} aria-hidden="true" />
-      <ToolToggles />
       <span className={styles.spacer} aria-hidden="true" />
       <SelectField id="chat-provider" label={String(t('provider.label'))} value={provider} options={providerOptions} onChange={onProvider} />
     </div>
