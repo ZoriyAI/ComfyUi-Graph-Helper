@@ -61,14 +61,16 @@ function menuBarTrigger(): HTMLElement | null {
 let beforeMenuBar: HTMLElement | null = null;
 
 export function rememberFocusBeforeMenuBar(element: Element | null): void {
-  if (element instanceof HTMLElement && !element.closest('[role="menubar"]') && element !== document.body) beforeMenuBar = element;
+  // Focus coming back from one of the menu bar's own menus is not a place to return to.
+  if (element instanceof HTMLElement && !element.closest('[role="menubar"], [role="menu"]') && element !== document.body) beforeMenuBar = element;
 }
 
 export function restoreFocusAfterMenuBar(): void {
   const target = beforeMenuBar;
   beforeMenuBar = null;
   if (target && target.isConnected) target.focus({ preventScroll: true });
-  else if (document.activeElement instanceof HTMLElement && document.activeElement.closest('[role="menubar"]')) document.activeElement.blur();
+  const active = document.activeElement;
+  if (active instanceof HTMLElement && active.closest('[role="menubar"]')) active.blur();
 }
 
 function toggleMenuBarFocus(): void {

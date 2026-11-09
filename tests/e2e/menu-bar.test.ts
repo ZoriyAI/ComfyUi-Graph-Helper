@@ -76,6 +76,8 @@ test('desktop menu bar: mouse, Alt and arrows, shortcuts, and the toolbar run th
   await expect(window.getByRole('menu').getByRole('menuitem', { name: 'Fit to view' })).toBeVisible();
   await window.keyboard.press('Escape');
   await expect(window.getByRole('menu')).toHaveCount(0);
+  // Escape leaves focus on the menu title (as a desktop menu bar does); Alt then gives it back.
+  await expect.poll(() => focusedText(window)).toBe('View');
   await window.keyboard.press('Alt');
   await expect.poll(() => window.evaluate(() => Boolean(document.activeElement?.closest('[role="menubar"]')))).toBe(false);
   await window.keyboard.press('F10');
