@@ -26,8 +26,10 @@ export interface TourTexts {
 /** Explanations are listed newest last; the tour prefers what a node is ("what"), then any aspect. */
 export function firstExplanation(list: Explanation[] | undefined): string | undefined {
   if (!list || list.length === 0) return undefined;
-  const what = list.find((item) => item.aspect === 'what' && item.text.trim() !== '');
-  return (what ?? list.find((item) => item.text.trim() !== ''))?.text.trim();
+  // The newest "what" wins, as on the description card: an AI or user line beats the built-in seed (created at 0).
+  const filled = list.filter((item) => item.text.trim() !== '');
+  const newest = (items: Explanation[]) => items.reduce<Explanation | undefined>((best, item) => (!best || item.createdAt >= best.createdAt ? item : best), undefined);
+  return (newest(filled.filter((item) => item.aspect === 'what')) ?? newest(filled))?.text.trim();
 }
 
 /**

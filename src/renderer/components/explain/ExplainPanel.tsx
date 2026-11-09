@@ -14,7 +14,8 @@ import { requestAsk } from '../../services/ask';
 import { turnLanguage } from '../../services/llm/chatModel';
 import { objectLabel } from '../chat/objectLabel';
 import ProvenanceBadge from './ProvenanceBadge';
-import { ASPECTS, groupByAspect, isGlobalOwner, isStale, missingAspects, safeSourceUrl } from './explainModel';
+import { ASPECTS, groupByAspect, isGlobalOwner, isStale, missingAspects, shownSourceUrl } from './explainModel';
+import { edgeDataType, linkTypeRef } from '../graph/lib/linkTypeKnowledge';
 import styles from './ExplainPanel.module.css';
 
 const EMPTY: Explanation[] = [];
@@ -58,7 +59,7 @@ function SourceLink({ url }: { url: string }) {
 function ExplanationItem({ item, currentRevisionId }: { item: Explanation; currentRevisionId: string | null }) {
   const { t } = useTranslation();
   const stale = isStale(item, currentRevisionId);
-  const url = item.provenance === 'web' ? safeSourceUrl(item.sourceUrl) : null;
+  const url = shownSourceUrl(item);
   return (
     <article className={styles.item} data-provenance={item.provenance} data-stale={stale}>
       <div className={styles.meta}>
@@ -227,7 +228,13 @@ export default function ExplainPanel() {
 
   const node = focus?.kind === 'node' ? nodes.find((item) => item.id === focus.id) : undefined;
   const classType = focus?.kind === 'node' ? focus.classType ?? node?.data.comfyType : undefined;
-  const classRef: ObjectRef | null = classType ? { kind: 'nodeClass', id: classType, classType } : null;
+  const edge = focus?.kind === 'edge' ? edges.find((item) => item.id === focus.id) : undefined;
+  const edgeOutputType = edge ? nodes.find((item) => item.id === edge.source)?.data.outputs.find((port) => port.id === edge.sourceHandle)?.dataType : undefined;
+  // A node shares its class knowledge; an edge shares the knowledge about the data type it carries.
+  const classRef: ObjectRef | null = classType
+    ? { kind: 'nodeClass', id: classType, classType }
+    : edge ? linkTypeRef(edgeDataType(edge, edgeOutputType)) : null;
+  const sharedTitle = classType ?? classRef?.id;
   const focusKey = focus ? objectKey(focus) : null;
   const classKey = classRef ? objectKey(classRef) : null;
 
@@ -297,7 +304,9 @@ export default function ExplainPanel() {
 
       {classRef && shared.length > 0 ? (
         <section className={styles.section}>
-          <h3 className={styles.sectionTitle}>{t('explain.classKnowledge', { classType })}</h3>
+          <h3 className={styles.sectionTitle}>
+            {classType ? t('explain.classKnowledge', { classType }) : t('explain.typeKnowledge', { type: sharedTitle })}
+          </h3>
           <AspectGroups list={shared} currentRevisionId={currentRevisionId} />
         </section>
       ) : null}

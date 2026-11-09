@@ -14,7 +14,7 @@ export const MODEL_KINDS = [
 export const EXPLANATION_ASPECTS = ['what', 'why', 'connect', 'next', 'risk'] as const satisfies readonly ExplanationAspect[];
 export const PROVENANCES = ['fact', 'inference', 'web', 'user'] as const satisfies readonly Provenance[];
 export const OBJECT_KINDS = [
-  'node', 'port', 'edge', 'subgraph', 'group', 'nodeClass', 'model', 'process',
+  'node', 'port', 'edge', 'subgraph', 'group', 'nodeClass', 'model', 'process', 'linkType', 'family',
 ] as const satisfies readonly ObjectKind[];
 
 type Exhaustive<All, Listed extends readonly unknown[]> = [All] extends [Listed[number]] ? true : never;
@@ -85,7 +85,7 @@ export const explanationInputSchema = z.object({
   provenance: z.enum(PROVENANCES),
   sourceUrl: sourceUrlSchema.nullable(),
   revisionId: z.string().min(1).max(200).nullable(),
-  createdBy: z.enum(['ai', 'user', 'sync']),
+  createdBy: z.enum(['ai', 'user', 'sync', 'seed']),
 });
 
 /** A port owner names its node, side, and port; without them the note cannot be shown on the port. */

@@ -4,6 +4,7 @@ import { randomUUID } from 'crypto';
 import * as fs from 'fs';
 import { IPC_CHANNELS } from '../shared/ipc-channels';
 import { getDatabase } from './database';
+import { reseedCoreKnowledge } from './knowledge/seedCore';
 import { mainLLMService } from './llmService';
 import { attemptSaveSecret, forgetProviderKey, readProviderKeyCipher, readSettings, saveSecretIfProven, saveSettings } from './settings/repository';
 import { secretStatus } from './settings/secretDecision';
@@ -242,6 +243,7 @@ export async function setupIPC(): Promise<void> {
       refreshBlockedWebOrigins(result.values.comfyOrigin);
       // A token given for one MCP server is not sent to another.
       releaseMcpTokenIfOriginChanged(result.values.mcpUrl);
+      reseedCoreKnowledge(getDatabase(), result.values.language);
       mainLLMService.setConfig({
         provider: result.values.provider,
         model: result.values.model,

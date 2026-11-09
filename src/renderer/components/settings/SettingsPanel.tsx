@@ -38,7 +38,7 @@ import AboutSection from './sections/AboutSection';
 import { fieldClass, hintClass, patchSection, rowClass, SectionHead, type DraftProps } from './sections/common';
 import { SETTINGS_SECTIONS, useUiStore, type SettingsSection } from '../../state/uiState';
 import { usePreferencesStore } from '../../state/preferencesState';
-import { refreshSyncStatus } from '../../state/knowledgeState';
+import { refreshSyncStatus, useKnowledgeStore } from '../../state/knowledgeState';
 import { SETTINGS_CHANGED } from '../../commands/events';
 import styles from './SettingsPanel.module.css';
 
@@ -242,6 +242,8 @@ export default function SettingsPanel({
         setNote({ kind: 'error', code: result.error });
         return;
       }
+      // A new language reseeds the built-in knowledge in the main process; cached explanations follow it.
+      if (savedRef.current.language !== result.values.language) void useKnowledgeStore.getState().reloadExplanations();
       savedRef.current = result.values;
       setValues(result.values);
       const stored = result.preferences ?? prefs;

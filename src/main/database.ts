@@ -3,6 +3,7 @@ import { app } from 'electron';
 import { closeStaleRuns, ensureWorkspace } from './commands/commit';
 import { databasePath } from '../shared/database-path';
 import { migrate } from './settings/migrate';
+import { reseedCoreKnowledge } from './knowledge/seedCore';
 
 let db: Database.Database | null = null;
 
@@ -21,6 +22,7 @@ export function initDatabase(): void {
   ensureWorkspace(db);
   // No turn survives a restart: runs left open by the previous session would block or confuse the next one.
   closeStaleRuns(db);
+  reseedCoreKnowledge(db); // Built-in teaching knowledge in the saved interface language; never fatal.
   console.log('[Database] Schema ready');
 }
 

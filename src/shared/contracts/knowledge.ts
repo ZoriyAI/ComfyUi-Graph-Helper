@@ -68,7 +68,8 @@ export interface Explanation {
   sourceUrl: string | null;
   /** Graph revision the explanation was written against; null for global knowledge. */
   revisionId: string | null;
-  createdBy: 'ai' | 'user' | 'sync';
+  /** 'seed': built-in teaching knowledge written by the app itself (src/main/knowledge/seedCore.ts). */
+  createdBy: 'ai' | 'user' | 'sync' | 'seed';
   createdAt: number;
 }
 
