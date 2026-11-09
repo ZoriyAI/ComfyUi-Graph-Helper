@@ -1,0 +1,161 @@
+import Database from 'better-sqlite3';
+import { describe, expect, it } from 'vitest';
+import { commitCommand, ensureWorkspace, listRecentCommands, listRevisions, readProjection } from '../../src/main/commands/commit';
+import { migrate } from '../../src/main/settings/migrate';
+import { createProposal, listProposals } from '../../src/main/proposals/repository';
+import { describeCommand } from '../../src/shared/agent/recentActions';
+import { DESKTOP_PROJECT_ID as P } from '../../src/shared/project';
+import type { Proposal } from '../../src/shared/contracts/proposals';
+import { nextNodeId } from '../../src/shared/workflow/codec';
+import {
+  afterRedo,
+  afterUndo,
+  describeRevision,
+  EMPTY_SESSION,
+  logicalRevision,
+  planUndo,
+  type UndoRevision,
+  type UndoSession,
+} from '../../src/renderer/state/undoState';
+
+type Rec = Record<string, any>;
+
+function openDb(): Database.Database {
+  const db = new Database(':memory:');
+  migrate(db);
+  ensureWorkspace(db);
+  return db;
+}
+
+const head = (db: Database.Database) => readProjection(db, P)!;
+const commit = (db: Database.Database, actionId: string, payload: Rec) => commitCommand(db, {
+  projectId: P, actionId, expectedRevisionId: head(db).currentRevisionId, actor: 'manual', runId: null, payload,
+});
+
+describe('engine: restore-revision', () => {
+  it('copies an earlier revision into a new one: the snapshot round-trips and history only grows', () => {
+    const db = openDb();
+    commit(db, 'a', { type: 'add-node', nodeType: 'CheckpointLoaderSimple' });
+    commit(db, 'b', { type: 'add-node', nodeType: 'KSampler' });
+    commit(db, 'c', { type: 'connect', source: '1', sourceHandle: 'out-0', target: '2', targetHandle: 'in-0' });
+    commit(db, 'p', { type: 'set-process', title: 'Txt2img', notes: 'n' });
+    const before = head(db);
+    commit(db, 'g', { type: 'add-group', title: 'G', nodeIds: ['1', '2'] });
+    commit(db, 'r', { type: 'remove-edge', edgeId: (before.snapshot.edges as Rec[])[0].id });
+    const restored = commit(db, 'undo', { type: 'restore-revision', revisionId: before.currentRevisionId });
+    expect(restored.status).toBe('applied');
+    expect(restored.result).toEqual({ revisionId: before.currentRevisionId, restoredRevSeq: before.revSeq });
+    expect(restored.projection!.revSeq).toBe(before.revSeq + 3);
+    expect(restored.projection!.snapshot).toEqual(before.snapshot);
+    const list = listRevisions(db, P);
+    expect(list.at(-1)).toMatchObject({ description: 'restore-revision', source: 'user', actor: 'manual', restoredRevisionId: before.currentRevisionId });
+    const recent = listRecentCommands(db, P);
+    expect(describeCommand(recent.at(-1)!, null)).toBe(`restored revision ${before.revSeq}`);
+    db.close();
+  });
+
+  it('rejects an unknown revision id and leaves the head alone', () => {
+    const db = openDb();
+    commit(db, 'a', { type: 'add-node', nodeType: 'KSampler' });
+    const was = head(db);
+    const result = commit(db, 'undo', { type: 'restore-revision', revisionId: 'rev-nowhere-9' });
+    expect(result.status).toBe('rejected');
+    expect(result.result).toEqual({ error: 'Revision was not found.' });
+    expect(head(db).currentRevisionId).toBe(was.currentRevisionId);
+    db.close();
+  });
+
+  it('supersedes open proposals whose nodes the restore removes', () => {
+    const db = openDb();
+    const empty = head(db).currentRevisionId;
+    commit(db, 'a', { type: 'add-node', nodeType: 'KSampler' });
+    const proposal = createProposal(db, {
+      projectId: P, runId: null, kind: 'set-parameter' as Proposal['kind'], payload: { type: 'set-parameter', nodeId: '1', key: 'seed', value: 5 } as Proposal['payload'], note: 'seed',
+    });
+    commit(db, 'undo', { type: 'restore-revision', revisionId: empty });
+    const after = listProposals(db, P).find((item) => item.id === proposal.id)!;
+    expect(after.status).toBe('superseded');
+    expect(after.note).toContain('restore-revision');
+    db.close();
+  });
+
+  it('keeps node ids monotonic: a node added after an undo gets a new id', () => {
+    const db = openDb();
+    commit(db, 'a', { type: 'add-node', nodeType: 'KSampler' });
+    const one = head(db).currentRevisionId;
+    commit(db, 'b', { type: 'add-node', nodeType: 'VAEDecode' });
+    commit(db, 'undo', { type: 'restore-revision', revisionId: one });
+    expect(nextNodeId(head(db).snapshot as never)).toBe(3);
+    const added = commit(db, 'c', { type: 'add-node', nodeType: 'SaveImage' });
+    expect((added.result as Rec).nodeId).toBe('3');
+    db.close();
+  });
+});
+
+const rev = (id: string, revSeq: number, extra: Partial<UndoRevision> = {}): UndoRevision => ({ id, revSeq, source: 'user', actor: 'manual', ...extra });
+
+describe('undo pointer', () => {
+  const base: UndoRevision[] = [
+    rev('r1', 1, { source: 'system', actor: null, description: 'Initial' }),
+    rev('r2', 2, { description: 'add-node', payload: { type: 'add-node', nodeType: 'KSampler' } }),
+    rev('r3', 3, { description: 'connect', payload: { type: 'connect', source: '2', target: '4' } }),
+  ];
+
+  /** Applies an undo or redo plan the way the renderer does, appending the restore commit. */
+  function step(list: UndoRevision[], session: UndoSession, kind: 'undo' | 'redo'): { list: UndoRevision[]; session: UndoSession } {
+    const headId = list.at(-1)!.id;
+    const plan = planUndo(list, headId, session, { running: false });
+    const move = kind === 'undo' ? plan.undo : plan.redo;
+    if (!move) throw new Error(`no ${kind}`);
+    const next = rev(`r${list.length + 1}`, list.length + 1, { description: 'restore-revision', restoredRevisionId: move.target });
+    const nextSession = kind === 'undo' ? afterUndo(session, headId, plan.pointer!, next.id) : afterRedo(session, headId, next.id);
+    return { list: [...list, next], session: nextSession };
+  }
+
+  it('undoes the person\'s steps one by one and redoes them back, skipping the restore commits', () => {
+    let state = { list: base, session: EMPTY_SESSION };
+    const first = planUndo(state.list, 'r3', state.session, { running: false });
+    expect(first.undo?.target).toBe('r2');
+    expect(describeRevision(first.undo!.undone)).toEqual(expect.objectContaining({ key: 'undo.connect', values: expect.objectContaining({ source: '2', target: '4' }) }));
+    expect(first.redo).toBeNull();
+    state = step(state.list, state.session, 'undo');
+    state = step(state.list, state.session, 'undo');
+    const byId = new Map(state.list.map((item) => [item.id, item]));
+    expect(logicalRevision(byId, 'r5')).toBe('r1');
+    const atStart = planUndo(state.list, 'r5', state.session, { running: false });
+    expect(atStart.pointer).toBe('r1');
+    expect(atStart.undo).toBeNull();
+    expect(atStart.redo?.target).toBe('r2');
+    state = step(state.list, state.session, 'redo');
+    const afterOne = planUndo(state.list, 'r6', state.session, { running: false });
+    expect(afterOne.pointer).toBe('r2');
+    expect(afterOne.redo?.target).toBe('r3');
+    expect(afterOne.undo?.target).toBe('r1');
+    state = step(state.list, state.session, 'redo');
+    const back = planUndo(state.list, 'r7', state.session, { running: false });
+    expect(back.pointer).toBe('r3');
+    expect(back.redo).toBeNull();
+    expect(state.list.map((item) => item.revSeq)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+  });
+
+  it('a new edit clears the redo chain, and undo after it goes back to the state it was made on', () => {
+    let state = { list: base, session: EMPTY_SESSION };
+    state = step(state.list, state.session, 'undo');
+    const edited = [...state.list, rev('r5', 5, { description: 'move-node', payload: { type: 'move-node', nodeId: '2' } })];
+    const plan = planUndo(edited, 'r5', state.session, { running: false });
+    expect(plan.redo).toBeNull();
+    expect(plan.undo?.target).toBe('r2');
+  });
+
+  it('does not undo the assistant\'s revisions, and nothing runs while an agent run is running', () => {
+    const list = [...base, rev('r4', 4, { source: 'ai', actor: 'ai', description: 'add-node' })];
+    expect(planUndo(list, 'r4', EMPTY_SESSION, { running: false })).toMatchObject({ undo: null, blocked: 'assistant' });
+    expect(planUndo(base, 'r3', EMPTY_SESSION, { running: true })).toMatchObject({ undo: null, blocked: 'running' });
+    const undone = step(base, EMPTY_SESSION, 'undo');
+    expect(planUndo(undone.list, 'r4', undone.session, { running: true }).redo).toBeNull();
+  });
+
+  it('is off when the head is not in the list yet', () => {
+    expect(planUndo(base, 'r9', EMPTY_SESSION, { running: false })).toMatchObject({ pointer: null, undo: null, redo: null });
+  });
+});
