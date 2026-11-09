@@ -33,6 +33,12 @@ export interface AgentToolDeps {
   /** Provider-executed web search tool, or null for the main-process fallback. */
   nativeSearch?: unknown | null;
   readGraph?: (db: Database.Database, projectId: string) => Projection | null;
+  /** Preferences ▸ Assistant: false leaves searchWeb out of the tool set. Default true. */
+  allowWebSearch?: boolean;
+  /** Preferences ▸ Assistant: false leaves fetchPage out of the tool set. Default true. */
+  allowFetchPage?: boolean;
+  /** Preferences ▸ Privacy: true makes getGraph omit every widget value. */
+  omitValues?: boolean;
 }
 
 export interface AgentToolDefinition {
@@ -180,7 +186,7 @@ export function createAgentTools(deps: AgentToolDeps): Record<string, AgentToolD
     getGraph: define('getGraph', schemas.getGraph, () => {
       const projection = readGraph(db, projectId);
       if (!projection) return fail('Project is not ready.');
-      return { success: true, revisionId: projection.currentRevisionId, ...summarizeGraph(projection.snapshot) };
+      return { success: true, revisionId: projection.currentRevisionId, ...summarizeGraph(projection.snapshot, { omitValues: deps.omitValues === true }) };
     }),
     searchNodeTypes: define('searchNodeTypes', schemas.searchNodeTypes, (args) => ({
       success: true,
@@ -236,6 +242,8 @@ export function createAgentTools(deps: AgentToolDeps): Record<string, AgentToolD
     proposeSubgraph: propose('proposeSubgraph'),
   };
 
+  if (deps.allowFetchPage === false) delete tools.fetchPage;
+  if (deps.allowWebSearch === false) return tools;
   const native = deps.nativeSearch === undefined ? null : deps.nativeSearch;
   tools.searchWeb = native ?? define('searchWeb', schemas.searchWeb, async (args) => ({
     success: true,
