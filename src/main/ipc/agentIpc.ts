@@ -5,6 +5,8 @@ import { readPreferences, readSettings } from '../settings/repository';
 import { runAgentTurn } from '../agent/turn';
 import { clearChatHistory, loadChatHistory, saveChatMessage } from '../agent/chatHistory';
 import type { RunContext } from '../agent/buildTools';
+import { mainLLMService } from '../llmService';
+import { log } from '../log';
 
 function settingsLanguage(): 'en' | 'ru' {
   const read = readSettings(getDatabase());
@@ -59,6 +61,12 @@ export function registerAgentIpc(ipcMain: IpcMain): void {
       const turn: LiveTurn = { controller: new AbortController(), senderId: event.sender.id, runId: String(runContext?.runId ?? '') };
       live.add(turn);
       const release = abortWithSender(event.sender, turn.controller);
+      // The log records which runtime ran the turn and how it ended; never the prompt or a key.
+      const runtime = mainLLMService.nextSendConfig();
+      const started = Date.now();
+      let steps = 0;
+      let failure: string | null = null;
+      log.info(`[Agent] Turn start provider=${runtime.provider || 'none'} model=${runtime.model || 'none'} run=${turn.runId}`);
       try {
         await runAgentTurn({
           db: getDatabase(),
@@ -67,11 +75,17 @@ export function registerAgentIpc(ipcMain: IpcMain): void {
           run: runContext,
           context,
           language: settingsLanguage(),
-          send: (chunk) => send(responseChannel, chunk),
+          send: (chunk) => {
+            if (chunk?.type === 'start-step') steps += 1;
+            if (chunk?.type === 'error') failure = typeof chunk.content === 'string' ? chunk.content : 'stream error';
+            send(responseChannel, chunk);
+          },
           notify: send,
           signal: turn.controller.signal,
         });
       } finally {
+        const outcome = turn.controller.signal.aborted ? 'cancelled' : failure ? `error: ${String(failure).slice(0, 300)}` : 'ok';
+        log.info(`[Agent] Turn end provider=${runtime.provider || 'none'} model=${runtime.model || 'none'} steps=${steps} ms=${Date.now() - started} ${outcome}`);
         release();
         live.delete(turn);
       }
