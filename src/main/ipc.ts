@@ -17,6 +17,7 @@ import { registerAgentIpc } from './ipc/agentIpc';
 import { registerDiagnosticsIpc } from './ipc/diagnosticsIpc';
 import { mcpOriginOf, mcpTokenFor, mcpTokenStatus, releaseMcpTokenIfOriginChanged, setMcpToken } from './mcp/token';
 import { configureMcpOAuth, loginToMcp, logoutFromMcp, oauthStatus } from './mcp/oauth';
+import { detectMcpAuth } from './mcp/detect';
 import { browserOpener } from './mcp/browser';
 import { reportedComfyUrl, syncService } from './mcp/sync';
 import { saveProjectRecord } from './ipc/projectRecord';
@@ -327,6 +328,13 @@ export async function setupIPC(): Promise<void> {
     const url = savedEndpoints().mcpUrl;
     if (!url) return { ok: false as const, error: 'MCP server URL is empty.' };
     return readCatalogViaMcp(getDatabase(), { url, token: mcpTokenFor(url) }, globalThis.fetch);
+  });
+
+  // Settings ▸ Connection "Check": what this server wants from a connection, found out by trying, never by assuming.
+  ipcMain.handle(IPC_CHANNELS.MCP_DETECT_AUTH, async (_event, forUrl?: unknown) => {
+    const url = typeof forUrl === 'string' && forUrl.length > 0 && forUrl.length <= 2000 ? forUrl : savedEndpoints().mcpUrl;
+    if (!url) return { ok: false as const, error: 'MCP server URL is empty.' };
+    return detectMcpAuth(url);
   });
 
   ipcMain.handle(IPC_CHANNELS.MCP_SET_TOKEN, (_event, value: unknown, forUrl?: unknown) => {

@@ -29,6 +29,13 @@ export const nonSecretSettingsSchema = z.object({
   comfyOrigin: z.string().trim().max(500).refine(httpOriginOrEmpty).default(''),
   /** Streamable HTTP MCP endpoint of the ComfyUI MCP server, or empty. The token is never part of this row. */
   mcpUrl: z.string().trim().max(500).refine(httpOriginOrEmpty).default(''),
+  /**
+   * How the app presents itself to the MCP server, chosen by the person in Settings ▸ Connection: 'none' sends no
+   * credentials (a server that needs none), 'token' sends the pasted token, 'oauth' uses the browser sign-in.
+   * '' means not chosen yet: the app offers what it holds (token, else sign-in, else nothing) until detection or
+   * the person settles it. The token itself is never part of this row.
+   */
+  mcpAuth: z.enum(['', 'none', 'token', 'oauth']).default(''),
   language: z.enum(['en', 'ru']).default('ru'),
 }).superRefine((value, ctx) => {
   if (value.provider !== 'local') return;
@@ -37,6 +44,7 @@ export const nonSecretSettingsSchema = z.object({
 });
 
 export type NonSecretSettings = z.infer<typeof nonSecretSettingsSchema>;
+export type McpAuthMode = NonSecretSettings['mcpAuth'];
 
 export type ChatRuntimeConfig = Pick<NonSecretSettings, 'provider' | 'model' | 'baseURL'>;
 
@@ -48,6 +56,7 @@ export const nonSecretDefaults: NonSecretSettings = {
   baseURL: '',
   comfyOrigin: '',
   mcpUrl: '',
+  mcpAuth: '',
   language: 'ru',
 };
 

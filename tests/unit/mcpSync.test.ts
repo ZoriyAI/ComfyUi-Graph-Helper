@@ -10,6 +10,7 @@ import { MCP_NEEDS_SIGN_IN, openReadOnlySession } from '../../src/main/mcp/clien
 import { isReadOnlyCall, McpRefusedError, readOnlySession, READ_ONLY_TOOLS } from '../../src/main/mcp/readOnly';
 import type { McpSession, McpToolCallResult } from '../../src/shared/mcp/catalogSource';
 import type { SyncStatus } from '../../src/shared/contracts/knowledge';
+import type { OAuthClientProvider } from '@modelcontextprotocol/client';
 import { parseSidecar, stringifyMetadata } from '../../src/shared/knowledge/enrichment';
 
 const TOKEN = 'tok-very-secret-123';
@@ -587,7 +588,9 @@ describe('servers without authentication', () => {
 
     const withToken = service({ calls: [] });
     expect((await withToken.sync.runSync(db)).authMode).toBe('token');
-    const signed = service({ calls: [] }, { token: () => null, signedIn: () => true, authProvider: async () => null });
+    // A browser sign-in is "oauth" only when its provider was actually offered to the connection.
+    const provider = { tokens: () => undefined } as unknown as OAuthClientProvider;
+    const signed = service({ calls: [] }, { token: () => null, signedIn: () => true, authProvider: async () => provider });
     expect((await signed.sync.runSync(db)).authMode).toBe('oauth');
     db.close();
   });
@@ -604,6 +607,47 @@ describe('servers without authentication', () => {
     });
     const status = await refused.sync.runSync(db);
     expect(status).toMatchObject({ state: 'error', lastError: MCP_NEEDS_SIGN_IN, authMode: null });
+    db.close();
+  });
+});
+
+describe('the chosen access mode', () => {
+  it('offers only what the person chose: nothing, the token, or the browser sign-in', async () => {
+    const db = openDb();
+    const seen: Array<{ token: string | null; provider: boolean }> = [];
+    const provider = { tokens: () => undefined } as unknown as OAuthClientProvider;
+    const make = (mode: '' | 'none' | 'token' | 'oauth') => new SyncService({
+      token: () => TOKEN,
+      readUrl: () => 'https://mcp.example.test/mcp',
+      readAuthMode: () => mode,
+      signedIn: () => true,
+      authProvider: async () => provider,
+      factory: async (_url, token, authProvider) => {
+        seen.push({ token, provider: authProvider != null });
+        return fakeSession({ calls: [] });
+      },
+      fetchImpl: (async () => { throw new Error('no network in unit tests'); }) as unknown as typeof fetch,
+      now: () => 1_700_000_000_000,
+    });
+    expect((await make('none').runSync(db)).authMode).toBe('anonymous');
+    expect((await make('token').runSync(db)).authMode).toBe('token');
+    expect((await make('oauth').runSync(db)).authMode).toBe('oauth');
+    expect((await make('').runSync(db)).authMode).toBe('token');
+    expect(seen).toEqual([
+      { token: null, provider: false },
+      { token: TOKEN, provider: false },
+      { token: null, provider: true },
+      { token: TOKEN, provider: false },
+    ]);
+    db.close();
+  });
+
+  it('tries at every startup when the person chose "no sign-in"', () => {
+    const db = openDb();
+    db.prepare("INSERT INTO sync_state (key, value) VALUES ('auto_enabled', '1'), ('auto_interval_minutes', '30'), ('last_error', ?)").run(MCP_NEEDS_SIGN_IN);
+    const chosen = service({ calls: [] }, { token: () => null, signedIn: () => false, authProvider: async () => null, readAuthMode: () => 'none' });
+    expect(chosen.sync.start(db)).toMatchObject({ startupPending: true });
+    chosen.sync.stop();
     db.close();
   });
 });

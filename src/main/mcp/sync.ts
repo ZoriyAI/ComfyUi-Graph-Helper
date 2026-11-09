@@ -8,6 +8,7 @@ import { SYNC_INTERVAL_DEFAULT_MINUTES, SYNC_INTERVAL_MAX_MINUTES, SYNC_INTERVAL
 import { ENRICH_PAUSE_MS, ENRICH_PER_RUN } from '../../shared/config/preferences';
 import { catalogTotals, writeModelEnrichment } from '../catalog/repository';
 import { readPreferences, readSettings } from '../settings/repository';
+import type { McpAuthMode } from '../../shared/config/schema';
 import type { OAuthClientProvider } from '@modelcontextprotocol/client';
 import {
   connectStreamableHttp, failure, isNetworkError, MCP_NEEDS_SIGN_IN, MCP_SIGN_IN_AGAIN, mcpUnreachableError, openReadOnlySession,
@@ -44,6 +45,8 @@ export const sectionUnreadWarning = (section: string) => `MCP catalog section co
 
 export interface SyncDeps {
   readUrl: (db: Database.Database) => string;
+  /** Settings ▸ Connection: which credentials the person chose to offer ('' = whatever is held). */
+  readAuthMode: (db: Database.Database) => McpAuthMode;
   /** The in-memory bearer token. Passed to the session factory only; never stored, logged, or returned. */
   token: () => string | null;
   fetchImpl: typeof fetch;
@@ -80,6 +83,10 @@ const defaultDeps: SyncDeps = {
   readUrl: (db) => {
     const read = readSettings(db);
     return read.source === 'corrupt' ? '' : read.values.mcpUrl;
+  },
+  readAuthMode: (db) => {
+    const read = readSettings(db);
+    return read.source === 'corrupt' ? '' : read.values.mcpAuth;
   },
   token: mcpToken,
   fetchImpl: (...args) => globalThis.fetch(...args),
@@ -392,7 +399,10 @@ export class SyncService {
     try {
       const url = this.deps.readUrl(db);
       if (!url) return false;
-      if (this.deps.token() != null || this.deps.signedIn(url)) return true;
+      const mode = this.readAuthMode(db);
+      // "No sign-in" was the person's explicit choice: every startup tries, and the status says what the server answered.
+      if (mode === 'none') return true;
+      if ((mode !== 'oauth' && this.deps.token() != null) || (mode !== 'token' && this.deps.signedIn(url))) return true;
       const state = readState(db);
       if (state.auth_mode === 'anonymous') return true;
       return state.last_error !== MCP_NEEDS_SIGN_IN && state.last_error !== MCP_SIGN_IN_AGAIN;
@@ -433,6 +443,14 @@ export class SyncService {
     }, delay);
     // A pending sync must not keep the app (or a test run) alive.
     this.timer.unref?.();
+  }
+
+  private readAuthMode(db: Database.Database): McpAuthMode {
+    try {
+      return this.deps.readAuthMode(db);
+    } catch {
+      return '';
+    }
   }
 
   private emit(db: Database.Database): SyncStatus {
@@ -487,9 +505,11 @@ export class SyncService {
       last_run_duration_ms: String(Math.max(0, this.deps.now() - startedAt)),
     });
     this.deps.checkTokenOrigin(url);
-    const token = this.deps.token();
+    // The person's choice in Settings ▸ Connection decides what is offered; the server decides whether it is enough.
+    const mode = this.readAuthMode(db);
+    const token = mode === 'none' || mode === 'oauth' ? null : this.deps.token();
     let authProvider: OAuthClientProvider | null = null;
-    if (!token) {
+    if (!token && mode !== 'none' && mode !== 'token') {
       try {
         authProvider = await this.deps.authProvider(url);
       } catch {
@@ -514,7 +534,7 @@ export class SyncService {
     }
     const session = opened.session;
     // Remembered so the indicator knows whether this server needs any credentials at all.
-    writeState(db, { auth_mode: token ? 'token' : this.deps.signedIn(url) ? 'oauth' : 'anonymous' });
+    writeState(db, { auth_mode: token ? 'token' : authProvider && this.deps.signedIn(url) ? 'oauth' : 'anonymous' });
     let handedOver = false;
     try {
       this.setProgress(db, 'catalog', 0, 0);

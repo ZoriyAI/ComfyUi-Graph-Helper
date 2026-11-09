@@ -141,10 +141,11 @@ function applyVersion2(db: Database.Database): void {
  * Version 9 adds the knowledge layer: model kind, base-model family, trigger words and metadata on
  * model_catalog; description and pack on node_catalog; node_packs, explanations, proposals and sync_state.
  * Version 10 adds preferences_json on the settings row: the validated preferences model (never a secret).
+ * Version 11 adds mcp_auth on the settings row: how the app presents itself to the MCP server ('', none, token, oauth).
  */
 export function migrate(db: Database.Database, options?: { failBeforeVersionStamp?: boolean }): void {
   const version = schemaVersion(db);
-  if (version > 10) {
+  if (version > 11) {
     throw new Error(`Unsupported schema version ${version}`);
   }
   if (version < 1) {
@@ -220,6 +221,17 @@ export function migrate(db: Database.Database, options?: { failBeforeVersionStam
     });
     apply.immediate();
   }
+  if (schemaVersion(db) === 10) {
+    const apply = db.transaction(() => {
+      applyVersion11(db);
+      db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (11, ?)').run(Date.now());
+    });
+    apply.immediate();
+  }
+}
+
+function applyVersion11(db: Database.Database): void {
+  if (tableNames(db).includes('settings')) addColumn(db, 'settings', 'mcp_auth', "TEXT NOT NULL DEFAULT ''");
 }
 
 function applyVersion10(db: Database.Database): void {

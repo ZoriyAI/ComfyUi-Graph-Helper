@@ -39,6 +39,7 @@ export const IPC_CHANNELS = {
   MCP_TOKEN_STATUS: 'mcp:token-status',
   MCP_SAVE_TOKEN: 'mcp:save-token',
   MCP_FORGET_TOKEN: 'mcp:forget-token',
+  MCP_DETECT_AUTH: 'mcp:detect-auth',
   /** OAuth sign-in to the saved MCP URL through the system browser. Tokens stay in main; status only. */
   MCP_OAUTH_LOGIN: 'mcp:oauth-login',
   MCP_OAUTH_LOGOUT: 'mcp:oauth-logout',

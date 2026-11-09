@@ -139,11 +139,18 @@ export const connectStreamableHttp: McpSessionFactory = async (url, token, authP
  */
 export function failure(error: unknown, options: { authenticated?: boolean } = {}): McpReadFailure {
   if (error instanceof McpRefusedError || error instanceof McpPageError) return { ok: false, error: redactSecrets(error.message) };
-  const message = error instanceof Error ? `${error.name} ${error.message}` : '';
-  if (/401|unauthorized/i.test(message)) {
+  if (isUnauthorized(error)) {
     return { ok: false, error: options.authenticated === false ? MCP_NEEDS_SIGN_IN : 'MCP server refused the token.' };
   }
   return { ok: false, error: 'MCP server was not read.' };
+}
+
+/** A 401 from the server: the SDK's HTTP error carries the status; older shapes only say so in the text. */
+export function isUnauthorized(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const { status, statusCode, name, message } = error as { status?: unknown; statusCode?: unknown; name?: unknown; message?: unknown };
+  if (status === 401 || statusCode === 401) return true;
+  return /\b401\b|unauthorized/i.test(`${typeof name === 'string' ? name : ''} ${typeof message === 'string' ? message : ''}`);
 }
 
 /** What one catalog read learned beyond the counts the renderer sees. Stays in main. */

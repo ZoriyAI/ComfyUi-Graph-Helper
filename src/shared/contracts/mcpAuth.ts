@@ -11,3 +11,13 @@ export interface McpOAuthStatus {
 
 /** `anonymous`: the server accepted a connection without credentials, so no sign-in happened and none is needed. */
 export type McpOAuthLoginResult = { ok: true; expiresAt?: number; anonymous?: boolean } | { ok: false; error: string };
+
+/**
+ * What the MCP server at an address wants from a connection, found out by trying: 'none' when a connection without
+ * credentials is accepted (with the number of tools it lists), 'oauth' when it answers 401 and publishes OAuth
+ * metadata (browser sign-in), 'token' when it answers 401 without any (a pasted token). Failures are fixed sentences.
+ */
+export type McpAuthProbe =
+  | { ok: true; mode: 'none'; tools: number }
+  | { ok: true; mode: 'oauth' | 'token' }
+  | { ok: false; error: string };
