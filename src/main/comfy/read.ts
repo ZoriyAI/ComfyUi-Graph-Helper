@@ -2,11 +2,17 @@ import type Database from 'better-sqlite3';
 import { upsertObjectInfo } from '../catalog/repository';
 import { redactSecrets } from '../../shared/config/draft';
 import { isLoopbackHost } from '../../shared/mcp/loopback';
-import { assertObjectInfoSize, MAX_OBJECT_INFO_BYTES, ObjectInfoError, parseObjectInfo } from '../../shared/catalog/objectInfo';
+import { assertObjectInfoSize, ObjectInfoError, parseObjectInfo } from '../../shared/catalog/objectInfo';
 
 export { isLoopbackHost };
 
-const READ_TIMEOUT_MS = 8000;
+/** Until the response headers arrive. */
+const CONNECT_TIMEOUT_MS = 8000;
+/**
+ * For the whole body once headers are in. A large install (3000+ node classes) serves tens of MB from a busy
+ * server; there is no size cap, only this generous time limit.
+ */
+const BODY_TIMEOUT_MS = 120_000;
 
 export interface ComfyReadSuccess {
   ok: true;
@@ -35,22 +41,41 @@ function allowedUrl(origin: string, path: '/system_stats' | '/object_info'): URL
   return target;
 }
 
-async function getJson(fetchImpl: typeof fetch, url: URL): Promise<{ ok: true; value: unknown } | ComfyReadFailure> {
+/**
+ * Reads a body chunk by chunk into one buffer and decodes it once (no second full copy as a string first).
+ * `onBytes` sees the running total.
+ */
+export async function readBody(response: Response, onBytes?: (bytes: number) => void): Promise<Buffer> {
+  if (!response.body) return Buffer.from(await response.arrayBuffer());
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (!value) continue;
+    chunks.push(value);
+    total += value.byteLength;
+    onBytes?.(total);
+  }
+  return Buffer.concat(chunks, total);
+}
+
+async function getJson(fetchImpl: typeof fetch, url: URL): Promise<{ ok: true; value: unknown; bytes: number } | ComfyReadFailure> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), READ_TIMEOUT_MS);
+  let timer = setTimeout(() => controller.abort(), CONNECT_TIMEOUT_MS);
   try {
     const response = await fetchImpl(url, { method: 'GET', redirect: 'manual', signal: controller.signal });
     if (response.status >= 300 && response.status < 400) return { ok: false, error: 'Comfy origin was not read.' };
     if (!response.ok) return { ok: false, error: 'Comfy origin was not read.' };
-    const declared = Number(response.headers.get('content-length') ?? '0');
-    if (Number.isFinite(declared) && declared > MAX_OBJECT_INFO_BYTES) {
-      return { ok: false, error: 'Catalog snapshot is too large.' };
-    }
-    const text = await response.text();
-    assertObjectInfoSize(Buffer.byteLength(text));
-    return { ok: true, value: JSON.parse(text) as unknown };
+    clearTimeout(timer);
+    timer = setTimeout(() => controller.abort(), BODY_TIMEOUT_MS);
+    const body = await readBody(response);
+    assertObjectInfoSize(body.length);
+    return { ok: true, value: JSON.parse(body.toString('utf8')) as unknown, bytes: body.length };
   } catch (error) {
     if (error instanceof ObjectInfoError) return { ok: false, error: redactSecrets(error.message) };
+    if (error instanceof SyntaxError) return { ok: false, error: 'Catalog JSON could not be parsed.' };
     return { ok: false, error: 'Comfy origin was not read.' };
   } finally {
     clearTimeout(timer);
@@ -80,8 +105,10 @@ export async function applyComfyRead(db: Database.Database, origin: string, fetc
   const info = await getJson(fetchImpl, infoUrl);
   if (!info.ok) return info;
   try {
+    const started = Date.now();
     const parsed = parseObjectInfo(info.value);
     const stored = upsertObjectInfo(db, parsed);
+    console.log(`[Comfy] object_info ${(info.bytes / (1024 * 1024)).toFixed(1)} MiB, ${stored.nodes} classes stored in ${Date.now() - started} ms`);
     return {
       ok: true,
       version: versionOf(stats.value),
