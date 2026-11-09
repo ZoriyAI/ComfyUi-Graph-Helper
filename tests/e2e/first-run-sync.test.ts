@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { useEnglish } from './locale';
+import { exportPastGuard } from './exportGuard';
 import { pickOption } from './pickOption';
 import { isReadOnlyCall } from '../../src/main/mcp/readOnly';
 import { CLASSES, PACKS, READ_TOOLS, startFakeMcp, WRITE_TOOLS } from '../fixtures/mcp/fakeMcpServer';
@@ -139,8 +140,7 @@ test('first run: connect, sync from MCP, browse the library, build, check and ex
     await app.evaluate(({ dialog: fileDialog }, filePath) => {
       fileDialog.showSaveDialog = async () => ({ canceled: false, filePath });
     }, exportPath);
-    await window.getByRole('button', { name: 'Export', exact: true }).click();
-    await expect(window.getByText('Exported the current workflow.')).toBeVisible();
+    await exportPastGuard(window);
     const workflow = JSON.parse(fs.readFileSync(exportPath, 'utf8')) as { version: number; nodes: Array<{ id: unknown; type: string }> };
     expect(workflow.version).toBe(1);
     expect(workflow.nodes.map((node) => node.type).sort()).toEqual(['KSampler', 'LoraLoader']);

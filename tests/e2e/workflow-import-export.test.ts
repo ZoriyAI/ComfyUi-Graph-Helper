@@ -1,5 +1,6 @@
 import { test, expect, _electron as electron } from '@playwright/test';
 import { useEnglish } from './locale';
+import { exportPastGuard } from './exportGuard';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -90,7 +91,7 @@ test('Import and Export buttons use the file dialogs, and cancel does not change
   }, { source, saved });
   await window.getByRole('button', { name: 'Import', exact: true }).click();
   await expect(window.locator('.react-flow__node')).toHaveCount(1);
-  await window.getByRole('button', { name: 'Export' }).click();
+  await exportPastGuard(window);
   const written = JSON.parse(fs.readFileSync(saved, 'utf8')) as { vendor?: { keep?: boolean } };
   expect(written.vendor).toEqual({ keep: true });
   await electronApp.evaluate(({ dialog }) => {
