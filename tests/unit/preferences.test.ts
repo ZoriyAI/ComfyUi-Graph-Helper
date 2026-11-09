@@ -43,7 +43,7 @@ describe('preferences schema', () => {
         google: { model: '', baseURL: '' },
         local: { model: '', baseURL: '' },
       },
-      sync: { enrichmentScope: 'loaders', enrichPerRun: 40 },
+      sync: { enrichmentScope: 'loaders', enrichPerRun: 50, enrichPauseMs: 1500 },
       canvas: { showDescriptions: true, showMinimap: true, followAgent: false, buildPaceMs: 820, tourAutoplay: true, gridSize: 18 },
       appearance: { density: 'comfortable', accent: 'cyan', reduceGlow: false },
       shortcuts: {},
@@ -55,7 +55,10 @@ describe('preferences schema', () => {
   it('enforces the ranges and enums', () => {
     expect(preferencesSchema.safeParse({ assistant: { maxStepsPerTurn: 3 } }).success).toBe(false);
     expect(preferencesSchema.safeParse({ assistant: { maxStepsPerTurn: 49 } }).success).toBe(false);
-    expect(preferencesSchema.safeParse({ sync: { enrichPerRun: 201 } }).success).toBe(false);
+    expect(preferencesSchema.safeParse({ sync: { enrichPerRun: 1000 } }).success).toBe(true);
+    expect(preferencesSchema.safeParse({ sync: { enrichPerRun: 1001 } }).success).toBe(false);
+    expect(preferencesSchema.safeParse({ sync: { enrichPerRun: 9 } }).success).toBe(false);
+    expect(preferencesSchema.safeParse({ sync: { enrichPauseMs: 10_001 } }).success).toBe(false);
     expect(preferencesSchema.safeParse({ canvas: { buildPaceMs: 299 } }).success).toBe(false);
     expect(preferencesSchema.safeParse({ appearance: { accent: 'pink' } }).success).toBe(false);
     expect(preferencesSchema.safeParse({ providers: { openai: { baseURL: 'notaurl' } } }).success).toBe(false);

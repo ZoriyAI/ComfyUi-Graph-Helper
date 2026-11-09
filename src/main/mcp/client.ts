@@ -23,10 +23,11 @@ import { parseObjectInfo } from '../../shared/catalog/objectInfo';
 import { acceptedComfyUrl, applyComfyRead, isLoopbackHost } from '../comfy/read';
 import { readSettings } from '../settings/repository';
 import { redactSecrets } from '../../shared/config/draft';
+import { MCP_CALL_TIMEOUT_MS } from '../../shared/config/preferences';
 
 const CONNECT_TIMEOUT_MS = 15000;
 /** One tool call may take this long; a stalled server must not hold a sync open forever. */
-export const CALL_TIMEOUT_MS = 30_000;
+export const CALL_TIMEOUT_MS = MCP_CALL_TIMEOUT_MS;
 
 export const MCP_HTTPS_ERROR = 'MCP server URL must use https unless it is on this machine.';
 
@@ -61,6 +62,10 @@ export interface McpReadSuccess {
   comfyUrl: string | null;
   /** Human-readable notes about what was not available on this server. */
   skipped: string[];
+  /** Listings whose pages failed, so they were not updated: 'node classes', 'node packs', 'model files'. */
+  failedSections?: string[];
+  /** The native object_info read: done, ComfyUI did not answer, the URL was not allowed, or not needed/possible. */
+  nativeComfy?: 'ok' | 'unreachable' | 'notAllowed' | 'notTried';
 }
 
 export interface McpReadFailure {
@@ -193,6 +198,7 @@ export async function readCatalogWithSession(
   now: number,
 ): Promise<CatalogReadDetail | McpReadFailure> {
   const skipped: string[] = [];
+  const failedSections: string[] = [];
   const tools = new Set((await session.listTools()).map((tool) => tool.name));
   if (tools.size === 0) return { ok: false, error: 'MCP server lists no tools.' };
 
@@ -206,10 +212,14 @@ export async function readCatalogWithSession(
       if (classes.complete) removeStaleNodeClasses(db, now);
     } else {
       skipped.push('node classes');
+      failedSections.push('node classes');
     }
     const packList = await pagedOrNull(() => readNodePacks(session));
     if (packList) packs = replaceNodePacks(db, packList.items, now, packList.complete);
-    else skipped.push('node packs');
+    else {
+      skipped.push('node packs');
+      failedSections.push('node packs');
+    }
   } else {
     skipped.push('node classes');
   }
@@ -222,6 +232,7 @@ export async function readCatalogWithSession(
       if (listed.complete) removeStaleModelFiles(db, now);
     } else {
       skipped.push('model files');
+      failedSections.push('model files');
     }
   } else if (tools.has('list_local_models')) {
     const result = await session.callTool('list_local_models', { action: 'list' });
@@ -258,16 +269,18 @@ export async function readCatalogWithSession(
       skipped.push('object_info through comfy_api');
     }
   }
+  let nativeComfy: NonNullable<McpReadSuccess['nativeComfy']> = 'notTried';
   if (objectInfo === 'none' && comfyUrl) {
     // Only this machine or the origin the person saved: the server must not steer reads elsewhere.
     const nativeUrl = acceptedComfyUrl(comfyUrl, savedComfyOrigin(db));
     const native = nativeUrl ? await applyComfyRead(db, nativeUrl, fetchImpl) : null;
     if (native?.ok) objectInfo = 'native';
     else skipped.push('object_info from the native URL');
+    nativeComfy = native?.ok ? 'ok' : nativeUrl ? 'unreachable' : 'notAllowed';
   }
   inferModelsFromNames(db);
   return {
-    result: { ok: true, tools: tools.size, nodes, packs, models, objectInfo, comfyUrl, skipped },
+    result: { ok: true, tools: tools.size, nodes, packs, models, objectInfo, comfyUrl, skipped, failedSections, nativeComfy },
     toolNames: tools,
     identity,
   };

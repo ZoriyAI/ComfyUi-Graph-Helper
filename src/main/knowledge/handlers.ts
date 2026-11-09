@@ -82,6 +82,7 @@ export function knowledgeHandlers(deps: { db: () => Database.Database; sync: Syn
       const parsed = setAutoSchema.parse(request);
       return sync.setAuto(db(), parsed.enabled, parsed.intervalMinutes);
     },
+    [IPC_CHANNELS.SYNC_PAUSE_ENRICHMENT]: () => sync.pauseEnrichment(db()),
   };
   return Object.fromEntries(Object.entries(table).map(([channel, handler]) => [channel, guarded(handler)]));
 }

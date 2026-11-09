@@ -1,4 +1,4 @@
-import { BrowserWindow, type IpcMain } from 'electron';
+import { app, BrowserWindow, type IpcMain } from 'electron';
 import { IPC_CHANNELS } from '../../shared/ipc-channels';
 import { guardedHandle } from './guard';
 import type { SyncStatus } from '../../shared/contracts/knowledge';
@@ -30,5 +30,11 @@ export function registerKnowledgeIpc(ipcMain: IpcMain): void {
     guardedHandle(ipcMain, channel, (_event, ...args: unknown[]) => handler(...args));
   }
   syncService.onStatus(broadcast);
+  // Quitting cancels the schedule and any background metadata reading, so no timer or MCP session outlives the app.
+  try {
+    app.on('before-quit', () => syncService.stop());
+  } catch {
+    // Not running inside Electron (tests).
+  }
   syncService.start(getDatabase());
 }

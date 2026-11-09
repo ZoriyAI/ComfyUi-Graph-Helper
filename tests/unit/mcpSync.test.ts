@@ -2,7 +2,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import Database from 'better-sqlite3';
 import { migrate } from '../../src/main/settings/migrate';
 import { modelDetail, searchModels } from '../../src/main/knowledge/repository';
-import { SyncService } from '../../src/main/mcp/sync';
+import {
+  catalogWarnings, classifySyncError, METADATA_STOPPED, NODE_PORTS_NO_URL, STARTUP_DELAY_MS, SyncService,
+} from '../../src/main/mcp/sync';
+import { createTranslator, translateKnownError } from '../../src/shared/i18n';
 import { isReadOnlyCall, McpRefusedError, readOnlySession, READ_ONLY_TOOLS } from '../../src/main/mcp/readOnly';
 import type { McpSession, McpToolCallResult } from '../../src/shared/mcp/catalogSource';
 import type { SyncStatus } from '../../src/shared/contracts/knowledge';
@@ -18,6 +21,9 @@ interface FakeOptions {
   tools?: string[];
   calls: Array<{ name: string; args: Record<string, unknown> }>;
   metadata?: (name: string) => McpToolCallResult | Error;
+  /** Replaces the default model listing. */
+  models?: Array<{ category: string; filename: string }>;
+  closed?: { count: number };
 }
 
 /** A deterministic stand-in for the home ComfyUI MCP server. Labelled test fixture, not a discovered environment. */
@@ -40,6 +46,9 @@ function fakeSession(options: FakeOptions): McpSession {
       if (name === 'studio_capabilities') {
         return json({ items: [{ class_type: 'LoraLoader', module: 'nodes', display_name: 'Load LoRA', category: 'loaders' }] });
       }
+      if (name === 'models' && options.models) {
+        return json({ items: options.models.map((model) => ({ ...model, root_path: `/m/${model.category}`, size_bytes: 1 })) });
+      }
       if (name === 'models') {
         return json({
           items: [
@@ -58,7 +67,9 @@ function fakeSession(options: FakeOptions): McpSession {
       }
       throw new Error(`unexpected tool ${name}`);
     },
-    async close() {},
+    async close() {
+      if (options.closed) options.closed.count += 1;
+    },
   };
 }
 
@@ -250,11 +261,14 @@ describe('sync service', () => {
     await sync.runSync(db);
     expect(modelDetail(db, 'sams', 'sam_vit_b.pth')).toMatchObject({ enriched: true });
 
+    // "Models per batch" paces the reading; it is not a stop: the rest follows in the background.
     const capped = openDb();
-    capped.prepare('UPDATE settings SET preferences_json = ? WHERE id = 1').run(JSON.stringify({ sync: { enrichmentScope: 'loaders', enrichPerRun: 10 } }));
-    const limited = service({ calls: [] }, { readEnrichment: () => ({ scope: 'loaders', perRun: 2 }) });
+    const limited = service({ calls: [] }, { readEnrichment: () => ({ scope: 'loaders', perRun: 2, pauseMs: 0 }) });
     const status = await limited.sync.runSync(capped);
     expect(status.counts.enrichedModels).toBe(2);
+    expect(status).toMatchObject({ state: 'idle', progress: { phase: 'enrichment', done: 2, total: 4 } });
+    await limited.sync.whenEnrichmentDone();
+    expect(limited.sync.status(capped)).toMatchObject({ state: 'idle', progress: null, metadata: { done: 4, total: 4 } });
     expect(modelDetail(capped, 'sams', 'sam_vit_b.pth')).toMatchObject({ enriched: false });
     db.close();
     capped.close();
@@ -263,9 +277,11 @@ describe('sync service', () => {
   it('enriches from names and keeps going when the metadata tool is missing', async () => {
     const db = openDb();
     const calls: FakeOptions['calls'] = [];
-    const { sync } = service({ calls, tools: ['studio_capabilities', 'models'] }, { enrichLimit: 2 });
+    const { sync } = service({ calls, tools: ['studio_capabilities', 'models'] }, { enrichLimit: 2, batchPauseMs: 0 });
     const status = await sync.runSync(db);
     expect(status).toMatchObject({ state: 'idle', lastError: null, counts: { enrichedModels: 2 } });
+    await sync.whenEnrichmentDone();
+    expect(sync.status(db).counts.enrichedModels).toBe(4);
     expect(calls.some((call) => call.name === 'model_metadata')).toBe(false);
     db.close();
   });
@@ -355,6 +371,204 @@ describe('sync service', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+const metadataOk = () => json({ model_explorer: 'unavailable', embedded_metadata: { ss_base_model_version: 'sdxl_base_v1-0' }, civitai_sidecar: null });
+const hundredLoras = Array.from({ length: 100 }, (_, index) => ({ category: 'loras', filename: `lora_${String(index).padStart(3, '0')}.safetensors` }));
+
+describe('sync at startup', () => {
+  it('runs about 5 s after start when auto sync is on and a token or sign-in is held', async () => {
+    vi.useFakeTimers();
+    try {
+      const db = openDb();
+      db.prepare("INSERT INTO sync_state (key, value) VALUES ('auto_enabled', '1'), ('auto_interval_minutes', '30')").run();
+      const calls: FakeOptions['calls'] = [];
+      let clock = 1_700_000_000_000;
+      const { sync, tokens } = service({ calls }, { now: () => clock });
+      const started = sync.start(db);
+      expect(started).toMatchObject({ startupPending: true, nextRunAt: clock + STARTUP_DELAY_MS });
+      await vi.advanceTimersByTimeAsync(STARTUP_DELAY_MS - 100);
+      expect(tokens).toHaveLength(0);
+      clock += STARTUP_DELAY_MS;
+      await vi.advanceTimersByTimeAsync(200);
+      await vi.waitFor(() => expect(sync.status(db).state).toBe('idle'));
+      expect(tokens).toHaveLength(1);
+      // The next automatic run comes one interval later.
+      expect(sync.status(db)).toMatchObject({ startupPending: false, nextRunAt: clock + 30 * 60_000 });
+      sync.stop();
+      expect(sync.status(db).nextRunAt).toBeNull();
+      db.close();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('waits for the interval when the last sync is recent, and does not start early without credentials', async () => {
+    vi.useFakeTimers();
+    try {
+      const now = 1_700_000_000_000;
+      const db = openDb();
+      db.prepare("INSERT INTO sync_state (key, value) VALUES ('auto_enabled', '1'), ('auto_interval_minutes', '30'), ('last_sync_at', ?)").run(String(now - 10 * 60_000));
+      const recent = service({ calls: [] }, { now: () => now });
+      expect(recent.sync.start(db)).toMatchObject({ startupPending: false, nextRunAt: now + 20 * 60_000 });
+      await vi.advanceTimersByTimeAsync(STARTUP_DELAY_MS * 2);
+      expect(recent.tokens).toHaveLength(0);
+      recent.sync.stop();
+
+      const fresh = openDb();
+      fresh.prepare("INSERT INTO sync_state (key, value) VALUES ('auto_enabled', '1'), ('auto_interval_minutes', '30')").run();
+      const anonymous = service({ calls: [] }, { now: () => now, token: () => null, signedIn: () => false, authProvider: async () => null });
+      expect(anonymous.sync.start(fresh)).toMatchObject({ startupPending: false, nextRunAt: now + 30 * 60_000 });
+      await vi.advanceTimersByTimeAsync(STARTUP_DELAY_MS * 2);
+      expect(anonymous.tokens).toHaveLength(0);
+      anonymous.sync.stop();
+
+      // A browser sign-in counts as credentials.
+      const signed = service({ calls: [] }, { now: () => now, token: () => null, signedIn: () => true, authProvider: async () => null });
+      expect(signed.sync.start(fresh)).toMatchObject({ startupPending: true });
+      signed.sync.stop();
+      // Auto sync off: nothing is scheduled.
+      fresh.prepare("UPDATE sync_state SET value = '0' WHERE key = 'auto_enabled'").run();
+      expect(service({ calls: [] }).sync.start(fresh)).toMatchObject({ startupPending: false, nextRunAt: null });
+      db.close();
+      fresh.close();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe('background metadata reading', () => {
+  it('reads a 100-file catalog in batches until every file is enriched, and ignores Sync now meanwhile', async () => {
+    const db = openDb();
+    const calls: FakeOptions['calls'] = [];
+    const closed = { count: 0 };
+    const { sync, tokens } = service({ calls, models: hundredLoras, metadata: metadataOk, closed }, { enrichLimit: 10, batchPauseMs: 1 });
+    const seen: SyncStatus[] = [];
+    sync.onStatus((status) => seen.push(status));
+    const first = await sync.runSync(db);
+    expect(first).toMatchObject({ state: 'idle', counts: { enrichedModels: 10 }, progress: { phase: 'enrichment', done: 10, total: 100 } });
+    expect(closed.count).toBe(0);
+    // Sync now during enrichment is ignored: no second connection.
+    expect((await sync.runSync(db)).progress?.phase).toBe('enrichment');
+    expect(tokens).toHaveLength(1);
+    await sync.whenEnrichmentDone();
+    const reads = calls.filter((call) => call.name === 'model_metadata').map((call) => call.args.name);
+    expect(reads).toHaveLength(100);
+    expect(reads).toEqual([...reads].sort());
+    expect(sync.status(db)).toMatchObject({ state: 'idle', progress: null, metadata: { done: 100, total: 100 }, counts: { enrichedModels: 100 } });
+    expect(closed.count).toBe(1);
+    const enrichment = seen.filter((status) => status.progress?.phase === 'enrichment');
+    expect(enrichment.length).toBeGreaterThan(0);
+    expect(enrichment.every((status) => status.state === 'idle')).toBe(true);
+    expect(Math.max(...enrichment.map((status) => status.progress!.done))).toBeGreaterThanOrEqual(90);
+    // Nothing left: the next run reads no metadata.
+    calls.length = 0;
+    await sync.runSync(db);
+    expect(calls.filter((call) => call.name === 'model_metadata')).toEqual([]);
+    sync.stop();
+    db.close();
+  });
+
+  it('stops after 5 failed reads in a row and leaves the rest to the backoff and the next run', async () => {
+    const db = openDb();
+    const calls: FakeOptions['calls'] = [];
+    // The first 12 files read, then the tool goes down.
+    const { sync } = service({
+      calls,
+      models: hundredLoras,
+      metadata: (name) => (Number(name.slice(5, 8)) < 12 ? metadataOk() : new Error('down')),
+    }, { enrichLimit: 10, batchPauseMs: 0 });
+    await sync.runSync(db);
+    await sync.whenEnrichmentDone();
+    const status = sync.status(db);
+    expect(status).toMatchObject({ state: 'idle', lastError: null, progress: null, counts: { enrichedModels: 12 } });
+    expect(status.warnings).toEqual([NODE_PORTS_NO_URL, METADATA_STOPPED]);
+    expect(calls.filter((call) => call.name === 'model_metadata')).toHaveLength(17);
+    const failures = JSON.parse((db.prepare("SELECT value FROM sync_state WHERE key = 'enrich_failures'").get() as { value: string }).value);
+    expect(Object.keys(failures)).toHaveLength(5);
+    expect(translateKnownError(createTranslator('ru'), METADATA_STOPPED)).toMatch(/5 неудач/);
+    sync.stop();
+    db.close();
+  });
+
+  it('stop() and pause cancel the background reading without leaving timers or sessions behind', async () => {
+    vi.useFakeTimers();
+    try {
+      const db = openDb();
+      const calls: FakeOptions['calls'] = [];
+      const closed = { count: 0 };
+      const { sync } = service({ calls, models: hundredLoras, metadata: metadataOk, closed }, { enrichLimit: 10, batchPauseMs: 1500 });
+      await sync.runSync(db);
+      expect(sync.status(db).progress?.phase).toBe('enrichment');
+      await vi.advanceTimersByTimeAsync(1500);
+      expect(sync.status(db).counts.enrichedModels).toBe(20);
+      sync.stop();
+      await sync.whenEnrichmentDone();
+      expect(closed.count).toBe(1);
+      expect(vi.getTimerCount()).toBe(0);
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(sync.status(db)).toMatchObject({ progress: null, counts: { enrichedModels: 20 } });
+
+      // Pause: same, and the status says so until the next run, which picks up where it stopped.
+      await sync.runSync(db);
+      expect(sync.status(db).counts.enrichedModels).toBe(30);
+      expect(sync.pauseEnrichment(db)).toMatchObject({ progress: null, enrichmentPaused: true, metadata: { done: 30, total: 100 } });
+      expect(vi.getTimerCount()).toBe(0);
+      const next = await sync.runSync(db);
+      expect(next).toMatchObject({ enrichmentPaused: false, counts: { enrichedModels: 40 } });
+      sync.stop();
+      db.close();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe('sync error classification', () => {
+  it('tells an unreachable server apart from a refused token', async () => {
+    const db = openDb();
+    const unreachable = new SyncService({
+      token: () => TOKEN,
+      readUrl: () => 'https://mcp.example.test:8443/mcp',
+      factory: async () => {
+        throw new TypeError('fetch failed', { cause: Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' }) });
+      },
+    });
+    expect(await unreachable.runSync(db)).toMatchObject({ state: 'error', lastError: 'MCP server unreachable: mcp.example.test:8443.' });
+    expect(classifySyncError(new Error('timeout'), 'http://127.0.0.1:9000/mcp')).toBe('MCP server unreachable: 127.0.0.1:9000.');
+    expect(classifySyncError(new Error('HTTP 401 Unauthorized'), 'https://x.test/mcp')).toBe('MCP server refused the token.');
+    expect(classifySyncError(new Error('bad json'), 'https://x.test/mcp')).toBe('MCP server was not read.');
+    const en = createTranslator('en');
+    const ru = createTranslator('ru');
+    expect(translateKnownError(en, 'MCP server unreachable: mcp.example.test:8443.')).toBe('MCP server unreachable: mcp.example.test:8443. Check the address and that the server is running.');
+    expect(translateKnownError(ru, 'MCP server unreachable: mcp.example.test:8443.')).toMatch(/^Сервер MCP недоступен: mcp\.example\.test:8443/);
+    db.close();
+  });
+
+  it('reports ComfyUI not running, a failed section and missing node ports as warnings', () => {
+    const base = { ok: true as const, tools: 5, nodes: 10, packs: 2, models: 3, skipped: [] };
+    expect(catalogWarnings({ ...base, objectInfo: 'none', comfyUrl: 'http://127.0.0.1:28188', nativeComfy: 'unreachable', failedSections: ['model files'] })).toEqual([
+      'MCP catalog section could not be read: model files.',
+      'ComfyUI is not running at 127.0.0.1:28188 — node ports were not updated; start ComfyUI and sync again.',
+    ]);
+    expect(catalogWarnings({ ...base, objectInfo: 'native', comfyUrl: 'http://127.0.0.1:28188', nativeComfy: 'ok' })).toEqual([]);
+    expect(catalogWarnings({ ...base, objectInfo: 'none', comfyUrl: null })).toEqual([NODE_PORTS_NO_URL]);
+    const ru = createTranslator('ru');
+    expect(translateKnownError(ru, 'ComfyUI is not running at 127.0.0.1:28188 — node ports were not updated; start ComfyUI and sync again.'))
+      .toBe('ComfyUI не запущен на 127.0.0.1:28188 — порты нод не обновлены; запустите ComfyUI и синхронизируйте снова.');
+    expect(translateKnownError(ru, 'MCP catalog section could not be read: node packs.')).toMatch(/паки нод/);
+    expect(translateKnownError(createTranslator('en'), NODE_PORTS_NO_URL)).toBe(NODE_PORTS_NO_URL);
+  });
+
+  it('a run with ComfyUI down stores the warning and stays idle', async () => {
+    const db = openDb();
+    const { sync } = service({ calls: [] });
+    const status = await sync.runSync(db);
+    // The unit fake names no ComfyUI address and has no comfy_api.
+    expect(status).toMatchObject({ state: 'idle', warnings: [NODE_PORTS_NO_URL] });
+    db.close();
   });
 });
 
