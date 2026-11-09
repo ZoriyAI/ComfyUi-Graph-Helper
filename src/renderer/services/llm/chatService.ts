@@ -145,13 +145,32 @@ export class ChatService {
       ? useChatStore.getState().messages.find((m) => m.id === currentAssistantMessageId)
       : undefined);
 
+    let activeRunId: string | null = null;
     const finish = () => {
       this.isStreaming = false;
       useChatStore.setState({ isStreaming: false });
+      // The turn is over: close the run so later commits are refused and the run strip goes quiet.
+      const runId = activeRunId;
+      activeRunId = null;
+      const close = window.electronAPI?.closeRun;
+      if (runId && typeof close === 'function') {
+        void close(DESKTOP_PROJECT_ID, runId)
+          .then((result) => { if (result?.projection) applyProjection(result.projection); })
+          .catch(() => undefined);
+      }
     };
 
     try {
+      // No provider means nothing can be sent. Say so in the chat instead of failing a stream.
+      const getConfig = window.electronAPI?.llmGetConfig;
+      const config = typeof getConfig === 'function' ? await getConfig().catch(() => null) : null;
+      if (config && !config.provider) {
+        addMessage({ id: newId(), role: 'assistant', content: translate('chat.noProvider'), timestamp: Date.now() });
+        finish();
+        return;
+      }
       const started = await window.electronAPI.startRun(DESKTOP_PROJECT_ID);
+      activeRunId = started.runId;
       applyProjection(started.projection);
       this.currentBaseRevisionId = started.baseRevisionId;
       this.currentRunId = started.runId;

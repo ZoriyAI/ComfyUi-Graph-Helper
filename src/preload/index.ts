@@ -52,6 +52,7 @@ const IPC_CHANNELS = {
   COMMAND_RESUME_RUN: 'command:resume-run',
   COMMAND_PAUSE_RUN: 'command:pause-run',
   COMMAND_CANCEL_RUN: 'command:cancel-run',
+  COMMAND_CLOSE_RUN: 'command:close-run',
   COMMAND_SWITCH_PROJECT: 'command:switch-project',
   COMMAND_READ_PROJECTION: 'command:read-projection',
   CHAT_SAVE_MESSAGE: 'chat:save-message',
@@ -122,6 +123,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   resumeRun: (projectId: string) => ipcRenderer.invoke(IPC_CHANNELS.COMMAND_RESUME_RUN, projectId),
   pauseRun: (projectId: string, runId: string) => ipcRenderer.invoke(IPC_CHANNELS.COMMAND_PAUSE_RUN, projectId, runId),
   cancelRun: (projectId: string, runId: string) => ipcRenderer.invoke(IPC_CHANNELS.COMMAND_CANCEL_RUN, projectId, runId),
+  closeRun: (projectId: string, runId: string) => ipcRenderer.invoke(IPC_CHANNELS.COMMAND_CLOSE_RUN, projectId, runId),
   switchProject: (projectId: string) => ipcRenderer.invoke(IPC_CHANNELS.COMMAND_SWITCH_PROJECT, projectId),
   readProjection: (projectId: string) => ipcRenderer.invoke(IPC_CHANNELS.COMMAND_READ_PROJECTION, projectId),
 
@@ -226,6 +228,7 @@ export interface ElectronAPI {
   resumeRun: (projectId: string) => Promise<import('../shared/commands/types').RunStart>;
   pauseRun: (projectId: string, runId: string) => Promise<import('../shared/commands/types').CommandResponse>;
   cancelRun: (projectId: string, runId: string) => Promise<import('../shared/commands/types').CommandResponse>;
+  closeRun: (projectId: string, runId: string) => Promise<import('../shared/commands/types').CommandResponse>;
   switchProject: (projectId: string) => Promise<import('../shared/commands/types').Projection | null>;
   readProjection: (projectId: string) => Promise<import('../shared/commands/types').Projection | null>;
   llmSetConfig: (config: {

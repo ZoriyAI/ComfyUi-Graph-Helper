@@ -653,6 +653,11 @@ export function cancelRun(db: Database.Database, projectId: string, runId: strin
   return setRunStatus(db, projectId, runId, ['running', 'paused'], 'cancelled');
 }
 
+/** The turn ended normally: the run no longer accepts commits and the interface stops showing it. */
+export function closeRun(db: Database.Database, projectId: string, runId: string): CommandResponse {
+  return setRunStatus(db, projectId, runId, ['running', 'paused'], 'closed');
+}
+
 function setRunStatus(
   db: Database.Database,
   projectId: string,

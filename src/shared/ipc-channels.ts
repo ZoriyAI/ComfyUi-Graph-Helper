@@ -43,6 +43,7 @@ export const IPC_CHANNELS = {
   COMMAND_RESUME_RUN: 'command:resume-run',
   COMMAND_PAUSE_RUN: 'command:pause-run',
   COMMAND_CANCEL_RUN: 'command:cancel-run',
+  COMMAND_CLOSE_RUN: 'command:close-run',
   COMMAND_SWITCH_PROJECT: 'command:switch-project',
   COMMAND_READ_PROJECTION: 'command:read-projection',
 

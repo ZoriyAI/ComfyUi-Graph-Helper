@@ -51,5 +51,8 @@ export function startProposalsSubscription(projectId = DESKTOP_PROJECT_ID): void
   if (subscribed) return;
   subscribed = true;
   void useProposalsStore.getState().load(projectId).catch(() => undefined);
-  window.electronAPI.onProposalsEvent((proposals) => useProposalsStore.getState().setProposals(proposals));
+  // The push carries open proposals only; re-read everything so cards of resolved proposals keep their final status.
+  window.electronAPI.onProposalsEvent(() => {
+    void useProposalsStore.getState().load(projectId).catch(() => undefined);
+  });
 }

@@ -14,7 +14,7 @@ import { registerEngineIpc } from './ipc/engineIpc';
 import { registerAgentIpc } from './ipc/agentIpc';
 import { mcpToken, mcpTokenStatus, setMcpToken } from './mcp/token';
 import { missingOnGraph } from '../shared/graph/compatibility';
-import { cancelRun, commitCommand, pauseRun, readProjection, resumeRun, startRun, switchProject } from './commands/commit';
+import { cancelRun, closeRun, commitCommand, pauseRun, readProjection, resumeRun, startRun, switchProject } from './commands/commit';
 import { DESKTOP_PROJECT_ID } from '../shared/project';
 import { assertObjectInfoSize, ObjectInfoError, parseObjectInfo } from '../shared/catalog/objectInfo';
 import { readCatalog, upsertObjectInfo } from './catalog/repository';
@@ -290,6 +290,10 @@ export async function setupIPC(): Promise<void> {
 
   ipcMain.handle(IPC_CHANNELS.COMMAND_PAUSE_RUN, (_event, projectId: string, runId: string) => {
     return pauseRun(getDatabase(), projectId, runId);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.COMMAND_CLOSE_RUN, (_event, projectId: string, runId: string) => {
+    return closeRun(getDatabase(), projectId, runId);
   });
 
   ipcMain.handle(IPC_CHANNELS.COMMAND_CANCEL_RUN, (_event, projectId: string, runId: string) => {
