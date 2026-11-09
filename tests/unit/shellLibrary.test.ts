@@ -161,6 +161,8 @@ describe('sync view', () => {
     expect(syncView(null)).toMatchObject({ state: 'never', fraction: null, blocked: 'noUrl' });
     expect(syncView(status)).toMatchObject({ state: 'running', labelKey: 'sync.state.running', fraction: 0.25, blocked: null });
     expect(syncView({ ...status, tokenHeld: false }).blocked).toBe('noToken');
+    // A browser sign-in counts as auth: the "no token" hint is not shown.
+    expect(syncView({ ...status, tokenHeld: false, signedIn: true }).blocked).toBeNull();
     expect(syncView({ ...status, progress: { phase: 'connect', done: 0, total: 0 } }).fraction).toBeNull();
   });
 

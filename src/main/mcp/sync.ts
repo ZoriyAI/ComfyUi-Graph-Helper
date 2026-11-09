@@ -7,7 +7,9 @@ import { civitaiUrl, parseModelMetadata, plainText, triggerWordsOf, type ParsedM
 import { SYNC_INTERVAL_DEFAULT_MINUTES, SYNC_INTERVAL_MAX_MINUTES, SYNC_INTERVAL_MIN_MINUTES } from '../../shared/knowledge/schemas';
 import { catalogTotals, writeModelEnrichment } from '../catalog/repository';
 import { readPreferences, readSettings } from '../settings/repository';
-import { connectStreamableHttp, failure, openReadOnlySession, readCatalogWithSession, type McpSessionFactory } from './client';
+import type { OAuthClientProvider } from '@modelcontextprotocol/client';
+import { connectStreamableHttp, failure, MCP_SIGN_IN_AGAIN, openReadOnlySession, readCatalogWithSession, type McpSessionFactory } from './client';
+import { mcpOAuth } from './oauth';
 import { McpRefusedError } from './readOnly';
 import { mcpToken, releaseMcpTokenIfOriginChanged } from './token';
 import { redactSecrets } from '../../shared/config/draft';
@@ -33,6 +35,13 @@ export interface SyncDeps {
   readEnrichment: (db: Database.Database) => { scope: 'loaders' | 'all'; perRun: number };
   /** Called with the MCP URL before each connect; drops a token held for another origin. */
   checkTokenOrigin: (url: string) => void;
+  /**
+   * The OAuth provider for the URL's origin when the person signed in through the browser, else null.
+   * Used only when no manual token is held. Never opens the browser.
+   */
+  authProvider: (url: string) => Promise<OAuthClientProvider | null>;
+  /** Whether a usable OAuth sign-in is held for the URL's origin (status only, no I/O). */
+  signedIn: (url: string) => boolean;
 }
 
 type Listener = (status: SyncStatus) => void;
@@ -51,6 +60,8 @@ const defaultDeps: SyncDeps = {
     return { scope: sync.enrichmentScope, perRun: sync.enrichPerRun };
   },
   checkTokenOrigin: releaseMcpTokenIfOriginChanged,
+  authProvider: async (url) => (url ? (await mcpOAuth()?.backgroundProvider(url)) ?? null : null),
+  signedIn: (url) => (url ? mcpOAuth()?.signedIn(url) ?? false : false),
 };
 
 /** sync_state key holding failed metadata reads: { "directory/name": { attempts, lastAt } }. */
@@ -142,7 +153,7 @@ export class SyncService {
   status(db: Database.Database | null = this.db): SyncStatus {
     if (!db) {
       return {
-        state: 'never', lastSyncAt: null, lastError: null, mcpUrl: '', tokenHeld: this.deps.token() != null,
+        state: 'never', lastSyncAt: null, lastError: null, mcpUrl: '', tokenHeld: this.deps.token() != null, signedIn: false,
         auto: { enabled: false, intervalMinutes: SYNC_INTERVAL_DEFAULT_MINUTES },
         counts: { nodeClasses: 0, detailedClasses: 0, packs: 0, models: 0, enrichedModels: 0 },
         progress: null,
@@ -155,12 +166,14 @@ export class SyncService {
     if (this.running) phase = 'running';
     else if (lastError) phase = 'error';
     else if (lastSyncAt != null) phase = 'idle';
+    const mcpUrl = this.deps.readUrl(db);
     return {
       state: phase,
       lastSyncAt: Number.isFinite(lastSyncAt) ? lastSyncAt : null,
       lastError,
-      mcpUrl: this.deps.readUrl(db),
+      mcpUrl,
       tokenHeld: this.deps.token() != null,
+      signedIn: this.deps.signedIn(mcpUrl),
       auto: autoOf(state),
       counts: catalogTotals(db),
       progress: this.running ? this.progress : null,
@@ -192,6 +205,11 @@ export class SyncService {
     this.db = db;
     this.schedule(db);
     return this.status(db);
+  }
+
+  /** Pushes the current status to listeners (e.g. after a sign-in or sign-out). */
+  notify(db: Database.Database | null = this.db): SyncStatus {
+    return db ? this.emit(db) : this.status(null);
   }
 
   stop(): void {
@@ -230,7 +248,16 @@ export class SyncService {
   private async execute(db: Database.Database, fetchImpl: typeof fetch, factory: McpSessionFactory): Promise<void> {
     const url = this.deps.readUrl(db);
     this.deps.checkTokenOrigin(url);
-    const opened = await openReadOnlySession({ url, token: this.deps.token() }, factory);
+    const token = this.deps.token();
+    let authProvider: OAuthClientProvider | null = null;
+    if (!token) {
+      try {
+        authProvider = await this.deps.authProvider(url);
+      } catch {
+        authProvider = null;
+      }
+    }
+    const opened = await openReadOnlySession({ url, token, authProvider }, factory);
     if (!opened.ok) {
       writeState(db, { last_error: redactSecrets(opened.error) });
       return;
@@ -248,7 +275,8 @@ export class SyncService {
       const enrichError = await this.enrich(db, session, read.toolNames.has('model_metadata'));
       writeState(db, { last_sync_at: String(now), last_error: enrichError ?? '' });
     } catch (error) {
-      writeState(db, { last_error: failure(error).error });
+      const signInLost = (authProvider as { signInRequired?: boolean } | null)?.signInRequired === true;
+      writeState(db, { last_error: signInLost ? MCP_SIGN_IN_AGAIN : failure(error).error });
     } finally {
       await session.close().catch(() => undefined);
     }

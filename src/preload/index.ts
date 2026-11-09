@@ -8,6 +8,8 @@ import type {
   ExplanationInput,
   GraphCheckReport,
   ListExplanationsRequest,
+  McpOAuthLoginResult,
+  McpOAuthStatus,
   ModelDetail,
   ModelSummary,
   NodeClassDetail,
@@ -48,6 +50,9 @@ const IPC_CHANNELS = {
   MCP_READ: 'mcp:read',
   MCP_SET_TOKEN: 'mcp:set-token',
   MCP_TOKEN_STATUS: 'mcp:token-status',
+  MCP_OAUTH_LOGIN: 'mcp:oauth-login',
+  MCP_OAUTH_LOGOUT: 'mcp:oauth-logout',
+  MCP_OAUTH_STATUS: 'mcp:oauth-status',
   GRAPH_COMPATIBILITY: 'graph:compatibility',
   COMMAND_COMMIT: 'command:commit',
   COMMAND_START_RUN: 'command:start-run',
@@ -136,6 +141,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   >,
   mcpSetToken: (value: string, forUrl?: string) => ipcRenderer.invoke(IPC_CHANNELS.MCP_SET_TOKEN, value, forUrl) as Promise<{ held: boolean }>,
   mcpTokenStatus: () => ipcRenderer.invoke(IPC_CHANNELS.MCP_TOKEN_STATUS) as Promise<{ held: boolean }>,
+  mcpOAuthLogin: () => ipcRenderer.invoke(IPC_CHANNELS.MCP_OAUTH_LOGIN) as Promise<McpOAuthLoginResult>,
+  mcpOAuthLogout: () => ipcRenderer.invoke(IPC_CHANNELS.MCP_OAUTH_LOGOUT) as Promise<McpOAuthStatus>,
+  mcpOAuthStatus: () => ipcRenderer.invoke(IPC_CHANNELS.MCP_OAUTH_STATUS) as Promise<McpOAuthStatus>,
   graphCompatibility: () => ipcRenderer.invoke(IPC_CHANNELS.GRAPH_COMPATIBILITY) as Promise<
     | { ok: true; missingNodes: string[]; missingModels: Array<{ directory: string; name: string }> }
     | { ok: false; error: string }
@@ -281,6 +289,12 @@ export interface ElectronAPI {
   /** `forUrl`: the MCP URL the token is for (e.g. the draft being saved); defaults to the saved URL. */
   mcpSetToken: (value: string, forUrl?: string) => Promise<{ held: boolean }>;
   mcpTokenStatus: () => Promise<{ held: boolean }>;
+  /** Signs in to the saved MCP URL through the system browser; resolves when the browser comes back (or fails). */
+  mcpOAuthLogin: () => Promise<McpOAuthLoginResult>;
+  /** Forgets the browser sign-in for the saved MCP URL's origin. */
+  mcpOAuthLogout: () => Promise<McpOAuthStatus>;
+  /** Sign-in state for the saved MCP URL. Never carries a token. */
+  mcpOAuthStatus: () => Promise<McpOAuthStatus>;
   graphCompatibility: () => Promise<
     | { ok: true; missingNodes: string[]; missingModels: Array<{ directory: string; name: string }> }
     | { ok: false; error: string }

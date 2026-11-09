@@ -6,14 +6,17 @@ import { IPC_CHANNELS } from '../shared/ipc-channels';
 import { getDatabase } from './database';
 import { mainLLMService } from './llmService';
 import { attemptSaveSecret, forgetProviderKey, readProviderKeyCipher, readSettings, saveSecretIfProven, saveSettings } from './settings/repository';
-import { probeSecretBackend } from './settings/secretProbe';
-import { isUnprotectedCipher, secretPersistenceDecision } from '../shared/config/secretPolicy';
+import { secretStatus } from './settings/secretDecision';
+import { isUnprotectedCipher } from '../shared/config/secretPolicy';
 import { applyComfyRead } from './comfy/read';
 import { readCatalogViaMcp } from './mcp/client';
 import { registerKnowledgeIpc } from './ipc/knowledgeIpc';
 import { registerEngineIpc } from './ipc/engineIpc';
 import { registerAgentIpc } from './ipc/agentIpc';
 import { mcpTokenFor, mcpTokenStatus, releaseMcpTokenIfOriginChanged, setMcpToken } from './mcp/token';
+import { configureMcpOAuth, loginToMcp, logoutFromMcp, oauthStatus } from './mcp/oauth';
+import { browserOpener } from './mcp/browser';
+import { syncService } from './mcp/sync';
 import { saveProjectRecord } from './ipc/projectRecord';
 import { redactSecrets } from '../shared/config/draft';
 import { setBlockedWebOrigins } from './agent/web';
@@ -26,15 +29,6 @@ import { parseNativeProject, serializeNativeProject } from '../shared/native-pro
 import { exportWorkflow, type GraphSnapshot } from '../shared/workflow/codec';
 import { fileDialogCopy, languageOf } from '../shared/i18n';
 
-let secretDecision: { persist: boolean; backend: string; reason: string } | null = null;
-
-async function secretStatus() {
-  if (secretDecision) return secretDecision;
-  const probe = await probeSecretBackend();
-  const decision = secretPersistenceDecision(probe);
-  secretDecision = { persist: decision.persist, backend: probe.backend, reason: decision.reason };
-  return secretDecision;
-}
 
 /** The saved ComfyUI origin and MCP URL, or empty strings when settings are unreadable. */
 function savedEndpoints(): { comfyOrigin: string; mcpUrl: string } {
@@ -74,11 +68,39 @@ async function adoptStoredKey(): Promise<void> {
   }
 }
 
+/** Wires the MCP OAuth manager to safeStorage (same fail-closed probe as the model key) and the system browser. */
+async function setupMcpOAuth(): Promise<void> {
+  const manager = configureMcpOAuth({
+    db: getDatabase,
+    vault: {
+      decision: secretStatus,
+      encrypt: (plain) => safeStorage.encryptStringAsync(plain),
+      decrypt: async (cipher) => (await safeStorage.decryptStringAsync(cipher)).result ?? null,
+    },
+    openExternal: browserOpener(),
+    language: () => languageOf(readSettings(getDatabase())),
+    now: () => Date.now(),
+  });
+  manager.onChange(() => {
+    syncService.notify();
+  });
+  // Stored sign-ins load before the first sync status, so the indicator knows whether one is held.
+  const url = savedEndpoints().mcpUrl;
+  if (url) {
+    try {
+      await manager.load(new URL(url).origin);
+    } catch {
+      // An unreadable URL has no sign-in.
+    }
+  }
+}
+
 export async function setupIPC(): Promise<void> {
   // Every handler below, and the domain handlers, check that the sender is the app's own page.
   const ipcMain = guardedIpcMain(rawIpcMain);
   adoptStoredChatRuntime();
   await adoptStoredKey();
+  await setupMcpOAuth();
   refreshBlockedWebOrigins(savedEndpoints().comfyOrigin);
   // Domain handlers. Each workstream owns its register function; see docs/superpowers/specs/2026-11-08-helper-brief.md.
   registerKnowledgeIpc(ipcMain);
@@ -270,6 +292,18 @@ export async function setupIPC(): Promise<void> {
   });
 
   ipcMain.handle(IPC_CHANNELS.MCP_TOKEN_STATUS, () => mcpTokenStatus());
+
+  // OAuth sign-in for the saved MCP URL. The renderer gets status only; tokens stay in main.
+  ipcMain.handle(IPC_CHANNELS.MCP_OAUTH_LOGIN, async () => {
+    const url = savedEndpoints().mcpUrl;
+    if (!url) return { ok: false as const, error: 'MCP server URL is empty.' };
+    console.log('[IPC] MCP sign-in started (tokens NOT logged)');
+    return loginToMcp(url);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.MCP_OAUTH_LOGOUT, () => logoutFromMcp(savedEndpoints().mcpUrl));
+
+  ipcMain.handle(IPC_CHANNELS.MCP_OAUTH_STATUS, () => oauthStatus(savedEndpoints().mcpUrl));
 
   ipcMain.handle(IPC_CHANNELS.GRAPH_COMPATIBILITY, () => {
     const projection = readProjection(getDatabase(), DESKTOP_PROJECT_ID);

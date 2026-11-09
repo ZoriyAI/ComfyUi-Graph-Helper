@@ -95,6 +95,8 @@ export interface SyncStatus {
   lastError: string | null;
   mcpUrl: string;
   tokenHeld: boolean;
+  /** A browser sign-in (OAuth) is held for the MCP URL's origin. Optional for older callers. */
+  signedIn?: boolean;
   auto: { enabled: boolean; intervalMinutes: number };
   counts: { nodeClasses: number; detailedClasses: number; packs: number; models: number; enrichedModels: number };
   progress: { phase: string; done: number; total: number } | null;
