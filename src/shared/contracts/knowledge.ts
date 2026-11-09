@@ -82,6 +82,11 @@ export interface GraphCheckReport {
   baseModelMismatches: Array<{ nodeId: string; model: string; modelBase: BaseModelFamily; otherNodeId: string; otherModel: string; otherBase: BaseModelFamily }>;
   unconnectedRequiredInputs: Array<{ nodeId: string; input: string; type: string }>;
   unknownNodeTypes: string[];
+  /**
+   * Widgets with no value and no catalog default: export would write null there and ComfyUI would refuse the
+   * workflow. Optional so reports written before it existed still read; absent means none.
+   */
+  unsetWidgets?: Array<{ nodeId: string; classType: string; name: string }>;
 }
 
 export interface SyncStatus {

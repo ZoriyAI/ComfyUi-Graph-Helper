@@ -10,6 +10,15 @@ export interface CatalogInput {
   widget: boolean;
   /** From the object_info group: true under input.required, false under input.optional. */
   required?: boolean;
+  /**
+   * The value a fresh ComfyUI_frontend widget starts with (see objectInfo.ts widgetDefault). Only on widget inputs;
+   * absent when no default is known (opaque widgets, a combo with no options).
+   */
+  default?: unknown;
+  /** Combo choices, in object_info order. Only on combo widgets. */
+  options?: string[];
+  /** Start value of the `<name>::control_after_generate` slot, when the widget has one. */
+  controlDefault?: string;
 }
 
 export interface CatalogOutput {

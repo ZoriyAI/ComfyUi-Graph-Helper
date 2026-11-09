@@ -6,7 +6,7 @@ import type { BaseModelFamily, GraphCheckReport } from '../../shared/contracts/k
 import { canvasModelRefs, missingOnGraph, type GraphNodeLike } from '../../shared/graph/compatibility';
 import { portsCompatible } from '../../shared/graph/linkTypes';
 import { familiesCompatible } from '../../shared/knowledge/baseModel';
-import { numericSlot } from '../../shared/workflow/codec';
+import { exportedWidgets, numericSlot } from '../../shared/workflow/codec';
 
 /**
  * Frontend-only node types. They never appear in object_info because the ComfyUI frontend implements them,
@@ -185,6 +185,29 @@ function unconnectedInputs(nodes: CanvasNode[], edges: CanvasEdge[], specs: Map<
   return found;
 }
 
+/**
+ * Widgets export would leave null: no value on the node and no default in the catalog. A widget fed by a link
+ * takes its value from the socket, so it is not reported.
+ */
+function unsetWidgets(nodes: CanvasNode[], edges: CanvasEdge[], catalog: CatalogView, ignored: Set<string>): NonNullable<GraphCheckReport['unsetWidgets']> {
+  const found: NonNullable<GraphCheckReport['unsetWidgets']> = [];
+  for (const node of nodes) {
+    const classType = classOf(node);
+    if (!classType || ignored.has(classType)) continue;
+    const placed = exportedWidgets(node as Record<string, any>, catalog);
+    if (!placed.ok || placed.unset.length === 0) continue;
+    const linked = new Set(edges
+      .filter((edge) => String(edge.target) === String(node.id))
+      .map((edge) => portName(node, 'inputs', edge.targetHandle))
+      .filter((name): name is string => name !== null));
+    for (const slot of placed.unset) {
+      if (linked.has(slot.split('::')[0])) continue;
+      found.push({ nodeId: String(node.id), classType, name: slot });
+    }
+  }
+  return found;
+}
+
 function typeMismatches(nodes: CanvasNode[], edges: CanvasEdge[], specs: Map<string, Spec>): GraphCheckReport['typeMismatches'] {
   const byId = new Map(nodes.map((node) => [String(node.id), node]));
   return edges.flatMap((edge) => {
@@ -233,8 +256,10 @@ export function checkGraph(db: Database.Database, projectId: string): GraphCheck
     baseModelMismatches: baseModelMismatches(db, nodes, edges, catalog),
     unconnectedRequiredInputs: unconnectedInputs(nodes, edges, specs),
     unknownNodeTypes,
+    unsetWidgets: unsetWidgets(nodes, edges, catalog, ignored),
   };
   report.ok = report.missingNodes.length === 0 && report.missingModels.length === 0 && report.typeMismatches.length === 0
-    && report.baseModelMismatches.length === 0 && report.unconnectedRequiredInputs.length === 0 && report.unknownNodeTypes.length === 0;
+    && report.baseModelMismatches.length === 0 && report.unconnectedRequiredInputs.length === 0 && report.unknownNodeTypes.length === 0
+    && (report.unsetWidgets ?? []).length === 0;
   return report;
 }

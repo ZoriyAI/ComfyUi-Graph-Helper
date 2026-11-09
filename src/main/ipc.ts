@@ -154,7 +154,7 @@ export async function setupIPC(): Promise<void> {
     } catch {
       return { ok: false, error: 'The workflow file could not be written.' };
     }
-    return { ok: true };
+    return { ok: true, unsetWidgets: exported.unsetWidgets };
   });
 
   ipcMain.handle(IPC_CHANNELS.WORKFLOW_EXPORT_DOCUMENT, () => exportWorkflowDocument());

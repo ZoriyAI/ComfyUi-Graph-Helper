@@ -102,7 +102,9 @@ test('first run: connect, sync from MCP, browse the library, build, check and ex
       .dragTo(window.locator('.react-flow__pane'), { targetPosition: { x: 80, y: 120 } });
     await expect(window.locator('.react-flow__node')).toHaveCount(2);
     await expect(window.locator('.react-flow__node').filter({ hasText: 'Load LoRA' })).toHaveCount(1);
-    await expect(window.locator('.react-flow__node').filter({ hasText: 'Load LoRA' }).getByText('lora_name')).toBeVisible();
+    await expect(window.locator('.react-flow__node').filter({ hasText: 'Load LoRA' }).locator('.port-name').getByText('lora_name')).toBeVisible();
+    // The new node starts with the catalog defaults, so its parameters show the first LoRA, not an empty field.
+    await expect(window.locator('.react-flow__node').filter({ hasText: 'Load LoRA' }).getByText('lora_name', { exact: true }).nth(1)).toBeVisible();
 
     // Library ▸ Models: family badges from metadata, sidecars and file names.
     await rail.getByRole('tab', { name: 'Models' }).click();
@@ -145,6 +147,36 @@ test('first run: connect, sync from MCP, browse the library, build, check and ex
     expect(workflow.version).toBe(1);
     expect(workflow.nodes.map((node) => node.type).sort()).toEqual(['KSampler', 'LoraLoader']);
     for (const node of workflow.nodes) expect(typeof node.id).toBe('number');
+    // Nodes added before any value was set still export the object_info defaults, never null.
+    const libraryKSampler = (workflow.nodes as Array<{ type: string; widgets_values?: unknown[] }>).find((node) => node.type === 'KSampler');
+    expect(libraryKSampler?.widgets_values).toEqual([0, 'randomize', 20, 8, 'euler', 'normal', 1]);
+
+    // Build a text-to-image graph with the TEST provider, then export again: no widget of the loader or the
+    // sampler is null, because new nodes start with the catalog defaults.
+    await window.getByRole('tab', { name: 'Assistant' }).click();
+    const composer = window.locator('textarea[aria-label="Chat message"]');
+    await expect(composer).toHaveAttribute('placeholder', 'Ask about the graph');
+    await window.getByRole('group', { name: 'Mode' }).getByRole('button', { name: 'Build', exact: true }).click();
+    await expect(composer).toHaveAttribute('placeholder', 'Ask for a graph change');
+    await composer.fill('build a text to image graph');
+    await composer.press('Enter');
+    await expect(window.locator('[data-tool-name="connectNodes"][data-tool-status="success"]')).toHaveCount(9, { timeout: 60000 });
+    await expect(window.locator('.react-flow__node')).toHaveCount(9);
+    await expect(window.locator('[data-live-build]')).toHaveCount(0, { timeout: 30000 });
+    const builtPath = path.join(userData, 'first-run-built.json');
+    await app.evaluate(({ dialog: fileDialog }, filePath) => {
+      fileDialog.showSaveDialog = async () => ({ canceled: false, filePath });
+    }, builtPath);
+    await window.getByRole('button', { name: 'Export', exact: true }).click();
+    await expect.poll(() => fs.existsSync(builtPath), { timeout: 10000 }).toBe(true);
+    const built = JSON.parse(fs.readFileSync(builtPath, 'utf8')) as { nodes: Array<{ type: string; widgets_values?: unknown[] }> };
+    const checked = built.nodes.filter((node) => node.type === 'KSampler' || node.type === 'CheckpointLoaderSimple');
+    expect(checked.map((node) => node.type).sort()).toEqual(['CheckpointLoaderSimple', 'KSampler', 'KSampler']);
+    for (const node of checked) {
+      expect(Array.isArray(node.widgets_values) && node.widgets_values.length > 0).toBe(true);
+      expect(node.widgets_values).not.toContain(null);
+    }
+    expect(checked.find((node) => node.type === 'CheckpointLoaderSimple')?.widgets_values).toEqual(['juggernautXL_v9.safetensors']);
 
     // Only read-only MCP tools with read-only arguments; the token never reached the disk.
     const toolCalls = fake.calls.filter((call) => call.method === 'tools/call');

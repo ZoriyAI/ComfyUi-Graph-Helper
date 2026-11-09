@@ -73,7 +73,7 @@ export default function MessageInput({ onSend, isStreaming, disabled = false }: 
               submit();
             }
           }}
-          placeholder={String(t('chat.placeholder'))}
+          placeholder={String(t(intent === 'ask' ? 'chat.placeholderAsk' : 'chat.placeholder'))}
           disabled={disabled || isStreaming}
         />
         <div className={styles.row}>

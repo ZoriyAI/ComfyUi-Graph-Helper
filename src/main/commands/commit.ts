@@ -10,7 +10,7 @@ import {
   type Projection,
   type RunStart,
 } from '../../shared/commands/types';
-import { widgetIndexFor } from '../../shared/catalog/objectInfo';
+import { defaultParameters, widgetIndexFor } from '../../shared/catalog/objectInfo';
 import type { CatalogView } from '../../shared/catalog/types';
 import { ensureCatalog, readCatalog } from '../catalog/repository';
 import { portsCompatible } from '../../shared/graph/linkTypes';
@@ -285,13 +285,14 @@ function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutat
     const work: GraphSnapshot = { nodes, edges, document: snapshot.document, subgraphs: snapshot.subgraphs };
     const nodeId = new Ids(work).node(new Set(nodes.map((node) => String(node.id))));
     const ports = portsForClassType(payload.nodeType, catalog);
-    const parameters = payload.parameters ?? {};
+    const spec = catalog.nodes.find((item) => item.classType === payload.nodeType);
+    // A new node starts with the widget values ComfyUI would give it; values the caller passed win.
+    const parameters = { ...defaultParameters(spec), ...(payload.parameters ?? {}) };
     const placed = widgetsFromParameters(payload.nodeType, parameters, catalog);
     if (!placed.ok) throw new CommandSignal('rejected', { error: placed.error });
     const title = payload.title || payload.nodeType;
     const x = payload.x ?? 300;
     const y = payload.y ?? 200;
-    const spec = catalog.nodes.find((item) => item.classType === payload.nodeType);
     const comfy: Record<string, unknown> = {
       id: Number(nodeId),
       type: payload.nodeType,
