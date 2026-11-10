@@ -1,10 +1,15 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import Database from 'better-sqlite3';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import { migrate } from '../../src/main/settings/migrate';
 import { SyncService } from '../../src/main/mcp/sync';
+import { connectStreamableHttp, openReadOnlySession } from '../../src/main/mcp/client';
 import { READ_ONLY_TOOLS } from '../../src/main/mcp/readOnly';
-import { searchModels } from '../../src/main/knowledge/repository';
-import { CLASSES, modelFileCount, PACKS, startFakeMcp, WRITE_TOOLS, type FakeMcp } from '../fixtures/mcp/fakeMcpServer';
+import { PreviewReader } from '../../src/main/knowledge/preview';
+import { modelDetail, searchModels } from '../../src/main/knowledge/repository';
+import { CLASSES, modelFileCount, PACKS, SIDE_FILES, startFakeMcp, WRITE_TOOLS, type FakeMcp } from '../fixtures/mcp/fakeMcpServer';
 
 /**
  * The sync over the real Streamable HTTP client against a fake MCP server on loopback: the transport, paging,
@@ -148,4 +153,166 @@ describe('mcpUrlNeedsHttps (Settings ▸ Connection warning)', () => {
     expect(mcpUrlNeedsHttps('')).toBe(false);
     expect(mcpUrlNeedsHttps('not a url')).toBe(false);
   });
+});
+
+describe('what a model manager keeps next to a model', () => {
+  const sideReads = () => fake!.calls.filter((call) => call.method === 'tools/call' && call.tool === 'workspace_files');
+  const sideBytes = (name: string) => SIDE_FILES.find((file) => file.filename === name)!.bytes;
+
+  it('reads the description next to a file and says what it is for: name, words, tags, usage, examples', async () => {
+    fake = await startFakeMcp({ token: TOKEN });
+    const db = openDb();
+    const sync = service(fake.url, TOKEN);
+    const status = await sync.runSync(db);
+    await sync.whenEnrichmentDone();
+    expect(status.lastError).toBeNull();
+    // The files next to the models are not models.
+    expect(sync.status(db).counts.models).toBe(modelFileCount());
+
+    const pixel = modelDetail(db, 'loras', 'pixel-art-xl.safetensors')!;
+    expect(pixel).toMatchObject({
+      title: 'Pixel Art XL',
+      preview: 'image',
+      mature: false,
+      baseModel: 'sdxl',
+      baseModelEvidence: 'sidecar',
+      triggerWords: ['pixel art'],
+      sourceUrl: 'https://civitai.com/models/120096?modelVersionId=135931',
+    });
+    expect(pixel.description).toBe('What it does\nTurns a picture into pixel art with a limited palette.\n• Works at 1024 x 1024.\n• Downscale the result eight times for true pixels.\nSharper edges than v1.0.');
+    expect(pixel.notes).toMatchObject({
+      versionName: 'v1.1',
+      creator: 'nerijs',
+      baseModelLabel: 'SDXL 1.0',
+      tags: ['style', 'pixel art', 'retro'],
+      notes: 'Turn the strength down for portraits.',
+      usage: { strength: 0.9, strengthMin: 0.6, strengthMax: 1.2, clipSkip: null },
+    });
+    expect(pixel.notes.examples.map((item) => item.prompt)).toEqual([
+      'pixel art, a lighthouse on a cliff, sunset, seagulls',
+      'pixel art, a cat sleeping on a bookshelf, warm lamp light',
+    ]);
+    // A name its author gave it finds the file.
+    expect(searchModels(db, { query: 'retro' }).map((item) => item.name)).toEqual(['pixel-art-xl.safetensors']);
+
+    // Marked as adult content by its author: the app knows, and shows nothing of it unasked.
+    expect(modelDetail(db, 'loras', 'flux_realism_lora.safetensors')).toMatchObject({ title: 'Night Painter', mature: true, preview: 'image', baseModel: 'flux1' });
+    // And a file with nothing next to it is as it was: its family not known, nothing to show.
+    expect(modelDetail(db, 'loras', 'mystery_style_v3.safetensors')).toMatchObject({ title: '', mature: false, preview: null, baseModel: 'unknown' });
+    // A record that never met Civitai says almost nothing; the clip next to the file is still its preview.
+    const local = modelDetail(db, 'loras', 'wan2.2_i2v_A14b_high_noise_lora_rank64_lightx2v_4step_1022.safetensors')!;
+    expect(local).toMatchObject({ preview: 'video', mature: false, baseModel: 'wan2.2' });
+    expect(local.notes.tags).toEqual([]);
+    // The other convention: a bare Civitai record and `.preview.png`.
+    const base = modelDetail(db, 'checkpoints', 'juggernautXL_v9.safetensors')!;
+    expect(base).toMatchObject({ title: 'Juggernaut XL', preview: 'image', mature: false });
+    expect(base.notes.examples[0]).toMatchObject({ prompt: 'a portrait photograph of an old sailor, overcast light, 85mm', steps: 30, cfg: 4.5 });
+    // A file with nothing next to it stays as it was.
+    expect(modelDetail(db, 'loras', 'add-detail-xl.safetensors')).toMatchObject({ title: '', preview: null, mature: false });
+
+    // Descriptions only, whole, through the read-only gate; never a preview during a sync, never a stray file.
+    const reads = sideReads();
+    expect(reads.map((call) => String(call.args?.absolute_path).split('/').pop()).sort()).toEqual([
+      'flux_realism_lora.metadata.json',
+      'juggernautXL_v9.civitai.info',
+      'pixel-art-xl.metadata.json',
+      'wan2.2_i2v_A14b_high_noise_lora_rank64_lightx2v_4step_1022.metadata.json',
+    ]);
+    for (const call of reads) expect(READ_ONLY_TOOLS.workspace_files(call.args ?? {})).toBe(true);
+
+    // The next sync reads nothing again: nothing changed.
+    const before = reads.length;
+    await sync.runSync(db);
+    await sync.whenEnrichmentDone();
+    expect(sideReads()).toHaveLength(before);
+    expect(sync.status(db).metadata).toMatchObject({ done: sync.status(db).metadata!.total });
+    sync.stop();
+  }, 60_000);
+
+  it('reads the description of a file that an earlier version had already read without it, and one that changed', async () => {
+    fake = await startFakeMcp({ token: TOKEN });
+    const db = openDb();
+    const sync = service(fake.url, TOKEN);
+    await sync.runSync(db);
+    await sync.whenEnrichmentDone();
+    // As an earlier version of the app left it: the header read, nothing known of the files next to the model.
+    db.prepare("UPDATE model_catalog SET notes_json = '{}', sidecar_read_sig = NULL, sidecar_file = NULL, sidecar_sig = NULL, preview_file = NULL, preview_sig = NULL").run();
+    db.prepare("UPDATE model_catalog SET trigger_words = '[]', description = '', source_url = NULL WHERE name = 'pixel-art-xl.safetensors'").run();
+    expect(modelDetail(db, 'loras', 'pixel-art-xl.safetensors')).toMatchObject({ title: '', preview: null, triggerWords: [], enriched: true });
+    const headerReads = () => fake!.calls.filter((call) => call.tool === 'model_metadata').length;
+    const headers = headerReads();
+    await sync.runSync(db);
+    await sync.whenEnrichmentDone();
+    expect(modelDetail(db, 'loras', 'pixel-art-xl.safetensors')).toMatchObject({ title: 'Pixel Art XL', preview: 'image', triggerWords: ['pixel art'], baseModel: 'sdxl', sourceUrl: 'https://civitai.com/models/120096?modelVersionId=135931' });
+    // The headers were read once and are not read again for it.
+    expect(headerReads()).toBe(headers);
+
+    // The person edits the description in their model manager: the file has another size, and is read again.
+    const file = SIDE_FILES.find((item) => item.filename === 'pixel-art-xl.metadata.json')!;
+    const original = file.bytes;
+    try {
+      file.bytes = Buffer.from(original.toString('utf8').replace('Turn the strength down for portraits.', 'Use 0.7 with portraits and 1.0 with landscapes.'), 'utf8');
+      const reads = sideReads().length;
+      await sync.runSync(db);
+      await sync.whenEnrichmentDone();
+      expect(sideReads().length).toBe(reads + 1);
+      expect(modelDetail(db, 'loras', 'pixel-art-xl.safetensors')!.notes.notes).toBe('Use 0.7 with portraits and 1.0 with landscapes.');
+    } finally {
+      file.bytes = original;
+    }
+    sync.stop();
+  }, 60_000);
+
+  it('hands the preview over as bytes, keeps it, and asks the server once', async () => {
+    fake = await startFakeMcp({ token: TOKEN });
+    const db = openDb();
+    const sync = service(fake.url, TOKEN);
+    await sync.runSync(db);
+    await sync.whenEnrichmentDone();
+    sync.stop();
+    const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), 'previews-'));
+    let opened = 0;
+    const url = fake.url;
+    const open = async () => {
+      opened += 1;
+      const session = await openReadOnlySession({ url, token: TOKEN }, connectStreamableHttp);
+      return session.ok ? session.session : null;
+    };
+    const reader = new PreviewReader({ db: () => db, open, cacheDir });
+    try {
+      const before = sideReads().length;
+      // A list asks for several at once: one connection, one read each.
+      const [still, again, clip, marked, none, missing] = await Promise.all([
+        reader.get('loras', 'pixel-art-xl.safetensors'),
+        reader.get('loras', 'pixel-art-xl.safetensors'),
+        reader.get('loras', 'wan2.2_i2v_A14b_high_noise_lora_rank64_lightx2v_4step_1022.safetensors'),
+        reader.get('loras', 'flux_realism_lora.safetensors'),
+        reader.get('loras', 'add-detail-xl.safetensors'),
+        reader.get('loras', 'no-such-file.safetensors'),
+      ]);
+      expect(still).toMatchObject({ kind: 'image', mime: 'image/webp' });
+      expect(Buffer.from(still!.bytes).equals(sideBytes('pixel-art-xl.webp'))).toBe(true);
+      expect(again).toBe(still);
+      expect(clip).toMatchObject({ kind: 'video', mime: 'video/mp4' });
+      expect(Buffer.from(clip!.bytes).equals(sideBytes('wan2.2_i2v_A14b_high_noise_lora_rank64_lightx2v_4step_1022.mp4'))).toBe(true);
+      expect(marked).toMatchObject({ kind: 'image', mime: 'image/png' });
+      expect(none).toBeNull();
+      expect(missing).toBeNull();
+      expect(opened).toBe(1);
+      expect(sideReads().length).toBe(before + 3);
+      for (const call of sideReads()) expect(READ_ONLY_TOOLS.workspace_files(call.args ?? {})).toBe(true);
+      // Kept in the app's folder: asked again, the server hears nothing.
+      expect(fs.readdirSync(cacheDir).map((name) => path.extname(name)).sort()).toEqual(['.mp4', '.png', '.webp']);
+      const second = await reader.get('loras', 'pixel-art-xl.safetensors');
+      expect(Buffer.from(second!.bytes).equals(sideBytes('pixel-art-xl.webp'))).toBe(true);
+      expect(sideReads().length).toBe(before + 3);
+      // A preview that changed is another file to the cache.
+      db.prepare("UPDATE model_catalog SET preview_sig = 'pixel-art-xl.webp:999' WHERE name = 'pixel-art-xl.safetensors'").run();
+      await reader.get('loras', 'pixel-art-xl.safetensors');
+      expect(sideReads().length).toBe(before + 4);
+    } finally {
+      reader.stop();
+      fs.rmSync(cacheDir, { recursive: true, force: true });
+    }
+  }, 60_000);
 });

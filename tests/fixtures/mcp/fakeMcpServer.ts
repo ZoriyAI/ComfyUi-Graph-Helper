@@ -7,8 +7,10 @@
  * It also lists tools that write or run (install, download, queue). Every call is recorded in `calls` so a test can
  * prove the app only used read-only tools. The bearer token is checked but never recorded.
  */
+import * as fs from 'fs';
 import * as http from 'http';
 import type { AddressInfo } from 'net';
+import * as path from 'path';
 
 export interface FakeMcpCall {
   /** JSON-RPC method, or the HTTP method for non-POST requests ("GET", "DELETE"). */
@@ -48,7 +50,11 @@ export const WRITE_TOOLS = [
   'artifact_import_begin',
 ] as const;
 
-export const READ_TOOLS = ['studio_info', 'studio_capabilities', 'models', 'model_metadata', 'comfy_api', 'list_local_models'] as const;
+/**
+ * `workspace_files` is on the owner's server too. It reads, and it also writes, patches, moves and trashes; the
+ * fake answers `read` for the files next to a model and treats every other action as a write that must not come.
+ */
+export const READ_TOOLS = ['studio_info', 'studio_capabilities', 'models', 'model_metadata', 'comfy_api', 'list_local_models', 'workspace_files'] as const;
 
 // ---------------------------------------------------------------- catalog
 
@@ -97,6 +103,144 @@ export const MODELS: Array<{ category: string; filename: string; size: number }>
   { category: 'loras', filename: '.cache/huggingface/download/abc.lock', size: 0 },
   { category: 'checkpoints', filename: '.DS_Store', size: 6148 },
 ];
+
+// ---------------------------------------------------------------- files next to the models
+
+const SIDE_DIR = path.join(__dirname, 'side');
+const sideBytes = (name: string) => fs.readFileSync(path.join(SIDE_DIR, name));
+const json = (value: unknown) => Buffer.from(JSON.stringify(value, null, 2), 'utf8');
+
+/** A Lora Manager record as that manager writes it next to a file: its own fields, the Civitai record inside. */
+const PIXEL_ART_SIDECAR = {
+  file_name: 'pixel-art-xl',
+  model_name: 'Pixel Art XL',
+  file_path: '/srv/comfyui/models/loras/pixel-art-xl.safetensors',
+  size: 170_000_000,
+  sha256: '4f2a7c0d9e1b6a35c8d7e6f5a4b3c2d1e0f9a8b7c6d5e4f3a2b1c0d9e8f7a6b5',
+  base_model: 'SDXL 1.0',
+  preview_url: '/srv/comfyui/models/loras/pixel-art-xl.webp',
+  preview_nsfw_level: 1,
+  notes: 'Turn the strength down for portraits.',
+  from_civitai: true,
+  civitai: {
+    id: 135931,
+    modelId: 120096,
+    name: 'v1.1',
+    trainedWords: ['pixel art'],
+    baseModel: 'SDXL 1.0',
+    description: '<p>Sharper edges than v1.0.</p>',
+    model: {
+      name: 'Pixel Art XL',
+      type: 'LORA',
+      nsfw: false,
+      description: '<h3>What it does</h3><p>Turns a picture into <b>pixel art</b> with a limited palette.</p><ul><li>Works at 1024 x 1024.</li><li>Downscale the result eight times for true pixels.</li></ul>',
+      tags: ['style', 'pixel art', 'retro'],
+    },
+    images: [
+      { url: 'https://example.invalid/pixel-1.jpeg', nsfwLevel: 1, type: 'image', meta: { prompt: 'pixel art, a lighthouse on a cliff, sunset, seagulls', negativePrompt: 'blurry, 3d render', steps: 8, cfgScale: 1.5, sampler: 'euler' } },
+      { url: 'https://example.invalid/pixel-2.jpeg', nsfwLevel: 1, type: 'image', meta: { prompt: 'pixel art, a cat sleeping on a bookshelf, warm lamp light', steps: 8, cfgScale: 1.5, sampler: 'euler' } },
+    ],
+    creator: { username: 'nerijs' },
+  },
+  tags: ['style'],
+  modelDescription: '',
+  usage_tips: '{"strength": 0.9, "strength_min": 0.6, "strength_max": 1.2}',
+};
+
+/** A file whose author marked it as adult content. The words are plain; only the marks say what it is. */
+const MARKED_SIDECAR = {
+  file_name: 'flux_realism_lora',
+  model_name: 'Night Painter',
+  base_model: 'Flux.1 D',
+  preview_url: '/srv/comfyui/models/loras/flux_realism_lora.png',
+  preview_nsfw_level: 8,
+  notes: '',
+  from_civitai: true,
+  civitai: {
+    id: 777002,
+    modelId: 777001,
+    name: 'v2',
+    trainedWords: ['night painter'],
+    baseModel: 'Flux.1 D',
+    description: null,
+    model: { name: 'Night Painter', type: 'LORA', nsfw: true, description: '<p>A painterly look with deep shadows.</p>', tags: ['style', 'painterly'] },
+    images: [
+      { url: 'https://example.invalid/night-1.jpeg', nsfwLevel: 1, type: 'image', meta: { prompt: 'night painter, a harbour at midnight, lanterns on the water', steps: 24, cfgScale: 3.5, sampler: 'euler' } },
+      { url: 'https://example.invalid/night-2.jpeg', nsfwLevel: 8, type: 'image', meta: { prompt: 'night painter, a figure in a doorway, candle light', steps: 28, cfgScale: 3.5, sampler: 'euler' } },
+    ],
+  },
+  tags: ['style'],
+  modelDescription: '',
+  usage_tips: '{}',
+};
+
+/** A file that never met Civitai: the manager's record says almost nothing, and the preview is a clip. */
+const LOCAL_SIDECAR = {
+  file_name: 'wan2.2_i2v_A14b_high_noise_lora_rank64_lightx2v_4step_1022',
+  model_name: 'wan2.2_i2v_A14b_high_noise_lora_rank64_lightx2v_4step_1022',
+  base_model: 'Unknown',
+  preview_url: '',
+  preview_nsfw_level: 0,
+  notes: '',
+  from_civitai: false,
+  civitai: {},
+  tags: [],
+  modelDescription: '',
+  usage_tips: '{}',
+};
+
+/** The other convention: a bare Civitai record as `.civitai.info` and a picture as `.preview.png`. */
+const JUGGERNAUT_INFO = {
+  id: 348913,
+  modelId: 133005,
+  name: 'v9 + RunDiffusionPhoto 2',
+  trainedWords: [],
+  baseModel: 'SDXL 1.0',
+  description: null,
+  model: { name: 'Juggernaut XL', type: 'Checkpoint', nsfw: false, description: '<p>A general purpose photographic SDXL checkpoint.</p>', tags: ['base model', 'photorealistic'] },
+  images: [{ url: 'https://example.invalid/jugg-1.jpeg', nsfw: 'None', meta: { prompt: 'a portrait photograph of an old sailor, overcast light, 85mm', negativePrompt: 'cartoon, painting', steps: 30, cfgScale: 4.5, sampler: 'dpmpp_2m_sde' } }],
+};
+
+/** Files a model manager keeps next to the models: descriptions and previews. Listed with the models, never loaders. */
+export const SIDE_FILES: Array<{ category: string; filename: string; bytes: Buffer }> = [
+  { category: 'loras', filename: 'pixel-art-xl.metadata.json', bytes: json(PIXEL_ART_SIDECAR) },
+  { category: 'loras', filename: 'pixel-art-xl.webp', bytes: sideBytes('still.webp') },
+  { category: 'loras', filename: 'flux_realism_lora.metadata.json', bytes: json(MARKED_SIDECAR) },
+  { category: 'loras', filename: 'flux_realism_lora.png', bytes: sideBytes('still.png') },
+  { category: 'loras', filename: 'wan2.2_i2v_A14b_high_noise_lora_rank64_lightx2v_4step_1022.metadata.json', bytes: json(LOCAL_SIDECAR) },
+  { category: 'loras', filename: 'wan2.2_i2v_A14b_high_noise_lora_rank64_lightx2v_4step_1022.mp4', bytes: sideBytes('clip.mp4') },
+  { category: 'checkpoints', filename: 'juggernautXL_v9.civitai.info', bytes: json(JUGGERNAUT_INFO) },
+  { category: 'checkpoints', filename: 'juggernautXL_v9.preview.png', bytes: sideBytes('still.png') },
+  // Not side files of any model: the app must leave them alone.
+  { category: 'loras', filename: 'readme.txt', bytes: Buffer.from('notes', 'utf8') },
+  { category: 'loras', filename: 'orphan.webp', bytes: sideBytes('still.webp') },
+];
+
+const MODEL_ROOT = '/srv/comfyui/models';
+const sidePathOf = (file: { category: string; filename: string }) => `${MODEL_ROOT}/${file.category}/${file.filename}`;
+
+/** `workspace_files` action read, the way the owner's server answers: exact bytes as base64, a slice at a time. */
+function readWorkspaceFile(args: Record<string, unknown>) {
+  const found = SIDE_FILES.find((file) => sidePathOf(file) === args.absolute_path);
+  if (!found) return text({ error: { code: 'ADMIN_FILE_NOT_FOUND', message: 'ADMIN_FILE_NOT_FOUND' } }, true);
+  const offset = typeof args.offset === 'number' ? args.offset : 0;
+  const length = Math.min(typeof args.length === 'number' ? args.length : 65536, 1048576);
+  const slice = found.bytes.subarray(offset, offset + length);
+  const next = offset + slice.length;
+  return text({
+    path: args.absolute_path,
+    root: 'models',
+    encoding: args.encoding ?? 'utf8',
+    data_base64: slice.toString('base64'),
+    offset,
+    length: slice.length,
+    next_offset: next,
+    total: found.bytes.length,
+    size_bytes: found.bytes.length,
+    complete: next >= found.bytes.length,
+    truncated: next < found.bytes.length,
+  });
+}
 
 /** model_metadata answers for a few files; anything else gets an empty header and no sidecar. */
 const METADATA: Record<string, unknown> = {
@@ -264,10 +408,12 @@ function modelItems(extraLoras = 0) {
   const extra = Array.from({ length: extraLoras }, (_, index) => ({
     category: 'loras', filename: `extra_lora_${String(index).padStart(3, '0')}.safetensors`, size: 100_000_000,
   }));
-  return [...MODELS, ...extra].map((model) => ({
+  // The owner's server lists every regular file of a folder: the models, and what a manager keeps next to them.
+  const side = SIDE_FILES.map((file) => ({ category: file.category, filename: file.filename, size: file.bytes.length }));
+  return [...MODELS, ...extra, ...side].map((model) => ({
     category: model.category,
     filename: model.filename,
-    root_path: `/srv/comfyui/models/${model.category}`,
+    root_path: `${MODEL_ROOT}/${model.category}`,
     size_bytes: model.size,
     status: 'present',
   }));
@@ -325,6 +471,10 @@ function callTool(name: string, args: Record<string, unknown>, comfyUrl: string,
       return text({ state: 'outcome_unknown', error: { code: 'COMFY_API_BODY_CAPACITY', message: 'Response body exceeds capacity.' } });
     case 'list_local_models':
       return text('## checkpoints (1)\n- juggernautXL_v9.safetensors\n');
+    case 'workspace_files':
+      // Only a read is answered. A write, a patch, a move or a trash is the write tool the tests fail on.
+      if (args.action === 'read') return readWorkspaceFile(args);
+      return text({ error: { code: 'FAKE_WRITE_TOOL_CALLED' } }, true);
     default:
       // A write tool: the fake does nothing, but the call is recorded and the test fails on it.
       return text({ error: { code: 'FAKE_WRITE_TOOL_CALLED' } }, true);

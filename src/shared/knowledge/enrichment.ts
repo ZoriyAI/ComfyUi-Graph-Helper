@@ -69,11 +69,16 @@ function words(value: unknown): string[] {
   return [...seen].slice(0, MAX_TRIGGER_WORDS);
 }
 
-/** Civitai descriptions are HTML. Tags go, entities for the common few are decoded, whitespace collapses. */
+/**
+ * Civitai descriptions are HTML. Scripts and styles go with what is in them, the other tags go alone, a block
+ * ends its line, a list item starts with a dot; entities for the common few are decoded, whitespace collapses.
+ */
 export function plainText(html: string): string {
   const text = html
+    .replace(/<\s*(script|style)\b[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/gi, '')
     .replace(/<\s*br\s*\/?>/gi, '\n')
-    .replace(/<\/p>/gi, '\n')
+    .replace(/<\s*li\b[^>]*>/gi, '• ')
+    .replace(/<\s*\/\s*(p|div|li|h[1-6]|ul|ol|tr|blockquote)\s*>/gi, '\n')
     .replace(/<[^>]*>/g, '')
     .replace(/&nbsp;/g, ' ')
     .replace(/&lt;/g, '<')

@@ -1,7 +1,7 @@
 import type Database from 'better-sqlite3';
 import { ZodError } from 'zod';
 import { IPC_CHANNELS } from '../../shared/ipc-channels';
-import type { ExplanationInput, ListExplanationsRequest, SearchModelsRequest, SearchNodesRequest } from '../../shared/contracts/knowledge';
+import type { ExplanationInput, ListExplanationsRequest, ModelPreview, SearchModelsRequest, SearchNodesRequest } from '../../shared/contracts/knowledge';
 import {
   classTypeSchema,
   userExplanationInputSchema,
@@ -60,7 +60,13 @@ function guarded(handler: KnowledgeHandler): KnowledgeHandler {
  * knowledge:* and sync:* handlers without Electron, so they can be tested directly.
  * Each handler receives the IPC arguments after the event and validates them with zod.
  */
-export function knowledgeHandlers(deps: { db: () => Database.Database; sync: SyncService; fetchImpl?: typeof fetch }): Record<string, KnowledgeHandler> {
+export function knowledgeHandlers(deps: {
+  db: () => Database.Database;
+  sync: SyncService;
+  fetchImpl?: typeof fetch;
+  /** Reads the preview that lies next to a model file; without it no model has one. */
+  preview?: (directory: string, name: string) => Promise<ModelPreview | null>;
+}): Record<string, KnowledgeHandler> {
   const { db, sync } = deps;
   const table: Record<string, KnowledgeHandler> = {
     [IPC_CHANNELS.KNOWLEDGE_SEARCH_NODES]: (request) => searchNodeClasses(db(), searchNodesSchema.parse(request) as SearchNodesRequest),
@@ -69,6 +75,10 @@ export function knowledgeHandlers(deps: { db: () => Database.Database; sync: Syn
     [IPC_CHANNELS.KNOWLEDGE_MODEL_DETAIL]: (request) => {
       const key = modelKeySchema.parse(request);
       return modelDetail(db(), key.directory, key.name);
+    },
+    [IPC_CHANNELS.KNOWLEDGE_MODEL_PREVIEW]: (request) => {
+      const key = modelKeySchema.parse(request);
+      return deps.preview ? deps.preview(key.directory, key.name) : null;
     },
     [IPC_CHANNELS.KNOWLEDGE_LIST_EXPLANATIONS]: (request) => listExplanations(db(), listExplanationsSchema.parse(request ?? {}) as ListExplanationsRequest),
     [IPC_CHANNELS.KNOWLEDGE_SAVE_EXPLANATION]: (input) => {

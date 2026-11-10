@@ -80,6 +80,8 @@ export const IPC_CHANNELS = {
   KNOWLEDGE_NODE_DETAIL: 'knowledge:node-detail',
   KNOWLEDGE_SEARCH_MODELS: 'knowledge:search-models',
   KNOWLEDGE_MODEL_DETAIL: 'knowledge:model-detail',
+  /** The preview picture or clip that lies next to a model file, as bytes. */
+  KNOWLEDGE_MODEL_PREVIEW: 'knowledge:model-preview',
   KNOWLEDGE_LIST_EXPLANATIONS: 'knowledge:list-explanations',
   KNOWLEDGE_SAVE_EXPLANATION: 'knowledge:save-explanation',
   KNOWLEDGE_CHECK_GRAPH: 'knowledge:check-graph',

@@ -4,6 +4,7 @@ import type { CatalogInput, CatalogModel, CatalogNode, CatalogOutput, CatalogVie
 import type { McpModelFile, McpNodeClass } from '../../shared/mcp/catalogSource';
 import { inferBaseModel } from '../../shared/knowledge/baseModel';
 import { kindFromDirectory } from '../../shared/knowledge/modelKind';
+import type { ModelNotes } from '../../shared/knowledge/sidecar';
 
 export const SEEDED_NODE_TYPES = [
   'CheckpointLoaderSimple',
@@ -80,10 +81,17 @@ export function packNameFromModule(module: string): string {
   return match ? match[1] : 'core';
 }
 
-/** Stores model files an MCP server listed, with the size and root folder when it reported them. */
+/** What a listing may say of the files next to a model. A file without the fields came from a listing that cannot tell. */
+type ListedSideFiles = { sidecarFile?: string | null; sidecarSig?: string | null; previewFile?: string | null; previewSig?: string | null };
+
+/**
+ * Stores model files an MCP server listed, with the size and root folder when it reported them. A listing that
+ * names every file of a folder also says which description and preview lie next to a model; that is stored as it
+ * is, gone files included. A listing of model files only (the older tool) leaves what is stored alone.
+ */
 export function upsertModelFiles(
   db: Database.Database,
-  files: Array<McpModelFile & { rootPath?: string | null }>,
+  files: Array<McpModelFile & { rootPath?: string | null } & ListedSideFiles>,
   syncedAt: number | null = null,
 ): number {
   const upsert = db.prepare(`
@@ -93,8 +101,12 @@ export function upsertModelFiles(
       root_path = COALESCE(excluded.root_path, model_catalog.root_path),
       synced_at = COALESCE(excluded.synced_at, model_catalog.synced_at)
   `);
+  const sides = db.prepare('UPDATE model_catalog SET sidecar_file = ?, sidecar_sig = ?, preview_file = ?, preview_sig = ? WHERE directory = ? AND name = ?');
   const write = db.transaction(() => {
-    for (const file of files) upsert.run(file.directory, file.name, file.sizeBytes, file.rootPath ?? null, syncedAt);
+    for (const file of files) {
+      upsert.run(file.directory, file.name, file.sizeBytes, file.rootPath ?? null, syncedAt);
+      if (file.sidecarFile !== undefined) sides.run(file.sidecarFile, file.sidecarSig ?? null, file.previewFile ?? null, file.previewSig ?? null, file.directory, file.name);
+    }
   });
   write.immediate();
   return files.length;
@@ -171,25 +183,43 @@ export interface ModelEnrichment {
   sourceUrl: string | null;
   metadata: Record<string, string>;
   enrichedAt: number;
+  /**
+   * What the description file next to the model says beyond these facts, with the listing signature of the file
+   * it was read from (null: there is none). Left out, the stored notes stay as they are.
+   */
+  sidecar?: { notes: ModelNotes; readSig: string | null };
 }
 
 export function writeModelEnrichment(db: Database.Database, directory: string, name: string, value: ModelEnrichment): void {
-  db.prepare(`
-    UPDATE model_catalog SET kind = ?, base_model = ?, base_model_evidence = ?, trigger_words = ?, description = ?,
-      source_url = ?, metadata_json = ?, enriched_at = ?
-    WHERE directory = ? AND name = ?
-  `).run(
-    value.kind,
-    value.baseModel,
-    value.baseModelEvidence,
-    JSON.stringify(value.triggerWords),
-    value.description,
-    value.sourceUrl,
-    JSON.stringify(value.metadata),
-    value.enrichedAt,
-    directory,
-    name,
-  );
+  const write = db.transaction(() => {
+    db.prepare(`
+      UPDATE model_catalog SET kind = ?, base_model = ?, base_model_evidence = ?, trigger_words = ?, description = ?,
+        source_url = ?, metadata_json = ?, enriched_at = ?
+      WHERE directory = ? AND name = ?
+    `).run(
+      value.kind,
+      value.baseModel,
+      value.baseModelEvidence,
+      JSON.stringify(value.triggerWords),
+      value.description,
+      value.sourceUrl,
+      JSON.stringify(value.metadata),
+      value.enrichedAt,
+      directory,
+      name,
+    );
+    if (value.sidecar) {
+      db.prepare('UPDATE model_catalog SET notes_json = ?, sidecar_read_sig = ? WHERE directory = ? AND name = ?')
+        .run(JSON.stringify(value.sidecar.notes), value.sidecar.readSig, directory, name);
+    }
+  });
+  write.immediate();
+}
+
+/** The notes of a model's description file alone, when the facts read from the model itself stay as they are. */
+export function writeModelNotes(db: Database.Database, directory: string, name: string, notes: ModelNotes, readSig: string | null): void {
+  db.prepare('UPDATE model_catalog SET notes_json = ?, sidecar_read_sig = ? WHERE directory = ? AND name = ?')
+    .run(JSON.stringify(notes), readSig, directory, name);
 }
 
 export interface CatalogTotals {

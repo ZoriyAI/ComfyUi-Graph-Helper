@@ -493,8 +493,18 @@ test('nothing sticks out, is cut or overlaps on any screen at any window size', 
       await railTab(page, 0);
       await rail.locator('input').first().fill('');
       await visitScrolling(page, 'library models', async () => { await railTab(page, 1); await rail.locator('input').first().fill(''); }, () => page.locator('#model-library-list'));
-      const modelRow = (text: string) => page.locator('#model-library-list').getByRole('option').filter({ hasText: text }).first();
-      for (const [label, query] of [['a LoRA with a long name', 'wan2.2_i2v_A14b_high'], ['a checkpoint', 'juggernaut'], ['a file nothing is known about', 'mystery_style']] as const) {
+      // By its file name: a row may be headed by the name the file's author gave it.
+      const modelRow = (text: string) => page.locator(`#model-library-list [data-model*="${text}"]`).first();
+      // What a model manager keeps next to the files is read in the background after the listing: a card is
+      // looked at with it, so the walk waits for the description of the file it reads last.
+      await expect.poll(async () => ((await api('modelDetail', ['checkpoints', 'juggernautXL_v9.safetensors'])) as { title?: string } | null)?.title ?? '', { timeout: 120_000 }).toBe('Juggernaut XL');
+      for (const [label, query] of [
+        ['a LoRA with a long name and a clip for a preview', 'wan2.2_i2v_A14b_high'],
+        ['a checkpoint with a picture and its author\'s name', 'juggernaut'],
+        ['a LoRA with a picture, tags, usage and examples', 'pixel-art-xl'],
+        ['a file its author marked as adult content', 'flux_realism'],
+        ['a file nothing is known about', 'mystery_style'],
+      ] as const) {
         await visitScrolling(page, `model card, ${label}`, async () => {
           await railTab(page, 1);
           await rail.locator('input').first().fill(query);

@@ -213,6 +213,23 @@ export function modelKey(model: Pick<ModelSummary, 'directory' | 'name'>): strin
   return `${model.directory}/${model.name}`;
 }
 
+const lettersOnly = (text: string) => text.toLowerCase().replace(/\.(safetensors|sft|ckpt|pt|pth|bin|gguf)$/i, '').replace(/[^\p{L}\p{N}]+/gu, '');
+
+/**
+ * The name its author gave a model, when it says more than the file name does. A file `pixel-art-xl.safetensors`
+ * titled "Pixel Art XL" is told nothing new by it; `20251206.safetensors` titled "Soft film look" is.
+ */
+export function authorTitle(model: Pick<ModelSummary, 'name' | 'title'>): string {
+  const title = model.title?.trim() ?? '';
+  const file = model.name.split('/').pop() ?? model.name;
+  return title !== '' && lettersOnly(title) !== lettersOnly(file) ? title : '';
+}
+
+/** A number as an author wrote it: `0.8`, `1`, never `0.8000000001`. */
+export function plainNumber(value: number): string {
+  return String(Math.round(value * 100) / 100);
+}
+
 export function formatBytes(bytes: number | null, language: 'en' | 'ru'): string {
   if (bytes == null || !Number.isFinite(bytes) || bytes < 0) return '—';
   const units = language === 'ru' ? ['Б', 'КБ', 'МБ', 'ГБ', 'ТБ'] : ['B', 'KB', 'MB', 'GB', 'TB'];

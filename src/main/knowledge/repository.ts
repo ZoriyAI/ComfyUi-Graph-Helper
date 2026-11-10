@@ -28,6 +28,7 @@ import {
   searchNodesSchema,
 } from '../../shared/knowledge/schemas';
 import { rankMatch } from '../../shared/knowledge/search';
+import { notesFromJson, previewKind, type ModelNotes } from '../../shared/knowledge/sidecar';
 import { catalogInputsFromJson, catalogTotals } from '../catalog/repository';
 import { fieldSpecOf, modelDirectoryOf, modelKey } from '../../shared/catalog/fieldSpec';
 import { modelDirectoryFor } from '../../shared/catalog/modelFolders';
@@ -195,10 +196,12 @@ type ModelRow = {
   sha256: string | null;
   synced_at: number | null;
   enriched_at: number | null;
+  preview_file: string | null;
+  notes_json: string | null;
 };
 
 const MODEL_COLUMNS = `directory, name, size_bytes, kind, base_model, base_model_evidence, trigger_words, description,
-  source_url, metadata_json, root_path, sha256, synced_at, enriched_at`;
+  source_url, metadata_json, root_path, sha256, synced_at, enriched_at, preview_file, notes_json`;
 
 const EVIDENCE: readonly Evidence[] = ['metadata', 'sidecar', 'filename', 'web', 'none'];
 
@@ -210,7 +213,7 @@ function asKind(value: string): ModelKind {
   return (MODEL_KINDS as readonly string[]).includes(value) ? (value as ModelKind) : 'other';
 }
 
-function modelSummaryOf(row: ModelRow): ModelSummary {
+function modelSummaryOf(row: ModelRow, notes: ModelNotes = notesFromJson(row.notes_json)): ModelSummary {
   return {
     directory: row.directory,
     name: row.name,
@@ -218,6 +221,9 @@ function modelSummaryOf(row: ModelRow): ModelSummary {
     baseModel: asFamily(row.base_model),
     sizeBytes: row.size_bytes ?? null,
     enriched: row.enriched_at != null,
+    title: notes.title,
+    preview: row.preview_file ? previewKind(row.preview_file) : null,
+    mature: notes.mature,
   };
 }
 
@@ -240,27 +246,33 @@ export function searchModels(db: Database.Database, request: SearchModelsRequest
   const tokens = queryTokens(parsed.query);
   const sql = `SELECT ${MODEL_COLUMNS} FROM model_catalog${where.length ? ` WHERE ${where.join(' AND ')}` : ''}`;
   const rows = db.prepare(sql).all(...args) as ModelRow[];
-  // The file name ranks first; folder, kind, and base family let "flux lora" find a Flux file in loras/.
+  // The file name ranks first; folder, kind, and base family let "flux lora" find a Flux file in loras/. The name
+  // and tags its author gave it find a file whose own name says nothing ("20251206.safetensors").
   const ranked = rows
-    .map((row) => ({ row, score: rankTokens([row.name, row.directory, row.kind, row.base_model], tokens) }))
+    .map((row) => {
+      const notes = notesFromJson(row.notes_json);
+      return { row, notes, score: rankTokens([row.name, row.directory, row.kind, row.base_model, notes.title, notes.tags.join(' ')], tokens) };
+    })
     .filter((item) => item.score !== Infinity);
   ranked.sort((left, right) => left.score - right.score
     || left.row.directory.localeCompare(right.row.directory)
     || left.row.name.localeCompare(right.row.name));
-  return ranked.slice(0, limitOf(parsed.limit)).map((item) => modelSummaryOf(item.row));
+  return ranked.slice(0, limitOf(parsed.limit)).map((item) => modelSummaryOf(item.row, item.notes));
 }
 
 export function modelDetail(db: Database.Database, directory: string, name: string): ModelDetail | null {
   if (typeof directory !== 'string' || typeof name !== 'string' || !directory || !name) return null;
   const row = db.prepare(`SELECT ${MODEL_COLUMNS} FROM model_catalog WHERE directory = ? AND name = ?`).get(directory, name) as ModelRow | undefined;
   if (!row) return null;
+  const notes = notesFromJson(row.notes_json);
   return {
-    ...modelSummaryOf(row),
+    ...modelSummaryOf(row, notes),
     baseModelEvidence: EVIDENCE.includes(row.base_model_evidence as Evidence) ? (row.base_model_evidence as Evidence) : 'none',
     triggerWords: parseArray(row.trigger_words).filter((item): item is string => typeof item === 'string'),
     description: row.description ?? '',
     sourceUrl: row.source_url ?? null,
     metadata: stringRecord(row.metadata_json),
+    notes,
     rootPath: row.root_path ?? null,
     sha256: row.sha256 ?? null,
     syncedAt: row.synced_at ?? null,

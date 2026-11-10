@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Boxes, MessageCircleQuestion, SearchX, X } from 'lucide-react';
+import { Boxes, Film, MessageCircleQuestion, SearchX, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { BaseModelFamily, ModelSummary } from '../../../shared/contracts';
 import { familyLabelKey } from '../../../shared/knowledge/labels';
 import { requestAsk } from '../../services/ask';
 import { useDockStore } from '../../state/dockState';
 import { useKnowledgeStore } from '../../state/knowledgeState';
+import { usePreferencesStore } from '../../state/preferencesState';
 import { useUiStore } from '../../state/uiState';
 import { FamilyBadge, KindBadge } from '../../ui/Badge';
 import Button from '../../ui/Button';
@@ -17,7 +18,9 @@ import SelectField from '../../ui/SelectField';
 import Skeleton from '../../ui/Skeleton';
 import { runSyncNow } from '../sync/SyncIndicator';
 import { clearModelDetailCache, useTriggerCounts } from './modelDetails';
+import { clearModelPreviewCache, useModelPreview } from './modelPreview';
 import {
+  authorTitle,
   filterModels,
   fittingLoras,
   formatBytes,
@@ -53,6 +56,22 @@ export function askAboutModel(model: Pick<ModelSummary, 'directory' | 'name'>, m
 }
 
 /**
+ * The picture that lies next to a model, small, at the head of its row: what the file does, seen at a glance. A
+ * clip is a mark only (a list does not play clips), and a preview its author marked as adult content is not
+ * shown here unless Settings ▸ Privacy says so.
+ */
+function RowThumb({ model, show }: { model: ModelSummary; show: boolean }) {
+  const preview = useModelPreview(show && model.preview === 'image' ? model : null);
+  if (!model.preview || !show) return null;
+  if (model.preview === 'video') return <span className={styles.thumb} data-kind="video" aria-hidden="true"><Film size={15} /></span>;
+  return (
+    <span className={styles.thumb} data-kind="image" data-state={preview.state} aria-hidden="true">
+      {preview.state === 'ready' ? <img src={preview.url} alt="" draggable={false} /> : null}
+    </span>
+  );
+}
+
+/**
  * Model files from the synced catalog: kind chips with counts, a family select and an order, then the list.
  * A click (or Enter) opens the model card next to the rail; the card explains the file and puts it to work.
  */
@@ -70,12 +89,14 @@ export default function ModelLibrary() {
   const [found, setFound] = useState<ModelSummary[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [visible, setVisible] = useState<ModelSummary[]>([]);
+  const showMarked = usePreferencesStore((state) => state.preferences.privacy.showMarkedPreviews);
   const syncPart = useKnowledgeStore((state) => `${state.sync?.lastSyncAt ?? 0}:${state.sync?.counts.models ?? 0}:${state.sync?.counts.enrichedModels ?? 0}`);
   const catalogVersion = useUiStore((state) => state.catalogVersion);
   const syncStamp = `${syncPart}:${catalogVersion}`;
 
   useEffect(() => {
     clearModelDetailCache();
+    clearModelPreviewCache();
     let cancelled = false;
     window.electronAPI.searchModels({ query: '', limit: SEARCH_LIMIT })
       .then((list) => {
@@ -253,6 +274,11 @@ export default function ModelLibrary() {
             renderRow={(model, { active }) => {
               const triggers = triggerCounts.get(modelKey(model));
               const isOpen = modelKey(model) === openKey;
+              // The name its author gave the file leads when it says more than the file name. The file name is in
+              // the row's tooltip and heads the card.
+              const title = authorTitle(model);
+              // A file with a picture next to it was read: the picture stands where the "read" dot would.
+              const showThumb = model.preview !== null && (!model.mature || showMarked);
               return (
                 <ContextMenuRoot>
                   <ContextMenuTrigger asChild>
@@ -260,6 +286,7 @@ export default function ModelLibrary() {
                       className={`${styles.row} ${styles.modelRow}`}
                       data-active={active ? 'true' : 'false'}
                       data-open={isOpen ? 'true' : 'false'}
+                      data-model={modelKey(model)}
                       draggable
                       title={`${model.directory}/${model.name}`}
                       onClick={() => setOpen(isOpen ? null : model)}
@@ -269,15 +296,17 @@ export default function ModelLibrary() {
                         event.dataTransfer.effectAllowed = 'copy';
                       }}
                     >
-                      <span
-                        className={styles.detailDot}
-                        data-on={model.enriched ? 'true' : 'false'}
-                        role="img"
-                        aria-label={String(t(model.enriched ? 'library.enriched' : 'library.notEnriched'))}
-                        title={String(t(model.enriched ? 'library.enriched' : 'library.notEnriched'))}
-                      />
+                      {showThumb ? <RowThumb model={model} show /> : (
+                        <span
+                          className={styles.detailDot}
+                          data-on={model.enriched ? 'true' : 'false'}
+                          role="img"
+                          aria-label={String(t(model.enriched ? 'library.enriched' : 'library.notEnriched'))}
+                          title={String(t(model.enriched ? 'library.enriched' : 'library.notEnriched'))}
+                        />
+                      )}
                       <span className={styles.text}>
-                        <span className={styles.name}>{model.name}</span>
+                        <span className={styles.name}>{title || model.name}</span>
                         <span className={styles.badges}>
                           <KindBadge kind={model.kind} short />
                           {model.baseModel !== 'unknown' ? <FamilyBadge family={model.baseModel} /> : null}
@@ -321,6 +350,7 @@ export default function ModelLibrary() {
       )}
       {open && all ? (
         <ModelCard
+          key={modelKey(open)}
           model={open}
           all={all}
           onClose={() => setOpen(null)}

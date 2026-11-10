@@ -93,8 +93,49 @@ describe('model files from the current server', () => {
     const read = await readModelFilesWithRoots(session);
     expect(read.complete).toBe(true);
     expect(read.items).toEqual([
-      { directory: 'loras', name: 'a.safetensors', sizeBytes: 1, rootPath: '/m/loras' },
-      { directory: 'vae', name: 'v.pt', sizeBytes: null, rootPath: null },
+      { directory: 'loras', name: 'a.safetensors', sizeBytes: 1, rootPath: '/m/loras', sidecarFile: null, sidecarSig: null, previewFile: null, previewSig: null },
+      { directory: 'vae', name: 'v.pt', sizeBytes: null, rootPath: null, sidecarFile: null, sidecarSig: null, previewFile: null, previewSig: null },
     ]);
+  });
+
+  it('hands each model the description and the preview that lie next to it, by folder and by root', async () => {
+    const rows: Record<string, Array<Record<string, unknown>>> = {
+      loras: [
+        { category: 'loras', filename: 'style.safetensors', root_path: '/shared/loras', size_bytes: 100 },
+        { category: 'loras', filename: 'style.metadata.json', root_path: '/shared/loras', size_bytes: 2000 },
+        { category: 'loras', filename: 'style.civitai.info', root_path: '/shared/loras', size_bytes: 900 },
+        { category: 'loras', filename: 'style.mp4', root_path: '/shared/loras', size_bytes: 50000 },
+        { category: 'loras', filename: 'style.webp', root_path: '/shared/loras', size_bytes: 8000 },
+        // The same names under another root belong to another file, which the listing does not have.
+        { category: 'loras', filename: 'other.webp', root_path: '/local/loras', size_bytes: 7000 },
+        { category: 'loras', filename: 'other.safetensors', root_path: '/shared/loras', size_bytes: 100 },
+        { category: 'loras', filename: 'sub/deep.safetensors', root_path: '/shared/loras', size_bytes: 100 },
+        { category: 'loras', filename: 'sub/deep.preview.png', root_path: '/shared/loras' },
+        { category: 'loras', filename: 'readme.txt', root_path: '/shared/loras', size_bytes: 10 },
+        { category: 'loras', filename: '.cache/x.webp', root_path: '/shared/loras', size_bytes: 10 },
+      ],
+      checkpoints: [
+        { category: 'checkpoints', filename: 'style.safetensors', root_path: '/shared/checkpoints', size_bytes: 100 },
+      ],
+    };
+    const session: McpSession = {
+      async listTools() {
+        return [{ name: 'models' }];
+      },
+      async callTool(_name, args) {
+        if (typeof args.category !== 'string') return json({ items: [{ category: 'loras' }, { category: 'checkpoints' }], complete: true });
+        return json({ items: rows[args.category] ?? [], complete: true });
+      },
+      async close() {},
+    };
+    const read = await readModelFilesWithRoots(session);
+    const byName = Object.fromEntries(read.items.map((item) => [`${item.directory}/${item.name}`, item]));
+    expect(Object.keys(byName).sort()).toEqual(['checkpoints/style.safetensors', 'loras/other.safetensors', 'loras/style.safetensors', 'loras/sub/deep.safetensors']);
+    // The manager's own record before the bare Civitai one, a still before a clip; the signature is name and size.
+    expect(byName['loras/style.safetensors']).toMatchObject({ sidecarFile: 'style.metadata.json', sidecarSig: 'style.metadata.json:2000', previewFile: 'style.webp', previewSig: 'style.webp:8000' });
+    expect(byName['loras/other.safetensors']).toMatchObject({ sidecarFile: null, sidecarSig: null, previewFile: null, previewSig: null });
+    expect(byName['loras/sub/deep.safetensors']).toMatchObject({ sidecarFile: null, previewFile: 'sub/deep.preview.png', previewSig: 'sub/deep.preview.png:' });
+    // A file of the same name in another folder has nothing next to it.
+    expect(byName['checkpoints/style.safetensors']).toMatchObject({ sidecarFile: null, previewFile: null });
   });
 });

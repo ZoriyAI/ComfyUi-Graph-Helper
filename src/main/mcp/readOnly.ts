@@ -5,6 +5,24 @@ const name = z.string().min(1).max(1000);
 const limit = z.number().int().min(1).max(1000).optional();
 const cursor = z.string().min(1).max(2000).optional();
 
+/** The largest file the app reads from next to a model: a preview clip. A description is far smaller. */
+export const SIDE_FILE_MAX_BYTES = 16 * 1024 * 1024;
+/** One read of `workspace_files` returns at most this many bytes (the server's own cap). */
+export const SIDE_FILE_CHUNK_BYTES = 1024 * 1024;
+
+/**
+ * A file a model manager keeps next to a model: `<name>.metadata.json` or `<name>.civitai.info` (what the author
+ * said about it) and `<name>.webp`, `.png`, `.jpg`, `.gif`, `.mp4`, `.webm` (its preview). Nothing else on the
+ * machine has such a name the app would ask for, and a path that climbs with `..` is not one.
+ */
+const SIDE_FILE_NAME = /\.(?:metadata\.json|civitai\.info|webp|png|jpe?g|gif|mp4|webm)$/i;
+
+export function isSideFilePath(path: string): boolean {
+  if (!path.startsWith('/') || path.includes('\0') || path.includes('\\') || !SIDE_FILE_NAME.test(path)) return false;
+  const parts = path.split('/').slice(1);
+  return parts.length >= 2 && parts.every((part) => part !== '' && part !== '.' && part !== '..');
+}
+
 /**
  * Exact argument shapes, `.strict()` so an extra field (a body, a filename, a target) is refused rather than
  * passed through to a tool that might act on it.
@@ -25,6 +43,15 @@ export const READ_ONLY_SCHEMAS = {
   // ollama_pull / ollama_load / ollama_unload / ollama_chat are not listed and stay refused.
   ollama_targets: z.object({}).strict(),
   ollama_models: z.object({ target: z.string().min(1).max(100) }).strict(),
+  // The description and the preview a model manager keeps next to a model file. The tool can also write, patch,
+  // move and trash: only `read` is listed, only as exact bytes, and only for a path that is such a file.
+  workspace_files: z.object({
+    action: z.literal('read'),
+    absolute_path: z.string().min(2).max(4000).refine(isSideFilePath),
+    encoding: z.literal('base64'),
+    offset: z.number().int().min(0).max(SIDE_FILE_MAX_BYTES).optional(),
+    length: z.number().int().min(1).max(SIDE_FILE_CHUNK_BYTES).optional(),
+  }).strict(),
 } as const;
 
 /**

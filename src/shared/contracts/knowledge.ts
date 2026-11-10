@@ -1,4 +1,7 @@
+import type { ModelNotes } from '../knowledge/sidecar';
 import type { ObjectRef } from './objects';
+
+export type { ExamplePrompt, ModelNotes } from '../knowledge/sidecar';
 
 /** Normalised base-model families. 'unknown' when nothing proved it. */
 export type BaseModelFamily =
@@ -109,6 +112,19 @@ export interface ModelSummary {
   sizeBytes: number | null;
   /** True when metadata enrichment ran for this file. */
   enriched: boolean;
+  /** The name its author gave the model, from the description file next to it; empty when it has none. */
+  title: string;
+  /** A preview lies next to the file: a still or a short clip. */
+  preview: 'image' | 'video' | null;
+  /** The description marks the model, or the rating of its preview, as adult content. */
+  mature: boolean;
+}
+
+/** The bytes of a model's preview, as read from the file next to it. */
+export interface ModelPreview {
+  kind: 'image' | 'video';
+  mime: string;
+  bytes: Uint8Array;
 }
 
 export interface ModelDetail extends ModelSummary {
@@ -118,6 +134,8 @@ export interface ModelDetail extends ModelSummary {
   sourceUrl: string | null;
   /** Raw embedded safetensors header fields, strings only. */
   metadata: Record<string, string>;
+  /** What the description file next to the model says beyond the facts above: tags, usage, examples, notes. */
+  notes: ModelNotes;
   rootPath: string | null;
   sha256: string | null;
   syncedAt: number | null;

@@ -3,10 +3,11 @@ import type { SyncStatus } from '../../shared/contracts/knowledge';
 import { toolPayload, type McpSession } from '../../shared/mcp/catalogSource';
 import { inferBaseModel } from '../../shared/knowledge/baseModel';
 import { inferModelKind } from '../../shared/knowledge/modelKind';
-import { civitaiUrl, parseModelMetadata, plainText, triggerWordsOf, type ParsedModelMetadata } from '../../shared/knowledge/enrichment';
+import { civitaiUrl, parseModelMetadata, plainText, triggerWordsOf, type ParsedModelMetadata, type SidecarFacts } from '../../shared/knowledge/enrichment';
+import { EMPTY_NOTES, parseSidecarFile, type ParsedSidecar } from '../../shared/knowledge/sidecar';
 import { SYNC_INTERVAL_DEFAULT_MINUTES, SYNC_INTERVAL_MAX_MINUTES, SYNC_INTERVAL_MIN_MINUTES } from '../../shared/knowledge/schemas';
 import { ENRICH_PAUSE_MS, ENRICH_PER_RUN } from '../../shared/config/preferences';
-import { catalogTotals, writeModelEnrichment } from '../catalog/repository';
+import { catalogTotals, writeModelEnrichment, writeModelNotes } from '../catalog/repository';
 import { readPreferences, readSettings } from '../settings/repository';
 import type { McpAuthMode } from '../../shared/config/schema';
 import type { OAuthClientProvider } from '@modelcontextprotocol/client';
@@ -18,6 +19,7 @@ import {
 export { isNetworkError, mcpUnreachableError } from './client';
 import { mcpOAuth } from './oauth';
 import { McpRefusedError } from './readOnly';
+import { readSideFile, SIDECAR_MAX_BYTES, sideFilePath } from './sideFiles';
 import { mcpToken, releaseMcpTokenIfOriginChanged } from './token';
 import { redactSecrets } from '../../shared/config/draft';
 import type { ServerIdentity } from './inventory';
@@ -224,6 +226,8 @@ function numberOrNull(value: string | undefined): number | null {
 interface EnrichRun {
   session: McpSession;
   hasTool: boolean;
+  /** The server can hand over the description file a model manager keeps next to a model. */
+  hasFiles: boolean;
   batch: number;
   pauseMs: number;
   scope: 'loaders' | 'all';
@@ -482,20 +486,25 @@ export class SyncService {
     }
   }
 
-  private scopeRows(db: Database.Database, scope: 'loaders' | 'all', onlyPending: boolean): Array<{ directory: string; name: string }> {
-    const pending = onlyPending ? ' AND enriched_at IS NULL' : '';
+  /**
+   * Files in the scope; with `onlyPending`, those still to read. A file is read when its header was read and,
+   * where the server hands over description files, when the description next to it is the one last read.
+   */
+  private scopeRows(db: Database.Database, scope: 'loaders' | 'all', onlyPending: boolean, sideFiles = false): EnrichRow[] {
+    const pending = onlyPending ? ` AND NOT (${readCondition(sideFiles)})` : '';
     return (scope === 'all'
-      ? db.prepare(`SELECT directory, name FROM model_catalog WHERE 1 = 1${pending}`).all()
+      ? db.prepare(`SELECT ${ENRICH_COLUMNS} FROM model_catalog WHERE 1 = 1${pending}`).all()
       : db.prepare(
-        `SELECT directory, name FROM model_catalog WHERE directory IN (${ENRICH_DIRECTORIES.map(() => '?').join(', ')})${pending}`,
-      ).all(...ENRICH_DIRECTORIES)) as Array<{ directory: string; name: string }>;
+        `SELECT ${ENRICH_COLUMNS} FROM model_catalog WHERE directory IN (${ENRICH_DIRECTORIES.map(() => '?').join(', ')})${pending}`,
+      ).all(...ENRICH_DIRECTORIES)) as EnrichRow[];
   }
 
-  /** Files in the enrichment scope, and how many carry metadata. */
+  /** Files in the enrichment scope, and how many are read (see scopeRows). */
   private metadataCounts(db: Database.Database): { done: number; total: number } {
     const { scope } = this.enrichmentSettings(db);
+    const sideFiles = readStateSafe(db)[SIDE_FILES_KEY] === '1';
     const where = scope === 'all' ? '' : `WHERE directory IN (${ENRICH_DIRECTORIES.map(() => '?').join(', ')})`;
-    const row = db.prepare(`SELECT COUNT(*) AS total, COUNT(enriched_at) AS done FROM model_catalog ${where}`)
+    const row = db.prepare(`SELECT COUNT(*) AS total, COUNT(CASE WHEN ${readCondition(sideFiles)} THEN 1 END) AS done FROM model_catalog ${where}`)
       .get(...(scope === 'all' ? [] : ENRICH_DIRECTORIES)) as { total: number; done: number };
     return { done: row.done, total: row.total };
   }
@@ -555,9 +564,12 @@ export class SyncService {
       const done = new Promise<void>((settle) => {
         resolve = settle;
       });
+      const hasFiles = read.toolNames.has('workspace_files');
+      writeState(db, { [SIDE_FILES_KEY]: hasFiles ? '1' : '0' });
       const run: EnrichRun = {
         session,
         hasTool: read.toolNames.has('model_metadata'),
+        hasFiles,
         batch: Math.max(1, Math.round(this.deps.enrichLimit ?? settings.perRun)),
         pauseMs: Math.max(0, this.deps.batchPauseMs ?? settings.pauseMs ?? DEFAULT_ENRICH_PAUSE_MS),
         scope: settings.scope,
@@ -640,7 +652,7 @@ export class SyncService {
   private async enrichBatch(db: Database.Database, run: EnrichRun, phase: 'enrich' | 'enrichment'): Promise<{ remaining: number; stopped: boolean }> {
     const now = this.deps.now();
     const failures = readFailures(readState(db));
-    const due = this.scopeRows(db, run.scope, true)
+    const due = this.scopeRows(db, run.scope, true, run.hasFiles)
       .filter((row) => {
         const failure = failures[`${row.directory}/${row.name}`];
         return !failure || now - failure.lastAt >= enrichBackoffMs(failure.attempts);
@@ -657,19 +669,23 @@ export class SyncService {
         if (phase === 'enrich') this.setProgress(db, 'enrich', index, rows.length);
         else this.emit(db);
         const key = `${row.directory}/${row.name}`;
+        // A read that did not come through: the name-based guess stays and the read is retried after the backoff.
+        const failed = (): boolean => {
+          run.failed += 1;
+          run.consecutiveFailures += 1;
+          handled += 1;
+          const previous = failures[key];
+          failures[key] = { attempts: (previous?.attempts ?? 0) + 1, lastAt: this.deps.now() };
+          return run.consecutiveFailures >= MAX_CONSECUTIVE_FAILURES;
+        };
+        const headerDue = row.enriched_at == null;
         let parsed: ParsedModelMetadata | null = null;
-        if (run.hasTool && isHeaderFile(row.name)) {
+        if (headerDue && run.hasTool && isHeaderFile(row.name)) {
           parsed = await readMetadata(run.session, row.directory, row.name);
           if (run.cancelled) break;
           run.attempted += 1;
           if (!parsed) {
-            // Not enriched: the name-based guess stays and the read is retried after the backoff.
-            run.failed += 1;
-            run.consecutiveFailures += 1;
-            handled += 1;
-            const previous = failures[key];
-            failures[key] = { attempts: (previous?.attempts ?? 0) + 1, lastAt: this.deps.now() };
-            if (run.consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+            if (failed()) {
               stopped = true;
               break;
             }
@@ -677,8 +693,34 @@ export class SyncService {
           }
           run.consecutiveFailures = 0;
         }
+        // The description a model manager keeps next to the file. A file that is not a description, or is gone,
+        // says nothing and is asked for again only when it changes; a read that failed on the way is retried.
+        let side: ParsedSidecar | null = null;
+        const sidePath = run.hasFiles ? sideFilePath(row.root_path, row.sidecar_file) : null;
+        if (sidePath) {
+          const read = await readSidecar(run.session, sidePath);
+          if (run.cancelled) break;
+          run.attempted += 1;
+          if (!read.ok) {
+            if (failed()) {
+              stopped = true;
+              break;
+            }
+            continue;
+          }
+          run.consecutiveFailures = 0;
+          side = read.side;
+        }
         delete failures[key];
-        writeModelEnrichment(db, row.directory, row.name, enrichmentOf(row.directory, row.name, parsed, this.deps.now()));
+        const sidecar = run.hasFiles ? { notes: side?.notes ?? EMPTY_NOTES, readSig: row.sidecar_sig ?? null } : undefined;
+        if (headerDue) {
+          writeModelEnrichment(db, row.directory, row.name, { ...enrichmentOf(row.directory, row.name, parsed, side?.facts ?? null, this.deps.now()), sidecar });
+        } else if (sidecar && side) {
+          // The header was read at an earlier run; what the description says is laid over what was stored then.
+          writeModelEnrichment(db, row.directory, row.name, { ...enrichmentOver(row, side.facts), sidecar });
+        } else if (sidecar) {
+          writeModelNotes(db, row.directory, row.name, sidecar.notes, sidecar.readSig);
+        }
         handled += 1;
       }
     } finally {
@@ -718,6 +760,81 @@ export function reportedComfyUrl(db: Database.Database): string | null {
   }
 }
 
+/** State key: whether the server of the last run hands over the files next to a model ('1') or not. */
+const SIDE_FILES_KEY = 'side_files_tool';
+
+const ENRICH_COLUMNS = 'directory, name, enriched_at, root_path, sidecar_file, sidecar_sig, metadata_json, trigger_words, description, source_url';
+
+interface EnrichRow {
+  directory: string;
+  name: string;
+  enriched_at: number | null;
+  root_path: string | null;
+  sidecar_file: string | null;
+  sidecar_sig: string | null;
+  metadata_json: string | null;
+  trigger_words: string | null;
+  description: string | null;
+  source_url: string | null;
+}
+
+/** SQL for "this file is read": its header, and with `sideFiles` the description next to it as the listing has it. */
+function readCondition(sideFiles: boolean): string {
+  return sideFiles
+    ? "enriched_at IS NOT NULL AND COALESCE(sidecar_sig, '') = COALESCE(sidecar_read_sig, '')"
+    : 'enriched_at IS NOT NULL';
+}
+
+/**
+ * The description file of a model. `ok: false` when the read itself failed (the connection, a server error on
+ * the way): that is retried. A file that is missing, too large or not a description is `side: null`.
+ */
+async function readSidecar(session: McpSession, path: string): Promise<{ ok: true; side: ParsedSidecar | null } | { ok: false }> {
+  let bytes: Buffer | null;
+  try {
+    bytes = await readSideFile(session, path, SIDECAR_MAX_BYTES);
+  } catch (error) {
+    if (error instanceof McpRefusedError) throw error;
+    return { ok: false };
+  }
+  if (!bytes) return { ok: true, side: null };
+  try {
+    return { ok: true, side: parseSidecarFile(JSON.parse(bytes.toString('utf8'))) };
+  } catch {
+    return { ok: true, side: null };
+  }
+}
+
+function storedJson<T>(text: string | null, fallback: T): T {
+  if (!text) return fallback;
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+/** A stored row with the facts of its description file laid over what the header gave at an earlier run. */
+function enrichmentOver(row: EnrichRow, facts: SidecarFacts) {
+  const stored = storedJson<unknown>(row.metadata_json, {});
+  const metadata: Record<string, string> = {};
+  if (stored && typeof stored === 'object' && !Array.isArray(stored)) {
+    for (const [key, value] of Object.entries(stored as Record<string, unknown>)) if (typeof value === 'string') metadata[key] = value;
+  }
+  const guess = inferBaseModel({ metadata, sidecarBaseModel: facts.baseModel, filename: row.name });
+  const words = storedJson<unknown>(row.trigger_words, []);
+  return {
+    kind: inferModelKind(row.directory, metadata),
+    baseModel: guess.family,
+    baseModelEvidence: guess.evidence,
+    triggerWords: facts.trainedWords.length > 0 ? facts.trainedWords : Array.isArray(words) ? words.filter((item): item is string => typeof item === 'string') : [],
+    description: facts.description || row.description || '',
+    sourceUrl: civitaiUrl(facts) ?? row.source_url ?? null,
+    metadata,
+    enrichedAt: row.enriched_at ?? Date.now(),
+  };
+}
+
 async function readMetadata(session: McpSession, directory: string, name: string): Promise<ParsedModelMetadata | null> {
   try {
     const result = await session.callTool('model_metadata', { action: 'read', category: directory, name });
@@ -728,16 +845,29 @@ async function readMetadata(session: McpSession, directory: string, name: string
   }
 }
 
-function enrichmentOf(directory: string, name: string, parsed: ParsedModelMetadata | null, now: number) {
-  const guess = inferBaseModel({ metadata: parsed?.metadata, sidecarBaseModel: parsed?.sidecar?.baseModel, filename: name });
-  const description = parsed?.sidecar?.description || plainText(parsed?.metadata['modelspec.description'] ?? '');
+/**
+ * What is stored for a file from its header and from a description. Two descriptions may exist: the one the MCP
+ * server's own download wrote (it comes with the header) and the one a model manager keeps next to the file. The
+ * manager's is the one a person keeps up to date, so it speaks first; the other fills what it leaves out.
+ */
+function enrichmentOf(directory: string, name: string, parsed: ParsedModelMetadata | null, side: SidecarFacts | null, now: number) {
+  const own = parsed?.sidecar ?? null;
+  const facts: SidecarFacts | null = side || own ? {
+    baseModel: side?.baseModel ?? own?.baseModel ?? null,
+    trainedWords: side && side.trainedWords.length > 0 ? side.trainedWords : own?.trainedWords ?? [],
+    description: side?.description || own?.description || '',
+    modelId: side?.modelId ?? own?.modelId ?? null,
+    modelVersionId: side?.modelId ? side.modelVersionId : own?.modelVersionId ?? null,
+  } : null;
+  const guess = inferBaseModel({ metadata: parsed?.metadata, sidecarBaseModel: facts?.baseModel, filename: name });
+  const description = facts?.description || plainText(parsed?.metadata['modelspec.description'] ?? '');
   return {
     kind: inferModelKind(directory, parsed?.metadata),
     baseModel: guess.family,
     baseModelEvidence: guess.evidence,
-    triggerWords: parsed ? triggerWordsOf(parsed) : [],
+    triggerWords: triggerWordsOf({ metadata: parsed?.metadata ?? {}, sidecar: facts }),
     description,
-    sourceUrl: civitaiUrl(parsed?.sidecar ?? null),
+    sourceUrl: civitaiUrl(facts),
     metadata: parsed?.metadata ?? {},
     enrichedAt: now,
   };

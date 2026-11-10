@@ -129,6 +129,11 @@ export const preferencesSchema = z.object({
      * answer can be saved to a file and handed to someone to read. It stays on this computer; keys never enter it.
      */
     modelLog: z.boolean().default(true),
+    /**
+     * Show the previews and example descriptions that lie next to the person's models when their author marked
+     * them as adult content. Off, a card shows them only when the person asks for that one file.
+     */
+    showMarkedPreviews: z.boolean().default(false),
   }).prefault({}),
   /**
    * Lessons (the helper's "Learn" mode). Where a person is in a lesson is read off the graph; kept here is only

@@ -8,7 +8,9 @@ import {
   upsertNodeClasses,
   upsertObjectInfo,
   writeModelEnrichment,
+  writeModelNotes,
 } from '../../src/main/catalog/repository';
+import { EMPTY_NOTES } from '../../src/shared/knowledge/sidecar';
 import {
   catalogCounts,
   checkGraph,
@@ -155,7 +157,7 @@ describe('knowledge repository: models', () => {
     ]);
     expect(searchModels(db, { query: '', baseModel: 'sdxl' }).map((item) => item.directory)).toEqual(['checkpoints', 'loras']);
     expect(searchModels(db, { query: 'realism', directory: 'loras' })).toEqual([
-      { directory: 'loras', name: 'Z-Image-Turbo-Realism-LoRA.safetensors', kind: 'lora', baseModel: 'zimage', sizeBytes: 20, enriched: false },
+      { directory: 'loras', name: 'Z-Image-Turbo-Realism-LoRA.safetensors', kind: 'lora', baseModel: 'zimage', sizeBytes: 20, enriched: false, title: '', preview: null, mature: false },
     ]);
     writeModelEnrichment(db, 'loras', 'Z-Image-Turbo-Realism-LoRA.safetensors', {
       kind: 'lora',
@@ -174,17 +176,36 @@ describe('knowledge repository: models', () => {
       baseModel: 'zimage',
       sizeBytes: 20,
       enriched: true,
+      title: '',
+      preview: null,
+      mature: false,
       baseModelEvidence: 'metadata',
       triggerWords: ['realism'],
       description: 'Adds realism.',
       sourceUrl: 'https://civitai.com/models/1?modelVersionId=2',
       metadata: { ss_base_model_version: 'zimage' },
+      notes: EMPTY_NOTES,
       rootPath: '/m/loras',
       sha256: null,
       syncedAt: 5,
       enrichedAt: 9,
     });
     expect(modelDetail(db, 'loras', 'missing.safetensors')).toBeNull();
+
+    // What the description file next to the model says: the author's name finds a file whose own name says
+    // nothing of it, the preview is named by its kind, and the notes come back as they were read.
+    const notes = { ...EMPTY_NOTES, title: 'Soft Film Look', tags: ['style', 'analog'], usage: { ...EMPTY_NOTES.usage, strength: 0.8 }, mature: true, previewRating: 8 };
+    upsertModelFiles(db, [{ directory: 'loras', name: 'Z-Image-Turbo-Realism-LoRA.safetensors', sizeBytes: 20, rootPath: '/m/loras', sidecarFile: 'Z-Image-Turbo-Realism-LoRA.metadata.json', sidecarSig: 'x:1', previewFile: 'Z-Image-Turbo-Realism-LoRA.mp4', previewSig: 'y:2' }], 6);
+    writeModelNotes(db, 'loras', 'Z-Image-Turbo-Realism-LoRA.safetensors', notes, 'x:1');
+    expect(searchModels(db, { query: 'soft film' }).map((item) => item.name)).toEqual(['Z-Image-Turbo-Realism-LoRA.safetensors']);
+    expect(searchModels(db, { query: 'analog' })[0]).toMatchObject({ title: 'Soft Film Look', preview: 'video', mature: true });
+    expect(modelDetail(db, 'loras', 'Z-Image-Turbo-Realism-LoRA.safetensors')).toMatchObject({ title: 'Soft Film Look', preview: 'video', mature: true, notes, triggerWords: ['realism'] });
+    // A listing that cannot tell what lies next to a file leaves what is stored alone; one that can, and finds nothing, clears it.
+    upsertModelFiles(db, [{ directory: 'loras', name: 'Z-Image-Turbo-Realism-LoRA.safetensors', sizeBytes: 20 }], 7);
+    expect(modelDetail(db, 'loras', 'Z-Image-Turbo-Realism-LoRA.safetensors')!.preview).toBe('video');
+    upsertModelFiles(db, [{ directory: 'loras', name: 'Z-Image-Turbo-Realism-LoRA.safetensors', sizeBytes: 20, sidecarFile: null, sidecarSig: null, previewFile: null, previewSig: null }], 8);
+    expect(modelDetail(db, 'loras', 'Z-Image-Turbo-Realism-LoRA.safetensors')!.preview).toBeNull();
+    writeModelNotes(db, 'loras', 'Z-Image-Turbo-Realism-LoRA.safetensors', EMPTY_NOTES, null);
     expect(searchModels(db, { query: '', limit: 10000 })).toHaveLength(5);
     expect(catalogCounts(db)).toEqual({
       // Seeded placeholder rows that no sync or object_info filled are not counted.

@@ -105,7 +105,31 @@ afterEach(() => vi.restoreAllMocks());
 
 describe('read-only MCP allowlist', () => {
   it('allows only reading actions and refuses everything else at the session', async () => {
-    expect(Object.keys(READ_ONLY_TOOLS).sort()).toEqual(['comfy_api', 'list_local_models', 'model_metadata', 'models', 'ollama_models', 'ollama_targets', 'studio_capabilities', 'studio_info']);
+    expect(Object.keys(READ_ONLY_TOOLS).sort()).toEqual(['comfy_api', 'list_local_models', 'model_metadata', 'models', 'ollama_models', 'ollama_targets', 'studio_capabilities', 'studio_info', 'workspace_files']);
+    // workspace_files can write, patch, move and trash. Only a read of a file a model manager keeps next to a
+    // model passes: its description or its preview, as exact bytes, by a path that does not climb.
+    const side = { action: 'read', absolute_path: '/srv/models/loras/style.metadata.json', encoding: 'base64' };
+    expect(isReadOnlyCall('workspace_files', side)).toBe(true);
+    expect(isReadOnlyCall('workspace_files', { ...side, offset: 1048576, length: 1048576 })).toBe(true);
+    for (const name of ['a.civitai.info', 'a.webp', 'a.PNG', 'a.jpg', 'a.jpeg', 'a.gif', 'a.mp4', 'a.webm', 'sub/b.preview.png']) {
+      expect(isReadOnlyCall('workspace_files', { ...side, absolute_path: `/srv/models/loras/${name}` }), name).toBe(true);
+    }
+    for (const action of ['write', 'patch', 'copy', 'move', 'trash', 'restore', 'mkdir', 'list', 'search', 'stat', 'hash', 'diff']) {
+      expect(isReadOnlyCall('workspace_files', { ...side, action }), action).toBe(false);
+    }
+    for (const absolute_path of [
+      '/srv/models/loras/style.safetensors', '/home/someone/.ssh/id_rsa', '/srv/app/.env', '/srv/app/config.json', '/srv/app/settings.yaml',
+      '/srv/models/../../etc/passwd.png', '/srv/models/./a.png', '/srv/models//a.png', 'relative/a.png', 'C:\\models\\a.png', '/a.png',
+      '/srv/models/loras/a.png\0.safetensors', '/srv/models/loras/metadata.json.txt',
+    ]) {
+      expect(isReadOnlyCall('workspace_files', { ...side, absolute_path }), absolute_path).toBe(false);
+    }
+    expect(isReadOnlyCall('workspace_files', { ...side, encoding: 'utf8' })).toBe(false);
+    expect(isReadOnlyCall('workspace_files', { action: 'read', absolute_path: side.absolute_path })).toBe(false);
+    expect(isReadOnlyCall('workspace_files', { ...side, content: 'x' })).toBe(false);
+    expect(isReadOnlyCall('workspace_files', { ...side, destination: '/srv/models/loras/b.png' })).toBe(false);
+    expect(isReadOnlyCall('workspace_files', { ...side, length: 1048577 })).toBe(false);
+    expect(isReadOnlyCall('workspace_files', { ...side, offset: -1 })).toBe(false);
     expect(isReadOnlyCall('ollama_targets', {})).toBe(true);
     expect(isReadOnlyCall('ollama_targets', { target: 'ollama_5090' })).toBe(false);
     expect(isReadOnlyCall('ollama_models', { target: 'ollama_5090' })).toBe(true);

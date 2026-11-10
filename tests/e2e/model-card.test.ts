@@ -2,8 +2,9 @@ import { test, expect, _electron as electron, type Page } from '@playwright/test
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { expectSoundLayout } from './layoutProfile';
 import { useEnglish } from './locale';
-import { startFakeMcp } from '../fixtures/mcp/fakeMcpServer';
+import { READ_TOOLS, startFakeMcp, WRITE_TOOLS } from '../fixtures/mcp/fakeMcpServer';
 
 /**
  * The model card against the fake MCP server (labelled fixture): a LoRA's card names its family, where the
@@ -117,7 +118,8 @@ test('model card: explains a LoRA and a checkpoint and puts the file on the canv
     await expect(flux).toHaveCount(0);
     await expect(rail.getByText('LoRAs for flux1-dev-fp8.safetensors')).toBeVisible();
     await expect(list.getByRole('option')).toHaveCount(1);
-    await expect(list.getByRole('option').first()).toContainText('flux_realism_lora');
+    // The one LoRA made for Flux; its row is headed by the name its author gave it.
+    await expect(list.getByRole('option').first().locator('[data-model="loras/flux_realism_lora.safetensors"]')).toHaveCount(1);
     await rail.getByRole('button', { name: 'Show all models' }).click();
 
     // Dragging a model onto the canvas makes its loader, selected, with a toast.
@@ -141,5 +143,155 @@ test('model card: explains a LoRA and a checkpoint and puts the file on the canv
   } finally {
     await app.close();
     await fake.close();
+  }
+});
+
+/** The card is looked at in the window it is open in: a smaller window folds the library away and closes it. */
+const HERE = [{ width: 1440, height: 900 }];
+
+async function shot(window: Page, name: string): Promise<void> {
+  const dir = process.env.MODEL_SHOTS;
+  if (!dir) return;
+  fs.mkdirSync(dir, { recursive: true });
+  await window.screenshot({ path: path.join(dir, `${name}.png`) });
+}
+
+test('model card: shows what lies next to a file, and content marked as adult only when asked', async () => {
+  test.setTimeout(180_000);
+  const fake = await startFakeMcp();
+  const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'model-notes-'));
+  const env = { ...process.env, NODE_ENV: 'production' };
+  delete env.DBUS_SESSION_BUS_ADDRESS;
+  delete env.GNOME_KEYRING_CONTROL;
+  const app = await electron.launch({ args: [path.join(__dirname, '../../dist/main/index.js'), `--user-data-dir=${userData}`], env });
+  const errors: string[] = [];
+  try {
+    const window = await app.firstWindow();
+    window.on('pageerror', (error) => errors.push(error.message));
+    await window.setViewportSize({ width: 1440, height: 900 });
+    await useEnglish(window);
+    await connectAndSync(window, fake.url);
+    // The descriptions next to the files are read with the file headers, in the background after the listing.
+    await expect.poll(() => window.evaluate(async () => {
+      const api = (window as unknown as { electronAPI: { modelDetail: (directory: string, name: string) => Promise<{ title: string } | null> } }).electronAPI;
+      return (await api.modelDetail('checkpoints', 'juggernautXL_v9.safetensors'))?.title ?? '';
+    }), { timeout: 60_000 }).toBe('Juggernaut XL');
+    await window.reload();
+    await window.locator('.app-shell').waitFor({ timeout: 20000 });
+
+    const rail = window.locator('#library-rail');
+    await rail.getByRole('tab', { name: 'Models' }).click();
+    const list = window.locator('#model-library-list');
+    const search = rail.getByRole('searchbox', { name: 'Search models' }).or(rail.getByRole('textbox', { name: 'Search models' })).first();
+    const row = (file: string) => list.locator(`[data-model$="/${file}"]`);
+
+    // The name its author gave a file finds it, and leads its row when it says more than the file name.
+    await search.fill('retro');
+    await expect(list.getByRole('option')).toHaveCount(1);
+    const pixel = row('pixel-art-xl.safetensors');
+    await expect(pixel).toContainText('pixel-art-xl.safetensors');
+    // Its preview heads the row, small.
+    await expect.poll(() => pixel.locator('img').evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
+    await pixel.click();
+    const card = window.getByRole('dialog', { name: 'pixel-art-xl.safetensors' });
+    await expect(card).toBeVisible();
+    await expect.poll(() => card.locator('img').evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
+    for (const text of [
+      'SDXL', 'from the description next to the file', 'Made for', 'SDXL 1.0', 'Version', 'v1.1', 'Author', 'nerijs',
+      'style', 'retro', 'Strength the author suggests: 0.9', 'It works from 0.6 to 1.2', 'Your notes', 'Turn the strength down for portraits.',
+      'Turns a picture into pixel art with a limited palette.', '• Works at 1024 x 1024.', 'Sharper edges than v1.0.',
+      'Descriptions the author used', 'pixel art, a lighthouse on a cliff, sunset, seagulls', 'Not wanted: blurry, 3d render', 'steps: 8 · cfg 1.5 · euler',
+      'pixel art, a cat sleeping on a bookshelf, warm lamp light',
+    ]) await expect(card, text).toContainText(text);
+    await expect(card.getByRole('button', { name: 'pixel art', exact: true })).toBeVisible();
+    // The preview is whole and inside the card.
+    const box = (await card.boundingBox())!;
+    const image = (await card.locator('img').boundingBox())!;
+    expect(image.x).toBeGreaterThanOrEqual(box.x);
+    expect(image.x + image.width).toBeLessThanOrEqual(box.x + box.width + 0.5);
+    expect(image.height).toBeLessThanOrEqual(241);
+    await shot(window, '1-card-with-preview');
+    await expectSoundLayout(window, 'model card with a preview and examples', HERE);
+    await card.getByRole('button', { name: 'Copy', exact: true }).first().click();
+    await expect(card.getByRole('status')).toContainText('Description copied');
+
+    // Another convention (a bare Civitai record, .preview.png): the author's name leads the row; the file name is
+    // what the row is called when pointed at, and what heads its card.
+    await search.fill('juggernaut');
+    const base = row('juggernautXL_v9.safetensors');
+    await expect(base).toContainText('Juggernaut XL');
+    await expect(base).toHaveAttribute('title', 'checkpoints/juggernautXL_v9.safetensors');
+    // Kind, family and size on one line, each readable.
+    await expect(base).toContainText('SDXL');
+    await expect(base).toContainText('6.5 GB');
+    await base.click();
+    const baseCard = window.getByRole('dialog', { name: 'juggernautXL_v9.safetensors' });
+    await expect(baseCard).toContainText('Name from its author');
+    await expect(baseCard).toContainText('a portrait photograph of an old sailor, overcast light, 85mm');
+    await expect(baseCard).toContainText('steps: 30 · cfg 4.5 · dpmpp_2m_sde');
+
+    // A clip as the preview: the row carries a mark, the card plays it without sound.
+    await search.fill('lightx2v_4step_1022');
+    const clipRow = row('wan2.2_i2v_A14b_high_noise_lora_rank64_lightx2v_4step_1022.safetensors');
+    await expect(clipRow.locator('[data-kind="video"]')).toBeVisible();
+    await expect(clipRow.locator('img')).toHaveCount(0);
+    await clipRow.click();
+    const clipCard = window.getByRole('dialog', { name: /wan2\.2_i2v_A14b_high_noise_lora/ });
+    const video = clipCard.locator('video');
+    await expect.poll(() => video.evaluate((element: HTMLVideoElement) => element.videoWidth), { timeout: 20_000 }).toBe(160);
+    expect(await video.evaluate((element: HTMLVideoElement) => element.muted)).toBe(true);
+    await shot(window, '2-card-with-clip');
+    await expectSoundLayout(window, 'model card with a clip', HERE);
+
+    // Marked by its author as adult content: nothing of it is read or shown until the person asks.
+    const sideReads = () => fake.calls.filter((call) => call.tool === 'workspace_files' && String(call.args?.absolute_path).endsWith('flux_realism_lora.png')).length;
+    await search.fill('night painter');
+    const marked = row('flux_realism_lora.safetensors');
+    await expect(marked).toContainText('Night Painter');
+    await expect(marked.locator('img')).toHaveCount(0);
+    await marked.click();
+    const markedCard = window.getByRole('dialog', { name: 'flux_realism_lora.safetensors' });
+    await expect(markedCard).toContainText('The author marked this as adult content.');
+    await expect(markedCard.locator('img')).toHaveCount(0);
+    await expect(markedCard).toContainText('night painter, a harbour at midnight, lanterns on the water');
+    await expect(markedCard).not.toContainText('a figure in a doorway');
+    await expect(markedCard).toContainText('1 more example is hidden.');
+    expect(sideReads()).toBe(0);
+    await shot(window, '3-card-marked');
+    await expectSoundLayout(window, 'model card, content marked as adult', HERE);
+    await markedCard.getByRole('button', { name: 'Show for this file' }).first().click();
+    await expect.poll(() => markedCard.locator('img').evaluate((element: HTMLImageElement) => element.naturalWidth)).toBeGreaterThan(0);
+    await expect(markedCard).toContainText('night painter, a figure in a doorway, candle light');
+    await expect(markedCard).not.toContainText('more example is hidden');
+    expect(sideReads()).toBe(1);
+    // Asked for one file, shown for that file: the list still shows no picture for it.
+    await expect(marked.locator('img')).toHaveCount(0);
+
+    // Settings ▸ Privacy turns it on everywhere.
+    const saved = await window.evaluate(async () => {
+      const api = (window as unknown as { electronAPI: Api }).electronAPI;
+      const read = await api.getSettings();
+      return api.saveSettings({ ...(read.values ?? {}), preferences: { privacy: { showMarkedPreviews: true } } });
+    });
+    expect(saved.ok).toBe(true);
+    await window.reload();
+    await window.locator('.app-shell').waitFor({ timeout: 20000 });
+    await rail.getByRole('tab', { name: 'Models' }).click();
+    await search.fill('night painter');
+    await expect.poll(() => row('flux_realism_lora.safetensors').locator('img').evaluate((element: HTMLImageElement) => element.naturalWidth)).toBeGreaterThan(0);
+    await row('flux_realism_lora.safetensors').click();
+    await expect(window.getByRole('dialog', { name: 'flux_realism_lora.safetensors' })).not.toContainText('The author marked this');
+
+    // Everything was read; nothing on the server was written, moved or removed.
+    for (const call of fake.calls.filter((item) => item.method === 'tools/call')) {
+      expect(READ_TOOLS as readonly string[]).toContain(call.tool);
+      expect(WRITE_TOOLS as readonly string[]).not.toContain(call.tool);
+      if (call.tool === 'workspace_files') expect(call.args).toMatchObject({ action: 'read', encoding: 'base64' });
+    }
+    expect(errors).toEqual([]);
+  } finally {
+    await app.close();
+    await fake.close();
+    fs.rmSync(userData, { recursive: true, force: true });
   }
 });

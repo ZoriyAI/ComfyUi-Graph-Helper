@@ -142,10 +142,12 @@ function applyVersion2(db: Database.Database): void {
  * model_catalog; description and pack on node_catalog; node_packs, explanations, proposals and sync_state.
  * Version 10 adds preferences_json on the settings row: the validated preferences model (never a secret).
  * Version 11 adds mcp_auth on the settings row: how the app presents itself to the MCP server ('', none, token, oauth).
+ * Version 12 adds what a model manager keeps next to a model file: the names of its description and preview files
+ * as the listing gave them, the description as last read, and the notes read from it.
  */
 export function migrate(db: Database.Database, options?: { failBeforeVersionStamp?: boolean }): void {
   const version = schemaVersion(db);
-  if (version > 11) {
+  if (version > 12) {
     throw new Error(`Unsupported schema version ${version}`);
   }
   if (version < 1) {
@@ -228,6 +230,25 @@ export function migrate(db: Database.Database, options?: { failBeforeVersionStam
     });
     apply.immediate();
   }
+  if (schemaVersion(db) === 11) {
+    const apply = db.transaction(() => {
+      applyVersion12(db);
+      db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (12, ?)').run(Date.now());
+    });
+    apply.immediate();
+  }
+}
+
+function applyVersion12(db: Database.Database): void {
+  if (!tableNames(db).includes('model_catalog')) return;
+  // `*_sig` is the file's name and size in the listing; `sidecar_read_sig` is the one the notes were read from,
+  // so a description that appears or changes later is read again and one that is unchanged is not.
+  addColumn(db, 'model_catalog', 'sidecar_file', 'TEXT');
+  addColumn(db, 'model_catalog', 'sidecar_sig', 'TEXT');
+  addColumn(db, 'model_catalog', 'sidecar_read_sig', 'TEXT');
+  addColumn(db, 'model_catalog', 'preview_file', 'TEXT');
+  addColumn(db, 'model_catalog', 'preview_sig', 'TEXT');
+  addColumn(db, 'model_catalog', 'notes_json', "TEXT NOT NULL DEFAULT '{}'");
 }
 
 function applyVersion11(db: Database.Database): void {

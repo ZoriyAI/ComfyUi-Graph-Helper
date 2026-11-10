@@ -1,5 +1,6 @@
 import type { McpModelFile, McpSession, PagedItems } from '../../shared/mcp/catalogSource';
 import { isModelFile, McpPageError, readAllPages } from '../../shared/mcp/catalogSource';
+import { SideFileIndex, sideFileOf } from '../../shared/knowledge/sidecar';
 import type { NodePackRow } from '../catalog/repository';
 
 function record(value: unknown): Record<string, unknown> | null {
@@ -14,10 +15,22 @@ function textOrNull(value: unknown): string | null {
   return typeof value === 'string' && value !== '' ? value : null;
 }
 
-export type McpModelFileWithRoot = McpModelFile & { rootPath: string | null };
+/**
+ * A model file with the folder it lies in and the files a model manager keeps next to it: its description and
+ * its preview. A `*Sig` is the file's name and size, so a file that appears, changes or goes is noticed.
+ */
+export type McpModelFileWithRoot = McpModelFile & {
+  rootPath: string | null;
+  sidecarFile: string | null;
+  sidecarSig: string | null;
+  previewFile: string | null;
+  previewSig: string | null;
+};
 
 /**
  * `models` action list, keeping root_path: with several roots per folder the root tells same-named files apart.
+ * The listing names every regular file of a folder, so the descriptions and previews next to the models come with
+ * it at no extra call.
  * The current server answers the plain listing with one row per category (no filename) and lists files only when
  * asked with `category`; older servers list files directly. Both shapes are read: every category row is expanded
  * with its own paged listing. Throws McpPageError when the plain listing or every category fails; `complete` is
@@ -26,21 +39,29 @@ export type McpModelFileWithRoot = McpModelFile & { rootPath: string | null };
 export async function readModelFilesWithRoots(session: McpSession, pageLimit = 1000, maxPages?: number): Promise<PagedItems<McpModelFileWithRoot>> {
   const files: McpModelFileWithRoot[] = [];
   const seen = new Set<string>();
+  // Side files by the folder they lie in: the same name under another root belongs to another model.
+  const sides = new Map<string, { index: SideFileIndex; sizes: Map<string, number | null> }>();
+  const folderOf = (directory: string, rootPath: string | null) => `${directory}\n${rootPath ?? ''}`;
   const keep = (rows: Array<Record<string, unknown>>) => {
     for (const row of rows) {
       const directory = text(row.category);
       const name = text(row.filename);
-      if (!directory || !name || !isModelFile(name)) continue;
+      if (!directory || !name) continue;
+      const size = typeof row.size_bytes === 'number' && Number.isFinite(row.size_bytes) ? row.size_bytes : null;
+      const rootPath = textOrNull(row.root_path);
+      if (!isModelFile(name)) {
+        if (sideFileOf(name)) {
+          const folder = sides.get(folderOf(directory, rootPath)) ?? { index: new SideFileIndex(), sizes: new Map<string, number | null>() };
+          folder.index.add(name);
+          folder.sizes.set(name, size);
+          sides.set(folderOf(directory, rootPath), folder);
+        }
+        continue;
+      }
       const key = `${directory}/${name}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      const size = row.size_bytes;
-      files.push({
-        directory,
-        name,
-        sizeBytes: typeof size === 'number' && Number.isFinite(size) ? size : null,
-        rootPath: textOrNull(row.root_path),
-      });
+      files.push({ directory, name, sizeBytes: size, rootPath, sidecarFile: null, sidecarSig: null, previewFile: null, previewSig: null });
     }
   };
   const plain = await readAllPages(session, 'models', { action: 'list', limit: pageLimit }, maxPages);
@@ -66,6 +87,16 @@ export async function readModelFilesWithRoots(session: McpSession, pageLimit = 1
     }
   }
   if (categories.length > 0 && failed === categories.length) throw new McpPageError();
+  for (const file of files) {
+    const folder = sides.get(folderOf(file.directory, file.rootPath));
+    if (!folder) continue;
+    const found = folder.index.for(file.name);
+    const sig = (name: string | null) => (name === null ? null : `${name}:${folder.sizes.get(name) ?? ''}`);
+    file.sidecarFile = found.sidecar;
+    file.sidecarSig = sig(found.sidecar);
+    file.previewFile = found.preview;
+    file.previewSig = sig(found.preview);
+  }
   return { items: files, complete };
 }
 
