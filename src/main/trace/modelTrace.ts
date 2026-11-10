@@ -660,8 +660,15 @@ export function turnReport(events: TraceEvent[]): string {
       if (event.responseBody) lines.push('```', cut(event.responseBody, 3000), '```');
     } else if (event.type === 'wire-error') lines.push(`- **сеть**: ${cut(event.message ?? event.code ?? '', 1000)} (${String(event.url ?? '')})`);
     else if (event.type === 'context') {
-      const state = event.state === 'cut' ? 'ЗАПРОС НЕ ПОМЕСТИЛСЯ, сервер отбросил часть' : event.state === 'tight' ? 'места почти нет' : 'запрос помещается';
-      lines.push(`- **окно контекста на сервере: ${String(event.window)} токенов**; запрос ${String(event.requestChars)} симв., нужно около ${String(event.needed)} токенов: ${state}${event.compact ? '; экономный режим (меньше инструментов)' : ''}`);
+      const size = event.requestChars === undefined ? '' : `запрос ${String(event.requestChars)} симв., `;
+      const counted = typeof event.counted === 'number' ? `; сервер насчитал ${String(event.counted)}` : '';
+      const mode = event.compact ? '; экономный режим (меньше инструментов)' : '';
+      if (event.window === null) {
+        lines.push(`- **окно контекста сервер не сообщил**; ${size}нужно около ${String(event.needed)} токенов${counted}${mode}`);
+      } else {
+        const state = event.state === 'cut' ? 'ЗАПРОС НЕ ПОМЕСТИЛСЯ, сервер отбросил часть' : event.state === 'tight' ? 'места почти нет' : 'запрос помещается';
+        lines.push(`- **окно контекста на сервере: ${String(event.window)} токенов**; ${size}нужно около ${String(event.needed)} токенов${counted}: ${state}${mode}`);
+      }
     } else if (event.type === 'truncated') lines.push(`- _журнал обрезан: ${String(event.reason)}_`);
     else if (event.type === 'abort') lines.push('- остановлено человеком');
   }

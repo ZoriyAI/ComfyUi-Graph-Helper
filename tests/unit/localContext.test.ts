@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import {
-  COMPACT_WINDOW, contextFit, estimateRequestTokens, parseOllamaPs, readLoadedContext, watchLoadedContext,
+  COMPACT_WINDOW, contextFit, estimateRequestTokens, parseOllamaPs, readLoadedContext, resetLocalContextMemory, watchLoadedContext,
 } from '../../src/main/llm/localContext';
 import { readStoredWindow, writeStoredWindow } from '../../src/main/llm/localContextStore';
 import { configureLocalContext, MainLLMService } from '../../src/main/llmService';
@@ -60,6 +60,7 @@ afterEach(() => {
   vi.restoreAllMocks();
   vi.useRealTimers();
   configureLocalContext(null);
+  resetLocalContextMemory();
   if (dir) fs.rmSync(dir, { recursive: true, force: true });
   dir = '';
   configureModelTrace({ dir: path.join(os.tmpdir(), 'model-trace-off'), redact: (text) => text, enabled: () => false });
@@ -107,6 +108,39 @@ describe('the window a local server loaded the model with', () => {
     setTimeout(() => stop.abort(), 20);
     expect(await never).toBeNull();
     expect(await watchLoadedContext('http://127.0.0.1:11444/v1', 'llama3.2', (async () => json({ models: [] })) as typeof fetch, { everyMs: 5, maxMs: 15 })).toBeNull();
+  });
+
+  it('asks a server that is not Ollama once, and then leaves it alone', async () => {
+    let calls = 0;
+    const lmStudio = (async () => {
+      calls += 1;
+      return json({ error: 'Unexpected endpoint or method. (GET /api/ps)' }, 404);
+    }) as typeof fetch;
+    // The watch ends at the first "no such thing" instead of asking twice a second for the whole answer.
+    expect(await watchLoadedContext('http://127.0.0.1:1234/v1', 'some-model', lmStudio, { everyMs: 5, maxMs: 200 })).toBeNull();
+    expect(calls).toBe(1);
+    expect(await watchLoadedContext('http://127.0.0.1:1234/v1', 'some-model', lmStudio, { everyMs: 5, maxMs: 200 })).toBeNull();
+    expect(await readLoadedContext('http://127.0.0.1:1234/v1', 'other', lmStudio)).toBeNull();
+    expect(calls).toBe(1);
+
+    // A server that answers 200 with something else is the same case.
+    let other = 0;
+    const odd = (async () => {
+      other += 1;
+      return json({ status: 'ok' });
+    }) as typeof fetch;
+    expect(await watchLoadedContext('http://127.0.0.1:8080', 'm', odd, { everyMs: 5, maxMs: 200 })).toBeNull();
+    expect(other).toBe(1);
+
+    // A server that is only slow to answer is asked again.
+    let slow = 0;
+    const waking = (async () => {
+      slow += 1;
+      if (slow < 3) throw Object.assign(new Error('fetch failed'), { cause: { code: 'ECONNRESET' } });
+      return json(PS);
+    }) as typeof fetch;
+    expect(await watchLoadedContext('http://127.0.0.1:11444/v1', 'llama3.2', waking, { everyMs: 5 })).toBe(4096);
+    expect(slow).toBe(3);
   });
 
   it('says whether a request fits: cut, tight or fine', () => {
@@ -176,6 +210,7 @@ describe('a turn with a local model and a small window', () => {
     expect(context).toMatchObject({ window: 4096, state: 'cut', counted: 4090, compact: false });
     expect(Number(context.requestChars)).toBeGreaterThan(19_000);
     expect(turnReport(events)).toContain('окно контекста на сервере: 4096');
+    expect(turnReport(events)).toContain('сервер насчитал 4090');
     expect(turnReport(events)).toContain('НЕ ПОМЕСТИЛСЯ');
   });
 
@@ -230,6 +265,8 @@ describe('a turn with a local model and a small window', () => {
   });
 
   it('asks nothing extra for a cloud model or when the server does not say', async () => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'local-context-'));
+    configureModelTrace({ dir, redact: (text) => text, enabled: () => true });
     vi.spyOn(console, 'log').mockImplementation(() => undefined);
     const watcher = vi.fn(async () => null);
     configureLocalContext(watcher);
@@ -240,6 +277,11 @@ describe('a turn with a local model and a small window', () => {
     expect(watcher).toHaveBeenCalledTimes(1);
     expect(chunks.some((part) => part.type === 'notice')).toBe(false);
     expect(service.localContextTokens()).toBeNull();
+    // The record still holds what a reader can compare: the size of the request and the server's own count.
+    const events = readTurnTrace(listTurnTraces(5)[0].id)!;
+    expect(events.find((event) => event.type === 'context')).toMatchObject({ window: null, counted: 900, state: 'unknown' });
+    expect(turnReport(events)).toContain('окно контекста сервер не сообщил');
+    expect(turnReport(events)).toContain('сервер насчитал 900');
 
     watcher.mockClear();
     service.setConfig({ provider: 'test', model: 'test-fixture' });

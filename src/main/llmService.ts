@@ -11,7 +11,7 @@ import { STEP_LIMIT } from '../shared/config/preferences';
 import type { ModelListResult } from '../shared/contracts/pickers';
 import { listCloudModels, listLocalModels, MODEL_LIST_REFUSED } from './llm/modelList';
 import { originOf, startTurnTrace, type TurnMeta } from './trace/modelTrace';
-import { contextFit, type ContextFit } from './llm/localContext';
+import { contextFit, estimateRequestTokens, type ContextFit } from './llm/localContext';
 
 /**
  * Main-process LLM service
@@ -602,7 +602,13 @@ class MainLLMService {
       if (local.known !== null && local.key) this.loadedWindows.set(local.key, local.known);
     }
     const window = local.known ?? null;
-    if (window === null || local.said === 'cut') return null;
+    if (window === null) {
+      // The server does not say its window. The record still gets the two numbers a reader can compare: how
+      // large the request was and how many tokens the server counted.
+      if (first) trace?.note('context', { window: null, requestChars: local.requestChars, needed: estimateRequestTokens(local.requestChars), counted, state: 'unknown', compact });
+      return null;
+    }
+    if (local.said === 'cut') return null;
     // Later steps: only the server's own count says whether the growing conversation still fits.
     const fit = first ? contextFit(window, local.requestChars, counted) : contextFit(window, 0, counted);
     if (first || fit.state === 'cut') {
@@ -692,7 +698,8 @@ class MainLLMService {
     } catch {
       steps = [];
     }
-    this.noteUsage(messages, steps);
+    // A count the server stopped at its window says nothing about how many characters make a token.
+    if (local?.said !== 'cut') this.noteUsage(messages, steps);
     const paused = pauseOf(steps, maxSteps);
     if (paused) {
       console.log(`[MainLLMService] Turn paused: ${paused.reason} after ${paused.steps} steps`);

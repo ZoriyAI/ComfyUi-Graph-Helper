@@ -1,7 +1,7 @@
 {
   "name": "comfyui-graph-builder",
   "productName": "Graph Helper for ComfyUI",
-  "version": "0.2.7",
+  "version": "0.3.0",
   "description": "Collaborative visual ComfyUI workflow builder with LLM assistance",
   "main": "dist/main/index.js",
   "scripts": {

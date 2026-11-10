@@ -5,7 +5,7 @@ import { topologicalOrder, incomingEdgeIds } from '../../src/renderer/components
 import { buildTour, firstExplanation, stepIndexOf, type TourNode } from '../../src/renderer/components/graph/tour/buildTour';
 import { connectCandidates, connectMutation, portKey } from '../../src/renderer/components/graph/lib/connectAssist';
 import { dropToAddNode, loaderForModel, MODEL_DRAG_TYPE, NODE_DRAG_TYPE } from '../../src/renderer/components/graph/lib/modelLoaders';
-import { boundsOf, ghostNodePosition, groupRect, parameterPill, subgraphGhostRect, unplacedOrder } from '../../src/renderer/components/graph/lib/geometry';
+import { boundsOf, ghostNodePosition, ghostSpotFree, groupRect, parameterPill, subgraphGhostRect, unplacedOrder } from '../../src/renderer/components/graph/lib/geometry';
 import { clampIndex, nextPlayIndex, playStartIndex, stepReplay } from '../../src/renderer/components/graph/lib/replay';
 import { changedNodes, diffGraph, revealSteps } from '../../src/renderer/components/graph/lib/graphDiff';
 import { flowingEdges } from '../../src/renderer/components/graph/lib/flow';
@@ -153,6 +153,23 @@ describe('library drops', () => {
   });
 });
 
+describe('node titles', () => {
+  it('lets a class name wrap between its words and leaves other titles whole', async () => {
+    const { titleParts } = await import('../../src/renderer/components/graph/nodes/titleBreaks');
+    expect(titleParts('CheckpointLoaderSimple')).toEqual(['Checkpoint', 'Loader', 'Simple']);
+    expect(titleParts('easy_loraStackApply')).toEqual(['easy_', 'lora', 'Stack', 'Apply']);
+    expect(titleParts('CLIPTextEncodeSDXL')).toEqual(['CLIPText', 'Encode', 'SDXL']);
+    // Spaces wrap by themselves; short names fit.
+    expect(titleParts('Load Checkpoint')).toEqual(['Load Checkpoint']);
+    expect(titleParts('KSampler')).toEqual(['KSampler']);
+    expect(titleParts('')).toEqual(['']);
+    // The pieces always give the title back.
+    for (const title of ['CheckpointLoaderSimple', 'easy_loraStackApply', 'VAEDecodeTiled', 'a_b_c_d_e_f_g_h']) {
+      expect(titleParts(title).join('')).toBe(title);
+    }
+  });
+});
+
 describe('ghost and group geometry', () => {
   const nodes = [
     { id: 'a', position: { x: 0, y: 0 }, measured: { width: 200, height: 100 }, data: { parameters: { steps: 20 } } },
@@ -164,6 +181,16 @@ describe('ghost and group geometry', () => {
     expect(ghostNodePosition({ type: 'add-node', nodeType: 'X' }, nodes, 0)).toEqual({ x: 620, y: 0 });
     expect(ghostNodePosition({ type: 'add-node', nodeType: 'X' }, nodes, 1)).toEqual({ x: 620, y: 232 });
     expect(ghostNodePosition({ type: 'add-node', nodeType: 'X' }, [], 0)).toEqual({ x: 0, y: 0 });
+  });
+
+  it('knows when a spot a ghost took earlier has a node under it now', () => {
+    // Free when it was chosen.
+    expect(ghostSpotFree({ x: 620, y: 0 }, nodes)).toBe(true);
+    // A build tidied the graph and a node moved there: the ghost has to find another spot.
+    const moved = [...nodes, { id: 'c', position: { x: 640, y: 40 }, measured: { width: 240, height: 180 } }];
+    expect(ghostSpotFree({ x: 620, y: 0 }, moved)).toBe(false);
+    const next = ghostNodePosition({ type: 'add-node', nodeType: 'X', x: 620, y: 0 }, moved);
+    expect(ghostSpotFree(next, moved)).toBe(true);
   });
 
   it('never puts a ghost on top of a node', () => {

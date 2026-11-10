@@ -111,6 +111,12 @@ function freeSlot(x: number, y: number, rects: Rect[], order: number): { x: numb
   return { x, y: top };
 }
 
+/** Whether a ghost drawn at `spot` covers no node: a spot chosen earlier can be taken when the graph moves. */
+export function ghostSpotFree(spot: { x: number; y: number }, nodes: PositionedNode[]): boolean {
+  const ghost = { x: spot.x, y: spot.y, ...GHOST_SIZE };
+  return !nodes.map(nodeRect).some((rect) => overlaps(ghost, rect, 0));
+}
+
 /**
  * Where an add-node ghost sits: its proposed position when that is free; otherwise in free space to the right
  * of the selected node, or to the right of the whole graph. A ghost never lands on top of an existing node.

@@ -12,7 +12,7 @@ import type { ComfyNodeData, PortDefinition } from '../../../types/graph';
 import NodeCard from '../nodes/NodeCard';
 import { useNodeDetail } from '../nodeInfo';
 import { useCanvasStore } from '../canvasStore';
-import { ghostNodePosition, parameterPill, subgraphGhostRect, unplacedOrder, nodeRect } from '../lib/geometry';
+import { ghostNodePosition, ghostSpotFree, parameterPill, subgraphGhostRect, unplacedOrder, nodeRect } from '../lib/geometry';
 import { handlePoint } from '../lib/handles';
 import { useLayoutKey } from '../lib/useLayoutKey';
 import { typeColor } from '../lib/typeColors';
@@ -193,14 +193,15 @@ export default function GhostLayer() {
   useLayoutKey();
   const open = useMemo(() => openProposals(proposals), [proposals]);
   const order = useMemo(() => unplacedOrder(open), [open]);
-  // A ghost keeps the spot it first got, so selecting another node does not make it jump.
+  // A ghost keeps the spot it first got, so selecting another node does not make it jump. It moves only when a
+  // node came to lie under it (a build tidied the graph, the person dragged a node there).
   const placed = useRef(new Map<string, { x: number; y: number }>());
   const openIds = new Set(open.map((proposal) => proposal.id));
   for (const id of placed.current.keys()) if (!openIds.has(id)) placed.current.delete(id);
   for (const id of ghostSpots.keys()) if (!openIds.has(id)) ghostSpots.delete(id);
   const spotOf = (proposal: Proposal, payload: Payload<'add-node'>) => {
     const known = placed.current.get(proposal.id);
-    if (known) return known;
+    if (known && ghostSpotFree(known, nodes)) return known;
     const spot = ghostNodePosition(payload, nodes, order.get(proposal.id) ?? 0);
     // Accepting lands the node here (proposalsState.resolve sends it).
     ghostSpots.set(proposal.id, spot);

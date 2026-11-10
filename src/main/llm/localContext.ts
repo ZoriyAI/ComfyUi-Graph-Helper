@@ -1,4 +1,4 @@
-import { getJson, ollamaOrigin } from './modelList';
+import { getJson, MODEL_LIST_REFUSED, MODEL_LIST_SHAPE, ollamaOrigin } from './modelList';
 
 /**
  * How much text a model on the person's own server can hold at once.
@@ -49,16 +49,49 @@ export function parseOllamaPs(json: unknown, model: string): number | null {
   return null;
 }
 
-/** One read of the loaded window, or null (not Ollama, not loaded, no answer in time). Never throws. */
-export async function readLoadedContext(base: string, model: string, fetchImpl: Fetch, timeoutMs = 1500): Promise<number | null> {
+/**
+ * Servers that answered the question with "no such thing" (LM Studio, vLLM, llama.cpp: an HTTP error or another
+ * shape). They are not asked again in this run: polling them would only fill their own log with errors.
+ */
+const notOllama = new Set<string>();
+
+/** For tests: forget which servers were found not to answer. */
+export function resetLocalContextMemory(): void {
+  notOllama.clear();
+}
+
+/**
+ * One read of the loaded window: the number, null when the model is not loaded right now (or the server did not
+ * answer in time), or 'unsupported' when the server is not one that lists its loaded models. Never throws.
+ */
+export async function probeLoadedContext(base: string, model: string, fetchImpl: Fetch, timeoutMs = 1500): Promise<number | null | 'unsupported'> {
   const origin = ollamaOrigin(base.trim().replace(/\/+$/, ''));
-  if (!origin || model.trim() === '') return null;
+  if (!origin || model.trim() === '' || notOllama.has(origin)) return 'unsupported';
   try {
     const read = await getJson(fetchImpl, `${origin}/api/ps`, {}, timeoutMs);
-    return read.ok ? parseOllamaPs(read.json, model) : null;
+    if (!read.ok) {
+      // "No such address" means another kind of server. No answer, or a server error, may be a slow moment
+      // (a model being loaded): those are asked again.
+      if (/HTTP (404|405|410|501)\b/.test(read.error) || read.error === MODEL_LIST_SHAPE || read.error === MODEL_LIST_REFUSED) {
+        notOllama.add(origin);
+        return 'unsupported';
+      }
+      return null;
+    }
+    if (!Array.isArray((read.json as { models?: unknown } | null)?.models)) {
+      notOllama.add(origin);
+      return 'unsupported';
+    }
+    return parseOllamaPs(read.json, model);
   } catch {
     return null;
   }
+}
+
+/** One read of the loaded window, or null (not Ollama, not loaded, no answer in time). Never throws. */
+export async function readLoadedContext(base: string, model: string, fetchImpl: Fetch, timeoutMs = 1500): Promise<number | null> {
+  const read = await probeLoadedContext(base, model, fetchImpl, timeoutMs);
+  return typeof read === 'number' ? read : null;
 }
 
 /**
@@ -92,10 +125,11 @@ export function watchLoadedContext(
     options.signal?.addEventListener('abort', onAbort);
     const tick = async () => {
       if (done) return;
-      const window = await readLoadedContext(base, model, fetchImpl);
+      const window = await probeLoadedContext(base, model, fetchImpl);
       if (done) return;
       if (window !== null) {
-        finish(window);
+        // A number ends the watch; so does a server that does not list its loaded models.
+        finish(typeof window === 'number' ? window : null);
         return;
       }
       if (Date.now() >= deadline) {

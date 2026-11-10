@@ -6,6 +6,7 @@ import { categoryAccent } from '../lib/typeColors';
 import { useNodeDetail } from '../nodeInfo';
 import { PortRow } from './PortHandle';
 import FieldRow from './FieldRow';
+import { titleParts } from './titleBreaks';
 import { nodeLayout } from '../../fields/fieldModel';
 import { useCanvasView } from '../CanvasContext';
 import styles from './Node.module.css';
@@ -76,7 +77,13 @@ export default function NodeCard({ id, data, state, connected, live = true, head
       <div className={styles.header}>
         <div className={styles.titleRow}>
           {state.subgraph ? <Layers size={14} aria-hidden="true" className={styles.headerIcon} /> : null}
-          <span className={`${styles.title} graph-node-title`}>{title}</span>
+          <span className={`${styles.title} graph-node-title`}>
+            {/* A class name wraps between its words, not in the middle of one; the text itself is unchanged. */}
+            {titleParts(title).map((part, index) => (
+              // eslint-disable-next-line react/no-array-index-key
+              <React.Fragment key={index}>{index > 0 ? <wbr /> : null}{part}</React.Fragment>
+            ))}
+          </span>
           {data.locked ? <Lock size={13} aria-label={String(t('node.locked'))} className={styles.headerIcon} /> : null}
           {state.error ? <AlertTriangle size={13} aria-label={String(t('node.error'))} className={styles.errorIcon} /> : null}
           {state.aiTouched ? <Sparkles size={13} aria-label={String(t('node.aiTouched'))} className={styles.aiIcon} /> : null}
