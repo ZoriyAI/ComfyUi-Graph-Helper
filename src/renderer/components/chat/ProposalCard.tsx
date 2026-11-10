@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Check, X } from 'lucide-react';
+import { Check, Sparkles, X } from 'lucide-react';
 import { PROPOSAL_KINDS, type ProposalKind, type ProposalStatus } from '../../../shared/contracts';
 import { redactDiagnostic } from '../../../shared/i18n';
 import { useProposalsStore } from '../../state/proposalsState';
@@ -12,8 +12,9 @@ function kindOf(value: unknown): ProposalKind | null {
 }
 
 /**
- * A ghost the assistant suggested. Accept and Reject go only through useProposalsStore().resolve;
- * the chat never writes the graph itself.
+ * A ghost the assistant suggested, with the suggestion's own status only (Suggested, Accepted, Rejected, Out of
+ * date): the tool call that made it is not a second status. Accept and Reject go only through
+ * useProposalsStore().resolve; the chat never writes the graph itself.
  */
 export default function ProposalCard({ proposalId, result }: { proposalId: string; result: unknown }) {
   const { t } = useTranslation();
@@ -39,6 +40,7 @@ export default function ProposalCard({ proposalId, result }: { proposalId: strin
   return (
     <div className={`proposal-card ${styles.proposal}`} data-proposal-id={proposalId} data-proposal-status={status}>
       <div className={styles.proposalHead}>
+        <Sparkles className={styles.proposalIcon} size={14} aria-hidden="true" />
         <span className={styles.kind}>{kindLabel}</span>
         <span className={styles.chip} data-status={status}>{t(`proposals.status.${status}`)}</span>
       </div>

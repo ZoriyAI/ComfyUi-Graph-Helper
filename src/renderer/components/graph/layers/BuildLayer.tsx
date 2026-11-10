@@ -6,7 +6,6 @@ import { useGraphStore } from '../../../state/graphState';
 import { useUiStore } from '../../../state/uiState';
 import { useProjectionStore } from '../../../services/commands/projection';
 import type { GraphEdge, GraphNode } from '../../../types/graph';
-import { toolLabelKey } from '../../chat/toolPresentation';
 import Illustration from '../illustrations/Illustration';
 import { useCanvasStore, type BuildCallout, type FadingNode } from '../canvasStore';
 import { changedNodes, diffGraph, revealSteps } from '../lib/graphDiff';
@@ -271,7 +270,8 @@ export default function BuildLayer() {
   }, [centerRequest, centerNode, flow]);
 
   const anchor = callout ? useGraphStore.getState().nodes.find((node) => node.id === callout.nodeId) : undefined;
-  const toolKey = callout?.toolName ? toolLabelKey(callout.toolName) : null;
+  // The bubble names what appeared (a node, a link, a field), not the tool that made it.
+  const kindKey = callout?.kind === 'edge' ? 'canvas.buildKindEdge' : callout?.kind === 'param' ? 'canvas.buildKindParam' : 'canvas.buildKindNode';
   return (
     <>
       {fading.length > 0 ? (
@@ -300,7 +300,7 @@ export default function BuildLayer() {
             aria-label={callout.title}
           >
             <div className={styles.head}>
-              <span className={styles.tool}>{toolKey ? t(toolKey) : t('canvas.builtByHelper')}</span>
+              <span className={styles.tool}>{t(kindKey)}</span>
               {callout.step ? (
                 <span className={styles.counter} aria-label={String(t('canvas.buildStep', { index: callout.step.index, count: callout.step.total }))}>
                   {callout.step.index}/{callout.step.total}

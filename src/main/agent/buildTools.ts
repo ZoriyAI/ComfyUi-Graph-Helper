@@ -51,6 +51,40 @@ export function nodePorts(projection: Projection | null | undefined, nodeId: unk
   return { inputs: portHandles(node.data?.inputs, 'in'), outputs: portHandles(node.data?.outputs, 'out') };
 }
 
+/**
+ * The ends of a new link by port name and type, read from the projection, so the chat can say
+ * "Load Checkpoint · MODEL → KSampler · model" without guessing from handles.
+ */
+export function linkEnds(projection: Projection | null | undefined, edgeId: unknown): Record<string, string> {
+  if (!projection || (typeof edgeId !== 'string' && typeof edgeId !== 'number')) return {};
+  const edge = (projection.snapshot.edges as Array<{ id?: unknown; source?: unknown; target?: unknown; sourceHandle?: unknown; targetHandle?: unknown; data?: { dataType?: unknown } }>)
+    .find((item) => String(item.id) === String(edgeId));
+  if (!edge) return {};
+  const ends: Record<string, string> = {};
+  const source = idOf(edge.source);
+  const target = idOf(edge.target);
+  if (source) ends.sourceNodeId = source;
+  if (target) ends.targetNodeId = target;
+  const sourcePort = nodePorts(projection, source)?.outputs.find((port) => port.handle === edge.sourceHandle);
+  const targetPort = nodePorts(projection, target)?.inputs.find((port) => port.handle === edge.targetHandle);
+  if (sourcePort?.name) ends.sourcePort = sourcePort.name;
+  if (targetPort?.name) ends.targetPort = targetPort.name;
+  const dataType = typeof edge.data?.dataType === 'string' && edge.data.dataType ? edge.data.dataType : sourcePort?.type;
+  if (dataType) ends.dataType = dataType;
+  return ends;
+}
+
+/** What a node was before a removal took it away: its class and title, so the chat can still name it. */
+export function removedNode(context: ToolContext | undefined, nodeId: unknown): Record<string, string> {
+  const id = idOf(nodeId);
+  const node = id ? context?.snapshot?.nodes.find((item) => String(item?.id) === id) : undefined;
+  const data = node && typeof node.data === 'object' && node.data ? node.data as { title?: unknown; comfyType?: unknown } : {};
+  const found: Record<string, string> = {};
+  if (typeof data.comfyType === 'string' && data.comfyType) found.removedType = data.comfyType;
+  if (typeof data.title === 'string' && data.title) found.removedTitle = data.title;
+  return found;
+}
+
 export function toolOutcome(name: string, args: Record<string, unknown> | undefined, outcome: CommandResponse) {
   if (outcome.status === 'applied' || outcome.status === 'historical') {
     const result = outcome.result as Record<string, unknown> | null;
@@ -81,7 +115,9 @@ export function toolOutcome(name: string, args: Record<string, unknown> | undefi
         const value = result?.[key];
         if (typeof value === 'string' || typeof value === 'number') ids[key] = value;
       }
-      return { success: true, message: BUILD_MESSAGES[name], ...ids };
+      // Structured ends for the chat's step line; the English `message` stays what the model reads.
+      const ends = name === 'connectNodes' ? linkEnds(outcome.projection, ids.edgeId ?? ids.linkId) : {};
+      return { success: true, message: BUILD_MESSAGES[name], ...ids, ...ends };
     }
     return { success: true, message: `Annotated node ${result?.nodeId || ''}` };
   }
@@ -197,6 +233,8 @@ export function createBuildTools(
         // An unknown class is refused once the catalog is synced, with the nearest installed names.
         const guard = payload.type === 'add-node' ? validateNodeClass(options.db, payload.nodeType) : null;
         if (guard && !guard.ok) return { success: false, error: guard.error, suggestions: guard.suggestions };
+        // Read before the commit: once removed, the node can no longer be named.
+        const removed = spec.name === 'removeNode' ? removedNode(context, args?.nodeId) : {};
         const outcome = commitCommand(options.db, {
           projectId: options.run.projectId,
           runId: options.run.runId,
@@ -214,7 +252,8 @@ export function createBuildTools(
           : null;
         if (outcome.projection) options.onProjection?.(outcome.projection);
         if (step) options.onBuildStep?.(step);
-        const outcomeResult = toolOutcome(spec.name, args, outcome);
+        const settled = toolOutcome(spec.name, args, outcome);
+        const outcomeResult = settled.success ? { ...settled, ...removed } : settled;
         const result = guard?.ok && guard.warning && outcomeResult.success ? { ...outcomeResult, warning: guard.warning } : outcomeResult;
         return step && step.why ? { ...result, why: step.why, explanationId: step.explanationId } : result;
       },

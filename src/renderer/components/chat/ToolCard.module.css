@@ -103,3 +103,6 @@
 .note { margin: 0; color: var(--text); overflow-wrap: anywhere; }
 .noteLabel { color: var(--text-faint); margin-right: 4px; }
 .hint { margin: 0; color: var(--text-dim); }
+.detail { color: var(--text-dim); }
+.proposalIcon { flex: none; color: var(--accent); }
+.proposalHead .chip { margin-left: auto; }
