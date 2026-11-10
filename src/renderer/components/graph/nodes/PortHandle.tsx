@@ -21,11 +21,22 @@ interface PortRowProps {
   live?: boolean;
 }
 
+interface HandleProps {
+  nodeId: string;
+  port: PortDefinition;
+  side: 'input' | 'output';
+  connected: boolean;
+  focusable: boolean;
+  /** A field row's handle: smaller and quiet until hovered, so the row reads as a field, not a socket. */
+  quiet?: boolean;
+}
+
 /**
- * One port: a typed handle with a glow on hover and focus, and when "what connects here" lights it up.
+ * A typed React Flow handle with a glow on hover and focus, and when "what connects here" lights it up.
  * Focus or Alt+hover starts the connect assist for this port; Enter then commits the best suggestion.
+ * Shared by port rows and field rows (a widget input can still take a link).
  */
-export function PortRow({ nodeId, port, side, connected, focusable, live = true }: PortRowProps) {
+export function PortHandle({ nodeId, port, side, connected, focusable, quiet = false }: HandleProps) {
   const { t } = useTranslation();
   const view = useCanvasView();
   const from = useCanvasStore((state) => state.connectFrom);
@@ -51,11 +62,59 @@ export function PortRow({ nodeId, port, side, connected, focusable, live = true 
   };
   const className = [
     styles.handle,
+    quiet ? styles.handleQuiet : '',
     isOrigin || isCompatible ? styles.handleLit : '',
     isBest ? styles.handleBest : '',
     empty ? styles.handleWarn : '',
     connected ? styles.handleConnected : '',
   ].filter(Boolean).join(' ');
+  return (
+    <Handle
+      type={side === 'input' ? 'target' : 'source'}
+      position={side === 'input' ? Position.Left : Position.Right}
+      id={port.id}
+      className={className}
+      data-port-type={port.dataType}
+      tabIndex={focusable ? 0 : -1}
+      aria-label={label}
+      title={empty ? String(t('node.emptyRequired')) : undefined}
+      onFocus={(event) => {
+        // Keyboard focus selects and explains the port; a mouse press (drag, right-click) does not.
+        if (!event.currentTarget.matches(':focus-visible')) return;
+        setFocusedPort(portRef(nodeId, port.id, side, port.name));
+        start();
+      }}
+      onBlur={() => {
+        if (useCanvasStore.getState().focusedPort) setFocusedPort(null);
+        stop();
+      }}
+      onMouseEnter={(event) => {
+        if (event.altKey) start();
+      }}
+      onMouseLeave={() => {
+        if (!pinned) stop();
+      }}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape' && useCanvasStore.getState().connectFrom) {
+          event.stopPropagation();
+          setConnectFrom(null);
+          return;
+        }
+        if (event.key !== 'Enter') return;
+        const current = useCanvasStore.getState().connectFrom;
+        const best = view.plan?.best;
+        if (!current || !best || view.readOnly) return;
+        event.preventDefault();
+        event.stopPropagation();
+        void commitManual(connectMutation(current, best));
+        setConnectFrom(null);
+      }}
+    />
+  );
+}
+
+/** One link port: handle, name, and the data type when the name does not already say it. */
+export function PortRow({ nodeId, port, side, connected, focusable, live = true }: PortRowProps) {
   return (
     <li
       className={`${styles.port} ${side === 'input' ? styles.portIn : styles.portOut}`}
@@ -64,49 +123,9 @@ export function PortRow({ nodeId, port, side, connected, focusable, live = true 
       data-port-handle={port.id}
       style={{ '--canvas-port': typeColor(port.dataType) } as React.CSSProperties}
     >
-      {live ? (
-        <Handle
-          type={side === 'input' ? 'target' : 'source'}
-          position={side === 'input' ? Position.Left : Position.Right}
-          id={port.id}
-          className={className}
-          data-port-type={port.dataType}
-          tabIndex={focusable ? 0 : -1}
-          aria-label={label}
-          title={empty ? String(t('node.emptyRequired')) : undefined}
-          onFocus={(event) => {
-            // Keyboard focus selects and explains the port; a mouse press (drag, right-click) does not.
-            if (!event.currentTarget.matches(':focus-visible')) return;
-            setFocusedPort(portRef(nodeId, port.id, side, port.name));
-            start();
-          }}
-          onBlur={() => {
-            if (useCanvasStore.getState().focusedPort) setFocusedPort(null);
-            stop();
-          }}
-          onMouseEnter={(event) => {
-            if (event.altKey) start();
-          }}
-          onMouseLeave={() => {
-            if (!pinned) stop();
-          }}
-          onKeyDown={(event) => {
-            if (event.key === 'Escape' && useCanvasStore.getState().connectFrom) {
-              event.stopPropagation();
-              setConnectFrom(null);
-              return;
-            }
-            if (event.key !== 'Enter') return;
-            const current = useCanvasStore.getState().connectFrom;
-            const best = view.plan?.best;
-            if (!current || !best || view.readOnly) return;
-            event.preventDefault();
-            event.stopPropagation();
-            void commitManual(connectMutation(current, best));
-            setConnectFrom(null);
-          }}
-        />
-      ) : <span className={`${styles.handle} ${styles.dot}`} aria-hidden="true" />}
+      {live
+        ? <PortHandle nodeId={nodeId} port={port} side={side} connected={connected} focusable={focusable} />
+        : <span className={`${styles.handle} ${styles.dot}`} aria-hidden="true" />}
       <span className={`${styles.portName} port-name`}>{port.name}</span>
       {port.name.toLowerCase() === port.dataType.toLowerCase() ? null : <span className={`${styles.portType} port-type`}>{port.dataType}</span>}
     </li>

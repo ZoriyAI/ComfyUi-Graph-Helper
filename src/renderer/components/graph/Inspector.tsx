@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { LogIn, MessageCircleQuestion, Ungroup } from 'lucide-react';
+import { CircleHelp, LogIn, MessageCircleQuestion, Ungroup } from 'lucide-react';
 import { listSubgraphDefinitions, type ComponentOwnerKind, type ComponentRecord } from '../../../shared/components/model';
 import { objectKey, type ObjectRef } from '../../../shared/contracts/objects';
 import type { Explanation, Provenance } from '../../../shared/contracts/knowledge';
@@ -12,7 +12,11 @@ import Illustration from './illustrations/Illustration';
 import { askAbout } from './askAbout';
 import { commitManual } from './commit';
 import { useNodeDetail } from './nodeInfo';
-import { nodeRef } from './lib/selection';
+import { nodeRef, portRef } from './lib/selection';
+import { useCanvasStore } from './canvasStore';
+import FieldControl from '../fields/FieldControl';
+import { commitField } from '../fields/commitField';
+import { nodeLayout, type FieldEntry } from '../fields/fieldModel';
 import { typeColor } from './lib/typeColors';
 import styles from './Inspector.module.css';
 
@@ -116,65 +120,48 @@ function Explanations({ refs, fallback = null }: { refs: ObjectRef[]; fallback?:
   );
 }
 
-function ParameterField({ nodeId, name, value, disabled }: { nodeId: string; name: string; value: unknown; disabled: boolean }) {
+/**
+ * One field in Properties: the name, the same control as on the node at full width, the node author's tooltip from
+ * object_info under it, and a "?" that asks the helper about this field. A field fed by a link says so instead.
+ */
+function ParameterField({ nodeId, nodeName, field, linked, disabled }: { nodeId: string; nodeName: string; field: FieldEntry; linked: boolean; disabled: boolean }) {
   const { t } = useTranslation();
-  const [draft, setDraft] = useState(() => (typeof value === 'string' ? value : JSON.stringify(value) ?? ''));
-  useEffect(() => {
-    setDraft(typeof value === 'string' ? value : JSON.stringify(value) ?? '');
-  }, [value]);
-  const id = `node-param-${nodeId}-${name}`;
-  const commit = () => {
-    let next: unknown = draft;
-    if (typeof value === 'number') {
-      const parsed = Number(draft);
-      if (!Number.isFinite(parsed)) return;
-      next = parsed;
-    } else if (typeof value !== 'string') {
-      try {
-        next = JSON.parse(draft);
-      } catch {
-        return;
-      }
-    }
-    if (JSON.stringify(next) === JSON.stringify(value)) return;
-    void commitManual({ type: 'set-parameter', nodeId, key: name, value: next }, 'parameter');
-  };
-  if (typeof value === 'boolean') {
-    return (
-      <div className={styles.param}>
-        <span className={styles.paramName}>{name}</span>
+  const labelId = `node-param-${nodeId}-${field.name}-label`;
+  const ref = field.port ? portRef(nodeId, field.port.id, 'input', field.name) : { kind: 'node' as const, id: nodeId };
+  const range = field.spec && (field.spec.kind === 'int' || field.spec.kind === 'float') && field.spec.min !== undefined && field.spec.max !== undefined
+    ? String(t('field.range', { min: field.spec.min, max: field.spec.max }))
+    : null;
+  return (
+    <div className={`inspector-field ${styles.param}`} data-field={field.name}>
+      <div className={styles.paramHead}>
+        <span id={labelId} className={styles.paramName}>{field.name}</span>
         <button
           type="button"
-          className={`ghost-button ${styles.toggle}`}
-          aria-pressed={value}
-          aria-label={String(t('inspector.valueOf', { name }))}
-          disabled={disabled}
-          onClick={() => void commitManual({ type: 'set-parameter', nodeId, key: name, value: !value }, 'parameter')}
+          className={styles.ask}
+          aria-label={String(t('field.ask'))}
+          title={String(t('field.ask'))}
+          onClick={() => askAbout(ref, String(t('field.askMessage', { name: field.name, node: nodeName })))}
         >
-          {String(value)}
+          <CircleHelp size={14} aria-hidden="true" />
         </button>
       </div>
-    );
-  }
-  return (
-    <div className={styles.param}>
-      <label className={styles.paramName} htmlFor={id}>{name}</label>
-      <input
-        id={id}
-        className={styles.field}
-        inputMode={typeof value === 'number' ? 'decimal' : undefined}
-        value={draft}
-        disabled={disabled}
-        aria-label={String(t('inspector.valueOf', { name }))}
-        onChange={(event) => setDraft(event.target.value)}
-        onBlur={commit}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter') {
-            event.preventDefault();
-            commit();
-          }
-        }}
-      />
+      {linked ? (
+        <p className={styles.linkedField}>{t('field.linked')} · {t('field.linkedHint')}</p>
+      ) : (
+        <FieldControl
+          nodeId={nodeId}
+          name={field.name}
+          value={field.value}
+          spec={field.spec}
+          variant="panel"
+          labelledBy={labelId}
+          disabled={disabled}
+          onCommit={(value) => void commitField(nodeId, field.name, value)}
+        />
+      )}
+      {field.tooltip || range ? (
+        <p className={`inspector-empty ${styles.hint}`}>{[field.tooltip, range].filter(Boolean).join(' · ')}</p>
+      ) : null}
     </div>
   );
 }
@@ -190,15 +177,21 @@ function NodeSection({ node, edges }: { node: GraphNode; edges: GraphEdge[] }) {
   const [name, setName] = useState(definition?.name ?? '');
   useEffect(() => setName(definition?.name ?? ''), [definition?.name]);
   const ref = nodeRef(node);
+  const canvasReplay = useCanvasStore((state) => Boolean(state.replay));
   const title = String(data.title || detail?.displayName || data.comfyType);
   const connected = (side: 'in' | 'out', handle: string) => edges.some((edge) => (side === 'in'
     ? edge.target === node.id && edge.targetHandle === handle
     : edge.source === node.id && edge.sourceHandle === handle));
-  const parameters = Object.entries(data.parameters || {});
+  const layout = nodeLayout(data, instance ? null : detail);
+  const linkedField = (field: FieldEntry) => Boolean(field.port && connected('in', field.port.id));
+  // Link ports only; a widget input fed by a link is listed too, as connected, so the table shows every link.
   const ports = [
-    ...data.inputs.map((port) => ({ ...port, direction: 'in' as const })),
+    ...layout.linkInputs.map((port) => ({ ...port, direction: 'in' as const })),
+    ...layout.fields.filter(linkedField).map((field) => ({ ...field.port!, direction: 'in' as const })),
     ...data.outputs.map((port) => ({ ...port, direction: 'out' as const })),
   ];
+  const tooltips = new Map((detail?.inputs ?? []).filter((input) => input.tooltip).map((input) => [input.name, input.tooltip!]));
+  const readOnly = Boolean(data.locked) || instance || canvasReplay;
   return (
     <>
       <header className={styles.header}>
@@ -243,7 +236,7 @@ function NodeSection({ node, edges }: { node: GraphNode; edges: GraphEdge[] }) {
         {ports.map((port) => {
           const linked = connected(port.direction, port.id);
           return (
-            <li key={`${port.direction}-${port.id}`} className={`inspector-port ${styles.port}`} data-port-type={port.dataType} style={{ '--canvas-port': typeColor(port.dataType) } as React.CSSProperties}>
+            <li key={`${port.direction}-${port.id}`} className={`inspector-port ${styles.port}`} data-port-type={port.dataType} title={port.direction === 'in' ? tooltips.get(port.name) : undefined} style={{ '--canvas-port': typeColor(port.dataType) } as React.CSSProperties}>
               <span className={styles.dot} aria-hidden="true" />
               <span className={styles.dir}>{port.direction === 'in' ? t('inspector.in') : t('inspector.out')}</span>
               <span className={styles.portName}>{port.name}</span>
@@ -254,9 +247,11 @@ function NodeSection({ node, edges }: { node: GraphNode; edges: GraphEdge[] }) {
         })}
       </ul>
       <h3 className={styles.h3}>{t('inspector.properties')}</h3>
-      {parameters.length === 0 ? <p className={`inspector-empty ${styles.hint}`}>{t('inspector.noParameters')}</p> : (
+      {layout.fields.length === 0 ? <p className={`inspector-empty ${styles.hint}`}>{t('inspector.noParameters')}</p> : (
         <div className={styles.params}>
-          {parameters.map(([key, value]) => <ParameterField key={key} nodeId={node.id} name={key} value={value} disabled={Boolean(data.locked)} />)}
+          {layout.fields.map((field) => (
+            <ParameterField key={field.name} nodeId={node.id} nodeName={title} field={field} linked={linkedField(field)} disabled={readOnly} />
+          ))}
         </div>
       )}
       <Explanations refs={[ref, ...(instance ? [] : [{ kind: 'nodeClass' as const, id: data.comfyType, classType: data.comfyType }])]} />

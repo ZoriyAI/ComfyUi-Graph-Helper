@@ -5,6 +5,9 @@ import type { ComfyNodeData } from '../../../types/graph';
 import { categoryAccent } from '../lib/typeColors';
 import { useNodeDetail } from '../nodeInfo';
 import { PortRow } from './PortHandle';
+import FieldRow from './FieldRow';
+import { nodeLayout } from '../../fields/fieldModel';
+import { useCanvasView } from '../CanvasContext';
 import styles from './Node.module.css';
 
 export interface NodeCardState {
@@ -30,20 +33,21 @@ interface NodeCardProps {
   footer?: React.ReactNode;
 }
 
-function short(value: unknown): string {
-  const text = typeof value === 'string' ? value : JSON.stringify(value) ?? '';
-  return text.length > 24 ? `${text.slice(0, 24)}…` : text;
-}
-
 /**
- * The visual node: header strip in the category colour, typed ports, the first parameters and the note.
+ * The visual node: header strip in the category colour, link ports (inputs, then outputs), then the fields a person
+ * sets by hand as live controls, and the note. Widget inputs are fields, not sockets: `seed`, `sampler_name`,
+ * `lora_name` show their value and edit in place (a small handle still lets a link feed them).
  * Shared by real nodes, subgraph instances and add-node ghosts so they read as the same thing.
- * Keeps the legacy `.graph-node`, `.is-selected` and `.node-annotation` classes the e2e tests look for.
+ * Keeps the legacy `.graph-node`, `.graph-node-title`, `.graph-node-type`, `.port-list`, `.is-selected` and
+ * `.node-annotation` classes; field rows are `.node-fields` > `.node-field`.
  */
 export default function NodeCard({ id, data, state, connected, live = true, headerExtra, footer }: NodeCardProps) {
   const { t } = useTranslation();
-  const detail = useNodeDetail(state.subgraph || state.ghost ? undefined : data.comfyType);
-  const parameters = Object.entries(data.parameters || {});
+  const view = useCanvasView();
+  const detail = useNodeDetail(state.subgraph ? undefined : data.comfyType);
+  const layout = nodeLayout(data, state.subgraph ? null : detail);
+  // Subgraph instances have no catalog spec to place a value with; their fields show, read-only.
+  const fieldsDisabled = !live || Boolean(data.locked) || view.readOnly || Boolean(state.subgraph);
   const primary = data.outputs[0]?.dataType || data.inputs[0]?.dataType || 'unknown';
   const accent = categoryAccent(detail?.category, primary);
   const classes = [
@@ -84,9 +88,9 @@ export default function NodeCard({ id, data, state, connected, live = true, head
           {state.subgraph ? null : <span className={`${styles.classType} graph-node-type`}>{data.comfyType}</span>}
         </div>
       </div>
-      {data.inputs.length > 0 ? (
+      {layout.linkInputs.length > 0 ? (
         <ul className={`${styles.ports} port-list`} aria-label={String(t('node.inputs'))}>
-          {data.inputs.map((port) => (
+          {layout.linkInputs.map((port) => (
             <PortRow key={port.id} nodeId={id} port={port} side="input" connected={connected.has(`in:${port.id}`)} focusable={Boolean(state.selected)} live={live} />
           ))}
         </ul>
@@ -98,16 +102,20 @@ export default function NodeCard({ id, data, state, connected, live = true, head
           ))}
         </ul>
       ) : null}
-      {parameters.length > 0 ? (
-        <div className={styles.params}>
-          {parameters.slice(0, 3).map(([key, value]) => (
-            <div key={key} className={styles.param}>
-              <span className={styles.paramKey}>{key}</span>
-              <span className={styles.paramValue}>{short(value)}</span>
-            </div>
+      {layout.fields.length > 0 ? (
+        <ul className={`${styles.fields} node-fields`} aria-label={String(t('node.fields'))}>
+          {layout.fields.map((field) => (
+            <FieldRow
+              key={field.name}
+              nodeId={id}
+              field={field}
+              linked={field.port ? connected.has(`in:${field.port.id}`) : false}
+              focusable={Boolean(state.selected)}
+              live={live}
+              disabled={fieldsDisabled}
+            />
           ))}
-          {parameters.length > 3 ? <div className={styles.paramKey}>{t('node.more', { count: parameters.length - 3 })}</div> : null}
-        </div>
+        </ul>
       ) : null}
       {data.annotations && data.annotations.length > 0 ? (
         <div className={`${styles.annotation} node-annotation`}>

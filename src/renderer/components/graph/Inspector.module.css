@@ -39,9 +39,28 @@
 .portName { color: var(--text, #e8eef7); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .linked { color: var(--ok, #82ddb3); }
 .free { color: var(--text-faint, #8b9bb0); }
-.params { display: flex; flex-direction: column; gap: 6px; }
-.param { display: grid; grid-template-columns: minmax(80px, 40%) 1fr; gap: 8px; align-items: center; font-size: 12px; }
-.paramName { color: var(--text-dim, #a3b1c6); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Properties: one field per block, name and "?" on top, the full-width control, the author's tooltip under it. */
+.params { display: flex; flex-direction: column; gap: 12px; }
+.param { display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
+.paramHead { display: flex; align-items: center; gap: 6px; min-height: 20px; }
+.paramName { flex: 1; min-width: 0; color: var(--text, #e8eef7); font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ask {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-faint, #8b9bb0);
+  cursor: pointer;
+}
+.ask:hover { color: var(--ai, #b7a5ff); border-color: color-mix(in srgb, var(--ai, #b7a5ff) 40%, transparent); }
+.ask:focus-visible { outline: 2px solid var(--focus, #b7a5ff); outline-offset: 1px; }
+.linkedField { margin: 0; padding: 5px 8px; border: 1px dashed var(--border, #2a3648); border-radius: 8px; color: var(--text-dim, #a3b1c6); font-size: 13px; }
+.param .hint { margin: 0; }
 .field {
   min-width: 0;
   padding: 6px 8px;
