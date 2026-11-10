@@ -121,6 +121,11 @@ export const preferencesSchema = z.object({
     /** The agent sees widget values; off omits them from the prompt and from getGraph. */
     sendFieldValues: z.boolean().default(true),
     saveChatHistory: z.boolean().default(true),
+    /**
+     * Keep a local log of what was sent to the model and what came back (Help ▸ model conversation log), so an odd
+     * answer can be saved to a file and handed to someone to read. It stays on this computer; keys never enter it.
+     */
+    modelLog: z.boolean().default(true),
   }).prefault({}),
 }).strict();
 

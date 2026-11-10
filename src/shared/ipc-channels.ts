@@ -105,4 +105,10 @@ export const IPC_CHANNELS = {
   DIAGNOSTICS_COLLECT: 'diagnostics:collect',
   DIAGNOSTICS_OPEN_LOGS: 'diagnostics:open-logs',
   DIAGNOSTICS_RENDERER_ERROR: 'diagnostics:renderer-error',
+  /** The model conversation log (src/main/trace/modelTrace.ts): list, short report, save to a file, clear, folder. */
+  TRACE_LIST: 'trace:list',
+  TRACE_REPORT: 'trace:report',
+  TRACE_EXPORT: 'trace:export',
+  TRACE_CLEAR: 'trace:clear',
+  TRACE_OPEN_FOLDER: 'trace:open-folder',
 } as const;

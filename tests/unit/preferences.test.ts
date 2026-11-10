@@ -48,7 +48,7 @@ describe('preferences schema', () => {
       canvas: { showDescriptions: true, showMinimap: true, followAgent: false, buildPaceMs: 820, tourAutoplay: true, gridSize: 18 },
       appearance: { density: 'comfortable', accent: 'cyan', reduceGlow: false },
       shortcuts: {},
-      privacy: { sendFieldValues: true, saveChatHistory: true },
+      privacy: { sendFieldValues: true, saveChatHistory: true, modelLog: true },
     });
     expect(preferencesSchema.parse({ canvas: { gridSize: 24 } }).canvas).toMatchObject({ gridSize: 24, showDescriptions: true });
   });

@@ -1,4 +1,5 @@
-import { app, shell, type IpcMain } from 'electron';
+import { app, dialog, shell, type IpcMain } from 'electron';
+import * as path from 'path';
 import * as os from 'os';
 import { IPC_CHANNELS } from '../../shared/ipc-channels';
 import { getDatabase } from '../database';
@@ -8,6 +9,11 @@ import { syncService } from '../mcp/sync';
 import { mainLLMService } from '../llmService';
 import { buildDiagnosticsReport } from '../diagnostics';
 import { log, logsDir, readLogTail, redactForLog } from '../log';
+import { readPreferences } from '../settings/repository';
+import {
+  clearTurnTraces, exportTurnTraces, listTurnTraces, readTurnTrace, traceDir, traceUsage, turnReport,
+} from '../trace/modelTrace';
+import type { ModelLogExportRequest, ModelLogExportResult, ModelLogList } from '../../shared/contracts/modelLog';
 
 /** At most `limit` events per `windowMs`; later ones are dropped (and counted) until the window moves on. */
 export function createRateLimiter(limit: number, windowMs: number, now: () => number = Date.now) {
@@ -101,9 +107,75 @@ export function collectDiagnostics(): string {
   });
 }
 
-/** diagnostics:collect, diagnostics:open-logs and diagnostics:renderer-error. */
+function modelLogEnabled(): boolean {
+  try {
+    return readPreferences(getDatabase()).privacy.modelLog;
+  } catch {
+    return true;
+  }
+}
+
+/** Which recorded turns a save request means. Ids are checked again where the files are read. */
+export function turnsToExport(request: unknown, now = Date.now()): string[] {
+  const turns = listTurnTraces(500);
+  if (request && typeof request === 'object' && Array.isArray((request as { ids?: unknown }).ids)) {
+    const wanted = new Set(((request as { ids: unknown[] }).ids).filter((id): id is string => typeof id === 'string').slice(0, 500));
+    return turns.filter((turn) => wanted.has(turn.id)).map((turn) => turn.id).reverse();
+  }
+  const scope = (request as { scope?: unknown } | null)?.scope;
+  if (scope === 'last') return turns.slice(0, 1).map((turn) => turn.id);
+  if (scope === 'today') {
+    const dayStart = new Date(now);
+    dayStart.setHours(0, 0, 0, 0);
+    return turns.filter((turn) => turn.startedAt >= dayStart.getTime()).map((turn) => turn.id).reverse();
+  }
+  return turns.map((turn) => turn.id).reverse();
+}
+
+/** diagnostics:collect, diagnostics:open-logs, diagnostics:renderer-error and the model conversation log. */
 export function registerDiagnosticsIpc(ipcMain: IpcMain): void {
   const limiter = createRateLimiter(10, 60_000);
+
+  ipcMain.handle(IPC_CHANNELS.TRACE_LIST, (): ModelLogList => {
+    const usage = traceUsage();
+    return { enabled: modelLogEnabled(), turns: listTurnTraces(100), files: usage.files, bytes: usage.bytes, folder: traceDir() };
+  });
+  ipcMain.handle(IPC_CHANNELS.TRACE_REPORT, (_event, id: unknown) => {
+    const events = typeof id === 'string' ? readTurnTrace(id) : null;
+    if (!events) return { ok: false as const, error: 'That turn is not in the log.' };
+    return { ok: true as const, text: turnReport(events) };
+  });
+  // One file a person can send: app facts and the tail of the main log first, then the chosen turns as recorded.
+  ipcMain.handle(IPC_CHANNELS.TRACE_EXPORT, async (_event, request: ModelLogExportRequest): Promise<ModelLogExportResult> => {
+    const ids = turnsToExport(request);
+    if (ids.length === 0) return { ok: false, error: 'The log has no turns to save.' };
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const chosen = await dialog.showSaveDialog({
+      defaultPath: path.join(app.getPath('documents'), `graph-helper-model-log-${stamp}.jsonl`),
+      filters: [{ name: 'JSON Lines', extensions: ['jsonl'] }],
+    });
+    if (chosen.canceled || !chosen.filePath) return { ok: false, canceled: true };
+    try {
+      const written = exportTurnTraces(ids, chosen.filePath, { app: app.getVersion(), diagnostics: collectDiagnostics() });
+      log.info(`[ModelLog] Saved ${written.turns} turns, ${written.bytes} bytes`);
+      return { ok: true, path: chosen.filePath, bytes: written.bytes, turns: written.turns };
+    } catch {
+      return { ok: false, error: 'The log file could not be written.' };
+    }
+  });
+  ipcMain.handle(IPC_CHANNELS.TRACE_CLEAR, () => ({ removed: clearTurnTraces() }));
+  ipcMain.handle(IPC_CHANNELS.TRACE_OPEN_FOLDER, async () => {
+    const dir = traceDir() ?? logsDir();
+    if (!dir) return { ok: false as const, error: 'The log folder is not available.' };
+    const failure = await shell.openPath(dir);
+    // Before the first turn the model folder does not exist yet: the parent log folder opens instead.
+    if (failure && logsDir()) {
+      const parent = await shell.openPath(logsDir() as string);
+      return parent ? { ok: false as const, error: parent } : { ok: true as const };
+    }
+    return failure ? { ok: false as const, error: failure } : { ok: true as const };
+  });
+
   ipcMain.handle(IPC_CHANNELS.DIAGNOSTICS_COLLECT, () => collectDiagnostics());
   ipcMain.handle(IPC_CHANNELS.DIAGNOSTICS_OPEN_LOGS, async () => {
     const dir = logsDir();

@@ -5,6 +5,7 @@ export * from './agent';
 export * from './agentTools';
 export * from './revisions';
 export * from './mcpAuth';
+export * from './modelLog';
 export {
   SUBGRAPH_INPUT_NODE_ID,
   SUBGRAPH_OUTPUT_NODE_ID,

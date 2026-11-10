@@ -48,16 +48,91 @@ export function isReadOnlyCall(name: string, args: Record<string, unknown>): boo
   return allowed !== undefined && allowed(args ?? {});
 }
 
+/** What one MCP tool call looked like from outside: never the payload, only its shape. */
+export interface McpCallNote {
+  tool: string;
+  /** The arguments as JSON, cut to a readable length. They never carry a credential. */
+  args: string;
+  ok: boolean;
+  ms: number;
+  /** Size of the answer as JSON text. */
+  chars: number | null;
+  /** Length of `items` when the answer is a page. */
+  items: number | null;
+  /** The server's own error text, or the thrown message. */
+  error: string | null;
+}
+
+let observer: ((note: McpCallNote) => void) | null = null;
+
+/** Main points this at its log, so a sync that reads nothing can be explained from the log alone. */
+export function setMcpCallObserver(next: ((note: McpCallNote) => void) | null): void {
+  observer = next;
+}
+
+function noteOf(tool: string, args: Record<string, unknown>, started: number, result: unknown, error: unknown): McpCallNote {
+  let argsText = '';
+  try {
+    argsText = JSON.stringify(args ?? {}).slice(0, 300);
+  } catch {
+    argsText = '{}';
+  }
+  let chars: number | null = null;
+  let items: number | null = null;
+  let failure: string | null = null;
+  if (error !== undefined) failure = error instanceof Error ? error.message.slice(0, 300) : 'error';
+  if (result && typeof result === 'object') {
+    const record = result as { isError?: unknown; structuredContent?: unknown; content?: unknown };
+    try {
+      chars = JSON.stringify(record.structuredContent ?? record.content ?? null).length;
+    } catch {
+      chars = null;
+    }
+    const structured = record.structuredContent as { items?: unknown } | undefined;
+    let page: unknown = structured?.items;
+    if (page === undefined && Array.isArray(record.content)) {
+      const text = (record.content as Array<{ type?: unknown; text?: unknown }>).find((block) => block?.type === 'text' && typeof block.text === 'string')?.text;
+      if (typeof text === 'string') {
+        if (record.isError === true) failure = text.slice(0, 300);
+        try {
+          page = (JSON.parse(text) as { items?: unknown })?.items;
+        } catch {
+          page = undefined;
+        }
+      }
+    }
+    if (Array.isArray(page)) items = page.length;
+    if (record.isError === true && failure === null) failure = 'tool error';
+  }
+  return { tool, args: argsText, ok: failure === null, ms: Date.now() - started, chars, items, error: failure };
+}
+
 /**
  * Wraps a session so that every tool call passes this one check. All MCP reads in the app go through
- * a wrapped session, which makes this the single call site for the allowlist.
+ * a wrapped session, which makes this the single call site for the allowlist, and for the call log.
  */
 export function readOnlySession(session: McpSession): McpSession {
   return {
     listTools: () => session.listTools(),
     async callTool(name, args) {
       if (!isReadOnlyCall(name, args)) throw new McpRefusedError(name);
-      return session.callTool(name, args);
+      const started = Date.now();
+      try {
+        const result = await session.callTool(name, args);
+        try {
+          observer?.(noteOf(name, args, started, result, undefined));
+        } catch {
+          // The log never breaks a read.
+        }
+        return result;
+      } catch (error) {
+        try {
+          observer?.(noteOf(name, args, started, undefined, error));
+        } catch {
+          // The log never breaks a read.
+        }
+        throw error;
+      }
     },
     close: () => session.close(),
   };

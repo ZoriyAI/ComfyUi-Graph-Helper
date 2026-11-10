@@ -6,11 +6,13 @@ import { readPasswordStoreOverride } from './settings/passwordStoreOverride';
 import { initDatabase, closeDatabase, getDatabase } from './database';
 import { setupIPC } from './ipc';
 import { appEntryUrl, isTrustedAppUrl, setTrustedAppUrl } from './ipc/guard';
-import { addLogRedactor, initLog, log, logsDir, routeConsole } from './log';
+import { addLogRedactor, initLog, log, logsDir, redactForLog, routeConsole } from './log';
 import { installCrashHandlers } from './crash';
 import { clampWindowState, readWindowState, trackWindowState, WINDOW_STATE_FILE } from './windowState';
 import { mainLLMService } from './llmService';
-import { readSettings } from './settings/repository';
+import { readPreferences, readSettings } from './settings/repository';
+import { configureModelTrace } from './trace/modelTrace';
+import { setMcpCallObserver } from './mcp/readOnly';
 import { syncService } from './mcp/sync';
 import { createTranslator, languageOf, type AppLanguage } from '../shared/i18n';
 import type { SyncStatus } from '../shared/contracts/knowledge';
@@ -33,6 +35,25 @@ if (['ComfyUI Graph Helper', 'Graph Helper for ComfyUI'].includes(app.getName())
 initLog({ dir: path.join(app.getPath('userData'), 'logs'), mirror: !app.isPackaged || process.env.NODE_ENV === 'development' });
 routeConsole();
 addLogRedactor((text) => mainLLMService.redact(text));
+// The model conversation log lives next to the main log; the same redaction applies to every line of it.
+configureModelTrace({
+  dir: path.join(app.getPath('userData'), 'logs'),
+  redact: (text) => mainLLMService.redact(redactForLog(text)),
+  enabled: () => {
+    try {
+      return readPreferences(getDatabase()).privacy.modelLog;
+    } catch {
+      // Before the database is open nothing talks to a model anyway.
+      return false;
+    }
+  },
+});
+// One line per MCP tool call (never the payload): enough to see from the log why a sync read nothing.
+setMcpCallObserver((note) => {
+  const tail = `${note.items !== null ? ` items=${note.items}` : ''}${note.chars !== null ? ` chars=${note.chars}` : ''} ms=${note.ms}`;
+  if (note.ok) log.info(`[MCP] ${note.tool} ${note.args} ok${tail}`);
+  else log.warn(`[MCP] ${note.tool} ${note.args} failed: ${note.error ?? 'error'}${tail}`);
+});
 log.info(
   `[App] Start ComfyUI Graph Helper ${app.getVersion()} electron=${process.versions.electron} chrome=${process.versions.chrome} `
   + `node=${process.versions.node} platform=${process.platform}/${process.arch} packaged=${app.isPackaged}`,

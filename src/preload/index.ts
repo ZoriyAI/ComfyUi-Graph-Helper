@@ -11,6 +11,9 @@ import type {
   ListExplanationsRequest,
   LocalDiscovery,
   McpAuthProbe,
+  ModelLogExportRequest,
+  ModelLogExportResult,
+  ModelLogList,
   McpTokenStatus,
   SecretStoreInfo,
   McpOAuthLoginResult,
@@ -104,6 +107,11 @@ const IPC_CHANNELS = {
   DIAGNOSTICS_COLLECT: 'diagnostics:collect',
   DIAGNOSTICS_OPEN_LOGS: 'diagnostics:open-logs',
   DIAGNOSTICS_RENDERER_ERROR: 'diagnostics:renderer-error',
+  TRACE_LIST: 'trace:list',
+  TRACE_REPORT: 'trace:report',
+  TRACE_EXPORT: 'trace:export',
+  TRACE_CLEAR: 'trace:clear',
+  TRACE_OPEN_FOLDER: 'trace:open-folder',
 } as const;
 
 /** The app version main passes as `--app-version=…` (a sandboxed preload cannot read package.json). */
@@ -287,6 +295,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   collectDiagnostics: () => ipcRenderer.invoke(IPC_CHANNELS.DIAGNOSTICS_COLLECT) as Promise<string>,
   openLogsFolder: () => ipcRenderer.invoke(IPC_CHANNELS.DIAGNOSTICS_OPEN_LOGS) as Promise<{ ok: true } | { ok: false; error: string }>,
   reportRendererError: (report: RendererErrorReport) => ipcRenderer.invoke(IPC_CHANNELS.DIAGNOSTICS_RENDERER_ERROR, report) as Promise<{ logged: boolean }>,
+  // The model conversation log: what was sent to a model and what came back. Files stay in main; the renderer
+  // gets summaries, a short text report, and asks main to save a file through a system dialog.
+  traceList: () => ipcRenderer.invoke(IPC_CHANNELS.TRACE_LIST) as Promise<ModelLogList>,
+  traceReport: (id: string) => ipcRenderer.invoke(IPC_CHANNELS.TRACE_REPORT, id) as Promise<{ ok: true; text: string } | { ok: false; error: string }>,
+  traceExport: (request: ModelLogExportRequest) => ipcRenderer.invoke(IPC_CHANNELS.TRACE_EXPORT, request) as Promise<ModelLogExportResult>,
+  traceClear: () => ipcRenderer.invoke(IPC_CHANNELS.TRACE_CLEAR) as Promise<{ removed: number }>,
+  traceOpenFolder: () => ipcRenderer.invoke(IPC_CHANNELS.TRACE_OPEN_FOLDER) as Promise<{ ok: true } | { ok: false; error: string }>,
 });
 
 /** What the renderer sends about an error; main clips, redacts and rate-limits it. */
@@ -429,6 +444,11 @@ export interface ElectronAPI {
   openLogsFolder: () => Promise<{ ok: true } | { ok: false; error: string }>;
   /** Logs a renderer error in main (redacted, rate-limited). */
   reportRendererError: (report: RendererErrorReport) => Promise<{ logged: boolean }>;
+  traceList: () => Promise<ModelLogList>;
+  traceReport: (id: string) => Promise<{ ok: true; text: string } | { ok: false; error: string }>;
+  traceExport: (request: ModelLogExportRequest) => Promise<ModelLogExportResult>;
+  traceClear: () => Promise<{ removed: number }>;
+  traceOpenFolder: () => Promise<{ ok: true } | { ok: false; error: string }>;
 }
 
 declare global {
