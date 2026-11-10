@@ -45,7 +45,7 @@ export interface LayoutOptions {
 }
 
 /** Room for a collapsed description card under a node and for edges to pass between nodes. */
-export const LAYOUT_GAPS = { gapX: 96, gapY: 56, componentGap: 80 } as const;
+export const LAYOUT_GAPS = { gapX: 96, gapY: 72, componentGap: 80 } as const;
 
 /** Width a node gets before it is measured (the canvas node card width). */
 export const ESTIMATED_NODE_WIDTH = 240;
