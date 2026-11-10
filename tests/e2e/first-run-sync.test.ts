@@ -114,9 +114,11 @@ test('first run: connect, sync from MCP, browse the library, build, check and ex
       .dragTo(window.locator('.react-flow__pane'), { targetPosition: { x: 80, y: 120 } });
     await expect(window.locator('.react-flow__node')).toHaveCount(2);
     await expect(window.locator('.react-flow__node').filter({ hasText: 'Load LoRA' })).toHaveCount(1);
-    await expect(window.locator('.react-flow__node').filter({ hasText: 'Load LoRA' }).locator('.port-name').getByText('lora_name')).toBeVisible();
-    // The new node starts with the catalog defaults, so its parameters show the first LoRA, not an empty field.
-    await expect(window.locator('.react-flow__node').filter({ hasText: 'Load LoRA' }).getByText('lora_name', { exact: true }).nth(1)).toBeVisible();
+    // lora_name is a field row (a control), not a socket row.
+    const loraNode = window.locator('.react-flow__node').filter({ hasText: 'Load LoRA' });
+    await expect(loraNode.locator('.node-field-name').getByText('lora_name')).toBeVisible();
+    // The new node starts with the catalog defaults, so its field shows a LoRA file, not "not set".
+    await expect(loraNode.getByRole('combobox', { name: 'lora_name' })).toHaveAttribute('data-value', /\.safetensors$/);
 
     // Library ▸ Models: family badges from metadata, sidecars and file names.
     await rail.getByRole('tab', { name: 'Models' }).click();

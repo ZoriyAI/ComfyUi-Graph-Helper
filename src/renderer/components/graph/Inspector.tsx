@@ -16,7 +16,7 @@ import { nodeRef, portRef } from './lib/selection';
 import { useCanvasStore } from './canvasStore';
 import FieldControl from '../fields/FieldControl';
 import { commitField } from '../fields/commitField';
-import { nodeLayout, type FieldEntry } from '../fields/fieldModel';
+import { isSeedField, nodeLayout, type FieldEntry } from '../fields/fieldModel';
 import { typeColor } from './lib/typeColors';
 import styles from './Inspector.module.css';
 
@@ -128,8 +128,11 @@ function ParameterField({ nodeId, nodeName, field, linked, disabled }: { nodeId:
   const { t } = useTranslation();
   const labelId = `node-param-${nodeId}-${field.name}-label`;
   const ref = field.port ? portRef(nodeId, field.port.id, 'input', field.name) : { kind: 'node' as const, id: nodeId };
-  const range = field.spec && (field.spec.kind === 'int' || field.spec.kind === 'float') && field.spec.min !== undefined && field.spec.max !== undefined
-    ? String(t('field.range', { min: field.spec.min, max: field.spec.max }))
+  // The range helps where it is a real limit (steps 1–10000, denoise 0–1); a seed's 0–2^48 is noise.
+  const spec = field.spec;
+  const range = spec && (spec.kind === 'int' || spec.kind === 'float') && spec.min !== undefined && spec.max !== undefined
+    && !isSeedField(field.name, spec) && Math.abs(spec.max) < 1e9
+    ? String(t('field.range', { min: spec.min, max: spec.max }))
     : null;
   return (
     <div className={`inspector-field ${styles.param}`} data-field={field.name}>

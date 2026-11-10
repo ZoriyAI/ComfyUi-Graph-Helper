@@ -373,7 +373,8 @@ function TextControl({ name, value, disabled, labelledBy, onCommit, multiline, j
     className: cx(multiline ? styles.textarea : styles.text),
     value: draft,
     disabled,
-    spellCheck: multiline,
+    // Prompts are tag lists ("35mm, bokeh"): spelling marks would underline half of them.
+    spellCheck: false,
     placeholder: isUnset(value) ? String(t('field.unset')) : undefined,
     ...nameProps({ labelledBy, name }),
     onFocus: () => setEditing(true),

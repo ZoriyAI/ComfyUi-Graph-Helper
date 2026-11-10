@@ -54,7 +54,7 @@
   border: 1px solid transparent;
   border-radius: 6px;
   background: transparent;
-  color: var(--text-faint, #8b9bb0);
+  color: var(--text-dim, #a3b1c6);
   cursor: pointer;
 }
 .ask:hover { color: var(--ai, #b7a5ff); border-color: color-mix(in srgb, var(--ai, #b7a5ff) 40%, transparent); }
