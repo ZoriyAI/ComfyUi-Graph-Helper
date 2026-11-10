@@ -356,6 +356,7 @@ describe('knowledge repository: graph check', () => {
       unconnectedRequiredInputs: [],
       unknownNodeTypes: [],
       unsetWidgets: [],
+      promptNotes: [],
     });
     expect(() => checkGraph(db, 'nope')).toThrow(/not found/);
     db.close();

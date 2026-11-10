@@ -1,16 +1,17 @@
 import React, { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'motion/react';
-import { CircleCheck, Crosshair, ListChecks, MessageCircleQuestion, TriangleAlert } from 'lucide-react';
+import { CircleCheck, Crosshair, Lightbulb, ListChecks, MessageCircleQuestion, TriangleAlert } from 'lucide-react';
 import type { BaseModelFamily } from '../../../shared/contracts';
 import { familyLabelKey } from '../../../shared/knowledge/labels';
 import { redactDiagnostic } from '../../../shared/i18n';
 import { useGraphStore } from '../../state/graphState';
 import { useKnowledgeStore } from '../../state/knowledgeState';
 import { useUiStore } from '../../state/uiState';
+import { useCanvasStore } from '../graph/canvasStore';
 import { requestAsk } from '../../services/ask';
 import { turnLanguage } from '../../services/llm/chatModel';
-import { checkFindingCount, findingNodeIds, groupCheckReport, nodeNamer, type CheckFinding } from './checkModel';
+import { adviceOf, checkFindingCount, findingNodeIds, groupCheckReport, nodeNamer, type CheckFinding } from './checkModel';
 import styles from './CheckPanel.module.css';
 
 const ROW_MOTION = {
@@ -47,6 +48,16 @@ export default function CheckPanel({ projectId }: { projectId: string }) {
     }
   };
 
+  /**
+   * "Show": the object the row is about becomes the one the Explain panel and the canvas speak of, and for a node
+   * or one of its ports the canvas goes to the node and selects it, so it is found without looking for it.
+   */
+  const show = (finding: CheckFinding) => {
+    setFocus(finding.ref);
+    const nodeId = finding.ref.kind === 'node' ? finding.ref.id : finding.ref.kind === 'port' ? finding.ref.nodeId : undefined;
+    if (nodeId && nodes.some((node) => node.id === nodeId)) useCanvasStore.getState().requestCenter(nodeId);
+  };
+
   const findingText = (finding: CheckFinding): string => {
     const values: Record<string, string> = { ...finding.values };
     if (finding.type === 'baseModelMismatches') {
@@ -71,6 +82,8 @@ export default function CheckPanel({ projectId }: { projectId: string }) {
   const count = checkFindingCount(report);
   // Findings name nodes by their titles on the canvas; the ids stay in each row's tooltip.
   const groups = report ? groupCheckReport(report, resolvePort, nodeNamer(nodes)) : [];
+  // Advice about the descriptions stands apart: the graph runs with it, so it is not a problem and not counted.
+  const advice = report ? adviceOf(report, nodeNamer(nodes)) : [];
   const idsHint = (finding: CheckFinding): string | undefined => {
     const ids = findingNodeIds(finding.values);
     return ids.length > 0 ? String(t('check.nodeIds', { count: ids.length, ids: ids.join(', ') })) : undefined;
@@ -112,7 +125,7 @@ export default function CheckPanel({ projectId }: { projectId: string }) {
                   <motion.li key={finding.key} className={styles.row} data-type={finding.type} {...ROW_MOTION}>
                     <p className={styles.text} title={idsHint(finding)}>{text}</p>
                     <div className={styles.buttons}>
-                      <button type="button" className={styles.button} onClick={() => setFocus(finding.ref)}>
+                      <button type="button" className={styles.button} onClick={() => show(finding)}>
                         <Crosshair size={14} aria-hidden="true" />
                         {t('explain.checkShow')}
                       </button>
@@ -128,6 +141,32 @@ export default function CheckPanel({ projectId }: { projectId: string }) {
           </ul>
         </section>
       ))}
+      {advice.length > 0 ? (
+        <section className={`${styles.group} ${styles.advice}`} aria-labelledby="check-group-promptNotes" data-check-group="promptNotes">
+          <h3 className={styles.groupTitle} id="check-group-promptNotes">
+            <Lightbulb size={14} aria-hidden="true" />
+            {t('check.promptNotes')} ({advice.length})
+          </h3>
+          <p className={styles.note}>{t('check.promptNotesLead')}</p>
+          <ul className={styles.list}>
+            {advice.map((finding) => (
+              <li key={finding.key} className={styles.row} data-type={finding.type}>
+                <p className={styles.text} title={idsHint(finding)}>{findingText(finding)}</p>
+                <div className={styles.buttons}>
+                  <button type="button" className={styles.button} onClick={() => show(finding)}>
+                    <Crosshair size={14} aria-hidden="true" />
+                    {t('explain.checkShow')}
+                  </button>
+                  <button type="button" className={styles.button} onClick={() => askWhy(finding)}>
+                    <MessageCircleQuestion size={14} aria-hidden="true" />
+                    {t('explain.checkAskWhy')}
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
     </section>
   );
 }

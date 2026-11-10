@@ -372,3 +372,84 @@ test('lessons: a video lesson is carried through, the choices that are the perso
     fs.rmSync(userData, { recursive: true, force: true });
   }
 });
+
+test('lessons: the graph a lesson built is checked, and its description is read for what will not work', async () => {
+  test.setTimeout(240_000);
+  const fake = await startFakeMcp();
+  const { app, page, api, userData } = await launch(fake);
+  try {
+    await openLearn(page);
+    await panel(page).locator('[data-lesson-card="image"]').getByRole('button', { name: 'Start', exact: true }).click();
+    const lesson = LESSONS.find((item) => item.id === 'image')!;
+    const current = () => panel(page).locator('[data-lesson-step]').getAttribute('data-lesson-step');
+    // A description as a newcomer brings it from another program: a LoRA written into the text, a weight far too
+    // high, and "no" where the thing is wanted gone.
+    const brought = 'a street with no cars, <lora:neon:0.8>, (rain:1.9)';
+    for (let guard = 0; guard < 60; guard += 1) {
+      const id = await current();
+      if (id === 'end') break;
+      const step = lesson.steps.find((item) => item.id === id)!;
+      if (step.read) {
+        await panel(page).getByRole('button', { name: 'Understood, next', exact: true }).click();
+        await expect.poll(current).not.toBe(id);
+        continue;
+      }
+      if (await letTheAppDo(page, api)) continue;
+      const lack = await panel(page).locator('[class*="lacking"] li').first().innerText();
+      const nodes = await nodesOf(api);
+      if (/Choose a value/.test(lack)) {
+        const loader = nodes.find((node) => node.data.comfyType === 'CheckpointLoaderSimple')!;
+        await change(page, api, { type: 'set-parameter', nodeId: loader.id, key: 'ckpt_name', value: 'juggernautXL_v9.safetensors' });
+      } else if (/Write a description/.test(lack)) {
+        const text = nodes.find((node) => node.data.comfyType === 'CLIPTextEncode')!;
+        await change(page, api, { type: 'set-parameter', nodeId: text.id, key: 'text', value: brought });
+      } else {
+        throw new Error(`the lesson waits at "${id}" for: ${lack}`);
+      }
+    }
+    await stepIs(page, 'end');
+
+    const check = page.locator('.check-panel');
+    const runCheck = async () => {
+      await page.getByRole('button', { name: 'Check graph', exact: true }).click();
+      await expect(check).toBeVisible();
+      await expect(check.getByRole('button', { name: 'Check the graph', exact: true })).toBeEnabled();
+    };
+    await runCheck();
+    // The graph is whole: nothing stops it from running. What is said is about the description, and apart.
+    await expect(check).toContainText('No problems found.');
+    const advice = check.locator('[data-check-group="promptNotes"]');
+    await expect(advice.getByRole('heading')).toContainText('Descriptions: worth changing (3)');
+    await expect(advice).toContainText('These are not errors: the graph will run.');
+    const rows = advice.getByRole('listitem');
+    await expect(rows).toHaveCount(3);
+    await expect(rows.nth(0)).toContainText('holds <lora:neon:0.8>. In ComfyUI this connects nothing');
+    await expect(rows.nth(1)).toContainText('The weight (rain:1.9) in "CLIP Text Encode (Prompt)" is too high.');
+    await expect(rows.nth(2)).toContainText('holds the negation "no".');
+    await shot(page, '7-check-advice');
+    await expectSoundLayout(page, 'check panel with advice about a description', [{ width: 1440, height: 900 }]);
+    // "Show" takes the canvas to the node that holds the text.
+    await rows.nth(0).getByRole('button', { name: 'Show', exact: true }).click();
+    await expect(page.locator('.react-flow__node.selected')).toContainText('CLIP Text Encode');
+
+    // The description put right: there is nothing more to say.
+    const described = (await nodesOf(api)).find((node) => node.data.comfyType === 'CLIPTextEncode' && String(node.data.parameters.text ?? '').includes('street'))!;
+    await change(page, api, { type: 'set-parameter', nodeId: described.id, key: 'text', value: 'an empty street at night, wet asphalt, (rain:1.2)' });
+    await runCheck();
+    await expect(check).toContainText('No problems found.');
+    await expect(check.locator('[data-check-group="promptNotes"]')).toHaveCount(0);
+
+    // A negative description at cfg 1 is said to do nothing, by the names the person sees.
+    const other = (await nodesOf(api)).find((node) => node.data.comfyType === 'CLIPTextEncode' && node.id !== described.id)!;
+    await change(page, api, { type: 'set-parameter', nodeId: other.id, key: 'text', value: 'blurry, distorted' });
+    const sampler = (await nodesOf(api)).find((node) => node.data.comfyType === 'KSampler')!;
+    await change(page, api, { type: 'set-parameter', nodeId: sampler.id, key: 'cfg', value: 1 });
+    await runCheck();
+    await expect(check.locator('[data-check-group="promptNotes"]').getByRole('listitem')).toHaveCount(1);
+    await expect(check.locator('[data-check-group="promptNotes"]')).toContainText('The sampler "KSampler" has cfg 1, and at cfg 1 the negative description does not act at all.');
+  } finally {
+    await app.close();
+    await fake.close();
+    fs.rmSync(userData, { recursive: true, force: true });
+  }
+});

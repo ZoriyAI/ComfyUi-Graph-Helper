@@ -1,5 +1,8 @@
 import type { ModelNotes } from '../knowledge/sidecar';
+import type { PromptNoteKind } from '../prompt/inspect';
 import type { ObjectRef } from './objects';
+
+export type { PromptNoteKind } from '../prompt/inspect';
 
 export type { ExamplePrompt, ModelNotes } from '../knowledge/sidecar';
 
@@ -163,6 +166,26 @@ export interface Explanation {
 
 export type ExplanationInput = Omit<Explanation, 'id' | 'createdAt'>;
 
+/**
+ * Something worth saying about a description (a prompt) in the graph. Advice, not an error: the graph runs, but
+ * not the way the person expects.
+ */
+export interface PromptNote {
+  kind: PromptNoteKind;
+  /** The node the note is about: the node that holds the text, or the LoRA loader whose words are missing. */
+  nodeId: string;
+  classType: string;
+  /** The piece of text the note is about, or the phrases; empty where the sentence needs none. */
+  found: string;
+  /** Numbers a sentence needs: counts of parentheses, a token estimate, the cfg. */
+  numbers?: Record<string, number>;
+  /** The sampler the text reaches, where the note is about the two together. */
+  samplerId?: string;
+  /** For a LoRA's missing words: the file and the words. */
+  model?: string;
+  words?: string[];
+}
+
 export interface GraphCheckReport {
   ok: boolean;
   missingNodes: Array<{ nodeId: string; classType: string }>;
@@ -176,6 +199,11 @@ export interface GraphCheckReport {
    * workflow. Optional so reports written before it existed still read; absent means none.
    */
   unsetWidgets?: Array<{ nodeId: string; classType: string; name: string }>;
+  /**
+   * Advice about the descriptions in the graph (see PromptNote). Never part of `ok`: a graph with such notes
+   * still saves and runs. Optional so reports written before it existed still read.
+   */
+  promptNotes?: PromptNote[];
 }
 
 export interface SyncStatus {

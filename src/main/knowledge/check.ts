@@ -8,6 +8,7 @@ import { portsCompatible } from '../../shared/graph/linkTypes';
 import { familiesCompatible } from '../../shared/knowledge/baseModel';
 import { exportedWidgets, numericSlot } from '../../shared/workflow/codec';
 import { catalogFileIndex, loadedModelFiles } from './loadedModels';
+import { promptNotes } from './promptCheck';
 
 /**
  * Frontend-only node types. They never appear in object_info because the ComfyUI frontend implements them,
@@ -269,6 +270,7 @@ export function checkGraph(db: Database.Database, projectId: string): GraphCheck
     unconnectedRequiredInputs: unconnectedInputs(nodes, edges, specs),
     unknownNodeTypes,
     unsetWidgets: unsetWidgets(nodes, edges, catalog, ignored),
+    promptNotes: promptNotes(db, nodes, edges, specs, catalog),
   };
   report.ok = report.missingNodes.length === 0 && report.missingModels.length === 0 && report.typeMismatches.length === 0
     && report.baseModelMismatches.length === 0 && report.unconnectedRequiredInputs.length === 0 && report.unknownNodeTypes.length === 0

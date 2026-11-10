@@ -71,3 +71,7 @@
 .button:disabled { opacity: 0.55; cursor: default; }
 .primary { background-color: var(--accent-2); background-image: var(--accent-gradient); border-color: rgba(138, 230, 244, 0.6); color: var(--on-accent); font-weight: 600; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), var(--glow-accent); }
 .primary:hover:not(:disabled) { background-color: var(--accent-2); background-image: var(--accent-gradient-hover); }
+
+/* Advice about the descriptions: the graph runs with it, so it reads calmer than a problem. */
+.advice .groupTitle, .advice .groupTitle svg { color: var(--ai, #b7a5ff); }
+.row[data-type="promptNotes"] { border-left-color: var(--ai, #b7a5ff); }

@@ -1,8 +1,9 @@
-import type { GraphCheckReport, ObjectRef } from '../../../shared/contracts';
+import type { GraphCheckReport, ObjectRef, PromptNote } from '../../../shared/contracts';
 
 /** Pure helpers for the Check panel: one row per finding, grouped by finding type in report order. */
 
-export type CheckFindingType =
+/** What stops a graph from running as it is. */
+export type CheckProblemType =
   | 'missingNodes'
   | 'missingModels'
   | 'typeMismatches'
@@ -11,7 +12,10 @@ export type CheckFindingType =
   | 'unknownNodeTypes'
   | 'unsetWidgets';
 
-export const CHECK_FINDING_TYPES: readonly CheckFindingType[] = [
+/** A problem, or advice about a description (a prompt): shown apart from the problems and never counted as one. */
+export type CheckFindingType = CheckProblemType | 'promptNotes';
+
+export const CHECK_FINDING_TYPES: readonly CheckProblemType[] = [
   'missingNodes',
   'missingModels',
   'typeMismatches',
@@ -32,7 +36,7 @@ export interface CheckFinding {
 }
 
 export interface CheckGroup {
-  type: CheckFindingType;
+  type: CheckProblemType;
   /** i18n key of the group title, `check.<type>`. */
   titleKey: string;
   findings: CheckFinding[];
@@ -75,7 +79,7 @@ export function findingNodeIds(values: Record<string, string>): string[] {
 
 export function findingsOf(report: GraphCheckReport, resolvePort?: PortResolver, nameOf?: NodeNamer): CheckFinding[] {
   const out: CheckFinding[] = [];
-  const add = (type: CheckFindingType, key: string, values: Record<string, string>, ref: ObjectRef) => {
+  const add = (type: CheckProblemType, key: string, values: Record<string, string>, ref: ObjectRef) => {
     out.push({ key: `${type}:${key}`, type, textKey: `check.${type}Item`, values: nameFindingValues(values, nameOf), ref });
   };
   report.missingNodes.forEach((item) => add('missingNodes', item.nodeId, { ...item }, { kind: 'node', id: item.nodeId, classType: item.classType }));
@@ -112,6 +116,45 @@ export function groupCheckReport(report: GraphCheckReport, resolvePort?: PortRes
   return CHECK_FINDING_TYPES.flatMap((type) => {
     const items = findings.filter((item) => item.type === type);
     return items.length > 0 ? [{ type, titleKey: `check.${type}`, findings: items }] : [];
+  });
+}
+
+/** The sentence of each kind of advice about a description, `check.prompt.<name>`. */
+const PROMPT_TEXT: Record<PromptNote['kind'], string> = {
+  'lora-tag': 'loraTag',
+  'foreign-syntax': 'foreignSyntax',
+  unbalanced: 'unbalanced',
+  'weight-high': 'weightHigh',
+  'weight-ignored': 'weightIgnored',
+  'negative-ignored': 'negativeIgnored',
+  'empty-positive': 'emptyPositive',
+  contradiction: 'contradiction',
+  negation: 'negation',
+  'not-english': 'notEnglish',
+  'too-long': 'tooLongClip',
+  'missing-trigger': 'missingTrigger',
+};
+
+/**
+ * Advice about the descriptions in the graph, one row each. The graph saves and runs with these; they say where
+ * the result will differ from what the person expects, and what to change.
+ */
+export function adviceOf(report: GraphCheckReport, nameOf?: NodeNamer): CheckFinding[] {
+  return (report.promptNotes ?? []).map((note, index) => {
+    const name = note.kind === 'too-long' && note.found === 't5' ? 'tooLongT5' : PROMPT_TEXT[note.kind];
+    const values: Record<string, string> = { nodeId: note.nodeId, classType: note.classType, found: note.found };
+    for (const [key, value] of Object.entries(note.numbers ?? {})) values[key] = String(Math.round(value * 100) / 100);
+    if (note.model) values.model = note.model;
+    if (note.words) values.words = note.words.join(', ');
+    const named = nameFindingValues(values, nameOf);
+    if (note.samplerId) named.sampler = nameOf?.(note.samplerId) ?? note.samplerId;
+    return {
+      key: `promptNotes:${index}:${note.kind}:${note.nodeId}`,
+      type: 'promptNotes',
+      textKey: `check.prompt.${name}`,
+      values: named,
+      ref: { kind: 'node', id: note.nodeId, classType: note.classType },
+    };
   });
 }
 
