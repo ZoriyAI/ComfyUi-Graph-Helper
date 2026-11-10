@@ -94,11 +94,9 @@ test('access to the server: choose, check, and detect after save', async () => {
     await dialog.getByRole('tab', { name: 'Подключение' }).click();
     await expect(dialog.getByRole('radio', { name: 'Без входа', exact: true })).toBeChecked();
 
-    // Models & keys keeps only the model key.
-    await dialog.getByRole('tab', { name: 'Модели и ключи' }).click();
-    const models = dialog.getByRole('tabpanel', { name: 'Модели и ключи' });
-    await expect(models.getByRole('textbox', { name: 'Ключ сеанса', exact: true })).toBeVisible();
-    await expect(models.getByRole('textbox', { name: 'Токен доступа', exact: true })).toHaveCount(0);
+    // The helper section knows nothing about the server token.
+    await dialog.getByRole('tab', { name: 'Помощник' }).click();
+    await expect(dialog.getByRole('tabpanel', { name: 'Помощник' }).getByRole('textbox', { name: 'Токен доступа', exact: true })).toHaveCount(0);
     // The server was asked: it saw connections and no tool that changes anything.
     expect(fake.calls.length).toBeGreaterThan(0);
   } finally {

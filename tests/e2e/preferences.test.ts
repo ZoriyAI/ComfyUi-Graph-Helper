@@ -30,7 +30,7 @@ test('preferences window: sections, appearance, a recorded shortcut, a canvas to
   await expect(dialog).toHaveAttribute('data-state', 'open');
   const nav = dialog.getByRole('tablist', { name: 'Settings sections' });
   await expect(nav.getByRole('tab')).toHaveText([
-    'Assistant', 'Models & keys', 'Connection', 'Sync', 'Canvas', 'Appearance & Motion', 'Shortcuts', 'Privacy', 'About',
+    'Assistant', 'Connection', 'Sync', 'Canvas', 'Appearance & Motion', 'Shortcuts', 'Privacy', 'About',
   ]);
   const box = await dialog.boundingBox();
   expect(box!.width).toBeGreaterThanOrEqual(760);
@@ -46,13 +46,16 @@ test('preferences window: sections, appearance, a recorded shortcut, a canvas to
   await expect(dialog.getByRole('spinbutton', { name: 'Steps per answer' })).toHaveAttribute('max', '200');
   await expect(dialog.getByRole('spinbutton', { name: 'Context window (tokens)' })).toHaveValue('0');
   await expect(dialog.locator('p.web-limits')).toContainText('at most 10 MB of a web page');
-  await nav.getByRole('tab', { name: 'Models & keys' }).click();
-  await expect(dialog.getByRole('textbox', { name: 'Session key', exact: true })).toBeVisible();
-  await expect(dialog.getByRole('table', { name: 'Where secrets are' })).toBeVisible();
+  // The provider's key sits right under the provider choice, only once a cloud provider is chosen.
+  await expect(dialog.getByRole('textbox', { name: /key$/ })).toHaveCount(0);
+  await dialog.getByRole('radio', { name: 'Anthropic', exact: true }).click();
+  await expect(dialog.getByRole('textbox', { name: 'Anthropic key', exact: true })).toBeVisible();
+  await dialog.getByRole('radio', { name: 'Not chosen', exact: true }).click();
   await nav.getByRole('tab', { name: 'Sync' }).click();
   await expect(dialog.getByRole('spinbutton', { name: 'Models per batch' })).toHaveValue('50');
   await nav.getByRole('tab', { name: 'Privacy' }).click();
   await expect(dialog.getByRole('switch', { name: 'Send field values to the model' })).toHaveAttribute('aria-checked', 'true');
+  await expect(dialog.getByRole('table', { name: 'Where secrets are' })).toBeVisible();
   await expect(dialog.locator('li.web-limits')).toContainText('60,000 characters');
   await nav.getByRole('tab', { name: 'About' }).click();
   await expect(dialog.getByText(/^Version \d+\.\d+\.\d+/)).toBeVisible();

@@ -101,15 +101,15 @@ test('prerelease journey configures a provider, builds a process, and exports a 
     await expect(restored.getByRole('textbox', { name: 'Base URL', exact: true })).toHaveValue('http://127.0.0.1:9/v1');
     await restored.getByRole('tab', { name: 'Connection' }).click();
     await expect(restored.getByRole('textbox', { name: 'Comfy origin', exact: true })).toHaveValue(origin);
-    // Keys moved from Connection to their own section, Models & keys.
-    await restored.getByRole('tab', { name: 'Models & keys' }).click();
-    await expect(restored.getByRole('textbox', { name: 'API key', exact: true })).toBeDisabled();
-    await expect(restored.getByRole('button', { name: 'Save key' })).toBeDisabled();
-    const session = restored.getByRole('textbox', { name: 'Session key', exact: true });
+    // The key lives under the provider choice in Assistant; pasting applies it for this session at once.
+    await restored.getByRole('tab', { name: 'Assistant' }).click();
+    await restored.getByRole('radio', { name: 'OpenAI', exact: true }).click();
+    const session = restored.getByRole('textbox', { name: 'OpenAI key', exact: true });
     await session.fill(SESSION_MARKER);
-    await restored.getByRole('button', { name: 'Use for this session' }).click();
-    await expect(session).toHaveValue('');
-    await expect(restored.getByText('The key is held for this session only. It was not written.')).toBeVisible();
+    await expect(restored.getByRole('status', { name: 'OpenAI key' })).toHaveText('The key is kept until restart.', { timeout: 20000 });
+    // Without a password store the only offer is the app folder file, which this test does not take.
+    await expect(restored.getByRole('button', { name: 'Remember on this computer' })).toHaveCount(0);
+    await restored.getByRole('radio', { name: 'Local endpoint', exact: true }).click();
     const blocked = await window.evaluate(async (marker) => {
       const bridge = (window as unknown as { electronAPI: { saveSecret: (value: string) => Promise<{ status: string }> } }).electronAPI;
       return bridge.saveSecret(marker);

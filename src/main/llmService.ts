@@ -64,7 +64,7 @@ function httpsCloudEndpoint(value: string | undefined): boolean {
   }
 }
 
-export type KeySource = 'none' | 'session' | 'os';
+export type KeySource = 'none' | 'session' | 'os' | 'file';
 
 export interface StreamOptions {
   /** Upper bound on model steps. Each tool round trip is one step. Clamped to the preferences range. */
@@ -197,6 +197,18 @@ class MainLLMService {
     if (value.length === 0 || value.length > 4000) return;
     this.sessionKey = value;
     this.sessionSource = 'os';
+  }
+
+  /** Holds a key read from the app folder file the person chose on a computer without a password store. */
+  holdFileKey(value: string): void {
+    if (value.length === 0 || value.length > 4000) return;
+    this.sessionKey = value;
+    this.sessionSource = 'file';
+  }
+
+  /** The held key for remembering it; never returned to the renderer. */
+  heldKey(): string | null {
+    return this.sessionKey;
   }
 
   /** The held LLM key and MCP token, for exact-match redaction only. Never returned to a caller. */

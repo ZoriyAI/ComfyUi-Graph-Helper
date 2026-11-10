@@ -208,3 +208,6 @@
 .aboutName { margin: 0; color: var(--text); font-size: var(--text-lg); font-weight: 600; }
 /* A field value the app will refuse later (an http MCP URL off this machine): said while it is typed. */
 .errorNote { margin: 0; color: var(--danger); font-size: var(--text-xs); line-height: 18px; max-width: 60ch; }
+
+/* Settings ▸ Assistant ▸ the provider's key, right under the provider cards. */
+.keyPanel { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 10px; padding: 12px 14px; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--surface-raised); }

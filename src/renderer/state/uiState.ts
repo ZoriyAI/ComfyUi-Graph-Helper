@@ -18,7 +18,7 @@ export interface TourStep {
 export type ShellDialog = 'shortcuts' | 'about' | 'new-project' | 'export-guard';
 
 /** Settings sections, in the order of the Preferences window's navigation. The menu opens it on one. */
-export const SETTINGS_SECTIONS = ['assistant', 'models', 'connection', 'sync', 'canvas', 'appearance', 'shortcuts', 'privacy', 'about'] as const;
+export const SETTINGS_SECTIONS = ['assistant', 'connection', 'sync', 'canvas', 'appearance', 'shortcuts', 'privacy', 'about'] as const;
 export type SettingsSection = typeof SETTINGS_SECTIONS[number];
 
 export interface TourState {

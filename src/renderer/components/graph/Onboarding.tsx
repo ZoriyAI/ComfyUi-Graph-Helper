@@ -68,7 +68,7 @@ export default function Onboarding({ onImport }: { onImport?: () => void }) {
   if (provider === '') {
     helper = { ...helperBase, state: 'todo', text: translate('canvas.onboardHelperBody'), action: { label: translate('canvas.onboardChooseHelper'), onClick: () => openSettings('assistant'), icon: <Sparkles size={16} aria-hidden="true" />, primary: connect.state === 'done' } };
   } else if (keyState === 'missing') {
-    helper = { ...helperBase, state: 'problem', text: translate('canvas.onboardHelperNeedsKey'), action: { label: translate('canvas.onboardAddKey'), onClick: () => openSettings('models') } };
+    helper = { ...helperBase, state: 'problem', text: translate('canvas.onboardHelperNeedsKey'), action: { label: translate('canvas.onboardAddKey'), onClick: () => openSettings('assistant') } };
   } else {
     const name = stored.provider === provider && stored.model ? stored.model : provider === 'local' ? translate('canvas.onboardLocalModel') : PROVIDER_NAMES[provider] ?? provider;
     helper = { ...helperBase, state: 'done', text: translate('canvas.onboardHelperReady', { name }) };

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Bot, Info, Keyboard, KeyRound, LayoutGrid, Palette, Plug, RefreshCw, ShieldCheck, type LucideIcon } from 'lucide-react';
+import { Bot, Info, Keyboard, LayoutGrid, Palette, Plug, RefreshCw, ShieldCheck, type LucideIcon } from 'lucide-react';
 import { secretBearingFields, settingsWriteError } from '../../../shared/config/draft';
 import { nonSecretDefaults, type NonSecretSettings, type SettingsRead } from '../../../shared/config/schema';
 import {
@@ -28,7 +28,7 @@ import { TabsContent, TabsList, TabsRoot, TabsTrigger } from '../../ui/Tabs';
 import { cx } from '../../ui/cx';
 import SyncSection from './SyncSection';
 import AssistantSection from './sections/AssistantSection';
-import ModelsSection from './sections/ModelsSection';
+import type { KeySource } from '../../state/providerState';
 import ConnectionSection from './sections/ConnectionSection';
 import CanvasSection from './sections/CanvasSection';
 import AppearanceSection from './sections/AppearanceSection';
@@ -62,7 +62,6 @@ function sameSettings(left: NonSecretSettings, right: NonSecretSettings) {
 
 const SECTION_META: Record<SettingsSection, { labelKey: string; icon: LucideIcon }> = {
   assistant: { labelKey: 'preferences.nav.assistant', icon: Bot },
-  models: { labelKey: 'preferences.nav.models', icon: KeyRound },
   connection: { labelKey: 'preferences.nav.connection', icon: Plug },
   sync: { labelKey: 'preferences.nav.sync', icon: RefreshCw },
   canvas: { labelKey: 'preferences.nav.canvas', icon: LayoutGrid },
@@ -99,7 +98,7 @@ export default function SettingsPanel({
 }: {
   onRead: (values: NonSecretSettings) => void;
   onSaved: (values: NonSecretSettings) => void;
-  onSession: (source: 'none' | 'session' | 'os') => void;
+  onSession: (source: KeySource) => void;
   triggerIcon?: React.ReactNode;
   /** The button that opens the dialog (focus returns to it). Defaults to a small "Settings" button. */
   trigger?: React.ReactElement;
@@ -365,8 +364,7 @@ export default function SettingsPanel({
                 );
               })}
             </TabsList>
-            {panel('assistant', <AssistantSection {...draft} />)}
-            {panel('models', <ModelsSection provider={values.provider} onSession={(source) => onSessionRef.current(source)} />)}
+            {panel('assistant', <AssistantSection {...draft} onSession={(source) => onSessionRef.current(source)} />)}
             {panel('connection', <ConnectionSection {...draft} />)}
             {panel('sync', (
               <>

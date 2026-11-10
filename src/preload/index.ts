@@ -63,6 +63,7 @@ const IPC_CHANNELS = {
   MCP_SAVE_TOKEN_FILE: 'mcp:save-token-file',
   SECRET_STORE_GET: 'secret:store-get',
   SECRET_STORE_SET: 'secret:store-set',
+  SETTINGS_SAVE_SECRET_FILE: 'settings:save-secret-file',
   MCP_OAUTH_LOGIN: 'mcp:oauth-login',
   MCP_OAUTH_LOGOUT: 'mcp:oauth-logout',
   MCP_OAUTH_STATUS: 'mcp:oauth-status',
@@ -156,9 +157,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   getSettings: () => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_GET),
   saveSettings: (input: unknown) => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SAVE, input),
-  saveSecret: (value: string) => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SAVE_SECRET, value),
+  /** Without a value, the key held for this session is the one saved. */
+  saveSecret: (value?: string) => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SAVE_SECRET, value),
+  saveSecretFile: () => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SAVE_SECRET_FILE) as Promise<{ status: 'stored' | 'missing' }>,
   forgetSecret: () => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_FORGET_SECRET) as Promise<{ status: 'removed' }>,
-  secretStatus: () => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SECRET_STATUS) as Promise<{ persist: boolean; backend: string; reason: string; stored: boolean }>,
+  secretStatus: () => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SECRET_STATUS) as Promise<{ persist: boolean; backend: string; reason: string; stored: boolean; inFile: boolean }>,
   readComfy: () => ipcRenderer.invoke(IPC_CHANNELS.COMFY_READ) as Promise<
     | { ok: true; version: string; devices: number; nodes: number; models: number; skipped: string[] }
     | { ok: false; error: string }
@@ -197,8 +200,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   llmSetConfig: (config: { provider: string; model: string; apiKey?: string; baseURL?: string }) =>
     ipcRenderer.invoke(IPC_CHANNELS.LLM_SET_CONFIG, config),
   llmGetConfig: () => ipcRenderer.invoke(IPC_CHANNELS.LLM_GET_CONFIG) as Promise<ChatRuntimeConfig>,
-  llmSetSessionKey: (value: string) => ipcRenderer.invoke(IPC_CHANNELS.LLM_SET_SESSION_KEY, value) as Promise<{ held: boolean; source: 'none' | 'session' | 'os' }>,
-  llmSessionStatus: () => ipcRenderer.invoke(IPC_CHANNELS.LLM_SESSION_STATUS) as Promise<{ held: boolean; source: 'none' | 'session' | 'os' }>,
+  llmSetSessionKey: (value: string) => ipcRenderer.invoke(IPC_CHANNELS.LLM_SET_SESSION_KEY, value) as Promise<{ held: boolean; source: 'none' | 'session' | 'os' | 'file' }>,
+  llmSessionStatus: () => ipcRenderer.invoke(IPC_CHANNELS.LLM_SESSION_STATUS) as Promise<{ held: boolean; source: 'none' | 'session' | 'os' | 'file' }>,
   llmProbe: (draft: { provider: string; model: string; baseURL: string }) => ipcRenderer.invoke(IPC_CHANNELS.LLM_PROBE, draft) as Promise<LlmProbeResult>,
   llmListModels: (draft: { provider: string; model?: string; baseURL: string }) => ipcRenderer.invoke(IPC_CHANNELS.LLM_LIST_MODELS, draft) as Promise<ModelListResult>,
   llmDiscoverLocal: () => ipcRenderer.invoke(IPC_CHANNELS.LLM_DISCOVER_LOCAL) as Promise<LocalDiscovery>,
@@ -330,9 +333,10 @@ export interface ElectronAPI {
   getSettings: () => Promise<SettingsRead>;
   /** `input.preferences`, when present, is a patch merged onto the stored preferences. */
   saveSettings: (input: unknown) => Promise<SettingsSaveResult>;
-  saveSecret: (value: string) => Promise<{ status: 'secret-storage-blocked' | 'stored' }>;
+  saveSecret: (value?: string) => Promise<{ status: 'secret-storage-blocked' | 'stored' }>;
+  saveSecretFile: () => Promise<{ status: 'stored' | 'missing' }>;
   forgetSecret: () => Promise<{ status: 'removed' }>;
-  secretStatus: () => Promise<{ persist: boolean; backend: string; reason: string; stored: boolean }>;
+  secretStatus: () => Promise<{ persist: boolean; backend: string; reason: string; stored: boolean; inFile: boolean }>;
   readComfy: () => Promise<
     | { ok: true; version: string; devices: number; nodes: number; models: number; skipped: string[] }
     | { ok: false; error: string }
@@ -375,8 +379,8 @@ export interface ElectronAPI {
     baseURL?: string;
   }) => Promise<void>;
   llmGetConfig: () => Promise<ChatRuntimeConfig>;
-  llmSetSessionKey: (value: string) => Promise<{ held: boolean; source: 'none' | 'session' | 'os' }>;
-  llmSessionStatus: () => Promise<{ held: boolean; source: 'none' | 'session' | 'os' }>;
+  llmSetSessionKey: (value: string) => Promise<{ held: boolean; source: 'none' | 'session' | 'os' | 'file' }>;
+  llmSessionStatus: () => Promise<{ held: boolean; source: 'none' | 'session' | 'os' | 'file' }>;
   /** Settings ▸ Assistant ▸ Check connection. Errors come back redacted. */
   llmProbe: (draft: { provider: string; model: string; baseURL: string }) => Promise<LlmProbeResult>;
   /** Settings ▸ Assistant: the models the draft provider or local server offers. A cloud key is used in main only. */

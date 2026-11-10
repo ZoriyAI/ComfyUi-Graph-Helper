@@ -15,7 +15,8 @@ import SelectField from '../../../ui/SelectField';
 import SuggestField, { type SuggestStatus } from '../../../ui/SuggestField';
 import Switch from '../../../ui/Switch';
 import { cx } from '../../../ui/cx';
-import { providerKeyState, useProviderStore, type ProviderKeyState, testProviderOffered } from '../../../state/providerState';
+import { CLOUD_PROVIDERS, providerKeyState, useProviderStore, type KeySource, type ProviderKeyState, testProviderOffered } from '../../../state/providerState';
+import KeyPanel from './KeyPanel';
 import styles from '../SettingsPanel.module.css';
 import { fieldClass, Group, hintClass, patchSection, rowClass, SectionHead, type DraftProps } from './common';
 import { listable, modelSuggestions, serverFor, serverSuggestions, withKnownFacts } from './pickerItems';
@@ -40,7 +41,7 @@ type Discovery = { kind: 'idle' } | { kind: 'loading' } | { kind: 'done'; server
 const LIST_DEBOUNCE_MS = 450;
 
 /** Settings ▸ Assistant: provider cards, model and base URL, Check connection, and how the helper behaves. */
-export default function AssistantSection({ values, setValues, prefs, setPrefs, container, fieldError, pending }: DraftProps) {
+export default function AssistantSection({ values, setValues, prefs, setPrefs, container, fieldError, pending, onSession }: DraftProps & { onSession: (source: KeySource) => void }) {
   const { t } = useTranslation();
   const translate: Translator = (key, options) => (options ? String(t(key, options)) : String(t(key)));
   const keySource = useProviderStore((state) => state.keySource);
@@ -195,6 +196,7 @@ export default function AssistantSection({ values, setValues, prefs, setPrefs, c
         })}
       />
       {providerHint ? <p className={hintClass}>{providerHint}</p> : null}
+      {CLOUD_PROVIDERS.has(provider) ? <KeyPanel provider={provider} baseURL={values.baseURL} onSession={onSession} /> : null}
       {provider === 'local' ? (
         <SuggestField
           className={fieldClass}

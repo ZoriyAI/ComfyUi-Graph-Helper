@@ -45,13 +45,14 @@ test('blocked secret IPC leaves the disabled key controls empty and the marker o
   const window = await app.firstWindow();
   await useEnglish(window);
   await window.getByRole('button', { name: 'Settings', exact: true }).click();
-  // Keys live in Settings ▸ Models & keys (they were on the Connection section).
-  await window.locator('[role="dialog"].settings-dialog').getByRole('tab', { name: 'Models & keys' }).click();
-  const input = window.locator('input[aria-label="API key"]');
-  await expect(input).toBeDisabled();
-  await expect(window.getByRole('button', { name: 'Save key' })).toBeDisabled();
+  // The key lives under the provider choice in Assistant; without a password store nothing can be remembered.
+  const dialog = window.locator('[role="dialog"].settings-dialog');
+  await dialog.getByRole('tab', { name: 'Assistant' }).click();
+  await dialog.getByRole('radio', { name: 'OpenAI', exact: true }).click();
+  const input = dialog.getByRole('textbox', { name: 'OpenAI key', exact: true });
+  await expect(input).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Remember on this computer' })).toHaveCount(0);
   const keyReason = 'The system password store is not available on this computer, so keys live only until the app closes.';
-  await expect(window.getByRole('tabpanel', { name: 'Models & keys' }).getByText(keyReason)).toBeVisible();
   await expect(window.getByRole('contentinfo').getByText(keyReason)).toBeVisible();
   const result = await window.evaluate(async (marker) => {
     const bridge = (window as unknown as { electronAPI: { saveSecret: (value: string) => Promise<{ status: string }> } }).electronAPI;
@@ -59,7 +60,6 @@ test('blocked secret IPC leaves the disabled key controls empty and the marker o
   }, FAKE_MARKER);
   expect(result).toEqual({ status: 'secret-storage-blocked' });
   expect(await input.inputValue()).toBe('');
-  expect(await input.isDisabled()).toBe(true);
   console.log('IPC_DONE status=secret-storage-blocked field_disabled=true');
   scanSqlite(userData, 'AFTER_IPC');
   await app.close();

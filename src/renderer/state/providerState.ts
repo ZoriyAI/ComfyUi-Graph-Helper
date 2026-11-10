@@ -4,7 +4,7 @@ import { isPreferenceProvider } from '../../shared/config/preferences';
 import { currentPreferences } from './preferencesState';
 
 /** Where the provider's key lives right now: nowhere, in memory for this session, or in OS storage. */
-export type KeySource = 'none' | 'session' | 'os';
+export type KeySource = 'none' | 'session' | 'os' | 'file';
 
 /** How the provider's key stands, shown as the colour of the chip's dot. */
 export type ProviderKeyState = 'none' | 'test' | 'ok' | 'session' | 'missing';
@@ -39,6 +39,7 @@ export function providerChoices(): Array<{ value: string; labelKey: string }> {
 export function providerNoteKey(provider: string, keySource: KeySource): string {
   if (provider === 'test') return 'provider.test';
   if (provider === 'local') return 'provider.local';
+  if (keySource === 'file' && CLOUD_PROVIDERS.has(provider)) return 'provider.cloudFile';
   if (provider === 'openai') return keySource === 'os' ? 'provider.openaiStored' : keySource === 'session' ? 'provider.openaiHeld' : 'provider.openai';
   if (provider === 'anthropic') return keySource === 'os' ? 'provider.cloudStored' : keySource === 'session' ? 'provider.anthropicHeld' : 'provider.anthropic';
   if (provider === 'google') return keySource === 'os' ? 'provider.cloudStored' : keySource === 'session' ? 'provider.googleHeld' : 'provider.google';
@@ -49,7 +50,7 @@ export function providerNoteKey(provider: string, keySource: KeySource): string 
 export function providerKeyState(provider: string, keySource: KeySource): ProviderKeyState {
   if (provider === 'test') return 'test';
   if (provider === 'local') return 'ok';
-  if (CLOUD_PROVIDERS.has(provider)) return keySource === 'os' ? 'ok' : keySource === 'session' ? 'session' : 'missing';
+  if (CLOUD_PROVIDERS.has(provider)) return keySource === 'os' || keySource === 'file' ? 'ok' : keySource === 'session' ? 'session' : 'missing';
   return 'none';
 }
 

@@ -18,6 +18,7 @@ import { registerDiagnosticsIpc } from './ipc/diagnosticsIpc';
 import { mcpOriginOf, mcpToken, mcpTokenFor, mcpTokenStatus, releaseMcpTokenIfOriginChanged, setMcpToken } from './mcp/token';
 import { readTokenFile, removeTokenFile, tokenFileHolds, writeTokenFile } from './mcp/tokenFile';
 import { isPasswordStoreChoice, readPasswordStoreOverride, writePasswordStoreOverride } from './settings/passwordStoreOverride';
+import { keyFileHolds, readKeyFile, removeKeyFile, writeKeyFile } from './settings/keyFile';
 import { configureMcpOAuth, loginToMcp, logoutFromMcp, mcpOAuth, oauthStatus } from './mcp/oauth';
 import { detectMcpAuth } from './mcp/detect';
 import { connectStreamableHttp, openReadOnlySession } from './mcp/client';
@@ -74,17 +75,35 @@ function adoptStoredChatRuntime(): void {
   });
 }
 
+/**
+ * The model key is held again at startup: from the OS password manager when it proved encryption, else from the
+ * app folder file the person chose on a computer without a password store, for the saved provider only.
+ */
 async function adoptStoredKey(): Promise<void> {
   const decision = await secretStatus();
-  if (!decision.persist) return;
-  const cipher = readProviderKeyCipher(getDatabase());
-  if (!cipher || isUnprotectedCipher(cipher)) return;
-  try {
-    const opened = await safeStorage.decryptStringAsync(cipher);
-    if (opened.result) mainLLMService.holdOsKey(opened.result);
-  } catch {
-    // The OS store did not unlock the ciphertext. Memory stays empty.
+  if (decision.persist) {
+    const cipher = readProviderKeyCipher(getDatabase());
+    if (cipher && !isUnprotectedCipher(cipher)) {
+      try {
+        const opened = await safeStorage.decryptStringAsync(cipher);
+        if (opened.result) {
+          mainLLMService.holdOsKey(opened.result);
+          return;
+        }
+      } catch {
+        // The OS store did not unlock the ciphertext; the file, if any, is tried next.
+      }
+    }
   }
+  const read = readSettings(getDatabase());
+  const provider = read.source === 'corrupt' ? '' : read.values.provider;
+  const file = readKeyFile(app.getPath('userData'));
+  if (provider && file && file.provider === provider) mainLLMService.holdFileKey(file.key);
+}
+
+function savedProvider(): string {
+  const read = readSettings(getDatabase());
+  return read.source === 'corrupt' ? '' : read.values.provider;
 }
 
 function mcpTokenRecordName(url: string | null | undefined): string | null {
@@ -314,24 +333,43 @@ export async function setupIPC(): Promise<void> {
     return result;
   });
 
+  /** The key to remember: the one just pasted, or the one already held for this session. Never logged. */
+  const keyToRemember = (value: unknown): string | null => {
+    if (typeof value === 'string' && value.length > 0 && value.length <= 4000) return value;
+    return mainLLMService.heldKey();
+  };
+
   ipcMain.handle(IPC_CHANNELS.SETTINGS_SAVE_SECRET, async (_event, value: unknown) => {
     const decision = await secretStatus();
-    if (!decision.persist || typeof value !== 'string' || value.length === 0) return attemptSaveSecret(getDatabase());
-    const cipher = await safeStorage.encryptStringAsync(value);
-    const saved = saveSecretIfProven(getDatabase(), decision, value, cipher);
-    if (saved.status === 'stored') mainLLMService.holdOsKey(value);
+    const text = keyToRemember(value);
+    if (!decision.persist || !text) return attemptSaveSecret(getDatabase());
+    const cipher = await safeStorage.encryptStringAsync(text);
+    const saved = saveSecretIfProven(getDatabase(), decision, text, cipher);
+    if (saved.status === 'stored') mainLLMService.holdOsKey(text);
     return saved;
+  });
+
+  // The person's explicit choice on a computer without a password store: the key in an owner-only file.
+  ipcMain.handle(IPC_CHANNELS.SETTINGS_SAVE_SECRET_FILE, () => {
+    const provider = savedProvider();
+    const text = keyToRemember(undefined);
+    if (!provider || !text) return { status: 'missing' as const };
+    writeKeyFile(app.getPath('userData'), provider, text);
+    mainLLMService.holdFileKey(text);
+    console.log('[IPC] Model key remembered in the app folder file (value NOT logged)');
+    return { status: 'stored' as const };
   });
 
   ipcMain.handle(IPC_CHANNELS.SETTINGS_FORGET_SECRET, () => {
     forgetProviderKey(getDatabase());
+    removeKeyFile(app.getPath('userData'));
     mainLLMService.setSessionKey('');
     return { status: 'removed' as const };
   });
 
   ipcMain.handle(IPC_CHANNELS.SETTINGS_SECRET_STATUS, async () => {
     const decision = await secretStatus();
-    return { ...decision, stored: readProviderKeyCipher(getDatabase()) != null };
+    return { ...decision, stored: readProviderKeyCipher(getDatabase()) != null, inFile: keyFileHolds(app.getPath('userData'), savedProvider()) };
   });
 
   ipcMain.handle(IPC_CHANNELS.COMFY_READ, async () => {

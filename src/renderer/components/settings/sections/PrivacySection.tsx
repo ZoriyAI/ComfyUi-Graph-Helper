@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Trash2 } from 'lucide-react';
+import { Eraser, Trash2 } from 'lucide-react';
 import { DESKTOP_PROJECT_ID } from '../../../../shared/project';
 import { FETCH_PAGE_BYTE_CAP, FETCH_PAGE_TEXT_CAP, megabytes } from '../../../../shared/agent/limits';
 import Button from '../../../ui/Button';
 import Switch from '../../../ui/Switch';
 import SelectField from '../../../ui/SelectField';
-import type { SecretStoreInfo } from '../../../../shared/contracts';
+import type { McpTokenStatus, SecretStoreInfo } from '../../../../shared/contracts';
+import { useProviderStore, type KeySource } from '../../../state/providerState';
+import { tokenPlaceKey } from '../mcpAccess';
 import { cx } from '../../../ui/cx';
 import { useChatStore } from '../../../state/chatState';
 import styles from '../SettingsPanel.module.css';
@@ -30,6 +32,23 @@ export default function PrivacySection({ prefs, setPrefs, container }: DraftProp
       setStore((current) => (current ? { ...current, override: choice } : current));
       setStoreNote(String(t('preferences.secretStoreSaved')));
     }
+  };
+  // Where the secrets are right now: the model key and the server token, never the values.
+  const keySource = useProviderStore((state) => state.keySource);
+  const provider = useProviderStore((state) => state.provider);
+  const [token, setToken] = useState<McpTokenStatus | null>(null);
+  const [forgetNote, setForgetNote] = useState('');
+  const refreshToken = () => window.electronAPI.mcpTokenStatus().then(setToken).catch(() => undefined);
+  useEffect(() => {
+    void refreshToken();
+  }, []);
+  const keyPlace = (source: KeySource): string => (source === 'os' ? 'preferences.placeOs' : source === 'file' ? 'preferences.placeFile' : source === 'session' ? 'preferences.placeSession' : 'preferences.placeNone');
+  const forgetEverything = async () => {
+    await window.electronAPI.forgetSecret();
+    await window.electronAPI.mcpForgetToken();
+    useProviderStore.getState().setKeySource('none');
+    await refreshToken();
+    setForgetNote(String(t('preferences.forgotAll')));
   };
   const storeOptions = [
     { value: 'auto', label: String(t('preferences.secretStoreAuto')) },
@@ -66,6 +85,32 @@ export default function PrivacySection({ prefs, setPrefs, container }: DraftProp
           <li>{t('preferences.keysLive')}</li>
           <li className="web-limits">{t('preferences.webLimits', { bytes: megabytes(FETCH_PAGE_BYTE_CAP), chars: FETCH_PAGE_TEXT_CAP })}</li>
         </ul>
+      </Group>
+      <Group>
+        <table className={styles.table}>
+          <caption className={styles.caption}>{t('preferences.secretsTitle')}</caption>
+          <thead>
+            <tr>
+              <th scope="col">{t('preferences.secretColumn')}</th>
+              <th scope="col">{t('preferences.placeColumn')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">{t('preferences.providerKeyRow')}{provider ? ` (${provider})` : ''}</th>
+              <td><span className={cx(styles.placeDot, keySource !== 'none' && styles.placeOn)} aria-hidden="true" />{t(keyPlace(keySource))}</td>
+            </tr>
+            <tr>
+              <th scope="row">{t('preferences.tokenRow')}</th>
+              <td><span className={cx(styles.placeDot, token?.held && styles.placeOn)} aria-hidden="true" />{t(token ? tokenPlaceKey(token) : 'settings.tokenPlaceNone')}</td>
+            </tr>
+          </tbody>
+        </table>
+        <div className={cx(rowClass, styles.rowStart)}>
+          <Button size="sm" variant="danger" icon={<Eraser size={14} aria-hidden="true" />} onClick={() => void forgetEverything()}>{t('preferences.forgetAll')}</Button>
+        </div>
+        <p className={hintClass}>{t('preferences.forgetAllHint')}</p>
+        {forgetNote ? <p className={hintClass} role="status">{forgetNote}</p> : null}
       </Group>
       <Group title={String(t('preferences.secretStoreTitle'))}>
         {store ? (
