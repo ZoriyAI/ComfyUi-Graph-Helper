@@ -83,6 +83,8 @@
 .controls :global(.react-flow__controls-button) { border-right: 1px solid transparent; }
 .controls :global(.react-flow__controls-button svg) { width: 13px; height: 13px; max-width: 13px; max-height: 13px; fill: currentColor; }
 .wide { padding: 0 10px; }
+/* Lucide glyphs are drawn with strokes: React Flow's control-button fill would turn them into blobs. */
+.controls :global(.react-flow__controls-button) .glyph { width: 16px; height: 16px; max-width: 16px; max-height: 16px; fill: none; }
 .label { padding: 0 6px; color: var(--text-dim, #a3b1c6); font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .slider { width: 140px; accent-color: var(--accent, #65d9ed); }
 

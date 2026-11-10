@@ -27,7 +27,7 @@ describe('app commands', () => {
     const expected: Record<string, string> = {
       'file.new': 'Mod+N', 'file.open': 'Mod+O', 'file.save': 'Mod+S', 'file.import': 'Mod+I', 'file.export': 'Mod+E',
       'edit.undo': 'Mod+Z', 'edit.redo': 'Mod+Shift+Z', 'edit.selectAll': 'Mod+A', 'edit.delete': 'Delete',
-      'graph.addNode': 'Mod+K', 'graph.createSubgraph': 'Mod+G', 'graph.check': 'Mod+Shift+C',
+      'graph.addNode': 'Mod+K', 'graph.createSubgraph': 'Mod+G', 'graph.check': 'Mod+Shift+C', 'graph.arrange': 'Mod+Shift+L',
       'view.rail': 'Mod+B', 'view.dock': 'Mod+J', 'view.zoomReset': 'Mod+0', 'view.zoomIn': 'Mod+=', 'view.zoomOut': 'Mod+-',
       'assistant.focusChat': 'Mod+/', 'help.shortcuts': 'F1', 'view.stopExplaining': 'Escape',
     };

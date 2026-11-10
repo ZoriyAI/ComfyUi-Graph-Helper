@@ -105,7 +105,8 @@ export const preferencesSchema = z.object({
     /** own / all / off; absent on older rows, where descriptionsModeOf derives it from showDescriptions. */
     descriptions: z.enum(DESCRIPTION_MODES).optional(),
     showMinimap: z.boolean().default(true),
-    followAgent: z.boolean().default(false),
+    // On by default: a build the person cannot see happens off screen (polish wave F2). Stored choices are kept.
+    followAgent: z.boolean().default(true),
     buildPaceMs: int(BUILD_PACE),
     tourAutoplay: z.boolean().default(true),
     gridSize: int(GRID_SIZE),

@@ -1,16 +1,15 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { CheckCheck, ChevronLeft, ChevronRight, Compass, FastForward, MessageSquareText, MessagesSquare, Navigation, Pause, Play, Plus, Square } from 'lucide-react';
-import { Controls } from '@xyflow/react';
+import { CheckCheck, ChevronLeft, ChevronRight, Compass, MessageSquareText, MessagesSquare, Navigation, Pause, Play, Square, SquarePlus, Workflow, ZoomIn, ZoomOut } from 'lucide-react';
+import { ControlButton, Controls } from '@xyflow/react';
 import { openProposals, useProposalsStore } from '../../state/proposalsState';
 import { useUiStore } from '../../state/uiState';
 import AddNodeSearch from './AddNodeSearch';
 import ReplayPlayer from './ReplayPlayer';
 import { useCanvasStore } from './canvasStore';
-import { revealAllNow } from './layers/BuildLayer';
 import { fitDurationMs } from '../../motion/policy';
 import { startGraphTour } from './tour/startTour';
-import { runCommand } from '../../commands/registry';
+import { runCommand, useCommandState } from '../../commands/registry';
 import styles from './Toolbar.module.css';
 
 const DESCRIPTION_TITLES = {
@@ -31,8 +30,10 @@ export async function acceptAllProposals(): Promise<void> {
 }
 
 /**
- * Floating canvas toolbar: add node, React Flow's zoom / fit / interactivity controls, follow the helper, description cards (own / all / off), the tour player, replay, and
- * proposal / build controls when they apply. Mounted as a React Flow Panel so it sits in the canvas tab zone;
+ * Floating canvas toolbar: add node (labelled «Нода», its own shape so it never reads as zoom), «Разложить»,
+ * zoom in / out (magnifier glyphs), React Flow's fit and interactivity controls, follow the helper, description
+ * cards (own / all / off), the tour player, replay, and accept-all when there are proposals. "Show all now" for
+ * a live build lives only on the live-build strip. Mounted as a React Flow Panel so it sits in the canvas tab zone;
  * onBeforeDelete and React Flow's input check keep graph shortcuts out of its search field.
  */
 export default function CanvasToolbar() {
@@ -43,7 +44,7 @@ export default function CanvasToolbar() {
   const setTourPlaying = useUiStore((state) => state.setTourPlaying);
   const stopTour = useUiStore((state) => state.stopTour);
   const proposals = useProposalsStore((state) => state.proposals);
-  const pending = useCanvasStore((state) => state.pending.length);
+  const arrange = useCommandState('graph.arrange');
   const replaying = useCanvasStore((state) => Boolean(state.replay));
   const descriptionsMode = useCanvasStore((state) => state.descriptionsMode);
   const open = openProposals(proposals).length;
@@ -52,19 +53,40 @@ export default function CanvasToolbar() {
   return (
     <div className={styles.toolbar} role="toolbar" aria-label={String(t('canvas.toolbar'))}>
       <span className={styles.group}>
-        <button type="button" className={`${styles.button} ${styles.primary}`} onClick={() => void runCommand('graph.addNode')} disabled={replaying} title={String(t('canvas.addNode'))} aria-label={String(t('canvas.addNode'))}>
-          <Plus size={16} aria-hidden="true" />
+        <button type="button" className={`${styles.button} ${styles.primary} ${styles.wide}`} onClick={() => void runCommand('graph.addNode')} disabled={replaying} title={String(t('canvas.addNode'))} aria-label={String(t('canvas.addNode'))} data-canvas-add-node>
+          <SquarePlus size={16} aria-hidden="true" />
+          <span>{t('canvas.addNodeLabel')}</span>
         </button>
         <AddNodeSearch />
+        <button
+          type="button"
+          className={`${styles.button} ${styles.wide}`}
+          onClick={() => void runCommand('graph.arrange')}
+          disabled={!arrange.enabled}
+          title={String(t('canvas.arrangeHint'))}
+          aria-label={String(t('canvas.arrangeGraph'))}
+          data-canvas-arrange
+        >
+          <Workflow size={16} aria-hidden="true" />
+          <span>{t('canvas.arrange')}</span>
+        </button>
       </span>
       <span className={styles.group}>
-        {/* React Flow's own controls (zoom in, zoom out, fit, interactivity), drawn as part of this toolbar. */}
+        {/* React Flow's fit and interactivity controls, with zoom drawn as magnifiers so it never looks like "add". */}
         <Controls
           className={styles.controls}
           orientation="horizontal"
           position="top-left"
+          showZoom={false}
           fitViewOptions={{ padding: FIT_PADDING, duration }}
-        />
+        >
+          <ControlButton className="react-flow__controls-zoomin" onClick={() => void runCommand('view.zoomIn')} title={String(t('canvas.zoomIn'))} aria-label={String(t('canvas.zoomIn'))}>
+            <ZoomIn className={styles.glyph} aria-hidden="true" />
+          </ControlButton>
+          <ControlButton className="react-flow__controls-zoomout" onClick={() => void runCommand('view.zoomOut')} title={String(t('canvas.zoomOut'))} aria-label={String(t('canvas.zoomOut'))}>
+            <ZoomOut className={styles.glyph} aria-hidden="true" />
+          </ControlButton>
+        </Controls>
         <button type="button" className={styles.button} aria-pressed={followAgent} onClick={() => void runCommand('view.followAgent')} title={String(t('canvas.followAgent'))} aria-label={String(t('canvas.followAgent'))}>
           <Navigation size={16} aria-hidden="true" />
         </button>
@@ -110,14 +132,6 @@ export default function CanvasToolbar() {
           <button type="button" className={`${styles.button} ${styles.wide}`} onClick={() => void acceptAllProposals()}>
             <CheckCheck size={16} aria-hidden="true" />
             {t('canvas.acceptAll', { count: open })}
-          </button>
-        </span>
-      ) : null}
-      {pending > 0 ? (
-        <span className={styles.group}>
-          <button type="button" className={`${styles.button} ${styles.wide}`} onClick={revealAllNow}>
-            <FastForward size={16} aria-hidden="true" />
-            {t('canvas.showAll')}
           </button>
         </span>
       ) : null}

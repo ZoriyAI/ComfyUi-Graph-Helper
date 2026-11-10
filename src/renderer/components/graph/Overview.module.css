@@ -1,0 +1,76 @@
+/*
+ * The canvas overview level: below ~55 % zoom (CanvasFlow sets data-zoom="overview" on the canvas root) a graph
+ * reads as a map of named blocks. Styled from outside the node card through its stable legacy classes, so the
+ * card itself (nodes/*) needs no zoom logic.
+ * - The title grows as the canvas shrinks (--canvas-title-scale = 1 / zoom, capped) and wraps instead of clipping.
+ * - The header fills with the category colour; class names and every body block (ports, fields, values) fold
+ *   away. Body rows fold to zero height rather than display:none, so the port handles stay in the DOM and React
+ *   Flow still measures them: edges meet each node just under its header.
+ * - Description cards shrink to their dot; edges get a little thicker so the flow stays visible.
+ */
+.host[data-zoom="overview"] :global(.graph-node) {
+  border-color: color-mix(in srgb, var(--canvas-accent, #65d9ed) 55%, var(--border, #2a3648));
+}
+
+.host[data-zoom="overview"] :global(.graph-node) > :first-child {
+  background: color-mix(in srgb, var(--canvas-accent, #65d9ed) 62%, var(--surface-raised, #182131));
+  border-bottom-color: transparent;
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+.host[data-zoom="overview"] :global(.graph-node-title) {
+  font-size: calc(var(--text-sm, 13px) * var(--canvas-title-scale, 1));
+  line-height: 1.12;
+  font-weight: 650;
+  color: #fff;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+
+.host[data-zoom="overview"] :global(.graph-node-type) {
+  display: none;
+}
+
+/* Every block under the header, and everything in it except the handles, folds to nothing. */
+.host[data-zoom="overview"] :global(.graph-node) > :not(:first-child),
+.host[data-zoom="overview"] :global(.graph-node) > :not(:first-child) :not(:global(.react-flow__handle)) {
+  height: 0 !important;
+  min-height: 0 !important;
+  max-height: 0 !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  border-width: 0 !important;
+  overflow: visible;
+  visibility: hidden;
+}
+
+.host[data-zoom="overview"] :global(.port-list),
+.host[data-zoom="overview"] :global(.node-fields) {
+  gap: 0 !important;
+}
+
+.host[data-zoom="overview"] :global(.description-card) {
+  width: 12px !important;
+  min-width: 0 !important;
+  height: 12px;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 50%;
+  border-color: color-mix(in srgb, var(--text-faint, #8b9bb0) 60%, transparent);
+  background: var(--text-faint, #8b9bb0);
+  box-shadow: none;
+}
+
+.host[data-zoom="overview"] :global(.description-card) * {
+  visibility: hidden;
+}
+
+.host[data-zoom="overview"] :global(.react-flow__edge-path) {
+  stroke-width: 3;
+}

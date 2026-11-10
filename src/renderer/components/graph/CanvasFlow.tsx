@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ReactFlow,
@@ -50,7 +50,11 @@ import { definitionView } from './lib/subgraphView';
 import { sameRefs, selectionRefs } from './lib/selection';
 import { stepIndexOf } from './tour/buildTour';
 import { typeColor } from './lib/typeColors';
+import { glideMs, useGlide } from './lib/glide';
+import { nextOverview, rememberSizes, setOverviewLevel, titleScale } from './lib/nodeSizes';
+import { useProjectionStore } from '../../services/commands/projection';
 import styles from './GraphWorkspace.module.css';
+import overviewStyles from './Overview.module.css';
 
 const nodeTypes: NodeTypes = { comfy: ComfyNode, boundary: BoundaryNodeView };
 /** Automatic fits (first nodes, a new level) never zoom past 100 %: one node must not fill the canvas. */
@@ -73,6 +77,40 @@ function ZoomReporter() {
     setViewport({ x: Math.round(x), y: Math.round(y), zoom: Math.round(zoom * 1000) / 1000, width: Math.round(width), height: Math.round(height) });
   }, [setViewport, x, y, zoom, width, height]);
   return null;
+}
+
+/**
+ * Sets `data-zoom="overview"` and the title scale on the canvas root straight on the element, so a zoom gesture
+ * does not re-render the canvas on every frame.
+ */
+function OverviewLevel({ host }: { host: React.RefObject<HTMLDivElement> }) {
+  const zoom = useStore((state) => state.transform[2]);
+  const level = useRef(false);
+  useEffect(() => {
+    const element = host.current;
+    if (!element) return;
+    const overview = nextOverview(level.current, zoom);
+    level.current = overview;
+    setOverviewLevel(overview);
+    if (overview) element.dataset.zoom = 'overview';
+    else delete element.dataset.zoom;
+    element.style.setProperty('--canvas-title-scale', String(titleScale(zoom)));
+  }, [zoom, host]);
+  return null;
+}
+
+/** A build ended (run closed, every step shown): after the tidy glides into place, fit the view to what was built. */
+function useFitAfterBuild(fit: () => void) {
+  const activeRun = useProjectionStore((state) => state.activeRun);
+  const queued = useCanvasStore((state) => state.queue.length);
+  const runId = useCanvasStore((state) => state.live.runId);
+  const shown = useCanvasStore((state) => state.live.shown);
+  const fitted = useRef<string | null>(null);
+  useEffect(() => {
+    if (activeRun || queued > 0 || !runId || shown === 0 || fitted.current === runId) return;
+    fitted.current = runId;
+    window.setTimeout(() => window.requestAnimationFrame(fit), glideMs() + 40);
+  }, [activeRun, queued, runId, shown, fit]);
 }
 
 function portsOf(node: LevelNode | undefined, side: 'inputs' | 'outputs'): PortDefinition[] {
@@ -162,6 +200,15 @@ export default function CanvasFlow() {
   const nodes: LevelNode[] = mode === 'replay' ? replayView?.nodes ?? [] : mode === 'definition' ? inner!.nodes : rootNodes;
   const edges: GraphEdge[] = mode === 'replay' ? replayView?.edges ?? [] : mode === 'definition' ? inner!.edges : rootEdges;
   const readOnly = mode === 'replay';
+  const { nodes: drawnNodes, skipNext: ownMove, stop: stopGlide } = useGlide(nodes, mode === 'root');
+  const host = useRef<HTMLDivElement>(null);
+
+  // Sizes at a readable zoom, for «Разложить граф» while the overview has collapsed the nodes.
+  useEffect(() => {
+    if (mode === 'root') rememberSizes(rootNodes);
+  }, [mode, rootNodes]);
+
+  useFitAfterBuild(useCallback(() => void flow.fitView({ padding: FIT_PADDING, duration: fitDurationMs(), maxZoom: AUTO_FIT_MAX_ZOOM }), [flow]));
 
   // A new level gets a fresh camera.
   useEffect(() => {
@@ -214,6 +261,8 @@ export default function CanvasFlow() {
       if (local.length > 0) setInner((current) => (current ? { ...current, nodes: applyNodeChanges(local, current.nodes as Node[]) as LevelNode[] } : current));
       return;
     }
+    // The person's own move (a drag, an arrow key) is drawn at once, never glided.
+    if (changes.some((change) => change.type === 'position')) ownMove();
     if (local.length > 0) setRootNodes(applyNodeChanges(local, rootNodes) as GraphNode[]);
     for (const change of changes) {
       if (change.type === 'position' && change.dragging === false && change.position) {
@@ -221,7 +270,7 @@ export default function CanvasFlow() {
       }
       if (change.type === 'remove') void commitManual({ type: 'remove-node', nodeId: change.id });
     }
-  }, [mode, rootNodes, setRootNodes]);
+  }, [mode, rootNodes, setRootNodes, ownMove]);
 
   const onEdgesChange: OnEdgesChange = useCallback((changes) => {
     if (mode === 'replay') return;
@@ -279,18 +328,19 @@ export default function CanvasFlow() {
 
   // Autoplay stops on any pointer interaction with the canvas; explanatory layers never fight the person.
   const onPointerDownCapture = useCallback(() => {
+    stopGlide();
     const ui = useUiStore.getState();
     if (ui.tour?.playing) ui.setTourPlaying(false);
     // uiState: following the helper ends with any manual action on the canvas.
     if (ui.followAgent) ui.setFollowAgent(false);
-  }, []);
+  }, [stopGlide]);
 
   return (
     <CanvasViewContext.Provider value={view}>
       <GraphContextMenu nodes={nodes} edges={edges} readOnly={readOnly}>
-        <div className={styles.flowHost} onPointerDownCapture={onPointerDownCapture} data-canvas-mode={mode}>
+        <div ref={host} className={`${styles.flowHost} ${overviewStyles.host}`} onPointerDownCapture={onPointerDownCapture} data-canvas-mode={mode}>
           <ReactFlow
-            nodes={nodes as Node[]}
+            nodes={drawnNodes as Node[]}
             edges={edges}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
@@ -335,6 +385,7 @@ export default function CanvasFlow() {
             }}
           >
             <ZoomReporter />
+            <OverviewLevel host={host} />
             <Background variant={BackgroundVariant.Dots} gap={gridSize} size={1} color="var(--canvas-dot)" />
             <Panel position="top-center" className="nopan nowheel nodrag">
               <CanvasToolbar />

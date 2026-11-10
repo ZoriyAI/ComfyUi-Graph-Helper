@@ -83,7 +83,7 @@ export const useUiStore = create<UiState>((set) => ({
   contextTarget: null,
   railOpen: initialRailOpen(),
   railTab: 'nodes',
-  followAgent: false,
+  followAgent: true,
   tour: null,
   savedRevSeq: null,
   catalogVersion: 0,
