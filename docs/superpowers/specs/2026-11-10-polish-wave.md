@@ -70,3 +70,34 @@ Shared rules: `shared/i18n/catalog.ts` is touched by everyone, add keys next to 
 each finished step. Keep `npm run type-check`, `npm test`, `npm run build` green; run the e2e tests that cover what
 you changed, and the full suite once at the end with `--workers=1`. ComfyUI is never modified: nothing new in the MCP
 allowlist that writes, queues, installs or deletes. Secrets never reach the renderer, logs, prompts or exports.
+
+## Outcome (v0.3.0)
+
+All six packages were built by separate coders in their own worktrees and merged by the lead. Seams found after
+the merge and closed by the lead: one placement helper for every hand-added node (library inserts, model loaders,
+drops); the model picker's reference model found through any loader, a pack's own included; a pending ghost that
+moves off a node that came to lie under it and stays answerable at the overview zoom; class-name titles that wrap
+between words; two end-to-end specs that pinned another package's old controls and wording.
+
+| Finding | State |
+|---|---|
+| F1 fields | Done: controls on the node and in Properties, model picker with family, kind, size and fit. Not done: the "after each run" seed mode; fields on subgraph instances stay read-only. |
+| F2 layout | Done: free-slot placement, Arrange graph, tidy after a build, overview zoom, follow on by default. |
+| F3 build and chat | Done: one build card with step sentences, quiet read rows, one status, build summary. Not done: the checkpoint card does not survive a restart. |
+| F4 models | Done: model card, add to canvas, kind chips, compatibility for any loader. |
+| F5 shell | Done: one helper control, one home per action, dock without repeated headings, findings by node name, wording. |
+| F6 engine | Done: a key per provider, a refused key is dropped, group rename, edits inside a subgraph saved. Not done: adding or removing nodes inside a subgraph. |
+
+Added by the lead in the same wave, from the owner's request for a log to send:
+
+- The model conversation log (`src/main/trace/modelTrace.ts`): one record per turn with the prompt, every step,
+  tool calls and results, errors with the server's own words, token counts, timings and the request and response
+  bodies on the wire (never headers). A window under Help lists the turns, saves the ticked ones into one file
+  and copies a short report; an answer in the chat opens its own record.
+- The context window of a local model (`src/main/llm/localContext.ts`): measured on the owner's setup, the
+  helper's request is about 11.9k characters for a question and 19.7k for a build, and the owner's Ollama targets
+  are limited to 8192 and 4096 tokens. The app reads the window the server loaded the model with, records it,
+  budgets history by it, offers only the tools a turn cannot do without under 16k, and tells the person in the
+  chat and in Settings when the request does not fit.
+
+Gates at release: type-check, 794 unit tests, build, 42 end-to-end scenarios on the built app.
