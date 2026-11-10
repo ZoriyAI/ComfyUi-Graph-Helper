@@ -478,7 +478,7 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
   await expect(window.locator('.react-flow__node')).toHaveCount(3);
   await expect(window.getByText('The graph is empty.')).toHaveCount(0);
   await window.getByRole('tab', { name: 'Assistant' }).click();
-  await expect(window.getByText('Describe a change. TEST fixture replies are scripted and are not a live model.')).toBeVisible();
+  await expect(window.getByText('Say what to change or what to explain, for example “why is KSampler here?”.')).toBeVisible();
   await expectDuration(window, '.graph-node', 'animationDuration', '0s');
   await expectDuration(window, '.ghost-button', 'transitionDuration', '0s');
   const dash = await window.evaluate(async () => {
