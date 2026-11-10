@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { COMPACT_WINDOW, MIN_WORKING_WINDOW, RECOMMENDED_WINDOW } from '../../../../shared/agent/contextWindow';
 import { PlugZap, Radar, RefreshCw } from 'lucide-react';
 import type { LocalServer, ModelChoice } from '../../../../shared/contracts/pickers';
 import type { NonSecretSettings } from '../../../../shared/config/schema';
@@ -33,7 +34,7 @@ const PROVIDERS: Array<{ value: NonSecretSettings['provider']; labelKey: string;
 
 const KEY_TONES: Record<ProviderKeyState, BadgeTone> = { none: 'neutral', test: 'ai', ok: 'ok', session: 'accent', missing: 'warn' };
 
-type ProbeNote = { kind: 'idle' } | { kind: 'running' } | { kind: 'ok'; ms: number } | { kind: 'failed'; error: string };
+type ProbeNote = { kind: 'idle' } | { kind: 'running' } | { kind: 'ok'; ms: number; contextTokens: number | null } | { kind: 'failed'; error: string };
 
 type ModelList = { kind: 'idle' } | { kind: 'loading' } | { kind: 'ok'; models: ModelChoice[]; source: string } | { kind: 'failed'; error: string };
 type Discovery = { kind: 'idle' } | { kind: 'loading' } | { kind: 'done'; servers: LocalServer[]; notes: string[] };
@@ -113,7 +114,7 @@ export default function AssistantSection({ values, setValues, prefs, setPrefs, c
     setProbe({ kind: 'running' });
     try {
       const result = await window.electronAPI.llmProbe({ provider: values.provider, model: values.model, baseURL: values.baseURL });
-      if (result.ok) setProbe({ kind: 'ok', ms: result.latencyMs });
+      if (result.ok) setProbe({ kind: 'ok', ms: result.latencyMs, contextTokens: result.contextTokens ?? null });
       else {
         const explained = explainError(translate, result.error);
         setProbe({ kind: 'failed', error: explained.diagnostic ?? explained.summary });
@@ -284,6 +285,19 @@ export default function AssistantSection({ values, setValues, prefs, setPrefs, c
         <span className={hintClass}>{t('preferences.checkHint')}</span>
       </div>
       {probeText ? <p className={cx(hintClass, probe.kind === 'ok' ? styles.good : styles.bad)} role="status">{probeText}</p> : null}
+      {probe.kind === 'ok' && probe.contextTokens !== null ? (
+        // The window the server loaded the model with decides whether the helper's request fits at all.
+        <p
+          className={cx(hintClass, 'context-window-note', probe.contextTokens < MIN_WORKING_WINDOW ? styles.bad : probe.contextTokens < COMPACT_WINDOW ? styles.warn : styles.good)}
+          role="status"
+          data-window={probe.contextTokens}
+        >
+          {t(probe.contextTokens < MIN_WORKING_WINDOW ? 'preferences.windowTooSmall' : probe.contextTokens < COMPACT_WINDOW ? 'preferences.windowSmall' : 'preferences.windowFine', {
+            window: probe.contextTokens,
+            recommended: RECOMMENDED_WINDOW,
+          })}
+        </p>
+      ) : null}
 
       <Group title={String(t('preferences.behaviour'))}>
         <SelectField

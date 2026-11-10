@@ -6,6 +6,16 @@
  */
 
 export const DEFAULT_CONTEXT_TOKENS = 32_000;
+
+/**
+ * A model on the person's own server works inside the window the server loaded it with (see
+ * main/llm/localContext.ts). Below MIN_WORKING_WINDOW the helper's smallest request does not fit; below
+ * COMPACT_WINDOW the helper offers fewer tools so a build has room for its steps; RECOMMENDED_WINDOW is what to
+ * suggest when the window is too small.
+ */
+export const MIN_WORKING_WINDOW = 6_000;
+export const COMPACT_WINDOW = 16_000;
+export const RECOMMENDED_WINDOW = 16_384;
 /** Share of the window the system prompt plus the kept history may use; the rest is left for the answer and tools. */
 export const HISTORY_SHARE = 0.7;
 /** Characters per token when nothing better is known. */

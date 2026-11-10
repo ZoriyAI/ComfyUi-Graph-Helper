@@ -40,6 +40,42 @@ export interface TurnCheckpoint {
 }
 
 /**
+ * Something the person should know about how a turn went, said by the app (not by the model). For now one kind:
+ * the model on the person's own server works with a context window too small for the helper's request.
+ */
+export interface TurnNotice {
+  code: 'context-window';
+  /** 'cut': the server dropped part of the request. 'tight': it fit, with little room left for a build. */
+  state: 'tight' | 'cut';
+  /** The window the server loaded the model with, in tokens. */
+  window: number;
+  /** About how many tokens the helper's request needs. */
+  needed: number;
+  model: string;
+  /** The turn already ran with the reduced tool set. */
+  compact: boolean;
+}
+
+/** A notice chunk from main as the chat accepts it, or null when it is not one this version knows. */
+export function parseTurnNotice(input: unknown): TurnNotice | null {
+  if (!input || typeof input !== 'object') return null;
+  const record = input as Record<string, unknown>;
+  if (record.code !== 'context-window') return null;
+  if (record.state !== 'tight' && record.state !== 'cut') return null;
+  const window = Number(record.window);
+  const needed = Number(record.needed);
+  if (!Number.isFinite(window) || !Number.isFinite(needed) || window <= 0 || needed <= 0) return null;
+  return {
+    code: 'context-window',
+    state: record.state,
+    window: Math.round(window),
+    needed: Math.round(needed),
+    model: typeof record.model === 'string' ? record.model.slice(0, 200) : '',
+    compact: record.compact === true,
+  };
+}
+
+/**
  * Chat message
  */
 export interface ChatMessage {
@@ -58,4 +94,6 @@ export interface ChatMessage {
    * Lets the person open the log on exactly this answer. Not persisted: after a restart the log lists every turn.
    */
   logId?: string;
+  /** What the app noticed about this turn (TurnNotice). Not persisted. */
+  notices?: TurnNotice[];
 }

@@ -128,3 +128,24 @@
 .checkpointButton:first-child { border-color: var(--accent); }
 .checkpointButton:disabled { opacity: 0.5; cursor: default; }
 .checkpointButton:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+.notice {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--warn) 55%, transparent);
+  border-left-width: 3px;
+  border-radius: var(--radius-md);
+  background: var(--warn-soft);
+}
+.notice[data-state="cut"] {
+  border-color: color-mix(in srgb, var(--danger-strong) 60%, transparent);
+  background: var(--danger-soft);
+}
+.noticeHead { display: flex; align-items: center; gap: 6px; font-weight: 600; color: var(--text); }
+.notice[data-state="cut"] .noticeHead svg { color: var(--danger); }
+.noticeHead svg { color: var(--warn); flex: 0 0 auto; }
+.noticeText { margin: 0; color: var(--text); font-size: 13px; line-height: 19px; overflow-wrap: anywhere; }
+.notice .logOpen { align-self: flex-start; margin-top: 2px; }

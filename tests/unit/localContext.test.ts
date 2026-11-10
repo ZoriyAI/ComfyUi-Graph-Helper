@@ -119,6 +119,11 @@ describe('the window a local server loaded the model with', () => {
     // 8k holds the request but leaves little room for a build's steps.
     expect(contextFit(8192, 23_000, 6_800).state).toBe('tight');
     expect(contextFit(8192, 11_900, 3_400).state).toBe('ok');
+    // The reduced request fits 4k on paper, but nothing is left for a tool result and the answer.
+    expect(contextFit(4096, 10_200, 3_100).state).toBe('tight');
+    // Later steps are judged by the server's own count alone.
+    expect(contextFit(8192, 0, 5_000).state).toBe('ok');
+    expect(contextFit(8192, 0, 8_150)).toMatchObject({ state: 'cut', needed: 8_150 });
     expect(contextFit(32_768, 19_656, 5_600)).toMatchObject({ state: 'ok', window: 32_768 });
     expect(contextFit(4096, 19_656, null).needed).toBeGreaterThan(4096);
   });
@@ -192,6 +197,36 @@ describe('a turn with a local model and a small window', () => {
     const third = await drain(service.streamChatWithTools([{ role: 'system', content: long }, { role: 'user', content: 'и ещё' }], {}));
     expect(third.some((part) => part.type === 'notice')).toBe(false);
     expect(service.localContextTokens()).toBe(32_768);
+  });
+
+  it('notices a build that runs out of window halfway, by what the server counted at a later step', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    configureLocalContext(async () => 8192);
+    let call = 0;
+    const toolStep = (promptTokens: number) => sse([
+      { id: 'c', object: 'chat.completion.chunk', created: 1, model: 'm', choices: [{ index: 0, delta: { role: 'assistant', content: null, tool_calls: [{ index: 0, id: `call_${promptTokens}`, type: 'function', function: { name: 'step', arguments: '{}' } }] }, finish_reason: null }] },
+      { id: 'c', object: 'chat.completion.chunk', created: 1, model: 'm', choices: [{ index: 0, delta: {}, finish_reason: 'tool_calls' }], usage: { prompt_tokens: promptTokens, completion_tokens: 8, total_tokens: promptTokens + 8 } },
+      '[DONE]',
+    ]);
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      call += 1;
+      if (call === 1) return toolStep(3_000);
+      if (call === 2) return toolStep(6_000);
+      if (call === 3) return toolStep(8_180);
+      return answer(8_185);
+    }));
+    const service = new MainLLMService();
+    service.setConfig({ provider: 'local', model: 'qwen3.5:9b-q4_K_M', baseURL: 'http://127.0.0.1:11444/v1' });
+    const { tool } = await import('ai');
+    const { z } = await import('zod');
+    const tools = { step: tool({ description: 'One step.', inputSchema: z.object({}), execute: async () => ({ success: true }) }) };
+    const chunks = await drain(service.streamChatWithTools([{ role: 'user', content: 'собери граф' }], tools, { compact: true }));
+    const notices = chunks.filter((part) => part.type === 'notice');
+    // Nothing at the first two steps; one notice when the count reaches the window, and no second one after it.
+    expect(notices).toHaveLength(1);
+    expect(notices[0].content).toMatchObject({ state: 'cut', window: 8192, needed: 8_180, compact: true });
+    const order = chunks.map((part) => part.type);
+    expect(order.indexOf('notice')).toBeGreaterThan(order.indexOf('tool-result'));
   });
 
   it('asks nothing extra for a cloud model or when the server does not say', async () => {

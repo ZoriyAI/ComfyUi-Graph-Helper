@@ -1,14 +1,15 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'motion/react';
-import { PauseCircle, Play, ScrollText, Square } from 'lucide-react';
+import { PauseCircle, Play, ScrollText, Square, TriangleAlert } from 'lucide-react';
 import { formatClock, redactDiagnostic, type AppLanguage } from '../../../shared/i18n';
 import { useGraphStore } from '../../state/graphState';
 import { useUiStore } from '../../state/uiState';
 import { useChatStore } from '../../state/chatState';
 import { getChatService } from '../../services/llm/chatService';
 import { openModelLog } from '../../state/modelLogState';
-import type { ChatMessage, TurnCheckpoint } from '../../types/chat';
+import type { ChatMessage, TurnCheckpoint, TurnNotice } from '../../types/chat';
+import { RECOMMENDED_WINDOW } from '../../../shared/agent/contextWindow';
 import MarkdownLite from './MarkdownLite';
 import { objectLabel } from './objectLabel';
 import ToolCard from './ToolCard';
@@ -63,6 +64,34 @@ function CheckpointCard({ messageId, checkpoint }: { messageId: string; checkpoi
           </div>
         </>
       ) : outcome ? <p className={`checkpoint-outcome ${styles.checkpointHint}`}>{outcome}</p> : null}
+    </div>
+  );
+}
+
+/**
+ * What the app noticed about the turn, said by the app and not by the model: the model on the person's own
+ * server reads only what fits its context window, so an answer after a cut request cannot be trusted. The card
+ * gives the two numbers, what it means and what to change, and leads to the record of this answer.
+ */
+function NoticeCard({ notice, logId }: { notice: TurnNotice; logId?: string }) {
+  const { t } = useTranslation();
+  const values = { model: notice.model, window: notice.window, needed: notice.needed, recommended: RECOMMENDED_WINDOW };
+  return (
+    <div className={`turn-notice ${styles.notice}`} role="note" data-notice={notice.code} data-state={notice.state}>
+      <div className={styles.noticeHead}>
+        <TriangleAlert size={14} aria-hidden="true" />
+        <span>{t(notice.state === 'cut' ? 'chat.windowCutTitle' : 'chat.windowTightTitle')}</span>
+      </div>
+      {/* When the server stopped at the window's edge nobody knows how much the request really needed. */}
+      <p className={styles.noticeText}>{t(notice.state === 'tight' ? 'chat.windowTightBody' : notice.needed > notice.window ? 'chat.windowCutBody' : 'chat.windowCutBodyEdge', values)}</p>
+      <p className={styles.noticeText}>{t('chat.windowFix', values)}</p>
+      {notice.compact ? null : <p className={styles.noticeText}>{t('chat.windowNextCompact')}</p>}
+      {logId ? (
+        <button type="button" className={`message-log-open ${styles.logOpen}`} onClick={() => openModelLog(logId)}>
+          <ScrollText size={13} aria-hidden="true" />
+          {t('chat.openLogForNotice')}
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -153,6 +182,7 @@ export default function Message({ message, streaming = false }: MessageProps) {
           </div>
         ) : null}
         {textFirst ? null : body}
+        {(message.notices ?? []).map((notice) => <NoticeCard key={`${notice.code}-${notice.state}`} notice={notice} logId={message.logId} />)}
         {message.checkpoint ? <CheckpointCard messageId={message.id} checkpoint={message.checkpoint} /> : null}
         {build && build.type === 'build' && buildOver ? <BuildSummary calls={build.calls} stopped={message.checkpoint?.state === 'stopped'} /> : null}
         <div className={`message-time ${styles.time}`}>

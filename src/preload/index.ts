@@ -324,7 +324,7 @@ export interface RendererErrorReport {
 }
 
 export type LlmProbeResult =
-  | { ok: true; latencyMs: number; provider: string; model: string }
+  | { ok: true; latencyMs: number; provider: string; model: string; /** The context window a local server loaded the model with, when it says. */ contextTokens?: number }
   | { ok: false; error: string; latencyMs: number | null };
 
 export type SettingsSaveResult =

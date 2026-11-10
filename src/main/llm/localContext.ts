@@ -16,12 +16,7 @@ import { getJson, ollamaOrigin } from './modelList';
 
 type Fetch = typeof fetch;
 
-/** Below this the helper cannot work with tools at all: its smallest request does not fit. */
-export const MIN_WORKING_WINDOW = 6_000;
-/** Below this the helper offers fewer tools, so a build has room for its steps. */
-export const COMPACT_WINDOW = 16_000;
-/** What to suggest when the window is too small: enough for a build with every tool and a long conversation. */
-export const RECOMMENDED_WINDOW = 16_384;
+export { COMPACT_WINDOW, MIN_WORKING_WINDOW, RECOMMENDED_WINDOW } from '../../shared/agent/contextWindow';
 
 /** JSON carries more characters per token than prose; this leans to the safe (larger) side for request size. */
 const CHARS_PER_TOKEN_JSON = 3.3;
@@ -114,10 +109,16 @@ export function watchLoadedContext(
   });
 }
 
+/** Room a turn needs beyond its request: a tool result or two and the answer. */
+const WORKING_ROOM = 2_500;
+
 export interface ContextFit {
   /** The window the model is loaded with on the server. */
   window: number;
-  /** Tokens the helper's request needs (estimated from its size, or what the server counted when larger). */
+  /**
+   * Tokens the helper's request needs: the larger of the estimate from its size and what the server counted.
+   * When the server stopped at the window's edge the real need is unknown and this is not above the window.
+   */
   needed: number;
   /** 'cut': the request does not fit and the server dropped part of it. 'tight': it fits with little room left. */
   state: 'ok' | 'tight' | 'cut';
@@ -125,14 +126,14 @@ export interface ContextFit {
 
 /**
  * Whether a request fits the loaded window. `counted` is what the server said it read (its prompt token count):
- * a count at the very edge of the window means it stopped there.
+ * a count at the very edge of the window means it stopped there. `bodyChars` 0 judges by the count alone.
  */
 export function contextFit(window: number, bodyChars: number, counted: number | null): ContextFit {
   const estimated = estimateRequestTokens(bodyChars);
   const filled = counted !== null && counted >= window - 64;
   const needed = Math.max(estimated, counted ?? 0);
-  if (estimated > window || filled) return { window, needed: Math.max(needed, window + 1), state: 'cut' };
-  // A build adds a few hundred tokens per step: with less than a fifth of the window free it will not finish.
-  if (needed > window * 0.8) return { window, needed, state: 'tight' };
+  if (estimated > window || filled) return { window, needed, state: 'cut' };
+  // A turn needs room for tool results and the answer, and a build adds a few hundred tokens per step.
+  if (needed > window * 0.8 || window - needed < WORKING_ROOM) return { window, needed, state: 'tight' };
   return { window, needed, state: 'ok' };
 }

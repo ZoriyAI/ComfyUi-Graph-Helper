@@ -117,6 +117,7 @@
 .rowStart { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 8px 12px; width: min(100%, 72ch); }
 .good { color: var(--ok); }
 .bad { color: var(--danger); }
+.warn { color: var(--warn); }
 
 /* Assistant */
 .keyBadge { gap: 6px; }

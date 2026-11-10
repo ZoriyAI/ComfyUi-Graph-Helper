@@ -13,7 +13,7 @@ import { useCanvasStore } from '../../components/graph/canvasStore';
 import { stepKey } from '../../components/graph/lib/buildQueue';
 import { DESKTOP_PROJECT_ID } from '../../../shared/project';
 import type { Projection } from '../../../shared/commands/types';
-import type { ChatMessage, ToolCall, TurnCheckpoint } from '../../types/chat';
+import { parseTurnNotice, type ChatMessage, type ToolCall, type TurnCheckpoint, type TurnNotice } from '../../types/chat';
 import { i18n } from '../../i18n';
 import { applyProjection } from '../commands/projection';
 import {
@@ -219,6 +219,7 @@ export class ChatService {
     let currentAssistantMessageId: string | null = null;
     // The id of this turn's record in the conversation log; main sends it first when the log is kept.
     let turnLogId: string | undefined;
+    let turnNotices: TurnNotice[] = [];
     const currentToolCalls = new Map<string, ToolCall>();
     const settledById = new Map<string, Settled>();
     const settledByName = new Map<string, Settled>();
@@ -350,6 +351,12 @@ export class ChatService {
           applyProjection(chunk.content as Projection);
         } else if (chunk.type === 'trace') {
           if (typeof body.id === 'string' && body.id !== '') turnLogId = body.id;
+        } else if (chunk.type === 'notice') {
+          const notice = parseTurnNotice(chunk.content);
+          if (notice) {
+            turnNotices = [...turnNotices, notice];
+            publish({ notices: turnNotices });
+          }
         } else if (chunk.type === 'build-step') {
           acceptBuildStep(chunk.content);
         } else if (chunk.type === 'turn-paused') {

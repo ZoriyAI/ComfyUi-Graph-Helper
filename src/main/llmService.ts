@@ -104,7 +104,10 @@ interface LocalWatch {
   window: Promise<number | null> | null;
   stop: AbortController;
   key: string | null;
-  checked?: boolean;
+  /** The window once the first step settled it: a number, or null when the server does not say. */
+  known?: number | null;
+  /** The notice this turn already gave. */
+  said?: 'tight' | 'cut';
 }
 
 /** Gemini rejects a content with no parts: an assistant turn that only called tools has no text to send. */
@@ -584,25 +587,36 @@ class MainLLMService {
   }
 
   /**
-   * After the first step of a turn with a local model: the window the server loaded it with, whether the request
-   * fit, and the notice for the chat when it did not. Null when the server does not say or everything fits.
+   * After each step of a turn with a local model: the window the server loaded it with, whether the request
+   * fits, and the notice for the chat when it does not. The first step waits (briefly) for the window and judges
+   * the request by its size; later steps only look at what the server counted, because a build grows with every
+   * step and can run out of window halfway. One notice of each kind per turn at most; null when there is
+   * nothing to say.
    */
   private async contextNotice(local: LocalWatch, counted: number | null, compact: boolean, trace: ReturnType<typeof startTurnTrace>): Promise<ContextNotice | null> {
-    if (!local.window) return null;
-    // The watcher answers within its poll interval once the model is loaded; never hold the answer for long.
-    const window = await Promise.race([local.window, new Promise<null>((resolve) => setTimeout(() => resolve(null), 800))]);
-    local.stop.abort();
-    if (window === null) return null;
-    if (local.key) this.loadedWindows.set(local.key, window);
-    const fit = contextFit(window, local.requestChars, counted);
-    trace?.note('context', { window: fit.window, requestChars: local.requestChars, needed: fit.needed, counted, state: fit.state, compact });
-    console.log(`[MainLLMService] Local context window ${fit.window} tokens, request about ${fit.needed}: ${fit.state}`);
+    const first = local.known === undefined;
+    if (first) {
+      // The watcher answers within its poll interval once the model is loaded; never hold the answer for long.
+      local.known = local.window ? await Promise.race([local.window, new Promise<null>((resolve) => setTimeout(() => resolve(null), 800))]) : null;
+      local.stop.abort();
+      if (local.known !== null && local.key) this.loadedWindows.set(local.key, local.known);
+    }
+    const window = local.known ?? null;
+    if (window === null || local.said === 'cut') return null;
+    // Later steps: only the server's own count says whether the growing conversation still fits.
+    const fit = first ? contextFit(window, local.requestChars, counted) : contextFit(window, 0, counted);
+    if (first || fit.state === 'cut') {
+      trace?.note('context', { window: fit.window, requestChars: first ? local.requestChars : undefined, needed: fit.needed, counted, state: fit.state, compact });
+      console.log(`[MainLLMService] Local context window ${fit.window} tokens, request about ${fit.needed}: ${fit.state}`);
+    }
     if (fit.state === 'ok') return null;
     if (fit.state === 'tight') {
+      // Said once per run for a server, model and window; and only about the request itself, at the first step.
       const said = `${local.key ?? ''}|${window}`;
-      if (this.tightSaid.has(said)) return null;
+      if (!first || this.tightSaid.has(said)) return null;
       this.tightSaid.add(said);
     }
+    local.said = fit.state;
     return { code: 'context-window', model: this.config?.model ?? '', compact, ...fit };
   }
 
@@ -664,8 +678,7 @@ class MainLLMService {
         wroteText = true;
       }
       yield forwarded;
-      if (part.type === 'finish-step' && local && !local.checked) {
-        local.checked = true;
+      if (part.type === 'finish-step' && local) {
         const counted = (part as { usage?: { inputTokens?: unknown } }).usage?.inputTokens;
         const notice = await this.contextNotice(local, typeof counted === 'number' ? counted : null, options.compact === true, trace);
         if (notice) yield { type: 'notice', content: notice };
