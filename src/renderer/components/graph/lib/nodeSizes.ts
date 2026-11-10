@@ -1,3 +1,6 @@
+import type { NodeClassDetail } from '../../../../shared/contracts/knowledge';
+import { estimateNodeSize, type Size, type SizeHints } from '../../../../shared/graph/layout';
+import { inferInputs, inferOutputs } from '../../../../shared/graph/ports';
 import { nodeRect, type PositionedNode, type Rect } from './geometry';
 
 /**
@@ -42,9 +45,48 @@ export function rememberSizes(nodes: PositionedNode[]): void {
   }
 }
 
-/** A node's rect for layout: its position and its last full size, else what is measured, else the default. */
-export function layoutRect(node: PositionedNode): Rect {
+/** What the catalog says of a class's inputs, in the shape the size estimate reads. */
+export function sizeHintsOf(detail: Pick<NodeClassDetail, 'inputs'> | null | undefined): SizeHints | null {
+  if (!detail) return null;
+  return { inputs: detail.inputs.map((input) => ({ name: input.name, widget: input.widget, multiline: Boolean(input.spec?.multiline) })) };
+}
+
+/**
+ * A node's rect for layout: its position and its last full size, else what is measured, else the default. A node
+ * first seen at the overview level was never measured whole; it gets the size the canvas would draw it at.
+ */
+export function layoutRect(node: PositionedNode, hints?: SizeHints | null): Rect {
   const rect = nodeRect(node);
-  const known = full.get(node.id);
+  const known = full.get(node.id) ?? (overview && node.data ? estimateNodeSize(node.data, hints) : null);
   return known ? { ...rect, width: Math.max(rect.width, known.width), height: Math.max(rect.height, known.height) } : rect;
+}
+
+/**
+ * The size a node of a class will be drawn at once it is added, the way main builds the node
+ * (shared/graph/ports.ts portsForClassType): a class the catalog has read gets its link inputs, then its fields;
+ * a class it has not read (ComfyUI not read yet, or a class it does not have) gets the ports the app ships for
+ * it, or a single output.
+ */
+export function newNodeSize(classType: string, detail: NodeClassDetail | null | undefined, what: { parameters?: Record<string, unknown> } = {}): Size {
+  // A core class before ComfyUI is read is a row with a name and no ports.
+  const read = detail && !(detail.pack === 'core' && detail.inputs.length === 0 && detail.outputs.length === 0) ? detail : null;
+  if (!read) return estimateNodeSize({ inputs: inferInputs(classType), outputs: inferOutputs(classType), parameters: what.parameters ?? {} });
+  const sockets = read.inputs.filter((input) => !input.widget);
+  const widgets = read.inputs.filter((input) => input.widget);
+  return estimateNodeSize(
+    {
+      inputs: [...sockets, ...widgets].map((input) => ({ name: input.name, dataType: input.type })),
+      outputs: read.outputs,
+      parameters: what.parameters ?? {},
+    },
+    sizeHintsOf(read),
+  );
+}
+
+/** The size a subgraph's card is drawn at when it is added under the subgraph's own name: its ports and nothing else. */
+export function subgraphCardSize(definition: { name: string; inputs: unknown[]; outputs: unknown[] }): Size {
+  return estimateNodeSize(
+    { inputs: definition.inputs, outputs: definition.outputs, kind: 'subgraph-instance', title: definition.name },
+    { subgraphName: definition.name },
+  );
 }

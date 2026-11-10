@@ -51,18 +51,109 @@ export const LAYOUT_GAPS = { gapX: 96, gapY: 72, componentGap: 80 } as const;
 export const ESTIMATED_NODE_WIDTH = 240;
 
 /**
- * A node's size when nothing measured it (main has no DOM): the card width, and a height from its header, its
- * port rows and its field rows. Deliberately generous: a slightly wide gap is fine, an overlap is not.
+ * What the catalog says of a class, for sizing: which inputs are fields a person sets by hand, and which of those
+ * are drawn as a multi-line text box. Without it an input is a field when the node holds a value under its name
+ * and its type is a widget type (the canvas's own rule, renderer/components/fields/fieldModel.ts nodeLayout).
  */
-export function estimateNodeSize(data: { inputs?: unknown; outputs?: unknown; parameters?: unknown } | null | undefined): Size {
-  const inputs = Array.isArray(data?.inputs) ? data!.inputs as Array<{ name?: unknown }> : [];
+export interface SizeHints {
+  inputs?: ReadonlyArray<{ name: string; widget: boolean; multiline?: boolean }>;
+  /** For a subgraph card: the name of the subgraph it holds, when the caller knows it. */
+  subgraphName?: string;
+}
+
+const WIDGET_TYPES = new Set(['INT', 'FLOAT', 'STRING', 'BOOLEAN', 'COMBO']);
+
+/**
+ * The node card in pixels, read off the canvas (nodes/Node.module.css) and held to it by a test that draws every
+ * class of a catalog and compares (tests/e2e/node-size.test.ts): a header with one title line, a list of link
+ * inputs and a list of outputs, the fields, the card's own padding and border.
+ */
+export const NODE_BOX = {
+  /** Header: the title on one line (a long one is cut with an ellipsis, never wrapped) and the class name under it. */
+  header: 55,
+  /** Room above each port list (inputs, outputs). */
+  list: 4,
+  port: 28,
+  /** Room above the fields. */
+  fieldsTop: 9,
+  field: 30,
+  /** What a multi-line text box adds to its field. */
+  textBox: 41,
+  /** The card's bottom padding and its border. */
+  bottom: 10,
+  /** A note under the fields: its frame, and each line of it. */
+  note: 20,
+  noteLine: 18,
+  noteChars: 30,
+  /** The line under a subgraph card's ports that names the subgraph, when the card has a title of its own. */
+  subgraphName: 26,
+} as const;
+
+type SizedData = {
+  inputs?: unknown;
+  outputs?: unknown;
+  parameters?: unknown;
+  annotations?: unknown;
+  kind?: unknown;
+  title?: unknown;
+  comfyType?: unknown;
+  subgraphId?: unknown;
+};
+
+/**
+ * A node's size when nothing measured it: main has no DOM, and a node that is about to be added has not been
+ * drawn yet. The card width, and the height the canvas gives a node with these ports, fields and note.
+ * It must not come out smaller than the node is drawn: a spot chosen with a size too small puts the node on its
+ * neighbour.
+ */
+export function estimateNodeSize(data: SizedData | null | undefined, hints?: SizeHints | null): Size {
+  const inputs = Array.isArray(data?.inputs) ? data!.inputs as Array<{ name?: unknown; dataType?: unknown }> : [];
   const outputs = Array.isArray(data?.outputs) ? data!.outputs as unknown[] : [];
-  const parameters = data?.parameters && typeof data.parameters === 'object' ? Object.keys(data.parameters as object) : [];
-  // A field that is also listed as an input row is counted once.
-  const inputNames = new Set(inputs.map((input) => (typeof input?.name === 'string' ? input.name : '')));
-  const fields = parameters.filter((name) => !inputNames.has(name)).length;
-  const height = 56 + (inputs.length + outputs.length) * 24 + fields * 30 + 16;
-  return { width: ESTIMATED_NODE_WIDTH, height: Math.max(96, height) };
+  const parameters = data?.parameters && typeof data.parameters === 'object' ? data.parameters as Record<string, unknown> : {};
+  const known = new Map((hints?.inputs ?? []).map((input) => [input.name, input]));
+  const holds = (name: string) => Object.prototype.hasOwnProperty.call(parameters, name);
+  let links = 0;
+  let fields = 0;
+  let textBoxes = 0;
+  const seen = new Set<string>();
+  for (const port of inputs) {
+    const name = typeof port?.name === 'string' ? port.name : '';
+    const spec = known.get(name);
+    const widget = spec ? spec.widget : holds(name) && WIDGET_TYPES.has(String(port?.dataType ?? '').toUpperCase());
+    if (!widget) {
+      links += 1;
+      continue;
+    }
+    seen.add(name);
+    fields += 1;
+    if (spec?.multiline) textBoxes += 1;
+  }
+  // A widget input the node has no port for (stored before its class was read) shows once it holds a value.
+  for (const input of hints?.inputs ?? []) {
+    if (!input.widget || seen.has(input.name) || !holds(input.name)) continue;
+    seen.add(input.name);
+    fields += 1;
+    if (input.multiline) textBoxes += 1;
+  }
+  // A value with no input of its name is a field too; `seed::control_after_generate` rides with its field.
+  for (const name of Object.keys(parameters)) {
+    if (seen.has(name) || name.includes('::')) continue;
+    seen.add(name);
+    fields += 1;
+  }
+  const note = Array.isArray(data?.annotations) && typeof data!.annotations[0] === 'string' ? data!.annotations[0] as string : '';
+  let height = NODE_BOX.header + NODE_BOX.bottom;
+  if (links > 0) height += NODE_BOX.list + links * NODE_BOX.port;
+  if (outputs.length > 0) height += NODE_BOX.list + outputs.length * NODE_BOX.port;
+  if (fields > 0) height += NODE_BOX.fieldsTop + fields * NODE_BOX.field + textBoxes * NODE_BOX.textBox;
+  if (note) height += NODE_BOX.note + Math.ceil((note.length + 9) / NODE_BOX.noteChars) * NODE_BOX.noteLine;
+  if (data?.kind === 'subgraph-instance') {
+    // A card with a title of its own names its subgraph under the ports (nodes/SubgraphNode.tsx).
+    const title = typeof data.title === 'string' ? data.title : '';
+    const own = title !== '' && title !== data.comfyType && title !== data.subgraphId;
+    if (own && title !== hints?.subgraphName) height += NODE_BOX.subgraphName;
+  }
+  return { width: ESTIMATED_NODE_WIDTH, height };
 }
 
 /** True when the two rects come closer than `gap` (touching at exactly `gap` apart does not count). */

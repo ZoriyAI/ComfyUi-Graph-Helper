@@ -27,7 +27,7 @@ async function addCheckedNode(classType: string, at: { x: number; y: number } | 
     });
     return;
   }
-  const spot = placeNewNode(at);
+  const spot = await placeNewNode(at, { classType });
   await commitManual({ type: 'add-node', nodeType: classType, x: spot.x, y: spot.y });
 }
 

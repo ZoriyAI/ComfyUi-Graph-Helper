@@ -28,7 +28,7 @@ export function arrangeMoves(nodes: Array<PositionedNode & { selected?: boolean 
     edges.filter((edge) => ids.has(edge.source) && ids.has(edge.target)),
     {
       origin: { x: Math.round(start.x), y: Math.round(start.y) },
-      obstacles: nodes.filter((node) => !ids.has(node.id)).map(layoutRect),
+      obstacles: nodes.filter((node) => !ids.has(node.id)).map((node) => layoutRect(node)),
       gapX: LAYOUT_GAPS.gapX,
       gapY: LAYOUT_GAPS.gapY,
     },

@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
 import { describe, expect, it } from 'vitest';
 import { closeRun, commitCommand, ensureWorkspace, listRecentCommands, listRevisions, readProjection, startRun } from '../../src/main/commands/commit';
-import { nodeRectOf, placeHelperNode, tidyMoves } from '../../src/main/commands/placement';
+import { classHints, newNodeSize, nodeRectOf, placeHelperNode, placeHelperSubgraph, tidyMoves, PLACE_GAP } from '../../src/main/commands/placement';
 import { migrate } from '../../src/main/settings/migrate';
 import { createProposal, resolveProposal } from '../../src/main/proposals/repository';
 import { describeCommand } from '../../src/shared/agent/recentActions';
@@ -109,6 +109,27 @@ describe('placing the helper\'s nodes', () => {
     db.close();
   });
 
+  it('a subgraph the helper inserts on top of a node moves to free space, sized by its ports', () => {
+    const db = openDb();
+    manual(db, 'a', { type: 'add-node', nodeType: 'KSampler', x: 0, y: 0 });
+    manual(db, 'b', { type: 'add-node', nodeType: 'VAEDecode', x: 900, y: 0 });
+    manual(db, 'sg', { type: 'create-subgraph', name: 'Decode', nodeIds: ['2'], inputs: [], outputs: [] });
+    const definitions = (head(db).snapshot as Rec).subgraphs as Array<{ id: string; name: string; inputs: unknown[]; outputs: unknown[] }>;
+    const catalog = { nodeTypes: [], models: [], nodes: [] };
+    const nodes = nodesOf(db);
+    const payload = { type: 'insert-subgraph' as const, definitionId: definitions[0].id, x: 10, y: 10 };
+    // Asked for right on the sampler: moved; asked for in free space: kept; an unknown subgraph: left alone.
+    const moved = placeHelperSubgraph(payload, nodes, definitions, [], catalog);
+    for (const node of nodes) expect(rectsOverlap({ x: moved.x, y: moved.y, width: 240, height: 65 }, nodeRectOf(node), PLACE_GAP - 1)).toBe(false);
+    expect(placeHelperSubgraph({ ...payload, x: 3000, y: 0 }, nodes, definitions, [], catalog)).toMatchObject({ x: 3000, y: 0 });
+    expect(placeHelperSubgraph({ ...payload, definitionId: 'nope' }, nodes, definitions, [], catalog)).toMatchObject({ x: 10, y: 10 });
+    // Through the engine, in a run.
+    const run = startRun(db, P);
+    expect(ai(db, run.runId, 'ins', payload).status).toBe('applied');
+    expectNoOverlap(nodesOf(db));
+    db.close();
+  });
+
   it('lays out the whole graph when the run made all of it, and does nothing for a run that made nothing', () => {
     const db = openDb();
     const run = startRun(db, P);
@@ -150,5 +171,56 @@ describe('accepting an add-node ghost', () => {
     resolveProposal(db, { projectId: P, proposalId: blind.id, decision: 'accept' });
     expectNoOverlap(nodesOf(db));
     db.close();
+  });
+
+  it('a suggested subgraph lands where its ghost was drawn', () => {
+    const db = openDb();
+    manual(db, 'a', { type: 'add-node', nodeType: 'KSampler', x: 0, y: 0 });
+    manual(db, 'b', { type: 'add-node', nodeType: 'VAEDecode', x: 600, y: 0 });
+    manual(db, 'sg', { type: 'create-subgraph', name: 'Decode', nodeIds: ['2'], inputs: [], outputs: [] });
+    const definitionId = String((head(db).snapshot as Rec).subgraphs[0].id);
+    // The helper suggests it right on the sampler; the canvas drew the ghost in free space and sends that spot.
+    const shown = createProposal(db, { projectId: P, kind: 'insert-subgraph', payload: { type: 'insert-subgraph', definitionId, x: 0, y: 0 }, note: '' });
+    const accepted = resolveProposal(db, { projectId: P, proposalId: shown.id, decision: 'accept', at: { x: 1200.6, y: 80 } });
+    expect(accepted.command?.status).toBe('applied');
+    expect(nodesOf(db).at(-1)!.position).toEqual({ x: 1201, y: 80 });
+    db.close();
+  });
+});
+
+describe('the size main gives a node', () => {
+  const catalog = {
+    nodeTypes: ['CLIPTextEncode'],
+    models: [],
+    nodes: [{
+      classType: 'CLIPTextEncode',
+      pack: 'core',
+      pythonModule: 'nodes',
+      inputs: [
+        { name: 'text', type: 'STRING', widget: true, multiline: true, default: '' },
+        { name: 'clip', type: 'CLIP', widget: false },
+      ],
+      outputs: [{ name: 'CONDITIONING', type: 'CONDITIONING' }],
+      widgetOrder: ['text'],
+    }],
+  };
+
+  it('is the size the canvas draws: the catalog says which inputs are fields and which is a text box', () => {
+    // 209 px is what the canvas draws for this node (tests/e2e/node-size.test.ts).
+    expect(newNodeSize({ type: 'add-node', nodeType: 'CLIPTextEncode' }, catalog)).toEqual({ width: 240, height: 209 });
+    const hints = classHints(catalog);
+    expect(hints('CLIPTextEncode')).toEqual({ inputs: [{ name: 'text', widget: true, multiline: true }, { name: 'clip', widget: false, multiline: undefined }] });
+    expect(hints('Unknown')).toBeNull();
+    expect(classHints(null)('CLIPTextEncode')).toBeNull();
+    const node = { id: '1', position: { x: 10, y: 20 }, data: { comfyType: 'CLIPTextEncode', inputs: [{ name: 'clip', dataType: 'CLIP' }, { name: 'text', dataType: 'STRING' }], outputs: [{ name: 'CONDITIONING' }], parameters: { text: '' } } };
+    expect(nodeRectOf(node, hints)).toEqual({ x: 10, y: 20, width: 240, height: 209 });
+    // Without the catalog the text is an ordinary field: smaller by the text box, never larger than drawn.
+    expect(nodeRectOf(node).height).toBe(209 - 41);
+    // Usable as a plain map callback.
+    expect([node].map(nodeRectOf)[0].height).toBe(209 - 41);
+  });
+
+  it('keeps room for a collapsed description card around a placed node', () => {
+    expect(PLACE_GAP).toBeGreaterThanOrEqual(34 + 8 + 8);
   });
 });

@@ -11,12 +11,14 @@ import { SUBGRAPH_INPUT_NODE_ID, SUBGRAPH_OUTPUT_NODE_ID, modelledSubgraphs } fr
 import { useGraphStore } from '../../state/graphState';
 import { useUiStore } from '../../state/uiState';
 import { useDockStore } from '../../state/dockState';
-import { openProposals, useProposalsStore } from '../../state/proposalsState';
+import { ghostSpots, openProposals, useProposalsStore } from '../../state/proposalsState';
 import type { GraphEdge, GraphNode, PortDefinition } from '../../types/graph';
 import { askAbout, askWhatFlows } from './askAbout';
 import { useCanvasStore } from './canvasStore';
 import { commitManual } from './commit';
-import { boundsOf, nodeRect, ghostNodePosition } from './lib/geometry';
+import { boundsOf, nodeRect, ghostNodePosition, GHOST_SIZE } from './lib/geometry';
+import { subgraphCardSize } from './lib/nodeSizes';
+import { placeNewNode } from './placeNode';
 import { nodeRef, portRef } from './lib/selection';
 import { fitDurationMs } from '../../motion/policy';
 import { getCommand, isEnabled, runCommand } from '../../commands/registry';
@@ -25,6 +27,12 @@ import Shortcut from '../../ui/Shortcut';
 import { startGraphTour } from './tour/startTour';
 import { nodeDisplayName } from './lib/nodeName';
 import styles from './GraphContextMenu.module.css';
+
+/** «Вставить субграф» from the menu: at the point of the click, moved to the nearest spot where it covers no node. */
+async function insertSubgraphAt(definition: { id: string; name: string; inputs: unknown[]; outputs: unknown[] }, at: { x: number; y: number }): Promise<void> {
+  const spot = await placeNewNode(at, { size: subgraphCardSize(definition) });
+  await commitManual({ type: 'insert-subgraph', definitionId: definition.id, x: spot.x, y: spot.y });
+}
 
 /** What the person right-clicked (or pressed Shift+F10 on). */
 export type MenuTarget =
@@ -271,7 +279,7 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
         <Menu.Portal>
           <Menu.SubContent className={styles.content} sideOffset={4}>
             {definitions.length === 0 ? <Menu.Item className={styles.item} disabled>{t('contextMenu.noSubgraphs')}</Menu.Item> : definitions.map((item) => (
-              <Menu.Item key={item.id} className={styles.item} onSelect={() => void commitManual({ type: 'insert-subgraph', definitionId: item.id, x: Math.round(at.x), y: Math.round(at.y) })}>
+              <Menu.Item key={item.id} className={styles.item} onSelect={() => void insertSubgraphAt(item, at)}>
                 {item.name}
               </Menu.Item>
             ))}
@@ -282,8 +290,8 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
     items.push(item('ghosts', t('contextMenu.showGhosts'), () => {
       const rects = open.flatMap((proposal) => {
         const payload = proposal.payload;
-        if (payload.type === 'add-node') return [{ ...ghostNodePosition(payload, rootNodes), width: 240, height: 120 }];
-        if (payload.type === 'insert-subgraph') return [{ x: payload.x, y: payload.y, width: 240, height: 120 }];
+        // Where the canvas drew the ghost, when it has; else where it would.
+        if (payload.type === 'add-node' || payload.type === 'insert-subgraph') return [{ ...(ghostSpots.get(proposal.id) ?? ghostNodePosition(payload, rootNodes)), ...GHOST_SIZE }];
         const ids = payload.type === 'create-subgraph' ? payload.nodeIds
           : payload.type === 'connect' ? [payload.source, payload.target]
             : 'nodeId' in payload ? [payload.nodeId] : [];

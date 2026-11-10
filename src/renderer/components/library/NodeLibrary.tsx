@@ -24,7 +24,7 @@ const SEARCH_LIMIT = 10000;
 
 /** Adds a node class at the centre of the visible canvas (the nearest free spot there) through the manual command path. */
 export async function addNodeFromLibrary(node: Pick<NodeClassSummary, 'classType' | 'displayName'>, messages: { added: string; failed: string }) {
-  const position = placeNewNode(null);
+  const position = await placeNewNode(null, { classType: node.classType });
   try {
     const result = await submitManual(`library-add-${crypto.randomUUID()}`, {
       type: 'add-node',

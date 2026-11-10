@@ -17,7 +17,7 @@ interface ProposalsState {
 }
 
 /**
- * Where the canvas drew each add-node ghost (flow coordinates, a spot that covers no node). Accepting sends it,
+ * Where the canvas drew the ghost of each suggested node or subgraph (flow coordinates, a spot that covers no node). Accepting sends it,
  * so the node lands exactly where the person saw the ghost, from the canvas chips, the chat card or "accept all".
  */
 export const ghostSpots = new Map<string, { x: number; y: number }>();

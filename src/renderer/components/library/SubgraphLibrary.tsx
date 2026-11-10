@@ -10,6 +10,7 @@ import SearchField from '../../ui/SearchField';
 import { showToast } from '../../ui/toastStore';
 import { insertableSubgraphs } from './libraryModel';
 import { placeNewNode } from '../graph/placeNode';
+import { subgraphCardSize } from '../graph/lib/nodeSizes';
 import { subgraphSummary } from '../graph/SubgraphSummary';
 import styles from './Library.module.css';
 
@@ -30,7 +31,7 @@ export default function SubgraphLibrary() {
 
   const insert = async (definition: SubgraphDefinition) => {
     // The centre of the view, moved to the nearest spot where the new node covers nothing.
-    const position = placeNewNode(null);
+    const position = await placeNewNode(null, { size: subgraphCardSize(definition) });
     try {
       const result = await submitManual(`library-insert-${crypto.randomUUID()}`, {
         type: 'insert-subgraph',

@@ -101,11 +101,13 @@ function staleReason(db: Database.Database, proposal: Proposal, nodes: Array<Rec
 }
 
 /**
- * Layout (WP2): an accepted add-node ghost lands where the canvas showed it (`at`, a free spot the canvas found
- * with measured sizes). Without a spot (accepted from the chat before the canvas drew it), a position that would
+ * Layout (WP2): an accepted add-node or insert-subgraph ghost lands where the canvas showed it (`at`, a free
+ * spot the canvas found with measured sizes). Without a spot (accepted from the chat before the canvas drew it), a position that would
  * cover a node moves to the nearest free one.
  */
 function acceptedPayload(db: Database.Database, payload: GraphMutation, at: ResolveProposalRequest['at'], nodes: Array<Record<string, any>>): GraphMutation {
+  // A suggested subgraph lands where its ghost was drawn too.
+  if (payload.type === 'insert-subgraph') return at ? { ...payload, x: Math.round(at.x), y: Math.round(at.y) } : payload;
   if (payload.type !== 'add-node') return payload;
   if (at) return { ...payload, x: Math.round(at.x), y: Math.round(at.y) };
   return placeHelperNode(payload, nodes, [], cachedCatalog(db));

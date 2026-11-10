@@ -29,7 +29,7 @@ import { DESKTOP_PROJECT_ID } from '../../shared/project';
 import { parseNativeProject } from '../../shared/native-project';
 import type { GroupRecord, SubgraphDefinition } from '../../shared/graph/subgraphs';
 import { applyGraphOp, blankDocument, GraphOpError, Ids, isGraphOp } from './graphOps';
-import { applyMoveNodes, placeHelperNode, runCreatedNodeIds, tidyMoves } from './placement';
+import { applyMoveNodes, placeHelperNode, placeHelperSubgraph, runCreatedNodeIds, tidyMoves } from './placement';
 import { supersedeAllOpen, supersedeForMissingNodes } from '../proposals/supersede';
 import { forgetExplanationsOfReplacedGraph } from '../knowledge/replacedGraph';
 import { recentPayload, type RecentCommand } from '../../shared/agent/recentActions';
@@ -676,7 +676,9 @@ export function commitCommand(
       // payload (and so a retry's match) stays what was sent.
       const payload = request.actor === 'ai' && request.runId && request.payload.type === 'add-node'
         ? placeHelperNode(request.payload, current.snapshot.nodes, runCreatedNodeIds(db, request.projectId, request.runId), catalog)
-        : request.payload;
+        : request.actor === 'ai' && request.runId && request.payload.type === 'insert-subgraph'
+          ? placeHelperSubgraph(request.payload, current.snapshot.nodes, current.snapshot.subgraphs ?? [], runCreatedNodeIds(db, request.projectId, request.runId), catalog)
+          : request.payload;
       const applied = payload.type === 'restore-revision'
         ? restoreRevision(db, request.projectId, payload.revisionId, current.snapshot)
         : applyMutation(current.snapshot, request.actionId, payload, catalog);
@@ -849,6 +851,7 @@ export function tidyRun(db: Database.Database, projectId: string, runId: string)
       projection.snapshot.nodes as Array<Record<string, any>>,
       projection.snapshot.edges as Array<Record<string, any>>,
       runCreatedNodeIds(db, projectId, runId),
+      cachedCatalog(db),
     );
     if (moves.length === 0) return null;
     return commitCommand(db, {

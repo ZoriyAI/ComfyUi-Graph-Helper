@@ -70,24 +70,28 @@ function Workspace({ onImportWorkflow }: GraphWorkspaceProps) {
     setDragging(false);
     if (!acceptsDrag(event) || replaying || useGraphStore.getState().activeSubgraphId) return;
     event.preventDefault();
-    // The drop point, moved to the nearest spot where the new node covers nothing.
-    const at = placeNewNode(flow.screenToFlowPosition({ x: event.clientX, y: event.clientY }));
+    const point = flow.screenToFlowPosition({ x: event.clientX, y: event.clientY });
+    // What was dropped is read now: the drag's data is gone once this handler returns.
     // A model file becomes its loader with the file chosen; the new node is selected and a toast says so.
     const model = modelFromDrop((type) => event.dataTransfer.getData(type));
     if (model) {
-      void addModelLoader(model, { x: at.x, y: at.y });
+      void addModelLoader(model, point);
       return;
     }
     const add = dropToAddNode((type) => event.dataTransfer.getData(type));
     if (!add) return;
-    void commitManual({
-      type: 'add-node',
-      nodeType: add.nodeType,
-      ...(add.title ? { title: add.title } : {}),
-      x: Math.round(at.x),
-      y: Math.round(at.y),
-      ...(Object.keys(add.parameters).length > 0 ? { parameters: add.parameters } : {}),
-    });
+    void (async () => {
+      // The drop point, moved to the nearest spot where the new node covers nothing.
+      const at = await placeNewNode(point, { classType: add.nodeType, parameters: add.parameters });
+      await commitManual({
+        type: 'add-node',
+        nodeType: add.nodeType,
+        ...(add.title ? { title: add.title } : {}),
+        x: Math.round(at.x),
+        y: Math.round(at.y),
+        ...(Object.keys(add.parameters).length > 0 ? { parameters: add.parameters } : {}),
+      });
+    })();
   }, [flow, replaying]);
 
   return (

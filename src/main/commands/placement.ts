@@ -12,24 +12,47 @@ import {
   rectsOverlap,
   type Rect,
   type Size,
+  type SizeHints,
 } from '../../shared/graph/layout';
 
 /**
  * Where the helper's nodes go. The model's coordinates are a hint, never trusted: a node that would land on
  * another (or comes without a position) moves to a free spot to the right of what this run has built so far,
  * and when the run closes its nodes are tidied into a layered layout around everything it did not make.
- * Main has no DOM, so sizes are estimated from ports and fields (shared/graph/layout.ts estimateNodeSize).
+ * Main has no DOM, so a node's size is worked out from its ports, fields and name, the way the canvas draws it
+ * (shared/graph/layout.ts estimateNodeSize, held to the canvas by tests/e2e/node-size.test.ts).
  */
 
 type Node = Record<string, any>;
 type AddNode = Extract<GraphMutation, { type: 'add-node' }>;
 type MoveNodes = Extract<GraphMutation, { type: 'move-nodes' }>;
+type InsertSubgraph = Extract<GraphMutation, { type: 'insert-subgraph' }>;
 
-/** Room kept around a placed node; wide enough for a collapsed description card under it. */
-export const PLACE_GAP = 40;
+/** Room kept around a placed node: a collapsed description card under it, and air before the next node. */
+export const PLACE_GAP = 56;
 
-export function nodeRectOf(node: Node): Rect {
-  const size = estimateNodeSize(node.data);
+/** What the catalog knows of each class's inputs, for sizing a node the way the canvas draws it. */
+export type ClassHints = (classType: unknown) => SizeHints | null;
+
+export function classHints(catalog: CatalogView | null | undefined): ClassHints {
+  let byClass: Map<string, SizeHints> | null = null;
+  return (classType) => {
+    if (!catalog || typeof classType !== 'string') return null;
+    if (!byClass) {
+      byClass = new Map(catalog.nodes.map((node) => [
+        node.classType,
+        { inputs: node.inputs.map((input) => ({ name: input.name, widget: input.widget, multiline: input.multiline })) },
+      ]));
+    }
+    return byClass.get(classType) ?? null;
+  };
+}
+
+const NO_HINTS: ClassHints = () => null;
+
+/** `hints` is optional so the function also serves as a plain `nodes.map(nodeRectOf)`. */
+export function nodeRectOf(node: Node, hints?: ClassHints | number): Rect {
+  const size = estimateNodeSize(node.data, (typeof hints === 'function' ? hints : NO_HINTS)(node.data?.comfyType));
   return { x: Number(node.position?.x) || 0, y: Number(node.position?.y) || 0, ...size };
 }
 
@@ -38,7 +61,7 @@ export function newNodeSize(payload: AddNode, catalog: CatalogView): Size {
   const ports = portsForClassType(payload.nodeType, catalog);
   const spec = catalog.nodes.find((item) => item.classType === payload.nodeType);
   const parameters = { ...defaultParameters(spec), ...(payload.parameters ?? {}) };
-  return estimateNodeSize({ inputs: ports.inputs, outputs: ports.outputs, parameters });
+  return estimateNodeSize({ inputs: ports.inputs, outputs: ports.outputs, parameters }, classHints(catalog)(payload.nodeType));
 }
 
 /** Nodes the run has added so far (add-node and insert-subgraph commits), in the order it added them. */
@@ -65,26 +88,50 @@ export function runCreatedNodeIds(db: Database.Database, projectId: string, runI
 }
 
 /**
- * The helper's add-node with a position that covers nothing. The model's x/y is kept when it is free; otherwise
+ * A spot for something the helper adds that covers nothing. The model's x/y is kept when it is free; otherwise
  * (or when it gave none) the node goes to the nearest free spot right of the nodes this run made, or right of
  * the whole graph when the run has made none yet.
  */
-export function placeHelperNode(payload: AddNode, nodes: Node[], runNodeIds: string[], catalog: CatalogView): AddNode {
-  const size = newNodeSize(payload, catalog);
-  const rects = nodes.map(nodeRectOf);
-  const given = typeof payload.x === 'number' && Number.isFinite(payload.x) && typeof payload.y === 'number' && Number.isFinite(payload.y)
-    ? { x: payload.x, y: payload.y }
+function helperSpot(asked: { x?: number; y?: number }, size: Size, nodes: Node[], runNodeIds: string[], hints: ClassHints): { x: number; y: number } | null {
+  const rectOf = (node: Node) => nodeRectOf(node, hints);
+  const rects = nodes.map(rectOf);
+  const given = typeof asked.x === 'number' && Number.isFinite(asked.x) && typeof asked.y === 'number' && Number.isFinite(asked.y)
+    ? { x: asked.x, y: asked.y }
     : null;
-  if (given && !rects.some((rect) => rectsOverlap({ ...given, ...size }, rect, PLACE_GAP))) return payload;
+  if (given && !rects.some((rect) => rectsOverlap({ ...given, ...size }, rect, PLACE_GAP))) return null;
   const mine = new Set(runNodeIds);
-  const built = boundsOfRects(nodes.filter((node) => mine.has(String(node.id))).map(nodeRectOf));
+  const built = boundsOfRects(nodes.filter((node) => mine.has(String(node.id))).map(rectOf));
   const everything = boundsOfRects(rects);
   const anchor = built ?? everything;
   const preferred = anchor
     ? { x: Math.round(anchor.x + anchor.width + LAYOUT_GAPS.gapX), y: Math.round(given && built ? given.y : anchor.y) }
     : given ?? { x: 0, y: 0 };
   const spot = findFreeSlot(rects, preferred, size, PLACE_GAP);
-  return { ...payload, x: Math.round(spot.x), y: Math.round(spot.y) };
+  return { x: Math.round(spot.x), y: Math.round(spot.y) };
+}
+
+/** The helper's add-node with a position that covers nothing (see helperSpot). */
+export function placeHelperNode(payload: AddNode, nodes: Node[], runNodeIds: string[], catalog: CatalogView): AddNode {
+  const spot = helperSpot(payload, newNodeSize(payload, catalog), nodes, runNodeIds, classHints(catalog));
+  return spot ? { ...payload, ...spot } : payload;
+}
+
+/** The helper's insert-subgraph with a position that covers nothing: the card is sized by the subgraph's ports. */
+export function placeHelperSubgraph(
+  payload: InsertSubgraph,
+  nodes: Node[],
+  definitions: ReadonlyArray<{ id: string; name: string; inputs: unknown[]; outputs: unknown[] }>,
+  runNodeIds: string[],
+  catalog: CatalogView,
+): InsertSubgraph {
+  const definition = definitions.find((item) => item.id === payload.definitionId);
+  if (!definition) return payload;
+  const size = estimateNodeSize(
+    { inputs: definition.inputs, outputs: definition.outputs, kind: 'subgraph-instance', title: payload.title || definition.name },
+    { subgraphName: definition.name },
+  );
+  const spot = helperSpot(payload, size, nodes, runNodeIds, classHints(catalog));
+  return spot ? { ...payload, ...spot } : payload;
 }
 
 /** Moves a move-nodes commit makes: positions of named nodes; refused when one is not on the canvas. */
@@ -104,25 +151,27 @@ export function applyMoveNodes(nodes: Node[], payload: MoveNodes): { moved: stri
  * The tidy at the end of a run: the run's nodes laid out with `layoutGraph`, everything else fixed as an
  * obstacle (the whole graph when the run made all of it). Returns only nodes that actually move.
  */
-export function tidyMoves(nodes: Node[], edges: Node[], runNodeIds: string[]): MoveNodes['moves'] {
+export function tidyMoves(nodes: Node[], edges: Node[], runNodeIds: string[], catalog?: CatalogView | null): MoveNodes['moves'] {
+  const hints = classHints(catalog);
+  const rectOf = (node: Node) => nodeRectOf(node, hints);
   const mine = new Set(runNodeIds);
   const created = nodes.filter((node) => mine.has(String(node.id)));
   if (created.length === 0) return [];
   const fixed = nodes.filter((node) => !mine.has(String(node.id)));
   const ids = new Set(created.map((node) => String(node.id)));
   // Order by the current picture (top to bottom, then left to right) so the tidy keeps what the helper meant.
-  const ordered = [...created].sort((a, b) => (nodeRectOf(a).x - nodeRectOf(b).x) || (nodeRectOf(a).y - nodeRectOf(b).y) || String(a.id).localeCompare(String(b.id)));
-  const start = boundsOfRects(created.map(nodeRectOf))!;
+  const ordered = [...created].sort((a, b) => (rectOf(a).x - rectOf(b).x) || (rectOf(a).y - rectOf(b).y) || String(a.id).localeCompare(String(b.id)));
+  const start = boundsOfRects(created.map(rectOf))!;
   const placed = layoutGraph(
-    ordered.map((node) => ({ id: String(node.id), ...nodeRectOf(node) })),
+    ordered.map((node) => ({ id: String(node.id), ...rectOf(node) })),
     edges.filter((edge) => ids.has(String(edge.source)) && ids.has(String(edge.target))).map((edge) => ({ source: String(edge.source), target: String(edge.target) })),
-    { origin: { x: Math.round(start.x), y: Math.round(start.y) }, obstacles: fixed.map(nodeRectOf), componentGap: PLACE_GAP * 2 },
+    { origin: { x: Math.round(start.x), y: Math.round(start.y) }, obstacles: fixed.map(rectOf), componentGap: LAYOUT_GAPS.componentGap },
   );
   const moves: MoveNodes['moves'] = [];
   for (const node of ordered) {
     const next = placed.get(String(node.id));
     if (!next) continue;
-    const rect = nodeRectOf(node);
+    const rect = rectOf(node);
     if (Math.abs(rect.x - next.x) < 0.5 && Math.abs(rect.y - next.y) < 0.5) continue;
     moves.push({ nodeId: String(node.id), x: next.x, y: next.y });
   }

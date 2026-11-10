@@ -58,8 +58,8 @@ export async function addModelLoader(model: ModelRef, at?: { x: number; y: numbe
     return null;
   }
   // A drop point, else the centre of the view; either way moved to the nearest spot where it covers nothing.
-  const position = placeNewNode(at ?? null);
   const title = await loaderTitle(loader.nodeType);
+  const position = await placeNewNode(at ?? null, { classType: loader.nodeType, parameters: loader.parameters });
   const result = await commitManual({
     type: 'add-node',
     nodeType: loader.nodeType,
