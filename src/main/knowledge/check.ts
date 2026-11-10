@@ -7,6 +7,7 @@ import { canvasModelRefs, missingOnGraph, type GraphNodeLike } from '../../share
 import { portsCompatible } from '../../shared/graph/linkTypes';
 import { familiesCompatible } from '../../shared/knowledge/baseModel';
 import { exportedWidgets, numericSlot } from '../../shared/workflow/codec';
+import { catalogFileIndex, loadedModelFiles } from './loadedModels';
 
 /**
  * Frontend-only node types. They never appear in object_info because the ComfyUI frontend implements them,
@@ -147,26 +148,37 @@ function upstreamOf(start: string, edges: CanvasEdge[]): Set<string> {
 }
 
 function baseModelMismatches(db: Database.Database, nodes: CanvasNode[], edges: CanvasEdge[], catalog: CatalogView): GraphCheckReport['baseModelMismatches'] {
-  const byId = new Map(nodes.map((node) => [String(node.id), node]));
+  // Any loader counts, custom packs included (loadedModels.ts): a field holding a catalog file loads that file.
+  const files = catalogFileIndex(catalog);
+  const loaded = new Map(nodes.map((node) => [String(node.id), loadedModelFiles(node, catalog, files)]));
   const found: GraphCheckReport['baseModelMismatches'] = [];
   for (const node of nodes) {
-    const loras = canvasModelRefs(node, catalog).filter((ref) => ref.directory === 'loras');
+    const nodeId = String(node.id);
+    const loras = (loaded.get(nodeId) ?? []).filter((ref) => ref.directory === 'loras');
     if (loras.length === 0) continue;
-    const bases = [...upstreamOf(String(node.id), edges)].flatMap((id) => {
-      const other = byId.get(id);
-      if (!other) return [];
-      return canvasModelRefs(other, catalog).filter((ref) => BASE_DIRECTORIES.has(ref.directory)).map((ref) => ({ id, ref }));
-    });
+    // A base loader feeds the LoRA node (core chain: checkpoint → LoRA) or is fed by it (wrapper packs:
+    // LoRA select → model loader); either way the LoRA ends up on that base model.
+    const related = new Set([...upstreamOf(nodeId, edges), ...downstreamOf(nodeId, edges)]);
+    const bases = [...related].flatMap((id) => (loaded.get(id) ?? [])
+      .filter((ref) => BASE_DIRECTORIES.has(ref.directory))
+      .map((ref) => ({ id, ref })));
     for (const lora of loras) {
       const loraBase = familyOf(db, lora.directory, lora.name);
       for (const base of bases) {
         const otherBase = familyOf(db, base.ref.directory, base.ref.name);
         if (familiesCompatible(loraBase, otherBase, { left: lora.name, right: base.ref.name })) continue;
-        found.push({ nodeId: String(node.id), model: lora.name, modelBase: loraBase, otherNodeId: base.id, otherModel: base.ref.name, otherBase });
+        // One file name in two base folders (checkpoints and diffusion_models) is one finding, not two.
+        if (found.some((item) => item.nodeId === nodeId && item.model === lora.name && item.otherNodeId === base.id && item.otherModel === base.ref.name)) continue;
+        found.push({ nodeId, model: lora.name, modelBase: loraBase, otherNodeId: base.id, otherModel: base.ref.name, otherBase });
       }
     }
   }
   return found;
+}
+
+/** Every node reachable by walking edges forwards from start (what it feeds, and what that feeds). */
+function downstreamOf(start: string, edges: CanvasEdge[]): Set<string> {
+  return upstreamOf(start, edges.map((edge) => ({ ...edge, source: edge.target, target: edge.source })));
 }
 
 function unconnectedInputs(nodes: CanvasNode[], edges: CanvasEdge[], specs: Map<string, Spec>): GraphCheckReport['unconnectedRequiredInputs'] {

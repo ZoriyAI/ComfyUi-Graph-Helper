@@ -1,4 +1,5 @@
 import type { BaseModelFamily, ModelKind, ModelSummary, NodeClassSummary, SubgraphDefinition } from '../../../shared/contracts';
+import { familiesCompatible } from '../../../shared/knowledge/baseModel';
 
 /** dataTransfer types the canvas accepts from the library (see ui-direction §7). */
 export const NODE_DRAG_TYPE = 'application/x-helper-node';
@@ -124,6 +125,88 @@ export function filterModels(models: ModelSummary[], query: string, filters: Mod
     && (!filters.kind || model.kind === filters.kind)
     && (!needle || model.name.toLowerCase().includes(needle))
   ));
+}
+
+/**
+ * The kind chips above the model list. A newcomer thinks in "base model, LoRA, VAE, ControlNet, the rest", so
+ * diffusion models (a checkpoint split into parts) sit with checkpoints and every other kind under "other".
+ */
+export const KIND_GROUPS = ['all', 'checkpoint', 'lora', 'vae', 'controlnet', 'other'] as const;
+export type KindGroup = typeof KIND_GROUPS[number];
+
+/** Kinds that are a base model a LoRA goes on. */
+const BASE_KINDS: ReadonlySet<ModelKind> = new Set<ModelKind>(['checkpoint', 'unet']);
+
+export function kindGroupOf(kind: ModelKind): Exclude<KindGroup, 'all'> {
+  if (BASE_KINDS.has(kind)) return 'checkpoint';
+  if (kind === 'lora' || kind === 'vae' || kind === 'controlnet') return kind;
+  return 'other';
+}
+
+export function inKindGroup(model: Pick<ModelSummary, 'kind'>, group: KindGroup): boolean {
+  return group === 'all' || kindGroupOf(model.kind) === group;
+}
+
+export function kindGroupCounts(models: Array<Pick<ModelSummary, 'kind'>>): Record<KindGroup, number> {
+  const counts: Record<KindGroup, number> = { all: models.length, checkpoint: 0, lora: 0, vae: 0, controlnet: 0, other: 0 };
+  for (const model of models) counts[kindGroupOf(model.kind)] += 1;
+  return counts;
+}
+
+export type ModelSort = 'name' | 'size';
+
+/** Name order ignores case and folders' digits read as numbers ("v2" before "v10"); size puts the largest first. */
+export function sortModels<T extends Pick<ModelSummary, 'name' | 'sizeBytes'>>(models: T[], sort: ModelSort): T[] {
+  const byName = (left: T, right: T) => left.name.localeCompare(right.name, undefined, { sensitivity: 'base', numeric: true });
+  const copy = [...models];
+  if (sort === 'size') return copy.sort((left, right) => (right.sizeBytes ?? -1) - (left.sizeBytes ?? -1) || byName(left, right));
+  return copy.sort(byName);
+}
+
+function knownPair(left: BaseModelFamily, right: BaseModelFamily, names: { left: string; right: string }): boolean {
+  // Unknown on either side means "cannot say", which must not read as "fits".
+  return left !== 'unknown' && right !== 'unknown' && familiesCompatible(left, right, names);
+}
+
+/** The person's base models (checkpoints, diffusion models) a LoRA fits: same family or the same lineage. */
+export function fittingBases(lora: Pick<ModelSummary, 'name' | 'baseModel'>, all: ModelSummary[]): ModelSummary[] {
+  return all.filter((model) => BASE_KINDS.has(model.kind) && knownPair(lora.baseModel, model.baseModel, { left: lora.name, right: model.name }));
+}
+
+/** The person's LoRAs that fit a base model. */
+export function fittingLoras(base: Pick<ModelSummary, 'name' | 'baseModel'>, all: ModelSummary[]): ModelSummary[] {
+  return all.filter((model) => model.kind === 'lora' && knownPair(model.baseModel, base.baseModel, { left: model.name, right: base.name }));
+}
+
+export function isBaseModel(model: Pick<ModelSummary, 'kind'>): boolean {
+  return BASE_KINDS.has(model.kind);
+}
+
+const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', '#39': "'" };
+
+/**
+ * Civitai descriptions are HTML. The card shows them as plain text: tags become line breaks or nothing,
+ * common entities are decoded, and nothing from the file is ever rendered as markup.
+ */
+export function plainDescription(text: string): string {
+  return text
+    .replace(/<\s*(br|\/p|\/div|\/li|\/h[1-6])\s*\/?>/gi, '\n')
+    .replace(/<[^>]*>/g, '')
+    .replace(/&(#39|[a-z]+);/gi, (match, name: string) => ENTITIES[name.toLowerCase()] ?? match)
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n\s*\n+/g, '\n')
+    .trim();
+}
+
+/** Only http(s) links are shown as a model's source; anything else is not a link. */
+export function safeModelSource(value: string | null | undefined): string | null {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.toString() : null;
+  } catch {
+    return null;
+  }
 }
 
 export function modelKey(model: Pick<ModelSummary, 'directory' | 'name'>): string {
