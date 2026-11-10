@@ -263,7 +263,7 @@ export const en = {
   chat: {
     emptyTitle: 'No messages yet',
     emptyWithGraph: 'Say what to change or what to explain, for example “why is KSampler here?”.',
-    testNote: 'The TEST fixture is on: replies are scripted, not a live model.',
+    testNote: 'Scripted TEST replies are active; this is not a live model.',
     emptyWithoutGraph: 'Say what you want, for example “I want a picture from text”, or open a ComfyUI workflow.',
     placeholder: 'Ask for a graph change',
     placeholderAsk: 'Ask about the graph',
