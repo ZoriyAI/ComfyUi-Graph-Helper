@@ -10,6 +10,7 @@ import { failureStreakReached, forwardPart, type Redact } from './agent/streamPa
 import { STEP_LIMIT } from '../shared/config/preferences';
 import type { ModelListResult } from '../shared/contracts/pickers';
 import { listCloudModels, listLocalModels, MODEL_LIST_REFUSED } from './llm/modelList';
+import { originOf, startTurnTrace, type TurnMeta } from './trace/modelTrace';
 
 /**
  * Main-process LLM service
@@ -80,6 +81,13 @@ export interface StreamOptions {
   allowWebSearch?: boolean;
   /** Preferences ▸ Assistant: when false, the page reader tool is not offered to the model. */
   allowFetchPage?: boolean;
+  /** What the turn is for, written at the top of its record in the model conversation log. */
+  trace?: Pick<TurnMeta, 'intent' | 'language' | 'runId' | 'projectId' | 'app'> & {
+    /** Earlier messages left out to fit the model's window, and the window the budget used. */
+    omittedMessages?: number;
+    contextTokens?: number;
+    contextSource?: string;
+  };
 }
 
 /** The loop stops after this many failed or conflicted tool results in a row. */
@@ -368,15 +376,20 @@ class MainLLMService {
     return config?.baseURL?.trim() || OFFICIAL_BASE[provider];
   }
 
-  getModel(): LanguageModel | null {
+  /**
+   * `fetchImpl` is the recording fetch of the turn being logged (the model conversation log): the provider
+   * client sends through it, so the exact request and response bodies land in the turn's record. Headers,
+   * where the key travels, are not recorded there.
+   */
+  getModel(fetchImpl?: typeof fetch): LanguageModel | null {
     if (!this.config) {
       console.warn('[MainLLMService] No config set');
       return null;
     }
-    return this.modelFor(this.config);
+    return this.modelFor(this.config, fetchImpl);
   }
 
-  private modelFor(config: LLMConfig): LanguageModel | null {
+  private modelFor(config: LLMConfig, fetchImpl?: typeof fetch): LanguageModel | null {
     const { provider, model } = config;
 
     if (provider === 'test') {
@@ -389,9 +402,10 @@ class MainLLMService {
       if (!baseURL) return null;
       // Only the key held for this provider; another provider's key is never a fallback.
       const apiKey = this.heldKey(provider) ?? '';
-      if (provider === 'openai') return createOpenAI({ apiKey, baseURL })(model);
-      if (provider === 'anthropic') return createAnthropic({ apiKey, baseURL })(model);
-      return createGoogleGenerativeAI({ apiKey, baseURL })(model);
+      const wire = fetchImpl ? { fetch: fetchImpl } : {};
+      if (provider === 'openai') return createOpenAI({ apiKey, baseURL, ...wire })(model);
+      if (provider === 'anthropic') return createAnthropic({ apiKey, baseURL, ...wire })(model);
+      return createGoogleGenerativeAI({ apiKey, baseURL, ...wire })(model);
     }
 
     if (provider === 'local') {
@@ -399,6 +413,7 @@ class MainLLMService {
         apiKey: LOCAL_PLACEHOLDER,
         baseURL: config.baseURL,
         name: 'local',
+        ...(fetchImpl ? { fetch: fetchImpl } : {}),
       });
       // Local OpenAI-compatible servers (Ollama at http://localhost:11434/v1, LM Studio, vLLM)
       // expose chat completions, not the Responses API.
@@ -431,26 +446,82 @@ class MainLLMService {
     tools: Record<string, any>,
     options: StreamOptions = {},
   ): AsyncGenerator<{ type: string; content: any }> {
-    const blocked = this.sendBlock();
-    if (blocked) throw new Error(blocked);
-    const model = this.getModel();
-    if (!model) {
-      throw new Error('Model not configured');
-    }
-
     const offered = toolsForSend(tools, options);
-    console.log(`[MainLLMService] Starting stream with ${Object.keys(offered).length} tools`);
     const text = messages
       .filter((message) => message.role === 'system')
       .map((message) => message.content)
       .join('\n');
     const dialog = dropEmptyAssistant(messages.filter((message) => message.role !== 'system'));
+    const maxSteps = clampSteps(options.maxSteps);
+
+    // The model conversation log (Settings ▸ Privacy): one record per turn, started before anything can fail so
+    // "it did not even send" is in the record too. Null when the person switched the log off.
+    const config = this.config;
+    const trace = startTurnTrace({
+      provider: config?.provider ?? '',
+      model: config?.model ?? '',
+      baseUrl: this.traceOrigin(config),
+      maxSteps,
+      platform: `${process.platform} ${process.arch}`,
+      ...options.trace,
+    });
+    trace?.prompt({
+      system: text,
+      messages: dialog,
+      tools: Object.entries(offered).map(([name, definition]) => ({
+        name,
+        description: typeof definition?.description === 'string' ? definition.description : undefined,
+      })),
+    });
+    let outcome: 'ok' | 'paused' | 'cancelled' | 'error' = 'ok';
+    try {
+      // Inside the try so a consumer that never iterates past this point still gets the record closed.
+      if (trace) yield { type: 'trace', content: { id: trace.id } };
+      const blocked = this.sendBlock();
+      if (blocked) throw new Error(blocked);
+      const model = this.getModel(trace?.fetch);
+      if (!model) {
+        throw new Error('Model not configured');
+      }
+      console.log(`[MainLLMService] Starting stream with ${Object.keys(offered).length} tools`);
+      for await (const chunk of this.streamSteps(model, text, dialog, offered, maxSteps, messages, options, trace)) {
+        if (chunk.type === 'turn-paused') outcome = 'paused';
+        yield chunk;
+      }
+    } catch (error) {
+      outcome = 'error';
+      if (!options.abortSignal?.aborted) trace?.fail(error);
+      throw error;
+    } finally {
+      // Also reached when the caller stops reading (Stop in the chat): the record still gets its end line.
+      if (options.abortSignal?.aborted) outcome = 'cancelled';
+      await trace?.finish(outcome);
+    }
+  }
+
+  /** The server a turn talks to, as the log names it: origin only, never a path, a query or credentials. */
+  private traceOrigin(config: LLMConfig | null): string {
+    if (!config) return '';
+    if (config.provider === 'test') return '';
+    if (isCloud(config.provider)) return originOf(this.cloudBase(config.provider, config) ?? config.baseURL);
+    return originOf(config.baseURL);
+  }
+
+  private async* streamSteps(
+    model: LanguageModel,
+    text: string,
+    dialog: StreamMessage[],
+    offered: Record<string, any>,
+    maxSteps: number,
+    messages: StreamMessage[],
+    options: StreamOptions,
+    trace: ReturnType<typeof startTurnTrace>,
+  ): AsyncGenerator<{ type: string; content: any }> {
     // The system prompt is the stable prefix of every step: cache it on Anthropic.
     const instructions = text && this.config?.provider === 'anthropic'
       ? { role: 'system' as const, content: text, providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' } } } }
       : text || undefined;
 
-    const maxSteps = clampSteps(options.maxSteps);
     const result = streamText({
       model,
       instructions,
@@ -465,6 +536,9 @@ class MainLLMService {
       ],
       toolCallConcurrency: 1,
       abortSignal: options.abortSignal,
+      // The SDK's default prints the whole error object. The chat gets the error as a stream part, the main log
+      // gets one line at the turn's end, and the conversation log keeps the server's full answer.
+      onError: () => undefined,
     });
 
     let partCount = 0;
@@ -472,6 +546,7 @@ class MainLLMService {
     let breakBeforeText = false;
     for await (const part of result.fullStream) {
       partCount++;
+      trace?.part(part as unknown as { type: string } & Record<string, unknown>);
       if (part.type === 'start-step') breakBeforeText = wroteText;
       const forwarded = forwardPart(part as unknown as { type: string } & Record<string, unknown>, this.redact);
       if (part.type === 'text-delta' && typeof forwarded.content.text === 'string' && forwarded.content.text !== '') {

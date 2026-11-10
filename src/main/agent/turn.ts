@@ -47,6 +47,8 @@ export interface AgentTurnOptions {
   fetchImpl?: FetchLike;
   /** Preferences for this turn. Default: read from the settings row now, so a save applies to the next turn. */
   preferences?: Preferences;
+  /** The app version, for the turn's record in the model conversation log. */
+  appVersion?: string;
 }
 
 function dialog(input: unknown): ChatMessage[] {
@@ -222,6 +224,17 @@ export async function runAgentTurn(options: AgentTurnOptions): Promise<void> {
       allowWebSearch: assistant.allowWebSearch,
       allowFetchPage: assistant.allowFetchPage,
       abortSignal: options.signal,
+      // The top of this turn's record in the model conversation log.
+      trace: {
+        intent: context.intent,
+        language: context.language,
+        runId: run.runId,
+        projectId: run.projectId,
+        app: options.appVersion,
+        omittedMessages: trimmed.omitted,
+        contextTokens: window.tokens,
+        contextSource: window.source,
+      },
     })) {
       if (options.signal?.aborted) break;
       if (chunk.type === 'turn-paused') {

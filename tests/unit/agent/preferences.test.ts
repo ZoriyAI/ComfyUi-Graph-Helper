@@ -121,7 +121,10 @@ describe('agent turn reads preferences from the settings row', () => {
   it('uses the defaults when nothing is stored', async () => {
     const db = openDb();
     const seen = await turnWith(db);
-    expect(seen.options).toEqual({ maxSteps: 60, allowWebSearch: true, allowFetchPage: true });
+    expect(seen.options).toMatchObject({ maxSteps: 60, allowWebSearch: true, allowFetchPage: true });
+    // The turn's facts for its record in the model conversation log.
+    expect(seen.options?.trace).toMatchObject({ intent: 'chat', omittedMessages: 0 });
+    expect(typeof seen.options?.trace?.runId).toBe('string');
     expect(seen.tools).toEqual(expect.arrayContaining(['searchWeb', 'fetchPage']));
     expect(seen.nativeAsked).toBe(1);
     db.close();
@@ -135,7 +138,7 @@ describe('agent turn reads preferences from the settings row', () => {
     });
     expect(saved.ok).toBe(true);
     const seen = await turnWith(db);
-    expect(seen.options).toEqual({ maxSteps: 6, allowWebSearch: false, allowFetchPage: false });
+    expect(seen.options).toMatchObject({ maxSteps: 6, allowWebSearch: false, allowFetchPage: false });
     expect(seen.tools).not.toContain('searchWeb');
     expect(seen.tools).not.toContain('fetchPage');
     expect(seen.nativeAsked).toBe(0);

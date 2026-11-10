@@ -1,4 +1,4 @@
-import { BrowserWindow, type IpcMain, type WebContents } from 'electron';
+import { app, BrowserWindow, type IpcMain, type WebContents } from 'electron';
 import { IPC_CHANNELS } from '../../shared/ipc-channels';
 import { getDatabase } from '../database';
 import { readPreferences, readSettings } from '../settings/repository';
@@ -82,6 +82,7 @@ export function registerAgentIpc(ipcMain: IpcMain): void {
           },
           notify: send,
           signal: turn.controller.signal,
+          appVersion: app.getVersion(),
         });
       } finally {
         const outcome = turn.controller.signal.aborted ? 'cancelled' : failure ? `error: ${String(failure).slice(0, 300)}` : 'ok';
