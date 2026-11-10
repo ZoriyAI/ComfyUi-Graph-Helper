@@ -9,7 +9,8 @@ import CanvasFlow from './CanvasFlow';
 import Onboarding from './Onboarding';
 import SubgraphBreadcrumb from './SubgraphBreadcrumb';
 import { commitManual } from './commit';
-import { dropToAddNode, MODEL_DRAG_TYPE, NODE_DRAG_TYPE } from './lib/modelLoaders';
+import { dropToAddNode, MODEL_DRAG_TYPE, modelFromDrop, NODE_DRAG_TYPE } from './lib/modelLoaders';
+import { addModelLoader } from '../library/placeModel';
 import { useMotionLevel } from './lib/motion';
 import { FIT_PADDING } from './CanvasToolbar';
 import { fitDurationMs } from '../../motion/policy';
@@ -68,9 +69,15 @@ function Workspace({ onImportWorkflow }: GraphWorkspaceProps) {
     setDragging(false);
     if (!acceptsDrag(event) || replaying || useGraphStore.getState().activeSubgraphId) return;
     event.preventDefault();
+    const at = flow.screenToFlowPosition({ x: event.clientX, y: event.clientY });
+    // A model file becomes its loader with the file chosen; the new node is selected and a toast says so.
+    const model = modelFromDrop((type) => event.dataTransfer.getData(type));
+    if (model) {
+      void addModelLoader(model, { x: at.x, y: at.y });
+      return;
+    }
     const add = dropToAddNode((type) => event.dataTransfer.getData(type));
     if (!add) return;
-    const at = flow.screenToFlowPosition({ x: event.clientX, y: event.clientY });
     void commitManual({
       type: 'add-node',
       nodeType: add.nodeType,

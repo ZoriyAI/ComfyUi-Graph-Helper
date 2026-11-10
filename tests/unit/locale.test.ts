@@ -36,6 +36,8 @@ const ASCII_RU = new Set([
   // Base-model family names (knowledge.family.*) are product names and stay Latin in Russian.
   'SD 1.5', 'SD 2.x', 'SDXL', 'Pony', 'Illustrious', 'SD 3', 'Flux.1', 'Flux.2', 'Chroma', 'Qwen-Image', 'Wan 2.1',
   'Wan 2.2', 'LTX-2', 'HunyuanVideo', 'Z-Image', 'Krea 2', 'Kolors', 'PixArt', 'AuraFlow', 'Stable Cascade',
+  // Model kind chips in the library (library.kindGroup.*): the names people meet on Civitai and in ComfyUI.
+  'LoRA', 'VAE', 'ControlNet',
 ]);
 
 describe('locale catalog', () => {

@@ -1,10 +1,49 @@
 .pane { display: flex; flex-direction: column; min-height: 0; min-width: 0; flex: 1 1 auto; gap: 8px; }
 .controls { display: flex; flex-direction: column; gap: 6px; padding: 0 10px; }
-.filters { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+/* Filter selects side by side: labels on one line, controls the same height, aligned on one baseline. */
+.filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; align-items: end; }
 .filters :global(.field) { gap: 2px; min-width: 0; }
-.filters :global(.select-trigger) { min-width: 0; width: 100%; min-height: 28px; padding: 3px 6px; font-size: var(--text-xs); }
+.filters :global(.field-label) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.filters :global(.select-trigger) { box-sizing: border-box; min-width: 0; width: 100%; height: 30px; min-height: 30px; padding: 3px 8px; font-size: var(--text-xs); }
 .filters :global(.select-trigger) > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 12px; color: var(--text-faint); font-size: var(--text-xs); line-height: 18px; }
+.metaHint { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
+
+/* Kind chips: a segmented row that wraps, each with its count; the selected one carries the accent. */
+.kindChips { display: flex; flex-wrap: wrap; gap: 4px; }
+.kindChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface-sunken);
+  color: var(--text-dim);
+  font: inherit;
+  font-size: var(--text-xs);
+  cursor: pointer;
+  transition: background-color var(--motion-feedback) var(--motion-ease-out), border-color var(--motion-feedback) var(--motion-ease-out), color var(--motion-feedback) var(--motion-ease-out);
+}
+.kindChip:hover { border-color: var(--border-strong); color: var(--text); }
+.kindChip:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.kindChip[data-on="true"] { border-color: rgba(101, 217, 237, 0.55); background: var(--accent-soft); color: var(--text); }
+.kindCount { color: var(--text-faint); font-variant-numeric: tabular-nums; }
+.kindChip[data-on="true"] .kindCount { color: var(--accent); }
+
+.fitsBanner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 4px 3px 10px;
+  border: 1px solid rgba(101, 217, 237, 0.45);
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  font-size: var(--text-xs);
+}
+.fitsText { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.familyUnknown { color: var(--text-faint); font-size: 11px; line-height: 16px; white-space: nowrap; font-style: italic; }
 .list { padding: 0 6px 8px; }
 
 .header {
@@ -68,6 +107,9 @@
 }
 :global([role="listbox"]:focus-visible) .row[data-active="true"] { border-color: var(--focus); box-shadow: var(--shadow-lift), 0 0 0 1px var(--focus); }
 .row:active { cursor: grabbing; }
+/* The row whose card is open keeps an accent edge, so the card reads as belonging to it. */
+.row[data-open="true"] { border-color: rgba(101, 217, 237, 0.55); background: linear-gradient(90deg, var(--accent-soft), transparent 70%), var(--surface-raised); }
+.modelRow { cursor: pointer; }
 .text { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
 .name { color: var(--text); font-size: var(--text-sm); line-height: 18px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sub { color: var(--text-faint); font-family: var(--font-mono); font-size: 11px; line-height: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
