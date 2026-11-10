@@ -197,7 +197,7 @@ async function captureToolbarAndHelp(page, prefix) {
     await page.getByRole('tab', { name: /помощник|ассист|assistant/i }).first().click();
     await page.locator('#chat-provider').click();
     await page.waitForTimeout(300);
-    await page.getByRole('option', { name: /TEST|фикстура/i }).first().click();
+    await page.getByRole('option', { name: /TEST/i }).first().click();
     await page.waitForTimeout(300);
     const input = page.locator('textarea[aria-label]').first();
     await input.fill('propose a sampler');
@@ -440,7 +440,7 @@ async function captureToolbarAndHelp(page, prefix) {
     await page.getByRole('tab', { name: /помощник|assistant|ассист/i }).first().click();
     await page.locator('#chat-provider').click();
     await page.waitForTimeout(300);
-    await page.getByRole('option', { name: /TEST|фикстура/i }).first().click();
+    await page.getByRole('option', { name: /TEST/i }).first().click();
     await page.waitForTimeout(300);
     const input = page.locator('textarea[aria-label]').first();
     await input.fill('build a text to image graph');

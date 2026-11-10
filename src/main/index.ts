@@ -9,7 +9,8 @@ import { appEntryUrl, isTrustedAppUrl, setTrustedAppUrl } from './ipc/guard';
 import { addLogRedactor, initLog, log, logsDir, redactForLog, routeConsole } from './log';
 import { installCrashHandlers } from './crash';
 import { clampWindowState, readWindowState, trackWindowState, WINDOW_STATE_FILE } from './windowState';
-import { mainLLMService } from './llmService';
+import { configureLocalContext, mainLLMService } from './llmService';
+import { watchLoadedContext } from './llm/localContext';
 import { readPreferences, readSettings } from './settings/repository';
 import { configureModelTrace } from './trace/modelTrace';
 import { setMcpCallObserver } from './mcp/readOnly';
@@ -35,6 +36,9 @@ if (['ComfyUI Graph Helper', 'Graph Helper for ComfyUI'].includes(app.getName())
 initLog({ dir: path.join(app.getPath('userData'), 'logs'), mirror: !app.isPackaged || process.env.NODE_ENV === 'development' });
 routeConsole();
 addLogRedactor((text) => mainLLMService.redact(text));
+// A model on the person's own server: while a request runs, ask the server which context window it loaded the
+// model with (Ollama's /api/ps), so a request that does not fit is noticed and said. Read-only, same server.
+configureLocalContext((base, model, signal) => watchLoadedContext(base, model, (...args) => fetch(...args), { signal }));
 // The model conversation log lives next to the main log; the same redaction applies to every line of it.
 configureModelTrace({
   dir: path.join(app.getPath('userData'), 'logs'),

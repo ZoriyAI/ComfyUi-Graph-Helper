@@ -197,6 +197,9 @@ function NodeSection({ node, edges }: { node: GraphNode; edges: GraphEdge[] }) {
   ];
   const tooltips = new Map((detail?.inputs ?? []).filter((input) => input.tooltip).map((input) => [input.name, input.tooltip!]));
   const readOnly = Boolean(data.locked) || instance || canvasReplay;
+  // Values came with the workflow, but the app cannot name them until it has read this class from ComfyUI.
+  const stored = (data as { comfy?: { widgets_values?: unknown } }).comfy?.widgets_values;
+  const unnamedValues = !instance && !detail && (Array.isArray(stored) ? stored.length > 0 : Boolean(stored && typeof stored === 'object' && Object.keys(stored).length > 0));
   return (
     <>
       <header className={styles.header}>
@@ -252,7 +255,7 @@ function NodeSection({ node, edges }: { node: GraphNode; edges: GraphEdge[] }) {
         })}
       </ul>
       <h3 className={styles.h3}>{t('inspector.properties')}</h3>
-      {layout.fields.length === 0 ? <p className={`inspector-empty ${styles.hint}`}>{t('inspector.noParameters')}</p> : (
+      {layout.fields.length === 0 ? <p className={`inspector-empty ${styles.hint}`}>{t(unnamedValues ? 'inspector.fieldsUnknown' : 'inspector.noParameters')}</p> : (
         <div className={styles.params}>
           {layout.fields.map((field) => (
             <ParameterField key={field.name} nodeId={node.id} nodeName={title} field={field} linked={linkedField(field)} disabled={readOnly} />

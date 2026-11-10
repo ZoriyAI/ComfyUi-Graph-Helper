@@ -139,25 +139,50 @@ function webLine(preferences: PromptPreferences): string {
   return '- The web is switched off by the person: answer from the catalog and what you know, and say when that is not enough.';
 }
 
-function toolGuidance(preferences: PromptPreferences): string {
-  return [
-    'Tools:',
-    preferences.sendFieldValues === false
+/**
+ * `offered` names the tools this turn really has, when the set was reduced for a small context window: the
+ * guidance then speaks only about those, so the model is never told about a tool it cannot call.
+ */
+function toolGuidance(preferences: PromptPreferences, offered?: ReadonlySet<string>): string {
+  const has = (...names: string[]) => !offered || names.some((name) => offered.has(name));
+  const hasPrefix = (prefix: string) => !offered || [...offered].some((name) => name.startsWith(prefix));
+  const builds = has('addNode', 'connectNodes', 'setParameter');
+  const lines = ['Tools:'];
+  if (has('getGraph')) {
+    lines.push(preferences.sendFieldValues === false
       ? '- getGraph: the current nodes, ports, connections, positions, groups and subgraphs (field values are not sent). Use before changing an existing graph.'
-      : '- getGraph: the current nodes, ports, connections, every field value (secret-looking values [redacted]), positions, groups and subgraphs. Use before changing an existing graph.',
-    '- searchNodeTypes / describeNodeType: what node classes are installed and their exact inputs and outputs. Check before proposing a node.',
-    '- findInstalledModels / describeModel: model files on disk with base family and trigger words. Check before naming a model.',
-    '- checkGraph: missing pieces and mismatches in the current graph.',
-    webLine(preferences),
-    '- explain: when you answer about a specific object, save the short answer to it with the right aspect (what, why, connect, next, risk) and provenance.',
-    preferences.defaultIntent === 'build'
+      : '- getGraph: the current nodes, ports, connections, every field value (secret-looking values [redacted]), positions, groups and subgraphs. Use before changing an existing graph.');
+  }
+  if (has('searchNodeTypes', 'describeNodeType')) lines.push('- searchNodeTypes / describeNodeType: what node classes are installed and their exact inputs and outputs. Check before proposing a node.');
+  if (has('findInstalledModels', 'describeModel')) {
+    lines.push(has('describeModel')
+      ? '- findInstalledModels / describeModel: model files on disk with base family and trigger words. Check before naming a model.'
+      : '- findInstalledModels: model files on disk with base family. Check before naming a model.');
+  }
+  if (has('checkGraph')) lines.push('- checkGraph: missing pieces and mismatches in the current graph.');
+  if (has('searchWeb', 'fetchPage')) lines.push(webLine(preferences));
+  if (has('explain')) lines.push('- explain: when you answer about a specific object, save the short answer to it with the right aspect (what, why, connect, next, risk) and provenance.');
+  if (hasPrefix('propose')) {
+    lines.push(preferences.defaultIntent === 'build'
       ? '- propose*: for changes the person did not ask you to make, or when you are unsure; each needs a one-sentence note.'
-      : '- propose*: the default way to suggest graph changes; each needs a one-sentence note.',
-    preferences.defaultIntent === 'build'
+      : '- propose*: the default way to suggest graph changes; each needs a one-sentence note.');
+  }
+  if (!offered) {
+    lines.push(preferences.defaultIntent === 'build'
       ? '- Build tools: the person prefers that you build directly when they ask for a change. Each takes `why`.'
-      : '- Build tools: only in a build turn. Each takes `why`.',
-    '- Ports: the graph lists them as name (in-N) / name (out-N). connectNodes and proposeConnection take that handle, the port name, or the slot index.',
-  ].join('\n');
+      : '- Build tools: only in a build turn. Each takes `why`.');
+  } else if (builds) {
+    lines.push('- addNode, connectNodes, setParameter, removeNode: build tools. Each takes `why`.');
+  }
+  lines.push(builds || hasPrefix('propose')
+    ? '- Ports: the graph lists them as name (in-N) / name (out-N). connectNodes and proposeConnection take that handle, the port name, or the slot index.'
+    : '- Ports: the graph lists them as name (in-N) / name (out-N).');
+  return lines.join('\n');
+}
+
+/** Said when the person's server loads the model with a small context window and the tool set was reduced for it. */
+function smallWindowLine(window: number, offered: ReadonlySet<string>): string {
+  return `The model runs with a small context window here (${window} tokens), so this turn offers only these tools: ${[...offered].join(', ')}. Call no other tool. Keep every \`why\` and note to one short sentence, do not repeat what the graph already shows, and do not read the same thing twice.`;
 }
 
 const NO_BUILD = 'Build tools are not available in this turn. Suggest graph changes as ghosts with propose* tools; the person accepts them, or switches the composer to Build and asks again if they want you to build.';
@@ -208,6 +233,11 @@ export interface SystemPromptInput {
   recentWindow?: number;
   /** Preferences ▸ Assistant and Privacy, read from the settings row for this turn. */
   preferences?: PromptPreferences;
+  /**
+   * The tools this turn offers when the set was reduced for a small context window on the person's own server,
+   * with that window in tokens. Absent in a normal turn.
+   */
+  compact?: { offered: readonly string[]; window: number };
 }
 
 /** "On screen: …": the flow-space rectangle the canvas shows and the nodes inside it. */
@@ -249,10 +279,13 @@ export function buildSystemPrompt(input: SystemPromptInput): string {
   const selection = context.selection ?? [];
   if (selection.length > 0) focus.push(redactSecrets(`Selected on the canvas: ${selection.map(describeRef).join('; ')}.`));
   const preferences = input.preferences ?? {};
+  const offered = input.compact ? new Set(input.compact.offered) : undefined;
+  const building = !offered || offered.has('addNode');
   return [
     ROLE,
     PRINCIPLES,
     intentLine(context, preferences),
+    offered && input.compact ? smallWindowLine(input.compact.window, offered) : '',
     languageLine(context, preferences, input.question),
     verbosityLine(preferences),
     redactSecrets(input.catalog),
@@ -261,7 +294,8 @@ export function buildSystemPrompt(input: SystemPromptInput): string {
     redactSecrets(viewportText(context, input.graph)),
     redactSecrets(recentText(context, input.graph, input.recent, input.recentWindow)),
     ...focus,
-    toolGuidance(preferences),
-    BUILD_STEPS,
+    toolGuidance(preferences, offered),
+    // The step-by-step rules only matter to a turn that can build.
+    building ? BUILD_STEPS : '',
   ].filter((part) => part.trim() !== '').join('\n\n');
 }

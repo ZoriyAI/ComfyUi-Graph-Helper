@@ -11,6 +11,7 @@ import { STEP_LIMIT } from '../shared/config/preferences';
 import type { ModelListResult } from '../shared/contracts/pickers';
 import { listCloudModels, listLocalModels, MODEL_LIST_REFUSED } from './llm/modelList';
 import { originOf, startTurnTrace, type TurnMeta } from './trace/modelTrace';
+import { contextFit, type ContextFit } from './llm/localContext';
 
 /**
  * Main-process LLM service
@@ -81,6 +82,8 @@ export interface StreamOptions {
   allowWebSearch?: boolean;
   /** Preferences ▸ Assistant: when false, the page reader tool is not offered to the model. */
   allowFetchPage?: boolean;
+  /** The turn already offers the reduced tool set for a small context window; said in the notice and the log. */
+  compact?: boolean;
   /** What the turn is for, written at the top of its record in the model conversation log. */
   trace?: Pick<TurnMeta, 'intent' | 'language' | 'runId' | 'projectId' | 'app'> & {
     /** Earlier messages left out to fit the model's window, and the window the budget used. */
@@ -94,6 +97,15 @@ export interface StreamOptions {
 export const FAILURE_STREAK_LIMIT = 3;
 
 type StreamMessage = { role: 'system' | 'user' | 'assistant'; content: string };
+
+/** One turn's watch on a local server: the size of its first request and the window the model was loaded with. */
+interface LocalWatch {
+  requestChars: number;
+  window: Promise<number | null> | null;
+  stop: AbortController;
+  key: string | null;
+  checked?: boolean;
+}
 
 /** Gemini rejects a content with no parts: an assistant turn that only called tools has no text to send. */
 export function dropEmptyAssistant(messages: StreamMessage[]): StreamMessage[] {
@@ -142,7 +154,28 @@ export interface ProbeDraft {
   baseURL?: unknown;
 }
 
-export type ProbeResult = { ok: true; latencyMs: number; provider: string; model: string } | { ok: false; error: string; latencyMs: number | null };
+export type ProbeResult =
+  | { ok: true; latencyMs: number; provider: string; model: string; /** The window the server loaded the model with, when it says. */ contextTokens?: number }
+  | { ok: false; error: string; latencyMs: number | null };
+
+/**
+ * Watches a local server for the context window it loads `model` with while a request runs (Ollama's /api/ps).
+ * Resolves to the window in tokens, or null when the server does not say. The app wires the real one at start;
+ * without it (unit tests) the service asks nothing beyond the chat request itself.
+ */
+export type LocalContextWatcher = (base: string, model: string, signal: AbortSignal) => Promise<number | null>;
+let localContextWatcher: LocalContextWatcher | null = null;
+export function configureLocalContext(watcher: LocalContextWatcher | null): void {
+  localContextWatcher = watcher;
+}
+
+/** What the chat is told when the request does not fit the model's window on the person's server. */
+export interface ContextNotice extends ContextFit {
+  code: 'context-window';
+  model: string;
+  /** The turn already ran with the reduced tool set. */
+  compact: boolean;
+}
 
 /** One tiny generation. Injected in tests so nothing leaves the process there. */
 export type ProbeGenerate = (input: { model: LanguageModel; abortSignal: AbortSignal }) => Promise<unknown>;
@@ -178,6 +211,31 @@ class MainLLMService {
    * entry: a key pasted for Anthropic is never attached to an OpenAI or Google request after a switch.
    */
   private keys = new Map<CloudProvider, { value: string; source: HeldSource }>();
+  /** Context windows local servers were seen to load a model with, by "origin|model". */
+  private loadedWindows = new Map<string, number>();
+  /** 'tight' notices already shown, by "origin|model|window": said once per run, not on every turn. */
+  private tightSaid = new Set<string>();
+
+  private windowKey(config: LLMConfig | null): string | null {
+    if (!config || config.provider !== 'local') return null;
+    const origin = originOf(config.baseURL);
+    return origin && config.model.trim() !== '' ? `${origin}|${config.model.trim()}` : null;
+  }
+
+  /**
+   * The context window the configured local server was seen to load the configured model with, or null when it
+   * is not known (a cloud model, a server that does not say, or no request yet).
+   */
+  localContextTokens(): number | null {
+    const key = this.windowKey(this.config);
+    return key ? this.loadedWindows.get(key) ?? null : null;
+  }
+
+  /** Remembers a window read earlier (kept across restarts by the caller) for the configured server and model. */
+  rememberLocalContext(tokens: number): void {
+    const key = this.windowKey(this.config);
+    if (key && Number.isFinite(tokens) && tokens >= 256) this.loadedWindows.set(key, Math.floor(tokens));
+  }
 
   /**
    * Stores the non-secret provider, model, and base URL for the next send.
@@ -314,14 +372,26 @@ class MainLLMService {
     const timer = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
     timer.unref?.();
     const started = now();
+    // A local server shows the window it loaded the model with only while the model is loaded: watch meanwhile.
+    const watching = new AbortController();
+    const watch = provider === 'local' && localContextWatcher && config.baseURL
+      ? localContextWatcher(config.baseURL, config.model, watching.signal).catch(() => null)
+      : null;
     try {
       await generate({ model, abortSignal: controller.signal });
-      return { ok: true, latencyMs: Math.max(0, Math.round(now() - started)), provider, model: config.model };
+      const latencyMs = Math.max(0, Math.round(now() - started));
+      const contextTokens = watch ? await Promise.race([watch, new Promise<null>((resolve) => setTimeout(() => resolve(null), 700))]) : null;
+      if (contextTokens !== null) {
+        const key = this.windowKey(config);
+        if (key) this.loadedWindows.set(key, contextTokens);
+      }
+      return { ok: true, latencyMs, provider, model: config.model, ...(contextTokens !== null ? { contextTokens } : {}) };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       return { ok: false, error: redactProbeError(message, this.heldValues()), latencyMs: Math.max(0, Math.round(now() - started)) };
     } finally {
       clearTimeout(timer);
+      watching.abort();
     }
   }
 
@@ -473,18 +543,31 @@ class MainLLMService {
         description: typeof definition?.description === 'string' ? definition.description : undefined,
       })),
     });
+    // A model on the person's own server: how large the request is, and which window the server loaded the
+    // model with. Both are read off the first request; the answer decides what the chat is told (ContextNotice).
+    const local: LocalWatch | null = config?.provider === 'local' && localContextWatcher && config.baseURL
+      ? { requestChars: 0, window: null, stop: new AbortController(), key: this.windowKey(config) }
+      : null;
+    const recording = trace?.fetch;
+    const wire: typeof fetch | undefined = local && config?.baseURL
+      ? (input, init) => {
+        if (local.requestChars === 0 && typeof init?.body === 'string') local.requestChars = init.body.length;
+        if (!local.window && localContextWatcher) local.window = localContextWatcher(config.baseURL as string, config.model, local.stop.signal).catch(() => null);
+        return (recording ?? globalThis.fetch)(input, init);
+      }
+      : recording;
     let outcome: 'ok' | 'paused' | 'cancelled' | 'error' = 'ok';
     try {
       // Inside the try so a consumer that never iterates past this point still gets the record closed.
       if (trace) yield { type: 'trace', content: { id: trace.id } };
       const blocked = this.sendBlock();
       if (blocked) throw new Error(blocked);
-      const model = this.getModel(trace?.fetch);
+      const model = this.getModel(wire);
       if (!model) {
         throw new Error('Model not configured');
       }
       console.log(`[MainLLMService] Starting stream with ${Object.keys(offered).length} tools`);
-      for await (const chunk of this.streamSteps(model, text, dialog, offered, maxSteps, messages, options, trace)) {
+      for await (const chunk of this.streamSteps(model, text, dialog, offered, maxSteps, messages, options, trace, local)) {
         if (chunk.type === 'turn-paused') outcome = 'paused';
         yield chunk;
       }
@@ -493,10 +576,34 @@ class MainLLMService {
       if (!options.abortSignal?.aborted) trace?.fail(error);
       throw error;
     } finally {
+      local?.stop.abort();
       // Also reached when the caller stops reading (Stop in the chat): the record still gets its end line.
       if (options.abortSignal?.aborted) outcome = 'cancelled';
       await trace?.finish(outcome);
     }
+  }
+
+  /**
+   * After the first step of a turn with a local model: the window the server loaded it with, whether the request
+   * fit, and the notice for the chat when it did not. Null when the server does not say or everything fits.
+   */
+  private async contextNotice(local: LocalWatch, counted: number | null, compact: boolean, trace: ReturnType<typeof startTurnTrace>): Promise<ContextNotice | null> {
+    if (!local.window) return null;
+    // The watcher answers within its poll interval once the model is loaded; never hold the answer for long.
+    const window = await Promise.race([local.window, new Promise<null>((resolve) => setTimeout(() => resolve(null), 800))]);
+    local.stop.abort();
+    if (window === null) return null;
+    if (local.key) this.loadedWindows.set(local.key, window);
+    const fit = contextFit(window, local.requestChars, counted);
+    trace?.note('context', { window: fit.window, requestChars: local.requestChars, needed: fit.needed, counted, state: fit.state, compact });
+    console.log(`[MainLLMService] Local context window ${fit.window} tokens, request about ${fit.needed}: ${fit.state}`);
+    if (fit.state === 'ok') return null;
+    if (fit.state === 'tight') {
+      const said = `${local.key ?? ''}|${window}`;
+      if (this.tightSaid.has(said)) return null;
+      this.tightSaid.add(said);
+    }
+    return { code: 'context-window', model: this.config?.model ?? '', compact, ...fit };
   }
 
   /** The server a turn talks to, as the log names it: origin only, never a path, a query or credentials. */
@@ -516,6 +623,7 @@ class MainLLMService {
     messages: StreamMessage[],
     options: StreamOptions,
     trace: ReturnType<typeof startTurnTrace>,
+    local: LocalWatch | null,
   ): AsyncGenerator<{ type: string; content: any }> {
     // The system prompt is the stable prefix of every step: cache it on Anthropic.
     const instructions = text && this.config?.provider === 'anthropic'
@@ -556,6 +664,12 @@ class MainLLMService {
         wroteText = true;
       }
       yield forwarded;
+      if (part.type === 'finish-step' && local && !local.checked) {
+        local.checked = true;
+        const counted = (part as { usage?: { inputTokens?: unknown } }).usage?.inputTokens;
+        const notice = await this.contextNotice(local, typeof counted === 'number' ? counted : null, options.compact === true, trace);
+        if (notice) yield { type: 'notice', content: notice };
+      }
     }
     console.log(`[MainLLMService] fullStream complete, ${partCount} parts yielded`);
     if (options.abortSignal?.aborted) return;

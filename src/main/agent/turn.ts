@@ -20,6 +20,8 @@ import { errorMessage } from './streamParts';
 import { createAgentTools, type KnowledgeApi, type ProposalApi } from './tools';
 import type { FetchLike } from './web';
 import { readPreferences } from '../settings/repository';
+import { COMPACT_WINDOW } from '../llm/localContext';
+import { readStoredWindow, writeStoredWindow } from '../llm/localContextStore';
 import type { Preferences } from '../../shared/config/preferences';
 
 type ChatMessage = { role: 'system' | 'user' | 'assistant'; content: string };
@@ -39,7 +41,8 @@ export interface AgentTurnOptions {
   notify: (channel: string, payload: unknown) => void;
   /** Aborted by llm:cancel or when the window goes away: the provider request and the tool loop stop. */
   signal?: AbortSignal;
-  llm?: Pick<typeof mainLLMService, 'streamChatWithTools' | 'nativeSearchTool'> & Partial<Pick<typeof mainLLMService, 'redact' | 'charsPerToken'>>;
+  llm?: Pick<typeof mainLLMService, 'streamChatWithTools' | 'nativeSearchTool'>
+    & Partial<Pick<typeof mainLLMService, 'redact' | 'charsPerToken' | 'localContextTokens' | 'rememberLocalContext' | 'nextSendConfig'>>;
   /** Model id for the context window table. Default: the configured model of the next send. */
   model?: string;
   knowledge?: KnowledgeApi;
@@ -88,6 +91,21 @@ function readRecent(db: Database.Database, projectId: string): RecentCommand[] {
   } catch {
     return [];
   }
+}
+
+/**
+ * With a small context window on the person's own server every tool description costs room the build needs for
+ * its steps: only the tools a turn cannot do without are offered. A build keeps reading and the four step tools;
+ * an ask or chat turn keeps reading, explaining and the three everyday proposals.
+ */
+const COMPACT_READ = ['getGraph', 'searchNodeTypes', 'describeNodeType', 'findInstalledModels', 'checkGraph'] as const;
+const COMPACT_BUILD = [...COMPACT_READ, 'addNode', 'connectNodes', 'setParameter', 'removeNode'] as const;
+const COMPACT_ASK = [...COMPACT_READ, 'describeModel', 'explain', 'proposeNode', 'proposeConnection', 'proposeParameter'] as const;
+/** Roughly what one tool's name, description and schema take in the request, in characters. */
+const TOOL_CHARS = 700;
+
+export function compactToolNames(buildAllowed: boolean): readonly string[] {
+  return buildAllowed ? COMPACT_BUILD : COMPACT_ASK;
 }
 
 /** Nodes the prompt lists even past its cap: the selection, the object asked about, nodes touched recently. */
@@ -151,6 +169,16 @@ export async function runAgentTurn(options: AgentTurnOptions): Promise<void> {
     if (active && active.runId === run.runId && active.expectedRevisionId) run = { ...run, expectedRevisionId: active.expectedRevisionId };
     let revision = run.expectedRevisionId;
 
+    // The window the person's own server loads this model with, when it was seen (now or in an earlier run).
+    const runtime = (llm.nextSendConfig ?? (() => null)).call(llm);
+    let loadedWindow = llm.localContextTokens?.() ?? null;
+    if (loadedWindow === null && runtime?.provider === 'local') {
+      loadedWindow = readStoredWindow(db, runtime.baseURL, runtime.model);
+      if (loadedWindow !== null) llm.rememberLocalContext?.(loadedWindow);
+    }
+    const buildAllowed = buildToolsAllowed(context, assistant.defaultIntent);
+    const compact = loadedWindow !== null && loadedWindow < COMPACT_WINDOW ? { offered: compactToolNames(buildAllowed), window: loadedWindow } : null;
+
     const recent = readRecent(db, run.projectId);
     const selectedIds = context.selection.filter((ref) => ref.kind === 'node').map((ref) => ref.id);
     const prompt = redact(buildSystemPrompt({
@@ -161,12 +189,17 @@ export async function runAgentTurn(options: AgentTurnOptions): Promise<void> {
       recentWindow: RECENT_LIMIT,
       question,
       preferences: { ...assistant, sendFieldValues: privacy.sendFieldValues },
+      ...(compact ? { compact } : {}),
     }));
 
     // History budget: 70 % of the model's context window (Preferences ▸ Assistant overrides it) minus the prompt.
-    const window = contextWindowFor(options.model ?? mainLLMService.nextSendConfig().model, assistant.contextTokens);
+    // A window the server was seen to load the model with wins when it is smaller: that is what the model has.
+    const known = contextWindowFor(options.model ?? mainLLMService.nextSendConfig().model, assistant.contextTokens);
+    const window = loadedWindow !== null && loadedWindow < known.tokens ? { tokens: loadedWindow, source: 'server' as const } : known;
     const charsPerToken = (llm.charsPerToken ?? (() => 4)).call(llm);
-    const trimmed = trimHistory(whole, historyBudgetTokens(window.tokens, prompt.length, charsPerToken), charsPerToken);
+    // In a small window the tool descriptions are a large share of the request; count them against the history.
+    const toolChars = compact ? compact.offered.length * TOOL_CHARS : 0;
+    const trimmed = trimHistory(whole, historyBudgetTokens(window.tokens, prompt.length + toolChars, charsPerToken), charsPerToken);
     const messages = trimmed.messages;
     const system = trimmed.omitted > 0 ? `${prompt}\n\n${omittedHistoryText(trimmed.omitted)}` : prompt;
     if (trimmed.omitted > 0) console.log(`[Agent] ${trimmed.omitted} earlier messages left out (window ${window.tokens} tokens, ${window.source})`);
@@ -202,7 +235,7 @@ export async function runAgentTurn(options: AgentTurnOptions): Promise<void> {
       signal: options.signal,
     });
     const tools: Record<string, unknown> = { ...mainTools };
-    if (buildToolsAllowed(context, assistant.defaultIntent)) {
+    if (buildAllowed) {
       const buildTools = createBuildTools(specs(options.toolSpecs), {
         db,
         run,
@@ -218,12 +251,18 @@ export async function runAgentTurn(options: AgentTurnOptions): Promise<void> {
       }
     }
 
-    console.log(`[Agent] Turn with ${messages.length} messages, ${Object.keys(tools).length} tools, intent=${context.intent}`);
+    if (compact) {
+      const keep = new Set<string>(compact.offered);
+      for (const name of Object.keys(tools)) if (!keep.has(name)) delete tools[name];
+    }
+
+    console.log(`[Agent] Turn with ${messages.length} messages, ${Object.keys(tools).length} tools, intent=${context.intent}${compact ? `, compact for a ${compact.window}-token window` : ''}`);
     for await (const chunk of llm.streamChatWithTools([{ role: 'system', content: system }, ...messages], tools as Record<string, any>, {
       maxSteps: assistant.maxStepsPerTurn,
       allowWebSearch: assistant.allowWebSearch,
       allowFetchPage: assistant.allowFetchPage,
       abortSignal: options.signal,
+      compact: compact !== null,
       // The top of this turn's record in the model conversation log.
       trace: {
         intent: context.intent,
@@ -243,6 +282,9 @@ export async function runAgentTurn(options: AgentTurnOptions): Promise<void> {
       }
       send(chunk);
     }
+    // What the server showed during this turn is kept, so the first turn after a restart already fits.
+    const seen = llm.localContextTokens?.() ?? null;
+    if (seen !== null && seen !== loadedWindow && runtime?.provider === 'local') writeStoredWindow(db, runtime.baseURL, runtime.model, seen);
   } catch (error) {
     if (options.signal?.aborted) {
       console.log('[Agent] Turn cancelled');

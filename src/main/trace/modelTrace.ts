@@ -351,6 +351,14 @@ export class TurnTrace {
     }
   }
 
+  /**
+   * A small fact about the turn that is not a stream part: the context window the server loaded the model with,
+   * how large the request was, a notice shown to the person. `data` must hold no free text from the person.
+   */
+  note(type: string, data: Record<string, unknown>): void {
+    this.write(type, { step: this.step, ...data });
+  }
+
   /** An error thrown outside the stream (before the first step, or by the transport). */
   fail(error: unknown): void {
     this.flushText();
@@ -651,7 +659,10 @@ export function turnReport(events: TraceEvent[]): string {
       lines.push(`- **ошибка**${event.status ? ` HTTP ${String(event.status)}` : ''}: ${cut(event.message ?? '', 3000)}`);
       if (event.responseBody) lines.push('```', cut(event.responseBody, 3000), '```');
     } else if (event.type === 'wire-error') lines.push(`- **сеть**: ${cut(event.message ?? event.code ?? '', 1000)} (${String(event.url ?? '')})`);
-    else if (event.type === 'truncated') lines.push(`- _журнал обрезан: ${String(event.reason)}_`);
+    else if (event.type === 'context') {
+      const state = event.state === 'cut' ? 'ЗАПРОС НЕ ПОМЕСТИЛСЯ, сервер отбросил часть' : event.state === 'tight' ? 'места почти нет' : 'запрос помещается';
+      lines.push(`- **окно контекста на сервере: ${String(event.window)} токенов**; запрос ${String(event.requestChars)} симв., нужно около ${String(event.needed)} токенов: ${state}${event.compact ? '; экономный режим (меньше инструментов)' : ''}`);
+    } else if (event.type === 'truncated') lines.push(`- _журнал обрезан: ${String(event.reason)}_`);
     else if (event.type === 'abort') lines.push('- остановлено человеком');
   }
   const wire = events.filter((event) => event.type === 'wire-response');

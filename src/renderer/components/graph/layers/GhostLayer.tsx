@@ -28,12 +28,12 @@ function Chips({ proposal }: { proposal: Proposal }) {
   const replaying = useCanvasStore((state) => Boolean(state.replay));
   const disabled = busy || replaying;
   return (
-    <span className={`${styles.chips} nodrag nopan`}>
-      <button type="button" className={`${styles.chip} ${styles.accept}`} disabled={disabled} onClick={() => void resolve(proposal.id, 'accept').catch(() => undefined)}>
+    <span className={`${styles.chips} ghost-chips nodrag nopan`}>
+      <button type="button" className={`${styles.chip} ${styles.accept} ghost-chip`} disabled={disabled} onClick={() => void resolve(proposal.id, 'accept').catch(() => undefined)}>
         <Check size={12} aria-hidden="true" />
         {t('canvas.ghostAccept')}
       </button>
-      <button type="button" className={`${styles.chip} ${styles.reject}`} disabled={disabled} onClick={() => void resolve(proposal.id, 'reject').catch(() => undefined)}>
+      <button type="button" className={`${styles.chip} ${styles.reject} ghost-chip`} disabled={disabled} onClick={() => void resolve(proposal.id, 'reject').catch(() => undefined)}>
         <X size={12} aria-hidden="true" />
         {t('canvas.ghostReject')}
       </button>
@@ -43,7 +43,7 @@ function Chips({ proposal }: { proposal: Proposal }) {
 
 function Note({ text }: { text: string }) {
   if (!text.trim()) return null;
-  return <p className={styles.note} title={text}>{text}</p>;
+  return <p className={`${styles.note} ghost-note`} title={text}>{text}</p>;
 }
 
 const fade = {
@@ -75,7 +75,7 @@ function AddNodeGhost({ proposal, payload, at }: { proposal: Proposal; payload: 
   };
   return (
     <motion.div {...fade} className={styles.anchor} style={{ left: at.x, top: at.y }} data-ghost={proposal.id} data-ghost-kind="add-node" aria-label={String(t('canvas.ghostNode', { title: data.title }))} role="group">
-      <span className={styles.flag}>{t('canvas.suggested')}</span>
+      <span className={`${styles.flag} ghost-flag`}>{t('canvas.suggested')}</span>
       <NodeCard id={`ghost-${proposal.id}`} data={data} state={{ ghost: true }} connected={new Set()} live={false} />
       <Note text={proposal.note} />
       <Chips proposal={proposal} />
@@ -134,7 +134,7 @@ function SubgraphGhost({ proposal, payload }: { proposal: Proposal; payload: Pay
   return (
     <motion.div {...fade} className={styles.outline} style={{ left: rect.x, top: rect.y, width: rect.width, height: rect.height }} data-ghost={proposal.id} data-ghost-kind="create-subgraph" role="group" aria-label={String(t('canvas.ghostSubgraph', { name: payload.name }))}>
       <div className={styles.outlineTitle}>
-        <span className={styles.flag}>{t('canvas.suggested')}</span>
+        <span className={`${styles.flag} ghost-flag`}>{t('canvas.suggested')}</span>
         <span>{payload.name}</span>
         <Chips proposal={proposal} />
       </div>
@@ -157,7 +157,7 @@ function InsertGhost({ proposal, payload }: { proposal: Proposal; payload: Paylo
   };
   return (
     <motion.div {...fade} className={styles.anchor} style={{ left: payload.x, top: payload.y }} data-ghost={proposal.id} data-ghost-kind="insert-subgraph" role="group" aria-label={String(t('canvas.ghostInsert'))}>
-      <span className={styles.flag}>{t('canvas.suggested')}</span>
+      <span className={`${styles.flag} ghost-flag`}>{t('canvas.suggested')}</span>
       <NodeCard id={`ghost-${proposal.id}`} data={data} state={{ ghost: true, subgraph: true }} connected={new Set()} live={false} />
       <Note text={proposal.note} />
       <Chips proposal={proposal} />
@@ -173,7 +173,7 @@ function RemoveGhost({ proposal, payload }: { proposal: Proposal; payload: Paylo
   return (
     <motion.div {...fade} className={`${styles.outline} ${styles.removal}`} style={{ left: rect.x - 8, top: rect.y - 8, width: rect.width + 16, height: rect.height + 16 }} data-ghost={proposal.id} data-ghost-kind="remove-node" role="group" aria-label={String(t('canvas.ghostRemove'))}>
       <div className={styles.outlineTitle}>
-        <span className={styles.flag}>{t('canvas.ghostRemove')}</span>
+        <span className={`${styles.flag} ghost-flag`}>{t('canvas.ghostRemove')}</span>
         <Chips proposal={proposal} />
       </div>
       <Note text={proposal.note} />

@@ -74,3 +74,35 @@
 .host[data-zoom="overview"] :global(.react-flow__edge-path) {
   stroke-width: 3;
 }
+
+/*
+ * A ghost (a suggestion waiting for an answer) stays answerable on the map: its label, note and the Accept /
+ * Reject buttons grow with the same scale as the titles, so nobody has to zoom in to say yes or no.
+ */
+.host[data-zoom="overview"] :global(.ghost-flag) {
+  font-size: calc(11px * var(--canvas-title-scale, 1));
+  line-height: 1.6;
+  padding: 0 calc(8px * var(--canvas-title-scale, 1));
+}
+
+.host[data-zoom="overview"] :global(.ghost-note) {
+  max-width: calc(240px * var(--canvas-title-scale, 1));
+  font-size: calc(12px * var(--canvas-title-scale, 1));
+  line-height: 1.4;
+  padding: calc(4px * var(--canvas-title-scale, 1)) calc(8px * var(--canvas-title-scale, 1));
+}
+
+.host[data-zoom="overview"] :global(.ghost-chips) {
+  gap: calc(4px * var(--canvas-title-scale, 1));
+}
+
+.host[data-zoom="overview"] :global(.ghost-chip) {
+  height: calc(24px * var(--canvas-title-scale, 1));
+  padding: 0 calc(8px * var(--canvas-title-scale, 1));
+  font-size: calc(12px * var(--canvas-title-scale, 1));
+}
+
+.host[data-zoom="overview"] :global(.ghost-chip) svg {
+  width: calc(12px * var(--canvas-title-scale, 1));
+  height: calc(12px * var(--canvas-title-scale, 1));
+}
