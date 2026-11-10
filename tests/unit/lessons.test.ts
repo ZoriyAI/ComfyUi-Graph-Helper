@@ -371,6 +371,33 @@ describe('the words of the lessons', () => {
     }
   });
 
+  it("names only fields that the nodes of the lesson's graph have", async () => {
+    const { lessonWords } = await import('../../src/shared/lessons/texts');
+    const inputsOf = (classType: string) => CLASSES[classType].inputs.map(([name]) => name);
+    // A word in backticks that is an input of some node is a field; the rest are values and file names.
+    const fields = new Set(Object.keys(CLASSES).flatMap(inputsOf));
+    // What a lesson's graph is made of: its own nodes and those of the lessons it stands on. The samplers of a
+    // video graph call the seed `noise_seed`; a lesson on that graph that said `seed` would send a person to a
+    // field that is not there.
+    const classesOf = (id: string): string[] => [
+      ...rolesOf(lessonById(id)!).map((spec) => spec.classes[0]),
+      ...(LESSON_AFTER[id] ?? []).flatMap(classesOf),
+    ];
+    const strangers: string[] = [];
+    for (const language of ['ru', 'en'] as const) {
+      for (const lesson of LESSONS) {
+        const here = new Set(classesOf(lesson.id).flatMap(inputsOf));
+        for (const [stepId, text] of Object.entries(lessonWords(language, lesson.id)!.steps)) {
+          for (const marked of text.body.match(/`[^`]+`/g) ?? []) {
+            const word = marked.slice(1, -1);
+            if (fields.has(word) && !here.has(word)) strangers.push(`${language}/${lesson.id}/${stepId}: ${word}`);
+          }
+        }
+      }
+    }
+    expect(strangers, 'fields a lesson names that no node of its graph has').toEqual([]);
+  });
+
   it('keeps the lesson on adult content to technique and limits', async () => {
     const { lessonWords } = await import('../../src/shared/lessons/texts');
     for (const language of ['ru', 'en'] as const) {

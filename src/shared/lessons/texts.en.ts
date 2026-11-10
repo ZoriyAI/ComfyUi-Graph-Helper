@@ -291,7 +291,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       trigger: TRIGGER,
       defects: {
         title: 'If the result is poor',
-        body: 'What to change, and in what order:\n- anatomy drifts: lower the LoRA strength to 0.7–0.8 or shorten `length`;\n- the subject does not appear: check the trigger words and that the file fits the model;\n- the clip is burnt out: with a speed-up LoRA `cfg` must be 1;\n- the motion jerks: describe a calmer motion and check that `fps` is 16;\n- everything is off: change the `seed`. Some clips simply fail by chance.',
+        body: 'What to change, and in what order:\n- anatomy drifts: lower `strength_model` of the LoRA to 0.6–0.8 or shorten `length`;\n- the subject does not appear: check the trigger words and that the file fits the model;\n- the clip is burnt out: with a speed-up LoRA `cfg` must be 1;\n- the motion jerks: describe a calmer motion and check that `fps` is 16;\n- everything is off: change `noise_seed` in the first sampler. Some clips simply fail by chance.',
       },
       helper: {
         title: 'About the helper in the app',
