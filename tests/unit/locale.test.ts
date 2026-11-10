@@ -28,7 +28,10 @@ function leaf(catalog: unknown, key: string): string {
 const ASCII_RU = new Set([
   'Graph Helper for ComfyUI',
   'English',
+  // Provider names are product names and read the same in both languages.
   'OpenAI',
+  'Anthropic',
+  'Google Gemini',
   'TEST',
   'API',
   'JSON',
@@ -126,8 +129,8 @@ describe('locale catalog', () => {
 
   it('localizes file dialog copy without changing the English filter names', () => {
     expect(fileDialogCopy('en').importWorkflow).toMatchObject({
-      title: 'Import a workflow',
-      buttonLabel: 'Import',
+      title: 'Open a workflow',
+      buttonLabel: 'Open',
       filter: 'ComfyUI Workflow',
     });
     expect(fileDialogCopy('en').importCatalog.filter).toBe('ComfyUI object_info');
