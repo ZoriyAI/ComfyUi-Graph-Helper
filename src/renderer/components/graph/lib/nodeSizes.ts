@@ -52,12 +52,15 @@ export function sizeHintsOf(detail: Pick<NodeClassDetail, 'inputs'> | null | und
 }
 
 /**
- * A node's rect for layout: its position and its last full size, else what is measured, else the default. A node
- * first seen at the overview level was never measured whole; it gets the size the canvas would draw it at.
+ * A node's rect for layout: its position and its last full size, else what is measured, else the size the canvas
+ * will draw it at. A node first seen at the overview level was never measured whole. A node added a moment ago
+ * has not been measured at all: taken at the small default size, it let the next node be placed too close to it,
+ * or on it, whenever two nodes were added faster than the canvas measures one.
  */
 export function layoutRect(node: PositionedNode, hints?: SizeHints | null): Rect {
   const rect = nodeRect(node);
-  const known = full.get(node.id) ?? (overview && node.data ? estimateNodeSize(node.data, hints) : null);
+  const sized = Boolean((node.measured?.width ?? node.width) && (node.measured?.height ?? node.height));
+  const known = full.get(node.id) ?? ((overview || !sized) && node.data ? estimateNodeSize(node.data, hints) : null);
   return known ? { ...rect, width: Math.max(rect.width, known.width), height: Math.max(rect.height, known.height) } : rect;
 }
 

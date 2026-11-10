@@ -77,8 +77,13 @@ export const NODE_BOX = {
   /** Room above the fields. */
   fieldsTop: 9,
   field: 30,
-  /** What a multi-line text box adds to its field. */
+  /**
+   * What a multi-line text box adds to its field while it holds up to two lines. With more text the box grows by
+   * at most `textGrowth` and then scrolls (fields/FieldControl.module.css); the gap kept under a node is larger
+   * than that, so a description written later never brings a node onto the one below.
+   */
   textBox: 41,
+  textGrowth: 38,
   /** The card's bottom padding and its border. */
   bottom: 10,
   /** A note under the fields: its frame, and each line of it. */

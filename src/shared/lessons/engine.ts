@@ -375,10 +375,19 @@ export function lessonProgress(lesson: Lesson, graph: LessonGraph, facts: Lesson
     // one that asks to move fewer links that are already there.
     const before = matches(graph, requirementsOf(lesson.steps.slice(0, index)), facts, 64);
     const busy = busyElsewhere(lesson, graph);
+    const brought = new Set((step.roles ?? []).map((spec) => spec.role));
     let best: { roles: Roles; missing: Missing[] } | null = null;
     for (const start of before.length > 0 ? before : [{}]) {
-      for (const filled of fillings(graph, step.roles ?? [], start, busy)) {
+      // Every node of the class may play a new role, and so may none of those that work elsewhere: then the role
+      // stays open and the step asks for a node of its own.
+      const ways = [...fillings(graph, step.roles ?? [], start, NOTHING), ...(busy.size > 0 ? fillings(graph, step.roles ?? [], start, busy) : [])];
+      for (const filled of ways) {
         const missing = missingOf(graph, step, filled, facts);
+        // A node that works for another part of the graph is not taken apart: a way that moves a link of such a
+        // node to give it a new role is no way. With an input still empty it is simply a node being wired.
+        const tearsApart = missing.some((item) => item.kind === 'link' && item.fedBy !== null && item.fedBy !== item.from.nodeId
+          && busy.has(item.to.nodeId) && brought.has(item.to.role) && !(item.to.role in start));
+        if (tearsApart) continue;
         if (!best || missing.length < best.missing.length || (missing.length === best.missing.length && moved(missing) < moved(best.missing))) best = { roles: filled, missing };
       }
     }
@@ -386,6 +395,8 @@ export function lessonProgress(lesson: Lesson, graph: LessonGraph, facts: Lesson
   }
   return { current: lesson.steps.length, roles, missing: [] };
 }
+
+const NOTHING: ReadonlySet<string> = new Set();
 
 /** How many of the lacks ask to take a link off an input that something else feeds now. */
 function moved(missing: Missing[]): number {
@@ -396,7 +407,9 @@ function moved(missing: Missing[]): number {
  * The nodes that already work for a part of the graph the lesson knows nothing about: their output goes into a
  * node of a class that no role of the lesson has and no link of it may pass through. The texts of a video graph
  * feed a Wan node; a lesson about pictures has no such node, so those texts are the video's and not a pair of
- * spare text nodes. A lesson never tells a person to rewire such a node: it asks for one of its own.
+ * spare text nodes. A lesson never tells a person to move a link of such a node: it asks for a node of its own.
+ * A node of the lesson that also feeds something the lesson does not know (a preview next to the saver) is still
+ * the lesson's: what it lacks is said as before, as long as nothing that is wired has to be taken off.
  */
 function busyElsewhere(lesson: Lesson, graph: LessonGraph): Set<string> {
   const known = new Set<string>();
@@ -414,9 +427,9 @@ function busyElsewhere(lesson: Lesson, graph: LessonGraph): Set<string> {
 
 /**
  * `start` with each new role given a free node of its class where there is one, in every way (bounded). A node
- * that is busy elsewhere is not free.
+ * named in `skip` is not free.
  */
-function fillings(graph: LessonGraph, specs: RoleSpec[], start: Roles, busy: ReadonlySet<string>): Roles[] {
+function fillings(graph: LessonGraph, specs: RoleSpec[], start: Roles, skip: ReadonlySet<string>): Roles[] {
   const out: Roles[] = [];
   const roles: Roles = { ...start };
   const taken = new Set(Object.values(start));
@@ -433,7 +446,7 @@ function fillings(graph: LessonGraph, specs: RoleSpec[], start: Roles, busy: Rea
     }
     let any = false;
     for (const node of graph.nodes) {
-      if (taken.has(node.id) || busy.has(node.id) || !spec.classes.includes(node.classType)) continue;
+      if (taken.has(node.id) || skip.has(node.id) || !spec.classes.includes(node.classType)) continue;
       any = true;
       roles[spec.role] = node.id;
       taken.add(node.id);

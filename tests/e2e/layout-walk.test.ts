@@ -349,7 +349,7 @@ function overlapOf(a: { x: number; y: number; width: number; height: number } | 
 }
 
 test('nothing sticks out, is cut or overlaps on any screen at any window size', async () => {
-  test.setTimeout(2_400_000);
+  test.setTimeout(3_600_000);
   if (OUT) fs.mkdirSync(OUT, { recursive: true });
   // With ComfyUI's video nodes, so every lesson fits and is walked.
   const fake: FakeMcp = await startFakeMcp({ extraLoras: 300, video: true });

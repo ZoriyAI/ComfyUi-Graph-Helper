@@ -195,11 +195,21 @@ test('first run: connect, sync from MCP, browse the library, build, check and ex
 
     // Only read-only MCP tools with read-only arguments; the token never reached the disk.
     const toolCalls = fake.calls.filter((call) => call.method === 'tools/call');
-    expect(new Set(toolCalls.map((call) => call.tool))).toEqual(new Set(['studio_capabilities', 'models', 'studio_info', 'comfy_api', 'model_metadata']));
+    expect(new Set(toolCalls.map((call) => call.tool))).toEqual(new Set(['studio_capabilities', 'models', 'studio_info', 'comfy_api', 'model_metadata', 'workspace_files']));
     for (const call of toolCalls) {
       expect(READ_TOOLS as readonly string[]).toContain(call.tool);
       expect(WRITE_TOOLS as readonly string[]).not.toContain(call.tool);
       expect(isReadOnlyCall(String(call.tool), call.args ?? {})).toBe(true);
+    }
+    // The file tool can also write, move and delete. The app uses it for one thing: to read, as bytes, a
+    // description or a preview that lies next to a model file.
+    const fileCalls = toolCalls.filter((call) => call.tool === 'workspace_files').map((call) => (call.args ?? {}) as Record<string, unknown>);
+    expect(fileCalls.length).toBeGreaterThan(0);
+    for (const args of fileCalls) {
+      expect(args.action).toBe('read');
+      expect(args.encoding).toBe('base64');
+      expect(String(args.absolute_path)).toMatch(/\/models\/[^/]+\/[^/]+\.(metadata\.json|civitai\.info|webp|png|jpe?g|gif|mp4|webm)$/);
+      expect(Object.keys(args).sort()).toEqual(['absolute_path', 'action', 'encoding', 'length', 'offset']);
     }
     // "Check" knocks without credentials on purpose (that is how it learns a token is needed) and is turned away
     // before any tool runs; every tool call afterwards carried the token.

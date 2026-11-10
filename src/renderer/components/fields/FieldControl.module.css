@@ -73,13 +73,17 @@
 .number::placeholder,
 .textarea::placeholder { color: var(--text-faint, #8b9bb0); font-style: italic; opacity: 1; }
 
-/* Prompts: the box grows with its text (field-sizing), up to a height that keeps the node readable. */
+/*
+ * Prompts: the box grows with its text (field-sizing) up to four lines, then scrolls. On a node this growth has
+ * to stay well under the gap the canvas keeps below a node (NEW_NODE_GAP, 56 px): a box that grew by more than
+ * the gap brought its node to lie on the node under it. "Properties" shows the whole text.
+ */
 .textarea {
   flex: 1;
   width: 100%;
   height: auto;
   min-height: calc(var(--field-h) * 2);
-  max-height: 160px;
+  max-height: calc(var(--field-h) * 2 + 38px);
   padding: 4px 8px;
   resize: none;
   field-sizing: content;

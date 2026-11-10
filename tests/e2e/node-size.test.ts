@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { startFakeMcp, type FakeMcp } from '../fixtures/mcp/fakeMcpServer';
-import { estimateNodeSize, type SizeHints } from '../../src/shared/graph/layout';
+import { estimateNodeSize, type SizeHints, NODE_BOX } from '../../src/shared/graph/layout';
 import { NEW_NODE_GAP } from '../../src/renderer/components/graph/lib/geometry';
 
 /**
@@ -123,6 +123,9 @@ test('the size the app works out for a node is the size the canvas draws it at',
     await commit(api, { type: 'connect', source: decode, sourceHandle: await handle(decode, 'outputs', 'IMAGE'), target: scale, targetHandle: await handle(scale, 'inputs', 'image') });
     await commit(api, { type: 'connect', source: scale, sourceHandle: await handle(scale, 'outputs', 'IMAGE'), target: save, targetHandle: await handle(save, 'inputs', 'images') });
     await commit(api, { type: 'create-subgraph', name: 'Decode and enlarge', nodeIds: [decode, scale] });
+    // A description of many lines: its box grows a little and then scrolls, so the node stays near its worked-out size.
+    const wordy = idOf(await commit(api, { type: 'add-node', nodeType: 'CLIPTextEncode', ...place() }));
+    await commit(api, { type: 'set-parameter', nodeId: wordy, key: 'text', value: 'A young woman in a red coat walks slowly along a wet city street at night. '.repeat(8).trim() });
     await reloaded(page);
     await fullSize(page);
 
@@ -135,6 +138,15 @@ test('the size the app works out for a node is the size the canvas draws it at',
     for (const node of projection.snapshot.nodes) {
       const real = boxes.get(String(node.id))!;
       const worked = estimateNodeSize(node.data, hints.get(String(node.data.comfyType)) ?? null);
+      if (String(node.id) === wordy) {
+        // Taller than with an empty box, by no more than the growth the layout counts on: the gap kept under a
+        // node is larger, so a long description never brings a node onto the one below it.
+        const grown = real.height - worked.height;
+        lines.push(`a description of many lines: drawn ${real.height}, worked out ${worked.height}, grown by ${grown}`);
+        expect(grown, 'a long description makes its node taller').toBeGreaterThan(16);
+        expect(grown, 'and by no more than the layout counts on').toBeLessThanOrEqual(NODE_BOX.textGrowth + 2);
+        continue;
+      }
       const over = worked.height - real.height;
       const line = `${String(node.data.title ?? node.data.comfyType).slice(0, 44).padEnd(46)} drawn ${String(real.height).padStart(4)}  worked out ${String(worked.height).padStart(4)}  ${over >= 0 ? '+' : ''}${over}`;
       lines.push(line);

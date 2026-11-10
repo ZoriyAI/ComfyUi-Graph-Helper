@@ -20,7 +20,8 @@ jobs:
   linux:
     name: Linux (tests, e2e, .deb)
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    # The three walks visit every step of every lesson at every size: over an hour together with the rest.
+    timeout-minutes: 120
     permissions:
       contents: write
     steps:

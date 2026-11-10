@@ -5,7 +5,7 @@ import { freeSpotFor, ghostNodePosition, ghostSpotFree, viewCentreSpot, GHOST_SI
 import { layoutRect, newNodeSize, nextOverview, rememberSizes, setOverviewLevel, sizeHintsOf, titleScale } from '../../src/renderer/components/graph/lib/nodeSizes';
 import { ghostRoom, insertRoom } from '../../src/renderer/components/graph/layers/GhostLayer';
 import type { NodeClassDetail } from '../../src/shared/contracts/knowledge';
-import { rectsOverlap } from '../../src/shared/graph/layout';
+import { NODE_BOX, rectsOverlap } from '../../src/shared/graph/layout';
 
 /** KSampler as a catalog gives it: four link inputs, six fields, one output. Drawn 402 px tall. */
 const SAMPLER: NodeClassDetail = {
@@ -90,6 +90,22 @@ describe('manual placement', () => {
     expect(layoutRect(folded).height).toBe(55 + (4 + 28) + (4 + 28) + (9 + 30) + 10);
     setOverviewLevel(false);
     expect(layoutRect(folded).height).toBe(48);
+  });
+
+  it('sizes a node the canvas has not measured yet by its ports and fields, so the next node is not put on it', () => {
+    setOverviewLevel(false);
+    const data = { inputs: [{ name: 'model', dataType: 'MODEL' }], outputs: [{ name: 'LATENT' }], parameters: { steps: 20 } };
+    const whole = 55 + (4 + 28) + (4 + 28) + (9 + 30) + 10;
+    // Added a moment ago: no measurement, and nothing remembered of it.
+    expect(layoutRect(at('just-added', 0, 0, { data, measured: undefined })).height).toBe(whole);
+    // Once the canvas has measured it, the measurement is the size.
+    expect(layoutRect(at('just-added', 0, 0, { data, measured: { width: 240, height: 171 } })).height).toBe(171);
+    // A second node asked for under the first one keeps the gap from the real bottom of the first.
+    const first = at('first', 0, 0, { data, measured: undefined });
+    const spot = freeSpotFor([first], { x: 0, y: 130 }, { width: 240, height: 100 }, (node) => layoutRect(node));
+    expect(rectsOverlap({ ...spot, width: 240, height: 100 }, { x: 0, y: 0, width: 240, height: whole }, NEW_NODE_GAP - 1)).toBe(false);
+    // A description written later makes its box taller by less than the gap kept under a node.
+    expect(NODE_BOX.textGrowth).toBeLessThanOrEqual(NEW_NODE_GAP - 16);
   });
 
   it('centres a new node in the view', () => {

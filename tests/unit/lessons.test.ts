@@ -562,6 +562,23 @@ describe('a lesson leaves alone what works for another part of the graph', () =>
     expect(links.every((item) => item.kind === 'link' && item.fedBy === null)).toBe(true);
   });
 
+  it('still sees a node of the lesson that also feeds something the lesson does not know', () => {
+    const canvas = new Canvas();
+    const image = lessonById('image')!;
+    carryOut(image, canvas);
+    const roles = done(image, canvas).roles;
+    // The person looks at the picture in a preview node too, then takes the link into the decoder off by mistake.
+    const preview = canvas.add('PreviewImage');
+    canvas.connect(roles.decode, 'out-0', preview.id, 'in-0');
+    canvas.links = canvas.links.filter((link) => !(link.to === roles.decode && link.toPort === 'in-0'));
+    const progress = done(image, canvas);
+    expect(image.steps[progress.current].id).toBe('decode');
+    // The decoder is there and is the lesson's: what it lacks is its input, not a second decoder.
+    expect(progress.missing).toHaveLength(1);
+    expect(progress.missing[0]).toMatchObject({ kind: 'link', input: 'samples', fedBy: null, to: { role: 'decode', nodeId: roles.decode } });
+    expect(fixFor(progress.missing[0], canvas, installed)).toMatchObject({ kind: 'connect', to: roles.decode });
+  });
+
   it('still says which link is wrong on a node that is part of the lesson', () => {
     // The samplers of a video-from-text graph are the samplers of video-from-a-picture: there the lesson does ask
     // to move their links, to the node that puts the picture in.
