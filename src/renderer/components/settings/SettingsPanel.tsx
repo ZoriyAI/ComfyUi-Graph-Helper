@@ -295,8 +295,8 @@ export default function SettingsPanel({
     }
   };
 
-  // Why Save is off, said in its tooltip: busy, a field to fix, or nothing changed.
-  const saveReason = pending ? translate('settings.saving') : draftError ? translate('settings.saveFix') : !dirty ? translate('settings.saveNothing') : '';
+  // Why Save is off, said in its tooltip: a field to fix, or nothing changed. While saving the button says so itself.
+  const saveReason = pending ? '' : draftError ? translate('settings.saveFix') : !dirty ? translate('settings.saveNothing') : '';
   // The password-store note matters only where a key or token is entered: a cloud helper, the token access, Privacy.
   const keyNoteShown = canPersist === false && (
     (section === 'assistant' && CLOUD_PROVIDERS.has(values.provider))
@@ -414,7 +414,7 @@ export default function SettingsPanel({
               {keyNoteShown ? <p className={hintClass}>{t('settings.keyReason')}</p> : null}
             </div>
             <div className={cx(rowClass, styles.footerButtons)}>
-              {saveDisabled && saveReason ? <Hint label={saveReason} side="top">{saveButton}</Hint> : saveButton}
+              <Hint label={saveDisabled ? saveReason : ''} side="top">{saveButton}</Hint>
               <DialogClose asChild>
                 <Button>{t('settings.cancel')}</Button>
               </DialogClose>

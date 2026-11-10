@@ -54,6 +54,12 @@ test('blocked secret IPC leaves the disabled key controls empty and the marker o
   await expect(dialog.getByRole('button', { name: 'Remember on this computer' })).toHaveCount(0);
   const keyReason = 'The system password store is not available on this computer, so keys live only until the app closes.';
   await expect(window.getByRole('contentinfo').getByText(keyReason)).toBeVisible();
+  // The note belongs where a key or token is entered: not on a section without one.
+  await dialog.getByRole('tab', { name: 'Appearance & Motion' }).click();
+  await expect(window.getByRole('contentinfo').getByText(keyReason)).toHaveCount(0);
+  await dialog.getByRole('tab', { name: 'Privacy' }).click();
+  await expect(window.getByRole('contentinfo').getByText(keyReason)).toBeVisible();
+  await dialog.getByRole('tab', { name: 'Assistant' }).click();
   const result = await window.evaluate(async (marker) => {
     const bridge = (window as unknown as { electronAPI: { saveSecret: (value: string) => Promise<{ status: string }> } }).electronAPI;
     return bridge.saveSecret(marker);

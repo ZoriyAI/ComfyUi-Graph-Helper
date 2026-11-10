@@ -38,6 +38,11 @@ test('canvas explains: context menu, tour, connect assist, subgraph breadcrumb a
   const menu = window.getByRole('menu');
   await expect(menu.getByRole('menuitem', { name: 'What is this?' })).toBeVisible();
   await expect(menu.getByRole('menuitem', { name: 'Make a subgraph from selection' })).toBeVisible();
+  // The questions sit under a caption that says who answers; every row has an icon; the node is a "node".
+  await expect(menu.getByText('Ask the assistant', { exact: true })).toBeVisible();
+  await expect(menu.getByRole('menuitem', { name: 'Note for this node…' })).toBeVisible();
+  await expect(menu.getByRole('menuitem', { name: 'Delete node' })).toBeVisible();
+  expect(await menu.getByRole('menuitem').evaluateAll((items) => items.every((item) => item.querySelector('svg') !== null))).toBe(true);
   await menu.getByRole('menuitem', { name: 'What is this?' }).click();
   await expect(window.getByRole('menu')).toHaveCount(0);
   await expect.poll(async () => window.locator('[data-flow]').count()).toBeGreaterThan(0);

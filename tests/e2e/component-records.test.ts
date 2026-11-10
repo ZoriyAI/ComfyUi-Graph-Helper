@@ -176,7 +176,7 @@ test('node and subgraph records persist in the native project and stay out of Co
   await russianForm.getByRole('button', { name: 'Сохранить описание' }).click();
   await expect(russianForm.getByRole('button', { name: 'Сохранить описание' })).toBeDisabled();
   await window.getByRole('button', { name: 'Открыть проект' }).click();
-  await expect(window.getByText('Нативный проект открыт.')).toBeVisible();
+  await expect(window.getByText('Проект открыт.')).toBeVisible();
   await expect(window.locator('[data-component-owner="node:7"] textarea').nth(0)).toHaveValue(PURPOSE);
   await electronApp.close();
 });

@@ -94,8 +94,8 @@ function useHelperModel(provider: string): string {
 
 /**
  * The one control for the helper: an icon with a dot for where its key stands, "Assistant: <name> · <model>",
- * the providers to switch to, and "Set up…" for Settings ▸ Assistant. The sentence about the key is the tooltip
- * and a polite status for screen readers (the menu bar has no second chip that says the same).
+ * the providers to switch to, and "Set up…" for Settings ▸ Assistant. The sentence about the key heads the open
+ * list and is a polite status for screen readers (the menu bar has no second chip that says the same).
  */
 function HelperSelect() {
   const { t } = useTranslation();
@@ -112,18 +112,17 @@ function HelperSelect() {
   const note = String(t(providerNoteKey(provider, keySource)));
   return (
     <div className={cx(styles.helper, 'helper-select')} data-key={providerKeyState(provider, keySource)}>
-      <Hint label={note} side="bottom">
-        <SelectField
-          id="chat-provider"
-          label={String(t('provider.label'))}
-          value={provider}
-          options={options}
-          onChange={(next) => void choose(next)}
-          icon={<Sparkles size={14} className={styles.helperIcon} aria-hidden="true" />}
-          display={display}
-          actions={[{ label: String(t('provider.configure')), onSelect: () => useUiStore.getState().openSettings('assistant') }]}
-        />
-      </Hint>
+      <SelectField
+        id="chat-provider"
+        label={String(t('provider.label'))}
+        value={provider}
+        options={options}
+        onChange={(next) => void choose(next)}
+        icon={<Sparkles size={14} className={styles.helperIcon} aria-hidden="true" />}
+        display={display}
+        note={note}
+        actions={[{ label: String(t('provider.configure')), onSelect: () => useUiStore.getState().openSettings('assistant') }]}
+      />
       <span className="sr-only" role="status">{note}</span>
     </div>
   );

@@ -12,8 +12,9 @@ export function HintProvider({ children }: { children: React.ReactNode }) {
  * for commands, the shortcut (drawn with <Kbd>).
  */
 export default function Hint({ label, children, side, shortcut }: { label: string; children: React.ReactNode; side?: 'top' | 'bottom' | 'left' | 'right'; shortcut?: React.ReactNode }) {
+  // An empty label keeps the wrapper (so the control is not remounted when a reason comes and goes) but never opens.
   return (
-    <Tooltip.Root>
+    <Tooltip.Root {...(label ? {} : { open: false })}>
       <Tooltip.Trigger asChild>
         <span className={cx(styles.target, 'hint-target')}>{children}</span>
       </Tooltip.Trigger>

@@ -36,6 +36,7 @@ export default function SelectField({
   icon,
   display,
   actions,
+  note,
 }: {
   id?: string;
   label: string;
@@ -50,6 +51,8 @@ export default function SelectField({
   display?: React.ReactNode;
   /** Rows after a rule at the end of the list; choosing one runs it and keeps the value. */
   actions?: SelectAction[];
+  /** A sentence at the top of the open list, about the current choice (where the helper's key is). */
+  note?: string;
 }) {
   const [open, setOpen] = useState(false);
   useEffect(() => {
@@ -81,6 +84,7 @@ export default function SelectField({
         <Select.Portal container={container ?? undefined}>
           <Select.Content className={cx(styles.content, 'select-content')} position="popper" sideOffset={4} collisionPadding={8}>
             <Select.Viewport>
+              {note ? <Select.Group><Select.Label className={cx(styles.note, 'select-note')}>{note}</Select.Label></Select.Group> : null}
               {options.map((option) => (
                 <Select.Item key={option.label} className={cx(styles.item, 'select-item')} value={option.value === '' ? EMPTY : option.value}>
                   <Select.ItemText>{option.label}</Select.ItemText>
