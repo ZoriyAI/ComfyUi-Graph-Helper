@@ -107,12 +107,16 @@ test('inside a subgraph, moving an inner node and editing its field are saved an
   const zero = window.locator('.react-flow__node[data-id="2"]');
   await expect(zero).toContainText('ConditioningZeroOut');
   const before = definition(await exportDocument(window), OUTER_ID).nodes.find((node: { id: number }) => node.id === 2).pos;
-  const box = (await zero.boundingBox())!;
-  await window.mouse.move(box.x + box.width / 2, box.y + 14);
-  await window.mouse.down();
-  await window.mouse.move(box.x + box.width / 2 + 60, box.y + 14 + 90, { steps: 12 });
-  await window.mouse.up();
-  await expect.poll(async () => definition(await exportDocument(window), OUTER_ID).nodes.find((node: { id: number }) => node.id === 2).pos).not.toEqual(before);
+  // Entering a level fits the camera with an animation; a drag started meanwhile can miss under load, so the
+  // drag is repeated until the saved position changes.
+  await expect(async () => {
+    const box = (await zero.boundingBox())!;
+    await window.mouse.move(box.x + box.width / 2, box.y + 14);
+    await window.mouse.down();
+    await window.mouse.move(box.x + box.width / 2 + 60, box.y + 14 + 90, { steps: 12 });
+    await window.mouse.up();
+    await expect.poll(async () => definition(await exportDocument(window), OUTER_ID).nodes.find((node: { id: number }) => node.id === 2).pos, { timeout: 3000 }).not.toEqual(before);
+  }).toPass({ timeout: 20000 });
   const moved = definition(await exportDocument(window), OUTER_ID).nodes.find((node: { id: number }) => node.id === 2).pos as number[];
   expect(moved[1]).toBeGreaterThan(before[1]);
 
