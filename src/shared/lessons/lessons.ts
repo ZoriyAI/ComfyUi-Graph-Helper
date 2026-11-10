@@ -22,6 +22,10 @@ const between = (min: number, max: number): FieldTest => ({ kind: 'between', min
 
 /** A LoRA loader on the way from a model to where the model is used does not break the way. */
 const LORA = ['LoraLoaderModelOnly'];
+/** The same for a model that comes out of a checkpoint: its LoRA loader may carry the text reader along. */
+const LORA_ANY = ['LoraLoader', 'LoraLoaderModelOnly'];
+/** What may stand between a checkpoint's text reader and a text: a LoRA loader, the choice of its last layer. */
+const CLIP_VIA = ['LoraLoader', 'CLIPSetLastLayer'];
 
 const image: Lesson = {
   id: 'image',
@@ -29,14 +33,14 @@ const image: Lesson = {
     { id: 'intro', read: true },
     { id: 'model', roles: [node('checkpoint', 'CheckpointLoaderSimple')], fields: [field('checkpoint', 'ckpt_name', chosen)] },
     { id: 'prompts', roles: [node('positive', 'CLIPTextEncode'), node('negative', 'CLIPTextEncode')] },
-    { id: 'prompts-clip', links: [link('checkpoint', 'CLIP', 'positive', 'clip'), link('checkpoint', 'CLIP', 'negative', 'clip')] },
+    { id: 'prompts-clip', links: [link('checkpoint', 'CLIP', 'positive', 'clip', CLIP_VIA), link('checkpoint', 'CLIP', 'negative', 'clip', CLIP_VIA)] },
     { id: 'prompt-text', fields: [field('positive', 'text', { kind: 'text', minChars: 3 })] },
     { id: 'latent', roles: [node('latent', 'EmptyLatentImage')] },
     { id: 'sampler', roles: [node('sampler', 'KSampler')] },
     {
       id: 'sampler-links',
       links: [
-        link('checkpoint', 'MODEL', 'sampler', 'model'),
+        link('checkpoint', 'MODEL', 'sampler', 'model', LORA_ANY),
         link('positive', 'CONDITIONING', 'sampler', 'positive'),
         link('negative', 'CONDITIONING', 'sampler', 'negative'),
         link('latent', 'LATENT', 'sampler', 'latent_image'),
@@ -44,6 +48,95 @@ const image: Lesson = {
     },
     { id: 'decode', roles: [node('decode', 'VAEDecode')], links: [link('sampler', 'LATENT', 'decode', 'samples'), link('checkpoint', 'VAE', 'decode', 'vae')] },
     { id: 'save', roles: [node('save', 'SaveImage')], links: [link('decode', 'IMAGE', 'save', 'images')] },
+    { id: 'run', read: true },
+  ],
+};
+
+/**
+ * How a description is read and steered. The knowledge is in the steps that explain; the steps to do are short
+ * and stand right after what they practise, so a graph that already holds them skips the doing, never the reading.
+ */
+const prompt: Lesson = {
+  id: 'prompt',
+  steps: [
+    { id: 'intro', read: true },
+    {
+      id: 'graph',
+      roles: [node('positive', 'CLIPTextEncode'), node('negative', 'CLIPTextEncode'), node('sampler', 'KSampler')],
+      links: [link('positive', 'CONDITIONING', 'sampler', 'positive'), link('negative', 'CONDITIONING', 'sampler', 'negative')],
+    },
+    { id: 'readers', read: true },
+    { id: 'order', read: true },
+    { id: 'write', fields: [field('positive', 'text', { kind: 'text', minChars: 40 })] },
+    { id: 'weights', read: true },
+    { id: 'weigh', fields: [field('positive', 'text', { kind: 'weighted', min: 0.5, max: 1.5 })] },
+    { id: 'negative', read: true },
+    { id: 'negative-text', fields: [field('negative', 'text', { kind: 'text', minChars: 5 })] },
+    { id: 'cfg', read: true },
+    { id: 'seed', read: true },
+    { id: 'problems', read: true },
+    { id: 'check', read: true },
+  ],
+};
+
+/**
+ * A second model redraws the picture of the first. The first pass is named whole, its saver included, so that
+ * every node the second pass needs is a new one: what is already wired stays as it is.
+ */
+const refine: Lesson = {
+  id: 'refine',
+  steps: [
+    { id: 'intro', read: true },
+    {
+      id: 'graph',
+      roles: [
+        node('checkpoint', 'CheckpointLoaderSimple'),
+        node('positive', 'CLIPTextEncode'),
+        node('negative', 'CLIPTextEncode'),
+        node('sampler', 'KSampler'),
+        node('decode', 'VAEDecode'),
+        node('save', 'SaveImage', 'PreviewImage'),
+      ],
+      links: [
+        link('checkpoint', 'CLIP', 'positive', 'clip', CLIP_VIA),
+        link('checkpoint', 'CLIP', 'negative', 'clip', CLIP_VIA),
+        link('checkpoint', 'MODEL', 'sampler', 'model', LORA_ANY),
+        link('positive', 'CONDITIONING', 'sampler', 'positive'),
+        link('negative', 'CONDITIONING', 'sampler', 'negative'),
+        link('sampler', 'LATENT', 'decode', 'samples'),
+        link('decode', 'IMAGE', 'save', 'images'),
+      ],
+    },
+    {
+      id: 'second-model',
+      roles: [node('checkpointB', 'CheckpointLoaderSimple')],
+      fields: [field('checkpointB', 'ckpt_name', { kind: 'differs', role: 'checkpoint', field: 'ckpt_name' })],
+    },
+    {
+      id: 'second-texts',
+      roles: [node('positiveB', 'CLIPTextEncode'), node('negativeB', 'CLIPTextEncode')],
+      links: [link('checkpointB', 'CLIP', 'positiveB', 'clip', CLIP_VIA), link('checkpointB', 'CLIP', 'negativeB', 'clip', CLIP_VIA)],
+      fields: [field('positiveB', 'text', { kind: 'text', minChars: 3 })],
+    },
+    { id: 'encode', roles: [node('encode', 'VAEEncode')], links: [link('decode', 'IMAGE', 'encode', 'pixels'), link('checkpointB', 'VAE', 'encode', 'vae')] },
+    {
+      id: 'second-sampler',
+      roles: [node('samplerB', 'KSampler')],
+      links: [
+        link('checkpointB', 'MODEL', 'samplerB', 'model', LORA_ANY),
+        link('positiveB', 'CONDITIONING', 'samplerB', 'positive'),
+        link('negativeB', 'CONDITIONING', 'samplerB', 'negative'),
+        link('encode', 'LATENT', 'samplerB', 'latent_image'),
+      ],
+    },
+    { id: 'denoise', fields: [field('samplerB', 'denoise', between(0.2, 0.5))] },
+    {
+      id: 'out',
+      roles: [node('decodeB', 'VAEDecode'), node('saveB', 'SaveImage', 'PreviewImage')],
+      links: [link('samplerB', 'LATENT', 'decodeB', 'samples'), link('checkpointB', 'VAE', 'decodeB', 'vae'), link('decodeB', 'IMAGE', 'saveB', 'images')],
+    },
+    { id: 'same-family', read: true },
+    { id: 'loras', read: true },
     { id: 'run', read: true },
   ],
 };
@@ -204,6 +297,12 @@ const promptInUse = {
   links: [link('positive', 'CONDITIONING', 'wants', 'positive')],
 };
 
+/** The same for a lesson that is about video alone: on a canvas that also draws pictures it is the clip's text. */
+const videoPromptInUse = {
+  roles: [node('positive', 'CLIPTextEncode'), node('wants', 'WanImageToVideo', 'KSamplerAdvanced')],
+  links: [link('positive', 'CONDITIONING', 'wants', 'positive')],
+};
+
 const triggerInPrompt = field('positive', 'text', { kind: 'has-trigger', of: [{ role: 'loraHigh', field: 'lora_name' }, { role: 'loraLow', field: 'lora_name' }] });
 
 /**
@@ -252,6 +351,85 @@ const videoFast: Lesson = {
   ],
 };
 
+const promptVideo: Lesson = {
+  id: 'prompt-video',
+  steps: [
+    { id: 'intro', read: true },
+    { id: 'graph', ...videoPromptInUse },
+    { id: 'structure', read: true },
+    { id: 'write', fields: [field('positive', 'text', { kind: 'text', minChars: 80 })] },
+    { id: 'action', read: true },
+    { id: 'camera', read: true },
+    { id: 'picture', read: true },
+    { id: 'negative', read: true },
+    { id: 'problems', read: true },
+    { id: 'check', read: true },
+  ],
+};
+
+/**
+ * A picture model draws the first frame of a clip. The video graph is named first, texts and decoder included:
+ * those nodes are the video's, and the picture model gets nodes of its own next to them.
+ */
+const twoModels: Lesson = {
+  id: 'two-models',
+  steps: [
+    { id: 'intro', read: true },
+    {
+      id: 'video-graph',
+      roles: [
+        node('clip', 'CLIPLoader'),
+        node('vae', 'VAELoader'),
+        node('positive', 'CLIPTextEncode'),
+        node('negative', 'CLIPTextEncode'),
+        node('start', 'WanImageToVideo'),
+        node('decode', 'VAEDecode'),
+      ],
+      links: [
+        link('clip', 'CLIP', 'positive', 'clip'),
+        link('clip', 'CLIP', 'negative', 'clip'),
+        link('positive', 'CONDITIONING', 'start', 'positive'),
+        link('negative', 'CONDITIONING', 'start', 'negative'),
+        link('vae', 'VAE', 'start', 'vae'),
+        link('vae', 'VAE', 'decode', 'vae'),
+      ],
+    },
+    { id: 'image-model', roles: [node('checkpoint', 'CheckpointLoaderSimple')], fields: [field('checkpoint', 'ckpt_name', chosen)] },
+    {
+      id: 'image-texts',
+      roles: [node('imagePositive', 'CLIPTextEncode'), node('imageNegative', 'CLIPTextEncode')],
+      links: [link('checkpoint', 'CLIP', 'imagePositive', 'clip', CLIP_VIA), link('checkpoint', 'CLIP', 'imageNegative', 'clip', CLIP_VIA)],
+      fields: [field('imagePositive', 'text', { kind: 'text', minChars: 3 })],
+    },
+    {
+      id: 'image-sampler',
+      roles: [node('imageLatent', 'EmptyLatentImage'), node('imageSampler', 'KSampler')],
+      links: [
+        link('checkpoint', 'MODEL', 'imageSampler', 'model', LORA_ANY),
+        link('imagePositive', 'CONDITIONING', 'imageSampler', 'positive'),
+        link('imageNegative', 'CONDITIONING', 'imageSampler', 'negative'),
+        link('imageLatent', 'LATENT', 'imageSampler', 'latent_image'),
+      ],
+    },
+    { id: 'size', read: true },
+    {
+      id: 'bridge',
+      roles: [node('imageDecode', 'VAEDecode')],
+      links: [
+        link('imageSampler', 'LATENT', 'imageDecode', 'samples'),
+        link('checkpoint', 'VAE', 'imageDecode', 'vae'),
+        link('imageDecode', 'IMAGE', 'start', 'start_image'),
+      ],
+    },
+    { id: 'look', roles: [node('frame', 'SaveImage', 'PreviewImage')], links: [link('imageDecode', 'IMAGE', 'frame', 'images')] },
+    { id: 'descriptions', read: true },
+    { id: 'loras', read: true },
+    { id: 'memory', read: true },
+    { id: 'approaches', read: true },
+    { id: 'run', read: true },
+  ],
+};
+
 /**
  * What changes for adult content is knowledge, not the graph: which model, which LoRA, how to describe. The subject
  * comes from a further-trained pair of models or from a LoRA, so the lesson asks for neither: it checks that the
@@ -275,13 +453,17 @@ const adult: Lesson = {
 };
 
 /** In the order a person meets them. */
-export const LESSONS: readonly Lesson[] = [image, videoText, videoImage, lora, videoFast, adult];
+export const LESSONS: readonly Lesson[] = [image, prompt, refine, videoText, promptVideo, videoImage, lora, videoFast, twoModels, adult];
 
 /** Lessons that stand on the graph of another: said in the list, not enforced. */
 export const LESSON_AFTER: Readonly<Record<string, string[]>> = {
+  prompt: ['image'],
+  refine: ['image'],
+  'prompt-video': ['video-text'],
   'video-image': ['video-text'],
   lora: ['video-text'],
   'video-fast': ['lora'],
+  'two-models': ['video-image'],
   adult: ['video-text'],
 };
 

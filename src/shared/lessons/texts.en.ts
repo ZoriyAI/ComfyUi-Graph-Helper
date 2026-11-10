@@ -51,7 +51,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
     steps: {
       intro: {
         title: 'How a graph works',
-        body: 'A graph reads from left to right. Each node does one thing, and the lines carry the result on.\n\nThis lesson has seven nodes: the model loader, two texts, a blank, the sampler, the turn into a picture and the saving.\n\nA node is added by a double click in the library on the left or with the "Node" button on the canvas toolbar. You build. The app watches the canvas and ticks a step off when it is done.',
+        body: 'A graph reads from left to right. Each node does one thing, and the lines carry the result on.\n\nThis lesson has seven nodes: the model loader, two texts, a blank, the sampler, the turn into a picture and the saving.\n\nA node is added by a double click in the library on the left or with the "Node" button on the canvas toolbar. You build. The app watches the canvas and ticks a step off when it is done.\n\nIf the canvas already holds another graph, start from an empty one: "File ▸ New project".',
       },
       model: {
         title: 'Load the model',
@@ -101,7 +101,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
     steps: {
       intro: {
         title: 'What a video is to a model',
-        body: 'To a model a video is a stack of frames. It draws them all at once so that the motion holds together.\n\nWan 2.2 does this in two passes with two models. The first, `high_noise`, lays out the composition and the motion. The second, `low_noise`, finishes the detail. That is why the graph has two model loaders and two samplers.\n\nThe graph is larger than for a picture: fourteen nodes. The steps are small, and the app ticks each one off.',
+        body: 'To a model a video is a stack of frames. It draws them all at once so that the motion holds together.\n\nWan 2.2 does this in two passes with two models. The first, `high_noise`, lays out the composition and the motion. The second, `low_noise`, finishes the detail. That is why the graph has two model loaders and two samplers.\n\nThe graph is larger than for a picture: fourteen nodes. The steps are small, and the app ticks each one off.\n\nIf the canvas already holds another graph, start from an empty one: "File ▸ New project".',
       },
       models: {
         title: 'Load two models',
@@ -306,6 +306,218 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       helper: {
         title: 'About the helper in the app',
         body: 'The lessons work without a helper model. Questions in "Ask" mode go to the model you chose.\n\nCloud models usually do not answer on such subjects: those are their owners\' rules. A model of your own on this computer answers the way it was trained.\n\nThe helper is sent the graph with the values of its fields, your descriptions among them. It does not see your clips. Sending values can be switched off in "Settings ▸ Privacy".',
+      },
+    },
+  },
+  prompt: {
+    title: 'The description: how a model reads it',
+    result: 'You learn what a model does with text and how to steer a picture with words.',
+    steps: {
+      intro: {
+        title: 'What a model does with text',
+        body: 'A model does not understand text the way a person does. It was trained on pictures with captions and remembers which words stood next to which pictures. Your description pulls the result towards captions like it.\n\nThree things follow:\n- a word that was not in the captions does nothing, however exact it sounds;\n- a description is not an order: each word pulls its own way, and strong words outpull weak ones;\n- what you leave unsaid the model decides for itself.\n\nNext you take a description apart, piece by piece, on your own graph.',
+      },
+      graph: {
+        title: 'A picture graph is needed',
+        body: 'This lesson goes on from the graph of "A first picture from text". The canvas must have two {positive} nodes connected to the `positive` and `negative` inputs of {sampler}.\n\nIf they are not there, do that lesson first.',
+      },
+      readers: {
+        title: 'Two ways of reading',
+        body: 'The text is read by a separate part of the model: it turns words into numbers. There are two kinds of this part, and one writes for them differently.\n\nThe first kind reads words and short phrases separated by commas. SD 1.5, SDXL and the models built on them, Pony and Illustrious, work this way. A description that suits them: `portrait of a woman, red coat, night street, rain, soft light`.\n\nThe second kind reads whole sentences and understands who does what and what is where. Flux, SD 3, Qwen-Image and Wan work this way. A description that suits them: `A woman in a red coat stands on a night street in the rain. Soft light from a shop window falls on her face.`\n\nWhich kind your model is shows in its card in the "Models" tab: the line "Family". Most models were trained on English captions: write in English.',
+      },
+      order: {
+        title: 'Order and length',
+        body: 'Words at the start of a description weigh more than words at the end. So the main thing goes first: who or what is in the frame, then what happens, then the place, the light and the style.\n\nLength matters too. Models of the first kind read text in chunks of 75 tokens. A token is a word or a piece of one, so 75 tokens come to about 50 English words. Whatever comes after falls into the next chunk and holds together with the start less well. Models of the second kind have room for 512 tokens, yet they too keep a weaker hold on what stands at the very end.\n\nExtra words are not harmless: each takes attention away from the rest. Ten exact words work better than forty random ones.',
+      },
+      write: {
+        title: 'Rewrite the description',
+        body: 'In the `text` field of the {positive} node that goes into the `positive` input write the description anew: the main thing first, then the action, the place, the light. At least 40 characters are needed.\n\nAn example for a model of the first kind: `portrait of a woman, red coat, night street, rain, soft light`.',
+      },
+      weights: {
+        title: 'Weight: how to stress what matters',
+        body: 'When the model misses something of the description, that thing can be given more weight. In ComfyUI a weight is written like this: `(red coat:1.2)`. The words in the parentheses get a pull of 1.2 instead of the usual 1. A number below 1 weakens: `(rain:0.8)`.\n\nKeep a weight between 0.5 and 1.5. Above that a picture burns out and distorts. 1.1–1.3 is enough most of the time.\n\nThe forms of other programs do not work in ComfyUI. `<lora:name:1>` connects nothing: a LoRA is added with a node of its own. `BREAK`, `AND` and square brackets are read by the model as plain characters. Descriptions from other people\'s pages are often full of such forms: take them out.\n\nThree forms ComfyUI understands itself. Besides the weight these are `embedding:name` for the files of the `embeddings` folder, and curly braces: of the options written in them with a vertical bar between, one is taken at each run. Plain parentheses that must stay in the text are written with a backslash: `\\(` and `\\)`.\n\nOn models of the second kind a weight acts weakly and unpredictably. For them what matters is said in words and put at the start.',
+      },
+      weigh: {
+        title: 'Stress one thing',
+        body: 'In the same `text` field put the most important thing into parentheses and give it a weight: for example `(red coat:1.2)`. The weight must be between 0.5 and 1.5 and other than 1.\n\nIf your model is of the second kind, do not expect a strong effect. The step is there so that you remember the form: you will meet it in other people\'s descriptions.',
+      },
+      negative: {
+        title: 'The second text: what must not be there',
+        body: 'The text that goes into the `negative` input works differently from the first. At every step the model makes two sketches: one from your description and one from the second text. Then it moves away from the second sketch towards the first.\n\nSo the second text names the very things to move away from: `blurry, extra fingers, watermark, text`. There is no need to write "no" there.\n\nIn the main description negations do harm. Write `no hat` and a hat will most likely appear: the word `hat` pulls towards hats, and `no` weighs next to nothing. Whatever must not be there goes into the second text.\n\nA long second text is not better than a short one. Name what really creeps into your pictures.',
+      },
+      'negative-text': {
+        title: 'Fill in the second text',
+        body: 'In the `text` field of the node that goes into the `negative` input list two or three defects separated by commas. For example: `blurry, extra fingers, watermark`.\n\nThen compare the pictures with this text and without it.',
+      },
+      cfg: {
+        title: 'cfg: how strictly to follow the text',
+        body: 'The `cfg` field of the sampler sets how far the model moves from the second sketch towards the first. The larger the number, the more strictly it follows the description.\n\nToo small a value gives a limp picture that follows the text poorly. Too large a value gives burnt colours and harsh outlines.\n\nUsual values:\n- SD 1.5: 7–8;\n- SDXL, Pony, Illustrious: 5–7;\n- speeded-up models and speed-up LoRAs: 1–2;\n- Flux: 1. Its strictness is set by a separate node, not by this field.\n\nAt `cfg` 1 the second sketch is not made at all. The text of the `negative` input then does nothing, whatever it says. The author gives the exact numbers on the model\'s page: start from those.',
+      },
+      seed: {
+        title: 'seed: one change at a time',
+        body: 'The `seed` field sets the noise a picture starts from. The same number with the same settings and the same description gives the same picture.\n\nThis is used to see what a change did. Keep `seed` as it was, change one thing in the description and compare. If the number and the words change together, there is no telling which of them acted.\n\nIn ComfyUI a switch named `control_after_generate` stands under the `seed` field. With `randomize` the number changes after every run, with `fixed` it stays.\n\nOnce the description is ready, change `seed` to get different pictures from one description. Some of them simply fail by chance: that is normal.',
+      },
+      problems: {
+        title: 'When the picture does not obey',
+        body: 'What to check, and in what order:\n- the model misses part of the description: move that part nearer the start, take out extra words, raise its weight to 1.2–1.3;\n- colours and details are mixed up between objects: models of the first kind read words with no ties between them. Describe each object in a phrase of its own and take out extra colours;\n- the picture is burnt out: `cfg` is too high, or a weight is above 1.5;\n- the picture is dull and limp: `cfg` is too low, or `steps` is too few;\n- extra arms, two heads, doubled figures: the size is larger than the one the model was trained at. For SD 1.5 that is 512, for SDXL 1024;\n- the second text changes nothing: check that `cfg` is above 1;\n- nothing helps: change `seed`. Then check in the model\'s card that the description is written in its manner.',
+      },
+      check: {
+        title: 'The app reads descriptions with you',
+        body: 'The "Check" button on the top toolbar reads the descriptions of a graph the way ComfyUI will. It says when forms of other programs are left in a text, the parentheses do not match, a weight is too high, the same thing stands in both texts, or the second text does not act because of `cfg` 1. These are advice, not errors: the graph runs with them too.\n\nThe card of a model in the "Models" tab shows what its author wrote down: the words that switch a LoRA on, the strength the author advises, and the descriptions the author\'s own examples were made from. Someone else\'s description that worked is the best textbook: copy it and change one thing at a time.',
+      },
+    },
+  },
+  refine: {
+    title: 'Refining with a second model',
+    result: 'A second model redraws a finished picture: the composition comes from the first, the texture and style from the second.',
+    steps: {
+      intro: {
+        title: 'What refining is',
+        body: 'One model follows a description better and builds the composition. Another is better at skin, cloth or a style of its own. Refining takes the best of both: the first model draws a picture, the second redraws it on top.\n\nThe second model does not start from pure noise. Some noise is added to the finished picture, and the model removes it in its own way. The more noise is added, the more the picture changes.\n\nIn this lesson you build a second model onto a picture graph.',
+      },
+      graph: {
+        title: 'A picture graph is needed',
+        body: 'This lesson goes on from the graph of "A first picture from text". The canvas must have {checkpoint}, {sampler}, {decode} and {save} with the links between them.\n\nThe graph of "Two models in one graph" will do as well: it has the same part with the picture.\n\nIf these nodes are not there, do the first lesson first.',
+      },
+      'second-model': {
+        title: 'Add the second model',
+        body: 'Add a second {checkpointB} node and choose another model in `ckpt_name`: the one whose texture or style you want.\n\nThe models may be of different families. A picture will pass between them, and any model understands a picture.',
+      },
+      'second-texts': {
+        title: 'Give the second model texts of its own',
+        body: 'Add two new {positiveB} nodes and connect the `CLIP` output of the second model to the `clip` input of each. In the `text` field of one describe the same picture in the manner the second model understands.\n\nThe texts of the first model must not be connected here: another model read them. The description can be copied when both models read alike, and must be rewritten when they do not.',
+      },
+      encode: {
+        title: 'Translate the picture for the second model',
+        body: 'Add an {encode} node. Connect the `IMAGE` output of {decode} to its `pixels` input and the `VAE` output of the second model to its `vae` input.\n\nEach model works with a compressed form of its own. This node compresses the finished picture the way the second model needs, which is why the VAE here is that model\'s.',
+      },
+      'second-sampler': {
+        title: 'Add the second sampler',
+        body: 'Add a second {samplerB} node and connect to it:\n- to `model`, the `MODEL` output of the second model;\n- to `positive` and `negative`, its two texts;\n- to `latent_image`, the output of {encode}.\n\nThe second sampler gets not an empty blank but your picture in compressed form.',
+      },
+      denoise: {
+        title: 'Set the strength of refining',
+        body: 'Set `denoise` of the second sampler to 0.5.\n\nThis number says how much of the picture the model redraws. At 1 it draws from nothing and the first picture is lost. At 0.2 only fine detail changes. From 0.3 to 0.5 the composition stays, while texture and faces become the way the second model draws them.\n\nSet `steps` and `cfg` to what the author of the second model advises.',
+      },
+      out: {
+        title: 'Save the result',
+        body: 'Add one more {decodeB} and one more {saveB}. Connect the output of the second sampler to the `samples` input of {decodeB} and the `VAE` output of the second model to its `vae` input. Its output goes into the `images` input of the new {saveB}.\n\nThe graph now saves two pictures: before refining and after. Compare them while you look for the right `denoise`.',
+      },
+      'same-family': {
+        title: 'When the models are of one family',
+        body: 'Models of one family work with the same compressed form of a picture. Then there is no need to unfold it and compress it again: the `LATENT` output of the first sampler goes straight into the `latent_image` input of the second. Less detail is lost this way.\n\nOne family is, for example, SDXL and the models built on it: Pony, Illustrious. Or two SD 1.5 models. The family of a file is shown by its card in the "Models" tab.\n\nBetween different families this must not be done: the second model gets numbers it does not understand and gives noise or an error. Going through a picture, as in this lesson, always works.',
+      },
+      loras: {
+        title: 'LoRA in a graph with two models',
+        body: 'Each model has LoRAs of its own. A LoRA of the first model goes between the first {checkpoint} node and the first sampler, a LoRA of the second between the second {checkpointB} node and the second sampler.\n\nThe words of a LoRA go into the description of the model in whose path it stands.\n\nIf a LoRA sets the subject in the first pass and the second pass blurs it, lower `denoise`, or put into the second path a LoRA of the same subject made for the second model.',
+      },
+      run: {
+        title: 'The graph is ready',
+        body: `${SAVE}\n\nWhat to try:\n- \`denoise\` 0.3 and 0.5: how much the second model changes the picture;\n- swap the models: which one builds the composition better, and which one finishes.\n\nIf a video follows the picture, connect the \`IMAGE\` output of the new {decodeB} to the \`start_image\` input: the clip then starts from the refined picture.`,
+      },
+    },
+  },
+  'prompt-video': {
+    title: 'A description for video',
+    result: 'You learn to describe a clip so that the model understands the motion and the camera.',
+    steps: {
+      intro: {
+        title: 'How the description of a clip differs',
+        body: 'Video models read whole sentences. Wan 2.2 was trained on long, detailed captions, so it understands a short description worse than a long one: what is left unsaid it makes up itself, and the clip comes out at random.\n\nA picture needs an answer to "what is in the frame". A clip also needs "what changes": who moves, where, how fast, and what the camera does. What is not said either stands still or moves any old way.\n\nWan understands English and Chinese. Weights in parentheses hardly act on it: what matters is said in words.',
+      },
+      graph: {
+        title: 'A video graph is needed',
+        body: 'This lesson goes on from the graph of "Video from text" or "Video from a picture". The canvas must have a {positive} node whose output goes into a `positive` input.\n\nIf it is not there, do one of those lessons first.',
+      },
+      structure: {
+        title: 'What a description is made of',
+        body: 'A good description of a clip answers five questions, usually in this order:\n- who or what is in the frame, and what it looks like;\n- what happens: one action;\n- where it happens;\n- what the camera does;\n- what the light and the mood are.\n\nAn example: `A young woman in a red coat walks slowly along a wet city street at night. Neon signs reflect in the puddles. The camera follows her from the side at walking pace. Soft cinematic light, shallow depth of field.`\n\nThree to five sentences are about right. A very short description leaves the model too much freedom, and in a very long one it loses the main thing.',
+      },
+      write: {
+        title: 'Write a description to this pattern',
+        body: 'In the `text` field of {positive} write a description of several sentences: who is in the frame, what happens, where, what the camera does, what the light is. At least 80 characters are needed.\n\nWrite in English and in the present tense: `walks`, not `will walk`.',
+      },
+      action: {
+        title: 'One action per clip',
+        body: 'The clip of the lesson lasts five seconds: 81 frames at 16 frames a second. One action fits into that. Describe three in a row and the model squeezes them together, mixes them up or does only the first.\n\nMotion is named with a verb and made exact: how fast, which way, with which part of the body. `She turns her head to the left and smiles` works. `She is happy` does not: that is a state, not a motion.\n\nIf there are several people in the frame, say of each what they do. Otherwise one of them moves and the rest freeze.\n\nA long scene is put together from several clips, not from one long description.',
+      },
+      camera: {
+        title: 'Words for the camera',
+        body: 'The camera gets a sentence of its own. Wan knows the language of film, and these words act on it:\n- `static shot`: the camera stands still;\n- `pan left`, `pan right`: a turn to the side;\n- `tilt up`, `tilt down`: a tilt up or down;\n- `push in`, `pull back`: moving in and moving out;\n- `tracking shot`: the camera moves along with the subject;\n- `orbit`: a flight around;\n- `handheld`: shot from the hands, a slight shake.\n\nThe shot size is set with words too: `close-up`, `medium shot`, `wide shot`. The angle: `low angle`, `high angle`.\n\nTake one camera move per clip. If the camera must stand still, say so plainly: left untold, the model often moves it itself.',
+      },
+      picture: {
+        title: 'When the clip starts from a picture',
+        body: 'In the graph of "Video from a picture" the look is already set by the picture. It need not be described again: name the subject in two or three words so that the model knows who is meant, and describe what changes.\n\nAn example: `The woman in the red coat slowly turns around and looks at the camera. Her hair moves in the wind. Static shot.`\n\nThe description must not argue with the picture. If it is night in the picture and day in the text, the model breaks the frame trying to please both.\n\nWhat the description does not name the model tries to leave as it is in the picture. So for video from a picture the description can be shorter.',
+      },
+      negative: {
+        title: 'The second text for video',
+        body: 'The second text, the one that goes into the `negative` input, lists the defects of a clip. In the ready ComfyUI templates for Wan it holds a long list in Chinese: overexposure, a still frame, blurred detail, subtitles, extra fingers, distorted faces and hands. It can be left as it is, or the same can be written in English: `overexposed, static, blurry details, subtitles, extra fingers, deformed hands`.\n\nThe second text acts only when `cfg` in the samplers is above 1. "Video from text" sets 3.5, and the text works. With the speed-up LoRA of "Fast video in four steps" `cfg` is 1, and the second text does not act at all. Then everything that matters must be in the main description.',
+      },
+      problems: {
+        title: 'When the clip does not obey',
+        body: 'What to change, and in what order:\n- the clip stands still: the description has no action. Add a verb and a camera move;\n- the motion is limp, as if in slow motion: that is often the price of a speed-up LoRA. Describe a livelier motion, or make the clip without the speed-up, in twenty steps;\n- the camera moves when it should not: write `static shot`;\n- the face and the figure drift towards the end: too much motion for five seconds. Keep one action or lower `length`;\n- the model does something other than what is written: make that the first sentence and take out everything secondary;\n- the subject changes from clip to clip: describe it in the very same words each time, or start from a picture;\n- everything is off: change `noise_seed` in the first sampler.',
+      },
+      check: {
+        title: 'What the app will tell you',
+        body: 'The "Check" button on the top toolbar reads the descriptions of a clip too. It says when a description is empty, when forms of other programs are left in it, when it is not written in English, when the second text does not act because of `cfg` 1, and when the description has none of the words of your LoRA.\n\nThe words of a LoRA and the descriptions its author used are shown in the card of the file in the "Models" tab. For a motion LoRA this matters most: without its words it often does not switch on.',
+      },
+    },
+  },
+  'two-models': {
+    title: 'Two models in one graph',
+    result: 'A picture model draws the first frame and Wan brings it to life. Each has its own LoRAs and its own description.',
+    steps: {
+      intro: {
+        title: 'Why join models',
+        body: 'Each model is strong at its own thing. A picture model keeps looks, style and composition more exactly, and it has the most LoRAs. A video model can move things. In one graph the first draws a frame and the second brings it to life.\n\nEach model has a set of its own: its file, its text reader, its VAE and its LoRAs. The parts of one set do not fit another. A text read for one model is not understood by another.\n\nWhat passes between models is a picture. A picture is plain pixels, and any model understands it. In this lesson you build a second model onto the video graph and lead a picture from it.',
+      },
+      'video-graph': {
+        title: 'A video-from-a-picture graph is needed',
+        body: 'This lesson goes on from the graph of "Video from a picture". The canvas must have {clip} and {vae}, two texts connected to {start}, and a {decode} node at the end.\n\nIf they are not there, do that lesson first.',
+      },
+      'image-model': {
+        title: 'Add a picture model',
+        body: 'Add a {checkpoint} node and choose in `ckpt_name` the model that will draw the first frame.\n\nThis is the second model of the graph. It has nothing to do with Wan: it has its own `MODEL`, `CLIP` and `VAE` outputs, and from here on they go only to its own nodes.',
+      },
+      'image-texts': {
+        title: 'Give it texts of its own',
+        body: 'Add two new {imagePositive} nodes and connect the `CLIP` output of {checkpoint} to the `clip` input of each. In the `text` field of one describe the frame: who is in it, where, what the light is.\n\nThe texts of the video will not do: they were read for Wan. Each model has text nodes of its own, connected to its own text reader.\n\nWrite in the manner of this model. How to tell it is shown in "The description: how a model reads it".',
+      },
+      'image-sampler': {
+        title: 'Build the part that draws the frame',
+        body: 'Add {imageLatent} and {imageSampler}. Connect to the inputs of {imageSampler}:\n- to `model`, the `MODEL` output of {checkpoint};\n- to `positive` and `negative`, the two new texts;\n- to `latent_image`, the output of {imageLatent}.\n\nThis is the graph of "A first picture from text", only it stands next to the video graph.',
+      },
+      size: {
+        title: 'The size of the frame',
+        body: 'The frame must have the proportions of the clip. The {start} node brings the picture to its own `width` and `height` by itself, but when the proportions differ it cuts the edges off.\n\nThe exact size may be another one: draw the frame at the size the model was trained at. For a clip of 832 by 480, in {imageLatent} these fit:\n- for SDXL, Pony, Illustrious: `width` 1344 and `height` 768;\n- for SD 1.5: `width` 832 and `height` 480.\n\nFor an upright clip swap the numbers in both nodes.',
+      },
+      bridge: {
+        title: 'Lead the picture to the video',
+        body: 'Add one more {imageDecode} node. Connect the output of {imageSampler} to its `samples` input and the `VAE` output of {checkpoint} to its `vae` input. Connect its `IMAGE` output to the `start_image` input of {start}.\n\nThis is the bridge between the models. The link that went into `start_image` before comes off by itself: the node with the loaded picture can be deleted.\n\nA frame is unfolded by the VAE of the model that drew it. The VAE of Wan will not do here.',
+      },
+      look: {
+        title: 'Save the frame itself too',
+        body: 'Add a {frame} node and connect the same `IMAGE` output of {imageDecode} to its `images` input.\n\nThis lets you see the frame apart from the clip. When a clip fails, it is clear at once where the fault is: in the frame or in the motion.',
+      },
+      descriptions: {
+        title: 'Two descriptions, each with its own job',
+        body: 'The graph now has two descriptions. The first, for the picture model, says what is in the frame: the subject, the clothes, the place, the light, the style. The second, for Wan, says what changes: the motion and the camera.\n\nDo not carry one over into the other. Words about motion in the description of a frame mean nothing to a picture model. And details of looks in the description of a clip argue with the finished frame.\n\nThe second texts, those for the `negative` input, differ too: each model has defects of its own.',
+      },
+      loras: {
+        title: 'LoRA: each in the path of its own model',
+        body: 'A LoRA is made for one family of models. It goes into the path of the model it was made for:\n- a LoRA for the picture model: between {checkpoint} and {imageSampler}. If the LoRA node also has a `CLIP` input and output, connect the texts of the frame to its `CLIP` output;\n- a LoRA for Wan: between the loader of each of its two models and the node that sets the noise shift, as in "LoRA: add a style or a subject".\n\nA LoRA put into the wrong path does nothing. ComfyUI does not stop at it: it silently skips what did not fit.\n\nThe words of a LoRA go into the description of the same model. The words of a picture LoRA go into the description of the frame, the words of a Wan LoRA into the description of the clip.\n\nA handy division: looks and style come from the LoRAs of the picture model, motion from the LoRAs of the video model. Which family a file belongs to is shown by its card in the "Models" tab. The "Check" button says when models of different families meet in one path.',
+      },
+      memory: {
+        title: 'Two models and memory',
+        body: 'ComfyUI loads the models in turn: first the one that draws the frame, then Wan. If the graphics card has no room for both, it unloads the first by itself. So a graph with two models runs on the same card as each of them alone, only longer.\n\nComfyUI works out again only what has changed. As long as the part with the frame is untouched, the next run takes the finished frame and goes straight to the video.\n\nTo keep the frame from changing by itself, fix the number in the `seed` field of {imageSampler}: in ComfyUI set the `control_after_generate` switch under it to `fixed`. Otherwise the number changes at every run, the frame is drawn anew, and the clip starts from another picture each time.\n\nGet a good frame first, then work on the motion. While you look for the frame, the node that saves the clip can be switched off in ComfyUI: select it and press Ctrl+M. Then only the frame is worked out.',
+      },
+      approaches: {
+        title: 'Other ways to combine models',
+        body: 'A picture from one model to another is the most general way. There are three more.\n\nA refining pass. The second model does not draw from nothing: it redraws a finished picture on top, changing it only in part. This takes the composition from one model and the texture from another. "Refining with a second model" shows it.\n\nPassing without a picture. Models of one family understand each other\'s compressed form, and it can be passed between them directly, from a `LATENT` output. SDXL and its descendants work this way, and so do the two Wan 2.2 models of the video lessons: the first lays out, the second finishes.\n\nTwo graphs instead of one. The frame is drawn and picked in one graph, and the video is made in another from the saved picture. This is simpler and safer when many frames have to be tried.',
+      },
+      run: {
+        title: 'The graph is ready',
+        body: `${SAVE}\n\nWhat to try:\n- another frame: change \`seed\` in {imageSampler};\n- the same frame, another motion: change \`noise_seed\` in the first sampler of the video, or the description of the clip;\n- another style of frame: change the picture model or its LoRAs. The video part need not change.`,
       },
     },
   },

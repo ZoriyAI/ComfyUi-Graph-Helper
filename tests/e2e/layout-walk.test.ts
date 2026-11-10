@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { createTranslator } from '../../src/shared/i18n';
+import { LESSONS } from '../../src/shared/lessons/lessons';
 import { startFakeMcp, type FakeMcp } from '../fixtures/mcp/fakeMcpServer';
 import { nestedSubgraphWorkflow } from './fixtures/nestedSubgraphWorkflow';
 import { auditLayout, describeIssues, type LayoutIssue } from './layoutAudit';
@@ -612,7 +613,82 @@ test('nothing sticks out, is cut or overlaps on any screen at any window size', 
       await visitScrolling(page, 'lessons, a lesson done', async () => { await startLesson('image'); }, () => lessons);
       await visitScrolling(page, 'lessons, the list with a lesson done', toList, () => lessons);
       // The canvas the lesson left: seven nodes where the app put them, a card under each.
-      await visit(page, 'canvas after a lesson', async () => { await page.locator('.react-flow__controls-fitview').click(); await page.waitForTimeout(450); });
+      const fitView = async () => { await page.locator('.react-flow__controls-fitview').click(); await page.waitForTimeout(450); };
+      await visit(page, 'canvas after a lesson', fitView);
+
+      // The lessons that are mostly words (how a description is read, how models are combined): every step of
+      // each, at every size. A lesson is carried the way a person carries it: what explains is read, the app does
+      // what it offers, and a file or a description is the person's choice.
+      type Held = { id: string; data: { comfyType: string; parameters: Record<string, unknown> } };
+      const held = async () => ((await api('readProjection', ['desktop'])) as { snapshot: { nodes: Held[] } }).snapshot.nodes;
+      const FILE_FIELD: Record<string, { key: string; values: string[] }> = {
+        CheckpointLoaderSimple: { key: 'ckpt_name', values: ['juggernautXL_v9.safetensors', 'ponyDiffusionV6XL.safetensors'] },
+        UNETLoader: { key: 'unet_name', values: ['wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors', 'z_image_turbo_bf16.safetensors'] },
+        CLIPLoader: { key: 'clip_name', values: ['umt5_xxl_fp8_e4m3fn_scaled.safetensors'] },
+        VAELoader: { key: 'vae_name', values: ['wan_2.1_vae.safetensors'] },
+        LoadImage: { key: 'image', values: ['example.png'] },
+      };
+      const WORDS = 'A young woman in a red coat walks slowly along a wet city street at night. The camera follows her from the side. Soft cinematic light.';
+      const carryLesson = async (id: string, label: string | null) => {
+        const lesson = LESSONS.find((item) => item.id === id)!;
+        await resize(page, HOME);
+        await startLesson(id);
+        let seen = '';
+        for (let guard = 0; guard < 200 && (await stepNow()) !== 'end'; guard += 1) {
+          const stepId = String(await stepNow());
+          if (label && stepId !== seen) {
+            seen = stepId;
+            await visitScrolling(page, `${label}: ${stepId}`, async () => { await startLesson(id); }, () => lessons);
+            await startLesson(id);
+          }
+          const doIt = lessons.getByRole('button', { name: T('lessons.doIt'), exact: true });
+          const read = lessons.getByRole('button', { name: T('lessons.understood'), exact: true });
+          if (lesson.steps.find((item) => item.id === stepId)?.read) {
+            await read.click();
+            await expect.poll(stepNow).not.toBe(stepId);
+          } else if (await doIt.count() > 0) {
+            const before = await revision();
+            await doIt.click();
+            await expect.poll(revision, { timeout: 15_000 }).not.toBe(before);
+            await page.waitForTimeout(150);
+          } else {
+            // A choice that is the person's. "Show me where" says which node it is on.
+            await lessons.getByRole('button', { name: T('lessons.show'), exact: true }).click();
+            const shown = page.locator('.react-flow__node.selected');
+            await expect(shown, `${id}/${stepId}: the node the step speaks of`).toHaveCount(1);
+            const nodeId = String(await shown.getAttribute('data-id'));
+            const all = await held();
+            const node = all.find((item) => item.id === nodeId)!;
+            const file = FILE_FIELD[node.data.comfyType];
+            const before = await revision();
+            if (file) {
+              const taken = new Set(all.map((item) => item.data.parameters[file.key]));
+              await commit(page, { type: 'set-parameter', nodeId, key: file.key, value: file.values.find((item) => !taken.has(item)) ?? file.values[0] });
+            } else {
+              const text = String(node.data.parameters.text ?? '');
+              await commit(page, { type: 'set-parameter', nodeId, key: 'text', value: stepId === 'weigh' ? `${text} (red coat:1.2)` : WORDS });
+            }
+            await expect.poll(revision, { timeout: 15_000 }).not.toBe(before);
+            await reloaded(page);
+            await startLesson(id);
+          }
+        }
+        await expect(lessons.locator('[data-lesson-step]'), `the lesson ${id} came to its end`).toHaveAttribute('data-lesson-step', 'end');
+      };
+      await carryLesson('prompt', 'lessons, descriptions');
+      await carryLesson('refine', 'lessons, a second pass');
+      await visit(page, 'canvas after a second pass', fitView);
+      await visitScrolling(page, 'lessons, the list with three lessons done', toList, () => lessons);
+      await page.keyboard.press('Control+n');
+      await page.getByRole('button', { name: T('menu.newProjectConfirm'), exact: true }).click();
+      await expect(nodes).toHaveCount(0, { timeout: 15_000 });
+      await reloaded(page);
+      await carryLesson('video-text', null);
+      await carryLesson('prompt-video', 'lessons, a description for video');
+      await carryLesson('video-image', null);
+      await carryLesson('two-models', 'lessons, two models');
+      await visit(page, 'canvas with two models', fitView);
+
       // The rest of the walk starts from an empty canvas and from the conversation.
       await page.keyboard.press('Control+n');
       await page.getByRole('button', { name: T('menu.newProjectConfirm'), exact: true }).click();

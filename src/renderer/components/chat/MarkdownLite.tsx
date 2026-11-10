@@ -2,11 +2,15 @@ import React, { useMemo } from 'react';
 import { parseMarkdownLite, type InlineToken } from './markdownLite';
 import styles from './MarkdownLite.module.css';
 
+/** Characters of code that fit one line of the narrowest panel the app has. */
+const SHORT_CODE = 28;
+
 function Inline({ tokens }: { tokens: InlineToken[] }) {
   return (
     <>
       {tokens.map((token, index) => {
-        if (token.type === 'code') return <code key={index} className={styles.code}>{token.text}</code>;
+        // A short piece of code (a field name, a weight) is marked: where there is room for it, a panel may keep it whole.
+        if (token.type === 'code') return <code key={index} className={styles.code} data-short={token.text.length <= SHORT_CODE ? 'true' : undefined}>{token.text}</code>;
         if (token.type === 'strong') return <strong key={index}>{token.text}</strong>;
         if (token.type === 'em') return <em key={index}>{token.text}</em>;
         return <React.Fragment key={index}>{token.text}</React.Fragment>;

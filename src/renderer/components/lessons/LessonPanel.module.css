@@ -90,6 +90,8 @@
 .step[data-step-state="end"] .stepTitle { color: var(--ok, #82ddb3); }
 .body { font-size: 13px; line-height: 20px; color: var(--text); overflow-wrap: anywhere; min-width: 0; }
 .plain { margin: 0; font-size: 13px; line-height: 20px; color: var(--text); overflow-wrap: anywhere; }
+/* A field name or a weight is read as one thing: "(red" at the end of a line and "coat:1.2)" on the next is not. */
+.body code[data-short] { white-space: nowrap; }
 
 .lacking {
   padding: 10px 12px;
@@ -107,6 +109,7 @@
 .times { color: var(--accent); font-weight: 650; white-space: nowrap; }
 
 .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.nextLesson { display: flex; flex-direction: column; gap: 8px; padding-top: 10px; border-top: 1px solid var(--line); min-width: 0; }
 .passed { display: inline-flex; align-items: center; gap: 6px; color: var(--ok, #82ddb3); font-size: 13px; line-height: 19px; }
 .ask {
   align-self: flex-start;

@@ -47,6 +47,11 @@ describe('teaching system prompt', () => {
     // The two limits are in every turn, whoever the model is and whatever the person asks about.
     expect(prompt).toContain('sexual content that involves minors or anyone who looks like a minor');
     expect(prompt).toContain('sexual content that depicts real people');
+    // What the lessons teach about descriptions and about several models is what the helper is told too.
+    expect(prompt).toContain('The only weight form is (words:1.2)');
+    expect(prompt).toContain('<lora:name:1>, BREAK, AND and square brackets do nothing here');
+    expect(prompt).toContain('A negative text does nothing at cfg 1');
+    expect(prompt).toContain('What passes between two model families is an image');
     expect(prompt).toContain('fact');
     expect(prompt).toContain('inference');
     expect(prompt).toContain('Turn intent: ask');

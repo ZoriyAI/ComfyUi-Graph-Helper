@@ -5,6 +5,7 @@ import type { TFunction } from 'i18next';
 import { lessonGaps, lessonProgress, type ClassPorts, type Lesson, type LessonFacts, type LessonGap, type LessonGraph, type Missing } from '../../../shared/lessons/engine';
 import { LESSONS, LESSON_AFTER, lessonById } from '../../../shared/lessons/lessons';
 import { lessonWords, withNodeNames } from '../../../shared/lessons/texts';
+import { weightsOf } from '../../../shared/prompt/inspect';
 import type { NodeClassDetail } from '../../../shared/contracts/knowledge';
 import { runCommand } from '../../commands/registry';
 import { useGraphStore } from '../../state/graphState';
@@ -71,8 +72,16 @@ function lackText(t: TFunction, missing: Missing, lesson: Lesson, shared: Shared
       return String(t('lessons.lackEquals', { field, node, value, wanted: String(missing.test.value) }));
     case 'between':
       return String(t('lessons.lackBetween', { field, node, value, min: missing.test.min, max: missing.test.max }));
-    case 'text':
-      return String(t('lessons.lackText', { field, node }));
+    case 'text': {
+      // An empty field is asked for a description; one that has a few words is told how many more it needs.
+      const chars = typeof missing.value === 'string' ? missing.value.trim().length : 0;
+      return String(chars > 0 ? t('lessons.lackTextShort', { field, node, chars, min: missing.test.minChars }) : t('lessons.lackText', { field, node }));
+    }
+    case 'weighted': {
+      const { min, max } = missing.test;
+      const high = typeof missing.value === 'string' ? weightsOf(missing.value).find((item) => item.weight > max) : undefined;
+      return String(high ? t('lessons.lackWeightedHigh', { field, node, found: high.raw, min, max }) : t('lessons.lackWeighted', { field, node, min, max }));
+    }
     case 'has-trigger': {
       const words = new Set<string>();
       for (const source of missing.test.of) {
@@ -265,11 +274,17 @@ function LessonRun({ lesson, shared, onAsk }: { lesson: Lesson; shared: Shared; 
           <p className={styles.plain}>{t('lessons.finishedBody')}</p>
           <div className={styles.actions}>
             <Button variant="primary" size="sm" icon={<FolderOutput size={14} />} onClick={() => void runCommand('file.export')}>{t('lessons.save')}</Button>
-            {nextLesson && nextTitle ? (
-              <Button variant="subtle" size="sm" icon={<ArrowRight size={14} />} onClick={() => start(nextLesson.id)}>{t('lessons.next', { title: nextTitle })}</Button>
-            ) : null}
             <Button variant="subtle" size="sm" icon={<RotateCcw size={14} />} onClick={() => again(lesson.id)}>{t('lessons.again')}</Button>
           </div>
+          {nextLesson && nextTitle ? (
+            // The name of the next lesson is a sentence that wraps; a button that held it stuck out of a narrow panel.
+            <div className={styles.nextLesson} data-next-lesson={nextLesson.id}>
+              <p className={styles.plain}>{t('lessons.nextTitle', { title: nextTitle })}</p>
+              <div className={styles.actions}>
+                <Button variant="subtle" size="sm" icon={<ArrowRight size={14} />} onClick={() => start(nextLesson.id)}>{t('lessons.next')}</Button>
+              </div>
+            </div>
+          ) : null}
         </section>
       ) : (
         <section className={styles.step} data-step-state={current ? (step.read ? 'read' : 'do') : 'passed'}>

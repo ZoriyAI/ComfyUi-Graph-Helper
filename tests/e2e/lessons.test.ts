@@ -373,6 +373,210 @@ test('lessons: a video lesson is carried through, the choices that are the perso
   }
 });
 
+/** A value a person would choose in a field that is empty or must differ from another, from what the fake ComfyUI lists. */
+const FILES: Record<string, string[]> = {
+  ckpt_name: ['juggernautXL_v9.safetensors', 'ponyDiffusionV6XL.safetensors'],
+  unet_name: ['wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors', 'z_image_turbo_bf16.safetensors'],
+  clip_name: ['umt5_xxl_fp8_e4m3fn_scaled.safetensors'],
+  vae_name: ['wan_2.1_vae.safetensors'],
+  image: ['example.png'],
+};
+const DESCRIPTION = 'A young woman in a red coat walks slowly along a wet city street at night. The camera follows her from the side. Soft cinematic light.';
+
+/**
+ * Carries a lesson through the way a person would: reads what explains, lets the app do what it offers, and makes
+ * the choices that are a person's own. Which node a choice is for is found with "Show me where", as a person
+ * finds it. `each` is called once at every step, before anything is done in it.
+ */
+async function carry(page: Page, api: Bridge, id: string, each?: (stepId: string) => Promise<void>, words = DESCRIPTION): Promise<void> {
+  const lesson = LESSONS.find((item) => item.id === id)!;
+  const current = () => panel(page).locator('[data-lesson-step]').getAttribute('data-lesson-step');
+  let seen = '';
+  for (let guard = 0; guard < 160; guard += 1) {
+    const stepId = await current();
+    if (stepId === 'end') return;
+    if (stepId !== seen) {
+      seen = String(stepId);
+      await each?.(seen);
+    }
+    const step = lesson.steps.find((item) => item.id === stepId)!;
+    if (step.read) {
+      await panel(page).getByRole('button', { name: 'Understood, next', exact: true }).click();
+      await expect.poll(current).not.toBe(stepId);
+      continue;
+    }
+    if (await letTheAppDo(page, api)) continue;
+    const lack = await panel(page).locator('[class*="lacking"] li').first().innerText();
+    await panel(page).getByRole('button', { name: 'Show me where', exact: true }).click();
+    const shown = page.locator('.react-flow__node.selected');
+    await expect(shown, `${id}/${stepId}: ${lack}`).toHaveCount(1);
+    const nodeId = String(await shown.getAttribute('data-id'));
+    const node = (await nodesOf(api)).find((item) => item.id === nodeId)!;
+    const field = /field (\w+) of/.exec(lack)?.[1] ?? 'text';
+    if (/Choose a value|holds the same file/.test(lack)) {
+      const held = new Set((await nodesOf(api)).map((item) => item.data.parameters[field]));
+      const value = (FILES[field] ?? []).find((item) => !held.has(item));
+      if (!value) throw new Error(`${id}/${stepId}: nothing to choose for ${field}: ${lack}`);
+      await change(page, api, { type: 'set-parameter', nodeId, key: field, value });
+    } else if (/Write a description|is short so far/.test(lack)) {
+      await change(page, api, { type: 'set-parameter', nodeId, key: field, value: words });
+    } else if (/has no weight yet/.test(lack)) {
+      await change(page, api, { type: 'set-parameter', nodeId, key: field, value: `${String(node.data.parameters[field] ?? '')} (red coat:1.2)` });
+    } else {
+      throw new Error(`the lesson "${id}" waits at "${stepId}" for: ${lack}`);
+    }
+  }
+  throw new Error(`the lesson "${id}" did not come to its end`);
+}
+
+async function startLesson(page: Page, id: string): Promise<void> {
+  if ((await panel(page).getAttribute('data-lesson')) !== 'list') await panel(page).getByRole('button', { name: 'All lessons', exact: true }).click();
+  await panel(page).locator(`[data-lesson-card="${id}"]`).getByRole('button').first().click();
+  await expect(panel(page)).toHaveAttribute('data-lesson', id);
+}
+
+type Built = { nodes: Array<{ id: string; position: { x: number; y: number }; data: { comfyType: string; parameters: Record<string, unknown> } }>; edges: Array<{ source: string; target: string; targetHandle: string }> };
+const builtOf = async (api: Bridge): Promise<Built> => ((await api('readProjection', ['desktop'])) as { snapshot: Built }).snapshot;
+
+test('lessons: descriptions, a second pass and a picture model in front of a video are carried through', async () => {
+  test.setTimeout(900_000);
+  const fake = await startFakeMcp({ extraLoras: 3, video: true });
+  const { app, page, api, userData } = await launch(fake);
+  const wide = [{ width: 1440, height: 900 }];
+  try {
+    await openLearn(page);
+    // The list offers ten lessons, each new one saying which graph it goes on from.
+    await expect(panel(page).locator('[data-lesson-card="prompt"]')).toContainText('Goes on from the lesson "A first picture from text".');
+    await expect(panel(page).locator('[data-lesson-card="refine"]')).toContainText('Goes on from the lesson "A first picture from text".');
+    await expect(panel(page).locator('[data-lesson-card="prompt-video"]')).toContainText('Goes on from the lesson "Video from text".');
+    await expect(panel(page).locator('[data-lesson-card="two-models"]')).toContainText('Goes on from the lesson "Video from a picture".');
+
+    // ---- Pictures: the first graph, then what a description is, then a second model over the first ----
+    await startLesson(page, 'image');
+    // A newcomer's first description: a few words.
+    await carry(page, api, 'image', undefined, 'a quiet lake at dawn');
+    await stepIs(page, 'end');
+    // The lesson after the first picture is the one on descriptions.
+    await expect(panel(page).locator('[data-next-lesson="prompt"]')).toContainText('The next lesson: "The description: how a model reads it".');
+    await panel(page).getByRole('button', { name: 'Start the next lesson', exact: true }).click();
+    await expect(panel(page)).toHaveAttribute('data-lesson', 'prompt');
+    const told: string[] = [];
+    await carry(page, api, 'prompt', async (stepId) => {
+      told.push(stepId);
+      await expectSoundLayout(page, `lessons, descriptions: ${stepId}`, wide);
+      if (stepId === 'write') {
+        // The description of the first lesson is a few words: the step says how many characters it has and needs.
+        await expect(panel(page).locator('[class*="lacking"] li').first()).toContainText(/is short so far\. Characters now: \d+; at least 40 are needed\./);
+      }
+      if (stepId === 'weigh') {
+        await expect(panel(page).locator('[class*="lacking"] li').first()).toContainText('has no weight yet. Put what matters into parentheses with a number from 0.5 to 1.5 other than 1, like this: (red coat:1.2).');
+        // Words are the person's: the app does not offer to write them.
+        await expect(panel(page).getByRole('button', { name: 'Do this for me', exact: true })).toHaveCount(0);
+      }
+      if (stepId === 'weights') await shot(page, '8-description-weights');
+    });
+    await stepIs(page, 'end');
+    // The graph of the first lesson is on the canvas, so the step that asks for it is passed at once. Every other
+    // step was met in order: nothing that explains is skipped.
+    expect(told).toEqual(LESSONS.find((item) => item.id === 'prompt')!.steps.map((step) => step.id).filter((stepId) => stepId !== 'graph'));
+    const pictureNodes = (await builtOf(api)).nodes.length;
+    expect(pictureNodes).toBe(7);
+
+    await startLesson(page, 'refine');
+    await carry(page, api, 'refine', async (stepId) => {
+      await expectSoundLayout(page, `lessons, a second pass: ${stepId}`, wide);
+      if (stepId === 'second-model') await shot(page, '9-second-model');
+    });
+    await stepIs(page, 'end');
+    let built = await builtOf(api);
+    // Seven nodes of the second pass next to the seven of the first, and both pictures are saved.
+    expect(built.nodes.length).toBe(14);
+    expect(built.nodes.filter((node) => node.data.comfyType === 'SaveImage')).toHaveLength(2);
+    const loaders = built.nodes.filter((node) => node.data.comfyType === 'CheckpointLoaderSimple').map((node) => node.data.parameters.ckpt_name);
+    expect(new Set(loaders).size).toBe(2);
+    const second = built.nodes.filter((node) => node.data.comfyType === 'KSampler').map((node) => Number(node.data.parameters.denoise)).sort();
+    expect(second).toEqual([0.5, 1]);
+    let placed = new Map(built.nodes.map((node) => [node.id, node]));
+    for (const edge of built.edges) {
+      const from = placed.get(edge.source)!;
+      const to = placed.get(edge.target)!;
+      expect(from.position.x, `${from.data.comfyType} → ${to.data.comfyType}`).toBeLessThan(to.position.x);
+    }
+    await page.locator('.react-flow__controls-fitview').click();
+    await page.waitForTimeout(450);
+    await shot(page, '10-second-pass-done');
+    await expectSoundLayout(page, 'lessons, a second pass done', wide);
+    // The lessons it stands on are still done: nothing of the first pass was rewired.
+    await panel(page).getByRole('button', { name: 'All lessons', exact: true }).click();
+    for (const id of ['image', 'prompt', 'refine']) await expect(panel(page).locator(`[data-lesson-card="${id}"]`), id).toHaveAttribute('data-lesson-state', 'done');
+
+    // ---- Video: a new canvas, the graph from text, the description of a clip, then a picture, then two models ----
+    await page.keyboard.press('Control+n');
+    await page.getByRole('button', { name: 'Start new project', exact: true }).click();
+    await expect(page.locator('.react-flow__node')).toHaveCount(0, { timeout: 15_000 });
+    await startLesson(page, 'video-text');
+    await carry(page, api, 'video-text');
+    await stepIs(page, 'end');
+    await startLesson(page, 'prompt-video');
+    await carry(page, api, 'prompt-video', async (stepId) => {
+      await expectSoundLayout(page, `lessons, a description for video: ${stepId}`, wide);
+      if (stepId === 'camera') await shot(page, '11-video-camera-words');
+    });
+    await stepIs(page, 'end');
+    await startLesson(page, 'video-image');
+    await carry(page, api, 'video-image');
+    await stepIs(page, 'end');
+    const videoNodes = new Set((await builtOf(api)).nodes.map((node) => node.id));
+    const videoTexts = (await builtOf(api)).nodes.filter((node) => node.data.comfyType === 'CLIPTextEncode').map((node) => node.id).sort();
+
+    await startLesson(page, 'two-models');
+    await carry(page, api, 'two-models', async (stepId) => {
+      await expectSoundLayout(page, `lessons, two models: ${stepId}`, wide);
+      if (stepId === 'image-texts') {
+        // The video's two texts are on the canvas, and the lesson asks for two more: it does not take those.
+        await expect(panel(page).locator('[class*="lacking"] li').first()).toContainText(/More .* nodes are needed: 2\./);
+      }
+      if (stepId === 'bridge') await shot(page, '12-two-models-bridge');
+    });
+    await stepIs(page, 'end');
+    built = await builtOf(api);
+    placed = new Map(built.nodes.map((node) => [node.id, node]));
+    // The video's own texts were left as they were, and the picture model has its own pair.
+    expect(built.nodes.filter((node) => node.data.comfyType === 'CLIPTextEncode')).toHaveLength(4);
+    for (const id of videoTexts) {
+      const feeder = built.edges.find((edge) => edge.target === id);
+      expect(placed.get(feeder!.source)!.data.comfyType, 'what the text of the video reads with').toBe('CLIPLoader');
+    }
+    // The frame comes from the picture model now, and every link of the new part goes from left to right.
+    const start = built.nodes.find((node) => node.data.comfyType === 'WanImageToVideo')!;
+    const feeders = built.edges.filter((edge) => edge.target === start.id).map((edge) => placed.get(edge.source)!.data.comfyType);
+    expect(feeders).toContain('VAEDecode');
+    expect(feeders).not.toContain('LoadImage');
+    const added = built.edges.filter((edge) => !videoNodes.has(edge.source));
+    expect(added.length).toBeGreaterThan(7);
+    for (const edge of added) {
+      const from = placed.get(edge.source)!;
+      const to = placed.get(edge.target)!;
+      expect(from.position.x, `${from.data.comfyType} → ${to.data.comfyType}`).toBeLessThan(to.position.x);
+    }
+    await page.locator('.react-flow__controls-fitview').click();
+    await page.waitForTimeout(450);
+    await shot(page, '13-two-models-done');
+    await expectSoundLayout(page, 'lessons, two models done', wide);
+
+    // The whole graph is sound for ComfyUI: two families of models, each in its own path, and nothing to object to.
+    await page.getByRole('button', { name: 'Check graph', exact: true }).click();
+    const check = page.locator('.check-panel');
+    await expect(check).toBeVisible();
+    await expect(check.getByRole('button', { name: 'Check the graph', exact: true })).toBeEnabled();
+    await expect(check).toContainText('No problems found.');
+  } finally {
+    await app.close();
+    await fake.close();
+    fs.rmSync(userData, { recursive: true, force: true });
+  }
+});
+
 test('lessons: the graph a lesson built is checked, and its description is read for what will not work', async () => {
   test.setTimeout(240_000);
   const fake = await startFakeMcp();

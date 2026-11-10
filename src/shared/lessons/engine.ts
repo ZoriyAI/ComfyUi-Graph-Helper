@@ -13,6 +13,8 @@
  * Pure: no DOM, no catalog, no IPC. The renderer turns its graph into LessonGraph and supplies the facts.
  */
 
+import { weightsOf } from '../prompt/inspect';
+
 export interface LessonPort {
   id: string;
   name: string;
@@ -77,6 +79,11 @@ export type TriggerSource =
 export type FieldTest =
   /** Something is chosen or written. */
   | { kind: 'chosen' }
+  /**
+   * The text holds a weight in ComfyUI's own form, `(words:1.2)`, inside the range and other than 1, and no
+   * weight above the range: a person has given one thing more or less pull without breaking the picture.
+   */
+  | { kind: 'weighted'; min: number; max: number }
   | { kind: 'equals'; value: string | number | boolean }
   | { kind: 'between'; min: number; max: number }
   /** Text of at least this many characters. */
@@ -229,6 +236,11 @@ export function fieldHolds(byId: Map<string, LessonNode>, spec: FieldSpec, roles
     }
     case 'text':
       return typeof value === 'string' && value.trim().length >= test.minChars;
+    case 'weighted': {
+      if (typeof value !== 'string') return false;
+      const weights = weightsOf(value).map((item) => item.weight);
+      return weights.some((weight) => weight >= test.min && weight <= test.max && weight !== 1) && weights.every((weight) => weight <= test.max);
+    }
     case 'has-trigger': {
       if (typeof value !== 'string') return false;
       const words: string[] = [];
@@ -359,13 +371,15 @@ export function lessonProgress(lesson: Lesson, graph: LessonGraph, facts: Lesson
       continue;
     }
     // Not done. The nearest miss: every way the steps before hold, with this step's new roles filled in as far
-    // as nodes allow, and of those the one that leaves this step lacking least.
+    // as nodes allow, and of those the one that leaves this step lacking least. Of two that lack as much, the
+    // one that asks to move fewer links that are already there.
     const before = matches(graph, requirementsOf(lesson.steps.slice(0, index)), facts, 64);
+    const busy = busyElsewhere(lesson, graph);
     let best: { roles: Roles; missing: Missing[] } | null = null;
     for (const start of before.length > 0 ? before : [{}]) {
-      for (const filled of fillings(graph, step.roles ?? [], start)) {
+      for (const filled of fillings(graph, step.roles ?? [], start, busy)) {
         const missing = missingOf(graph, step, filled, facts);
-        if (!best || missing.length < best.missing.length) best = { roles: filled, missing };
+        if (!best || missing.length < best.missing.length || (missing.length === best.missing.length && moved(missing) < moved(best.missing))) best = { roles: filled, missing };
       }
     }
     return { current: index, roles: best?.roles ?? roles, missing: best?.missing ?? [] };
@@ -373,8 +387,36 @@ export function lessonProgress(lesson: Lesson, graph: LessonGraph, facts: Lesson
   return { current: lesson.steps.length, roles, missing: [] };
 }
 
-/** `start` with each new role given a free node of its class where there is one, in every way (bounded). */
-function fillings(graph: LessonGraph, specs: RoleSpec[], start: Roles): Roles[] {
+/** How many of the lacks ask to take a link off an input that something else feeds now. */
+function moved(missing: Missing[]): number {
+  return missing.filter((item) => item.kind === 'link' && item.fedBy !== null && item.fedBy !== item.from.nodeId).length;
+}
+
+/**
+ * The nodes that already work for a part of the graph the lesson knows nothing about: their output goes into a
+ * node of a class that no role of the lesson has and no link of it may pass through. The texts of a video graph
+ * feed a Wan node; a lesson about pictures has no such node, so those texts are the video's and not a pair of
+ * spare text nodes. A lesson never tells a person to rewire such a node: it asks for one of its own.
+ */
+function busyElsewhere(lesson: Lesson, graph: LessonGraph): Set<string> {
+  const known = new Set<string>();
+  for (const step of lesson.steps) {
+    for (const spec of step.roles ?? []) for (const classType of spec.classes) known.add(classType);
+    for (const spec of step.links ?? []) for (const classType of spec.via ?? []) known.add(classType);
+  }
+  const classOf = new Map(graph.nodes.map((node) => [node.id, node.classType]));
+  const out = new Set<string>();
+  for (const link of graph.links) {
+    if (!known.has(classOf.get(link.to) ?? '')) out.add(link.from);
+  }
+  return out;
+}
+
+/**
+ * `start` with each new role given a free node of its class where there is one, in every way (bounded). A node
+ * that is busy elsewhere is not free.
+ */
+function fillings(graph: LessonGraph, specs: RoleSpec[], start: Roles, busy: ReadonlySet<string>): Roles[] {
   const out: Roles[] = [];
   const roles: Roles = { ...start };
   const taken = new Set(Object.values(start));
@@ -391,7 +433,7 @@ function fillings(graph: LessonGraph, specs: RoleSpec[], start: Roles): Roles[] 
     }
     let any = false;
     for (const node of graph.nodes) {
-      if (taken.has(node.id) || !spec.classes.includes(node.classType)) continue;
+      if (taken.has(node.id) || busy.has(node.id) || !spec.classes.includes(node.classType)) continue;
       any = true;
       roles[spec.role] = node.id;
       taken.add(node.id);

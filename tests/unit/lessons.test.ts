@@ -52,6 +52,13 @@ const CLASSES: Record<string, Spec> = {
     outputs: [['positive', 'CONDITIONING'], ['negative', 'CONDITIONING'], ['latent', 'LATENT']],
   },
   LoraLoaderModelOnly: { inputs: [['model', 'MODEL'], ['lora_name', 'COMBO', 'first-lora.safetensors'], ['strength_model', 'FLOAT', 1]], outputs: [['MODEL', 'MODEL']] },
+  LoraLoader: {
+    inputs: [['model', 'MODEL'], ['clip', 'CLIP'], ['lora_name', 'COMBO', 'first-lora.safetensors'], ['strength_model', 'FLOAT', 1], ['strength_clip', 'FLOAT', 1]],
+    outputs: [['MODEL', 'MODEL'], ['CLIP', 'CLIP']],
+  },
+  CLIPSetLastLayer: { inputs: [['clip', 'CLIP'], ['stop_at_clip_layer', 'INT', -1]], outputs: [['CLIP', 'CLIP']] },
+  VAEEncode: { inputs: [['pixels', 'IMAGE'], ['vae', 'VAE']], outputs: [['LATENT', 'LATENT']] },
+  PreviewImage: { inputs: [['images', 'IMAGE']], outputs: [] },
 };
 
 const ports: ClassPorts = (classType) => {
@@ -109,8 +116,19 @@ function decide(canvas: Canvas, missing: Missing): void {
     case 'differs':
       node.values[missing.field] = `other-${missing.nodeId}.safetensors`;
       return;
-    case 'text':
-      node.values[missing.field] = 'a quiet lake at dawn, slow camera';
+    case 'text': {
+      // As many sentences as the step asks characters for.
+      const sentences = ['A quiet lake at dawn.', 'Mist drifts slowly over the water.', 'The camera glides forward at walking pace.', 'Soft morning light.'];
+      let text = '';
+      for (const sentence of sentences) {
+        if (text.length >= missing.test.minChars) break;
+        text = `${text} ${sentence}`.trim();
+      }
+      node.values[missing.field] = text;
+      return;
+    }
+    case 'weighted':
+      node.values[missing.field] = `${String(node.values[missing.field] ?? '')}, (soft light:1.2)`;
       return;
     case 'has-trigger':
       node.values[missing.field] = `${String(node.values[missing.field] ?? '')}, neon rain`;
@@ -440,6 +458,43 @@ describe('a node the app adds for a lesson stands where the graph reads left to 
     expect(rects.get(roles.loraLow)!.x).toBeGreaterThan(rects.get(roles.low)!.x);
   });
 
+  it('builds a picture model in front of a video graph so that the picture still flows from left to right', () => {
+    const canvas = new Canvas();
+    const rects = new Map<string, FlowRect>();
+    build(lessonById('video-image')!, canvas, rects);
+    const video = new Set(canvas.nodes.map((node) => node.id));
+    const lesson = lessonById('two-models')!;
+    build(lesson, canvas, rects);
+    expect(rects.size).toBe(canvas.nodes.length);
+    expect(crowded(rects)).toEqual([]);
+    const roles = done(lesson, canvas).roles;
+    // Every link of the new part, the one that joins the video included, goes to the right.
+    const added = canvas.links.filter((link) => !video.has(link.from));
+    expect(added.length).toBeGreaterThan(7);
+    for (const link of added) {
+      const from = rects.get(link.from)!;
+      const to = rects.get(link.to)!;
+      expect(from.x + from.width, `${canvas.node(link.from).classType} → ${canvas.node(link.to).classType}`).toBeLessThan(to.x);
+    }
+    // The model that draws the frame stands left of everything it leads to, the video's start included.
+    expect(rects.get(roles.checkpoint)!.x).toBeLessThan(rects.get(roles.imageSampler)!.x);
+    expect(rects.get(roles.imageDecode)!.x + rects.get(roles.imageDecode)!.width).toBeLessThan(rects.get(roles.start)!.x);
+  });
+
+  it('builds a second pass after a first one: every link to the right, nothing crowded', () => {
+    const canvas = new Canvas();
+    const rects = new Map<string, FlowRect>();
+    build(lessonById('image')!, canvas, rects);
+    build(lessonById('refine')!, canvas, rects);
+    expect(rects.size).toBe(canvas.nodes.length);
+    expect(crowded(rects)).toEqual([]);
+    for (const link of canvas.links) {
+      const from = rects.get(link.from)!;
+      const to = rects.get(link.to)!;
+      expect(from.x + from.width, `${canvas.node(link.from).classType} → ${canvas.node(link.to).classType}`).toBeLessThan(to.x);
+    }
+  });
+
   it('leaves the first node of a lesson to the canvas, and a node placed by hand is not stood upon', () => {
     const lesson = lessonById('image')!;
     expect(lessonSpot(lesson, 'checkpoint', {}, new Map(), sizeOf('CheckpointLoaderSimple'), GAPS)).toBeNull();
@@ -452,6 +507,178 @@ describe('a node the app adds for a lesson stands where the graph reads left to 
     expect(spot).toEqual({ x: 500 + 240 + 96, y: 280 + 160 + 72 });
     // A role the lesson does not have gets no spot.
     expect(lessonSpot(lesson, 'nobody', { checkpoint: '1' }, rects, sizeOf('CLIPTextEncode'), GAPS)).toBeNull();
+  });
+});
+
+describe('a lesson leaves alone what works for another part of the graph', () => {
+  const textOf = (canvas: Canvas, id: string) => canvas.links.find((link) => link.to === id && link.toPort === canvas.node(id).inputs.find((port) => port.name === 'clip')!.id)?.from;
+
+  it('gives a second image model its own nodes on a graph that also makes a video', () => {
+    const canvas = new Canvas();
+    for (const id of ['video-text', 'video-image', 'two-models']) carryOut(lessonById(id)!, canvas);
+    const video = done(lessonById('two-models')!, canvas).roles;
+    const before = { positive: textOf(canvas, video.positive), negative: textOf(canvas, video.negative), decode: canvas.links.filter((link) => link.to === video.decode).map((link) => link.from).sort() };
+    const count = canvas.nodes.length;
+    const refine = lessonById('refine')!;
+    carryOut(refine, canvas);
+    expect(done(refine, canvas).current).toBe(refine.steps.length);
+    // The video's texts still take their reader from the video's own loader, and its decoder its own inputs.
+    expect(textOf(canvas, video.positive)).toBe(before.positive);
+    expect(textOf(canvas, video.negative)).toBe(before.negative);
+    expect(canvas.links.filter((link) => link.to === video.decode).map((link) => link.from).sort()).toEqual(before.decode);
+    expect(canvas.node(before.positive!).classType).toBe('CLIPLoader');
+    // Two texts, a loader, an encoder, a sampler, a decoder and a saver were added: seven nodes of the second pass.
+    expect(canvas.nodes.length).toBe(count + 7);
+    expect(done(lessonById('two-models')!, canvas).current).toBe(lessonById('two-models')!.steps.length);
+  });
+
+  it('does not take the texts of a picture graph for a video that is started on the same canvas', () => {
+    const canvas = new Canvas();
+    const image = lessonById('image')!;
+    carryOut(image, canvas);
+    carryOut(lessonById('video-text')!, canvas);
+    expect(done(image, canvas).current).toBe(image.steps.length);
+    expect(canvas.nodes.filter((node) => node.classType === 'CLIPTextEncode')).toHaveLength(4);
+    expect(canvas.nodes.filter((node) => node.classType === 'VAEDecode')).toHaveLength(2);
+  });
+
+  it('points at the nodes a person has just added, not at one that is wired to something else', () => {
+    const canvas = new Canvas();
+    carryOut(lessonById('image')!, canvas);
+    const refine = lessonById('refine')!;
+    const read = refine.steps.filter((step) => step.read).map((step) => step.id);
+    const first = done(refine, canvas, read).roles.checkpoint;
+    // A text node left over from an experiment, fed by the first model and feeding nothing.
+    const spare = canvas.add('CLIPTextEncode');
+    canvas.connect(first, 'out-1', spare.id, 'in-1');
+    const second = canvas.add('CheckpointLoaderSimple');
+    second.values.ckpt_name = 'second.safetensors';
+    const fresh = [canvas.add('CLIPTextEncode'), canvas.add('CLIPTextEncode')];
+    const progress = done(refine, canvas, read);
+    expect(refine.steps[progress.current].id).toBe('second-texts');
+    const links = progress.missing.filter((item) => item.kind === 'link');
+    expect(links).toHaveLength(2);
+    expect(links.map((item) => (item.kind === 'link' ? item.to.nodeId : '')).sort()).toEqual(fresh.map((node) => node.id).sort());
+    expect(links.every((item) => item.kind === 'link' && item.fedBy === null)).toBe(true);
+  });
+
+  it('still says which link is wrong on a node that is part of the lesson', () => {
+    // The samplers of a video-from-text graph are the samplers of video-from-a-picture: there the lesson does ask
+    // to move their links, to the node that puts the picture in.
+    const canvas = new Canvas();
+    carryOut(lessonById('video-text')!, canvas);
+    const samplers = canvas.nodes.filter((node) => node.classType === 'KSamplerAdvanced').length;
+    carryOut(lessonById('video-image')!, canvas);
+    expect(canvas.nodes.filter((node) => node.classType === 'KSamplerAdvanced')).toHaveLength(samplers);
+  });
+});
+
+describe('a LoRA loader or a clip-skip node on the way of a checkpoint does not break a lesson', () => {
+  it('keeps the first picture, the description lesson and the second pass done', () => {
+    const canvas = new Canvas();
+    const image = lessonById('image')!;
+    carryOut(image, canvas);
+    const roles = done(image, canvas).roles;
+    // Load LoRA takes both the model and the text reader; the texts read through it and through a clip-skip node.
+    const lora = canvas.add('LoraLoader');
+    const skip = canvas.add('CLIPSetLastLayer');
+    canvas.connect(roles.checkpoint, 'out-0', lora.id, 'in-0');
+    canvas.connect(roles.checkpoint, 'out-1', lora.id, 'in-1');
+    canvas.connect(lora.id, 'out-0', roles.sampler, 'in-0');
+    canvas.connect(lora.id, 'out-1', skip.id, 'in-0');
+    canvas.connect(skip.id, 'out-0', roles.positive, 'in-1');
+    canvas.connect(skip.id, 'out-0', roles.negative, 'in-1');
+    expect(done(image, canvas).current).toBe(image.steps.length);
+    for (const id of ['prompt', 'refine']) {
+      const lesson = lessonById(id)!;
+      carryOut(lesson, canvas);
+      expect(done(lesson, canvas).current, id).toBe(lesson.steps.length);
+    }
+    expect(done(image, canvas).current).toBe(image.steps.length);
+  });
+});
+
+describe('the lessons on descriptions', () => {
+  const lesson = lessonById('prompt')!;
+  const read = lesson.steps.filter((step) => step.read).map((step) => step.id);
+
+  it('asks for a weight in the form ComfyUI reads, inside the range', () => {
+    const canvas = new Canvas();
+    carryOut(lessonById('image')!, canvas);
+    const positive = canvas.node(done(lessonById('image')!, canvas).roles.positive);
+    const at = (text: string) => {
+      positive.values.text = text;
+      const progress = done(lesson, canvas, read);
+      return progress.current < lesson.steps.length ? lesson.steps[progress.current].id : 'end';
+    };
+    const long = 'portrait of a woman, red coat, night street, rain, soft light';
+    expect(at('a lake')).toBe('write');
+    expect(at(long)).toBe('weigh');
+    // Forms of other programs are not weights here, and a weight of 1 changes nothing.
+    expect(at(`${long}, [rain], <lora:style:1>, ((coat))`)).toBe('weigh');
+    expect(at(`${long}, (rain:1)`)).toBe('weigh');
+    expect(at(`${long}, (rain:1.9)`)).toBe('weigh');
+    expect(at(`${long}, (red coat:1.2), (rain:1.9)`)).toBe('weigh');
+    expect(at(`${long}, (rain:0.8)`)).toBe('negative-text');
+    expect(at(`portrait of a woman, (red coat:1.2), night street, rain, soft light`)).toBe('negative-text');
+    const lack = done(lesson, canvas, read).missing[0];
+    expect(lack).toMatchObject({ kind: 'field', field: 'text', test: { kind: 'text', minChars: 5 } });
+    // Words are the person's to write: the app offers to do none of it.
+    expect(fixFor(lack, canvas, installed)).toBeNull();
+    positive.values.text = long;
+    expect(fixFor(done(lesson, canvas, read).missing[0], canvas, installed)).toBeNull();
+  });
+
+  it('never skips a step that explains, and skips the doing a graph already holds', () => {
+    const canvas = new Canvas();
+    carryOut(lessonById('image')!, canvas);
+    const roles = done(lessonById('image')!, canvas).roles;
+    canvas.node(roles.positive).values.text = 'portrait of a woman, (red coat:1.2), night street, rain, soft light';
+    canvas.node(roles.negative).values.text = 'blurry, extra fingers';
+    // Everything to do is done; all that is left is to read, one step at a time, in order.
+    const seen: string[] = [];
+    const marks = new Set<string>();
+    for (let guard = 0; guard < 40; guard += 1) {
+      const progress = lessonProgress(lesson, canvas, FACTS, marks);
+      if (progress.current === lesson.steps.length) break;
+      const step = lesson.steps[progress.current];
+      expect(step.read, step.id).toBe(true);
+      seen.push(step.id);
+      marks.add(step.id);
+    }
+    expect(seen).toEqual(read);
+    expect(read.length).toBeGreaterThan(lesson.steps.length / 2);
+  });
+
+  it('reads the description of the clip on a canvas that also draws a picture', () => {
+    const canvas = new Canvas();
+    for (const id of ['video-text', 'video-image', 'two-models']) carryOut(lessonById(id)!, canvas);
+    const video = lessonById('prompt-video')!;
+    const roles = done(lessonById('two-models')!, canvas).roles;
+    canvas.node(roles.positive).values.text = 'a walk';
+    canvas.node(roles.imagePositive).values.text = 'portrait of a woman in a red coat on a night street in the rain, soft light from a shop window, shallow depth of field';
+    const progress = done(video, canvas, video.steps.filter((step) => step.read).map((step) => step.id));
+    expect(video.steps[progress.current].id).toBe('write');
+    expect(progress.missing[0]).toMatchObject({ kind: 'field', nodeId: roles.positive, field: 'text' });
+  });
+
+  it('says in its words what does not work in ComfyUI and when the second text stops acting', async () => {
+    const { lessonWords } = await import('../../src/shared/lessons/texts');
+    for (const language of ['ru', 'en'] as const) {
+      const steps = lessonWords(language, 'prompt')!.steps;
+      for (const form of ['`(red coat:1.2)`', '`<lora:name:1>`', '`BREAK`', '`AND`', '`\\(`']) expect(steps.weights.body, `${language}: ${form}`).toContain(form);
+      expect(steps.cfg.body).toMatch(/`cfg` 1 /);
+      expect(steps.negative.body).toContain('`no hat`');
+      const video = lessonWords(language, 'prompt-video')!.steps;
+      expect(video.negative.body).toContain(lessonWords(language, 'video-fast')!.title);
+      expect(video.camera.body).toContain('`static shot`');
+      // The lessons on combining models send the reader to each other and to the lesson on descriptions.
+      const two = lessonWords(language, 'two-models')!.steps;
+      expect(two.approaches.body).toContain(lessonWords(language, 'refine')!.title);
+      expect(two['image-texts'].body).toContain(lessonWords(language, 'prompt')!.title);
+      expect(two.loras.body).toContain(lessonWords(language, 'lora')!.title);
+      expect(lessonWords(language, 'refine')!.steps.graph.body).toContain(lessonWords(language, 'two-models')!.title);
+    }
   });
 });
 

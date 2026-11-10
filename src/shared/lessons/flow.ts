@@ -71,9 +71,27 @@ export function lessonSpot(
   const links = linksOf(lesson);
   const feeds = new Set(links.filter((link) => link.to === role).map((link) => link.from));
   const fed = new Set(links.filter((link) => link.from === role).map((link) => link.to));
-  // Next to the node that will feed it, the nearest of those; else next to the one it will feed; else to
-  // whatever of the lesson stands nearest by column.
-  const kin = (name: string) => (feeds.has(name) ? 0 : fed.has(name) ? 1 : 2);
+  // Everything the role leads to or comes from along the lesson's links, however many nodes lie in between.
+  const reach = (forward: boolean): Set<string> => {
+    const seen = new Set<string>();
+    const queue = [role];
+    while (queue.length > 0) {
+      const at = queue.pop()!;
+      for (const link of links) {
+        const next = forward ? (link.from === at ? link.to : null) : link.to === at ? link.from : null;
+        if (next !== null && next !== role && !seen.has(next)) {
+          seen.add(next);
+          queue.push(next);
+        }
+      }
+    }
+    return seen;
+  };
+  const related = new Set([...reach(true), ...reach(false)]);
+  // Next to the node that will feed it, the nearest of those; else next to the one it will feed; else by a node
+  // it reaches through others (a part built in front of a graph that is already there counts its columns back
+  // from where it joins that graph); else to whatever of the lesson stands nearest by column.
+  const kin = (name: string) => (feeds.has(name) ? 0 : fed.has(name) ? 1 : related.has(name) ? 2 : 3);
   const away = (name: string) => Math.abs(columns[name] - columns[role]);
   const anchor = placed.reduce((best, item) => (kin(item.name) < kin(best.name) || (kin(item.name) === kin(best.name) && away(item.name) < away(best.name)) ? item : best));
   const stride = Math.max(size.width, ...placed.map((item) => item.rect.width)) + gaps.x;
