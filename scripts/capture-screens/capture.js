@@ -194,7 +194,7 @@ async function captureToolbarAndHelp(page, prefix) {
 
   await step('ghost', async () => {
     await fit(page);
-    await page.getByRole('tab', { name: /ассист|assistant/i }).first().click();
+    await page.getByRole('tab', { name: /помощник|ассист|assistant/i }).first().click();
     await page.locator('#chat-provider').click();
     await page.waitForTimeout(300);
     await page.getByRole('option', { name: /TEST|фикстура/i }).first().click();
@@ -437,7 +437,7 @@ async function captureToolbarAndHelp(page, prefix) {
     await page.waitForTimeout(1200);
     const follow = page.getByRole('button', { name: /follow the helper|следить за помощником/i }).first();
     if ((await follow.getAttribute('aria-pressed')) !== 'true') await follow.click();
-    await page.getByRole('tab', { name: /assistant|ассист/i }).first().click();
+    await page.getByRole('tab', { name: /помощник|assistant|ассист/i }).first().click();
     await page.locator('#chat-provider').click();
     await page.waitForTimeout(300);
     await page.getByRole('option', { name: /TEST|фикстура/i }).first().click();
