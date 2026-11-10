@@ -6,6 +6,7 @@ import * as path from 'path';
 import { pickOption } from './pickOption';
 import { useEnglish } from './locale';
 import { exportPastGuard } from './exportGuard';
+import { loadNodeList } from './fileMenu';
 
 /**
  * TEST fixture agent plus a local HTTP catalog fixture.
@@ -87,12 +88,12 @@ test('prerelease journey configures a provider, builds a process, and exports a 
     const dialog = window.locator('[role="dialog"].settings-dialog');
     await dialog.getByRole('textbox', { name: 'Comfy origin', exact: true }).fill(origin);
     await dialog.getByRole('tab', { name: 'Assistant' }).click();
-    await dialog.getByRole('radio', { name: 'Local endpoint', exact: true }).click();
+    await dialog.getByRole('radio', { name: 'Own server', exact: true }).click();
     await dialog.getByRole('textbox', { name: 'Model', exact: true }).fill('fixture-local');
     await dialog.getByRole('textbox', { name: 'Base URL', exact: true }).fill('http://127.0.0.1:9/v1');
     await dialog.getByRole('button', { name: 'Save settings' }).click();
     await expect(dialog).toHaveCount(0);
-    await expect(window.getByText('Local endpoint. No key is sent.')).toBeVisible();
+    await expect(window.getByText('Own server. No key is sent.')).toBeVisible();
 
     await window.getByRole('button', { name: 'Settings', exact: true }).click();
     const restored = window.locator('[role="dialog"].settings-dialog');
@@ -109,7 +110,7 @@ test('prerelease journey configures a provider, builds a process, and exports a 
     await expect(restored.getByRole('status', { name: 'OpenAI key' })).toHaveText('The key is kept until restart.', { timeout: 20000 });
     // Without a password store the only offer is the app folder file, which this test does not take.
     await expect(restored.getByRole('button', { name: 'Remember on this computer' })).toHaveCount(0);
-    await restored.getByRole('radio', { name: 'Local endpoint', exact: true }).click();
+    await restored.getByRole('radio', { name: 'Own server', exact: true }).click();
     const blocked = await window.evaluate(async (marker) => {
       const bridge = (window as unknown as { electronAPI: { saveSecret: (value: string) => Promise<{ status: string }> } }).electronAPI;
       return bridge.saveSecret(marker);
@@ -154,7 +155,7 @@ test('prerelease journey configures a provider, builds a process, and exports a 
       fileDialog.showOpenDialog = async () => ({ canceled: false, filePaths: [paths.nativePath] });
     }, { nativePath });
     await window.getByRole('button', { name: 'Save project' }).click();
-    await expect(window.getByText('Saved the native project.')).toBeVisible();
+    await expect(window.getByText('Project saved.')).toBeVisible();
     const native = JSON.parse(fs.readFileSync(nativePath, 'utf8')) as {
       format: string;
       version: number;
@@ -183,7 +184,7 @@ test('prerelease journey configures a provider, builds a process, and exports a 
     await nodeForm.locator('textarea').nth(0).fill('Temporary edit');
     await nodeForm.getByRole('button', { name: 'Save documentation' }).click();
     await window.getByRole('button', { name: 'Open project' }).click();
-    await expect(window.getByText('Opened the native project.')).toBeVisible();
+    await expect(window.getByText('Project opened.')).toBeVisible();
     await expect(window.locator('[data-component-owner="node:1"] textarea').nth(0)).toHaveValue(PURPOSE);
     expect(containsMarker(userData)).toBeNull();
     expect(hits.filter((hit) => hit.startsWith('POST'))).toEqual([]);
@@ -225,8 +226,8 @@ test('object info import lets the agent export a loader parameter', async () => 
     await electronApp.evaluate(({ dialog }, paths) => {
       dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [paths.catalogPath] });
     }, { catalogPath });
-    await window.getByRole('button', { name: 'Catalog snapshot', exact: true }).click();
-    await expect(window.getByText('Catalog snapshot imported. Nodes: 1. Models: 1. Skipped: 0.')).toBeVisible();
+    await loadNodeList(window);
+    await expect(window.getByText('Node list loaded. Nodes: 1. Models: 1. Skipped: 0.')).toBeVisible();
 
     await pickOption(window, 'Chat provider', 'TEST fixture');
     await window.getByText('TEST fixture is on').waitFor();
@@ -254,7 +255,7 @@ test('object info import lets the agent export a loader parameter', async () => 
       fileDialog.showOpenDialog = async () => ({ canceled: false, filePaths: [paths.nativePath] });
     }, { nativePath });
     await window.getByRole('button', { name: 'Save project' }).click();
-    await expect(window.getByText('Saved the native project.')).toBeVisible();
+    await expect(window.getByText('Project saved.')).toBeVisible();
     const native = JSON.parse(fs.readFileSync(nativePath, 'utf8')) as {
       format: string;
       process: { title: string };
@@ -282,7 +283,7 @@ test('object info import lets the agent export a loader parameter', async () => 
     await nodeForm.locator('textarea').nth(0).fill('Temporary edit');
     await nodeForm.getByRole('button', { name: 'Save documentation' }).click();
     await window.getByRole('button', { name: 'Open project' }).click();
-    await expect(window.getByText('Opened the native project.')).toBeVisible();
+    await expect(window.getByText('Project opened.')).toBeVisible();
     await expect(window.locator('[data-component-owner="node:1"] textarea').nth(0)).toHaveValue('Loads the portrait checkpoint');
   } finally {
     await electronApp.close();

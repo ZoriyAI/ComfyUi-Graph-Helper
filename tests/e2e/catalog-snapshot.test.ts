@@ -3,6 +3,7 @@ import { useEnglish } from './locale';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { loadNodeList } from './fileMenu';
 
 const snapshot = {
   CheckpointLoaderSimple: {
@@ -84,8 +85,8 @@ test('catalog snapshot import persists guidance and workflow missing-deps use it
   await electronApp.evaluate(({ dialog }, paths) => {
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [paths.source] });
   }, { source });
-  await window.getByRole('button', { name: 'Catalog snapshot', exact: true }).click();
-  await expect(window.getByText('Catalog snapshot imported. Nodes: 2. Models: 2. Skipped: 0.')).toBeVisible();
+  await loadNodeList(window);
+  await expect(window.getByText('Node list loaded. Nodes: 2. Models: 2. Skipped: 0.')).toBeVisible();
 
   const stored = await electronApp.evaluate(async ({ app }, { appRoot: root }) => {
     const nodeModule = process.getBuiltinModule('module');
@@ -132,7 +133,7 @@ test('catalog snapshot import persists guidance and workflow missing-deps use it
   await electronApp.evaluate(({ dialog }, paths) => {
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [paths.broken] });
   }, { broken });
-  await window.getByRole('button', { name: 'Catalog snapshot', exact: true }).click();
+  await loadNodeList(window);
   await expect(window.getByText('Catalog JSON could not be parsed.')).toBeVisible();
   const afterReject = await electronApp.evaluate(async ({ app }, { appRoot: root }) => {
     const nodeModule = process.getBuiltinModule('module');
@@ -148,7 +149,7 @@ test('catalog snapshot import persists guidance and workflow missing-deps use it
   await electronApp.evaluate(({ dialog }, paths) => {
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [paths.arrayFile] });
   }, { arrayFile });
-  await window.getByRole('button', { name: 'Catalog snapshot', exact: true }).click();
+  await loadNodeList(window);
   await expect(window.getByText('Catalog snapshot is not object_info.')).toBeVisible();
   const afterArray = await electronApp.evaluate(async ({ app }, { appRoot: root }) => {
     const nodeModule = process.getBuiltinModule('module');

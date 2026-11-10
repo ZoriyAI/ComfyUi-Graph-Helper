@@ -20,17 +20,18 @@ export function useToast() {
 }
 
 /**
- * The horizontal centre and width of the canvas (`.graph-pane`), so toasts sit over the canvas and never over the
- * library or the dock's composer. Null until the canvas is on screen; the CSS then centres them in the window.
+ * The left edge and width of the canvas (`.graph-pane`), so toasts sit in its lower left corner: never over the
+ * library, the dock's composer or the minimap in the lower right. Null until the canvas is on screen; the CSS then
+ * centres them in the window.
  */
-function useCanvasBand(): { center: number; width: number } | null {
-  const [band, setBand] = useState<{ center: number; width: number } | null>(null);
+function useCanvasBand(): { left: number; width: number } | null {
+  const [band, setBand] = useState<{ left: number; width: number } | null>(null);
   useEffect(() => {
     let observer: ResizeObserver | null = null;
     let frame = 0;
     const measure = (pane: Element) => {
       const box = pane.getBoundingClientRect();
-      setBand((current) => (current && current.center === box.left + box.width / 2 && current.width === box.width ? current : { center: box.left + box.width / 2, width: box.width }));
+      setBand((current) => (current && current.left === box.left && current.width === box.width ? current : { left: box.left, width: box.width }));
     };
     const attach = () => {
       const pane = document.querySelector('.graph-pane');
@@ -58,6 +59,10 @@ function useCanvasBand(): { center: number; width: number } | null {
   }, []);
   return band;
 }
+
+/** Gap from the canvas edge, and the width the minimap takes in the lower right corner of the canvas. */
+const TOAST_INSET = 16;
+const MINIMAP_ROOM = 170;
 
 /** Mount once near the root. Renders the queue from the toast store. */
 export function ToastProvider({ children }: { children: React.ReactNode }) {
@@ -103,7 +108,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       <T.Viewport
         className={styles.viewport}
         label={String(t('shell.notifications'))}
-        style={band ? { left: band.center, width: Math.max(240, Math.min(440, band.width - 32)) } : undefined}
+        style={band ? { left: band.left + TOAST_INSET, translate: 'none', width: Math.max(240, Math.min(420, band.width - TOAST_INSET * 2 - MINIMAP_ROOM)) } : undefined}
       />
     </T.Provider>
   );

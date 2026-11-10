@@ -37,7 +37,7 @@ test('the model picker lists what a local server serves and fills the model fiel
     await window.getByRole('button', { name: 'Settings', exact: true }).click();
     const dialog = window.locator('[role="dialog"].settings-dialog');
     await dialog.getByRole('tab', { name: 'Assistant' }).click();
-    await dialog.getByRole('radio', { name: 'Local endpoint', exact: true }).click();
+    await dialog.getByRole('radio', { name: 'Own server', exact: true }).click();
     await expect(dialog.getByRole('button', { name: 'Find local servers' })).toBeVisible();
     await dialog.getByRole('textbox', { name: 'Base URL', exact: true }).fill(`${origin}/v1`);
     await expect(dialog.getByText(`2 models from ${origin}.`)).toBeVisible({ timeout: 15_000 });

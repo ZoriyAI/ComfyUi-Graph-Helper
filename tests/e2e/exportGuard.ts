@@ -6,9 +6,9 @@ import { expect, type Page } from '@playwright/test';
  * it shows. Resolves once the export toast shows.
  */
 export async function exportPastGuard(window: Page, options: { guard?: boolean } = {}): Promise<void> {
-  await window.getByRole('button', { name: 'Export', exact: true }).click();
+  await window.getByRole('button', { name: 'Save workflow for ComfyUI…', exact: true }).click();
   const dialog = window.locator('[role="dialog"].export-guard-dialog');
-  const done = window.getByText('Exported the current workflow.');
+  const done = window.getByText('Workflow saved for ComfyUI.');
   if (options.guard) {
     await expect(dialog).toBeVisible();
   } else {

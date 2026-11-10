@@ -104,7 +104,7 @@ async function expectLocalizedChrome(window: Page, language: 'en' | 'ru') {
       assistant: 'Помощник',
       tabs: ['Подключение', 'Помощник', 'Оформление и движение'],
       model: 'Модель',
-      localProvider: 'Локальный адрес',
+      localProvider: 'Свой сервер',
     }
     : {
       settings: 'Settings',
@@ -112,7 +112,7 @@ async function expectLocalizedChrome(window: Page, language: 'en' | 'ru') {
       assistant: 'Assistant',
       tabs: ['Connection', 'Assistant', 'Appearance & Motion'],
       model: 'Model',
-      localProvider: 'Local endpoint',
+      localProvider: 'Own server',
     };
   await window.setViewportSize({ width: 1280, height: 800 });
   await assertChromeLanguage(window, language);
@@ -180,7 +180,7 @@ test('Russian is the new-profile default and English persists through reopen', a
     expect(toolbar.overflow).toBe(0);
     expect(toolbar.height).toBe(36);
     expect(toolbar.lines).toBe(1);
-    expect(toolbar.label).toBe('Не выбран');
+    expect(toolbar.label).toBe('Помощник: не выбран');
   }
 
   await expectLocalizedChrome(window, 'ru');

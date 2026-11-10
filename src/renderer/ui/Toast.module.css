@@ -3,8 +3,8 @@
   z-index: 65;
   /*
    * One calm place: the bottom of the window, just above the status bar, centred. Nothing the person works with
-   * lives there (the canvas toolbar, the menus and the composer are elsewhere). Toast.tsx centres it over the
-   * canvas once the canvas is on screen, so it covers neither the library nor the dock.
+   * lives there (the canvas toolbar, the menus and the composer are elsewhere). Once the canvas is on screen
+   * Toast.tsx moves it to the canvas's lower left corner, clear of the library, the dock and the minimap.
    */
   bottom: 40px;
   left: 50%;

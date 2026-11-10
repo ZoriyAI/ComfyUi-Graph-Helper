@@ -43,7 +43,7 @@ test('desktop menu bar: mouse, Alt and arrows, shortcuts, and the toolbar run th
   await bar.getByRole('menuitem', { name: 'File', exact: true }).click();
   const menu = window.getByRole('menu');
   await expect(menu).toBeVisible();
-  const importItem = menu.getByRole('menuitem', { name: 'Import', exact: true });
+  const importItem = menu.getByRole('menuitem', { name: 'Open workflow…', exact: true });
   await expect(importItem).toBeVisible();
   await expect(importItem).toContainText('Ctrl+I');
   await expect(menu.getByRole('menuitem', { name: 'Save project', exact: true })).toContainText('Ctrl+S');
@@ -111,10 +111,32 @@ test('desktop menu bar: mouse, Alt and arrows, shortcuts, and the toolbar run th
   const toolbar = window.locator('.workspace-toolbar');
   const toolbarHeight = await toolbar.evaluate((element) => Math.round(element.getBoundingClientRect().height));
   expect(toolbarHeight).toBe(36);
-  const importButton = toolbar.getByRole('button', { name: 'Import', exact: true });
+  const importButton = toolbar.getByRole('button', { name: 'Open workflow…', exact: true });
   await expect(importButton).toBeVisible();
   await importButton.click();
   await expect.poll(openDialogs).toBe(before + 2);
+
+  // One home per action: canvas actions live on the canvas toolbar only; the menu bar has no second helper chip.
+  for (const command of ['graph.addNode', 'view.fit', 'view.descriptions', 'file.catalog']) {
+    await expect(toolbar.locator(`[data-command="${command}"]`)).toHaveCount(0);
+  }
+  await expect(bar.locator('.provider-chip')).toHaveCount(0);
+  // At 1280 px the primary actions carry a short word; the accessible name stays the full label.
+  await expect(toolbar.getByRole('button', { name: 'Open project', exact: true })).toContainText('Open');
+  await expect(toolbar.getByRole('button', { name: 'Check graph', exact: true })).toContainText('Check');
+  // The helper select says what it is about, and its last row opens Settings ▸ Assistant.
+  const helper = toolbar.locator('#chat-provider');
+  await expect(helper).toHaveText('Assistant: not chosen');
+  await helper.click();
+  await window.getByRole('option', { name: 'Set up…', exact: true }).click();
+  const assistantSettings = window.locator('[role="dialog"].settings-dialog');
+  await expect(assistantSettings).toHaveAttribute('data-state', 'open');
+  await expect(assistantSettings.getByRole('tab', { name: 'Assistant', exact: true })).toHaveAttribute('data-state', 'active');
+  await expect(helper).toHaveAttribute('data-value', '');
+  await window.keyboard.press('Escape');
+  await expect(assistantSettings).toHaveCount(0);
+  // Focus went back to the settings button, whose tooltip would cover the dock header below.
+  await window.evaluate(() => (document.activeElement instanceof HTMLElement ? document.activeElement.blur() : undefined));
 
   // View ▸ Tools panel is a check item that agrees with the dock header's "Hide tools".
   await window.getByRole('button', { name: 'Hide tools' }).click();
