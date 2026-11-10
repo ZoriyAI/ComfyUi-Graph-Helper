@@ -4,7 +4,11 @@ import { commitCommand, ensureWorkspace, readProjection } from '../../src/main/c
 import { listExplanations, saveExplanation } from '../../src/main/knowledge/repository';
 import { migrate } from '../../src/main/settings/migrate';
 import {
+  CARD_MAX_SCALE,
+  CARD_MIN_SCALE,
+  CARD_READABLE_SCALE,
   cardRect,
+  cardScale,
   descriptionVisibility,
   descriptionsModeOf,
   firstLine,
@@ -143,6 +147,45 @@ describe('card placement avoids other nodes and their ports', () => {
     expect(cardRect(node, 'top', size, 2)).toEqual({ x: 45, y: -21, width: 110, height: 17 });
     expect(cardRect(node, 'right', size, 1)).toEqual({ x: 214, y: 0, width: 220, height: 34 });
     expect(cardRect(node, 'left', size, 1)).toEqual({ x: -234, y: 0, width: 220, height: 34 });
+  });
+
+  // A card used to keep its size on screen while its node shrank with the canvas: at 60 % the room the layout left
+  // under a node no longer held the card, and it sat on the node below. Drawn at the canvas zoom it covers the
+  // same part of the graph at every zoom.
+  it('draws a card at the canvas zoom, and never an asked-for one smaller than readable', () => {
+    expect(cardScale(1, false)).toBe(1);
+    expect(cardScale(0.6, false)).toBe(0.6);
+    expect(cardScale(2, false)).toBe(CARD_MAX_SCALE);
+    expect(cardScale(0.2, false)).toBe(CARD_MIN_SCALE);
+    expect(cardScale(0.6, true)).toBe(CARD_READABLE_SCALE);
+    expect(cardScale(1.1, true)).toBe(1.1);
+    expect(cardScale(0, false)).toBe(1);
+  });
+
+  it('covers the same part of the graph at every zoom between the limits', () => {
+    const own = { width: 200, height: 34 };
+    const at = (zoom: number) => {
+      const scale = cardScale(zoom, false);
+      return cardRect(node, 'bottom', { width: own.width * scale, height: own.height * scale }, zoom, scale);
+    };
+    const full = at(1);
+    expect(full).toEqual({ x: 0, y: 108, width: 200, height: 34 });
+    for (const zoom of [0.6, 0.75, 0.9, 1.2]) {
+      const rect = at(zoom);
+      expect(rect.x).toBeCloseTo(full.x, 6);
+      expect(rect.y).toBeCloseTo(full.y, 6);
+      expect(rect.width).toBeCloseTo(full.width, 6);
+      expect(rect.height).toBeCloseTo(full.height, 6);
+    }
+    // A node 60 flow units under this one leaves room for the card at 100 %, so it does at 60 % too.
+    const below = { x: 0, y: 160, width: 200, height: 100 };
+    for (const zoom of [0.6, 1]) {
+      const scale = cardScale(zoom, false);
+      expect(placeCard({ node, others: [below], zoom, scale, size: { width: own.width * scale, height: own.height * scale }, compactSize: null, required: false }))
+        .toEqual({ side: 'bottom', compact: false });
+    }
+    // A card that keeps its screen size at 60 % (the old way) needs 57 flow units of height there and does not fit.
+    expect(placeCard({ node, others: [below], zoom: 0.6, size: own, compactSize: null, required: false })).not.toEqual({ side: 'bottom', compact: false });
   });
 
   it('stays under the node when nothing is there', () => {

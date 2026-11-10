@@ -71,6 +71,11 @@
   visibility: hidden;
 }
 
+/* The dot a card becomes on the map keeps its size: it is a mark, not a miniature. */
+.host[data-zoom="overview"] :global(.description-scale) {
+  transform: none !important;
+}
+
 .host[data-zoom="overview"] :global(.react-flow__edge-path) {
   stroke-width: 3;
 }

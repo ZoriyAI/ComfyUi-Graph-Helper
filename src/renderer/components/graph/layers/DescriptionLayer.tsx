@@ -17,6 +17,7 @@ import { useCanvasView } from '../CanvasContext';
 import { useCanvasStore } from '../canvasStore';
 import {
   HANDLE_REACH,
+  cardScale,
   descriptionVisibility,
   firstLine,
   neighbourBoxes,
@@ -35,12 +36,12 @@ import { nodeDisplayName } from '../lib/nodeName';
 import { useNodeDetail } from '../nodeInfo';
 import styles from './DescriptionLayer.module.css';
 
-/** Smallest card width in screen pixels; wider nodes give their own (zoomed) width, up to MAX_WIDTH. */
+/**
+ * Card sizes are in the card's own pixels: the card is then drawn at the canvas zoom (cardScale), so at any zoom
+ * it is as wide as its node looks. Smallest width; wider nodes give their own, up to MAX_WIDTH.
+ */
 const MIN_WIDTH = 220;
 const MAX_WIDTH = 420;
-/** Below this zoom nodes are small: collapsed cards get compact (narrower, a provenance dot instead of the badge). */
-const COMPACT_ZOOM = 0.75;
-const COMPACT_MIN_WIDTH = 132;
 /** The one-line card a crowded node falls back to: about its own width, one line high. */
 const SQUEEZED_MIN_WIDTH = 96;
 const LINE_HEIGHT = 30;
@@ -313,20 +314,24 @@ const DescriptionCard = React.memo(function DescriptionCard(props: CardProps) {
   const raised = spot || editing || selected || hovered || focused;
 
   const nodeWidth = node.measured?.width ?? node.width ?? 240;
+  // The card belongs to the canvas: it is drawn at the canvas zoom, as its node is, so it is as wide as the node
+  // looks and takes the room the layout left under the node, at every zoom. Asked for, it stays readable.
+  const scale = cardScale(zoom, asked);
+  // As wide as the node (in the card's own pixels), within limits.
+  const width = Math.round(Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, nodeWidth)));
   // Inside the node's own width minus the handle reach on both sides, so it clears ports of nodes that touch this one.
-  const squeezedWidth = Math.floor(Math.max(SQUEEZED_MIN_WIDTH, Math.min(MAX_WIDTH, (nodeWidth - HANDLE_REACH * 2) * zoom - 2)));
+  const squeezedWidth = Math.floor(Math.max(SQUEEZED_MIN_WIDTH, Math.min(MAX_WIDTH, nodeWidth - HANDLE_REACH * 2 - 2)));
   const plan = useMemo(() => {
-    const widthFor = (open: boolean) => Math.round(Math.min(MAX_WIDTH, Math.max(zoom < COMPACT_ZOOM && !open ? COMPACT_MIN_WIDTH : MIN_WIDTH, nodeWidth * zoom)));
     const place = (open: boolean): CardPlacement | null => {
       if (visibility !== 'card' || !box) return { side: 'bottom', compact: false };
-      const width = widthFor(open);
       const height = heights[`${open}:${width}`] ?? (open ? EXPANDED_HEIGHT : COLLAPSED_HEIGHT);
       return placeCard({
         node: box,
         others: neighbours,
         zoom,
-        size: { width, height },
-        compactSize: open ? null : { width: Math.min(squeezedWidth, width), height: LINE_HEIGHT },
+        scale,
+        size: { width: width * scale, height: height * scale },
+        compactSize: open ? null : { width: Math.min(squeezedWidth, width) * scale, height: LINE_HEIGHT * scale },
         required: asked,
         sides: spot ? ['bottom', 'right', 'left'] : undefined,
         bounds,
@@ -334,12 +339,11 @@ const DescriptionCard = React.memo(function DescriptionCard(props: CardProps) {
     };
     if (wantsExpanded) {
       const open = place(true);
-      if (expandedOnPurpose || (open && !open.covers)) return { expanded: true, width: widthFor(true), placement: open };
+      if (expandedOnPurpose || (open && !open.covers)) return { expanded: true, placement: open };
     }
-    return { expanded: false, width: widthFor(false), placement: place(false) };
-  }, [visibility, box, neighbours, zoom, nodeWidth, heights, squeezedWidth, asked, spot, bounds, wantsExpanded, expandedOnPurpose]);
-  const { expanded, width, placement } = plan;
-  const zoomCompact = zoom < COMPACT_ZOOM && !expanded;
+    return { expanded: false, placement: place(false) };
+  }, [visibility, box, neighbours, zoom, scale, width, heights, squeezedWidth, asked, spot, bounds, wantsExpanded, expandedOnPurpose]);
+  const { expanded, placement } = plan;
 
   if (hidden || (visibility === 'dot') || (visibility === 'card' && !placement)) {
     // A closed card, class knowledge waiting for a look, or a card with no free room: a dot on the node's edge.
@@ -361,7 +365,7 @@ const DescriptionCard = React.memo(function DescriptionCard(props: CardProps) {
   if (visibility === 'none' || !placement) return null;
 
   const squeezed = placement.compact;
-  const compact = zoomCompact || squeezed;
+  const compact = squeezed;
   const primary = content?.primary;
   const summary = primary ? firstLine(primary.text) : fallback || String(t('canvas.descriptionEmpty'));
   const toggle = () => setExpanded(node.id, !expanded);
@@ -374,75 +378,79 @@ const DescriptionCard = React.memo(function DescriptionCard(props: CardProps) {
       isVisible
       position={POSITIONS[placement.side]}
       align={placement.side === 'left' || placement.side === 'right' ? 'start' : 'center'}
-      offset={OFFSETS[placement.side]}
+      offset={OFFSETS[placement.side] * scale}
       className="nopan nodrag"
       style={raised ? { zIndex: RAISED_Z } : undefined}
     >
-      <section
-        ref={measureRef}
-        className={`description-card ${styles.card}`}
-        style={{ width: squeezed ? Math.min(squeezedWidth, width) : width }}
-        data-description-node={node.id}
-        data-description-scope={content?.scope ?? 'none'}
-        data-expanded={expanded ? 'true' : 'false'}
-        data-compact={compact ? 'true' : undefined}
-        data-squeezed={squeezed ? 'true' : undefined}
-        data-side={placement.side}
-        data-raised={raised ? 'true' : undefined}
-        data-on-demand={mode === 'all' ? undefined : reason}
-        data-spotlight={spot ? 'true' : undefined}
-        aria-label={String(t('canvas.descriptionLabel', { name }))}
-        aria-live={spot ? 'polite' : undefined}
-      >
-        <div className={styles.head}>
-          <button
-            type="button"
-            className={styles.summary}
-            aria-expanded={expanded}
-            title={String(expanded ? t('canvas.descriptionCollapse') : t('canvas.descriptionExpand'))}
-            onClick={toggle}
-          >
-            {primary && compact ? (
-              <span className={styles.provDot} data-provenance={primary.provenance} title={String(t(provenanceLabelKey(primary.provenance)))}>
-                <span className="sr-only">{t(provenanceLabelKey(primary.provenance))}</span>
-              </span>
-            ) : null}
-            {primary && !compact ? <span className={styles.badge} data-provenance={primary.provenance}><ProvenanceBadge provenance={primary.provenance} /></span> : null}
-            <span className={styles.line}>{expanded ? null : summary}</span>
-            {expanded ? <ChevronUp size={14} aria-hidden="true" className={styles.chevron} /> : <ChevronDown size={14} aria-hidden="true" className={styles.chevron} />}
-          </button>
-          <button type="button" className={styles.icon} aria-label={`${String(t('canvas.descriptionHide'))}: ${name}`} title={String(t('canvas.descriptionHide'))} onClick={() => hide(node.id)}>
-            <X size={12} aria-hidden="true" />
-          </button>
-        </div>
-        {expanded ? (
-          <div className={styles.body}>
-            {editing ? (
-              <EditForm nodeId={node.id} owner={ref} content={content} onDone={() => setEditing(false)} />
-            ) : (
-              <>
-                {primary ? (
-                  <Part part={primary} label={content?.why || primary.aspect === 'why' ? String(t(primary.aspect === 'why' ? 'canvas.descriptionWhy' : 'canvas.descriptionWhat')) : undefined} showBadge={false} />
-                ) : <p className={styles.text}>{fallback || t('canvas.descriptionEmpty')}</p>}
-                {content?.why ? <Part part={content.why} label={String(t('canvas.descriptionWhy'))} showBadge={content.why.provenance !== primary?.provenance} /> : null}
-                {readOnly ? null : (
-                  <div className={styles.actions}>
-                    {canAsk ? (
-                      <button type="button" className={styles.action} onClick={() => askAbout(ref, String(t(instance ? 'contextMenu.askSubgraph' : 'contextMenu.askWhat', { name })))}>
-                        <MessageCircleQuestion size={13} aria-hidden="true" />
-                        {t('canvas.descriptionAsk')}
-                      </button>
-                    ) : null}
-                    <button type="button" className={`${styles.action} ${styles.square}`} aria-label={String(t('canvas.descriptionEdit'))} title={String(t('canvas.descriptionEdit'))} onClick={() => setEditing(true)}>
-                      <Pencil size={13} aria-hidden="true" />
-                    </button>
-                  </div>
-                )}
-              </>
-            )}
+      {/* The scale lives on a box of its own: the card's entrance animation moves the card itself. */}
+      <div className={`description-scale ${styles.scale}`} data-side={placement.side} style={{ transform: `scale(${scale})` }} data-card-scale={Math.round(scale * 100) / 100}>
+        <section
+          ref={measureRef}
+          className={`description-card ${styles.card}`}
+          style={{ width: squeezed ? Math.min(squeezedWidth, width) : width }}
+          data-description-node={node.id}
+          data-description-scope={content?.scope ?? 'none'}
+          data-expanded={expanded ? 'true' : 'false'}
+          data-compact={compact ? 'true' : undefined}
+          data-squeezed={squeezed ? 'true' : undefined}
+          data-side={placement.side}
+          data-raised={raised ? 'true' : undefined}
+          data-asked={asked ? 'true' : undefined}
+          data-on-demand={mode === 'all' ? undefined : reason}
+          data-spotlight={spot ? 'true' : undefined}
+          aria-label={String(t('canvas.descriptionLabel', { name }))}
+          aria-live={spot ? 'polite' : undefined}
+        >
+          <div className={styles.head}>
+            <button
+              type="button"
+              className={styles.summary}
+              aria-expanded={expanded}
+              title={String(expanded ? t('canvas.descriptionCollapse') : t('canvas.descriptionExpand'))}
+              onClick={toggle}
+            >
+              {primary && compact ? (
+                <span className={styles.provDot} data-provenance={primary.provenance} title={String(t(provenanceLabelKey(primary.provenance)))}>
+                  <span className="sr-only">{t(provenanceLabelKey(primary.provenance))}</span>
+                </span>
+              ) : null}
+              {primary && !compact ? <span className={styles.badge} data-provenance={primary.provenance}><ProvenanceBadge provenance={primary.provenance} /></span> : null}
+              <span className={styles.line}>{expanded ? null : summary}</span>
+              {expanded ? <ChevronUp size={14} aria-hidden="true" className={styles.chevron} /> : <ChevronDown size={14} aria-hidden="true" className={styles.chevron} />}
+            </button>
+            <button type="button" className={styles.icon} aria-label={`${String(t('canvas.descriptionHide'))}: ${name}`} title={String(t('canvas.descriptionHide'))} onClick={() => hide(node.id)}>
+              <X size={12} aria-hidden="true" />
+            </button>
           </div>
-        ) : null}
-      </section>
+          {expanded ? (
+            <div className={styles.body}>
+              {editing ? (
+                <EditForm nodeId={node.id} owner={ref} content={content} onDone={() => setEditing(false)} />
+              ) : (
+                <>
+                  {primary ? (
+                    <Part part={primary} label={content?.why || primary.aspect === 'why' ? String(t(primary.aspect === 'why' ? 'canvas.descriptionWhy' : 'canvas.descriptionWhat')) : undefined} showBadge={false} />
+                  ) : <p className={styles.text}>{fallback || t('canvas.descriptionEmpty')}</p>}
+                  {content?.why ? <Part part={content.why} label={String(t('canvas.descriptionWhy'))} showBadge={content.why.provenance !== primary?.provenance} /> : null}
+                  {readOnly ? null : (
+                    <div className={styles.actions}>
+                      {canAsk ? (
+                        <button type="button" className={styles.action} onClick={() => askAbout(ref, String(t(instance ? 'contextMenu.askSubgraph' : 'contextMenu.askWhat', { name })))}>
+                          <MessageCircleQuestion size={13} aria-hidden="true" />
+                          {t('canvas.descriptionAsk')}
+                        </button>
+                      ) : null}
+                      <button type="button" className={`${styles.action} ${styles.square}`} aria-label={String(t('canvas.descriptionEdit'))} title={String(t('canvas.descriptionEdit'))} onClick={() => setEditing(true)}>
+                        <Pencil size={13} aria-hidden="true" />
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          ) : null}
+        </section>
+      </div>
     </NodeToolbar>
   );
 }, sameCard);

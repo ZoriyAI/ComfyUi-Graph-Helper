@@ -12,6 +12,11 @@
   animation: enter var(--motion-enter, 160ms) var(--motion-ease-out, ease-out) 1 both;
 }
 .card[data-expanded="true"] { padding-bottom: 8px; }
+/* The card is drawn at the canvas zoom from the side of the node it sits on, so it stays where it is put. */
+.scale { transform-origin: top center; }
+.scale[data-side="top"] { transform-origin: bottom center; }
+.scale[data-side="right"] { transform-origin: top left; }
+.scale[data-side="left"] { transform-origin: top right; }
 .card[data-spotlight="true"] {
   border-color: color-mix(in srgb, var(--focus, #b7a5ff) 55%, var(--border, #2a3648));
   box-shadow: var(--highlight-top), 0 8px 24px -6px rgba(0, 0, 0, 0.6), 0 0 20px color-mix(in srgb, var(--focus, #b7a5ff) 18%, transparent);

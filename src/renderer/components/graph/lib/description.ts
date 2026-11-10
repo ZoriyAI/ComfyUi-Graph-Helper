@@ -152,7 +152,26 @@ export interface CardPlacement {
   covers?: boolean;
 }
 
-/** Gap between a node and its card under or above it, in screen pixels (NodeToolbar's offset). */
+/**
+ * A card is drawn at the canvas zoom, like the node it belongs to, between these limits: under the lower one the
+ * canvas is a map of named blocks and cards are dots; over the upper one a card would only get bigger, not clearer.
+ */
+export const CARD_MIN_SCALE = 0.55;
+export const CARD_MAX_SCALE = 1.25;
+/** A card the person asked for (a hover, a selection, the tour, an edit) is never drawn smaller than this. */
+export const CARD_READABLE_SCALE = 0.9;
+
+/**
+ * How large a card is drawn at a canvas zoom. A card nobody asked for follows the zoom, so it covers the same
+ * part of the graph at every zoom and the room the layout left under its node stays enough for it. A card the
+ * person asked for stays readable when the canvas is small.
+ */
+export function cardScale(zoom: number, asked: boolean): number {
+  const natural = Math.min(CARD_MAX_SCALE, Math.max(CARD_MIN_SCALE, zoom > 0 ? zoom : 1));
+  return asked ? Math.max(natural, CARD_READABLE_SCALE) : natural;
+}
+
+/** Gap between a node and its card under or above it, in the card's own pixels (NodeToolbar's offset at scale 1). */
 export const CARD_GAP = 8;
 /** Gap beside a node: wide enough to clear the node's own port handles. */
 export const CARD_SIDE_GAP = 14;
@@ -162,21 +181,24 @@ const SIDES: CardSide[] = ['bottom', 'right', 'left', 'top'];
 
 /**
  * The flow-space rectangle a card of `size` screen pixels covers on `side` of `node` at `zoom`, the way
- * NodeToolbar lays it out: centred under / above, top-aligned beside.
+ * NodeToolbar lays it out: centred under / above, top-aligned beside. `scale` is the scale the card is drawn at
+ * (cardScale): the gap to the node is drawn at it too.
  */
-export function cardRect(node: Box, side: CardSide, size: { width: number; height: number }, zoom: number): Box {
+export function cardRect(node: Box, side: CardSide, size: { width: number; height: number }, zoom: number, scale = 1): Box {
   const z = zoom > 0 ? zoom : 1;
   const width = size.width / z;
   const height = size.height / z;
+  const gap = (CARD_GAP * scale) / z;
+  const sideGap = (CARD_SIDE_GAP * scale) / z;
   switch (side) {
     case 'bottom':
-      return { x: node.x + (node.width - width) / 2, y: node.y + node.height + CARD_GAP / z, width, height };
+      return { x: node.x + (node.width - width) / 2, y: node.y + node.height + gap, width, height };
     case 'top':
-      return { x: node.x + (node.width - width) / 2, y: node.y - CARD_GAP / z - height, width, height };
+      return { x: node.x + (node.width - width) / 2, y: node.y - gap - height, width, height };
     case 'right':
-      return { x: node.x + node.width + CARD_SIDE_GAP / z, y: node.y, width, height };
+      return { x: node.x + node.width + sideGap, y: node.y, width, height };
     case 'left':
-      return { x: node.x - CARD_SIDE_GAP / z - width, y: node.y, width, height };
+      return { x: node.x - sideGap - width, y: node.y, width, height };
   }
 }
 
@@ -221,8 +243,11 @@ export function placeCard(input: {
   sides?: CardSide[];
   /** The visible part of the canvas: a card asked for must not land outside it (or under the floating toolbar). */
   bounds?: Box | null;
+  /** The scale the card is drawn at (cardScale); the sizes above are already at it. */
+  scale?: number;
 }): CardPlacement | null {
   const { node, others, zoom, size, compactSize, required, bounds } = input;
+  const scale = input.scale ?? 1;
   const sides = input.sides ?? SIDES;
   const covered = (rect: Box, list: Box[]) => coveredBy(rect, list) + (bounds ? outside(rect, bounds) : 0);
   let best: { placement: CardPlacement; cost: number } | null = null;
@@ -230,13 +255,13 @@ export function placeCard(input: {
     if (!best || cost < best.cost) best = { placement, cost };
   };
   for (const side of sides) {
-    const cost = covered(cardRect(node, side, size, zoom), others);
+    const cost = covered(cardRect(node, side, size, zoom, scale), others);
     if (cost === 0) return { side, compact: false };
     consider({ side, compact: false }, cost);
   }
   if (compactSize) {
     for (const side of sides) {
-      const cost = covered(cardRect(node, side, compactSize, zoom), others);
+      const cost = covered(cardRect(node, side, compactSize, zoom, scale), others);
       if (cost === 0) return { side, compact: true };
       consider({ side, compact: true }, cost);
     }
