@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { getBezierPath, Position, useStore, ViewportPortal } from '@xyflow/react';
+import { getBezierPath, Panel, Position, useStore, ViewportPortal } from '@xyflow/react';
 import { useCanvasStore } from '../canvasStore';
 import { useCanvasView } from '../CanvasContext';
 import { handlePoint } from '../lib/handles';
@@ -25,9 +25,9 @@ export default function ConnectAssistLayer() {
   const color = typeColor(from.dataType);
   if (!best) {
     return (
-      <ViewportPortal>
-        <div className={styles.hint} style={{ left: origin.x, top: origin.y + 18 }} role="status">{t('canvas.connectNone')}</div>
-      </ViewportPortal>
+      <Panel position="top-center" className={`nopan nowheel nodrag ${styles.panel}`}>
+        <div className={`connect-hint ${styles.hint}`} role="status">{t('canvas.connectNone')}</div>
+      </Panel>
     );
   }
   const end = handlePoint(lookup, best.nodeId, best.handle, best.direction === 'output' ? 'source' : 'target');
@@ -44,11 +44,16 @@ export default function ConnectAssistLayer() {
   const title = (node?.data as { title?: string; comfyType?: string } | undefined);
   const name = `${title?.title || title?.comfyType || best.nodeId} · ${portName}`;
   return (
-    <ViewportPortal>
-      <svg className={styles.svg} aria-hidden="true">
-        <path d={path} className={styles.path} style={{ stroke: color }} />
-      </svg>
-      <div className={styles.hint} style={{ left: end.x, top: end.y + 18 }} role="status">{t('canvas.connectHint', { name })}</div>
-    </ViewportPortal>
+    <>
+      <ViewportPortal>
+        <svg className={styles.svg} aria-hidden="true">
+          <path d={path} className={styles.path} style={{ stroke: color }} />
+        </svg>
+      </ViewportPortal>
+      {/* The words stand under the canvas toolbar, where they are read whole at any zoom; the dashed line shows where. */}
+      <Panel position="top-center" className={`nopan nowheel nodrag ${styles.panel}`}>
+        <div className={`connect-hint ${styles.hint}`} role="status">{t('canvas.connectHint', { name })}</div>
+      </Panel>
+    </>
   );
 }

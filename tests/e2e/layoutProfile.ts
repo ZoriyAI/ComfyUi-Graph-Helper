@@ -82,9 +82,9 @@ export async function attachmentIssues(page: Page): Promise<LayoutIssue[]> {
         if (x > 3 && y > 3) issues.push({ kind: 'overlap', where: 'suggested node', text, detail: `lies on the node "${other.name}" by ${Math.round(x)}×${Math.round(y)}px` });
       }
     }
-    // What the helper is saying now (the bubble of a build step, the callout of a tour step) is read whole:
-    // nothing else that hangs on a node lies on it.
-    for (const bubble of Array.from(document.querySelectorAll<HTMLElement>('[data-build-callout], [data-tour-step]'))) {
+    // What the helper is saying now (the bubble of a build step, the callout of a tour step, the words beside a
+    // port that say where a link would go) is read whole: nothing else that hangs on a node lies on it.
+    for (const bubble of Array.from(document.querySelectorAll<HTMLElement>('[data-build-callout], [data-tour-step], .connect-hint'))) {
       const rect = bubble.getBoundingClientRect();
       if (rect.width < 4 || rect.height < 4) continue;
       const text = (bubble.innerText ?? '').replace(/\s+/g, ' ').slice(0, 60);
@@ -97,7 +97,7 @@ export async function attachmentIssues(page: Page): Promise<LayoutIssue[]> {
           if (!over || seen.has(over)) continue;
           seen.add(over);
           const what = over.matches('.description-card') ? 'a description card' : over.matches('[data-ghost]') ? 'a suggested node' : 'a node';
-          issues.push({ kind: 'overlap', where: 'the bubble of the helper', text, detail: `is covered by ${what}: "${((over as HTMLElement).innerText ?? '').replace(/\s+/g, ' ').slice(0, 40)}"` });
+          issues.push({ kind: 'overlap', where: bubble.matches('.connect-hint') ? 'the hint at a port' : 'the bubble of the helper', text, detail: `is covered by ${what}: "${((over as HTMLElement).innerText ?? '').replace(/\s+/g, ' ').slice(0, 40)}"` });
         }
       }
     }

@@ -1,17 +1,22 @@
 .svg { position: absolute; left: 0; top: 0; width: 1px; height: 1px; overflow: visible; pointer-events: none; }
 .path { fill: none; stroke-width: 2; stroke-dasharray: 4 6; opacity: 0.9; animation: march 800ms linear infinite; filter: drop-shadow(0 0 3px currentColor); }
+/*
+ * The words of the hint ("Enter connects to …") stand under the canvas toolbar, in the place the build strip
+ * takes during a build. At the port itself they lay half under the node, or ran off a small canvas; here they
+ * are read whole at any zoom and wrap when the canvas is narrow.
+ */
+.panel { margin-top: 64px; max-width: min(560px, calc(100% - 32px)); }
 .hint {
-  position: absolute;
-  transform: translateX(-50%);
-  padding: 2px 8px;
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--bg-raised, #1b2533) 94%, transparent);
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg-raised, #1b2533) 96%, transparent);
   border: 1px solid var(--line, #2a3648);
+  box-shadow: 0 8px 20px -10px rgba(0, 0, 0, 0.6);
   color: var(--text, #e8eef7);
   font-size: 12px;
   line-height: 18px;
-  white-space: nowrap;
-  pointer-events: none;
+  text-align: center;
+  overflow-wrap: anywhere;
 }
 @keyframes march { to { stroke-dashoffset: -20; } }
 :global(html[data-motion="off"]) .path,
