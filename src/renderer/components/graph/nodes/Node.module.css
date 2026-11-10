@@ -118,7 +118,70 @@
 .dot { position: absolute; left: -12px; top: 1px; }
 .portOut .dot { left: auto; right: -12px; }
 
-.params, .annotation {
+/*
+ * Field rows: what the person sets by hand (seed, steps, sampler, LoRA file, prompt). A divider separates them from
+ * the sockets above; each row is name + compact control. The handle is the port handle at a quieter size, so a
+ * widget input still takes a link without reading as a socket.
+ */
+.fields {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 6px 0 0;
+  border-top: 1px solid color-mix(in srgb, var(--line, #2a3648) 80%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.field {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(56px, 42%) minmax(0, 1fr);
+  align-items: center;
+  column-gap: 8px;
+  min-height: 26px;
+  padding: 0 12px 0 16px;
+  font-size: 12px;
+  line-height: 18px;
+}
+.fieldStacked { grid-template-columns: minmax(0, 1fr); row-gap: 3px; padding-top: 2px; }
+.fieldName { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-dim, #a3b1c6); }
+.linkedMark { justify-self: start; padding: 0 6px; border-radius: 6px; border: 1px dashed color-mix(in srgb, var(--canvas-port, #8b939c) 60%, transparent); color: var(--text-dim, #a3b1c6); font-size: 12px; line-height: 20px; }
+.fieldLinked .fieldName { color: var(--text, #e8eef7); }
+.field .handle {
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+  border: none;
+  background: transparent;
+}
+.fieldStacked .handle.handle { top: 11px; }
+.field .handle::after {
+  content: "";
+  display: block;
+  width: 12px;
+  height: 12px;
+  margin: 6px;
+  border-radius: 50%;
+  background: var(--canvas-port);
+  border: 2px solid var(--surface, #141b26);
+  transition: box-shadow var(--motion-feedback, 100ms) var(--motion-ease-out, ease-out), transform var(--motion-feedback, 100ms) var(--motion-ease-out, ease-out), opacity var(--motion-feedback, 100ms) var(--motion-ease-out, ease-out);
+}
+/* Quiet: a small hollow ring until the row is hovered or the connect assist lights it. */
+.field .handleQuiet::after { transform: scale(0.6); opacity: 0.45; background: transparent; border-color: var(--canvas-port); }
+.field:hover .handleQuiet::after,
+.field .handleQuiet:focus-visible::after,
+.field .handleQuiet.handleLit::after { transform: none; opacity: 1; background: var(--canvas-port); border-color: var(--surface, #141b26); }
+.field .handle:hover::after,
+.field .handle:focus-visible::after,
+.field .handleLit::after {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--canvas-port) 35%, transparent), 0 0 12px 2px color-mix(in srgb, var(--canvas-port) 70%, transparent);
+}
+.field .handle:focus-visible { outline: none; }
+.field .handle:focus-visible::after { outline: 2px solid var(--focus, #b7a5ff); outline-offset: 2px; }
+.field .handleBest::after { transform: scale(1.25); opacity: 1; background: var(--canvas-port); animation: breathe calc(var(--motion-pulse, 1400ms)) ease-in-out infinite; }
+
+.annotation {
   margin: 8px 10px 0;
   padding: 6px 8px;
   border-radius: 6px;
@@ -126,11 +189,9 @@
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
   font-size: 12px;
   line-height: 18px;
+  border-left: 3px solid var(--accent, #65d9ed);
 }
-.param { display: flex; justify-content: space-between; gap: 8px; }
 .paramKey { color: var(--text-dim, #a3b1c6); }
-.paramValue { color: var(--text, #e8eef7); font-family: ui-monospace, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.annotation { border-left: 3px solid var(--accent, #65d9ed); }
 
 /* States */
 .node.selected { box-shadow: 0 0 0 2px var(--accent, #65d9ed), 0 0 18px color-mix(in srgb, var(--accent, #65d9ed) 30%, transparent), 0 8px 24px rgba(0, 0, 0, 0.32); outline: none; }
@@ -213,6 +274,8 @@
 :global(html[data-motion="reduced"]) .node,
 :global(html[data-motion="off"]) .handle::after,
 :global(html[data-motion="reduced"]) .handle::after { animation: none !important; transition: none; }
+:global(html[data-motion="off"]) .field .handle::after,
+:global(html[data-motion="reduced"]) .field .handle::after { animation: none !important; transition: none; }
 @media (prefers-reduced-motion: reduce) {
   :global(html[data-motion="system"]) .node,
   :global(html:not([data-motion])) .node,

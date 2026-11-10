@@ -19,6 +19,21 @@ export interface CatalogInput {
   options?: string[];
   /** Start value of the `<name>::control_after_generate` slot, when the widget has one. */
   controlDefault?: string;
+  /**
+   * The frontend widget constructor when object_info names one other than `type` (`widgetType`), e.g. a STRING
+   * socket drawn as a COMBO. Absent when it is `type` itself.
+   */
+  widgetType?: string;
+  /** Number range and step from the INT/FLOAT options; only on number widgets, only when object_info gives them. */
+  min?: number;
+  max?: number;
+  step?: number;
+  /** A STRING widget drawn as a multi-line text box (prompts). */
+  multiline?: boolean;
+  /** A combo that takes several choices at once (`multi_select`). */
+  multiSelect?: boolean;
+  /** object_info `tooltip`: the node author's one-line help for this input. Kept on sockets too. */
+  tooltip?: string;
 }
 
 export interface CatalogOutput {

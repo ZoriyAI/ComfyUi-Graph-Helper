@@ -11,6 +11,7 @@ import type {
   ModelKind,
   ModelSummary,
   NodeClassDetail,
+  NodeClassInput,
   NodeClassSummary,
   SearchModelsRequest,
   SearchNodesRequest,
@@ -27,7 +28,9 @@ import {
   searchNodesSchema,
 } from '../../shared/knowledge/schemas';
 import { rankMatch } from '../../shared/knowledge/search';
-import { catalogTotals } from '../catalog/repository';
+import { catalogInputsFromJson, catalogTotals } from '../catalog/repository';
+import { fieldSpecOf, modelDirectoryOf, modelKey } from '../../shared/catalog/fieldSpec';
+import { modelDirectoryFor } from '../../shared/catalog/modelFolders';
 
 export { checkGraph } from './check';
 
@@ -125,12 +128,7 @@ export function nodeClassDetail(db: Database.Database, classType: string): NodeC
   return {
     ...summaryOf(row),
     description: row.description ?? '',
-    inputs: parseArray(row.inputs_json).flatMap((item) => {
-      const input = record(item);
-      if (!input || typeof input.name !== 'string' || typeof input.type !== 'string') return [];
-      // Rows stored before inputs carried the flag default to required: that is ComfyUI's common case.
-      return [{ name: input.name, type: input.type, widget: input.widget === true, required: input.required !== false }];
-    }),
+    inputs: detailInputs(db, row),
     outputs: parseArray(row.outputs_json).flatMap((item) => {
       const output = record(item);
       if (!output || typeof output.name !== 'string' || typeof output.type !== 'string') return [];
@@ -141,6 +139,45 @@ export function nodeClassDetail(db: Database.Database, classType: string): NodeC
     outputNode: row.output_node === 1,
     syncedAt: row.synced_at ?? null,
   };
+}
+
+/**
+ * Inputs with their field spec (WP1 Fields). The stored rows go through the catalog reader so the spec sees exactly
+ * what readCatalog sees; a combo whose options are the person's model files carries the folder they live in.
+ * Rows stored before inputs carried the required flag default to required: that is ComfyUI's common case.
+ */
+function detailInputs(db: Database.Database, row: NodeRow): NodeClassInput[] {
+  const raw = parseArray(row.inputs_json);
+  const parsed = catalogInputsFromJson(row.inputs_json);
+  const hasCombo = parsed.some((input) => input.widget && Array.isArray(input.options) && input.options.length > 0);
+  const modelsByName = hasCombo ? modelNameIndex(db) : new Map<string, string[]>();
+  return parsed.map((input) => {
+    const stored = record(raw.find((item) => record(item)?.name === input.name));
+    const out: NodeClassInput = { name: input.name, type: input.type, widget: input.widget, required: stored?.required !== false };
+    if (input.tooltip) out.tooltip = input.tooltip;
+    const spec = fieldSpecOf(input);
+    if (spec) {
+      if (spec.kind === 'combo') {
+        const directory = modelDirectoryOf(spec.options, modelsByName, modelDirectoryFor(row.class_type, input.name));
+        if (directory) spec.modelDirectory = directory;
+      }
+      out.spec = spec;
+    }
+    return out;
+  });
+}
+
+/** Model file name (forward slashes) to the catalog folders that hold a file of that name. */
+function modelNameIndex(db: Database.Database): Map<string, string[]> {
+  const index = new Map<string, string[]>();
+  const rows = db.prepare('SELECT directory, name FROM model_catalog').all() as Array<{ directory: string; name: string }>;
+  for (const model of rows) {
+    const key = modelKey(model.name);
+    const list = index.get(key);
+    if (list) list.push(model.directory);
+    else index.set(key, [model.directory]);
+  }
+  return index;
 }
 
 type ModelRow = {

@@ -1,0 +1,209 @@
+/*
+ * Field controls. Two densities: `compact` inside a node (22px rows, so a KSampler stays a card, not a form) and
+ * `wide` in Properties (30px, full width). Colours come from the theme tokens so both read as the same control.
+ */
+.root { min-width: 0; display: flex; align-items: center; }
+.compact { --field-h: 22px; --field-font: 12px; --field-radius: var(--radius-sm, 6px); }
+.wide { --field-h: 30px; --field-font: var(--text-sm, 13px); --field-radius: var(--radius-md, 8px); width: 100%; }
+
+.trigger,
+.text,
+.number,
+.textarea,
+.readOnly {
+  min-width: 0;
+  height: var(--field-h);
+  border: 1px solid var(--border, #2a3648);
+  border-radius: var(--field-radius);
+  background: var(--surface-sunken, #0c1119);
+  color: var(--text, #e8eef7);
+  font: inherit;
+  font-size: var(--field-font);
+  line-height: 18px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+.trigger:hover:not(:disabled),
+.text:hover:not(:disabled),
+.number:hover:not(:disabled),
+.textarea:hover:not(:disabled) { border-color: var(--border-strong, #63738a); }
+.trigger:focus-visible,
+.text:focus-visible,
+.number:focus-visible,
+.textarea:focus-visible,
+.stepButton:focus-visible,
+.seed:focus-visible,
+.switch:focus-visible { outline: 2px solid var(--focus, #b7a5ff); outline-offset: 1px; }
+.trigger:disabled,
+.text:disabled,
+.number:disabled,
+.textarea:disabled,
+.stepButton:disabled,
+.seed:disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* Combo trigger: the value, an optional "not in the list" mark and the chevron. */
+.trigger {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px 0 8px;
+  text-align: left;
+  cursor: pointer;
+}
+.triggerText { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chevron { flex: none; color: var(--text-faint, #8b9bb0); }
+.missing { border-color: color-mix(in srgb, var(--warn, #f6ce7c) 60%, transparent); }
+.missingMark {
+  flex: none;
+  padding: 0 4px;
+  border-radius: var(--radius-xs, 4px);
+  background: var(--warn-soft, rgba(246, 206, 124, 0.14));
+  color: var(--warn, #f6ce7c);
+  font-size: 11px;
+  line-height: 16px;
+}
+.unset { color: var(--text-faint, #8b9bb0); font-style: italic; }
+
+.text { flex: 1; width: 100%; padding: 0 8px; }
+.text::placeholder,
+.number::placeholder,
+.textarea::placeholder { color: var(--text-faint, #8b9bb0); font-style: italic; opacity: 1; }
+
+/* Prompts: the box grows with its text (field-sizing), up to a height that keeps the node readable. */
+.textarea {
+  flex: 1;
+  width: 100%;
+  height: auto;
+  min-height: calc(var(--field-h) * 2);
+  max-height: 160px;
+  padding: 4px 8px;
+  resize: none;
+  field-sizing: content;
+  overflow-y: auto;
+  white-space: pre-wrap;
+}
+.wide .textarea { max-height: 320px; resize: vertical; }
+
+.readOnly { flex: 1; display: flex; align-items: center; padding: 0 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-dim, #a3b1c6); box-shadow: none; background: transparent; border-style: dashed; }
+
+/* Number: − value + in one rounded group, and the seed button beside it. */
+.numberRow { flex: 1; min-width: 0; display: flex; align-items: center; gap: 4px; }
+.stepper {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: stretch;
+  height: var(--field-h);
+  border-radius: var(--field-radius);
+}
+.number {
+  flex: 1;
+  width: 0;
+  min-width: 36px;
+  border-radius: 0;
+  border-left: none;
+  border-right: none;
+  padding: 0 4px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.stepButton {
+  flex: none;
+  width: var(--field-h);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border, #2a3648);
+  background: var(--surface-raised, #182131);
+  color: var(--text-dim, #a3b1c6);
+  cursor: pointer;
+}
+.stepButton:first-child { border-radius: var(--field-radius) 0 0 var(--field-radius); }
+.stepButton:last-child { border-radius: 0 var(--field-radius) var(--field-radius) 0; }
+.stepButton:hover:not(:disabled) { background: var(--surface-hover, #243247); color: var(--text, #e8eef7); }
+.seed {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: var(--field-h);
+  padding: 0 10px;
+  border: 1px solid var(--border, #2a3648);
+  border-radius: var(--field-radius);
+  background: var(--surface-raised, #182131);
+  color: var(--text, #e8eef7);
+  font: inherit;
+  font-size: var(--field-font);
+  cursor: pointer;
+}
+.seedIcon { width: var(--field-h); padding: 0; justify-content: center; color: var(--text-dim, #a3b1c6); }
+.seed:hover:not(:disabled) { background: var(--surface-hover, #243247); color: var(--text, #e8eef7); }
+
+/* Switch, sized to the row. */
+.switchRow { display: inline-flex; align-items: center; gap: 8px; height: var(--field-h); }
+.switch {
+  position: relative;
+  width: 32px;
+  height: 18px;
+  flex: none;
+  border: 1px solid var(--border-strong, #63738a);
+  border-radius: var(--radius-pill, 999px);
+  background: var(--surface-sunken, #0c1119);
+  cursor: pointer;
+}
+.switch[data-state="checked"] { background: var(--accent, #65d9ed); border-color: var(--accent, #65d9ed); }
+.switch:disabled { opacity: 0.55; cursor: not-allowed; }
+.thumb { display: block; width: 12px; height: 12px; border-radius: 50%; background: var(--text, #e8eef7); transform: translateX(2px); transition: transform var(--motion-feedback, 100ms) var(--motion-ease-out, ease-out); }
+.switch[data-state="checked"] .thumb { background: var(--on-accent, #071218); transform: translateX(16px); }
+.switchText { color: var(--text-dim, #a3b1c6); font-size: var(--field-font); }
+
+/* The open list. */
+.popover.popover { width: 280px; padding: 6px; }
+.popoverWide.popoverWide { width: 440px; }
+.filter {
+  width: 100%;
+  height: 30px;
+  margin-bottom: 6px;
+  padding: 0 8px;
+  border: 1px solid var(--border, #2a3648);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--surface-sunken, #0c1119);
+  color: var(--text, #e8eef7);
+  font: inherit;
+  font-size: var(--text-sm, 13px);
+}
+.filter:focus-visible { outline: 2px solid var(--focus, #b7a5ff); outline-offset: 0; }
+.list { list-style: none; margin: 0; padding: 0; max-height: 280px; overflow-y: auto; outline: none; }
+.modelList { max-height: 360px; }
+.option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm, 6px);
+  color: var(--text, #e8eef7);
+  font-size: var(--text-sm, 13px);
+  cursor: pointer;
+}
+.optionActive { background: var(--surface-hover, #243247); }
+.option[aria-selected="true"] { color: var(--accent-strong, #8ae6f4); }
+.optionText { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.check { flex: none; color: var(--accent, #65d9ed); }
+.empty { padding: 8px; color: var(--text-faint, #8b9bb0); font-size: var(--text-sm, 13px); }
+
+/* Model rows: name and fit on the left, badges and size on the right. */
+.modelHead { margin: 0 2px 6px; color: var(--text-dim, #a3b1c6); font-size: var(--text-xs, 12px); line-height: 16px; }
+.modelHead:empty { display: none; }
+.modelOption { align-items: flex-start; padding: 6px 8px; }
+.modelMain { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.modelName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.modelFolder { color: var(--text-faint, #8b9bb0); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.modelMeta { flex: none; display: flex; align-items: center; gap: 4px; padding-top: 1px; }
+.size { color: var(--text-faint, #8b9bb0); font-size: 11px; font-variant-numeric: tabular-nums; min-width: 48px; text-align: right; }
+.fit { font-size: 11px; line-height: 16px; }
+.fit_ok { color: var(--ok, #82ddb3); }
+.fit_warn { color: var(--warn, #f6ce7c); }
+.fit_bad { color: var(--danger, #ff9db4); }
+.fit_faint { color: var(--text-faint, #8b9bb0); }
+.optionDiffers .modelName { color: var(--text-dim, #a3b1c6); }

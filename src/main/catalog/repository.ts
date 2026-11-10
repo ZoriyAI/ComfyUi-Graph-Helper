@@ -300,17 +300,32 @@ function parseWidgetOrder(text: string): { widgetOrder: string[]; widgetOrderRel
   return { widgetOrder: [], widgetOrderReliable: true };
 }
 
+/** The stored inputs_json of one class as catalog inputs (defaults and field metadata included). */
+export function catalogInputsFromJson(text: string): CatalogInput[] {
+  return parseInputs(text);
+}
+
 function parseInputs(text: string): CatalogInput[] {
   return parseArray(text).flatMap((item) => {
     if (!item || typeof item !== 'object') return [];
-    const row = item as { name?: unknown; type?: unknown; widget?: unknown; required?: unknown; default?: unknown; options?: unknown; controlDefault?: unknown };
+    const row = item as Record<string, unknown>;
     if (typeof row.name !== 'string' || typeof row.type !== 'string') return [];
     const input: CatalogInput = { name: row.name, type: row.type, widget: row.widget === true };
     if (typeof row.required === 'boolean') input.required = row.required;
-    // Defaults live inside inputs_json; rows stored before they existed simply have none.
-    if (input.widget && row.default !== undefined) input.default = row.default;
-    if (input.widget && Array.isArray(row.options)) input.options = row.options.filter((option): option is string => typeof option === 'string');
-    if (input.widget && typeof row.controlDefault === 'string') input.controlDefault = row.controlDefault;
+    // Defaults and field metadata live inside inputs_json; rows stored before they existed simply have none,
+    // and a re-sync fills them. No schema migration is needed.
+    if (typeof row.tooltip === 'string' && row.tooltip !== '') input.tooltip = row.tooltip;
+    if (!input.widget) return [input];
+    if (row.default !== undefined) input.default = row.default;
+    if (Array.isArray(row.options)) input.options = row.options.filter((option): option is string => typeof option === 'string');
+    if (typeof row.controlDefault === 'string') input.controlDefault = row.controlDefault;
+    if (typeof row.widgetType === 'string' && row.widgetType !== '') input.widgetType = row.widgetType;
+    for (const key of ['min', 'max', 'step'] as const) {
+      const value = row[key];
+      if (typeof value === 'number' && Number.isFinite(value)) input[key] = value;
+    }
+    if (row.multiline === true) input.multiline = true;
+    if (row.multiSelect === true) input.multiSelect = true;
     return [input];
   });
 }

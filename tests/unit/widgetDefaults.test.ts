@@ -128,7 +128,7 @@ describe('widget defaults from object_info', () => {
     const catalog = readCatalog(db);
     const sampler = catalog.nodes.find((node) => node.classType === 'KSampler')!;
     expect(sampler.inputs.find((input) => input.name === 'seed')).toEqual({
-      name: 'seed', type: 'INT', widget: true, required: true, default: 0, controlDefault: 'randomize',
+      name: 'seed', type: 'INT', widget: true, required: true, default: 0, controlDefault: 'randomize', min: 0, max: 0xffffffffffff,
     });
     expect(defaultParameters(sampler)).toEqual({ seed: 0, steps: 20, cfg: 8, sampler_name: 'euler', scheduler: 'karras', denoise: 1 });
     db.close();

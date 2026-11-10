@@ -21,9 +21,79 @@ export interface NodeClassSummary {
   detailed: boolean;
 }
 
+/** How a widget input is edited. 'other' is a widget this app does not draw (image upload, colour, curve…). */
+export type FieldKind = 'combo' | 'int' | 'float' | 'string' | 'boolean' | 'other';
+
+/**
+ * What a control needs to edit one widget input, read from object_info (see shared/catalog/fieldSpec.ts).
+ * Absent on rows stored before field metadata existed: controls then fall back to the JS type of the value.
+ */
+export interface FieldSpec {
+  kind: FieldKind;
+  options?: string[];
+  min?: number;
+  max?: number;
+  step?: number;
+  multiline?: boolean;
+  multiSelect?: boolean;
+  tooltip?: string;
+  default?: unknown;
+  /** Start mode of the control-after-generate slot (fixed | increment | decrement | randomize), when there is one. */
+  control?: string;
+  /**
+   * The options are files of the person's model catalog (most options matched a stored model): the field is a
+   * model picker. The catalog folder they were found in.
+   */
+  modelDirectory?: string;
+}
+
+export interface NodeClassInput {
+  name: string;
+  type: string;
+  widget: boolean;
+  required: boolean;
+  /** Only on widget inputs. */
+  spec?: FieldSpec;
+  /** object_info tooltip, on sockets too. */
+  tooltip?: string;
+}
+
+/** Ask for the model files a model field can take, with their fit to the checkpoint upstream. */
+export interface FieldModelsRequest {
+  projectId: string;
+  nodeId: string;
+  input: string;
+}
+
+/**
+ * 'fits': the same family as the reference. 'related': another family of the same lineage, which loads but was made
+ * for the other one (a Pony LoRA on an SDXL checkpoint). 'differs': a family that does not load on the reference.
+ * 'unknown': the family of one of the two is not known.
+ */
+export type ModelFit = 'fits' | 'related' | 'differs' | 'unknown';
+
+export interface FieldModelOption {
+  /** The option exactly as ComfyUI lists it (the value to store). */
+  value: string;
+  directory: string;
+  kind: ModelKind;
+  baseModel: BaseModelFamily;
+  sizeBytes: number | null;
+  fit: ModelFit;
+}
+
+export interface FieldModelsResult {
+  /** False when the options are not model files the catalog knows: the field stays a plain list. */
+  models: boolean;
+  /** The model the fit is measured against: the checkpoint upstream (or, for a checkpoint field, a LoRA downstream). */
+  reference: { nodeId: string; name: string; baseModel: BaseModelFamily } | null;
+  /** Fitting first, then related, unknown, and families that do not load last; by name inside each group. */
+  options: FieldModelOption[];
+}
+
 export interface NodeClassDetail extends NodeClassSummary {
   description: string;
-  inputs: Array<{ name: string; type: string; widget: boolean; required: boolean }>;
+  inputs: NodeClassInput[];
   outputs: Array<{ name: string; type: string }>;
   widgetOrder: string[];
   widgetOrderReliable: boolean;
