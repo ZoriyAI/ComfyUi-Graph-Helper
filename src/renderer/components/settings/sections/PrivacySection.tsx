@@ -93,6 +93,8 @@ export default function PrivacySection({ prefs, setPrefs, container }: DraftProp
       <p className={hintClass}>{t('preferences.sendFieldValuesHint')}</p>
       <Switch label={t('preferences.saveChatHistory')} checked={privacy.saveChatHistory} onCheckedChange={(next) => patchSection(setPrefs, 'privacy', { saveChatHistory: next })} />
       <p className={hintClass}>{t('preferences.saveChatHistoryHint')}</p>
+      <Switch label={t('preferences.modelLog')} checked={privacy.modelLog} onCheckedChange={(next) => patchSection(setPrefs, 'privacy', { modelLog: next })} />
+      <p className={hintClass}>{t('preferences.modelLogHint')}</p>
       <Group title={String(t('preferences.sentTitle'))} className={styles.explain}>
         <ul className={styles.facts}>
           <li>{t('preferences.sentAlways')}</li>

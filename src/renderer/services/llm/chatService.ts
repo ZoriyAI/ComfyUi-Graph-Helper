@@ -217,6 +217,8 @@ export class ChatService {
     let assistantContent = '';
     let pausedAtCheckpoint = false;
     let currentAssistantMessageId: string | null = null;
+    // The id of this turn's record in the conversation log; main sends it first when the log is kept.
+    let turnLogId: string | undefined;
     const currentToolCalls = new Map<string, ToolCall>();
     const settledById = new Map<string, Settled>();
     const settledByName = new Map<string, Settled>();
@@ -279,6 +281,7 @@ export class ChatService {
             content: assistantContent,
             timestamp: Date.now(),
             toolCalls: Array.from(currentToolCalls.values()),
+            logId: turnLogId,
             ...patch,
           });
           return;
@@ -345,6 +348,8 @@ export class ChatService {
         const body = isRecord(chunk.content) ? chunk.content : {};
         if (chunk.type === 'projection') {
           applyProjection(chunk.content as Projection);
+        } else if (chunk.type === 'trace') {
+          if (typeof body.id === 'string' && body.id !== '') turnLogId = body.id;
         } else if (chunk.type === 'build-step') {
           acceptBuildStep(chunk.content);
         } else if (chunk.type === 'turn-paused') {
@@ -389,7 +394,7 @@ export class ChatService {
           if (!currentAssistantMessageId) {
             const shown = shownError(provider, errorMessage);
             currentAssistantMessageId = newId();
-            addMessage({ id: currentAssistantMessageId, role: 'assistant', content: `Error: ${shown}`, timestamp: Date.now() });
+            addMessage({ id: currentAssistantMessageId, role: 'assistant', content: `Error: ${shown}`, timestamp: Date.now(), logId: turnLogId });
           }
           this.persist(currentAssistant());
         }
@@ -412,7 +417,7 @@ export class ChatService {
       const shown = shownError(provider, raw);
       if (!currentAssistantMessageId && current()) {
         currentAssistantMessageId = newId();
-        addMessage({ id: currentAssistantMessageId, role: 'assistant', content: `Error: ${shown}`, timestamp: Date.now() });
+        addMessage({ id: currentAssistantMessageId, role: 'assistant', content: `Error: ${shown}`, timestamp: Date.now(), logId: turnLogId });
       }
     } finally {
       finish();

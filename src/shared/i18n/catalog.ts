@@ -602,6 +602,8 @@ export const en = {
     sendFieldValuesHint: 'Prompts, seeds, model names in the nodes. Values that look like keys are always replaced with [redacted].',
     saveChatHistory: 'Keep chat history in the project',
     saveChatHistoryHint: 'Off: new messages stay in this window only and are not written.',
+    modelLog: 'Keep a log of the conversation with the model',
+    modelLogHint: 'Every question is recorded with what was sent to the model and what it answered, so a failed answer can be looked into. The log stays on this computer, holds no keys or tokens, and old records are removed by themselves. It opens from Help ▸ Conversation log.',
     sentTitle: 'What is sent to the model',
     sentAlways: 'Your message, the graph (nodes, ports, connections, positions), what is selected and on screen, your recent actions on the graph, and a summary of your catalog.',
     sentValuesOn: 'Field values: sent.',
@@ -1381,6 +1383,7 @@ export const en = {
   modelLog: {
     title: 'Conversation log',
     menu: 'Conversation log…',
+    menuHint: 'What the app sent to the model and what it answered, question by question. Save it to a file to have a failed answer looked into.',
     lead: 'Every question you asked is recorded here with what the app sent to the model and what the model answered. When the helper answers oddly or fails, tick that question, save the file and send it to whoever will look into it. Keys and tokens are never written to the log. The log stays on this computer.',
     keep: 'Keep the log',
     usage_one: '{{count, number}} record, {{size}}',
@@ -2108,6 +2111,8 @@ export const ru = {
     sendFieldValuesHint: 'Промпты, сиды, имена моделей в нодах. Значения, похожие на ключи, всегда заменяются на [redacted].',
     saveChatHistory: 'Хранить историю чата в проекте',
     saveChatHistoryHint: 'Выключено: новые сообщения остаются только в этом окне и не записываются.',
+    modelLog: 'Вести журнал общения с моделью',
+    modelLogHint: 'Каждый вопрос записывается вместе с тем, что ушло модели и что она ответила, чтобы можно было разобраться с неудачным ответом. Журнал хранится только на этом компьютере, ключей и токенов в нём нет, старые записи удаляются сами. Открывается он через «Справка» ▸ «Журнал общения с помощником».',
     sentTitle: 'Что отправляется модели',
     sentAlways: 'Ваше сообщение, граф (ноды, порты, связи, позиции), что выделено и что на экране, ваши недавние действия с графом и сводка каталога.',
     sentValuesOn: 'Значения полей: отправляются.',
@@ -2887,6 +2892,7 @@ export const ru = {
   modelLog: {
     title: 'Журнал общения с помощником',
     menu: 'Журнал общения с помощником…',
+    menuHint: 'Что приложение отправило модели и что она ответила, вопрос за вопросом. Сохраните файл, чтобы разобраться с неудачным ответом.',
     lead: 'Каждый ваш вопрос записан здесь вместе с тем, что приложение отправило модели и что модель ответила. Если помощник ответил странно или с ошибкой, отметьте этот вопрос, сохраните файл и отправьте его тому, кто будет разбираться. Ключи и токены в журнал не попадают. Журнал хранится только на этом компьютере.',
     keep: 'Вести журнал',
     usage_one: '{{count, number}} запись, {{size}}',

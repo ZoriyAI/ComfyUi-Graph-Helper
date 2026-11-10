@@ -9,6 +9,7 @@ import EmptyState from '../../ui/EmptyState';
 import { cx } from '../../ui/cx';
 import type { ModelLogList, ModelLogTurn } from '../../../shared/contracts/modelLog';
 import { savePreferencesPatch, usePreferencesStore } from '../../state/preferencesState';
+import { useModelLogStore } from '../../state/modelLogState';
 import { clearModelLog, copyTurnReport, loadModelLog, openModelLogFolder, saveModelLog } from '../../services/diagnostics/modelLog';
 import { durationParts, formatLogBytes, formatTurnTime, intentLabelKey, outcomeView, pickTurns, providerLabelKey } from './modelLogView';
 import styles from './ModelLogDialog.module.css';
@@ -231,5 +232,21 @@ export default function ModelLogDialog({ open, onOpenChange, focusTurn = null }:
         </DialogContent>
       </DialogPortal>
     </DialogRoot>
+  );
+}
+
+/** Mounted once at the app root: the window opens from the Help menu, from an answer in the chat, or by command. */
+export function ModelLogHost() {
+  const open = useModelLogStore((state) => state.open);
+  const focusTurn = useModelLogStore((state) => state.focusTurn);
+  const hide = useModelLogStore((state) => state.hide);
+  return (
+    <ModelLogDialog
+      open={open}
+      focusTurn={focusTurn}
+      onOpenChange={(next) => {
+        if (!next) hide();
+      }}
+    />
   );
 }

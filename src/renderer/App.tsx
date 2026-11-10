@@ -8,6 +8,7 @@ import Toolbar, { toolButtonClass } from './components/shell/Toolbar';
 import Rail from './components/shell/Rail';
 import StatusBar from './components/shell/StatusBar';
 import CommandDialogs from './components/shell/CommandDialogs';
+import { ModelLogHost } from './components/log/ModelLogDialog';
 import styles from './components/shell/AppShell.module.css';
 import SettingsPanel from './components/settings/SettingsPanel';
 import Button from './ui/Button';
@@ -104,6 +105,7 @@ function App() {
       </div>
       <StatusBar />
       <CommandDialogs />
+      <ModelLogHost />
     </div>
   );
 }

@@ -53,4 +53,9 @@ export interface ChatMessage {
   context?: AgentTurnContext;
   /** Set on the assistant message of a turn that paused at a checkpoint. Not persisted. */
   checkpoint?: TurnCheckpoint;
+  /**
+   * The record of this answer's turn in the conversation log (Help ▸ Conversation log), when the log is kept.
+   * Lets the person open the log on exactly this answer. Not persisted: after a restart the log lists every turn.
+   */
+  logId?: string;
 }
