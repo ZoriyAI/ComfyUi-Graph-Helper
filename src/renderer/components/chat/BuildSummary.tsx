@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CircleCheck, Compass, FileCheck2, FolderOutput } from 'lucide-react';
 import type { ToolCall } from '../../types/chat';
 import { runCommand, useCommandStates } from '../../commands/registry';
 import { useCanvasStore } from '../graph/canvasStore';
 import { buildCounts, buildSummary, callStepKey, type Translate } from './buildSteps';
+import { followInLog } from './followLog';
 import styles from './BuildSummary.module.css';
 
 /** The commands a finished build leads to, in the order a newcomer needs them. */
@@ -26,9 +27,15 @@ export default function BuildSummary({ calls, stopped = false }: { calls: ToolCa
   // «Готово» only once the canvas has shown every step, not while it still reveals them at reading pace.
   const revealing = useCanvasStore((state) => state.queue.some((item) => calls.some((call) => callStepKey(call) === item.key)));
   const text = buildSummary(buildCounts(calls), translate, stopped);
-  if (!text || revealing) return null;
+  const shown = Boolean(text) && !revealing;
+  const box = useRef<HTMLElement>(null);
+  // The summary appears after the last step is revealed, with no new message to scroll the chat: bring it in view.
+  useEffect(() => {
+    if (shown) followInLog(box.current);
+  }, [shown]);
+  if (!shown) return null;
   return (
-    <section className={styles.summary} aria-label={String(t('chat.summaryLabel'))} data-build-summary>
+    <section ref={box} className={styles.summary} aria-label={String(t('chat.summaryLabel'))} data-build-summary>
       <p className={styles.text}>
         <CircleCheck className={styles.icon} size={14} aria-hidden="true" />
         <span>{text}</span>

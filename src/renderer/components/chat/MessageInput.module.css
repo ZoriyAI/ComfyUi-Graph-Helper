@@ -1,6 +1,6 @@
 form.form { display: flex; flex-direction: column; align-items: stretch; gap: 8px; width: 100%; }
 /* The message field takes the row; Send sits at its bottom right, where the eye ends a line. */
-.field { position: relative; flex: none; width: 100%; min-width: 0; display: flex; align-items: flex-end; gap: 8px; }
+form.form .field { position: relative; flex: none; flex-direction: row; width: 100%; min-width: 0; display: flex; align-items: flex-end; gap: 8px; }
 .field textarea { flex: 1 1 auto; min-width: 0; }
 .field :global(.hint-target) { flex: none; display: inline-flex; }
 

@@ -26,6 +26,8 @@ const BUBBLE_LIFT_PX = 110;
 const FOLLOW_MAX_ZOOM = 1.1;
 /** The fit after a finished build does not zoom in past 1:1, like the canvas's own auto fit. */
 const BUILD_FIT_MAX_ZOOM = 1;
+/** While following, how long the camera stays on the last step before it shows the whole graph. */
+const FOLLOW_END_FIT_MS = 2200;
 
 function later(ms: number, run: () => void): void {
   window.setTimeout(run, ms);
@@ -235,8 +237,10 @@ export default function BuildLayer() {
     return () => window.clearTimeout(timer);
   }, [head, centerOn]);
 
-  // The build finished (run over, every step shown) while not following: part of the graph may be off-screen,
-  // so the view fits it once. The fit duration follows the motion policy (instant unless motion is full).
+  // The build finished (run over, every step shown): part of the graph may be off-screen, so the view fits it once
+  // and the person sees the whole result. While following, the camera first stays on the last step long enough to
+  // read its bubble; a pan or zoom of the person's own (which turns following off) cancels that fit.
+  // The fit duration follows the motion policy (instant unless motion is full).
   const activeRun = useProjectionStore((state) => state.activeRun);
   const liveRunId = useCanvasStore((state) => state.live.runId);
   const liveShown = useCanvasStore((state) => state.live.shown);
@@ -244,9 +248,16 @@ export default function BuildLayer() {
   useEffect(() => {
     if (activeRun || queue.length > 0 || !liveRunId || liveShown === 0 || fittedRun.current === liveRunId) return;
     fittedRun.current = liveRunId;
-    if (useUiStore.getState().followAgent) return;
-    // Next frame, so the last revealed node has been measured. Not cancelled on re-render: it runs once per build.
-    window.requestAnimationFrame(() => void flow.fitView({ padding: FIT_PADDING, duration: fitDurationMs(), maxZoom: BUILD_FIT_MAX_ZOOM }));
+    const fit = () => void flow.fitView({ padding: FIT_PADDING, duration: fitDurationMs(), maxZoom: BUILD_FIT_MAX_ZOOM });
+    // Not cancelled on re-render: it runs once per build.
+    if (useUiStore.getState().followAgent) {
+      later(FOLLOW_END_FIT_MS, () => {
+        if (useUiStore.getState().followAgent) fit();
+      });
+      return;
+    }
+    // Next frame, so the last revealed node has been measured.
+    window.requestAnimationFrame(fit);
   }, [activeRun, queue.length, liveRunId, liveShown, flow]);
 
   // A callout stays ~4 s unless the next step replaces it; then the description card carries the text.

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   BookOpen, Boxes, CircleAlert, Hammer, Hourglass, Link2, ListTree, Plus, SlidersHorizontal, StickyNote, Trash2, Workflow,
@@ -12,6 +12,7 @@ import { useCanvasStore } from '../graph/canvasStore';
 import { buildTargetRef } from './toolPresentation';
 import { buildProgress, callStepKey, stepError, stepSentence, stepWhy, type Translate } from './buildSteps';
 import { useStepNames } from './stepNames';
+import { followInLog } from './followLog';
 import styles from './BuildCard.module.css';
 
 const STEP_ICONS: Record<string, LucideIcon> = {
@@ -92,7 +93,8 @@ function Step({ call, state, sentence, showWhy, onPick, hidden }: StepProps) {
       ) : (
         <div className={styles.line}>{line}</div>
       )}
-      {state === 'waiting' ? <span className={styles.waiting}>{t('chat.buildWaiting')}</span> : null}
+      {/* Dimmed with an hourglass for the eye; said in words for a screen reader. */}
+      {state === 'waiting' ? <span className="sr-only">{t('chat.buildWaiting')}</span> : null}
       {why && showWhy && call.status !== 'error' ? (
         <p className={styles.why} data-build-why>
           <span className={styles.whyLabel}>{t('chat.toolWhy')}</span>
@@ -139,6 +141,12 @@ export default function BuildCard({ calls, live }: { calls: ToolCall[]; live: bo
   const hiddenBefore = showAll ? 0 : Math.max(0, calls.length - VISIBLE_TAIL);
   const firstShown = progress.running >= 0 && progress.running < hiddenBefore ? progress.running : hiddenBefore;
   const anyWhy = calls.some((call) => stepWhy(call) !== '');
+  const list = useRef<HTMLOListElement>(null);
+  // While the build runs, the chat keeps the step the canvas is showing in view (unless the person scrolled away).
+  useEffect(() => {
+    if (!active || progress.running < 0) return;
+    followInLog(list.current?.querySelector<HTMLElement>('[data-step-state="running"]') ?? null);
+  }, [active, progress.running]);
 
   return (
     <section className={styles.card} aria-label={String(t('chat.buildTitle', { count: calls.length }))} data-build-card data-live={active ? 'true' : undefined}>
@@ -158,7 +166,7 @@ export default function BuildCard({ calls, live }: { calls: ToolCall[]; live: bo
           {t('chat.buildEarlier', { count: firstShown })}
         </button>
       ) : null}
-      <ol className={styles.steps} aria-label={String(t('chat.buildListLabel'))}>
+      <ol ref={list} className={styles.steps} aria-label={String(t('chat.buildListLabel'))}>
         {calls.map((call, index) => {
           const state: StepState = call.status === 'error'
             ? 'failed'

@@ -82,6 +82,26 @@ export default function Message({ message, streaming = false }: MessageProps) {
   // A build is over when its turn stopped streaming and did not pause at a checkpoint that may still continue.
   const buildOver = !streaming && (!message.checkpoint || message.checkpoint.state === 'stopped' || message.checkpoint.state === 'closed');
 
+  const body = (
+    isError ? (
+      <div className={`message-body ${styles.body}`}>
+        <div className={`message-summary ${styles.summary}`}>{t('chat.errorSummary')}</div>
+        <div className={`message-diagnostic ${styles.diagnostic}`}>{redactDiagnostic(message.content)}</div>
+      </div>
+    ) : message.content || (streaming && toolCalls.length === 0) ? (
+      <div className={`message-body ${styles.body}`}>
+        {isUser ? (
+          <span className={styles.userText}>{message.content}</span>
+        ) : (
+          <MarkdownLite text={message.content} />
+        )}
+        {streaming ? <span className={styles.cursor} aria-hidden="true" /> : null}
+      </div>
+    ) : null
+  );
+  // In a build turn the helper's words come after its steps: what it did, then what it says about it.
+  const textFirst = !build;
+
   return (
     <div className={`message-row${isUser ? ' is-user' : ''} ${styles.row}${isUser ? ` ${styles.user}` : ''}`} data-role={message.role}>
       <div
@@ -96,21 +116,7 @@ export default function Message({ message, streaming = false }: MessageProps) {
             </button>
           </div>
         ) : null}
-        {isError ? (
-          <div className={`message-body ${styles.body}`}>
-            <div className={`message-summary ${styles.summary}`}>{t('chat.errorSummary')}</div>
-            <div className={`message-diagnostic ${styles.diagnostic}`}>{redactDiagnostic(message.content)}</div>
-          </div>
-        ) : message.content || (streaming && toolCalls.length === 0) ? (
-          <div className={`message-body ${styles.body}`}>
-            {isUser ? (
-              <span className={styles.userText}>{message.content}</span>
-            ) : (
-              <MarkdownLite text={message.content} />
-            )}
-            {streaming ? <span className={styles.cursor} aria-hidden="true" /> : null}
-          </div>
-        ) : null}
+        {textFirst ? body : null}
         {toolCalls.length > 0 ? (
           <div className={`tool-list ${styles.tools}`}>
             <AnimatePresence initial={false}>
@@ -138,6 +144,7 @@ export default function Message({ message, streaming = false }: MessageProps) {
             </AnimatePresence>
           </div>
         ) : null}
+        {textFirst ? null : body}
         {message.checkpoint ? <CheckpointCard messageId={message.id} checkpoint={message.checkpoint} /> : null}
         {build && build.type === 'build' && buildOver ? <BuildSummary calls={build.calls} stopped={message.checkpoint?.state === 'stopped'} /> : null}
         <div className={`message-time ${styles.time}`}>{formatClock(message.timestamp, language)}</div>
