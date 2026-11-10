@@ -15,7 +15,7 @@ import { motionLevel, motionMs, useMotionLevel } from '../lib/motion';
 import { useNodeInfoStore } from '../nodeInfo';
 import { useCenterOn } from './TourLayer';
 import { nodeDisplayName } from '../lib/nodeName';
-import { BUILD_BUBBLE_PX, BUILD_ROOM_PX, CALLOUT_GAP_PX } from '../lib/followCamera';
+import { BUILD_BUBBLE_PX, BUILD_ROOM_PX, CALLOUT_GAP_PX, CALLOUT_Z } from '../lib/followCamera';
 import { FIT_PADDING } from '../CanvasToolbar';
 import { fitDurationMs } from '../../../motion/policy';
 import styles from './Callout.module.css';
@@ -169,6 +169,11 @@ export default function BuildLayer() {
     }
     if (agent && activeRun && canvas.live.runId !== activeRun.runId) {
       useCanvasStore.setState({ live: { runId: activeRun.runId, shown: 0, why: '' }, stepInfo: {} });
+      // A new build is followed again when the person keeps following on in Settings. A click on the canvas ends
+      // following; one made before this build was about the canvas as it was, not about this build. Without this
+      // the camera stayed where that click left it and the build went on off screen or under the toolbar.
+      const ui = useUiStore.getState();
+      if (!ui.followAgent && currentPreferences().canvas.followAgent) ui.setFollowAgent(true);
     }
     if (agent) {
       const touched = [...diff.addedNodes, ...changedNodes(prior.nodes, state.nodes)];
@@ -298,7 +303,7 @@ export default function BuildLayer() {
         </ViewportPortal>
       ) : null}
       {callout && anchor ? (
-        <NodeToolbar nodeId={callout.nodeId} isVisible position={Position.Top} offset={18} className="nopan nodrag">
+        <NodeToolbar nodeId={callout.nodeId} isVisible position={Position.Top} offset={18} className="nopan nodrag" style={{ zIndex: CALLOUT_Z }}>
           <section
             key={callout.key ?? callout.nodeId}
             className={`${styles.callout} ${styles.build} ${styles.bubble}`}

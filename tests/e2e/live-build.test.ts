@@ -108,3 +108,79 @@ test('live build: nodes appear step by step with their why on the canvas and in 
   await app.close();
   fs.rmSync(userData, { recursive: true, force: true });
 });
+
+/**
+ * A click on the canvas ends following the helper: the person took the camera. That is about the build going on,
+ * not about the next one. A person clicks the canvas all the time; the next build they ask for is followed
+ * again, so each step and its bubble are on screen, clear of the canvas toolbar and the build strip.
+ */
+test('a build asked for after a click on the canvas is followed again', async () => {
+  test.setTimeout(150000);
+  const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'live-build-follow-'));
+  const app = await electron.launch({
+    args: [path.join(__dirname, '../../dist/main/index.js'), `--user-data-dir=${userData}`],
+    env: { ...process.env, NODE_ENV: 'production' },
+  });
+  const window = await app.firstWindow();
+  await window.setViewportSize({ width: 1440, height: 900 });
+  await useEnglish(window);
+  await pickOption(window, 'Chat provider', 'TEST fixture');
+  await window.getByText('TEST fixture is on').waitFor();
+
+  const follow = window.getByRole('button', { name: 'Follow the helper', exact: true });
+  await expect(follow).toHaveAttribute('aria-pressed', 'true');
+  // The person looks around: zooms the canvas in and back out. Any press on the canvas ends following.
+  await window.locator('.react-flow__controls-zoomin').click();
+  await window.locator('.react-flow__controls-zoomout').click();
+  await expect(follow).toHaveAttribute('aria-pressed', 'false');
+
+  await window.getByRole('tab', { name: 'Assistant' }).click();
+  await window.getByRole('group', { name: 'Mode' }).getByRole('button', { name: 'Build', exact: true }).click();
+  const input = window.locator('textarea[aria-label="Chat message"]');
+  await input.fill('build a text to image graph');
+  await input.press('Enter');
+
+  await window.locator('[data-build-callout]').first().waitFor({ timeout: 60000 });
+  await expect(follow).toHaveAttribute('aria-pressed', 'true');
+  // Three steps in a row: once the camera has arrived, the bubble is inside the canvas and under its chrome.
+  // The step and its place are read in one look at the page: a bubble gives way to the next one at any moment.
+  const look = () => window.evaluate(() => {
+    const box = (element: Element | null) => {
+      const rect = element?.getBoundingClientRect();
+      return rect && rect.width > 0 ? { x: rect.left, y: rect.top, right: rect.right, bottom: rect.bottom } : null;
+    };
+    const bubble = document.querySelector('[data-build-callout]');
+    return {
+      step: bubble?.getAttribute('data-build-callout') ?? null,
+      bubble: box(bubble),
+      canvas: box(document.querySelector('.react-flow')),
+      strip: box(document.querySelector('[data-live-build]')),
+      toolbar: box(document.querySelector('[role="toolbar"][aria-label="Canvas tools"]')),
+    };
+  });
+  const seen = new Set<string>();
+  const started = Date.now();
+  while (seen.size < 3 && Date.now() - started < 60000) {
+    const before = await look();
+    if (!before.step || seen.has(before.step)) {
+      await window.waitForTimeout(150);
+      continue;
+    }
+    // The camera takes --motion-tour to arrive.
+    await window.waitForTimeout(900);
+    const now = await look();
+    // The step gave way to the next one while the camera was on its way: look at that one instead.
+    if (now.step !== before.step || !now.bubble || !now.canvas) continue;
+    seen.add(now.step);
+    expect(now.bubble.x, `step ${now.step}: left edge`).toBeGreaterThanOrEqual(now.canvas.x);
+    expect(now.bubble.right, `step ${now.step}: right edge`).toBeLessThanOrEqual(now.canvas.right);
+    expect(now.bubble.bottom, `step ${now.step}: bottom edge`).toBeLessThanOrEqual(now.canvas.bottom);
+    const chrome = Math.max(now.strip?.bottom ?? 0, now.toolbar?.bottom ?? 0);
+    expect(chrome, 'the canvas toolbar is on screen').toBeGreaterThan(0);
+    expect(now.bubble.y, `step ${now.step}: under the toolbar and the build strip`).toBeGreaterThanOrEqual(chrome);
+  }
+  expect(seen.size, 'steps looked at').toBe(3);
+
+  await app.close();
+  fs.rmSync(userData, { recursive: true, force: true });
+});

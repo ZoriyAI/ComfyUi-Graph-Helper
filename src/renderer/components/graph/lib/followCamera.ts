@@ -39,3 +39,10 @@ export function cameraCenter(node: CameraNode, canvas: CameraCanvas, zoom: numbe
   const nodeTop = blockTop + room.above;
   return { x: node.x + node.width / 2, y: node.y + (canvas.height / 2 - nodeTop) / zoom };
 }
+
+/**
+ * What the helper is saying right now (the bubble of a build step, the callout of a tour step) is drawn above
+ * everything else that hangs on nodes: a description card of a neighbouring node must not lie on its words.
+ * Description cards are at React Flow's toolbar level (1000), raised ones at 2000.
+ */
+export const CALLOUT_Z = 3000;

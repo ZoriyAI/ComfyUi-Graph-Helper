@@ -5,7 +5,7 @@ import { NodeToolbar, Position, useReactFlow, useStoreApi } from '@xyflow/react'
 import { useUiStore } from '../../../state/uiState';
 import Illustration from '../illustrations/Illustration';
 import { motionMs, useMotionLevel } from '../lib/motion';
-import { CALLOUT_GAP_PX, cameraCenter, TOOLBAR_ROOM_PX, TOUR_CALLOUT_PX, type CameraRoom } from '../lib/followCamera';
+import { CALLOUT_GAP_PX, CALLOUT_Z, cameraCenter, TOOLBAR_ROOM_PX, TOUR_CALLOUT_PX, type CameraRoom } from '../lib/followCamera';
 import { useDescriptionCardShown } from './DescriptionLayer';
 import styles from './Callout.module.css';
 
@@ -112,7 +112,7 @@ export default function TourLayer() {
           </button>
         </NodeToolbar>
       ))) : null}
-      <NodeToolbar nodeId={step.ref.id} isVisible position={Position.Top} offset={12}>
+      <NodeToolbar nodeId={step.ref.id} isVisible position={Position.Top} offset={12} style={{ zIndex: CALLOUT_Z }}>
         <section className={styles.callout} aria-live="polite" aria-label={step.title} data-tour-step={tour.index}>
           <header className={styles.head}>
             <span className={styles.counter}>{t('canvas.tourStep', { index: tour.index + 1, count: tour.steps.length })}</span>
