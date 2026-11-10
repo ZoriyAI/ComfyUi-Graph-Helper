@@ -4,6 +4,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { useEnglish } from './locale';
 import { pickOption } from './pickOption';
+import { expectSoundLayout } from './layoutProfile';
 
 /**
  * Step checkpoint: the TEST fixture "build a long chain" takes 70 tool steps. With the default 60 steps per
@@ -40,6 +41,8 @@ test('step checkpoint: a 70-step build pauses at 60 with a card, and Continue fi
   // The run is paused, not closed: the status bar still shows it.
   await expect(card.getByRole('button', { name: 'Continue' })).toBeEnabled();
   await expect(card.getByRole('button', { name: 'Stop' })).toBeVisible();
+  // The card with its two buttons, under sixty steps of a build, in the smallest window too.
+  await expectSoundLayout(window, 'chat with a paused build');
 
   await card.getByRole('button', { name: 'Continue' }).click();
   await expect(card).toHaveAttribute('data-state', 'continued');

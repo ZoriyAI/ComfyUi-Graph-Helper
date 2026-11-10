@@ -160,12 +160,30 @@ npm run type-check    # main и renderer
 npm run build         # dist/main + dist/renderer
 npm run dev           # Vite + Electron
 npm start             # собрать и запустить
-xvfb-run -a npx playwright test --trace off   # e2e на Electron (Linux без дисплея)
+xvfb-run -a npx playwright test --trace off --grep-invert layout-walk   # e2e на Electron (Linux без дисплея)
+xvfb-run -a npx playwright test tests/e2e/layout-walk.test.ts --trace off  # обход всех экранов, отдельно
 npm run package:linux # .deb через Electron Forge и smoke-проверка
 ```
 
 `npm test` использует `better-sqlite3` под ABI хоста; `rebuild:native` пересобирает его под Electron,
 поэтому unit-тесты и `type-check` запускайте до `start`/`dev`.
+
+Две проверки смотрят на приложение глазами человека и входят в обычный набор тестов:
+
+- `tests/unit/i18nUsage.test.ts` находит каждое место, где текст собирается из шаблона, и проверяет, что шаблон
+  получает свои значения. Текст вида `{{done}} / {{total}}` на экран не попадёт.
+- `tests/e2e/layout-walk.test.ts` проходит все экраны собранного приложения при разных размерах окна и ищет то,
+  что вылезло из своего блока, обрезано, ушло за край окна, наехало на соседа или сжато до нечитаемого, а также
+  читает каждый текст и подсказку: нет ли незаполненной вставки, «undefined» или ключа вместо слов. Обход
+  запускается отдельно от остальных сквозных тестов: он подолгу держит открытыми меню и списки, а второе окно
+  приложения, забрав фокус, закрыло бы их. `tests/e2e/layout-audit.test.ts` проверяет саму проверку на заведомо
+  сломанной и на исправной вёрстке. Полный прогон на всех размерах и втором языке:
+
+```bash
+LAYOUT_FULL=1 xvfb-run -a npx playwright test tests/e2e/layout-walk.test.ts --trace off
+LAYOUT_FULL=1 LAYOUT_LANG=en xvfb-run -a npx playwright test tests/e2e/layout-walk.test.ts --trace off
+# LAYOUT_OUT=<папка> сохранит отчёт и снимки, LAYOUT_ONLY=canvas,helper пройдёт только названные части
+```
 
 ## Состояние
 

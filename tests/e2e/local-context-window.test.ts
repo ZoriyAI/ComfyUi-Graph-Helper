@@ -4,6 +4,7 @@ import * as http from 'http';
 import * as os from 'os';
 import * as path from 'path';
 import { useEnglish } from './locale';
+import { expectSoundLayout } from './layoutProfile';
 
 /**
  * A model on the person's own server that was loaded with a small context window (a labelled fixture server on
@@ -97,6 +98,9 @@ test('a local model with a small context window: Settings, the chat and the log 
     await expect(note).toHaveAttribute('data-window', '4096', { timeout: 20_000 });
     await expect(note).toContainText('Context window on the server: 4,096 tokens. That is too small');
     await expect(note).toContainText('OLLAMA_CONTEXT_LENGTH');
+    // The note is a paragraph with a command in it: it must fit the settings panel in the smallest window too.
+    await note.scrollIntoViewIfNeeded();
+    await expectSoundLayout(window, 'settings with the context-window note');
     await dialog.getByRole('button', { name: 'Save settings' }).click();
     await expect(dialog).toHaveCount(0);
 
@@ -116,6 +120,7 @@ test('a local model with a small context window: Settings, the chat and the log 
     // The model's own words are still shown: the notice explains the answer, it does not replace it.
     await expect(window.getByText('A fixture answer.')).toBeVisible();
     await expect(input).toBeEnabled();
+    await expectSoundLayout(window, 'chat with the context-window notice');
 
     const chat = state.bodies.map((body) => JSON.parse(body) as { stream?: boolean; tools?: Array<{ function: { name: string } }>; messages: Array<{ role: string; content: string }> }).filter((body) => body.stream);
     expect(chat).toHaveLength(1);

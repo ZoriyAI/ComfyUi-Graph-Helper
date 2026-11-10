@@ -20,7 +20,7 @@ jobs:
   linux:
     name: Linux (tests, e2e, .deb)
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     permissions:
       contents: write
     steps:
@@ -49,7 +49,14 @@ jobs:
         run: npm run build
 
       - name: End-to-end tests (Electron under Xvfb)
-        run: xvfb-run -a npx playwright test --trace off --grep-invert live-local --retries=1
+        run: xvfb-run -a npx playwright test --trace off --grep-invert "live-local|layout-walk" --retries=1
+
+      # On its own: the walk opens menus and lists for minutes, and a second window taking the focus closes them.
+      - name: Every screen at every window size, Russian
+        run: LAYOUT_OUT=test-results/layout-ru xvfb-run -a npx playwright test tests/e2e/layout-walk.test.ts --trace off --retries=1
+
+      - name: Every screen in the smallest and the usual window, English
+        run: LAYOUT_LANG=en LAYOUT_SIZES=800x560,1400x860 LAYOUT_OUT=test-results/layout-en xvfb-run -a npx playwright test tests/e2e/layout-walk.test.ts --trace off --retries=1
 
       - name: Package .deb and smoke-test it
         run: xvfb-run -a npm run package:linux
