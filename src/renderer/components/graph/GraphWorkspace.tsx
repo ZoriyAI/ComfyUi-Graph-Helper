@@ -9,6 +9,7 @@ import CanvasFlow from './CanvasFlow';
 import Onboarding from './Onboarding';
 import SubgraphBreadcrumb from './SubgraphBreadcrumb';
 import { commitManual } from './commit';
+import { placeNewNode } from './placeNode';
 import { dropToAddNode, MODEL_DRAG_TYPE, modelFromDrop, NODE_DRAG_TYPE } from './lib/modelLoaders';
 import { addModelLoader } from '../library/placeModel';
 import { useMotionLevel } from './lib/motion';
@@ -69,7 +70,8 @@ function Workspace({ onImportWorkflow }: GraphWorkspaceProps) {
     setDragging(false);
     if (!acceptsDrag(event) || replaying || useGraphStore.getState().activeSubgraphId) return;
     event.preventDefault();
-    const at = flow.screenToFlowPosition({ x: event.clientX, y: event.clientY });
+    // The drop point, moved to the nearest spot where the new node covers nothing.
+    const at = placeNewNode(flow.screenToFlowPosition({ x: event.clientX, y: event.clientY }));
     // A model file becomes its loader with the file chosen; the new node is selected and a toast says so.
     const model = modelFromDrop((type) => event.dataTransfer.getData(type));
     if (model) {

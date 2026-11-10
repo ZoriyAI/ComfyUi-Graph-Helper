@@ -8,6 +8,18 @@ export const subgraphIOSchema = z.object({
   handle: z.string().min(1),
 });
 
+// ── Layout (WP2): one commit moves many nodes, so an arrangement is one undo step. ─────────────────────────
+export const MOVE_NODES_MAX = 5000;
+export const moveNodesMutation = z.object({
+  type: z.literal('move-nodes'),
+  moves: z.array(z.object({
+    nodeId: z.string().min(1),
+    x: z.number().finite(),
+    y: z.number().finite(),
+  })).min(1).max(MOVE_NODES_MAX),
+});
+// ── end layout ──────────────────────────────────────────────────────────────────────────────────────────
+
 export const mutationSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('add-node'),
@@ -166,6 +178,8 @@ export const mutationSchema = z.discriminatedUnion('type', [
     type: z.literal('restore-revision'),
     revisionId: z.string().min(1).max(400),
   }),
+  // Layout (WP2)
+  moveNodesMutation,
 ]);
 
 export type GraphMutation = z.infer<typeof mutationSchema>;

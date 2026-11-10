@@ -2,7 +2,9 @@ import {
   Ghost, Columns2, Compass, Database, FileCheck2, FilePlus2, FolderInput, FolderOpen, FolderOutput, Group, History, Info, Keyboard,
   LogOut, Map as MapIcon, Maximize, MessageCircleQuestion, MessageSquare, MessageSquareText, Navigation, PanelLeft, PanelRight, Pause, Play,
   Plus, Redo2, RefreshCw, Save, Settings, SquareDashedMousePointer, Square, Trash2, Undo2, Ungroup, Combine, ZoomIn, ZoomOut, RotateCcw,
+  Workflow,
 } from 'lucide-react';
+import { arrangeGraph } from '../components/graph/arrange';
 import { i18n } from '../i18n';
 import { addCommandStateSource, registerCommands, type Command } from './registry';
 import { canvasHandle } from './canvasHandle';
@@ -112,6 +114,12 @@ export function buildAppCommands(): Command[] {
       id: 'graph.addGroup', group: 'graph', labelKey: 'contextMenu.addGroup', icon: Group,
       enabled: () => canEditGraph() && selectedNodes().length > 0,
       run: () => void addGroup(selectedNodes().map((node) => node.id)),
+    },
+    // Layout (WP2): the selection (two or more nodes) or the whole graph, one undoable commit, then a fit.
+    {
+      id: 'graph.arrange', group: 'graph', labelKey: 'canvas.arrangeGraph', hintKey: 'canvas.arrangeHint', icon: Workflow, shortcut: 'Mod+Shift+L',
+      enabled: () => canEditGraph() && hasNodes(),
+      run: arrangeGraph,
     },
     { id: 'graph.check', group: 'graph', labelKey: 'shell.checkGraph', hintKey: 'shell.checkGraphHint', icon: FileCheck2, shortcut: 'Mod+Shift+C', enabled: always, run: checkGraph },
     {

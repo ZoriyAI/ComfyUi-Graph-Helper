@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useReactFlow } from '@xyflow/react';
 import type { NodeClassSummary } from '../../../shared/contracts/knowledge';
 import { useCanvasStore } from './canvasStore';
 import { commitManual } from './commit';
+import { placeNewNode } from './placeNode';
 import { showToast } from '../../ui/toastStore';
 import { i18n } from '../../i18n';
 import styles from './Toolbar.module.css';
@@ -12,7 +12,7 @@ import styles from './Toolbar.module.css';
  * Commits add-node after the class guard: an unknown class (with a synced catalog) is refused with the
  * nearest installed names; the guard being unreachable does not block the edit.
  */
-async function addCheckedNode(classType: string, at: { x: number; y: number }): Promise<void> {
+async function addCheckedNode(classType: string, at: { x: number; y: number } | null): Promise<void> {
   const t = (key: string, options?: Record<string, unknown>) => String(i18n.t(key, options ?? {}));
   const verdict = await window.electronAPI?.validateNodeClass?.(classType).catch(() => null);
   if (verdict && !verdict.ok) {
@@ -27,18 +27,18 @@ async function addCheckedNode(classType: string, at: { x: number; y: number }): 
     });
     return;
   }
-  await commitManual({ type: 'add-node', nodeType: classType, x: Math.round(at.x), y: Math.round(at.y) });
+  const spot = placeNewNode(at);
+  await commitManual({ type: 'add-node', nodeType: classType, x: spot.x, y: spot.y });
 }
 
 /**
  * Add-node search: type, pick with arrows and Enter, and the node lands where the person asked
- * (right-click position) or in the middle of the view. Commits `add-node` through commitManual.
+ * (right-click position) or in the middle of the view, in the nearest free spot. Commits `add-node` through commitManual.
  */
 export default function AddNodeSearch() {
   const { t } = useTranslation();
   const search = useCanvasStore((state) => state.addSearch);
   const close = useCanvasStore((state) => state.closeAddSearch);
-  const flow = useReactFlow();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<NodeClassSummary[]>([]);
   const [active, setActive] = useState(0);
@@ -77,10 +77,8 @@ export default function AddNodeSearch() {
   const pick = (item: NodeClassSummary | undefined) => {
     const classType = item?.classType ?? query.trim();
     if (!classType) return;
-    const at = search.at ?? (() => {
-      const box = document.querySelector('.react-flow')?.getBoundingClientRect();
-      return box ? flow.screenToFlowPosition({ x: box.left + box.width / 2, y: box.top + box.height / 2 }) : { x: 0, y: 0 };
-    })();
+    // The right-click spot, else the middle of the view; placeNewNode moves it off any node.
+    const at = search.at;
     close();
     void addCheckedNode(classType, at);
   };

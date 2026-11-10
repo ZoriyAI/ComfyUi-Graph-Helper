@@ -55,6 +55,14 @@ export function logicalRevision(byId: Map<string, UndoRevision>, id: string): st
   }
 }
 
+/**
+ * True when Undo may take this revision back: the person made it, or it only arranged nodes (the helper's tidy
+ * after a build moves positions and nothing else, so taking it back cannot lose the helper's work).
+ */
+export function isUndoable(revision: UndoRevision): boolean {
+  return isOwnRevision(revision) || (revision.payload?.type ?? revision.description) === 'move-nodes';
+}
+
 /** True when the person (not the assistant, not the system) made this revision. */
 export function isOwnRevision(revision: UndoRevision): boolean {
   if (revision.actor) return revision.actor === 'manual';
@@ -77,7 +85,7 @@ export function planUndo(
   let undo: UndoPlan['undo'] = null;
   let blocked: UndoBlock = 'none';
   if (pointed && at !== undefined && at > 0) {
-    if (!isOwnRevision(pointed)) blocked = 'assistant';
+    if (!isUndoable(pointed)) blocked = 'assistant';
     else if (options.running) blocked = 'running';
     else {
       const target = logicalRevision(byId, revisions[at - 1].id);
@@ -108,6 +116,7 @@ const ACTION_KEYS: Record<string, string> = {
   'add-node': 'undo.addNode',
   'remove-node': 'undo.removeNode',
   'move-node': 'undo.moveNode',
+  'move-nodes': 'undo.moveNodes',
   connect: 'undo.connect',
   'remove-edge': 'undo.removeEdge',
   'retarget-edge': 'undo.retargetEdge',
@@ -149,6 +158,7 @@ export function describeRevision(revision: UndoRevision): { key: string; values:
       target: text(payload.target),
       key: text(payload.key),
       owner: text(payload.ownerId),
+      count: text(payload.count),
     },
   };
 }

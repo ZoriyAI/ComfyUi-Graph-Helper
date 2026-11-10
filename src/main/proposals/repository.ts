@@ -2,8 +2,9 @@ import { randomUUID } from 'crypto';
 import type Database from 'better-sqlite3';
 import type { Proposal, ProposalInput, ProposalKind, ProposalResolution, ResolveProposalRequest } from '../../shared/contracts/proposals';
 import { PROPOSAL_KINDS } from '../../shared/contracts/proposals';
-import { mutationSchema, type CommandResponse } from '../../shared/commands/types';
-import { commitCommand, loadRevision, readProjection } from '../commands/commit';
+import { mutationSchema, type CommandResponse, type GraphMutation } from '../../shared/commands/types';
+import { cachedCatalog, commitCommand, loadRevision, readProjection } from '../commands/commit';
+import { placeHelperNode } from '../commands/placement';
 import { proposalsChanged } from './events';
 import { listProposals, readProposal } from './store';
 import { nodeRefsOf } from './supersede';
@@ -100,6 +101,17 @@ function staleReason(db: Database.Database, proposal: Proposal, nodes: Array<Rec
 }
 
 /**
+ * Layout (WP2): an accepted add-node ghost lands where the canvas showed it (`at`, a free spot the canvas found
+ * with measured sizes). Without a spot (accepted from the chat before the canvas drew it), a position that would
+ * cover a node moves to the nearest free one.
+ */
+function acceptedPayload(db: Database.Database, payload: GraphMutation, at: ResolveProposalRequest['at'], nodes: Array<Record<string, any>>): GraphMutation {
+  if (payload.type !== 'add-node') return payload;
+  if (at) return { ...payload, x: Math.round(at.x), y: Math.round(at.y) };
+  return placeHelperNode(payload, nodes, [], cachedCatalog(db));
+}
+
+/**
  * Reject marks the ghost rejected. Accept commits its payload through commitCommand as a manual action
  * `proposal-<id>` against the current revision; a refusal or conflict supersedes the ghost with the reason.
  * A proposal that is no longer open is returned as it is, with no command.
@@ -127,7 +139,7 @@ export function resolveProposal(db: Database.Database, request: ResolveProposalR
     expectedRevisionId: projection.currentRevisionId,
     actor: 'manual',
     runId: null,
-    payload: proposal.payload,
+    payload: acceptedPayload(db, proposal.payload, request.at, projection.snapshot.nodes as Array<Record<string, any>>),
   });
   // The proposal's own commit may have marked it superseded (it removed a node it names); accepted wins, note restored.
   const resolved = command.status === 'applied' || command.status === 'historical'

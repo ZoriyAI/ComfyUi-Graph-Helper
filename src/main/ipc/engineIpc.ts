@@ -13,6 +13,7 @@ const resolveSchema = z.object({
   projectId: projectIdSchema,
   proposalId: z.string().min(1).max(200),
   decision: z.enum(['accept', 'reject']),
+  at: z.object({ x: z.number().finite(), y: z.number().finite() }).optional(),
 });
 const loadRevisionSchema = z.object({
   projectId: projectIdSchema,

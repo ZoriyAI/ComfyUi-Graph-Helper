@@ -55,7 +55,7 @@ const MENUS: Array<{ value: string; labelKey: string; entries: Entry[] }> = [
     value: 'graph',
     labelKey: 'menu.graph',
     entries: [
-      command('graph.addNode'), separator,
+      command('graph.addNode'), command('graph.arrange'), separator,
       command('graph.createSubgraph'), command('graph.dissolveSubgraph'), command('graph.addGroup'), separator,
       command('graph.check'), command('graph.acceptAll'), separator,
       check('graph.tour'), check('graph.replay'),

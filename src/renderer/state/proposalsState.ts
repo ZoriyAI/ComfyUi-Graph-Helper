@@ -16,6 +16,12 @@ interface ProposalsState {
   resolve: (proposalId: string, decision: ResolveProposalRequest['decision'], projectId?: string) => Promise<void>;
 }
 
+/**
+ * Where the canvas drew each add-node ghost (flow coordinates, a spot that covers no node). Accepting sends it,
+ * so the node lands exactly where the person saw the ghost, from the canvas chips, the chat card or "accept all".
+ */
+export const ghostSpots = new Map<string, { x: number; y: number }>();
+
 export const useProposalsStore = create<ProposalsState>((set, get) => ({
   proposals: [],
   resolving: [],
@@ -28,7 +34,8 @@ export const useProposalsStore = create<ProposalsState>((set, get) => ({
     if (get().resolving.includes(proposalId)) return;
     set((state) => ({ resolving: [...state.resolving, proposalId] }));
     try {
-      const result = await window.electronAPI.resolveProposal({ projectId, proposalId, decision });
+      const at = decision === 'accept' ? ghostSpots.get(proposalId) : undefined;
+      const result = await window.electronAPI.resolveProposal({ projectId, proposalId, decision, ...(at ? { at } : {}) });
       if (result.command?.projection) applyProjection(result.command.projection);
       set((state) => ({
         proposals: state.proposals.map((item) => (item.id === result.proposal.id ? result.proposal : item)),

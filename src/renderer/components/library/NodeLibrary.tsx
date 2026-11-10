@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import type { NodeClassSummary } from '../../../shared/contracts';
 import { useKnowledgeStore } from '../../state/knowledgeState';
 import { useUiStore } from '../../state/uiState';
-import { useGraphStore } from '../../state/graphState';
 import { submitManual } from '../../services/commands/projection';
 import Badge from '../../ui/Badge';
 import Button from '../../ui/Button';
@@ -13,7 +12,8 @@ import SearchField from '../../ui/SearchField';
 import Skeleton from '../../ui/Skeleton';
 import { showToast } from '../../ui/toastStore';
 import { runSyncNow } from '../sync/SyncIndicator';
-import { flattenGroups, groupByCategory, NODE_DRAG_TYPE, placementFor, type LibraryRow, type Viewport } from './libraryModel';
+import { flattenGroups, groupByCategory, NODE_DRAG_TYPE, type LibraryRow } from './libraryModel';
+import { placeNewNode } from '../graph/placeNode';
 import VirtualList from './VirtualList';
 import { categoryAccent } from '../graph/lib/typeColors';
 import { cx } from '../../ui/cx';
@@ -21,21 +21,10 @@ import styles from './Library.module.css';
 
 const ROW_HEIGHT = 40;
 const SEARCH_LIMIT = 10000;
-let addCount = 0;
 
-function paneSize(): { width: number; height: number } | null {
-  const pane = document.querySelector('.graph-pane');
-  if (!pane) return null;
-  const box = pane.getBoundingClientRect();
-  return { width: box.width, height: box.height };
-}
-
-/** Adds a node class at the centre of the visible canvas through the manual command path. */
+/** Adds a node class at the centre of the visible canvas (the nearest free spot there) through the manual command path. */
 export async function addNodeFromLibrary(node: Pick<NodeClassSummary, 'classType' | 'displayName'>, messages: { added: string; failed: string }) {
-  const state = useGraphStore.getState();
-  const viewport = (state as { viewport?: Viewport }).viewport ?? null;
-  const position = placementFor(state.nodes, viewport, paneSize(), addCount);
-  addCount += 1;
+  const position = placeNewNode(null);
   try {
     const result = await submitManual(`library-add-${crypto.randomUUID()}`, {
       type: 'add-node',

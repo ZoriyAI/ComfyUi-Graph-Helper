@@ -45,7 +45,7 @@ describe('preferences schema', () => {
         local: { model: '', baseURL: '' },
       },
       sync: { enrichmentScope: 'loaders', enrichPerRun: 50, enrichPauseMs: 1500 },
-      canvas: { showDescriptions: true, showMinimap: true, followAgent: false, buildPaceMs: 820, tourAutoplay: true, gridSize: 18 },
+      canvas: { showDescriptions: true, showMinimap: true, followAgent: true, buildPaceMs: 820, tourAutoplay: true, gridSize: 18 },
       appearance: { density: 'comfortable', accent: 'cyan', reduceGlow: false },
       shortcuts: {},
       privacy: { sendFieldValues: true, saveChatHistory: true, modelLog: true },
