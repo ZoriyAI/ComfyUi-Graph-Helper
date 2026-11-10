@@ -125,6 +125,8 @@ const ACTION_KEYS: Record<string, string> = {
   'remove-subgraph-io': 'undo.removeSubgraphIo',
   'add-group': 'undo.addGroup',
   'remove-group': 'undo.removeGroup',
+  'rename-group': 'undo.renameGroup',
+  'edit-in-subgraph': 'undo.editInSubgraph',
 };
 
 function text(value: unknown): string {

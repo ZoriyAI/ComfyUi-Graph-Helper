@@ -85,6 +85,11 @@ export function describeCommand(command: RecentCommand, summary: GraphSummary | 
     case 'remove-subgraph-io': return `removed a subgraph ${p.direction === 'output' ? 'output' : 'input'}`;
     case 'add-group': return `grouped nodes ${Array.isArray(p.nodeIds) ? p.nodeIds.map((id) => safeText(str(id), 40)).join(', ') : '?'}${str(p.title) ? ` as "${safeText(str(p.title), 80)}"` : ''}`;
     case 'remove-group': return `removed group ${safeText(str(p.groupId), 80)}`;
+    case 'edit-in-subgraph': {
+      const edit = (p.edit && typeof p.edit === 'object' ? p.edit : {}) as Record<string, unknown>;
+      return `inside subgraph ${safeText(str(p.definitionId), 80)}: ${safeText(str(edit.type), 40)}${str(edit.nodeId) ? ` node ${safeText(str(edit.nodeId), 40)}` : ''}${str(edit.key) ? ` field ${safeText(str(edit.key), 80)}` : ''}`;
+    }
+    case 'rename-group': return `renamed group ${safeText(str(p.groupId), 80)} to "${safeText(str(p.title), 80)}"`;
     case 'restore-revision': return `restored revision ${round(p.revSeq)}`;
     default: return safeText(command.type, 40);
   }

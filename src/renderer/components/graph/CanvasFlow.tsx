@@ -43,6 +43,7 @@ import { CanvasViewContext, type CanvasView } from './CanvasContext';
 import { useCanvasStore } from './canvasStore';
 import { usePreferencesStore } from '../../state/preferencesState';
 import { commitManual } from './commit';
+import { showToast } from '../../ui/toastStore';
 import CanvasToolbar, { FIT_PADDING } from './CanvasToolbar';
 import { connectCandidates, type AssistNode } from './lib/connectAssist';
 import { flowingEdges } from './lib/flow';
@@ -88,8 +89,10 @@ function portsOf(node: LevelNode | undefined, side: 'inputs' | 'outputs'): PortD
 
 /**
  * The React Flow canvas for the level on screen: the root graph, an open subgraph definition (with boundary
- * nodes), or a replayed revision (read-only). Root edits commit through commitManual; inside a definition
- * only boundary slots commit (drag a port to a boundary node, or use the context menu); a replay commits nothing.
+ * nodes), or a replayed revision (read-only). Root edits commit through commitManual; inside a definition,
+ * moves, field edits and links of inner nodes commit too (scoped to the definition by commitManual), as do
+ * boundary slots (drag a port to a boundary node, or use the context menu). Removing or adding nodes inside a
+ * definition is not supported: the canvas says so. A replay commits nothing.
  */
 export default function CanvasFlow() {
   const { t } = useTranslation();
@@ -141,10 +144,12 @@ export default function CanvasFlow() {
     }
     const view = definitionView(definition);
     setInner((current) => {
-      // Keep local positions when the same definition refreshes (a slot was added), drop them otherwise.
+      // Inner nodes take the saved positions (moves are saved, and undo must show the earlier place). The boundary
+      // nodes' places are on screen only: keep them when the same definition refreshes, drop them otherwise.
       if (current?.id !== definition.id) return { id: definition.id, ...view };
-      const moved = new Map(current.nodes.map((node) => [node.id, node.position]));
-      return { id: definition.id, nodes: view.nodes.map((node) => ({ ...node, position: moved.get(node.id) ?? node.position })), edges: view.edges };
+      const moved = new Map(current.nodes.filter((node) => node.type === 'boundary').map((node) => [node.id, node.position]));
+      const selected = new Set(current.nodes.filter((node) => node.selected).map((node) => node.id));
+      return { id: definition.id, nodes: view.nodes.map((node) => ({ ...node, position: moved.get(node.id) ?? node.position, selected: selected.has(node.id) })), edges: view.edges };
     });
   }, [definition]);
 
@@ -210,8 +215,14 @@ export default function CanvasFlow() {
     if (mode === 'replay') return;
     const local = changes.filter((change) => change.type !== 'remove');
     if (mode === 'definition') {
-      // Inside a definition positions stay local: there is no mutation that moves an inner node.
+      // WP6: a finished drag of an inner node is saved in the definition (commitManual scopes it to the open
+      // definition). The boundary pseudo-nodes are not graph nodes: their place stays on screen only.
       if (local.length > 0) setInner((current) => (current ? { ...current, nodes: applyNodeChanges(local, current.nodes as Node[]) as LevelNode[] } : current));
+      for (const change of changes) {
+        if (change.type !== 'position' || change.dragging !== false || !change.position) continue;
+        if (change.id === SUBGRAPH_INPUT_NODE_ID || change.id === SUBGRAPH_OUTPUT_NODE_ID) continue;
+        void commitManual({ type: 'move-node', nodeId: change.id, x: change.position.x, y: change.position.y });
+      }
       return;
     }
     if (local.length > 0) setRootNodes(applyNodeChanges(local, rootNodes) as GraphNode[]);
@@ -228,6 +239,10 @@ export default function CanvasFlow() {
     const local = changes.filter((change) => change.type !== 'remove');
     if (mode === 'definition') {
       if (local.length > 0) setInner((current) => (current ? { ...current, edges: applyEdgeChanges(local, current.edges as Edge[]) as GraphEdge[] } : current));
+      // WP6: removing an inner link is saved in the definition.
+      for (const change of changes) {
+        if (change.type === 'remove') void commitManual({ type: 'remove-edge', edgeId: change.id });
+      }
       return;
     }
     if (local.length > 0) setRootEdges(applyEdgeChanges(local, rootEdges) as GraphEdge[]);
@@ -255,7 +270,13 @@ export default function CanvasFlow() {
       return;
     }
     if (mode !== 'definition' || !definition) return;
-    // Inside a definition: dragging an inner port onto a boundary node exposes it as a subgraph slot.
+    // Inside a definition: dragging an inner port onto a boundary node exposes it as a subgraph slot;
+    // a link between two inner nodes is saved in the definition (WP6).
+    const boundary = new Set([SUBGRAPH_INPUT_NODE_ID, SUBGRAPH_OUTPUT_NODE_ID]);
+    if (!boundary.has(connection.source) && !boundary.has(connection.target)) {
+      void commitManual({ type: 'connect', source: connection.source, target: connection.target, sourceHandle: connection.sourceHandle, targetHandle: connection.targetHandle });
+      return;
+    }
     if (connection.target === SUBGRAPH_OUTPUT_NODE_ID) {
       const port = findPort(connection.source, 'outputs', connection.sourceHandle);
       if (port) void commitManual({ type: 'add-subgraph-io', definitionId: definition.id, direction: 'output', name: port.name, dataType: port.dataType, nodeId: connection.source, handle: connection.sourceHandle });
@@ -298,11 +319,18 @@ export default function CanvasFlow() {
             isValidConnection={isValidConnection}
             onNodeClick={onNodeClick}
             onPaneClick={onPaneClick}
-            onBeforeDelete={() => {
-              if (mode !== 'root') return Promise.resolve(false);
+            onBeforeDelete={({ nodes: doomed }) => {
+              if (mode === 'replay') return Promise.resolve(false);
               const active = document.activeElement;
               const inGraph = active instanceof Element && active.closest('.react-flow') != null;
               const blocked = active instanceof Element && active.closest('[role="dialog"], [role="listbox"], [role="menu"], .select-content') != null;
+              if (mode === 'definition' && doomed.length > 0) {
+                // WP6: removing a node inside a subgraph is not supported yet; say so instead of ignoring the key.
+                if (inGraph && !blocked) {
+                  showToast({ id: 'canvas-inner-delete', tone: 'info', title: String(t('canvas.innerDeleteTitle')), description: String(t('canvas.innerDeleteBody')), duration: 6000 });
+                }
+                return Promise.resolve(false);
+              }
               return Promise.resolve(inGraph && !blocked);
             }}
             nodeTypes={nodeTypes}
