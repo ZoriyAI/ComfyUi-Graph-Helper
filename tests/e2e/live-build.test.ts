@@ -9,7 +9,8 @@ import { pickOption } from './pickOption';
  * Live build: the TEST fixture builds a text-to-image graph one tool call per step, each with a `why`.
  * Nodes appear on the canvas over time (not all at once), a speech-bubble callout carries the why while the
  * build runs, the live-build strip counts the steps, and after the run the KSampler's description card holds
- * the saved why with the inference badge. The chat mirrors each step with a card that shows the why.
+ * the saved why with the inference badge. The chat tells the build once: one card with a sentence per step (made
+ * from the step's data, not the tool's English message), the why on the step, and a summary with what to do next.
  */
 test('live build: nodes appear step by step with their why on the canvas and in the chat', async () => {
   test.setTimeout(120000);
@@ -62,7 +63,7 @@ test('live build: nodes appear step by step with their why on the canvas and in 
   // A callout carried the agent's why while the build ran.
   expect([...whys].some((text) => text.includes('The sampler removes noise step by step'))
     || [...whys].some((text) => text.includes('checkpoint'))).toBe(true);
-  expect(strips.some((text) => /Agent is building: step \d+ of \d+/.test(text))).toBe(true);
+  expect(strips.some((text) => /The helper is building: step \d+ of \d+/.test(text))).toBe(true);
 
   await expect(window.locator('.react-flow__node')).toHaveCount(7);
   await expect(window.locator('.react-flow__edge')).toHaveCount(9);
@@ -76,15 +77,32 @@ test('live build: nodes appear step by step with their why on the canvas and in 
   await expect(card.locator('[data-provenance="inference"]')).toHaveText('Inference');
   await expect(card).toContainText('The sampler removes noise step by step');
 
-  // The chat mirrors each step with a build card that shows the why.
-  await expect(window.locator('[data-tool-name="addNode"][data-tool-status="success"]')).toHaveCount(7);
-  await expect(window.locator('[data-tool-name="connectNodes"][data-tool-status="success"]')).toHaveCount(9);
-  const samplerCard = window.locator('[data-tool-name="addNode"]').filter({ hasText: 'The sampler removes noise step by step' });
-  await expect(samplerCard).toHaveCount(1);
-  await expect(samplerCard.locator('[data-build-why]')).toContainText('Why');
-  await samplerCard.getByRole('button', { name: /Show .* on the canvas/ }).click();
+  // The chat tells the build once: one card, one line per step, each made from the step's own data.
+  const buildCard = window.locator('[data-build-card]');
+  await expect(buildCard).toHaveCount(1);
+  await expect(buildCard).toContainText('Build · 16 steps');
+  await expect(buildCard.locator('[data-tool-name="addNode"][data-tool-status="success"]')).toHaveCount(7);
+  await expect(buildCard.locator('[data-tool-name="connectNodes"][data-tool-status="success"]')).toHaveCount(9);
+  await expect(buildCard).toContainText('Link: Load Checkpoint · MODEL → KSampler · model');
+  await expect(buildCard).not.toContainText('Added CheckpointLoaderSimple node');
+  await expect(buildCard).not.toContainText('Connected the nodes');
+  // A step opens its why and shows its node on the canvas.
+  const samplerStep = buildCard.locator('[data-tool-name="addNode"]').filter({ hasText: 'Added the node KSampler' });
+  await expect(samplerStep).toHaveCount(1);
+  await samplerStep.getByRole('button', { name: /Show on the canvas/ }).click();
+  await expect(samplerStep.locator('[data-build-why]')).toContainText('Why');
+  await expect(samplerStep.locator('[data-build-why]')).toContainText('The sampler removes noise step by step');
   await expect(window.locator('.react-flow__node.selected')).toHaveCount(1);
   await expect(window.getByText('step by step: checkpoint, two prompts')).toBeVisible();
+  // The build closes with what it made and what to do next.
+  const summary = window.locator('[data-build-summary]');
+  await expect(summary).toContainText('Done: 7 nodes, 9 links.');
+  await expect(summary.getByRole('button', { name: 'Tour the graph' })).toBeEnabled();
+  await expect(summary.getByRole('button', { name: 'Check the graph' })).toBeVisible();
+  await expect(summary.getByRole('button', { name: 'Save workflow…' })).toBeVisible();
+  await summary.getByRole('button', { name: 'Tour the graph' }).click();
+  await expect(window.locator('[data-tour-step="0"]')).toBeVisible();
+  await window.keyboard.press('Escape');
 
   expect(errors).toEqual([]);
   await app.close();

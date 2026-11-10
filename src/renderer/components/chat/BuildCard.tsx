@@ -27,7 +27,7 @@ const STEP_ICONS: Record<string, LucideIcon> = {
 };
 
 /** A long build shows its last steps; the earlier ones open on request. */
-const VISIBLE_TAIL = 8;
+const VISIBLE_TAIL = 20;
 
 type StepState = 'done' | 'running' | 'waiting' | 'failed';
 
