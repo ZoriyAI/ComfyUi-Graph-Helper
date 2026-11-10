@@ -208,7 +208,7 @@ describe('llm service: step limit, tool filter, probe', () => {
     const generate = vi.fn(async () => ({ text: 'pong' }));
     let clock = 1000;
     const now = () => (clock += 37);
-    service.setSessionKey('probe-key-value-123');
+    service.setSessionKey('anthropic', 'probe-key-value-123');
     const ok = await service.probe({ provider: 'anthropic', model: 'fixture-model', baseURL: '' }, generate, now);
     expect(ok).toEqual({ ok: true, latencyMs: 37, provider: 'anthropic', model: 'fixture-model' });
     expect(generate).toHaveBeenCalledTimes(1);
@@ -226,7 +226,7 @@ describe('llm service: step limit, tool filter, probe', () => {
     expect(await service.probe({ provider: 'nope' }, generate)).toEqual({ ok: false, error: 'Model not configured', latencyMs: null });
     expect(await service.probe({ provider: 'test' }, generate)).toMatchObject({ ok: true, latencyMs: 0 });
     expect(generate).not.toHaveBeenCalled();
-    service.setSessionKey('probe-key-value-123');
+    service.setSessionKey('openai', 'probe-key-value-123');
     expect(await service.probe({ provider: 'openai', model: 'x', baseURL: 'http://127.0.0.1:9/v1' }, generate)).toMatchObject({ ok: false, error: 'Cloud key is not sent to an http address.' });
     const failed = await service.probe({ provider: 'openai', model: 'x', baseURL: '' }, generate);
     expect(failed.ok).toBe(false);

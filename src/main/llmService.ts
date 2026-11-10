@@ -9,7 +9,7 @@ import { containsExact, exactMatchRedactor, redactSecrets } from '../shared/agen
 import { failureStreakReached, forwardPart, type Redact } from './agent/streamParts';
 import { STEP_LIMIT } from '../shared/config/preferences';
 import type { ModelListResult } from '../shared/contracts/pickers';
-import { listCloudModels, listLocalModels } from './llm/modelList';
+import { listCloudModels, listLocalModels, MODEL_LIST_REFUSED } from './llm/modelList';
 
 /**
  * Main-process LLM service
@@ -18,10 +18,14 @@ import { listCloudModels, listLocalModels } from './llm/modelList';
  */
 
 export type ChatProvider = 'openai' | 'anthropic' | 'google' | 'test' | 'local';
-type CloudProvider = 'openai' | 'anthropic' | 'google';
+export type CloudProvider = 'openai' | 'anthropic' | 'google';
 
 const PROVIDERS: readonly ChatProvider[] = ['openai', 'anthropic', 'google', 'test', 'local'];
-const CLOUD: readonly CloudProvider[] = ['openai', 'anthropic', 'google'];
+export const CLOUD: readonly CloudProvider[] = ['openai', 'anthropic', 'google'];
+
+export function isCloudProvider(value: unknown): value is CloudProvider {
+  return typeof value === 'string' && (CLOUD as readonly string[]).includes(value);
+}
 
 /** Official endpoints. Passed explicitly so an environment variable never redirects a held key. */
 const OFFICIAL_BASE: Record<CloudProvider, string> = {
@@ -65,6 +69,7 @@ function httpsCloudEndpoint(value: string | undefined): boolean {
 }
 
 export type KeySource = 'none' | 'session' | 'os' | 'file';
+type HeldSource = Exclude<KeySource, 'none'>;
 
 export interface StreamOptions {
   /** Upper bound on model steps. Each tool round trip is one step. Clamped to the preferences range. */
@@ -160,8 +165,11 @@ export function redactProbeError(message: string, secrets: Array<string | null |
 
 class MainLLMService {
   private config: LLMConfig | null = null;
-  private sessionKey: string | null = null;
-  private sessionSource: KeySource = 'none';
+  /**
+   * One key per cloud company, with where it came from. A request to one provider only ever reads that provider's
+   * entry: a key pasted for Anthropic is never attached to an OpenAI or Google request after a switch.
+   */
+  private keys = new Map<CloudProvider, { value: string; source: HeldSource }>();
 
   /**
    * Stores the non-secret provider, model, and base URL for the next send.
@@ -180,53 +188,75 @@ class MainLLMService {
     };
   }
 
-  /** Holds a cloud key in memory for this process. The value is not returned, logged, or written. */
-  setSessionKey(value: unknown): { held: boolean; source: KeySource } {
+  private hold(provider: unknown, value: unknown, source: HeldSource): { held: boolean; source: KeySource } {
+    if (!isCloudProvider(provider)) return { held: false, source: 'none' };
     if (typeof value !== 'string' || value.length === 0 || value.length > 4000) {
-      this.sessionKey = null;
-      this.sessionSource = 'none';
+      this.keys.delete(provider);
       return { held: false, source: 'none' };
     }
-    this.sessionKey = value;
-    this.sessionSource = 'session';
-    return { held: true, source: 'session' };
+    this.keys.set(provider, { value, source });
+    return { held: true, source };
   }
 
-  /** Holds a key just decrypted from OS storage. Does not write SQLite. */
-  holdOsKey(value: string): void {
+  /**
+   * Holds a cloud key for one provider in memory for this process. The value is not returned, logged, or written.
+   * An empty value forgets that provider's key; another provider's key is untouched.
+   */
+  setSessionKey(provider: unknown, value: unknown): { held: boolean; source: KeySource } {
+    return this.hold(provider, value, 'session');
+  }
+
+  /** Holds a key just decrypted from OS storage for its provider. Does not write SQLite. */
+  holdOsKey(provider: CloudProvider, value: string): void {
     if (value.length === 0 || value.length > 4000) return;
-    this.sessionKey = value;
-    this.sessionSource = 'os';
+    this.hold(provider, value, 'os');
   }
 
   /** Holds a key read from the app folder file the person chose on a computer without a password store. */
-  holdFileKey(value: string): void {
+  holdFileKey(provider: CloudProvider, value: string): void {
     if (value.length === 0 || value.length > 4000) return;
-    this.sessionKey = value;
-    this.sessionSource = 'file';
+    this.hold(provider, value, 'file');
   }
 
-  /** The held key for remembering it; never returned to the renderer. */
-  heldKey(): string | null {
-    return this.sessionKey;
+  /** Forgets one provider's key, or every provider's key without an argument. */
+  forgetKeys(provider?: CloudProvider): void {
+    if (provider) this.keys.delete(provider);
+    else this.keys.clear();
   }
 
-  /** The held LLM key and MCP token, for exact-match redaction only. Never returned to a caller. */
+  /** The key held for a provider, for remembering it; never returned to the renderer. */
+  heldKey(provider: unknown): string | null {
+    return isCloudProvider(provider) ? this.keys.get(provider)?.value ?? null : null;
+  }
+
+  /** Every held LLM key and the MCP token, for exact-match redaction only. Never returned to a caller. */
   private heldValues(): string[] {
-    return [this.sessionKey, mcpToken()].filter((value): value is string => typeof value === 'string' && value.length > 0);
+    return [...[...this.keys.values()].map((entry) => entry.value), mcpToken()]
+      .filter((value): value is string => typeof value === 'string' && value.length > 0);
   }
 
-  /** Heuristic redaction plus exact redaction of the held key and MCP token. */
+  /** Heuristic redaction plus exact redaction of every held key and the MCP token. */
   redact: Redact = (text: string): string => exactMatchRedactor(this.heldValues())(redactSecrets(text));
 
-  /** True when the exact held key or MCP token appears in the text. */
+  /** True when any exact held key or the MCP token appears in the text. */
   containsHeldSecret(text: string): boolean {
     return containsExact(this.heldValues(), text);
   }
 
+  /** Where one provider's key lives right now (never the key). */
+  keyStatus(provider: unknown): { held: boolean; source: KeySource } {
+    const entry = isCloudProvider(provider) ? this.keys.get(provider) : undefined;
+    return entry ? { held: true, source: entry.source } : { held: false, source: 'none' };
+  }
+
+  /** Every cloud provider's key place, for the provider cards. */
+  keySources(): Record<CloudProvider, KeySource> {
+    return { openai: this.keyStatus('openai').source, anthropic: this.keyStatus('anthropic').source, google: this.keyStatus('google').source };
+  }
+
+  /** The key status of the provider of the next send ('none' for local, test and no provider). */
   sessionStatus(): { held: boolean; source: KeySource } {
-    const held = this.sessionKey != null && this.sessionKey.length > 0;
-    return { held, source: held ? this.sessionSource : 'none' };
+    return this.keyStatus(this.config?.provider);
   }
 
   /** The provider of the next send, or '' when nothing is configured. */
@@ -243,8 +273,9 @@ class MainLLMService {
     if (!config) return 'Model not configured';
     const { provider } = config;
     if (isCloud(provider)) {
-      if (this.sessionKey && !httpsCloudEndpoint(config.baseURL)) return 'Cloud key is not sent to an http address.';
-      if (!this.sessionKey) return 'Cloud model has no key for this session.';
+      const key = this.heldKey(provider);
+      if (key && !httpsCloudEndpoint(config.baseURL)) return 'Cloud key is not sent to an http address.';
+      if (!key) return 'Cloud model has no key for this session.';
       if (config.model.trim() === '') return 'Cloud model has no model id.';
     }
     if (provider === 'local' && !httpEndpoint(config.baseURL)) return 'Local model has no endpoint.';
@@ -280,7 +311,7 @@ class MainLLMService {
       return { ok: true, latencyMs: Math.max(0, Math.round(now() - started)), provider, model: config.model };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      return { ok: false, error: redactProbeError(message, [this.sessionKey]), latencyMs: Math.max(0, Math.round(now() - started)) };
+      return { ok: false, error: redactProbeError(message, this.heldValues()), latencyMs: Math.max(0, Math.round(now() - started)) };
     } finally {
       clearTimeout(timer);
     }
@@ -304,9 +335,20 @@ class MainLLMService {
       const config: LLMConfig = { provider, model: '', baseURL };
       const base = this.cloudBase(provider as CloudProvider, config);
       if (!base) return { ok: false, error: 'Cloud key is not sent to an http address.' };
-      if (!this.sessionKey) return { ok: false, error: 'Cloud model has no key for this session.' };
-      const result = await listCloudModels(provider as CloudProvider, base, this.sessionKey, fetchImpl);
-      return result.ok ? result : { ok: false, error: redactProbeError(result.error, [this.sessionKey]) };
+      const cloud = provider as CloudProvider;
+      const entry = this.keys.get(cloud);
+      if (!entry) return { ok: false, error: 'Cloud model has no key for this session.' };
+      const result = await listCloudModels(cloud, base, entry.value, fetchImpl);
+      if (result.ok) return result;
+      // A key the provider refused must not be sent again: a key pasted for this session is dropped at once.
+      // A remembered key stays until the person forgets it, so one 401 cannot erase what they chose to save.
+      // A network failure says nothing about the key and keeps it.
+      if (result.error === MODEL_LIST_REFUSED && entry.source === 'session' && this.keys.get(cloud) === entry) {
+        this.keys.delete(cloud);
+        console.log(`[MainLLMService] ${cloud} refused the pasted key; it is no longer held (value NOT logged)`);
+        return { ok: false, error: MODEL_LIST_REFUSED, dropped: true };
+      }
+      return { ok: false, error: redactProbeError(result.error, this.heldValues()) };
     } catch {
       return { ok: false, error: 'The model list could not be read.' };
     }
@@ -345,7 +387,8 @@ class MainLLMService {
     if (isCloud(provider)) {
       const baseURL = this.cloudBase(provider, config);
       if (!baseURL) return null;
-      const apiKey = this.sessionKey ?? '';
+      // Only the key held for this provider; another provider's key is never a fallback.
+      const apiKey = this.heldKey(provider) ?? '';
       if (provider === 'openai') return createOpenAI({ apiKey, baseURL })(model);
       if (provider === 'anthropic') return createAnthropic({ apiKey, baseURL })(model);
       return createGoogleGenerativeAI({ apiKey, baseURL })(model);

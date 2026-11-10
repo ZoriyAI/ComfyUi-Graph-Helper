@@ -225,7 +225,7 @@ describe('MainLLMService.listModels', () => {
     const service = new MainLLMService();
     expect(await service.listModels({ provider: 'openai', baseURL: '' }, fetchImpl)).toEqual({ ok: false, error: 'Cloud model has no key for this session.' });
     expect(seen).toEqual([]);
-    service.setSessionKey(KEY);
+    service.setSessionKey('openai', KEY);
     expect(await service.listModels({ provider: 'anthropic', baseURL: 'http://gateway.example/v1' }, fetchImpl)).toEqual({ ok: false, error: 'Cloud key is not sent to an http address.' });
     expect(seen).toEqual([]);
     const listed = await service.listModels({ provider: 'openai', baseURL: '' }, fetchImpl);
@@ -236,7 +236,7 @@ describe('MainLLMService.listModels', () => {
 
   it('lists a local server without a key and refuses a base URL that is not http(s)', async () => {
     const service = new MainLLMService();
-    service.setSessionKey(KEY);
+    service.setSessionKey('openai', KEY);
     const seen: Parameters<typeof fakeFetch>[1] = [];
     const fetchImpl = fakeFetch((url) => (url.pathname === '/v1/models' ? json(OLLAMA_V1_FIXTURE) : null), seen);
     const listed = await service.listModels({ provider: 'local', baseURL: 'http://127.0.0.1:11444/v1' }, fetchImpl);

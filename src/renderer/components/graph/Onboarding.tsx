@@ -8,7 +8,7 @@ import { runSyncNow } from '../sync/SyncIndicator';
 import { syncView } from '../sync/syncView';
 import { useKnowledgeStore } from '../../state/knowledgeState';
 import { useUiStore } from '../../state/uiState';
-import { providerKeyState, useProviderStore } from '../../state/providerState';
+import { keySourceOf, providerKeyState, useProviderStore } from '../../state/providerState';
 import { focusChat } from '../../commands/actions';
 import { explainError, type Translator } from '../../../shared/i18n';
 import styles from './Onboarding.module.css';
@@ -60,7 +60,8 @@ export default function Onboarding({ onImport }: { onImport?: () => void }) {
 
   // Step 2: someone to answer. A cloud helper without its key cannot answer yet.
   const provider = useProviderStore((state) => state.provider);
-  const keySource = useProviderStore((state) => state.keySource);
+  // The chosen provider's own key: a key held for another provider does not make this one ready.
+  const keySource = useProviderStore((state) => keySourceOf(state.keySources, state.provider));
   const stored = useProviderStore((state) => state.stored);
   const keyState = providerKeyState(provider, keySource);
   const helperBase = { key: 'helper', icon: <Sparkles size={18} aria-hidden="true" />, tone: 'ai' as const, title: translate('canvas.onboardHelperTitle') };

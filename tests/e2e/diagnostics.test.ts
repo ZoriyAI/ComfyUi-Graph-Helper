@@ -28,8 +28,8 @@ test('diagnostics: log file, Help menu copy and open, no key in the report, wind
 
   // A key held this session and a key-shaped renderer error never reach the report or the log.
   await window.evaluate(async (key) => {
-    const api = (window as unknown as { electronAPI: { llmSetSessionKey: (v: string) => Promise<unknown>; reportRendererError: (r: unknown) => Promise<unknown> } }).electronAPI;
-    await api.llmSetSessionKey(key);
+    const api = (window as unknown as { electronAPI: { llmSetSessionKey: (provider: string, v: string) => Promise<unknown>; reportRendererError: (r: unknown) => Promise<unknown> } }).electronAPI;
+    await api.llmSetSessionKey('openai', key);
     await api.reportRendererError({ kind: 'error', message: `probe failure ${key}` });
   }, FAKE_KEY);
   const report = await window.evaluate(() => (window as unknown as { electronAPI: { collectDiagnostics: () => Promise<string> } }).electronAPI.collectDiagnostics());

@@ -35,7 +35,7 @@ function listen(handler: http.RequestListener): Promise<{ port: number; close: (
 describe('prerelease agent configuration', () => {
   afterEach(() => {
     mainLLMService.setConfig({ provider: '' });
-    mainLLMService.setSessionKey('');
+    mainLLMService.forgetKeys();
   });
 
   it('refuses basic_text even when encryption is reported available', () => {
@@ -80,20 +80,20 @@ describe('prerelease agent configuration', () => {
   it('writes ciphertext only after a proven decision and never the plaintext', () => {
     const db = new Database(':memory:');
     migrate(db);
-    const blocked = saveSecretIfProven(db, { persist: false }, 'session-marker', Buffer.from('cipher'));
+    const blocked = saveSecretIfProven(db, { persist: false }, 'openai', 'session-marker', Buffer.from('cipher'));
     expect(blocked).toEqual({ status: 'secret-storage-blocked' });
     expect(secretRecordCount(db)).toBe(0);
-    const stored = saveSecretIfProven(db, { persist: true }, 'session-marker', Buffer.from('cipher-bytes'));
+    const stored = saveSecretIfProven(db, { persist: true }, 'openai', 'session-marker', Buffer.from('cipher-bytes'));
     expect(stored).toEqual({ status: 'stored' });
-    const row = db.prepare('SELECT ciphertext FROM secret_records WHERE name = ?').get('provider-key') as { ciphertext: Buffer };
+    const row = db.prepare('SELECT ciphertext FROM secret_records WHERE name = ?').get('provider-key:openai') as { ciphertext: Buffer };
     expect(Buffer.from(row.ciphertext).includes(Buffer.from('session-marker'))).toBe(false);
-    const leaked = saveSecretIfProven(db, { persist: true }, 'session-marker', Buffer.from('session-marker'));
+    const leaked = saveSecretIfProven(db, { persist: true }, 'openai', 'session-marker', Buffer.from('session-marker'));
     expect(leaked).toEqual({ status: 'secret-storage-blocked' });
-    const fallback = saveSecretIfProven(db, { persist: true }, 'session-marker', Buffer.from('v10fallback'));
+    const fallback = saveSecretIfProven(db, { persist: true }, 'openai', 'session-marker', Buffer.from('v10fallback'));
     expect(fallback).toEqual({ status: 'secret-storage-blocked' });
-    expect(readProviderKeyCipher(db)?.includes(Buffer.from('v10'))).toBe(false);
+    expect(readProviderKeyCipher(db, 'openai')?.includes(Buffer.from('v10'))).toBe(false);
     forgetProviderKey(db);
-    expect(readProviderKeyCipher(db)).toBeNull();
+    expect(readProviderKeyCipher(db, 'openai')).toBeNull();
     expect(secretRecordCount(db)).toBe(0);
     db.close();
   });
@@ -140,7 +140,7 @@ describe('prerelease agent configuration', () => {
     await expect(mainLLMService.streamChatWithTools([{ role: 'user', content: 'hi' }], {}).next()).rejects.toThrow(
       'Cloud model has no key for this session.',
     );
-    mainLLMService.setSessionKey('session-marker');
+    mainLLMService.setSessionKey('openai', 'session-marker');
     expect(JSON.stringify(mainLLMService.nextSendConfig())).not.toContain('session-marker');
     mainLLMService.setConfig({ provider: 'local', model: 'fixture-local', baseURL: '' });
     await expect(mainLLMService.streamChatWithTools([{ role: 'user', content: 'hi' }], {}).next()).rejects.toThrow(
@@ -169,17 +169,17 @@ describe('prerelease agent configuration', () => {
         model: 'fixture-model',
         baseURL: 'http://127.0.0.1:9/v1',
       });
-      mainLLMService.setSessionKey(marker);
+      mainLLMService.setSessionKey('openai', marker);
       await expect(mainLLMService.streamChatWithTools([{ role: 'user', content: 'hi' }], {}).next()).rejects.toThrow(
         'Cloud key is not sent to an http address.',
       );
-      mainLLMService.setSessionKey('');
+      mainLLMService.forgetKeys();
       mainLLMService.setConfig({
         provider: 'openai',
         model: 'fixture-model',
         baseURL: 'http://192.168.1.20:1234/v1',
       });
-      mainLLMService.holdOsKey(marker);
+      mainLLMService.holdOsKey('openai', marker);
       await expect(mainLLMService.streamChatWithTools([{ role: 'user', content: 'hi' }], {}).next()).rejects.toThrow(
         'Cloud key is not sent to an http address.',
       );
@@ -209,7 +209,7 @@ describe('prerelease agent configuration', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(record);
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(record);
     try {
-      mainLLMService.setSessionKey('sk-example-secret');
+      mainLLMService.setSessionKey('openai', 'sk-example-secret');
       mainLLMService.setConfig({
         provider: 'local',
         model: 'fixture-local',

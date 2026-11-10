@@ -34,6 +34,31 @@ export interface McpTokenStatus {
   inFile: boolean;
 }
 
+/** A cloud model provider; each has its own key, never shared with another. */
+export type CloudKeyProvider = 'openai' | 'anthropic' | 'google';
+export const CLOUD_KEY_PROVIDERS: readonly CloudKeyProvider[] = ['openai', 'anthropic', 'google'];
+
+/** Where one provider's key lives right now: nowhere, in memory for this session, in the OS store, or in the file. */
+export type KeySourceName = 'none' | 'session' | 'os' | 'file';
+
+/** llm:session-status: the next send's provider key place and every cloud provider's. Never a key. */
+export interface SessionKeyStatus {
+  held: boolean;
+  source: KeySourceName;
+  providers: Record<CloudKeyProvider, KeySourceName>;
+}
+
+/** settings:secret-status: the OS store decision and, per provider, whether a key is remembered. Never a key. */
+export interface SecretStatus {
+  persist: boolean;
+  backend: string;
+  reason: string;
+  /** For the provider asked about (or the saved one). */
+  stored: boolean;
+  inFile: boolean;
+  providers: Record<CloudKeyProvider, { source: KeySourceName; stored: boolean; inFile: boolean }>;
+}
+
 /** Settings ▸ Privacy ▸ "Password store": what the app found and what the person chose for the next start. */
 export interface SecretStoreInfo {
   backend: string;

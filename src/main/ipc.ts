@@ -5,8 +5,8 @@ import * as fs from 'fs';
 import { IPC_CHANNELS } from '../shared/ipc-channels';
 import { getDatabase } from './database';
 import { reseedCoreKnowledge } from './knowledge/seedCore';
-import { mainLLMService } from './llmService';
-import { attemptSaveSecret, forgetProviderKey, forgetSecret, readProviderKeyCipher, readSecretCipher, readSettings, saveNamedSecretIfProven, saveSecretIfProven, saveSettings } from './settings/repository';
+import { CLOUD, isCloudProvider, mainLLMService, type CloudProvider, type KeySource } from './llmService';
+import { attemptSaveSecret, forgetProviderKey, forgetSecret, migrateLegacyProviderKey, readProviderKeyCipher, readSecretCipher, readSettings, saveNamedSecretIfProven, saveSecretIfProven, saveSettings } from './settings/repository';
 import { secretStatus } from './settings/secretDecision';
 import { isUnprotectedCipher } from '../shared/config/secretPolicy';
 import { applyComfyRead } from './comfy/read';
@@ -18,7 +18,7 @@ import { registerDiagnosticsIpc } from './ipc/diagnosticsIpc';
 import { mcpOriginOf, mcpToken, mcpTokenFor, mcpTokenStatus, releaseMcpTokenIfOriginChanged, setMcpToken } from './mcp/token';
 import { readTokenFile, removeTokenFile, tokenFileHolds, writeTokenFile } from './mcp/tokenFile';
 import { isPasswordStoreChoice, readPasswordStoreOverride, writePasswordStoreOverride } from './settings/passwordStoreOverride';
-import { keyFileHolds, readKeyFile, removeKeyFile, writeKeyFile } from './settings/keyFile';
+import { keyFileHolds, readKeyFile, removeKeyFile, removeKeyFromFile, writeKeyFile } from './settings/keyFile';
 import { configureMcpOAuth, loginToMcp, logoutFromMcp, mcpOAuth, oauthStatus } from './mcp/oauth';
 import { detectMcpAuth } from './mcp/detect';
 import { connectStreamableHttp, openReadOnlySession } from './mcp/client';
@@ -76,29 +76,33 @@ function adoptStoredChatRuntime(): void {
 }
 
 /**
- * The model key is held again at startup: from the OS password manager when it proved encryption, else from the
- * app folder file the person chose on a computer without a password store, for the saved provider only.
+ * Each cloud provider's key is held again at startup, under that provider only: from the OS password manager when
+ * it proved encryption, else from the app folder file the person chose on a computer without a password store.
+ * The one-key-era record is first moved to the provider saved in settings.
  */
-async function adoptStoredKey(): Promise<void> {
+async function adoptStoredKeys(): Promise<void> {
+  const migrated = migrateLegacyProviderKey(getDatabase(), savedProvider());
+  if (migrated !== 'none') console.log(`[IPC] One-key-era model key record ${migrated} (value NOT logged)`);
   const decision = await secretStatus();
-  if (decision.persist) {
-    const cipher = readProviderKeyCipher(getDatabase());
-    if (cipher && !isUnprotectedCipher(cipher)) {
-      try {
-        const opened = await safeStorage.decryptStringAsync(cipher);
-        if (opened.result) {
-          mainLLMService.holdOsKey(opened.result);
-          return;
+  const file = readKeyFile(app.getPath('userData'));
+  for (const provider of CLOUD) {
+    if (decision.persist) {
+      const cipher = readProviderKeyCipher(getDatabase(), provider);
+      if (cipher && !isUnprotectedCipher(cipher)) {
+        try {
+          const opened = await safeStorage.decryptStringAsync(cipher);
+          if (opened.result) {
+            mainLLMService.holdOsKey(provider, opened.result);
+            continue;
+          }
+        } catch {
+          // The OS store did not unlock the ciphertext; the file, if any, is tried next.
         }
-      } catch {
-        // The OS store did not unlock the ciphertext; the file, if any, is tried next.
       }
     }
+    const fromFile = file[provider];
+    if (fromFile) mainLLMService.holdFileKey(provider, fromFile);
   }
-  const read = readSettings(getDatabase());
-  const provider = read.source === 'corrupt' ? '' : read.values.provider;
-  const file = readKeyFile(app.getPath('userData'));
-  if (provider && file && file.provider === provider) mainLLMService.holdFileKey(file.key);
 }
 
 function savedProvider(): string {
@@ -169,7 +173,7 @@ export async function setupIPC(): Promise<void> {
   // Every handler below, and the domain handlers, check that the sender is the app's own page.
   const ipcMain = guardedIpcMain(rawIpcMain);
   adoptStoredChatRuntime();
-  await adoptStoredKey();
+  await adoptStoredKeys();
   await adoptStoredMcpToken();
   await setupMcpOAuth();
   refreshBlockedWebOrigins();
@@ -333,43 +337,62 @@ export async function setupIPC(): Promise<void> {
     return result;
   });
 
-  /** The key to remember: the one just pasted, or the one already held for this session. Never logged. */
-  const keyToRemember = (value: unknown): string | null => {
+  // Model keys, one per cloud provider. Every handler names the provider it acts on; a key is only ever
+  // stored, held or forgotten under that provider. Values are never returned or logged.
+
+  /** The key to remember for a provider: the one just pasted, or the one already held for it. Never logged. */
+  const keyToRemember = (provider: CloudProvider, value: unknown): string | null => {
     if (typeof value === 'string' && value.length > 0 && value.length <= 4000) return value;
-    return mainLLMService.heldKey();
+    return mainLLMService.heldKey(provider);
   };
 
-  ipcMain.handle(IPC_CHANNELS.SETTINGS_SAVE_SECRET, async (_event, value: unknown) => {
+  ipcMain.handle(IPC_CHANNELS.SETTINGS_SAVE_SECRET, async (_event, provider: unknown, value: unknown) => {
+    if (!isCloudProvider(provider)) return attemptSaveSecret(getDatabase());
     const decision = await secretStatus();
-    const text = keyToRemember(value);
+    const text = keyToRemember(provider, value);
     if (!decision.persist || !text) return attemptSaveSecret(getDatabase());
     const cipher = await safeStorage.encryptStringAsync(text);
-    const saved = saveSecretIfProven(getDatabase(), decision, text, cipher);
-    if (saved.status === 'stored') mainLLMService.holdOsKey(text);
+    const saved = saveSecretIfProven(getDatabase(), decision, provider, text, cipher);
+    if (saved.status === 'stored') mainLLMService.holdOsKey(provider, text);
     return saved;
   });
 
   // The person's explicit choice on a computer without a password store: the key in an owner-only file.
-  ipcMain.handle(IPC_CHANNELS.SETTINGS_SAVE_SECRET_FILE, () => {
-    const provider = savedProvider();
-    const text = keyToRemember(undefined);
-    if (!provider || !text) return { status: 'missing' as const };
+  ipcMain.handle(IPC_CHANNELS.SETTINGS_SAVE_SECRET_FILE, (_event, provider: unknown) => {
+    if (!isCloudProvider(provider)) return { status: 'missing' as const };
+    const text = keyToRemember(provider, undefined);
+    if (!text) return { status: 'missing' as const };
     writeKeyFile(app.getPath('userData'), provider, text);
-    mainLLMService.holdFileKey(text);
-    console.log('[IPC] Model key remembered in the app folder file (value NOT logged)');
+    mainLLMService.holdFileKey(provider, text);
+    console.log(`[IPC] ${provider} model key remembered in the app folder file (value NOT logged)`);
     return { status: 'stored' as const };
   });
 
-  ipcMain.handle(IPC_CHANNELS.SETTINGS_FORGET_SECRET, () => {
-    forgetProviderKey(getDatabase());
-    removeKeyFile(app.getPath('userData'));
-    mainLLMService.setSessionKey('');
+  // With a provider: that provider's key only. Without one: every model key (Settings ▸ Privacy ▸ Forget all).
+  ipcMain.handle(IPC_CHANNELS.SETTINGS_FORGET_SECRET, (_event, provider?: unknown) => {
+    if (isCloudProvider(provider)) {
+      forgetProviderKey(getDatabase(), provider);
+      removeKeyFromFile(app.getPath('userData'), provider);
+      mainLLMService.forgetKeys(provider);
+    } else {
+      forgetProviderKey(getDatabase());
+      removeKeyFile(app.getPath('userData'));
+      mainLLMService.forgetKeys();
+    }
     return { status: 'removed' as const };
   });
 
-  ipcMain.handle(IPC_CHANNELS.SETTINGS_SECRET_STATUS, async () => {
+  ipcMain.handle(IPC_CHANNELS.SETTINGS_SECRET_STATUS, async (_event, forProvider?: unknown) => {
     const decision = await secretStatus();
-    return { ...decision, stored: readProviderKeyCipher(getDatabase()) != null, inFile: keyFileHolds(app.getPath('userData'), savedProvider()) };
+    const userData = app.getPath('userData');
+    const providers = Object.fromEntries(CLOUD.map((provider) => [provider, {
+      source: mainLLMService.keyStatus(provider).source,
+      stored: readProviderKeyCipher(getDatabase(), provider) != null,
+      inFile: keyFileHolds(userData, provider),
+    }])) as Record<CloudProvider, { source: KeySource; stored: boolean; inFile: boolean }>;
+    const provider = isCloudProvider(forProvider) ? forProvider : savedProvider();
+    const one = isCloudProvider(provider) ? providers[provider] : { stored: false, inFile: false };
+    return { ...decision, stored: one.stored, inFile: one.inFile, providers };
   });
 
   ipcMain.handle(IPC_CHANNELS.COMFY_READ, async () => {
@@ -530,12 +553,13 @@ export async function setupIPC(): Promise<void> {
     return mainLLMService.nextSendConfig();
   });
 
-  ipcMain.handle(IPC_CHANNELS.LLM_SET_SESSION_KEY, (_event, value: unknown) => {
-    console.log('[IPC] Session key updated (value NOT logged)');
-    return mainLLMService.setSessionKey(value);
+  ipcMain.handle(IPC_CHANNELS.LLM_SET_SESSION_KEY, (_event, provider: unknown, value: unknown) => {
+    console.log(`[IPC] Session key updated for ${isCloudProvider(provider) ? provider : 'no provider'} (value NOT logged)`);
+    return mainLLMService.setSessionKey(provider, value);
   });
 
-  ipcMain.handle(IPC_CHANNELS.LLM_SESSION_STATUS, () => mainLLMService.sessionStatus());
+  // The next send's provider status plus every cloud provider's key place, for the cards. Never a key.
+  ipcMain.handle(IPC_CHANNELS.LLM_SESSION_STATUS, () => ({ ...mainLLMService.sessionStatus(), providers: mainLLMService.keySources() }));
 
   // Settings ▸ Assistant ▸ Check connection: one tiny request with the draft runtime and the held key.
   ipcMain.handle(IPC_CHANNELS.LLM_PROBE, (_event, draft: unknown) => {

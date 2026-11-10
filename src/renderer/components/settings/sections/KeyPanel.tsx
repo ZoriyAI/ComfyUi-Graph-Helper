@@ -1,16 +1,22 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { explainError, type Translator } from '../../../../shared/i18n';
+import type { CloudKeyProvider } from '../../../../shared/contracts';
 import Button from '../../../ui/Button';
 import { cx } from '../../../ui/cx';
-import type { KeySource } from '../../../state/providerState';
+import { NO_KEYS, type KeySource, type KeySources } from '../../../state/providerState';
 import settingsStyles from '../SettingsPanel.module.css';
 import { fieldClass, hintClass, rowClass } from './common';
 
 /** Typing or pasting applies the key after this pause, not on every key. */
 const APPLY_DEBOUNCE_MS = 600;
 
-type Verdict = { kind: 'idle' } | { kind: 'checking' } | { kind: 'accepted'; count: number } | { kind: 'rejected' } | { kind: 'failed'; text: string };
+type Verdict =
+  | { kind: 'idle' }
+  | { kind: 'checking' }
+  | { kind: 'accepted'; count: number }
+  | { kind: 'rejected'; dropped: boolean }
+  | { kind: 'unchecked'; text: string };
 
 const PROVIDER_NAMES: Record<string, string> = { openai: 'OpenAI', anthropic: 'Anthropic', google: 'Google' };
 
@@ -23,13 +29,14 @@ export function keyPlaceKey(source: KeySource, stored: boolean, inFile: boolean)
 }
 
 /**
- * Settings ▸ Assistant ▸ the cloud provider's key, right under the provider choice. Pasting applies the key for this
- * session and checks it at once by asking the provider for its model list, so the person sees "accepted" or "not
- * accepted" without pressing anything. Remembering it for the next start is one button that fits this computer:
- * the OS password manager when it proved encryption, else the app folder file the person chooses knowingly. The key
- * goes only through its own IPC and is never shown back.
+ * Settings ▸ Assistant ▸ the chosen cloud provider's key, right under the provider choice. Every action names that
+ * provider: a key pasted here is held, checked, remembered and forgotten for it alone, and never goes to another
+ * company after a switch. Pasting applies the key and checks it at once by asking the provider for its model list;
+ * a key the provider refuses is dropped in main and the panel says so; a check that could not reach the provider
+ * keeps the key and says it was not checked. Remembering fits this computer: the OS password manager when it
+ * proved encryption, else the app folder file the person chooses knowingly. The key is never shown back.
  */
-export default function KeyPanel({ provider, baseURL, onSession }: { provider: string; baseURL: string; onSession: (source: KeySource) => void }) {
+export default function KeyPanel({ provider, baseURL, onSession }: { provider: CloudKeyProvider; baseURL: string; onSession: (sources: KeySources) => void }) {
   const { t } = useTranslation();
   const translate: Translator = (key, options) => (options ? String(t(key, options)) : String(t(key)));
   const [draft, setDraft] = useState('');
@@ -42,33 +49,46 @@ export default function KeyPanel({ provider, baseURL, onSession }: { provider: s
   const applyTicket = useRef(0);
   const onSessionRef = useRef(onSession);
   onSessionRef.current = onSession;
+  const providerRef = useRef(provider);
+  providerRef.current = provider;
 
   const refresh = async () => {
-    const [secret, session] = await Promise.all([window.electronAPI.secretStatus(), window.electronAPI.llmSessionStatus()]);
+    const asked = providerRef.current;
+    const [secret, session] = await Promise.all([window.electronAPI.secretStatus(asked), window.electronAPI.llmSessionStatus()]);
+    const sources = { ...NO_KEYS, ...(session.providers ?? {}) };
+    onSessionRef.current(sources);
+    // A switch while the answer was on its way: the newer provider's refresh is the one that shows.
+    if (asked !== providerRef.current) return;
     setCanStore(secret.persist);
-    setStored(secret.stored);
-    setInFile(secret.inFile);
-    setSource(session.source);
-    onSessionRef.current(session.source);
+    setStored(secret.providers?.[asked]?.stored ?? secret.stored);
+    setInFile(secret.providers?.[asked]?.inFile ?? secret.inFile);
+    setSource(sources[asked]);
   };
-  useEffect(() => {
-    void refresh().catch(() => undefined);
-  }, []);
 
-  // Paste → hold for this session → ask the provider for its models with that key.
+  // Another provider is another key: the half-typed draft and the last verdict belong to the previous one.
+  useEffect(() => {
+    applyTicket.current += 1;
+    setDraft('');
+    setVerdict({ kind: 'idle' });
+    setNote('');
+    void refresh().catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [provider]);
+
+  // Paste → hold for this provider → ask the provider for its models with that key.
   useEffect(() => {
     if (draft.length === 0) return undefined;
     const ticket = ++applyTicket.current;
+    const target = provider;
     const timer = setTimeout(() => {
       void (async () => {
         setNote('');
         setVerdict({ kind: 'checking' });
-        const held = await window.electronAPI.llmSetSessionKey(draft);
-        setSource(held.source);
-        onSessionRef.current(held.source);
+        const held = await window.electronAPI.llmSetSessionKey(target, draft);
+        if (ticket === applyTicket.current) setSource(held.source);
         let listed: Awaited<ReturnType<typeof window.electronAPI.llmListModels>>;
         try {
-          listed = await window.electronAPI.llmListModels({ provider, baseURL });
+          listed = await window.electronAPI.llmListModels({ provider: target, baseURL });
         } catch {
           listed = { ok: false, error: 'The model list could not be read.' };
         }
@@ -77,33 +97,34 @@ export default function KeyPanel({ provider, baseURL, onSession }: { provider: s
           setVerdict({ kind: 'accepted', count: listed.models.length });
           setDraft('');
         } else if (listed.error === 'The provider refused the key.') {
-          setVerdict({ kind: 'rejected' });
+          setVerdict({ kind: 'rejected', dropped: listed.dropped === true });
+          if (listed.dropped) setDraft('');
         } else {
-          setVerdict({ kind: 'failed', text: explainError(translate, listed.error).summary });
+          setVerdict({ kind: 'unchecked', text: explainError(translate, listed.error).summary });
         }
         await refresh().catch(() => undefined);
       })();
     }, APPLY_DEBOUNCE_MS);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draft, provider, baseURL]);
+  }, [draft, baseURL]);
 
   const remember = async () => {
     setNote('');
-    const saved = await window.electronAPI.saveSecret();
+    const saved = await window.electronAPI.saveSecret(provider);
     if (saved.status !== 'stored') setNote(String(t('settings.keyStorageBlocked')));
     await refresh().catch(() => undefined);
   };
   const rememberInFile = async () => {
     setNote('');
-    const saved = await window.electronAPI.saveSecretFile();
+    const saved = await window.electronAPI.saveSecretFile(provider);
     if (saved.status !== 'stored') setNote(String(t('settings.keyPlaceNone')));
     await refresh().catch(() => undefined);
   };
   const forget = async () => {
     setNote('');
     setVerdict({ kind: 'idle' });
-    await window.electronAPI.forgetSecret();
+    await window.electronAPI.forgetSecret(provider);
     await refresh().catch(() => undefined);
   };
 
@@ -112,10 +133,10 @@ export default function KeyPanel({ provider, baseURL, onSession }: { provider: s
   const name = PROVIDER_NAMES[provider] ?? provider;
   const verdictText = verdict.kind === 'checking' ? t('settings.keyChecking')
     : verdict.kind === 'accepted' ? t('settings.keyAccepted', { count: verdict.count })
-      : verdict.kind === 'rejected' ? t('settings.keyRejected')
-        : verdict.kind === 'failed' ? verdict.text : '';
+      : verdict.kind === 'rejected' ? (verdict.dropped ? t('settings.keyRejectedDropped', { provider: name }) : t('settings.keyRejected'))
+        : verdict.kind === 'unchecked' ? t('settings.keyUnchecked', { reason: verdict.text }) : '';
   return (
-    <div className={cx(settingsStyles.keyPanel, 'provider-key')}>
+    <div className={cx(settingsStyles.keyPanel, 'provider-key')} data-provider={provider}>
       <label className={fieldClass}>
         {t('settings.keyField', { provider: name })}
         <input
@@ -129,7 +150,7 @@ export default function KeyPanel({ provider, baseURL, onSession }: { provider: s
       </label>
       <p className={hintClass}>{t('settings.keyPasteHint', { provider: name })}</p>
       {verdictText ? (
-        <p className={cx(hintClass, verdict.kind === 'rejected' || verdict.kind === 'failed' ? settingsStyles.errorNote : undefined)} role="status">{verdictText}</p>
+        <p className={cx(hintClass, verdict.kind === 'rejected' || verdict.kind === 'unchecked' ? settingsStyles.errorNote : undefined)} role="status">{verdictText}</p>
       ) : null}
       <p className={hintClass} role="status" aria-label={String(t('settings.keyField', { provider: name }))}>
         <span className={cx(settingsStyles.placeDot, (held || remembered) && settingsStyles.placeOn)} aria-hidden="true" />

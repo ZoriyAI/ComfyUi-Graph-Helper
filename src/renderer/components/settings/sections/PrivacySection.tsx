@@ -6,8 +6,10 @@ import { FETCH_PAGE_BYTE_CAP, FETCH_PAGE_TEXT_CAP, megabytes } from '../../../..
 import Button from '../../../ui/Button';
 import Switch from '../../../ui/Switch';
 import SelectField from '../../../ui/SelectField';
-import type { McpTokenStatus, SecretStoreInfo } from '../../../../shared/contracts';
-import { useProviderStore, type KeySource } from '../../../state/providerState';
+import { CLOUD_KEY_PROVIDERS, type CloudKeyProvider, type McpTokenStatus, type SecretStatus, type SecretStoreInfo } from '../../../../shared/contracts';
+import { NO_KEYS, refreshKeySources, useProviderStore, type KeySource } from '../../../state/providerState';
+
+const KEY_PROVIDER_NAMES: Record<CloudKeyProvider, string> = { openai: 'OpenAI', anthropic: 'Anthropic', google: 'Google' };
 import { tokenPlaceKey } from '../mcpAccess';
 import { cx } from '../../../ui/cx';
 import { useChatStore } from '../../../state/chatState';
@@ -34,19 +36,33 @@ export default function PrivacySection({ prefs, setPrefs, container }: DraftProp
     }
   };
   // Where the secrets are right now: the model key and the server token, never the values.
-  const keySource = useProviderStore((state) => state.keySource);
-  const provider = useProviderStore((state) => state.provider);
+  // One row per cloud provider that has a key, held now or remembered (a remembered key the OS store could not open
+  // at start still counts: «Забыть все» must say it is there before it removes it).
+  const keySources = useProviderStore((state) => state.keySources);
+  const [remembered, setRemembered] = useState<SecretStatus['providers'] | null>(null);
   const [token, setToken] = useState<McpTokenStatus | null>(null);
   const [forgetNote, setForgetNote] = useState('');
   const refreshToken = () => window.electronAPI.mcpTokenStatus().then(setToken).catch(() => undefined);
+  const refreshKeys = async () => {
+    await refreshKeySources().catch(() => undefined);
+    await window.electronAPI.secretStatus().then((status) => setRemembered(status.providers ?? null)).catch(() => undefined);
+  };
   useEffect(() => {
     void refreshToken();
+    void refreshKeys();
   }, []);
   const keyPlace = (source: KeySource): string => (source === 'os' ? 'preferences.placeOs' : source === 'file' ? 'preferences.placeFile' : source === 'session' ? 'preferences.placeSession' : 'preferences.placeNone');
+  const keyRows = CLOUD_KEY_PROVIDERS.map((provider) => {
+    const held = keySources[provider];
+    const saved = remembered?.[provider];
+    const source: KeySource = held !== 'none' ? held : saved?.stored ? 'os' : saved?.inFile ? 'file' : 'none';
+    return { provider, source };
+  }).filter((row) => row.source !== 'none');
   const forgetEverything = async () => {
     await window.electronAPI.forgetSecret();
     await window.electronAPI.mcpForgetToken();
-    useProviderStore.getState().setKeySource('none');
+    useProviderStore.getState().setKeySources(NO_KEYS);
+    await refreshKeys();
     await refreshToken();
     setForgetNote(String(t('preferences.forgotAll')));
   };
@@ -96,10 +112,17 @@ export default function PrivacySection({ prefs, setPrefs, container }: DraftProp
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <th scope="row">{t('preferences.providerKeyRow')}{provider ? ` (${provider})` : ''}</th>
-              <td><span className={cx(styles.placeDot, keySource !== 'none' && styles.placeOn)} aria-hidden="true" />{t(keyPlace(keySource))}</td>
-            </tr>
+            {keyRows.length === 0 ? (
+              <tr>
+                <th scope="row">{t('preferences.providerKeyRow')}</th>
+                <td><span className={styles.placeDot} aria-hidden="true" />{t('preferences.placeNone')}</td>
+              </tr>
+            ) : keyRows.map((row) => (
+              <tr key={row.provider} data-provider={row.provider}>
+                <th scope="row">{t('preferences.providerKeyRowFor', { provider: KEY_PROVIDER_NAMES[row.provider] })}</th>
+                <td><span className={cx(styles.placeDot, styles.placeOn)} aria-hidden="true" />{t(keyPlace(row.source))}</td>
+              </tr>
+            ))}
             <tr>
               <th scope="row">{t('preferences.tokenRow')}</th>
               <td><span className={cx(styles.placeDot, token?.held && styles.placeOn)} aria-hidden="true" />{t(token ? tokenPlaceKey(token) : 'settings.tokenPlaceNone')}</td>

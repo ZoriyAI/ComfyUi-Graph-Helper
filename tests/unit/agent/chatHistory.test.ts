@@ -87,12 +87,12 @@ describe('chat history', () => {
   it('checks the held LLM key by default', () => {
     const db = openDb();
     const HELD = 'session-key-for-history-test-42';
-    mainLLMService.setSessionKey(HELD);
+    mainLLMService.setSessionKey('google', HELD);
     try {
       expect(saveChatMessage(db, record({ content: `oops ${HELD}` })).ok).toBe(false);
       expect(saveChatMessage(db, record({ content: 'fine' })).ok).toBe(true);
     } finally {
-      mainLLMService.setSessionKey('');
+      mainLLMService.forgetKeys();
     }
   });
 });
