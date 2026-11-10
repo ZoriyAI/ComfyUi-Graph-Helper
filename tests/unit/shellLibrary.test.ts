@@ -18,6 +18,7 @@ import { MAX_TOASTS, queueToast, type ToastItem } from '../../src/renderer/ui/to
 import { dockRange, normalizeDockTab, TAB_DEFAULT, TAB_MAX, TAB_MIN } from '../../src/renderer/state/dockState';
 import { isDirty } from '../../src/renderer/state/uiState';
 import { clampSize } from '../../src/renderer/ui/Splitter';
+import { subgraphSummary } from '../../src/renderer/components/graph/SubgraphSummary';
 import type { SyncStatus } from '../../src/shared/contracts';
 
 function node(classType: string, category: string, displayName = classType): NodeClassSummary {
@@ -143,6 +144,16 @@ describe('placement and subgraphs', () => {
     ];
     expect(insertableSubgraphs(defs, '').map((item) => item.id)).toEqual(['a', 'b']);
     expect(insertableSubgraphs(defs, 'up').map((item) => item.id)).toEqual(['b']);
+  });
+
+  it('says what a subgraph holds in words, not its id', () => {
+    const russian = createTranslator('ru');
+    const english = createTranslator('en');
+    const shape = { nodes: [1, 2, 3], inputs: [1, 2], outputs: [1] };
+    expect(subgraphSummary(russian, shape)).toBe('3 ноды · 2 входа · 1 выход');
+    expect(subgraphSummary(english, shape)).toBe('3 nodes · 2 inputs · 1 output');
+    expect(subgraphSummary(russian, { nodes: [], inputs: [], outputs: [] })).toBe('0 нод');
+    expect(subgraphSummary(russian, { nodes: [1, 2, 3, 4, 5], inputs: [1, 2, 3, 4, 5], outputs: [] })).toBe('5 нод · 5 входов');
   });
 });
 

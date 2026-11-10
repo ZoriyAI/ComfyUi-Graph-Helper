@@ -369,19 +369,19 @@ async function captureToolbarAndHelp(page, prefix) {
   await step('split', async () => {
     await page.setViewportSize({ width: 1600, height: 960 });
     await page.waitForTimeout(400);
-    await page.getByRole('button', { name: /показать оба|show both/i }).first().click();
+    await page.getByRole('button', { name: /показать оба|свойства и помощник рядом|show both/i }).first().click();
     await page.waitForTimeout(500);
     await shot(page, '17-ru-split');
-    await page.getByRole('button', { name: /^(инспектор|inspector)$/i }).first().click();
+    await page.getByRole('button', { name: /^(инспектор|свойства|inspector)$/i }).first().click();
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.waitForTimeout(400);
   });
 
   await step('hidden-dock', async () => {
-    await page.getByRole('button', { name: /скрыть инструменты|hide tools/i }).first().click();
+    await page.getByRole('button', { name: /скрыть инструменты|скрыть правую панель|hide tools/i }).first().click();
     await page.waitForTimeout(500);
     await shot(page, '18-ru-dock-hidden');
-    await page.getByRole('button', { name: /показать инструменты|show tools/i }).first().click();
+    await page.getByRole('button', { name: /показать инструменты|показать правую панель|show tools/i }).first().click();
     await page.waitForTimeout(400);
   });
 

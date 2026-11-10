@@ -78,7 +78,7 @@ export default function SubgraphLibrary() {
             <span className={styles.subgraphIcon} aria-hidden="true"><Layers size={16} /></span>
             <span className={styles.text}>
               <span className={styles.name}>{definition.name}</span>
-              <span className={styles.sub}>{subgraphSummary(t, definition)}</span>
+              <span className={styles.sub}>{subgraphSummary((key, options) => (options ? String(t(key, options)) : String(t(key))), definition)}</span>
             </span>
             <Button
               variant="subtle"

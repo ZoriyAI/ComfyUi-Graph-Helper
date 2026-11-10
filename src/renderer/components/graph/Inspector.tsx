@@ -387,7 +387,7 @@ export default function Inspector() {
               {/* The name and what it holds, not the definition's id. */}
               {item.depth > 0 ? <span>{t('inspector.nested')}</span> : null}
               <span>{item.name}</span>
-              <SubgraphSummary id={item.id} className="inspector-type" />
+              <SubgraphSummary id={item.id} />
             </button>
           ))}
         </div>
