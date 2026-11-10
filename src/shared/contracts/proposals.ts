@@ -27,6 +27,8 @@ export interface ResolveProposalRequest {
   projectId: string;
   proposalId: string;
   decision: 'accept' | 'reject';
+  /** Accepting an add-node ghost: the free spot the canvas showed it at (flow coordinates), so it lands there. */
+  at?: { x: number; y: number };
 }
 
 export interface ProposalResolution {

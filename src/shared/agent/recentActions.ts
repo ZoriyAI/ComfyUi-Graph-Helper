@@ -25,6 +25,9 @@ const ID_KEYS = ['nodeId', 'edgeId', 'source', 'target', 'groupId', 'definitionI
 export function recentPayload(type: string, payload: Record<string, unknown>, result: Record<string, unknown> | null): { payload: Record<string, unknown>; ids: string[] } {
   const kept = BULKY.has(type)
     ? { type }
+    // An arrangement can move hundreds of nodes: the prompt needs how many, not every coordinate.
+    : type === 'move-nodes' && Array.isArray(payload.moves)
+      ? { type, count: payload.moves.length }
     : type === 'restore-revision' && typeof result?.restoredRevSeq === 'number'
       ? { ...payload, revSeq: result.restoredRevSeq }
       : payload;
@@ -86,6 +89,7 @@ export function describeCommand(command: RecentCommand, summary: GraphSummary | 
     case 'add-group': return `grouped nodes ${Array.isArray(p.nodeIds) ? p.nodeIds.map((id) => safeText(str(id), 40)).join(', ') : '?'}${str(p.title) ? ` as "${safeText(str(p.title), 80)}"` : ''}`;
     case 'remove-group': return `removed group ${safeText(str(p.groupId), 80)}`;
     case 'restore-revision': return `restored revision ${round(p.revSeq)}`;
+    case 'move-nodes': return `arranged ${round(p.count)} nodes`;
     default: return safeText(command.type, 40);
   }
 }

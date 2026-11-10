@@ -29,6 +29,7 @@ import { DESKTOP_PROJECT_ID } from '../../shared/project';
 import { parseNativeProject } from '../../shared/native-project';
 import type { GroupRecord, SubgraphDefinition } from '../../shared/graph/subgraphs';
 import { applyGraphOp, blankDocument, GraphOpError, Ids, isGraphOp } from './graphOps';
+import { applyMoveNodes, placeHelperNode, runCreatedNodeIds, tidyMoves } from './placement';
 import { supersedeAllOpen, supersedeForMissingNodes } from '../proposals/supersede';
 import { recentPayload, type RecentCommand } from '../../shared/agent/recentActions';
 import type { RevisionSummary } from '../../shared/contracts/revisions';
@@ -460,6 +461,13 @@ function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutat
     if ('error' in projected) throw new CommandSignal('rejected', { error: projected.error });
     return { snapshot: projected.snapshot, result: { formatVersion: projected.snapshot.document?.formatVersion ?? null } };
   }
+  // ── Layout (WP2): an arrangement or a tidy moves many nodes in one revision. ──
+  if (payload.type === 'move-nodes') {
+    const applied = applyMoveNodes(nodes, payload);
+    if ('missing' in applied) throw new CommandSignal('rejected', { error: 'Node was not found.' });
+    return { snapshot: { nodes, edges, document: snapshot.document }, result: { nodeIds: applied.moved } };
+  }
+  // ── end layout ──
   if (isGraphOp(payload)) {
     try {
       const applied = applyGraphOp(snapshot, actionId, payload);
@@ -642,9 +650,14 @@ export function commitCommand(
       }
 
       const catalog = cachedCatalog(db);
-      const applied = request.payload.type === 'restore-revision'
-        ? restoreRevision(db, request.projectId, request.payload.revisionId, current.snapshot)
-        : applyMutation(current.snapshot, request.actionId, request.payload, catalog);
+      // Layout (WP2): the helper's coordinates are a hint; its node never lands on another. The stored
+      // payload (and so a retry's match) stays what was sent.
+      const payload = request.actor === 'ai' && request.runId && request.payload.type === 'add-node'
+        ? placeHelperNode(request.payload, current.snapshot.nodes, runCreatedNodeIds(db, request.projectId, request.runId), catalog)
+        : request.payload;
+      const applied = payload.type === 'restore-revision'
+        ? restoreRevision(db, request.projectId, payload.revisionId, current.snapshot)
+        : applyMutation(current.snapshot, request.actionId, payload, catalog);
       const sealed = sealSnapshot(applied.snapshot, current.snapshot);
       applied.snapshot = sealed.snapshot;
       if (request.payload.type === 'import-workflow') {
@@ -789,10 +802,45 @@ export function cancelRun(db: Database.Database, projectId: string, runId: strin
   return setRunStatus(db, projectId, runId, ['running', 'paused'], 'cancelled');
 }
 
-/** The turn ended normally: the run no longer accepts commits and the interface stops showing it. */
+/**
+ * The turn ended normally: the helper's nodes are tidied (one commit, so one undo takes it back), then the run
+ * no longer accepts commits and the interface stops showing it.
+ */
 export function closeRun(db: Database.Database, projectId: string, runId: string): CommandResponse {
+  tidyRun(db, projectId, runId);
   return setRunStatus(db, projectId, runId, ['running', 'paused'], 'closed');
 }
+
+// ── Layout (WP2): tidy at run close ──────────────────────────────────────────────────────────────────────
+/**
+ * Lays out the nodes a still-running run created, keeping every other node fixed, as one move-nodes commit of
+ * the run. A failure only skips the tidy: closing the run never depends on it.
+ */
+export function tidyRun(db: Database.Database, projectId: string, runId: string): CommandResponse | null {
+  try {
+    const projection = readProjection(db, projectId);
+    const active = projection?.activeRun;
+    if (!projection || !active || active.runId !== runId || active.status !== 'running') return null;
+    const moves = tidyMoves(
+      projection.snapshot.nodes as Array<Record<string, any>>,
+      projection.snapshot.edges as Array<Record<string, any>>,
+      runCreatedNodeIds(db, projectId, runId),
+    );
+    if (moves.length === 0) return null;
+    return commitCommand(db, {
+      projectId,
+      runId,
+      actionId: `${runId}:tidy`,
+      expectedRevisionId: projection.currentRevisionId,
+      actor: 'ai',
+      payload: { type: 'move-nodes', moves },
+    });
+  } catch (error) {
+    console.warn('[Layout] Tidy skipped:', error instanceof Error ? error.message.slice(0, 200) : 'unknown error');
+    return null;
+  }
+}
+// ── end layout ───────────────────────────────────────────────────────────────────────────────────────────
 
 function setRunStatus(
   db: Database.Database,
