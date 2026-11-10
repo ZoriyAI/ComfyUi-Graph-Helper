@@ -44,6 +44,9 @@ describe('teaching system prompt', () => {
     expect(prompt).toContain('teach');
     expect(prompt).toContain('ghosts');
     expect(prompt).toContain('Never claim a workflow ran');
+    // The two limits are in every turn, whoever the model is and whatever the person asks about.
+    expect(prompt).toContain('sexual content that involves minors or anyone who looks like a minor');
+    expect(prompt).toContain('sexual content that depicts real people');
     expect(prompt).toContain('fact');
     expect(prompt).toContain('inference');
     expect(prompt).toContain('Turn intent: ask');
