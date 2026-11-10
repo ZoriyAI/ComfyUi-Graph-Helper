@@ -190,6 +190,20 @@ describe('the model conversation log', () => {
     expect(traceDir()).toBe(path.join(dir, 'model'));
   });
 
+  it('keeps the folder, each record and a saved file readable by the owner only', async () => {
+    if (process.platform === 'win32') return;
+    setup();
+    const trace = startTurnTrace(META)!;
+    trace.prompt({ system: 'You are a helper.', messages: [{ role: 'user', content: 'мой промпт' }], tools: [] });
+    await trace.finish('ok');
+    const folder = traceDir()!;
+    expect(fs.statSync(folder).mode & 0o777).toBe(0o700);
+    expect(fs.statSync(trace.file).mode & 0o777).toBe(0o600);
+    const target = path.join(dir, 'saved.jsonl');
+    exportTurnTraces([trace.id], target, { app: '0.3.0' });
+    expect(fs.statSync(target).mode & 0o777).toBe(0o600);
+  });
+
   it('makes a short report a person can paste: model, sizes, steps, errors', async () => {
     setup();
     const trace = startTurnTrace(META)!;

@@ -12,6 +12,7 @@ import { randomBytes } from 'crypto';
  * - Every string passes through the redactor (heuristics plus the exact held keys and the MCP token); request
  *   headers are never recorded, so no credential is written even when the redactor would miss one.
  * - It stays on this computer. Nothing here sends anything; export is a file the person saves themselves.
+ *   The folder, each record and each saved file are readable by the owner only.
  * - It is bounded: one text is capped, one turn is capped, the folder is capped by size and by count.
  * Pure Node (no Electron import), so tests can drive it.
  */
@@ -249,7 +250,8 @@ export class TurnTrace {
     }
     try {
       const line = `${JSON.stringify({ t: this.options.now() - this.started, type, ...data })}\n`;
-      fs.appendFileSync(this.file, line);
+      // Owner only: a record holds the person's prompts and graph values.
+      fs.appendFileSync(this.file, line, { mode: 0o600 });
       this.bytes += Buffer.byteLength(line);
     } catch {
       // A full disk or a removed folder must not break the conversation.
@@ -461,7 +463,8 @@ export function startTurnTrace(meta: TurnMeta): TurnTrace | null {
   if (!config) return null;
   try {
     if (!config.enabled()) return null;
-    fs.mkdirSync(config.dir, { recursive: true });
+    // Owner only, whatever the profile folder allows: records hold the person's prompts and graph values.
+    fs.mkdirSync(config.dir, { recursive: true, mode: 0o700 });
     const trace = new TurnTrace(config, meta);
     prune(trace.file);
     return trace;
@@ -584,7 +587,8 @@ export function clearTurnTraces(): number {
  * Returns the bytes written.
  */
 export function exportTurnTraces(ids: string[], target: string, header: Record<string, unknown>): { bytes: number; turns: number } {
-  const out = fs.openSync(target, 'w');
+  // The saved file is the person's to send; until then only they can read it.
+  const out = fs.openSync(target, 'w', 0o600);
   let bytes = 0;
   let turns = 0;
   try {
