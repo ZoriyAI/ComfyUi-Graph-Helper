@@ -13,6 +13,7 @@ import { askAbout } from './askAbout';
 import { commitManual } from './commit';
 import { useNodeDetail } from './nodeInfo';
 import { nodeRef } from './lib/selection';
+import { useLevelGraph } from './lib/levelGraph';
 import { typeColor } from './lib/typeColors';
 import styles from './Inspector.module.css';
 
@@ -308,8 +309,8 @@ function EdgeSection({ edge, nodes }: { edge: GraphEdge; nodes: GraphNode[] }) {
  */
 export default function Inspector() {
   const { t } = useTranslation();
-  const nodes = useGraphStore((state) => state.nodes);
-  const edges = useGraphStore((state) => state.edges);
+  // WP6: the level on screen (root, or the open subgraph's inner graph), so inner nodes can be edited too.
+  const { nodes, edges } = useLevelGraph();
   const components = useGraphStore((state) => state.components);
   const process = useGraphStore((state) => state.process);
   const document = useGraphStore((state) => state.document);

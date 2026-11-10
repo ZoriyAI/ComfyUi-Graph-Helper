@@ -21,3 +21,14 @@
   pointer-events: auto;
   cursor: default;
 }
+/* The title while it is renamed: the same chip, now a field with a visible focus ring. */
+.titleInput {
+  border: 1px solid color-mix(in srgb, var(--canvas-group) 70%, transparent);
+  outline: none;
+  font-family: inherit;
+  min-width: 8ch;
+  cursor: text;
+}
+.titleInput:focus-visible {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--canvas-group) 45%, transparent);
+}

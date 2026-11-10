@@ -460,6 +460,27 @@ function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutat
     if ('error' in projected) throw new CommandSignal('rejected', { error: projected.error });
     return { snapshot: projected.snapshot, result: { formatVersion: projected.snapshot.document?.formatVersion ?? null } };
   }
+  // --- WP6: edits inside a subgraph definition (begin) ---
+  if (payload.type === 'edit-in-subgraph') {
+    // The same rules as on the root canvas, run on the definition's inner graph, then written back into the
+    // definition. Only that definition changes; the root canvas keeps its nodes and edges.
+    const definition = (snapshot.subgraphs ?? []).find((item) => !item.opaque && item.id === payload.definitionId);
+    if (!definition) throw new CommandSignal('rejected', { error: 'Subgraph definition was not found.' });
+    const inner = applyMutation(
+      { nodes: definition.nodes, edges: definition.edges, document: snapshot.document, subgraphs: snapshot.subgraphs } as Snapshot,
+      actionId,
+      payload.edit as GraphMutation,
+      catalog,
+    );
+    const subgraphs = (snapshot.subgraphs ?? []).map((item) => (
+      item === definition ? { ...item, nodes: inner.snapshot.nodes as Array<Record<string, any>>, edges: inner.snapshot.edges as Array<Record<string, any>> } : item
+    ));
+    return {
+      snapshot: { ...snapshot, nodes, edges, document: inner.snapshot.document ?? snapshot.document, subgraphs },
+      result: { definitionId: definition.id, edit: payload.edit.type, ...inner.result },
+    };
+  }
+  // --- WP6: edits inside a subgraph definition (end) ---
   if (isGraphOp(payload)) {
     try {
       const applied = applyGraphOp(snapshot, actionId, payload);

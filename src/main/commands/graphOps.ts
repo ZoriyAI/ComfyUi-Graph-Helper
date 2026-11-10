@@ -52,6 +52,8 @@ const GRAPH_OPS = new Set([
   'dissolve-subgraph',
   'add-group',
   'remove-group',
+  // WP6: group rename.
+  'rename-group',
 ]);
 
 export function isGraphOp(payload: GraphMutation): boolean {
@@ -535,6 +537,17 @@ function removeGroup(work: GraphSnapshot, payload: Extract<GraphMutation, { type
   return { groupId: payload.groupId };
 }
 
+// --- WP6: group rename (begin) ---
+/** The title is the only change: members, colour, bounds and native fields stay; export writes `title` from it. */
+function renameGroup(work: GraphSnapshot, payload: Extract<GraphMutation, { type: 'rename-group' }>) {
+  const group = (work.groups ?? []).find((item) => item.id === payload.groupId);
+  if (!group) fail(SUBGRAPH_ERRORS.groupMissing);
+  const previous = group.title;
+  group.title = payload.title.trim();
+  return { groupId: group.id, title: group.title, previous };
+}
+// --- WP6: group rename (end) ---
+
 /**
  * Apply a subgraph or group mutation to a copy of the snapshot. Inputs are never mutated.
  * Throws GraphOpError for a refusal.
@@ -558,6 +571,7 @@ export function applyGraphOp(snapshot: GraphSnapshot, _actionId: string, payload
     case 'dissolve-subgraph': result = dissolveSubgraph(work, ids, payload); break;
     case 'add-group': result = addGroup(work, payload); break;
     case 'remove-group': result = removeGroup(work, payload); break;
+    case 'rename-group': result = renameGroup(work, payload); break; // WP6
     default: throw new Error(`Not a graph op: ${payload.type}`);
   }
   return { snapshot: work, result };

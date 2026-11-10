@@ -125,6 +125,42 @@ export const mutationSchema = z.discriminatedUnion('type', [
     type: z.literal('remove-group'),
     groupId: z.string().min(1),
   }),
+  // --- WP6: group rename (begin) ---
+  z.object({
+    /** A group's title, as typed on the canvas. Empty is allowed: ComfyUI keeps untitled groups too. */
+    type: z.literal('rename-group'),
+    groupId: z.string().min(1),
+    title: z.string().max(500),
+  }),
+  // --- WP6: group rename (end) ---
+  // --- WP6: edits inside a subgraph definition (begin) ---
+  z.object({
+    /**
+     * One canvas edit applied to the inner graph of a definition instead of the root: inner node ids are their
+     * own id space (ComfyUI numbers a definition's nodes from 1), so the edit names the definition it targets.
+     */
+    type: z.literal('edit-in-subgraph'),
+    definitionId: z.string().min(1),
+    edit: z.discriminatedUnion('type', [
+      z.object({ type: z.literal('move-node'), nodeId: z.string().min(1), x: z.number(), y: z.number() }),
+      z.object({
+        type: z.literal('set-parameter'),
+        nodeId: z.string().min(1),
+        key: z.string().min(1),
+        value: z.unknown(),
+        widgetIndex: z.number().int().nonnegative().optional(),
+      }),
+      z.object({
+        type: z.literal('connect'),
+        source: z.string().min(1),
+        target: z.string().min(1),
+        sourceHandle: z.string().optional(),
+        targetHandle: z.string().optional(),
+      }),
+      z.object({ type: z.literal('remove-edge'), edgeId: z.string().min(1) }),
+    ]),
+  }),
+  // --- WP6: edits inside a subgraph definition (end) ---
   z.object({
     /** Undo/redo: copies an earlier revision's snapshot into a new revision. History never rewinds. */
     type: z.literal('restore-revision'),
