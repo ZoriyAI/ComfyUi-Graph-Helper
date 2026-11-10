@@ -177,12 +177,21 @@ npm run package:linux # .deb через Electron Forge и smoke-проверка
   читает каждый текст и подсказку: нет ли незаполненной вставки, «undefined» или ключа вместо слов. Обход
   запускается отдельно от остальных сквозных тестов: он подолгу держит открытыми меню и списки, а второе окно
   приложения, забрав фокус, закрыло бы их. `tests/e2e/layout-audit.test.ts` проверяет саму проверку на заведомо
-  сломанной и на исправной вёрстке. Полный прогон на всех размерах и втором языке:
+  сломанной и на исправной вёрстке. Обход проверяет и привязку: карточка-описание стоит у своей ноды и имеет её
+  ширину при любом масштабе холста, панели холста ничем не закрыты, ни одна нода не лежит на другой.
+- `tests/e2e/node-size.test.ts` рисует каждую ноду каталога и сравнивает высоту, которую приложение рассчитало
+  заранее, с нарисованной. По этой высоте выбирается место для новой ноды; если расчёт меньше, нода встаёт на
+  соседнюю.
+
+Полный прогон на всех размерах и втором языке, и прогоны под настоящий рабочий стол:
 
 ```bash
 LAYOUT_FULL=1 xvfb-run -a npx playwright test tests/e2e/layout-walk.test.ts --trace off
 LAYOUT_FULL=1 LAYOUT_LANG=en xvfb-run -a npx playwright test tests/e2e/layout-walk.test.ts --trace off
 # LAYOUT_OUT=<папка> сохранит отчёт и снимки, LAYOUT_ONLY=canvas,helper пройдёт только названные части
+LAYOUT_TEXT=wide xvfb-run -a npx playwright test tests/e2e/layout-walk.test.ts --trace off    # текст шире на 4 %
+LAYOUT_FONTS=hinted xvfb-run -a npx playwright test tests/e2e/layout-walk.test.ts --trace off # шрифты с хинтингом
+LAYOUT_DPR=1.5 xvfb-run -a npx playwright test tests/e2e/layout-walk.test.ts --trace off      # масштаб экрана 150 %
 ```
 
 ## Состояние
