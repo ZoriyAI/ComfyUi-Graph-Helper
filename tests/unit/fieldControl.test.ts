@@ -6,7 +6,6 @@ import {
   fieldValue,
   filterOptions,
   folderOf,
-  formatSize,
   isSeedField,
   nodeLayout,
   randomSeed,
@@ -75,14 +74,10 @@ describe('lists and files', () => {
     expect(filterOptions(options, '  ')).toEqual(options);
   });
 
-  it('splits file names from folders and reads sizes', () => {
+  it('splits file names from folders', () => {
     expect(baseName('sdxl\\styles\\pixel.safetensors')).toBe('pixel.safetensors');
     expect(folderOf('sdxl/styles/pixel.safetensors')).toBe('sdxl/styles');
     expect(folderOf('pixel.safetensors')).toBe('');
-    const units = { gb: 'GB', mb: 'MB', kb: 'KB' };
-    expect(formatSize(6_900_000_000, units, 'en')).toBe('6.9 GB');
-    expect(formatSize(228_000_000, units, 'en')).toBe('228 MB');
-    expect(formatSize(null, units)).toBe('');
   });
 });
 

@@ -6,7 +6,8 @@ import { familyLabelKey } from '../../../shared/knowledge/labels';
 import { DESKTOP_PROJECT_ID } from '../../../shared/project';
 import { FamilyBadge, KindBadge } from '../../ui/Badge';
 import { cx } from '../../ui/cx';
-import { baseName, folderOf, formatSize } from './fieldModel';
+import { formatBytes } from '../library/libraryModel';
+import { baseName, folderOf } from './fieldModel';
 import styles from './FieldControl.module.css';
 
 /** Folders of base models; the same set main uses to pick the reference (main/knowledge/fieldModels.ts). */
@@ -65,7 +66,8 @@ export function ModelList({ listId, listRef, state, shown, fallback, current, di
   const result = state.state === 'ready' && state.result.models ? state.result : null;
   const rows = new Map<string, FieldModelOption>((result?.options ?? []).map((row) => [row.value, row]));
   const family = (value: BaseModelFamily) => String(t(familyLabelKey(value)));
-  const units = { gb: String(t('field.models.gb')), mb: String(t('field.models.mb')), kb: String(t('field.models.kb')) };
+  // The same size format as the model library, so a file reads the same in both places.
+  const language = (i18n.language || 'ru').toLowerCase().startsWith('en') ? 'en' : 'ru';
   const reference = result?.reference ?? null;
   const baseField = BASE_DIRECTORIES.has(directory ?? '');
   const fitText = (row: FieldModelOption): { text: string; tone: 'ok' | 'warn' | 'bad' | 'faint' } | null => {
@@ -110,7 +112,7 @@ export function ModelList({ listId, listRef, state, shown, fallback, current, di
                 <span className={styles.modelMeta}>
                   {row.baseModel !== 'unknown' ? <FamilyBadge family={row.baseModel} /> : null}
                   {row.kind !== 'other' ? <KindBadge kind={row.kind} /> : null}
-                  {row.sizeBytes ? <span className={styles.size}>{formatSize(row.sizeBytes, units, i18n.language)}</span> : null}
+                  {row.sizeBytes ? <span className={styles.size}>{formatBytes(row.sizeBytes, language)}</span> : null}
                 </span>
               ) : null}
               {value === current ? <Check size={14} aria-hidden="true" className={styles.check} /> : null}

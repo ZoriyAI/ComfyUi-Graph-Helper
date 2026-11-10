@@ -122,8 +122,21 @@ test('node fields: lists, steppers and the model picker edit the graph', async (
     await window.locator('.react-flow__controls-fitview').click().catch(() => undefined);
     const from = loader.locator('.react-flow__handle[data-handleid="out-0"]');
     const to = lora.locator('.react-flow__handle[data-handleid="in-0"]');
-    await from.dragTo(to);
-    await expect(window.locator('.react-flow__edge')).toHaveCount(1);
+    // A slow drag with intermediate moves: React Flow needs pointer moves to start a connection.
+    const drag = async () => {
+      const a = await from.boundingBox();
+      const b = await to.boundingBox();
+      if (!a || !b) throw new Error('handles not on screen');
+      await window.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
+      await window.mouse.down();
+      await window.mouse.move(a.x + a.width / 2 - 20, a.y + a.height / 2 + 10, { steps: 4 });
+      await window.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 12 });
+      await window.mouse.up();
+    };
+    await expect(async () => {
+      if (await window.locator('.react-flow__edge').count() === 0) await drag();
+      await expect(window.locator('.react-flow__edge')).toHaveCount(1, { timeout: 2000 });
+    }).toPass({ timeout: 15000 });
     await loraName.click();
     await expect(window.getByText(/Compared with sd_xl_base_1\.0\.safetensors \(SDXL\)/)).toBeVisible();
     const options = files.getByRole('option');

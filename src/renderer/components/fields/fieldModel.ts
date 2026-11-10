@@ -96,15 +96,6 @@ export function filterOptions(options: string[], query: string): string[] {
   });
 }
 
-/** "1.2 ГБ" / "340 МБ": sizes a person reads, with the unit words from the caller's language. */
-export function formatSize(bytes: number | null | undefined, units: { gb: string; mb: string; kb: string }, locale?: string): string {
-  if (bytes == null || !Number.isFinite(bytes) || bytes <= 0) return '';
-  const format = (value: number, digits: number) => value.toLocaleString(locale, { maximumFractionDigits: digits });
-  if (bytes >= 1e9) return `${format(bytes / 1e9, 1)} ${units.gb}`;
-  if (bytes >= 1e6) return `${format(bytes / 1e6, 0)} ${units.mb}`;
-  return `${format(Math.max(1, bytes / 1e3), 0)} ${units.kb}`;
-}
-
 /** File name without folders: `sdxl/styles/pixel.safetensors` → `pixel.safetensors`. */
 export function baseName(value: string): string {
   const parts = value.split(/[\\/]/);

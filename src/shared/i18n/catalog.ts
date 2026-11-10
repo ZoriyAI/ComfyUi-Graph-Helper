@@ -291,9 +291,6 @@ export const en = {
       related: 'loads, but made for {{family}}',
       differs: 'family differs: {{model}} ≠ {{reference}}',
       unknown: 'family unknown',
-      gb: 'GB',
-      mb: 'MB',
-      kb: 'KB',
     },
   },
   chat: {
@@ -1666,9 +1663,6 @@ export const ru = {
       related: 'загрузится, но сделана под {{family}}',
       differs: 'семейство отличается: {{model}} ≠ {{reference}}',
       unknown: 'семейство неизвестно',
-      gb: 'ГБ',
-      mb: 'МБ',
-      kb: 'КБ',
     },
   },
   chat: {
