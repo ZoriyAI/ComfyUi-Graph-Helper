@@ -17,14 +17,25 @@
   flex: 0 0 auto;
   white-space: nowrap;
   overflow: hidden;
+  /* What is in the bar measures itself against the bar: in a narrow window, and more so while a run shows its
+     controls here, the least needed items leave whole instead of every item being squeezed onto its neighbour. */
+  container-type: inline-size;
+  container-name: status;
 }
-.group { display: inline-flex; align-items: center; min-width: 0; padding: 0 4px; }
-.item { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
+/* Nothing in the bar shrinks: an item is either here in full or not here. */
+.group { display: inline-flex; align-items: center; flex: none; padding: 0 4px; }
+.item { display: inline-flex; align-items: center; gap: 4px; flex: none; }
 .item + .item::before { content: "·"; padding: 0 7px; color: var(--text-faint); }
 .mono { font-variant-numeric: tabular-nums; }
-.spacer { flex: 1 1 auto; }
+.spacer { flex: 1 1 0; min-width: 0; }
+/* Language and motion are settings shown for reference; zoom and the history step are next to go. */
+@container status (max-width: 760px) { .settings { display: none; } }
+@container status (max-width: 560px) { .optional { display: none; } }
+@container status (max-width: 1160px) { .bar[data-run] .settings { display: none; } }
+@container status (max-width: 880px) { .bar[data-run] .optional { display: none; } }
 .run {
   display: inline-flex;
+  flex: none;
   align-items: center;
   gap: 4px;
   height: 18px;

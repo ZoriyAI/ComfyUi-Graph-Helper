@@ -1,7 +1,7 @@
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import * as S from '@radix-ui/react-switch';
-import { Check, ChevronsUpDown, Dices, Minus, Plus } from 'lucide-react';
+import { Check, ChevronsUpDown, Dices, Minus, Plus, TriangleAlert } from 'lucide-react';
 import type { FieldSpec } from '../../../shared/contracts/knowledge';
 import { PopoverContent, PopoverRoot, PopoverTrigger } from '../../ui/Popover';
 import { cx } from '../../ui/cx';
@@ -153,7 +153,12 @@ function ComboControl({ nodeId, name, value, spec, variant, disabled, labelledBy
           {...nameProps({ labelledBy, name })}
         >
           <span className={cx(styles.triggerText, unset && styles.unset)}>{unset ? t('field.unset') : label}</span>
-          {missing ? <span className={styles.missingMark}>{t('field.notInList')}</span> : null}
+          {/* On a node the row is narrow: a sign keeps the value readable, the words are in the tooltip. */}
+          {missing ? (
+            variant === 'node'
+              ? <TriangleAlert size={12} className={styles.missingSign} role="img" aria-label={String(t('field.notInList'))} />
+              : <span className={styles.missingMark}>{t('field.notInList')}</span>
+          ) : null}
           <ChevronsUpDown size={variant === 'node' ? 12 : 14} aria-hidden="true" className={styles.chevron} />
         </button>
       </PopoverTrigger>

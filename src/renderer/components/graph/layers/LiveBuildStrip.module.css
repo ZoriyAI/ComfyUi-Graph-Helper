@@ -43,6 +43,12 @@
 .button:hover { background: var(--surface-hover, #243247); }
 .button:focus-visible { outline: none; box-shadow: var(--focus-ring, 0 0 0 2px #b7a5ff); }
 .wide { padding: 0 10px; }
+/* A narrow canvas: the step counter stays whole; the reason is in the bubble by the node, the button keeps its icon. */
+@container canvas (max-width: 600px) {
+  .why { display: none; }
+  .wide > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .wide { padding: 0 6px; }
+}
 @keyframes breathe { 0%, 100% { opacity: 0.45; } 50% { opacity: 1; } }
 :global(html[data-motion="off"]) .dot,
 :global(html[data-motion="reduced"]) .dot { animation: none; }

@@ -12,6 +12,11 @@ export function kindLabelKey(kind: ModelKind): string {
   return `knowledge.kind.${kind}`;
 }
 
+/** A one- or two-word name for a row of a list, where the full one would push the family and the size out. */
+export function kindShortLabelKey(kind: ModelKind): string {
+  return `knowledge.kindShort.${kind}`;
+}
+
 export function evidenceLabelKey(evidence: Evidence): string {
   return `knowledge.evidence.${evidence}`;
 }

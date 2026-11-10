@@ -4,6 +4,10 @@
   width: 100%;
   height: 100%;
   overflow: hidden;
+  /* What floats over the canvas (the toolbar, the build strip, the minimap) measures itself against the canvas,
+     not the window: the canvas is what is left between the library and the right panel. */
+  container-type: size;
+  container-name: canvas;
   /* Night canvas: a cool glow from above, a faint teal one from the lower right, a vignette at the edges. */
   background-color: var(--bg, #0a0e15);
   background-image:

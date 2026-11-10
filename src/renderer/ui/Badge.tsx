@@ -2,7 +2,7 @@ import React, { forwardRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { familyNote } from '../../shared/knowledge/coreKnowledge';
 import type { BaseModelFamily, ModelKind, Provenance } from '../../shared/contracts';
-import { familyLabelKey, kindLabelKey, provenanceLabelKey } from '../../shared/knowledge/labels';
+import { familyLabelKey, kindLabelKey, kindShortLabelKey, provenanceLabelKey } from '../../shared/knowledge/labels';
 import styles from './Badge.module.css';
 import { familyHue, kindHue, PROVENANCE_TONES, type BadgeHue } from './badgeHues';
 import { cx } from './cx';
@@ -71,9 +71,11 @@ export function FamilyBadge({ family, className }: { family: BaseModelFamily; cl
   return <Badge hue={familyHue(family)} className={className} title={note ? `${note.what}\n\n${note.risk}` : undefined}>{t(familyLabelKey(family))}</Badge>;
 }
 
-export function KindBadge({ kind, className }: { kind: ModelKind; className?: string }) {
+/** `short`: the brief name for a row of a list; the full one is the tooltip. */
+export function KindBadge({ kind, className, short }: { kind: ModelKind; className?: string; short?: boolean }) {
   const { t } = useTranslation();
-  return <Badge hue={kindHue(kind)} className={className}>{t(kindLabelKey(kind))}</Badge>;
+  const full = String(t(kindLabelKey(kind)));
+  return <Badge hue={kindHue(kind)} className={className} title={short ? full : undefined}>{short ? t(kindShortLabelKey(kind)) : full}</Badge>;
 }
 
 export type StatusTone = 'idle' | 'running' | 'ok' | 'warn' | 'error';

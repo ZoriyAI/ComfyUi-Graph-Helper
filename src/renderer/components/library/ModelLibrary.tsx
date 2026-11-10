@@ -279,7 +279,7 @@ export default function ModelLibrary() {
                       <span className={styles.text}>
                         <span className={styles.name}>{model.name}</span>
                         <span className={styles.badges}>
-                          <KindBadge kind={model.kind} />
+                          <KindBadge kind={model.kind} short />
                           {model.baseModel !== 'unknown' ? <FamilyBadge family={model.baseModel} /> : null}
                           <span className={styles.meta2}>
                             {formatBytes(model.sizeBytes, language)}

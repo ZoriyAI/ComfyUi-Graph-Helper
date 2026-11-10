@@ -144,6 +144,8 @@
   transition: box-shadow var(--motion-feedback) var(--motion-ease-out), border-color var(--motion-feedback) var(--motion-ease-out);
 }
 .subgraph:hover { border-color: var(--border); box-shadow: var(--shadow-lift); }
+/* "2 nodes · 1 input · 1 output" is a sentence, not a class name: it wraps beside the Insert button. */
+.subgraph .sub { font-family: inherit; white-space: normal; overflow: visible; }
 .subgraphIcon {
   display: inline-flex;
   align-items: center;

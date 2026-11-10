@@ -1,13 +1,16 @@
 /* Text input styling comes from the caller's field class (Settings: `.field input`), so a picked or typed value
    looks like every other settings field. This module styles the list row and its status. */
 .root { display: flex; flex-direction: column; gap: 4px; }
-.row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+/* The list button asks for the room its words need; when the action beside it leaves less, the action moves to
+   its own line instead of the words being cut. A picked value longer than the whole row is shortened. */
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; min-width: 0; }
 .trigger {
   display: inline-flex;
   flex: 1 1 auto;
   align-items: center;
   gap: 8px;
   min-width: 0;
+  max-width: 100%;
   min-height: 30px;
   padding: 4px 10px;
   border: 1px dashed var(--border-strong);

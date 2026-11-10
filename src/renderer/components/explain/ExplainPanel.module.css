@@ -43,9 +43,8 @@
 .url {
   flex: 1;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* An address is read and copied whole: a long one wraps. */
+  overflow-wrap: anywhere;
   font-family: var(--font-mono, ui-monospace, monospace);
   color: var(--text-dim);
   user-select: all;

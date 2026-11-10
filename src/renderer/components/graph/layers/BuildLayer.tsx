@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useEffect, useLayoutEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowRight } from 'lucide-react';
 import { NodeToolbar, Position, ViewportPortal, useReactFlow } from '@xyflow/react';
@@ -14,14 +14,14 @@ import { CALLOUT_HOLD_MS, calloutText, parameterChanges, stepCounter, stepDelayM
 import { motionLevel, motionMs, useMotionLevel } from '../lib/motion';
 import { useNodeInfoStore } from '../nodeInfo';
 import { useCenterOn } from './TourLayer';
+import { nodeDisplayName } from '../lib/nodeName';
+import { BUILD_BUBBLE_PX, BUILD_ROOM_PX, CALLOUT_GAP_PX } from '../lib/followCamera';
 import { FIT_PADDING } from '../CanvasToolbar';
 import { fitDurationMs } from '../../../motion/policy';
 import styles from './Callout.module.css';
 
 /** How long the "changed by the helper" mark stays on a node after an agent edit. */
 const AI_MARK_MS = 6000;
-/** Screen pixels the camera rises when following, so the bubble above the node stays in view. */
-const BUBBLE_LIFT_PX = 110;
 /** Following never zooms in past this, so the next steps around the node stay in view. */
 const FOLLOW_MAX_ZOOM = 1.1;
 /** The fit after a finished build does not zoom in past 1:1, like the canvas's own auto fit. */
@@ -42,7 +42,7 @@ type Translate = (key: string, options?: Record<string, unknown>) => string;
 function nodeTitle(node: GraphNode | undefined, fallback: string): string {
   if (!node) return fallback;
   const detail = useNodeInfoStore.getState().details[node.data.comfyType];
-  return node.data.title || detail?.displayName || node.data.comfyType || fallback;
+  return nodeDisplayName(node.data, detail?.displayName) || fallback;
 }
 
 /** The callout for one revealed item, from what the build-step chunk said and what the graph already knows. */
@@ -85,8 +85,8 @@ function calloutFor(item: BuildItem, t: Translate): BuildCallout | null {
   };
 }
 
-/** Shows one item now: marks it for the reveal animation, counts it, opens its callout, follows it. */
-function reveal(item: BuildItem, t: Translate, centerOn: (nodeId: string) => void): void {
+/** Shows one item now: marks it for the reveal animation, counts it, opens its callout (the camera follows the callout). */
+function reveal(item: BuildItem, t: Translate): void {
   const canvas = useCanvasStore.getState();
   if (item.kind !== 'param') {
     canvas.markAdded([item.key]);
@@ -97,7 +97,6 @@ function reveal(item: BuildItem, t: Translate, centerOn: (nodeId: string) => voi
   if (!callout) return;
   canvas.setCallout(callout);
   if (callout.text) canvas.setLive({ ...useCanvasStore.getState().live, why: callout.text });
-  if (useUiStore.getState().followAgent) centerOn(callout.nodeId);
 }
 
 function fadingOf(nodes: GraphNode[]): FadingNode[] {
@@ -134,16 +133,14 @@ export default function BuildLayer() {
   const centerRequest = useCanvasStore((state) => state.centerRequest);
   const centerNode = useCenterOn();
   const flow = useReactFlow();
-  // Following the build: centre a little above the node so its bubble (above it) and the strip both fit.
-  const centerOn = useCallback((nodeId: string) => {
-    const node = flow.getInternalNode(nodeId);
-    if (!node) return;
-    const zoom = Math.min(FOLLOW_MAX_ZOOM, Math.max(flow.getZoom(), 0.85));
-    const width = node.measured?.width ?? 240;
-    const height = node.measured?.height ?? 120;
-    const at = node.internals.positionAbsolute;
-    void flow.setCenter(at.x + width / 2, at.y + height / 2 - BUBBLE_LIFT_PX / zoom, { zoom, duration: motionMs('--motion-tour', 600) });
-  }, [flow]);
+  // Following the build: the node and its bubble (above it) land under the toolbar and the build strip. The
+  // bubble is as tall as its reason is long, so its height is read once it is laid out, before the camera goes.
+  useLayoutEffect(() => {
+    if (!callout || !useUiStore.getState().followAgent) return;
+    const bubble = document.querySelector<HTMLElement>('[data-build-callout]');
+    const above = bubble && bubble.offsetHeight > 0 ? bubble.offsetHeight + CALLOUT_GAP_PX : BUILD_BUBBLE_PX;
+    centerNode(callout.nodeId, { top: BUILD_ROOM_PX, above, maxZoom: FOLLOW_MAX_ZOOM });
+  }, [callout, centerNode]);
   const previous = useRef<{ nodes: GraphNode[]; edges: GraphEdge[] } | null>(null);
 
   useEffect(() => {
@@ -210,12 +207,12 @@ export default function BuildLayer() {
     const current = useCanvasStore.getState();
     if (motionLevel() === 'off') {
       // Everything at once; the last step keeps a numbered callout.
-      for (const item of items) reveal(item, translateRef.current, centerOn);
+      for (const item of items) reveal(item, translateRef.current);
       return;
     }
     const known = new Set(current.queue.map((item) => item.key));
     current.setQueue([...current.queue, ...items.filter((item) => !known.has(item.key))]);
-  }), [centerOn]);
+  }), []);
 
   // The head of the queue appears after the reading pace; the next one waits for it.
   const head = queue[0];
@@ -232,10 +229,10 @@ export default function BuildLayer() {
       const canvas = useCanvasStore.getState();
       if (canvas.queue[0] !== head) return;
       canvas.setQueue(canvas.queue.slice(1));
-      reveal(head, translateRef.current, centerOn);
+      reveal(head, translateRef.current);
     }, delay);
     return () => window.clearTimeout(timer);
-  }, [head, centerOn]);
+  }, [head]);
 
   // The build finished (run over, every step shown): part of the graph may be off-screen, so the view fits it once
   // and the person sees the whole result. While following, the camera first stays on the last step long enough to

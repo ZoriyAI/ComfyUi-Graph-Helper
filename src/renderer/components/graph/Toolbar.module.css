@@ -2,9 +2,13 @@
 .toolbar {
   position: relative;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   width: max-content;
+  /* Never wider than the canvas it floats over: in a narrow canvas the groups wrap to a second row. */
+  max-width: calc(100cqw - 24px);
   padding: 4px;
   border-radius: 12px;
   border: 1px solid var(--border, #2a3648);
@@ -83,6 +87,11 @@
 .controls :global(.react-flow__controls-button) { border-right: 1px solid transparent; }
 .controls :global(.react-flow__controls-button svg) { width: 13px; height: 13px; max-width: 13px; max-height: 13px; fill: currentColor; }
 .wide { padding: 0 10px; }
+/* A narrow canvas: the two labelled buttons keep their icons and tooltips and drop their words. */
+@container canvas (max-width: 620px) {
+  .wide > span { display: none; }
+  .wide { padding: 0 6px; }
+}
 /* Lucide glyphs are drawn with strokes: React Flow's control-button fill would turn them into blobs. */
 .controls :global(.react-flow__controls-button) .glyph { width: 16px; height: 16px; max-width: 16px; max-height: 16px; fill: none; }
 .label { padding: 0 6px; color: var(--text-dim, #a3b1c6); font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; }

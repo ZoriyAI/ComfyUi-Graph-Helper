@@ -47,6 +47,9 @@ html[data-motion="reduced"] .react-flow__connection .animated { animation: none;
   box-shadow: var(--highlight-top), 0 2px 4px rgba(0, 0, 0, 0.4), 0 12px 28px -8px rgba(0, 0, 0, 0.65);
 }
 .graph-minimap svg { display: block; }
+/* On a small canvas the map would cover a quarter of it: the canvas itself is the map then. */
+@container canvas (max-width: 560px) { .graph-minimap { display: none; } }
+@container canvas (max-height: 420px) { .graph-minimap { display: none; } }
 .react-flow__attribution { opacity: 0.55; background: transparent; }
 .react-flow__attribution a { color: var(--text-faint); }
 .react-flow__controls { box-shadow: none; }

@@ -73,7 +73,10 @@
 /* The helper select: icon with a key dot, then "Assistant: name · model", truncated with the full text in the tooltip. */
 .helper { position: relative; display: inline-flex; align-items: center; min-width: 0; }
 .helper :global(.select-trigger) { gap: 6px; padding-left: 7px; }
-.helper :global(.select-trigger) > span:first-of-type { max-width: 34ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The name gets the room the window has: about 26 letters in the smallest window, 45 in a wide one. */
+.helper :global(.select-trigger) > span:first-of-type { max-width: 30ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (min-width: 1024px) { .helper :global(.select-trigger) > span:first-of-type { max-width: 40ch; } }
+@media (min-width: 1280px) { .helper :global(.select-trigger) > span:first-of-type { max-width: 52ch; } }
 .helperIcon { flex: 0 0 auto; color: var(--ai, var(--accent)); }
 .helper::after {
   content: "";

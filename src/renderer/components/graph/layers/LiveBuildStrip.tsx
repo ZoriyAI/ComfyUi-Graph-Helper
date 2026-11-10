@@ -60,9 +60,9 @@ export default function LiveBuildStrip() {
           </>
         ) : null}
         {queued > 0 ? (
-          <button type="button" className={`${styles.button} ${styles.wide}`} onClick={revealAllNow}>
+          <button type="button" className={`${styles.button} ${styles.wide}`} onClick={revealAllNow} title={String(t('canvas.showAll'))}>
             <FastForward size={14} aria-hidden="true" />
-            {t('canvas.showAll')}
+            <span>{t('canvas.showAll')}</span>
           </button>
         ) : null}
       </div>

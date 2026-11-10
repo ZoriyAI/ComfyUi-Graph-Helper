@@ -10,6 +10,8 @@
   color: var(--text-dim);
   font-size: var(--text-xs);
   white-space: nowrap;
+  min-width: 0;
+  max-width: 100%;
   cursor: pointer;
   transition: background-color var(--motion-feedback) var(--motion-ease-out);
 }
@@ -21,7 +23,7 @@
 .error { color: var(--danger); }
 .error .dot { background: var(--danger); }
 .running { color: var(--accent); }
-.label { overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
+.label { overflow: hidden; text-overflow: ellipsis; min-width: 0; max-width: 260px; }
 
 .panel { display: flex; flex-direction: column; gap: 10px; }
 .head { display: flex; align-items: center; gap: 8px; }

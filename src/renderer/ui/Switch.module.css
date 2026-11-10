@@ -3,6 +3,8 @@
   position: relative;
   width: 36px;
   height: 20px;
+  /* A button brings its own side padding; with it the thumb sat 6px off and left the track when switched on. */
+  padding: 0;
   flex: 0 0 auto;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-pill);

@@ -7,6 +7,7 @@ import { useCanvasView } from '../CanvasContext';
 import NodeCard from './NodeCard';
 import { useConnectedHandles } from './PortHandle';
 import { useNodeFlags } from './nodeFlags';
+import { hasOwnTitle } from '../lib/nodeName';
 import styles from './Node.module.css';
 
 /**
@@ -23,11 +24,14 @@ export default function SubgraphNode({ id, data, selected }: { id: string; data:
   const enter = useGraphStore((state) => state.enterSubgraph);
   const name = definition?.name ?? definitionId;
   const canEnter = Boolean(definition) && !view.readOnly;
+  // A title a person gave; an imported node without one arrives with its class (the subgraph's id) as its title.
+  const ownTitle = hasOwnTitle(data);
   return (
     <div className={styles.subgraphWrap} onDoubleClick={canEnter ? () => enter(definitionId) : undefined}>
       <NodeCard
         id={id}
-        data={data}
+        // A subgraph without a title of its own is called by the subgraph's name, never by its id.
+        data={ownTitle ? data : { ...data, title: definition?.name ?? String(t('node.subgraph')) }}
         connected={connected}
         state={{ ...flags, selected, subgraph: true }}
         headerExtra={canEnter ? (
@@ -46,7 +50,8 @@ export default function SubgraphNode({ id, data, selected }: { id: string; data:
             <span>{t('node.enter')}</span>
           </button>
         ) : null}
-        footer={<div className={styles.definitionName}>{name}</div>}
+        // The line under the ports names the subgraph only when the node carries a title of its own.
+        footer={ownTitle && data.title !== name ? <div className={styles.definitionName}>{name}</div> : null}
       />
     </div>
   );

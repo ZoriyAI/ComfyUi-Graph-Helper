@@ -23,6 +23,7 @@ import { getCommand, isEnabled, runCommand } from '../../commands/registry';
 import { addGroup, createSubgraph, dissolveSubgraph, openAddNode } from '../../commands/actions';
 import Shortcut from '../../ui/Shortcut';
 import { startGraphTour } from './tour/startTour';
+import { nodeDisplayName } from './lib/nodeName';
 import styles from './GraphContextMenu.module.css';
 
 /** What the person right-clicked (or pressed Shift+F10 on). */
@@ -51,7 +52,7 @@ export function targetFromElement(element: Element | null, at: { x: number; y: n
 }
 
 function nodeName(node: GraphNode | undefined): string {
-  return node ? String(node.data.title || node.data.comfyType) : '';
+  return nodeDisplayName(node?.data);
 }
 
 function findPort(node: GraphNode | undefined, direction: 'input' | 'output', handle: string): PortDefinition | undefined {

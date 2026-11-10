@@ -1,10 +1,11 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
-import { NodeToolbar, Position, useReactFlow } from '@xyflow/react';
+import { NodeToolbar, Position, useReactFlow, useStoreApi } from '@xyflow/react';
 import { useUiStore } from '../../../state/uiState';
 import Illustration from '../illustrations/Illustration';
 import { motionMs, useMotionLevel } from '../lib/motion';
+import { CALLOUT_GAP_PX, cameraCenter, TOOLBAR_ROOM_PX, TOUR_CALLOUT_PX, type CameraRoom } from '../lib/followCamera';
 import { useDescriptionCardShown } from './DescriptionLayer';
 import styles from './Callout.module.css';
 
@@ -18,17 +19,29 @@ function typingTarget(target: EventTarget | null): boolean {
   return false;
 }
 
-/** Centre the camera on a node over --motion-tour (instant without full motion). */
+/**
+ * Bring the camera to a node over --motion-tour (instant without full motion). The node, and the callout above
+ * it when `room.above` says there is one, land under the canvas's own controls, not behind them.
+ */
 export function useCenterOn() {
   const flow = useReactFlow();
-  return useCallback((nodeId: string) => {
+  const store = useStoreApi();
+  return useCallback((nodeId: string, room: Partial<CameraRoom> & { maxZoom?: number } = {}) => {
     const node = flow.getInternalNode(nodeId);
     if (!node) return;
     const width = node.measured?.width ?? 240;
     const height = node.measured?.height ?? 120;
     const at = node.internals.positionAbsolute;
-    void flow.setCenter(at.x + width / 2, at.y + height / 2, { zoom: Math.max(flow.getZoom(), 0.85), duration: motionMs('--motion-tour', 600) });
-  }, [flow]);
+    const zoom = Math.min(room.maxZoom ?? Infinity, Math.max(flow.getZoom(), 0.85));
+    const pane = store.getState();
+    const center = cameraCenter(
+      { x: at.x, y: at.y, width, height },
+      { width: pane.width, height: pane.height },
+      zoom,
+      { top: room.top ?? TOOLBAR_ROOM_PX, above: room.above ?? 0 },
+    );
+    void flow.setCenter(center.x, center.y, { zoom, duration: motionMs('--motion-tour', 600) });
+  }, [flow, store]);
 }
 
 /**
@@ -50,8 +63,12 @@ export default function TourLayer() {
   // The step's text lives in the node's description card (expanded while the step is on) when cards are on.
   const textInCard = useDescriptionCardShown(step?.ref.kind === 'node' ? stepId : undefined);
 
-  useEffect(() => {
-    if (stepId) centerOn(stepId);
+  // The callout stands above the node; its height (it depends on the text) is read once it is laid out. One move
+  // per step: when the text then moves into the node's card the callout only gets shorter, which needs no second.
+  useLayoutEffect(() => {
+    if (!stepId) return;
+    const box = document.querySelector<HTMLElement>('[data-tour-step]');
+    centerOn(stepId, { above: box && box.offsetHeight > 0 ? box.offsetHeight + CALLOUT_GAP_PX : TOUR_CALLOUT_PX });
   }, [stepId, centerOn]);
 
   useEffect(() => {

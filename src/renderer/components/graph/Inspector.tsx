@@ -20,6 +20,8 @@ import { commitField } from '../fields/commitField';
 import { isSeedField, nodeLayout, type FieldEntry } from '../fields/fieldModel';
 import { typeColor } from './lib/typeColors';
 import SubgraphSummary from './SubgraphSummary';
+import { titleParts } from './nodes/titleBreaks';
+import { hasOwnTitle, nodeDisplayName } from './lib/nodeName';
 import styles from './Inspector.module.css';
 
 function recordFor(components: ComponentRecord[], kind: ComponentOwnerKind, ownerId: string): ComponentRecord | undefined {
@@ -29,12 +31,15 @@ function recordFor(components: ComponentRecord[], kind: ComponentOwnerKind, owne
 function DocsEditor({
   ownerKind,
   ownerId,
+  name,
   purpose,
   usage,
   heading,
 }: {
   ownerKind: ComponentOwnerKind;
   ownerId: string;
+  /** What the notes are about, in the person's words: the node's or the subgraph's name, never its id. */
+  name: string;
   purpose: string;
   usage: string;
   heading: string;
@@ -66,7 +71,7 @@ function DocsEditor({
       }}
     >
       <h3 className={styles.h3}>{heading}</h3>
-      <p className={`inspector-type ${styles.mono}`}>{ownerId}</p>
+      {name ? <p className={`inspector-type ${styles.mono}`}>{name}</p> : null}
       <label htmlFor={purposeId}>{t('inspector.purpose')}</label>
       <textarea id={purposeId} className={styles.field} value={draftPurpose} aria-describedby={`${purposeId}-hint`} onChange={(event) => setDraftPurpose(event.target.value)} />
       <p id={`${purposeId}-hint`} className={`inspector-empty ${styles.hint}`}>{t('inspector.purposeHint')}</p>
@@ -175,6 +180,7 @@ function NodeSection({ node, edges }: { node: GraphNode; edges: GraphEdge[] }) {
   const { t } = useTranslation();
   const data = node.data as ComfyNodeData;
   const instance = data.kind === 'subgraph-instance';
+  const inDefinition = useGraphStore((state) => state.activeSubgraphId !== null);
   const detail = useNodeDetail(instance ? undefined : data.comfyType);
   const subgraphs = useGraphStore((state) => state.subgraphs);
   const enter = useGraphStore((state) => state.enterSubgraph);
@@ -183,7 +189,7 @@ function NodeSection({ node, edges }: { node: GraphNode; edges: GraphEdge[] }) {
   useEffect(() => setName(definition?.name ?? ''), [definition?.name]);
   const ref = nodeRef(node);
   const canvasReplay = useCanvasStore((state) => Boolean(state.replay));
-  const title = String(data.title || detail?.displayName || data.comfyType);
+  const title = String((definition && !hasOwnTitle(data) ? definition.name : data.title) || definition?.name || detail?.displayName || data.comfyType);
   const connected = (side: 'in' | 'out', handle: string) => edges.some((edge) => (side === 'in'
     ? edge.target === node.id && edge.targetHandle === handle
     : edge.source === node.id && edge.sourceHandle === handle));
@@ -205,7 +211,13 @@ function NodeSection({ node, edges }: { node: GraphNode; edges: GraphEdge[] }) {
       <header className={styles.header}>
         <Illustration classType={instance ? undefined : data.comfyType} hoverPlay />
         <div className={styles.headText}>
-          <h2 className={styles.h2}>{title}</h2>
+          <h2 className={styles.h2}>
+            {/* A class name wraps between its words, as on the node. */}
+            {titleParts(title).map((part, index) => (
+              // eslint-disable-next-line react/no-array-index-key
+              <React.Fragment key={index}>{index > 0 ? <wbr /> : null}{part}</React.Fragment>
+            ))}
+          </h2>
           <p className={`inspector-type ${styles.mono}`}>{instance ? definition?.name ?? data.comfyType : data.comfyType}</p>
           {detail?.category ? <p className={styles.meta}>{t('inspector.category')}: {detail.category}</p> : null}
         </div>
@@ -248,8 +260,11 @@ function NodeSection({ node, edges }: { node: GraphNode; edges: GraphEdge[] }) {
               <span className={styles.dot} aria-hidden="true" />
               <span className={styles.dir}>{port.direction === 'in' ? t('inspector.in') : t('inspector.out')}</span>
               <span className={styles.portName}>{port.name}</span>
-              <span className={styles.mono}>{port.dataType}</span>
-              <span className={linked ? styles.linked : styles.free}>{linked ? t('inspector.connected') : t('inspector.free')}</span>
+              {/* The type and the state stay together: when the name needs the line, both go under it, on the right. */}
+              <span className={styles.portEnd}>
+                <span className={styles.mono}>{port.dataType}</span>
+                <span className={linked ? styles.linked : styles.free}>{linked ? t('inspector.connected') : t('inspector.free')}</span>
+              </span>
             </li>
           );
         })}
@@ -262,7 +277,8 @@ function NodeSection({ node, edges }: { node: GraphNode; edges: GraphEdge[] }) {
           ))}
         </div>
       )}
-      <Explanations refs={[ref, ...(instance ? [] : [{ kind: 'nodeClass' as const, id: data.comfyType, classType: data.comfyType }])]} />
+      {/* Inside a subgraph the nodes are numbered from 1 again: what was written for node 1 of the graph is not about this one. */}
+      <Explanations refs={[...(inDefinition ? [] : [ref]), ...(instance ? [] : [{ kind: 'nodeClass' as const, id: data.comfyType, classType: data.comfyType }])]} />
     </>
   );
 }
@@ -274,8 +290,8 @@ function EdgeSection({ edge, nodes }: { edge: GraphEdge; nodes: GraphNode[] }) {
   const output = source?.data.outputs.find((port) => port.id === edge.sourceHandle);
   const input = target?.data.inputs.find((port) => port.id === edge.targetHandle);
   const type = String(edge.data?.dataType ?? output?.dataType ?? '');
-  const sourceName = String(source?.data.title || source?.data.comfyType || edge.source);
-  const targetName = String(target?.data.title || target?.data.comfyType || edge.target);
+  const sourceName = nodeDisplayName(source?.data) || edge.source;
+  const targetName = nodeDisplayName(target?.data) || edge.target;
   const ref: ObjectRef = { kind: 'edge', id: edge.id };
   return (
     <>
@@ -365,9 +381,9 @@ export default function Inspector() {
         <>
           <NodeSection node={node} edges={edges} />
           {nodeRecord ? (
-            <DocsEditor ownerKind="node" ownerId={node.id} purpose={nodeRecord.purpose} usage={nodeRecord.usage} heading={String(t('inspector.component'))} />
+            <DocsEditor ownerKind="node" ownerId={node.id} name={nodeDisplayName(node.data)} purpose={nodeRecord.purpose} usage={nodeRecord.usage} heading={String(t('inspector.component'))} />
           ) : null}
-          {instance ? <p className={`inspector-empty ${styles.hint}`}>{t('inspector.instanceOf', { id: instance })}</p> : null}
+          {instance ? <p className={`inspector-empty ${styles.hint}`}>{t('inspector.instanceOf')}</p> : null}
         </>
       ) : null}
       {edge ? <EdgeSection edge={edge} nodes={nodes} /> : null}
@@ -395,7 +411,7 @@ export default function Inspector() {
         </div>
       )}
       {activeSubgraph && subgraphRecord ? (
-        <DocsEditor ownerKind="subgraph" ownerId={activeSubgraph.id} purpose={subgraphRecord.purpose} usage={subgraphRecord.usage} heading={String(t('inspector.subgraphs'))} />
+        <DocsEditor ownerKind="subgraph" ownerId={activeSubgraph.id} name={activeSubgraph.name} purpose={subgraphRecord.purpose} usage={subgraphRecord.usage} heading={String(t('inspector.subgraphs'))} />
       ) : null}
 
       <form

@@ -111,7 +111,7 @@ export function ModelList({ listId, listRef, state, shown, fallback, current, di
               {row ? (
                 <span className={styles.modelMeta}>
                   {row.baseModel !== 'unknown' ? <FamilyBadge family={row.baseModel} /> : null}
-                  {row.kind !== 'other' ? <KindBadge kind={row.kind} /> : null}
+                  {row.kind !== 'other' ? <KindBadge kind={row.kind} short /> : null}
                   {row.sizeBytes ? <span className={styles.size}>{formatBytes(row.sizeBytes, language)}</span> : null}
                 </span>
               ) : null}

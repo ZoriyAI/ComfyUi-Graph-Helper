@@ -53,13 +53,14 @@ export default function StatusBar() {
   const language = i18n.language === 'en' ? t('settings.languageEnglish') : t('settings.languageRussian');
 
   return (
-    <footer className={cx(styles.bar, 'status-bar')} aria-label={String(t('status.region'))}>
+    <footer className={cx(styles.bar, 'status-bar')} aria-label={String(t('status.region'))} data-run={activeRun ? 'true' : undefined}>
       <span className={styles.group}>
         <span className={cx(styles.item, styles.mono)}>{t('status.nodes', { count: nodes.length })}</span>
         <span className={cx(styles.item, styles.mono)}>{t('status.edges', { count: edgeCount })}</span>
         <span className={styles.item}>{selected === 0 ? t('status.noSelection') : t('status.selected', { count: selected })}</span>
-        <span className={cx(styles.item, styles.mono)}>{t('status.zoom', { percent: Math.round(zoom * 100) })}</span>
-        {revSeq > 0 ? <span className={cx(styles.item, styles.mono)}>{t('status.revision', { rev: revSeq })}</span> : null}
+        {/* Zoom and the history step give way first when a run needs the room (StatusBar.module.css). */}
+        <span className={cx(styles.item, styles.mono, styles.optional)}>{t('status.zoom', { percent: Math.round(zoom * 100) })}</span>
+        {revSeq > 0 ? <span className={cx(styles.item, styles.mono, styles.optional)}>{t('status.revision', { rev: revSeq })}</span> : null}
       </span>
       <span className={styles.spacer} />
       {activeRun ? (
@@ -80,7 +81,7 @@ export default function StatusBar() {
           </button>
         </span>
       ) : null}
-      <span className={styles.group}>
+      <span className={cx(styles.group, styles.settings)}>
         <span className={styles.item}>{t('status.language', { language })}</span>
         <span className={styles.item}>{t('status.motion', { mode: t(MOTION_KEYS[motion] ?? 'settings.motionSystem') })}</span>
       </span>

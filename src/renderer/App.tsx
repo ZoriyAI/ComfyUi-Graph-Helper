@@ -18,6 +18,7 @@ import { useChatStore } from './state/chatState';
 import { startSyncSubscription } from './state/knowledgeState';
 import { startProposalsSubscription } from './state/proposalsState';
 import { useUiStore } from './state/uiState';
+import { installFrameBalance } from './state/frame';
 import { refreshKeySources, useProviderStore } from './state/providerState';
 import { applyProjection, useProjectionStore } from './services/commands/projection';
 import { getChatService } from './services/llm/chatService';
@@ -57,6 +58,7 @@ function App() {
     const offCommands = installAppCommands();
     const offHotkeys = installHotkeys();
     const offPreferences = installPreferences();
+    const offFrame = installFrameBalance();
     window.electronAPI.readProjection(DESKTOP_PROJECT_ID).then((projection) => {
       applyProjection(projection);
       markCurrentSaved();
@@ -65,6 +67,7 @@ function App() {
     });
     void refreshKeySources().catch(() => undefined);
     return () => {
+      offFrame();
       offPreferences();
       offHotkeys();
       offCommands();

@@ -128,6 +128,8 @@ export default function SyncIndicator() {
   }, [view.state]);
 
   const stateLabel = String(t(view.labelKey, view.labelParams ?? {}));
+  // The pill has little room: while model files are read it shows the short form, so the counter is never cut.
+  const pillLabel = view.enriching && view.labelParams ? String(t('sync.enrichingShort', view.labelParams)) : stateLabel;
   const progress = status?.progress;
   const phaseKey = progress ? `sync.phase.${progress.phase}` : '';
   const phase = progress ? (i18n.exists(phaseKey) ? String(t(phaseKey)) : progress.phase) : '';
@@ -169,7 +171,7 @@ export default function SyncIndicator() {
           {view.busy
             ? <ProgressRing value={view.fraction} size={14} label={stateLabel} />
             : <span className={styles.dot} aria-hidden="true" />}
-          <span className={styles.label}>{stateLabel}</span>
+          <span className={styles.label} title={stateLabel}>{pillLabel}</span>
         </button>
       </PopoverTrigger>
       <PopoverContent align="end" aria-label={String(t('settings.sync'))}>

@@ -16,7 +16,8 @@ export const PopoverContent = forwardRef<HTMLDivElement, Pop.PopoverContentProps
   return (
     <Pop.Portal>
       <Pop.Content ref={ref} className={cx(styles.content, className)} sideOffset={sideOffset} collisionPadding={collisionPadding} {...rest}>
-        {children}
+        {/* The arrow lives outside the box, so the box itself cannot clip: an inner box scrolls. */}
+        <div className={styles.scroll}>{children}</div>
         <Pop.Arrow className={styles.arrow} width={12} height={6} />
       </Pop.Content>
     </Pop.Portal>
