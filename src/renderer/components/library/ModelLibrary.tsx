@@ -243,6 +243,12 @@ export default function ModelLibrary() {
             label={String(t('library.modelList'))}
             getKey={modelKey}
             onActivate={(model) => setOpen(model)}
+            onRowKey={(_model, event) => {
+              // Escape in the list closes the card the keyboard opened with Enter.
+              if (event.key !== 'Escape' || !open) return false;
+              setOpen(null);
+              return true;
+            }}
             onRangeChange={(start, end) => setVisible(rows.slice(start, end))}
             renderRow={(model, { active }) => {
               const triggers = triggerCounts.get(modelKey(model));
