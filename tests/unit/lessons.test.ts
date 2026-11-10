@@ -12,6 +12,7 @@ import {
   type LessonNode,
   type Missing,
 } from '../../src/shared/lessons/engine';
+import { columnsOf, lessonSpot, type FlowRect } from '../../src/shared/lessons/flow';
 import { LESSONS, LESSON_AFTER, lessonById } from '../../src/shared/lessons/lessons';
 
 /**
@@ -294,6 +295,166 @@ describe('a LoRA loader on the way does not break a lesson', () => {
   });
 });
 
+describe('the lesson on adult content asks for neither a LoRA nor a further-trained model', () => {
+  const lesson = lessonById('adult')!;
+  const read = lesson.steps.filter((step) => step.read).map((step) => step.id);
+
+  it('is done on a plain video graph: the subject may come from the pair of models chosen in the two loaders', () => {
+    const canvas = new Canvas();
+    carryOut(lessonById('video-text')!, canvas);
+    expect(canvas.nodes.some((node) => node.classType === 'LoraLoaderModelOnly')).toBe(false);
+    // Nothing on the canvas is asked for: only the steps that explain are left.
+    const before = lessonProgress(lesson, canvas, FACTS, new Set());
+    expect(lesson.steps[before.current].id).toBe('rules');
+    expect(done(lesson, canvas, read).current).toBe(lesson.steps.length);
+    expect(rolesOf(lesson).map((spec) => spec.classes[0])).not.toContain('LoraLoaderModelOnly');
+    expect(lessonGaps(lesson, (classType) => (classType === 'LoraLoaderModelOnly' ? null : ports(classType)))).toEqual([]);
+  });
+
+  it('holds a LoRA that is on the canvas to its words, wherever it stands', () => {
+    const canvas = new Canvas();
+    carryOut(lessonById('video-text')!, canvas);
+    carryOut(lessonById('lora')!, canvas, {});
+    // The files name no words: nothing to compare with.
+    expect(lessonProgress(lesson, canvas, {}, new Set(read)).current).toBe(lesson.steps.length);
+    const loaders = canvas.nodes.filter((node) => node.classType === 'LoraLoaderModelOnly');
+    loaders[1].values.lora_name = 'style-low.safetensors';
+    const asks = done(lesson, canvas, read);
+    expect(lesson.steps[asks.current].id).toBe('trigger');
+    expect(asks.missing).toHaveLength(1);
+    expect(asks.missing[0]).toMatchObject({ kind: 'field', field: 'text', test: { kind: 'has-trigger' } });
+    // Only the person can write the words.
+    expect(fixFor(asks.missing[0], canvas, installed)).toBeNull();
+    canvas.node(asks.missing[0].kind === 'field' ? asks.missing[0].nodeId : '').values.text = 'a street at night, neon rain on glass';
+    expect(done(lesson, canvas, read).current).toBe(lesson.steps.length);
+    // A LoRA node that is linked to nothing yet counts too: its file is chosen, its words are asked for.
+    canvas.node(asks.missing[0].kind === 'field' ? asks.missing[0].nodeId : '').values.text = 'a street at night';
+    for (const loader of loaders) canvas.links = canvas.links.filter((link) => link.from !== loader.id && link.to !== loader.id);
+    expect(lesson.steps[done(lesson, canvas, read).current].id).toBe('trigger');
+  });
+
+  it('says both ways in its words, and what a model with the speed-up built in needs', async () => {
+    const { lessonWords } = await import('../../src/shared/lessons/texts');
+    for (const language of ['ru', 'en'] as const) {
+      const steps = lessonWords(language, 'adult')!.steps;
+      expect(steps.tuned.body).toContain('`unet_name`');
+      expect(steps.tuned.body).toMatch(/`steps` 4/);
+      expect(steps.tuned.body).toMatch(/`cfg` 1/);
+      expect(steps.lora.body).toContain(lessonWords(language, 'lora')!.title);
+      expect(steps.tuned.body).toContain(lessonWords(language, 'video-fast')!.title);
+      // The step that checks the words says when there is nothing to check.
+      expect(steps.trigger.body).toMatch(language === 'ru' ? /LoRA в графе нет/ : /has no LoRA/);
+    }
+  });
+});
+
+describe('a node the app adds for a lesson stands where the graph reads left to right', () => {
+  const GAPS = { x: 96, y: 72 };
+  const sizeOf = (classType: string) => ({ width: 240, height: 70 + 30 * CLASSES[classType].inputs.length });
+
+  /** Carries a lesson out as carryOut does, and gives each node the app adds the spot the app would give it. */
+  function build(lesson: Lesson, canvas: Canvas, rects: Map<string, FlowRect>): void {
+    const read = new Set<string>();
+    for (let guard = 0; guard < 400; guard += 1) {
+      const progress = lessonProgress(lesson, canvas, FACTS, read);
+      if (progress.current === lesson.steps.length) return;
+      const step = lesson.steps[progress.current];
+      if (step.read) {
+        read.add(step.id);
+        continue;
+      }
+      const missing = progress.missing[0];
+      const fix = fixFor(missing, canvas, installed);
+      if (!fix) decide(canvas, missing);
+      else if (fix.kind === 'add-node') {
+        const size = sizeOf(fix.classType);
+        // The first node of a lesson goes where any new node goes; here that is the origin.
+        const spot = (missing.kind === 'node' ? lessonSpot(lesson, missing.role, progress.roles, rects, size, GAPS) : null) ?? { x: 0, y: 0 };
+        rects.set(canvas.add(fix.classType).id, { ...spot, ...size });
+      } else if (fix.kind === 'connect') canvas.connect(fix.from, fix.fromPort, fix.to, fix.toPort);
+      else canvas.node(fix.nodeId).values[fix.field] = fix.value;
+    }
+    throw new Error(`${lesson.id} did not come to its end`);
+  }
+
+  /** Pairs of nodes that stand closer than the room the canvas keeps around a new node. */
+  function crowded(rects: Map<string, FlowRect>, room = 56): string[] {
+    const all = [...rects.entries()];
+    const out: string[] = [];
+    all.forEach(([a, one], index) => {
+      for (const [b, other] of all.slice(index + 1)) {
+        if (one.x < other.x + other.width + room && one.x + one.width + room > other.x && one.y < other.y + other.height + room && one.y + one.height + room > other.y) out.push(`${a} and ${b}`);
+      }
+    });
+    return out;
+  }
+
+  it('gives every role a column, and every link of every lesson goes to a column further right', () => {
+    for (const lesson of LESSONS) {
+      const columns = columnsOf(lesson);
+      expect(Object.keys(columns).sort(), lesson.id).toEqual([...new Set(rolesOf(lesson).map((spec) => spec.role))].sort());
+      for (const step of lesson.steps) {
+        for (const link of step.links ?? []) expect(columns[link.from], `${lesson.id}: ${link.from} → ${link.to}`).toBeLessThan(columns[link.to]);
+      }
+    }
+    expect(columnsOf(lessonById('image')!)).toEqual({ checkpoint: 0, latent: 0, positive: 1, negative: 1, sampler: 2, decode: 3, save: 4 });
+    expect(columnsOf(lessonById('video-text')!)).toMatchObject({ high: 0, low: 0, clip: 0, vae: 0, shiftHigh: 1, shiftLow: 1, first: 2, second: 3, decode: 4, video: 5, save: 6 });
+  });
+
+  for (const id of ['image', 'video-text', 'video-image']) {
+    it(`${id}: built by the app from an empty canvas, every link goes from left to right and no node crowds another`, () => {
+      const lesson = lessonById(id)!;
+      const canvas = new Canvas();
+      const rects = new Map<string, FlowRect>();
+      build(lesson, canvas, rects);
+      expect(rects.size).toBe(rolesOf(lesson).length);
+      expect(canvas.links.length).toBeGreaterThan(5);
+      for (const link of canvas.links) {
+        const from = rects.get(link.from)!;
+        const to = rects.get(link.to)!;
+        expect(from.x + from.width, `${canvas.node(link.from).classType} → ${canvas.node(link.to).classType}`).toBeLessThan(to.x);
+      }
+      expect(crowded(rects)).toEqual([]);
+      // The two models stand one under the other, and each one's noise shift at its own height.
+      if (id !== 'image') {
+        const roles = done(lesson, canvas).roles;
+        expect(rects.get(roles.low)!.x).toBe(rects.get(roles.high)!.x);
+        expect(rects.get(roles.shiftHigh)!.y).toBe(rects.get(roles.high)!.y);
+        expect(rects.get(roles.shiftLow)!.y).toBe(rects.get(roles.low)!.y);
+      }
+    });
+  }
+
+  it('puts the nodes of a later lesson into the graph of an earlier one without crowding it', () => {
+    const canvas = new Canvas();
+    const rects = new Map<string, FlowRect>();
+    build(lessonById('video-text')!, canvas, rects);
+    build(lessonById('lora')!, canvas, rects);
+    build(lessonById('video-fast')!, canvas, rects);
+    expect(canvas.nodes.filter((node) => node.classType === 'LoraLoaderModelOnly')).toHaveLength(2);
+    expect(rects.size).toBe(canvas.nodes.length);
+    expect(crowded(rects)).toEqual([]);
+    // Each LoRA stands right of the model it takes.
+    const roles = done(lessonById('lora')!, canvas).roles;
+    expect(rects.get(roles.loraHigh)!.x).toBeGreaterThan(rects.get(roles.high)!.x);
+    expect(rects.get(roles.loraLow)!.x).toBeGreaterThan(rects.get(roles.low)!.x);
+  });
+
+  it('leaves the first node of a lesson to the canvas, and a node placed by hand is not stood upon', () => {
+    const lesson = lessonById('image')!;
+    expect(lessonSpot(lesson, 'checkpoint', {}, new Map(), sizeOf('CheckpointLoaderSimple'), GAPS)).toBeNull();
+    // The person put the model loader somewhere and a note-sized node right where the first text would go.
+    const rects = new Map<string, FlowRect>([
+      ['1', { x: 500, y: 300, width: 240, height: 100 }],
+      ['9', { x: 836, y: 280, width: 240, height: 160 }],
+    ]);
+    const spot = lessonSpot(lesson, 'positive', { checkpoint: '1' }, rects, sizeOf('CLIPTextEncode'), GAPS)!;
+    expect(spot).toEqual({ x: 500 + 240 + 96, y: 280 + 160 + 72 });
+    // A role the lesson does not have gets no spot.
+    expect(lessonSpot(lesson, 'nobody', { checkpoint: '1' }, rects, sizeOf('CLIPTextEncode'), GAPS)).toBeNull();
+  });
+});
+
 describe('a lesson is offered only where it fits', () => {
   it('names the class that is not installed', () => {
     const without: ClassPorts = (classType) => (classType === 'WanImageToVideo' ? null : ports(classType));
@@ -376,17 +537,17 @@ describe('the words of the lessons', () => {
     const inputsOf = (classType: string) => CLASSES[classType].inputs.map(([name]) => name);
     // A word in backticks that is an input of some node is a field; the rest are values and file names.
     const fields = new Set(Object.keys(CLASSES).flatMap(inputsOf));
-    // What a lesson's graph is made of: its own nodes and those of the lessons it stands on. The samplers of a
-    // video graph call the seed `noise_seed`; a lesson on that graph that said `seed` would send a person to a
-    // field that is not there.
-    const classesOf = (id: string): string[] => [
-      ...rolesOf(lessonById(id)!).map((spec) => spec.classes[0]),
-      ...(LESSON_AFTER[id] ?? []).flatMap(classesOf),
-    ];
+    // What a lesson's graph is made of: its own nodes, those of the lessons it stands on, and those of a lesson
+    // its text sends the reader to by name. The samplers of a video graph call the seed `noise_seed`; a lesson
+    // on that graph that said `seed` would send a person to a field that is not there.
+    const own = (id: string): string[] => rolesOf(lessonById(id)!).map((spec) => spec.classes[0]);
+    const standsOn = (id: string): string[] => (LESSON_AFTER[id] ?? []).flatMap((other) => [other, ...standsOn(other)]);
     const strangers: string[] = [];
     for (const language of ['ru', 'en'] as const) {
       for (const lesson of LESSONS) {
-        const here = new Set(classesOf(lesson.id).flatMap(inputsOf));
+        const said = Object.values(lessonWords(language, lesson.id)!.steps).map((step) => step.body).join('\n');
+        const sentTo = LESSONS.filter((other) => other.id !== lesson.id && said.includes(lessonWords(language, other.id)!.title)).map((other) => other.id);
+        const here = new Set([lesson.id, ...standsOn(lesson.id), ...sentTo].flatMap(own).flatMap(inputsOf));
         for (const [stepId, text] of Object.entries(lessonWords(language, lesson.id)!.steps)) {
           for (const marked of text.body.match(/`[^`]+`/g) ?? []) {
             const word = marked.slice(1, -1);

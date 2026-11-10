@@ -76,9 +76,11 @@ function lackText(t: TFunction, missing: Missing, lesson: Lesson, shared: Shared
     case 'has-trigger': {
       const words = new Set<string>();
       for (const source of missing.test.of) {
-        const role = lesson.steps.flatMap((step) => step.roles ?? []).find((spec) => spec.role === source.role);
+        const classes = 'role' in source
+          ? lesson.steps.flatMap((step) => step.roles ?? []).find((spec) => spec.role === source.role)?.classes ?? []
+          : [source.classType];
         for (const item of graph.nodes) {
-          if (!role?.classes.includes(item.classType)) continue;
+          if (!classes.includes(item.classType)) continue;
           const file = item.values[source.field];
           if (typeof file === 'string') for (const word of facts.triggers?.[file] ?? []) words.add(word);
         }
@@ -305,7 +307,7 @@ function LessonRun({ lesson, shared, onAsk }: { lesson: Lesson; shared: Shared; 
                     loading={busy}
                     onClick={() => {
                       setBusy(true);
-                      void doFix(fix).finally(() => setBusy(false));
+                      void doFix(fix, first.kind === 'node' ? { lesson, role: first.role, roles: progress.roles } : undefined).finally(() => setBusy(false));
                     }}
                   >
                     {t('lessons.doIt')}

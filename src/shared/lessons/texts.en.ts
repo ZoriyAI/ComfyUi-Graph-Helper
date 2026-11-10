@@ -11,6 +11,9 @@ import type { LessonWords } from './texts';
 
 const SAVE = 'Save the graph with "File ▸ Save workflow for ComfyUI…", open the file in ComfyUI and run it there. This app runs nothing in ComfyUI itself.';
 
+/** When the file a step asks for is not in the list. The app downloads nothing: the person does, in ComfyUI. */
+const noFile = (template: string) => `If the file you need is not in the list, your ComfyUI does not have it. The app downloads nothing. The easiest way is to open, in ComfyUI itself, ${template}: it shows which files are missing and where to put them. Then choose "Sync ▸ Sync now" in this app's menu, and the files appear in the lists.`;
+
 const NEED_VIDEO = {
   title: 'A video graph is needed',
   body: 'This lesson goes on from the graph of "Video from text" or "Video from a picture". The canvas must have two {high} nodes and two {shiftHigh} nodes.\n\nIf they are not there, do one of those lessons first.',
@@ -52,7 +55,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
       model: {
         title: 'Load the model',
-        body: 'Add a {checkpoint} node. Choose the model file in its `ckpt_name` field.\n\nThis is the model that draws. One file holds three parts, so the node has three outputs: `MODEL` draws, `CLIP` understands text, `VAE` turns the result into a picture.',
+        body: `Add a {checkpoint} node. Choose the model file in its \`ckpt_name\` field.\n\nThis is the model that draws. One file holds three parts, so the node has three outputs: \`MODEL\` draws, \`CLIP\` understands text, \`VAE\` turns the result into a picture.\n\n${noFile('a ready template for a picture from text')}`,
       },
       prompts: {
         title: 'Add two texts',
@@ -102,7 +105,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
       models: {
         title: 'Load two models',
-        body: 'Add two {high} nodes. In the `unet_name` field of one choose the file with `high_noise` in its name, in the other the file with `low_noise`. This lesson needs `t2v` files, that is "text to video".\n\nThese are two halves of one model. The same file in both nodes will not work.',
+        body: `Add two {high} nodes. In the \`unet_name\` field of one choose the file with \`high_noise\` in its name, in the other the file with \`low_noise\`. This lesson needs \`t2v\` files, that is "text to video".\n\nThese are two halves of one model. The same file in both nodes will not work.\n\n${noFile('the ready Wan 2.2 "text to video" template')}`,
       },
       'text-encoder': {
         title: 'Load the text reader',
@@ -118,11 +121,11 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
       shift: {
         title: 'Set the noise shift',
-        body: 'Add two {shiftHigh} nodes. Pass the first model through one and the second through the other: the loader\'s `MODEL` output to the `model` input. Set `shift` to 8 in both.\n\nThis number shifts the noise schedule. With a small value Wan gives sluggish motion and detail that falls apart.',
+        body: 'Add two {shiftHigh} nodes. Pass the first model through one and the second through the other: the loader\'s `MODEL` output to the `model` input. Set `shift` to 8 in both.\n\nThis number shifts the noise schedule. With a small value Wan gives sluggish motion and detail that falls apart.\n\nThe SD3 in the node\'s name is left from another model: Wan is set up with the same node.',
       },
       latent: {
         title: 'Set the size and the length',
-        body: 'Add a {latent} node. Set `width` to 832, `height` to 480 and `length` to 81.\n\n`length` is the number of frames. 81 frames at 16 frames a second make five seconds. For Wan the number of frames must be of the form 4n + 1: 49, 81, 121.\n\nSize and length weigh most on time and on the memory of the graphics card. Start small.',
+        body: 'Add a {latent} node. Set `width` to 832, `height` to 480 and `length` to 81.\n\n`length` is the number of frames. 81 frames at 16 frames a second make five seconds. For Wan the number of frames must be of the form 4n + 1: 49, 81, 121.\n\nSize and length weigh most on time and on the memory of the graphics card. Start small.\n\nThe Hunyuan in the node\'s name is left from another video model: Wan uses the same blank.',
       },
       'first-pass': {
         title: 'The first pass',
@@ -152,7 +155,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
       models: {
         title: 'Choose the models for a picture',
-        body: 'Two {high} nodes are needed. In the `unet_name` field of one choose the `i2v` file with `high_noise` in its name, in the other the `i2v` file with `low_noise`. `i2v` means "image to video".\n\nThe `t2v` models of the last lesson do not take a picture.',
+        body: `Two {high} nodes are needed. In the \`unet_name\` field of one choose the \`i2v\` file with \`high_noise\` in its name, in the other the \`i2v\` file with \`low_noise\`. \`i2v\` means "image to video".\n\nThe \`t2v\` models of the last lesson do not take a picture.\n\n${noFile('the ready Wan 2.2 "image to video" template')}`,
       },
       'text-encoder': {
         title: 'The text reader',
@@ -180,7 +183,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
       'first-pass': {
         title: 'The first pass',
-        body: 'A {first} node is needed. Its `model` input takes the `high_noise` model through its {shiftHigh} node. Its `positive`, `negative` and `latent_image` inputs take the three outputs of {start}: `positive`, `negative` and `latent`.\n\nA sampler left connected to the texts directly does not learn of the picture and draws the clip from nothing.',
+        body: 'A {first} node is needed. Its `model` input takes the `high_noise` model through its {shiftHigh} node. Its `positive`, `negative` and `latent_image` inputs take the three outputs of {start}: `positive`, `negative` and `latent`.\n\nA sampler left connected to the texts directly does not learn of the picture and draws the clip from nothing.\n\nThe node with the blank from "Video from text" is connected to nothing after this. It can be deleted.',
       },
       'second-pass': {
         title: 'The second pass',
@@ -277,21 +280,28 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
       model: {
         title: 'What the model can do',
-        body: 'Most open models were trained on material with few explicit scenes or none. Left to itself such a model draws them badly: it muddles anatomy and drifts off the subject.\n\nThis is put right in two ways: a LoRA for the subject, or a further-trained version of the model. Either must be made for your model. LoRAs for `t2v` and for `i2v` differ, and so do those for Wan 2.1 and 2.2.\n\nThe app downloads nothing. It works with the files already in your ComfyUI and shows in the card of a file which model it belongs to.',
+        body: 'Most open models were trained on material with few explicit scenes or none. Left to itself such a model draws them badly: it muddles anatomy and drifts off the subject.\n\nThis is put right in two ways: a further-trained version of the model, or a LoRA for the subject. Either must be made for your model: the files for `t2v` and for `i2v` differ, and so do those for Wan 2.1 and 2.2.\n\nThe app downloads nothing. It works with the files already in your ComfyUI and shows in the card of a file which model it belongs to.',
       },
       graph: NEED_VIDEO,
+      tuned: {
+        title: 'If you take a further-trained model',
+        body: 'A further-trained version of Wan 2.2 usually also comes as a pair of files. They are chosen in the same two {high} nodes, in `unet_name`: the file for the first pass in one, the file for the second in the other. Their names may lack `high_noise` and `low_noise` and say only `high` and `low`. Some models come as a single file: their graph is built differently, and the model\'s page describes it.\n\nSome of these models have the speed-up built in. The name usually shows it: it has `light`, `fast` or `4steps` in it. Such a model needs the settings of "Fast video in four steps": `steps` 4, the hand-over at step 2 and `cfg` 1. No speed-up LoRA is added to it.\n\nThe others take the settings of the video lesson. The author gives the exact numbers on the model\'s page: start from those.',
+      },
       lora: {
-        title: 'A LoRA stands in both models',
-        body: 'Two {loraHigh} nodes are needed, one in the path of each model, with the files of your LoRA. How to put them in is shown in "LoRA: add a style or a subject".\n\nIf a speed-up LoRA is there too, chain the nodes. The order in the chain does not matter.',
+        title: 'If you take a LoRA',
+        body: 'A LoRA goes into the path of both models: one LoRA node between each {high} node and its {shiftHigh} node. How to put them in and which files to choose is shown in "LoRA: add a style or a subject". That lesson also checks the links.\n\nA LoRA can stand on top of a further-trained model too. If a speed-up LoRA is there as well, chain the nodes. The order in the chain does not matter.',
       },
       prompt: {
         title: 'How to write the description',
         body: 'Describe the scene in plain words and in order: who is in the frame, what happens, where, how the camera moves, what the light is. Say plainly that the people in the frame are adults.\n\nThe model draws what is named. What the description leaves out it makes up itself, not always well.\n\nThe text for the `negative` input lists defects: distorted hands, extra fingers, blur. At `cfg` 1 this text does not act.',
       },
-      trigger: TRIGGER,
+      trigger: {
+        title: 'The LoRA\'s words in the description',
+        body: 'If the graph has a LoRA, add its words to the `text` field of the {positive} node whose output goes into a `positive` input.\n\nThe app compares the description with the words written in the LoRA files on the canvas. If the graph has no LoRA, or its author wrote no words into the file, there is nothing to compare with and the step counts on its own.',
+      },
       defects: {
         title: 'If the result is poor',
-        body: 'What to change, and in what order:\n- anatomy drifts: lower `strength_model` of the LoRA to 0.6–0.8 or shorten `length`;\n- the subject does not appear: check the trigger words and that the file fits the model;\n- the clip is burnt out: with a speed-up LoRA `cfg` must be 1;\n- the motion jerks: describe a calmer motion and check that `fps` is 16;\n- everything is off: change `noise_seed` in the first sampler. Some clips simply fail by chance.',
+        body: 'What to change, and in what order:\n- anatomy drifts: lower `strength_model` of the LoRA to 0.6–0.8 or shorten `length`;\n- the subject does not appear: check the trigger words and that the file fits the model;\n- the clip is burnt out: with a speed-up LoRA, and with a model that has the speed-up built in, `cfg` must be 1;\n- the motion jerks: describe a calmer motion and check that `fps` is 16;\n- everything is off: change `noise_seed` in the first sampler. Some clips simply fail by chance.',
       },
       helper: {
         title: 'About the helper in the app',

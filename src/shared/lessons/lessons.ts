@@ -206,6 +206,12 @@ const promptInUse = {
 
 const triggerInPrompt = field('positive', 'text', { kind: 'has-trigger', of: [{ role: 'loraHigh', field: 'lora_name' }, { role: 'loraLow', field: 'lora_name' }] });
 
+/**
+ * The same for whatever LoRA loaders are on the canvas, in a lesson that does not ask for one: a graph that takes
+ * its subject from a further-trained pair of models has no LoRA and no words to check.
+ */
+const triggerOfAnyLora = field('positive', 'text', { kind: 'has-trigger', of: [{ classType: 'LoraLoaderModelOnly', field: 'lora_name' }] });
+
 const lora: Lesson = {
   id: 'lora',
   steps: [
@@ -246,6 +252,12 @@ const videoFast: Lesson = {
   ],
 };
 
+/**
+ * What changes for adult content is knowledge, not the graph: which model, which LoRA, how to describe. The subject
+ * comes from a further-trained pair of models or from a LoRA, so the lesson asks for neither: it checks that the
+ * video graph is there and that the words of a LoRA, when one is on the canvas, are in the description. Putting a
+ * LoRA in is practised, and checked, in its own lesson.
+ */
 const adult: Lesson = {
   id: 'adult',
   steps: [
@@ -253,9 +265,10 @@ const adult: Lesson = {
     { id: 'levers', read: true },
     { id: 'model', read: true },
     { id: 'graph', ...videoGraphAtHand },
-    { id: 'lora', ...loraInBothPaths },
+    { id: 'tuned', read: true },
+    { id: 'lora', read: true },
     { id: 'prompt', read: true },
-    { id: 'trigger', roles: promptInUse.roles, links: promptInUse.links, fields: [triggerInPrompt] },
+    { id: 'trigger', roles: promptInUse.roles, links: promptInUse.links, fields: [triggerOfAnyLora] },
     { id: 'defects', read: true },
     { id: 'helper', read: true },
   ],
@@ -269,7 +282,7 @@ export const LESSON_AFTER: Readonly<Record<string, string[]>> = {
   'video-image': ['video-text'],
   lora: ['video-text'],
   'video-fast': ['lora'],
-  adult: ['lora'],
+  adult: ['video-text'],
 };
 
 export function lessonById(id: string): Lesson | null {

@@ -312,12 +312,60 @@ test('lessons: a video lesson is carried through, the choices that are the perso
     const second = samplers.find((item) => item.add_noise === 'disable')!;
     expect(second.start_at_step).toBe(first.end_at_step);
     expect(second.steps).toBe(first.steps);
+    // The app added every node, and the graph reads the way the lesson says: each link goes from left to right.
+    const built = ((await api('readProjection', ['desktop'])) as { snapshot: { nodes: Array<{ id: string; position: { x: number; y: number }; data: { comfyType: string } }>; edges: Array<{ source: string; target: string }> } }).snapshot;
+    expect(built.edges.length).toBeGreaterThan(12);
+    const placed = new Map(built.nodes.map((node) => [node.id, node]));
+    for (const edge of built.edges) {
+      const from = placed.get(edge.source)!;
+      const to = placed.get(edge.target)!;
+      expect(from.position.x, `${from.data.comfyType} → ${to.data.comfyType}`).toBeLessThan(to.position.x);
+    }
     await shot(page, '4-video-done');
     await expectSoundLayout(page, 'lessons, a video lesson done');
     // The next lesson stands on this graph: most of it is already there.
     await panel(page).getByRole('button', { name: 'All lessons', exact: true }).click();
     await expect(panel(page).locator('[data-lesson-card="video-text"]')).toContainText('Done');
     await expect(panel(page).locator('[data-lesson-card="lora"]')).toContainText('Goes on from the lesson "Video from text".');
+
+    // The lesson on adult content stands on the same graph and asks for nothing more on the canvas. The subject
+    // may come from a further-trained pair of models chosen in the two loaders, so the lesson asks for no LoRA.
+    await expect(panel(page).locator('[data-lesson-card="adult"]')).toContainText('Goes on from the lesson "Video from text".');
+    await panel(page).locator('[data-lesson-card="adult"]').getByRole('button', { name: 'Start', exact: true }).click();
+    const adult = LESSONS.find((item) => item.id === 'adult')!;
+    const readOn = async (until: string): Promise<string[]> => {
+      const shown: string[] = [];
+      for (let guard = 0; guard < 20; guard += 1) {
+        const id = (await current())!;
+        if (id === until) return shown;
+        expect(adult.steps.find((item) => item.id === id)?.read, `the lesson on adult content waits at "${id}"`).toBe(true);
+        shown.push(id);
+        if (id === 'tuned') {
+          await expect(panel(page)).toContainText('A further-trained version of Wan 2.2 usually also comes as a pair of files.');
+          await shot(page, '5-adult-further-trained');
+          await expectSoundLayout(page, 'lessons, a further-trained model');
+        }
+        await panel(page).getByRole('button', { name: 'Understood, next', exact: true }).click();
+        await expect.poll(current).not.toBe(id);
+      }
+      throw new Error(`the lesson did not come to "${until}"`);
+    };
+    // No LoRA on the canvas: the step about the graph and the step about a LoRA's words hold on their own.
+    expect(await readOn('end')).toEqual(['rules', 'levers', 'model', 'tuned', 'lora', 'prompt', 'defects', 'helper']);
+    await expect(page.locator('.react-flow__node')).toHaveCount(14);
+
+    // A LoRA whose file names its words is put on the canvas: now the lesson asks for them in the description.
+    const withWords = 'Z-Image-Turbo-Realism-LoRA.safetensors';
+    await expect.poll(async () => ((await api('modelDetail', ['loras', withWords])) as { triggerWords?: string[] } | null)?.triggerWords ?? [], { timeout: 60_000 }).toEqual(['realism', 'photo']);
+    await change(page, api, { type: 'add-node', nodeType: 'LoraLoaderModelOnly', title: 'LoraLoaderModelOnly', x: 0, y: 1400 });
+    const loader = (await nodesOf(api)).find((node) => node.data.comfyType === 'LoraLoaderModelOnly')!;
+    await change(page, api, { type: 'set-parameter', nodeId: loader.id, key: 'lora_name', value: withWords });
+    await stepIs(page, 'trigger');
+    await expect(panel(page).locator('[class*="lacking"] li').first()).toContainText('has none of the words of your LoRA: realism, photo');
+    await shot(page, '6-adult-words');
+    const described = (await nodesOf(api)).find((node) => node.data.comfyType === 'CLIPTextEncode' && String(node.data.parameters.text ?? '').includes('beach'))!;
+    await change(page, api, { type: 'set-parameter', nodeId: described.id, key: 'text', value: 'a person walks along a beach, photo, the camera follows from the side' });
+    await stepIs(page, 'end');
   } finally {
     await app.close();
     await fake.close();

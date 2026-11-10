@@ -64,6 +64,16 @@ export interface LinkSpec {
   via?: string[];
 }
 
+/** Where a trigger-word rule finds the files whose words it asks for. */
+export type TriggerSource =
+  /** The node that plays this role. */
+  | { role: string; field: string }
+  /**
+   * Every node of this class on the canvas. A lesson that does not ask for a LoRA still holds the one that is
+   * there to its words; a canvas without one asks for nothing.
+   */
+  | { classType: string; field: string };
+
 export type FieldTest =
   /** Something is chosen or written. */
   | { kind: 'chosen' }
@@ -72,7 +82,7 @@ export type FieldTest =
   /** Text of at least this many characters. */
   | { kind: 'text'; minChars: number }
   /** The text holds a trigger word of a file chosen in one of these fields (none known: nothing to check). */
-  | { kind: 'has-trigger'; of: Array<{ role: string; field: string }> }
+  | { kind: 'has-trigger'; of: TriggerSource[] }
   /** Not the same value as that field: two loaders must not hold the same file. */
   | { kind: 'differs'; role: string; field: string }
   /** The same value as that field: the second sampler starts at the step the first one ends at. */
@@ -80,7 +90,7 @@ export type FieldTest =
 
 /** The roles a field rule looks at besides its own. */
 function otherRoles(test: FieldTest): string[] {
-  if (test.kind === 'has-trigger') return test.of.map((item) => item.role);
+  if (test.kind === 'has-trigger') return test.of.flatMap((item) => ('role' in item ? [item.role] : []));
   return test.kind === 'differs' || test.kind === 'same' ? [test.role] : [];
 }
 
@@ -223,8 +233,11 @@ export function fieldHolds(byId: Map<string, LessonNode>, spec: FieldSpec, roles
       if (typeof value !== 'string') return false;
       const words: string[] = [];
       for (const source of test.of) {
-        const file = byId.get(roles[source.role])?.values[source.field];
-        if (typeof file === 'string') words.push(...(facts.triggers?.[file] ?? []));
+        const holders = 'role' in source ? [byId.get(roles[source.role])] : [...byId.values()].filter((item) => item.classType === source.classType);
+        for (const holder of holders) {
+          const file = holder?.values[source.field];
+          if (typeof file === 'string') words.push(...(facts.triggers?.[file] ?? []));
+        }
       }
       const known = words.map((word) => word.trim().toLowerCase()).filter(Boolean);
       // A file whose description names no trigger words asks for none.

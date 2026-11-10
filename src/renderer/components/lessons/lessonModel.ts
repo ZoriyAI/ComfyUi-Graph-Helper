@@ -13,15 +13,20 @@ import {
   type LessonGraph,
   type LessonNode,
   type Missing,
+  type Roles,
   type StepFix,
 } from '../../../shared/lessons/engine';
+import { lessonSpot } from '../../../shared/lessons/flow';
 import { LESSONS } from '../../../shared/lessons/lessons';
+import { LAYOUT_GAPS } from '../../../shared/graph/layout';
 import type { GraphEdge, GraphNode } from '../../types/graph';
 import { useGraphStore } from '../../state/graphState';
 import { useKnowledgeStore } from '../../state/knowledgeState';
 import { fieldValue } from '../fields/fieldModel';
 import { useCanvasStore } from '../graph/canvasStore';
 import { commitManual } from '../graph/commit';
+import type { PositionedNode } from '../graph/lib/geometry';
+import { layoutRect, newNodeSize, sizeHintsOf } from '../graph/lib/nodeSizes';
 import { useNodeInfoStore } from '../graph/nodeInfo';
 import { placeNewNode } from '../graph/placeNode';
 
@@ -184,11 +189,34 @@ export function canDo(missing: Missing, graph: LessonGraph, ports: ClassPorts): 
   return fixFor(missing, graph, (classType) => ports(classType) !== null);
 }
 
-/** "Do it for me": one action through the same commands the canvas uses, so it is in the history and can be undone. */
-export async function doFix(fix: StepFix): Promise<void> {
+/** The role a new node is added for, with the lesson and the nodes that already play its roles. */
+export interface FixPlace {
+  lesson: Lesson;
+  role: string;
+  roles: Roles;
+}
+
+/**
+ * The spot for a node the app adds for a lesson: in the column of its role, so that the graph reads left to
+ * right as the lesson says. Null when nothing of the lesson is on the canvas yet.
+ */
+async function spotInFlow(classType: string, place: FixPlace): Promise<{ x: number; y: number } | null> {
+  const detail = await useNodeInfoStore.getState().request(classType);
+  const details = useNodeInfoStore.getState().details;
+  const nodes = useGraphStore.getState().nodes as PositionedNode[];
+  const rects = new Map(nodes.map((node) => [node.id, layoutRect(node, sizeHintsOf(node.data?.comfyType ? details[node.data.comfyType] : null))]));
+  return lessonSpot(place.lesson, place.role, place.roles, rects, newNodeSize(classType, detail), { x: LAYOUT_GAPS.gapX, y: LAYOUT_GAPS.gapY });
+}
+
+/**
+ * "Do it for me": one action through the same commands the canvas uses, so it is in the history and can be undone.
+ * A node added for a role of a lesson is given its place in the lesson's flow.
+ */
+export async function doFix(fix: StepFix, place?: FixPlace): Promise<void> {
   let payload: GraphMutation;
+  const before = new Set(useGraphStore.getState().nodes.map((node) => node.id));
   if (fix.kind === 'add-node') {
-    const spot = await placeNewNode(null, { classType: fix.classType });
+    const spot = await placeNewNode(place ? await spotInFlow(fix.classType, place) : null, { classType: fix.classType });
     // Under the name the library shows, the way a node added by hand from the library is named.
     const name = (await useNodeInfoStore.getState().request(fix.classType))?.displayName;
     payload = { type: 'add-node', nodeType: fix.classType, ...(name && name !== fix.classType ? { title: name } : {}), x: spot.x, y: spot.y };
@@ -198,8 +226,9 @@ export async function doFix(fix: StepFix): Promise<void> {
     payload = { type: 'set-parameter', nodeId: fix.nodeId, key: fix.field, value: fix.value };
   }
   await commitManual(payload, 'lesson');
-  // The person sees what was done: the canvas goes to the node the change is on.
-  if (fix.kind !== 'add-node') useCanvasStore.getState().requestCenter(fix.kind === 'connect' ? fix.to : fix.nodeId);
+  // The person sees what was done: the canvas goes to the node the change is on, a new node included.
+  const shown = fix.kind === 'connect' ? fix.to : fix.kind === 'set-field' ? fix.nodeId : useGraphStore.getState().nodes.find((node) => !before.has(node.id))?.id;
+  if (shown) useCanvasStore.getState().requestCenter(shown);
 }
 
 /** The name a person reads for a node on the canvas: its title, else its class as the library shows it. */
