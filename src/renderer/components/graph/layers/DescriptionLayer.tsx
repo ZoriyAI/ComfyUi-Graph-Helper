@@ -31,6 +31,7 @@ import {
   type DescriptionsMode,
 } from '../lib/description';
 import { nodeRef } from '../lib/selection';
+import { nodeDisplayName } from '../lib/nodeName';
 import { useNodeDetail } from '../nodeInfo';
 import styles from './DescriptionLayer.module.css';
 
@@ -95,7 +96,7 @@ const zoomOf = (state: ReactFlowState) => state.transform[2];
 type ComfyFlowNode = Node<ComfyNodeData>;
 
 function nodeName(data: ComfyNodeData, displayName: string | undefined): string {
-  return data.title?.trim() || displayName || data.comfyType;
+  return nodeDisplayName(data, displayName).trim() || data.comfyType;
 }
 
 function EditForm({ nodeId, owner, content, onDone }: { nodeId: string; owner: ObjectRef; content: DescriptionContent | null; onDone: () => void }) {
@@ -277,7 +278,11 @@ const DescriptionCard = React.memo(function DescriptionCard(props: CardProps) {
     ensureLoaded(ref);
     ensureLoaded(classRef);
   }, [ref, classRef]);
-  const own = useKnowledgeStore((state) => state.explanations[objectKey(ref)] ?? EMPTY);
+  // Inside a subgraph the nodes are numbered from 1 again, and explanations are kept by number: what was written
+  // for node 1 of the graph is not about node 1 of the subgraph, so there only what is known of the class shows.
+  const inDefinition = useGraphStore((state) => state.activeSubgraphId !== null);
+  const stored = useKnowledgeStore((state) => state.explanations[objectKey(ref)] ?? EMPTY);
+  const own = inDefinition ? EMPTY : stored;
   const shared = useKnowledgeStore((state) => (classRef ? state.explanations[objectKey(classRef)] ?? EMPTY : EMPTY));
   const detail = useNodeDetail(instance ? undefined : data.comfyType);
   const content = useMemo(

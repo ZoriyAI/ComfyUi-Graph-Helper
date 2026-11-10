@@ -31,6 +31,7 @@ import type { GroupRecord, SubgraphDefinition } from '../../shared/graph/subgrap
 import { applyGraphOp, blankDocument, GraphOpError, Ids, isGraphOp } from './graphOps';
 import { applyMoveNodes, placeHelperNode, runCreatedNodeIds, tidyMoves } from './placement';
 import { supersedeAllOpen, supersedeForMissingNodes } from '../proposals/supersede';
+import { forgetExplanationsOfReplacedGraph } from '../knowledge/replacedGraph';
 import { recentPayload, type RecentCommand } from '../../shared/agent/recentActions';
 import type { RevisionSummary } from '../../shared/contracts/revisions';
 import {
@@ -750,6 +751,8 @@ export function commitCommand(
       if (request.payload.type === 'import-workflow' || request.payload.type === 'open-native') {
         // A different graph: no open proposal was made for it.
         supersedeAllOpen(db, request.projectId, request.payload.type);
+        // Nor were the explanations of the old graph's nodes and links written for the new ones with the same ids.
+        forgetExplanationsOfReplacedGraph(db, request.projectId, current.snapshot, applied.snapshot);
       }
       const remaining = new Set(applied.snapshot.nodes.map((node) => String(node.id)));
       const vanished = current.snapshot.nodes.map((node) => String(node.id)).filter((id) => !remaining.has(id));

@@ -16,6 +16,7 @@ import type { GraphNode } from '../types/graph';
 import type { NonSecretSettings } from '../../shared/config/schema';
 import type { Translator } from '../../shared/i18n';
 import { SETTINGS_CHANGED } from './events';
+import { nodeDisplayName } from '../components/graph/lib/nodeName';
 
 export { SETTINGS_CHANGED };
 
@@ -39,6 +40,16 @@ function rejectedReason(result: unknown, fallback: string): string {
 
 // ── File ─────────────────────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Another graph took the place of the one on screen (a workflow opened, a project opened, a new project): main
+ * dropped the explanations of the objects that are gone, so what the panels hold is read again.
+ */
+function graphWasReplaced(): void {
+  const knowledge = useKnowledgeStore.getState();
+  void knowledge.reloadExplanations().catch(() => undefined);
+  void knowledge.loadRecent().catch(() => undefined);
+}
+
 export async function importWorkflowFile(): Promise<void> {
   const result = await window.electronAPI.importWorkflow();
   if (!result || result.status === 'cancelled') return;
@@ -47,6 +58,7 @@ export async function importWorkflowFile(): Promise<void> {
     notify({ kind: 'error', code: rejectedReason(result.result, 'Import was rejected.') });
     return;
   }
+  graphWasReplaced();
   const report = result.result && typeof result.result === 'object' ? result.result as { formatVersion?: number; missingNodes?: string[]; missingModels?: Array<{ directory: string; name: string }> } : {};
   notify({
     kind: 'imported',
@@ -109,6 +121,7 @@ export async function openProjectFile(): Promise<void> {
     return;
   }
   markCurrentSaved();
+  graphWasReplaced();
   notify({ kind: 'opened-project' });
 }
 
@@ -145,6 +158,7 @@ export async function startNewProject(): Promise<void> {
   if (useGraphStore.getState().activeSubgraphId) useGraphStore.getState().exitSubgraph(0);
   await commitManual({ type: 'import-workflow', document: EMPTY_WORKFLOW }, 'new-project');
   markCurrentSaved();
+  graphWasReplaced();
 }
 
 // ── Graph ────────────────────────────────────────────────────────────────────────────────────────────
@@ -217,7 +231,7 @@ export function focusChat(): void {
 export function askAboutSelection(): void {
   const node = selectedNodes()[0];
   if (!node) return;
-  const name = String(node.data.title || node.data.comfyType);
+  const name = nodeDisplayName(node.data);
   const instance = node.data.kind === 'subgraph-instance';
   useDockStore.getState().show('assistant');
   askAbout(nodeRef(node), translate(instance ? 'contextMenu.askSubgraph' : 'contextMenu.askWhat', { name }));
