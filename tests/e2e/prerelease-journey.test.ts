@@ -104,15 +104,20 @@ test('prerelease journey configures a provider, builds a process, and exports a 
     // The key lives under the provider choice in Assistant; pasting applies it for this session at once.
     await restored.getByRole('tab', { name: 'Assistant' }).click();
     await restored.getByRole('radio', { name: 'OpenAI', exact: true }).click();
+    // An https address nobody answers at: the marker is not a real key, and a provider that answered 401 would
+    // (rightly) make the app drop it. Unchecked, it is held for this session.
+    await restored.getByRole('textbox', { name: 'Base URL', exact: true }).fill('https://127.0.0.1:9/v1');
     const session = restored.getByRole('textbox', { name: 'OpenAI key', exact: true });
     await session.fill(SESSION_MARKER);
     await expect(restored.getByRole('status', { name: 'OpenAI key' })).toHaveText('The key is kept until restart.', { timeout: 20000 });
     // Without a password store the only offer is the app folder file, which this test does not take.
     await expect(restored.getByRole('button', { name: 'Remember on this computer' })).toHaveCount(0);
+    // Back to the official address, so the draft holds no change but the key.
+    await restored.getByRole('textbox', { name: 'Base URL', exact: true }).fill('');
     await restored.getByRole('radio', { name: 'Local endpoint', exact: true }).click();
     const blocked = await window.evaluate(async (marker) => {
-      const bridge = (window as unknown as { electronAPI: { saveSecret: (value: string) => Promise<{ status: string }> } }).electronAPI;
-      return bridge.saveSecret(marker);
+      const bridge = (window as unknown as { electronAPI: { saveSecret: (provider: string, value: string) => Promise<{ status: string }> } }).electronAPI;
+      return bridge.saveSecret('openai', marker);
     }, SESSION_MARKER);
     expect(blocked).toEqual({ status: 'secret-storage-blocked' });
     expect(containsMarker(userData)).toBeNull();

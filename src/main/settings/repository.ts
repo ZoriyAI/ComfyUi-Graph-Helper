@@ -151,14 +151,47 @@ export function attemptSaveSecret(db: Database.Database): SecretSaveResult {
   return { status: 'secret-storage-blocked' };
 }
 
-/** Writes ciphertext only when the caller already proved an OS password manager. */
+/** The record name of one cloud provider's key. Each provider has its own; none is shared. */
+export function providerKeyRecord(provider: string): string {
+  return `provider-key:${provider}`;
+}
+
+/** The single record of the one-key era (before keys were held per provider). Read only by the migration. */
+export const LEGACY_PROVIDER_KEY_RECORD = 'provider-key';
+
+const KEY_PROVIDERS = ['openai', 'anthropic', 'google'] as const;
+
+/** Writes one provider's key ciphertext only when the caller already proved an OS password manager. */
 export function saveSecretIfProven(
   db: Database.Database,
   decision: { persist: boolean },
+  provider: string,
   plain: string,
   ciphertext: Buffer,
 ): { status: 'stored' } | SecretSaveResult {
-  return saveNamedSecretIfProven(db, decision, 'provider-key', plain, ciphertext);
+  if (!(KEY_PROVIDERS as readonly string[]).includes(provider)) return attemptSaveSecret(db);
+  return saveNamedSecretIfProven(db, decision, providerKeyRecord(provider), plain, ciphertext);
+}
+
+/**
+ * Moves the one-key-era record to the provider saved in settings, once. The key was remembered for the provider
+ * chosen then; when no cloud provider is saved now nobody can say whose it was, so it is deleted rather than ever
+ * risk sending it to another company. A record already present for that provider wins over the legacy one.
+ * Returns what happened (never the key).
+ */
+export function migrateLegacyProviderKey(db: Database.Database, savedProvider: string): 'none' | 'moved' | 'dropped' {
+  const legacy = readSecretCipher(db, LEGACY_PROVIDER_KEY_RECORD);
+  if (!legacy) return 'none';
+  const move = db.transaction(() => {
+    if (!(KEY_PROVIDERS as readonly string[]).includes(savedProvider)) {
+      forgetSecret(db, LEGACY_PROVIDER_KEY_RECORD);
+      return 'dropped' as const;
+    }
+    db.prepare('INSERT OR IGNORE INTO secret_records (name, ciphertext) VALUES (?, ?)').run(providerKeyRecord(savedProvider), legacy);
+    forgetSecret(db, LEGACY_PROVIDER_KEY_RECORD);
+    return 'moved' as const;
+  });
+  return move.immediate();
 }
 
 /**
@@ -192,13 +225,15 @@ export function forgetSecret(db: Database.Database, name: string): void {
   db.prepare('DELETE FROM secret_records WHERE name = ?').run(name);
 }
 
-export function readProviderKeyCipher(db: Database.Database): Buffer | null {
-  const row = db.prepare('SELECT ciphertext FROM secret_records WHERE name = ?').get('provider-key') as
-    | { ciphertext: Buffer }
-    | undefined;
-  return row ? Buffer.from(row.ciphertext) : null;
+export function readProviderKeyCipher(db: Database.Database, provider: string): Buffer | null {
+  return readSecretCipher(db, providerKeyRecord(provider));
 }
 
-export function forgetProviderKey(db: Database.Database): void {
-  db.prepare('DELETE FROM secret_records WHERE name = ?').run('provider-key');
+/** Forgets one provider's stored key, or every provider's (and the legacy record) without a provider. */
+export function forgetProviderKey(db: Database.Database, provider?: string): void {
+  if (provider) {
+    forgetSecret(db, providerKeyRecord(provider));
+    return;
+  }
+  db.prepare("DELETE FROM secret_records WHERE name = ? OR name LIKE 'provider-key:%'").run(LEGACY_PROVIDER_KEY_RECORD);
 }

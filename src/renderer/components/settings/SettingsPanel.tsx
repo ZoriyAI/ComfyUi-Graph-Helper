@@ -28,7 +28,7 @@ import { TabsContent, TabsList, TabsRoot, TabsTrigger } from '../../ui/Tabs';
 import { cx } from '../../ui/cx';
 import SyncSection from './SyncSection';
 import AssistantSection from './sections/AssistantSection';
-import type { KeySource } from '../../state/providerState';
+import type { KeySources } from '../../state/providerState';
 import ConnectionSection from './sections/ConnectionSection';
 import CanvasSection from './sections/CanvasSection';
 import AppearanceSection from './sections/AppearanceSection';
@@ -98,7 +98,7 @@ export default function SettingsPanel({
 }: {
   onRead: (values: NonSecretSettings) => void;
   onSaved: (values: NonSecretSettings) => void;
-  onSession: (source: KeySource) => void;
+  onSession: (sources: KeySources) => void;
   triggerIcon?: React.ReactNode;
   /** The button that opens the dialog (focus returns to it). Defaults to a small "Settings" button. */
   trigger?: React.ReactElement;
@@ -364,7 +364,7 @@ export default function SettingsPanel({
                 );
               })}
             </TabsList>
-            {panel('assistant', <AssistantSection {...draft} onSession={(source) => onSessionRef.current(source)} />)}
+            {panel('assistant', <AssistantSection {...draft} onSession={(sources) => onSessionRef.current(sources)} />)}
             {panel('connection', <ConnectionSection {...draft} />)}
             {panel('sync', (
               <>

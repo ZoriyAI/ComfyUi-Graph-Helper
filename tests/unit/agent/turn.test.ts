@@ -112,7 +112,7 @@ describe('agent turn (llm:stream-chat)', () => {
 
   it('sends an error chunk when the provider is blocked', async () => {
     mainLLMService.setConfig({ provider: 'openai', model: 'x' });
-    mainLLMService.setSessionKey('');
+    mainLLMService.forgetKeys();
     const { chunks } = await turn('hello');
     expect(chunks.filter((chunk) => chunk.type !== 'projection')).toEqual([{ type: 'error', content: 'Cloud model has no key for this session.' }]);
     expect(chunks[chunks.length - 1].type).toBe('error');

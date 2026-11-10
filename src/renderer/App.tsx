@@ -17,7 +17,7 @@ import { useChatStore } from './state/chatState';
 import { startSyncSubscription } from './state/knowledgeState';
 import { startProposalsSubscription } from './state/proposalsState';
 import { useUiStore } from './state/uiState';
-import { useProviderStore } from './state/providerState';
+import { refreshKeySources, useProviderStore } from './state/providerState';
 import { applyProjection, useProjectionStore } from './services/commands/projection';
 import { getChatService } from './services/llm/chatService';
 import { installAppCommands } from './commands/appCommands';
@@ -62,7 +62,7 @@ function App() {
     }).catch((error) => {
       console.error('[App] Projection load failed:', error);
     });
-    window.electronAPI.llmSessionStatus().then((status) => useProviderStore.getState().setKeySource(status.source)).catch(() => undefined);
+    void refreshKeySources().catch(() => undefined);
     return () => {
       offPreferences();
       offHotkeys();
@@ -85,7 +85,7 @@ function App() {
       <SettingsPanel
         trigger={<SettingsButton />}
         onRead={(values) => void useProviderStore.getState().showStored(values)}
-        onSession={(source) => useProviderStore.getState().setKeySource(source)}
+        onSession={(sources) => useProviderStore.getState().setKeySources(sources)}
         onSaved={(values) => void useProviderStore.getState().showStored(values, true)}
       />
     </Hint>

@@ -95,7 +95,8 @@ export function collectDiagnostics(): string {
     preferences,
     sync,
     catalog,
-    keyHeld: mainLLMService.sessionStatus().held,
+    // Whether any cloud provider has a key held (never which key).
+    keyHeld: Object.values(mainLLMService.keySources()).some((source) => source !== 'none'),
     logTail: readLogTail(200),
     redact: (text) => mainLLMService.redact(redactForLog(text)),
   });

@@ -22,13 +22,13 @@ const SNAPSHOT = {
 describe('teaching system prompt', () => {
   afterEach(() => {
     mainLLMService.setConfig({ provider: '' });
-    mainLLMService.setSessionKey('');
+    mainLLMService.forgetKeys();
     vi.restoreAllMocks();
   });
 
   it('carries role, principles, intent, language, catalog, graph, focus, and tool guidance without secrets', () => {
     vi.spyOn(console, 'log').mockImplementation(() => undefined);
-    mainLLMService.setSessionKey(KEY);
+    mainLLMService.setSessionKey('anthropic', KEY);
     mainLLMService.setConfig({ provider: 'anthropic', model: 'fixture', baseURL: '' });
     const context = parseTurnContext({
       intent: 'ask',

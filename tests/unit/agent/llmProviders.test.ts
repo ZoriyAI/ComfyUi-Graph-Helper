@@ -33,7 +33,7 @@ describe('chat providers', () => {
         service.setConfig({ provider: entry.provider, model: 'fixture-model' });
         expect(service.sendBlock()).toBe('Cloud model has no key for this session.');
 
-        service.setSessionKey(KEY);
+        service.setSessionKey(entry.provider, KEY);
         service.setConfig({ provider: entry.provider, model: 'fixture-model', baseURL: 'http://127.0.0.1:9/v1' });
         expect(service.sendBlock()).toBe('Cloud key is not sent to an http address.');
         expect(service.getModel()).toBeNull();
@@ -43,7 +43,7 @@ describe('chat providers', () => {
       });
 
       it('builds a model for the official endpoint and a custom https endpoint without a request', () => {
-        service.setSessionKey(KEY);
+        service.setSessionKey(entry.provider, KEY);
         service.setConfig({ provider: entry.provider, model: 'fixture-model', baseURL: '' });
         expect(service.sendBlock()).toBeNull();
         expect(service.currentProvider()).toBe(entry.provider);

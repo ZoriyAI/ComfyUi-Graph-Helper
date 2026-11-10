@@ -158,3 +158,49 @@ test('stored provider, model, and base URL are what the next send would use afte
   await expect(again.getByRole('textbox', { name: 'Chat message' })).toHaveValue('');
   await reopened.close();
 });
+
+test('a key pasted for one provider belongs to that provider only', async () => {
+  const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'provider-keys-'));
+  const app = await launch(userData);
+  const window = await app.firstWindow();
+  await window.locator('.app-shell').waitFor();
+  await useEnglish(window);
+  const dialog = await openSettings(window);
+  await dialog.getByRole('radio', { name: 'Anthropic', exact: true }).click();
+  // An https address nobody answers at: the key cannot be checked, so it is kept and nothing reaches a provider.
+  await dialog.getByRole('textbox', { name: 'Base URL', exact: true }).fill('https://127.0.0.1:9/v1');
+  await dialog.getByRole('textbox', { name: 'Anthropic key', exact: true }).fill(MARKER);
+  await expect(dialog.getByRole('status', { name: 'Anthropic key' })).toHaveText('The key is kept until restart.', { timeout: 20000 });
+  await expect(dialog.getByText(/^The key could not be checked:/)).toBeVisible();
+
+  // Only the Anthropic card claims a key; OpenAI and Google say they have none.
+  await expect(dialog.getByRole('radio', { name: 'Anthropic', exact: true })).toContainText('Key for this session');
+  await expect(dialog.getByRole('radio', { name: 'OpenAI', exact: true })).toContainText('No key');
+  await expect(dialog.getByRole('radio', { name: 'Google Gemini', exact: true })).toContainText('No key');
+  const status = await window.evaluate(() => (window as unknown as {
+    electronAPI: { llmSessionStatus: () => Promise<{ providers: Record<string, string> }> };
+  }).electronAPI.llmSessionStatus());
+  expect(status.providers).toEqual({ openai: 'none', anthropic: 'session', google: 'none' });
+
+  // The OpenAI panel is OpenAI's: no key there, and a check of OpenAI stops in main.
+  await dialog.getByRole('radio', { name: 'OpenAI', exact: true }).click();
+  await expect(dialog.getByRole('textbox', { name: 'OpenAI key', exact: true })).toHaveValue('');
+  await expect(dialog.getByRole('status', { name: 'OpenAI key' })).toHaveText('No key.');
+  const probe = await window.evaluate(() => (window as unknown as {
+    electronAPI: { llmProbe: (draft: { provider: string; model: string; baseURL: string }) => Promise<{ ok: boolean; error?: string }> };
+  }).electronAPI.llmProbe({ provider: 'openai', model: 'gpt-5', baseURL: '' }));
+  expect(probe).toMatchObject({ ok: false, error: 'Cloud model has no key for this session.' });
+
+  // Privacy lists a row per provider that has a key, and "Forget all" clears every one.
+  await dialog.getByRole('tab', { name: 'Privacy' }).click();
+  await expect(dialog.getByRole('rowheader', { name: 'Anthropic key' })).toBeVisible();
+  await expect(dialog.getByRole('rowheader', { name: 'OpenAI key' })).toHaveCount(0);
+  await dialog.getByRole('button', { name: 'Forget all keys and tokens' }).click();
+  await expect(dialog.getByRole('rowheader', { name: 'Anthropic key' })).toHaveCount(0);
+  await expect(dialog.getByRole('rowheader', { name: 'Model key' })).toBeVisible();
+  const cleared = await window.evaluate(() => (window as unknown as {
+    electronAPI: { llmSessionStatus: () => Promise<{ providers: Record<string, string> }> };
+  }).electronAPI.llmSessionStatus());
+  expect(cleared.providers).toEqual({ openai: 'none', anthropic: 'none', google: 'none' });
+  await app.close();
+});

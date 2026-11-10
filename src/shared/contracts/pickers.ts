@@ -22,7 +22,8 @@ export interface ModelChoice {
  */
 export type ModelListResult =
   | { ok: true; models: ModelChoice[]; source: string }
-  | { ok: false; error: string };
+  /** `dropped`: the provider refused a key pasted for this session, and main no longer holds it. */
+  | { ok: false; error: string; dropped?: boolean };
 
 /** A local OpenAI-compatible server the app found: named by the MCP server, or answering on this computer. */
 export interface LocalServer {

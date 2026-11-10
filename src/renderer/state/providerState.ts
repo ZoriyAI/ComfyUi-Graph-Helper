@@ -54,14 +54,34 @@ export function providerKeyState(provider: string, keySource: KeySource): Provid
   return 'none';
 }
 
+/** Each cloud provider's key place. A key belongs to one provider; no card borrows another's. */
+export type KeySources = Record<'openai' | 'anthropic' | 'google', KeySource>;
+export const NO_KEYS: KeySources = { openai: 'none', anthropic: 'none', google: 'none' };
+
+/** The key place of one provider ('none' for local, test and no provider). */
+export function keySourceOf(sources: KeySources, provider: string): KeySource {
+  return CLOUD_PROVIDERS.has(provider) ? sources[provider as keyof KeySources] ?? 'none' : 'none';
+}
+
+/** Asks main where each provider's key lives and shows it (never a key). */
+export async function refreshKeySources(): Promise<KeySources> {
+  const status = await window.electronAPI.llmSessionStatus();
+  const sources = { ...NO_KEYS, ...(status.providers ?? {}) };
+  useProviderStore.getState().setKeySources(sources);
+  return sources;
+}
+
 interface ProviderState {
   provider: string;
+  /** The chosen provider's key place (derived from `keySources`), for the chip and the first screen. */
   keySource: KeySource;
+  keySources: KeySources;
   /** The runtime the stored settings describe; a session choice of the same provider keeps its model. */
   stored: ChatRuntimeConfig;
   /** True after the person picked a provider for this session; a settings re-read then leaves it alone. */
   sessionOverride: boolean;
-  setKeySource: (source: KeySource) => void;
+  /** Main reported where each provider's key lives. */
+  setKeySources: (sources: KeySources) => void;
   /** Settings were read (or saved): show and apply the stored runtime, unless a session choice is active. */
   showStored: (values: NonSecretSettings, force?: boolean) => Promise<void>;
   /** The person picked a provider for this session (toolbar select or Assistant menu). */
@@ -71,17 +91,18 @@ interface ProviderState {
 export const useProviderStore = create<ProviderState>((set, get) => ({
   provider: '',
   keySource: 'none',
+  keySources: NO_KEYS,
   stored: { provider: '', model: '', baseURL: '' },
   sessionOverride: false,
-  setKeySource: (keySource) => set({ keySource }),
+  setKeySources: (keySources) => set({ keySources, keySource: keySourceOf(keySources, get().provider) }),
   showStored: async (values, force = false) => {
     if (get().sessionOverride && !force) return;
     const stored = { provider: values.provider, model: values.model, baseURL: values.baseURL };
-    set({ stored, provider: values.provider, sessionOverride: false });
+    set({ stored, provider: values.provider, sessionOverride: false, keySource: keySourceOf(get().keySources, values.provider) });
     await window.electronAPI.llmSetConfig(stored);
   },
   choose: async (next) => {
-    set({ sessionOverride: true, provider: next });
+    set({ sessionOverride: true, provider: next, keySource: keySourceOf(get().keySources, next) });
     const stored = get().stored;
     if (next === 'test') {
       await window.electronAPI.llmSetConfig({ provider: 'test', model: 'test-fixture', baseURL: '' });

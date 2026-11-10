@@ -55,8 +55,8 @@ test('blocked secret IPC leaves the disabled key controls empty and the marker o
   const keyReason = 'The system password store is not available on this computer, so keys live only until the app closes.';
   await expect(window.getByRole('contentinfo').getByText(keyReason)).toBeVisible();
   const result = await window.evaluate(async (marker) => {
-    const bridge = (window as unknown as { electronAPI: { saveSecret: (value: string) => Promise<{ status: string }> } }).electronAPI;
-    return bridge.saveSecret(marker);
+    const bridge = (window as unknown as { electronAPI: { saveSecret: (provider: string, value: string) => Promise<{ status: string }> } }).electronAPI;
+    return bridge.saveSecret('openai', marker);
   }, FAKE_MARKER);
   expect(result).toEqual({ status: 'secret-storage-blocked' });
   expect(await input.inputValue()).toBe('');

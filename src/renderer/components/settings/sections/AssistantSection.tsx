@@ -15,7 +15,8 @@ import SelectField from '../../../ui/SelectField';
 import SuggestField, { type SuggestStatus } from '../../../ui/SuggestField';
 import Switch from '../../../ui/Switch';
 import { cx } from '../../../ui/cx';
-import { CLOUD_PROVIDERS, providerKeyState, useProviderStore, type KeySource, type ProviderKeyState, testProviderOffered } from '../../../state/providerState';
+import { CLOUD_PROVIDERS, keySourceOf, providerKeyState, useProviderStore, type KeySources, type ProviderKeyState, testProviderOffered } from '../../../state/providerState';
+import type { CloudKeyProvider } from '../../../../shared/contracts';
 import KeyPanel from './KeyPanel';
 import styles from '../SettingsPanel.module.css';
 import { fieldClass, Group, hintClass, patchSection, rowClass, SectionHead, type DraftProps } from './common';
@@ -41,10 +42,11 @@ type Discovery = { kind: 'idle' } | { kind: 'loading' } | { kind: 'done'; server
 const LIST_DEBOUNCE_MS = 450;
 
 /** Settings ▸ Assistant: provider cards, model and base URL, Check connection, and how the helper behaves. */
-export default function AssistantSection({ values, setValues, prefs, setPrefs, container, fieldError, pending, onSession }: DraftProps & { onSession: (source: KeySource) => void }) {
+export default function AssistantSection({ values, setValues, prefs, setPrefs, container, fieldError, pending, onSession }: DraftProps & { onSession: (sources: KeySources) => void }) {
   const { t } = useTranslation();
   const translate: Translator = (key, options) => (options ? String(t(key, options)) : String(t(key)));
-  const keySource = useProviderStore((state) => state.keySource);
+  // Each card shows its own provider's key; a key held for one provider says nothing about another.
+  const keySources = useProviderStore((state) => state.keySources);
   const [probe, setProbe] = useState<ProbeNote>({ kind: 'idle' });
   const [modelList, setModelList] = useState<ModelList>({ kind: 'idle' });
   const [listTick, setListTick] = useState(0);
@@ -77,7 +79,7 @@ export default function AssistantSection({ values, setValues, prefs, setPrefs, c
         });
     }, LIST_DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [provider, values.baseURL, keySource, listTick]);
+  }, [provider, values.baseURL, keySourceOf(keySources, provider), listTick]);
 
   const findServers = () => {
     discoveryStarted.current = true;
@@ -181,7 +183,7 @@ export default function AssistantSection({ values, setValues, prefs, setPrefs, c
         onChange={chooseProvider}
         columns={3}
         options={PROVIDERS.filter((item) => item.value !== 'test' || testProviderOffered()).map((item) => {
-          const state = providerKeyState(item.value, keySource);
+          const state = providerKeyState(item.value, keySourceOf(keySources, item.value));
           return {
             value: item.value,
             title: String(t(item.labelKey)),
@@ -196,7 +198,7 @@ export default function AssistantSection({ values, setValues, prefs, setPrefs, c
         })}
       />
       {providerHint ? <p className={hintClass}>{providerHint}</p> : null}
-      {CLOUD_PROVIDERS.has(provider) ? <KeyPanel provider={provider} baseURL={values.baseURL} onSession={onSession} /> : null}
+      {CLOUD_PROVIDERS.has(provider) ? <KeyPanel provider={provider as CloudKeyProvider} baseURL={values.baseURL} onSession={onSession} /> : null}
       {provider === 'local' ? (
         <SuggestField
           className={fieldClass}

@@ -78,7 +78,7 @@ describe('Google tools (item 1)', () => {
     const db = openDb();
     const run = startRun(db, DESKTOP_PROJECT_ID);
     const service = new MainLLMService();
-    service.setSessionKey('google-key-for-request-capture');
+    service.setSessionKey('google', 'google-key-for-request-capture');
     service.setConfig({ provider: 'google', model: 'gemini-2.5-flash', baseURL: '' });
     const bodies: any[] = [];
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, init) => {
@@ -248,7 +248,7 @@ describe('turn context, language, history, loop guard (items 7, 9, 10)', () => {
 describe('secrets on the way out (item 5)', () => {
   it('forwards only the chat fields and redacts error messages, including the held key and MCP token', () => {
     const service = new MainLLMService();
-    service.setSessionKey('held-llm-key-1234567890');
+    service.setSessionKey('anthropic', 'held-llm-key-1234567890');
     setMcpToken('held-mcp-token-0987654321');
     try {
       const part = forwardPart({
@@ -278,7 +278,7 @@ describe('secrets on the way out (item 5)', () => {
     const db = openDb();
     const run = startRun(db, DESKTOP_PROJECT_ID);
     const systems: string[] = [];
-    mainLLMService.setSessionKey('held-session-key-for-prompt-77');
+    mainLLMService.setSessionKey('openai', 'held-session-key-for-prompt-77');
     try {
       await runAgentTurn({
         db,
@@ -296,7 +296,7 @@ describe('secrets on the way out (item 5)', () => {
         } as any,
       });
     } finally {
-      mainLLMService.setSessionKey('');
+      mainLLMService.forgetKeys();
     }
     expect(systems[0]).not.toContain('held-session-key-for-prompt-77');
     expect(systems[0]).toContain('[redacted]');
