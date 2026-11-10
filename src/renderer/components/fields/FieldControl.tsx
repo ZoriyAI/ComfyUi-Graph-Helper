@@ -105,11 +105,12 @@ function ComboControl({ nodeId, name, value, spec, variant, disabled, labelledBy
   const unset = isUnset(value) || text === '';
   const missing = !unset && options.length > 0 && !options.includes(text);
   useEffect(() => {
-    if (!open) return;
-    setQuery('');
-    const index = Math.max(0, options.indexOf(text));
-    setActive(index);
-  }, [open, options, text]);
+    if (open) setQuery('');
+  }, [open]);
+  // Start on the current value, also once the model rows arrive in their fit order.
+  useEffect(() => {
+    if (open && query === '') setActive(Math.max(0, shown.indexOf(text)));
+  }, [open, query, shown, text]);
   useEffect(() => {
     if (!open) return;
     const element = listRef.current?.querySelector<HTMLElement>(`[data-index="${active}"]`);
