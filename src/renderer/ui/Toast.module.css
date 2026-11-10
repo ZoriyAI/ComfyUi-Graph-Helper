@@ -1,8 +1,12 @@
 .viewport {
   position: fixed;
   z-index: 65;
-  /* Below the app bar, the toolbar row and the floating canvas toolbar, so a toast never covers a control. */
-  top: 150px;
+  /*
+   * One calm place: the bottom of the window, just above the status bar, centred. Nothing the person works with
+   * lives there (the canvas toolbar, the menus and the composer are elsewhere). Toast.tsx centres it over the
+   * canvas once the canvas is on screen, so it covers neither the library nor the dock.
+   */
+  bottom: 40px;
   left: 50%;
   translate: -50% 0;
   display: flex;
@@ -17,11 +21,10 @@
   pointer-events: none;
 }
 /*
- * While a modal dialog is open its header sits where toasts usually appear. Toasts move to the bottom edge and
- * between the scrim (50) and the dialog (60): readable below the dialog when the window has room, never covering
- * the dialog's title or its Save and Cancel buttons on a short window.
+ * While a modal dialog is open toasts sit between the scrim (50) and the dialog (60), at the bottom edge: readable
+ * below the dialog when the window has room, never covering its title or its Save and Cancel buttons.
  */
-:global(body:has(.dialog-overlay)) .viewport { top: auto; bottom: 16px; z-index: 55; }
+:global(body:has(.dialog-overlay)) .viewport { bottom: 16px; z-index: 55; }
 .toast {
   position: relative;
   display: grid;
@@ -77,5 +80,5 @@
 }
 .close:hover { background: var(--surface-hover); color: var(--text); }
 .action:focus-visible, .close:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
-@keyframes toastIn { from { opacity: 0; transform: translateY(calc(var(--motion-shift) * -1)); } to { opacity: 1; transform: none; } }
+@keyframes toastIn { from { opacity: 0; transform: translateY(var(--motion-shift)); } to { opacity: 1; transform: none; } }
 @keyframes toastOut { from { opacity: 1; } to { opacity: 0; } }

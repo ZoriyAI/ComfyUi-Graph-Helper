@@ -1,4 +1,6 @@
 .target { display: inline-flex; min-width: 0; }
+/* A disabled control lets the pointer through to its wrapper, so the hint that says why it is off still opens. */
+.target > :disabled { pointer-events: none; }
 .content {
   z-index: 95;
   max-width: 260px;
