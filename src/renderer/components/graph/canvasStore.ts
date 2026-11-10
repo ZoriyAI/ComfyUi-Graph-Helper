@@ -102,7 +102,8 @@ interface CanvasState {
   manualInFlight: number;
   replay: ReplayState | null;
   /** Add-node search: open, and where the node goes (flow coordinates) when picked. */
-  addSearch: { open: boolean; at: { x: number; y: number } | null };
+  /** `query` is typed into the search as it opens (a lesson asking for a node by name). */
+  addSearch: { open: boolean; at: { x: number; y: number } | null; query?: string };
   /** Description cards under the nodes: own / all / off (remembered in Preferences ▸ Canvas). */
   descriptionsMode: DescriptionsMode;
   /** True unless the mode is off (the toolbar button's pressed state; kept for older readers). */
@@ -141,7 +142,7 @@ interface CanvasState {
   endManual: () => void;
   setReplay: (replay: ReplayState | null) => void;
   patchReplay: (patch: Partial<ReplayState>) => void;
-  openAddSearch: (at: { x: number; y: number } | null) => void;
+  openAddSearch: (at: { x: number; y: number } | null, query?: string) => void;
   closeAddSearch: () => void;
   setDescriptionsOn: (on: boolean) => void;
   setDescriptionsMode: (mode: DescriptionsMode) => void;
@@ -229,7 +230,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   endManual: () => set((state) => ({ manualInFlight: Math.max(0, state.manualInFlight - 1) })),
   setReplay: (replay) => set({ replay }),
   patchReplay: (patch) => set((state) => (state.replay ? { replay: { ...state.replay, ...patch } } : {})),
-  openAddSearch: (at) => set({ addSearch: { open: true, at } }),
+  openAddSearch: (at, query) => set({ addSearch: { open: true, at, ...(query ? { query } : {}) } }),
   closeAddSearch: () => set({ addSearch: { open: false, at: null } }),
   setDescriptionsOn: (on) => {
     const current = get().descriptionsMode;

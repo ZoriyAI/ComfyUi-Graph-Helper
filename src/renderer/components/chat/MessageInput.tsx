@@ -12,6 +12,9 @@ interface MessageInputProps {
   onSend: (content: string, intent: ComposerIntent) => void;
   isStreaming: boolean;
   disabled?: boolean;
+  /** The panel is in its third mode, "Learn": lessons take the place of the conversation and of the field. */
+  learning?: boolean;
+  onLearning?: (learning: boolean) => void;
 }
 
 const INTENTS: readonly ComposerIntent[] = ['ask', 'build'];
@@ -21,7 +24,7 @@ const INTENTS: readonly ComposerIntent[] = ['ask', 'build'];
  * on its right. Send says why it is off (nothing written, or the helper is still answering) in its tooltip, which also
  * carries the Enter / Shift+Enter help.
  */
-export default function MessageInput({ onSend, isStreaming, disabled = false }: MessageInputProps) {
+export default function MessageInput({ onSend, isStreaming, disabled = false, learning = false, onLearning }: MessageInputProps) {
   const { t } = useTranslation();
   const [input, setInput] = useState('');
   const [intent, setIntent] = useState<ComposerIntent>('ask');
@@ -56,18 +59,26 @@ export default function MessageInput({ onSend, isStreaming, disabled = false }: 
             <button
               key={item}
               type="button"
-              aria-pressed={intent === item}
+              aria-pressed={!learning && intent === item}
               className={styles.intentOption}
               data-intent={item}
-              onClick={() => setIntent(item)}
+              onClick={() => {
+                setIntent(item);
+                onLearning?.(false);
+              }}
             >
               {item === 'ask' ? t('chat.intentAsk') : t('chat.intentBuild')}
             </button>
           ))}
+          {onLearning ? (
+            <button type="button" aria-pressed={learning} className={styles.intentOption} data-intent="learn" onClick={() => onLearning(true)}>
+              {t('lessons.mode')}
+            </button>
+          ) : null}
         </div>
-        <span className={styles.intentHint}>{intent === 'ask' ? t('chat.intentAskHint') : t('chat.intentBuildHint')}</span>
+        <span className={styles.intentHint}>{learning ? t('lessons.modeHint') : intent === 'ask' ? t('chat.intentAskHint') : t('chat.intentBuildHint')}</span>
       </div>
-      <div className={`composer-field ${styles.field}`}>
+      <div className={`composer-field ${styles.field}`} hidden={learning}>
         <textarea
           ref={inputRef}
           aria-label={String(t('chat.messageLabel'))}

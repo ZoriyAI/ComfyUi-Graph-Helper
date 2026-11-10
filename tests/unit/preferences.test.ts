@@ -49,8 +49,21 @@ describe('preferences schema', () => {
       appearance: { density: 'comfortable', accent: 'cyan', reduceGlow: false },
       shortcuts: {},
       privacy: { sendFieldValues: true, saveChatHistory: true, modelLog: true },
+      lessons: { active: '', read: {}, done: [] },
     });
     expect(preferencesSchema.parse({ canvas: { gridSize: 24 } }).canvas).toMatchObject({ gridSize: 24, showDescriptions: true });
+  });
+
+  it('keeps what a person has read in a lesson, and nothing that is not a lesson id', () => {
+    const stored = { lessons: { active: 'video-text', read: { 'video-text': ['intro', 'run'] }, done: ['image'] } };
+    expect(parsePreferences(stored).lessons).toEqual(stored.lessons);
+    expect(preferencesSchema.safeParse({ lessons: { active: 'Video Text' } }).success).toBe(false);
+    expect(preferencesSchema.safeParse({ lessons: { read: { image: ['<script>'] } } }).success).toBe(false);
+    // One bad field does not take the rest with it.
+    expect(parsePreferences({ lessons: { active: '../x', done: ['image'] } }).lessons).toEqual({ active: '', read: {}, done: ['image'] });
+    // A change of one field leaves the others.
+    const merged = mergePreferences(parsePreferences(stored), { lessons: { active: '' } });
+    expect(parsePreferences(merged).lessons).toEqual({ ...stored.lessons, active: '' });
   });
 
   it('enforces the ranges and enums', () => {

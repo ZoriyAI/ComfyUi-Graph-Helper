@@ -1,3 +1,4 @@
+import { useLessonStore } from '../state/lessonState';
 import { i18n, applyLanguage } from '../i18n';
 import { describeNote, type WorkflowNote } from '../components/shell/notices';
 import { showToast } from '../ui/toastStore';
@@ -219,6 +220,12 @@ export function checkGraph(): void {
 }
 
 // ── Assistant ────────────────────────────────────────────────────────────────────────────────────────
+
+/** The helper panel in its "Learn" mode: the lessons, or the lesson that is open. */
+export function openLessons(): void {
+  useDockStore.getState().show('assistant');
+  useLessonStore.getState().setLearning(true);
+}
 
 export function focusChat(): void {
   useDockStore.getState().show('assistant');

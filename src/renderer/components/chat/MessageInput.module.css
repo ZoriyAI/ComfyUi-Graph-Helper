@@ -49,6 +49,9 @@ form.form .field { position: relative; flex: none; flex-direction: row; width: 1
 }
 .intentOption[aria-pressed="true"] { background: var(--bg-raised); color: var(--text); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04); }
 .intentOption[data-intent="build"][aria-pressed="true"] { color: var(--accent-2); }
+.intentOption[data-intent="learn"][aria-pressed="true"] { color: var(--ok, #82ddb3); }
+/* In the Learn mode there is nothing to write: the field gives its room to the lesson. */
+form.form .field[hidden] { display: none; }
 .intentOption:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
 .intentRow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .intentHint { color: var(--text-faint); font-size: 12px; line-height: 18px; }

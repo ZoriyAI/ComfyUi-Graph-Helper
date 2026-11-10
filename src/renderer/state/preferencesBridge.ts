@@ -4,6 +4,7 @@ import { setShortcutOverrides } from '../commands/registry';
 import { setCanvasPersist, useCanvasStore } from '../components/graph/canvasStore';
 import { applyAppearance, savePreferencesPatch, usePreferencesStore } from './preferencesState';
 import { useUiStore } from './uiState';
+import { useLessonStore } from './lessonState';
 
 /** localStorage keys the canvas used before preferences moved to SQLite. Read once, saved, then deleted. */
 export const LEGACY_CANVAS_KEYS = {
@@ -78,6 +79,8 @@ function apply(next: Preferences, previous: Preferences | null): void {
   if (!previous || previous.canvas.followAgent !== next.canvas.followAgent) {
     useUiStore.getState().setFollowAgent(next.canvas.followAgent);
   }
+  // Lessons: read once at start; after that the lesson store is ahead of what is saved.
+  if (!previous) useLessonStore.getState().hydrate(next.lessons);
 }
 
 let installed: (() => void) | null = null;

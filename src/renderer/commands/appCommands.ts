@@ -1,5 +1,5 @@
 import {
-  Ghost, Columns2, Compass, Database, FileCheck2, FilePlus2, FolderInput, FolderOpen, FolderOutput, Group, History, Info, Keyboard,
+  Ghost, Columns2, Compass, Database, FileCheck2, FilePlus2, FolderInput, FolderOpen, FolderOutput, GraduationCap, Group, History, Info, Keyboard,
   LogOut, Map as MapIcon, Maximize, MessageCircleQuestion, MessageSquare, MessageSquareText, Navigation, PanelLeft, PanelRight, Pause, Play,
   Plus, Redo2, RefreshCw, Save, Settings, SquareDashedMousePointer, Square, Trash2, Undo2, Ungroup, Combine, ZoomIn, ZoomOut, RotateCcw,
   Workflow,
@@ -12,7 +12,7 @@ import { canRedo, canUndo, installUndoHistory, redo, redoHint, undo, undoHint } 
 import { useUndoStore } from '../state/undoState';
 import { installPortsNotice } from '../services/portsNotice';
 import {
-  addGroup, askAboutSelection, canEditGraph, checkGraph, createSubgraph, deleteSelection, dissolveSubgraph, endRun, exportWorkflowFile, focusChat,
+  addGroup, askAboutSelection, canEditGraph, checkGraph, createSubgraph, deleteSelection, dissolveSubgraph, endRun, exportWorkflowFile, focusChat, openLessons,
   importCatalogSnapshot, importWorkflowFile, openAddNode, openProjectFile, pauseRun, requestNewProject, resumeRun, saveProjectFile,
   saveSettingsPatch, selectAllNodes, selectedEdgeIds, selectedNodes, selectedSubgraphInstance,
 } from './actions';
@@ -218,6 +218,7 @@ export function buildAppCommands(): Command[] {
 
     // Assistant
     { id: 'assistant.focusChat', group: 'assistant', labelKey: 'menu.focusChat', icon: MessageSquare, shortcut: 'Mod+/', enabled: always, run: focusChat },
+    { id: 'assistant.lessons', group: 'assistant', labelKey: 'menu.lessons', hintKey: 'lessons.modeHint', icon: GraduationCap, enabled: always, run: openLessons },
     { id: 'assistant.askSelection', group: 'assistant', labelKey: 'menu.askSelection', icon: MessageCircleQuestion, enabled: () => !replaying() && selectedNodes().length > 0, run: askAboutSelection },
     {
       id: 'assistant.pause', group: 'assistant', labelKey: 'menu.pauseRun', icon: Pause,

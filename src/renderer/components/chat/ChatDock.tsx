@@ -9,6 +9,8 @@ import { useUiStore } from '../../state/uiState';
 import { useProviderStore } from '../../state/providerState';
 import { onAsk, type AskRequest } from '../../services/ask';
 import { getChatService } from '../../services/llm/chatService';
+import { useLessonStore } from '../../state/lessonState';
+import LessonPanel from '../lessons/LessonPanel';
 import Message from './Message';
 import MessageInput, { type ComposerIntent } from './MessageInput';
 import styles from './ChatDock.module.css';
@@ -43,6 +45,9 @@ export default function ChatDock({ onSendMessage, onPause }: ChatDockProps = {})
   const isStreaming = useChatStore((state) => state.isStreaming);
   const isPaused = useChatStore((state) => state.isPaused);
   const nodeCount = useGraphStore((state) => state.nodes.length);
+  // The third mode: lessons in place of the conversation. The person builds, the app follows along.
+  const learning = useLessonStore((state) => state.learning);
+  const setLearning = useLessonStore((state) => state.setLearning);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const queue = useRef<AskRequest[]>([]);
 
@@ -139,7 +144,16 @@ export default function ChatDock({ onSendMessage, onPause }: ChatDockProps = {})
           </div>
         ) : null}
       </div>
-      <div className={`chat-log ${styles.log}`} role="log" aria-label={String(t('chat.log'))} aria-live="polite">
+      {learning ? (
+        <LessonPanel
+          onAsk={(question) => {
+            // A question about a step is an ordinary question: it and its answer are read in the conversation.
+            setLearning(false);
+            send(question, { intent: 'ask' });
+          }}
+        />
+      ) : null}
+      <div className={`chat-log ${styles.log}`} role="log" aria-label={String(t('chat.log'))} aria-live="polite" hidden={learning}>
         {messages.length === 0 ? (
           <div className={`chat-empty ${styles.empty}`}>
             <strong>{t('chat.emptyTitle')}</strong>
@@ -174,7 +188,7 @@ export default function ChatDock({ onSendMessage, onPause }: ChatDockProps = {})
         )}
       </div>
       <div className="chat-compose">
-        <MessageInput onSend={sendComposer} isStreaming={isStreaming} />
+        <MessageInput onSend={sendComposer} isStreaming={isStreaming} learning={learning} onLearning={setLearning} />
       </div>
     </div>
   );

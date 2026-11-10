@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'motion/react';
-import { Check, FolderInput, MessageCircleQuestion, Plug, RefreshCw, Sparkles } from 'lucide-react';
+import { Check, FolderInput, GraduationCap, MessageCircleQuestion, Plug, RefreshCw, Sparkles } from 'lucide-react';
 import Button from '../../ui/Button';
 import { motionIsFull } from '../../motion/policy';
 import { runSyncNow } from '../sync/SyncIndicator';
@@ -9,7 +9,7 @@ import { syncView } from '../sync/syncView';
 import { useKnowledgeStore } from '../../state/knowledgeState';
 import { useUiStore } from '../../state/uiState';
 import { keySourceOf, providerKeyState, useProviderStore } from '../../state/providerState';
-import { focusChat } from '../../commands/actions';
+import { focusChat, openLessons } from '../../commands/actions';
 import { explainError, type Translator } from '../../../shared/i18n';
 import styles from './Onboarding.module.css';
 
@@ -120,13 +120,17 @@ export default function Onboarding({ onImport }: { onImport?: () => void }) {
             </li>
           ))}
         </ol>
-        {onImport ? (
-          <div className={styles.actions}>
+        <div className={styles.actions}>
+          {/* The third way to work with the helper: it leads, the person builds. */}
+          <Button variant="subtle" icon={<GraduationCap size={16} aria-hidden="true" />} onClick={openLessons}>
+            {t('canvas.onboardLearn')}
+          </Button>
+          {onImport ? (
             <Button variant="subtle" icon={<FolderInput size={16} aria-hidden="true" />} onClick={onImport}>
               {t('canvas.onboardImport')}
             </Button>
-          </div>
-        ) : null}
+          ) : null}
+        </div>
       </div>
     </motion.section>
   );

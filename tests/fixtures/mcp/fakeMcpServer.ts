@@ -202,10 +202,21 @@ export const CLASSES: ClassDef[] = [
   { classType: 'Display Any (rgthree)', pack: 4, display: 'Display Any (rgthree)', category: 'rgthree', required: { source: ['*'] }, output: [], outputNode: true },
 ];
 
+/**
+ * ComfyUI's own video nodes (comfy_extras/nodes_hunyuan, nodes_wan, nodes_video), served only when a test asks
+ * for them with `video: true`: the lessons on video need them, and every other test counts on the list above.
+ */
+export const VIDEO_CLASSES: ClassDef[] = [
+  { classType: 'EmptyHunyuanLatentVideo', pack: 0, display: 'Empty Hunyuan Video 1.0 Latent', category: 'latent/video', required: { width: ['INT', { default: 848, min: 16, step: 16 }], height: ['INT', { default: 480, min: 16, step: 16 }], length: ['INT', { default: 25, min: 1, step: 4 }], batch_size: ['INT', { default: 1, min: 1, max: 4096 }] }, output: ['LATENT'] },
+  { classType: 'WanImageToVideo', pack: 0, display: 'WanImageToVideo', category: 'conditioning/video_models', required: { positive: ['CONDITIONING'], negative: ['CONDITIONING'], vae: ['VAE'], width: ['INT', { default: 832, min: 16, step: 16 }], height: ['INT', { default: 480, min: 16, step: 16 }], length: ['INT', { default: 81, min: 1, step: 4 }], batch_size: ['INT', { default: 1, min: 1, max: 4096 }] }, optional: { clip_vision_output: ['CLIP_VISION_OUTPUT'], start_image: ['IMAGE'] }, output: ['CONDITIONING', 'CONDITIONING', 'LATENT'], outputName: ['positive', 'negative', 'latent'] },
+  { classType: 'CreateVideo', pack: 0, display: 'Create Video', category: 'image/video', required: { images: ['IMAGE'], fps: ['FLOAT', { default: 30, min: 1, max: 120, step: 1 }] }, optional: { audio: ['AUDIO'] }, output: ['VIDEO'] },
+  { classType: 'SaveVideo', pack: 0, display: 'Save Video', category: 'image/video', required: { video: ['VIDEO'], filename_prefix: ['STRING', { default: 'video/ComfyUI' }], format: [['auto', 'mp4']], codec: [['auto', 'h264']] }, output: [], outputNode: true },
+];
+
 /** The /object_info document the native fixture serves. */
-export function objectInfoDocument(): Record<string, unknown> {
+export function objectInfoDocument(classes: readonly ClassDef[] = CLASSES): Record<string, unknown> {
   const doc: Record<string, unknown> = {};
-  for (const def of CLASSES) {
+  for (const def of classes) {
     const input: Record<string, unknown> = {};
     const order: Record<string, string[]> = {};
     if (def.required) { input.required = def.required; order.required = Object.keys(def.required); }
@@ -227,8 +238,8 @@ export function objectInfoDocument(): Record<string, unknown> {
   return doc;
 }
 
-function classItems() {
-  return CLASSES.map((def) => ({
+function classItems(classes: readonly ClassDef[]) {
+  return classes.map((def) => ({
     class_type: def.classType,
     module: PACKS[def.pack].module,
     display_name: def.display,
@@ -238,14 +249,14 @@ function classItems() {
   }));
 }
 
-function packItems() {
+function packItems(classes: readonly ClassDef[]) {
   return PACKS.map((pack, index) => ({
     name: pack.name,
     installed_state: 'installed',
     import_state: 'imported',
     version: pack.version,
     commit: pack.commit,
-    imported_class_count: CLASSES.filter((def) => def.pack === index).length,
+    imported_class_count: classes.filter((def) => def.pack === index).length,
   }));
 }
 
@@ -281,7 +292,7 @@ function text(value: unknown, isError = false) {
   return { content: [{ type: 'text', text: typeof value === 'string' ? value : JSON.stringify(value) }], isError };
 }
 
-function callTool(name: string, args: Record<string, unknown>, comfyUrl: string, extraLoras = 0) {
+function callTool(name: string, args: Record<string, unknown>, comfyUrl: string, extraLoras = 0, classes: readonly ClassDef[] = CLASSES) {
   switch (name) {
     case 'studio_info':
       return text({
@@ -292,8 +303,8 @@ function callTool(name: string, args: Record<string, unknown>, comfyUrl: string,
         paths: { models: '/srv/comfyui/models' },
       });
     case 'studio_capabilities':
-      if (args.section === 'nodes' && args.kind === 'packs') return text(page(packItems(), args));
-      if (args.section === 'nodes') return text(page(classItems(), args));
+      if (args.section === 'nodes' && args.kind === 'packs') return text(page(packItems(classes), args));
+      if (args.section === 'nodes') return text(page(classItems(classes), args));
       return text({ items: ['checkpoints', 'loras', 'vae', 'controlnet'].map((category) => ({ category, root_count: 1 })), next_cursor: null, total: 4 });
     case 'models': {
       if (args.action !== 'list') return text({ error: { code: 'FAKE_NOT_IMPLEMENTED' } }, true);
@@ -333,8 +344,8 @@ function readBody(req: http.IncomingMessage): Promise<string> {
   });
 }
 
-function startComfyFixture(hits: string[]): { server: http.Server } {
-  const info = JSON.stringify(objectInfoDocument());
+function startComfyFixture(hits: string[], classes: readonly ClassDef[] = CLASSES): { server: http.Server } {
+  const info = JSON.stringify(objectInfoDocument(classes));
   const server = http.createServer((req, res) => {
     hits.push(`${req.method} ${req.url}`);
     if (req.method !== 'GET') { res.writeHead(405); res.end(); return; }
@@ -357,6 +368,8 @@ export interface FakeMcpOptions {
   token?: string;
   /** Extra LoRA files (extra_lora_000.safetensors …) on top of MODELS, for a catalog that needs many metadata batches. */
   extraLoras?: number;
+  /** Serve ComfyUI's video nodes too (Empty video latent, WanImageToVideo, Create Video, Save Video). */
+  video?: boolean;
   /** studio_info names a ComfyUI address where nothing listens (ComfyUI not running). */
   comfyDown?: boolean;
 }
@@ -364,7 +377,8 @@ export interface FakeMcpOptions {
 export async function startFakeMcp(options: FakeMcpOptions = {}): Promise<FakeMcp> {
   const calls: FakeMcpCall[] = [];
   const comfyHits: string[] = [];
-  const comfy = startComfyFixture(comfyHits);
+  const classes = options.video ? [...CLASSES, ...VIDEO_CLASSES] : CLASSES;
+  const comfy = startComfyFixture(comfyHits, classes);
   const comfyPort = await listen(comfy.server);
   if (options.comfyDown) await new Promise<void>((resolve) => comfy.server.close(() => resolve()));
   const comfyUrl = `http://127.0.0.1:${comfyPort}`;
@@ -440,7 +454,7 @@ export async function startFakeMcp(options: FakeMcpOptions = {}): Promise<FakeMc
         return;
       }
       if (method === 'tools/list') result = { tools: TOOL_DEFS };
-      else if (method === 'tools/call') result = callTool(String(params.name), record.args ?? {}, comfyUrl, options.extraLoras ?? 0);
+      else if (method === 'tools/call') result = callTool(String(params.name), record.args ?? {}, comfyUrl, options.extraLoras ?? 0, classes);
       else if (method === 'ping') result = {};
       else {
         res.writeHead(200, headers);

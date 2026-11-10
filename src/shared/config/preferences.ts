@@ -61,6 +61,8 @@ export function descriptionsPatch(mode: DescriptionsMode): { descriptions: Descr
 /** 'Mod+Shift+K', 'F1', 'Shift+1', 'Delete', or '' for "no shortcut". */
 const CHORD = /^((Mod|Ctrl|Shift|Alt)\+)*([A-Z0-9]|F([1-9]|1[0-2])|[=\-/,.;']|\+|Delete|Backspace|Enter|Escape|Tab|Space|Home|End|PageUp|PageDown|Insert|ArrowUp|ArrowDown|ArrowLeft|ArrowRight|`|\[|\]|\\)$/;
 const COMMAND_ID = /^[a-z][A-Za-z0-9]*(\.[A-Za-z0-9]+)*$/;
+/** Ids of lessons and of their steps: 'video-text', 'first-pass'. */
+const LESSON_ID = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
 
 export function isChord(value: string): boolean {
   return value === '' || CHORD.test(value);
@@ -127,6 +129,17 @@ export const preferencesSchema = z.object({
      * answer can be saved to a file and handed to someone to read. It stays on this computer; keys never enter it.
      */
     modelLog: z.boolean().default(true),
+  }).prefault({}),
+  /**
+   * Lessons (the helper's "Learn" mode). Where a person is in a lesson is read off the graph; kept here is only
+   * what the graph cannot say: which lesson is open, which explaining steps were read, which lessons were done.
+   */
+  lessons: z.object({
+    /** The open lesson; '' when the list of lessons is. */
+    active: z.string().regex(LESSON_ID).max(60).or(z.literal('')).default(''),
+    /** Lesson id → ids of its explaining steps the person has read and passed. */
+    read: z.record(z.string().regex(LESSON_ID).max(60), z.array(z.string().regex(LESSON_ID).max(60)).max(100)).default({}),
+    done: z.array(z.string().regex(LESSON_ID).max(60)).max(100).default([]),
   }).prefault({}),
 }).strict();
 

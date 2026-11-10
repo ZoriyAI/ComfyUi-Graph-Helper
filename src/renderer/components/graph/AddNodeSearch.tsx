@@ -12,7 +12,7 @@ import styles from './Toolbar.module.css';
  * Commits add-node after the class guard: an unknown class (with a synced catalog) is refused with the
  * nearest installed names; the guard being unreachable does not block the edit.
  */
-async function addCheckedNode(classType: string, at: { x: number; y: number } | null): Promise<void> {
+async function addCheckedNode(classType: string, at: { x: number; y: number } | null, title?: string): Promise<void> {
   const t = (key: string, options?: Record<string, unknown>) => String(i18n.t(key, options ?? {}));
   const verdict = await window.electronAPI?.validateNodeClass?.(classType).catch(() => null);
   if (verdict && !verdict.ok) {
@@ -28,7 +28,8 @@ async function addCheckedNode(classType: string, at: { x: number; y: number } | 
     return;
   }
   const spot = await placeNewNode(at, { classType });
-  await commitManual({ type: 'add-node', nodeType: classType, x: spot.x, y: spot.y });
+  // Under the name the library shows, as a node added from the library is: one node, one name, whichever way.
+  await commitManual({ type: 'add-node', nodeType: classType, ...(title && title !== classType ? { title } : {}), x: spot.x, y: spot.y });
 }
 
 /**
@@ -46,12 +47,13 @@ export default function AddNodeSearch() {
 
   useEffect(() => {
     if (search.open) {
-      setQuery('');
+      // A lesson opens the search with the name of the node it asks for already typed.
+      setQuery(search.query ?? '');
       setResults([]);
       setActive(0);
       window.setTimeout(() => input.current?.focus(), 0);
     }
-  }, [search.open]);
+  }, [search.open, search.query]);
 
   useEffect(() => {
     if (!search.open) return undefined;
@@ -80,7 +82,7 @@ export default function AddNodeSearch() {
     // The right-click spot, else the middle of the view; placeNewNode moves it off any node.
     const at = search.at;
     close();
-    void addCheckedNode(classType, at);
+    void addCheckedNode(classType, at, item?.displayName || undefined);
   };
 
   const listId = 'canvas-add-node-results';

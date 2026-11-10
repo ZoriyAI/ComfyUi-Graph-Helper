@@ -53,6 +53,8 @@
 
 /* What is written in the chat (a table from a model) measures itself against the chat's width, not the window's. */
 .log { gap: 0; scroll-padding-bottom: 16px; container-type: inline-size; container-name: chat; }
+/* The Learn mode shows lessons where the conversation is; the conversation keeps its place for the way back. */
+.log[hidden] { display: none; }
 .empty {
   margin: auto;
   display: flex;

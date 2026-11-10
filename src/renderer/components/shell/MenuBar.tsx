@@ -64,7 +64,7 @@ const MENUS: Array<{ value: string; labelKey: string; entries: Entry[] }> = [
     value: 'assistant',
     labelKey: 'menu.assistant',
     entries: [
-      command('assistant.focusChat'), command('assistant.askSelection'), separator,
+      command('assistant.focusChat'), command('assistant.askSelection'), command('assistant.lessons'), separator,
       command('assistant.pause'), command('assistant.resume'), command('assistant.end'), separator,
       { kind: 'radio', labelKey: 'menu.provider', ids: providerChoices().map((choice) => providerCommandId(choice.value)), valueOf: (id) => id },
       command('assistant.settings'),
