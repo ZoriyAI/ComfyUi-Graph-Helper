@@ -8,7 +8,8 @@ import Button from '../../ui/Button';
 import EmptyState from '../../ui/EmptyState';
 import SearchField from '../../ui/SearchField';
 import { showToast } from '../../ui/toastStore';
-import { insertableSubgraphs, placementFor, type Viewport } from './libraryModel';
+import { insertableSubgraphs } from './libraryModel';
+import { placeNewNode } from '../graph/placeNode';
 import { subgraphSummary } from '../graph/SubgraphSummary';
 import styles from './Library.module.css';
 
@@ -20,8 +21,6 @@ function readSubgraphs(state: object): SubgraphDefinition[] {
   return Array.isArray(value) ? value : NONE;
 }
 
-let insertCount = 0;
-
 /** Subgraph definitions of this project, each insertable as an instance at the canvas centre. */
 export default function SubgraphLibrary() {
   const { t } = useTranslation();
@@ -30,11 +29,8 @@ export default function SubgraphLibrary() {
   const list = useMemo(() => insertableSubgraphs(subgraphs, query), [subgraphs, query]);
 
   const insert = async (definition: SubgraphDefinition) => {
-    const state = useGraphStore.getState();
-    const viewport = (state as { viewport?: Viewport }).viewport ?? null;
-    const pane = document.querySelector('.graph-pane')?.getBoundingClientRect() ?? null;
-    const position = placementFor(state.nodes, viewport, pane ? { width: pane.width, height: pane.height } : null, insertCount);
-    insertCount += 1;
+    // The centre of the view, moved to the nearest spot where the new node covers nothing.
+    const position = placeNewNode(null);
     try {
       const result = await submitManual(`library-insert-${crypto.randomUUID()}`, {
         type: 'insert-subgraph',

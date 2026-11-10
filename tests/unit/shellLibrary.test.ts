@@ -8,7 +8,6 @@ import {
   insertableSubgraphs,
   modelFacets,
   moveActive,
-  placementFor,
   scrollIntoRow,
   windowRange,
 } from '../../src/renderer/components/library/libraryModel';
@@ -124,17 +123,7 @@ describe('model library filters', () => {
   });
 });
 
-describe('placement and subgraphs', () => {
-  it('places at the canvas centre when the viewport is known', () => {
-    expect(placementFor([], { x: 0, y: 0, zoom: 1 }, { width: 800, height: 600 })).toEqual({ x: 280, y: 240 });
-    expect(placementFor([], { x: 100, y: 50, zoom: 2 }, { width: 800, height: 600 })).toEqual({ x: 30, y: 65 });
-  });
-
-  it('falls back to the right of the graph, then the origin, and staggers repeats', () => {
-    expect(placementFor([{ position: { x: 100, y: 0 } }, { position: { x: 400, y: 200 } }], null, null)).toEqual({ x: 720, y: 100 });
-    expect(placementFor([], null, null, 2)).toEqual({ x: 48, y: 48 });
-  });
-
+describe('subgraphs in the library', () => {
   it('lists only modelled subgraphs, filtered and sorted', () => {
     const base = { inputs: [], outputs: [], nodes: [], edges: [], nestedIn: null, raw: {} };
     const defs: SubgraphDefinition[] = [

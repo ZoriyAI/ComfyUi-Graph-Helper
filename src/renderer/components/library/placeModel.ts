@@ -5,7 +5,7 @@ import { useUiStore } from '../../state/uiState';
 import { showToast } from '../../ui/toastStore';
 import { commitManual } from '../graph/commit';
 import { loaderFieldFor, loaderForModel } from '../graph/lib/modelLoaders';
-import { placementFor, type Viewport } from './libraryModel';
+import { placeNewNode } from '../graph/placeNode';
 
 /**
  * Puts a model file to work on the canvas: a new loader node with the file chosen (from the card or a drop),
@@ -16,19 +16,6 @@ import { placementFor, type Viewport } from './libraryModel';
 type ModelRef = Pick<ModelSummary, 'directory' | 'name'>;
 
 const tr = (key: string, options?: Record<string, unknown>) => String(i18n.t(key, options ?? {}));
-
-let addCount = 0;
-
-/** React Flow's camera from the viewport transform, so a node added from the card lands where the person looks. */
-function readViewport(): { viewport: Viewport; pane: { width: number; height: number } } | null {
-  const flow = document.querySelector('.graph-canvas .react-flow');
-  const layer = flow?.querySelector('.react-flow__viewport') as HTMLElement | null;
-  if (!flow || !layer) return null;
-  const match = /translate\(\s*(-?[\d.]+)px,\s*(-?[\d.]+)px\)\s*scale\(\s*([\d.]+)\s*\)/.exec(layer.style.transform);
-  if (!match) return null;
-  const box = flow.getBoundingClientRect();
-  return { viewport: { x: Number(match[1]), y: Number(match[2]), zoom: Number(match[3]) }, pane: { width: box.width, height: box.height } };
-}
 
 function selectNode(nodeId: string): void {
   useGraphStore.setState((state) => ({ nodes: state.nodes.map((node) => ({ ...node, selected: node.id === nodeId })) }));
@@ -70,9 +57,8 @@ export async function addModelLoader(model: ModelRef, at?: { x: number; y: numbe
     showToast({ id: 'model-place', tone: 'warn', title: tr('library.card.inSubgraph'), duration: 6000 });
     return null;
   }
-  const camera = at ? null : readViewport();
-  const position = at ?? placementFor(useGraphStore.getState().nodes, camera?.viewport ?? null, camera?.pane ?? null, addCount);
-  if (!at) addCount += 1;
+  // A drop point, else the centre of the view; either way moved to the nearest spot where it covers nothing.
+  const position = placeNewNode(at ?? null);
   const title = await loaderTitle(loader.nodeType);
   const result = await commitManual({
     type: 'add-node',

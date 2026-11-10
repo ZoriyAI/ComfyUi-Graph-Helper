@@ -12,10 +12,11 @@ import type {
   ModelFit,
   ModelKind,
 } from '../../shared/contracts/knowledge';
-import { canvasModelRefs, type GraphNodeLike } from '../../shared/graph/compatibility';
+import type { GraphNodeLike } from '../../shared/graph/compatibility';
 import { familiesCompatible } from '../../shared/knowledge/baseModel';
 import { BASE_MODEL_FAMILIES, MODEL_KINDS } from '../../shared/knowledge/schemas';
 import { nodeClassDetail } from './repository';
+import { catalogFileIndex, loadedModelFiles } from './loadedModels';
 
 /** Folders whose files are the base model of a graph (the same set the check panel compares LoRAs against). */
 const BASE_DIRECTORIES = new Set(['checkpoints', 'diffusion_models', 'unet']);
@@ -76,10 +77,12 @@ function referenceOf(
   const byId = new Map(nodes.map((node) => [String(node.id), node]));
   const base = BASE_DIRECTORIES.has(directory);
   const wanted = base ? LORA_DIRECTORIES : BASE_DIRECTORIES;
+  // Any loader counts, a custom pack's included: a field holding a catalog file loads that file (loadedModels.ts).
+  const files = catalogFileIndex(catalog);
   for (const id of walk(nodeId, edges, base ? 'down' : 'up')) {
     const node = byId.get(id);
     if (!node) continue;
-    const ref = canvasModelRefs(node, catalog).find((item) => wanted.has(item.directory));
+    const ref = loadedModelFiles(node, catalog, files).find((item) => wanted.has(item.directory));
     if (!ref) continue;
     const row = db.prepare('SELECT base_model FROM model_catalog WHERE directory = ? AND name = ?').get(ref.directory, ref.name) as { base_model: string } | undefined;
     return { nodeId: id, name: ref.name, baseModel: asFamily(row?.base_model) };

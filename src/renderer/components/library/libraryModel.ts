@@ -226,41 +226,6 @@ export function formatBytes(bytes: number | null, language: 'en' | 'ru'): string
   return `${new Intl.NumberFormat(language === 'ru' ? 'ru-RU' : 'en-US', { maximumFractionDigits: digits, minimumFractionDigits: digits }).format(value)} ${units[unit]}`;
 }
 
-export interface Viewport {
-  x: number;
-  y: number;
-  zoom: number;
-}
-
-/** Approximate node card size, so a new node lands centred rather than with its corner at the centre. */
-const NODE_W = 240;
-const NODE_H = 120;
-
-/**
- * Where a node added from the library goes: the centre of the visible canvas when the viewport is known,
- * else to the right of the existing graph, else the origin. `nth` staggers repeated adds.
- */
-export function placementFor(
-  nodes: Array<{ position: { x: number; y: number } }>,
-  viewport: Viewport | null,
-  pane: { width: number; height: number } | null,
-  nth = 0,
-): { x: number; y: number } {
-  const stagger = (nth % 6) * 24;
-  if (viewport && pane && viewport.zoom > 0 && pane.width > 0 && pane.height > 0) {
-    return {
-      x: Math.round((pane.width / 2 - viewport.x) / viewport.zoom - NODE_W / 2 + stagger),
-      y: Math.round((pane.height / 2 - viewport.y) / viewport.zoom - NODE_H / 2 + stagger),
-    };
-  }
-  if (nodes.length > 0) {
-    const maxX = Math.max(...nodes.map((node) => node.position.x));
-    const meanY = nodes.reduce((sum, node) => sum + node.position.y, 0) / nodes.length;
-    return { x: Math.round(maxX + NODE_W + 80), y: Math.round(meanY + stagger) };
-  }
-  return { x: stagger, y: stagger };
-}
-
 /** Modelled (insertable) subgraph definitions matching a query. */
 export function insertableSubgraphs(definitions: SubgraphDefinition[], query: string): SubgraphDefinition[] {
   const needle = query.trim().toLowerCase();

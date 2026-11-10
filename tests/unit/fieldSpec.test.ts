@@ -48,6 +48,12 @@ const OBJECT_INFO = {
     output: ['LATENT'],
     python_module: 'nodes',
   },
+  // A pack's own loader: a class and a field name the core loader list does not know.
+  PackEasyLoader: {
+    input: { required: { base_file: [['ponyDiffusionV6XL.safetensors', 'sd_xl_base_1.0.safetensors']] } },
+    output: ['MODEL', 'CLIP'],
+    python_module: 'custom_nodes.easy-pack',
+  },
   Odd: {
     input: {
       required: {
@@ -196,6 +202,19 @@ describe('knowledge:field-models', () => {
     const free = fieldModels(db, { projectId: DESKTOP_PROJECT_ID, nodeId: alone, input: 'lora_name' });
     expect(free.reference).toBeNull();
     expect(new Set(free.options.map((item) => item.fit))).toEqual(new Set(['unknown']));
+    db.close();
+  });
+
+  it('measures against a checkpoint loaded by a pack\'s own loader, not only by the core ones', () => {
+    const db = openDb();
+    const loader = commit(db, { type: 'add-node', nodeType: 'PackEasyLoader', parameters: { base_file: 'ponyDiffusionV6XL.safetensors' } })!;
+    const lora = commit(db, { type: 'add-node', nodeType: 'LoraLoader' })!;
+    commit(db, { type: 'connect', source: loader, target: lora, sourceHandle: 'out-0', targetHandle: 'in-0' });
+    const result = fieldModels(db, { projectId: DESKTOP_PROJECT_ID, nodeId: lora, input: 'lora_name' });
+    expect(result.reference).toEqual({ nodeId: loader, name: 'ponyDiffusionV6XL.safetensors', baseModel: 'pony' });
+    expect(result.options[0]).toMatchObject({ value: 'PerfectBreastsPonyV2.safetensors', fit: 'fits' });
+    expect(result.options.find((item) => item.value === 'add-detail-xl.safetensors')?.fit).toBe('related');
+    expect(result.options.find((item) => item.value === 'flux_realism_lora.safetensors')?.fit).toBe('differs');
     db.close();
   });
 

@@ -126,10 +126,13 @@ test('inside a subgraph, moving an inner node and editing its field are saved an
   await expect(encode).toContainText('CLIPTextEncode');
   await encode.click();
   await window.getByRole('tab', { name: 'Inspector' }).click();
-  const text = window.getByRole('textbox', { name: 'Value of text' });
+  // The same field shows on the node and in Properties; this is the one in Properties.
+  const properties = window.getByRole('tabpanel', { name: 'Inspector' });
+  const text = properties.getByRole('textbox', { name: 'text', exact: true });
   await expect(text).toHaveValue('a cat');
   await text.fill('a dog in the rain');
-  await text.press('Enter');
+  // Leaving the field commits it, whether it is a one-line input or a prompt box.
+  await text.blur();
   await expect.poll(async () => definition(await exportDocument(window), INNER_ID).nodes[0].widgets_values).toEqual({ text: 'a dog in the rain' });
 
   // The root node 1 (the checkpoint loader, same id) did not change.
@@ -148,7 +151,7 @@ test('inside a subgraph, moving an inner node and editing its field are saved an
   await window.locator('.react-flow__node[data-id="1"]').dblclick();
   await window.locator('.react-flow__node[data-id="1"]').click();
   await window.getByRole('tab', { name: 'Inspector' }).click();
-  await expect(window.getByRole('textbox', { name: 'Value of text' })).toHaveValue('a dog in the rain');
+  await expect(window.getByRole('tabpanel', { name: 'Inspector' }).getByRole('textbox', { name: 'text', exact: true })).toHaveValue('a dog in the rain');
   if (SHOTS) await window.screenshot({ path: path.join(SHOTS, 'subgraph-after-reload.png') });
 
   // Removing an inner node is not supported yet: the canvas says so and the node stays.
