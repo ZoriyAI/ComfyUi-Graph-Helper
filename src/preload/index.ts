@@ -19,6 +19,8 @@ import type {
   ModelListResult,
   ModelSummary,
   NodeClassDetail,
+  FieldModelsRequest,
+  FieldModelsResult,
   NodeClassVerdict,
   NodeClassSummary,
   Proposal,
@@ -91,6 +93,7 @@ const IPC_CHANNELS = {
   KNOWLEDGE_SAVE_EXPLANATION: 'knowledge:save-explanation',
   KNOWLEDGE_CHECK_GRAPH: 'knowledge:check-graph',
   KNOWLEDGE_VALIDATE_NODE_CLASS: 'knowledge:validate-node-class',
+  KNOWLEDGE_FIELD_MODELS: 'knowledge:field-models',
   SYNC_STATUS: 'sync:status',
   SYNC_NOW: 'sync:now',
   SYNC_SET_AUTO: 'sync:set-auto',
@@ -260,6 +263,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   listExplanations: (request: ListExplanationsRequest) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_LIST_EXPLANATIONS, request) as Promise<Explanation[]>,
   saveExplanation: (input: ExplanationInput) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_SAVE_EXPLANATION, input) as Promise<Explanation>,
   checkGraph: (projectId: string) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_CHECK_GRAPH, projectId) as Promise<GraphCheckReport>,
+  fieldModels: (request: FieldModelsRequest) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_FIELD_MODELS, request) as Promise<FieldModelsResult>,
   syncStatus: () => ipcRenderer.invoke(IPC_CHANNELS.SYNC_STATUS) as Promise<SyncStatus>,
   syncNow: () => ipcRenderer.invoke(IPC_CHANNELS.SYNC_NOW) as Promise<SyncStatus>,
   syncSetAuto: (enabled: boolean, intervalMinutes: number) => ipcRenderer.invoke(IPC_CHANNELS.SYNC_SET_AUTO, { enabled, intervalMinutes }) as Promise<SyncStatus>,
@@ -410,6 +414,8 @@ export interface ElectronAPI {
   listExplanations: (request: ListExplanationsRequest) => Promise<Explanation[]>;
   saveExplanation: (input: ExplanationInput) => Promise<Explanation>;
   checkGraph: (projectId: string) => Promise<GraphCheckReport>;
+  /** Model files a model field can take, joined with the catalog and marked by fit to the checkpoint upstream. */
+  fieldModels: (request: FieldModelsRequest) => Promise<FieldModelsResult>;
   syncStatus: () => Promise<SyncStatus>;
   syncNow: () => Promise<SyncStatus>;
   syncSetAuto: (enabled: boolean, intervalMinutes: number) => Promise<SyncStatus>;

@@ -24,6 +24,7 @@ import {
   searchNodeClasses,
 } from './repository';
 import { validateNodeClass } from './nodeClassGuard';
+import { fieldModels, fieldModelsSchema } from './fieldModels';
 
 export type KnowledgeHandler = (...args: unknown[]) => unknown;
 
@@ -78,6 +79,7 @@ export function knowledgeHandlers(deps: { db: () => Database.Database; sync: Syn
     },
     [IPC_CHANNELS.KNOWLEDGE_CHECK_GRAPH]: (projectId) => checkGraph(db(), projectIdSchema.parse(projectId)),
     [IPC_CHANNELS.KNOWLEDGE_VALIDATE_NODE_CLASS]: (classType) => validateNodeClass(db(), classTypeSchema.parse(classType)),
+    [IPC_CHANNELS.KNOWLEDGE_FIELD_MODELS]: (request) => fieldModels(db(), fieldModelsSchema.parse(request)),
     [IPC_CHANNELS.SYNC_STATUS]: () => sync.status(db()),
     [IPC_CHANNELS.SYNC_NOW]: () => sync.runSync(db(), deps.fetchImpl),
     [IPC_CHANNELS.SYNC_SET_AUTO]: (request) => {

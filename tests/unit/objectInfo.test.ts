@@ -637,7 +637,7 @@ describe('object_info catalog', () => {
       },
     });
     const alias = parsed.nodes.find((node) => node.classType === 'SeedAlias');
-    expect(alias?.inputs.find((input) => input.name === 'seed')).toEqual({ name: 'seed', type: 'MY_SEED', widget: true, required: true, default: 0, controlDefault: 'randomize' });
+    expect(alias?.inputs.find((input) => input.name === 'seed')).toEqual({ name: 'seed', type: 'MY_SEED', widget: true, required: true, default: 0, controlDefault: 'randomize', widgetType: 'INT' });
     expect(alias?.widgetOrder).toEqual(['seed', 'seed::control_after_generate', 'steps']);
     expect(alias?.widgetOrderReliable).not.toBe(false);
     const color = parsed.nodes.find((node) => node.classType === 'ColorAlias');

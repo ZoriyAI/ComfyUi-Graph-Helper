@@ -179,6 +179,7 @@ function inputsOf(info: Record<string, unknown>): { inputs: CatalogInput[]; widg
       if (parsed.default !== undefined) entry.default = parsed.default;
       if (parsed.options) entry.options = parsed.options;
       if (parsed.controlDefault !== undefined) entry.controlDefault = parsed.controlDefault;
+      Object.assign(entry, parsed.meta);
       inputs.push(entry);
       if (!parsed.widget) continue;
       widgetOrder.push(name);
@@ -228,6 +229,8 @@ interface ParsedSpec {
   default?: unknown;
   options?: string[];
   controlDefault?: string;
+  /** Field metadata a control needs (range, step, multi-line, tooltip); see fieldMeta. */
+  meta: Partial<Pick<CatalogInput, 'widgetType' | 'min' | 'max' | 'step' | 'multiline' | 'multiSelect' | 'tooltip'>>;
 }
 
 function parseSpec(name: string, spec: unknown): ParsedSpec {
@@ -261,6 +264,7 @@ function describeInput(linkType: string, options: Record<string, unknown>, force
     controlAfterGenerate,
     controlFilterList: controlAfterGenerate && ordinaryCombo,
     mediaUpload: widget && !opaque && constructorType === 'COMBO' && isMediaUpload(options),
+    meta: fieldMeta(linkType, constructorType, options, widget && !opaque),
   };
   if (!widget || opaque) return parsed;
   const value = widgetDefault(constructorType, options, comboOptions);
@@ -268,6 +272,34 @@ function describeInput(linkType: string, options: Record<string, unknown>, force
   if (constructorType === 'COMBO') parsed.options = comboOptions;
   if (controlAfterGenerate) parsed.controlDefault = controlDefault(constructorType, options);
   return parsed;
+}
+
+function finiteNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+/**
+ * What a control needs beyond the value, from the INPUT_TYPES options ComfyUI documents for widgets: `min`, `max`
+ * and `step` on INT/FLOAT (the step as the node author wrote it: cfg 0.1, denoise 0.01), `multiline` on STRING,
+ * `multi_select` on COMBO, and `tooltip` on any input. A tooltip is kept on sockets as well, for the Ports table.
+ * Values of the wrong type are dropped: the control then falls back to an open range.
+ */
+function fieldMeta(linkType: string, constructorType: string, options: Record<string, unknown>, widget: boolean): ParsedSpec['meta'] {
+  const meta: ParsedSpec['meta'] = {};
+  if (typeof options.tooltip === 'string' && options.tooltip.trim() !== '') meta.tooltip = options.tooltip.trim();
+  if (!widget) return meta;
+  if (constructorType !== linkType) meta.widgetType = constructorType;
+  if (constructorType === 'INT' || constructorType === 'FLOAT') {
+    const min = finiteNumber(options.min);
+    const max = finiteNumber(options.max);
+    const step = finiteNumber(options.step);
+    if (min !== undefined) meta.min = min;
+    if (max !== undefined) meta.max = max;
+    if (step !== undefined && step > 0) meta.step = step;
+  }
+  if (constructorType === 'STRING' && options.multiline === true) meta.multiline = true;
+  if (constructorType === 'COMBO' && options.multi_select === true) meta.multiSelect = true;
+  return meta;
 }
 
 /**

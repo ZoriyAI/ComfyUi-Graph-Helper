@@ -84,6 +84,8 @@ export const IPC_CHANNELS = {
   KNOWLEDGE_SAVE_EXPLANATION: 'knowledge:save-explanation',
   KNOWLEDGE_CHECK_GRAPH: 'knowledge:check-graph',
   KNOWLEDGE_VALIDATE_NODE_CLASS: 'knowledge:validate-node-class',
+  /** The model files a model field can take, with family and fit to the checkpoint upstream (WP1 Fields). */
+  KNOWLEDGE_FIELD_MODELS: 'knowledge:field-models',
   SYNC_STATUS: 'sync:status',
   SYNC_NOW: 'sync:now',
   SYNC_SET_AUTO: 'sync:set-auto',
