@@ -6,6 +6,7 @@ import type { AgentTurnContext, ObjectRef } from '../../../shared/contracts';
 import { useChatStore } from '../../state/chatState';
 import { useGraphStore } from '../../state/graphState';
 import { useUiStore } from '../../state/uiState';
+import { useProviderStore } from '../../state/providerState';
 import { onAsk, type AskRequest } from '../../services/ask';
 import { getChatService } from '../../services/llm/chatService';
 import Message from './Message';
@@ -36,6 +37,8 @@ const MESSAGE_MOTION = {
 
 export default function ChatDock({ onSendMessage, onPause }: ChatDockProps = {}) {
   const { t } = useTranslation();
+  // The scripted TEST fixture says so in the empty chat; a real helper gets no such note.
+  const provider = useProviderStore((state) => state.provider);
   const messages = useChatStore((state) => state.messages);
   const isStreaming = useChatStore((state) => state.isStreaming);
   const isPaused = useChatStore((state) => state.isPaused);
@@ -139,6 +142,7 @@ export default function ChatDock({ onSendMessage, onPause }: ChatDockProps = {})
           <div className={`chat-empty ${styles.empty}`}>
             <strong>{t('chat.emptyTitle')}</strong>
             <p>{nodeCount === 0 ? t('chat.emptyWithoutGraph') : t('chat.emptyWithGraph')}</p>
+            {provider === 'test' ? <p>{t('chat.testNote')}</p> : null}
             <p className={styles.quickTitle}>{t('chat.quickTitle')}</p>
             <div className={styles.quick}>
               {quickPrompts.map((prompt) => (

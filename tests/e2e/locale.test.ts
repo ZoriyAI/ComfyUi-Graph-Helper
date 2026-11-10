@@ -100,7 +100,7 @@ async function expectLocalizedChrome(window: Page, language: 'en' | 'ru') {
   const copy = language === 'ru'
     ? {
       settings: 'Настройки',
-      inspector: 'Инспектор',
+      inspector: 'Свойства',
       assistant: 'Помощник',
       tabs: ['Подключение', 'Помощник', 'Оформление и движение'],
       model: 'Модель',

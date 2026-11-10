@@ -146,8 +146,7 @@ export default function ToolCard({ call }: { call: ToolCall }) {
     >
       <div className={styles.head}>
         <Icon className={styles.icon} size={14} aria-label={String(t(`agent.kind.${call.kind}`))} />
-        <span className={`tool-name ${styles.label}`}>{label}</span>
-        <code className={styles.rawName}>{call.toolName}</code>
+        <span className={`tool-name ${styles.label}`} title={call.toolName}>{label}</span>
         <span className={`tool-status ${styles.status}`} data-state={call.status}>{statusLabel}</span>
       </div>
       {isExplain ? <ExplainBody call={call} /> : null}
