@@ -78,12 +78,15 @@ function textWidth(text: string): number {
   return measureContext.measureText(text).width;
 }
 
-/** Icon 16 + gap 6 + padding 2x10 + border 2 around each label, 2px between tabs, a little slack. */
+/** Icon 16 + gap 5 + padding 2x8 + border 2 around each label (Dock.module.css .tab), 2px between tabs, a little slack. */
 function fullTabsWidth(labels: string[]): number {
-  return labels.reduce((sum, label) => sum + Math.ceil(textWidth(label)) + 44, 0) + (labels.length - 1) * 2 + 8;
+  return labels.reduce((sum, label) => sum + Math.ceil(textWidth(label)) + 39, 0) + (labels.length - 1) * 2 + 8;
 }
 
-/** Whether the tab labels fit beside the header actions; below that only the active tab keeps its label. */
+/**
+ * Whether all four tab labels fit beside the header actions. Below that the tabs are icons with tooltips and
+ * only the active tab keeps its word, so the open panel is always named once, in the tab itself.
+ */
 function useLabelsFit(labels: string[]): [React.RefObject<HTMLDivElement>, boolean] {
   const ref = useRef<HTMLDivElement>(null);
   const [fits, setFits] = useState(true);
@@ -181,8 +184,9 @@ const TABS: Array<{ value: DockTab; label: string; splitMember: boolean; icon: R
 ];
 
 /**
- * Right dock: Chat · Explain · Inspector · Check. Every panel stays mounted so a chat draft, its scroll
- * position and inspector edits survive tab switches and hiding the dock.
+ * Right dock: Assistant · Explain · Inspector · Check. Every panel stays mounted so a chat draft, its scroll
+ * position and inspector edits survive tab switches and hiding the dock. The tab names the panel; panels keep
+ * an accessible name but draw no heading that repeats it (see Dock.module.css for the chat header).
  */
 export default function Dock({ onSendMessage, onPause }: { onSendMessage: (content: string) => void; onPause: () => void }) {
   const { t } = useTranslation();

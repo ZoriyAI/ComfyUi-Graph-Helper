@@ -115,7 +115,7 @@ test('node and subgraph records persist in the native project and stay out of Co
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [paths.nativePath] });
   }, { nativePath });
   await window.getByRole('button', { name: 'Save project' }).click();
-  await expect(window.getByText('Saved the native project.')).toBeVisible();
+  await expect(window.getByText('Project saved.')).toBeVisible();
   const native = JSON.parse(fs.readFileSync(nativePath, 'utf8')) as {
     format: string;
     version: number;
@@ -131,8 +131,8 @@ test('node and subgraph records persist in the native project and stay out of Co
   await electronApp.evaluate(({ dialog }, paths) => {
     dialog.showSaveDialog = async () => ({ canceled: false, filePath: paths.comfyPath });
   }, { comfyPath });
-  await window.getByRole('button', { name: 'Export', exact: true }).click();
-  await expect(window.getByText('Exported the current workflow.')).toBeVisible();
+  await window.getByRole('button', { name: 'Save workflow for ComfyUI…', exact: true }).click();
+  await expect(window.getByText('Workflow saved for ComfyUI.')).toBeVisible();
   const exported = fs.readFileSync(comfyPath, 'utf8');
   expect(exported).not.toContain(PURPOSE);
   expect(exported).not.toContain('Portrait process');
@@ -176,7 +176,7 @@ test('node and subgraph records persist in the native project and stay out of Co
   await russianForm.getByRole('button', { name: 'Сохранить описание' }).click();
   await expect(russianForm.getByRole('button', { name: 'Сохранить описание' })).toBeDisabled();
   await window.getByRole('button', { name: 'Открыть проект' }).click();
-  await expect(window.getByText('Нативный проект открыт.')).toBeVisible();
+  await expect(window.getByText('Проект открыт.')).toBeVisible();
   await expect(window.locator('[data-component-owner="node:7"] textarea').nth(0)).toHaveValue(PURPOSE);
   await electronApp.close();
 });

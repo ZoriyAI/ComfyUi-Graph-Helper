@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { useEnglish } from './locale';
+import { loadNodeList } from './fileMenu';
 
 /** object_info for the loader: the only checkpoint on disk is known.safetensors. */
 const objectInfo = {
@@ -48,17 +49,17 @@ test('Export with check findings asks first; Cancel writes nothing, Export anywa
   await electronApp.evaluate(({ dialog }, file) => {
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [file] });
   }, catalog);
-  await window.getByRole('button', { name: 'Catalog snapshot', exact: true }).click();
-  await expect(window.getByText(/Catalog snapshot imported/)).toBeVisible();
+  await loadNodeList(window);
+  await expect(window.getByText(/Node list loaded/)).toBeVisible();
   await electronApp.evaluate(({ dialog }, paths) => {
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [paths.source] });
     dialog.showSaveDialog = async () => ({ canceled: false, filePath: paths.saved });
   }, { source, saved });
-  await window.getByRole('button', { name: 'Import', exact: true }).click();
+  await window.getByRole('button', { name: 'Open workflow…', exact: true }).click();
   await expect(window.locator('.react-flow__node')).toHaveCount(1);
 
   const guard = window.locator('[role="dialog"].export-guard-dialog');
-  await window.getByRole('button', { name: 'Export', exact: true }).click();
+  await window.getByRole('button', { name: 'Save workflow for ComfyUI…', exact: true }).click();
   await expect(guard).toBeVisible();
   await expect(guard.getByRole('heading')).toContainText(/The workflow has \d+ issues?/);
   await expect(guard).toContainText('missing-model.safetensors');
@@ -74,7 +75,7 @@ test('Export with check findings asks first; Cancel writes nothing, Export anywa
   await expect(window.locator('.dock-tab[data-state="active"]')).toContainText(/Check/);
   expect(fs.existsSync(saved)).toBe(false);
 
-  await window.getByRole('button', { name: 'Export', exact: true }).click();
+  await window.getByRole('button', { name: 'Save workflow for ComfyUI…', exact: true }).click();
   await guard.getByRole('button', { name: 'Export anyway' }).click();
   await expect.poll(() => fs.existsSync(saved)).toBe(true);
   const written = JSON.parse(fs.readFileSync(saved, 'utf8')) as { nodes: Array<{ type: string }> };

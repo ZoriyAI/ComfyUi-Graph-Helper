@@ -9,6 +9,7 @@ import EmptyState from '../../ui/EmptyState';
 import SearchField from '../../ui/SearchField';
 import { showToast } from '../../ui/toastStore';
 import { insertableSubgraphs, placementFor, type Viewport } from './libraryModel';
+import { subgraphSummary } from '../graph/SubgraphSummary';
 import styles from './Library.module.css';
 
 /** The canvas workstream adds `subgraphs` to the graph store; read it defensively until then. */
@@ -77,7 +78,7 @@ export default function SubgraphLibrary() {
             <span className={styles.subgraphIcon} aria-hidden="true"><Layers size={16} /></span>
             <span className={styles.text}>
               <span className={styles.name}>{definition.name}</span>
-              <span className={styles.sub}>{t('library.io', { inputs: definition.inputs.length, outputs: definition.outputs.length })}</span>
+              <span className={styles.sub}>{subgraphSummary((key, options) => (options ? String(t(key, options)) : String(t(key))), definition)}</span>
             </span>
             <Button
               variant="subtle"

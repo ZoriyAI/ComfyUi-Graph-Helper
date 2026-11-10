@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { useEnglish } from './locale';
+import { loadNodeList } from './fileMenu';
 
 /**
  * Packaged Electron UI against a real local llama-server.
@@ -53,18 +54,18 @@ test('live local model adds a loader and the export keeps its parameter', async 
     await window.getByRole('button', { name: 'Settings', exact: true }).click();
     const settings = window.locator('[role="dialog"].settings-dialog');
     await settings.getByRole('tab', { name: 'Assistant' }).click();
-    await settings.getByRole('radio', { name: 'Local endpoint', exact: true }).click();
+    await settings.getByRole('radio', { name: 'Own server', exact: true }).click();
     await settings.getByRole('textbox', { name: 'Model', exact: true }).fill('qwen2.5-0.5b-instruct');
     await settings.getByRole('textbox', { name: 'Base URL', exact: true }).fill(LOCAL_BASE);
     await settings.getByRole('button', { name: 'Save settings' }).click();
     await expect(settings).toHaveCount(0);
-    await expect(window.getByText('Local endpoint. No key is sent.')).toBeVisible();
+    await expect(window.getByText('Own server. No key is sent.')).toBeVisible();
 
     await electronApp.evaluate(({ dialog }, paths) => {
       dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [paths.catalogPath] });
     }, { catalogPath });
-    await window.getByRole('button', { name: 'Catalog snapshot', exact: true }).click();
-    await expect(window.getByText('Catalog snapshot imported. Nodes: 1. Models: 1. Skipped: 0.')).toBeVisible();
+    await loadNodeList(window);
+    await expect(window.getByText('Node list loaded. Nodes: 1. Models: 1. Skipped: 0.')).toBeVisible();
 
     await window.getByRole('tab', { name: 'Assistant' }).click();
     const input = window.locator('textarea[aria-label="Chat message"]');
@@ -79,15 +80,15 @@ test('live local model adds a loader and the export keeps its parameter', async 
       fileDialog.showOpenDialog = async () => ({ canceled: false, filePaths: [paths.nativePath] });
     }, { nativePath });
     await window.getByRole('button', { name: 'Save project' }).click();
-    await expect(window.getByText('Saved the native project.')).toBeVisible();
+    await expect(window.getByText('Project saved.')).toBeVisible();
     const native = JSON.parse(fs.readFileSync(nativePath, 'utf8')) as { format: string };
     expect(native.format).toBe('comfy-graph-helper-project');
 
     await electronApp.evaluate(({ dialog: fileDialog }, paths) => {
       fileDialog.showSaveDialog = async () => ({ canceled: false, filePath: paths.comfyPath });
     }, { comfyPath });
-    await window.getByRole('button', { name: 'Export', exact: true }).click();
-    await expect(window.getByText('Exported the current workflow.')).toBeVisible();
+    await window.getByRole('button', { name: 'Save workflow for ComfyUI…', exact: true }).click();
+    await expect(window.getByText('Workflow saved for ComfyUI.')).toBeVisible();
     const exported = fs.readFileSync(comfyPath, 'utf8');
     expect(exported).not.toContain(PURPOSE);
     expect(exported).not.toContain('graphHelper');
@@ -99,7 +100,7 @@ test('live local model adds a loader and the export keeps its parameter', async 
     expect(workflow.nodes[0]?.widgets_values).toEqual(['portrait.safetensors']);
 
     await window.getByRole('button', { name: 'Open project' }).click();
-    await expect(window.getByText('Opened the native project.')).toBeVisible();
+    await expect(window.getByText('Project opened.')).toBeVisible();
     await expect(window.locator('.react-flow__node', { hasText: 'Portrait loader' })).toBeVisible();
   } finally {
     await electronApp.close();

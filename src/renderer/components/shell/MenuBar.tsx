@@ -2,7 +2,6 @@ import React, { useCallback, useRef, useState } from 'react';
 import * as Menubar from '@radix-ui/react-menubar';
 import { Check, ChevronRight, Circle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import Hint from '../../ui/Hint';
 import Shortcut from '../../ui/Shortcut';
 import { cx } from '../../ui/cx';
 import menuStyles from '../../ui/Menu.module.css';
@@ -10,7 +9,7 @@ import SyncIndicator from '../sync/SyncIndicator';
 import { allCommands, getCommand, hintOf, runCommand, useCommandStates } from '../../commands/registry';
 import { rememberFocusBeforeMenuBar, restoreFocusAfterMenuBar } from '../../commands/hotkeys';
 import { DESCRIPTION_MODE_CHOICES, LANGUAGE_CHOICES, MOTION_CHOICES, providerCommandId } from '../../commands/appCommands';
-import { providerChoices, providerKeyState, providerNoteKey, useProviderStore } from '../../state/providerState';
+import { providerChoices } from '../../state/providerState';
 import styles from './MenuBar.module.css';
 
 /** One entry of a menu: a command, a check or radio row, a submenu, or a rule. */
@@ -94,28 +93,9 @@ function ShortcutHint({ id }: { id: string }) {
   return shortcut ? <Shortcut shortcut={shortcut} quiet className={cx(menuStyles.shortcut, styles.shortcut)} /> : null;
 }
 
-/** The provider chip at the right end: short label and a dot for where the key stands. The sentence is the tooltip. */
-function ProviderChip() {
-  const { t } = useTranslation();
-  const provider = useProviderStore((state) => state.provider);
-  const keySource = useProviderStore((state) => state.keySource);
-  const note = String(t(providerNoteKey(provider, keySource)));
-  const choice = providerChoices().find((item) => item.value === provider) ?? providerChoices()[0];
-  return (
-    <Hint label={note} side="bottom">
-      <span className={cx(styles.chip, 'status-chip', 'provider-chip')} data-provider={provider || 'none'} role="status">
-        <span className={styles.keyDot} data-key={providerKeyState(provider, keySource)} aria-hidden="true" />
-        <span className={styles.chipLabel} aria-hidden="true">{t(choice.labelKey)}</span>
-        {/* The sentence stays in the status region for screen readers; sighted people read it in the tooltip. */}
-        <span className="sr-only">{note}</span>
-      </span>
-    </Hint>
-  );
-}
-
 /**
  * The application menu bar (`.document-bar`): File · Edit · View · Graph · Assistant · Sync · Help, built
- * from the command registry, with the sync state and the provider chip at the right end. Alt or F10
+ * from the command registry, with the sync state at the right end (the helper is chosen once, in the toolbar). Alt or F10
  * focuses it (commands/hotkeys.ts); arrows move between menus and items; Escape closes.
  */
 export default function MenuBar() {
@@ -222,7 +202,6 @@ export default function MenuBar() {
       <span className={styles.spacer} />
       <div className={cx(styles.status, 'header-status')}>
         <SyncIndicator />
-        <ProviderChip />
       </div>
     </header>
   );

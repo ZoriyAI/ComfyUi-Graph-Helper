@@ -539,7 +539,7 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
   await expect(window.getByRole('region', { name: 'Inspector' })).toContainText('MODEL');
   await window.screenshot({ path: path.join(artifactDir, 'ui-inspector.png') });
 
-  await pickOption(window, 'Chat provider', 'OpenAI session');
+  await pickOption(window, 'Chat provider', 'OpenAI');
   await expect(window.getByText('OpenAI is selected with no key.')).toBeVisible();
   await window.getByRole('tab', { name: 'Assistant' }).click();
   await window.locator('textarea[aria-label="Chat message"]').fill('Add a node');

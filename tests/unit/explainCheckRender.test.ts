@@ -111,7 +111,10 @@ describe('Check panel render', () => {
     expect(html).toContain('2 findings');
     expect(html).toContain('Models from different families (1)');
     expect(html).toContain('l.safetensors is made for SDXL, but a.safetensors upstream is Flux.1.');
-    expect(html).toContain('Input model (MODEL) on node n1 needs a connection.');
+    // Findings name the node by its title on the canvas; the id is the row's tooltip.
+    expect(html).toContain('Input model (MODEL) on &quot;Loader&quot; needs a connection.');
+    expect(html).toContain('title="Node number n1"');
+    expect(html).not.toContain('on node n1');
     expect(html).toContain('Ask why');
   });
 });

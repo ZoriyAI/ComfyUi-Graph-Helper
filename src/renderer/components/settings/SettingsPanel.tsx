@@ -23,12 +23,13 @@ import {
   DialogTrigger,
 } from '../../ui/Dialog';
 import Button from '../../ui/Button';
+import Hint from '../../ui/Hint';
 import { CLOSE_OPEN_SELECT } from '../../ui/SelectField';
 import { TabsContent, TabsList, TabsRoot, TabsTrigger } from '../../ui/Tabs';
 import { cx } from '../../ui/cx';
 import SyncSection from './SyncSection';
 import AssistantSection from './sections/AssistantSection';
-import type { KeySources } from '../../state/providerState';
+import { CLOUD_PROVIDERS, type KeySources } from '../../state/providerState';
 import ConnectionSection from './sections/ConnectionSection';
 import CanvasSection from './sections/CanvasSection';
 import AppearanceSection from './sections/AppearanceSection';
@@ -120,6 +121,8 @@ export default function SettingsPanel({
   const [container, setContainer] = useState<HTMLElement | null>(null);
   const onSessionRef = useRef(onSession);
   onSessionRef.current = onSession;
+  // Whether keys and tokens can be kept in the system password store; null until asked (the note stays hidden).
+  const [canPersist, setCanPersist] = useState<boolean | null>(null);
 
   const adoptPreferences = (stored: Preferences, row: NonSecretSettings) => {
     const seeded = seedProviders(row, stored);
@@ -171,6 +174,11 @@ export default function SettingsPanel({
     if (settingsRequest.section) setSection(settingsRequest.section);
     setOpen(true);
   }, [settingsRequest]);
+
+  useEffect(() => {
+    if (!open) return;
+    window.electronAPI.secretStatus().then((status) => setCanPersist(status.persist)).catch(() => setCanPersist(null));
+  }, [open]);
 
   // A note about the last save belongs to that visit; reopening shows the stored settings, not a stale "saved".
   useEffect(() => {
@@ -287,6 +295,21 @@ export default function SettingsPanel({
     }
   };
 
+  // Why Save is off, said in its tooltip: a field to fix, or nothing changed. While saving the button says so itself.
+  const saveReason = pending ? '' : draftError ? translate('settings.saveFix') : !dirty ? translate('settings.saveNothing') : '';
+  // The password-store note matters only where a key or token is entered: a cloud helper, the token access, Privacy.
+  const keyNoteShown = canPersist === false && (
+    (section === 'assistant' && CLOUD_PROVIDERS.has(values.provider))
+    || (section === 'connection' && values.mcpAuth === 'token')
+    || section === 'privacy'
+  );
+  const saveButton = (
+    <Button variant="primary" className={cx(styles.save, 'settings-save')} disabled={saveDisabled} onClick={() => void save()}>
+      <span className={styles.saveReserve} aria-hidden="true">{t('settings.save')}</span>
+      <span className="settings-save-current">{pending ? t('settings.saving') : t('settings.save')}</span>
+    </Button>
+  );
+
   const draft: DraftProps = { values, setValues, saved: savedRef.current, prefs, setPrefs, container, fieldError, pending, dirty };
   const panelClass = cx(styles.panel, 'settings-panel');
   const panel = (id: SettingsSection, children: React.ReactNode) => (
@@ -388,13 +411,10 @@ export default function SettingsPanel({
           <footer className={cx(styles.actions, 'settings-actions')}>
             <div className={styles.footerText}>
               <p id="settings-draft-error" className={cx(styles.status, 'provider-note')} role="status">{statusText}</p>
-              <p className={hintClass}>{t('settings.keyReason')}</p>
+              {keyNoteShown ? <p className={hintClass}>{t('settings.keyReason')}</p> : null}
             </div>
             <div className={cx(rowClass, styles.footerButtons)}>
-              <Button variant="primary" className={cx(styles.save, 'settings-save')} disabled={saveDisabled} onClick={() => void save()}>
-                <span className={styles.saveReserve} aria-hidden="true">{t('settings.save')}</span>
-                <span className="settings-save-current">{pending ? t('settings.saving') : t('settings.save')}</span>
-              </Button>
+              <Hint label={saveDisabled ? saveReason : ''} side="top">{saveButton}</Hint>
               <DialogClose asChild>
                 <Button>{t('settings.cancel')}</Button>
               </DialogClose>

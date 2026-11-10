@@ -274,7 +274,7 @@ test('STRICT: Readable error with no graph mutation on failure', async () => {
     };
   });
 
-  await pickOption(window, 'Chat provider', 'OpenAI session');
+  await pickOption(window, 'Chat provider', 'OpenAI');
   await window.getByText('OpenAI is selected with no key').waitFor();
 
   await window.getByRole('tab', { name: 'Assistant' }).click();

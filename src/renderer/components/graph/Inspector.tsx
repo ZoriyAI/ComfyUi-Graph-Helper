@@ -19,6 +19,7 @@ import FieldControl from '../fields/FieldControl';
 import { commitField } from '../fields/commitField';
 import { isSeedField, nodeLayout, type FieldEntry } from '../fields/fieldModel';
 import { typeColor } from './lib/typeColors';
+import SubgraphSummary from './SubgraphSummary';
 import styles from './Inspector.module.css';
 
 function recordFor(components: ComponentRecord[], kind: ComponentOwnerKind, ownerId: string): ComponentRecord | undefined {
@@ -382,9 +383,10 @@ export default function Inspector() {
               aria-pressed={activeSubgraph?.id === item.id}
               onClick={() => setSubgraphId(item.id)}
             >
+              {/* The name and what it holds, not the definition's id. */}
               {item.depth > 0 ? <span>{t('inspector.nested')}</span> : null}
               <span>{item.name}</span>
-              <span className="inspector-type">{item.id}</span>
+              <SubgraphSummary id={item.id} />
             </button>
           ))}
         </div>

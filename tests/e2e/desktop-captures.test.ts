@@ -113,7 +113,8 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
       const styles = getComputedStyle(document.documentElement);
       // The menu bar's own text (a menu title) on the bar surface.
       const title = document.querySelector('.document-bar [role="menuitem"]');
-      const note = document.querySelector('.provider-chip');
+      // Muted text on the bar: the sync state at its right end.
+      const note = document.querySelector('.sync-indicator');
       const disabled = document.querySelector('.ghost-button:disabled');
       const read = (element: Element | null) => element ? getComputedStyle(element).color : '';
       const undo = document.querySelector('button[disabled]');
@@ -174,7 +175,7 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
       expect(toolbar.height).toBe(36);
       expect(toolbar.lines).toBe(1);
       expect(toolbar.valueHeight).toBeLessThanOrEqual(20);
-      expect(toolbar.label).toBe('Not chosen');
+      expect(toolbar.label).toBe('Assistant: not chosen');
     }
     await window.screenshot({ path: path.join(artifactDir, `desktop-${name}-empty.png`) });
     const showBoth = window.getByRole('button', { name: 'Show both' });
@@ -227,7 +228,7 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
   await expect(window.getByRole('region', { name: 'Inspector' })).toContainText('CheckpointLoaderSimple');
   const zoom1024 = await expectSettledGraph(window);
   await window.screenshot({ path: path.join(artifactDir, 'desktop-1024-graph.png') });
-  const importButton = window.getByRole('button', { name: 'Import', exact: true });
+  const importButton = window.getByRole('button', { name: 'Open workflow…', exact: true });
   await importButton.hover();
   await expect.poll(async () => importButton.evaluate((element) => {
     const token = getComputedStyle(document.documentElement).getPropertyValue('--bg-hover').trim();
@@ -404,7 +405,7 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
         background: opaqueBackground(element),
       };
     };
-    return { text: read('.document-bar [role="menuitem"]'), muted: read('.provider-chip') };
+    return { text: read('.document-bar [role="menuitem"]'), muted: read('.sync-indicator') };
   });
   const textSurface = contrast(shellPairs.text.color, shellPairs.text.background);
   const mutedSurface = contrast(shellPairs.muted.color, shellPairs.muted.background);

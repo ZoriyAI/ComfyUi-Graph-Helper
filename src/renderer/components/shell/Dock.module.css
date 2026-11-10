@@ -34,8 +34,8 @@
   flex: 0 0 auto;
   min-height: 0;
   height: 100%;
-  gap: 6px;
-  padding: 0 10px;
+  gap: 5px;
+  padding: 0 8px;
   border: 1px solid transparent;
   border-radius: 0;
   background: transparent;
@@ -87,6 +87,20 @@
 .splitTitle .tabIcon { color: var(--accent); }
 
 .panel[data-state="inactive"] { display: none; }
+/*
+ * The tab above already says "Assistant": the chat's own title stays for screen readers only, and its header
+ * row shows up only while a run is going (it then holds Pause and Stop). The chat panel is not this file's to
+ * change, so the dock container does it.
+ */
+.panel :global(.chat-header) > span:first-child {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.panel :global(.chat-header):not(:has([role="group"])) { display: none; }
 .split .tabsWrap { display: none; }
 .split .panels { flex-direction: row; }
 .split .panel[data-split-member="true"] { display: flex; }

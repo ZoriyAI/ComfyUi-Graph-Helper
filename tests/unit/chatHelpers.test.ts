@@ -14,7 +14,7 @@ import {
 } from '../../src/renderer/services/llm/chatModel';
 import { buildTargetRef, compactArgs, resultMessage, toolLabelKey } from '../../src/renderer/components/chat/toolPresentation';
 import { objectLabel } from '../../src/renderer/components/chat/objectLabel';
-import { checkFindingCount, groupCheckReport } from '../../src/renderer/components/check/checkModel';
+import { checkFindingCount, findingNodeIds, groupCheckReport, nodeNamer } from '../../src/renderer/components/check/checkModel';
 import { groupByAspect, isStale, missingAspects, recentExplanations, safeSourceUrl } from '../../src/renderer/components/explain/explainModel';
 import {
   AGENT_BUILD_TOOLS,
@@ -220,6 +220,21 @@ describe('check report grouping', () => {
     expect(refs[5]).toEqual({ kind: 'nodeClass', id: 'Mystery', classType: 'Mystery' });
     expect(groups[0].findings[0].textKey).toBe('check.missingNodesItem');
     expect(checkFindingCount(report)).toBe(6);
+    // Without a graph the sentences fall back to the node type, then to the id.
+    expect(groups[0].findings[0].values.node).toBe('Fancy');
+    expect(groups[2].findings[0].values).toMatchObject({ source: 'n1', target: 'n2', sourceId: 'n1', targetId: 'n2' });
+    // With one, every kind of finding names its nodes by title and keeps the ids for the tooltip.
+    const named = groupCheckReport(report, undefined, nodeNamer([
+      { id: 'n1', data: { title: 'Load LoRA', comfyType: 'LoraLoader' } },
+      { id: 'n2', data: { comfyType: 'KSampler' } },
+      { id: 'n4', data: { title: 'Sampler', comfyType: 'KSampler' } },
+    ]));
+    expect(named[0].findings[0].values.node).toBe('Load LoRA');
+    expect(named[1].findings[0].values.node).toBe('KSampler');
+    expect(named[2].findings[0].values).toMatchObject({ source: 'Load LoRA', target: 'KSampler' });
+    expect(named[4].findings[0].values.node).toBe('Sampler');
+    expect(findingNodeIds(named[2].findings[0].values)).toEqual(['n1', 'n2']);
+    expect(findingNodeIds(named[3].findings[0].values)).toEqual(['n3', 'n2']);
     // Every text key exists in both catalogs.
     for (const group of groups) {
       const leaf = group.findings[0].textKey.split('.')[1];

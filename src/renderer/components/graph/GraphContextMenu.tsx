@@ -2,6 +2,10 @@ import React, { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import * as Menu from '@radix-ui/react-context-menu';
 import { useReactFlow } from '@xyflow/react';
+import {
+  ArrowRight, ArrowRightLeft, Cable, CircleArrowRight, CircleHelp, CircleMinus, Compass, Ghost, Layers, LogIn, LogOut,
+  MessageCircleQuestion, Plug, StickyNote, Tag, Trash2, Ungroup, Unlink, type LucideIcon,
+} from 'lucide-react';
 import type { ObjectRef } from '../../../shared/contracts/objects';
 import { SUBGRAPH_INPUT_NODE_ID, SUBGRAPH_OUTPUT_NODE_ID, modelledSubgraphs } from '../../../shared/graph/subgraphs';
 import { useGraphStore } from '../../state/graphState';
@@ -121,8 +125,10 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
   const selectionFor = (nodeId: string) => (selectedIds.includes(nodeId) ? selectedIds : [nodeId]);
   const say = (key: string, values: Record<string, string>) => String(t(key, values));
   const items: React.ReactNode[] = [];
-  const item = (key: string, label: string, run: () => void, options: { danger?: boolean; disabled?: boolean; shortcut?: string } = {}) => (
+  /** One row: an icon so the menu reads at a glance, the words, and the shortcut when it has one. */
+  const item = (key: string, label: string, run: () => void, options: { icon?: LucideIcon; danger?: boolean; disabled?: boolean; shortcut?: string } = {}) => (
     <Menu.Item key={key} className={`${styles.item}${options.danger ? ` ${styles.danger}` : ''}`} disabled={options.disabled} onSelect={run}>
+      {options.icon ? <span className={styles.icon} aria-hidden="true"><options.icon size={14} /></span> : null}
       <span className={styles.label}>{label}</span>
       {options.shortcut ? <Shortcut shortcut={options.shortcut} quiet className={styles.shortcut} /> : null}
     </Menu.Item>
@@ -132,11 +138,14 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
     const command = getCommand(id);
     if (!command) return null;
     return item(id, String(t(command.labelKey)), run ?? (() => void runCommand(id)), {
+      icon: command.icon,
       shortcut: command.shortcut,
       disabled: options.disabled || (!run && !isEnabled(id)),
     });
   };
   const separator = (key: string) => <Menu.Separator key={key} className={styles.separator} />;
+  /** A small caption over the questions: they go to the helper, the rows below act on the graph. */
+  const askLabel = <Menu.Label key="ask-label" className={styles.groupLabel}>{t('contextMenu.askHelper')}</Menu.Label>;
   const canBuild = !readOnly && !inDefinition;
 
   if (target.kind === 'node') {
@@ -148,17 +157,19 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
       const instance = node.data.kind === 'subgraph-instance';
       const definitionId = node.data.subgraphId ?? node.data.comfyType;
       items.push(
-        item('what', t('contextMenu.whatIs'), () => askAbout(ref, say(instance ? 'contextMenu.askSubgraph' : 'contextMenu.askWhat', { name }))),
-        item('why', t('contextMenu.whyHere'), () => askAbout(ref, say('contextMenu.askWhy', { name }))),
-        item('next', t('contextMenu.whatNext'), () => askAbout(ref, say('contextMenu.askNext', { name }))),
-        item('ports', t('contextMenu.explainPorts'), () => askAbout(ref, say('contextMenu.askPorts', { name }))),
-        item('tour', t('contextMenu.tourFromHere'), () => void startGraphTour({ fromNodeId: node.id })),
+        askLabel,
+        item('what', t('contextMenu.whatIs'), () => askAbout(ref, say(instance ? 'contextMenu.askSubgraph' : 'contextMenu.askWhat', { name })), { icon: CircleHelp }),
+        item('why', t('contextMenu.whyHere'), () => askAbout(ref, say('contextMenu.askWhy', { name })), { icon: MessageCircleQuestion }),
+        item('next', t('contextMenu.whatNext'), () => askAbout(ref, say('contextMenu.askNext', { name })), { icon: CircleArrowRight }),
+        item('ports', t('contextMenu.explainPorts'), () => askAbout(ref, say('contextMenu.askPorts', { name })), { icon: Cable }),
+        separator('s0'),
+        item('tour', t('contextMenu.tourFromHere'), () => void startGraphTour({ fromNodeId: node.id }), { icon: Compass }),
         separator('s1'),
       );
       if (instance) {
         items.push(
-          item('enter', t('contextMenu.enter'), () => enter(definitionId), { disabled: readOnly }),
-          item('dissolve', t('contextMenu.dissolve'), () => void dissolveSubgraph(node.id), { disabled: !canBuild }),
+          item('enter', t('contextMenu.enter'), () => enter(definitionId), { icon: Layers, disabled: readOnly }),
+          item('dissolve', t('contextMenu.dissolve'), () => void dissolveSubgraph(node.id), { icon: Ungroup, disabled: !canBuild }),
         );
       }
       items.push(
@@ -169,9 +180,9 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
           useGraphStore.setState((state) => ({ nodes: state.nodes.map((item) => ({ ...item, selected: item.id === node.id })) }));
           useDockStore.getState().show('inspector');
           window.setTimeout(() => document.getElementById(`component-purpose-node-${node.id}`)?.focus(), 60);
-        }, { disabled: inDefinition || readOnly }),
+        }, { icon: StickyNote, disabled: inDefinition || readOnly }),
         separator('s2'),
-        item('remove', t('contextMenu.remove'), () => void commitManual({ type: 'remove-node', nodeId: node.id }), { danger: true, disabled: !canBuild, shortcut: 'Delete' }),
+        item('remove', t('contextMenu.remove'), () => void commitManual({ type: 'remove-node', nodeId: node.id }), { icon: Trash2, danger: true, disabled: !canBuild, shortcut: 'Delete' }),
       );
     }
   } else if (target.kind === 'port') {
@@ -182,17 +193,19 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
     const ref = portRef(target.nodeId, target.handle, target.direction, portName);
     const name = isBoundary ? (definition?.name ?? '') : nodeName(node);
     items.push(
+      askLabel,
       target.direction === 'input'
         ? item('connect-in', t('contextMenu.whatConnectsIn'), () => {
           setConnectFrom({ nodeId: target.nodeId, handle: target.handle, direction: 'input', dataType: port?.dataType ?? '*' }, true);
           askAbout(ref, say('contextMenu.askConnectIn', { port: portName, name }));
-        })
+        }, { icon: Plug })
         : item('where-out', t('contextMenu.whereGoes'), () => {
           setConnectFrom({ nodeId: target.nodeId, handle: target.handle, direction: 'output', dataType: port?.dataType ?? '*' }, true);
           askAbout(ref, say('contextMenu.askWhereOut', { port: portName, name }));
-        }),
-      item('type', t('contextMenu.whatType'), () => askAbout(ref, say('contextMenu.askType', { type: port?.dataType ?? '?', port: portName, name }))),
-      item('suggest', t('contextMenu.suggestConnection'), () => setConnectFrom({ nodeId: target.nodeId, handle: target.handle, direction: target.direction, dataType: port?.dataType ?? '*' }, true), { disabled: readOnly }),
+        }, { icon: ArrowRight }),
+      item('type', t('contextMenu.whatType'), () => askAbout(ref, say('contextMenu.askType', { type: port?.dataType ?? '?', port: portName, name })), { icon: Tag }),
+      separator('s0'),
+      item('suggest', t('contextMenu.suggestConnection'), () => setConnectFrom({ nodeId: target.nodeId, handle: target.handle, direction: target.direction, dataType: port?.dataType ?? '*' }, true), { icon: Cable, disabled: readOnly }),
     );
     if (definition && !readOnly) {
       if (isBoundary) {
@@ -200,7 +213,7 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
         const direction = target.nodeId === SUBGRAPH_INPUT_NODE_ID ? 'input' : 'output';
         const slot = (direction === 'input' ? definition.inputs : definition.outputs)[slotIndex];
         if (slot) {
-          items.push(separator('s1'), item('remove-slot', t('contextMenu.removeSlot'), () => void commitManual({ type: 'remove-subgraph-io', definitionId: definition.id, direction, slotId: slot.id }), { danger: true }));
+          items.push(separator('s1'), item('remove-slot', t('contextMenu.removeSlot'), () => void commitManual({ type: 'remove-subgraph-io', definitionId: definition.id, direction, slotId: slot.id }), { icon: CircleMinus, danger: true }));
         }
       } else if (port) {
         items.push(
@@ -213,7 +226,7 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
             dataType: port.dataType,
             nodeId: target.nodeId,
             handle: target.handle,
-          })),
+          }), { icon: target.direction === 'input' ? LogIn : LogOut }),
         );
       }
     }
@@ -225,10 +238,11 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
       const targetName = nodeName(nodes.find((node) => node.id === edge.target)) || edge.target;
       const type = String(edge.data?.dataType ?? '');
       items.push(
-        item('flows', t('contextMenu.whatFlows'), () => void askWhatFlows(edge.id, type, say('contextMenu.askFlows', { type, source, target: targetName }))),
-        item('why', t('contextMenu.whyEdge'), () => askAbout(ref, say('contextMenu.askWhyEdge', { source, target: targetName }))),
+        askLabel,
+        item('flows', t('contextMenu.whatFlows'), () => void askWhatFlows(edge.id, type, say('contextMenu.askFlows', { type, source, target: targetName })), { icon: ArrowRightLeft }),
+        item('why', t('contextMenu.whyEdge'), () => askAbout(ref, say('contextMenu.askWhyEdge', { source, target: targetName })), { icon: MessageCircleQuestion }),
         separator('s1'),
-        item('remove', t('contextMenu.disconnect'), () => void commitManual({ type: 'remove-edge', edgeId: edge.id }), { danger: true, disabled: !canBuild }),
+        item('remove', t('contextMenu.disconnect'), () => void commitManual({ type: 'remove-edge', edgeId: edge.id }), { icon: Unlink, danger: true, disabled: !canBuild }),
       );
     }
   } else if (target.kind === 'group') {
@@ -236,9 +250,10 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
     if (group) {
       const ref: ObjectRef = { kind: 'group', id: group.id };
       items.push(
-        item('what', t('contextMenu.whatGroup'), () => askAbout(ref, say('contextMenu.askGroup', { name: group.title }))),
+        askLabel,
+        item('what', t('contextMenu.whatGroup'), () => askAbout(ref, say('contextMenu.askGroup', { name: group.title })), { icon: CircleHelp }),
         separator('s1'),
-        item('remove', t('contextMenu.removeGroup'), () => void commitManual({ type: 'remove-group', groupId: group.id }), { danger: true, disabled: !canBuild }),
+        item('remove', t('contextMenu.removeGroup'), () => void commitManual({ type: 'remove-group', groupId: group.id }), { icon: Ungroup, danger: true, disabled: !canBuild }),
       );
     }
   } else {
@@ -248,7 +263,10 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
     items.push(commandItem('graph.addNode', () => openAddNode(at), { disabled: !canBuild }));
     items.push(
       <Menu.Sub key="insert">
-        <Menu.SubTrigger className={styles.item} disabled={!canBuild}>{t('contextMenu.insertSubgraph')}</Menu.SubTrigger>
+        <Menu.SubTrigger className={styles.item} disabled={!canBuild}>
+          <span className={styles.icon} aria-hidden="true"><Layers size={14} /></span>
+          <span className={styles.label}>{t('contextMenu.insertSubgraph')}</span>
+        </Menu.SubTrigger>
         <Menu.Portal>
           <Menu.SubContent className={styles.content} sideOffset={4}>
             {definitions.length === 0 ? <Menu.Item className={styles.item} disabled>{t('contextMenu.noSubgraphs')}</Menu.Item> : definitions.map((item) => (
@@ -272,7 +290,7 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
       });
       const box = boundsOf(rects, 40);
       if (box) void flow.fitBounds(box, { duration: fitDurationMs() });
-    }, { disabled: open.length === 0 || inDefinition }));
+    }, { icon: Ghost, disabled: open.length === 0 || inDefinition }));
     if (open.length >= 2) items.push(commandItem('graph.acceptAll'));
     items.push(separator('s1'), commandItem('view.fit'));
   }
