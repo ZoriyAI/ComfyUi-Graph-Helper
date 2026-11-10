@@ -66,15 +66,16 @@ function AddNodeGhost({ proposal, payload, at }: { proposal: Proposal; payload: 
   const { t } = useTranslation();
   const detail = useNodeDetail(payload.nodeType);
   const ports = catalogPorts(detail);
+  const title = payload.title || detail?.displayName || payload.nodeType;
   const data: ComfyNodeData = {
     comfyType: payload.nodeType,
-    title: payload.title || detail?.displayName || payload.nodeType,
+    title,
     inputs: ports.inputs,
     outputs: ports.outputs,
     parameters: payload.parameters ?? {},
   };
   return (
-    <motion.div {...fade} className={styles.anchor} style={{ left: at.x, top: at.y }} data-ghost={proposal.id} data-ghost-kind="add-node" aria-label={String(t('canvas.ghostNode', { title: data.title }))} role="group">
+    <motion.div {...fade} className={styles.anchor} style={{ left: at.x, top: at.y }} data-ghost={proposal.id} data-ghost-kind="add-node" aria-label={String(t('canvas.ghostNode', { title }))} role="group">
       <span className={`${styles.flag} ghost-flag`}>{t('canvas.suggested')}</span>
       <NodeCard id={`ghost-${proposal.id}`} data={data} state={{ ghost: true }} connected={new Set()} live={false} />
       <Note text={proposal.note} />

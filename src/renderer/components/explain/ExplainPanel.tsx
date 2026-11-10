@@ -306,7 +306,7 @@ export default function ExplainPanel() {
       {classRef && shared.length > 0 ? (
         <section className={styles.section}>
           <h3 className={styles.sectionTitle}>
-            {classType ? t('explain.classKnowledge', { classType }) : t('explain.typeKnowledge', { type: sharedTitle })}
+            {classType ? t('explain.classKnowledge', { classType }) : t('explain.typeKnowledge', { type: sharedTitle ?? classRef.id })}
           </h3>
           <AspectGroups list={shared} currentRevisionId={currentRevisionId} />
         </section>

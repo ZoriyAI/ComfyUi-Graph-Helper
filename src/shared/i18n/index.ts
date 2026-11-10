@@ -154,6 +154,8 @@ export function createTranslator(language: AppLanguage): Translator {
     interpolation: {
       escapeValue: false,
     },
+    // A text that did not get one of its values shows "…" there, never the placeholder itself ("{{done}}").
+    missingInterpolationHandler: () => '…',
     returnNull: false,
   };
   (options as InitOptions & { initImmediate: boolean }).initImmediate = false;

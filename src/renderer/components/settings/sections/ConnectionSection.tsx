@@ -163,7 +163,8 @@ export default function ConnectionSection({ values, setValues, saved, fieldError
       />
       <p className={hintClass}>{t('settings.comfyOriginHint')}</p>
       <div className={styles.stateLine}>
-        <Badge tone={STATE_TONES[view.state]}>{t('preferences.connectionState', { state: t(view.labelKey) })}</Badge>
+        {/* The label can carry numbers (the metadata counter): it is translated with the view's own values. */}
+        <Badge tone={STATE_TONES[view.state]}>{t('preferences.connectionState', { state: t(view.labelKey, view.labelParams ?? {}) })}</Badge>
         {/* "Set the address first" is moot while one is typed right above. */}
         {view.hintKey && !(view.hintKey === 'sync.noUrl' && mcpUrl !== '') ? <span className={hintClass}>{t(view.hintKey)}</span> : null}
       </div>
