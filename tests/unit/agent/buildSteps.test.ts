@@ -81,6 +81,30 @@ describe('build tool `why`', () => {
     expect(steps[0].revisionId).toBe(knowledge.saved[0].revisionId);
   });
 
+  it('names the ends of a link and the node a removal took, for the chat, and keeps the message the model reads', async () => {
+    const db = openDb();
+    const run = startRun(db, DESKTOP_PROJECT_ID);
+    const tools = createBuildTools(BUILD_TOOL_SPECS, {
+      db,
+      run: { projectId: DESKTOP_PROJECT_ID, runId: run.runId, expectedRevisionId: run.expectedRevisionId },
+      toolContext: () => ({ snapshot: readProjection(db, DESKTOP_PROJECT_ID)?.snapshot as { nodes: Array<Record<string, unknown>> } }),
+    });
+    const loader = await tools.addNode.execute({ nodeType: 'CheckpointLoaderSimple' }, { toolCallId: 'c1' }) as Record<string, unknown>;
+    const sampler = await tools.addNode.execute({ nodeType: 'KSampler', title: 'My sampler' }, { toolCallId: 'c2' }) as Record<string, unknown>;
+    const link = await tools.connectNodes.execute({ sourceNodeId: loader.nodeId, sourceHandle: 'out-0', targetNodeId: sampler.nodeId, targetHandle: 'in-0' }, { toolCallId: 'c3' }) as Record<string, unknown>;
+    expect(link).toMatchObject({
+      success: true,
+      message: 'Connected the nodes',
+      sourceNodeId: loader.nodeId,
+      targetNodeId: sampler.nodeId,
+      sourcePort: 'MODEL',
+      targetPort: 'model',
+      dataType: 'MODEL',
+    });
+    const removed = await tools.removeNode.execute({ nodeId: sampler.nodeId }, { toolCallId: 'c4' }) as Record<string, unknown>;
+    expect(removed).toMatchObject({ success: true, message: 'Removed the node', removedType: 'KSampler', removedTitle: 'My sampler' });
+  });
+
   it('keeps the commit when the save fails', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const db = openDb();

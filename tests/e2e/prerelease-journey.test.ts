@@ -139,8 +139,13 @@ test('prerelease journey configures a provider, builds a process, and exports a 
     await input.fill('Build the process fixture');
     await input.press('Enter');
     await expect(window.getByText('TEST fixture only: I added a node, stored what it is for, and named the process.')).toBeVisible({ timeout: 30000 });
+    // The chat says each change in words: the node, what it is for, the process name.
+    const buildCard = window.locator('[data-build-card]');
+    await expect(buildCard).toContainText('Added the node Fixture step');
+    await expect(buildCard).toContainText('Wrote down what Fixture step is for');
+    await expect(buildCard).toContainText(`Named the process “${PROCESS_TITLE}”`);
     await window.getByRole('tab', { name: 'Inspector' }).click();
-    await window.getByText('Fixture step').click();
+    await window.getByText('Fixture step', { exact: true }).click();
     const nodeForm = window.locator('[data-component-owner="node:1"]');
     await expect(nodeForm.locator('textarea').nth(0)).toHaveValue(PURPOSE);
     await expect(nodeForm.locator('textarea').nth(1)).toHaveValue('Connect it in Comfy after export.');

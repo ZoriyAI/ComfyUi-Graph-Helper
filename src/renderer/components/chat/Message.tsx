@@ -11,6 +11,10 @@ import type { ChatMessage, TurnCheckpoint } from '../../types/chat';
 import MarkdownLite from './MarkdownLite';
 import { objectLabel } from './objectLabel';
 import ToolCard from './ToolCard';
+import BuildCard from './BuildCard';
+import BuildSummary from './BuildSummary';
+import QuietGroup from './QuietGroup';
+import { groupToolCalls } from './buildSteps';
 import styles from './Message.module.css';
 
 interface MessageProps {
@@ -73,6 +77,30 @@ export default function Message({ message, streaming = false }: MessageProps) {
   const about = isUser ? message.context?.objectRef : undefined;
   const aboutLabel = about ? objectLabel(about, { nodes, edges }, String(t('explain.processName'))) : '';
   const toolCalls = message.toolCalls ?? [];
+  const segments = groupToolCalls(toolCalls);
+  const build = segments.find((segment) => segment.type === 'build');
+  // A build is over when its turn stopped streaming and did not pause at a checkpoint that may still continue.
+  const buildOver = !streaming && (!message.checkpoint || message.checkpoint.state === 'stopped' || message.checkpoint.state === 'closed');
+
+  const body = (
+    isError ? (
+      <div className={`message-body ${styles.body}`}>
+        <div className={`message-summary ${styles.summary}`}>{t('chat.errorSummary')}</div>
+        <div className={`message-diagnostic ${styles.diagnostic}`}>{redactDiagnostic(message.content)}</div>
+      </div>
+    ) : message.content || (streaming && toolCalls.length === 0) ? (
+      <div className={`message-body ${styles.body}`}>
+        {isUser ? (
+          <span className={styles.userText}>{message.content}</span>
+        ) : (
+          <MarkdownLite text={message.content} />
+        )}
+        {streaming ? <span className={styles.cursor} aria-hidden="true" /> : null}
+      </div>
+    ) : null
+  );
+  // In a build turn the helper's words come after its steps: what it did, then what it says about it.
+  const textFirst = !build;
 
   return (
     <div className={`message-row${isUser ? ' is-user' : ''} ${styles.row}${isUser ? ` ${styles.user}` : ''}`} data-role={message.role}>
@@ -88,33 +116,37 @@ export default function Message({ message, streaming = false }: MessageProps) {
             </button>
           </div>
         ) : null}
-        {isError ? (
-          <div className={`message-body ${styles.body}`}>
-            <div className={`message-summary ${styles.summary}`}>{t('chat.errorSummary')}</div>
-            <div className={`message-diagnostic ${styles.diagnostic}`}>{redactDiagnostic(message.content)}</div>
-          </div>
-        ) : message.content || (streaming && toolCalls.length === 0) ? (
-          <div className={`message-body ${styles.body}`}>
-            {isUser ? (
-              <span className={styles.userText}>{message.content}</span>
-            ) : (
-              <MarkdownLite text={message.content} />
-            )}
-            {streaming ? <span className={styles.cursor} aria-hidden="true" /> : null}
-          </div>
-        ) : null}
+        {textFirst ? body : null}
         {toolCalls.length > 0 ? (
           <div className={`tool-list ${styles.tools}`}>
             <AnimatePresence initial={false}>
-              {toolCalls.map((call) => (
-                <motion.div key={call.id} {...CARD_MOTION}>
-                  <ToolCard call={call} />
-                </motion.div>
-              ))}
+              {segments.map((segment) => {
+                if (segment.type === 'build') {
+                  return (
+                    <motion.div key="build" {...CARD_MOTION}>
+                      <BuildCard calls={segment.calls} live={streaming} />
+                    </motion.div>
+                  );
+                }
+                if (segment.type === 'quiet') {
+                  return (
+                    <motion.div key="quiet" {...CARD_MOTION}>
+                      <QuietGroup calls={segment.calls} />
+                    </motion.div>
+                  );
+                }
+                return (
+                  <motion.div key={segment.call.id} {...CARD_MOTION}>
+                    <ToolCard call={segment.call} />
+                  </motion.div>
+                );
+              })}
             </AnimatePresence>
           </div>
         ) : null}
+        {textFirst ? null : body}
         {message.checkpoint ? <CheckpointCard messageId={message.id} checkpoint={message.checkpoint} /> : null}
+        {build && build.type === 'build' && buildOver ? <BuildSummary calls={build.calls} stopped={message.checkpoint?.state === 'stopped'} /> : null}
         <div className={`message-time ${styles.time}`}>{formatClock(message.timestamp, language)}</div>
       </div>
     </div>

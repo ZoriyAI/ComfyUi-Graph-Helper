@@ -1,17 +1,17 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { BookOpen, Crosshair, Hammer, Lightbulb, Search, Sparkles, Wrench, type LucideIcon } from 'lucide-react';
-import type { ExplanationAspect, ObjectRef } from '../../../shared/contracts';
+import { BookOpen, Hammer, Lightbulb, Search, Sparkles, Wrench, type LucideIcon } from 'lucide-react';
+import type { ExplanationAspect } from '../../../shared/contracts';
 import { aspectLabelKey } from '../../../shared/knowledge/labels';
 import type { ToolCall, ToolKind } from '../../types/chat';
 import { useGraphStore } from '../../state/graphState';
 import { useUiStore } from '../../state/uiState';
-import { asObjectRef, INTERRUPTED_ERROR, isRecord } from '../../services/llm/chatModel';
+import { asObjectRef, isRecord } from '../../services/llm/chatModel';
 import ProvenanceBadge, { isProvenance } from '../explain/ProvenanceBadge';
 import { objectLabel } from './objectLabel';
 import ProposalCard from './ProposalCard';
-import { useCanvasStore } from '../graph/canvasStore';
-import { buildTargetRef, compactArgs, resultMessage, toolLabelKey } from './toolPresentation';
+import { compactArgs, toolLabelKey } from './toolPresentation';
+import { stepError, type Translate } from './buildSteps';
 import styles from './ToolCard.module.css';
 
 const ICONS: Record<ToolKind, LucideIcon> = {
@@ -23,42 +23,6 @@ const ICONS: Record<ToolKind, LucideIcon> = {
 };
 
 const ASPECTS: readonly ExplanationAspect[] = ['what', 'why', 'connect', 'next', 'risk'];
-
-/** Long text fields the card shows on its own rather than in the argument list. */
-const OMIT_ARGS: Record<ToolKind, readonly string[]> = {
-  read: [],
-  knowledge: ['text', 'owner'],
-  proposal: ['note'],
-  build: ['purpose', 'usage', 'notes', 'annotation', 'why'],
-  other: [],
-};
-
-/** The node a build step is about, for centring the canvas: the node itself, or an edge's target. */
-function centreNode(target: ObjectRef, edges: Array<{ id: string; target: string }>): string | null {
-  if (target.kind === 'node') return target.id;
-  if (target.kind === 'edge') return edges.find((edge) => edge.id === target.id)?.target ?? null;
-  return null;
-}
-
-function ShowButton({ target, label }: { target: ObjectRef; label: string }) {
-  const { t } = useTranslation();
-  const setFocus = useUiStore((state) => state.setFocus);
-  return (
-    <button
-      type="button"
-      className={styles.action}
-      aria-label={String(t('chat.toolShowLabel', { object: label }))}
-      onClick={() => {
-        setFocus(target);
-        const nodeId = centreNode(target, useGraphStore.getState().edges);
-        if (nodeId) useCanvasStore.getState().requestCenter(nodeId);
-      }}
-    >
-      <Crosshair size={14} aria-hidden="true" />
-      {t('chat.toolShow')}
-    </button>
-  );
-}
 
 function ExplainBody({ call }: { call: ToolCall }) {
   const { t } = useTranslation();
@@ -92,19 +56,6 @@ function ExplainBody({ call }: { call: ToolCall }) {
   );
 }
 
-function BuildActions({ call }: { call: ToolCall }) {
-  const { t } = useTranslation();
-  const nodes = useGraphStore((state) => state.nodes);
-  const edges = useGraphStore((state) => state.edges);
-  const target = buildTargetRef(call);
-  if (!target) return null;
-  return (
-    <div className={styles.actions}>
-      <ShowButton target={target} label={objectLabel(target, { nodes, edges }, String(t('explain.processName')))} />
-    </div>
-  );
-}
-
 /** Arguments behind a disclosure. Rendered only while open, so hidden values never duplicate text on the canvas. */
 function ArgumentList({ args }: { args: Array<{ key: string; value: string }> }) {
   const { t } = useTranslation();
@@ -126,16 +77,23 @@ function ArgumentList({ args }: { args: Array<{ key: string; value: string }> })
   );
 }
 
-/** One tool call: family icon, label, status, compact arguments, outcome, and the action that fits its family. */
+/**
+ * A tool call that is neither a build step nor a quiet look: an explanation, a suggestion, or a tool the chat does
+ * not know. A suggestion carries only its own status («Предложено», «Принято»…), never the tool call's; an explanation
+ * shows what was saved and where. Graph changes go to BuildCard, reads to QuietGroup.
+ */
 export default function ToolCard({ call }: { call: ToolCall }) {
   const { t } = useTranslation();
+  const translate: Translate = (key, options) => String(options ? t(key, options) : t(key));
   const Icon = ICONS[call.kind];
   const labelKey = toolLabelKey(call.toolName);
   const label = labelKey ? String(t(labelKey)) : String(t('agent.unknownTool', { name: call.toolName }));
-  const statusLabel = call.status === 'pending' ? t('chat.toolPending') : call.status === 'success' ? t('chat.toolSuccess') : t('chat.toolFailed');
-  const args = compactArgs(call.args, OMIT_ARGS[call.kind]);
-  const outcome = resultMessage(call);
   const isExplain = call.toolName === 'explain';
+  const isProposal = call.kind === 'proposal' && call.status === 'success' && Boolean(call.proposalId);
+  const error = stepError(call, translate);
+  // Only a call still running or one that failed says so; a done explanation or suggestion speaks for itself.
+  const statusLabel = call.status === 'pending' ? t('chat.toolPending') : call.status === 'error' ? t('chat.toolFailed') : call.kind === 'other' ? t('chat.toolSuccess') : null;
+  const args = call.kind === 'other' ? compactArgs(call.args) : [];
 
   return (
     <div
@@ -144,29 +102,22 @@ export default function ToolCard({ call }: { call: ToolCall }) {
       data-tool-status={call.status}
       data-tool-kind={call.kind}
     >
-      <div className={styles.head}>
-        <Icon className={styles.icon} size={14} aria-label={String(t(`agent.kind.${call.kind}`))} />
-        <span className={`tool-name ${styles.label}`} title={call.toolName}>{label}</span>
-        <span className={`tool-status ${styles.status}`} data-state={call.status}>{statusLabel}</span>
-      </div>
+      {isProposal && call.proposalId ? (
+        <ProposalCard proposalId={call.proposalId} result={call.result} />
+      ) : (
+        <div className={styles.head}>
+          <Icon className={styles.icon} size={14} aria-hidden="true" />
+          <span className={`tool-name ${styles.label}`}>{label}</span>
+          {statusLabel ? <span className={`tool-status ${styles.status}`} data-state={call.status}>{statusLabel}</span> : null}
+        </div>
+      )}
       {isExplain ? <ExplainBody call={call} /> : null}
-      {call.kind === 'proposal' && call.proposalId ? <ProposalCard proposalId={call.proposalId} result={call.result} /> : null}
-      {call.status === 'error' && call.error === INTERRUPTED_ERROR ? (
-        <p className={`tool-diagnostic ${styles.error}`}>{t('chat.interrupted')}</p>
-      ) : null}
-      {call.status === 'error' && outcome ? (
-        <p className={`tool-diagnostic ${styles.error}`}>{outcome}</p>
-      ) : null}
-      {call.status === 'success' && outcome && !isExplain && call.kind !== 'proposal' ? (
-        <p className={styles.summary}>{outcome}</p>
-      ) : null}
-      {call.kind === 'build' && typeof call.args.why === 'string' && call.args.why.trim() && call.status !== 'error' ? (
-        <p className={styles.why} data-build-why>
-          <span className={styles.whyLabel}>{t('chat.toolWhy')}</span>
-          {call.args.why.trim()}
+      {error ? (
+        <p className={`tool-diagnostic ${styles.error}`}>
+          {error.summary}
+          {error.detail ? <span className={styles.detail}> ({error.detail})</span> : null}
         </p>
       ) : null}
-      {call.kind === 'build' ? <BuildActions call={call} /> : null}
       {args.length > 0 ? <ArgumentList args={args} /> : null}
     </div>
   );

@@ -1,9 +1,31 @@
 form.form { display: flex; flex-direction: column; align-items: stretch; gap: 8px; width: 100%; }
-/* The message field takes the whole width; key help and Send sit on one line under it, Send on the right. */
-.field { flex: none; width: 100%; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
-.row { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
-.keys { flex: 1 1 auto; min-width: 0; margin: 0; }
-.row :global(.send-button) { flex: 0 0 auto; margin-left: auto; }
+/* The message field takes the row; Send sits at its bottom right, where the eye ends a line. */
+form.form .field { position: relative; flex: none; flex-direction: row; width: 100%; min-width: 0; display: flex; align-items: flex-end; gap: 8px; }
+.field textarea { flex: 1 1 auto; min-width: 0; }
+.field :global(.hint-target) { flex: none; display: inline-flex; }
+
+/* Send: a round primary button. Off, it keeps its shape on a sunken surface with a faint arrow, so it reads as a
+   button that is waiting, not as dim text. */
+.field .send {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+  padding: 0;
+  border-radius: 50%;
+}
+.field .send:disabled {
+  background: var(--bg-sunken);
+  border: 1px dashed var(--line);
+  color: var(--text-faint);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+.field .send:not(:disabled) { color: var(--on-accent); }
+.field .send:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
 .intent {
   display: inline-flex;
   align-self: flex-start;

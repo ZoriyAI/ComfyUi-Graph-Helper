@@ -78,7 +78,9 @@ export default function ChatDock({ onSendMessage, onPause }: ChatDockProps = {})
     const log = end?.parentElement;
     if (!end || !log) return;
     const distance = log.scrollHeight - log.scrollTop - log.clientHeight;
-    if (messages.length > 1 && distance >= 120) return;
+    // A person reading older messages is left there, except when they just sent one: then they follow their message.
+    const sentNow = messages[messages.length - 1]?.role === 'user';
+    if (messages.length > 1 && distance >= 120 && !sentNow) return;
     const motionPolicy = document.documentElement.dataset.motion || 'system';
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const behavior: ScrollBehavior = motionPolicy === 'off' || motionPolicy === 'reduced' || (motionPolicy === 'system' && reduce) ? 'auto' : 'smooth';

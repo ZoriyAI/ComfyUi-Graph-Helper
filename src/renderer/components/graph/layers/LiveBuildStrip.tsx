@@ -11,8 +11,9 @@ import { revealAllNow } from './BuildLayer';
 import styles from './LiveBuildStrip.module.css';
 
 /**
- * "Agent is building: step 3 of 7 — why" across the top of the canvas while an agent run builds, with
- * Pause / Stop (the chat service's run controls) and "Show all now" (flush the reveal queue).
+ * «Помощник строит: шаг 3 из 7 — зачем» across the top of the canvas while the helper builds, with Pause / Stop
+ * (the chat service's run controls) and the only «Показать всё сразу» (flush the reveal queue; the canvas toolbar
+ * leaves it to the strip).
  * It appears with the first build step of a run and hides when the run closes and the queue is empty.
  */
 export default function LiveBuildStrip() {
