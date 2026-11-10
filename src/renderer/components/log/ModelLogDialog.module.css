@@ -119,3 +119,19 @@
 }
 .side, .main, .confirm { display: flex; align-items: center; gap: 8px; }
 .confirm { color: var(--text); font-size: var(--text-sm); }
+
+.notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 20px;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--ok-soft);
+  color: var(--text);
+  font-size: var(--text-sm);
+  line-height: 19px;
+}
+.noticeError { background: var(--danger-soft); }
+.noticeText { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.noticePath { color: var(--text-dim); font-size: var(--text-xs); line-height: 17px; overflow-wrap: anywhere; }

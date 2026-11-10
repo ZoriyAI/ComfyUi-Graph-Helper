@@ -1,4 +1,3 @@
-import { showToast } from '../../ui/Toast';
 import { i18n } from '../../i18n';
 import type { ModelLogExportRequest, ModelLogList } from '../../../shared/contracts/modelLog';
 import { logErrorKey } from '../../components/log/modelLogView';
@@ -7,11 +6,17 @@ import { logErrorKey } from '../../components/log/modelLogView';
  * The model conversation log from the window's side: read the list of recorded turns, save chosen turns into one
  * file, copy a short report of a turn. The window never sees a turn's body: main keeps the files, writes the
  * export through a system save dialog and hands back only where it went.
+ *
+ * Nothing here shows a toast: the log window is a modal dialog, and a toast behind a modal cannot be clicked or
+ * read by a screen reader. Each call returns what happened and the window says it in its own status line.
  */
 
 const t = (key: string, values: Record<string, unknown> = {}) => String(i18n.t(key, values));
 
 const EMPTY: ModelLogList = { enabled: true, turns: [], files: 0, bytes: 0, folder: null };
+
+export type LogActionResult = { ok: true } | { ok: false; message: string };
+export type LogSaveResult = { ok: true; path: string; turns: number } | { ok: false; canceled: boolean; message: string };
 
 function errorText(error: string | undefined, fallbackKey: string): string {
   const key = logErrorKey(error);
@@ -51,67 +56,52 @@ export async function loadModelLog(): Promise<ModelLogList> {
   }
 }
 
-/**
- * Saves turns into one file the person picks a place for. Says where it went and offers to show it, because the
- * next thing a person does is attach that file somewhere. Returns true when a file was written.
- */
-export async function saveModelLog(request: ModelLogExportRequest): Promise<boolean> {
+/** Saves turns into one file the person picks a place for. Closing the system dialog is not a failure. */
+export async function saveModelLog(request: ModelLogExportRequest): Promise<LogSaveResult> {
   try {
     const result = await window.electronAPI.traceExport(request);
-    if (result.ok) {
-      showToast({
-        id: 'model-log',
-        tone: 'success',
-        title: t('modelLog.saved', { count: result.turns }),
-        description: t('modelLog.savedHint', { path: result.path }),
-        duration: 15_000,
-        action: { label: t('modelLog.showFile'), onSelect: () => void window.electronAPI.traceRevealExport().catch(() => undefined) },
-      });
-      return true;
-    }
-    // Closing the save dialog is a decision, not a failure.
-    if (result.canceled) return false;
-    showToast({ id: 'model-log', tone: 'error', title: t('modelLog.saveFailed'), description: errorText(result.error, 'modelLog.error.writeFailed') });
-    return false;
+    if (result.ok) return { ok: true, path: result.path, turns: result.turns };
+    if (result.canceled) return { ok: false, canceled: true, message: '' };
+    return { ok: false, canceled: false, message: errorText(result.error, 'modelLog.error.writeFailed') };
   } catch {
-    showToast({ id: 'model-log', tone: 'error', title: t('modelLog.saveFailed'), description: t('modelLog.error.writeFailed') });
-    return false;
+    return { ok: false, canceled: false, message: t('modelLog.error.writeFailed') };
+  }
+}
+
+/** Shows the file saved last in the file manager. */
+export async function revealSavedLog(): Promise<void> {
+  try {
+    await window.electronAPI.traceRevealExport();
+  } catch {
+    // The file manager did not open; the path is on screen.
   }
 }
 
 /** Copies the short report of one turn (readable text, a few screens at most) for pasting into a message. */
-export async function copyTurnReport(id: string): Promise<boolean> {
+export async function copyTurnReport(id: string): Promise<LogActionResult> {
   try {
     const result = await window.electronAPI.traceReport(id);
-    if (!result.ok) {
-      showToast({ id: 'model-log', tone: 'error', title: t('modelLog.copyFailed'), description: errorText(result.error, 'modelLog.error.turnGone') });
-      return false;
-    }
-    const copied = await writeClipboard(result.text);
-    if (copied) showToast({ id: 'model-log', tone: 'success', title: t('modelLog.copied'), description: t('modelLog.copiedHint'), duration: 6000 });
-    else showToast({ id: 'model-log', tone: 'error', title: t('modelLog.copyFailed') });
-    return copied;
+    if (!result.ok) return { ok: false, message: errorText(result.error, 'modelLog.error.turnGone') };
+    return await writeClipboard(result.text) ? { ok: true } : { ok: false, message: t('modelLog.copyFailed') };
   } catch {
-    showToast({ id: 'model-log', tone: 'error', title: t('modelLog.copyFailed') });
-    return false;
+    return { ok: false, message: t('modelLog.copyFailed') };
   }
 }
 
+/** Removes every record; returns how many went. */
 export async function clearModelLog(): Promise<number> {
   try {
-    const result = await window.electronAPI.traceClear();
-    showToast({ id: 'model-log', tone: 'info', title: t('modelLog.cleared', { count: result.removed }) });
-    return result.removed;
+    return (await window.electronAPI.traceClear()).removed;
   } catch {
     return 0;
   }
 }
 
-export async function openModelLogFolder(): Promise<void> {
+export async function openModelLogFolder(): Promise<LogActionResult> {
   try {
     const result = await window.electronAPI.traceOpenFolder();
-    if (!result.ok) showToast({ id: 'model-log', tone: 'error', title: t('modelLog.openFolderFailed'), description: errorText(result.error, 'modelLog.error.noFolder') });
+    return result.ok ? { ok: true } : { ok: false, message: `${t('modelLog.openFolderFailed')}. ${errorText(result.error, 'modelLog.error.noFolder')}` };
   } catch {
-    showToast({ id: 'model-log', tone: 'error', title: t('modelLog.openFolderFailed') });
+    return { ok: false, message: t('modelLog.openFolderFailed') };
   }
 }

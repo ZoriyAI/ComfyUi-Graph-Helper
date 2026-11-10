@@ -1,12 +1,13 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'motion/react';
-import { PauseCircle, Play, Square } from 'lucide-react';
+import { PauseCircle, Play, ScrollText, Square } from 'lucide-react';
 import { formatClock, redactDiagnostic, type AppLanguage } from '../../../shared/i18n';
 import { useGraphStore } from '../../state/graphState';
 import { useUiStore } from '../../state/uiState';
 import { useChatStore } from '../../state/chatState';
 import { getChatService } from '../../services/llm/chatService';
+import { openModelLog } from '../../state/modelLogState';
 import type { ChatMessage, TurnCheckpoint } from '../../types/chat';
 import MarkdownLite from './MarkdownLite';
 import { objectLabel } from './objectLabel';
@@ -87,6 +88,13 @@ export default function Message({ message, streaming = false }: MessageProps) {
       <div className={`message-body ${styles.body}`}>
         <div className={`message-summary ${styles.summary}`}>{t('chat.errorSummary')}</div>
         <div className={`message-diagnostic ${styles.diagnostic}`}>{redactDiagnostic(message.content)}</div>
+        {message.logId ? (
+          // What exactly was sent and what the server said is in this answer's record: one click away.
+          <button type="button" className={`message-log-open ${styles.logOpen}`} onClick={() => openModelLog(message.logId)}>
+            <ScrollText size={13} aria-hidden="true" />
+            {t('chat.openLogForError')}
+          </button>
+        ) : null}
       </div>
     ) : message.content || (streaming && toolCalls.length === 0) ? (
       <div className={`message-body ${styles.body}`}>
@@ -147,7 +155,20 @@ export default function Message({ message, streaming = false }: MessageProps) {
         {textFirst ? null : body}
         {message.checkpoint ? <CheckpointCard messageId={message.id} checkpoint={message.checkpoint} /> : null}
         {build && build.type === 'build' && buildOver ? <BuildSummary calls={build.calls} stopped={message.checkpoint?.state === 'stopped'} /> : null}
-        <div className={`message-time ${styles.time}`}>{formatClock(message.timestamp, language)}</div>
+        <div className={`message-time ${styles.time}`}>
+          {!isUser && message.logId && !streaming ? (
+            <button
+              type="button"
+              className={`message-log ${styles.logLink}`}
+              title={String(t('chat.openLog'))}
+              aria-label={String(t('chat.openLog'))}
+              onClick={() => openModelLog(message.logId)}
+            >
+              <ScrollText size={12} aria-hidden="true" />
+            </button>
+          ) : null}
+          <span>{formatClock(message.timestamp, language)}</span>
+        </div>
       </div>
     </div>
   );

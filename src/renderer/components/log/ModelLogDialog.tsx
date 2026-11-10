@@ -10,7 +10,7 @@ import { cx } from '../../ui/cx';
 import type { ModelLogList, ModelLogTurn } from '../../../shared/contracts/modelLog';
 import { savePreferencesPatch, usePreferencesStore } from '../../state/preferencesState';
 import { useModelLogStore } from '../../state/modelLogState';
-import { clearModelLog, copyTurnReport, loadModelLog, openModelLogFolder, saveModelLog } from '../../services/diagnostics/modelLog';
+import { clearModelLog, copyTurnReport, loadModelLog, openModelLogFolder, revealSavedLog, saveModelLog } from '../../services/diagnostics/modelLog';
 import { durationParts, formatLogBytes, formatTurnTime, intentLabelKey, outcomeView, pickTurns, providerLabelKey } from './modelLogView';
 import styles from './ModelLogDialog.module.css';
 
@@ -23,11 +23,20 @@ export interface ModelLogDialogProps {
 
 type Pick = 'last' | 'today' | 'errors' | 'all' | 'none';
 
-function TurnRow({ turn, checked, focused, onToggle, language }: {
+/** What the last action did, said inside the window (a toast behind a modal cannot be clicked or heard). */
+interface Notice {
+  tone: 'ok' | 'error';
+  text: string;
+  /** Set after a save: where the file went, with a way to show it. */
+  path?: string;
+}
+
+function TurnRow({ turn, checked, focused, onToggle, onNotice, language }: {
   turn: ModelLogTurn;
   checked: boolean;
   focused: boolean;
   onToggle: (id: string) => void;
+  onNotice: (notice: Notice) => void;
   language: 'en' | 'ru';
 }) {
   const { t } = useTranslation();
@@ -85,8 +94,11 @@ function TurnRow({ turn, checked, focused, onToggle, language }: {
         title={String(t('modelLog.copyReportHint'))}
         onClick={async () => {
           setCopying(true);
-          await copyTurnReport(turn.id);
+          const result = await copyTurnReport(turn.id);
           setCopying(false);
+          onNotice(result.ok
+            ? { tone: 'ok', text: `${String(t('modelLog.copied'))}. ${String(t('modelLog.copiedHint'))}` }
+            : { tone: 'error', text: result.message });
         }}
       >
         {t('modelLog.copyReport')}
@@ -108,6 +120,7 @@ export default function ModelLogDialog({ open, onOpenChange, focusTurn = null }:
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [notice, setNotice] = useState<Notice | null>(null);
 
   const reload = useCallback(async (preselect: boolean) => {
     const next = await loadModelLog();
@@ -124,6 +137,7 @@ export default function ModelLogDialog({ open, onOpenChange, focusTurn = null }:
   useEffect(() => {
     if (!open) return;
     setConfirmClear(false);
+    setNotice(null);
     void reload(true);
   }, [open, reload]);
 
@@ -141,14 +155,23 @@ export default function ModelLogDialog({ open, onOpenChange, focusTurn = null }:
 
   const save = async () => {
     setSaving(true);
-    await saveModelLog({ ids: [...checked] });
+    const result = await saveModelLog({ ids: [...checked] });
     setSaving(false);
+    if (result.ok) setNotice({ tone: 'ok', text: String(t('modelLog.saved', { count: result.turns })), path: result.path });
+    // Closing the system dialog is a decision, not a failure: nothing to say.
+    else if (!result.canceled) setNotice({ tone: 'error', text: `${String(t('modelLog.saveFailed'))}. ${result.message}` });
   };
 
   const clear = async () => {
     setConfirmClear(false);
-    await clearModelLog();
+    const removed = await clearModelLog();
+    setNotice({ tone: 'ok', text: String(t('modelLog.cleared', { count: removed })) });
     await reload(false);
+  };
+
+  const openFolder = async () => {
+    const result = await openModelLogFolder();
+    if (!result.ok) setNotice({ tone: 'error', text: result.message });
   };
 
   return (
@@ -193,10 +216,22 @@ export default function ModelLogDialog({ open, onOpenChange, focusTurn = null }:
               </div>
               <ul className={styles.list} aria-label={String(t('modelLog.listLabel'))}>
                 {turns.map((turn) => (
-                  <TurnRow key={turn.id} turn={turn} checked={checked.has(turn.id)} focused={open && turn.id === focusTurn} onToggle={toggle} language={language} />
+                  <TurnRow key={turn.id} turn={turn} checked={checked.has(turn.id)} focused={open && turn.id === focusTurn} onToggle={toggle} onNotice={setNotice} language={language} />
                 ))}
               </ul>
             </>
+          ) : null}
+
+          {notice ? (
+            <div className={cx(styles.notice, notice.tone === 'error' && styles.noticeError, 'model-log-notice')} role="status" data-tone={notice.tone}>
+              <div className={styles.noticeText}>
+                <span>{notice.text}</span>
+                {notice.path ? <span className={styles.noticePath}>{t('modelLog.savedHint', { path: notice.path })}</span> : null}
+              </div>
+              {notice.path ? (
+                <Button variant="subtle" size="sm" icon={<FolderOpen size={14} />} onClick={() => void revealSavedLog()}>{t('modelLog.showFile')}</Button>
+              ) : null}
+            </div>
           ) : null}
 
           <footer className={styles.footer}>
@@ -208,7 +243,7 @@ export default function ModelLogDialog({ open, onOpenChange, focusTurn = null }:
               </div>
             ) : (
               <div className={styles.side}>
-                <Button variant="subtle" size="sm" icon={<FolderOpen size={14} />} onClick={() => void openModelLogFolder()}>{t('modelLog.openFolder')}</Button>
+                <Button variant="subtle" size="sm" icon={<FolderOpen size={14} />} onClick={() => void openFolder()}>{t('modelLog.openFolder')}</Button>
                 <Button variant="subtle" size="sm" icon={<Trash2 size={14} />} disabled={!list || list.files === 0} onClick={() => setConfirmClear(true)}>{t('modelLog.clear')}</Button>
               </div>
             )}
