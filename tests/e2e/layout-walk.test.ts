@@ -21,7 +21,8 @@ import { APP_AUDIT, attachmentIssues } from './layoutProfile';
  *
  * LAYOUT_LANG=en walks in English (default: Russian, the longer texts).
  * LAYOUT_SIZES=800x560,1440x900 picks the window sizes; LAYOUT_FULL=1 walks every size from the list below.
- * LAYOUT_ONLY=canvas,helper walks only those parts (their set-up still runs).
+ * LAYOUT_ONLY=canvas,helper walks only those parts (their set-up still runs). The parts: fresh, paused, settings,
+ * reading, library, lessons, names, canvas, helper, windows, subgraph.
  * LAYOUT_OUT=<dir> keeps a report and a screenshot of every stop that has something to say; LAYOUT_SHOTS=all keeps
  * a screenshot of every stop. LAYOUT_REPORT=1 only reports and does not fail.
  *
@@ -304,6 +305,16 @@ async function closeSettings(page: Page): Promise<void> {
   await expect(dialog).toHaveCount(0);
 }
 
+const lessonPanel = (page: Page): Locator => page.locator('.lesson-panel');
+
+/** The helper panel in its "Learn" mode, whether the panel is a full one or a strip of icons. */
+async function learnMode(page: Page): Promise<void> {
+  await dockTab(page, 0);
+  if (await lessonPanel(page).count() === 0) await page.locator('[data-intent="learn"]').click();
+  await lessonPanel(page).waitFor();
+  await page.waitForTimeout(200);
+}
+
 async function escape(page: Page): Promise<void> {
   await page.keyboard.press('Escape');
   await page.waitForTimeout(120);
@@ -339,7 +350,8 @@ function overlapOf(a: { x: number; y: number; width: number; height: number } | 
 test('nothing sticks out, is cut or overlaps on any screen at any window size', async () => {
   test.setTimeout(2_400_000);
   if (OUT) fs.mkdirSync(OUT, { recursive: true });
-  const fake: FakeMcp = await startFakeMcp({ extraLoras: 300 });
+  // With ComfyUI's video nodes, so every lesson fits and is walked.
+  const fake: FakeMcp = await startFakeMcp({ extraLoras: 300, video: true });
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'layout-walk-'));
   const { app, page } = await launch(userData);
   const api = bridge(page);
@@ -355,6 +367,8 @@ test('nothing sticks out, is cut or overlaps on any screen at any window size', 
     // ---------- A fresh profile ----------
     if (wants('fresh')) {
       await visit(page, 'first screen');
+      await visitScrolling(page, 'lessons before ComfyUI is read', async () => { await learnMode(page); }, () => lessonPanel(page));
+      await page.locator('[data-intent="ask"]').click();
       for (let index = 0; index < 3; index += 1) {
         await visit(page, `library tab ${index + 1}, nothing read yet`, async () => { await railTab(page, index); });
       }
@@ -501,6 +515,84 @@ test('nothing sticks out, is cut or overlaps on any screen at any window size', 
       await rail.locator('input').first().fill('');
       await visit(page, 'library subgraphs, none yet', async () => { await railTab(page, 2); });
       await railTab(page, 0);
+    }
+
+    // ---------- Lessons: the list, a step that explains, a step to do, the search a lesson opens, a lesson done ----------
+    if (wants('lessons')) {
+      const lessons = lessonPanel(page);
+      const startLesson = async (id: string) => {
+        await learnMode(page);
+        if ((await lessons.getAttribute('data-lesson')) === id) return;
+        if ((await lessons.getAttribute('data-lesson')) !== 'list') await lessons.getByRole('button', { name: T('lessons.back'), exact: true }).click();
+        await lessons.locator(`[data-lesson-card="${id}"]`).getByRole('button').first().click();
+        await expect(lessons).toHaveAttribute('data-lesson', id);
+      };
+      const toList = async () => {
+        await learnMode(page);
+        if ((await lessons.getAttribute('data-lesson')) !== 'list') await lessons.getByRole('button', { name: T('lessons.back'), exact: true }).click();
+        await expect(lessons).toHaveAttribute('data-lesson', 'list');
+      };
+      await visitScrolling(page, 'lessons, the list', toList, () => lessons);
+      // A lesson that is all words first: the limits, said before anything else.
+      await visitScrolling(page, 'lessons, a step that explains', async () => { await startLesson('adult'); }, () => lessons);
+      await visitScrolling(page, 'lessons, the first step of a video lesson', async () => { await startLesson('video-text'); }, () => lessons);
+      // A step to do: what it lacks, and the two things the app offers.
+      await startLesson('image');
+      await lessons.getByRole('button', { name: T('lessons.understood'), exact: true }).click();
+      await expect(lessons.locator('[data-lesson-step]')).toHaveAttribute('data-lesson-step', 'model');
+      await visitScrolling(page, 'lessons, a step to do', async () => { await startLesson('image'); }, () => lessons);
+      await visit(page, 'lessons, the node search a lesson opens', async () => {
+        await startLesson('image');
+        await lessons.getByRole('button', { name: T('lessons.show'), exact: true }).click();
+        await page.getByRole('dialog', { name: T('canvas.addNode') }).waitFor();
+      }, async () => { await escape(page); });
+      // The lesson carried through: the app does what it can, the person writes the description.
+      await resize(page, HOME);
+      await startLesson('image');
+      const stepNow = () => lessons.locator('[data-lesson-step]').getAttribute('data-lesson-step');
+      const revision = async () => ((await api('readProjection', ['desktop'])) as { currentRevisionId: string }).currentRevisionId;
+      let linkShown = false;
+      for (let guard = 0; guard < 60 && (await stepNow()) !== 'end'; guard += 1) {
+        const doIt = lessons.getByRole('button', { name: T('lessons.doIt'), exact: true });
+        const read = lessons.getByRole('button', { name: T('lessons.understood'), exact: true });
+        if (!linkShown && (await stepNow()) === 'prompts-clip') {
+          // A link to make: "show me where" lights the output it starts from and everything it can go into.
+          linkShown = true;
+          await visit(page, 'lessons, a link a lesson lights on the canvas', async () => {
+            await startLesson('image');
+            await lessons.getByRole('button', { name: T('lessons.show'), exact: true }).click();
+            await page.waitForTimeout(700);
+          });
+          await resize(page, HOME);
+          await startLesson('image');
+          continue;
+        }
+        if (await doIt.count() > 0) {
+          const before = await revision();
+          await doIt.click();
+          await expect.poll(revision, { timeout: 15_000 }).not.toBe(before);
+          await page.waitForTimeout(150);
+        } else if (await read.count() > 0) {
+          const before = await stepNow();
+          await read.click();
+          await expect.poll(stepNow).not.toBe(before);
+        } else {
+          const field = page.locator('.react-flow__node textarea').first();
+          await field.fill(LANG === 'ru' ? 'тихое озеро на рассвете, туман' : 'a quiet lake at dawn, mist');
+          await field.blur();
+          await expect.poll(stepNow, { timeout: 15_000 }).not.toBe('prompt-text');
+        }
+      }
+      await expect(lessons.locator('[data-lesson-step]'), 'the picture lesson came to its end').toHaveAttribute('data-lesson-step', 'end');
+      await visitScrolling(page, 'lessons, a lesson done', async () => { await startLesson('image'); }, () => lessons);
+      await visitScrolling(page, 'lessons, the list with a lesson done', toList, () => lessons);
+      // The canvas the lesson left: seven nodes where the app put them, a card under each.
+      await visit(page, 'canvas after a lesson', async () => { await page.locator('.react-flow__controls-fitview').click(); await page.waitForTimeout(450); });
+      // The rest of the walk starts from an empty canvas and from the conversation.
+      await page.keyboard.press('Control+n');
+      await page.getByRole('button', { name: T('menu.newProjectConfirm'), exact: true }).click();
+      await expect(nodes).toHaveCount(0, { timeout: 15_000 });
+      await reloaded(page);
     }
 
     // ---------- A helper with a long name, a project with a long name ----------
