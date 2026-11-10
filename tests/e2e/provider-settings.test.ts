@@ -84,7 +84,7 @@ test('stored provider, model, and base URL are what the next send would use afte
 
   await savedDialog.getByRole('textbox', { name: 'Base URL', exact: true }).fill('notaurl');
   await expect(savedDialog.getByRole('button', { name: 'Save settings' })).toBeDisabled();
-  await expect(savedDialog.getByText('Settings do not match the schema')).toBeVisible();
+  await expect(savedDialog.getByText('Check the highlighted fields; the settings cannot be saved without them.')).toBeVisible();
   const schemaReject = await window.evaluate(async () => {
     const bridge = (window as unknown as { electronAPI: { saveSettings: (input: unknown) => Promise<{ ok: boolean; error?: string }> } }).electronAPI;
     return bridge.saveSettings({

@@ -164,7 +164,12 @@ test('keyboard route reaches a node and keeps graph shortcuts out of fields', as
   // Assistant is the first section now: Home reaches it.
   await window.keyboard.press('Home');
   await expect.poll(async () => window.evaluate(() => document.activeElement?.textContent?.trim() ?? '')).toBe('Assistant');
-  for (let step = 0; step < 6; step += 1) {
+  // The model field appears once a helper is chosen: Tab to the provider cards, arrow to the next one.
+  await window.keyboard.press('Tab');
+  await window.keyboard.press('ArrowRight');
+  await window.keyboard.press('Enter');
+  await expect(dialog.getByRole('radio', { name: 'OpenAI', exact: true })).toHaveAttribute('aria-checked', 'true');
+  for (let step = 0; step < 8; step += 1) {
     await window.keyboard.press('Tab');
     const label = await window.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? '');
     if (label === 'Model') break;

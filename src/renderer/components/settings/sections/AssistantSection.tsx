@@ -215,7 +215,6 @@ export default function AssistantSection({ values, setValues, prefs, setPrefs, c
         />
       ) : null}
       {provider === 'local' ? <p className={hintClass}>{t('settings.baseUrlHint')}</p> : null}
-      {provider !== '' && provider !== 'test' ? (
       <SuggestField
         className={fieldClass}
         label={String(t('settings.model'))}
@@ -236,7 +235,6 @@ export default function AssistantSection({ values, setValues, prefs, setPrefs, c
         status={modelStatus}
         container={container}
       />
-      ) : null}
       {chosenModel?.tools === false ? <p className={styles.errorNote} role="alert">{t('picker.modelsNoTools')}</p> : null}
       {remembered && !(modelList.kind === 'ok' && models.length > 0) ? (
         <div className={styles.suggestions}>
@@ -257,7 +255,7 @@ export default function AssistantSection({ values, setValues, prefs, setPrefs, c
           </div>
         </div>
       ) : null}
-      {CLOUD_PROVIDERS.has(provider) ? (
+      {provider !== 'local' ? (
         <label className={fieldClass}>
           {t('settings.baseUrlOptional')}
           <input
@@ -269,7 +267,7 @@ export default function AssistantSection({ values, setValues, prefs, setPrefs, c
           />
         </label>
       ) : null}
-      {CLOUD_PROVIDERS.has(provider) ? <p className={hintClass}>{t('settings.cloudBaseUrlHint')}</p> : null}
+      {provider !== 'local' ? <p className={hintClass}>{t('settings.cloudBaseUrlHint')}</p> : null}
       <div className={cx(rowClass, styles.rowStart)}>
         <Button
           size="sm"

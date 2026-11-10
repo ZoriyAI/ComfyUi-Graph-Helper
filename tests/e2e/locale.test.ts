@@ -104,6 +104,7 @@ async function expectLocalizedChrome(window: Page, language: 'en' | 'ru') {
       assistant: 'Помощник',
       tabs: ['Подключение', 'Помощник', 'Оформление и движение'],
       model: 'Модель',
+      localProvider: 'Локальный адрес',
     }
     : {
       settings: 'Settings',
@@ -111,6 +112,7 @@ async function expectLocalizedChrome(window: Page, language: 'en' | 'ru') {
       assistant: 'Assistant',
       tabs: ['Connection', 'Assistant', 'Appearance & Motion'],
       model: 'Model',
+      localProvider: 'Local endpoint',
     };
   await window.setViewportSize({ width: 1280, height: 800 });
   await assertChromeLanguage(window, language);
@@ -126,6 +128,8 @@ async function expectLocalizedChrome(window: Page, language: 'en' | 'ru') {
     await assertChromeLanguage(window, language);
   }
   await dialog.getByRole('tab', { name: copy.tabs[1], exact: true }).click();
+  // The model field appears once a helper is chosen.
+  await dialog.getByRole('radio', { name: copy.localProvider, exact: true }).click();
   const model = dialog.getByRole('textbox', { name: copy.model, exact: true });
   await model.fill('sk-example-secret');
   await assertChromeLanguage(window, language);

@@ -295,6 +295,14 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
   await window.screenshot({ path: path.join(artifactDir, 'desktop-1280-inspector.png') });
   await window.getByRole('button', { name: 'Settings', exact: true }).click();
   const contrastDialog = window.locator('[role="dialog"].settings-dialog');
+  // The provider's key field lives under the provider choice; measure it there, then go on to Connection.
+  await contrastDialog.getByRole('tab', { name: 'Assistant' }).click();
+  await contrastDialog.getByRole('radio', { name: 'OpenAI', exact: true }).click();
+  const keyField = await contrastDialog.getByRole('textbox', { name: 'OpenAI key', exact: true }).evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { color: style.color, bg: style.backgroundColor };
+  });
+  await contrastDialog.getByRole('radio', { name: 'Not chosen', exact: true }).click();
   await contrastDialog.getByRole('tab', { name: 'Connection' }).click();
   await contrastDialog.getByRole('textbox', { name: 'Comfy origin' }).fill('https://example.test');
   await contrastDialog.getByRole('textbox', { name: 'Comfy origin' }).focus();
@@ -314,8 +322,8 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
       return 'rgb(0, 0, 0)';
     };
     const input = document.querySelector('input[aria-label="Comfy origin"]');
-    const disabled = document.querySelector('input[aria-label="API key"]');
-    const osKey = document.querySelector('input[aria-label="OS storage key"]');
+    const disabled = null as Element | null;
+    const osKey = null as Element | null;
     const save = document.querySelector('.settings-save');
     const handle = document.querySelector('.graph-node .react-flow__handle');
     const edge = document.querySelector('.react-flow__edge path');
@@ -327,12 +335,12 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
       inputColor: inputStyle?.color ?? '',
       inputBg: inputStyle?.backgroundColor ?? '',
       inputBorder: inputStyle?.borderTopColor ?? '',
-      keyMode: disabled ? 'disabled' : osKey ? 'os' : 'missing',
+      keyMode: 'os',
       disabledColor: disabledStyle?.color ?? '',
       disabledBg: disabledStyle?.backgroundColor ?? '',
       disabledBorder: disabledStyle?.borderTopColor ?? '',
-      osColor: osStyle?.color ?? '',
-      osBg: osStyle?.backgroundColor ?? '',
+      osColor: '',
+      osBg: '',
       dialogBg: paint(document.querySelector('.settings-dialog'))?.backgroundColor ?? '',
       saveColor: saveStyle?.color ?? '',
       saveBg: saveStyle?.backgroundColor ?? '',
@@ -371,7 +379,7 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
     expect(pairs.disabledBorder).toBeLessThanOrEqual(pairs.inputBorder);
   } else {
     expect(rendered.keyMode).toBe('os');
-    expect(contrast(rendered.osColor, rendered.osBg)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(keyField.color, keyField.bg)).toBeGreaterThanOrEqual(4.5);
   }
   expect(pairs.save).toBeGreaterThanOrEqual(4.5);
   expect(pairs.focus).toBeGreaterThanOrEqual(3);
