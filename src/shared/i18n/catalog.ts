@@ -1557,7 +1557,7 @@ export const ru = {
     multi_many: 'Выбрано нод: {{count, number}}',
     multiDetail: 'Общие правки недоступны. Выберите одну ноду, чтобы увидеть её входы и выходы.',
     ports: 'Порты',
-    properties: 'Свойства',
+    properties: 'Параметры',
     noParameters: 'У этой ноды нет параметров.',
     in: 'Вход',
     out: 'Выход',

@@ -11,6 +11,14 @@ export interface SelectOption {
   label: string;
 }
 
+/** A row under the options that runs something instead of choosing a value ("Set up…"). */
+export interface SelectAction {
+  label: string;
+  onSelect: () => void;
+}
+
+const ACTION_PREFIX = '__action__:';
+
 const EMPTY = '__empty__';
 
 /**
@@ -25,6 +33,9 @@ export default function SelectField({
   onChange,
   container,
   className,
+  icon,
+  display,
+  actions,
 }: {
   id?: string;
   label: string;
@@ -33,6 +44,12 @@ export default function SelectField({
   onChange: (value: string) => void;
   container?: HTMLElement | null;
   className?: string;
+  /** Drawn before the value inside the trigger (a bare svg, so the value stays the trigger's first span). */
+  icon?: React.ReactNode;
+  /** What the closed trigger reads, when it should say more than the chosen option's label. */
+  display?: React.ReactNode;
+  /** Rows after a rule at the end of the list; choosing one runs it and keeps the value. */
+  actions?: SelectAction[];
 }) {
   const [open, setOpen] = useState(false);
   useEffect(() => {
@@ -48,12 +65,17 @@ export default function SelectField({
         onOpenChange={setOpen}
         value={value === '' ? EMPTY : value}
         onValueChange={(next) => {
+          if (next.startsWith(ACTION_PREFIX)) {
+            actions?.[Number(next.slice(ACTION_PREFIX.length))]?.onSelect();
+            return;
+          }
           const stored = next === EMPTY ? '' : next;
           if (stored !== value) onChange(stored);
         }}
       >
         <Select.Trigger id={id} className={cx(styles.trigger, 'select-trigger')} aria-label={label} data-value={value}>
-          <Select.Value />
+          {icon}
+          {display === undefined ? <Select.Value /> : <Select.Value>{display}</Select.Value>}
           <Select.Icon className={cx(styles.icon, 'select-icon')} aria-hidden="true"><ChevronDown size={14} /></Select.Icon>
         </Select.Trigger>
         <Select.Portal container={container ?? undefined}>
@@ -63,6 +85,12 @@ export default function SelectField({
                 <Select.Item key={option.label} className={cx(styles.item, 'select-item')} value={option.value === '' ? EMPTY : option.value}>
                   <Select.ItemText>{option.label}</Select.ItemText>
                   <Select.ItemIndicator className={cx(styles.check, 'select-check')} aria-hidden="true"><Check size={14} /></Select.ItemIndicator>
+                </Select.Item>
+              ))}
+              {actions && actions.length > 0 ? <Select.Separator className={styles.separator} /> : null}
+              {actions?.map((action, index) => (
+                <Select.Item key={`action-${action.label}`} className={cx(styles.item, styles.action, 'select-item')} value={`${ACTION_PREFIX}${index}`}>
+                  <Select.ItemText>{action.label}</Select.ItemText>
                 </Select.Item>
               ))}
             </Select.Viewport>

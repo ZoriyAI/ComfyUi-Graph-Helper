@@ -10,7 +10,7 @@ import { useKnowledgeStore } from '../../state/knowledgeState';
 import { useUiStore } from '../../state/uiState';
 import { requestAsk } from '../../services/ask';
 import { turnLanguage } from '../../services/llm/chatModel';
-import { checkFindingCount, groupCheckReport, type CheckFinding } from './checkModel';
+import { checkFindingCount, findingNodeIds, groupCheckReport, nodeNamer, type CheckFinding } from './checkModel';
 import styles from './CheckPanel.module.css';
 
 const ROW_MOTION = {
@@ -69,12 +69,18 @@ export default function CheckPanel({ projectId }: { projectId: string }) {
   };
 
   const count = checkFindingCount(report);
-  const groups = report ? groupCheckReport(report, resolvePort) : [];
+  // Findings name nodes by their titles on the canvas; the ids stay in each row's tooltip.
+  const groups = report ? groupCheckReport(report, resolvePort, nodeNamer(nodes)) : [];
+  const idsHint = (finding: CheckFinding): string | undefined => {
+    const ids = findingNodeIds(finding.values);
+    return ids.length > 0 ? String(t('check.nodeIds', { count: ids.length, ids: ids.join(', ') })) : undefined;
+  };
 
   return (
     <section className={`check-panel ${styles.panel}`} aria-labelledby="check-title" data-project={projectId}>
       <div className={styles.head}>
-        <h2 className={styles.title} id="check-title">{t('explain.checkTitle')}</h2>
+        {/* The dock tab already says "Check"; the heading names the region for screen readers only. */}
+        <h2 className="sr-only" id="check-title">{t('explain.checkTitle')}</h2>
         {report && count > 0 ? <span className={styles.count}>{t('explain.checkCount', { count })}</span> : null}
       </div>
       <p className={styles.intro}>{t('explain.checkIntro')}</p>
@@ -104,7 +110,7 @@ export default function CheckPanel({ projectId }: { projectId: string }) {
                 const text = findingText(finding);
                 return (
                   <motion.li key={finding.key} className={styles.row} data-type={finding.type} {...ROW_MOTION}>
-                    <p className={styles.text}>{text}</p>
+                    <p className={styles.text} title={idsHint(finding)}>{text}</p>
                     <div className={styles.buttons}>
                       <button type="button" className={styles.button} onClick={() => setFocus(finding.ref)}>
                         <Crosshair size={14} aria-hidden="true" />

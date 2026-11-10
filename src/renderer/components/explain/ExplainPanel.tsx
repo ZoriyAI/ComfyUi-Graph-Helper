@@ -262,7 +262,8 @@ export default function ExplainPanel() {
   if (!focus) {
     return (
       <section className={`explain-panel ${styles.panel}`} aria-labelledby="explain-title">
-        <h2 className={styles.name} id="explain-title">{t('explain.title')}</h2>
+        {/* The dock tab already says "Explain"; the heading names the region for screen readers only. */}
+        <h2 className="sr-only" id="explain-title">{t('explain.title')}</h2>
         <div className={styles.empty}>
           <strong>{t('explain.emptyTitle')}</strong>
           <p>{t('explain.emptyBody')}</p>

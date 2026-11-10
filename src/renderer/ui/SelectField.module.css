@@ -42,3 +42,6 @@
 .item[data-highlighted] { background: var(--surface-active); outline: none; }
 .item[data-state="checked"] { color: var(--accent); }
 .check { display: inline-flex; color: var(--accent); }
+.separator { height: 1px; margin: 4px 0; background: var(--border); }
+.action { color: var(--text-dim); }
+.action[data-highlighted] { color: var(--text); }
