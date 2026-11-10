@@ -111,4 +111,5 @@ export const IPC_CHANNELS = {
   TRACE_EXPORT: 'trace:export',
   TRACE_CLEAR: 'trace:clear',
   TRACE_OPEN_FOLDER: 'trace:open-folder',
+  TRACE_REVEAL_EXPORT: 'trace:reveal-export',
 } as const;

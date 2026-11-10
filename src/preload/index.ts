@@ -116,6 +116,7 @@ const IPC_CHANNELS = {
   TRACE_EXPORT: 'trace:export',
   TRACE_CLEAR: 'trace:clear',
   TRACE_OPEN_FOLDER: 'trace:open-folder',
+  TRACE_REVEAL_EXPORT: 'trace:reveal-export',
 } as const;
 
 /** The app version main passes as `--app-version=…` (a sandboxed preload cannot read package.json). */
@@ -307,6 +308,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   traceExport: (request: ModelLogExportRequest) => ipcRenderer.invoke(IPC_CHANNELS.TRACE_EXPORT, request) as Promise<ModelLogExportResult>,
   traceClear: () => ipcRenderer.invoke(IPC_CHANNELS.TRACE_CLEAR) as Promise<{ removed: number }>,
   traceOpenFolder: () => ipcRenderer.invoke(IPC_CHANNELS.TRACE_OPEN_FOLDER) as Promise<{ ok: true } | { ok: false; error: string }>,
+  traceRevealExport: () => ipcRenderer.invoke(IPC_CHANNELS.TRACE_REVEAL_EXPORT) as Promise<{ ok: boolean }>,
 });
 
 /** What the renderer sends about an error; main clips, redacts and rate-limits it. */
@@ -455,6 +457,8 @@ export interface ElectronAPI {
   traceExport: (request: ModelLogExportRequest) => Promise<ModelLogExportResult>;
   traceClear: () => Promise<{ removed: number }>;
   traceOpenFolder: () => Promise<{ ok: true } | { ok: false; error: string }>;
+  /** Shows the log file saved last in the file manager. Takes no path: main remembers what it wrote. */
+  traceRevealExport: () => Promise<{ ok: boolean }>;
 }
 
 declare global {

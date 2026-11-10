@@ -136,6 +136,8 @@ export function turnsToExport(request: unknown, now = Date.now()): string[] {
 /** diagnostics:collect, diagnostics:open-logs, diagnostics:renderer-error and the model conversation log. */
 export function registerDiagnosticsIpc(ipcMain: IpcMain): void {
   const limiter = createRateLimiter(10, 60_000);
+  // The file the person saved last, so "Show the file" needs no path from the window.
+  let lastExport: string | null = null;
 
   ipcMain.handle(IPC_CHANNELS.TRACE_LIST, (): ModelLogList => {
     const usage = traceUsage();
@@ -159,10 +161,16 @@ export function registerDiagnosticsIpc(ipcMain: IpcMain): void {
     try {
       const written = exportTurnTraces(ids, chosen.filePath, { app: app.getVersion(), diagnostics: collectDiagnostics() });
       log.info(`[ModelLog] Saved ${written.turns} turns, ${written.bytes} bytes`);
+      lastExport = chosen.filePath;
       return { ok: true, path: chosen.filePath, bytes: written.bytes, turns: written.turns };
     } catch {
       return { ok: false, error: 'The log file could not be written.' };
     }
+  });
+  ipcMain.handle(IPC_CHANNELS.TRACE_REVEAL_EXPORT, () => {
+    if (!lastExport) return { ok: false };
+    shell.showItemInFolder(lastExport);
+    return { ok: true };
   });
   ipcMain.handle(IPC_CHANNELS.TRACE_CLEAR, () => ({ removed: clearTurnTraces() }));
   ipcMain.handle(IPC_CHANNELS.TRACE_OPEN_FOLDER, async () => {
