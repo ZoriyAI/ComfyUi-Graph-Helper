@@ -1085,6 +1085,7 @@ export const en = {
   },
   contextMenu: {
     label: 'Canvas actions',
+    askHelper: 'Ask the assistant',
     whatIs: 'What is this?',
     whyHere: 'Why is it here?',
     whatNext: 'What comes next?',
@@ -2451,6 +2452,7 @@ export const ru = {
   },
   contextMenu: {
     label: 'Действия на холсте',
+    askHelper: 'Спросить помощника',
     whatIs: 'Что это?',
     whyHere: 'Зачем это здесь?',
     whatNext: 'Что дальше?',

@@ -11,10 +11,11 @@
   animation: menuIn var(--motion-enter, 160ms) var(--motion-ease-out, ease-out);
 }
 .item {
+  position: relative;
   display: flex;
   align-items: center;
   height: 28px;
-  padding: 0 10px;
+  padding: 0 10px 0 32px;
   border-radius: 6px;
   font-size: 13px;
   outline: none;
@@ -32,3 +33,8 @@
 .label { flex: 1 1 auto; min-width: 0; }
 .shortcut { margin-left: auto; padding-left: 20px; color: var(--text-dim); flex: 0 0 auto; }
 .item[data-disabled] .shortcut { color: var(--text-faint); }
+/* Every row has an icon in a fixed column, so the words line up whether or not a row has one. */
+.icon { position: absolute; left: 10px; display: inline-flex; color: var(--text-dim, #a9b6c8); }
+.item[data-highlighted] .icon { color: var(--accent, #65d9ed); }
+.danger .icon { color: inherit; }
+.groupLabel { padding: 4px 10px 2px 32px; color: var(--text-dim, #a9b6c8); font-size: 11px; font-weight: 600; letter-spacing: 0.02em; }

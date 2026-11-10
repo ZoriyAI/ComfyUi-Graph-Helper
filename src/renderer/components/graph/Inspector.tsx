@@ -14,6 +14,7 @@ import { commitManual } from './commit';
 import { useNodeDetail } from './nodeInfo';
 import { nodeRef } from './lib/selection';
 import { typeColor } from './lib/typeColors';
+import SubgraphSummary from './SubgraphSummary';
 import styles from './Inspector.module.css';
 
 function recordFor(components: ComponentRecord[], kind: ComponentOwnerKind, ownerId: string): ComponentRecord | undefined {
@@ -383,9 +384,10 @@ export default function Inspector() {
               aria-pressed={activeSubgraph?.id === item.id}
               onClick={() => setSubgraphId(item.id)}
             >
+              {/* The name and what it holds, not the definition's id. */}
               {item.depth > 0 ? <span>{t('inspector.nested')}</span> : null}
               <span>{item.name}</span>
-              <span className="inspector-type">{item.id}</span>
+              <SubgraphSummary id={item.id} className="inspector-type" />
             </button>
           ))}
         </div>
