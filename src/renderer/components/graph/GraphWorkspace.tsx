@@ -9,6 +9,7 @@ import CanvasFlow from './CanvasFlow';
 import Onboarding from './Onboarding';
 import SubgraphBreadcrumb from './SubgraphBreadcrumb';
 import { commitManual } from './commit';
+import { placeNewNode } from './placeNode';
 import { dropToAddNode, MODEL_DRAG_TYPE, NODE_DRAG_TYPE } from './lib/modelLoaders';
 import { useMotionLevel } from './lib/motion';
 import { FIT_PADDING } from './CanvasToolbar';
@@ -70,7 +71,7 @@ function Workspace({ onImportWorkflow }: GraphWorkspaceProps) {
     event.preventDefault();
     const add = dropToAddNode((type) => event.dataTransfer.getData(type));
     if (!add) return;
-    const at = flow.screenToFlowPosition({ x: event.clientX, y: event.clientY });
+    const at = placeNewNode(flow.screenToFlowPosition({ x: event.clientX, y: event.clientY }));
     void commitManual({
       type: 'add-node',
       nodeType: add.nodeType,

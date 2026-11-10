@@ -1,6 +1,7 @@
 import type { GraphMutation } from '../../../../shared/commands/types';
 import type { Proposal } from '../../../../shared/contracts/proposals';
 import type { GroupRecord } from '../../../../shared/graph/subgraphs';
+import { findFreeSlot } from '../../../../shared/graph/layout';
 
 /** Size the canvas assumes for a node React Flow has not measured yet (the ComfyNode default width). */
 export const DEFAULT_NODE_SIZE = { width: 240, height: 120 };
@@ -52,6 +53,32 @@ export function groupRect(group: GroupRecord, nodes: PositionedNode[]): Rect | n
   const stored = group.bounding;
   if (stored && stored[2] > 0 && stored[3] > 0) return { x: stored[0], y: stored[1], width: stored[2], height: stored[3] };
   return null;
+}
+
+/**
+ * Room a node takes before React Flow has measured it, when choosing where a new one goes. Taller than the
+ * default so a freshly added node with a few ports and fields does not reach into the node below.
+ */
+export const NEW_NODE_SIZE = { width: DEFAULT_NODE_SIZE.width, height: 200 };
+/** Gap kept between a newly placed node and the nodes around it. */
+export const NEW_NODE_GAP = 24;
+
+/**
+ * Where a new node goes: `preferred` (its top-left) when nothing is there, else the nearest spot where it
+ * covers no node. Every manual add (drop, search, library, accepted ghost) comes through here.
+ */
+export function freeSpotFor(nodes: PositionedNode[], preferred: { x: number; y: number }, size = NEW_NODE_SIZE): { x: number; y: number } {
+  const spot = findFreeSlot(nodes.map(nodeRect), { x: Math.round(preferred.x), y: Math.round(preferred.y) }, size, NEW_NODE_GAP);
+  return { x: Math.round(spot.x), y: Math.round(spot.y) };
+}
+
+/** The top-left that centres a node of `size` in the visible canvas (flow coordinates), or null without a view. */
+export function viewCentreSpot(view: { x: number; y: number; zoom: number; width?: number; height?: number } | null, size = NEW_NODE_SIZE): { x: number; y: number } | null {
+  if (!view || !(view.zoom > 0) || !view.width || !view.height) return null;
+  return {
+    x: Math.round((view.width / 2 - view.x) / view.zoom - size.width / 2),
+    y: Math.round((view.height / 2 - view.y) / view.zoom - size.height / 2),
+  };
 }
 
 /** Gap kept between a ghost and the nodes around it. */

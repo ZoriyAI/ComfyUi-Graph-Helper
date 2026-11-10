@@ -6,7 +6,7 @@ import { getBezierPath, Position, useStore, ViewportPortal } from '@xyflow/react
 import type { Proposal } from '../../../../shared/contracts/proposals';
 import type { GraphMutation } from '../../../../shared/commands/types';
 import { instancePorts } from '../../../../shared/graph/subgraphs';
-import { openProposals, useProposalsStore } from '../../../state/proposalsState';
+import { ghostSpots, openProposals, useProposalsStore } from '../../../state/proposalsState';
 import { useGraphStore } from '../../../state/graphState';
 import type { ComfyNodeData, PortDefinition } from '../../../types/graph';
 import NodeCard from '../nodes/NodeCard';
@@ -197,10 +197,13 @@ export default function GhostLayer() {
   const placed = useRef(new Map<string, { x: number; y: number }>());
   const openIds = new Set(open.map((proposal) => proposal.id));
   for (const id of placed.current.keys()) if (!openIds.has(id)) placed.current.delete(id);
+  for (const id of ghostSpots.keys()) if (!openIds.has(id)) ghostSpots.delete(id);
   const spotOf = (proposal: Proposal, payload: Payload<'add-node'>) => {
     const known = placed.current.get(proposal.id);
     if (known) return known;
     const spot = ghostNodePosition(payload, nodes, order.get(proposal.id) ?? 0);
+    // Accepting lands the node here (proposalsState.resolve sends it).
+    ghostSpots.set(proposal.id, spot);
     // Remember it only once the graph is on screen and measured; before that the spot is provisional.
     if (nodes.length > 0 && nodes.every((node) => node.measured?.height)) placed.current.set(proposal.id, spot);
     return spot;
