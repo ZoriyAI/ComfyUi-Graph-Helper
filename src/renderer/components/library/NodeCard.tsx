@@ -1,0 +1,235 @@
+import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { MessageCircleQuestion, Plus, X } from 'lucide-react';
+import type { TFunction } from 'i18next';
+import { useTranslation } from 'react-i18next';
+import type { Explanation, ExplanationAspect, NodeClassDetail, NodeClassInput, NodeClassSummary, ObjectRef } from '../../../shared/contracts';
+import { objectKey } from '../../../shared/contracts';
+import { CORE_KNOWLEDGE, type CoreLinkType } from '../../../shared/knowledge/coreKnowledge';
+import { useKnowledgeStore } from '../../state/knowledgeState';
+import { ProvenanceBadge } from '../../ui/Badge';
+import Button from '../../ui/Button';
+import IconButton from '../../ui/IconButton';
+import Skeleton from '../../ui/Skeleton';
+import { typeColor } from '../graph/lib/typeColors';
+import { useNodeInfoStore } from '../graph/nodeInfo';
+import { CARD_WIDTH, useFlyoutBox } from './flyout';
+import { plainNumber } from './libraryModel';
+import card from './ModelCard.module.css';
+import styles from './NodeCard.module.css';
+
+/** What a node card says of a class, in the order a person asks it: what it is, why, how it is wired, what to watch. */
+const ASPECTS: readonly ExplanationAspect[] = ['what', 'why', 'connect', 'risk'];
+const NO_EXPLANATIONS: Explanation[] = [];
+
+export interface NodeCardProps {
+  node: NodeClassSummary;
+  onClose: () => void;
+  onAdd: (node: NodeClassSummary) => void;
+  /** Sends a question about the class to the Assistant. */
+  onAsk: (message: string) => void;
+}
+
+/** The newest explanation of each aspect; what the app ships, the helper wrote and the person wrote all count. */
+function newestByAspect(list: Explanation[]): Map<ExplanationAspect, Explanation> {
+  const found = new Map<ExplanationAspect, Explanation>();
+  for (const item of list) {
+    if (item.text.trim() === '') continue;
+    const held = found.get(item.aspect);
+    if (!held || item.createdAt >= held.createdAt) found.set(item.aspect, item);
+  }
+  return found;
+}
+
+function shownValue(value: unknown): string {
+  if (typeof value === 'number') return plainNumber(value);
+  if (typeof value === 'boolean') return String(value);
+  if (typeof value === 'string') return value.length > 40 ? `${value.slice(0, 40)}…` : value;
+  return '';
+}
+
+/** What a setting takes, in a few words: where it starts, its range, how long its list is. */
+function fieldFacts(t: TFunction, input: NodeClassInput): string {
+  const spec = input.spec;
+  if (!spec) return '';
+  const parts: string[] = [];
+  if (spec.modelDirectory) parts.push(String(t('library.nodeCard.fieldModel', { folder: spec.modelDirectory })));
+  else if (spec.kind === 'combo' && spec.options) parts.push(String(t('library.nodeCard.fieldOptions', { count: spec.options.length })));
+  else if (spec.kind === 'string') parts.push(String(t('library.nodeCard.fieldText')));
+  if ((spec.kind === 'int' || spec.kind === 'float') && typeof spec.min === 'number' && typeof spec.max === 'number' && Math.abs(spec.max) < 1e9 && Math.abs(spec.min) < 1e9) {
+    parts.push(String(t('library.nodeCard.fieldRange', { min: plainNumber(spec.min), max: plainNumber(spec.max) })));
+  }
+  const start = spec.modelDirectory ? '' : shownValue(spec.default);
+  if (start !== '') parts.push(String(t('library.nodeCard.fieldDefault', { value: start })));
+  return parts.join(' · ');
+}
+
+function TypeMark({ type, language }: { type: string; language: 'en' | 'ru' }) {
+  // The built-in note on the data type is the mark's tooltip: what flows through a port of this colour.
+  const note = CORE_KNOWLEDGE[language].linkTypes[type as CoreLinkType]?.what;
+  return (
+    <span className={styles.type} title={note}>
+      <span className={styles.typeDot} style={{ background: typeColor(type) }} aria-hidden="true" />
+      {type}
+    </span>
+  );
+}
+
+function PortRow({ input, language }: { input: NodeClassInput; language: 'en' | 'ru' }) {
+  const { t } = useTranslation();
+  const facts = input.widget ? fieldFacts(t, input) : '';
+  const tooltip = (input.tooltip ?? input.spec?.tooltip ?? '').trim();
+  return (
+    <li className={styles.port}>
+      <div className={styles.portHead}>
+        <span className={styles.portName}>{input.name}</span>
+        <TypeMark type={input.type} language={language} />
+        {!input.required ? <span className={styles.optional}>{t('library.nodeCard.optional')}</span> : null}
+      </div>
+      {facts ? <p className={styles.portFacts}>{facts}</p> : null}
+      {tooltip ? <p className={styles.portNote}>{tooltip}</p> : null}
+    </li>
+  );
+}
+
+/**
+ * A node class explained before it is put on the canvas: what it is and why it is used, what goes into it, what
+ * each of its settings takes, and what comes out. Everything here is read from the catalog and from the knowledge
+ * the app holds about the class; nothing is asked of a model.
+ */
+export default function NodeCard({ node, onClose, onAdd, onAsk }: NodeCardProps) {
+  const { t, i18n } = useTranslation();
+  const language = i18n.language === 'en' ? 'en' : 'ru';
+  const box = useFlyoutBox();
+  const [detail, setDetail] = useState<NodeClassDetail | null | undefined>(undefined);
+  const ref = useMemo<ObjectRef>(() => ({ kind: 'nodeClass', id: node.classType, classType: node.classType }), [node.classType]);
+  const explanations = useKnowledgeStore((state) => state.explanations[objectKey(ref)] ?? NO_EXPLANATIONS);
+
+  useEffect(() => {
+    let cancelled = false;
+    setDetail(undefined);
+    void useNodeInfoStore.getState().request(node.classType).then((found) => {
+      if (!cancelled) setDetail(found ?? null);
+    });
+    void useKnowledgeStore.getState().loadExplanations(ref).catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [node.classType, ref]);
+
+  if (!box) return null;
+  const name = node.displayName || node.classType;
+  const known = newestByAspect(explanations);
+  const authorText = (detail?.description ?? '').trim();
+  const inputs = detail?.inputs ?? [];
+  const sockets = inputs.filter((input) => !input.widget);
+  const fields = inputs.filter((input) => input.widget);
+  const outputs = detail?.outputs ?? [];
+  const read = detail?.detailed === true;
+
+  const body = (
+    <section
+      className={`node-card ${card.card}`}
+      style={{ left: box.left, top: box.top, maxHeight: box.maxHeight, width: CARD_WIDTH }}
+      role="dialog"
+      aria-modal="false"
+      aria-labelledby="node-card-title"
+      data-node-class={node.classType}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') {
+          event.stopPropagation();
+          onClose();
+        }
+      }}
+    >
+      <header className={card.header}>
+        <div className={styles.titles}>
+          <h2 id="node-card-title" className={card.title}>{name}</h2>
+          {name !== node.classType ? <span className={card.mono}>{node.classType}</span> : null}
+        </div>
+        <IconButton size="sm" label={String(t('library.card.close'))} onClick={onClose}>
+          <X size={14} aria-hidden="true" />
+        </IconButton>
+      </header>
+
+      <div className={card.body}>
+        <dl className={card.facts}>
+          {node.category ? (
+            <>
+              <dt>{t('library.nodeCard.category')}</dt>
+              <dd>{node.category}</dd>
+            </>
+          ) : null}
+          <dt>{t('library.nodeCard.pack')}</dt>
+          <dd>{node.pack && node.pack !== 'core' ? node.pack : t('library.nodeCard.core')}</dd>
+        </dl>
+
+        {ASPECTS.map((aspect) => {
+          const item = known.get(aspect);
+          return item ? (
+            <section key={aspect} className={card.section}>
+              <div className={styles.aspectHead}>
+                <h3 className={card.heading}>{t(`knowledge.aspect.${aspect}`)}</h3>
+                <ProvenanceBadge provenance={item.provenance} />
+              </div>
+              <p className={card.description}>{item.text.trim()}</p>
+            </section>
+          ) : null;
+        })}
+        {authorText && !known.has('what') ? (
+          <section className={card.section}>
+            <h3 className={card.heading}>{t('library.nodeCard.authorDescription')}</h3>
+            <p className={card.description}>{authorText}</p>
+          </section>
+        ) : null}
+        {detail !== undefined && known.size === 0 && !authorText ? <p className={card.note}>{t('library.nodeCard.noDescription')}</p> : null}
+
+        {detail === undefined ? <Skeleton height={64} /> : null}
+        {detail !== undefined && !read ? <p className={card.note} data-tone="info">{t('library.nodeCard.notRead')}</p> : null}
+
+        {read ? (
+          <>
+            <section className={card.section} aria-labelledby="node-card-inputs">
+              <h3 id="node-card-inputs" className={card.heading}>{t('library.nodeCard.inputs')}</h3>
+              {sockets.length > 0
+                ? <ul className={styles.ports}>{sockets.map((input) => <PortRow key={input.name} input={input} language={language} />)}</ul>
+                : <p className={card.hint}>{t('library.nodeCard.noInputs')}</p>}
+            </section>
+            {fields.length > 0 ? (
+              <section className={card.section} aria-labelledby="node-card-fields">
+                <h3 id="node-card-fields" className={card.heading}>{t('library.nodeCard.fields')}</h3>
+                <ul className={styles.ports}>{fields.map((input) => <PortRow key={input.name} input={input} language={language} />)}</ul>
+              </section>
+            ) : null}
+            <section className={card.section} aria-labelledby="node-card-outputs">
+              <h3 id="node-card-outputs" className={card.heading}>{t('library.nodeCard.outputs')}</h3>
+              {outputs.length > 0 ? (
+                <ul className={styles.ports}>
+                  {outputs.map((output, index) => (
+                    <li key={`${output.name}-${index}`} className={styles.port}>
+                      <div className={styles.portHead}>
+                        {/* An output named after its type (MODEL, LATENT) says it once. */}
+                        {output.name !== output.type ? <span className={styles.portName}>{output.name}</span> : null}
+                        <TypeMark type={output.type} language={language} />
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : <p className={card.hint}>{t('library.nodeCard.noOutputs')}</p>}
+            </section>
+          </>
+        ) : null}
+      </div>
+
+      <footer className={card.actions}>
+        <Button variant="primary" size="sm" icon={<Plus size={14} aria-hidden="true" />} onClick={() => onAdd(node)}>
+          {t('library.card.add')}
+        </Button>
+        <Button variant="ghost" size="sm" icon={<MessageCircleQuestion size={14} aria-hidden="true" />} onClick={() => onAsk(String(t('library.nodeCard.askMessage', { name })))}>
+          {t('library.card.ask')}
+        </Button>
+      </footer>
+    </section>
+  );
+  return createPortal(body, document.body);
+}

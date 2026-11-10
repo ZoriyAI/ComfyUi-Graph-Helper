@@ -490,6 +490,21 @@ test('nothing sticks out, is cut or overlaps on any screen at any window size', 
     if (wants('library')) {
       await visitScrolling(page, 'library nodes', async () => { await railTab(page, 0); await rail.locator('input').first().fill(''); }, () => page.locator('#node-library-list'));
       await visit(page, 'library nodes, search', async () => { await railTab(page, 0); await rail.locator('input').first().fill('lora'); await page.waitForTimeout(250); });
+      // A node's card: what it is for, what goes in, what each setting takes, what comes out.
+      for (const [label, query, classType] of [
+        ['a node of ComfyUI itself, with what the app knows of it', 'KSampler', 'KSampler'],
+        ['a node from a pack, described by its author', 'Color Match', 'ColorMatch'],
+        ['a node nobody described', 'Get Image Size', 'GetImageSizeAndCount'],
+      ] as const) {
+        await visitScrolling(page, `node card, ${label}`, async () => {
+          await railTab(page, 0);
+          await rail.locator('input').first().fill(query);
+          await page.waitForTimeout(300);
+          if (await page.locator('.node-card').count() === 0) await page.locator(`#node-library-list [data-node-class="${classType}"]`).click();
+          await page.locator('.node-card').waitFor();
+          await page.waitForTimeout(450);
+        }, () => page.locator('.node-card'), async () => { await escape(page); });
+      }
       await railTab(page, 0);
       await rail.locator('input').first().fill('');
       await visitScrolling(page, 'library models', async () => { await railTab(page, 1); await rail.locator('input').first().fill(''); }, () => page.locator('#model-library-list'));

@@ -289,6 +289,8 @@ interface ClassDef {
   output: string[];
   outputName?: string[];
   outputNode?: boolean;
+  /** What its author says the node does, as object_info carries it. */
+  description?: string;
 }
 
 /** How many listed entries are real model files (no dotfiles or cache entries). */
@@ -312,7 +314,7 @@ export const CLASSES: ClassDef[] = [
   { classType: 'ConditioningCombine', pack: 0, display: 'Conditioning (Combine)', category: 'conditioning', required: { conditioning_1: ['CONDITIONING'], conditioning_2: ['CONDITIONING'] }, output: ['CONDITIONING'] },
   { classType: 'CLIPSetLastLayer', pack: 0, display: 'CLIP Set Last Layer', category: 'conditioning', required: { clip: ['CLIP'], stop_at_clip_layer: ['INT', { default: -1, min: -24, max: -1 }] }, output: ['CLIP'] },
   { classType: 'ControlNetApplyAdvanced', pack: 0, display: 'Apply ControlNet', category: 'conditioning/controlnet', required: { positive: ['CONDITIONING'], negative: ['CONDITIONING'], control_net: ['CONTROL_NET'], image: ['IMAGE'], strength: ['FLOAT', { default: 1 }], start_percent: ['FLOAT', { default: 0 }], end_percent: ['FLOAT', { default: 1 }] }, optional: { vae: ['VAE'] }, output: ['CONDITIONING', 'CONDITIONING'], outputName: ['positive', 'negative'] },
-  { classType: 'KSampler', pack: 0, display: 'KSampler', category: 'sampling', required: { model: ['MODEL'], seed: ['INT', { default: 0, min: 0, max: 0xffffffffffff, control_after_generate: true }], steps: ['INT', { default: 20, min: 1, max: 10000 }], cfg: ['FLOAT', { default: 8, min: 0, max: 100, step: 0.1 }], sampler_name: [SAMPLERS], scheduler: [SCHEDULERS], positive: ['CONDITIONING'], negative: ['CONDITIONING'], latent_image: ['LATENT'], denoise: ['FLOAT', { default: 1, min: 0, max: 1, step: 0.01 }] }, output: ['LATENT'] },
+  { classType: 'KSampler', pack: 0, display: 'KSampler', category: 'sampling', required: { model: ['MODEL'], seed: ['INT', { default: 0, min: 0, max: 0xffffffffffff, control_after_generate: true }], steps: ['INT', { default: 20, min: 1, max: 10000, tooltip: 'The number of steps used in the denoising process.' }], cfg: ['FLOAT', { default: 8, min: 0, max: 100, step: 0.1, tooltip: 'The Classifier-Free Guidance scale balances creativity and adherence to the prompt. Higher values result in images more closely matching the prompt however too high values will negatively impact quality.' }], sampler_name: [SAMPLERS], scheduler: [SCHEDULERS], positive: ['CONDITIONING'], negative: ['CONDITIONING'], latent_image: ['LATENT'], denoise: ['FLOAT', { default: 1, min: 0, max: 1, step: 0.01 }] }, output: ['LATENT'] },
   { classType: 'KSamplerAdvanced', pack: 0, display: 'KSampler (Advanced)', category: 'sampling', required: { model: ['MODEL'], add_noise: [['enable', 'disable']], noise_seed: ['INT', { default: 0 }], steps: ['INT', { default: 20 }], cfg: ['FLOAT', { default: 8 }], sampler_name: [SAMPLERS], scheduler: [SCHEDULERS], positive: ['CONDITIONING'], negative: ['CONDITIONING'], latent_image: ['LATENT'], start_at_step: ['INT', { default: 0 }], end_at_step: ['INT', { default: 10000 }], return_with_leftover_noise: [['disable', 'enable']] }, output: ['LATENT'] },
   { classType: 'ModelSamplingSD3', pack: 0, display: 'ModelSamplingSD3', category: 'advanced/model', required: { model: ['MODEL'], shift: ['FLOAT', { default: 3 }] }, output: ['MODEL'] },
   { classType: 'EmptyLatentImage', pack: 0, display: 'Empty Latent Image', category: 'latent', required: { width: ['INT', { default: 512, min: 16, step: 8 }], height: ['INT', { default: 512, min: 16, step: 8 }], batch_size: ['INT', { default: 1, min: 1, max: 4096 }] }, output: ['LATENT'] },
@@ -328,7 +330,7 @@ export const CLASSES: ClassDef[] = [
   // ComfyUI-KJNodes (3)
   { classType: 'ImageResizeKJ', pack: 1, display: 'Resize Image', category: 'KJNodes/image', required: { image: ['IMAGE'], width: ['INT', { default: 512 }], height: ['INT', { default: 512 }], upscale_method: [['nearest-exact', 'lanczos']], keep_proportion: ['BOOLEAN', { default: false }], divisible_by: ['INT', { default: 2 }] }, output: ['IMAGE', 'INT', 'INT'], outputName: ['IMAGE', 'width', 'height'] },
   { classType: 'GetImageSizeAndCount', pack: 1, display: 'Get Image Size & Count', category: 'KJNodes/image', required: { image: ['IMAGE'] }, output: ['IMAGE', 'INT', 'INT', 'INT'], outputName: ['image', 'width', 'height', 'count'] },
-  { classType: 'ColorMatch', pack: 1, display: 'Color Match', category: 'KJNodes/image', required: { image_ref: ['IMAGE'], image_target: ['IMAGE'], method: [['mkl', 'hm', 'reinhard']] }, output: ['IMAGE'] },
+  { classType: 'ColorMatch', pack: 1, display: 'Color Match', category: 'KJNodes/image', description: 'Transfers the colours of the reference image onto the target image.', required: { image_ref: ['IMAGE'], image_target: ['IMAGE'], method: [['mkl', 'hm', 'reinhard']] }, output: ['IMAGE'] },
   // ComfyUI-WanVideoWrapper (6)
   { classType: 'WanVideoModelLoader', pack: 2, display: 'WanVideo Model Loader', category: 'WanVideoWrapper', required: { model: [names('diffusion_models')], base_precision: [['bf16', 'fp16']], quantization: [['disabled', 'fp8_e4m3fn']] }, optional: { lora: ['WANVIDLORA'] }, output: ['WANVIDEOMODEL'], outputName: ['model'] },
   { classType: 'WanVideoLoraSelect', pack: 2, display: 'WanVideo Lora Select', category: 'WanVideoWrapper', required: { lora: [names('loras')], strength: ['FLOAT', { default: 1 }] }, output: ['WANVIDLORA'], outputName: ['lora'] },
@@ -373,7 +375,7 @@ export function objectInfoDocument(classes: readonly ClassDef[] = CLASSES): Reco
       output_name: def.outputName ?? def.output,
       name: def.classType,
       display_name: def.display,
-      description: '',
+      description: def.description ?? '',
       python_module: PACKS[def.pack].module,
       category: def.category,
       output_node: def.outputNode ?? false,

@@ -111,6 +111,8 @@
 /* The row whose card is open keeps an accent edge, so the card reads as belonging to it. */
 .row[data-open="true"] { border-color: rgba(101, 217, 237, 0.55); background: linear-gradient(90deg, var(--accent-soft), transparent 70%), var(--surface-raised); }
 .modelRow { cursor: pointer; }
+/* A node row opens its card on a click and is still dragged onto the canvas. */
+.nodeRow { cursor: pointer; }
 .text { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
 .name { color: var(--text); font-size: var(--text-sm); line-height: 18px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sub { color: var(--text-faint); font-family: var(--font-mono); font-size: 11px; line-height: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

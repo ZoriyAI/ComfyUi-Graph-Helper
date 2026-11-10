@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, Copy, MessageCircleQuestion, Plus, Replace, Route, X } from 'lucide-react';
 import type { TFunction } from 'i18next';
@@ -15,6 +15,7 @@ import { loaderForModel } from '../graph/lib/modelLoaders';
 import { useMotionLevel } from '../graph/lib/motion';
 import { authorTitle, fittingBases, fittingLoras, formatBytes, isBaseModel, modelKey, plainDescription, plainNumber, safeModelSource, sortModels } from './libraryModel';
 import { useModelPreview } from './modelPreview';
+import { CARD_WIDTH, useFlyoutBox } from './flyout';
 import { addModelLoader, putModelIntoNode, selectedLoaderFor, type SelectedLoader } from './placeModel';
 import styles from './ModelCard.module.css';
 
@@ -22,7 +23,6 @@ import styles from './ModelCard.module.css';
 const SHOWN_FITS = 5;
 /** How many of the author's example descriptions the card shows. */
 const SHOWN_EXAMPLES = 3;
-const CARD_WIDTH = 360;
 
 export interface ModelCardProps {
   model: ModelSummary;
@@ -33,36 +33,6 @@ export interface ModelCardProps {
   onShowLoras: (base: ModelSummary) => void;
   /** Sends a question about the model to the Assistant. */
   onAsk: (message: string) => void;
-}
-
-/**
- * Where the card goes: a flyout just right of the library rail, over the edge of the canvas, so it never covers
- * the row it belongs to. Follows the rail when the window or the rail changes size.
- */
-function useFlyoutBox(): { left: number; top: number; maxHeight: number } | null {
-  const [box, setBox] = useState<{ left: number; top: number; maxHeight: number } | null>(null);
-  useLayoutEffect(() => {
-    const rail = document.getElementById('library-rail');
-    if (!rail) return undefined;
-    const measure = () => {
-      const rect = rail.getBoundingClientRect();
-      const top = rect.top + 8;
-      setBox({
-        left: Math.min(rect.right + 8, Math.max(8, window.innerWidth - CARD_WIDTH - 8)),
-        top,
-        maxHeight: Math.max(240, rect.bottom - top - 8),
-      });
-    };
-    measure();
-    window.addEventListener('resize', measure);
-    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
-    observer?.observe(rail);
-    return () => {
-      window.removeEventListener('resize', measure);
-      observer?.disconnect();
-    };
-  }, []);
-  return box;
 }
 
 /** The one node selected on the root canvas, or null. */
