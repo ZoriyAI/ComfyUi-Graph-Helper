@@ -233,8 +233,8 @@ export default function ModelLibrary() {
         <>
           <div className={styles.meta}>
             <span role="status">{t('library.results', { count: rows.length })}</span>
-            {!open ? <span className={styles.metaHint}>{t('library.cardHint')}</span> : null}
           </div>
+          {!open ? <p className={styles.metaHint}>{t('library.cardHint')}</p> : null}
           <VirtualList<ModelSummary>
             id="model-library-list"
             className={styles.list}
@@ -274,13 +274,15 @@ export default function ModelLibrary() {
                         <span className={styles.name}>{model.name}</span>
                         <span className={styles.badges}>
                           <KindBadge kind={model.kind} />
-                          {model.baseModel === 'unknown'
-                            ? <span className={styles.familyUnknown}>{t('library.familyUnknownShort')}</span>
-                            : <FamilyBadge family={model.baseModel} />}
+                          {model.baseModel !== 'unknown' ? <FamilyBadge family={model.baseModel} /> : null}
                           <span className={styles.meta2}>
                             {formatBytes(model.sizeBytes, language)}
                             {triggers ? ` · ${String(t('library.triggerWords', { count: triggers }))}` : ''}
                           </span>
+                          {/* Quiet and last: an unknown family is a gap in the data, not a fact to badge. */}
+                          {model.baseModel === 'unknown'
+                            ? <span className={styles.familyUnknown}>{t('library.familyUnknownShort')}</span>
+                            : null}
                         </span>
                       </span>
                       <IconButton

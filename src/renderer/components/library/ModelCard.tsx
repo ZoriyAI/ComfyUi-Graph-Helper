@@ -230,7 +230,7 @@ export default function ModelCard({ model, all, onClose, onShowLoras, onAsk }: M
           <dt>{t('library.card.family')}</dt>
           <dd className={styles.familyLine}>
             {summary.baseModel === 'unknown'
-              ? <span className={styles.unknown}>{t('library.familyUnknownShort')}</span>
+              ? <span className={styles.unknown}>{t('library.card.evidence.none')}</span>
               : <FamilyBadge family={summary.baseModel} />}
             {summary.baseModel !== 'unknown'
               ? <span className={styles.evidence}>{t(`library.card.evidence.${evidence}`)}</span>

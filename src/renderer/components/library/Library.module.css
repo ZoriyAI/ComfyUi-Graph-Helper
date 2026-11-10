@@ -7,7 +7,8 @@
 .filters :global(.select-trigger) { box-sizing: border-box; min-width: 0; width: 100%; height: 30px; min-height: 30px; padding: 3px 8px; font-size: var(--text-xs); }
 .filters :global(.select-trigger) > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 12px; color: var(--text-faint); font-size: var(--text-xs); line-height: 18px; }
-.metaHint { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
+.meta > [role="status"] { white-space: nowrap; }
+.metaHint { margin: -6px 0 0; padding: 0 12px; color: var(--text-dim); font-size: var(--text-xs); line-height: 17px; }
 
 /* Kind chips: a segmented row that wraps, each with its count; the selected one carries the accent. */
 .kindChips { display: flex; flex-wrap: wrap; gap: 4px; }
@@ -43,7 +44,7 @@
   font-size: var(--text-xs);
 }
 .fitsText { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.familyUnknown { color: var(--text-faint); font-size: 11px; line-height: 16px; white-space: nowrap; font-style: italic; }
+.familyUnknown { color: var(--text-faint); font-size: 11px; line-height: 16px; white-space: nowrap; font-style: italic; overflow: hidden; text-overflow: ellipsis; }
 .list { padding: 0 6px 8px; }
 
 .header {
@@ -157,3 +158,5 @@
   color: var(--type-model);
 }
 .error { margin: 0 12px; color: var(--danger); font-size: var(--text-xs); }
+/* The quiet "family not known" gives way before the size does (after the badge rules, which it overrides). */
+.badges > .familyUnknown { flex-shrink: 1000; min-width: 0; }
