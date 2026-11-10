@@ -6,7 +6,7 @@ import { catalogLeaves, en, ru, type Catalog } from '../../src/shared/i18n';
 import { denseWorkflow } from './fixtures/denseWorkflow';
 
 const ALLOWED_COPY = new Set([
-  'ComfyUI Graph Builder',
+  'Graph Helper for ComfyUI',
   'English',
   'OpenAI',
   // Provider brand names: the Preferences window shows them on the provider cards in both languages.

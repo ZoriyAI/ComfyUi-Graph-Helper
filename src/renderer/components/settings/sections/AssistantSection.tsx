@@ -124,7 +124,7 @@ export default function AssistantSection({ values, setValues, prefs, setPrefs, c
   const providerHint = provider === 'local'
     ? String(t('settings.providerLocalHint'))
     : provider === 'openai' || provider === 'anthropic' || provider === 'google'
-      ? String(t('settings.cloudBaseUrlHint'))
+      ? String(t('settings.cloudHint', { provider: provider === 'openai' ? 'OpenAI' : provider === 'anthropic' ? 'Anthropic' : 'Google' }))
       : '';
   const assistant = prefs.assistant;
   const chosenWindow = contextWindowFor(values.model, assistant.contextTokens);
@@ -215,6 +215,7 @@ export default function AssistantSection({ values, setValues, prefs, setPrefs, c
         />
       ) : null}
       {provider === 'local' ? <p className={hintClass}>{t('settings.baseUrlHint')}</p> : null}
+      {provider !== '' && provider !== 'test' ? (
       <SuggestField
         className={fieldClass}
         label={String(t('settings.model'))}
@@ -235,6 +236,7 @@ export default function AssistantSection({ values, setValues, prefs, setPrefs, c
         status={modelStatus}
         container={container}
       />
+      ) : null}
       {chosenModel?.tools === false ? <p className={styles.errorNote} role="alert">{t('picker.modelsNoTools')}</p> : null}
       {remembered && !(modelList.kind === 'ok' && models.length > 0) ? (
         <div className={styles.suggestions}>
@@ -255,9 +257,9 @@ export default function AssistantSection({ values, setValues, prefs, setPrefs, c
           </div>
         </div>
       ) : null}
-      {provider !== 'local' ? (
+      {CLOUD_PROVIDERS.has(provider) ? (
         <label className={fieldClass}>
-          {t('settings.baseUrl')}
+          {t('settings.baseUrlOptional')}
           <input
             aria-label={String(t('settings.baseUrl'))}
             value={values.baseURL}
@@ -267,7 +269,7 @@ export default function AssistantSection({ values, setValues, prefs, setPrefs, c
           />
         </label>
       ) : null}
-      {provider !== 'local' ? <p className={hintClass}>{t('settings.baseUrlHint')}</p> : null}
+      {CLOUD_PROVIDERS.has(provider) ? <p className={hintClass}>{t('settings.cloudBaseUrlHint')}</p> : null}
       <div className={cx(rowClass, styles.rowStart)}>
         <Button
           size="sm"

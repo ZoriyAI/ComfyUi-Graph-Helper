@@ -26,7 +26,7 @@ function leaf(catalog: unknown, key: string): string {
 }
 
 const ASCII_RU = new Set([
-  'ComfyUI Graph Builder',
+  'Graph Helper for ComfyUI',
   'English',
   'OpenAI',
   'TEST',
@@ -98,7 +98,7 @@ describe('locale catalog', () => {
       summary: 'Settings cannot store a secret',
       diagnostic: null,
     });
-    expect(explainError(russian, 'Settings do not match the schema').summary).toBe('Настройки не соответствуют схеме');
+    expect(explainError(russian, 'Settings do not match the schema').summary).toBe('Проверьте выделенные поля — без них настройки не сохранятся.');
     expect(explainError(russian, 'Catalog snapshot is not object_info.').diagnostic).toBeNull();
     const unknown = explainError(russian, "Error: Incorrect API key provided: 'sk-abcDEF123'.");
     expect(unknown.summary).toBe('Приложение не смогло выполнить этот шаг.');

@@ -154,13 +154,16 @@ const ICON_PATH = path.join(__dirname, '../../resources/icon.png');
 /** The version a person should see: the app's own, also unpackaged, where Electron reports its own version instead. */
 function displayVersion(): string {
   if (app.isPackaged) return app.getVersion();
-  try {
-    const raw = fs.readFileSync(path.join(app.getAppPath(), 'package.json'), 'utf8');
-    const version = (JSON.parse(raw) as { version?: unknown }).version;
-    return typeof version === 'string' ? version : app.getVersion();
-  } catch {
-    return app.getVersion();
+  // dist/main/index.js sits two levels under the project root, packaged or not.
+  for (const file of [path.join(__dirname, '..', '..', 'package.json'), path.join(app.getAppPath(), 'package.json')]) {
+    try {
+      const parsed = JSON.parse(fs.readFileSync(file, 'utf8')) as { version?: unknown; name?: unknown };
+      if (typeof parsed.version === 'string' && parsed.name !== 'electron') return parsed.version;
+    } catch {
+      // Not there; the next place is tried.
+    }
   }
+  return app.getVersion();
 }
 
 function createWindow() {
