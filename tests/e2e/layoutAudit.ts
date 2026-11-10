@@ -25,7 +25,9 @@ export type LayoutIssueKind =
   /** A label has so little room that nothing of it can be read. */
   | 'squeezed'
   /** Words that are not words: a placeholder left in a text, "undefined", a translation key instead of its text. */
-  | 'raw-text';
+  | 'raw-text'
+  /** Something that belongs to an object (a note under a node) is not where the object is, or not its size. */
+  | 'detached';
 
 export interface LayoutIssue {
   kind: LayoutIssueKind;
@@ -176,6 +178,15 @@ function auditInPage(options: PageOptions): LayoutIssue[] {
     return solid || style.backgroundImage !== 'none';
   };
 
+  /** A box with an edge a person sees (a fill, a border, a shadow): something can be seen sticking out of it. */
+  const framed = (el: Element) => {
+    if (painted(el)) return true;
+    const style = styleOf(el);
+    const sides = ['Top', 'Right', 'Bottom', 'Left'] as const;
+    const border = sides.some((side) => parseFloat(style[`border${side}Width`]) > 0 && style[`border${side}Style`] !== 'none' && !/rgba\([^)]*,\s*0\)|transparent/.test(style[`border${side}Color`]));
+    return border || style.boxShadow !== 'none';
+  };
+
   const containsPaint = (style: CSSStyleDeclaration) => /paint|layout|strict|content/.test(style.contain) || (style.containerType !== '' && style.containerType !== 'normal');
   const holdsFixed = (style: CSSStyleDeclaration) => style.transform !== 'none' || style.filter !== 'none' || style.perspective !== 'none' || containsPaint(style) || /transform|filter|perspective/.test(style.willChange) || (style.backdropFilter !== undefined && style.backdropFilter !== 'none' && style.backdropFilter !== '');
   const holdsAbsolute = (style: CSSStyleDeclaration) => style.position !== 'static' || holdsFixed(style);
@@ -294,6 +305,9 @@ function auditInPage(options: PageOptions): LayoutIssue[] {
         consider(part, rect);
       }
       const found = worst as { el: Element; by: number } | null;
+      // A box nobody sees (no fill, no border, it clips nothing) has no edge to stick out of: a wrapper that only
+      // places its content. Its part is left for a box around it that does have an edge.
+      if (found && style.overflowX === 'visible' && !framed(el) && found.el !== el) continue;
       if (found) {
         const what = found.el === el ? 'its own text' : `"${textOf(found.el)}" (${cls(found.el)})`;
         if (style.overflowX === 'visible') report('spills', el, `sideways: ${what} sticks out by ${Math.round(found.by)}px; ${numbers}`);
@@ -387,6 +401,16 @@ function auditInPage(options: PageOptions): LayoutIssue[] {
       if (!hit || !(a.el.contains(hit) || b.el.contains(hit) || hit.contains(a.el) || hit.contains(b.el))) continue;
       report('overlap', a.el, `with ${where(b.el)} "${textOf(b.el)}" by ${Math.round(x)}×${Math.round(y)}px`);
     }
+  }
+
+  // 4b. What belongs to the page (a toolbar over the canvas, its buttons) lies over what lies on the canvas, never
+  // under it: a note that travels with a node must pass behind the toolbar, not over its buttons.
+  for (const { el, box, unit } of boxes) {
+    if (unit) continue;
+    const hit = document.elementFromPoint((box.left + box.right) / 2, (box.top + box.bottom) / 2);
+    if (!hit || el.contains(hit) || hit.contains(el)) continue;
+    const over = unitOf(hit);
+    if (over) report('overlap', el, `is covered by what lies on the canvas: ${where(over)} "${textOf(over)}"`);
   }
 
   // 5. A text lying on a control or on another text: words nobody can read. Texts are taken line by line, the

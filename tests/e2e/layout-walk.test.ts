@@ -1,4 +1,4 @@
-import { test, expect, _electron as electron, type ElectronApplication, type Locator, type Page } from '@playwright/test';
+import { test, expect, _electron as electron, type CDPSession, type ElectronApplication, type Locator, type Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -6,7 +6,7 @@ import { createTranslator } from '../../src/shared/i18n';
 import { startFakeMcp, type FakeMcp } from '../fixtures/mcp/fakeMcpServer';
 import { nestedSubgraphWorkflow } from './fixtures/nestedSubgraphWorkflow';
 import { auditLayout, describeIssues, type LayoutIssue } from './layoutAudit';
-import { APP_AUDIT } from './layoutProfile';
+import { APP_AUDIT, attachmentIssues } from './layoutProfile';
 
 /**
  * Walks the whole app the way a person meets it and, at every stop and every window size, asks the page what
@@ -24,6 +24,13 @@ import { APP_AUDIT } from './layoutProfile';
  * LAYOUT_ONLY=canvas,helper walks only those parts (their set-up still runs).
  * LAYOUT_OUT=<dir> keeps a report and a screenshot of every stop that has something to say; LAYOUT_SHOTS=all keeps
  * a screenshot of every stop. LAYOUT_REPORT=1 only reports and does not fail.
+ *
+ * Three more switches for what differs between this machine and a person's desktop:
+ * LAYOUT_FONTS=hinted draws text the way a desktop does (fixtures/fonts-hinted.conf): every label a little wider.
+ * LAYOUT_TEXT=wide spaces all letters out by two hundredths of their size (about four percent more width): what
+ * fits only to the pixel does not fit then, whatever the reason on a real machine (hinting, another font version).
+ * LAYOUT_DPR=1.5 draws at a screen scale of 150 % (the sizes above stay in the app's own pixels).
+ * LAYOUT_BREAK=cards breaks description cards on purpose; the walk must fail then.
  */
 
 const LANG = process.env.LAYOUT_LANG === 'en' ? 'en' : 'ru';
@@ -31,6 +38,9 @@ const OUT = process.env.LAYOUT_OUT ?? '';
 const ALL_SHOTS = process.env.LAYOUT_SHOTS === 'all';
 const REPORT_ONLY = process.env.LAYOUT_REPORT === '1';
 const ONLY = (process.env.LAYOUT_ONLY ?? '').split(',').map((part) => part.trim()).filter(Boolean);
+const HINTED_FONTS = process.env.LAYOUT_FONTS === 'hinted';
+const WIDE_TEXT = process.env.LAYOUT_TEXT === 'wide';
+const DPR = Number(process.env.LAYOUT_DPR ?? '') || 0;
 const T = createTranslator(LANG);
 
 interface Size { width: number; height: number }
@@ -86,6 +96,16 @@ let shotIndex = 0;
 
 const wants = (part: string) => ONLY.length === 0 || ONLY.includes(part);
 
+/** How wide the menus are drawn: the proof, in the report, that the fonts and the letter spacing asked for are on. */
+const menuWidths: number[] = [];
+async function noteMenuWidth(page: Page): Promise<void> {
+  const width = await page.evaluate(() => {
+    const menus = Array.from(document.querySelectorAll('.document-bar [role="menuitem"]'));
+    return Math.round(menus.reduce((sum, menu) => sum + menu.getBoundingClientRect().width, 0) * 100) / 100;
+  }).catch(() => 0);
+  menuWidths.push(width);
+}
+
 function slug(text: string): string {
   return text.toLowerCase().replace(/[^a-z0-9а-я]+/gi, '-').replace(/^-|-$/g, '').slice(0, 60);
 }
@@ -97,7 +117,7 @@ async function shot(page: Page, stop: string, size: Size): Promise<void> {
 }
 
 async function auditNow(page: Page, stop: string, size: Size, extra: LayoutIssue[] = []): Promise<void> {
-  const issues = [...await auditLayout(page, AUDIT), ...extra];
+  const issues = [...await auditLayout(page, AUDIT), ...await attachmentIssues(page), ...extra];
   visited.push(`${stop} @ ${size.width}x${size.height}`);
   if (issues.length > 0) findings.push({ stop, size: `${size.width}x${size.height}`, issues });
   if (issues.length > 0 || ALL_SHOTS) await shot(page, stop, size);
@@ -110,7 +130,7 @@ async function auditNow(page: Page, stop: string, size: Size, extra: LayoutIssue
 async function visit(page: Page, stop: string, reach: (size: Size) => Promise<void> = async () => undefined, leave: () => Promise<void> = async () => undefined): Promise<void> {
   for (const size of SIZES) {
     try {
-      await page.setViewportSize(size);
+      await resize(page, size);
       await page.waitForTimeout(180);
       await reach(size);
       await page.waitForTimeout(240);
@@ -122,7 +142,7 @@ async function visit(page: Page, stop: string, reach: (size: Size) => Promise<vo
       await leave().catch(() => undefined);
     }
   }
-  await page.setViewportSize(HOME);
+  await resize(page, HOME);
   await page.waitForTimeout(120);
 }
 
@@ -130,7 +150,7 @@ async function visit(page: Page, stop: string, reach: (size: Size) => Promise<vo
 async function visitScrolling(page: Page, stop: string, reach: (size: Size) => Promise<void>, scroller: () => Locator, leave: () => Promise<void> = async () => undefined): Promise<void> {
   for (const size of SIZES) {
     try {
-      await page.setViewportSize(size);
+      await resize(page, size);
       await page.waitForTimeout(180);
       await reach(size);
       await page.waitForTimeout(240);
@@ -151,23 +171,60 @@ async function visitScrolling(page: Page, stop: string, reach: (size: Size) => P
       await leave().catch(() => undefined);
     }
   }
-  await page.setViewportSize(HOME);
+  await resize(page, HOME);
   await page.waitForTimeout(120);
 }
 
 async function launch(userData: string): Promise<{ app: ElectronApplication; page: Page }> {
-  const env = { ...process.env, NODE_ENV: 'production' };
+  const env: Record<string, string | undefined> = { ...process.env, NODE_ENV: 'production' };
   delete env.DBUS_SESSION_BUS_ADDRESS;
   delete env.GNOME_KEYRING_CONTROL;
-  const app = await electron.launch({ args: [path.join(__dirname, '../../dist/main/index.js'), `--user-data-dir=${userData}`], env });
+  if (HINTED_FONTS) env.FONTCONFIG_FILE = path.join(__dirname, 'fixtures/fonts-hinted.conf');
+  const app = await electron.launch({ args: [path.join(__dirname, '../../dist/main/index.js'), `--user-data-dir=${userData}`], env: env as Record<string, string> });
   const page = await app.firstWindow();
   page.on('console', (message) => {
     if (message.type() === 'error') consoleErrors.push(message.text());
   });
   page.on('pageerror', (error) => consoleErrors.push(`pageerror ${error.message}`));
   await page.locator('.app-shell').waitFor({ timeout: 20_000 });
-  await page.setViewportSize(HOME);
+  await resize(page, HOME);
+  await dressPage(page);
   return { app, page };
+}
+
+/**
+ * The window takes a size in the app's own pixels. With LAYOUT_DPR the screen scale is set too, the way a desktop
+ * at 125 % or 150 % has it. The scale lives as long as the session that set it, so one session serves the whole
+ * walk (a session opened and closed for each resize dropped the scale at once, and the walk went on in a plain
+ * window without saying so). Whatever the way, the window is then asked what it is: a walk in a window of
+ * another size or scale than the one named in the report is worth nothing.
+ */
+let metrics: CDPSession | null = null;
+async function resize(page: Page, size: Size): Promise<void> {
+  if (DPR > 0) {
+    metrics ??= await page.context().newCDPSession(page);
+    await metrics.send('Emulation.setDeviceMetricsOverride', { width: size.width, height: size.height, deviceScaleFactor: DPR, mobile: false });
+  } else {
+    await page.setViewportSize(size);
+  }
+  const wanted = `${size.width}x${size.height} at ${DPR > 0 ? DPR : 1}`;
+  let actual = '';
+  for (let turn = 0; turn < 20; turn += 1) {
+    actual = await page.evaluate(() => `${window.innerWidth}x${window.innerHeight} at ${window.devicePixelRatio}`);
+    if (actual === wanted) return;
+    await page.waitForTimeout(50);
+  }
+  throw new Error(`the window is ${actual} where ${wanted} was asked for`);
+}
+
+/**
+ * LAYOUT_TEXT=wide: every letter a little further from the next, on every page the walk loads.
+ * LAYOUT_BREAK=cards breaks the app on purpose (description cards stop following the canvas zoom): the walk must
+ * then fail. It is how to see that a clean walk is not a blind one.
+ */
+async function dressPage(page: Page): Promise<void> {
+  if (WIDE_TEXT) await page.addStyleTag({ content: '*, *::before, *::after { letter-spacing: 0.02em !important; }' });
+  if (process.env.LAYOUT_BREAK === 'cards') await page.addStyleTag({ content: '.description-scale { transform: none !important; }' });
 }
 
 function bridge(page: Page) {
@@ -180,6 +237,7 @@ function bridge(page: Page) {
 async function reloaded(page: Page): Promise<void> {
   await page.reload();
   await page.locator('.app-shell').waitFor({ timeout: 20_000 });
+  await dressPage(page);
   await page.waitForTimeout(500);
 }
 
@@ -260,6 +318,16 @@ async function addFromLibrary(page: Page, classType: string): Promise<void> {
   await page.waitForTimeout(320);
 }
 
+async function nodePositions(page: Page): Promise<string> {
+  const projection = await bridge(page)('readProjection', ['desktop']) as { snapshot: { nodes: Array<{ id: string; position: { x: number; y: number } }> } };
+  return projection.snapshot.nodes.map((node) => `${node.id}:${Math.round(node.position.x)},${Math.round(node.position.y)}`).join(' ');
+}
+
+async function descriptionsMode(page: Page): Promise<'all' | 'own' | 'off'> {
+  const mode = await page.getByRole('button', { name: T('canvas.descriptions'), exact: true }).getAttribute('data-descriptions-mode');
+  return mode === 'all' || mode === 'off' ? mode : 'own';
+}
+
 /** Two boxes of the canvas's own making must not lie on each other: the app put both where they are. */
 function overlapOf(a: { x: number; y: number; width: number; height: number } | null, b: { x: number; y: number; width: number; height: number } | null): number {
   if (!a || !b) return 0;
@@ -278,6 +346,7 @@ test('nothing sticks out, is cut or overlaps on any screen at any window size', 
   const started = Date.now();
   try {
     await saveSettings(page, { language: LANG });
+    await noteMenuWidth(page);
     const rail = page.locator('#library-rail');
     const composer = page.locator('.composer-field textarea');
     const menus = page.locator('.document-bar [role="menuitem"]');
@@ -356,6 +425,17 @@ test('nothing sticks out, is cut or overlaps on any screen at any window size', 
           await visitScrolling(page, `settings helper, choice ${index + 1}, key pasted`, async () => { await openSettings(page, 0); }, () => settingsPanel(page));
         }
       }
+      // The settings window is resized by its corner: at its smallest and at its largest every section still fits it.
+      const resizeSettings = async (width: string, height: string) => {
+        await settingsDialog(page).evaluate((el, size) => { (el as HTMLElement).style.width = size.width; (el as HTMLElement).style.height = size.height; }, { width, height });
+        await page.waitForTimeout(200);
+      };
+      for (const [label, width, height] of [['smallest', '1px', '1px'], ['largest', '4000px', '4000px']] as const) {
+        for (let section = 0; section < 8; section += 1) {
+          await visitScrolling(page, `settings section ${section + 1}, window at its ${label}`, async () => { await openSettings(page, section); await resizeSettings(width, height); }, () => settingsPanel(page));
+        }
+      }
+      await resizeSettings('', '');
       await closeSettings(page);
       // Connection: a real address typed in, every way in.
       const connection = await openSettings(page, 1);
@@ -440,10 +520,26 @@ test('nothing sticks out, is cut or overlaps on any screen at any window size', 
     for (const name of ['CheckpointLoaderSimple', 'LoraLoader', 'CLIPTextEncode', 'KSampler']) await addFromLibrary(page, name);
     await rail.locator('input').first().fill('');
     await expect(nodes, 'four nodes from the library').toHaveCount(4);
+    const fit = async () => { await page.locator('.react-flow__controls-fitview').click(); await page.waitForTimeout(450); };
+    const descriptions = async (mode: 'all' | 'own' | 'off') => {
+      const toggle = page.getByRole('button', { name: T('canvas.descriptions'), exact: true });
+      for (let turn = 0; turn < 3 && (await toggle.getAttribute('data-descriptions-mode')) !== mode; turn += 1) await toggle.click();
+    };
+    if (wants('canvas')) {
+      // Where the app itself put four nodes added one after another: each clear of the others, cards and all.
+      const before = await descriptionsMode(page);
+      await visit(page, 'canvas with four nodes where the app put them', fit);
+      await visit(page, 'canvas with four nodes where the app put them, every description', async () => { await descriptions('all'); await fit(); });
+      await visit(page, 'canvas with four nodes where the app put them, every description, 100 %', async () => { await descriptions('all'); await fit(); await page.keyboard.press('Control+0'); await page.waitForTimeout(450); });
+      await descriptions(before);
+    }
+    // «Разложить граф» from the keyboard; the search field of the library must not swallow it.
+    await page.evaluate(() => (document.activeElement instanceof HTMLElement ? document.activeElement.blur() : undefined));
+    const placedBefore = await nodePositions(page);
     await page.keyboard.press('Control+Shift+L');
     await page.waitForTimeout(900);
+    expect(await nodePositions(page), 'the arrange shortcut moved the nodes').not.toEqual(placedBefore);
     if (wants('canvas')) {
-      const fit = async () => { await page.locator('.react-flow__controls-fitview').click(); await page.waitForTimeout(450); };
       await visit(page, 'canvas with four nodes, fitted', fit);
       await visit(page, 'canvas with four nodes, 100 %', async () => { await fit(); await page.keyboard.press('Control+0'); await page.waitForTimeout(450); });
       await visit(page, 'canvas with every description shown', async () => {
@@ -558,36 +654,101 @@ test('nothing sticks out, is cut or overlaps on any screen at any window size', 
     if (wants('helper')) {
       // The camera follows the build: at every size the step's bubble must stand clear of the strip and the toolbar.
       const bubble = page.locator('[data-build-callout]');
-      const strip = page.locator('[data-live-build]');
       for (const size of SIZES) {
         try {
-          await page.setViewportSize(size);
+          await resize(page, size);
           const before = await bubble.getAttribute('data-build-callout', { timeout: 20_000 }).catch(() => null);
           // The next step centres for the window as it is now.
           await expect.poll(async () => bubble.getAttribute('data-build-callout').catch(() => null), { timeout: 12_000 }).not.toBe(before);
-          await page.waitForTimeout(1100);
+          // A step is looked at once the camera has arrived at it (--motion-tour, 600 ms) and before it gives way
+          // to the next one: the same step at both ends of the wait, and its place read in the same look.
+          const look = () => page.evaluate(() => {
+            const box = (element: Element | null) => {
+              const rect = element?.getBoundingClientRect();
+              return rect && rect.width > 0 ? { x: rect.left, y: rect.top, width: rect.width, height: rect.height } : null;
+            };
+            const el = document.querySelector<HTMLElement>('[data-build-callout]');
+            return {
+              step: el?.getAttribute('data-build-callout') ?? null,
+              words: (el?.innerText ?? '').replace(/\s+/g, ' ').slice(0, 70),
+              bubble: box(el),
+              strip: box(document.querySelector('[data-live-build]')),
+              toolbar: box(document.querySelector('.react-flow [role="toolbar"]')),
+              canvas: box(document.querySelector('.react-flow')),
+            };
+          });
+          let seen = await look();
+          for (let attempt = 0; attempt < 10; attempt += 1) {
+            const first = seen.step;
+            await page.waitForTimeout(950);
+            seen = await look();
+            if (first && seen.step === first) break;
+          }
           const extra: LayoutIssue[] = [];
-          const bubbleBox = await bubble.boundingBox().catch(() => null);
-          const under = overlapOf(bubbleBox, await strip.boundingBox().catch(() => null)) || overlapOf(bubbleBox, await page.getByRole('toolbar', { name: T('canvas.toolbar') }).boundingBox().catch(() => null));
-          if (under > 0) extra.push({ kind: 'overlap', where: 'the build bubble', text: (await bubble.innerText().catch(() => '')).replace(/\s+/g, ' ').slice(0, 70), detail: `under the build strip or the canvas toolbar by ${under}px` });
+          const bubbleBox = seen.bubble;
+          const under = overlapOf(bubbleBox, seen.strip) || overlapOf(bubbleBox, seen.toolbar);
+          const words = seen.words;
+          if (under > 0) extra.push({ kind: 'overlap', where: 'the build bubble', text: words, detail: `under the build strip or the canvas toolbar by ${under}px` });
+          // The camera follows the build: the step's bubble is on the canvas, whole.
+          const canvasBox = seen.canvas;
+          const inside = bubbleBox && canvasBox
+            && bubbleBox.x >= canvasBox.x - 1 && bubbleBox.x + bubbleBox.width <= canvasBox.x + canvasBox.width + 1
+            && bubbleBox.y >= canvasBox.y - 1 && bubbleBox.y + bubbleBox.height <= canvasBox.y + canvasBox.height + 1;
+          if (!inside) extra.push({ kind: 'detached', where: 'the build bubble', text: words, detail: 'is not whole on the canvas: the camera did not bring the step into view' });
           await auditNow(page, 'helper, a build in progress', size, extra);
         } catch (error) {
           unreached.push(`helper, a build in progress at ${size.width}x${size.height}: ${String((error as Error).message).split('\n')[0]}`);
         }
       }
-      await page.setViewportSize(HOME);
+      await resize(page, HOME);
     }
     await expect(page.locator('.build-summary, [data-build-summary]').first()).toBeVisible({ timeout: 120_000 }).catch(() => undefined);
     await page.waitForTimeout(3200);
     if (wants('helper')) {
       await visitScrolling(page, 'helper, a finished build', async () => { await dockTab(page, 0); }, () => page.locator('.chat-log'));
       await visit(page, 'canvas after a build', async () => { await page.locator('.react-flow__controls-fitview').click(); await page.waitForTimeout(450); });
+      // The same graph larger and smaller: what travels with a node (its description) keeps its place and its
+      // share of the node at every zoom, down to the map of blocks.
+      const descriptions = page.getByRole('button', { name: T('canvas.descriptions'), exact: true });
+      for (let turn = 0; turn < 3 && (await descriptions.getAttribute('data-descriptions-mode')) !== 'all'; turn += 1) await descriptions.click();
+      const zoomTo = async (steps: number) => {
+        await page.locator('.react-flow__controls-fitview').click();
+        await page.waitForTimeout(350);
+        const button = page.locator(steps > 0 ? '.react-flow__controls-zoomin' : '.react-flow__controls-zoomout');
+        for (let step = 0; step < Math.abs(steps); step += 1) {
+          await button.click();
+          await page.waitForTimeout(260);
+        }
+        await page.waitForTimeout(300);
+      };
+      for (const [label, steps] of [['fitted', 0], ['one step closer', 1], ['three steps closer', 3], ['five steps closer', 5], ['one step away', -1], ['three steps away', -3]] as const) {
+        await visit(page, `built graph with every description, ${label}`, async () => { await zoomTo(steps); });
+      }
+      await visit(page, 'built graph, a node picked while zoomed out', async () => {
+        await zoomTo(0);
+        await page.locator('.react-flow__node').filter({ hasText: 'latent_image' }).first().locator('.graph-node-title').click();
+        await page.waitForTimeout(500);
+      }, async () => { await escape(page); });
+      for (let turn = 0; turn < 3 && (await descriptions.getAttribute('data-descriptions-mode')) !== 'own'; turn += 1) await descriptions.click();
+      await page.locator('.react-flow__controls-fitview').click();
+      await page.waitForTimeout(350);
       await visitScrolling(page, 'explanations', async () => { await dockTab(page, 1); }, () => dockPanel(page));
       await visit(page, 'check panel, before a check', async () => { await dockTab(page, 3); });
       await dockTab(page, 3);
       await dockPanel(page).getByRole('button').first().click();
       await page.waitForTimeout(1500);
       await visitScrolling(page, 'check panel, findings', async () => { await dockTab(page, 3); }, () => dockPanel(page));
+      // The right panel as wide as the window lets it be, and back to its narrowest: every tab follows its width.
+      const splitter = page.locator('.tool-separator');
+      const dockTo = async (key: 'End' | 'Home') => {
+        await splitter.focus();
+        await page.keyboard.press(key);
+        await page.waitForTimeout(350);
+      };
+      for (let index = 0; index < 4; index += 1) {
+        await visitScrolling(page, `right panel tab ${index + 1} at its widest`, async () => { await dockTab(page, index); await dockTo('End'); }, () => (index === 0 ? page.locator('.chat-log') : dockPanel(page)));
+      }
+      await visit(page, 'right panel at its narrowest', async () => { await dockTab(page, 0); await dockTo('Home'); });
       // From 1280 px the window holds Properties and the helper side by side.
       const both = page.getByRole('button', { name: T('dock.showBoth'), exact: true });
       await visit(page, 'both right panels side by side', async (size) => {
@@ -653,6 +814,7 @@ test('nothing sticks out, is cut or overlaps on any screen at any window size', 
         await dockTab(page, 2);
       }, () => dockPanel(page));
     }
+    await noteMenuWidth(page);
   } catch (error) {
     // The walk itself lost its way: said in the report, with everything it found up to there.
     unreached.push(`the walk stopped: ${String((error as Error).message).split('\n').slice(0, 4).join(' | ')}`);
@@ -680,7 +842,7 @@ test('nothing sticks out, is cut or overlaps on any screen at any window size', 
     .map((entry) => `[${entry.issue.kind}] ${entry.issue.where}\n    "${entry.issue.text}"\n    ${entry.issue.detail}\n    seen ${entry.at.length}×, e.g. ${entry.at.slice(0, 4).join('; ')}`);
   const i18nErrors = [...new Set(consoleErrors.filter((line) => line.includes('[i18n]')))];
   const text = [
-    `language ${LANG}; sizes ${SIZES.map((size) => `${size.width}x${size.height}`).join(', ')}; looked at ${visited.length} screens in ${Math.round((Date.now() - started) / 1000)} s; with something to say: ${findings.length}; distinct faults: ${grouped.size}; by kind: ${JSON.stringify([...byKind])}`,
+    `language ${LANG}; fonts ${HINTED_FONTS ? 'hinted' : 'plain'}${WIDE_TEXT ? ', letters spaced out' : ''}${DPR ? `, screen scale ${DPR}` : ''}; menus ${menuWidths.join(' → ')} px wide; sizes ${SIZES.map((size) => `${size.width}x${size.height}`).join(', ')}; looked at ${visited.length} screens in ${Math.round((Date.now() - started) / 1000)} s; with something to say: ${findings.length}; distinct faults: ${grouped.size}; by kind: ${JSON.stringify([...byKind])}`,
     unreached.length ? `not reached:\n${unreached.map((line) => `  ${line}`).join('\n')}` : 'every stop was reached',
     consoleErrors.length ? `console errors:\n${[...new Set(consoleErrors)].map((line) => `  ${line.slice(0, 300)}`).join('\n')}` : 'no console errors',
     '==== distinct faults ====',

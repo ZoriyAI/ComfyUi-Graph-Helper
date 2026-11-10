@@ -12,8 +12,9 @@ import { auditLayout, type LayoutIssue } from './layoutAudit';
 
 const FIXTURE = `
 <style>
-  #audit-fixture { position: fixed; inset: 0; z-index: 2147483647; overflow: auto; padding: 16px; background: #fff; color: #111; font: 14px/20px sans-serif; }
-  #audit-fixture section { position: relative; margin: 0 0 14px; min-height: 44px; }
+  /* Three columns, so every case is in view: what is scrolled out of view cannot be hit-tested. */
+  #audit-fixture { position: fixed; inset: 0; z-index: 2147483647; overflow: auto; padding: 16px; background: #fff; color: #111; font: 14px/20px sans-serif; display: grid; grid-template-columns: repeat(3, 300px); gap: 0 24px; align-content: start; }
+  #audit-fixture section { position: relative; margin: 0 0 14px; min-height: 44px; min-width: 0; }
   #audit-fixture button { font: inherit; height: 28px; padding: 0 8px; border: 1px solid #555; background: #eee; white-space: nowrap; }
   #audit-fixture .card { border: 1px solid #999; padding: 4px; }
   #audit-fixture .ellipsis { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -36,6 +37,7 @@ const FIXTURE = `
 <section><span data-case="raw-key">settings.mcpUrl</span></section>
 <section><button data-case="raw-tooltip" title="[object Object]">Fine words, a broken tooltip</button></section>
 <section><span data-case="raw-id">bbbbbbbb-0000-4000-8000-000000000002</span></section>
+<section><button data-case="covered" style="position: absolute; left: 0; top: 0; width: 130px">A canvas tool</button><div class="canvas-unit" style="position: absolute; left: 24px; top: 2px; width: 150px; height: 26px; z-index: 2; background: #fc0">A note of a node</div></section>
 <!-- sound -->
 <section><div data-sound="scrolled-list" style="height: 40px; overflow-y: auto; border: 1px solid #999"><button style="display: block; margin: 0 0 4px">Row one</button><button style="display: block; margin: 0 0 4px">Row two, half in view</button><button style="display: block">Row three, out of view</button></div></section>
 <section><button style="width: 110px"><span class="ellipsis allowed" data-sound="allowed-ellipsis">my_very_long_file_name.safetensors</span></button></section>
@@ -48,6 +50,8 @@ const FIXTURE = `
 <section><span data-sound="file-name">Saved to settings.json and status.log</span></section>
 <section><span data-sound="own-words" class="said">The person wrote {{x}}, undefined and settings.mcpUrl</span></section>
 <section><span data-sound="address">Open https://docs.comfy.org/library.nodes/KSampler</span></section>
+<section><div data-sound="placing-wrapper" style="width: 120px"><div style="width: 120px; border: 1px solid #999; transform: scale(1.2); transform-origin: top left">Drawn larger</div></div></section>
+<section><div class="canvas-unit" style="position: absolute; left: 24px; top: 2px; width: 150px; height: 26px; background: #fc0">A note of a node</div><button data-sound="tool-on-top" style="position: absolute; left: 0; top: 0; width: 130px; z-index: 2">A canvas tool</button></section>
 `;
 
 test('the layout audit names every fault of its fixture and none of the sound layouts', async () => {
@@ -59,7 +63,7 @@ test('the layout audit names every fault of its fixture and none of the sound la
   try {
     const page = await app.firstWindow();
     await page.locator('.app-shell').waitFor({ timeout: 20_000 });
-    await page.setViewportSize({ width: 900, height: 900 });
+    await page.setViewportSize({ width: 1040, height: 900 });
     await page.evaluate((html) => {
       const host = document.createElement('div');
       host.id = 'audit-fixture';
@@ -70,7 +74,7 @@ test('the layout audit names every fault of its fixture and none of the sound la
 
     const issues = await auditLayout(page, {
       root: '#audit-fixture', shortened: true, shortenedOk: ['.allowed'], overhang: ['.port-dot'],
-      keyRoots: ['settings', 'status', 'library'], ownWords: ['.said'],
+      keyRoots: ['settings', 'status', 'library'], ownWords: ['.said'], units: ['.canvas-unit'],
     });
     // Which fixture case does an issue belong to? The case's own element or one inside it.
     const caseOf = (issue: LayoutIssue) => page.evaluate(({ where, text }) => {
@@ -113,11 +117,17 @@ test('the layout audit names every fault of its fixture and none of the sound la
       ['raw-key', 'raw-text'],
       ['raw-tooltip', 'raw-text'],
       ['raw-id', 'raw-text'],
+      ['covered', 'overlap'],
     ];
     for (const [names, kind] of expected) {
       const list = Array.isArray(names) ? names : [names];
       expect(list.some((name) => seen.get(name)?.has(kind)), `the audit must report ${kind} for ${list.join(' / ')}\n${report}`).toBe(true);
     }
+    // Every case must be in view, or the checks that look at what is drawn at a point pass without looking.
+    const hidden = await page.evaluate(() => Array.from(document.querySelectorAll('#audit-fixture [data-case], #audit-fixture [data-sound]'))
+      .filter((el) => { const rect = el.getBoundingClientRect(); return rect.bottom > window.innerHeight || rect.top < 0; })
+      .map((el) => el.getAttribute('data-case') ?? el.getAttribute('data-sound')));
+    expect(hidden.filter((name) => name !== 'outside-window'), 'cases out of view').toEqual([]);
     const sound = [...seen.keys()].filter((name) => name.startsWith('sound:') || name.startsWith('?:'));
     expect(sound, `sound layouts must not be reported\n${report}`).toEqual([]);
   } finally {
