@@ -20,3 +20,27 @@
   overflow-x: auto;
   white-space: pre;
 }
+/* Headings a model writes ("## Steps") are short bold lines of the answer, not page titles. */
+.heading { font-weight: 650; color: var(--text); }
+.heading[data-level="1"] { font-size: 15px; line-height: 21px; }
+.heading[data-level="2"] { font-size: 14px; line-height: 20px; }
+.heading[data-level="3"] { font-size: 13px; line-height: 19px; }
+.rule { width: 100%; height: 1px; margin: 2px 0; border: 0; background: var(--line); }
+.quote { margin: 0; padding: 2px 0 2px 10px; border-left: 2px solid var(--line); color: var(--text-dim); }
+/* A table keeps to the panel: cells wrap anywhere, so three columns fit a 300 px panel without a sideways scroll. */
+.tableWrap { max-width: 100%; }
+.table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 12px; line-height: 17px; }
+.table th, .table td { padding: 4px 6px; border: 1px solid var(--line); text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+.table th { background: var(--bg-sunken); color: var(--text-dim); font-weight: 600; }
+/* In a narrow chat a table of three columns or more would break every word: each row becomes a small card, the
+   first cell its title, the others "column: value". */
+@container chat (max-width: 520px) {
+  .table[data-wide] { display: block; }
+  .table[data-wide] thead { display: none; }
+  .table[data-wide] tbody { display: flex; flex-direction: column; gap: 4px; }
+  .table[data-wide] tr { display: block; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; }
+  .table[data-wide] td { display: block; padding: 0; border: 0; }
+  .table[data-wide] td:first-child { margin-bottom: 2px; color: var(--text); font-weight: 600; }
+  .table[data-wide] td:not(:first-child)::before { content: attr(data-label) ": "; color: var(--text-dim); }
+  .table[data-wide] td:not(:first-child):empty { display: none; }
+}

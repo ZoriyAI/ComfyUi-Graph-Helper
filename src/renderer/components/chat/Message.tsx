@@ -128,9 +128,9 @@ export default function Message({ message, streaming = false }: MessageProps) {
     ) : message.content || (streaming && toolCalls.length === 0) ? (
       <div className={`message-body ${styles.body}`}>
         {isUser ? (
-          <span className={styles.userText}>{message.content}</span>
+          <span className={`${styles.userText} chat-words`}>{message.content}</span>
         ) : (
-          <MarkdownLite text={message.content} />
+          <MarkdownLite text={message.content} className="chat-words" />
         )}
         {streaming ? <span className={styles.cursor} aria-hidden="true" /> : null}
       </div>

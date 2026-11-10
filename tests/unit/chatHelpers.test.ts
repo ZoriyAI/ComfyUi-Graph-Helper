@@ -66,6 +66,47 @@ describe('markdown-lite', () => {
     expect(parseInline('<img src=x onerror=alert(1)>')).toEqual([{ type: 'text', text: '<img src=x onerror=alert(1)>' }]);
     expect(parseMarkdownLite('')).toEqual([]);
   });
+
+  // A model writes headings, tables and emphasis whether asked to or not; raw, they are "##" and "|" in an answer.
+  it('reads headings, rules and quotes instead of showing their marks', () => {
+    const blocks = parseMarkdownLite('## Что делает нода ##\ntext\n\n---\n> осторожно\n> с VAE\n\n#### deep');
+    expect(blocks).toEqual([
+      { type: 'heading', level: 2, tokens: [{ type: 'text', text: 'Что делает нода' }] },
+      { type: 'paragraph', lines: [[{ type: 'text', text: 'text' }]] },
+      { type: 'rule' },
+      { type: 'quote', lines: [[{ type: 'text', text: 'осторожно' }], [{ type: 'text', text: 'с VAE' }]] },
+      { type: 'heading', level: 3, tokens: [{ type: 'text', text: 'deep' }] },
+    ]);
+    // A hash without a space is a tag or a number, not a heading; a row of dashes after a bullet is a bullet.
+    expect(parseMarkdownLite('#1 in the list')[0].type).toBe('paragraph');
+  });
+
+  it('reads a table, pads short rows and keeps a line with bars a line', () => {
+    const blocks = parseMarkdownLite('| Поле | Значение | Зачем |\n|---|:---:|---|\n| steps | 20 | качество |\n| cfg | 8 |\nпосле');
+    expect(blocks.map((block) => block.type)).toEqual(['table', 'paragraph']);
+    const table = blocks[0];
+    if (table.type !== 'table') throw new Error('not a table');
+    expect(table.header.map((cell) => cell[0])).toEqual([{ type: 'text', text: 'Поле' }, { type: 'text', text: 'Значение' }, { type: 'text', text: 'Зачем' }]);
+    expect(table.rows).toHaveLength(2);
+    expect(table.rows[1]).toEqual([[{ type: 'text', text: 'cfg' }], [{ type: 'text', text: '8' }], []]);
+    expect(parseMarkdownLite('a | b | c')[0].type).toBe('paragraph');
+    expect(parseMarkdownLite('| a | b |\nno dashes')[0].type).toBe('paragraph');
+  });
+
+  it('reads emphasis and leaves arithmetic and names with underscores alone', () => {
+    expect(parseInline('это *важно* и _тоже_')).toEqual([
+      { type: 'text', text: 'это ' }, { type: 'em', text: 'важно' }, { type: 'text', text: ' и ' }, { type: 'em', text: 'тоже' },
+    ]);
+    expect(parseInline('512 * 768 * 2')).toEqual([{ type: 'text', text: '512 * 768 * 2' }]);
+    expect(parseInline('поля lora_name и strength_model')).toEqual([{ type: 'text', text: 'поля lora_name и strength_model' }]);
+    expect(parseInline('__жирно__ и **тоже**')).toEqual([{ type: 'strong', text: 'жирно' }, { type: 'text', text: ' и ' }, { type: 'strong', text: 'тоже' }]);
+    expect(parseInline('в `a * b * c` звёзды остаются')).toEqual([{ type: 'text', text: 'в ' }, { type: 'code', text: 'a * b * c' }, { type: 'text', text: ' звёзды остаются' }]);
+  });
+
+  it('keeps a link as words and address: the chat opens nothing', () => {
+    expect(parseInline('см. [документацию](https://docs.comfy.org/x) здесь')).toEqual([{ type: 'text', text: 'см. документацию (https://docs.comfy.org/x) здесь' }]);
+    expect(parseInline('[https://a.b/c](https://a.b/c)')).toEqual([{ type: 'text', text: 'https://a.b/c' }]);
+  });
 });
 
 describe('tool classification', () => {
