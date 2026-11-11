@@ -144,10 +144,14 @@ function applyVersion2(db: Database.Database): void {
  * Version 11 adds mcp_auth on the settings row: how the app presents itself to the MCP server ('', none, token, oauth).
  * Version 12 adds what a model manager keeps next to a model file: the names of its description and preview files
  * as the listing gave them, the description as last read, and the notes read from it.
+ * Version 13 is taken by the node pack information added on another branch; here it is an empty step until merge.
+ * Version 14 adds what was found about a model file on the internet when the person asked for it (Civitai by the
+ * file's fingerprint, Hugging Face by its name): where it came from, the link, what it says, its preview address,
+ * when it was asked and how it ended, and the family it gave a file whose family was not known otherwise.
  */
 export function migrate(db: Database.Database, options?: { failBeforeVersionStamp?: boolean }): void {
   const version = schemaVersion(db);
-  if (version > 12) {
+  if (version > 14) {
     throw new Error(`Unsupported schema version ${version}`);
   }
   if (version < 1) {
@@ -237,6 +241,36 @@ export function migrate(db: Database.Database, options?: { failBeforeVersionStam
     });
     apply.immediate();
   }
+  if (schemaVersion(db) === 12) {
+    // Taken by node pack information; replaced on merge. Nothing to do here, only the number.
+    const apply = db.transaction(() => {
+      db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (13, ?)').run(Date.now());
+    });
+    apply.immediate();
+  }
+  if (schemaVersion(db) === 13) {
+    const apply = db.transaction(() => {
+      applyVersion14(db);
+      db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (14, ?)').run(Date.now());
+    });
+    apply.immediate();
+  }
+}
+
+function applyVersion14(db: Database.Database): void {
+  if (!tableNames(db).includes('model_catalog')) return;
+  // The file's own fingerprint goes into the `sha256` column version 9 made; these are what the internet said.
+  // `web_status` is 'found', 'not-found' or 'error'; `web_error` the short code of what went wrong.
+  addColumn(db, 'model_catalog', 'web_source', 'TEXT');
+  addColumn(db, 'model_catalog', 'web_url', 'TEXT');
+  addColumn(db, 'model_catalog', 'web_notes_json', "TEXT NOT NULL DEFAULT '{}'");
+  addColumn(db, 'model_catalog', 'web_preview_url', 'TEXT');
+  addColumn(db, 'model_catalog', 'web_checked_at', 'INTEGER');
+  addColumn(db, 'model_catalog', 'web_status', 'TEXT');
+  addColumn(db, 'model_catalog', 'web_error', 'TEXT');
+  // The family Civitai named for a file whose header, description and name did not say. Kept apart, so a later
+  // read of the file that does say wins, and one that still does not keeps it.
+  addColumn(db, 'model_catalog', 'web_family', 'TEXT');
 }
 
 function applyVersion12(db: Database.Database): void {

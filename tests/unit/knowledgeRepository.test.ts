@@ -189,6 +189,9 @@ describe('knowledge repository: models', () => {
       sha256: null,
       syncedAt: 5,
       enrichedAt: 9,
+      // Never looked up on the internet; its description came from Civitai, so there is nothing to ask there.
+      web: { status: null, checkedAt: null, error: null, found: null },
+      civitaiKnown: true,
     });
     expect(modelDetail(db, 'loras', 'missing.safetensors')).toBeNull();
 

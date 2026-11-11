@@ -359,6 +359,12 @@ export default function ModelLibrary() {
             setOpen(null);
           }}
           onAsk={(message) => ask(open, message)}
+          onUpdated={(changed) => {
+            // What the card learned (a family, a sample from the internet) shows in its row at once.
+            const swap = (list: ModelSummary[] | null) => (list ? list.map((item) => (modelKey(item) === modelKey(changed) ? changed : item)) : list);
+            setAll(swap);
+            setFound(swap);
+          }}
         />
       ) : null}
     </div>

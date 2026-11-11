@@ -257,7 +257,7 @@ describe('component records and native projects', () => {
       VALUES ('rev-1', 'desktop', 1, '[{"id":"7","type":"comfy","position":{"x":1,"y":2},"data":{"comfyType":"LoadImage"}}]', '[]', NULL, 'Initial', 'system', 1, '{}');
     `);
     migrate(db);
-    expect(schemaVersion(db)).toBe(12);
+    expect(schemaVersion(db)).toBe(14);
     const columns = db.prepare('PRAGMA table_info(graph_revisions)').all() as Array<{ name: string }>;
     expect(columns.map((column) => column.name)).toContain('components');
     const snapshot = current(db).snapshot as GraphSnapshot;
@@ -265,8 +265,8 @@ describe('component records and native projects', () => {
     expect(snapshot.components).toEqual([
       { id: 'component:node:7', ownerKind: 'node', ownerId: '7', purpose: '', usage: '' },
     ]);
-    db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (13, 1)').run();
-    expect(() => migrate(db)).toThrow(/Unsupported schema version 13/);
+    db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (15, 1)').run();
+    expect(() => migrate(db)).toThrow(/Unsupported schema version 15/);
     db.close();
   });
 

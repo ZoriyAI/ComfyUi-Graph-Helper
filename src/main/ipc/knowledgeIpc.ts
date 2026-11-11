@@ -6,6 +6,8 @@ import type { SyncStatus } from '../../shared/contracts/knowledge';
 import { getDatabase } from '../database';
 import { knowledgeHandlers } from '../knowledge/handlers';
 import { PreviewReader } from '../knowledge/preview';
+import { ModelLookupService } from '../knowledge/modelWeb';
+import { appWebClient, ModelWebClient, setAppWebClient } from '../knowledge/webLookup';
 import { openSavedMcpSession } from '../mcp/savedSession';
 import { syncService } from '../mcp/sync';
 
@@ -35,8 +37,20 @@ export function registerKnowledgeIpc(ipcMain: IpcMain): void {
   } catch {
     cacheDir = null;
   }
-  const previews = new PreviewReader({ db: getDatabase, open: openSavedMcpSession, cacheDir });
-  const handlers = knowledgeHandlers({ db: getDatabase, sync: syncService, fetchImpl: globalThis.fetch, preview: (directory, name) => previews.get(directory, name) });
+  // A test build (never a packaged app) may point the model lookup at a fake of Civitai and Hugging Face.
+  const fake = app.isPackaged ? '' : process.env.GRAPH_HELPER_TEST_MODEL_WEB ?? '';
+  if (/^http:\/\/127\.0\.0\.1:\d+$/.test(fake)) {
+    setAppWebClient(new ModelWebClient({ endpoints: { civitai: `${fake}/civitai`, huggingface: `${fake}/hf` }, fetchImpl: (url, init) => globalThis.fetch(url, init) }));
+  }
+  const previews = new PreviewReader({ db: getDatabase, open: openSavedMcpSession, cacheDir, web: (url) => appWebClient().previewBytes(url) });
+  const lookups = new ModelLookupService({ db: getDatabase, client: appWebClient, open: openSavedMcpSession });
+  const handlers = knowledgeHandlers({
+    db: getDatabase,
+    sync: syncService,
+    fetchImpl: globalThis.fetch,
+    preview: (directory, name) => previews.get(directory, name),
+    lookup: { hash: (directory, name) => lookups.hash(directory, name), lookup: (directory, name) => lookups.lookup(directory, name) },
+  });
   for (const [channel, handler] of Object.entries(handlers)) {
     guardedHandle(ipcMain, channel, (_event, ...args: unknown[]) => handler(...args));
   }

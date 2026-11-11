@@ -29,6 +29,7 @@ import {
 } from '../../shared/knowledge/schemas';
 import { rankMatch } from '../../shared/knowledge/search';
 import { notesFromJson, previewKind, type ModelNotes } from '../../shared/knowledge/sidecar';
+import { WEB_ERRORS, webFoundFromJson, type WebError, type WebFound } from '../../shared/knowledge/webLookup';
 import { catalogInputsFromJson, catalogTotals } from '../catalog/repository';
 import { fieldSpecOf, modelDirectoryOf, modelKey } from '../../shared/catalog/fieldSpec';
 import { modelDirectoryFor } from '../../shared/catalog/modelFolders';
@@ -198,10 +199,20 @@ type ModelRow = {
   enriched_at: number | null;
   preview_file: string | null;
   notes_json: string | null;
+  web_status: string | null;
+  web_checked_at: number | null;
+  web_error: string | null;
+  web_notes_json: string | null;
 };
 
 const MODEL_COLUMNS = `directory, name, size_bytes, kind, base_model, base_model_evidence, trigger_words, description,
-  source_url, metadata_json, root_path, sha256, synced_at, enriched_at, preview_file, notes_json`;
+  source_url, metadata_json, root_path, sha256, synced_at, enriched_at, preview_file, notes_json,
+  web_status, web_checked_at, web_error, web_notes_json`;
+
+/** What the internet said about a file, when it was found; null when it was not asked or found nothing. */
+function webFoundOf(row: ModelRow): WebFound | null {
+  return row.web_status === 'found' ? webFoundFromJson(row.web_notes_json) : null;
+}
 
 const EVIDENCE: readonly Evidence[] = ['metadata', 'sidecar', 'filename', 'web', 'none'];
 
@@ -214,6 +225,9 @@ function asKind(value: string): ModelKind {
 }
 
 function modelSummaryOf(row: ModelRow, notes: ModelNotes = notesFromJson(row.notes_json)): ModelSummary {
+  // A sample from the internet stands in only where nothing lies next to the file; it is closed like one.
+  const web = row.preview_file ? null : webFoundOf(row);
+  const webPreview = web?.preview ?? null;
   return {
     directory: row.directory,
     name: row.name,
@@ -222,8 +236,8 @@ function modelSummaryOf(row: ModelRow, notes: ModelNotes = notesFromJson(row.not
     sizeBytes: row.size_bytes ?? null,
     enriched: row.enriched_at != null,
     title: notes.title,
-    preview: row.preview_file ? previewKind(row.preview_file) : null,
-    mature: notes.mature,
+    preview: row.preview_file ? previewKind(row.preview_file) : webPreview?.kind ?? null,
+    mature: notes.mature || (webPreview !== null && web!.notes.mature),
   };
 }
 
@@ -277,7 +291,24 @@ export function modelDetail(db: Database.Database, directory: string, name: stri
     sha256: row.sha256 ?? null,
     syncedAt: row.synced_at ?? null,
     enrichedAt: row.enriched_at ?? null,
+    web: {
+      status: row.web_status === 'found' || row.web_status === 'not-found' || row.web_status === 'error' ? row.web_status : null,
+      checkedAt: row.web_checked_at ?? null,
+      error: (WEB_ERRORS as readonly string[]).includes(row.web_error ?? '') ? (row.web_error as WebError) : null,
+      found: webFoundOf(row),
+    },
+    civitaiKnown: /^https:\/\/civitai\.com\//.test(row.source_url ?? ''),
   };
+}
+
+/**
+ * A model as the helper model is told about it. What the internet said stays in the card: the example prompts
+ * found there and the address of its sample are not sent (only where it was found, and its name and words).
+ */
+export function modelDetailForHelper(detail: ModelDetail): ModelDetail {
+  const found = detail.web?.found;
+  if (!found) return detail;
+  return { ...detail, web: { ...detail.web, found: { ...found, notes: { ...found.notes, examples: [] }, preview: null } } };
 }
 
 /**

@@ -91,7 +91,7 @@ describe('the catalog columns for the files next to a model (migration v12)', ()
     migrate(db);
     // As version 11 left the table: without the new columns.
     for (const column of ['sidecar_file', 'sidecar_sig', 'sidecar_read_sig', 'preview_file', 'preview_sig', 'notes_json']) db.exec(`ALTER TABLE model_catalog DROP COLUMN ${column}`);
-    db.prepare('DELETE FROM schema_migrations WHERE version = 12').run();
+    db.prepare('DELETE FROM schema_migrations WHERE version >= 12').run();
     db.prepare("INSERT INTO model_catalog (directory, name, size_bytes, kind, base_model, enriched_at) VALUES ('loras', 'old.safetensors', 5, 'lora', 'sdxl', 3)").run();
     migrate(db);
     const row = db.prepare("SELECT * FROM model_catalog WHERE name = 'old.safetensors'").get() as Record<string, unknown>;

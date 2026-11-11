@@ -97,6 +97,8 @@ export default function PrivacySection({ prefs, setPrefs, container }: DraftProp
       <p className={hintClass}>{t('preferences.modelLogHint')}</p>
       <Switch label={t('preferences.showMarkedPreviews')} checked={privacy.showMarkedPreviews} onCheckedChange={(next) => patchSection(setPrefs, 'privacy', { showMarkedPreviews: next })} />
       <p className={hintClass}>{t('preferences.showMarkedPreviewsHint')}</p>
+      <Switch label={t('preferences.lookupModelsOnline')} checked={privacy.lookupModelsOnline} onCheckedChange={(next) => patchSection(setPrefs, 'privacy', { lookupModelsOnline: next })} />
+      <p className={hintClass}>{t('preferences.lookupModelsOnlineHint')}</p>
       <Group title={String(t('preferences.sentTitle'))} className={styles.explain}>
         <ul className={styles.facts}>
           <li>{t('preferences.sentAlways')}</li>

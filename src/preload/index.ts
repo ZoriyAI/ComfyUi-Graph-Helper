@@ -24,6 +24,7 @@ import type {
   McpOAuthStatus,
   ModelDetail,
   ModelPreview,
+  ModelLookupResult,
   ModelListResult,
   ModelSummary,
   NodeClassDetail,
@@ -98,6 +99,8 @@ const IPC_CHANNELS = {
   KNOWLEDGE_SEARCH_MODELS: 'knowledge:search-models',
   KNOWLEDGE_MODEL_DETAIL: 'knowledge:model-detail',
   KNOWLEDGE_MODEL_PREVIEW: 'knowledge:model-preview',
+  KNOWLEDGE_MODEL_HASH: 'knowledge:model-hash',
+  KNOWLEDGE_MODEL_LOOKUP: 'knowledge:model-lookup',
   KNOWLEDGE_LIST_EXPLANATIONS: 'knowledge:list-explanations',
   KNOWLEDGE_SAVE_EXPLANATION: 'knowledge:save-explanation',
   KNOWLEDGE_CHECK_GRAPH: 'knowledge:check-graph',
@@ -277,6 +280,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   searchModels: (request: SearchModelsRequest) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_SEARCH_MODELS, request) as Promise<ModelSummary[]>,
   modelDetail: (directory: string, name: string) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_MODEL_DETAIL, { directory, name }) as Promise<ModelDetail | null>,
   modelPreview: (directory: string, name: string) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_MODEL_PREVIEW, { directory, name }) as Promise<ModelPreview | null>,
+  modelHash: (directory: string, name: string) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_MODEL_HASH, { directory, name }) as Promise<ModelLookupResult>,
+  modelLookup: (directory: string, name: string) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_MODEL_LOOKUP, { directory, name }) as Promise<ModelLookupResult>,
   listExplanations: (request: ListExplanationsRequest) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_LIST_EXPLANATIONS, request) as Promise<Explanation[]>,
   saveExplanation: (input: ExplanationInput) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_SAVE_EXPLANATION, input) as Promise<Explanation>,
   checkGraph: (projectId: string) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_CHECK_GRAPH, projectId) as Promise<GraphCheckReport>,
@@ -439,6 +444,10 @@ export interface ElectronAPI {
   modelDetail: (directory: string, name: string) => Promise<ModelDetail | null>;
   /** The preview that lies next to a model file; null when it has none or it cannot be read now. */
   modelPreview: (directory: string, name: string) => Promise<ModelPreview | null>;
+  /** Has the MCP server make the file's SHA-256, only on the person's click: it reads the whole file there. */
+  modelHash: (directory: string, name: string) => Promise<ModelLookupResult>;
+  /** Asks Civitai (by fingerprint) and Hugging Face (by name) about the file, on the person's click. */
+  modelLookup: (directory: string, name: string) => Promise<ModelLookupResult>;
   listExplanations: (request: ListExplanationsRequest) => Promise<Explanation[]>;
   saveExplanation: (input: ExplanationInput) => Promise<Explanation>;
   checkGraph: (projectId: string) => Promise<GraphCheckReport>;

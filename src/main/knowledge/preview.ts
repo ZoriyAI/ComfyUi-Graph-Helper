@@ -5,6 +5,7 @@ import type Database from 'better-sqlite3';
 import type { ModelPreview } from '../../shared/contracts/knowledge';
 import type { McpSession } from '../../shared/mcp/catalogSource';
 import { previewKind, previewMime } from '../../shared/knowledge/sidecar';
+import { webFoundFromJson } from '../../shared/knowledge/webLookup';
 import { PREVIEW_MAX_BYTES, readSideFile, sideFilePath } from '../mcp/sideFiles';
 
 /**
@@ -14,6 +15,10 @@ import { PREVIEW_MAX_BYTES, readSideFile, sideFilePath } from '../mcp/sideFiles'
  * of its path and its listing signature: the same file is not asked for twice, and a preview that changed is.
  * Reads go one at a time over one session that closes after a short rest, so a list of thumbnails is one
  * connection and not a hundred. Nothing is written on the server.
+ *
+ * A file with nothing next to it may have a sample found on the internet at the person's request (see
+ * modelWeb.ts). That one is downloaded by main from the site that named it, through the lookup's guarded client,
+ * kept in the same folder, and handed over the same way: the window cannot tell the two apart, and needs not.
  */
 
 /** The session rests this long after the last read before it is closed. */
@@ -27,13 +32,21 @@ export interface PreviewDeps {
   open: () => Promise<McpSession | null>;
   /** Where read previews are kept; null keeps none (tests, a profile that cannot be written). */
   cacheDir: string | null;
+  /** Downloads a sample found on the internet; without it such a sample is not shown. */
+  web?: (url: string) => Promise<{ bytes: Buffer; mime: string; kind: 'image' | 'video' } | null>;
 }
 
 interface PreviewRow {
   root_path: string | null;
   preview_file: string | null;
   preview_sig: string | null;
+  web_status: string | null;
+  web_notes_json: string | null;
 }
+
+const MIME_EXTENSION: Record<string, string> = {
+  'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif', 'image/avif': 'avif', 'video/mp4': 'mp4', 'video/webm': 'webm',
+};
 
 export class PreviewReader {
   private session: McpSession | null = null;
@@ -49,10 +62,12 @@ export class PreviewReader {
   get(directory: string, name: string): Promise<ModelPreview | null> {
     let row: PreviewRow | undefined;
     try {
-      row = this.deps.db().prepare('SELECT root_path, preview_file, preview_sig FROM model_catalog WHERE directory = ? AND name = ?').get(directory, name) as PreviewRow | undefined;
+      row = this.deps.db().prepare('SELECT root_path, preview_file, preview_sig, web_status, web_notes_json FROM model_catalog WHERE directory = ? AND name = ?')
+        .get(directory, name) as PreviewRow | undefined;
     } catch {
       return Promise.resolve(null);
     }
+    if (row && !row.preview_file && row.web_status === 'found') return this.getWeb(webFoundFromJson(row.web_notes_json)?.preview?.url ?? null);
     const file = row?.preview_file ?? null;
     const source = sideFilePath(row?.root_path, file);
     if (!row || !file || !source) return Promise.resolve(null);
@@ -60,6 +75,34 @@ export class PreviewReader {
     const running = this.inFlight.get(key);
     if (running) return running;
     const work = this.load(key, source, file).catch(() => null).finally(() => this.inFlight.delete(key));
+    this.inFlight.set(key, work);
+    return work;
+  }
+
+  /** A sample from the internet: from the folder when it was downloaded before, else from the site. */
+  private getWeb(url: string | null): Promise<ModelPreview | null> {
+    const download = this.deps.web;
+    if (!url || !download) return Promise.resolve(null);
+    const key = createHash('sha256').update(`web\n${url}`).digest('hex');
+    const running = this.inFlight.get(key);
+    if (running) return running;
+    const work = (async (): Promise<ModelPreview | null> => {
+      if (this.deps.cacheDir) {
+        for (const [mime, extension] of Object.entries(MIME_EXTENSION)) {
+          try {
+            const bytes = fs.readFileSync(path.join(this.deps.cacheDir, `${key}.${extension}`));
+            if (bytes.length > 0) return { kind: mime.startsWith('video/') ? 'video' : 'image', mime, bytes: new Uint8Array(bytes) };
+          } catch {
+            // Not kept under this kind.
+          }
+        }
+      }
+      const got = await download(url);
+      if (!got || got.bytes.length === 0) return null;
+      const kept = this.cachePath(key, `x.${MIME_EXTENSION[got.mime] ?? 'bin'}`);
+      if (kept && MIME_EXTENSION[got.mime]) this.keep(kept, got.bytes);
+      return { kind: got.kind, mime: got.mime, bytes: new Uint8Array(got.bytes) };
+    })().catch(() => null).finally(() => this.inFlight.delete(key));
     this.inFlight.set(key, work);
     return work;
   }

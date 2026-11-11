@@ -270,7 +270,7 @@ export function createAgentTools(deps: AgentToolDeps): Record<string, AgentToolD
     describeModel: define('describeModel', schemas.describeModel, (args) => {
       const detail = knowledge.modelDetail(db, args.directory, args.name);
       if (!detail) return fail(`${args.directory}/${args.name} is not in the model catalog.`);
-      return { success: true, model: detail };
+      return { success: true, model: knowledgeRepository.modelDetailForHelper(detail) };
     }),
     checkGraph: define('checkGraph', schemas.checkGraph, () => ({ success: true, report: knowledge.checkGraph(db, projectId) })),
     fetchPage: define('fetchPage', schemas.fetchPage, async (args) => ({

@@ -82,6 +82,10 @@ export const IPC_CHANNELS = {
   KNOWLEDGE_MODEL_DETAIL: 'knowledge:model-detail',
   /** The preview picture or clip that lies next to a model file, as bytes. */
   KNOWLEDGE_MODEL_PREVIEW: 'knowledge:model-preview',
+  /** Has the MCP server make a model file's SHA-256 (the card's "Find on the internet", first step). */
+  KNOWLEDGE_MODEL_HASH: 'knowledge:model-hash',
+  /** Asks Civitai by the fingerprint and Hugging Face by the name about a model file, and keeps the answer. */
+  KNOWLEDGE_MODEL_LOOKUP: 'knowledge:model-lookup',
   KNOWLEDGE_LIST_EXPLANATIONS: 'knowledge:list-explanations',
   KNOWLEDGE_SAVE_EXPLANATION: 'knowledge:save-explanation',
   KNOWLEDGE_CHECK_GRAPH: 'knowledge:check-graph',
