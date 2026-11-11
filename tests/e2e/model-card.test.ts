@@ -5,6 +5,7 @@ import * as path from 'path';
 import { expectSoundLayout } from './layoutProfile';
 import { useEnglish } from './locale';
 import { READ_TOOLS, startFakeMcp, WRITE_TOOLS } from '../fixtures/mcp/fakeMcpServer';
+import { CIVITAI_KNOWN, startFakeModelWeb } from '../fixtures/web/fakeModelWeb';
 
 /**
  * The model card against the fake MCP server (labelled fixture): a LoRA's card names its family, where the
@@ -292,6 +293,130 @@ test('model card: shows what lies next to a file, and content marked as adult on
   } finally {
     await app.close();
     await fake.close();
+    fs.rmSync(userData, { recursive: true, force: true });
+  }
+});
+
+test('model card: a file nothing describes is looked up on the internet when the person asks', async () => {
+  test.setTimeout(180_000);
+  const fake = await startFakeMcp();
+  const web = await startFakeModelWeb();
+  const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'model-web-'));
+  // A test build reads this to ask the fake of Civitai and Hugging Face; a packaged app never does.
+  const env = { ...process.env, NODE_ENV: 'production', GRAPH_HELPER_TEST_MODEL_WEB: web.origin };
+  delete env.DBUS_SESSION_BUS_ADDRESS;
+  delete env.GNOME_KEYRING_CONTROL;
+  const app = await electron.launch({ args: [path.join(__dirname, '../../dist/main/index.js'), `--user-data-dir=${userData}`], env });
+  const errors: string[] = [];
+  try {
+    const window = await app.firstWindow();
+    window.on('pageerror', (error) => errors.push(error.message));
+    await window.setViewportSize({ width: 1440, height: 900 });
+    await useEnglish(window);
+    await connectAndSync(window, fake.url);
+    await expect.poll(() => window.evaluate(async () => {
+      const api = (window as unknown as { electronAPI: { modelDetail: (directory: string, name: string) => Promise<{ title: string } | null> } }).electronAPI;
+      return (await api.modelDetail('checkpoints', 'juggernautXL_v9.safetensors'))?.title ?? '';
+    }), { timeout: 60_000 }).toBe('Juggernaut XL');
+    // Sync asked the internet nothing: the setting is off.
+    expect(web.requests).toEqual([]);
+
+    const rail = window.locator('#library-rail');
+    await rail.getByRole('tab', { name: 'Models' }).click();
+    const list = window.locator('#model-library-list');
+    const search = rail.getByRole('searchbox', { name: 'Search models' }).or(rail.getByRole('textbox', { name: 'Search models' })).first();
+    const open = async (file: string) => {
+      await search.fill(file.replace(/\.safetensors$/, ''));
+      await list.locator(`[data-model$="/${file}"]`).first().click();
+      const card = window.getByRole('dialog', { name: file });
+      await expect(card).toBeVisible();
+      return card;
+    };
+
+    // A file Civitai described already (its description lies next to it) offers no lookup.
+    const pixel = await open('pixel-art-xl.safetensors');
+    await expect(pixel).toContainText('nerijs');
+    await expect(pixel).not.toContainText('From the internet');
+
+    // Nothing lies next to this one and its family is not known. The card says what leaves the computer.
+    const mystery = await open('mystery_style_v3.safetensors');
+    const section = mystery.locator('[aria-labelledby="model-card-web"]');
+    await expect(section).toContainText('This sends the file fingerprint to civitai.com');
+    await expect(section).toContainText('huggingface.co');
+    await expect(mystery).toContainText('not known');
+    await section.getByRole('button', { name: 'Find on the internet' }).click();
+    // The fingerprint was made on the server (only for this one model file), then Civitai found the file by it.
+    await expect(section).toHaveAttribute('data-web', 'found', { timeout: 30_000 });
+    for (const text of [
+      'Civitai', 'Found by the file fingerprint: this is this very file.', 'Mystery Style', 'v3', 'fogmaker', 'SDXL 1.0',
+      'mystery style, a lighthouse in fog', 'Not wanted: sunny', '1 more example is hidden.', 'https://civitai.com/models/900100?modelVersionId=900101',
+    ]) await expect(section, text).toContainText(text);
+    await expect(section).not.toContainText('a figure on the stairs');
+    await expect(section.getByRole('button', { name: 'mystery style', exact: true })).toBeVisible();
+    // The family it was missing, marked as learned from the internet; the sample at the top of the card.
+    await expect(mystery).toContainText('SDXL');
+    await expect(mystery).toContainText('from the internet');
+    await expect.poll(() => mystery.locator('img').first().evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
+    // Its row in the list says so too, without waiting for a sync.
+    await expect(list.locator('[data-model$="/mystery_style_v3.safetensors"]')).toContainText('SDXL');
+    await expect(list.locator('[data-model$="/mystery_style_v3.safetensors"]')).not.toContainText('family not known');
+    const hashes = fake.calls.filter((call) => call.tool === 'workspace_files' && call.args?.action === 'hash');
+    expect(hashes.map((call) => call.args)).toEqual([{ action: 'hash', absolute_path: '/srv/comfyui/models/loras/mystery_style_v3.safetensors' }]);
+    expect(web.requests.map((item) => item.path)).toEqual([`/civitai/api/v1/model-versions/by-hash/${CIVITAI_KNOWN.mystery}`, '/img/width=450/mystery.png']);
+    await shot(window, '4-card-found-online');
+    await expectSoundLayout(window, 'model card with what was found on the internet', HERE);
+
+    // Marked by the site as adult content: found, and closed like a file marked by its author.
+    const marked = await open('Wan21_CausVid_14B_T2V_lora_rank32.safetensors');
+    await marked.getByRole('button', { name: 'Find on the internet' }).click();
+    const markedWeb = marked.locator('[aria-labelledby="model-card-web"]');
+    await expect(markedWeb).toHaveAttribute('data-web', 'found', { timeout: 30_000 });
+    await expect(markedWeb).toContainText('Velvet Hour');
+    await expect(markedWeb).toContainText('The site marks this model as adult content.');
+    await expect(markedWeb).toContainText('1 more example is hidden.');
+    await expect(markedWeb).not.toContainText('a quiet room at dusk');
+    await expect(marked).toContainText('marked this as adult content');
+    await expect(marked.locator('img')).toHaveCount(0);
+    expect(web.requests.some((item) => item.path.includes('velvet'))).toBe(false);
+
+    // Civitai does not know this one; Hugging Face has a repository of that name. It is shown as a guess.
+    const lightning = await open('sdxl_lightning_8step_lora.safetensors');
+    await lightning.getByRole('button', { name: 'Find on the internet' }).click();
+    const lightningWeb = lightning.locator('[aria-labelledby="model-card-web"]');
+    await expect(lightningWeb).toHaveAttribute('data-web', 'found', { timeout: 30_000 });
+    for (const text of ['Hugging Face', 'Found by the file name. It may be a different model.', 'ByteDance/SDXL-Lightning', 'SDXL-Lightning is a lightning-fast text-to-image generation model.', 'https://huggingface.co/ByteDance/SDXL-Lightning']) {
+      await expect(lightningWeb, text).toContainText(text);
+    }
+
+    // Neither site knows this one, and the card says so.
+    const unknown = await open('Z-Image-Turbo-Fun-Controlnet-Union.safetensors');
+    await unknown.getByRole('button', { name: 'Find on the internet' }).click();
+    const unknownWeb = unknown.locator('[aria-labelledby="model-card-web"]');
+    await expect(unknownWeb).toHaveAttribute('data-web', 'not-found', { timeout: 30_000 });
+    await expect(unknownWeb).toContainText('Civitai does not know this file; nothing was found on Hugging Face by its name.');
+    await expect(unknownWeb.getByRole('button', { name: 'Look again' })).toBeVisible();
+
+    // Kept: after a reload the card shows what was found, and nothing is asked again.
+    const asked = web.requests.length;
+    await window.reload();
+    await window.locator('.app-shell').waitFor({ timeout: 20000 });
+    await rail.getByRole('tab', { name: 'Models' }).click();
+    const again = await open('mystery_style_v3.safetensors');
+    await expect(again.locator('[aria-labelledby="model-card-web"]')).toContainText('Mystery Style');
+    await expect.poll(() => again.locator('img').first().evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
+    expect(web.requests).toHaveLength(asked);
+    expect(web.requests.every((item) => item.credentials.length === 0)).toBe(true);
+
+    // Only reads and fingerprints of model files went to the MCP server.
+    for (const call of fake.calls.filter((item) => item.method === 'tools/call')) {
+      expect(READ_TOOLS as readonly string[]).toContain(call.tool);
+      if (call.tool === 'workspace_files') expect(['read', 'hash']).toContain(call.args?.action);
+    }
+    expect(errors).toEqual([]);
+  } finally {
+    await app.close();
+    await fake.close();
+    await web.close();
     fs.rmSync(userData, { recursive: true, force: true });
   }
 });

@@ -146,10 +146,13 @@ function applyVersion2(db: Database.Database): void {
  * as the listing gave them, the description as last read, and the notes read from it.
  * Version 13 adds what a node pack says about itself on node_packs: the description and the repository link from
  * its pyproject.toml, the opening of its README, and the version and commit they were read at.
+ * Version 14 adds what was found about a model file on the internet when the person asked for it (Civitai by the
+ * file's fingerprint, Hugging Face by its name): where it came from, the link, what it says, its preview address,
+ * when it was asked and how it ended, and the family it gave a file whose family was not known otherwise.
  */
 export function migrate(db: Database.Database, options?: { failBeforeVersionStamp?: boolean }): void {
   const version = schemaVersion(db);
-  if (version > 13) {
+  if (version > 14) {
     throw new Error(`Unsupported schema version ${version}`);
   }
   if (version < 1) {
@@ -246,6 +249,13 @@ export function migrate(db: Database.Database, options?: { failBeforeVersionStam
     });
     apply.immediate();
   }
+  if (schemaVersion(db) === 13) {
+    const apply = db.transaction(() => {
+      applyVersion14(db);
+      db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (14, ?)').run(Date.now());
+    });
+    apply.immediate();
+  }
 }
 
 function applyVersion13(db: Database.Database): void {
@@ -257,6 +267,22 @@ function applyVersion13(db: Database.Database): void {
   addColumn(db, 'node_packs', 'readme_summary', 'TEXT');
   addColumn(db, 'node_packs', 'info_sig', 'TEXT');
   addColumn(db, 'node_packs', 'info_read_at', 'INTEGER');
+}
+
+function applyVersion14(db: Database.Database): void {
+  if (!tableNames(db).includes('model_catalog')) return;
+  // The file's own fingerprint goes into the `sha256` column version 9 made; these are what the internet said.
+  // `web_status` is 'found', 'not-found' or 'error'; `web_error` the short code of what went wrong.
+  addColumn(db, 'model_catalog', 'web_source', 'TEXT');
+  addColumn(db, 'model_catalog', 'web_url', 'TEXT');
+  addColumn(db, 'model_catalog', 'web_notes_json', "TEXT NOT NULL DEFAULT '{}'");
+  addColumn(db, 'model_catalog', 'web_preview_url', 'TEXT');
+  addColumn(db, 'model_catalog', 'web_checked_at', 'INTEGER');
+  addColumn(db, 'model_catalog', 'web_status', 'TEXT');
+  addColumn(db, 'model_catalog', 'web_error', 'TEXT');
+  // The family Civitai named for a file whose header, description and name did not say. Kept apart, so a later
+  // read of the file that does say wins, and one that still does not keeps it.
+  addColumn(db, 'model_catalog', 'web_family', 'TEXT');
 }
 
 function applyVersion12(db: Database.Database): void {

@@ -1,13 +1,13 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, Copy, MessageCircleQuestion, Plus, Replace, Route, X } from 'lucide-react';
+import { Check, Copy, Globe, MessageCircleQuestion, Plus, Replace, Route, X } from 'lucide-react';
 import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
-import type { ExamplePrompt, ModelDetail, ModelNotes, ModelSummary } from '../../../shared/contracts';
+import type { ExamplePrompt, ModelDetail, ModelLookupResult, ModelNotes, ModelSummary, WebError } from '../../../shared/contracts';
 import { familyLabelKey } from '../../../shared/knowledge/labels';
 import { useGraphStore } from '../../state/graphState';
 import { usePreferencesStore } from '../../state/preferencesState';
-import { FamilyBadge, KindBadge } from '../../ui/Badge';
+import { FamilyBadge, KindBadge, ProvenanceBadge } from '../../ui/Badge';
 import Button from '../../ui/Button';
 import IconButton from '../../ui/IconButton';
 import Skeleton from '../../ui/Skeleton';
@@ -33,6 +33,8 @@ export interface ModelCardProps {
   onShowLoras: (base: ModelSummary) => void;
   /** Sends a question about the model to the Assistant. */
   onAsk: (message: string) => void;
+  /** The file's summary changed (a lookup on the internet gave it a family or a sample). */
+  onUpdated?: (summary: ModelSummary) => void;
 }
 
 /** The one node selected on the root canvas, or null. */
@@ -174,14 +176,21 @@ function exampleSettings(t: TFunction, example: ExamplePrompt): string {
  * The descriptions the author used for the sample pictures: how this file is asked for, in its author's words.
  * Those that belong to a sample marked as adult content stay closed until the person opens them.
  */
-function ExamplesSection({ examples, hidden, onReveal, onCopy }: { examples: ExamplePrompt[]; hidden: boolean; onReveal: () => void; onCopy: (text: string) => void }) {
+function ExamplesSection({ examples, hidden, onReveal, onCopy, id = 'model-card-examples', heading = 'library.card.examples' }: {
+  examples: ExamplePrompt[];
+  hidden: boolean;
+  onReveal: () => void;
+  onCopy: (text: string) => void;
+  id?: string;
+  heading?: 'library.card.examples' | 'library.card.web.examples';
+}) {
   const { t } = useTranslation();
   if (examples.length === 0) return null;
   const open = examples.filter((item) => !hidden || !item.mature).slice(0, SHOWN_EXAMPLES);
   const closed = hidden ? examples.filter((item) => item.mature).length : 0;
   return (
-    <section className={styles.section} aria-labelledby="model-card-examples">
-      <h3 id="model-card-examples" className={styles.heading}>{t('library.card.examples')}</h3>
+    <section className={styles.section} aria-labelledby={id}>
+      <h3 id={id} className={styles.heading}>{t(heading)}</h3>
       {open.length > 0 ? <p className={styles.hint}>{t('library.card.examplesHint')}</p> : null}
       <ul className={styles.examples}>
         {open.map((example) => {
@@ -209,8 +218,158 @@ function ExamplesSection({ examples, hidden, onReveal, onCopy }: { examples: Exa
   );
 }
 
+/** Each reason a lookup fails, as the sentence that says it. */
+const WEB_ERROR_KEYS: Record<WebError, string> = {
+  unreachable: 'library.card.web.errors.unreachable',
+  timeout: 'library.card.web.errors.timeout',
+  'rate-limited': 'library.card.web.errors.rateLimited',
+  server: 'library.card.web.errors.server',
+  'bad-answer': 'library.card.web.errors.badAnswer',
+  'no-hash': 'library.card.web.errors.noHash',
+  'no-server': 'library.card.web.errors.noServer',
+};
+
+/** Where "Find on the internet" is: not started, making the fingerprint on the server, asking the sites. */
+type LookupStep = 'idle' | 'hashing' | 'looking';
+
+/**
+ * "From the internet": what Civitai (by the file's fingerprint) or Hugging Face (by its name, a guess) said about a
+ * file nothing from Civitai describes, or the button that asks. It is always clear where it came from and how sure
+ * it is. Example prompts the site marks as adult stay closed like the ones next to a file.
+ */
+function WebSection({ detail, step, error, hidden, onFind, onReveal, onCopy }: {
+  detail: ModelDetail;
+  step: LookupStep;
+  error: WebError | null;
+  hidden: boolean;
+  onFind: () => void;
+  onReveal: () => void;
+  onCopy: (text: string, label: string) => void;
+}) {
+  const { t } = useTranslation();
+  if (detail.civitaiKnown) return null;
+  const { web } = detail;
+  const found = web.found;
+  const failure = error ?? (web.status === 'error' ? web.error : null);
+  const link = found ? safeModelSource(found.url) : null;
+  let body: React.ReactNode;
+  if (step !== 'idle') {
+    body = (
+      <div className={styles.webBusy} role="status" aria-live="polite">
+        <p className={styles.lead}>{t(step === 'hashing' ? 'library.card.web.hashing' : 'library.card.web.looking')}</p>
+        {step === 'hashing' ? <p className={styles.hint}>{t('library.card.web.hashingHint')}</p> : null}
+      </div>
+    );
+  } else if (found) {
+    body = (
+      <>
+        <p className={styles.webSource}>
+          <ProvenanceBadge provenance="web" />
+          <span className={styles.webSite}>{t(found.source === 'civitai' ? 'library.card.web.civitai' : 'library.card.web.huggingface')}</span>
+        </p>
+        <p className={styles.note} data-tone={found.byName ? 'warn' : 'info'}>{t(found.byName ? 'library.card.web.byName' : 'library.card.web.exact')}</p>
+        <dl className={styles.facts}>
+          {found.notes.title ? (
+            <>
+              <dt>{t('library.card.web.title')}</dt>
+              <dd className={styles.wrap}>{found.notes.title}</dd>
+            </>
+          ) : null}
+          {found.notes.versionName ? (
+            <>
+              <dt>{t('library.card.version')}</dt>
+              <dd className={styles.wrap}>{found.notes.versionName}</dd>
+            </>
+          ) : null}
+          {found.notes.creator ? (
+            <>
+              <dt>{t('library.card.creator')}</dt>
+              <dd className={styles.wrap}>{found.notes.creator}</dd>
+            </>
+          ) : null}
+          {found.notes.baseModelLabel ? (
+            <>
+              <dt>{t('library.card.authorBase')}</dt>
+              <dd className={styles.wrap}>{found.notes.baseModelLabel}</dd>
+            </>
+          ) : null}
+        </dl>
+        {found.notes.mature ? <p className={styles.hint}>{t('library.card.web.marked')}</p> : null}
+        {found.notes.tags.length > 0 ? (
+          <ul className={styles.tags} aria-label={String(t('library.card.tags'))}>
+            {found.notes.tags.map((tag) => <li key={tag} className={styles.tag}>{tag}</li>)}
+          </ul>
+        ) : null}
+        {found.triggerWords.length > 0 ? (
+          <div className={styles.section}>
+            <h4 className={styles.heading}>{t('library.card.triggers')}</h4>
+            <ul className={styles.chips}>
+              {found.triggerWords.map((word) => (
+                <li key={word}>
+                  <button type="button" className={styles.chip} title={String(t('library.card.copied', { word }))} onClick={() => onCopy(word, String(t('library.card.copied', { word })))}>
+                    <Copy size={11} aria-hidden="true" />
+                    {word}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+        {found.summary ? (
+          <div className={styles.section}>
+            <h4 className={styles.heading}>{t('library.card.web.summary')}</h4>
+            <p className={styles.description}>{found.summary}</p>
+          </div>
+        ) : null}
+        <ExamplesSection
+          id="model-card-web-examples"
+          heading="library.card.web.examples"
+          examples={found.notes.examples}
+          hidden={hidden}
+          onReveal={onReveal}
+          onCopy={(text) => onCopy(text, String(t('library.card.exampleCopied')))}
+        />
+        {link ? (
+          <div className={styles.source}>
+            <span>{t('library.card.web.link')}:</span>
+            <span className={styles.url} title={link}>{link}</span>
+            <IconButton size="sm" label={String(t('library.card.copyLink'))} onClick={() => onCopy(link, String(t('library.card.copyLink')))}>
+              <Copy size={13} aria-hidden="true" />
+            </IconButton>
+          </div>
+        ) : null}
+      </>
+    );
+  } else {
+    body = (
+      <>
+        {web.status === 'not-found' && !error ? <p className={styles.note}>{t('library.card.web.notFound')}</p> : null}
+        {failure ? <p className={styles.note} data-tone="warn">{t('library.card.web.failed', { reason: String(t(WEB_ERROR_KEYS[failure])) })}</p> : null}
+        <p className={styles.hint}>{t('library.card.web.findHint')}</p>
+        <div>
+          <Button variant="subtle" size="sm" icon={<Globe size={14} aria-hidden="true" />} onClick={onFind}>
+            {t(web.status === null && !failure ? 'library.card.web.find' : 'library.card.web.again')}
+          </Button>
+        </div>
+      </>
+    );
+  }
+  return (
+    <section className={styles.section} aria-labelledby="model-card-web" data-web={step !== 'idle' ? step : found ? 'found' : failure ? 'error' : web.status ?? 'idle'}>
+      <h3 id="model-card-web" className={styles.heading}>{t('library.card.web.heading')}</h3>
+      {body}
+    </section>
+  );
+}
+
 /** A model explained and put to work: what it is, what it fits, and the actions that use it. */
-export default function ModelCard({ model, all, onClose, onShowLoras, onAsk }: ModelCardProps) {
+/** The summary part of a card's detail, as a list row holds it. */
+function summaryOf(detail: ModelDetail): ModelSummary {
+  const { directory, name, kind, baseModel, sizeBytes, enriched, title, preview, mature } = detail;
+  return { directory, name, kind, baseModel, sizeBytes, enriched, title, preview, mature };
+}
+
+export default function ModelCard({ model, all, onClose, onShowLoras, onAsk, onUpdated }: ModelCardProps) {
   const { t, i18n } = useTranslation();
   const language = i18n.language === 'en' ? 'en' : 'ru';
   const box = useFlyoutBox();
@@ -220,15 +379,22 @@ export default function ModelCard({ model, all, onClose, onShowLoras, onAsk }: M
   const selectedId = useSingleSelectedNode();
   const [target, setTarget] = useState<SelectedLoader | null>(null);
   const key = modelKey(model);
+  const currentKey = useRef(key);
+  currentKey.current = key;
   const showMarked = usePreferencesStore((state) => state.preferences.privacy.showMarkedPreviews);
   // "Show for this file" holds for the file it was said about, until the card shows another.
   const [revealed, setRevealed] = useState<string | null>(null);
+  // "Find on the internet": the step it is at, and the reason of a failure it just had.
+  const [step, setStep] = useState<LookupStep>('idle');
+  const [lookupError, setLookupError] = useState<WebError | null>(null);
   // The selected loader already holding this file needs no "put it in" button (right after "Add to canvas").
   const targetValue = useGraphStore((state) => (target ? state.nodes.find((node) => node.id === target.nodeId)?.data.parameters?.[target.field] : undefined));
 
   useEffect(() => {
     let cancelled = false;
     setDetail(undefined);
+    setStep('idle');
+    setLookupError(null);
     window.electronAPI.modelDetail(model.directory, model.name)
       .then((found) => {
         if (!cancelled) setDetail(found);
@@ -267,6 +433,37 @@ export default function ModelCard({ model, all, onClose, onShowLoras, onAsk }: M
   const description = detail?.description ? plainDescription(detail.description) : '';
   const source = safeModelSource(detail?.sourceUrl);
   const evidence = detail ? detail.baseModelEvidence : (summary.baseModel === 'unknown' ? 'none' : 'filename');
+
+  // Two steps, each said on screen: the fingerprint on the server when it is not known (long for a large file),
+  // then the lookup. A card switched to another file meanwhile drops the answer; main keeps it for the next opening.
+  const find = async () => {
+    const asked = key;
+    const still = () => currentKey.current === asked;
+    const settle = (result: ModelLookupResult): boolean => {
+      if (!still()) return false;
+      setDetail(result.detail);
+      if (result.detail) onUpdated?.(summaryOf(result.detail));
+      if (!result.ok) {
+        setLookupError(result.error);
+        return false;
+      }
+      return true;
+    };
+    setLookupError(null);
+    try {
+      if (!detail?.sha256) {
+        setStep('hashing');
+        if (!settle(await window.electronAPI.modelHash(model.directory, model.name))) return;
+      }
+      if (!still()) return;
+      setStep('looking');
+      settle(await window.electronAPI.modelLookup(model.directory, model.name));
+    } catch {
+      if (still()) setLookupError('unreachable');
+    } finally {
+      if (still()) setStep('idle');
+    }
+  };
 
   const run = async (work: () => Promise<unknown>) => {
     setBusy(true);
@@ -385,7 +582,7 @@ export default function ModelCard({ model, all, onClose, onShowLoras, onAsk }: M
               ))}
             </ul>
           </section>
-        ) : detail && detail.enriched && model.kind === 'lora' ? <p className={styles.note}>{t('library.card.noTriggers')}</p> : null}
+        ) : detail && detail.enriched && model.kind === 'lora' && !detail.web.found?.triggerWords.length ? <p className={styles.note}>{t('library.card.noTriggers')}</p> : null}
         <p className={styles.copied} role="status" aria-live="polite">
           {copied ? <><Check size={12} aria-hidden="true" /> {copied}</> : null}
         </p>
@@ -422,6 +619,17 @@ export default function ModelCard({ model, all, onClose, onShowLoras, onAsk }: M
               <Copy size={13} aria-hidden="true" />
             </IconButton>
           </div>
+        ) : null}
+        {detail ? (
+          <WebSection
+            detail={detail}
+            step={step}
+            error={lookupError}
+            hidden={!showMarked && revealed !== key}
+            onFind={() => void find()}
+            onReveal={() => setRevealed(key)}
+            onCopy={copy}
+          />
         ) : null}
       </div>
 

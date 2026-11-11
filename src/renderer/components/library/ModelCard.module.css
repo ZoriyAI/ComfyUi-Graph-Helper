@@ -145,3 +145,9 @@
 .exampleSettings { min-width: 0; color: var(--text-dim); font-family: var(--font-mono); font-size: var(--text-xs); overflow-wrap: anywhere; }
 .exampleFoot > .link { flex: 0 0 auto; }
 .note > .link { font-size: inherit; }
+
+/* "From the internet": where it came from first, then what it says; long names and addresses wrap in the card. */
+.webBusy { display: flex; flex-direction: column; gap: 4px; }
+.webSource { display: flex; align-items: center; gap: 6px; margin: 0; font-size: var(--text-sm); }
+.webSite { font-weight: 600; }
+.wrap { overflow-wrap: anywhere; }

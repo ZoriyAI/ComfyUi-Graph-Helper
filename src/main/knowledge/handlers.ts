@@ -1,7 +1,7 @@
 import type Database from 'better-sqlite3';
 import { ZodError } from 'zod';
 import { IPC_CHANNELS } from '../../shared/ipc-channels';
-import type { ExplanationInput, ListExplanationsRequest, ModelPreview, SearchModelsRequest, SearchNodesRequest } from '../../shared/contracts/knowledge';
+import type { ExplanationInput, ListExplanationsRequest, ModelLookupResult, ModelPreview, SearchModelsRequest, SearchNodesRequest } from '../../shared/contracts/knowledge';
 import {
   classTypeSchema,
   userExplanationInputSchema,
@@ -66,6 +66,11 @@ export function knowledgeHandlers(deps: {
   fetchImpl?: typeof fetch;
   /** Reads the preview that lies next to a model file; without it no model has one. */
   preview?: (directory: string, name: string) => Promise<ModelPreview | null>;
+  /** The card's "Find on the internet": the fingerprint on the server, then the lookup. Without it, neither. */
+  lookup?: {
+    hash: (directory: string, name: string) => Promise<ModelLookupResult>;
+    lookup: (directory: string, name: string) => Promise<ModelLookupResult>;
+  };
 }): Record<string, KnowledgeHandler> {
   const { db, sync } = deps;
   const table: Record<string, KnowledgeHandler> = {
@@ -79,6 +84,14 @@ export function knowledgeHandlers(deps: {
     [IPC_CHANNELS.KNOWLEDGE_MODEL_PREVIEW]: (request) => {
       const key = modelKeySchema.parse(request);
       return deps.preview ? deps.preview(key.directory, key.name) : null;
+    },
+    [IPC_CHANNELS.KNOWLEDGE_MODEL_HASH]: (request) => {
+      const key = modelKeySchema.parse(request);
+      return deps.lookup ? deps.lookup.hash(key.directory, key.name) : { ok: false, error: 'no-server', detail: modelDetail(db(), key.directory, key.name) };
+    },
+    [IPC_CHANNELS.KNOWLEDGE_MODEL_LOOKUP]: (request) => {
+      const key = modelKeySchema.parse(request);
+      return deps.lookup ? deps.lookup.lookup(key.directory, key.name) : { ok: false, error: 'unreachable', detail: modelDetail(db(), key.directory, key.name) };
     },
     [IPC_CHANNELS.KNOWLEDGE_LIST_EXPLANATIONS]: (request) => listExplanations(db(), listExplanationsSchema.parse(request ?? {}) as ListExplanationsRequest),
     [IPC_CHANNELS.KNOWLEDGE_SAVE_EXPLANATION]: (input) => {

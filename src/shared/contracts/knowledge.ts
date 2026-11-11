@@ -1,5 +1,6 @@
 import type { ModelNotes } from '../knowledge/sidecar';
 import type { PackInfo } from '../knowledge/packInfo';
+import type { WebError, WebFound, WebStatus } from '../knowledge/webLookup';
 import type { PromptNoteKind } from '../prompt/inspect';
 import type { ObjectRef } from './objects';
 
@@ -7,6 +8,7 @@ export type { PromptNoteKind } from '../prompt/inspect';
 
 export type { ExamplePrompt, ModelNotes } from '../knowledge/sidecar';
 export type { PackInfo } from '../knowledge/packInfo';
+export type { WebError, WebFound, WebSource, WebStatus } from '../knowledge/webLookup';
 
 /** Normalised base-model families. 'unknown' when nothing proved it. */
 export type BaseModelFamily =
@@ -124,11 +126,34 @@ export interface ModelSummary {
   enriched: boolean;
   /** The name its author gave the model, from the description file next to it; empty when it has none. */
   title: string;
-  /** A preview lies next to the file: a still or a short clip. */
+  /**
+   * A preview lies next to the file: a still or a short clip. When none does, the sample picture found on the
+   * internet for it at the person's request, if there is one.
+   */
   preview: 'image' | 'video' | null;
-  /** The description marks the model, or the rating of its preview, as adult content. */
+  /**
+   * The description marks the model, or the rating of its preview, as adult content; for a preview from the
+   * internet, what the site says about it.
+   */
   mature: boolean;
 }
+
+/**
+ * What the internet said about a model file, asked only when the person said so: per file in its card, or for all
+ * files at sync when Settings ▸ Privacy allows it.
+ */
+export interface ModelWebInfo {
+  /** null: never asked. */
+  status: WebStatus | null;
+  checkedAt: number | null;
+  error: WebError | null;
+  found: WebFound | null;
+}
+
+/** The answer to "find it on the internet" from the card: the card as it is now, or why the step failed. */
+export type ModelLookupResult =
+  | { ok: true; detail: ModelDetail | null }
+  | { ok: false; error: WebError; detail: ModelDetail | null };
 
 /** The bytes of a model's preview, as read from the file next to it. */
 export interface ModelPreview {
@@ -147,9 +172,14 @@ export interface ModelDetail extends ModelSummary {
   /** What the description file next to the model says beyond the facts above: tags, usage, examples, notes. */
   notes: ModelNotes;
   rootPath: string | null;
+  /** The file's SHA-256: from the description next to it, or made on the server at the person's request. */
   sha256: string | null;
   syncedAt: number | null;
   enrichedAt: number | null;
+  /** What the internet said about the file. */
+  web: ModelWebInfo;
+  /** The description next to the file came from Civitai: asking Civitai again would tell nothing new. */
+  civitaiKnown: boolean;
 }
 
 export type ExplanationAspect = 'what' | 'why' | 'connect' | 'next' | 'risk';

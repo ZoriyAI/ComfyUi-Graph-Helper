@@ -15,6 +15,11 @@ export interface SidecarFacts {
   description: string;
   modelId: string | null;
   modelVersionId: string | null;
+  /**
+   * The SHA-256 of the model file as the description gives it (Lora Manager keeps it as `sha256`, a Civitai record
+   * under `files[].hashes.SHA256`), lower case; null when it gives none. It is what Civitai finds a file by.
+   */
+  sha256: string | null;
 }
 
 export interface ParsedModelMetadata {
@@ -53,6 +58,31 @@ export function stringifyMetadata(value: unknown): Record<string, string> {
 function idText(value: unknown): string | null {
   if (typeof value === 'number' && Number.isInteger(value) && value > 0) return String(value);
   if (typeof value === 'string' && /^\d{1,12}$/.test(value)) return value;
+  return null;
+}
+
+/** A SHA-256 written as 64 hex digits, in lower case; null for anything else. */
+export function sha256Text(value: unknown): string | null {
+  return typeof value === 'string' && /^[0-9a-f]{64}$/i.test(value.trim()) ? value.trim().toLowerCase() : null;
+}
+
+/**
+ * The fingerprint of the model file in a Civitai record's file list: the primary file's, else the first model
+ * file's, else the first one that has one. A version can list a model and a VAE; the primary one is the model.
+ */
+export function civitaiFileHash(files: unknown): string | null {
+  if (!Array.isArray(files)) return null;
+  const rows = files.map(record).filter((item): item is Record<string, unknown> => item !== null);
+  const hashOf = (item: Record<string, unknown>) => sha256Text(record(item.hashes)?.SHA256 ?? record(item.hashes)?.sha256);
+  const ordered = [
+    ...rows.filter((item) => item.primary === true),
+    ...rows.filter((item) => item.type === 'Model'),
+    ...rows,
+  ];
+  for (const item of ordered) {
+    const hash = hashOf(item);
+    if (hash) return hash;
+  }
   return null;
 }
 
@@ -112,6 +142,7 @@ export function parseSidecar(value: unknown): SidecarFacts | null {
     description: description ? plainText(description) : '',
     modelId,
     modelVersionId,
+    sha256: sha256Text(row.sha256) ?? civitaiFileHash(row.files ?? version?.files),
   };
 }
 

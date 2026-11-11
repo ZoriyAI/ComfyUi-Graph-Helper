@@ -18,7 +18,19 @@ export const SIDE_FILE_CHUNK_BYTES = 1024 * 1024;
 const SIDE_FILE_NAME = /\.(?:metadata\.json|civitai\.info|webp|png|jpe?g|gif|mp4|webm)$/i;
 
 export function isSideFilePath(path: string): boolean {
-  if (!path.startsWith('/') || path.includes('\0') || path.includes('\\') || !SIDE_FILE_NAME.test(path)) return false;
+  return SIDE_FILE_NAME.test(path) && isPlainAbsolutePath(path);
+}
+
+/** A model file: what a loader reads. Its fingerprint is the one thing the app asks the server to make of it. */
+const MODEL_FILE_NAME = /\.(?:safetensors|sft|ckpt|pt|pth|bin|gguf)$/i;
+
+export function isModelFilePath(path: string): boolean {
+  return MODEL_FILE_NAME.test(path) && isPlainAbsolutePath(path);
+}
+
+/** An absolute POSIX path inside some folder, with no empty, `.` or `..` part, no NUL and no backslash. */
+function isPlainAbsolutePath(path: string): boolean {
+  if (!path.startsWith('/') || path.includes('\0') || path.includes('\\')) return false;
   const parts = path.split('/').slice(1);
   return parts.length >= 2 && parts.every((part) => part !== '' && part !== '.' && part !== '..');
 }
@@ -63,13 +75,21 @@ export const READ_ONLY_SCHEMAS = {
   // The description and the preview a model manager keeps next to a model file, and the pyproject.toml and README
   // at the top of a node pack. The tool can also write, patch, move and trash: only `read` is listed, only as
   // exact bytes, and only for a path that is one of these files.
-  workspace_files: z.object({
-    action: z.literal('read'),
-    absolute_path: z.string().min(2).max(4000).refine((path) => isSideFilePath(path) || isPackFilePath(path)),
-    encoding: z.literal('base64'),
-    offset: z.number().int().min(0).max(SIDE_FILE_MAX_BYTES).optional(),
-    length: z.number().int().min(1).max(SIDE_FILE_CHUNK_BYTES).optional(),
-  }).strict(),
+  // And `hash` of a model file, with nothing else: its SHA-256 is what Civitai finds the file by. Asked only when
+  // the person clicks "Find on the internet" in its card; it reads the file on the server and changes nothing.
+  workspace_files: z.union([
+    z.object({
+      action: z.literal('read'),
+      absolute_path: z.string().min(2).max(4000).refine((path) => isSideFilePath(path) || isPackFilePath(path)),
+      encoding: z.literal('base64'),
+      offset: z.number().int().min(0).max(SIDE_FILE_MAX_BYTES).optional(),
+      length: z.number().int().min(1).max(SIDE_FILE_CHUNK_BYTES).optional(),
+    }).strict(),
+    z.object({
+      action: z.literal('hash'),
+      absolute_path: z.string().min(2).max(4000).refine(isModelFilePath),
+    }).strict(),
+  ]),
 } as const;
 
 /**
@@ -159,11 +179,11 @@ function noteOf(tool: string, args: Record<string, unknown>, started: number, re
 export function readOnlySession(session: McpSession): McpSession {
   return {
     listTools: () => session.listTools(),
-    async callTool(name, args) {
+    async callTool(name, args, options) {
       if (!isReadOnlyCall(name, args)) throw new McpRefusedError(name);
       const started = Date.now();
       try {
-        const result = await session.callTool(name, args);
+        const result = await (options ? session.callTool(name, args, options) : session.callTool(name, args));
         try {
           observer?.(noteOf(name, args, started, result, undefined));
         } catch {

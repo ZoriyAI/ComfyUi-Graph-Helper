@@ -7,6 +7,7 @@
  * It also lists tools that write or run (install, download, queue). Every call is recorded in `calls` so a test can
  * prove the app only used read-only tools. The bearer token is checked but never recorded.
  */
+import { createHash } from 'crypto';
 import * as fs from 'fs';
 import * as http from 'http';
 import type { AddressInfo } from 'net';
@@ -52,7 +53,8 @@ export const WRITE_TOOLS = [
 
 /**
  * `workspace_files` is on the owner's server too. It reads, and it also writes, patches, moves and trashes; the
- * fake answers `read` for the files next to a model and treats every other action as a write that must not come.
+ * fake answers `read` for the files next to a model and `hash` for a model file, and treats every other action as a
+ * write that must not come.
  */
 export const READ_TOOLS = ['studio_info', 'studio_capabilities', 'models', 'model_metadata', 'comfy_api', 'list_local_models', 'workspace_files'] as const;
 
@@ -105,6 +107,14 @@ export const MODELS: Array<{ category: string; filename: string; size: number }>
 ];
 
 // ---------------------------------------------------------------- files next to the models
+
+/**
+ * The fingerprint the fake gives a model file: made of its path, so a test knows it without a file of gigabytes.
+ * The fake of Civitai and Hugging Face (tests/fixtures/web/fakeModelWeb.ts) knows some of these.
+ */
+export function fakeFileHash(category: string, filename: string): string {
+  return createHash('sha256').update(`/srv/comfyui/models/${category}/${filename}`).digest('hex');
+}
 
 const SIDE_DIR = path.join(__dirname, 'side');
 const sideBytes = (name: string) => fs.readFileSync(path.join(SIDE_DIR, name));
@@ -177,6 +187,8 @@ const MARKED_SIDECAR = {
 /** A file that never met Civitai: the manager's record says almost nothing, and the preview is a clip. */
 const LOCAL_SIDECAR = {
   file_name: 'wan2.2_i2v_A14b_high_noise_lora_rank64_lightx2v_4step_1022',
+  // Lora Manager writes the file's fingerprint even for a file Civitai never described.
+  sha256: fakeFileHash('loras', 'wan2.2_i2v_A14b_high_noise_lora_rank64_lightx2v_4step_1022.safetensors'),
   model_name: 'wan2.2_i2v_A14b_high_noise_lora_rank64_lightx2v_4step_1022',
   base_model: 'Unknown',
   preview_url: '',
@@ -320,6 +332,16 @@ function readWorkspaceFile(args: Record<string, unknown>) {
     complete: next >= found.bytes.length,
     truncated: next < found.bytes.length,
   });
+}
+
+/**
+ * `workspace_files` action hash of a model file: its SHA-256, the way the owner's server answers (a `sha256` field
+ * beside the path and size). Only for model files the fake lists; anything else is not found.
+ */
+function hashWorkspaceFile(args: Record<string, unknown>) {
+  const found = MODELS.find((file) => `${MODEL_ROOT}/${file.category}/${file.filename}` === args.absolute_path);
+  if (!found) return text({ error: { code: 'ADMIN_FILE_NOT_FOUND', message: 'ADMIN_FILE_NOT_FOUND' } }, true);
+  return text({ path: args.absolute_path, root: 'models', algorithm: 'sha256', sha256: fakeFileHash(found.category, found.filename), size_bytes: found.size });
 }
 
 /** model_metadata answers for a few files; anything else gets an empty header and no sidecar. */
@@ -570,6 +592,8 @@ function callTool(name: string, args: Record<string, unknown>, comfyUrl: string,
     case 'workspace_files':
       // Only a read is answered. A write, a patch, a move or a trash is the write tool the tests fail on.
       if (args.action === 'read') return readWorkspaceFile(args);
+      // The fingerprint of a model file: it reads the file and changes nothing.
+      if (args.action === 'hash') return hashWorkspaceFile(args);
       return text({ error: { code: 'FAKE_WRITE_TOOL_CALLED' } }, true);
     default:
       // A write tool: the fake does nothing, but the call is recorded and the test fails on it.

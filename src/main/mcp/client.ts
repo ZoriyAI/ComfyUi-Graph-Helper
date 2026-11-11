@@ -124,8 +124,8 @@ export const connectStreamableHttp: McpSessionFactory = async (url, token, authP
       const result = await client.listTools(undefined, { timeout: CALL_TIMEOUT_MS });
       return result.tools.map((tool) => ({ name: tool.name }));
     },
-    async callTool(name, args) {
-      return (await client.callTool({ name, arguments: args }, { timeout: CALL_TIMEOUT_MS })) as McpToolCallResult;
+    async callTool(name, args, options) {
+      return (await client.callTool({ name, arguments: args }, { timeout: options?.timeoutMs ?? CALL_TIMEOUT_MS })) as McpToolCallResult;
     },
     async close() {
       await client.close();

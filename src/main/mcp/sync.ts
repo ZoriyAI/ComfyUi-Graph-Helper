@@ -24,6 +24,8 @@ import { packFilePath, PYPROJECT_MAX_BYTES, readPackFile, README_HEAD_BYTES, rea
 import { mcpToken, releaseMcpTokenIfOriginChanged } from './token';
 import { redactSecrets } from '../../shared/config/draft';
 import { readCustomNodeRoots, type ServerIdentity } from './inventory';
+import { dueLookups, writeWebOutcome } from '../knowledge/modelWeb';
+import { appWebClient, SYNC_LOOKUP_PAUSE_MS, SYNC_LOOKUPS_PER_RUN, type ModelWebClient } from '../knowledge/webLookup';
 
 /** Loader folders whose files carry a safetensors header worth reading. */
 export const ENRICH_DIRECTORIES = [
@@ -72,6 +74,14 @@ export interface SyncDeps {
   authProvider: (url: string) => Promise<OAuthClientProvider | null>;
   /** Whether a usable OAuth sign-in is held for the URL's origin (status only, no I/O). */
   signedIn: (url: string) => boolean;
+  /** Settings ▸ Privacy: whether sync may look model files up on the internet (off by default). */
+  readLookupOnline: (db: Database.Database) => boolean;
+  /** The client that asks Civitai and Hugging Face. */
+  webClient: () => ModelWebClient;
+  /** Pause between internet requests during sync (tests); SYNC_LOOKUP_PAUSE_MS otherwise, never less. */
+  lookupPauseMs?: number;
+  /** Files looked up per sync at most (tests); SYNC_LOOKUPS_PER_RUN otherwise. */
+  lookupsPerRun?: number;
 }
 
 type Listener = (status: SyncStatus) => void;
@@ -102,7 +112,18 @@ const defaultDeps: SyncDeps = {
   checkTokenOrigin: releaseMcpTokenIfOriginChanged,
   authProvider: async (url) => (url ? (await mcpOAuth()?.backgroundProvider(url)) ?? null : null),
   signedIn: (url) => (url ? mcpOAuth()?.signedIn(url) ?? false : false),
+  readLookupOnline: (db) => readPreferences(db).privacy.lookupModelsOnline,
+  webClient: appWebClient,
 };
+
+/** The internet lookups of one sync: after metadata reading, one file at a time, spaced, until done or cancelled. */
+interface WebRun {
+  cancelled: boolean;
+  done: Promise<void>;
+}
+
+/** After this many failed lookups in a row (the site is down, the computer offline) the run stops until the next sync. */
+const MAX_LOOKUP_FAILURES = 3;
 
 /** sync_state key holding failed metadata reads: { "directory/name": { attempts, lastAt } }. */
 export const ENRICH_FAILURES_KEY = 'enrich_failures';
@@ -226,6 +247,8 @@ function numberOrNull(value: string | undefined): number | null {
 /** One run's metadata reading: the first batch inside the run, then batches in the background on the same session. */
 interface EnrichRun {
   session: McpSession;
+  /** When the sync this reading belongs to began. */
+  startedAt: number;
   hasTool: boolean;
   /** The server can hand over the description file a model manager keeps next to a model. */
   hasFiles: boolean;
@@ -254,6 +277,7 @@ export class SyncService {
   private nextRunAt: number | null = null;
   private startupPending = false;
   private background: EnrichRun | null = null;
+  private webRun: WebRun | null = null;
   private enrichmentPaused = false;
   private readonly listeners = new Set<Listener>();
   private readonly deps: SyncDeps;
@@ -375,10 +399,67 @@ export class SyncService {
     return this.background?.done ?? Promise.resolve();
   }
 
+  /** Resolves when the internet lookups of the current run have ended (at once when none run). */
+  whenWebLookupsDone(): Promise<void> {
+    return this.webRun?.done ?? Promise.resolve();
+  }
+
   /** Clears the schedule and cancels background reading. Leaves no timer behind (app quit, tests). */
   stop(): void {
     this.clearSchedule();
     this.cancelEnrichment();
+    if (this.webRun) this.webRun.cancelled = true;
+    this.webRun = null;
+  }
+
+  /**
+   * With Settings ▸ Privacy ▸ "Look up models on the internet" on: asks Civitai, then Hugging Face, about the files
+   * whose fingerprint is known and that nothing from Civitai describes. Never makes a fingerprint (that reads the
+   * whole file on the server). At most SYNC_LOOKUPS_PER_RUN files a run, the rest at the next; requests at least
+   * SYNC_LOOKUP_PAUSE_MS apart. Starts after the metadata reading of the run, so fingerprints read from the
+   * descriptions are there. Runs on its own: nothing of it touches the MCP server.
+   */
+  private startWebLookups(db: Database.Database, runStartedAt: number): void {
+    if (this.webRun) return;
+    let enabled = false;
+    try {
+      enabled = this.deps.readLookupOnline(db);
+    } catch {
+      enabled = false;
+    }
+    if (!enabled) return;
+    const run: WebRun = { cancelled: false, done: Promise.resolve() };
+    const pauseMs = Math.max(SYNC_LOOKUP_PAUSE_MS, this.deps.lookupPauseMs ?? SYNC_LOOKUP_PAUSE_MS);
+    const work = async () => {
+      let rows: ReturnType<typeof dueLookups> = [];
+      try {
+        rows = dueLookups(db, Math.max(1, this.deps.lookupsPerRun ?? SYNC_LOOKUPS_PER_RUN), runStartedAt);
+      } catch {
+        return;
+      }
+      let failures = 0;
+      for (const row of rows) {
+        if (run.cancelled) return;
+        const outcome = await this.deps.webClient().lookup({ sha256: row.sha256, filename: row.name }, pauseMs);
+        if (run.cancelled) return;
+        try {
+          writeWebOutcome(db, row.directory, row.name, outcome, this.deps.now());
+        } catch {
+          return;
+        }
+        failures = outcome.status === 'error' ? failures + 1 : 0;
+        if (failures >= MAX_LOOKUP_FAILURES) return;
+      }
+    };
+    run.done = work().catch(() => undefined).finally(() => {
+      if (this.webRun === run) this.webRun = null;
+      try {
+        this.emit(db);
+      } catch {
+        // The database went away (app quit).
+      }
+    });
+    this.webRun = run;
   }
 
   private clearSchedule(): void {
@@ -570,6 +651,7 @@ export class SyncService {
       if (hasFiles && read.toolNames.has('studio_capabilities')) await this.readPackInfo(db, session);
       const run: EnrichRun = {
         session,
+        startedAt,
         hasTool: read.toolNames.has('model_metadata'),
         hasFiles,
         batch: Math.max(1, Math.round(this.deps.enrichLimit ?? settings.perRun)),
@@ -592,6 +674,7 @@ export class SyncService {
         this.startBackground(db, run);
       } else {
         resolve();
+        this.startWebLookups(db, startedAt);
       }
     } catch (error) {
       const signInLost = (authProvider as { signInRequired?: boolean } | null)?.signInRequired === true;
@@ -669,6 +752,7 @@ export class SyncService {
     this.background = null;
     void run.session.close().catch(() => undefined);
     run.resolve();
+    this.startWebLookups(db, run.startedAt);
     try {
       this.emit(db);
     } catch {
@@ -897,6 +981,7 @@ function enrichmentOver(row: EnrichRow, facts: SidecarFacts) {
     sourceUrl: civitaiUrl(facts) ?? row.source_url ?? null,
     metadata,
     enrichedAt: row.enriched_at ?? Date.now(),
+    sha256: facts.sha256,
   };
 }
 
@@ -923,6 +1008,7 @@ function enrichmentOf(directory: string, name: string, parsed: ParsedModelMetada
     description: side?.description || own?.description || '',
     modelId: side?.modelId ?? own?.modelId ?? null,
     modelVersionId: side?.modelId ? side.modelVersionId : own?.modelVersionId ?? null,
+    sha256: side?.sha256 ?? own?.sha256 ?? null,
   } : null;
   const guess = inferBaseModel({ metadata: parsed?.metadata, sidecarBaseModel: facts?.baseModel, filename: name });
   const description = facts?.description || plainText(parsed?.metadata['modelspec.description'] ?? '');
@@ -935,6 +1021,7 @@ function enrichmentOf(directory: string, name: string, parsed: ParsedModelMetada
     sourceUrl: civitaiUrl(facts),
     metadata: parsed?.metadata ?? {},
     enrichedAt: now,
+    sha256: facts?.sha256 ?? null,
   };
 }
 

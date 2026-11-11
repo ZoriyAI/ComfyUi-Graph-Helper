@@ -89,6 +89,8 @@ describe('what a sidecar says', () => {
       description: 'What it does\nAdds film grain & soft halation.\n• portraits\n• streets\nRetrained on a larger set.',
       modelId: '233140',
       modelVersionId: '2720926',
+      // The fingerprint Lora Manager keeps at the top of its record: what Civitai finds the file by.
+      sha256: '9e76948abf9163e9d31bd86a5c12a2ef2e0161589f25dc6b2fa11ca2f620502c',
     });
     expect(parsed.notes).toMatchObject({
       title: 'Film Grain - analog look',
@@ -117,9 +119,19 @@ describe('what a sidecar says', () => {
     expect(bare.notes.title).toBe('Film Grain - analog look');
     expect(bare.notes.examples).toEqual([{ prompt: 'a lake at dawn', negative: '', steps: null, cfg: null, sampler: '', mature: true }]);
     expect(bare.notes.usage).toEqual(EMPTY_NOTES.usage);
+    // A bare Civitai record names the fingerprint in its file list: the primary file's, written in any case.
+    const listed = parseSidecarFile({
+      ...MANAGER.civitai,
+      files: [
+        { name: 'vae.safetensors', type: 'VAE', hashes: { SHA256: 'A'.repeat(64) } },
+        { name: 'film.safetensors', type: 'Model', primary: true, hashes: { SHA256: 'B'.repeat(64), AutoV2: 'BBBBBBBBBB' } },
+      ],
+    })!;
+    expect(listed.facts.sha256).toBe('b'.repeat(64));
+    expect(parseSidecarFile({ ...MANAGER, sha256: 'not a hash' })!.facts.sha256).toBeNull();
 
     const local = parseSidecarFile({ file_name: 'wan_high', model_name: 'wan_high', base_model: 'Unknown', preview_nsfw_level: 0, civitai: {}, tags: [], modelDescription: '', notes: '', usage_tips: '{}' })!;
-    expect(local.facts).toEqual({ baseModel: null, trainedWords: [], description: '', modelId: null, modelVersionId: null });
+    expect(local.facts).toEqual({ baseModel: null, trainedWords: [], description: '', modelId: null, modelVersionId: null, sha256: null });
     expect(local.notes.title).toBe('wan_high');
     expect(local.notes.mature).toBe(false);
   });

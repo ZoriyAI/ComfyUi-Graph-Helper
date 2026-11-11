@@ -1,4 +1,4 @@
-import { plainText, type SidecarFacts } from './enrichment';
+import { civitaiFileHash, plainText, sha256Text, type SidecarFacts } from './enrichment';
 
 /**
  * The files a model manager keeps next to a model file: what its author said about it, and a picture.
@@ -6,7 +6,8 @@ import { plainText, type SidecarFacts } from './enrichment';
  * Two conventions are read. ComfyUI-Lora-Manager writes `<name>.metadata.json` (its own record with the Civitai
  * model-version record inside, the person's notes and usage tips) and a preview `<name>.webp` or `<name>.mp4`.
  * The Civitai helpers write `<name>.civitai.info` (the model-version record itself) and `<name>.preview.png`.
- * The app only reads these files. It never writes one and never asks Civitai for anything.
+ * The app only reads these files and never writes one. It asks Civitai or Hugging Face about a file only when
+ * the person says so (see shared/knowledge/webLookup.ts), and then with what these files give: the fingerprint.
  */
 
 const MODEL_EXTENSION = /\.(safetensors|sft|ckpt|pt|pth|bin|gguf)$/i;
@@ -252,6 +253,8 @@ export function parseSidecarFile(value: unknown): ParsedSidecar | null {
       description,
       modelId,
       modelVersionId: modelId ? idText(version.id) : null,
+      // Lora Manager keeps the file's fingerprint at the top; a Civitai record has it in its file list.
+      sha256: sha256Text(row.sha256) ?? civitaiFileHash(version.files),
     },
     notes: {
       title,

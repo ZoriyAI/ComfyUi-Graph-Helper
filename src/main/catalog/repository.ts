@@ -118,11 +118,11 @@ export function upsertModelFiles(
  */
 export function inferModelsFromNames(db: Database.Database): number {
   const rows = db.prepare('SELECT directory, name FROM model_catalog WHERE enriched_at IS NULL').all() as Array<{ directory: string; name: string }>;
-  const update = db.prepare('UPDATE model_catalog SET kind = ?, base_model = ?, base_model_evidence = ? WHERE directory = ? AND name = ?');
+  const update = db.prepare(`UPDATE model_catalog SET kind = ?, ${FAMILY_OR_WEB} WHERE directory = ? AND name = ?`);
   const write = db.transaction(() => {
     for (const row of rows) {
       const guess = inferBaseModel({ filename: row.name });
-      update.run(kindFromDirectory(row.directory), guess.family, guess.evidence, row.directory, row.name);
+      update.run(kindFromDirectory(row.directory), ...familyArgs(guess.family, guess.evidence), row.directory, row.name);
     }
   });
   write.immediate();
@@ -210,6 +210,18 @@ export function removeStaleModelFiles(db: Database.Database, runStartedAt: numbe
   return db.prepare('DELETE FROM model_catalog WHERE synced_at IS NOT NULL AND synced_at < ?').run(runStartedAt).changes;
 }
 
+/**
+ * SQL that sets the family to the one given, unless that is 'unknown' and Civitai named one when the file was
+ * looked up: then that one stays, with 'web' as where it came from. What the file itself says always wins over
+ * what the internet said. Three `?`: the family, the family again, the evidence (see familyArgs).
+ */
+const FAMILY_OR_WEB = `base_model = CASE WHEN ? = 'unknown' AND web_family IS NOT NULL THEN web_family ELSE ? END,
+  base_model_evidence = CASE WHEN ? = 'unknown' AND web_family IS NOT NULL THEN 'web' ELSE ? END`;
+
+function familyArgs(family: string, evidence: string): string[] {
+  return [family, family, family, evidence];
+}
+
 export interface ModelEnrichment {
   kind: string;
   baseModel: string;
@@ -219,6 +231,8 @@ export interface ModelEnrichment {
   sourceUrl: string | null;
   metadata: Record<string, string>;
   enrichedAt: number;
+  /** The file's SHA-256 when a description gave it; absent or null leaves the stored one. */
+  sha256?: string | null;
   /**
    * What the description file next to the model says beyond these facts, with the listing signature of the file
    * it was read from (null: there is none). Left out, the stored notes stay as they are.
@@ -229,18 +243,18 @@ export interface ModelEnrichment {
 export function writeModelEnrichment(db: Database.Database, directory: string, name: string, value: ModelEnrichment): void {
   const write = db.transaction(() => {
     db.prepare(`
-      UPDATE model_catalog SET kind = ?, base_model = ?, base_model_evidence = ?, trigger_words = ?, description = ?,
-        source_url = ?, metadata_json = ?, enriched_at = ?
+      UPDATE model_catalog SET kind = ?, ${FAMILY_OR_WEB}, trigger_words = ?, description = ?,
+        source_url = ?, metadata_json = ?, enriched_at = ?, sha256 = COALESCE(?, sha256)
       WHERE directory = ? AND name = ?
     `).run(
       value.kind,
-      value.baseModel,
-      value.baseModelEvidence,
+      ...familyArgs(value.baseModel, value.baseModelEvidence),
       JSON.stringify(value.triggerWords),
       value.description,
       value.sourceUrl,
       JSON.stringify(value.metadata),
       value.enrichedAt,
+      value.sha256 ?? null,
       directory,
       name,
     );
@@ -253,9 +267,9 @@ export function writeModelEnrichment(db: Database.Database, directory: string, n
 }
 
 /** The notes of a model's description file alone, when the facts read from the model itself stay as they are. */
-export function writeModelNotes(db: Database.Database, directory: string, name: string, notes: ModelNotes, readSig: string | null): void {
-  db.prepare('UPDATE model_catalog SET notes_json = ?, sidecar_read_sig = ? WHERE directory = ? AND name = ?')
-    .run(JSON.stringify(notes), readSig, directory, name);
+export function writeModelNotes(db: Database.Database, directory: string, name: string, notes: ModelNotes, readSig: string | null, sha256: string | null = null): void {
+  db.prepare('UPDATE model_catalog SET notes_json = ?, sidecar_read_sig = ?, sha256 = COALESCE(?, sha256) WHERE directory = ? AND name = ?')
+    .run(JSON.stringify(notes), readSig, sha256, directory, name);
 }
 
 export interface CatalogTotals {

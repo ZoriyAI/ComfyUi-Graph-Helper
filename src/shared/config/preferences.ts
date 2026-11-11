@@ -134,6 +134,12 @@ export const preferencesSchema = z.object({
      * them as adult content. Off, a card shows them only when the person asks for that one file.
      */
     showMarkedPreviews: z.boolean().default(false),
+    /**
+     * Let sync look up on the internet the model files whose fingerprint is known and that nothing from Civitai
+     * describes: the fingerprint goes to civitai.com and, when Civitai does not know the file, its name to
+     * huggingface.co. Off, nothing is asked unless the person clicks "Find on the internet" in a model's card.
+     */
+    lookupModelsOnline: z.boolean().default(false),
   }).prefault({}),
   /**
    * Lessons (the helper's "Learn" mode). Where a person is in a lesson is read off the graph; kept here is only

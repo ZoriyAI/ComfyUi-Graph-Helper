@@ -42,6 +42,8 @@ const ASCII_RU = new Set([
   // Model kind chips in the library (library.kindGroup.*) and the short kind names in list rows
   // (knowledge.kindShort.*): the names people meet on Civitai and in ComfyUI.
   'LoRA', 'VAE', 'ControlNet', 'CLIP', 'CLIP Vision', 'IP-Adapter',
+  // The two sites a model card can look a file up on (library.card.web.*).
+  'Civitai', 'Hugging Face',
 ]);
 
 describe('locale catalog', () => {
@@ -171,7 +173,7 @@ describe('language preference', () => {
       VALUES (1, 'graphite', 'reduced', 'test', 'kept-model', 'http://127.0.0.1:8188', 'https://example.test/v1', 9);
     `);
     migrate(db);
-    expect(schemaVersion(db)).toBe(13);
+    expect(schemaVersion(db)).toBe(14);
     expect(readSettings(db)).toMatchObject({
       source: 'stored',
       values: {

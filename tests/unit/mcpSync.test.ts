@@ -786,7 +786,7 @@ describe('metadata parsing', () => {
   it('stringifies non-string header values and reads flat sidecars', () => {
     expect(stringifyMetadata({ a: 'x', b: 2, c: { d: true }, e: null })).toEqual({ a: 'x', b: '2', c: '{"d":true}' });
     expect(parseSidecar({ baseModel: 'Pony', trainedWords: ['a', 'a', 'b'], modelId: '5', modelVersionId: 6, description: 'x &amp; y' }))
-      .toEqual({ baseModel: 'Pony', trainedWords: ['a', 'b'], description: 'x & y', modelId: '5', modelVersionId: '6' });
+      .toEqual({ baseModel: 'Pony', trainedWords: ['a', 'b'], description: 'x & y', modelId: '5', modelVersionId: '6', sha256: null });
     expect(parseSidecar(null)).toBeNull();
   });
 });

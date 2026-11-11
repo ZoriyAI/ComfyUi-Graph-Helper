@@ -12,7 +12,8 @@ export interface McpToolCallResult {
 
 export interface McpSession {
   listTools(): Promise<Array<{ name: string }>>;
-  callTool(name: string, args: Record<string, unknown>): Promise<McpToolCallResult>;
+  /** `timeoutMs` stretches the wait for one slow call (a file's fingerprint); the client's own wait otherwise. */
+  callTool(name: string, args: Record<string, unknown>, options?: { timeoutMs?: number }): Promise<McpToolCallResult>;
   close(): Promise<void>;
 }
 
