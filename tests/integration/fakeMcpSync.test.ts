@@ -8,8 +8,11 @@ import { SyncService } from '../../src/main/mcp/sync';
 import { connectStreamableHttp, openReadOnlySession } from '../../src/main/mcp/client';
 import { READ_ONLY_TOOLS } from '../../src/main/mcp/readOnly';
 import { PreviewReader } from '../../src/main/knowledge/preview';
-import { modelDetail, searchModels } from '../../src/main/knowledge/repository';
-import { CLASSES, modelFileCount, PACKS, SIDE_FILES, startFakeMcp, WRITE_TOOLS, type FakeMcp } from '../fixtures/mcp/fakeMcpServer';
+import { modelDetail, nodeClassDetail, searchModels } from '../../src/main/knowledge/repository';
+import {
+  CLASSES, CUSTOM_NODE_ROOT, KJNODES_DESCRIPTION, KJNODES_REPOSITORY, modelFileCount, PACK_FILES, PACKS, SIDE_FILES, startFakeMcp, WAN_README_OPENING,
+  WRITE_TOOLS, type FakeMcp,
+} from '../fixtures/mcp/fakeMcpServer';
 
 /**
  * The sync over the real Streamable HTTP client against a fake MCP server on loopback: the transport, paging,
@@ -156,7 +159,9 @@ describe('mcpUrlNeedsHttps (Settings ▸ Connection warning)', () => {
 });
 
 describe('what a model manager keeps next to a model', () => {
-  const sideReads = () => fake!.calls.filter((call) => call.method === 'tools/call' && call.tool === 'workspace_files');
+  // Reads of the files next to models; what node packs say about themselves is read too, and counted apart.
+  const sideReads = () => fake!.calls.filter((call) => call.method === 'tools/call' && call.tool === 'workspace_files'
+    && !String(call.args?.absolute_path).startsWith(`${CUSTOM_NODE_ROOT}/`));
   const sideBytes = (name: string) => SIDE_FILES.find((file) => file.filename === name)!.bytes;
 
   it('reads the description next to a file and says what it is for: name, words, tags, usage, examples', async () => {
@@ -314,5 +319,74 @@ describe('what a model manager keeps next to a model', () => {
       reader.stop();
       fs.rmSync(cacheDir, { recursive: true, force: true });
     }
+  }, 60_000);
+});
+
+describe('what a node pack says about itself', () => {
+  const packReads = () => fake!.calls.filter((call) => call.method === 'tools/call' && call.tool === 'workspace_files'
+    && String(call.args?.absolute_path).startsWith(`${CUSTOM_NODE_ROOT}/`));
+  const rootReads = () => fake!.calls.filter((call) => call.method === 'tools/call' && call.tool === 'studio_capabilities' && call.args?.section === 'roots');
+  type PackRow = { name: string; description: string | null; repository_url: string | null; readme_summary: string | null; info_sig: string | null; info_read_at: number | null };
+  const packRow = (db: Database.Database, name: string) => db.prepare('SELECT name, description, repository_url, readme_summary, info_sig, info_read_at FROM node_packs WHERE name = ?').get(name) as PackRow;
+
+  it('reads the pyproject.toml and README of each pack once, and again only when the pack is updated', async () => {
+    fake = await startFakeMcp({ token: TOKEN });
+    const db = openDb();
+    const sync = service(fake.url, TOKEN);
+    const status = await sync.runSync(db);
+    await sync.whenEnrichmentDone();
+    expect(status.lastError).toBeNull();
+
+    // A pack that says who it is and where it lives; the README opening that only repeats that is left out.
+    const kj = packRow(db, 'ComfyUI-KJNodes');
+    expect(kj).toMatchObject({ description: KJNODES_DESCRIPTION, repository_url: KJNODES_REPOSITORY, info_sig: '1.1.7@a1b2c3d' });
+    expect(kj.readme_summary).toMatch(/^I know I'm bad at documentation/);
+    expect(kj.readme_summary).not.toContain('Clone this repo');
+    // A pack with only a README; a pack with neither file is read, says nothing, and is not asked again.
+    expect(packRow(db, 'ComfyUI-WanVideoWrapper')).toMatchObject({ description: null, repository_url: null, readme_summary: WAN_README_OPENING });
+    expect(packRow(db, 'comfyui_controlnet_aux')).toMatchObject({ description: null, repository_url: null, readme_summary: null, info_sig: '1.1.2@' });
+    expect(packRow(db, 'comfyui_controlnet_aux').info_read_at).not.toBeNull();
+    // ComfyUI itself has no pack folder to read.
+    expect(packRow(db, 'comfy-core').info_read_at).toBeNull();
+
+    // The node card of a class from the pack gets it with the class.
+    expect(nodeClassDetail(db, 'ColorMatch')?.packInfo).toEqual({
+      description: KJNODES_DESCRIPTION, repositoryUrl: KJNODES_REPOSITORY, readmeSummary: kj.readme_summary,
+    });
+    expect(nodeClassDetail(db, 'KSampler')?.packInfo).toBeUndefined();
+
+    // Only the two files at the top of a pack, through the gate; never the pack's code or a file deeper in it.
+    const reads = packReads();
+    expect(reads.length).toBeGreaterThan(0);
+    for (const call of reads) {
+      expect(READ_ONLY_TOOLS.workspace_files(call.args ?? {})).toBe(true);
+      expect(String(call.args?.absolute_path)).toMatch(/\/custom_nodes\/[^/]+\/(pyproject\.toml|README\.md|readme\.md|Readme\.md)$/);
+    }
+    const never = PACK_FILES.filter((file) => !['pyproject.toml', 'README.md'].includes(file.file)).map((file) => `${CUSTOM_NODE_ROOT}/${file.pack}/${file.file}`);
+    expect(reads.some((call) => never.includes(String(call.args?.absolute_path)))).toBe(false);
+    expect(rootReads()).toHaveLength(1);
+
+    // Nothing changed: the next sync asks nothing about the packs, not even where they lie.
+    const before = reads.length;
+    await sync.runSync(db);
+    await sync.whenEnrichmentDone();
+    expect(packReads()).toHaveLength(before);
+    expect(rootReads()).toHaveLength(1);
+
+    // KJNodes is updated: only its files are read again.
+    const kjPack = PACKS.find((pack) => pack.name === 'ComfyUI-KJNodes')!;
+    const version = kjPack.version;
+    kjPack.version = '1.1.8';
+    try {
+      await sync.runSync(db);
+      await sync.whenEnrichmentDone();
+    } finally {
+      kjPack.version = version;
+    }
+    const again = packReads().slice(before);
+    expect(again.length).toBeGreaterThan(0);
+    expect(again.every((call) => String(call.args?.absolute_path).startsWith(`${CUSTOM_NODE_ROOT}/ComfyUI-KJNodes/`))).toBe(true);
+    expect(packRow(db, 'ComfyUI-KJNodes').info_sig).toBe('1.1.8@a1b2c3d');
+    sync.stop();
   }, 60_000);
 });

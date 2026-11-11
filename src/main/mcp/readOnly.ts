@@ -24,13 +24,30 @@ export function isSideFilePath(path: string): boolean {
 }
 
 /**
+ * What a node pack says about itself: the `pyproject.toml` and the README at the top of its folder. The folder is
+ * one level under a folder named `custom_nodes`, which is where ComfyUI keeps its packs, so the path is exactly
+ * `/…/custom_nodes/<pack>/<file>`. A file deeper in the pack (its code, `docs/README.md`), a file of ComfyUI
+ * itself and a path that climbs with `..` are none of these, and the app never asks for anything else there.
+ */
+export const PACK_FILE_NAMES = ['pyproject.toml', 'README.md', 'readme.md', 'README.MD', 'Readme.md'] as const;
+
+export function isPackFilePath(path: string): boolean {
+  if (!path.startsWith('/') || path.includes('\0') || path.includes('\\')) return false;
+  const parts = path.split('/').slice(1);
+  if (parts.length < 3 || !parts.every((part) => part !== '' && part !== '.' && part !== '..')) return false;
+  const [root, , file] = parts.slice(-3);
+  return root === 'custom_nodes' && (PACK_FILE_NAMES as readonly string[]).includes(file);
+}
+
+/**
  * Exact argument shapes, `.strict()` so an extra field (a body, a filename, a target) is refused rather than
  * passed through to a tool that might act on it.
  */
 export const READ_ONLY_SCHEMAS = {
   studio_info: z.object({ action: z.enum(['describe', 'paths']) }).strict(),
+  // `roots` names the folders ComfyUI reads from, among them where its node packs lie (custom_node_roots).
   studio_capabilities: z.object({
-    section: z.enum(['nodes', 'models']),
+    section: z.enum(['nodes', 'models', 'roots']),
     kind: z.enum(['classes', 'packs']).optional(),
     limit,
     cursor,
@@ -43,11 +60,12 @@ export const READ_ONLY_SCHEMAS = {
   // ollama_pull / ollama_load / ollama_unload / ollama_chat are not listed and stay refused.
   ollama_targets: z.object({}).strict(),
   ollama_models: z.object({ target: z.string().min(1).max(100) }).strict(),
-  // The description and the preview a model manager keeps next to a model file. The tool can also write, patch,
-  // move and trash: only `read` is listed, only as exact bytes, and only for a path that is such a file.
+  // The description and the preview a model manager keeps next to a model file, and the pyproject.toml and README
+  // at the top of a node pack. The tool can also write, patch, move and trash: only `read` is listed, only as
+  // exact bytes, and only for a path that is one of these files.
   workspace_files: z.object({
     action: z.literal('read'),
-    absolute_path: z.string().min(2).max(4000).refine(isSideFilePath),
+    absolute_path: z.string().min(2).max(4000).refine((path) => isSideFilePath(path) || isPackFilePath(path)),
     encoding: z.literal('base64'),
     offset: z.number().int().min(0).max(SIDE_FILE_MAX_BYTES).optional(),
     length: z.number().int().min(1).max(SIDE_FILE_CHUNK_BYTES).optional(),

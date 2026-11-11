@@ -143,13 +143,13 @@ describe('preferences on the settings row (migration v10)', () => {
     `);
     expect(readPreferences(db)).toEqual(preferencesDefaults);
     migrate(db);
-    expect(schemaVersion(db)).toBe(12);
+    expect(schemaVersion(db)).toBe(13);
     const columns = (db.prepare('PRAGMA table_info(settings)').all() as Array<{ name: string }>).map((column) => column.name);
     expect(columns).toContain('preferences_json');
     expect(db.prepare('SELECT preferences_json, model FROM settings WHERE id = 1').get()).toEqual({ preferences_json: '{}', model: 'llama' });
     expect(readSettings(db)).toMatchObject({ source: 'corrupt', preferences: preferencesDefaults });
     migrate(db);
-    expect(schemaVersion(db)).toBe(12);
+    expect(schemaVersion(db)).toBe(13);
     db.close();
   });
 

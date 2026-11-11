@@ -13,6 +13,7 @@ import type {
   NodeClassDetail,
   NodeClassInput,
   NodeClassSummary,
+  PackInfo,
   SearchModelsRequest,
   SearchNodesRequest,
 } from '../../shared/contracts/knowledge';
@@ -28,6 +29,7 @@ import {
   searchNodesSchema,
 } from '../../shared/knowledge/schemas';
 import { rankMatch } from '../../shared/knowledge/search';
+import { webUrl } from '../../shared/knowledge/packInfo';
 import { notesFromJson, previewKind, type ModelNotes } from '../../shared/knowledge/sidecar';
 import { catalogInputsFromJson, catalogTotals } from '../catalog/repository';
 import { fieldSpecOf, modelDirectoryOf, modelKey } from '../../shared/catalog/fieldSpec';
@@ -121,12 +123,33 @@ export function searchNodeClasses(db: Database.Database, request: SearchNodesReq
   return scored.slice(0, limitOf(parsed.limit)).map((item) => summaryOf(item.row));
 }
 
+/**
+ * What a pack's own files said (sync reads them, see main/mcp/sync.ts readPackInfo), or null when they were never
+ * read or said nothing. The pack is looked up by the folder name the class's module gives; case is forgiven.
+ */
+export function packInfo(db: Database.Database, name: string): PackInfo | null {
+  if (!name || name === 'core') return null;
+  let row: { description: string | null; repository_url: string | null; readme_summary: string | null } | undefined;
+  try {
+    const query = 'SELECT description, repository_url, readme_summary FROM node_packs WHERE info_read_at IS NOT NULL AND ';
+    row = (db.prepare(`${query}name = ?`).get(name) ?? db.prepare(`${query}name = ? COLLATE NOCASE ORDER BY name LIMIT 1`).get(name)) as typeof row;
+  } catch {
+    // A database from before migration v13 has no such columns.
+    return null;
+  }
+  if (!row) return null;
+  const info: PackInfo = { description: row.description ?? '', repositoryUrl: webUrl(row.repository_url), readmeSummary: row.readme_summary ?? '' };
+  return info.description || info.repositoryUrl || info.readmeSummary ? info : null;
+}
+
 export function nodeClassDetail(db: Database.Database, classType: string): NodeClassDetail | null {
   if (typeof classType !== 'string' || classType === '') return null;
   const row = db.prepare(`SELECT ${NODE_COLUMNS} FROM node_catalog WHERE class_type = ?`).get(classType) as NodeRow | undefined;
   if (!row) return null;
   const order = widgetOrderOf(row.widget_order_json);
+  const pack = packInfo(db, packOf(row));
   return {
+    ...(pack ? { packInfo: pack } : {}),
     ...summaryOf(row),
     description: row.description ?? '',
     inputs: detailInputs(db, row),

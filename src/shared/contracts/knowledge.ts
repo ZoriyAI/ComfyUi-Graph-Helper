@@ -1,10 +1,12 @@
 import type { ModelNotes } from '../knowledge/sidecar';
+import type { PackInfo } from '../knowledge/packInfo';
 import type { PromptNoteKind } from '../prompt/inspect';
 import type { ObjectRef } from './objects';
 
 export type { PromptNoteKind } from '../prompt/inspect';
 
 export type { ExamplePrompt, ModelNotes } from '../knowledge/sidecar';
+export type { PackInfo } from '../knowledge/packInfo';
 
 /** Normalised base-model families. 'unknown' when nothing proved it. */
 export type BaseModelFamily =
@@ -105,6 +107,11 @@ export interface NodeClassDetail extends NodeClassSummary {
   widgetOrderReliable: boolean;
   outputNode: boolean;
   syncedAt: number | null;
+  /**
+   * What the class's pack says about itself in its own files (pyproject.toml, README), when they were read.
+   * Absent for a class of ComfyUI itself and for a pack nobody read yet.
+   */
+  packInfo?: PackInfo | null;
 }
 
 export interface ModelSummary {

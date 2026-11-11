@@ -1,5 +1,5 @@
 import type { McpModelFile, McpSession, PagedItems } from '../../shared/mcp/catalogSource';
-import { isModelFile, McpPageError, readAllPages } from '../../shared/mcp/catalogSource';
+import { isModelFile, McpPageError, readAllPages, toolPayload } from '../../shared/mcp/catalogSource';
 import { SideFileIndex, sideFileOf } from '../../shared/knowledge/sidecar';
 import type { NodePackRow } from '../catalog/repository';
 
@@ -130,4 +130,30 @@ export interface ServerIdentity {
 export function identityFromStudioInfo(payload: unknown): ServerIdentity {
   const row = record(payload);
   return { installationId: textOrNull(row?.installation_id), comfyuiUrl: textOrNull(row?.comfyui_url) };
+}
+
+/** More folders than this for node packs is not a ComfyUI setup the app reads pack files from. */
+const MAX_CUSTOM_NODE_ROOTS = 4;
+
+/**
+ * The folders ComfyUI loads node packs from, as `studio_capabilities` section roots names them
+ * (`roots.custom_node_roots`, or `roots.model_categories.custom_nodes.roots`). Only absolute POSIX paths of a
+ * folder named `custom_nodes` count: that is the only place the read-only gate lets the app read a pack's files.
+ * An empty list when the server does not say. Transport errors and refusals are thrown.
+ */
+export async function readCustomNodeRoots(session: McpSession): Promise<string[]> {
+  const payload = record(toolPayload(await session.callTool('studio_capabilities', { section: 'roots' })));
+  const roots = record(payload?.roots) ?? payload;
+  const categories = record(roots?.model_categories);
+  const listed = [
+    ...(Array.isArray(roots?.custom_node_roots) ? roots.custom_node_roots : []),
+    ...(Array.isArray(record(categories?.custom_nodes)?.roots) ? (record(categories?.custom_nodes)?.roots as unknown[]) : []),
+  ];
+  const found: string[] = [];
+  for (const item of listed) {
+    const path = typeof item === 'string' ? item.replace(/\/+$/, '') : '';
+    if (!path.startsWith('/') || !path.endsWith('/custom_nodes') || path.includes('\\') || found.includes(path)) continue;
+    found.push(path);
+  }
+  return found.slice(0, MAX_CUSTOM_NODE_ROOTS);
 }

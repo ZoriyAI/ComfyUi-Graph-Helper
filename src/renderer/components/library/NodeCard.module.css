@@ -12,3 +12,9 @@
 .optional { color: var(--text-faint); font-size: var(--text-xs); font-style: italic; }
 .portFacts { margin: 0; color: var(--text-dim); font-size: var(--text-xs); line-height: 16px; overflow-wrap: anywhere; }
 .portNote { margin: 0; color: var(--text); font-size: var(--text-xs); line-height: 17px; overflow-wrap: anywhere; }
+
+/* What the pack says about itself: the README opening is folded to four lines until "More" is pressed. */
+.readme[data-open="false"] { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; line-clamp: 4; overflow: hidden; }
+.more { align-self: flex-start; }
+/* The repository link is read whole and can be selected and copied by hand. */
+.selectable { user-select: text; cursor: text; }

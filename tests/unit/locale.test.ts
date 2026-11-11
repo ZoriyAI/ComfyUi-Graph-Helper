@@ -171,7 +171,7 @@ describe('language preference', () => {
       VALUES (1, 'graphite', 'reduced', 'test', 'kept-model', 'http://127.0.0.1:8188', 'https://example.test/v1', 9);
     `);
     migrate(db);
-    expect(schemaVersion(db)).toBe(12);
+    expect(schemaVersion(db)).toBe(13);
     expect(readSettings(db)).toMatchObject({
       source: 'stored',
       values: {
