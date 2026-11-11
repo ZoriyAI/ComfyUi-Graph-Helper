@@ -85,7 +85,8 @@ export type FieldTest =
    */
   | { kind: 'weighted'; min: number; max: number }
   | { kind: 'equals'; value: string | number | boolean }
-  | { kind: 'between'; min: number; max: number }
+  /** A number in the range. `prefer` is what "Do this for me" sets; without it, the nearer end of the range. */
+  | { kind: 'between'; min: number; max: number; prefer?: number }
   /** Text of at least this many characters. */
   | { kind: 'text'; minChars: number }
   /** The text holds a trigger word of a file chosen in one of these fields (none known: nothing to check). */
@@ -547,7 +548,7 @@ export function fixFor(missing: Missing, graph: LessonGraph, installed: (classTy
   if (missing.test.kind === 'equals') return { kind: 'set-field', nodeId: missing.nodeId, field: missing.field, value: missing.test.value };
   if (missing.test.kind === 'between') {
     const now = typeof missing.value === 'number' ? missing.value : Number(missing.value);
-    const value = Number.isFinite(now) && now > missing.test.max ? missing.test.max : missing.test.min;
+    const value = missing.test.prefer ?? (Number.isFinite(now) && now > missing.test.max ? missing.test.max : missing.test.min);
     return { kind: 'set-field', nodeId: missing.nodeId, field: missing.field, value };
   }
   if (missing.test.kind === 'same') {

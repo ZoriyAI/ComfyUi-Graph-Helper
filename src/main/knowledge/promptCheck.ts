@@ -212,7 +212,8 @@ export function promptNotes(
     }
     const silent = negative.find((node) => !positive.includes(node) && textsOf(node).some((text) => text.trim() !== ''));
     if (silent && Number.isFinite(cfg) && cfg <= 1) {
-      say({ kind: 'negative-ignored', nodeId: String(silent.id), classType: classOf(silent), found: '', numbers: { cfg }, samplerId }, samplerId);
+      // Said once for the text, however many samplers at cfg 1 it reaches: the two passes of a video take the same one.
+      say({ kind: 'negative-ignored', nodeId: String(silent.id), classType: classOf(silent), found: '', numbers: { cfg }, samplerId });
     }
     const both = contradictions(wanted.join(', '), unwanted.join(', '));
     if (both.length > 0 && positive[0]) {
@@ -227,6 +228,45 @@ export function promptNotes(
           if (ref.directory !== 'loras') continue;
           const words = triggersOf(ref.name);
           if (words.length === 0 || holdsTrigger(description, words)) continue;
+          say({ kind: 'missing-trigger', nodeId: String(node.id), classType: classOf(node), found: '', model: ref.name, words: words.slice(0, SHOWN_WORDS) }, ref.name);
+        }
+      }
+    }
+  }
+
+  // WanVideoWrapper: one node holds both descriptions (`positive_prompt`, `negative_prompt`) and its sampler takes
+  // them by one input, `text_embeds`. The text is read by a T5 model.
+  for (const sink of nodes) {
+    if (!inputNames(sink).some((name) => same(name, 'text_embeds'))) continue;
+    const values = parameters(sink);
+    if (!('cfg' in values)) continue;
+    const cfg = typeof values.cfg === 'number' ? values.cfg : Number(values.cfg);
+    const source = feeder(sink, 'text_embeds')?.node;
+    if (!source) continue;
+    const texts = parameters(source);
+    const wanted = typeof texts.positive_prompt === 'string' ? texts.positive_prompt : null;
+    const unwanted = typeof texts.negative_prompt === 'string' ? texts.negative_prompt : '';
+    if (wanted === null) continue;
+    const nodeId = String(source.id);
+    const classType = classOf(source);
+    const samplerId = String(sink.id);
+    for (const [role, text] of [['positive', wanted], ['negative', unwanted]] as const) {
+      for (const finding of inspectText(text, role, 't5')) {
+        say({ kind: finding.kind, nodeId, classType, found: finding.found, ...(finding.numbers ? { numbers: finding.numbers } : {}) }, role);
+      }
+    }
+    if (wanted.trim() === '') say({ kind: 'empty-positive', nodeId, classType, found: '', samplerId });
+    if (unwanted.trim() !== '' && Number.isFinite(cfg) && cfg <= 1) {
+      say({ kind: 'negative-ignored', nodeId, classType, found: '', numbers: { cfg }, samplerId });
+    }
+    const both = contradictions(wanted, unwanted);
+    if (both.length > 0) say({ kind: 'contradiction', nodeId, classType, found: both.join(', ') });
+    if (wanted.trim() !== '') {
+      for (const node of upstream(sink)) {
+        for (const ref of loadedModelFiles(node, catalog, files)) {
+          if (ref.directory !== 'loras') continue;
+          const words = triggersOf(ref.name);
+          if (words.length === 0 || holdsTrigger(wanted, words)) continue;
           say({ kind: 'missing-trigger', nodeId: String(node.id), classType: classOf(node), found: '', model: ref.name, words: words.slice(0, SHOWN_WORDS) }, ref.name);
         }
       }

@@ -81,8 +81,12 @@
   line-height: 18px;
 }
 .portOut { justify-content: flex-end; text-align: right; }
-.portName { color: var(--text, #e8eef7); }
-.portType { color: var(--text-faint, #8b9bb0); font-family: ui-monospace, monospace; font-size: 11px; }
+/*
+ * A port reads as its name; the data type beside it is a hint. Pack types can be long (WANVIDIMAGE_CLIPEMBEDS):
+ * the type gives way first and ends with an ellipsis, its full name in the tooltip, so the row stays in its node.
+ */
+.portName { color: var(--text, #e8eef7); flex: 0 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.portType { color: var(--text-faint, #8b9bb0); font-family: ui-monospace, monospace; font-size: 11px; flex: 0 100 auto; min-width: 24px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* The handle is a 24px hit area with a 12px dot of the port colour; the dot glows on hover, focus and when lit. */
 .port .handle {

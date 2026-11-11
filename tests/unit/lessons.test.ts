@@ -59,6 +59,22 @@ const CLASSES: Record<string, Spec> = {
   CLIPSetLastLayer: { inputs: [['clip', 'CLIP'], ['stop_at_clip_layer', 'INT', -1]], outputs: [['CLIP', 'CLIP']] },
   VAEEncode: { inputs: [['pixels', 'IMAGE'], ['vae', 'VAE']], outputs: [['LATENT', 'LATENT']] },
   PreviewImage: { inputs: [['images', 'IMAGE']], outputs: [] },
+  // ComfyUI-WanVideoWrapper, as the pack declares them.
+  WanVideoModelLoader: { inputs: [['model', 'COMBO', 'wan-high.safetensors'], ['base_precision', 'COMBO', 'bf16'], ['quantization', 'COMBO', 'disabled'], ['load_device', 'COMBO', 'offload_device'], ['block_swap_args', 'BLOCKSWAPARGS'], ['lora', 'WANVIDLORA']], outputs: [['model', 'WANVIDEOMODEL']] },
+  WanVideoLoraSelect: { inputs: [['lora', 'COMBO', 'first-lora.safetensors'], ['strength', 'FLOAT', 1], ['prev_lora', 'WANVIDLORA']], outputs: [['lora', 'WANVIDLORA']] },
+  LoadWanVideoT5TextEncoder: { inputs: [['model_name', 'COMBO', 'umt5.safetensors'], ['precision', 'COMBO', 'bf16']], outputs: [['wan_t5_model', 'WANTEXTENCODER']] },
+  WanVideoVAELoader: { inputs: [['model_name', 'COMBO', 'wan-vae.safetensors'], ['precision', 'COMBO', 'bf16']], outputs: [['vae', 'WANVAE']] },
+  WanVideoTextEncode: { inputs: [['positive_prompt', 'STRING', ''], ['negative_prompt', 'STRING', ''], ['t5', 'WANTEXTENCODER'], ['force_offload', 'BOOLEAN', true]], outputs: [['text_embeds', 'WANVIDEOTEXTEMBEDS']] },
+  WanVideoEmptyEmbeds: { inputs: [['width', 'INT', 832], ['height', 'INT', 480], ['num_frames', 'INT', 81]], outputs: [['image_embeds', 'WANVIDIMAGE_EMBEDS']] },
+  WanVideoImageToVideoEncode: {
+    inputs: [['width', 'INT', 832], ['height', 'INT', 480], ['num_frames', 'INT', 81], ['noise_aug_strength', 'FLOAT', 0], ['start_latent_strength', 'FLOAT', 1], ['end_latent_strength', 'FLOAT', 1], ['vae', 'WANVAE'], ['clip_embeds', 'WANVIDIMAGE_CLIPEMBEDS'], ['start_image', 'IMAGE'], ['end_image', 'IMAGE']],
+    outputs: [['image_embeds', 'WANVIDIMAGE_EMBEDS']],
+  },
+  WanVideoSampler: {
+    inputs: [['model', 'WANVIDEOMODEL'], ['image_embeds', 'WANVIDIMAGE_EMBEDS'], ['steps', 'INT', 30], ['cfg', 'FLOAT', 6], ['shift', 'FLOAT', 5], ['seed', 'INT', 0], ['force_offload', 'BOOLEAN', true], ['scheduler', 'COMBO', 'unipc'], ['text_embeds', 'WANVIDEOTEXTEMBEDS'], ['samples', 'LATENT'], ['start_step', 'INT', 0], ['end_step', 'INT', -1]],
+    outputs: [['samples', 'LATENT'], ['denoised_samples', 'LATENT']],
+  },
+  WanVideoDecode: { inputs: [['vae', 'WANVAE'], ['samples', 'LATENT'], ['enable_vae_tiling', 'BOOLEAN', false]], outputs: [['images', 'IMAGE']] },
 };
 
 const ports: ClassPorts = (classType) => {
@@ -699,6 +715,86 @@ describe('the lessons on descriptions', () => {
   });
 });
 
+describe('the lessons on WanVideoWrapper', () => {
+  it('sets the numbers the lesson speaks of when the app does a step, and the second pass starts where the first stops', () => {
+    const lesson = lessonById('wrapper')!;
+    const canvas = new Canvas();
+    carryOut(lesson, canvas);
+    const roles = done(lesson, canvas).roles;
+    const first = canvas.node(roles.first).values;
+    const second = canvas.node(roles.second).values;
+    // The pack's sampler starts at 30 steps, which the lesson accepts; what it fixes is where the work is split.
+    // So does its shift of 5, inside the range the lesson names.
+    expect({ end: first.end_step, cfg: first.cfg }).toEqual({ end: 10, cfg: 3.5 });
+    expect({ steps: second.steps, start: second.start_step, cfg: second.cfg }).toEqual({ steps: first.steps, start: 10, cfg: 3.5 });
+    for (const values of [first, second]) expect(Number(values.shift)).toBeGreaterThanOrEqual(5);
+    expect(canvas.node(roles.embeds).values.num_frames).toBe(81);
+    // The pack's nodes and the built-in ones are different lessons: nothing built-in was asked for but saving.
+    expect(canvas.nodes.map((item) => item.classType).filter((classType) => !classType.includes('Wan'))).toEqual(['CreateVideo', 'SaveVideo']);
+  });
+
+  it('starts the same graph from a picture, and the first lesson stays done', () => {
+    const canvas = new Canvas();
+    carryOut(lessonById('wrapper')!, canvas);
+    const image = lessonById('wrapper-image')!;
+    carryOut(image, canvas);
+    expect(done(image, canvas).current).toBe(image.steps.length);
+    const roles = done(image, canvas).roles;
+    // Both samplers take the start that carries the picture, and the lesson before still holds.
+    for (const sampler of [roles.first, roles.second]) {
+      const fed = canvas.links.find((item) => item.to === sampler && item.toPort === canvas.node(sampler).inputs.find((port) => port.name === 'image_embeds')!.id)!;
+      expect(canvas.node(fed.from).classType).toBe('WanVideoImageToVideoEncode');
+    }
+    expect(done(lessonById('wrapper')!, canvas).current).toBe(lessonById('wrapper')!.steps.length);
+  });
+
+  it('holds the description to the words of a LoRA chosen for the pack', () => {
+    const lesson = lessonById('wrapper')!;
+    const canvas = new Canvas();
+    carryOut(lesson, canvas);
+    const roles = done(lesson, canvas).roles;
+    const select = canvas.add('WanVideoLoraSelect');
+    select.values.lora = 'style-high.safetensors';
+    canvas.connect(select.id, 'out-0', roles.high, canvas.node(roles.high).inputs.find((port) => port.name === 'lora')!.id);
+    const asks = done(lesson, canvas);
+    expect(lesson.steps[asks.current].id).toBe('trigger');
+    expect(asks.missing[0]).toMatchObject({ kind: 'field', field: 'positive_prompt', test: { kind: 'has-trigger' } });
+    canvas.node(roles.text).values.positive_prompt = 'A street at night, neon rain on glass.';
+    expect(done(lesson, canvas).current).toBe(lesson.steps.length);
+  });
+
+  it('places the nodes the app adds from left to right without crowding', () => {
+    const GAPS = { x: 96, y: 72 };
+    const lesson = lessonById('wrapper')!;
+    const canvas = new Canvas();
+    const rects = new Map<string, FlowRect>();
+    const read = new Set<string>();
+    for (let guard = 0; guard < 400; guard += 1) {
+      const progress = lessonProgress(lesson, canvas, FACTS, read);
+      if (progress.current === lesson.steps.length) break;
+      const step = lesson.steps[progress.current];
+      if (step.read) {
+        read.add(step.id);
+        continue;
+      }
+      const missing = progress.missing[0];
+      const fix = fixFor(missing, canvas, installed);
+      if (!fix) decide(canvas, missing);
+      else if (fix.kind === 'add-node') {
+        const size = { width: 240, height: 70 + 30 * CLASSES[fix.classType].inputs.length };
+        const spot = (missing.kind === 'node' ? lessonSpot(lesson, missing.role, progress.roles, rects, size, GAPS) : null) ?? { x: 0, y: 0 };
+        rects.set(canvas.add(fix.classType).id, { ...spot, ...size });
+      } else if (fix.kind === 'connect') canvas.connect(fix.from, fix.fromPort, fix.to, fix.toPort);
+      else canvas.node(fix.nodeId).values[fix.field] = fix.value;
+    }
+    for (const item of canvas.links) {
+      const from = rects.get(item.from)!;
+      const to = rects.get(item.to)!;
+      expect(from.x + from.width, `${canvas.node(item.from).classType} → ${canvas.node(item.to).classType}`).toBeLessThan(to.x);
+    }
+  });
+});
+
 describe('a lesson is offered only where it fits', () => {
   it('names the class that is not installed', () => {
     const without: ClassPorts = (classType) => (classType === 'WanImageToVideo' ? null : ports(classType));
@@ -784,7 +880,12 @@ describe('the words of the lessons', () => {
     // What a lesson's graph is made of: its own nodes, those of the lessons it stands on, and those of a lesson
     // its text sends the reader to by name. The samplers of a video graph call the seed `noise_seed`; a lesson
     // on that graph that said `seed` would send a person to a field that is not there.
-    const own = (id: string): string[] => rolesOf(lessonById(id)!).map((spec) => spec.classes[0]);
+    // A rule that holds the description to the words of whatever LoRA select node is on the canvas looks at that
+    // class too: its fields are the lesson's business.
+    const own = (id: string): string[] => [
+      ...rolesOf(lessonById(id)!).map((spec) => spec.classes[0]),
+      ...lessonById(id)!.steps.flatMap((step) => step.fields ?? []).flatMap((spec) => (spec.test.kind === 'has-trigger' ? spec.test.of.flatMap((source) => ('classType' in source ? [source.classType] : [])) : [])),
+    ];
     const standsOn = (id: string): string[] => (LESSON_AFTER[id] ?? []).flatMap((other) => [other, ...standsOn(other)]);
     const strangers: string[] = [];
     for (const language of ['ru', 'en'] as const) {

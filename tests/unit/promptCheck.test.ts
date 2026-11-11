@@ -21,6 +21,11 @@ const SPECS = new Map([
   ['KSampler', { inputs: [{ name: 'model', type: 'MODEL', widget: false }, { name: 'positive', type: 'CONDITIONING', widget: false }, { name: 'negative', type: 'CONDITIONING', widget: false }, { name: 'latent_image', type: 'LATENT', widget: false }, { name: 'cfg', type: 'FLOAT', widget: true }], outputs: [{ name: 'LATENT', type: 'LATENT' }] }],
   ['LoraLoader', { inputs: [{ name: 'model', type: 'MODEL', widget: false }, { name: 'clip', type: 'CLIP', widget: false }, { name: 'lora_name', type: 'COMBO', widget: true }], outputs: [{ name: 'MODEL', type: 'MODEL' }, { name: 'CLIP', type: 'CLIP' }] }],
   ['WanImageToVideo', { inputs: [{ name: 'positive', type: 'CONDITIONING', widget: false }, { name: 'negative', type: 'CONDITIONING', widget: false }, { name: 'vae', type: 'VAE', widget: false }], outputs: [{ name: 'positive', type: 'CONDITIONING' }, { name: 'negative', type: 'CONDITIONING' }, { name: 'latent', type: 'LATENT' }] }],
+  ['LoadWanVideoT5TextEncoder', { inputs: [{ name: 'model_name', type: 'COMBO', widget: true }], outputs: [{ name: 'wan_t5_model', type: 'WANTEXTENCODER' }] }],
+  ['WanVideoTextEncode', { inputs: [{ name: 'positive_prompt', type: 'STRING', widget: true }, { name: 'negative_prompt', type: 'STRING', widget: true }, { name: 't5', type: 'WANTEXTENCODER', widget: false }], outputs: [{ name: 'text_embeds', type: 'WANVIDEOTEXTEMBEDS' }] }],
+  ['WanVideoLoraSelect', { inputs: [{ name: 'lora', type: 'COMBO', widget: true }, { name: 'prev_lora', type: 'WANVIDLORA', widget: false }], outputs: [{ name: 'lora', type: 'WANVIDLORA' }] }],
+  ['WanVideoModelLoader', { inputs: [{ name: 'model', type: 'COMBO', widget: true }, { name: 'lora', type: 'WANVIDLORA', widget: false }], outputs: [{ name: 'model', type: 'WANVIDEOMODEL' }] }],
+  ['WanVideoSampler', { inputs: [{ name: 'model', type: 'WANVIDEOMODEL', widget: false }, { name: 'image_embeds', type: 'WANVIDIMAGE_EMBEDS', widget: false }, { name: 'text_embeds', type: 'WANVIDEOTEXTEMBEDS', widget: false }, { name: 'cfg', type: 'FLOAT', widget: true }], outputs: [{ name: 'samples', type: 'LATENT' }] }],
   ['ConditioningCombine', { inputs: [{ name: 'conditioning_1', type: 'CONDITIONING', widget: false }, { name: 'conditioning_2', type: 'CONDITIONING', widget: false }], outputs: [{ name: 'CONDITIONING', type: 'CONDITIONING' }] }],
 ]);
 
@@ -150,9 +155,10 @@ describe('the descriptions of a graph', () => {
       link('8', 'positive', '9', 'positive'), link('8', 'negative', '9', 'negative'),
     ];
     const notes = promptNotes(db, nodes, edges, SPECS, readCatalog(db));
-    // Two samplers share the texts: each thing is said once, except what is about a sampler and a text together.
-    expect(brief(notes)).toEqual(['weight-ignored@2', 'foreign-syntax@3', 'negative-ignored@3', 'negative-ignored@3']);
-    expect(notes.filter((note) => note.kind === 'negative-ignored').map((note) => note.samplerId)).toEqual(['4', '9']);
+    // Two samplers share the texts: each thing is said once. The two passes of a video at cfg 1 make one sentence
+    // about the second text, not the same sentence twice; it names the first sampler.
+    expect(brief(notes)).toEqual(['weight-ignored@2', 'foreign-syntax@3', 'negative-ignored@3']);
+    expect(notes.filter((note) => note.kind === 'negative-ignored').map((note) => note.samplerId)).toEqual(['4']);
     db.close();
   });
 
@@ -163,6 +169,40 @@ describe('the descriptions of a graph', () => {
     graph.edges = graph.edges.filter((edge) => !(edge.target === '4' && edge.targetHandle === 'positive'));
     graph.edges.push(link('1', 'CLIP', '5', 'clip'), link('2', 'CONDITIONING', '6', 'conditioning_1'), link('5', 'CONDITIONING', '6', 'conditioning_2'), link('6', 'CONDITIONING', '4', 'positive'));
     expect(brief(run(db, graph))).toEqual(['negation@5', 'not-english@5']);
+    db.close();
+  });
+
+  it('reads the two descriptions of a WanVideoWrapper text node, the way a T5 model reads them', () => {
+    const db = openDb();
+    const wrapper = (texts: { positive: string; negative: string }, cfg = 3.5, lora?: string) => {
+      const nodes = [
+        node('1', 'LoadWanVideoT5TextEncoder', { model_name: 'umt5.safetensors' }),
+        node('2', 'WanVideoTextEncode', { positive_prompt: texts.positive, negative_prompt: texts.negative }),
+        node('3', 'WanVideoModelLoader', { model: 'wan_high.safetensors' }),
+        node('4', 'WanVideoSampler', { cfg }),
+      ];
+      const edges = [link('1', 'wan_t5_model', '2', 't5'), link('2', 'text_embeds', '4', 'text_embeds'), link('3', 'model', '4', 'model')];
+      if (lora) {
+        nodes.push(node('5', 'WanVideoLoraSelect', { lora }));
+        edges.push(link('5', 'lora', '3', 'lora'));
+      }
+      return { nodes, edges };
+    };
+    expect(run(db, wrapper({ positive: 'A woman walks along a wet street at night. The camera follows her.', negative: 'blurry, static' }))).toEqual([]);
+    // Weights do little on a T5 reader; a LoRA written into the text does nothing; "no" in what is wanted works the other way.
+    expect(brief(run(db, wrapper({ positive: 'A street with no cars, <lora:neon:1>, (rain:1.2).', negative: '' })))).toEqual(['lora-tag@2', 'weight-ignored@2', 'negation@2']);
+    // The negative text at cfg 1, an empty description, the same thing in both.
+    expect(run(db, wrapper({ positive: 'A lake at dawn.', negative: 'blurry' }, 1))).toEqual([{ kind: 'negative-ignored', nodeId: '2', classType: 'WanVideoTextEncode', found: '', numbers: { cfg: 1 }, samplerId: '4' }]);
+    // Two passes at cfg 1 that take the same text: it is said once.
+    const twoPasses = wrapper({ positive: 'A lake at dawn.', negative: 'blurry' }, 1);
+    twoPasses.nodes.push(node('6', 'WanVideoSampler', { cfg: 1 }));
+    twoPasses.edges.push(link('2', 'text_embeds', '6', 'text_embeds'));
+    expect(brief(run(db, twoPasses))).toEqual(['negative-ignored@2']);
+    expect(brief(run(db, wrapper({ positive: ' ', negative: '' })))).toEqual(['empty-positive@2']);
+    expect(brief(run(db, wrapper({ positive: 'a portrait, film grain', negative: 'film grain' })))).toEqual(['contradiction@2']);
+    // A LoRA chosen for the wrapper's model loader is held to its words.
+    expect(run(db, wrapper({ positive: 'A street at night.', negative: '' }, 3.5, 'neon.safetensors'))).toEqual([{ kind: 'missing-trigger', nodeId: '5', classType: 'WanVideoLoraSelect', found: '', model: 'neon.safetensors', words: ['neon rain', 'wet glass'] }]);
+    expect(run(db, wrapper({ positive: 'A street at night, neon rain.', negative: '' }, 3.5, 'neon.safetensors'))).toEqual([]);
     db.close();
   });
 

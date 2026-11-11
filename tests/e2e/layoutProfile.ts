@@ -23,6 +23,9 @@ export const APP_AUDIT: AuditOptions = {
     '[role="listbox"] [role="option"]', '[role="dialog"] [role="option"]', '.project-chip', '.graph-node-title',
     // The build strip: the step counter comes first and stays whole; the reason after it is in the bubble by the node.
     '[data-live-build]',
+    // The data type beside a port is a hint, named by the pack that made it (WANVIDIMAGE_CLIPEMBEDS); the port's
+    // name stays whole, and the full type is in the tooltip.
+    '.port-type[title]',
   ],
   // Every text and tooltip is read for "{{count}}", "undefined" and translation keys shown instead of their text.
   keyRoots: Object.keys(en),

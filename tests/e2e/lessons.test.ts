@@ -380,6 +380,10 @@ const FILES: Record<string, string[]> = {
   clip_name: ['umt5_xxl_fp8_e4m3fn_scaled.safetensors'],
   vae_name: ['wan_2.1_vae.safetensors'],
   image: ['example.png'],
+  // The same field name on another node holds another kind of file.
+  'WanVideoModelLoader.model': ['wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors', 'z_image_turbo_bf16.safetensors'],
+  'LoadWanVideoT5TextEncoder.model_name': ['umt5_xxl_fp8_e4m3fn_scaled.safetensors'],
+  'WanVideoVAELoader.model_name': ['wan_2.1_vae.safetensors'],
 };
 const DESCRIPTION = 'A young woman in a red coat walks slowly along a wet city street at night. The camera follows her from the side. Soft cinematic light.';
 
@@ -412,10 +416,10 @@ async function carry(page: Page, api: Bridge, id: string, each?: (stepId: string
     await expect(shown, `${id}/${stepId}: ${lack}`).toHaveCount(1);
     const nodeId = String(await shown.getAttribute('data-id'));
     const node = (await nodesOf(api)).find((item) => item.id === nodeId)!;
-    const field = /field (\w+) of/.exec(lack)?.[1] ?? 'text';
+    const field = /field (\w+) of/.exec(lack)?.[1] ?? (node.data.comfyType === 'WanVideoTextEncode' ? 'positive_prompt' : 'text');
     if (/Choose a value|holds the same file/.test(lack)) {
       const held = new Set((await nodesOf(api)).map((item) => item.data.parameters[field]));
-      const value = (FILES[field] ?? []).find((item) => !held.has(item));
+      const value = (FILES[`${node.data.comfyType}.${field}`] ?? FILES[field] ?? []).find((item) => !held.has(item));
       if (!value) throw new Error(`${id}/${stepId}: nothing to choose for ${field}: ${lack}`);
       await change(page, api, { type: 'set-parameter', nodeId, key: field, value });
     } else if (/Write a description|is short so far/.test(lack)) {
@@ -570,6 +574,70 @@ test('lessons: descriptions, a second pass and a picture model in front of a vid
     await expect(check).toBeVisible();
     await expect(check.getByRole('button', { name: 'Check the graph', exact: true })).toBeEnabled();
     await expect(check).toContainText('No problems found.');
+  } finally {
+    await app.close();
+    await fake.close();
+    fs.rmSync(userData, { recursive: true, force: true });
+  }
+});
+
+test('lessons: a video on WanVideoWrapper is carried through, from text and then from a picture, and its description is read', async () => {
+  test.setTimeout(600_000);
+  const fake = await startFakeMcp({ extraLoras: 3, video: true });
+  const { app, page, api, userData } = await launch(fake);
+  const wide = [{ width: 1440, height: 900 }];
+  try {
+    await openLearn(page);
+    await expect(panel(page).locator('[data-lesson-card="wrapper"]')).toHaveAttribute('data-lesson-state', 'new');
+    await expect(panel(page).locator('[data-lesson-card="wrapper-image"]')).toContainText('Goes on from the lesson "Video on WanVideoWrapper".');
+    await startLesson(page, 'wrapper');
+    await carry(page, api, 'wrapper', async (stepId) => {
+      await expectSoundLayout(page, `lessons, WanVideoWrapper: ${stepId}`, wide);
+      if (stepId === 'memory') await shot(page, '14-wrapper-memory');
+    });
+    await stepIs(page, 'end');
+    let built = await builtOf(api);
+    // Only the pack's nodes, and the two built-in ones that save the clip.
+    expect(built.nodes.map((node) => node.data.comfyType).filter((type) => !/Wan/.test(type)).sort()).toEqual(['CreateVideo', 'SaveVideo']);
+    const samplers = built.nodes.filter((node) => node.data.comfyType === 'WanVideoSampler').map((node) => node.data.parameters);
+    const firstPass = samplers.find((item) => Number(item.end_step) > 0)!;
+    const secondPass = samplers.find((item) => item !== firstPass)!;
+    expect(secondPass.start_step).toBe(firstPass.end_step);
+    expect(Number(firstPass.cfg)).toBe(3.5);
+    let placed = new Map(built.nodes.map((node) => [node.id, node]));
+    for (const edge of built.edges) {
+      const from = placed.get(edge.source)!;
+      const to = placed.get(edge.target)!;
+      expect(from.position.x, `${from.data.comfyType} → ${to.data.comfyType}`).toBeLessThan(to.position.x);
+    }
+
+    // The description of the pack's text node is read by "Check": at cfg 1 its second text does nothing.
+    const text = built.nodes.find((node) => node.data.comfyType === 'WanVideoTextEncode')!;
+    await change(page, api, { type: 'set-parameter', nodeId: text.id, key: 'negative_prompt', value: 'blurry, static' });
+    for (const sampler of built.nodes.filter((node) => node.data.comfyType === 'WanVideoSampler')) {
+      await change(page, api, { type: 'set-parameter', nodeId: sampler.id, key: 'cfg', value: 1 });
+    }
+    await page.getByRole('button', { name: 'Check graph', exact: true }).click();
+    const check = page.locator('.check-panel');
+    await expect(check.getByRole('button', { name: 'Check the graph', exact: true })).toBeEnabled();
+    await expect(check.locator('[data-check-group="promptNotes"]')).toContainText('has cfg 1, and at cfg 1 the negative description does not act at all.');
+    await shot(page, '15-wrapper-check');
+    await openLearn(page);
+
+    await startLesson(page, 'wrapper-image');
+    await carry(page, api, 'wrapper-image', async (stepId) => {
+      await expectSoundLayout(page, `lessons, WanVideoWrapper from a picture: ${stepId}`, wide);
+    });
+    await stepIs(page, 'end');
+    built = await builtOf(api);
+    placed = new Map(built.nodes.map((node) => [node.id, node]));
+    const start = built.nodes.find((node) => node.data.comfyType === 'WanVideoImageToVideoEncode')!;
+    const fed = built.edges.filter((edge) => edge.source === start.id).map((edge) => placed.get(edge.target)!.data.comfyType);
+    expect(fed).toEqual(['WanVideoSampler', 'WanVideoSampler']);
+    await page.locator('.react-flow__controls-fitview').click();
+    await page.waitForTimeout(450);
+    await shot(page, '16-wrapper-image-done');
+    await expectSoundLayout(page, 'lessons, WanVideoWrapper from a picture done', wide);
   } finally {
     await app.close();
     await fake.close();

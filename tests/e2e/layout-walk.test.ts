@@ -627,6 +627,9 @@ test('nothing sticks out, is cut or overlaps on any screen at any window size', 
         CLIPLoader: { key: 'clip_name', values: ['umt5_xxl_fp8_e4m3fn_scaled.safetensors'] },
         VAELoader: { key: 'vae_name', values: ['wan_2.1_vae.safetensors'] },
         LoadImage: { key: 'image', values: ['example.png'] },
+        WanVideoModelLoader: { key: 'model', values: ['wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors', 'z_image_turbo_bf16.safetensors'] },
+        LoadWanVideoT5TextEncoder: { key: 'model_name', values: ['umt5_xxl_fp8_e4m3fn_scaled.safetensors'] },
+        WanVideoVAELoader: { key: 'model_name', values: ['wan_2.1_vae.safetensors'] },
       };
       const WORDS = 'A young woman in a red coat walks slowly along a wet city street at night. The camera follows her from the side. Soft cinematic light.';
       const carryLesson = async (id: string, label: string | null) => {
@@ -665,8 +668,9 @@ test('nothing sticks out, is cut or overlaps on any screen at any window size', 
               const taken = new Set(all.map((item) => item.data.parameters[file.key]));
               await commit(page, { type: 'set-parameter', nodeId, key: file.key, value: file.values.find((item) => !taken.has(item)) ?? file.values[0] });
             } else {
-              const text = String(node.data.parameters.text ?? '');
-              await commit(page, { type: 'set-parameter', nodeId, key: 'text', value: stepId === 'weigh' ? `${text} (red coat:1.2)` : WORDS });
+              const key = node.data.comfyType === 'WanVideoTextEncode' ? 'positive_prompt' : 'text';
+              const text = String(node.data.parameters[key] ?? '');
+              await commit(page, { type: 'set-parameter', nodeId, key, value: stepId === 'weigh' ? `${text} (red coat:1.2)` : WORDS });
             }
             await expect.poll(revision, { timeout: 15_000 }).not.toBe(before);
             await reloaded(page);
@@ -688,6 +692,14 @@ test('nothing sticks out, is cut or overlaps on any screen at any window size', 
       await carryLesson('video-image', null);
       await carryLesson('two-models', 'lessons, two models');
       await visit(page, 'canvas with two models', fitView);
+      // The same video on the nodes of WanVideoWrapper, from text and then from a picture.
+      await page.keyboard.press('Control+n');
+      await page.getByRole('button', { name: T('menu.newProjectConfirm'), exact: true }).click();
+      await expect(nodes).toHaveCount(0, { timeout: 15_000 });
+      await reloaded(page);
+      await carryLesson('wrapper', 'lessons, WanVideoWrapper');
+      await carryLesson('wrapper-image', 'lessons, WanVideoWrapper from a picture');
+      await visit(page, 'canvas with a WanVideoWrapper graph', fitView);
 
       // The rest of the walk starts from an empty canvas and from the conversation.
       await page.keyboard.press('Control+n');

@@ -18,7 +18,7 @@ const link = (from: string, output: string, to: string, input: string, via?: str
 const field = (role: string, name: string, test: FieldTest): FieldSpec => ({ role, field: name, test });
 const chosen: FieldTest = { kind: 'chosen' };
 const equals = (value: string | number | boolean): FieldTest => ({ kind: 'equals', value });
-const between = (min: number, max: number): FieldTest => ({ kind: 'between', min, max });
+const between = (min: number, max: number, prefer?: number): FieldTest => (prefer === undefined ? { kind: 'between', min, max } : { kind: 'between', min, max, prefer });
 
 /** A LoRA loader on the way from a model to where the model is used does not break the way. */
 const LORA = ['LoraLoaderModelOnly'];
@@ -431,6 +431,115 @@ const twoModels: Lesson = {
 };
 
 /**
+ * Wan 2.2 in kijai's ComfyUI-WanVideoWrapper: its own loaders, one text node that holds both descriptions, one
+ * embeds node that says the size and the length (or carries the start picture), and a sampler that takes the
+ * noise shift itself. Its nodes do not connect to the built-in ones (WANVIDEOMODEL is not MODEL), so a graph is
+ * built on one or on the other. Port names are the pack's own (nodes.py, nodes_model_loading.py, nodes_sampler.py).
+ */
+const wrapper: Lesson = {
+  id: 'wrapper',
+  steps: [
+    { id: 'intro', read: true },
+    {
+      id: 'models',
+      roles: [node('high', 'WanVideoModelLoader'), node('low', 'WanVideoModelLoader')],
+      fields: [field('high', 'model', chosen), field('low', 'model', { kind: 'differs', role: 'high', field: 'model' })],
+    },
+    { id: 'text-encoder', roles: [node('t5', 'LoadWanVideoT5TextEncoder')], fields: [field('t5', 'model_name', chosen)] },
+    { id: 'vae', roles: [node('vae', 'WanVideoVAELoader')], fields: [field('vae', 'model_name', chosen)] },
+    {
+      id: 'prompt',
+      roles: [node('text', 'WanVideoTextEncode')],
+      links: [link('t5', 'wan_t5_model', 'text', 't5')],
+      fields: [field('text', 'positive_prompt', { kind: 'text', minChars: 3 })],
+    },
+    {
+      id: 'embeds',
+      roles: [node('embeds', 'WanVideoEmptyEmbeds', 'WanVideoImageToVideoEncode')],
+      fields: [field('embeds', 'num_frames', between(49, 121, 81))],
+    },
+    {
+      id: 'first-pass',
+      roles: [node('first', 'WanVideoSampler')],
+      links: [link('high', 'model', 'first', 'model'), link('text', 'text_embeds', 'first', 'text_embeds'), link('embeds', 'image_embeds', 'first', 'image_embeds')],
+    },
+    {
+      id: 'second-pass',
+      roles: [node('second', 'WanVideoSampler')],
+      links: [
+        link('low', 'model', 'second', 'model'),
+        link('text', 'text_embeds', 'second', 'text_embeds'),
+        link('embeds', 'image_embeds', 'second', 'image_embeds'),
+        link('first', 'samples', 'second', 'samples'),
+      ],
+    },
+    {
+      id: 'split',
+      fields: [
+        field('first', 'steps', between(4, 40, 20)),
+        field('first', 'end_step', between(1, 20, 10)),
+        field('second', 'steps', { kind: 'same', role: 'first', field: 'steps' }),
+        field('second', 'start_step', { kind: 'same', role: 'first', field: 'end_step' }),
+      ],
+    },
+    {
+      id: 'guidance',
+      fields: [
+        field('first', 'cfg', between(1, 4, 3.5)),
+        field('second', 'cfg', between(1, 4, 3.5)),
+        field('first', 'shift', between(5, 8, 8)),
+        field('second', 'shift', between(5, 8, 8)),
+      ],
+    },
+    { id: 'decode', roles: [node('decode', 'WanVideoDecode')], links: [link('second', 'samples', 'decode', 'samples'), link('vae', 'vae', 'decode', 'vae')] },
+    {
+      id: 'save',
+      roles: [node('video', 'CreateVideo'), node('save', 'SaveVideo')],
+      links: [link('decode', 'IMAGE', 'video', 'images'), link('video', 'VIDEO', 'save', 'video')],
+      fields: [field('video', 'fps', equals(16))],
+    },
+    { id: 'memory', read: true },
+    { id: 'lora', read: true },
+    {
+      id: 'trigger',
+      fields: [field('text', 'positive_prompt', { kind: 'has-trigger', of: [{ classType: 'WanVideoLoraSelect', field: 'lora' }] })],
+    },
+    { id: 'fast', read: true },
+    { id: 'run', read: true },
+  ],
+};
+
+/** The same graph started from a picture: the embeds node that carries it, and the picture itself. */
+const wrapperImage: Lesson = {
+  id: 'wrapper-image',
+  steps: [
+    { id: 'intro', read: true },
+    {
+      id: 'graph',
+      roles: [
+        node('high', 'WanVideoModelLoader'),
+        node('low', 'WanVideoModelLoader'),
+        node('vae', 'WanVideoVAELoader'),
+        node('first', 'WanVideoSampler'),
+        node('second', 'WanVideoSampler'),
+      ],
+      links: [link('high', 'model', 'first', 'model'), link('low', 'model', 'second', 'model'), link('first', 'samples', 'second', 'samples')],
+    },
+    { id: 'models', read: true },
+    { id: 'picture', roles: [node('picture', 'LoadImage')], fields: [field('picture', 'image', chosen)] },
+    {
+      id: 'start',
+      roles: [node('start', 'WanVideoImageToVideoEncode')],
+      links: [link('vae', 'vae', 'start', 'vae'), link('picture', 'IMAGE', 'start', 'start_image')],
+      fields: [field('start', 'num_frames', between(49, 121, 81))],
+    },
+    { id: 'wire', links: [link('start', 'image_embeds', 'first', 'image_embeds'), link('start', 'image_embeds', 'second', 'image_embeds')] },
+    { id: 'motion', read: true },
+    { id: 'run', read: true },
+  ],
+};
+
+/**
  * What changes for adult content is knowledge, not the graph: which model, which LoRA, how to describe. The subject
  * comes from a further-trained pair of models or from a LoRA, so the lesson asks for neither: it checks that the
  * video graph is there and that the words of a LoRA, when one is on the canvas, are in the description. Putting a
@@ -453,7 +562,7 @@ const adult: Lesson = {
 };
 
 /** In the order a person meets them. */
-export const LESSONS: readonly Lesson[] = [image, prompt, refine, videoText, promptVideo, videoImage, lora, videoFast, twoModels, adult];
+export const LESSONS: readonly Lesson[] = [image, prompt, refine, videoText, promptVideo, videoImage, lora, videoFast, wrapper, wrapperImage, twoModels, adult];
 
 /** Lessons that stand on the graph of another: said in the list, not enforced. */
 export const LESSON_AFTER: Readonly<Record<string, string[]>> = {
@@ -463,6 +572,7 @@ export const LESSON_AFTER: Readonly<Record<string, string[]>> = {
   'video-image': ['video-text'],
   lora: ['video-text'],
   'video-fast': ['lora'],
+  'wrapper-image': ['wrapper'],
   'two-models': ['video-image'],
   adult: ['video-text'],
 };

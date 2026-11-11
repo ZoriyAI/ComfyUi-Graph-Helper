@@ -463,6 +463,118 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
     },
   },
+  wrapper: {
+    title: 'Video on WanVideoWrapper',
+    result: 'You build a Wan 2.2 graph on the nodes of the WanVideoWrapper pack and see how it differs from the built-in one.',
+    steps: {
+      intro: {
+        title: 'What WanVideoWrapper is',
+        body: 'WanVideoWrapper is a pack of nodes by an author called Kijai. It runs the same Wan models as ComfyUI\'s built-in nodes, in its own way. People like it for two things: it can keep a large model in parts, now in the graphics card and now in ordinary memory, and new Wan features appear in it first.\n\nImportant: its nodes do not connect to the built-in ones. The model from its loader has a type of its own, and the `model` input of a built-in sampler will not take it. So a graph is built wholly on one or wholly on the other.\n\nThis lesson repeats "Video from text", only on the pack\'s nodes. If the canvas already holds another graph, start from an empty one: "File ▸ New project".',
+      },
+      models: {
+        title: 'Load two models',
+        body: `Add two {high} nodes. In the \`model\` field of one choose the file with \`high_noise\` in its name, in the other the file with \`low_noise\`.\n\nLeave \`quantization\` at \`disabled\`: the node works out the file's format itself. Leave \`load_device\` at \`offload_device\` if the model is larger than the graphics card's memory.\n\n${noFile('the example graph from the pack\'s own `example_workflows` folder')}`,
+      },
+      'text-encoder': {
+        title: 'Load the text reader',
+        body: 'Add a {t5} node and choose the `umt5-xxl-enc` file in `model_name`.\n\nThe pack has a text reader of its own. It needs a file from the pack author\'s set, published on Hugging Face in Kijai/WanVideo_comfy. The file from ComfyUI\'s templates may not fit this node: then ComfyUI reports an error when the graph runs.',
+      },
+      vae: {
+        title: 'Load the VAE',
+        body: 'Add a {vae} node and choose the `wan_2.1_vae` file in `model_name`.\n\nAs in the built-in graph, the large Wan 2.2 models need the VAE of version 2.1.',
+      },
+      prompt: {
+        title: 'Write the description',
+        body: 'Add a {text} node. Connect the output of {t5} to its `t5` input.\n\nHere both texts are in one node: the description of the clip in `positive_prompt`, what must not be there in `negative_prompt`. Write the way "A description for video" shows.',
+      },
+      embeds: {
+        title: 'Set the size and the length',
+        body: 'Add an {embeds} node. Set `width` to 832, `height` to 480 and `num_frames` to 81.\n\nThis node takes the place of the empty blank of the built-in graph. 81 frames at 16 frames a second make five seconds.',
+      },
+      'first-pass': {
+        title: 'The first pass',
+        body: 'Add a {first} node and connect to it:\n- to `model`, the output of the {high} node with the `high_noise` model;\n- to `text_embeds`, the output of {text};\n- to `image_embeds`, the output of {embeds}.\n\nThere is no separate node for the noise shift here: the sampler\'s own `shift` field sets it.',
+      },
+      'second-pass': {
+        title: 'The second pass',
+        body: 'Add a second {second} node and connect to it:\n- to `model`, the `low_noise` model;\n- to `text_embeds` and `image_embeds`, the same outputs as for the first;\n- to `samples`, the `samples` output of the first sampler.\n\nThis way the second sampler receives the unfinished clip and finishes it.',
+      },
+      split: {
+        title: 'Split the steps',
+        body: 'Set `steps` to 20 in both samplers. Set `end_step` to 10 in the first and `start_step` to 10 in the second.\n\nThe first does the steps from zero to ten, the second from ten to the end. An `end_step` of -1 means "to the end": with it the first sampler would do everything itself.\n\nThere are no separate noise fields here as in the built-in sampler: the pack knows by itself that the clip came unfinished.',
+      },
+      guidance: {
+        title: 'Strictness and the noise shift',
+        body: 'Set `cfg` to 3.5 and `shift` to 8 in both samplers.\n\nThese are the numbers of the built-in graph. The pack\'s sampler starts at `cfg` 6: for Wan 2.2 that is too strict, and the clip burns out.',
+      },
+      decode: {
+        title: 'Turn the result into frames',
+        body: 'Add a {decode} node. Connect the second sampler\'s output to its `samples` input and the output of {vae} to its `vae` input.',
+      },
+      save: {
+        title: 'Make the clip and save it',
+        body: 'Add {video} and {save}. The frames from {decode} go into the `images` input of {video}, and its output into the `video` input of {save}. Set `fps` to 16.\n\nThe pack needs no nodes of its own for saving: the built-in ones do.',
+      },
+      memory: {
+        title: 'When the graphics card runs out of memory',
+        body: 'The Wan 2.2 14B model is larger than most graphics cards hold. The pack deals with this so: some blocks of the model stay in ordinary memory and move into the graphics card only when they are needed.\n\nFor that add a WanVideo BlockSwap node and connect its output to the `block_swap_args` input of each model loader. Its blocks_to_swap field is the number of blocks kept outside the graphics card: start at 20 and raise it until the clip stops failing for lack of memory. The larger the number, the slower.\n\nTwo more ways to save memory: a model file in fp8 format, and `quantization` set to `fp8_e4m3fn`.',
+      },
+      lora: {
+        title: 'LoRA in this pack',
+        body: 'Here a LoRA does not stand in the model\'s path: it is connected to the loader. Add a WanVideo Lora Select node, choose the file in its `lora` field and connect its output to the `lora` input of the model loader.\n\nEach model gets a node of its own: the `high` file to the loader of the `high_noise` model, the `low` file to the loader of `low_noise`. Several LoRAs are chained: the output of one select node to the `prev_lora` input of the next.\n\nLoRAs for the built-in Wan graph fit here too: they are the same files.',
+      },
+      trigger: {
+        title: 'The LoRA\'s words in the description',
+        body: 'If the canvas has a LoRA select node, add the words of its file to the `positive_prompt` field.\n\nThe app compares the description with the words written in the LoRA files on the canvas. If there is no LoRA, or its file holds no words, the step counts on its own.',
+      },
+      fast: {
+        title: 'Fast in four steps',
+        body: 'The `lightx2v` speed-up LoRA works in this pack too. Put it to both models through LoRA select nodes, and in the samplers set `steps` to 4, `end_step` to 2 in the first, `start_step` to 2 in the second and `cfg` to 1 in both.\n\nAt `cfg` 1 the text of the `negative_prompt` field does not act.',
+      },
+      run: {
+        title: 'The graph is ready',
+        body: `${SAVE}\n\nThe "Check" button reads this pack's descriptions too: it says when forms of other programs are left in a text or the second text does not act at \`cfg\` 1.\n\nNext: "Video from a picture on WanVideoWrapper" starts the clip from your picture.`,
+      },
+    },
+  },
+  'wrapper-image': {
+    title: 'Video from a picture on WanVideoWrapper',
+    result: 'A clip made on WanVideoWrapper nodes starts from your picture.',
+    steps: {
+      intro: {
+        title: 'What changes',
+        body: 'The graph is the one from "Video on WanVideoWrapper". Three things change: the model files, a node with the picture, and a node that puts the picture at the start of the clip in place of the empty blank.',
+      },
+      graph: {
+        title: 'A WanVideoWrapper graph is needed',
+        body: 'This lesson goes on from the graph of "Video on WanVideoWrapper". The canvas must have two {high} loaders, a {vae} node and two {first} samplers, the second taking the result of the first.\n\nIf they are not there, do that lesson first.',
+      },
+      models: {
+        title: 'Models for a picture',
+        body: 'In the `model` field of both loaders choose `i2v` files: one with `high_noise` in its name, the other with `low_noise`.\n\nThe `t2v` models do not take a picture. The rest of the graph stays as it is.',
+      },
+      picture: {
+        title: 'Load the picture',
+        body: 'Add a {picture} node and choose your picture in its `image` field. The list shows the files of the `input` folder of your ComfyUI.',
+      },
+      start: {
+        title: 'Prepare the start',
+        body: 'Add a {start} node and connect to it:\n- to `vae`, the output of {vae};\n- to `start_image`, the `IMAGE` output of {picture}.\n\nSet `width` to 832, `height` to 480 and `num_frames` to 81. Proportions like those of the picture work best.',
+      },
+      wire: {
+        title: 'Connect the start to the samplers',
+        body: 'Connect the `image_embeds` output of {start} to the `image_embeds` input of both samplers.\n\nThe old links from the empty blank come off by themselves. The empty blank node can be deleted after that.',
+      },
+      motion: {
+        title: 'How to get more motion',
+        body: 'If the clip hardly moves, {start} has two fields that change that:\n- `noise_aug_strength`: a little noise over the picture, for example 0.02, gives the model freedom to move;\n- `start_latent_strength`: a value below 1, for example 0.8, holds the first frame less.\n\nChange one field at a time. Values too large take the clip away from the picture.\n\nThe node also has an `end_image` input: a picture for the last frame. It needs models trained for it. The model\'s page says whether it can.',
+      },
+      run: {
+        title: 'The graph is ready',
+        body: `${SAVE}\n\nThe description of a clip from a picture says what changes, not what is already seen. More on this in "A description for video".`,
+      },
+    },
+  },
   'two-models': {
     title: 'Two models in one graph',
     result: 'A picture model draws the first frame and Wan brings it to life. Each has its own LoRAs and its own description.',
