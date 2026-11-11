@@ -219,9 +219,89 @@ export const SIDE_FILES: Array<{ category: string; filename: string; bytes: Buff
 const MODEL_ROOT = '/srv/comfyui/models';
 const sidePathOf = (file: { category: string; filename: string }) => `${MODEL_ROOT}/${file.category}/${file.filename}`;
 
+/** Where ComfyUI loads node packs from, as `studio_capabilities` section roots names it. */
+export const CUSTOM_NODE_ROOT = '/srv/comfyui/custom_nodes';
+
+export const KJNODES_DESCRIPTION = 'Various quality of life and masking related nodes and scripts made by combining functionality of existing nodes for ComfyUI.';
+export const KJNODES_REPOSITORY = 'https://github.com/kijai/ComfyUI-KJNodes';
+export const WAN_README_OPENING = 'ComfyUI wrapper nodes for WanVideo and related models. Work in progress, expect things to change.';
+
+/**
+ * The files at the top of some packs, as they are on GitHub in spirit: KJNodes says who it is in pyproject.toml
+ * and has a README with badges and a picture; WanVideoWrapper has only a README; the other packs have neither.
+ * Also a file deeper in a pack and a pack's code, which the app must never ask for.
+ */
+export const PACK_FILES: Array<{ pack: string; file: string; bytes: Buffer }> = [
+  {
+    pack: 'ComfyUI-KJNodes',
+    file: 'pyproject.toml',
+    bytes: Buffer.from([
+      '[project]',
+      'name = "comfyui-kjnodes"',
+      `description = "${KJNODES_DESCRIPTION}"`,
+      'version = "1.1.7"',
+      'license = { file = "LICENSE" }',
+      'dependencies = ["librosa", "numpy", "pillow>=10.3.0", "scipy", "color-matcher", "matplotlib", "huggingface_hub"]',
+      '',
+      '[project.urls]',
+      `Repository = "${KJNODES_REPOSITORY}"`,
+      '# Used by Comfy Registry https://comfyregistry.org',
+      '',
+      '[tool.comfy]',
+      'PublisherId = "kijai"',
+      'DisplayName = "KJNodes"',
+      'Icon = ""',
+      '',
+    ].join('\n'), 'utf8'),
+  },
+  {
+    pack: 'ComfyUI-KJNodes',
+    file: 'README.md',
+    bytes: Buffer.from([
+      '# KJNodes for ComfyUI',
+      '',
+      '[![Downloads](https://img.shields.io/badge/downloads-many-blue)](https://example.invalid/stats) [![License](https://img.shields.io/badge/license-GPL-green)](LICENSE)',
+      '',
+      'Various quality of life and masking related -nodes and scripts made by combining functionality of existing nodes for ComfyUI.',
+      '',
+      'I know I\'m bad at documentation, especially this project that has grown from random practice nodes to... too many lines in one file.',
+      'I have however started to add descriptions to the nodes themselves, there\'s a small ? you can click for info what the node does.',
+      'This is still work in progress, like everything else.',
+      '',
+      '<p align="center"><img src="docs/images/overview.png" width="600"></p>',
+      '',
+      '# Installation',
+      '1. Clone this repo into `custom_nodes` folder.',
+      '2. Install dependencies: `pip install -r requirements.txt`',
+      '',
+    ].join('\n'), 'utf8'),
+  },
+  {
+    pack: 'ComfyUI-WanVideoWrapper',
+    file: 'README.md',
+    bytes: Buffer.from([
+      '# ComfyUI wrapper nodes for [WanVideo](https://github.com/Wan-Video/Wan2.1)',
+      '',
+      '![image](https://example.invalid/wan.png)',
+      '',
+      `**${WAN_README_OPENING.split(' ').slice(0, 4).join(' ')}** ${WAN_README_OPENING.split(' ').slice(4).join(' ')}`,
+      '',
+      '```',
+      'pip install -r requirements.txt',
+      '```',
+      '',
+    ].join('\n'), 'utf8'),
+  },
+  { pack: 'ComfyUI-KJNodes', file: '__init__.py', bytes: Buffer.from('NODE_CLASS_MAPPINGS = {}\n', 'utf8') },
+  { pack: 'ComfyUI-KJNodes', file: 'docs/README.md', bytes: Buffer.from('# Docs\n', 'utf8') },
+];
+
+const packPathOf = (file: { pack: string; file: string }) => `${CUSTOM_NODE_ROOT}/${file.pack}/${file.file}`;
+
 /** `workspace_files` action read, the way the owner's server answers: exact bytes as base64, a slice at a time. */
 function readWorkspaceFile(args: Record<string, unknown>) {
-  const found = SIDE_FILES.find((file) => sidePathOf(file) === args.absolute_path);
+  const found = SIDE_FILES.find((file) => sidePathOf(file) === args.absolute_path)
+    ?? PACK_FILES.find((file) => packPathOf(file) === args.absolute_path);
   if (!found) return text({ error: { code: 'ADMIN_FILE_NOT_FOUND', message: 'ADMIN_FILE_NOT_FOUND' } }, true);
   const offset = typeof args.offset === 'number' ? args.offset : 0;
   const length = Math.min(typeof args.length === 'number' ? args.length : 65536, 1048576);
@@ -457,6 +537,16 @@ function callTool(name: string, args: Record<string, unknown>, comfyUrl: string,
     case 'studio_capabilities':
       if (args.section === 'nodes' && args.kind === 'packs') return text(page(packItems(classes), args));
       if (args.section === 'nodes') return text(page(classItems(classes), args));
+      if (args.section === 'roots') {
+        return text({
+          section: 'roots',
+          roots: {
+            comfyui_root: '/srv/comfyui',
+            custom_node_roots: [CUSTOM_NODE_ROOT],
+            model_categories: { custom_nodes: { roots: [CUSTOM_NODE_ROOT] }, loras: { roots: [`${MODEL_ROOT}/loras`] } },
+          },
+        });
+      }
       return text({ items: ['checkpoints', 'loras', 'vae', 'controlnet'].map((category) => ({ category, root_count: 1 })), next_cursor: null, total: 4 });
     case 'models': {
       if (args.action !== 'list') return text({ error: { code: 'FAKE_NOT_IMPLEMENTED' } }, true);

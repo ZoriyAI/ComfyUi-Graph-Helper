@@ -144,10 +144,12 @@ function applyVersion2(db: Database.Database): void {
  * Version 11 adds mcp_auth on the settings row: how the app presents itself to the MCP server ('', none, token, oauth).
  * Version 12 adds what a model manager keeps next to a model file: the names of its description and preview files
  * as the listing gave them, the description as last read, and the notes read from it.
+ * Version 13 adds what a node pack says about itself on node_packs: the description and the repository link from
+ * its pyproject.toml, the opening of its README, and the version and commit they were read at.
  */
 export function migrate(db: Database.Database, options?: { failBeforeVersionStamp?: boolean }): void {
   const version = schemaVersion(db);
-  if (version > 12) {
+  if (version > 13) {
     throw new Error(`Unsupported schema version ${version}`);
   }
   if (version < 1) {
@@ -237,6 +239,24 @@ export function migrate(db: Database.Database, options?: { failBeforeVersionStam
     });
     apply.immediate();
   }
+  if (schemaVersion(db) === 12) {
+    const apply = db.transaction(() => {
+      applyVersion13(db);
+      db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (13, ?)').run(Date.now());
+    });
+    apply.immediate();
+  }
+}
+
+function applyVersion13(db: Database.Database): void {
+  if (!tableNames(db).includes('node_packs')) return;
+  // What the pack's own files say. `info_sig` is the version and commit the files were read at, so a pack is
+  // read again only when it was updated; `info_read_at` is when that read happened (null: never read).
+  addColumn(db, 'node_packs', 'description', 'TEXT');
+  addColumn(db, 'node_packs', 'repository_url', 'TEXT');
+  addColumn(db, 'node_packs', 'readme_summary', 'TEXT');
+  addColumn(db, 'node_packs', 'info_sig', 'TEXT');
+  addColumn(db, 'node_packs', 'info_read_at', 'INTEGER');
 }
 
 function applyVersion12(db: Database.Database): void {

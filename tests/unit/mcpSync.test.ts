@@ -158,6 +158,59 @@ describe('read-only MCP allowlist', () => {
     await expect(guarded.callTool('enqueue_workflow', {})).rejects.toBeInstanceOf(McpRefusedError);
     expect(calls).toEqual([]);
   });
+
+  it('lets workspace_files read only the pyproject.toml and README at the top of a node pack', () => {
+    const read = (absolute_path: string, extra: Record<string, unknown> = {}) => isReadOnlyCall('workspace_files', {
+      action: 'read', absolute_path, encoding: 'base64', offset: 0, length: 65536, ...extra,
+    });
+    for (const file of ['pyproject.toml', 'README.md', 'readme.md', 'README.MD', 'Readme.md']) {
+      expect(read(`/srv/comfyui/custom_nodes/ComfyUI-KJNodes/${file}`), file).toBe(true);
+    }
+    // A pack folder that is a symlink elsewhere is still read by the path under custom_nodes.
+    expect(read('/home/owner/ComfyUI/custom_nodes/rgthree-comfy/pyproject.toml')).toBe(true);
+    for (const path of [
+      // Other files of a pack: its code, its settings, its docs, a README deeper in it.
+      '/srv/comfyui/custom_nodes/ComfyUI-KJNodes/__init__.py',
+      '/srv/comfyui/custom_nodes/ComfyUI-KJNodes/requirements.txt',
+      '/srv/comfyui/custom_nodes/ComfyUI-KJNodes/config.json',
+      '/srv/comfyui/custom_nodes/ComfyUI-KJNodes/docs/README.md',
+      '/srv/comfyui/custom_nodes/ComfyUI-KJNodes/nodes/pyproject.toml',
+      '/srv/comfyui/custom_nodes/ComfyUI-KJNodes/README.txt',
+      '/srv/comfyui/custom_nodes/ComfyUI-KJNodes/README.md.bak',
+      '/srv/comfyui/custom_nodes/ComfyUI-KJNodes/ReadMe.MD',
+      // Files of ComfyUI itself, or a folder that only looks like custom_nodes.
+      '/srv/comfyui/pyproject.toml',
+      '/srv/comfyui/README.md',
+      '/srv/comfyui/custom_nodes/README.md',
+      '/srv/comfyui/custom_nodes_old/ComfyUI-KJNodes/README.md',
+      '/srv/comfyui/Custom_Nodes/ComfyUI-KJNodes/README.md',
+      // Paths that climb, repeat a slash, are relative, Windows, or carry a NUL.
+      '/srv/comfyui/custom_nodes/../pyproject.toml',
+      '/srv/comfyui/custom_nodes/../../etc/README.md',
+      '/srv/comfyui/custom_nodes/./README.md',
+      '/srv/comfyui/custom_nodes/../custom_nodes/README.md',
+      '/srv/comfyui/custom_nodes/ComfyUI-KJNodes/../README.md',
+      '/srv/comfyui/custom_nodes//README.md',
+      '/srv/comfyui/custom_nodes/ComfyUI-KJNodes//README.md',
+      'srv/comfyui/custom_nodes/ComfyUI-KJNodes/README.md',
+      'C:\\ComfyUI\\custom_nodes\\ComfyUI-KJNodes\\README.md',
+      '/srv/comfyui/custom_nodes/ComfyUI-KJNodes\\x/README.md',
+      '/srv/comfyui/custom_nodes/ComfyUI-KJNodes/README.md\0',
+      '/custom_nodes/README.md',
+    ]) {
+      expect(read(path), path).toBe(false);
+    }
+    // Still only a read, as bytes, with nothing more.
+    const pyproject = '/srv/comfyui/custom_nodes/ComfyUI-KJNodes/pyproject.toml';
+    expect(read(pyproject, { encoding: 'utf8' })).toBe(false);
+    for (const action of ['write', 'patch', 'move', 'trash', 'list', 'stat']) expect(read(pyproject, { action }), action).toBe(false);
+    expect(read(pyproject, { content: 'x' })).toBe(false);
+    expect(read(pyproject, { length: 1048577 })).toBe(false);
+    // The folders ComfyUI loads packs from are named by studio_capabilities section roots, and only that.
+    expect(isReadOnlyCall('studio_capabilities', { section: 'roots' })).toBe(true);
+    expect(isReadOnlyCall('studio_capabilities', { section: 'roots', path: '/etc' })).toBe(false);
+    expect(isReadOnlyCall('studio_capabilities', { section: 'paths' })).toBe(false);
+  });
 });
 
 describe('strict read-only argument shapes', () => {

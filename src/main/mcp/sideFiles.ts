@@ -1,6 +1,6 @@
 import type { McpSession } from '../../shared/mcp/catalogSource';
 import { toolPayload } from '../../shared/mcp/catalogSource';
-import { isSideFilePath, McpRefusedError, SIDE_FILE_CHUNK_BYTES, SIDE_FILE_MAX_BYTES } from './readOnly';
+import { isPackFilePath, isSideFilePath, McpRefusedError, SIDE_FILE_CHUNK_BYTES, SIDE_FILE_MAX_BYTES } from './readOnly';
 
 /**
  * Reading the files a model manager keeps next to a model: the description (`<name>.metadata.json`,
@@ -33,6 +33,41 @@ function record(value: unknown): Record<string, unknown> | null {
  */
 export async function readSideFile(session: McpSession, path: string, maxBytes: number): Promise<Buffer | null> {
   if (!isSideFilePath(path)) throw new McpRefusedError('workspace_files');
+  return readWhole(session, path, maxBytes);
+}
+
+/** A pack's pyproject.toml is a page or two of settings; one larger than this is not read. */
+export const PYPROJECT_MAX_BYTES = 64 * 1024;
+/** Only the opening of a README is shown, so only its first bytes are asked for, whatever its length. */
+export const README_HEAD_BYTES = 64 * 1024;
+
+/**
+ * The absolute path of a file at the top of a node pack's folder, or null when the parts do not make a path the
+ * gate would pass (no root, a pack name that is not one folder, a root that is not a `custom_nodes` folder).
+ */
+export function packFilePath(root: string | null | undefined, pack: string | null | undefined, file: string): string | null {
+  if (!root || !pack || !root.startsWith('/') || pack.includes('/')) return null;
+  const path = `${root.replace(/\/+$/, '')}/${pack}/${file}`;
+  return isPackFilePath(path) ? path : null;
+}
+
+/**
+ * A file at the top of a node pack: the whole of it up to `maxBytes` (null when larger), or with `head` only its
+ * first `maxBytes`, in one call. Null when it is missing or the answer is not what `workspace_files` gives; a
+ * refusal by the gate and a transport error are thrown, as for the files next to a model.
+ */
+export async function readPackFile(session: McpSession, path: string, maxBytes: number, head = false): Promise<Buffer | null> {
+  if (!isPackFilePath(path)) throw new McpRefusedError('workspace_files');
+  if (!head) return readWhole(session, path, maxBytes);
+  const row = record(toolPayload(await session.callTool('workspace_files', {
+    action: 'read', absolute_path: path, encoding: 'base64', offset: 0, length: Math.min(maxBytes, SIDE_FILE_CHUNK_BYTES),
+  })));
+  if (!row || typeof row.data_base64 !== 'string') return null;
+  const chunk = Buffer.from(row.data_base64, 'base64');
+  return chunk.subarray(0, maxBytes);
+}
+
+async function readWhole(session: McpSession, path: string, maxBytes: number): Promise<Buffer | null> {
   const limit = Math.min(maxBytes, SIDE_FILE_MAX_BYTES);
   const chunks: Buffer[] = [];
   let offset = 0;

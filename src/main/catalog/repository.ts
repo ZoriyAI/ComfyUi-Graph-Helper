@@ -140,8 +140,9 @@ export interface NodePackRow {
 
 /**
  * Stores the pack list. After a complete listing a pack the server no longer lists is gone from ComfyUI too,
- * so the list is replaced; after an incomplete one (echoed cursor, page cap) packs are only added or updated.
- * A listing with a failed page never reaches this function.
+ * so it is dropped; after an incomplete one (echoed cursor, page cap) packs are only added or updated.
+ * A listing with a failed page never reaches this function. What a pack said about itself (migration v13) stays
+ * with its row: it is read again only when the pack's version or commit changes (see packsDueForInfo).
  */
 export function replaceNodePacks(db: Database.Database, packs: NodePackRow[], syncedAt: number, complete = true): number {
   const upsert = db.prepare(`
@@ -152,13 +153,48 @@ export function replaceNodePacks(db: Database.Database, packs: NodePackRow[], sy
       class_count = excluded.class_count, synced_at = excluded.synced_at
   `);
   const write = db.transaction(() => {
-    if (complete) db.prepare('DELETE FROM node_packs').run();
     for (const pack of packs) {
       upsert.run(pack.name, pack.version, pack.commitSha, pack.installedState, pack.importState, pack.classCount, syncedAt);
     }
+    if (complete) db.prepare('DELETE FROM node_packs WHERE synced_at IS NULL OR synced_at <> ?').run(syncedAt);
   });
   write.immediate();
   return packs.length;
+}
+
+/**
+ * The version and commit a pack was read at. Its files are read again only when this changes, which is when the
+ * pack was updated; a pack that names neither is read once.
+ */
+export function packInfoSig(pack: { version: string | null; commitSha: string | null }): string {
+  return `${pack.version ?? ''}@${pack.commitSha ?? ''}`;
+}
+
+/** Packs whose own files were never read, or were read at another version or commit, by name. */
+export function packsDueForInfo(db: Database.Database): NodePackRow[] {
+  const rows = db.prepare(
+    'SELECT name, version, commit_sha, installed_state, import_state, class_count, info_sig, info_read_at FROM node_packs ORDER BY name',
+  ).all() as Array<{
+    name: string; version: string | null; commit_sha: string | null; installed_state: string; import_state: string;
+    class_count: number | null; info_sig: string | null; info_read_at: number | null;
+  }>;
+  return rows
+    .filter((row) => row.info_read_at == null || row.info_sig !== packInfoSig({ version: row.version, commitSha: row.commit_sha }))
+    .map((row) => ({
+      name: row.name, version: row.version, commitSha: row.commit_sha, installedState: row.installed_state, importState: row.import_state, classCount: row.class_count,
+    }));
+}
+
+/** Stores what a pack's own files said, with the version and commit they were read at. */
+export function writePackInfo(
+  db: Database.Database,
+  name: string,
+  info: { description: string; repositoryUrl: string | null; readmeSummary: string },
+  sig: string,
+  readAt: number,
+): void {
+  db.prepare('UPDATE node_packs SET description = ?, repository_url = ?, readme_summary = ?, info_sig = ?, info_read_at = ? WHERE name = ?')
+    .run(info.description || null, info.repositoryUrl, info.readmeSummary || null, sig, readAt, name);
 }
 
 /**

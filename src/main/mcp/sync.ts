@@ -7,7 +7,8 @@ import { civitaiUrl, parseModelMetadata, plainText, triggerWordsOf, type ParsedM
 import { EMPTY_NOTES, parseSidecarFile, type ParsedSidecar } from '../../shared/knowledge/sidecar';
 import { SYNC_INTERVAL_DEFAULT_MINUTES, SYNC_INTERVAL_MAX_MINUTES, SYNC_INTERVAL_MIN_MINUTES } from '../../shared/knowledge/schemas';
 import { ENRICH_PAUSE_MS, ENRICH_PER_RUN } from '../../shared/config/preferences';
-import { catalogTotals, writeModelEnrichment, writeModelNotes } from '../catalog/repository';
+import { catalogTotals, packInfoSig, packsDueForInfo, writeModelEnrichment, writeModelNotes, writePackInfo } from '../catalog/repository';
+import { packInfoOf, parsePyproject, summarizeReadme, type PackInfo } from '../../shared/knowledge/packInfo';
 import { readPreferences, readSettings } from '../settings/repository';
 import type { McpAuthMode } from '../../shared/config/schema';
 import type { OAuthClientProvider } from '@modelcontextprotocol/client';
@@ -19,10 +20,10 @@ import {
 export { isNetworkError, mcpUnreachableError } from './client';
 import { mcpOAuth } from './oauth';
 import { McpRefusedError } from './readOnly';
-import { readSideFile, SIDECAR_MAX_BYTES, sideFilePath } from './sideFiles';
+import { packFilePath, PYPROJECT_MAX_BYTES, readPackFile, README_HEAD_BYTES, readSideFile, SIDECAR_MAX_BYTES, sideFilePath } from './sideFiles';
 import { mcpToken, releaseMcpTokenIfOriginChanged } from './token';
 import { redactSecrets } from '../../shared/config/draft';
-import type { ServerIdentity } from './inventory';
+import { readCustomNodeRoots, type ServerIdentity } from './inventory';
 
 /** Loader folders whose files carry a safetensors header worth reading. */
 export const ENRICH_DIRECTORIES = [
@@ -566,6 +567,7 @@ export class SyncService {
       });
       const hasFiles = read.toolNames.has('workspace_files');
       writeState(db, { [SIDE_FILES_KEY]: hasFiles ? '1' : '0' });
+      if (hasFiles && read.toolNames.has('studio_capabilities')) await this.readPackInfo(db, session);
       const run: EnrichRun = {
         session,
         hasTool: read.toolNames.has('model_metadata'),
@@ -596,6 +598,36 @@ export class SyncService {
       finish({ last_error: signInLost ? MCP_SIGN_IN_AGAIN : classifySyncError(error, url) });
     } finally {
       if (!handedOver) await session.close().catch(() => undefined);
+    }
+  }
+
+  /**
+   * What each node pack says about itself: its pyproject.toml and the opening of its README, read through the
+   * read-only gate from the folder ComfyUI loads it from. Only packs never read, or updated since (another version
+   * or commit), are read, one after another; on a server that has not changed this asks one question at most.
+   * Nothing here ever fails the run: a pack whose read broke on the way is tried again at the next sync.
+   */
+  private async readPackInfo(db: Database.Database, session: McpSession): Promise<void> {
+    try {
+      const due = packsDueForInfo(db).filter((pack) => !CORE_PACKS.has(pack.name)).slice(0, PACK_INFO_PER_RUN);
+      if (due.length === 0) return;
+      const roots = await readCustomNodeRoots(session);
+      if (roots.length === 0) return;
+      let failures = 0;
+      for (const [index, pack] of due.entries()) {
+        this.setProgress(db, 'packs', index, due.length);
+        const info = await readPackFiles(session, roots, pack.name);
+        if (!info) {
+          failures += 1;
+          if (failures >= MAX_CONSECUTIVE_FAILURES) break;
+          continue;
+        }
+        failures = 0;
+        writePackInfo(db, pack.name, info, packInfoSig(pack), this.deps.now());
+      }
+      this.setProgress(db, 'packs', due.length, due.length);
+    } catch {
+      // A server that cannot name its folders, or a connection that broke: the packs keep what they had.
     }
   }
 
@@ -802,6 +834,39 @@ async function readSidecar(session: McpSession, path: string): Promise<{ ok: tru
     return { ok: true, side: parseSidecarFile(JSON.parse(bytes.toString('utf8'))) };
   } catch {
     return { ok: true, side: null };
+  }
+}
+
+/** Packs that are ComfyUI itself rather than a folder under custom_nodes: there are no pack files to read. */
+const CORE_PACKS = new Set(['comfy-core', 'core', 'comfyui', 'ComfyUI']);
+/** Packs read in one run at most; on a first sync that is every pack of a large setup, later only updated ones. */
+export const PACK_INFO_PER_RUN = 200;
+const README_NAMES = ['README.md', 'readme.md', 'Readme.md'] as const;
+
+/**
+ * What a pack's own files say, looked for under each folder ComfyUI loads packs from until one holds the pack.
+ * A pack without the files (or with a name that is not one folder) says nothing, which is stored like any answer;
+ * null only when a read broke on the way, so the pack is tried again at the next sync.
+ */
+async function readPackFiles(session: McpSession, roots: string[], name: string): Promise<PackInfo | null> {
+  try {
+    for (const root of roots) {
+      const pyprojectPath = packFilePath(root, name, 'pyproject.toml');
+      if (!pyprojectPath) return packInfoOf(null, '');
+      const pyproject = await readPackFile(session, pyprojectPath, PYPROJECT_MAX_BYTES);
+      let readme: Buffer | null = null;
+      for (const file of README_NAMES) {
+        const path = packFilePath(root, name, file);
+        readme = path ? await readPackFile(session, path, README_HEAD_BYTES, true) : null;
+        if (readme) break;
+      }
+      if (!pyproject && !readme) continue;
+      return packInfoOf(pyproject ? parsePyproject(pyproject.toString('utf8')) : null, readme ? summarizeReadme(readme.toString('utf8')) : '');
+    }
+    return packInfoOf(null, '');
+  } catch (error) {
+    if (error instanceof McpRefusedError) throw error;
+    return null;
   }
 }
 

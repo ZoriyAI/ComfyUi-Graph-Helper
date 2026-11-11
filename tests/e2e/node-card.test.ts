@@ -4,7 +4,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { expectSoundLayout } from './layoutProfile';
 import { useEnglish } from './locale';
-import { startFakeMcp } from '../fixtures/mcp/fakeMcpServer';
+import { KJNODES_DESCRIPTION, KJNODES_REPOSITORY, startFakeMcp } from '../fixtures/mcp/fakeMcpServer';
 
 /**
  * The node card against the fake MCP server (labelled fixture): a click on a node in the library says what the
@@ -66,6 +66,8 @@ test('node card: says what a node is for before it is on the canvas', async () =
     const card = window.getByRole('dialog', { name: 'KSampler' });
     await expect(card).toBeVisible();
     await expect(card).toContainText('ComfyUI itself');
+    // ComfyUI itself is no pack: there is nothing a pack says about itself.
+    await expect(card.locator('[data-pack-info]')).toHaveCount(0);
     await expect(card).toContainText('sampling');
     for (const heading of ['What it is', 'Why it is here', 'How to connect it', 'What goes in', 'Settings on the node', 'What comes out']) {
       await expect(card.getByRole('heading', { name: heading }), heading).toBeVisible();
@@ -104,6 +106,18 @@ test('node card: says what a node is for before it is on the canvas', async () =
     await expect(custom.getByRole('heading', { name: 'Description from its author' })).toBeVisible();
     await expect(custom).toContainText('Transfers the colours of the reference image onto the target image.');
     await expect(custom.locator('li').filter({ hasText: /^image_ref/ })).toBeVisible();
+    // What the pack says about itself in its own files: its description, the opening of its README folded to a
+    // few lines, and the link to its repository as text that can be read and copied.
+    const about = custom.locator('[data-pack-info]');
+    await expect(about.getByRole('heading', { name: 'What the pack says about itself' })).toBeVisible();
+    await expect(about).toContainText(KJNODES_DESCRIPTION);
+    await expect(about).toContainText(KJNODES_REPOSITORY);
+    await expect(about).toContainText("I know I'm bad at documentation");
+    const more = about.getByRole('button', { name: 'More' });
+    await expect(more).toHaveAttribute('aria-expanded', 'false');
+    await more.click();
+    await expect(about.getByRole('button', { name: 'Less' })).toHaveAttribute('aria-expanded', 'true');
+    await expect(about.getByRole('button', { name: 'Copy the repository link' })).toBeVisible();
     await shot(window, '2-node-card-pack');
     await expectSoundLayout(window, 'node card of a node from a pack', HERE);
 

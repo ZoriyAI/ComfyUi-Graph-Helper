@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import Database from 'better-sqlite3';
 import type { McpSession } from '../../src/shared/mcp/catalogSource';
 import { McpRefusedError, readOnlySession } from '../../src/main/mcp/readOnly';
-import { readSideFile, sideFilePath } from '../../src/main/mcp/sideFiles';
+import { packFilePath, readPackFile, readSideFile, sideFilePath } from '../../src/main/mcp/sideFiles';
 import { migrate } from '../../src/main/settings/migrate';
 
 /** A server that holds one file and answers `workspace_files` read a slice at a time, at most `cap` bytes each. */
@@ -91,7 +91,7 @@ describe('the catalog columns for the files next to a model (migration v12)', ()
     migrate(db);
     // As version 11 left the table: without the new columns.
     for (const column of ['sidecar_file', 'sidecar_sig', 'sidecar_read_sig', 'preview_file', 'preview_sig', 'notes_json']) db.exec(`ALTER TABLE model_catalog DROP COLUMN ${column}`);
-    db.prepare('DELETE FROM schema_migrations WHERE version = 12').run();
+    db.prepare('DELETE FROM schema_migrations WHERE version >= 12').run();
     db.prepare("INSERT INTO model_catalog (directory, name, size_bytes, kind, base_model, enriched_at) VALUES ('loras', 'old.safetensors', 5, 'lora', 'sdxl', 3)").run();
     migrate(db);
     const row = db.prepare("SELECT * FROM model_catalog WHERE name = 'old.safetensors'").get() as Record<string, unknown>;
@@ -99,6 +99,67 @@ describe('the catalog columns for the files next to a model (migration v12)', ()
     // Opening it again changes nothing.
     migrate(db);
     expect((db.prepare('SELECT COUNT(*) AS n FROM schema_migrations WHERE version = 12').get() as { n: number }).n).toBe(1);
+    db.close();
+  });
+});
+
+describe('the files at the top of a node pack', () => {
+  const root = '/srv/comfyui/custom_nodes';
+  const pyproject = `${root}/ComfyUI-KJNodes/pyproject.toml`;
+  const readme = `${root}/ComfyUI-KJNodes/README.md`;
+
+  it('have a path only for a pack that is one folder under a custom_nodes folder', () => {
+    expect(packFilePath(root, 'ComfyUI-KJNodes', 'pyproject.toml')).toBe(pyproject);
+    expect(packFilePath(`${root}/`, 'ComfyUI-KJNodes', 'README.md')).toBe(readme);
+    for (const [base, pack, file] of [
+      [null, 'ComfyUI-KJNodes', 'README.md'], [root, '', 'README.md'], [root, null, 'README.md'],
+      [root, '..', 'README.md'], [root, '.', 'README.md'], [root, 'a/b', 'README.md'], [root, 'ComfyUI-KJNodes', '__init__.py'],
+      ['/srv/comfyui', 'ComfyUI-KJNodes', 'README.md'], ['relative/custom_nodes', 'x', 'README.md'], ['C:\\ComfyUI\\custom_nodes', 'x', 'README.md'],
+    ] as Array<[string | null, string | null, string]>) {
+      expect(packFilePath(base, pack, file), `${base} + ${pack} + ${file}`).toBeNull();
+    }
+  });
+
+  it('are read whole up to a bound, or only the opening of a long README in one call', async () => {
+    const text = Buffer.from('[project]\ndescription = "x"\n');
+    const long = Buffer.alloc(300_000, 0x61);
+    const { session, calls } = serverWith({ [pyproject]: text, [readme]: long });
+    expect((await readPackFile(session, pyproject, 65_536))?.equals(text)).toBe(true);
+    const head = await readPackFile(session, readme, 65_536, true);
+    expect(head?.length).toBe(65_536);
+    expect(calls.filter((call) => call.absolute_path === readme)).toEqual([
+      { name: 'workspace_files', action: 'read', absolute_path: readme, encoding: 'base64', offset: 0, length: 65_536 },
+    ]);
+    // A pyproject.toml larger than the bound is not one; a missing file is nothing.
+    expect(await readPackFile(serverWith({ [pyproject]: long }).session, pyproject, 65_536)).toBeNull();
+    expect(await readPackFile(serverWith({}).session, readme, 65_536, true)).toBeNull();
+  });
+
+  it('are the only files there the app asks for: anything else is refused before any call', async () => {
+    const { session, calls } = serverWith({});
+    for (const path of [`${root}/ComfyUI-KJNodes/__init__.py`, `${root}/ComfyUI-KJNodes/docs/README.md`, `${root}/../README.md`, '/srv/comfyui/README.md']) {
+      await expect(readPackFile(session, path, 65_536), path).rejects.toBeInstanceOf(McpRefusedError);
+    }
+    // The model side-file reader does not read pack files either.
+    await expect(readSideFile(session, readme, 65_536)).rejects.toBeInstanceOf(McpRefusedError);
+    expect(calls).toEqual([]);
+  });
+});
+
+describe('what a node pack says about itself on node_packs (migration v13)', () => {
+  it('adds the columns to a database of the version before, leaving its packs as they were', () => {
+    const db = new Database(':memory:');
+    migrate(db);
+    for (const column of ['description', 'repository_url', 'readme_summary', 'info_sig', 'info_read_at']) db.exec(`ALTER TABLE node_packs DROP COLUMN ${column}`);
+    db.prepare('DELETE FROM schema_migrations WHERE version >= 13').run();
+    db.prepare("INSERT INTO node_packs (name, version, commit_sha, class_count, synced_at) VALUES ('ComfyUI-KJNodes', '1.1.7', 'a1b2c3d', 40, 3)").run();
+    migrate(db);
+    expect(db.prepare('SELECT * FROM node_packs').get()).toMatchObject({
+      name: 'ComfyUI-KJNodes', version: '1.1.7', commit_sha: 'a1b2c3d', class_count: 40, synced_at: 3,
+      description: null, repository_url: null, readme_summary: null, info_sig: null, info_read_at: null,
+    });
+    migrate(db);
+    expect((db.prepare('SELECT COUNT(*) AS n FROM schema_migrations WHERE version = 13').get() as { n: number }).n).toBe(1);
     db.close();
   });
 });

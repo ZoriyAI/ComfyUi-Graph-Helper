@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { MessageCircleQuestion, Plus, X } from 'lucide-react';
+import { Check, Copy, MessageCircleQuestion, Plus, X } from 'lucide-react';
 import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
-import type { Explanation, ExplanationAspect, NodeClassDetail, NodeClassInput, NodeClassSummary, ObjectRef } from '../../../shared/contracts';
+import type { Explanation, ExplanationAspect, NodeClassDetail, NodeClassInput, NodeClassSummary, ObjectRef, PackInfo } from '../../../shared/contracts';
 import { objectKey } from '../../../shared/contracts';
 import { CORE_KNOWLEDGE, type CoreLinkType } from '../../../shared/knowledge/coreKnowledge';
 import { useKnowledgeStore } from '../../state/knowledgeState';
@@ -14,7 +14,7 @@ import Skeleton from '../../ui/Skeleton';
 import { typeColor } from '../graph/lib/typeColors';
 import { useNodeInfoStore } from '../graph/nodeInfo';
 import { CARD_WIDTH, useFlyoutBox } from './flyout';
-import { plainNumber } from './libraryModel';
+import { plainNumber, safeModelSource } from './libraryModel';
 import card from './ModelCard.module.css';
 import styles from './NodeCard.module.css';
 
@@ -92,6 +92,58 @@ function PortRow({ input, language }: { input: NodeClassInput; language: 'en' | 
   );
 }
 
+/** A README opening longer than this, or of more than one paragraph, is folded to a few lines until asked for. */
+const PACK_SUMMARY_FOLD_CHARS = 240;
+
+/**
+ * What the pack a node comes from says about itself, read from its own files at the last sync: the short
+ * description of its pyproject.toml, the opening of its README (folded to a few lines with "More"), and the link
+ * to its repository. The link is text to read or copy: the card never opens a page.
+ */
+function PackAbout({ info }: { info: PackInfo }) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!copied) return undefined;
+    const timer = window.setTimeout(() => setCopied(false), 1800);
+    return () => window.clearTimeout(timer);
+  }, [copied]);
+  const url = safeModelSource(info.repositoryUrl);
+  const summary = info.readmeSummary.trim();
+  const folds = summary.length > PACK_SUMMARY_FOLD_CHARS || summary.includes('\n\n');
+  return (
+    <section className={card.section} aria-labelledby="node-card-pack" data-pack-info="">
+      <h3 id="node-card-pack" className={card.heading}>{t('library.nodeCard.packAbout')}</h3>
+      {info.description ? <p className={card.description}>{info.description}</p> : null}
+      {summary ? (
+        <p id="node-card-pack-readme" className={`${card.description} ${styles.readme}`} data-open={open || !folds ? 'true' : 'false'}>{summary}</p>
+      ) : null}
+      {folds ? (
+        <button type="button" className={`${card.link} ${styles.more}`} aria-expanded={open} aria-controls="node-card-pack-readme" onClick={() => setOpen((value) => !value)}>
+          {open ? t('library.nodeCard.packLess') : t('library.nodeCard.packMore')}
+        </button>
+      ) : null}
+      {url ? (
+        <div className={card.source}>
+          <span>{t('library.nodeCard.packRepository')}:</span>
+          <span className={`${card.url} ${styles.selectable}`} title={url}>{url}</span>
+          <IconButton
+            size="sm"
+            label={String(t('library.nodeCard.packCopyLink'))}
+            onClick={() => navigator.clipboard.writeText(url).then(() => setCopied(true), () => setCopied(false))}
+          >
+            <Copy size={13} aria-hidden="true" />
+          </IconButton>
+        </div>
+      ) : null}
+      <p className={card.copied} role="status" aria-live="polite">
+        {copied ? <><Check size={12} aria-hidden="true" /> {t('library.nodeCard.packLinkCopied')}</> : null}
+      </p>
+    </section>
+  );
+}
+
 /**
  * A node class explained before it is put on the canvas: what it is and why it is used, what goes into it, what
  * each of its settings takes, and what comes out. Everything here is read from the catalog and from the knowledge
@@ -126,6 +178,7 @@ export default function NodeCard({ node, onClose, onAdd, onAsk }: NodeCardProps)
   const fields = inputs.filter((input) => input.widget);
   const outputs = detail?.outputs ?? [];
   const read = detail?.detailed === true;
+  const pack = node.pack && node.pack !== 'core' ? detail?.packInfo ?? null : null;
 
   const body = (
     <section
@@ -163,6 +216,7 @@ export default function NodeCard({ node, onClose, onAdd, onAsk }: NodeCardProps)
           <dt>{t('library.nodeCard.pack')}</dt>
           <dd>{node.pack && node.pack !== 'core' ? node.pack : t('library.nodeCard.core')}</dd>
         </dl>
+        {pack ? <PackAbout info={pack} /> : null}
 
         {ASPECTS.map((aspect) => {
           const item = known.get(aspect);

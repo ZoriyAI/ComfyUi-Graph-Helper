@@ -201,16 +201,24 @@ test('first run: connect, sync from MCP, browse the library, build, check and ex
       expect(WRITE_TOOLS as readonly string[]).not.toContain(call.tool);
       expect(isReadOnlyCall(String(call.tool), call.args ?? {})).toBe(true);
     }
-    // The file tool can also write, move and delete. The app uses it for one thing: to read, as bytes, a
-    // description or a preview that lies next to a model file.
+    // The file tool can also write, move and delete. The app uses it for two things only: to read, as bytes, a
+    // description or a preview that lies next to a model file, and the pyproject.toml and README at the top of
+    // a node pack, where the pack says what it is.
     const fileCalls = toolCalls.filter((call) => call.tool === 'workspace_files').map((call) => (call.args ?? {}) as Record<string, unknown>);
     expect(fileCalls.length).toBeGreaterThan(0);
+    const sideFile = /^\/srv\/comfyui\/models\/[^/]+\/[^/]+\.(metadata\.json|civitai\.info|webp|png|jpe?g|gif|mp4|webm)$/;
+    const packFile = /^\/srv\/comfyui\/custom_nodes\/[^/]+\/(pyproject\.toml|README\.md|readme\.md|README\.MD|Readme\.md)$/;
     for (const args of fileCalls) {
       expect(args.action).toBe('read');
       expect(args.encoding).toBe('base64');
-      expect(String(args.absolute_path)).toMatch(/\/models\/[^/]+\/[^/]+\.(metadata\.json|civitai\.info|webp|png|jpe?g|gif|mp4|webm)$/);
+      const target = String(args.absolute_path);
+      expect(sideFile.test(target) || packFile.test(target), target).toBe(true);
+      expect(target.split('/')).not.toContain('..');
       expect(Object.keys(args).sort()).toEqual(['absolute_path', 'action', 'encoding', 'length', 'offset']);
     }
+    expect(fileCalls.some((args) => packFile.test(String(args.absolute_path)))).toBe(true);
+    // Where the packs lie is asked once, by the one read-only question that names it.
+    expect(toolCalls.filter((call) => call.tool === 'studio_capabilities' && call.args?.section === 'roots').map((call) => call.args)).toEqual([{ section: 'roots' }]);
     // "Check" knocks without credentials on purpose (that is how it learns a token is needed) and is turned away
     // before any tool runs; every tool call afterwards carried the token.
     expect(toolCalls.every((call) => call.authorized)).toBe(true);
