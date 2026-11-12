@@ -92,7 +92,7 @@ export default function NodeCard({ id, data, state, connected, live = true, head
         <div className={styles.typeRow}>
           {state.subgraph ? <span className={styles.badge}>{t('node.subgraph')}</span> : null}
           {data.demo ? <span className={styles.badge}>{t('node.demo')}</span> : null}
-          {state.subgraph ? null : <span className={`${styles.classType} graph-node-type`}>{data.comfyType}</span>}
+          {state.subgraph ? null : <span className={`${styles.classType} graph-node-type`} title={data.comfyType}>{data.comfyType}</span>}
         </div>
       </div>
       {layout.linkInputs.length > 0 ? (

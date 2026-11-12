@@ -26,6 +26,9 @@ export const APP_AUDIT: AuditOptions = {
     // The data type beside a port is a hint, named by the pack that made it (WANVIDIMAGE_CLIPEMBEDS); the port's
     // name stays whole, and the full type is in the tooltip.
     '.port-type[title]',
+    // The class under a node's title is the pack's own identifier (WanVideoImageToVideoMultiTalk); the title above
+    // names the node, and the full class is in the tooltip.
+    '.graph-node-type[title]',
   ],
   // Every text and tooltip is read for "{{count}}", "undefined" and translation keys shown instead of their text.
   keyRoots: Object.keys(en),
