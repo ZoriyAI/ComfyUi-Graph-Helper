@@ -14,7 +14,7 @@ import Skeleton from '../../ui/Skeleton';
 import { loaderForModel } from '../graph/lib/modelLoaders';
 import { useMotionLevel } from '../graph/lib/motion';
 import { authorTitle, fittingBases, fittingLoras, formatBytes, isBaseModel, modelKey, plainDescription, plainNumber, safeModelSource, sortModels } from './libraryModel';
-import { useModelPreview } from './modelPreview';
+import { forgetModelPreview, useModelPreview } from './modelPreview';
 import { CARD_WIDTH, useFlyoutBox } from './flyout';
 import { addModelLoader, putModelIntoNode, selectedLoaderFor, type SelectedLoader } from './placeModel';
 import styles from './ModelCard.module.css';
@@ -338,6 +338,16 @@ function WebSection({ detail, step, error, hidden, onFind, onReveal, onCopy }: {
             </IconButton>
           </div>
         ) : null}
+        {found.byName ? (
+          // A guess by the name may be refreshed: the repository may have changed, or a sample may be there now.
+          <div className={styles.webAgain}>
+            {error ? <p className={styles.note} data-tone="warn">{t('library.card.web.failed', { reason: String(t(WEB_ERROR_KEYS[error])) })}</p> : null}
+            <p className={styles.hint}>{t('library.card.web.findHint')}</p>
+            <div>
+              <Button variant="subtle" size="sm" icon={<Globe size={14} aria-hidden="true" />} onClick={onFind}>{t('library.card.web.again')}</Button>
+            </div>
+          </div>
+        ) : null}
       </>
     );
   } else {
@@ -441,6 +451,7 @@ export default function ModelCard({ model, all, onClose, onShowLoras, onAsk, onU
     const still = () => currentKey.current === asked;
     const settle = (result: ModelLookupResult): boolean => {
       if (!still()) return false;
+      forgetModelPreview(asked);
       setDetail(result.detail);
       if (result.detail) onUpdated?.(summaryOf(result.detail));
       if (!result.ok) {

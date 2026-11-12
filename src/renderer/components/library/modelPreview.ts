@@ -36,6 +36,13 @@ export function clearModelPreviewCache(): void {
   held.clear();
 }
 
+/** A lookup on the internet may have found another sample for this file: what is held is read again. */
+export function forgetModelPreview(key: string): void {
+  const item = held.get(key);
+  held.delete(key);
+  if (item) URL.revokeObjectURL(item.url);
+}
+
 function load(model: Pick<ModelSummary, 'directory' | 'name'>, key: string): Promise<Held> {
   const running = waiting.get(key);
   if (running) return running;
@@ -60,6 +67,8 @@ function load(model: Pick<ModelSummary, 'directory' | 'name'>, key: string): Pro
 export function useModelPreview(model: Pick<ModelSummary, 'directory' | 'name' | 'preview'> | null): ModelPreviewState {
   const key = model && model.preview ? modelKey(model) : '';
   const [, setTick] = useState(0);
+  // Read again when it was let go meanwhile (forgetModelPreview) while the same file stays shown.
+  const missing = key !== '' && !held.has(key);
   useEffect(() => {
     if (!key || !model || held.has(key)) return undefined;
     let live = true;
@@ -71,7 +80,7 @@ export function useModelPreview(model: Pick<ModelSummary, 'directory' | 'name' |
     };
     // `key` names the file.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
+  }, [key, missing]);
   if (!key) return { state: 'none' };
   if (!held.has(key)) return { state: 'loading' };
   const value = held.get(key) ?? null;

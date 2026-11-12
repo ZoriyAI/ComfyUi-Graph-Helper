@@ -43,6 +43,8 @@ export function registerKnowledgeIpc(ipcMain: IpcMain): void {
     setAppWebClient(new ModelWebClient({ endpoints: { civitai: `${fake}/civitai`, huggingface: `${fake}/hf` }, fetchImpl: (url, init) => globalThis.fetch(url, init) }));
   }
   const previews = new PreviewReader({ db: getDatabase, open: openSavedMcpSession, cacheDir, web: (url) => appWebClient().previewBytes(url) });
+  // A Hugging Face sample is downloaded at lookup to check it is a picture; it is kept, not downloaded again when shown.
+  appWebClient().keepPreview = (url, got) => previews.keepWeb(url, got);
   const lookups = new ModelLookupService({ db: getDatabase, client: appWebClient, open: openSavedMcpSession });
   const handlers = knowledgeHandlers({
     db: getDatabase,

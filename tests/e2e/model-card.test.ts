@@ -4,7 +4,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { expectSoundLayout } from './layoutProfile';
 import { useEnglish } from './locale';
-import { READ_TOOLS, startFakeMcp, WRITE_TOOLS } from '../fixtures/mcp/fakeMcpServer';
+import { fakeFileHash, READ_TOOLS, startFakeMcp, WRITE_TOOLS } from '../fixtures/mcp/fakeMcpServer';
 import { CIVITAI_KNOWN, startFakeModelWeb } from '../fixtures/web/fakeModelWeb';
 
 /**
@@ -387,6 +387,45 @@ test('model card: a file nothing describes is looked up on the internet when the
     for (const text of ['Hugging Face', 'Found by the file name. It may be a different model.', 'ByteDance/SDXL-Lightning', 'SDXL-Lightning is a lightning-fast text-to-image generation model.', 'https://huggingface.co/ByteDance/SDXL-Lightning']) {
       await expect(lightningWeb, text).toContainText(text);
     }
+    // The picture its README shows, at the top of the card; downloaded once, at lookup, to check it is one.
+    const lightningPicture = '/hf/ByteDance/SDXL-Lightning/resolve/main/sdxl_lightning_samples.jpg';
+    await expect.poll(() => lightning.locator('img').first().evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
+    expect(web.requests.filter((item) => item.path === lightningPicture)).toHaveLength(1);
+    // A guess by name can be asked again; the card says what leaves the computer.
+    await expect(lightningWeb).toContainText('This sends the file fingerprint to civitai.com');
+    const lookedBefore = web.requests.length;
+    await lightningWeb.getByRole('button', { name: 'Look again' }).click();
+    await expect.poll(() => web.requests.filter((item) => item.path === lightningPicture).length, { timeout: 30_000 }).toBe(2);
+    await expect(lightningWeb).toHaveAttribute('data-web', 'found', { timeout: 30_000 });
+    await expect(lightningWeb).toContainText('ByteDance/SDXL-Lightning');
+    await expect.poll(() => lightning.locator('img').first().evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
+    // One chain: Civitai by the fingerprint, Hugging Face by the name, the picture.
+    expect(web.requests.slice(lookedBefore).map((item) => item.path)).toEqual([
+      `/civitai/api/v1/model-versions/by-hash/${fakeFileHash('loras', 'sdxl_lightning_8step_lora.safetensors')}`,
+      '/hf/api/models?search=sdxl_lightning_8step_lora&limit=5',
+      '/hf/api/models?search=sdxl-lightning&limit=5',
+      '/hf/api/models/ByteDance/SDXL-Lightning',
+      '/hf/ByteDance/SDXL-Lightning/raw/main/README.md',
+      lightningPicture,
+    ]);
+    await shot(window, '5-card-found-on-hugging-face');
+
+    // A repository tagged not-for-all-audiences: its picture is not downloaded and stays closed until opened.
+    const velvet = await open('realisticVisionV60B1_v51VAE.safetensors');
+    await velvet.getByRole('button', { name: 'Find on the internet' }).click();
+    const velvetWeb = velvet.locator('[aria-labelledby="model-card-web"]');
+    await expect(velvetWeb).toHaveAttribute('data-web', 'found', { timeout: 30_000 });
+    await expect(velvetWeb).toContainText('velvet-studio/realisticVisionV60B1_v51VAE');
+    await expect(velvetWeb).toContainText('The site marks this model as adult content.');
+    const closed = velvet.locator('[data-preview="hidden"]');
+    await expect(closed).toContainText('marked this as adult content');
+    await expect(velvet.locator('img')).toHaveCount(0);
+    expect(web.requests.some((item) => item.path.includes('/velvet-studio/') && item.path.includes('/resolve/'))).toBe(false);
+    await shot(window, '6-card-hugging-face-closed');
+    await expectSoundLayout(window, 'model card with a closed picture from Hugging Face', HERE);
+    await closed.getByRole('button', { name: 'Show for this file' }).click();
+    await expect.poll(() => velvet.locator('img').first().evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
+    expect(web.requests.filter((item) => item.path === '/hf/velvet-studio/realisticVisionV60B1_v51VAE/resolve/main/previews/cover.png')).toHaveLength(1);
 
     // Neither site knows this one, and the card says so.
     const unknown = await open('Z-Image-Turbo-Fun-Controlnet-Union.safetensors');

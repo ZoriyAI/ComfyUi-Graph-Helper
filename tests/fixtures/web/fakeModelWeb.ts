@@ -6,7 +6,7 @@
  * can prove what was sent and how far apart. Labelled fixture: these records are made up.
  *
  * Paths: /civitai/api/v1/model-versions/by-hash/<sha256>, /hf/api/models?search=…, /hf/api/models/<id>,
- * /hf/<id>/raw/main/README.md, /img/<name>.
+ * /hf/<id>/raw/main/README.md, /hf/<id>/resolve/main/<file>, /img/<name>.
  */
 import * as fs from 'fs';
 import * as http from 'http';
@@ -73,8 +73,14 @@ function civitaiRecord(hash: string, origin: string): Record<string, unknown> | 
   return null;
 }
 
-/** What Hugging Face holds: one repository a file name can find. */
-export const HF_MODELS: Array<{ id: string; detail: Record<string, unknown>; readme: string }> = [
+/** What a file in a fake repository is: a real picture, a picture over the preview cap, or text named like a picture. */
+type HfFile = 'picture' | 'huge' | 'text';
+
+/**
+ * What Hugging Face holds: repositories a file name can find. One shows a picture in its README; one has only
+ * sample files among its files (the first two too large or not a picture); one is marked as adult content.
+ */
+export const HF_MODELS: Array<{ id: string; detail: Record<string, unknown>; readme: string; files: Record<string, HfFile> }> = [
   {
     id: 'ByteDance/SDXL-Lightning',
     detail: {
@@ -82,7 +88,9 @@ export const HF_MODELS: Array<{ id: string; detail: Record<string, unknown>; rea
       pipeline_tag: 'text-to-image',
       tags: ['diffusers', 'text-to-image', 'stable-diffusion', 'license:openrail++', 'region:us'],
       cardData: { license: 'openrail++', base_model: 'stabilityai/stable-diffusion-xl-base-1.0' },
+      siblings: [{ rfilename: 'README.md' }, { rfilename: 'comfyui/sdxl_lightning_workflow_lora.jpg' }, { rfilename: 'sdxl_lightning_8step_lora.safetensors' }, { rfilename: 'sdxl_lightning_samples.jpg' }],
     },
+    files: { 'sdxl_lightning_samples.jpg': 'picture', 'comfyui/sdxl_lightning_workflow_lora.jpg': 'picture' },
     readme: [
       '---',
       'license: openrail++',
@@ -102,7 +110,49 @@ export const HF_MODELS: Array<{ id: string; detail: Record<string, unknown>; rea
       '```',
     ].join('\n'),
   },
+  {
+    id: 'finegrain-lab/add-detail-xl',
+    detail: {
+      id: 'finegrain-lab/add-detail-xl',
+      pipeline_tag: 'text-to-image',
+      tags: ['lora', 'text-to-image', 'sdxl', 'license:mit'],
+      cardData: { base_model: 'stabilityai/stable-diffusion-xl-base-1.0', instance_prompt: 'detailed' },
+      siblings: [
+        { rfilename: '.gitattributes' }, { rfilename: 'README.md' }, { rfilename: 'add-detail-xl.safetensors' }, { rfilename: 'assets/logo.png' },
+        { rfilename: 'deep/one/two/three.png' }, { rfilename: 'examples/full_grid.png' }, { rfilename: 'examples/notes.png' }, { rfilename: 'samples/detail_01.webp' },
+      ],
+    },
+    files: { 'assets/logo.png': 'picture', 'deep/one/two/three.png': 'picture', 'examples/full_grid.png': 'huge', 'examples/notes.png': 'text', 'samples/detail_01.webp': 'picture' },
+    readme: [
+      '# Add Detail XL',
+      '',
+      '[![Downloads](https://img.shields.io/badge/downloads-1k-blue.svg)](https://example.com)',
+      '',
+      'Adds fine detail to SDXL pictures. Start at 0.8.',
+    ].join('\n'),
+  },
+  {
+    id: 'velvet-studio/realisticVisionV60B1_v51VAE',
+    detail: {
+      id: 'velvet-studio/realisticVisionV60B1_v51VAE',
+      pipeline_tag: 'text-to-image',
+      tags: ['text-to-image', 'stable-diffusion', 'not-for-all-audiences', 'license:creativeml-openrail-m'],
+      cardData: { tags: ['not-for-all-audiences'] },
+      siblings: [{ rfilename: 'README.md' }, { rfilename: 'previews/cover.png' }],
+    },
+    files: { 'previews/cover.png': 'picture' },
+    readme: [
+      '# Realistic Vision 6.0',
+      '',
+      '<img src="previews/cover.png" width="512" alt="cover">',
+      '',
+      'A photographic checkpoint for SD 1.5.',
+    ].join('\n'),
+  },
 ];
+
+/** More than the preview cap (16 MiB): a file this large is skipped for the next one. */
+const HUGE_BYTES = 17 * 1024 * 1024;
 
 function listen(server: http.Server): Promise<number> {
   return new Promise((resolve) => server.listen(0, '127.0.0.1', () => resolve((server.address() as AddressInfo).port)));
@@ -146,6 +196,17 @@ export async function startFakeModelWeb(): Promise<FakeModelWeb> {
       if (!found) { res.writeHead(404); res.end(); return; }
       res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' });
       res.end(found.readme);
+      return;
+    }
+    const download = /^\/hf\/([^/]+\/[^/]+)\/resolve\/main\/(.+)$/.exec(url.pathname);
+    if (download) {
+      const found = HF_MODELS.find((model) => model.id === decodeURIComponent(download[1]));
+      const file = found?.files[download[2].split('/').map(decodeURIComponent).join('/')];
+      if (!file) { res.writeHead(404); res.end(); return; }
+      // The site names every one a picture: what it really is shows only in its bytes.
+      const bytes = file === 'picture' ? STILL : file === 'huge' ? Buffer.alloc(HUGE_BYTES, 1) : Buffer.from('These are not the pictures you are looking for.\n'.repeat(4));
+      res.writeHead(200, { 'content-type': 'image/png', 'content-length': String(bytes.length) });
+      res.end(bytes);
       return;
     }
     if (url.pathname.startsWith('/img/')) {
