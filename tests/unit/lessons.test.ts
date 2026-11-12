@@ -60,7 +60,7 @@ const CLASSES: Record<string, Spec> = {
   VAEEncode: { inputs: [['pixels', 'IMAGE'], ['vae', 'VAE']], outputs: [['LATENT', 'LATENT']] },
   PreviewImage: { inputs: [['images', 'IMAGE']], outputs: [] },
   // ComfyUI-WanVideoWrapper, as the pack declares them.
-  WanVideoModelLoader: { inputs: [['model', 'COMBO', 'wan-high.safetensors'], ['base_precision', 'COMBO', 'bf16'], ['quantization', 'COMBO', 'disabled'], ['load_device', 'COMBO', 'offload_device'], ['block_swap_args', 'BLOCKSWAPARGS'], ['lora', 'WANVIDLORA']], outputs: [['model', 'WANVIDEOMODEL']] },
+  WanVideoModelLoader: { inputs: [['model', 'COMBO', 'wan-high.safetensors'], ['base_precision', 'COMBO', 'bf16'], ['quantization', 'COMBO', 'disabled'], ['load_device', 'COMBO', 'offload_device'], ['block_swap_args', 'BLOCKSWAPARGS'], ['lora', 'WANVIDLORA'], ['extra_model', 'VACEPATH'], ['multitalk_model', 'MULTITALKMODEL']], outputs: [['model', 'WANVIDEOMODEL']] },
   WanVideoLoraSelect: { inputs: [['lora', 'COMBO', 'first-lora.safetensors'], ['strength', 'FLOAT', 1], ['prev_lora', 'WANVIDLORA']], outputs: [['lora', 'WANVIDLORA']] },
   LoadWanVideoT5TextEncoder: { inputs: [['model_name', 'COMBO', 'umt5.safetensors'], ['precision', 'COMBO', 'bf16']], outputs: [['wan_t5_model', 'WANTEXTENCODER']] },
   WanVideoVAELoader: { inputs: [['model_name', 'COMBO', 'wan-vae.safetensors'], ['precision', 'COMBO', 'bf16']], outputs: [['vae', 'WANVAE']] },
@@ -71,10 +71,43 @@ const CLASSES: Record<string, Spec> = {
     outputs: [['image_embeds', 'WANVIDIMAGE_EMBEDS']],
   },
   WanVideoSampler: {
-    inputs: [['model', 'WANVIDEOMODEL'], ['image_embeds', 'WANVIDIMAGE_EMBEDS'], ['steps', 'INT', 30], ['cfg', 'FLOAT', 6], ['shift', 'FLOAT', 5], ['seed', 'INT', 0], ['force_offload', 'BOOLEAN', true], ['scheduler', 'COMBO', 'unipc'], ['text_embeds', 'WANVIDEOTEXTEMBEDS'], ['samples', 'LATENT'], ['start_step', 'INT', 0], ['end_step', 'INT', -1]],
+    inputs: [['model', 'WANVIDEOMODEL'], ['image_embeds', 'WANVIDIMAGE_EMBEDS'], ['steps', 'INT', 30], ['cfg', 'FLOAT', 6], ['shift', 'FLOAT', 5], ['seed', 'INT', 0], ['force_offload', 'BOOLEAN', true], ['scheduler', 'COMBO', 'unipc'], ['text_embeds', 'WANVIDEOTEXTEMBEDS'], ['samples', 'LATENT'], ['start_step', 'INT', 0], ['end_step', 'INT', -1], ['multitalk_embeds', 'MULTITALK_EMBEDS']],
     outputs: [['samples', 'LATENT'], ['denoised_samples', 'LATENT']],
   },
   WanVideoDecode: { inputs: [['vae', 'WANVAE'], ['samples', 'LATENT'], ['enable_vae_tiling', 'BOOLEAN', false]], outputs: [['images', 'IMAGE']] },
+  WanVideoVACEModelSelect: { inputs: [['vace_model', 'COMBO', 'vace-module.safetensors']], outputs: [['extra_model', 'VACEPATH']] },
+  WanVideoVACEEncode: {
+    inputs: [['vae', 'WANVAE'], ['width', 'INT', 832], ['height', 'INT', 480], ['num_frames', 'INT', 81], ['strength', 'FLOAT', 1], ['vace_start_percent', 'FLOAT', 0], ['vace_end_percent', 'FLOAT', 1], ['input_frames', 'IMAGE'], ['ref_images', 'IMAGE'], ['input_masks', 'MASK']],
+    outputs: [['vace_embeds', 'WANVIDIMAGE_EMBEDS']],
+  },
+  WanVideoAnimateEmbeds: {
+    inputs: [
+      ['vae', 'WANVAE'], ['width', 'INT', 832], ['height', 'INT', 480], ['num_frames', 'INT', 81], ['frame_window_size', 'INT', 77], ['colormatch', 'COMBO', 'disabled'],
+      ['pose_strength', 'FLOAT', 1], ['face_strength', 'FLOAT', 1], ['clip_embeds', 'WANVIDIMAGE_CLIPEMBEDS'], ['ref_images', 'IMAGE'], ['pose_images', 'IMAGE'], ['face_images', 'IMAGE'],
+    ],
+    outputs: [['image_embeds', 'WANVIDIMAGE_EMBEDS']],
+  },
+  WanVideoClipVisionEncode: { inputs: [['clip_vision', 'CLIP_VISION'], ['image_1', 'IMAGE'], ['strength_1', 'FLOAT', 1], ['crop', 'COMBO', 'center']], outputs: [['image_embeds', 'WANVIDIMAGE_CLIPEMBEDS']] },
+  CLIPVisionLoader: { inputs: [['clip_name', 'COMBO', 'clip-vision.safetensors']], outputs: [['CLIP_VISION', 'CLIP_VISION']] },
+  LoadVideo: { inputs: [['file', 'COMBO', 'clip.mp4']], outputs: [['VIDEO', 'VIDEO']] },
+  GetVideoComponents: { inputs: [['video', 'VIDEO']], outputs: [['images', 'IMAGE'], ['audio', 'AUDIO'], ['fps', 'FLOAT']] },
+  LoadAudio: { inputs: [['audio', 'COMBO', 'voice.wav']], outputs: [['AUDIO', 'AUDIO']] },
+  OnnxDetectionModelLoader: { inputs: [['vitpose_model', 'COMBO', 'vitpose.onnx'], ['yolo_model', 'COMBO', 'vitpose.onnx'], ['onnx_device', 'COMBO', 'CUDAExecutionProvider']], outputs: [['model', 'POSEMODEL']] },
+  PoseAndFaceDetection: {
+    inputs: [['model', 'POSEMODEL'], ['images', 'IMAGE'], ['width', 'INT', 832], ['height', 'INT', 480]],
+    outputs: [['pose_data', 'POSEDATA'], ['face_images', 'IMAGE'], ['key_frame_body_points', 'STRING'], ['bboxes', 'BBOX'], ['face_bboxes', 'BBOX,']],
+  },
+  DrawViTPose: { inputs: [['pose_data', 'POSEDATA'], ['width', 'INT', 832], ['height', 'INT', 480]], outputs: [['pose_images', 'IMAGE']] },
+  Wav2VecModelLoader: { inputs: [['model', 'COMBO', 'wav2vec.safetensors'], ['base_precision', 'COMBO', 'fp16']], outputs: [['wav2vec_model', 'WAV2VECMODEL']] },
+  MultiTalkModelLoader: { inputs: [['model', 'COMBO', 'infinitetalk.safetensors']], outputs: [['model', 'MULTITALKMODEL']] },
+  MultiTalkWav2VecEmbeds: {
+    inputs: [['wav2vec_model', 'WAV2VECMODEL'], ['audio_1', 'AUDIO'], ['normalize_loudness', 'BOOLEAN', true], ['num_frames', 'INT', 81], ['fps', 'FLOAT', 25], ['audio_scale', 'FLOAT', 1], ['audio_cfg_scale', 'FLOAT', 1]],
+    outputs: [['multitalk_embeds', 'MULTITALK_EMBEDS'], ['audio', 'AUDIO'], ['num_frames', 'INT']],
+  },
+  WanVideoImageToVideoMultiTalk: {
+    inputs: [['vae', 'WANVAE'], ['width', 'INT', 832], ['height', 'INT', 480], ['frame_window_size', 'INT', 81], ['motion_frame', 'INT', 25], ['start_image', 'IMAGE'], ['clip_embeds', 'WANVIDIMAGE_CLIPEMBEDS']],
+    outputs: [['image_embeds', 'WANVIDIMAGE_EMBEDS'], ['output_path', 'STRING']],
+  },
 };
 
 const ports: ClassPorts = (classType) => {

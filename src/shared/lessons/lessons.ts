@@ -431,6 +431,17 @@ const twoModels: Lesson = {
 };
 
 /**
+ * What the pack's start nodes give a sampler, by its data type: the empty one names it `image_embeds`, VACE
+ * `vace_embeds`, and each is accepted where the lesson asks for "the start of the clip".
+ */
+const EMBEDS = 'WANVIDIMAGE_EMBEDS';
+/** Nodes that may stand between the frames of a video and VACE: what turns them into depth, a pose or lines. */
+const CONTROL_VIA = [
+  'DepthAnythingV2Preprocessor', 'DepthAnythingPreprocessor', 'MiDaS-DepthMapPreprocessor', 'OpenposePreprocessor', 'DWPreprocessor',
+  'CannyEdgePreprocessor', 'LineArtPreprocessor', 'AnyLineArtPreprocessor_aux', 'ImageScale', 'ImageResizeKJ',
+];
+
+/**
  * Wan 2.2 in kijai's ComfyUI-WanVideoWrapper: its own loaders, one text node that holds both descriptions, one
  * embeds node that says the size and the length (or carries the start picture), and a sampler that takes the
  * noise shift itself. Its nodes do not connect to the built-in ones (WANVIDEOMODEL is not MODEL), so a graph is
@@ -455,13 +466,13 @@ const wrapper: Lesson = {
     },
     {
       id: 'embeds',
-      roles: [node('embeds', 'WanVideoEmptyEmbeds', 'WanVideoImageToVideoEncode')],
+      roles: [node('embeds', 'WanVideoEmptyEmbeds', 'WanVideoImageToVideoEncode', 'WanVideoVACEEncode')],
       fields: [field('embeds', 'num_frames', between(49, 121, 81))],
     },
     {
       id: 'first-pass',
       roles: [node('first', 'WanVideoSampler')],
-      links: [link('high', 'model', 'first', 'model'), link('text', 'text_embeds', 'first', 'text_embeds'), link('embeds', 'image_embeds', 'first', 'image_embeds')],
+      links: [link('high', 'model', 'first', 'model'), link('text', 'text_embeds', 'first', 'text_embeds'), link('embeds', EMBEDS, 'first', 'image_embeds')],
     },
     {
       id: 'second-pass',
@@ -469,7 +480,7 @@ const wrapper: Lesson = {
       links: [
         link('low', 'model', 'second', 'model'),
         link('text', 'text_embeds', 'second', 'text_embeds'),
-        link('embeds', 'image_embeds', 'second', 'image_embeds'),
+        link('embeds', EMBEDS, 'second', 'image_embeds'),
         link('first', 'samples', 'second', 'samples'),
       ],
     },
@@ -540,6 +551,167 @@ const wrapperImage: Lesson = {
 };
 
 /**
+ * VACE on the WanVideoWrapper graph: a module added to each of the two models, a video whose frames (or a depth,
+ * a pose, lines made of them) say how the clip moves, and the VACE node that gives both samplers their start.
+ */
+const wrapperVace: Lesson = {
+  id: 'wrapper-vace',
+  steps: [
+    { id: 'intro', read: true },
+    {
+      id: 'graph',
+      roles: [
+        node('high', 'WanVideoModelLoader'),
+        node('low', 'WanVideoModelLoader'),
+        node('vae', 'WanVideoVAELoader'),
+        node('first', 'WanVideoSampler'),
+        node('second', 'WanVideoSampler'),
+      ],
+      links: [link('high', 'model', 'first', 'model'), link('low', 'model', 'second', 'model'), link('first', 'samples', 'second', 'samples')],
+    },
+    {
+      id: 'modules',
+      roles: [node('vaceHigh', 'WanVideoVACEModelSelect'), node('vaceLow', 'WanVideoVACEModelSelect')],
+      links: [link('vaceHigh', 'extra_model', 'high', 'extra_model'), link('vaceLow', 'extra_model', 'low', 'extra_model')],
+      fields: [field('vaceHigh', 'vace_model', chosen), field('vaceLow', 'vace_model', { kind: 'differs', role: 'vaceHigh', field: 'vace_model' })],
+    },
+    {
+      id: 'source',
+      roles: [node('source', 'LoadVideo'), node('frames', 'GetVideoComponents')],
+      links: [link('source', 'VIDEO', 'frames', 'video')],
+      fields: [field('source', 'file', chosen)],
+    },
+    { id: 'control', read: true },
+    {
+      id: 'encode',
+      roles: [node('vace', 'WanVideoVACEEncode')],
+      links: [link('vae', 'vae', 'vace', 'vae'), link('frames', 'images', 'vace', 'input_frames', CONTROL_VIA)],
+      fields: [field('vace', 'num_frames', between(49, 121, 81)), field('vace', 'strength', between(0.5, 1.5, 1))],
+    },
+    { id: 'wire', links: [link('vace', EMBEDS, 'first', 'image_embeds'), link('vace', EMBEDS, 'second', 'image_embeds')] },
+    { id: 'reference', read: true },
+    { id: 'tune', read: true },
+    { id: 'run', read: true },
+  ],
+};
+
+/** The loaders, the text and the picture every one-model WanVideoWrapper graph starts with. */
+const oneModelStart = (modelStep: string) => [
+  { id: modelStep, roles: [node('model', 'WanVideoModelLoader')], fields: [field('model', 'model', chosen)] },
+  {
+    id: 'readers',
+    roles: [node('t5', 'LoadWanVideoT5TextEncoder'), node('vae', 'WanVideoVAELoader')],
+    fields: [field('t5', 'model_name', chosen), field('vae', 'model_name', chosen)],
+  },
+  {
+    id: 'prompt',
+    roles: [node('text', 'WanVideoTextEncode')],
+    links: [link('t5', 'wan_t5_model', 'text', 't5')],
+    fields: [field('text', 'positive_prompt', { kind: 'text', minChars: 3 })],
+  },
+  { id: 'picture', roles: [node('picture', 'LoadImage')], fields: [field('picture', 'image', chosen)] },
+  {
+    id: 'vision',
+    roles: [node('clipVision', 'CLIPVisionLoader'), node('vision', 'WanVideoClipVisionEncode')],
+    links: [link('clipVision', 'CLIP_VISION', 'vision', 'clip_vision'), link('picture', 'IMAGE', 'vision', 'image_1')],
+    fields: [field('clipVision', 'clip_name', chosen)],
+  },
+];
+
+/** The decoder and the saver of a one-model graph, at the frame rate its model draws. */
+const oneModelEnd = (fps: number) => [
+  { id: 'decode', roles: [node('decode', 'WanVideoDecode')], links: [link('sampler', 'samples', 'decode', 'samples'), link('vae', 'vae', 'decode', 'vae')] },
+  {
+    id: 'save',
+    roles: [node('video', 'CreateVideo'), node('save', 'SaveVideo')],
+    links: [link('decode', 'IMAGE', 'video', 'images'), link('video', 'VIDEO', 'save', 'video')],
+    fields: [field('video', 'fps', equals(fps))],
+  },
+];
+
+/**
+ * Wan 2.2 Animate on WanVideoWrapper: a person in a picture moves the way the person in a video moves. The pose
+ * and the face are taken from the video by ComfyUI-WanAnimatePreprocess. One model, not a pair.
+ */
+const wrapperAnimate: Lesson = {
+  id: 'wrapper-animate',
+  steps: [
+    { id: 'intro', read: true },
+    ...oneModelStart('model'),
+    {
+      id: 'driving',
+      roles: [node('source', 'LoadVideo'), node('frames', 'GetVideoComponents')],
+      links: [link('source', 'VIDEO', 'frames', 'video')],
+      fields: [field('source', 'file', chosen)],
+    },
+    {
+      id: 'detect',
+      roles: [node('poseModel', 'OnnxDetectionModelLoader'), node('detect', 'PoseAndFaceDetection'), node('draw', 'DrawViTPose')],
+      links: [link('poseModel', 'model', 'detect', 'model'), link('frames', 'images', 'detect', 'images'), link('detect', 'pose_data', 'draw', 'pose_data')],
+      fields: [field('poseModel', 'vitpose_model', chosen), field('poseModel', 'yolo_model', { kind: 'differs', role: 'poseModel', field: 'vitpose_model' })],
+    },
+    {
+      id: 'embeds',
+      roles: [node('animate', 'WanVideoAnimateEmbeds')],
+      links: [
+        link('vae', 'vae', 'animate', 'vae'),
+        link('picture', 'IMAGE', 'animate', 'ref_images'),
+        link('draw', 'pose_images', 'animate', 'pose_images'),
+        link('detect', 'face_images', 'animate', 'face_images'),
+        link('vision', 'WANVIDIMAGE_CLIPEMBEDS', 'animate', 'clip_embeds'),
+      ],
+      fields: [field('animate', 'num_frames', between(49, 121, 81))],
+    },
+    {
+      id: 'sampler',
+      roles: [node('sampler', 'WanVideoSampler')],
+      links: [link('model', 'model', 'sampler', 'model'), link('text', 'text_embeds', 'sampler', 'text_embeds'), link('animate', EMBEDS, 'sampler', 'image_embeds')],
+    },
+    ...oneModelEnd(16),
+    { id: 'tips', read: true },
+    { id: 'run', read: true },
+  ],
+};
+
+/**
+ * InfiniteTalk on WanVideoWrapper: a portrait speaks the words of a sound file, lips in time. Wan 2.1 picture to
+ * video with the InfiniteTalk module; the sound is read by a wav2vec model and goes into the clip as its track.
+ */
+const wrapperTalk: Lesson = {
+  id: 'wrapper-talk',
+  steps: [
+    { id: 'intro', read: true },
+    ...oneModelStart('model'),
+    { id: 'talk-model', roles: [node('talk', 'MultiTalkModelLoader')], links: [link('talk', 'model', 'model', 'multitalk_model')], fields: [field('talk', 'model', chosen)] },
+    {
+      id: 'voice',
+      roles: [node('voice', 'LoadAudio'), node('wav2vec', 'Wav2VecModelLoader'), node('audio', 'MultiTalkWav2VecEmbeds')],
+      links: [link('wav2vec', 'wav2vec_model', 'audio', 'wav2vec_model'), link('voice', 'AUDIO', 'audio', 'audio_1')],
+      fields: [field('voice', 'audio', chosen), field('wav2vec', 'model', chosen), field('audio', 'fps', equals(25))],
+    },
+    {
+      id: 'start',
+      roles: [node('start', 'WanVideoImageToVideoMultiTalk')],
+      links: [link('vae', 'vae', 'start', 'vae'), link('picture', 'IMAGE', 'start', 'start_image'), link('vision', 'WANVIDIMAGE_CLIPEMBEDS', 'start', 'clip_embeds')],
+    },
+    {
+      id: 'sampler',
+      roles: [node('sampler', 'WanVideoSampler')],
+      links: [
+        link('model', 'model', 'sampler', 'model'),
+        link('text', 'text_embeds', 'sampler', 'text_embeds'),
+        link('start', EMBEDS, 'sampler', 'image_embeds'),
+        link('audio', 'multitalk_embeds', 'sampler', 'multitalk_embeds'),
+      ],
+    },
+    ...oneModelEnd(25),
+    { id: 'sound', links: [link('audio', 'audio', 'video', 'audio')] },
+    { id: 'tips', read: true },
+    { id: 'run', read: true },
+  ],
+};
+
+/**
  * What changes for adult content is knowledge, not the graph: which model, which LoRA, how to describe. The subject
  * comes from a further-trained pair of models or from a LoRA, so the lesson asks for neither: it checks that the
  * video graph is there and that the words of a LoRA, when one is on the canvas, are in the description. Putting a
@@ -562,7 +734,10 @@ const adult: Lesson = {
 };
 
 /** In the order a person meets them. */
-export const LESSONS: readonly Lesson[] = [image, prompt, refine, videoText, promptVideo, videoImage, lora, videoFast, wrapper, wrapperImage, twoModels, adult];
+export const LESSONS: readonly Lesson[] = [
+  image, prompt, refine, videoText, promptVideo, videoImage, lora, videoFast,
+  wrapper, wrapperImage, wrapperVace, wrapperAnimate, wrapperTalk, twoModels, adult,
+];
 
 /** Lessons that stand on the graph of another: said in the list, not enforced. */
 export const LESSON_AFTER: Readonly<Record<string, string[]>> = {
@@ -573,6 +748,7 @@ export const LESSON_AFTER: Readonly<Record<string, string[]>> = {
   lora: ['video-text'],
   'video-fast': ['lora'],
   'wrapper-image': ['wrapper'],
+  'wrapper-vace': ['wrapper'],
   'two-models': ['video-image'],
   adult: ['video-text'],
 };

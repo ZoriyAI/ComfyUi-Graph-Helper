@@ -384,6 +384,14 @@ const FILES: Record<string, string[]> = {
   'WanVideoModelLoader.model': ['wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors', 'z_image_turbo_bf16.safetensors'],
   'LoadWanVideoT5TextEncoder.model_name': ['umt5_xxl_fp8_e4m3fn_scaled.safetensors'],
   'WanVideoVAELoader.model_name': ['wan_2.1_vae.safetensors'],
+  'WanVideoVACEModelSelect.vace_model': ['wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors', 'z_image_turbo_bf16.safetensors'],
+  'MultiTalkModelLoader.model': ['z_image_turbo_bf16.safetensors'],
+  'Wav2VecModelLoader.model': ['chinese-wav2vec2-base-fp16.safetensors'],
+  'CLIPVisionLoader.clip_name': ['clip_vision_h.safetensors'],
+  'OnnxDetectionModelLoader.vitpose_model': ['vitpose-l-wholebody.onnx'],
+  'OnnxDetectionModelLoader.yolo_model': ['yolov10m.onnx'],
+  'LoadVideo.file': ['dance.mp4'],
+  'LoadAudio.audio': ['voice.wav'],
 };
 const DESCRIPTION = 'A young woman in a red coat walks slowly along a wet city street at night. The camera follows her from the side. Soft cinematic light.';
 
@@ -638,6 +646,84 @@ test('lessons: a video on WanVideoWrapper is carried through, from text and then
     await page.waitForTimeout(450);
     await shot(page, '16-wrapper-image-done');
     await expectSoundLayout(page, 'lessons, WanVideoWrapper from a picture done', wide);
+  } finally {
+    await app.close();
+    await fake.close();
+    fs.rmSync(userData, { recursive: true, force: true });
+  }
+});
+
+test('lessons: VACE, animation by pose and a talking portrait on WanVideoWrapper are carried through', async () => {
+  test.setTimeout(900_000);
+  const fake = await startFakeMcp({ extraLoras: 3, video: true });
+  const { app, page, api, userData } = await launch(fake);
+  const wide = [{ width: 1440, height: 900 }];
+  const newProject = async () => {
+    await page.keyboard.press('Control+n');
+    await page.getByRole('button', { name: 'Start new project', exact: true }).click();
+    await expect(page.locator('.react-flow__node')).toHaveCount(0, { timeout: 15_000 });
+  };
+  const leftToRight = async (label: string) => {
+    const built = await builtOf(api);
+    const placed = new Map(built.nodes.map((node) => [node.id, node]));
+    for (const edge of built.edges) {
+      const from = placed.get(edge.source)!;
+      const to = placed.get(edge.target)!;
+      expect(from.position.x, `${label}: ${from.data.comfyType} → ${to.data.comfyType}`).toBeLessThan(to.position.x);
+    }
+    return built;
+  };
+  try {
+    await openLearn(page);
+    for (const id of ['wrapper-vace', 'wrapper-animate', 'wrapper-talk']) await expect(panel(page).locator(`[data-lesson-card="${id}"]`), id).toHaveAttribute('data-lesson-state', 'new');
+
+    // VACE stands on the WanVideoWrapper graph.
+    await startLesson(page, 'wrapper');
+    await carry(page, api, 'wrapper');
+    await startLesson(page, 'wrapper-vace');
+    await carry(page, api, 'wrapper-vace', async (stepId) => {
+      await expectSoundLayout(page, `lessons, VACE: ${stepId}`, wide);
+      if (stepId === 'control') await shot(page, '17-vace-control');
+    });
+    await stepIs(page, 'end');
+    let built = await leftToRight('VACE');
+    const vace = built.nodes.find((node) => node.data.comfyType === 'WanVideoVACEEncode')!;
+    expect(built.edges.filter((edge) => edge.source === vace.id)).toHaveLength(2);
+    // The lesson before still holds: VACE is a start of the clip like the empty one.
+    await panel(page).getByRole('button', { name: 'All lessons', exact: true }).click();
+    await expect(panel(page).locator('[data-lesson-card="wrapper"]')).toHaveAttribute('data-lesson-state', 'done');
+
+    // Animation by pose, from an empty canvas; consent is said before anything is built.
+    await newProject();
+    await startLesson(page, 'wrapper-animate');
+    await expect(panel(page)).toContainText('Only someone who agrees may be brought to life this way');
+    await carry(page, api, 'wrapper-animate', async (stepId) => {
+      await expectSoundLayout(page, `lessons, Wan Animate: ${stepId}`, wide);
+    });
+    await stepIs(page, 'end');
+    built = await leftToRight('Animate');
+    const animate = built.nodes.find((node) => node.data.comfyType === 'WanVideoAnimateEmbeds')!;
+    expect(built.edges.filter((edge) => edge.target === animate.id)).toHaveLength(5);
+    await page.locator('.react-flow__controls-fitview').click();
+    await page.waitForTimeout(450);
+    await shot(page, '18-animate-done');
+
+    // A talking portrait: the sound reaches both the sampler and the saved clip.
+    await newProject();
+    await startLesson(page, 'wrapper-talk');
+    await expect(panel(page)).toContainText('with their own voice or a voice you have permission for');
+    await carry(page, api, 'wrapper-talk', async (stepId) => {
+      await expectSoundLayout(page, `lessons, InfiniteTalk: ${stepId}`, wide);
+    });
+    await stepIs(page, 'end');
+    built = await leftToRight('InfiniteTalk');
+    const audio = built.nodes.find((node) => node.data.comfyType === 'MultiTalkWav2VecEmbeds')!;
+    const fed = built.edges.filter((edge) => edge.source === audio.id).map((edge) => built.nodes.find((node) => node.id === edge.target)!.data.comfyType).sort();
+    expect(fed).toEqual(['CreateVideo', 'WanVideoSampler']);
+    await page.locator('.react-flow__controls-fitview').click();
+    await page.waitForTimeout(450);
+    await shot(page, '19-talk-done');
+    await expectSoundLayout(page, 'lessons, InfiniteTalk done', wide);
   } finally {
     await app.close();
     await fake.close();

@@ -630,6 +630,14 @@ test('nothing sticks out, is cut or overlaps on any screen at any window size', 
         WanVideoModelLoader: { key: 'model', values: ['wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors', 'z_image_turbo_bf16.safetensors'] },
         LoadWanVideoT5TextEncoder: { key: 'model_name', values: ['umt5_xxl_fp8_e4m3fn_scaled.safetensors'] },
         WanVideoVAELoader: { key: 'model_name', values: ['wan_2.1_vae.safetensors'] },
+        WanVideoVACEModelSelect: { key: 'vace_model', values: ['wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors', 'z_image_turbo_bf16.safetensors'] },
+        MultiTalkModelLoader: { key: 'model', values: ['z_image_turbo_bf16.safetensors'] },
+        Wav2VecModelLoader: { key: 'model', values: ['chinese-wav2vec2-base-fp16.safetensors'] },
+        CLIPVisionLoader: { key: 'clip_name', values: ['clip_vision_h.safetensors'] },
+        LoadVideo: { key: 'file', values: ['dance.mp4'] },
+        LoadAudio: { key: 'audio', values: ['voice.wav'] },
+        // Two files on one node: the field the step asks for is read off what it says is missing.
+        OnnxDetectionModelLoader: { key: 'vitpose_model', values: ['vitpose-l-wholebody.onnx', 'yolov10m.onnx'] },
       };
       const WORDS = 'A young woman in a red coat walks slowly along a wet city street at night. The camera follows her from the side. Soft cinematic light.';
       const carryLesson = async (id: string, label: string | null) => {
@@ -665,8 +673,11 @@ test('nothing sticks out, is cut or overlaps on any screen at any window size', 
             const file = FILE_FIELD[node.data.comfyType];
             const before = await revision();
             if (file) {
-              const taken = new Set(all.map((item) => item.data.parameters[file.key]));
-              await commit(page, { type: 'set-parameter', nodeId, key: file.key, value: file.values.find((item) => !taken.has(item)) ?? file.values[0] });
+              const lackLine = await lessons.locator('[class*="lacking"] li').first().innerText().catch(() => '');
+              const named = /(?:field|поле|поля|полях?)\s+([a-z_0-9]+)/i.exec(lackLine)?.[1];
+              const key = named && named in node.data.parameters ? named : file.key;
+              const taken = new Set(all.map((item) => item.data.parameters[key]));
+              await commit(page, { type: 'set-parameter', nodeId, key, value: file.values.find((item) => !taken.has(item) && !Object.values(node.data.parameters).includes(item)) ?? file.values[0] });
             } else {
               const key = node.data.comfyType === 'WanVideoTextEncode' ? 'positive_prompt' : 'text';
               const text = String(node.data.parameters[key] ?? '');
@@ -700,6 +711,15 @@ test('nothing sticks out, is cut or overlaps on any screen at any window size', 
       await carryLesson('wrapper', 'lessons, WanVideoWrapper');
       await carryLesson('wrapper-image', 'lessons, WanVideoWrapper from a picture');
       await visit(page, 'canvas with a WanVideoWrapper graph', fitView);
+      await carryLesson('wrapper-vace', 'lessons, VACE');
+      for (const [id, label] of [['wrapper-animate', 'lessons, Wan Animate'], ['wrapper-talk', 'lessons, InfiniteTalk']] as const) {
+        await page.keyboard.press('Control+n');
+        await page.getByRole('button', { name: T('menu.newProjectConfirm'), exact: true }).click();
+        await expect(nodes).toHaveCount(0, { timeout: 15_000 });
+        await reloaded(page);
+        await carryLesson(id, label);
+      }
+      await visit(page, 'canvas with a talking portrait graph', fitView);
 
       // The rest of the walk starts from an empty canvas and from the conversation.
       await page.keyboard.press('Control+n');

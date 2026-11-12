@@ -575,6 +575,180 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
     },
   },
+  'wrapper-vace': {
+    title: 'VACE: motion from another video',
+    result: 'A clip on WanVideoWrapper repeats the motion, the depth or the outlines of another video.',
+    steps: {
+      intro: {
+        title: 'What VACE is',
+        body: 'VACE is a module that teaches Wan to take a hint from a ready video. The hint can be the video itself, a depth map, a person\'s pose or outlines made from its frames. The description says what to draw, and the hint says how it moves and where it stands.\n\nThis is how a dancer\'s motion is moved onto another character, how a clip changes style while keeping its motion, or how a camera move is set by example.\n\nThe lesson goes on from the graph of "Video on WanVideoWrapper".',
+      },
+      graph: {
+        title: 'A WanVideoWrapper graph is needed',
+        body: 'The canvas must have two {high} loaders, a {vae} node and two {first} samplers, the second taking the result of the first. This is the graph of "Video on WanVideoWrapper".\n\nIf it is not there, do that lesson first.',
+      },
+      modules: {
+        title: 'Add the VACE module to both models',
+        body: `Add two {vaceHigh} nodes. In the \`vace_model\` field of one choose the VACE module for the \`high_noise\` model, in the other the one for \`low_noise\`. Connect the \`extra_model\` output of each to the \`extra_model\` input of its model loader.\n\nA module is made for its own model: Wan 2.2 has two of them, Wan 2.1 one. It lies in the same folder as the models.\n\n${noFile("the VACE example graph from the pack's `example_workflows` folder")}`,
+      },
+      source: {
+        title: 'Load the hint video',
+        body: 'Add {source} and {frames}. In the `file` field choose the video whose motion is to be repeated. Connect the output of {source} to the `video` input of {frames}: it takes the video apart into frames.\n\nThe list shows the videos of the `input` folder of your ComfyUI.',
+      },
+      control: {
+        title: 'Frames, depth, a pose or outlines',
+        body: 'The frames can go to VACE as they are: then the model holds on to everything at once, shape, colour and motion. More often one hint is made from the frames first:\n- a depth map holds the layout and the motion and leaves the looks to the description;\n- a pose holds a person\'s motion and not their clothes or face;\n- outlines hold the shape of things.\n\nSuch nodes are in the comfyui_controlnet_aux pack: Depth Anything, OpenPose, DWPose, Canny, Lineart. They stand between {frames} and VACE: the frames into their input, their output on. The lesson counts a direct link and a link through them alike.',
+      },
+      encode: {
+        title: 'Prepare the hint for the model',
+        body: 'Add a {vace} node. Connect the output of {vae} to its `vae` input, and to `input_frames` the frames from {frames} or from the node that made a hint of them.\n\nSet `num_frames` to 81, and `width` and `height` as in the clip. The `strength` field is the strength of the hint: start at 1.',
+      },
+      wire: {
+        title: 'Give the hint to both samplers',
+        body: 'Connect the `vace_embeds` output of {vace} to the `image_embeds` input of both samplers.\n\nThe old links from the empty blank come off by themselves. The empty blank node can be deleted after that: the VACE node now sets the size and the length.',
+      },
+      reference: {
+        title: 'A sample picture',
+        body: 'The {vace} node has a `ref_images` input: a picture of who or what must be in the clip. Connect a node with a picture to it, and the model keeps that look the whole time.\n\nA picture on a plain background, with nothing else in it, works best.',
+      },
+      tune: {
+        title: 'How closely to follow the hint',
+        body: 'Three fields of {vace} decide how strongly the hint holds the clip:\n- `strength`: below 1 gives the model more freedom, above 1 holds it more strictly;\n- `vace_start_percent` and `vace_end_percent`: for which share of the steps the hint acts. Set `vace_end_percent` to 0.5 and the hint sets the start, while the model finishes the detail itself.\n\nIf the clip repeats the hint too literally, flaws and all, lower `strength` or `vace_end_percent`.',
+      },
+      run: {
+        title: 'The graph is ready',
+        body: `${SAVE}\n\nThe clip is no longer than the hint video. If the video is shorter, lower \`num_frames\`.`,
+      },
+    },
+  },
+  'wrapper-animate': {
+    title: 'Animation by pose: Wan Animate',
+    result: 'The character from your picture repeats the moves and the face of the person in a video.',
+    steps: {
+      intro: {
+        title: 'What Wan Animate does',
+        body: 'Wan 2.2 Animate takes a picture of a character and a video of a person moving. A helper program takes the pose and the face out of every frame of the video, and the model draws your character in those poses with that face.\n\nOnly someone who agrees may be brought to life this way: yourself, a made-up character, or a person who gave permission. The app does not help with someone else\'s face without consent.\n\nThis is a separate model in one file, not a pair of `high` and `low`. The lesson builds the graph from an empty canvas: "File ▸ New project".',
+      },
+      model: {
+        title: 'Load the Animate model',
+        body: `Add a {model} node and choose the Wan 2.2 Animate file in its \`model\` field.\n\n${noFile('the Animate example graph from the `example_workflows` folder of the WanVideoWrapper pack')}`,
+      },
+      readers: {
+        title: 'The text reader and the VAE',
+        body: 'Add {t5} and {vae}. In the `model_name` field of the first choose the `umt5-xxl-enc` file, in the second the `wan_2.1_vae` file. These are the files of "Video on WanVideoWrapper".',
+      },
+      prompt: {
+        title: 'Describe the scene briefly',
+        body: 'Add a {text} node and connect the output of {t5} to its `t5` input. In `positive_prompt` describe the character and the place in a couple of sentences.\n\nThe video sets the motion here, so the description is shorter than usual.',
+      },
+      picture: {
+        title: 'Load the picture of the character',
+        body: 'Add a {picture} node and choose the picture of the character in its `image` field. A character seen whole or from the waist up, facing the camera, with no other people near, works best.',
+      },
+      vision: {
+        title: 'Show the picture to the model',
+        body: 'Add {clipVision} and {vision}. In the `clip_name` field of the first choose the `clip_vision_h` file. Connect its output to the `clip_vision` input of the second, and the picture to `image_1`.\n\nThis way the model sees what the character looks like, not only reads about it.',
+      },
+      driving: {
+        title: 'Load the video with the motion',
+        body: 'Add {source} and {frames}. In the `file` field choose a video of the person whose moves are to be repeated. Connect the output of {source} to the `video` input of {frames}.\n\nThe model draws 16 frames a second. If the video was shot at another rate, the motion in the clip runs faster or slower.',
+      },
+      detect: {
+        title: 'Take out the pose and the face',
+        body: 'Add three nodes of the ComfyUI-WanAnimatePreprocess pack: {poseModel}, {detect} and {draw}.\n- In {poseModel} choose the ViTPose pose model in `vitpose_model` and the YOLO person finder in `yolo_model`. Both lie in the `detection` folder.\n- Its `model` output to the `model` input of {detect}, the frames to `images`.\n- The `pose_data` output of {detect} to the `pose_data` input of {draw}: it draws the poses as stick figures.',
+      },
+      embeds: {
+        title: 'Build the start of the clip',
+        body: 'Add an {animate} node and connect to it:\n- to `vae`, the output of {vae};\n- to `ref_images`, the picture of the character;\n- to `pose_images`, the output of {draw};\n- to `face_images`, the `face_images` output of {detect};\n- to `clip_embeds`, the output of {vision}.\n\nSet `num_frames` to 81, and `width` and `height` as in the clip.',
+      },
+      sampler: {
+        title: 'Add the sampler',
+        body: 'Add a {sampler} node. Connect the model to `model`, the description to `text_embeds`, and the output of {animate} to `image_embeds`.\n\nThere is one sampler here: one model, no split into two passes. Take `steps` and `cfg` from the model\'s page. With a speed-up LoRA `steps` 6 and `cfg` 1 are usual.',
+      },
+      decode: {
+        title: 'Turn the result into frames',
+        body: 'Add a {decode} node. Connect the sampler\'s output to its `samples` input and the output of {vae} to its `vae` input.',
+      },
+      save: {
+        title: 'Save the clip',
+        body: 'Add {video} and {save}, the frames into `images`, the clip into `video`. Set `fps` to 16.',
+      },
+      tips: {
+        title: 'When the result is not right',
+        body: 'What to change in {animate}:\n- the character repeats the pose too rigidly or breaks: lower `pose_strength` to 0.8;\n- the face is someone else\'s or frozen: change `face_strength`;\n- the colour changes from piece to piece: set `colormatch` to `mkl`;\n- a clip longer than 77 frames is made in pieces: `frame_window_size` sets their length.\n\nKeep the proportions of the picture, the clip and the sample video alike.',
+      },
+      run: {
+        title: 'The graph is ready',
+        body: `${SAVE}\n\nThe first run is long: besides the model itself, the pose models are loaded.`,
+      },
+    },
+  },
+  'wrapper-talk': {
+    title: 'A talking video: InfiniteTalk',
+    result: 'A portrait says the words of a sound file, the lips in time with them.',
+    steps: {
+      intro: {
+        title: 'What InfiniteTalk does',
+        body: 'InfiniteTalk gives the Wan 2.1 "image to video" model the ability to listen to sound. You give a portrait and a voice recording, and the model draws the person of the portrait saying those words. The sound goes into the clip as its track.\n\nOnly someone who agrees may be voiced this way, with their own voice or a voice you have permission for. The app does not help with someone else\'s face or voice without consent.\n\nThis graph runs on one Wan 2.1 model, not on the Wan 2.2 pair. The lesson builds it from an empty canvas: "File ▸ New project".',
+      },
+      model: {
+        title: 'Load the model',
+        body: `Add a {model} node and choose the Wan 2.1 \`i2v\` 14B model in its \`model\` field, preferably the 480p one.\n\n${noFile('the InfiniteTalk example graph from the `example_workflows` folder of the WanVideoWrapper pack')}`,
+      },
+      readers: {
+        title: 'The text reader and the VAE',
+        body: 'Add {t5} and {vae}. In the `model_name` field of the first choose the `umt5-xxl-enc` file, in the second the `wan_2.1_vae` file.',
+      },
+      prompt: {
+        title: 'Describe the frame briefly',
+        body: 'Add a {text} node and connect the output of {t5} to its `t5` input. In `positive_prompt` describe who speaks and how: calmly, smiling, gesturing.\n\nWhat exactly is said the model takes from the sound, not from the text.',
+      },
+      picture: {
+        title: 'Load the portrait',
+        body: 'Add a {picture} node and choose the portrait in its `image` field. A face in close-up, from the front, with the mouth closed or slightly open, works best.',
+      },
+      vision: {
+        title: 'Show the portrait to the model',
+        body: 'Add {clipVision} and {vision}. In the `clip_name` field of the first choose the `clip_vision_h` file. Connect its output to the `clip_vision` input of the second, and the portrait to `image_1`.\n\nThe Wan 2.1 "image to video" models cannot do without it.',
+      },
+      'talk-model': {
+        title: 'Add the InfiniteTalk module',
+        body: 'Add a {talk} node and choose the InfiniteTalk module file in its `model` field. Connect its output to the `multitalk_model` input of the model loader.\n\nFor one speaker the single module is taken, for two the multi one.',
+      },
+      voice: {
+        title: 'Load the voice',
+        body: 'Add three nodes: {voice}, {wav2vec} and {audio}.\n- In {voice} choose the sound file from the `input` folder in the `audio` field.\n- In {wav2vec} choose the wav2vec speech model in the `model` field, usually chinese-wav2vec2-base. It lies in the `wav2vec2` folder.\n- The `wav2vec_model` output to the `wav2vec_model` input of {audio}, the sound to `audio_1`.\n\nLeave `fps` at 25 in {audio}: InfiniteTalk draws 25 frames a second.',
+      },
+      start: {
+        title: 'Prepare the start',
+        body: 'Add a {start} node. Connect the output of {vae} to its `vae` input, the portrait to `start_image`, and the output of {vision} to `clip_embeds`.\n\nThis node makes a long clip in pieces and stitches them, so it can speak for longer than five seconds.',
+      },
+      sampler: {
+        title: 'Add the sampler',
+        body: 'Add a {sampler} node and connect to it:\n- to `model`, the model;\n- to `text_embeds`, the description;\n- to `image_embeds`, the output of {start};\n- to `multitalk_embeds`, the `multitalk_embeds` output of {audio}.',
+      },
+      decode: {
+        title: 'Turn the result into frames',
+        body: 'Add a {decode} node. Connect the sampler\'s output to its `samples` input and the output of {vae} to its `vae` input.',
+      },
+      save: {
+        title: 'Make the clip',
+        body: 'Add {video} and {save}, the frames into `images`, the clip into `video`. Set `fps` to 25, as for the sound.',
+      },
+      sound: {
+        title: 'Put the sound into the clip',
+        body: 'Connect the `audio` output of {audio} to the `audio` input of {video}.\n\nWithout it the clip is saved silent, though the lips move.',
+      },
+      tips: {
+        title: 'When the lips miss the words',
+        body: 'What to change in {audio}:\n- the lips move too little: raise `audio_scale` to 1.2;\n- the face is frozen and only the lips move: set `audio_cfg_scale` to 2, the clip takes longer to make;\n- the length of the clip: the node counts the frames from the length of the sound itself.\n\nA clean recording of a voice, with no music or noise, works much better.',
+      },
+      run: {
+        title: 'The graph is ready',
+        body: `${SAVE}\n\nA minute of speech takes long to make. While you look for the settings, take a piece of five to ten seconds.`,
+      },
+    },
+  },
   'two-models': {
     title: 'Two models in one graph',
     result: 'A picture model draws the first frame and Wan brings it to life. Each has its own LoRAs and its own description.',
