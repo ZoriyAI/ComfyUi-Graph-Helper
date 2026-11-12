@@ -121,6 +121,30 @@ describe('sync looks model files up on the internet only when allowed', () => {
     db.close();
   }, 60_000);
 
+  it("checks a Hugging Face repository's picture within the same spacing, and leaves a marked one alone", async () => {
+    fake = await startFakeMcp();
+    web = await startFakeModelWeb();
+    const db = openDb();
+    const quiet = service(fake.url, web.origin, false, []);
+    await syncOnce(quiet, db);
+    quiet.stop();
+    // Fingerprints Civitai does not know (made earlier from cards): Hugging Face guesses by name.
+    writeFileHash(db, 'loras', 'sdxl_lightning_8step_lora.safetensors', 'a1'.repeat(32));
+    writeFileHash(db, 'checkpoints', 'realisticVisionV60B1_v51VAE.safetensors', 'b2'.repeat(32));
+    const sleeps: number[] = [];
+    const sync = service(fake.url, web.origin, true, sleeps);
+    await syncOnce(sync, db);
+    const sent = web.requests.map((item) => item.path);
+    expect(sent.filter((item) => item.includes('/resolve/'))).toEqual(['/hf/ByteDance/SDXL-Lightning/resolve/main/sdxl_lightning_samples.jpg']);
+    // Every request, the picture too, at least a second after the one before.
+    expect(sleeps).toHaveLength(sent.length - 1);
+    for (const ms of sleeps) expect(ms).toBeGreaterThan(900);
+    expect(modelDetail(db, 'loras', 'sdxl_lightning_8step_lora.safetensors')).toMatchObject({ preview: 'image', mature: false, web: { found: { source: 'huggingface' } } });
+    expect(modelDetail(db, 'checkpoints', 'realisticVisionV60B1_v51VAE.safetensors')).toMatchObject({ preview: 'image', mature: true, web: { found: { notes: { mature: true } } } });
+    sync.stop();
+    db.close();
+  }, 60_000);
+
   it('looks up at most the files allowed per run and the rest at the next', async () => {
     fake = await startFakeMcp();
     web = await startFakeModelWeb();

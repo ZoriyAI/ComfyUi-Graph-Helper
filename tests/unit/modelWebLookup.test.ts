@@ -2,7 +2,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import Database from 'better-sqlite3';
 import type { McpSession } from '../../src/shared/mcp/catalogSource';
 import {
-  bestHuggingFaceMatch, civitaiFound, huggingFaceFound, nameQueries, nameStem, readmeSummary, smallCivitaiImage, summarize, webFoundFromJson,
+  bestHuggingFaceMatch, civitaiFound, huggingFaceFound, huggingFaceMature, huggingFacePreviewCandidates, nameQueries, nameStem, readmeImages, readmeSummary,
+  siblingSamples, smallCivitaiImage, sniffMedia, summarize, webFoundFromJson,
 } from '../../src/shared/knowledge/webLookup';
 import { isReadOnlyCall, readOnlySession } from '../../src/main/mcp/readOnly';
 import { LOOKUP_ENDPOINTS, ModelWebClient } from '../../src/main/knowledge/webLookup';
@@ -126,6 +127,103 @@ describe('what a file is called on Hugging Face', () => {
   });
 });
 
+describe("a Hugging Face repository's own picture", () => {
+  const id = 'owner/soft-lora';
+
+  it('takes the README pictures in order: relative paths become downloads, HF hosts only, no badges, icons, SVG or code', () => {
+    const readme = [
+      '---', 'thumbnail: front.png', '---',
+      '[![arXiv](https://img.shields.io/badge/arXiv-2402-red.svg)](https://arxiv.org/abs/2402.1)',
+      '![Model on HF](https://huggingface.co/datasets/huggingface/badges/resolve/main/model-on-hf-md.png)',
+      '<img src="assets/hf-logo.png" width="40">',
+      '<img src=tiny.png width=32 height=32>',
+      '```', '![in code](code.png)', '```',
+      '<!-- ![commented out](old.png) -->',
+      '![pipeline](docs/pipeline.svg)',
+      '![elsewhere](https://evil.example/a.png)',
+      '![not https](http://cdn-uploads.huggingface.co/x/a.png)',
+      '![climbs out](../other/a.png)',
+      '![sample](./images/first%20look.png "A first look")',
+      '<img src="https://cdn-uploads.huggingface.co/production/uploads/abc/second.jpeg" width=75%/>',
+      '<video src="https://huggingface.co/owner/soft-lora/blob/main/clips/turn.mp4" controls></video>',
+      '![fourth](fourth.png)',
+    ].join('\n');
+    expect(readmeImages(readme, id)).toEqual([
+      { url: 'https://huggingface.co/owner/soft-lora/resolve/main/images/first%20look.png', kind: 'image' },
+      { url: 'https://cdn-uploads.huggingface.co/production/uploads/abc/second.jpeg', kind: 'image' },
+      { url: 'https://huggingface.co/owner/soft-lora/resolve/main/clips/turn.mp4', kind: 'video' },
+    ]);
+  });
+
+  it('refuses an absolute address off the HF hosts, a path from the site root, and what is not a picture by its name', () => {
+    for (const line of [
+      '![x](https://evil.example/sample.png)', '![x](https://huggingface.co.evil.example/a.png)', '![x](https://cdn-uploads.huggingface.co:8443/a.png)',
+      '![x](https://user@cdn-uploads.huggingface.co/a.png)', '![x](/owner/soft-lora/resolve/main/a.png)', '![x](javascript:alert(1))', '![x](notes.txt)',
+      '![x](data:image/png;base64,AAAA)', '<img src="https://evil.example/a.png">', '![x](diagram.svg)',
+    ]) expect(readmeImages(line, id), line).toEqual([]);
+    expect(readmeImages('![x](<images/ComfyUI_00091_ (1).png>)', id)).toEqual([{ url: 'https://huggingface.co/owner/soft-lora/resolve/main/images/ComfyUI_00091_%20(1).png', kind: 'image' }]);
+    expect(readmeImages('![x](https://huggingface.co/owner/soft-lora/resolve/main/a.webp?download=true)', id)).toEqual([{ url: 'https://huggingface.co/owner/soft-lora/resolve/main/a.webp?download=true', kind: 'image' }]);
+    // A fake site in tests: relative paths resolve against it, and its own absolute addresses pass.
+    expect(readmeImages('![a](a.png) ![b](http://127.0.0.1:7/hf/owner/soft-lora/blob/main/b.gif)', id, { base: 'http://127.0.0.1:7/hf', hosts: [] })).toEqual([
+      { url: 'http://127.0.0.1:7/hf/owner/soft-lora/resolve/main/a.png', kind: 'image' },
+      { url: 'http://127.0.0.1:7/hf/owner/soft-lora/resolve/main/b.gif', kind: 'image' },
+    ]);
+    expect(readmeImages('![a](a.png)', '../etc')).toEqual([]);
+  });
+
+  it('else takes the repository picture files, samples first, nothing deep, hidden, or a logo, icon or badge', () => {
+    const detail = {
+      siblings: [
+        'README.md', 'model.safetensors', '.hidden/a.png', 'assets/logo.png', 'media/badge.png', 'icon.webp', 'a/b/c/deep.png',
+        'grid.jpg', 'comfyui/workflow.png', 'examples/one.webp', 'samples/two.mp4', 'Images/three.PNG', 'diagram.svg', 42,
+      ].map((rfilename) => ({ rfilename })),
+    };
+    const found = siblingSamples(detail, 'o/r');
+    expect(found.map((item) => [item.url.split('/resolve/main/')[1], item.kind])).toEqual([
+      ['examples/one.webp', 'image'], ['samples/two.mp4', 'video'], ['Images/three.PNG', 'image'], ['grid.jpg', 'image'], ['comfyui/workflow.png', 'image'],
+    ]);
+    expect(found[0].url).toBe('https://huggingface.co/o/r/resolve/main/examples/one.webp');
+    expect(siblingSamples({ siblings: 'x' }, 'o/r')).toEqual([]);
+    expect(siblingSamples(null, 'o/r')).toEqual([]);
+    // README first, then files, each place once, at most three.
+    expect(huggingFacePreviewCandidates('o/r', detail, '![s](examples/one.webp) ![t](top.png)').map((item) => item.url.split('/resolve/main/')[1]))
+      .toEqual(['examples/one.webp', 'top.png', 'samples/two.mp4']);
+  });
+
+  it('marks a repository tagged not-for-all-audiences, in its tags or its card', () => {
+    expect(huggingFaceMature({ tags: ['lora', 'not-for-all-audiences'] })).toBe(true);
+    expect(huggingFaceMature({ tags: ['lora'], cardData: { tags: ['Not-For-All-Audiences'] } })).toBe(true);
+    expect(huggingFaceMature({ cardData: { tags: 'not-for-all-audiences' } })).toBe(true);
+    expect(huggingFaceMature({ cardData: { nsfw: true } })).toBe(true);
+    for (const detail of [{ tags: ['lora', 'for-all-audiences'] }, { cardData: { tags: ['nsfw-free'] } }, null, 'x']) expect(huggingFaceMature(detail), JSON.stringify(detail)).toBe(false);
+    expect(huggingFaceFound('o/r', { cardData: { tags: ['not-for-all-audiences'] } }, '')!.notes.mature).toBe(true);
+  });
+
+  it('knows a picture or a clip by its first bytes, whatever its name says', () => {
+    const bytes = (head: number[] | string, size = 64) => {
+      const out = new Uint8Array(size);
+      out.set(typeof head === 'string' ? [...head].map((char) => char.charCodeAt(0)) : head);
+      return out;
+    };
+    expect(sniffMedia(bytes([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))).toEqual({ mime: 'image/png', kind: 'image' });
+    expect(sniffMedia(bytes([0xff, 0xd8, 0xff, 0xe0]))).toEqual({ mime: 'image/jpeg', kind: 'image' });
+    expect(sniffMedia(bytes('GIF89a'))).toEqual({ mime: 'image/gif', kind: 'image' });
+    expect(sniffMedia(bytes('RIFF\u0000\u0000\u0000\u0000WEBPVP8 '))).toEqual({ mime: 'image/webp', kind: 'image' });
+    expect(sniffMedia(bytes('\u0000\u0000\u0000\u001cftypavif'))).toEqual({ mime: 'image/avif', kind: 'image' });
+    expect(sniffMedia(bytes('\u0000\u0000\u0000\u0018ftypisom'))).toEqual({ mime: 'video/mp4', kind: 'video' });
+    expect(sniffMedia(bytes('\u001aEß£\u0001\u0000\u0000\u0000B\u0082\u0084webm'))).toEqual({ mime: 'video/webm', kind: 'video' });
+    for (const head of ['<html><body>not found</body></html>', '<svg xmlns="http://www.w3.org/2000/svg">', '\u0000\u0000\u0000\u0014ftypqt  ', '\u0000\u0000\u0000\u0018ftypheic', 'plain text, named a.png']) {
+      expect(sniffMedia(bytes(head)), head).toBeNull();
+    }
+    expect(sniffMedia(new Uint8Array([0x89, 0x50]))).toBeNull();
+  });
+
+  it('keeps the next places of a sample that was not checked, when stored and read back', () => {
+    const found = { ...huggingFaceFound('o/r', {}, '')!, preview: { url: 'https://huggingface.co/o/r/resolve/main/a.png', kind: 'image' as const, more: ['https://huggingface.co/o/r/resolve/main/b.png', 'javascript:x'] } };
+    expect(webFoundFromJson(JSON.stringify(found))!.preview).toEqual({ url: 'https://huggingface.co/o/r/resolve/main/a.png', kind: 'image', more: ['https://huggingface.co/o/r/resolve/main/b.png'] });
+  });
+});
+
 describe('the read-only gate and the fingerprint of a model file', () => {
   const read = { action: 'read', absolute_path: '/srv/models/loras/a.metadata.json', encoding: 'base64' };
 
@@ -207,15 +305,18 @@ describe('asking the sites', () => {
     const found = outcome.status === 'found' ? outcome.found : null;
     expect(found).toMatchObject({ source: 'huggingface', byName: true, url: 'https://huggingface.co/ByteDance/SDXL-Lightning', notes: { title: 'ByteDance/SDXL-Lightning', baseModelLabel: 'stabilityai/stable-diffusion-xl-base-1.0' } });
     expect(found!.summary.startsWith('SDXL-Lightning is a lightning-fast text-to-image generation model.')).toBe(true);
+    // The picture its README shows, downloaded once to check it is one.
+    expect(found!.preview).toEqual({ url: `${web.origin}/hf/ByteDance/SDXL-Lightning/resolve/main/sdxl_lightning_samples.jpg`, kind: 'image' });
     expect(web.requests.map((item) => item.path)).toEqual([
       `/civitai/api/v1/model-versions/by-hash/${'cd'.repeat(32)}`,
       '/hf/api/models?search=sdxl_lightning_8step_lora&limit=5',
       '/hf/api/models?search=sdxl-lightning&limit=5',
       '/hf/api/models/ByteDance/SDXL-Lightning',
       '/hf/ByteDance/SDXL-Lightning/raw/main/README.md',
+      '/hf/ByteDance/SDXL-Lightning/resolve/main/sdxl_lightning_samples.jpg',
     ]);
-    // A pause before every request but the first, none shorter than asked (a fast fake makes them about a second).
-    expect(sleeps).toHaveLength(4);
+    // A pause before every request but the first, the picture too, none shorter than asked (a fast fake makes them about a second).
+    expect(sleeps).toHaveLength(5);
     for (const ms of sleeps) expect(ms).toBeGreaterThan(900);
   });
 
@@ -240,10 +341,60 @@ describe('asking the sites', () => {
   it('asks only the fixed sites over https in the app', () => {
     const app = new ModelWebClient();
     expect(app.endpoints).toEqual(LOOKUP_ENDPOINTS);
-    for (const url of ['https://civitai.com/api/v1/x', 'https://huggingface.co/api/models', 'https://image.civitai.com/a/b.png']) expect(app.allowed(url), url).not.toBeNull();
-    for (const url of ['http://civitai.com/api', 'https://civitai.com:8443/api', 'https://user:pw@civitai.com/', 'https://evil.example/', 'https://civitai.com.evil.example/', 'https://127.0.0.1/', 'file:///etc/passwd']) {
+    for (const url of [
+      'https://civitai.com/api/v1/x', 'https://huggingface.co/api/models', 'https://image.civitai.com/a/b.png',
+      // Where a Hugging Face download is sent on to, and where card pictures are uploaded.
+      'https://us.aws.cdn.hf.co/xet-bridge-us/abc/def', 'https://cas-bridge.xethub.hf.co/xet-bridge-us/abc', 'https://cdn-uploads.huggingface.co/production/uploads/a.png',
+    ]) expect(app.allowed(url), url).not.toBeNull();
+    for (const url of [
+      'http://civitai.com/api', 'https://civitai.com:8443/api', 'https://user:pw@civitai.com/', 'https://evil.example/', 'https://civitai.com.evil.example/',
+      'https://127.0.0.1/', 'file:///etc/passwd', 'https://hf.co/x', 'https://evil.hf.co/x', 'https://eu.aws.cdn.hf.co.evil.example/x', 'http://us.aws.cdn.hf.co/x',
+    ]) {
       expect(app.allowed(url), url).toBeNull();
     }
+  });
+
+  it("checks a Hugging Face repository's picture by downloading it, skipping one too large or not a picture", async () => {
+    web = await startFakeModelWeb();
+    const sleeps: number[] = [];
+    const outcome = await client(web, sleeps).lookup({ sha256: null, filename: 'add-detail-xl.safetensors' }, 1000);
+    expect(outcome).toMatchObject({ status: 'found', found: { source: 'huggingface', notes: { title: 'finegrain-lab/add-detail-xl', mature: false }, summary: 'Adds fine detail to SDXL pictures. Start at 0.8.' } });
+    const found = outcome.status === 'found' ? outcome.found : null;
+    expect(found!.preview).toEqual({ url: `${web.origin}/hf/finegrain-lab/add-detail-xl/resolve/main/samples/detail_01.webp`, kind: 'image' });
+    // The README shows only a badge; the files named like samples are tried in turn: too large, then text, then a picture.
+    const downloads = web.requests.map((item) => item.path).filter((item) => item.includes('/resolve/'));
+    expect(downloads).toEqual([
+      '/hf/finegrain-lab/add-detail-xl/resolve/main/examples/full_grid.png',
+      '/hf/finegrain-lab/add-detail-xl/resolve/main/examples/notes.png',
+      '/hf/finegrain-lab/add-detail-xl/resolve/main/samples/detail_01.webp',
+    ]);
+    // Spaced like the rest of the lookup.
+    expect(sleeps).toHaveLength(web.requests.length - 1);
+    for (const ms of sleeps) expect(ms).toBeGreaterThan(900);
+  });
+
+  it('gives up quietly after three places that are not a picture, and still shows the rest', async () => {
+    const asked: string[] = [];
+    const fakeFetch = async (raw: string) => {
+      const { pathname } = new URL(raw);
+      asked.push(pathname);
+      if (pathname === '/hf/api/models') return Response.json([{ id: 'o/many-pics' }]);
+      if (pathname === '/hf/api/models/o/many-pics') return Response.json({ tags: ['lora'], siblings: [{ rfilename: 'samples/e.png' }] });
+      if (pathname.endsWith('/README.md')) return new Response('A LoRA.\n\n![a](a.png) ![b](b.png) ![c](c.png) ![d](d.png)');
+      if (pathname.endsWith('/a.png')) return new Response('x', { headers: { 'content-type': 'image/png', 'content-length': String(17 * 1024 * 1024) } });
+      return new Response('<html>a page, not a picture</html>', { headers: { 'content-type': 'image/png' } });
+    };
+    const lookups = new ModelWebClient({ endpoints: { civitai: 'http://127.0.0.1:9/civitai', huggingface: 'http://127.0.0.1:9/hf' }, fetchImpl: fakeFetch });
+    const outcome = await lookups.lookup({ sha256: null, filename: 'many-pics.safetensors' }, 0);
+    expect(outcome).toMatchObject({ status: 'found', found: { summary: 'A LoRA.', preview: null } });
+    expect(asked.filter((item) => item.includes('/resolve/'))).toEqual(['/hf/o/many-pics/resolve/main/a.png', '/hf/o/many-pics/resolve/main/b.png', '/hf/o/many-pics/resolve/main/c.png']);
+  });
+
+  it('does not download the picture of a repository marked as adult content', async () => {
+    web = await startFakeModelWeb();
+    const outcome = await client(web).lookup({ sha256: null, filename: 'realisticVisionV60B1_v51VAE.safetensors' }, 0);
+    expect(outcome).toMatchObject({ status: 'found', found: { notes: { mature: true }, preview: { url: `${web.origin}/hf/velvet-studio/realisticVisionV60B1_v51VAE/resolve/main/previews/cover.png`, kind: 'image' } } });
+    expect(web.requests.some((item) => item.path.includes('/resolve/'))).toBe(false);
   });
 });
 
@@ -297,6 +448,50 @@ describe('what was found, kept in the catalog', () => {
     // The second time it comes from the folder.
     await reader.get('loras', 'mystery_style_v3.safetensors');
     expect(web.requests.filter((item) => item.path.startsWith('/img/'))).toHaveLength(1);
+    reader.stop();
+    fs.rmSync(cacheDir, { recursive: true, force: true });
+    db.close();
+  });
+
+  it('keeps a Hugging Face picture checked at lookup, and a marked one closed until it is opened', async () => {
+    web = await startFakeModelWeb();
+    const db = openDb();
+    const fs = await import('fs');
+    const os = await import('os');
+    const path = await import('path');
+    const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), 'web-previews-'));
+    const lookups = client(web);
+    const reader = new PreviewReader({ db: () => db, open: async () => null, cacheDir, web: (url) => lookups.previewBytes(url) });
+    lookups.keepPreview = (url, got) => reader.keepWeb(url, got);
+    upsertModelFiles(db, [
+      { directory: 'loras', name: 'sdxl_lightning_8step_lora.safetensors', sizeBytes: 5, rootPath: '/srv/comfyui/models/loras' },
+      { directory: 'checkpoints', name: 'realisticVisionV60B1_v51VAE.safetensors', sizeBytes: 5, rootPath: '/srv/comfyui/models/checkpoints' },
+    ], 1);
+    const downloads = () => web!.requests.filter((item) => item.path.includes('/resolve/')).map((item) => item.path);
+
+    writeWebOutcome(db, 'loras', 'sdxl_lightning_8step_lora.safetensors', await lookups.lookup({ sha256: null, filename: 'sdxl_lightning_8step_lora.safetensors' }, 0), 5);
+    expect(modelDetail(db, 'loras', 'sdxl_lightning_8step_lora.safetensors')).toMatchObject({ preview: 'image', mature: false, web: { found: { source: 'huggingface' } } });
+    expect(downloads()).toHaveLength(1);
+    // Shown from the folder: the download made to check it is not made again.
+    expect(await reader.get('loras', 'sdxl_lightning_8step_lora.safetensors')).toMatchObject({ kind: 'image', mime: 'image/png' });
+    expect(downloads()).toHaveLength(1);
+
+    // Marked: the card closes it exactly like a Civitai sample rated above "for everyone"; nothing was downloaded.
+    writeWebOutcome(db, 'checkpoints', 'realisticVisionV60B1_v51VAE.safetensors', await lookups.lookup({ sha256: null, filename: 'realisticVisionV60B1_v51VAE.safetensors' }, 0), 6);
+    expect(modelDetail(db, 'checkpoints', 'realisticVisionV60B1_v51VAE.safetensors')).toMatchObject({ preview: 'image', mature: true, web: { found: { notes: { mature: true } } } });
+    expect(searchModels(db, { query: 'realisticVision' })[0]).toMatchObject({ preview: 'image', mature: true });
+    expect(downloads()).toHaveLength(1);
+    // The person opens it: downloaded then.
+    expect(await reader.get('checkpoints', 'realisticVisionV60B1_v51VAE.safetensors')).toMatchObject({ kind: 'image' });
+    expect(downloads()).toEqual(['/hf/ByteDance/SDXL-Lightning/resolve/main/sdxl_lightning_samples.jpg', '/hf/velvet-studio/realisticVisionV60B1_v51VAE/resolve/main/previews/cover.png']);
+
+    // A marked sample not checked at lookup may name the next places: one that is not a picture is skipped.
+    const repo = `${web.origin}/hf/finegrain-lab/add-detail-xl/resolve/main`;
+    const found = { ...huggingFaceFound('finegrain-lab/add-detail-xl', {}, '')!, preview: { url: `${repo}/examples/notes.png`, kind: 'image' as const, more: [`${repo}/samples/detail_01.webp`] } };
+    upsertModelFiles(db, [{ directory: 'loras', name: 'add-detail-xl.safetensors', sizeBytes: 5, rootPath: '/srv/comfyui/models/loras' }], 1);
+    writeWebOutcome(db, 'loras', 'add-detail-xl.safetensors', { status: 'found', found }, 7);
+    expect(await reader.get('loras', 'add-detail-xl.safetensors')).toMatchObject({ kind: 'image', mime: 'image/png' });
+    expect(downloads().slice(2)).toEqual(['/hf/finegrain-lab/add-detail-xl/resolve/main/examples/notes.png', '/hf/finegrain-lab/add-detail-xl/resolve/main/samples/detail_01.webp']);
     reader.stop();
     fs.rmSync(cacheDir, { recursive: true, force: true });
     db.close();

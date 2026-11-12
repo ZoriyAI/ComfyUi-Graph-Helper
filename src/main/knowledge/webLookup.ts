@@ -1,6 +1,7 @@
 import { pinnedRequest, vetWebTarget, type FetchLike } from '../agent/web';
 import {
-  bestHuggingFaceMatch, civitaiFound, huggingFaceFound, nameQueries, type WebError, type WebFound,
+  bestHuggingFaceMatch, civitaiFound, huggingFaceFound, huggingFacePreviewCandidates, HUGGING_FACE_FILE_HOSTS, nameQueries, PREVIEW_TRIES, sniffMedia,
+  type PreviewCandidate, type WebError, type WebFound, type WebPreview,
 } from '../../shared/knowledge/webLookup';
 import { PREVIEW_MAX_BYTES } from '../mcp/sideFiles';
 
@@ -26,8 +27,12 @@ export interface LookupEndpoints {
 
 /** The sites asked. Fixed: tests pass their own fake (ModelWebDeps.endpoints), the app never does. */
 export const LOOKUP_ENDPOINTS: LookupEndpoints = { civitai: 'https://civitai.com', huggingface: 'https://huggingface.co' };
-/** Where the two sites keep the pictures and files their pages and records point to. */
-export const MEDIA_HOSTS = ['image.civitai.com', 'image-b2.civitai.com', 'cdn-lfs.huggingface.co', 'cdn-lfs-us-1.huggingface.co', 'cdn-lfs.hf.co'] as const;
+/**
+ * Where the two sites keep the pictures and files their pages and records point to. Hugging Face's list holds the
+ * stores its `resolve/main/<file>` downloads are sent on to; a redirect is checked against this list like the first
+ * address.
+ */
+export const MEDIA_HOSTS = ['image.civitai.com', 'image-b2.civitai.com', ...HUGGING_FACE_FILE_HOSTS] as const;
 export const LOOKUP_TIMEOUT_MS = 15_000;
 /** An API answer of the size these sites give is far below this; more is not their answer. */
 export const LOOKUP_JSON_MAX_BYTES = 2 * 1024 * 1024;
@@ -49,6 +54,13 @@ export class LookupFailure extends Error {
 }
 
 export type LookupOutcome = { status: 'found'; found: WebFound } | { status: 'not-found' } | { status: 'error'; error: WebError };
+
+/** A downloaded sample: its bytes and what they are by their first bytes. */
+export interface PreviewBytes {
+  bytes: Buffer;
+  mime: string;
+  kind: 'image' | 'video';
+}
 
 export interface ModelWebDeps {
   /** Tests only: a fake of both sites. Its own host is then the only one allowed, over http too. */
@@ -106,6 +118,11 @@ export class ModelWebClient {
   private readonly testing: boolean;
   private last = 0;
   private queue: Promise<unknown> = Promise.resolve();
+  /**
+   * Keeps a sample downloaded during a lookup (to check it is a picture), so a card that shows it later does not
+   * download it again. Main points it at the preview folder; without it the sample is downloaded when shown.
+   */
+  keepPreview: ((url: string, got: PreviewBytes) => void) | null = null;
 
   constructor(private readonly deps: ModelWebDeps = {}) {
     this.testing = deps.endpoints !== undefined;
@@ -225,8 +242,9 @@ export class ModelWebClient {
   }
 
   /**
-   * The Hugging Face repository named most like the file, with its record and the start of its README. A guess:
-   * the name matched, not the file. Null when no repository is named like it.
+   * The Hugging Face repository named most like the file, with its record, the start of its README and its own
+   * sample picture when it has one. A guess: the name matched, not the file. Null when no repository is named like
+   * it.
    */
   async huggingFaceByName(filename: string, pauseMs: number): Promise<WebFound | null> {
     let id: string | null = null;
@@ -241,7 +259,40 @@ export class ModelWebClient {
     const detail = await this.json(`${this.endpoints.huggingface}/api/models/${path}`, pauseMs);
     if (detail === null) return null;
     const readme = await this.get(`${this.endpoints.huggingface}/${path}/raw/main/README.md`, README_MAX_BYTES, 'text/plain, text/markdown', pauseMs);
-    return huggingFaceFound(id, detail, readme.status === 404 ? '' : readme.bytes.toString('utf8'));
+    const text = readme.status === 404 ? '' : readme.bytes.toString('utf8');
+    const found = huggingFaceFound(id, detail, text);
+    if (!found) return null;
+    const candidates = huggingFacePreviewCandidates(id, detail, text, {
+      base: this.endpoints.huggingface,
+      hosts: this.testing ? [] : HUGGING_FACE_FILE_HOSTS,
+    });
+    return { ...found, preview: await this.huggingFacePreview(candidates, found.notes.mature, pauseMs) };
+  }
+
+  /**
+   * The repository's sample, checked. One marked as adult content is not downloaded: it is kept closed, with the
+   * next places to try, until the person opens it. Otherwise the places are tried in turn (at most PREVIEW_TRIES,
+   * spaced like the rest of the lookup) and the first that is a picture or a clip within the size cap is kept.
+   * Null when none is: the rest of what was found is shown all the same.
+   */
+  private async huggingFacePreview(candidates: PreviewCandidate[], mature: boolean, pauseMs: number): Promise<WebPreview | null> {
+    const tries = candidates.slice(0, PREVIEW_TRIES);
+    if (tries.length === 0) return null;
+    if (mature) {
+      const more = tries.slice(1).map((item) => item.url);
+      return { url: tries[0].url, kind: tries[0].kind, ...(more.length > 0 ? { more } : {}) };
+    }
+    for (const candidate of tries) {
+      const got = await this.previewBytes(candidate.url, pauseMs);
+      if (!got) continue;
+      try {
+        this.keepPreview?.(candidate.url, got);
+      } catch {
+        // Not kept: downloaded again when shown.
+      }
+      return { url: candidate.url, kind: got.kind };
+    }
+    return null;
   }
 
   /**
@@ -259,15 +310,16 @@ export class ModelWebClient {
     }
   }
 
-  /** A sample picture or clip a found record points to: its bytes and kind, or null. Never throws. */
-  async previewBytes(url: string): Promise<{ bytes: Buffer; mime: string; kind: 'image' | 'video' } | null> {
+  /**
+   * A sample picture or clip a found record points to: its bytes and kind, or null when it is missing, larger than
+   * the preview cap, or not a picture or clip by its first bytes (whatever its name or the site says). Never throws.
+   */
+  async previewBytes(url: string, pauseMs = CARD_LOOKUP_PAUSE_MS): Promise<PreviewBytes | null> {
     try {
-      const answer = await this.get(url, PREVIEW_MAX_BYTES, 'image/*, video/mp4, video/webm', CARD_LOOKUP_PAUSE_MS);
+      const answer = await this.get(url, PREVIEW_MAX_BYTES, 'image/*, video/mp4, video/webm', pauseMs);
       if (answer.status === 404 || answer.bytes.length === 0) return null;
-      const mime = answer.type.split(';')[0].trim();
-      if (/^image\/(png|jpeg|webp|gif|avif)$/.test(mime)) return { bytes: answer.bytes, mime, kind: 'image' };
-      if (/^video\/(mp4|webm)$/.test(mime)) return { bytes: answer.bytes, mime, kind: 'video' };
-      return null;
+      const media = sniffMedia(answer.bytes);
+      return media ? { bytes: answer.bytes, ...media } : null;
     } catch {
       return null;
     }

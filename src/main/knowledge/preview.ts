@@ -5,7 +5,7 @@ import type Database from 'better-sqlite3';
 import type { ModelPreview } from '../../shared/contracts/knowledge';
 import type { McpSession } from '../../shared/mcp/catalogSource';
 import { previewKind, previewMime } from '../../shared/knowledge/sidecar';
-import { webFoundFromJson } from '../../shared/knowledge/webLookup';
+import { PREVIEW_TRIES, webFoundFromJson } from '../../shared/knowledge/webLookup';
 import { PREVIEW_MAX_BYTES, readSideFile, sideFilePath } from '../mcp/sideFiles';
 
 /**
@@ -48,6 +48,11 @@ const MIME_EXTENSION: Record<string, string> = {
   'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif', 'image/avif': 'avif', 'video/mp4': 'mp4', 'video/webm': 'webm',
 };
 
+/** The name a sample from the internet is kept under in the folder: made of its address. */
+function webKey(url: string): string {
+  return createHash('sha256').update(`web\n${url}`).digest('hex');
+}
+
 export class PreviewReader {
   private session: McpSession | null = null;
   private opening: Promise<McpSession | null> | null = null;
@@ -67,7 +72,10 @@ export class PreviewReader {
     } catch {
       return Promise.resolve(null);
     }
-    if (row && !row.preview_file && row.web_status === 'found') return this.getWeb(webFoundFromJson(row.web_notes_json)?.preview?.url ?? null);
+    if (row && !row.preview_file && row.web_status === 'found') {
+      const preview = webFoundFromJson(row.web_notes_json)?.preview ?? null;
+      return this.getWeb(preview ? [preview.url, ...(preview.more ?? [])] : []);
+    }
     const file = row?.preview_file ?? null;
     const source = sideFilePath(row?.root_path, file);
     if (!row || !file || !source) return Promise.resolve(null);
@@ -79,32 +87,57 @@ export class PreviewReader {
     return work;
   }
 
-  /** A sample from the internet: from the folder when it was downloaded before, else from the site. */
-  private getWeb(url: string | null): Promise<ModelPreview | null> {
+  /**
+   * A sample from the internet: from the folder when it was downloaded before, else from the site. A marked
+   * Hugging Face sample was not checked at lookup and may name a few places: they are tried in turn, at most
+   * PREVIEW_TRIES, and the first that is a picture or a clip is shown.
+   */
+  private getWeb(urls: string[]): Promise<ModelPreview | null> {
     const download = this.deps.web;
-    if (!url || !download) return Promise.resolve(null);
-    const key = createHash('sha256').update(`web\n${url}`).digest('hex');
+    const tries = urls.slice(0, PREVIEW_TRIES);
+    if (tries.length === 0 || !download) return Promise.resolve(null);
+    const key = webKey(tries.join('\n'));
     const running = this.inFlight.get(key);
     if (running) return running;
     const work = (async (): Promise<ModelPreview | null> => {
-      if (this.deps.cacheDir) {
-        for (const [mime, extension] of Object.entries(MIME_EXTENSION)) {
-          try {
-            const bytes = fs.readFileSync(path.join(this.deps.cacheDir, `${key}.${extension}`));
-            if (bytes.length > 0) return { kind: mime.startsWith('video/') ? 'video' : 'image', mime, bytes: new Uint8Array(bytes) };
-          } catch {
-            // Not kept under this kind.
-          }
-        }
+      for (const url of tries) {
+        const kept = this.keptWeb(url);
+        if (kept) return kept;
       }
-      const got = await download(url);
-      if (!got || got.bytes.length === 0) return null;
-      const kept = this.cachePath(key, `x.${MIME_EXTENSION[got.mime] ?? 'bin'}`);
-      if (kept && MIME_EXTENSION[got.mime]) this.keep(kept, got.bytes);
-      return { kind: got.kind, mime: got.mime, bytes: new Uint8Array(got.bytes) };
+      for (const url of tries) {
+        const got = await download(url);
+        if (!got || got.bytes.length === 0) continue;
+        this.keepWeb(url, got);
+        return { kind: got.kind, mime: got.mime, bytes: new Uint8Array(got.bytes) };
+      }
+      return null;
     })().catch(() => null).finally(() => this.inFlight.delete(key));
     this.inFlight.set(key, work);
     return work;
+  }
+
+  private keptWeb(url: string): ModelPreview | null {
+    if (!this.deps.cacheDir) return null;
+    const key = webKey(url);
+    for (const [mime, extension] of Object.entries(MIME_EXTENSION)) {
+      try {
+        const bytes = fs.readFileSync(path.join(this.deps.cacheDir, `${key}.${extension}`));
+        if (bytes.length > 0) return { kind: mime.startsWith('video/') ? 'video' : 'image', mime, bytes: new Uint8Array(bytes) };
+      } catch {
+        // Not kept under this kind.
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Keeps a sample from the internet in the folder, under its address. The lookup calls it for the sample it
+   * downloaded to check, so the card that shows it does not download it again.
+   */
+  keepWeb(url: string, got: { bytes: Buffer; mime: string }): void {
+    const extension = MIME_EXTENSION[got.mime];
+    const kept = extension ? this.cachePath(webKey(url), `x.${extension}`) : null;
+    if (kept && got.bytes.length > 0) this.keep(kept, got.bytes);
   }
 
   /** Closes the session and stops the idle timer. Read previews stay in their folder. */

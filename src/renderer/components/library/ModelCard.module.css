@@ -148,6 +148,7 @@
 
 /* "From the internet": where it came from first, then what it says; long names and addresses wrap in the card. */
 .webBusy { display: flex; flex-direction: column; gap: 4px; }
+.webAgain { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
 .webSource { display: flex; align-items: center; gap: 6px; margin: 0; font-size: var(--text-sm); }
 .webSite { font-weight: 600; }
 .wrap { overflow-wrap: anywhere; }
