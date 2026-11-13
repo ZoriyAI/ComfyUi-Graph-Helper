@@ -595,8 +595,8 @@ const wrapperVace: Lesson = {
   ],
 };
 
-/** The loaders, the text and the picture every one-model WanVideoWrapper graph starts with. */
-const oneModelStart = (modelStep: string) => [
+/** The loaders and the text every one-model WanVideoWrapper graph starts with. */
+const oneModelText = (modelStep: string) => [
   { id: modelStep, roles: [node('model', 'WanVideoModelLoader')], fields: [field('model', 'model', chosen)] },
   {
     id: 'readers',
@@ -609,6 +609,11 @@ const oneModelStart = (modelStep: string) => [
     links: [link('t5', 'wan_t5_model', 'text', 't5')],
     fields: [field('text', 'positive_prompt', { kind: 'text', minChars: 3 })],
   },
+];
+
+/** The same with the picture a clip starts from, shown to the model the way Wan 2.1 "image to video" needs it. */
+const oneModelStart = (modelStep: string) => [
+  ...oneModelText(modelStep),
   { id: 'picture', roles: [node('picture', 'LoadImage')], fields: [field('picture', 'image', chosen)] },
   {
     id: 'vision',
@@ -711,6 +716,242 @@ const wrapperTalk: Lesson = {
   ],
 };
 
+/** Nodes that may stand between a picture or the frames of a video and what reads them: a resize, a cut of the batch. */
+const RESIZE_VIA = ['ImageScale', 'ImageResizeKJ', 'ImageResizeKJv2', 'ImageFromBatch', 'GetImageRangeFromBatch'];
+
+/** The start of a clip from a picture, for the Wan 2.1 "image to video" graphs of one model. */
+const pictureStart = {
+  id: 'start',
+  roles: [node('start', 'WanVideoImageToVideoEncode')],
+  links: [link('vae', 'vae', 'start', 'vae'), link('picture', 'IMAGE', 'start', 'start_image'), link('vision', 'WANVIDIMAGE_CLIPEMBEDS', 'start', 'clip_embeds')],
+  fields: [field('start', 'num_frames', between(49, 121, 81))],
+};
+
+/**
+ * Two people speak in one clip: the graph of the InfiniteTalk lesson with a second sound file. The pack gives the
+ * first voice to whoever stands in the left half of the picture and the second to the right half
+ * (multitalk/multitalk_loop.py), unless masks say otherwise.
+ */
+const wrapperDuo: Lesson = {
+  id: 'wrapper-duo',
+  steps: [
+    { id: 'intro', read: true },
+    {
+      id: 'graph',
+      roles: [node('talk', 'MultiTalkModelLoader'), node('voice', 'LoadAudio'), node('audio', 'MultiTalkWav2VecEmbeds'), node('sampler', 'WanVideoSampler')],
+      links: [link('voice', 'AUDIO', 'audio', 'audio_1'), link('audio', 'multitalk_embeds', 'sampler', 'multitalk_embeds')],
+    },
+    { id: 'module', read: true },
+    { id: 'picture', read: true },
+    {
+      id: 'second-voice',
+      roles: [node('voice2', 'LoadAudio')],
+      links: [link('voice2', 'AUDIO', 'audio', 'audio_2')],
+      fields: [field('voice2', 'audio', { kind: 'differs', role: 'voice', field: 'audio' })],
+    },
+    { id: 'order', read: true },
+    { id: 'who', read: true },
+    { id: 'run', read: true },
+  ],
+};
+
+/**
+ * FantasyTalking on WanVideoWrapper: a portrait speaks a short sound file. Wan 2.1 picture to video with the
+ * FantasyTalking module; the sound is read by wav2vec2-base-960h, which the pack's node fetches itself when the
+ * graph is first run in ComfyUI.
+ */
+const wrapperFantasy: Lesson = {
+  id: 'wrapper-fantasy',
+  steps: [
+    { id: 'intro', read: true },
+    ...oneModelStart('model'),
+    { id: 'talk-model', roles: [node('talk', 'FantasyTalkingModelLoader')], links: [link('talk', 'model', 'model', 'fantasytalking_model')], fields: [field('talk', 'model', chosen)] },
+    pictureStart,
+    {
+      id: 'voice',
+      roles: [node('voice', 'LoadAudio'), node('wav2vec', 'DownloadAndLoadWav2VecModel'), node('audio', 'FantasyTalkingWav2VecEmbeds')],
+      links: [
+        link('wav2vec', 'wav2vec_model', 'audio', 'wav2vec_model'),
+        link('talk', 'model', 'audio', 'fantasytalking_model'),
+        link('voice', 'AUDIO', 'audio', 'audio'),
+      ],
+      fields: [
+        field('voice', 'audio', chosen),
+        field('wav2vec', 'model', equals('facebook/wav2vec2-base-960h')),
+        field('audio', 'fps', equals(23)),
+        field('audio', 'num_frames', { kind: 'same', role: 'start', field: 'num_frames' }),
+      ],
+    },
+    {
+      id: 'sampler',
+      roles: [node('sampler', 'WanVideoSampler')],
+      links: [
+        link('model', 'model', 'sampler', 'model'),
+        link('text', 'text_embeds', 'sampler', 'text_embeds'),
+        link('start', EMBEDS, 'sampler', 'image_embeds'),
+        link('audio', 'fantasytalking_embeds', 'sampler', 'fantasytalking_embeds'),
+      ],
+    },
+    ...oneModelEnd(23),
+    { id: 'sound', links: [link('voice', 'AUDIO', 'video', 'audio')] },
+    { id: 'tips', read: true },
+    { id: 'run', read: true },
+  ],
+};
+
+/**
+ * UniAnimate on WanVideoWrapper: a person in a picture repeats the movement of a person in a video, on Wan 2.1
+ * picture to video with the UniAnimate LoRA. The skeleton is drawn by the pack's own detector, which fetches its
+ * two small models itself when the graph is first run in ComfyUI.
+ */
+const wrapperUni: Lesson = {
+  id: 'wrapper-unianimate',
+  steps: [
+    { id: 'intro', read: true },
+    ...oneModelStart('model'),
+    { id: 'lora', roles: [node('uni', 'WanVideoLoraSelect')], links: [link('uni', 'lora', 'model', 'lora')], fields: [field('uni', 'lora', chosen)] },
+    {
+      id: 'driving',
+      roles: [node('source', 'LoadVideo'), node('frames', 'GetVideoComponents')],
+      links: [link('source', 'VIDEO', 'frames', 'video')],
+      fields: [field('source', 'file', chosen)],
+    },
+    {
+      id: 'detect',
+      roles: [node('detect', 'WanVideoUniAnimateDWPoseDetector')],
+      links: [link('frames', 'images', 'detect', 'pose_images', RESIZE_VIA), link('picture', 'IMAGE', 'detect', 'reference_pose_image', RESIZE_VIA)],
+    },
+    {
+      id: 'pose',
+      roles: [node('pose', 'WanVideoUniAnimatePoseInput')],
+      links: [link('detect', 'poses', 'pose', 'pose_images'), link('detect', 'reference_pose', 'pose', 'reference_pose_image')],
+      fields: [field('pose', 'strength', between(0.5, 1, 1))],
+    },
+    pictureStart,
+    {
+      id: 'sampler',
+      roles: [node('sampler', 'WanVideoSampler')],
+      links: [
+        link('model', 'model', 'sampler', 'model'),
+        link('text', 'text_embeds', 'sampler', 'text_embeds'),
+        link('start', EMBEDS, 'sampler', 'image_embeds'),
+        link('pose', 'unianimate_poses', 'sampler', 'unianimate_poses'),
+      ],
+    },
+    ...oneModelEnd(16),
+    { id: 'tips', read: true },
+    { id: 'run', read: true },
+  ],
+};
+
+/**
+ * ReCamMaster on WanVideoWrapper: a finished video is drawn again as if the camera had moved another way. The
+ * video goes in as latents; the camera's path is one of ten the pack ships (recammaster/nodes.py).
+ */
+const wrapperRecam: Lesson = {
+  id: 'wrapper-recam',
+  steps: [
+    { id: 'intro', read: true },
+    ...oneModelText('model'),
+    {
+      id: 'source',
+      roles: [node('source', 'LoadVideo'), node('frames', 'GetVideoComponents')],
+      links: [link('source', 'VIDEO', 'frames', 'video')],
+      fields: [field('source', 'file', chosen)],
+    },
+    { id: 'encode', roles: [node('encode', 'WanVideoEncode')], links: [link('vae', 'vae', 'encode', 'vae'), link('frames', 'images', 'encode', 'image', RESIZE_VIA)] },
+    { id: 'camera', roles: [node('camera', 'WanVideoReCamMasterDefaultCamera')], links: [link('encode', 'samples', 'camera', 'latents')] },
+    {
+      id: 'embeds',
+      roles: [node('recam', 'WanVideoReCamMasterCameraEmbed')],
+      links: [link('camera', 'camera_poses', 'recam', 'camera_poses'), link('encode', 'samples', 'recam', 'latents')],
+    },
+    {
+      id: 'sampler',
+      roles: [node('sampler', 'WanVideoSampler')],
+      links: [link('model', 'model', 'sampler', 'model'), link('text', 'text_embeds', 'sampler', 'text_embeds'), link('recam', EMBEDS, 'sampler', 'image_embeds')],
+      fields: [field('sampler', 'steps', between(20, 30, 20))],
+    },
+    ...oneModelEnd(16),
+    { id: 'tips', read: true },
+    { id: 'run', read: true },
+  ],
+};
+
+/**
+ * Ovi on WanVideoWrapper: one run draws the clip and its sound, speech included. Two models side by side (video
+ * and audio), one description with the spoken words between <S> and <E>, a second text that says what the sound
+ * must not be, an empty sound of the length that fits
+ * 121 frames, and a second decoder for the sound (Ovi/nodes_ovi.py and the pack's Ovi example).
+ */
+const wrapperOvi: Lesson = {
+  id: 'wrapper-ovi',
+  steps: [
+    { id: 'intro', read: true },
+    {
+      id: 'models',
+      roles: [node('model', 'WanVideoModelLoader'), node('sound', 'WanVideoExtraModelSelect')],
+      links: [link('sound', 'extra_model', 'model', 'extra_model')],
+      fields: [field('model', 'model', chosen), field('sound', 'extra_model', { kind: 'differs', role: 'model', field: 'model' }), field('model', 'base_precision', equals('bf16'))],
+    },
+    {
+      id: 'readers',
+      roles: [node('t5', 'LoadWanVideoT5TextEncoder'), node('vae', 'WanVideoVAELoader')],
+      fields: [field('t5', 'model_name', chosen), field('vae', 'model_name', chosen)],
+    },
+    {
+      id: 'prompt',
+      roles: [node('text', 'WanVideoTextEncode')],
+      links: [link('t5', 'wan_t5_model', 'text', 't5')],
+      fields: [field('text', 'positive_prompt', { kind: 'text', minChars: 3 })],
+    },
+    { id: 'speech', fields: [field('text', 'positive_prompt', { kind: 'text', minChars: 3, has: ['<S>', '<E>'] })] },
+    {
+      id: 'guidance',
+      roles: [node('ovi', 'WanVideoOviCFG')],
+      links: [link('text', 'text_embeds', 'ovi', 'original_text_embeds')],
+      fields: [field('ovi', 'ovi_audio_cfg', between(2, 4, 3))],
+    },
+    {
+      // The node reads the unwanted sound from the *positive* text of a second text node (Ovi/nodes_ovi.py takes
+      // its "prompt_embeds"); with none connected it falls back to the description itself.
+      id: 'sound-negative',
+      roles: [node('soundNo', 'WanVideoTextEncode')],
+      links: [link('t5', 'wan_t5_model', 'soundNo', 't5'), link('soundNo', 'text_embeds', 'ovi', 'ovi_negative_text_embeds')],
+      fields: [field('soundNo', 'positive_prompt', { kind: 'text', minChars: 3 })],
+    },
+    { id: 'size', roles: [node('embeds', 'WanVideoEmptyEmbeds')], fields: [field('embeds', 'num_frames', equals(121))] },
+    { id: 'silence', roles: [node('silence', 'WanVideoEmptyMMAudioLatents')], fields: [field('silence', 'length', equals(157))] },
+    {
+      id: 'sampler',
+      roles: [node('sampler', 'WanVideoSampler')],
+      links: [
+        link('model', 'model', 'sampler', 'model'),
+        link('ovi', 'text_embeds', 'sampler', 'text_embeds'),
+        link('embeds', EMBEDS, 'sampler', 'image_embeds'),
+        link('silence', 'samples', 'sampler', 'samples'),
+      ],
+      fields: [field('sampler', 'steps', between(30, 50, 50)), field('sampler', 'cfg', between(3, 5, 4))],
+    },
+    { id: 'decode', roles: [node('decode', 'WanVideoDecode')], links: [link('sampler', 'samples', 'decode', 'samples'), link('vae', 'vae', 'decode', 'vae')] },
+    {
+      id: 'sound-out',
+      roles: [node('soundVae', 'OviMMAudioVAELoader'), node('soundDecode', 'WanVideoDecodeOviAudio')],
+      links: [link('soundVae', 'mmaudio_vae', 'soundDecode', 'mmaudio_vae'), link('sampler', 'samples', 'soundDecode', 'samples')],
+      fields: [field('soundVae', 'vae', chosen), field('soundVae', 'vocoder', { kind: 'differs', role: 'soundVae', field: 'vae' })],
+    },
+    {
+      id: 'save',
+      roles: [node('video', 'CreateVideo'), node('save', 'SaveVideo')],
+      links: [link('decode', 'IMAGE', 'video', 'images'), link('soundDecode', 'audio', 'video', 'audio'), link('video', 'VIDEO', 'save', 'video')],
+      fields: [field('video', 'fps', equals(24))],
+    },
+    { id: 'picture', read: true },
+    { id: 'tips', read: true },
+    { id: 'run', read: true },
+  ],
+};
+
 /**
  * What changes for adult content is knowledge, not the graph: which model, which LoRA, how to describe. The subject
  * comes from a further-trained pair of models or from a LoRA, so the lesson asks for neither: it checks that the
@@ -736,7 +977,8 @@ const adult: Lesson = {
 /** In the order a person meets them. */
 export const LESSONS: readonly Lesson[] = [
   image, prompt, refine, videoText, promptVideo, videoImage, lora, videoFast,
-  wrapper, wrapperImage, wrapperVace, wrapperAnimate, wrapperTalk, twoModels, adult,
+  wrapper, wrapperImage, wrapperVace, wrapperAnimate, wrapperUni, wrapperTalk, wrapperDuo, wrapperFantasy, wrapperOvi, wrapperRecam,
+  twoModels, adult,
 ];
 
 /** Lessons that stand on the graph of another: said in the list, not enforced. */
@@ -749,6 +991,7 @@ export const LESSON_AFTER: Readonly<Record<string, string[]>> = {
   'video-fast': ['lora'],
   'wrapper-image': ['wrapper'],
   'wrapper-vace': ['wrapper'],
+  'wrapper-duo': ['wrapper-talk'],
   'two-models': ['video-image'],
   adult: ['video-text'],
 };

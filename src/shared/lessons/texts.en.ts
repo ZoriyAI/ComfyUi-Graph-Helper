@@ -749,6 +749,308 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
     },
   },
+  'wrapper-unianimate': {
+    title: 'Animation by pose: UniAnimate',
+    result: 'The character from a picture repeats the moves of a person in a video. A Wan 2.1 model and one LoRA are enough.',
+    steps: {
+      intro: {
+        title: 'What UniAnimate does',
+        body: 'UniAnimate is a LoRA for the Wan 2.1 "image to video" model. With it the model obeys a skeleton: the pose is taken out of every frame of a video of a person moving, and the character from your picture repeats those moves.\n\nUnlike Wan Animate it does not carry the face over, only the body. In return no separate model is needed.\n\nOnly someone who agrees may be brought to life this way: yourself, a made-up character, or a person who gave permission. The app does not help with someone else\'s face without consent.\n\nThe lesson builds the graph from an empty canvas: "File ▸ New project".',
+      },
+      model: {
+        title: 'Load the model',
+        body: `Add the node {model} and choose in the field \`model\` a Wan 2.1 \`i2v\` 14B model, the 480p or the 720p one.\n\n${noFile('any Wan 2.1 I2V example graph from the `example_workflows` folder of the WanVideoWrapper pack')}`,
+      },
+      readers: {
+        title: 'The text reader and the VAE',
+        body: 'Add the nodes {t5} and {vae}. In the field `model_name` of the first choose the file `umt5-xxl-enc`, of the second the file `wan_2.1_vae`.',
+      },
+      prompt: {
+        title: 'Describe the character and the place',
+        body: 'Add the node {text} and connect the output of {t5} to its input `t5`. In the field `positive_prompt` say who is in the frame, what they wear and where they are.\n\nThe movement needs no words: the video sets it.',
+      },
+      picture: {
+        title: 'Load the character',
+        body: 'Add the node {picture} and choose in the field `image` the picture of the character. Full height works best, in a pose close to the first pose of the video.',
+      },
+      vision: {
+        title: 'Show the picture to the model',
+        body: 'Add the nodes {clipVision} and {vision}. In the field `clip_name` of the first choose the file `clip_vision_h`. Connect its output to the input `clip_vision` of the second, and the picture to the input `image_1`.\n\nThe Wan 2.1 "image to video" models cannot do without it.',
+      },
+      lora: {
+        title: 'Add the UniAnimate LoRA',
+        body: 'Add the node {uni} and choose in the field `lora` the UniAnimate file for Wan 2.1 14B. Connect its output to the input `lora` of the model loader.\n\nWithout this LoRA a skeleton cannot be connected: the run stops with an error.',
+      },
+      driving: {
+        title: 'Load the video with the movement',
+        body: 'Add the nodes {source} and {frames}. In the field `file` of the first choose a video from the `input` folder, and connect its output to the input `video` of the second.\n\nTake a video where the person is alone in the frame and seen whole.',
+      },
+      detect: {
+        title: 'Take the pose out',
+        body: 'Add the node {detect}. Connect the output `images` of {frames} to its input `pose_images`, and the picture of the character to the input `reference_pose_image`.\n\nThe node draws a skeleton for every frame and, apart from them, the skeleton of the character in the picture. From the second the model learns how the build of the character differs from the person in the video.\n\nThis node downloads two small pose models itself when the graph is first run in ComfyUI. This app downloads nothing.',
+      },
+      pose: {
+        title: 'Hand the skeleton to the model',
+        body: 'Add the node {pose}. Connect the output `poses` of {detect} to the input `pose_images`, and the output `reference_pose` to the input `reference_pose_image`.\n\nLeave the field `strength` at 1: it is how firmly the skeleton leads the character.',
+      },
+      start: {
+        title: 'Prepare the start',
+        body: 'Add the node {start}. Connect the output of {vae} to its input `vae`, the picture to the input `start_image`, and the output of {vision} to the input `clip_embeds`.\n\nLeave the field `num_frames` at 81, which is five seconds. The fields `width` and `height` set the size of the clip.',
+      },
+      sampler: {
+        title: 'Add the sampler',
+        body: 'Add the node {sampler} and connect to it:\n- the model to the input `model`;\n- the description to the input `text_embeds`;\n- the output of {start} to the input `image_embeds`;\n- the output of {pose} to the input `unianimate_poses`.',
+      },
+      decode: {
+        title: 'Turn the result into frames',
+        body: 'Add the node {decode}. Connect the output of the sampler to its input `samples`, and the output of {vae} to the input `vae`.',
+      },
+      save: {
+        title: 'Assemble the clip',
+        body: 'Add the nodes {video} and {save}: the frames into `images`, the clip into `video`. Set the field `fps` to 16.',
+      },
+      tips: {
+        title: 'If the character moves wrong',
+        body: 'What to check:\n- the frames of the video are of another size than the clip: put a resize node between {frames} and {detect} and set the same `width` and `height` as in {start};\n- the video is longer than the clip: the poses left over are dropped. If it is shorter, lower `num_frames`;\n- the skeleton vanishes or shows where it should not: change `score_threshold` in {detect};\n- the character changes build: check that the picture of the character is connected to the input `reference_pose_image`.',
+      },
+      run: {
+        title: 'The graph is ready',
+        body: `${SAVE}\n\nThe first run takes longer than usual: the node {detect} downloads its models.`,
+      },
+    },
+  },
+  'wrapper-duo': {
+    title: 'Two people talking: InfiniteTalk',
+    result: 'Two people in one picture speak, each with their own voice.',
+    steps: {
+      intro: {
+        title: 'Two voices in one frame',
+        body: 'InfiniteTalk and MultiTalk can voice two people at once. You need a picture with two people and two voice recordings. The model moves the lips of each to their own recording.\n\nThe rule is the same: only those who agree may be voiced, with their own voices or voices you have permission for.\n\nThe lesson continues the graph of the lesson "A talking video: InfiniteTalk".',
+      },
+      graph: {
+        title: 'The graph of a talking video is needed',
+        body: 'The canvas must hold the graph of the lesson "A talking video: InfiniteTalk": the nodes {talk}, {voice}, {audio} and {sampler}, with the sound connected to the input `audio_1`.\n\nIf it is not there, do that lesson first.',
+      },
+      module: {
+        title: 'Check the module',
+        body: 'The field `model` of {talk} must hold a module for several speakers. For InfiniteTalk the name of such a file has the word multi in it; MultiTalk has one module for every case.\n\nThe single module is made for one person.',
+      },
+      picture: {
+        title: 'Choose the picture',
+        body: 'In the node with the portrait choose a frame where both people are seen large and stand side by side: one in the left half, the other in the right.\n\nThis matters. Unless told otherwise, the first voice goes to whoever is on the left and the second to whoever is on the right.',
+      },
+      'second-voice': {
+        title: 'Add the second voice',
+        body: 'Add one more node {voice2} and choose in the field `audio` the recording of the second person, not the same as the first. Connect its output to the input `audio_2` of {audio}.',
+      },
+      order: {
+        title: 'Together or in turn',
+        body: 'The field `multi_audio_type` of {audio} says how the two recordings are put together:\n- `para`: both sound at once, from the start of the clip. It fits when each recording already has pauses for the time the other one speaks;\n- `add`: the first recording whole, then the second. It fits two separate lines.',
+      },
+      who: {
+        title: 'Who speaks with which voice',
+        body: 'The voice from the input `audio_1` goes to the person in the left half of the frame, from the input `audio_2` to the one in the right. If the voices are swapped, swap the recordings.\n\nWhen people stand otherwise, masks are needed: one per person, to the input `ref_target_masks`. A mask is drawn in ComfyUI\'s mask editor.\n\nThe inputs `audio_3` and `audio_4` are for a third and a fourth speaker. They must have masks: the node itself splits the frame only in two.',
+      },
+      run: {
+        title: 'The graph is ready',
+        body: `${SAVE}\n\nWhile you are choosing the recordings and the picture, take lines a few seconds long.`,
+      },
+    },
+  },
+  'wrapper-fantasy': {
+    title: 'A talking portrait: FantasyTalking',
+    result: 'A portrait says a short voice recording. The graph is simpler than InfiniteTalk\'s, the clip shorter.',
+    steps: {
+      intro: {
+        title: 'What FantasyTalking does',
+        body: 'FantasyTalking also teaches the Wan 2.1 "image to video" model to listen to sound, but it is built more simply than InfiniteTalk: a plain start from a picture, with no stitching of pieces. The clip comes out short, but the graph reads at a glance.\n\nOnly someone who agrees may be voiced this way, with their own voice or a voice you have permission for. The app does not help with someone else\'s face or voice without consent.\n\nThe lesson builds the graph from an empty canvas: "File ▸ New project".',
+      },
+      model: {
+        title: 'Load the model',
+        body: `Add the node {model} and choose in the field \`model\` a Wan 2.1 \`i2v\` 14B model, preferably the 720p one.\n\n${noFile('the FantasyTalking example graph from the `example_workflows` folder of the WanVideoWrapper pack')}`,
+      },
+      readers: {
+        title: 'The text reader and the VAE',
+        body: 'Add the nodes {t5} and {vae}. In the field `model_name` of the first choose the file `umt5-xxl-enc`, of the second the file `wan_2.1_vae`.',
+      },
+      prompt: {
+        title: 'Describe the frame briefly',
+        body: 'Add the node {text} and connect the output of {t5} to its input `t5`. In the field `positive_prompt` say who speaks and how: calmly, with a smile, with gestures.\n\nWhat is said the model takes from the sound, not from the text.',
+      },
+      picture: {
+        title: 'Load the portrait',
+        body: 'Add the node {picture} and choose in the field `image` a portrait. A face seen large and from the front works best.',
+      },
+      vision: {
+        title: 'Show the portrait to the model',
+        body: 'Add the nodes {clipVision} and {vision}. In the field `clip_name` of the first choose the file `clip_vision_h`. Connect its output to the input `clip_vision` of the second, and the portrait to the input `image_1`.',
+      },
+      'talk-model': {
+        title: 'Add the FantasyTalking module',
+        body: 'Add the node {talk} and choose in the field `model` the file of the FantasyTalking module. Connect its output to the input `fantasytalking_model` of the model loader.',
+      },
+      start: {
+        title: 'Prepare the start',
+        body: 'Add the node {start}. Connect the output of {vae} to its input `vae`, the portrait to the input `start_image`, and the output of {vision} to the input `clip_embeds`.\n\nLeave the field `num_frames` at 81. At 23 frames a second that is three and a half seconds of speech.',
+      },
+      voice: {
+        title: 'Load the voice',
+        body: 'Add three nodes: {voice}, {wav2vec} and {audio}.\n- In {voice} choose in the field `audio` a sound file from the `input` folder.\n- In {wav2vec} set the field `model` to `facebook/wav2vec2-base-960h`: FantasyTalking was trained with it. The node downloads this model itself when the graph is first run in ComfyUI.\n- Three wires go into {audio}: `wav2vec_model` from {wav2vec}, `fantasytalking_model` from {talk}, and the sound.\n- In {audio} set `fps` to 23, and `num_frames` to the same number as in {start}.',
+      },
+      sampler: {
+        title: 'Add the sampler',
+        body: 'Add the node {sampler} and connect to it:\n- the model to the input `model`;\n- the description to the input `text_embeds`;\n- the output of {start} to the input `image_embeds`;\n- the output of {audio} to the input `fantasytalking_embeds`.',
+      },
+      decode: {
+        title: 'Turn the result into frames',
+        body: 'Add the node {decode}. Connect the output of the sampler to its input `samples`, and the output of {vae} to the input `vae`.',
+      },
+      save: {
+        title: 'Assemble the clip',
+        body: 'Add the nodes {video} and {save}: the frames into `images`, the clip into `video`. Set the field `fps` to 23, as the sound has.',
+      },
+      sound: {
+        title: 'Put the sound into the clip',
+        body: 'Connect the output of {voice} to the input `audio` of {video}.\n\nWithout it the clip is saved silent, though the lips move.',
+      },
+      tips: {
+        title: 'If the lips miss the words',
+        body: 'What to change in {audio}:\n- the lips move weakly: raise `audio_scale` to 1.2;\n- the face is frozen and only the lips move: set `audio_cfg_scale` to 2; the clip takes longer to compute;\n- the recording is longer than the clip: only its beginning is used. Cut the recording beforehand or raise `num_frames` in both nodes.\n\nFor long speech take InfiniteTalk: it stitches a clip out of pieces.',
+      },
+      run: {
+        title: 'The graph is ready',
+        body: `${SAVE}\n\nThe first run takes longer than usual: the node {wav2vec} downloads the speech model.`,
+      },
+    },
+  },
+  'wrapper-ovi': {
+    title: 'A video with sound: Ovi',
+    result: 'One run draws the clip and its sound at once: the character\'s speech, steps, street noise.',
+    steps: {
+      intro: {
+        title: 'What Ovi does',
+        body: 'Ovi is two models working together: one draws the clip, the other makes its sound at the same time. You write the character\'s speech right in the description, and the lips match the words.\n\nThe clip always has one length: 121 frames, which is five seconds at 24 frames a second.\n\nThe model makes the voice up itself. The rule stays: do not put words into the mouths of real people without their consent.\n\nThe lesson builds the graph from an empty canvas: "File ▸ New project".',
+      },
+      models: {
+        title: 'Load the two models',
+        body: `Add the nodes {model} and {sound}.\n- In {model} choose in the field \`model\` the Ovi video model.\n- In {sound} choose in the field \`extra_model\` the Ovi audio model. It is another file.\n- Connect the output of {sound} to the input \`extra_model\` of {model}.\n- In {model} leave the field \`base_precision\` at \`bf16\`. With \`fp16\` this model may give a black screen.\n\n${noFile('the Ovi example graph from the `example_workflows` folder of the WanVideoWrapper pack')}`,
+      },
+      readers: {
+        title: 'The text reader and the VAE',
+        body: 'Add the nodes {t5} and {vae}. In the field `model_name` of the first choose the file `umt5-xxl-enc`. The second needs the VAE of Wan 2.2, the file `Wan2_2_VAE`: the VAE of Wan 2.1 does not fit here.',
+      },
+      prompt: {
+        title: 'Describe the frame',
+        body: 'Add the node {text} and connect the output of {t5} to its input `t5`. In the field `positive_prompt` say in English who is in the frame, where, and what they do.',
+      },
+      speech: {
+        title: 'Write the speech in',
+        body: 'The words the character says go into the field `positive_prompt` between the marks `<S>` and `<E>`. For example: A man in a kitchen says `<S>Good morning, the coffee is ready.<E>`\n\nWithout these marks Ovi does not work.\n\nWhat else is heard in the clip may be described between `<AUDCAP>` and `<ENDAUDCAP>`: a voice, noise, music. This is optional.',
+      },
+      guidance: {
+        title: 'Connect the sound setting',
+        body: 'Add the node {ovi} and connect the output of {text} to its input `original_text_embeds`.\n\nLeave the field `ovi_audio_cfg` at 3. It says how strictly the sound follows the description.',
+      },
+      'sound-negative': {
+        title: 'Say what the sound must not be',
+        body: 'Add a second node {soundNo} and connect the output of {t5} to its input `t5`. In its field `positive_prompt` write what the sound must not have: robotic, muffled, echo, distorted.\n\nConnect the output of this node to the input `ovi_negative_text_embeds` of {ovi}.\n\nThis is no mistake: the words go into the upper field, and {ovi} takes exactly that one. If this node is not connected, the description itself stands in for it, and the setting `ovi_audio_cfg` nearly stops acting.',
+      },
+      size: {
+        title: 'Set the size and the length',
+        body: 'Add the node {embeds}. Set the field `num_frames` to 121: Ovi is not made for another length.\n\nSet the fields `width` and `height` to 992 and 512 for a horizontal clip.',
+      },
+      silence: {
+        title: 'Add the blank sound',
+        body: 'Add the node {silence} and leave its field `length` at 157. It is the length of sound for a clip of 121 frames.\n\nOut of this blank the model makes the sound, the way it makes the clip out of noise.',
+      },
+      sampler: {
+        title: 'Add the sampler',
+        body: 'Add the node {sampler} and connect to it:\n- the model to the input `model`;\n- the output of {ovi}, not of {text}, to the input `text_embeds`;\n- the output of {embeds} to the input `image_embeds`;\n- the output of {silence} to the input `samples`.\n\nSet `steps` to 50 and `cfg` to 4.',
+      },
+      decode: {
+        title: 'Turn the result into frames',
+        body: 'Add the node {decode}. Connect the output of the sampler to its input `samples`, and the output of {vae} to the input `vae`.',
+      },
+      'sound-out': {
+        title: 'Turn the result into sound',
+        body: 'Add the nodes {soundVae} and {soundDecode}.\n- In {soundVae} choose in the field `vae` the file `mmaudio_vae`, and in the field `vocoder` the file `mmaudio_vocoder`. They are two different files.\n- Connect its output to the input `mmaudio_vae` of {soundDecode}.\n- Connect the output of the sampler to the input `samples` of {soundDecode}, the same output that goes into {decode}.',
+      },
+      save: {
+        title: 'Assemble the clip with its sound',
+        body: 'Add the nodes {video} and {save}. Connect the frames to the input `images`, the output of {soundDecode} to the input `audio`, and the clip to the input `video`. Set the field `fps` to 24.',
+      },
+      picture: {
+        title: 'If the clip should start from a picture',
+        body: 'Ovi can start a clip from your picture. It is loaded, brought to the size of the clip and turned into a latent by the node WanVideo Encode. The output of that node goes to the input `extra_latents` of {embeds}.\n\nThe lesson does not check this step: the graph works without a picture too.',
+      },
+      tips: {
+        title: 'If the sound or the speech did not come out',
+        body: 'What to check:\n- the character is not heard: the words must stand between `<S>` and `<E>`, preferably in English;\n- the speech is cut off: five seconds hold one or two short phrases;\n- the sound is dull or echoes: add what you hear to {soundNo}: muffled, echo, noise;\n- a black screen: check `base_precision`, it must be `bf16`.',
+      },
+      run: {
+        title: 'The graph is ready',
+        body: `${SAVE}\n\nOvi takes long: 50 steps for two models at once. For a trial set 30.`,
+      },
+    },
+  },
+  'wrapper-recam': {
+    title: 'Another camera: ReCamMaster',
+    result: 'A finished video is drawn again as if the camera had moved another way.',
+    steps: {
+      intro: {
+        title: 'What ReCamMaster does',
+        body: 'ReCamMaster takes a finished video and draws the same scene again with another camera move: an orbit, a zoom or a turn. What happens in the scene stays.\n\nThe model is small, based on Wan 2.1 1.3B. It was trained on clips of 81 frames sized 832 by 480 and works best with them.\n\nTake a video of your own or one you have the rights to.\n\nThe lesson builds the graph from an empty canvas: "File ▸ New project".',
+      },
+      model: {
+        title: 'Load the model',
+        body: `Add the node {model} and choose in the field \`model\` the ReCamMaster model.\n\n${noFile('the ReCamMaster example graph from the `example_workflows` folder of the WanVideoWrapper pack')}`,
+      },
+      readers: {
+        title: 'The text reader and the VAE',
+        body: 'Add the nodes {t5} and {vae}. In the field `model_name` of the first choose the file `umt5-xxl-enc`, of the second the file `wan_2.1_vae`.',
+      },
+      prompt: {
+        title: 'Describe what is in the video',
+        body: 'Add the node {text} and connect the output of {t5} to its input `t5`. In the field `positive_prompt` say what happens in the video: who, where, doing what.\n\nThe camera needs no words; you set it apart.',
+      },
+      source: {
+        title: 'Load the video',
+        body: 'Add the nodes {source} and {frames}. In the field `file` of the first choose a video from the `input` folder, and connect its output to the input `video` of the second.',
+      },
+      encode: {
+        title: 'Turn the video into a latent',
+        body: 'Add the node {encode}. Connect the output of {vae} to its input `vae`, and the output `images` of {frames} to the input `image`.\n\nIf the video is longer than 81 frames or of another size, put the nodes `ImageFromBatch` and `ImageScale` between them. The first keeps 81 frames, the second brings the size to 832 by 480.',
+      },
+      camera: {
+        title: 'Choose the camera move',
+        body: 'Add the node {camera} and connect the output of {encode} to its input `latents`.\n\nIn the field `camera_type` choose the move:\n- `pan_right`, `pan_left`: a turn to the right and to the left;\n- `tilt_up`, `tilt_down`: a tilt up and down;\n- `zoom_in`, `zoom_out`: moving in and out;\n- `translate_up`, `translate_down`: rising and lowering;\n- `arc_left`, `arc_right`: an orbit from the left and from the right.',
+      },
+      embeds: {
+        title: 'Join the camera and the video',
+        body: 'Add the node {recam}. Connect the output of {camera} to its input `camera_poses`, and the output of {encode} to the input `latents`.\n\nThe video comes here a second time: the model draws the scene from it and turns it along the camera\'s path.',
+      },
+      sampler: {
+        title: 'Add the sampler',
+        body: 'Add the node {sampler} and connect to it:\n- the model to the input `model`;\n- the description to the input `text_embeds`;\n- the output `camera_embeds` of {recam} to the input `image_embeds`.\n\nSet `steps` to 20.',
+      },
+      decode: {
+        title: 'Turn the result into frames',
+        body: 'Add the node {decode}. Connect the output of the sampler to its input `samples`, and the output of {vae} to the input `vae`.',
+      },
+      save: {
+        title: 'Assemble the clip',
+        body: 'Add the nodes {video} and {save}: the frames into `images`, the clip into `video`. Set the field `fps` to 16.',
+      },
+      tips: {
+        title: 'If the scene changed',
+        body: 'What to check:\n- the clip shows another scene: the description does not fit the video. Describe what is really in it;\n- the picture is blurry: the video is of the wrong size. Bring it to 832 by 480;\n- an orbit by a set angle is needed: the pack has a separate node for it, WanVideo ReCamMaster Generate Orbit Camera. It stands in place of {camera}.',
+      },
+      run: {
+        title: 'The graph is ready',
+        body: `${SAVE}\n\nOne run is one camera move. To compare two moves, run the graph twice.`,
+      },
+    },
+  },
   'two-models': {
     title: 'Two models in one graph',
     result: 'A picture model draws the first frame and Wan brings it to life. Each has its own LoRAs and its own description.',

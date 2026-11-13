@@ -41,6 +41,11 @@ interface UiState {
   tour: TourState | null;
   /** Revision sequence at the last project open/save; the app bar shows "unsaved" when the graph moved past it. */
   savedRevSeq: number | null;
+  /**
+   * Whether that revision is in a project file the person opened or saved. A graph the app brought back from its
+   * own store at start is not: "New project" asks before it clears a canvas that is in no file.
+   */
+  savedToFile: boolean;
   /** Bumped when the local catalog changes outside sync (catalog snapshot import); libraries re-read. */
   catalogVersion: number;
   /** A request to open the settings dialog (the seq changes each time), from the menu or a hotkey. */
@@ -57,7 +62,7 @@ interface UiState {
   setTourIndex: (index: number) => void;
   setTourPlaying: (playing: boolean) => void;
   stopTour: () => void;
-  markSaved: (revSeq: number) => void;
+  markSaved: (revSeq: number, toFile?: boolean) => void;
   bumpCatalog: () => void;
   openSettings: (section?: SettingsSection) => void;
   setDialog: (dialog: ShellDialog | null) => void;
@@ -86,6 +91,7 @@ export const useUiStore = create<UiState>((set) => ({
   followAgent: true,
   tour: null,
   savedRevSeq: null,
+  savedToFile: false,
   catalogVersion: 0,
   settingsRequest: null,
   dialog: null,
@@ -101,7 +107,7 @@ export const useUiStore = create<UiState>((set) => ({
   )),
   setTourPlaying: (playing) => set((state) => (state.tour ? { tour: { ...state.tour, playing } } : {})),
   stopTour: () => set({ tour: null }),
-  markSaved: (savedRevSeq) => set({ savedRevSeq }),
+  markSaved: (savedRevSeq, toFile = false) => set({ savedRevSeq, savedToFile: toFile }),
   bumpCatalog: () => set((state) => ({ catalogVersion: state.catalogVersion + 1 })),
   openSettings: (section) => set((state) => ({ settingsRequest: { section: section ?? null, seq: (state.settingsRequest?.seq ?? 0) + 1 } })),
   setDialog: (dialog) => set({ dialog }),

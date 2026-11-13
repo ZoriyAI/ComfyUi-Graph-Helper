@@ -31,8 +31,8 @@ export function notify(note: WorkflowNote): void {
   showToast(describeNote(note, translate));
 }
 
-function markCurrentSaved(): void {
-  useUiStore.getState().markSaved(useProjectionStore.getState().revSeq);
+function markCurrentSaved(toFile: boolean): void {
+  useUiStore.getState().markSaved(useProjectionStore.getState().revSeq, toFile);
 }
 
 function rejectedReason(result: unknown, fallback: string): string {
@@ -121,7 +121,7 @@ export async function openProjectFile(): Promise<void> {
     notify({ kind: 'error', code: rejectedReason(result.result, 'The native project file is not valid.') });
     return;
   }
-  markCurrentSaved();
+  markCurrentSaved(true);
   graphWasReplaced();
   notify({ kind: 'opened-project' });
 }
@@ -129,7 +129,7 @@ export async function openProjectFile(): Promise<void> {
 export async function saveProjectFile(): Promise<void> {
   const result = await window.electronAPI.saveProjectFile();
   if (!result.ok && result.canceled) return;
-  if (result.ok) markCurrentSaved();
+  if (result.ok) markCurrentSaved(true);
   notify(result.ok ? { kind: 'saved-project' } : { kind: 'error', code: result.error || 'The project file could not be written.' });
 }
 
@@ -138,14 +138,15 @@ export const EMPTY_WORKFLOW = { last_node_id: 0, last_link_id: 0, nodes: [], lin
 
 /**
  * Starts an empty project. It is a commit like any other, so the previous graph stays in the revision
- * history (Graph ▸ Replay). Asks first when there are unsaved changes.
+ * history (Graph ▸ Replay). Asks first when the canvas holds a graph that is not in a project file as it stands:
+ * changed since it was opened or saved, or brought back by the app at start and never saved by the person.
  */
 export function requestNewProject(): void {
   const ui = useUiStore.getState();
   const projection = useProjectionStore.getState();
   const dirty = ui.savedRevSeq !== null && projection.revSeq !== ui.savedRevSeq;
   const empty = useGraphStore.getState().nodes.length === 0;
-  if (dirty && !empty) {
+  if (!empty && (dirty || !ui.savedToFile)) {
     ui.setDialog('new-project');
     return;
   }
@@ -158,7 +159,7 @@ export async function startNewProject(): Promise<void> {
   useUiStore.getState().stopTour();
   if (useGraphStore.getState().activeSubgraphId) useGraphStore.getState().exitSubgraph(0);
   await commitManual({ type: 'import-workflow', document: EMPTY_WORKFLOW }, 'new-project');
-  markCurrentSaved();
+  markCurrentSaved(false);
   graphWasReplaced();
 }
 

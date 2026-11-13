@@ -75,6 +75,9 @@ function lackText(t: TFunction, missing: Missing, lesson: Lesson, shared: Shared
     case 'text': {
       // An empty field is asked for a description; one that has a few words is told how many more it needs.
       const chars = typeof missing.value === 'string' ? missing.value.trim().length : 0;
+      // Long enough, but a mark the model needs is not in it (Ovi reads the spoken words between <S> and <E>).
+      const marks = (missing.test.has ?? []).filter((mark) => typeof missing.value !== 'string' || !missing.value.includes(mark));
+      if (chars >= missing.test.minChars && marks.length > 0) return String(t('lessons.lackTextMark', { field, node, marks: marks.join(' ') }));
       return String(chars > 0 ? t('lessons.lackTextShort', { field, node, chars, min: missing.test.minChars }) : t('lessons.lackText', { field, node }));
     }
     case 'weighted': {

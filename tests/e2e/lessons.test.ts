@@ -391,7 +391,12 @@ const FILES: Record<string, string[]> = {
   'OnnxDetectionModelLoader.vitpose_model': ['vitpose-l-wholebody.onnx'],
   'OnnxDetectionModelLoader.yolo_model': ['yolov10m.onnx'],
   'LoadVideo.file': ['dance.mp4'],
-  'LoadAudio.audio': ['voice.wav'],
+  'LoadAudio.audio': ['voice.wav', 'voice2.wav'],
+  'FantasyTalkingModelLoader.model': ['z_image_turbo_bf16.safetensors'],
+  'WanVideoLoraSelect.lora': ['wan2.2_i2v_A14b_high_noise_lora_rank64_lightx2v_4step_1022.safetensors'],
+  'WanVideoExtraModelSelect.extra_model': ['z_image_turbo_bf16.safetensors'],
+  'OviMMAudioVAELoader.vae': ['mmaudio_vae_16k_fp32.safetensors'],
+  'OviMMAudioVAELoader.vocoder': ['mmaudio_vocoder_bigvgan_best_netG_fp32.safetensors'],
 };
 const DESCRIPTION = 'A young woman in a red coat walks slowly along a wet city street at night. The camera follows her from the side. Soft cinematic light.';
 
@@ -432,6 +437,8 @@ async function carry(page: Page, api: Bridge, id: string, each?: (stepId: string
       await change(page, api, { type: 'set-parameter', nodeId, key: field, value });
     } else if (/Write a description|is short so far/.test(lack)) {
       await change(page, api, { type: 'set-parameter', nodeId, key: field, value: words });
+    } else if (/lacks the marks/.test(lack)) {
+      await change(page, api, { type: 'set-parameter', nodeId, key: field, value: `${String(node.data.parameters[field] ?? '')} She says <S>Good evening.<E>` });
     } else if (/has no weight yet/.test(lack)) {
       await change(page, api, { type: 'set-parameter', nodeId, key: field, value: `${String(node.data.parameters[field] ?? '')} (red coat:1.2)` });
     } else {
@@ -724,6 +731,127 @@ test('lessons: VACE, animation by pose and a talking portrait on WanVideoWrapper
     await page.waitForTimeout(450);
     await shot(page, '19-talk-done');
     await expectSoundLayout(page, 'lessons, InfiniteTalk done', wide);
+  } finally {
+    await app.close();
+    await fake.close();
+    fs.rmSync(userData, { recursive: true, force: true });
+  }
+});
+
+test('lessons: two voices, FantasyTalking, UniAnimate, ReCamMaster and Ovi on WanVideoWrapper are carried through', async () => {
+  test.setTimeout(1_200_000);
+  const fake = await startFakeMcp({ extraLoras: 3, video: true });
+  const { app, page, api, userData } = await launch(fake);
+  const wide = [{ width: 1440, height: 900 }];
+  const newProject = async () => {
+    await page.keyboard.press('Control+n');
+    await page.getByRole('button', { name: 'Start new project', exact: true }).click();
+    await expect(page.locator('.react-flow__node')).toHaveCount(0, { timeout: 15_000 });
+  };
+  const leftToRight = async (label: string) => {
+    const built = await builtOf(api);
+    const placed = new Map(built.nodes.map((node) => [node.id, node]));
+    for (const edge of built.edges) {
+      const from = placed.get(edge.source)!;
+      const to = placed.get(edge.target)!;
+      expect(from.position.x, `${label}: ${from.data.comfyType} → ${to.data.comfyType}`).toBeLessThan(to.position.x);
+    }
+    return built;
+  };
+  const typeOf = (built: Built, id: string) => built.nodes.find((node) => node.id === id)!.data.comfyType;
+  const feeders = (built: Built, classType: string) => {
+    const node = built.nodes.find((item) => item.data.comfyType === classType)!;
+    return built.edges.filter((edge) => edge.target === node.id).map((edge) => typeOf(built, edge.source)).sort();
+  };
+  const fitShot = async (name: string) => {
+    await page.locator('.react-flow__controls-fitview').click();
+    await page.waitForTimeout(450);
+    await shot(page, name);
+  };
+  try {
+    await openLearn(page);
+    for (const id of ['wrapper-duo', 'wrapper-fantasy', 'wrapper-unianimate', 'wrapper-recam', 'wrapper-ovi']) await expect(panel(page).locator(`[data-lesson-card="${id}"]`), id).toHaveAttribute('data-lesson-state', 'new');
+
+    // Two voices stand on the graph of the talking portrait.
+    await startLesson(page, 'wrapper-talk');
+    await carry(page, api, 'wrapper-talk');
+    await startLesson(page, 'wrapper-duo');
+    await expect(panel(page)).toContainText('only those who agree may be voiced');
+    await carry(page, api, 'wrapper-duo', async (stepId) => {
+      await expectSoundLayout(page, `lessons, two voices: ${stepId}`, wide);
+    });
+    await stepIs(page, 'end');
+    let built = await leftToRight('two voices');
+    const voices = built.nodes.filter((node) => node.data.comfyType === 'LoadAudio');
+    expect(voices.map((node) => node.data.parameters.audio).sort()).toEqual(['voice.wav', 'voice2.wav']);
+    expect(feeders(built, 'MultiTalkWav2VecEmbeds')).toEqual(['LoadAudio', 'LoadAudio', 'Wav2VecModelLoader']);
+    await panel(page).getByRole('button', { name: 'All lessons', exact: true }).click();
+    await expect(panel(page).locator('[data-lesson-card="wrapper-talk"]')).toHaveAttribute('data-lesson-state', 'done');
+    await fitShot('20-two-voices-done');
+
+    // FantasyTalking: the speech reader the module was trained with, a sound as long as the clip, the sound in the clip.
+    await newProject();
+    await startLesson(page, 'wrapper-fantasy');
+    await expect(panel(page)).toContainText('with their own voice or a voice you have permission for');
+    await carry(page, api, 'wrapper-fantasy', async (stepId) => {
+      await expectSoundLayout(page, `lessons, FantasyTalking: ${stepId}`, wide);
+    });
+    await stepIs(page, 'end');
+    built = await leftToRight('FantasyTalking');
+    expect(built.nodes.find((node) => node.data.comfyType === 'DownloadAndLoadWav2VecModel')!.data.parameters.model).toBe('facebook/wav2vec2-base-960h');
+    expect(feeders(built, 'FantasyTalkingWav2VecEmbeds')).toEqual(['DownloadAndLoadWav2VecModel', 'FantasyTalkingModelLoader', 'LoadAudio']);
+    expect(feeders(built, 'CreateVideo')).toEqual(['LoadAudio', 'WanVideoDecode']);
+
+    // UniAnimate: consent first; the skeleton reaches the sampler, the LoRA the model.
+    await newProject();
+    await startLesson(page, 'wrapper-unianimate');
+    await expect(panel(page)).toContainText('Only someone who agrees may be brought to life this way');
+    await carry(page, api, 'wrapper-unianimate', async (stepId) => {
+      await expectSoundLayout(page, `lessons, UniAnimate: ${stepId}`, wide);
+    });
+    await stepIs(page, 'end');
+    built = await leftToRight('UniAnimate');
+    expect(feeders(built, 'WanVideoUniAnimatePoseInput')).toEqual(['WanVideoUniAnimateDWPoseDetector', 'WanVideoUniAnimateDWPoseDetector']);
+    expect(feeders(built, 'WanVideoModelLoader')).toEqual(['WanVideoLoraSelect']);
+    await fitShot('21-unianimate-done');
+
+    // ReCamMaster: the video goes in as a latent, to the camera and to the embed.
+    await newProject();
+    await startLesson(page, 'wrapper-recam');
+    await carry(page, api, 'wrapper-recam', async (stepId) => {
+      await expectSoundLayout(page, `lessons, ReCamMaster: ${stepId}`, wide);
+      if (stepId === 'camera') await shot(page, '22-recam-camera');
+    });
+    await stepIs(page, 'end');
+    built = await leftToRight('ReCamMaster');
+    expect(feeders(built, 'WanVideoReCamMasterCameraEmbed')).toEqual(['WanVideoEncode', 'WanVideoReCamMasterDefaultCamera']);
+    expect(feeders(built, 'WanVideoSampler')).toEqual(['WanVideoModelLoader', 'WanVideoReCamMasterCameraEmbed', 'WanVideoTextEncode']);
+
+    // Ovi: the description is held to the marks of speech, and the sound is decoded into the clip.
+    await newProject();
+    await startLesson(page, 'wrapper-ovi');
+    let askedForMarks = false;
+    await carry(page, api, 'wrapper-ovi', async (stepId) => {
+      await expectSoundLayout(page, `lessons, Ovi: ${stepId}`, wide);
+      if (stepId === 'speech') {
+        await expect(panel(page).locator('[class*="lacking"] li').first()).toContainText('lacks the marks <S> <E>');
+        askedForMarks = true;
+        await shot(page, '23-ovi-speech');
+      }
+    });
+    expect(askedForMarks).toBe(true);
+    await stepIs(page, 'end');
+    built = await leftToRight('Ovi');
+    // Two text nodes: the description with the speech, and what the sound must not be; both reach the Ovi node.
+    const texts = built.nodes.filter((node) => node.data.comfyType === 'WanVideoTextEncode');
+    expect(texts.filter((node) => /<S>.+<E>/.test(String(node.data.parameters.positive_prompt)))).toHaveLength(1);
+    expect(feeders(built, 'WanVideoOviCFG')).toEqual(['WanVideoTextEncode', 'WanVideoTextEncode']);
+    expect(feeders(built, 'WanVideoSampler')).toEqual(['WanVideoEmptyEmbeds', 'WanVideoEmptyMMAudioLatents', 'WanVideoModelLoader', 'WanVideoOviCFG']);
+    expect(feeders(built, 'CreateVideo')).toEqual(['WanVideoDecode', 'WanVideoDecodeOviAudio']);
+    const loader = built.nodes.find((node) => node.data.comfyType === 'OviMMAudioVAELoader')!;
+    expect(loader.data.parameters.vae).not.toBe(loader.data.parameters.vocoder);
+    await fitShot('24-ovi-done');
+    await expectSoundLayout(page, 'lessons, Ovi done', wide);
   } finally {
     await app.close();
     await fake.close();

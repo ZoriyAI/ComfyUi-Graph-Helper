@@ -87,8 +87,8 @@ export type FieldTest =
   | { kind: 'equals'; value: string | number | boolean }
   /** A number in the range. `prefer` is what "Do this for me" sets; without it, the nearer end of the range. */
   | { kind: 'between'; min: number; max: number; prefer?: number }
-  /** Text of at least this many characters. */
-  | { kind: 'text'; minChars: number }
+  /** Text of at least this many characters; with `has`, one that holds each of these marks as well. */
+  | { kind: 'text'; minChars: number; has?: string[] }
   /** The text holds a trigger word of a file chosen in one of these fields (none known: nothing to check). */
   | { kind: 'has-trigger'; of: TriggerSource[] }
   /** Not the same value as that field: two loaders must not hold the same file. */
@@ -236,7 +236,7 @@ export function fieldHolds(byId: Map<string, LessonNode>, spec: FieldSpec, roles
       return Number.isFinite(number) && number >= test.min && number <= test.max;
     }
     case 'text':
-      return typeof value === 'string' && value.trim().length >= test.minChars;
+      return typeof value === 'string' && value.trim().length >= test.minChars && (test.has ?? []).every((mark) => value.includes(mark));
     case 'weighted': {
       if (typeof value !== 'string') return false;
       const weights = weightsOf(value).map((item) => item.weight);

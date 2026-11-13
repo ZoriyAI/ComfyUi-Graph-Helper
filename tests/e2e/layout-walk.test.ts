@@ -349,7 +349,7 @@ function overlapOf(a: { x: number; y: number; width: number; height: number } | 
 }
 
 test('nothing sticks out, is cut or overlaps on any screen at any window size', async () => {
-  test.setTimeout(3_600_000);
+  test.setTimeout(5_400_000);
   if (OUT) fs.mkdirSync(OUT, { recursive: true });
   // With ComfyUI's video nodes, so every lesson fits and is walked.
   const fake: FakeMcp = await startFakeMcp({ extraLoras: 300, video: true });
@@ -635,7 +635,12 @@ test('nothing sticks out, is cut or overlaps on any screen at any window size', 
         Wav2VecModelLoader: { key: 'model', values: ['chinese-wav2vec2-base-fp16.safetensors'] },
         CLIPVisionLoader: { key: 'clip_name', values: ['clip_vision_h.safetensors'] },
         LoadVideo: { key: 'file', values: ['dance.mp4'] },
-        LoadAudio: { key: 'audio', values: ['voice.wav'] },
+        LoadAudio: { key: 'audio', values: ['voice.wav', 'voice2.wav'] },
+        FantasyTalkingModelLoader: { key: 'model', values: ['z_image_turbo_bf16.safetensors'] },
+        WanVideoLoraSelect: { key: 'lora', values: ['wan2.2_i2v_A14b_high_noise_lora_rank64_lightx2v_4step_1022.safetensors'] },
+        WanVideoExtraModelSelect: { key: 'extra_model', values: ['z_image_turbo_bf16.safetensors'] },
+        // Two files on one node, as with the pose finder below.
+        OviMMAudioVAELoader: { key: 'vae', values: ['mmaudio_vae_16k_fp32.safetensors', 'mmaudio_vocoder_bigvgan_best_netG_fp32.safetensors'] },
         // Two files on one node: the field the step asks for is read off what it says is missing.
         OnnxDetectionModelLoader: { key: 'vitpose_model', values: ['vitpose-l-wholebody.onnx', 'yolov10m.onnx'] },
       };
@@ -681,7 +686,7 @@ test('nothing sticks out, is cut or overlaps on any screen at any window size', 
             } else {
               const key = node.data.comfyType === 'WanVideoTextEncode' ? 'positive_prompt' : 'text';
               const text = String(node.data.parameters[key] ?? '');
-              await commit(page, { type: 'set-parameter', nodeId, key, value: stepId === 'weigh' ? `${text} (red coat:1.2)` : WORDS });
+              await commit(page, { type: 'set-parameter', nodeId, key, value: stepId === 'weigh' ? `${text} (red coat:1.2)` : stepId === 'speech' ? `${WORDS} She says <S>Good evening.<E>` : WORDS });
             }
             await expect.poll(revision, { timeout: 15_000 }).not.toBe(before);
             await reloaded(page);
@@ -720,6 +725,18 @@ test('nothing sticks out, is cut or overlaps on any screen at any window size', 
         await carryLesson(id, label);
       }
       await visit(page, 'canvas with a talking portrait graph', fitView);
+      // A second voice on that graph, then the pack's other ways to make a clip, each from an empty canvas.
+      await carryLesson('wrapper-duo', 'lessons, two voices');
+      for (const [id, label] of [
+        ['wrapper-fantasy', 'lessons, FantasyTalking'], ['wrapper-unianimate', 'lessons, UniAnimate'], ['wrapper-recam', 'lessons, ReCamMaster'], ['wrapper-ovi', 'lessons, Ovi'],
+      ] as const) {
+        await page.keyboard.press('Control+n');
+        await page.getByRole('button', { name: T('menu.newProjectConfirm'), exact: true }).click();
+        await expect(nodes).toHaveCount(0, { timeout: 15_000 });
+        await reloaded(page);
+        await carryLesson(id, label);
+      }
+      await visit(page, 'canvas with an Ovi graph', fitView);
 
       // The rest of the walk starts from an empty canvas and from the conversation.
       await page.keyboard.press('Control+n');

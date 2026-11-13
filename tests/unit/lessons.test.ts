@@ -60,18 +60,18 @@ const CLASSES: Record<string, Spec> = {
   VAEEncode: { inputs: [['pixels', 'IMAGE'], ['vae', 'VAE']], outputs: [['LATENT', 'LATENT']] },
   PreviewImage: { inputs: [['images', 'IMAGE']], outputs: [] },
   // ComfyUI-WanVideoWrapper, as the pack declares them.
-  WanVideoModelLoader: { inputs: [['model', 'COMBO', 'wan-high.safetensors'], ['base_precision', 'COMBO', 'bf16'], ['quantization', 'COMBO', 'disabled'], ['load_device', 'COMBO', 'offload_device'], ['block_swap_args', 'BLOCKSWAPARGS'], ['lora', 'WANVIDLORA'], ['extra_model', 'VACEPATH'], ['multitalk_model', 'MULTITALKMODEL']], outputs: [['model', 'WANVIDEOMODEL']] },
+  WanVideoModelLoader: { inputs: [['model', 'COMBO', 'wan-high.safetensors'], ['base_precision', 'COMBO', 'bf16'], ['quantization', 'COMBO', 'disabled'], ['load_device', 'COMBO', 'offload_device'], ['block_swap_args', 'BLOCKSWAPARGS'], ['lora', 'WANVIDLORA'], ['extra_model', 'VACEPATH'], ['multitalk_model', 'MULTITALKMODEL'], ['fantasytalking_model', 'FANTASYTALKINGMODEL']], outputs: [['model', 'WANVIDEOMODEL']] },
   WanVideoLoraSelect: { inputs: [['lora', 'COMBO', 'first-lora.safetensors'], ['strength', 'FLOAT', 1], ['prev_lora', 'WANVIDLORA']], outputs: [['lora', 'WANVIDLORA']] },
   LoadWanVideoT5TextEncoder: { inputs: [['model_name', 'COMBO', 'umt5.safetensors'], ['precision', 'COMBO', 'bf16']], outputs: [['wan_t5_model', 'WANTEXTENCODER']] },
   WanVideoVAELoader: { inputs: [['model_name', 'COMBO', 'wan-vae.safetensors'], ['precision', 'COMBO', 'bf16']], outputs: [['vae', 'WANVAE']] },
   WanVideoTextEncode: { inputs: [['positive_prompt', 'STRING', ''], ['negative_prompt', 'STRING', ''], ['t5', 'WANTEXTENCODER'], ['force_offload', 'BOOLEAN', true]], outputs: [['text_embeds', 'WANVIDEOTEXTEMBEDS']] },
-  WanVideoEmptyEmbeds: { inputs: [['width', 'INT', 832], ['height', 'INT', 480], ['num_frames', 'INT', 81]], outputs: [['image_embeds', 'WANVIDIMAGE_EMBEDS']] },
+  WanVideoEmptyEmbeds: { inputs: [['width', 'INT', 832], ['height', 'INT', 480], ['num_frames', 'INT', 81], ['control_embeds', 'WANVIDIMAGE_EMBEDS'], ['extra_latents', 'LATENT']], outputs: [['image_embeds', 'WANVIDIMAGE_EMBEDS']] },
   WanVideoImageToVideoEncode: {
     inputs: [['width', 'INT', 832], ['height', 'INT', 480], ['num_frames', 'INT', 81], ['noise_aug_strength', 'FLOAT', 0], ['start_latent_strength', 'FLOAT', 1], ['end_latent_strength', 'FLOAT', 1], ['vae', 'WANVAE'], ['clip_embeds', 'WANVIDIMAGE_CLIPEMBEDS'], ['start_image', 'IMAGE'], ['end_image', 'IMAGE']],
     outputs: [['image_embeds', 'WANVIDIMAGE_EMBEDS']],
   },
   WanVideoSampler: {
-    inputs: [['model', 'WANVIDEOMODEL'], ['image_embeds', 'WANVIDIMAGE_EMBEDS'], ['steps', 'INT', 30], ['cfg', 'FLOAT', 6], ['shift', 'FLOAT', 5], ['seed', 'INT', 0], ['force_offload', 'BOOLEAN', true], ['scheduler', 'COMBO', 'unipc'], ['text_embeds', 'WANVIDEOTEXTEMBEDS'], ['samples', 'LATENT'], ['start_step', 'INT', 0], ['end_step', 'INT', -1], ['multitalk_embeds', 'MULTITALK_EMBEDS']],
+    inputs: [['model', 'WANVIDEOMODEL'], ['image_embeds', 'WANVIDIMAGE_EMBEDS'], ['steps', 'INT', 30], ['cfg', 'FLOAT', 6], ['shift', 'FLOAT', 5], ['seed', 'INT', 0], ['force_offload', 'BOOLEAN', true], ['scheduler', 'COMBO', 'unipc'], ['text_embeds', 'WANVIDEOTEXTEMBEDS'], ['samples', 'LATENT'], ['start_step', 'INT', 0], ['end_step', 'INT', -1], ['multitalk_embeds', 'MULTITALK_EMBEDS'], ['unianimate_poses', 'UNIANIMATE_POSE'], ['fantasytalking_embeds', 'FANTASYTALKING_EMBEDS']],
     outputs: [['samples', 'LATENT'], ['denoised_samples', 'LATENT']],
   },
   WanVideoDecode: { inputs: [['vae', 'WANVAE'], ['samples', 'LATENT'], ['enable_vae_tiling', 'BOOLEAN', false]], outputs: [['images', 'IMAGE']] },
@@ -101,13 +101,42 @@ const CLASSES: Record<string, Spec> = {
   Wav2VecModelLoader: { inputs: [['model', 'COMBO', 'wav2vec.safetensors'], ['base_precision', 'COMBO', 'fp16']], outputs: [['wav2vec_model', 'WAV2VECMODEL']] },
   MultiTalkModelLoader: { inputs: [['model', 'COMBO', 'infinitetalk.safetensors']], outputs: [['model', 'MULTITALKMODEL']] },
   MultiTalkWav2VecEmbeds: {
-    inputs: [['wav2vec_model', 'WAV2VECMODEL'], ['audio_1', 'AUDIO'], ['normalize_loudness', 'BOOLEAN', true], ['num_frames', 'INT', 81], ['fps', 'FLOAT', 25], ['audio_scale', 'FLOAT', 1], ['audio_cfg_scale', 'FLOAT', 1]],
+    inputs: [
+      ['wav2vec_model', 'WAV2VECMODEL'], ['audio_1', 'AUDIO'], ['normalize_loudness', 'BOOLEAN', true], ['num_frames', 'INT', 81], ['fps', 'FLOAT', 25], ['audio_scale', 'FLOAT', 1], ['audio_cfg_scale', 'FLOAT', 1],
+      ['multi_audio_type', 'COMBO', 'para'], ['audio_2', 'AUDIO'], ['audio_3', 'AUDIO'], ['audio_4', 'AUDIO'], ['ref_target_masks', 'MASK'],
+    ],
     outputs: [['multitalk_embeds', 'MULTITALK_EMBEDS'], ['audio', 'AUDIO'], ['num_frames', 'INT']],
   },
   WanVideoImageToVideoMultiTalk: {
     inputs: [['vae', 'WANVAE'], ['width', 'INT', 832], ['height', 'INT', 480], ['frame_window_size', 'INT', 81], ['motion_frame', 'INT', 25], ['start_image', 'IMAGE'], ['clip_embeds', 'WANVIDIMAGE_CLIPEMBEDS']],
     outputs: [['image_embeds', 'WANVIDIMAGE_EMBEDS'], ['output_path', 'STRING']],
   },
+  // FantasyTalking, UniAnimate, ReCamMaster and Ovi of the same pack (fantasytalking/, unianimate/, recammaster/, Ovi/).
+  DownloadAndLoadWav2VecModel: { inputs: [['model', 'COMBO', 'TencentGameMate/chinese-wav2vec2-base'], ['base_precision', 'COMBO', 'fp16'], ['load_device', 'COMBO', 'main_device']], outputs: [['wav2vec_model', 'WAV2VECMODEL']] },
+  FantasyTalkingModelLoader: { inputs: [['model', 'COMBO', 'fantasytalking.safetensors'], ['base_precision', 'COMBO', 'fp16']], outputs: [['model', 'FANTASYTALKINGMODEL']] },
+  FantasyTalkingWav2VecEmbeds: {
+    inputs: [['wav2vec_model', 'WAV2VECMODEL'], ['fantasytalking_model', 'FANTASYTALKINGMODEL'], ['audio', 'AUDIO'], ['num_frames', 'INT', 81], ['fps', 'FLOAT', 23], ['audio_scale', 'FLOAT', 1], ['audio_cfg_scale', 'FLOAT', 1]],
+    outputs: [['fantasytalking_embeds', 'FANTASYTALKING_EMBEDS']],
+  },
+  WanVideoUniAnimateDWPoseDetector: {
+    inputs: [['pose_images', 'IMAGE'], ['score_threshold', 'FLOAT', 0.3], ['stick_width', 'INT', 4], ['draw_body', 'BOOLEAN', true], ['reference_pose_image', 'IMAGE']],
+    outputs: [['poses', 'IMAGE'], ['reference_pose', 'IMAGE']],
+  },
+  WanVideoUniAnimatePoseInput: {
+    inputs: [['pose_images', 'IMAGE'], ['strength', 'FLOAT', 1], ['start_percent', 'FLOAT', 0], ['end_percent', 'FLOAT', 1], ['reference_pose_image', 'IMAGE']],
+    outputs: [['unianimate_poses', 'UNIANIMATE_POSE']],
+  },
+  WanVideoEncode: {
+    inputs: [['vae', 'WANVAE'], ['image', 'IMAGE'], ['enable_vae_tiling', 'BOOLEAN', false], ['tile_x', 'INT', 272], ['tile_y', 'INT', 272], ['noise_aug_strength', 'FLOAT', 0], ['latent_strength', 'FLOAT', 1], ['mask', 'MASK']],
+    outputs: [['samples', 'LATENT']],
+  },
+  WanVideoReCamMasterDefaultCamera: { inputs: [['camera_type', 'COMBO', 'pan_right'], ['latents', 'LATENT']], outputs: [['camera_poses', 'CAMERAPOSES']] },
+  WanVideoReCamMasterCameraEmbed: { inputs: [['camera_poses', 'CAMERAPOSES'], ['latents', 'LATENT']], outputs: [['camera_embeds', 'WANVIDIMAGE_EMBEDS'], ['camera_poses', 'CAMERAPOSES']] },
+  WanVideoExtraModelSelect: { inputs: [['extra_model', 'COMBO', 'wan-high.safetensors'], ['prev_model', 'VACEPATH']], outputs: [['extra_model', 'VACEPATH']] },
+  WanVideoOviCFG: { inputs: [['original_text_embeds', 'WANVIDEOTEXTEMBEDS'], ['ovi_audio_cfg', 'FLOAT', 3], ['ovi_negative_text_embeds', 'WANVIDEOTEXTEMBEDS']], outputs: [['text_embeds', 'WANVIDEOTEXTEMBEDS']] },
+  WanVideoEmptyMMAudioLatents: { inputs: [['length', 'INT', 157]], outputs: [['samples', 'LATENT']] },
+  OviMMAudioVAELoader: { inputs: [['vae', 'COMBO', 'mmaudio.safetensors'], ['vocoder', 'COMBO', 'mmaudio.safetensors'], ['precision', 'COMBO', 'bf16']], outputs: [['mmaudio_vae', 'MMAUDIOVAE']] },
+  WanVideoDecodeOviAudio: { inputs: [['mmaudio_vae', 'MMAUDIOVAE'], ['samples', 'LATENT']], outputs: [['audio', 'AUDIO']] },
 };
 
 const ports: ClassPorts = (classType) => {
@@ -173,7 +202,10 @@ function decide(canvas: Canvas, missing: Missing): void {
         if (text.length >= missing.test.minChars) break;
         text = `${text} ${sentence}`.trim();
       }
-      node.values[missing.field] = text;
+      // Marks a model needs (Ovi's <S> and <E>) are put around the words that are spoken.
+      const marks = missing.test.has ?? [];
+      const held = String(node.values[missing.field] ?? '');
+      node.values[missing.field] = marks.length > 0 && held.trim().length >= missing.test.minChars ? `${held} ${marks.join('Hello there.')}` : text;
       return;
     }
     case 'weighted':
@@ -824,6 +856,118 @@ describe('the lessons on WanVideoWrapper', () => {
       const from = rects.get(item.from)!;
       const to = rects.get(item.to)!;
       expect(from.x + from.width, `${canvas.node(item.from).classType} → ${canvas.node(item.to).classType}`).toBeLessThan(to.x);
+    }
+  });
+});
+
+describe('the further lessons on WanVideoWrapper', () => {
+  const feeds = (canvas: Canvas, nodeId: string, input: string) => {
+    const port = canvas.node(nodeId).inputs.find((item) => item.name === input)!.id;
+    return canvas.links.find((item) => item.to === nodeId && item.toPort === port)?.from;
+  };
+
+  it('gives a second voice its own input and its own file, and the talking lesson stays done', () => {
+    const canvas = new Canvas();
+    const talk = lessonById('wrapper-talk')!;
+    carryOut(talk, canvas);
+    const duo = lessonById('wrapper-duo')!;
+    carryOut(duo, canvas);
+    const roles = done(duo, canvas).roles;
+    expect(roles.voice2).not.toBe(roles.voice);
+    expect(feeds(canvas, roles.audio, 'audio_1')).toBe(roles.voice);
+    expect(feeds(canvas, roles.audio, 'audio_2')).toBe(roles.voice2);
+    expect(canvas.node(roles.voice2).values.audio).not.toBe(canvas.node(roles.voice).values.audio);
+    expect(done(talk, canvas).current).toBe(talk.steps.length);
+    // The same recording in both loaders is no dialogue.
+    canvas.node(roles.voice2).values.audio = canvas.node(roles.voice).values.audio;
+    const asks = done(duo, canvas);
+    expect(duo.steps[asks.current].id).toBe('second-voice');
+    expect(asks.missing[0]).toMatchObject({ kind: 'field', field: 'audio', test: { kind: 'differs' } });
+  });
+
+  it('FantasyTalking: the speech reader it was trained with, and a sound as long as the clip', () => {
+    const lesson = lessonById('wrapper-fantasy')!;
+    const canvas = new Canvas();
+    carryOut(lesson, canvas);
+    const roles = done(lesson, canvas).roles;
+    expect(canvas.node(roles.wav2vec).values.model).toBe('facebook/wav2vec2-base-960h');
+    expect(canvas.node(roles.audio).values.fps).toBe(23);
+    expect(canvas.node(roles.video).values.fps).toBe(23);
+    // The module goes both into the model and into the node that reads the sound; the sound also into the clip.
+    expect(feeds(canvas, roles.model, 'fantasytalking_model')).toBe(roles.talk);
+    expect(feeds(canvas, roles.audio, 'fantasytalking_model')).toBe(roles.talk);
+    expect(feeds(canvas, roles.video, 'audio')).toBe(roles.voice);
+    // A longer clip asks for as much sound.
+    canvas.node(roles.start).values.num_frames = 97;
+    const asks = done(lesson, canvas);
+    expect(lesson.steps[asks.current].id).toBe('voice');
+    const fix = fixFor(asks.missing[0], canvas, installed);
+    expect(fix).toMatchObject({ kind: 'set-field', field: 'num_frames', value: 97 });
+  });
+
+  it('UniAnimate: the skeleton comes from the video through a resize, and the LoRA goes into the model', () => {
+    const lesson = lessonById('wrapper-unianimate')!;
+    const canvas = new Canvas();
+    carryOut(lesson, canvas);
+    const roles = done(lesson, canvas).roles;
+    expect(feeds(canvas, roles.model, 'lora')).toBe(roles.uni);
+    expect(feeds(canvas, roles.sampler, 'unianimate_poses')).toBe(roles.pose);
+    expect(feeds(canvas, roles.detect, 'reference_pose_image')).toBe(roles.picture);
+    // A resize between the frames and the detector is the person's business, and the lesson still holds.
+    CLASSES.ImageScale ??= { inputs: [['image', 'IMAGE'], ['width', 'INT', 832], ['height', 'INT', 480]], outputs: [['IMAGE', 'IMAGE']] };
+    const resize = canvas.add('ImageScale');
+    canvas.connect(roles.frames, 'out-0', resize.id, 'in-0');
+    canvas.connect(resize.id, 'out-0', roles.detect, canvas.node(roles.detect).inputs.find((item) => item.name === 'pose_images')!.id);
+    expect(done(lesson, canvas).current).toBe(lesson.steps.length);
+  });
+
+  it('ReCamMaster: the video reaches the camera and the embed as a latent, with no picture and no CLIP vision', () => {
+    const lesson = lessonById('wrapper-recam')!;
+    const canvas = new Canvas();
+    carryOut(lesson, canvas);
+    const roles = done(lesson, canvas).roles;
+    expect(feeds(canvas, roles.camera, 'latents')).toBe(roles.encode);
+    expect(feeds(canvas, roles.recam, 'latents')).toBe(roles.encode);
+    expect(feeds(canvas, roles.sampler, 'image_embeds')).toBe(roles.recam);
+    expect(canvas.nodes.map((item) => item.classType)).not.toContain('LoadImage');
+    expect(canvas.nodes.map((item) => item.classType)).not.toContain('CLIPVisionLoader');
+  });
+
+  it('Ovi: the spoken words stand between the marks, and the sound is decoded apart from the frames', () => {
+    const lesson = lessonById('wrapper-ovi')!;
+    const canvas = new Canvas();
+    carryOut(lesson, canvas);
+    const roles = done(lesson, canvas).roles;
+    const text = canvas.node(roles.text);
+    expect(String(text.values.positive_prompt)).toMatch(/<S>.+<E>/);
+    expect(canvas.node(roles.embeds).values.num_frames).toBe(121);
+    expect(canvas.node(roles.silence).values.length).toBe(157);
+    expect(canvas.node(roles.video).values.fps).toBe(24);
+    // The sampler reads the description through the Ovi node, and gives its result to both decoders.
+    expect(feeds(canvas, roles.sampler, 'text_embeds')).toBe(roles.ovi);
+    // The Ovi node takes the description from one text node and the unwanted sound from another.
+    expect(roles.soundNo).not.toBe(roles.text);
+    expect(feeds(canvas, roles.ovi, 'original_text_embeds')).toBe(roles.text);
+    expect(feeds(canvas, roles.ovi, 'ovi_negative_text_embeds')).toBe(roles.soundNo);
+    expect(feeds(canvas, roles.decode, 'samples')).toBe(roles.sampler);
+    expect(feeds(canvas, roles.soundDecode, 'samples')).toBe(roles.sampler);
+    expect(feeds(canvas, roles.video, 'audio')).toBe(roles.soundDecode);
+    expect(canvas.node(roles.soundVae).values.vocoder).not.toBe(canvas.node(roles.soundVae).values.vae);
+    // A description without the marks is long enough and still not done.
+    text.values.positive_prompt = 'A man in a kitchen says good morning.';
+    const asks = done(lesson, canvas);
+    expect(lesson.steps[asks.current].id).toBe('speech');
+    expect(asks.missing[0]).toMatchObject({ kind: 'field', field: 'positive_prompt', test: { kind: 'text', has: ['<S>', '<E>'] } });
+    text.values.positive_prompt = 'A man in a kitchen says <S>Good morning.<E>';
+    expect(done(lesson, canvas).current).toBe(lesson.steps.length);
+  });
+
+  it('says consent before anything is built where a face or a voice is given to someone', async () => {
+    const { lessonWords } = await import('../../src/shared/lessons/texts');
+    for (const id of ['wrapper-animate', 'wrapper-unianimate', 'wrapper-talk', 'wrapper-duo', 'wrapper-fantasy', 'wrapper-ovi']) {
+      expect(lessonById(id)!.steps[0]).toMatchObject({ id: 'intro', read: true });
+      expect(lessonWords('ru', id)!.steps.intro.body, id).toMatch(/соглас/);
+      expect(lessonWords('en', id)!.steps.intro.body, id).toMatch(/agree|consent/);
     }
   });
 });
