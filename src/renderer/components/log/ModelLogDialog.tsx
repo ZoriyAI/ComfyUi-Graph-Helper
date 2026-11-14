@@ -178,7 +178,18 @@ export default function ModelLogDialog({ open, onOpenChange, focusTurn = null }:
     <DialogRoot open={open} onOpenChange={onOpenChange}>
       <DialogPortal>
         <DialogOverlay />
-        <DialogContent className={cx(styles.dialog, 'model-log-dialog')} aria-describedby="model-log-lead">
+        <DialogContent
+          className={cx(styles.dialog, 'model-log-dialog')}
+          aria-describedby="model-log-lead"
+          onOpenAutoFocus={(event) => {
+            // The window opens on the records, not on the switch that turns the log off: the ticked record (the
+            // answer it was opened from) or the first one; with none yet, the window itself.
+            event.preventDefault();
+            const box = event.currentTarget as HTMLElement;
+            const target = box.querySelector<HTMLElement>('input[type="checkbox"]:checked') ?? box.querySelector<HTMLElement>('input[type="checkbox"]') ?? box;
+            target.focus({ preventScroll: true });
+          }}
+        >
           <header className={styles.header}>
             <DialogTitle className={styles.title}>{t('modelLog.title')}</DialogTitle>
             <DialogDescription id="model-log-lead" className={styles.lead}>{t('modelLog.lead')}</DialogDescription>

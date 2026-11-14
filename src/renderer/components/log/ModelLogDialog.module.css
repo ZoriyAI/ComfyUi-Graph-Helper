@@ -79,7 +79,32 @@
 .turnChecked:hover { background: var(--accent-soft); }
 .turn[data-outcome="error"] { border-left-color: var(--danger-strong); }
 .turnMain { display: flex; align-items: flex-start; gap: 12px; flex: 1 1 auto; min-width: 0; cursor: pointer; }
-.check { width: 16px; height: 16px; margin: 3px 0 0; flex: 0 0 auto; accent-color: var(--accent); cursor: pointer; }
+/* The mark is drawn by the app: the system box was a filled grey square that looked switched off. */
+.check {
+  appearance: none;
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  margin: 3px 0 0;
+  flex: 0 0 auto;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-xs);
+  background: var(--surface-sunken);
+  cursor: pointer;
+  transition: background-color var(--motion-feedback) var(--motion-ease-out), border-color var(--motion-feedback) var(--motion-ease-out);
+}
+.check:hover { border-color: var(--text-dim); }
+.check:checked { border-color: var(--accent); background: var(--accent); }
+.check:checked::after {
+  content: "";
+  width: 9px;
+  height: 5px;
+  margin-top: -2px;
+  border-left: 2px solid var(--on-accent);
+  border-bottom: 2px solid var(--on-accent);
+  transform: rotate(-45deg);
+}
 .check:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: 3px; }
 .turnText { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .turnHead { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: var(--text-xs); }
@@ -106,7 +131,9 @@
   -webkit-box-orient: vertical;
   overflow-wrap: anywhere;
 }
-.copy { flex: 0 0 auto; margin-top: 1px; }
+/* One "Copy report" per row is enough when it is the row under the pointer, in focus or ticked: five in a column were noise. */
+.copy { flex: 0 0 auto; margin-top: 1px; opacity: 0; transition: opacity var(--motion-feedback) var(--motion-ease-out); }
+.turn:hover .copy, .turn:focus-within .copy, .turnChecked .copy, .copy[aria-busy] { opacity: 1; }
 
 .footer {
   display: flex;
@@ -135,3 +162,6 @@
 .noticeError { background: var(--danger-soft); }
 .noticeText { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .noticePath { color: var(--text-dim); font-size: var(--text-xs); line-height: 17px; overflow-wrap: anywhere; }
+
+/* Focused as a whole when it opens with no record yet: no ring around the window. */
+.dialog:focus { outline: none; }
