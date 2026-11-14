@@ -162,6 +162,12 @@ export interface LessonStep {
   fields?: FieldSpec[];
 }
 
+/** A group of the lesson list (pictures, video, sound...): its id and its title in both languages. */
+export interface LessonGroup {
+  id: string;
+  title: { ru: string; en: string };
+}
+
 export interface Lesson {
   id: string;
   steps: LessonStep[];

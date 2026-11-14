@@ -1,5 +1,5 @@
 import type { FieldSpec, FieldTest, Lesson, LinkSpec, RoleSpec } from '../engine';
-import type { LessonGroup } from './image-models';
+import type { LessonGroup } from '../engine';
 
 /**
  * Video beyond the Wan 2.2 pair and the WanVideoWrapper pack, used by the lesson list (lessons.ts registers this set):

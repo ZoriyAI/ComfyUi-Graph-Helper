@@ -27,3 +27,22 @@ describe('the next lesson', () => {
     expect(nextLesson('image', (id) => id === only, new Set(['image', only]))).toBeNull();
   });
 });
+
+import { FILES, filesAtHand, filesOfLesson } from '../../src/shared/lessons/files';
+import { lessonById } from '../../src/shared/lessons/lessons';
+
+describe('what a lesson needs', () => {
+  it('lists the kinds of file a lesson asks for, with their folders, and which the person has', () => {
+    const wants = filesOfLesson(lessonById('video-text')!);
+    expect(wants.map((want) => want.kind)).toEqual(['wanT2vHigh', 'wanT2vLow', 'umt5', 'wan21Vae']);
+    expect(wants.map((want) => want.folder)).toEqual(['diffusion_models', 'diffusion_models', 'text_encoders', 'vae']);
+    const at = filesAtHand(wants, ['wan2.2_i2v_high_noise_14B.safetensors', 'wan2.2_t2v_low_noise_14B.safetensors', 'umt5_xxl_fp8_e4m3fn_scaled.safetensors']);
+    expect(at.map((item) => [item.want.kind, item.file])).toEqual([
+      ['wanT2vHigh', null],
+      ['wanT2vLow', 'wan2.2_t2v_low_noise_14B.safetensors'],
+      ['umt5', 'umt5_xxl_fp8_e4m3fn_scaled.safetensors'],
+      ['wan21Vae', null],
+    ]);
+    expect(filesOfLesson(lessonById('image')!)).toEqual([FILES.imageCheckpoint]);
+  });
+});

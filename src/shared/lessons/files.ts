@@ -30,6 +30,8 @@ export interface FileWant {
   example: string;
   /** The folder under ComfyUI's `models` the file is put into. */
   folder: string;
+  /** The file ends so (".gguf"): a loader of quantised models lists only such files. */
+  ext?: string;
 }
 
 /** Why a file is not the one asked for. */
@@ -55,6 +57,7 @@ export function familyOfFile(name: string, known?: BaseModelFamily | null): Base
 
 /** Null when the file is of the kind asked for; otherwise the first reason it is not. */
 export function fileMiss(name: string, want: FileWant, known?: BaseModelFamily | null): FileMiss | null {
+  if (want.ext && !name.toLowerCase().endsWith(want.ext)) return { kind: 'mark', marks: [want.ext] };
   const family = familyOfFile(name, known);
   if (family !== 'unknown') {
     if (want.families && !want.families.includes(family)) return { kind: 'family', family };
@@ -107,6 +110,26 @@ export const FILES = {
   uniLora: { kind: 'uniLora', marks: [['unianimate']], folder: 'loras', example: 'UniAnimate-Wan2.1-14B-Lora-12000-fp16.safetensors' },
   mmaudioVae: { kind: 'mmaudioVae', marks: [['mmaudio']], notMarks: ['vocoder'], folder: 'mmaudio', example: 'mmaudio_vae_16k_fp32.safetensors' },
   mmaudioVocoder: { kind: 'mmaudioVocoder', marks: [['vocoder', 'bigvgan']], folder: 'mmaudio', example: 'mmaudio_vocoder_bigvgan_best_netG_fp32.safetensors' },
+  // The picture families of the image-models set (sets/image-models.ts).
+  sdxlCheckpoint: { kind: 'sdxlCheckpoint', families: ['sdxl', 'pony', 'illustrious'], folder: 'checkpoints', example: 'sd_xl_base_1.0.safetensors' },
+  tagCheckpoint: { kind: 'tagCheckpoint', families: ['pony', 'illustrious'], folder: 'checkpoints', example: 'ponyDiffusionV6XL.safetensors' },
+  sd35Checkpoint: { kind: 'sd35Checkpoint', families: ['sd3'], marks: [['sd35', 'sd3']], folder: 'checkpoints', example: 'sd3.5_medium_incl_clips_t5xxlfp8scaled.safetensors' },
+  /** A full VAE, not the small preview decoders (taesd, vae_approx) that show the steps while a picture is drawn. */
+  vaeFull: { kind: 'vaeFull', notMarks: ['taesd', 'taef', 'approx'], folder: 'vae', example: 'sdxl_vae.safetensors' },
+  flux1Model: { kind: 'flux1Model', families: ['flux1'], marks: [['flux']], folder: 'diffusion_models', example: 'flux1-dev-fp8.safetensors' },
+  clipL: { kind: 'clipL', marks: [['clipl']], folder: 'text_encoders', example: 'clip_l.safetensors' },
+  t5xxl: { kind: 't5xxl', marks: [['t5']], notMarks: ['umt5'], folder: 'text_encoders', example: 't5xxl_fp8_e4m3fn_scaled.safetensors' },
+  fluxAe: { kind: 'fluxAe', marks: [['ae', 'flux']], notMarks: ['flux2', 'sdxl', 'wan', 'qwen', 'taesd', 'taef', 'approx', 'sd15', 'sd3'], folder: 'vae', example: 'ae.safetensors' },
+  zimageModel: { kind: 'zimageModel', families: ['zimage'], marks: [['zimage']], folder: 'diffusion_models', example: 'z_image_turbo_bf16.safetensors' },
+  qwen3Small: { kind: 'qwen3Small', marks: [['qwen34b']], folder: 'text_encoders', example: 'qwen_3_4b.safetensors' },
+  qwenImageModel: { kind: 'qwenImageModel', families: ['qwen-image'], marks: [['qwenimage']], notMarks: ['edit'], folder: 'diffusion_models', example: 'qwen_image_fp8_e4m3fn.safetensors' },
+  qwen25vl: { kind: 'qwen25vl', marks: [['qwen25vl']], folder: 'text_encoders', example: 'qwen_2.5_vl_7b_fp8_scaled.safetensors' },
+  qwenImageVae: { kind: 'qwenImageVae', marks: [['qwenimagevae']], folder: 'vae', example: 'qwen_image_vae.safetensors' },
+  kleinModel: { kind: 'kleinModel', families: ['flux2'], marks: [['klein']], folder: 'diffusion_models', example: 'flux-2-klein-base-4b-fp8.safetensors' },
+  kleinEncoder: { kind: 'kleinEncoder', marks: [['qwen34b', 'qwen38b']], folder: 'text_encoders', example: 'qwen_3_8b_fp8mixed.safetensors' },
+  flux2Vae: { kind: 'flux2Vae', marks: [['flux2vae']], folder: 'vae', example: 'flux2-vae.safetensors' },
+  /** A quantised model for the graphs the GGUF lesson stands on: Flux.1 or Z-Image. */
+  ggufModel: { kind: 'ggufModel', families: ['flux1', 'zimage'], ext: '.gguf', folder: 'diffusion_models', example: 'flux1-dev-Q4_K_S.gguf' },
 } satisfies Record<string, FileWant>;
 
 export type FileKind = keyof typeof FILES;
