@@ -85,3 +85,25 @@ describe('safe start', () => {
     expect(readStartMark(userData)).toBeNull();
   });
 });
+
+describe('safe start within one run of the app', () => {
+  it('a reload in the same run draws as usual; the question waits for the next start', async () => {
+    const { db, userData } = setup();
+    const { input, response } = importNodes(db, 3);
+    watchReplacingCommit(userData, input, response);
+    const ask = vi.fn(async () => 0);
+    expect(await startChoice({ firstLoad: false, db, userData, translate: createTranslator('en'), ask })).toEqual({ unfinished: false, emptied: false });
+    expect(ask).not.toHaveBeenCalled();
+    expect(readStartMark(userData)?.state).toBe('drawing');
+  });
+});
+
+describe('what starts a watch', () => {
+  it('through the command channel only Undo and Redo (restore-revision); a file is watched where it is read', () => {
+    const { userData } = setup();
+    watchReplacingCommit(userData, { payload: { type: 'import-workflow' } }, { status: 'applied', projection: { currentRevisionId: 'a' } }, true);
+    expect(readStartMark(userData)).toBeNull();
+    watchReplacingCommit(userData, { payload: { type: 'restore-revision' } }, { status: 'applied', projection: { currentRevisionId: 'b' } }, true);
+    expect(readStartMark(userData)).toMatchObject({ state: 'drawing', revisionId: 'b' });
+  });
+});

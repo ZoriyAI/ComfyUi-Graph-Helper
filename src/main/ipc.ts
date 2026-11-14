@@ -616,7 +616,7 @@ export async function setupIPC(): Promise<void> {
   ipcMain.handle(IPC_CHANNELS.COMMAND_COMMIT, (_event, input: unknown) => {
     const response = commitCommand(getDatabase(), input);
     // A graph that replaced the one on screen is watched until it is drawn (safe start, startGuard.ts).
-    watchReplacingCommit(app.getPath('userData'), input, response);
+    watchReplacingCommit(app.getPath('userData'), input, response, true);
     return response;
   });
 

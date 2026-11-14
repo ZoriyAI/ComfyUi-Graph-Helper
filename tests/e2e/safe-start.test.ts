@@ -27,7 +27,7 @@ async function commitImport(window: Page, document: unknown) {
     const api = (window as any).electronAPI;
     const current = await api.readProjection('desktop');
     const response = await api.commitCommand({ projectId: 'desktop', actionId: `import-${Date.now()}`, expectedRevisionId: current.currentRevisionId, actor: 'manual', runId: null, payload: { type: 'import-workflow', document: doc } });
-    return { status: response.status as string, error: (response.result?.error ?? '') as string };
+    return { status: response.status as string, error: (response.result?.error ?? '') as string, revisionId: (response.projection?.currentRevisionId ?? null) as string | null };
   }, document);
 }
 
@@ -43,9 +43,9 @@ test('a graph over the size limit is refused, and one the last start never drew 
   const applied = await commitImport(window, workflow(40));
   expect(applied.status).toBe('applied');
   await app.close();
-  const mark = JSON.parse(fs.readFileSync(path.join(userData, 'graph-start.json'), 'utf8'));
-  // The window drew it before closing; make it look like it never did.
-  fs.writeFileSync(path.join(userData, 'graph-start.json'), JSON.stringify({ ...mark, state: 'drawing' }));
+  // Make it look like the window never finished drawing the graph on screen (as after a hang and a forced quit).
+  const revisionId = applied.revisionId;
+  fs.writeFileSync(path.join(userData, 'graph-start.json'), JSON.stringify({ state: 'drawing', revisionId, at: Date.now() }));
 
   ({ app, window } = await launch(userData, true));
   const asked = await app.evaluate(() => (globalThis as any).__asked);
