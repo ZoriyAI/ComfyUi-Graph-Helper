@@ -429,6 +429,9 @@ export const en = {
     continueMessage: 'continue',
     checkpointContinued: 'Continued.',
     checkpointStopped: 'Stopped. Changes already applied stay.',
+    stopBuildTitle: 'The assistant is still building. Stop it?',
+    stopBuildBody: 'The build stops and what it has added stays in this graph. Then what you chose opens.',
+    stopBuildConfirm: 'Stop and go on',
     turnError: {
       'no-key': 'The cloud assistant has no key. Add the key in the assistant settings.',
       key: 'The server did not accept the key. Check the key in the assistant settings.',
@@ -2840,6 +2843,9 @@ export const ru = {
     continueMessage: 'продолжай',
     checkpointContinued: 'Продолжено.',
     checkpointStopped: 'Остановлено. Уже внесённые изменения остаются.',
+    stopBuildTitle: 'Помощник ещё строит. Остановить?',
+    stopBuildBody: 'Сборка остановится, а то, что она уже добавила, останется в этом графе. Потом откроется то, что вы выбрали.',
+    stopBuildConfirm: 'Остановить и продолжить',
     turnError: {
       'no-key': 'У облачного помощника нет ключа. Добавьте ключ в настройках помощника.',
       key: 'Сервер не принял ключ. Проверьте ключ в настройках помощника.',

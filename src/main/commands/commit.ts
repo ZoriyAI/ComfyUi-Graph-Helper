@@ -1013,6 +1013,10 @@ export function commitCommand(
           request.projectId,
           request.runId,
         );
+      } else if (request.payload.type === 'import-workflow' || request.payload.type === 'open-native') {
+        // Another graph took the canvas (a new project, an import, an opened project): a run that was building
+        // stops here. None of its steps may land on a graph it did not start on.
+        db.prepare(`UPDATE runs SET status = 'cancelled' WHERE project_id = ? AND status IN ('running', 'paused')`).run(request.projectId);
       } else {
         // The person edited during a run: the run continues from the person's state, not from a conflict.
         db.prepare(`UPDATE runs SET expected_revision_id = ? WHERE project_id = ? AND status IN ('running', 'paused')`).run(

@@ -170,6 +170,7 @@ export async function runAgentTurn(options: AgentTurnOptions): Promise<void> {
   // that sentence (kind 'storage').
   const stopper = new AbortController();
   let storageFailure: string | null = null;
+  let runEnded = false;
   const outer = options.signal;
   const onOuterAbort = () => stopper.abort();
   if (outer?.aborted) stopper.abort();
@@ -279,6 +280,10 @@ export async function runAgentTurn(options: AgentTurnOptions): Promise<void> {
           storageFailure = error;
           stopper.abort();
         },
+        onRunEnded: () => {
+          runEnded = true;
+          stopper.abort();
+        },
       });
       // Main tools first; a renderer spec replaces one only when it is a build tool.
       for (const [name, definition] of Object.entries(buildTools)) {
@@ -324,7 +329,7 @@ export async function runAgentTurn(options: AgentTurnOptions): Promise<void> {
   } catch (error) {
     if (storageFailure) {
       // Reported below.
-    } else if (options.signal?.aborted) {
+    } else if (options.signal?.aborted || runEnded) {
       turnLog('[Agent] Turn cancelled');
     } else {
       const message = errorMessage(error, redact);

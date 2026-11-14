@@ -269,6 +269,8 @@ export function createBuildTools(
     sleep?: (ms: number) => Promise<void>;
     /** A step could not be stored (disk full, file not writable): the turn stops the build with this sentence. */
     onStorageFailure?: (error: string) => void;
+    /** The run was stopped from outside (another graph took the canvas, the person pressed Stop): the turn ends. */
+    onRunEnded?: () => void;
   },
 ): Record<string, { description?: string; inputSchema: ReturnType<typeof jsonSchema>; execute: (args: Record<string, unknown>, call?: { toolCallId?: string }) => Promise<unknown> }> {
   const tools: Record<string, { description?: string; inputSchema: ReturnType<typeof jsonSchema>; execute: (args: Record<string, unknown>, call?: { toolCallId?: string }) => Promise<unknown> }> = {};
@@ -285,7 +287,10 @@ export function createBuildTools(
         const toolCallId = call?.toolCallId || randomUUID();
         // The person paused the run: this step waits for Continue instead of failing as a conflict.
         const held = await waitWhilePaused(options.db, options.run, { signal: options.signal, sleep: options.sleep });
-        if (held.state === 'ended') return { success: false, stopped: true, error: 'The person stopped the build.' };
+        if (held.state === 'ended') {
+          options.onRunEnded?.();
+          return { success: false, stopped: true, error: 'The build was stopped; nothing more is added.' };
+        }
         if (held.expectedRevisionId && held.expectedRevisionId !== expectedRevisionId) {
           // Continue (or a manual edit during the pause) moved the run on: build on from there.
           expectedRevisionId = held.expectedRevisionId;
@@ -331,6 +336,11 @@ export function createBuildTools(
           options.onStorageFailure?.(refusal);
           if (outcome.projection) options.onProjection?.(outcome.projection);
           return { success: false, stopped: true, error: refusal };
+        }
+        if (outcome.status === 'conflict' && readRun(options.db, options.run)?.status !== 'running') {
+          // The run ended while this step was on its way (a new project, an import): the step is not applied.
+          options.onRunEnded?.();
+          return { success: false, stopped: true, error: 'The build was stopped; nothing more is added.' };
         }
         if (outcome.status === 'applied' && outcome.projection?.activeRun) {
           expectedRevisionId = outcome.projection.activeRun.expectedRevisionId;

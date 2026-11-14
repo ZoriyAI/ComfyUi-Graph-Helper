@@ -17,7 +17,7 @@ import { DESKTOP_PROJECT_ID } from '../../../shared/project';
 import type { Projection } from '../../../shared/commands/types';
 import { parseTurnNotice, type ChatMessage, type ToolCall, type TurnCheckpoint, type TurnNotice } from '../../types/chat';
 import { i18n } from '../../i18n';
-import { applyProjection } from '../commands/projection';
+import { applyProjection, useProjectionStore } from '../commands/projection';
 import { showToast } from '../../ui/toastStore';
 import { closeReplayForBuild } from '../../commands/replayGate';
 import {
@@ -475,6 +475,29 @@ export class ChatService {
       .then(() => (runId && typeof cancelRun === 'function' ? cancelRun(DESKTOP_PROJECT_ID, runId) : undefined))
       .then((result) => { if (result?.projection) applyProjection(result.projection); })
       .catch((error: unknown) => console.warn('[ChatService] Cancel failed:', errorText(error)));
+  }
+
+  /**
+   * Stops the turn and the open run and resolves once main has cancelled it (Open, New and Import wait for this
+   * before another graph takes the canvas).
+   */
+  async cancelAndWait(): Promise<void> {
+    const runId = this.currentRunId ?? useProjectionStore.getState().activeRun?.runId ?? null;
+    this.turnToken += 1;
+    this.isStreaming = false;
+    this.resumed = null;
+    useChatStore.setState({ isStreaming: false, isPaused: false });
+    try {
+      await window.electronAPI?.llmCancel?.(runId ?? undefined);
+    } catch (error) {
+      console.warn('[ChatService] Stream cancel failed:', errorText(error));
+    }
+    try {
+      const result = runId ? await window.electronAPI?.cancelRun?.(DESKTOP_PROJECT_ID, runId) : null;
+      if (result?.projection) applyProjection(result.projection);
+    } catch (error) {
+      console.warn('[ChatService] Cancel failed:', errorText(error));
+    }
   }
 
   async pause(): Promise<void> {
