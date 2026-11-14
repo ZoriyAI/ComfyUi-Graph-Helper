@@ -2,7 +2,7 @@
  * The agent path's redaction helpers. The patterns live in src/shared/config/draft.ts (redactSecrets,
  * exactMatchRedactor); this module re-exports them so agent code keeps its import path.
  */
-import { exactMatchRedactor as draftExactMatchRedactor, redactSecrets } from '../config/draft';
+import { exactMatchRedactor as draftExactMatchRedactor, redactFieldValue, redactSecrets } from '../config/draft';
 
 export { redactSecrets };
 
@@ -25,12 +25,24 @@ export function containsExact(values: ReadonlyArray<string | null | undefined>, 
   return heldValues(values).some((value) => text.includes(value));
 }
 
-/** Redacts a JSON-shaped tool result without stringifying numbers, booleans, nulls or arrays. */
-export function redactValue<T>(value: T, redact: (text: string) => string): T {
-  if (typeof value === 'string') return redact(value) as T;
-  if (Array.isArray(value)) return value.map((item) => redactValue(item, redact)) as T;
+/** Redacts text in plain structured results, retaining opaque SDK file data and primitive types. */
+export function redactValue(value: unknown, redact: (text: string) => string): unknown {
+  if (typeof value === 'string') return redact(value);
+  if (Array.isArray(value)) return value.map((item) => redactValue(item, redact));
+  if (value instanceof URL) {
+    const safe = redact(value.href);
+    if (safe === value.href) return value;
+    // Keep a valid URL instance even if a whole held URL was replaced by the redactor.
+    return URL.canParse(safe) ? new URL(safe) : new URL('about:blank#redacted');
+  }
   if (value && typeof value === 'object') {
-    return Object.fromEntries(Object.entries(value).map(([key, item]) => [redact(key), redactValue(item, redact)])) as T;
+    const prototype = Object.getPrototypeOf(value);
+    // Uint8Array (including Buffer), ArrayBuffer and other opaque instances are not records.
+    if (prototype !== Object.prototype && prototype !== null) return value;
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [
+      redact(key),
+      typeof item === 'string' ? redact(redactFieldValue(key, item)) : redactValue(item, redact),
+    ]));
   }
   return value;
 }

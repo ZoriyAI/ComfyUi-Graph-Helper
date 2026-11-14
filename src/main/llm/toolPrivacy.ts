@@ -1,4 +1,5 @@
 import type { ToolSet } from 'ai';
+import type { ToolResultOutput } from '@ai-sdk/provider-utils';
 import { redactValue } from '../../shared/agent/redact';
 
 /** Keep local tool outputs private before the SDK forwards them to the next model step or the renderer. */
@@ -32,7 +33,7 @@ export function privateToolResults(tools: ToolSet, redact: (text: string) => str
         }
       },
       ...(definition.toModelOutput ? {
-        toModelOutput: async (options: Parameters<NonNullable<typeof definition.toModelOutput>>[0]) => redactValue(await definition.toModelOutput!(options), redact),
+        toModelOutput: async (options: Parameters<NonNullable<typeof definition.toModelOutput>>[0]) => redactValue(await definition.toModelOutput!(options), redact) as ToolResultOutput,
       } : {}),
     };
     return [name, safe];

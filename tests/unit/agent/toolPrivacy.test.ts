@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Tool } from 'ai';
+import type { FileData } from '@ai-sdk/provider-utils';
 import { privateToolResults } from '../../../src/main/llm/toolPrivacy';
 import type { LanguageModelV4Prompt } from '@ai-sdk/provider';
 import { MainLLMService } from '../../../src/main/llmService';
@@ -17,6 +18,7 @@ async function sdkRoundTrip(execute: () => unknown, toModelOutput?: Tool['toMode
   const model = createTestLLMModel();
   vi.spyOn(service, 'getModel').mockReturnValue({
     ...model,
+    supportedUrls: { 'image/png': [/^https:\/\/files\.example\.test\//] },
     doStream: async (options) => {
       prompts.push(options.prompt);
       return model.doStream(options);
@@ -54,6 +56,36 @@ describe('SDK tool result privacy boundary', () => {
     expect(JSON.stringify(chunks.filter((part) => part.type === 'tool-result'))).not.toContain(HELD);
     expect(raw.nested[0].text).toContain(HELD);
     expect(tools.addNode.execute).toBe(execute);
+  });
+
+  it.each(['execute', 'conversion'])('redacts opaque keyed credentials in nested %s results before the next request', async (boundary) => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const raw = { success: true, nodeId: 'fixture-node', nested: [
+      { api_key: 'opaque-unheld-credential-491827', password: 'ordinary-password-value', note: 'useful description', count: 9, enabled: false, optional: null },
+    ] };
+    const { output } = boundary === 'execute'
+      ? await sdkRoundTrip(() => raw)
+      : await sdkRoundTrip(() => ({ success: true, nodeId: 'fixture-node' }), () => ({ type: 'json', value: raw }));
+    expect(output).toEqual({ type: 'json', value: { ...raw, nested: [
+      { api_key: '[redacted]', password: '[redacted]', note: 'useful description', count: 9, enabled: false, optional: null },
+    ] } });
+    expect(raw.nested[0].api_key).toBe('opaque-unheld-credential-491827');
+  });
+
+  const bytes = [137, 80, 78, 71];
+  it.each([
+    ['Uint8Array', { type: 'data', data: new Uint8Array(bytes) }],
+    ['ArrayBuffer', { type: 'data', data: new Uint8Array(bytes).buffer }],
+    ['Buffer', { type: 'data', data: Buffer.from(bytes) }],
+    ['URL', { type: 'url', url: new URL('https://files.example.test/image.png') }],
+  ] satisfies Array<[string, FileData]>)('preserves valid SDK %s file data through the second model request', async (kind, data) => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const { output } = await sdkRoundTrip(() => ({ success: true, nodeId: 'fixture-node' }), () => ({
+      type: 'content', value: [{ type: 'file', mediaType: 'image/png', data }],
+    }));
+    expect(output).toEqual({ type: 'content', value: [{
+      type: 'file', mediaType: 'image/png', data: kind === 'URL' || kind === 'Buffer' ? data : { type: 'data', data: new Uint8Array(bytes) },
+    }] });
   });
 
   it('keeps streamed preliminary and final results private', async () => {

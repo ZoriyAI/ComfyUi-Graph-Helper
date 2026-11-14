@@ -100,3 +100,43 @@ describe('redaction keeps structure', () => {
     expect(JSON.parse(redactSecrets('{"apiKey":"plain-value-123","token":"sk-zzz999","name":"x"}'))).toEqual({ apiKey: '[redacted]', token: '[redacted]', name: 'x' });
   });
 });
+
+import { redactValue } from '../../src/shared/agent/redact';
+
+describe('structured tool-result redaction', () => {
+  it('uses existing key-aware JSON heuristics while retaining ordinary data types', () => {
+    const credentials = ['api_key', 'apiKey', 'access_token', 'authToken', 'token', 'secret', 'password', 'passwd', 'credential', 'private_key', 'client_secret'];
+    for (const key of credentials) {
+      const raw = { nested: [{ [key]: 'ordinary-opaque-credential', text: 'readable description', count: 2, flag: false, empty: null }] };
+      expect(redactValue(raw, redactSecrets), key).toEqual(JSON.parse(redactSecrets(JSON.stringify(raw))));
+      expect(raw.nested[0][key]).toBe('ordinary-opaque-credential');
+    }
+    expect(redactValue({ token_count: 'ordinary text', api_keys: 'metadata', empty: '' }, redactSecrets))
+      .toEqual({ token_count: 'ordinary text', api_keys: 'metadata', empty: '' });
+  });
+
+  it('redacts secrets carried in a URL while keeping a valid URL instance', () => {
+    const source = new URL('https://files.example.test/image.png?token=opaque-unheld-credential-491827');
+    const redacted = redactValue(source, redactSecrets) as URL;
+    expect(redacted).toBeInstanceOf(URL);
+    expect(redacted.href).not.toContain('opaque-unheld-credential-491827');
+    expect(source.href).toContain('opaque-unheld-credential-491827');
+    const whole = redactValue(source, exactMatchRedactor([source.href])) as URL;
+    expect(whole).toBeInstanceOf(URL);
+    expect(whole.href).toBe('about:blank#redacted');
+  });
+
+  it('preserves binary SDK data and URL instances instead of cloning their enumerable properties', () => {
+    const bytes = new Uint8Array([137, 80, 78, 71]);
+    const buffer = bytes.buffer;
+    const nodeBuffer = Buffer.from(bytes);
+    const url = new URL('https://files.example.test/image.png');
+    const raw = { bytes, buffer, nodeBuffer, url };
+    const redacted = redactValue(raw, redactSecrets) as typeof raw;
+    expect(redacted.bytes).toBe(bytes);
+    expect(redacted.buffer).toBe(buffer);
+    expect(redacted.nodeBuffer).toBe(nodeBuffer);
+    expect(redacted.url).toBe(url);
+    expect(redacted.url).toBeInstanceOf(URL);
+  });
+});
