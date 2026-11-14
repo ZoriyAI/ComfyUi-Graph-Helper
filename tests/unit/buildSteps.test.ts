@@ -158,6 +158,11 @@ describe('build progress and summary', () => {
     expect(buildSummary(buildCounts(many), en)).toBe('Done: 7 nodes and 9 links.');
     expect(buildSummary(buildCounts(steps), ru)).toBe('Готово: 2 ноды, 1 связь и 1 поле задано.');
     expect(buildSummary(buildCounts(steps.slice(0, 1)), ru, true)).toBe('Остановлено: 1 нода. Сделанное осталось в графе.');
-    expect(buildSummary(buildCounts([call('annotateNode', { nodeId: '1' }, {})]), ru)).toBeNull();
+    // Notes and the graph's name are said too, and a change to the person's work left as a grey draft (P0).
+    expect(buildSummary(buildCounts([call('annotateNode', { nodeId: '1' }, {})]), ru)).toBe('Готово: 1 заметка записана.');
+    expect(buildSummary(buildCounts([call('setProcess', { title: 'x' }, {})]), ru)).toBe('Готово: граф назван.');
+    const drafted = [call('addNode', {}, { nodeId: '5' }), call('removeNode', { nodeId: '1' }, { drafted: true, proposalId: 'p1', nodeTitle: 'KSampler' })];
+    expect(buildSummary(buildCounts(drafted), ru)).toBe('Готово: 1 нода, 1 серый черновик ждёт вашего решения: он меняет сделанное вами.');
+    expect(stepSentence(drafted[1], ru, { node: () => undefined })).toBe('Предложено вам: удалить ноду KSampler');
   });
 });

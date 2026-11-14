@@ -129,6 +129,7 @@ const BUILD_STEPS = [
   '- When you build, call one build tool per step and give `why` every time: one sentence for the person, shown next to the node as it appears on the canvas and kept as its description.',
   '- Order the steps so each node appears after what it connects to: loaders, then encoders, then the sampler, then the decoder, then save. Connect a node soon after it appears.',
   '- The person watches the graph grow; keep the chat text short and let the canvas carry the explanation.',
+  '- You change only what you placed in this build. A step on the person\'s own nodes, links, notes or the graph\'s name is not applied: it becomes a grey draft the person accepts or rejects (the tool result says drafted). Do not repeat it; go on with your own nodes and say in one sentence what you offered.',
 ].join('\n');
 
 /** The assistant preferences the prompt honours. Every field is optional; absent means the default. */

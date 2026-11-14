@@ -1,8 +1,8 @@
 import type { GraphMutation } from '../commands/types';
 
-export type ProposalKind = 'add-node' | 'connect' | 'set-parameter' | 'create-subgraph' | 'insert-subgraph' | 'remove-node';
+export type ProposalKind = 'add-node' | 'connect' | 'set-parameter' | 'create-subgraph' | 'insert-subgraph' | 'remove-node' | 'remove-edge' | 'annotate-node' | 'set-component' | 'set-process';
 /** Every ProposalKind, for validation. A proposal's kind equals its payload's mutation type. */
-export const PROPOSAL_KINDS: readonly ProposalKind[] = ['add-node', 'connect', 'set-parameter', 'create-subgraph', 'insert-subgraph', 'remove-node'];
+export const PROPOSAL_KINDS: readonly ProposalKind[] = ['add-node', 'connect', 'set-parameter', 'create-subgraph', 'insert-subgraph', 'remove-node', 'remove-edge', 'annotate-node', 'set-component', 'set-process'];
 export type ProposalStatus = 'proposed' | 'accepted' | 'rejected' | 'superseded';
 
 /** A ghost: something the helper suggests. It touches the graph only when a person accepts it. */

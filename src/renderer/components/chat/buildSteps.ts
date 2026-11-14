@@ -157,7 +157,7 @@ function stepValues(call: ToolCall, names: StepNames, t: Translate): Record<stri
         name: nodeName(field(call.args, 'nodeId'), names, t, {
           title: field(call.result, 'removedTitle'),
           classType: field(call.result, 'removedType'),
-          at: field(call.result, 'removedTitle'),
+          at: field(call.result, 'removedTitle') ?? field(call.result, 'nodeTitle'),
         }),
       };
     case 'createSubgraph':
@@ -165,12 +165,12 @@ function stepValues(call: ToolCall, names: StepNames, t: Translate): Record<stri
     case 'insertSubgraph':
       return { name: subgraphName(call, names, t) };
     case 'annotateNode':
-      return { name: nodeName(field(call.args, 'nodeId'), names, t) };
+      return { name: nodeName(field(call.args, 'nodeId'), names, t, { at: field(call.result, 'nodeTitle') }) };
     case 'setComponentDocumentation': {
       const ownerId = field(call.args, 'ownerId');
       const subgraph = field(call.args, 'ownerKind') === 'subgraph';
       const name = subgraph ? (ownerId ? names.subgraph?.(ownerId) : undefined) : undefined;
-      return { name: subgraph ? clean(name ?? t('chat.step.unknownSubgraph')) : nodeName(ownerId, names, t), subgraph };
+      return { name: subgraph ? clean(name ?? t('chat.step.unknownSubgraph')) : nodeName(ownerId, names, t, { at: field(call.result, 'nodeTitle') }), subgraph };
     }
     case 'setProcess':
       return { title: clean(field(call.args, 'title') ?? '—') };
@@ -195,9 +195,25 @@ const SENTENCE_KEYS: Record<string, { ok: string; failed: string }> = {
  * One build step as a sentence: «Добавлена нода Load Checkpoint», «Связь: Load Checkpoint · MODEL → KSampler · model»,
  * «Поле steps = 20 у KSampler». A failed step says what it tried: «Не удалось добавить ноду …».
  */
+const DRAFT_KEYS: Record<string, string> = {
+  connectNodes: 'chat.stepDraft.connectNodes',
+  setParameter: 'chat.stepDraft.setParameter',
+  removeNode: 'chat.stepDraft.removeNode',
+  createSubgraph: 'chat.stepDraft.createSubgraph',
+  annotateNode: 'chat.stepDraft.annotateNode',
+  setComponentDocumentation: 'chat.stepDraft.documentNode',
+  setProcess: 'chat.stepDraft.setProcess',
+};
+
+/** True when a build step was not applied but left as a grey draft (it would change what the person made). */
+export function isDraftStep(call: ToolCall): boolean {
+  return call.status === 'success' && isRecord(call.result) && call.result.drafted === true;
+}
+
 export function stepSentence(call: ToolCall, t: Translate, names: StepNames): string {
   const keys = SENTENCE_KEYS[call.toolName];
   const values = stepValues(call, names, t);
+  if (isDraftStep(call)) return t(DRAFT_KEYS[call.toolName] ?? 'chat.stepDraft.other', values);
   if (!keys) return t(call.status === 'error' ? 'chat.stepFailed.other' : 'chat.step.other');
   if (call.toolName === 'setParameter' && values.text && call.status !== 'error') return t('chat.step.setParameterText', values);
   if (call.toolName === 'setComponentDocumentation' && values.subgraph && call.status !== 'error') {
@@ -277,12 +293,24 @@ export interface BuildCounts {
   fields: number;
   removed: number;
   subgraphs: number;
+  /** Notes and descriptions the build wrote on its own nodes. */
+  notes: number;
+  /** The build named the graph. */
+  named: boolean;
+  /** Changes to what the person made, left as grey drafts (not applied). */
+  drafts: number;
 }
 
 export function buildCounts(calls: readonly ToolCall[]): BuildCounts {
-  const counts: BuildCounts = { nodes: 0, links: 0, fields: 0, removed: 0, subgraphs: 0 };
+  const counts: BuildCounts = { nodes: 0, links: 0, fields: 0, removed: 0, subgraphs: 0, notes: 0, named: false, drafts: 0 };
   for (const call of calls) {
     if (call.status !== 'success') continue;
+    if (isDraftStep(call)) {
+      counts.drafts += 1;
+      continue;
+    }
+    if (call.toolName === 'annotateNode' || call.toolName === 'setComponentDocumentation') counts.notes += 1;
+    else if (call.toolName === 'setProcess') counts.named = true;
     if (call.toolName === 'addNode') counts.nodes += 1;
     else if (call.toolName === 'connectNodes') counts.links += 1;
     else if (call.toolName === 'setParameter') counts.fields += 1;
@@ -300,6 +328,9 @@ export function buildSummary(counts: BuildCounts, t: Translate, stopped = false)
   if (counts.subgraphs) parts.push(t('chat.summarySubgraphs', { count: counts.subgraphs }));
   if (counts.fields) parts.push(t('chat.summaryFields', { count: counts.fields }));
   if (counts.removed) parts.push(t('chat.summaryRemoved', { count: counts.removed }));
+  if (counts.notes) parts.push(t('chat.summaryNotes', { count: counts.notes }));
+  if (counts.named) parts.push(t('chat.summaryNamed'));
+  if (counts.drafts) parts.push(t('chat.summaryDrafts', { count: counts.drafts }));
   if (parts.length === 0) return null;
   return t(stopped ? 'chat.summaryStopped' : 'chat.summaryDone', { parts });
 }
