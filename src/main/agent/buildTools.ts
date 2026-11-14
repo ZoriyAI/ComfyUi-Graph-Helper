@@ -6,6 +6,7 @@ import { commitCommand } from '../commands/commit';
 import { validateNodeClass } from '../knowledge/nodeClassGuard';
 import { createProposal } from '../proposals/repository';
 import { draftKindFor, runOwned } from './ownership';
+import { escapeDataTagsDeep } from './prompt';
 import { readProjection } from '../commands/commit';
 import { STORAGE_FAILED, STORAGE_FULL, storageErrorCode } from '../settings/databaseSafety';
 import { mutationFromTool, type ToolContext } from '../../shared/commands/tools';
@@ -408,6 +409,9 @@ export function createBuildTools(
         return step && step.why ? { ...result, why: step.why, explanationId: step.explanationId } : result;
       },
     };
+    // Titles and names in a result came from the graph (maybe someone else's workflow): never a data tag.
+    const inner = tools[spec.name].execute;
+    tools[spec.name].execute = async (args, call) => escapeDataTagsDeep(await inner(args, call));
   }
   return tools;
 }

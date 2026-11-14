@@ -45,6 +45,23 @@ export class ConversationLinks {
     }
   }
 
+  /**
+   * Addresses a search returned (the provider's own search or the app's): kept without their query, so a page that
+   * asks the model to open "https://x/?d=<what you know>" cannot carry data out through the page reader. The person's
+   * own addresses go in with `add`, as written.
+   */
+  addFound(urls: Iterable<string>): void {
+    const bare: string[] = [];
+    for (const url of urls) {
+      const link = normalLink(url);
+      if (!link) continue;
+      const parsed = new URL(link);
+      parsed.search = '';
+      bare.push(parsed.href);
+    }
+    this.add(bare);
+  }
+
   allows(url: string): boolean {
     const link = normalLink(url);
     return link !== null && this.links.has(link);

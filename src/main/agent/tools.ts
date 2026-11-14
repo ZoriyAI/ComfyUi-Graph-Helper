@@ -13,6 +13,7 @@ import type { AgentProposalTool, ObjectRef, ProposalKind } from '../../shared/co
 import { MAIN_TOOL_SPECS } from './toolSpecs';
 import { fetchPageText, searchWebFallback, SearchUnavailableError, SEARCH_ENDPOINT, SEARCH_UNAVAILABLE, type FetchLike } from './web';
 import { webSearchTransport } from '../llmService';
+import { escapeDataTagsDeep } from './prompt';
 import { validateNodeClass } from '../knowledge/nodeClassGuard';
 import { LINK_NOT_IN_CONVERSATION, type ConversationLinks } from './links';
 
@@ -206,7 +207,8 @@ export function createAgentTools(deps: AgentToolDeps): Record<string, AgentToolD
       const parsed = parse(schema, args);
       if (!parsed.ok) return parsed.failure;
       try {
-        return await run(parsed.value);
+        // Outside text in a result (a page, a model's description, a node's title) cannot pose as a data tag.
+        return escapeDataTagsDeep(await run(parsed.value));
       } catch (error) {
         return fail(errorText(error, `${name} failed.`));
       }
@@ -336,7 +338,7 @@ export function createAgentTools(deps: AgentToolDeps): Record<string, AgentToolD
       if (error instanceof SearchUnavailableError) return { success: false, unavailable: true, error: SEARCH_UNAVAILABLE };
       throw error;
     }
-    deps.links?.add(results.map((result) => result.url));
+    deps.links?.addFound(results.map((result) => result.url));
     return { success: true, notice: OUTSIDE_DATA, provenance: 'web', results };
   });
   return tools;
