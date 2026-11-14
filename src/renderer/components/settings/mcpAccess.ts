@@ -28,6 +28,16 @@ export function detectionNote(probe: McpAuthProbe, translate: Translator): Detec
 
 function noteOf(probe: McpAuthProbe, translate: Translator): DetectionNote {
   if (!probe.ok) return { mode: null, text: explainError(translate, probe.error).summary, tone: 'bad' };
+  // The server let the app in, but lists none of the tools of a kind the app reads: never a green "connected".
+  if ((probe.mode === 'none' || probe.mode === 'token') && probe.profile === null) {
+    return { mode: probe.mode, text: translate('settings.mcpProfile.unknown'), tone: 'bad' };
+  }
+  const kind = (probe.mode === 'none' || probe.mode === 'token') && probe.profile ? ` ${translate(`settings.mcpProfile.${probe.profile}`)}` : '';
+  const known = noteOfAccess(probe, translate);
+  return kind && known.tone === 'good' ? { ...known, text: `${known.text}${kind}` } : known;
+}
+
+function noteOfAccess(probe: Extract<McpAuthProbe, { ok: true }>, translate: Translator): DetectionNote {
   if (probe.mode === 'none') return { mode: 'none', text: translate('settings.detectedNone', { tools: probe.tools }), tone: 'good' };
   if (probe.mode === 'oauth') return { mode: 'oauth', text: translate('settings.detectedOauth'), tone: 'good' };
   // A held token was tried against the 401: say whether the server took it, not only that it wants one.

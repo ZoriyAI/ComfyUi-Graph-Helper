@@ -26,6 +26,8 @@ import { mcpToken, releaseMcpTokenIfOriginChanged } from './token';
 import { redactSecrets } from '../../shared/config/draft';
 import { isLoopbackHost } from '../../shared/mcp/loopback';
 import { readCustomNodeRoots, type ServerIdentity } from './inventory';
+import { COMFY_PREVIEW_FILE, comfyMetadataSession, readComfyDirect, readComfyPreview } from '../comfy/direct';
+import { MCP_UNKNOWN_SERVER } from './client';
 import { dueLookups, writeWebOutcome } from '../knowledge/modelWeb';
 import { appWebClient, SYNC_LOOKUP_PAUSE_MS, SYNC_LOOKUPS_PER_RUN, type ModelWebClient } from '../knowledge/webLookup';
 
@@ -56,6 +58,19 @@ export const comfyNotRunningWarning = (host: string) => `ComfyUI is not running 
 export const sectionUnreadWarning = (section: string) => `MCP catalog section could not be read: ${section}.`;
 /** One model folder (loras, checkpoints …) could not be listed; the library keeps its previous list. */
 export const folderUnreadWarning = (folder: string) => `Model folder could not be read: ${folder}.`;
+/** The MCP server is of no kind the app knows; the ComfyUI address in Settings was read instead. */
+export const MCP_UNKNOWN_READ_COMFY = 'The MCP server is not one the app knows how to read; everything was read from the ComfyUI address instead.';
+/** Neither address is set: there is nothing to read. */
+export const NO_ADDRESS = 'Neither a ComfyUI address nor an MCP server address is set.';
+
+/** sync_state: what the library was last read from ('comfy', 'mcp', 'mcp+comfy'). */
+export const LIBRARY_SOURCE_KEY = 'library_source';
+/** sync_state: the kind of MCP server of the last read (profiles.ts), or '' when no MCP server was read. */
+export const MCP_PROFILE_KEY = 'mcp_profile';
+/** sync_state: each model folder's paths on the ComfyUI machine, in ComfyUI's order (the preview route's index). */
+export const COMFY_MODEL_ROOTS_KEY = 'comfy_model_roots';
+/** sync_state: the ComfyUI origin the library's previews and metadata are read from ('' when not ComfyUI). */
+export const COMFY_READ_ORIGIN_KEY = 'comfy_read_origin';
 
 export interface SyncDeps {
   readUrl: (db: Database.Database) => string;
@@ -316,6 +331,8 @@ interface EnrichRun {
   hasTool: boolean;
   /** The server can hand over the description file a model manager keeps next to a model. */
   hasFiles: boolean;
+  /** The library is read from ComfyUI itself: whether a file has a preview picture is asked there, with its header. */
+  comfyPreviews?: { origin: string; roots: Record<string, string[]>; fetchImpl: typeof fetch };
   batch: number;
   pauseMs: number;
   scope: 'loaders' | 'all';
@@ -382,6 +399,7 @@ export class SyncService {
     else if (lastError) phase = 'error';
     else if (lastSyncAt != null) phase = 'idle';
     const mcpUrl = this.deps.readUrl(db);
+    const comfyOrigin = this.readComfyOriginSafe(db);
     const metadata = this.metadataCounts(db);
     let progress: SyncStatus['progress'] = null;
     if (this.running) progress = this.progress;
@@ -405,7 +423,10 @@ export class SyncService {
       enrichmentPaused: this.enrichmentPaused,
       authMode: authModeOf(state),
       authChoice: this.readAuthMode(db),
-      ...libraryOrigin(state, mcpUrl, this.readComfyOriginSafe(db)),
+      ...libraryOrigin(state, mcpUrl, comfyOrigin),
+      comfyOrigin,
+      librarySource: librarySourceOf(state),
+      mcpProfile: mcpProfileOf(state),
     };
   }
 
@@ -417,16 +438,16 @@ export class SyncService {
     this.db = db;
     if (this.running) return this.running;
     if (this.background) return Promise.resolve(this.status(db));
-    // No address yet: there is nothing to read and nothing failed. The status (mcpUrl '') says what is missing;
-    // an earlier "address is empty" error is not kept as a red failure.
-    if (this.readUrlSafe(db) === '') {
+    // No address yet: there is nothing to read and nothing failed. The status (both addresses '') says what is
+    // missing; an earlier "address is empty" error is not kept as a red failure.
+    if (!this.hasAddress(db)) {
       const state = readStateSafe(db);
-      if (state.last_error === 'MCP server URL is empty.') writeState(db, { last_error: '' });
+      if (state.last_error === 'MCP server URL is empty.' || state.last_error === NO_ADDRESS) writeState(db, { last_error: '' });
       return Promise.resolve(this.emit(db));
     }
     this.startupPending = false;
     this.enrichmentPaused = false;
-    this.progress = { phase: 'connect', done: 0, total: 0 };
+    this.progress = { phase: this.readUrlSafe(db) !== '' ? 'connect' : 'comfy', done: 0, total: 0 };
     this.running = this.execute(db, fetchImpl, factory).finally(() => {
       this.running = null;
       this.progress = null;
@@ -438,7 +459,7 @@ export class SyncService {
   setAuto(db: Database.Database, enabled: boolean, intervalMinutes: number): SyncStatus {
     this.db = db;
     // Auto sync without an address would only fail on a timer: it stays off until there is one to read.
-    const on = enabled && this.readUrlSafe(db) !== '';
+    const on = enabled && this.hasAddress(db);
     writeState(db, { auto_enabled: on ? '1' : '0', auto_interval_minutes: String(clampInterval(intervalMinutes)) });
     this.schedule(db, false);
     return this.emit(db);
@@ -477,7 +498,7 @@ export class SyncService {
     const auto = autoOf(readStateSafe(db));
     const after = this.running ?? Promise.resolve(this.status(db));
     void after.catch(() => undefined).then(() => {
-      if (auto.enabled && this.readUrlSafe(db) !== '') void this.runSync(db);
+      if (auto.enabled && this.hasAddress(db)) void this.runSync(db);
       else this.emit(db);
     });
     this.schedule(db, false);
@@ -587,7 +608,8 @@ export class SyncService {
   private canConnect(db: Database.Database): boolean {
     try {
       const url = this.deps.readUrl(db);
-      if (!url) return false;
+      // ComfyUI itself needs no sign-in: a startup run can always try it.
+      if (!url) return this.readComfyOriginSafe(db) !== '';
       const mode = this.readAuthMode(db);
       // "No sign-in" was the person's explicit choice: every startup tries, and the status says what the server answered.
       if (mode === 'none') return true;
@@ -632,6 +654,11 @@ export class SyncService {
     }, delay);
     // A pending sync must not keep the app (or a test run) alive.
     this.timer.unref?.();
+  }
+
+  /** Either address is set: there is something to read. */
+  private hasAddress(db: Database.Database): boolean {
+    return this.readUrlSafe(db) !== '' || this.readComfyOriginSafe(db) !== '';
   }
 
   private readUrlSafe(db: Database.Database): string {
@@ -722,6 +749,11 @@ export class SyncService {
         last_run_duration_ms: String(Math.max(0, this.deps.now() - startedAt)),
       });
     };
+    // No MCP server: everything comes from ComfyUI's own address.
+    if (!url) {
+      await this.executeDirect(db, fetchImpl, comfyOrigin, startedAt, ticket, finish, []);
+      return;
+    }
     this.deps.checkTokenOrigin(url);
     // The person's choice in Settings ▸ Connection decides what is offered; the server decides whether it is enough.
     const mode = this.readAuthMode(db);
@@ -764,25 +796,41 @@ export class SyncService {
     try {
       this.setProgress(db, 'catalog', 0, 0);
       const now = this.deps.now();
-      const read = await readCatalogWithSession(db, session, fetchImpl, now);
+      const read = await readCatalogWithSession(db, session, fetchImpl, now, { mcpUrl: url, comfyOrigin });
       if ('ok' in read) {
+        // A server of no known kind: with a ComfyUI address, everything is read from ComfyUI, and the status says
+        // why; without one, the sentence names the way forward. Never a green "connected".
+        if (read.error === MCP_UNKNOWN_SERVER && comfyOrigin) {
+          await session.close().catch(() => undefined);
+          await this.executeDirect(db, fetchImpl, comfyOrigin, startedAt, ticket, finish, [MCP_UNKNOWN_READ_COMFY], 'unknown');
+          return;
+        }
+        if (read.error === MCP_UNKNOWN_SERVER) writeState(db, { [MCP_PROFILE_KEY]: 'unknown' });
         finish({ last_error: redactSecrets(read.error) });
         return;
       }
       writeState(db, { server_identity: JSON.stringify(identityRecord(read.identity)) });
-      const warnings = catalogWarnings(read.result, url);
+      const warnings = [...catalogWarnings(read.result, url), ...read.warnings];
       const settings = this.enrichmentSettings(db);
       let resolve: () => void = () => undefined;
       const done = new Promise<void>((settle) => {
         resolve = settle;
       });
       const hasFiles = read.toolNames.has('workspace_files');
-      writeState(db, { [SIDE_FILES_KEY]: hasFiles ? '1' : '0' });
+      writeState(db, {
+        [SIDE_FILES_KEY]: hasFiles ? '1' : '0',
+        [MCP_PROFILE_KEY]: read.profile,
+        [LIBRARY_SOURCE_KEY]: read.direct ? 'mcp+comfy' : 'mcp',
+        [COMFY_READ_ORIGIN_KEY]: read.direct?.origin ?? '',
+        [COMFY_MODEL_ROOTS_KEY]: '{}',
+      });
       if (hasFiles && read.toolNames.has('studio_capabilities')) await this.readPackInfo(db, session);
+      // A server that gives no metadata tool of its own: the headers are read from the ComfyUI address, when read.
+      const metadataFromComfy = read.profile !== 'catalog' && read.direct != null;
       const run: EnrichRun = {
-        session,
+        session: metadataFromComfy && read.direct ? comfyMetadataSession(read.direct.origin, fetchImpl) : session,
         startedAt,
-        hasTool: read.toolNames.has('model_metadata'),
+        hasTool: metadataFromComfy || (read.profile === 'catalog' && read.toolNames.has('model_metadata')),
         hasFiles,
         batch: Math.max(1, Math.round(this.deps.enrichLimit ?? settings.perRun)),
         pauseMs: Math.max(0, this.deps.batchPauseMs ?? settings.pauseMs ?? DEFAULT_ENRICH_PAUSE_MS),
@@ -804,7 +852,8 @@ export class SyncService {
         return;
       }
       if (!enrichError && !first.stopped && first.remaining > 0) {
-        handedOver = true;
+        // The background reading keeps the MCP session only when it reads through it.
+        handedOver = run.session === session;
         this.startBackground(db, run);
       } else {
         resolve();
@@ -815,6 +864,109 @@ export class SyncService {
       finish({ last_error: signInLost ? MCP_SIGN_IN_AGAIN : classifySyncError(error, url) });
     } finally {
       if (!handedOver) await session.close().catch(() => undefined);
+    }
+  }
+
+  /**
+   * The whole catalog from the ComfyUI address (comfy/direct.ts): node classes, packs, model files with sizes and
+   * folders, then the model headers through /view_metadata in batches like any sync. `extraWarnings` come first in
+   * the status; `mcpProfile` is recorded when an MCP server was asked first ('unknown': of no kind the app reads).
+   */
+  private async executeDirect(
+    db: Database.Database,
+    fetchImpl: typeof fetch,
+    comfyOrigin: string,
+    startedAt: number,
+    ticket: RunTicket,
+    finish: (values: Record<string, string>) => void,
+    extraWarnings: string[],
+    mcpProfile: '' | 'unknown' = '',
+  ): Promise<void> {
+    if (!comfyOrigin) {
+      finish({ last_error: NO_ADDRESS });
+      return;
+    }
+    this.setProgress(db, 'comfy', 0, 0);
+    const now = this.deps.now();
+    let read: Awaited<ReturnType<typeof readComfyDirect>>;
+    try {
+      read = await readComfyDirect(db, comfyOrigin, fetchImpl, now, {
+        onPhase: (phase, done, total) => this.setProgress(db, phase === 'catalog' ? 'catalog' : phase === 'models' ? 'models' : 'comfyPacks', done, total),
+        cancelled: () => ticket.cancelled,
+      });
+    } catch {
+      read = { ok: false, error: 'Comfy origin was not read.' };
+    }
+    if (ticket.cancelled) return;
+    if (!read.ok) {
+      writeState(db, { [MCP_PROFILE_KEY]: mcpProfile });
+      finish({ last_error: redactSecrets(read.error) });
+      return;
+    }
+    writeState(db, {
+      [SIDE_FILES_KEY]: '0',
+      [MCP_PROFILE_KEY]: mcpProfile,
+      [LIBRARY_SOURCE_KEY]: 'comfy',
+      [COMFY_READ_ORIGIN_KEY]: read.origin,
+      [COMFY_MODEL_ROOTS_KEY]: JSON.stringify(read.roots),
+      server_identity: JSON.stringify({ installation_id: null, comfyui_url: read.origin }),
+    });
+    const warnings = [...extraWarnings, ...read.warnings, ...read.failedFolders.map(folderUnreadWarning)];
+    const settings = this.enrichmentSettings(db);
+    let resolve: () => void = () => undefined;
+    const done = new Promise<void>((settle) => {
+      resolve = settle;
+    });
+    const run: EnrichRun = {
+      session: comfyMetadataSession(read.origin, fetchImpl),
+      startedAt,
+      hasTool: true,
+      hasFiles: false,
+      comfyPreviews: read.modelListing === 'detailed' ? { origin: read.origin, roots: read.roots, fetchImpl } : undefined,
+      batch: Math.max(1, Math.round(this.deps.enrichLimit ?? settings.perRun)),
+      pauseMs: Math.max(0, this.deps.batchPauseMs ?? settings.pauseMs ?? DEFAULT_ENRICH_PAUSE_MS),
+      scope: settings.scope,
+      consecutiveFailures: 0,
+      attempted: 0,
+      failed: 0,
+      cancelled: false,
+      timer: null,
+      done,
+      resolve,
+    };
+    let first: { remaining: number; stopped: boolean };
+    try {
+      first = await this.enrichBatch(db, run, 'enrich');
+    } catch {
+      first = { remaining: 0, stopped: true };
+    }
+    const enrichError = run.attempted > 0 && run.failed === run.attempted ? ALL_FAILED : null;
+    if (first.stopped && !enrichError) warnings.push(METADATA_STOPPED);
+    finish({ last_sync_at: String(now), last_error: enrichError ?? '', last_warnings: JSON.stringify(warnings) });
+    if (ticket.cancelled) {
+      resolve();
+      return;
+    }
+    if (!enrichError && !first.stopped && first.remaining > 0) {
+      this.startBackground(db, run);
+    } else {
+      resolve();
+      this.startWebLookups(db, startedAt);
+    }
+  }
+
+  /**
+   * Whether ComfyUI has a preview picture for a file (its preview route answers with one). When it has, the row is
+   * marked so the library shows a picture there; the card asks for it again (it is kept then). Never throws.
+   */
+  private async askComfyPreview(db: Database.Database, source: NonNullable<EnrichRun['comfyPreviews']>, row: EnrichRow): Promise<void> {
+    try {
+      const index = row.root_path ? (source.roots[row.directory] ?? []).indexOf(row.root_path) : -1;
+      if (index < 0) return;
+      const found = await readComfyPreview(source.origin, row.directory, index, row.name, source.fetchImpl);
+      if (found) db.prepare('UPDATE model_catalog SET preview_file = ?, preview_sig = ? WHERE directory = ? AND name = ?').run(COMFY_PREVIEW_FILE, String(found.bytes.length), row.directory, row.name);
+    } catch {
+      // No picture is shown; the file is read like any other.
     }
   }
 
@@ -962,6 +1114,10 @@ export class SyncService {
           side = read.side;
         }
         delete failures[key];
+        if (headerDue && run.comfyPreviews) {
+          await this.askComfyPreview(db, run.comfyPreviews, row);
+          if (run.cancelled) break;
+        }
         const sidecar = run.hasFiles ? { notes: side?.notes ?? EMPTY_NOTES, readSig: row.sidecar_sig ?? null } : undefined;
         if (headerDue) {
           writeModelEnrichment(db, row.directory, row.name, { ...enrichmentOf(row.directory, row.name, parsed, side?.facts ?? null, this.deps.now()), sidecar });
@@ -986,6 +1142,39 @@ function readStateSafe(db: Database.Database): Record<string, string> {
     return readState(db);
   } catch {
     return {};
+  }
+}
+
+function librarySourceOf(state: Record<string, string>): SyncStatus['librarySource'] {
+  if (state.last_sync_at == null) return null;
+  const value = state[LIBRARY_SOURCE_KEY];
+  return value === 'comfy' || value === 'mcp' || value === 'mcp+comfy' ? value : state.library_url ? 'mcp' : null;
+}
+
+function mcpProfileOf(state: Record<string, string>): SyncStatus['mcpProfile'] {
+  const value = state[MCP_PROFILE_KEY];
+  return value === 'catalog' || value === 'modelList' || value === 'checkpointList' || value === 'unknown' ? value : null;
+}
+
+/**
+ * Where previews of the library come from when it was read from ComfyUI itself: the origin, and each model folder's
+ * paths in ComfyUI's order. Null when the library was read through an MCP server only.
+ */
+export function comfyPreviewSource(db: Database.Database): { origin: string; roots: Record<string, string[]> } | null {
+  const state = readStateSafe(db);
+  const origin = state[COMFY_READ_ORIGIN_KEY];
+  if (!origin) return null;
+  try {
+    const parsed = JSON.parse(state[COMFY_MODEL_ROOTS_KEY] ?? '{}') as unknown;
+    const roots: Record<string, string[]> = {};
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      for (const [folder, list] of Object.entries(parsed as Record<string, unknown>)) {
+        if (Array.isArray(list)) roots[folder] = list.filter((item): item is string => typeof item === 'string');
+      }
+    }
+    return { origin, roots };
+  } catch {
+    return { origin, roots: {} };
   }
 }
 

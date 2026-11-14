@@ -20,6 +20,7 @@ import type { NonSecretSettings } from '../../shared/config/schema';
 import type { Translator } from '../../shared/i18n';
 import { SETTINGS_CHANGED } from './events';
 import { nodeDisplayName } from '../components/graph/lib/nodeName';
+import { afterWorkflowOpened } from '../components/graph/importLook';
 
 export { SETTINGS_CHANGED };
 
@@ -46,6 +47,8 @@ function rejectedReason(result: unknown, fallback: string): string {
 export async function importWorkflowFile(): Promise<void> {
   const result = await window.electronAPI.importWorkflow();
   if (!result || result.status === 'cancelled') return;
+  // Once drawn: nodes that cover each other move apart, and the camera takes the file's own view.
+  if (result.status === 'applied') afterWorkflowOpened();
   if (result.projection) applyProjection(result.projection);
   if (result.status === 'rejected') {
     notify({ kind: 'error', code: rejectedReason(result.result, 'Import was rejected.') });

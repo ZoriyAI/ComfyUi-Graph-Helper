@@ -100,6 +100,24 @@ const ERROR_KEYS: Record<string, string> = {
   'The address answers, but there is no MCP server at this path.': 'errors.mcpNoServerAtPath',
   'This is the address of ComfyUI itself, not of its MCP server.': 'errors.mcpIsComfy',
   'The address answers, but not as an MCP server.': 'errors.mcpNotMcp',
+  // src/main/comfy/direct.ts: what is wrong with a ComfyUI address or its answer.
+  'ComfyUI address is empty.': 'errors.comfyEmpty',
+  'ComfyUI address is not an address.': 'errors.comfyNotAddress',
+  'ComfyUI address has no http:// or https:// in front.': 'errors.comfyNoScheme',
+  'ComfyUI address must start with http:// or https://.': 'errors.comfyProtocol',
+  'ComfyUI address must not carry a user name or password.': 'errors.comfyCredentials',
+  'This is the address of an MCP server, not of ComfyUI.': 'errors.comfyIsMcp',
+  'The address answers, but not as ComfyUI.': 'errors.comfyNotComfy',
+  'ComfyUI answered, but its node list could not be read.': 'errors.comfyNodesUnread',
+  'The address sends the app somewhere else; enter the address of ComfyUI itself.': 'errors.comfyRedirect',
+  'ComfyUI did not list its model folders; models were not updated.': 'errors.comfyModelsUnread',
+  'This ComfyUI lists model names only, without sizes or previews.': 'errors.comfyNamesOnly',
+  // src/main/mcp/client.ts and sync.ts: MCP servers of another kind, and no address at all.
+  'The MCP server answers, but the app does not know its tools, so nothing was read from it. Enter the ComfyUI address in Settings ▸ Connection: the app then reads everything from ComfyUI itself.': 'errors.mcpUnknown',
+  'Models were read through MCP, but not the nodes: this MCP server does not list them. Enter the ComfyUI address in Settings ▸ Connection to read the nodes from ComfyUI.': 'errors.mcpNodesNeedComfy',
+  'Models were read through MCP, but not the nodes: ComfyUI did not answer at the address in Settings.': 'errors.mcpNodesComfyFailed',
+  'The MCP server is not one the app knows how to read; everything was read from the ComfyUI address instead.': 'errors.mcpUnknownReadComfy',
+  'Neither a ComfyUI address nor an MCP server address is set.': 'errors.noAddress',
   'Explanations cannot store a secret.': 'errors.explanationSecret',
   'The project record does not match the schema.': 'errors.projectRecord',
   'The request did not come from the app window.': 'errors.untrustedSender',
@@ -127,6 +145,10 @@ const MCP_UNREACHABLE = /^MCP server unreachable: ([A-Za-z0-9.:\[\]_-]{1,255})\.
 const MCP_BAD_HOST = /^MCP server URL host is not a valid address: ([A-Za-z0-9.:\[\]_-]{1,255})\.$/;
 const MCP_HOST_NOT_FOUND = /^MCP server host was not found: ([A-Za-z0-9.:\[\]_-]{1,255})\.$/;
 const MCP_TOO_SLOW = /^MCP server answered too slowly: nothing came within (\d{1,5}) s\.$/;
+const COMFY_BAD_HOST = /^ComfyUI address host is not a valid address: ([A-Za-z0-9.:\[\]_-]{1,255})\.$/;
+const COMFY_UNREACHABLE = /^ComfyUI does not answer at ([A-Za-z0-9.:\[\]_-]{1,255})\.$/;
+const COMFY_HOST_NOT_FOUND = /^ComfyUI host was not found: ([A-Za-z0-9.:\[\]_-]{1,255})\.$/;
+const COMFY_TOO_SLOW = /^ComfyUI answered too slowly: nothing came within (\d{1,5}) s\.$/;
 const COMFY_NOT_RUNNING = /^ComfyUI is not running at ([A-Za-z0-9.:\[\]_-]{1,255}) — node ports were not updated; start ComfyUI and sync again\.$/;
 const MCP_SECTION = /^MCP catalog section could not be read: (node classes|node packs|model files)\.$/;
 const MODEL_FOLDER = /^Model folder could not be read: ([A-Za-z0-9_.-]{1,80})\.$/;
@@ -149,6 +171,14 @@ function translatePattern(translate: Translator, code: string): string | null {
   if (notFound) return translate('errors.mcpHostNotFound', { host: notFound[1] });
   const slow = MCP_TOO_SLOW.exec(code);
   if (slow) return translate('errors.mcpTooSlow', { seconds: slow[1] });
+  const comfyBadHost = COMFY_BAD_HOST.exec(code);
+  if (comfyBadHost) return translate('errors.comfyBadHost', { host: comfyBadHost[1] });
+  const comfyGone = COMFY_UNREACHABLE.exec(code);
+  if (comfyGone) return translate('errors.comfyUnreachable', { host: comfyGone[1] });
+  const comfyNoHost = COMFY_HOST_NOT_FOUND.exec(code);
+  if (comfyNoHost) return translate('errors.comfyHostNotFound', { host: comfyNoHost[1] });
+  const comfySlow = COMFY_TOO_SLOW.exec(code);
+  if (comfySlow) return translate('errors.comfyTooSlow', { seconds: comfySlow[1] });
   const comfy = COMFY_NOT_RUNNING.exec(code);
   if (comfy) return translate('errors.comfyNotRunning', { host: comfy[1] });
   const listHttp = MODEL_LIST_HTTP.exec(code);

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { AlertTriangle, Layers, Lock, Sparkles } from 'lucide-react';
+import { AlertTriangle, CircleSlash, Layers, Lock, Sparkles } from 'lucide-react';
 import type { ComfyNodeData } from '../../../types/graph';
 import { categoryAccent } from '../lib/typeColors';
 import { categoryLabel } from '../lib/categoryLabel';
@@ -11,6 +11,10 @@ import FieldRow from './FieldRow';
 import { titleParts } from './titleBreaks';
 import { nodeLayout } from '../../fields/fieldModel';
 import { useCanvasView } from '../CanvasContext';
+import MarkdownLite from '../../chat/MarkdownLite';
+import { editorKind, fileBox, fileColors } from '../../../../shared/workflow/comfyLook';
+import { ConstantLine, PrimitiveFields, PromotedFields, SavedValues, promotedInputNames } from './EditorNodes';
+import { fileStyle, useClassPresence } from './nodeLook';
 import styles from './Node.module.css';
 
 export interface NodeCardState {
@@ -48,7 +52,14 @@ export default function NodeCard({ id, data, state, connected, live = true, head
   const { t } = useTranslation();
   const view = useCanvasView();
   const detail = useNodeDetail(state.subgraph ? undefined : data.comfyType);
-  const layout = nodeLayout(data, state.subgraph ? null : detail);
+  const baseLayout = nodeLayout(data, state.subgraph ? null : detail);
+  // What the file says of the node (IMPORT+NODES): editor-only kinds, a class that is not installed, colours, size.
+  const kind = state.subgraph ? null : editorKind(data.comfyType);
+  const presence = useClassPresence(data.comfyType, Boolean(state.subgraph));
+  const missing = presence === 'missing' && live;
+  const promoted = state.subgraph ? promotedInputNames(data) : new Set<string>();
+  const layout = promoted.size > 0 ? { ...baseLayout, linkInputs: baseLayout.linkInputs.filter((port) => !promoted.has(port.name)) } : baseLayout;
+  const tinted = Boolean(fileColors(data).color || fileColors(data).bgcolor);
   // Subgraph instances have no catalog spec to place a value with; their fields show, read-only.
   const fieldsDisabled = !live || Boolean(data.locked) || view.readOnly || Boolean(state.subgraph);
   const primary = data.outputs[0]?.dataType || data.inputs[0]?.dataType || 'unknown';
@@ -69,6 +80,9 @@ export default function NodeCard({ id, data, state, connected, live = true, head
     state.pending ? styles.pending : '',
     state.subgraph ? styles.subgraph : '',
     runMode ? styles.runModeOff : '',
+    missing ? `${styles.missing} is-missing` : '',
+    tinted ? styles.fileColor : '',
+    kind === 'note' || kind === 'markdown' ? styles.noteNode : '',
   ].filter(Boolean).join(' ');
   const title = data.title || detail?.displayName || data.comfyType;
   // The line under the title names the class. When the title already is the class (a workflow saved without
@@ -88,7 +102,10 @@ export default function NodeCard({ id, data, state, connected, live = true, head
       data-node-kind={state.subgraph ? 'subgraph-instance' : 'node'}
       data-run-mode={runMode ?? undefined}
       data-build-pending={state.pending ? 'true' : undefined}
-      style={{ '--canvas-accent': accent } as React.CSSProperties}
+      data-editor-kind={kind ?? undefined}
+      data-class-missing={missing ? 'true' : undefined}
+      data-file-size={live && fileBox(data) ? 'true' : undefined}
+      style={{ '--canvas-accent': accent, ...(live ? fileStyle(data) : {}) } as React.CSSProperties}
     >
       <div className={styles.header}>
         <div className={styles.titleRow}>
@@ -109,6 +126,7 @@ export default function NodeCard({ id, data, state, connected, live = true, head
           {state.subgraph ? <span className={styles.badge}>{t('node.subgraph')}</span> : null}
           {data.demo ? <span className={styles.badge}>{t('node.demo')}</span> : null}
           {runMode ? <span className={`${styles.modeChip} ${runMode === 'bypassed' ? styles.modeBypassed : styles.modeMuted}`} title={String(t(runMode === 'bypassed' ? 'node.bypassedTitle' : 'node.mutedTitle'))}>{t(runMode === 'bypassed' ? 'node.bypassed' : 'node.muted')}</span> : null}
+          {missing ? <span className={styles.missingChip} title={String(t('importLook.missingHint', { type: data.comfyType }))}><CircleSlash size={11} aria-hidden="true" />{t('importLook.missing')}</span> : null}
           {state.subgraph ? null : <span className={`${styles.classType} graph-node-type`} data-class-line={classLine === data.comfyType ? undefined : 'other'} title={data.comfyType}>{classLine}</span>}
         </div>
       </div>
@@ -141,8 +159,20 @@ export default function NodeCard({ id, data, state, connected, live = true, head
           ))}
         </ul>
       ) : null}
+      {state.subgraph && live ? <PromotedFields id={id} data={data} disabled={!live || view.readOnly || Boolean(data.locked)} connected={connected} focusable={Boolean(state.selected)} /> : null}
+      {kind === 'primitive' && live ? <PrimitiveFields id={id} data={data} disabled={fieldsDisabled} /> : null}
+      {kind === 'set' || kind === 'get' ? <ConstantLine data={data} kind={kind} /> : null}
+      {missing ? <SavedValues data={data} /> : null}
       {noteText ? (
-        <div className={`${styles.noteText} nowheel`} role="note" aria-label={String(t('node.noteText'))} tabIndex={0}>{noteText}</div>
+        <div
+          className={`${styles.noteText} nowheel`}
+          role="note"
+          aria-label={String(t('node.noteText'))}
+          tabIndex={0}
+        >
+          {/* MarkdownLite draws a link as its words and address, never as something that opens. */}
+          {kind === 'markdown' ? <MarkdownLite text={noteText} className={styles.noteMarkdown} /> : noteText}
+        </div>
       ) : null}
       {data.annotations && data.annotations.length > 0 ? (
         <div className={`${styles.annotation} node-annotation`}>

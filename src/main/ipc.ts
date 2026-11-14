@@ -10,12 +10,13 @@ import { CLOUD, isCloudProvider, mainLLMService, type CloudProvider, type KeySou
 import { attemptSaveSecret, forgetProviderKey, forgetSecret, migrateLegacyProviderKey, readProviderKeyCipher, readSecretCipher, readSettings, saveNamedSecretIfProven, saveSecretIfProven, saveSettings } from './settings/repository';
 import { secretStatus } from './settings/secretDecision';
 import { isUnprotectedCipher } from '../shared/config/secretPolicy';
-import { applyComfyRead } from './comfy/read';
+import { checkComfy } from './comfy/direct';
 import { registerKnowledgeIpc } from './ipc/knowledgeIpc';
 import { registerEngineIpc } from './ipc/engineIpc';
 import { registerAgentIpc } from './ipc/agentIpc';
 import { registerDiagnosticsIpc } from './ipc/diagnosticsIpc';
 import { registerAboutIpc } from './ipc/aboutIpc';
+import { registerUpdateIpc } from './updates/updateIpc';
 import { mcpOriginOf, mcpToken, mcpTokenFor, mcpTokenOrigin, mcpTokenStatus, releaseMcpTokenIfOriginChanged, setMcpToken } from './mcp/token';
 import { readTokenFile, removeTokenFile, tokenFileHolds, writeTokenFile } from './mcp/tokenFile';
 import { isPasswordStoreChoice, readPasswordStoreOverride, writePasswordStoreOverride } from './settings/passwordStoreOverride';
@@ -203,6 +204,7 @@ export async function setupIPC(): Promise<void> {
   registerAgentIpc(ipcMain);
   registerDiagnosticsIpc(ipcMain);
   registerAboutIpc(ipcMain);
+  registerUpdateIpc(ipcMain);
   // File operations
   ipcMain.handle(IPC_CHANNELS.FILE_IMPORT_WORKFLOW, async () => {
     const copy = dialogCopy().importWorkflow;
@@ -454,23 +456,19 @@ export async function setupIPC(): Promise<void> {
     return { ...decision, stored: one.stored, inFile: one.inFile, providers };
   });
 
-  ipcMain.handle(IPC_CHANNELS.COMFY_READ, async () => {
-    const read = readSettings(getDatabase());
-    const origin = read.source === 'corrupt' ? '' : read.values.comfyOrigin;
-    if (!origin) return { ok: false as const, error: 'Comfy origin is empty.' };
-    const started = Date.now();
-    console.log('[Comfy] Reading /system_stats and /object_info');
-    const result = await applyComfyRead(getDatabase(), origin, globalThis.fetch);
-    if (result.ok) console.log(`[Comfy] Read ${result.nodes} node classes, ${result.models} models in ${Date.now() - started} ms (skipped ${result.skipped.length})`);
-    else console.warn(`[Comfy] Read failed after ${Date.now() - started} ms: ${result.error}`);
-    return result;
+  // Settings ▸ Connection ▸ ComfyUI address ▸ "Check": one GET of /system_stats through the read-only gate, for the
+  // address as typed (saved or not). Reading the catalog is the ordinary sync (MCP_READ below).
+  ipcMain.handle(IPC_CHANNELS.COMFY_CHECK, async (_event, address: unknown) => {
+    if (typeof address !== 'string' || address.length > 2000) return { ok: false as const, error: 'ComfyUI address is not an address.' };
+    return checkComfy(address, (...args) => globalThis.fetch(...args));
   });
 
   ipcMain.handle(IPC_CHANNELS.MCP_READ, async () => {
     // "Read through MCP" is the ordinary sync: every status (indicator, welcome card, popover) then says what was
     // read and when, instead of a second kind of read that leaves them saying "not read".
-    const url = savedEndpoints().mcpUrl;
-    if (!url) return { ok: false as const, error: 'MCP server URL is empty.' };
+    // Either address will do: without an MCP server, the sync reads ComfyUI itself.
+    const saved = savedEndpoints();
+    if (!saved.mcpUrl && !saved.comfyOrigin) return { ok: false as const, error: 'Neither a ComfyUI address nor an MCP server address is set.' };
     const status = await syncService.runSync(getDatabase());
     return mcpReadOutcome(status);
   });

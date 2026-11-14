@@ -1,5 +1,6 @@
 import type { McpSession } from '../../shared/mcp/catalogSource';
 import { toolPayload } from '../../shared/mcp/catalogSource';
+import { joinServerPath, pathStyle } from '../../shared/mcp/serverPaths';
 import { isPackFilePath, isSideFilePath, McpRefusedError, SIDE_FILE_CHUNK_BYTES, SIDE_FILE_MAX_BYTES } from './readOnly';
 
 /**
@@ -14,12 +15,12 @@ export const PREVIEW_MAX_BYTES = SIDE_FILE_MAX_BYTES;
 
 /**
  * The absolute path of a file in a model folder, or null when the parts do not make a path the gate would pass
- * (no root, a Windows root, a name that climbs out of the folder).
+ * (no root, a name that climbs out of the folder). A root on Windows (`C:\\…`) is joined with its own separator.
  */
 export function sideFilePath(rootPath: string | null | undefined, filename: string | null | undefined): string | null {
-  if (!rootPath || !filename || !rootPath.startsWith('/')) return null;
-  const path = `${rootPath.replace(/\/+$/, '')}/${filename.replace(/^\/+/, '')}`;
-  return isSideFilePath(path) ? path : null;
+  if (!rootPath || !filename) return null;
+  const path = joinServerPath(rootPath, filename);
+  return path && isSideFilePath(path) ? path : null;
 }
 
 /** Base64 text of one chunk is at most this long; a longer answer is not the chunk that was asked for. */
@@ -55,9 +56,9 @@ export const README_HEAD_BYTES = 64 * 1024;
  * gate would pass (no root, a pack name that is not one folder, a root that is not a `custom_nodes` folder).
  */
 export function packFilePath(root: string | null | undefined, pack: string | null | undefined, file: string): string | null {
-  if (!root || !pack || !root.startsWith('/') || pack.includes('/')) return null;
-  const path = `${root.replace(/\/+$/, '')}/${pack}/${file}`;
-  return isPackFilePath(path) ? path : null;
+  if (!root || !pack || !pathStyle(root) || /[\\/]/.test(pack)) return null;
+  const path = joinServerPath(root, pack, file);
+  return path && isPackFilePath(path) ? path : null;
 }
 
 /**

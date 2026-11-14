@@ -27,6 +27,15 @@ export const renameNodeMutation = z.object({
   title: z.string().trim().min(1).max(500),
 });
 
+// ── Import look (IMPORT+NODES) ─────────────────────────────────────────────────────────────────────
+/** Collapse nodes to their title row, or open them again: the native `flags.collapsed`, as ComfyUI saves it. */
+export const collapseNodeMutation = z.object({
+  type: z.literal('collapse-node'),
+  nodeIds: z.array(z.string().min(1)).min(1).max(MOVE_NODES_MAX),
+  collapsed: z.boolean(),
+});
+// ── end import look ────────────────────────────────────────────────────────────────────────────────
+
 export const mutationSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('add-node'),
@@ -197,6 +206,7 @@ export const mutationSchema = z.discriminatedUnion('type', [
       z.object({ type: z.literal('remove-node'), nodeId: z.string().min(1) }),
       moveNodesMutation,
       renameNodeMutation,
+      collapseNodeMutation,
       z.object({
         type: z.literal('retarget-edge'),
         edgeId: z.string().min(1),
@@ -222,6 +232,7 @@ export const mutationSchema = z.discriminatedUnion('type', [
   // Layout
   moveNodesMutation,
   renameNodeMutation,
+  collapseNodeMutation,
 ]);
 
 export type GraphMutation = z.infer<typeof mutationSchema>;

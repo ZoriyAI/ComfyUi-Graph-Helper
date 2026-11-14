@@ -70,7 +70,8 @@ describe('manual placement', () => {
     expect(newNodeSize('SomethingNew', null, { parameters: { ckpt_name: 'a.safetensors' } }).height).toBe(55 + (4 + 28) + (9 + 30) + 10);
     // A class of a pack that the server reports with no ports at all stays without them.
     expect(newNodeSize('Note', { ...unread, classType: 'Note', pack: 'some-pack' })).toEqual({ width: 240, height: 65 });
-    expect(sizeHintsOf(PROMPT)).toEqual({ inputs: [{ name: 'text', widget: true, multiline: true }, { name: 'clip', widget: false, multiline: false }] });
+    // The widget order rides along: a node from a file keeps its values in widgets_values by it.
+    expect(sizeHintsOf(PROMPT)).toEqual({ inputs: [{ name: 'text', widget: true, multiline: true }, { name: 'clip', widget: false, multiline: false }], widgetOrder: PROMPT.widgetOrder });
     expect(sizeHintsOf(null)).toBeNull();
   });
 

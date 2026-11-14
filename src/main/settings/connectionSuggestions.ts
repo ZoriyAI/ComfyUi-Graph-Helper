@@ -2,7 +2,7 @@ import type Database from 'better-sqlite3';
 import type { AddressSuggestion, ConnectionSuggestions } from '../../shared/contracts/pickers';
 import { readState, reportedComfyUrl, writeState } from '../mcp/sync';
 import { readSettings } from './repository';
-import { getJson } from '../llm/modelList';
+import { checkComfy } from '../comfy/direct';
 
 /**
  * Settings ▸ Connection: addresses to pick from for the ComfyUI origin and the MCP URL, so nobody has to remember
@@ -98,13 +98,15 @@ export function assembleSuggestions(input: {
   };
 }
 
-/** A ComfyUI answering on this computer: `GET /system_stats` returns `{system:{…}}`. */
+/**
+ * A ComfyUI answering on this computer: `GET /system_stats` returns `{system:{…}}`. Asked through the read-only gate
+ * (comfy/gate.ts), each port within `timeoutMs`.
+ */
 export async function probeComfy(fetchImpl: typeof fetch, timeoutMs = PROBE_TIMEOUT_MS): Promise<string[]> {
   const found = await Promise.all(COMFY_PROBE_PORTS.map(async (port) => {
     const origin = `http://127.0.0.1:${port}`;
-    const read = await getJson(fetchImpl, `${origin}/system_stats`, {}, timeoutMs);
-    const system = read.ok && read.json && typeof read.json === 'object' ? (read.json as Record<string, unknown>).system : null;
-    return system && typeof system === 'object' ? origin : null;
+    const read = await checkComfy(origin, fetchImpl, timeoutMs);
+    return read.ok ? origin : null;
   }));
   return found.filter((origin): origin is string => origin !== null);
 }

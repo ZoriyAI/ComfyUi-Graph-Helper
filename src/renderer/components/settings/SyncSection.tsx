@@ -12,6 +12,7 @@ import Switch from '../../ui/Switch';
 import settingsStyles from './SettingsPanel.module.css';
 import { pauseEnrichment, requestSync } from '../sync/SyncIndicator';
 import { autoSyncAllowed, type AutoDraft } from './settingsDraft';
+import { SYNC_INTERVAL_DEFAULT_MINUTES } from '../../../shared/knowledge/schemas';
 import { clampInterval, formatSyncTime, MIN_INTERVAL_MINUTES, syncView } from '../sync/syncView';
 
 /**
@@ -46,11 +47,11 @@ export default function SyncSection({
   const language = i18n.language === 'en' ? 'en' : 'ru';
   const status = useKnowledgeStore((state) => state.sync);
   const view = syncView(status);
-  const [interval, setIntervalDraft] = useState(String(status?.auto.intervalMinutes ?? MIN_INTERVAL_MINUTES));
+  const [interval, setIntervalDraft] = useState(String(status?.auto.intervalMinutes ?? SYNC_INTERVAL_DEFAULT_MINUTES));
   const [note, setNote] = useState('');
   // The interval field changed what was typed (out of range, not a step): say so, do not swap it silently.
   const [clampNote, setClampNote] = useState('');
-  const auto: AutoDraft = autoDraft ?? status?.auto ?? { enabled: false, intervalMinutes: MIN_INTERVAL_MINUTES };
+  const auto: AutoDraft = autoDraft ?? status?.auto ?? { enabled: false, intervalMinutes: SYNC_INTERVAL_DEFAULT_MINUTES };
 
   useEffect(() => {
     startSyncSubscription();

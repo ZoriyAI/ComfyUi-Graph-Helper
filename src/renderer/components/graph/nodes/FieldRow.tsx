@@ -5,6 +5,7 @@ import { commitField } from '../../fields/commitField';
 import { controlKind, type FieldEntry } from '../../fields/fieldModel';
 import { typeColor } from '../lib/typeColors';
 import { PortHandle } from './PortHandle';
+import { isServiceData } from '../../../../shared/workflow/comfyLook';
 import styles from './Node.module.css';
 
 interface FieldRowProps {
@@ -41,6 +42,9 @@ export default function FieldRow({ nodeId, field, linked, focusable, live, disab
       <span className={`${styles.fieldName} node-field-name`} title={field.tooltip ?? field.name}>{field.name}</span>
       {linked ? (
         <span className={styles.linkedMark} title={String(t('field.linkedHint'))}>{t('field.linked')}</span>
+      ) : !field.spec && isServiceData(field.value) ? (
+        // An object a node keeps for itself (a video preview's state): not something a person types.
+        <span className={styles.serviceData} title={String(t('importLook.serviceDataHint'))} data-service-data="true">{t('importLook.serviceData')}</span>
       ) : (
         <FieldControl
           nodeId={nodeId}

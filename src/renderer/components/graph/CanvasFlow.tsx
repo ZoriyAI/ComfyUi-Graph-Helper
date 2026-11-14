@@ -38,6 +38,7 @@ import TourLayer from './layers/TourLayer';
 import DescriptionLayer from './layers/DescriptionLayer';
 import BuildLayer from './layers/BuildLayer';
 import LiveBuildStrip from './layers/LiveBuildStrip';
+import ImportLookLayer from './layers/ImportLookLayer';
 import GraphContextMenu from './GraphContextMenu';
 import { CanvasViewContext, type CanvasView } from './CanvasContext';
 import { useCanvasStore } from './canvasStore';
@@ -538,6 +539,7 @@ export default function CanvasFlow() {
             <TourLayer />
             <BuildLayer />
             <LiveBuildStrip />
+            <ImportLookLayer mode={mode} />
           </ReactFlow>
         </div>
       </GraphContextMenu>

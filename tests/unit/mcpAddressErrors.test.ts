@@ -83,7 +83,7 @@ describe('what is wrong with an MCP address, found by asking it', () => {
     const fake = await startFakeMcp();
     closers.push(fake.close);
     const bare = fake.url.replace('http://', '');
-    expect(await detectMcpAuth(bare)).toEqual({ ok: true, mode: 'none', tools: expect.any(Number), completedUrl: fake.url });
+    expect(await detectMcpAuth(bare)).toEqual({ ok: true, mode: 'none', tools: expect.any(Number), profile: 'catalog', completedUrl: fake.url });
   });
 
   it('says that the address is ComfyUI itself', async () => {

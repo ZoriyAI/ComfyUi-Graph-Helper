@@ -16,7 +16,7 @@ export interface SyncView {
   /** 0..1 while a phase with a known total runs; null when indeterminate or idle. */
   fraction: number | null;
   /**
-   * 'noUrl' when the server address is missing. 'noToken' when the server has asked for a sign-in and neither a token
+   * 'noUrl' when neither address is set (ComfyUI's own, or an MCP server's). 'noToken' when the server has asked for a sign-in and neither a token
    * nor a browser sign-in is held. Whether credentials are needed is the server's call, so a run is never blocked
    * before the server has answered, and a server that accepted an anonymous connection never blocks.
    */
@@ -62,7 +62,10 @@ export function syncView(status: SyncStatus | null): SyncView {
   // A token is the chosen access and the server wanted one, but none is held (it lived until the app closed): the
   // next run cannot work, so the indicator says so at start instead of a green left from before.
   const tokenGone = choice === 'token' && status?.tokenHeld !== true && status?.authMode === 'token';
-  const blocked = !status || status.mcpUrl.trim() === '' ? 'noUrl' : (noCredentials && status.lastError === NEEDS_SIGN_IN) || tokenGone ? 'noToken' : null;
+  // Nothing to read until there is an address: ComfyUI's own, or an MCP server's.
+  const noAddress = !status || (status.mcpUrl.trim() === '' && (status.comfyOrigin ?? '').trim() === '');
+  const viaMcp = status != null && status.mcpUrl.trim() !== '';
+  const blocked = noAddress ? 'noUrl' : viaMcp && ((noCredentials && status.lastError === NEEDS_SIGN_IN) || tokenGone) ? 'noToken' : null;
   let hintKey: string | null = null;
   if (blocked === 'noUrl') hintKey = 'sync.noUrl';
   else if (blocked === 'noToken') hintKey = choice === 'token' ? 'sync.needsToken' : choice === 'oauth' ? 'sync.needsBrowser' : 'sync.needsChoice';
@@ -138,4 +141,23 @@ export function formatSyncTime(timestamp: number, language: 'en' | 'ru'): string
 export function formatDuration(ms: number): string {
   const seconds = ms / 1000;
   return seconds < 10 ? seconds.toFixed(1) : String(Math.round(seconds));
+}
+
+/**
+ * Where the library was read from, in plain words: the i18n key and the host it names ('' when none). Null before
+ * the first read.
+ */
+export function sourceSentence(status: SyncStatus | null): { key: string; host: string } | null {
+  const source = status?.librarySource ?? null;
+  if (!status || !source) return null;
+  const host = (address: string | null | undefined): string => {
+    try {
+      return address ? new URL(address).host : '';
+    } catch {
+      return '';
+    }
+  };
+  if (source === 'comfy') return { key: status.mcpProfile === 'unknown' ? 'sync.source.comfyInstead' : 'sync.source.comfy', host: host(status.comfyOrigin) };
+  if (source === 'mcp+comfy') return { key: 'sync.source.mcpAndComfy', host: host(status.comfyOrigin) };
+  return { key: 'sync.source.mcp', host: host(status.libraryUrl ?? status.mcpUrl) };
 }

@@ -1,3 +1,4 @@
+import { normalServerFolder, pathParts } from '../../shared/mcp/serverPaths';
 import type { McpModelFile, McpSession, PagedItems } from '../../shared/mcp/catalogSource';
 import { isModelFileIn, McpPageError, readAllPages, toolPayload } from '../../shared/mcp/catalogSource';
 import { SideFileIndex, sideFileOf } from '../../shared/knowledge/sidecar';
@@ -142,7 +143,7 @@ const MAX_CUSTOM_NODE_ROOTS = 4;
 
 /**
  * The folders ComfyUI loads node packs from, as `studio_capabilities` section roots names them
- * (`roots.custom_node_roots`, or `roots.model_categories.custom_nodes.roots`). Only absolute POSIX paths of a
+ * (`roots.custom_node_roots`, or `roots.model_categories.custom_nodes.roots`). Only absolute paths (POSIX or Windows) of a
  * folder named `custom_nodes` count: that is the only place the read-only gate lets the app read a pack's files.
  * An empty list when the server does not say. Transport errors and refusals are thrown.
  */
@@ -156,8 +157,8 @@ export async function readCustomNodeRoots(session: McpSession): Promise<string[]
   ];
   const found: string[] = [];
   for (const item of listed) {
-    const path = typeof item === 'string' ? item.replace(/\/+$/, '') : '';
-    if (!path.startsWith('/') || !path.endsWith('/custom_nodes') || path.includes('\\') || found.includes(path)) continue;
+    const path = normalServerFolder(item);
+    if (!path || pathParts(path).at(-1) !== 'custom_nodes' || found.includes(path)) continue;
     found.push(path);
   }
   return found.slice(0, MAX_CUSTOM_NODE_ROOTS);

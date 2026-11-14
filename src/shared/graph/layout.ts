@@ -1,3 +1,5 @@
+import { collapsedWidth, editorKind, FILE_BOX, fileBox, isCollapsed, promotedFields, REROUTE_BOX, savedValues, shownTitle } from '../workflow/comfyLook';
+
 /**
  * Graph layout without dependencies: a layered left-to-right arrangement (data flows from loaders on the left to
  * the output on the right, as people read a ComfyUI graph) and a free-slot search, so no node is ever placed on
@@ -59,6 +61,10 @@ export interface SizeHints {
   inputs?: ReadonlyArray<{ name: string; widget: boolean; multiline?: boolean }>;
   /** For a subgraph card: the name of the subgraph it holds, when the caller knows it. */
   subgraphName?: string;
+  /** The class is not in the person's ComfyUI: the card lists the values the file saved. */
+  missing?: boolean;
+  /** The catalog's widget order: an imported node keeps its values in widgets_values by this order. */
+  widgetOrder?: ReadonlyArray<string>;
 }
 
 const WIDGET_TYPES = new Set(['INT', 'FLOAT', 'STRING', 'BOOLEAN', 'COMBO']);
@@ -94,6 +100,11 @@ export const NODE_BOX = {
   subgraphName: 26,
   /** The text box of a Note / MarkdownNote node (fixed height, it scrolls): its top margin and its height. */
   noteText: 6 + 92,
+  /** The line of a Set / Get that names its constant. */
+  constant: 26,
+  /** The saved values of a node that is not installed: the list's top room, and each value's row. */
+  savedTop: 8,
+  savedValue: 20,
 } as const;
 
 /** Frontend-only ComfyUI nodes whose first widget value is their text. */
@@ -126,6 +137,7 @@ type SizedData = {
   comfyType?: unknown;
   subgraphId?: unknown;
   comfy?: unknown;
+  importedLinks?: unknown;
 };
 
 /**
@@ -135,11 +147,33 @@ type SizedData = {
  * neighbour.
  */
 export function estimateNodeSize(data: SizedData | null | undefined, hints?: SizeHints | null): Size {
+  // What the file says of the node wins over the card's own rule (shared/workflow/comfyLook.ts, nodes/NodeCard.tsx):
+  // a Reroute is a dot, a collapsed node one title row, and a node from a file keeps the file's width and at least
+  // its height.
+  if (editorKind(data?.comfyType) === 'reroute' && data?.kind !== 'subgraph-instance') return { ...REROUTE_BOX };
+  if (isCollapsed(data)) return { width: collapsedWidth(shownTitle(data)), height: FILE_BOX.collapsedHeight };
+  const box = fileBox(data);
+  const own = estimateCardSize(data, hints);
+  return box ? { width: box.width, height: Math.max(own.height, box.minHeight) } : own;
+}
+
+function estimateCardSize(data: SizedData | null | undefined, hints?: SizeHints | null): Size {
   const inputs = Array.isArray(data?.inputs) ? data!.inputs as Array<{ name?: unknown; dataType?: unknown }> : [];
   const outputs = Array.isArray(data?.outputs) ? data!.outputs as unknown[] : [];
   const parameters = data?.parameters && typeof data.parameters === 'object' ? data.parameters as Record<string, unknown> : {};
   const known = new Map((hints?.inputs ?? []).map((input) => [input.name, input]));
-  const holds = (name: string) => Object.prototype.hasOwnProperty.call(parameters, name);
+  // A value the node holds: in its parameters, or (a node from a file) in widgets_values at the catalog's place.
+  const saved = data?.comfy && typeof data.comfy === 'object' ? (data.comfy as { widgets_values?: unknown }).widgets_values : undefined;
+  const order = hints?.widgetOrder;
+  const inFile = (name: string) => {
+    if (Array.isArray(saved)) {
+      const at = order ? order.indexOf(name) : -1;
+      return at >= 0 && at < saved.length && saved[at] !== null && saved[at] !== undefined;
+    }
+    const values = saved && typeof saved === 'object' ? saved as Record<string, unknown> : null;
+    return values !== null && values[name] !== null && values[name] !== undefined;
+  };
+  const holds = (name: string) => Object.prototype.hasOwnProperty.call(parameters, name) || inFile(name);
   let links = 0;
   let fields = 0;
   let textBoxes = 0;
@@ -169,11 +203,27 @@ export function estimateNodeSize(data: SizedData | null | undefined, hints?: Siz
     seen.add(name);
     fields += 1;
   }
+  // A subgraph copy draws the fields its author promoted (nodes/EditorNodes.tsx PromotedFields) below its
+  // own fields; the copy's own promoted inputs are drawn there, not as sockets.
+  let extraFields = 0;
+  if (data?.kind === 'subgraph-instance') {
+    const promoted = promotedFields(data);
+    const own = new Set(promoted.filter((field) => field.nodeId === '-1').map((field) => field.name));
+    for (const port of inputs) if (own.has(typeof port?.name === 'string' ? port.name : '') && !seen.has(String(port.name))) links -= 1;
+    extraFields = promoted.length;
+  }
+  // A Primitive draws its value and its "after each run" switch; a node that is not installed lists its saved
+  // values (one row each); a Set or Get names its constant.
+  const kind = data?.kind === 'subgraph-instance' ? null : editorKind(data?.comfyType);
+  if (kind === 'primitive') extraFields = Math.min(2, savedValues(data).length);
   const note = Array.isArray(data?.annotations) && typeof data!.annotations[0] === 'string' ? data!.annotations[0] as string : '';
   let height = NODE_BOX.header + NODE_BOX.bottom;
   if (links > 0) height += NODE_BOX.list + links * NODE_BOX.port;
   if (outputs.length > 0) height += NODE_BOX.list + outputs.length * NODE_BOX.port;
   if (fields > 0) height += NODE_BOX.fieldsTop + fields * NODE_BOX.field + textBoxes * NODE_BOX.textBox;
+  if (extraFields > 0) height += NODE_BOX.fieldsTop + extraFields * NODE_BOX.field;
+  if (kind === 'set' || kind === 'get') height += NODE_BOX.constant;
+  if (hints?.missing) height += NODE_BOX.savedTop + savedValues(data).length * NODE_BOX.savedValue;
   if (note) height += NODE_BOX.note + Math.ceil((note.length + 9) / NODE_BOX.noteChars) * NODE_BOX.noteLine;
   if (noteTextOf(data)) height += NODE_BOX.noteText;
   if (data?.kind === 'subgraph-instance') {

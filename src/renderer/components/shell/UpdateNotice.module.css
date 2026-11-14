@@ -1,0 +1,31 @@
+/* The quiet update line in the status bar: dim text, two text links in the action colour, a small close. */
+.notice {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  padding: 0 4px;
+  color: var(--text-dim);
+  font-size: var(--text-xs);
+}
+.text { padding-right: 4px; }
+.link,
+.close {
+  display: inline-flex;
+  align-items: center;
+  height: 16px;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  font-size: var(--text-xs);
+  line-height: 14px;
+  cursor: pointer;
+}
+.link { color: var(--accent); }
+.close { padding: 0 4px; color: var(--text-faint); }
+.link:hover,
+.close:hover { background: var(--surface-hover); }
+.close:hover { color: var(--text); }
+.link:focus-visible,
+.close:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }

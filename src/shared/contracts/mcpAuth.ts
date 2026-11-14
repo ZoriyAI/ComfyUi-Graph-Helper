@@ -17,11 +17,17 @@ export type McpOAuthLoginResult = { ok: true; expiresAt?: number; anonymous?: bo
  * credentials is accepted (with the number of tools it lists), 'oauth' when it answers 401 and publishes OAuth
  * metadata (browser sign-in), 'token' when it answers 401 without any (a pasted token). Failures are fixed sentences.
  */
+/**
+ * The kind of MCP server, from its tool list (main/mcp/profiles.ts); null when the app does not know how to read it.
+ * Absent when the tools could not be listed (a sign-in is needed first).
+ */
+export type McpProfileName = 'catalog' | 'modelList' | 'checkpointList';
+
 export type McpAuthProbe = (
-  | { ok: true; mode: 'none'; tools: number }
+  | { ok: true; mode: 'none'; tools: number; profile?: McpProfileName | null }
   | { ok: true; mode: 'oauth' }
   /** `tokenAccepted`: a held token was tried against the 401; absent when none was held. */
-  | { ok: true; mode: 'token'; tokenAccepted?: boolean; tools?: number }
+  | { ok: true; mode: 'token'; tokenAccepted?: boolean; tools?: number; profile?: McpProfileName | null }
   | { ok: false; error: string }
 ) & {
   /**

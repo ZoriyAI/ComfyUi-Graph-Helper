@@ -1,5 +1,6 @@
 import type { FieldSpec, FieldTest, Lesson, LinkSpec, RoleSpec } from './engine';
 import { IMAGE_MODEL_AFTER, IMAGE_MODEL_LESSONS, IMAGE_MODEL_PATH, type LessonGroup } from './sets/image-models';
+import { VIDEO_LESSON_AFTER, VIDEO_LESSONS, VIDEO_PATH } from './sets/video';
 
 /**
  * The lessons, as what must be on the canvas after each step. The words of a lesson (what to do and why) are in
@@ -981,6 +982,7 @@ export const LESSONS: readonly Lesson[] = [
   wrapper, wrapperImage, wrapperVace, wrapperAnimate, wrapperUni, wrapperTalk, wrapperDuo, wrapperFantasy, wrapperOvi, wrapperRecam,
   twoModels, adult,
   ...IMAGE_MODEL_LESSONS,
+  ...VIDEO_LESSONS,
 ];
 
 /** Lessons that stand on the graph of another: said in the list, not enforced. */
@@ -997,11 +999,13 @@ export const LESSON_AFTER: Readonly<Record<string, string[]>> = {
   'two-models': ['video-image'],
   adult: ['video-text'],
   ...IMAGE_MODEL_AFTER,
+  ...VIDEO_LESSON_AFTER,
 };
 
 /** Where a lesson stands on the learning path: its group (an id and its title in both languages) and what it goes on from. */
 export const LESSON_PATH: Readonly<Record<string, { group: LessonGroup; follows: string[] }>> = {
   ...IMAGE_MODEL_PATH,
+  ...VIDEO_PATH,
 };
 
 export function lessonById(id: string): Lesson | null {

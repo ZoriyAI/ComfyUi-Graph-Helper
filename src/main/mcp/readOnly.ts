@@ -1,13 +1,13 @@
 import { z } from 'zod';
 import type { McpSession } from '../../shared/mcp/catalogSource';
+import { isPlainRelativeName, isPlainServerPath, isUnderServerFolder, normalServerFolder, pathParts } from '../../shared/mcp/serverPaths';
 
 const name = z.string().min(1).max(1000);
 /**
- * A folder or file name the server listed: never absolute, never climbing with `..`, no control character or
- * backslash. Subfolders (`sub/file.safetensors`) are fine.
+ * A folder or file name the server listed: never absolute (`/…` or `C:\…`), never climbing with `..`, no control
+ * character. Subfolders are fine, written `sub/file.safetensors` or, from a server on Windows, `sub\file.safetensors`.
  */
-const listedName = name.refine((value) => !value.startsWith('/') && !/[\u0000-\u001f\u007f\\]/.test(value)
-  && value.split('/').every((part) => part !== '..' && part !== '.'));
+const listedName = name.refine(isPlainRelativeName);
 const limit = z.number().int().min(1).max(1000).optional();
 const cursor = z.string().min(1).max(2000).optional();
 
@@ -34,15 +34,12 @@ export function isModelFilePath(path: string): boolean {
   return MODEL_FILE_NAME.test(path) && isPlainAbsolutePath(path);
 }
 
-/** Longest path the app asks about; control characters (NUL, newline, …) are never part of one. */
-const PATH_MAX = 1024;
-const CONTROL = /[\u0000-\u001f\u007f]/;
-
-/** An absolute POSIX path inside some folder, with no empty, `.` or `..` part, no NUL and no backslash. */
+/**
+ * An absolute path inside some folder on the server's machine (`/srv/…` or `C:\…`), with no empty, `.` or `..`
+ * part and no control character (serverPaths.ts).
+ */
 function isPlainAbsolutePath(path: string): boolean {
-  if (!path.startsWith('/') || path.length > PATH_MAX || CONTROL.test(path) || path.includes('\\')) return false;
-  const parts = path.split('/').slice(1);
-  return parts.length >= 2 && parts.every((part) => part !== '' && part !== '.' && part !== '..');
+  return isPlainServerPath(path, 2);
 }
 
 /**
@@ -54,10 +51,8 @@ function isPlainAbsolutePath(path: string): boolean {
 export const PACK_FILE_NAMES = ['pyproject.toml', 'README.md', 'readme.md', 'README.MD', 'Readme.md'] as const;
 
 export function isPackFilePath(path: string): boolean {
-  if (!path.startsWith('/') || path.length > PATH_MAX || CONTROL.test(path) || path.includes('\\')) return false;
-  const parts = path.split('/').slice(1);
-  if (parts.length < 3 || !parts.every((part) => part !== '' && part !== '.' && part !== '..')) return false;
-  const [root, , file] = parts.slice(-3);
+  if (!isPlainServerPath(path, 3)) return false;
+  const [root, , file] = pathParts(path).slice(-3);
   return root === 'custom_nodes' && (PACK_FILE_NAMES as readonly string[]).includes(file);
 }
 
@@ -78,6 +73,8 @@ export const READ_ONLY_SCHEMAS = {
   list_local_models: z.object({ action: z.literal('list'), model_type: listedName.optional() }).strict(),
   model_metadata: z.object({ action: z.literal('read'), category: listedName, name: listedName }).strict(),
   comfy_api: z.object({ method: z.literal('GET'), route: z.enum(['/object_info', '/system_stats']) }).strict(),
+  // The checkpoint list of a server of the comfyui-mcp-server family: no arguments, it only lists names.
+  list_models: z.object({}).strict(),
   // Settings ▸ Assistant: the Ollama servers the MCP server runs and the models each one lists. Both only read;
   // ollama_pull / ollama_load / ollama_unload / ollama_chat are not listed and stay refused.
   ollama_targets: z.object({}).strict(),
@@ -104,7 +101,7 @@ export const READ_ONLY_SCHEMAS = {
 
 /**
  * The only MCP tools this app may call, each with the argument shapes that keep it read-only.
- * The MCP server the app was built against also exposes tools that install, download, delete, write metadata, or queue prompts;
+ * A catalog server also exposes tools that install, download, delete, write metadata, or queue prompts;
  * none of them is listed here, so none can be called: the app only reads.
  */
 export const READ_ONLY_TOOLS: Readonly<Record<string, (args: Record<string, unknown>) => boolean>> = Object.fromEntries(
@@ -199,18 +196,14 @@ export function setKnownRootsSource(source: (() => Iterable<string>) | null): vo
   knownRootsSource = source;
 }
 
-/** An absolute POSIX folder with no `.`/`..` part, without its trailing slash; null for anything else. */
+/** An absolute folder (POSIX or Windows) with no `.`/`..` part, without its trailing separator; null otherwise. */
 export function normalRoot(value: unknown): string | null {
-  if (typeof value !== 'string') return null;
-  const root = value.replace(/\/+$/, '');
-  if (!root.startsWith('/') || root.length < 2 || root.length > 1024 || /[\u0000-\u001f\u007f\\]/.test(root)) return null;
-  const parts = root.split('/').slice(1);
-  return parts.every((part) => part !== '' && part !== '.' && part !== '..') ? root : null;
+  return normalServerFolder(value);
 }
 
-/** True when `path` lies inside `root` (not the root itself). */
+/** True when `path` lies inside `root` (not the root itself); a Windows path compares without case. */
 export function isUnderRoot(path: string, root: string): boolean {
-  return path.startsWith(`${root}/`) && path.length > root.length + 1;
+  return isUnderServerFolder(path, root);
 }
 
 /**
@@ -319,8 +312,8 @@ export function readOnlySession(session: McpSession, options: ReadOnlySessionOpt
     if (normal) learned.add(normal);
   }
   let prefix: string | null = null;
-  let listing: Promise<Array<{ name: string }>> | null = null;
-  const list = (): Promise<Array<{ name: string }>> => {
+  let listing: Promise<Array<{ name: string; inputSchema?: unknown }>> | null = null;
+  const list = (): Promise<Array<{ name: string; inputSchema?: unknown }>> => {
     listing ??= session.listTools().then((tools) => {
       prefix = detectToolPrefix(tools.map((tool) => tool.name));
       if (!prefix) return tools;

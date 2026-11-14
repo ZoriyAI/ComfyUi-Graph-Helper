@@ -69,7 +69,7 @@ test('access to the server: choose, check, and detect after save', async () => {
     await dialog.getByRole('textbox', { name: 'Адрес MCP-сервера', exact: true }).fill(fake.url);
     await check.click();
     await expect(dialog.getByRole('status').filter({ hasText: 'Сервер отвечает без входа' }))
-      .toHaveText(/^Сервер отвечает без входа\. Выбрано «Без входа»\.$/);
+      .toHaveText(/^Сервер отвечает без входа\. Выбрано «Без входа»\. Этот MCP-сервер даёт весь каталог: ноды, паки, модели, описания и отпечатки\.$/);
     await expect(access.getByRole('radio', { name: 'Без входа', exact: true })).toBeChecked();
     await expect(access.getByText('Выбор вступит в силу после «Сохранить настройки».')).toBeVisible();
     await window.screenshot({ path: artifact('mcp-access-checked.png') }).catch(() => undefined);
@@ -88,7 +88,7 @@ test('access to the server: choose, check, and detect after save', async () => {
     await dialog.getByRole('textbox', { name: 'Адрес MCP-сервера', exact: true }).fill(fake.url);
     await dialog.getByRole('button', { name: 'Сохранить настройки' }).click();
     await expect(dialog).toHaveCount(0);
-    await expect(window.getByText(/^Сервер отвечает без входа\. Выбрано «Без входа»\.$/).first()).toBeVisible({ timeout: 15000 });
+    await expect(window.getByText(/^Сервер отвечает без входа\. Выбрано «Без входа»\. Этот MCP-сервер даёт весь каталог: ноды, паки, модели, описания и отпечатки\.$/).first()).toBeVisible({ timeout: 15000 });
     const stored = await window.evaluate(async () => {
       const api = (window as unknown as { electronAPI: { getSettings: () => Promise<{ values?: { mcpAuth?: string } }> } }).electronAPI;
       return (await api.getSettings()).values?.mcpAuth;

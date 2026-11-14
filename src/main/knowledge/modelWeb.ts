@@ -1,3 +1,4 @@
+import { joinServerPath } from '../../shared/mcp/serverPaths';
 import type Database from 'better-sqlite3';
 import type { ModelLookupResult } from '../../shared/contracts/knowledge';
 import { toolPayload, type McpSession } from '../../shared/mcp/catalogSource';
@@ -144,7 +145,7 @@ export class ModelLookupService {
       const row = this.row(directory, name);
       if (!row) return { ok: true, detail: null };
       if (row.sha256) return { ok: true, detail: modelDetail(this.deps.db(), directory, name) };
-      const path = row.root_path && row.root_path.startsWith('/') ? `${row.root_path.replace(/\/+$/, '')}/${name.replace(/^\/+/, '')}` : null;
+      const path = row.root_path ? joinServerPath(row.root_path, name) : null;
       if (!path || !isModelFilePath(path)) return this.failed('no-hash', directory, name);
       let session: McpSession | null = null;
       try {

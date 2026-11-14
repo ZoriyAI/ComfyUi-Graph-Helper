@@ -15,6 +15,7 @@ import {
 import { columnsOf, lessonSpot, type FlowRect } from '../../src/shared/lessons/flow';
 import { LESSONS, LESSON_AFTER, lessonById } from '../../src/shared/lessons/lessons';
 import { imageModelLessonSpecs } from '../fixtures/mcp/classes/image-models';
+import { videoSetSpecs } from '../fixtures/mcp/classes/video';
 
 /**
  * ComfyUI's own nodes as far as the lessons use them: inputs with the value a fresh node starts with (link
@@ -23,6 +24,8 @@ import { imageModelLessonSpecs } from '../fixtures/mcp/classes/image-models';
  */
 type Spec = { inputs: Array<[string, string, unknown?]>; outputs: Array<[string, string]> };
 const CLASSES: Record<string, Spec> = {
+  // The classes of the video set (sets/video.ts); the ones written out below take precedence.
+  ...videoSetSpecs(),
   CheckpointLoaderSimple: { inputs: [['ckpt_name', 'COMBO', 'first.safetensors']], outputs: [['MODEL', 'MODEL'], ['CLIP', 'CLIP'], ['VAE', 'VAE']] },
   CLIPTextEncode: { inputs: [['text', 'STRING', ''], ['clip', 'CLIP']], outputs: [['CONDITIONING', 'CONDITIONING']] },
   EmptyLatentImage: { inputs: [['width', 'INT', 512], ['height', 'INT', 512], ['batch_size', 'INT', 1]], outputs: [['LATENT', 'LATENT']] },
@@ -1056,7 +1059,10 @@ describe('the words of the lessons', () => {
     const { lessonWords } = await import('../../src/shared/lessons/texts');
     const inputsOf = (classType: string) => CLASSES[classType].inputs.map(([name]) => name);
     // A word in backticks that is an input of some node is a field; the rest are values and file names.
-    const fields = new Set(Object.keys(CLASSES).flatMap(inputsOf));
+    // Three words are values in some lessons and fields of a pack's node in others: a precision (`fp16`, a field
+    // of ProPainter), and the block swapping that WanVideoWrapper and SeedVR2 both name.
+    const notFields = new Set(['fp16', 'offload_device', 'blocks_to_swap']);
+    const fields = new Set(Object.keys(CLASSES).flatMap(inputsOf).filter((word) => !notFields.has(word)));
     // What a lesson's graph is made of: its own nodes, those of the lessons it stands on, and those of a lesson
     // its text sends the reader to by name. The samplers of a video graph call the seed `noise_seed`; a lesson
     // on that graph that said `seed` would send a person to a field that is not there.

@@ -105,7 +105,7 @@ afterEach(() => vi.restoreAllMocks());
 
 describe('read-only MCP allowlist', () => {
   it('allows only reading actions and refuses everything else at the session', async () => {
-    expect(Object.keys(READ_ONLY_TOOLS).sort()).toEqual(['comfy_api', 'list_local_models', 'model_metadata', 'models', 'ollama_models', 'ollama_targets', 'studio_capabilities', 'studio_info', 'workspace_files']);
+    expect(Object.keys(READ_ONLY_TOOLS).sort()).toEqual(['comfy_api', 'list_local_models', 'list_models', 'model_metadata', 'models', 'ollama_models', 'ollama_targets', 'studio_capabilities', 'studio_info', 'workspace_files']);
     // workspace_files can write, patch, move and trash. Only a read of a file a model manager keeps next to a
     // model passes: its description or its preview, as exact bytes, by a path that does not climb.
     const side = { action: 'read', absolute_path: '/srv/models/loras/style.metadata.json', encoding: 'base64' };
@@ -119,7 +119,7 @@ describe('read-only MCP allowlist', () => {
     }
     for (const absolute_path of [
       '/srv/models/loras/style.safetensors', '/home/someone/.ssh/id_rsa', '/srv/app/.env', '/srv/app/config.json', '/srv/app/settings.yaml',
-      '/srv/models/../../etc/passwd.png', '/srv/models/./a.png', '/srv/models//a.png', 'relative/a.png', 'C:\\models\\a.png', '/a.png',
+      '/srv/models/../../etc/passwd.png', '/srv/models/./a.png', '/srv/models//a.png', 'relative/a.png', 'C:\\models\\..\\a.png', 'C:\\a.png', 'C:a.png', '\\\\server\\share\\a.png', '/srv/models\\a.png', '/a.png',
       '/srv/models/loras/a.png\0.safetensors', '/srv/models/loras/metadata.json.txt',
     ]) {
       expect(isReadOnlyCall('workspace_files', { ...side, absolute_path }), absolute_path).toBe(false);
@@ -167,7 +167,10 @@ describe('read-only MCP allowlist', () => {
       expect(read(`/srv/comfyui/custom_nodes/ComfyUI-KJNodes/${file}`), file).toBe(true);
     }
     // A pack folder that is a symlink elsewhere is still read by the path under custom_nodes.
-    expect(read('/home/owner/ComfyUI/custom_nodes/rgthree-comfy/pyproject.toml')).toBe(true);
+    expect(read('/home/someone/ComfyUI/custom_nodes/rgthree-comfy/pyproject.toml')).toBe(true);
+    // A ComfyUI on Windows names its folders with a drive letter and backslashes (or forward slashes).
+    expect(read('C:\\ComfyUI\\custom_nodes\\ComfyUI-KJNodes\\README.md')).toBe(true);
+    expect(read('D:/AI/ComfyUI/custom_nodes/rgthree-comfy/pyproject.toml')).toBe(true);
     for (const path of [
       // Other files of a pack: its code, its settings, its docs, a README deeper in it.
       '/srv/comfyui/custom_nodes/ComfyUI-KJNodes/__init__.py',
@@ -193,7 +196,8 @@ describe('read-only MCP allowlist', () => {
       '/srv/comfyui/custom_nodes//README.md',
       '/srv/comfyui/custom_nodes/ComfyUI-KJNodes//README.md',
       'srv/comfyui/custom_nodes/ComfyUI-KJNodes/README.md',
-      'C:\\ComfyUI\\custom_nodes\\ComfyUI-KJNodes\\README.md',
+      'C:\\ComfyUI\\custom_nodes\\..\\README.md',
+      'C:\\ComfyUI\\custom_nodes\\ComfyUI-KJNodes\\docs\\README.md',
       '/srv/comfyui/custom_nodes/ComfyUI-KJNodes\\x/README.md',
       '/srv/comfyui/custom_nodes/ComfyUI-KJNodes/README.md\0',
       '/custom_nodes/README.md',

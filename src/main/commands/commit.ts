@@ -26,6 +26,7 @@ import {
   type ProcessMeta,
 } from '../../shared/components/model';
 import { DESKTOP_PROJECT_ID } from '../../shared/project';
+import { withCollapsed } from '../../shared/workflow/comfyLook';
 import { parseNativeProject } from '../../shared/native-project';
 import type { GroupRecord, SubgraphDefinition } from '../../shared/graph/subgraphs';
 import { applyGraphOp, blankDocument, GraphOpError, Ids, isGraphOp } from './graphOps';
@@ -511,6 +512,20 @@ function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutat
     const comfy = node.data.comfy && typeof node.data.comfy === 'object' ? { ...node.data.comfy, title: payload.title } : undefined;
     node.data = { ...node.data, title: payload.title, ...(comfy ? { comfy } : {}) };
     return { snapshot: { nodes, edges, document: snapshot.document }, result: { nodeId: payload.nodeId, title: payload.title } };
+  }
+  // ── Import look: collapse or open a node (native flags.collapsed; the other flags stay). ──
+  if (payload.type === 'collapse-node') {
+    const wanted = new Set(payload.nodeIds);
+    const found = nodes.filter((item) => wanted.has(String(item.id)));
+    if (found.length !== wanted.size) throw new CommandSignal('rejected', { error: 'Node was not found.' });
+    for (const node of found) {
+      const base = node.data.comfy && typeof node.data.comfy === 'object' ? node.data.comfy : null;
+      const comfy = base
+        ? { ...base, flags: withCollapsed(base.flags, payload.collapsed) }
+        : { id: /^\d+$/.test(String(node.id)) ? Number(node.id) : node.id, type: node.data?.comfyType, pos: [node.position?.x ?? 0, node.position?.y ?? 0], size: [200, 80], flags: withCollapsed({}, payload.collapsed), order: 0, mode: 0, properties: {} };
+      node.data = { ...node.data, comfy };
+    }
+    return { snapshot: { nodes, edges, document: snapshot.document }, result: { nodeIds: payload.nodeIds, collapsed: payload.collapsed } };
   }
   // ── Layout: an arrangement or a tidy moves many nodes in one revision. ──
   if (payload.type === 'move-nodes') {

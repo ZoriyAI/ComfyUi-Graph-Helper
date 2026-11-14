@@ -288,6 +288,18 @@ export interface SyncStatus {
    * until the new address is read. Optional for older callers.
    */
   libraryElsewhere?: boolean;
+  /** Settings ▸ Connection ▸ ComfyUI address ('' when not set). Optional for older callers. */
+  comfyOrigin?: string;
+  /**
+   * What the library was last read from: ComfyUI's own address ('comfy'), an MCP server ('mcp'), or an MCP server
+   * for the models and ComfyUI for the nodes ('mcp+comfy'). Null before the first read. Optional for older callers.
+   */
+  librarySource?: 'comfy' | 'mcp' | 'mcp+comfy' | null;
+  /**
+   * The kind of MCP server of the last read (main/mcp/profiles.ts): a full catalog, a model list, a checkpoint list,
+   * or 'unknown' (of no kind the app reads). Null when no MCP server was read. Optional for older callers.
+   */
+  mcpProfile?: 'catalog' | 'modelList' | 'checkpointList' | 'unknown' | null;
 }
 
 /**

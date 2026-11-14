@@ -7,6 +7,7 @@ import { connectStreamableHttp, MCP_NEEDS_SIGN_IN, mcpClientInfo, mcpUrlError, t
 import { explainConnectFailure } from './connectError';
 import { withLoopbackScheme } from '../../shared/mcp/loopback';
 import type { McpAuthProbe } from '../../shared/contracts/mcpAuth';
+import { recognizeProfile, type McpProfile } from './profiles';
 
 /** Protective: metadata documents are small; a server that answers slowly is reported as such, not waited for. */
 export const METADATA_TIMEOUT_MS = 5_000;
@@ -38,11 +39,12 @@ async function detectAt(
   const fetchImpl = options.fetchImpl ?? ((...args: Parameters<typeof fetch>) => globalThis.fetch(...args));
   const urlError = mcpUrlError(url);
   if (urlError) return { ok: false, error: urlError };
-  const attempt = async (token: string | null): Promise<{ tools: number } | McpReadFailure> => {
+  const attempt = async (token: string | null): Promise<{ tools: number; profile: McpProfile | null } | McpReadFailure> => {
     try {
       const session = await factory(url, token, null);
       try {
-        return { tools: (await session.listTools()).length };
+        const listed = await session.listTools();
+        return { tools: listed.length, profile: recognizeProfile(listed) };
       } finally {
         await session.close().catch(() => undefined);
       }
@@ -51,11 +53,11 @@ async function detectAt(
     }
   };
   const anonymous = await attempt(null);
-  if ('tools' in anonymous) return { ok: true, mode: 'none', tools: anonymous.tools };
+  if ('tools' in anonymous) return { ok: true, mode: 'none', tools: anonymous.tools, profile: anonymous.profile };
   if (anonymous.error !== MCP_NEEDS_SIGN_IN) return anonymous;
   if (options.token) {
     const withToken = await attempt(options.token);
-    if ('tools' in withToken) return { ok: true, mode: 'token', tokenAccepted: true, tools: withToken.tools };
+    if ('tools' in withToken) return { ok: true, mode: 'token', tokenAccepted: true, tools: withToken.tools, profile: withToken.profile };
     if (withToken.error === 'MCP server refused the token.') return { ok: true, mode: 'token', tokenAccepted: false };
     return withToken;
   }

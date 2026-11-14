@@ -1,5 +1,7 @@
 import { LESSONS_EN } from './texts.en';
 import { LESSONS_RU } from './texts.ru';
+import { VIDEO_LESSONS_EN } from './sets/video.texts.en';
+import { VIDEO_LESSONS_RU } from './sets/video.texts.ru';
 
 /** The words of one lesson in one language. */
 export interface LessonWords {
@@ -12,7 +14,10 @@ export interface LessonWords {
 
 export type LessonLanguage = 'en' | 'ru';
 
-const WORDS: Record<LessonLanguage, Record<string, LessonWords>> = { en: LESSONS_EN, ru: LESSONS_RU };
+const WORDS: Record<LessonLanguage, Record<string, LessonWords>> = {
+  en: { ...LESSONS_EN, ...VIDEO_LESSONS_EN },
+  ru: { ...LESSONS_RU, ...VIDEO_LESSONS_RU },
+};
 
 export function lessonWords(language: string, lessonId: string): LessonWords | null {
   const table = language === 'ru' ? WORDS.ru : WORDS.en;

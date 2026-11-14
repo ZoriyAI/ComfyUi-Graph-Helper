@@ -149,6 +149,11 @@ export const preferencesSchema = z.object({
      * huggingface.co. Off, nothing is asked unless the person clicks "Find on the internet" in a model's card.
      */
     lookupModelsOnline: z.boolean().default(false),
+    /**
+     * Ask the project's releases page, at most once a day, whether a newer version exists, and show a quiet notice
+     * with links to what is new and to the download. Off by default; nothing is downloaded by the app.
+     */
+    checkUpdates: z.boolean().default(false),
   }).prefault({}),
   /**
    * Lessons (the helper's "Learn" mode). Where a person is in a lesson is read off the graph; kept here is only

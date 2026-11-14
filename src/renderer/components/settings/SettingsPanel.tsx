@@ -436,7 +436,7 @@ export default function SettingsPanel({
                 <SyncSection
                   autoDraft={autoDraft}
                   onAutoDraft={setAutoDraft}
-                  addressSet={values.mcpUrl.trim() !== ''}
+                  addressSet={values.mcpUrl.trim() !== '' || values.comfyOrigin.trim() !== ''}
                   fieldClass={fieldClass}
                   hintClass={hintClass}
                   rowClass={rowClass}

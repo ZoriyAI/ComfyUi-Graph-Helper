@@ -13,6 +13,7 @@ import * as http from 'http';
 import type { AddressInfo } from 'net';
 import * as path from 'path';
 import { imageModelClassDefs } from './classes/image-models';
+import { VIDEO_SET_CLASSES } from './classes/video';
 
 export interface FakeMcpCall {
   /** JSON-RPC method, or the HTTP method for non-POST requests ("GET", "DELETE"). */
@@ -498,6 +499,8 @@ export const VIDEO_CLASSES: ClassDef[] = [
   { classType: 'SaveVideo', pack: 0, display: 'Save Video', category: 'image/video', required: { video: ['VIDEO'], filename_prefix: ['STRING', { default: 'video/ComfyUI' }], format: [['auto', 'mp4']], codec: [['auto', 'h264']] }, output: [], outputNode: true },
   // The lessons on picture model families (classes/image-models.ts).
   ...imageModelClassDefs((name) => PACKS.findIndex((pack) => pack.name === name)),
+  // The lessons of src/shared/lessons/sets/video.ts.
+  ...VIDEO_SET_CLASSES,
 ];
 
 /** The /object_info document the native fixture serves. */

@@ -9,9 +9,10 @@ import { PopoverContent, PopoverRoot, PopoverTrigger } from '../../ui/Popover';
 import { showToast } from '../../ui/toastStore';
 import { cx } from '../../ui/cx';
 import {
-  clampInterval, formatDuration, formatSyncTime, isEnriching, MIN_INTERVAL_MINUTES, syncSummary, syncTransition, syncView, type SyncState,
+  clampInterval, formatDuration, formatSyncTime, isEnriching, MIN_INTERVAL_MINUTES, sourceSentence, syncSummary, syncTransition, syncView, type SyncState,
 } from './syncView';
 import styles from './SyncIndicator.module.css';
+import { SYNC_INTERVAL_DEFAULT_MINUTES } from '../../../shared/knowledge/schemas';
 import { explainError, redactDiagnostic, translateKnownError, type Translator } from '../../../shared/i18n';
 import { accessErrorText } from '../settings/mcpAccess';
 import { i18n as appI18n } from '../../i18n';
@@ -27,7 +28,7 @@ export async function requestSync(): Promise<'started' | 'busy' | 'noUrl'> {
     const status = await window.electronAPI.syncNow();
     useKnowledgeStore.getState().setSync(status);
     // Main does not run without an address: nothing failed, the address is simply not set yet.
-    if (status.mcpUrl.trim() === '') return 'noUrl';
+    if (status.mcpUrl.trim() === '' && (status.comfyOrigin ?? '').trim() === '') return 'noUrl';
   } catch {
     // Main pushes the error state through onSyncEvent; nothing else to do here.
   }
@@ -96,7 +97,7 @@ export default function SyncIndicator() {
   const lastErrorText = (error: string) => accessErrorText(error, status, translate, 'elsewhere');
   const view = syncView(status);
   const previous = useRef<SyncState | null>(null);
-  const [interval, setIntervalDraft] = useState(String(MIN_INTERVAL_MINUTES));
+  const [interval, setIntervalDraft] = useState(String(status?.auto.intervalMinutes ?? SYNC_INTERVAL_DEFAULT_MINUTES));
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState('');
   const [signingIn, setSigningIn] = useState(false);
@@ -126,12 +127,17 @@ export default function SyncIndicator() {
     if (transition === 'done') {
       const summary = syncSummary(status);
       const warnings = status.warnings ?? [];
+      const source = sourceSentence(status);
       showToast({
         id: 'sync-result',
         tone: warnings.length > 0 ? 'warn' : 'success',
         title: String(t(warnings.length > 0 ? 'sync.toastWarnings' : 'sync.state.idle')),
         // Whole sentences, each ending with its full stop, read one after the other.
-        description: [String(t(summary.key, summary.params)), ...warnings.map((warning) => errorText(warning))].join(' '),
+        description: [
+          ...(source ? [String(t(source.key, { host: source.host }))] : []),
+          String(t(summary.key, summary.params)),
+          ...warnings.map((warning) => errorText(warning)),
+        ].join(' '),
       });
     } else {
       showToast({
@@ -150,6 +156,7 @@ export default function SyncIndicator() {
   const phaseKey = progress ? `sync.phase.${progress.phase}` : '';
   const phase = progress ? (i18n.exists(phaseKey) ? String(t(phaseKey)) : progress.phase) : '';
   const metadata = status?.metadata;
+  const source = sourceSentence(status);
 
   const syncNow = async () => {
     setNote('');
@@ -233,6 +240,9 @@ export default function SyncIndicator() {
           <p className={styles.note}>
             {status?.lastSyncAt ? t('settings.syncLast', { time: formatSyncTime(status.lastSyncAt, language) }) : t('settings.syncNever')}
           </p>
+          {/* Where the library came from, in plain words; read from ComfyUI itself, also what that cannot give. */}
+          {source ? <p className={styles.note} data-library-source={status?.librarySource ?? undefined}>{t(source.key, { host: source.host })}</p> : null}
+          {status?.librarySource === 'comfy' ? <p className={styles.note}>{t('sync.source.comfyLimits')}</p> : null}
           {view.warned ? (status?.warnings ?? []).map((warning) => (
             <p key={warning} className={styles.warnNote}>{t('sync.warning', { warning: errorText(warning) })}</p>
           )) : null}
@@ -244,7 +254,7 @@ export default function SyncIndicator() {
               label={t('sync.auto')}
               checked={status?.auto.enabled ?? false}
               // Without an address there is nothing to read on a timer; switching off always works.
-              disabled={!status || (status.mcpUrl.trim() === '' && !status.auto.enabled)}
+              disabled={!status || (view.blocked === 'noUrl' && !status.auto.enabled)}
               onCheckedChange={(enabled) => void setAutoSync(enabled, clampInterval(interval))}
             />
             <label className={styles.interval}>

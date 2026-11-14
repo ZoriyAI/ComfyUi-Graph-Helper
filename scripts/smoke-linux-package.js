@@ -1,8 +1,9 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { _electron: electron } = require('playwright');
+const { execFileSync } = require('child_process');
 const asar = require('@electron/asar');
+const { launchOverCdp } = require('./lib/cdp-launch');
 
 const root = path.join(__dirname, '..');
 const pkg = require(path.join(root, 'package.json'));
@@ -32,6 +33,18 @@ async function main() {
   if (debs.length !== 1) fail(`DEB_COUNT ${debs.length}`);
   const debStat = fs.statSync(debs[0]);
   if (debStat.size < 20 * 1024 * 1024) fail(`DEB_TOO_SMALL ${debStat.size}`);
+  // The rpm is made where rpmbuild exists (CI); SMOKE_REQUIRE_RPM=1 makes its absence an error.
+  const rpms = walk(path.join(root, 'out', 'make', 'rpm')).filter((file) => file.endsWith('.rpm'));
+  if (rpms.length > 1 || (process.env.SMOKE_REQUIRE_RPM === '1' && rpms.length !== 1)) fail(`RPM_COUNT ${rpms.length}`);
+  if (rpms.length === 1 && fs.statSync(rpms[0]).size < 20 * 1024 * 1024) fail(`RPM_TOO_SMALL ${fs.statSync(rpms[0]).size}`);
+
+  // The fuses in the binary people get (scripts/check-fuses.js): the inspector, ELECTRON_RUN_AS_NODE and
+  // NODE_OPTIONS off, the app only from app.asar.
+  try {
+    execFileSync(process.execPath, [path.join(__dirname, 'check-fuses.js'), exe], { stdio: 'inherit' });
+  } catch {
+    fail('PACKAGED_FUSES');
+  }
 
   const unpackedNodes = walk(path.join(bundle, 'resources', 'app.asar.unpacked')).filter((file) => file.endsWith('.node'));
   if (unpackedNodes.length === 0) fail('NATIVE_MODULE_NOT_UNPACKED');
@@ -64,20 +77,16 @@ async function main() {
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'linux-package-smoke-'));
   const env = { ...process.env };
   delete env.NODE_ENV;
-  const app = await electron.launch({
-    executablePath: exe,
-    args: [`--user-data-dir=${userData}`],
-    env,
-    timeout: 60000,
-  });
+  // Through the page, not the inspector: the inspector fuse is off in this binary (scripts/lib/cdp-launch.js).
+  const app = await launchOverCdp({ executable: exe, args: [`--user-data-dir=${userData}`], env, userData, timeout: 60000 });
   try {
-    const window = await app.firstWindow();
+    const window = app.window;
+    await window.locator('#chat-provider').waitFor({ timeout: 60000 });
     const title = await window.title();
     if (!title.includes('ComfyUI')) fail(`UNEXPECTED_TITLE ${title}`);
-    await window.locator('#chat-provider').waitFor();
     const provider = await window.locator('#chat-provider').getAttribute('data-value');
     if (provider !== '') fail(`UNEXPECTED_PROVIDER ${provider}`);
-    console.log(`PACKAGED_MAIN_OK ${path.basename(debs[0])} bytes=${debStat.size}`);
+    console.log(`PACKAGED_MAIN_OK ${path.basename(debs[0])} bytes=${debStat.size}${rpms.length === 1 ? ` ${path.basename(rpms[0])} bytes=${fs.statSync(rpms[0]).size}` : ' (no rpm: rpmbuild missing)'}`);
   } finally {
     await app.close();
   }

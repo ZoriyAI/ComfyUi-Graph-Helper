@@ -210,6 +210,13 @@ export function removeStaleModelFiles(db: Database.Database, runStartedAt: numbe
   return db.prepare('DELETE FROM model_catalog WHERE synced_at IS NOT NULL AND synced_at < ?').run(runStartedAt).changes;
 }
 
+/** The same for a listing of some folders only (a server that lists checkpoints only): other folders stay. */
+export function removeStaleModelFilesIn(db: Database.Database, runStartedAt: number, directories: readonly string[]): number {
+  if (directories.length === 0) return 0;
+  return db.prepare(`DELETE FROM model_catalog WHERE synced_at IS NOT NULL AND synced_at < ? AND directory IN (${directories.map(() => '?').join(', ')})`)
+    .run(runStartedAt, ...directories).changes;
+}
+
 /**
  * SQL that sets the family to the one given, unless that is 'unknown' and Civitai named one when the file was
  * looked up: then that one stays, with 'web' as where it came from. What the file itself says always wins over

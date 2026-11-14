@@ -22,6 +22,8 @@ import { McpRefusedError, readOnlySession } from './readOnly';
 import { parseObjectInfo } from '../../shared/catalog/objectInfo';
 import { acceptedComfyUrl, applyComfyRead, isLoopbackHost } from '../comfy/read';
 import { readSettings } from '../settings/repository';
+import { readComfyDirect, type DirectReadSuccess } from '../comfy/direct';
+import { readProfileModels, recognizeProfile, type McpProfile } from './profiles';
 import { redactSecrets } from '../../shared/config/draft';
 import { MCP_CALL_TIMEOUT_MS, MCP_CONNECT_TIMEOUT_MS } from '../../shared/config/preferences';
 import { hasScheme, isPlausibleHost } from '../../shared/mcp/loopback';
@@ -188,7 +190,7 @@ export const connectStreamableHttp: McpSessionFactory = async (url, token, authP
   return {
     async listTools() {
       const result = await client.listTools(undefined, { timeout: CALL_TIMEOUT_MS });
-      return result.tools.map((tool) => ({ name: tool.name }));
+      return result.tools.map((tool) => ({ name: tool.name, inputSchema: tool.inputSchema }));
     },
     async callTool(name, args, options) {
       return (await client.callTool({ name, arguments: args }, { timeout: options?.timeoutMs ?? CALL_TIMEOUT_MS })) as McpToolCallResult;
@@ -219,11 +221,35 @@ export function isUnauthorized(error: unknown): boolean {
   return /\b401\b|unauthorized/i.test(`${typeof name === 'string' ? name : ''} ${typeof message === 'string' ? message : ''}`);
 }
 
+/**
+ * The server answers, but lists none of the tools of a kind the app knows how to read (profiles.ts). Nothing is read
+ * from it; with a ComfyUI address in Settings the sync reads everything from ComfyUI instead.
+ */
+export const MCP_UNKNOWN_SERVER = 'The MCP server answers, but the app does not know its tools, so nothing was read from it. Enter the ComfyUI address in Settings ▸ Connection: the app then reads everything from ComfyUI itself.';
+/** A server that lists models only, and no ComfyUI address to read the nodes from. */
+export const MCP_NODES_NEED_COMFY = 'Models were read through MCP, but not the nodes: this MCP server does not list them. Enter the ComfyUI address in Settings ▸ Connection to read the nodes from ComfyUI.';
+/** A server that lists models only, and the ComfyUI address did not answer (its own sentence follows). */
+export const MCP_NODES_COMFY_FAILED = 'Models were read through MCP, but not the nodes: ComfyUI did not answer at the address in Settings.';
+
 /** What one catalog read learned beyond the counts the renderer sees. Stays in main. */
 export interface CatalogReadDetail {
   result: McpReadSuccess;
   toolNames: Set<string>;
   identity: ServerIdentity;
+  /** Which kind of server this was (profiles.ts). */
+  profile: McpProfile;
+  /** The ComfyUI address read for the nodes, when the server gives models only. */
+  direct: DirectReadSuccess | null;
+  /** Sentences about the ComfyUI part of the read (the MCP part's own come from catalogWarnings). */
+  warnings: string[];
+}
+
+/** Where a catalog read may take what the server does not give. */
+export interface CatalogReadContext {
+  /** The MCP address: a ComfyUI address the server names on "this computer" is read only when the server is here too. */
+  mcpUrl?: string;
+  /** Settings ▸ Connection ▸ ComfyUI address ('' when not set). */
+  comfyOrigin?: string;
 }
 
 /**
@@ -292,12 +318,56 @@ export async function readCatalogWithSession(
   session: McpSession,
   fetchImpl: typeof fetch,
   now: number,
+  context: CatalogReadContext = {},
 ): Promise<CatalogReadDetail | McpReadFailure> {
   const skipped: SkippedPart[] = [];
   const failedSections: string[] = [];
   const failedFolders: string[] = [];
-  const tools = new Set((await session.listTools()).map((tool) => tool.name));
+  const listed = await session.listTools();
+  const tools = new Set(listed.map((tool) => tool.name));
   if (tools.size === 0) return { ok: false, error: 'MCP server lists no tools.' };
+  const profile = recognizeProfile(listed);
+  if (profile === null) return { ok: false, error: MCP_UNKNOWN_SERVER };
+  const comfyOrigin = context.comfyOrigin ?? savedComfyOrigin(db) ?? '';
+  if (profile !== 'catalog') {
+    // Models from the server; node classes and packs from the ComfyUI address in Settings.
+    const listedModels = await readProfileModels(profile, db, session, now);
+    if (listedModels.models === null) {
+      skipped.push('modelFiles');
+      failedSections.push('model files');
+    }
+    const warnings: string[] = [];
+    let direct: DirectReadSuccess | null = null;
+    if (comfyOrigin) {
+      const read = await readComfyDirect(db, comfyOrigin, fetchImpl, now, { models: false });
+      if (read.ok) direct = read;
+      else warnings.push(MCP_NODES_COMFY_FAILED, read.error);
+    } else {
+      warnings.push(MCP_NODES_NEED_COMFY);
+    }
+    if (!direct) skipped.push('nodeClasses', 'nodePacks');
+    inferModelsFromNames(db);
+    return {
+      result: {
+        ok: true,
+        tools: tools.size,
+        nodes: direct?.nodes ?? 0,
+        packs: direct?.packs ?? 0,
+        models: listedModels.models ?? 0,
+        objectInfo: direct ? 'native' : 'none',
+        comfyUrl: direct?.origin ?? null,
+        skipped,
+        failedSections,
+        failedFolders,
+        nativeComfy: direct ? 'ok' : comfyOrigin ? 'unreachable' : 'notTried',
+      },
+      toolNames: tools,
+      identity: { installationId: null, comfyuiUrl: null },
+      profile,
+      direct,
+      warnings,
+    };
+  }
 
   // Rows this run stores carry `now`; after a complete listing, older synced rows are gone from the server.
   let nodes = 0;
@@ -368,9 +438,10 @@ export async function readCatalogWithSession(
     }
   }
   let nativeComfy: NonNullable<McpReadSuccess['nativeComfy']> = 'notTried';
-  if (objectInfo === 'none' && comfyUrl) {
-    // Only this machine or the origin the person saved: the server must not steer reads elsewhere.
-    const nativeUrl = acceptedComfyUrl(comfyUrl, savedComfyOrigin(db));
+  if (objectInfo === 'none' && (comfyUrl || comfyOrigin)) {
+    // The address the server named, when it is the saved one or both are on this computer; else the saved one.
+    // The server must not steer reads elsewhere.
+    const nativeUrl = (comfyUrl ? acceptedComfyUrl(comfyUrl, comfyOrigin, context.mcpUrl) : null) ?? (comfyOrigin || null);
     const native = nativeUrl ? await applyComfyRead(db, nativeUrl, fetchImpl) : null;
     if (native?.ok) objectInfo = 'native';
     else skipped.push('nodeDetailsNative');
@@ -381,5 +452,8 @@ export async function readCatalogWithSession(
     result: { ok: true, tools: tools.size, nodes, packs, models, objectInfo, comfyUrl, skipped, failedSections, failedFolders, nativeComfy },
     toolNames: tools,
     identity,
+    profile,
+    direct: null,
+    warnings: [],
   };
 }

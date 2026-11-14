@@ -6,6 +6,7 @@ import { useGraphStore } from '../../state/graphState';
 import { applyProjection, useProjectionStore } from '../../services/commands/projection';
 import { getChatService } from '../../services/llm/chatService';
 import styles from './StatusBar.module.css';
+import UpdateNotice from './UpdateNotice';
 
 const MOTION_KEYS: Record<string, string> = {
   system: 'settings.motionSystem',
@@ -81,6 +82,7 @@ export default function StatusBar() {
           </button>
         </span>
       ) : null}
+      <UpdateNotice />
       <span className={cx(styles.group, styles.settings)}>
         <span className={styles.item}>{t('status.language', { language })}</span>
         <span className={styles.item}>{t('status.motion', { mode: t(MOTION_KEYS[motion] ?? 'settings.motionSystem') })}</span>

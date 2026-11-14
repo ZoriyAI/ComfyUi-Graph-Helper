@@ -5,6 +5,7 @@ import { useCanvasView } from '../CanvasContext';
 import { EdgePulse } from '../layers/FlowLayer';
 import { typeColor } from '../lib/typeColors';
 import { useMotionLevel } from '../lib/motion';
+import { pathThrough, useReroutePoints } from '../lib/nativeReroutes';
 import styles from './TypedEdge.module.css';
 
 /**
@@ -12,7 +13,10 @@ import styles from './TypedEdge.module.css';
  * appears (stroke-dashoffset over --motion-reveal), and carrying flow pulses when FlowLayer says so.
  */
 function TypedEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, selected }: EdgeProps) {
-  const [path] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition });
+  const [bezier] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition });
+  // ComfyUI's own reroute points on a link (IMPORT+NODES): the link passes through each of them.
+  const via = useReroutePoints(id);
+  const path = via && via.length > 0 ? pathThrough([{ x: sourceX, y: sourceY }, ...via, { x: targetX, y: targetY }]) : bezier;
   const view = useCanvasView();
   const motion = useMotionLevel();
   const revealing = useCanvasStore((state) => Boolean(state.justAdded[id]));
@@ -40,6 +44,7 @@ function TypedEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, tar
         data-edge-type={dataType}
       />
       <path d={path} fill="none" strokeOpacity={0} strokeWidth={20} className="react-flow__edge-interaction" />
+      {via?.map((point) => <circle key={point.id} cx={point.x} cy={point.y} r={5} className={styles.reroutePoint} style={{ '--canvas-edge': color } as React.CSSProperties} data-reroute-point={point.id} />)}
       {flowing && !pending ? (
         <>
           <EdgePulse path={path} color={color} motion={motion} target={{ x: targetX, y: targetY }} />

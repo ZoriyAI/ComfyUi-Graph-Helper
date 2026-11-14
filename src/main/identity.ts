@@ -15,6 +15,12 @@ export const DISPLAY_NAME = 'Graph Helper for ComfyUI';
 export const APP_ID = 'graph-helper-for-comfyui';
 export const STABLE_APP_NAME = 'comfyui-graph-builder';
 
+/**
+ * The project's public address. PLACEHOLDER until the repository is published (the documentation package owns this
+ * constant and puts the real address here). While it is the placeholder the update check asks nothing.
+ */
+export const PROJECT_URL = 'https://github.com/OWNER/REPOSITORY';
+
 let cachedVersion: string | null = null;
 
 /** The app's version from its package.json (dist/main sits two levels under it, packaged or not). */

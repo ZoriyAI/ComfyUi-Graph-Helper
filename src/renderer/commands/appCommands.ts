@@ -2,9 +2,10 @@ import {
   Ghost, Columns2, Compass, Database, FileCheck2, FilePlus2, FolderInput, FolderOpen, FolderOutput, GraduationCap, Group, History, Info, Keyboard,
   LogOut, Map as MapIcon, Maximize, MessageCircleQuestion, MessageSquare, MessageSquareText, Navigation, PanelLeft, PanelRight, Pause, Play,
   Plus, Redo2, RefreshCw, Save, Settings, SquareDashedMousePointer, Square, Trash2, Undo2, Ungroup, Combine, ZoomIn, ZoomOut, RotateCcw,
-  Workflow, BookOpen, LifeBuoy, Sparkles,
+  Workflow, BookOpen, LifeBuoy, Sparkles, ChevronsDownUp,
 } from 'lucide-react';
 import { arrangeGraph } from '../components/graph/arrange';
+import { toggleCollapseSelection } from '../components/graph/importLook';
 import { levelNodes } from '../components/graph/lib/level';
 import { i18n } from '../i18n';
 import { addCommandStateSource, registerCommands, type Command } from './registry';
@@ -120,6 +121,12 @@ export function buildAppCommands(): Command[] {
       id: 'graph.addGroup', group: 'graph', labelKey: 'contextMenu.addGroup', icon: Group,
       enabled: () => canEditGraph() && selectedNodes().length > 0,
       run: () => void addGroup(selectedNodes().map((node) => node.id)),
+    },
+    // IMPORT+NODES: collapse the selected nodes to their title row, or open them, as ComfyUI's Alt+C.
+    {
+      id: 'graph.collapse', group: 'graph', labelKey: 'importLook.menuCollapse', icon: ChevronsDownUp, shortcut: 'Alt+C',
+      enabled: () => canEditLevel() && selectedNodes().length > 0,
+      run: () => void toggleCollapseSelection(),
     },
     // Layout: the selection (two or more nodes) or the whole graph, one undoable commit, then a fit.
     {

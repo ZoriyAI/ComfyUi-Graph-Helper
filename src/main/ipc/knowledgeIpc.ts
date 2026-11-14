@@ -9,7 +9,7 @@ import { PreviewReader } from '../knowledge/preview';
 import { ModelLookupService } from '../knowledge/modelWeb';
 import { appWebClient, ModelWebClient, setAppWebClient } from '../knowledge/webLookup';
 import { openSavedMcpSession } from '../mcp/savedSession';
-import { syncService } from '../mcp/sync';
+import { comfyPreviewSource, syncService } from '../mcp/sync';
 
 /** Pushes sync status to every open window. A window closing mid-send must not break the sync. */
 function broadcast(status: SyncStatus): void {
@@ -42,7 +42,14 @@ export function registerKnowledgeIpc(ipcMain: IpcMain): void {
   if (/^http:\/\/127\.0\.0\.1:\d+$/.test(fake)) {
     setAppWebClient(new ModelWebClient({ endpoints: { civitai: `${fake}/civitai`, huggingface: `${fake}/hf` }, fetchImpl: (url, init) => globalThis.fetch(url, init) }));
   }
-  const previews = new PreviewReader({ db: getDatabase, open: openSavedMcpSession, cacheDir, web: (url) => appWebClient().previewBytes(url) });
+  const previews = new PreviewReader({
+    db: getDatabase,
+    open: openSavedMcpSession,
+    cacheDir,
+    web: (url) => appWebClient().previewBytes(url),
+    comfy: () => comfyPreviewSource(getDatabase()),
+    fetchImpl: (...args) => globalThis.fetch(...args),
+  });
   // A Hugging Face sample is downloaded at lookup to check it is a picture; it is kept, not downloaded again when shown.
   appWebClient().keepPreview = (url, got) => previews.keepWeb(url, got);
   const lookups = new ModelLookupService({ db: getDatabase, client: appWebClient, open: openSavedMcpSession });

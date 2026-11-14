@@ -4,6 +4,7 @@
  * one GET of `/system_stats` on the same origin, to tell the person they typed ComfyUI's own address; it reads and
  * changes nothing, and no sign-in or client registration is ever started from here.
  */
+import { COMFY_ROUTES, comfyGet } from '../comfy/gate';
 import { CALL_TIMEOUT_MS, failure, isUnauthorized, MCP_IS_COMFYUI, MCP_NO_SERVER_AT_PATH, MCP_NOT_MCP, McpTimeoutError, mcpHostNotFound, mcpTooSlow, mcpUnreachableError } from './client';
 import { McpRefusedError } from './readOnly';
 import { McpPageError } from '../../shared/mcp/catalogSource';
@@ -70,21 +71,11 @@ export async function isComfyUiOrigin(url: string, fetchImpl: typeof fetch): Pro
   } catch {
     return false;
   }
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), COMFY_PROBE_TIMEOUT_MS);
-  timer.unref?.();
-  try {
-    const response = await fetchImpl(`${origin}/system_stats`, { method: 'GET', redirect: 'manual', signal: controller.signal });
-    if (response.status !== 200) return false;
-    const text = await response.text();
-    if (text.length > 1_000_000) return false;
-    const body = JSON.parse(text) as unknown;
-    return Boolean(body && typeof body === 'object' && (body as { system?: unknown }).system && typeof (body as { system?: unknown }).system === 'object');
-  } catch {
-    return false;
-  } finally {
-    clearTimeout(timer);
-  }
+  // Through the read-only gate, with this probe's own short time limit.
+  const answer = await comfyGet(new URL(origin), { ...COMFY_ROUTES.systemStats(), timeoutMs: COMFY_PROBE_TIMEOUT_MS, maxBytes: 1_000_000 }, fetchImpl);
+  if (!answer.ok || !('json' in answer)) return false;
+  const body = answer.json;
+  return Boolean(body && typeof body === 'object' && (body as { system?: unknown }).system && typeof (body as { system?: unknown }).system === 'object');
 }
 
 /**

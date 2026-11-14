@@ -25,7 +25,7 @@ async function oauth(): Promise<FakeOAuthMcp> {
 describe('what the MCP server wants from a connection', () => {
   it('reports "none" with the tool count when a connection without credentials is accepted', async () => {
     const server = await plain();
-    expect(await detectMcpAuth(server.url)).toEqual({ ok: true, mode: 'none', tools: expect.any(Number) });
+    expect(await detectMcpAuth(server.url)).toEqual({ ok: true, mode: 'none', tools: expect.any(Number), profile: 'catalog' });
     // Nothing but the ordinary MCP handshake reached the server.
     expect(server.calls.every((call) => call.authorized)).toBe(true);
     expect(server.calls.some((call) => call.method === 'tools/call')).toBe(false);
@@ -39,7 +39,7 @@ describe('what the MCP server wants from a connection', () => {
 
   it('tries a held token against the 401 and says whether the server took it', async () => {
     const server = await plain({ token: 'fixture-token-not-a-secret' });
-    expect(await detectMcpAuth(server.url, { token: 'fixture-token-not-a-secret' })).toEqual({ ok: true, mode: 'token', tokenAccepted: true, tools: expect.any(Number) });
+    expect(await detectMcpAuth(server.url, { token: 'fixture-token-not-a-secret' })).toEqual({ ok: true, mode: 'token', tokenAccepted: true, tools: expect.any(Number), profile: 'catalog' });
     expect(await detectMcpAuth(server.url, { token: 'wrong-token' })).toEqual({ ok: true, mode: 'token', tokenAccepted: false });
     expect(JSON.stringify(server.calls)).not.toContain('fixture-token-not-a-secret');
     expect(JSON.stringify(server.calls)).not.toContain('wrong-token');

@@ -53,9 +53,12 @@ export function rememberSizes(nodes: PositionedNode[]): void {
 }
 
 /** What the catalog says of a class's inputs, in the shape the size estimate reads. */
-export function sizeHintsOf(detail: Pick<NodeClassDetail, 'inputs'> | null | undefined): SizeHints | null {
+export function sizeHintsOf(detail: Pick<NodeClassDetail, 'inputs'> & { widgetOrder?: string[] } | null | undefined): SizeHints | null {
   if (!detail) return null;
-  return { inputs: detail.inputs.map((input) => ({ name: input.name, widget: input.widget, multiline: Boolean(input.spec?.multiline) })) };
+  return {
+    inputs: detail.inputs.map((input) => ({ name: input.name, widget: input.widget, multiline: Boolean(input.spec?.multiline) })),
+    ...((detail as { widgetOrder?: string[] }).widgetOrder ? { widgetOrder: (detail as { widgetOrder?: string[] }).widgetOrder } : {}),
+  };
 }
 
 /**

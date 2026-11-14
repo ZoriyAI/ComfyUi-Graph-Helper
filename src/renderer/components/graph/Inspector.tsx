@@ -25,6 +25,8 @@ import { categoryLabel } from './lib/categoryLabel';
 import SubgraphSummary from './SubgraphSummary';
 import { titleParts } from './nodes/titleBreaks';
 import { hasOwnTitle, nodeDisplayName } from './lib/nodeName';
+import { MissingValues, PromotedPanel, SetGetJump, useLookSentence } from './nodes/InspectorLook';
+import { promotedFields } from '../../../shared/workflow/comfyLook';
 import styles from './Inspector.module.css';
 
 function recordFor(components: ComponentRecord[], kind: ComponentOwnerKind, ownerId: string): ComponentRecord | undefined {
@@ -274,6 +276,10 @@ function NodeSection({ node, edges }: { node: GraphNode; edges: GraphEdge[] }) {
   // Values came with the workflow, but the app cannot name them until it has read this class from ComfyUI.
   const stored = (data as { comfy?: { widgets_values?: unknown } }).comfy?.widgets_values;
   const unnamedValues = !instance && !detail && (Array.isArray(stored) ? stored.length > 0 : Boolean(stored && typeof stored === 'object' && Object.keys(stored).length > 0));
+  // A class that is not installed, a node only the ComfyUI editor knows: say that, not "run a sync" (IMPORT+NODES).
+  const lookSentence = useLookSentence(data, instance);
+  const promotedCount = instance ? promotedFields(data).length : 0;
+  const { nodes: levelNodes } = useLevelGraph();
   return (
     <>
       <header className={styles.header}>
@@ -361,7 +367,11 @@ function NodeSection({ node, edges }: { node: GraphNode; edges: GraphEdge[] }) {
         })}
       </ul>
       <h3 className={styles.h3}>{t('inspector.properties')}</h3>
-      {layout.fields.length === 0 ? <p className={`inspector-empty ${styles.hint}`}>{t(unnamedValues ? 'inspector.fieldsUnknown' : 'inspector.noParameters')}</p> : (
+      {lookSentence ? <p className={`inspector-look ${styles.hint}`}>{lookSentence}</p> : null}
+      <MissingValues data={data} instance={instance} />
+      <SetGetJump node={node} nodes={levelNodes} />
+      {instance ? <PromotedPanel node={node} disabled={canvasReplay || Boolean(data.locked)} /> : null}
+      {layout.fields.length === 0 ? (lookSentence || promotedCount > 0 ? null : <p className={`inspector-empty ${styles.hint}`}>{t(unnamedValues ? 'inspector.fieldsUnknown' : 'inspector.noParameters')}</p>) : (
         <div className={styles.params}>
           {layout.fields.map((field) => (
             <ParameterField key={field.name} nodeId={node.id} nodeName={title} field={field} linked={linkedField(field)} disabled={readOnly} />

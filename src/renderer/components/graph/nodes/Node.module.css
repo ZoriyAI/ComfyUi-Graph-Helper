@@ -364,3 +364,152 @@
   :global(html[data-motion="system"]) .handle::after,
   :global(html:not([data-motion])) .handle::after { animation: none !important; }
 }
+
+/*
+ * IMPORT+NODES: what a ComfyUI file says of a node, drawn here (shared/workflow/comfyLook.ts).
+ * Sizes stay in step with shared/graph/layout.ts (estimateNodeSize, FILE_BOX, REROUTE_BOX, NODE_BOX).
+ */
+
+/* A node from a file takes its width inline from the file (nodeLook.ts fileStyle); its body fills the height. */
+.node.node[data-file-size="true"] { display: flex; flex-direction: column; }
+
+/*
+ * Colours the file gave the node: the title bar takes `color`, the body a trace of `bgcolor`, both mixed down into
+ * the night surfaces so the text keeps its contrast. The colour itself goes back to the file unchanged.
+ */
+.node.node.fileColor {
+  border-color: color-mix(in srgb, var(--file-bgcolor, var(--file-color)) 45%, var(--line, #2a3648));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--file-bgcolor, var(--surface)) 22%, var(--surface)) 0%, color-mix(in srgb, var(--file-bgcolor, var(--surface)) 14%, var(--surface)) 100%);
+}
+.node.fileColor .header {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--file-color, var(--canvas-accent)) 48%, var(--surface-raised)) 0%, color-mix(in srgb, var(--file-color, var(--canvas-accent)) 26%, var(--surface-panel)) 100%);
+  border-bottom-color: color-mix(in srgb, var(--file-color, var(--canvas-accent)) 55%, transparent);
+}
+
+/* A class the person's ComfyUI does not have: dashed frame, grey header, a mark that says so. */
+.node.node.missing { border: 1.5px dashed color-mix(in srgb, var(--warn) 65%, transparent); }
+.node.missing .header { background: var(--surface-sunken); }
+.node.missing .header::before { background: var(--warn); opacity: 0.7; }
+.missingChip {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  border: 1px solid color-mix(in srgb, var(--warn) 55%, transparent);
+  background: var(--warn-soft);
+  color: var(--warn);
+  font-size: var(--text-xs);
+  line-height: 16px;
+  cursor: default;
+}
+.savedValues { list-style: none; margin: 8px 12px 0; padding: 0; display: flex; flex-direction: column; color: var(--text-dim); font-size: var(--text-xs); }
+.savedValues li { display: flex; gap: 8px; height: 20px; align-items: center; }
+.savedIndex { flex: none; min-width: 16px; color: var(--text-faint); font-family: var(--font-mono, ui-monospace, monospace); }
+.savedValue { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+
+/* A collapsed node: one title row; its links end at its edges. Its width comes inline (comfyLook collapsedWidth). */
+.collapsed.collapsed {
+  min-width: 0;
+  max-width: none;
+  border-top-width: 1px;
+  --canvas-accent: var(--type-unknown, #8b939c);
+  position: relative;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 36px;
+  padding: 0 12px 0 6px;
+  border-radius: 18px;
+  overflow: visible;
+  border: 1px solid color-mix(in srgb, var(--canvas-accent) 45%, var(--line, #2a3648));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--canvas-accent) 26%, var(--surface-raised)) 0%, color-mix(in srgb, var(--canvas-accent) 12%, var(--surface-panel)) 100%);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 16px rgba(0, 0, 0, 0.28);
+  color: var(--text);
+}
+.collapsed.fileColor { background: linear-gradient(180deg, color-mix(in srgb, var(--file-color) 48%, var(--surface-raised)) 0%, color-mix(in srgb, var(--file-color) 26%, var(--surface-panel)) 100%); }
+.collapsedRow { display: flex; align-items: center; gap: 4px; flex: 1; min-width: 0; height: 100%; border-radius: inherit; }
+.collapsed.selected { outline: 2px solid var(--accent, #65d9ed); outline-offset: 1px; }
+.collapsedTitle { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; font-size: var(--text-sm); line-height: 20px; }
+.expand {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.expand:hover { background: var(--surface-hover); color: var(--text); }
+.expand:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.edgeHandle.edgeHandle { width: 8px; height: 8px; min-width: 0; min-height: 0; border: none; background: transparent; opacity: 0; pointer-events: none; }
+
+/* A Reroute: a dot of the colour of what passes through it. */
+.reroute.reroute {
+  min-width: 0;
+  max-width: none;
+  padding: 0;
+  border: none;
+  background: transparent;
+  position: relative;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 28px;
+  border-radius: var(--radius-pill);
+}
+.reroute.selected { outline: 2px solid var(--accent, #65d9ed); outline-offset: 1px; }
+.rerouteDot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--canvas-port);
+  border: 2px solid var(--surface);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--canvas-port) 60%, transparent);
+}
+.rerouteHandle.rerouteHandle { width: 14px; height: 14px; min-width: 0; min-height: 0; border: none; background: transparent; }
+.rerouteHandle.rerouteHandle::after {
+  content: "";
+  display: block;
+  width: 6px;
+  height: 6px;
+  margin: 4px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--canvas-port) 70%, transparent);
+}
+
+/* Notes: a warm sheet without port rows; the text fills the card (its height may come from the file). */
+.node.node.noteNode:not(.fileColor) { background: color-mix(in srgb, var(--warn) 8%, var(--surface)); border-color: color-mix(in srgb, var(--warn) 32%, var(--line, #2a3648)); }
+.node.noteNode:not(.fileColor) .header { background: color-mix(in srgb, var(--warn) 22%, var(--surface-raised)); border-bottom-color: color-mix(in srgb, var(--warn) 32%, transparent); }
+.node.noteNode .header::before { background: color-mix(in srgb, var(--warn) 70%, transparent); }
+.node.noteNode .noteText { flex: 1 1 auto; height: auto; min-height: 92px; background: color-mix(in srgb, var(--warn) 4%, var(--surface-sunken)); }
+.noteMarkdown { white-space: normal; }
+
+/* A Primitive with nothing saved, the constant of a Set / Get. */
+.editorHint { margin: 6px 12px 0; color: var(--text-dim); font-size: var(--text-xs); }
+.constant { box-sizing: border-box; display: flex; align-items: center; gap: 6px; height: 20px; margin: 6px 12px 0; color: var(--text-dim); font-size: var(--text-xs); }
+.constant span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* A field that holds an object: service data the node keeps for itself. */
+.serviceData { justify-self: start; padding: 0 6px; border-radius: var(--radius-sm); border: 1px dashed var(--border-strong, #63738a); color: var(--text-dim); font-size: var(--text-xs); line-height: 20px; cursor: default; }
+
+/* The partners of the selected Set or Get: a dashed line to each and a dashed frame around it. */
+.setGetLayer { position: absolute; left: 0; top: 0; width: 1px; height: 1px; overflow: visible; pointer-events: none; z-index: 0; }
+.setGetLine { stroke: var(--focus); stroke-width: 2; stroke-dasharray: 6 6; fill: none; opacity: 0.85; }
+.setGetFrame { stroke: var(--focus); stroke-width: 2; stroke-dasharray: 6 4; fill: none; }
+
+/* In Properties: the jump to a Set / Get partner, and a subgraph copy's promoted fields. */
+.jump { display: inline-flex; align-items: center; gap: 6px; margin: 4px 0 8px; }
+.promotedSection { margin: 4px 0 8px; }
+.promotedSection .editorHint { margin: 0 0 6px; }
+.promotedPanel { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.promotedPanel .field { padding: 0; }

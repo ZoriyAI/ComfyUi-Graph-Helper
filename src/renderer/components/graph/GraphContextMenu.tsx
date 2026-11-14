@@ -6,6 +6,7 @@ import {
   ArrowRight, ArrowRightLeft, Cable, CircleArrowRight, CircleHelp, CircleMinus, Compass, Ghost, Layers, LogIn, LogOut,
   MessageCircleQuestion, PenLine, Plug, StickyNote, Tag, Trash2, Ungroup, Unlink, type LucideIcon,
 } from 'lucide-react';
+import { lookMenuItems } from './lookMenu';
 import type { ObjectRef } from '../../../shared/contracts/objects';
 import { SUBGRAPH_INPUT_NODE_ID, SUBGRAPH_OUTPUT_NODE_ID, modelledSubgraphs, nestsItself } from '../../../shared/graph/subgraphs';
 import { useGraphStore } from '../../state/graphState';
@@ -204,6 +205,8 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
           useDockStore.getState().show('inspector');
           window.setTimeout(() => document.getElementById(`component-purpose-node-${node.id}`)?.focus(), 60);
         }, { icon: StickyNote, disabled: inDefinition || readOnly }),
+        // IMPORT+NODES: collapse / open (Alt+C), and the jump from a Get to its Set.
+        ...lookMenuItems(node, nodes, selectionFor(node.id), !canBuild).map((entry) => item(entry.id, String(t(entry.labelKey, entry.values ?? {})), entry.run, { icon: entry.icon, shortcut: entry.shortcut, disabled: entry.disabled })),
         separator('s2'),
         item('remove', t('contextMenu.remove'), () => void commitManual({ type: 'remove-node', nodeId: node.id }), { icon: Trash2, danger: true, disabled: !canBuild, shortcut: 'Delete' }),
       );

@@ -67,6 +67,8 @@ export default function NodeLibrary() {
   // Nothing was ever read from the person's ComfyUI: the few built-in nodes are not their nodes, so the library says
   // what to do instead of listing them under raw names.
   const neverRead = sync != null && sync.lastSyncAt == null;
+  // One "read" state for any source: an address of ComfyUI or of an MCP server is enough to read.
+  const hasAddress = sync != null && (sync.mcpUrl.trim() !== '' || (sync.comfyOrigin ?? '').trim() !== '');
   const catalogVersion = useUiStore((state) => state.catalogVersion);
   const syncStamp = `${syncPart}:${catalogVersion}`;
 
@@ -175,11 +177,11 @@ export default function NodeLibrary() {
         <EmptyState
           icon={<Plug size={20} />}
           title={String(t('library.notReadTitle'))}
-          actions={sync?.mcpUrl
+          actions={hasAddress && sync
             ? <Button variant="subtle" size="sm" loading={sync.state === 'running'} onClick={() => void runSyncNow()}>{t('canvas.onboardRead')}</Button>
             : <Button variant="subtle" size="sm" onClick={() => openSettings('connection')}>{t('canvas.onboardOpenConnection')}</Button>}
         >
-          {sync?.state === 'running' ? t('canvas.onboardReading') : sync?.mcpUrl ? t('library.notReadBody') : t('library.notConnectedBody')}
+          {sync?.state === 'running' ? t('canvas.onboardReading') : hasAddress ? t('library.notReadBody') : t('library.notConnectedBody')}
         </EmptyState>
       ) : nodes === null ? (
         <div className={styles.controls} aria-busy="true">

@@ -37,7 +37,7 @@ export const IPC_CHANNELS = {
   /** What Forget all would remove: providers, how many server tokens and sign-ins. Never a value. */
   SECRETS_INVENTORY: 'secrets:inventory',
   SETTINGS_SECRET_STATUS: 'settings:secret-status',
-  COMFY_READ: 'comfy:read',
+  COMFY_CHECK: 'comfy:check',
   MCP_READ: 'mcp:read',
   MCP_SET_TOKEN: 'mcp:set-token',
   MCP_TOKEN_STATUS: 'mcp:token-status',
@@ -131,4 +131,8 @@ export const IPC_CHANNELS = {
   ABOUT_OPEN_DATA_FOLDER: 'about:open-data-folder',
   ABOUT_OPEN_CHROMIUM_LICENCES: 'about:open-chromium-licences',
   HELP_READ: 'help:read',
+  /** The update notice (src/main/updates/updateIpc.ts): off by default; status, close, open its links. */
+  UPDATES_STATUS: 'updates:status',
+  UPDATES_DISMISS: 'updates:dismiss',
+  UPDATES_OPEN: 'updates:open',
 } as const;

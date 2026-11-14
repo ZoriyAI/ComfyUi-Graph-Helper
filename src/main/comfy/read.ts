@@ -2,17 +2,10 @@ import type Database from 'better-sqlite3';
 import { upsertObjectInfo } from '../catalog/repository';
 import { redactSecrets } from '../../shared/config/draft';
 import { isLoopbackHost } from '../../shared/mcp/loopback';
-import { assertObjectInfoSize, OBJECT_INFO_MAX_BYTES, ObjectInfoError, parseObjectInfo } from '../../shared/catalog/objectInfo';
+import { OBJECT_INFO_MAX_BYTES, ObjectInfoError, parseObjectInfo } from '../../shared/catalog/objectInfo';
+import { COMFY_ROUTES, comfyGet, comfyOriginOf } from './gate';
 
 export { isLoopbackHost };
-
-/** Until the response headers arrive. */
-const CONNECT_TIMEOUT_MS = 8000;
-/**
- * For the whole body once headers are in. A large install (3000+ node classes) serves tens of MB from a busy
- * server; there is no size cap, only this generous time limit.
- */
-const BODY_TIMEOUT_MS = 120_000;
 
 export interface ComfyReadSuccess {
   ok: true;
@@ -26,19 +19,6 @@ export interface ComfyReadSuccess {
 export interface ComfyReadFailure {
   ok: false;
   error: string;
-}
-
-function allowedUrl(origin: string, path: '/system_stats' | '/object_info'): URL | null {
-  let base: URL;
-  try {
-    base = new URL(origin);
-  } catch {
-    return null;
-  }
-  if ((base.protocol !== 'http:' && base.protocol !== 'https:') || base.username !== '' || base.password !== '') return null;
-  const target = new URL(path, base);
-  if (target.origin !== base.origin || target.pathname !== path) return null;
-  return target;
 }
 
 /**
@@ -74,27 +54,6 @@ export async function readBody(response: Response, onBytes?: (bytes: number) => 
   return Buffer.concat(chunks, total);
 }
 
-async function getJson(fetchImpl: typeof fetch, url: URL): Promise<{ ok: true; value: unknown; bytes: number } | ComfyReadFailure> {
-  const controller = new AbortController();
-  let timer = setTimeout(() => controller.abort(), CONNECT_TIMEOUT_MS);
-  try {
-    const response = await fetchImpl(url, { method: 'GET', redirect: 'manual', signal: controller.signal });
-    if (response.status >= 300 && response.status < 400) return { ok: false, error: 'Comfy origin was not read.' };
-    if (!response.ok) return { ok: false, error: 'Comfy origin was not read.' };
-    clearTimeout(timer);
-    timer = setTimeout(() => controller.abort(), BODY_TIMEOUT_MS);
-    const body = await readBody(response);
-    assertObjectInfoSize(body.length);
-    return { ok: true, value: JSON.parse(body.toString('utf8')) as unknown, bytes: body.length };
-  } catch (error) {
-    if (error instanceof ObjectInfoError) return { ok: false, error: redactSecrets(error.message) };
-    if (error instanceof SyntaxError) return { ok: false, error: 'Catalog JSON could not be parsed.' };
-    return { ok: false, error: 'Comfy origin was not read.' };
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
 function versionOf(value: unknown): string {
   if (!value || typeof value !== 'object') return 'unknown';
   const system = (value as { system?: { comfyui_version?: unknown } }).system;
@@ -108,40 +67,55 @@ function deviceCount(value: unknown): number {
   return Array.isArray(devices) ? devices.length : 0;
 }
 
-/** GET /system_stats and GET /object_info on the saved origin. Never queues a prompt. */
+/**
+ * GET /system_stats and GET /object_info on the origin, through the read-only gate (gate.ts). Never queues a
+ * prompt. Stores the node classes only: the whole read (packs, models) is comfy/direct.ts.
+ */
 export async function applyComfyRead(db: Database.Database, origin: string, fetchImpl: typeof fetch): Promise<ComfyReadSuccess | ComfyReadFailure> {
-  const statsUrl = allowedUrl(origin, '/system_stats');
-  const infoUrl = allowedUrl(origin, '/object_info');
-  if (!statsUrl || !infoUrl) return { ok: false, error: 'Comfy origin is empty.' };
-  const stats = await getJson(fetchImpl, statsUrl);
-  if (!stats.ok) return stats;
-  const info = await getJson(fetchImpl, infoUrl);
-  if (!info.ok) return info;
+  const base = comfyOriginOf(origin);
+  if (!base) return { ok: false, error: 'Comfy origin is empty.' };
+  const stats = await comfyGet(base, COMFY_ROUTES.systemStats(), fetchImpl);
+  if (!stats.ok || !('json' in stats)) return { ok: false, error: 'Comfy origin was not read.' };
+  const info = await comfyGet(base, COMFY_ROUTES.objectInfo(), fetchImpl);
+  if (!info.ok || !('json' in info)) {
+    return { ok: false, error: !info.ok && info.error === 'large' ? 'Catalog snapshot is too large.' : !info.ok && info.error === 'shape' ? 'Catalog JSON could not be parsed.' : 'Comfy origin was not read.' };
+  }
   try {
     const started = Date.now();
-    const parsed = parseObjectInfo(info.value);
+    const parsed = parseObjectInfo(info.json);
     const stored = upsertObjectInfo(db, parsed);
     console.log(`[Comfy] object_info ${(info.bytes / (1024 * 1024)).toFixed(1)} MiB, ${stored.nodes} classes stored in ${Date.now() - started} ms`);
     return {
       ok: true,
-      version: versionOf(stats.value),
-      devices: deviceCount(stats.value),
+      version: versionOf(stats.json),
+      devices: deviceCount(stats.json),
       nodes: stored.nodes,
       models: stored.models,
       skipped: stored.skipped,
     };
   } catch (error) {
     if (error instanceof ObjectInfoError) return { ok: false, error: redactSecrets(error.message) };
-    if (error instanceof SyntaxError) return { ok: false, error: 'Catalog JSON could not be parsed.' };
     return { ok: false, error: 'Comfy origin was not read.' };
   }
 }
 
+function onThisComputer(address: string | null): boolean {
+  if (!address) return false;
+  try {
+    return isLoopbackHost(new URL(address).hostname);
+  } catch {
+    return false;
+  }
+}
+
 /**
- * A ComfyUI URL an MCP server reported is read only when it stays on this machine or is the origin the person
- * saved; otherwise a server could point the app at any address on the network. Returns the origin to read, or null.
+ * A ComfyUI URL an MCP server reported is read only when it is the origin the person saved, or when both the MCP
+ * server and that ComfyUI are on this computer. A server on another computer that names `127.0.0.1` means its own
+ * machine; reading this computer's address for it would let a server steer the app at a local service. Any other
+ * address could point the app anywhere on the network. Returns the origin to read, or null.
+ * Without `mcpUrl` (a caller that does not know it) a loopback address counts as on this computer.
  */
-export function acceptedComfyUrl(reported: string | null, savedOrigin: string | null | undefined): string | null {
+export function acceptedComfyUrl(reported: string | null, savedOrigin: string | null | undefined, mcpUrl?: string | null): string | null {
   if (!reported) return null;
   let url: URL;
   try {
@@ -150,13 +124,13 @@ export function acceptedComfyUrl(reported: string | null, savedOrigin: string | 
     return null;
   }
   if ((url.protocol !== 'http:' && url.protocol !== 'https:') || url.username || url.password) return null;
-  if (isLoopbackHost(url.hostname)) return url.origin;
   if (savedOrigin) {
     try {
       if (new URL(savedOrigin).origin === url.origin) return url.origin;
     } catch {
-      return null;
+      // A saved value that is not an address matches nothing.
     }
   }
+  if (isLoopbackHost(url.hostname) && (mcpUrl === undefined || onThisComputer(mcpUrl))) return url.origin;
   return null;
 }

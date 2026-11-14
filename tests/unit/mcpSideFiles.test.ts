@@ -32,9 +32,13 @@ describe('the path of a file next to a model', () => {
   it('is the folder and the name, and nothing that leaves the folder or is not such a file', () => {
     expect(sideFilePath('/srv/models/loras', 'style.metadata.json')).toBe('/srv/models/loras/style.metadata.json');
     expect(sideFilePath('/srv/models/loras/', 'sub/style.webp')).toBe('/srv/models/loras/sub/style.webp');
+    // A ComfyUI on Windows: the folder's own separator, and a name listed with either slash.
+    expect(sideFilePath('C:\\models\\loras', 'a.webp')).toBe('C:\\models\\loras\\a.webp');
+    expect(sideFilePath('D:\\AI\\models\\loras\\', 'sub\\style.metadata.json')).toBe('D:\\AI\\models\\loras\\sub\\style.metadata.json');
+    expect(sideFilePath('C:/models/loras', 'sub/a.png')).toBe('C:/models/loras/sub/a.png');
     for (const [root, name] of [
       [null, 'a.webp'], ['', 'a.webp'], ['/srv/models/loras', null], ['/srv/models/loras', ''],
-      ['C:\\models\\loras', 'a.webp'], ['relative/loras', 'a.webp'],
+      ['C:\\models\\loras', '..\\..\\Windows\\a.png'], ['C:', 'a.webp'], ['\\\\server\\share', 'a.webp'], ['relative/loras', 'a.webp'],
       ['/srv/models/loras', '../../etc/passwd.png'], ['/srv/models/loras', 'a.safetensors'], ['/srv/models/loras', 'notes.txt'],
     ] as Array<[string | null, string | null]>) {
       expect(sideFilePath(root, name), `${root} + ${name}`).toBeNull();
@@ -113,10 +117,11 @@ describe('the files at the top of a node pack', () => {
   it('have a path only for a pack that is one folder under a custom_nodes folder', () => {
     expect(packFilePath(root, 'ComfyUI-KJNodes', 'pyproject.toml')).toBe(pyproject);
     expect(packFilePath(`${root}/`, 'ComfyUI-KJNodes', 'README.md')).toBe(readme);
+    expect(packFilePath('C:\\ComfyUI\\custom_nodes', 'x', 'README.md')).toBe('C:\\ComfyUI\\custom_nodes\\x\\README.md');
     for (const [base, pack, file] of [
       [null, 'ComfyUI-KJNodes', 'README.md'], [root, '', 'README.md'], [root, null, 'README.md'],
       [root, '..', 'README.md'], [root, '.', 'README.md'], [root, 'a/b', 'README.md'], [root, 'ComfyUI-KJNodes', '__init__.py'],
-      ['/srv/comfyui', 'ComfyUI-KJNodes', 'README.md'], ['relative/custom_nodes', 'x', 'README.md'], ['C:\\ComfyUI\\custom_nodes', 'x', 'README.md'],
+      ['/srv/comfyui', 'ComfyUI-KJNodes', 'README.md'], ['relative/custom_nodes', 'x', 'README.md'], ['C:\\ComfyUI\\custom_nodes', 'a\\b', 'README.md'],
     ] as Array<[string | null, string | null, string]>) {
       expect(packFilePath(base, pack, file), `${base} + ${pack} + ${file}`).toBeNull();
     }

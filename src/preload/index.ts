@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 import type { ChatRuntimeConfig, NonSecretSettings, SettingsRead } from '../shared/config/schema';
 import type { Preferences } from '../shared/config/preferences';
 import type { AboutInfo, HelpPage, HelpTopic, ThirdPartyComponent } from '../shared/contracts/about';
+import type { UpdateLink, UpdateStatus } from '../shared/contracts/updates';
 import type {
   AgentTurnContext,
   ChatRecord,
@@ -68,7 +69,7 @@ const IPC_CHANNELS = {
   SECRETS_FORGET_ALL: 'secrets:forget-all',
   SECRETS_INVENTORY: 'secrets:inventory',
   SETTINGS_SECRET_STATUS: 'settings:secret-status',
-  COMFY_READ: 'comfy:read',
+  COMFY_CHECK: 'comfy:check',
   MCP_READ: 'mcp:read',
   MCP_SET_TOKEN: 'mcp:set-token',
   MCP_TOKEN_STATUS: 'mcp:token-status',
@@ -135,6 +136,9 @@ const IPC_CHANNELS = {
   ABOUT_OPEN_DATA_FOLDER: 'about:open-data-folder',
   ABOUT_OPEN_CHROMIUM_LICENCES: 'about:open-chromium-licences',
   HELP_READ: 'help:read',
+  UPDATES_STATUS: 'updates:status',
+  UPDATES_DISMISS: 'updates:dismiss',
+  UPDATES_OPEN: 'updates:open',
 } as const;
 
 /** The app version main passes as `--app-version=…` (a sandboxed preload cannot read package.json). */
@@ -199,8 +203,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   forgetAllSecrets: () => ipcRenderer.invoke(IPC_CHANNELS.SECRETS_FORGET_ALL) as Promise<{ status: 'removed'; removed: SecretInventoryReport }>,
   /** What Forget all would remove now: names and counts, never a value. */
   secretInventory: () => ipcRenderer.invoke(IPC_CHANNELS.SECRETS_INVENTORY) as Promise<SecretInventoryReport>,
-  readComfy: () => ipcRenderer.invoke(IPC_CHANNELS.COMFY_READ) as Promise<
-    | { ok: true; version: string; devices: number; nodes: number; models: number; skipped: string[] }
+  /** Settings ▸ Connection ▸ "Check": whether ComfyUI answers at this address (one read-only GET). */
+  checkComfy: (address: string) => ipcRenderer.invoke(IPC_CHANNELS.COMFY_CHECK, address) as Promise<
+    | { ok: true; origin: string; local: boolean; version: string; os: string; devices: number; device: string }
     | { ok: false; error: string }
   >,
   readMcp: () => ipcRenderer.invoke(IPC_CHANNELS.MCP_READ) as Promise<McpReadOutcome>,
@@ -329,6 +334,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openDataFolder: () => ipcRenderer.invoke(IPC_CHANNELS.ABOUT_OPEN_DATA_FOLDER) as Promise<{ ok: true } | { ok: false; error: string }>,
   openChromiumLicences: () => ipcRenderer.invoke(IPC_CHANNELS.ABOUT_OPEN_CHROMIUM_LICENCES) as Promise<{ ok: true } | { ok: false; error: string }>,
   readHelp: (topic: HelpTopic, language: string) => ipcRenderer.invoke(IPC_CHANNELS.HELP_READ, topic, language) as Promise<HelpPage>,
+  // The update notice: off unless Settings ▸ Privacy turns it on; main asks the releases page at most once a day.
+  updateStatus: () => ipcRenderer.invoke(IPC_CHANNELS.UPDATES_STATUS) as Promise<UpdateStatus>,
+  dismissUpdate: (version: string) => ipcRenderer.invoke(IPC_CHANNELS.UPDATES_DISMISS, version) as Promise<{ ok: true }>,
+  openUpdateLink: (link: UpdateLink) => ipcRenderer.invoke(IPC_CHANNELS.UPDATES_OPEN, link) as Promise<{ ok: boolean }>,
   // The model conversation log: what was sent to a model and what came back. Files stay in main; the renderer
   // gets summaries, a short text report, and asks main to save a file through a system dialog.
   traceList: () => ipcRenderer.invoke(IPC_CHANNELS.TRACE_LIST) as Promise<ModelLogList>,
@@ -409,11 +418,12 @@ export interface ElectronAPI {
   secretStatus: (provider?: CloudKeyProvider) => Promise<SecretStatus>;
   forgetAllSecrets: () => Promise<{ status: 'removed'; removed: SecretInventoryReport }>;
   secretInventory: () => Promise<SecretInventoryReport>;
-  readComfy: () => Promise<
-    | { ok: true; version: string; devices: number; nodes: number; models: number; skipped: string[] }
+  /** Settings ▸ Connection ▸ ComfyUI address ▸ "Check": whether ComfyUI answers at this address (one read-only GET). */
+  checkComfy: (address: string) => Promise<
+    | { ok: true; origin: string; local: boolean; version: string; os: string; devices: number; device: string }
     | { ok: false; error: string }
   >;
-  /** Runs the ordinary sync and says what it read (Settings ▸ Connection ▸ "Read through MCP"). */
+  /** Runs the ordinary sync, from either address, and says what it read (Settings ▸ Connection ▸ "Read now"). */
   readMcp: () => Promise<McpReadOutcome>;
   /** `forUrl`: the MCP URL the token is for (e.g. the draft being saved); defaults to the saved URL. */
   mcpSetToken: (value: string, forUrl?: string) => Promise<{ held: boolean }>;
@@ -522,6 +532,11 @@ export interface ElectronAPI {
   openChromiumLicences: () => Promise<{ ok: true } | { ok: false; error: string }>;
   /** A bundled help page (markdown) in the given language. */
   readHelp: (topic: HelpTopic, language: string) => Promise<HelpPage>;
+  /** The update notice: { state: 'off' } unless Settings ▸ Privacy turns the check on. */
+  updateStatus: () => Promise<UpdateStatus>;
+  dismissUpdate: (version: string) => Promise<{ ok: true }>;
+  /** Opens the release page or the download in the browser; only addresses main found itself. */
+  openUpdateLink: (link: UpdateLink) => Promise<{ ok: boolean }>;
   traceList: () => Promise<ModelLogList>;
   traceReport: (id: string) => Promise<{ ok: true; text: string } | { ok: false; error: string }>;
   traceExport: (request: ModelLogExportRequest) => Promise<ModelLogExportResult>;

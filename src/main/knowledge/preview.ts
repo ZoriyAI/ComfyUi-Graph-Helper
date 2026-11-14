@@ -7,6 +7,7 @@ import type { McpSession } from '../../shared/mcp/catalogSource';
 import { previewKind, previewMime } from '../../shared/knowledge/sidecar';
 import { PREVIEW_TRIES, webFoundFromJson } from '../../shared/knowledge/webLookup';
 import { PREVIEW_MAX_BYTES, readSideFile, sideFilePath } from '../mcp/sideFiles';
+import { COMFY_PREVIEW_FILE, readComfyPreview } from '../comfy/direct';
 
 /**
  * The preview picture or clip a model manager keeps next to a model, handed to the window as bytes.
@@ -38,6 +39,12 @@ export interface PreviewDeps {
   cacheDir: string | null;
   /** Downloads a sample found on the internet; without it such a sample is not shown. */
   web?: (url: string) => Promise<{ bytes: Buffer; mime: string; kind: 'image' | 'video' } | null>;
+  /**
+   * When the library was read from ComfyUI itself: its address and each model folder's paths in ComfyUI's order.
+   * A preview marked as ComfyUI's is then asked for from its preview route (comfy/gate.ts), not through MCP.
+   */
+  comfy?: () => { origin: string; roots: Record<string, string[]> } | null;
+  fetchImpl?: typeof fetch;
 }
 
 interface PreviewRow {
@@ -82,12 +89,47 @@ export class PreviewReader {
       return this.getWeb(preview ? [preview.url, ...(preview.more ?? [])] : []);
     }
     const file = row?.preview_file ?? null;
+    if (row && file === COMFY_PREVIEW_FILE) return this.getComfy(directory, name, row);
     const source = sideFilePath(row?.root_path, file);
     if (!row || !file || !source) return Promise.resolve(null);
     const key = createHash('sha256').update(`${source}\n${row.preview_sig ?? ''}`).digest('hex');
     const running = this.inFlight.get(key);
     if (running) return running;
     const work = this.load(key, source, file).catch(() => null).finally(() => this.inFlight.delete(key));
+    this.inFlight.set(key, work);
+    return work;
+  }
+
+  /** The picture ComfyUI has for a model, from the folder when it was read before, else from ComfyUI's preview route. */
+  private getComfy(directory: string, name: string, row: PreviewRow): Promise<ModelPreview | null> {
+    let source: { origin: string; roots: Record<string, string[]> } | null = null;
+    try {
+      source = this.deps.comfy?.() ?? null;
+    } catch {
+      source = null;
+    }
+    const fetchImpl = this.deps.fetchImpl;
+    const index = source && row.root_path ? (source.roots[directory] ?? []).indexOf(row.root_path) : -1;
+    if (!source || !fetchImpl || index < 0) return Promise.resolve(null);
+    const origin = source.origin;
+    const key = createHash('sha256').update(`comfy\n${origin}\n${directory}\n${name}\n${row.preview_sig ?? ''}`).digest('hex');
+    const running = this.inFlight.get(key);
+    if (running) return running;
+    const work = (async (): Promise<ModelPreview | null> => {
+      const kept = this.cachePath(key, COMFY_PREVIEW_FILE);
+      if (kept) {
+        try {
+          const bytes = fs.readFileSync(kept);
+          if (bytes.length > 0) return { kind: 'image', mime: 'image/webp', bytes: new Uint8Array(bytes) };
+        } catch {
+          // Not kept yet.
+        }
+      }
+      const got = await readComfyPreview(origin, directory, index, name, fetchImpl);
+      if (!got || got.bytes.length === 0) return null;
+      if (kept && got.mime === 'image/webp') this.keep(kept, got.bytes);
+      return { kind: 'image', mime: got.mime, bytes: new Uint8Array(got.bytes) };
+    })().catch(() => null).finally(() => this.inFlight.delete(key));
     this.inFlight.set(key, work);
     return work;
   }

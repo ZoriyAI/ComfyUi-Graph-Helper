@@ -92,7 +92,9 @@ describe('core knowledge content', () => {
         explanationInputSchema.parse({ projectId: null, owner: seed.owner, aspect: seed.aspect, text: seed.text, provenance: seed.provenance, sourceUrl: seed.sourceUrl, revisionId: null, createdBy: 'seed' });
         if (seed.aspect === 'why' || seed.aspect === 'risk') expect(seed.provenance, seed.id).toBe('inference');
         if (seed.provenance === 'inference') expect(seed.sourceUrl).toBeNull();
-        if (seed.owner.kind === 'nodeClass' && (seed.aspect === 'what' || seed.aspect === 'connect')) {
+        // A core class has its official page; a class of a knowledge set (sets/) is a fact only with one.
+        const core = (CORE_NODE_CLASSES as readonly string[]).includes(seed.owner.id);
+        if (seed.owner.kind === 'nodeClass' && (seed.aspect === 'what' || seed.aspect === 'connect') && (core || seed.provenance === 'fact')) {
           expect(seed.provenance).toBe('fact');
           // ComfyUI's own nodes cite their docs page; a pack's nodes cite the pack's repository.
           expect(seed.sourceUrl).toMatch(/^https:\/\/(?:docs\.comfy\.org\/|github\.com\/[^/]+\/[^/]+$)/);

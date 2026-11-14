@@ -32,3 +32,6 @@
   :global(html[data-motion="system"]) .reveal,
   :global(html:not([data-motion])) .reveal { animation: none; stroke-dashoffset: 0; stroke-dasharray: none; }
 }
+
+/* A native reroute point of the link (IMPORT+NODES): a dot in the link's colour. */
+.reroutePoint { fill: var(--canvas-edge); stroke: var(--surface-canvas, #0a0e15); stroke-width: 2; }

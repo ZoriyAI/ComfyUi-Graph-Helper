@@ -11,7 +11,8 @@ export interface McpToolCallResult {
 }
 
 export interface McpSession {
-  listTools(): Promise<Array<{ name: string }>>;
+  /** The tools a server lists; `inputSchema` (as the server sent it) recognises which kind of server it is. */
+  listTools(): Promise<Array<{ name: string; inputSchema?: unknown }>>;
   /** `timeoutMs` stretches the wait for one slow call (a file's fingerprint); the client's own wait otherwise. */
   callTool(name: string, args: Record<string, unknown>, options?: { timeoutMs?: number }): Promise<McpToolCallResult>;
   close(): Promise<void>;
@@ -170,7 +171,8 @@ export function isModelFileIn(directory: string, filename: string): boolean {
 
 /**
  * Parses the markdown of `list_local_models` action list:
- * "## loras (316)" headings followed by "- file.safetensors" lines.
+ * "## loras (316)" headings followed by "- file.safetensors" lines, with " (12.3 MB) — modified …" after the name
+ * when the server read its disk. Indented lines under an entry (trigger words, a Civitai link) are not files.
  */
 export function parseLocalModelsMarkdown(markdown: string): McpModelFile[] {
   const files: McpModelFile[] = [];
@@ -183,8 +185,11 @@ export function parseLocalModelsMarkdown(markdown: string): McpModelFile[] {
     }
     const item = /^-\s+(.+?)\s*$/.exec(line);
     if (!item || !directory) continue;
-    const name = item[1];
-    if (isModelFileIn(directory, name)) files.push({ directory, name, sizeBytes: null });
+    // A listing read from the disk adds the size and the date: `- name.safetensors (12.3 MB) — modified …`.
+    const sized = /^(.+?) \((\d+(?:\.\d+)?) MB\)(?: — modified .*)?$/.exec(item[1]);
+    const name = sized ? sized[1] : item[1];
+    const sizeBytes = sized ? Math.round(Number(sized[2]) * 1024 * 1024) : null;
+    if (isModelFileIn(directory, name)) files.push({ directory, name, sizeBytes });
   }
   return files;
 }

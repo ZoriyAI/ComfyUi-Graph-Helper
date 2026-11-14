@@ -234,7 +234,7 @@ describe('the read-only gate and the fingerprint of a model file', () => {
     }
     for (const absolute_path of [
       '/srv/models/loras/a.metadata.json', '/srv/models/loras/a.png', '/etc/passwd', '/srv/models/../../etc/x.safetensors',
-      'srv/models/a.safetensors', '/a.safetensors', '/srv//a.safetensors', '/srv/./a.safetensors', 'C:\\models\\a.safetensors', '/srv/a.safetensors\0.txt',
+      'srv/models/a.safetensors', '/a.safetensors', '/srv//a.safetensors', '/srv/./a.safetensors', 'C:\\models\\..\\a.safetensors', 'C:\\a.safetensors', '/srv/a.safetensors\0.txt',
     ]) {
       expect(isReadOnlyCall('workspace_files', { action: 'hash', absolute_path }), absolute_path).toBe(false);
     }
