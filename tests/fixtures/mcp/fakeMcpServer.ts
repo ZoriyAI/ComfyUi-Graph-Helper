@@ -15,6 +15,7 @@ import * as path from 'path';
 import { imageModelClassDefs } from './classes/image-models';
 import { VIDEO_SET_CLASSES } from './classes/video';
 import { IMAGE_TECHNIQUE_PACKS, imageTechniqueClassDefs } from './classes/image-techniques';
+import { SOUND_3D_FACES_CLASSES, SOUND_3D_FACES_PACKS } from './classes/sound-3d-faces';
 
 export interface FakeMcpCall {
   /** JSON-RPC method, or the HTTP method for non-POST requests ("GET", "DELETE"). */
@@ -73,6 +74,7 @@ export const PACKS: Pack[] = [
   { name: 'rgthree-comfy', module: 'custom_nodes.rgthree-comfy', version: '1.0.0', commit: '9c8d7e6' },
   { name: 'ComfyUI-GGUF', module: 'custom_nodes.ComfyUI-GGUF', version: '1.0.0', commit: null },
   ...IMAGE_TECHNIQUE_PACKS,
+  ...SOUND_3D_FACES_PACKS,
 ];
 
 export const MODELS: Array<{ category: string; filename: string; size: number }> = [
@@ -413,7 +415,7 @@ export const CLASSES: ClassDef[] = [
   { classType: 'VAELoader', pack: 0, display: 'Load VAE', category: 'loaders', required: { vae_name: [names('vae')] }, output: ['VAE'] },
   { classType: 'LoraLoader', pack: 0, display: 'Load LoRA', category: 'loaders', required: { model: ['MODEL'], clip: ['CLIP'], lora_name: [names('loras')], strength_model: ['FLOAT', { default: 1, min: -100, max: 100, step: 0.01 }], strength_clip: ['FLOAT', { default: 1, min: -100, max: 100, step: 0.01 }] }, output: ['MODEL', 'CLIP'] },
   { classType: 'LoraLoaderModelOnly', pack: 0, display: 'LoraLoaderModelOnly', category: 'loaders', required: { model: ['MODEL'], lora_name: [names('loras')], strength_model: ['FLOAT', { default: 1 }] }, output: ['MODEL'] },
-  { classType: 'CLIPLoader', pack: 0, display: 'Load CLIP', category: 'advanced/loaders', required: { clip_name: [names('text_encoders')], type: [['stable_diffusion', 'wan', 'lumina2']] }, output: ['CLIP'] },
+  { classType: 'CLIPLoader', pack: 0, display: 'Load CLIP', category: 'advanced/loaders', required: { clip_name: [names('text_encoders')], type: [['stable_diffusion', 'wan', 'lumina2', 'stable_audio']] }, output: ['CLIP'] },
   { classType: 'UNETLoader', pack: 0, display: 'Load Diffusion Model', category: 'advanced/loaders', required: { unet_name: [names('diffusion_models')], weight_dtype: [['default', 'fp8_e4m3fn']] }, output: ['MODEL'] },
   { classType: 'ControlNetLoader', pack: 0, display: 'Load ControlNet Model', category: 'loaders', required: { control_net_name: [names('controlnet')] }, output: ['CONTROL_NET'] },
   { classType: 'UpscaleModelLoader', pack: 0, display: 'Load Upscale Model', category: 'loaders', required: { model_name: [names('upscale_models')] }, output: ['UPSCALE_MODEL'] },
@@ -505,6 +507,8 @@ export const VIDEO_CLASSES: ClassDef[] = [
   ...VIDEO_SET_CLASSES,
   // The lessons on picture techniques (classes/image-techniques.ts).
   ...imageTechniqueClassDefs((name) => PACKS.findIndex((pack) => pack.name === name), names),
+  // Sound, speech, 3D, faces and characters (classes/sound-3d-faces.ts), each in its pack.
+  ...SOUND_3D_FACES_CLASSES.map((def) => ({ ...def, pack: Math.max(0, PACKS.findIndex((pack) => pack.name === def.pack)) })),
 ];
 
 /** The /object_info document the native fixture serves. */

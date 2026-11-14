@@ -17,6 +17,7 @@ import { LESSONS, LESSON_AFTER, lessonById } from '../../src/shared/lessons/less
 import { imageModelLessonSpecs } from '../fixtures/mcp/classes/image-models';
 import { videoSetSpecs } from '../fixtures/mcp/classes/video';
 import { IMAGE_TECHNIQUE_LESSON_CLASSES } from '../fixtures/mcp/classes/image-techniques';
+import { lessonSpecs as sound3dFacesSpecs } from '../fixtures/mcp/classes/sound-3d-faces';
 
 /**
  * ComfyUI's own nodes as far as the lessons use them: inputs with the value a fresh node starts with (link
@@ -145,6 +146,7 @@ const CLASSES: Record<string, Spec> = {
   // The lessons on picture model families.
   ...imageModelLessonSpecs(),
   ...IMAGE_TECHNIQUE_LESSON_CLASSES,
+  ...sound3dFacesSpecs(),
 };
 
 const ports: ClassPorts = (classType) => {
@@ -1080,7 +1082,8 @@ describe('the words of the lessons', () => {
       for (const lesson of LESSONS) {
         const said = Object.values(lessonWords(language, lesson.id)!.steps).map((step) => step.body).join('\n');
         const sentTo = LESSONS.filter((other) => other.id !== lesson.id && said.includes(lessonWords(language, other.id)!.title)).map((other) => other.id);
-        const here = new Set([lesson.id, ...standsOn(lesson.id), ...sentTo].flatMap(own).flatMap(inputsOf));
+        // An output of the lesson's own nodes may share its name with an input elsewhere (`latent`, `text`): it is named as an output.
+        const here = new Set([lesson.id, ...standsOn(lesson.id), ...sentTo].flatMap(own).flatMap((classType) => [...inputsOf(classType), ...CLASSES[classType].outputs.map(([name]) => name)]));
         for (const [stepId, text] of Object.entries(lessonWords(language, lesson.id)!.steps)) {
           for (const marked of text.body.match(/`[^`]+`/g) ?? []) {
             const word = marked.slice(1, -1);

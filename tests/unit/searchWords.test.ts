@@ -100,7 +100,8 @@ describe('node search by Russian words, one group at a time', () => {
     expect(found(db, 'ksmapler')).toContain('KSampler');
     expect(found(db, 'chekpoint')).toContain('CheckpointLoaderSimple');
     expect(found(db, 'upscal')).toContain('ImageUpscaleWithModel');
-    expect(found(db, 'vea')).toEqual([]);
+    // A slip in "vae" that is no part of any name ("vea" is: "SaVE Audio").
+    expect(found(db, 'vqe')).toEqual([]);
     expect(found(db, 'zzzzz')).toEqual([]);
   });
 
