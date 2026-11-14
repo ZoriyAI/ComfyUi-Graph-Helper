@@ -257,6 +257,8 @@ export interface GraphCheckReport {
 }
 
 export interface SyncStatus {
+  /** Source-aware catalog facts revision, advanced only after accepted writes. */
+  catalogRevision?: number;
   state: 'never' | 'idle' | 'running' | 'error';
   lastSyncAt: number | null;
   lastError: string | null;

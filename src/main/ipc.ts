@@ -39,7 +39,7 @@ import { missingOnGraph } from '../shared/graph/compatibility';
 import { cancelRun, closeRun, commitCommand, pauseRun, readProjection, resumeRun, startRun, switchProject } from './commands/commit';
 import { DESKTOP_PROJECT_ID } from '../shared/project';
 import { assertObjectInfoSize, ObjectInfoError, parseObjectInfo } from '../shared/catalog/objectInfo';
-import { readCatalog, upsertObjectInfo } from './catalog/repository';
+import { bumpCatalogRevision, readCatalog, upsertObjectInfo } from './catalog/repository';
 import { nativeProjectFile, openNativeFile } from './ipc/projectFile';
 import { exportWorkflow, type GraphSnapshot } from '../shared/workflow/codec';
 import { fileDialogCopy, languageOf } from '../shared/i18n';
@@ -689,7 +689,13 @@ function importCatalogFile(filePath: string) {
     const bytes = fs.readFileSync(filePath);
     assertObjectInfoSize(bytes.length);
     const parsed = parseObjectInfo(JSON.parse(bytes.toString('utf8')));
-    const result = upsertObjectInfo(getDatabase(), parsed);
+    const db = getDatabase();
+    const result = db.transaction(() => {
+      const applied = upsertObjectInfo(db, parsed);
+      bumpCatalogRevision(db);
+      return applied;
+    }).immediate();
+    syncService.notify(db);
     return { status: 'applied' as const, result };
   } catch (error) {
     if (error instanceof ObjectInfoError) return { status: 'rejected' as const, error: redactSecrets(error.message) };

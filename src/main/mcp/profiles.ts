@@ -1,8 +1,6 @@
-import type Database from 'better-sqlite3';
 import type { McpModelFile, McpSession } from '../../shared/mcp/catalogSource';
 import { isModelFileIn, parseLocalModelsMarkdown, toolPayload } from '../../shared/mcp/catalogSource';
 import { isPlainRelativeName } from '../../shared/mcp/serverPaths';
-import { removeStaleModelFiles, removeStaleModelFilesIn, upsertModelFiles } from '../catalog/repository';
 
 /*
  * Kinds of MCP server the app knows how to read, recognised by the tools a server lists (their names and input
@@ -63,41 +61,40 @@ export function recognizeProfile(tools: readonly ListedTool[]): McpProfile | nul
 }
 
 export interface ProfileModels {
-  /** Files stored, or null when the listing could not be read (the old list stays). */
+  /** Files collected, or null when the listing could not be read (same-source rows stay). */
   models: number | null;
+  files: McpModelFile[];
+  /** A complete listing may replace only these folders (undefined means all folders). */
+  directories?: string[];
   /** The listing said it was partial: files it does not name were not dropped. */
   partial: boolean;
 }
 
 /** `list_local_models` action "list": markdown by folder. A partial or empty answer drops nothing. */
-async function readModelList(db: Database.Database, session: McpSession, now: number): Promise<ProfileModels> {
+async function readModelList(session: McpSession): Promise<ProfileModels> {
   const result = await session.callTool('list_local_models', { action: 'list' });
   const payload = toolPayload(result);
   const text = typeof payload === 'string' ? payload : null;
-  if (result.isError || text === null || !/^## /m.test(text)) return { models: null, partial: false };
+  if (result.isError || text === null || !/^## /m.test(text)) return { models: null, partial: false, files: [] };
   const files = parseLocalModelsMarkdown(text).filter((file) => isPlainRelativeName(file.name));
   const partial = /Partial listing/i.test(text);
-  const models = upsertModelFiles(db, files, now);
-  if (!partial) removeStaleModelFiles(db, now);
-  return { models, partial };
+  return { models: files.length, partial, files };
 }
 
 /** `list_models` with no arguments: `{models: [checkpoint names]}`. Only the checkpoints folder is replaced. */
-async function readCheckpointList(db: Database.Database, session: McpSession, now: number): Promise<ProfileModels> {
+async function readCheckpointList(session: McpSession): Promise<ProfileModels> {
   const result = await session.callTool('list_models', {});
   const payload = toolPayload(result);
   const listed = payload && typeof payload === 'object' && !Array.isArray(payload) ? (payload as { models?: unknown }).models : undefined;
-  if (result.isError || !Array.isArray(listed)) return { models: null, partial: false };
+  if (result.isError || !Array.isArray(listed) || listed.length > 100_000) return { models: null, partial: false, files: [] };
   const files: McpModelFile[] = listed
     .slice(0, 100_000)
     .filter((name): name is string => typeof name === 'string' && isPlainRelativeName(name) && isModelFileIn('checkpoints', name))
     .map((name) => ({ directory: 'checkpoints', name, sizeBytes: null }));
-  const models = upsertModelFiles(db, files, now);
-  removeStaleModelFilesIn(db, now, ['checkpoints']);
-  return { models, partial: false };
+  return { models: files.length, partial: false, files, directories: ['checkpoints'] };
 }
 
 /** The model list of a 'modelList' or 'checkpointList' server. Transport errors and refusals are thrown. */
-export function readProfileModels(profile: Exclude<McpProfile, 'catalog'>, db: Database.Database, session: McpSession, now: number): Promise<ProfileModels> {
-  return profile === 'modelList' ? readModelList(db, session, now) : readCheckpointList(db, session, now);
+export function readProfileModels(profile: Exclude<McpProfile, 'catalog'>, session: McpSession): Promise<ProfileModels> {
+  return profile === 'modelList' ? readModelList(session) : readCheckpointList(session);
 }

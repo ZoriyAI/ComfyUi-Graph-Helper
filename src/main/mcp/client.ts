@@ -9,6 +9,12 @@ import {
   toolPayload,
 } from '../../shared/mcp/catalogSource';
 import {
+  acceptCatalogSource,
+  bumpCatalogRevision,
+  catalogSourceKey,
+  normalizedMcpEndpoint,
+  sourceWithInstallation,
+  removeStaleModelFilesIn,
   inferModelsFromNames,
   removeStaleModelFiles,
   removeStaleNodeClasses,
@@ -22,7 +28,7 @@ import { McpRefusedError, readOnlySession } from './readOnly';
 import { parseObjectInfo } from '../../shared/catalog/objectInfo';
 import { acceptedComfyUrl, applyComfyRead, isLoopbackHost } from '../comfy/read';
 import { readSettings } from '../settings/repository';
-import { readComfyDirect, type DirectReadSuccess } from '../comfy/direct';
+import { comfyAddress, collectComfyDirect, type DirectReadSuccess } from '../comfy/direct';
 import { readProfileModels, recognizeProfile, type McpProfile } from './profiles';
 import { redactSecrets } from '../../shared/config/draft';
 import { MCP_CALL_TIMEOUT_MS, MCP_CONNECT_TIMEOUT_MS } from '../../shared/config/preferences';
@@ -250,6 +256,10 @@ export interface CatalogReadContext {
   mcpUrl?: string;
   /** Settings ▸ Connection ▸ ComfyUI address ('' when not set). */
   comfyOrigin?: string;
+  signal?: AbortSignal;
+  isCurrent?: () => boolean;
+  /** Synchronous provenance writes; called inside accepted publication. */
+  publishState?: (detail: CatalogReadDetail) => void;
 }
 
 /**
@@ -267,7 +277,7 @@ export async function readCatalogViaMcp(
   const opened = await openReadOnlySession(config, factory);
   if (!opened.ok) return opened;
   try {
-    const detail = await readCatalogWithSession(db, opened.session, fetchImpl, Date.now());
+    const detail = await readCatalogWithSession(db, opened.session, fetchImpl, Date.now(), { mcpUrl: config.url });
     return 'ok' in detail ? detail : detail.result;
   } catch (error) {
     return failure(error);
@@ -320,6 +330,16 @@ export async function readCatalogWithSession(
   now: number,
   context: CatalogReadContext = {},
 ): Promise<CatalogReadDetail | McpReadFailure> {
+  const checkCurrent = () => {
+    if (context.signal?.aborted || context.isCurrent?.() === false) throw new Error('Catalog collection cancelled');
+  };
+  // Check each awaited MCP page too: a fake/remote session may still resolve after close().
+  const connected = session;
+  session = {
+    listTools: async () => { checkCurrent(); const result = await connected.listTools(); checkCurrent(); return result; },
+    callTool: async (name, args) => { checkCurrent(); const result = await connected.callTool(name, args); checkCurrent(); return result; },
+    close: () => connected.close(),
+  };
   const skipped: SkippedPart[] = [];
   const failedSections: string[] = [];
   const failedFolders: string[] = [];
@@ -329,9 +349,47 @@ export async function readCatalogWithSession(
   const profile = recognizeProfile(listed);
   if (profile === null) return { ok: false, error: MCP_UNKNOWN_SERVER };
   const comfyOrigin = context.comfyOrigin ?? savedComfyOrigin(db) ?? '';
+  const checkedComfy = comfyAddress(comfyOrigin);
+  const capturedComfyOrigin = checkedComfy.ok ? checkedComfy.origin.origin : null;
+  const writes: Array<() => void> = [];
+  let identity: ServerIdentity = { installationId: null, comfyuiUrl: null };
+  let comfyUrl: string | null = null;
+  if (tools.has('studio_info')) {
+    const payload = toolPayload(await session.callTool('studio_info', { action: 'describe' }));
+    comfyUrl = comfyUrlFromStudioInfo(payload);
+    identity = { ...identityFromStudioInfo(payload), comfyuiUrl: comfyUrl };
+  }
+  const endpoint = context.mcpUrl ? normalizedMcpEndpoint(context.mcpUrl) : '';
+  const publish = (detail: CatalogReadDetail, actualComfyOrigin: string | null) => {
+    checkCurrent();
+    const parts = ['mcp', endpoint, ...(actualComfyOrigin ? [actualComfyOrigin] : [])];
+    const sourceKey = sourceWithInstallation(db, parts, identity.installationId);
+    db.transaction(() => {
+      checkCurrent();
+      // A caller without a captured endpoint cannot establish a new source identity.
+      if (endpoint) acceptCatalogSource(db, sourceKey);
+      for (const write of writes) write();
+      inferModelsFromNames(db);
+      if (endpoint) {
+        const state = db.prepare('INSERT INTO sync_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
+        state.run('catalog_source_connection', catalogSourceKey(parts));
+        if (identity.installationId) state.run('catalog_source_installation', identity.installationId);
+      }
+      bumpCatalogRevision(db);
+      context.publishState?.(detail);
+    }).immediate();
+  };
+
   if (profile !== 'catalog') {
     // Models from the server; node classes and packs from the ComfyUI address in Settings.
-    const listedModels = await readProfileModels(profile, db, session, now);
+    const listedModels = await readProfileModels(profile, session);
+    if (listedModels.models !== null) writes.push(() => {
+      upsertModelFiles(db, listedModels.files, now);
+      if (!listedModels.partial) {
+        if (listedModels.directories) removeStaleModelFilesIn(db, now, listedModels.directories);
+        else removeStaleModelFiles(db, now);
+      }
+    });
     if (listedModels.models === null) {
       skipped.push('modelFiles');
       failedSections.push('model files');
@@ -339,15 +397,22 @@ export async function readCatalogWithSession(
     const warnings: string[] = [];
     let direct: DirectReadSuccess | null = null;
     if (comfyOrigin) {
-      const read = await readComfyDirect(db, comfyOrigin, fetchImpl, now, { models: false });
-      if (read.ok) direct = read;
+      const read = await collectComfyDirect(comfyOrigin, fetchImpl, { models: false, signal: context.signal, cancelled: () => context.isCurrent?.() === false });
+      if (read.ok) {
+        const { parsed: _parsed, files: _files, packRows: _packs, ...result } = read;
+        direct = result;
+        writes.push(() => {
+          upsertObjectInfo(db, read.parsed, now);
+          removeStaleNodeClasses(db, now);
+          replaceNodePacks(db, read.packRows, now, true);
+        });
+      }
       else warnings.push(MCP_NODES_COMFY_FAILED, read.error);
     } else {
       warnings.push(MCP_NODES_NEED_COMFY);
     }
     if (!direct) skipped.push('nodeClasses', 'nodePacks');
-    inferModelsFromNames(db);
-    return {
+    const detail: CatalogReadDetail = {
       result: {
         ok: true,
         tools: tools.size,
@@ -367,6 +432,8 @@ export async function readCatalogWithSession(
       direct,
       warnings,
     };
+    publish(detail, direct?.origin ?? capturedComfyOrigin);
+    return detail;
   }
 
   // Rows this run stores carry `now`; after a complete listing, older synced rows are gone from the server.
@@ -375,14 +442,20 @@ export async function readCatalogWithSession(
   if (tools.has('studio_capabilities')) {
     const classes = await pagedOrNull(() => readNodeClassesPaged(session));
     if (classes) {
-      nodes = upsertNodeClasses(db, classes.items, now);
-      if (classes.complete) removeStaleNodeClasses(db, now);
+      nodes = classes.items.length;
+      writes.push(() => {
+        upsertNodeClasses(db, classes.items, now);
+        if (classes.complete) removeStaleNodeClasses(db, now);
+      });
     } else {
       skipped.push('nodeClasses');
       failedSections.push('node classes');
     }
     const packList = await pagedOrNull(() => readNodePacks(session));
-    if (packList) packs = replaceNodePacks(db, packList.items, now, packList.complete);
+    if (packList) {
+      packs = packList.items.length;
+      writes.push(() => { replaceNodePacks(db, packList.items, now, packList.complete); });
+    }
     else {
       skipped.push('nodePacks');
       failedSections.push('node packs');
@@ -395,8 +468,11 @@ export async function readCatalogWithSession(
   if (tools.has('models')) {
     const listed = await pagedOrNull(() => readModelFilesWithRoots(session));
     if (listed) {
-      models = upsertModelFiles(db, listed.items, now);
-      if (listed.complete) removeStaleModelFiles(db, now);
+      models = listed.items.length;
+      writes.push(() => {
+        upsertModelFiles(db, listed.items, now);
+        if (listed.complete) removeStaleModelFiles(db, now);
+      });
       failedFolders.push(...listed.failedFolders);
     } else {
       skipped.push('modelFiles');
@@ -405,9 +481,13 @@ export async function readCatalogWithSession(
   } else if (tools.has('list_local_models')) {
     const result = await session.callTool('list_local_models', { action: 'list' });
     const payload = toolPayload(result);
-    if (!result.isError && typeof payload === 'string') {
-      models = upsertModelFiles(db, parseLocalModelsMarkdown(payload), now);
-      removeStaleModelFiles(db, now);
+    if (!result.isError && typeof payload === 'string' && /^## /m.test(payload)) {
+      const files = parseLocalModelsMarkdown(payload);
+      models = files.length;
+      writes.push(() => {
+        upsertModelFiles(db, files, now);
+        if (!/Partial listing/i.test(payload)) removeStaleModelFiles(db, now);
+      });
     } else {
       skipped.push('modelFiles');
     }
@@ -416,19 +496,13 @@ export async function readCatalogWithSession(
   }
 
   let objectInfo: McpReadSuccess['objectInfo'] = 'none';
-  let comfyUrl: string | null = null;
-  let identity: ServerIdentity = { installationId: null, comfyuiUrl: null };
-  if (tools.has('studio_info')) {
-    const payload = toolPayload(await session.callTool('studio_info', { action: 'describe' }));
-    comfyUrl = comfyUrlFromStudioInfo(payload);
-    identity = { ...identityFromStudioInfo(payload), comfyuiUrl: comfyUrl };
-  }
   if (tools.has('comfy_api')) {
     const payload = toolPayload(await session.callTool('comfy_api', { method: 'GET', route: '/object_info' }));
     const read = payload && typeof payload === 'object' && !('error' in (payload as object)) ? payload : null;
     if (read) {
       try {
-        upsertObjectInfo(db, parseObjectInfo(read), now);
+        const parsed = parseObjectInfo(read);
+        writes.push(() => { upsertObjectInfo(db, parsed, now); });
         objectInfo = 'mcp';
       } catch {
         skipped.push('nodeDetailsMcp');
@@ -437,18 +511,20 @@ export async function readCatalogWithSession(
       skipped.push('nodeDetailsMcp');
     }
   }
+  let actualComfyOrigin: string | null = null;
   let nativeComfy: NonNullable<McpReadSuccess['nativeComfy']> = 'notTried';
   if (objectInfo === 'none' && (comfyUrl || comfyOrigin)) {
     // The address the server named, when it is the saved one or both are on this computer; else the saved one.
     // The server must not steer reads elsewhere.
     const nativeUrl = (comfyUrl ? acceptedComfyUrl(comfyUrl, comfyOrigin, context.mcpUrl) : null) ?? (comfyOrigin || null);
-    const native = nativeUrl ? await applyComfyRead(db, nativeUrl, fetchImpl) : null;
-    if (native?.ok) objectInfo = 'native';
+    const checkedNative = comfyAddress(nativeUrl ?? '');
+    actualComfyOrigin = checkedNative.ok ? checkedNative.origin.origin : null;
+    const native = nativeUrl ? await applyComfyRead(db, nativeUrl, fetchImpl, { signal: context.signal, collect: (parsed) => { writes.push(() => { upsertObjectInfo(db, parsed, now); }); } }) : null;
+    if (native?.ok) { objectInfo = 'native'; actualComfyOrigin = new URL(nativeUrl!).origin; }
     else skipped.push('nodeDetailsNative');
     nativeComfy = native?.ok ? 'ok' : nativeUrl ? 'unreachable' : 'notAllowed';
   }
-  inferModelsFromNames(db);
-  return {
+  const detail: CatalogReadDetail = {
     result: { ok: true, tools: tools.size, nodes, packs, models, objectInfo, comfyUrl, skipped, failedSections, failedFolders, nativeComfy },
     toolNames: tools,
     identity,
@@ -456,4 +532,6 @@ export async function readCatalogWithSession(
     direct: null,
     warnings: [],
   };
+  publish(detail, actualComfyOrigin);
+  return detail;
 }

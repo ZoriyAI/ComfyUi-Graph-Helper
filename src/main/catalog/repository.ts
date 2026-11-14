@@ -1,10 +1,53 @@
 import type Database from 'better-sqlite3';
+import { createHash } from 'node:crypto';
+import { normalServerFolder, pathStyle } from '../../shared/mcp/serverPaths';
 import type { ParsedObjectInfo } from '../../shared/catalog/objectInfo';
 import type { CatalogInput, CatalogModel, CatalogNode, CatalogOutput, CatalogView } from '../../shared/catalog/types';
 import type { McpModelFile, McpNodeClass } from '../../shared/mcp/catalogSource';
 import { inferBaseModel } from '../../shared/knowledge/baseModel';
 import { kindFromDirectory } from '../../shared/knowledge/modelKind';
 import type { ModelNotes } from '../../shared/knowledge/sidecar';
+
+/** Opaque, main-only source identity: endpoint paths/query credentials never enter stored keys. */
+export function catalogSourceKey(parts: readonly string[], installationId: string | null = null): string {
+  return createHash('sha256').update(JSON.stringify([parts, installationId])).digest('hex');
+}
+
+export function normalizedMcpEndpoint(value: string): string {
+  const url = new URL(value);
+  url.hash = '';
+  return url.href;
+}
+
+/** A missing installation id is weaker evidence, not a change of installation. */
+export function sourceWithInstallation(db: Database.Database, parts: readonly string[], installationId: string | null): string {
+  const connection = catalogSourceKey(parts);
+  const previous = db.prepare("SELECT value FROM sync_state WHERE key = 'catalog_source_connection'").get() as { value: string } | undefined;
+  const known = previous?.value === connection
+    ? (db.prepare("SELECT value FROM sync_state WHERE key = 'catalog_source_installation'").get() as { value: string } | undefined)?.value ?? null : null;
+  return catalogSourceKey(parts, installationId ?? known);
+}
+
+/** Clear only catalog data on a source change (including an untracked legacy source), inside publication. */
+export function acceptCatalogSource(db: Database.Database, sourceKey: string): void {
+  const previous = db.prepare("SELECT value FROM sync_state WHERE key = 'catalog_source_key'").get() as { value: string } | undefined;
+  if (previous?.value !== sourceKey) {
+    db.exec('DELETE FROM model_catalog; DELETE FROM node_catalog; DELETE FROM node_packs');
+    ensureCatalog(db);
+    db.prepare("DELETE FROM sync_state WHERE key IN ('enrich_failures', 'server_identity', 'comfy_model_roots', 'comfy_read_origin', 'catalog_source_connection', 'catalog_source_installation')").run();
+  }
+  db.prepare("INSERT INTO sync_state (key, value) VALUES ('catalog_source_key', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(sourceKey);
+}
+
+/** Revision changes with accepted catalog facts; progress and unsuccessful collection leave it alone. */
+export function bumpCatalogRevision(db: Database.Database): void {
+  db.prepare("INSERT INTO sync_state (key, value) VALUES ('catalog_revision', '1') ON CONFLICT(key) DO UPDATE SET value = CAST(COALESCE(CAST(value AS INTEGER), 0) + 1 AS TEXT)").run();
+}
+
+function comparableRoot(value: string | null | undefined): string | null {
+  const root = normalServerFolder(value);
+  return root && pathStyle(root) === 'windows' ? root.replace(/\\/g, '/').toLowerCase() : root;
+}
 
 export const SEEDED_NODE_TYPES = [
   'CheckpointLoaderSimple',
@@ -93,6 +136,7 @@ export function upsertModelFiles(
   db: Database.Database,
   files: Array<McpModelFile & { rootPath?: string | null } & ListedSideFiles>,
   syncedAt: number | null = null,
+  options: { sourceKey?: string } = {},
 ): number {
   const upsert = db.prepare(`
     INSERT INTO model_catalog (directory, name, size_bytes, root_path, synced_at) VALUES (?, ?, ?, ?, ?)
@@ -101,11 +145,27 @@ export function upsertModelFiles(
       root_path = COALESCE(excluded.root_path, model_catalog.root_path),
       synced_at = COALESCE(excluded.synced_at, model_catalog.synced_at)
   `);
-  const sides = db.prepare('UPDATE model_catalog SET sidecar_file = ?, sidecar_sig = ?, preview_file = ?, preview_sig = ? WHERE directory = ? AND name = ?');
+  const oldIdentity = db.prepare('SELECT size_bytes, root_path FROM model_catalog WHERE directory = ? AND name = ?');
+  const invalidate = db.prepare(`UPDATE model_catalog SET enriched_at = NULL, sha256 = NULL,
+    base_model = 'unknown', base_model_evidence = 'none', trigger_words = '[]', description = '',
+    source_url = NULL, metadata_json = '{}', notes_json = '{}', sidecar_read_sig = NULL,
+    sidecar_file = NULL, sidecar_sig = NULL, preview_file = NULL, preview_sig = NULL,
+    web_source = NULL, web_url = NULL, web_notes_json = '{}', web_preview_url = NULL,
+    web_checked_at = NULL, web_status = NULL, web_error = NULL, web_family = NULL
+    WHERE directory = ? AND name = ?`);
+  const sides = db.prepare('UPDATE model_catalog SET sidecar_file = ?, sidecar_sig = ? WHERE directory = ? AND name = ?');
+  const preview = db.prepare('UPDATE model_catalog SET preview_file = ?, preview_sig = ? WHERE directory = ? AND name = ?');
   const write = db.transaction(() => {
+    if (options.sourceKey) acceptCatalogSource(db, options.sourceKey);
     for (const file of files) {
-      upsert.run(file.directory, file.name, file.sizeBytes, file.rootPath ?? null, syncedAt);
-      if (file.sidecarFile !== undefined) sides.run(file.sidecarFile, file.sidecarSig ?? null, file.previewFile ?? null, file.previewSig ?? null, file.directory, file.name);
+      const old = oldIdentity.get(file.directory, file.name) as { size_bytes: number | null; root_path: string | null } | undefined;
+      const oldRoot = comparableRoot(old?.root_path);
+      const newRoot = comparableRoot(file.rootPath);
+      if (old && ((old.size_bytes != null && file.sizeBytes != null && old.size_bytes !== file.sizeBytes)
+        || (oldRoot != null && newRoot != null && oldRoot !== newRoot))) invalidate.run(file.directory, file.name);
+      upsert.run(file.directory, file.name, file.sizeBytes, normalServerFolder(file.rootPath), syncedAt);
+      if (file.sidecarFile !== undefined) sides.run(file.sidecarFile, file.sidecarSig ?? null, file.directory, file.name);
+      if (file.previewFile !== undefined) preview.run(file.previewFile, file.previewSig ?? null, file.directory, file.name);
     }
   });
   write.immediate();

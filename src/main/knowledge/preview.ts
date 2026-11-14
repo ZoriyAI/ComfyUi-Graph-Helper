@@ -48,6 +48,8 @@ export interface PreviewDeps {
 }
 
 interface PreviewRow {
+  source_key: string | null;
+  size_bytes: number | null;
   root_path: string | null;
   preview_file: string | null;
   preview_sig: string | null;
@@ -70,6 +72,8 @@ export class PreviewReader {
   private idle: ReturnType<typeof setTimeout> | null = null;
   private queue: Promise<Buffer | null> = Promise.resolve(null);
   private readonly inFlight = new Map<string, Promise<ModelPreview | null>>();
+  private sourceKey: string | null = null;
+  private generation = 0;
   private written = 0;
   private writtenBytes = 0;
 
@@ -79,10 +83,14 @@ export class PreviewReader {
   get(directory: string, name: string): Promise<ModelPreview | null> {
     let row: PreviewRow | undefined;
     try {
-      row = this.deps.db().prepare('SELECT root_path, preview_file, preview_sig, web_status, web_notes_json FROM model_catalog WHERE directory = ? AND name = ?')
+      row = this.deps.db().prepare(`SELECT root_path, size_bytes, preview_file, preview_sig, web_status, web_notes_json, (SELECT value FROM sync_state WHERE key = 'catalog_source_key') AS source_key FROM model_catalog WHERE directory = ? AND name = ?`)
         .get(directory, name) as PreviewRow | undefined;
     } catch {
       return Promise.resolve(null);
+    }
+    if (row && row.source_key !== this.sourceKey) {
+      this.stop();
+      this.sourceKey = row.source_key;
     }
     if (row && !row.preview_file && row.web_status === 'found') {
       const preview = webFoundFromJson(row.web_notes_json)?.preview ?? null;
@@ -92,10 +100,10 @@ export class PreviewReader {
     if (row && file === COMFY_PREVIEW_FILE) return this.getComfy(directory, name, row);
     const source = sideFilePath(row?.root_path, file);
     if (!row || !file || !source) return Promise.resolve(null);
-    const key = createHash('sha256').update(`${source}\n${row.preview_sig ?? ''}`).digest('hex');
+    const key = createHash('sha256').update(JSON.stringify([row.source_key, row.size_bytes, source, row.preview_sig])).digest('hex');
     const running = this.inFlight.get(key);
     if (running) return running;
-    const work = this.load(key, source, file).catch(() => null).finally(() => this.inFlight.delete(key));
+    const work = this.load(key, source, file, this.generation).catch(() => null).finally(() => this.inFlight.delete(key));
     this.inFlight.set(key, work);
     return work;
   }
@@ -112,7 +120,8 @@ export class PreviewReader {
     const index = source && row.root_path ? (source.roots[directory] ?? []).indexOf(row.root_path) : -1;
     if (!source || !fetchImpl || index < 0) return Promise.resolve(null);
     const origin = source.origin;
-    const key = createHash('sha256').update(`comfy\n${origin}\n${directory}\n${name}\n${row.preview_sig ?? ''}`).digest('hex');
+    const key = createHash('sha256').update(JSON.stringify(['comfy', row.source_key, row.root_path, row.size_bytes, origin, directory, name, row.preview_sig])).digest('hex');
+    const generation = this.generation;
     const running = this.inFlight.get(key);
     if (running) return running;
     const work = (async (): Promise<ModelPreview | null> => {
@@ -126,7 +135,7 @@ export class PreviewReader {
         }
       }
       const got = await readComfyPreview(origin, directory, index, name, fetchImpl);
-      if (!got || got.bytes.length === 0) return null;
+      if (generation !== this.generation || !got || got.bytes.length === 0) return null;
       if (kept && got.mime === 'image/webp') this.keep(kept, got.bytes);
       return { kind: 'image', mime: got.mime, bytes: new Uint8Array(got.bytes) };
     })().catch(() => null).finally(() => this.inFlight.delete(key));
@@ -189,6 +198,7 @@ export class PreviewReader {
 
   /** Closes the session and stops the idle timer. Read previews stay in their folder. */
   stop(): void {
+    this.generation += 1;
     if (this.idle) clearTimeout(this.idle);
     this.idle = null;
     const session = this.session;
@@ -196,7 +206,7 @@ export class PreviewReader {
     void session?.close().catch(() => undefined);
   }
 
-  private async load(key: string, source: string, file: string): Promise<ModelPreview | null> {
+  private async load(key: string, source: string, file: string, generation: number): Promise<ModelPreview | null> {
     const kind = previewKind(file);
     const mime = previewMime(file);
     const kept = this.cachePath(key, file);
@@ -209,15 +219,15 @@ export class PreviewReader {
       }
     }
     // One read at a time: the queue is what makes many thumbnails one connection.
-    const turn = this.queue.catch(() => null).then(() => this.read(source));
+    const turn = this.queue.catch(() => null).then(() => generation === this.generation ? this.read(source, generation) : null);
     this.queue = turn;
     const bytes = await turn;
-    if (!bytes || bytes.length === 0) return null;
+    if (generation !== this.generation || !bytes || bytes.length === 0) return null;
     if (kept) this.keep(kept, bytes);
     return { kind, mime, bytes: new Uint8Array(bytes) };
   }
 
-  private async read(source: string): Promise<Buffer | null> {
+  private async read(source: string, generation: number): Promise<Buffer | null> {
     if (this.idle) clearTimeout(this.idle);
     this.idle = null;
     try {
@@ -225,19 +235,26 @@ export class PreviewReader {
         this.opening ??= this.deps.open().finally(() => {
           this.opening = null;
         });
-        this.session = await this.opening;
+        const opened = await this.opening;
+        if (generation !== this.generation) { await opened?.close().catch(() => undefined); return null; }
+        this.session = opened;
       }
       if (!this.session) return null;
-      return await readSideFile(this.session, source, PREVIEW_MAX_BYTES);
+      const bytes = await readSideFile(this.session, source, PREVIEW_MAX_BYTES);
+      return generation === this.generation ? bytes : null;
     } catch {
       // The connection went away: the next read opens a new one.
-      const broken = this.session;
-      this.session = null;
-      void broken?.close().catch(() => undefined);
+      if (generation === this.generation) {
+        const broken = this.session;
+        this.session = null;
+        void broken?.close().catch(() => undefined);
+      }
       return null;
     } finally {
-      this.idle = setTimeout(() => this.stop(), IDLE_CLOSE_MS);
-      this.idle.unref?.();
+      if (generation === this.generation) {
+        this.idle = setTimeout(() => this.stop(), IDLE_CLOSE_MS);
+        this.idle.unref?.();
+      }
     }
   }
 

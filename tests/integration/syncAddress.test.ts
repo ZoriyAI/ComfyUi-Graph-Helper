@@ -96,7 +96,8 @@ describe('a new address in Settings', () => {
 
     // Auto sync is on, so the new address is read right after.
     await expect.poll(() => sync.status(db).libraryUrl, { timeout: 20_000 }).toBe(second.url);
-    expect(sync.status(db)).toMatchObject({ libraryElsewhere: false, state: 'idle' });
+    // Source provenance is committed with the listing, before the first metadata batch finishes.
+    await expect.poll(() => sync.status(db), { timeout: 20_000 }).toMatchObject({ libraryElsewhere: false, state: 'idle' });
     sync.stop();
     db.close();
   });
