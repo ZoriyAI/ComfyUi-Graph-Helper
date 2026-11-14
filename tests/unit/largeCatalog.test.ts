@@ -5,6 +5,7 @@ import { migrate } from '../../src/main/settings/migrate';
 import { parseObjectInfo } from '../../src/shared/catalog/objectInfo';
 import { flattenGroups, groupByCategory, windowRange } from '../../src/renderer/components/library/libraryModel';
 import type { NodeClassSummary } from '../../src/shared/contracts';
+import { expectWithinBudget } from '../support/perf';
 
 /** A synthetic object_info the size of a large install: 3300 classes, ~2000 model files, 316 LoRAs. */
 function syntheticObjectInfo(classes: number) {
@@ -62,8 +63,8 @@ describe('large catalog', () => {
     console.log(`LARGE_CATALOG ${(text.length / (1024 * 1024)).toFixed(1)} MiB classes=${stored.nodes} models=${stored.models} parse+upsert=${elapsed.toFixed(0)} ms`);
     expect(stored.nodes).toBe(3300);
     expect(stored.models).toBe(2000);
-    // A loose guard: the real read on this machine is well under a second.
-    expect(elapsed).toBeLessThan(3000);
+    // A loose guard (npm run test:perf): the real read on a quiet machine is well under a second.
+    expectWithinBudget('parse and store 3300 classes', elapsed, 3000);
     const catalog = readCatalog(db);
     expect(catalog.nodes.length).toBeGreaterThanOrEqual(3300);
     expect(catalog.models.filter((model) => model.directory === 'loras')).toHaveLength(316);
@@ -100,7 +101,7 @@ describe('large catalog', () => {
     expect(groups[groups.length - 1].category).toBe('Other');
     expect(rows.length).toBe(3300 + groups.length);
     expect(groups.reduce((sum, group) => sum + group.items.length, 0)).toBe(3300);
-    expect(elapsed).toBeLessThan(500);
+    expectWithinBudget('group 3300 library rows', elapsed, 500);
     // Only a screenful is rendered, wherever the list is scrolled.
     const range = windowRange(40 * 3000, 800, 40, rows.length);
     expect(range.end - range.start).toBeLessThanOrEqual(Math.ceil(800 / 40) + 1 + 12);

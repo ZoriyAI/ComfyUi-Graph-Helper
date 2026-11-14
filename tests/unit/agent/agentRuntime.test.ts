@@ -372,7 +372,8 @@ describe('cancellation and run lifecycle (item 4)', () => {
       knowledge: fakeKnowledge(),
       proposals: fakeProposals(),
     });
-    await expect(Promise.race([done.then(() => 'finished'), new Promise((resolve) => setTimeout(() => resolve('hung'), 5000))])).resolves.toBe('finished');
+    // A turn that hangs after the abort fails on the test's time limit; no race against the wall clock.
+    await expect(done.then(() => 'finished')).resolves.toBe('finished');
     expect(sawSignal).toBe(true);
     const types = chunks.map((chunk) => chunk.type);
     expect(types).not.toContain('error');

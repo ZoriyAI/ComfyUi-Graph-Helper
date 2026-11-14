@@ -14,6 +14,7 @@ import { modelDetail, modelDetailForHelper, searchModels } from '../../src/main/
 import { PreviewReader } from '../../src/main/knowledge/preview';
 import { migrate } from '../../src/main/settings/migrate';
 import { CIVITAI_KNOWN, startFakeModelWeb, type FakeModelWeb } from '../fixtures/web/fakeModelWeb';
+import { steppingClock } from '../support/fakeClock';
 
 /** A Civitai model-version record as `model-versions/by-hash` returns it (and as `.civitai.info` holds it). */
 const VERSION = {
@@ -283,9 +284,7 @@ function client(fake: FakeModelWeb, sleeps: number[] = []): ModelWebClient {
   return new ModelWebClient({
     endpoints: { civitai: `${fake.origin}/civitai`, huggingface: `${fake.origin}/hf` },
     fetchImpl: (url, init) => fetch(url, init),
-    sleep: async (ms) => {
-      sleeps.push(ms);
-    },
+    ...steppingClock(sleeps),
   });
 }
 
@@ -318,7 +317,7 @@ describe('asking the sites', () => {
     ]);
     // A pause before every request but the first, the picture too, none shorter than asked (a fast fake makes them about a second).
     expect(sleeps).toHaveLength(5);
-    for (const ms of sleeps) expect(ms).toBeGreaterThan(900);
+    for (const ms of sleeps) expect(ms).toBe(1000);
   });
 
   it('says when neither site knows the file, and asks nothing of Civitai without a fingerprint', async () => {
@@ -371,7 +370,7 @@ describe('asking the sites', () => {
     ]);
     // Spaced like the rest of the lookup.
     expect(sleeps).toHaveLength(web.requests.length - 1);
-    for (const ms of sleeps) expect(ms).toBeGreaterThan(900);
+    for (const ms of sleeps) expect(ms).toBe(1000);
   });
 
   it('gives up quietly after three places that are not a picture, and still shows the rest', async () => {

@@ -7,6 +7,7 @@ import { writeFileHash } from '../../src/main/knowledge/modelWeb';
 import { modelDetail } from '../../src/main/knowledge/repository';
 import { fakeFileHash, startFakeMcp, type FakeMcp } from '../fixtures/mcp/fakeMcpServer';
 import { CIVITAI_KNOWN, startFakeModelWeb, type FakeModelWeb } from '../fixtures/web/fakeModelWeb';
+import { steppingClock } from '../support/fakeClock';
 
 /**
  * Sync with Settings ▸ Privacy ▸ "Look up models on the internet" on, against the fake MCP server and the fake of
@@ -36,9 +37,7 @@ function service(mcpUrl: string, origin: string, online: boolean, sleeps: number
   const client = new ModelWebClient({
     endpoints: { civitai: `${origin}/civitai`, huggingface: `${origin}/hf` },
     fetchImpl: (url, init) => fetch(url, init),
-    sleep: async (ms) => {
-      sleeps.push(ms);
-    },
+    ...steppingClock(sleeps),
   });
   return new SyncService({
     readUrl: () => mcpUrl,
@@ -95,7 +94,7 @@ describe('sync looks model files up on the internet only when allowed', () => {
     expect(web.requests.every((item) => item.credentials.length === 0)).toBe(true);
     // Spaced at least a second apart, whatever was asked for.
     expect(sleeps).toHaveLength(sent.length - 1);
-    for (const ms of sleeps) expect(ms).toBeGreaterThan(900);
+    for (const ms of sleeps) expect(ms).toBe(1000);
     expect(modelDetail(db, 'loras', WAN_HIGH)!.web).toMatchObject({ status: 'not-found', error: null });
     // No fingerprint was made on the server during sync.
     expect(fake.calls.filter((call) => call.tool === 'workspace_files' && call.args?.action === 'hash')).toEqual([]);
@@ -138,7 +137,7 @@ describe('sync looks model files up on the internet only when allowed', () => {
     expect(sent.filter((item) => item.includes('/resolve/'))).toEqual(['/hf/ByteDance/SDXL-Lightning/resolve/main/sdxl_lightning_samples.jpg']);
     // Every request, the picture too, at least a second after the one before.
     expect(sleeps).toHaveLength(sent.length - 1);
-    for (const ms of sleeps) expect(ms).toBeGreaterThan(900);
+    for (const ms of sleeps) expect(ms).toBe(1000);
     expect(modelDetail(db, 'loras', 'sdxl_lightning_8step_lora.safetensors')).toMatchObject({ preview: 'image', mature: false, web: { found: { source: 'huggingface' } } });
     expect(modelDetail(db, 'checkpoints', 'realisticVisionV60B1_v51VAE.safetensors')).toMatchObject({ preview: 'image', mature: true, web: { found: { notes: { mature: true } } } });
     sync.stop();
