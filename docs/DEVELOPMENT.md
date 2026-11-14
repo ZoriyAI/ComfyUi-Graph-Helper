@@ -3,10 +3,7 @@
 Документы для тех, кто меняет код. Что приложение делает для человека, написано в [`README.md`](../README.md) и в
 руководстве [`docs/user/guide.ru.md`](user/guide.ru.md).
 
-- Бриф и контракты: [`docs/design/2026-11-08-helper-brief.md`](design/2026-11-08-helper-brief.md)
-- Направление интерфейса: [`docs/design/2026-11-08-ui-direction.md`](design/2026-11-08-ui-direction.md)
 - Дизайн-система: [`docs/DESIGN.md`](DESIGN.md), [`src/renderer/ui/README.md`](../src/renderer/ui/README.md)
-- Решения: [`docs/decisions/`](decisions/)
 
 ## Как это устроено
 
@@ -18,7 +15,7 @@
 
 | Слой | Что делает | Где |
 |---|---|---|
-| Синхронизация | MCP-клиент (Streamable HTTP), планировщик, только читающие инструменты, обогащение метаданными safetensors и Civitai-sidecar | `src/main/mcp/` |
+| Синхронизация | Прямое HTTP-чтение ComfyUI и необязательный MCP-клиент (Streamable HTTP), планировщик, метаданные safetensors и sidecar | `src/main/comfy/`, `src/main/mcp/` |
 | Знания | каталог узлов и моделей, вывод семьи базовой модели и вида модели, объяснения с источником, проверка графа перед экспортом | `src/main/knowledge/`, `src/shared/knowledge/` |
 | Движок графа | команды с ревизиями и конфликтами, run с паузой и отменой, субграфы и группы, призрачные предложения, история ревизий | `src/main/commands/`, `src/main/proposals/`, `src/shared/commands/` |
 | Кодек | импорт и экспорт нативного workflow JSON, subgraph definitions без потерь | `src/shared/workflow/` |
@@ -41,7 +38,7 @@ npm run dev           # Vite + Electron
 npm start             # собрать и запустить
 xvfb-run -a npx playwright test --trace off --grep-invert "live-local|layout-walk"   # e2e на Electron (Linux без дисплея)
 xvfb-run -a npx playwright test tests/e2e/layout-walk.test.ts --trace off  # обход всех экранов, отдельно
-npm run package:linux # .deb через Electron Forge и smoke-проверка
+npm run package:linux # Linux-пакеты через Electron Forge, portable builder и smoke-проверки
 ```
 
 `better-sqlite3` 13 загружает готовый модуль N-API (`prebuilds/linux-x64.node`) и в Node, и в Electron, поэтому
@@ -81,8 +78,12 @@ LAYOUT_DPR=1.5 xvfb-run -a npx playwright test tests/e2e/layout-walk.test.ts --t
 
 ## Сборка пакета
 
-`npm run package:linux` собирает `dist/`, делает `.deb` через Electron Forge (`forge.config.js`) и запускает
-`scripts/smoke-linux-package.js`. Нужны `dpkg` и `fakeroot`.
+`npm run package:linux` собирает `dist/`, делает `.deb` и, при наличии `rpmbuild`, `.rpm` через Electron Forge
+(`forge.config.js`), затем переносимый `.tar.gz` с `install.sh` и AppImage через `scripts/make-linux-portable.js`.
+Для `.deb` нужны `dpkg` и `fakeroot`; AppImage требует `mksquashfs` и `APPIMAGE_RUNTIME`. Без них локальная
+сборка может пропустить AppImage; в release workflow он обязателен (`REQUIRE_APPIMAGE=1`). После сборки идут
+`scripts/smoke-linux-package.js` и `scripts/smoke-linux-portable.js`. Наличие сборщика в исходниках не
+подтверждает наличие формата в опубликованном выпуске.
 
 - В пакет попадает только то, что работает: `dist/`, `node_modules` основного процесса, `package.json` и
   `resources/icon.png`. Библиотеки интерфейса (React, Radix, React Flow, lucide, motion) лежат в
@@ -113,4 +114,4 @@ LAYOUT_DPR=1.5 xvfb-run -a npx playwright test tests/e2e/layout-walk.test.ts --t
 2. `npm version X.Y.Z --no-git-tag-version`.
 3. Всё зелёное на коммите: тесты, обход экранов, пакет, проверка установленного пакета и обновления.
 4. GitHub Actions ▸ Build and package ▸ Run workflow с `release_tag: vX.Y.Z`. Шаг выпуска сверяет тег с версией
-   и наличием заметок, кладёт рядом с `.deb` файл `SHA256SUMS`.
+   и наличием заметок, публикует только после UI/package/upgrade-проверок `.deb`, `.rpm`, AppImage, `.tar.gz`, SBOM и `SHA256SUMS`.

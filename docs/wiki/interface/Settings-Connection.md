@@ -3,43 +3,19 @@
 
 # Settings: Connection
 
-**ComfyUI connection**: "How the app reaches your ComfyUI. Every call is read-only; nothing is queued or installed." The steps to connect, for every kind of setup, are in [Connecting](../connect/Connecting.md); this page lists the fields.
+The ComfyUI address comes first. Every request is read-only; nothing is queued, uploaded or installed. See [Connecting](../connect/Connecting.md) for the steps and [What each way shows](../connect/What-Each-Way-Shows.md) for limits.
 
-<!-- verify: the connection branch makes a plain running ComfyUI the main way to connect and MCP servers optional; this section will be rebuilt -->
-
-## Fields, from top to bottom
-
-| Field | What it is |
+| Field or action | Purpose |
 |---|---|
-| **MCP server URL** | The address of the MCP server next to ComfyUI, as the server shows it, for example `http://127.0.0.1:9000/mcp`. The list of the field offers addresses the app knows ("named by the MCP server", "saved in Settings", "used before", "found on this computer"). |
-| **Check** (next to it) | Asks the server whether it needs a sign-in and picks the right option below: "The server answers without sign-in. “No sign-in” is selected." If you left out `http://`, the app adds it and says so. |
-| **Access to the server** | **No sign-in**, **Token** or **Sign in through the browser**. "The choice takes effect after “Save settings”." |
-| **Access token** (with Token) | Paste the token; it is checked at once: "Token accepted: the server answers (14 tools). It is kept while the app is open." **Remember on this computer** keeps it in the password store; **Forget token** removes it. |
-| **Sign in** (with Sign in through the browser) | First **Save settings**, then **Sign in**: the browser opens. "Signed in until 18:40." **Sign in again**, **Sign out**. |
-| **ComfyUI address** | Optional. The address you open ComfyUI at in the browser, for example `http://127.0.0.1:8188`. Fill it in when ComfyUI runs on another computer or you read it without the server. **Look on this computer** searches for it. |
-| **MCP state** | A badge with the sync state, for example "MCP state: Up to date". |
+| ComfyUI address | The origin that opens ComfyUI in your browser, including scheme and port |
+| Find on this computer | Searches common local ComfyUI addresses; choose your actual server |
+| Check beside ComfyUI address | Checks the typed address before saving |
+| Connection state | Shows sync status and the source of the library, including gaps |
+| Read ComfyUI | Reads using saved settings; save draft changes first |
+| Check this graph | Compares this graph with the current catalog; it does not execute it |
+| Optional MCP server address | A separate server URL, often ending in `/mcp`, for additional readable metadata |
+| Check beside MCP address | Detects required MCP access: none, token or browser sign-in |
+| MCP access token / Remember on this computer | Session token, optionally encrypted in the OS password store |
+| MCP browser sign-in | Save settings first, then sign in; credentials stay tied to the MCP address |
 
-## Buttons at the bottom
-
-These work on saved settings only (they are grey while the draft has changes):
-
-- **Read through MCP**: a sync, with the same summary as its message.
-- **Read ComfyUI**: reads the ComfyUI address directly: "Read ComfyUI 0.3.60. Devices: 1. Nodes: 812."
-- **Check this graph**: "Missing nodes: none. Missing models: none."
-
-## What the app says about the address
-
-- "Add http:// or https:// in front of the address, for example http://192.168.1.5:9000/mcp."
-- "This is the address of ComfyUI itself. The app needs the address of the MCP server next to ComfyUI; the server shows it when it starts."
-- "Something answers at this address, but there is no MCP server at this path. An MCP server address usually ends with /mcp."
-- "The MCP server URL must use https unless the server runs on this computer."
-- "Remove the user name and password from the address."
-
-More in [Connection problems](../connect/Connection-Problems.md).
-
-## See also
-
-- [Connecting](../connect/Connecting.md)
-- [MCP servers](../connect/MCP-Servers.md)
-- [Settings: Sync](Settings-Sync.md)
-- [The sync indicator](Sync-Indicator.md)
+MCP is not required for plain ComfyUI reads. A remote MCP URL requires HTTPS; direct ComfyUI may use HTTP when reachable. Direct reads use the URL origin; browser redirects/sign-in pages are not supported ComfyUI endpoints. Never put credentials into either URL.

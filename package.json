@@ -2,7 +2,7 @@
   "name": "comfyui-graph-builder",
   "productName": "Graph Helper for ComfyUI",
   "desktopName": "comfyui-graph-builder.desktop",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "Learn to build ComfyUI graphs: a read-only helper that reads your ComfyUI and explains every node",
   "main": "dist/main/index.js",
   "engines": {

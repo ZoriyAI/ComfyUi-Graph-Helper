@@ -4,7 +4,7 @@ Graph Helper for ComfyUI helps people who are new to ComfyUI. The app reads whic
 
 ## Installing
 
-You need a computer with Linux (64-bit, x86), for example Ubuntu 22.04 or newer, and the `.deb` package from the release page.
+You need Linux x64. For a Debian-based system, use the `.deb` asset if it is attached to your chosen release. The source also has builders for `.rpm`, AppImage and a portable `.tar.gz` with a per-user `install.sh`; source support does not mean every published release contains every format. ARM builds are not provided. Desktop and OS compatibility still need checks on the target system.
 
 ```
 sudo apt install ./comfyui-graph-builder_*.deb
@@ -16,13 +16,15 @@ The app appears in the menu as "Graph Helper for ComfyUI". From a terminal it st
 
 On an empty canvas the app shows three steps and marks the ones already done.
 
-1. **Connect ComfyUI.** Choose "Connect…". In "Settings ▸ Connection" paste the "MCP server address" the way the server shows it, for example `https://comfy.example.com/mcp`. Choose "Check": the app asks the server whether it needs a sign-in and marks the right option under "Server access" by itself.
+1. **Connect ComfyUI.** Choose "Connect…". In "Settings ▸ Connection", enter the address that opens ComfyUI in your browser, for example `http://127.0.0.1:8188` (ComfyUI Desktop usually uses port 8000). "Find on this computer" searches local addresses; "Check" checks the chosen address. Save the settings.
 2. **Read ComfyUI.** Choose "Read ComfyUI" or "Sync ▸ Sync now". When the indicator at the top right says "Up to date", your nodes and models are in the library on the left.
 3. **Choose who answers.** This is the model that explains and builds. A cloud model needs a key. A model on this computer (Ollama, LM Studio, vLLM) needs none: "Find local servers" finds it for you.
 
 ## Connecting to ComfyUI
 
-The app talks to ComfyUI through an MCP server that runs next to ComfyUI.
+The app reads ComfyUI directly over HTTP. No MCP server is required. It reads node classes and ports, model file names, and the headers and previews ComfyUI exposes. Older ComfyUI versions may provide only file names. Direct access does not provide sidecar model descriptions, pack README files or file fingerprints.
+
+An optional MCP server with file-reading capabilities can add those details. Enter its own address in the separate MCP section and check the access it requires:
 
 - "No sign-in": nothing to do. This is usual when the server is on this computer.
 - "Token": paste the token the server gave you into "Access token". The app applies it at once and checks it with the server. Such a token lasts until the app restarts; "Remember on this computer" stores it in the system password store.
@@ -44,7 +46,7 @@ Right-click a node, a port or a link: "Ask the assistant" about that part of the
 
 ## Lessons
 
-"Learn" has twenty lessons: a first picture from text, how a model reads a description, video on Wan 2.2, LoRA, video with the WanVideoWrapper pack and more. A lesson is offered only when your ComfyUI has its nodes. The lesson looks at the graph and sees by itself that a step is done. If something is wrong, it says in words what. "Show me where" and "Do this for me" are there where the choice is not yours to make.
+"Learn" has 45 lessons grouped by topic: a first picture from text, how a model reads a description, video on Wan 2.2, LoRA, video with the WanVideoWrapper pack and more. Related lessons are linked as suggestions; completion is not a prerequisite. A lesson is available when its required node classes and ports fit your ComfyUI. The lesson looks at the graph and sees by itself that a step is done. If something is wrong, it says in words what. "Show me where" and "Do this for me" are there where the choice is not yours to make.
 
 ## Canvas, nodes and subgraphs
 
@@ -52,7 +54,8 @@ Right-click a node, a port or a link: "Ask the assistant" about that part of the
 - Node fields change right on the node and in the "Properties" panel. Lists are read from your ComfyUI.
 - "Graph ▸ Arrange the graph" (`Ctrl+Shift+L`) lays the graph out from left to right. One `Ctrl+Z` puts it back.
 - A subgraph is edited from the inside, like the main canvas: enter it, add and delete nodes, change links. `Escape` takes you back out.
-- "Check graph" finds missing nodes and models, LoRAs that do not fit, empty fields, and gives advice on descriptions.
+- "Check graph" compares the graph with the current catalog: classes, ports, links, required values, known model families and prompt advice. Success means these static checks found no problem; it does not prove execution, output quality or available GPU memory. Unknown metadata and incomplete/stale catalogs remain limits.
+- Undo groups consecutive assistant steps from one run. It stops at a manual edit; another undo can undo that manual edit separately.
 
 ## Saving and exporting
 
@@ -117,3 +120,7 @@ The data folder stays. To remove it too, first choose "Settings ▸ Privacy ▸ 
 ```
 rm -rf ~/.config/comfyui-graph-builder
 ```
+
+## Subject choice and adult learning
+
+The assistant teaches graph construction and technical choices without an app-authored subject ban in its system prompt. Each model or provider has its own rules and capabilities. Adult lessons use factual, non-graphic explanations for lawful consensual 18+ use: obtain consent for real likenesses and voices, exclude minors and underage-looking subjects, and follow local law and sharing rules. Preview and example visibility remains your choice in Settings ▸ Privacy and in each model card.
