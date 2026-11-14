@@ -143,6 +143,15 @@ function parse<T>(schema: z.ZodType<T>, args: unknown): { ok: true; value: T } |
   return { ok: false, failure: fail(`Invalid arguments${issue ? ` at ${issue.path.join('.') || 'input'}: ${issue.message}` : ''}.`) };
 }
 
+/** widgets_values slot names by class, from the installed catalog (reliable orders only). */
+export function widgetNamesOf(catalog: { nodes?: ReadonlyArray<{ classType: string; widgetOrder?: string[]; widgetOrderReliable?: boolean }> } | undefined): (classType: string) => readonly string[] | null {
+  const byClass = new Map<string, string[]>();
+  for (const node of catalog?.nodes ?? []) {
+    if (node.widgetOrderReliable !== false && Array.isArray(node.widgetOrder) && node.widgetOrder.length > 0) byClass.set(node.classType, node.widgetOrder);
+  }
+  return (classType) => byClass.get(classType) ?? null;
+}
+
 /** Knowledge about a class or a model is shared across projects; everything else belongs to this project. */
 function globalOwner(owner: ObjectRef): boolean {
   return owner.kind === 'nodeClass' || owner.kind === 'model';
@@ -258,7 +267,7 @@ export function createAgentTools(deps: AgentToolDeps): Record<string, AgentToolD
         success: true,
         notice: OUTSIDE_DATA,
         revisionId: projection.currentRevisionId,
-        ...summarizeGraph(projection.snapshot, { offset: args.offset, limit: args.limit ?? GRAPH_PAGE_LIMIT, ids: args.ids, omitValues: deps.omitValues === true, fullText: true }),
+        ...summarizeGraph(projection.snapshot, { offset: args.offset, limit: args.limit ?? GRAPH_PAGE_LIMIT, ids: args.ids, omitValues: deps.omitValues === true, fullText: true, widgetNames: widgetNamesOf(context()?.catalog) }),
       };
     }),
     searchNodeTypes: define('searchNodeTypes', schemas.searchNodeTypes, (args) => {

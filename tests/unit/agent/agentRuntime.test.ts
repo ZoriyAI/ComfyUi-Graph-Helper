@@ -304,11 +304,11 @@ describe('secrets on the way out (item 5)', () => {
 });
 
 describe('intent gating (item 6)', () => {
-  it('offers build tools only in a build turn (or a chat turn when the person chose build by default)', async () => {
+  it('offers build tools only in a build turn: Ask never builds, whatever the default setting', async () => {
     expect(buildToolsAllowed({ intent: 'build', selection: [], language: 'en' })).toBe(true);
     expect(buildToolsAllowed({ intent: 'chat', selection: [], language: 'en' })).toBe(false);
     expect(buildToolsAllowed({ intent: 'ask', selection: [], language: 'en' })).toBe(false);
-    expect(buildToolsAllowed({ intent: 'chat', selection: [], language: 'en' }, 'build')).toBe(true);
+    expect(buildToolsAllowed({ intent: 'chat', selection: [], language: 'en' }, 'build')).toBe(false);
     expect(buildToolsAllowed({ intent: 'ask', selection: [], language: 'en' }, 'build')).toBe(false);
 
     const offered: Record<string, string[]> = {};

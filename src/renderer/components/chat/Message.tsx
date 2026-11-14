@@ -126,6 +126,18 @@ function WindowHowTo() {
  */
 function NoticeCard({ notice, logId }: { notice: TurnNotice; logId?: string }) {
   const { t } = useTranslation();
+  if (notice.code === 'no-tools') {
+    // A true sentence: the answer above came without tools (the model cannot call them).
+    return (
+      <div className={`turn-notice ${styles.notice}`} role="note" data-notice="no-tools">
+        <div className={styles.noticeHead}>
+          <TriangleAlert size={14} aria-hidden="true" />
+          <span>{t('chat.noToolsTitle')}</span>
+        </div>
+        <p className={styles.noticeText}>{t('chat.noToolsBody')}</p>
+      </div>
+    );
+  }
   const values = { model: notice.model, window: notice.window, needed: notice.needed, recommended: RECOMMENDED_WINDOW };
   return (
     <div className={`turn-notice ${styles.notice}`} role="note" data-notice={notice.code} data-state={notice.state}>

@@ -80,6 +80,11 @@ export interface SummarizeOptions {
    * and marks it with "[+N chars]" so the model knows getGraph({ ids }) has the rest.
    */
   fullText?: boolean;
+  /**
+   * The widgets_values slot names of a class, from the installed catalog (when reliable). A value stored by
+   * position in an imported workflow is then named (seed, steps, cfg) instead of widget[N].
+   */
+  widgetNames?: (classType: string) => readonly string[] | null | undefined;
 }
 
 /** Default page size of the getGraph tool (no maximum). */
@@ -165,7 +170,7 @@ export function slotName(list: GraphPortSummary[], handle: string): string {
   return list[slot]?.name ?? list.find((port) => port.name === handle)?.name ?? '';
 }
 
-function parametersOf(data: Loose, cap: number): GraphParameterSummary[] {
+function parametersOf(data: Loose, cap: number, names?: readonly string[] | null): GraphParameterSummary[] {
   const named = record(data.parameters);
   const list: GraphParameterSummary[] = [];
   if (named && Object.keys(named).length > 0) {
@@ -174,7 +179,12 @@ function parametersOf(data: Loose, cap: number): GraphParameterSummary[] {
     const comfy = record(data.comfy);
     const widgets = comfy?.widgets_values;
     if (Array.isArray(widgets)) {
-      widgets.forEach((value, index) => list.push({ name: `widget[${index}]`, value: safeParameter(`widget[${index}]`, value, cap) }));
+      // Named by the class's widget order when the catalog knows it and the counts agree; else by position.
+      const named = names && names.length === widgets.length ? names : null;
+      widgets.forEach((value, index) => {
+        const name = named?.[index] || `widget[${index}]`;
+        list.push({ name, value: safeParameter(name, value, cap) });
+      });
     } else if (record(widgets)) {
       for (const [name, value] of Object.entries(record(widgets)!)) list.push({ name, value: safeParameter(name, value, cap) });
     }
@@ -240,7 +250,7 @@ export function summarizeGraph(
       inputs: ports(data.inputs, 'in'),
       outputs: ports(data.outputs, 'out'),
       purpose: purposeOf(id),
-      parameters: options.omitValues ? [] : parametersOf(data, valueCap),
+      parameters: options.omitValues ? [] : parametersOf(data, valueCap, options.widgetNames?.(String(data.comfyType ?? node.type ?? ''))),
       position: positionOf(node),
       size: sizeOf(node, data),
       selected: selected.has(id) || node.selected === true,
@@ -364,6 +374,30 @@ function compactLine(node: GraphNodeSummary): string {
 export interface GraphTextOptions {
   /** Up to this many listed nodes, every node is written in full; past it, compact lines. Default 300. */
   fullNodes?: number;
+  /**
+   * A small context window: a short plan of the graph instead of the whole graph. Each node by id, class, title
+   * and flags, each connection by id and port name, no positions, sizes, ports or field values (the focus nodes
+   * are still written in full). The model reads the rest with getGraph({ ids }).
+   */
+  plan?: boolean;
+}
+
+/** The short plan of the graph for a small context window (see GraphTextOptions.plan). */
+function planText(summary: GraphSummary): string {
+  const focus = new Set(summary.focusIds ?? []);
+  const links = summary.edges.map((edge) => `- ${edge.source}.${edge.sourceName || edge.sourceHandle} -> ${edge.target}.${edge.targetName || edge.targetHandle}`);
+  const detailed = summary.nodes.filter((node) => focus.has(node.id));
+  return [
+    summary.processTitle ? `Process: ${summary.processTitle}` : '',
+    `A short plan of the graph (${summary.totalNodes} nodes, ${summary.totalEdges} connections): no positions, ports or field values here. Call getGraph({ ids: [...] }) for the nodes you need before you answer about their fields or change them.`,
+    'Nodes:',
+    ...summary.nodes.map(compactLine),
+    summary.omittedNodes > 0 ? `(${summary.omittedNodes} more nodes not listed; getGraph returns them)` : '',
+    links.length > 0 ? 'Connections:' : 'No connections yet.',
+    ...links,
+    detailed.length > 0 ? 'In full (selected, asked about, or touched recently):' : '',
+    ...detailed.flatMap(nodeLine),
+  ].filter((line) => line !== '').join('\n');
 }
 
 /**
@@ -374,6 +408,7 @@ export interface GraphTextOptions {
  */
 export function graphSummaryText(summary: GraphSummary, options: GraphTextOptions = {}): string {
   if (summary.nodes.length === 0) return summary.totalNodes > 0 ? `The graph has ${summary.totalNodes} nodes; call getGraph({ offset: 0 }) to read them.` : 'The graph is empty.';
+  if (options.plan) return planText(summary);
   const fullNodes = options.fullNodes ?? PROMPT_FULL_GRAPH_NODES;
   const compact = summary.nodes.length > fullNodes;
   const focus = new Set(summary.focusIds ?? []);

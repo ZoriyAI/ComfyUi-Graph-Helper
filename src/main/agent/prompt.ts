@@ -188,7 +188,8 @@ function toolGuidance(preferences: PromptPreferences, offered?: ReadonlySet<stri
 
 /** Said when the person's server loads the model with a small context window and the tool set was reduced for it. */
 function smallWindowLine(window: number, offered: ReadonlySet<string>): string {
-  return `The model runs with a small context window here (${window} tokens), so this turn offers only these tools: ${[...offered].join(', ')}. Call no other tool. Keep every \`why\` and note to one short sentence, do not repeat what the graph already shows, and do not read the same thing twice.`;
+  const size = window > 0 ? `a small context window here (${window} tokens)` : 'a context window of a size not known yet, so this turn saves room as if it were small';
+  return `The model runs with ${size}, so this turn offers only these tools: ${[...offered].join(', ')}. Call no other tool. Keep every \`why\` and note to one short sentence, do not repeat what the graph already shows, and do not read the same thing twice.`;
 }
 
 const NO_BUILD = 'Build tools are not available in this turn. Suggest graph changes as ghosts with propose* tools; the person accepts them, or switches the composer to Build and asks again if they want you to build.';
@@ -244,6 +245,8 @@ export interface SystemPromptInput {
    * with that window in tokens. Absent in a normal turn.
    */
   compact?: { offered: readonly string[]; window: number };
+  /** Send a short plan of the graph instead of the whole graph (a small or unknown context window). */
+  graphPlan?: boolean;
 }
 
 /** "On screen: …": the flow-space rectangle the canvas shows and the nodes inside it. */
@@ -339,7 +342,7 @@ export function buildTurnData(input: SystemPromptInput): string {
   if (selection.length > 0) focus.push(redactSecrets(`Selected on the canvas: ${selection.map(describeRef).join('; ')}.`));
   const body = [
     redactSecrets(input.catalog),
-    `Current graph:\n${input.graph ? redactSecrets(graphSummaryText(input.graph)) : 'The project is not ready.'}`,
+    `Current graph:\n${input.graph ? redactSecrets(graphSummaryText(input.graph, { plan: input.graphPlan })) : 'The project is not ready.'}`,
     redactSecrets(viewportText(context, input.graph)),
     redactSecrets(recentText(context, input.graph, input.recent, input.recentWindow, input.preferences?.sendFieldValues)),
     ...focus,

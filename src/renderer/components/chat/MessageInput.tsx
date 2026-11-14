@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { usePreferencesStore } from '../../state/preferencesState';
 import { useTranslation } from 'react-i18next';
 import { ArrowUp, Square } from 'lucide-react';
 import Hint from '../../ui/Hint';
@@ -29,7 +30,8 @@ const INTENTS: readonly ComposerIntent[] = ['ask', 'build'];
 export default function MessageInput({ onSend, isStreaming, disabled = false, learning = false, onLearning, onStop }: MessageInputProps) {
   const { t } = useTranslation();
   const [input, setInput] = useState('');
-  const [intent, setIntent] = useState<ComposerIntent>('ask');
+  // "When I ask for a change" in Settings picks the mode the composer opens in; Ask itself never builds.
+  const [intent, setIntent] = useState<ComposerIntent>(() => usePreferencesStore.getState().preferences.assistant.defaultIntent);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
