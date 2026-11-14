@@ -1115,14 +1115,30 @@ export function ordinaryLessons(): Lesson[] {
 }
 
 /**
- * The lesson offered at the end of a lesson: the next one in the list, within the same group. After the last
- * ordinary lesson nothing is offered, so a lesson for adults never comes up by itself.
+ * The lesson offered at the end of a lesson, the one rule the lesson panel follows. The order is the order of the
+ * grouped list (LESSON_PATH groups, in the order they first appear in LESSONS). The next lesson is:
+ * - of the same kind: a lesson for adults is never offered after an ordinary one, and an ordinary one after a lesson
+ *   for adults; so with the switch off nothing of the closed group comes up by itself;
+ * - not done yet, and one that fits this ComfyUI (`fits`; everything fits when it is not given);
+ * - preferably one whose lessons it stands on are done (or are the one just finished); failing that, the next that
+ *   fits and is not done.
+ * Null when nothing is left to offer.
  */
-export function nextLesson(id: string): Lesson | null {
-  const at = LESSONS.findIndex((lesson) => lesson.id === id);
-  const next = at >= 0 ? LESSONS[at + 1] : undefined;
-  if (!next || isAdultLesson(next.id) !== isAdultLesson(id)) return null;
-  return next;
+export function nextLesson(id: string, fits: (lessonId: string) => boolean = () => true, done: ReadonlySet<string> = new Set()): Lesson | null {
+  const groups: string[] = [];
+  for (const lesson of LESSONS) {
+    const group = LESSON_PATH[lesson.id]?.group.id ?? '';
+    if (!groups.includes(group)) groups.push(group);
+  }
+  const order = groups.flatMap((group) => LESSONS.filter((lesson) => (LESSON_PATH[lesson.id]?.group.id ?? '') === group).map((lesson) => lesson.id));
+  const from = order.indexOf(id);
+  if (from < 0) return null;
+  const adult = isAdultLesson(id);
+  const later = [...order.slice(from + 1), ...order.slice(0, from)];
+  const open = later.filter((candidate) => isAdultLesson(candidate) === adult && !done.has(candidate) && fits(candidate));
+  const ready = (candidate: string) => [...(LESSON_AFTER[candidate] ?? []), ...(LESSON_PATH[candidate]?.follows ?? [])].every((needed) => needed === id || done.has(needed));
+  const found = open.find(ready) ?? open[0];
+  return found ? lessonById(found) : null;
 }
 
 /** Lessons that stand on the graph of another: said in the list, not enforced. */

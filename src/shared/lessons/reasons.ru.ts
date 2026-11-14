@@ -1,6 +1,7 @@
 /**
- * Почему шаг просит именно это значение: одна фраза на правило (FieldSpec.why в lessons.ts). Её показывает строка
- * «Осталось сделать», когда значение не то. Факты те же, что в текстах шагов.
+ * Russian reasons of the lesson rules: one sentence per rule id (FieldSpec.why in lessons.ts), shown by "Still to
+ * do" in the lesson panel when a value is wrong, so a person learns why the step wants it. The facts are the ones
+ * the step texts give; reasons.en.ts holds the same ids in English.
  */
 export const REASONS_RU: Record<string, string> = {
   clipType: 'Поле `type` говорит ноде, для какой модели этот текст. С другим значением Wan получит бессмыслицу.',

@@ -185,6 +185,9 @@ function LessonRun({ lesson, shared, onAsk }: { lesson: Lesson; shared: Shared; 
   const start = useLessonStore((state) => state.start);
   const again = useLessonStore((state) => state.again);
   const inSubgraph = useGraphStore((state) => state.activeSubgraphId !== null);
+  const doneIds = useLessonStore((state) => state.done);
+  const reached = useLessonStore((state) => state.reached[lesson.id]);
+  const reach = useLessonStore((state) => state.reach);
   const words = lessonWords(i18n.language, lesson.id);
   const progress = useMemo(() => lessonProgress(lesson, shared.graph, shared.facts, new Set(readIds)), [lesson, shared.graph, shared.facts, readIds]);
   const total = lesson.steps.length;
@@ -198,6 +201,11 @@ function LessonRun({ lesson, shared, onAsk }: { lesson: Lesson; shared: Shared; 
   useEffect(() => {
     if (finished) finish(lesson.id);
   }, [finished, finish, lesson.id]);
+  // The furthest step reached: a lesson the canvas takes back behind it says so.
+  useEffect(() => {
+    if (progress.current > (reached ?? -1)) reach(lesson.id, progress.current);
+  }, [progress.current, reached, reach, lesson.id]);
+  const steppedBack = reached !== undefined && progress.current < reached && !finished;
   // What "show me where" lit on the canvas goes out when the thing it pointed at is done, and with the lesson.
   const lack = progress.missing[0];
   const lackKey = lack ? JSON.stringify(lack) : '';
@@ -218,8 +226,12 @@ function LessonRun({ lesson, shared, onAsk }: { lesson: Lesson; shared: Shared; 
   const current = peek === null && !finished;
   const first = current ? progress.missing[0] : undefined;
   const fix = first ? canDo(first, shared.graph, shared.ports, shared.details, shared.facts) : null;
-  // Within the lesson's own kind: a lesson for adults is never offered after an ordinary one.
-  const nextLesson = nextLessonOf(lesson.id);
+  // One rule for the next lesson (lessons.ts nextLesson): the grouped path, a lesson that fits this ComfyUI and
+  // is not done, never a lesson for adults after an ordinary one.
+  const nextLesson = nextLessonOf(lesson.id, (id) => {
+    const candidate = lessonById(id);
+    return Boolean(candidate) && shared.catalogRead && fits(lessonFit(candidate!, shared.ports));
+  }, new Set([...doneIds, lesson.id]));
   const nextTitle = nextLesson ? lessonWords(i18n.language, nextLesson.id)?.title : undefined;
   const doneCount = Math.min(progress.current, total);
 
@@ -241,6 +253,7 @@ function LessonRun({ lesson, shared, onAsk }: { lesson: Lesson; shared: Shared; 
         </div>
       </header>
       {inSubgraph ? <p className={styles.notice} role="note">{t('lessons.inSubgraph')}</p> : null}
+      {steppedBack && peek === null ? <p className={styles.notice} role="status" data-lesson-back="">{t('lessons.steppedBack', { step: progress.current + 1 })}</p> : null}
 
       {finished && peek === null ? (
         <section className={styles.step} data-step-state="end">

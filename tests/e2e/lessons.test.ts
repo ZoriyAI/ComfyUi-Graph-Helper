@@ -157,15 +157,17 @@ test('lessons: the list fits ComfyUI, a lesson is followed by hand, and the grap
     await expect(panel(page).getByText('One more CLIP Text Encode (Prompt) node is needed.')).toBeVisible();
     await letTheAppDo(page, api);
     await stepIs(page, 'prompts-clip');
-    // Two nodes of one name lack the same link: said once, with how many times.
-    await expect(panel(page).locator('[class*="lacking"] li')).toHaveCount(1);
-    await expect(panel(page).locator('[class*="lacking"] li')).toHaveText('The input clip of “CLIP Text Encode (Prompt)” is empty. Drag a link to it from the output CLIP of “Load Checkpoint”. ×2');
+    // Two nodes of one name lack the same link: each is named by its part in the lesson.
+    await expect(panel(page).locator('[class*="lacking"] li')).toHaveText([
+      'The input clip of “CLIP Text Encode (Prompt) (prompt)” is empty. Drag a link to it from the output CLIP of “Load Checkpoint”.',
+      'The input clip of “CLIP Text Encode (Prompt) (negative prompt)” is empty. Drag a link to it from the output CLIP of “Load Checkpoint”.',
+    ]);
     // "Show me where" for a link lights the output it starts from.
     await panel(page).getByRole('button', { name: 'Show me where', exact: true }).click();
     await expect(page.locator('.react-flow__node').filter({ hasText: 'Load Checkpoint' })).toHaveClass(/selected/, { timeout: 5000 }).catch(() => undefined);
     await page.keyboard.press('Escape');
     await letTheAppDo(page, api);
-    await expect(panel(page).locator('[class*="lacking"] li')).not.toContainText('×2');
+    await expect(panel(page).locator('[class*="lacking"] li')).toHaveCount(1);
     await letTheAppDo(page, api);
 
     // Words only the person can write: there is nothing the app offers to do.
@@ -477,6 +479,9 @@ async function carry(page: Page, api: Bridge, id: string, each?: (stepId: string
       const value = (FILES[`${node.data.comfyType}.${field}`] ?? FILES[field] ?? []).find((item) => !held.has(item));
       if (!value) throw new Error(`${id}/${stepId}: nothing to choose for ${field}: ${lack}`);
       await change(page, api, { type: 'set-parameter', nodeId, key: field, value });
+    } else if (/negative prompt\)”|repeats your prompt/.test(lack)) {
+      // The negative prompt names defects, not the scene.
+      await change(page, api, { type: 'set-parameter', nodeId, key: field, value: 'blurry, extra fingers, watermark' });
     } else if (/Write a prompt|is too short/.test(lack)) {
       await change(page, api, { type: 'set-parameter', nodeId, key: field, value: words });
     } else if (/is missing the tags/.test(lack)) {

@@ -73,13 +73,13 @@ export const CORE_KNOWLEDGE_RU: CoreLanguagePack = {
       what: 'Создаёт пустой латент (сжатую заготовку, на которой рисует модель) в 16-канальном формате, который используют SD3 и модели вроде Flux.',
       why: 'Начальная заготовка для «текст в картинку» с SD3, Flux.1 и другими моделями с 16-канальным латентом.',
       connect: 'Входы: width, height, batch_size. Выход LATENT идёт к сэмплеру.',
-      risk: 'Формат заготовки должен подходить модели; если не уверены, посмотрите, какую ноду пустого латента использует официальный шаблон семейства.',
+      risk: 'ComfyUI сам подгоняет пустой латент под число каналов модели, поэтому Empty Latent Image тоже работает с Flux. Всё же берите ноду пустого латента из официального шаблона семейства: она задаёт тот размер и формат, на который рассчитана модель.',
     },
     KSampler: {
       what: 'Основной сэмплер: начиная с латента (сжатого вида картинки), шаг за шагом убирает шум, следуя модели и закодированным описаниям, позитивному и негативному (conditioning).',
       why: 'Именно здесь создаётся изображение; seed, steps, cfg, sampler и scheduler управляют результатом.',
       connect: 'Входы: MODEL, positive и negative CONDITIONING, LATENT (пустой для «текст в картинку», закодированная картинка для «картинка в картинку») и настройки. Выход LATENT идёт к VAE Decode.',
-      risk: 'При denoise меньше 1.0 на пустом латенте результат остаётся шумным; пониженный denoise нужен для «картинка в картинку». Слишком высокий CFG «пережигает» картинку; Flux обычно требует cfg 1.0.',
+      risk: 'При denoise меньше 1.0 на пустом латенте получается мутная, серая, недорисованная картинка: пониженный denoise нужен для «картинка в картинку». Слишком высокий CFG «пережигает» картинку; Flux обычно требует cfg 1.0.',
     },
     KSamplerAdvanced: {
       what: 'KSampler с управлением диапазоном шагов: может начинать и заканчивать на выбранных шагах и решать, добавлять ли шум.',
@@ -368,11 +368,11 @@ export const CORE_KNOWLEDGE_RU: CoreLanguagePack = {
       risk: 'Технически это SDXL, но лучше всего подходят LoRA, обученные для Illustrious (или моделей на его основе); LoRA для SD 1.5 или Flux не работают.',
     },
     flux1: {
-      what: 'Flux.1 (dev, schnell) от Black Forest Labs: модель загружается через Load Diffusion Model, текстовые энкодеры clip_l и t5xxl через DualCLIPLoader (тип flux), VAE ae.safetensors через Load VAE.',
+      what: 'Flux.1 (dev, schnell) от Black Forest Labs: модель загружается через Load Diffusion Model, текстовые энкодеры clip_l и t5xxl через DualCLIPLoader (тип flux), VAE ae.safetensors через Load VAE. FLUX.1 Krea [dev] это Flux.1 dev, переобученная Krea, и загружается так же.',
       risk: 'С ней работают только LoRA для Flux.1. Flux dev ожидает cfg 1.0 и FluxGuidance (своё число строгости) вместо высокого CFG.',
     },
     flux2: {
-      what: 'Flux.2 от Black Forest Labs: модель загружается через Load Diffusion Model, собственный текстовый энкодер на основе Mistral через Load CLIP, собственный VAE (flux2-vae) через Load VAE.',
+      what: 'Flux.2 от Black Forest Labs: модель загружается через Load Diffusion Model, текстовый энкодер через Load CLIP, собственный VAE (flux2-vae) через Load VAE. Flux.2 dev читает текст энкодером на основе Mistral, Flux.2 Klein энкодером qwen_3_4b (модель 4B) или qwen_3_8b (модель 9B).',
       risk: 'Flux.2 несовместим с файлами Flux.1: LoRA, текстовые энкодеры и VAE должны быть от Flux.2.',
     },
     chroma: {
@@ -404,8 +404,8 @@ export const CORE_KNOWLEDGE_RU: CoreLanguagePack = {
       risk: 'С ней работают только LoRA для Z-Image. Модель Turbo рассчитана на малое число шагов и низкий CFG.',
     },
     krea: {
-      what: 'FLUX.1 Krea [dev]: модель Flux.1 dev, переобученная Krea и Black Forest Labs; загружается точно как Flux.1 (Load Diffusion Model, DualCLIPLoader с clip_l и t5xxl, ae.safetensors).',
-      risk: 'Построена на Flux.1 dev, поэтому LoRA для Flux.1 dev обычно загружаются, но результат может отличаться от исходной модели.',
+      what: 'Krea 2 от Krea AI: модель изображений, обученная с нуля, со своей архитектурой. RAW служит основой для обучения LoRA (около 52 шагов), Turbo ускорена до 8 шагов. Модель кладут в models/diffusion_models, текстовый энкодер qwen3vl_4b в text_encoders, qwen_image_vae в vae.',
+      risk: 'Это не FLUX.1 Krea [dev], которая относится к Flux.1: LoRA для Flux с Krea 2 не работают. LoRA, обученные на RAW, подходят и к Turbo.',
     },
     sd3: {
       what: 'Stable Diffusion 3 / 3.5 от Stability AI: модель изображений с тремя текстовыми энкодерами (clip_l, clip_g, t5xxl) и 16-канальным латентом (EmptySD3LatentImage).',

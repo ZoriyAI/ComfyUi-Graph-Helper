@@ -28,6 +28,8 @@ export interface FileWant {
   notMarks?: string[];
   /** A name of this kind, as the model pages give it: for tests, and for the documentation of the format. */
   example: string;
+  /** The folder under ComfyUI's `models` the file is put into. */
+  folder: string;
 }
 
 /** Why a file is not the one asked for. */
@@ -70,41 +72,61 @@ const VIDEO: BaseModelFamily[] = ['wan2.1', 'wan2.2', 'ltx2', 'hunyuan'];
 /** The kinds of file the lessons ask for. Marks are written as `compactName` reads names. */
 export const FILES = {
   /** A picture checkpoint: anything but a video model. */
-  imageCheckpoint: { kind: 'imageCheckpoint', notFamilies: VIDEO, example: 'juggernautXL_v9.safetensors' },
-  wanT2vHigh: { kind: 'wanT2vHigh', families: ['wan2.2'], marks: [['high']], notMarks: ['low', 'i2v'], example: 'wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors' },
-  wanT2vLow: { kind: 'wanT2vLow', families: ['wan2.2'], marks: [['low']], notMarks: ['high', 'i2v'], example: 'wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors' },
-  wanI2vHigh: { kind: 'wanI2vHigh', families: ['wan2.2'], marks: [['high']], notMarks: ['low', 't2v'], example: 'wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors' },
-  wanI2vLow: { kind: 'wanI2vLow', families: ['wan2.2'], marks: [['low']], notMarks: ['high', 't2v'], example: 'wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors' },
+  imageCheckpoint: { kind: 'imageCheckpoint', notFamilies: VIDEO, folder: 'checkpoints', example: 'juggernautXL_v9.safetensors' },
+  wanT2vHigh: { kind: 'wanT2vHigh', families: ['wan2.2'], marks: [['high']], notMarks: ['low', 'i2v'], folder: 'diffusion_models', example: 'wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors' },
+  wanT2vLow: { kind: 'wanT2vLow', families: ['wan2.2'], marks: [['low']], notMarks: ['high', 'i2v'], folder: 'diffusion_models', example: 'wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors' },
+  wanI2vHigh: { kind: 'wanI2vHigh', families: ['wan2.2'], marks: [['high']], notMarks: ['low', 't2v'], folder: 'diffusion_models', example: 'wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors' },
+  wanI2vLow: { kind: 'wanI2vLow', families: ['wan2.2'], marks: [['low']], notMarks: ['high', 't2v'], folder: 'diffusion_models', example: 'wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors' },
   /** Either half of Wan 2.2, from text or from a picture: the pack's graph takes both. */
-  wanHigh: { kind: 'wanHigh', families: ['wan2.2'], marks: [['high']], notMarks: ['low'], example: 'Wan2_2-T2V-A14B-HIGH_fp8_e4m3fn_scaled_KJ.safetensors' },
-  wanLow: { kind: 'wanLow', families: ['wan2.2'], marks: [['low']], notMarks: ['high'], example: 'Wan2_2-T2V-A14B-LOW_fp8_e4m3fn_scaled_KJ.safetensors' },
+  wanHigh: { kind: 'wanHigh', families: ['wan2.2'], marks: [['high']], notMarks: ['low'], folder: 'diffusion_models', example: 'Wan2_2-T2V-A14B-HIGH_fp8_e4m3fn_scaled_KJ.safetensors' },
+  wanLow: { kind: 'wanLow', families: ['wan2.2'], marks: [['low']], notMarks: ['high'], folder: 'diffusion_models', example: 'Wan2_2-T2V-A14B-LOW_fp8_e4m3fn_scaled_KJ.safetensors' },
   /** Wan 2.1 picture to video, 14B: the base of the talking lessons and UniAnimate. */
-  wan21I2v: { kind: 'wan21I2v', families: ['wan2.1'], marks: [['i2v']], notMarks: ['t2v'], example: 'wan2.1_i2v_480p_14B_fp8_scaled.safetensors' },
-  wanAnimate: { kind: 'wanAnimate', families: WAN, marks: [['animate']], example: 'Wan2_2-Animate-14B_fp8_e4m3fn_scaled_KJ.safetensors' },
-  recam: { kind: 'recam', families: WAN, marks: [['recam']], example: 'Wan2_1_kwai_recammaster_1_3B_step20000_bf16.safetensors' },
-  ovi: { kind: 'ovi', marks: [['ovi']], notMarks: ['audio'], example: 'Wan2_2-Ovi-960x960-10s_fp8_e4m3fn_scaled_KJ.safetensors' },
-  oviAudio: { kind: 'oviAudio', marks: [['ovi'], ['audio']], example: 'Wan2_2-Ovi-audio_model_bf16.safetensors' },
+  wan21I2v: { kind: 'wan21I2v', families: ['wan2.1'], marks: [['i2v']], notMarks: ['t2v'], folder: 'diffusion_models', example: 'wan2.1_i2v_480p_14B_fp8_scaled.safetensors' },
+  wanAnimate: { kind: 'wanAnimate', families: WAN, marks: [['animate']], folder: 'diffusion_models', example: 'Wan2_2-Animate-14B_fp8_e4m3fn_scaled_KJ.safetensors' },
+  recam: { kind: 'recam', families: WAN, marks: [['recam']], folder: 'diffusion_models', example: 'Wan2_1_kwai_recammaster_1_3B_step20000_bf16.safetensors' },
+  ovi: { kind: 'ovi', marks: [['ovi']], notMarks: ['audio'], folder: 'diffusion_models', example: 'Wan2_2-Ovi-960x960-10s_fp8_e4m3fn_scaled_KJ.safetensors' },
+  oviAudio: { kind: 'oviAudio', marks: [['ovi'], ['audio']], folder: 'diffusion_models', example: 'Wan2_2-Ovi-audio_model_bf16.safetensors' },
   /** The text encoder of Wan: umt5-xxl, in ComfyUI's form or the pack's. */
-  umt5: { kind: 'umt5', marks: [['umt5']], example: 'umt5_xxl_fp8_e4m3fn_scaled.safetensors' },
-  wan21Vae: { kind: 'wan21Vae', marks: [['wan21']], example: 'wan_2.1_vae.safetensors' },
-  wan22Vae: { kind: 'wan22Vae', marks: [['wan22']], example: 'Wan2_2_VAE_bf16.safetensors' },
-  clipVisionH: { kind: 'clipVisionH', marks: [['clipvisionh', 'vith', 'vithuge']], example: 'clip_vision_h.safetensors' },
+  umt5: { kind: 'umt5', marks: [['umt5']], folder: 'text_encoders', example: 'umt5_xxl_fp8_e4m3fn_scaled.safetensors' },
+  wan21Vae: { kind: 'wan21Vae', marks: [['wan21']], folder: 'vae', example: 'wan_2.1_vae.safetensors' },
+  wan22Vae: { kind: 'wan22Vae', marks: [['wan22']], folder: 'vae', example: 'Wan2_2_VAE_bf16.safetensors' },
+  clipVisionH: { kind: 'clipVisionH', marks: [['clipvisionh', 'vith', 'vithuge']], folder: 'clip_vision', example: 'clip_vision_h.safetensors' },
   /** A LoRA for Wan on the path of the first model: a `high` file, or one LoRA without a pair. */
-  wanLoraHigh: { kind: 'wanLoraHigh', families: WAN, notMarks: ['lownoise', 'low'], example: 'my_style_wan22_high_noise.safetensors' },
-  wanLoraLow: { kind: 'wanLoraLow', families: WAN, notMarks: ['highnoise', 'high'], example: 'my_style_wan22_low_noise.safetensors' },
-  fastLoraHigh: { kind: 'fastLoraHigh', families: WAN, marks: [['lightx2v', 'lightning', '4step', 'distill', 'causvid', 'fastwan']], notMarks: ['low'], example: 'wan2.2_t2v_lightx2v_4steps_lora_v1.1_high_noise.safetensors' },
-  fastLoraLow: { kind: 'fastLoraLow', families: WAN, marks: [['lightx2v', 'lightning', '4step', 'distill', 'causvid', 'fastwan']], notMarks: ['high'], example: 'wan2.2_t2v_lightx2v_4steps_lora_v1.1_low_noise.safetensors' },
-  vaceHigh: { kind: 'vaceHigh', marks: [['vace'], ['high']], notMarks: ['low'], example: 'Wan2_2_Fun_VACE_module_A14B_HIGH_fp8_e4m3fn_scaled_KJ.safetensors' },
-  vaceLow: { kind: 'vaceLow', marks: [['vace'], ['low']], notMarks: ['high'], example: 'Wan2_2_Fun_VACE_module_A14B_LOW_fp8_e4m3fn_scaled_KJ.safetensors' },
-  vitpose: { kind: 'vitpose', marks: [['vitpose']], example: 'vitpose-l-wholebody.onnx' },
-  yolo: { kind: 'yolo', marks: [['yolo']], example: 'yolov10m.onnx' },
-  talkModule: { kind: 'talkModule', marks: [['infinitetalk', 'multitalk']], example: 'Wan2_1-InfiniteTalk_Single_fp8_e4m3fn_scaled_KJ.safetensors' },
-  talkModuleMulti: { kind: 'talkModuleMulti', marks: [['multi']], example: 'Wan2_1-InfiniteTalk_Multi_fp8_e4m3fn_scaled_KJ.safetensors' },
-  wav2vec: { kind: 'wav2vec', marks: [['wav2vec']], example: 'chinese-wav2vec2-base-fp16.safetensors' },
-  fantasyModule: { kind: 'fantasyModule', marks: [['fantasy']], example: 'fantasytalking_fp16.safetensors' },
-  uniLora: { kind: 'uniLora', marks: [['unianimate']], example: 'UniAnimate-Wan2.1-14B-Lora-12000-fp16.safetensors' },
-  mmaudioVae: { kind: 'mmaudioVae', marks: [['mmaudio']], notMarks: ['vocoder'], example: 'mmaudio_vae_16k_fp32.safetensors' },
-  mmaudioVocoder: { kind: 'mmaudioVocoder', marks: [['vocoder', 'bigvgan']], example: 'mmaudio_vocoder_bigvgan_best_netG_fp32.safetensors' },
+  wanLoraHigh: { kind: 'wanLoraHigh', families: WAN, notMarks: ['lownoise', 'low'], folder: 'loras', example: 'my_style_wan22_high_noise.safetensors' },
+  wanLoraLow: { kind: 'wanLoraLow', families: WAN, notMarks: ['highnoise', 'high'], folder: 'loras', example: 'my_style_wan22_low_noise.safetensors' },
+  fastLoraHigh: { kind: 'fastLoraHigh', families: WAN, marks: [['lightx2v', 'lightning', '4step', 'distill', 'causvid', 'fastwan']], notMarks: ['low'], folder: 'loras', example: 'wan2.2_t2v_lightx2v_4steps_lora_v1.1_high_noise.safetensors' },
+  fastLoraLow: { kind: 'fastLoraLow', families: WAN, marks: [['lightx2v', 'lightning', '4step', 'distill', 'causvid', 'fastwan']], notMarks: ['high'], folder: 'loras', example: 'wan2.2_t2v_lightx2v_4steps_lora_v1.1_low_noise.safetensors' },
+  vaceHigh: { kind: 'vaceHigh', marks: [['vace'], ['high']], notMarks: ['low'], folder: 'diffusion_models', example: 'Wan2_2_Fun_VACE_module_A14B_HIGH_fp8_e4m3fn_scaled_KJ.safetensors' },
+  vaceLow: { kind: 'vaceLow', marks: [['vace'], ['low']], notMarks: ['high'], folder: 'diffusion_models', example: 'Wan2_2_Fun_VACE_module_A14B_LOW_fp8_e4m3fn_scaled_KJ.safetensors' },
+  vitpose: { kind: 'vitpose', marks: [['vitpose']], folder: 'detection', example: 'vitpose-l-wholebody.onnx' },
+  yolo: { kind: 'yolo', marks: [['yolo']], folder: 'detection', example: 'yolov10m.onnx' },
+  talkModule: { kind: 'talkModule', marks: [['infinitetalk', 'multitalk']], folder: 'diffusion_models', example: 'Wan2_1-InfiniteTalk_Single_fp8_e4m3fn_scaled_KJ.safetensors' },
+  talkModuleMulti: { kind: 'talkModuleMulti', marks: [['multi']], folder: 'diffusion_models', example: 'Wan2_1-InfiniteTalk_Multi_fp8_e4m3fn_scaled_KJ.safetensors' },
+  wav2vec: { kind: 'wav2vec', marks: [['wav2vec']], folder: 'wav2vec2', example: 'chinese-wav2vec2-base-fp16.safetensors' },
+  fantasyModule: { kind: 'fantasyModule', marks: [['fantasy']], folder: 'diffusion_models', example: 'fantasytalking_fp16.safetensors' },
+  uniLora: { kind: 'uniLora', marks: [['unianimate']], folder: 'loras', example: 'UniAnimate-Wan2.1-14B-Lora-12000-fp16.safetensors' },
+  mmaudioVae: { kind: 'mmaudioVae', marks: [['mmaudio']], notMarks: ['vocoder'], folder: 'mmaudio', example: 'mmaudio_vae_16k_fp32.safetensors' },
+  mmaudioVocoder: { kind: 'mmaudioVocoder', marks: [['vocoder', 'bigvgan']], folder: 'mmaudio', example: 'mmaudio_vocoder_bigvgan_best_netG_fp32.safetensors' },
 } satisfies Record<string, FileWant>;
 
 export type FileKind = keyof typeof FILES;
+
+/** Every model file a lesson asks for, once per kind, in the order the steps ask: for the card of a lesson. */
+export function filesOfLesson(lesson: { steps: ReadonlyArray<{ fields?: ReadonlyArray<{ test: { kind: string; want?: FileWant } }> }> }): FileWant[] {
+  const out: FileWant[] = [];
+  for (const step of lesson.steps) {
+    for (const rule of step.fields ?? []) {
+      const want = rule.test.kind === 'file' ? rule.test.want : undefined;
+      if (want && !out.includes(want)) out.push(want);
+    }
+  }
+  return out;
+}
+
+/**
+ * Which of the kinds a lesson asks for the person already has, from the list of model files the app reads. A kind
+ * with no file is told before the lesson starts, with the folder it goes into; the app downloads nothing.
+ */
+export function filesAtHand(wants: readonly FileWant[], names: readonly string[], families: Readonly<Record<string, BaseModelFamily>> = {}): Array<{ want: FileWant; file: string | null }> {
+  return wants.map((want) => ({ want, file: names.find((name) => fileMiss(name, want, families[name]) === null) ?? null }));
+}

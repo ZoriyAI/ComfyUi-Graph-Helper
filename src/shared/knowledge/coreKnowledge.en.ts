@@ -73,13 +73,13 @@ export const CORE_KNOWLEDGE_EN: CoreLanguagePack = {
       what: 'Creates an empty latent (the compressed blank the model draws on) in the 16-channel format used by SD3 and Flux-style models.',
       why: 'The starting blank for text-to-image with SD3, Flux.1 and other models that use a 16-channel latent.',
       connect: 'Inputs: width, height, batch_size. Output: LATENT, which goes to the sampler.',
-      risk: 'The format of the blank must match the model; if you are unsure, check which empty-latent node the official template of the family uses.',
+      risk: 'ComfyUI fits an empty latent to the channels of the model it meets, so Empty Latent Image also runs with Flux; still, use the empty-latent node of the family\'s official template, since it gives the size and format the model was made for.',
     },
     KSampler: {
       what: 'The main sampler: starting from a latent (the compressed form of a picture), it removes noise step by step, guided by the model and by the positive and negative conditioning (the encoded descriptions).',
       why: 'This is where the image is actually made; seed, steps, cfg, sampler and scheduler control the result.',
       connect: 'Inputs: MODEL, positive and negative CONDITIONING, a LATENT (empty for text-to-image, an encoded picture for image-to-image) and the settings. Output: LATENT, which goes to VAE Decode.',
-      risk: 'With denoise below 1.0 on an empty latent the result stays noisy; lower denoise is for image-to-image. CFG that is too high burns the image; Flux usually wants cfg 1.0.',
+      risk: 'With denoise below 1.0 on an empty latent you get a muddy, grey, unfinished picture: lower denoise is for image-to-image. CFG that is too high burns the image; Flux usually wants cfg 1.0.',
     },
     KSamplerAdvanced: {
       what: 'A KSampler with control over the step range: it can start and end at chosen steps and decide whether to add noise.',
@@ -368,11 +368,11 @@ export const CORE_KNOWLEDGE_EN: CoreLanguagePack = {
       risk: 'Technically SDXL, but LoRAs trained for Illustrious (or the models built on it) fit best; SD 1.5 or Flux LoRAs do not work.',
     },
     flux1: {
-      what: 'Flux.1 (dev, schnell) by Black Forest Labs: the model loads with Load Diffusion Model, the text encoders clip_l and t5xxl with DualCLIPLoader (type flux), and the VAE ae.safetensors with Load VAE.',
+      what: 'Flux.1 (dev, schnell) by Black Forest Labs: the model loads with Load Diffusion Model, the text encoders clip_l and t5xxl with DualCLIPLoader (type flux), and the VAE ae.safetensors with Load VAE. FLUX.1 Krea [dev] is a Flux.1 dev model trained again by Krea and loads the same way.',
       risk: 'Only Flux.1 LoRAs work with it. Flux dev expects cfg 1.0 with FluxGuidance (its own strength number) instead of a high CFG.',
     },
     flux2: {
-      what: 'Flux.2 by Black Forest Labs: the model loads with Load Diffusion Model, its own Mistral-based text encoder with Load CLIP, and its own VAE (flux2-vae) with Load VAE.',
+      what: 'Flux.2 by Black Forest Labs: the model loads with Load Diffusion Model, the text encoder with Load CLIP, and its own VAE (flux2-vae) with Load VAE. Flux.2 dev reads text with a Mistral-based encoder; Flux.2 Klein with qwen_3_4b (the 4B model) or qwen_3_8b (the 9B model).',
       risk: 'Flux.2 is not compatible with Flux.1 files: LoRAs, text encoders and the VAE must be the Flux.2 ones.',
     },
     chroma: {
@@ -404,8 +404,8 @@ export const CORE_KNOWLEDGE_EN: CoreLanguagePack = {
       risk: 'Only Z-Image LoRAs work with it. The Turbo model is meant for few steps and a low CFG.',
     },
     krea: {
-      what: 'FLUX.1 Krea [dev]: a Flux.1 dev model trained again by Krea and Black Forest Labs; it loads exactly like Flux.1 (Load Diffusion Model, DualCLIPLoader with clip_l and t5xxl, ae.safetensors).',
-      risk: 'Built on Flux.1 dev, so Flux.1 dev LoRAs usually load, but the results can differ from the original model.',
+      what: 'Krea 2 by Krea AI: an image model trained from scratch, its own architecture. RAW is the base for training LoRAs (about 52 steps); Turbo is distilled to 8 steps. The model goes into models/diffusion_models, the text encoder qwen3vl_4b into text_encoders, and qwen_image_vae into vae.',
+      risk: 'Not the same as FLUX.1 Krea [dev], which is a Flux.1 model: Flux LoRAs do not work with Krea 2. LoRAs trained on RAW also work on Turbo.',
     },
     sd3: {
       what: 'Stable Diffusion 3 / 3.5 by Stability AI: an image model with three text encoders (clip_l, clip_g, t5xxl) and a 16-channel latent (EmptySD3LatentImage).',
