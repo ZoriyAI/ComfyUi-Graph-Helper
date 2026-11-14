@@ -131,7 +131,7 @@ export default function ChatDock({ onSendMessage, onPause }: ChatDockProps = {})
             <span className={styles.runDot} data-paused={isPaused} aria-hidden="true" />
             <span className="stream-state">{isPaused ? t('chat.paused') : t('chat.streaming')}</span>
             {/* Stop sits where Send is, in the composer; the header keeps the pause. */}
-            <Button variant="subtle" size="sm" icon={isPaused ? <Play size={14} /> : <Pause size={14} />} onClick={togglePause}>
+            <Button variant="subtle" size="sm" className="pause-button" icon={isPaused ? <Play size={14} /> : <Pause size={14} />} onClick={togglePause}>
               {isPaused ? t('chat.resume') : t('chat.pause')}
             </Button>
           </div>
