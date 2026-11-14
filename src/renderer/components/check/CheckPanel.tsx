@@ -13,7 +13,6 @@ import { requestAsk } from '../../services/ask';
 import { turnLanguage } from '../../services/llm/chatModel';
 import { adviceOf, checkFindingCount, findingNodeIds, groupCheckReport, nodeNamer, type CheckFinding } from './checkModel';
 import Button from '../../ui/Button';
-import Hint from '../../ui/Hint';
 import IconButton from '../../ui/IconButton';
 import styles from './CheckPanel.module.css';
 import EmptyState from '../../ui/EmptyState';
@@ -48,11 +47,10 @@ function FindingRow({ finding, text, hint, onShow, onAsk }: { finding: CheckFind
         <span className={styles.text} id={textId}>{withNames(text)}</span>
         <Crosshair className={styles.showMark} size={14} aria-hidden="true" />
       </button>
-      <Hint label={String(t('explain.checkAskWhy'))} side="left">
-        <IconButton size="sm" className={styles.ask} label={String(t('explain.checkAskWhy'))} title="" onClick={onAsk}>
-          <MessageCircleQuestion size={15} aria-hidden="true" />
-        </IconButton>
-      </Hint>
+      {/* Its name is its tooltip (IconButton): the panel also renders where no tooltip provider is mounted. */}
+      <IconButton size="sm" className={styles.ask} label={String(t('explain.checkAskWhy'))} onClick={onAsk}>
+        <MessageCircleQuestion size={15} aria-hidden="true" />
+      </IconButton>
     </>
   );
 }
