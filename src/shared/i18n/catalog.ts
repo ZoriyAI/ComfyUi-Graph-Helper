@@ -40,8 +40,6 @@ export const en = {
     pauseRun: 'Pause',
     resumeRun: 'Resume',
     cancelRun: 'Stop',
-    language: 'Language: {{language}}',
-    motion: 'Motion: {{mode}}',
     region: 'Status',
   },
   provider: {
@@ -1487,6 +1485,7 @@ export const en = {
     dropHere: 'Drop to add it to the graph',
     onboardTitle: 'Welcome',
     onboardLead: 'The assistant connects to your ComfyUI, reads which nodes and models you have, and explains and builds together with you. It changes nothing in ComfyUI itself.',
+    onboardLeadReady: 'Your ComfyUI is read and the assistant is chosen. Ask for a graph, learn to build it yourself, or open a workflow.',
     onboardSteps: 'How to start',
     onboardDone: 'Done:',
     onboardConnectTitle: 'Connect ComfyUI',
@@ -2235,8 +2234,6 @@ export const ru = {
     pauseRun: 'Пауза',
     resumeRun: 'Продолжить',
     cancelRun: 'Остановить',
-    language: 'Язык: {{language}}',
-    motion: 'Анимация: {{mode}}',
     region: 'Состояние',
   },
   provider: {
@@ -3682,6 +3679,7 @@ export const ru = {
     dropHere: 'Отпустите, чтобы добавить в граф',
     onboardTitle: 'Добро пожаловать',
     onboardLead: 'Помощник подключится к вашему ComfyUI, прочитает, какие ноды и модели у вас есть, и будет объяснять и строить вместе с вами. В самом ComfyUI он ничего не меняет.',
+    onboardLeadReady: 'Ваш ComfyUI прочитан, помощник выбран. Попросите граф, научитесь собирать его сами или откройте workflow.',
     onboardSteps: 'С чего начать',
     onboardDone: 'Готово:',
     onboardConnectTitle: 'Подключите ComfyUI',

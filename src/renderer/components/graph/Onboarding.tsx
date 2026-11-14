@@ -111,8 +111,9 @@ export default function Onboarding({ onImport }: { onImport?: () => void }) {
     >
       <div className={styles.card}>
         <h2 id="canvas-onboard-title" className={styles.title}>{t('canvas.onboardTitle')}</h2>
-        <p className={styles.lead}>{t('graph.empty')} {t('canvas.onboardLead')}</p>
-        <ol className={styles.steps} aria-label={String(t('canvas.onboardSteps'))}>
+        {/* Once ComfyUI is read and an assistant is chosen, the lead stops promising what is already done. */}
+        <p className={styles.lead}>{t('graph.empty')} {t(ready ? 'canvas.onboardLeadReady' : 'canvas.onboardLead')}</p>
+        <ol className={styles.steps} data-ready={ready ? 'true' : undefined} aria-label={String(t('canvas.onboardSteps'))}>
           {steps.map((step, index) => (
             <li key={step.key} className={styles.step} data-tone={step.tone} data-state={step.state} data-step={step.key}>
               <span className={styles.icon}>{step.state === 'done' ? <Check size={18} aria-hidden="true" /> : step.icon}</span>

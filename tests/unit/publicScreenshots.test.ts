@@ -32,6 +32,13 @@ describe('public screenshots', () => {
     }
   });
 
+  it('the wide pictures are composed at their sizes (README top 1600x800, social preview 1280x640 under 1 MB)', () => {
+    const size = (name: string) => { const png = fs.readFileSync(path.join(ROOT, name)); return [png.readUInt32BE(16), png.readUInt32BE(20)]; };
+    expect(size('hero.png')).toEqual([1600, 800]);
+    expect(size('social-preview.png')).toEqual([1280, 640]);
+    expect(fs.statSync(path.join(ROOT, 'social-preview.png')).size).toBeLessThan(1024 * 1024);
+  });
+
   it('the README shots are part of the set', () => {
     for (const name of README_SHOTS) expect(PUBLIC_SHOTS).toContain(name);
   });
