@@ -1,6 +1,6 @@
 import type { FieldSpec, FieldTest, Lesson, LinkSpec, RoleSpec } from './engine';
 import { IMAGE_MODEL_AFTER, IMAGE_MODEL_LESSONS, IMAGE_MODEL_PATH, type LessonGroup } from './sets/image-models';
-import { VIDEO_LESSON_AFTER, VIDEO_LESSONS, VIDEO_PATH } from './sets/video';
+import { VIDEO_GROUP, VIDEO_LESSON_AFTER, VIDEO_LESSONS, VIDEO_PATH } from './sets/video';
 
 /**
  * The lessons, as what must be on the canvas after each step. The words of a lesson (what to do and why) are in
@@ -1002,8 +1002,14 @@ export const LESSON_AFTER: Readonly<Record<string, string[]>> = {
   ...VIDEO_LESSON_AFTER,
 };
 
+const BASICS_GROUP: LessonGroup = { id: 'basics', title: { en: 'Pictures: first steps', ru: 'Картинки: первые шаги' } };
+const WRAPPER_GROUP: LessonGroup = { id: 'wrapper', title: { en: 'WanVideoWrapper', ru: 'WanVideoWrapper' } };
+
 /** Where a lesson stands on the learning path: its group (an id and its title in both languages) and what it goes on from. */
 export const LESSON_PATH: Readonly<Record<string, { group: LessonGroup; follows: string[] }>> = {
+  ...Object.fromEntries([image, prompt, refine].map((lesson) => [lesson.id, { group: BASICS_GROUP, follows: LESSON_AFTER[lesson.id] ?? [] }])),
+  ...Object.fromEntries([videoText, promptVideo, videoImage, lora, videoFast, twoModels, adult].map((lesson) => [lesson.id, { group: VIDEO_GROUP, follows: LESSON_AFTER[lesson.id] ?? [] }])),
+  ...Object.fromEntries([wrapper, wrapperImage, wrapperVace, wrapperAnimate, wrapperUni, wrapperTalk, wrapperDuo, wrapperFantasy, wrapperOvi, wrapperRecam].map((lesson) => [lesson.id, { group: WRAPPER_GROUP, follows: LESSON_AFTER[lesson.id] ?? [] }])),
   ...IMAGE_MODEL_PATH,
   ...VIDEO_PATH,
 };

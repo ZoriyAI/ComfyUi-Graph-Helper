@@ -14,11 +14,11 @@ const noFile = (template: string) => `If the file you need is not in the list, y
 /** A pack runs other people's code: said once, where a lesson needs one. */
 const PACK = (pack: string) => `This lesson needs the ${pack} pack. Install it yourself through ComfyUI's manager. A pack runs other people's code on your computer, so take it from its official page and keep it up to date.`;
 
-const CONSENT_VOICE = 'Only someone who agrees may be voiced this way, with their own voice or a voice you have permission for. The app does not help with someone else\'s face or voice without consent.';
-const CONSENT_BODY = 'Only someone who agrees may be brought to life this way: yourself, a made-up character, or a person who gave permission. The app does not help with someone else\'s face without consent.';
+const CONSENT_VOICE = 'Only someone who agrees may be voiced this way, with their own voice or a voice you have permission for. Obtain permission for the source material and follow local law.';
+const CONSENT_BODY = 'Only someone who agrees may be brought to life this way: yourself, a made-up character, or a person who gave permission. Obtain permission for the source material and follow local law.';
 
 /** Said once, right after the consent rule, in every lesson that uses a picture of a person. */
-const LIMITS = 'The limits, once: never a real person in explicit content, never anyone under 18 or anyone who looks it, nothing that passes a person off as doing what they did not. The lessons teach technique only.';
+const LIMITS = 'For adult (18+) use, obtain consent and follow local law. Exclude anyone under 18 or who appears underage; label synthetic depictions so they do not mislead others. The lessons teach technique in factual, non-graphic terms.';
 
 const EMPTY = 'If the canvas already holds another graph, start from an empty one: "File ▸ New project".';
 

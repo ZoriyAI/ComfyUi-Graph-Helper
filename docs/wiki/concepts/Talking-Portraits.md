@@ -6,7 +6,7 @@
 A face in a picture speaks the words of a voice recording, lips in time.
 
 ## The consent rule
-Voice and animate only people who agree, with their own voice or a voice you have permission for. Never put words into the mouth of a real person without consent. The app does not help with someone else's face or voice without consent; every talking lesson starts with this rule. See [Content rules](../trust/Content-Rules.md).
+Voice and animate only people who agree, with their own voice or a voice you have permission for. Never put words into the mouth of a real person without consent. Obtain permission for the source material and follow local law; every talking lesson starts with this rule. See [Content rules](../trust/Content-Rules.md).
 
 ## In plain words
 A speech model (usually a **wav2vec** model) turns the sound into numbers that describe, moment by moment, what the mouth should do. A video model that was trained to listen (through a module or LoRA) draws the portrait speaking along. The sound file is then put into the clip as its track.

@@ -6,7 +6,7 @@
 A character from a picture moves the way a person in a video moves.
 
 ## Consent
-Animate only someone who agrees: yourself, a made-up character, or a person who gave permission. The app does not help with someone else's likeness without consent. See [Content rules](../trust/Content-Rules.md).
+Animate only someone who agrees: yourself, a made-up character, or a person who gave permission. Obtain permission for the source material and follow local law. See [Content rules](../trust/Content-Rules.md).
 
 ## In plain words
 A pose detector draws a stick-figure skeleton for every frame of a **driving video**. The video model then draws your **character** (from a reference picture) in those poses. Some methods carry the face and expression too; others only the body.

@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { ArrowLeft, ArrowRight, Check, CircleDot, Crosshair, FolderOutput, GraduationCap, MessageCircleQuestion, Plug, RotateCcw, Wand2 } from 'lucide-react';
 import type { TFunction } from 'i18next';
 import { lessonProgress, type ClassPorts, type Lesson, type LessonFacts, type LessonGraph, type Missing } from '../../../shared/lessons/engine';
-import { LESSONS, LESSON_AFTER, lessonById } from '../../../shared/lessons/lessons';
+import { LESSONS, lessonById } from '../../../shared/lessons/lessons';
+import { lessonDependencies, lessonGroups } from '../../../shared/lessons/navigation';
 import { fitLines, fits, lessonFit } from '../../../shared/lessons/fit';
 import { lessonWords, withNodeNames } from '../../../shared/lessons/texts';
 import { weightsOf } from '../../../shared/prompt/inspect';
@@ -181,50 +182,67 @@ function LessonList({ shared }: { shared: Shared }) {
           <Button variant="primary" size="sm" icon={<Plug size={14} />} onClick={() => openSettings('connection')}>{t('lessons.connect')}</Button>
         </div>
       ) : null}
-      <ul className={styles.cards}>
-        {LESSONS.map((lesson) => {
-          const words = lessonWords(i18n.language, lesson.id);
-          if (!words) return null;
-          const fit = shared.catalogRead ? lessonFit(lesson, shared.ports) : null;
-          const gaps = fit && !fits(fit) ? fitLines(fit, (key, values) => String(t(key, values ?? {})), (classType) => shared.details[classType]?.displayName || classType, (id) => lessonWords(i18n.language, id)?.title ?? id) : [];
-          const progress = lessonProgress(lesson, shared.graph, shared.facts, new Set(read[lesson.id] ?? NONE));
-          const total = lesson.steps.length;
-          const finished = progress.current >= total;
-          const started = progress.current > 0 && !finished;
-          const before = LESSON_AFTER[lesson.id]?.map((id) => lessonWords(i18n.language, id)?.title).filter(Boolean)[0];
-          const blocked = !shared.catalogRead || gaps.length > 0;
-          return (
-            <li key={lesson.id} className={styles.card} data-lesson-card={lesson.id} data-lesson-state={blocked ? 'unfit' : finished ? 'done' : started ? 'started' : 'new'}>
-              <div className={styles.cardHead}>
-                <span className={styles.cardTitle}>{words.title}</span>
-                {finished || done.includes(lesson.id) ? <span className={styles.doneMark}><Check size={12} aria-hidden="true" />{t('lessons.done')}</span> : null}
-              </div>
-              <p className={styles.cardText}>{words.result}</p>
-              <p className={styles.cardMeta}>
-                {started ? t('lessons.progress', { current: progress.current + 1, total }) : t('lessons.steps', { count: total })}
-                {before ? ` · ${String(t('lessons.after', { title: before }))}` : ''}
-              </p>
-              {gaps.length > 0 ? (
-                <div className={styles.gaps}>
-                  <p>{t('lessons.unfit')}</p>
-                  <ul>
-                    {gaps.map((line) => <li key={line}>{line}</li>)}
-                  </ul>
-                </div>
-              ) : null}
-              <div className={styles.cardActions}>
-                {finished ? (
-                  <Button variant="subtle" size="sm" icon={<RotateCcw size={14} />} disabled={blocked} onClick={() => { again(lesson.id); start(lesson.id); }}>{t('lessons.again')}</Button>
-                ) : (
-                  <Button variant={started ? 'primary' : 'subtle'} size="sm" icon={<ArrowRight size={14} />} disabled={blocked} onClick={() => start(lesson.id)}>
-                    {started ? t('lessons.resume') : t('lessons.start')}
-                  </Button>
-                )}
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+      {lessonGroups().map((group) => (
+        <section className={styles.group} key={group.id} data-lesson-group={group.id} aria-labelledby={`lesson-group-${group.id}`}>
+          <h4 id={`lesson-group-${group.id}`} className={styles.groupTitle}>{group.title[i18n.language === 'ru' ? 'ru' : 'en']} <span>({group.lessons.length})</span></h4>
+          <ul className={styles.cards}>
+            {group.lessons.map((lesson) => {
+              const words = lessonWords(i18n.language, lesson.id);
+              if (!words) return null;
+              const fit = shared.catalogRead ? lessonFit(lesson, shared.ports) : null;
+              const gaps = fit && !fits(fit) ? fitLines(fit, (key, values) => String(t(key, values ?? {})), (classType) => shared.details[classType]?.displayName || classType, (id) => lessonWords(i18n.language, id)?.title ?? id) : [];
+              const progress = lessonProgress(lesson, shared.graph, shared.facts, new Set(read[lesson.id] ?? NONE));
+              const total = lesson.steps.length;
+              const finished = progress.current >= total;
+              const started = progress.current > 0 && !finished;
+              const before = lessonDependencies(lesson.id).map((id) => ({ id, title: lessonWords(i18n.language, id)?.title ?? id }));
+              const blocked = !shared.catalogRead || gaps.length > 0;
+              return (
+                <li key={lesson.id} id={`lesson-${lesson.id}`} tabIndex={-1} className={styles.card} data-lesson-card={lesson.id} data-lesson-state={blocked ? 'unfit' : finished ? 'done' : started ? 'started' : 'new'}>
+                  <div className={styles.cardHead}>
+                    <span className={styles.cardTitle}>{words.title}</span>
+                    {finished || done.includes(lesson.id) ? <span className={styles.doneMark}><Check size={12} aria-hidden="true" />{t('lessons.done')}</span> : null}
+                  </div>
+                  <p className={styles.cardText}>{words.result}</p>
+                  <p className={styles.cardMeta}>
+                    {started ? t('lessons.progress', { current: progress.current + 1, total }) : t('lessons.steps', { count: total })}
+                  </p>
+                  {before.length > 0 ? (
+                    <div className={styles.dependencies}>
+                      <span>{t('lessons.related')}</span>
+                      {before.map((dependency) => (
+                        <a href={`#lesson-${dependency.id}`} key={dependency.id} onClick={(event) => {
+                          event.preventDefault();
+                          const card = document.getElementById(`lesson-${dependency.id}`);
+                          card?.scrollIntoView({ block: 'nearest' });
+                          card?.focus({ preventScroll: true });
+                        }}>{dependency.title}</a>
+                      ))}
+                    </div>
+                  ) : null}
+                  {gaps.length > 0 ? (
+                    <div className={styles.gaps}>
+                      <p>{t('lessons.unfit')}</p>
+                      <ul>
+                        {gaps.map((line) => <li key={line}>{line}</li>)}
+                      </ul>
+                    </div>
+                  ) : null}
+                  <div className={styles.cardActions}>
+                    {finished ? (
+                      <Button variant="subtle" size="sm" icon={<RotateCcw size={14} />} disabled={blocked} onClick={() => { again(lesson.id); start(lesson.id); }}>{t('lessons.again')}</Button>
+                    ) : (
+                      <Button variant={started ? 'primary' : 'subtle'} size="sm" icon={<ArrowRight size={14} />} disabled={blocked} onClick={() => start(lesson.id)}>
+                        {started ? t('lessons.resume') : t('lessons.start')}
+                      </Button>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ))}
     </div>
   );
 }

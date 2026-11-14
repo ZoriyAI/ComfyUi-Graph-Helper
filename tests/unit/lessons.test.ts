@@ -1090,14 +1090,15 @@ describe('the words of the lessons', () => {
     expect(strangers, 'fields a lesson names that no node of its graph has').toEqual([]);
   });
 
-  it('keeps the lesson on adult content to technique and limits', async () => {
+  it('keeps adult teaching factual with consent, age and lawful-use guidance', async () => {
     const { lessonWords } = await import('../../src/shared/lessons/texts');
     for (const language of ['ru', 'en'] as const) {
       const words = lessonWords(language, 'adult')!;
       const rules = words.steps.rules.body.toLowerCase();
-      // The two limits are said first, in plain words.
-      expect(rules).toMatch(language === 'ru' ? /несовершеннолетн/ : /minors/);
-      expect(rules).toMatch(language === 'ru' ? /без их согласия/ : /without their consent/);
+      // Age, consent and law are guidance, rather than a promised app topic filter.
+      expect(rules).toContain('18+');
+      expect(rules).toMatch(language === 'ru' ? /закон/ : /law/);
+      expect(rules).toMatch(language === 'ru' ? /согласие/ : /consent/);
       expect(lessonById('adult')!.steps[0].id).toBe('rules');
       // And the helper's privacy is said: descriptions travel with the graph.
       expect(words.steps.helper.body).toMatch(language === 'ru' ? /Приватность/ : /Privacy/);

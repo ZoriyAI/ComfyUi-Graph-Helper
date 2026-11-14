@@ -3,13 +3,12 @@
 
 # Lessons
 
-The built-in lessons of Learn mode, one page each, and the path through them.
+Learn mode contains 45 built-in lessons: 20 base lessons, ten on picture model families and 15 additional video lessons. The list groups them by topic and shows links to related lessons. These links suggest background or a graph to continue; they do not require you to complete a linear course.
 
 ## What Learn mode is
 In Learn mode you build real graphs by hand on the canvas while the app leads you step by step: what to do, why, where it is on the canvas. It sees from the canvas when a step is done. No assistant model is needed. Lessons use only the nodes your ComfyUI has, and they never download model files: you bring those to ComfyUI yourself. How it all works: [How lessons work](How-Lessons-Work.md).
 
 ## The learning path
-<!-- diagram: four rows of boxes joined by arrows. Pictures: image → prompt → refine. Video: video-text → prompt-video → video-image → lora → video-fast → two-models. WanVideoWrapper pack: wrapper → wrapper-image → wrapper-vace; wrapper-animate, wrapper-unianimate; wrapper-talk → wrapper-duo; wrapper-fantasy; wrapper-ovi; wrapper-recam. Adults (separate group): adult-image, adult -->
 
 **Pictures, the foundation.** Start here.
 - [A first picture from text](Image.md): Lesson "image". Seven nodes from prompt to saved picture.
@@ -36,14 +35,25 @@ In Learn mode you build real graphs by hand on the canvas while the app leads yo
 - [A video with sound: Ovi](Wrapper-Ovi.md): Lesson "wrapper-ovi". Picture and sound in one run.
 - [Another camera: ReCamMaster](Wrapper-ReCam.md): Lesson "wrapper-recam".
 
-**For adults.** A separate group; technique and limits only. See [Content rules](../trust/Content-Rules.md).
-- [Pictures for adults: what changes](Adult-Image.md): Lesson "adult-image".
+**For adults.** Factual, non-graphic technical education for lawful consensual 18+ use. See [Content rules](../trust/Content-Rules.md).
+- [Picture techniques for adults](Adult-Image.md): a reference note, not a separate built-in lesson.
 - [Video for adults: what changes](Adult.md): Lesson "adult".
 
 **About the lessons**
 - [How lessons work](How-Lessons-Work.md): Choosing, following, Show me where, Do this for me.
 
-The app lists the lessons in its own order (pictures, built-in video, the pack, two models, adults); the path above groups the same lessons by topic. For the ideas behind each step, read [ComfyUI concepts](../concepts/README.md), starting with [Start here](../concepts/Start-Here.md).
+## Groups in the app
+
+| Group | Lessons | Examples |
+|---|---:|---|
+| Pictures: first steps | 3 | First image, prompt, second-model refinement |
+| Video | 15 | Wan, modest memory, control, speech, LTX, Hunyuan, Kandinsky, interpolation, adult technique |
+| WanVideoWrapper | 10 | Text/image video, VACE, pose, portraits, sound, camera |
+| Pictures: models | 10 | SDXL, tags, samplers, separate loaders, Flux, Z-Image, Qwen, SD 3.5, GGUF |
+| Video: the anchor picture | 4 | Start image, first/last frames, reference, joined parts |
+| Packs and tools | 3 | VideoHelperSuite, upscaling, object removal |
+
+The catalog controls which lessons fit your installed nodes and ports. Completion of another lesson does not unlock a lesson. Related links lead to its card so you can inspect what it needs and choose Start. For the ideas behind each step, read [ComfyUI concepts](../concepts/README.md).
 
 ## See also
 - [Home](../Home.md)

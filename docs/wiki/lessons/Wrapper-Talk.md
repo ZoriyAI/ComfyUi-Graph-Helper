@@ -7,7 +7,7 @@
 Lesson "wrapper-talk": a portrait says the words of a sound file, the lips in time with them.
 
 ## Consent first
-Only someone who agrees may be voiced, with their own voice or a voice you have permission for. The app does not help with someone else's face or voice without consent. See [Content rules](../trust/Content-Rules.md).
+Only someone who agrees may be voiced, with their own voice or a voice you have permission for. Obtain permission for the source material and follow local law. See [Content rules](../trust/Content-Rules.md).
 
 ## What you will be able to do
 Build a Wan 2.1 image to video graph with the InfiniteTalk module: a wav2vec model reads the sound, the clip is made in stitched pieces so it can run longer than five seconds, and the sound becomes the clip's track.
