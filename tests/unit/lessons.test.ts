@@ -1383,3 +1383,26 @@ describe('a lesson checks what it teaches', () => {
     expect(missingAt(lesson, canvas).missing[0]).toMatchObject({ field: 'width', test: { kind: 'aspect' } });
   });
 });
+
+describe('advice that does not hold a step back', () => {
+  it('tells the first picture the size its model was trained at, and still lets the lesson finish', () => {
+    const lesson = lessonById('image')!;
+    const canvas = new Canvas();
+    carryOut(lesson, canvas);
+    const roles = done(lesson, canvas).roles;
+    // An SDXL checkpoint at the 512 by 512 a fresh node starts with: done, with a hint.
+    canvas.node(roles.checkpoint).values.ckpt_name = 'juggernautXL_v9.safetensors';
+    let progress = done(lesson, canvas);
+    expect(progress.current).toBe(lesson.steps.length);
+    expect(progress.hints).toEqual([expect.objectContaining({ kind: 'field', field: 'width', why: { kind: 'size', family: 'sdxl' } })]);
+    canvas.node(roles.latent).values.width = 1024;
+    canvas.node(roles.latent).values.height = 1024;
+    progress = done(lesson, canvas);
+    expect(progress.hints).toBeUndefined();
+    // SD 1.5 wants about 512; a model nothing tells the family of is not judged.
+    canvas.node(roles.checkpoint).values.ckpt_name = 'v1-5-pruned-emaonly.safetensors';
+    expect(done(lesson, canvas).hints).toHaveLength(1);
+    canvas.node(roles.checkpoint).values.ckpt_name = 'my_model.safetensors';
+    expect(done(lesson, canvas).hints).toBeUndefined();
+  });
+});

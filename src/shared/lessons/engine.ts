@@ -15,7 +15,7 @@
 
 import { weightsOf } from '../prompt/inspect';
 import type { BaseModelFamily } from '../contracts/knowledge';
-import { fileMiss, type FileMiss, type FileWant } from './files';
+import { familyOfFile, fileMiss, type FileMiss, type FileWant } from './files';
 
 export interface LessonPort {
   id: string;
@@ -113,6 +113,11 @@ export type FieldTest =
   | { kind: 'file'; want: FileWant }
   /** A number below the one in that field: the first sampler stops before its last step. */
   | { kind: 'less'; role: string; field: string }
+  /**
+   * The `width` and `height` of this node near the size the model in that field was trained at (512 for SD 1.5,
+   * about a megapixel for SDXL and its kin). A model of another family or of no known family is not judged.
+   */
+  | { kind: 'size'; of: { role: string; field: string } }
   /** `width` and `height` of this node in the proportions of that node's, within 5 %. The field named is `width`. */
   | { kind: 'aspect'; role: string }
   /** The text holds a trigger word of a file chosen in one of these fields (none known: nothing to check). */
@@ -126,6 +131,7 @@ export type FieldTest =
 function otherRoles(test: FieldTest): string[] {
   if (test.kind === 'has-trigger') return test.of.flatMap((item) => ('role' in item ? [item.role] : []));
   if (test.kind === 'text') return test.notCopyOf ? [test.notCopyOf.role] : [];
+  if (test.kind === 'size') return [test.of.role];
   return test.kind === 'differs' || test.kind === 'same' || test.kind === 'less' || test.kind === 'aspect' ? [test.role] : [];
 }
 
@@ -140,6 +146,11 @@ export interface FieldSpec {
    * earlier lesson built. The step's text does not ask for the field, so it need not name it.
    */
   identifies?: true;
+  /**
+   * Advice, not a refusal: the step is done without it, and while it does not hold the lesson shows it as a hint
+   * (a picture of 512 by 512 from an SDXL model draws, only worse).
+   */
+  soft?: true;
 }
 
 export interface LessonStep {
@@ -204,6 +215,7 @@ export type Missing =
 export type FieldMiss =
   | { kind: 'file'; miss: FileMiss }
   | { kind: 'frames' }
+  | { kind: 'size'; family: BaseModelFamily }
   | { kind: 'text'; miss: TextMiss };
 
 export type TextMiss = 'short' | 'marks' | 'words' | 'english' | 'copy' | 'negation';
@@ -215,6 +227,8 @@ export interface Progress {
   roles: Roles;
   /** What the current step still lacks; empty for a step that only explains, and at the end. */
   missing: Missing[];
+  /** Advice of the steps so far that does not hold (soft rules): shown beside the step, never in its way. */
+  hints?: Missing[];
 }
 
 interface Requirements {
@@ -228,7 +242,8 @@ function requirementsOf(steps: LessonStep[]): Requirements {
   for (const step of steps) {
     if (step.roles) out.roles.push(...step.roles);
     if (step.links) out.links.push(...step.links);
-    if (step.fields) out.fields.push(...step.fields);
+    // A soft rule is advice: it never holds a step back.
+    if (step.fields) out.fields.push(...step.fields.filter((spec) => !spec.soft));
   }
   return out;
 }
@@ -382,6 +397,19 @@ function fieldVerdict(byId: Map<string, LessonNode>, spec: FieldSpec, roles: Rol
       const number = numberOf(value);
       return { holds: Number.isFinite(number) && Number.isFinite(other) && number < other };
     }
+    case 'size': {
+      const file = byId.get(roles[test.of.role])?.values[test.of.field];
+      const family = typeof file === 'string' ? familyOfFile(file, facts.families?.[file]) : 'unknown';
+      const width = numberOf(node.values.width);
+      const height = numberOf(node.values.height);
+      if (!Number.isFinite(width) || !Number.isFinite(height)) return { holds: true };
+      if (family === 'sd15') return { holds: Math.max(width, height) <= 768 && Math.min(width, height) >= 384, why: { kind: 'size', family } };
+      if (family === 'sdxl' || family === 'pony' || family === 'illustrious') {
+        const pixels = width * height;
+        return { holds: pixels >= 750_000 && pixels <= 1_400_000, why: { kind: 'size', family } };
+      }
+      return { holds: true };
+    }
     case 'aspect': {
       const other = byId.get(roles[test.role]);
       const width = numberOf(node.values.width);
@@ -466,6 +494,8 @@ function missingOf(graph: LessonGraph, step: LessonStep, roles: Roles, facts: Le
   for (const spec of step.fields ?? []) {
     const node = byId.get(roles[spec.role]);
     if (!node) continue;
+    // Advice is said apart from what the step lacks (Progress.hints), unless only advice is asked for.
+    if (spec.soft && (step.fields ?? []).some((other) => !other.soft)) continue;
     if (otherRoles(spec.test).some((role) => !(role in roles))) continue;
     const verdict = fieldVerdict(byId, spec, roles, facts);
     if (verdict.holds) continue;
@@ -496,6 +526,24 @@ function missingOf(graph: LessonGraph, step: LessonStep, roles: Roles, facts: Le
  * The current step is the first one that does not hold; everything before it does.
  */
 export function lessonProgress(lesson: Lesson, graph: LessonGraph, facts: LessonFacts, read: ReadonlySet<string>): Progress {
+  const progress = hardProgress(lesson, graph, facts, read);
+  const hints = softHints(lesson, graph, facts, progress);
+  return hints.length > 0 ? { ...progress, hints } : progress;
+}
+
+/** The soft rules of the steps reached so far that do not hold, for the nodes that play their roles now. */
+function softHints(lesson: Lesson, graph: LessonGraph, facts: LessonFacts, progress: Progress): Missing[] {
+  const reached = lesson.steps.slice(0, Math.min(progress.current + 1, lesson.steps.length));
+  const out: Missing[] = [];
+  for (const step of reached) {
+    const soft = (step.fields ?? []).filter((spec) => spec.soft);
+    if (soft.length === 0) continue;
+    out.push(...missingOf(graph, { id: step.id, fields: soft }, progress.roles, facts));
+  }
+  return out;
+}
+
+function hardProgress(lesson: Lesson, graph: LessonGraph, facts: LessonFacts, read: ReadonlySet<string>): Progress {
   let roles: Roles = {};
   for (let index = 0; index < lesson.steps.length; index += 1) {
     const step = lesson.steps[index];

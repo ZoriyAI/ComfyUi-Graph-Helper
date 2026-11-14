@@ -18,7 +18,7 @@ import Button from '../../ui/Button';
 import IconButton from '../../ui/IconButton';
 import MarkdownLite from '../chat/MarkdownLite';
 import { canDo, clearShown, doFix, nodeNameOf, showMissing, useLessonCatalog, useLessonFacts, useLessonGraph } from './lessonModel';
-import { lackLines } from './lackText';
+import { lackLines, lackText } from './lackText';
 import styles from './LessonPanel.module.css';
 
 /**
@@ -253,6 +253,11 @@ function LessonRun({ lesson, shared, onAsk }: { lesson: Lesson; shared: Shared; 
         </div>
       </header>
       {inSubgraph ? <p className={styles.notice} role="note">{t('lessons.inSubgraph')}</p> : null}
+      {peek === null && !finished ? (progress.hints ?? []).map((hint) => (
+        <p key={`${hint.kind}-${hint.kind === 'field' ? `${hint.nodeId}.${hint.field}` : ''}`} className={styles.notice} role="note" data-lesson-hint="">
+          {lackText(t, hint, lesson, { details: shared.details, graph: shared.graph, facts: shared.facts, roles: progress.roles, language: i18n.language })}
+        </p>
+      )) : null}
       {steppedBack && peek === null ? <p className={styles.notice} role="status" data-lesson-back="">{t('lessons.steppedBack', { step: progress.current + 1 })}</p> : null}
 
       {finished && peek === null ? (

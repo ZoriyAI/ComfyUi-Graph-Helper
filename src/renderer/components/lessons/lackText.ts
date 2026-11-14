@@ -133,6 +133,16 @@ export function lackText(t: TFunction, missing: Missing, lesson: Lesson, context
       return String(t('lessons.lackBetween', { field, node, value, min: missing.test.min, max: missing.test.max })) + (missing.test.prefer !== undefined ? ` ${String(t('lessons.prefer', { wanted: missing.test.prefer }))}` : '') + why;
     case 'less':
       return String(t('lessons.lackLess', { field, node, value, otherField: missing.test.field, other: shown(t, missing.other?.value) })) + why;
+    case 'size': {
+      const self = graph.nodes.find((item) => item.id === missing.nodeId)?.values ?? {};
+      const family = missing.why?.kind === 'size' ? missing.why.family : 'unknown';
+      return String(t('lessons.lackSize', {
+        width: shown(t, self.width),
+        height: shown(t, self.height),
+        family: String(t(familyLabelKey(family))),
+        trained: String(t(family === 'sd15' ? 'lessons.trainedSd15' : 'lessons.trainedSdxl')),
+      }));
+    }
     case 'aspect': {
       const self = graph.nodes.find((item) => item.id === missing.nodeId)?.values ?? {};
       const clip = graph.nodes.find((item) => item.id === missing.other?.nodeId)?.values ?? {};

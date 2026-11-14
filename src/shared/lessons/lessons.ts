@@ -45,7 +45,12 @@ const image: Lesson = {
     { id: 'prompts', roles: [node('positive', 'CLIPTextEncode'), node('negative', 'CLIPTextEncode')] },
     { id: 'prompts-clip', links: [link('checkpoint', 'CLIP', 'positive', 'clip', CLIP_VIA), link('checkpoint', 'CLIP', 'negative', 'clip', CLIP_VIA)] },
     { id: 'prompt-text', fields: [field('positive', 'text', { kind: 'text', minChars: 3, words: 2 })] },
-    { id: 'latent', roles: [node('latent', 'EmptyLatentImage')] },
+    {
+      id: 'latent',
+      roles: [node('latent', 'EmptyLatentImage')],
+      // The size a model was trained at: advice while the first picture is built, not a refusal.
+      fields: [{ ...field('latent', 'width', { kind: 'size', of: { role: 'checkpoint', field: 'ckpt_name' } }), soft: true }],
+    },
     { id: 'sampler', roles: [node('sampler', 'KSampler')] },
     {
       id: 'sampler-links',

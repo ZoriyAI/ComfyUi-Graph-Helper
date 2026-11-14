@@ -78,7 +78,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
       latent: {
         title: 'Add the blank',
-        body: 'Add a {latent} node. Its `width` and `height` fields set the size of the picture.\n\nThe model does not draw on a clean sheet. It starts from noise of this size and removes it step by step.',
+        body: 'Add a {latent} node. Its `width` and `height` fields set the size of the picture.\n\nThe size follows the model. SD 1.5 was trained on pictures of 512 by 512, SDXL and the models built on it, Pony and Illustrious, on 1024 by 1024. At another size a model draws worse: it repeats figures and breaks the composition. The app tells you when the size is far from your model\'s.\n\nThe model does not draw on a clean sheet. It starts from noise of this size and removes it step by step.',
       },
       sampler: {
         title: 'Add the sampler',
