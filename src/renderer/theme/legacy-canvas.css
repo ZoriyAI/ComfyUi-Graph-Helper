@@ -36,6 +36,8 @@ html[data-motion="reduced"] .react-flow__connection .animated { animation: none;
   --xy-attribution-background-color: var(--attribution);
 }
 .graph-minimap {
+  /* Above the nodes: a node lifted while selected or dragged could otherwise show through the map. */
+  z-index: var(--layer-panel);
   width: 144px !important;
   height: 96px !important;
   overflow: hidden;

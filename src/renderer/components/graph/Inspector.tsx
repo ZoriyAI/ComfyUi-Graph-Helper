@@ -521,11 +521,12 @@ export default function Inspector() {
       ) : null}
       {edge ? <EdgeSection edge={edge} nodes={nodes} /> : null}
 
-      <h3 className={styles.h3}>{t('inspector.subgraphs')}</h3>
-      {/* One sentence at a time: what the list is for when there is a list, what a subgraph is when there is none. */}
+      {/* The section is there only when the graph has subgraphs: on an empty or plain graph a lesson on what a subgraph
+          is, under "Nothing selected", was noise (the Subgraphs tab of the library says it where it is looked for). */}
+      {census.definitions.length > 0 || census.unidentified > 0 ? <h3 className={styles.h3}>{t('inspector.subgraphs')}</h3> : null}
       {census.definitions.length > 0 ? <p className={`inspector-empty ${styles.hint}`}>{t('inspector.subgraphBoundary')}</p> : null}
       {census.unidentified > 0 ? <p className={`inspector-empty ${styles.hint}`}>{t('inspector.unidentified')}</p> : null}
-      {census.definitions.length === 0 ? <p className={`inspector-empty ${styles.hint}`}>{t('inspector.noSubgraphs')}</p> : (
+      {census.definitions.length === 0 ? null : (
         <div className={`inspector-subgraphs ${styles.subgraphs}`} role="list">
           {census.definitions.map((item) => (
             <button
