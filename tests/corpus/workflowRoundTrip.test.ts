@@ -335,7 +335,6 @@ describe.skipIf(dirs.length === 0)('corpus edits: a change made in the app expor
       return db;
     };
     const run = (name: string, body: () => string[] | 'skip') => {
-      let db: Database.Database | null = null;
       try {
         const outcome = body();
         if (outcome === 'skip') {
@@ -348,8 +347,6 @@ describe.skipIf(dirs.length === 0)('corpus edits: a change made in the app expor
         const message = error instanceof Error ? error.message : String(error);
         edits[name] = `crash: ${message}`;
         problems.push(`${name}: crash ${message}`);
-      } finally {
-        db?.close();
       }
     };
     if (classifyWorkflow(document) === 'unknown') {

@@ -120,8 +120,8 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
       const read = (element: Element | null) => element ? getComputedStyle(element).color : '';
       const undo = document.querySelector('button[disabled]');
       return {
-        dpr: window.devicePixelRatio,
-        inner: `${window.innerWidth}x${window.innerHeight}`,
+        dpr: globalThis.devicePixelRatio,
+        inner: `${globalThis.innerWidth}x${globalThis.innerHeight}`,
         text: read(title),
         muted: read(note),
         disabled: read(disabled),
@@ -249,7 +249,7 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
   expect(hoverRatio).toBeGreaterThanOrEqual(4.5);
   const pressPolicy = await importButton.evaluate(() => {
     const motion = document.documentElement.dataset.motion || '';
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const reduce = globalThis.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const shift = motion === 'on' || ((motion === 'system' || motion === '') && !reduce);
     return { motion, reduce, shift };
   });
@@ -545,7 +545,7 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
     expect(maximized.restored).toBe(true);
   }
   await window.setViewportSize({ width: 1280, height: 800 });
-  const pageBeforeFrame = await window.evaluate(() => `${window.innerWidth}x${window.innerHeight}`);
+  const pageBeforeFrame = await window.evaluate(() => `${globalThis.innerWidth}x${globalThis.innerHeight}`);
   const resizedDuring = await electronApp.evaluate(async ({ BrowserWindow }) => {
     const win = BrowserWindow.getAllWindows()[0];
     const before = win.getBounds();
@@ -558,7 +558,7 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
     await new Promise((resolve) => setTimeout(resolve, 300));
     return { before, during: win.getBounds() };
   });
-  const pageDuringResize = await window.evaluate(() => `${window.innerWidth}x${window.innerHeight}`);
+  const pageDuringResize = await window.evaluate(() => `${globalThis.innerWidth}x${globalThis.innerHeight}`);
   const resizedAfter = await electronApp.evaluate(async ({ BrowserWindow }, before) => {
     const win = BrowserWindow.getAllWindows()[0];
     win.setBounds(before);
@@ -598,7 +598,7 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
     await electronApp.evaluate(({ BrowserWindow }, next) => {
       BrowserWindow.getAllWindows()[0].webContents.setZoomFactor(next);
     }, factor);
-    const zoom = await window.evaluate(() => ({ dpr: window.devicePixelRatio, inner: `${window.innerWidth}x${window.innerHeight}` }));
+    const zoom = await window.evaluate(() => ({ dpr: globalThis.devicePixelRatio, inner: `${globalThis.innerWidth}x${globalThis.innerHeight}` }));
     console.log(`ZOOM_${factor} ${zoom.inner} dpr=${zoom.dpr}`);
     return zoom;
   };

@@ -13,7 +13,7 @@ import { artifact } from './artifacts';
 test('access to the server: choose, check, and detect after save', async () => {
   const fake = await startFakeMcp();
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'mcp-access-'));
-  const env = { ...process.env, NODE_ENV: 'production' };
+  const env = { ...process.env, NODE_ENV: 'production' } as Record<string, string>;
   delete env.DBUS_SESSION_BUS_ADDRESS;
   delete env.GNOME_KEYRING_CONTROL;
   const app = await electron.launch({

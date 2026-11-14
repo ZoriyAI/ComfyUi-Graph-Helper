@@ -268,7 +268,7 @@ describe('description toggles in the canvas store', () => {
 
   it('starts in own mode, cycles through the modes and remembers each with the old switch beside it', () => {
     const saved: Array<Record<string, unknown>> = [];
-    setCanvasPersist((patch) => saved.push(patch));
+    setCanvasPersist((patch) => saved.push({ ...patch }));
     const store = useCanvasStore.getState();
     expect(store.descriptionsMode).toBe('own');
     expect(store.descriptionsOn).toBe(true);

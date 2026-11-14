@@ -13,7 +13,7 @@ import { READ_ROUTE, startFakeComfy, type FakeComfy } from '../fixtures/comfy/fa
  * this machine, the address is typed instead of found, and the spec says so.
  */
 async function launch(userData: string): Promise<{ app: ElectronApplication; window: Page }> {
-  const env = { ...process.env, NODE_ENV: 'production' };
+  const env = { ...process.env, NODE_ENV: 'production' } as Record<string, string>;
   delete env.DBUS_SESSION_BUS_ADDRESS;
   delete env.GNOME_KEYRING_CONTROL;
   const app = await electron.launch({ args: [path.join(__dirname, '../../dist/main/index.js'), `--user-data-dir=${userData}`], env });

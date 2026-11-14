@@ -7,9 +7,9 @@ import type {
   NodeClassDetail,
   NodeClassSummary,
   Proposal,
-  ProposalInput,
 } from '../../../src/shared/contracts';
 import type { KnowledgeApi, ProposalApi } from '../../../src/main/agent/tools';
+import { EMPTY_NOTES } from '../../../src/shared/knowledge/sidecar';
 
 export const NODE_CLASSES: NodeClassSummary[] = [
   { classType: 'KSampler', displayName: 'KSampler', category: 'sampling', pack: 'core', detailed: true },
@@ -18,11 +18,11 @@ export const NODE_CLASSES: NodeClassSummary[] = [
 ];
 
 export const MODELS: ModelSummary[] = [
-  { directory: 'checkpoints', name: 'juggernautXL.safetensors', kind: 'checkpoint', baseModel: 'sdxl', sizeBytes: 1, enriched: true },
-  { directory: 'checkpoints', name: 'flux1-dev.safetensors', kind: 'checkpoint', baseModel: 'flux1', sizeBytes: 1, enriched: true },
-  { directory: 'loras', name: 'portrait_detail_sdxl.safetensors', kind: 'lora', baseModel: 'sdxl', sizeBytes: 1, enriched: true },
-  { directory: 'loras', name: 'portrait_flux.safetensors', kind: 'lora', baseModel: 'flux1', sizeBytes: 1, enriched: false },
-  { directory: 'loras', name: 'anime_lines.safetensors', kind: 'lora', baseModel: 'illustrious', sizeBytes: 1, enriched: false },
+  { directory: 'checkpoints', name: 'juggernautXL.safetensors', kind: 'checkpoint', baseModel: 'sdxl', sizeBytes: 1, enriched: true, title: '', preview: null, mature: false },
+  { directory: 'checkpoints', name: 'flux1-dev.safetensors', kind: 'checkpoint', baseModel: 'flux1', sizeBytes: 1, enriched: true, title: '', preview: null, mature: false },
+  { directory: 'loras', name: 'portrait_detail_sdxl.safetensors', kind: 'lora', baseModel: 'sdxl', sizeBytes: 1, enriched: true, title: '', preview: null, mature: false },
+  { directory: 'loras', name: 'portrait_flux.safetensors', kind: 'lora', baseModel: 'flux1', sizeBytes: 1, enriched: false, title: '', preview: null, mature: false },
+  { directory: 'loras', name: 'anime_lines.safetensors', kind: 'lora', baseModel: 'illustrious', sizeBytes: 1, enriched: false, title: '', preview: null, mature: false },
 ];
 
 export function fakeKnowledge(): KnowledgeApi & { saved: ExplanationInput[] } {
@@ -49,7 +49,7 @@ export function fakeKnowledge(): KnowledgeApi & { saved: ExplanationInput[] } {
       .slice(0, request.limit ?? 50),
     modelDetail: (_db, directory, name): ModelDetail | null => {
       const found = MODELS.find((item) => item.directory === directory && item.name === name);
-      return found ? { ...found, baseModelEvidence: 'metadata', triggerWords: ['ptdetail'], description: '', sourceUrl: null, metadata: {}, rootPath: null, sha256: null, syncedAt: 1, enrichedAt: 1 } : null;
+      return found ? { ...found, baseModelEvidence: 'metadata', triggerWords: ['ptdetail'], description: '', sourceUrl: null, metadata: {}, rootPath: null, sha256: null, syncedAt: 1, enrichedAt: 1, notes: EMPTY_NOTES, web: { status: null, checkedAt: null, error: null, found: null }, civitaiKnown: false } : null;
     },
     saveExplanation: (_db, input): Explanation => {
       saved.push(input);
@@ -71,8 +71,8 @@ export function fakeProposals(): ProposalApi & { created: Proposal[] } {
   const created: Proposal[] = [];
   return {
     created,
-    createProposal: (_db, input: ProposalInput): Proposal => {
-      const proposal: Proposal = { ...input, id: `prop-${created.length + 1}`, status: 'proposed', createdAt: 1, resolvedAt: null };
+    createProposal: (_db, input): Proposal => {
+      const proposal: Proposal = { ...input, revisionId: input.revisionId ?? 'rev-test', id: `prop-${created.length + 1}`, status: 'proposed', createdAt: 1, resolvedAt: null };
       created.push(proposal);
       return proposal;
     },

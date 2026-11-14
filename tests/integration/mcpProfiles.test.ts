@@ -150,7 +150,7 @@ describe('a server of no kind the app knows', () => {
     const status = await sync.runSync(db);
     sync.stop();
     expect(status).toMatchObject({ state: 'idle', lastError: null, librarySource: 'comfy', mcpProfile: 'unknown' });
-    expect(status.warnings[0]).toBe(MCP_UNKNOWN_READ_COMFY);
+    expect(status.warnings?.[0]).toBe(MCP_UNKNOWN_READ_COMFY);
     expect(status.counts.nodeClasses).toBe(CLASSES.length);
     expect(sourceSentence(status)?.key).toBe('sync.source.comfyInstead');
     expect(toolCalls(mcp.calls)).toEqual([]);

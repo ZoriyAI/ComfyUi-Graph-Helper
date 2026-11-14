@@ -24,7 +24,7 @@ function node(classType: string, category: string, displayName = classType): Nod
 }
 
 function model(directory: string, name: string, extra: Partial<ModelSummary> = {}): ModelSummary {
-  return { directory, name, kind: 'checkpoint', baseModel: 'sdxl', sizeBytes: 1, enriched: false, ...extra };
+  return { directory, name, kind: 'checkpoint', baseModel: 'sdxl', sizeBytes: 1, enriched: false, title: '', preview: null, mature: false, ...extra };
 }
 
 describe('node library grouping', () => {

@@ -150,7 +150,8 @@ describe('getGraph returns every field', () => {
     const run = startRun(db, DESKTOP_PROJECT_ID);
     const tools = createAgentTools({
       db, projectId: DESKTOP_PROJECT_ID, runId: run.runId, revision: run.expectedRevisionId, knowledge: fakeKnowledge(), proposals: fakeProposals(),
-      readGraph: () => ({ ...readProjection(db, DESKTOP_PROJECT_ID)!, snapshot: { ...SNAPSHOT } }),
+      // SNAPSHOT is a partial graph on purpose (only what the summary reads).
+      readGraph: () => ({ ...readProjection(db, DESKTOP_PROJECT_ID)!, snapshot: { ...SNAPSHOT } as never }),
     });
     const result = await (tools.getGraph as AgentToolDefinition).execute({}) as { success: boolean; nodes: Array<{ id: string; parameters: Array<{ name: string; value: string }> }> };
     expect(result.success).toBe(true);

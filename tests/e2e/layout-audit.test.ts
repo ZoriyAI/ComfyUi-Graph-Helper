@@ -56,7 +56,7 @@ const FIXTURE = `
 
 test('the layout audit names every fault of its fixture and none of the sound layouts', async () => {
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'layout-audit-'));
-  const env = { ...process.env, NODE_ENV: 'production' };
+  const env = { ...process.env, NODE_ENV: 'production' } as Record<string, string>;
   delete env.DBUS_SESSION_BUS_ADDRESS;
   delete env.GNOME_KEYRING_CONTROL;
   const app = await electron.launch({ args: [path.join(__dirname, '../../dist/main/index.js'), `--user-data-dir=${userData}`], env });

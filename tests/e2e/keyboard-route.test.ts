@@ -115,7 +115,7 @@ test('keyboard route reaches a node and keeps graph shortcuts out of fields', as
     const content = document.querySelector('.select-content');
     if (!content) return { missing: true, clipped: true, top: 0, bottom: 0, left: 0, right: 0 };
     const box = content.getBoundingClientRect();
-    let clipped = box.top < -1 || box.left < -1 || box.bottom > window.innerHeight + 1 || box.right > window.innerWidth + 1;
+    let clipped = box.top < -1 || box.left < -1 || box.bottom > globalThis.innerHeight + 1 || box.right > globalThis.innerWidth + 1;
     let node = content.parentElement;
     while (node) {
       const style = getComputedStyle(node);

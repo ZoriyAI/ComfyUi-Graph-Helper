@@ -80,7 +80,7 @@ test('prerelease journey configures a provider, builds a process, and exports a 
   const nativePath = path.join(userData, 'project.graph-helper.json');
   const comfyPath = path.join(userData, 'workflow.json');
   fs.mkdirSync(ARTIFACT_DIR, { recursive: true });
-  const env = { ...process.env, NODE_ENV: 'production' };
+  const env = { ...process.env, NODE_ENV: 'production' } as Record<string, string>;
   delete env.DBUS_SESSION_BUS_ADDRESS;
   delete env.GNOME_KEYRING_CONTROL;
   const electronApp = await electron.launch({
@@ -238,7 +238,7 @@ test('object info import lets the agent export a loader parameter', async () => 
       python_module: 'nodes',
     },
   }));
-  const env = { ...process.env, NODE_ENV: 'production' };
+  const env = { ...process.env, NODE_ENV: 'production' } as Record<string, string>;
   delete env.DBUS_SESSION_BUS_ADDRESS;
   delete env.GNOME_KEYRING_CONTROL;
   const electronApp = await electron.launch({

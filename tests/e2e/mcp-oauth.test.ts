@@ -15,7 +15,7 @@ import { artifact } from './artifacts';
 test('signs in to the MCP server through the browser and syncs without a manual token', async () => {
   const fake = await startFakeOAuthMcp({ accessTtlSeconds: 3600 });
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'mcp-oauth-'));
-  const env = { ...process.env, NODE_ENV: 'test', GRAPH_HELPER_TEST_BROWSER: 'follow-redirects' };
+  const env = { ...process.env, NODE_ENV: 'test', GRAPH_HELPER_TEST_BROWSER: 'follow-redirects' } as Record<string, string>;
   delete env.DBUS_SESSION_BUS_ADDRESS;
   delete env.GNOME_KEYRING_CONTROL;
   const app = await electron.launch({

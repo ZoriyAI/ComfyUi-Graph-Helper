@@ -5,7 +5,7 @@ import { describe, expect, it, beforeEach, vi } from 'vitest';
 vi.mock('zustand', async () => {
   const vanilla = await vi.importActual<typeof import('zustand/vanilla')>('zustand/vanilla');
   const react = await vi.importActual<typeof import('react')>('react');
-  const create = <T,>(init: Parameters<typeof vanilla.createStore<T>>[0]) => {
+  const create = <T,>(init: import('zustand/vanilla').StateCreator<T, [], []>) => {
     const api = vanilla.createStore<T>(init);
     const hook = <U,>(selector: (state: T) => U = (state) => state as unknown as U) => react.useSyncExternalStore(
       api.subscribe,

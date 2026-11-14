@@ -408,7 +408,7 @@ export function auditTranslations(
       // `menu.${group}` with group a union of literals is a finite list of keys; otherwise a pattern.
       let texts: string[] | null = [node.head.text];
       for (const span of node.templateSpans) {
-        const values = texts ? literalsOf(span.expression) : null;
+        const values: string[] | null = texts ? literalsOf(span.expression) : null;
         if (!texts || !values || texts.length * values.length > MAX_KEYS) {
           texts = null;
           break;

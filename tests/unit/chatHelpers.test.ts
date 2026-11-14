@@ -290,8 +290,8 @@ describe('check report grouping', () => {
     // Every text key exists in both catalogs.
     for (const group of groups) {
       const leaf = group.findings[0].textKey.split('.')[1];
-      expect((en.check as Record<string, string>)[leaf]).toBeTruthy();
-      expect((ru.check as Record<string, string>)[leaf]).toBeTruthy();
+      expect((en.check as unknown as Record<string, string>)[leaf]).toBeTruthy();
+      expect((ru.check as unknown as Record<string, string>)[leaf]).toBeTruthy();
     }
   });
 });
