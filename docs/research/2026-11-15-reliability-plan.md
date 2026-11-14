@@ -4,6 +4,8 @@
 
 Implement the defects found during the 15 November 2026 source audit, use existing maintained packages for general-purpose work, verify the result, merge it into main and publish the next release, v0.9.0. The user explicitly authorized implementation, the final merge and release publication. Legal adult 18+ technical education must not be blocked merely because the topic is NSFW; keep educational material factual, with consent and lawful use guidance for adult subjects.
 
+Latest user steering: ship the ready v0.9.0 work now; Task 3 semantic lesson changes are deferred beyond this release.
+
 ## Baseline
 
 - Main: `0bf6c06219b5395d88a5dcd283e1deb254471b49` (package version 0.8.0).
