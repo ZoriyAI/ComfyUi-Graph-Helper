@@ -50,7 +50,11 @@ if (usesStableProfile(app.getName(), app.isPackaged)) {
 // One app at a time: a second start hands over to the first window (see 'second-instance' below) and exits, so two
 // processes never sync, sign in or write the same database at once.
 const firstInstance = app.requestSingleInstanceLock();
-if (!firstInstance) app.exit(0);
+if (!firstInstance) {
+  // At once: app.exit alone lets the rest of this file run first (profile, log) in the instance that is leaving.
+  app.exit(0);
+  process.exit(0);
+}
 
 // The profile holds chats, prompts and the database: owner only, whatever the umask made of it.
 secureProfileFolder(app.getPath('userData'));
@@ -255,6 +259,9 @@ function createWindow() {
       contextIsolation: true,
       sandbox: true,
       webSecurity: true,
+      // Chromium's spell-check downloads its dictionaries from a Google server the first time a person types, and
+      // only for English: off, so typing sends nothing anywhere.
+      spellcheck: false,
       // The renderer's About section reads the app version from preload `versions.app`; the scripted TEST fixture
       // is a developer tool and is offered only when the app runs unpackaged (development and tests).
       additionalArguments: [`--app-version=${displayVersion()}`, ...(scriptedProviderAllowed(app.isPackaged) ? ['--test-provider=1'] : [])],
@@ -306,6 +313,9 @@ app.whenReady().then(async () => {
     // (the "copy link" button) is the one exception; reading it is not.
     session.defaultSession.setPermissionRequestHandler((_contents, permission, callback) => callback(permission === 'clipboard-sanitized-write'));
     session.defaultSession.setPermissionCheckHandler((_contents, permission) => permission === 'clipboard-sanitized-write');
+    // No spell-check: it downloads dictionaries from a Google server the first time a person types (see createWindow).
+    session.defaultSession.setSpellCheckerEnabled(false);
+    session.defaultSession.setSpellCheckerLanguages([]);
     // Only files inside the built renderer folder are served; anything else is a 404.
     const bundleDir = path.dirname(RENDERER_INDEX);
     protocol.handle(APP_SCHEME, (request) => {

@@ -1,4 +1,4 @@
-import { ipcMain as rawIpcMain, app, dialog, safeStorage } from 'electron';
+import { ipcMain as rawIpcMain, app, BrowserWindow, dialog, safeStorage } from 'electron';
 import { guardedIpcMain } from './ipc/guard';
 import { randomUUID } from 'crypto';
 import * as fs from 'fs';
@@ -19,6 +19,8 @@ import { registerDiagnosticsIpc } from './ipc/diagnosticsIpc';
 import { registerAboutIpc } from './ipc/aboutIpc';
 import { registerUpdateIpc } from './updates/updateIpc';
 import { registerStartIpc, watchReplacingCommit } from './ipc/startIpc';
+import { clearPreviewsForNewAddress, registerPrivacyIpc } from './ipc/privacyIpc';
+import { confirmingOpener } from './signInSite';
 import { mcpOriginOf, mcpToken, mcpTokenFor, mcpTokenOrigin, mcpTokenStatus, releaseMcpTokenIfOriginChanged, setMcpToken } from './mcp/token';
 import { readTokenFile, removeTokenFile, tokenFileHolds, writeTokenFile } from './mcp/tokenFile';
 import { isPasswordStoreChoice, readPasswordStoreOverride, writePasswordStoreOverride } from './settings/passwordStoreOverride';
@@ -45,7 +47,7 @@ import { bumpCatalogRevision, readCatalog, upsertObjectInfo } from './catalog/re
 import { nativeProjectFile, openNativeFile } from './ipc/projectFile';
 import { contentDigest, defaultSavePaths, projectFileState, rememberProjectFile, withFileExtension } from './projectFiles';
 import { exportWorkflow, type GraphSnapshot } from '../shared/workflow/codec';
-import { fileDialogCopy, languageOf } from '../shared/i18n';
+import { createTranslator, fileDialogCopy, languageOf } from '../shared/i18n';
 
 
 /** The saved ComfyUI origin and MCP URL, or empty strings when settings are unreadable. */
@@ -173,7 +175,17 @@ async function setupMcpOAuth(): Promise<void> {
       encrypt: (plain) => safeStorage.encryptStringAsync(plain),
       decrypt: async (cipher) => (await safeStorage.decryptStringAsync(cipher)).result ?? null,
     },
-    openExternal: browserOpener(),
+    // A sign-in page on another site than the server's is opened only after the person agreed (signInSite.ts).
+    openExternal: confirmingOpener({
+      open: browserOpener(),
+      mcpUrl: () => savedEndpoints().mcpUrl,
+      translate: () => createTranslator(languageOf(readSettings(getDatabase()))),
+      ask: async (options) => {
+        const owner = BrowserWindow.getAllWindows()[0];
+        return (owner && !owner.isDestroyed() ? dialog.showMessageBox(owner, options) : dialog.showMessageBox(options)).then((choice) => choice.response);
+      },
+      log: (line) => console.log(line),
+    }),
     language: () => languageOf(readSettings(getDatabase())),
     now: () => Date.now(),
   });
@@ -209,6 +221,7 @@ export async function setupIPC(): Promise<void> {
   registerAboutIpc(ipcMain);
   registerUpdateIpc(ipcMain);
   registerStartIpc(ipcMain);
+  registerPrivacyIpc(ipcMain);
   // File operations
   ipcMain.handle(IPC_CHANNELS.FILE_IMPORT_WORKFLOW, async () => {
     const copy = dialogCopy().importWorkflow;
@@ -387,6 +400,7 @@ export async function setupIPC(): Promise<void> {
       // Another address: a sync for the old one stops, and the library is marked as read from the old one.
       if (before.mcpUrl.trim() !== result.values.mcpUrl.trim() || before.comfyOrigin.trim() !== result.values.comfyOrigin.trim()) {
         syncService.addressChanged(getDatabase());
+        clearPreviewsForNewAddress();
       }
       reseedCoreKnowledge(getDatabase(), result.values.language);
       mainLLMService.setConfig({

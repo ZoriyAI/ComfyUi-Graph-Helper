@@ -14,3 +14,14 @@ export function secureProfileFolder(dir: string, fsImpl: Pick<typeof fs, 'mkdirS
     return null;
   }
 }
+
+/** Each existing file is made readable and writable by this user only (mode 0600). Best effort, never throws. */
+export function ownerOnlyFiles(files: readonly string[], fsImpl: Pick<typeof fs, 'chmodSync' | 'existsSync'> = fs): void {
+  for (const file of files) {
+    try {
+      if (fsImpl.existsSync(file)) fsImpl.chmodSync(file, 0o600);
+    } catch {
+      // A file system without modes, or a file that is not ours: left as it is.
+    }
+  }
+}

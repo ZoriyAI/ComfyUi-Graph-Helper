@@ -307,7 +307,9 @@ export class McpOAuthProvider implements OAuthClientProvider {
     this.redirected = true;
     try {
       await this.mode.openExternal(authorizationUrl.toString());
-    } catch {
+    } catch (error) {
+      // The person said no to the site before the browser opened (main/signInSite.ts).
+      if (error instanceof Error && error.message === SIGN_IN_CANCELLED) throw error;
       throw new Error(SIGN_IN_BROWSER);
     }
   }
