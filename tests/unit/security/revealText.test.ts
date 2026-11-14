@@ -33,3 +33,15 @@ describe('text from a file never reads as something else', () => {
     for (const name of ['x.safetensors', 'x.gguf', 'x.sft']) expect(formatCanRunCode(name)).toBe(false);
   });
 });
+
+import { en, ru } from '../../../src/shared/i18n/catalog';
+
+describe('a missing node says where packs are safe to come from', () => {
+  it('in both languages, in the check and in the lessons', () => {
+    for (const catalog of [en, ru] as Array<Record<string, any>>) {
+      expect(JSON.stringify(catalog)).toMatch(/ComfyUI Manager/);
+    }
+    expect((en as any).check?.missingNodesItem ?? JSON.stringify(en)).toMatch(/never from a link in a workflow/);
+    expect(JSON.stringify(ru)).toMatch(/не по ссылке из workflow или заметки/);
+  });
+});
