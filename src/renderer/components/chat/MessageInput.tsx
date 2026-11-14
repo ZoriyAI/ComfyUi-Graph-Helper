@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowUp } from 'lucide-react';
+import { ArrowUp, Square } from 'lucide-react';
 import Hint from '../../ui/Hint';
 import Kbd from '../../ui/Kbd';
 import styles from './MessageInput.module.css';
@@ -15,6 +15,8 @@ interface MessageInputProps {
   /** The panel is in its third mode, "Learn": lessons take the place of the conversation and of the field. */
   learning?: boolean;
   onLearning?: (learning: boolean) => void;
+  /** Ends the helper's run; shown in Send's place while it answers. */
+  onStop?: () => void;
 }
 
 const INTENTS: readonly ComposerIntent[] = ['ask', 'build'];
@@ -24,7 +26,7 @@ const INTENTS: readonly ComposerIntent[] = ['ask', 'build'];
  * on its right. Send says why it is off (nothing written, or the helper is still answering) in its tooltip, which also
  * carries the Enter / Shift+Enter help.
  */
-export default function MessageInput({ onSend, isStreaming, disabled = false, learning = false, onLearning }: MessageInputProps) {
+export default function MessageInput({ onSend, isStreaming, disabled = false, learning = false, onLearning, onStop }: MessageInputProps) {
   const { t } = useTranslation();
   const [input, setInput] = useState('');
   const [intent, setIntent] = useState<ComposerIntent>('ask');
@@ -76,7 +78,12 @@ export default function MessageInput({ onSend, isStreaming, disabled = false, le
             </button>
           ) : null}
         </div>
-        <span className={styles.intentHint}>{learning ? t('lessons.modeHint') : intent === 'ask' ? t('chat.intentAskHint') : t('chat.intentBuildHint')}</span>
+        {/* In Learn mode the lesson says what to do; the line under the switch would only take its room. */}
+        {learning ? null : (
+          <span className={styles.intentHint} title={String(intent === 'ask' ? t('chat.intentAskHint') : t('chat.intentBuildHint'))}>
+            {intent === 'ask' ? t('chat.intentAskHint') : t('chat.intentBuildHint')}
+          </span>
+        )}
       </div>
       <div className={`composer-field ${styles.field}`} hidden={learning}>
         <textarea
@@ -96,16 +103,25 @@ export default function MessageInput({ onSend, isStreaming, disabled = false, le
           placeholder={String(t(intent === 'ask' ? 'chat.placeholderAsk' : 'chat.placeholder'))}
           disabled={disabled || isStreaming}
         />
-        <Hint label={String(isStreaming ? t('chat.sendBusy') : t('chat.sendHint'))} side="top" shortcut={isStreaming ? undefined : <Kbd>Enter</Kbd>}>
-          <button
-            type="submit"
-            className={`send-button ${styles.send}`}
-            aria-label={String(t('chat.send'))}
-            disabled={!canSend}
-          >
-            <ArrowUp size={18} strokeWidth={2.4} aria-hidden="true" />
-          </button>
-        </Hint>
+        {isStreaming && onStop ? (
+          // While the helper answers, Stop takes Send's place: the one control at the end of the field.
+          <Hint label={String(t('chat.stopHint'))} side="top">
+            <button type="button" className={`stop-button ${styles.send} ${styles.stop}`} aria-label={String(t('chat.stop'))} onClick={onStop}>
+              <Square size={14} fill="currentColor" aria-hidden="true" />
+            </button>
+          </Hint>
+        ) : (
+          <Hint label={String(isStreaming ? t('chat.sendBusy') : t('chat.sendHint'))} side="top" shortcut={isStreaming ? undefined : <Kbd>Enter</Kbd>}>
+            <button
+              type="submit"
+              className={`send-button ${styles.send}`}
+              aria-label={String(t('chat.send'))}
+              disabled={!canSend}
+            >
+              <ArrowUp size={18} strokeWidth={2.4} aria-hidden="true" />
+            </button>
+          </Hint>
+        )}
         {/* The key help is in Send's tooltip for the eye; screen readers hear it with the field. */}
         <span id="composer-keys" className="sr-only">{t('chat.keys')}</span>
       </div>

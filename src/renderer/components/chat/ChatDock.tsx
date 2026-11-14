@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'motion/react';
-import { MessageCircle, Pause, Play, Square } from 'lucide-react';
+import { MessageCircle, Pause, Play } from 'lucide-react';
 import EmptyState from '../../ui/EmptyState';
 import type { AgentTurnContext, ObjectRef } from '../../../shared/contracts';
 import { useChatStore } from '../../state/chatState';
@@ -14,6 +14,7 @@ import { useLessonStore } from '../../state/lessonState';
 import LessonPanel from '../lessons/LessonPanel';
 import Message from './Message';
 import MessageInput, { type ComposerIntent } from './MessageInput';
+import Button from '../../ui/Button';
 import styles from './ChatDock.module.css';
 
 /**
@@ -129,19 +130,10 @@ export default function ChatDock({ onSendMessage, onPause }: ChatDockProps = {})
           <div className={styles.run} role="group" aria-label={String(isPaused ? t('chat.runPaused') : t('chat.runStreaming'))}>
             <span className={styles.runDot} data-paused={isPaused} aria-hidden="true" />
             <span className="stream-state">{isPaused ? t('chat.paused') : t('chat.streaming')}</span>
-            <button type="button" className={`pause-button ${styles.runButton}`} onClick={togglePause}>
-              {isPaused ? <Play size={14} aria-hidden="true" /> : <Pause size={14} aria-hidden="true" />}
+            {/* Stop sits where Send is, in the composer; the header keeps the pause. */}
+            <Button variant="subtle" size="sm" icon={isPaused ? <Play size={14} /> : <Pause size={14} />} onClick={togglePause}>
               {isPaused ? t('chat.resume') : t('chat.pause')}
-            </button>
-            <button
-              type="button"
-              className={`${styles.runButton} ${styles.stopButton}`}
-              title={String(t('chat.stopHint'))}
-              onClick={() => getChatService().cancel()}
-            >
-              <Square size={12} aria-hidden="true" />
-              {t('chat.stop')}
-            </button>
+            </Button>
           </div>
         ) : null}
       </div>
@@ -197,7 +189,7 @@ export default function ChatDock({ onSendMessage, onPause }: ChatDockProps = {})
         )}
       </div>
       <div className="chat-compose">
-        <MessageInput onSend={sendComposer} isStreaming={isStreaming} learning={learning} onLearning={setLearning} />
+        <MessageInput onSend={sendComposer} isStreaming={isStreaming} learning={learning} onLearning={setLearning} onStop={() => getChatService().cancel()} />
       </div>
     </div>
   );
