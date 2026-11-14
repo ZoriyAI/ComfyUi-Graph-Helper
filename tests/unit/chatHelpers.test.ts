@@ -103,9 +103,20 @@ describe('markdown-lite', () => {
     expect(parseInline('в `a * b * c` звёзды остаются')).toEqual([{ type: 'text', text: 'в ' }, { type: 'code', text: 'a * b * c' }, { type: 'text', text: ' звёзды остаются' }]);
   });
 
-  it('keeps a link as words and address: the chat opens nothing', () => {
-    expect(parseInline('см. [документацию](https://docs.comfy.org/x) здесь')).toEqual([{ type: 'text', text: 'см. документацию (https://docs.comfy.org/x) здесь' }]);
-    expect(parseInline('[https://a.b/c](https://a.b/c)')).toEqual([{ type: 'text', text: 'https://a.b/c' }]);
+  it('keeps a link as its words with the address behind them: the chat opens nothing', () => {
+    expect(parseInline('см. [документацию](https://docs.comfy.org/x) здесь')).toEqual([
+      { type: 'text', text: 'см. ' },
+      { type: 'link', text: 'документацию', address: 'https://docs.comfy.org/x' },
+      { type: 'text', text: ' здесь' },
+    ]);
+    expect(parseInline('[https://a.b/c](https://a.b/c)')).toEqual([{ type: 'link', text: 'https://a.b/c', address: 'https://a.b/c' }]);
+    // Markup around a link and inside its words still reads.
+    expect(parseInline('**see [the `KSampler` docs](https://a.b/k)** and `code`')).toEqual([
+      { type: 'strong', text: 'see ' },
+      { type: 'link', text: 'the KSampler docs', address: 'https://a.b/k' },
+      { type: 'text', text: ' and ' },
+      { type: 'code', text: 'code' },
+    ]);
   });
 });
 
