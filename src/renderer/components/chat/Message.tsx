@@ -1,8 +1,9 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'motion/react';
-import { ChevronRight, OctagonAlert, PauseCircle, Play, RotateCcw, ScrollText, Settings2, Square, TriangleAlert } from 'lucide-react';
+import { Check, ChevronRight, Copy, OctagonAlert, PauseCircle, Play, RotateCcw, ScrollText, Settings2, Square, TriangleAlert } from 'lucide-react';
 import Button from '../../ui/Button';
+import IconButton from '../../ui/IconButton';
 import { formatClock, redactDiagnostic, type AppLanguage } from '../../../shared/i18n';
 import { useGraphStore } from '../../state/graphState';
 import { useUiStore } from '../../state/uiState';
@@ -70,24 +71,46 @@ function CheckpointCard({ messageId, checkpoint }: { messageId: string; checkpoi
   );
 }
 
+/** A command to type on the server: a calm code block, and an icon button that copies it and says so. */
+function HowCommand({ command }: { command: string }) {
+  const { t } = useTranslation();
+  const [copied, setCopied] = React.useState(false);
+  return (
+    <div className={`window-how-command ${styles.howCommand}`}>
+      <pre className={styles.howPre}>{command}</pre>
+      <IconButton
+        size="sm"
+        className={styles.howCopy}
+        label={String(copied ? t('chat.commandCopied') : t('chat.copyCommand'))}
+        onClick={() => {
+          void navigator.clipboard?.writeText(command).then(() => {
+            setCopied(true);
+            window.setTimeout(() => setCopied(false), 1600);
+          }, () => undefined);
+        }}
+      >
+        {copied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}
+      </IconButton>
+    </div>
+  );
+}
+
 /** «Как это сделать» under the small-window advice: the steps render only when opened. */
 function WindowHowTo() {
   const { t } = useTranslation();
   const [open, setOpen] = React.useState(false);
   return (
-    <details className="window-how" data-window-how onToggle={(event) => setOpen((event.currentTarget as HTMLDetailsElement).open)}>
-      <summary>{t('chat.windowHowTitle')}</summary>
+    <details className={`window-how ${styles.how}`} data-window-how onToggle={(event) => setOpen((event.currentTarget as HTMLDetailsElement).open)}>
+      <summary className={styles.howSummary}>
+        <ChevronRight size={12} aria-hidden="true" />
+        {t('chat.windowHowTitle')}
+      </summary>
       {open ? (
-        <ol style={{ paddingInlineStart: '1.2em', margin: 0 }}>
+        <ol className={styles.howSteps}>
           {ollamaWindowSteps(RECOMMENDED_WINDOW).map((step) => (
             <li key={step.key}>
               <p>{t(step.key)}</p>
-              {step.command ? (
-                <div className="window-how-command">
-                  <pre style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', margin: 0 }}>{step.command}</pre>
-                  <Button size="sm" quiet onClick={() => void navigator.clipboard?.writeText(step.command ?? '')}>{t('chat.copyCommand')}</Button>
-                </div>
-              ) : null}
+              {step.command ? <HowCommand command={step.command} /> : null}
             </li>
           ))}
         </ol>
