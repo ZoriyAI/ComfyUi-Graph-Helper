@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { NodeClassDetail } from '../../../shared/contracts/knowledge';
+import type { BaseModelFamily, NodeClassDetail } from '../../../shared/contracts/knowledge';
 import type { GraphMutation } from '../../../shared/commands/types';
 import {
   classOfRole,
@@ -66,6 +66,7 @@ export function lessonGraphOf(nodes: readonly GraphNode[], edges: readonly Graph
       inputs: (data.inputs ?? []).map((port) => ({ id: port.id, name: port.name, type: port.dataType })),
       outputs: (data.outputs ?? []).map((port) => ({ id: port.id, name: port.name, type: port.dataType })),
       values,
+      ...(detail ? { defaults: defaultsOf(detail) } : {}),
     });
   }
   const known = new Set(out.map((node) => node.id));
@@ -75,6 +76,21 @@ export function lessonGraphOf(nodes: readonly GraphNode[], edges: readonly Graph
       .filter((edge) => known.has(edge.source) && known.has(edge.target) && edge.sourceHandle && edge.targetHandle)
       .map((edge) => ({ from: edge.source, fromPort: String(edge.sourceHandle), to: edge.target, toPort: String(edge.targetHandle) })),
   };
+}
+
+/**
+ * The value each field of a fresh node of this class starts with: the catalog's default, or for a list the first
+ * entry, as ComfyUI does. A lesson does not take such a value for the person's choice of a number.
+ */
+export function defaultsOf(detail: NodeClassDetail): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const input of detail.inputs) {
+    const spec = input.spec;
+    if (!input.widget || !spec) continue;
+    if (spec.default !== undefined) out[input.name] = spec.default;
+    else if (spec.options && spec.options.length > 0) out[input.name] = spec.options[0];
+  }
+  return out;
 }
 
 /** What the catalog says of a class, in the shape the engine asks for; null for a class it has not read. */
@@ -118,23 +134,45 @@ export function useLessonGraph(details: Details): LessonGraph {
 }
 
 const LORA_CLASSES = new Set(['LoraLoaderModelOnly', 'LoraLoader']);
-const triggerCache = new Map<string, string[]>();
+interface FileFacts {
+  triggers: string[];
+  family: BaseModelFamily;
+}
+const fileCache = new Map<string, FileFacts>();
 
-/** Trigger words of the LoRA files chosen on the canvas, read from the files' own descriptions. */
-export function useLessonFacts(graph: LessonGraph): LessonFacts {
-  const files = useMemo(() => {
-    const names = graph.nodes.filter((node) => LORA_CLASSES.has(node.classType)).map((node) => node.values.lora_name).filter((value): value is string => typeof value === 'string' && value !== '');
-    return [...new Set(names)].sort();
-  }, [graph]);
-  const key = files.join('\n');
+/**
+ * The model files chosen on the canvas, with the folder the catalog found them in: the LoRAs of the core loaders,
+ * and every field whose list the catalog knows to be model files.
+ */
+export function modelFilesOf(graph: LessonGraph, details: Details): Array<{ directory: string; name: string }> {
+  const out = new Map<string, { directory: string; name: string }>();
+  for (const node of graph.nodes) {
+    const inputs = details[node.classType]?.inputs ?? [];
+    for (const [field, value] of Object.entries(node.values)) {
+      if (typeof value !== 'string' || value === '') continue;
+      const directory = LORA_CLASSES.has(node.classType) && field === 'lora_name' ? 'loras' : inputs.find((input) => input.name === field)?.spec?.modelDirectory;
+      if (directory) out.set(`${directory}/${value}`, { directory, name: value });
+    }
+  }
+  return [...out.values()].sort((a, b) => `${a.directory}/${a.name}`.localeCompare(`${b.directory}/${b.name}`));
+}
+
+/**
+ * What the app knows of the model files chosen on the canvas, read from the files' own descriptions: the trigger
+ * words of a LoRA, and the family its metadata names (a file named "mystery" may well be an SDXL LoRA).
+ */
+export function useLessonFacts(graph: LessonGraph, details: Details = {}): LessonFacts {
+  const files = useMemo(() => modelFilesOf(graph, details), [graph, details]);
+  const key = files.map((file) => `${file.directory}/${file.name}`).join('\n');
   const [version, setVersion] = useState(0);
   useEffect(() => {
     let live = true;
     const bridge = typeof window !== 'undefined' ? window.electronAPI : undefined;
     for (const file of files) {
-      if (triggerCache.has(file) || !bridge?.modelDetail) continue;
-      void bridge.modelDetail('loras', file).catch(() => null).then((detail) => {
-        triggerCache.set(file, detail?.triggerWords ?? []);
+      const id = `${file.directory}/${file.name}`;
+      if (fileCache.has(id) || !bridge?.modelDetail) continue;
+      void bridge.modelDetail(file.directory, file.name).catch(() => null).then((detail) => {
+        fileCache.set(id, { triggers: detail?.triggerWords ?? [], family: detail && detail.baseModelEvidence !== 'filename' ? detail.baseModel : 'unknown' });
         if (live) setVersion((value) => value + 1);
       });
     }
@@ -144,7 +182,16 @@ export function useLessonFacts(graph: LessonGraph): LessonFacts {
     // `key` stands for the list of files.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
-  return useMemo(() => ({ triggers: Object.fromEntries(files.map((file) => [file, triggerCache.get(file) ?? []])) }), [files, version]); // eslint-disable-line react-hooks/exhaustive-deps
+  return useMemo(() => {
+    const triggers: Record<string, string[]> = {};
+    const families: Record<string, BaseModelFamily> = {};
+    for (const file of files) {
+      const known = fileCache.get(`${file.directory}/${file.name}`);
+      if (file.directory === 'loras') triggers[file.name] = known?.triggers ?? [];
+      if (known && known.family !== 'unknown') families[file.name] = known.family;
+    }
+    return { triggers, families };
+  }, [files, version]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
 /**
@@ -187,8 +234,8 @@ export function clearShown(): void {
 }
 
 /** Whether the app can do the thing in the person's place (it cannot choose a file or write a description). */
-export function canDo(missing: Missing, graph: LessonGraph, ports: ClassPorts, details?: Details): StepFix | null {
-  return fixFor(missing, graph, (classType) => ports(classType) !== null, details ? (nodeId, field) => fieldChoices(graph, details, nodeId, field) : undefined);
+export function canDo(missing: Missing, graph: LessonGraph, ports: ClassPorts, details?: Details, facts?: LessonFacts): StepFix | null {
+  return fixFor(missing, graph, (classType) => ports(classType) !== null, details ? (nodeId, field) => fieldChoices(graph, details, nodeId, field) : undefined, facts);
 }
 
 /** The values a field of a node on the canvas can take, as the catalog lists them. */

@@ -20,6 +20,7 @@ import { lessonSpecs } from '../fixtures/mcp/classes/foundations';
 import { lessonSpecs as sound3dFacesSpecs } from '../fixtures/mcp/classes/sound-3d-faces';
 import { ADULT_LESSONS, LESSONS, LESSON_AFTER, lessonById, lessonOpen, nextLesson, ordinaryLessons } from '../../src/shared/lessons/lessons';
 import { contentRules, contentRulesMarkdown } from '../../src/shared/content/rules';
+import { FILES, fileMiss } from '../../src/shared/lessons/files';
 
 /**
  * ComfyUI's own nodes as far as the lessons use them: inputs with the value a fresh node starts with (link
@@ -174,6 +175,8 @@ class Canvas implements LessonGraph {
       outputs: spec.outputs.map(([name, type], index) => ({ id: `out-${index}`, name, type })),
       values: Object.fromEntries(spec.inputs.filter((input) => input.length > 2).map(([name, , value]) => [name, value])),
     };
+    // What a fresh node starts with, as the catalog says it: a lesson does not take it for the person's choice.
+    node.defaults = { ...node.values };
     this.next += 1;
     this.nodes.push(node);
     return node;
@@ -208,7 +211,21 @@ function decide(canvas: Canvas, missing: Missing): void {
     case 'differs':
       node.values[missing.field] = `other-${missing.nodeId}.safetensors`;
       return;
+    case 'file':
+      // The kind of file the step names, as a model page names it.
+      node.values[missing.field] = missing.test.want.example;
+      return;
+    case 'aspect': {
+      // The frame in the proportions of the clip, at the height it has.
+      const other = canvas.node(missing.other!.nodeId).values;
+      node.values.width = Math.round((Number(node.values.height) * Number(other.width)) / Number(other.height) / 8) * 8;
+      return;
+    }
     case 'text': {
+      if (missing.role.toLowerCase().includes('negative')) {
+        node.values[missing.field] = 'blurry, extra fingers, watermark';
+        return;
+      }
       // As many sentences as the step asks characters for.
       const sentences = ['A quiet lake at dawn.', 'Mist drifts slowly over the water.', 'The camera glides forward at walking pace.', 'Soft morning light.'];
       let text = '';
@@ -1099,6 +1116,7 @@ describe('the words of the lessons', () => {
           expect(shown).not.toMatch(/[{}]|undefined|\[object/);
           // A step that asks for a field names it the way the node shows it.
           for (const spec of step.fields ?? []) {
+            if (spec.identifies) continue;
             if (!text.body.includes(`\`${spec.field}\``)) unnamed.push(`${language}/${lesson.id}/${step.id}: ${spec.field}`);
           }
         }
@@ -1193,4 +1211,175 @@ describe('what the lessons say about their own size', () => {
     expect(lessonWords('ru', 'video-text')!.steps.intro.body).toContain('четырнадцать нод');
   });
 
+});
+
+describe('a lesson checks what it teaches', () => {
+  const missingAt = (lesson: Lesson, canvas: Canvas, read?: string[]) => {
+    const progress = done(lesson, canvas, read);
+    return { step: lesson.steps[progress.current]?.id ?? 'end', missing: progress.missing };
+  };
+
+  it('knows each kind of file by its family and the marks in its name', () => {
+    for (const want of Object.values(FILES)) expect(fileMiss(want.example, want), want.kind).toBeNull();
+    // A picture model is not the second half of a video model; an i2v file is not the t2v one.
+    expect(fileMiss('z_image_turbo_bf16.safetensors', FILES.wanT2vLow)).toEqual({ kind: 'family', family: 'zimage' });
+    expect(fileMiss('wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors', FILES.wanT2vHigh)).toEqual({ kind: 'not-mark', mark: 'i2v' });
+    expect(fileMiss('wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors', FILES.wanT2vLow)).toEqual({ kind: 'not-mark', mark: 'high' });
+    expect(fileMiss('qwen_3_4b.safetensors', FILES.umt5)).toEqual({ kind: 'mark', marks: ['umt5'] });
+    expect(fileMiss('sdxl_vae.safetensors', FILES.wan21Vae)).toEqual({ kind: 'mark', marks: ['wan21'] });
+    expect(fileMiss('wan_2.1_vae.safetensors', FILES.wan22Vae)).toEqual({ kind: 'mark', marks: ['wan22'] });
+    expect(fileMiss('wan2.2_i2v_A14b_high_noise_lora_rank64_lightx2v_4step_1022.safetensors', FILES.wanLoraLow)).toEqual({ kind: 'not-mark', mark: 'highnoise' });
+    expect(fileMiss('pixel-art-xl.safetensors', FILES.wanLoraHigh)).toEqual({ kind: 'family', family: 'sdxl' });
+    expect(fileMiss('my_style_v3.safetensors', FILES.fastLoraHigh)).toEqual({ kind: 'mark', marks: FILES.fastLoraHigh.marks[0] });
+    expect(fileMiss('Wan2_1-InfiniteTalk_Single_fp8.safetensors', FILES.talkModuleMulti)).toEqual({ kind: 'mark', marks: ['multi'] });
+    expect(fileMiss('wan2.1_i2v_480p_14B_fp8_scaled.safetensors', FILES.imageCheckpoint)).toEqual({ kind: 'family', family: 'wan2.1' });
+    // What the metadata says wins over the name: a file named "mystery" that is an SDXL LoRA is not one for Wan.
+    expect(fileMiss('mystery_style_v3.safetensors', FILES.wanLoraHigh, 'sdxl')).toEqual({ kind: 'family', family: 'sdxl' });
+    expect(fileMiss('mystery_style_v3.safetensors', FILES.wanLoraHigh)).toBeNull();
+  });
+
+  it('does not count the first file of a list when it is the wrong kind, and says why', () => {
+    const lesson = lessonById('video-text')!;
+    const canvas = new Canvas();
+    const high = canvas.add('UNETLoader');
+    const low = canvas.add('UNETLoader');
+    high.values.unet_name = 'wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors';
+    low.values.unet_name = 'z_image_turbo_bf16.safetensors';
+    const at = missingAt(lesson, canvas, ['intro']);
+    expect(at.step).toBe('models');
+    const whys = at.missing.flatMap((item) => (item.kind === 'field' && item.why ? [item.why] : []));
+    expect(whys).toContainEqual({ kind: 'file', miss: { kind: 'not-mark', mark: 'i2v' } });
+    expect(whys).toContainEqual({ kind: 'file', miss: { kind: 'family', family: 'zimage' } });
+  });
+
+  it('"Do this for me" picks a file of the kind asked for, and none when the list has none', () => {
+    const lesson = lessonById('video-text')!;
+    const canvas = new Canvas();
+    canvas.add('UNETLoader');
+    canvas.add('UNETLoader');
+    const list = ['z_image_turbo_bf16.safetensors', 'wan2.2_i2v_high_noise_14B.safetensors', 'wan2.2_t2v_high_noise_14B.safetensors', 'wan2.2_t2v_low_noise_14B.safetensors'];
+    const first = missingAt(lesson, canvas, ['intro']).missing[0];
+    expect(fixFor(first, canvas, installed, () => list)).toMatchObject({ kind: 'set-field', value: 'wan2.2_t2v_high_noise_14B.safetensors' });
+    expect(fixFor(first, canvas, installed, () => list.slice(0, 2))).toBeNull();
+  });
+
+  it('sets the number the text names, and does not count a fresh node\'s own number', () => {
+    const wrapper = lessonById('wrapper')!;
+    const canvas = new Canvas();
+    carryOut(wrapper, canvas);
+    const roles = done(wrapper, canvas).roles;
+    // The pack's sampler starts at 30 steps and shift 5; the lesson says 20 and 8.
+    expect(canvas.node(roles.first).values.steps).toBe(20);
+    expect(canvas.node(roles.first).values.shift).toBe(8);
+    const video = lessonById('video-text')!;
+    const other = new Canvas();
+    carryOut(video, other);
+    const parts = done(video, other).roles;
+    expect(other.node(parts.shiftHigh).values.shift).toBe(8);
+    expect(other.node(parts.latent).values.length).toBe(81);
+    expect(other.node(parts.first).values.cfg).toBe(3.5);
+    expect(other.node(parts.first).values.end_at_step).toBe(10);
+    // A number the person chose inside the range stays theirs.
+    other.node(parts.shiftHigh).values.shift = 6;
+    expect(done(video, other).current).toBe(video.steps.length);
+  });
+
+  it('takes a frame count only in the form 4n + 1', () => {
+    const lesson = lessonById('video-text')!;
+    const canvas = new Canvas();
+    carryOut(lesson, canvas);
+    const roles = done(lesson, canvas).roles;
+    canvas.node(roles.latent).values.length = 60;
+    const at = missingAt(lesson, canvas);
+    expect(at.step).toBe('latent');
+    expect(at.missing[0]).toMatchObject({ kind: 'field', field: 'length', why: { kind: 'frames' } });
+    expect(fixFor(at.missing[0], canvas, installed)).toMatchObject({ value: 81 });
+  });
+
+  it('asks the first sampler to stop before its last step', () => {
+    const lesson = lessonById('video-text')!;
+    const canvas = new Canvas();
+    carryOut(lesson, canvas);
+    const roles = done(lesson, canvas).roles;
+    canvas.node(roles.first).values.steps = 8;
+    canvas.node(roles.second).values.steps = 8;
+    expect(missingAt(lesson, canvas).missing[0]).toMatchObject({ kind: 'field', field: 'end_at_step', test: { kind: 'less' } });
+  });
+
+  it('takes a LoRA after the node that shifts the noise as well as before it', () => {
+    const lesson = lessonById('lora')!;
+    const canvas = new Canvas();
+    carryOut(lessonById('video-text')!, canvas);
+    const roles = done(lessonById('video-text')!, canvas).roles;
+    for (const [shift, sampler] of [[roles.shiftHigh, roles.first], [roles.shiftLow, roles.second]]) {
+      const lora = canvas.add('LoraLoaderModelOnly');
+      lora.values.lora_name = 'my_style_wan22.safetensors';
+      canvas.connect(shift, 'out-0', lora.id, 'in-0');
+      canvas.connect(lora.id, 'out-0', sampler, 'in-0');
+    }
+    expect(missingAt(lesson, canvas, ['intro']).step).toBe('trigger-words');
+  });
+
+  it('holds the LoRA of each path to its half and to Wan', () => {
+    const lesson = lessonById('lora')!;
+    const canvas = new Canvas();
+    carryOut(lessonById('video-text')!, canvas);
+    carryOut(lesson, canvas);
+    const roles = done(lesson, canvas).roles;
+    canvas.node(roles.loraLow).values.lora_name = 'wan2.2_i2v_A14b_high_noise_lora_rank64_lightx2v_4step_1022.safetensors';
+    expect(missingAt(lesson, canvas).missing[0]).toMatchObject({ role: 'loraLow', why: { kind: 'file', miss: { kind: 'not-mark' } } });
+    canvas.node(roles.loraLow).values.lora_name = 'pixel-art-xl.safetensors';
+    expect(missingAt(lesson, canvas).missing[0]).toMatchObject({ role: 'loraLow', why: { kind: 'file', miss: { kind: 'family', family: 'sdxl' } } });
+  });
+
+  it('takes Preview Image where the first picture asks for a saver', () => {
+    const lesson = lessonById('image')!;
+    const canvas = new Canvas();
+    carryOut(lesson, canvas);
+    const roles = done(lesson, canvas).roles;
+    canvas.remove(roles.save);
+    const preview = canvas.add('PreviewImage');
+    canvas.connect(roles.decode, 'out-0', preview.id, 'in-0');
+    expect(done(lesson, canvas).current).toBe(lesson.steps.length);
+  });
+
+  it('tells words from letters, a negation, a copy and the language a step asks for', () => {
+    const image = lessonById('image')!;
+    const canvas = new Canvas();
+    carryOut(image, canvas);
+    const roles = done(image, canvas).roles;
+    canvas.node(roles.positive).values.text = 'aaa';
+    expect(missingAt(image, canvas).missing[0]).toMatchObject({ why: { kind: 'text', miss: 'words' } });
+
+    const prompt = lessonById('prompt')!;
+    const second = new Canvas();
+    carryOut(image, second);
+    carryOut(prompt, second);
+    const parts = done(prompt, second).roles;
+    second.node(parts.positive).values.text = 'no hat, portrait of a woman, (red coat:1.2), night street, rain';
+    expect(missingAt(prompt, second).missing[0]).toMatchObject({ why: { kind: 'text', miss: 'negation' } });
+    second.node(parts.positive).values.text = 'portrait of a woman, (red coat:1.2), night street, rain, soft light';
+    second.node(parts.negative).values.text = 'portrait of a woman, (red coat:1.2), night street, rain, soft light';
+    expect(missingAt(prompt, second).missing[0]).toMatchObject({ role: 'negative', why: { kind: 'text', miss: 'copy' } });
+
+    const clip = lessonById('prompt-video')!;
+    const third = new Canvas();
+    carryOut(lessonById('video-text')!, third);
+    carryOut(clip, third);
+    const own = done(clip, third).roles;
+    third.node(own.positive).values.text = 'Девушка в красном пальто медленно идёт по мокрой ночной улице, камера следует сбоку, мягкий свет фонарей.';
+    expect(missingAt(clip, third).missing[0]).toMatchObject({ why: { kind: 'text', miss: 'english' } });
+  });
+
+  it('holds a frame drawn for a clip to the proportions of the clip', () => {
+    const lesson = lessonById('two-models')!;
+    const canvas = new Canvas();
+    carryOut(lessonById('video-text')!, canvas);
+    carryOut(lessonById('video-image')!, canvas);
+    carryOut(lesson, canvas);
+    const roles = done(lesson, canvas).roles;
+    canvas.node(roles.imageLatent).values.width = 512;
+    canvas.node(roles.imageLatent).values.height = 512;
+    expect(missingAt(lesson, canvas).missing[0]).toMatchObject({ field: 'width', test: { kind: 'aspect' } });
+  });
 });
