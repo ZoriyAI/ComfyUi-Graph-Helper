@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  BookOpen, Boxes, CircleAlert, Hammer, Hourglass, Link2, ListTree, Plus, SlidersHorizontal, StickyNote, Trash2, Workflow,
+  BookOpen, Boxes, CircleAlert, Hammer, Link2, ListTree, Plus, SlidersHorizontal, StickyNote, Trash2, Workflow,
   type LucideIcon,
 } from 'lucide-react';
 import type { ObjectRef } from '../../../shared/contracts';
@@ -13,6 +13,7 @@ import { buildTargetRef } from './toolPresentation';
 import { buildProgress, callStepKey, stepError, stepSentence, stepWhy, type Translate } from './buildSteps';
 import { useStepNames } from './stepNames';
 import { followInLog } from './followLog';
+import Button from '../../ui/Button';
 import styles from './BuildCard.module.css';
 
 const STEP_ICONS: Record<string, LucideIcon> = {
@@ -57,13 +58,14 @@ interface StepProps {
 function Step({ call, state, sentence, showWhy, onPick, hidden }: StepProps) {
   const { t } = useTranslation();
   const translate: Translate = (key, options) => String(options ? t(key, options) : t(key));
-  const Icon = state === 'failed' ? CircleAlert : state === 'waiting' ? Hourglass : STEP_ICONS[call.toolName] ?? Hammer;
+  const Icon = state === 'failed' ? CircleAlert : STEP_ICONS[call.toolName] ?? Hammer;
   const target = buildTargetRef(call);
   const why = stepWhy(call);
   const error = stepError(call, translate);
   const line = (
     <>
-      <Icon className={styles.icon} size={14} aria-hidden="true" />
+      {/* A step still to come is a small hollow dot on the rail, not one more icon in a column of the same glyph. */}
+      {state === 'waiting' ? <span className={styles.waitDot} aria-hidden="true" /> : <Icon className={styles.icon} size={14} aria-hidden="true" />}
       <span className={styles.sentence}>{sentence}</span>
     </>
   );
@@ -161,10 +163,9 @@ export default function BuildCard({ calls, live }: { calls: ToolCall[]; live: bo
         {failed > 0 ? <span className={styles.failed}>{t('chat.buildFailedCount', { count: failed })}</span> : null}
       </header>
       {firstShown > 0 ? (
-        <button type="button" className={styles.more} onClick={() => setShowAll(true)}>
-          <ListTree size={13} aria-hidden="true" />
+        <Button variant="ghost" size="sm" className={styles.more} icon={<ListTree size={13} />} onClick={() => setShowAll(true)}>
           {t('chat.buildEarlier', { count: firstShown })}
-        </button>
+        </Button>
       ) : null}
       <ol ref={list} className={styles.steps} aria-label={String(t('chat.buildListLabel'))}>
         {calls.map((call, index) => {
@@ -187,12 +188,12 @@ export default function BuildCard({ calls, live }: { calls: ToolCall[]; live: bo
       {anyWhy || (showAll && calls.length > VISIBLE_TAIL) ? (
         <div className={styles.foot}>
           {anyWhy ? (
-            <button type="button" className={styles.more} aria-expanded={allWhy} onClick={() => setAllWhy((open) => !open)}>
+            <Button variant="ghost" size="sm" className={styles.more} aria-expanded={allWhy} onClick={() => setAllWhy((open) => !open)}>
               {allWhy ? t('chat.buildWhyHide') : t('chat.buildWhyShow')}
-            </button>
+            </Button>
           ) : null}
           {showAll && calls.length > VISIBLE_TAIL ? (
-            <button type="button" className={styles.more} onClick={() => setShowAll(false)}>{t('chat.buildCollapse')}</button>
+            <Button variant="ghost" size="sm" className={styles.more} onClick={() => setShowAll(false)}>{t('chat.buildCollapse')}</Button>
           ) : null}
         </div>
       ) : null}

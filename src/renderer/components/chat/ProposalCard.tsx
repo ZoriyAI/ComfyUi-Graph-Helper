@@ -5,6 +5,7 @@ import { PROPOSAL_KINDS, type ProposalKind, type ProposalStatus } from '../../..
 import { redactDiagnostic } from '../../../shared/i18n';
 import { useProposalsStore } from '../../state/proposalsState';
 import { isRecord } from '../../services/llm/chatModel';
+import Button from '../../ui/Button';
 import styles from './ToolCard.module.css';
 
 function kindOf(value: unknown): ProposalKind | null {
@@ -53,26 +54,26 @@ export default function ProposalCard({ proposalId, result }: { proposalId: strin
       {status === 'superseded' ? <p className={styles.hint}>{t('proposals.supersededHint')}</p> : null}
       {status === 'proposed' ? (
         <div className={styles.actions}>
-          <button
-            type="button"
-            className={`${styles.action} ${styles.primary}`}
+          <Button
+            variant="primary"
+            size="sm"
+            icon={<Check size={14} />}
             disabled={resolving}
             aria-label={String(t('proposals.acceptLabel', { kind: kindLabel }))}
             onClick={() => void decide('accept')}
           >
-            <Check size={14} aria-hidden="true" />
             {resolving ? t('proposals.resolving') : t('proposals.accept')}
-          </button>
-          <button
-            type="button"
-            className={styles.action}
+          </Button>
+          <Button
+            variant="subtle"
+            size="sm"
+            icon={<X size={14} />}
             disabled={resolving}
             aria-label={String(t('proposals.rejectLabel', { kind: kindLabel }))}
             onClick={() => void decide('reject')}
           >
-            <X size={14} aria-hidden="true" />
             {t('proposals.reject')}
-          </button>
+          </Button>
         </div>
       ) : null}
       {error ? <p className={styles.error} role="status">{error}</p> : null}

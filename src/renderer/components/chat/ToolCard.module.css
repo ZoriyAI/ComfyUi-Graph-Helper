@@ -3,30 +3,30 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  border: 1px solid var(--line);
+  padding: 10px 10px 10px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
   border-left: 3px solid var(--chat-tool-accent);
-  background: var(--bg-raised);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
-  font-size: 12px;
+  background: var(--surface-raised);
+  box-shadow: var(--highlight-top);
+  font-size: var(--text-xs);
   line-height: 18px;
   min-width: 0;
 }
 .card[data-tool-kind="read"] { --chat-tool-accent: var(--text-faint); }
-.card[data-tool-kind="knowledge"] { --chat-tool-accent: var(--focus); }
-.card[data-tool-kind="proposal"] { --chat-tool-accent: var(--accent); }
-.card[data-tool-kind="build"] { --chat-tool-accent: var(--accent-2); }
+.card[data-tool-kind="knowledge"] { --chat-tool-accent: var(--ai); }
+.card[data-tool-kind="proposal"] { --chat-tool-accent: var(--ai); }
+.card[data-tool-kind="build"] { --chat-tool-accent: var(--accent); }
 
-.head { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.head { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: var(--text-sm); line-height: 20px; }
 .icon { flex: none; color: var(--chat-tool-accent); }
-.label { flex: 0 1 auto; min-width: 0; font-weight: 650; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.label { flex: 0 1 auto; min-width: 0; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rawName {
   flex: 0 10 auto;
   min-width: 0;
-  font-family: var(--font-mono, ui-monospace, "SFMono-Regular", Menlo, monospace);
+  font-family: var(--font-mono);
   color: var(--text-faint);
-  font-size: 11px;
+  font-size: var(--text-xs);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -35,19 +35,20 @@
   margin-left: auto;
   flex: none;
   padding: 0 6px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
   color: var(--text-dim);
+  font-size: var(--text-xs);
 }
 .status[data-state="pending"] { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 50%, transparent); }
 .status[data-state="success"] { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 50%, transparent); }
 .status[data-state="error"] { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 50%, transparent); }
 
 .args { color: var(--text-dim); }
-.args summary { cursor: pointer; color: var(--text-dim); border-radius: 4px; }
-.args summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.args summary { cursor: pointer; color: var(--text-dim); border-radius: var(--radius-xs); }
+.args summary:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .argList { margin: 4px 0 0; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 2px 8px; }
-.argList dt { font-family: var(--font-mono, ui-monospace, monospace); color: var(--text-faint); }
+.argList dt { font-family: var(--font-mono); color: var(--text-faint); }
 .argList dd { margin: 0; overflow-wrap: anywhere; color: var(--text-dim); }
 
 .summary { margin: 0; color: var(--text-dim); overflow-wrap: anywhere; }
@@ -57,52 +58,36 @@
   display: inline-block;
   margin-right: 6px;
   padding: 0 6px;
-  border-radius: var(--radius-pill, 999px);
+  border-radius: var(--radius-pill);
   background: var(--ai-soft);
   color: var(--ai);
-  font-size: var(--text-xs, 12px);
+  font-size: var(--text-xs);
 }
-.explanationText { margin: 0; color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere; }
+.explanationText { margin: 0; color: var(--text); font-size: var(--text-sm); line-height: 20px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; color: var(--text-dim); }
 
-.actions { display: flex; flex-wrap: wrap; gap: 6px; }
-.action {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  min-height: 26px;
-  padding: 2px 10px;
-  border-radius: 6px;
-  border: 1px solid var(--control-border, var(--line));
-  background: var(--surface);
-  color: var(--text);
-  font: inherit;
-  cursor: pointer;
-  transition: background var(--motion-feedback, 100ms) ease;
-}
-.action:hover:not(:disabled) { background: var(--bg-hover); }
-.action:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-.action:disabled { opacity: 0.55; cursor: default; }
-.primary { background: var(--accent-2); border-color: transparent; color: var(--on-accent); }
-.primary:hover:not(:disabled) { background: color-mix(in srgb, var(--accent-2) 85%, white); }
-.danger { color: var(--danger); }
+/* Buttons are ui/Button; the row only lays them out. */
+.actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
 
 .proposal { display: flex; flex-direction: column; gap: 6px; padding-top: 2px; }
-.proposalHead { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.proposalHead { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: var(--text-sm); line-height: 20px; }
 .kind { font-weight: 600; color: var(--text); }
 .chip {
-  padding: 0 6px;
-  border-radius: 999px;
-  border: 1px dashed var(--line);
+  padding: 0 7px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
   color: var(--text-dim);
+  font-size: var(--text-xs);
+  line-height: 18px;
 }
-.chip[data-status="proposed"] { border-color: var(--accent); color: var(--text); }
-.chip[data-status="accepted"] { border-style: solid; border-color: var(--ok); color: var(--ok); }
-.chip[data-status="rejected"] { border-style: solid; color: var(--text-faint); }
-.chip[data-status="superseded"] { border-style: solid; border-color: var(--warn); color: var(--warn); }
+/* A suggestion is the helper's work waiting for a yes: the colour of AI. Accepted is done: mint. */
+.chip[data-status="proposed"] { border-color: color-mix(in srgb, var(--ai) 55%, transparent); background: var(--ai-soft); color: var(--text); }
+.chip[data-status="accepted"] { border-color: color-mix(in srgb, var(--ok) 55%, transparent); background: var(--ok-soft); color: var(--ok); }
+.chip[data-status="rejected"] { color: var(--text-faint); }
+.chip[data-status="superseded"] { border-color: color-mix(in srgb, var(--warn) 55%, transparent); color: var(--warn); }
 .note { margin: 0; color: var(--text); overflow-wrap: anywhere; }
 .noteLabel { color: var(--text-faint); margin-right: 4px; }
 .hint { margin: 0; color: var(--text-dim); }
 .detail { color: var(--text-dim); }
-.proposalIcon { flex: none; color: var(--accent); }
+.proposalIcon { flex: none; color: var(--ai); }
 .proposalHead .chip { margin-left: auto; }
