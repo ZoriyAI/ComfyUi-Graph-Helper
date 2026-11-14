@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { RotateCcw, X } from 'lucide-react';
 import { allCommands, defaultShortcutOf, type Command, type CommandGroup } from '../../../commands/registry';
-import { chordFromEvent, detectPlatform, formatShortcut, sameChord } from '../../../commands/shortcuts';
+import { chordFromEvent, detectPlatform, formatShortcut, localKeyFor, readLayoutMap, sameChord, type LayoutMap } from '../../../commands/shortcuts';
 import Badge from '../../../ui/Badge';
 import Button from '../../../ui/Button';
 import IconButton from '../../../ui/IconButton';
@@ -62,6 +62,18 @@ export default function ShortcutsSection({ prefs, setPrefs }: DraftProps) {
   const tr = (key: string) => String(t(key));
   const platform = detectPlatform();
   const [recording, setRecording] = useState<string | null>(null);
+  // The keyboard layout as it is now, read when the section opens and after each key press (a layout switch).
+  const [layout, setLayout] = useState<LayoutMap | null>(null);
+  useEffect(() => {
+    let live = true;
+    const read = () => void readLayoutMap().then((map) => { if (live) setLayout(map); });
+    read();
+    window.addEventListener('keyup', read);
+    return () => {
+      live = false;
+      window.removeEventListener('keyup', read);
+    };
+  }, []);
   // A chord another command already has: nothing changes until the person moves it or keeps the old one.
   const [taken, setTaken] = useState<{ id: string; chord: string; others: string[] } | null>(null);
   const overrides = prefs.shortcuts;
@@ -165,6 +177,7 @@ export default function ShortcutsSection({ prefs, setPrefs }: DraftProps) {
                       ) : (
                         <span className={styles.none}>{t('preferences.noShortcut')}</span>
                       )}
+                      {row.chord && !isRecording ? <LocalKey chord={row.chord} layout={layout} /> : null}
                       {changed && !isRecording ? (
                         <span className={styles.defaultNote}>
                           {t('preferences.defaultIs', { shortcut: row.defaultChord ? formatShortcut(row.defaultChord, platform) : t('preferences.noShortcut') })}
@@ -205,3 +218,16 @@ export default function ShortcutsSection({ prefs, setPrefs }: DraftProps) {
     </>
   );
 }
+
+/** What to press on this keyboard layout when it is not the key marked with the shortcut's letter or sign. */
+function LocalKey({ chord, layout }: { chord: string; layout: LayoutMap | null }) {
+  const { t } = useTranslation();
+  const local = localKeyFor(chord, layout);
+  if (!local) return null;
+  return (
+    <span className={styles.defaultNote} data-local-key={local.kind}>
+      {local.kind === 'key' ? t('preferences.localKey', { key: local.key.toUpperCase() }) : t('preferences.localShift')}
+    </span>
+  );
+}
+
