@@ -80,7 +80,7 @@ export default function MessageInput({ onSend, isStreaming, disabled = false, le
         </div>
         {/* In Learn mode the lesson says what to do; the line under the switch would only take its room. */}
         {learning ? null : (
-          <span className={styles.intentHint} title={String(intent === 'ask' ? t('chat.intentAskHint') : t('chat.intentBuildHint'))}>
+          <span className={styles.intentHint}>
             {intent === 'ask' ? t('chat.intentAskHint') : t('chat.intentBuildHint')}
           </span>
         )}

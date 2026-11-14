@@ -69,7 +69,3 @@ form.form .field[hidden] { display: none; }
 .intentOption:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
 .intentRow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .intentHint { min-width: 0; color: var(--text-faint); font-size: var(--text-xs); line-height: 18px; }
-/* In a short window the line keeps to one row; the whole sentence is in its tooltip. */
-@media (max-height: 640px) {
-  .intentHint { flex: 1 1 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-}
