@@ -183,10 +183,12 @@ function adoptItem(db: Database.Database, projectId: string, graphKey: string, i
     owner_json: JSON.stringify(owner),
     aspect: item.aspect,
     text: item.text,
-    provenance: item.provenance,
+    // Whoever made the file wrote this: never a fact the app read, never the person's own note, never built-in.
+    // A web finding keeps its label and link; everything else says it came with the file.
+    provenance: item.provenance === 'web' && item.sourceUrl ? 'web' : 'file',
     source_url: item.sourceUrl,
     revision_id: item.revisionId,
-    created_by: item.createdBy,
+    created_by: 'file',
     created_at: item.createdAt || Date.now(),
   });
 }

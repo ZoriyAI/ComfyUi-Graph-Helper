@@ -138,10 +138,14 @@ describe('explanations travel with the project file', () => {
       const { id: _a, projectId: _b, ...kept } = after[0];
       const { id: _c, projectId: _d, ...expected } = before;
       void _a; void _b; void _c; void _d;
-      expect(kept).toEqual(expected);
+      // Whoever made the file wrote it: it comes back as "from the file", never as a fact, the person's own note or
+      // built-in knowledge. A web finding keeps its label and link.
+      expect(kept).toEqual({ ...expected, createdBy: 'file', provenance: before.provenance === 'web' ? 'web' : 'file' });
     }
-    // Saved again on the other machine: the same block.
-    expect(saveFile(other).extensions[EXPLANATIONS_EXTENSION]).toEqual(block);
+    // Saved again on the other machine: the same objects and texts, now marked as from a file.
+    const again = saveFile(other).extensions[EXPLANATIONS_EXTENSION];
+    expect(again.items.map((item: { text: string }) => item.text)).toEqual(block.items.map((item: { text: string }) => item.text));
+    expect(again.items.every((item: { createdBy: string }) => item.createdBy === 'file')).toBe(true);
     db.close();
     other.close();
   });

@@ -7,6 +7,8 @@ import type { ExamplePrompt, ModelDetail, ModelLookupResult, ModelNotes, ModelSu
 import { familyLabelKey } from '../../../shared/knowledge/labels';
 import { usePreferencesStore } from '../../state/preferencesState';
 import { FamilyBadge, KindBadge, ProvenanceBadge } from '../../ui/Badge';
+import { hasHiddenCharacters, mixesAlphabets, revealHidden } from '../../../shared/text/reveal';
+import { formatCanRunCode } from '../../../shared/security/modelFormat';
 import Button from '../../ui/Button';
 import IconButton from '../../ui/IconButton';
 import Skeleton from '../../ui/Skeleton';
@@ -499,7 +501,7 @@ export default function ModelCard({ model, all, onClose, onShowLoras, onAsk, onU
       }}
     >
       <header className={styles.header}>
-        <h2 id="model-card-title" className={styles.title}>{model.name}</h2>
+        <h2 id="model-card-title" className={styles.title}>{revealHidden(model.name)}</h2>
         <IconButton size="sm" label={String(t('library.card.close'))} onClick={onClose}>
           <X size={14} aria-hidden="true" />
         </IconButton>
@@ -507,6 +509,10 @@ export default function ModelCard({ model, all, onClose, onShowLoras, onAsk, onU
 
       <div className={styles.body}>
         {detail === null ? <p className={styles.note} data-tone="warn">{t('library.card.gone')}</p> : null}
+        {/* What the name or the format of the file itself says about it (shared/text/reveal.ts, shared/security). */}
+        {hasHiddenCharacters(model.name) ? <p className={styles.note} data-tone="warn" data-testid="model-name-hidden">{t('library.card.nameHidden')}</p> : null}
+        {mixesAlphabets(model.name) ? <p className={styles.note} data-tone="warn" data-testid="model-name-mixed">{t('library.card.nameMixed')}</p> : null}
+        {formatCanRunCode(model.name) ? <p className={styles.note} data-tone="warn" data-testid="model-format-code">{t('library.card.formatCode')}</p> : null}
 
         <PreviewSection model={summary} hidden={hidden} onReveal={() => setRevealed(key)} />
         {/* Shown for this file on request: the same place closes it again. */}
