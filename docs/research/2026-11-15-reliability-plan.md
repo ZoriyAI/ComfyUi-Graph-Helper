@@ -2,7 +2,7 @@
 
 ## Goal and authorization
 
-Implement the defects found during the 15 November 2026 source audit, use existing maintained packages for general-purpose work, verify the result and merge it into main. The user explicitly authorized implementation and the final merge. Legal adult 18+ technical education must not be blocked merely because the topic is NSFW; keep the explanations factual and non-graphic, with consent and lawful use for adult subjects.
+Implement the defects found during the 15 November 2026 source audit, use existing maintained packages for general-purpose work, verify the result, merge it into main and publish the next release, v0.9.0. The user explicitly authorized implementation, the final merge and release publication. Legal adult 18+ technical education must not be blocked merely because the topic is NSFW; keep educational material factual, with consent and lawful use guidance for adult subjects.
 
 ## Baseline
 
@@ -76,9 +76,28 @@ Files: assistant prompt, RU/EN lesson texts/wiki/README, lesson navigation, undo
 - [ ] Use existing LESSON_PATH/LESSON_AFTER data to group the 45 lessons and show dependencies without forcing a linear course.
 - [ ] Add the interleaved AI/manual undo regression and make undo preserve manual changes by grouping only contiguous AI steps (unless code review reveals a concrete incompatible invariant). Show unexpected manual commit errors rather than swallowing rejected Promises.
 - [ ] Update README and connection/install guidance to match direct ComfyUI plus optional MCP; distinguish source package support from published release assets. Remove dead STATUS/decisions links. Say what graph checks prove and what remains unknown.
+- [ ] Prepare version 0.9.0 in package.json/package-lock.json and docs/releases/v0.9.0.md; regenerate CHANGELOG with the existing script. Explain actual changes, supported package formats and remaining empirical limits. Publication is a later step after merge and package checks.
 - [ ] Run focused tests and type-check, review and commit.
 
-## Task 5: Integration, verification and merge
+## Task 5: Editor integration regressions and UI checks
+
+Files: `src/main/commands/commit.ts`, `innerEdits.ts`, `src/main/knowledge/check.ts`, scoped report contracts/renderer check UI, replacement guard, focused unit/Electron tests, `.github/workflows/ci.yml`.
+
+- [ ] Resolve all six concrete findings in the independent PR22 review: valid nested-instance paste/duplicate; unknown native edge metadata preservation; invalid endpoint handles; subgraph report identity/focus; dirty empty-root replacement guard; ignore inactive local widget values for linked inputs.
+- [ ] Add targeted regressions at the appropriate existing public seams, observe failures, then fix with the existing command/codec/graphlib machinery. Keep independent node ID spaces and reject recursive definitions.
+- [ ] Add a read-only GitHub Actions Ubuntu/Xvfb journey job for editor-selection, subgraph-inner-authoring, privacy-confirm and relevant changed check/lesson UI tests. The local runtime prohibits Unix sockets, so local Electron cannot provide UI evidence. Keep fork tokens read-only and do not weaken app sandbox behavior to make tests launch.
+- [ ] Run focused unit/type checks, review and commit. UI failures in CI must be resolved before the merge.
+
+## Task 6: Release from the reviewed main branch
+
+Files: `.github/workflows/release.yml`, minimal existing-tool-based planning helper if useful, relevant release behavior tests and developer release documentation.
+
+- [ ] Extend the existing package/release workflow so a push to main can publish a new package version after its existing full E2E, screen walk, Linux package, installed-package/upgrade, checksum and attestation stages. Use existing GitHub CLI/Actions tooling, not a new deployment framework.
+- [ ] A version already published is skipped; unversioned/manual/scheduled builds retain their existing behavior. Tag/version/notes must agree. Never overwrite or move an existing release/tag. Read/network failures must not be mistaken for proof that a release is absent.
+- [ ] Keep the existing release environment gate and contents/id-token/attestation permission boundaries. No secrets in fork workflows and no automatic approval bypass.
+- [ ] Verify meaningful scenarios for a new main version, an already-published version, manual/tag builds, version mismatch and API failure; type/build/config checks as applicable. Commit and obtain scoped review.
+
+## Task 7: Integration, verification and merge
 
 - [ ] Review the full diff from main, including PR22, with an independent reviewer; resolve important findings with scoped regression coverage.
 - [ ] Node 22: clean install, `npm test`, `npm run type-check`, `npm run build`, privacy/public-tree and changelog checks; relevant Playwright Electron tests and the full non-live suite when available.
@@ -86,6 +105,7 @@ Files: assistant prompt, RU/EN lesson texts/wiki/README, lesson navigation, undo
 - [ ] Push the feature branch, open a PR, inspect the exact head CI. Fix failures and recheck only affected/new concerns.
 - [ ] Merge the reviewed green feature branch into main with an expected-head guard, preserving history. User already authorized this merge; do not ask for the same permission again.
 - [ ] Verify main contains the merge and inspect its checks. Report the merge SHA, PR, test evidence and remaining empirical limits.
+- [ ] Run the full release/package workflow for the exact reviewed main commit, inspect UI walks, package and upgrade smoke checks, checksums and attestation. Publish v0.9.0 with the resulting Linux assets only after those checks pass. User explicitly authorized this next release; no repeat permission question is needed.
 
 ## Empirical follow-up (not a claim of defects or completed verification)
 
