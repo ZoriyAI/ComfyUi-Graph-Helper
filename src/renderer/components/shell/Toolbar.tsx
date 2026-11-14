@@ -16,6 +16,7 @@ import { usePreferencesStore } from '../../state/preferencesState';
 import { isPreferenceProvider } from '../../../shared/config/preferences';
 import { providerChoices, providerKeyState, providerNoteKey, useProviderStore } from '../../state/providerState';
 import { useProjectionStore } from '../../services/commands/projection';
+import { modelDisplayName } from './modelDisplayName';
 import styles from './Toolbar.module.css';
 
 /**
@@ -118,7 +119,7 @@ function HelperSelect() {
   const name = String(t((choices.find((choice) => choice.value === provider) ?? choices[0]).labelKey));
   const display = !provider
     ? String(t('provider.currentNone'))
-    : model ? String(t('provider.currentModel', { name, model })) : String(t('provider.current', { name }));
+    : model ? String(t('provider.currentModel', { name, model: modelDisplayName(model) })) : String(t('provider.current', { name }));
   const note = String(t(providerNoteKey(provider, keySource)));
   return (
     <div className={cx(styles.helper, 'helper-select')} data-key={providerKeyState(provider, keySource)}>
