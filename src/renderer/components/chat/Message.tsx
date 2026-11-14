@@ -57,7 +57,7 @@ function CheckpointCard({ messageId, checkpoint }: { messageId: string; checkpoi
         <>
           <p className={styles.checkpointHint}>{checkpoint.reason === 'failure-streak' ? t('chat.checkpointFailuresHint') : t('chat.checkpointStepsHint')}</p>
           <div className={styles.checkpointActions}>
-            <Button variant="primary" size="sm" className="checkpoint-continue" icon={<Play size={12} />} disabled={busy} onClick={() => void getChatService().continueFromCheckpoint(messageId)}>
+            <Button variant="primary" quiet size="sm" className="checkpoint-continue" icon={<Play size={12} />} disabled={busy} onClick={() => void getChatService().continueFromCheckpoint(messageId)}>
               {t('chat.continue')}
             </Button>
             <Button variant="subtle" size="sm" className="checkpoint-stop" icon={<Square size={12} />} title={String(t('chat.stopHint'))} onClick={() => getChatService().stopAtCheckpoint(messageId)}>

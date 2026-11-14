@@ -207,7 +207,7 @@ function LessonList({ shared }: { shared: Shared }) {
       {!shared.catalogRead ? (
         <div className={styles.notice} role="note">
           <p>{t('lessons.notRead')}</p>
-          <Button variant="primary" size="sm" icon={<Plug size={14} />} onClick={() => openSettings('connection')}>{t('lessons.connect')}</Button>
+          <Button variant="primary" quiet size="sm" icon={<Plug size={14} />} onClick={() => openSettings('connection')}>{t('lessons.connect')}</Button>
         </div>
       ) : null}
       {lessonGroups().map((group) => {
@@ -259,7 +259,7 @@ function LessonList({ shared }: { shared: Shared }) {
                       {finished ? (
                         <Button variant="subtle" size="sm" icon={<RotateCcw size={14} />} disabled={blocked} onClick={() => { again(lesson.id); start(lesson.id); }}>{t('lessons.again')}</Button>
                       ) : (
-                        <Button variant={started ? 'primary' : 'subtle'} size="sm" icon={<ArrowRight size={14} />} disabled={blocked} onClick={() => start(lesson.id)}>
+                        <Button variant={started ? 'primary' : 'subtle'} quiet size="sm" icon={<ArrowRight size={14} />} disabled={blocked} onClick={() => start(lesson.id)}>
                           {started ? t('lessons.resume') : t('lessons.start')}
                         </Button>
                       )}
@@ -348,7 +348,7 @@ function LessonRun({ lesson, shared, onAsk }: { lesson: Lesson; shared: Shared; 
           <h4 className={styles.stepTitle}><Check size={16} aria-hidden="true" />{t('lessons.finishedTitle')}</h4>
           <p className={styles.plain}>{t('lessons.finishedBody')}</p>
           <div className={styles.actions}>
-            <Button variant={nextLesson && nextTitle ? 'subtle' : 'primary'} size="sm" icon={<FolderOutput size={14} />} onClick={() => void runCommand('file.export')}>{t('lessons.save')}</Button>
+            <Button variant={nextLesson && nextTitle ? 'subtle' : 'primary'} quiet size="sm" icon={<FolderOutput size={14} />} onClick={() => void runCommand('file.export')}>{t('lessons.save')}</Button>
             <Button variant="subtle" size="sm" icon={<RotateCcw size={14} />} onClick={() => again(lesson.id)}>{t('lessons.again')}</Button>
           </div>
           {nextLesson && nextTitle ? (
@@ -357,7 +357,7 @@ function LessonRun({ lesson, shared, onAsk }: { lesson: Lesson; shared: Shared; 
             <div className={styles.nextLesson} data-next-lesson={nextLesson.id}>
               <p className={styles.plain}>{t('lessons.nextTitle', { title: nextTitle })}</p>
               <div className={styles.actions}>
-                <Button variant="primary" size="sm" icon={<ArrowRight size={14} />} onClick={() => start(nextLesson.id)}>{t('lessons.next')}</Button>
+                <Button variant="primary" quiet size="sm" icon={<ArrowRight size={14} />} onClick={() => start(nextLesson.id)}>{t('lessons.next')}</Button>
               </div>
             </div>
           ) : null}
@@ -368,7 +368,7 @@ function LessonRun({ lesson, shared, onAsk }: { lesson: Lesson; shared: Shared; 
           <MarkdownLite text={withNodeNames(text.body, nameOf)} className={styles.body} />
           {current && step.read ? (
             <div className={styles.actions}>
-              <Button variant="primary" size="sm" icon={<ArrowRight size={14} />} onClick={() => markRead(lesson.id, step.id)}>{t('lessons.understood')}</Button>
+              <Button variant="primary" quiet size="sm" icon={<ArrowRight size={14} />} onClick={() => markRead(lesson.id, step.id)}>{t('lessons.understood')}</Button>
             </div>
           ) : null}
           {current && !step.read ? (
@@ -390,7 +390,7 @@ function LessonRun({ lesson, shared, onAsk }: { lesson: Lesson; shared: Shared; 
               <div className={styles.actions}>
                 {first ? (
                   <Button
-                    variant="primary" size="sm" icon={<Crosshair size={14} />} disabled={inSubgraph}
+                    variant="primary" quiet size="sm" icon={<Crosshair size={14} />} disabled={inSubgraph}
                     data-lesson-target={first.kind === 'field' ? first.nodeId : first.kind === 'link' ? first.to.nodeId : undefined}
                     onClick={() => showMissing(first, lesson, shared.graph, shared.details)}
                   >{t('lessons.show')}</Button>

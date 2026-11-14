@@ -56,6 +56,7 @@ export default function ProposalCard({ proposalId, result }: { proposalId: strin
         <div className={styles.actions}>
           <Button
             variant="primary"
+            quiet
             size="sm"
             icon={<Check size={14} />}
             disabled={resolving}
