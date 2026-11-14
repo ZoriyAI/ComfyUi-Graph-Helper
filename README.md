@@ -1,245 +1,172 @@
-# ComfyUiGraphHelper
+# Graph Helper for ComfyUI
 
-# ComfyUI Graph Builder
+**Помощник для того, кто начинает работать с ComfyUI.** Настольное приложение для Linux. Оно подключается к
+вашему ComfyUI через MCP-сервер, читает, какие ноды, паки и модели у вас есть, и **показывает, как собрать граф,
+и объясняет, зачем каждый шаг**: на живом графе, в разговоре и в уроках, которые вы проходите руками.
 
-**Статус:** 🚧 В разработке (Alpha)  
-**Платформа:** Linux Desktop (Electron)  
-**Язык:** TypeScript + Node.js
+Приложение не работает вместо вас. Вы строите сами, зовёте помощника, когда застряли, или просите показать пример.
+В конце получается обычный workflow JSON для ComfyUI, и вы понимаете, из чего он состоит.
 
-## Описание
+- Руководство: [`docs/user/guide.ru.md`](docs/user/guide.ru.md) ([English](docs/user/guide.en.md)); в приложении
+  «Справка ▸ Руководство».
+- Решение проблем: [`docs/user/troubleshooting.ru.md`](docs/user/troubleshooting.ru.md)
+  ([English](docs/user/troubleshooting.en.md)); в приложении «Справка ▸ Решение проблем».
+- Что нового: [`CHANGELOG.md`](CHANGELOG.md) и «Справка ▸ Что нового».
 
-Linux desktop приложение для совместного визуального конструирования ComfyUI workflows/subgraphs с помощью LLM. Человек и AI работают с ОДНИМ ОБЩИМ графом, выполняя инкрементальные операции.
+## Принципы
 
-### Основные возможности
+1. **ComfyUI не трогаем.** Через MCP используются только читающие инструменты. Приложение ничего не
+   устанавливает, не скачивает, не удаляет и не ставит в очередь. Поток данных: ComfyUI → приложение.
+2. **Помощник, а не исполнитель.** Предложения помощника стоят на холсте серыми черновиками; в граф они
+   попадают только после того, как человек их принял. Сам помощник строит только по явной просьбе.
+3. **Факт, догадка, интернет, человек.** У каждого объяснения виден источник.
+4. **Объяснения живут в проекте.** Спросил про вход или выход ноды: ответ записан к этому месту графа и к версии графа.
+   Файл проекта хранит их вместе с графом; workflow для ComfyUI их не содержит.
+5. **Анимация объясняет.** Импульсы по связям, экскурсия по графу, пошаговая сборка, микроиллюстрации
+   того, что делает нода, повтор истории. Настройка анимации (как в системе / включена / уменьшена / выключена) соблюдается везде.
+6. **Совместимость на первом месте.** Для каждой модели и LoRA известно семейство базовой модели; несовпадения
+   подсвечиваются до экспорта.
+7. **Два формата.** Внутренний проект хранит всё; в ComfyUI уходит только нативный workflow JSON.
+8. **Ключи и токены** не пишутся в базу открыто, не попадают в журнал, в запрос к модели и в сохранённые файлы.
 
-- ✅ **Полноценный граф-канвас** с nodes, typed ports, connections (React Flow)
-- ✅ **Chat interface** для взаимодействия с AI (multi-provider LLM support planned)
-- ✅ **Ручное + AI редактирование** одного графа
-- ⏳ **Pause/resume** AI operations
-- ⏳ **Conflict detection** для предотвращения перезаписи ручных правок
-- ⏳ **Import/Export** native ComfyUI workflow JSON
-- ⏳ **MCP integration** для обнаружения доступных ComfyUI nodes/models
-- ⏳ **Persistence** projects, chat history, graph revisions
+## Три способа работать с помощником
 
-## Архитектура
+- **Спросить.** Помощник отвечает и предлагает. В граф попадает только то, что вы приняли.
+- **Строить.** Помощник строит на холсте по шагам и объясняет каждый.
+- **Учиться.** Вы собираете сами. Приложение говорит, что сделать и зачем, показывает, где это на холсте, и по
+  графу видит, что шаг выполнен. Ошиблись со связью или значением: говорит словами, что не так. Модель для
+  этого не нужна: уроки встроены в приложение.
 
-### Technology Stack (PROPOSALS, not user-approved)
+Уроки подбираются под ваш ComfyUI: в них только те ноды, которые у вас стоят. Сейчас их двадцать:
 
-| Component | Technology | Version | License | Status |
-|-----------|-----------|---------|---------|--------|
-| Desktop Shell | Electron | 45.2.3 | MIT | ✅ Verified |
-| Graph Canvas | @xyflow/react | 12.12.1 | MIT | ✅ Verified |
-| LLM Framework | Vercel AI SDK | TBD | Apache 2.0 (assumed) | ⏳ Not verified |
-| MCP Client | @modelcontextprotocol/client | 2.4.0 | Apache 2.0 | ✅ Verified |
-| State Management | Zustand | 5.x | MIT | ⏳ In use |
-| Database | SQLite (better-sqlite3) | 11.x | MIT | ⏳ In use |
-| UI Framework | React | 18.x | MIT | ✅ In use |
+- первая картинка из текста;
+- описание: как модель его читает (два вида моделей, порядок и длина, вес, второй текст, `cfg`, `seed`, что
+  менять, когда картинка не слушается);
+- доводка второй моделью: одна модель строит композицию, вторая перерисовывает картинку поверх;
+- видео из текста и видео из картинки на Wan 2.2;
+- описание для видео: из чего оно состоит, одно действие на ролик, слова для камеры;
+- LoRA и быстрое видео за четыре шага;
+- видео на нодах пака WanVideoWrapper: из текста и из картинки, с подсказками, что делать при нехватке памяти;
+- на том же паке: VACE (движение, глубина или контуры из другого видео), анимация по позе Wan Animate и говорящий
+  портрет InfiniteTalk. Два последних урока прямо говорят: чужое лицо и голос только с согласия человека;
+- ещё пять уроков на том же паке: анимация по позе UniAnimate, разговор двоих на InfiniteTalk, говорящий
+  портрет FantasyTalking, видео сразу со звуком и речью на Ovi, то же видео с другой камеры на ReCamMaster;
+- две модели в одном графе: модель для картинок рисует первый кадр, Wan его оживляет, у каждой свои LoRA и
+  своё описание;
+- что меняется для взрослого содержимого: дообученные модели, LoRA и описание. Этот урок говорит о технике и о
+  границах: приложение не помогает с откровенным содержимым, где есть несовершеннолетние или реальные люди.
 
-См. `/docs/decisions/ADR-000-requirements-vs-decisions.md` для деталей.
+Готовых описаний сцен в уроках нет. Когда шаг делает приложение, новая нода встаёт в свою колонку, и граф
+читается слева направо. Урок не просит переподключать ноды, которые уже работают на другую часть графа: если на
+холсте стоит видео, урок о картинке попросит свои ноды, а не займёт чужие.
 
-### Модульная структура
+## Что приложение знает о моделях, нодах и описаниях
 
-```
-src/
-├── main/           # Electron main process
-├── renderer/       # React UI
-│   ├── components/ # UI components
-│   ├── services/   # Business logic
-│   ├── state/      # Zustand stores
-│   └── types/      # TypeScript types
-├── preload/        # Electron preload scripts
-└── shared/         # Shared code
-```
+- **Карточка модели.** Щелчок по файлу во вкладке «Модели» показывает то, что записал автор: название, для
+  какой модели сделано, слова, которые включают LoRA, силу, которую он советует, заметки и описания, по которым
+  он делал свои примеры. Если рядом с файлом лежит картинка или ролик-пример, они показаны в карточке и
+  в списке. Всё это читается из файлов, которые менеджер моделей (ComfyUI-Lora-Manager, Civitai Helper) кладёт
+  рядом с моделью.
+- **Описание из интернета, по вашей кнопке.** Если рядом с файлом ничего нет, кнопка «Найти в интернете» в
+  карточке ищет модель на Civitai по отпечатку файла (это точно тот файл) и на Hugging Face по имени (это
+  догадка, карточка так и пишет). На эти сайты уходит отпечаток или имя файла, больше ничего. Искать сразу для
+  всех файлов при синхронизации можно включить в «Настройки ▸ Приватность»; по умолчанию это выключено.
+- **Отмеченное автором как взрослое закрыто.** Такую картинку и такие примеры описаний приложение не читает и
+  не показывает, пока вы сами не откроете их кнопкой в карточке или настройкой в «Приватность».
+- **Карточка ноды.** Щелчок по ноде в библиотеке: что она делает и зачем, что в неё входит, какие у неё
+  настройки и что они принимают, что выходит и из какого она пака. О паке сказано то, что он пишет о себе сам:
+  описание, начало README и ссылка на репозиторий.
+- **«Проверить» читает описания.** Кроме ошибок графа она даёт советы по текстам: запись `<lora:…>`, `BREAK`,
+  `AND` и квадратные скобки из других программ, несошедшиеся скобки, слишком большой вес, отрицание в основном
+  описании, второй текст при `cfg` 1, одно и то же в обоих текстах, нет слов LoRA, описание не по-английски
+  или слишком длинное. Это советы, а не ошибки: сохранению они не мешают.
 
-## Установка и запуск
+## Требования
 
-### Requirements
+- Linux x64 с пакетами `.deb`: Ubuntu 22.04 или новее, Debian 12 или новее, Linux Mint 21 и подобные.
+- ComfyUI и MCP-сервер рядом с ним, на этом или на другом компьютере.
+- Хранилище паролей (GNOME Keyring или KWallet), если ключи и токены нужно помнить между запусками.
+- Для помощника: облачная модель с ключом или своя модель на OpenAI-совместимом сервере (Ollama, LM Studio, vLLM).
+  Уроки работают и без модели.
+- Других форматов пакетов (AppImage, `.rpm`) и сборки для ARM пока нет.
 
-- Node.js 18+ (24.22.2 included with Electron 45.2.3)
-- npm или pnpm
-- Linux (tested on Ubuntu-based, Wayland/X11 compatibility TBD)
+## Установка, обновление, удаление
 
-### Bootstrap check
-
-`npm test` loads `better-sqlite3` for the host Node ABI created by `npm ci`. `rebuild:native` (`electron-rebuild -f -w better-sqlite3`) replaces that binary with Electron's ABI, so the unit suite and `type-check` run first. `type-check` is `tsc --noEmit` for the main project and the renderer project; it does not load the native module. `build` runs `build:main` and then `build:renderer`, rewriting `dist/` before Electron starts. `node scripts/assert-current-main.js` exits 2 with `OLD_TRACKED_DIST` when `dist/main/index.js` has no `webSecurity: true` or `dist/main/database.js` does not reference `./settings/migrate`. `dev:electron` and `start` run the native rebuild, the build, and that check before `electron .`. Playwright still launches `dist/main/index.js`; the check runs before it.
-
-```bash
-npm ci
-npm test
-npm run type-check
-npm run rebuild:native
-npm run build
-node scripts/assert-current-main.js
-./node_modules/.bin/electron scripts/electron-sqlite-probe.js
-npx playwright test tests/e2e/strict-chat-to-graph.test.ts
-npx playwright test tests/e2e/key-clear.test.ts
-```
-
-### Development mode
-
-`npm run dev` starts the Vite server and `dev:electron`. The Electron command rebuilds the native module, compiles the current main process, refuses the tracked pre-bootstrap `dist/main`, then connects to the Vite server. Run `npm test` before that rebuild when the host ABI binary is still required.
-
-## Current Implementation Status
-
-### ✅ Реализовано
-
-- [x] Project setup (npm, TypeScript, Electron)
-- [x] Electron main process (window management, IPC)
-- [x] SQLite database (projects, chat, revisions)
-- [x] React renderer с Vite
-- [x] Graph canvas (React Flow) с custom ComfyUI-style nodes
-- [x] Graph state management (Zustand)
-- [x] Chat panel UI (messages, input, streaming indicator)
-- [x] Chat state management
-- [x] Sample nodes для demo
-- [x] Import/Export buttons (UI только)
-
-### ⏳ В процессе / Planned
-
-- [ ] Real LLM integration (AI SDK)
-- [ ] Graph operation tools для LLM
-- [ ] Action executor с pause/resume
-- [ ] Conflict detection (revision-based)
-- [ ] ComfyUI JSON import/export (actual implementation)
-- [ ] MCP client integration (mock ready)
-- [ ] Graph revisions tracking
-- [ ] Project save/load (IPC handlers ready, UI integration needed)
-- [ ] Comprehensive tests
-- [ ] Desktop packaging (AppImage, .deb)
-
-### ❌ Not in scope for MVP
-
-- Production packaging
-- Real ComfyUI MCP server (mock only)
-- Actual workflow execution/image generation
-- Advanced features: templates, RAG, teaching mode
-
-## Testing
-
-### Manual verification
-
-1. **Launch app:**
-   ```bash
-   npm test
-   npm run dev
-   ```
-
-2. **Graph editing:**
-   - Drag nodes on canvas
-   - Create connections by dragging from output to input ports
-   - Zoom and pan
-   - See MiniMap
-
-3. **Chat:**
-   - Type messages in chat panel
-   - Currently shows mock responses (real LLM integration pending)
-
-### Automated tests
+Пакет `.deb` лежит на странице выпуска. Установка и обновление одной командой:
 
 ```bash
-npm test
+sudo apt install ./comfyui-graph-builder_*.deb
 ```
 
-## Security
+Приложение появится в меню как «Graph Helper for ComfyUI»; из терминала: `comfyui-graph-builder`
+(`--version` и `--help` печатают версию и подсказку). При обновлении настройки, ключи и проекты сохраняются.
 
-- ❌ **No API keys in code** — user configures
-- ❌ **No secrets in logs** — redacted
-- ❌ **No real workflow execution** — mock only for testing
-- ❌ **No real image generation** — disabled
-- ✅ **Sandboxed renderer** — contextIsolation enabled
-- ✅ **Safe IPC** — preload script exposes minimal API
+Удаление: `sudo apt remove comfyui-graph-builder`. Папка с данными остаётся; как убрать и её, сказано в руководстве.
 
-## Linux Compatibility
+## Где лежат данные
 
-**Tested on:**
-- Environment: Cloud VM (Ubuntu-based)
-- Display server: Headless (dbus errors expected)
-- Architecture: x86_64
+Всё в `~/.config/comfyui-graph-builder`: база `comfyui-desktop.db` (настройки, каталог, история графа), журналы
+`logs/` и `logs/model/`, размер окна `window-state.json`. Перед обновлением базы рядом с ней остаётся копия
+`comfyui-desktop.db.before-v<версия>.bak`; повреждённая база откладывается как `comfyui-desktop.db.damaged-<дата>`. «Справка ▸ О программе ▸ Открыть папку с данными»
+открывает эту папку. Файлы проектов (`.graph-helper.json`) и workflow лежат там, куда вы их сохранили.
 
-**Not yet tested:**
-- Wayland vs X11
-- Different desktop environments (GNOME, KDE, XFCE)
-- ARM64
-- Other distros (Fedora, Arch, Debian)
+## Первый запуск
 
-**Assumptions:**
-- Modern Linux distribution with GTK support
-- DBus available (warnings are non-fatal)
+На пустом холсте приложение само ведёт через три шага и отмечает сделанные:
 
-## ComfyUI JSON Compatibility
+1. **Подключите ComfyUI.** «Настройки ▸ Подключение»: вставьте «Адрес MCP-сервера» так, как его показывает сам
+   сервер, и нажмите «Проверить». Приложение спросит сервер, нужен ли вход, и само отметит нужный вариант:
+   «Без входа», «Токен» или «Вход через браузер». Токен и вход привязаны к адресу сервера.
+2. **Прочитайте ComfyUI.** «Синхронизация ▸ Синхронизировать сейчас». Когда индикатор справа вверху покажет
+   «Синхронизировано», в библиотеке слева будут ваши ноды и модели.
+3. **Выберите, кто отвечает.** Облачная модель (Anthropic, Google, OpenAI) с ключом или своя модель на этом
+   компьютере: кнопка «Найти локальные серверы» находит её сама.
 
-### Import/Export Strategy
+Порты нигде не зашиты: адреса ComfyUI, MCP-сервера и своей модели задаются целиком, вместе с портом. Подробно
+каждый шаг описан в руководстве.
 
-1. **Preserve all fields** — store original data in `comfyData`
-2. **Warn on unknown nodes** — don't fail silently
-3. **Roundtrip testing** — import → export → import должен сохранить данные
+## Журнал общения с моделью
 
-### Format Support
+Если помощник ответил странно, с ошибкой или не ответил вовсе, это можно разобрать по записи.
 
-- ✅ UI workflow JSON (v1.0, v0.4) — planned
-- ⏳ API prompt JSON — planned (best effort layout reconstruction)
-- ⏳ Native subgraphs — planned (requires frontend >=1.24.3)
+- Приложение записывает каждый ваш вопрос: что оно отправило модели (инструкции, граф, список инструментов),
+  что модель ответила на каждом шаге, какие инструменты вызвала и что получила, ошибки со словами самого сервера,
+  счёт токенов и время. Для облачных и локальных моделей одинаково.
+- **Справка ▸ Журнал общения с помощником…** показывает список вопросов. Последний уже отмечен. «Сохранить в
+  файл…» кладёт отмеченные вопросы в один файл `graph-helper-model-log-….jsonl` вместе со сведениями о приложении
+  и концом основного журнала; «Показать файл» открывает папку с ним. Этот файл и нужно отправить целиком.
+- «Скопировать отчёт» у вопроса кладёт в буфер короткий текст (что спросили, шаги, ошибки), его можно вставить
+  прямо в сообщение.
+- У ответа в чате при наведении появляется значок журнала: он открывает запись именно этого ответа. У ответа с
+  ошибкой такая кнопка видна сразу.
+- Ключи и токены в журнал не попадают: заголовки запросов не записываются вовсе, а текст проходит ту же очистку,
+  что и основной журнал. Журнал хранится только на этом компьютере (папка `logs/model` в профиле приложения),
+  старые записи удаляются сами (не больше 300 вопросов и 150 МБ). Выключить запись: «Настройки ▸ Приватность ▸
+  Вести журнал общения с моделью» или переключатель в самом окне журнала.
 
-## Documentation
+## Своя модель и окно контекста
 
-- `/docs/superpowers/specs/` — Design specification
-- `/docs/superpowers/plans/` — Implementation plan
-- `/docs/decisions/` — Architecture Decision Records (ADRs)
+Модель на вашем сервере читает только то, что помещается в её окно контекста, и запрос не может это окно
+увеличить. Ollama задаёт окно на сервере: 4 тысячи токенов при видеопамяти меньше 24 ГБ, 32 тысячи до 48 ГБ, либо
+то, что указано в `OLLAMA_CONTEXT_LENGTH` или в `num_ctx` модели. Всё, что не поместилось, сервер молча
+отбрасывает. Запрос помощника вместе с инструментами занимает от 3 до 6 тысяч токенов и с каждым шагом сборки
+растёт.
 
-## Known Limitations
+Приложение за этим следит:
 
-1. **LLM integration** — currently mock responses only
-2. **ComfyUI compatibility** — import/export не полностью реализован
-3. **MCP** — mock server только, нет реального ComfyUI connection
-4. **Tests** — minimal coverage, expanding
-5. **Linux desktop** — packaging не готов, dev mode только
-6. **Performance** — не тестировался на больших графах (>100 nodes)
+- Пока идёт запрос, оно спрашивает у сервера, с каким окном загружена модель (список загруженных моделей Ollama).
+  «Настройки ▸ Помощник ▸ Проверить связь» показывает это число сразу.
+- Если окно меньше 16 тысяч, помощник экономит место: предлагает модели только самые нужные инструменты.
+- Если запрос не поместился или места осталось мало, в чате появляется карточка с двумя числами и советом:
+  увеличить окно на сервере хотя бы до 16 384. Проверка идёт на каждом шаге сборки.
+- Окно запоминается между запусками, а в журнале хода записано, сколько занял запрос и что насчитал сервер.
 
-## Roadmap
+## Для разработчиков
 
-### Phase 1: Core Foundation (Current)
-- ✅ Basic desktop app structure
-- ✅ Graph canvas with manual editing
-- ⏳ Real LLM tool integration
-- ⏳ Conflict detection
+Как устроен код, команды сборки и тестов, сборка пакета и выпуск: [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md).
+Что сделано и что ограничено: [`STATUS.md`](STATUS.md).
 
-### Phase 2: ComfyUI Integration
-- ComfyUI JSON roundtrip
-- MCP client для node discovery
-- Node metadata от MCP
+## Лицензия
 
-### Phase 3: Polish & Testing
-- Comprehensive test coverage
-- Desktop packaging
-- Linux distro testing
-- Performance optimization
-
-### Phase 4: Advanced Features (Future)
-- Templates
-- RAG для node docs
-- Teaching mode
-- Multi-language support
-
-## Linux package
-
-The desktop `.deb` is built with [Electron Forge](https://www.electronjs.org/docs/latest/tutorial/tutorial-packaging) `8.0.1` and [`@electron-forge/maker-deb`](https://www.electronforge.io/config/makers/deb) `8.0.1` (MIT). Forge uses `@electron/packager` `20.3.0` (BSD-2-Clause). On this Ubuntu builder the deb maker needs `dpkg` and `fakeroot`. Forge can also make an RPM where the `rpm` package is installed; it is not installed here, so this checkpoint does not emit one.
-
-```bash
-npm run package:linux
-```
-
-That rebuilds `better-sqlite3` for Electron, builds `dist/`, checks the current main process, then runs `electron-forge make --platform linux`. The packaged executable loads `dist/main/index.js` and the built renderer. It does not start the Vite dev server. Artifacts under `out/` and the `.deb` are build outputs and are not committed.
-
-## Contributing
-
-Проект находится в активной разработке. 
-
-## License
-
-MIT (proposed, not finalized)
-
----
-
-**Version:** 0.1.0 Alpha  
-**Last Updated:** 2026-11-07  
-**Agent Link:** TBD (after push)
+MIT, см. [`LICENSE`](LICENSE). Шрифт Geist распространяется по SIL OFL 1.1. Лицензии всех пакетов, которые идут
+вместе с приложением: «Справка ▸ О программе ▸ Сторонние компоненты».

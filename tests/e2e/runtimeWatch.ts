@@ -1,6 +1,7 @@
 import { expect, type ElectronApplication, type Page } from '@playwright/test';
 
-const LOCAL_SCHEME = /^(file:|devtools:|data:|blob:)/i;
+// The built page and its assets are served from the app's own scheme; nothing else under app: is local.
+const LOCAL_SCHEME = /^(file:|devtools:|data:|blob:|app:\/\/bundle\/)/i;
 
 export type RuntimeWatch = {
   requests: string[];
@@ -57,7 +58,8 @@ async function resourceUrls(window: Page): Promise<string[]> {
 
 export async function readLocalFont(window: Page) {
   return window.evaluate(async () => {
-    const label = document.querySelector('.app-title');
+    // The menu bar's first menu title: the shell's own text since the app bar became a menu bar.
+    const label = document.querySelector('.document-bar [role="menuitem"]');
     if (!(label instanceof HTMLElement)) return { missing: true as const };
     const style = getComputedStyle(label);
     const sample = (label.textContent || 'A').trim() || 'A';
@@ -98,7 +100,7 @@ export async function readLocalFont(window: Page) {
 export function logLocalFont(font: Awaited<ReturnType<typeof readLocalFont>>) {
   expect(font.missing).toBe(false);
   if (font.missing) return;
-  expect(font.size).toBe('14px');
+  expect(font.size).toBe('13px');
   expect(font.family).toContain('Geist');
   expect(font.checkLabel).toBe(true);
   expect(font.geist400).toBe('loaded');

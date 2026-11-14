@@ -1,33 +1,79 @@
-import { ipcMain, dialog, BrowserWindow, safeStorage } from 'electron';
-import { jsonSchema } from 'ai';
+import { ipcMain as rawIpcMain, app, dialog, safeStorage } from 'electron';
+import { guardedIpcMain } from './ipc/guard';
 import { randomUUID } from 'crypto';
 import * as fs from 'fs';
+import { fileOpenErrorCode, fileWriteErrorCode, readPickedFile, writeFileAtomic } from './files/atomicWrite';
 import { IPC_CHANNELS } from '../shared/ipc-channels';
 import { getDatabase } from './database';
-import { mainLLMService } from './llmService';
-import { attemptSaveSecret, forgetProviderKey, readProviderKeyCipher, readSettings, saveSecretIfProven, saveSettings } from './settings/repository';
-import { probeSecretBackend } from './settings/secretProbe';
-import { isUnprotectedCipher, secretPersistenceDecision } from '../shared/config/secretPolicy';
+import { reseedCoreKnowledge } from './knowledge/seedCore';
+import { CLOUD, isCloudProvider, mainLLMService, type CloudProvider, type KeySource } from './llmService';
+import { attemptSaveSecret, forgetProviderKey, forgetSecret, migrateLegacyProviderKey, readProviderKeyCipher, readSecretCipher, readSettings, saveNamedSecretIfProven, saveSecretIfProven, saveSettings } from './settings/repository';
+import { secretStatus } from './settings/secretDecision';
+import { isUnprotectedCipher } from '../shared/config/secretPolicy';
 import { applyComfyRead } from './comfy/read';
+import { registerKnowledgeIpc } from './ipc/knowledgeIpc';
+import { registerEngineIpc } from './ipc/engineIpc';
+import { registerAgentIpc } from './ipc/agentIpc';
+import { registerDiagnosticsIpc } from './ipc/diagnosticsIpc';
+import { registerAboutIpc } from './ipc/aboutIpc';
+import { mcpOriginOf, mcpToken, mcpTokenFor, mcpTokenOrigin, mcpTokenStatus, releaseMcpTokenIfOriginChanged, setMcpToken } from './mcp/token';
+import { readTokenFile, removeTokenFile, tokenFileHolds, writeTokenFile } from './mcp/tokenFile';
+import { isPasswordStoreChoice, readPasswordStoreOverride, writePasswordStoreOverride } from './settings/passwordStoreOverride';
+import { keyFileHolds, readKeyFile, readKeyFileOrigins, removeKeyFile, removeKeyFromFile, writeKeyFile } from './settings/keyFile';
+import { decodeKeyRecord, encodeKeyRecord, officialOrigin } from '../shared/config/keyOrigin';
+import { configureMcpOAuth, loginToMcp, logoutFromMcp, mcpOAuth, oauthStatus } from './mcp/oauth';
+import { detectMcpAuth } from './mcp/detect';
+import { connectStreamableHttp, openReadOnlySession } from './mcp/client';
+import { discoverLocalServers, type OpenMcp } from './llm/localDiscovery';
+import { connectionSuggestions, rememberSavedAddresses } from './settings/connectionSuggestions';
+import { browserOpener } from './mcp/browser';
+import { mcpReadOutcome, reportedComfyUrl, syncService } from './mcp/sync';
+import { withLoopbackScheme } from '../shared/mcp/loopback';
+import { saveProjectRecord } from './ipc/projectRecord';
+import { redactSecrets } from '../shared/config/draft';
+import { forgetEverySecret, secretInventory } from './settings/forgetAll';
+import { guardSecretsIn, type SecretField } from './exportSecrets';
+import { setBlockedWebOrigins } from './agent/web';
 import { missingOnGraph } from '../shared/graph/compatibility';
-import { cancelRun, commitCommand, pauseRun, readProjection, resumeRun, startRun, switchProject } from './commands/commit';
+import { cancelRun, closeRun, commitCommand, pauseRun, readProjection, resumeRun, startRun, switchProject } from './commands/commit';
 import { DESKTOP_PROJECT_ID } from '../shared/project';
 import { assertObjectInfoSize, ObjectInfoError, parseObjectInfo } from '../shared/catalog/objectInfo';
 import { readCatalog, upsertObjectInfo } from './catalog/repository';
-import { mutationFromTool } from '../shared/commands/tools';
-import { parseNativeProject, serializeNativeProject } from '../shared/native-project';
+import { nativeProjectFile, openNativeFile } from './ipc/projectFile';
 import { exportWorkflow, type GraphSnapshot } from '../shared/workflow/codec';
-import type { CommandResponse } from '../shared/commands/types';
 import { fileDialogCopy, languageOf } from '../shared/i18n';
 
-let secretDecision: { persist: boolean; backend: string; reason: string } | null = null;
 
-async function secretStatus() {
-  if (secretDecision) return secretDecision;
-  const probe = await probeSecretBackend();
-  const decision = secretPersistenceDecision(probe);
-  secretDecision = { persist: decision.persist, backend: probe.backend, reason: decision.reason };
-  return secretDecision;
+/** The saved ComfyUI origin and MCP URL, or empty strings when settings are unreadable. */
+/**
+ * The address of the person's own model server as typed in the draft: `127.0.0.1:11434/v1` or `localhost:1234`
+ * without http:// is completed (the same rule the saved settings follow), and the answer says so.
+ */
+function draftBaseUrl(value: unknown): { url: unknown; completed: boolean } {
+  if (typeof value !== 'string') return { url: value, completed: false };
+  const url = withLoopbackScheme(value);
+  return { url, completed: url !== value.trim() };
+}
+
+function savedEndpoints(): { comfyOrigin: string; mcpUrl: string } {
+  const read = readSettings(getDatabase());
+  return read.source === 'corrupt' ? { comfyOrigin: '', mcpUrl: '' } : { comfyOrigin: read.values.comfyOrigin, mcpUrl: read.values.mcpUrl };
+}
+
+/**
+ * The agent's page reader must never reach the person's ComfyUI or MCP server, at whatever address and port they
+ * run: the saved Comfy origin, the MCP server origin and the ComfyUI address the server reported at the last sync.
+ * Refreshed whenever settings change and after every sync; no port number is built in.
+ */
+function refreshBlockedWebOrigins(): void {
+  const { comfyOrigin, mcpUrl } = savedEndpoints();
+  let reported: string | null = null;
+  try {
+    reported = reportedComfyUrl(getDatabase());
+  } catch {
+    // Without a readable database only the saved addresses are refused.
+  }
+  setBlockedWebOrigins([comfyOrigin, mcpOriginOf(mcpUrl), reported]);
 }
 
 function dialogCopy() {
@@ -44,22 +90,119 @@ function adoptStoredChatRuntime(): void {
   });
 }
 
-async function adoptStoredKey(): Promise<void> {
+/**
+ * Each cloud provider's key is held again at startup, under that provider only: from the OS password manager when
+ * it proved encryption, else from the app folder file the person chose on a computer without a password store.
+ * The one-key-era record is first moved to the provider saved in settings.
+ */
+async function adoptStoredKeys(): Promise<void> {
+  const migrated = migrateLegacyProviderKey(getDatabase(), savedProvider());
+  if (migrated !== 'none') console.log(`[IPC] One-key-era model key record ${migrated} (value NOT logged)`);
   const decision = await secretStatus();
-  if (!decision.persist) return;
-  const cipher = readProviderKeyCipher(getDatabase());
-  if (!cipher || isUnprotectedCipher(cipher)) return;
-  try {
-    const opened = await safeStorage.decryptStringAsync(cipher);
-    if (opened.result) mainLLMService.holdOsKey(opened.result);
-  } catch {
-    // The OS store did not unlock the ciphertext. Memory stays empty.
+  const file = readKeyFile(app.getPath('userData'));
+  const fileOrigins = readKeyFileOrigins(app.getPath('userData'));
+  for (const provider of CLOUD) {
+    if (decision.persist) {
+      const cipher = readProviderKeyCipher(getDatabase(), provider);
+      if (cipher && !isUnprotectedCipher(cipher)) {
+        try {
+          const opened = await safeStorage.decryptStringAsync(cipher);
+          // A record from before addresses were remembered is a key for the official address.
+          const record = opened.result ? decodeKeyRecord(provider, opened.result) : null;
+          if (record) {
+            mainLLMService.holdOsKey(provider, record.key, record.origin);
+            continue;
+          }
+        } catch {
+          // The OS store did not unlock the ciphertext; the file, if any, is tried next.
+        }
+      }
+    }
+    const fromFile = file[provider];
+    if (fromFile) mainLLMService.holdFileKey(provider, fromFile, fileOrigins[provider] ?? officialOrigin(provider));
+  }
+}
+
+function savedProvider(): string {
+  const read = readSettings(getDatabase());
+  return read.source === 'corrupt' ? '' : read.values.provider;
+}
+
+function mcpTokenRecordName(url: string | null | undefined): string | null {
+  const origin = mcpOriginOf(url);
+  return origin ? `mcp-token:${origin}` : null;
+}
+
+/**
+ * A manual MCP token saved for the saved MCP origin is held again at startup: from the OS password manager when
+ * it proved encryption, else from the app folder file the person chose on a computer without a password store.
+ */
+async function adoptStoredMcpToken(): Promise<void> {
+  const url = savedEndpoints().mcpUrl;
+  const origin = mcpOriginOf(url);
+  if (!origin) return;
+  const decision = await secretStatus();
+  if (decision.persist) {
+    const cipher = readSecretCipher(getDatabase(), `mcp-token:${origin}`);
+    if (cipher && !isUnprotectedCipher(cipher)) {
+      try {
+        const opened = await safeStorage.decryptStringAsync(cipher);
+        if (opened.result) {
+          setMcpToken(opened.result, url, 'os');
+          return;
+        }
+      } catch {
+        // The OS store did not unlock the ciphertext; the file, if any, is tried next.
+      }
+    }
+  }
+  const file = readTokenFile(app.getPath('userData'));
+  if (file && file.origin === origin) setMcpToken(file.token, url, 'file');
+}
+
+/** Wires the MCP OAuth manager to safeStorage (same fail-closed probe as the model key) and the system browser. */
+async function setupMcpOAuth(): Promise<void> {
+  const manager = configureMcpOAuth({
+    db: getDatabase,
+    vault: {
+      decision: secretStatus,
+      encrypt: (plain) => safeStorage.encryptStringAsync(plain),
+      decrypt: async (cipher) => (await safeStorage.decryptStringAsync(cipher)).result ?? null,
+    },
+    openExternal: browserOpener(),
+    language: () => languageOf(readSettings(getDatabase())),
+    now: () => Date.now(),
+  });
+  manager.onChange(() => {
+    syncService.notify();
+  });
+  // Stored sign-ins load before the first sync status, so the indicator knows whether one is held.
+  const url = savedEndpoints().mcpUrl;
+  if (url) {
+    try {
+      await manager.load(new URL(url).origin);
+    } catch {
+      // An unreadable URL has no sign-in.
+    }
   }
 }
 
 export async function setupIPC(): Promise<void> {
+  // Every handler below, and the domain handlers, check that the sender is the app's own page.
+  const ipcMain = guardedIpcMain(rawIpcMain);
   adoptStoredChatRuntime();
-  await adoptStoredKey();
+  await adoptStoredKeys();
+  await adoptStoredMcpToken();
+  await setupMcpOAuth();
+  refreshBlockedWebOrigins();
+  // A sync may learn a new ComfyUI address from the server; the page reader refuses it from then on.
+  syncService.onStatus(() => refreshBlockedWebOrigins());
+  // Domain handlers: one register function per area (assistant, knowledge and sync, drafts, diagnostics, About); see docs/architecture.md.
+  registerKnowledgeIpc(ipcMain);
+  registerEngineIpc(ipcMain);
+  registerAgentIpc(ipcMain);
+  registerDiagnosticsIpc(ipcMain);
+  registerAboutIpc(ipcMain);
   // File operations
   ipcMain.handle(IPC_CHANNELS.FILE_IMPORT_WORKFLOW, async () => {
     const copy = dialogCopy().importWorkflow;
@@ -73,10 +216,10 @@ export async function setupIPC(): Promise<void> {
       return { status: 'cancelled', projection: null, result: null };
     }
     try {
-      const document = JSON.parse(fs.readFileSync(result.filePaths[0], 'utf-8'));
+      const document = JSON.parse(readPickedFile(result.filePaths[0]));
       return importWorkflowDocument(document);
-    } catch {
-      return { status: 'rejected', projection: readProjection(getDatabase(), DESKTOP_PROJECT_ID), result: { error: 'Workflow JSON could not be parsed.' } };
+    } catch (error) {
+      return { status: 'rejected', projection: readProjection(getDatabase(), DESKTOP_PROJECT_ID), result: { error: fileOpenErrorCode(error, 'Workflow JSON could not be parsed.') } };
     }
   });
 
@@ -92,9 +235,14 @@ export async function setupIPC(): Promise<void> {
     return importCatalogFile(result.filePaths[0]);
   });
 
-  ipcMain.handle(IPC_CHANNELS.FILE_EXPORT_WORKFLOW, async () => {
-    const exported = exportWorkflowDocument();
-    if (!exported.ok) return exported;
+  // `secrets`: 'ask' (default) reports key-like fields before anything is written; 'omit' or 'keep' is the
+  // person's answer (exportSecrets.ts).
+  ipcMain.handle(IPC_CHANNELS.FILE_EXPORT_WORKFLOW, async (_event, secrets?: unknown) => {
+    const checked = exportWorkflowDocument();
+    if (!checked.ok) return checked;
+    const guarded = guardSecrets(checked.workflow, secrets);
+    if ('secrets' in guarded) return guarded;
+    const exported = { ...checked, workflow: guarded.document };
     const copy = dialogCopy().exportWorkflow;
     const result = await dialog.showSaveDialog({
       title: copy.title,
@@ -104,11 +252,11 @@ export async function setupIPC(): Promise<void> {
     });
     if (result.canceled || !result.filePath) return { ok: false, canceled: true };
     try {
-      fs.writeFileSync(result.filePath, JSON.stringify(exported.workflow, null, 2), 'utf-8');
-    } catch {
-      return { ok: false, error: 'The workflow file could not be written.' };
+      writeFileAtomic(result.filePath, JSON.stringify(exported.workflow, null, 2));
+    } catch (error) {
+      return { ok: false, error: fileWriteErrorCode(error, 'The workflow file could not be written.') };
     }
-    return { ok: true };
+    return { ok: true, unsetWidgets: exported.unsetWidgets };
   });
 
   ipcMain.handle(IPC_CHANNELS.WORKFLOW_EXPORT_DOCUMENT, () => exportWorkflowDocument());
@@ -125,16 +273,19 @@ export async function setupIPC(): Promise<void> {
       return { status: 'cancelled', projection: null, result: null };
     }
     try {
-      const document = JSON.parse(fs.readFileSync(result.filePaths[0], 'utf-8'));
+      const document = JSON.parse(readPickedFile(result.filePaths[0]));
       return openNativeDocument(document);
-    } catch {
-      return { status: 'rejected', projection: readProjection(getDatabase(), DESKTOP_PROJECT_ID), result: { error: 'The project file could not be parsed.' } };
+    } catch (error) {
+      return { status: 'rejected', projection: readProjection(getDatabase(), DESKTOP_PROJECT_ID), result: { error: fileOpenErrorCode(error, 'The project file could not be parsed.') } };
     }
   });
 
-  ipcMain.handle(IPC_CHANNELS.FILE_SAVE_PROJECT, async () => {
-    const saved = nativeProjectDocument();
-    if (!saved.ok) return saved;
+  ipcMain.handle(IPC_CHANNELS.FILE_SAVE_PROJECT, async (_event, secrets?: unknown) => {
+    const prepared = nativeProjectDocument();
+    if (!prepared.ok) return prepared;
+    const guarded = guardSecrets(prepared.project, secrets);
+    if ('secrets' in guarded) return guarded;
+    const saved = { ...prepared, project: guarded.document };
     const copy = dialogCopy().saveProject;
     const result = await dialog.showSaveDialog({
       title: copy.title,
@@ -144,32 +295,15 @@ export async function setupIPC(): Promise<void> {
     });
     if (result.canceled || !result.filePath) return { ok: false, canceled: true };
     try {
-      fs.writeFileSync(result.filePath, JSON.stringify(saved.project, null, 2), 'utf-8');
-    } catch {
-      return { ok: false, error: 'The project file could not be written.' };
+      writeFileAtomic(result.filePath, JSON.stringify(saved.project, null, 2));
+    } catch (error) {
+      return { ok: false, error: fileWriteErrorCode(error, 'The project file could not be written.') };
     }
     return { ok: true };
   });
 
   // Project operations
-  ipcMain.handle(IPC_CHANNELS.DB_SAVE_PROJECT, async (_event, project) => {
-    const db = getDatabase();
-    const stmt = db.prepare(`
-      INSERT OR REPLACE INTO projects (id, name, created_at, updated_at, graph_data, metadata)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `);
-
-    stmt.run(
-      project.id,
-      project.name,
-      project.created_at,
-      project.updated_at,
-      JSON.stringify(project.graph_data),
-      JSON.stringify(project.metadata || {})
-    );
-
-    return { success: true };
-  });
+  ipcMain.handle(IPC_CHANNELS.DB_SAVE_PROJECT, (_event, project: unknown) => saveProjectRecord(getDatabase(), project));
 
   ipcMain.handle(IPC_CHANNELS.DB_LOAD_PROJECT, async (_event, id) => {
     const db = getDatabase();
@@ -208,8 +342,23 @@ export async function setupIPC(): Promise<void> {
   });
 
   ipcMain.handle(IPC_CHANNELS.SETTINGS_SAVE, (_event, input: unknown) => {
+    const before = savedEndpoints();
     const result = saveSettings(getDatabase(), input);
     if (result.ok) {
+      // Addresses the person used before are offered again in Settings ▸ Connection.
+      try {
+        rememberSavedAddresses(getDatabase(), before, { comfyOrigin: result.values.comfyOrigin, mcpUrl: result.values.mcpUrl });
+      } catch {
+        // History is a convenience; a failed write never fails the save.
+      }
+      refreshBlockedWebOrigins();
+      // A token given for one MCP server is not sent to another.
+      releaseMcpTokenIfOriginChanged(result.values.mcpUrl);
+      // Another address: a sync for the old one stops, and the library is marked as read from the old one.
+      if (before.mcpUrl.trim() !== result.values.mcpUrl.trim() || before.comfyOrigin.trim() !== result.values.comfyOrigin.trim()) {
+        syncService.addressChanged(getDatabase());
+      }
+      reseedCoreKnowledge(getDatabase(), result.values.language);
       mainLLMService.setConfig({
         provider: result.values.provider,
         model: result.values.model,
@@ -219,38 +368,208 @@ export async function setupIPC(): Promise<void> {
     return result;
   });
 
-  ipcMain.handle(IPC_CHANNELS.SETTINGS_SAVE_SECRET, async (_event, value: unknown) => {
+  // Model keys, one per cloud provider. Every handler names the provider it acts on; a key is only ever
+  // stored, held or forgotten under that provider. Values are never returned or logged.
+
+  /** The key to remember for a provider: the one just pasted, or the one already held for it. Never logged. */
+  const keyToRemember = (provider: CloudProvider, value: unknown): string | null => {
+    if (typeof value === 'string' && value.length > 0 && value.length <= 4000) return value;
+    return mainLLMService.heldKey(provider);
+  };
+
+  ipcMain.handle(IPC_CHANNELS.SETTINGS_SAVE_SECRET, async (_event, provider: unknown, value: unknown) => {
+    if (!isCloudProvider(provider)) return attemptSaveSecret(getDatabase());
     const decision = await secretStatus();
-    if (!decision.persist || typeof value !== 'string' || value.length === 0) return attemptSaveSecret(getDatabase());
-    const cipher = await safeStorage.encryptStringAsync(value);
-    const saved = saveSecretIfProven(getDatabase(), decision, value, cipher);
-    if (saved.status === 'stored') mainLLMService.holdOsKey(value);
+    const text = keyToRemember(provider, value);
+    // A key pasted with this call is for the official address; the held key keeps the address it was pasted for.
+    const origin = typeof value === 'string' && value.length > 0 ? officialOrigin(provider) : mainLLMService.keyOrigin(provider) ?? officialOrigin(provider);
+    if (!decision.persist || !text) return attemptSaveSecret(getDatabase());
+    const record = encodeKeyRecord(provider, text, origin);
+    const cipher = await safeStorage.encryptStringAsync(record);
+    const saved = saveSecretIfProven(getDatabase(), decision, provider, record, cipher);
+    if (saved.status === 'stored') mainLLMService.holdOsKey(provider, text, origin);
     return saved;
   });
 
-  ipcMain.handle(IPC_CHANNELS.SETTINGS_FORGET_SECRET, () => {
-    forgetProviderKey(getDatabase());
-    mainLLMService.setSessionKey('');
+  // The person's explicit choice on a computer without a password store: the key in an owner-only file.
+  ipcMain.handle(IPC_CHANNELS.SETTINGS_SAVE_SECRET_FILE, (_event, provider: unknown) => {
+    if (!isCloudProvider(provider)) return { status: 'missing' as const };
+    const text = keyToRemember(provider, undefined);
+    if (!text) return { status: 'missing' as const };
+    const origin = mainLLMService.keyOrigin(provider) ?? officialOrigin(provider);
+    writeKeyFile(app.getPath('userData'), provider, text, origin === officialOrigin(provider) ? null : origin);
+    mainLLMService.holdFileKey(provider, text, origin);
+    console.log(`[IPC] ${provider} model key remembered in the app folder file (value NOT logged)`);
+    return { status: 'stored' as const };
+  });
+
+  // With a provider: that provider's key only. Without one: every model key (Settings ▸ Privacy ▸ Forget all).
+  ipcMain.handle(IPC_CHANNELS.SETTINGS_FORGET_SECRET, (_event, provider?: unknown) => {
+    if (isCloudProvider(provider)) {
+      forgetProviderKey(getDatabase(), provider);
+      removeKeyFromFile(app.getPath('userData'), provider);
+      mainLLMService.forgetKeys(provider);
+    } else {
+      forgetProviderKey(getDatabase());
+      removeKeyFile(app.getPath('userData'));
+      mainLLMService.forgetKeys();
+    }
     return { status: 'removed' as const };
   });
 
-  ipcMain.handle(IPC_CHANNELS.SETTINGS_SECRET_STATUS, async () => {
+  // Settings ▸ Privacy ▸ Forget all: every key and token for every provider and address, in memory, in the
+  // database (unrecoverably) and in the app folder files.
+  const inventory = () => secretInventory({
+    db: getDatabase(),
+    userData: app.getPath('userData'),
+    heldProviders: () => CLOUD.filter((provider) => mainLLMService.keyStatus(provider).held),
+    heldTokenOrigin: () => mcpTokenOrigin(),
+    heldSignIns: () => mcpOAuth()?.signedInOrigins() ?? [],
+  });
+  ipcMain.handle(IPC_CHANNELS.SECRETS_INVENTORY, () => inventory());
+  // Returns what was there before, i.e. what was removed, so the window can say it truthfully.
+  ipcMain.handle(IPC_CHANNELS.SECRETS_FORGET_ALL, () => {
+    const before = inventory();
+    const result = forgetEverySecret({
+      db: getDatabase(),
+      userData: app.getPath('userData'),
+      forgetKeys: () => mainLLMService.forgetKeys(),
+      forgetMcpToken: () => setMcpToken(''),
+      forgetSignIns: () => mcpOAuth()?.forgetAll(),
+    });
+    console.log(`[IPC] Forgot every secret: ${result.records} records, ${result.files} files${result.compacted ? '' : ' (database not compacted)'}`);
+    return { status: 'removed' as const, removed: before };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.SETTINGS_SECRET_STATUS, async (_event, forProvider?: unknown) => {
     const decision = await secretStatus();
-    return { ...decision, stored: readProviderKeyCipher(getDatabase()) != null };
+    const userData = app.getPath('userData');
+    const providers = Object.fromEntries(CLOUD.map((provider) => [provider, {
+      source: mainLLMService.keyStatus(provider).source,
+      stored: readProviderKeyCipher(getDatabase(), provider) != null,
+      inFile: keyFileHolds(userData, provider),
+    }])) as Record<CloudProvider, { source: KeySource; stored: boolean; inFile: boolean }>;
+    const provider = isCloudProvider(forProvider) ? forProvider : savedProvider();
+    const one = isCloudProvider(provider) ? providers[provider] : { stored: false, inFile: false };
+    return { ...decision, stored: one.stored, inFile: one.inFile, providers };
   });
 
   ipcMain.handle(IPC_CHANNELS.COMFY_READ, async () => {
     const read = readSettings(getDatabase());
     const origin = read.source === 'corrupt' ? '' : read.values.comfyOrigin;
     if (!origin) return { ok: false as const, error: 'Comfy origin is empty.' };
-    return applyComfyRead(getDatabase(), origin, globalThis.fetch);
+    const started = Date.now();
+    console.log('[Comfy] Reading /system_stats and /object_info');
+    const result = await applyComfyRead(getDatabase(), origin, globalThis.fetch);
+    if (result.ok) console.log(`[Comfy] Read ${result.nodes} node classes, ${result.models} models in ${Date.now() - started} ms (skipped ${result.skipped.length})`);
+    else console.warn(`[Comfy] Read failed after ${Date.now() - started} ms: ${result.error}`);
+    return result;
   });
+
+  ipcMain.handle(IPC_CHANNELS.MCP_READ, async () => {
+    // "Read through MCP" is the ordinary sync: every status (indicator, welcome card, popover) then says what was
+    // read and when, instead of a second kind of read that leaves them saying "not read".
+    const url = savedEndpoints().mcpUrl;
+    if (!url) return { ok: false as const, error: 'MCP server URL is empty.' };
+    const status = await syncService.runSync(getDatabase());
+    return mcpReadOutcome(status);
+  });
+
+  // Settings ▸ Connection "Check": what this server wants from a connection, found out by trying, never by assuming.
+  ipcMain.handle(IPC_CHANNELS.MCP_DETECT_AUTH, async (_event, forUrl?: unknown) => {
+    const url = typeof forUrl === 'string' && forUrl.length > 0 && forUrl.length <= 2000 ? forUrl : savedEndpoints().mcpUrl;
+    if (!url) return { ok: false as const, error: 'MCP server URL is empty.' };
+    // A held token is tried against a 401, so "Check" also says whether the pasted token is accepted.
+    return detectMcpAuth(url, { token: mcpTokenFor(url) });
+  });
+
+  ipcMain.handle(IPC_CHANNELS.MCP_SET_TOKEN, (_event, value: unknown, forUrl?: unknown) => {
+    console.log('[IPC] MCP token updated (value NOT logged)');
+    // The token is bound to the MCP origin it is meant for: the URL being saved alongside it, or the saved one.
+    const url = typeof forUrl === 'string' && forUrl.length > 0 && forUrl.length <= 2000 ? forUrl : savedEndpoints().mcpUrl;
+    return setMcpToken(value, url);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.MCP_TOKEN_STATUS, () => {
+    const url = savedEndpoints().mcpUrl;
+    const name = mcpTokenRecordName(url);
+    return {
+      ...mcpTokenStatus(),
+      stored: name != null && readSecretCipher(getDatabase(), name) != null,
+      inFile: tokenFileHolds(app.getPath('userData'), mcpOriginOf(url)),
+    };
+  });
+
+  /** The token to remember: the one just pasted, or the one already held for this session. Never logged. */
+  const tokenToRemember = (value: unknown): string | null => {
+    if (typeof value === 'string' && value.length > 0 && value.length <= 8000) return value;
+    return mcpToken();
+  };
+
+  // The manual token can be kept in the OS password manager under the same fail-closed rule as the model key.
+  ipcMain.handle(IPC_CHANNELS.MCP_SAVE_TOKEN, async (_event, value: unknown, forUrl?: unknown) => {
+    const decision = await secretStatus();
+    const url = typeof forUrl === 'string' && forUrl.length > 0 && forUrl.length <= 2000 ? forUrl : savedEndpoints().mcpUrl;
+    const name = mcpTokenRecordName(url);
+    const text = tokenToRemember(value);
+    if (!decision.persist || !text || !name) return attemptSaveSecret(getDatabase());
+    const cipher = await safeStorage.encryptStringAsync(text);
+    const saved = saveNamedSecretIfProven(getDatabase(), decision, name, text, cipher);
+    if (saved.status === 'stored') setMcpToken(text, url, 'os');
+    console.log(`[IPC] MCP token save: ${saved.status} (value NOT logged)`);
+    return saved;
+  });
+
+  // The person's explicit choice on a computer without a password store: the token in an owner-only file.
+  ipcMain.handle(IPC_CHANNELS.MCP_SAVE_TOKEN_FILE, (_event, forUrl?: unknown) => {
+    const url = typeof forUrl === 'string' && forUrl.length > 0 && forUrl.length <= 2000 ? forUrl : savedEndpoints().mcpUrl;
+    const origin = mcpOriginOf(url);
+    const text = tokenToRemember(undefined);
+    if (!origin || !text) return { status: 'missing' as const };
+    writeTokenFile(app.getPath('userData'), origin, text);
+    setMcpToken(text, url, 'file');
+    console.log('[IPC] MCP token remembered in the app folder file (value NOT logged)');
+    return { status: 'stored' as const };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.MCP_FORGET_TOKEN, () => {
+    const name = mcpTokenRecordName(savedEndpoints().mcpUrl);
+    if (name) forgetSecret(getDatabase(), name);
+    removeTokenFile(app.getPath('userData'));
+    setMcpToken('');
+    return { status: 'removed' as const };
+  });
+
+  // Settings ▸ Privacy ▸ Password store: what was found, and the choice for the next start.
+  ipcMain.handle(IPC_CHANNELS.SECRET_STORE_GET, async () => {
+    const decision = await secretStatus();
+    return { backend: decision.backend, persist: decision.persist, reason: decision.reason, override: readPasswordStoreOverride(app.getPath('userData')) };
+  });
+  ipcMain.handle(IPC_CHANNELS.SECRET_STORE_SET, (_event, choice: unknown) => {
+    if (choice !== null && !isPasswordStoreChoice(choice)) return { ok: false };
+    writePasswordStoreOverride(app.getPath('userData'), choice);
+    return { ok: true };
+  });
+
+  // OAuth sign-in for the saved MCP URL. The renderer gets status only; tokens stay in main.
+  ipcMain.handle(IPC_CHANNELS.MCP_OAUTH_LOGIN, async () => {
+    const url = savedEndpoints().mcpUrl;
+    if (!url) return { ok: false as const, error: 'MCP server URL is empty.' };
+    console.log('[IPC] MCP sign-in started (tokens NOT logged)');
+    return loginToMcp(url);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.MCP_OAUTH_LOGOUT, () => logoutFromMcp(savedEndpoints().mcpUrl));
+
+  ipcMain.handle(IPC_CHANNELS.MCP_OAUTH_STATUS, () => oauthStatus(savedEndpoints().mcpUrl));
 
   ipcMain.handle(IPC_CHANNELS.GRAPH_COMPATIBILITY, () => {
     const projection = readProjection(getDatabase(), DESKTOP_PROJECT_ID);
     if (!projection) return { ok: false as const, error: 'Project is not ready.' };
     const nodes = Array.isArray(projection.snapshot.nodes) ? projection.snapshot.nodes as Array<{ data?: { comfyType?: unknown } }> : [];
-    const report = missingOnGraph(nodes, readCatalog(getDatabase()), projection.snapshot.document);
+    // The snapshot stores { formatVersion, raw }; the dependency scan reads the raw workflow document.
+    const documentState = projection.snapshot.document as { raw?: unknown } | null | undefined;
+    const report = missingOnGraph(nodes, readCatalog(getDatabase()), documentState?.raw ?? null);
     return { ok: true as const, ...report };
   });
 
@@ -268,6 +587,10 @@ export async function setupIPC(): Promise<void> {
 
   ipcMain.handle(IPC_CHANNELS.COMMAND_PAUSE_RUN, (_event, projectId: string, runId: string) => {
     return pauseRun(getDatabase(), projectId, runId);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.COMMAND_CLOSE_RUN, (_event, projectId: string, runId: string) => {
+    return closeRun(getDatabase(), projectId, runId);
   });
 
   ipcMain.handle(IPC_CHANNELS.COMMAND_CANCEL_RUN, (_event, projectId: string, runId: string) => {
@@ -292,81 +615,57 @@ export async function setupIPC(): Promise<void> {
     return mainLLMService.nextSendConfig();
   });
 
-  ipcMain.handle(IPC_CHANNELS.LLM_SET_SESSION_KEY, (_event, value: unknown) => {
-    console.log('[IPC] Session key updated (value NOT logged)');
-    return mainLLMService.setSessionKey(value);
+  // `forBase`: the address shown when the key was pasted (empty: the official one). The key goes there only.
+  ipcMain.handle(IPC_CHANNELS.LLM_SET_SESSION_KEY, (_event, provider: unknown, value: unknown, forBase?: unknown) => {
+    console.log(`[IPC] Session key updated for ${isCloudProvider(provider) ? provider : 'no provider'} (value NOT logged)`);
+    return mainLLMService.setSessionKey(provider, value, typeof forBase === 'string' && forBase.length <= 2000 ? forBase : '');
   });
 
-  ipcMain.handle(IPC_CHANNELS.LLM_SESSION_STATUS, () => mainLLMService.sessionStatus());
+  // The next send's provider status plus every cloud provider's key place, for the cards. Never a key.
+  ipcMain.handle(IPC_CHANNELS.LLM_SESSION_STATUS, () => ({ ...mainLLMService.sessionStatus(), providers: mainLLMService.keySources(), origins: mainLLMService.keyOrigins() }));
 
-  ipcMain.handle(
-    IPC_CHANNELS.LLM_STREAM_CHAT,
-    async (event, messages: any[], toolSpecs: any[], responseChannel: string, runContext: { projectId: string; runId: string; expectedRevisionId: string }) => {
-      console.log(`[IPC] Starting LLM stream with ${messages.length} messages, ${toolSpecs.length} tools`);
-      const window = BrowserWindow.fromWebContents(event.sender);
-      if (!window) {
-        throw new Error('Window not found');
-      }
+  // Settings ▸ Assistant ▸ Check connection: one tiny request with the draft runtime and the held key.
+  ipcMain.handle(IPC_CHANNELS.LLM_PROBE, async (_event, draft: unknown) => {
+    const input = draft && typeof draft === 'object' ? draft as Record<string, unknown> : {};
+    const base = draftBaseUrl(input.baseURL);
+    const result = await mainLLMService.probe({ provider: input.provider, model: input.model, baseURL: base.url });
+    return base.completed ? { ...result, completedUrl: base.url } : result;
+  });
 
-      console.log(`[IPC] LLM_STREAM_CHAT handler START`);
-      
-      try {
-        // Build AI SDK tools with IPC round-trip for execution
-        const tools: Record<string, any> = {};
-        let expectedRevisionId = runContext.expectedRevisionId;
-        console.log(`[IPC] Building tools...`);
-        for (const spec of toolSpecs) {
-          const schema = spec.parameters && typeof spec.parameters === 'object'
-            ? spec.parameters
-            : { type: 'object', properties: {} };
-          tools[spec.name] = {
-            description: spec.description,
-            inputSchema: jsonSchema(schema),
-            execute: async (args: any, options?: { toolCallId?: string }) => {
-              const toolCallId = options?.toolCallId || `${spec.name}-missing-id`;
-              const payload = mutationFromTool(spec.name, args);
-              console.log(`[IPC] Tool ${spec.name} commit ${toolCallId}`);
-              if (!payload) {
-                return { success: false, error: `Unknown tool: ${spec.name}` };
-              }
-              const outcome = commitCommand(getDatabase(), {
-                projectId: runContext.projectId,
-                runId: runContext.runId,
-                actionId: toolCallId,
-                expectedRevisionId,
-                actor: 'ai',
-                payload,
-              });
-              if (outcome.status === 'applied' && outcome.projection?.activeRun) {
-                expectedRevisionId = outcome.projection.activeRun.expectedRevisionId;
-              }
-              if (outcome.projection) {
-                window.webContents.send(responseChannel, { type: 'projection', content: outcome.projection });
-              }
-              return toolOutcome(spec.name, args, outcome);
-            },
-          };
+  // Settings ▸ Assistant ▸ model list. A cloud request carries the key held in main; the renderer gets ids only.
+  ipcMain.handle(IPC_CHANNELS.LLM_LIST_MODELS, async (_event, draft: unknown) => {
+    const input = draft && typeof draft === 'object' ? draft as Record<string, unknown> : {};
+    const base = draftBaseUrl(input.baseURL);
+    const result = await mainLLMService.listModels({ provider: input.provider, model: input.model, baseURL: base.url });
+    return base.completed ? { ...result, completedUrl: base.url } : result;
+  });
+
+  // Settings ▸ Assistant ▸ Find local servers: the MCP server's Ollama targets (read-only tools) and loopback probes.
+  ipcMain.handle(IPC_CHANNELS.LLM_DISCOVER_LOCAL, () => {
+    const url = savedEndpoints().mcpUrl;
+    const openMcp: OpenMcp | null = url ? async () => {
+      // The same offer as a sync makes: what the person chose in Settings ▸ Connection, else whatever is held.
+      const read = readSettings(getDatabase());
+      const mode = read.source === 'corrupt' ? '' : read.values.mcpAuth;
+      const token = mode === 'none' || mode === 'oauth' ? null : mcpTokenFor(url);
+      let authProvider = null;
+      if (!token && mode !== 'none' && mode !== 'token') {
+        try {
+          authProvider = (await mcpOAuth()?.backgroundProvider(url)) ?? null;
+        } catch {
+          authProvider = null;
         }
-
-        console.log(`[IPC] Tools built, starting stream consumption...`);
-        let chunkCount = 0;
-        for await (const chunk of mainLLMService.streamChatWithTools(messages, tools)) {
-          chunkCount++;
-          console.log(`[IPC] Chunk ${chunkCount}: type=${chunk.type}`);
-          if (chunk.type === 'text-delta' || chunk.type === 'text-start' || chunk.type === 'text-end') {
-            console.log('[IPC] Text chunk:', chunk.type, chunk.content?.text || '');
-          }
-          window.webContents.send(responseChannel, chunk);
-        }
-
-        console.log(`[IPC] Stream complete after ${chunkCount} chunks, sending done`);
-        window.webContents.send(responseChannel, { type: 'done' });
-      } catch (error: any) {
-        console.error('[IPC] LLM stream error:', error.message);
-        window.webContents.send(responseChannel, { type: 'error', content: error.message });
       }
-    }
-  );
+      return openReadOnlySession({ url, token, authProvider }, connectStreamableHttp);
+    } : null;
+    return discoverLocalServers({ fetchImpl: (...args) => globalThis.fetch(...args), openMcp });
+  });
+
+  ipcMain.handle(IPC_CHANNELS.SETTINGS_CONNECTION_SUGGESTIONS, (_event, probe: unknown) => (
+    connectionSuggestions(getDatabase(), (...args) => globalThis.fetch(...args), { probe: probe === true })
+  ));
+
+  // llm:stream-chat and chat history are registered by registerAgentIpc (src/main/ipc/agentIpc.ts).
 
   console.log('[IPC] Handlers registered');
 }
@@ -395,10 +694,18 @@ function importCatalogFile(filePath: string) {
     const result = upsertObjectInfo(getDatabase(), parsed);
     return { status: 'applied' as const, result };
   } catch (error) {
-    if (error instanceof ObjectInfoError) return { status: 'rejected' as const, error: error.message };
+    if (error instanceof ObjectInfoError) return { status: 'rejected' as const, error: redactSecrets(error.message) };
     if (error instanceof SyntaxError) return { status: 'rejected' as const, error: 'Catalog JSON could not be parsed.' };
     return { status: 'rejected' as const, error: 'Catalog snapshot could not be read.' };
   }
+}
+
+/**
+ * Key-like fields of the current graph before a file is written: with no answer yet, the list (never the values)
+ * goes back to the window; 'omit' blanks them in the document, 'keep' writes it as it is.
+ */
+function guardSecrets<T>(document: T, choice: unknown): { document: T } | { ok: false; secrets: SecretField[] } {
+  return guardSecretsIn(document, readProjection(getDatabase(), DESKTOP_PROJECT_ID)?.snapshot ?? null, choice);
 }
 
 function exportWorkflowDocument() {
@@ -409,66 +716,9 @@ function exportWorkflowDocument() {
 }
 
 function nativeProjectDocument() {
-  const projection = readProjection(getDatabase(), DESKTOP_PROJECT_ID);
-  if (!projection) return { ok: false as const, error: 'Project is not ready.' };
-  const snapshot = projection.snapshot as GraphSnapshot;
-  return {
-    ok: true as const,
-    project: serializeNativeProject({
-      process: snapshot.process ?? { title: '', notes: '' },
-      graph: {
-        nodes: snapshot.nodes,
-        edges: snapshot.edges,
-        document: snapshot.document,
-      },
-      components: snapshot.components ?? [],
-    }),
-  };
+  return nativeProjectFile(getDatabase(), DESKTOP_PROJECT_ID);
 }
 
 function openNativeDocument(document: unknown) {
-  const parsed = parseNativeProject(document);
-  if (!parsed.ok) {
-    return { status: 'rejected' as const, projection: readProjection(getDatabase(), DESKTOP_PROJECT_ID), result: { error: parsed.error } };
-  }
-  const db = getDatabase();
-  const current = readProjection(db, DESKTOP_PROJECT_ID);
-  if (!current) return { status: 'rejected' as const, projection: null, result: { error: 'Project is not ready.' } };
-  return commitCommand(db, {
-    projectId: DESKTOP_PROJECT_ID,
-    actionId: `open-native-${randomUUID()}`,
-    expectedRevisionId: current.currentRevisionId,
-    actor: 'manual',
-    runId: null,
-    payload: { type: 'open-native', project: parsed.project },
-  });
-}
-
-function toolOutcome(name: string, args: Record<string, unknown> | undefined, outcome: CommandResponse) {
-  if (outcome.status === 'applied' || outcome.status === 'historical') {
-    const result = outcome.result as { nodeId?: string; nodeType?: string } | null;
-    if (name === 'addNode') {
-      return {
-        success: true,
-        message: `Added ${result?.nodeType || args?.nodeType || 'node'} node`,
-        nodeType: result?.nodeType || args?.nodeType,
-        nodeId: result?.nodeId,
-      };
-    }
-    if (name === 'setComponentDocumentation') {
-      return {
-        success: true,
-        message: 'Stored component documentation',
-        ownerKind: args?.ownerKind,
-        ownerId: args?.ownerId,
-      };
-    }
-    if (name === 'setProcess') {
-      return { success: true, message: 'Stored the process', title: args?.title };
-    }
-    return { success: true, message: `Annotated node ${result?.nodeId || ''}` };
-  }
-  const detail = outcome.result as { error?: unknown } | null;
-  const reason = typeof detail?.error === 'string' ? detail.error : outcome.status;
-  return { success: false, conflict: outcome.status === 'conflict', error: reason };
+  return openNativeFile(getDatabase(), DESKTOP_PROJECT_ID, document);
 }

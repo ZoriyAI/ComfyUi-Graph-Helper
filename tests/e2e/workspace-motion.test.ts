@@ -6,8 +6,9 @@ import { typedWorkflow } from './fixtures/typedWorkflow';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { ARTIFACT_DIR } from './artifacts';
 
-const artifactDir = '/opt/cursor/artifacts';
+const artifactDir = ARTIFACT_DIR;
 
 type ElectronPage = import('@playwright/test').Page;
 
@@ -114,7 +115,9 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
   await expect(window.getByText('The graph is empty.')).toBeVisible();
   await window.evaluate(() => (document.activeElement instanceof HTMLElement ? document.activeElement.blur() : undefined));
   const route: string[] = [];
-  for (let step = 0; step < 40 && new Set(route).size < 4; step += 1) {
+  // The library rail sits between the toolbar and the canvas; its stops count as 'other'.
+  const zones = ['shell', 'toolbar', 'canvas', 'dock'];
+  for (let step = 0; step < 60 && !zones.every((zone) => route.includes(zone)); step += 1) {
     await window.keyboard.press('Tab');
     route.push(await window.evaluate(() => {
       const element = document.activeElement;
@@ -142,10 +145,13 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
   await expect(routeDialog).toHaveAttribute('data-state', 'open');
   await window.keyboard.press('Shift+Tab');
   await expect.poll(async () => window.evaluate(() => document.activeElement?.textContent?.trim() ?? '')).toBe('Connection');
-  await window.keyboard.press('ArrowDown');
+  // The section list is Assistant · Connection · Sync · Canvas · Appearance & Motion · …
+  await window.keyboard.press('ArrowUp');
   await expect.poll(async () => window.evaluate(() => document.activeElement?.textContent?.trim() ?? '')).toBe('Assistant');
-  await window.keyboard.press('ArrowDown');
-  await expect.poll(async () => window.evaluate(() => document.activeElement?.textContent?.trim() ?? '')).toBe('Appearance & Motion');
+  for (const label of ['Connection', 'Sync', 'Canvas', 'Appearance & Motion']) {
+    await window.keyboard.press('ArrowDown');
+    await expect.poll(async () => window.evaluate(() => document.activeElement?.textContent?.trim() ?? '')).toBe(label);
+  }
   await window.keyboard.press('Tab');
   await expect.poll(async () => window.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? '')).toBe('Motion');
   await window.keyboard.press('Enter');
@@ -218,7 +224,8 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
   }
   await expect(window.getByRole('tab', { name: 'Inspector' })).toHaveAttribute('data-state', 'active');
   await expect(window.getByRole('button', { name: 'Undo' })).toBeDisabled();
-  await expect(window.getByRole('button', { name: 'ComfyUI not connected' })).toBeDisabled();
+  // The sync indicator replaced the old disabled "ComfyUI not connected" chip.
+  await expect(window.locator('.document-bar .sync-indicator')).toHaveAttribute('data-sync-state', /^(never|idle|error)$/);
   await window.screenshot({ path: path.join(artifactDir, 'ui-empty.png') });
 
   const settings = window.getByRole('button', { name: 'Settings', exact: true });
@@ -260,7 +267,8 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
   expect(lastMarker).not.toBe(firstMarker);
   await window.keyboard.press('Tab');
   await expect.poll(focusMarker).toBe(firstMarker);
-  const columns = [];
+  const columns: string[] = [];
+  const controls: number[] = [];
   for (const label of ['Connection', 'Assistant', 'Appearance & Motion']) {
     await dialog.getByRole('tab', { name: label }).click();
     const sample = await dialog.locator('.settings-panel[data-state="active"]').evaluate((panel) => {
@@ -272,7 +280,8 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
       return {
         x: Math.round(box.x),
         width: Math.round(box.width),
-        floor: Math.round(dialogBox.width - 176 - 16),
+        // The section list is 224px wide; the panel takes the rest of the dialog.
+        floor: Math.round(dialogBox.width - 224 - 16),
         controlWidth: controlBox ? Math.round(controlBox.width) : 0,
         inactiveHidden: inactive.every((item) => getComputedStyle(item).display === 'none'),
       };
@@ -280,12 +289,16 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
     expect(sample.inactiveHidden).toBe(true);
     expect(sample.width).toBeGreaterThanOrEqual(sample.floor);
     expect(sample.controlWidth).toBeGreaterThanOrEqual(420);
-    expect(sample.controlWidth).toBeLessThanOrEqual(520);
+    // One measure for every settings column (--measure-form, 640px).
+    expect(sample.controlWidth).toBeLessThanOrEqual(640);
     expect(sample.controlWidth).toBeLessThan(sample.width - 48);
-    columns.push(`${sample.x}:${sample.width}:${sample.controlWidth}`);
+    // Every section starts at the same place and has the same width. A field may sit inside a group (the key
+    // panel), so its own width is only held within the measure above.
+    columns.push(`${sample.x}:${sample.width}`);
+    controls.push(sample.controlWidth);
   }
   expect(new Set(columns).size).toBe(1);
-  console.log(`SETTINGS_COLUMNS ${columns[0]}`);
+  console.log(`SETTINGS_COLUMNS ${columns[0]} controls=${controls.join(',')}`);
   await expect.poll(async () => dialog.evaluate((element) => getComputedStyle(element).opacity)).toBe('1');
   await window.screenshot({ path: path.join(artifactDir, 'ui-settings.png') });
 
@@ -338,6 +351,8 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
   await pickOption(window, 'Motion', 'Off');
   expect(await activeMotion(window)).toBe('system');
   await window.getByRole('button', { name: 'Cancel' }).click();
+  // A changed draft is not thrown away without a question.
+  await window.getByRole('button', { name: 'Close without saving', exact: true }).click();
   await expect(dialog).toHaveCount(0);
   expect(await storedMotion(window)).toBe('system');
   expect(await activeMotion(window)).toBe('system');
@@ -472,7 +487,7 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
   await expect(window.locator('.react-flow__node')).toHaveCount(3);
   await expect(window.getByText('The graph is empty.')).toHaveCount(0);
   await window.getByRole('tab', { name: 'Assistant' }).click();
-  await expect(window.getByText('Describe a change. TEST fixture replies are scripted and are not a live model.')).toBeVisible();
+  await expect(window.getByText('Say what to change or what to explain, for example “why is KSampler here?”.')).toBeVisible();
   await expectDuration(window, '.graph-node', 'animationDuration', '0s');
   await expectDuration(window, '.ghost-button', 'transitionDuration', '0s');
   const dash = await window.evaluate(async () => {
@@ -533,17 +548,21 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
   await expect(window.getByRole('region', { name: 'Inspector' })).toContainText('MODEL');
   await window.screenshot({ path: path.join(artifactDir, 'ui-inspector.png') });
 
-  await pickOption(window, 'Chat provider', 'OpenAI session');
-  await expect(window.getByText('OpenAI is selected with no key.')).toBeVisible();
+  await pickOption(window, 'Chat provider', 'OpenAI');
+  await expect(window.getByText('OpenAI is chosen, but there is no key.')).toBeVisible();
   await window.getByRole('tab', { name: 'Assistant' }).click();
   await window.locator('textarea[aria-label="Chat message"]').fill('Add a node');
   await window.getByRole('button', { name: 'Send' }).click();
-  await expect(window.locator('.message-body', { hasText: 'Error' }).first()).toBeVisible();
+  // A failed answer is one plain sentence with what to do next, not the word "Error".
+  const failed = window.locator('.message-diagnostic').first();
+  await expect(failed).toBeVisible();
+  await expect(failed).toHaveAttribute('data-turn-error', 'no-key');
+  await expect(failed).toHaveText('The cloud assistant has no key. Add the key in the assistant settings.');
   await window.screenshot({ path: path.join(artifactDir, 'ui-error.png') });
   logLocalFont(await readLocalFont(window));
   await finishRuntime(electronApp, window, runtimeWatch, {
     console: [{
-      text: '[ChatService] Error: Cloud model has no key for this session.',
+      text: '[ChatService] Error: no-key: Cloud model has no key for this session.',
       reason: 'OpenAI is selected with no session key. The send stops in the main process before any provider request.',
     }],
     remotePrefix: [{

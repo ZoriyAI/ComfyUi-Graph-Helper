@@ -1,0 +1,35 @@
+.empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 32px 18px 24px; text-align: center; color: var(--text-dim); }
+/* The icon sits in a raised tile with a soft accent halo, so an empty region still reads as part of the tool. */
+.icon {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  margin-bottom: 6px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0) 70%), var(--surface-raised);
+  box-shadow: var(--highlight-top), 0 6px 16px -6px rgba(0, 0, 0, 0.6), 0 0 28px -6px var(--accent-halo);
+  color: var(--accent);
+}
+.icon::before {
+  content: "";
+  position: absolute;
+  inset: -14px;
+  z-index: -1;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--accent-wash), transparent 70%);
+}
+.title { margin: 0; color: var(--text); font-size: var(--text-md); line-height: 20px; font-weight: 600; }
+.body { margin: 0; max-width: 34ch; font-size: var(--text-sm); line-height: 19px; }
+.actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 6px; }
+.body > p { margin: 0; }
+.body > p + p { margin-top: 6px; }
+.footer { display: flex; flex-direction: column; gap: 6px; align-self: stretch; margin-top: 8px; text-align: left; }
+/* Inside a panel or a dock tab: a smaller tile, no halo, the text a little wider. */
+.compact { gap: 6px; padding: 24px 12px 16px; }
+.compact .icon { width: 34px; height: 34px; margin-bottom: 4px; border-radius: 10px; box-shadow: var(--highlight-top), 0 4px 10px -6px rgba(0, 0, 0, 0.6); }
+.compact .icon::before { content: none; }
+.compact .body { max-width: 40ch; font-size: var(--text-xs); line-height: 18px; }

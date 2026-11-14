@@ -1,0 +1,366 @@
+/*
+ * Node cards. Doubled class selectors win over the legacy `.graph-node` rules in theme.css until the Shell
+ * team removes them (see the Canvas report for the list).
+ */
+.node.node {
+  --canvas-accent: var(--type-unknown, #8b939c);
+  position: relative;
+  width: 240px;
+  min-width: 200px;
+  max-width: 320px;
+  padding: 0 0 8px;
+  border-radius: 10px;
+  border: 1px solid var(--line, #2a3648);
+  border-top: 1px solid var(--line, #2a3648);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--bg-raised, #1b2533) 92%, white 8%) 0%, var(--surface, #141b26) 48px, var(--surface, #141b26) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 1px 2px rgba(0, 0, 0, 0.4),
+    0 8px 24px rgba(0, 0, 0, 0.32);
+  color: var(--text, #e8eef7);
+  animation: none;
+  outline: none;
+  transition:
+    box-shadow var(--motion-feedback, 100ms) var(--motion-ease-out, ease-out),
+    opacity var(--motion-enter, 160ms) var(--motion-ease-out, ease-out),
+    filter var(--motion-enter, 160ms) var(--motion-ease-out, ease-out);
+}
+
+.header {
+  position: relative;
+  padding: 8px 12px 6px;
+  border-radius: 10px 10px 0 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--canvas-accent) 40%, transparent);
+  /* The title strip in the category colour, lighter at the top; the class line below stays on the darker half. */
+  background: linear-gradient(180deg, color-mix(in srgb, var(--canvas-accent) 30%, var(--surface-raised, #182131)) 0%, color-mix(in srgb, var(--canvas-accent) 12%, var(--surface-panel, #111824)) 100%);
+}
+.header::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  border-radius: 10px 10px 0 0;
+  background: var(--canvas-accent);
+}
+.titleRow { display: flex; align-items: center; gap: 6px; min-height: 22px; }
+.title.title {
+  /* Block, not the legacy flex box of .graph-node-title: text-overflow does not work on a flex container. */
+  display: block;
+  flex: 1;
+  min-width: 0;
+  height: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 20px;
+}
+.typeRow { display: flex; align-items: center; gap: 6px; min-height: 18px; }
+.classType.classType { margin: 0; color: color-mix(in srgb, var(--text-dim, #a3b1c6) 75%, var(--text, #e8eef7)); font-family: ui-monospace, monospace; font-size: 12px; line-height: 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The header's extra (the subgraph «Open» button) sits in the title row as if it were its own child. */
+.extra { display: contents; }
+.classType.classType[data-class-line="other"] { font-family: inherit; }
+.headerIcon { color: var(--text-dim, #a3b1c6); flex: none; }
+.errorIcon { color: var(--danger, #ff9da8); flex: none; }
+.aiIcon { color: var(--focus, #b7a5ff); flex: none; }
+.badge {
+  flex: none;
+  padding: 0 6px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--focus, #b7a5ff) 50%, transparent);
+  color: var(--focus, #b7a5ff);
+  font-size: 11px;
+  line-height: 16px;
+  letter-spacing: 0.04em;
+}
+
+.ports { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; }
+.port {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 26px;
+  padding: 0 16px;
+  font-size: 13px;
+  line-height: 18px;
+}
+.portOut { justify-content: flex-end; text-align: right; }
+/*
+ * A port reads as its name; the data type beside it is a hint. Pack types can be long (WANVIDIMAGE_CLIPEMBEDS):
+ * the type gives way first and ends with an ellipsis, its full name in the tooltip, so the row stays in its node.
+ */
+.portName { color: var(--text, #e8eef7); flex: 0 0 auto; max-width: 100%; overflow-wrap: anywhere; }
+.portType { color: var(--text-faint, #8b9bb0); font-family: ui-monospace, monospace; font-size: 12px; flex: 0 1 auto; min-width: 24px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* The handle is a 24px hit area with a 12px dot of the port colour; the dot glows on hover, focus and when lit. */
+.port .handle {
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+  border: none;
+  background: transparent;
+}
+.port .handle::after {
+  content: "";
+  display: block;
+  width: 12px;
+  height: 12px;
+  margin: 6px;
+  border-radius: 50%;
+  background: var(--canvas-port);
+  border: 2px solid var(--surface, #141b26);
+  box-shadow: 0 0 0 0 transparent;
+  transition: box-shadow var(--motion-feedback, 100ms) var(--motion-ease-out, ease-out), transform var(--motion-feedback, 100ms) var(--motion-ease-out, ease-out);
+}
+.port .handleConnected::after { border-color: color-mix(in srgb, var(--canvas-port) 50%, var(--surface, #141b26)); }
+.port .handle:hover::after,
+.port .handle:focus-visible::after,
+.port .handleLit::after {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--canvas-port) 35%, transparent), 0 0 12px 2px color-mix(in srgb, var(--canvas-port) 70%, transparent);
+}
+.port .handle:focus-visible { outline: none; }
+.port .handle:focus-visible::after { outline: 2px solid var(--focus, #b7a5ff); outline-offset: 2px; }
+.port .handleBest::after { transform: scale(1.25); animation: breathe calc(var(--motion-pulse, 1400ms)) ease-in-out infinite; }
+.port .handleWarn::after { box-shadow: 0 0 0 3px color-mix(in srgb, var(--warn, #f6ce7c) 45%, transparent); animation: warnPulse calc(var(--motion-pulse, 1400ms)) ease-in-out 3; }
+.dot { position: absolute; left: -12px; top: 1px; }
+.portOut .dot { left: auto; right: -12px; }
+
+/*
+ * Field rows: what the person sets by hand (seed, steps, sampler, LoRA file, prompt). A divider separates them from
+ * the sockets above; each row is name + compact control. The handle is the port handle at a quieter size, so a
+ * widget input still takes a link without reading as a socket.
+ */
+.fields {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 6px 0 0;
+  border-top: 1px solid color-mix(in srgb, var(--line, #2a3648) 80%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.field {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(56px, 42%) minmax(0, 1fr);
+  align-items: center;
+  column-gap: 8px;
+  min-height: 26px;
+  padding: 0 12px 0 16px;
+  font-size: 12px;
+  line-height: 18px;
+}
+.fieldStacked { grid-template-columns: minmax(0, 1fr); row-gap: 3px; padding-top: 2px; }
+.fieldName { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-dim, #a3b1c6); }
+.linkedMark { justify-self: start; padding: 0 6px; border-radius: 6px; border: 1px dashed color-mix(in srgb, var(--canvas-port, #8b939c) 60%, transparent); color: var(--text-dim, #a3b1c6); font-size: 12px; line-height: 20px; }
+.fieldLinked .fieldName { color: var(--text, #e8eef7); }
+.field .handle {
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+  border: none;
+  background: transparent;
+}
+.fieldStacked .handle.handle { top: 11px; }
+.field .handle::after {
+  content: "";
+  display: block;
+  width: 12px;
+  height: 12px;
+  margin: 6px;
+  border-radius: 50%;
+  background: var(--canvas-port);
+  border: 2px solid var(--surface, #141b26);
+  transition: box-shadow var(--motion-feedback, 100ms) var(--motion-ease-out, ease-out), transform var(--motion-feedback, 100ms) var(--motion-ease-out, ease-out), opacity var(--motion-feedback, 100ms) var(--motion-ease-out, ease-out);
+}
+/* Quiet: a small hollow ring until the row is hovered or the connect assist lights it. */
+.field .handleQuiet::after { transform: scale(0.6); opacity: 0.45; background: transparent; border-color: var(--canvas-port); }
+.field:hover .handleQuiet::after,
+.field .handleQuiet:focus-visible::after,
+.field .handleQuiet.handleLit::after { transform: none; opacity: 1; background: var(--canvas-port); border-color: var(--surface, #141b26); }
+.field .handle:hover::after,
+.field .handle:focus-visible::after,
+.field .handleLit::after {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--canvas-port) 35%, transparent), 0 0 12px 2px color-mix(in srgb, var(--canvas-port) 70%, transparent);
+}
+.field .handle:focus-visible { outline: none; }
+.field .handle:focus-visible::after { outline: 2px solid var(--focus, #b7a5ff); outline-offset: 2px; }
+.field .handleBest::after { transform: scale(1.25); opacity: 1; background: var(--canvas-port); animation: breathe calc(var(--motion-pulse, 1400ms)) ease-in-out infinite; }
+
+.annotation {
+  margin: 8px 10px 0;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--bg-sunken, #0c1017);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+  font-size: 12px;
+  line-height: 18px;
+  border-left: 3px solid var(--accent, #65d9ed);
+}
+.paramKey { color: var(--text-dim, #a3b1c6); }
+
+/* States */
+/*
+ * Selected is an outline, the other states are shadows: a selected node with an error, or one the assistant just
+ * touched (its pulse animates box-shadow), keeps both rings.
+ */
+.node.node.selected { outline: 2px solid var(--accent, #65d9ed); outline-offset: 1px; }
+.node.selected { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 0 18px color-mix(in srgb, var(--accent, #65d9ed) 30%, transparent), 0 8px 24px rgba(0, 0, 0, 0.32); }
+:global(.react-flow__node:focus-visible) .node { box-shadow: 0 0 0 2px var(--bg, #0c1017), 0 0 0 4px var(--focus, #b7a5ff); }
+/* Locked reads as fixed, not as faded: the card stays whole, its header carries a fine hatch beside the lock. */
+.node.node.locked { opacity: 1; }
+.node.locked .header::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 10px 10px 0 0;
+  background: repeating-linear-gradient(135deg, transparent 0 6px, rgba(255, 255, 255, 0.045) 6px 12px);
+  pointer-events: none;
+}
+.node.error { box-shadow: 0 0 0 3px var(--surface-canvas, #0a0e15), 0 0 0 5px var(--danger, #ff9da8), 0 8px 24px rgba(0, 0, 0, 0.32); }
+.node.dimmed { opacity: 0.35; filter: saturate(0.4); }
+.node.pending { opacity: 0; pointer-events: none; }
+.node.revealing { animation: reveal var(--motion-reveal, 320ms) var(--motion-ease-out, ease-out) 1 both; }
+.node.aiTouched { animation: aiPulse calc(var(--motion-reveal, 320ms) * 3) var(--motion-ease-out, ease-out) 1; }
+.node.revealing.aiTouched { animation: reveal var(--motion-reveal, 320ms) var(--motion-ease-out, ease-out) 1 both, aiPulse calc(var(--motion-reveal, 320ms) * 3) var(--motion-ease-out, ease-out) var(--motion-reveal, 320ms) 1; }
+.node.ghost {
+  opacity: 0.82;
+  filter: saturate(0.7);
+  border: 1.5px dashed color-mix(in srgb, var(--ai, #b7a5ff) 75%, transparent);
+  box-shadow: var(--glow-ai, 0 0 0 1px rgba(183, 165, 255, 0.4));
+  background:
+    repeating-linear-gradient(135deg, color-mix(in srgb, var(--ai, #b7a5ff) 6%, transparent) 0 8px, transparent 8px 16px),
+    color-mix(in srgb, var(--surface, #141b26) 80%, transparent);
+}
+
+/*
+ * How ComfyUI runs the node, as the imported workflow saved it: bypassed or muted. A read-only mark: the chip
+ * under the title says which, the body steps back. (Switching it is not offered in this version.)
+ */
+.node.runModeOff > :not(:first-child) { opacity: 0.5; }
+.modeChip {
+  flex: none;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 16px;
+  letter-spacing: 0.02em;
+  cursor: default;
+}
+.modeBypassed { border: 1px solid color-mix(in srgb, var(--type-latent, #f59ae6) 60%, transparent); background: color-mix(in srgb, var(--type-latent, #f59ae6) 14%, transparent); color: var(--type-latent, #f59ae6); }
+.modeMuted { border: 1px solid var(--border-strong, #63738a); background: var(--surface-sunken, #0c1119); color: var(--text-dim, #a3b1c6); }
+.node[data-run-mode="bypassed"] { border-color: color-mix(in srgb, var(--type-latent, #f59ae6) 45%, var(--line, #2a3648)); }
+
+/* A Note / MarkdownNote: its text, read-only, in a box of fixed height that scrolls (NODE_BOX.noteText). */
+.noteText {
+  box-sizing: border-box;
+  height: 92px;
+  margin: 6px 10px 0;
+  padding: 6px 8px;
+  overflow-y: auto;
+  border-radius: 6px;
+  border: 1px solid var(--border, #2a3648);
+  background: var(--surface-sunken, #0c1119);
+  color: var(--text, #e8eef7);
+  font-size: 12px;
+  line-height: 18px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  cursor: text;
+  user-select: text;
+}
+.noteText:focus-visible { outline: 2px solid var(--focus, #b7a5ff); outline-offset: 1px; }
+
+/* Subgraph instance: a double frame (outer ring) and the definition name under the ports. */
+.subgraphWrap { position: relative; }
+.node.subgraph {
+  border-color: color-mix(in srgb, var(--focus, #b7a5ff) 55%, var(--line, #2a3648));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 0 0 3px var(--bg, #0c1017),
+    0 0 0 4px color-mix(in srgb, var(--focus, #b7a5ff) 45%, transparent),
+    0 10px 28px rgba(0, 0, 0, 0.4);
+}
+.node.node.subgraph.selected { outline: none; }
+.node.subgraph.selected { box-shadow: 0 0 0 3px var(--bg, #0c1017), 0 0 0 5px var(--accent, #65d9ed), 0 10px 28px rgba(0, 0, 0, 0.4); }
+.definitionName { margin: 8px 12px 0; color: var(--text-dim, #a3b1c6); font-size: 12px; }
+.enter {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 6px;
+  border: 1px solid var(--line, #2a3648);
+  background: var(--bg-raised, #1b2533);
+  color: var(--text, #e8eef7);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.enter:hover { background: var(--bg-hover, #243247); }
+.enter:focus-visible { outline: 2px solid var(--focus, #b7a5ff); outline-offset: 1px; }
+
+/* Boundary pseudo-nodes inside a definition. */
+.boundary {
+  min-width: 160px;
+  padding: 8px 0;
+  border-radius: 10px;
+  border: 1px dashed color-mix(in srgb, var(--focus, #b7a5ff) 60%, transparent);
+  background: color-mix(in srgb, var(--bg-raised, #1b2533) 80%, transparent);
+  color: var(--text, #e8eef7);
+}
+.boundary.selected { border-style: solid; }
+.boundaryTitle { padding: 0 12px 4px; color: var(--focus, #b7a5ff); font-size: 12px; font-weight: 600; letter-spacing: 0.04em; }
+/* A slot name being renamed in place on a boundary node. */
+.slotInput {
+  min-width: 0;
+  width: 9em;
+  padding: 1px 4px;
+  border: 1px solid var(--focus, #b7a5ff);
+  border-radius: 4px;
+  background: var(--surface, #141b26);
+  color: var(--text, #e8eef7);
+  font: inherit;
+}
+/* The empty slot at the end of a boundary node: a hollow socket and a quiet name until a link comes near it. */
+.newSlot { --canvas-port: var(--text-dim, #a3b1c6); }
+.newSlot .portName { color: var(--text-dim, #a3b1c6); font-style: italic; }
+.newSlot .handle::after { background: transparent; border-style: dashed; border-color: var(--text-dim, #a3b1c6); }
+.newSlot .handleLit::after,
+.newSlot .handle:focus-visible::after { background: var(--focus, #b7a5ff); border-style: solid; }
+
+@keyframes reveal {
+  from { opacity: 0; transform: translateY(6px) scale(0.96); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes aiPulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--focus, #b7a5ff) 70%, transparent), 0 8px 24px rgba(0, 0, 0, 0.32); }
+  100% { box-shadow: 0 0 0 14px transparent, 0 8px 24px rgba(0, 0, 0, 0.32); }
+}
+@keyframes breathe {
+  0%, 100% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--canvas-port) 35%, transparent), 0 0 8px 1px color-mix(in srgb, var(--canvas-port) 50%, transparent); }
+  50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--canvas-port) 25%, transparent), 0 0 18px 4px color-mix(in srgb, var(--canvas-port) 80%, transparent); }
+}
+@keyframes warnPulse {
+  0%, 100% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--warn, #f6ce7c) 45%, transparent); }
+  50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--warn, #f6ce7c) 20%, transparent); }
+}
+
+/* Motion policy: no animation when reduced or off; states stay visible as static rings and dims. */
+:global(html[data-motion="off"]) .node,
+:global(html[data-motion="reduced"]) .node,
+:global(html[data-motion="off"]) .handle::after,
+:global(html[data-motion="reduced"]) .handle::after { animation: none !important; transition: none; }
+:global(html[data-motion="off"]) .field .handle::after,
+:global(html[data-motion="reduced"]) .field .handle::after { animation: none !important; transition: none; }
+@media (prefers-reduced-motion: reduce) {
+  :global(html[data-motion="system"]) .node,
+  :global(html:not([data-motion])) .node,
+  :global(html[data-motion="system"]) .handle::after,
+  :global(html:not([data-motion])) .handle::after { animation: none !important; }
+}

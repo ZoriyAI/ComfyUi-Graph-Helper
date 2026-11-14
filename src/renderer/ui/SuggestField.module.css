@@ -1,0 +1,71 @@
+/* Text input styling comes from the caller's field class (Settings: `.field input`), so a picked or typed value
+   looks like every other settings field. This module styles the list row and its status. */
+.root { display: flex; flex-direction: column; gap: 4px; }
+/* The list button asks for the room its words need; when the action beside it leaves less, the action moves to
+   its own line instead of the words being cut. A picked value longer than the whole row is shortened. */
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; min-width: 0; }
+/* The field and its list are one control: the chevron that opens the list sits inside the field, on the right. */
+.inputWrap { position: relative; display: flex; min-width: 0; }
+.inputWrap > input.input { flex: 1 1 auto; min-width: 0; padding-right: 38px; }
+.trigger {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  bottom: 3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: background-color var(--motion-feedback) var(--motion-ease-out), color var(--motion-feedback) var(--motion-ease-out);
+}
+/* Settings widens every select trigger (.panel .select-trigger); this one stays a small button in the field. */
+.inputWrap > .trigger.trigger { width: 30px; min-width: 0; }
+.trigger:hover:not([data-disabled]) { background: var(--surface-hover); color: var(--text); }
+.trigger:focus-visible { outline: 2px solid var(--focus); outline-offset: 0; }
+.trigger[data-state="open"] { background: var(--surface-active); color: var(--accent); }
+.trigger[data-disabled] { cursor: default; color: var(--text-faint); opacity: 0.6; }
+/* The picked value is the field's own text; the list button only keeps it for screen readers. */
+.value { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.icon { flex: none; display: inline-flex; color: inherit; }
+.content {
+  z-index: 70;
+  /* The button is small; the list takes the width of a field (the chevron sits at the field's right end). */
+  min-width: min(360px, calc(100vw - 32px));
+  max-width: min(640px, calc(100vw - 32px));
+  max-height: min(360px, var(--radix-select-content-available-height));
+  padding: 4px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-overlay);
+  box-shadow: var(--elev-3);
+}
+.viewport { overflow-y: auto; }
+.item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: var(--text-sm);
+  line-height: 18px;
+  cursor: default;
+  user-select: none;
+}
+.item[data-highlighted] { background: var(--surface-active); box-shadow: inset 0 0 0 1px var(--border-strong); outline: none; }
+.item[data-state="checked"] { color: var(--accent); }
+.itemText { display: flex; flex: 1 1 auto; flex-direction: column; min-width: 0; }
+.itemText > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); font-size: var(--text-sm); }
+.detail { color: var(--text-faint); font-size: var(--text-xs); line-height: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.badges { display: inline-flex; flex: none; gap: 4px; }
+.check { display: inline-flex; flex: none; color: var(--accent); }
+.status { margin: 0; color: var(--text-dim); font-size: var(--text-xs); line-height: 18px; }
+.good { color: var(--ok); }
+.bad { color: var(--danger); }

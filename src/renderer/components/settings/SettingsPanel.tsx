@@ -1,11 +1,18 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { secretBearingFields, settingsWriteError } from '../../../shared/config/draft';
+import { Bot, Info, Keyboard, LayoutGrid, Palette, Plug, RefreshCw, ShieldCheck, type LucideIcon } from 'lucide-react';
+import { settingsProblemFields, settingsWriteError, type SettingsField } from '../../../shared/config/draft';
 import { nonSecretDefaults, type NonSecretSettings, type SettingsRead } from '../../../shared/config/schema';
-import { explainError, languageOf, type AppLanguage, type Translator } from '../../../shared/i18n';
+import {
+  isPreferenceProvider,
+  parsePreferences,
+  preferencesWriteError,
+  samePreferences,
+  type Preferences,
+} from '../../../shared/config/preferences';
+import { explainError, languageOf, type Translator } from '../../../shared/i18n';
 import { applyLanguage } from '../../i18n';
 import {
-  DialogClose,
   DialogContent,
   DialogDescription,
   DialogOverlay,
@@ -14,8 +21,31 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '../../ui/Dialog';
-import SelectField, { CLOSE_OPEN_SELECT } from '../../ui/SelectField';
+import Button from '../../ui/Button';
+import Hint from '../../ui/Hint';
+import { CLOSE_OPEN_SELECT } from '../../ui/SelectField';
 import { TabsContent, TabsList, TabsRoot, TabsTrigger } from '../../ui/Tabs';
+import { cx } from '../../ui/cx';
+import SyncSection from './SyncSection';
+import AssistantSection from './sections/AssistantSection';
+import { type KeySources } from '../../state/providerState';
+import ConnectionSection from './sections/ConnectionSection';
+import CanvasSection from './sections/CanvasSection';
+import AppearanceSection from './sections/AppearanceSection';
+import ShortcutsSection from './sections/ShortcutsSection';
+import PrivacySection from './sections/PrivacySection';
+import AboutSection from './sections/AboutSection';
+import { fieldClass, hintClass, patchSection, rowClass, SectionHead, type DraftProps } from './sections/common';
+import { SETTINGS_SECTIONS, useUiStore, type SettingsSection } from '../../state/uiState';
+import { usePreferencesStore } from '../../state/preferencesState';
+import { refreshSyncStatus, useKnowledgeStore } from '../../state/knowledgeState';
+import { SETTINGS_CHANGED } from '../../commands/events';
+import { showToast } from '../../ui/toastStore';
+import { detectionNote, shouldDetectAfterSave } from './mcpAccess';
+import ConfirmDialog from './sections/ConfirmDialog';
+import { setAutoSync } from '../sync/SyncIndicator';
+import { sameAuto, type AutoDraft } from './settingsDraft';
+import styles from './SettingsPanel.module.css';
 
 function applyMotion(motion: NonSecretSettings['motion']) {
   document.documentElement.dataset.motion = motion;
@@ -28,59 +58,104 @@ function sameSettings(left: NonSecretSettings, right: NonSecretSettings) {
     && left.model === right.model
     && left.baseURL === right.baseURL
     && left.comfyOrigin === right.comfyOrigin
+    && left.mcpUrl === right.mcpUrl
+    && left.mcpAuth === right.mcpAuth
     && left.language === right.language;
 }
 
-type Section = 'connection' | 'assistant' | 'appearance';
+/** The section that holds a field a save can fail on (the save opens it and the field takes focus). */
+const FIELD_SECTION: Record<SettingsField, SettingsSection> = {
+  mcpUrl: 'connection',
+  comfyOrigin: 'connection',
+  baseURL: 'assistant',
+  model: 'assistant',
+  other: 'assistant',
+};
+
+const SECTION_META: Record<SettingsSection, { labelKey: string; icon: LucideIcon }> = {
+  assistant: { labelKey: 'preferences.nav.assistant', icon: Bot },
+  connection: { labelKey: 'preferences.nav.connection', icon: Plug },
+  sync: { labelKey: 'preferences.nav.sync', icon: RefreshCw },
+  canvas: { labelKey: 'preferences.nav.canvas', icon: LayoutGrid },
+  appearance: { labelKey: 'preferences.nav.appearance', icon: Palette },
+  shortcuts: { labelKey: 'preferences.nav.shortcuts', icon: Keyboard },
+  privacy: { labelKey: 'preferences.nav.privacy', icon: ShieldCheck },
+  about: { labelKey: 'preferences.nav.about', icon: Info },
+};
+
 type NoteState = { kind: 'key'; key: string } | { kind: 'error'; code: string };
 
+/**
+ * The stored provider's model and base URL also seed its remembered entry, so switching away and back in the
+ * draft restores them even for a row saved before preferences existed. Applied to the saved and the draft copy.
+ */
+function seedProviders(values: NonSecretSettings, preferences: Preferences): Preferences {
+  if (!isPreferenceProvider(values.provider)) return preferences;
+  const entry = preferences.providers[values.provider];
+  if (entry.model === values.model && entry.baseURL === values.baseURL) return preferences;
+  return { ...preferences, providers: { ...preferences.providers, [values.provider]: { model: values.model, baseURL: values.baseURL } } };
+}
+
+/**
+ * The Preferences window: a section list on the left, the section on the right, Save and Cancel below.
+ * Non-secret values and preferences save together and fail closed (a secret in any field blocks the save);
+ * keys and tokens go only to memory or OS storage through their own buttons. Sync's schedule applies at once.
+ */
 export default function SettingsPanel({
   onRead,
   onSaved,
   onSession,
+  triggerIcon,
+  trigger,
 }: {
   onRead: (values: NonSecretSettings) => void;
   onSaved: (values: NonSecretSettings) => void;
-  onSession: (source: 'none' | 'session' | 'os') => void;
+  onSession: (sources: KeySources) => void;
+  triggerIcon?: React.ReactNode;
+  /** The button that opens the dialog (focus returns to it). Defaults to a small "Settings" button. */
+  trigger?: React.ReactElement;
 }) {
   const { t } = useTranslation();
   const translate: Translator = (key, options) => (options ? String(t(key, options)) : String(t(key)));
   const savedRef = useRef<NonSecretSettings>(nonSecretDefaults);
+  const savedPrefsRef = useRef<Preferences>(parsePreferences({}));
   const onReadRef = useRef(onRead);
   const onSavedRef = useRef(onSaved);
   onReadRef.current = onRead;
   onSavedRef.current = onSaved;
   const [open, setOpen] = useState(false);
-  const [section, setSection] = useState<Section>('connection');
+  const [section, setSection] = useState<SettingsSection>('connection');
   const [values, setValues] = useState<NonSecretSettings>(nonSecretDefaults);
+  const [prefs, setPrefs] = useState<Preferences>(() => parsePreferences({}));
   const [note, setNote] = useState<NoteState>({ kind: 'key', key: 'settings.notSavedYet' });
   const [pending, setPending] = useState(false);
   const [container, setContainer] = useState<HTMLElement | null>(null);
-  const [sessionKey, setSessionKey] = useState('');
-  const [osKey, setOsKey] = useState('');
-  const [sessionNote, setSessionNote] = useState('');
-  const [secretReason, setSecretReason] = useState('');
-  const [secretPersist, setSecretPersist] = useState(false);
-  const [secretStored, setSecretStored] = useState(false);
-  const [actionNote, setActionNote] = useState('');
+  // Settings ▸ Sync ▸ auto sync and its interval, as a draft like everything else here: null = unchanged.
+  const [autoDraft, setAutoDraft] = useState<AutoDraft | null>(null);
+  // Cancel or Escape with a changed draft asks first.
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const syncAuto = useKnowledgeStore((state) => state.sync?.auto ?? null);
   const onSessionRef = useRef(onSession);
   onSessionRef.current = onSession;
+  // Whether keys and tokens can be kept in the system password store; null until asked (the note stays hidden).
+
+  const adoptPreferences = (stored: Preferences, row: NonSecretSettings) => {
+    const seeded = seedProviders(row, stored);
+    savedPrefsRef.current = seeded;
+    setPrefs(seeded);
+  };
 
   useEffect(() => {
     let cancelled = false;
-    window.electronAPI.secretStatus().then((status) => {
-      if (cancelled) return;
-      setSecretReason(status.reason);
-      setSecretPersist(status.persist);
-      setSecretStored(status.stored);
-    }).catch(() => undefined);
     window.electronAPI.getSettings().then((read: SettingsRead) => {
       if (cancelled) return;
       const language = languageOf(read);
       applyLanguage(language);
+      const stored = read.preferences ?? parsePreferences({});
       if (read.source === 'stored' && read.values) {
         savedRef.current = read.values;
         setValues(read.values);
+        adoptPreferences(stored, read.values);
         setNote({ kind: 'key', key: 'settings.restored' });
         applyMotion(read.values.motion);
         onReadRef.current(read.values);
@@ -90,11 +165,13 @@ export default function SettingsPanel({
         const fallback = { ...nonSecretDefaults, language: 'en' as const };
         savedRef.current = fallback;
         setValues(fallback);
+        adoptPreferences(stored, fallback);
         setNote({ kind: 'key', key: 'settings.corrupt' });
         return;
       }
       savedRef.current = nonSecretDefaults;
       setValues(nonSecretDefaults);
+      adoptPreferences(stored, nonSecretDefaults);
       setNote({ kind: 'key', key: 'settings.defaults' });
     }).catch(() => {
       if (!cancelled) setNote({ kind: 'key', key: 'settings.unread' });
@@ -104,119 +181,159 @@ export default function SettingsPanel({
     };
   }, []);
 
+  // File ▸ Settings, Assistant ▸ Assistant settings, Sync ▸ Sync settings and Mod+, open the window,
+  // optionally on one section.
+  const settingsRequest = useUiStore((state) => state.settingsRequest);
+  useEffect(() => {
+    if (!settingsRequest) return;
+    if (settingsRequest.section) setSection(settingsRequest.section);
+    setOpen(true);
+  }, [settingsRequest]);
+
+  // A note about the last save belongs to that visit; reopening shows the stored settings, not a stale "saved".
+  useEffect(() => {
+    if (open) setNote((current) => (current.kind === 'error' || current.key === 'settings.saved' || current.key === 'settings.saveFailed' ? { kind: 'key', key: 'settings.restored' } : current));
+  }, [open]);
+
+  // The menu or a canvas toggle saved a change: what is stored moved, so the form starts from it.
+  useEffect(() => {
+    const onChanged = (event: Event) => {
+      const next = (event as CustomEvent<NonSecretSettings>).detail;
+      if (!next) return;
+      savedRef.current = next;
+      setValues(next);
+      adoptPreferences(usePreferencesStore.getState().preferences, next);
+    };
+    window.addEventListener(SETTINGS_CHANGED, onChanged);
+    return () => window.removeEventListener(SETTINGS_CHANGED, onChanged);
+  }, []);
+
   const discard = () => {
     setValues(savedRef.current);
+    setPrefs(savedPrefsRef.current);
+    setAutoDraft(null);
     applyLanguage(savedRef.current.language);
     setPending(false);
   };
-  const closeFromEscape = () => {
+  /** Closing (Cancel, Escape, the overlay): a changed draft is not thrown away without asking. */
+  const requestClose = () => {
+    if (dirtyRef.current) {
+      setConfirmDiscard(true);
+      return;
+    }
     discard();
     setOpen(false);
+    refreshSyncStatus();
   };
+  const closeFromEscape = requestClose;
   const closeFromEscapeRef = useRef(closeFromEscape);
   closeFromEscapeRef.current = closeFromEscape;
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
+      // A shortcut being recorded owns Escape (it cancels the recording).
+      if (document.querySelector('.settings-dialog [data-recording="true"]')) return;
       if (document.querySelector('.select-content[data-state="open"]')) {
         window.dispatchEvent(new Event(CLOSE_OPEN_SELECT));
         return;
       }
       if (!document.querySelector('.settings-dialog[data-state="open"]')) return;
+      // The question about a changed draft owns Escape while it is open (Escape there keeps the draft).
+      if (document.querySelector('.settings-discard[data-state="open"]')) return;
       closeFromEscapeRef.current();
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
   }, []);
 
-  const draftError = settingsWriteError(values);
-  const dirty = !sameSettings(values, savedRef.current);
-  const saveDisabled = pending || !dirty || draftError !== null;
+  const draftError = settingsWriteError(values) ?? preferencesWriteError(prefs);
+  const autoChanged = autoDraft !== null && syncAuto !== null && !sameAuto(autoDraft, syncAuto);
+  const dirty = !sameSettings(values, savedRef.current) || !samePreferences(prefs, savedPrefsRef.current) || autoChanged;
+  const dirtyRef = useRef(dirty);
+  dirtyRef.current = dirty;
+  // A draft that cannot be saved keeps Save pressable: pressing it opens the field to fix.
+  const saveDisabled = pending || !dirty;
+  const problems = draftError ? settingsProblemFields(values) : [];
+  // A secret in a field has its own sentence (remove it); only a value the schema refuses names the field's fix.
+  const firstProblem = draftError === 'Settings do not match the schema' ? problems[0] ?? null : null;
   const explained = draftError
-    ? explainError(translate, draftError)
+    ? firstProblem && firstProblem !== 'other' ? null : explainError(translate, draftError)
     : note.kind === 'error'
       ? explainError(translate, note.code)
       : null;
-  const statusText = explained?.summary ?? translate(note.kind === 'key' ? note.key : 'settings.saveFailed');
-  const invalidFields = draftError === 'Settings cannot store a secret' ? secretBearingFields(values) : [];
-  const fieldError = (name: string) => (
+  const statusText = firstProblem && firstProblem !== 'other'
+    ? translate(`settings.fixField.${firstProblem}`)
+    : explained?.summary ?? translate(note.kind === 'key' ? note.key : 'settings.saveFailed');
+  const invalidFields: string[] = problems.filter((name) => name !== 'other');
+  const fieldError = (name: string): Record<string, string | boolean> => (
     invalidFields.includes(name)
-      ? { 'aria-invalid': true as const, 'aria-describedby': 'settings-draft-error' }
+      ? { 'aria-invalid': true, 'aria-describedby': 'settings-draft-error' }
       : {}
   );
 
-  const holdSession = async () => {
-    const held = await window.electronAPI.llmSetSessionKey(sessionKey);
-    setSessionKey('');
-    setSessionNote(String(t(held.held ? 'settings.sessionHeld' : 'settings.sessionCleared')));
-    onSessionRef.current(held.source);
-  };
-  const clearSession = async () => {
-    const held = await window.electronAPI.llmSetSessionKey('');
-    setSessionKey('');
-    setSessionNote(String(t('settings.sessionCleared')));
-    onSessionRef.current(held.source);
-  };
-  const storeOsKey = async () => {
-    const saved = await window.electronAPI.saveSecret(osKey);
-    setOsKey('');
-    const status = await window.electronAPI.secretStatus();
-    setSecretReason(status.reason);
-    setSecretPersist(status.persist);
-    setSecretStored(status.stored);
-    if (saved.status !== 'stored') {
-      setActionNote(explainError(translate, status.reason).summary);
-      return;
+  /**
+   * After a save that set a new MCP address without choosing how to get in, ask the server and store its answer,
+   * so a person who only pastes the address ends up with the right access. The dialog is closed by then: the
+   * sentence comes as a toast, and SETTINGS_CHANGED brings the stored choice into the form.
+   */
+  const detectAccessAfterSave = async (stored: NonSecretSettings, storedPrefs: Preferences) => {
+    try {
+      const note = detectionNote(await window.electronAPI.mcpDetectAuth(stored.mcpUrl), translate);
+      if (note.mode) {
+        const again = await window.electronAPI.saveSettings({ ...stored, mcpAuth: note.mode, preferences: storedPrefs });
+        if (!again.ok) return;
+        window.dispatchEvent(new CustomEvent<NonSecretSettings>(SETTINGS_CHANGED, { detail: again.values }));
+        refreshSyncStatus();
+      }
+      showToast({ id: 'mcp-access', tone: note.tone === 'good' ? 'success' : 'warn', title: note.text });
+    } catch {
+      // Nothing was chosen; "Check" in Settings ▸ Connection asks again.
     }
-    const session = await window.electronAPI.llmSessionStatus();
-    onSessionRef.current(session.source);
   };
-  const removeStoredKey = async () => {
-    await window.electronAPI.forgetSecret();
-    setSecretStored(false);
-    setOsKey('');
-    onSessionRef.current('none');
-    setSessionNote(String(t('settings.storedRemoved')));
-  };
-  const readCatalog = async () => {
-    const result = await window.electronAPI.readComfy();
-    if (!result.ok) {
-      setActionNote(explainError(translate, result.error).summary);
-      return;
-    }
-    setActionNote(String(t('settings.comfyRead', { version: result.version, devices: result.devices, nodes: result.nodes })));
-  };
-  const checkGraph = async () => {
-    const result = await window.electronAPI.graphCompatibility();
-    if (!result.ok) {
-      setActionNote(explainError(translate, result.error).summary);
-      return;
-    }
-    const none = String(t('settings.noneMissing'));
-    const models = result.missingModels.map((model) => `${model.directory}/${model.name}`);
-    setActionNote(String(t('settings.graphChecked', {
-      nodes: result.missingNodes.length > 0 ? result.missingNodes.join(', ') : none,
-      models: models.length > 0 ? models.join(', ') : none,
-    })));
+
+  /** The field that keeps the draft from saving: its section opens and the field takes focus. */
+  const showProblem = () => {
+    const field = firstProblem ?? problems[0];
+    if (!field) return;
+    setSection(FIELD_SECTION[field]);
+    window.setTimeout(() => {
+      document.querySelector<HTMLElement>('.settings-panel[data-state="active"] [aria-invalid="true"]')?.focus();
+    }, 60);
   };
 
   const save = async () => {
     if (saveDisabled) return;
+    if (draftError) {
+      showProblem();
+      return;
+    }
     setPending(true);
     try {
-      const result = await window.electronAPI.saveSettings(values);
+      const result = await window.electronAPI.saveSettings({ ...values, preferences: prefs });
       if (!result.ok) {
         setNote({ kind: 'error', code: result.error });
         return;
       }
+      // A new language reseeds the built-in knowledge in the main process; cached explanations follow it.
+      if (savedRef.current.language !== result.values.language) void useKnowledgeStore.getState().reloadExplanations();
+      const detect = shouldDetectAfterSave(savedRef.current, result.values);
       savedRef.current = result.values;
       setValues(result.values);
+      const stored = result.preferences ?? prefs;
+      savedPrefsRef.current = stored;
+      setPrefs(stored);
+      usePreferencesStore.getState().setPreferences(stored);
+      // Auto sync is applied with the rest; main keeps it off while there is no address to read.
+      if (autoDraft && autoChanged) await setAutoSync(autoDraft.enabled, autoDraft.intervalMinutes);
+      setAutoDraft(null);
       setNote({ kind: 'key', key: 'settings.saved' });
       applyMotion(result.values.motion);
       applyLanguage(result.values.language);
       onSavedRef.current(result.values);
       setOpen(false);
+      refreshSyncStatus();
+      if (detect) void detectAccessAfterSave(result.values, stored);
     } catch {
       setNote({ kind: 'key', key: 'settings.saveFailed' });
     } finally {
@@ -224,47 +341,57 @@ export default function SettingsPanel({
     }
   };
 
-  const providers = [
-    { value: '', label: String(t('settings.providerNone')) },
-    { value: 'test', label: String(t('settings.providerTest')) },
-    { value: 'openai', label: String(t('settings.providerOpenAI')) },
-    { value: 'local', label: String(t('settings.providerLocal')) },
-  ];
-  const motionOptions = [
-    { value: 'system', label: String(t('settings.motionSystem')) },
-    { value: 'on', label: String(t('settings.motionOn')) },
-    { value: 'reduced', label: String(t('settings.motionReduced')) },
-    { value: 'off', label: String(t('settings.motionOff')) },
-  ];
-  const languages = [
-    { value: 'en', label: String(t('settings.languageEnglish')) },
-    { value: 'ru', label: String(t('settings.languageRussian')) },
-  ];
+  // Why Save is off, said in its tooltip: a field to fix, or nothing changed. While saving the button says so itself.
+  const saveReason = pending ? '' : !dirty ? translate('settings.saveNothing') : '';
+  const saveButton = (
+    <Button variant="primary" className={cx(styles.save, 'settings-save')} disabled={saveDisabled} onClick={() => void save()}>
+      <span className={styles.saveReserve} aria-hidden="true">{t('settings.save')}</span>
+      <span className="settings-save-current">{pending ? t('settings.saving') : t('settings.save')}</span>
+    </Button>
+  );
+
+  const draft: DraftProps = { values, setValues, saved: savedRef.current, prefs, setPrefs, container, fieldError, pending, dirty };
+  const panelClass = cx(styles.panel, 'settings-panel');
+  const panel = (id: SettingsSection, children: React.ReactNode) => (
+    <TabsContent key={id} className={panelClass} value={id} tabIndex={-1} forceMount>
+      {children}
+    </TabsContent>
+  );
 
   return (
     <DialogRoot
       modal
       open={open}
       onOpenChange={(next) => {
-        if (!next) discard();
-        setOpen(next);
+        if (!next) {
+          requestClose();
+          return;
+        }
+        setOpen(true);
       }}
     >
       <DialogTrigger asChild>
-        <button type="button" className="ghost-button">{t('shell.settings')}</button>
+        {trigger ?? <Button size="sm" icon={triggerIcon}>{t('shell.settings')}</Button>}
       </DialogTrigger>
       <DialogPortal>
-        <DialogOverlay className="dialog-overlay" />
+        <DialogOverlay />
         <DialogContent
           ref={setContainer}
-          className="settings-dialog"
+          className={cx(styles.dialog, 'settings-dialog')}
           aria-describedby="settings-lead"
           onOpenAutoFocus={(event) => {
             event.preventDefault();
-            const panel = document.querySelector('.settings-panel[data-state="active"]');
-            panel?.querySelector<HTMLElement>('input:not([disabled]), [role="combobox"]')?.focus();
+            const active = document.querySelector('.settings-panel[data-state="active"]');
+            const target = active?.querySelector<HTMLElement>('input:not([disabled]), [role="combobox"], [role="radio"][tabindex="0"]')
+              ?? active?.querySelector<HTMLElement>('[role="radio"][tabindex="0"], button:not([disabled])')
+              ?? document.querySelector<HTMLElement>('.settings-tab[data-state="active"]');
+            target?.focus();
           }}
           onEscapeKeyDown={(event) => {
+            if (document.querySelector('.settings-dialog [data-recording="true"]')) {
+              event.preventDefault();
+              return;
+            }
             if (!document.querySelector('.select-content[data-state="open"]')) return;
             event.preventDefault();
             window.dispatchEvent(new Event(CLOSE_OPEN_SELECT));
@@ -278,173 +405,76 @@ export default function SettingsPanel({
             if (target instanceof Element && target.closest('.select-content')) event.preventDefault();
           }}
         >
-          <header className="settings-header">
-            <DialogTitle className="settings-heading">{t('settings.title')}</DialogTitle>
-            <DialogDescription id="settings-lead" className="settings-lead">
+          <header className={cx(styles.header, 'settings-header')}>
+            <DialogTitle className={cx(styles.heading, 'settings-heading')}>{t('settings.title')}</DialogTitle>
+            <DialogDescription id="settings-lead" className={cx(styles.lead, 'settings-lead')}>
               {t('settings.lead')}
             </DialogDescription>
           </header>
           <TabsRoot
             value={section}
-            onValueChange={(next) => setSection(next as Section)}
+            onValueChange={(next) => setSection(next as SettingsSection)}
             orientation="vertical"
-            className="settings-layout"
+            className={cx(styles.layout, 'settings-layout')}
           >
-            <TabsList className="settings-nav" aria-label={String(t('settings.sections'))} tabIndex={-1}>
-              <TabsTrigger className="settings-tab" value="connection" tabIndex={section === 'connection' ? 0 : -1}>{t('settings.connection')}</TabsTrigger>
-              <TabsTrigger className="settings-tab" value="assistant" tabIndex={section === 'assistant' ? 0 : -1}>{t('settings.assistant')}</TabsTrigger>
-              <TabsTrigger className="settings-tab" value="appearance" tabIndex={section === 'appearance' ? 0 : -1}>{t('settings.appearance')}</TabsTrigger>
+            <TabsList className={cx(styles.nav, 'settings-nav')} aria-label={String(t('settings.sections'))} tabIndex={-1}>
+              {SETTINGS_SECTIONS.map((item) => {
+                const Icon = SECTION_META[item].icon;
+                return (
+                  <TabsTrigger key={item} className={cx(styles.tab, 'settings-tab')} value={item} tabIndex={section === item ? 0 : -1}>
+                    <Icon size={15} aria-hidden="true" className={styles.tabIcon} />
+                    <span>{t(SECTION_META[item].labelKey)}</span>
+                  </TabsTrigger>
+                );
+              })}
             </TabsList>
-            <TabsContent className="settings-panel" value="connection" tabIndex={-1}>
-              <h3>{t('settings.connection')}</h3>
-              <label className="field">
-                {t('settings.comfyOrigin')}
-                <input
-                  aria-label={String(t('settings.comfyOrigin'))}
-                  value={values.comfyOrigin}
-                  onChange={(event) => setValues((current) => ({ ...current, comfyOrigin: event.target.value }))}
-                  {...fieldError('comfyOrigin')}
+            {panel('assistant', <AssistantSection {...draft} onSession={(sources) => onSessionRef.current(sources)} />)}
+            {panel('connection', <ConnectionSection {...draft} />)}
+            {panel('sync', (
+              <>
+                <SectionHead title={String(t('settings.sync'))} lead={String(t('preferences.lead.sync'))} />
+                <SyncSection
+                  autoDraft={autoDraft}
+                  onAutoDraft={setAutoDraft}
+                  addressSet={values.mcpUrl.trim() !== ''}
+                  fieldClass={fieldClass}
+                  hintClass={hintClass}
+                  rowClass={rowClass}
+                  sync={prefs.sync}
+                  container={container}
+                  onSyncChange={(patch) => patchSection(setPrefs, 'sync', patch)}
                 />
-              </label>
-              <p className="field-hint">{t('settings.comfyOriginHint')}</p>
-              <div className="settings-buttons">
-                <button type="button" className="ghost-button" disabled={pending || dirty || values.comfyOrigin.trim() === ''} onClick={() => void readCatalog()}>
-                  {t('settings.readComfy')}
-                </button>
-                <button type="button" className="ghost-button" disabled={pending} onClick={() => void checkGraph()}>
-                  {t('settings.checkGraph')}
-                </button>
-              </div>
-              {actionNote ? <p className="field-hint" role="status">{actionNote}</p> : null}
-              {secretPersist ? (
-                <>
-                  <label className="field">
-                    {t('settings.osKey')}
-                    <input
-                      type="password"
-                      autoComplete="off"
-                      aria-label={String(t('settings.osKey'))}
-                      value={osKey}
-                      onChange={(event) => setOsKey(event.target.value)}
-                    />
-                  </label>
-                  <div className="settings-buttons">
-                    <button type="button" className="ghost-button" disabled={osKey.length === 0} onClick={() => void storeOsKey()}>
-                      {t('settings.saveStoredKey')}
-                    </button>
-                    {secretStored ? (
-                      <button type="button" className="ghost-button" onClick={() => void removeStoredKey()}>
-                        {t('settings.removeStored')}
-                      </button>
-                    ) : null}
-                  </div>
-                  {secretStored ? <p className="field-hint" role="status">{t('settings.storedKey')}</p> : null}
-                </>
-              ) : (
-                <>
-                  <label className="field">
-                    {t('settings.apiKey')}
-                    <input
-                      type="password"
-                      aria-label={String(t('settings.apiKey'))}
-                      aria-describedby="key-unavailable"
-                      value=""
-                      disabled
-                      readOnly
-                    />
-                  </label>
-                  <p id="key-unavailable" className="field-hint">{t('settings.keyReason')}</p>
-                  <button type="button" className="ghost-button" disabled>
-                    {t('settings.saveKey')}
-                  </button>
-                </>
-              )}
-              <label className="field">
-                {t('settings.sessionKey')}
-                <input
-                  type="password"
-                  autoComplete="off"
-                  aria-label={String(t('settings.sessionKey'))}
-                  value={sessionKey}
-                  onChange={(event) => setSessionKey(event.target.value)}
-                />
-              </label>
-              <p className="field-hint">{secretReason ? explainError(translate, secretReason).summary : ''}</p>
-              <div className="settings-buttons">
-                <button type="button" className="ghost-button" disabled={sessionKey.length === 0} onClick={() => void holdSession()}>
-                  {t('settings.useSession')}
-                </button>
-                <button type="button" className="ghost-button" onClick={() => void clearSession()}>
-                  {t('settings.clearSession')}
-                </button>
-              </div>
-              {sessionNote ? <p className="field-hint" role="status">{sessionNote}</p> : null}
-            </TabsContent>
-            <TabsContent className="settings-panel" value="assistant" tabIndex={-1}>
-              <h3>{t('settings.assistant')}</h3>
-              <SelectField
-                label={String(t('settings.provider'))}
-                value={values.provider}
-                options={providers}
-                container={container}
-                onChange={(provider) => setValues((current) => ({ ...current, provider: provider as NonSecretSettings['provider'] }))}
-              />
-              <label className="field">
-                {t('settings.model')}
-                <input
-                  aria-label={String(t('settings.model'))}
-                  value={values.model}
-                  onChange={(event) => setValues((current) => ({ ...current, model: event.target.value }))}
-                  {...fieldError('model')}
-                />
-              </label>
-              <label className="field">
-                {t('settings.baseUrl')}
-                <input
-                  aria-label={String(t('settings.baseUrl'))}
-                  value={values.baseURL}
-                  onChange={(event) => setValues((current) => ({ ...current, baseURL: event.target.value }))}
-                  {...fieldError('baseURL')}
-                />
-              </label>
-              <p className="field-hint">{t('settings.baseUrlHint')}</p>
-            </TabsContent>
-            <TabsContent className="settings-panel" value="appearance" tabIndex={-1}>
-              <h3>{t('settings.appearance')}</h3>
-              <SelectField
-                label={String(t('settings.motion'))}
-                value={values.motion}
-                options={motionOptions}
-                container={container}
-                onChange={(motion) => setValues((current) => ({ ...current, motion: motion as NonSecretSettings['motion'] }))}
-              />
-              <p className="field-hint">{t('settings.motionHint')}</p>
-              <SelectField
-                id="settings-language"
-                label={String(t('settings.language'))}
-                value={values.language}
-                options={languages}
-                container={container}
-                onChange={(language) => {
-                  const next = language as AppLanguage;
-                  setValues((current) => ({ ...current, language: next }));
-                  applyLanguage(next);
-                }}
-              />
-              <p className="field-hint">{t('settings.languageHint')}</p>
-            </TabsContent>
+              </>
+            ))}
+            {panel('canvas', <CanvasSection {...draft} />)}
+            {panel('appearance', <AppearanceSection {...draft} />)}
+            {panel('shortcuts', <ShortcutsSection {...draft} />)}
+            {panel('privacy', <PrivacySection {...draft} />)}
+            {panel('about', <AboutSection />)}
           </TabsRoot>
-          <footer className="settings-actions">
-            <p id="settings-draft-error" className="provider-note" role="status">{statusText}</p>
-            <p className="field-hint">{t('settings.keyReason')}</p>
-            <div className="settings-buttons">
-              <button type="button" className="send-button settings-save" disabled={saveDisabled} onClick={() => void save()}>
-                <span className="settings-save-reserve" aria-hidden="true">{t('settings.save')}</span>
-                <span className="settings-save-current">{pending ? t('settings.saving') : t('settings.save')}</span>
-              </button>
-              <DialogClose className="ghost-button">{t('settings.cancel')}</DialogClose>
+          <footer className={cx(styles.actions, 'settings-actions')}>
+            <div className={styles.footerText}>
+              <p id="settings-draft-error" className={cx(styles.status, 'provider-note')} role="status">{statusText}</p>
+            </div>
+            <div className={cx(rowClass, styles.footerButtons)}>
+              <Hint label={saveDisabled ? saveReason : ''} side="top">{saveButton}</Hint>
+              <Button variant="subtle" onClick={requestClose}>{t('settings.cancel')}</Button>
             </div>
           </footer>
+          <ConfirmDialog
+            className="settings-discard"
+            open={confirmDiscard}
+            onOpenChange={setConfirmDiscard}
+            title={translate('settings.discardTitle')}
+            lead={translate('settings.discardLead')}
+            confirmLabel={translate('settings.discardConfirm')}
+            cancelLabel={translate('settings.discardKeep')}
+            onConfirm={() => {
+              discard();
+              setOpen(false);
+              refreshSyncStatus();
+            }}
+          />
         </DialogContent>
       </DialogPortal>
     </DialogRoot>

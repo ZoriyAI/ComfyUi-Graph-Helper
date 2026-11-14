@@ -5,7 +5,6 @@ import { readCatalog, upsertObjectInfo, SEEDED_NODE_TYPES } from '../../src/main
 import { migrate } from '../../src/main/settings/migrate';
 import {
   assertObjectInfoSize,
-  MAX_OBJECT_INFO_BYTES,
   ObjectInfoError,
   parseObjectInfo,
 } from '../../src/shared/catalog/objectInfo';
@@ -77,7 +76,7 @@ describe('object_info catalog', () => {
     const parsed = parseObjectInfo(snapshot);
     const sampler = parsed.nodes.find((node) => node.classType === 'KSampler');
     expect(sampler?.widgetOrder).toEqual(['seed', 'seed::control_after_generate', 'steps', 'sampler_name']);
-    expect(sampler?.inputs.find((input) => input.name === 'model')).toEqual({ name: 'model', type: 'MODEL', widget: false });
+    expect(sampler?.inputs.find((input) => input.name === 'model')).toEqual({ name: 'model', type: 'MODEL', widget: false, required: true });
     expect(parsed.models).toEqual([
       { directory: 'checkpoints', name: 'known.safetensors' },
       { directory: 'vae', name: 'vae.safetensors' },
@@ -85,11 +84,14 @@ describe('object_info catalog', () => {
     expect(parsed.nodes.find((node) => node.classType === 'VAELoader')?.pythonModule).toBe('custom_nodes.example');
   });
 
-  it('rejects a non-object snapshot and a file past the size cap', () => {
+  it('rejects a non-object snapshot and a nonsense size, but never caps a real size', () => {
     expect(() => parseObjectInfo([])).toThrow(ObjectInfoError);
     expect(() => parseObjectInfo({ KSampler: null })).toThrow(/not object_info/);
-    expect(() => assertObjectInfoSize(MAX_OBJECT_INFO_BYTES + 1)).toThrow(/too large/);
-    expect(() => assertObjectInfoSize(MAX_OBJECT_INFO_BYTES)).not.toThrow();
+    expect(() => assertObjectInfoSize(Number.NaN)).toThrow(ObjectInfoError);
+    expect(() => assertObjectInfoSize(-1)).toThrow(ObjectInfoError);
+    expect(() => assertObjectInfoSize(400 * 1024 * 1024)).not.toThrow();
+    // Above what one string can hold: an endless answer is stopped instead of filling memory.
+    expect(() => assertObjectInfoSize(2 * 1024 * 1024 * 1024)).toThrow(ObjectInfoError);
   });
 
   it('upserts guidance without dropping seed types that are absent from the file', () => {
@@ -637,7 +639,7 @@ describe('object_info catalog', () => {
       },
     });
     const alias = parsed.nodes.find((node) => node.classType === 'SeedAlias');
-    expect(alias?.inputs.find((input) => input.name === 'seed')).toEqual({ name: 'seed', type: 'MY_SEED', widget: true });
+    expect(alias?.inputs.find((input) => input.name === 'seed')).toEqual({ name: 'seed', type: 'MY_SEED', widget: true, required: true, default: 0, controlDefault: 'randomize', widgetType: 'INT' });
     expect(alias?.widgetOrder).toEqual(['seed', 'seed::control_after_generate', 'steps']);
     expect(alias?.widgetOrderReliable).not.toBe(false);
     const color = parsed.nodes.find((node) => node.classType === 'ColorAlias');

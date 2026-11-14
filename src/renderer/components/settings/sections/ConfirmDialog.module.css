@@ -1,0 +1,26 @@
+/*
+ * An "are you sure" dialog, in the shared command-dialog frame (shell/CommandDialogs.module.css): a danger mark
+ * beside the title says the action removes something; what will be removed is listed in a quiet box one step
+ * above the dialog; the destructive button is the only strong one.
+ */
+.head { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 12px; row-gap: 4px; align-items: start; }
+.mark {
+  grid-row: 1 / span 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid color-mix(in srgb, var(--danger-strong) 40%, transparent);
+  border-radius: var(--radius-md);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.items.items {
+  margin: 0 20px 12px;
+  padding: 8px 12px 8px 28px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-overlay);
+  box-shadow: var(--highlight-top);
+}

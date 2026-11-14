@@ -1,0 +1,153 @@
+/*
+ * The canvas overview level: below ~55 % zoom (CanvasFlow sets data-zoom="overview" on the canvas root) a graph
+ * reads as a map of named blocks. Styled from outside the node card through its stable legacy classes, so the
+ * card itself (nodes/*) needs no zoom logic.
+ * - The title grows as the canvas shrinks (--canvas-title-scale = 1 / zoom, capped) and wraps instead of clipping.
+ * - The header fills with the category colour; class names and every body block (ports, fields, values) fold
+ *   away. Body rows fold to zero height rather than display:none, so the port handles stay in the DOM and React
+ *   Flow still measures them: edges meet each node just under its header.
+ * - Description cards leave the map; edges keep 2.5 screen pixels so the flow stays visible.
+ */
+.host[data-zoom="overview"] :global(.graph-node) {
+  border-color: color-mix(in srgb, var(--canvas-accent, #65d9ed) 55%, var(--border, #2a3648));
+}
+
+.host[data-zoom="overview"] :global(.graph-node) > :first-child {
+  background: color-mix(in srgb, var(--canvas-accent, #65d9ed) 62%, var(--surface-raised, #182131));
+  border-bottom-color: transparent;
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+.host[data-zoom="overview"] :global(.graph-node-title) {
+  font-size: calc(var(--text-sm, 13px) * var(--canvas-title-scale, 1));
+  line-height: 1.12;
+  font-weight: 650;
+  color: #fff;
+  white-space: normal;
+  /* Between words only: a long word broken in two ("Checkpoin t") read as broken text. The <wbr> marks of
+     titleParts still let a class name like WanVideoTextEncode wrap at its word joins. */
+  overflow-wrap: normal;
+  word-break: normal;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+  /*
+   * At most three lines. A long pack name (Multi/InfiniteTalk Model Loader) at three times its size took four or
+   * five, and its block grew past the gap kept under a node onto the block below; the whole name is there when
+   * the canvas is zoomed back in.
+   */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+}
+
+.host[data-zoom="overview"] :global(.graph-node-type),
+.host[data-zoom="overview"] :global(.graph-node-meta),
+.host[data-zoom="overview"] :global(.graph-node-extra) {
+  display: none;
+}
+
+/* A subgraph card keeps its double frame on the map, drawn at the map's scale. */
+.host[data-zoom="overview"] :global(.graph-node[data-node-kind="subgraph-instance"]) {
+  outline: calc(2px * var(--canvas-title-scale, 1)) solid color-mix(in srgb, var(--focus, #b7a5ff) 55%, transparent);
+  outline-offset: calc(3px * var(--canvas-title-scale, 1));
+}
+
+/* The selected block: a ring that still reads at a third of the size. */
+.host[data-zoom="overview"] :global(.graph-node.is-selected) {
+  outline: calc(3px * var(--canvas-title-scale, 1)) solid var(--accent, #65d9ed);
+  outline-offset: calc(3px * var(--canvas-title-scale, 1));
+}
+
+/* The edges of an open subgraph read as blocks too: the title at the map's scale, the slot names folded. */
+.host[data-zoom="overview"] :global(.graph-boundary) {
+  border-style: solid;
+  background: color-mix(in srgb, var(--focus, #b7a5ff) 34%, var(--surface-raised, #182131));
+  padding: 10px 0;
+}
+.host[data-zoom="overview"] :global(.graph-boundary-title) {
+  padding-bottom: 0;
+  color: #fff;
+  font-size: calc(var(--text-sm, 13px) * var(--canvas-title-scale, 1));
+  line-height: 1.12;
+  letter-spacing: 0;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+.host[data-zoom="overview"] :global(.graph-boundary-ports) > li {
+  min-height: 0 !important;
+  height: 0;
+  margin: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.host[data-zoom="overview"] :global(.graph-boundary-ports) > li > :not(:global(.react-flow__handle)) {
+  visibility: hidden;
+}
+
+/* Every block under the header, and everything in it except the handles, folds to nothing. */
+.host[data-zoom="overview"] :global(.graph-node) > :not(:first-child),
+.host[data-zoom="overview"] :global(.graph-node) > :not(:first-child) :not(:global(.react-flow__handle)) {
+  height: 0 !important;
+  min-height: 0 !important;
+  max-height: 0 !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  border-width: 0 !important;
+  overflow: visible;
+  visibility: hidden;
+}
+
+.host[data-zoom="overview"] :global(.port-list),
+.host[data-zoom="overview"] :global(.node-fields) {
+  gap: 0 !important;
+}
+
+/*
+ * Description cards and their marks leave the map: as dots they scattered round the blocks (left, right, above,
+ * by the side each card had) and read as stray ports. They come back with the cards on zooming in.
+ */
+.host[data-zoom="overview"] :global(.react-flow__node-toolbar:has(.description-card, [data-description-dot], [data-knowledge-dot])) {
+  display: none;
+}
+
+/* Edges keep a width on screen, not on the canvas: 3 canvas pixels were a hairline at 30 %. */
+.host[data-zoom="overview"] :global(.react-flow__edge-path) {
+  stroke-width: 2.5px;
+  vector-effect: non-scaling-stroke;
+  opacity: 1;
+}
+
+/*
+ * A ghost (a suggestion waiting for an answer) stays answerable on the map: its label, note and the Accept /
+ * Reject buttons grow with the same scale as the titles, so nobody has to zoom in to say yes or no.
+ */
+.host[data-zoom="overview"] :global(.ghost-flag) {
+  font-size: calc(11px * var(--canvas-title-scale, 1));
+  line-height: 1.6;
+  padding: 0 calc(8px * var(--canvas-title-scale, 1));
+}
+
+.host[data-zoom="overview"] :global(.ghost-note) {
+  max-width: calc(240px * var(--canvas-title-scale, 1));
+  font-size: calc(12px * var(--canvas-title-scale, 1));
+  line-height: 1.4;
+  padding: calc(4px * var(--canvas-title-scale, 1)) calc(8px * var(--canvas-title-scale, 1));
+}
+
+.host[data-zoom="overview"] :global(.ghost-chips) {
+  gap: calc(4px * var(--canvas-title-scale, 1));
+}
+
+.host[data-zoom="overview"] :global(.ghost-chip) {
+  height: calc(24px * var(--canvas-title-scale, 1));
+  padding: 0 calc(8px * var(--canvas-title-scale, 1));
+  font-size: calc(12px * var(--canvas-title-scale, 1));
+}
+
+.host[data-zoom="overview"] :global(.ghost-chip) svg {
+  width: calc(12px * var(--canvas-title-scale, 1));
+  height: calc(12px * var(--canvas-title-scale, 1));
+}

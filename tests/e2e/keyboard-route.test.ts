@@ -42,7 +42,7 @@ test('keyboard route reaches a node and keeps graph shortcuts out of fields', as
     titlebar: document.querySelector('.titlebar, .window-controls') == null,
   }));
   expect(absent).toEqual({ menu: true, checkbox: true, radio: true, switch: true, titlebar: true });
-  console.log('CONTROL_NA command-menu checkbox radio switch custom-titlebar reason=the product does not implement them');
+  console.log('CONTROL_AT_REST menu checkbox radio switch custom-titlebar absent; menus, check and radio items exist only while a menu-bar menu is open');
 
   const current = await window.evaluate(async () => {
     const bridge = (window as unknown as { electronAPI: { readProjection: (id: string) => Promise<{ currentRevisionId: string }> } }).electronAPI;
@@ -100,10 +100,13 @@ test('keyboard route reaches a node and keeps graph shortcuts out of fields', as
   await expect(dialog).toHaveAttribute('data-state', 'open');
   await window.keyboard.press('Shift+Tab');
   await expect.poll(async () => window.evaluate(() => document.activeElement?.textContent?.trim() ?? '')).toBe('Connection');
-  await window.keyboard.press('ArrowDown');
+  // The section list is Assistant · Connection · Sync · Canvas · Appearance & Motion · …
+  await window.keyboard.press('ArrowUp');
   await expect.poll(async () => window.evaluate(() => document.activeElement?.textContent?.trim() ?? '')).toBe('Assistant');
-  await window.keyboard.press('ArrowDown');
-  await expect.poll(async () => window.evaluate(() => document.activeElement?.textContent?.trim() ?? '')).toBe('Appearance & Motion');
+  for (const label of ['Connection', 'Sync', 'Canvas', 'Appearance & Motion']) {
+    await window.keyboard.press('ArrowDown');
+    await expect.poll(async () => window.evaluate(() => document.activeElement?.textContent?.trim() ?? '')).toBe(label);
+  }
   await window.keyboard.press('Tab');
   await expect.poll(async () => window.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? '')).toBe('Motion');
   await window.keyboard.press('Enter');
@@ -158,9 +161,15 @@ test('keyboard route reaches a node and keeps graph shortcuts out of fields', as
   await expectKept(beforeControl);
   await window.keyboard.press('Shift+Tab');
   await expect.poll(async () => window.evaluate(() => document.activeElement?.textContent?.trim() ?? '')).toBe('Appearance & Motion');
-  await window.keyboard.press('ArrowUp');
+  // Assistant is the first section now: Home reaches it.
+  await window.keyboard.press('Home');
   await expect.poll(async () => window.evaluate(() => document.activeElement?.textContent?.trim() ?? '')).toBe('Assistant');
-  for (let step = 0; step < 6; step += 1) {
+  // The model field appears once a helper is chosen: Tab to the provider cards, arrow to the next one.
+  await window.keyboard.press('Tab');
+  await window.keyboard.press('ArrowRight');
+  await window.keyboard.press('Enter');
+  await expect(dialog.getByRole('radio', { name: 'OpenAI', exact: true })).toHaveAttribute('aria-checked', 'true');
+  for (let step = 0; step < 8; step += 1) {
     await window.keyboard.press('Tab');
     const label = await window.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? '');
     if (label === 'Model') break;
@@ -172,6 +181,8 @@ test('keyboard route reaches a node and keeps graph shortcuts out of fields', as
   await expectKept(beforeFieldDialog);
   await expect.poll(selectedCount).toBeGreaterThanOrEqual(1);
   await window.keyboard.press('Escape');
+  // The draft was changed (another assistant chosen), so closing asks first.
+  await window.getByRole('button', { name: 'Close without saving', exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await expect.poll(async () => window.evaluate(() => (
     document.activeElement instanceof HTMLButtonElement && document.activeElement.textContent === 'Settings'

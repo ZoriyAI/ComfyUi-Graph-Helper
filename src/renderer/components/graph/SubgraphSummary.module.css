@@ -1,0 +1,2 @@
+/* The size of a subgraph in words, quieter than its name. */
+.summary { color: var(--text-dim); font-size: var(--text-xs, 12px); font-variant-numeric: tabular-nums; white-space: nowrap; }

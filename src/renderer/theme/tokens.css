@@ -1,54 +1,169 @@
+/*
+ * Design tokens.
+ * Night palette with layered surfaces: canvas -> panel -> raised -> overlay, each one step lighter,
+ * with a 1px border, a top inner highlight and a soft shadow. Other parts add only --canvas-* / --chat-*.
+ * Measured text contrast for every surface is in theme/CONTRAST.md (checked by tests/unit/contrast.test.ts).
+ */
 :root {
   color-scheme: dark;
-  --bg: #0c1017;
-  --surface: #141b26;
-  --bg-raised: #1b2533;
-  --bg-sunken: #0c1017;
-  --bg-hover: #243247;
-  --line: #2a3648;
-  --control-border: #63738a;
+
+  /* Layered surfaces */
+  --surface-canvas: #0a0e15;
+  --surface-panel: #111824;
+  --surface-raised: #182131;
+  --surface-overlay: #1f2a3d;
+  --surface-sunken: #0c1119;
+  --surface-hover: #243247;
+  --surface-active: #2b3b55;
+  --highlight-top: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+
+  /* Borders */
+  --border-subtle: #222d3e;
+  --border: #2a3648;
+  --border-strong: #63738a;
+
+  /* Text */
   --text: #e8eef7;
   --text-dim: #a3b1c6;
   --text-faint: #8b9bb0;
+  --text-mono: #c6d2e3;
+
+  /* Roles */
   --accent: #65d9ed;
-  --accent-2: #65d9ed;
-  --danger: #ff9da8;
-  --warn: #f6ce7c;
-  --ok: #82ddb3;
+  --accent-strong: #8ae6f4;
+  --accent-soft: rgba(101, 217, 237, 0.14);
+  --ai: #b7a5ff;
+  --ai-soft: rgba(183, 165, 255, 0.16);
   --focus: #b7a5ff;
-  --type-image: #3ecfb2;
-  --type-latent: #8b7cff;
-  --type-model: #e2a14a;
-  --type-conditioning: #5eb0ff;
-  --type-vae: #d47ad4;
-  --type-clip: #7fd0a4;
-  --type-unknown: #8b939c;
+  --warn: #f6ce7c;
+  --warn-soft: rgba(246, 206, 124, 0.14);
+  --danger: #ff9db4;
+  --danger-strong: #ff6f93;
+  --danger-soft: rgba(255, 111, 147, 0.14);
+  --ok: #82ddb3;
+  --ok-soft: rgba(130, 221, 179, 0.14);
   --on-accent: #071218;
   --on-warn: #1a1408;
+  --on-danger: #1d0710;
+
+  /* Port types, after ComfyUI so the knowledge carries over */
+  --type-model: #b8a7f2;
+  --type-clip: #f2d65c;
+  --type-vae: #ff7a7a;
+  --type-conditioning: #ffad5c;
+  --type-latent: #f59ae6;
+  --type-image: #6cc0f5;
+  --type-mask: #7fd88b;
+  --type-controlnet: #3fd6bf;
+  --type-string: #a9b4c4;
+  --type-int: #9aa6b8;
+  --type-float: #8d9aad;
+  --type-boolean: #b5bfcc;
+  --type-unknown: #8b939c;
+  --type-clip-vision: #e6c56b;
+  --type-audio: #7fc8a9;
+  --type-upscale-model: #c9a0ff;
+
+  /* Provenance (explanations) */
+  --prov-fact: #82ddb3;
+  --prov-inference: #b7a5ff;
+  --prov-web: #6cc0f5;
+  --prov-user: #f6ce7c;
+
+  /* Elevation: shadow below, highlight on top */
+  --elev-0: none;
+  --elev-1: var(--highlight-top), 0 1px 2px rgba(0, 0, 0, 0.32);
+  --elev-2: var(--highlight-top), 0 4px 12px rgba(0, 0, 0, 0.34);
+  --elev-3: var(--highlight-top), 0 12px 32px rgba(0, 0, 0, 0.44);
+
+  /* Depth for the frame: bars and panels get a vertical sheen, a top inner highlight and a soft drop. */
+  --bar-sheen: linear-gradient(180deg, #172132 0%, #121a27 100%);
+  --bar-sheen-bottom: linear-gradient(0deg, #151e2d 0%, #111824 100%);
+  --panel-sheen: linear-gradient(180deg, #131c2a 0%, #111824 120px);
+  --panel-edge: inset 1px 0 0 rgba(255, 255, 255, 0.035);
+  --shadow-bar: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 1px 0 rgba(0, 0, 0, 0.5), 0 10px 24px -12px rgba(0, 0, 0, 0.7);
+  --shadow-lift: var(--highlight-top), 0 2px 4px rgba(0, 0, 0, 0.3), 0 10px 22px -6px rgba(0, 0, 0, 0.5);
+  --accent-gradient: linear-gradient(180deg, #8ae6f4 0%, #65d9ed 55%, #4cc6de 100%);
+  --accent-gradient-hover: linear-gradient(180deg, #a3eef8 0%, #7ae0f1 55%, #5ccfe4 100%);
+  --glow-accent: 0 0 0 1px rgba(101, 217, 237, 0.4), 0 4px 16px -2px rgba(101, 217, 237, 0.38);
+  --glow-ai: 0 0 0 1px rgba(183, 165, 255, 0.4), 0 4px 16px -2px rgba(183, 165, 255, 0.34);
+  --focus-ring: 0 0 0 2px var(--surface-canvas), 0 0 0 4px var(--focus);
+  /* A text field that holds focus: the border turns --focus and a soft ring shows, quieter than an outline. */
+  --focus-field: 0 0 0 3px var(--ai-soft);
+  --canvas-dot: #1d2939;
+  --canvas-glow: rgba(126, 140, 255, 0.07);
+  --canvas-glow-2: rgba(101, 217, 237, 0.045);
+  --canvas-vignette: rgba(3, 5, 9, 0.55);
+  --scrollbar-thumb: #303e53;
+  --scrollbar-thumb-hover: #4a5b74;
+
+  /* Radii */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-pill: 999px;
+
+  /* Type scale */
+  --font-sans: "Geist", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-md: 14px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+  /* Key caps and other tiny monospace marks only; never body text. */
+  --text-mono-xs: 11px;
+
+  /* Reading and form width: one measure for a column of fields, hints and groups (Settings, dialogs). */
+  --measure-form: 640px;
+
+  /* Legacy aliases. The canvas and chat rules still read these; keep them pointing at the layers. */
+  --bg: #0a0e15;
+  --surface: #111824;
+  --bg-raised: #182131;
+  --bg-sunken: #0c1119;
+  --bg-hover: #243247;
+  --line: #2a3648;
+  --control-border: #63738a;
+  --accent-2: #65d9ed;
   --bubble-user: #243044;
   --bubble-user-line: #3a4d68;
-  --xy-dot: #2a3140;
+  --xy-dot: #1d2939;
   --minimap-node: #3a4454;
   --shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
-  --minimap-mask: rgba(20, 23, 28, 0.72);
-  --attribution: rgba(16, 19, 23, 0.8);
-  --scrim: rgba(8, 10, 14, 0.72);
+  --minimap-mask: rgba(10, 14, 21, 0.72);
+  --attribution: rgba(10, 14, 21, 0.8);
+  --scrim: rgba(5, 8, 12, 0.72);
+
+  /* Motion. Explanatory animation is the product: tour, pulse and reveal are its clocks. */
   --motion-feedback: 100ms;
   --motion-enter: 160ms;
   --motion-exit: 120ms;
   --motion-panel: 200ms;
+  --motion-reveal: 320ms;
+  --motion-pulse: 1400ms;
+  --motion-tour: 600ms;
   --motion-shift: 8px;
   --motion-ease-out: cubic-bezier(0.2, 0, 0, 1);
   --motion-ease-in: cubic-bezier(0.4, 0, 1, 1);
-  font-family: "Geist", system-ui, sans-serif;
+  --motion-spring: cubic-bezier(0.34, 1.36, 0.64, 1);
+
+  font-family: var(--font-sans);
 }
 
+/* Reduced: short fades only; pulses and the tour camera become static highlights. */
 html[data-motion="reduced"] {
   --motion-feedback: 60ms;
   --motion-enter: 60ms;
   --motion-exit: 60ms;
   --motion-panel: 60ms;
+  --motion-reveal: 60ms;
+  --motion-pulse: 0ms;
+  --motion-tour: 0ms;
   --motion-shift: 0px;
+  --motion-spring: var(--motion-ease-out);
 }
 
 html[data-motion="off"] {
@@ -56,7 +171,11 @@ html[data-motion="off"] {
   --motion-enter: 0ms;
   --motion-exit: 0ms;
   --motion-panel: 0ms;
+  --motion-reveal: 0ms;
+  --motion-pulse: 0ms;
+  --motion-tour: 0ms;
   --motion-shift: 0px;
+  --motion-spring: var(--motion-ease-out);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -66,6 +185,95 @@ html[data-motion="off"] {
     --motion-enter: 60ms;
     --motion-exit: 60ms;
     --motion-panel: 60ms;
+    --motion-reveal: 60ms;
+    --motion-pulse: 0ms;
+    --motion-tour: 0ms;
     --motion-shift: 0px;
+    --motion-spring: var(--motion-ease-out);
   }
+}
+
+/*
+ * Shades of the action colour, derived from --accent so the accent choice below reaches them. They are declared
+ * again on every [data-accent-scope] so the Settings preview recomputes them from its own --accent.
+ * --accent-line: a border that marks the chosen or open thing; --accent-halo: a soft glow or shadow colour;
+ * --accent-wash: a faint fill behind a pressed tool or a highlighted row; --accent-tint: a stronger fill on hover.
+ */
+:root,
+[data-accent-scope] {
+  --accent-line: color-mix(in srgb, var(--accent) 55%, transparent);
+  --accent-halo: color-mix(in srgb, var(--accent) 38%, transparent);
+  --accent-wash: color-mix(in srgb, var(--accent) 10%, transparent);
+  --accent-tint: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+/*
+ * Preferences ▸ Appearance (additive). `data-accent` swaps the action colour; text on it stays --on-accent,
+ * every accent below keeps ≥ 7:1 against it. `data-density="compact"` tightens the type scale one step.
+ * `data-glow="reduced"` removes the soft glows and canvas light. The `*-scope` forms drive the live preview
+ * in Settings ▸ Appearance before Save.
+ */
+html[data-accent="violet"],
+[data-accent-scope="violet"] {
+  --accent: #b7a5ff;
+  --accent-strong: #cfc3ff;
+  --accent-soft: rgba(183, 165, 255, 0.14);
+  --accent-2: #b7a5ff;
+  --accent-gradient: linear-gradient(180deg, #cfc3ff 0%, #b7a5ff 55%, #a08cf5 100%);
+  --accent-gradient-hover: linear-gradient(180deg, #ddd4ff 0%, #c4b6ff 55%, #ad9bf8 100%);
+  --glow-accent: 0 0 0 1px rgba(183, 165, 255, 0.4), 0 4px 16px -2px rgba(183, 165, 255, 0.36);
+}
+
+html[data-accent="mint"],
+[data-accent-scope="mint"] {
+  --accent: #82ddb3;
+  --accent-strong: #a5ead0;
+  --accent-soft: rgba(130, 221, 179, 0.14);
+  --accent-2: #82ddb3;
+  --accent-gradient: linear-gradient(180deg, #a5ead0 0%, #82ddb3 55%, #6acb9f 100%);
+  --accent-gradient-hover: linear-gradient(180deg, #bcf0dc 0%, #95e4c1 55%, #78d4aa 100%);
+  --glow-accent: 0 0 0 1px rgba(130, 221, 179, 0.4), 0 4px 16px -2px rgba(130, 221, 179, 0.34);
+}
+
+html[data-accent="amber"],
+[data-accent-scope="amber"] {
+  --accent: #f6ce7c;
+  --accent-strong: #f9dda2;
+  --accent-soft: rgba(246, 206, 124, 0.14);
+  --accent-2: #f6ce7c;
+  --accent-gradient: linear-gradient(180deg, #f9dda2 0%, #f6ce7c 55%, #eebd5c 100%);
+  --accent-gradient-hover: linear-gradient(180deg, #fbe6bb 0%, #f8d690 55%, #f1c46a 100%);
+  --glow-accent: 0 0 0 1px rgba(246, 206, 124, 0.4), 0 4px 16px -2px rgba(246, 206, 124, 0.32);
+}
+
+html[data-density="compact"],
+[data-density-scope="compact"] {
+  --text-md: 13px;
+  --text-lg: 15px;
+  --text-xl: 18px;
+}
+
+html[data-glow="reduced"],
+[data-glow-scope="reduced"] {
+  --glow-accent: 0 0 0 1px var(--accent-soft);
+  --glow-ai: 0 0 0 1px var(--ai-soft);
+  --canvas-glow: transparent;
+  --canvas-glow-2: transparent;
+}
+
+/* Preview resets: the preview card shows the draft even when <html> carries another saved choice. */
+[data-accent-scope="cyan"] {
+  --accent: #65d9ed;
+  --accent-strong: #8ae6f4;
+  --accent-soft: rgba(101, 217, 237, 0.14);
+  --accent-2: #65d9ed;
+  --accent-gradient: linear-gradient(180deg, #8ae6f4 0%, #65d9ed 55%, #4cc6de 100%);
+  --accent-gradient-hover: linear-gradient(180deg, #a3eef8 0%, #7ae0f1 55%, #5ccfe4 100%);
+  --glow-accent: 0 0 0 1px rgba(101, 217, 237, 0.4), 0 4px 16px -2px rgba(101, 217, 237, 0.38);
+}
+
+[data-density-scope="comfortable"] {
+  --text-md: 14px;
+  --text-lg: 16px;
+  --text-xl: 20px;
 }

@@ -1,0 +1,194 @@
+import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { explainError, type Translator } from '../../../../shared/i18n';
+import type { CloudKeyProvider } from '../../../../shared/contracts';
+import Button from '../../../ui/Button';
+import { cx } from '../../../ui/cx';
+import { NO_KEYS, type KeySource, type KeySources } from '../../../state/providerState';
+import { useUiStore } from '../../../state/uiState';
+import settingsStyles from '../SettingsPanel.module.css';
+import { fieldClass, hintClass, rowClass } from './common';
+import { keyOriginFor } from '../../../../shared/config/keyOrigin';
+
+/** Typing or pasting applies the key after this pause, not on every key. */
+const APPLY_DEBOUNCE_MS = 600;
+
+type Verdict =
+  | { kind: 'idle' }
+  | { kind: 'checking' }
+  | { kind: 'accepted'; count: number }
+  | { kind: 'rejected'; dropped: boolean }
+  | { kind: 'unchecked'; text: string };
+
+const PROVIDER_NAMES: Record<string, string> = { openai: 'OpenAI', anthropic: 'Anthropic', google: 'Google' };
+
+/** Where the key lives, for the status line under the field. */
+export function keyPlaceKey(source: KeySource, stored: boolean, inFile: boolean): string {
+  if (source === 'os' || stored) return 'settings.keyPlaceOs';
+  if (source === 'file' || inFile) return 'settings.keyPlaceFile';
+  if (source === 'session') return 'settings.keyPlaceSession';
+  return 'settings.keyPlaceNone';
+}
+
+/**
+ * Settings ▸ Assistant ▸ the chosen cloud provider's key, right under the provider choice. Every action names that
+ * provider: a key pasted here is held, checked, remembered and forgotten for it alone, and never goes to another
+ * company after a switch. Pasting applies the key and checks it at once by asking the provider for its model list;
+ * a key the provider refuses is dropped in main and the panel says so; a check that could not reach the provider
+ * keeps the key and says it was not checked. Remembering fits this computer: the OS password manager when it
+ * proved encryption, else the app folder file the person chooses knowingly. The key is never shown back.
+ */
+export default function KeyPanel({ provider, baseURL, onSession }: { provider: CloudKeyProvider; baseURL: string; onSession: (sources: KeySources) => void }) {
+  const { t } = useTranslation();
+  const translate: Translator = (key, options) => (options ? String(t(key, options)) : String(t(key)));
+  const [draft, setDraft] = useState('');
+  const [source, setSource] = useState<KeySource>('none');
+  const [canStore, setCanStore] = useState(true);
+  const openSettings = useUiStore((state) => state.openSettings);
+  const [stored, setStored] = useState(false);
+  const [inFile, setInFile] = useState(false);
+  const [verdict, setVerdict] = useState<Verdict>({ kind: 'idle' });
+  const [note, setNote] = useState('');
+  const [keyOrigin, setKeyOrigin] = useState<string | null>(null);
+  const applyTicket = useRef(0);
+  const onSessionRef = useRef(onSession);
+  onSessionRef.current = onSession;
+  const providerRef = useRef(provider);
+  providerRef.current = provider;
+
+  const refresh = async () => {
+    const asked = providerRef.current;
+    const [secret, session] = await Promise.all([window.electronAPI.secretStatus(asked), window.electronAPI.llmSessionStatus()]);
+    const sources = { ...NO_KEYS, ...(session.providers ?? {}) };
+    onSessionRef.current(sources);
+    // A switch while the answer was on its way: the newer provider's refresh is the one that shows.
+    if (asked !== providerRef.current) return;
+    setCanStore(secret.persist);
+    setStored(secret.providers?.[asked]?.stored ?? secret.stored);
+    setInFile(secret.providers?.[asked]?.inFile ?? secret.inFile);
+    setSource(sources[asked]);
+    setKeyOrigin(session.origins?.[asked] ?? null);
+  };
+
+  // Another provider is another key: the half-typed draft and the last verdict belong to the previous one.
+  useEffect(() => {
+    applyTicket.current += 1;
+    setDraft('');
+    setVerdict({ kind: 'idle' });
+    setNote('');
+    void refresh().catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [provider]);
+
+  // Paste → hold for this provider and the address shown now → ask that address for its models with that key.
+  // Editing the address later never re-sends the key: a key belongs to the address it was pasted for.
+  const baseRef = useRef(baseURL);
+  baseRef.current = baseURL;
+  useEffect(() => {
+    if (draft.length === 0) return undefined;
+    const ticket = ++applyTicket.current;
+    const target = provider;
+    const timer = setTimeout(() => {
+      void (async () => {
+        setNote('');
+        setVerdict({ kind: 'checking' });
+        const base = baseRef.current;
+        const held = await window.electronAPI.llmSetSessionKey(target, draft, base);
+        if (ticket === applyTicket.current) setSource(held.source);
+        let listed: Awaited<ReturnType<typeof window.electronAPI.llmListModels>>;
+        try {
+          listed = await window.electronAPI.llmListModels({ provider: target, baseURL: base });
+        } catch {
+          listed = { ok: false, error: 'The model list could not be read.' };
+        }
+        if (ticket !== applyTicket.current) return;
+        if (listed.ok) {
+          setVerdict({ kind: 'accepted', count: listed.models.length });
+          setDraft('');
+        } else if (listed.error === 'The provider refused the key.') {
+          setVerdict({ kind: 'rejected', dropped: listed.dropped === true });
+          if (listed.dropped) setDraft('');
+        } else {
+          setVerdict({ kind: 'unchecked', text: explainError(translate, listed.error).summary });
+        }
+        await refresh().catch(() => undefined);
+      })();
+    }, APPLY_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft]);
+
+  const remember = async () => {
+    setNote('');
+    const saved = await window.electronAPI.saveSecret(provider);
+    if (saved.status !== 'stored') setNote(String(t('settings.keyStorageBlocked')));
+    await refresh().catch(() => undefined);
+  };
+  const rememberInFile = async () => {
+    setNote('');
+    const saved = await window.electronAPI.saveSecretFile(provider);
+    if (saved.status !== 'stored') setNote(String(t('settings.keyPlaceNone')));
+    await refresh().catch(() => undefined);
+  };
+  const forget = async () => {
+    setNote('');
+    setVerdict({ kind: 'idle' });
+    await window.electronAPI.forgetSecret(provider);
+    await refresh().catch(() => undefined);
+  };
+
+  const held = source !== 'none';
+  // The held key belongs to another address than the one in the field: it is not sent there.
+  const wanted = keyOriginFor(provider, baseURL);
+  const otherAddress = held && keyOrigin !== null && wanted !== keyOrigin;
+  const remembered = source === 'os' || stored || source === 'file' || inFile;
+  const name = PROVIDER_NAMES[provider] ?? provider;
+  const verdictText = verdict.kind === 'checking' ? t('settings.keyChecking')
+    : verdict.kind === 'accepted' ? t('settings.keyAccepted', { count: verdict.count })
+      : verdict.kind === 'rejected' ? (verdict.dropped ? t('settings.keyRejectedDropped', { provider: name }) : t('settings.keyRejected'))
+        : verdict.kind === 'unchecked' ? t('settings.keyUnchecked', { reason: verdict.text }) : '';
+  return (
+    <div className={cx(settingsStyles.keyPanel, 'provider-key')} data-provider={provider}>
+      <label className={fieldClass}>
+        {t('settings.keyField', { provider: name })}
+        <input
+          type="password"
+          autoComplete="off"
+          spellCheck={false}
+          aria-label={String(t('settings.keyField', { provider: name }))}
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+        />
+      </label>
+      <p className={hintClass}>{t('settings.keyPasteHint', { provider: name })} {t('settings.appliesNow')}</p>
+      {/* Without a password store a pasted key lives until the app closes: one line here, the full account in Privacy. */}
+      {!canStore ? (
+        <p className={cx(hintClass, settingsStyles.keyStoreNote, 'key-store-note')}>
+          {t('settings.keyReason')}{' '}
+          <button type="button" className={settingsStyles.inlineLink} onClick={() => openSettings('privacy')}>{t('settings.keysWhereLink')}</button>
+        </p>
+      ) : null}
+      {verdictText ? (
+        <p className={cx(hintClass, verdict.kind === 'rejected' || verdict.kind === 'unchecked' ? settingsStyles.errorNote : undefined)} role="status">{verdictText}</p>
+      ) : null}
+      <p className={hintClass} role="status" aria-label={String(t('settings.keyField', { provider: name }))}>
+        <span className={cx(settingsStyles.placeDot, (held || remembered) && settingsStyles.placeOn)} aria-hidden="true" />
+        {t(keyPlaceKey(source, stored, inFile))}
+      </p>
+      <div className={rowClass}>
+        {held && !remembered && canStore ? <Button size="sm" onClick={() => void remember()}>{t('settings.keyRemember')}</Button> : null}
+        {held && !remembered && !canStore ? <Button size="sm" onClick={() => void rememberInFile()}>{t('settings.keyRememberFile')}</Button> : null}
+        {held || remembered ? <Button size="sm" variant="subtle" onClick={() => void forget()}>{t('settings.keyForget')}</Button> : null}
+      </div>
+      {held && !remembered && !canStore ? <p className={hintClass}>{t('settings.keyRememberFileHint')}</p> : null}
+      {remembered ? <p className={hintClass}>{t('settings.keyRemembered')}</p> : null}
+      {otherAddress ? (
+        <p className={cx(hintClass, settingsStyles.errorNote, 'key-other-address')} role="status">
+          {t('settings.keyOtherAddress', { address: keyOrigin })}
+        </p>
+      ) : null}
+      <p className={hintClass}>{t('settings.keyPrivacy')}</p>
+      {note ? <p className={settingsStyles.errorNote} role="alert">{note}</p> : null}
+    </div>
+  );
+}

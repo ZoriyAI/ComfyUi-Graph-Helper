@@ -1,0 +1,238 @@
+/* The Preferences window: min 760×520 (or the viewport), resizable from the corner within the viewport. */
+.dialog {
+  width: min(920px, calc(100vw - 48px));
+  height: min(700px, calc(100vh - 48px));
+  min-width: min(760px, calc(100vw - 32px));
+  min-height: min(520px, calc(100vh - 32px));
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 32px);
+  resize: both;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.header { flex: 0 0 auto; padding: 16px 20px 14px; border-bottom: 1px solid var(--border); }
+.heading { margin: 0; font-size: var(--text-xl); line-height: 26px; font-weight: 600; color: var(--text); }
+.lead { margin: 4px 0 0; color: var(--text-dim); font-size: var(--text-xs); line-height: 18px; }
+.layout { display: flex; flex: 1 1 auto; min-height: 0; overflow: hidden; }
+.nav {
+  /* Wide enough for the longest section name on one line in both languages. */
+  flex: 0 0 224px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+  border-right: 1px solid var(--border);
+  background: var(--surface-panel);
+}
+.nav { overflow-y: auto; }
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-sm);
+  line-height: 20px;
+  justify-content: flex-start;
+  min-height: 32px;
+  padding: 6px 10px;
+  text-align: left;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.tab > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.tabIcon { flex: 0 0 auto; color: var(--text-faint); }
+.tab[data-state="active"] .tabIcon { color: var(--accent); }
+.tab[data-state="active"] { color: var(--text); background: var(--surface-active); border-color: var(--border-strong); box-shadow: inset 2px 0 0 var(--accent); }
+.panel {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px 24px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.panel[data-state="inactive"], .panel[hidden] { display: none; }
+.panel h3 { margin: 0 0 4px; width: min(100%, var(--measure-form)); font-size: var(--text-md); line-height: 20px; font-weight: 600; color: var(--text); }
+.field { display: flex; flex-direction: column; gap: 4px; width: min(100%, var(--measure-form)); color: var(--text-dim); font-size: var(--text-md); line-height: 20px; }
+.field input {
+  width: 100%;
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  color: var(--text);
+}
+.field input:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+/* A number of a few digits gets a field of its size, like the steppers (ui/NumberField). */
+.field input.shortInput { width: 120px; font-family: var(--font-mono); text-align: right; }
+.field input[aria-invalid="true"] { border-color: var(--danger); }
+.field input:disabled {
+  border-color: var(--border);
+  background: var(--surface-panel);
+  color: var(--text-faint);
+  -webkit-text-fill-color: var(--text-faint);
+  cursor: not-allowed;
+}
+.panel :global(.field) { width: min(100%, var(--measure-form)); font-size: var(--text-md); line-height: 20px; }
+.panel :global(.select-trigger) { width: 100%; font-size: var(--text-md); line-height: 20px; }
+.hint { margin: 0; width: min(100%, var(--measure-form)); color: var(--text-dim); font-size: var(--text-xs); line-height: 18px; }
+/* A row of buttons under a field starts where the field starts; only the dialog footer puts them on the right. */
+/* A switch's help sits under the switch's label, not under the switch; each switch with its help is one block. */
+.panel :global(.switch-row) + .hint { margin-top: -4px; padding-left: 46px; }
+.panel .hint + :global(.switch-row) { margin-top: 6px; }
+.buttons { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 8px; width: min(100%, var(--measure-form)); }
+.single { align-self: flex-start; }
+.actions {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-panel);
+  box-shadow: 0 -8px 16px -12px rgba(0, 0, 0, 0.6);
+}
+.footerText { display: flex; flex-direction: column; gap: 2px; flex: 1 1 280px; min-width: 0; }
+.actions .buttons { width: auto; justify-content: flex-end; }
+/* A short window: the lead under the title and some padding give their room to the section. */
+@media (max-height: 640px) {
+  .header { padding: 10px 20px; }
+  .lead { display: none; }
+  .actions { padding: 8px 20px; }
+}
+/* Keys live only until the app closes (no password store): a warning, under the key field and in Privacy. */
+.keyStoreNote.keyStoreNote { color: var(--warn); }
+.inlineLink { padding: 0; border: 0; background: none; color: var(--accent); font: inherit; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.inlineLink:hover { color: var(--accent-strong); }
+.inlineLink:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 2px; }
+.footerButtons { flex: 0 0 auto; }
+.status { margin: 0; color: var(--text-dim); font-size: var(--text-xs); line-height: 18px; }
+.save > span { display: inline-grid; grid-template-areas: "label"; justify-items: center; }
+.save > span > span { grid-area: label; }
+.saveReserve { visibility: hidden; }
+
+/* Sections */
+.sectionHead { display: flex; flex-direction: column; gap: 2px; width: min(100%, var(--measure-form)); margin-bottom: 4px; }
+.sectionHead h3 { margin: 0; font-size: var(--text-lg); line-height: 24px; }
+/* Inside the dialog (raised) a group is one step lighter, like every layer above the one it sits on. */
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(100%, var(--measure-form));
+  margin-top: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface-overlay);
+  box-shadow: var(--highlight-top);
+}
+.groupTitle { margin: 0; color: var(--text); font-size: var(--text-sm); line-height: 18px; font-weight: 600; letter-spacing: 0.01em; }
+.rowStart { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 8px 12px; width: min(100%, var(--measure-form)); }
+.good { color: var(--ok); }
+.bad { color: var(--danger); }
+.warn { color: var(--warn); }
+
+/* Assistant */
+.keyBadge { gap: 6px; }
+.keyDot { display: inline-block; width: 7px; height: 7px; margin-right: 4px; border-radius: 50%; background: var(--text-faint); vertical-align: middle; }
+.key-ok { background: var(--ok); }
+/* A key held for this session works (mint) but is not saved: a ring, not a filled dot. Cyan stays for actions. */
+.key-session { background: transparent; box-shadow: inset 0 0 0 1.5px var(--ok); }
+.key-missing { background: var(--warn); }
+.key-test { background: var(--ai); }
+.suggestions { display: flex; flex-direction: column; gap: 6px; width: min(100%, var(--measure-form)); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  min-height: 26px;
+  padding: 2px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface-sunken);
+  color: var(--text-mono);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+.chip:hover { border-color: var(--border-strong); background: var(--surface-hover); }
+.chip:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.chipOn { border-color: var(--accent); color: var(--text); background: var(--accent-soft); }
+
+/* Tables (secrets, shortcuts) */
+.table { width: min(100%, var(--measure-form)); border-collapse: separate; border-spacing: 0; font-size: var(--text-sm); line-height: 18px; }
+.caption { caption-side: top; text-align: left; padding: 8px 0 6px; color: var(--text); font-weight: 600; font-size: var(--text-sm); }
+.table th, .table td { padding: 7px 10px; border-bottom: 1px solid var(--border-subtle); text-align: left; vertical-align: middle; }
+.table thead th { color: var(--text-dim); font-weight: 500; font-size: var(--text-xs); }
+.table tbody th { color: var(--text); font-weight: 500; }
+.table td { color: var(--text-dim); }
+.table tbody tr:hover { background: var(--surface-hover); }
+.placeDot { display: inline-block; width: 8px; height: 8px; margin-right: 8px; border-radius: 50%; background: var(--text-faint); }
+.placeOn { background: var(--ok); }
+/* Fixed columns, the same in every group: the label takes what the chord and the three buttons leave. */
+.shortcutTable { width: min(100%, var(--measure-form)); table-layout: fixed; }
+.chordCol { width: 168px; }
+.actionsCol { width: 156px; }
+.shortcutTable tbody th { overflow-wrap: break-word; }
+.chordCell { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 34px; }
+.chord { display: inline-flex; }
+.none { color: var(--text-faint); font-style: italic; }
+.defaultNote { color: var(--text-faint); font-size: var(--text-xs); }
+.recording { color: var(--accent); font-weight: 600; }
+.actionsCell { white-space: nowrap; text-align: right; }
+.actionsCell > * { vertical-align: middle; }
+.actionsCell > * + * { margin-left: 4px; }
+.conflictRow th, .conflictRow td { background: var(--warn-soft); }
+/* A conflict names the other command: it takes its own line in the cell and wraps, never cut. */
+.conflictBadge.conflictBadge { flex-basis: 100%; max-width: 100%; height: auto; min-height: 20px; padding: 2px 7px; white-space: normal; overflow: visible; line-height: 16px; }
+.defaultNote { flex-basis: 100%; }
+
+/* Appearance */
+.swatch { display: inline-block; width: 14px; height: 14px; border-radius: 4px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2); }
+.swatch-cyan { background: #65d9ed; }
+.swatch-violet { background: #b7a5ff; }
+.swatch-mint { background: #82ddb3; }
+.swatch-amber { background: #f6ce7c; }
+.previewBlock { display: flex; flex-direction: column; gap: 6px; width: min(100%, var(--measure-form)); }
+.preview { border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--surface-canvas); overflow: hidden; }
+.previewInner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px;
+  background: radial-gradient(circle at 20% 20%, var(--canvas-glow), transparent 60%), radial-gradient(var(--canvas-dot) 1px, transparent 1px) 0 0 / 18px 18px;
+}
+.previewNode {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  box-shadow: var(--glow-accent);
+}
+.previewTitle { color: var(--text); font-size: var(--text-md); font-weight: 600; }
+.previewText { color: var(--text-dim); font-size: var(--text-xs); }
+.previewPorts { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+.previewPort { width: 10px; height: 10px; border-radius: 50%; background: var(--type-latent); box-shadow: 0 0 6px var(--type-latent); }
+.previewLine { flex: 1 1 60px; height: 2px; background: var(--accent); border-radius: 2px; }
+
+/* Privacy, About */
+.facts { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; color: var(--text-dim); font-size: var(--text-sm); line-height: 19px; }
+.factOn::marker { color: var(--ok); }
+.factOff::marker { color: var(--danger); }
+.explain { background: var(--surface-overlay); }
+.stateLine { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: min(100%, var(--measure-form)); }
+/* A field value the app will refuse later (an http MCP URL off this machine): said while it is typed. */
+.errorNote { margin: 0; color: var(--danger); font-size: var(--text-xs); line-height: 18px; width: min(100%, var(--measure-form)); }
+
+/* Settings ▸ Assistant ▸ the provider's key, right under the provider cards. */
+.keyPanel { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 10px; padding: 12px 14px; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--surface-overlay); box-shadow: var(--highlight-top); }

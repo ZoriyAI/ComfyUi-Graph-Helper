@@ -28,6 +28,7 @@ const INPUTS: Record<string, PortDefinition[]> = {
 const OUTPUTS: Record<string, PortDefinition[]> = {
   LoadImage: [{ id: 'out-0', name: 'IMAGE', dataType: 'IMAGE', optional: false }],
   KSampler: [{ id: 'out-0', name: 'LATENT', dataType: 'LATENT', optional: false }],
+  EmptyLatentImage: [{ id: 'out-0', name: 'LATENT', dataType: 'LATENT', optional: false }],
   VAEDecode: [{ id: 'out-0', name: 'IMAGE', dataType: 'IMAGE', optional: false }],
   CLIPTextEncode: [{ id: 'out-0', name: 'CONDITIONING', dataType: 'CONDITIONING', optional: false }],
   CheckpointLoaderSimple: [
@@ -36,6 +37,11 @@ const OUTPUTS: Record<string, PortDefinition[]> = {
     { id: 'out-2', name: 'VAE', dataType: 'VAE', optional: false },
   ],
 };
+
+/** True when the app ships the ports of this class itself (the core seed classes), synced or not. */
+export function hasBuiltinPorts(nodeType: string): boolean {
+  return Object.prototype.hasOwnProperty.call(INPUTS, nodeType) || Object.prototype.hasOwnProperty.call(OUTPUTS, nodeType);
+}
 
 export function inferInputs(nodeType: string): PortDefinition[] {
   return INPUTS[nodeType] || [];

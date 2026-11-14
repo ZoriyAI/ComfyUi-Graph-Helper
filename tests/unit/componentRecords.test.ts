@@ -4,7 +4,7 @@ import path from 'path';
 import Database from 'better-sqlite3';
 import { describe, expect, it } from 'vitest';
 import { commitCommand, ensureWorkspace, readProjection } from '../../src/main/commands/commit';
-import { migrate, schemaVersion } from '../../src/main/settings/migrate';
+import { migrate, schemaVersion, SCHEMA_VERSION } from '../../src/main/settings/migrate';
 import { mutationFromTool } from '../../src/shared/commands/tools';
 import { listSubgraphDefinitions } from '../../src/shared/components/model';
 import { DESKTOP_PROJECT_ID } from '../../src/shared/project';
@@ -168,7 +168,7 @@ describe('component records and native projects', () => {
       graph: { nodes: snapshot.nodes, edges: snapshot.edges, document: snapshot.document },
       components: snapshot.components!,
     });
-    expect(native).toMatchObject({ format: 'comfy-graph-helper-project', version: 1 });
+    expect(native).toMatchObject({ format: 'comfy-graph-helper-project', version: 2 });
     expect(JSON.stringify(native)).toContain(PURPOSE);
     expect(JSON.stringify(native)).toContain(PROCESS_NOTES);
 
@@ -208,8 +208,8 @@ describe('component records and native projects', () => {
     expect(opened.result).toMatchObject({ upgradedFrom: 0, orphans: [] });
     expect((current(db).snapshot as GraphSnapshot).nodes).toHaveLength(1);
 
-    const future = parseNativeProject({ ...native, version: 2 });
-    expect(future).toEqual({ ok: false, error: 'Unsupported native project version 2.' });
+    const future = parseNativeProject({ ...native, version: 3 });
+    expect(future).toEqual({ ok: false, error: 'Unsupported native project version 3.' });
     const duplicate = parseNativeProject({
       ...native,
       components: [...(native.components as unknown[]), (native.components as unknown[])[0]],
@@ -257,7 +257,7 @@ describe('component records and native projects', () => {
       VALUES ('rev-1', 'desktop', 1, '[{"id":"7","type":"comfy","position":{"x":1,"y":2},"data":{"comfyType":"LoadImage"}}]', '[]', NULL, 'Initial', 'system', 1, '{}');
     `);
     migrate(db);
-    expect(schemaVersion(db)).toBe(7);
+    expect(schemaVersion(db)).toBe(SCHEMA_VERSION);
     const columns = db.prepare('PRAGMA table_info(graph_revisions)').all() as Array<{ name: string }>;
     expect(columns.map((column) => column.name)).toContain('components');
     const snapshot = current(db).snapshot as GraphSnapshot;
@@ -265,8 +265,8 @@ describe('component records and native projects', () => {
     expect(snapshot.components).toEqual([
       { id: 'component:node:7', ownerKind: 'node', ownerId: '7', purpose: '', usage: '' },
     ]);
-    db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (8, 1)').run();
-    expect(() => migrate(db)).toThrow(/Unsupported schema version 8/);
+    db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (?, 1)').run(SCHEMA_VERSION + 1);
+    expect(() => migrate(db)).toThrow(new RegExp(`Unsupported schema version ${SCHEMA_VERSION + 1}`));
     db.close();
   });
 

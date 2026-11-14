@@ -1,0 +1,9 @@
+# Files that stay in the private working copy: `git archive` (and scripts/make-public-snapshot.sh, which uses it)
+# leaves them out of a public copy.
+docs/TODO-world-release.md export-ignore
+# Working notes of the team: design briefs, decision records, research and the status table. They describe how the
+# work was done, not how the app is used, and stay out of a public copy.
+docs/design/** export-ignore
+docs/decisions/** export-ignore
+docs/research/** export-ignore
+STATUS.md export-ignore

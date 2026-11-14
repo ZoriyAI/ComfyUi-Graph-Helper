@@ -1,0 +1,58 @@
+/* Sits under the floating canvas toolbar (top-center Panel), so both stay readable. */
+.panel { margin-top: 64px; max-width: min(720px, calc(100% - 32px)); }
+.strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 4px 6px 4px 12px;
+  border-radius: var(--radius-xl, 12px);
+  border: 1px solid color-mix(in srgb, var(--ai, #b7a5ff) 55%, var(--border, #2a3648));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--ai, #b7a5ff) 12%, var(--surface-raised, #182131)), var(--surface-raised, #182131));
+  box-shadow: var(--glow-ai, 0 0 0 1px rgba(183, 165, 255, 0.4)), 0 10px 24px -10px rgba(0, 0, 0, 0.6);
+  color: var(--text, #e8eef7);
+  font-size: var(--text-sm, 13px);
+}
+.dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ai, #b7a5ff);
+  animation: breathe calc(var(--motion-pulse, 1200ms)) ease-in-out infinite;
+}
+.dot[data-paused="true"] { background: var(--warn, #f6ce7c); animation: none; }
+.text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.why { color: var(--text-dim, #a3b1c6); }
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex: none;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 6px;
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--border, #2a3648);
+  background: var(--surface, #111824);
+  color: var(--text, #e8eef7);
+  font: inherit;
+  cursor: pointer;
+}
+.button:hover { background: var(--surface-hover, #243247); }
+.button:focus-visible { outline: none; box-shadow: var(--focus-ring, 0 0 0 2px #b7a5ff); }
+.wide { padding: 0 10px; }
+/* A narrow canvas: the step counter stays whole; the reason is in the bubble by the node, the button keeps its icon. */
+@container canvas (max-width: 600px) {
+  .why { display: none; }
+  .wide > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .wide { padding: 0 6px; }
+}
+@keyframes breathe { 0%, 100% { opacity: 0.45; } 50% { opacity: 1; } }
+:global(html[data-motion="off"]) .dot,
+:global(html[data-motion="reduced"]) .dot { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  :global(html[data-motion="system"]) .dot,
+  :global(html:not([data-motion])) .dot { animation: none; }
+}

@@ -23,7 +23,8 @@ function fail(message) {
 }
 
 async function main() {
-  const bundle = path.join(root, 'out', `${pkg.name}-linux-x64`);
+  // The packager names the folder after productName; the executable keeps the package name (forge.config.js).
+  const bundle = path.join(root, 'out', `${pkg.productName || pkg.name}-linux-x64`);
   const exe = path.join(bundle, pkg.name);
   if (!fs.existsSync(exe)) fail(`PACKAGED_EXECUTABLE_MISSING ${exe}`);
 
@@ -43,6 +44,22 @@ async function main() {
   }
   if (!database.includes('./settings/migrate')) fail('PACKAGED_MAIN_DATABASE');
   if (main.includes('setUsePlainTextEncryption')) fail('PACKAGED_PLAINTEXT_KEY');
+
+  // Ship only what runs (forge.config.js ignore): no docs, maps, typings, tests or other platforms' binaries.
+  const files = asar.listPackage(asarPath);
+  const stray = files.filter((file) => (/\.(md|map|d\.ts)$/i.test(file) && !file.startsWith('/dist/help/')) || /^\/(src|tests|docs|scripts|\.github)(\/|$)/.test(file)
+    || /^\/(README|STATUS|LICENSE)/.test(file));
+  if (stray.length > 0) fail(`PACKAGED_STRAY_FILES ${stray.slice(0, 10).join(' ')}`);
+  for (const needed of ['/dist/notices/third-party.json', '/dist/notices/LICENSE.txt', '/dist/help/guide.ru.md', '/dist/help/troubleshooting.en.md', '/dist/help/whatsnew.md', '/resources/icon.png']) {
+    if (!files.includes(needed)) fail(`PACKAGED_MISSING ${needed}`);
+  }
+  const foreign = unpackedNodes.filter((file) => !file.endsWith(`${path.sep}linux-x64.node`));
+  if (foreign.length > 0) fail(`PACKAGED_FOREIGN_NATIVE ${foreign.map((file) => path.basename(file)).join(' ')}`);
+  // The deb's copyright file is made from the bundle's LICENSE: the app's licence, then the notices.
+  const bundleLicence = fs.readFileSync(path.join(bundle, 'LICENSE'), 'utf8');
+  if (!bundleLicence.startsWith('Graph Helper for ComfyUI') || !bundleLicence.includes('Copyright (c) 2026 ZoriyAI') || !bundleLicence.includes('electron ')) {
+    fail('PACKAGED_LICENCE');
+  }
 
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'linux-package-smoke-'));
   const env = { ...process.env };

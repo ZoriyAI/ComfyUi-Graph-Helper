@@ -9,6 +9,6 @@ export default defineConfig({
   },
   reporter: [
     ['list'],
-    ['json', { outputFile: '/opt/cursor/artifacts/e2e-tests.json' }],
+    ['json', { outputFile: 'test-results/e2e-tests.json' }],
   ],
 });

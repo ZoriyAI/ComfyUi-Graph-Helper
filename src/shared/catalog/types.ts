@@ -8,6 +8,32 @@ export interface CatalogInput {
   name: string;
   type: string;
   widget: boolean;
+  /** From the object_info group: true under input.required, false under input.optional. */
+  required?: boolean;
+  /**
+   * The value a fresh ComfyUI_frontend widget starts with (see objectInfo.ts widgetDefault). Only on widget inputs;
+   * absent when no default is known (opaque widgets, a combo with no options).
+   */
+  default?: unknown;
+  /** Combo choices, in object_info order. Only on combo widgets. */
+  options?: string[];
+  /** Start value of the `<name>::control_after_generate` slot, when the widget has one. */
+  controlDefault?: string;
+  /**
+   * The frontend widget constructor when object_info names one other than `type` (`widgetType`), e.g. a STRING
+   * socket drawn as a COMBO. Absent when it is `type` itself.
+   */
+  widgetType?: string;
+  /** Number range and step from the INT/FLOAT options; only on number widgets, only when object_info gives them. */
+  min?: number;
+  max?: number;
+  step?: number;
+  /** A STRING widget drawn as a multi-line text box (prompts). */
+  multiline?: boolean;
+  /** A combo that takes several choices at once (`multi_select`). */
+  multiSelect?: boolean;
+  /** object_info `tooltip`: the node author's one-line help for this input. Kept on sockets too. */
+  tooltip?: string;
 }
 
 export interface CatalogOutput {
@@ -19,6 +45,12 @@ export interface CatalogNode {
   classType: string;
   pack: string;
   pythonModule: string;
+  /** Frontend display name and category as the server reports them. Empty when unknown. */
+  displayName?: string;
+  category?: string;
+  /** object_info description and output_node. */
+  description?: string;
+  outputNode?: boolean;
   inputs: CatalogInput[];
   outputs: CatalogOutput[];
   /** widgets_values slot names. Empty when widgetOrderReliable is false. */
@@ -30,8 +62,15 @@ export interface CatalogNode {
   widgetOrderReliable?: boolean;
 }
 
+export interface CatalogModel {
+  directory: string;
+  name: string;
+  /** File size when the MCP server reported one. */
+  sizeBytes?: number | null;
+}
+
 export interface CatalogView {
   nodeTypes: string[];
-  models: Array<{ directory: string; name: string }>;
+  models: CatalogModel[];
   nodes: CatalogNode[];
 }

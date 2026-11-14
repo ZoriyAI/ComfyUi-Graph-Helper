@@ -1,0 +1,28 @@
+.content {
+  z-index: 75;
+  width: 320px;
+  max-width: calc(100vw - 24px);
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-overlay);
+  box-shadow: var(--elev-3);
+  color: var(--text);
+  font-size: var(--text-sm);
+  line-height: 18px;
+  opacity: 1;
+}
+/* Radix reports the room between the trigger and the window edge; 26px is the box's own padding and border. */
+.scroll {
+  max-height: calc(var(--radix-popover-content-available-height, 100vh) - 26px);
+  /* A little room around, so a focus ring at the edge is not cut by the scroll box. */
+  margin: -4px;
+  padding: 4px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+.content[data-state="open"] { animation: popIn var(--motion-enter) var(--motion-ease-out); }
+.content:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.arrow { fill: var(--surface-overlay); }
+@keyframes popIn { from { opacity: 0; transform: translateY(calc(var(--motion-shift) * -0.5)); } to { opacity: 1; transform: none; } }
+:global(html[data-motion="off"]) .content[data-state="open"] { animation: none; }

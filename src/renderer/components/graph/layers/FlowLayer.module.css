@@ -1,0 +1,3 @@
+.pulses { pointer-events: none; }
+.pulse { filter: drop-shadow(0 0 4px var(--canvas-pulse-color)); }
+.static { pointer-events: none; filter: drop-shadow(0 0 3px currentColor); }

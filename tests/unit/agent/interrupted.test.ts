@@ -1,0 +1,54 @@
+import Database from 'better-sqlite3';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { closeInterruptedRuns } from '../../../src/main/agent/interrupted';
+import { createBuildTools, nodeTitleAt } from '../../../src/main/agent/buildTools';
+import { loadChatHistory } from '../../../src/main/agent/chatHistory';
+import { ensureWorkspace, pauseRun, readProjection, startRun } from '../../../src/main/commands/commit';
+import { migrate } from '../../../src/main/settings/migrate';
+import { BUILD_TOOL_SPECS } from '../../../src/shared/commands/toolSpecs';
+import { DESKTOP_PROJECT_ID as P } from '../../../src/shared/project';
+
+function openDb(): Database.Database {
+  const db = new Database(':memory:');
+  migrate(db);
+  ensureWorkspace(db);
+  return db;
+}
+
+describe('a run cut off by closing the app', () => {
+  beforeEach(() => { vi.spyOn(console, 'log').mockImplementation(() => undefined); });
+  afterEach(() => { vi.restoreAllMocks(); });
+
+  it('is closed at the next start with one line in the chat; a run that changed nothing leaves none', async () => {
+    const db = openDb();
+    const quiet = startRun(db, P);
+    expect(closeInterruptedRuns(db, 'ru')).toBe(0);
+    expect(loadChatHistory(db, P)).toHaveLength(0);
+    expect(quiet.runId).toBeTruthy();
+
+    const run = startRun(db, P);
+    const tools = createBuildTools(BUILD_TOOL_SPECS, { db, run: { projectId: P, runId: run.runId, expectedRevisionId: run.expectedRevisionId } });
+    await tools.addNode.execute({ nodeType: 'CheckpointLoaderSimple' }, { toolCallId: 'a' });
+    await tools.addNode.execute({ nodeType: 'KSampler' }, { toolCallId: 'b' });
+    pauseRun(db, P, run.runId);
+    expect(closeInterruptedRuns(db, 'ru', 1000)).toBe(1);
+    const lines = loadChatHistory(db, P);
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toMatchObject({ role: 'assistant', timestamp: 1000 });
+    expect(lines[0].content).toContain('приложение закрылось');
+    expect(lines[0].content).toContain('нод: 2');
+    expect(readProjection(db, P)!.activeRun).toBeNull();
+  });
+
+  it('a step keeps the name its node had, so the card never renames itself', async () => {
+    const db = openDb();
+    const run = startRun(db, P);
+    const tools = createBuildTools(BUILD_TOOL_SPECS, { db, run: { projectId: P, runId: run.runId, expectedRevisionId: run.expectedRevisionId } });
+    const loader = await tools.addNode.execute({ nodeType: 'CheckpointLoaderSimple', title: 'Загрузчик' }, { toolCallId: 'a' }) as Record<string, unknown>;
+    const sampler = await tools.addNode.execute({ nodeType: 'KSampler' }, { toolCallId: 'b' }) as Record<string, unknown>;
+    expect(loader.nodeTitle).toBe('Загрузчик');
+    const link = await tools.connectNodes.execute({ sourceNodeId: loader.nodeId, sourceHandle: 'out-0', targetNodeId: sampler.nodeId, targetHandle: 'in-0' }, { toolCallId: 'c' }) as Record<string, unknown>;
+    expect(link).toMatchObject({ sourceTitle: 'Загрузчик', targetTitle: expect.any(String) });
+    expect(nodeTitleAt(null, '1')).toBeUndefined();
+  });
+});

@@ -10,9 +10,10 @@ import {
   moveAnnouncement,
   redactDiagnostic,
   ru,
+  translateKnownError,
 } from '../../src/shared/i18n';
 import { nonSecretDefaults } from '../../src/shared/config/schema';
-import { migrate, schemaVersion } from '../../src/main/settings/migrate';
+import { migrate, schemaVersion, SCHEMA_VERSION } from '../../src/main/settings/migrate';
 import { readSettings, saveSettings } from '../../src/main/settings/repository';
 
 function leaf(catalog: unknown, key: string): string {
@@ -25,13 +26,24 @@ function leaf(catalog: unknown, key: string): string {
 }
 
 const ASCII_RU = new Set([
-  'ComfyUI Graph Builder',
+  'Graph Helper for ComfyUI',
   'English',
+  // Provider names are product names and read the same in both languages.
   'OpenAI',
+  'Anthropic',
+  'Google Gemini',
   'TEST',
   'API',
   'JSON',
   'URL',
+  // Base-model family names (knowledge.family.*) are product names and stay Latin in Russian.
+  'SD 1.5', 'SD 2.x', 'SDXL', 'Pony', 'Illustrious', 'SD 3', 'Flux.1', 'Flux.2', 'Chroma', 'Qwen-Image', 'Wan 2.1',
+  'Wan 2.2', 'LTX-2', 'HunyuanVideo', 'Z-Image', 'Krea 2', 'Kolors', 'PixArt', 'AuraFlow', 'Stable Cascade',
+  // Model kind chips in the library (library.kindGroup.*) and the short kind names in list rows
+  // (knowledge.kindShort.*): the names people meet on Civitai and in ComfyUI.
+  'LoRA', 'VAE', 'ControlNet', 'CLIP', 'CLIP Vision', 'IP-Adapter',
+  // The two sites a model card can look a file up on (library.card.web.*).
+  'Civitai', 'Hugging Face',
 ]);
 
 describe('locale catalog', () => {
@@ -63,11 +75,11 @@ describe('locale catalog', () => {
     expect(english('status.nodes', { count: 1 })).toBe('1 node');
     expect(english('status.nodes', { count: 12 })).toBe('12 nodes');
     expect(english('status.nodes', { count: 1280 })).toBe('1,280 nodes');
-    expect(russian('status.nodes', { count: 1 })).toBe('1 узел');
-    expect(russian('status.nodes', { count: 2 })).toBe('2 узла');
-    expect(russian('status.nodes', { count: 5 })).toBe('5 узлов');
-    expect(russian('status.nodes', { count: 21 })).toBe('21 узел');
-    expect(russian('status.nodes', { count: 1280 }).replace(/\s/g, ' ')).toBe('1 280 узлов');
+    expect(russian('status.nodes', { count: 1 })).toBe('1 нода');
+    expect(russian('status.nodes', { count: 2 })).toBe('2 ноды');
+    expect(russian('status.nodes', { count: 5 })).toBe('5 нод');
+    expect(russian('status.nodes', { count: 21 })).toBe('21 нода');
+    expect(russian('status.nodes', { count: 1280 }).replace(/\s/g, ' ')).toBe('1 280 нод');
     expect(english('status.zoom', { percent: 100 })).toBe('Zoom 100%');
     expect(russian('status.zoom', { percent: 100 })).toBe('Масштаб 100%');
     expect(formatClock(Date.UTC(2026, 0, 2, 15, 4), 'en', 'UTC')).toMatch(/3:04/);
@@ -91,10 +103,10 @@ describe('locale catalog', () => {
     const english = createTranslator('en');
     const russian = createTranslator('ru');
     expect(explainError(english, 'Settings cannot store a secret')).toEqual({
-      summary: 'Settings cannot store a secret',
+      summary: 'Settings cannot hold a key or a password. Remove it from the field.',
       diagnostic: null,
     });
-    expect(explainError(russian, 'Settings do not match the schema').summary).toBe('Настройки не соответствуют схеме');
+    expect(explainError(russian, 'Settings do not match the schema').summary).toBe('Проверьте выделенные поля: без них настройки не сохранятся.');
     expect(explainError(russian, 'Catalog snapshot is not object_info.').diagnostic).toBeNull();
     const unknown = explainError(russian, "Error: Incorrect API key provided: 'sk-abcDEF123'.");
     expect(unknown.summary).toBe('Приложение не смогло выполнить этот шаг.');
@@ -122,8 +134,8 @@ describe('locale catalog', () => {
 
   it('localizes file dialog copy without changing the English filter names', () => {
     expect(fileDialogCopy('en').importWorkflow).toMatchObject({
-      title: 'Import a workflow',
-      buttonLabel: 'Import',
+      title: 'Open a workflow',
+      buttonLabel: 'Open',
       filter: 'ComfyUI Workflow',
     });
     expect(fileDialogCopy('en').importCatalog.filter).toBe('ComfyUI object_info');
@@ -161,7 +173,7 @@ describe('language preference', () => {
       VALUES (1, 'graphite', 'reduced', 'test', 'kept-model', 'http://127.0.0.1:8188', 'https://example.test/v1', 9);
     `);
     migrate(db);
-    expect(schemaVersion(db)).toBe(7);
+    expect(schemaVersion(db)).toBe(SCHEMA_VERSION);
     expect(readSettings(db)).toMatchObject({
       source: 'stored',
       values: {
@@ -188,5 +200,17 @@ describe('language preference', () => {
     expect(rejected).toEqual({ ok: false, error: 'Settings do not match the schema' });
     expect(readSettings(db)).toMatchObject({ source: 'stored', values: { language: 'en' } });
     db.close();
+  });
+});
+
+describe('unavailable tool errors', () => {
+  it('turns the SDK NoSuchToolError text into a catalog sentence that names the mode', () => {
+    const raw = "AI_NoSuchToolError: Model tried to call unavailable tool 'addNode'. Available tools: getGraph, searchNodeTypes.";
+    expect(translateKnownError(createTranslator('en'), raw)).toBe(
+      'The assistant tried to change the graph, but the chat is in Ask mode. Switch to Build and ask again; nothing was changed.',
+    );
+    expect(translateKnownError(createTranslator('ru'), raw)).toContain('«Строить»');
+    expect(translateKnownError(createTranslator('en'), "Model tried to call unavailable tool 'mystery'. Available tools: x."))
+      .toBe('The assistant asked for a tool that is not available here. Nothing was changed. Try asking in other words.');
   });
 });

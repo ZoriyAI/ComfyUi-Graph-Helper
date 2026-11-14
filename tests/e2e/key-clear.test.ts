@@ -45,19 +45,29 @@ test('blocked secret IPC leaves the disabled key controls empty and the marker o
   const window = await app.firstWindow();
   await useEnglish(window);
   await window.getByRole('button', { name: 'Settings', exact: true }).click();
-  const input = window.locator('input[aria-label="API key"]');
-  await expect(input).toBeDisabled();
-  await expect(window.getByRole('button', { name: 'Save key' })).toBeDisabled();
-  const keyReason = 'Key storage is not available. The key is not written. Cancel does not store a key.';
-  await expect(window.getByRole('tabpanel', { name: 'Connection' }).getByText(keyReason)).toBeVisible();
-  await expect(window.getByRole('contentinfo').getByText(keyReason)).toBeVisible();
+  // The key lives under the provider choice in Assistant; without a password store nothing can be remembered.
+  const dialog = window.locator('[role="dialog"].settings-dialog');
+  await dialog.getByRole('tab', { name: 'Assistant' }).click();
+  await dialog.getByRole('radio', { name: 'OpenAI', exact: true }).click();
+  const input = dialog.getByRole('textbox', { name: 'OpenAI key', exact: true });
+  await expect(input).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Remember on this computer' })).toHaveCount(0);
+  const keyReason = 'The system password store is not available on this computer, so keys live only until the app closes.';
+  // The note stands under the key field (with a link to Privacy) and in Privacy, never in the dialog's footer.
+  const shownNote = dialog.locator('.key-store-note', { hasText: keyReason }).locator('visible=true');
+  await expect(shownNote).toHaveCount(1);
+  await expect(window.getByRole('contentinfo').getByText(keyReason)).toHaveCount(0);
+  await dialog.getByRole('tab', { name: /^Appearance/ }).click();
+  await expect(shownNote).toHaveCount(0);
+  await dialog.getByRole('tab', { name: 'Privacy' }).click();
+  await expect(shownNote).toHaveCount(1);
+  await dialog.getByRole('tab', { name: 'Assistant' }).click();
   const result = await window.evaluate(async (marker) => {
-    const bridge = (window as unknown as { electronAPI: { saveSecret: (value: string) => Promise<{ status: string }> } }).electronAPI;
-    return bridge.saveSecret(marker);
+    const bridge = (window as unknown as { electronAPI: { saveSecret: (provider: string, value: string) => Promise<{ status: string }> } }).electronAPI;
+    return bridge.saveSecret('openai', marker);
   }, FAKE_MARKER);
   expect(result).toEqual({ status: 'secret-storage-blocked' });
   expect(await input.inputValue()).toBe('');
-  expect(await input.isDisabled()).toBe(true);
   console.log('IPC_DONE status=secret-storage-blocked field_disabled=true');
   scanSqlite(userData, 'AFTER_IPC');
   await app.close();

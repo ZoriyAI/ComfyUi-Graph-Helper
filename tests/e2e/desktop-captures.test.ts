@@ -5,8 +5,9 @@ import * as path from 'path';
 import { denseWorkflow, hundredNodeWorkflow } from './fixtures/denseWorkflow';
 import { useEnglish } from './locale';
 import { attachRuntimeWatch, finishRuntime, logLocalFont, readLocalFont } from './runtimeWatch';
+import { ARTIFACT_DIR } from './artifacts';
 
-const artifactDir = '/opt/cursor/artifacts';
+const artifactDir = ARTIFACT_DIR;
 
 function asRgb(color: string): string {
   const hex = color.trim().match(/^#([0-9a-f]{6})$/i);
@@ -111,8 +112,10 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
     await window.setViewportSize({ width, height });
     const metrics = await window.evaluate(() => {
       const styles = getComputedStyle(document.documentElement);
-      const title = document.querySelector('.app-title');
-      const note = document.querySelector('.provider-chip');
+      // The menu bar's own text (a menu title) on the bar surface.
+      const title = document.querySelector('.document-bar [role="menuitem"]');
+      // Muted text on the bar: the sync state at its right end.
+      const note = document.querySelector('.sync-indicator');
       const disabled = document.querySelector('.ghost-button:disabled');
       const read = (element: Element | null) => element ? getComputedStyle(element).color : '';
       const undo = document.querySelector('button[disabled]');
@@ -149,9 +152,12 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
     if (width === 1024) {
       const canvas = await window.locator('.graph-pane').evaluate((element) => Math.round(element.getBoundingClientRect().width));
       const dock = await window.locator('.dock').evaluate((element) => Math.round(element.getBoundingClientRect().width));
-      console.log(`CANVAS_1024 ${canvas} dock=${dock}`);
+      const rail = await window.locator('.rail').evaluate((element) => Math.round(element.getBoundingClientRect().width));
+      console.log(`CANVAS_1024 ${canvas} dock=${dock} rail=${rail}`);
       expect(dock).toBe(336);
-      expect(canvas).toBe(688);
+      // Below 1440 the library rail is an icon strip (48px) beside the canvas.
+      expect(rail).toBe(48);
+      expect(canvas).toBe(1024 - 336 - rail);
       const toolbar = await window.locator('.workspace-toolbar').evaluate((element) => {
         const trigger = element.querySelector('#chat-provider');
         const value = trigger?.querySelector('span');
@@ -167,10 +173,10 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
       });
       console.log(`TOOLBAR_1024 overflow=${toolbar.overflow} height=${toolbar.height} lines=${toolbar.lines} valueHeight=${toolbar.valueHeight} label=${toolbar.label}`);
       expect(toolbar.overflow).toBe(0);
-      expect(toolbar.height).toBe(40);
+      expect(toolbar.height).toBe(36);
       expect(toolbar.lines).toBe(1);
       expect(toolbar.valueHeight).toBeLessThanOrEqual(20);
-      expect(toolbar.label).toBe('Not configured');
+      expect(toolbar.label).toBe('Assistant: not chosen');
     }
     await window.screenshot({ path: path.join(artifactDir, `desktop-${name}-empty.png`) });
     const showBoth = window.getByRole('button', { name: 'Show both' });
@@ -223,7 +229,7 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
   await expect(window.getByRole('region', { name: 'Inspector' })).toContainText('CheckpointLoaderSimple');
   const zoom1024 = await expectSettledGraph(window);
   await window.screenshot({ path: path.join(artifactDir, 'desktop-1024-graph.png') });
-  const importButton = window.getByRole('button', { name: 'Import' });
+  const importButton = window.getByRole('button', { name: 'Open workflow…', exact: true });
   await importButton.hover();
   await expect.poll(async () => importButton.evaluate((element) => {
     const token = getComputedStyle(document.documentElement).getPropertyValue('--bg-hover').trim();
@@ -264,14 +270,15 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
     toolbarOverflow: document.querySelector('.workspace-toolbar')!.scrollWidth - document.querySelector('.workspace-toolbar')!.clientWidth,
     canvas: Math.round(document.querySelector('.graph-pane')!.getBoundingClientRect().width),
     dock: Math.round(document.querySelector('.dock')!.getBoundingClientRect().width),
+    rail: Math.round(document.querySelector('.rail')!.getBoundingClientRect().width),
   }));
   console.log(`RESIZE_1440 from=1024 zoom=${zoom1440.toFixed(4)} ${JSON.stringify(resized)}`);
-  expect(resized.bar).toBe(48);
-  expect(resized.toolbar).toBe(40);
+  expect(resized.bar).toBe(32);
+  expect(resized.toolbar).toBe(36);
   expect(resized.toolbarOverflow).toBe(0);
   expect(resized.dock).toBe(336);
-  expect(resized.canvas).toBeGreaterThanOrEqual(1440 - resized.dock);
-  expect(resized.canvas).toBeLessThanOrEqual(1440 - resized.dock + 2);
+  expect(resized.canvas).toBeGreaterThanOrEqual(1440 - resized.dock - resized.rail);
+  expect(resized.canvas).toBeLessThanOrEqual(1440 - resized.dock - resized.rail + 2);
   await window.setViewportSize({ width: 1280, height: 800 });
   await window.locator('.react-flow__controls-fitview').click();
   const zoom1280 = await expectSettledGraph(window);
@@ -290,9 +297,17 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
   await window.screenshot({ path: path.join(artifactDir, 'desktop-1280-inspector.png') });
   await window.getByRole('button', { name: 'Settings', exact: true }).click();
   const contrastDialog = window.locator('[role="dialog"].settings-dialog');
+  // The provider's key field lives under the provider choice; measure it there, then go on to Connection.
+  await contrastDialog.getByRole('tab', { name: 'Assistant' }).click();
+  await contrastDialog.getByRole('radio', { name: 'OpenAI', exact: true }).click();
+  const keyField = await contrastDialog.getByRole('textbox', { name: 'OpenAI key', exact: true }).evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { color: style.color, bg: style.backgroundColor };
+  });
+  await contrastDialog.getByRole('radio', { name: 'Not chosen', exact: true }).click();
   await contrastDialog.getByRole('tab', { name: 'Connection' }).click();
-  await contrastDialog.getByRole('textbox', { name: 'Comfy origin' }).fill('https://example.test');
-  await contrastDialog.getByRole('textbox', { name: 'Comfy origin' }).focus();
+  await contrastDialog.getByRole('textbox', { name: 'ComfyUI address' }).fill('https://example.test');
+  await contrastDialog.getByRole('textbox', { name: 'ComfyUI address' }).focus();
   await window.keyboard.press('Tab');
   await window.keyboard.press('Shift+Tab');
   await expect.poll(async () => contrastDialog.getByRole('button', { name: 'Save settings' }).evaluate((button) => getComputedStyle(button).backgroundColor)).toBe('rgb(101, 217, 237)');
@@ -308,9 +323,9 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
       }
       return 'rgb(0, 0, 0)';
     };
-    const input = document.querySelector('input[aria-label="Comfy origin"]');
-    const disabled = document.querySelector('input[aria-label="API key"]');
-    const osKey = document.querySelector('input[aria-label="OS storage key"]');
+    const input = document.querySelector('input[aria-label="ComfyUI address"]');
+    const disabled = null as Element | null;
+    const osKey = null as Element | null;
     const save = document.querySelector('.settings-save');
     const handle = document.querySelector('.graph-node .react-flow__handle');
     const edge = document.querySelector('.react-flow__edge path');
@@ -322,12 +337,12 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
       inputColor: inputStyle?.color ?? '',
       inputBg: inputStyle?.backgroundColor ?? '',
       inputBorder: inputStyle?.borderTopColor ?? '',
-      keyMode: disabled ? 'disabled' : osKey ? 'os' : 'missing',
+      keyMode: 'os',
       disabledColor: disabledStyle?.color ?? '',
       disabledBg: disabledStyle?.backgroundColor ?? '',
       disabledBorder: disabledStyle?.borderTopColor ?? '',
-      osColor: osStyle?.color ?? '',
-      osBg: osStyle?.backgroundColor ?? '',
+      osColor: '',
+      osBg: '',
       dialogBg: paint(document.querySelector('.settings-dialog'))?.backgroundColor ?? '',
       saveColor: saveStyle?.color ?? '',
       saveBg: saveStyle?.backgroundColor ?? '',
@@ -366,7 +381,7 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
     expect(pairs.disabledBorder).toBeLessThanOrEqual(pairs.inputBorder);
   } else {
     expect(rendered.keyMode).toBe('os');
-    expect(contrast(rendered.osColor, rendered.osBg)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(keyField.color, keyField.bg)).toBeGreaterThanOrEqual(4.5);
   }
   expect(pairs.save).toBeGreaterThanOrEqual(4.5);
   expect(pairs.focus).toBeGreaterThanOrEqual(3);
@@ -391,7 +406,7 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
         background: opaqueBackground(element),
       };
     };
-    return { text: read('.app-title'), muted: read('.provider-chip') };
+    return { text: read('.document-bar [role="menuitem"]'), muted: read('.sync-indicator') };
   });
   const textSurface = contrast(shellPairs.text.color, shellPairs.text.background);
   const mutedSurface = contrast(shellPairs.muted.color, shellPairs.muted.background);
@@ -438,16 +453,21 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
   expect(pendingSave.label).toBe('Saving…');
   expect(pendingSave.disabled).toBe(true);
   expect(pendingSave.dialogOpen).toBe(true);
-  expect(pendingSave.note).not.toBe('Non-secret settings saved.');
+  expect(pendingSave.note).not.toBe('Settings saved.');
   expect(pendingSave.progress).toBe(false);
   expect(pendingSave.width).toBe(saveWidth);
   await window.getByRole('button', { name: 'Settings', exact: true }).click();
   await contrastDialog.getByRole('tab', { name: 'Assistant' }).click();
+  // The model field is there only once somebody is chosen to answer.
+  await contrastDialog.getByRole('radio', { name: 'OpenAI', exact: true }).click();
   await contrastDialog.getByRole('textbox', { name: 'Model' }).fill('sk-example-secret');
-  await expect(contrastDialog.getByText('Settings cannot store a secret')).toBeVisible();
-  await expect(contrastDialog.getByRole('button', { name: 'Save settings' })).toBeDisabled();
+  await expect(contrastDialog.getByText('Settings cannot hold a key or a password. Remove it from the field.')).toBeVisible();
+  // Save stays pressable so it can say what is wrong: pressing it keeps the dialog open and goes to the field.
+  await contrastDialog.getByRole('button', { name: 'Save settings' }).click();
+  await expect(contrastDialog).toBeVisible();
+  await expect(contrastDialog.getByRole('textbox', { name: 'Model' })).toBeFocused();
   const errorColors = await window.evaluate(() => {
-    const note = [...document.querySelectorAll('.settings-dialog [role="status"]')].find((element) => element.textContent?.includes('cannot store a secret'));
+    const note = [...document.querySelectorAll('.settings-dialog [role="status"]')].find((element) => element.textContent?.includes('cannot hold a key'));
     const neighbor = (element: Element | null) => {
       let node = element?.parentElement ?? null;
       while (node) {
@@ -474,10 +494,12 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
   expect(errorColors.invalid).toBe('true');
   expect(errorColors.describedBy).toBe('settings-draft-error');
   expect(errorColors.role).toBe('status');
-  await expect(contrastDialog.locator('#settings-draft-error')).toHaveText('Settings cannot store a secret');
+  await expect(contrastDialog.locator('#settings-draft-error')).toHaveText('Settings cannot hold a key or a password. Remove it from the field.');
   await expect(contrastDialog.getByRole('textbox', { name: 'Base URL' })).not.toHaveAttribute('aria-invalid', 'true');
-  console.log('IPC_SAVE_FAILED not-shown: saveSettings returns ok:false for a secret or a schema mismatch, and Save is disabled before that call. No existing mock lets the dialog receive ok:false.');
+  console.log('IPC_SAVE_FAILED not-shown: saveSettings returns ok:false for a secret or a schema mismatch, and Save names the field before that call. No existing mock lets the dialog receive ok:false.');
   await window.keyboard.press('Escape');
+  // The draft was changed, so closing asks first.
+  await window.getByRole('button', { name: 'Close without saving', exact: true }).click();
   await expect(contrastDialog).toHaveCount(0);
   await window.getByRole('tab', { name: 'Assistant' }).click();
   await window.screenshot({ path: path.join(artifactDir, 'desktop-1280-assistant.png') });

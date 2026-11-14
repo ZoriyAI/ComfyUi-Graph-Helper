@@ -1,0 +1,51 @@
+.dialog { width: min(440px, calc(100vw - 32px)); max-height: calc(100vh - 48px); display: flex; flex-direction: column; overflow: hidden; }
+.wide { width: min(760px, calc(100vw - 32px)); }
+.header { display: flex; flex-direction: column; gap: 6px; padding: 18px 20px 12px; }
+.title { margin: 0; font-size: var(--text-lg, 16px); line-height: 22px; font-weight: 600; color: var(--text); }
+.lead { margin: 0; color: var(--text-dim); font-size: var(--text-sm); line-height: 19px; }
+.columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 4px 24px;
+  padding: 4px 20px 8px;
+  overflow: auto;
+  border-top: 1px solid var(--border-subtle);
+}
+.section { padding: 8px 0; break-inside: avoid; }
+.sectionTitle { margin: 0 0 4px; color: var(--text-dim); font-size: var(--text-xs); font-weight: 600; letter-spacing: 0.02em; }
+.rows { margin: 0; display: flex; flex-direction: column; }
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 26px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--text-sm);
+}
+.row dt { color: var(--text); min-width: 0; }
+.row dd { margin: 0; flex: 0 0 auto; }
+.keys { display: inline-flex; gap: 8px; }
+.note { color: var(--text-faint); }
+.footer { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 20px 16px; border-top: 1px solid var(--border-subtle); }
+.findings {
+  margin: 0;
+  padding: 8px 20px 12px 36px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow: auto;
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text);
+  font-size: var(--text-sm);
+  line-height: 19px;
+}
+.finding { overflow-wrap: anywhere; }
+/* Help ▸ About: the shared About view, centred, with Close at the right. */
+.about { width: min(480px, calc(100vw - 32px)); }
+.aboutBody { padding: 24px 20px 14px; overflow: auto; min-height: 0; }
+/* Help ▸ User guide, Troubleshooting, What is new: a page of text that scrolls inside the window. */
+.reader { height: min(720px, calc(100vh - 48px)); }
+.readerBody { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 4px 20px 16px; border-top: 1px solid var(--border-subtle); font-size: var(--text-sm); line-height: 20px; color: var(--text); }
+.readerBody:focus { outline: none; }
+.readerBody:focus-visible { box-shadow: inset 0 0 0 1px var(--focus); }

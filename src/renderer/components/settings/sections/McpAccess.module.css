@@ -1,0 +1,32 @@
+/* Settings ▸ Connection ▸ Access to the server: three stacked options, the chosen one opened like a card. */
+.access {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(100%, var(--measure-form));
+  min-width: 0;
+  margin: 8px 0 0;
+  padding: 0;
+  border: 0;
+}
+.legend { padding: 0; margin-bottom: 2px; color: var(--text); font-size: var(--text-sm); line-height: 18px; font-weight: 600; letter-spacing: 0.01em; }
+.options { display: flex; flex-direction: column; gap: 6px; }
+.option {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-overlay);
+  box-shadow: var(--highlight-top);
+  transition: border-color var(--motion-feedback) var(--motion-ease-out), background-color var(--motion-feedback) var(--motion-ease-out);
+}
+.option:hover { border-color: var(--border-strong); background: var(--surface-hover); }
+.checked, .checked:hover { border-color: var(--accent); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
+/* The whole title line is the click target; the radio itself is the keyboard stop. */
+.head { display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 8px 12px; cursor: pointer; }
+/* The radio itself is ui/RadioMark (.input), the same ring as the provider cards. */
+.head input:disabled + .title { cursor: not-allowed; opacity: 0.6; }
+.title { color: var(--text); font-size: var(--text-md); line-height: 20px; font-weight: 600; }
+.body { display: flex; flex-direction: column; gap: 8px; padding: 0 12px 12px 36px; }
+.panel { display: flex; flex-direction: column; gap: 8px; }
+.panel :global(.settings-buttons) { justify-content: flex-start; }

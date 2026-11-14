@@ -3,6 +3,7 @@ import { useEnglish } from './locale';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
+import { artifact } from './artifacts';
 
 /**
  * Electron desktop smoke test
@@ -61,7 +62,7 @@ test('Desktop smoke: app window loads with production renderer', async () => {
   expect(apiStatus.electron).not.toBe('N/A');
 
   // Take screenshot
-  const screenshotPath = '/opt/cursor/artifacts/desktop-smoke.png';
+  const screenshotPath = artifact('desktop-smoke.png');
   await window.screenshot({ path: screenshotPath, fullPage: true });
   console.log('[SMOKE] Screenshot saved:', screenshotPath);
 
@@ -121,6 +122,8 @@ test('Desktop smoke: TEST fixture IPC chat interaction', async () => {
   // Send chat message via UI
   console.log('[SMOKE] Sending chat message via UI');
   await window.getByRole('tab', { name: 'Assistant' }).click();
+  // Build tools exist only in a build turn: switch the composer to Build.
+  await window.getByRole('group', { name: 'Mode' }).getByRole('button', { name: 'Build', exact: true }).click();
   const messageInput = window.locator('textarea[aria-label="Chat message"]');
   await messageInput.fill('Add a test node');
   await messageInput.press('Enter');
@@ -185,7 +188,7 @@ test('Desktop smoke: TEST fixture IPC chat interaction', async () => {
   expect(finalState.inputEnabled).toBe(true);
 
   // Take screenshot of test mode with nodes
-  const screenshotPath = '/opt/cursor/artifacts/desktop-test-fixture.png';
+  const screenshotPath = artifact('desktop-test-fixture.png');
   await window.screenshot({ path: screenshotPath, fullPage: true });
   console.log('[SMOKE] TEST fixture screenshot:', screenshotPath);
 

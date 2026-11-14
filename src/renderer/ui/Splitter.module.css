@@ -1,0 +1,24 @@
+.splitter {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  z-index: 2;
+  cursor: col-resize;
+  background: transparent;
+  touch-action: none;
+}
+.splitter::before {
+  content: "";
+  position: absolute;
+  top: 12px;
+  bottom: 12px;
+  left: 3px;
+  width: 1px;
+  background: var(--border);
+  transition: background-color var(--motion-feedback) var(--motion-ease-out), width var(--motion-feedback) var(--motion-ease-out);
+}
+.splitter:hover::before, .splitter[data-dragging="true"]::before { left: 2px; width: 3px; background: var(--accent); border-radius: 2px; }
+.splitter:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.atLeft { left: -4px; }
+.atRight { right: -4px; }

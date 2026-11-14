@@ -1,8 +1,8 @@
 import type { CatalogView } from '../catalog/types';
 import { modelDirectoryFor } from '../catalog/modelFolders';
-import { missingDeps, type MissingReport } from '../workflow/codec';
+import { documentDefinitionIds, documentDefinitionNodes, documentGroupNodeNames, isLocalNodeType, missingDeps, type MissingReport } from '../workflow/codec';
 
-interface GraphNodeLike {
+export interface GraphNodeLike {
   data?: {
     comfyType?: unknown;
     parameters?: unknown;
@@ -16,7 +16,7 @@ function stringMap(value: unknown): Record<string, unknown> {
 }
 
 /** Model filenames the canvas node actually stores, including ones the agent set as parameters. */
-function canvasModelRefs(node: GraphNodeLike, catalog: CatalogView): Array<{ directory: string; name: string }> {
+export function canvasModelRefs(node: GraphNodeLike, catalog: CatalogView): Array<{ directory: string; name: string }> {
   const type = node.data?.comfyType;
   if (typeof type !== 'string' || type === '') return [];
   const values = { ...stringMap(node.data?.parameters) };
@@ -49,9 +49,15 @@ export function missingOnGraph(nodes: GraphNodeLike[], catalog: CatalogView, doc
   const knownModels = new Set(catalog.models.map((model) => `${model.directory}/${model.name}`));
   const models = new Map<string, { directory: string; name: string }>();
   for (const model of fromDocument.missingModels) models.set(`${model.directory}/${model.name}`, model);
-  for (const node of nodes) {
+  // Subgraph instances and frontend-only nodes are never in object_info; nodes inside definitions count too.
+  const local = documentDefinitionIds(document);
+  const context = { groupNodes: documentGroupNodeNames(document), catalog };
+  const inner: GraphNodeLike[] = documentDefinitionNodes(document).map((node) => ({
+    data: { comfyType: node.type, comfy: { widgets_values: node.widgets_values } },
+  }));
+  for (const node of [...nodes, ...inner]) {
     const type = node.data?.comfyType;
-    if (typeof type === 'string' && type !== '' && !known.has(type)) missing.add(type);
+    if (typeof type === 'string' && type !== '' && !known.has(type) && !isLocalNodeType(type, local, context)) missing.add(type);
     for (const model of canvasModelRefs(node, catalog)) {
       const key = `${model.directory}/${model.name}`;
       if (!knownModels.has(key)) models.set(key, model);

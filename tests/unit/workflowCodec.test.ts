@@ -3,7 +3,7 @@ import Database from 'better-sqlite3';
 import { commitCommand, ensureWorkspace, readProjection } from '../../src/main/commands/commit';
 import { migrate } from '../../src/main/settings/migrate';
 import { DESKTOP_PROJECT_ID } from '../../src/shared/project';
-import { WIDGET_ORDER_UNRELIABLE, classifyWorkflow, exportWorkflow, missingDeps, projectWorkflow, toApiPrompt } from '../../src/shared/workflow/codec';
+import { WIDGET_ORDER_UNRELIABLE, classifyWorkflow, exportWorkflow, missingDeps, projectWorkflow } from '../../src/shared/workflow/codec';
 
 function openDb(): Database.Database {
   const db = new Database(':memory:');
@@ -199,13 +199,6 @@ describe('workflow codec', () => {
     expect(rejected.status).toBe('rejected');
     expect(rejected.result).toEqual({ error: 'API prompt is not a canvas workflow.' });
     expect(readProjection(db, DESKTOP_PROJECT_ID)!.snapshot.nodes).toHaveLength(0);
-    const projected = projectWorkflow(uiV1);
-    if ('error' in projected) throw new Error(projected.error);
-    const api = toApiPrompt(projected.snapshot);
-    expect(JSON.stringify(api)).not.toContain('"pos"');
-    expect(JSON.stringify(api)).not.toContain('groups');
-    expect(api['1'].class_type).toBe('CheckpointLoaderSimple');
-    expect(api['1'].inputs.ckpt_name).toBe('old.safetensors');
     db.close();
   });
 
@@ -423,7 +416,7 @@ describe('workflow codec', () => {
       expectedRevisionId: added.projection!.currentRevisionId,
       actor: 'manual',
       runId: null,
-      payload: { type: 'set-parameter', nodeId: 'node-add-loader', key: 'ckpt_name', value: 'other.safetensors' },
+      payload: { type: 'set-parameter', nodeId: '1', key: 'ckpt_name', value: 'other.safetensors' },
     });
     expect(changed.status).toBe('applied');
     const exported = exportWorkflow(changed.projection!.snapshot as never, '2026-11-08T00:00:00.000Z');

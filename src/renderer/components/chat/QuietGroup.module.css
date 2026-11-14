@@ -1,0 +1,29 @@
+.group { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: 12px; line-height: 18px; }
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  min-height: 24px;
+  padding: 2px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-faint);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.toggle:hover { background: var(--bg-hover); color: var(--text-dim); }
+.toggle:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.chevron { flex: none; transition: transform var(--motion-feedback, 100ms) ease; }
+.toggle[aria-expanded="true"] .chevron { transform: rotate(90deg); }
+.icon { flex: none; }
+.title { flex: none; color: var(--text-dim); }
+.preview { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.list { margin: 0; padding: 0 6px 2px 44px; color: var(--text-dim); display: flex; flex-direction: column; gap: 2px; }
+.list li { overflow-wrap: anywhere; }
+.failed { color: var(--danger); }
+.group[data-busy="true"] .icon { color: var(--ai); }
+:global(html[data-motion="off"]) .chevron,
+:global(html[data-motion="reduced"]) .chevron { transition: none; }

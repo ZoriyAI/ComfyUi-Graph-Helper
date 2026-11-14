@@ -1,0 +1,205 @@
+.pane { display: flex; flex-direction: column; min-height: 0; min-width: 0; flex: 1 1 auto; gap: 8px; }
+.controls { display: flex; flex-direction: column; gap: 6px; padding: 0 10px; }
+/* Filter selects side by side: labels on one line, controls the same height, aligned on one baseline. */
+.filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; align-items: end; }
+.filters :global(.field) { gap: 2px; min-width: 0; }
+.filters :global(.field-label) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.filters :global(.select-trigger) { box-sizing: border-box; min-width: 0; width: 100%; height: 30px; min-height: 30px; padding: 3px 8px; font-size: var(--text-xs); }
+.filters :global(.select-trigger) > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 12px; color: var(--text-faint); font-size: var(--text-xs); line-height: 18px; }
+.meta > [role="status"] { white-space: nowrap; }
+.metaHint { margin: -6px 0 0; padding: 0 12px; color: var(--text-dim); font-size: var(--text-xs); line-height: 17px; }
+/*
+ * A short window: the list gets the room. The "click a row" hint goes (each card says the same), and the two
+ * filter selects keep their names only for screen readers (the selects show the choice and the list says it).
+ */
+@media (max-height: 700px) {
+  .metaHint { display: none; }
+  .filters :global(.field-label) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
+
+/* Kind chips: a segmented row that wraps, each with its count; the selected one carries the accent. */
+.kindChips { display: flex; flex-wrap: wrap; gap: 4px; }
+.kindChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface-sunken);
+  color: var(--text-dim);
+  font: inherit;
+  font-size: var(--text-xs);
+  cursor: pointer;
+  transition: background-color var(--motion-feedback) var(--motion-ease-out), border-color var(--motion-feedback) var(--motion-ease-out), color var(--motion-feedback) var(--motion-ease-out);
+}
+.kindChip:hover { border-color: var(--border-strong); color: var(--text); }
+.kindChip:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.kindChip[data-on="true"] { border-color: var(--accent-line); background: var(--accent-soft); color: var(--text); }
+.kindCount { color: var(--text-faint); font-variant-numeric: tabular-nums; }
+.kindChip[data-on="true"] .kindCount { color: var(--accent); }
+
+.fitsBanner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 4px 3px 10px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  font-size: var(--text-xs);
+}
+.fitsText { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.familyUnknown { color: var(--text-faint); font-size: var(--text-xs); line-height: 16px; white-space: nowrap; font-style: italic; overflow: hidden; text-overflow: ellipsis; }
+.list { padding: 0 6px 8px; }
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 100%;
+  padding: 0 8px;
+  color: var(--text-dim);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  user-select: none;
+}
+.header:hover { color: var(--text); }
+.header .chevron { display: inline-flex; transition: transform var(--motion-feedback) var(--motion-ease-out); }
+.header[data-collapsed="true"] .chevron { transform: rotate(-90deg); }
+.headerDot { width: 6px; height: 6px; border-radius: 50%; flex: 0 0 auto; background: var(--row-hue, var(--text-faint)); box-shadow: 0 0 6px var(--row-hue, transparent); }
+.headerName { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.count {
+  min-width: 20px;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-sunken);
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.35);
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* Rows lift on hover: one surface step up, a top highlight and a soft shadow. */
+.row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: calc(100% - 2px);
+  margin: 1px 0;
+  padding: 0 8px 0 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  cursor: grab;
+  user-select: none;
+  transition:
+    background-color var(--motion-feedback) var(--motion-ease-out),
+    border-color var(--motion-feedback) var(--motion-ease-out),
+    box-shadow var(--motion-feedback) var(--motion-ease-out);
+}
+.row:hover {
+  border-color: var(--border-subtle);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent), var(--surface-raised);
+  box-shadow: var(--shadow-lift);
+}
+.row[data-active="true"] {
+  border-color: var(--border-strong);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent), var(--surface-hover);
+  box-shadow: var(--shadow-lift);
+}
+:global([role="listbox"]:focus-visible) .row[data-active="true"] { border-color: var(--focus); box-shadow: var(--shadow-lift), 0 0 0 1px var(--focus); }
+.row:active { cursor: grabbing; }
+/* The row whose card is open keeps an accent edge, so the card reads as belonging to it. */
+.row[data-open="true"] { border-color: var(--accent-line); background: linear-gradient(90deg, var(--accent-soft), transparent 70%), var(--surface-raised); }
+.modelRow { cursor: pointer; }
+/* A node row opens its card on a click and is still dragged onto the canvas. */
+.nodeRow { cursor: pointer; }
+.text { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
+.name { color: var(--text); font-size: var(--text-sm); line-height: 18px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sub { color: var(--text-faint); font-family: var(--font-mono); font-size: var(--text-xs); line-height: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The node's pack after its class name: plain text, not code. */
+.subPack { font-family: var(--font-sans); color: var(--text-dim); }
+.row:hover .sub, .row[data-active="true"] .sub { color: var(--text-dim); }
+.detailDot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; background: transparent; border: 1.5px solid var(--text-faint); }
+.detailDot[data-on="true"] { background: var(--ok); border-color: var(--ok); box-shadow: 0 0 6px rgba(130, 221, 179, 0.5); }
+/* Node rows: the dot carries the category colour; filled when the catalog has the full detail. */
+.categoryDot { border-color: var(--row-hue, var(--text-faint)); }
+.categoryDot[data-on="true"] { background: var(--row-hue, var(--ok)); border-color: var(--row-hue, var(--ok)); box-shadow: 0 0 8px var(--row-hue, transparent); }
+/*
+ * One line of badges. What does not fit goes to a second line that is not shown: the size is either readable or
+ * absent, never three pixels of it (the card has it), and the same holds for a badge in a very narrow rail.
+ */
+.badges { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; height: 18px; overflow: hidden; margin-top: 2px; }
+.badges > * { flex: 0 1 auto; }
+/* Family and kind badges keep their width (an ellipsis inside a short badge reads as "Lo…"); the size gives way. */
+.badges > :not(.meta2) { flex-shrink: 0; }
+.badges > .meta2 { flex: 1 1 46px; min-width: 46px; }
+.meta2 { color: var(--text-dim); font-size: var(--text-xs); line-height: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.modelRow { height: calc(100% - 2px); }
+/* The preview next to the file, small. An empty tile while it is read, so the row does not jump when it arrives. */
+.thumb {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  color: var(--text-faint);
+  overflow: hidden;
+}
+.thumb > img { display: block; width: 100%; height: 100%; object-fit: cover; }
+/* A row without a picture keeps the same 36px lead (empty, so the list stays quiet), its "read" dot in the middle. */
+.leadSlot {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+}
+.ask { opacity: 0; transition: opacity var(--motion-feedback) var(--motion-ease-out); }
+.row:hover .ask, .row[data-active="true"] .ask { opacity: 1; }
+.subgraphs { display: flex; flex-direction: column; gap: 2px; padding: 2px 6px 10px; margin: 0; list-style: none; overflow-y: auto; min-height: 0; }
+/* A subgraph is a row like a node or a model: the same lead slot, name and line under it; it lifts on hover. */
+.subgraph {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 6px 8px 6px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  transition: background-color var(--motion-feedback) var(--motion-ease-out), border-color var(--motion-feedback) var(--motion-ease-out), box-shadow var(--motion-feedback) var(--motion-ease-out);
+}
+.subgraph:hover, .subgraph:focus-within {
+  border-color: var(--border-subtle);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent), var(--surface-raised);
+  box-shadow: var(--shadow-lift);
+}
+/* "2 nodes · 1 input · 1 output" is a sentence, not a class name: it wraps beside the Insert button. */
+.subgraph .sub { font-family: inherit; white-space: normal; overflow: visible; }
+.subgraphIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  box-shadow: inset 0 0 0 1px var(--border-subtle);
+  color: var(--type-model);
+}
+.error { margin: 0 12px; color: var(--danger); font-size: var(--text-xs); }
+/* The quiet "family not known" gives way before the size does (after the badge rules, which it overrides). */
+.badges > .familyUnknown { flex-shrink: 1000; min-width: 0; }

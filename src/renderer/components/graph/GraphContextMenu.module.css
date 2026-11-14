@@ -1,0 +1,40 @@
+.trigger { position: absolute; inset: 0; }
+.content {
+  z-index: 50;
+  min-width: 220px;
+  padding: 4px;
+  border-radius: 10px;
+  border: 1px solid var(--line, #2a3648);
+  background: var(--bg-raised, #1b2533);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 16px 40px rgba(0, 0, 0, 0.5);
+  color: var(--text, #e8eef7);
+  animation: menuIn var(--motion-enter, 160ms) var(--motion-ease-out, ease-out);
+}
+.item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 10px 0 32px;
+  border-radius: 6px;
+  font-size: 13px;
+  outline: none;
+  cursor: default;
+  user-select: none;
+}
+.item[data-highlighted] { background: var(--bg-hover, #243247); }
+.item[data-disabled] { color: var(--text-faint, #8b9bb0); }
+.item[data-state="open"] { background: var(--bg-hover, #243247); }
+.danger { color: var(--danger, #ff9da8); }
+.separator { height: 1px; margin: 4px 6px; background: var(--line, #2a3648); }
+@keyframes menuIn { from { opacity: 0; transform: translateY(-2px); } to { opacity: 1; transform: none; } }
+:global(html[data-motion="off"]) .content,
+:global(html[data-motion="reduced"]) .content { animation: none; }
+.label { flex: 1 1 auto; min-width: 0; }
+.shortcut { margin-left: auto; padding-left: 20px; color: var(--text-dim); flex: 0 0 auto; }
+.item[data-disabled] .shortcut { color: var(--text-faint); }
+/* Every row has an icon in a fixed column, so the words line up whether or not a row has one. */
+.icon { position: absolute; left: 10px; display: inline-flex; color: var(--text-dim, #a9b6c8); }
+.item[data-highlighted] .icon { color: var(--accent, #65d9ed); }
+.danger .icon { color: inherit; }
+.groupLabel { padding: 4px 10px 2px 32px; color: var(--text-dim, #a9b6c8); font-size: 11px; font-weight: 600; letter-spacing: 0.02em; }

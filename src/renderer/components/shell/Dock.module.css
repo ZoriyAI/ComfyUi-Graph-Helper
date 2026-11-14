@@ -1,0 +1,135 @@
+/* The dock is a panel one step lighter than the canvas: a top sheen, a soft inner edge and a drop shadow onto the canvas. */
+.dock {
+  position: relative;
+  z-index: 2;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  border-left: 1px solid var(--border);
+  background-color: var(--surface-panel);
+  background-image: var(--panel-sheen);
+  box-shadow: var(--panel-edge), -12px 0 28px -16px rgba(0, 0, 0, 0.75);
+}
+.dock[hidden] { display: none; }
+.tabs, .panels, .panel { display: flex; flex-direction: column; min-height: 0; min-width: 0; flex: 1; }
+
+.header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 44px;
+  flex: 0 0 auto;
+  padding: 0 6px 0 8px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
+}
+.tabsWrap { flex: 1 1 auto; min-width: 0; height: 100%; display: flex; }
+.tablist { display: flex; align-items: stretch; gap: 2px; min-width: 0; height: 100%; }
+.tab.tab {
+  position: relative;
+  flex: 0 0 auto;
+  min-height: 0;
+  height: 100%;
+  gap: 5px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.tab.tab:hover { background: rgba(255, 255, 255, 0.03); color: var(--text); }
+.tab.tab[data-state="active"] { background: transparent; border-color: transparent; color: var(--text); }
+/* Keyboard focus: a rounded ring inside the tab, 6px off the top and bottom, so it never cuts the underline. */
+.tab.tab:focus-visible { outline: none; }
+.tab.tab:focus-visible::before {
+  content: "";
+  position: absolute;
+  inset: 6px 0;
+  border-radius: var(--radius-md);
+  box-shadow: inset 0 0 0 2px var(--focus);
+  pointer-events: none;
+}
+.iconTab.iconTab { padding: 0 9px; }
+.tabIcon { display: inline-flex; flex: 0 0 auto; }
+.tab[data-state="active"] .tabIcon { color: var(--accent); filter: drop-shadow(0 0 6px var(--accent-halo)); }
+.tabLabel { white-space: nowrap; }
+/* The active tab's underline slides between tabs (motion layout animation, instant without full motion). */
+.underline {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: linear-gradient(90deg, var(--accent), var(--ai));
+  box-shadow: 0 0 10px var(--accent-halo);
+}
+.actions { display: inline-flex; align-items: center; gap: 2px; flex: 0 0 auto; }
+
+.splitTitles { display: flex; align-items: center; gap: 4px; flex: 1 1 auto; min-width: 0; }
+.splitTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent), var(--surface-raised);
+  box-shadow: var(--highlight-top);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.splitTitle:hover { background: var(--surface-hover); border-color: var(--border-strong); }
+.splitTitle:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.splitTitle .tabIcon { color: var(--accent); }
+
+.panel[data-state="inactive"] { display: none; }
+/*
+ * The tab above already says "Assistant": the chat's own title stays for screen readers only, and its header
+ * row shows up only while a run is going (it then holds Pause and Stop). The chat panel is not this file's to
+ * change, so the dock container does it.
+ */
+.panel :global(.chat-header) > span:first-child {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.panel :global(.chat-header):not(:has([role="group"])) { display: none; }
+.split .tabsWrap { display: none; }
+.split .panels { flex-direction: row; }
+.split .panel[data-split-member="true"] { display: flex; }
+.split .panel[data-split-member="true"] + .panel[data-split-member="true"] { border-left: 1px solid var(--border); box-shadow: var(--panel-edge); }
+.split .panel[data-split-member="false"] { display: none; }
+
+/* Collapsed dock: an icon strip, the mirror of the library rail. */
+.strip {
+  position: relative;
+  z-index: 2;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 48px;
+  padding: 8px 0;
+  border-left: 1px solid var(--border);
+  background-color: var(--surface-panel);
+  background-image: var(--panel-sheen);
+  box-shadow: var(--panel-edge), -12px 0 28px -16px rgba(0, 0, 0, 0.75);
+}
+.stripRule { width: 24px; height: 1px; margin: 4px 0; background: var(--border); }

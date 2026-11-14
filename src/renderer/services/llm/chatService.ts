@@ -1,318 +1,473 @@
 import { useChatStore } from '../../state/chatState';
 import { useGraphStore } from '../../state/graphState';
+import { useKnowledgeStore } from '../../state/knowledgeState';
+import { useProposalsStore } from '../../state/proposalsState';
+import { useRevisionStore } from '../../state/revisionState';
+import { useUiStore } from '../../state/uiState';
 import { agentGraphContext } from '../../../shared/agent/context';
 import { translateKnownError, type Translator } from '../../../shared/i18n';
-import { i18n } from '../../i18n';
-
-const translate: Translator = (key, options) => (options ? String(i18n.t(key, options)) : String(i18n.t(key)));
+import { providerErrorKey, TOOL_CAPABLE_EXAMPLES } from '../../../shared/agent/providerErrors';
+import { parseTurnError } from '../../../shared/agent/turnError';
+import { turnErrorText } from './turnErrorText';
+import { BUILD_TOOL_SPECS } from '../../../shared/commands/toolSpecs';
+import type { AgentBuildStep, AgentTurnContext, Explanation } from '../../../shared/contracts';
+import { useCanvasStore } from '../../components/graph/canvasStore';
+import { stepKey } from '../../components/graph/lib/buildQueue';
 import { DESKTOP_PROJECT_ID } from '../../../shared/project';
 import type { Projection } from '../../../shared/commands/types';
+import { parseTurnNotice, type ChatMessage, type ToolCall, type TurnCheckpoint, type TurnNotice } from '../../types/chat';
+import { i18n } from '../../i18n';
 import { applyProjection } from '../commands/projection';
+import { showToast } from '../../ui/toastStore';
+import {
+  asObjectRef,
+  chatRecordFromMessage,
+  isRecord,
+  messageFromChatRecord,
+  newToolCall,
+  parseToolArgs,
+  settleFromResult,
+  turnLanguage,
+  withResultIds,
+} from './chatModel';
+
+const translate: Translator = (key, options) => (options ? String(i18n.t(key, options)) : String(i18n.t(key)));
 
 /**
- * Renderer chat service. Tool mutations commit in the main process.
+ * Renderer chat service. Build tools commit in the main process; this service streams the turn,
+ * keeps the chat store current, routes explain/proposal results to their stores, and persists messages.
+ *
+ * Stream protocol (main/agent/turn.ts): text-delta, tool-call, tool-result, tool-error, projection, build-step,
+ * turn-paused, done, error. A turn-paused chunk ({ reason, steps, canContinue }) means the loop reached the step
+ * checkpoint or the failed-tools guard: the run stays paused and the turn's message gets a Continue / Stop card.
+ * A build-step (AgentBuildStep) follows the projection of a build tool commit: its `why` goes to the canvas
+ * queue (the live build's callout) and its saved explanation straight into the knowledge store, so the node's
+ * description card has it the moment the node appears.
  */
 
-interface ToolSpec {
-  name: string;
-  description: string;
-  parameters: any;
+type StreamChunk = { type: string; content?: unknown };
+type Settled = { status: 'success' | 'error'; result: unknown; error?: string };
+
+function newId(): string {
+  return `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-class ChatService {
+/** A local model that cannot call tools gets an explanation; other errors keep the catalog sentence or the raw text. */
+function shownError(provider: string, raw: string): string {
+  const key = providerErrorKey(provider, raw);
+  if (key) return translate(key, { examples: TOOL_CAPABLE_EXAMPLES.join(', ') });
+  return translateKnownError(translate, raw) ?? raw;
+}
+
+function errorText(content: unknown): string {
+  if (typeof content === 'string') return content;
+  if (isRecord(content)) {
+    const nested = content.error;
+    if (isRecord(nested) && typeof nested.message === 'string') return nested.message;
+    if (typeof content.message === 'string') return content.message;
+  }
+  try {
+    return JSON.stringify(content) ?? 'Unknown error';
+  } catch {
+    return 'Unknown error';
+  }
+}
+
+/** The context a plain composer send carries: intent chat, the canvas selection and camera, the interface language. */
+export function defaultTurnContext(): AgentTurnContext {
+  const viewport = useCanvasStore.getState().viewport;
+  return {
+    intent: 'chat',
+    selection: useUiStore.getState().selection,
+    language: turnLanguage(i18n.language || i18n.resolvedLanguage),
+    ...(viewport ? { viewport } : {}),
+  };
+}
+
+function isExplanation(value: unknown): value is Explanation {
+  return isRecord(value) && typeof value.id === 'string' && typeof value.text === 'string' && isRecord(value.owner)
+    && typeof value.owner.kind === 'string' && typeof value.owner.id === 'string' && typeof value.aspect === 'string';
+}
+
+/** Reads a build-step chunk without trusting its shape; null when it is not one. */
+export function parseBuildStep(content: unknown): AgentBuildStep | null {
+  if (!isRecord(content) || typeof content.toolName !== 'string' || typeof content.why !== 'string') return null;
+  const id = (value: unknown) => (typeof value === 'string' && value !== '' ? value : undefined);
+  return {
+    toolName: content.toolName as AgentBuildStep['toolName'],
+    toolCallId: id(content.toolCallId) ?? '',
+    nodeId: id(content.nodeId),
+    edgeId: id(content.edgeId),
+    subgraphId: id(content.subgraphId),
+    key: id(content.key),
+    why: content.why,
+    explanationId: id(content.explanationId) ?? null,
+    explanation: isExplanation(content.explanation) ? content.explanation : null,
+    revisionId: id(content.revisionId) ?? '',
+  };
+}
+
+/** Reads a turn-paused chunk without trusting its shape; null when it is not one. */
+export function parseTurnPaused(content: unknown): Omit<TurnCheckpoint, 'state' | 'context'> | null {
+  if (!isRecord(content)) return null;
+  const reason = content.reason === 'step-limit' || content.reason === 'failure-streak' ? content.reason : null;
+  if (!reason) return null;
+  const steps = typeof content.steps === 'number' && Number.isFinite(content.steps) ? Math.max(0, Math.round(content.steps)) : 0;
+  const failures = typeof content.failures === 'number' && Number.isFinite(content.failures) ? Math.round(content.failures) : undefined;
+  return { reason, steps, ...(failures !== undefined ? { failures } : {}) };
+}
+
+/** Marks every open checkpoint card as moved past: a new turn supersedes its buttons. */
+function closeOpenCheckpoints(): void {
+  const { messages, updateMessage } = useChatStore.getState();
+  for (const message of messages) {
+    if (message.checkpoint?.state === 'open') updateMessage(message.id, { checkpoint: { ...message.checkpoint, state: 'closed' } });
+  }
+}
+
+/** Hands one build step to the canvas queue and its saved explanation to the knowledge store. */
+export function acceptBuildStep(content: unknown): void {
+  const step = parseBuildStep(content);
+  if (!step) return;
+  // The helper builds on the main canvas: if a subgraph is open, the canvas goes back to the main level so the
+  // person sees what is built, and a toast says why.
+  if (useGraphStore.getState().activeSubgraphId) {
+    useGraphStore.getState().exitSubgraph(0);
+    showToast({ id: 'helper-on-main', tone: 'info', title: String(i18n.t('canvas.helperOnMain')), duration: 5000 });
+  }
+  if (step.explanation) useKnowledgeStore.getState().addExplanation(step.explanation);
+  const key = stepKey(step);
+  if (key) useCanvasStore.getState().noteBuildStep(key, { toolName: step.toolName, why: step.why });
+  if (step.toolName === 'removeNode' && step.why) {
+    const canvas = useCanvasStore.getState();
+    canvas.setLive({ ...canvas.live, why: step.why });
+  }
+}
+
+function completeContext(context?: Partial<AgentTurnContext>): AgentTurnContext {
+  const base = defaultTurnContext();
+  if (!context) return base;
+  return {
+    intent: context.intent ?? base.intent,
+    selection: context.selection ?? base.selection,
+    language: context.language ?? base.language,
+    ...(context.objectRef ? { objectRef: context.objectRef } : {}),
+    ...(context.viewport ?? base.viewport ? { viewport: context.viewport ?? base.viewport } : {}),
+  };
+}
+
+export class ChatService {
   private isStreaming = false;
   private currentBaseRevisionId: string | null = null;
   private currentRunId: string | null = null;
+  private historyLoaded = false;
+  /** Increments per turn and on cancel, so a finished or cancelled turn cannot flip the state of a newer one. */
+  private turnToken = 0;
+  /** A run reopened by resume(): the next turn continues it instead of starting a new run. */
+  private resumed: { runId: string; expectedRevisionId: string } | null = null;
 
-  async sendMessage(content: string): Promise<void> {
-    console.log(`[ChatService] sendMessage called: "${content}"`);
+  /** Loads saved messages once per project when the chat is still empty. Safe to call more than once. */
+  async loadHistory(projectId: string = DESKTOP_PROJECT_ID): Promise<void> {
+    if (this.historyLoaded) return;
+    this.historyLoaded = true;
+    const load = window.electronAPI?.loadChatHistory;
+    if (typeof load !== 'function') return;
+    try {
+      const records = await load(projectId);
+      const state = useChatStore.getState();
+      if (!Array.isArray(records) || records.length === 0 || state.messages.length > 0 || state.isStreaming) return;
+      useChatStore.setState({ messages: records.map(messageFromChatRecord) });
+    } catch (error) {
+      console.warn('[ChatService] Chat history could not be loaded:', errorText(error));
+    }
+  }
+
+  private persist(message: ChatMessage | undefined): void {
+    const save = window.electronAPI?.saveChatMessage;
+    if (!message || typeof save !== 'function') return;
+    const revision = useRevisionStore.getState().currentRevisionId;
+    const record = chatRecordFromMessage(message, DESKTOP_PROJECT_ID, revision || null);
+    void Promise.resolve()
+      .then(() => save(record))
+      .then((result) => {
+        if (result && result.ok === false) console.warn('[ChatService] Message not stored:', (result as { error?: string }).error ?? 'refused');
+      })
+      .catch((error: unknown) => console.warn('[ChatService] Message not stored:', errorText(error)));
+  }
+
+  /**
+   * Sends one turn. `context` defaults to intent chat with the current selection and language;
+   * a partial context is completed from those defaults.
+   */
+  async sendMessage(content: string, context?: Partial<AgentTurnContext>): Promise<void> {
     if (this.isStreaming) {
       console.warn('[ChatService] Already streaming');
       return;
     }
+    const turn = completeContext(context);
+    const token = ++this.turnToken;
+    const current = () => token === this.turnToken;
 
     this.isStreaming = true;
+    closeOpenCheckpoints();
     useChatStore.setState({ isStreaming: true, isPaused: false });
     const { messages, addMessage } = useChatStore.getState();
 
-    // Add user message
-    addMessage({
-      id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    const userMessage: ChatMessage = {
+      id: newId(),
       role: 'user',
       content,
       timestamp: Date.now(),
-    });
-
-    const started = await window.electronAPI.startRun(DESKTOP_PROJECT_ID);
-    applyProjection(started.projection);
-    this.currentBaseRevisionId = started.baseRevisionId;
-    this.currentRunId = started.runId;
-    console.log(`[ChatService] Base revision captured: ${started.baseRevisionId}`);
-
-    // Prepare tool specs (no execute functions - those stay in renderer)
-    const toolSpecs: ToolSpec[] = [
-      {
-        name: 'addNode',
-        description: 'Add a node to the graph',
-        parameters: {
-          type: 'object',
-          properties: {
-            nodeType: { type: 'string', description: 'Type of node to add' },
-            title: { type: 'string', description: 'Node title' },
-            x: { type: 'number', description: 'X position' },
-            y: { type: 'number', description: 'Y position' },
-            parameters: { type: 'object', description: 'Node parameters' },
-          },
-          required: ['nodeType'],
-        },
-      },
-      {
-        name: 'setComponentDocumentation',
-        description: 'Store purpose and usage text for an existing node or subgraph component. The text is data and is not executed.',
-        parameters: {
-          type: 'object',
-          properties: {
-            ownerKind: { type: 'string', enum: ['node', 'subgraph'], description: 'Whether the record belongs to a node or a subgraph definition' },
-            ownerId: { type: 'string', description: 'Stable node id or subgraph definition id' },
-            purpose: { type: 'string', description: 'What the component is for, stored as written' },
-            usage: { type: 'string', description: 'How to use the component, stored as written' },
-          },
-          required: ['ownerKind', 'ownerId', 'purpose', 'usage'],
-        },
-      },
-      {
-        name: 'setProcess',
-        description: 'Store the process title and notes. The text is data and is not executed.',
-        parameters: {
-          type: 'object',
-          properties: {
-            title: { type: 'string', description: 'Process title' },
-            notes: { type: 'string', description: 'How to use the process, stored as written' },
-          },
-          required: ['title', 'notes'],
-        },
-      },
-      {
-        name: 'annotateNode',
-        description: 'Add an annotation to a node',
-        parameters: {
-          type: 'object',
-          properties: {
-            nodeId: { type: 'string', description: 'Node ID to annotate' },
-            annotation: { type: 'string', description: 'Annotation text' },
-          },
-          required: ['nodeId', 'annotation'],
-        },
-      },
-    ];
-
-    // Prepare message history for AI
-    
-    const graph = useGraphStore.getState();
-    const messageHistory = [
-      {
-        role: 'system' as const,
-        content: agentGraphContext({
-          nodes: graph.nodes,
-          components: graph.components,
-          process: graph.process,
-        }),
-      },
-      ...messages.map((m) => ({
-        role: m.role as 'user' | 'assistant' | 'system',
-        content: m.content,
-      })),
-    ];
-    messageHistory.push({ role: 'user', content });
-    
+      context: turn,
+    };
+    addMessage(userMessage);
+    this.persist(userMessage);
 
     let assistantContent = '';
+    let pausedAtCheckpoint = false;
     let currentAssistantMessageId: string | null = null;
-    const currentToolCalls: Map<string, any> = new Map();
-    const settledById = new Map<string, { status: 'success' | 'error'; result: any; error?: string }>();
-    const settledByName = new Map<string, { status: 'success' | 'error'; result: any; error?: string }>();
+    // The id of this turn's record in the conversation log; main sends it first when the log is kept.
+    let turnLogId: string | undefined;
+    let turnNotices: TurnNotice[] = [];
+    const currentToolCalls = new Map<string, ToolCall>();
+    const settledById = new Map<string, Settled>();
+    const settledByName = new Map<string, Settled>();
 
-    const publishToolCalls = () => {
-      if (!currentAssistantMessageId) {
-        currentAssistantMessageId = `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-        addMessage({
-          id: currentAssistantMessageId,
-          role: 'assistant',
-          content: assistantContent,
-          timestamp: Date.now(),
-          toolCalls: Array.from(currentToolCalls.values()),
-        });
-        return;
-      }
-      const { messages } = useChatStore.getState();
-      const msgIndex = messages.findIndex((m) => m.id === currentAssistantMessageId);
-      if (msgIndex < 0) return;
-      const updated = [...messages];
-      updated[msgIndex] = {
-        ...updated[msgIndex],
-        content: assistantContent,
-        toolCalls: Array.from(currentToolCalls.values()),
-      };
-      useChatStore.setState({ messages: updated });
-    };
+    const currentAssistant = () => (currentAssistantMessageId
+      ? useChatStore.getState().messages.find((m) => m.id === currentAssistantMessageId)
+      : undefined);
 
-    const applyRecord = (call: any, record: { status: 'success' | 'error'; result: any; error?: string }) => {
-      call.status = record.status;
-      call.result = record.result;
-      call.error = record.error;
-    };
-
-    const settleTool = (
-      id: string | undefined,
-      name: string | undefined,
-      status: 'success' | 'error',
-      result: any,
-      error?: string
-    ) => {
-      const record = { status, result, error };
-      if (id) settledById.set(id, record);
-      if (id && currentToolCalls.has(id)) {
-        applyRecord(currentToolCalls.get(id), record);
-        publishToolCalls();
-        return;
-      }
-      const pending = name
-        ? Array.from(currentToolCalls.values()).find((call) => call.name === name && call.status === 'pending')
-        : undefined;
-      if (pending) {
-        applyRecord(pending, record);
-        if (id && pending.id !== id) {
-          currentToolCalls.delete(pending.id);
-          pending.id = id;
-          currentToolCalls.set(id, pending);
-        }
-        publishToolCalls();
-        return;
-      }
-      if (name) settledByName.set(name, record);
-    };
-
-    const noteToolCall = (id: string, name: string) => {
-      const prior = settledById.get(id) || (name ? settledByName.get(name) : undefined);
-      if (name && settledByName.get(name) === prior) settledByName.delete(name);
-      currentToolCalls.set(id, {
-        id,
-        name,
-        arguments: {},
-        status: prior?.status ?? 'pending',
-        result: prior?.result,
-        error: prior?.error,
-      });
-      publishToolCalls();
-    };
-
-    
-
-    try {
-      await window.electronAPI.llmStreamChat(
-        messageHistory,
-        toolSpecs,
-        (chunk) => {
-          console.log('[ChatService] Received chunk:', chunk.type);
-
-          if (chunk.type === 'projection') {
-            applyProjection(chunk.content as Projection);
-          } else if (chunk.type === 'text-delta' && chunk.content.text) {
-            console.log('[ChatService] text-delta:', chunk.content.text);
-            assistantContent += chunk.content.text;
-
-            // Update or create assistant message
-            if (!currentAssistantMessageId) {
-              currentAssistantMessageId = `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-              addMessage({
-                id: currentAssistantMessageId,
-                role: 'assistant',
-                content: assistantContent,
-                timestamp: Date.now(),
-                toolCalls: [],
-              });
-            } else {
-              // Update existing message
-              const { messages } = useChatStore.getState();
-              const msgIndex = messages.findIndex((m) => m.id === currentAssistantMessageId);
-              if (msgIndex >= 0) {
-                const updated = [...messages];
-                updated[msgIndex] = {
-                  ...updated[msgIndex],
-                  content: assistantContent,
-                };
-                useChatStore.setState({ messages: updated });
-              }
-            }
-          } else if (chunk.type === 'tool-call') {
-            const id = chunk.content.toolCallId || `tool-${Date.now()}`;
-            const name = chunk.content.toolName || 'tool';
-            noteToolCall(id, name);
-          } else if (chunk.type === 'tool-result' || chunk.type === 'tool-error') {
-            // AI SDK fullStream puts the execute() return value on `output`.
-            // Older fixtures used `result`. Missing either must not throw.
-            const output = chunk.content?.output !== undefined ? chunk.content.output : chunk.content?.result;
-            const id = chunk.content?.toolCallId;
-            const name = chunk.content?.toolName;
-            if (chunk.type === 'tool-error') {
-              const message = output?.message || output?.error || 'Tool failed';
-              settleTool(id, name, 'error', output, String(message));
-            } else if (output !== undefined) {
-              const failed = output?.success === false;
-              settleTool(
-                id,
-                name,
-                failed ? 'error' : 'success',
-                output,
-                failed ? output?.error || output?.message : undefined
-              );
-            }
-          } else if (chunk.type === 'done') {
-            this.isStreaming = false;
-            useChatStore.setState({ isStreaming: false });
-          } else if (chunk.type === 'error') {
-            const errorMessage = typeof chunk.content === 'string' 
-              ? chunk.content 
-              : chunk.content?.error?.message || chunk.content?.message || JSON.stringify(chunk.content);
-            console.error('[ChatService] Error:', errorMessage);
-            this.isStreaming = false;
-            useChatStore.setState({ isStreaming: false });
-
-            if (!currentAssistantMessageId) {
-              const shown = translateKnownError(translate, errorMessage) ?? errorMessage;
-              addMessage({
-                id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-                role: 'assistant',
-                content: `Error: ${shown}`,
-                timestamp: Date.now(),
-              });
-            }
-          }
-        },
-        {
-          projectId: DESKTOP_PROJECT_ID,
-          runId: started.runId,
-          expectedRevisionId: started.expectedRevisionId,
-        },
-      );
-    } catch (error: any) {
-      console.error('[ChatService] Stream error:', error);
-      const shown = translateKnownError(translate, String(error.message ?? '')) ?? String(error.message ?? '');
-      addMessage({
-        id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        role: 'assistant',
-        content: `Error: ${shown}`,
-        timestamp: Date.now(),
-      });
+    // The main process closes the run when the turn ends (a paused run stays paused for Resume) and sends the
+    // projection; this only ends the streaming state, and only for the turn that is still current.
+    const finish = () => {
+      if (!current()) return;
       this.isStreaming = false;
       useChatStore.setState({ isStreaming: false });
+    };
+
+    let provider = '';
+    try {
+      // No provider means nothing can be sent. Say so in the chat instead of failing a stream.
+      const getConfig = window.electronAPI?.llmGetConfig;
+      const config = typeof getConfig === 'function' ? await getConfig().catch(() => null) : null;
+      provider = config?.provider ?? '';
+      if (config && !config.provider) {
+        addMessage({ id: newId(), role: 'assistant', content: translate('chat.noProvider'), timestamp: Date.now() });
+        finish();
+        return;
+      }
+      let run: { runId: string; expectedRevisionId: string };
+      if (this.resumed) {
+        // Resume reopened the paused run: this turn continues it.
+        run = this.resumed;
+        this.resumed = null;
+      } else {
+        const started = await window.electronAPI.startRun(DESKTOP_PROJECT_ID);
+        applyProjection(started.projection);
+        this.currentBaseRevisionId = started.baseRevisionId;
+        run = { runId: started.runId, expectedRevisionId: started.expectedRevisionId };
+      }
+      this.currentRunId = run.runId;
+      if (!current()) return;
+
+      const graph = useGraphStore.getState();
+      const messageHistory: Array<{ role: 'user' | 'assistant' | 'system'; content: string }> = [
+        {
+          role: 'system',
+          content: agentGraphContext({ nodes: graph.nodes, components: graph.components, process: graph.process }),
+        },
+        ...messages
+          .filter((m) => m.role !== 'system' && !(m.role === 'assistant' && m.content.startsWith('Error')))
+          .map((m) => ({ role: m.role, content: m.content })),
+        { role: 'user', content },
+      ];
+
+      const publish = (patch: Partial<ChatMessage>) => {
+        if (!currentAssistantMessageId) {
+          currentAssistantMessageId = newId();
+          addMessage({
+            id: currentAssistantMessageId,
+            role: 'assistant',
+            content: assistantContent,
+            timestamp: Date.now(),
+            toolCalls: Array.from(currentToolCalls.values()),
+            logId: turnLogId,
+            ...patch,
+          });
+          return;
+        }
+        useChatStore.getState().updateMessage(currentAssistantMessageId, patch);
+      };
+      const publishToolCalls = () => publish({ content: assistantContent, toolCalls: Array.from(currentToolCalls.values()) });
+
+      const afterSuccess = (call: ToolCall) => {
+        if (call.status !== 'success') return;
+        if (call.kind === 'knowledge' && call.toolName === 'explain') {
+          const owner = asObjectRef(isRecord(call.result) ? call.result.owner : undefined) ?? asObjectRef(call.args.owner);
+          if (owner) {
+            void useKnowledgeStore.getState().loadExplanations(owner).catch(() => undefined);
+            useUiStore.getState().setFocus(owner);
+          }
+        } else if (call.kind === 'proposal') {
+          // proposals:event pushes the list; this read is the fallback when the push was missed.
+          void Promise.resolve().then(() => useProposalsStore.getState().load()).catch(() => undefined);
+        }
+      };
+
+      const applyRecord = (call: ToolCall, record: Settled): ToolCall => {
+        const next = withResultIds({ ...call, status: record.status, result: record.result, error: record.error });
+        if (call.status === 'pending') afterSuccess(next);
+        return next;
+      };
+
+      const settleTool = (id: string | undefined, name: string | undefined, record: Settled) => {
+        if (id) settledById.set(id, record);
+        const byId = id ? currentToolCalls.get(id) : undefined;
+        if (byId && id) {
+          currentToolCalls.set(id, applyRecord(byId, record));
+          publishToolCalls();
+          return;
+        }
+        const pending = name
+          ? Array.from(currentToolCalls.values()).find((call) => call.name === name && call.status === 'pending')
+          : undefined;
+        if (pending) {
+          const next = applyRecord(pending, record);
+          if (id && pending.id !== id) {
+            currentToolCalls.delete(pending.id);
+            next.id = id;
+          }
+          currentToolCalls.set(next.id, next);
+          publishToolCalls();
+          return;
+        }
+        if (name) settledByName.set(name, record);
+      };
+
+      const noteToolCall = (id: string, name: string, args: Record<string, unknown>) => {
+        const prior = settledById.get(id) ?? (name ? settledByName.get(name) : undefined);
+        if (name && prior && settledByName.get(name) === prior) settledByName.delete(name);
+        const call = newToolCall(id, name, args);
+        currentToolCalls.set(id, prior ? applyRecord(call, prior) : call);
+        publishToolCalls();
+      };
+
+      const onChunk = (chunk: StreamChunk) => {
+        // A projection is the graph's truth whichever turn sent it; anything else from a cancelled turn is dropped.
+        if (chunk.type !== 'projection' && !current()) return;
+        const body = isRecord(chunk.content) ? chunk.content : {};
+        if (chunk.type === 'projection') {
+          applyProjection(chunk.content as Projection);
+        } else if (chunk.type === 'trace') {
+          if (typeof body.id === 'string' && body.id !== '') turnLogId = body.id;
+        } else if (chunk.type === 'notice') {
+          const notice = parseTurnNotice(chunk.content);
+          if (notice) {
+            turnNotices = [...turnNotices, notice];
+            publish({ notices: turnNotices });
+          }
+        } else if (chunk.type === 'build-step') {
+          acceptBuildStep(chunk.content);
+        } else if (chunk.type === 'turn-paused') {
+          const paused = parseTurnPaused(chunk.content);
+          if (paused) {
+            pausedAtCheckpoint = true;
+            publish({ checkpoint: { ...paused, context: turn, state: 'open' } });
+          }
+        } else if (chunk.type === 'text-delta' && typeof body.text === 'string' && body.text) {
+          assistantContent += body.text;
+          publish({ content: assistantContent });
+        } else if (chunk.type === 'tool-call') {
+          const id = typeof body.toolCallId === 'string' ? body.toolCallId : `tool-${Date.now()}`;
+          const name = typeof body.toolName === 'string' ? body.toolName : 'tool';
+          noteToolCall(id, name, parseToolArgs(body.input ?? body.args));
+        } else if (chunk.type === 'tool-result' || chunk.type === 'tool-error') {
+          // AI SDK fullStream puts the execute() return value on `output`. Older fixtures used `result`.
+          const output = body.output !== undefined ? body.output : body.result;
+          const id = typeof body.toolCallId === 'string' ? body.toolCallId : undefined;
+          const name = typeof body.toolName === 'string' ? body.toolName : undefined;
+          if (chunk.type === 'tool-error') {
+            const source = output ?? body.error;
+            const message = isRecord(source)
+              ? (typeof source.message === 'string' ? source.message : typeof source.error === 'string' ? source.error : 'Tool failed')
+              : typeof source === 'string' ? source : 'Tool failed';
+            // Raw SDK errors (NoSuchToolError and friends) read as a stack of tool names; show the catalog sentence.
+            settleTool(id, name, { status: 'error', result: output, error: translateKnownError(translate, message) ?? message });
+          } else if (output !== undefined) {
+            const settled = settleFromResult(output);
+            settleTool(id, name, { status: settled.status, result: output, error: settled.error });
+          }
+        } else if (chunk.type === 'done') {
+          finish();
+          // The run is paused at the checkpoint, not closed: the status bar and the card say so.
+          if (pausedAtCheckpoint && current()) useChatStore.setState({ isPaused: true });
+          // 'done' is the last chunk of the turn; the invoke can settle before late chunks arrive, so save here too.
+          this.persist(currentAssistant());
+        } else if (chunk.type === 'error') {
+          const errorMessage = errorText(chunk.content);
+          const kind = parseTurnError(chunk.content);
+          console.error('[ChatService] Error:', kind ? `${kind.kind}: ${kind.details}` : errorMessage);
+          finish();
+          // One plain sentence with the next step; the server's words stay in the log and in `details`.
+          const shown = kind ? turnErrorText(kind, translate) : shownError(provider, errorMessage);
+          const failure: ChatMessage = {
+            id: newId(),
+            role: 'assistant',
+            content: `Error: ${shown}`,
+            timestamp: Date.now(),
+            logId: turnLogId,
+            ...(kind ? { turnError: { ...kind, question: content, context: turn } } : {}),
+          };
+          if (!currentAssistantMessageId) currentAssistantMessageId = failure.id;
+          else this.persist(currentAssistant());
+          addMessage(failure);
+          this.persist(failure);
+        }
+      };
+
+      await window.electronAPI.llmStreamChat(
+        messageHistory,
+        BUILD_TOOL_SPECS,
+        onChunk,
+        {
+          projectId: DESKTOP_PROJECT_ID,
+          runId: run.runId,
+          expectedRevisionId: run.expectedRevisionId,
+        },
+        turn,
+      );
+    } catch (error) {
+      const raw = error instanceof Error ? error.message : errorText(error);
+      console.error('[ChatService] Stream error:', raw);
+      const shown = shownError(provider, raw);
+      if (!currentAssistantMessageId && current()) {
+        currentAssistantMessageId = newId();
+        addMessage({ id: currentAssistantMessageId, role: 'assistant', content: `Error: ${shown}`, timestamp: Date.now(), logId: turnLogId });
+      }
+    } finally {
+      finish();
+      this.persist(currentAssistant());
     }
   }
 
+  /**
+   * Stops the turn: aborts the main-process stream (llm:cancel), then cancels the run so nothing else of
+   * this turn is committed or proposed. The cancelled turn can no longer change the streaming state.
+   */
   cancel(): void {
+    this.turnToken += 1;
     this.isStreaming = false;
+    this.resumed = null;
     useChatStore.setState({ isStreaming: false, isPaused: false });
-    console.log('[ChatService] Streaming cancelled');
+    const runId = this.currentRunId;
+    const llmCancel = window.electronAPI?.llmCancel;
+    const cancelRun = window.electronAPI?.cancelRun;
+    void Promise.resolve()
+      .then(() => (typeof llmCancel === 'function' ? llmCancel(runId ?? undefined) : undefined))
+      .catch((error: unknown) => console.warn('[ChatService] Stream cancel failed:', errorText(error)))
+      .then(() => (runId && typeof cancelRun === 'function' ? cancelRun(DESKTOP_PROJECT_ID, runId) : undefined))
+      .then((result) => { if (result?.projection) applyProjection(result.projection); })
+      .catch((error: unknown) => console.warn('[ChatService] Cancel failed:', errorText(error)));
   }
 
   async pause(): Promise<void> {
@@ -323,12 +478,56 @@ class ChatService {
     }
   }
 
+  /** Reopens the paused run (same run id); the next turn continues it instead of starting a new run. */
   async resume(): Promise<void> {
     const started = await window.electronAPI.resumeRun(DESKTOP_PROJECT_ID);
     this.currentRunId = started.runId;
     this.currentBaseRevisionId = started.baseRevisionId;
+    // Mid-turn (the person paused a build and pressed Continue) the turn still running carries on with this run;
+    // only a run paused at a checkpoint is handed to the next turn.
+    this.resumed = this.isStreaming ? null : { runId: started.runId, expectedRevisionId: started.expectedRevisionId };
     applyProjection(started.projection);
     useChatStore.setState({ isPaused: false });
+  }
+
+  /**
+   * Continue on a checkpoint card: reopens the paused run (resume) and sends "continue" with the paused turn's
+   * context, so a long build carries on across checkpoints in the same run.
+   */
+  async continueFromCheckpoint(messageId: string): Promise<void> {
+    const message = useChatStore.getState().messages.find((item) => item.id === messageId);
+    const checkpoint = message?.checkpoint;
+    if (!checkpoint || checkpoint.state !== 'open' || this.isStreaming) return;
+    useChatStore.getState().updateMessage(messageId, { checkpoint: { ...checkpoint, state: 'continued' } });
+    try {
+      await this.resume();
+    } catch (error) {
+      console.warn('[ChatService] Resume failed; continuing in a new run:', errorText(error));
+    }
+    const word = translate('chat.continueMessage');
+    await this.sendMessage(word && word !== 'chat.continueMessage' ? word : 'continue', checkpoint.context);
+  }
+
+  /** «Повторить» on a failed turn: the same question goes again, with the context it was asked in. */
+  async retry(messageId: string): Promise<void> {
+    const message = useChatStore.getState().messages.find((item) => item.id === messageId);
+    const failure = message?.turnError;
+    if (!failure || this.isStreaming) return;
+    await this.sendMessage(failure.question, failure.context);
+  }
+
+  /** Stop on a checkpoint card: the paused run is cancelled; changes already applied stay. */
+  stopAtCheckpoint(messageId: string): void {
+    const message = useChatStore.getState().messages.find((item) => item.id === messageId);
+    const checkpoint = message?.checkpoint;
+    if (!checkpoint || checkpoint.state !== 'open') return;
+    useChatStore.getState().updateMessage(messageId, { checkpoint: { ...checkpoint, state: 'stopped' } });
+    this.cancel();
+  }
+
+  /** The revision the current run started from, for callers that show it. */
+  get baseRevisionId(): string | null {
+    return this.currentBaseRevisionId;
   }
 }
 

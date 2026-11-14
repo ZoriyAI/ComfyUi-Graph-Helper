@@ -1,0 +1,150 @@
+/* Description cards under nodes: a quiet raised note that reads as part of the node, not a popup. */
+.card {
+  box-sizing: border-box;
+  padding: 4px 4px 4px 6px;
+  border-radius: var(--radius-lg, 10px);
+  border: 1px solid var(--border, #2a3648);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--surface-raised, #182131) 94%, white 6%), var(--surface-raised, #182131));
+  box-shadow: var(--highlight-top), 0 6px 18px -6px rgba(0, 0, 0, 0.55);
+  color: var(--text, #e8eef7);
+  font-size: var(--text-xs, 12px);
+  line-height: 17px;
+  animation: enter var(--motion-enter, 160ms) var(--motion-ease-out, ease-out) 1 both;
+}
+.card[data-expanded="true"] { padding-bottom: 8px; }
+/* The card is drawn at the canvas zoom from the side of the node it sits on, so it stays where it is put. */
+.scale { transform-origin: top center; }
+.scale[data-side="top"] { transform-origin: bottom center; }
+.scale[data-side="right"] { transform-origin: top left; }
+.scale[data-side="left"] { transform-origin: top right; }
+.card[data-spotlight="true"] {
+  border-color: color-mix(in srgb, var(--focus, #b7a5ff) 55%, var(--border, #2a3648));
+  box-shadow: var(--highlight-top), 0 8px 24px -6px rgba(0, 0, 0, 0.6), 0 0 20px color-mix(in srgb, var(--focus, #b7a5ff) 18%, transparent);
+}
+.head { display: flex; align-items: center; gap: 2px; }
+.summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 24px;
+  padding: 0 4px 0 0;
+  border: 0;
+  border-radius: var(--radius-sm, 6px);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.summary:hover .line { color: var(--text, #e8eef7); }
+.summary:focus-visible, .icon:focus-visible, .action:focus-visible, .aspect:focus-visible, .dot:focus-visible, .field:focus-visible {
+  outline: 2px solid var(--focus, #b7a5ff);
+  outline-offset: 1px;
+}
+.badge { flex: 0 0 auto; display: inline-flex; }
+/* Compact cards (zoomed out) carry the source as a coloured dot; the label stays for screen readers and the tooltip. */
+.card[data-compact="true"] { padding: 2px 2px 2px 6px; opacity: 0.92; }
+.card[data-compact="true"] .summary { min-height: 20px; }
+.provDot { flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; background: var(--text-faint, #8b9bb0); }
+.provDot[data-provenance="fact"] { background: var(--prov-fact, #82ddb3); }
+.provDot[data-provenance="inference"] { background: var(--prov-inference, #b7a5ff); }
+.provDot[data-provenance="web"] { background: var(--prov-web, #6cc0f5); }
+.provDot[data-provenance="user"] { background: var(--prov-user, #f6ce7c); }
+.line {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--text-dim, #a3b1c6);
+}
+.chevron { flex: 0 0 auto; color: var(--text-faint, #8b9bb0); }
+.icon {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm, 6px);
+  border: 0;
+  background: transparent;
+  color: var(--text-faint, #8b9bb0);
+  cursor: pointer;
+}
+.icon:hover { background: var(--surface-hover, #243247); color: var(--text, #e8eef7); }
+.body { padding: 4px 4px 0 2px; }
+.part + .part { margin-top: 8px; }
+.partHead { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
+.partLabel { color: var(--text-faint, #8b9bb0); font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; }
+.text { margin: 0; color: var(--text, #e8eef7); font-size: var(--text-sm, 13px); line-height: 19px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; margin-top: 8px; }
+.action, .aspect {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: var(--radius-sm, 6px);
+  border: 1px solid var(--border, #2a3648);
+  background: var(--surface-panel, #111824);
+  color: var(--text, #e8eef7);
+  font: inherit;
+  font-size: var(--text-xs, 12px);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color var(--motion-feedback, 100ms) var(--motion-ease-out, ease-out);
+}
+.square { width: 24px; padding: 0; justify-content: center; }
+.action:hover:not(:disabled), .aspect:hover { background: var(--surface-hover, #243247); }
+.action:disabled { color: var(--text-faint, #8b9bb0); cursor: not-allowed; }
+.primary { background-color: var(--accent, #65d9ed); background-image: var(--accent-gradient); border-color: transparent; color: var(--on-accent, #071218); }
+.primary:hover:not(:disabled) { background-image: var(--accent-gradient-hover); }
+.form { display: grid; gap: 6px; }
+.aspects { display: inline-flex; gap: 4px; }
+.aspect[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--accent, #65d9ed) 16%, transparent);
+  border-color: color-mix(in srgb, var(--accent, #65d9ed) 45%, transparent);
+  color: var(--accent, #65d9ed);
+}
+.field {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 72px;
+  padding: 6px 8px;
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--border, #2a3648);
+  background: var(--surface-sunken, #0c1119);
+  color: var(--text, #e8eef7);
+  font: inherit;
+  font-size: var(--text-sm, 13px);
+  line-height: 19px;
+  resize: vertical;
+}
+.form .actions { margin-top: 0; }
+/* A hidden card leaves a small note chip on the node's bottom-right corner that brings it back. */
+/* Quiet by default: it marks that there is something to read, it does not compete with the node's ports. */
+.dot {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  margin-right: 14px;
+  padding: 0;
+  border-radius: var(--radius-xs, 4px);
+  border: 1px solid var(--border-subtle, #222d3e);
+  background: var(--surface-panel, #111824);
+  color: var(--text-faint, #8b9bb0);
+  opacity: 0.8;
+  cursor: pointer;
+  transition: background-color var(--motion-feedback, 100ms) var(--motion-ease-out, ease-out), color var(--motion-feedback, 100ms) var(--motion-ease-out, ease-out), opacity var(--motion-feedback, 100ms) var(--motion-ease-out, ease-out);
+}
+.dot:hover, .dot:focus-visible { opacity: 1; background: var(--surface-hover, #243247); color: var(--ai, #b7a5ff); border-color: color-mix(in srgb, var(--ai, #b7a5ff) 45%, var(--border, #2a3648)); }
+@keyframes enter { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+:global(html[data-motion="off"]) .card,
+:global(html[data-motion="reduced"]) .card { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  :global(html[data-motion="system"]) .card,
+  :global(html:not([data-motion])) .card { animation: none; }
+}

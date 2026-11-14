@@ -103,19 +103,19 @@ test('node and subgraph records persist in the native project and stay out of Co
   await nestedForm.locator('textarea').nth(1).fill(NESTED_USAGE);
   await nestedForm.getByRole('button', { name: 'Save documentation' }).click();
   await expect(nestedForm.getByRole('button', { name: 'Save documentation' })).toBeDisabled();
-  await expect(window.getByText('This build does not open a subgraph canvas.')).toBeVisible();
-  await expect(window.getByText('A group is not a subgraph.')).toHaveCount(0);
+  await expect(window.getByText('Open one on the canvas to see what is inside.')).toBeVisible();
+  await expect(window.getByText('No subgraphs in this graph yet.')).toHaveCount(0);
 
   await window.locator('#process-title').fill('Portrait process');
   await window.locator('#process-notes').fill('Keep the loader and the grade together.');
-  await window.locator('[data-component-owner="process"]').getByRole('button', { name: 'Save process' }).click();
+  await window.locator('[data-component-owner="process"]').getByRole('button', { name: 'Save title and notes' }).click();
 
   await electronApp.evaluate(({ dialog }, paths) => {
     dialog.showSaveDialog = async () => ({ canceled: false, filePath: paths.nativePath });
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [paths.nativePath] });
   }, { nativePath });
   await window.getByRole('button', { name: 'Save project' }).click();
-  await expect(window.getByText('Saved the native project.')).toBeVisible();
+  await expect(window.getByText('Project saved.')).toBeVisible();
   const native = JSON.parse(fs.readFileSync(nativePath, 'utf8')) as {
     format: string;
     version: number;
@@ -123,7 +123,7 @@ test('node and subgraph records persist in the native project and stay out of Co
     components: Array<{ ownerId: string; purpose: string; usage: string }>;
   };
   expect(native.format).toBe('comfy-graph-helper-project');
-  expect(native.version).toBe(1);
+  expect(native.version).toBe(2);
   expect(native.process.title).toBe('Portrait process');
   expect(native.components.find((item) => item.ownerId === '7')).toMatchObject({ purpose: PURPOSE, usage: `${USAGE.slice(0, -1)}` });
   expect(native.components.find((item) => item.ownerId === NESTED)?.usage).toBe(NESTED_USAGE);
@@ -131,8 +131,8 @@ test('node and subgraph records persist in the native project and stay out of Co
   await electronApp.evaluate(({ dialog }, paths) => {
     dialog.showSaveDialog = async () => ({ canceled: false, filePath: paths.comfyPath });
   }, { comfyPath });
-  await window.getByRole('button', { name: 'Export', exact: true }).click();
-  await expect(window.getByText('Exported the current workflow.')).toBeVisible();
+  await window.getByRole('button', { name: 'Save workflow for ComfyUI…', exact: true }).click();
+  await expect(window.getByText('Workflow saved for ComfyUI.')).toBeVisible();
   const exported = fs.readFileSync(comfyPath, 'utf8');
   expect(exported).not.toContain(PURPOSE);
   expect(exported).not.toContain('Portrait process');
@@ -170,13 +170,13 @@ test('node and subgraph records persist in the native project and stay out of Co
   expect(openBox!.x).toBeGreaterThanOrEqual(0);
   expect(openBox!.x + openBox!.width).toBeLessThanOrEqual(1024);
   const bar = await window.locator('.document-bar').evaluate((element) => Math.round(element.getBoundingClientRect().height));
-  expect(bar).toBe(48);
+  expect(bar).toBe(32);
 
   await russianForm.locator('textarea').nth(0).fill('Временная правка');
   await russianForm.getByRole('button', { name: 'Сохранить описание' }).click();
   await expect(russianForm.getByRole('button', { name: 'Сохранить описание' })).toBeDisabled();
   await window.getByRole('button', { name: 'Открыть проект' }).click();
-  await expect(window.getByText('Нативный проект открыт.')).toBeVisible();
+  await expect(window.getByText('Проект открыт.')).toBeVisible();
   await expect(window.locator('[data-component-owner="node:7"] textarea').nth(0)).toHaveValue(PURPOSE);
   await electronApp.close();
 });

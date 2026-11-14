@@ -1,0 +1,77 @@
+.button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--motion-feedback) var(--motion-ease-out),
+    border-color var(--motion-feedback) var(--motion-ease-out),
+    color var(--motion-feedback) var(--motion-ease-out),
+    transform var(--motion-feedback) var(--motion-ease-out);
+}
+.button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.button:disabled { box-shadow: none; }
+.button:active:not(:disabled) { transform: translateY(1px); }
+:global(html[data-motion="off"]) .button:active:not(:disabled),
+:global(html[data-motion="reduced"]) .button:active:not(:disabled) { transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  :global(html[data-motion="system"]) .button:active:not(:disabled) { transform: none; }
+}
+.button:disabled { color: var(--text-faint); cursor: not-allowed; }
+
+.md { min-height: 32px; padding: 6px 10px; font-size: var(--text-md); line-height: 20px; }
+.sm { min-height: 28px; padding: 4px 8px; font-size: var(--text-xs); line-height: 18px; gap: 4px; }
+
+.ghost:hover:not(:disabled) { background: var(--surface-hover); }
+.ghost[aria-pressed="true"] { background: var(--surface-hover); border-color: var(--border-strong); }
+
+.subtle {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent), var(--surface-raised);
+  border-color: var(--border);
+  box-shadow: var(--highlight-top), 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+.subtle:hover:not(:disabled) { background: var(--surface-hover); border-color: var(--border-strong); }
+
+.primary {
+  background-color: var(--accent);
+  background-image: var(--accent-gradient);
+  border-color: color-mix(in srgb, var(--accent-strong) 60%, transparent);
+  color: var(--on-accent);
+  font-weight: 600;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), var(--glow-accent);
+}
+.primary:hover:not(:disabled) { background-image: var(--accent-gradient-hover); }
+/* `quiet`: the gradient and the top highlight stay, the halo goes (only the view's main action glows). */
+.primary.quiet { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 1px 2px rgba(0, 0, 0, 0.3); }
+.primary:disabled { background: transparent; background-image: none; border-color: var(--border); color: var(--text-faint); box-shadow: none; }
+
+.danger { background: var(--danger-soft); border-color: var(--danger-strong); color: var(--danger); }
+.danger:hover:not(:disabled) { background: var(--danger-strong); color: var(--on-danger); }
+/* Off, a destructive button looks off too: no raspberry edge that reads as "ready". */
+.danger:disabled { background: transparent; border-color: var(--border); color: var(--text-faint); }
+
+.icon { display: inline-flex; flex: 0 0 auto; }
+.label { display: inline-flex; align-items: center; }
+.loading .label, .loading .icon { visibility: hidden; }
+.spinner {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: spin 800ms linear infinite;
+}
+:global(html[data-motion="off"]) .spinner { animation: none; border-right-color: currentColor; opacity: 0.6; }
+@keyframes spin { to { transform: rotate(360deg); } }

@@ -1,0 +1,44 @@
+form.form { display: flex; flex-direction: column; align-items: stretch; gap: 8px; width: 100%; }
+/* The message field takes the row; Send sits at its bottom right, where the eye ends a line. */
+form.form .field { position: relative; flex: none; flex-direction: row; width: 100%; min-width: 0; display: flex; align-items: flex-end; gap: 8px; }
+.field textarea { flex: 1 1 auto; min-width: 0; }
+.field :global(.hint-target) { flex: none; display: inline-flex; }
+
+/* Send: a round primary button. Off, it keeps its shape on a sunken surface with a faint arrow, so it reads as a
+   button that is waiting, not as dim text. */
+.field .send {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+  padding: 0;
+  border-radius: 50%;
+}
+.field .send:disabled {
+  background: var(--bg-sunken);
+  border: 1px dashed var(--line);
+  color: var(--text-faint);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+.field .send:not(:disabled) { color: var(--on-accent); }
+.field .send:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+.intent {
+  display: inline-flex;
+  align-self: flex-start;
+  padding: 2px;
+  gap: 2px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--bg-sunken);
+}
+/* The modes are a segmented control (ui/Segmented): the chosen one is raised, with no colour of its own. */
+.intentOption { composes: option from '../../ui/Segmented.module.css'; }
+/* In the Learn mode there is nothing to write: the field gives its room to the lesson. */
+form.form .field[hidden] { display: none; }
+.intentOption:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.intentRow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.intentHint { color: var(--text-faint); font-size: 12px; line-height: 18px; }

@@ -1,0 +1,6 @@
+.ring { display: inline-block; flex: 0 0 auto; vertical-align: middle; }
+.track { stroke: var(--border); }
+.bar { stroke: var(--accent); transition: stroke-dashoffset var(--motion-panel) var(--motion-ease-out); }
+.indeterminate { transform-origin: center; animation: turn 1100ms linear infinite; }
+:global(html[data-motion="off"]) .indeterminate { animation: none; }
+@keyframes turn { to { transform: rotate(360deg); } }

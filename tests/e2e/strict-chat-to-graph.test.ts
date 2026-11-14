@@ -4,6 +4,7 @@ import { useEnglish } from './locale';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
+import { artifact } from './artifacts';
 
 /**
  * STRICT E2E Chat-to-Graph Test
@@ -21,8 +22,8 @@ import * as os from 'os';
  *    enables Send while the input stays enabled
  */
 const EXPECTED_REPLY = 'I have added a TestNode and annotated it.';
-const MAIN_LOG = '/opt/cursor/artifacts/strict-main-process.log';
-const RENDERER_LOG = '/opt/cursor/artifacts/strict-renderer-console.log';
+const MAIN_LOG = artifact('strict-main-process.log');
+const RENDERER_LOG = artifact('strict-renderer-console.log');
 
 test('STRICT: Complete chat-to-graph with annotation, statuses, completion', async () => {
   // Create fresh temporary user data directory
@@ -72,13 +73,15 @@ test('STRICT: Complete chat-to-graph with annotation, statuses, completion', asy
 
   console.log('[STRICT] Initial state BEFORE config:', initialState);
 
-  await window.screenshot({ path: '/opt/cursor/artifacts/dark-idle.png', fullPage: true });
+  await window.screenshot({ path: artifact('dark-idle.png'), fullPage: true });
 
   // Visible TEST opt-in. Not a live model and not the user's ComfyUI server.
-  await pickOption(window, 'Chat provider', 'TEST fixture');
-  await window.getByText('TEST fixture is on').waitFor();
+  await pickOption(window, 'Chat provider', 'TEST mode');
+  await window.getByText('TEST mode is on').first().waitFor();
 
   await window.getByRole('tab', { name: 'Assistant' }).click();
+  // Build tools exist only in a build turn: switch the composer to Build.
+  await window.getByRole('group', { name: 'Mode' }).getByRole('button', { name: 'Build', exact: true }).click();
   const input = window.locator('textarea[aria-label="Chat message"]');
   await input.fill('Add a test node');
   await input.press('Enter');
@@ -229,11 +232,11 @@ test('STRICT: Complete chat-to-graph with annotation, statuses, completion', asy
   expect(afterDraft.nodeIds).toEqual(finalState.nodeIds);
 
   await window.screenshot({
-    path: '/opt/cursor/artifacts/strict-e2e-success.png',
+    path: artifact('strict-e2e-success.png'),
     fullPage: true,
   });
   await window.screenshot({
-    path: '/opt/cursor/artifacts/dark-completed.png',
+    path: artifact('dark-completed.png'),
     fullPage: true,
   });
 
@@ -272,8 +275,8 @@ test('STRICT: Readable error with no graph mutation on failure', async () => {
     };
   });
 
-  await pickOption(window, 'Chat provider', 'OpenAI session');
-  await window.getByText('OpenAI is selected with no key').waitFor();
+  await pickOption(window, 'Chat provider', 'OpenAI');
+  await window.getByText('OpenAI is chosen, but there is no key').waitFor();
 
   await window.getByRole('tab', { name: 'Assistant' }).click();
   const input = window.locator('textarea[aria-label="Chat message"]');
@@ -285,9 +288,8 @@ test('STRICT: Readable error with no graph mutation on failure', async () => {
 
   const finalState = await window.evaluate(() => {
     const nodes = Array.from(document.querySelectorAll('.react-flow__node'));
-    const errors = Array.from(document.querySelectorAll('div')).filter((el: any) =>
-      el.textContent?.includes('Error')
-    );
+    // A failed answer is one plain sentence in its own block; the word "Error" is not shown any more.
+    const errors = Array.from(document.querySelectorAll('[data-turn-error]'));
     
     return {
       nodeCount: nodes.length,
@@ -308,7 +310,7 @@ test('STRICT: Readable error with no graph mutation on failure', async () => {
   expect(finalState.nodeIds).toEqual(initialState.nodeIds);
 
   await window.screenshot({ 
-    path: '/opt/cursor/artifacts/strict-e2e-error.png', 
+    path: artifact('strict-e2e-error.png'), 
     fullPage: true 
   });
 

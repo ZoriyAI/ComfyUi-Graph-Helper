@@ -1,24 +1,96 @@
 import Database from 'better-sqlite3';
-import { app } from 'electron';
+import * as path from 'path';
+import { app, dialog, shell } from 'electron';
 import { ensureWorkspace } from './commands/commit';
+import { trimAllHistories } from './commands/history';
+import { closeInterruptedRuns } from './agent/interrupted';
+import { readSettings } from './settings/repository';
+import { languageOf } from '../shared/i18n';
 import { databasePath } from '../shared/database-path';
-import { migrate } from './settings/migrate';
+import { migrate, schemaVersion, SCHEMA_VERSION } from './settings/migrate';
+import { backupBeforeUpgrade, classifyDatabaseError, DatabaseOpenError, setAsideDamaged } from './settings/databaseSafety';
+import { reseedCoreKnowledge } from './knowledge/seedCore';
+import { createTranslator } from '../shared/i18n';
 
 let db: Database.Database | null = null;
 
+/**
+ * Opens and upgrades the profile database. A file from a newer app version is refused before anything is
+ * written; an existing file is copied before its schema is upgraded (settings/databaseSafety.ts). A failure is a
+ * DatabaseOpenError that says what kind of problem it is.
+ */
 export function openDatabase(dbPath: string): Database.Database {
-  const opened = new Database(dbPath);
-  opened.pragma('journal_mode = WAL');
-  migrate(opened);
-  return opened;
+  let opened: Database.Database | null = null;
+  try {
+    opened = new Database(dbPath);
+    // A file from a newer version is refused before anything is written to it.
+    const from = schemaVersion(opened);
+    if (from > SCHEMA_VERSION) throw new DatabaseOpenError('newer', new Error(`Unsupported schema version ${from}`));
+    opened.pragma('journal_mode = WAL');
+    // Deleted or replaced rows (a forgotten key's ciphertext, a refreshed token) are overwritten, not left in free pages.
+    opened.pragma('secure_delete = ON');
+    const copy = backupBeforeUpgrade(opened, dbPath, from, SCHEMA_VERSION);
+    if (copy) console.log(`[Database] Copy before upgrade from version ${from}: ${path.basename(copy)}`);
+    migrate(opened);
+    return opened;
+  } catch (error) {
+    try {
+      opened?.close();
+    } catch {
+      // Already unusable.
+    }
+    throw error instanceof DatabaseOpenError ? error : new DatabaseOpenError(classifyDatabaseError(error), error);
+  }
+}
+
+/**
+ * A damaged file: the person may put it aside (it is renamed, never deleted) and start with empty data, open the
+ * folder, or quit. Russian first, like the rest of the app before the settings can be read.
+ */
+function askAboutDamagedFile(dbPath: string): boolean {
+  const t = createTranslator('ru');
+  const folder = path.dirname(dbPath);
+  for (;;) {
+    const choice = dialog.showMessageBoxSync({
+      type: 'error',
+      title: t('diagnostics.dbDamagedTitle'),
+      message: t('diagnostics.dbDamagedMessage'),
+      detail: t('diagnostics.dbDamagedDetail', { folder }),
+      buttons: [t('diagnostics.dbStartEmpty'), t('diagnostics.openFolder'), t('diagnostics.quit')],
+      defaultId: 2,
+      cancelId: 2,
+      noLink: true,
+    });
+    if (choice === 0) return true;
+    if (choice === 1) {
+      void shell.openPath(folder);
+      continue;
+    }
+    return false;
+  }
 }
 
 export function initDatabase(): void {
   const userDataDir = app.getPath('userData');
   const dbPath = databasePath(userDataDir);
   console.log('[Database] Opening', dbPath);
-  db = openDatabase(dbPath);
+  try {
+    db = openDatabase(dbPath);
+  } catch (error) {
+    if (!(error instanceof DatabaseOpenError) || error.problem !== 'damaged') throw error;
+    console.error('[Database] The file is damaged:', error.message);
+    if (!askAboutDamagedFile(dbPath)) throw new DatabaseOpenError('declined', error.cause);
+    const aside = setAsideDamaged(dbPath);
+    console.warn(`[Database] Damaged file kept as ${path.basename(aside)}; starting with empty data`);
+    db = openDatabase(dbPath);
+  }
   ensureWorkspace(db);
+  // No turn survives a restart: runs left open by the previous session would block or confuse the next one. A run
+  // that had changed the graph leaves one line in the chat saying so.
+  closeInterruptedRuns(db, languageOf(readSettings(db)));
+  reseedCoreKnowledge(db); // Built-in teaching knowledge in the saved interface language; never fatal.
+  // A history grown past its limits shrinks in short steps after start (commands/history.ts).
+  trimAllHistories(db);
   console.log('[Database] Schema ready');
 }
 

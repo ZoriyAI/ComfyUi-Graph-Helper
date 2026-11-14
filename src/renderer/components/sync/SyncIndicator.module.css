@@ -1,0 +1,61 @@
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+  min-width: 0;
+  max-width: 100%;
+  cursor: pointer;
+  transition: background-color var(--motion-feedback) var(--motion-ease-out);
+}
+.trigger:hover { background: var(--surface-hover); color: var(--text); }
+.trigger:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.trigger[data-state="open"] { background: var(--surface-hover); color: var(--text); }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-faint); flex: 0 0 auto; }
+.idle .dot { background: var(--ok); }
+.error { color: var(--danger); }
+.error .dot { background: var(--danger); }
+.running { color: var(--accent); }
+.label { overflow: hidden; text-overflow: ellipsis; min-width: 0; max-width: 260px; }
+
+.panel { display: flex; flex-direction: column; gap: 10px; }
+/* In a short window the popover scrolls (ui/Popover .scroll); the buttons stay in view at its bottom. */
+.head { display: flex; align-items: center; gap: 8px; }
+.title { margin: 0; font-size: var(--text-md); line-height: 20px; font-weight: 600; }
+.counts { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; margin: 0; font-size: var(--text-sm); }
+.counts dt { color: var(--text-dim); }
+.counts dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; color: var(--text); }
+.note { margin: 0; color: var(--text-dim); font-size: var(--text-xs); line-height: 18px; }
+.errorNote { margin: 0; color: var(--danger); font-size: var(--text-xs); line-height: 18px; overflow-wrap: anywhere; }
+.auto { display: flex; flex-direction: column; gap: 8px; padding-top: 10px; border-top: 1px solid var(--border); }
+.interval { display: flex; align-items: center; gap: 8px; color: var(--text-dim); font-size: var(--text-xs); }
+.interval input {
+  width: 80px;
+  min-height: 28px;
+  padding: 4px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  color: var(--text);
+}
+.interval input:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.actions {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 8px;
+  background: var(--surface-overlay);
+}
+.warned .dot { background: var(--warn, var(--accent)); }
+.warnNote { margin: 0; color: var(--warn, var(--text)); font-size: var(--text-xs); line-height: 18px; overflow-wrap: anywhere; }
+.actions { flex-wrap: nowrap; }
+.actions > * { min-width: 0; }

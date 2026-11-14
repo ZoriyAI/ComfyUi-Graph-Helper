@@ -1,0 +1,257 @@
+{
+  "id": "6f1c2a3e-0000-4000-8000-000000000001",
+  "revision": 3,
+  "last_node_id": 12,
+  "last_link_id": 9,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "PaletteSource",
+      "pos": { "0": 10, "1": 20 },
+      "size": [220, 90],
+      "flags": { "collapsed": true, "pinned": true },
+      "order": 0,
+      "mode": 4,
+      "title": "Colours in",
+      "color": "#223",
+      "bgcolor": "#335",
+      "shape": 1,
+      "outputs": [{ "name": "PALETTE", "type": "PALETTE", "links": [1, 2], "slot_index": 0, "shape": 3, "label": "palette", "localized_name": "PALETTE" }],
+      "properties": { "Node name for S&R": "PaletteSource", "cnr_id": "palette-pack", "ver": "1.2.3", "widget_ue_connectable": { "amount": true } },
+      "widgets_values": { "amount": 0.5, "label": "warm", "nested": { "keep": [1, 2.0] } },
+      "unknown_node_field": { "keep": true }
+    },
+    {
+      "id": 2,
+      "type": "PaletteMix",
+      "pos": [300, 20],
+      "size": [220, 90],
+      "flags": {},
+      "order": 1,
+      "mode": 2,
+      "inputs": [
+        { "name": "palette", "type": "PALETTE", "link": 1, "shape": 7, "label": "in" },
+        { "name": "strength", "type": "FLOAT", "link": 3, "widget": { "name": "strength" }, "localized_name": "strength" }
+      ],
+      "outputs": [{ "name": "PALETTE", "type": "PALETTE", "links": [4], "slot_index": 0 }],
+      "properties": {},
+      "widgets_values": [0.75, "fixed"]
+    },
+    {
+      "id": 3,
+      "type": "PrimitiveNode",
+      "pos": [0, 200],
+      "size": [200, 80],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "outputs": [{ "name": "FLOAT", "type": "FLOAT", "links": [3], "widget": { "name": "strength" } }],
+      "properties": { "Run widget replace on values": false },
+      "widgets_values": [0.75, "fixed"]
+    },
+    {
+      "id": 4,
+      "type": "Reroute",
+      "pos": [560, 40],
+      "size": [75, 26],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [{ "name": "", "type": "*", "link": 4 }],
+      "outputs": [{ "name": "", "type": "PALETTE", "links": [5] }],
+      "properties": { "showOutputText": false, "horizontal": false }
+    },
+    {
+      "id": 5,
+      "type": "SetNode",
+      "pos": [700, 40],
+      "size": [210, 60],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [{ "name": "PALETTE", "type": "PALETTE", "link": 5 }],
+      "outputs": [{ "name": "*", "type": "*", "links": null }],
+      "title": "Set_mix",
+      "properties": { "previousName": "mix" },
+      "widgets_values": ["mix"]
+    },
+    {
+      "id": 6,
+      "type": "GetNode",
+      "pos": [700, 160],
+      "size": [210, 60],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "outputs": [{ "name": "PALETTE", "type": "PALETTE", "links": [6], "slot_index": 0 }],
+      "title": "Get_mix",
+      "properties": {},
+      "widgets_values": ["mix"]
+    },
+    {
+      "id": 7,
+      "type": "9b1f0c2d-1111-4222-8333-444455556666",
+      "pos": [950, 160],
+      "size": [240, 100],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [{ "name": "palette", "type": "PALETTE", "link": 6 }],
+      "outputs": [{ "name": "PICTURE", "type": "PICTURE", "links": [7] }],
+      "properties": { "proxyWidgets": [["-1", "amount"]] },
+      "widgets_values": []
+    },
+    {
+      "id": 8,
+      "type": "workflow>Swatch pair",
+      "pos": [1250, 160],
+      "size": [240, 100],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [{ "name": "picture", "type": "PICTURE", "link": 7 }],
+      "outputs": [],
+      "properties": {},
+      "widgets_values": [4]
+    },
+    {
+      "id": 9,
+      "type": "Note",
+      "pos": [0, 400],
+      "size": [300, 100],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "properties": { "text": "" },
+      "widgets_values": ["Plain note text"],
+      "color": "#432",
+      "bgcolor": "#653"
+    },
+    {
+      "id": 10,
+      "type": "MarkdownNote",
+      "pos": [320, 400],
+      "size": [300, 100],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "properties": {},
+      "widgets_values": ["# Heading\n\nSome *markdown*."]
+    },
+    {
+      "id": 12,
+      "type": "PaletteSink",
+      "pos": [300, 200],
+      "size": [220, 90],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [{ "name": "palette", "type": "PALETTE", "link": 2 }],
+      "outputs": [],
+      "properties": {}
+    }
+  ],
+  "links": [
+    [1, 1, 0, 2, 0, "PALETTE"],
+    [2, 1, 0, 12, 0, "PALETTE"],
+    [3, 3, 0, 2, 1, "FLOAT"],
+    [4, 2, 0, 4, 0, "PALETTE"],
+    [5, 4, 0, 5, 0, "*"],
+    [6, 6, 0, 7, 0, "PALETTE"],
+    [7, 7, 0, 8, 0, "PICTURE"]
+  ],
+  "groups": [
+    { "id": 1, "title": "Colour stage", "bounding": [0, -40, 560, 340], "color": "#3f789e", "font_size": 24, "flags": { "pinned": true } }
+  ],
+  "definitions": {
+    "subgraphs": [
+      {
+        "id": "9b1f0c2d-1111-4222-8333-444455556666",
+        "version": 1,
+        "state": { "lastGroupId": 0, "lastNodeId": 3, "lastLinkId": 2, "lastRerouteId": 0 },
+        "revision": 0,
+        "config": {},
+        "name": "Palette to picture",
+        "inputNode": { "id": -10, "bounding": [0, 0, 120, 60] },
+        "outputNode": { "id": -20, "bounding": [600, 0, 120, 60] },
+        "inputs": [{ "id": "in-a", "name": "palette", "type": "PALETTE", "linkIds": [1], "pos": { "0": 100, "1": 20 } }],
+        "outputs": [{ "id": "out-a", "name": "PICTURE", "type": "PICTURE", "linkIds": [2] }],
+        "widgets": [],
+        "nodes": [
+          {
+            "id": 1,
+            "type": "0c7d2e3f-aaaa-4bbb-8ccc-ddddeeeeffff",
+            "pos": [200, 0],
+            "size": [200, 80],
+            "flags": {},
+            "order": 0,
+            "mode": 0,
+            "inputs": [{ "name": "palette", "type": "PALETTE", "link": 1 }],
+            "outputs": [{ "name": "PICTURE", "type": "PICTURE", "links": [2] }],
+            "properties": {},
+            "widgets_values": []
+          }
+        ],
+        "links": [
+          { "id": 1, "origin_id": -10, "origin_slot": 0, "target_id": 1, "target_slot": 0, "type": "PALETTE", "parentId": 2 },
+          { "id": 2, "origin_id": 1, "origin_slot": 0, "target_id": -20, "target_slot": 0, "type": "PICTURE" }
+        ],
+        "groups": [],
+        "extra": { "unknown_subgraph_extra": 1 }
+      },
+      {
+        "id": "0c7d2e3f-aaaa-4bbb-8ccc-ddddeeeeffff",
+        "version": 1,
+        "state": { "lastGroupId": 0, "lastNodeId": 1, "lastLinkId": 2, "lastRerouteId": 0 },
+        "revision": 0,
+        "config": {},
+        "name": "Inner painter",
+        "inputNode": { "id": -10, "bounding": [0, 0, 120, 60] },
+        "outputNode": { "id": -20, "bounding": [600, 0, 120, 60] },
+        "inputs": [{ "id": "in-b", "name": "palette", "type": "PALETTE", "linkIds": [1] }],
+        "outputs": [{ "id": "out-b", "name": "PICTURE", "type": "PICTURE", "linkIds": [2] }],
+        "widgets": [],
+        "nodes": [
+          {
+            "id": 1,
+            "type": "InnerPainter",
+            "pos": [200, 0],
+            "size": [200, 80],
+            "flags": {},
+            "order": 0,
+            "mode": 0,
+            "inputs": [{ "name": "palette", "type": "PALETTE", "link": 1 }],
+            "outputs": [{ "name": "PICTURE", "type": "PICTURE", "links": [2] }],
+            "properties": {},
+            "widgets_values": { "brush": "round" }
+          }
+        ],
+        "links": [
+          { "id": 1, "origin_id": -10, "origin_slot": 0, "target_id": 1, "target_slot": 0, "type": "PALETTE" },
+          { "id": 2, "origin_id": 1, "origin_slot": 0, "target_id": -20, "target_slot": 0, "type": "PICTURE" }
+        ],
+        "groups": []
+      }
+    ]
+  },
+  "config": { "links_ontop": false },
+  "extra": {
+    "ds": { "scale": 0.8, "offset": [12.5, -40] },
+    "groupNodes": {
+      "Swatch pair": {
+        "nodes": [
+          { "index": 0, "type": "SwatchLeft", "pos": [0, 0], "size": [200, 80], "flags": {}, "order": 0, "mode": 0, "properties": {}, "widgets_values": [4] }
+        ],
+        "links": [],
+        "external": []
+      }
+    },
+    "reroutes": [{ "id": 1, "pos": [500, 500], "linkIds": [] }],
+    "linkExtensions": [{ "id": 4, "parentId": 1 }],
+    "frontendVersion": "1.20.0",
+    "VHS_latentpreview": false
+  },
+  "models": [{ "name": "palette.safetensors", "url": "https://example.invalid/palette", "directory": "palettes" }],
+  "a_top_level_unknown": [1, "two", { "three": 3 }],
+  "version": 0.4
+}

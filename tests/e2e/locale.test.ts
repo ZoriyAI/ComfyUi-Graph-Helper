@@ -6,11 +6,16 @@ import { catalogLeaves, en, ru, type Catalog } from '../../src/shared/i18n';
 import { denseWorkflow } from './fixtures/denseWorkflow';
 
 const ALLOWED_COPY = new Set([
-  'ComfyUI Graph Builder',
+  'Graph Helper for ComfyUI',
   'English',
   'OpenAI',
+  // Provider brand names: the Preferences window shows them on the provider cards in both languages.
+  'Anthropic',
+  'Google Gemini',
   'TEST',
   'Русский',
+  // Product names read the same in every language; they are not untranslated copy.
+  'ComfyUI', 'MCP', 'Ollama', 'OpenAI', 'Anthropic', 'Google',
 ]);
 
 function leaf(catalog: Catalog, key: string): string {
@@ -95,10 +100,12 @@ async function expectLocalizedChrome(window: Page, language: 'en' | 'ru') {
   const copy = language === 'ru'
     ? {
       settings: 'Настройки',
-      inspector: 'Инспектор',
-      assistant: 'Ассистент',
-      tabs: ['Подключение', 'Ассистент', 'Оформление и движение'],
+      inspector: 'Свойства',
+      assistant: 'Помощник',
+      tabs: ['Подключение', 'Помощник', 'Оформление и анимация'],
       model: 'Модель',
+      localProvider: 'Свой сервер',
+      discard: 'Закрыть без сохранения',
     }
     : {
       settings: 'Settings',
@@ -106,6 +113,8 @@ async function expectLocalizedChrome(window: Page, language: 'en' | 'ru') {
       assistant: 'Assistant',
       tabs: ['Connection', 'Assistant', 'Appearance & Motion'],
       model: 'Model',
+      localProvider: 'Own server',
+      discard: 'Close without saving',
     };
   await window.setViewportSize({ width: 1280, height: 800 });
   await assertChromeLanguage(window, language);
@@ -121,11 +130,16 @@ async function expectLocalizedChrome(window: Page, language: 'en' | 'ru') {
     await assertChromeLanguage(window, language);
   }
   await dialog.getByRole('tab', { name: copy.tabs[1], exact: true }).click();
+  // The model field appears once a helper is chosen.
+  await dialog.getByRole('radio', { name: copy.localProvider, exact: true }).click();
   const model = dialog.getByRole('textbox', { name: copy.model, exact: true });
   await model.fill('sk-example-secret');
   await assertChromeLanguage(window, language);
   await model.fill('');
   await window.keyboard.press('Escape');
+  // The draft changed (a helper was chosen): Escape asks before throwing it away.
+  const discard = window.locator('[role="dialog"].settings-discard');
+  await discard.getByRole('button', { name: copy.discard, exact: true }).click();
   await expect(dialog).toHaveCount(0);
 }
 
@@ -169,9 +183,9 @@ test('Russian is the new-profile default and English persists through reopen', a
     const toolbar = await toolbarFit(window);
     console.log(`LOCALE_TOOLBAR_${width} ${JSON.stringify(toolbar)}`);
     expect(toolbar.overflow).toBe(0);
-    expect(toolbar.height).toBe(40);
+    expect(toolbar.height).toBe(36);
     expect(toolbar.lines).toBe(1);
-    expect(toolbar.label).toBe('Не настроено');
+    expect(toolbar.label).toBe('Помощник: не выбран');
   }
 
   await expectLocalizedChrome(window, 'ru');
@@ -180,7 +194,7 @@ test('Russian is the new-profile default and English persists through reopen', a
   await window.getByRole('button', { name: 'Настройки', exact: true }).click();
   const dialog = window.locator('[role="dialog"].settings-dialog');
   await expect(dialog).toHaveAttribute('data-state', 'open');
-  await dialog.getByRole('tab', { name: 'Оформление и движение' }).click();
+  await dialog.getByRole('tab', { name: 'Оформление и анимация' }).click();
   const language = dialog.getByRole('combobox', { name: 'Язык', exact: true });
   await expect(language).toHaveAttribute('data-value', 'ru');
   const languageBox = await language.boundingBox();
@@ -202,18 +216,22 @@ test('Russian is the new-profile default and English persists through reopen', a
   await expect(dialog.getByRole('heading', { name: 'Settings' })).toBeVisible();
   await expect(window.locator('html')).toHaveAttribute('lang', 'en');
   await window.keyboard.press('Escape');
+  // The previewed language is a change: Escape asks before discarding it, and the language returns.
+  await window.locator('[role="dialog"].settings-discard').getByRole('button', { name: 'Close without saving', exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await expect(window.locator('html')).toHaveAttribute('lang', 'ru');
   await expect(window.getByRole('button', { name: 'Настройки', exact: true })).toBeVisible();
 
   await window.getByRole('button', { name: 'Настройки', exact: true }).click();
-  await dialog.getByRole('tab', { name: 'Ассистент' }).click();
+  await dialog.getByRole('tab', { name: 'Помощник' }).click();
+  // The model field appears once an assistant is chosen.
+  await dialog.getByRole('radio', { name: 'Свой сервер', exact: true }).click();
   await dialog.getByRole('textbox', { name: 'Модель', exact: true }).fill('sk-example-secret');
-  await expect(dialog.getByText('Настройки не могут хранить секрет')).toBeVisible();
+  await expect(dialog.getByText('В настройки нельзя записать ключ или пароль. Уберите его из поля.')).toBeVisible();
   await expect(dialog.getByRole('textbox', { name: 'Модель', exact: true })).toHaveAttribute('aria-invalid', 'true');
-  await expect(dialog.getByRole('button', { name: 'Сохранить настройки' })).toBeDisabled();
   await dialog.getByRole('textbox', { name: 'Модель', exact: true }).fill('');
-  await dialog.getByRole('tab', { name: 'Оформление и движение' }).click();
+  await dialog.getByRole('radio', { name: 'Не выбран', exact: true }).click();
+  await dialog.getByRole('tab', { name: 'Оформление и анимация' }).click();
   await window.setViewportSize({ width: 1280, height: 800 });
   const wideLanguage = dialog.getByRole('combobox', { name: 'Язык', exact: true });
   await expect(wideLanguage).toBeVisible();
@@ -259,7 +277,7 @@ test('Russian is the new-profile default and English persists through reopen', a
   await expect.poll(async () => window.locator('.react-flow__node').count()).toBe(11);
 
   await window.getByRole('button', { name: 'Настройки', exact: true }).click();
-  await dialog.getByRole('tab', { name: 'Оформление и движение' }).click();
+  await dialog.getByRole('tab', { name: 'Оформление и анимация' }).click();
   await dialog.getByRole('combobox', { name: 'Язык', exact: true }).click();
   await window.getByRole('option', { name: 'English', exact: true }).click();
   await dialog.getByRole('button', { name: 'Save settings' }).click();

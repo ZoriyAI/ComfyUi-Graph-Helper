@@ -8,7 +8,7 @@ export default defineConfig({
     exclude: ['tests/e2e/**', 'node_modules/**'],
     reporters: ['default', 'json'],
     outputFile: {
-      json: '/opt/cursor/artifacts/unit-tests.json',
+      json: 'test-results/unit-tests.json',
     },
   },
 });

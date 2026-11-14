@@ -1,0 +1,53 @@
+/* The application menu bar: a flat dark strip, 32 px, like a desktop app's menu — not a row of pills. */
+.bar {
+  position: relative;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 32px;
+  padding: 0 6px 0 10px;
+  border-bottom: 1px solid var(--border-subtle);
+  background-color: var(--surface-panel);
+  flex: 0 0 auto;
+  user-select: none;
+}
+.mark {
+  /* The app's own icon (ui/AppMark), no glow: it is a signature, not an action. */
+  margin-right: 6px;
+}
+.menubar { display: flex; align-items: center; gap: 1px; flex: 0 0 auto; }
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-sm);
+  line-height: 18px;
+  white-space: nowrap;
+  cursor: default;
+  outline: none;
+  transition: background-color var(--motion-feedback) var(--motion-ease-out);
+}
+.trigger:hover,
+.trigger[data-highlighted] { background: var(--surface-hover); }
+.trigger[data-state="open"] { background: var(--surface-hover); color: var(--text); }
+.trigger:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.spacer { flex: 1 1 0; min-width: 0; }
+/* The state on the right gives way (and shortens) before the menus do. */
+.status { display: flex; align-items: center; justify-content: flex-end; gap: 4px; flex: 0 1 auto; min-width: 0; }
+
+/* Menus: rows from ui/Menu.module.css, a little wider, the shortcut right-aligned. */
+.content { min-width: 248px; max-width: 360px; }
+.item { padding-right: 10px; }
+.itemLabel { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.shortcut { flex: 0 0 auto; }
+.item[data-disabled] .shortcut { color: var(--text-faint); }
+.indicator { color: var(--accent); }
+.subChevron { margin-left: auto; color: var(--text-dim); flex: 0 0 auto; }
+.item[data-state="open"] { background: var(--surface-hover); }

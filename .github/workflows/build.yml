@@ -1,0 +1,179 @@
+name: Build and package
+
+on:
+  push:
+    branches: ['**']
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Create a release with this tag (e.g. v1.0.0); leave empty for a plain build'
+        required: false
+        default: ''
+
+# A newer push cancels an older build of the same ref; a release run (tag or manual) is never cancelled by a push.
+concurrency:
+  group: build-${{ github.ref }}-${{ (github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')) && 'release' || 'build' }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' && !startsWith(github.ref, 'refs/tags/') }}
+
+permissions:
+  contents: read
+
+env:
+  # The release whose .deb the upgrade test installs first; settings and a graph made with it must survive.
+  UPGRADE_FROM: v0.8.0
+  # Empty for a plain build; the tag for a release.
+  RELEASE_TAG: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || inputs.release_tag }}
+
+jobs:
+  linux:
+    name: Linux (tests, e2e, .deb)
+    runs-on: ubuntu-latest
+    # The three walks visit every step of every lesson at every size: over an hour together with the rest.
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      # A release fails here, in a minute, rather than after two hours of tests.
+      - name: Release tag, version and notes agree
+        if: env.RELEASE_TAG != ''
+        run: |
+          version="v$(node -p "require('./package.json').version")"
+          if [ "$RELEASE_TAG" != "$version" ]; then
+            echo "::error::Release tag $RELEASE_TAG does not match package.json version $version"
+            exit 1
+          fi
+          if [ ! -f "docs/releases/$RELEASE_TAG.md" ]; then
+            echo "::error::docs/releases/$RELEASE_TAG.md is missing: the release notes come from it"
+            exit 1
+          fi
+
+      - name: CHANGELOG.md is up to date
+        run: node scripts/changelog.js --check
+
+      - name: System packages for Electron, Xvfb, the deb maker and the package checks
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends fakeroot dpkg xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 libasound2t64 libxss1 desktop-file-utils lintian
+
+      - name: Install
+        run: npm ci
+
+      - name: Unit and integration tests
+        run: npm test
+
+      - name: Type check
+        run: npm run type-check
+
+      - name: Build
+        run: npm run build
+
+      - name: End-to-end tests (Electron under Xvfb)
+        run: xvfb-run -a npx playwright test --trace off --grep-invert "live-local|layout-walk" --retries=1
+
+      # On its own: the walk opens menus and lists for minutes, and a second window taking the focus closes them.
+      - name: Every screen at every window size, Russian
+        run: LAYOUT_OUT=test-results/layout-ru xvfb-run -a npx playwright test tests/e2e/layout-walk.test.ts --trace off --retries=1
+
+      - name: Every screen in the smallest and the usual window, English
+        run: LAYOUT_LANG=en LAYOUT_SIZES=800x560,1400x860 LAYOUT_OUT=test-results/layout-en xvfb-run -a npx playwright test tests/e2e/layout-walk.test.ts --trace off --retries=1
+
+      # A person's desktop draws text a little wider than this machine and often at a screen scale above 100 %.
+      - name: Every screen with wider text at a screen scale of 125 %, Russian
+        run: LAYOUT_TEXT=wide LAYOUT_DPR=1.25 LAYOUT_SIZES=800x560,1400x860 LAYOUT_OUT=test-results/layout-desktop xvfb-run -a npx playwright test tests/e2e/layout-walk.test.ts --trace off --retries=1
+
+      - name: Package .deb and smoke-test the bundle
+        run: |
+          mkdir -p test-results
+          xvfb-run -a npm run package:linux 2>&1 | tee test-results/package.log
+
+      - name: Desktop entry is valid
+        run: |
+          mkdir -p "$RUNNER_TEMP/deb"
+          dpkg-deb -x out/make/deb/x64/*.deb "$RUNNER_TEMP/deb"
+          desktop-file-validate "$RUNNER_TEMP/deb/usr/share/applications/comfyui-graph-builder.desktop"
+
+      # Errors fail the build; warnings and info are reported. What every Electron bundle triggers is overridden,
+      # with the reason, in forge.config.js (lintianOverrides).
+      - name: Lintian
+        run: lintian --info --display-info --fail-on error out/make/deb/x64/*.deb 2>&1 | tee test-results/lintian.txt
+
+      - name: Upgrade from the previous release keeps settings and the graph
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/previous"
+          if ! gh release download "$UPGRADE_FROM" --repo "$GITHUB_REPOSITORY" --pattern '*.deb' --dir "$RUNNER_TEMP/previous"; then
+            echo "::error::Could not download the $UPGRADE_FROM .deb for the upgrade test"
+            exit 1
+          fi
+          ls "$RUNNER_TEMP"/previous/*.deb
+          sudo apt-get install -y "$RUNNER_TEMP"/previous/*.deb
+          export SMOKE_HOME="$RUNNER_TEMP/upgrade-home"
+          xvfb-run -a node scripts/smoke-installed-deb.js upgrade-prepare
+          # dpkg -i, not apt: apt skips a package whose version is already installed.
+          sudo dpkg -i out/make/deb/x64/*.deb
+          sudo apt-get install -f -y
+          xvfb-run -a node scripts/smoke-installed-deb.js upgrade-verify
+
+      - name: The installed app (profile path, window class, --version, one instance)
+        run: xvfb-run -a node scripts/smoke-installed-deb.js check
+
+      - name: Checksums
+        run: cd out/make/deb/x64 && sha256sum *.deb > SHA256SUMS && cat SHA256SUMS
+
+      - name: Upload .deb
+        uses: actions/upload-artifact@v7
+        with:
+          name: comfyui-graph-helper-deb
+          path: |
+            out/make/deb/x64/*.deb
+            out/make/deb/x64/SHA256SUMS
+          if-no-files-found: error
+          retention-days: ${{ env.RELEASE_TAG != '' && 90 || 14 }}
+
+      - name: Upload test and package results on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: failure-results
+          path: |
+            test-results
+            out/make
+          if-no-files-found: ignore
+          retention-days: 14
+
+  release:
+    name: Release
+    needs: linux
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: comfyui-graph-helper-deb
+          path: dist-release
+
+      - name: Publish
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          target_commitish: ${{ github.sha }}
+          name: Graph Helper for ComfyUI ${{ env.RELEASE_TAG }}
+          body_path: docs/releases/${{ env.RELEASE_TAG }}.md
+          generate_release_notes: false
+          fail_on_unmatched_files: true
+          files: |
+            dist-release/*.deb
+            dist-release/SHA256SUMS

@@ -1,0 +1,20 @@
+.target { display: inline-flex; min-width: 0; }
+/* A disabled control lets the pointer through to its wrapper, so the hint that says why it is off still opens. */
+.target > :disabled { pointer-events: none; }
+.content {
+  z-index: 95;
+  max-width: 260px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-overlay);
+  box-shadow: var(--elev-2);
+  color: var(--text);
+  font-size: var(--text-xs);
+  line-height: 18px;
+}
+.content[data-state="delayed-open"] { animation: hintIn var(--motion-enter) var(--motion-ease-out); }
+:global(html[data-motion="off"]) .content { animation: none; }
+@keyframes hintIn { from { opacity: 0; } to { opacity: 1; } }
+.withShortcut { display: inline-flex; align-items: center; gap: 10px; }
+.shortcut { display: inline-flex; align-items: center; gap: 2px; flex: 0 0 auto; }

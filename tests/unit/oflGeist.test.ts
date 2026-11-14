@@ -3,11 +3,12 @@ import { describe, expect, it } from 'vitest';
 
 describe('bundled Geist OFL notice', () => {
   it('keeps the SIL OFL notice shipped with @fontsource/geist', () => {
-    const app = JSON.parse(readFileSync('package.json', 'utf8')) as { dependencies: Record<string, string> };
+    // Vite bundles the font into the renderer, so the package is a devDependency; its notice ships in dist/notices.
+    const app = JSON.parse(readFileSync('package.json', 'utf8')) as { devDependencies: Record<string, string> };
     const font = JSON.parse(readFileSync('node_modules/@fontsource/geist/package.json', 'utf8')) as { name: string; version: string; license: string };
     const notice = readFileSync('node_modules/@fontsource/geist/LICENSE', 'utf8');
     const entry = readFileSync('src/renderer/index.tsx', 'utf8');
-    expect(app.dependencies['@fontsource/geist']).toBe('5.3.0');
+    expect(app.devDependencies['@fontsource/geist']).toBe('5.3.0');
     expect(font.name).toBe('@fontsource/geist');
     expect(font.version).toBe('5.3.0');
     expect(font.license).toBe('OFL-1.1');

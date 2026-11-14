@@ -1,8 +1,6 @@
 import { modelDirectoryFor } from './modelFolders';
 import type { CatalogInput, CatalogNode, CatalogOutput, CatalogView } from './types';
 
-/** A full ComfyUI /object_info payload is large. Reject anything past 32 MiB before parse. */
-export const MAX_OBJECT_INFO_BYTES = 32 * 1024 * 1024;
 
 const WIDGET_TYPES = new Set(['INT', 'FLOAT', 'STRING', 'BOOLEAN', 'COMBO']);
 /**
@@ -40,8 +38,15 @@ export interface ParsedObjectInfo {
   skipped: string[];
 }
 
+/**
+ * The largest object_info the app reads: far above any real install (a large one is tens of MB), and about what one
+ * string can hold, so a bigger answer could not be parsed anyway. It stops an endless answer from filling memory.
+ */
+export const OBJECT_INFO_MAX_BYTES = 512 * 1024 * 1024;
+
+/** Refuses a nonsense size and one above OBJECT_INFO_MAX_BYTES. */
 export function assertObjectInfoSize(bytes: number): void {
-  if (!Number.isFinite(bytes) || bytes < 0 || bytes > MAX_OBJECT_INFO_BYTES) {
+  if (!Number.isFinite(bytes) || bytes < 0 || bytes > OBJECT_INFO_MAX_BYTES) {
     throw new ObjectInfoError('Catalog snapshot is too large.');
   }
 }
@@ -115,11 +120,22 @@ function parseNode(classType: string, value: unknown): CatalogNode {
     classType,
     pack: pythonModule,
     pythonModule,
+    ...optionalText(info),
+    outputNode: info.output_node === true,
     inputs,
     outputs: outputsOf(info),
     widgetOrder: widgetOrderReliable ? widgetOrder : [],
     widgetOrderReliable,
   };
+}
+
+/** display_name, category, description are informative only; a wrong type is dropped, not fatal. */
+function optionalText(info: Record<string, unknown>): { displayName?: string; category?: string; description?: string } {
+  const out: { displayName?: string; category?: string; description?: string } = {};
+  if (typeof info.display_name === 'string' && info.display_name !== '') out.displayName = info.display_name;
+  if (typeof info.category === 'string' && info.category !== '') out.category = info.category;
+  if (typeof info.description === 'string' && info.description !== '') out.description = info.description;
+  return out;
 }
 
 function pythonModuleOf(info: Record<string, unknown>): string {
@@ -165,7 +181,12 @@ function inputsOf(info: Record<string, unknown>): { inputs: CatalogInput[]; widg
       seen.add(name);
       const parsed = parseSpec(name, specs[name]);
       if (parsed.opaque) widgetOrderReliable = false;
-      inputs.push({ name, type: parsed.type, widget: parsed.widget });
+      const entry: CatalogInput = { name, type: parsed.type, widget: parsed.widget, required: group === 'required' };
+      if (parsed.default !== undefined) entry.default = parsed.default;
+      if (parsed.options) entry.options = parsed.options;
+      if (parsed.controlDefault !== undefined) entry.controlDefault = parsed.controlDefault;
+      Object.assign(entry, parsed.meta);
+      inputs.push(entry);
       if (!parsed.widget) continue;
       widgetOrder.push(name);
       if (parsed.controlAfterGenerate) widgetOrder.push(`${name}::control_after_generate`);
@@ -204,41 +225,150 @@ function groupSpecs(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
-function parseSpec(name: string, spec: unknown): {
+interface ParsedSpec {
   type: string;
   widget: boolean;
   opaque: boolean;
   controlAfterGenerate: boolean;
   controlFilterList: boolean;
   mediaUpload: boolean;
-} {
+  default?: unknown;
+  options?: string[];
+  controlDefault?: string;
+  /** Field metadata a control needs (range, step, multi-line, tooltip); see fieldMeta. */
+  meta: Partial<Pick<CatalogInput, 'widgetType' | 'min' | 'max' | 'step' | 'multiline' | 'multiSelect' | 'tooltip'>>;
+}
+
+function parseSpec(name: string, spec: unknown): ParsedSpec {
   if (!Array.isArray(spec) || spec.length === 0) {
     throw new ObjectInfoError('Catalog snapshot is not object_info.');
   }
   const options = spec[1] && typeof spec[1] === 'object' && !Array.isArray(spec[1]) ? (spec[1] as Record<string, unknown>) : {};
   const forceInput = options.forceInput === true;
-  if (Array.isArray(spec[0])) return describeInput('COMBO', options, forceInput, name);
+  if (Array.isArray(spec[0])) return describeInput('COMBO', options, forceInput, name, stringList(spec[0]));
   if (typeof spec[0] !== 'string' || spec[0].length === 0) {
     throw new ObjectInfoError('Catalog snapshot is not object_info.');
   }
-  return describeInput(spec[0], options, forceInput, name);
+  return describeInput(spec[0], options, forceInput, name, Array.isArray(options.options) ? stringList(options.options) : []);
+}
+
+function stringList(values: unknown[]): string[] {
+  return values.filter((item): item is string => typeof item === 'string');
 }
 
 /** Link type stays the object_info type. The widget constructor is widgetType ?? that type. */
-function describeInput(linkType: string, options: Record<string, unknown>, forceInput: boolean, name: string) {
+function describeInput(linkType: string, options: Record<string, unknown>, forceInput: boolean, name: string, comboOptions: string[]): ParsedSpec {
   const constructorType = widgetConstructorType(linkType, options);
   const opaque = !forceInput && isOpaqueWidgetType(constructorType);
   const widget = !forceInput && (WIDGET_TYPES.has(constructorType) || opaque);
   const controlAfterGenerate = widget && !opaque && hasControlAfterGenerate(constructorType, name, options);
   const ordinaryCombo = constructorType === 'COMBO' && options.multi_select !== true;
-  return {
+  const parsed: ParsedSpec = {
     type: linkType,
     widget,
     opaque,
     controlAfterGenerate,
     controlFilterList: controlAfterGenerate && ordinaryCombo,
     mediaUpload: widget && !opaque && constructorType === 'COMBO' && isMediaUpload(options),
+    meta: fieldMeta(linkType, constructorType, options, widget && !opaque),
   };
+  if (!widget || opaque) return parsed;
+  const value = widgetDefault(constructorType, options, comboOptions);
+  if (value !== undefined) parsed.default = value;
+  if (constructorType === 'COMBO') parsed.options = comboOptions;
+  if (controlAfterGenerate) parsed.controlDefault = controlDefault(constructorType, options);
+  return parsed;
+}
+
+function finiteNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+/**
+ * What a control needs beyond the value, from the INPUT_TYPES options ComfyUI documents for widgets: `min`, `max`
+ * and `step` on INT/FLOAT (the step as the node author wrote it: cfg 0.1, denoise 0.01), `multiline` on STRING,
+ * `multi_select` on COMBO, and `tooltip` on any input. A tooltip is kept on sockets as well, for the Ports table.
+ * Values of the wrong type are dropped: the control then falls back to an open range.
+ */
+function fieldMeta(linkType: string, constructorType: string, options: Record<string, unknown>, widget: boolean): ParsedSpec['meta'] {
+  const meta: ParsedSpec['meta'] = {};
+  if (typeof options.tooltip === 'string' && options.tooltip.trim() !== '') meta.tooltip = options.tooltip.trim();
+  if (!widget) return meta;
+  if (constructorType !== linkType) meta.widgetType = constructorType;
+  if (constructorType === 'INT' || constructorType === 'FLOAT') {
+    const min = finiteNumber(options.min);
+    const max = finiteNumber(options.max);
+    const step = finiteNumber(options.step);
+    if (min !== undefined) meta.min = min;
+    if (max !== undefined) meta.max = max;
+    if (step !== undefined && step > 0) meta.step = step;
+  }
+  if (constructorType === 'STRING' && options.multiline === true) meta.multiline = true;
+  if (constructorType === 'COMBO' && options.multi_select === true) meta.multiSelect = true;
+  return meta;
+}
+
+/**
+ * The value a new widget starts with in ComfyUI_frontend @98700cfc (src/renderer/extensions/vueNodes/widgets/composables):
+ * - useIntWidget / useFloatWidget: `inputSpec.default ?? 0`
+ * - useBooleanWidget: `inputSpec.default ?? false`
+ * - useStringWidget: `inputSpec.default ?? ''`
+ * - useComboWidget getDefaultValue: a truthy `default`, else the first option, else nothing (the frontend shows an
+ *   empty combo; here the slot stays unknown and export reports it). A multi_select combo starts with no choice.
+ * Opaque widget types have no default here because their slot layout is not reproduced.
+ */
+function widgetDefault(type: string, options: Record<string, unknown>, comboOptions: string[]): unknown {
+  const given = options.default;
+  if (type === 'INT' || type === 'FLOAT') return given ?? 0;
+  if (type === 'BOOLEAN') return given ?? false;
+  if (type === 'STRING') return given ?? '';
+  if (type === 'COMBO') {
+    if (options.multi_select === true) return given ?? [];
+    if (given) return given;
+    return comboOptions.length > 0 ? comboOptions[0] : undefined;
+  }
+  return undefined;
+}
+
+/**
+ * Start value of the control_after_generate widget, ComfyUI_frontend @98700cfc:
+ * - a string `control_after_generate` (fixed|increment|decrement|randomize) is the start value on every constructor;
+ * - otherwise INT (useIntWidget, also the implicit seed/noise_seed control) and an ordinary COMBO (addComboWidget)
+ *   pass 'randomize';
+ * - FLOAT (useFloatWidget) always passes 'fixed', and a multi_select COMBO falls back to 'fixed'.
+ * addValueControlWidgets itself turns an empty value into 'randomize'.
+ */
+function controlDefault(type: string, options: Record<string, unknown>): string {
+  const value = options.control_after_generate;
+  if (type === 'FLOAT') return 'fixed';
+  if (typeof value === 'string' && CONTROL_MODES.has(value)) return value;
+  if (type === 'COMBO' && options.multi_select === true) return 'fixed';
+  return 'randomize';
+}
+
+/** Start value of a widgets_values slot that is not an input: the control combo, the filter text, the upload button. */
+export function slotDefault(node: CatalogNode, slot: string): { known: boolean; value?: unknown } {
+  const [name, suffix] = slot.split('::');
+  const input = node.inputs.find((item) => item.name === name);
+  if (!input || !input.widget) return { known: false };
+  if (suffix === undefined) return input.default === undefined ? { known: false } : { known: true, value: input.default };
+  // addValueControlWidgets: the filter list string widget starts as ''.
+  if (suffix === 'control_filter_list') return { known: true, value: '' };
+  // useImageUploadWidget: the upload button widget serializes as 'image'.
+  if (suffix === 'media_upload') return { known: true, value: 'image' };
+  if (suffix === 'control_after_generate') return { known: true, value: input.controlDefault ?? 'randomize' };
+  return { known: false };
+}
+
+/** Default widget values a new node of this class starts with, keyed by input name (not the extra slots). */
+export function defaultParameters(node: CatalogNode | undefined): Record<string, unknown> {
+  if (!node || node.widgetOrderReliable === false) return {};
+  const out: Record<string, unknown> = {};
+  for (const input of node.inputs) {
+    if (!input.widget || input.default === undefined || !node.widgetOrder.includes(input.name)) continue;
+    out[input.name] = input.default;
+  }
+  return out;
 }
 
 function widgetConstructorType(linkType: string, options: Record<string, unknown>): string {
