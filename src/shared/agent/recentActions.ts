@@ -71,14 +71,14 @@ function port(summary: GraphSummary | null, nodeId: string, handle: string, side
 }
 
 /** One command as a short phrase: "moved node 4 to (780,120)", "set 4.steps = 30", … Values are redacted. */
-export function describeCommand(command: RecentCommand, summary: GraphSummary | null): string {
+export function describeCommand(command: RecentCommand, summary: GraphSummary | null, sendFieldValues = true): string {
   const p = command.payload;
   switch (command.type) {
     case 'move-node': return `moved ${nodeName(str(p.nodeId))} to (${round(p.x)},${round(p.y)})`;
     case 'connect': return `connected ${port(summary, str(p.source), str(p.sourceHandle), 'outputs')} → ${port(summary, str(p.target), str(p.targetHandle), 'inputs')}`;
     case 'remove-edge': return `removed connection ${safeText(str(p.edgeId), 80)}`;
     case 'retarget-edge': return `moved connection ${safeText(str(p.edgeId), 80)} to ${port(summary, str(p.target), str(p.targetHandle), 'inputs')}`;
-    case 'set-parameter': return `set ${safeText(str(p.nodeId), 80)}.${safeText(str(p.key), 80)} = ${safeParameter(str(p.key), p.value)}`;
+    case 'set-parameter': return `set ${safeText(str(p.nodeId), 80)}.${safeText(str(p.key), 80)} = ${sendFieldValues ? safeParameter(str(p.key), p.value) : '[not sent]'}`;
     case 'add-node': return `added ${safeText(str(p.nodeType), 120)}${command.ids[0] ? ` as ${nodeName(command.ids[0])}` : ''}`;
     case 'remove-node': return `removed ${nodeName(str(p.nodeId))}`;
     case 'remove-selection': return `removed a selection of ${Array.isArray(p.nodeIds) ? p.nodeIds.length : 0} nodes`;
@@ -113,7 +113,7 @@ export function describeCommand(command: RecentCommand, summary: GraphSummary | 
  * The person's recent actions, oldest first, as one line for the prompt. Repeated moves of the same node
  * collapse to the last one. The selection (from the turn context) closes the line.
  */
-export function recentActionsText(commands: RecentCommand[], summary: GraphSummary | null, selectedIds: readonly string[] = []): string {
+export function recentActionsText(commands: RecentCommand[], summary: GraphSummary | null, selectedIds: readonly string[] = [], sendFieldValues = true): string {
   const manual = commands.filter((command) => command.actor === 'manual');
   const lastMove = new Map<string, number>();
   manual.forEach((command, index) => {
@@ -121,7 +121,7 @@ export function recentActionsText(commands: RecentCommand[], summary: GraphSumma
   });
   const phrases = manual
     .filter((command, index) => command.type !== 'move-node' || lastMove.get(str(command.payload.nodeId)) === index)
-    .map((command) => describeCommand(command, summary));
+    .map((command) => describeCommand(command, summary, sendFieldValues));
   const selected = selectedIds.map((id) => safeText(id, 80)).filter((id) => id !== '');
   if (selected.length > 0) phrases.push(`selected ${selected.length === 1 ? 'node' : 'nodes'} ${selected.join(', ')}`);
   return phrases.join('; ');

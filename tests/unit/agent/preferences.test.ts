@@ -4,7 +4,7 @@ import { buildSystemPrompt, buildTurnData } from '../../../src/main/agent/prompt
 import { createAgentTools } from '../../../src/main/agent/tools';
 import { runAgentTurn } from '../../../src/main/agent/turn';
 import { clampSteps, MainLLMService, mainLLMService, redactProbeError, toolsForSend, type StreamOptions } from '../../../src/main/llmService';
-import { ensureWorkspace, startRun } from '../../../src/main/commands/commit';
+import { commitCommand, ensureWorkspace, readProjection, startRun } from '../../../src/main/commands/commit';
 import { migrate } from '../../../src/main/settings/migrate';
 import { saveSettings } from '../../../src/main/settings/repository';
 import { summarizeGraph } from '../../../src/shared/agent/graph';
@@ -12,6 +12,7 @@ import { parseTurnContext } from '../../../src/shared/agent/turnContext';
 import { parsePreferences } from '../../../src/shared/config/preferences';
 import { DESKTOP_PROJECT_ID } from '../../../src/shared/project';
 import { fakeKnowledge, fakeProposals } from './fakes';
+import { INNER_ID, nestedSubgraphWorkflow } from '../../e2e/fixtures/nestedSubgraphWorkflow';
 
 const SNAPSHOT = {
   nodes: [{ id: 'node-1', data: { comfyType: 'CLIPTextEncode', title: 'Prompt', parameters: { text: 'a red fox in snow' } } }],
@@ -91,7 +92,7 @@ describe('agent turn reads preferences from the settings row', () => {
 
   async function turnWith(db: Database.Database) {
     const run = startRun(db, DESKTOP_PROJECT_ID);
-    const seen: { options?: StreamOptions; tools?: string[]; system?: string; nativeAsked: number } = { nativeAsked: 0 };
+    const seen: { options?: StreamOptions; tools?: string[]; system?: string; users: string[]; nativeAsked: number } = { users: [], nativeAsked: 0 };
     await runAgentTurn({
       db,
       messages: [{ role: 'user', content: 'hello' }],
@@ -113,6 +114,7 @@ describe('agent turn reads preferences from the settings row', () => {
           seen.options = options;
           seen.tools = Object.keys(tools);
           seen.system = messages[0].content;
+          seen.users = messages.filter((message) => message.role === 'user').map((message) => message.content);
         },
       },
     });
@@ -146,6 +148,50 @@ describe('agent turn reads preferences from the settings row', () => {
     expect(seen.system).toContain('Answer in Russian.');
     expect(seen.system).toContain('but not field values');
     db.close();
+  });
+
+  it.each([false, true])('applies sendFieldValues=%s to the actual turn data, including recent manual edits', async (sendFieldValues) => {
+    const db = openDb();
+    try {
+      const manual = (actionId: string, payload: Record<string, unknown>) => {
+        const outcome = commitCommand(db, {
+          projectId: DESKTOP_PROJECT_ID, actionId, actor: 'manual', runId: null,
+          expectedRevisionId: readProjection(db, DESKTOP_PROJECT_ID)!.currentRevisionId, payload,
+        });
+        expect(outcome.status, JSON.stringify(outcome.result)).toBe('applied');
+        return outcome.result as Record<string, unknown>;
+      };
+      manual('import', { type: 'import-workflow', document: structuredClone(nestedSubgraphWorkflow) });
+      const nodeId = '3';
+      manual('text', { type: 'set-parameter', nodeId, key: 'text', value: 'private orchid beside a window', widgetIndex: 1 });
+      manual('number', { type: 'set-parameter', nodeId, key: 'seed', value: 918273645, widgetIndex: 0 });
+      manual('secret', { type: 'set-parameter', nodeId, key: 'api_key', value: 'sk-never-visible-credential', widgetIndex: 2 });
+      manual('inner', { type: 'edit-in-subgraph', definitionId: INNER_ID, edit: {
+        type: 'set-parameter', nodeId: '1', key: 'text', value: 'private nested illustration', widgetIndex: 0,
+      } });
+      const saved = saveSettings(db, {
+        theme: 'graphite', motion: 'system', provider: 'test', model: 'test-fixture', baseURL: '', comfyOrigin: '', mcpUrl: '', language: 'en',
+        preferences: { privacy: { sendFieldValues } },
+      });
+      expect(saved.ok).toBe(true);
+      const sent = (await turnWith(db)).users.join('\n');
+      expect(sent).toContain('What the person did recently:');
+      expect(sent).toContain(`set ${nodeId}.text`);
+      expect(sent).toContain(`set ${nodeId}.seed`);
+      expect(sent).toContain(`inside subgraph ${INNER_ID}: set-parameter node 1 field text`);
+      expect(sent).not.toContain('sk-never-visible-credential');
+      expect(sent).not.toContain('private nested illustration');
+      if (sendFieldValues) {
+        expect(sent).toContain('private orchid beside a window');
+        expect(sent).toContain('918273645');
+        expect(sent).toContain(`set ${nodeId}.api_key = [redacted]`);
+      } else {
+        expect(sent).not.toContain('private orchid beside a window');
+        expect(sent).not.toContain('918273645');
+      }
+    } finally {
+      db.close();
+    }
   });
 
   it('takes injected preferences over the stored row', async () => {

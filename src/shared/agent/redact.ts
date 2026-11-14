@@ -24,3 +24,13 @@ export function exactMatchRedactor(values: ReadonlyArray<string | null | undefin
 export function containsExact(values: ReadonlyArray<string | null | undefined>, text: string): boolean {
   return heldValues(values).some((value) => text.includes(value));
 }
+
+/** Redacts a JSON-shaped tool result without stringifying numbers, booleans, nulls or arrays. */
+export function redactValue<T>(value: T, redact: (text: string) => string): T {
+  if (typeof value === 'string') return redact(value) as T;
+  if (Array.isArray(value)) return value.map((item) => redactValue(item, redact)) as T;
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [redact(key), redactValue(item, redact)])) as T;
+  }
+  return value;
+}

@@ -270,9 +270,9 @@ export function viewportText(context: AgentTurnContext, graph: GraphSummary | nu
 }
 
 /** "What the person did recently: …", or nothing when there is nothing to say. */
-export function recentText(context: AgentTurnContext, graph: GraphSummary | null, recent: RecentCommand[] | undefined, window?: number): string {
+export function recentText(context: AgentTurnContext, graph: GraphSummary | null, recent: RecentCommand[] | undefined, window?: number, sendFieldValues = true): string {
   const selectedIds = (context.selection ?? []).filter((ref) => ref.kind === 'node').map((ref) => ref.id);
-  const line = recentActionsText(recent ?? [], graph, selectedIds);
+  const line = recentActionsText(recent ?? [], graph, selectedIds, sendFieldValues);
   if (!line) return '';
   const scope = window && (recent?.length ?? 0) >= window ? ` (their last ${window} actions; earlier ones are in the graph as it is now)` : '';
   return `What the person did recently${scope}: ${line}.`;
@@ -322,7 +322,7 @@ export function buildTurnData(input: SystemPromptInput): string {
     redactSecrets(input.catalog),
     `Current graph:\n${input.graph ? redactSecrets(graphSummaryText(input.graph)) : 'The project is not ready.'}`,
     redactSecrets(viewportText(context, input.graph)),
-    redactSecrets(recentText(context, input.graph, input.recent, input.recentWindow)),
+    redactSecrets(recentText(context, input.graph, input.recent, input.recentWindow, input.preferences?.sendFieldValues)),
     ...focus,
   ].filter((part) => part.trim() !== '').join('\n\n');
   return `${DATA_OPEN}\n${body}\n${DATA_CLOSE}`;
