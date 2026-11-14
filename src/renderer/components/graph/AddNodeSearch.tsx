@@ -1,8 +1,17 @@
+/**
+ * The node search on the canvas (Ctrl+K, «Нода», a double click on empty canvas, the context menus, a link dropped on
+ * empty canvas). A person types a name or what the node does, picks with arrows and Enter, and the node lands where
+ * they asked. The same box serves two editing commands (commands/editingCommands.ts): placing a node on a link (only
+ * nodes that fit the link are listed) and putting another node in a node's place. Each result carries one line on
+ * what it does, so a person can tell "Upscale Image" from "Upscale Image (using Model)" before choosing; nodes added
+ * lately come first while nothing is typed.
+ */
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { NodeClassSummary } from '../../../shared/contracts/knowledge';
-import { useCanvasStore } from './canvasStore';
+import { useCanvasStore, type AddSearchPurpose } from './canvasStore';
 import { captureEditOrigin, commitAtOrigin, originIsCurrent, requireEditOrigin, type EditOrigin } from './lib/editOrigin';
+import { recentNodes, rememberRecentNode } from './lib/recentNodes';
 import { placeNewNode } from './placeNode';
 import { useNodeInfoStore } from './nodeInfo';
 import type { ConnectFrom } from './lib/connectAssist';
@@ -91,6 +100,47 @@ export function addTypedNode(typed: string, at: { x: number; y: number } | null,
   });
 }
 
+/** How many results a plain search shows; the list scrolls. */
+const RESULT_LIMIT = 30;
+
+/** Places the chosen node on the link the search was opened for (editing package). */
+function insertOnLink(purpose: Extract<AddSearchPurpose, { kind: 'insert' }>, item: NodeClassSummary, at: { x: number; y: number } | null, origin = captureEditOrigin()): Promise<void> {
+  return trackCommit(async () => {
+    const spot = await placeNewNode(at, { classType: item.classType });
+    if (!requireEditOrigin(origin)) return;
+    const result = await commitAtOrigin(origin, {
+      type: 'insert-node-on-edge', edgeId: purpose.edgeId, nodeType: item.classType,
+      ...(item.displayName && item.displayName !== item.classType ? { title: item.displayName } : {}),
+      x: Math.round(spot.x), y: Math.round(spot.y),
+    }) as { status?: string; result?: { nodeId?: unknown } } | null;
+    if (result?.status === 'applied') revealNewNode(typeof result.result?.nodeId === 'string' ? result.result.nodeId : null);
+  });
+}
+
+/** Puts the chosen node in the place of the node the search was opened for, and says what did not fit. */
+function replaceWith(purpose: Extract<AddSearchPurpose, { kind: 'replace' }>, item: NodeClassSummary, origin = captureEditOrigin()): Promise<void> {
+  return trackCommit(async () => {
+    const result = await commitAtOrigin(origin, { type: 'replace-node', nodeId: purpose.nodeId, nodeType: item.classType }) as { status?: string; result?: { droppedLinks?: number } } | null;
+    if (result?.status !== 'applied') return;
+    const dropped = result.result?.droppedLinks ?? 0;
+    showToast({
+      id: 'editing-replaced',
+      tone: dropped > 0 ? 'warn' : 'success',
+      title: String(i18n.t('editing.replaced', { name: item.displayName || item.classType })),
+      description: dropped > 0 ? String(i18n.t('editing.droppedLinks', { count: dropped })) : null,
+      duration: dropped > 0 ? 6000 : 3000,
+    });
+  });
+}
+
+/** Recent nodes first (while nothing is typed in a plain search), then the results, each class once. */
+function withRecent(found: NodeClassSummary[], query: string): NodeClassSummary[] {
+  if (query.trim() !== '') return found;
+  const recent = recentNodes();
+  const seen = new Set(recent.map((item) => item.classType));
+  return [...recent, ...found.filter((item) => !seen.has(item.classType))];
+}
+
 /** The name with the typed words marked, so a person sees why a row came up. */
 function Highlighted({ text, query }: { text: string; query: string }) {
   const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
@@ -143,8 +193,10 @@ async function nodesThatFit(found: NodeClassSummary[], link: ConnectFrom): Promi
 }
 
 export default function AddNodeSearch() {
-  const { t } = useTranslation();
+  const { t, i18n: instance } = useTranslation();
   const search = useCanvasStore((state) => state.addSearch);
+  const purpose = search.purpose;
+  const language = instance.language === 'ru' ? 'ru' : 'en';
   const close = useCanvasStore((state) => state.closeAddSearch);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<NodeClassSummary[]>([]);
@@ -171,9 +223,16 @@ export default function AddNodeSearch() {
     const timer = window.setTimeout(() => {
       if (!bridge?.searchNodeTypes) return;
       const link = search.linkFrom;
-      void bridge.searchNodeTypes({ query: query.trim(), limit: link ? LINK_SEARCH_LIMIT : 12 }).catch(() => [] as NodeClassSummary[]).then(async (found) => {
+      // The search filters by link type itself (main/knowledge/nodeSearch.ts): from a dropped link, on a link to
+      // fill (editing), else no filter.
+      const types = link
+        ? (link.direction === 'output' ? { inputType: link.dataType } : { outputType: link.dataType })
+        : purpose?.kind === 'insert' ? { inputType: purpose.dataType, outputType: purpose.targetType } : {};
+      void bridge.searchNodeTypes({ query: query.trim(), limit: link ? LINK_SEARCH_LIMIT : RESULT_LIMIT, language, ...types }).catch(() => [] as NodeClassSummary[]).then(async (found) => {
         // From a dropped link: only the nodes that can take it (or give it), as the catalog describes them.
-        const fitting = link ? await nodesThatFit(found, link) : found;
+        const fitting = link ? await nodesThatFit(found, link)
+          : purpose?.kind === 'replace' ? found.filter((item) => !item.editor)
+            : purpose ? found : withRecent(found, query);
         if (live) {
           setResults(fitting);
           setResultsFor(query.trim());
@@ -185,7 +244,7 @@ export default function AddNodeSearch() {
       live = false;
       window.clearTimeout(timer);
     };
-  }, [query, search.open, search.linkFrom]);
+  }, [query, search.open, search.linkFrom, purpose, language]);
 
   if (!search.open) return null;
 
@@ -197,7 +256,11 @@ export default function AddNodeSearch() {
     // Focus leaves the field at once, so a Ctrl+Z pressed right after reaches the app, not the closing field.
     input.current?.blur();
     close();
-    void addCheckedNode(classType, at, item?.displayName || undefined, search.linkFrom);
+    const chosen: NodeClassSummary = item ?? { classType, displayName: classType, category: '', pack: '', detailed: false };
+    if (purpose?.kind === 'insert') void insertOnLink(purpose, chosen, at);
+    else if (purpose?.kind === 'replace') void replaceWith(purpose, chosen);
+    else void addCheckedNode(classType, at, item?.displayName || undefined, search.linkFrom);
+    if (item) rememberRecentNode(item);
   };
 
   /** Enter before the list caught up with the typing: the first match for what is typed now. */
@@ -208,12 +271,30 @@ export default function AddNodeSearch() {
     const link = search.linkFrom;
     input.current?.blur();
     close();
-    void addTypedNode(typed, at, link);
+    if (!purpose) {
+      void addTypedNode(typed, at, link);
+      return;
+    }
+    const origin = captureEditOrigin();
+    void trackCommit(async () => {
+      const types = purpose.kind === 'insert' ? { inputType: purpose.dataType, outputType: purpose.targetType } : {};
+      const found = await window.electronAPI?.searchNodeTypes?.({ query: typed, limit: 1, ...types }).catch(() => []) ?? [];
+      const first = found[0];
+      if (!first) return;
+      if (purpose.kind === 'insert') await insertOnLink(purpose, first, at, origin);
+      else await replaceWith(purpose, first, origin);
+    });
   };
 
   const listId = 'canvas-add-node-results';
+  const heading = purpose?.kind === 'insert'
+    ? t('editing.insertTitle', { type: purpose.dataType })
+    : purpose?.kind === 'replace'
+      ? t('editing.replaceTitle', { name: purpose.name })
+      : null;
   return (
-    <div className={styles.search} role="dialog" aria-label={String(t('canvas.addNode'))}>
+    <div className={styles.search} role="dialog" aria-label={String(heading ?? t('canvas.addNode'))} data-purpose={purpose?.kind ?? 'add'}>
+      {heading ? <div className={styles.searchTitle}>{heading}</div> : null}
       <input
         ref={input}
         className={styles.searchInput}
@@ -255,6 +336,7 @@ export default function AddNodeSearch() {
             <span className={styles.resultText}>
               <span className={styles.resultName}><Highlighted text={item.displayName || item.classType} query={query} /></span>
               {item.displayName && item.displayName !== item.classType ? <span className={styles.resultClass}><Highlighted text={item.classType} query={query} /></span> : null}
+              {item.description ? <span className={styles.resultDesc}>{item.description}</span> : null}
             </span>
             <span className={styles.resultMeta}>{categoryLabel(item.category, (key) => String(t(key)))}</span>
           </li>

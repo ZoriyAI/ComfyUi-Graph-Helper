@@ -274,6 +274,9 @@
   user-select: text;
 }
 .noteText:focus-visible { outline: 2px solid var(--focus, #b7a5ff); outline-offset: 1px; }
+/* Editing (NoteText.tsx): the box a note is written in, and the hint in an empty note. */
+.noteEditor { display: block; width: calc(100% - 20px); resize: none; font: inherit; font-size: var(--text-xs); }
+.notePlaceholder { color: var(--text-faint, #8b9bb0); }
 
 /* Subgraph instance: a double frame (outer ring) and the definition name under the ports. */
 .subgraphWrap { position: relative; }

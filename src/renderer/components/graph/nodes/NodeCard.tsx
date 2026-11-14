@@ -8,6 +8,7 @@ import { nodeRunMode, noteTextOf } from '../../../../shared/graph/layout';
 import { useNodeDetail } from '../nodeInfo';
 import { PortRow } from './PortHandle';
 import FieldRow from './FieldRow';
+import NoteText from './NoteText';
 import { titleParts } from './titleBreaks';
 import { nodeLayout } from '../../fields/fieldModel';
 import { useCanvasView } from '../CanvasContext';
@@ -68,6 +69,7 @@ export default function NodeCard({ id, data, state, connected, live = true, head
   // How ComfyUI runs it (bypassed, muted) and a note's text, as the imported workflow saved them.
   const runMode = nodeRunMode(data as { comfy?: unknown });
   const noteText = noteTextOf(data as { comfyType: string; comfy?: unknown });
+  const isNote = data.comfyType === 'Note' || data.comfyType === 'MarkdownNote';
   const classes = [
     styles.node,
     'graph-node',
@@ -165,16 +167,15 @@ export default function NodeCard({ id, data, state, connected, live = true, head
       {kind === 'primitive' && live ? <PrimitiveFields id={id} data={data} disabled={fieldsDisabled} /> : null}
       {kind === 'set' || kind === 'get' ? <ConstantLine data={data} kind={kind} /> : null}
       {missing ? <SavedValues data={data} /> : null}
-      {noteText ? (
-        <div
-          className={`${styles.noteText} nowheel`}
-          role="note"
-          aria-label={String(t('node.noteText'))}
-          tabIndex={0}
-        >
-          {/* MarkdownLite draws a link as its words and address, never as something that opens. */}
-          {kind === 'markdown' ? <MarkdownLite text={noteText} className={styles.noteMarkdown} /> : noteText}
-        </div>
+      {noteText || isNote ? (
+        // Editing: the person writes the note in place (NoteText.tsx); shown as before while not being written.
+        <NoteText
+          nodeId={id}
+          text={noteText}
+          editable={!fieldsDisabled}
+          /* MarkdownLite draws a link as its words and address, never as something that opens. */
+          display={kind === 'markdown' ? <MarkdownLite text={noteText} className={styles.noteMarkdown} /> : undefined}
+        />
       ) : null}
       {data.annotations && data.annotations.length > 0 ? (
         <div className={`${styles.annotation} node-annotation`}>

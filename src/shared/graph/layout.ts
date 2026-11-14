@@ -225,7 +225,8 @@ function estimateCardSize(data: SizedData | null | undefined, hints?: SizeHints 
   if (kind === 'set' || kind === 'get') height += NODE_BOX.constant;
   if (hints?.missing) height += NODE_BOX.savedTop + savedValues(data).length * NODE_BOX.savedValue;
   if (note) height += NODE_BOX.note + Math.ceil((note.length + 9) / NODE_BOX.noteChars) * NODE_BOX.noteLine;
-  if (noteTextOf(data)) height += NODE_BOX.noteText;
+  // A note always shows its text box, an empty one too (the person writes into it: nodes/NoteText.tsx).
+  if (noteTextOf(data) || NOTE_TYPES.has(String(data?.comfyType ?? ''))) height += NODE_BOX.noteText;
   if (data?.kind === 'subgraph-instance') {
     // A card with a title of its own names its subgraph under the ports (nodes/SubgraphNode.tsx).
     const title = typeof data.title === 'string' ? data.title : '';

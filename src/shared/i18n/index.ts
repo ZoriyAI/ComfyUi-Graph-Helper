@@ -37,7 +37,6 @@ const ERROR_KEYS: Record<string, string> = {
   'This node is not in your ComfyUI, so it cannot be placed here.': 'editing.errors.unknownClass',
   'Subgraphs, notes, reroutes and primitives cannot be replaced by another node.': 'editing.errors.notReplaceable',
   'The node already is of that kind.': 'editing.errors.sameClass',
-  'Group was not found.': 'editing.errors.groupMissing',
   'A Primitive feeds a field only, not a link input.': 'editing.errors.primitiveToSocket',
   'Export failed.': 'errors.exportFailed',
   'That component is not in the graph.': 'errors.componentMissing',

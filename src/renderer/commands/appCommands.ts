@@ -43,6 +43,7 @@ import { installProjectFileWatch } from '../services/projectFile';
 import { installReplayGate } from './replayGate';
 import { installViewMemory } from '../state/viewMemory';
 import { installCatalogWatch } from '../services/catalogWatch';
+import { buildEditingCommands } from './editingCommands';
 
 const always = () => true;
 
@@ -132,7 +133,8 @@ export function buildAppCommands(): Command[] {
       },
     },
     {
-      id: 'graph.addGroup', group: 'graph', labelKey: 'contextMenu.addGroup', icon: Group,
+      // Mod+Shift+G: next to Mod+G (subgraph from selection) and free everywhere else (editing package).
+      id: 'graph.addGroup', group: 'graph', labelKey: 'contextMenu.addGroup', icon: Group, shortcut: 'Mod+Shift+G',
       enabled: () => canEditGraph() && selectedNodes().length > 0,
       run: () => void addGroup(selectedNodes().map((node) => node.id)),
     },
@@ -350,6 +352,7 @@ export function installAppCommands(): () => void {
     addCommandStateSource(subscribeClipboard),
     registerCommands(buildAppCommands()),
     registerCommands(buildDiagnosticsCommands()),
+    registerCommands(buildEditingCommands()),
   ];
   installed = () => {
     for (const off of offs) off();

@@ -7,7 +7,8 @@
  *
  * Every refusal is a plain English sentence that shared/i18n/index.ts maps to a text on screen (EDIT_ERRORS).
  */
-import type { GraphMutation, NODE_COLORS } from '../../shared/commands/types';
+import type { GraphMutation } from '../../shared/commands/types';
+import { NODE_PALETTE } from '../../shared/graph/palette';
 import type { CatalogView } from '../../shared/catalog/types';
 import { defaultParameters } from '../../shared/catalog/objectInfo';
 import { portsCompatible } from '../../shared/graph/linkTypes';
@@ -60,31 +61,6 @@ export type ApplyLevel = (
 
 /** ComfyUI's mode numbers: LGraphEventMode ALWAYS 0, NEVER 2 (muted), BYPASS 4. */
 const MODE_NUMBER = { always: 0, mute: 2, bypass: 4 } as const;
-
-type ColorName = typeof NODE_COLORS[number];
-
-/** LGraphCanvas.node_colors in ComfyUI's frontend: title colour and body colour of each palette entry. */
-export const NODE_PALETTE: Record<ColorName, { color: string; bgcolor: string; groupcolor: string }> = {
-  red: { color: '#322', bgcolor: '#533', groupcolor: '#A88' },
-  brown: { color: '#332922', bgcolor: '#593930', groupcolor: '#b06634' },
-  green: { color: '#232', bgcolor: '#353', groupcolor: '#8A8' },
-  blue: { color: '#223', bgcolor: '#335', groupcolor: '#88A' },
-  pale_blue: { color: '#2a363b', bgcolor: '#3f5159', groupcolor: '#3f789e' },
-  cyan: { color: '#233', bgcolor: '#355', groupcolor: '#8AA' },
-  purple: { color: '#323', bgcolor: '#535', groupcolor: '#a1309b' },
-  yellow: { color: '#432', bgcolor: '#653', groupcolor: '#b58b2a' },
-  black: { color: '#222', bgcolor: '#000', groupcolor: '#444' },
-};
-
-/** The palette entry a stored colour belongs to, so the menu can tick it; null for none or a colour of one's own. */
-export function paletteNameOf(color: unknown): ColorName | null {
-  if (typeof color !== 'string') return null;
-  const lower = color.toLowerCase();
-  for (const [name, entry] of Object.entries(NODE_PALETTE) as Array<[ColorName, typeof NODE_PALETTE[ColorName]]>) {
-    if (entry.color.toLowerCase() === lower || entry.groupcolor.toLowerCase() === lower) return name;
-  }
-  return null;
-}
 
 function cloneWork(snapshot: GraphSnapshot): { nodes: Node[]; edges: Edge[] } {
   return {
