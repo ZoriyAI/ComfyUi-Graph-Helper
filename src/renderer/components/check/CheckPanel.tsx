@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'motion/react';
-import { CircleCheck, Crosshair, Lightbulb, ListChecks, MessageCircleQuestion, TriangleAlert } from 'lucide-react';
+import { CircleCheck, Crosshair, Lightbulb, ListChecks, MessageCircleQuestion, OctagonAlert, TriangleAlert } from 'lucide-react';
 import type { BaseModelFamily } from '../../../shared/contracts';
 import { familyLabelKey } from '../../../shared/knowledge/labels';
 import { redactDiagnostic } from '../../../shared/i18n';
@@ -12,6 +12,9 @@ import { useCanvasStore } from '../graph/canvasStore';
 import { requestAsk } from '../../services/ask';
 import { turnLanguage } from '../../services/llm/chatModel';
 import { adviceOf, checkFindingCount, findingNodeIds, groupCheckReport, nodeNamer, type CheckFinding } from './checkModel';
+import Button from '../../ui/Button';
+import Hint from '../../ui/Hint';
+import IconButton from '../../ui/IconButton';
 import styles from './CheckPanel.module.css';
 import EmptyState from '../../ui/EmptyState';
 
@@ -21,6 +24,38 @@ const ROW_MOTION = {
   exit: { opacity: 0 },
   transition: { duration: 0.16 },
 } as const;
+
+/** The kinds of finding that stop a graph from running: the colour and icon of errors. The rest are warnings. */
+const STOPPERS = new Set(['missingNodes', 'typeMismatches', 'unknownNodeTypes']);
+
+/** The names in a finding («Load LoRA», "KSampler") stand out from the sentence around them. */
+function withNames(text: string): React.ReactNode[] {
+  return text.split(/(«[^»]+»|"[^"\n]+")/g).map((part, index) => (index % 2 === 1 ? <strong key={index}>{part}</strong> : part));
+}
+
+/**
+ * One finding: a severity icon, the sentence (a press on it shows the place on the canvas) and, at its end, a
+ * quiet "Ask why". The whole row is the "Show" button, so seven findings are not fourteen identical buttons.
+ */
+function FindingRow({ finding, text, hint, onShow, onAsk }: { finding: CheckFinding; text: string; hint?: string; onShow: () => void; onAsk: () => void }) {
+  const { t } = useTranslation();
+  const Icon = finding.type === 'promptNotes' ? Lightbulb : STOPPERS.has(finding.type) ? OctagonAlert : TriangleAlert;
+  const textId = `check-finding-${finding.key.replace(/[^\w-]/g, '_')}`;
+  return (
+    <>
+      <button type="button" className={styles.show} aria-label={String(t('explain.checkShow'))} aria-describedby={textId} title={hint} onClick={onShow}>
+        <Icon className={styles.severity} size={14} aria-hidden="true" />
+        <span className={styles.text} id={textId}>{withNames(text)}</span>
+        <Crosshair className={styles.showMark} size={14} aria-hidden="true" />
+      </button>
+      <Hint label={String(t('explain.checkAskWhy'))} side="left">
+        <IconButton size="sm" className={styles.ask} label={String(t('explain.checkAskWhy'))} title="" onClick={onAsk}>
+          <MessageCircleQuestion size={15} aria-hidden="true" />
+        </IconButton>
+      </Hint>
+    </>
+  );
+}
 
 /**
  * The pre-export check. Runs knowledge:check-graph through the knowledge store, lists findings
@@ -97,17 +132,14 @@ export default function CheckPanel({ projectId }: { projectId: string }) {
 
   return (
     <section className={`check-panel ${styles.panel}`} aria-labelledby="check-title" data-project={projectId}>
-      <div className={styles.head}>
-        {/* The dock tab already says "Check"; the heading names the region for screen readers only. */}
-        <h2 className="sr-only" id="check-title">{t('explain.checkTitle')}</h2>
-        {report && count > 0 ? <span className={styles.count}>{t('explain.checkCount', { count })}</span> : null}
-      </div>
+      {/* The dock tab already says "Check"; the heading names the region for screen readers only. */}
+      <h2 className="sr-only" id="check-title">{t('explain.checkTitle')}</h2>
       {(() => {
+        // Before the first check it is the one thing to do here; afterwards checking again steps back.
         const runButton = (
-          <button type="button" className={`${styles.button} ${styles.primary}`} disabled={checking} onClick={() => void run()}>
-            <ListChecks size={14} aria-hidden="true" />
+          <Button variant={report ? 'subtle' : 'primary'} quiet size="sm" icon={<ListChecks size={14} />} disabled={checking} onClick={() => void run()}>
             {checking ? t('explain.checkRunning') : t('check.run')}
-          </button>
+          </Button>
         );
         // Not checked yet: the same empty state as every dock tab; afterwards the intro and the button stay on top.
         if (!report && !error) {
@@ -120,7 +152,10 @@ export default function CheckPanel({ projectId }: { projectId: string }) {
         return (
           <>
             <p className={styles.intro}>{t('explain.checkIntro')}</p>
-            <div className={styles.buttons}>{runButton}</div>
+            <div className={styles.runRow}>
+              {runButton}
+              {report && count > 0 ? <span className={styles.count}>{t('explain.checkCount', { count })}</span> : null}
+            </div>
           </>
         );
       })()}
@@ -133,8 +168,8 @@ export default function CheckPanel({ projectId }: { projectId: string }) {
       ) : null}
       {groups.map((group) => (
         <section key={group.type} className={styles.group} aria-labelledby={`check-group-${group.type}`} data-check-group={group.type}>
-          <h3 className={styles.groupTitle} id={`check-group-${group.type}`}>
-            <TriangleAlert size={14} aria-hidden="true" />
+          <h3 className={styles.groupTitle} id={`check-group-${group.type}`} data-stops={STOPPERS.has(group.type) ? 'true' : undefined}>
+            {STOPPERS.has(group.type) ? <OctagonAlert size={14} aria-hidden="true" /> : <TriangleAlert size={14} aria-hidden="true" />}
             {t(group.titleKey)} ({group.findings.length})
           </h3>
           <ul className={styles.list}>
@@ -143,17 +178,7 @@ export default function CheckPanel({ projectId }: { projectId: string }) {
                 const text = findingText(finding);
                 return (
                   <motion.li key={finding.key} className={styles.row} data-type={finding.type} {...ROW_MOTION}>
-                    <p className={styles.text} title={idsHint(finding)}>{text}</p>
-                    <div className={styles.buttons}>
-                      <button type="button" className={styles.button} onClick={() => show(finding)}>
-                        <Crosshair size={14} aria-hidden="true" />
-                        {t('explain.checkShow')}
-                      </button>
-                      <button type="button" className={styles.button} onClick={() => askWhy(finding)}>
-                        <MessageCircleQuestion size={14} aria-hidden="true" />
-                        {t('explain.checkAskWhy')}
-                      </button>
-                    </div>
+                    <FindingRow finding={finding} text={text} hint={idsHint(finding)} onShow={() => show(finding)} onAsk={() => askWhy(finding)} />
                   </motion.li>
                 );
               })}
@@ -171,17 +196,7 @@ export default function CheckPanel({ projectId }: { projectId: string }) {
           <ul className={styles.list}>
             {advice.map((finding) => (
               <li key={finding.key} className={styles.row} data-type={finding.type}>
-                <p className={styles.text} title={idsHint(finding)}>{findingText(finding)}</p>
-                <div className={styles.buttons}>
-                  <button type="button" className={styles.button} onClick={() => show(finding)}>
-                    <Crosshair size={14} aria-hidden="true" />
-                    {t('explain.checkShow')}
-                  </button>
-                  <button type="button" className={styles.button} onClick={() => askWhy(finding)}>
-                    <MessageCircleQuestion size={14} aria-hidden="true" />
-                    {t('explain.checkAskWhy')}
-                  </button>
-                </div>
+                <FindingRow finding={finding} text={findingText(finding)} hint={idsHint(finding)} onShow={() => show(finding)} onAsk={() => askWhy(finding)} />
               </li>
             ))}
           </ul>
