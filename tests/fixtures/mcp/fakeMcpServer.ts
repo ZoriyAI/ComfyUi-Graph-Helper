@@ -12,6 +12,7 @@ import * as fs from 'fs';
 import * as http from 'http';
 import type { AddressInfo } from 'net';
 import * as path from 'path';
+import { imageModelClassDefs } from './classes/image-models';
 
 export interface FakeMcpCall {
   /** JSON-RPC method, or the HTTP method for non-POST requests ("GET", "DELETE"). */
@@ -68,6 +69,7 @@ export const PACKS: Pack[] = [
   { name: 'ComfyUI-WanVideoWrapper', module: 'custom_nodes.ComfyUI-WanVideoWrapper', version: '1.3.4', commit: 'e4f5a6b' },
   { name: 'comfyui_controlnet_aux', module: 'custom_nodes.comfyui_controlnet_aux', version: '1.1.2', commit: null },
   { name: 'rgthree-comfy', module: 'custom_nodes.rgthree-comfy', version: '1.0.0', commit: '9c8d7e6' },
+  { name: 'ComfyUI-GGUF', module: 'custom_nodes.ComfyUI-GGUF', version: '1.0.0', commit: null },
 ];
 
 export const MODELS: Array<{ category: string; filename: string; size: number }> = [
@@ -494,6 +496,8 @@ export const VIDEO_CLASSES: ClassDef[] = [
   { classType: 'WanImageToVideo', pack: 0, display: 'WanImageToVideo', category: 'conditioning/video_models', required: { positive: ['CONDITIONING'], negative: ['CONDITIONING'], vae: ['VAE'], width: ['INT', { default: 832, min: 16, step: 16 }], height: ['INT', { default: 480, min: 16, step: 16 }], length: ['INT', { default: 81, min: 1, step: 4 }], batch_size: ['INT', { default: 1, min: 1, max: 4096 }] }, optional: { clip_vision_output: ['CLIP_VISION_OUTPUT'], start_image: ['IMAGE'] }, output: ['CONDITIONING', 'CONDITIONING', 'LATENT'], outputName: ['positive', 'negative', 'latent'] },
   { classType: 'CreateVideo', pack: 0, display: 'Create Video', category: 'image/video', required: { images: ['IMAGE'], fps: ['FLOAT', { default: 30, min: 1, max: 120, step: 1 }] }, optional: { audio: ['AUDIO'] }, output: ['VIDEO'] },
   { classType: 'SaveVideo', pack: 0, display: 'Save Video', category: 'image/video', required: { video: ['VIDEO'], filename_prefix: ['STRING', { default: 'video/ComfyUI' }], format: [['auto', 'mp4']], codec: [['auto', 'h264']] }, output: [], outputNode: true },
+  // The lessons on picture model families (classes/image-models.ts).
+  ...imageModelClassDefs((name) => PACKS.findIndex((pack) => pack.name === name)),
 ];
 
 /** The /object_info document the native fixture serves. */

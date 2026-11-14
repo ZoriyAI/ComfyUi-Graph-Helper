@@ -2,6 +2,7 @@ import type { BaseModelFamily, ExplanationAspect, Provenance } from '../contract
 import { objectKey, type ObjectRef } from '../contracts/objects';
 import { CORE_KNOWLEDGE_EN } from './coreKnowledge.en';
 import { CORE_KNOWLEDGE_RU } from './coreKnowledge.ru';
+import { imageFamilyNote, imageModelSeeds } from './sets/image-models';
 
 /**
  * Built-in teaching knowledge: what the core ComfyUI nodes, data types and base-model families are, written by
@@ -232,11 +233,12 @@ export function coreSeeds(language: KnowledgeLanguage): CoreSeed[] {
     });
     seeds.push({ id: coreSeedId(owner, 'risk', language), owner, aspect: 'risk', text: texts.risk.trim(), provenance: 'inference', sourceUrl: null });
   }
+  seeds.push(...imageModelSeeds(language));
   return seeds;
 }
 
 /** The built-in note about a family in the given language, for tooltips and the "Ask about this model" message. */
 export function familyNote(family: string, language: KnowledgeLanguage): FamilyTexts | null {
   const pack = CORE_KNOWLEDGE[language].families as Record<string, FamilyTexts | undefined>;
-  return pack[family] ?? null;
+  return pack[family] ?? imageFamilyNote(family, language);
 }

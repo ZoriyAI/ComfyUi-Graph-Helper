@@ -94,7 +94,8 @@ describe('core knowledge content', () => {
         if (seed.provenance === 'inference') expect(seed.sourceUrl).toBeNull();
         if (seed.owner.kind === 'nodeClass' && (seed.aspect === 'what' || seed.aspect === 'connect')) {
           expect(seed.provenance).toBe('fact');
-          expect(seed.sourceUrl).toMatch(/^https:\/\/docs\.comfy\.org\//);
+          // ComfyUI's own nodes cite their docs page; a pack's nodes cite the pack's repository.
+          expect(seed.sourceUrl).toMatch(/^https:\/\/(?:docs\.comfy\.org\/|github\.com\/[^/]+\/[^/]+$)/);
         }
         if (seed.owner.kind === 'family' && seed.aspect === 'what') expect(seed.provenance).toBe(seed.sourceUrl ? 'fact' : 'inference');
       }

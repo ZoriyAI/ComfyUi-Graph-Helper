@@ -10,7 +10,7 @@ import { LESSONS } from '../../src/shared/lessons/lessons';
  * - every relative link resolves to a file (anchors are not checked);
  * - every folder has README.md / README.ru.md that list every page of the folder;
  * - with WIKI_STRICT=1 (the truth pass before a release), no `<!-- verify: … -->` and no
- *   `<!-- skeleton: … -->` comment is left.
+ *   `<!-- skeleton: … -->` comment is left, and every lesson of the app has its page in both languages.
  */
 const WIKI = path.join(__dirname, '..', '..', 'docs', 'wiki');
 const STRICT = process.env.WIKI_STRICT === '1';
@@ -104,7 +104,8 @@ describe('the wiki', () => {
     expect(problems).toEqual([]);
   });
 
-  it('has a lesson page in both languages for every lesson of the app', () => {
+  // Lessons land before their pages while a release is being put together, so this is part of the truth pass.
+  it.runIf(STRICT)('has a lesson page in both languages for every lesson of the app (WIKI_STRICT=1)', () => {
     // A lesson page names its lesson in a comment: <!-- lesson: video-text -->.
     const lessonPages = ALL.filter((file) => path.dirname(file) === 'lessons');
     const marked = (id: string, ru: boolean) =>

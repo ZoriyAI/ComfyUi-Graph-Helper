@@ -36,6 +36,7 @@ export function fits(fit: LessonFit): boolean {
 export function packOf(classType: string): string | null {
   if (/^(?:WanVideo|LoadWanVideo|MultiTalk|Wav2VecModelLoader|DownloadAndLoadWav2Vec|FantasyTalking|Ovi)/.test(classType)) return 'ComfyUI-WanVideoWrapper';
   if (/^(?:OnnxDetectionModelLoader|PoseAndFaceDetection|DrawViTPose)/.test(classType)) return 'ComfyUI-WanAnimatePreprocess';
+  if (/^(?:UnetLoaderGGUF|(?:Dual|Triple|Quadruple)?CLIPLoaderGGUF)/.test(classType)) return 'ComfyUI-GGUF';
   return null;
 }
 
