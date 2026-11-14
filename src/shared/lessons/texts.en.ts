@@ -128,7 +128,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
       shift: {
         title: 'Set the noise shift',
-        body: 'Add two {shiftHigh} nodes. Pass the first model through one and the second through the other: the loader\'s `MODEL` output to the `model` input. Set `shift` to 8 in both.\n\nThis number changes how much noise is left at each step. With a small value Wan gives sluggish motion and detail that falls apart.\n\nThe SD3 in the node\'s name is left from another model: Wan is set up with the same node.',
+        body: 'Add two {shiftHigh} nodes. Pass the first model through one and the second through the other: the loader\'s `MODEL` output to the `model` input. Set `shift` to 8 in both.\n\nThis number changes how much noise is left at each step. With a small value Wan holds composition and motion worse, and the clip comes out sluggish.\n\nThe SD3 in the node\'s name is left from another model: Wan is set up with the same node.',
       },
       latent: {
         title: 'Set the size and the length',

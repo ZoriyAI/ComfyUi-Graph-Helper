@@ -183,7 +183,7 @@ export function lackText(t: TFunction, missing: Missing, lesson: Lesson, context
           if (typeof file === 'string') for (const word of facts.triggers?.[file] ?? []) words.add(word);
         }
       }
-      return String(t('lessons.lackTrigger', { node, words: [...words].slice(0, 8).join(', ') }));
+      return String(t('lessons.lackTrigger', { node, words: [...words].slice(0, 8) }));
     }
     case 'differs': {
       if (missing.test.kind !== 'differs') return '';
