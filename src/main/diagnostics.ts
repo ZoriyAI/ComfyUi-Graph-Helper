@@ -3,8 +3,9 @@ import { DISPLAY_NAME } from './identity';
 
 /**
  * Help ▸ Copy diagnostics: a plain-text report a person can paste into an issue. It never carries a key or
- * token: settings and preferences are copied field by field with secret-named fields dropped, every URL loses
- * its user info and query, and the whole text passes through the log redactor at the end.
+ * token: settings and preferences are copied field by field with secret-named fields dropped, every URL keeps only
+ * its scheme, where the server is (this computer, local network, internet) and its port, the hosts the person set
+ * up are replaced wherever they appear, and the whole text passes through the log redactor at the end.
  */
 
 export interface DiagnosticsInput {
@@ -21,19 +22,70 @@ export interface DiagnosticsInput {
   keyHeld: boolean;
   logTail: string[];
   redact: (text: string) => string;
+  /** The addresses the person set up (Settings); their hosts never appear in the report. */
+  addresses?: ReadonlyArray<string | null | undefined>;
 }
 
 const SECRET_KEY = /(api[_-]?key|apikey|token|secret|password|passwd|authorization|credential|cookie|private[_-]?key)/i;
 
-/** Origin and path only: user info, query and fragment can carry credentials. */
+/** Public services every install talks to the same way: naming them in a report says nothing about the person. */
+const PUBLIC_HOSTS = new Set([
+  'api.openai.com', 'api.anthropic.com', 'generativelanguage.googleapis.com', 'civitai.com', 'huggingface.co',
+  'html.duckduckgo.com', 'lite.duckduckgo.com',
+]);
+
+/**
+ * Where a host is, in words a report may carry: the person's own servers are named only by where they are, never
+ * by name or address (a host name or an address in a public bug report points at a server of theirs).
+ */
+export function placeOf(hostname: string): 'this computer' | 'local network' | 'internet' {
+  const host = hostname.toLowerCase().replace(/^\[|\]$/g, '').replace(/\.+$/, '');
+  if (host === 'localhost' || /^127\./.test(host) || host === '::1' || host === '0.0.0.0') return 'this computer';
+  if (/^10\./.test(host) || /^192\.168\./.test(host) || /^172\.(1[6-9]|2\d|3[01])\./.test(host) || /^169\.254\./.test(host)
+    || /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(host)) return 'local network';
+  if (/^f[cd][0-9a-f]{2}:/.test(host) || /^fe[89ab][0-9a-f]:/.test(host)) return 'local network';
+  if (!host.includes('.') || /\.(local|lan|home|internal|home\.arpa)$/.test(host)) return 'local network';
+  return 'internet';
+}
+
+/**
+ * Scheme, where the server is and its port: user info, host, path, query and fragment go. A public service keeps
+ * its name. `https://my-box.example:8443/mcp?x` becomes `https://[internet]:8443`.
+ */
 export function scrubUrl(value: string): string {
   try {
     const url = new URL(value);
     if (url.protocol !== 'http:' && url.protocol !== 'https:') return value;
-    return `${url.protocol}//${url.host}${url.pathname === '/' ? '' : url.pathname}`;
+    if (PUBLIC_HOSTS.has(url.hostname.toLowerCase())) return `${url.protocol}//${url.hostname.toLowerCase()}`;
+    const port = url.port || (url.protocol === 'https:' ? '443' : '80');
+    return `${url.protocol}//[${placeOf(url.hostname)}]:${port}`;
   } catch {
     return value;
   }
+}
+
+/**
+ * For text meant for someone else (Copy diagnostics, a saved conversation log): every http(s) address is scrubbed
+ * as above, and each host the person set up (their MCP server, ComfyUI, model server) is replaced wherever it shows
+ * up on its own, as in an error sentence.
+ */
+export function addressScrubber(addresses: ReadonlyArray<string | null | undefined>): (text: string) => string {
+  const hosts = new Set<string>();
+  for (const address of addresses) {
+    try {
+      const host = new URL(String(address ?? '')).hostname.toLowerCase().replace(/^\[|\]$/g, '');
+      if (host.length >= 3 && !PUBLIC_HOSTS.has(host)) hosts.add(host);
+    } catch {
+      // Not an address: nothing to replace.
+    }
+  }
+  const sorted = [...hosts].sort((left, right) => right.length - left.length);
+  return (text) => {
+    if (typeof text !== 'string' || text === '') return text;
+    let out = text.replace(/\bhttps?:\/\/[^\s"'<>)\]}]+/gi, (match) => scrubUrl(match));
+    for (const host of sorted) out = out.split(host).join(`[${placeOf(host)}]`);
+    return out;
+  };
 }
 
 /** A deep copy without secret-named fields; strings that look like URLs are scrubbed. */
@@ -84,7 +136,7 @@ export function buildDiagnosticsReport(input: DiagnosticsInput): string {
     section('Catalog', catalog),
     section(`Log (last ${input.logTail.length} lines)`, input.logTail.join('\n') || '(empty)'),
   ].join('\n');
-  return input.redact(text);
+  return addressScrubber(input.addresses ?? [])(input.redact(text));
 }
 
 /**

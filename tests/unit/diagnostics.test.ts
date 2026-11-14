@@ -32,16 +32,38 @@ describe('diagnostics report', () => {
     expect(report).toContain('electron: 45.2.3');
     expect(report).toContain('nodeClasses: 3272');
     expect(report).toContain('"provider": "openai"');
-    expect(report).toContain('https://api.example.com/v1');
+    expect(report).toContain('https://[internet]:443');
+    expect(report).not.toContain('api.example.com');
     expect(report).toContain('provider key held: yes');
     expect(report).toMatch(/"apiKey": "\[(omitted|redacted)\]"/);
     expect(report).toContain('"tokenHeld": true');
     expect(report).toMatch(/## Log \(last 2 lines\)/);
   });
 
-  it('scrubs user info and query from URLs', () => {
-    expect(scrubUrl('https://a:b@host.example:8080/path?token=x#frag')).toBe('https://host.example:8080/path');
+  it('keeps only the scheme, where the server is and its port', () => {
+    expect(scrubUrl('https://a:b@host.example:8080/path?token=x#frag')).toBe('https://[internet]:8080');
+    expect(scrubUrl('http://127.0.0.1:9000/mcp')).toBe('http://[this computer]:9000');
+    expect(scrubUrl('http://192.168.1.20:8188')).toBe('http://[local network]:8188');
+    expect(scrubUrl('http://studio.local:8188')).toBe('http://[local network]:8188');
+    expect(scrubUrl('https://mcp.example.net/s/capability-path-secret/mcp')).toBe('https://[internet]:443');
+    // A public service every install uses keeps its name.
+    expect(scrubUrl('https://api.openai.com/v1')).toBe('https://api.openai.com');
     expect(scrubUrl('not a url')).toBe('not a url');
+  });
+
+  it('never carries a host the person set up, in settings, sync or log lines', () => {
+    const report = buildDiagnosticsReport({
+      generatedAt: 'now', versions: {}, platform: { os: 'linux', release: '6', arch: 'x64' }, locale: 'en', paths: {},
+      settingsSource: 'database', settings: { mcpUrl: 'https://mcp.example.net/s/abc/mcp', comfyOrigin: 'http://192.168.1.20:8188' },
+      preferences: null, sync: { mcpUrl: 'https://mcp.example.net/s/abc/mcp' }, catalog: {}, keyHeld: false,
+      logTail: ['[Sync] End error=The MCP server at mcp.example.net did not answer'],
+      redact: (text) => text,
+      addresses: ['https://mcp.example.net/s/abc/mcp', 'http://192.168.1.20:8188'],
+    });
+    expect(report).not.toContain('mcp.example.net');
+    expect(report).not.toContain('192.168.1.20');
+    expect(report).not.toContain('/s/abc');
+    expect(report).toContain('[internet]');
   });
 });
 

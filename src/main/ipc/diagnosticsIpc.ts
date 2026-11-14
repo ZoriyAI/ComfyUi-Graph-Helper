@@ -7,7 +7,7 @@ import { readSettings } from '../settings/repository';
 import { catalogTotals } from '../catalog/repository';
 import { syncService } from '../mcp/sync';
 import { mainLLMService } from '../llmService';
-import { buildDiagnosticsReport, homeRedactor } from '../diagnostics';
+import { addressScrubber, buildDiagnosticsReport, homeRedactor } from '../diagnostics';
 import { log, logsDir, readLogTail, redactForLog } from '../log';
 import { readPreferences } from '../settings/repository';
 import {
@@ -24,8 +24,9 @@ export function savedLogScrub(userData: string, home: string): (text: string) =>
   const toHome = homeRedactor(home);
   const profile = userData.replace(/\/+$/, '');
   const escapedJson = JSON.stringify(profile).slice(1, -1);
+  const addresses = addressScrubber(personAddresses());
   return (text) => {
-    let out = text;
+    let out = addresses(text);
     if (profile.length > 1) {
       out = out.split(profile).join('[app profile]');
       if (escapedJson !== profile) out = out.split(escapedJson).join('[app profile]');
@@ -77,6 +78,30 @@ export function rendererErrorLine(input: unknown): string | null {
   return redactForLog([`[Renderer] ${kind}: ${message}`, source ? `at ${source}` : '', stack].filter(Boolean).join('\n'));
 }
 
+/**
+ * Every server address the person set up: the MCP server, ComfyUI (saved and reported), the model server of each
+ * provider. Reports meant for someone else name these only by where they are (diagnostics.ts addressScrubber).
+ */
+export function personAddresses(): string[] {
+  const found: string[] = [];
+  try {
+    const db = getDatabase();
+    const read = readSettings(db);
+    if (read.source !== 'corrupt') found.push(read.values.mcpUrl, read.values.comfyOrigin, read.values.baseURL);
+    const providers = (read.preferences as { providers?: Record<string, { baseURL?: unknown }> } | undefined)?.providers ?? {};
+    for (const entry of Object.values(providers)) if (typeof entry?.baseURL === 'string') found.push(entry.baseURL);
+    try {
+      const reported = syncService.status(db) as { mcpUrl?: unknown; comfyuiUrl?: unknown };
+      if (typeof reported.mcpUrl === 'string') found.push(reported.mcpUrl);
+    } catch {
+      // No sync status: the saved addresses are enough.
+    }
+  } catch {
+    // Without the database there is nothing the person set up to hide.
+  }
+  return found.filter((value) => typeof value === 'string' && value.trim() !== '');
+}
+
 export function collectDiagnostics(): string {
   let settingsSource = 'unknown';
   let settings: Record<string, unknown> | null = null;
@@ -124,6 +149,7 @@ export function collectDiagnostics(): string {
     keyHeld: Object.values(mainLLMService.keySources()).some((source) => source !== 'none'),
     logTail: readLogTail(200),
     redact: (text) => mainLLMService.redact(redactForLog(text)),
+    addresses: personAddresses(),
   });
 }
 
