@@ -10,8 +10,8 @@ import type { RevisionSummary } from '../../shared/contracts/revisions';
  *   restored (followed through chains of restores), every other revision points at itself;
  * - undo restores the pointer's parent (again followed through restores), so a restore commit is never
  *   itself the step that is undone;
- * - the person's own revisions are undone one by one; the helper's revisions are undone as one step per run (the
- *   whole build comes back off the canvas, and redo puts it back), and nothing while a run is still open;
+ * - the person's own revisions are undone one by one; the helper's contiguous revisions from one run are undone as one step
+ *   (manual edits and other runs form boundaries, and redo restores that interval), and nothing while a run is still open;
  * - redo is a stack kept for this session. It holds while the head is the revision the last undo or redo
  *   made; any other commit (a new manual edit, an agent step) clears it.
  */
@@ -70,18 +70,17 @@ function helperRun(revision: UndoRevision | undefined): string | null {
 }
 
 /**
- * Undo of a helper's revision: the revision before the run's first one, and a summary of what goes away (the
- * run's steps). Null when the run's start is not in the list.
+ * Undo of a helper's revision: the revision before its contiguous interval in the same run. Stop at every
+ * manual edit, restore or different run so the restored snapshot preserves interleaved work.
  */
 function runUndo(revisions: readonly UndoRevision[], byId: Map<string, UndoRevision>, at: number, runId: string, pointer: string): UndoPlan['undo'] {
   let first = at;
   let steps = 0;
   for (let index = at; index >= 0; index -= 1) {
     const revision = revisions[index];
-    if (revision.runId === runId) {
-      first = index;
-      if (!isOwnRevision(revision)) steps += 1;
-    }
+    if (helperRun(revision) !== runId) break;
+    first = index;
+    steps += 1;
   }
   if (first === 0) return null;
   const target = logicalRevision(byId, revisions[first - 1].id);

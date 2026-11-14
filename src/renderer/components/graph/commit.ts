@@ -76,6 +76,14 @@ export function commitManual(payload: GraphMutation, prefix = 'manual', options:
       reportRefusal(result);
       return result;
     })
-    .catch(() => null)
+    .catch((error: unknown) => {
+      showToast({
+        id: 'canvas-edit-error',
+        tone: 'error',
+        title: translate('canvas.editRefused'),
+        description: error instanceof Error ? (translateKnownError(translate, error.message) ?? error.message) : translate('canvas.editUnexpected'),
+      });
+      return null;
+    })
     .finally(() => useCanvasStore.getState().endManual());
 }

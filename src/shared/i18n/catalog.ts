@@ -117,7 +117,7 @@ export const en = {
     collapseNode: 'collapse or expand nodes',
     renameSubgraphIo: 'rename a subgraph input or output',
     editInSubgraph: 'change inside a subgraph',
-    agentRun: 'the assistant\'s build (steps: {{count}})',
+    agentRun: 'the assistant\'s consecutive steps ({{count}})',
     other: 'a change ({{type}})',
   },
   nodeGuard: {
@@ -386,7 +386,7 @@ export const en = {
     explanationSaved: 'Saved to {{object}}',
     explanationAspect: 'Topic: {{aspect}}',
     interrupted: 'Interrupted before it finished',
-    runInterrupted: 'The assistant\'s work stopped when the app was closed. What it had added stayed on the canvas (nodes: {{count}}); undo takes it back in one step.',
+    runInterrupted: 'The assistant\'s work stopped when the app was closed. What it had added stayed on the canvas (nodes: {{count}}); Undo takes back consecutive assistant steps, stopping at your edits.',
     windowHowTitle: 'How to do it (Ollama on Linux)',
     windowHow: {
       service: 'Ollama installed as a service: open its settings in a terminal.',
@@ -1374,6 +1374,7 @@ export const en = {
     groupTitle: 'Group title',
     groupRenameHint: 'Double-click to rename. Enter saves, Esc cancels.',
     editRefused: 'That edit was not applied',
+    editUnexpected: 'An unexpected error prevented the edit. Try again.',
     editConflict: 'The graph changed first; the canvas shows the current graph.',
     addNode: 'Add node',
     addSearchLabel: 'Node type',
@@ -2255,7 +2256,7 @@ export const ru = {
     collapseNode: 'сворачивание нод',
     renameSubgraphIo: 'переименование входа или выхода субграфа',
     editInSubgraph: 'изменение внутри субграфа',
-    agentRun: 'сборку помощника (шагов: {{count}})',
+    agentRun: 'последовательные шаги помощника ({{count}})',
     other: 'изменение ({{type}})',
   },
   nodeGuard: {
@@ -2524,7 +2525,7 @@ export const ru = {
     explanationSaved: 'Записано к объекту {{object}}',
     explanationAspect: 'Тема: {{aspect}}',
     interrupted: 'Прервано до завершения',
-    runInterrupted: 'Работа помощника прервалась: приложение закрылось. Что он успел добавить, осталось на холсте (нод: {{count}}); «Отменить» уберёт это одним шагом.',
+    runInterrupted: 'Работа помощника прервалась: приложение закрылось. Что он успел добавить, осталось на холсте (нод: {{count}}); «Отменить» убирает последовательные шаги помощника, сохраняя ваши правки между ними.',
     windowHowTitle: 'Как это сделать (Ollama на Linux)',
     windowHow: {
       service: 'Ollama установлена как служба: откройте её настройки в терминале.',
@@ -3512,6 +3513,7 @@ export const ru = {
     groupTitle: 'Название группы',
     groupRenameHint: 'Дважды щёлкните, чтобы переименовать. Enter — сохранить, Esc — отменить.',
     editRefused: 'Изменение не применено',
+    editUnexpected: 'Неожиданная ошибка помешала изменить граф. Попробуйте ещё раз.',
     editConflict: 'Граф успел измениться; на холсте показан текущий граф.',
     addNode: 'Добавить ноду',
     addSearchLabel: 'Тип ноды',
