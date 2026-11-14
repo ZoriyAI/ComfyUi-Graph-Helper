@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
+import { LESSONS } from '../../src/shared/lessons/lessons';
 
 /**
  * Keeps docs/wiki honest (see docs/wiki/dev/Wiki-Style.md):
@@ -101,6 +102,18 @@ describe('the wiki', () => {
       }
     }
     expect(problems).toEqual([]);
+  });
+
+  it('has a lesson page in both languages for every lesson of the app', () => {
+    // A lesson page names its lesson in a comment: <!-- lesson: video-text -->.
+    const lessonPages = ALL.filter((file) => path.dirname(file) === 'lessons');
+    const marked = (id: string, ru: boolean) =>
+      lessonPages.some((file) => file.endsWith('.ru.md') === ru && read(file).includes(`<!-- lesson: ${id} -->`));
+    const missing = LESSONS.flatMap((lesson) => [
+      ...(marked(lesson.id, false) ? [] : [`${lesson.id}: no English page`]),
+      ...(marked(lesson.id, true) ? [] : [`${lesson.id}: no Russian page`]),
+    ]);
+    expect(missing).toEqual([]);
   });
 
   it.runIf(STRICT)('has no verify or skeleton comment left (WIKI_STRICT=1)', () => {
