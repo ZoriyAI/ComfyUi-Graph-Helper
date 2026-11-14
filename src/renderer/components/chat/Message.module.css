@@ -90,6 +90,8 @@
 .diagnosticText { margin: 4px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 /* The time: a quiet line under the helper's answer; in the person's bubble, at the end of the last line. */
 .time { display: flex; align-items: center; gap: 6px; color: var(--text-faint); font-size: var(--text-xs); line-height: 18px; }
+/* Under the answer the time comes first and the log mark (shown on hover) after it, so the time keeps the left edge. */
+.row:not(.user) .time { flex-direction: row-reverse; justify-content: flex-end; }
 .user .time { float: right; margin: 4px -2px -2px 12px; line-height: 16px; }
 .logLink {
   appearance: none;
