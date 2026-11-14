@@ -200,6 +200,15 @@ export function readState(db: Database.Database): Record<string, string> {
   return Object.fromEntries(rows.map((row) => [row.key, row.value]));
 }
 
+/** `run_open` in sync_state: when the run in flight started, or '' when none is. Never throws. */
+function markRunOpen(db: Database.Database, at: number | null): void {
+  try {
+    writeState(db, { run_open: at === null ? '' : String(at) });
+  } catch {
+    // Without the mark a crash during this run is not noticed at the next start; nothing else changes.
+  }
+}
+
 /** Upserts sync_state rows in one transaction. */
 export function writeState(db: Database.Database, values: Record<string, string>): void {
   const upsert = db.prepare('INSERT INTO sync_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
@@ -364,6 +373,11 @@ export class SyncService {
   private timer: ReturnType<typeof setTimeout> | null = null;
   private nextRunAt: number | null = null;
   private startupPending = false;
+  /**
+   * The last run never ended (the app crashed, froze or was killed during a sync): automatic runs wait until the
+   * person starts one. Kept as `run_open` in sync_state while a run is in flight.
+   */
+  private autoHeld = false;
   private background: EnrichRun | null = null;
   private webRun: WebRun | null = null;
   private enrichmentPaused = false;
@@ -424,6 +438,7 @@ export class SyncService {
       progress,
       nextRunAt: this.nextRunAt,
       startupPending: this.startupPending && !this.running,
+      autoHeld: this.autoHeld,
       lastRunAt: numberOrNull(state.last_run_at),
       lastRunDurationMs: numberOrNull(state.last_run_duration_ms),
       warnings: readWarnings(state),
@@ -457,9 +472,15 @@ export class SyncService {
     this.startupPending = false;
     this.enrichmentPaused = false;
     this.progress = { phase: this.readUrlSafe(db) !== '' ? 'connect' : 'comfy', done: 0, total: 0 };
+    const held = this.autoHeld;
+    this.autoHeld = false;
+    markRunOpen(db, this.deps.now());
     this.running = this.execute(db, fetchImpl, factory).finally(() => {
       this.running = null;
       this.progress = null;
+      markRunOpen(db, null);
+      // A run the person started after a held start ended: the schedule comes back.
+      if (held) this.schedule(db, false);
     }).then(() => this.emit(db));
     this.emit(db);
     return this.running;
@@ -481,8 +502,24 @@ export class SyncService {
    */
   start(db: Database.Database): SyncStatus {
     this.db = db;
+    if (readStateSafe(db).run_open) {
+      // The last run never ended: no automatic run until the person starts one (a server answer that froze or
+      // crashed the app must not do it again at every start).
+      this.autoHeld = true;
+      console.warn('[Sync] The last sync did not end; automatic sync waits until it is started by hand');
+      return this.emit(db);
+    }
     this.schedule(db, true);
     return this.emit(db);
+  }
+
+  /** An automatic run: none while the start is held (see autoHeld). */
+  private runAuto(db: Database.Database): void {
+    if (this.autoHeld) {
+      this.emit(db);
+      return;
+    }
+    void this.runSync(db);
   }
 
   /** Pushes the current status to listeners (e.g. after a sign-in or sign-out). */
@@ -511,7 +548,7 @@ export class SyncService {
     const after = this.running ?? Promise.resolve(this.status(db));
     void after.catch(() => undefined).then(() => {
       if (generation !== this.generation) return;
-      if (auto.enabled && this.hasAddress(db)) void this.runSync(db);
+      if (auto.enabled && this.hasAddress(db)) this.runAuto(db);
       else this.emit(db);
     });
     this.schedule(db, false);
@@ -648,6 +685,7 @@ export class SyncService {
 
   private schedule(db: Database.Database, startup: boolean): void {
     this.clearSchedule();
+    if (this.autoHeld) return;
     const state = readState(db);
     const auto = autoOf(state);
     if (!auto.enabled) return;
@@ -674,7 +712,7 @@ export class SyncService {
       const auto = autoOf(readStateSafe(db));
       if (auto.enabled) this.arm(db, auto.intervalMinutes * 60_000);
       else this.nextRunAt = null;
-      void this.runSync(db);
+      this.runAuto(db);
     }, delay);
     // A pending sync must not keep the app (or a test run) alive.
     this.timer.unref?.();

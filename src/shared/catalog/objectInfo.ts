@@ -39,10 +39,11 @@ export interface ParsedObjectInfo {
 }
 
 /**
- * The largest object_info the app reads: far above any real install (a large one is tens of MB), and about what one
- * string can hold, so a bigger answer could not be parsed anyway. It stops an endless answer from filling memory.
+ * The largest object_info the app reads, from a server or a file: several times any real install (a large one is
+ * tens of MB). Parsing takes about four times the size in memory and holds the app meanwhile, so a larger cap only
+ * let a broken or hostile answer freeze the window. It also stops an endless answer from filling memory.
  */
-export const OBJECT_INFO_MAX_BYTES = 512 * 1024 * 1024;
+export const OBJECT_INFO_MAX_BYTES = 128 * 1024 * 1024;
 
 /** Refuses a nonsense size and one above OBJECT_INFO_MAX_BYTES. */
 export function assertObjectInfoSize(bytes: number): void {

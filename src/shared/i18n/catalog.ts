@@ -1028,6 +1028,7 @@ export const en = {
     seconds: '{{seconds}} s',
     nextRun: 'Next run',
     nextRunOff: 'Off',
+    autoHeld: 'The last sync did not finish: the app closed or stopped answering during it. Automatic sync waits until you start one with Sync now.',
     metadata: 'Model files read',
     warning: 'Warning: {{warning}}',
     section: {
@@ -3235,6 +3236,7 @@ export const ru = {
     seconds: '{{seconds}} с',
     nextRun: 'Следующий запуск',
     nextRunOff: 'Выключено',
+    autoHeld: 'Прошлая синхронизация не закончилась: приложение закрылось или зависло во время неё. Автоматическая синхронизация ждёт, пока вы не запустите её кнопкой «Синхронизировать сейчас».',
     metadata: 'Прочитано файлов моделей',
     warning: 'Предупреждение: {{warning}}',
     section: {
