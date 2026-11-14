@@ -236,6 +236,19 @@ export interface GraphCheckReport {
    * workflow. Optional so reports written before it existed still read; absent means none.
    */
   unsetWidgets?: Array<{ nodeId: string; classType: string; name: string }>;
+  /** Directed loops that ComfyUI cannot execute. */
+  cycles?: Array<{ nodeIds: string[] }>;
+  /** Links whose source or target no longer exists on the same canvas level. */
+  brokenEdges?: Array<{ edgeId: string; source: string; target: string }>;
+  /** Widget values that contradict the installed node's own object_info. */
+  invalidParameters?: Array<{
+    nodeId: string;
+    classType: string;
+    name: string;
+    reason: 'type' | 'range' | 'choice';
+    expected: string;
+    found: string;
+  }>;
   /**
    * Advice about the descriptions in the graph (see PromptNote). Never part of `ok`: a graph with such notes
    * still saves and runs. Optional so reports written before it existed still read.

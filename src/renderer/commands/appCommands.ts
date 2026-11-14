@@ -2,7 +2,7 @@ import {
   Ghost, Columns2, Compass, Database, FileCheck2, FilePlus2, FolderInput, FolderOpen, FolderOutput, GraduationCap, Group, History, Info, Keyboard,
   LogOut, Map as MapIcon, Maximize, MessageCircleQuestion, MessageSquare, MessageSquareText, Navigation, PanelLeft, PanelRight, Pause, Play,
   Plus, Redo2, RefreshCw, Save, Settings, SquareDashedMousePointer, Square, Trash2, Undo2, Ungroup, Combine, ZoomIn, ZoomOut, RotateCcw,
-  Workflow, BookOpen, LifeBuoy, Sparkles, ChevronsDownUp,
+  Workflow, BookOpen, LifeBuoy, Sparkles, ChevronsDownUp, Copy, ClipboardPaste, Scissors, CopyPlus,
 } from 'lucide-react';
 import { arrangeGraph } from '../components/graph/arrange';
 import { toggleCollapseSelection } from '../components/graph/importLook';
@@ -30,6 +30,7 @@ import { useCanvasStore } from '../components/graph/canvasStore';
 import type { DescriptionsMode } from '../../shared/config/preferences';
 import { acceptAllProposals } from '../components/graph/CanvasToolbar';
 import { openReplay } from '../components/graph/ReplayPlayer';
+import { copySelection, cutSelection, duplicateSelection, hasClipboardSelection, pasteSelection, subscribeClipboard } from '../components/graph/selectionEditing';
 import { startGraphTour } from '../components/graph/tour/startTour';
 import { runSyncNow, setAutoSync } from '../components/sync/SyncIndicator';
 import { RAIL_WIDTH } from '../state/uiState';
@@ -96,6 +97,10 @@ export function buildAppCommands(): Command[] {
     { id: 'edit.undo', group: 'edit', labelKey: 'toolbar.undo', hintKey: 'toolbar.undoNone', hint: undoHint, icon: Undo2, shortcut: 'Mod+Z', enabled: canUndo, run: undo },
     { id: 'edit.redo', group: 'edit', labelKey: 'toolbar.redo', hintKey: 'toolbar.redoNone', hint: redoHint, icon: Redo2, shortcut: 'Mod+Shift+Z', enabled: canRedo, run: redo },
     { id: 'edit.selectAll', group: 'edit', labelKey: 'menu.selectAll', icon: SquareDashedMousePointer, shortcut: 'Mod+A', enabled: () => canEditLevel() && hasLevelNodes(), run: selectAllNodes },
+    { id: 'edit.copy', group: 'edit', labelKey: 'menu.copy', icon: Copy, shortcut: 'Mod+C', enabled: () => canEditLevel() && selectedNodes().length > 0, run: () => { copySelection(); } },
+    { id: 'edit.cut', group: 'edit', labelKey: 'menu.cut', icon: Scissors, shortcut: 'Mod+X', enabled: () => canEditLevel() && selectedNodes().length > 0, run: cutSelection },
+    { id: 'edit.paste', group: 'edit', labelKey: 'menu.paste', icon: ClipboardPaste, shortcut: 'Mod+V', enabled: () => canEditLevel() && hasClipboardSelection(), run: pasteSelection },
+    { id: 'edit.duplicate', group: 'edit', labelKey: 'menu.duplicate', icon: CopyPlus, shortcut: 'Mod+D', enabled: () => canEditLevel() && selectedNodes().length > 0, run: duplicateSelection },
     {
       id: 'edit.delete', group: 'edit', labelKey: 'menu.deleteSelection', icon: Trash2, shortcut: 'Delete', shortcutDisplayOnly: true,
       enabled: () => canEditLevel() && (selectedNodes().length > 0 || selectedEdgeIds().length > 0),
@@ -313,6 +318,7 @@ export function installAppCommands(): () => void {
     addCommandStateSource(domSource('data-motion')),
     addCommandStateSource(domSource('lang')),
     addCommandStateSource(resizeSource),
+    addCommandStateSource(subscribeClipboard),
     registerCommands(buildAppCommands()),
     registerCommands(buildDiagnosticsCommands()),
   ];

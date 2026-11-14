@@ -10,7 +10,10 @@ export type CheckProblemType =
   | 'baseModelMismatches'
   | 'unconnectedRequiredInputs'
   | 'unknownNodeTypes'
-  | 'unsetWidgets';
+  | 'unsetWidgets'
+  | 'cycles'
+  | 'brokenEdges'
+  | 'invalidParameters';
 
 /** A problem, or advice about a description (a prompt): shown apart from the problems and never counted as one. */
 export type CheckFindingType = CheckProblemType | 'promptNotes';
@@ -23,6 +26,9 @@ export const CHECK_FINDING_TYPES: readonly CheckProblemType[] = [
   'unconnectedRequiredInputs',
   'unknownNodeTypes',
   'unsetWidgets',
+  'cycles',
+  'brokenEdges',
+  'invalidParameters',
 ];
 
 export interface CheckFinding {
@@ -79,8 +85,8 @@ export function findingNodeIds(values: Record<string, string>): string[] {
 
 export function findingsOf(report: GraphCheckReport, resolvePort?: PortResolver, nameOf?: NodeNamer): CheckFinding[] {
   const out: CheckFinding[] = [];
-  const add = (type: CheckProblemType, key: string, values: Record<string, string>, ref: ObjectRef) => {
-    out.push({ key: `${type}:${key}`, type, textKey: `check.${type}Item`, values: nameFindingValues(values, nameOf), ref });
+  const add = (type: CheckProblemType, key: string, values: Record<string, string>, ref: ObjectRef, textKey?: string) => {
+    out.push({ key: `${type}:${key}`, type, textKey: textKey ?? `check.${type}Item`, values: nameFindingValues(values, nameOf), ref });
   };
   report.missingNodes.forEach((item) => add('missingNodes', item.nodeId, { ...item }, { kind: 'node', id: item.nodeId, classType: item.classType }));
   report.missingModels.forEach((item) => add('missingModels', `${item.nodeId}:${item.directory}/${item.name}`, { ...item }, { kind: 'node', id: item.nodeId }));
@@ -108,6 +114,25 @@ export function findingsOf(report: GraphCheckReport, resolvePort?: PortResolver,
   });
   report.unknownNodeTypes.forEach((classType) => add('unknownNodeTypes', classType, { classType }, { kind: 'nodeClass', id: classType, classType }));
   (report.unsetWidgets ?? []).forEach((item) => add('unsetWidgets', `${item.nodeId}:${item.name}`, { ...item }, { kind: 'node', id: item.nodeId, classType: item.classType }));
+  (report.cycles ?? []).forEach((item, index) => add(
+    'cycles',
+    `${index}:${item.nodeIds.join(',')}`,
+    { nodeId: item.nodeIds[0] ?? '', nodes: item.nodeIds.join(' → ') },
+    { kind: 'node', id: item.nodeIds[0] ?? '' },
+  ));
+  (report.brokenEdges ?? []).forEach((item) => add(
+    'brokenEdges',
+    item.edgeId,
+    { edgeId: item.edgeId, sourceId: item.source, targetId: item.target },
+    { kind: 'edge', id: item.edgeId },
+  ));
+  (report.invalidParameters ?? []).forEach((item) => add(
+    'invalidParameters',
+    `${item.nodeId}:${item.name}:${item.reason}:${item.expected}`,
+    { nodeId: item.nodeId, classType: item.classType, name: item.name, expected: item.expected, found: item.found },
+    { kind: 'node', id: item.nodeId, classType: item.classType },
+    `check.invalidParameterMessages.${item.reason}Item`,
+  ));
   return out;
 }
 
@@ -167,5 +192,8 @@ export function checkFindingCount(report: GraphCheckReport | null | undefined): 
     + report.baseModelMismatches.length
     + report.unconnectedRequiredInputs.length
     + report.unknownNodeTypes.length
-    + (report.unsetWidgets ?? []).length;
+    + (report.unsetWidgets ?? []).length
+    + (report.cycles ?? []).length
+    + (report.brokenEdges ?? []).length
+    + (report.invalidParameters ?? []).length;
 }

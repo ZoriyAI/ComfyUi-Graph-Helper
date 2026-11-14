@@ -5,7 +5,7 @@ import Button from '../../ui/Button';
 import Shortcut from '../../ui/Shortcut';
 import { cx } from '../../ui/cx';
 import { allCommands, type CommandGroup } from '../../commands/registry';
-import { exportWorkflowNow, saveProjectFile, startNewProject } from '../../commands/actions';
+import { cancelReplacement, confirmReplacement, exportWorkflowNow, saveProjectFile, startNewProject } from '../../commands/actions';
 import { secretFieldLabel, useSecretGuardStore } from '../../commands/secretGuard';
 import { useKnowledgeStore } from '../../state/knowledgeState';
 import { useDockStore } from '../../state/dockState';
@@ -184,6 +184,30 @@ function NewProjectDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
   );
 }
 
+/** Opening another project or workflow with unsaved work: the current graph is replaced only after confirmation. */
+function ReplaceProjectDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  const { t } = useTranslation();
+  return (
+    <DialogRoot open={open} onOpenChange={(next) => { if (!next) cancelReplacement(); onOpenChange(next); }}>
+      <DialogPortal>
+        <DialogOverlay />
+        <DialogContent className={cx(styles.dialog, 'replace-project-dialog')} aria-describedby="replace-project-lead">
+          <header className={styles.header}>
+            <DialogTitle className={styles.title}>{t('menu.replaceProjectTitle')}</DialogTitle>
+            <DialogDescription id="replace-project-lead" className={styles.lead}>{t('menu.replaceProjectBody')}</DialogDescription>
+          </header>
+          <footer className={styles.footer}>
+            <DialogClose asChild>
+              <Button variant="subtle" size="sm">{t('menu.cancel')}</Button>
+            </DialogClose>
+            <Button variant="primary" size="sm" onClick={() => void confirmReplacement()}>{t('menu.replaceProjectConfirm')}</Button>
+          </footer>
+        </DialogContent>
+      </DialogPortal>
+    </DialogRoot>
+  );
+}
+
 const GUARD_ROWS = 6;
 
 /** File ▸ Export with check findings: say what is wrong before a broken workflow is written. */
@@ -298,6 +322,7 @@ export default function CommandDialogs() {
       <AboutDialog open={dialog === 'about'} onOpenChange={close} />
       <HelpReaderDialog page={dialog === 'help-guide' || dialog === 'help-troubleshooting' || dialog === 'help-whatsnew' ? dialog : null} onOpenChange={close} />
       <NewProjectDialog open={dialog === 'new-project'} onOpenChange={close} />
+      <ReplaceProjectDialog open={dialog === 'replace-project'} onOpenChange={close} />
       <ExportGuardDialog open={dialog === 'export-guard'} onOpenChange={close} />
       <SecretGuardDialog />
     </>

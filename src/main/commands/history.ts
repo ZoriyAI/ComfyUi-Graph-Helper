@@ -54,7 +54,7 @@ function protectedRevisions(db: Database.Database, projectId: string): Set<strin
   }
   const hasProposals = db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'proposals'").get();
   if (hasProposals) {
-    const open = db.prepare(`SELECT revision_id FROM proposals WHERE project_id = ? AND status = 'open'`).all(projectId) as Array<{ revision_id: string }>;
+    const open = db.prepare(`SELECT revision_id FROM proposals WHERE project_id = ? AND status IN ('proposed', 'open')`).all(projectId) as Array<{ revision_id: string }>;
     for (const proposal of open) kept.add(proposal.revision_id);
   }
   return kept;

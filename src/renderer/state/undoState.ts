@@ -144,6 +144,8 @@ export function afterRedo(session: UndoSession, previousHead: string, newHead: s
 const ACTION_KEYS: Record<string, string> = {
   'add-node': 'undo.addNode',
   'remove-node': 'undo.removeNode',
+  'remove-selection': 'undo.removeSelection',
+  'paste-selection': 'undo.pasteSelection',
   'move-node': 'undo.moveNode',
   'move-nodes': 'undo.moveNodes',
   connect: 'undo.connect',

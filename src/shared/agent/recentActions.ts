@@ -18,7 +18,7 @@ export interface RecentCommand {
   payload: Record<string, unknown>;
 }
 
-const BULKY = new Set(['import-workflow', 'open-native']);
+const BULKY = new Set(['import-workflow', 'open-native', 'paste-selection']);
 const ID_KEYS = ['nodeId', 'edgeId', 'source', 'target', 'groupId', 'definitionId'] as const;
 
 /** The payload a recent command keeps, and the ids it touched. */
@@ -81,6 +81,8 @@ export function describeCommand(command: RecentCommand, summary: GraphSummary | 
     case 'set-parameter': return `set ${safeText(str(p.nodeId), 80)}.${safeText(str(p.key), 80)} = ${safeParameter(str(p.key), p.value)}`;
     case 'add-node': return `added ${safeText(str(p.nodeType), 120)}${command.ids[0] ? ` as ${nodeName(command.ids[0])}` : ''}`;
     case 'remove-node': return `removed ${nodeName(str(p.nodeId))}`;
+    case 'remove-selection': return `removed a selection of ${Array.isArray(p.nodeIds) ? p.nodeIds.length : 0} nodes`;
+    case 'paste-selection': return 'pasted a selection';
     case 'annotate-node': return `annotated ${nodeName(str(p.nodeId))}`;
     case 'set-component': return `wrote what ${safeText(str(p.ownerKind), 20)} ${safeText(str(p.ownerId), 80)} is for`;
     case 'set-process': return `named the process "${safeText(str(p.title), 80)}"`;

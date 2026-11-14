@@ -185,6 +185,7 @@ function inputsOf(info: Record<string, unknown>): { inputs: CatalogInput[]; widg
       if (parsed.default !== undefined) entry.default = parsed.default;
       if (parsed.options) entry.options = parsed.options;
       if (parsed.controlDefault !== undefined) entry.controlDefault = parsed.controlDefault;
+      if (parsed.mediaUpload) entry.mediaUpload = true;
       Object.assign(entry, parsed.meta);
       inputs.push(entry);
       if (!parsed.widget) continue;

@@ -413,6 +413,7 @@ function parseInputs(text: string): CatalogInput[] {
     }
     if (row.multiline === true) input.multiline = true;
     if (row.multiSelect === true) input.multiSelect = true;
+    if (row.mediaUpload === true) input.mediaUpload = true;
     return [input];
   });
 }

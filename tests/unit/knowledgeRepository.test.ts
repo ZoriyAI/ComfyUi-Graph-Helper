@@ -359,6 +359,9 @@ describe('knowledge repository: graph check', () => {
       unconnectedRequiredInputs: [],
       unknownNodeTypes: [],
       unsetWidgets: [],
+      cycles: [],
+      brokenEdges: [],
+      invalidParameters: [],
       promptNotes: [],
     });
     expect(() => checkGraph(db, 'nope')).toThrow(/not found/);

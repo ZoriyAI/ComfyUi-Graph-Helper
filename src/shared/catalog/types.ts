@@ -32,6 +32,8 @@ export interface CatalogInput {
   multiline?: boolean;
   /** A combo that takes several choices at once (`multi_select`). */
   multiSelect?: boolean;
+  /** A file-upload combo: a newly uploaded file need not be in the last catalog listing. */
+  mediaUpload?: boolean;
   /** object_info `tooltip`: the node author's one-line help for this input. Kept on sockets too. */
   tooltip?: string;
 }

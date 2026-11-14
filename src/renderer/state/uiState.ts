@@ -15,7 +15,7 @@ export interface TourStep {
 }
 
 /** Shell dialogs opened from the menu bar or a hotkey. */
-export type ShellDialog = 'shortcuts' | 'about' | 'new-project' | 'export-guard' | 'help-guide' | 'help-troubleshooting' | 'help-whatsnew';
+export type ShellDialog = 'shortcuts' | 'about' | 'new-project' | 'replace-project' | 'export-guard' | 'help-guide' | 'help-troubleshooting' | 'help-whatsnew';
 
 /** Settings sections, in the order of the Preferences window's navigation. The menu opens it on one. */
 export const SETTINGS_SECTIONS = ['assistant', 'connection', 'sync', 'canvas', 'appearance', 'shortcuts', 'privacy', 'about'] as const;

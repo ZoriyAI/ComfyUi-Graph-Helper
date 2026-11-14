@@ -21,6 +21,7 @@ import type { Translator } from '../../shared/i18n';
 import { SETTINGS_CHANGED } from './events';
 import { nodeDisplayName } from '../components/graph/lib/nodeName';
 import { afterWorkflowOpened } from '../components/graph/importLook';
+import { removeSelection } from '../components/graph/selectionEditing';
 
 export { SETTINGS_CHANGED };
 
@@ -44,7 +45,38 @@ function rejectedReason(result: unknown, fallback: string): string {
 
 // ── File ─────────────────────────────────────────────────────────────────────────────────────────────
 
-export async function importWorkflowFile(): Promise<void> {
+let pendingReplacement: (() => Promise<void>) | null = null;
+
+function hasUnsavedWork(): boolean {
+  const ui = useUiStore.getState();
+  const projection = useProjectionStore.getState();
+  if (useGraphStore.getState().nodes.length === 0) return false;
+  const dirty = ui.savedRevSeq !== null && projection.revSeq !== ui.savedRevSeq;
+  return dirty || !ui.savedToFile;
+}
+
+function requestReplacement(action: () => Promise<void>): void {
+  if (!hasUnsavedWork()) {
+    void action();
+    return;
+  }
+  pendingReplacement = action;
+  useUiStore.getState().setDialog('replace-project');
+}
+
+export async function confirmReplacement(): Promise<void> {
+  const action = pendingReplacement;
+  pendingReplacement = null;
+  useUiStore.getState().setDialog(null);
+  if (action) await action();
+}
+
+export function cancelReplacement(): void {
+  pendingReplacement = null;
+  useUiStore.getState().setDialog(null);
+}
+
+async function performImportWorkflowFile(): Promise<void> {
   const result = await window.electronAPI.importWorkflow();
   if (!result || result.status === 'cancelled') return;
   // Once drawn: nodes that cover each other move apart, and the camera takes the file's own view.
@@ -62,6 +94,10 @@ export async function importWorkflowFile(): Promise<void> {
     missingModels: (report.missingModels ?? []).map((model) => `${model.directory}/${model.name}`),
     shown: report.shownDifferently,
   });
+}
+
+export function importWorkflowFile(): void {
+  requestReplacement(performImportWorkflowFile);
 }
 
 export async function importCatalogSnapshot(): Promise<void> {
@@ -115,7 +151,7 @@ export async function exportWorkflowNow(secrets?: 'omit' | 'keep'): Promise<void
     : { kind: 'exported' });
 }
 
-export async function openProjectFile(): Promise<void> {
+async function performOpenProjectFile(): Promise<void> {
   const result = await window.electronAPI.openProject();
   if (!result || result.status === 'cancelled') return;
   if (result.projection) applyProjection(result.projection);
@@ -125,6 +161,10 @@ export async function openProjectFile(): Promise<void> {
   }
   markCurrentSaved(true);
   notify({ kind: 'opened-project' });
+}
+
+export function openProjectFile(): void {
+  requestReplacement(performOpenProjectFile);
 }
 
 export async function saveProjectFile(secrets?: 'omit' | 'keep'): Promise<void> {
@@ -138,8 +178,16 @@ export async function saveProjectFile(secrets?: 'omit' | 'keep'): Promise<void> 
   notify(result.ok ? { kind: 'saved-project' } : { kind: 'error', code: result.error || 'The project file could not be written.' });
 }
 
-/** An empty ComfyUI workflow: what File ▸ New starts from. */
-export const EMPTY_WORKFLOW = { last_node_id: 0, last_link_id: 0, nodes: [], links: [], groups: [], config: {}, extra: {}, version: 0.4 };
+/** An empty ComfyUI workflow: what File ▸ New starts from. Format 1 supports subgraphs immediately. */
+export const EMPTY_WORKFLOW = {
+  nodes: [],
+  links: [],
+  groups: [],
+  config: {},
+  extra: {},
+  version: 1,
+  state: { lastNodeId: 0, lastLinkId: 0, lastGroupId: 0, lastRerouteId: 0 },
+};
 
 /**
  * Starts an empty project. It is a commit like any other, so the previous graph stays in the revision
@@ -192,13 +240,11 @@ export function selectAllNodes(): void {
   selectOnLevel('all');
 }
 
-/** Removes the selected nodes and links, one commit each so every step stays in the history. */
+/** Removes the selected nodes and links as one revision, so one undo restores the whole selection. */
 export async function deleteSelection(): Promise<void> {
   const nodes = selectedNodes().map((node) => node.id);
-  const removed = new Set(nodes);
-  const edges = levelEdges().filter((edge) => edge.selected && !removed.has(edge.source) && !removed.has(edge.target));
-  for (const nodeId of nodes) await commitManual({ type: 'remove-node', nodeId });
-  for (const edge of edges) await commitManual({ type: 'remove-edge', edgeId: edge.id });
+  const edges = levelEdges().filter((edge) => edge.selected).map((edge) => edge.id);
+  await removeSelection(nodes, edges);
 }
 
 export function createSubgraph(nodeIds: string[]): Promise<unknown> {

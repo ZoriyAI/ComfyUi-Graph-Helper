@@ -55,6 +55,8 @@ export function scopedToLevel(payload: GraphMutation): GraphMutation {
   else if (payload.type === 'move-nodes' && payload.moves.every((move) => nodeIds.has(move.nodeId))) edit = payload;
   else if (payload.type === 'connect' && endpoint(payload.source) && endpoint(payload.target)) edit = payload;
   else if ((payload.type === 'remove-edge' || payload.type === 'retarget-edge') && edgeIds.has(payload.edgeId)) edit = payload;
+  else if (payload.type === 'remove-selection' && payload.nodeIds.every((id) => nodeIds.has(id)) && payload.edgeIds.every((id) => edgeIds.has(id))) edit = payload;
+  else if (payload.type === 'paste-selection') edit = { ...payload, destinationDefinitionId: definitionId };
   else if (payload.type === 'add-node' || payload.type === 'insert-subgraph') edit = payload;
   return edit ? { type: 'edit-in-subgraph', definitionId, edit } : payload;
 }
