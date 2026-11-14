@@ -6,7 +6,7 @@ import { requestAsk } from '../../services/ask';
 import { useDockStore } from '../../state/dockState';
 import { useKnowledgeStore } from '../../state/knowledgeState';
 import { useUiStore } from '../../state/uiState';
-import { submitManual } from '../../services/commands/projection';
+import { captureEditOrigin, commitAtOrigin, originIsCurrent, type EditOrigin } from '../graph/lib/editOrigin';
 import Button from '../../ui/Button';
 import EmptyState from '../../ui/EmptyState';
 import SearchField from '../../ui/SearchField';
@@ -15,7 +15,7 @@ import { showToast } from '../../ui/toastStore';
 import { runSyncNow } from '../sync/SyncIndicator';
 import { flattenGroups, groupByCategory, NODE_DRAG_TYPE, type LibraryRow } from './libraryModel';
 import { placeNewNode } from '../graph/placeNode';
-import { hasRefusalReason, reportRefusal, scopedToLevel } from '../graph/commit';
+import { hasRefusalReason, reportRefusal } from '../graph/commit';
 import NodeCard from './NodeCard';
 import VirtualList from './VirtualList';
 import { categoryAccent } from '../graph/lib/typeColors';
@@ -32,24 +32,25 @@ const SEARCH_LIMIT = 10000;
 export async function addNodeFromLibrary(node: Pick<NodeClassSummary, 'classType' | 'displayName'>, messages: { added: string; failed: string }) {
   // History replay shows an old version read-only; an undo pressed meanwhile waits for this add (trackCommit).
   if (replayIsOpen(true)) return;
-  return trackCommit(() => addNow(node, messages));
+  const origin = captureEditOrigin();
+  return trackCommit(() => addNow(node, messages, origin));
 }
 
-async function addNow(node: Pick<NodeClassSummary, 'classType' | 'displayName'>, messages: { added: string; failed: string }) {
+async function addNow(node: Pick<NodeClassSummary, 'classType' | 'displayName'>, messages: { added: string; failed: string }, origin: EditOrigin) {
   const position = await placeNewNode(null, { classType: node.classType });
   try {
     // Into the level on screen: the root graph, or the open subgraph.
-    const result = await submitManual(`library-add-${crypto.randomUUID()}`, scopedToLevel({
+    const result = await commitAtOrigin(origin, {
       type: 'add-node',
       nodeType: node.classType,
       title: node.displayName || undefined,
       x: position.x,
       y: position.y,
-    }));
-    if (result.status === 'applied') {
+    }, 'library-add') as { status?: string; result?: unknown } | null;
+    if (result?.status === 'applied') {
       showToast({ id: 'library-add', tone: 'success', title: messages.added, duration: 4000 });
       // Selected and in view, so the person sees what the toast says was added.
-      revealNewNode(addedNodeId(result));
+      if (originIsCurrent(origin)) revealNewNode(addedNodeId(result), undefined, origin);
     }
     else if (hasRefusalReason(result)) reportRefusal(result);
     else showToast({ id: 'library-add', tone: 'error', title: messages.failed });

@@ -12,6 +12,8 @@ import IconButton from '../../ui/IconButton';
 import Skeleton from '../../ui/Skeleton';
 import { loaderForModel } from '../graph/lib/modelLoaders';
 import { useMotionLevel } from '../graph/lib/motion';
+import { useGraphStore } from '../../state/graphState';
+import { useProjectionStore } from '../../services/commands/projection';
 import { useLevelGraph } from '../graph/lib/levelGraph';
 import { authorTitle, fittingBases, fittingLoras, formatBytes, isBaseModel, modelKey, plainDescription, plainNumber, safeModelSource, sortModels } from './libraryModel';
 import { forgetModelPreview, useModelPreview } from './modelPreview';
@@ -392,6 +394,8 @@ export default function ModelCard({ model, all, onClose, onShowLoras, onAsk, onU
   const [lookupError, setLookupError] = useState<WebError | null>(null);
   // The selected loader already holding this file needs no "put it in" button (right after "Add to canvas").
   const levelGraph = useLevelGraph();
+  const definitionId = useGraphStore((state) => state.activeSubgraphId);
+  const graphIdentity = useProjectionStore((state) => `${state.projectId}:${state.graphKey}`);
   const targetValue = target ? levelGraph.nodes.find((node) => node.id === target.nodeId)?.data.parameters?.[target.field] : undefined;
 
   useEffect(() => {
@@ -424,7 +428,7 @@ export default function ModelCard({ model, all, onClose, onShowLoras, onAsk, onU
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, selectedId]);
+  }, [key, selectedId, definitionId, graphIdentity]);
 
   if (!box) return null;
   const summary = detail ?? model;

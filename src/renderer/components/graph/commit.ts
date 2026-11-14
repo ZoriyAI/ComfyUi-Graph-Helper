@@ -71,7 +71,7 @@ export function scopedToLevel(payload: GraphMutation): GraphMutation {
  * showing (the replay is read-only), and marked so its projection does not start a build reveal.
  * A refusal or conflict is shown as a toast; submitManual has already put the engine's projection back.
  */
-export function commitManual(payload: GraphMutation, prefix = 'manual', options: { level?: 'shown' | 'root'; context?: { projectId: string; graphKey: string } } = {}): Promise<unknown> {
+export function commitManual(payload: GraphMutation, prefix = 'manual', options: { level?: 'shown' | 'root'; context?: { projectId: string; graphKey: string; isCurrent?: () => boolean } } = {}): Promise<unknown> {
   const canvas = useCanvasStore.getState();
   const displayed = useProjectionStore.getState();
   if (options.context && (options.context.projectId !== displayed.projectId || options.context.graphKey !== displayed.graphKey)) return Promise.resolve(null);
