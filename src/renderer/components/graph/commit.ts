@@ -63,6 +63,10 @@ export function scopedToLevel(payload: GraphMutation): GraphMutation {
   else if (payload.type === 'remove-selection' && payload.nodeIds.every((id) => nodeIds.has(id)) && payload.edgeIds.every((id) => edgeIds.has(id))) edit = payload;
   else if (payload.type === 'paste-selection') edit = { ...payload, destinationDefinitionId: definitionId };
   else if (payload.type === 'add-node' || payload.type === 'insert-subgraph') edit = payload;
+  // Editing commands (main/commands/editOps.ts) on the open subgraph's own nodes and links.
+  else if ((payload.type === 'set-node-mode' || payload.type === 'set-node-color') && payload.nodeIds.every((id) => nodeIds.has(id))) edit = payload;
+  else if ((payload.type === 'set-note-text' || payload.type === 'replace-node') && nodeIds.has(payload.nodeId)) edit = payload;
+  else if (payload.type === 'insert-node-on-edge' && edgeIds.has(payload.edgeId)) edit = payload;
   return edit ? { type: 'edit-in-subgraph', definitionId, edit } : payload;
 }
 

@@ -30,7 +30,10 @@ describe('multi-word search', () => {
     expect(searchNodeClasses(db, { query: 'lora loader' }).map((row) => row.classType)).toEqual(['LoraLoader', 'LoraLoaderModelOnly']);
     expect(searchNodeClasses(db, { query: 'ksampler advanced' }).map((row) => row.classType)).toEqual(['KSamplerAdvanced']);
     expect(searchNodeClasses(db, { query: '  KSampler  ' }).map((row) => row.classType)[0]).toBe('KSampler');
-    expect(searchNodeClasses(db, { query: 'lora sampling' })).toEqual([]);
+    // No class matches both words: the classes that match one of them come, so a person still sees something.
+    const partial = searchNodeClasses(db, { query: 'lora sampling' }).map((row) => row.classType);
+    expect(partial).toEqual(expect.arrayContaining(['LoraLoader', 'KSampler']));
+    expect(searchNodeClasses(db, { query: 'zzzz qqqq' })).toEqual([]);
     const flux = searchModels(db, { query: 'flux lora' }).map((row) => row.name);
     expect(flux).toEqual(expect.arrayContaining(['flux_realism_lora.safetensors', 'FluxDetailer.safetensors']));
     expect(flux).not.toContain('flux1-dev.safetensors');

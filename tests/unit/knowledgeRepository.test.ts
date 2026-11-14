@@ -118,12 +118,13 @@ describe('knowledge repository: node classes', () => {
     expect(searchNodeClasses(db, { query: '', limit: 2 })).toHaveLength(2);
     expect(searchNodeClasses(db, { query: 'zzz' })).toEqual([]);
     expect(searchNodeClasses(db, { query: 'power' })[0]).toMatchObject({ pack: 'rgthree-comfy', detailed: false });
-    expect(searchNodeClasses(db, { query: '' })).toHaveLength(10);
-    expect(searchNodeClasses(db, { query: '', limit: 10000 })).toHaveLength(10);
+    // Ten synced classes and the four editor nodes (Note, Markdown Note, Reroute, Primitive) the app always offers.
+    expect(searchNodeClasses(db, { query: '' })).toHaveLength(14);
+    expect(searchNodeClasses(db, { query: '', limit: 10000 })).toHaveLength(14);
     expect(() => searchNodeClasses(db, { query: 'x', limit: 10001 })).toThrow();
     upsertNodeClasses(db, Array.from({ length: 40 }, (_, index) => ({ classType: `Bulk${index}`, module: 'nodes', displayName: '', category: 'bulk' })));
     expect(searchNodeClasses(db, { query: '' })).toHaveLength(30);
-    expect(searchNodeClasses(db, { query: '', limit: 10000 })).toHaveLength(50);
+    expect(searchNodeClasses(db, { query: '', limit: 10000 })).toHaveLength(54);
     db.close();
   });
 

@@ -29,6 +29,12 @@ export interface NodeClassSummary {
   pack: string;
   /** True when inputs and outputs are known from object_info. */
   detailed: boolean;
+  /** One line on what the node does (the built-in explanation or ComfyUI's description); empty when none is known. */
+  description?: string;
+  /** ComfyUI saves or shows a result here (output_node): a graph needs one to run. */
+  outputNode?: boolean;
+  /** A node only ComfyUI's editor knows (Note, Markdown Note, Reroute, Primitive). */
+  editor?: boolean;
 }
 
 /** How a widget input is edited. 'other' is a widget this app does not draw (image upload, colour, curve…). */
@@ -346,7 +352,17 @@ export type NodeClassVerdict =
   | { ok: true; known: boolean; portsKnown: boolean; warning?: string }
   | { ok: false; error: string; suggestions: string[] };
 
-export interface SearchNodesRequest { query: string; category?: string; limit?: number }
+export interface SearchNodesRequest {
+  query: string;
+  category?: string;
+  limit?: number;
+  /** Only classes with an input that takes this type (a link asking what can be placed on it). */
+  inputType?: string;
+  /** Only classes with an output of this type. */
+  outputType?: string;
+  /** Language of the one-line description of each result. */
+  language?: 'en' | 'ru';
+}
 export interface SearchModelsRequest { query: string; directory?: string; baseModel?: BaseModelFamily; kind?: ModelKind; limit?: number }
 export interface ListExplanationsRequest { projectId?: string | null; owner?: ObjectRef }
 
