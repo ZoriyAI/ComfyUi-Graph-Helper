@@ -95,6 +95,8 @@ export const IPC_CHANNELS = {
   KNOWLEDGE_MODEL_LOOKUP: 'knowledge:model-lookup',
   KNOWLEDGE_LIST_EXPLANATIONS: 'knowledge:list-explanations',
   KNOWLEDGE_SAVE_EXPLANATION: 'knowledge:save-explanation',
+  KNOWLEDGE_DELETE_EXPLANATION: 'knowledge:delete-explanation',
+  KNOWLEDGE_DELETE_ASSISTANT_EXPLANATIONS: 'knowledge:delete-assistant-explanations',
   KNOWLEDGE_CHECK_GRAPH: 'knowledge:check-graph',
   KNOWLEDGE_VALIDATE_NODE_CLASS: 'knowledge:validate-node-class',
   /** The model files a model field can take, with family and fit to the checkpoint upstream . */

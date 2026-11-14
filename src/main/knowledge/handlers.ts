@@ -20,6 +20,8 @@ import {
   modelDetail,
   nodeClassDetail,
   saveExplanation,
+  deleteAssistantExplanations,
+  deletePersonExplanation,
   searchModels,
   searchNodeClasses,
 } from './repository';
@@ -100,6 +102,8 @@ export function knowledgeHandlers(deps: {
       // What the person writes in the app is theirs, whatever the request claims.
       return saveExplanation(db(), { ...parsed, provenance: 'user', createdBy: 'user' } as ExplanationInput);
     },
+    [IPC_CHANNELS.KNOWLEDGE_DELETE_EXPLANATION]: (id) => ({ removed: deletePersonExplanation(db(), id) }),
+    [IPC_CHANNELS.KNOWLEDGE_DELETE_ASSISTANT_EXPLANATIONS]: (owner) => ({ removed: deleteAssistantExplanations(db(), owner) }),
     [IPC_CHANNELS.KNOWLEDGE_CHECK_GRAPH]: (projectId) => checkGraph(db(), projectIdSchema.parse(projectId)),
     [IPC_CHANNELS.KNOWLEDGE_VALIDATE_NODE_CLASS]: (classType) => validateNodeClass(db(), classTypeSchema.parse(classType)),
     [IPC_CHANNELS.KNOWLEDGE_FIELD_MODELS]: (request) => fieldModels(db(), fieldModelsSchema.parse(request)),

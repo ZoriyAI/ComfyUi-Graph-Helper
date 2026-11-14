@@ -302,12 +302,15 @@ export function createAgentTools(deps: AgentToolDeps): Record<string, AgentToolD
       if (args.provenance === 'web' && !sourceUrl) return fail('A web explanation needs the http(s) sourceUrl it came from.');
       const owner = args.owner as ObjectRef;
       const global = globalOwner(owner);
+      // The assistant's words are never stored as a fact (only the app's own reading of ComfyUI is), and what it
+      // writes about a node class or a model stays in this project: nothing global is written without the person
+      // (P0 of the assistant review; the security review's finding from the other side).
       const saved = knowledge.saveExplanation(db, {
-        projectId: global ? null : projectId,
+        projectId,
         owner,
         aspect: args.aspect,
         text: args.text,
-        provenance: args.provenance,
+        provenance: args.provenance === 'fact' ? 'inference' : args.provenance,
         sourceUrl,
         revisionId: global ? null : revision(),
         createdBy: 'ai',

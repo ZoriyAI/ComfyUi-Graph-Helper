@@ -64,10 +64,10 @@ describe('Explain panel render', () => {
       explanations: {
         'node:n1': [
           item({ id: 'a' }),
-          item({ id: 'b', aspect: 'risk', text: 'Old note.', provenance: 'inference', revisionId: 'rev-1' }),
+          item({ id: 'b', aspect: 'risk', text: 'Old note.', provenance: 'inference', revisionId: 'rev-1', createdBy: 'seed' }),
           item({ id: 'c', aspect: 'why', text: 'From a page.', provenance: 'web', sourceUrl: 'https://example.com/doc' }),
         ],
-        'nodeClass:CheckpointLoaderSimple': [item({ id: 'd', owner: { kind: 'nodeClass', id: 'CheckpointLoaderSimple' }, projectId: null, revisionId: null, text: 'Shared.', provenance: 'fact' })],
+        'nodeClass:CheckpointLoaderSimple': [item({ id: 'd', owner: { kind: 'nodeClass', id: 'CheckpointLoaderSimple' }, projectId: null, revisionId: null, text: 'Shared.', provenance: 'fact', createdBy: 'seed' })],
       },
     });
     const html = render(React.createElement(ExplainPanel));
@@ -78,6 +78,10 @@ describe('Explain panel render', () => {
     expect(html).toContain('>Guess<');
     expect(html).toContain('>Fact<');
     expect(html).toContain('Written for an earlier version of the graph');
+    // The assistant's words read as the assistant's, whatever it called them, and can be removed in one action.
+    expect(html).toContain('data-by="assistant"');
+    expect(html).toContain('>Assistant<');
+    expect(html).toContain('Remove what the assistant wrote here');
     expect(html.match(/Written for an earlier version/g)).toHaveLength(1);
     expect(html).toContain('https://example.com/doc');
     expect(html).not.toContain('href=');

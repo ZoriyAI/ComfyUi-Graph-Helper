@@ -5,8 +5,21 @@ import { provenanceLabelKey } from '../../../shared/knowledge/labels';
 import styles from './ProvenanceBadge.module.css';
 
 /** Where a piece of knowledge came from. Always shown next to an explanation; an inference never reads as a fact. */
-export default function ProvenanceBadge({ provenance }: { provenance: Provenance }) {
+export default function ProvenanceBadge({ provenance, by }: { provenance: Provenance; by?: string }) {
   const { t } = useTranslation();
+  // What the assistant wrote reads as the assistant's words, whatever it called them (P0 of the assistant review).
+  if (by === 'ai') {
+    return (
+      <span
+        className={`provenance-badge ${styles.badge}`}
+        data-provenance="inference"
+        data-by="assistant"
+        title={String(t(provenance === 'web' ? 'knowledge.byAssistantWebHint' : 'knowledge.byAssistantHint'))}
+      >
+        {t('knowledge.byAssistant')}
+      </span>
+    );
+  }
   return (
     <span
       className={`provenance-badge ${styles.badge}`}
