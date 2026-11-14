@@ -14,6 +14,7 @@ import type { AddressInfo } from 'net';
 import * as path from 'path';
 import { imageModelClassDefs } from './classes/image-models';
 import { VIDEO_SET_CLASSES } from './classes/video';
+import { FOUNDATIONS_CLASSES } from './classes/foundations';
 
 export interface FakeMcpCall {
   /** JSON-RPC method, or the HTTP method for non-POST requests ("GET", "DELETE"). */
@@ -501,6 +502,8 @@ export const VIDEO_CLASSES: ClassDef[] = [
   ...imageModelClassDefs((name) => PACKS.findIndex((pack) => pack.name === name)),
   // The lessons of src/shared/lessons/sets/video.ts.
   ...VIDEO_SET_CLASSES,
+  // The general-purpose nodes of the foundations lessons (tests/fixtures/mcp/classes/foundations.ts).
+  ...FOUNDATIONS_CLASSES,
 ];
 
 /** The /object_info document the native fixture serves. */

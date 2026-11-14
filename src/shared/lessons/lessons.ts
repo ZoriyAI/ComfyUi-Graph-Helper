@@ -1,4 +1,5 @@
 import type { FieldSpec, FieldTest, Lesson, LinkSpec, RoleSpec } from './engine';
+import { FOUNDATIONS_AFTER, FOUNDATIONS_FIRST, FOUNDATIONS_IN_FIRST_PICTURES, FOUNDATIONS_LESSONS, FOUNDATIONS_PATH } from './sets/foundations';
 import { IMAGE_MODEL_AFTER, IMAGE_MODEL_LESSONS, IMAGE_MODEL_PATH, type LessonGroup } from './sets/image-models';
 import { VIDEO_GROUP, VIDEO_LESSON_AFTER, VIDEO_LESSONS, VIDEO_PATH } from './sets/video';
 
@@ -978,7 +979,10 @@ const adult: Lesson = {
 
 /** In the order a person meets them. */
 export const LESSONS: readonly Lesson[] = [
-  image, prompt, refine, videoText, promptVideo, videoImage, lora, videoFast,
+  ...FOUNDATIONS_FIRST,
+  image, prompt,
+  ...FOUNDATIONS_LESSONS,
+  refine, videoText, promptVideo, videoImage, lora, videoFast,
   wrapper, wrapperImage, wrapperVace, wrapperAnimate, wrapperUni, wrapperTalk, wrapperDuo, wrapperFantasy, wrapperOvi, wrapperRecam,
   twoModels, adult,
   ...IMAGE_MODEL_LESSONS,
@@ -1000,6 +1004,7 @@ export const LESSON_AFTER: Readonly<Record<string, string[]>> = {
   adult: ['video-text'],
   ...IMAGE_MODEL_AFTER,
   ...VIDEO_LESSON_AFTER,
+  ...FOUNDATIONS_AFTER,
 };
 
 const BASICS_GROUP: LessonGroup = { id: 'basics', title: { en: 'Pictures: first steps', ru: 'Картинки: первые шаги' } };
@@ -1007,7 +1012,8 @@ const WRAPPER_GROUP: LessonGroup = { id: 'wrapper', title: { en: 'WanVideoWrappe
 
 /** Where a lesson stands on the learning path: its group (an id and its title in both languages) and what it goes on from. */
 export const LESSON_PATH: Readonly<Record<string, { group: LessonGroup; follows: string[] }>> = {
-  ...Object.fromEntries([image, prompt, refine].map((lesson) => [lesson.id, { group: BASICS_GROUP, follows: LESSON_AFTER[lesson.id] ?? [] }])),
+  ...FOUNDATIONS_PATH,
+  ...Object.fromEntries([image, prompt, refine, ...FOUNDATIONS_LESSONS.filter((lesson) => FOUNDATIONS_IN_FIRST_PICTURES.includes(lesson.id))].map((lesson) => [lesson.id, { group: BASICS_GROUP, follows: LESSON_AFTER[lesson.id] ?? [] }])),
   ...Object.fromEntries([videoText, promptVideo, videoImage, lora, videoFast, twoModels, adult].map((lesson) => [lesson.id, { group: VIDEO_GROUP, follows: LESSON_AFTER[lesson.id] ?? [] }])),
   ...Object.fromEntries([wrapper, wrapperImage, wrapperVace, wrapperAnimate, wrapperUni, wrapperTalk, wrapperDuo, wrapperFantasy, wrapperOvi, wrapperRecam].map((lesson) => [lesson.id, { group: WRAPPER_GROUP, follows: LESSON_AFTER[lesson.id] ?? [] }])),
   ...IMAGE_MODEL_PATH,
