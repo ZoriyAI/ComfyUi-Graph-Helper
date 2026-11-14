@@ -208,6 +208,7 @@ export type ExplanationInput = Omit<Explanation, 'id' | 'createdAt'>;
  * not the way the person expects.
  */
 export interface PromptNote {
+  subgraphId?: string;
   kind: PromptNoteKind;
   /** The node the note is about: the node that holds the text, or the LoRA loader whose words are missing. */
   nodeId: string;
@@ -225,23 +226,24 @@ export interface PromptNote {
 
 export interface GraphCheckReport {
   ok: boolean;
-  missingNodes: Array<{ nodeId: string; classType: string }>;
-  missingModels: Array<{ nodeId: string; directory: string; name: string }>;
-  typeMismatches: Array<{ edgeId: string; source: string; target: string; sourceType: string; targetType: string }>;
-  baseModelMismatches: Array<{ nodeId: string; model: string; modelBase: BaseModelFamily; otherNodeId: string; otherModel: string; otherBase: BaseModelFamily }>;
-  unconnectedRequiredInputs: Array<{ nodeId: string; input: string; type: string }>;
+  missingNodes: Array<{ subgraphId?: string; nodeId: string; classType: string }>;
+  missingModels: Array<{ subgraphId?: string; nodeId: string; directory: string; name: string }>;
+  typeMismatches: Array<{ subgraphId?: string; edgeId: string; source: string; target: string; sourceType: string; targetType: string }>;
+  baseModelMismatches: Array<{ subgraphId?: string; nodeId: string; model: string; modelBase: BaseModelFamily; otherNodeId: string; otherModel: string; otherBase: BaseModelFamily }>;
+  unconnectedRequiredInputs: Array<{ subgraphId?: string; nodeId: string; input: string; type: string }>;
   unknownNodeTypes: string[];
   /**
    * Widgets with no value and no catalog default: export would write null there and ComfyUI would refuse the
    * workflow. Optional so reports written before it existed still read; absent means none.
    */
-  unsetWidgets?: Array<{ nodeId: string; classType: string; name: string }>;
+  unsetWidgets?: Array<{ subgraphId?: string; nodeId: string; classType: string; name: string }>;
   /** Directed loops that ComfyUI cannot execute. */
-  cycles?: Array<{ nodeIds: string[] }>;
+  cycles?: Array<{ subgraphId?: string; nodeIds: string[] }>;
   /** Links whose source or target no longer exists on the same canvas level. */
-  brokenEdges?: Array<{ edgeId: string; source: string; target: string }>;
+  brokenEdges?: Array<{ subgraphId?: string; edgeId: string; source: string; target: string }>;
   /** Widget values that contradict the installed node's own object_info. */
   invalidParameters?: Array<{
+    subgraphId?: string;
     nodeId: string;
     classType: string;
     name: string;
@@ -254,6 +256,15 @@ export interface GraphCheckReport {
    * still saves and runs. Optional so reports written before it existed still read.
    */
   promptNotes?: PromptNote[];
+  /**
+   * The graph has nodes but none that saves or shows a result (object_info `output_node`): ComfyUI refuses it with
+   * "Prompt has no outputs". `nodeId` is the end of the chain, where an output node would go. Optional, as above.
+   */
+  noOutputNode?: { nodeId: string } | null;
+  /** Number fields below their minimum or above their maximum (catalog range); ComfyUI refuses them. */
+  valuesOutOfRange?: Array<{ subgraphId?: string; nodeId: string; classType: string; input: string; value: number; min?: number; max?: number }>;
+  /** List fields holding a value the catalog list does not have (model files are under missingModels). */
+  valuesNotInList?: Array<{ subgraphId?: string; nodeId: string; classType: string; input: string; value: string }>;
 }
 
 export interface SyncStatus {

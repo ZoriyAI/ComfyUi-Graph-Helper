@@ -120,10 +120,9 @@ describe('graph validation', () => {
     expect(commit(db, 'steps', { type: 'set-parameter', nodeId: '4', key: 'steps', value: -1 }).status).toBe('applied');
     expect(commit(db, 'sampler', { type: 'set-parameter', nodeId: '4', key: 'sampler_name', value: 'not-a-sampler' }).status).toBe('applied');
     const report = checkGraph(db, DESKTOP_PROJECT_ID);
-    expect(report.invalidParameters).toEqual(expect.arrayContaining([
-      expect.objectContaining({ nodeId: '4', name: 'steps', reason: 'range', expected: '>= 1' }),
-      expect.objectContaining({ nodeId: '4', name: 'sampler_name', reason: 'choice' }),
-    ]));
+    expect(report.valuesOutOfRange).toContainEqual(expect.objectContaining({ nodeId: '4', input: 'steps', value: -1, min: 1 }));
+    expect(report.valuesNotInList).toContainEqual(expect.objectContaining({ nodeId: '4', input: 'sampler_name', value: 'not-a-sampler' }));
+    expect(report.invalidParameters).toEqual([]);
     expect(report.ok).toBe(false);
   });
 
@@ -148,8 +147,61 @@ describe('graph validation', () => {
       definitionId,
       edit: { type: 'set-parameter', nodeId: '4', key: 'steps', value: -1 },
     }).status).toBe('applied');
-    expect(checkGraph(db, DESKTOP_PROJECT_ID).invalidParameters).toEqual(expect.arrayContaining([
-      expect.objectContaining({ nodeId: '4', name: 'steps', reason: 'range' }),
+    expect(checkGraph(db, DESKTOP_PROJECT_ID).valuesOutOfRange).toEqual(expect.arrayContaining([
+      expect.objectContaining({ nodeId: '4', input: 'steps', value: -1, subgraphId: definitionId }),
     ]));
+  });
+});
+
+describe('integrated graph-check regressions', () => {
+  it('reports nonexistent handles and root pseudo-boundary endpoints', () => {
+    const db = openDb();
+    const workflow = rerouteWorkflow(false);
+    workflow.links[0].origin_slot = 99;
+    workflow.links[0].target_slot = 99;
+    workflow.links.push({ id: 2, origin_id: -10, origin_slot: 0, target_id: 1, target_slot: 0, type: '*' });
+    commit(db, 'bad-handles', { type: 'import-workflow', document: workflow });
+    const report = checkGraph(db, DESKTOP_PROJECT_ID);
+    expect(report.ok).toBe(false);
+    expect(report.brokenEdges?.map((edge) => edge.edgeId)).toEqual(['link-1', 'link-2']);
+  });
+
+  it('validates definition boundaries in their real slots without blessing invalid slots', async () => {
+    const { nestedSubgraphWorkflow, OUTER_ID } = await import('../e2e/fixtures/nestedSubgraphWorkflow');
+    const db = openDb();
+    const workflow = structuredClone(nestedSubgraphWorkflow);
+    commit(db, 'valid-boundaries', { type: 'import-workflow', document: workflow });
+    expect(checkGraph(db, DESKTOP_PROJECT_ID).brokenEdges).toEqual([]);
+    workflow.definitions.subgraphs[0].links[0].origin_slot = 99;
+    commit(db, 'bad-boundaries', { type: 'import-workflow', document: workflow });
+    expect(checkGraph(db, DESKTOP_PROJECT_ID).brokenEdges).toEqual([expect.objectContaining({ subgraphId: OUTER_ID, edgeId: 'link-1' })]);
+  });
+
+  it('ignores connected numeric/combo widgets but validates the same stale values when disconnected', () => {
+    const db = openDb();
+    upsertObjectInfo(db, parseObjectInfo({ ValueNode: { input: { required: { amount: ['FLOAT', { default: 1, min: 0, max: 10 }], choice: [['a', 'b']] } }, input_order: { required: ['amount', 'choice'] }, output: ['FLOAT', 'COMBO'] } }));
+    commit(db, 'a', { type: 'add-node', nodeType: 'ValueNode' });
+    commit(db, 'b', { type: 'add-node', nodeType: 'ValueNode', parameters: { amount: -100, choice: 'missing' } });
+    expect(commit(db, 'link-a', { type: 'connect', source: '1', sourceHandle: 'out-0', target: '2', targetHandle: 'in-0' }).status).toBe('applied');
+    expect(commit(db, 'link-b', { type: 'connect', source: '1', sourceHandle: 'out-1', target: '2', targetHandle: 'in-1' }).status).toBe('applied');
+    const linked = checkGraph(db, DESKTOP_PROJECT_ID);
+    expect(linked.invalidParameters).toEqual([]);
+    expect(linked.valuesOutOfRange).toEqual([]);
+    expect(linked.valuesNotInList).toEqual([]);
+    const edges = readProjection(db, DESKTOP_PROJECT_ID)!.snapshot.edges;
+    commit(db, 'unlink', { type: 'batch', label: 'delete', edits: edges.map((edge) => ({ type: 'remove-edge', edgeId: edge.id })) });
+    const unlinked = checkGraph(db, DESKTOP_PROJECT_ID);
+    expect(unlinked.valuesOutOfRange).toHaveLength(1);
+    expect(unlinked.valuesNotInList).toHaveLength(1);
+    expect(unlinked.invalidParameters).toEqual([]);
+  });
+
+  it('reports residual type errors without duplicating range and choice findings, and respects parameter precedence', () => {
+    const db = openDb(true);
+    commit(db, 'import', { type: 'import-workflow', document: denseWorkflow });
+    commit(db, 'bad-type', { type: 'set-parameter', nodeId: '4', key: 'steps', value: 'twenty' });
+    const report = checkGraph(db, DESKTOP_PROJECT_ID);
+    expect(report.invalidParameters).toContainEqual(expect.objectContaining({ nodeId: '4', name: 'steps', reason: 'type' }));
+    expect(report.valuesOutOfRange?.filter((item) => item.nodeId === '4' && item.input === 'steps')).toEqual([]);
   });
 });

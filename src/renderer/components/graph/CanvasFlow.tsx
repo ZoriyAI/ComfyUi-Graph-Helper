@@ -45,6 +45,7 @@ import { CanvasViewContext, type CanvasView } from './CanvasContext';
 import { useCanvasStore } from './canvasStore';
 import { usePreferencesStore } from '../../state/preferencesState';
 import { commitManual } from './commit';
+import { commitEdits, queueEdit, queueNudge } from './lib/editBatch';
 import CanvasToolbar, { FIT_PADDING } from './CanvasToolbar';
 import { connectCandidates, type AssistNode } from './lib/connectAssist';
 import { flowingEdges } from './lib/flow';
@@ -54,10 +55,14 @@ import { sameRefs, selectionRefs } from './lib/selection';
 import { stepIndexOf } from './tour/buildTour';
 import { typeColor } from './lib/typeColors';
 import { glideMs, useGlide } from './lib/glide';
-import { removeSelection } from './selectionEditing';
+
 import { nextOverview, rememberSizes, setOverviewLevel, titleScale } from './lib/nodeSizes';
 import { autoFit } from './lib/autoFit';
 import { useProjectionStore } from '../../services/commands/projection';
+import { Pin } from 'lucide-react';
+import Button from '../../ui/Button';
+import { showToast } from '../../ui/toastStore';
+import { canvasHandle } from '../../commands/canvasHandle';
 import styles from './GraphWorkspace.module.css';
 import overviewStyles from './Overview.module.css';
 
@@ -291,28 +296,34 @@ export default function CanvasFlow() {
     return () => window.cancelAnimationFrame(frame);
   }, [mode, activeSubgraphId, flow]);
 
-  const plan = useMemo(() => (connectFrom && !readOnly
-    ? connectCandidates(connectFrom, nodes.map((node) => ({ id: node.id, position: node.position, data: { inputs: portsOf(node, 'inputs'), outputs: portsOf(node, 'outputs') } }) satisfies AssistNode), edges)
-    : null), [connectFrom, nodes, edges, readOnly]);
+  // The glow on compatible ports and the dimming of the rest: for the "what connects here" assist, and while a
+  // link is being dragged from a port.
+  const linkDrag = useCanvasStore((state) => state.linkDrag);
+  const nodesPinned = useCanvasStore((state) => state.nodesPinned);
+  const glowFrom = connectFrom ?? linkDrag;
+  const plan = useMemo(() => (glowFrom && !readOnly
+    ? connectCandidates(glowFrom, nodes.map((node) => ({ id: node.id, position: node.position, data: { inputs: portsOf(node, 'inputs'), outputs: portsOf(node, 'outputs') } }) satisfies AssistNode), edges)
+    : null), [glowFrom, nodes, edges, readOnly]);
 
   const tourStep = tour ? tour.steps[tour.index] : undefined;
   const stepNodeId = tourStep?.ref.kind === 'node' ? tourStep.ref.id : callout?.nodeId ?? null;
   const selectedEdges = useMemo(() => edges.filter((edge) => edge.selected).map((edge) => edge.id), [edges]);
   const flowing = useMemo(
-    () => flowingEdges(edges, { focus: focusRef, selectedEdges, stepNodeId }),
-    [edges, focusRef, selectedEdges, stepNodeId],
+    () => flowingEdges(edges, { focus: (focusRef?.subgraphId ?? null) === activeSubgraphId ? focusRef : null, selectedEdges, stepNodeId }),
+    [edges, focusRef, selectedEdges, stepNodeId, activeSubgraphId],
   );
 
   const view = useMemo<CanvasView>(() => {
     const errorNodes = new Set<string>();
     const emptyRequired = new Set<string>();
-    if (check && mode === 'root') {
-      for (const item of check.missingNodes) errorNodes.add(item.nodeId);
-      for (const item of check.baseModelMismatches) errorNodes.add(item.nodeId);
-      for (const item of check.unconnectedRequiredInputs) emptyRequired.add(`${item.nodeId}:${item.input}`);
+    if (check && mode !== 'replay') {
+      const here = (item: { subgraphId?: string }) => (item.subgraphId ?? null) === (mode === 'definition' ? activeSubgraphId : null);
+      for (const item of check.missingNodes.filter(here)) errorNodes.add(item.nodeId);
+      for (const item of check.baseModelMismatches.filter(here)) errorNodes.add(item.nodeId);
+      for (const item of check.unconnectedRequiredInputs.filter(here)) emptyRequired.add(`${item.nodeId}:${item.input}`);
     }
     return { edges, plan, flowing, readOnly, inDefinition: mode === 'definition', emptyRequired, errorNodes };
-  }, [edges, plan, flowing, readOnly, mode, check]);
+  }, [edges, plan, flowing, readOnly, mode, check, activeSubgraphId]);
 
   // Selection → uiState as ObjectRefs (nodes, edges, and the focused port).
   useEffect(() => {
@@ -329,40 +340,50 @@ export default function CanvasFlow() {
     }
   }, [nodes, edges, focusedPort, mode, activeSubgraphId]);
 
+  // Nodes being dragged by the pointer: their final place ends a drag; any other final place is a keyboard nudge.
+  const dragging = useRef<Set<string>>(new Set());
+  /** A finished move: a drag ends at once (all dragged nodes in one step), a nudge when the keys rest. */
+  const moved = useCallback((id: string, position: { x: number; y: number }) => {
+    if (dragging.current.has(id)) {
+      dragging.current.delete(id);
+      queueEdit({ type: 'move-node', nodeId: id, x: position.x, y: position.y }, 'move');
+    } else {
+      queueNudge(id, position.x, position.y);
+    }
+  }, []);
+
   const onNodesChange: OnNodesChange = useCallback((changes) => {
     if (mode === 'replay') return;
+    for (const change of changes) {
+      if (change.type === 'position' && change.dragging === true) dragging.current.add(change.id);
+    }
     const local = changes.filter((change) => change.type !== 'remove');
     if (mode === 'definition') {
       // A finished drag and a removal of an inner node are saved in the definition (commitManual scopes them to
       // the open definition). The boundary pseudo-nodes are not graph nodes: their place stays on screen only.
       if (local.length > 0) setInner((current) => (current ? { ...current, nodes: applyNodeChanges(local, current.nodes as Node[]) as LevelNode[] } : current));
-      const moves: Array<{ nodeId: string; x: number; y: number }> = [];
+
       for (const change of changes) {
         if (change.type === 'add' || change.id === SUBGRAPH_INPUT_NODE_ID || change.id === SUBGRAPH_OUTPUT_NODE_ID) continue;
         if (change.type === 'remove') {
-          void commitManual({ type: 'remove-node', nodeId: change.id });
+          queueEdit({ type: 'remove-node', nodeId: change.id }, 'delete');
           continue;
         }
         if (change.type !== 'position' || change.dragging !== false || !change.position) continue;
-        moves.push({ nodeId: change.id, x: change.position.x, y: change.position.y });
+        moved(change.id, change.position);
       }
-      if (moves.length === 1) void commitManual({ type: 'move-node', ...moves[0] });
-      else if (moves.length > 1) void commitManual({ type: 'move-nodes', moves });
       return;
     }
     // The person's own move (a drag, an arrow key) is drawn at once, never glided.
     if (changes.some((change) => change.type === 'position')) ownMove();
     if (local.length > 0) setRootNodes(applyNodeChanges(local, rootNodes) as GraphNode[]);
-    const moves: Array<{ nodeId: string; x: number; y: number }> = [];
+
     for (const change of changes) {
-      if (change.type === 'position' && change.dragging === false && change.position) {
-        moves.push({ nodeId: change.id, x: change.position.x, y: change.position.y });
-      }
-      if (change.type === 'remove') void commitManual({ type: 'remove-node', nodeId: change.id });
+      if (change.type === 'position' && change.dragging === false && change.position) moved(change.id, change.position);
+      // Several nodes deleted at once are one step (one undo brings them all back with their links).
+      if (change.type === 'remove') queueEdit({ type: 'remove-node', nodeId: change.id }, 'delete');
     }
-    if (moves.length === 1) void commitManual({ type: 'move-node', ...moves[0] });
-    else if (moves.length > 1) void commitManual({ type: 'move-nodes', moves });
-  }, [mode, rootNodes, setRootNodes, ownMove]);
+  }, [mode, rootNodes, setRootNodes, ownMove, moved]);
 
   const onEdgesChange: OnEdgesChange = useCallback((changes) => {
     if (mode === 'replay') return;
@@ -371,13 +392,13 @@ export default function CanvasFlow() {
       if (local.length > 0) setInner((current) => (current ? { ...current, edges: applyEdgeChanges(local, current.edges as Edge[]) as GraphEdge[] } : current));
       // Removing an inner link (a slot link too) is saved in the definition.
       for (const change of changes) {
-        if (change.type === 'remove') void commitManual({ type: 'remove-edge', edgeId: change.id });
+        if (change.type === 'remove') queueEdit({ type: 'remove-edge', edgeId: change.id }, 'delete');
       }
       return;
     }
     if (local.length > 0) setRootEdges(applyEdgeChanges(local, rootEdges) as GraphEdge[]);
     for (const change of changes) {
-      if (change.type === 'remove') void commitManual({ type: 'remove-edge', edgeId: change.id });
+      if (change.type === 'remove') queueEdit({ type: 'remove-edge', edgeId: change.id }, 'delete');
     }
   }, [mode, rootEdges, setRootEdges]);
 
@@ -426,6 +447,59 @@ export default function CanvasFlow() {
     }
   }, [mode, definition, findPort, setConnectFrom]);
 
+  // A link dragged from a port: its type lights the ports that fit. A drop on empty canvas opens the node search
+  // for that type (the chosen node gets connected); a drop on a port that does not fit says why.
+  const onConnectStart = useCallback((_event: unknown, params: { nodeId: string | null; handleId: string | null; handleType: 'source' | 'target' | null }) => {
+    if (readOnly || !params.nodeId || !params.handleId || !params.handleType) return;
+    const output = params.handleType === 'source';
+    const port = findPort(params.nodeId, output ? 'outputs' : 'inputs', params.handleId);
+    if (!port) return;
+    useCanvasStore.getState().setLinkDrag({ nodeId: params.nodeId, handle: params.handleId, direction: output ? 'output' : 'input', dataType: port.dataType });
+  }, [readOnly, findPort]);
+
+  const onConnectEnd = useCallback((event: MouseEvent | TouchEvent, state: { isValid: boolean | null; toHandle?: { nodeId: string; id?: string | null; type: string } | null; toNode?: unknown }) => {
+    const from = useCanvasStore.getState().linkDrag;
+    useCanvasStore.getState().setLinkDrag(null);
+    if (!from || state.isValid) return;
+    if (state.toHandle) {
+      const output = from.direction === 'output';
+      const other = findPort(state.toHandle.nodeId, state.toHandle.type === 'source' ? 'outputs' : 'inputs', state.toHandle.id ?? null);
+      if (!other || state.toHandle.nodeId === from.nodeId) return;
+      showToast({
+        id: 'link-refused',
+        tone: 'warn',
+        title: String(t('canvas.linkRefused', { from: output ? from.dataType : other.dataType, to: output ? other.dataType : from.dataType })),
+        description: String(t('canvas.linkRefusedHint')),
+        duration: 6000,
+      });
+      return;
+    }
+    if (state.toNode) return;
+    const point = 'changedTouches' in event ? event.changedTouches[0] : event;
+    if (!point) return;
+    useCanvasStore.getState().openAddSearch(flow.screenToFlowPosition({ x: point.clientX, y: point.clientY }), undefined, from);
+  }, [findPort, flow, t]);
+
+  // Arrow keys move the view when no node is selected (with nodes selected they move the nodes); Shift moves
+  // farther. The keys come from the canvas or from nowhere in particular (focus on the page body after a click on
+  // empty canvas), never from a field, a menu, a dialog or a node.
+  const hasSelection = nodes.some((node) => node.selected);
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const step = ({ ArrowLeft: [1, 0], ArrowRight: [-1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] } as Record<string, number[]>)[event.key];
+      if (!step || event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || hasSelection) return;
+      const target = event.target instanceof Element ? event.target : null;
+      const onCanvas = !target || target === document.body || Boolean(host.current?.contains(target));
+      if (!onCanvas || target?.closest('input, textarea, select, [contenteditable="true"], .react-flow__node, [role="menu"], [role="dialog"], [role="listbox"]')) return;
+      if (document.querySelector('[role="dialog"][data-state="open"], [role="menu"][data-state="open"]')) return;
+      event.preventDefault();
+      const distance = event.shiftKey ? 400 : 80;
+      canvasHandle()?.panBy(step[0] * distance, step[1] * distance);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [hasSelection]);
+
   const onNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
     const current = useUiStore.getState().tour;
     if (!current) return;
@@ -456,13 +530,15 @@ export default function CanvasFlow() {
   return (
     <CanvasViewContext.Provider value={view}>
       <GraphContextMenu nodes={nodes} edges={edges} readOnly={readOnly}>
-        <div ref={host} className={`${styles.flowHost} ${overviewStyles.host}`} onPointerDownCapture={onPointerDownCapture} onDoubleClick={onDoubleClick} data-canvas-mode={mode}>
+        <div ref={host} className={`${styles.flowHost} ${overviewStyles.host}`} onPointerDownCapture={onPointerDownCapture} onDoubleClick={onDoubleClick} data-canvas-mode={mode} data-nodes-pinned={nodesPinned ? 'true' : undefined}>
           <ReactFlow
             nodes={drawnNodes as Node[]}
             edges={edges}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
+            onConnectStart={onConnectStart}
+            onConnectEnd={onConnectEnd as never}
             isValidConnection={isValidConnection}
             onNodeClick={onNodeClick}
             onPaneClick={onPaneClick}
@@ -477,13 +553,17 @@ export default function CanvasFlow() {
               // One command for the whole selection; React Flow's per-node/per-edge removals stay out of the way.
               const allowed = inGraph && !blocked;
               if (allowed && (removing.length > 0 || removingEdges.length > 0)) {
-                void removeSelection(removing.map((node) => node.id), removingEdges.map((edge) => edge.id));
+                const ids = new Set(removing.map((node) => node.id));
+                void commitEdits([
+                  ...removing.map((node) => ({ type: 'remove-node' as const, nodeId: node.id })),
+                  ...removingEdges.filter((edge) => !ids.has(edge.source) && !ids.has(edge.target)).map((edge) => ({ type: 'remove-edge' as const, edgeId: edge.id })),
+                ], 'delete');
               }
               return Promise.resolve(false);
             }}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
-            nodesDraggable={!readOnly}
+            nodesDraggable={!readOnly && !nodesPinned}
             nodesConnectable={!readOnly}
             elementsSelectable={!readOnly}
             colorMode="dark"
@@ -492,7 +572,8 @@ export default function CanvasFlow() {
             fitViewOptions={{ padding: FIT_PADDING, duration: fitDuration, maxZoom: AUTO_FIT_MAX_ZOOM }}
             minZoom={0.1}
             maxZoom={2}
-            multiSelectionKeyCode={['Meta', 'Control']}
+            // Shift+click adds to the selection as Ctrl+click does (as in ComfyUI); Shift+drag on empty canvas draws a box.
+            multiSelectionKeyCode={['Meta', 'Control', 'Shift']}
             ariaLabelConfig={{
               'node.a11yDescription.default': String(t('graph.nodeDefault')),
               'node.a11yDescription.keyboardDisabled': String(t('graph.nodeKeyboard')),
@@ -516,8 +597,21 @@ export default function CanvasFlow() {
             <Panel position="top-center" className="nopan nowheel nodrag">
               <CanvasToolbar />
             </Panel>
+            {nodesPinned ? (
+              <Panel position="bottom-left" className="nopan nowheel nodrag">
+                <span className={styles.pinnedChip} role="status" data-pinned-chip="">
+                  <Pin size={13} aria-hidden="true" />
+                  {t('canvas.pinnedChip')}
+                  <Button variant="subtle" quiet size="sm" onClick={() => useCanvasStore.getState().setNodesPinned(false)}>{t('canvas.unpin')}</Button>
+                </span>
+              </Panel>
+            ) : null}
             {nodes.length > 0 && minimapOn ? (
               <MiniMap
+                // A click or a drag on the map moves the view there; the wheel over it zooms.
+                pannable
+                zoomable
+                onClick={(_event, position) => void flow.setCenter(position.x, position.y, { zoom: flow.getZoom(), duration: fitDurationMs() })}
                 position="bottom-right"
                 style={{ width: 144, height: 96 }}
                 nodeStrokeWidth={0}
@@ -537,7 +631,7 @@ export default function CanvasFlow() {
             <ConnectAssistLayer />
             <DescriptionLayer />
             <TourLayer />
-            <BuildLayer />
+            <BuildLayer levelId={mode === 'definition' ? inner!.id : null} />
             <LiveBuildStrip />
             <ImportLookLayer mode={mode} />
           </ReactFlow>

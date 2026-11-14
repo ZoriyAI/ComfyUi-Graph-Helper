@@ -6,7 +6,8 @@ import type { BaseModelFamily, GraphCheckReport } from '../../shared/contracts/k
 import { canvasModelRefs, missingOnGraph, type GraphNodeLike } from '../../shared/graph/compatibility';
 import { portsCompatible } from '../../shared/graph/linkTypes';
 import { graphCycles } from '../../shared/graph/cycles';
-import { SUBGRAPH_INPUT_NODE_ID, SUBGRAPH_OUTPUT_NODE_ID } from '../../shared/graph/subgraphs';
+import { endpointPort, validEdgeEndpoints } from '../../shared/graph/structure';
+import { SUBGRAPH_INPUT_NODE_ID, SUBGRAPH_OUTPUT_NODE_ID, type SubgraphDefinition } from '../../shared/graph/subgraphs';
 import { familiesCompatible } from '../../shared/knowledge/baseModel';
 import { documentDefinitionIds, documentGroupNodeNames, exportedWidgets, isLocalNodeType, numericSlot } from '../../shared/workflow/codec';
 import { catalogFileIndex, loadedModelFiles } from './loadedModels';
@@ -49,14 +50,16 @@ interface SpecInput {
 interface Spec {
   inputs: SpecInput[];
   outputs: Array<{ name: string; type: string }>;
+  outputNode: boolean;
+  detailed: boolean;
   widgetOrder: string[];
   widgetOrderReliable: boolean;
 }
 
 /** Raw catalog rows: readCatalog drops the required flag and some widget metadata this check needs. */
 function specIndex(db: Database.Database): Map<string, Spec> {
-  const rows = db.prepare('SELECT class_type, inputs_json, outputs_json, widget_order_json FROM node_catalog').all() as Array<{
-    class_type: string; inputs_json: string; outputs_json: string; widget_order_json: string;
+  const rows = db.prepare('SELECT class_type, inputs_json, outputs_json, widget_order_json, output_node FROM node_catalog').all() as Array<{
+    class_type: string; inputs_json: string; outputs_json: string; widget_order_json: string; output_node: number | null;
   }>;
   const index = new Map<string, Spec>();
   for (const row of rows) {
@@ -87,7 +90,7 @@ function specIndex(db: Database.Database): Map<string, Spec> {
     } catch {
       // An older row has no reliable widget order to validate against.
     }
-    index.set(row.class_type, { inputs, outputs, widgetOrder, widgetOrderReliable });
+    index.set(row.class_type, { inputs, outputs, widgetOrder, widgetOrderReliable, outputNode: row.output_node === 1, detailed: inputs.length > 0 || outputs.length > 0 });
   }
   return index;
 }
@@ -259,104 +262,167 @@ function unsetWidgets(nodes: CanvasNode[], edges: CanvasEdge[], catalog: Catalog
   return found;
 }
 
-function typeMismatches(nodes: CanvasNode[], edges: CanvasEdge[], specs: Map<string, Spec>): GraphCheckReport['typeMismatches'] {
+function typeMismatches(nodes: CanvasNode[], edges: CanvasEdge[], specs: Map<string, Spec>, definition?: SubgraphDefinition): GraphCheckReport['typeMismatches'] {
   const byId = new Map(nodes.map((node) => [String(node.id), node]));
   return edges.flatMap((edge) => {
     const source = String(edge.source);
     const target = String(edge.target);
-    const from = sourceType(byId.get(source), edge.sourceHandle, specs);
-    const to = targetType(byId.get(target), edge.targetHandle, specs);
+    const from = sourceType(byId.get(source), edge.sourceHandle, specs) || String(endpointPort(nodes, source, 'outputs', edge.sourceHandle, definition)?.dataType ?? '');
+    const to = targetType(byId.get(target), edge.targetHandle, specs) || String(endpointPort(nodes, target, 'inputs', edge.targetHandle, definition)?.dataType ?? '');
     if (!typesClash(from, to)) return [];
     return [{ edgeId: String(edge.id), source, target, sourceType: from, targetType: to }];
   });
 }
 
-interface GraphLevel { nodes: CanvasNode[]; edges: CanvasEdge[] }
-
-function graphLevels(snapshot: {
-  nodes: unknown[];
-  edges: unknown[];
-  subgraphs?: Array<{ nodes: unknown[]; edges: unknown[] }>;
-}): GraphLevel[] {
+interface GraphLevel { nodes: CanvasNode[]; edges: CanvasEdge[]; subgraphId?: string; definition?: SubgraphDefinition }
+function graphLevels(snapshot: { nodes: unknown[]; edges: unknown[]; subgraphs?: SubgraphDefinition[] }): GraphLevel[] {
   return [
     { nodes: snapshot.nodes as CanvasNode[], edges: snapshot.edges as CanvasEdge[] },
-    ...(snapshot.subgraphs ?? []).map((definition) => ({ nodes: definition.nodes as CanvasNode[], edges: definition.edges as CanvasEdge[] })),
+    ...(snapshot.subgraphs ?? []).filter((definition) => !definition.opaque).map((definition) => ({ nodes: definition.nodes as CanvasNode[], edges: definition.edges as CanvasEdge[], subgraphId: definition.id, definition })),
   ];
 }
-
-function brokenEdges(level: GraphLevel): NonNullable<GraphCheckReport['brokenEdges']> {
-  const ids = new Set(level.nodes.map((node) => String(node.id)));
-  const boundary = new Set([SUBGRAPH_INPUT_NODE_ID, SUBGRAPH_OUTPUT_NODE_ID]);
-  return level.edges.flatMap((edge) => {
-    const source = String(edge.source);
-    const target = String(edge.target);
-    if ((ids.has(source) || boundary.has(source)) && (ids.has(target) || boundary.has(target))) return [];
-    return [{ edgeId: String(edge.id), source, target }];
-  });
+function scoped<T extends object>(level: GraphLevel, findings: T[]): Array<T & { subgraphId?: string }> {
+  return findings.map((item) => level.subgraphId ? { ...item, subgraphId: level.subgraphId } : item);
 }
-
+function brokenEdges(level: GraphLevel): NonNullable<GraphCheckReport['brokenEdges']> {
+  return level.edges.flatMap((edge) => validEdgeEndpoints(level.nodes, edge, level.definition) ? [] : [{ edgeId: String(edge.id), source: String(edge.source), target: String(edge.target) }]);
+}
 function cycles(level: GraphLevel): NonNullable<GraphCheckReport['cycles']> {
   return graphCycles(level.nodes.map((node) => String(node.id)), level.edges.map((edge) => ({ source: String(edge.source), target: String(edge.target) })))
     .map((nodeIds) => ({ nodeIds }));
 }
 
-function shortValue(value: unknown): string {
-  let text = '';
-  try {
-    text = typeof value === 'string' ? JSON.stringify(value) : JSON.stringify(value) ?? '';
-  } catch {
-    text = String(value);
-  }
-  return text.slice(0, 80);
+/** Names of the node's inputs that a link feeds: their value comes from the socket, not from the field. */
+function linkedInputs(node: CanvasNode, edges: CanvasEdge[]): Set<string> {
+  return new Set(edges
+    .filter((edge) => String(edge.target) === String(node.id))
+    .map((edge) => portName(node, 'inputs', edge.targetHandle))
+    .filter((name): name is string => name !== null));
 }
 
-function parametersOf(node: CanvasNode, spec: Spec): Record<string, unknown> {
-  const parameters = node.data?.parameters && typeof node.data.parameters === 'object' && !Array.isArray(node.data.parameters)
-    ? { ...node.data.parameters } as Record<string, unknown>
-    : {};
-  const widgets = node.data?.comfy?.widgets_values;
-  if (Array.isArray(widgets) && spec.widgetOrderReliable) {
-    spec.widgetOrder.forEach((name, index) => {
-      if (parameters[name] === undefined) parameters[name] = widgets[index];
-    });
-  } else if (widgets && typeof widgets === 'object' && !Array.isArray(widgets)) {
-    Object.assign(parameters, widgets);
-  }
-  return parameters;
+function parametersOf(node: CanvasNode): Record<string, unknown> {
+  const parameters = (node.data as { parameters?: unknown } | undefined)?.parameters;
+  return parameters && typeof parameters === 'object' && !Array.isArray(parameters) ? parameters as Record<string, unknown> : {};
 }
 
-function invalidParameters(level: GraphLevel, specs: Map<string, Spec>): NonNullable<GraphCheckReport['invalidParameters']> {
-  const found: NonNullable<GraphCheckReport['invalidParameters']> = [];
-  for (const node of level.nodes) {
+/**
+ * The value a field holds, read as the canvas reads it (renderer fields/fieldModel.ts fieldValue): the parameters a
+ * command set, else the stored widgets_values of an imported node by the catalog widget order. Undefined: not read.
+ */
+function fieldValueOf(node: CanvasNode, name: string, spec: CatalogView['nodes'][number]): unknown {
+  const parameters = parametersOf(node);
+  if (Object.prototype.hasOwnProperty.call(parameters, name) && parameters[name] !== null && parameters[name] !== undefined) return parameters[name];
+  const comfy = (node.data as { comfy?: { widgets_values?: unknown } } | undefined)?.comfy;
+  const widgets = comfy?.widgets_values;
+  if (Array.isArray(widgets)) {
+    if (spec.widgetOrderReliable === false) return undefined;
+    const index = spec.widgetOrder.indexOf(name);
+    return index >= 0 && index < widgets.length ? widgets[index] : undefined;
+  }
+  if (widgets && typeof widgets === 'object') return (widgets as Record<string, unknown>)[name];
+  return undefined;
+}
+
+function slashes(text: string): string {
+  return text.replace(/\\/g, '/');
+}
+
+/**
+ * Number fields outside the catalog range and list fields holding a value the list does not have. Only classes
+ * the catalog describes are read; a field a link feeds, a list of model files (missingModels says that), an upload
+ * list (the person may upload the file in ComfyUI) and a multi-choice list are left alone.
+ */
+function fieldValues(nodes: CanvasNode[], edges: CanvasEdge[], catalog: CatalogView): {
+  valuesOutOfRange: NonNullable<GraphCheckReport['valuesOutOfRange']>;
+  valuesNotInList: NonNullable<GraphCheckReport['valuesNotInList']>;
+  invalidParameters: NonNullable<GraphCheckReport['invalidParameters']>;
+} {
+  const byClass = new Map(catalog.nodes.map((node) => [node.classType, node]));
+  const modelNames = new Set(catalog.models.map((model) => slashes(model.name)));
+  const valuesOutOfRange: NonNullable<GraphCheckReport['valuesOutOfRange']> = [];
+  const valuesNotInList: NonNullable<GraphCheckReport['valuesNotInList']> = [];
+  const invalidParameters: NonNullable<GraphCheckReport['invalidParameters']> = [];
+  for (const node of nodes) {
     const classType = classOf(node);
-    const spec = specs.get(classType);
-    if (!spec) continue;
-    const parameters = parametersOf(node, spec);
+    const spec = byClass.get(classType);
+    if (!spec || spec.inputs.length === 0) continue;
+    const linked = linkedInputs(node, edges);
     for (const input of spec.inputs) {
-      if (!input.widget) continue;
-      const value = parameters[input.name];
+      if (!input.widget || linked.has(input.name)) continue;
+      const value = fieldValueOf(node, input.name, spec);
       if (value === undefined || value === null) continue;
-      const constructor = (input.widgetType ?? input.type).toUpperCase();
-      const nodeId = String(node.id);
-      const add = (reason: 'type' | 'range' | 'choice', expected: string) => {
-        found.push({ nodeId, classType, name: input.name, reason, expected, found: shortValue(value) });
-      };
-      if (constructor === 'INT' && (typeof value !== 'number' || !Number.isInteger(value))) add('type', 'INT');
-      else if (constructor === 'FLOAT' && (typeof value !== 'number' || !Number.isFinite(value))) add('type', 'FLOAT');
-      else if (constructor === 'BOOLEAN' && typeof value !== 'boolean') add('type', 'BOOLEAN');
-      else if (constructor === 'STRING' && typeof value !== 'string') add('type', 'STRING');
-      else if (constructor === 'COMBO' && !input.mediaUpload && input.options && input.options.length > 0) {
-        if (input.multiSelect) {
-          if (!Array.isArray(value) || value.some((item) => typeof item !== 'string' || !input.options!.includes(item))) add('choice', 'catalog choices');
-        } else if (typeof value !== 'string' || !input.options.includes(value)) add('choice', 'catalog choices');
+      const kind = (input.widgetType ?? input.type).toUpperCase();
+      if ((kind === 'INT' && (typeof value !== 'number' || !Number.isInteger(value)))
+        || (kind === 'FLOAT' && (typeof value !== 'number' || !Number.isFinite(value)))
+        || (kind === 'BOOLEAN' && typeof value !== 'boolean') || (kind === 'STRING' && typeof value !== 'string')) {
+        invalidParameters.push({ nodeId: String(node.id), classType, name: input.name, reason: 'type', expected: kind, found: String(value).slice(0, 80) });
+        continue;
       }
-      if ((constructor === 'INT' || constructor === 'FLOAT') && typeof value === 'number' && Number.isFinite(value)) {
-        if (input.min !== undefined && value < input.min) add('range', `>= ${input.min}`);
-        else if (input.max !== undefined && value > input.max) add('range', `<= ${input.max}`);
+      if ((kind === 'INT' || kind === 'FLOAT') && typeof value === 'number' && Number.isFinite(value)) {
+        const below = input.min !== undefined && value < input.min;
+        const above = input.max !== undefined && value > input.max;
+        if (below || above) {
+          valuesOutOfRange.push({
+            nodeId: String(node.id), classType, input: input.name, value,
+            ...(input.min !== undefined ? { min: input.min } : {}),
+            ...(input.max !== undefined ? { max: input.max } : {}),
+          });
+        }
+        continue;
       }
+      const options = input.options ?? [];
+      if (options.length === 0 || typeof value !== 'string' || value === '' || input.multiSelect) continue;
+      if (spec.widgetOrder.includes(`${input.name}::media_upload`)) continue;
+      const listed = new Set(options.map(slashes));
+      if (listed.has(slashes(value))) continue;
+      if (modelNames.has(slashes(value)) || options.some((option) => modelNames.has(slashes(option)))) continue;
+      valuesNotInList.push({ nodeId: String(node.id), classType, input: input.name, value });
     }
   }
-  return found;
+  return { valuesOutOfRange, valuesNotInList, invalidParameters };
+}
+
+/** Only instantiated definitions contribute to the executable graph's output nodes. */
+function definitionClasses(document: unknown, nodes: CanvasNode[]): string[] {
+  const raw = rawDocument(document) as { definitions?: { subgraphs?: Array<{ id: string; nodes?: Array<{ type?: string }> }> } } | null;
+  const definitions = new Map((raw?.definitions?.subgraphs ?? []).map((item) => [item.id, item]));
+  const seen = new Set<string>();
+  const classes: string[] = [];
+  const visit = (type: string) => {
+    if (seen.has(type)) return;
+    seen.add(type);
+    for (const node of definitions.get(type)?.nodes ?? []) {
+      if (typeof node.type !== 'string') continue;
+      classes.push(node.type);
+      visit(node.type);
+    }
+  };
+  nodes.forEach((node) => visit(classOf(node)));
+  return classes;
+}
+
+/**
+ * A graph with no node that saves or shows a result. Said only when the catalog knows every class in the graph
+ * (an unknown class may well be an output node) and knows output nodes at all. Points at the end of the chain.
+ */
+function noOutputNode(nodes: CanvasNode[], edges: CanvasEdge[], specs: Map<string, Spec>, document: unknown): GraphCheckReport['noOutputNode'] {
+  if (nodes.length === 0) return null;
+  if (![...specs.values()].some((spec) => spec.outputNode)) return null;
+  const subgraphs = subgraphIds(document);
+  const classes = [...nodes.map(classOf).filter((type) => !subgraphs.has(type)), ...definitionClasses(document, nodes)]
+    .filter((type) => type !== '' && !FRONTEND_NODE_TYPES.has(type) && !subgraphs.has(type));
+  if (classes.length === 0) return null;
+  for (const type of classes) {
+    const spec = specs.get(type);
+    if (!spec || !spec.detailed || spec.outputNode) return null;
+  }
+  const feeding = new Set(edges.map((edge) => String(edge.source)));
+  const ends = nodes.filter((node) => !FRONTEND_NODE_TYPES.has(classOf(node)) && !feeding.has(String(node.id)) && ports(node, 'outputs').length > 0);
+  // The end most of the graph flows into, so "Show" lands where the output node belongs.
+  const best = ends
+    .map((node) => ({ node, depth: upstreamOf(String(node.id), edges).size }))
+    .sort((a, b) => b.depth - a.depth)[0]?.node ?? nodes[nodes.length - 1];
+  return { nodeId: String(best.id) };
 }
 
 /**
@@ -375,40 +441,43 @@ export function checkGraph(db: Database.Database, projectId: string): GraphCheck
   const definitionIds = documentDefinitionIds(raw);
   const localContext = { groupNodes: documentGroupNodeNames(raw), catalog };
   const isLocal = (type: string) => ignored.has(type) || isLocalNodeType(type, definitionIds, localContext);
+  const levels = graphLevels(projection.snapshot);
   const missing = missingOnGraph(nodes, catalog, rawDocument(projection.snapshot.document));
   const known = new Set(catalog.nodeTypes);
 
-  const missingNodes = nodes.flatMap((node) => {
+  const missingNodes = levels.flatMap((level) => scoped(level, level.nodes.flatMap((node) => {
     const classType = classOf(node);
     if (!classType || known.has(classType) || isLocal(classType)) return [];
     return [{ nodeId: String(node.id), classType }];
-  });
-  const missingModels = missing.missingModels.flatMap((model) => {
-    const owners = nodes.filter((node) => canvasModelRefs(node, catalog).some((ref) => ref.directory === model.directory && ref.name === model.name));
-    if (owners.length === 0) return [{ nodeId: '', directory: model.directory, name: model.name }];
+  })));
+  const missingModels = levels.flatMap((level) => scoped(level, missingOnGraph(level.nodes, catalog, null).missingModels.flatMap((model) => {
+    const owners = level.nodes.filter((node) => canvasModelRefs(node, catalog).some((ref) => ref.directory === model.directory && ref.name === model.name));
     return owners.map((node) => ({ nodeId: String(node.id), directory: model.directory, name: model.name }));
-  });
+  })));
   const unknownNodeTypes = [...new Set([...missing.missingNodes, ...missingNodes.map((item) => item.classType)])]
     .filter((type) => !isLocal(type))
     .sort();
-  const levels = graphLevels(projection.snapshot);
+  const fields = levels.map((level) => ({ level, values: fieldValues(level.nodes, level.edges, catalog) }));
   const report: GraphCheckReport = {
     ok: true,
     missingNodes,
     missingModels,
-    typeMismatches: levels.flatMap((level) => typeMismatches(level.nodes, level.edges, specs)),
-    baseModelMismatches: levels.flatMap((level) => baseModelMismatches(db, level.nodes, level.edges, catalog)),
-    unconnectedRequiredInputs: levels.flatMap((level) => unconnectedInputs(level.nodes, level.edges, specs)),
+    typeMismatches: levels.flatMap((level) => scoped(level, typeMismatches(level.nodes, level.edges, specs, level.definition))),
+    baseModelMismatches: levels.flatMap((level) => scoped(level, baseModelMismatches(db, level.nodes, level.edges, catalog))),
+    unconnectedRequiredInputs: levels.flatMap((level) => scoped(level, unconnectedInputs(level.nodes, level.edges, specs))),
     unknownNodeTypes,
-    unsetWidgets: levels.flatMap((level) => unsetWidgets(level.nodes, level.edges, catalog, ignored)),
-    cycles: levels.flatMap(cycles),
-    brokenEdges: levels.flatMap(brokenEdges),
-    invalidParameters: levels.flatMap((level) => invalidParameters(level, specs)),
+    unsetWidgets: levels.flatMap((level) => scoped(level, unsetWidgets(level.nodes, level.edges, catalog, ignored))),
+    cycles: levels.flatMap((level) => scoped(level, cycles(level))),
+    brokenEdges: levels.flatMap((level) => scoped(level, brokenEdges(level))),
+    invalidParameters: fields.flatMap(({ level, values }) => scoped(level, values.invalidParameters)),
     promptNotes: promptNotes(db, nodes, edges, specs, catalog),
+    noOutputNode: noOutputNode(nodes, edges, specs, projection.snapshot.document),
+    valuesOutOfRange: fields.flatMap(({ level, values }) => scoped(level, values.valuesOutOfRange)),
+    valuesNotInList: fields.flatMap(({ level, values }) => scoped(level, values.valuesNotInList)),
   };
   report.ok = report.missingNodes.length === 0 && report.missingModels.length === 0 && report.typeMismatches.length === 0
     && report.baseModelMismatches.length === 0 && report.unconnectedRequiredInputs.length === 0 && report.unknownNodeTypes.length === 0
-    && (report.unsetWidgets ?? []).length === 0 && (report.cycles ?? []).length === 0 && (report.brokenEdges ?? []).length === 0
-    && (report.invalidParameters ?? []).length === 0;
+    && (report.unsetWidgets ?? []).length === 0 && !report.noOutputNode && (report.valuesOutOfRange ?? []).length === 0
+    && (report.valuesNotInList ?? []).length === 0 && (report.cycles ?? []).length === 0 && (report.brokenEdges ?? []).length === 0 && (report.invalidParameters ?? []).length === 0;
   return report;
 }

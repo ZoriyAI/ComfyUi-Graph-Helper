@@ -4,6 +4,13 @@ import type { NodeClassSummary } from '../../../shared/contracts/knowledge';
 import { useCanvasStore } from './canvasStore';
 import { commitManual } from './commit';
 import { placeNewNode } from './placeNode';
+import { useNodeInfoStore } from './nodeInfo';
+import type { ConnectFrom } from './lib/connectAssist';
+import type { NodeClassDetail } from '../../../shared/contracts/knowledge';
+import { portsCompatible } from '../../../shared/graph/linkTypes';
+import { addedNodeId, revealNewNode } from './lib/reveal';
+import { trackCommit } from '../../services/commands/pending';
+import { replayIsOpen } from '../../commands/replayGate';
 import { showToast } from '../../ui/toastStore';
 import { i18n } from '../../i18n';
 import { SearchX } from 'lucide-react';
@@ -15,7 +22,29 @@ import styles from './Toolbar.module.css';
  * Commits add-node after the class guard: an unknown class (with a synced catalog) is refused with the
  * nearest installed names; the guard being unreachable does not block the edit.
  */
-async function addCheckedNode(classType: string, at: { x: number; y: number } | null, title?: string): Promise<void> {
+function addCheckedNode(classType: string, at: { x: number; y: number } | null, title?: string, link?: ConnectFrom): Promise<void> {
+  // Counted as landing from the pick on (the class check and the size come first), so Ctrl+Z waits for it.
+  return trackCommit(() => addNow(classType, at, title, link));
+}
+
+/**
+ * The port of a class that can take a link from (or give one to) `from`: its handle id by the catalog order
+ * ("in-3", "out-0"), as the engine numbers a new node's ports. Null when none fits.
+ */
+export function linkHandleFor(detail: NodeClassDetail | null | undefined, from: ConnectFrom): string | null {
+  if (!detail) return null;
+  if (from.direction === 'output') {
+    // The engine numbers a new node's inputs links first, then fields (shared/graph/ports.ts portsFromCatalog).
+    const ordered = [...detail.inputs.filter((input) => !input.widget), ...detail.inputs.filter((input) => input.widget)];
+    const index = ordered.findIndex((input) => portsCompatible(from.dataType, input.type));
+    return index >= 0 ? `in-${index}` : null;
+  }
+  const index = detail.outputs.findIndex((output) => portsCompatible(output.type, from.dataType));
+  return index >= 0 ? `out-${index}` : null;
+}
+
+async function addNow(classType: string, at: { x: number; y: number } | null, title?: string, link?: ConnectFrom): Promise<void> {
+  if (replayIsOpen(true)) return;
   const t = (key: string, options?: Record<string, unknown>) => String(i18n.t(key, options ?? {}));
   const verdict = await window.electronAPI?.validateNodeClass?.(classType).catch(() => null);
   if (verdict && !verdict.ok) {
@@ -32,7 +61,21 @@ async function addCheckedNode(classType: string, at: { x: number; y: number } | 
   }
   const spot = await placeNewNode(at, { classType });
   // Under the name the library shows, as a node added from the library is: one node, one name, whichever way.
-  await commitManual({ type: 'add-node', nodeType: classType, ...(title && title !== classType ? { title } : {}), x: spot.x, y: spot.y });
+  const add = { type: 'add-node' as const, nodeType: classType, ...(title && title !== classType ? { title } : {}), x: spot.x, y: spot.y };
+  const handle = link ? linkHandleFor(await useNodeInfoStore.getState().request(classType).catch(() => null), link) : null;
+  if (link && handle) {
+    // A link dropped on empty canvas: the new node and its link are one step.
+    const connect = link.direction === 'output'
+      ? { type: 'connect' as const, source: link.nodeId, sourceHandle: link.handle, target: '@0', targetHandle: handle }
+      : { type: 'connect' as const, source: '@0', sourceHandle: handle, target: link.nodeId, targetHandle: link.handle };
+    const result = await commitManual({ type: 'batch', label: 'add-linked', edits: [add, connect] }) as { status?: string; result?: { nodeIds?: unknown } } | null;
+    const ids = result?.status === 'applied' && Array.isArray(result.result?.nodeIds) ? result.result.nodeIds.map(String) : [];
+    revealNewNode(ids[0] ?? null);
+    return;
+  }
+  const result = await commitManual(add);
+  // The new node is selected and in view, wherever the free spot was.
+  revealNewNode(addedNodeId(result));
 }
 
 /** The name with the typed words marked, so a person sees why a row came up. */
@@ -69,12 +112,31 @@ function Highlighted({ text, query }: { text: string; query: string }) {
  * Add-node search: type, pick with arrows and Enter, and the node lands where the person asked
  * (right-click position) or in the middle of the view, in the nearest free spot. Commits `add-node` through commitManual.
  */
+/** How many classes a search from a dropped link reads before keeping the ones that fit. */
+const LINK_SEARCH_LIMIT = 400;
+const LINK_RESULTS = 12;
+
+/** The found classes that have a port for the dropped link, in search order. */
+async function nodesThatFit(found: NodeClassSummary[], link: ConnectFrom): Promise<NodeClassSummary[]> {
+  const info = useNodeInfoStore.getState();
+  const fitting: NodeClassSummary[] = [];
+  for (const item of found) {
+    if (!item.detailed) continue;
+    const detail = await info.request(item.classType).catch(() => null);
+    if (linkHandleFor(detail, link)) fitting.push(item);
+    if (fitting.length >= LINK_RESULTS) break;
+  }
+  return fitting;
+}
+
 export default function AddNodeSearch() {
   const { t } = useTranslation();
   const search = useCanvasStore((state) => state.addSearch);
   const close = useCanvasStore((state) => state.closeAddSearch);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<NodeClassSummary[]>([]);
+  /** The query the results on screen answer: Enter right after typing must not pick from the previous list. */
+  const [resultsFor, setResultsFor] = useState<string | null>(null);
   const [active, setActive] = useState(0);
   const input = useRef<HTMLInputElement>(null);
 
@@ -83,6 +145,7 @@ export default function AddNodeSearch() {
       // A lesson opens the search with the name of the node it asks for already typed.
       setQuery(search.query ?? '');
       setResults([]);
+      setResultsFor(null);
       setActive(0);
       window.setTimeout(() => input.current?.focus(), 0);
     }
@@ -94,9 +157,13 @@ export default function AddNodeSearch() {
     const bridge = window.electronAPI;
     const timer = window.setTimeout(() => {
       if (!bridge?.searchNodeTypes) return;
-      void bridge.searchNodeTypes({ query: query.trim(), limit: 12 }).catch(() => []).then((found) => {
+      const link = search.linkFrom;
+      void bridge.searchNodeTypes({ query: query.trim(), limit: link ? LINK_SEARCH_LIMIT : 12 }).catch(() => [] as NodeClassSummary[]).then(async (found) => {
+        // From a dropped link: only the nodes that can take it (or give it), as the catalog describes them.
+        const fitting = link ? await nodesThatFit(found, link) : found;
         if (live) {
-          setResults(found);
+          setResults(fitting);
+          setResultsFor(query.trim());
           setActive(0);
         }
       });
@@ -105,7 +172,7 @@ export default function AddNodeSearch() {
       live = false;
       window.clearTimeout(timer);
     };
-  }, [query, search.open]);
+  }, [query, search.open, search.linkFrom]);
 
   if (!search.open) return null;
 
@@ -114,8 +181,25 @@ export default function AddNodeSearch() {
     if (!classType) return;
     // The right-click spot, else the middle of the view; placeNewNode moves it off any node.
     const at = search.at;
+    // Focus leaves the field at once, so a Ctrl+Z pressed right after reaches the app, not the closing field.
+    input.current?.blur();
     close();
-    void addCheckedNode(classType, at, item?.displayName || undefined);
+    void addCheckedNode(classType, at, item?.displayName || undefined, search.linkFrom);
+  };
+
+  /** Enter before the list caught up with the typing: the first match for what is typed now. */
+  const pickTyped = () => {
+    const typed = query.trim();
+    if (!typed) return;
+    const at = search.at;
+    const link = search.linkFrom;
+    input.current?.blur();
+    close();
+    void trackCommit(async () => {
+      const found = await window.electronAPI?.searchNodeTypes?.({ query: typed, limit: 1 }).catch(() => []) ?? [];
+      const first = found[0];
+      await addCheckedNode(first?.classType ?? typed, at, first?.displayName || undefined, link);
+    });
   };
 
   const listId = 'canvas-add-node-results';
@@ -133,7 +217,10 @@ export default function AddNodeSearch() {
         onKeyDown={(event) => {
           if (event.key === 'ArrowDown') setActive((index) => Math.min(results.length - 1, index + 1));
           else if (event.key === 'ArrowUp') setActive((index) => Math.max(0, index - 1));
-          else if (event.key === 'Enter') pick(results[active]);
+          else if (event.key === 'Enter') {
+            if (resultsFor === query.trim()) pick(results[active]);
+            else pickTyped();
+          }
           else if (event.key === 'Escape') close();
           else return;
           event.preventDefault();

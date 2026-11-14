@@ -19,3 +19,4 @@ export {
   type SubgraphSlot,
 } from '../graph/subgraphs';
 export * from './pickers';
+export * from './projectFile';

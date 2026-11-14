@@ -7,6 +7,10 @@ export interface CanvasHandle {
   zoomIn: () => void;
   zoomOut: () => void;
   zoomReset: () => void;
+  /** Brings a rectangle (flow coordinates) fully into view at the current zoom; nothing when it already is. */
+  reveal: (rect: { x: number; y: number; width: number; height: number }) => void;
+  /** Moves the view by screen pixels (keyboard panning). */
+  panBy: (dx: number, dy: number) => void;
 }
 
 let current: CanvasHandle | null = null;

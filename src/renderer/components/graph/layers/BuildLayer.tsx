@@ -18,6 +18,7 @@ import { nodeDisplayName } from '../lib/nodeName';
 import { BUILD_BUBBLE_PX, BUILD_ROOM_PX, CALLOUT_GAP_PX, CALLOUT_Z } from '../lib/followCamera';
 import { FIT_PADDING } from '../CanvasToolbar';
 import { fitDurationMs } from '../../../motion/policy';
+import { selectOnLevel } from '../lib/level';
 import { autoFit } from '../lib/autoFit';
 import styles from './Callout.module.css';
 
@@ -122,7 +123,7 @@ function fadingOf(nodes: GraphNode[]): FadingNode[] {
  * - Removed nodes fade where they stood. Changed fields show "old → new".
  * Manual commits (canvas/commit.ts) never queue: the person already sees what they did.
  */
-export default function BuildLayer() {
+export default function BuildLayer({ levelId }: { levelId: string | null }) {
   const { t } = useTranslation();
   const translate: Translate = (key, options) => String(options ? t(key, options) : t(key));
   const translateRef = useRef(translate);
@@ -272,16 +273,16 @@ export default function BuildLayer() {
     return () => window.clearTimeout(timer);
   }, [callout]);
 
-  // "Show" on a chat build card: centre the node and select it.
+  // Scope must match the graph actually rendered, not merely the breadcrumb already requested.
   useEffect(() => {
-    if (!centerRequest) return;
-    const nodeId = centerRequest.nodeId;
-    if (!flow.getInternalNode(nodeId)) return;
-    centerNode(nodeId);
-    useGraphStore.getState().setNodes(useGraphStore.getState().nodes.map((node) => (
-      node.selected === (node.id === nodeId) ? node : { ...node, selected: node.id === nodeId }
-    )));
-  }, [centerRequest, centerNode, flow]);
+    if (!centerRequest || (centerRequest.subgraphId ?? null) !== levelId) return;
+    const frame = window.requestAnimationFrame(() => {
+      if ((useGraphStore.getState().activeSubgraphId ?? null) !== levelId || !flow.getInternalNode(centerRequest.nodeId)) return;
+      centerNode(centerRequest.nodeId);
+      selectOnLevel([centerRequest.nodeId]);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [centerRequest, centerNode, flow, levelId]);
 
   const anchor = callout ? useGraphStore.getState().nodes.find((node) => node.id === callout.nodeId) : undefined;
   // The bubble names what appeared (a node, a link, a field), not the tool that made it.

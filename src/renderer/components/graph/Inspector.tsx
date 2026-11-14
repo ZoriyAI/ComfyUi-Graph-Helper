@@ -259,7 +259,9 @@ function NodeSection({ node, edges }: { node: GraphNode; edges: GraphEdge[] }) {
   // Inside a definition the node is that definition's node (its number repeats one of the main canvas).
   const ref = nodeRef(node, definitionId);
   const canvasReplay = useCanvasStore((state) => Boolean(state.replay));
-  const title = String((definition && !hasOwnTitle(data) ? definition.name : data.title) || definition?.name || detail?.displayName || data.comfyType);
+  const title = instance
+    ? String((definition && !hasOwnTitle(data) ? definition.name : data.title) || definition?.name || data.comfyType)
+    : nodeDisplayName(data, detail?.displayName) || data.comfyType;
   const connected = (side: 'in' | 'out', handle: string) => edges.some((edge) => (side === 'in'
     ? edge.target === node.id && edge.targetHandle === handle
     : edge.source === node.id && edge.sourceHandle === handle));
@@ -469,7 +471,8 @@ export default function Inspector() {
       {selected.length > 1 ? (
         <>
           <h2 className={styles.h2}>{t('inspector.multi', { count: selected.length })}</h2>
-          <p className={`inspector-type ${styles.mono}`}>{t('inspector.multiDetail')}</p>
+          {/* Plain words in the body font: a sentence, not a class name. */}
+          <p className={`inspector-type ${styles.hint}`}>{t('inspector.multiDetail')}</p>
           <p className={`inspector-empty ${styles.hint}`}>{t('inspector.selectNode')}</p>
         </>
       ) : null}

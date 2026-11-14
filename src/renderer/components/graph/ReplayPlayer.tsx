@@ -1,9 +1,12 @@
 import React, { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { History, Pause, Play, X } from 'lucide-react';
+import { History, Pause, Play, Undo2, X } from 'lucide-react';
 import { useProjectionStore } from '../../services/commands/projection';
 import { useCanvasStore } from './canvasStore';
 import { clampIndex, nextPlayIndex, playStartIndex } from './lib/replay';
+import { commitManual } from './commit';
+import { showToast } from '../../ui/toastStore';
+import { i18n } from '../../i18n';
 import { readingPaceMs } from './lib/motion';
 import styles from './Toolbar.module.css';
 
@@ -13,6 +16,21 @@ export async function openReplay(projectId: string = useProjectionStore.getState
   if (!bridge?.listRevisions) return;
   const revisions = await bridge.listRevisions(projectId).catch(() => []);
   useCanvasStore.getState().setReplay({ revisions, index: Math.max(0, revisions.length - 1), playing: false, snapshot: null, loading: revisions.length > 0 });
+}
+
+/**
+ * "Return to this version": the replay closes and the shown version becomes the graph again as a new step (a
+ * restore-revision commit, undoable like any other); the later versions stay in the history.
+ */
+export async function restoreReplayedVersion(): Promise<void> {
+  const replay = useCanvasStore.getState().replay;
+  const row = replay?.revisions[replay.index];
+  if (!replay || !row) return;
+  useCanvasStore.getState().setReplay(null);
+  const result = await commitManual({ type: 'restore-revision', revisionId: row.id }, 'replay-restore') as { status?: string } | null;
+  if (result?.status === 'applied') {
+    showToast({ id: 'replay-restored', tone: 'success', title: String(i18n.t('canvas.replayRestored', { seq: row.revSeq })), duration: 6000 });
+  }
 }
 
 /**
@@ -103,11 +121,23 @@ export default function ReplayPlayer() {
         max={count - 1}
         step={1}
         value={replay.index}
-        aria-label={String(t('canvas.replayLabel'))}
+        aria-label={String(t('canvas.replayVersionLabel'))}
         aria-valuetext={`${replay.revisions[replay.index]?.revSeq ?? ''}`}
         onChange={(event) => patchReplay({ index: clampIndex(Number(event.target.value), count), playing: false })}
       />
       <span className={styles.label}>{replay.revisions[replay.index]?.revSeq}</span>
+      {replay.index < count - 1 ? (
+        <button
+          type="button"
+          className={styles.button}
+          onClick={() => void restoreReplayedVersion()}
+          aria-label={String(t('canvas.replayRestore'))}
+          title={`${String(t('canvas.replayRestore'))}. ${String(t('canvas.replayRestoreHint'))}`}
+          data-replay-restore=""
+        >
+          <Undo2 size={16} aria-hidden="true" />
+        </button>
+      ) : null}
       <button type="button" className={styles.button} onClick={() => setReplay(null)} aria-label={String(t('canvas.replayExit'))}><X size={16} aria-hidden="true" /></button>
     </span>
   );

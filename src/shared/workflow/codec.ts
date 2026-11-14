@@ -17,6 +17,19 @@ export const WORKFLOW_FORMAT_V04 = 0.4;
 
 export type WorkflowFormat = typeof WORKFLOW_FORMAT_V1 | typeof WORKFLOW_FORMAT_V04;
 
+/** The id counters of an empty format-1 workflow. */
+export function emptyWorkflowState(): Record<string, number> {
+  return { lastNodeId: 0, lastLinkId: 0, lastGroupId: 0, lastRerouteId: 0 };
+}
+
+/**
+ * The empty ComfyUI workflow every graph starts from: a fresh profile and File > New project alike. One shape,
+ * so the two cannot drift into different formats (subgraphs need format 1).
+ */
+export function emptyWorkflow(): Record<string, unknown> {
+  return { version: WORKFLOW_FORMAT_V1, state: emptyWorkflowState(), nodes: [], links: [], groups: [], config: {}, extra: {} };
+}
+
 export interface WorkflowDocumentState {
   formatVersion: WorkflowFormat;
   raw: Record<string, unknown>;

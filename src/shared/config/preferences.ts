@@ -156,6 +156,21 @@ export const preferencesSchema = z.object({
     checkUpdates: z.boolean().default(false),
   }).prefault({}),
   /**
+   * How the person left the window: the library tab and whether it is folded, the right panel's tab, width and
+   * whether it is folded, and the Models tab's kind, family and order. Per profile, never in a project file;
+   * restored after a reload and a restart. Absent fields keep the window's own defaults.
+   */
+  view: z.object({
+    railTab: z.enum(['nodes', 'models', 'subgraphs']).default('nodes'),
+    railOpen: z.boolean().optional(),
+    dockTab: z.string().regex(/^[a-z-]{1,30}$/).optional(),
+    dockWidth: z.number().int().min(200).max(4000).optional(),
+    dockCollapsed: z.boolean().optional(),
+    modelKind: z.string().regex(/^[a-z_-]{1,30}$/).default('all'),
+    modelFamily: z.string().regex(/^[a-z0-9_.-]{0,40}$/).default(''),
+    modelSort: z.string().regex(/^[a-z_-]{1,30}$/).default('name'),
+  }).prefault({}),
+  /**
    * Lessons (the helper's "Learn" mode). Where a person is in a lesson is read off the graph; kept here is only
    * what the graph cannot say: which lesson is open, which explaining steps were read, which lessons were done.
    */
@@ -182,7 +197,7 @@ export const preferencesDefaults: Preferences = preferencesSchema.parse({});
 
 const SECTIONS = Object.keys(preferencesDefaults) as PreferenceSection[];
 /** Fields without a default, so they are absent from preferencesDefaults but still kept when they parse. */
-const OPTIONAL_FIELDS: Partial<Record<PreferenceSection, string[]>> = { canvas: ['descriptions'] };
+const OPTIONAL_FIELDS: Partial<Record<PreferenceSection, string[]>> = { canvas: ['descriptions'], view: ['railOpen', 'dockTab', 'dockWidth', 'dockCollapsed'] };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
@@ -279,8 +294,14 @@ export function preferencesWriteError(input: unknown): string | null {
   return null;
 }
 
+/**
+ * True when two sets of preferences say the same. How the window was left (`view`: library tab, panel width) is
+ * not a setting: it changes while Settings is open and never makes its draft "changed".
+ */
 export function samePreferences(left: Preferences, right: Preferences): boolean {
-  return JSON.stringify(sortKeys(left)) === JSON.stringify(sortKeys(right));
+  const { view: _leftView, ...leftRest } = left;
+  const { view: _rightView, ...rightRest } = right;
+  return JSON.stringify(sortKeys(leftRest)) === JSON.stringify(sortKeys(rightRest));
 }
 
 function sortKeys(value: unknown): unknown {

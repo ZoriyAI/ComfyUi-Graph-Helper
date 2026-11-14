@@ -10,7 +10,14 @@ export interface ComponentRecord {
   ownerId: string;
   purpose: string;
   usage: string;
+  /**
+   * Who wrote the text last: the person (in Properties or a note) or the helper (its describe tool). Absent on
+   * records written before it was kept; those were typed by the person, as the helper's tool came later.
+   */
+  author?: ComponentAuthor;
 }
+
+export type ComponentAuthor = 'user' | 'assistant';
 
 export interface ProcessMeta {
   title: string;
@@ -61,6 +68,7 @@ export function readComponent(value: unknown): ComponentRecord | null {
     ownerId: record.ownerId,
     purpose: record.purpose,
     usage: record.usage,
+    ...(record.author === 'user' || record.author === 'assistant' ? { author: record.author } : {}),
   };
 }
 

@@ -31,8 +31,11 @@ export interface DescriptionSources {
   shared?: Explanation[];
   /** The catalog description of the class (object_info). */
   catalog?: string | null;
-  /** The component record purpose written for the node. */
-  purpose?: string | null;
+  /**
+   * The component record purpose written for the node: the text alone (the person wrote it) or with its author,
+   * when the helper wrote it.
+   */
+  purpose?: string | { text: string; author?: 'user' | 'assistant' } | null;
 }
 
 function newest(list: Explanation[], aspect: 'what' | 'why'): Explanation | undefined {
@@ -59,15 +62,18 @@ function fromExplanations(list: Explanation[] | undefined, scope: 'node' | 'node
  * 1. explanations owned by the node (newest "what", then newest "why"),
  * 2. explanations owned by the node's class (same rule),
  * 3. the catalog description of the class (a fact from object_info),
- * 4. the component record purpose (project documentation; its author is not recorded, so it reads as an inference).
+ * 4. the component record purpose (project documentation): badged as the person's own text, or as the helper's
+ *    inference when the helper wrote it; never as a guess when the person typed it.
  * Returns null when nothing is known, and the canvas shows no card for the node.
  */
 export function selectDescription(sources: DescriptionSources, options: { preferOwn?: boolean } = {}): DescriptionContent | null {
   const own = fromExplanations(sources.own, 'node');
   if (own) return own;
-  const purpose = sources.purpose?.trim();
+  const written = typeof sources.purpose === 'string' ? { text: sources.purpose } : sources.purpose ?? null;
+  const purpose = written?.text.trim();
+  const provenance = written && 'author' in written && written.author === 'assistant' ? 'inference' : 'user';
   const component: DescriptionContent | null = purpose
-    ? { scope: 'component', primary: { text: purpose, provenance: 'inference', aspect: 'what' }, why: null, explained: false }
+    ? { scope: 'component', primary: { text: purpose, provenance, aspect: 'what' }, why: null, explained: false }
     : null;
   // In "own" mode what the project wrote for this node (its component purpose) speaks before class knowledge,
   // so the card that is always on shows the node's own text and does not change on hover.

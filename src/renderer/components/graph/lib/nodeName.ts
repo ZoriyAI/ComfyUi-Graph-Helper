@@ -1,4 +1,5 @@
 import { useGraphStore } from '../../../state/graphState';
+import { classTitleOf } from './classTitles';
 
 /**
  * The name a person reads for a node: its own title; for a subgraph without one, the subgraph's name; else the
@@ -21,10 +22,15 @@ export function hasOwnTitle(data: NamedNodeData | undefined): boolean {
   return data.title !== data.comfyType && data.title !== data.subgraphId;
 }
 
-/** `classTitle` is the catalog's readable name for the class ("Load Checkpoint"), when the caller has it. */
+/**
+ * `classTitle` is the catalog's readable name for the class ("Load Checkpoint"), when the caller has it; else the
+ * name the catalog gave the class (classTitles.ts). A node whose title is only its class (a workflow from ComfyUI
+ * stores no title for a node nobody renamed) is named by that readable name, as the library names it; the export
+ * still writes no title for it.
+ */
 export function nodeDisplayName(data: NamedNodeData | undefined, classTitle?: string): string {
   if (!data) return '';
   const subgraph = subgraphNameOf(data);
-  if (subgraph && !hasOwnTitle(data)) return subgraph;
-  return String(data.title || subgraph || classTitle || data.comfyType || '');
+  if (hasOwnTitle(data)) return String(data.title);
+  return String(subgraph || classTitle || classTitleOf(data.comfyType) || data.title || data.comfyType || '');
 }

@@ -1,50 +1,37 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { cancelReplacement, confirmReplacement, importWorkflowFile, openProjectFile } from '../../src/renderer/commands/actions';
-import { useProjectionStore } from '../../src/renderer/services/commands/projection';
+import { importWorkflowFile, importWorkflowNow, openProjectFile } from '../../src/renderer/commands/actions';
 import { useGraphStore } from '../../src/renderer/state/graphState';
 import { useUiStore } from '../../src/renderer/state/uiState';
-import { DESKTOP_PROJECT_ID } from '../../src/shared/project';
 
 const importWorkflow = vi.fn(async () => ({ status: 'cancelled' as const }));
 const openProject = vi.fn(async () => ({ status: 'cancelled' as const }));
-
-function reset(savedRevSeq: number, savedToFile: boolean): void {
-  useProjectionStore.setState({ projectId: DESKTOP_PROJECT_ID, revSeq: 2, currentRevisionId: 'rev-2', activeRun: null, graphKey: '' });
-  useUiStore.setState({ savedRevSeq, savedToFile, dialog: null });
-  useGraphStore.setState({
-    nodes: [{ id: '1', type: 'comfy', position: { x: 0, y: 0 }, data: { comfyType: 'KSampler', inputs: [], outputs: [], parameters: {} } }],
-    edges: [],
-  });
-}
+const projectFileState = vi.fn(async () => ({ dirty: true, empty: false, graphKey: 'g', filePath: null, fileName: null, title: '' }));
 
 describe('unsaved graph replacement guard', () => {
   beforeEach(() => {
-    importWorkflow.mockClear();
-    openProject.mockClear();
-    vi.stubGlobal('window', { electronAPI: { importWorkflow, openProject } });
-    reset(1, false);
+    vi.clearAllMocks();
+    vi.stubGlobal('window', { electronAPI: { importWorkflow, openProject, projectFileState } });
+    useUiStore.setState({ dialog: null });
+    useGraphStore.setState({ nodes: [], edges: [] });
+    projectFileState.mockResolvedValue({ dirty: true, empty: false, graphKey: 'g', filePath: null, fileName: null, title: '' });
   });
-
-  it('waits for confirmation before importing over unsaved work', async () => {
-    importWorkflowFile();
-    expect(useUiStore.getState().dialog).toBe('replace-project');
+  it('waits for confirmation even after deleting the last root node', async () => {
+    await importWorkflowFile();
+    expect(useUiStore.getState()).toMatchObject({ dialog: 'new-project', replaceIntent: 'import-workflow' });
     expect(importWorkflow).not.toHaveBeenCalled();
-    await confirmReplacement();
+    await importWorkflowNow();
     expect(importWorkflow).toHaveBeenCalledTimes(1);
     expect(useUiStore.getState().dialog).toBeNull();
   });
-
-  it('cancels project opening without touching the file dialog', () => {
-    openProjectFile();
-    expect(useUiStore.getState().dialog).toBe('replace-project');
-    cancelReplacement();
-    expect(useUiStore.getState().dialog).toBeNull();
+  it('cancels opening without touching the file dialog', async () => {
+    await openProjectFile();
+    expect(useUiStore.getState()).toMatchObject({ dialog: 'new-project', replaceIntent: 'open-project' });
+    useUiStore.getState().setDialog(null);
     expect(openProject).not.toHaveBeenCalled();
   });
-
-  it('opens directly when the current graph is saved', () => {
-    reset(2, true);
-    importWorkflowFile();
+  it.each([false, true])('opens directly when authoritative dirty is false (empty=%s)', async (empty) => {
+    projectFileState.mockResolvedValue({ dirty: false, empty, graphKey: 'g', filePath: null, fileName: null, title: '' });
+    await importWorkflowFile();
     expect(useUiStore.getState().dialog).toBeNull();
     expect(importWorkflow).toHaveBeenCalledTimes(1);
   });

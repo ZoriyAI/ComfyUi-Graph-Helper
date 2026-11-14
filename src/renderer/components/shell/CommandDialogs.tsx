@@ -5,7 +5,7 @@ import Button from '../../ui/Button';
 import Shortcut from '../../ui/Shortcut';
 import { cx } from '../../ui/cx';
 import { allCommands, type CommandGroup } from '../../commands/registry';
-import { cancelReplacement, confirmReplacement, exportWorkflowNow, saveProjectFile, startNewProject } from '../../commands/actions';
+import { exportWorkflowNow, importWorkflowNow, openProjectNow, saveProjectFile, startNewProject } from '../../commands/actions';
 import { secretFieldLabel, useSecretGuardStore } from '../../commands/secretGuard';
 import { useKnowledgeStore } from '../../state/knowledgeState';
 import { useDockStore } from '../../state/dockState';
@@ -54,7 +54,10 @@ function ShortcutsDialog({ open, onOpenChange }: { open: boolean; onOpenChange: 
                           {t(command.labelKey)}
                           {command.shortcutDisplayOnly ? <span className={styles.note}> · {t('shortcuts.deleteNote')}</span> : null}
                         </dt>
-                        <dd><Shortcut shortcut={command.shortcut ?? ''} /></dd>
+                        <dd className={command.altShortcuts?.length ? styles.keys : undefined}>
+                          <Shortcut shortcut={command.shortcut ?? ''} />
+                          {(command.altShortcuts ?? []).map((shortcut) => <Shortcut key={shortcut} shortcut={shortcut} />)}
+                        </dd>
                       </div>
                     ))}
                     {extra.map((item) => (
@@ -160,47 +163,35 @@ function HelpReaderDialog({ page, onOpenChange }: { page: keyof typeof HELP_PAGE
   );
 }
 
-/** File ▸ New project with unsaved changes: say what happens before clearing the canvas. */
+/** The words and the action of the replace dialog, by what replaces the graph. */
+const REPLACE_COPY = {
+  'new-project': { title: 'menu.newProjectTitle', body: 'menu.newProjectBody', confirm: 'menu.newProjectConfirm', run: startNewProject },
+  'open-project': { title: 'menu.openProjectTitle', body: 'menu.openProjectBody', confirm: 'menu.openProjectConfirm', run: openProjectNow },
+  'import-workflow': { title: 'menu.openWorkflowTitle', body: 'menu.openWorkflowBody', confirm: 'menu.openWorkflowConfirm', run: importWorkflowNow },
+} as const;
+
+/**
+ * File ▸ New project, Open project or Open workflow while the graph on screen is in no project file as it stands:
+ * say what happens before the canvas takes another graph.
+ */
 function NewProjectDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const { t } = useTranslation();
+  const intent = useUiStore((state) => state.replaceIntent);
+  const copy = REPLACE_COPY[intent];
   return (
     <DialogRoot open={open} onOpenChange={onOpenChange}>
       <DialogPortal>
         <DialogOverlay />
         <DialogContent className={cx(styles.dialog, 'new-project-dialog')} aria-describedby="new-project-lead">
           <header className={styles.header}>
-            <DialogTitle className={styles.title}>{t('menu.newProjectTitle')}</DialogTitle>
-            <DialogDescription id="new-project-lead" className={styles.lead}>{t('menu.newProjectBody')}</DialogDescription>
+            <DialogTitle className={styles.title}>{t(copy.title)}</DialogTitle>
+            <DialogDescription id="new-project-lead" className={styles.lead}>{t(copy.body)}</DialogDescription>
           </header>
           <footer className={styles.footer}>
             <DialogClose asChild>
               <Button variant="subtle" size="sm">{t('menu.cancel')}</Button>
             </DialogClose>
-            <Button variant="primary" size="sm" onClick={() => void startNewProject()}>{t('menu.newProjectConfirm')}</Button>
-          </footer>
-        </DialogContent>
-      </DialogPortal>
-    </DialogRoot>
-  );
-}
-
-/** Opening another project or workflow with unsaved work: the current graph is replaced only after confirmation. */
-function ReplaceProjectDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
-  const { t } = useTranslation();
-  return (
-    <DialogRoot open={open} onOpenChange={(next) => { if (!next) cancelReplacement(); onOpenChange(next); }}>
-      <DialogPortal>
-        <DialogOverlay />
-        <DialogContent className={cx(styles.dialog, 'replace-project-dialog')} aria-describedby="replace-project-lead">
-          <header className={styles.header}>
-            <DialogTitle className={styles.title}>{t('menu.replaceProjectTitle')}</DialogTitle>
-            <DialogDescription id="replace-project-lead" className={styles.lead}>{t('menu.replaceProjectBody')}</DialogDescription>
-          </header>
-          <footer className={styles.footer}>
-            <DialogClose asChild>
-              <Button variant="subtle" size="sm">{t('menu.cancel')}</Button>
-            </DialogClose>
-            <Button variant="primary" size="sm" onClick={() => void confirmReplacement()}>{t('menu.replaceProjectConfirm')}</Button>
+            <Button variant="primary" size="sm" onClick={() => void copy.run()}>{t(copy.confirm)}</Button>
           </footer>
         </DialogContent>
       </DialogPortal>
@@ -322,7 +313,6 @@ export default function CommandDialogs() {
       <AboutDialog open={dialog === 'about'} onOpenChange={close} />
       <HelpReaderDialog page={dialog === 'help-guide' || dialog === 'help-troubleshooting' || dialog === 'help-whatsnew' ? dialog : null} onOpenChange={close} />
       <NewProjectDialog open={dialog === 'new-project'} onOpenChange={close} />
-      <ReplaceProjectDialog open={dialog === 'replace-project'} onOpenChange={close} />
       <ExportGuardDialog open={dialog === 'export-guard'} onOpenChange={close} />
       <SecretGuardDialog />
     </>

@@ -19,6 +19,7 @@ import { parseTurnNotice, type ChatMessage, type ToolCall, type TurnCheckpoint, 
 import { i18n } from '../../i18n';
 import { applyProjection } from '../commands/projection';
 import { showToast } from '../../ui/toastStore';
+import { closeReplayForBuild } from '../../commands/replayGate';
 import {
   asObjectRef,
   chatRecordFromMessage,
@@ -205,6 +206,9 @@ export class ChatService {
       return;
     }
     const turn = completeContext(context);
+    // A build changes the real graph; History replay shows an old version read-only. The replay closes first, so
+    // the person sees what the helper builds and nothing changes behind the replay.
+    if (turn.intent === 'build') closeReplayForBuild();
     const token = ++this.turnToken;
     const current = () => token === this.turnToken;
 

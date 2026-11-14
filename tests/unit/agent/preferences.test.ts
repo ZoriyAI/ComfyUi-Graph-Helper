@@ -169,6 +169,10 @@ describe('agent turn reads preferences from the settings row', () => {
       manual('inner', { type: 'edit-in-subgraph', definitionId: INNER_ID, edit: {
         type: 'set-parameter', nodeId: '1', key: 'text', value: 'private nested illustration', widgetIndex: 0,
       } });
+      manual('batch-private', { type: 'batch', label: 'move', edits: [
+        { type: 'set-parameter', nodeId, key: 'batch_text', value: 'private batch landscape', widgetIndex: 1 },
+        { type: 'set-parameter', nodeId, key: 'batch_number', value: 873619245, widgetIndex: 0 },
+      ] });
       const saved = saveSettings(db, {
         theme: 'graphite', motion: 'system', provider: 'test', model: 'test-fixture', baseURL: '', comfyOrigin: '', mcpUrl: '', language: 'en',
         preferences: { privacy: { sendFieldValues } },
@@ -188,6 +192,8 @@ describe('agent turn reads preferences from the settings row', () => {
       } else {
         expect(sent).not.toContain('private orchid beside a window');
         expect(sent).not.toContain('918273645');
+        expect(sent).not.toContain('private batch landscape');
+        expect(sent).not.toContain('873619245');
       }
     } finally {
       db.close();

@@ -32,3 +32,7 @@
 .titleInput:focus-visible {
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--canvas-group) 45%, transparent);
 }
+
+/* The title is the group's handle: drag it to move the group with everything in it. */
+.titleMovable { cursor: grab; touch-action: none; }
+.titleMovable:active { cursor: grabbing; }

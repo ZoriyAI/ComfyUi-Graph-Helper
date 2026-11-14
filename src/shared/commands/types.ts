@@ -56,7 +56,21 @@ export const collapseNodeMutation = z.object({
 });
 // ── end import look ────────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Several edits as one revision (one undo step): a multi-node delete, paste, duplicate, cut, a nudge of several nodes.
+ * `edits` are other mutations, checked one by one when applied (no nested batch, no restore, no import). A string
+ * "@k" in source, target or nodeId stands for the node the k-th edit added (pasted nodes and their links).
+ */
+export const BATCH_LABELS = ['delete', 'paste', 'duplicate', 'cut', 'move', 'add-linked'] as const;
+export const BATCH_MAX = 2000;
+export const batchMutation = z.object({
+  type: z.literal('batch'),
+  label: z.enum(BATCH_LABELS),
+  edits: z.array(z.record(z.string(), z.unknown())).min(1).max(BATCH_MAX),
+});
+
 export const mutationSchema = z.discriminatedUnion('type', [
+  batchMutation,
   z.object({
     type: z.literal('add-node'),
     nodeType: z.string().min(1),

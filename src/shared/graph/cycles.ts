@@ -1,4 +1,4 @@
-import { alg, Graph } from 'graphlib';
+import { alg, Graph } from '@dagrejs/graphlib';
 
 export interface CycleEdge {
   source: string;
@@ -20,7 +20,7 @@ export function createsCycle(edges: readonly CycleEdge[], source: string, target
   return reached[source]?.distance < Number.POSITIVE_INFINITY;
 }
 
-/** Every directed cycle in the graph, as arrays of node ids. */
+/** Cyclic strongly connected components, as participating node ids (not traversal order). */
 export function graphCycles(nodes: readonly string[], edges: readonly CycleEdge[]): string[][] {
   return alg.findCycles(directedGraph(edges, nodes));
 }

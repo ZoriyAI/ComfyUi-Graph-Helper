@@ -21,6 +21,8 @@ export function nativeProjectFile(db: Database.Database, projectId: string) {
         document: snapshot.document,
       },
       components: snapshot.components ?? [],
+      subgraphs: snapshot.subgraphs ?? [],
+      groups: snapshot.groups ?? [],
       // Explanations of this graph's objects travel with the project (knowledge/projectExplanations.ts).
       // What the opened file carried that this version does not use goes back out unchanged.
       extensions: { ...snapshot.projectExtras?.extensions, [EXPLANATIONS_EXTENSION]: explanationsExtension(db, projectId, snapshot) },

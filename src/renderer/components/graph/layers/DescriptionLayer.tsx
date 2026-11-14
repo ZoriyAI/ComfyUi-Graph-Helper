@@ -202,7 +202,7 @@ interface CardProps {
   node: ComfyFlowNode;
   spotlight: DescriptionSpotlight | null;
   readOnly: boolean;
-  purpose: string | undefined;
+  purpose: string | { text: string; author: 'assistant' } | undefined;
   mode: DescriptionsMode;
   /** Selected, and the only selected node: selection expands its card. */
   selected: boolean;
@@ -598,8 +598,9 @@ export default function DescriptionLayer() {
   const components = useGraphStore((state) => state.components);
   // One lookup table for every card instead of a scan of all records per card.
   const purposes = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const item of components) if (item.ownerKind === 'node' && !map.has(item.ownerId)) map.set(item.ownerId, item.purpose);
+    const map = new Map<string, string | { text: string; author: 'assistant' }>();
+    // The helper's text keeps its author so the card badges it as the helper's; the person's is the plain text.
+    for (const item of components) if (item.ownerKind === 'node' && !map.has(item.ownerId)) map.set(item.ownerId, item.author === 'assistant' ? { text: item.purpose, author: 'assistant' } : item.purpose);
     return map;
   }, [components]);
   const selectedIds = useMemo(() => nodes.filter((node) => node.selected).map((node) => node.id), [nodes]);

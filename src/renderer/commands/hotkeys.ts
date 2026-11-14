@@ -2,7 +2,7 @@ import { allCommands, runCommand, type Command } from './registry';
 import { detectPlatform, matchesShortcut, type KeyLike, type Platform } from './shortcuts';
 
 /** Shortcuts that still work while typing in a field or inside an open menu or dialog. */
-export const GLOBAL_SHORTCUTS = new Set(['Escape', 'Mod+S', 'Mod+O', 'Mod+N', 'Mod+Shift+C']);
+export const GLOBAL_SHORTCUTS = new Set(['Escape', 'Mod+S', 'Mod+Shift+S', 'Mod+O', 'Mod+N', 'Mod+Shift+C']);
 
 export interface FocusContext {
   /** Focus is in an input, textarea, select or contenteditable element. */
@@ -38,9 +38,10 @@ export function shortcutAllowed(shortcut: string, context: FocusContext): boolea
 /** The enabled command whose shortcut this key event is, if any may run here. */
 export function commandForKey(event: KeyLike, context: FocusContext, commands: Command[], platform: Platform): Command | null {
   for (const command of commands) {
-    if (!command.shortcut || command.shortcutDisplayOnly) continue;
-    if (!matchesShortcut(event, command.shortcut, platform)) continue;
-    if (!shortcutAllowed(command.shortcut, context)) return null;
+    const keys = [...(command.shortcut && !command.shortcutDisplayOnly ? [command.shortcut] : []), ...(command.altShortcuts ?? [])];
+    const shortcut = keys.find((key) => matchesShortcut(event, key, platform));
+    if (!shortcut) continue;
+    if (!shortcutAllowed(shortcut, context)) return null;
     let enabled = false;
     try {
       enabled = command.enabled();

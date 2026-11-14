@@ -124,19 +124,27 @@ interface CanvasState {
   /** The canvas camera and size, for the agent's turn context. */
   viewport: AgentViewport | null;
   /** A request to centre a node (the chat's "Show"); the nonce makes a repeat request count. */
-  centerRequest: { nodeId: string; nonce: number } | null;
+  centerRequest: { nodeId: string; nonce: number; subgraphId?: string } | null;
   /** Manual commits in flight; their projections do not start a build reveal. */
   manualInFlight: number;
   replay: ReplayState | null;
   /** Add-node search: open, and where the node goes (flow coordinates) when picked. */
   /** `query` is typed into the search as it opens (a lesson asking for a node by name). */
-  addSearch: { open: boolean; at: { x: number; y: number } | null; query?: string };
+  /**
+   * The add-node search. `linkFrom`: a link was dropped on empty canvas from this port; the search lists the nodes
+   * that can take it, and the chosen one is connected.
+   */
+  addSearch: { open: boolean; at: { x: number; y: number } | null; query?: string; linkFrom?: ConnectFrom };
   /** Description cards under the nodes: own / all / off (remembered in Preferences ▸ Canvas). */
   descriptionsMode: DescriptionsMode;
   /** True unless the mode is off (the toolbar button's pressed state; kept for older readers). */
   descriptionsOn: boolean;
   /** The minimap in the canvas corner (remembered in Preferences ▸ Canvas). */
   minimapOn: boolean;
+  /** View ▸ Pin nodes: nodes cannot be dragged (fields, links and the view still work). A chip says so while on. */
+  nodesPinned: boolean;
+  /** A link being dragged from a port: compatible ports glow and the rest dim while it lasts. */
+  linkDrag: ConnectFrom | null;
   /** Nodes whose card the person closed; a dot on the node brings it back. */
   hiddenDescriptions: Record<string, true>;
   /** Nodes whose card is expanded. */
@@ -164,12 +172,12 @@ interface CanvasState {
   clearFading: (ids: string[]) => void;
   setCallout: (callout: BuildCallout | null) => void;
   setViewport: (viewport: AgentViewport) => void;
-  requestCenter: (nodeId: string) => void;
+  requestCenter: (nodeId: string, subgraphId?: string) => void;
   beginManual: () => void;
   endManual: () => void;
   setReplay: (replay: ReplayState | null) => void;
   patchReplay: (patch: Partial<ReplayState>) => void;
-  openAddSearch: (at: { x: number; y: number } | null, query?: string) => void;
+  openAddSearch: (at: { x: number; y: number } | null, query?: string, linkFrom?: ConnectFrom) => void;
   closeAddSearch: () => void;
   setDescriptionsOn: (on: boolean) => void;
   setDescriptionsMode: (mode: DescriptionsMode) => void;
@@ -181,6 +189,8 @@ interface CanvasState {
   /** Forget the person's collapse of cards whose node is no longer selected. */
   keepCollapsed: (selected: string[]) => void;
   setMinimapOn: (on: boolean) => void;
+  setNodesPinned: (on: boolean) => void;
+  setLinkDrag: (from: ConnectFrom | null) => void;
   hideDescription: (nodeId: string) => void;
   showDescription: (nodeId: string) => void;
   setDescriptionExpanded: (nodeId: string, expanded: boolean) => void;
@@ -218,6 +228,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   descriptionsMode: 'own',
   descriptionsOn: true,
   minimapOn: true,
+  nodesPinned: false,
+  linkDrag: null,
   hiddenDescriptions: {},
   expandedDescriptions: {},
   collapsedDescriptions: {},
@@ -252,12 +264,12 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       ? {}
       : { viewport }
   )),
-  requestCenter: (nodeId) => set((state) => ({ centerRequest: { nodeId, nonce: (state.centerRequest?.nonce ?? 0) + 1 } })),
+  requestCenter: (nodeId, subgraphId) => set((state) => ({ centerRequest: { nodeId, subgraphId, nonce: (state.centerRequest?.nonce ?? 0) + 1 } })),
   beginManual: () => set((state) => ({ manualInFlight: state.manualInFlight + 1 })),
   endManual: () => set((state) => ({ manualInFlight: Math.max(0, state.manualInFlight - 1) })),
   setReplay: (replay) => set({ replay }),
   patchReplay: (patch) => set((state) => (state.replay ? { replay: { ...state.replay, ...patch } } : {})),
-  openAddSearch: (at, query) => set({ addSearch: { open: true, at, ...(query ? { query } : {}) } }),
+  openAddSearch: (at, query, linkFrom) => set({ addSearch: { open: true, at, ...(query ? { query } : {}), ...(linkFrom ? { linkFrom } : {}) } }),
   closeAddSearch: () => set({ addSearch: { open: false, at: null } }),
   setDescriptionsOn: (on) => {
     const current = get().descriptionsMode;
@@ -281,6 +293,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     const kept = Object.keys(state.collapsedDescriptions).filter((key) => keys.includes(key));
     return kept.length === Object.keys(state.collapsedDescriptions).length ? {} : { collapsedDescriptions: withIds({}, kept) };
   }),
+  setNodesPinned: (nodesPinned) => set({ nodesPinned }),
+  setLinkDrag: (linkDrag) => set({ linkDrag }),
   setMinimapOn: (minimapOn) => {
     set({ minimapOn });
     remember({ showMinimap: minimapOn });

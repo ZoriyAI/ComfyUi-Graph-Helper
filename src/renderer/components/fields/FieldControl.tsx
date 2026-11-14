@@ -14,6 +14,7 @@ import {
   isSeedField,
   isUnset,
   randomSeed,
+  readTypedNumber,
   SEARCH_THRESHOLD,
   stepValue,
   type ControlKind,
@@ -234,14 +235,28 @@ function ComboControl({ nodeId, name, value, spec, variant, disabled, labelledBy
   );
 }
 
+/** How long the note under a corrected number stays. */
+const NOTE_MS = 4000;
+
 function NumberControl({ name, value, spec, variant, disabled, labelledBy, onCommit, kind }: FieldControlProps & { kind: 'int' | 'float' }) {
   const { t } = useTranslation();
   const [draft, setDraft] = useState(displayValue(value));
   const [editing, setEditing] = useState(false);
+  // Why the field shows something else than was typed (raised, lowered, rounded, not a number), for a moment.
+  const [note, setNote] = useState<string | null>(null);
+  const noteTimer = useRef<number | null>(null);
   const cancelled = useRef(false);
   useEffect(() => {
     if (!editing) setDraft(displayValue(value));
   }, [value, editing]);
+  useEffect(() => () => {
+    if (noteTimer.current !== null) window.clearTimeout(noteTimer.current);
+  }, []);
+  const say = (text: string | null) => {
+    if (noteTimer.current !== null) window.clearTimeout(noteTimer.current);
+    setNote(text);
+    noteTimer.current = text ? window.setTimeout(() => setNote(null), NOTE_MS) : null;
+  };
   const unset = isUnset(value);
   const commit = (raw: string) => {
     setEditing(false);
@@ -249,16 +264,14 @@ function NumberControl({ name, value, spec, variant, disabled, labelledBy, onCom
       cancelled.current = false;
       return;
     }
-    const trimmed = raw.trim().replace(',', '.');
-    if (trimmed === '') {
+    const typed = readTypedNumber(raw, spec, kind);
+    if (typed.kind !== 'value') {
       setDraft(displayValue(value));
+      say(typed.kind === 'refused' ? String(t('field.notNumber', { value: unset ? String(t('field.unset')) : displayValue(value) })) : null);
       return;
     }
-    const next = clampToSpec(Number(trimmed), spec, kind);
-    if (next === null) {
-      setDraft(displayValue(value));
-      return;
-    }
+    const next = typed.value;
+    say(typed.note ? String(t(typed.note.key, typed.note.values)) : null);
     setDraft(String(next));
     if (next !== value) onCommit(next);
   };
@@ -278,6 +291,8 @@ function NumberControl({ name, value, spec, variant, disabled, labelledBy, onCom
         </button>
         <input
           className={styles.number}
+          // A long value (a seed) that does not fit ends in "…" on the node; the whole value is in the tooltip.
+          title={draft || undefined}
           type="text"
           inputMode={kind === 'int' ? 'numeric' : 'decimal'}
           role="spinbutton"
@@ -310,6 +325,7 @@ function NumberControl({ name, value, spec, variant, disabled, labelledBy, onCom
           <Plus size={compact ? 11 : 14} aria-hidden="true" />
         </button>
       </div>
+      {note ? <span className={cx(styles.correction, compact && styles.correctionCompact)} role="status" data-field-note="">{note}</span> : null}
       {seed ? (
         <button
           type="button"

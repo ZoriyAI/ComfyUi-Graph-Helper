@@ -18,10 +18,14 @@ import { levelEdges, levelNodes, selectOnLevel } from '../components/graph/lib/l
 import type { GraphNode } from '../types/graph';
 import type { NonSecretSettings } from '../../shared/config/schema';
 import type { Translator } from '../../shared/i18n';
+import { emptyWorkflow } from '../../shared/workflow/codec';
 import { SETTINGS_CHANGED } from './events';
 import { nodeDisplayName } from '../components/graph/lib/nodeName';
 import { afterWorkflowOpened } from '../components/graph/importLook';
-import { removeSelection } from '../components/graph/selectionEditing';
+import { graphIsDirty, refreshProjectFile } from '../services/projectFile';
+import { trackCommit } from '../services/commands/pending';
+import { commitEdits } from '../components/graph/lib/editBatch';
+import { runSyncNow } from '../components/sync/SyncIndicator';
 
 export { SETTINGS_CHANGED };
 
@@ -32,11 +36,7 @@ export { SETTINGS_CHANGED };
 const translate: Translator = (key, options) => (options ? String(i18n.t(key, options)) : String(i18n.t(key)));
 
 export function notify(note: WorkflowNote): void {
-  showToast(describeNote(note, translate));
-}
-
-function markCurrentSaved(toFile: boolean): void {
-  useUiStore.getState().markSaved(useProjectionStore.getState().revSeq, toFile);
+  showToast(describeNote(note, translate, { openCheck: checkGraph, syncNow: () => void runSyncNow() }));
 }
 
 function rejectedReason(result: unknown, fallback: string): string {
@@ -45,39 +45,27 @@ function rejectedReason(result: unknown, fallback: string): string {
 
 // ── File ─────────────────────────────────────────────────────────────────────────────────────────────
 
-let pendingReplacement: (() => Promise<void>) | null = null;
-
-function hasUnsavedWork(): boolean {
-  const ui = useUiStore.getState();
-  const projection = useProjectionStore.getState();
-  if (useGraphStore.getState().nodes.length === 0) return false;
-  const dirty = ui.savedRevSeq !== null && projection.revSeq !== ui.savedRevSeq;
-  return dirty || !ui.savedToFile;
+/**
+ * True when the graph on screen would be lost from the canvas by replacing it and is not in a project file as it
+ * stands (main/projectFiles.ts). Pristine New projects do not ask.
+ */
+async function replacingNeedsAsk(): Promise<boolean> {
+  const state = await refreshProjectFile();
+  return state ? state.dirty : graphIsDirty();
 }
 
-function requestReplacement(action: () => Promise<void>): void {
-  if (!hasUnsavedWork()) {
-    void action();
+/** File ▸ Open workflow: asks first when the graph on screen is not in a project file as it stands. */
+export async function importWorkflowFile(): Promise<void> {
+  if (await replacingNeedsAsk()) {
+    useUiStore.getState().askReplace('import-workflow');
     return;
   }
-  pendingReplacement = action;
-  useUiStore.getState().setDialog('replace-project');
+  await importWorkflowNow();
 }
 
-export async function confirmReplacement(): Promise<void> {
-  const action = pendingReplacement;
-  pendingReplacement = null;
+export async function importWorkflowNow(): Promise<void> {
   useUiStore.getState().setDialog(null);
-  if (action) await action();
-}
-
-export function cancelReplacement(): void {
-  pendingReplacement = null;
-  useUiStore.getState().setDialog(null);
-}
-
-async function performImportWorkflowFile(): Promise<void> {
-  const result = await window.electronAPI.importWorkflow();
+  const result = await trackCommit(() => window.electronAPI.importWorkflow());
   if (!result || result.status === 'cancelled') return;
   // Once drawn: nodes that cover each other move apart, and the camera takes the file's own view.
   if (result.status === 'applied') afterWorkflowOpened();
@@ -93,12 +81,11 @@ async function performImportWorkflowFile(): Promise<void> {
     missingNodes: report.missingNodes ?? [],
     missingModels: (report.missingModels ?? []).map((model) => `${model.directory}/${model.name}`),
     shown: report.shownDifferently,
+    // With no node list read yet every class would look missing; the toast says so and offers to sync instead.
+    catalogNotRead: (useKnowledgeStore.getState().sync?.counts.nodeClasses ?? 0) === 0,
   });
 }
 
-export function importWorkflowFile(): void {
-  requestReplacement(performImportWorkflowFile);
-}
 
 export async function importCatalogSnapshot(): Promise<void> {
   const result = await window.electronAPI.importCatalog();
@@ -151,59 +138,67 @@ export async function exportWorkflowNow(secrets?: 'omit' | 'keep'): Promise<void
     : { kind: 'exported' });
 }
 
-async function performOpenProjectFile(): Promise<void> {
-  const result = await window.electronAPI.openProject();
+/** File ▸ Open project: asks first when the graph on screen is not in a project file as it stands. */
+export async function openProjectFile(): Promise<void> {
+  if (await replacingNeedsAsk()) {
+    useUiStore.getState().askReplace('open-project');
+    return;
+  }
+  await openProjectNow();
+}
+
+export async function openProjectNow(): Promise<void> {
+  useUiStore.getState().setDialog(null);
+  const result = await trackCommit(() => window.electronAPI.openProject());
   if (!result || result.status === 'cancelled') return;
   if (result.projection) applyProjection(result.projection);
   if (result.status === 'rejected') {
     notify({ kind: 'error', code: rejectedReason(result.result, 'The native project file is not valid.') });
     return;
   }
-  markCurrentSaved(true);
+  await refreshProjectFile();
   notify({ kind: 'opened-project' });
 }
 
-export function openProjectFile(): void {
-  requestReplacement(performOpenProjectFile);
-}
+/** Whether the save the key check is asking about was a "Save as": the answer repeats it. */
+let saveAsPending = false;
 
-export async function saveProjectFile(secrets?: 'omit' | 'keep'): Promise<void> {
-  const result = await window.electronAPI.saveProjectFile(secrets);
+/**
+ * File ▸ Save project (Ctrl+S): into the project's own file without a question once it has one; the first time,
+ * and with `saveAs` (File ▸ Save project as…, Ctrl+Shift+S), the file dialog asks where, named after the title.
+ * Either way main checks for key-like values first; the person's answer (`secrets`) repeats the same save.
+ */
+export async function saveProjectFile(secrets?: 'omit' | 'keep', options: { saveAs?: boolean } = {}): Promise<void> {
+  const saveAs = secrets ? saveAsPending : Boolean(options.saveAs);
+  saveAsPending = saveAs;
+  const result = await window.electronAPI.saveProjectFile(secrets, { saveAs });
   if (!result.ok && result.secrets && result.secrets.length > 0) {
     useSecretGuardStore.getState().ask('project', result.secrets);
     return;
   }
   if (!result.ok && result.canceled) return;
-  if (result.ok) markCurrentSaved(true);
+  await refreshProjectFile();
   notify(result.ok ? { kind: 'saved-project' } : { kind: 'error', code: result.error || 'The project file could not be written.' });
 }
 
-/** An empty ComfyUI workflow: what File ▸ New starts from. Format 1 supports subgraphs immediately. */
-export const EMPTY_WORKFLOW = {
-  nodes: [],
-  links: [],
-  groups: [],
-  config: {},
-  extra: {},
-  version: 1,
-  state: { lastNodeId: 0, lastLinkId: 0, lastGroupId: 0, lastRerouteId: 0 },
-};
+export function saveProjectFileAs(): Promise<void> {
+  return saveProjectFile(undefined, { saveAs: true });
+}
+
+/** An empty ComfyUI workflow: what File ▸ New starts from. The same format 1 as a fresh profile. */
+export const EMPTY_WORKFLOW = emptyWorkflow();
 
 /**
  * Starts an empty project. It is a commit like any other, so the previous graph stays in the revision
  * history (Graph ▸ Replay). Asks first when the canvas holds a graph that is not in a project file as it stands:
  * changed since it was opened or saved, or brought back by the app at start and never saved by the person.
  */
-export function requestNewProject(): void {
-  const ui = useUiStore.getState();
-  const projection = useProjectionStore.getState();
-  const dirty = ui.savedRevSeq !== null && projection.revSeq !== ui.savedRevSeq;
-  const empty = useGraphStore.getState().nodes.length === 0;
-  if (!empty && (dirty || !ui.savedToFile)) {
-    ui.setDialog('new-project');
+export async function requestNewProject(): Promise<void> {
+  if (await replacingNeedsAsk()) {
+    useUiStore.getState().askReplace('new-project');
     return;
   }
-  void startNewProject();
+  await startNewProject();
 }
 
 export async function startNewProject(): Promise<void> {
@@ -212,7 +207,7 @@ export async function startNewProject(): Promise<void> {
   useUiStore.getState().stopTour();
   if (useGraphStore.getState().activeSubgraphId) useGraphStore.getState().exitSubgraph(0);
   await commitManual({ type: 'import-workflow', document: EMPTY_WORKFLOW }, 'new-project');
-  markCurrentSaved(false);
+  await refreshProjectFile();
 }
 
 // ── Graph ────────────────────────────────────────────────────────────────────────────────────────────
@@ -243,8 +238,13 @@ export function selectAllNodes(): void {
 /** Removes the selected nodes and links as one revision, so one undo restores the whole selection. */
 export async function deleteSelection(): Promise<void> {
   const nodes = selectedNodes().map((node) => node.id);
-  const edges = levelEdges().filter((edge) => edge.selected).map((edge) => edge.id);
-  await removeSelection(nodes, edges);
+  const removed = new Set(nodes);
+  const edges = levelEdges().filter((edge) => edge.selected && !removed.has(edge.source) && !removed.has(edge.target));
+  // One step: one undo brings every removed node and link back.
+  await commitEdits([
+    ...nodes.map((nodeId) => ({ type: 'remove-node' as const, nodeId })),
+    ...edges.map((edge) => ({ type: 'remove-edge' as const, edgeId: edge.id })),
+  ], 'delete');
 }
 
 export function createSubgraph(nodeIds: string[]): Promise<unknown> {

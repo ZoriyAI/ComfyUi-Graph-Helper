@@ -13,6 +13,7 @@ import { placeNewNode } from '../graph/placeNode';
 import { hasRefusalReason, reportRefusal, scopedToLevel } from '../graph/commit';
 import { subgraphCardSize } from '../graph/lib/nodeSizes';
 import { subgraphSummary } from '../graph/SubgraphSummary';
+import { replayIsOpen } from '../../commands/replayGate';
 import styles from './Library.module.css';
 
 /** The graph store carries `subgraphs`; read it defensively (an empty graph may not have it yet). */
@@ -31,6 +32,7 @@ export default function SubgraphLibrary() {
   const list = useMemo(() => insertableSubgraphs(subgraphs, query), [subgraphs, query]);
 
   const insert = async (definition: SubgraphDefinition) => {
+    if (replayIsOpen(true)) return;
     // The centre of the view, moved to the nearest spot where the new node covers nothing.
     const position = await placeNewNode(null, { size: subgraphCardSize(definition) });
     try {

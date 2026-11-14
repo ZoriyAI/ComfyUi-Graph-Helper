@@ -363,6 +363,10 @@ describe('knowledge repository: graph check', () => {
       brokenEdges: [],
       invalidParameters: [],
       promptNotes: [],
+      noOutputNode: null,
+      valuesOutOfRange: [],
+      valuesNotInList: [],
+      cycles: [],
     });
     expect(() => checkGraph(db, 'nope')).toThrow(/not found/);
     db.close();

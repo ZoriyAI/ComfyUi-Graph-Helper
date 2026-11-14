@@ -71,7 +71,7 @@ const ERROR_KEYS: Record<string, string> = {
   'The proposal kind does not match its payload.': 'proposals.errors.kind',
   'Proposal was not found.': 'proposals.errors.missing',
   'The request does not match the schema.': 'proposals.errors.request',
-  'Subgraphs need workflow format 1.': 'proposals.errors.subgraphFormat',
+  'Subgraphs need workflow format 1.': 'proposals.errors.subgraphOldFormat',
   'Node was not found.': 'proposals.errors.nodeMissing',
   'Revision was not found.': 'errors.revisionMissing',
   'A node is already inside a subgraph.': 'proposals.errors.nodeInside',

@@ -19,6 +19,8 @@ export interface Command {
   icon?: LucideIcon;
   /** 'Mod+S', 'Mod+Shift+Z', 'F1'. Mod is Ctrl on Linux and Windows, ⌘ on macOS. */
   shortcut?: string;
+  /** More keys that run the command, as people know them from other programs (Ctrl+Y for redo). Fixed; listed in Help. */
+  altShortcuts?: string[];
   /** Drawn in menus but matched elsewhere (React Flow owns Delete on the canvas). */
   shortcutDisplayOnly?: boolean;
   /** Set on the views getCommand/allCommands return when Preferences ▸ Shortcuts overrides `shortcut`. */

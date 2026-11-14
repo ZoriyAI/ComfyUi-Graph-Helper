@@ -3,6 +3,7 @@ import type Database from 'better-sqlite3';
 import { canonicalPayload } from '../../shared/commands/canonical';
 import {
   commandRequestSchema,
+  mutationSchema,
   type ActiveRun,
   type CommandRequest,
   type CommandResponse,
@@ -14,6 +15,7 @@ import { defaultParameters, widgetIndexFor } from '../../shared/catalog/objectIn
 import type { CatalogView } from '../../shared/catalog/types';
 import { ensureCatalog, readCatalog } from '../catalog/repository';
 import { portsCompatible } from '../../shared/graph/linkTypes';
+import { validEdgeEndpoints } from '../../shared/graph/structure';
 import { createsCycle } from '../../shared/graph/cycles';
 import { portsForClassType } from '../../shared/graph/ports';
 import {
@@ -340,10 +342,14 @@ function clipboardNode(raw: Record<string, unknown>, subgraphs: SubgraphDefiniti
   ) {
     throw new CommandSignal('rejected', { error: 'Clipboard data is not valid.' });
   }
-  if (node.data.kind === 'subgraph-instance') {
-    const definitionId = String(node.data.subgraphId ?? node.data.comfyType);
+  if (node.data.kind === 'subgraph-instance' || subgraphs.some((item) => item.id === node.data.comfyType)) {
+    // Class identity and the engine's registry decide nesting, never clipboard-supplied kind/destination flags.
+    const definitionId = String(node.data.comfyType);
+    if (node.data.subgraphId && node.data.subgraphId !== definitionId) throw new CommandSignal('rejected', { error: 'Clipboard data is not valid.' });
     const definition = subgraphs.find((item) => item.id === definitionId && !item.opaque);
     if (!definition) throw new CommandSignal('rejected', { error: 'The pasted subgraph definition was not found.' });
+    node.data.kind = 'subgraph-instance';
+    node.data.subgraphId = definitionId;
     if (destinationDefinitionId && nestsItself(subgraphs, destinationDefinitionId, definitionId)) {
       throw new CommandSignal('rejected', { error: 'A subgraph cannot contain itself.' });
     }
@@ -355,8 +361,9 @@ function pasteSelection(
   snapshot: Snapshot,
   payload: Extract<GraphMutation, { type: 'paste-selection' }>,
   catalog: CatalogView,
+  context?: { definitions: SubgraphDefinition[]; destinationId: string },
 ): { snapshot: Snapshot; result: Record<string, unknown> } {
-  const sourceNodes = payload.nodes.map((node) => clipboardNode(node, snapshot.subgraphs ?? [], payload.destinationDefinitionId));
+  const sourceNodes = payload.nodes.map((node) => clipboardNode(node, context?.definitions ?? snapshot.subgraphs ?? [], context?.destinationId));
   const sourceIds = new Set(sourceNodes.map((node) => String(node.id)));
   const sourceEdges = payload.edges.map((raw) => {
     const edge = structuredClone(raw) as Record<string, any>;
@@ -369,6 +376,9 @@ function pasteSelection(
     }
     return edge;
   });
+  if (sourceIds.size !== sourceNodes.length || sourceEdges.some((edge) => !validEdgeEndpoints(sourceNodes, edge))) {
+    throw new CommandSignal('rejected', { error: 'Clipboard connection endpoints are not valid.' });
+  }
   const hints = classHints(catalog);
   const bounds = boundsOfRects(sourceNodes.map((node) => nodeRectOf(node, hints)));
   if (!bounds) throw new CommandSignal('rejected', { error: 'Clipboard data is not valid.' });
@@ -425,17 +435,19 @@ function pasteSelection(
     const originSlot = numericSlot(source.sourceHandle);
     const targetSlot = numericSlot(source.targetHandle);
     if (originSlot === null || targetSlot === null) throw new CommandSignal('rejected', { error: 'Connection slots must be numbers.' });
+    const native = source.data?.comfyLink;
     const comfyLink = work.document?.formatVersion === 0.4
-      ? [linkId, originId, originSlot, targetIdValue, targetSlot, dataType]
-      : { id: linkId, origin_id: originId, origin_slot: originSlot, target_id: targetIdValue, target_slot: targetSlot, type: dataType };
+      ? Object.assign(Array.isArray(native) ? structuredClone(native) : [], [linkId, originId, originSlot, targetIdValue, targetSlot, dataType])
+      : { ...(native && !Array.isArray(native) ? structuredClone(native) : {}), id: linkId, origin_id: originId, origin_slot: originSlot, target_id: targetIdValue, target_slot: targetSlot, type: dataType };
     return {
+      ...source,
       id: `link-${linkId}`,
       source: sourceId,
       target: targetId,
       sourceHandle: source.sourceHandle,
       targetHandle: source.targetHandle,
       selected: false,
-      data: { dataType, linkId, comfyLink },
+      data: { ...source.data, dataType, linkId, comfyLink },
     };
   });
   work.nodes.push(...addedNodes);
@@ -450,7 +462,55 @@ function pasteSelection(
   };
 }
 
-function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutation, catalog: CatalogView): { snapshot: Snapshot; result: Record<string, unknown> } {
+function stampComponentAuthor(snapshot: Snapshot, payload: { ownerKind: string; ownerId: string }, author: 'user' | 'assistant'): void {
+  snapshot.components = (snapshot.components ?? []).map((record) => (
+    record.ownerKind === payload.ownerKind && record.ownerId === payload.ownerId ? { ...record, author } : record
+  ));
+}
+
+/** Edits a batch may not hold: they replace or rewind the whole graph, or nest. */
+const NOT_IN_BATCH = new Set(['batch', 'restore-revision', 'import-workflow', 'open-native']);
+
+/** "@k" in a batch edit: the node the k-th edit of the batch added. */
+function resolveRefs(edit: Record<string, unknown>, added: Array<string | null>): Record<string, unknown> {
+  const swap = (value: unknown) => {
+    if (typeof value !== 'string' || !/^@\d+$/.test(value)) return value;
+    const id = added[Number(value.slice(1))];
+    if (!id) throw new CommandSignal('rejected', { error: 'Node was not found.' });
+    return id;
+  };
+  const out: Record<string, unknown> = { ...edit };
+  for (const key of ['source', 'target', 'nodeId']) if (key in out) out[key] = swap(out[key]);
+  if (out.edit && typeof out.edit === 'object') out.edit = resolveRefs(out.edit as Record<string, unknown>, added);
+  return out;
+}
+
+/** The node an applied edit added, if it added one (add-node, insert-subgraph, the same inside a subgraph). */
+function addedNodeId(result: Record<string, unknown>): string | null {
+  if (typeof result.nodeId === 'string' && result.nodeId) return result.nodeId;
+  if (typeof result.nodeId === 'number') return String(result.nodeId);
+  if (typeof result.instanceId === 'string') return result.instanceId;
+  return null;
+}
+
+/** Applies a batch: each edit in turn on the graph the previous one left, all of it one revision. */
+function applyBatch(snapshot: Snapshot, actionId: string, edits: Array<Record<string, unknown>>, catalog: CatalogView): { snapshot: Snapshot; result: Record<string, unknown> } {
+  let current = snapshot;
+  const added: Array<string | null> = [];
+  const results: Array<Record<string, unknown>> = [];
+  edits.forEach((raw, index) => {
+    const parsed = mutationSchema.safeParse(resolveRefs(raw, added));
+    if (!parsed.success || NOT_IN_BATCH.has(parsed.data.type)) throw new CommandSignal('rejected', { error: 'A part of this change is not valid.' });
+    const applied = applyMutation(current, `${actionId}#${index}`, parsed.data, catalog);
+    current = { ...current, ...applied.snapshot };
+    results.push(applied.result);
+    added.push(addedNodeId(applied.result));
+  });
+  return { snapshot: current, result: { results, nodeIds: results.flatMap((result, index) => Array.isArray(result.nodeIds) ? result.nodeIds.map(String) : added[index] ? [added[index]!] : []) } };
+}
+
+function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutation, catalog: CatalogView, context?: { definitions: SubgraphDefinition[]; destinationId: string }): { snapshot: Snapshot; result: Record<string, unknown> } {
+  if (payload.type === 'batch') return applyBatch(snapshot, actionId, payload.edits, catalog);
   const nodes: Array<Record<string, any>> = snapshot.nodes.map((node) => ({
     ...node,
     data: { ...node.data },
@@ -458,7 +518,7 @@ function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutat
   }));
   const edges: Array<Record<string, any>> = snapshot.edges.map((edge) => ({ ...edge }));
   if (payload.type === 'remove-selection') return removeSelection(snapshot, payload);
-  if (payload.type === 'paste-selection') return pasteSelection(snapshot, payload, catalog);
+  if (payload.type === 'paste-selection') return pasteSelection(snapshot, payload, catalog, context);
   if (payload.type === 'add-node') {
     const work: GraphSnapshot = { nodes, edges, document: snapshot.document, subgraphs: snapshot.subgraphs };
     const nodeId = new Ids(work).node(new Set(nodes.map((node) => String(node.id))));
@@ -647,7 +707,7 @@ function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutat
     // The same rules as on the root canvas, run on the definition's inner graph with the definition's own id
     // counters, then written back into the definition (innerEdits.ts). The root canvas keeps its nodes and edges.
     try {
-      const inner = applyInnerEdit(snapshot as GraphSnapshot, actionId, payload, catalog, (level, id, edit, view) => applyMutation(level as Snapshot, id, edit, view) as { snapshot: GraphSnapshot; result: Record<string, unknown> });
+      const inner = applyInnerEdit(snapshot as GraphSnapshot, actionId, payload, catalog, (level, id, edit, view) => applyMutation(level as Snapshot, id, edit, view, { definitions: snapshot.subgraphs ?? [], destinationId: payload.definitionId }) as { snapshot: GraphSnapshot; result: Record<string, unknown> });
       return { snapshot: { ...snapshot, nodes, edges, subgraphs: inner.snapshot.subgraphs }, result: inner.result };
     } catch (error) {
       if (error instanceof GraphOpError) throw new CommandSignal('rejected', { error: error.message });
@@ -879,6 +939,8 @@ export function commitCommand(
       const applied = payload.type === 'restore-revision'
         ? restoreRevision(db, request.projectId, payload.revisionId, current.snapshot)
         : applyMutation(current.snapshot, request.actionId, payload, catalog);
+      // The text of a component is the person's or the helper's: the badge on the canvas says which.
+      if (payload.type === 'set-component') stampComponentAuthor(applied.snapshot, payload, request.actor === 'manual' ? 'user' : 'assistant');
       const sealed = sealSnapshot(applied.snapshot, current.snapshot);
       applied.snapshot = sealed.snapshot;
       if (request.payload.type === 'import-workflow') {

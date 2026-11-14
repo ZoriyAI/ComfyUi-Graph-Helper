@@ -49,6 +49,7 @@ describe('preferences schema', () => {
       appearance: { density: 'comfortable', accent: 'cyan', reduceGlow: false },
       shortcuts: {},
       privacy: { sendFieldValues: true, saveChatHistory: true, modelLog: true, showMarkedPreviews: false, lookupModelsOnline: false, checkUpdates: false },
+      view: { railTab: 'nodes', modelKind: 'all', modelFamily: '', modelSort: 'name' },
       lessons: { active: '', read: {}, done: [] },
     });
     expect(preferencesSchema.parse({ canvas: { gridSize: 24 } }).canvas).toMatchObject({ gridSize: 24, showDescriptions: true });

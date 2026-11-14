@@ -3,11 +3,12 @@ import { guardedIpcMain } from './ipc/guard';
 import { randomUUID } from 'crypto';
 import * as fs from 'fs';
 import { fileOpenErrorCode, fileWriteErrorCode, readPickedFile, writeFileAtomic } from './files/atomicWrite';
+import * as path from 'path';
 import { IPC_CHANNELS } from '../shared/ipc-channels';
 import { getDatabase } from './database';
 import { reseedCoreKnowledge } from './knowledge/seedCore';
 import { CLOUD, isCloudProvider, mainLLMService, type CloudProvider, type KeySource } from './llmService';
-import { attemptSaveSecret, forgetProviderKey, forgetSecret, migrateLegacyProviderKey, readProviderKeyCipher, readSecretCipher, readSettings, saveNamedSecretIfProven, saveSecretIfProven, saveSettings } from './settings/repository';
+import { attemptSaveSecret, forgetProviderKey, forgetSecret, migrateLegacyProviderKey, readProviderKeyCipher, readSecretCipher, readSettings, saveNamedSecretIfProven, saveSecretIfProven, saveSettings, saveViewPreferences } from './settings/repository';
 import { secretStatus } from './settings/secretDecision';
 import { isUnprotectedCipher } from '../shared/config/secretPolicy';
 import { checkComfy } from './comfy/direct';
@@ -41,6 +42,7 @@ import { DESKTOP_PROJECT_ID } from '../shared/project';
 import { assertObjectInfoSize, ObjectInfoError, parseObjectInfo } from '../shared/catalog/objectInfo';
 import { bumpCatalogRevision, readCatalog, upsertObjectInfo } from './catalog/repository';
 import { nativeProjectFile, openNativeFile } from './ipc/projectFile';
+import { contentDigest, defaultSavePaths, projectFileState, rememberProjectFile, withFileExtension } from './projectFiles';
 import { exportWorkflow, type GraphSnapshot } from '../shared/workflow/codec';
 import { fileDialogCopy, languageOf } from '../shared/i18n';
 
@@ -250,11 +252,11 @@ export async function setupIPC(): Promise<void> {
       title: copy.title,
       buttonLabel: copy.buttonLabel,
       filters: [{ name: copy.filter, extensions: ['json'] }],
-      defaultPath: 'workflow.json',
+      defaultPath: defaultSavePaths(projectFileState(getDatabase(), DESKTOP_PROJECT_ID)).workflow,
     });
     if (result.canceled || !result.filePath) return { ok: false, canceled: true };
     try {
-      writeFileAtomic(result.filePath, JSON.stringify(exported.workflow, null, 2));
+      writeFileAtomic(withFileExtension(result.filePath, 'workflow'), JSON.stringify(exported.workflow, null, 2));
     } catch (error) {
       return { ok: false, error: fileWriteErrorCode(error, 'The workflow file could not be written.') };
     }
@@ -276,33 +278,52 @@ export async function setupIPC(): Promise<void> {
     }
     try {
       const document = JSON.parse(readPickedFile(result.filePaths[0]));
-      return openNativeDocument(document);
+      const opened = openNativeDocument(document);
+      // The graph that came from this file is in it as it stands: Ctrl+S writes back here.
+      if (opened.status === 'applied') rememberProjectFile(getDatabase(), DESKTOP_PROJECT_ID, result.filePaths[0]);
+      return opened;
     } catch (error) {
       return { status: 'rejected', projection: readProjection(getDatabase(), DESKTOP_PROJECT_ID), result: { error: fileOpenErrorCode(error, 'The project file could not be parsed.') } };
     }
   });
 
-  ipcMain.handle(IPC_CHANNELS.FILE_SAVE_PROJECT, async (_event, secrets?: unknown) => {
+  ipcMain.handle(IPC_CHANNELS.FILE_SAVE_PROJECT, async (_event, secrets?: unknown, options?: { saveAs?: boolean }) => {
     const prepared = nativeProjectDocument();
     if (!prepared.ok) return prepared;
+    // The key check comes before any write, the silent save in place included: with key-like fields the
+    // renderer asks the person and calls again with the answer.
     const guarded = guardSecrets(prepared.project, secrets);
     if ('secrets' in guarded) return guarded;
     const saved = { ...prepared, project: guarded.document };
-    const copy = dialogCopy().saveProject;
-    const result = await dialog.showSaveDialog({
-      title: copy.title,
-      buttonLabel: copy.buttonLabel,
-      filters: [{ name: copy.filter, extensions: ['json'] }],
-      defaultPath: 'project.graph-helper.json',
-    });
-    if (result.canceled || !result.filePath) return { ok: false, canceled: true };
+    const state = projectFileState(getDatabase(), DESKTOP_PROJECT_ID);
+    const captured = readProjection(getDatabase(), DESKTOP_PROJECT_ID)!;
+    const changedByGuard = JSON.stringify(saved.project) !== JSON.stringify(prepared.project);
+    const written = { graphKey: state.graphKey, digest: changedByGuard ? `omitted:${contentDigest(captured.snapshot)}` : contentDigest(captured.snapshot) };
+    // Save writes back to the project's own file without a question; Save as, or a graph with no file, asks where.
+    let filePath = options?.saveAs ? null : state.filePath;
+    if (filePath && !fs.existsSync(path.dirname(filePath))) filePath = null;
+    if (!filePath) {
+      const copy = dialogCopy().saveProject;
+      const result = await dialog.showSaveDialog({
+        title: copy.title,
+        buttonLabel: copy.buttonLabel,
+        filters: [{ name: copy.filter, extensions: ['json'] }],
+        defaultPath: defaultSavePaths(state).project,
+      });
+      if (result.canceled || !result.filePath) return { ok: false, canceled: true };
+      // A name typed without .json would hide the file from Open, which lists only *.json.
+      filePath = withFileExtension(result.filePath, 'project');
+    }
     try {
-      writeFileAtomic(result.filePath, JSON.stringify(saved.project, null, 2));
+      writeFileAtomic(filePath, JSON.stringify(saved.project, null, 2));
     } catch (error) {
       return { ok: false, error: fileWriteErrorCode(error, 'The project file could not be written.') };
     }
-    return { ok: true };
+    rememberProjectFile(getDatabase(), DESKTOP_PROJECT_ID, filePath, written);
+    return { ok: true, filePath };
   });
+
+  ipcMain.handle(IPC_CHANNELS.FILE_PROJECT_STATE, () => projectFileState(getDatabase(), DESKTOP_PROJECT_ID));
 
   // Project operations
   ipcMain.handle(IPC_CHANNELS.DB_SAVE_PROJECT, (_event, project: unknown) => saveProjectRecord(getDatabase(), project));
@@ -342,6 +363,8 @@ export async function setupIPC(): Promise<void> {
   ipcMain.handle(IPC_CHANNELS.SETTINGS_GET, () => {
     return readSettings(getDatabase());
   });
+
+  ipcMain.handle(IPC_CHANNELS.SETTINGS_SAVE_VIEW, (_event, patch: unknown) => saveViewPreferences(getDatabase(), patch));
 
   ipcMain.handle(IPC_CHANNELS.SETTINGS_SAVE, (_event, input: unknown) => {
     const before = savedEndpoints();

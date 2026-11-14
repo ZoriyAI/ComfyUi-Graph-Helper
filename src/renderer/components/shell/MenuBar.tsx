@@ -29,7 +29,7 @@ const MENUS: Array<{ value: string; labelKey: string; entries: Entry[] }> = [
     value: 'file',
     labelKey: 'menu.file',
     entries: [
-      command('file.new'), command('file.open'), command('file.save'), separator,
+      command('file.new'), command('file.open'), command('file.save'), command('file.saveAs'), separator,
       command('file.import'), command('file.export'), command('file.catalog'), separator,
       command('file.settings'), separator, command('file.quit'),
     ],
@@ -37,7 +37,7 @@ const MENUS: Array<{ value: string; labelKey: string; entries: Entry[] }> = [
   {
     value: 'edit',
     labelKey: 'menu.edit',
-    entries: [command('edit.undo'), command('edit.redo'), separator, command('edit.selectAll'), command('edit.delete')],
+    entries: [command('edit.undo'), command('edit.redo'), separator, command('edit.cut'), command('edit.copy'), command('edit.paste'), command('edit.duplicate'), separator, command('edit.selectAll'), command('edit.delete')],
   },
   {
     value: 'view',
@@ -46,7 +46,7 @@ const MENUS: Array<{ value: string; labelKey: string; entries: Entry[] }> = [
       command('view.fit'), command('view.zoomIn'), command('view.zoomOut'), command('view.zoomReset'), separator,
       check('view.rail'), check('view.dock'), check('view.showBoth'), separator,
       { kind: 'radio', labelKey: 'menu.descriptions', ids: DESCRIPTION_MODE_CHOICES.map((choice) => `view.descriptions.${choice.value}`), valueOf: (id) => id.slice('view.descriptions.'.length) },
-      check('view.minimap'), check('view.followAgent'), separator,
+      check('view.minimap'), check('view.followAgent'), check('view.pinNodes'), separator,
       { kind: 'radio', labelKey: 'menu.language', ids: LANGUAGE_CHOICES.map((choice) => `view.language.${choice.value}`), valueOf: (id) => id.slice('view.language.'.length) },
       { kind: 'radio', labelKey: 'menu.motion', ids: MOTION_CHOICES.map((choice) => `view.motion.${choice.value}`), valueOf: (id) => id.slice('view.motion.'.length) },
     ],

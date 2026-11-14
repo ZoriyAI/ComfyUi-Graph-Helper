@@ -161,3 +161,75 @@ describe('selection commands', () => {
     expect(ids).toContain(proposal.revisionId);
   });
 });
+
+describe('native clipboard integration regressions', () => {
+  it('duplicates nested instances with a real registry, independently allocated ids, and authoritative recursion guards', async () => {
+    const { nestedSubgraphWorkflow, INNER_ID, OUTER_ID } = await import('../e2e/fixtures/nestedSubgraphWorkflow');
+    const db = openDb();
+    commit(db, 'nested', { type: 'import-workflow', document: nestedSubgraphWorkflow });
+    const outer = snapshot(db).subgraphs!.find((d) => d.id === OUTER_ID)!;
+    const nested = outer.nodes.find((node) => node.data.comfyType === INNER_ID)!;
+    const pasted = commit(db, 'duplicate-nested', { type: 'edit-in-subgraph', definitionId: OUTER_ID, edit: {
+      type: 'paste-selection', nodes: [nested], edges: [], destinationDefinitionId: 'untrusted-caller-value',
+    } });
+    expect(pasted.status).toBe('applied');
+    expect(pasted.result).toMatchObject({ nodeIds: ['3'] });
+    expect(snapshot(db).nodes.map((node) => node.id)).toEqual(['1', '2', '3']);
+    const rootInsert = commit(db, 'root-inner', { type: 'insert-subgraph', definitionId: INNER_ID, x: 0, y: 0 });
+    expect(rootInsert.status).toBe('applied');
+    const rootInner = snapshot(db).nodes.find((node) => node.data.comfyType === INNER_ID)!;
+    expect(commit(db, 'root-to-inner', { type: 'edit-in-subgraph', definitionId: OUTER_ID, edit: { type: 'paste-selection', nodes: [rootInner], edges: [] } }).status).toBe('applied');
+    const rootOuter = snapshot(db).nodes.find((node) => node.data.comfyType === OUTER_ID)!;
+    const before = readProjection(db, DESKTOP_PROJECT_ID)!;
+    const disguised = structuredClone(rootInner);
+    delete disguised.data.kind;
+    delete disguised.data.subgraphId;
+    for (const [id, node] of [['direct', rootInner], ['indirect', rootOuter], ['disguised', disguised]] as const) {
+      const refused = commit(db, id, { type: 'edit-in-subgraph', definitionId: INNER_ID, edit: { type: 'paste-selection', nodes: [node], edges: [], destinationDefinitionId: 'wrong' } });
+      expect(refused.status).toBe('rejected');
+      expect(refused.result).toMatchObject({ error: 'A subgraph cannot contain itself.' });
+    }
+    expect(readProjection(db, DESKTOP_PROJECT_ID)!.revSeq).toBe(before.revSeq);
+  });
+
+  it.each([1, 0.4])('preserves native link and node extensions through cut/paste, native save and format %s export', async (version) => {
+    const { nativeProjectFile, openNativeFile } = await import('../../src/main/ipc/projectFile');
+    const db = openDb();
+    const document = structuredClone(denseWorkflow) as Record<string, any>;
+    document.version = version;
+    document.nodes[0].vendor_node = { keep: ['nested', 7] };
+    if (version === 0.4) document.links = document.links.map((link: any) => [link.id, link.origin_id, link.origin_slot, link.target_id, link.target_slot, link.type, { vendor: 'tuple-tail' }]);
+    else document.links[0].vendor_metadata = { keep: ['native-link', 9] };
+    commit(db, 'import-native', { type: 'import-workflow', document });
+    const old = snapshot(db);
+    const nodes = old.nodes.filter((node) => ['1', '2'].includes(String(node.id)));
+    const edges = old.edges.filter((edge) => edge.id === 'link-1');
+    edges[0].vendor_edge = { keep: true };
+    edges[0].data.vendor_data = ['edge-extension'];
+    commit(db, 'cut-native', { type: 'remove-selection', nodeIds: ['1', '2'], edgeIds: [] });
+    expect(commit(db, 'paste-native', { type: 'paste-selection', nodes, edges }).status).toBe('applied');
+    const pasted = snapshot(db).edges.at(-1)!;
+    expect(pasted.vendor_edge).toEqual({ keep: true });
+    expect(pasted.data.vendor_data).toEqual(['edge-extension']);
+    const saved = nativeProjectFile(db, DESKTOP_PROJECT_ID);
+    expect(saved.ok).toBe(true);
+    if (!saved.ok) return;
+    expect(openNativeFile(db, DESKTOP_PROJECT_ID, saved.project).status).toBe('applied');
+    const exported = exportWorkflow(snapshot(db), '2026-11-15');
+    expect(exported.ok).toBe(true);
+    if (!exported.ok) return;
+    const link = exported.workflow.links.at(-1);
+    expect(version === 1 ? link.vendor_metadata : link[6]).toEqual(version === 1 ? { keep: ['native-link', 9] } : { vendor: 'tuple-tail' });
+    expect(exported.workflow.nodes.find((node: any) => node.vendor_node)?.vendor_node).toEqual({ keep: ['nested', 7] });
+  });
+
+  it.each(['out-99', 'in-0'])('rejects invalid source handle %s atomically', (handle) => {
+    const db = openDb();
+    importDense(db);
+    const old = snapshot(db);
+    const before = readProjection(db, DESKTOP_PROJECT_ID)!.revSeq;
+    const result = commit(db, 'bad-paste', { type: 'paste-selection', nodes: old.nodes.filter((node) => ['1', '2'].includes(node.id)), edges: [{ ...old.edges[0], sourceHandle: handle }] });
+    expect(result.status).toBe('rejected');
+    expect(readProjection(db, DESKTOP_PROJECT_ID)!.revSeq).toBe(before);
+  });
+});

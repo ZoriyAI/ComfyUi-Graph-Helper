@@ -106,3 +106,44 @@ test('a subgraph can be created immediately after New project', async () => {
   expect(workflow.definitions.subgraphs).toHaveLength(1);
   await app.close();
 });
+
+test('Check Show and Ask Why preserve a definition-local identity that also exists at the root', async () => {
+  const { nestedSubgraphWorkflow, INNER_ID } = await import('./fixtures/nestedSubgraphWorkflow');
+  const { pickOption } = await import('./pickOption');
+  const { app, window } = await launch();
+  try {
+    const api = (name: string, args: unknown[] = []) => window.evaluate(async ({ name, args }) => {
+      const bridge = (window as unknown as { electronAPI: Record<string, (...input: unknown[]) => Promise<any>> }).electronAPI;
+      return bridge[name](...args);
+    }, { name, args });
+    const workflow = structuredClone(nestedSubgraphWorkflow) as Record<string, any>;
+    workflow.nodes[0].title = 'Root node one';
+    const inner = workflow.definitions.subgraphs.find((item: any) => item.id === INNER_ID);
+    inner.nodes[0].type = 'MissingInnerClass';
+    inner.nodes[0].title = 'Inner node one';
+    const current = await api('readProjection', ['desktop']);
+    expect((await api('commitCommand', [{ projectId: 'desktop', actionId: 'scoped-check', expectedRevisionId: current.currentRevisionId,
+      actor: 'manual', runId: null, payload: { type: 'import-workflow', document: workflow } }])).status).toBe('applied');
+    await window.reload();
+    await window.locator('#chat-provider').waitFor();
+    await pickOption(window, 'Chat provider', 'TEST mode');
+    await window.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await window.keyboard.press('Control+Shift+c');
+    const row = window.locator('.check-panel li[data-type="missingNodes"]').filter({ hasText: 'MissingInnerClass' });
+    await expect(row).toHaveCount(1);
+    await row.getByRole('button', { name: 'Show', exact: true }).click();
+    await expect(window.locator('[data-canvas-mode="definition"]')).toBeVisible();
+    await expect(window.locator('.react-flow__node[data-id="1"]')).toContainText('Inner node one');
+    await expect(window.locator('.react-flow__node[data-id="1"]')).toHaveClass(/selected/);
+    await row.getByRole('button', { name: 'Ask why', exact: true }).click();
+    await expect.poll(async () => {
+      const history = await api('loadChatHistory', ['desktop']);
+      return history.flatMap((chat: any) => chat.messages ?? []).some((message: any) =>
+        message.role === 'user' && message.context?.objectRef?.id === '1' && message.context?.objectRef?.subgraphId === INNER_ID);
+    }).toBe(true);
+    const projection = await api('readProjection', ['desktop']);
+    expect(projection.snapshot.nodes.find((node: any) => node.id === '1').data.title).toBe('Root node one');
+  } finally {
+    await app.close();
+  }
+});
