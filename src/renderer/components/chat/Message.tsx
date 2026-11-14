@@ -9,6 +9,7 @@ import { useChatStore } from '../../state/chatState';
 import { getChatService } from '../../services/llm/chatService';
 import { openModelLog } from '../../state/modelLogState';
 import type { ChatMessage, TurnCheckpoint, TurnNotice } from '../../types/chat';
+import { objectKey } from '../../../shared/contracts';
 import { RECOMMENDED_WINDOW } from '../../../shared/agent/contextWindow';
 import MarkdownLite from './MarkdownLite';
 import Button from '../../ui/Button';
@@ -198,7 +199,7 @@ export default function Message({ message, streaming = false }: MessageProps) {
       >
         {about ? (
           <div className={styles.chips}>
-            <button type="button" className={styles.about} title={aboutLabel} onClick={() => setFocus(about)}>
+            <button type="button" className={styles.about} data-object-key={objectKey(about)} title={aboutLabel} onClick={() => setFocus(about)}>
               {t('chat.aboutChip', { object: aboutLabel })}
             </button>
           </div>

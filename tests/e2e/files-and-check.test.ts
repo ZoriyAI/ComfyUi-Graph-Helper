@@ -264,9 +264,17 @@ test('files, history and the check behave as they say', async () => {
     const node = page.locator('.react-flow__node').first();
     await node.click({ position: { x: 40, y: 12 }, button: 'right' });
     await page.getByRole('menu').getByRole('menuitem', { name: /Заметк|Описани/ }).first().click();
-    await page.keyboard.type('My own words about this node');
+    const purpose = page.locator('textarea[id^="component-purpose-node-"]');
+    await expect(purpose).toBeFocused();
+    await purpose.fill('My own words about this node');
+    await expect(purpose).toHaveValue('My own words about this node');
     await page.getByRole('button', { name: /Сохранить описание/ }).first().click();
     await expect(page.getByText('Записали вы').first()).toBeVisible({ timeout: 15_000 });
+    const notedId = await node.getAttribute('data-id');
+    await expect.poll(async () => {
+      const snapshot = ((await ctx.api('readProjection', ['desktop'])) as any).snapshot;
+      return snapshot.components?.find((item: any) => item.ownerKind === 'node' && item.ownerId === notedId);
+    }).toMatchObject({ purpose: 'My own words about this node', author: 'user' });
     await shot(page, '05-own-note');
 
     // ── File > New project starts in the same format as a fresh profile: making a subgraph there works.

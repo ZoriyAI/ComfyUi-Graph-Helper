@@ -136,11 +136,9 @@ test('Check Show and Ask Why preserve a definition-local identity that also exis
     await expect(window.locator('.react-flow__node[data-id="1"]')).toContainText('Inner node one');
     await expect(window.locator('.react-flow__node[data-id="1"]')).toHaveClass(/selected/);
     await row.getByRole('button', { name: 'Ask why', exact: true }).click();
-    await expect.poll(async () => {
-      const history = await api('loadChatHistory', ['desktop']);
-      return history.flatMap((chat: any) => chat.messages ?? []).some((message: any) =>
-        message.role === 'user' && message.context?.objectRef?.id === '1' && message.context?.objectRef?.subgraphId === INNER_ID);
-    }).toBe(true);
+    // Context belongs to the live turn; persisted ChatRecord rows intentionally omit it.
+    await expect(window.locator('.message-row[data-role="user"] button[data-object-key]')).toHaveAttribute(
+      'data-object-key', `node:1@${INNER_ID}`);
     const projection = await api('readProjection', ['desktop']);
     expect(projection.snapshot.nodes.find((node: any) => node.id === '1').data.title).toBe('Root node one');
   } finally {

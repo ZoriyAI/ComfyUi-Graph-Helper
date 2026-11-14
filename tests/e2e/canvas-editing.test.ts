@@ -212,9 +212,14 @@ test('editing on the canvas: one step per action, copy and paste, link guidance,
 
     // ── A drop on a port that does not fit says why.
     const vaeIn = node(page, '2').locator('.react-flow__handle[data-handleid="in-1"]');
+    // Node reveal moves the camera after selection. Locator actions wait for stable screen coordinates.
+    await latentOut.hover();
+    await vaeIn.hover();
+    const beforeRefusedLink = (await snap(ctx)).edges;
     const latent = await centre(latentOut);
     await drag(page, latent, await centre(vaeIn));
     await expect(page.locator('[class*="toast"]').filter({ hasText: 'нельзя подать на вход' })).toBeVisible();
+    expect((await snap(ctx)).edges).toEqual(beforeRefusedLink);
 
     // ── Pin nodes: a drag moves nothing, the chip says so and unpins.
     await page.getByRole('menubar').getByRole('menuitem', { name: 'Вид', exact: true }).click();
