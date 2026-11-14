@@ -36,6 +36,7 @@ import {
 } from './libraryModel';
 import ModelCard from './ModelCard';
 import VirtualList from './VirtualList';
+import { useRememberedChoice } from '../../state/viewMemory';
 import styles from './Library.module.css';
 
 const ROW_HEIGHT = 52;
@@ -79,9 +80,13 @@ export default function ModelLibrary() {
   const { t, i18n } = useTranslation();
   const language = i18n.language === 'en' ? 'en' : 'ru';
   const [query, setQuery] = useState('');
-  const [family, setFamily] = useState<BaseModelFamily | ''>('');
-  const [group, setGroup] = useState<KindGroup>('all');
-  const [sort, setSort] = useState<ModelSort>('name');
+  // Remembered per profile (state/viewMemory.ts): the tab comes back as the person left it.
+  const [familyChoice, setFamily] = useRememberedChoice('modelFamily');
+  const [groupChoice, setGroup] = useRememberedChoice('modelKind');
+  const [sortChoice, setSort] = useRememberedChoice('modelSort');
+  const family = familyChoice as BaseModelFamily | '';
+  const group = (KIND_GROUPS as readonly string[]).includes(groupChoice) ? groupChoice as KindGroup : 'all';
+  const sort: ModelSort = sortChoice === 'size' ? 'size' : 'name';
   /** "LoRAs that fit this base model", set from a checkpoint's card; replaces the kind and family filters. */
   const [fitsFor, setFitsFor] = useState<ModelSummary | null>(null);
   const [open, setOpen] = useState<ModelSummary | null>(null);

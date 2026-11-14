@@ -76,7 +76,9 @@ describe('description card content priority', () => {
     expect(selectDescription({ own: [], shared: [], catalog: '  Samples a latent.  ', purpose: 'purpose' }))
       .toMatchObject({ scope: 'catalog', explained: false, primary: { text: 'Samples a latent.', provenance: 'fact' } });
     expect(selectDescription({ catalog: '', purpose: 'Makes the portrait' }))
-      .toMatchObject({ scope: 'component', explained: false, primary: { text: 'Makes the portrait', provenance: 'inference' } });
+      .toMatchObject({ scope: 'component', explained: false, primary: { text: 'Makes the portrait', provenance: 'user' } });
+    expect(selectDescription({ catalog: '', purpose: { text: 'Makes the portrait', author: 'assistant' } }))
+      .toMatchObject({ scope: 'component', primary: { text: 'Makes the portrait', provenance: 'inference' } });
     expect(selectDescription({ own: [explanation({ aspect: 'what', text: '   ' })], catalog: ' ', purpose: '' })).toBeNull();
   });
 });

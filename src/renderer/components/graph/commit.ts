@@ -6,6 +6,7 @@ import { submitManual } from '../../services/commands/projection';
 import { showToast } from '../../ui/toastStore';
 import { useGraphStore } from '../../state/graphState';
 import { useCanvasStore } from './canvasStore';
+import { sayReplayLocked } from '../../commands/replayGate';
 
 const translate = (key: string, options?: Record<string, unknown>) => String(i18n.t(key, options ?? {}));
 
@@ -48,7 +49,11 @@ export function scopedToLevel(payload: GraphMutation): GraphMutation {
   if (!definition) return payload;
   const nodeIds = new Set(definition.nodes.map((node) => String(node.id)));
   const edgeIds = new Set(definition.edges.map((edge) => String(edge.id)));
-  const endpoint = (id: string) => nodeIds.has(id) || BOUNDARY.has(id);
+  // A batch's "@k" names a node an earlier edit of the same batch adds: inside a definition that is an inner node.
+  const endpoint = (id: string) => nodeIds.has(id) || BOUNDARY.has(id) || /^@\d+$/.test(id);
+  if (payload.type === 'batch') {
+    return { ...payload, edits: payload.edits.map((item) => scopedToLevel(item as GraphMutation) as unknown as Record<string, unknown>) };
+  }
   let edit: InnerEdit | null = null;
   if ((payload.type === 'move-node' || payload.type === 'set-parameter' || payload.type === 'remove-node' || payload.type === 'rename-node') && nodeIds.has(payload.nodeId)) edit = payload;
   else if (payload.type === 'collapse-node' && payload.nodeIds.every((id) => nodeIds.has(id))) edit = payload;
@@ -66,7 +71,10 @@ export function scopedToLevel(payload: GraphMutation): GraphMutation {
  */
 export function commitManual(payload: GraphMutation, prefix = 'manual', options: { level?: 'shown' | 'root' } = {}): Promise<unknown> {
   const canvas = useCanvasStore.getState();
-  if (canvas.replay) return Promise.resolve(null);
+  if (canvas.replay) {
+    sayReplayLocked();
+    return Promise.resolve(null);
+  }
   canvas.beginManual();
   // Lessons follow the main canvas: they pass level 'root', so their edits never land in an open subgraph.
   return submitManual(`${prefix}-${crypto.randomUUID()}`, options.level === 'root' ? payload : scopedToLevel(payload))

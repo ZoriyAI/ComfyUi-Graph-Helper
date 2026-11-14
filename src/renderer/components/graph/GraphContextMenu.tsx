@@ -22,6 +22,7 @@ import { subgraphCardSize } from './lib/nodeSizes';
 import { placeNewNode } from './placeNode';
 import { edgeRef, nodeRef, portRef } from './lib/selection';
 import { selectOnLevel } from './lib/level';
+import { copySelection, cutSelection, duplicateSelection, hasClipboard, pasteClipboard } from './lib/clipboard';
 import { fitDurationMs } from '../../motion/policy';
 import { getCommand, isEnabled, runCommand } from '../../commands/registry';
 import { addGroup, createSubgraph, dissolveSubgraph, openAddNode } from '../../commands/actions';
@@ -186,7 +187,16 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
           item('dissolve', t('contextMenu.dissolve'), () => void dissolveSubgraph(node.id), { icon: Ungroup, disabled: !canBuildRoot }),
         );
       }
+      // Copy, cut and duplicate act on the selection; a right-click on a node outside it selects that node first.
+      const onSelection = (run: () => unknown) => () => {
+        if (!selectedIds.includes(node.id)) selectOnLevel([node.id]);
+        window.setTimeout(() => void run(), 0);
+      };
       items.push(
+        commandItem('edit.copy', onSelection(copySelection), { disabled: readOnly }),
+        commandItem('edit.cut', onSelection(cutSelection), { disabled: !canBuild }),
+        commandItem('edit.duplicate', onSelection(duplicateSelection), { disabled: !canBuild }),
+        separator('s-clip'),
         commandItem('graph.createSubgraph', () => void createSubgraph(selectionFor(node.id)), { disabled: !canBuildRoot }),
         commandItem('graph.addGroup', () => void addGroup(selectionFor(node.id)), { disabled: !canBuildRoot }),
         item('rename', t('contextMenu.rename'), () => {
@@ -287,6 +297,7 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
     const definitions = modelledSubgraphs(subgraphs);
     const open = openProposals(proposals);
     items.push(commandItem('graph.addNode', () => openAddNode(at), { disabled: !canBuild }));
+    items.push(commandItem('edit.paste', () => void pasteClipboard(), { disabled: !canBuild || !hasClipboard() }));
     items.push(
       <Menu.Sub key="insert">
         <Menu.SubTrigger className={styles.item} disabled={!canBuild}>

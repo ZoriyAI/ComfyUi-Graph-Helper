@@ -24,12 +24,14 @@ export const IPC_CHANNELS = {
   FILE_EXPORT_WORKFLOW: 'file:export-workflow',
   FILE_OPEN_PROJECT: 'file:open-project',
   FILE_SAVE_PROJECT: 'file:save-project',
+  FILE_PROJECT_STATE: 'file:project-state',
   WORKFLOW_EXPORT_DOCUMENT: 'workflow:export-document',
   FILE_SELECT_DIRECTORY: 'file:select-directory',
   
   // Non-secret settings. Secret saves are rejected without a write.
   SETTINGS_GET: 'settings:get',
   SETTINGS_SAVE: 'settings:save',
+  SETTINGS_SAVE_VIEW: 'settings:save-view',
   SETTINGS_SAVE_SECRET: 'settings:save-secret',
   SETTINGS_FORGET_SECRET: 'settings:forget-secret',
   /** Settings ▸ Privacy ▸ Forget all: every key and token, every address, memory, files and database. */

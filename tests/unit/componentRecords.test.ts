@@ -147,7 +147,8 @@ describe('component records and native projects', () => {
 
     const reopened = new Database(dbPath);
     const snapshot = current(reopened).snapshot as GraphSnapshot;
-    expect(snapshot.components?.find((item) => item.ownerId === '7')).toMatchObject({ purpose: PURPOSE, usage: USAGE });
+    // The person typed it (a manual commit): the canvas badges it as theirs.
+    expect(snapshot.components?.find((item) => item.ownerId === '7')).toMatchObject({ purpose: PURPOSE, usage: USAGE, author: 'user' });
     expect(snapshot.components?.find((item) => item.ownerId === NESTED)?.usage).toBe('How to use the nested subgraph');
     expect(snapshot.process).toEqual({ title: 'Portrait', notes: PROCESS_NOTES });
     const removed = commit(reopened, 'remove-7', { type: 'remove-node', nodeId: '7' });

@@ -70,3 +70,17 @@
   font-size: 12px;
   pointer-events: none;
 }
+
+/* View > Pin nodes is on: says so on the canvas, with the way back. */
+.pinnedChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px 2px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-lift);
+  color: var(--text-dim);
+  font-size: var(--text-xs);
+}

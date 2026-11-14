@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNodes, ViewportPortal } from '@xyflow/react';
+import { useNodes, useReactFlow, ViewportPortal } from '@xyflow/react';
 import { useGraphStore } from '../../../state/graphState';
 import { useCanvasStore } from '../canvasStore';
 import { commitManual } from '../commit';
@@ -15,8 +15,43 @@ const TITLE_MAX = 500;
  * (`rename-group`, so it is undoable and in the revision history), Escape or leaving with no change cancels.
  * Not while a replay is showing: the replay is read-only.
  */
-function GroupTitle({ id, title, editable }: { id: string; title: string; editable: boolean }) {
+function GroupTitle({ id, title, editable, members }: { id: string; title: string; editable: boolean; members: string[] }) {
   const { t } = useTranslation();
+  const flow = useReactFlow();
+  // A drag of the title moves the whole group: its members follow the pointer and land as one step.
+  const drag = useRef<{ x: number; y: number; zoom: number; from: Map<string, { x: number; y: number }>; moved: boolean } | null>(null);
+  const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0 || !editable || useCanvasStore.getState().nodesPinned || members.length === 0) return;
+    event.stopPropagation();
+    const nodes = useGraphStore.getState().nodes;
+    const from = new Map(nodes.filter((node) => members.includes(node.id)).map((node) => [node.id, { ...node.position }]));
+    drag.current = { x: event.clientX, y: event.clientY, zoom: flow.getZoom(), from, moved: false };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+  const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const state = drag.current;
+    if (!state) return;
+    const dx = (event.clientX - state.x) / state.zoom;
+    const dy = (event.clientY - state.y) / state.zoom;
+    if (!state.moved && Math.hypot(dx * state.zoom, dy * state.zoom) < 3) return;
+    state.moved = true;
+    useGraphStore.setState((graph) => ({
+      nodes: graph.nodes.map((node) => {
+        const start = state.from.get(node.id);
+        return start ? { ...node, position: { x: start.x + dx, y: start.y + dy } } : node;
+      }),
+    }));
+  };
+  const onPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    const state = drag.current;
+    drag.current = null;
+    if (!state?.moved) return;
+    event.currentTarget.releasePointerCapture(event.pointerId);
+    const moves = useGraphStore.getState().nodes
+      .filter((node) => state.from.has(node.id))
+      .map((node) => ({ nodeId: node.id, x: Math.round(node.position.x), y: Math.round(node.position.y) }));
+    if (moves.length > 0) void commitManual({ type: 'move-nodes', moves }, 'move-group');
+  };
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(title);
   const input = useRef<HTMLInputElement>(null);
@@ -77,10 +112,14 @@ function GroupTitle({ id, title, editable }: { id: string; title: string; editab
   }
   return (
     <div
-      className={`${styles.title} nodrag nopan`}
+      className={`${styles.title} ${editable ? styles.titleMovable : ''} nodrag nopan`}
       data-group-id={id}
-      title={editable ? String(t('canvas.groupRenameHint')) : undefined}
+      title={editable ? String(t('canvas.groupMoveHint')) : undefined}
       onDoubleClick={start}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={() => { drag.current = null; }}
     >
       {title || '—'}
     </div>
@@ -116,7 +155,7 @@ export default function GroupLayer() {
               ...(group.color ? { '--canvas-group': group.color } : {}),
             } as React.CSSProperties}
           >
-            <GroupTitle id={group.id} title={group.title} editable={!replay} />
+            <GroupTitle id={group.id} title={group.title} editable={!replay} members={group.nodeIds} />
           </div>
         );
       })}

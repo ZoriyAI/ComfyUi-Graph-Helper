@@ -44,7 +44,8 @@ export function buildTour(nodes: TourNode[], edges: TopoEdge[], texts: TourTexts
     const classType = node.data.comfyType;
     const catalog = texts.catalog[classType];
     const description = catalog?.description?.trim();
-    const title = node.data.title?.trim() || catalog?.displayName?.trim() || classType;
+    const own = node.data.title?.trim() && node.data.title !== classType ? node.data.title.trim() : '';
+    const title = own || catalog?.displayName?.trim() || classType;
     const text = texts.byNode[id] || texts.byClass[classType] || (description ? description : '') || neutral(node);
     return { ref: { kind: 'node', id, classType }, title, text };
   });

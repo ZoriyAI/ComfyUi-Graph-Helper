@@ -15,6 +15,7 @@ import {
 import {
   WORKFLOW_FORMAT_V04,
   WORKFLOW_FORMAT_V1,
+  emptyWorkflowState,
   groupBounding,
   makeEdge,
   nextLinkId,
@@ -65,7 +66,7 @@ export function isGraphOp(payload: GraphMutation): boolean {
 
 /** A blank format-1 document: the counters a canvas without an imported workflow allocates ids from. */
 export function blankDocument(): WorkflowDocumentState {
-  return { formatVersion: WORKFLOW_FORMAT_V1, raw: { state: { lastNodeId: 0, lastLinkId: 0, lastGroupId: 0, lastRerouteId: 0 } } };
+  return { formatVersion: WORKFLOW_FORMAT_V1, raw: { state: emptyWorkflowState() } };
 }
 
 /**

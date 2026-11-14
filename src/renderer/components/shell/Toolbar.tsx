@@ -9,7 +9,8 @@ import Shortcut from '../../ui/Shortcut';
 import { cx } from '../../ui/cx';
 import { hintOf, runCommand, useCommandState } from '../../commands/registry';
 import { useGraphStore } from '../../state/graphState';
-import { isDirty, useUiStore } from '../../state/uiState';
+import { useUiStore } from '../../state/uiState';
+import { useProjectFileStore } from '../../services/projectFile';
 import { useKnowledgeStore, selectCheckCount } from '../../state/knowledgeState';
 import { usePreferencesStore } from '../../state/preferencesState';
 import { isPreferenceProvider } from '../../../shared/config/preferences';
@@ -60,25 +61,34 @@ function CheckBadge() {
   const { t } = useTranslation();
   const findings = useKnowledgeStore(selectCheckCount);
   if (findings === null) return null;
+  // The count is drawn only: the check now runs by itself after an open, and the button keeps its name
+  // ("Check graph") whatever the count is. Screen readers hear the count from CheckStatus beside the button.
   return (
-    <Badge tone={findings === 0 ? 'ok' : 'warn'} className={styles.count} aria-label={String(t('shell.checkFindings', { count: findings }))}>
+    <Badge tone={findings === 0 ? 'ok' : 'warn'} className={styles.count} aria-hidden="true">
       {findings}
     </Badge>
   );
+}
+
+/** The number of findings, said once to screen readers when it changes. */
+function CheckStatus() {
+  const { t } = useTranslation();
+  const findings = useKnowledgeStore(selectCheckCount);
+  return <span className="sr-only" role="status">{findings === null ? '' : t('shell.checkFindings', { count: findings })}</span>;
 }
 
 /** The project name as plain text, with a dot while there are unsaved changes. */
 function ProjectName() {
   const { t } = useTranslation();
   const title = useGraphStore((state) => state.process.title);
-  const revSeq = useProjectionStore((state) => state.revSeq);
-  const savedRevSeq = useUiStore((state) => state.savedRevSeq);
-  const dirty = isDirty(savedRevSeq, revSeq);
+  const file = useProjectFileStore((state) => state.state);
+  const dirty = file?.dirty ?? false;
   const name = title.trim() || String(t('shell.untitled'));
+  const chipTitle = file?.fileName ? String(t('menu.projectFile', { name, file: file.fileName })) : String(t('menu.projectName', { name }));
   return (
-    <span className={cx(styles.project, 'project-chip')} title={String(t('menu.projectName', { name }))}>
+    <span className={cx(styles.project, 'project-chip')} title={chipTitle} data-dirty={dirty ? 'true' : 'false'}>
       <span className={styles.projectName}>{name}</span>
-      {dirty ? <span className={styles.dirty} role="img" aria-label={String(t('shell.dirty'))} title={String(t('shell.dirty'))} /> : null}
+      {dirty ? <span className={styles.dirty} role="img" aria-label={String(t('shell.dirty'))} title={`${String(t('shell.dirty'))}. ${String(t('shell.dirtyHint'))}`} /> : null}
     </span>
   );
 }
@@ -148,6 +158,7 @@ export default function Toolbar({ settings }: { settings?: React.ReactNode }) {
       <ToolButton id="edit.redo" />
       <Rule />
       <ToolButton id="graph.check" shortKey="toolbar.checkShort"><CheckBadge /></ToolButton>
+      <CheckStatus />
       <ToolButton id="sync.now" />
       <span className={styles.spacer} aria-hidden="true" />
       <HelperSelect />

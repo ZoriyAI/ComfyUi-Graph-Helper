@@ -69,6 +69,33 @@ function decimalsOf(step: number | undefined): number {
   return dot < 0 ? 0 : text.length - dot - 1;
 }
 
+/** A decimal number as people type it: digits, one point or comma, an optional exponent. No hex, no words. */
+const NUMBER_TEXT = /^[-+]?(\d+([.,]\d*)?|[.,]\d+)(e[-+]?\d+)?$/i;
+
+/**
+ * What typing `raw` into a number field gives: the value to commit, or why it was refused, and a note when the
+ * value had to be corrected (raised to the minimum, lowered to the maximum, rounded to a whole number or to the
+ * step), so the person sees why the field shows something else than they typed.
+ */
+export type TypedNumber =
+  | { kind: 'empty' }
+  | { kind: 'refused' }
+  | { kind: 'value'; value: number; note: null | { key: 'field.raisedToMin' | 'field.loweredToMax' | 'field.roundedTo'; values: Record<string, string> } };
+
+export function readTypedNumber(raw: string, spec: FieldSpec | undefined, kind: ControlKind): TypedNumber {
+  const trimmed = raw.trim();
+  if (trimmed === '') return { kind: 'empty' };
+  if (!NUMBER_TEXT.test(trimmed)) return { kind: 'refused' };
+  const typed = Number(trimmed.replace(',', '.'));
+  const value = clampToSpec(typed, spec, kind);
+  if (value === null) return { kind: 'refused' };
+  if (value === typed) return { kind: 'value', value, note: null };
+  const shown = String(value);
+  if (spec?.min !== undefined && typed < spec.min) return { kind: 'value', value, note: { key: 'field.raisedToMin', values: { min: String(spec.min), value: shown } } };
+  if (spec?.max !== undefined && typed > spec.max) return { kind: 'value', value, note: { key: 'field.loweredToMax', values: { max: String(spec.max), value: shown } } };
+  return { kind: 'value', value, note: { key: 'field.roundedTo', values: { value: shown } } };
+}
+
 /** One step up or down from the current value (an unset value steps from the default, then from min, then 0). */
 export function stepValue(current: unknown, direction: 1 | -1, spec: FieldSpec | undefined, kind: ControlKind): number | null {
   const base = typeof current === 'number' ? current

@@ -241,6 +241,7 @@ export function serializeNativeProject(project: {
       ownerId: record.ownerId,
       purpose: record.purpose,
       usage: record.usage,
+      ...(record.author ? { author: record.author } : {}),
     })),
     ...(project.subgraphs ? { subgraphs: project.subgraphs } : {}),
     ...(project.groups ? { groups: project.groups } : {}),

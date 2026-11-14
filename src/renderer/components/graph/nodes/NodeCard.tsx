@@ -15,6 +15,7 @@ import MarkdownLite from '../../chat/MarkdownLite';
 import { editorKind, fileBox, fileColors } from '../../../../shared/workflow/comfyLook';
 import { ConstantLine, PrimitiveFields, PromotedFields, SavedValues, promotedInputNames } from './EditorNodes';
 import { fileStyle, useClassPresence } from './nodeLook';
+import { nodeDisplayName } from '../lib/nodeName';
 import styles from './Node.module.css';
 
 export interface NodeCardState {
@@ -84,9 +85,10 @@ export default function NodeCard({ id, data, state, connected, live = true, head
     tinted ? styles.fileColor : '',
     kind === 'note' || kind === 'markdown' ? styles.noteNode : '',
   ].filter(Boolean).join(' ');
-  const title = data.title || detail?.displayName || data.comfyType;
-  // The line under the title names the class. When the title already is the class (a workflow saved without
-  // titles), it says what the title does not: the class's readable name, else its pack, else its category.
+  // A node without its own title goes by the catalog's readable name (FB-15); the line under it names the class.
+  const title = nodeDisplayName(data, detail?.displayName) || data.comfyType;
+  // The line under the title names the class. When the title already is the class (no readable name known),
+  // it says what the title does not: its pack, else its category.
   const classLine = title !== data.comfyType
     ? data.comfyType
     : detail?.displayName && detail.displayName !== title

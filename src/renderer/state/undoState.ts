@@ -180,6 +180,16 @@ function text(value: unknown): string {
 export function describeRevision(revision: UndoRevision): { key: string; values: Record<string, string> } {
   const payload = revision.payload ?? {};
   const type = typeof payload.type === 'string' ? payload.type : revision.description ?? '';
+  if (type === 'batch') {
+    // Several edits as one step: named by what the person did (delete, paste, duplicate, cut, move) and how many.
+    const label = typeof payload.label === 'string' ? payload.label : 'move';
+    // The revision list keeps a batch as its label and counts (shared/agent/recentActions.ts).
+    const all = typeof payload.count === 'number' ? payload.count : 0;
+    const nodes = typeof payload.nodes === 'number' ? payload.nodes : 0;
+    const count = label === 'delete' || label === 'move' ? all : nodes;
+    const keyOf: Record<string, string> = { delete: 'undo.batchDelete', paste: 'undo.batchPaste', duplicate: 'undo.batchDuplicate', cut: 'undo.batchCut', move: 'undo.batchMove', 'add-linked': 'undo.batchAddLinked' };
+    return { key: keyOf[label] ?? 'undo.batchMove', values: { count: String(count || all) } };
+  }
   const key = ACTION_KEYS[type];
   if (!key) return { key: 'undo.other', values: { type: type || '?' } };
   return {

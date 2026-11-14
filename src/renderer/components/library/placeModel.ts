@@ -5,6 +5,8 @@ import { commitManual } from '../graph/commit';
 import { loaderFieldFor, loaderForModel } from '../graph/lib/modelLoaders';
 import { placeNewNode } from '../graph/placeNode';
 import { levelNodes, selectOnLevel } from '../graph/lib/level';
+import { replayIsOpen } from '../../commands/replayGate';
+import { revealNewNode } from '../graph/lib/reveal';
 
 /**
  * Puts a model file to work on the canvas: a new loader node with the file chosen (from the card or a drop),
@@ -46,6 +48,7 @@ export async function addModelLoader(model: ModelRef, at?: { x: number; y: numbe
     showToast({ id: 'model-place', tone: 'warn', title: tr('library.card.noLoader', { folder: model.directory }), duration: 6000 });
     return null;
   }
+  if (replayIsOpen(true)) return null;
   // A drop point, else the centre of the view; either way moved to the nearest spot where it covers nothing.
   const title = await loaderTitle(loader.nodeType);
   const position = await placeNewNode(at ?? null, { classType: loader.nodeType, parameters: loader.parameters });
@@ -62,7 +65,7 @@ export async function addModelLoader(model: ModelRef, at?: { x: number; y: numbe
     showToast({ id: 'model-place', tone: 'error', title: tr('library.card.addFailed') });
     return null;
   }
-  selectNode(nodeId);
+  revealNewNode(nodeId);
   showToast({ id: 'model-place', tone: 'success', title: tr('library.card.added', { node: title, name: model.name }), duration: 5000 });
   return nodeId;
 }

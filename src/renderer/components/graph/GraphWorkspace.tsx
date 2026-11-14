@@ -9,11 +9,13 @@ import CanvasFlow from './CanvasFlow';
 import Onboarding from './Onboarding';
 import SubgraphBreadcrumb from './SubgraphBreadcrumb';
 import { commitManual } from './commit';
+import { addedNodeId, revealNewNode } from './lib/reveal';
 import { placeNewNode } from './placeNode';
 import { dropToAddNode, MODEL_DRAG_TYPE, modelFromDrop, NODE_DRAG_TYPE } from './lib/modelLoaders';
 import { addModelLoader } from '../library/placeModel';
 import { useMotionLevel } from './lib/motion';
 import { FIT_PADDING } from './CanvasToolbar';
+import { replayStepText } from './lib/replay';
 import { fitDurationMs } from '../../motion/policy';
 import { setCanvasHandle } from '../../commands/canvasHandle';
 import styles from './GraphWorkspace.module.css';
@@ -28,9 +30,11 @@ function ReplayBanner() {
   const replay = useCanvasStore((state) => state.replay);
   if (!replay || replay.revisions.length === 0) return null;
   const row = replay.revisions[replay.index];
+  // The same sentences as the undo tooltip ("add KSampler"), never the command name.
+  const step = replayStepText(row);
   return (
     <p className={styles.replayBanner} role="status">
-      {t('canvas.replayBanner', { seq: row?.revSeq ?? 0, count: replay.revisions[replay.revisions.length - 1]?.revSeq ?? replay.revisions.length, what: row?.description ?? '' })}
+      {t('canvas.replayBannerVersion', { seq: row?.revSeq ?? 0, count: replay.revisions[replay.revisions.length - 1]?.revSeq ?? replay.revisions.length, what: String(t(step.key, step.values)) })}
     </p>
   );
 }
@@ -59,6 +63,23 @@ function Workspace({ onImportWorkflow }: GraphWorkspaceProps) {
       zoomIn: () => void flow.zoomIn({ duration: fitDurationMs() }),
       zoomOut: () => void flow.zoomOut({ duration: fitDurationMs() }),
       zoomReset: () => void flow.zoomTo(1, { duration: fitDurationMs() }),
+      reveal: (rect) => {
+        const box = document.querySelector('.react-flow')?.getBoundingClientRect();
+        if (!box) return;
+        const { x, y, zoom } = flow.getViewport();
+        // The visible part of the canvas in flow coordinates, less a margin so the node is not glued to an edge.
+        const margin = 48 / zoom;
+        const left = -x / zoom + margin;
+        const top = -y / zoom + margin;
+        const right = (box.width - x) / zoom - margin;
+        const bottom = (box.height - y) / zoom - margin;
+        if (rect.x >= left && rect.y >= top && rect.x + rect.width <= right && rect.y + rect.height <= bottom) return;
+        void flow.setCenter(rect.x + rect.width / 2, rect.y + rect.height / 2, { zoom, duration: fitDurationMs() });
+      },
+      panBy: (dx, dy) => {
+        const { x, y, zoom } = flow.getViewport();
+        void flow.setViewport({ x: x + dx, y: y + dy, zoom }, { duration: Math.min(120, fitDurationMs()) });
+      },
     });
     return () => setCanvasHandle(null);
   }, [flow]);
@@ -88,7 +109,7 @@ function Workspace({ onImportWorkflow }: GraphWorkspaceProps) {
     void (async () => {
       // The drop point, moved to the nearest spot where the new node covers nothing.
       const at = await placeNewNode(point, { classType: add.nodeType, parameters: add.parameters });
-      await commitManual({
+      const result = await commitManual({
         type: 'add-node',
         nodeType: add.nodeType,
         ...(add.title ? { title: add.title } : {}),
@@ -96,6 +117,7 @@ function Workspace({ onImportWorkflow }: GraphWorkspaceProps) {
         y: Math.round(at.y),
         ...(Object.keys(add.parameters).length > 0 ? { parameters: add.parameters } : {}),
       });
+      revealNewNode(addedNodeId(result));
     })();
   }, [flow, replaying]);
 

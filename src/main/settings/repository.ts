@@ -95,7 +95,9 @@ export function saveSettings(db: Database.Database, input: unknown): SettingsSav
   }
   let preferences = readPreferences(db);
   if (patch !== undefined) {
-    const merged = preferencesSchema.safeParse(mergePreferences(preferences, patch));
+    // How the window was left is saved on its own (saveViewPreferences); a settings save never rolls it back.
+    const { view: _view, ...settingsPatch } = patch && typeof patch === 'object' && !Array.isArray(patch) ? patch as Record<string, unknown> : {} as Record<string, unknown>;
+    const merged = preferencesSchema.safeParse(mergePreferences(preferences, settingsPatch));
     if (!merged.success || preferencesCarrySecret(merged.data)) {
       return { ok: false, error: merged.success ? 'Settings cannot store a secret' : 'Settings do not match the schema' };
     }
@@ -135,6 +137,19 @@ export function saveSettings(db: Database.Database, input: unknown): SettingsSav
   });
   write.immediate();
   return { ok: true, values, preferences };
+}
+
+/**
+ * Saves only how the window was left (preferences.view: library tab, panel width, Models choices). Nothing else of
+ * the settings row is read back or written, so this frequent save never touches the helper, the connection or
+ * the language. Returns the preferences as stored, or null when the patch does not fit the schema.
+ */
+export function saveViewPreferences(db: Database.Database, patch: unknown): Preferences | null {
+  if (!patch || typeof patch !== 'object' || Array.isArray(patch) || preferencesCarrySecret(patch)) return null;
+  const merged = preferencesSchema.safeParse(mergePreferences(readPreferences(db), { view: patch }));
+  if (!merged.success) return null;
+  const updated = db.prepare('UPDATE settings SET preferences_json = ? WHERE id = 1').run(JSON.stringify(merged.data));
+  return updated.changes > 0 ? merged.data : null;
 }
 
 export function secretRecordCount(db: Database.Database): number {

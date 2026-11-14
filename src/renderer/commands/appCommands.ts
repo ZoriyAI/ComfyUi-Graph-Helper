@@ -15,7 +15,7 @@ import { useUndoStore } from '../state/undoState';
 import { installPortsNotice } from '../services/portsNotice';
 import {
   addGroup, askAboutSelection, canEditGraph, canEditLevel, checkGraph, createSubgraph, deleteSelection, dissolveSubgraph, endRun, exportWorkflowFile, focusChat, openLessons,
-  importCatalogSnapshot, importWorkflowFile, openAddNode, openProjectFile, pauseRun, requestNewProject, resumeRun, saveProjectFile,
+  importCatalogSnapshot, importWorkflowFile, openAddNode, openProjectFile, pauseRun, requestNewProject, resumeRun, saveProjectFile, saveProjectFileAs,
   saveSettingsPatch, selectAllNodes, selectedEdgeIds, selectedNodes, selectedSubgraphInstance,
 } from './actions';
 import { useUiStore } from '../state/uiState';
@@ -35,6 +35,12 @@ import { runSyncNow, setAutoSync } from '../components/sync/SyncIndicator';
 import { RAIL_WIDTH } from '../state/uiState';
 import { savePreferencesPatch } from '../state/preferencesState';
 import { buildDiagnosticsCommands } from './diagnosticsCommands';
+import { ClipboardPaste, Copy, CopyPlus, Pin, Scissors } from 'lucide-react';
+import { copySelection, cutSelection, duplicateSelection, hasClipboard, hasSelection, pasteClipboard } from '../components/graph/lib/clipboard';
+import { installProjectFileWatch } from '../services/projectFile';
+import { installReplayGate } from './replayGate';
+import { installViewMemory } from '../state/viewMemory';
+import { installCatalogWatch } from '../services/catalogWatch';
 
 const always = () => true;
 
@@ -85,7 +91,8 @@ export function buildAppCommands(): Command[] {
     // File
     { id: 'file.new', group: 'file', labelKey: 'menu.newProject', hintKey: 'menu.newProjectHint', icon: FilePlus2, shortcut: 'Mod+N', enabled: always, run: requestNewProject },
     { id: 'file.open', group: 'file', labelKey: 'project.open', icon: FolderOpen, shortcut: 'Mod+O', enabled: always, run: openProjectFile },
-    { id: 'file.save', group: 'file', labelKey: 'project.save', icon: Save, shortcut: 'Mod+S', enabled: always, run: saveProjectFile },
+    { id: 'file.save', group: 'file', labelKey: 'project.save', icon: Save, shortcut: 'Mod+S', enabled: always, run: () => saveProjectFile() },
+    { id: 'file.saveAs', group: 'file', labelKey: 'project.saveAs', icon: Save, shortcut: 'Mod+Shift+S', enabled: always, run: saveProjectFileAs },
     { id: 'file.import', group: 'file', labelKey: 'toolbar.import', hintKey: 'menu.importHint', icon: FolderInput, shortcut: 'Mod+I', enabled: always, run: importWorkflowFile },
     { id: 'file.export', group: 'file', labelKey: 'toolbar.export', hintKey: 'shell.exportHint', icon: FolderOutput, shortcut: 'Mod+E', enabled: always, run: exportWorkflowFile },
     { id: 'file.catalog', group: 'file', labelKey: 'toolbar.catalog', hintKey: 'menu.catalogHint', icon: Database, enabled: always, run: importCatalogSnapshot },
@@ -94,7 +101,12 @@ export function buildAppCommands(): Command[] {
 
     // Edit
     { id: 'edit.undo', group: 'edit', labelKey: 'toolbar.undo', hintKey: 'toolbar.undoNone', hint: undoHint, icon: Undo2, shortcut: 'Mod+Z', enabled: canUndo, run: undo },
-    { id: 'edit.redo', group: 'edit', labelKey: 'toolbar.redo', hintKey: 'toolbar.redoNone', hint: redoHint, icon: Redo2, shortcut: 'Mod+Shift+Z', enabled: canRedo, run: redo },
+    { id: 'edit.redo', group: 'edit', labelKey: 'toolbar.redo', hintKey: 'toolbar.redoNone', hint: redoHint, icon: Redo2, shortcut: 'Mod+Shift+Z', altShortcuts: ['Mod+Y'], enabled: canRedo, run: redo },
+    // Copy, cut, paste and duplicate act on the level on screen, a subgraph included; a paste or a duplicate is one step.
+    { id: 'edit.copy', group: 'edit', labelKey: 'menu.copy', icon: Copy, shortcut: 'Mod+C', enabled: () => canEditLevel() && hasSelection(), run: () => void copySelection() },
+    { id: 'edit.cut', group: 'edit', labelKey: 'menu.cut', icon: Scissors, shortcut: 'Mod+X', enabled: () => canEditLevel() && hasSelection(), run: () => void cutSelection() },
+    { id: 'edit.paste', group: 'edit', labelKey: 'menu.paste', icon: ClipboardPaste, shortcut: 'Mod+V', enabled: () => canEditLevel() && hasClipboard(), run: () => void pasteClipboard() },
+    { id: 'edit.duplicate', group: 'edit', labelKey: 'menu.duplicate', icon: CopyPlus, shortcut: 'Mod+D', enabled: () => canEditLevel() && hasSelection(), run: () => void duplicateSelection() },
     { id: 'edit.selectAll', group: 'edit', labelKey: 'menu.selectAll', icon: SquareDashedMousePointer, shortcut: 'Mod+A', enabled: () => canEditLevel() && hasLevelNodes(), run: selectAllNodes },
     {
       id: 'edit.delete', group: 'edit', labelKey: 'menu.deleteSelection', icon: Trash2, shortcut: 'Delete', shortcutDisplayOnly: true,
@@ -195,6 +207,11 @@ export function buildAppCommands(): Command[] {
       checked: () => useCanvasStore.getState().descriptionsMode === choice.value,
       run: () => useCanvasStore.getState().setDescriptionsMode(choice.value),
     })),
+    {
+      id: 'view.pinNodes', group: 'view', labelKey: 'canvas.pinNodes', hintKey: 'canvas.pinNodesHint', icon: Pin, enabled: always,
+      checked: () => useCanvasStore.getState().nodesPinned,
+      run: () => useCanvasStore.getState().setNodesPinned(!useCanvasStore.getState().nodesPinned),
+    },
     {
       id: 'view.minimap', group: 'view', labelKey: 'menu.minimap', icon: MapIcon, enabled: always,
       checked: () => useCanvasStore.getState().minimapOn,
@@ -308,6 +325,11 @@ export function installAppCommands(): () => void {
     addCommandStateSource(useProjectionStore.subscribe),
     addCommandStateSource(useUndoStore.subscribe),
     installUndoHistory(),
+    // The unsaved mark and the File commands read the project file of the graph on screen from main.
+    installProjectFileWatch(),
+    installReplayGate(),
+    installViewMemory(),
+    installCatalogWatch(),
     // Not a command, but installed once with them: the "ports unknown" toast when a node is added.
     installPortsNotice(),
     addCommandStateSource(domSource('data-motion')),

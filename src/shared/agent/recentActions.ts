@@ -30,6 +30,9 @@ export function recentPayload(type: string, payload: Record<string, unknown>, re
       ? { type, count: payload.moves.length }
     : type === 'edit-in-subgraph' && isRecord(payload.edit) && payload.edit.type === 'move-nodes' && Array.isArray(payload.edit.moves)
       ? { ...payload, edit: { type: 'move-nodes', count: payload.edit.moves.length } }
+    // A batch (multi-delete, paste, duplicate, cut, a nudge): what it was and how many, not every edit.
+    : type === 'batch' && Array.isArray(payload.edits)
+      ? { type, label: payload.label, count: payload.edits.length, nodes: payload.edits.filter(isNodeEdit).length }
     : type === 'restore-revision' && typeof result?.restoredRevSeq === 'number'
       ? { ...payload, revSeq: result.restoredRevSeq }
       : payload;
@@ -46,6 +49,13 @@ export function recentPayload(type: string, payload: Record<string, unknown>, re
     }
   }
   return { payload: kept, ids: [...ids] };
+}
+
+/** An edit of a batch that adds or removes a node (on the canvas or inside a subgraph). */
+function isNodeEdit(edit: unknown): boolean {
+  if (!isRecord(edit)) return false;
+  const type = isRecord(edit.edit) ? edit.edit.type : edit.type;
+  return type === 'add-node' || type === 'remove-node' || type === 'insert-subgraph';
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

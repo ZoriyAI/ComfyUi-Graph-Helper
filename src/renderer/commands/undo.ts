@@ -3,6 +3,7 @@ import { useProjectionStore } from '../services/commands/projection';
 import { commitManual } from '../components/graph/commit';
 import { afterRedo, afterUndo, describeRevision, planUndo, useUndoStore, type UndoPlan } from '../state/undoState';
 import { canEditLevel } from './actions';
+import { pendingCommits, whenSettled } from '../services/commands/pending';
 
 const t = (key: string, options?: Record<string, unknown>) => String(i18n.t(key, options ?? {}));
 
@@ -40,12 +41,24 @@ export function currentUndoPlan(): UndoPlan {
 }
 
 /** Undo and redo work on every level: a change made inside a subgraph is one step of the same history. */
+/**
+ * A press while an undo is running or an edit is still landing is kept (queued below), not dropped: the plan is made
+ * once the history has caught up, so each press steps back one revision.
+ */
+function settling(): boolean {
+  const head = useProjectionStore.getState().currentRevisionId;
+  const store = useUndoStore.getState();
+  // An edit that just landed: the head is new and the revision list has not been read again yet.
+  const behind = Boolean(head) && !store.revisions.some((revision) => revision.id === head);
+  return store.busy || pendingCommits() > 0 || behind;
+}
+
 export function canUndo(): boolean {
-  return canEditLevel() && !useUndoStore.getState().busy && currentUndoPlan().undo !== null;
+  return canEditLevel() && (settling() || currentUndoPlan().undo !== null);
 }
 
 export function canRedo(): boolean {
-  return canEditLevel() && !useUndoStore.getState().busy && currentUndoPlan().redo !== null;
+  return canEditLevel() && (settling() || currentUndoPlan().redo !== null);
 }
 
 export function undoHint(): string {
@@ -73,7 +86,7 @@ async function restore(kind: 'undo' | 'redo'): Promise<void> {
   const step = kind === 'undo' ? plan.undo : plan.redo;
   const store = useUndoStore.getState();
   const previousHead = useProjectionStore.getState().currentRevisionId;
-  if (!step || store.busy || !plan.pointer) return;
+  if (!step || !plan.pointer) return;
   store.setBusy(true);
   try {
     const result = await commitManual({ type: 'restore-revision', revisionId: step.target }, kind) as
@@ -92,10 +105,36 @@ async function restore(kind: 'undo' | 'redo'): Promise<void> {
   }
 }
 
+/**
+ * Reads the revision list until it holds the head on screen. Another read started meanwhile (the projection
+ * watcher) wins over this one, so a single read may leave the list a step behind.
+ */
+async function historyCaughtUp(): Promise<void> {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    await refreshUndoHistory();
+    const head = useProjectionStore.getState().currentRevisionId;
+    if (!head || useUndoStore.getState().revisions.some((revision) => revision.id === head)) return;
+  }
+}
+
+/**
+ * Undo and redo run one after another, each once every edit the person started has landed (services/commands/
+ * pending.ts): Ctrl+Z pressed while an add or an import is still on its way undoes that edit, and a quick series
+ * of presses steps back one revision per press.
+ */
+let queue: Promise<void> = Promise.resolve();
+
+function queued(kind: 'undo' | 'redo'): Promise<void> {
+  // The revision list is read again once the edits landed, so the plan starts from the head they made.
+  const run = queue.then(() => whenSettled()).then(() => historyCaughtUp()).then(() => restore(kind));
+  queue = run.catch(() => undefined);
+  return run;
+}
+
 export function undo(): Promise<void> {
-  return restore('undo');
+  return queued('undo');
 }
 
 export function redo(): Promise<void> {
-  return restore('redo');
+  return queued('redo');
 }

@@ -1,4 +1,5 @@
 import type { GraphCheckReport, ObjectRef, PromptNote } from '../../../shared/contracts';
+import { nodeDisplayName } from '../graph/lib/nodeName';
 
 /** Pure helpers for the Check panel: one row per finding, grouped by finding type in report order. */
 
@@ -10,7 +11,11 @@ export type CheckProblemType =
   | 'baseModelMismatches'
   | 'unconnectedRequiredInputs'
   | 'unknownNodeTypes'
-  | 'unsetWidgets';
+  | 'unsetWidgets'
+  | 'noOutputNode'
+  | 'valuesOutOfRange'
+  | 'valuesNotInList'
+  | 'cycles';
 
 /** A problem, or advice about a description (a prompt): shown apart from the problems and never counted as one. */
 export type CheckFindingType = CheckProblemType | 'promptNotes';
@@ -23,6 +28,10 @@ export const CHECK_FINDING_TYPES: readonly CheckProblemType[] = [
   'unconnectedRequiredInputs',
   'unknownNodeTypes',
   'unsetWidgets',
+  'noOutputNode',
+  'valuesOutOfRange',
+  'valuesNotInList',
+  'cycles',
 ];
 
 export interface CheckFinding {
@@ -54,7 +63,7 @@ interface NamedNode { id: string; data: { title?: string; comfyType?: string } }
 export function nodeNamer(nodes: ReadonlyArray<NamedNode>): NodeNamer {
   return (nodeId) => {
     const node = nodes.find((item) => item.id === nodeId);
-    return node ? node.data.title || node.data.comfyType || undefined : undefined;
+    return node ? nodeDisplayName(node.data) || undefined : undefined;
   };
 }
 
@@ -108,6 +117,34 @@ export function findingsOf(report: GraphCheckReport, resolvePort?: PortResolver,
   });
   report.unknownNodeTypes.forEach((classType) => add('unknownNodeTypes', classType, { classType }, { kind: 'nodeClass', id: classType, classType }));
   (report.unsetWidgets ?? []).forEach((item) => add('unsetWidgets', `${item.nodeId}:${item.name}`, { ...item }, { kind: 'node', id: item.nodeId, classType: item.classType }));
+  if (report.noOutputNode) add('noOutputNode', report.noOutputNode.nodeId, { nodeId: report.noOutputNode.nodeId }, { kind: 'node', id: report.noOutputNode.nodeId });
+  (report.valuesOutOfRange ?? []).forEach((item) => {
+    const limit = item.min !== undefined && item.value < item.min ? 'min' : 'max';
+    const handle = resolvePort?.(item.nodeId, item.input);
+    add('valuesOutOfRange', `${item.nodeId}:${item.input}`, {
+      nodeId: item.nodeId,
+      classType: item.classType,
+      input: item.input,
+      value: String(item.value),
+      limit: String(limit === 'min' ? item.min : item.max),
+      // The sentence differs for "too small" and "too large"; the key picks it.
+      bound: limit,
+    }, handle ? { kind: 'port', id: `${item.nodeId}:${handle}`, nodeId: item.nodeId, portName: handle, direction: 'input' } : { kind: 'node', id: item.nodeId, classType: item.classType });
+  });
+  (report.valuesNotInList ?? []).forEach((item) => {
+    const handle = resolvePort?.(item.nodeId, item.input);
+    add('valuesNotInList', `${item.nodeId}:${item.input}`, { ...item }, handle
+      ? { kind: 'port', id: `${item.nodeId}:${handle}`, nodeId: item.nodeId, portName: handle, direction: 'input' }
+      : { kind: 'node', id: item.nodeId, classType: item.classType });
+  });
+  (report.cycles ?? []).forEach((item) => {
+    const names = item.nodeIds.map((id) => nameOf?.(id) ?? id);
+    add('cycles', item.nodeIds.join(','), { nodeId: item.nodeIds[0] ?? '', nodes: names.join(' → ') }, { kind: 'node', id: item.nodeIds[0] ?? '' });
+  });
+  for (const finding of out) {
+    // Two sentences for one finding type: below the minimum, above the maximum.
+    if (finding.type === 'valuesOutOfRange') finding.textKey = finding.values.bound === 'min' ? 'check.valuesBelowMinItem' : 'check.valuesAboveMaxItem';
+  }
   return out;
 }
 
@@ -167,5 +204,9 @@ export function checkFindingCount(report: GraphCheckReport | null | undefined): 
     + report.baseModelMismatches.length
     + report.unconnectedRequiredInputs.length
     + report.unknownNodeTypes.length
-    + (report.unsetWidgets ?? []).length;
+    + (report.unsetWidgets ?? []).length
+    + (report.noOutputNode ? 1 : 0)
+    + (report.valuesOutOfRange ?? []).length
+    + (report.valuesNotInList ?? []).length
+    + (report.cycles ?? []).length;
 }

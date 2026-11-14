@@ -59,7 +59,8 @@ test('import projects a workflow onto the canvas and export keeps unknown fields
   await window.reload();
   await window.locator('#chat-provider').waitFor();
   await expect(window.locator('.react-flow__node')).toHaveCount(1);
-  await expect(window.getByText('Loaded checkpoint')).toBeVisible();
+  // The check runs on its own after an import, so the name also appears in the Check panel: look at the node.
+  await expect(window.locator('.react-flow__node').getByText('Loaded checkpoint')).toBeVisible();
 
   const exported = await window.evaluate(async () => {
     const bridge = (window as unknown as { electronAPI: { exportWorkflowDocument: () => Promise<{ ok: boolean; workflow: Record<string, unknown> }> } }).electronAPI;

@@ -56,7 +56,10 @@ Right-click a node, a port or a link: "Ask the assistant" about that part of the
 
 ## Saving and exporting
 
-- "File ▸ Save project" writes a project file `.graph-helper.json`. It holds the graph and the explanations of its nodes and links, so after "Open project" the explanations are back.
+- "File ▸ Save project" (Ctrl+S) writes a project file `.graph-helper.json`. It holds the graph and the explanations of its nodes and links, so after "Open project" the explanations are back. The first time the app asks where to save and suggests a name made of the graph's title; after that Ctrl+S writes to the same file without asking.
+- "File ▸ Save project as…" (Ctrl+Shift+S) always asks where to save. A name typed without an extension gets `.graph-helper.json` (a workflow gets `.json`), so the file shows up in "Open".
+- A dot next to the project name means the graph on the canvas is not in a project file as it stands. The app keeps the graph between runs anyway; the dot goes away after a save, and after undoing back to what was saved.
+- "Open project", "Open workflow…" and "New project" ask first when the graph on the canvas is not saved to a project file. The previous graph stays in the version history either way.
 - "File ▸ Save workflow for ComfyUI…" writes an ordinary workflow JSON. You open it in ComfyUI itself. If the check found errors, the app tells you about them first.
 - "File ▸ Open workflow…" opens a workflow saved in ComfyUI. When you save it again, it goes back to ComfyUI exactly as it was, except for what you changed.
 - If node fields hold values that look like a key or a token, the app asks before saving the file whether to leave them out.

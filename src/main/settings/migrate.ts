@@ -155,8 +155,11 @@ function applyVersion2(db: Database.Database): void {
  * Rows already there belong to the graph each project has now.
  * Version 16 adds two indexes for the history: one that answers the revision list (undo, replay) without reading
  * the stored graphs, and one that finds the command that made a revision.
+ * Version 17 remembers, for each graph (graph_key), the project file it was last opened from or saved to and the
+ * fingerprint of the content written there (table project_files): Ctrl+S saves in place, and the unsaved mark says
+ * whether what is on screen is in that file as it stands, across reloads and restarts.
  */
-export const SCHEMA_VERSION = 16;
+export const SCHEMA_VERSION = 17;
 
 export function migrate(db: Database.Database, options?: { failBeforeVersionStamp?: boolean; /** Tests: stop at this version. */ upTo?: number }): void {
   const version = schemaVersion(db);
@@ -279,6 +282,27 @@ export function migrate(db: Database.Database, options?: { failBeforeVersionStam
     });
     apply.immediate();
   }
+  if (schemaVersion(db) === 16 && target > 16) {
+    const apply = db.transaction(() => {
+      applyVersion17(db);
+      db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (17, ?)').run(Date.now());
+    });
+    apply.immediate();
+  }
+}
+
+/** The project file of each graph: where it was last opened from or saved to, and what it held (see above). */
+function applyVersion17(db: Database.Database): void {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS project_files (
+      project_id TEXT NOT NULL,
+      graph_key TEXT NOT NULL,
+      file_path TEXT NOT NULL,
+      saved_digest TEXT NOT NULL,
+      saved_at INTEGER NOT NULL,
+      PRIMARY KEY (project_id, graph_key)
+    )
+  `);
 }
 
 function applyVersion16(db: Database.Database): void {

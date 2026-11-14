@@ -52,6 +52,7 @@ const IPC_CHANNELS = {
   FILE_EXPORT_WORKFLOW: 'file:export-workflow',
   FILE_OPEN_PROJECT: 'file:open-project',
   FILE_SAVE_PROJECT: 'file:save-project',
+  FILE_PROJECT_STATE: 'file:project-state',
   WORKFLOW_EXPORT_DOCUMENT: 'workflow:export-document',
   DB_SAVE_PROJECT: 'db:save-project',
   DB_LOAD_PROJECT: 'db:load-project',
@@ -64,6 +65,7 @@ const IPC_CHANNELS = {
   LLM_CANCEL: 'llm:cancel',
   SETTINGS_GET: 'settings:get',
   SETTINGS_SAVE: 'settings:save',
+  SETTINGS_SAVE_VIEW: 'settings:save-view',
   SETTINGS_SAVE_SECRET: 'settings:save-secret',
   SETTINGS_FORGET_SECRET: 'settings:forget-secret',
   SECRETS_FORGET_ALL: 'secrets:forget-all',
@@ -184,7 +186,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   exportWorkflow: (secrets?: 'omit' | 'keep') => ipcRenderer.invoke(IPC_CHANNELS.FILE_EXPORT_WORKFLOW, secrets),
   exportWorkflowDocument: () => ipcRenderer.invoke(IPC_CHANNELS.WORKFLOW_EXPORT_DOCUMENT),
   openProject: () => ipcRenderer.invoke(IPC_CHANNELS.FILE_OPEN_PROJECT),
-  saveProjectFile: (secrets?: 'omit' | 'keep') => ipcRenderer.invoke(IPC_CHANNELS.FILE_SAVE_PROJECT, secrets),
+  /** `options.saveAs`: always ask where (File ▸ Save project as…); otherwise the project's own file is written in place. */
+  saveProjectFile: (secrets?: 'omit' | 'keep', options?: { saveAs?: boolean }) => ipcRenderer.invoke(IPC_CHANNELS.FILE_SAVE_PROJECT, secrets, options ?? {}),
+  projectFileState: () => ipcRenderer.invoke(IPC_CHANNELS.FILE_PROJECT_STATE),
 
   // Project operations
   saveProject: (project: any) => ipcRenderer.invoke(IPC_CHANNELS.DB_SAVE_PROJECT, project),
@@ -193,6 +197,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   getSettings: () => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_GET),
   saveSettings: (input: unknown) => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SAVE, input),
+  /** How the window was left (preferences.view) only; the rest of the settings row is not touched. */
+  saveViewPreferences: (patch: unknown) => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SAVE_VIEW, patch),
   /** Remembers one provider's key in the OS store. Without a value, the key held for that provider is the one saved. */
   saveSecret: (provider: CloudKeyProvider, value?: string) => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SAVE_SECRET, provider, value),
   saveSecretFile: (provider: CloudKeyProvider) => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SAVE_SECRET_FILE, provider) as Promise<{ status: 'stored' | 'missing' }>,
@@ -405,13 +411,15 @@ export interface ElectronAPI {
   exportWorkflow: (secrets?: 'omit' | 'keep') => Promise<{ ok: true; unsetWidgets?: Array<{ nodeId: string; classType: string; name: string }> } | { ok: false; canceled?: boolean; error?: string; secrets?: SecretFieldReport[] }>;
   exportWorkflowDocument: () => Promise<{ ok: true; workflow: Record<string, unknown>; unsetWidgets?: Array<{ nodeId: string; classType: string; name: string }> } | { ok: false; error: string }>;
   openProject: () => Promise<import('../shared/commands/types').CommandResponse | { status: 'cancelled'; projection: null; result: null }>;
-  saveProjectFile: (secrets?: 'omit' | 'keep') => Promise<{ ok: true } | { ok: false; canceled?: boolean; error?: string; secrets?: SecretFieldReport[] }>;
+  saveProjectFile: (secrets?: 'omit' | 'keep', options?: { saveAs?: boolean }) => Promise<{ ok: true; filePath?: string } | { ok: false; canceled?: boolean; error?: string; secrets?: SecretFieldReport[] }>;
+  projectFileState: () => Promise<import('../shared/contracts/projectFile').ProjectFileState>;
   saveProject: (project: any) => Promise<{ success: boolean }>;
   loadProject: (id: string) => Promise<any>;
   listProjects: () => Promise<any[]>;
   getSettings: () => Promise<SettingsRead>;
   /** `input.preferences`, when present, is a patch merged onto the stored preferences. */
   saveSettings: (input: unknown) => Promise<SettingsSaveResult>;
+  saveViewPreferences: (patch: unknown) => Promise<import('../shared/config/preferences').Preferences | null>;
   saveSecret: (provider: CloudKeyProvider, value?: string) => Promise<{ status: 'secret-storage-blocked' | 'stored' }>;
   saveSecretFile: (provider: CloudKeyProvider) => Promise<{ status: 'stored' | 'missing' }>;
   forgetSecret: (provider?: CloudKeyProvider) => Promise<{ status: 'removed' }>;

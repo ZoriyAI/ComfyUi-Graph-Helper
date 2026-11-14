@@ -15,7 +15,6 @@ import { clampInterval, syncSummary, syncTransition, syncView } from '../../src/
 import { createTranslator } from '../../src/shared/i18n';
 import { MAX_TOASTS, queueToast, type ToastItem } from '../../src/renderer/ui/toastStore';
 import { dockRange, normalizeDockTab, TAB_DEFAULT, TAB_MAX, TAB_MIN } from '../../src/renderer/state/dockState';
-import { isDirty } from '../../src/renderer/state/uiState';
 import { clampSize } from '../../src/renderer/ui/Splitter';
 import { subgraphSummary } from '../../src/renderer/components/graph/SubgraphSummary';
 import type { SyncStatus } from '../../src/shared/contracts';
@@ -242,9 +241,4 @@ describe('toast queue, dock and frame state', () => {
     expect(clampSize(900, 320, 540)).toBe(540);
   });
 
-  it('is dirty only after the graph moved past the saved revision', () => {
-    expect(isDirty(null, 4)).toBe(false);
-    expect(isDirty(4, 4)).toBe(false);
-    expect(isDirty(4, 5)).toBe(true);
-  });
 });

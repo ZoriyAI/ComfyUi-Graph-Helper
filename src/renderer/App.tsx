@@ -32,10 +32,6 @@ import { DESKTOP_PROJECT_ID } from '../shared/project';
 
 export { providerKeyState, providerNoteKey } from './state/providerState';
 
-function markCurrentSaved() {
-  useUiStore.getState().markSaved(useProjectionStore.getState().revSeq);
-}
-
 /** The settings button at the right end of the toolbar: a gear, named "Settings" by its text. */
 const SettingsButton = forwardRef<HTMLButtonElement, React.ButtonHTMLAttributes<HTMLButtonElement>>(function SettingsButton(props, ref) {
   const { t } = useTranslation();
@@ -61,7 +57,6 @@ function App() {
     const offFrame = installFrameBalance();
     window.electronAPI.readProjection(DESKTOP_PROJECT_ID).then((projection) => {
       applyProjection(projection);
-      markCurrentSaved();
     }).catch((error) => {
       console.error('[App] Projection load failed:', error);
     });

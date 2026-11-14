@@ -3,6 +3,7 @@ import type Database from 'better-sqlite3';
 import { canonicalPayload } from '../../shared/commands/canonical';
 import {
   commandRequestSchema,
+  mutationSchema,
   type ActiveRun,
   type CommandRequest,
   type CommandResponse,
@@ -306,7 +307,55 @@ function outputPort(node: Record<string, any>, handle: string): { dataType: stri
   return portById(node, 'outputs', handle);
 }
 
+function stampComponentAuthor(snapshot: Snapshot, payload: { ownerKind: string; ownerId: string }, author: 'user' | 'assistant'): void {
+  snapshot.components = (snapshot.components ?? []).map((record) => (
+    record.ownerKind === payload.ownerKind && record.ownerId === payload.ownerId ? { ...record, author } : record
+  ));
+}
+
+/** Edits a batch may not hold: they replace or rewind the whole graph, or nest. */
+const NOT_IN_BATCH = new Set(['batch', 'restore-revision', 'import-workflow', 'open-native']);
+
+/** "@k" in a batch edit: the node the k-th edit of the batch added. */
+function resolveRefs(edit: Record<string, unknown>, added: Array<string | null>): Record<string, unknown> {
+  const swap = (value: unknown) => {
+    if (typeof value !== 'string' || !/^@\d+$/.test(value)) return value;
+    const id = added[Number(value.slice(1))];
+    if (!id) throw new CommandSignal('rejected', { error: 'Node was not found.' });
+    return id;
+  };
+  const out: Record<string, unknown> = { ...edit };
+  for (const key of ['source', 'target', 'nodeId']) if (key in out) out[key] = swap(out[key]);
+  if (out.edit && typeof out.edit === 'object') out.edit = resolveRefs(out.edit as Record<string, unknown>, added);
+  return out;
+}
+
+/** The node an applied edit added, if it added one (add-node, insert-subgraph, the same inside a subgraph). */
+function addedNodeId(result: Record<string, unknown>): string | null {
+  if (typeof result.nodeId === 'string' && result.nodeId) return result.nodeId;
+  if (typeof result.nodeId === 'number') return String(result.nodeId);
+  if (typeof result.instanceId === 'string') return result.instanceId;
+  return null;
+}
+
+/** Applies a batch: each edit in turn on the graph the previous one left, all of it one revision. */
+function applyBatch(snapshot: Snapshot, actionId: string, edits: Array<Record<string, unknown>>, catalog: CatalogView): { snapshot: Snapshot; result: Record<string, unknown> } {
+  let current = snapshot;
+  const added: Array<string | null> = [];
+  const results: Array<Record<string, unknown>> = [];
+  edits.forEach((raw, index) => {
+    const parsed = mutationSchema.safeParse(resolveRefs(raw, added));
+    if (!parsed.success || NOT_IN_BATCH.has(parsed.data.type)) throw new CommandSignal('rejected', { error: 'A part of this change is not valid.' });
+    const applied = applyMutation(current, `${actionId}#${index}`, parsed.data, catalog);
+    current = { ...current, ...applied.snapshot };
+    results.push(applied.result);
+    added.push(addedNodeId(applied.result));
+  });
+  return { snapshot: current, result: { results, nodeIds: added.filter((id): id is string => id !== null) } };
+}
+
 function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutation, catalog: CatalogView): { snapshot: Snapshot; result: Record<string, unknown> } {
+  if (payload.type === 'batch') return applyBatch(snapshot, actionId, payload.edits, catalog);
   const nodes: Array<Record<string, any>> = snapshot.nodes.map((node) => ({
     ...node,
     data: { ...node.data },
@@ -727,6 +776,8 @@ export function commitCommand(
       const applied = payload.type === 'restore-revision'
         ? restoreRevision(db, request.projectId, payload.revisionId, current.snapshot)
         : applyMutation(current.snapshot, request.actionId, payload, catalog);
+      // The text of a component is the person's or the helper's: the badge on the canvas says which.
+      if (payload.type === 'set-component') stampComponentAuthor(applied.snapshot, payload, request.actor === 'manual' ? 'user' : 'assistant');
       const sealed = sealSnapshot(applied.snapshot, current.snapshot);
       applied.snapshot = sealed.snapshot;
       if (request.payload.type === 'import-workflow') {

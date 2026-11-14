@@ -20,13 +20,22 @@ import NodeCard from './NodeCard';
 import VirtualList from './VirtualList';
 import { categoryAccent } from '../graph/lib/typeColors';
 import { cx } from '../../ui/cx';
+import { replayIsOpen } from '../../commands/replayGate';
+import { trackCommit } from '../../services/commands/pending';
 import styles from './Library.module.css';
+import { addedNodeId, revealNewNode } from '../graph/lib/reveal';
 
 const ROW_HEIGHT = 40;
 const SEARCH_LIMIT = 10000;
 
 /** Adds a node class at the centre of the visible canvas (the nearest free spot there) through the manual command path. */
 export async function addNodeFromLibrary(node: Pick<NodeClassSummary, 'classType' | 'displayName'>, messages: { added: string; failed: string }) {
+  // History replay shows an old version read-only; an undo pressed meanwhile waits for this add (trackCommit).
+  if (replayIsOpen(true)) return;
+  return trackCommit(() => addNow(node, messages));
+}
+
+async function addNow(node: Pick<NodeClassSummary, 'classType' | 'displayName'>, messages: { added: string; failed: string }) {
   const position = await placeNewNode(null, { classType: node.classType });
   try {
     // Into the level on screen: the root graph, or the open subgraph.
@@ -37,7 +46,11 @@ export async function addNodeFromLibrary(node: Pick<NodeClassSummary, 'classType
       x: position.x,
       y: position.y,
     }));
-    if (result.status === 'applied') showToast({ id: 'library-add', tone: 'success', title: messages.added, duration: 4000 });
+    if (result.status === 'applied') {
+      showToast({ id: 'library-add', tone: 'success', title: messages.added, duration: 4000 });
+      // Selected and in view, so the person sees what the toast says was added.
+      revealNewNode(addedNodeId(result));
+    }
     else if (hasRefusalReason(result)) reportRefusal(result);
     else showToast({ id: 'library-add', tone: 'error', title: messages.failed });
   } catch {

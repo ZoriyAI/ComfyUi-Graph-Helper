@@ -33,12 +33,12 @@ interface CanvasNode extends GraphNodeLike {
 interface CanvasEdge { id?: unknown; source?: unknown; target?: unknown; sourceHandle?: unknown; targetHandle?: unknown; data?: { dataType?: unknown } }
 
 interface SpecInput { name: string; type: string; widget: boolean; required: boolean | undefined }
-interface Spec { inputs: SpecInput[]; outputs: Array<{ name: string; type: string }> }
+interface Spec { inputs: SpecInput[]; outputs: Array<{ name: string; type: string }>; outputNode: boolean; detailed: boolean }
 
 /** Raw catalog rows: readCatalog drops the required flag, which this check needs. */
 function specIndex(db: Database.Database): Map<string, Spec> {
-  const rows = db.prepare('SELECT class_type, inputs_json, outputs_json FROM node_catalog').all() as Array<{
-    class_type: string; inputs_json: string; outputs_json: string;
+  const rows = db.prepare('SELECT class_type, inputs_json, outputs_json, output_node FROM node_catalog').all() as Array<{
+    class_type: string; inputs_json: string; outputs_json: string; output_node: number | null;
   }>;
   const index = new Map<string, Spec>();
   for (const row of rows) {
@@ -49,7 +49,8 @@ function specIndex(db: Database.Database): Map<string, Spec> {
     const outputs = arrayOf(row.outputs_json).flatMap((item) => (
       typeof item?.name === 'string' && typeof item?.type === 'string' ? [{ name: item.name, type: item.type }] : []
     ));
-    index.set(row.class_type, { inputs, outputs });
+    // A class read only from the MCP class list has no inputs or outputs yet: its output flag means nothing.
+    index.set(row.class_type, { inputs, outputs, outputNode: row.output_node === 1, detailed: inputs.length > 0 || outputs.length > 0 });
   }
   return index;
 }
@@ -233,6 +234,161 @@ function typeMismatches(nodes: CanvasNode[], edges: CanvasEdge[], specs: Map<str
   });
 }
 
+/** Names of the node's inputs that a link feeds: their value comes from the socket, not from the field. */
+function linkedInputs(node: CanvasNode, edges: CanvasEdge[]): Set<string> {
+  return new Set(edges
+    .filter((edge) => String(edge.target) === String(node.id))
+    .map((edge) => portName(node, 'inputs', edge.targetHandle))
+    .filter((name): name is string => name !== null));
+}
+
+function parametersOf(node: CanvasNode): Record<string, unknown> {
+  const parameters = (node.data as { parameters?: unknown } | undefined)?.parameters;
+  return parameters && typeof parameters === 'object' && !Array.isArray(parameters) ? parameters as Record<string, unknown> : {};
+}
+
+/**
+ * The value a field holds, read as the canvas reads it (renderer fields/fieldModel.ts fieldValue): the parameters a
+ * command set, else the stored widgets_values of an imported node by the catalog widget order. Undefined: not read.
+ */
+function fieldValueOf(node: CanvasNode, name: string, spec: CatalogView['nodes'][number]): unknown {
+  const parameters = parametersOf(node);
+  if (Object.prototype.hasOwnProperty.call(parameters, name) && parameters[name] !== null && parameters[name] !== undefined) return parameters[name];
+  const comfy = (node.data as { comfy?: { widgets_values?: unknown } } | undefined)?.comfy;
+  const widgets = comfy?.widgets_values;
+  if (Array.isArray(widgets)) {
+    if (spec.widgetOrderReliable === false) return undefined;
+    const index = spec.widgetOrder.indexOf(name);
+    return index >= 0 && index < widgets.length ? widgets[index] : undefined;
+  }
+  if (widgets && typeof widgets === 'object') return (widgets as Record<string, unknown>)[name];
+  return undefined;
+}
+
+function slashes(text: string): string {
+  return text.replace(/\\/g, '/');
+}
+
+/**
+ * Number fields outside the catalog range and list fields holding a value the list does not have. Only classes
+ * the catalog describes are read; a field a link feeds, a list of model files (missingModels says that), an upload
+ * list (the person may upload the file in ComfyUI) and a multi-choice list are left alone.
+ */
+function fieldValues(nodes: CanvasNode[], edges: CanvasEdge[], catalog: CatalogView): {
+  valuesOutOfRange: NonNullable<GraphCheckReport['valuesOutOfRange']>;
+  valuesNotInList: NonNullable<GraphCheckReport['valuesNotInList']>;
+} {
+  const byClass = new Map(catalog.nodes.map((node) => [node.classType, node]));
+  const modelNames = new Set(catalog.models.map((model) => slashes(model.name)));
+  const valuesOutOfRange: NonNullable<GraphCheckReport['valuesOutOfRange']> = [];
+  const valuesNotInList: NonNullable<GraphCheckReport['valuesNotInList']> = [];
+  for (const node of nodes) {
+    const classType = classOf(node);
+    const spec = byClass.get(classType);
+    if (!spec || spec.inputs.length === 0) continue;
+    const linked = linkedInputs(node, edges);
+    for (const input of spec.inputs) {
+      if (!input.widget || linked.has(input.name)) continue;
+      const value = fieldValueOf(node, input.name, spec);
+      if (value === undefined || value === null) continue;
+      const kind = (input.widgetType ?? input.type).toUpperCase();
+      if ((kind === 'INT' || kind === 'FLOAT') && typeof value === 'number' && Number.isFinite(value)) {
+        const below = input.min !== undefined && value < input.min;
+        const above = input.max !== undefined && value > input.max;
+        if (below || above) {
+          valuesOutOfRange.push({
+            nodeId: String(node.id), classType, input: input.name, value,
+            ...(input.min !== undefined ? { min: input.min } : {}),
+            ...(input.max !== undefined ? { max: input.max } : {}),
+          });
+        }
+        continue;
+      }
+      const options = input.options ?? [];
+      if (options.length === 0 || typeof value !== 'string' || value === '' || input.multiSelect) continue;
+      if (spec.widgetOrder.includes(`${input.name}::media_upload`)) continue;
+      const listed = new Set(options.map(slashes));
+      if (listed.has(slashes(value))) continue;
+      if (modelNames.has(slashes(value)) || options.some((option) => modelNames.has(slashes(option)))) continue;
+      valuesNotInList.push({ nodeId: String(node.id), classType, input: input.name, value });
+    }
+  }
+  return { valuesOutOfRange, valuesNotInList };
+}
+
+/** Each loop of links once, as the node ids along it. */
+function cyclesOf(nodes: CanvasNode[], edges: CanvasEdge[]): NonNullable<GraphCheckReport['cycles']> {
+  const next = new Map<string, string[]>();
+  for (const node of nodes) next.set(String(node.id), []);
+  for (const edge of edges) {
+    const source = String(edge.source);
+    const target = String(edge.target);
+    if (next.has(source) && next.has(target)) next.get(source)!.push(target);
+  }
+  const state = new Map<string, 'open' | 'done'>();
+  const stack: string[] = [];
+  const found: NonNullable<GraphCheckReport['cycles']> = [];
+  const seen = new Set<string>();
+  const visit = (id: string) => {
+    state.set(id, 'open');
+    stack.push(id);
+    for (const target of next.get(id) ?? []) {
+      const mark = state.get(target);
+      if (mark === 'open') {
+        const loop = stack.slice(stack.indexOf(target));
+        const key = [...loop].sort().join(',');
+        if (!seen.has(key)) {
+          seen.add(key);
+          found.push({ nodeIds: loop });
+        }
+      } else if (mark === undefined) {
+        visit(target);
+      }
+    }
+    stack.pop();
+    state.set(id, 'done');
+  };
+  for (const id of next.keys()) if (!state.has(id)) visit(id);
+  return found;
+}
+
+/** Node class types inside the subgraph definitions of the document: an output node may sit in one. */
+function definitionClasses(document: unknown): string[] {
+  const raw = rawDocument(document);
+  const definitions = raw && typeof raw === 'object' ? (raw as { definitions?: { subgraphs?: unknown } }).definitions : undefined;
+  const list = Array.isArray(definitions?.subgraphs) ? definitions.subgraphs : [];
+  return list.flatMap((item) => {
+    const inner = item && typeof item === 'object' ? (item as { nodes?: unknown }).nodes : undefined;
+    return Array.isArray(inner)
+      ? inner.flatMap((node) => (node && typeof (node as { type?: unknown }).type === 'string' ? [(node as { type: string }).type] : []))
+      : [];
+  });
+}
+
+/**
+ * A graph with no node that saves or shows a result. Said only when the catalog knows every class in the graph
+ * (an unknown class may well be an output node) and knows output nodes at all. Points at the end of the chain.
+ */
+function noOutputNode(nodes: CanvasNode[], edges: CanvasEdge[], specs: Map<string, Spec>, document: unknown): GraphCheckReport['noOutputNode'] {
+  if (nodes.length === 0) return null;
+  if (![...specs.values()].some((spec) => spec.outputNode)) return null;
+  const subgraphs = subgraphIds(document);
+  const classes = [...nodes.map(classOf).filter((type) => !subgraphs.has(type)), ...definitionClasses(document)]
+    .filter((type) => type !== '' && !FRONTEND_NODE_TYPES.has(type) && !subgraphs.has(type));
+  if (classes.length === 0) return null;
+  for (const type of classes) {
+    const spec = specs.get(type);
+    if (!spec || !spec.detailed || spec.outputNode) return null;
+  }
+  const feeding = new Set(edges.map((edge) => String(edge.source)));
+  const ends = nodes.filter((node) => !FRONTEND_NODE_TYPES.has(classOf(node)) && !feeding.has(String(node.id)) && ports(node, 'outputs').length > 0);
+  // The end most of the graph flows into, so "Show" lands where the output node belongs.
+  const best = ends
+    .map((node) => ({ node, depth: upstreamOf(String(node.id), edges).size }))
+    .sort((a, b) => b.depth - a.depth)[0]?.node ?? nodes[nodes.length - 1];
+  return { nodeId: String(best.id) };
+}
+
 /**
  * Checks the current projection of a project against the local catalog. Reads only SQLite; never contacts
  * ComfyUI and never queues anything.
@@ -275,9 +431,13 @@ export function checkGraph(db: Database.Database, projectId: string): GraphCheck
     unknownNodeTypes,
     unsetWidgets: unsetWidgets(nodes, edges, catalog, ignored),
     promptNotes: promptNotes(db, nodes, edges, specs, catalog),
+    noOutputNode: noOutputNode(nodes, edges, specs, projection.snapshot.document),
+    ...fieldValues(nodes, edges, catalog),
+    cycles: cyclesOf(nodes, edges),
   };
   report.ok = report.missingNodes.length === 0 && report.missingModels.length === 0 && report.typeMismatches.length === 0
     && report.baseModelMismatches.length === 0 && report.unconnectedRequiredInputs.length === 0 && report.unknownNodeTypes.length === 0
-    && (report.unsetWidgets ?? []).length === 0;
+    && (report.unsetWidgets ?? []).length === 0 && !report.noOutputNode && (report.valuesOutOfRange ?? []).length === 0
+    && (report.valuesNotInList ?? []).length === 0 && (report.cycles ?? []).length === 0;
   return report;
 }
