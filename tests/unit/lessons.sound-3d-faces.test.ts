@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { lessonGaps, rolesOf, type ClassPorts, type FieldTest } from '../../src/shared/lessons/engine';
 import { packOf } from '../../src/shared/lessons/fit';
-import { LESSONS, LESSON_AFTER } from '../../src/shared/lessons/lessons';
-import { SOUND_3D_FACES_GROUPS, SOUND_3D_FACES_LESSONS, SOUND_3D_FACES_LESSON_GROUP } from '../../src/shared/lessons/sets/sound-3d-faces';
+import { LESSONS, LESSON_AFTER, LESSON_PATH } from '../../src/shared/lessons/lessons';
+import { SOUND_3D_FACES_AFTER, SOUND_3D_FACES_GROUPS, SOUND_3D_FACES_LESSONS, SOUND_3D_FACES_LESSON_GROUP } from '../../src/shared/lessons/sets/sound-3d-faces';
 import { lessonWords } from '../../src/shared/lessons/texts';
 import { CORE_KNOWLEDGE, CORE_NODE_CLASSES, coreSeeds } from '../../src/shared/knowledge/coreKnowledge';
-import { fieldNote, KNOWLEDGE_SETS, modelFolderNote, packNote, type KnowledgeSetTexts } from '../../src/shared/knowledge/knowledgeSets';
+import { fieldNote, KNOWLEDGE_SETS, modelFolderNote, packNote, topicNote, type KnowledgeSetTexts } from '../../src/shared/knowledge/knowledgeSets';
 import { SOUND_3D_FACES_KNOWLEDGE } from '../../src/shared/knowledge/sets/sound-3d-faces';
 import { IMAGE_MODEL_NODE_CLASSES } from '../../src/shared/knowledge/sets/image-models';
 import { lessonSpecs, SOUND_3D_FACES_CLASSES } from '../fixtures/mcp/classes/sound-3d-faces';
@@ -25,11 +25,13 @@ const ports: ClassPorts = (classType) => {
 const numbersIn = (text: string) => (text.match(/\d+(?:[.,]\d+)?/g) ?? []).map((item) => Number(item.replace(',', '.')));
 
 describe('the lessons on sound, speech, 3D, faces and characters', () => {
-  it('are in the lesson list, each in a group, none standing on another', () => {
+  it('are in the lesson list, each in a group, and continue only the lessons they say', () => {
     for (const id of ids) {
       expect(LESSONS.some((lesson) => lesson.id === id), id).toBe(true);
       expect(SOUND_3D_FACES_GROUPS[SOUND_3D_FACES_LESSON_GROUP[id]], id).toBeDefined();
-      expect(LESSON_AFTER[id], id).toBeUndefined();
+      expect(LESSON_AFTER[id], id).toEqual(SOUND_3D_FACES_AFTER[id]);
+      expect(LESSON_PATH[id]?.group.id, id).toBe(SOUND_3D_FACES_LESSON_GROUP[id]);
+      for (const before of LESSON_PATH[id].follows) expect(LESSONS.some((lesson) => lesson.id === before), `${id} follows ${before}`).toBe(true);
     }
     expect(new Set(LESSONS.map((lesson) => lesson.id)).size).toBe(LESSONS.length);
     for (const group of Object.values(SOUND_3D_FACES_GROUPS)) expect(group.ru.length * group.en.length).toBeGreaterThan(0);
@@ -44,6 +46,9 @@ describe('the lessons on sound, speech, 3D, faces and characters', () => {
     expect(packOf('FL_ChatterboxTTS')).toBe('ComfyUI_Fill-ChatterBox');
     expect(packOf('Apply Whisper')).toBe('ComfyUI-Whisper');
     expect(packOf('ReActorRestoreFace')).toBe('ComfyUI-ReActor');
+    expect(packOf('IPAdapterFaceID')).toBe('ComfyUI_IPAdapter_plus');
+    expect(packOf('FaceDetailer')).toBe('ComfyUI-Impact-Pack');
+    expect(packOf('UltralyticsDetectorProvider')).toBe('ComfyUI-Impact-Subpack');
     expect(packOf('TextEncodeAceStepAudio1.5')).toBeNull();
   });
 
@@ -63,7 +68,7 @@ describe('the lessons on sound, speech, 3D, faces and characters', () => {
   });
 
   it('say the rule first wherever a voice or a face is given, restored or kept', () => {
-    for (const id of ['audio-speech', 'character-kontext', 'face-restore']) {
+    for (const id of ['audio-speech', 'character-kontext', 'character-series', 'face-same-photo', 'face-swap', 'face-restore']) {
       const lesson = SOUND_3D_FACES_LESSONS.find((item) => item.id === id)!;
       expect(lesson.steps[0]).toMatchObject({ id: 'intro', read: true });
       const ru = lessonWords('ru', id)!.steps.intro.body;
@@ -77,10 +82,21 @@ describe('the lessons on sound, speech, 3D, faces and characters', () => {
       expect(lessonWords('ru', id)!.steps.intro.body).toMatch(/несовершеннолетн/);
       expect(lessonWords('en', id)!.steps.intro.body).toMatch(/minor/);
     }
+    // The lessons the owner asked for by name say all three limits, and that the person or the character agreed.
+    for (const id of ['character-series', 'face-same-photo', 'face-swap']) {
+      const ru = lessonWords('ru', id)!.steps.intro.body;
+      const en = lessonWords('en', id)!.steps.intro.body;
+      expect(en, id).toMatch(/yourself, a person who gave permission, or an invented character/);
+      expect(en, id).toMatch(/under 18/);
+      expect(en, id).toMatch(/passes a person off as saying or doing what they did not/);
+      expect(ru, id).toMatch(/себя, человека, который разрешил, или придуманного героя/);
+      expect(ru, id).toMatch(/меньше 18/);
+      expect(ru, id).toMatch(/говорил или делал то, чего не было/);
+    }
   });
 
   it('say that a pack runs other people\'s code where a lesson needs a pack', () => {
-    for (const id of ['audio-speech', 'audio-foley', 'audio-transcribe', 'face-restore']) {
+    for (const id of ['audio-speech', 'audio-foley', 'audio-transcribe', 'face-restore', 'face-same-photo', 'face-swap', 'face-detail']) {
       expect(lessonWords('en', id)!.steps.intro.body, id).toMatch(/other people's code/);
       expect(lessonWords('ru', id)!.steps.intro.body, id).toMatch(/чужой код/);
     }
@@ -95,7 +111,7 @@ describe('the lessons on sound, speech, 3D, faces and characters', () => {
 });
 
 describe('the knowledge of sound, speech, 3D, faces and characters', () => {
-  const sections = ['nodes', 'families', 'packs', 'folders', 'fields'] as const;
+  const sections = ['nodes', 'families', 'packs', 'folders', 'fields', 'topics'] as const;
 
   it('is registered and says the same things in both languages, never blank', () => {
     expect(KNOWLEDGE_SETS).toContain(SOUND_3D_FACES_KNOWLEDGE);
@@ -147,14 +163,21 @@ describe('the knowledge of sound, speech, 3D, faces and characters', () => {
     expect(fieldNote('VoxelToMesh', 'threshold', 'ru')).toMatch(/0\.6/);
     expect(fieldNote('FL_ChatterboxTTS', 'exaggeration', 'en')).toMatch(/0\.5/);
     expect(fieldNote('KSampler', 'nope', 'en')).toBeNull();
+    expect(fieldNote('IPAdapterFaceID', 'weight', 'en')).toMatch(/0\.7/);
+    for (const folder of ['ultralytics', 'sams', 'instantid', 'pulid']) expect(modelFolderNote(folder, 'ru'), folder).toBeTruthy();
+    // One entry compares the three ways to keep a face, and starts with the rule.
+    expect(topicNote('identity', 'en')?.title).toMatch(/adapter, LoRA or swap/);
+    expect(topicNote('identity', 'en')?.body).toMatch(/^A real person's face or voice only with their consent/);
+    expect(topicNote('identity', 'ru')?.body).toMatch(/LoRA/);
+    expect(topicNote('nope', 'en')).toBeNull();
   });
 
   it('says the rule wherever a face or a voice is put onto someone', () => {
     for (const language of ['en', 'ru'] as const) {
       const texts = SOUND_3D_FACES_KNOWLEDGE[language];
       const rule = language === 'en' ? /consent.*explicit.*minor/ : /согласия.*откровенном.*несовершеннолетним/;
-      for (const classType of ['ReActorFaceSwap', 'FL_ChatterboxTTS', 'PhotoMakerEncode']) expect(texts.nodes[classType].risk, `${language} ${classType}`).toMatch(rule);
-      for (const family of ['chatterbox', 'qwen-tts', 'photomaker', 'infiniteyou', 'ipadapter-faceid']) expect(texts.families[family].risk, `${language} ${family}`).toMatch(rule);
+      for (const classType of ['ReActorFaceSwap', 'FL_ChatterboxTTS', 'PhotoMakerEncode', 'IPAdapterFaceID', 'IPAdapterUnifiedLoaderFaceID']) expect(texts.nodes[classType].risk, `${language} ${classType}`).toMatch(rule);
+      for (const family of ['chatterbox', 'qwen-tts', 'photomaker', 'infiniteyou', 'ipadapter-faceid', 'instantid', 'pulid']) expect(texts.families[family].risk, `${language} ${family}`).toMatch(rule);
       for (const pack of ['ComfyUI-ReActor', 'ComfyUI_Fill-ChatterBox', 'ComfyUI-Qwen-TTS', 'ComfyUI_InfiniteYou']) expect(texts.packs[pack].limits, `${language} ${pack}`).toMatch(rule);
     }
   });

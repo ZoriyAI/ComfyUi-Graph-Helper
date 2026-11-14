@@ -4,7 +4,8 @@
  * nodes_hunyuan3d.py, nodes_save_3d.py, nodes_model_advanced.py, nodes_video_model.py, nodes_flux.py,
  * nodes_edit_model.py, nodes_preview_any.py, nodes.py) and the packs' own code (ComfyUI-MMAudio nodes.py,
  * ComfyUI-VideoHelperSuite videohelpersuite/, ComfyUI_Fill-ChatterBox as the ComfyUI registry lists it,
- * ComfyUI-Whisper apply_whisper.py and save_srt.py, ComfyUI-ReActor nodes.py RestoreFace).
+ * ComfyUI-Whisper apply_whisper.py and save_srt.py, ComfyUI-ReActor nodes.py, ComfyUI_IPAdapter_plus IPAdapterPlus.py and
+ * the ComfyUI registry, ComfyUI-Impact-Pack modules/impact/impact_pack.py, ComfyUI-Impact-Subpack as the registry lists it).
  *
  * The fake server serves them with its video classes; the lesson tests read them through `lessonSpecs`.
  */
@@ -30,6 +31,9 @@ export const SOUND_3D_FACES_PACKS = [
   { name: 'ComfyUI_Fill-ChatterBox', module: 'custom_nodes.ComfyUI_Fill-ChatterBox', version: '1.0.4', commit: null },
   { name: 'ComfyUI-Whisper', module: 'custom_nodes.ComfyUI-Whisper', version: null, commit: null },
   { name: 'ComfyUI-ReActor', module: 'custom_nodes.ComfyUI-ReActor', version: '0.7.2', commit: null },
+  { name: 'ComfyUI_IPAdapter_plus', module: 'custom_nodes.ComfyUI_IPAdapter_plus', version: '2.0.0', commit: null },
+  { name: 'ComfyUI-Impact-Pack', module: 'custom_nodes.ComfyUI-Impact-Pack', version: '8.30.0', commit: null },
+  { name: 'ComfyUI-Impact-Subpack', module: 'custom_nodes.ComfyUI-Impact-Subpack', version: '1.3.5', commit: null },
 ];
 
 const MMAUDIO_FILES = ['apple_DFN5B-CLIP-ViT-H-14-384_fp16.safetensors', 'mmaudio_large_44k_v2_fp16.safetensors', 'mmaudio_synchformer_fp16.safetensors', 'mmaudio_vae_44k_fp16.safetensors'];
@@ -129,6 +133,57 @@ export const SOUND_3D_FACES_CLASSES: DomainClassDef[] = [
       visibility: ['FLOAT', { default: 1, min: 0, max: 1, step: 0.05 }], codeformer_weight: ['FLOAT', { default: 0.5, min: 0, max: 1, step: 0.05 }],
     },
     output: ['IMAGE'],
+  },
+  {
+    classType: 'ReActorFaceSwap', pack: 'ComfyUI-ReActor', display: 'ReActor 🌌 Fast Face Swap', category: '🌌 ReActor',
+    required: {
+      enabled: ['BOOLEAN', { default: true }], input_image: ['IMAGE'], swap_model: [['inswapper_128.onnx']],
+      facedetection: [['retinaface_resnet50', 'retinaface_mobile0.25', 'YOLOv5l', 'YOLOv5n']],
+      face_restore_model: [['none', 'codeformer-v0.1.0.pth', 'GFPGANv1.4.pth', 'GPEN-BFR-512.onnx']],
+      face_restore_visibility: ['FLOAT', { default: 1, min: 0.1, max: 1, step: 0.05 }], codeformer_weight: ['FLOAT', { default: 0.5, min: 0, max: 1, step: 0.05 }],
+      detect_gender_input: [['no', 'female', 'male'], { default: 'no' }], detect_gender_source: [['no', 'female', 'male'], { default: 'no' }],
+      input_faces_index: ['STRING', { default: '0' }], source_faces_index: ['STRING', { default: '0' }], console_log_level: [['0', '1', '2'], { default: '1' }],
+    },
+    optional: { source_image: ['IMAGE'], face_model: ['FACE_MODEL'], face_boost: ['FACE_BOOST'] },
+    output: ['IMAGE', 'FACE_MODEL', 'IMAGE'], outputName: ['SWAPPED_IMAGE', 'FACE_MODEL', 'ORIGINAL_IMAGE'],
+  },
+  // ComfyUI_IPAdapter_plus, the FaceID part (IPAdapterPlus.py).
+  {
+    classType: 'IPAdapterUnifiedLoaderFaceID', pack: 'ComfyUI_IPAdapter_plus', display: 'IPAdapter Unified Loader FaceID', category: 'ipadapter/faceid',
+    required: {
+      model: ['MODEL'], preset: [['FACEID', 'FACEID PLUS - SD1.5 only', 'FACEID PLUS V2', 'FACEID PORTRAIT (style transfer)', 'FACEID PORTRAIT UNNORM - SDXL only (strong)']],
+      lora_strength: ['FLOAT', { default: 0.6, min: 0, max: 1, step: 0.01 }], provider: [['CPU', 'CUDA', 'ROCM', 'DirectML', 'OpenVINO', 'CoreML']],
+    },
+    optional: { ipadapter: ['IPADAPTER'] },
+    output: ['MODEL', 'IPADAPTER'], outputName: ['MODEL', 'ipadapter'],
+  },
+  {
+    classType: 'IPAdapterFaceID', pack: 'ComfyUI_IPAdapter_plus', display: 'IPAdapter FaceID', category: 'ipadapter/faceid',
+    required: {
+      model: ['MODEL'], ipadapter: ['IPADAPTER'], image: ['IMAGE'], weight: ['FLOAT', { default: 1 }], weight_faceidv2: ['FLOAT', { default: 1 }],
+      weight_type: [['linear', 'ease in', 'ease out', 'ease in-out', 'reverse in-out', 'weak input']], combine_embeds: [['concat', 'add', 'subtract', 'average', 'norm average']],
+      start_at: ['FLOAT', { default: 0 }], end_at: ['FLOAT', { default: 1 }], embeds_scaling: [['V only', 'K+V', 'K+V w/ C penalty', 'K+mean(V) w/ C penalty']],
+    },
+    optional: { image_negative: ['IMAGE'], attn_mask: ['MASK'], clip_vision: ['CLIP_VISION'], insightface: ['INSIGHTFACE'] },
+    output: ['MODEL', 'IMAGE'], outputName: ['MODEL', 'face_image'],
+  },
+  // ComfyUI-Impact-Pack and ComfyUI-Impact-Subpack (modules/impact/impact_pack.py; the subpack's detector provider).
+  { classType: 'UltralyticsDetectorProvider', pack: 'ComfyUI-Impact-Subpack', display: 'UltralyticsDetectorProvider', category: 'ImpactPack', required: { model_name: [['bbox/face_yolov8m.pt', 'bbox/hand_yolov8s.pt', 'segm/person_yolov8m-seg.pt']] }, output: ['BBOX_DETECTOR', 'SEGM_DETECTOR'] },
+  { classType: 'SAMLoader', pack: 'ComfyUI-Impact-Pack', display: 'SAMLoader (Impact)', category: 'ImpactPack', required: { model_name: [['sam_vit_b_01ec64.pth']], device_mode: [['AUTO', 'Prefer GPU', 'CPU']] }, output: ['SAM_MODEL'] },
+  {
+    classType: 'FaceDetailer', pack: 'ComfyUI-Impact-Pack', display: 'FaceDetailer', category: 'ImpactPack/Simple',
+    required: {
+      image: ['IMAGE'], model: ['MODEL'], clip: ['CLIP'], vae: ['VAE'], guide_size: ['FLOAT', { default: 512 }], guide_size_for: ['BOOLEAN', { default: true }],
+      max_size: ['FLOAT', { default: 1024 }], seed: ['INT', { default: 0 }], steps: ['INT', { default: 20 }], cfg: ['FLOAT', { default: 8 }],
+      sampler_name: [['euler', 'euler_ancestral', 'dpmpp_2m']], scheduler: [['normal', 'karras', 'simple']], positive: ['CONDITIONING'], negative: ['CONDITIONING'],
+      denoise: ['FLOAT', { default: 0.5 }], feather: ['INT', { default: 5 }], noise_mask: ['BOOLEAN', { default: true }], force_inpaint: ['BOOLEAN', { default: true }],
+      bbox_threshold: ['FLOAT', { default: 0.5 }], bbox_dilation: ['INT', { default: 10 }], bbox_crop_factor: ['FLOAT', { default: 3 }],
+      sam_detection_hint: [['center-1', 'horizontal-2', 'none']], sam_dilation: ['INT', { default: 0 }], sam_threshold: ['FLOAT', { default: 0.93 }],
+      sam_bbox_expansion: ['INT', { default: 0 }], sam_mask_hint_threshold: ['FLOAT', { default: 0.7 }], sam_mask_hint_use_negative: [['False', 'Small', 'Outter']],
+      drop_size: ['INT', { default: 10 }], bbox_detector: ['BBOX_DETECTOR'], wildcard: ['STRING', { default: '' }], cycle: ['INT', { default: 1 }],
+    },
+    optional: { sam_model_opt: ['SAM_MODEL'], segm_detector_opt: ['SEGM_DETECTOR'], detailer_hook: ['DETAILER_HOOK'], inpaint_model: ['BOOLEAN', { default: false }], noise_mask_feather: ['INT', { default: 20 }] },
+    output: ['IMAGE', 'IMAGE', 'IMAGE', 'MASK', 'DETAILER_PIPE', 'IMAGE'], outputName: ['image', 'cropped_refined', 'cropped_enhanced_alpha', 'mask', 'detailer_pipe', 'cnet_images'],
   },
 ];
 

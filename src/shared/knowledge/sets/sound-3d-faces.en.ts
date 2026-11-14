@@ -196,6 +196,35 @@ export const SOUND_3D_FACES_KNOWLEDGE_EN: KnowledgeSetTexts = {
       connect: 'Inputs: input_image (where the face goes), source_image or face_model (whose face), swap_model, facedetection, face_restore_model and the face indexes. Outputs: the swapped picture, the face model and the original.',
       risk: `${RULE} The pack has a detector that refuses explicit pictures. The InsightFace models it uses are for non-commercial research only.`,
     },
+    IPAdapterUnifiedLoaderFaceID: {
+      what: 'IPAdapter Unified Loader FaceID: loads a FaceID adapter, its LoRA, the picture reader and InsightFace by a preset name, and applies the LoRA to the model.',
+      why: 'One node instead of four loaders for the FaceID graph.',
+      connect: 'Inputs: model, preset (FACEID, FACEID PLUS V2, FACEID PORTRAIT...), lora_strength and provider. Outputs: MODEL with the LoRA and ipadapter, both for IPAdapter FaceID.',
+      risk: `${RULE} It looks for its files by name in models/ipadapter, models/loras, models/clip_vision and models/insightface.`,
+    },
+    IPAdapterFaceID: {
+      what: 'IPAdapter FaceID: makes the model draw the face of a photo; the face is read by InsightFace.',
+      why: 'The same face in a new picture without training anything.',
+      connect: 'Inputs: model and ipadapter from the FaceID loader, image (the face), weight, weight_faceidv2, start_at and end_at. Output: MODEL for the sampler.',
+      risk: `${RULE} A weight too high burns the picture: harsh contrast, broken colours, a stiff face.`,
+    },
+    UltralyticsDetectorProvider: {
+      what: 'Loads a YOLO detector from models/ultralytics (bbox for boxes, segm for outlines) for the Impact Pack detailers.',
+      why: 'FaceDetailer needs something that finds the faces; face_yolov8m.pt does.',
+      connect: 'Input: model_name. Outputs: BBOX_DETECTOR and SEGM_DETECTOR for FaceDetailer and the other detailers.',
+      risk: 'The detector files are .pt files, which can run code when loaded: take them only from the model\'s official page.',
+    },
+    SAMLoader: {
+      what: 'SAMLoader of the Impact Pack: loads a Segment Anything model from models/sams that draws the exact outline of what a detector found.',
+      why: 'With it FaceDetailer redraws the face itself, not the whole box around it.',
+      connect: 'Inputs: model_name and device_mode. Output: SAM_MODEL for the sam_model_opt input of FaceDetailer.',
+    },
+    FaceDetailer: {
+      what: 'FaceDetailer of the Impact Pack: finds every face, crops it, enlarges it to guide_size, redraws it with the given model and descriptions and pastes it back.',
+      why: 'Small faces of full-figure and group pictures come out smeared; this repairs them.',
+      connect: 'Inputs: image, model, clip, vae, positive, negative, bbox_detector and optionally sam_model_opt; denoise, guide_size, bbox_threshold and the sampler settings. Outputs: image, the cropped faces before and after, and the mask.',
+      risk: 'A denoise too high turns the face into another person.',
+    },
   },
   families: {
     'ace-step': {
@@ -253,6 +282,14 @@ export const SOUND_3D_FACES_KNOWLEDGE_EN: KnowledgeSetTexts = {
     'ipadapter-faceid': {
       what: 'IP-Adapter FaceID: the face variants of IP-Adapter for SD 1.5 and SDXL in the ComfyUI_IPAdapter_plus pack. They need InsightFace (models/insightface), their own files in models/ipadapter and usually a FaceID LoRA.',
       risk: `${RULE} The InsightFace models are for non-commercial use.`,
+    },
+    instantid: {
+      what: 'InstantID: one face from a photo in SDXL pictures, with the angle of the head. The ComfyUI_InstantID pack needs an InstantID adapter in models/instantid, its ControlNet in models/controlnet and InsightFace AntelopeV2 in models/insightface.',
+      risk: `${RULE} SDXL only; the InsightFace models are for non-commercial use.`,
+    },
+    pulid: {
+      what: 'PuLID: one face from a photo, with packs for SDXL and for Flux. A PuLID file in models/pulid, InsightFace AntelopeV2 and an EVA-CLIP model the pack downloads.',
+      risk: `${RULE} Each pack serves one family; a PuLID file for Flux does not work with SDXL.`,
     },
   },
   packs: {
@@ -321,6 +358,26 @@ export const SOUND_3D_FACES_KNOWLEDGE_EN: KnowledgeSetTexts = {
       nodes: 'A model loader and a restore node with a CodeFormer fidelity setting.',
       limits: `Models in models/facerestore_models; face detection models download to models/facedetection. ${OLD_FORMAT}`,
     },
+    'ComfyUI_IPAdapter_plus': {
+      what: 'IP-Adapter for SD 1.5 and SDXL: a picture as a prompt for style, composition or a face; FaceID keeps a face from a photo.',
+      nodes: 'IPAdapter Unified Loader, IPAdapter Unified Loader FaceID, IPAdapter, IPAdapter Advanced, IPAdapter FaceID, IPAdapter Encoder, IPAdapter Weights.',
+      limits: `${RULE} Not for Flux, SD3 or Wan. FaceID needs the InsightFace Python package and models. ${PACK_CODE}`,
+    },
+    'ComfyUI-Impact-Pack': {
+      what: 'Detect, crop, redraw and paste back: detailers for faces, hands and any masked part, and many helpers around them.',
+      nodes: 'FaceDetailer, Detailer (SEGS), MaskDetailer, SAMLoader, BBOX Detector (SEGS), Iterative Upscale.',
+      limits: `The detectors come from ComfyUI-Impact-Subpack. ${PACK_CODE}`,
+    },
+    'ComfyUI-Impact-Subpack': {
+      what: 'The detectors of the Impact Pack: YOLO models from models/ultralytics that find faces, hands or people.',
+      nodes: 'UltralyticsDetectorProvider.',
+      limits: `${OLD_FORMAT} ${PACK_CODE}`,
+    },
+    'ComfyUI_InstantID': {
+      what: 'InstantID for SDXL: a face from one photo kept in new pictures, with the angle of the head.',
+      nodes: 'InstantID Model Loader, InstantID Face Analysis, Apply InstantID.',
+      limits: `${RULE} SDXL only. Files in models/instantid, models/controlnet and models/insightface. ${PACK_CODE}`,
+    },
   },
   folders: {
     mmaudio: 'MMAudio files: the model, its VAE, Synchformer and the CLIP model (ComfyUI-MMAudio adds this folder).',
@@ -340,6 +397,10 @@ export const SOUND_3D_FACES_KNOWLEDGE_EN: KnowledgeSetTexts = {
     infinite_you: 'InfiniteYou files (ComfyUI_InfiniteYou).',
     reswapper: 'ReSwapper face swap models for ReActor.',
     unirig: 'UniRig rigging models (ComfyUI-UniRig).',
+    ultralytics: 'YOLO detectors (bbox and segm) of ComfyUI-Impact-Subpack, such as bbox/face_yolov8m.pt.',
+    sams: 'Segment Anything models, such as sam_vit_b_01ec64.pth, for the Impact Pack and ReActor.',
+    instantid: 'The InstantID adapter (ComfyUI_InstantID).',
+    pulid: 'PuLID files of the PuLID packs.',
   },
   fields: {
     'TextEncodeAceStepAudio1.5.tags': 'The style of the song in short words separated by commas: genre, mood, instruments, voice.',
@@ -367,5 +428,20 @@ export const SOUND_3D_FACES_KNOWLEDGE_EN: KnowledgeSetTexts = {
     'ReActorRestoreFace.visibility': 'How strongly the restored face covers the old one; lower blends them.',
     'ReActorRestoreFace.codeformer_weight': 'For CodeFormer only: near 0 sharper and less alike, near 1 more alike and softer.',
     'ReActorRestoreFace.facedetection': 'How faces are found: retinaface_resnet50 is the most careful, YOLOv5n the fastest.',
+    'IPAdapterUnifiedLoaderFaceID.preset': 'Which FaceID adapter and LoRA to load; FACEID PLUS V2 is the pack example\'s choice.',
+    'IPAdapterUnifiedLoaderFaceID.lora_strength': 'The strength of the FaceID LoRA; 0.6 in the pack\'s example. Higher presses the face harder and stiffens the picture.',
+    'IPAdapterFaceID.weight': 'How strongly the face is pressed into the picture; 1 in the example, lower towards 0.7 when the picture burns.',
+    'IPAdapterFaceID.weight_faceidv2': 'For the V2 adapters only: how closely the face follows the photo; 2 in the example.',
+    'ReActorFaceSwap.face_restore_visibility': 'How strongly the restored face covers the swapped one; 1 covers fully, lower blends.',
+    'ReActorFaceSwap.input_faces_index': 'Which faces of the picture are changed, counted from 0 at the left.',
+    'FaceDetailer.denoise': 'How much of the old face is redrawn; 0.5 in the example, lower keeps more of the face.',
+    'FaceDetailer.guide_size': 'The size a face is enlarged to before it is redrawn; 512 by default.',
+    'FaceDetailer.bbox_threshold': 'How sure the detector must be that it found a face; 0.5 by default.',
+  },
+  topics: {
+    identity: {
+      title: 'Identity: adapter, LoRA or swap: which to choose',
+      body: `${RULE}\n\nThree ways keep one face or one character:\n- an adapter (IP-Adapter FaceID, InstantID, PuLID, or a reference picture in Kontext): one photo, nothing to train, a new picture is drawn around the face; it keeps the face but not the hair, age or light;\n- a LoRA trained on the character: a dozen or more pictures and a training run; then the face, the body and the clothes hold in every picture, and the LoRA works with its own model family only;\n- a swap (ReActor): a picture that already exists keeps its pose, light and clothes, and only the face is replaced; quick, but the face is small and needs restoring.\n\nStart with the words of the description and a fixed seed, then an adapter; train a LoRA when a long series must hold; use a swap to fix a single finished picture.`,
+    },
   },
 };

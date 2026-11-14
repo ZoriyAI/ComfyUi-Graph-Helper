@@ -196,6 +196,35 @@ export const SOUND_3D_FACES_KNOWLEDGE_RU: KnowledgeSetTexts = {
       connect: 'Входы: input_image (куда), source_image или face_model (чьё лицо), swap_model, facedetection, face_restore_model и номера лиц. Выходы: картинка с заменой, модель лица и исходная картинка.',
       risk: `${RULE} В паке есть детектор, который отказывается работать с откровенными картинками. Модели InsightFace, которые он использует, только для некоммерческих исследований.`,
     },
+    IPAdapterUnifiedLoaderFaceID: {
+      what: 'IPAdapter Unified Loader FaceID: загружает по имени пресета адаптер FaceID, его LoRA, чтение картинки и InsightFace и применяет LoRA к модели.',
+      why: 'Одна нода вместо четырёх загрузчиков для графа FaceID.',
+      connect: 'Входы: model, preset (FACEID, FACEID PLUS V2, FACEID PORTRAIT...), lora_strength и provider. Выходы: MODEL с LoRA и ipadapter, оба для IPAdapter FaceID.',
+      risk: `${RULE} Свои файлы она ищет по именам в models/ipadapter, models/loras, models/clip_vision и models/insightface.`,
+    },
+    IPAdapterFaceID: {
+      what: 'IPAdapter FaceID: заставляет модель нарисовать лицо с фото; лицо читает InsightFace.',
+      why: 'То же лицо на новой картинке без всякого обучения.',
+      connect: 'Входы: model и ipadapter от загрузчика FaceID, image (лицо), weight, weight_faceidv2, start_at и end_at. Выход: MODEL для сэмплера.',
+      risk: `${RULE} Слишком большой weight сжигает картинку: резкий контраст, сломанные цвета, застывшее лицо.`,
+    },
+    UltralyticsDetectorProvider: {
+      what: 'Загружает детектор YOLO из models/ultralytics (bbox для рамок, segm для контуров) для детейлеров Impact Pack.',
+      why: 'FaceDetailer нужно что-то, что находит лица; это делает face_yolov8m.pt.',
+      connect: 'Вход: model_name. Выходы: BBOX_DETECTOR и SEGM_DETECTOR для FaceDetailer и других детейлеров.',
+      risk: 'Файлы детекторов в формате .pt, а такой файл может при загрузке выполнить код: берите их только со страницы самой модели.',
+    },
+    SAMLoader: {
+      what: 'SAMLoader из Impact Pack: загружает из models/sams модель Segment Anything, которая обводит точный контур найденного детектором.',
+      why: 'С ней FaceDetailer перерисовывает само лицо, а не всю рамку вокруг.',
+      connect: 'Входы: model_name и device_mode. Выход: SAM_MODEL на вход sam_model_opt ноды FaceDetailer.',
+    },
+    FaceDetailer: {
+      what: 'FaceDetailer из Impact Pack: находит каждое лицо, вырезает, увеличивает до guide_size, перерисовывает заданной моделью и описаниями и вклеивает обратно.',
+      why: 'Мелкие лица на картинках в полный рост и групповых выходят смазанными; эта нода их чинит.',
+      connect: 'Входы: image, model, clip, vae, positive, negative, bbox_detector и по желанию sam_model_opt; denoise, guide_size, bbox_threshold и настройки сэмплера. Выходы: image, вырезанные лица до и после и маска.',
+      risk: 'Слишком большой denoise превращает лицо в другого человека.',
+    },
   },
   families: {
     'ace-step': {
@@ -253,6 +282,14 @@ export const SOUND_3D_FACES_KNOWLEDGE_RU: KnowledgeSetTexts = {
     'ipadapter-faceid': {
       what: 'IP-Adapter FaceID: варианты IP-Adapter для лиц под SD 1.5 и SDXL в паке ComfyUI_IPAdapter_plus. Им нужен InsightFace (models/insightface), свои файлы в models/ipadapter и обычно LoRA FaceID.',
       risk: `${RULE} Модели InsightFace только для некоммерческого использования.`,
+    },
+    instantid: {
+      what: 'InstantID: одно лицо с фото на картинках SDXL, вместе с поворотом головы. Паку ComfyUI_InstantID нужны адаптер InstantID в models/instantid, его ControlNet в models/controlnet и InsightFace AntelopeV2 в models/insightface.',
+      risk: `${RULE} Только SDXL; модели InsightFace только для некоммерческого использования.`,
+    },
+    pulid: {
+      what: 'PuLID: одно лицо с фото, есть паки для SDXL и для Flux. Файл PuLID в models/pulid, InsightFace AntelopeV2 и модель EVA-CLIP, которую пак скачивает сам.',
+      risk: `${RULE} Каждый пак служит одному семейству; файл PuLID для Flux не работает с SDXL.`,
     },
   },
   packs: {
@@ -321,6 +358,26 @@ export const SOUND_3D_FACES_KNOWLEDGE_RU: KnowledgeSetTexts = {
       nodes: 'Загрузчик модели и нода восстановления с настройкой точности CodeFormer.',
       limits: `Модели в models/facerestore_models; модели поиска лиц скачиваются в models/facedetection. ${OLD_FORMAT}`,
     },
+    'ComfyUI_IPAdapter_plus': {
+      what: 'IP-Adapter для SD 1.5 и SDXL: картинка вместо промпта для стиля, композиции или лица; FaceID держит лицо с фото.',
+      nodes: 'IPAdapter Unified Loader, IPAdapter Unified Loader FaceID, IPAdapter, IPAdapter Advanced, IPAdapter FaceID, IPAdapter Encoder, IPAdapter Weights.',
+      limits: `${RULE} Не для Flux, SD3 и Wan. FaceID нужен пакет Python InsightFace и его модели. ${PACK_CODE}`,
+    },
+    'ComfyUI-Impact-Pack': {
+      what: 'Найти, вырезать, перерисовать и вклеить обратно: детейлеры для лиц, рук и любой части под маской и много помощников вокруг них.',
+      nodes: 'FaceDetailer, Detailer (SEGS), MaskDetailer, SAMLoader, BBOX Detector (SEGS), Iterative Upscale.',
+      limits: `Детекторы даёт ComfyUI-Impact-Subpack. ${PACK_CODE}`,
+    },
+    'ComfyUI-Impact-Subpack': {
+      what: 'Детекторы Impact Pack: модели YOLO из models/ultralytics, которые находят лица, руки или людей.',
+      nodes: 'UltralyticsDetectorProvider.',
+      limits: `${OLD_FORMAT} ${PACK_CODE}`,
+    },
+    'ComfyUI_InstantID': {
+      what: 'InstantID для SDXL: лицо с одного фото сохраняется на новых картинках вместе с поворотом головы.',
+      nodes: 'InstantID Model Loader, InstantID Face Analysis, Apply InstantID.',
+      limits: `${RULE} Только SDXL. Файлы в models/instantid, models/controlnet и models/insightface. ${PACK_CODE}`,
+    },
   },
   folders: {
     mmaudio: 'Файлы MMAudio: модель, её VAE, Synchformer и модель CLIP (папку добавляет ComfyUI-MMAudio).',
@@ -340,6 +397,10 @@ export const SOUND_3D_FACES_KNOWLEDGE_RU: KnowledgeSetTexts = {
     infinite_you: 'Файлы InfiniteYou (ComfyUI_InfiniteYou).',
     reswapper: 'Модели замены лиц ReSwapper для ReActor.',
     unirig: 'Модели риггинга UniRig (ComfyUI-UniRig).',
+    ultralytics: 'Детекторы YOLO (bbox и segm) пака ComfyUI-Impact-Subpack, например bbox/face_yolov8m.pt.',
+    sams: 'Модели Segment Anything, например sam_vit_b_01ec64.pth, для Impact Pack и ReActor.',
+    instantid: 'Адаптер InstantID (ComfyUI_InstantID).',
+    pulid: 'Файлы PuLID для паков PuLID.',
   },
   fields: {
     'TextEncodeAceStepAudio1.5.tags': 'Стиль песни короткими словами через запятую: жанр, настроение, инструменты, голос.',
@@ -367,5 +428,20 @@ export const SOUND_3D_FACES_KNOWLEDGE_RU: KnowledgeSetTexts = {
     'ReActorRestoreFace.visibility': 'Насколько сильно восстановленное лицо закрывает старое; ниже смешивает их.',
     'ReActorRestoreFace.codeformer_weight': 'Только для CodeFormer: ближе к 0 чётче и меньше похоже, ближе к 1 похожее и мягче.',
     'ReActorRestoreFace.facedetection': 'Как ищутся лица: retinaface_resnet50 самый аккуратный, YOLOv5n самый быстрый.',
+    'IPAdapterUnifiedLoaderFaceID.preset': 'Какой адаптер FaceID и какую LoRA загрузить; FACEID PLUS V2 выбран в примере пака.',
+    'IPAdapterUnifiedLoaderFaceID.lora_strength': 'Сила LoRA FaceID; 0.6 в примере пака. Больше давит лицо сильнее и делает картинку деревянной.',
+    'IPAdapterFaceID.weight': 'Насколько сильно лицо вдавливается в картинку; 1 в примере, уменьшайте к 0.7, когда картинка горит.',
+    'IPAdapterFaceID.weight_faceidv2': 'Только для адаптеров V2: насколько лицо следует фото; 2 в примере.',
+    'ReActorFaceSwap.face_restore_visibility': 'Насколько сильно восстановленное лицо закрывает перенесённое; 1 закрывает целиком, меньше смешивает.',
+    'ReActorFaceSwap.input_faces_index': 'Какие лица на картинке меняются, считая с 0 слева.',
+    'FaceDetailer.denoise': 'Сколько от старого лица перерисовывается; 0.5 в примере, меньше сохраняет больше от лица.',
+    'FaceDetailer.guide_size': 'До какого размера лицо увеличивается перед перерисовкой; по умолчанию 512.',
+    'FaceDetailer.bbox_threshold': 'Насколько детектор должен быть уверен, что нашёл лицо; по умолчанию 0.5.',
+  },
+  topics: {
+    identity: {
+      title: 'Облик: адаптер, LoRA или замена: что выбрать',
+      body: `${RULE}\n\nОдно лицо или одного героя держат три способа:\n- адаптер (IP-Adapter FaceID, InstantID, PuLID или картинка-образец в Kontext): одно фото, ничего не обучать, вокруг лица рисуется новая картинка; лицо он держит, а причёску, возраст и свет нет;\n- LoRA, обученная на герое: десяток картинок и больше и обучение; потом лицо, тело и одежда держатся на каждой картинке, а LoRA работает только со своим семейством моделей;\n- замена (ReActor): у готовой картинки остаются поза, свет и одежда, меняется только лицо; быстро, но лицо выходит мелким и его надо восстанавливать.\n\nНачинайте со слов описания и закреплённого seed, потом адаптер; учите LoRA, когда должна держаться длинная серия; заменой правьте одну готовую картинку.`,
+    },
   },
 };

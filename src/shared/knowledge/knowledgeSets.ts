@@ -28,6 +28,8 @@ export interface KnowledgeSetTexts {
   folders: Record<string, string>;
   /** By "ClassType.field": what the field does and what to put in it. */
   fields: Record<string, string>;
+  /** Questions that span several nodes and families ("which way keeps a face"), by topic id. */
+  topics: Record<string, { title: string; body: string }>;
 }
 
 export interface KnowledgeSet {
@@ -61,4 +63,9 @@ export function modelFolderNote(folder: string, language: KnowledgeLanguage): st
 /** What a field of a node does and what to put in it; null when no set describes it. */
 export function fieldNote(classType: string, field: string, language: KnowledgeLanguage): string | null {
   return first(language, (texts) => texts.fields, `${classType}.${field}`);
+}
+
+/** A built-in note on a question that spans several nodes and families; null for a topic no set describes. */
+export function topicNote(topic: string, language: KnowledgeLanguage): { title: string; body: string } | null {
+  return first(language, (texts) => texts.topics, topic);
 }

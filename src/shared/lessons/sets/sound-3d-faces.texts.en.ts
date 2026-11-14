@@ -18,6 +18,11 @@ const OLD_FORMAT = 'Files in the old formats (.ckpt, .pt, .pth, .bin) can run co
 
 const START = 'The lesson builds the graph from an empty canvas: "File ▸ New project".';
 
+/** The rule every lesson that gives, keeps or changes a face starts with, in the words of the talking-portrait lessons. */
+const FACE_RULE = 'Only someone who agrees may be shown this way: yourself, a person who gave permission, or an invented character. The app does not help with someone else\'s face without consent. Never a real person in explicit content, never anyone under 18 or who looks under 18, and nothing that passes a person off as saying or doing what they did not. This lesson teaches technique.';
+
+const FACE_RULE_SHORT = 'Repair the faces of your own pictures: yourself, a person who agreed, or a character you generated.';
+
 export const SOUND_3D_FACES_EN: Record<string, LessonWords> = {
   'audio-music': {
     title: 'Music from text: ACE-Step 1.5',
@@ -380,6 +385,174 @@ export const SOUND_3D_FACES_EN: Record<string, LessonWords> = {
       tips: {
         title: 'When the face looks wrong',
         body: '- The face looks painted on: lower `visibility` to 0.7.\n- The face is not alike: try `GFPGANv1.4.pth` or raise `codeformer_weight`.\n- A face is missed: it is too small or turned away; enlarge the picture first.\n- The rest of the picture stays old: the node restores faces only.\n\nThe facerestore_cf pack does the same with its own nodes and reads the same folder models/facerestore_models.',
+      },
+      run: {
+        title: 'The graph is ready',
+        body: SAVE,
+      },
+    },
+  },
+  'character-series': {
+    title: 'One character in many pictures',
+    result: 'You learn what holds a character\'s identity and practise a new pose and new clothes while the face stays.',
+    steps: {
+      intro: {
+        title: 'First, about faces',
+        body: `${FACE_RULE}\n\nThis lesson goes on from the graph of "The same character in a new picture: FLUX.1 Kontext". The example is a character you generated, or your own photo.`,
+      },
+      graph: {
+        title: 'The Kontext graph is needed',
+        body: 'The canvas must hold the graph of the Kontext lesson: {picture} with the reference, {prompt} with the description, {reference} that joins them and {sampler}.\n\nIf they are not there, do that lesson first.',
+      },
+      order: {
+        title: 'What holds identity, in the order to reach for it',
+        body: 'Reach for these in order, and go to the next only when the one before is not enough:\n- the words of the description: the same features named the same way every time;\n- the seed: the same number keeps the same noise and so much of the same look;\n- a reference picture: Kontext, or a face adapter such as IP-Adapter FaceID;\n- a LoRA trained on the character: the steadiest, but it has to be trained first.\n\nThe first two cost nothing. The reference is what this graph already has.',
+      },
+      words: {
+        title: 'Words that keep a character',
+        body: 'Write a short "card" of the character once and copy it into every description: age group, hair, eyes, a mark, the clothes that belong to the character. For example: a woman in her thirties, short red hair, green eyes, a small scar over the left eyebrow.\n\nThen add only what changes. If one description says "red hair" and the next "auburn hair", the model hears two people.',
+      },
+      practice: {
+        title: 'Change the pose and the clothes, keep the face',
+        body: 'Rewrite the `text` of {prompt}: keep the card of the character and the words "keep her face", and change the pose and the clothes. For example: the same woman with short red hair and green eyes, now sitting on a bench in a yellow raincoat, looking to the side, keep her face.\n\nRun it in ComfyUI. The face should stay while everything you named changes. If the face drifts, the description changed too much at once: change the pose first, the clothes in the next picture.',
+      },
+      seed: {
+        title: 'The seed while you search',
+        body: 'While you look for the right words, fix `seed` in {sampler} (in ComfyUI set `control_after_generate` to `fixed`). Then only your words change the picture, and you see what each word does.\n\nWhen the description is right, let the seed change again to get variants.',
+      },
+      beyond: {
+        title: 'When the reference is not enough',
+        body: 'For a long series, other ways hold a face more firmly:\n- "The same face from one photo: IP-Adapter FaceID" puts a face from a photo into pictures of SD 1.5 and SDXL models;\n- a LoRA trained on the character holds face, body and clothes at once;\n- "Put a face onto a picture: ReActor" fixes the face after the picture is drawn.\n\nEach comes with the same rule: your own face, a person who agreed, or an invented character.',
+      },
+      next: {
+        title: 'What next',
+        body: 'The next steps for a character: a LoRA trained on the character for pictures, and a start picture for video, so that a clip begins from the character you made. Look for these in the lesson list under "Pictures: techniques" and "Video".',
+      },
+    },
+  },
+  'face-same-photo': {
+    title: 'The same face from one photo: IP-Adapter FaceID',
+    result: 'You add IP-Adapter FaceID to the first picture graph so that a photo of a face drives the face of the new picture.',
+    steps: {
+      intro: {
+        title: 'First, about faces',
+        body: `${FACE_RULE}\n\nIP-Adapter FaceID reads a face from one photo and makes the model draw that face in a new picture. The example is your own photo or a character you generated.\n\n${PACK('ComfyUI_IPAdapter_plus')}\n\nThis lesson goes on from the graph of "A first picture from text".`,
+      },
+      graph: {
+        title: 'The first picture graph is needed',
+        body: 'The canvas must hold {checkpoint} and {sampler} with the model going from one to the other.\n\nFaceID works with SD 1.5 and SDXL checkpoints. With Flux, SD3 or Wan it does nothing useful: those families have their own methods.',
+      },
+      files: {
+        title: 'Which files it needs and where they go',
+        body: `The FaceID loader finds its files itself, by name, in these folders:\n- the FaceID adapter, such as ip-adapter-faceid-plusv2_sd15.bin or ip-adapter-faceid-plusv2_sdxl.bin: models/ipadapter;\n- its LoRA of the same name, ip-adapter-faceid-plusv2_sd15_lora.safetensors: models/loras;\n- the picture reader CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors: models/clip_vision;\n- InsightFace with its buffalo_l model: models/insightface. The InsightFace Python package must be installed in ComfyUI.\n\n${OLD_FORMAT} The pack's own page lists the exact names; take the files from the pages it links to.`,
+      },
+      loader: {
+        title: 'Add the FaceID loader',
+        body: 'Add a {loader} node and connect the `MODEL` output of {checkpoint} to its `model` input. Set `preset` to `FACEID PLUS V2` and `lora_strength` to 0.6.\n\nThe preset picks the adapter and its LoRA. `FACEID PLUS V2` is the one the pack\'s example uses. The LoRA strength of 0.6 is the example\'s value too: higher pushes the face harder and stiffens the picture.',
+      },
+      face: {
+        title: 'Load the photo of the face',
+        body: 'Add a {face} node and choose the photo in its `image` field.\n\nThe best photo is frontal, sharp and evenly lit, the face large in the frame, nothing covering it. InsightFace looks for one face: with several, it may take the wrong one.',
+      },
+      adapter: {
+        title: 'Add the FaceID node',
+        body: 'Add an {adapter} node and connect:\n- `model` and `ipadapter` from the outputs of the same name of {loader};\n- `image` from {face}.\n\nThen connect the `MODEL` output of {adapter} to the `model` input of {sampler}. The link that came straight from {checkpoint} comes off by itself.',
+      },
+      strength: {
+        title: 'Set the strength',
+        body: 'In {adapter} set `weight` to 1 and `weight_faceidv2` to 2, as the pack\'s example does.\n\n`weight` is how strongly the face is pressed into the picture. If the picture "burns", with harsh contrast, broken colours or a stiff mask of a face, lower it towards 0.7. `weight_faceidv2` works only with the V2 adapters and sets how much the face looks like the photo.',
+      },
+      'sampler-settings': {
+        title: 'Set the sampler',
+        body: 'In {sampler} set `steps` to 30 and `cfg` to 6.5, the example\'s values.\n\nWith an adapter a high `cfg` burns the picture sooner: if lowering the `weight` is not enough, lower `cfg` as well.',
+      },
+      kept: {
+        title: 'What it keeps and what it does not',
+        body: 'FaceID keeps the face: its shape, the eyes, the nose, the mouth. It does not keep the hair, the age, the make-up, the light or the expression: those come from the description. Write them there.\n\nA photo in hard side light gives a face with that light baked in. A photo from below gives a wide jaw. This is why a frontal, evenly lit photo works best.',
+      },
+      'other-methods': {
+        title: 'Other identity adapters',
+        body: 'Two other methods do the same job with other families:\n- InstantID (ComfyUI_InstantID pack): SDXL; an InstantID adapter in models/instantid, its own ControlNet in models/controlnet, and InsightFace AntelopeV2 in models/insightface. It also keeps the angle of the head from the photo;\n- PuLID (PuLID packs for SDXL and for Flux): a PuLID file in models/pulid, InsightFace AntelopeV2, and an EVA-CLIP model the pack downloads. It changes the rest of the picture less.\n\nTheir graphs look like this one: a loader, a node that takes the face photo, and the model going on to the sampler.',
+      },
+      run: {
+        title: 'The graph is ready',
+        body: `${SAVE}\n\nIf you publish such a picture, do not present it as a photo of a real event.`,
+      },
+    },
+  },
+  'face-swap': {
+    title: 'Put a face onto a picture: ReActor',
+    result: 'You build a graph that puts a face from one picture onto a person in another picture you already have.',
+    steps: {
+      intro: {
+        title: 'First, about faces',
+        body: `${FACE_RULE}\n\nReActor finds a face in one picture and puts it onto a face in another. The example: a character you generated gets the face from your own photo, or your own face goes into a picture you drew.\n\n${PACK('ComfyUI-ReActor')} The pack has its own detector that refuses explicit pictures.\n\n${START}`,
+      },
+      target: {
+        title: 'Load the picture to change',
+        body: 'Add a {target} node and choose the picture whose face is replaced in its `image` field.',
+      },
+      source: {
+        title: 'Load the face',
+        body: 'Add a {source} node and choose the picture with the face in its `image` field. It must be another file than the first.\n\nA frontal, sharp face works best. If either picture has several faces, the node takes them in order from the left; its fields `input_faces_index` and `source_faces_index` choose which.',
+      },
+      swap: {
+        title: 'Add the swap',
+        body: 'Add a {swap} node. Connect the picture from {target} to its `input_image` input and the face from {source} to its `source_image` input.\n\nIn `swap_model` choose `inswapper_128.onnx`; the pack downloads it to models/insightface when it is installed. Set `facedetection` to `retinaface_resnet50`, the most careful way to find faces.',
+      },
+      restore: {
+        title: 'Sharpen the new face',
+        body: 'The swap model works at a small size, so the new face comes out soft. In {swap} choose a restoration model in `face_restore_model`, for example `codeformer-v0.1.0.pth`, set `face_restore_visibility` to 1 and `codeformer_weight` to 0.5.\n\nThese do what the lesson "Restore a face in an old picture: ReActor" explains.',
+      },
+      save: {
+        title: 'Save the result',
+        body: 'Add a {save} node and connect the `SWAPPED_IMAGE` output of {swap} to its `images` input.',
+      },
+      which: {
+        title: 'Swap, adapter or LoRA',
+        body: 'A swap changes a picture that already exists: the pose, the light and the clothes stay, only the face is new. An adapter such as IP-Adapter FaceID draws a new picture around the face. A LoRA trained on the character holds face, body and clothes in every picture.\n\nThe built-in knowledge "Identity: adapter, LoRA or swap" compares them.',
+      },
+      tips: {
+        title: 'When the result is bad',
+        body: '- The face looks pasted on: lower `face_restore_visibility` to 0.7, or try `GFPGANv1.4.pth`.\n- The wrong face is changed: set `input_faces_index`.\n- The skin tone differs: pick a source photo with similar light.\n- Nothing happens: no face was found; use a larger, frontal face.\n\nThe InsightFace models the swap uses are for non-commercial use only.',
+      },
+      run: {
+        title: 'The graph is ready',
+        body: `${SAVE}\n\nNothing made this way may pass a person off as saying or doing what they did not.`,
+      },
+    },
+  },
+  'face-detail': {
+    title: 'Repair a small face: FaceDetailer',
+    result: 'You add FaceDetailer to the first picture graph: it finds the face, redraws it larger and puts it back.',
+    steps: {
+      intro: {
+        title: 'Why small faces break',
+        body: `A model draws a face well only when the face is large in the picture. In a full figure or a crowd the face gets a few pixels, and they come out smeared.\n\nFaceDetailer finds the face, cuts it out, enlarges it, redraws it with the same model and the same description, and pastes it back. ${FACE_RULE_SHORT}\n\n${PACK('ComfyUI-Impact-Pack')} The face detector comes from ComfyUI-Impact-Subpack.\n\nThis lesson goes on from the graph of "A first picture from text".`,
+      },
+      graph: {
+        title: 'The first picture graph is needed',
+        body: 'The canvas must hold {checkpoint}, the texts {positive} and {negative}, {sampler} and {decode}, linked as in the first lesson.',
+      },
+      finders: {
+        title: 'Load the face finders',
+        body: `Add a {detector} node and choose \`bbox/face_yolov8m.pt\` in \`model_name\`: it finds the box around each face. The file goes into models/ultralytics/bbox.\n\nAdd a {sam} node and choose \`sam_vit_b_01ec64.pth\` in \`model_name\`: it draws the exact outline of the face inside the box. The file goes into models/sams.\n\n${OLD_FORMAT}`,
+      },
+      detailer: {
+        title: 'Add FaceDetailer',
+        body: 'Add a {detailer} node and connect:\n- `image` from {decode};\n- `model`, `clip` and `vae` from {checkpoint};\n- `positive` and `negative` from the two texts;\n- `bbox_detector` from {detector};\n- `sam_model_opt` from {sam}.\n\nIt redraws with the same model and the same description as the whole picture, so the face matches the rest.',
+      },
+      settings: {
+        title: 'Set how much is redrawn',
+        body: 'In {detailer} set:\n- `denoise`: 0.5, how much of the old face is redrawn; higher changes the face more, lower only cleans it;\n- `guide_size`: 512, the size the face is enlarged to before it is redrawn;\n- `bbox_threshold`: 0.5, how sure the detector must be that it found a face.',
+      },
+      save: {
+        title: 'Save the repaired picture',
+        body: 'Add a {fixed} node and connect the `image` output of {detailer} to its `images` input.\n\nKeep the saver of the first picture too: comparing the two shows what was repaired.',
+      },
+      tips: {
+        title: 'When the result is bad',
+        body: '- The face is a different person: lower `denoise` to 0.3.\n- The face is still blurred: raise `guide_size`.\n- A seam around the face: raise `feather`.\n- No face found: lower `bbox_threshold`, or the face is too small even for the detector.\n\nTo keep a particular face while repairing, put IP-Adapter FaceID into the model path first, as in "The same face from one photo: IP-Adapter FaceID".',
       },
       run: {
         title: 'The graph is ready',
