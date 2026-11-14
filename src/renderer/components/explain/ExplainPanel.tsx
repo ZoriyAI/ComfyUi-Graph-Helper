@@ -17,6 +17,8 @@ import { objectLabel } from '../chat/objectLabel';
 import ProvenanceBadge from './ProvenanceBadge';
 import { ASPECTS, groupByAspect, isGlobalOwner, isStale, missingAspects, shownSourceUrl } from './explainModel';
 import { edgeDataType, linkTypeRef } from '../graph/lib/linkTypeKnowledge';
+import Button from '../../ui/Button';
+import IconButton from '../../ui/IconButton';
 import styles from './ExplainPanel.module.css';
 
 const EMPTY: Explanation[] = [];
@@ -27,6 +29,19 @@ const ITEM_MOTION = {
   exit: { opacity: 0 },
   transition: { duration: 0.16 },
 } as const;
+
+/** "https://docs.comfy.org/built-in-nodes/KSampler" as the site in full and the path after it, with a break point after each slash. */
+function addressParts(url: string): React.ReactNode {
+  const match = /^(https?:\/\/)([^/]+)(.*)$/.exec(url);
+  if (!match) return url;
+  const path = match[3].split(/(?<=\/)/);
+  return (
+    <>
+      <span className={styles.host}>{match[2]}</span>
+      {path.map((part, index) => <React.Fragment key={index}>{part}<wbr /></React.Fragment>)}
+    </>
+  );
+}
 
 function SourceLink({ url }: { url: string }) {
   const { t } = useTranslation();
@@ -42,22 +57,17 @@ function SourceLink({ url }: { url: string }) {
   };
   return (
     <div className={styles.source}>
-      <span>{t('explain.source')}:</span>
-      <span className={styles.url} title={url}>{url}</span>
-      <button
-        type="button"
-        className={`${styles.button} ${styles.iconButton}`}
-        aria-label={String(copied ? t('explain.copied') : t('explain.copyLink'))}
-        title={String(copied ? t('explain.copied') : t('explain.copyLink'))}
-        onClick={() => void copy()}
-      >
+      <span className={styles.sourceLabel}>{t('explain.source')}:</span>
+      {/* The address is read as a site and a path, and breaks only after a slash, never inside a word. */}
+      <span className={styles.url} title={url}>{addressParts(url)}</span>
+      <IconButton size="sm" label={String(copied ? t('explain.copied') : t('explain.copyLink'))} onClick={() => void copy()}>
         {copied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}
-      </button>
+      </IconButton>
     </div>
   );
 }
 
-function ExplanationItem({ item, currentRevisionId }: { item: Explanation; currentRevisionId: string | null }) {
+function ExplanationItem({ item, currentRevisionId, scopeSaid = false }: { item: Explanation; currentRevisionId: string | null; scopeSaid?: boolean }) {
   const { t } = useTranslation();
   const stale = isStale(item, currentRevisionId);
   const url = shownSourceUrl(item);
@@ -69,11 +79,11 @@ function ExplanationItem({ item, currentRevisionId }: { item: Explanation; curre
       </div>
       <p className={styles.itemText}>{item.text}</p>
       {url ? <SourceLink url={url} /> : null}
-      <div className={styles.meta}>
-        {item.revisionId
-          ? <span className={styles.mono}>{t('explain.revision', { revision: item.revisionId })}</span>
-          : <span>{t('explain.global')}</span>}
-      </div>
+      {item.revisionId ? (
+        <div className={styles.meta}><span className={styles.mono}>{t('explain.revision', { revision: item.revisionId })}</span></div>
+      ) : scopeSaid ? null : (
+        <div className={styles.meta}><span>{t('explain.global')}</span></div>
+      )}
     </article>
   );
 }
@@ -82,18 +92,25 @@ function AspectGroups({ list, currentRevisionId }: { list: Explanation[]; curren
   const { t } = useTranslation();
   return (
     <>
-      {groupByAspect(list).map((group) => (
-        <section key={group.aspect} className={styles.section} data-aspect={group.aspect}>
-          <h3 className={styles.sectionTitle}>{t(aspectLabelKey(group.aspect))}</h3>
-          <AnimatePresence initial={false}>
-            {group.items.map((item) => (
-              <motion.div key={item.id} {...ITEM_MOTION}>
-                <ExplanationItem item={item} currentRevisionId={currentRevisionId} />
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </section>
-      ))}
+      {groupByAspect(list).map((group) => {
+        // When every explanation of a topic is general knowledge, that is said once, beside the topic.
+        const allGlobal = group.items.length > 0 && group.items.every((item) => !item.revisionId);
+        return (
+          <section key={group.aspect} className={styles.section} data-aspect={group.aspect}>
+            <h3 className={styles.sectionTitle}>
+              <span>{t(aspectLabelKey(group.aspect))}</span>
+              {allGlobal ? <span className={styles.scope}>{t('explain.global')}</span> : null}
+            </h3>
+            <AnimatePresence initial={false}>
+              {group.items.map((item) => (
+                <motion.div key={item.id} {...ITEM_MOTION}>
+                  <ExplanationItem item={item} currentRevisionId={currentRevisionId} scopeSaid={allGlobal} />
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </section>
+        );
+      })}
     </>
   );
 }
@@ -158,14 +175,9 @@ function AddNote({ owner, label }: { owner: ObjectRef; label: string }) {
           onChange={(event) => setText(event.target.value)}
         />
         <div className={styles.buttons}>
-          <button
-            type="button"
-            className={`${styles.button} ${styles.primary}`}
-            disabled={!text.trim() || state.kind === 'saving'}
-            onClick={() => void save()}
-          >
+          <Button variant="subtle" size="sm" disabled={!text.trim() || state.kind === 'saving'} onClick={() => void save()}>
             {t('explain.addSave')}
-          </button>
+          </Button>
         </div>
         {state.kind === 'saved' ? <p className={styles.ok} role="status">{t('explain.addSaved')}</p> : null}
         {state.kind === 'error' ? <p className={styles.error} role="status">{t('explain.addFailed', { error: state.message })}</p> : null}
@@ -326,10 +338,9 @@ export default function ExplainPanel() {
           <h3 className={styles.sectionTitle} id="explain-missing-title">{t('explain.missingTitle')}</h3>
           <div className={styles.buttons}>
             {missing.map((aspect) => (
-              <button key={aspect} type="button" className={styles.button} onClick={() => ask(aspect)}>
-                <MessageCircleQuestion size={14} aria-hidden="true" />
+              <Button key={aspect} variant="subtle" size="sm" icon={<MessageCircleQuestion size={14} />} onClick={() => ask(aspect)}>
                 {t('explain.explainAspect', { aspect: t(aspectLabelKey(aspect)) })}
-              </button>
+              </Button>
             ))}
           </div>
         </section>
