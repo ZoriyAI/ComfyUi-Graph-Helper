@@ -137,3 +137,5 @@
 .step[data-state="done"] { align-self: start; }
 /* The ask button's short label stays on one line (in two lines the main button read as two); long labels still wrap. */
 .step[data-step="ask"] .stepAction :global(button) { white-space: nowrap; }
+/* The other interface language, in the card's top corner: the first thing a person who cannot read this one needs. */
+.language { position: absolute; top: 10px; right: 10px; }

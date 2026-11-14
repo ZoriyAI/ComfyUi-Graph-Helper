@@ -15,6 +15,7 @@ import {
 import { nonSecretDefaults } from '../../src/shared/config/schema';
 import { migrate, schemaVersion, SCHEMA_VERSION } from '../../src/main/settings/migrate';
 import { readSettings, saveSettings } from '../../src/main/settings/repository';
+import { setSystemLanguages } from '../../src/main/systemLanguage';
 
 function leaf(catalog: unknown, key: string): string {
   const value = key.split('.').reduce<unknown>((current, part) => {
@@ -145,11 +146,16 @@ describe('locale catalog', () => {
 });
 
 describe('language preference', () => {
-  it('defaults a new profile to Russian and does not insert a row', () => {
+  it('starts a new profile in the system language and does not insert a row', () => {
     const db = new Database(':memory:');
     migrate(db);
-    expect(nonSecretDefaults.language).toBe('ru');
-    expect(readSettings(db)).toMatchObject({ source: 'default', values: { language: 'ru' } });
+    setSystemLanguages(['ru-RU']);
+    expect(readSettings(db)).toMatchObject({ source: 'default', values: { language: 'ru' }, systemLanguage: 'ru' });
+    setSystemLanguages(['en-US']);
+    expect(readSettings(db)).toMatchObject({ source: 'default', values: { language: 'en' }, systemLanguage: 'en' });
+    setSystemLanguages(['de-DE']);
+    expect(readSettings(db)).toMatchObject({ source: 'default', values: { language: 'en' } });
+    setSystemLanguages(null);
     expect(db.prepare('SELECT COUNT(*) AS count FROM settings').get()).toEqual({ count: 0 });
     db.close();
   });

@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'motion/react';
-import { Check, FolderInput, GraduationCap, MessageCircleQuestion, Plug, RefreshCw, Sparkles } from 'lucide-react';
+import { Check, FolderInput, GraduationCap, Languages, MessageCircleQuestion, Plug, RefreshCw, Sparkles } from 'lucide-react';
 import Button from '../../ui/Button';
 import { motionIsFull } from '../../motion/policy';
 import { runSyncNow } from '../sync/SyncIndicator';
@@ -10,6 +10,8 @@ import { useKnowledgeStore } from '../../state/knowledgeState';
 import { useUiStore } from '../../state/uiState';
 import { keySourceOf, providerKeyState, useProviderStore } from '../../state/providerState';
 import { focusChat, openLessons } from '../../commands/actions';
+import { runCommand } from '../../commands/registry';
+import { LANGUAGE_CHOICES } from '../../commands/appCommands';
 import { explainError, type Translator } from '../../../shared/i18n';
 import styles from './Onboarding.module.css';
 
@@ -110,6 +112,7 @@ export default function Onboarding({ onImport }: { onImport?: () => void }) {
       transition={{ duration: full ? 0.32 : 0, ease: [0.2, 0, 0, 1] }}
     >
       <div className={styles.card}>
+        <LanguageSwitch />
         <h2 id="canvas-onboard-title" className={styles.title}>{t('canvas.onboardTitle')}</h2>
         {/* Once ComfyUI is read and an assistant is chosen, the lead stops promising what is already done. */}
         <p className={styles.lead}>{t('graph.empty')} {t(ready ? 'canvas.onboardLeadReady' : 'canvas.onboardLead')}</p>
@@ -146,5 +149,31 @@ export default function Onboarding({ onImport }: { onImport?: () => void }) {
         </div>
       </div>
     </motion.section>
+  );
+}
+
+/**
+ * The first thing on the first screen: the other interface language, one click away. The app starts in the
+ * system's language; a person who wants the other one should not have to find Settings in a language they do not read.
+ */
+function LanguageSwitch() {
+  const { t, i18n } = useTranslation();
+  const current = LANGUAGE_CHOICES.find((choice) => choice.value === i18n.resolvedLanguage) ?? LANGUAGE_CHOICES[0];
+  const other = LANGUAGE_CHOICES.find((choice) => choice.value !== current.value) ?? current;
+  // Each name in its own language, so it reads the same whichever language is on.
+  const ownName = (value: string) => String(t(value === 'ru' ? 'settings.languageRussian' : 'settings.languageEnglish'));
+  return (
+    <span className={styles.language}>
+      <Button
+        size="sm"
+        variant="ghost"
+        lang={other.value}
+        icon={<Languages size={14} aria-hidden="true" />}
+        aria-label={String(t('canvas.onboardLanguage', { current: ownName(current.value), other: ownName(other.value) }))}
+        onClick={() => void runCommand(`view.language.${other.value}`)}
+      >
+        {ownName(other.value)}
+      </Button>
+    </span>
   );
 }

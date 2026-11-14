@@ -19,6 +19,8 @@ import {
   type Preferences,
 } from '../../shared/config/preferences';
 
+import { systemLanguage } from '../systemLanguage';
+
 type SettingsRow = {
   theme: string;
   motion: string;
@@ -50,14 +52,16 @@ export function readSettings(db: Database.Database): SettingsRead {
     | SettingsRow
     | undefined;
   const preferences = readPreferences(db);
+  // The system's language travels with every read: a first start shows it, and so does a read that failed.
+  const fromSystem = systemLanguage();
   if (!row) {
-    return { source: 'default', values: nonSecretDefaults, preferences };
+    return { source: 'default', values: { ...nonSecretDefaults, language: fromSystem }, preferences, systemLanguage: fromSystem };
   }
   const parsed = nonSecretSettingsSchema.safeParse(coerceLegacyComfyOrigin(rowToInput(row)));
   if (!parsed.success) {
-    return { source: 'corrupt', preferences };
+    return { source: 'corrupt', preferences, systemLanguage: fromSystem };
   }
-  return { source: 'stored', values: parsed.data, preferences };
+  return { source: 'stored', values: parsed.data, preferences, systemLanguage: fromSystem };
 }
 
 /**

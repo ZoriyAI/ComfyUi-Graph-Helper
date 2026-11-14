@@ -6,7 +6,9 @@ import { GRAPH_LINK_LIMIT, GRAPH_NODE_LIMIT, GRAPH_TOO_LARGE } from '../workflow
 export { en, ru } from './catalog';
 export type { Catalog } from './catalog';
 
-export type AppLanguage = 'en' | 'ru';
+export { APP_LANGUAGES, FALLBACK_LANGUAGE, isAppLanguage, languageFromSystem, localeFor, displayLocale, browserLocales } from './languages';
+export type { AppLanguage } from './languages';
+import { APP_LANGUAGES, displayLocale, isAppLanguage, type AppLanguage } from './languages';
 
 export function catalogLeaves(value: unknown, prefix = ''): string[] {
   if (typeof value !== 'object' || value == null) return prefix ? [prefix] : [];
@@ -214,7 +216,7 @@ export function createTranslator(language: AppLanguage): Translator {
     },
     lng: language,
     fallbackLng: 'en',
-    supportedLngs: ['en', 'ru'],
+    supportedLngs: [...APP_LANGUAGES],
     load: 'currentOnly',
     interpolation: {
       escapeValue: false,
@@ -266,8 +268,8 @@ export function moveAnnouncement(translate: Translator, direction: string, x: nu
   });
 }
 
-export function formatClock(timestamp: number, language: AppLanguage, timeZone?: string): string {
-  return new Intl.DateTimeFormat(language === 'ru' ? 'ru-RU' : 'en-US', {
+export function formatClock(timestamp: number, language: AppLanguage, timeZone?: string, locales?: readonly string[]): string {
+  return new Intl.DateTimeFormat(displayLocale(language, locales), {
     hour: 'numeric',
     minute: '2-digit',
     timeZone,
@@ -305,7 +307,29 @@ export function fileDialogCopy(language: AppLanguage) {
   };
 }
 
-export function languageOf(read: { source: string; values?: { language?: string } }): AppLanguage {
-  if (read.source === 'corrupt') return 'en';
-  return read.values?.language === 'en' ? 'en' : 'ru';
+/**
+ * The interface language of a settings read. A read carries `systemLanguage` (the language of the person's system,
+ * main fills it in): that is the language when the stored settings cannot be read, so the first words a person
+ * sees are in a language they know.
+ */
+export function languageOf(read: { source: string; values?: { language?: string }; systemLanguage?: unknown }): AppLanguage {
+  const fallback = isAppLanguage(read.systemLanguage) ? read.systemLanguage : 'en';
+  if (read.source === 'corrupt') return fallback;
+  return isAppLanguage(read.values?.language) ? read.values.language : fallback;
+}
+
+/**
+ * A list in the words of the language. `unit` (the default) is a plain list: "a, b, c", in Chinese "a、b、c"; `and`
+ * gives "a, b, and c" / "a, b и c"; `or` gives "a, b, or c".
+ * Items are joined as given; an empty list gives ''.
+ */
+export function joinList(items: readonly string[], language: AppLanguage, kind: 'and' | 'or' | 'unit' = 'unit'): string {
+  const type = kind === 'or' ? 'disjunction' : 'conjunction';
+  try {
+    const ListFormat = (Intl as unknown as { ListFormat?: new (locale: string, options: { type: string; style: string }) => { format: (list: readonly string[]) => string } }).ListFormat;
+    if (ListFormat) return new ListFormat(displayLocale(language, []), { type, style: kind === 'unit' ? 'narrow' : 'long' }).format(items);
+  } catch {
+    // Fall through to the plain join.
+  }
+  return items.join(', ');
 }
