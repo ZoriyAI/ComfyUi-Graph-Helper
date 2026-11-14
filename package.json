@@ -22,7 +22,8 @@
     "make:linux": "electron-forge make --platform linux --arch x64 && node scripts/make-linux-portable.js",
     "smoke:linux": "node scripts/smoke-linux-package.js && node scripts/smoke-linux-portable.js",
     "type-check": "tsc --project tsconfig.main.json --noEmit && tsc --noEmit",
-    "shots": "xvfb-run -a -s \"-screen 0 1600x1000x24\" node scripts/capture-screens/capture.js"
+    "shots": "xvfb-run -a -s \"-screen 0 1600x1000x24\" node scripts/capture-screens/capture.js",
+    "shots:public": "xvfb-run -a -s \"-screen 0 1600x1000x24\" node scripts/capture-screens/public.js"
   },
   "keywords": [
     "comfyui",
