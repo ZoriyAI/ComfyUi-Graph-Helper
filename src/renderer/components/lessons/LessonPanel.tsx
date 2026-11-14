@@ -173,18 +173,24 @@ function lackLines(t: TFunction, missing: Missing[], lesson: Lesson, shared: Sha
 function UnfitReasons({ lines }: { lines: string[] }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
-  const more = lines.length - 1;
+  const [first, ...rest] = lines;
+  // A native disclosure, not a second button: the card's one button stays the one that starts the lesson.
   return (
     <div className={styles.gaps}>
       <p>{t('lessons.unfit')}</p>
       <ul>
-        {lines.map((line, index) => <li key={line} hidden={!open && index > 0}>{line}</li>)}
+        <li>{first}</li>
       </ul>
-      {more > 0 ? (
-        <button type="button" className={styles.gapsMore} aria-expanded={open} onClick={() => setOpen((value) => !value)}>
-          <ChevronRight size={12} aria-hidden="true" />
-          {open ? t('lessons.unfitLess') : t('lessons.unfitMore', { count: more })}
-        </button>
+      {rest.length > 0 ? (
+        <details className={styles.gapsRest} onToggle={(event) => setOpen((event.currentTarget as HTMLDetailsElement).open)}>
+          <summary className={styles.gapsMore}>
+            <ChevronRight size={12} aria-hidden="true" />
+            {open ? t('lessons.unfitLess') : t('lessons.unfitMore', { count: rest.length })}
+          </summary>
+          <ul>
+            {rest.map((line) => <li key={line}>{line}</li>)}
+          </ul>
+        </details>
       ) : null}
     </div>
   );

@@ -89,7 +89,8 @@
 .gaps { color: var(--text-dim); font-size: var(--text-xs); line-height: 18px; overflow-wrap: anywhere; }
 .gaps p { margin: 0; color: var(--warn); }
 .gaps ul { margin: 4px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 2px; }
-.gaps li[hidden] { display: none; }
+.gapsRest { margin: 0; }
+.gapsRest > ul { margin-top: 2px; }
 .gapsMore {
   display: inline-flex;
   align-items: center;
@@ -105,7 +106,9 @@
 }
 .gapsMore:hover { color: var(--text); }
 .gapsMore svg { transition: transform var(--motion-feedback) var(--motion-ease-out); }
-.gapsMore[aria-expanded="true"] svg { transform: rotate(90deg); }
+.gapsRest[open] .gapsMore svg { transform: rotate(90deg); }
+.gapsMore { list-style: none; width: fit-content; }
+.gapsMore::-webkit-details-marker { display: none; }
 .gapsMore:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .cardActions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-top: 4px; }
 .cardSteps { color: var(--text-faint); font-size: var(--text-xs); line-height: 18px; }
