@@ -109,11 +109,11 @@ async function expectLocalizedChrome(window: Page, language: 'en' | 'ru') {
     }
     : {
       settings: 'Settings',
-      inspector: 'Inspector',
+      inspector: 'Properties',
       assistant: 'Assistant',
       tabs: ['Connection', 'Assistant', 'Appearance & Motion'],
       model: 'Model',
-      localProvider: 'Own server',
+      localProvider: 'Your own server',
       discard: 'Close without saving',
     };
   await window.setViewportSize({ width: 1280, height: 800 });

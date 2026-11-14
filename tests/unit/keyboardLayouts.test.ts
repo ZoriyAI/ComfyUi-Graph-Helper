@@ -143,9 +143,9 @@ describe('what the Shortcuts section says to press on this layout', () => {
 
   it('names the local key on a non-Latin layout and Shift where a sign needs it', async () => {
     const { localKeyFor } = await import('../../src/renderer/commands/shortcuts');
-    expect(localKeyFor('Mod+Z', russian)).toEqual({ kind: 'key', key: 'я' });
-    expect(localKeyFor('Mod+,', russian)).toEqual({ kind: 'key', key: 'б' });
-    expect(localKeyFor('Mod+/', russian)).toEqual({ kind: 'key', key: '.' });
+    expect(localKeyFor('Mod+Z', russian)).toEqual({ kind: 'local', glyph: 'я' });
+    expect(localKeyFor('Mod+,', russian)).toEqual({ kind: 'local', glyph: 'б' });
+    expect(localKeyFor('Mod+/', russian)).toEqual({ kind: 'local', glyph: '.' });
     expect(localKeyFor('Mod+-', russian)).toBeNull();
     expect(localKeyFor('Mod+/', qwertz)).toEqual({ kind: 'shift' });
   });

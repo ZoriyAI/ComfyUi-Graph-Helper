@@ -80,7 +80,7 @@ async function fullSizeBoxes(window: Page): Promise<Box[]> {
 }
 
 async function buildWithHelper(window: Page, expectedNodes: number): Promise<void> {
-  await pickOption(window, 'Chat provider', 'TEST mode');
+  await pickOption(window, 'Choose the assistant', 'TEST mode');
   await window.getByText('TEST mode is on').first().waitFor();
   await window.getByRole('tab', { name: 'Assistant' }).click();
   await window.getByRole('group', { name: 'Mode' }).getByRole('button', { name: 'Build', exact: true }).click();

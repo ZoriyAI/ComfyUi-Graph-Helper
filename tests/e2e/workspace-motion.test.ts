@@ -190,11 +190,11 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
     element.scrollTop = 36;
   });
   const draftScroll = await draft.evaluate((element) => element.scrollTop);
-  await window.getByRole('tab', { name: 'Inspector' }).click();
+  await window.getByRole('tab', { name: 'Properties' }).click();
   const widthBeforeHide = await separator.getAttribute('aria-valuenow');
   expect(widthBeforeHide).toBe(grown);
   await window.getByRole('button', { name: 'Hide tools' }).click();
-  await expect(window.getByRole('tab', { name: 'Inspector' })).toHaveCount(0);
+  await expect(window.getByRole('tab', { name: 'Properties' })).toHaveCount(0);
   await window.getByRole('button', { name: 'Show tools' }).click();
   await expect(separator).toHaveAttribute('aria-valuenow', widthBeforeHide || '');
   await window.getByRole('tab', { name: 'Assistant' }).click();
@@ -212,17 +212,17 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
   await expect(draft).toHaveValue('composing');
   await expect(window.locator('.message-row')).toHaveCount(0);
   await draft.fill('');
-  await window.getByRole('tab', { name: 'Inspector' }).click();
+  await window.getByRole('tab', { name: 'Properties' }).click();
   const showBoth = window.getByRole('button', { name: 'Show both' });
   if (await showBoth.isEnabled()) {
     await showBoth.click();
-    await expect(window.getByRole('region', { name: 'Inspector' })).toBeVisible();
+    await expect(window.getByRole('region', { name: 'Properties' })).toBeVisible();
     await expect(window.getByRole('textbox', { name: 'Chat message' })).toBeVisible();
-    await window.getByRole('button', { name: 'Inspector', exact: true }).click();
+    await window.getByRole('button', { name: 'Properties', exact: true }).click();
   } else {
     await expect(showBoth).toBeDisabled();
   }
-  await expect(window.getByRole('tab', { name: 'Inspector' })).toHaveAttribute('data-state', 'active');
+  await expect(window.getByRole('tab', { name: 'Properties' })).toHaveAttribute('data-state', 'active');
   await expect(window.getByRole('button', { name: 'Undo' })).toBeDisabled();
   // The sync indicator replaced the old disabled "ComfyUI not connected" chip.
   await expect(window.locator('.document-bar .sync-indicator')).toHaveAttribute('data-sync-state', /^(never|idle|error)$/);
@@ -541,14 +541,14 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
   await expect.poll(async () => window.locator('.graph-node').first().evaluate((element) => getComputedStyle(element).opacity)).toBe('1');
   await window.screenshot({ path: path.join(artifactDir, 'ui-typed-ports.png') });
 
-  await window.getByRole('tab', { name: 'Inspector' }).click();
+  await window.getByRole('tab', { name: 'Properties' }).click();
   await window.locator('.react-flow__node').first().click();
   await expect(window.locator('.status-bar')).toContainText(/Zoom \d+%/);
-  await expect(window.getByRole('region', { name: 'Inspector' })).toContainText('CheckpointLoaderSimple');
-  await expect(window.getByRole('region', { name: 'Inspector' })).toContainText('MODEL');
+  await expect(window.getByRole('region', { name: 'Properties' })).toContainText('CheckpointLoaderSimple');
+  await expect(window.getByRole('region', { name: 'Properties' })).toContainText('MODEL');
   await window.screenshot({ path: path.join(artifactDir, 'ui-inspector.png') });
 
-  await pickOption(window, 'Chat provider', 'OpenAI');
+  await pickOption(window, 'Choose the assistant', 'OpenAI');
   await expect(window.getByText('OpenAI is chosen, but there is no key.')).toBeVisible();
   await window.getByRole('tab', { name: 'Assistant' }).click();
   await window.locator('textarea[aria-label="Chat message"]').fill('Add a node');

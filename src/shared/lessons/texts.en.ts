@@ -98,7 +98,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
       run: {
         title: 'The graph is ready',
-        body: `${SAVE}\n\nWhat to try in the sampler:\n- \`seed\`: another number gives another picture from the same description;\n- \`steps\`: more steps, a cleaner picture and a longer wait. 20–30 is usually enough;\n- \`cfg\`: how strictly the model follows the text. Usually 5–8.`,
+        body: `${SAVE}\n\nWhat to try in the sampler:\n- \`seed\`: another number gives another picture from the same description;\n- \`steps\`: more steps, a cleaner picture and a longer wait. 20-30 is usually enough;\n- \`cfg\`: how strictly the model follows the text. Usually 5-8.`,
       },
     },
   },
@@ -225,7 +225,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
       files: {
         title: 'Choose the files and the strength',
-        body: 'Choose a file in `lora_name`. The node in the path of the `high_noise` model takes the `high` file, the one in the path of `low_noise` the `low` file. If the LoRA is a single file, put it into both nodes.\n\n`strength_model` is the strength. 1 means full strength. If the LoRA overrides everything else or spoils the picture, lower it to 0.6–0.8.\n\nSeveral LoRAs are chained: the output of one LoRA node to the input of the next.',
+        body: 'Choose a file in `lora_name`. The node in the path of the `high_noise` model takes the `high` file, the one in the path of `low_noise` the `low` file. If the LoRA is a single file, put it into both nodes.\n\n`strength_model` is the strength. 1 means full strength. If the LoRA overrides everything else or spoils the picture, lower it to 0.6-0.8.\n\nSeveral LoRAs are chained: the output of one LoRA node to the input of the next.',
       },
       'trigger-words': {
         title: 'The words that switch a LoRA on',
@@ -416,7 +416,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
       defects: {
         title: 'If the result is poor',
-        body: 'What to change, and in what order:\n- anatomy drifts: lower `strength_model` of the LoRA to 0.6–0.8 or shorten `length`;\n- the subject does not appear: check the trigger words and that the file fits the model;\n- the clip is burnt out: with a speed-up LoRA, and with a model that has the speed-up built in, `cfg` must be 1;\n- the motion jerks: describe a calmer motion and check that `fps` is 16;\n- everything is off: change `noise_seed` in the first sampler. Some clips simply fail by chance.',
+        body: 'What to change, and in what order:\n- anatomy drifts: lower `strength_model` of the LoRA to 0.6-0.8 or shorten `length`;\n- the subject does not appear: check the trigger words and that the file fits the model;\n- the clip is burnt out: with a speed-up LoRA, and with a model that has the speed-up built in, `cfg` must be 1;\n- the motion jerks: describe a calmer motion and check that `fps` is 16;\n- everything is off: change `noise_seed` in the first sampler. Some clips simply fail by chance.',
       },
       helper: {
         title: 'About the assistant in the app',
@@ -450,7 +450,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
       weights: {
         title: 'Weight: how to stress what matters',
-        body: 'When the model misses something of the description, that thing can be given more weight. In ComfyUI a weight is written like this: `(red coat:1.2)`. The words in the parentheses get a pull of 1.2 instead of the usual 1. A number below 1 weakens: `(rain:0.8)`.\n\nKeep a weight between 0.5 and 1.5. Above that a picture burns out and distorts. 1.1–1.3 is enough most of the time.\n\nThe forms of other programs do not work in ComfyUI. `<lora:name:1>` connects nothing: a LoRA is added with a node of its own. `BREAK`, `AND` and square brackets are read by the model as plain characters. Descriptions from other people\'s pages are often full of such forms: take them out.\n\nThree forms ComfyUI understands itself. Besides the weight these are `embedding:name` for the files of the `embeddings` folder, and curly braces: of the options written in them with a vertical bar between, one is taken at each run. Plain parentheses that must stay in the text are written with a backslash: `\\(` and `\\)`.\n\nOn models of the second kind a weight acts weakly and unpredictably. For them what matters is said in words and put at the start.',
+        body: 'When the model misses something of the description, that thing can be given more weight. In ComfyUI a weight is written like this: `(red coat:1.2)`. The words in the parentheses get a pull of 1.2 instead of the usual 1. A number below 1 weakens: `(rain:0.8)`.\n\nKeep a weight between 0.5 and 1.5. Above that a picture burns out and distorts. 1.1-1.3 is enough most of the time.\n\nThe forms of other programs do not work in ComfyUI. `<lora:name:1>` connects nothing: a LoRA is added with a node of its own. `BREAK`, `AND` and square brackets are read by the model as plain characters. Descriptions from other people\'s pages are often full of such forms: take them out.\n\nThree forms ComfyUI understands itself. Besides the weight these are `embedding:name` for the files of the `embeddings` folder, and curly braces: of the options written in them with a vertical bar between, one is taken at each run. Plain parentheses that must stay in the text are written with a backslash: `\\(` and `\\)`.\n\nOn models of the second kind a weight acts weakly and unpredictably. For them what matters is said in words and put at the start.',
       },
       weigh: {
         title: 'Stress one thing',
@@ -466,7 +466,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
       cfg: {
         title: 'cfg: how strictly to follow the text',
-        body: 'The `cfg` field of the sampler sets how far the model moves from the second sketch towards the first. The larger the number, the more strictly it follows the description.\n\nToo small a value gives a limp picture that follows the text poorly. Too large a value gives burnt colours and harsh outlines.\n\nUsual values:\n- SD 1.5: 7–8;\n- SDXL, Pony, Illustrious: 5–7;\n- speeded-up models and speed-up LoRAs: 1–2;\n- Flux: 1. Its strictness is set by a separate node, not by this field.\n\nAt `cfg` 1 the second sketch is not made at all. The text of the `negative` input then does nothing, whatever it says. The author gives the exact numbers on the model\'s page: start from those.',
+        body: 'The `cfg` field of the sampler sets how far the model moves from the second sketch towards the first. The larger the number, the more strictly it follows the description.\n\nToo small a value gives a limp picture that follows the text poorly. Too large a value gives burnt colours and harsh outlines.\n\nUsual values:\n- SD 1.5: 7-8;\n- SDXL, Pony, Illustrious: 5-7;\n- speeded-up models and speed-up LoRAs: 1-2;\n- Flux: 1. Its strictness is set by a separate node, not by this field.\n\nAt `cfg` 1 the second sketch is not made at all. The text of the `negative` input then does nothing, whatever it says. The author gives the exact numbers on the model\'s page: start from those.',
       },
       seed: {
         title: 'seed: one change at a time',
@@ -474,7 +474,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
       problems: {
         title: 'When the picture does not obey',
-        body: 'What to check, and in what order:\n- the model misses part of the description: move that part nearer the start, take out extra words, raise its weight to 1.2–1.3;\n- colours and details are mixed up between objects: models of the first kind read words with no ties between them. Describe each object in a phrase of its own and take out extra colours;\n- the picture is burnt out: `cfg` is too high, or a weight is above 1.5;\n- the picture is dull and limp: `cfg` is too low, or `steps` is too few;\n- extra arms, two heads, doubled figures: the size is larger than the one the model was trained at. For SD 1.5 that is 512, for SDXL 1024;\n- the second text changes nothing: check that `cfg` is above 1;\n- nothing helps: change `seed`. Then check in the model\'s card that the description is written in its manner.',
+        body: 'What to check, and in what order:\n- the model misses part of the description: move that part nearer the start, take out extra words, raise its weight to 1.2-1.3;\n- colours and details are mixed up between objects: models of the first kind read words with no ties between them. Describe each object in a phrase of its own and take out extra colours;\n- the picture is burnt out: `cfg` is too high, or a weight is above 1.5;\n- the picture is dull and limp: `cfg` is too low, or `steps` is too few;\n- extra arms, two heads, doubled figures: the size is larger than the one the model was trained at. For SD 1.5 that is 512, for SDXL 1024;\n- the second text changes nothing: check that `cfg` is above 1;\n- nothing helps: change `seed`. Then check in the model\'s card that the description is written in its manner.',
       },
       check: {
         title: 'The app reads descriptions with you',

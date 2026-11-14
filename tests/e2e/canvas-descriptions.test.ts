@@ -80,7 +80,7 @@ test('description cards: dots for class knowledge, hover, node explanation, mode
 
   // The TEST fixture saves an inference about the KSampler class: class knowledge, so still behind the dots,
   // and the next hover shows it with its "Inference" badge.
-  await pickOption(window, 'Chat provider', 'TEST mode');
+  await pickOption(window, 'Choose the assistant', 'TEST mode');
   await window.getByText('TEST mode is on').first().waitFor();
   await window.getByRole('tab', { name: 'Assistant' }).click();
   const input = window.locator('textarea[aria-label="Chat message"]');

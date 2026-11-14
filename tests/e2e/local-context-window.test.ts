@@ -88,12 +88,12 @@ test('a local model with a small context window: Settings, the chat and the log 
     await window.getByRole('button', { name: 'Settings', exact: true }).click();
     const dialog = window.locator('[role="dialog"].settings-dialog');
     await dialog.getByRole('tab', { name: 'Assistant' }).click();
-    await dialog.getByRole('radio', { name: 'Own server', exact: true }).click();
-    await dialog.getByRole('textbox', { name: 'Base URL', exact: true }).fill(`${origin}/v1`);
+    await dialog.getByRole('radio', { name: 'Your own server', exact: true }).click();
+    await dialog.getByRole('textbox', { name: 'Server address', exact: true }).fill(`${origin}/v1`);
     await expect(dialog.getByText(`1 model from ${origin}.`)).toBeVisible({ timeout: 15_000 });
     await dialog.getByRole('combobox', { name: 'Models found', exact: true }).click();
     await window.getByRole('option', { name: MODEL }).click();
-    await dialog.getByRole('button', { name: 'Check connection' }).click();
+    await dialog.getByRole('button', { name: 'Test connection' }).click();
     const note = dialog.locator('.context-window-note');
     await expect(note).toHaveAttribute('data-window', '4096', { timeout: 20_000 });
     await expect(note).toContainText('Context window on the server: 4,096 tokens. That is too small');

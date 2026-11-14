@@ -148,7 +148,7 @@ describe('the summary of a run', () => {
     const text = ru(summary.key, summary.params);
     expect(text).toMatch(/^Прочитано нод: \d+, паков: \d+, файлов моделей: \d+\.$/);
     expect(text).not.toContain('Синхронизировано');
-    expect(en(summary.key, summary.params)).toMatch(/^Read \d+ nodes, \d+ packs and \d+ model files\.$/);
+    expect(en(summary.key, summary.params)).toMatch(/^Read from ComfyUI\. Nodes: [\d,]+, packs: [\d,]+, model files: [\d,]+\.$/);
     expect(ru('sync.toastContinuing', { ...summary.params, done: 3, total: 9 })).toMatch(/читаются дальше: 3 из 9\.$/);
     // "Read through MCP" runs this same sync and reports it the same way.
     expect(mcpReadOutcome(status)).toMatchObject({ ok: true, nodes: status.counts.nodeClasses, models: status.counts.models });

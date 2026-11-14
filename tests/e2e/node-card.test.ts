@@ -69,14 +69,14 @@ test('node card: says what a node is for before it is on the canvas', async () =
     // ComfyUI itself is no pack: there is nothing a pack says about itself.
     await expect(card.locator('[data-pack-info]')).toHaveCount(0);
     await expect(card).toContainText('sampling');
-    for (const heading of ['What it is', 'Usually used for', 'How to connect it', 'What goes in', 'Settings on the node', 'What comes out']) {
+    for (const heading of ['What it is', 'Usually used for', 'How to connect it', 'What goes in', 'Fields on the node', 'What comes out']) {
       await expect(card.getByRole('heading', { name: heading }), heading).toBeVisible();
     }
     // The links it takes, by the names the node gives them, each with its data type.
     for (const port of ['model', 'positive', 'negative', 'latent_image']) await expect(card.locator('li').filter({ hasText: new RegExp(`^${port}`) }).first(), port).toBeVisible();
     // A setting: where it starts, its range, and the hint ComfyUI gives for it.
     const steps = card.locator('li').filter({ hasText: /^steps/ });
-    await expect(steps).toContainText('from 1 to 10000 · starts at 20');
+    await expect(steps).toContainText('from 1 to 10000 · default 20');
     await expect(steps).toContainText('The number of steps used in the denoising process.');
     await expect(card.locator('li').filter({ hasText: /^cfg/ })).toContainText('The Classifier-Free Guidance scale balances creativity and adherence to the prompt.');
     await expect(card.locator('li').filter({ hasText: /^sampler_name/ })).toContainText(/a list of \d+/);

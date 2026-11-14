@@ -225,7 +225,7 @@ export function stepError(call: ToolCall, t: Translate): { summary: string; deta
   const suggestions = isRecord(call.result) && Array.isArray(call.result.suggestions)
     ? call.result.suggestions.filter((item): item is string => typeof item === 'string' && item !== '').slice(0, 5)
     : [];
-  if (suggestions.length > 0) return { summary: t('chat.stepError.unknownClassLike', { names: suggestions.map((item) => clean(item)).join(', ') }), detail: null };
+  if (suggestions.length > 0) return { summary: t('chat.stepError.unknownClassLike', { names: suggestions.map((item) => clean(item)) }), detail: null };
   if (/^Unknown node class/.test(error)) return { summary: t('chat.stepError.unknownClass'), detail: null };
   if (isRecord(call.result) && call.result.conflict === true) return { summary: t('chat.stepError.conflict'), detail: null };
   const known = error ? translateKnownError(t, error) : null;
@@ -301,7 +301,7 @@ export function buildSummary(counts: BuildCounts, t: Translate, stopped = false)
   if (counts.fields) parts.push(t('chat.summaryFields', { count: counts.fields }));
   if (counts.removed) parts.push(t('chat.summaryRemoved', { count: counts.removed }));
   if (parts.length === 0) return null;
-  return t(stopped ? 'chat.summaryStopped' : 'chat.summaryDone', { parts: parts.join(', ') });
+  return t(stopped ? 'chat.summaryStopped' : 'chat.summaryDone', { parts });
 }
 
 /** The host of a link, never its path or query (where a token could sit). */

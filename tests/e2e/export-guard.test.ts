@@ -81,7 +81,7 @@ test('Export with check findings asks first; Cancel writes nothing, Export anywa
   await expect(mark).toHaveAttribute('aria-label', /Findings of the check on this node: \d+/);
 
   await window.getByRole('button', { name: 'Save workflow for ComfyUI…', exact: true }).click();
-  await guard.getByRole('button', { name: 'Export anyway' }).click();
+  await guard.getByRole('button', { name: 'Save anyway' }).click();
   await expect.poll(() => fs.existsSync(saved)).toBe(true);
   const written = JSON.parse(fs.readFileSync(saved, 'utf8')) as { nodes: Array<{ type: string }> };
   expect(written.nodes.map((node) => node.type)).toEqual(['CheckpointLoaderSimple']);

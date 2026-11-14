@@ -125,9 +125,9 @@ test('inside a subgraph, moving an inner node and editing its field are saved an
   const encode = window.locator('.react-flow__node[data-id="1"]');
   await expect(encode).toContainText('CLIPTextEncode');
   await encode.click();
-  await window.getByRole('tab', { name: 'Inspector' }).click();
+  await window.getByRole('tab', { name: 'Properties' }).click();
   // The same field shows on the node and in Properties; this is the one in Properties.
-  const properties = window.getByRole('tabpanel', { name: 'Inspector' });
+  const properties = window.getByRole('tabpanel', { name: 'Properties' });
   const text = properties.getByRole('textbox', { name: 'text', exact: true });
   await expect(text).toHaveValue('a cat');
   await text.fill('a dog in the rain');
@@ -150,8 +150,8 @@ test('inside a subgraph, moving an inner node and editing its field are saved an
   await window.locator('.react-flow__node[data-id="2"]').dblclick();
   await window.locator('.react-flow__node[data-id="1"]').dblclick();
   await window.locator('.react-flow__node[data-id="1"]').click();
-  await window.getByRole('tab', { name: 'Inspector' }).click();
-  await expect(window.getByRole('tabpanel', { name: 'Inspector' }).getByRole('textbox', { name: 'text', exact: true })).toHaveValue('a dog in the rain');
+  await window.getByRole('tab', { name: 'Properties' }).click();
+  await expect(window.getByRole('tabpanel', { name: 'Properties' }).getByRole('textbox', { name: 'text', exact: true })).toHaveValue('a dog in the rain');
   if (SHOTS) await window.screenshot({ path: path.join(SHOTS, 'subgraph-after-reload.png') });
 
   // Backspace removes an inner node, as on the main canvas; undo brings it back.

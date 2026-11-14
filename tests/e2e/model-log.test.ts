@@ -33,7 +33,7 @@ test('conversation log: record, open from the answer, copy a report, save a file
     await api.llmSetSessionKey('openai', key);
   }, FAKE_KEY);
 
-  await pickOption(window, 'Chat provider', 'TEST mode');
+  await pickOption(window, 'Choose the assistant', 'TEST mode');
   await window.getByText('TEST mode is on').first().waitFor();
   await window.getByRole('tab', { name: 'Assistant' }).click();
   const input = window.locator('textarea[aria-label="Chat message"]');

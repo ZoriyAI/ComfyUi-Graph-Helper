@@ -52,7 +52,7 @@ test('blocked secret IPC leaves the disabled key controls empty and the marker o
   const input = dialog.getByRole('textbox', { name: 'OpenAI key', exact: true });
   await expect(input).toBeVisible();
   await expect(dialog.getByRole('button', { name: 'Remember on this computer' })).toHaveCount(0);
-  const keyReason = 'The system password store is not available on this computer, so keys live only until the app closes.';
+  const keyReason = 'The system keychain is not available on this computer, so keys live only until the app closes.';
   // The note stands under the key field (with a link to Privacy) and in Privacy, never in the dialog's footer.
   const shownNote = dialog.locator('.key-store-note', { hasText: keyReason }).locator('visible=true');
   await expect(shownNote).toHaveCount(1);

@@ -81,8 +81,8 @@ test('node fields: lists, steppers and the model picker edit the graph', async (
 
     // steps through the stepper in Properties.
     await sampler.locator('.graph-node-title').click();
-    await window.getByRole('tab', { name: 'Inspector' }).click();
-    const inspector = window.getByRole('region', { name: 'Inspector' });
+    await window.getByRole('tab', { name: 'Properties' }).click();
+    const inspector = window.getByRole('region', { name: 'Properties' });
     const steps = inspector.getByRole('spinbutton', { name: 'steps' });
     await expect(steps).toHaveValue('20');
     await inspector.getByRole('button', { name: 'Increase steps' }).click();

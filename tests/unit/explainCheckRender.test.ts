@@ -113,7 +113,7 @@ describe('Check panel render', () => {
     expect(html).toContain('l.safetensors is made for SDXL, but a.safetensors upstream is Flux.1.');
     // Findings name the node by its title on the canvas; the id is the row's tooltip.
     // The node's name stands out in bold.
-    expect(html).toContain('Input model (MODEL) on <strong>&quot;Loader&quot;</strong> needs a connection.');
+    expect(html).toContain('Input model (MODEL) on <strong>“Loader”</strong> needs a link.');
     expect(html).toContain('title="Node number n1"');
     expect(html).not.toContain('on node n1');
     expect(html).toContain('Ask why');

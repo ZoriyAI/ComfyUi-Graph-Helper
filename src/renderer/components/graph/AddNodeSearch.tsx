@@ -54,7 +54,7 @@ async function addNow(classType: string, at: { x: number; y: number } | null, ti
       tone: 'warn',
       title: String(t('nodeGuard.unknownClass', { classType })),
       description: verdict.suggestions.length > 0
-        ? String(t('nodeGuard.didYouMean', { list: verdict.suggestions.join(', ') }))
+        ? String(t('nodeGuard.didYouMean', { list: verdict.suggestions }))
         : String(t('nodeGuard.notInCatalog')),
       duration: 6000,
     });

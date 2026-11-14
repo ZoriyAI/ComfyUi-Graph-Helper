@@ -76,7 +76,7 @@ test('STRICT: Complete chat-to-graph with annotation, statuses, completion', asy
   await window.screenshot({ path: artifact('dark-idle.png'), fullPage: true });
 
   // Visible TEST opt-in. Not a live model and not the user's ComfyUI server.
-  await pickOption(window, 'Chat provider', 'TEST mode');
+  await pickOption(window, 'Choose the assistant', 'TEST mode');
   await window.getByText('TEST mode is on').first().waitFor();
 
   await window.getByRole('tab', { name: 'Assistant' }).click();
@@ -275,7 +275,7 @@ test('STRICT: Readable error with no graph mutation on failure', async () => {
     };
   });
 
-  await pickOption(window, 'Chat provider', 'OpenAI');
+  await pickOption(window, 'Choose the assistant', 'OpenAI');
   await window.getByText('OpenAI is chosen, but there is no key').waitFor();
 
   await window.getByRole('tab', { name: 'Assistant' }).click();

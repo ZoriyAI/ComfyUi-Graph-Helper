@@ -1,6 +1,7 @@
 import type { BaseModelFamily, ModelKind, ModelSummary, NodeClassSummary, SubgraphDefinition } from '../../../shared/contracts';
 import { queryWords, rankFields } from '../../../shared/knowledge/searchWords';
 import { familiesCompatible } from '../../../shared/knowledge/baseModel';
+import { formatByteSize } from '../../../shared/i18n/format';
 
 /** dataTransfer types the canvas accepts from the library (see ui-direction §7). */
 export const NODE_DRAG_TYPE = 'application/x-helper-node';
@@ -234,15 +235,7 @@ export function plainNumber(value: number): string {
 
 export function formatBytes(bytes: number | null, language: 'en' | 'ru'): string {
   if (bytes == null || !Number.isFinite(bytes) || bytes < 0) return '—';
-  const units = language === 'ru' ? ['Б', 'КБ', 'МБ', 'ГБ', 'ТБ'] : ['B', 'KB', 'MB', 'GB', 'TB'];
-  let value = bytes;
-  let unit = 0;
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024;
-    unit += 1;
-  }
-  const digits = unit === 0 || value >= 100 ? 0 : 1;
-  return `${new Intl.NumberFormat(language === 'ru' ? 'ru-RU' : 'en-US', { maximumFractionDigits: digits, minimumFractionDigits: digits }).format(value)} ${units[unit]}`;
+  return formatByteSize(bytes, language);
 }
 
 /** Modelled (insertable) subgraph definitions matching a query. */

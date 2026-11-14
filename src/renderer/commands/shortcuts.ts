@@ -206,11 +206,11 @@ const SIGN_CODES: Record<string, string> = {
 
 /**
  * What to press for a shortcut's key on this layout, when it is not simply the key marked with it:
- * - { kind: 'key', key: 'я' }: a non-Latin layout, where the shortcut is the key in the US place (Ctrl+Z → «я»);
+ * - { kind: 'local', glyph: 'я' }: a non-Latin layout, where the shortcut is the key in the US place (Ctrl+Z → «я»);
  * - { kind: 'shift' }: a Latin layout that types the sign only with Shift or AltGr (QWERTZ's «/»);
  * - null: press the key marked with it, or the layout is not known.
  */
-export function localKeyFor(shortcut: string, layout: LayoutMap | null | undefined): { kind: 'key'; key: string } | { kind: 'shift' } | null {
+export function localKeyFor(shortcut: string, layout: LayoutMap | null | undefined): { kind: 'local'; glyph: string } | { kind: 'shift' } | null {
   if (!layout || layout.size === 0) return null;
   const key = parseShortcut(shortcut).key;
   const q = layout.get('KeyQ') ?? '';
@@ -218,13 +218,13 @@ export function localKeyFor(shortcut: string, layout: LayoutMap | null | undefin
   if (/^[A-Z]$/.test(key)) {
     if (latin) return null;
     const local = layout.get(`Key${key}`);
-    return local && local.toLowerCase() !== key.toLowerCase() ? { kind: 'key', key: local } : null;
+    return local && local.toLowerCase() !== key.toLowerCase() ? { kind: 'local', glyph: local } : null;
   }
   const code = SIGN_CODES[key];
   if (!code) return null;
   if (!latin) {
     const local = layout.get(code);
-    return local && local !== key ? { kind: 'key', key: local } : null;
+    return local && local !== key ? { kind: 'local', glyph: local } : null;
   }
   const typed = new Set(layout.values());
   if (typed.has(key) || (key === '=' && typed.has('+'))) return null;

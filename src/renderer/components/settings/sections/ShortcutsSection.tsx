@@ -226,7 +226,7 @@ function LocalKey({ chord, layout }: { chord: string; layout: LayoutMap | null }
   if (!local) return null;
   return (
     <span className={styles.defaultNote} data-local-key={local.kind}>
-      {local.kind === 'key' ? t('preferences.localKey', { key: local.key.toUpperCase() }) : t('preferences.localShift')}
+      {local.kind === 'local' ? t('preferences.localKey', { glyph: local.glyph.toUpperCase() }) : t('preferences.localShift')}
     </span>
   );
 }

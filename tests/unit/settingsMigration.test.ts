@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import Database from 'better-sqlite3';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -7,6 +7,7 @@ import { databasePath } from '../../src/shared/database-path';
 import { preferencesDefaults } from '../../src/shared/config/preferences';
 import { migrate, schemaVersion, tableNames, SCHEMA_VERSION } from '../../src/main/settings/migrate';
 import { attemptSaveSecret, readSettings, saveSettings, secretRecordCount } from '../../src/main/settings/repository';
+import { setSystemLanguages } from '../../src/main/systemLanguage';
 
 function version0Database(): Database.Database {
   const db = new Database(':memory:');
@@ -27,6 +28,10 @@ function version0Database(): Database.Database {
 }
 
 describe('settings migration', () => {
+  // These tests were written for a Russian system: a fresh profile starts in the system's language.
+  beforeAll(() => setSystemLanguages(['ru-RU']));
+  afterAll(() => setSystemLanguages(null));
+
   it('builds the database path from userData and the fixed file name', () => {
     expect(databasePath('/tmp/profile')).toBe(path.join('/tmp/profile', 'comfyui-desktop.db'));
     expect(databasePath('/tmp/profile')).not.toContain('process.env');
@@ -52,6 +57,7 @@ describe('settings migration', () => {
     expect(initialPreferences).toEqual(preferencesDefaults);
     expect(initial).toEqual({
       source: 'default',
+      systemLanguage: 'ru',
       values: {
         theme: 'graphite',
         motion: 'system',
@@ -105,6 +111,7 @@ describe('settings migration', () => {
     expect(legacyPreferences).toEqual(preferencesDefaults);
     expect(legacy).toEqual({
       source: 'stored',
+      systemLanguage: 'ru',
       values: {
         theme: 'graphite',
         motion: 'reduced',

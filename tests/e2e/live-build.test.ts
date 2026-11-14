@@ -29,7 +29,7 @@ test('live build: nodes appear step by step with their why on the canvas and in 
   await useEnglish(window);
   await expect(window.locator('.react-flow__node')).toHaveCount(0);
 
-  await pickOption(window, 'Chat provider', 'TEST mode');
+  await pickOption(window, 'Choose the assistant', 'TEST mode');
   await window.getByText('TEST mode is on').first().waitFor();
   await window.getByRole('tab', { name: 'Assistant' }).click();
   // Build tools exist only in a build turn: switch the composer to Build.
@@ -96,7 +96,7 @@ test('live build: nodes appear step by step with their why on the canvas and in 
   await expect(window.getByText('step by step: checkpoint, two prompts')).toBeVisible();
   // The build closes with what it made and what to do next.
   const summary = window.locator('[data-build-summary]');
-  await expect(summary).toContainText('Done: 7 nodes, 9 links.');
+  await expect(summary).toContainText('Done: 7 nodes and 9 links.');
   await expect(summary.getByRole('button', { name: 'Tour the graph' })).toBeEnabled();
   await expect(summary.getByRole('button', { name: 'Check the graph' })).toBeVisible();
   await expect(summary.getByRole('button', { name: 'Save workflow…' })).toBeVisible();
@@ -124,7 +124,7 @@ test('a build asked for after a click on the canvas is followed again', async ()
   const window = await app.firstWindow();
   await window.setViewportSize({ width: 1440, height: 900 });
   await useEnglish(window);
-  await pickOption(window, 'Chat provider', 'TEST mode');
+  await pickOption(window, 'Choose the assistant', 'TEST mode');
   await window.getByText('TEST mode is on').first().waitFor();
 
   const follow = window.getByRole('button', { name: 'Follow the assistant', exact: true });

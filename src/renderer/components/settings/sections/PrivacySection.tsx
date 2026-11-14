@@ -90,7 +90,7 @@ export default function PrivacySection({ prefs, setPrefs, container }: DraftProp
   const inventoryItems = (found: SecretInventoryReport | null): string[] => {
     if (!found) return [];
     const items: string[] = [];
-    if (found.providers.length > 0) items.push(String(t('preferences.forgetItemKeys', { providers: found.providers.map((provider) => KEY_PROVIDER_NAMES[provider] || String(t('settings.providerLocal'))).join(', ') })));
+    if (found.providers.length > 0) items.push(String(t('preferences.forgetItemKeys', { providers: found.providers.map((provider) => KEY_PROVIDER_NAMES[provider] || String(t('settings.providerLocal'))) })));
     if (found.serverTokens > 0) items.push(String(t('preferences.forgetItemTokens', { count: found.serverTokens })));
     if (found.signIns > 0) items.push(String(t('preferences.forgetItemSignIns', { count: found.signIns })));
     return items;

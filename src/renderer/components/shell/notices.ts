@@ -36,7 +36,7 @@ export const NOTE_NAMES = 2;
 
 /** "Missing nodes: A, B." for two or fewer, else "Missing nodes: 18 (A, B and 16 more)." */
 function missingText(names: string[], key: 'Nodes' | 'Models', translate: Translator): string {
-  if (names.length <= NOTE_NAMES) return translate(`workflow.missing${key}`, { names: names.join(', ') });
+  if (names.length <= NOTE_NAMES) return translate(`workflow.missing${key}`, { names });
   return translate(`workflow.missing${key}Many`, { count: names.length, names: names.slice(0, NOTE_NAMES).join(', '), rest: names.length - NOTE_NAMES });
 }
 
@@ -92,7 +92,7 @@ export function describeNote(note: WorkflowNote, translate: Translator, actions:
         id: WORKFLOW_NOTE_ID,
         tone: 'warn',
         title: translate('workflow.exported'),
-        description: translate('workflow.exportedUnset', { names: note.unset.join(', ') }),
+        description: translate('workflow.exportedUnset', { names: note.unset }),
         duration: 15000,
       };
     }
