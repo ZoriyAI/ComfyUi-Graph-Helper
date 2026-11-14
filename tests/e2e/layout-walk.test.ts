@@ -1037,7 +1037,12 @@ test('nothing sticks out, is cut or overlaps on any screen at any window size', 
 
     // ---------- Windows that open over the app ----------
     if (wants('windows')) {
-      await visit(page, 'keyboard shortcuts', async () => { await page.keyboard.press('F1'); await page.getByRole('dialog').first().waitFor(); }, async () => { await escape(page); });
+      // From the Help menu: after the failed build above the focus is in the message field, which keeps F1 to itself.
+      await visit(page, 'keyboard shortcuts', async () => {
+        await menus.last().click();
+        await page.getByRole('menuitem', { name: new RegExp(`^${T('menu.shortcuts')}`) }).click();
+        await page.getByRole('dialog').first().waitFor();
+      }, async () => { await escape(page); });
       await visitScrolling(page, 'conversation log', async () => {
         if (await page.locator('.model-log-dialog').count() === 0) {
           await menus.last().click();
