@@ -8,6 +8,8 @@ import { previewKind, previewMime } from '../../shared/knowledge/sidecar';
 import { PREVIEW_TRIES, webFoundFromJson } from '../../shared/knowledge/webLookup';
 import { PREVIEW_MAX_BYTES, readSideFile, sideFilePath } from '../mcp/sideFiles';
 import { COMFY_PREVIEW_FILE, readComfyPreview } from '../comfy/direct';
+import { catalogSourceKey, normalizedMcpEndpoint } from '../catalog/repository';
+import { readSettings } from '../settings/repository';
 
 /**
  * The preview picture or clip a model manager keeps next to a model, handed to the window as bytes.
@@ -35,6 +37,9 @@ export interface PreviewDeps {
   db: () => Database.Database;
   /** A read-only session with the saved MCP server, or null when there is none to open. */
   open: () => Promise<McpSession | null>;
+  /** Opaque accepted/configured connection binding for a fixed session provider (tests); null forbids network reads.
+   * Defaults to comparing the saved endpoint with the published catalog connection in SQLite. */
+  mcpBinding?: () => string | null;
   /** Where read previews are kept; null keeps none (tests, a profile that cannot be written). */
   cacheDir: string | null;
   /** Downloads a sample found on the internet; without it such a sample is not shown. */
@@ -64,6 +69,19 @@ const MIME_EXTENSION: Record<string, string> = {
 /** The name a sample from the internet is kept under in the folder: made of its address. */
 function webKey(url: string): string {
   return createHash('sha256').update(`web\n${url}`).digest('hex');
+}
+
+/** The saved session helper opens current Settings: it may read catalog files only for the accepted endpoint. */
+function savedMcpPreviewBinding(db: Database.Database): string | null {
+  const settings = readSettings(db);
+  if (settings.source === 'corrupt' || !settings.values.mcpUrl) return null;
+  const rows = db.prepare("SELECT key, value FROM sync_state WHERE key IN ('catalog_source_key', 'catalog_source_connection', 'library_url', 'library_source')").all() as Array<{ key: string; value: string }>;
+  const state = Object.fromEntries(rows.map((row) => [row.key, row.value]));
+  if (!state.catalog_source_key || !state.catalog_source_connection || !state.library_url
+    || (state.library_source !== 'mcp' && state.library_source !== 'mcp+comfy')) return null;
+  const current = normalizedMcpEndpoint(settings.values.mcpUrl);
+  if (current !== normalizedMcpEndpoint(state.library_url)) return null;
+  return catalogSourceKey([state.catalog_source_key, state.catalog_source_connection, current]);
 }
 
 export class PreviewReader {
@@ -206,7 +224,24 @@ export class PreviewReader {
     void session?.close().catch(() => undefined);
   }
 
+  private mcpBinding(): string | null {
+    try {
+      return this.deps.mcpBinding ? this.deps.mcpBinding() : savedMcpPreviewBinding(this.deps.db());
+    } catch {
+      return null;
+    }
+  }
+
+  private mcpBindingCurrent(binding: string, generation: number): boolean {
+    if (generation !== this.generation) return false;
+    if (this.mcpBinding() === binding) return true;
+    this.stop();
+    return false;
+  }
+
   private async load(key: string, source: string, file: string, generation: number): Promise<ModelPreview | null> {
+    const binding = this.mcpBinding();
+    if (binding === null) this.stop();
     const kind = previewKind(file);
     const mime = previewMime(file);
     const kept = this.cachePath(key, file);
@@ -218,16 +253,18 @@ export class PreviewReader {
         // Not kept yet.
       }
     }
+    // Cached catalog bytes remain valid while Settings points elsewhere; an uncached read must match.
+    if (binding === null) return null;
     // One read at a time: the queue is what makes many thumbnails one connection.
-    const turn = this.queue.catch(() => null).then(() => generation === this.generation ? this.read(source, generation) : null);
+    const turn = this.queue.catch(() => null).then(() => this.mcpBindingCurrent(binding, generation) ? this.read(source, generation, binding) : null);
     this.queue = turn;
     const bytes = await turn;
-    if (generation !== this.generation || !bytes || bytes.length === 0) return null;
+    if (!this.mcpBindingCurrent(binding, generation) || !bytes || bytes.length === 0) return null;
     if (kept) this.keep(kept, bytes);
     return { kind, mime, bytes: new Uint8Array(bytes) };
   }
 
-  private async read(source: string, generation: number): Promise<Buffer | null> {
+  private async read(source: string, generation: number, binding: string): Promise<Buffer | null> {
     if (this.idle) clearTimeout(this.idle);
     this.idle = null;
     try {
@@ -236,12 +273,12 @@ export class PreviewReader {
           this.opening = null;
         });
         const opened = await this.opening;
-        if (generation !== this.generation) { await opened?.close().catch(() => undefined); return null; }
+        if (!this.mcpBindingCurrent(binding, generation)) { await opened?.close().catch(() => undefined); return null; }
         this.session = opened;
       }
       if (!this.session) return null;
       const bytes = await readSideFile(this.session, source, PREVIEW_MAX_BYTES);
-      return generation === this.generation ? bytes : null;
+      return this.mcpBindingCurrent(binding, generation) ? bytes : null;
     } catch {
       // The connection went away: the next read opens a new one.
       if (generation === this.generation) {

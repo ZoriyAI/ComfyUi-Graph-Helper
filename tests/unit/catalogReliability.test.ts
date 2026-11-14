@@ -331,7 +331,7 @@ it('a delayed preview from a replaced source cannot cache bytes or reuse its old
   const entered = deferred<void>(); const held = deferred<McpToolCallResult>(); let opens = 0;
   upsertModelFiles(db, [{ directory: 'loras', name: 'style.safetensors', sizeBytes: 10, rootPath: '/models/loras', previewFile: 'style.webp', previewSig: '2' }]);
   writeState(db, { catalog_source_key: 'first' });
-  const reader = new PreviewReader({ db: () => db, cacheDir: folder, open: async () => {
+  const reader = new PreviewReader({ db: () => db, cacheDir: folder, mcpBinding: () => readState(db).catalog_source_key ?? null, open: async () => {
     const id = ++opens;
     return catalogSession({ callTool: async () => { if (id === 1) { entered.resolve(); return held.promise; } return toolResult({ data_base64: Buffer.from([2, 0]).toString('base64'), complete: true }); } });
   } });
@@ -343,4 +343,55 @@ it('a delayed preview from a replaced source cannot cache bytes or reuse its old
     expect(await obsolete).toBeNull(); expect((await current)?.bytes[0]).toBe(2);
     expect(opens).toBe(2); expect(fs.readdirSync(folder)).toHaveLength(1);
   } finally { reader.stop(); db.close(); fs.rmSync(folder, { recursive: true, force: true }); }
+});
+
+function publishedMcpPreview() {
+  const db = open();
+  db.prepare("INSERT INTO settings (id, theme, motion, provider, model, comfy_origin, base_url, mcp_url, language, updated_at) VALUES (1, 'graphite', 'system', 'openai', 'x', '', '', 'https://one.test/mcp?tenant=one', 'en', 0)").run();
+  upsertModelFiles(db, [{ directory: 'loras', name: 'style.safetensors', sizeBytes: 10, rootPath: '/models/loras', previewFile: 'style.webp', previewSig: '2' }]);
+  writeState(db, { catalog_source_key: catalogSourceKey(['mcp', 'https://one.test/mcp?tenant=one'], 'one'),
+    catalog_source_connection: catalogSourceKey(['mcp', 'https://one.test/mcp?tenant=one']), library_source: 'mcp', library_url: 'https://one.test/mcp?tenant=one', last_sync_at: '1' });
+  const change = (url = 'https://two.test/mcp?tenant=two') => db.prepare('UPDATE settings SET mcp_url = ?').run(url);
+  return { db, change };
+}
+const previewPayload = (byte = 1) => toolResult({ data_base64: Buffer.from([byte, 0]).toString('base64'), complete: true });
+
+describe('preview binding before the next catalog publication', () => {
+  it('suppresses an uncached A preview after Settings selects B with no new publication', async () => {
+    const { db, change } = publishedMcpPreview(); const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'preview-binding-')); let opens = 0;
+    const reader = new PreviewReader({ db: () => db, cacheDir: folder, open: async () => { opens += 1; return catalogSession({ callTool: async () => previewPayload(2) }); } });
+    try {
+      const source = readState(db).catalog_source_key; change();
+      expect(await reader.get('loras', 'style.safetensors')).toBeNull();
+      expect(opens).toBe(0); expect(fs.readdirSync(folder)).toEqual([]); expect(readState(db).catalog_source_key).toBe(source);
+    } finally { reader.stop(); db.close(); fs.rmSync(folder, { recursive: true, force: true }); }
+  });
+  it.each(['open', 'read'])('rejects Settings changes during delayed %s without another get', async delayed => {
+    const { db, change } = publishedMcpPreview(); const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'preview-binding-await-'));
+    const entered = deferred<void>(); const heldOpen = deferred<McpSession | null>(); const heldRead = deferred<McpToolCallResult>(); let closes = 0; let reads = 0;
+    const session = catalogSession({ close: async () => { closes += 1; }, callTool: async () => { reads += 1; if (delayed === 'read') { entered.resolve(); return heldRead.promise; } return previewPayload(2); } });
+    const reader = new PreviewReader({ db: () => db, cacheDir: folder, open: async () => {
+      if (delayed === 'open') { entered.resolve(); return heldOpen.promise; } return session;
+    } });
+    try {
+      const pending = reader.get('loras', 'style.safetensors'); await entered.promise; change();
+      if (delayed === 'open') heldOpen.resolve(session); else heldRead.resolve(previewPayload(2));
+      expect(await pending).toBeNull(); expect(fs.readdirSync(folder)).toEqual([]); expect(closes).toBe(1);
+      if (delayed === 'open') expect(reads).toBe(0);
+    } finally { reader.stop(); db.close(); fs.rmSync(folder, { recursive: true, force: true }); }
+  });
+  it('preserves same-binding reads and cached A bytes while B is selected, then reads A after switching back', async () => {
+    const { db, change } = publishedMcpPreview(); const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'preview-binding-cache-')); let opens = 0; let reads = 0;
+    const reader = new PreviewReader({ db: () => db, cacheDir: folder, open: async () => { opens += 1; return catalogSession({ callTool: async () => previewPayload(++reads) }); } });
+    try {
+      expect((await reader.get('loras', 'style.safetensors'))?.bytes[0]).toBe(1);
+      change(); expect((await reader.get('loras', 'style.safetensors'))?.bytes[0]).toBe(1);
+      expect(opens).toBe(1); expect(reads).toBe(1);
+      fs.rmSync(path.join(folder, fs.readdirSync(folder)[0]));
+      expect(await reader.get('loras', 'style.safetensors')).toBeNull(); expect(reads).toBe(1);
+      change('https://one.test/mcp?tenant=one#fragment');
+      expect((await reader.get('loras', 'style.safetensors'))?.bytes[0]).toBe(2);
+      expect(opens).toBe(2);
+    } finally { reader.stop(); db.close(); fs.rmSync(folder, { recursive: true, force: true }); }
+  });
 });
