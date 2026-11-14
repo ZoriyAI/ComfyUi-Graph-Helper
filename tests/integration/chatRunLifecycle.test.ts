@@ -81,4 +81,20 @@ describe('chat run lifecycle', () => {
     await second;
     expect(useChatStore.getState().isStreaming).toBe(false);
   });
+
+  it('ending a run that paused at a checkpoint (status bar, menu) stops the card: no Continue on a run that is gone', () => {
+    const checkpoint = { reason: 'step-limit' as const, steps: 60, state: 'open' as const, context: { intent: 'build' as const } };
+    useChatStore.setState({
+      messages: [
+        { id: 'old', role: 'assistant', content: '', timestamp: 1, checkpoint: { ...checkpoint, state: 'continued' as const } },
+        { id: 'paused', role: 'assistant', content: '', timestamp: 2, checkpoint },
+      ],
+    });
+    const service = new ChatService();
+    service.cancel();
+    const byId = (id: string) => useChatStore.getState().messages.find((message) => message.id === id)?.checkpoint?.state;
+    expect(byId('paused')).toBe('stopped');
+    // A card already past its pause keeps what it says.
+    expect(byId('old')).toBe('continued');
+  });
 });
