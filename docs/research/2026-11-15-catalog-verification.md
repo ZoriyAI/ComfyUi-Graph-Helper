@@ -78,3 +78,24 @@ Two existing integration assertions were updated for intended behavior: a differ
 - No per-row source migration was added; one catalog represents one published source binding. Switching sources intentionally rebuilds server-derived rows.
 - Incoming main was reported as `c4c1552c9813fd757f892b5ba295f3a590f0f0ed`; this implementation stayed on the requested branch/base. `src/main/ipc.ts` and `src/shared/contracts/knowledge.ts` overlap that incoming editor/file-save change and need careful integration. The IPC import change is confined to `importCatalogFile` plus its repository import; the contract change is only the optional SyncStatus field.
 - The pre-existing concurrent edit in `docs/research/2026-11-15-reliability-plan.md` was deliberately left unstaged and uncommitted.
+
+## Independent review correction — round 1/5
+
+Review finding addressed: the published catalog source could remain A while `openSavedMcpSession` opened newly configured endpoint B, allowing uncached B preview bytes to be stored under A's namespace.
+
+Correction commit: `c532f12771a852ab460b6dd3019e640b80783e0f` (`fix(previews): reject reads from an unaccepted saved endpoint`), based on `a4c3a131e8ba223e16f7499b8bd8a6c2c96dce9b` (production remains the reviewed `2d19048` plus documentation moves).
+
+`PreviewReader` now defaults to a main-only binding check using validated current Settings and the existing published `library_url`, `library_source`, `catalog_source_key` and opaque `catalog_source_connection`. Normalized full MCP endpoints must match (path/query count; fragments do not). A usable binding is returned as a digest; no new plaintext state or renderer field is added. Missing/corrupt/unaccepted binding suppresses uncached MCP reads, including closing an idle session that belonged to the old configuration. Previously cached accepted-catalog bytes remain available while Settings points elsewhere.
+
+The captured binding and reader generation are checked before queued network work, after asynchronous session opening, after the side-file read, and again before cache persistence. Mismatch invalidates the reader and closes its session; an opened but not yet accepted session is closed directly. Delayed Settings changes are therefore detected without a second thumbnail request or a new catalog publication. The existing `openSavedMcpSession`/read-only gate/auth helpers remain unchanged. Direct Comfy previews and URL-keyed public web samples keep their existing source selection. An optional binding dependency supports explicitly fixed session providers in tests; production uses the SQLite/Settings check by default.
+
+Added four regressions with a valid stored Settings fixture:
+
+- Publish A, select B with no new publication, request an uncached thumbnail: no open/read/return/cache from B.
+- Change Settings while `open()` is delayed, without another `get()`: reject and close before any side-file read/cache.
+- Change Settings while side-file read is delayed, without another `get()`: reject and close before cache persistence.
+- Same-binding reads/cache reuse work; cached A bytes remain available while B is configured; after cache eviction the mismatched network read is suppressed; switching back to A (fragment-only spelling difference) permits a fresh A session.
+
+Red evidence replayed in a detached temporary checkout of exact base `a4c3a131e8ba223e16f7499b8bd8a6c2c96dce9b`, with the final valid Settings fixture: `npx vitest run tests/unit/catalogReliability.test.ts -t 'preview binding before'` -> **4 failed / 32 skipped**, each returning preview bytes where null was required. The same selection after correction -> **4 passed / 32 skipped**. The temporary checkout was removed after verification.
+
+Final focused check: `npx vitest run tests/unit/catalogReliability.test.ts tests/unit/previewCacheLimit.test.ts tests/unit/modelWebLookup.test.ts tests/integration/fakeMcpSync.test.ts tests/integration/comfyDirect.test.ts` -> **5 files / 84 tests passed**, including **36/36** catalog reliability regressions. `npm run type-check` -> passed for main and renderer. Staged diff whitespace check passed. Node 22 PATH was unchanged. No Electron/live model calls, subagents, push, merge or rebase were used. Only production/test files were committed; this ignored report is appended locally for the root's public verification-copy update.
