@@ -1698,6 +1698,13 @@ export const en = {
       probe: 'found on this computer',
     },
   },
+  safeStart: {
+    title: 'The graph did not open last time',
+    message: 'The last start did not finish drawing the graph. It may be too large or damaged.',
+    detail: 'The graph has {{nodes}} nodes and {{links}} links. Start with an empty canvas: the graph stays in the history, and Edit ▸ Undo brings it back. Or try to open it again.',
+    empty: 'Start with an empty canvas',
+    again: 'Open the graph again',
+  },
   errors: {
     revisionMissing: 'That revision is not in the history.',
     subgraphInItself: 'A subgraph cannot go inside itself, directly or through another subgraph.',
@@ -1726,6 +1733,7 @@ export const en = {
     writeReadOnly: 'This folder cannot be written to. Pick another folder.',
     writeDiskFull: 'There is no free space on the disk. Free some space or pick another disk.',
     fileTooLarge: 'This file is too large to open.',
+    graphTooLarge: 'This graph is too large to open ({{nodes}} nodes, {{links}} links). The app opens graphs of up to {{maxNodes}} nodes and {{maxLinks}} links, so that the canvas stays responsive. Nothing was changed.',
     unknown: 'The app could not complete that step.',
     cloudKey: 'The cloud assistant has no key. Add it in Settings ▸ Assistant.',
     modelListUnread: 'The model list could not be read.',
@@ -3897,6 +3905,13 @@ export const ru = {
       probe: 'найден на этом компьютере',
     },
   },
+  safeStart: {
+    title: 'Граф не открылся в прошлый раз',
+    message: 'При прошлом запуске граф не дорисовался. Возможно, он слишком большой или повреждён.',
+    detail: 'В графе нод: {{nodes}}, связей: {{links}}. Можно начать с пустого холста: граф останется в истории, и «Правка ▸ Отменить» вернёт его. Или попробовать открыть его снова.',
+    empty: 'Начать с пустого холста',
+    again: 'Открыть граф снова',
+  },
   errors: {
     revisionMissing: 'Этой версии графа нет в истории.',
     subgraphInItself: 'Субграф нельзя положить внутрь самого себя, ни сразу, ни через другой субграф.',
@@ -3925,6 +3940,7 @@ export const ru = {
     writeReadOnly: 'В эту папку нельзя записывать. Выберите другую папку.',
     writeDiskFull: 'На диске нет свободного места. Освободите место или выберите другой диск.',
     fileTooLarge: 'Этот файл слишком большой, чтобы его открыть.',
+    graphTooLarge: 'Этот граф слишком большой (нод: {{nodes}}, связей: {{links}}). Приложение открывает графы, в которых не больше {{maxNodes}} нод и {{maxLinks}} связей, чтобы холст не зависал. Ничего не изменилось.',
     unknown: 'Приложение не смогло выполнить этот шаг.',
     cloudKey: 'У облачного помощника нет ключа. Добавьте ключ в «Настройки ▸ Помощник».',
     modelListUnread: 'Список моделей не удалось прочитать.',

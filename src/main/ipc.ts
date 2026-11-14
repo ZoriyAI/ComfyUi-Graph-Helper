@@ -18,6 +18,7 @@ import { registerAgentIpc } from './ipc/agentIpc';
 import { registerDiagnosticsIpc } from './ipc/diagnosticsIpc';
 import { registerAboutIpc } from './ipc/aboutIpc';
 import { registerUpdateIpc } from './updates/updateIpc';
+import { registerStartIpc, watchReplacingCommit } from './ipc/startIpc';
 import { mcpOriginOf, mcpToken, mcpTokenFor, mcpTokenOrigin, mcpTokenStatus, releaseMcpTokenIfOriginChanged, setMcpToken } from './mcp/token';
 import { readTokenFile, removeTokenFile, tokenFileHolds, writeTokenFile } from './mcp/tokenFile';
 import { isPasswordStoreChoice, readPasswordStoreOverride, writePasswordStoreOverride } from './settings/passwordStoreOverride';
@@ -207,6 +208,7 @@ export async function setupIPC(): Promise<void> {
   registerDiagnosticsIpc(ipcMain);
   registerAboutIpc(ipcMain);
   registerUpdateIpc(ipcMain);
+  registerStartIpc(ipcMain);
   // File operations
   ipcMain.handle(IPC_CHANNELS.FILE_IMPORT_WORKFLOW, async () => {
     const copy = dialogCopy().importWorkflow;
@@ -221,7 +223,9 @@ export async function setupIPC(): Promise<void> {
     }
     try {
       const document = JSON.parse(readPickedFile(result.filePaths[0]));
-      return importWorkflowDocument(document);
+      const response = importWorkflowDocument(document);
+      watchReplacingCommit(app.getPath('userData'), { payload: { type: 'import-workflow' } }, response);
+      return response;
     } catch (error) {
       return { status: 'rejected', projection: readProjection(getDatabase(), DESKTOP_PROJECT_ID), result: { error: fileOpenErrorCode(error, 'Workflow JSON could not be parsed.') } };
     }
@@ -281,6 +285,7 @@ export async function setupIPC(): Promise<void> {
       const opened = openNativeDocument(document);
       // The graph that came from this file is in it as it stands: Ctrl+S writes back here.
       if (opened.status === 'applied') rememberProjectFile(getDatabase(), DESKTOP_PROJECT_ID, result.filePaths[0]);
+      watchReplacingCommit(app.getPath('userData'), { payload: { type: 'open-native' } }, opened);
       return opened;
     } catch (error) {
       return { status: 'rejected', projection: readProjection(getDatabase(), DESKTOP_PROJECT_ID), result: { error: fileOpenErrorCode(error, 'The project file could not be parsed.') } };
@@ -595,7 +600,10 @@ export async function setupIPC(): Promise<void> {
   });
 
   ipcMain.handle(IPC_CHANNELS.COMMAND_COMMIT, (_event, input: unknown) => {
-    return commitCommand(getDatabase(), input);
+    const response = commitCommand(getDatabase(), input);
+    // A graph that replaced the one on screen is watched until it is drawn (safe start, startGuard.ts).
+    watchReplacingCommit(app.getPath('userData'), input, response);
+    return response;
   });
 
   ipcMain.handle(IPC_CHANNELS.COMMAND_START_RUN, (_event, projectId: string) => {

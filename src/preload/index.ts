@@ -141,6 +141,8 @@ const IPC_CHANNELS = {
   UPDATES_STATUS: 'updates:status',
   UPDATES_DISMISS: 'updates:dismiss',
   UPDATES_OPEN: 'updates:open',
+  APP_START_STATE: 'app:start-state',
+  APP_GRAPH_DRAWN: 'app:graph-drawn',
 } as const;
 
 /** The app version main passes as `--app-version=…` (a sandboxed preload cannot read package.json). */
@@ -352,7 +354,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   traceClear: () => ipcRenderer.invoke(IPC_CHANNELS.TRACE_CLEAR) as Promise<{ removed: number }>,
   traceOpenFolder: () => ipcRenderer.invoke(IPC_CHANNELS.TRACE_OPEN_FOLDER) as Promise<{ ok: true } | { ok: false; error: string }>,
   traceRevealExport: () => ipcRenderer.invoke(IPC_CHANNELS.TRACE_REVEAL_EXPORT) as Promise<{ ok: boolean }>,
+  // Safe start: asked before the graph is drawn (main may offer an empty canvas), told once it is on screen.
+  startState: () => ipcRenderer.invoke(IPC_CHANNELS.APP_START_STATE) as Promise<StartState>,
+  graphDrawn: (revisionId: string) => ipcRenderer.invoke(IPC_CHANNELS.APP_GRAPH_DRAWN, revisionId) as Promise<{ ok: boolean }>,
 });
+
+/** Safe start: `unfinished` when the previous start did not finish drawing the graph; `emptied` when the person chose an empty canvas. */
+export interface StartState {
+  unfinished: boolean;
+  emptied: boolean;
+}
 
 /** What Forget all removes: providers with a key, how many server tokens and browser sign-ins. */
 export interface SecretInventoryReport {
@@ -552,6 +563,10 @@ export interface ElectronAPI {
   traceOpenFolder: () => Promise<{ ok: true } | { ok: false; error: string }>;
   /** Shows the log file saved last in the file manager. Takes no path: main remembers what it wrote. */
   traceRevealExport: () => Promise<{ ok: boolean }>;
+  /** Before the first draw: whether the last start never finished drawing this graph, and what the person chose. */
+  startState: () => Promise<StartState>;
+  /** The graph of this revision is on screen. */
+  graphDrawn: (revisionId: string) => Promise<{ ok: boolean }>;
 }
 
 declare global {
