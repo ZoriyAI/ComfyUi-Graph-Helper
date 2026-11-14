@@ -78,12 +78,10 @@ export default function MessageInput({ onSend, isStreaming, disabled = false, le
             </button>
           ) : null}
         </div>
-        {/* In Learn mode the lesson says what to do; the line under the switch would only take its room. */}
-        {learning ? null : (
-          <span className={styles.intentHint}>
-            {intent === 'ask' ? t('chat.intentAskHint') : t('chat.intentBuildHint')}
-          </span>
-        )}
+        {/* Each mode says what it is, Learn included (there is no field under it, so the strip stays short). */}
+        <span className={styles.intentHint}>
+          {learning ? t('lessons.modeHint') : intent === 'ask' ? t('chat.intentAskHint') : t('chat.intentBuildHint')}
+        </span>
       </div>
       <div className={`composer-field ${styles.field}`} hidden={learning}>
         <textarea
