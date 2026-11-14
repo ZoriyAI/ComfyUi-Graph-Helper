@@ -22,7 +22,7 @@
   border-radius: 50%;
   background: radial-gradient(circle, var(--accent-wash), transparent 70%);
 }
-.title { margin: 0; color: var(--text); font-size: var(--text-md); line-height: 20px; font-weight: 600; }
+.title { margin: 0; color: var(--text); font-size: var(--text-md); line-height: 20px; font-weight: var(--weight-strong); }
 .body { margin: 0; max-width: 34ch; font-size: var(--text-sm); line-height: 19px; }
 .actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 6px; }
 .body > p { margin: 0; }

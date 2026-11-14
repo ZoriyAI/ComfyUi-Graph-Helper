@@ -1,0 +1,42 @@
+/*
+ * Check marks on nodes (CheckMarkLayer.tsx). Divided by the zoom, so the ring stays 2 px and the count stays
+ * readable from the overview down to 200 %. Never takes the pointer: the node under it stays the thing to click.
+ */
+.mark {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  --check-colour: var(--warn);
+  --check-on: var(--on-warn);
+}
+.mark[data-check-level="error"] { --check-colour: var(--danger-strong); --check-on: var(--on-danger); }
+.mark::before {
+  content: "";
+  position: absolute;
+  inset: calc(-4px / var(--check-zoom, 1));
+  border: calc(2px / var(--check-zoom, 1)) solid var(--check-colour);
+  border-radius: calc(var(--radius-lg) + 4px / var(--check-zoom, 1));
+  box-shadow: 0 0 calc(12px / var(--check-zoom, 1)) color-mix(in srgb, var(--check-colour) 35%, transparent);
+}
+.count {
+  position: absolute;
+  top: 0;
+  right: 0;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-pill);
+  background: var(--check-colour);
+  color: var(--check-on);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-strong);
+  font-variant-numeric: var(--numeric);
+  line-height: 1;
+  box-shadow: 0 0 0 2px var(--surface-canvas);
+  transform: translate(50%, -50%) scale(calc(1 / var(--check-zoom, 1)));
+  transform-origin: center;
+}

@@ -378,6 +378,17 @@ describe('micro-illustrations', () => {
     expect(illustrationKind('SaveImage')).toBe('image');
     expect(illustrationKind('EmptyLatentImage')).toBe('empty-latent');
     expect(illustrationKind('SomethingElse')).toBe('generic');
+    // Pack nodes get pictures by the words of their names, so a video graph is not all fallbacks.
+    expect(illustrationKind('WanVideoDecode')).toBe('vae-decode');
+    expect(illustrationKind('WanVideoTextEncodeCached')).toBe('text-encode');
+    expect(illustrationKind('WanVideoModelLoader')).toBe('weights');
+    expect(illustrationKind('WanVideoImageToVideoEncode')).toBe('vae-encode');
+    expect(illustrationKind('VHS_VideoCombine')).toBe('video');
+    expect(illustrationKind('LoadAudio')).toBe('audio');
+    expect(illustrationKind('MultiTalkWav2VecEmbeds')).toBe('audio');
+    expect(illustrationKind('SetNode')).toBe('set-get');
+    expect(illustrationKind('GetNode')).toBe('set-get');
+    expect(illustrationKind('ImageResizeKJv2')).toBe('image');
     expect(illustrationKind(undefined)).toBe('generic');
   });
 

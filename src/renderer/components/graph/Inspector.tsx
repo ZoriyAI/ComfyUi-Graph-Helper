@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CircleHelp, LogIn, MessageCircleQuestion, MousePointerClick, Ungroup } from 'lucide-react';
+import { CircleHelp, Info, LogIn, MessageCircleQuestion, MousePointerClick, Ungroup } from 'lucide-react';
 import EmptyState from '../../ui/EmptyState';
 import { listSubgraphDefinitions, type ComponentOwnerKind, type ComponentRecord } from '../../../shared/components/model';
 import { inSubgraph, objectKey, type ObjectRef } from '../../../shared/contracts/objects';
@@ -21,6 +21,7 @@ import FieldControl from '../fields/FieldControl';
 import { commitField } from '../fields/commitField';
 import { isSeedField, nodeLayout, type FieldEntry } from '../fields/fieldModel';
 import { typeColor } from './lib/typeColors';
+import { fieldNote } from '../../../shared/knowledge/coreKnowledge';
 import { categoryLabel } from './lib/categoryLabel';
 import SubgraphSummary from './SubgraphSummary';
 import { titleParts } from './nodes/titleBreaks';
@@ -136,13 +137,17 @@ function Explanations({ refs, fallback = null }: { refs: ObjectRef[]; fallback?:
  * One field in Properties: the name, the same control as on the node at full width, the node author's tooltip from
  * object_info under it, and a "?" that asks the helper about this field. A field fed by a link says so instead.
  */
-function ParameterField({ nodeId, nodeName, field, linked, disabled }: { nodeId: string; nodeName: string; field: FieldEntry; linked: boolean; disabled: boolean }) {
+function ParameterField({ nodeId, nodeName, classType, field, linked, disabled }: { nodeId: string; nodeName: string; classType?: string; field: FieldEntry; linked: boolean; disabled: boolean }) {
   const { t, i18n } = useTranslation();
   // The node author's tooltip is English. Under a Russian interface it moves to the field name's tooltip; the
   // range, which reads in any language, stays under the control.
   const foreignTip = Boolean(field.tooltip) && i18n.language.startsWith('ru') && !/[\u0400-\u04ff]/.test(field.tooltip ?? '');
   const tip = foreignTip ? undefined : field.tooltip;
   const labelId = `node-param-${nodeId}-${field.name}-label`;
+  // The built-in note on this field (what it does, what to put in it), in the interface language; none, no button.
+  const note = classType ? fieldNote(classType, field.name, i18n.language.startsWith('ru') ? 'ru' : 'en') : null;
+  const [noteOpen, setNoteOpen] = useState(false);
+  const noteId = `node-param-${nodeId}-${field.name}-note`;
   const definitionId = useGraphStore((state) => state.activeSubgraphId);
   const ref = field.port ? portRef(nodeId, field.port.id, 'input', field.name, definitionId) : inSubgraph({ kind: 'node', id: nodeId }, definitionId);
   // The range helps where it is a real limit (steps 1–10000, denoise 0–1); a seed's 0–2^48 is noise.
@@ -155,9 +160,23 @@ function ParameterField({ nodeId, nodeName, field, linked, disabled }: { nodeId:
     <div className={`inspector-field ${styles.param}`} data-field={field.name}>
       <div className={styles.paramHead}>
         <span id={labelId} className={styles.paramName} title={foreignTip ? field.tooltip : undefined}>{field.name}</span>
+        {note ? (
+          <button
+            type="button"
+            className={`${styles.ask} ${styles.noteToggle}`}
+            aria-expanded={noteOpen}
+            aria-controls={noteId}
+            aria-label={String(t(noteOpen ? 'field.noteHide' : 'field.noteShow'))}
+            title={String(t(noteOpen ? 'field.noteHide' : 'field.noteShow'))}
+            data-field-note-toggle={field.name}
+            onClick={() => setNoteOpen((open) => !open)}
+          >
+            <Info size={14} aria-hidden="true" />
+          </button>
+        ) : null}
         <button
           type="button"
-          className={styles.ask}
+          className={`${styles.ask} ${styles.askEnd}`}
           aria-label={String(t('field.ask'))}
           title={String(t('field.ask'))}
           onClick={() => askAbout(ref, String(t('field.askMessage', { name: field.name, node: nodeName })))}
@@ -165,6 +184,11 @@ function ParameterField({ nodeId, nodeName, field, linked, disabled }: { nodeId:
           <CircleHelp size={14} aria-hidden="true" />
         </button>
       </div>
+      {note && noteOpen ? (
+        <div id={noteId} className={styles.fieldNote} data-field-note={field.name}>
+          <p>{note}</p>
+        </div>
+      ) : null}
       {linked ? (
         <p className={styles.linkedField}>{t('field.linked')} · {t('field.linkedHint')}</p>
       ) : (
@@ -239,8 +263,11 @@ function NodeTitle({ node, shown, disabled }: { node: GraphNode; shown: string; 
       }}
     >
       <label htmlFor={`node-title-${node.id}`}>{t('inspector.nodeTitle')}</label>
-      <input id={`node-title-${node.id}`} className={styles.field} value={title} disabled={disabled} onChange={(event) => setTitle(event.target.value)} />
-      <button type="submit" className={`ghost-button ${styles.action}`} disabled={!changed || disabled}>{t('inspector.saveName')}</button>
+      {/* The button sits beside the field, at its own width, so it never reads as a second, empty field. */}
+      <div className={styles.renameRow}>
+        <input id={`node-title-${node.id}`} className={styles.field} value={title} disabled={disabled} onChange={(event) => setTitle(event.target.value)} />
+        <button type="submit" className={`ghost-button ${styles.action} ${styles.saveName}`} disabled={!changed || disabled}>{t('inspector.saveName')}</button>
+      </div>
     </form>
   );
 }
@@ -285,7 +312,7 @@ function NodeSection({ node, edges }: { node: GraphNode; edges: GraphEdge[] }) {
   return (
     <>
       <header className={styles.header}>
-        <Illustration classType={instance ? undefined : data.comfyType} hoverPlay />
+        <Illustration classType={instance ? undefined : data.comfyType} kind={instance ? 'subgraph' : undefined} hoverPlay />
         <div className={styles.headText}>
           <h2 className={styles.h2}>
             {/* A class name wraps between its words, as on the node. */}
@@ -324,8 +351,10 @@ function NodeSection({ node, edges }: { node: GraphNode; edges: GraphEdge[] }) {
             }}
           >
             <label htmlFor={`subgraph-name-${definition.id}`}>{t('inspector.renameLabel')}</label>
-            <input id={`subgraph-name-${definition.id}`} className={styles.field} value={name} onChange={(event) => setName(event.target.value)} />
-            <button type="submit" className={`ghost-button ${styles.action}`} disabled={!name.trim() || name.trim() === definition.name}>{t('inspector.saveName')}</button>
+            <div className={styles.renameRow}>
+              <input id={`subgraph-name-${definition.id}`} className={styles.field} value={name} onChange={(event) => setName(event.target.value)} />
+              <button type="submit" className={`ghost-button ${styles.action} ${styles.saveName}`} disabled={!name.trim() || name.trim() === definition.name}>{t('inspector.saveName')}</button>
+            </div>
           </form>
           {definition.inputs.length + definition.outputs.length > 0 ? (
             <div className={styles.slots} role="group" aria-label={String(t('inspector.slotsHeading'))}>
@@ -376,7 +405,7 @@ function NodeSection({ node, edges }: { node: GraphNode; edges: GraphEdge[] }) {
       {layout.fields.length === 0 ? (lookSentence || promotedCount > 0 ? null : <p className={`inspector-empty ${styles.hint}`}>{t(unnamedValues ? 'inspector.fieldsUnknown' : 'inspector.noParameters')}</p>) : (
         <div className={styles.params}>
           {layout.fields.map((field) => (
-            <ParameterField key={field.name} nodeId={node.id} nodeName={title} field={field} linked={linkedField(field)} disabled={readOnly} />
+            <ParameterField key={field.name} nodeId={node.id} nodeName={title} classType={data.comfyType} field={field} linked={linkedField(field)} disabled={readOnly} />
           ))}
         </div>
       )}

@@ -334,6 +334,8 @@ export const en = {
     notInList: 'not in the list',
     notInListHint: 'This value is not among the options ComfyUI offers for this field.',
     ask: 'Ask the assistant about this field',
+    noteShow: 'What this field does',
+    noteHide: 'Hide what this field does',
     askMessage: 'What does the field "{{name}}" of "{{node}}" do, and what value should I pick?',
     otherWidget: 'This field is set in ComfyUI itself.',
     range: 'From {{min}} to {{max}}',
@@ -1397,6 +1399,7 @@ export const en = {
     },
   },
   canvas: {
+    checkMark: 'Findings of the check on this node: {{count, number}}',
     toolbar: 'Canvas tools',
     groupTitle: 'Group title',
     groupRenameHint: 'Double-click to rename. Enter saves, Esc cancels.',
@@ -2526,6 +2529,8 @@ export const ru = {
     notInList: 'нет в списке',
     notInListHint: 'Этого значения нет среди вариантов, которые ComfyUI предлагает для этого поля.',
     ask: 'Спросить помощника об этом поле',
+    noteShow: 'Что делает это поле',
+    noteHide: 'Скрыть, что делает это поле',
     askMessage: 'Что делает поле «{{name}}» у ноды «{{node}}» и какое значение выбрать?',
     otherWidget: 'Это поле настраивается в самом ComfyUI.',
     range: 'От {{min}} до {{max}}',
@@ -3589,6 +3594,7 @@ export const ru = {
     },
   },
   canvas: {
+    checkMark: 'Находок проверки у этой ноды: {{count, number}}',
     toolbar: 'Инструменты холста',
     groupTitle: 'Название группы',
     groupRenameHint: 'Дважды щёлкните, чтобы переименовать. Enter — сохранить, Esc — отменить.',

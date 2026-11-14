@@ -14,7 +14,7 @@
   min-width: 0;
 }
 .card[data-tool-kind="read"] { --chat-tool-accent: var(--text-faint); }
-.card[data-tool-kind="knowledge"] { --chat-tool-accent: var(--focus); }
+.card[data-tool-kind="knowledge"] { --chat-tool-accent: var(--ai); }
 .card[data-tool-kind="proposal"] { --chat-tool-accent: var(--accent); }
 .card[data-tool-kind="build"] { --chat-tool-accent: var(--accent-2); }
 

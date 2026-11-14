@@ -26,7 +26,7 @@ Text needs 4.5:1; focus rings, control borders and port colours are non-text and
 | `--text-dim` | `--surface-hover` | 5.96 | 4.5 | secondary text, hints |
 | `--text-faint` | `--surface-hover` | 4.57 | 4.5 | disabled and tertiary text |
 | `--accent` | `--surface-panel` | 10.76 | 4.5 | accent text and links |
-| `--ai` | `--surface-panel` | 8.34 | 4.5 | AI and focus text |
+| `--ai` | `--surface-panel` | 8.34 | 4.5 | AI text |
 | `--warn` | `--surface-panel` | 11.90 | 4.5 | warning text |
 | `--danger` | `--surface-panel` | 9.10 | 4.5 | error text |
 | `--ok` | `--surface-panel` | 10.97 | 4.5 | success text |
@@ -53,7 +53,7 @@ Text needs 4.5:1; focus rings, control borders and port colours are non-text and
 | `--warn` | `--warn-soft over --surface-raised` | 7.74 | 4.5 | warning badge |
 | `--danger` | `--danger-soft over --surface-raised` | 6.71 | 4.5 | error badge |
 | `--ok` | `--ok-soft over --surface-raised` | 7.22 | 4.5 | fact / success badge |
-| `--focus` | `--surface-panel` | 8.34 | 3 | focus ring (non-text, 3:1) |
+| `--focus` | `--surface-panel` | 14.29 | 3 | focus ring (non-text, 3:1) |
 | `--border-strong` | `--surface-panel` | 3.69 | 3 | control border (non-text, 3:1) |
 | `--type-model` | `--surface-canvas` | 9.06 | 3 | port and edge colour (non-text, 3:1) |
 | `--type-clip` | `--surface-canvas` | 13.39 | 3 | port and edge colour (non-text, 3:1) |

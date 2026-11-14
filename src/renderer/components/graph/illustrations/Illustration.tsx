@@ -133,12 +133,71 @@ function EmptyLatent() {
   );
 }
 
+/** Any node the app has no picture for: a small node card, values flowing in on the left and out on the right. */
 function Generic() {
   return (
     <g>
-      <rect className={styles.frame} x="40" y="10" width="40" height="28" rx="4" />
-      <path className={styles.ink} d="M8 24 h28 M84 24 h28" />
-      <circle className={styles.travel} cx="60" cy="24" r="3" fill="var(--accent, #65d9ed)" />
+      <path className={styles.ink} d="M6 18 h30 M6 30 h30 M84 24 h30" />
+      <rect className={styles.frame} x="36" y="8" width="48" height="32" rx="5" />
+      <rect x="36" y="8" width="48" height="8" rx="4" fill="var(--accent, #65d9ed)" opacity="0.35" />
+      <circle cx="36" cy="18" r="2.5" fill={typeColor('MODEL')} />
+      <circle cx="36" cy="30" r="2.5" fill={typeColor('CONDITIONING')} />
+      <circle cx="84" cy="24" r="2.5" fill={typeColor('LATENT')} />
+      <circle className={styles.travel} cx="60" cy="28" r="2.5" fill="var(--accent, #65d9ed)" />
+    </g>
+  );
+}
+
+/** Video: a strip of frames with sprocket holes, a frame lighting up after another. */
+function Video() {
+  return (
+    <g>
+      <rect className={styles.frame} x="4" y="8" width="112" height="32" rx="3" />
+      {Array.from({ length: 5 }, (_, index) => (
+        <g key={index}>
+          <rect x={10 + index * 21} y="14" width="17" height="20" rx="2" fill={typeColor('IMAGE')} opacity={0.25 + index * 0.15} />
+          <rect x={14 + index * 21} y="10" width="3" height="2" className={styles.dim} />
+          <rect x={14 + index * 21} y="36" width="3" height="2" className={styles.dim} />
+        </g>
+      ))}
+      <rect className={styles.sweep} x="108" y="12" width="4" height="24" rx="2" fill={typeColor('IMAGE')} />
+    </g>
+  );
+}
+
+/** Sound: a waveform, loud in the middle. */
+function Audio() {
+  const bars = [6, 10, 16, 24, 30, 22, 28, 18, 12, 20, 14, 8, 5];
+  return (
+    <g>
+      {bars.map((height, index) => (
+        <rect key={index} x={10 + index * 8} y={24 - height / 2} width="4" height={height} rx="2" fill={typeColor('AUDIO')} opacity={0.55 + (index % 3) * 0.15} />
+      ))}
+    </g>
+  );
+}
+
+/** Set and Get: a value sent away under a name and picked up elsewhere, with no link drawn between. */
+function SetGet() {
+  return (
+    <g>
+      <rect className={styles.frame} x="8" y="14" width="34" height="20" rx="4" />
+      <rect className={styles.frame} x="78" y="14" width="34" height="20" rx="4" />
+      <path className={styles.ink} d="M42 24 h36" strokeDasharray="4 4" />
+      <circle className={styles.travel} cx="60" cy="24" r="3" fill="var(--ai, #b7a5ff)" />
+    </g>
+  );
+}
+
+/** A subgraph: several nodes folded into one block. */
+function Subgraph() {
+  return (
+    <g>
+      <rect className={styles.frame} x="20" y="4" width="80" height="40" rx="6" />
+      <rect x="28" y="12" width="18" height="12" rx="2" fill="var(--ai, #b7a5ff)" opacity="0.45" />
+      <rect x="51" y="24" width="18" height="12" rx="2" fill="var(--ai, #b7a5ff)" opacity="0.6" />
+      <rect x="74" y="12" width="18" height="12" rx="2" fill="var(--ai, #b7a5ff)" opacity="0.45" />
+      <path className={styles.ink} d="M4 24 h16 M100 24 h16" />
     </g>
   );
 }
@@ -154,6 +213,10 @@ function Body({ kind }: { kind: IllustrationKind }) {
     case 'controlnet': return <ControlNet />;
     case 'image': return <ImageFrame />;
     case 'empty-latent': return <EmptyLatent />;
+    case 'video': return <Video />;
+    case 'audio': return <Audio />;
+    case 'set-get': return <SetGet />;
+    case 'subgraph': return <Subgraph />;
     default: return <Generic />;
   }
 }

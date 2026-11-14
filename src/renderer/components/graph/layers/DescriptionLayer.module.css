@@ -18,8 +18,8 @@
 .scale[data-side="right"] { transform-origin: top left; }
 .scale[data-side="left"] { transform-origin: top right; }
 .card[data-spotlight="true"] {
-  border-color: color-mix(in srgb, var(--focus, #b7a5ff) 55%, var(--border, #2a3648));
-  box-shadow: var(--highlight-top), 0 8px 24px -6px rgba(0, 0, 0, 0.6), 0 0 20px color-mix(in srgb, var(--focus, #b7a5ff) 18%, transparent);
+  border-color: color-mix(in srgb, var(--ai, #b7a5ff) 55%, var(--border, #2a3648));
+  box-shadow: var(--highlight-top), 0 8px 24px -6px rgba(0, 0, 0, 0.6), 0 0 20px color-mix(in srgb, var(--ai, #b7a5ff) 18%, transparent);
 }
 .head { display: flex; align-items: center; gap: 2px; }
 .summary {

@@ -40,6 +40,7 @@ import DescriptionLayer from './layers/DescriptionLayer';
 import BuildLayer from './layers/BuildLayer';
 import LiveBuildStrip from './layers/LiveBuildStrip';
 import ImportLookLayer from './layers/ImportLookLayer';
+import CheckMarkLayer from './layers/CheckMarkLayer';
 import GraphContextMenu from './GraphContextMenu';
 import { CanvasViewContext, type CanvasView } from './CanvasContext';
 import { useCanvasStore } from './canvasStore';
@@ -123,6 +124,8 @@ function OverviewLevel({ host }: { host: React.RefObject<HTMLDivElement> }) {
     if (overview) element.dataset.zoom = 'overview';
     else delete element.dataset.zoom;
     element.style.setProperty('--canvas-title-scale', String(titleScale(zoom)));
+    // The plain inverse of the zoom, uncapped: group titles in the overview keep their screen size with it.
+    element.style.setProperty('--canvas-zoom-inverse', String(zoom > 0 ? 1 / zoom : 1));
   }, [zoom, host]);
   return null;
 }
@@ -634,6 +637,8 @@ export default function CanvasFlow() {
             <BuildLayer levelId={mode === 'definition' ? inner!.id : null} />
             <LiveBuildStrip />
             <ImportLookLayer mode={mode} />
+            {/* The check's findings as marks on their nodes (visual package). */}
+            <CheckMarkLayer />
           </ReactFlow>
         </div>
       </GraphContextMenu>

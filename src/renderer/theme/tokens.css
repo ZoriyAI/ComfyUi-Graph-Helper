@@ -34,7 +34,8 @@
   --accent-soft: rgba(101, 217, 237, 0.14);
   --ai: #b7a5ff;
   --ai-soft: rgba(183, 165, 255, 0.16);
-  --focus: #b7a5ff;
+  /* Keyboard focus: a cool white of its own. Violet means the assistant and cyan means an action, so focus borrows neither. */
+  --focus: #dfe7f3;
   --warn: #f6ce7c;
   --warn-soft: rgba(246, 206, 124, 0.14);
   --danger: #ff9db4;
@@ -89,7 +90,7 @@
   --glow-ai: 0 0 0 1px rgba(183, 165, 255, 0.4), 0 4px 16px -2px rgba(183, 165, 255, 0.34);
   --focus-ring: 0 0 0 2px var(--surface-canvas), 0 0 0 4px var(--focus);
   /* A text field that holds focus: the border turns --focus and a soft ring shows, quieter than an outline. */
-  --focus-field: 0 0 0 3px var(--ai-soft);
+  --focus-field: 0 0 0 3px rgba(223, 231, 243, 0.16);
   --canvas-dot: #1d2939;
   --canvas-glow: rgba(126, 140, 255, 0.07);
   --canvas-glow-2: rgba(101, 217, 237, 0.045);
@@ -107,7 +108,11 @@
 
   /* Type scale */
   --font-sans: "Geist", system-ui, sans-serif;
-  --font-mono: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  /*
+   * Monospace: Linux has none of ui-monospace / SF Mono / Menlo, so the stack names the faces a Linux desktop has.
+   * "Geist Mono" comes first and is used once its @fontsource package is bundled (the sans face is Geist already).
+   */
+  --font-mono: "Geist Mono", ui-monospace, "JetBrains Mono", "DejaVu Sans Mono", "Liberation Mono", "SFMono-Regular", Menlo, monospace;
   --text-xs: 12px;
   --text-sm: 13px;
   --text-md: 14px;
@@ -115,6 +120,40 @@
   --text-xl: 20px;
   /* Key caps and other tiny monospace marks only; never body text. */
   --text-mono-xs: 11px;
+  /* Weights: only these two faces are bundled (index.tsx), so any other number would be drawn as one of them. */
+  --weight-regular: 400;
+  --weight-strong: 600;
+  /* Tabular figures for numbers that change in place (zoom, counters, sizes), so they do not jitter. */
+  --numeric: tabular-nums;
+
+  /* Spacing on a 4 px grid: gaps, paddings and margins take one of these. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+
+  /* Icon sizes (lucide `size` and CSS boxes): xs inside chips, sm in dense rows, md in buttons, lg in empty states. */
+  --icon-xs: 12px;
+  --icon-sm: 14px;
+  --icon-md: 16px;
+  --icon-lg: 20px;
+  --icon-xl: 24px;
+
+  /*
+   * Layers, bottom to top. Inside the canvas, React Flow keeps its own order; these are for what floats over the
+   * window: a panel over the canvas, a popover or menu, a dialog with its scrim, a toast, a tooltip on top of all.
+   */
+  --layer-raised: 10;
+  --layer-panel: 20;
+  --layer-sticky: 30;
+  --layer-popover: 60;
+  --layer-dialog: 70;
+  --layer-toast: 80;
+  --layer-tooltip: 95;
 
   /* Reading and form width: one measure for a column of fields, hints and groups (Settings, dialogs). */
   --measure-form: 640px;

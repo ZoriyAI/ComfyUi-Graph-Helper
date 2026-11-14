@@ -9,10 +9,15 @@ export type IllustrationKind =
   | 'controlnet'
   | 'image'
   | 'empty-latent'
+  | 'video'
+  | 'audio'
+  | 'set-get'
+  | 'subgraph'
   | 'generic';
 
 export const ILLUSTRATION_KINDS: readonly IllustrationKind[] = [
-  'sampler', 'vae-decode', 'vae-encode', 'text-encode', 'lora', 'weights', 'controlnet', 'image', 'empty-latent', 'generic',
+  'sampler', 'vae-decode', 'vae-encode', 'text-encode', 'lora', 'weights', 'controlnet', 'image', 'empty-latent',
+  'video', 'audio', 'set-get', 'subgraph', 'generic',
 ];
 
 const EXACT: Record<string, IllustrationKind> = {
@@ -51,6 +56,16 @@ export function illustrationKind(classType: string | undefined): IllustrationKin
   if (/lora/i.test(classType)) return 'lora';
   if (/textencode/i.test(classType)) return 'text-encode';
   if (/emptylatent/i.test(classType)) return 'empty-latent';
+  // Pack nodes by the words of their class names (WanVideo, VHS, KJNodes and the like), so a video or sound graph
+  // gets pictures too, not the plain fallback on almost every node.
+  if (/^(Set|Get)Node$/.test(classType)) return 'set-get';
+  if (/audio|wav2vec|melband|speech|voice|talk/i.test(classType)) return 'audio';
+  if (/decode/i.test(classType)) return 'vae-decode';
+  if (/encode/i.test(classType) && /(image|vae|latent)/i.test(classType)) return 'vae-encode';
+  if (/(text|prompt|t5|clip).*encode|encode.*(text|prompt)/i.test(classType)) return 'text-encode';
+  if (/loader|loadmodel|modelload/i.test(classType) && !/load(image|video|audio)/i.test(classType)) return 'weights';
+  if (/video|frames|combine|animate/i.test(classType)) return 'video';
+  if (/load.*image|image.*load|saveimage|previewimage|imageresize|resize|upscale/i.test(classType)) return 'image';
   return 'generic';
 }
 
