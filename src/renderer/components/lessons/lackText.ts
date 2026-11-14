@@ -46,7 +46,8 @@ export function nodeLabel(t: TFunction, nodeId: string, context: LackContext): s
   const role = Object.entries(context.roles).find(([, id]) => id === nodeId)?.[0];
   const key = role ? `lessons.role.${role}` : '';
   const label = key ? String(t(key)) : '';
-  return label && label !== key ? String(t('lessons.roleOf', { name: title, role: label })) : title;
+  // The same form in both languages: the name as the canvas shows it, the part in parentheses.
+  return label && label !== key ? `${title} (${label})` : title;
 }
 
 /** One sentence about a reason id, without the backticks of the lesson texts. */

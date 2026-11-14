@@ -101,20 +101,21 @@ describe('sync against the fake MCP server', () => {
 });
 
 describe('sync lifecycle against the fake MCP server', () => {
-  it('reads the metadata of a 130-file catalog in batches until every file is enriched', async () => {
+  it('reads the metadata of a catalog of a hundred files and more in batches until every file is enriched', async () => {
     fake = await startFakeMcp({ token: TOKEN, extraLoras: 100 });
     const db = openDb();
     const sync = service(fake.url, TOKEN, { perRun: 25, pauseMs: 20 });
     const first = await sync.runSync(db);
-    expect(first).toMatchObject({ state: 'idle', lastError: null, warnings: [], progress: { phase: 'enrichment', done: 25, total: 130 } });
+    expect(first).toMatchObject({ state: 'idle', lastError: null, warnings: [], progress: { phase: 'enrichment', done: 25, total: modelFileCount() + 100 } });
     expect(first.counts.models).toBe(modelFileCount() + 100);
     await sync.whenEnrichmentDone();
     const done = sync.status(db);
-    expect(done).toMatchObject({ state: 'idle', progress: null, metadata: { done: 130, total: 130 } });
+    expect(done).toMatchObject({ state: 'idle', progress: null, metadata: { done: modelFileCount() + 100, total: modelFileCount() + 100 } });
     const reads = fake.calls.filter((call) => call.method === 'tools/call' && call.tool === 'model_metadata');
     // Header files only: the two .pth files are named, not read.
-    expect(reads).toHaveLength(128);
-    expect(new Set(reads.map((call) => `${call.args?.category}/${call.args?.name}`)).size).toBe(128);
+    const headers = modelFileCount() + 100 - 2;
+    expect(reads).toHaveLength(headers);
+    expect(new Set(reads.map((call) => `${call.args?.category}/${call.args?.name}`)).size).toBe(headers);
     // One session for the listing and every batch, closed at the end.
     expect(fake.calls.filter((call) => call.method === 'initialize')).toHaveLength(1);
     expect(fake.calls.filter((call) => call.method === 'DELETE').length).toBeLessThanOrEqual(1);
