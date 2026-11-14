@@ -115,6 +115,22 @@ describe('structured tool-result redaction', () => {
       .toEqual({ token_count: 'ordinary text', api_keys: 'metadata', empty: '' });
   });
 
+  it('traverses enumerable fields of serializable class instances', () => {
+    class Reply { text = 'opaque-held-class-credential'; token = 'unheld-class-token'; count = 8; }
+    const reply = new Reply();
+    const redact = (text: string) => exactMatchRedactor([reply.text])(redactSecrets(text));
+    expect(redactValue({ nested: [reply] }, redact)).toEqual({ nested: [
+      { text: '[redacted]', token: '[redacted]', count: 8 },
+    ] });
+    expect(reply.text).toBe('opaque-held-class-credential');
+  });
+
+  it('keeps the standard JSON values of valid and invalid Date instances', () => {
+    const date = new Date('2026-11-15T00:00:00.000Z');
+    expect(redactValue({ date, invalid: new Date(Number.NaN) }, redactSecrets))
+      .toEqual({ date: date.toJSON(), invalid: null });
+  });
+
   it('redacts secrets carried in a URL while keeping a valid URL instance', () => {
     const source = new URL('https://files.example.test/image.png?token=opaque-unheld-credential-491827');
     const redacted = redactValue(source, redactSecrets) as URL;

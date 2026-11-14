@@ -72,6 +72,32 @@ describe('SDK tool result privacy boundary', () => {
     expect(raw.nested[0].api_key).toBe('opaque-unheld-credential-491827');
   });
 
+  it.each([
+    ['execute', 'root'], ['execute', 'nested'], ['conversion', 'root'], ['conversion', 'nested'],
+  ])('sanitizes enumerable class fields at %s/%s before the second request', async (boundary, nesting) => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    class ToolReply {
+      success = true;
+      nodeId = 'fixture-node';
+      text = HELD;
+      api_key = 'opaque-unheld-class-credential';
+      count = 3;
+      enabled = false;
+      optional = null;
+    }
+    const reply = new ToolReply();
+    const safe = { success: true, nodeId: 'fixture-node', text: '[redacted]', api_key: '[redacted]', count: 3, enabled: false, optional: null };
+    const value = nesting === 'nested' ? { result: reply } : reply;
+    const expected = nesting === 'nested' ? { result: safe } : safe;
+    const { output, chunks } = boundary === 'execute'
+      ? await sdkRoundTrip(() => value)
+      : await sdkRoundTrip(() => ({ success: true, nodeId: 'fixture-node' }), () => ({ type: 'json', value }));
+    expect(output).toEqual({ type: 'json', value: expected });
+    expect(JSON.stringify(chunks.filter((part) => part.type === 'tool-result'))).not.toContain(HELD);
+    expect(reply.text).toBe(HELD);
+    expect(reply).toBeInstanceOf(ToolReply);
+  });
+
   const bytes = [137, 80, 78, 71];
   it.each([
     ['Uint8Array', { type: 'data', data: new Uint8Array(bytes) }],

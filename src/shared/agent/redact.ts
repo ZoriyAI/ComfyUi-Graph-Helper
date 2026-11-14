@@ -25,7 +25,7 @@ export function containsExact(values: ReadonlyArray<string | null | undefined>, 
   return heldValues(values).some((value) => text.includes(value));
 }
 
-/** Redacts text in plain structured results, retaining opaque SDK file data and primitive types. */
+/** Redacts structured textual fields, retaining supported opaque SDK file data and primitive types. */
 export function redactValue(value: unknown, redact: (text: string) => string): unknown {
   if (typeof value === 'string') return redact(value);
   if (Array.isArray(value)) return value.map((item) => redactValue(item, redact));
@@ -36,9 +36,10 @@ export function redactValue(value: unknown, redact: (text: string) => string): u
     return URL.canParse(safe) ? new URL(safe) : new URL('about:blank#redacted');
   }
   if (value && typeof value === 'object') {
-    const prototype = Object.getPrototypeOf(value);
-    // Uint8Array (including Buffer), ArrayBuffer and other opaque instances are not records.
-    if (prototype !== Object.prototype && prototype !== null) return value;
+    // Only supported binary file values bypass traversal, not arbitrary class instances.
+    if (value instanceof Uint8Array || value instanceof ArrayBuffer) return value;
+    // Match the SDK's standard JSON normalization for dates (invalid dates become null).
+    if (value instanceof Date) return redactValue(value.toJSON(), redact);
     return Object.fromEntries(Object.entries(value).map(([key, item]) => [
       redact(key),
       typeof item === 'string' ? redact(redactFieldValue(key, item)) : redactValue(item, redact),
