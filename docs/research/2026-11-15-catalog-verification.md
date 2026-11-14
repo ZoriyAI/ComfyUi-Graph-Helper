@@ -47,7 +47,7 @@ Existing route: `SyncService.onStatus` -> knowledge IPC broadcast `sync:event` -
 
 ## Tests and evidence
 
-All commands used Node 22 by prepending `/workspace/scratch/d427e7b3fb7a/toolchain/node_modules/node/bin` to PATH. Tests used deterministic fetch/session doubles or labelled local fake HTTP/MCP fixtures; no production services were contacted.
+All commands used Node 22 from an isolated toolchain. Tests used deterministic fetch/session doubles or labelled local fake HTTP/MCP fixtures; no production services were contacted.
 
 Red evidence:
 
