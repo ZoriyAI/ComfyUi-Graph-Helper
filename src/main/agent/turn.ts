@@ -273,21 +273,21 @@ export async function runAgentTurn(options: AgentTurnOptions): Promise<void> {
     // The system message holds the app's instructions only; the graph and catalog travel as marked data with the
     // person's message (an imported workflow's notes and values are someone else's text).
     const prompt = redact(buildSystemPrompt(promptInput));
+    // The one context window of this turn, for both the data budget here and the history budget below (70 % of it
+    // minus the prompt and data); the model's listed window counts, Preferences ▸ Assistant overrides it. With "auto"
+    // the window the server was seen to load the model with IS the window; a setting of the person's stands unless
+    // the server loaded less (shared/agent/contextWindow.ts effectiveContextWindow, also the page's).
+    const window = effectiveContextWindow(options.model ?? mainLLMService.nextSendConfig().model, assistant.contextTokens, loadedWindow, llm.listedContextTokens?.() ?? null);
     const charsPerTokenNow = (llm.charsPerToken ?? (() => 4)).call(llm);
-    const knownWindow = effectiveContextWindow(options.model ?? mainLLMService.nextSendConfig().model, assistant.contextTokens, loadedWindow);
     const turnData = redact(fitTurnData(promptInput, projection, {
       selectedIds,
       priority: priorityIds(context, recent),
       omitValues: !privacy.sendFieldValues,
       widgetNames,
       // A local window not known yet is taken as half the compact size, so the first turn surely fits.
-      budgetChars: dataBudgetChars(unknownLocal ? COMPACT_WINDOW / 2 : knownWindow.tokens, charsPerTokenNow),
+      budgetChars: dataBudgetChars(unknownLocal ? COMPACT_WINDOW / 2 : window.tokens, charsPerTokenNow),
     }));
 
-    // History budget: 70 % of the model's context window (Preferences ▸ Assistant overrides it) minus the prompt.
-    // With "auto" the window the server was seen to load the model with IS the window; a setting of the person's
-    // stands unless the server loaded less (shared/agent/contextWindow.ts effectiveContextWindow, also the page's).
-    const window = effectiveContextWindow(options.model ?? mainLLMService.nextSendConfig().model, assistant.contextTokens, loadedWindow, llm.listedContextTokens?.() ?? null);
     const charsPerToken = (llm.charsPerToken ?? (() => 4)).call(llm);
     // In a small window the tool descriptions are a large share of the request; count them against the history.
     const toolChars = compact ? compact.offered.length * TOOL_CHARS : 0;
