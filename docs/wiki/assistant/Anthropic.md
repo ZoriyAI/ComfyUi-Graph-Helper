@@ -11,7 +11,7 @@ Anthropic is a cloud provider of language models. The assistant sends your quest
 2. In the app: Settings ▸ Assistant ▸ **Anthropic**.
 3. Paste the key into **Anthropic key**. The app checks it at once: "Checking the key with the provider…", then "Key accepted: 24 models are available. It is kept while the app is open."
 4. To keep it after a restart, tick **Remember on this computer** (the system keychain). See [Keys and where they are kept](Keys.md).
-5. **Model**: pick from the list the key opened. **Which model to take** under the field suggests two: **To start** `claude-haiku-5-5` ($0.10 per million tokens sent, $0.50 per million received) and **For long builds** `claude-sonnet-5-5` ($2 and $10). Prices as of 14 November 2026. Choose a model that can call tools.
+5. **Model**: pick from the list the key opened. **Which model to take** under the field suggests two: **To start** `claude-haiku-5-5` ($0.10 per million tokens sent, $0.50 per million received) and **For long builds** `claude-sonnet-5-5` ($2 and $10). Prices as of 15 November 2026. Choose a model that can call tools.
 6. **Test connection**: "The model answered in 900 ms."
 7. **Save settings**.
 

@@ -7,7 +7,7 @@ Ollama runs language models on your own computer. The app talks to it through it
 
 ## How to set it up
 
-1. Start Ollama and download a model that can call tools, in a terminal. The app suggests `ollama pull qwen3:8b` (about 5 GB to download, about 8 GB of video memory). `qwen3:14b` needs about 12 GB, `qwen3:30b` about 24 GB. Bigger models build better. See [Which model to take](Which-Model.md).
+1. Start Ollama and download a model that can call tools, in a terminal. The app suggests `ollama pull qwen3.5:9b` (about 7 GB to download, about 8 GB of video memory). `gpt-oss:20b` needs about 16 GB, `qwen3.6:27b` about 24 GB. Bigger models build better. These memory figures are estimates; the project has not measured them. See [Which model to take](Which-Model.md).
 2. Raise the context window to at least 16 384 tokens (see below). Ollama's own default is small.
 3. In the app: Settings ▸ Assistant ▸ **Your own server**.
 4. The app looks for local servers by itself (**Find local servers** does it again). Ollama is found at `http://127.0.0.1:11434/v1` and shows in the list of **Server address** as "found on this computer". Pick it, or type the address.
@@ -42,13 +42,26 @@ sudo systemctl daemon-reload && sudo systemctl restart ollama
 
 When you start Ollama by hand instead: `OLLAMA_CONTEXT_LENGTH=16384 ollama serve`. In a container: add `-e OLLAMA_CONTEXT_LENGTH=16384` to the command that starts it. On another computer, set the same variable the way that computer starts Ollama; on Windows and macOS it is an environment variable for the Ollama app. **How to set the window by hand** in Settings ▸ Assistant says the same. A larger window needs more memory; if the model gets slow or does not load, choose a smaller size or a smaller model. The app shows these same commands, with a **Copy** button, when an answer was cut. More: [The context window](Context-Window.md).
 
+## Ollama's cloud models
+
+Ollama can also run a model in its own cloud: a name that ends with `:cloud` (for example `gemma4:cloud`) or `-cloud` (for example `gpt-oss:120b-cloud`). **Such a model is not on your computer.** Your messages, your graph and the catalog summary go through your Ollama to Ollama's servers, and Ollama bills you for the use. Ollama says it does not log or store them and does not train on them.
+
+1. Sign in to Ollama: in the Ollama app's settings, or `ollama signin` in a terminal. Ollama's documentation says its local interface takes cloud names only after you sign in.
+2. Settings ▸ Assistant ▸ **Your own server**, address `http://127.0.0.1:11434/v1` as usual.
+3. **Model**: type the cloud name, for example `gemma4:cloud`.
+4. **Test connection**, then **Save settings**.
+
+This way is not tried by the project yet. The app cannot tell that such a model is in the cloud: it still says that nothing leaves the computer, which is not true here. When the app cannot read such a model's window, it saves room and offers the model fewer tools. **Make a copy with a 16,384-token window** is not for cloud models: Ollama gives them their full window. Instead you can use Ollama's cloud as an **OpenAI-compatible** service at `https://ollama.com/v1` with a key from your Ollama account. Which cloud models call tools and what they cost: [Which model to take](Which-Model.md).
+
+To keep Ollama strictly local, start it with `OLLAMA_NO_CLOUD=1` (or set `"disable_ollama_cloud": true` in `~/.ollama/server.json`) and restart it.
+
 ## Ollama on another computer
 
 Type its address, for example `http://192.168.1.50:11434/v1`. Ollama must listen on the network (`OLLAMA_HOST=0.0.0.0`). Your messages and the graph then travel over the network, and over `http` they are not encrypted.
 
 ## What can go wrong
 
-- "No local server answered. To have a model on this computer, install Ollama (ollama.com/download) and run “ollama pull qwen3:8b” (about 5 GB). Or start LM Studio, vLLM or llama.cpp’s server, or type its address."
+- "No local server answered. To have a model on this computer, install Ollama (ollama.com/download) and run “ollama pull qwen3.5:9b” (about 7 GB). Or start LM Studio, vLLM or llama.cpp’s server, or type its address."
 - "Ollama did not make the copy. Set the window by hand as described below." Set it by hand.
 - "The model server does not answer. Check that it is running and the address in the assistant settings."
 - "Choose the model on your own server: pick it from the list under the field in Assistant."

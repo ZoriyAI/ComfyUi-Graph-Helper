@@ -90,7 +90,7 @@ test('Settings ▸ Assistant: model advice, tools marks, a larger window, a comp
     await dialog.getByRole('radio', { name: 'Your own server', exact: true }).click();
     await dialog.getByRole('textbox', { name: 'Server address', exact: true }).fill(`${origin}/v1`);
     await expect(dialog.getByText(/^2 models from/)).toBeVisible({ timeout: 15_000 });
-    await expect(dialog.locator('.provider-advice[data-provider="local"]')).toContainText('qwen3:8b');
+    await expect(dialog.locator('.provider-advice[data-provider="local"]')).toContainText('qwen3.5:9b');
     await expect(dialog.locator('.provider-key input[type="password"]')).toBeEnabled();
     await dialog.getByRole('textbox', { name: 'Model', exact: true }).fill('fixture-plain:4b');
     await expect(dialog.getByText('This model cannot call tools; the assistant needs them to read the catalog and build.')).toBeVisible();
