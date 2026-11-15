@@ -192,6 +192,12 @@ export default function BuildLayer({ levelId }: { levelId: string | null }) {
         later(revealMs() * 2 + 80, () => useCanvasStore.getState().clearFading(gone.map((node) => node.id)));
       }
     }
+    // A node the person deleted fades where it stood too (motion package), as one the assistant removed does.
+    if (!agent && removed.length > 0 && motionLevel() === 'full' && !useCanvasStore.getState().replay) {
+      const gone = fadingOf(removed);
+      canvas.addFading(gone);
+      later(revealMs() * 2 + 80, () => useCanvasStore.getState().clearFading(gone.map((node) => node.id)));
+    }
     const added = [...diff.addedNodes, ...diff.addedEdges];
     if (!agent) {
       if (added.length === 0) return;

@@ -57,6 +57,7 @@ import { typeColor } from './lib/typeColors';
 import { glideMs, useGlide } from './lib/glide';
 import { useCameraSignals } from './lib/cameraHooks';
 import { useCheckWave } from './lib/checkWave';
+import { useReplayMotion } from './lib/replayMotion';
 import { useCameraStore, centerCamera } from '../../motion/camera';
 import { useAttentionStore } from '../../motion/attention';
 import { nextOverview, rememberSizes, setOverviewLevel, titleScale } from './lib/nodeSizes';
@@ -227,12 +228,22 @@ export default function CanvasFlow() {
     });
   }, [definition]);
 
+  // A node that a version leaves as it was keeps its object from the version shown before (motion package): React
+  // Flow then keeps what it measured, and its links no longer vanish for a frame between two versions.
+  const replayKept = useRef(new Map<string, { text: string; node: GraphNode }>());
   const replayView = useMemo(() => {
     const snapshot = replay?.snapshot;
     if (!snapshot) return null;
     const nodes = (Array.isArray(snapshot.nodes) ? snapshot.nodes : []) as GraphNode[];
     return {
-      nodes: nodes.map((node) => ({ ...node, type: 'comfy' as const, selected: false, draggable: false, selectable: false, connectable: false, deletable: false })),
+      nodes: nodes.map((node) => {
+        const text = JSON.stringify(node);
+        const kept = replayKept.current.get(node.id);
+        if (kept && kept.text === text) return kept.node;
+        const drawn = { ...node, type: 'comfy' as const, selected: false, draggable: false, selectable: false, connectable: false, deletable: false };
+        replayKept.current.set(node.id, { text, node: drawn });
+        return drawn;
+      }),
       edges: ((Array.isArray(snapshot.edges) ? snapshot.edges : []) as GraphEdge[]).map((edge) => ({ ...edge, selectable: false, deletable: false })),
     };
   }, [replay?.snapshot]);
@@ -283,7 +294,19 @@ export default function CanvasFlow() {
   const nodes: LevelNode[] = mode === 'replay' ? replayView?.nodes ?? [] : mode === 'definition' ? inner!.nodes : rootNodes;
   const edges: GraphEdge[] = mode === 'replay' ? replayView?.edges ?? [] : mode === 'definition' ? inner!.edges : rootEdges;
   const readOnly = mode === 'replay';
-  const { nodes: glidedNodes, skipNext: ownMove, stop: stopGlide } = useGlide(nodes, mode === 'root');
+  // The history glides moved nodes between versions too, once its first version is on screen; the first frame of
+  // a level (entering or leaving the history) always starts where it is.
+  const [replayWarm, setReplayWarm] = useState(false);
+  useEffect(() => {
+    setReplayWarm(mode === 'replay' && Boolean(replayView));
+  }, [mode, replayView]);
+  const glideOn = mode === 'root' ? !replayWarm : mode === 'replay' ? replayWarm : false;
+  const { nodes: glidedNodes, skipNext: ownMove, stop: stopGlide } = useGlide(nodes, glideOn);
+  // What each version changed, drawn as it is stepped through (motion package, lib/replayMotion.ts).
+  useReplayMotion(mode === 'replay' ? (replayView as { nodes: GraphNode[]; edges: GraphEdge[] } | null) : null);
+  useEffect(() => {
+    if (mode !== 'replay') replayKept.current.clear();
+  }, [mode]);
   // Performance (motion package): while the person drags nodes on the root level, their places live here and reach
   // the graph store once, on the drop. Writing the store on every pointer move woke every part of the window that
   // reads the graph (the check list, Properties, the status bar, description cards) and cost a 129-node graph most
