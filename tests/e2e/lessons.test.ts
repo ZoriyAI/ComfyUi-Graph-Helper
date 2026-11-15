@@ -14,6 +14,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { startFakeMcp, type FakeMcp } from '../fixtures/mcp/fakeMcpServer';
+import { en } from '../../src/shared/i18n/catalog';
 import { lessonGroups } from '../../src/shared/lessons/navigation';
 import { LESSONS, ordinaryLessons } from '../../src/shared/lessons/lessons';
 import { expectSoundLayout } from './layoutProfile';
@@ -61,6 +62,14 @@ async function openLearn(page: Page): Promise<void> {
 }
 
 const panel = (page: Page) => page.locator('.lesson-panel');
+
+/** A sentence of the English catalog with its values put in; a list reads the way the app writes it ("a and b"). */
+function said(template: string, values: Record<string, string | string[]>): string {
+  return template.replace(/\{\{(\w+)(?:, list)?\}\}/g, (_whole, key: string) => {
+    const value = values[key];
+    return Array.isArray(value) ? new Intl.ListFormat('en', { type: 'conjunction' }).format(value) : String(value);
+  });
+}
 const stepIs = (page: Page, id: string) => expect(panel(page).locator('[data-lesson-step]')).toHaveAttribute('data-lesson-step', id, { timeout: 15_000 });
 
 let action = 0;
@@ -113,8 +122,10 @@ test('lessons: the list fits ComfyUI, a lesson is followed by hand, and the grap
     // closed row at the end in a new profile.
     await expect(panel(page)).toHaveAttribute('data-lesson', 'list');
     // Every ordinary lesson is a card; the lessons for adults are one closed row in their group in a new profile.
+    // The built-in groups come in their order, and "My lessons" (the person's own, empty here) is last.
     await expect(panel(page).locator('[data-lesson-card]')).toHaveCount(ordinaryLessons().length);
-    await expect(panel(page).locator('[data-lesson-group]')).toHaveCount(lessonGroups().length);
+    await expect.poll(() => panel(page).locator('[data-lesson-group]').evaluateAll((sections) => sections.map((section) => section.getAttribute('data-lesson-group'))))
+      .toEqual([...lessonGroups().map((group) => group.id), 'mine']);
     await expect(panel(page).locator('[data-lesson-group-closed="adult"]')).toHaveCount(1);
     // Every dependency is navigable without completing a predecessor.
     await panel(page).locator('[data-lesson-card="tags"]').getByRole('link').first().click();
@@ -134,7 +145,8 @@ test('lessons: the list fits ComfyUI, a lesson is followed by hand, and the grap
     await panel(page).locator('[data-lesson-card="image"]').getByRole('button', { name: 'Start', exact: true }).click();
     await expect(panel(page)).toHaveAttribute('data-lesson', 'image');
     await stepIs(page, 'intro');
-    await expect(panel(page).getByText('Step 1 of 11')).toBeVisible();
+    // The visible progress; a screen reader hears the same words with the step's title from a live region.
+    await expect(panel(page).getByText(said(en.lessons.progress, { current: '1', total: '11' }), { exact: true })).toBeVisible();
     await panel(page).getByRole('button', { name: 'Got it, next', exact: true }).click();
 
     // A step to do: it names the node the way this ComfyUI's library does, and says what is lacking.
