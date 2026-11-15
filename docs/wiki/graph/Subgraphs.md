@@ -9,7 +9,7 @@ A subgraph is a few nodes folded into one block. On the canvas it looks like one
 
 ## How to make one
 
-1. Select the nodes (`Ctrl`+click, or a `Shift` box).
+1. Select the nodes (`Shift`+click or `Ctrl`+click, or a `Shift` box).
 2. **Graph ▸ Make a subgraph from selection** (`Ctrl+G`), or right-click one of them ▸ **Make a subgraph from selection**.
 3. A block named "Subgraph" takes their place. Links that crossed the edge of the selection become the inputs and outputs of the block.
 4. Rename it in [Properties](../interface/Properties.md): **Subgraph name**, **Save name**.
@@ -20,7 +20,7 @@ Only on the main canvas, not inside another subgraph.
 
 - Press **Open** on the block, or right-click it ▸ **Open subgraph**, or select it and press **Open subgraph** in Properties.
 - A path appears at the top: **Whole graph** › the subgraph name. Click **Whole graph**, use **Up one level**, or press `Escape` to go back out.
-- Inside, a line says: "Inside a subgraph: changes apply to every copy of it. Drag a link to the empty place on the edge to add an input or output of the subgraph."
+- Inside, a line says: "Inside a subgraph: changes apply to every copy of it. Drag a link to the empty slot on the edge to add an input or output of the subgraph."
 
 ## How to edit the inside
 
@@ -43,9 +43,12 @@ Select the block ▸ **Graph ▸ Dissolve subgraph** (or **Dissolve** in Propert
 
 - The assistant builds only on the main canvas. If you are inside a subgraph when it starts, the canvas goes back: "The assistant builds on the main canvas, so the canvas went back to it."
 - Lessons follow the main canvas too.
-- In a graph of the older workflow format (0.4) a subgraph cannot be made: "Subgraphs need workflow format 1." Workflows saved by a recent ComfyUI are format 1. Today **File ▸ New project** also starts the empty graph in format 0.4, so after a new project a subgraph cannot be made either; a graph from the first start, or one opened from a recent ComfyUI, does not have this problem. <!-- verify: reported to the engineers (EMPTY_WORKFLOW in src/renderer/commands/actions.ts is format 0.4); remove the sentence about New project when it is fixed -->
+- In a workflow of the old format (0.4) a subgraph cannot be made. The app says: "This workflow is in the old ComfyUI format, which has no subgraphs. Select the nodes, copy them (Ctrl+C), start a new project (File > New project) and paste them there (Ctrl+V): a new project can make subgraphs." Workflows saved by a recent ComfyUI, and every new project, are format 1.
+- The marks the check puts on nodes are not shown inside a subgraph.
 
-<!-- verify: the import branch shows promoted fields of a subgraph from a workflow; check what the block shows then -->
+## Fields of a subgraph from a workflow
+
+The author of a subgraph in ComfyUI can put some fields of its inner nodes on the block itself. When you open such a workflow, the block shows these fields under **Fields of the subgraph**, in the order of the file, on the canvas and in Properties. A change here is saved in the workflow for ComfyUI: a field of the copy goes to that copy, a field of an inner node goes to that node. On the block a long prompt is a one-line box; Properties shows the full box.
 
 ## See also
 
