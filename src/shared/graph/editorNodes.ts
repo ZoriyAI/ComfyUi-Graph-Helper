@@ -16,6 +16,7 @@ export const NOTE_NODE_TYPES: ReadonlySet<string> = new Set(['Note', 'MarkdownNo
 /** The name ComfyUI's frontend gives the Primitive's only output until a field is connected. */
 export const PRIMITIVE_UNSET_OUTPUT = 'connect to widget input';
 
+/** What the app needs to know about one editor node class. */
 interface EditorNodeSpec {
   /** The name ComfyUI shows in its own search. */
   displayName: string;
@@ -28,6 +29,7 @@ interface EditorNodeSpec {
   extra: () => Record<string, unknown>;
 }
 
+/** The four editor node classes, with the sizes and fields ComfyUI's frontend gives a new one. */
 const SPECS: Record<EditorNodeType, EditorNodeSpec> = {
   Note: {
     displayName: 'Note',

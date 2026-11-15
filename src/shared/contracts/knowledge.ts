@@ -27,7 +27,7 @@ export type ModelKind =
   | 'checkpoint' | 'lora' | 'vae' | 'controlnet' | 'upscale' | 'clip' | 'clip_vision' | 'unet' | 'text_encoder'
   | 'embedding' | 'style' | 'ipadapter' | 'other';
 
-/** Where a model's base family was learnt from, strongest first; 'none' when it is a guess or unknown. */
+/** Where a model's base family was learnt from; 'none' when nothing told. */
 export type Evidence = 'metadata' | 'sidecar' | 'filename' | 'web' | 'none';
 
 /** One node class as the search and the library list it. */

@@ -5,6 +5,7 @@
  */
 import type { NODE_COLORS } from '../commands/types';
 
+/** The name of a palette entry ('red', 'pale_blue'...). */
 export type ColorName = typeof NODE_COLORS[number];
 
 /** Title colour, body colour and group colour of each palette entry. */
