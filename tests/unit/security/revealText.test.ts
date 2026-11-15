@@ -23,7 +23,7 @@ describe('text from a file never reads as something else', () => {
 
   it('keeps what scripts and emoji need', () => {
     // Arabic, the zero-width joiners used by emoji and scripts, the plain direction marks, a Russian word.
-    for (const text of ['مرحبا','a‍b', 'a‌b', 'a‎b', 'a‏b', 'Портрет']) {
+    for (const text of ['مرحبا', 'a‍b', 'a‌b', 'a‎b', 'a‏b', 'Портрет']) {
       expect(revealHidden(text)).toBe(text);
       expect(hasHiddenCharacters(text)).toBe(false);
     }

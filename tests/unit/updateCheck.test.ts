@@ -193,7 +193,7 @@ describe('update check: reading the answer', () => {
     const exists = (file: string) => files.has(file);
     // AppImage sets $APPIMAGE; the tarball installer leaves run.sh and uninstall.sh; a dpkg file list means .deb;
     // /usr/lib without one is .rpm; a development run is none of them.
-    expect(installKind('/tmp/x/nodewise-studio', { APPIMAGE:'/var/tmp/person/app.AppImage' }, exists, 'nodewise-studio')).toBe('appimage');
+    expect(installKind('/tmp/x/nodewise-studio', { APPIMAGE: '/var/tmp/person/app.AppImage' }, exists, 'nodewise-studio')).toBe('appimage');
     files.add('/var/tmp/person/.local/share/nodewise-studio/run.sh');
     files.add('/var/tmp/person/.local/share/nodewise-studio/uninstall.sh');
     expect(installKind('/var/tmp/person/.local/share/nodewise-studio/nodewise-studio', {}, exists, 'nodewise-studio')).toBe('tarball');
