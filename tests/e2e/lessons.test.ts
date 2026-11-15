@@ -975,8 +975,9 @@ test('lessons: the graph a lesson built is checked, and its description is read 
     await expect(rows.nth(2)).toContainText('contains the negation “no”.');
     await shot(page, '7-check-advice');
     await expectSoundLayout(page, 'check panel with advice about a description', [{ width: 1440, height: 900 }]);
-    // "Show" takes the canvas to the node that holds the text.
-    await rows.nth(0).getByRole('button', { name: 'Show', exact: true }).click();
+    // "Show" takes the canvas to the node that holds the text. The whole sentence is the Show button: its name is the
+    // finding, then what it does; the quiet "Ask why" beside it is the other button of the row.
+    await rows.nth(0).getByRole('button', { name: new RegExp(`\\. ${en.explain.checkShow}$`) }).click();
     await expect(page.locator('.react-flow__node.selected')).toContainText('CLIP Text Encode');
 
     // The description put right: there is nothing more to say.
