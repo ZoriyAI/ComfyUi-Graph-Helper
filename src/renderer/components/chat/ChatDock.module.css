@@ -1,3 +1,4 @@
+/* The conversation dock (ChatDock.tsx): header with run state, the scrolling log, quick prompts of an empty chat. */
 .dock { position: relative; }
 .header {
   display: flex;

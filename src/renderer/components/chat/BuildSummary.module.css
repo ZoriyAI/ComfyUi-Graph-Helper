@@ -1,3 +1,4 @@
+/* The closing line of a build turn (BuildSummary.tsx): what was made and the next-step buttons. */
 .summary {
   display: flex;
   flex-direction: column;

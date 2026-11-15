@@ -1,3 +1,8 @@
+/**
+ * The build card of the chat: every graph change of one assistant turn as a numbered timeline of plain sentences.
+ * Message.tsx renders it for the build calls of an assistant message. It follows the canvas reveal queue
+ * (canvasStore) so the chat and the canvas show the same step while the build plays out at reading pace.
+ */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -17,6 +22,7 @@ import Button from '../../ui/Button';
 import ProposalCard from './ProposalCard';
 import styles from './BuildCard.module.css';
 
+/** One icon per graph tool, so a long timeline can be scanned by kind of change. Unknown tools get a hammer. */
 const STEP_ICONS: Record<string, LucideIcon> = {
   addNode: Plus,
   connectNodes: Link2,
@@ -41,6 +47,7 @@ function centreNode(target: ObjectRef): string | null {
   return null;
 }
 
+/** Selects the step's object and asks the canvas to centre on its node. */
 function showOnCanvas(target: ObjectRef): void {
   useUiStore.getState().setFocus(target);
   const nodeId = centreNode(target);
@@ -122,9 +129,10 @@ function Step({ call, state, sentence, showWhy, onPick, hidden }: StepProps) {
 }
 
 /**
- * Every graph change of one assistant message as one card: «Сборка · 16 шагов» and a timeline with one sentence per
- * step. The step the canvas is showing is marked with «шаг 6 из 16» and its reason; the others show their reason on
- * request. Clicking a step shows its node on the canvas. Steps still waiting their turn on the canvas are dimmed.
+ * Every graph change of one assistant message as one card: a title with the step count (chat.buildTitle) and a
+ * timeline with one sentence per step. The step the canvas is showing is marked with its position (chat.buildProgress)
+ * and its reason; the others show their reason on request. Clicking a step shows its node on the canvas. Steps still
+ * waiting their turn on the canvas are dimmed.
  */
 export default function BuildCard({ calls, live }: { calls: ToolCall[]; live: boolean }) {
   const { t } = useTranslation();
@@ -143,6 +151,7 @@ export default function BuildCard({ calls, live }: { calls: ToolCall[]; live: bo
   const active = live || revealing;
   const progress = buildProgress(calls, { shownKey: active ? shownKey : null, queuedKeys }, active);
   const failed = calls.filter((call) => call.status === 'error').length;
+  // The running step is never hidden: if it falls before the visible tail, the list starts at it instead.
   const hiddenBefore = showAll ? 0 : Math.max(0, calls.length - VISIBLE_TAIL);
   const firstShown = progress.running >= 0 && progress.running < hiddenBefore ? progress.running : hiddenBefore;
   const anyWhy = calls.some((call) => stepWhy(call) !== '');

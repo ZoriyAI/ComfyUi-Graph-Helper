@@ -1,3 +1,7 @@
+/**
+ * The React hook that feeds names to the build step sentences of buildSteps.ts. BuildCard.tsx and QuietGroup.tsx
+ * call it. It lives apart from buildSteps.ts so those helpers stay pure and testable without React.
+ */
 import { useMemo } from 'react';
 import { useGraphStore } from '../../state/graphState';
 import { useNodeInfoStore } from '../graph/nodeInfo';

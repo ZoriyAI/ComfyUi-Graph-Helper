@@ -1,3 +1,7 @@
+/**
+ * The quiet line of a chat message: everything the helper only read (graph, catalog, models, web), folded into one
+ * line. Message.tsx renders it for the "quiet" segment that buildSteps.groupToolCalls makes.
+ */
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronRight, Eye } from 'lucide-react';
@@ -7,8 +11,8 @@ import { useStepNames } from './stepNames';
 import styles from './QuietGroup.module.css';
 
 /**
- * What the helper only looked at (graph, catalog, models, web) in one message, as one quiet line:
- * «Что смотрел помощник · 4: прочитал граф, искал в каталоге нод “lora”…». It opens to one phrase per look.
+ * What the helper only looked at (graph, catalog, models, web) in one message, as one quiet line: the title
+ * (chat.quietTitle), the count, then the phrases joined by commas. It opens to one phrase per look.
  * None of it changed anything, so it never competes with the build card or the answer.
  */
 export default function QuietGroup({ calls }: { calls: ToolCall[] }) {

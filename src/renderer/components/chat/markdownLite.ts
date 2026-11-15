@@ -1,10 +1,13 @@
 /**
+ * The parser behind MarkdownLite.tsx (chat answers, lessons, the tour, node notes, the help reader); tested by
+ * tests/unit/chatHelpers.test.ts and tests/unit/aboutHelp.test.ts.
  * A small markdown subset for chat text: paragraphs, line breaks, headings, bullet and numbered lists, quotes,
  * rules, simple tables, fenced code, inline code, bold and emphasis. Models write these whether asked to or not,
  * and shown raw they are "##", "|" and "*" in the middle of an answer. Parsed to plain data and rendered as
  * React elements, never as HTML. A link keeps its words and its address as text: the chat opens nothing.
  */
 
+/** A run of one line's text with its inline mark. */
 export type InlineToken =
   | { type: 'text'; text: string }
   | { type: 'code'; text: string }
@@ -15,11 +18,13 @@ export type InlineToken =
   /** Only with `links: true` (the help reader): a relative link to another wiki page, opened inside the reader. */
   | { type: 'page'; text: string; target: string };
 
+/** How the parser treats links. */
 export interface ParseOptions {
   /** Relative links `[words](page.md)` become page tokens; web addresses stay link tokens. */
   links?: boolean;
 }
 
+/** One block of the text, in reading order. Headings deeper than ### fold into level 3. */
 export type Block =
   | { type: 'paragraph'; lines: InlineToken[][] }
   | { type: 'heading'; level: 1 | 2 | 3; tokens: InlineToken[] }
@@ -29,6 +34,7 @@ export type Block =
   | { type: 'table'; header: InlineToken[][]; rows: InlineToken[][][] }
   | { type: 'code'; text: string };
 
+/** Line patterns of the block grammar. A heading, rule or quote may be indented up to three spaces. */
 const BULLET = /^\s*[-*•]\s+(.*)$/;
 const NUMBERED = /^\s*(\d{1,4})[.)]\s+(.*)$/;
 const FENCE = /^\s*```/;
@@ -38,6 +44,7 @@ const QUOTE = /^\s{0,3}>\s?(.*)$/;
 const TABLE_ROW = /^\s*\|.*\|\s*$/;
 const TABLE_RULE = /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/;
 
+/** A web link `[words](http…)`; any other scheme stays plain text. */
 const LINK = /\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g;
 
 /**
@@ -88,6 +95,7 @@ export function parseInline(source: string, options: ParseOptions = {}): InlineT
   return out;
 }
 
+/** Inline tokens of text that holds no links: code, bold and emphasis. */
 function parsePlain(text: string): InlineToken[] {
   const tokens: InlineToken[] = [];
   // Code first (nothing inside it is markup), then bold, then emphasis. Emphasis needs a letter right inside each
@@ -106,11 +114,13 @@ function parsePlain(text: string): InlineToken[] {
   return tokens;
 }
 
+/** The cells of one table row; an escaped bar `\|` stays inside its cell. */
 function tableCells(line: string): string[] {
   const inner = line.trim().replace(/^\|/, '').replace(/\|$/, '');
   return inner.split(/(?<!\\)\|/).map((cell) => cell.trim().replace(/\\\|/g, '|'));
 }
 
+/** Splits text into blocks line by line; a block ends at a blank line or where another kind starts. */
 export function parseMarkdownLite(source: string, options: ParseOptions = {}): Block[] {
   const inline = (line: string) => parseInline(line, options);
   const lines = source.replace(/\r\n?/g, '\n').split('\n');
@@ -175,6 +185,7 @@ export function parseMarkdownLite(source: string, options: ParseOptions = {}): B
         rows.push(fitted.map(inline));
         index += 1;
       }
+      // Step back one line: the for loop moves forward again.
       index -= 1;
       blocks.push({ type: 'table', header, rows });
       continue;

@@ -1,3 +1,8 @@
+/**
+ * The renderer of the app's small Markdown: chat answers, lesson texts, the window tour, node notes and the help
+ * reader (Message.tsx, lessons/LessonPanel.tsx, journey/WindowTour.tsx, graph/nodes/NodeCard.tsx,
+ * shell/HelpReader.tsx). Text becomes React elements, never HTML, so a model's answer cannot inject markup.
+ */
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link2 } from 'lucide-react';
@@ -39,6 +44,7 @@ const TermContext = React.createContext<{ language: string; seen: Set<string> } 
 /** Set by MarkdownLite when the text may carry relative links (the help reader). */
 const LinkContext = React.createContext<((target: string) => void) | null>(null);
 
+/** One line of inline tokens: links, page links, code, strong, emphasis and plain words. */
 function Inline({ tokens }: { tokens: InlineToken[] }) {
   const onLink = React.useContext(LinkContext);
   return (
@@ -66,6 +72,7 @@ function PlainText({ text }: { text: string }) {
   return terms ? <TermText text={text} language={terms.language} seen={terms.seen} /> : <>{text}</>;
 }
 
+/** Lines of one paragraph or quote, joined by line breaks. */
 function Lines({ lines }: { lines: InlineToken[][] }) {
   return (
     <>
