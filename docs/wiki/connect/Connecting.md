@@ -3,23 +3,51 @@
 
 # Connecting to ComfyUI
 
-Start with the address that opens ComfyUI in your browser. No MCP server is required.
+CozyGraph learns which nodes and models you have by reading a running ComfyUI. All it needs is the address you open
+ComfyUI at in the browser. An MCP server is optional and adds a few things ComfyUI itself does not serve.
 
-1. Open Settings ▸ Connection and enter the ComfyUI address, including scheme and port: for example `http://127.0.0.1:8188`. ComfyUI Desktop usually uses port 8000. These are examples; use your actual address.
-2. "Find on this computer" searches common local addresses. "Check" tests the typed address without queuing anything.
-3. Save settings, then choose Read ComfyUI or Sync ▸ Sync now. Read the result and any gaps reported by the sync indicator.
+<!-- verify: this chapter is checked against test servers that speak ComfyUI's routes; it has not yet been run
+against a real ComfyUI install. -->
 
-For another computer, use that computer's reachable address rather than `127.0.0.1` (which always means the computer running this app). The direct reader uses an HTTP(S) origin; a URL that redirects to a browser sign-in page will not work as a direct ComfyUI endpoint.
+## The three cases
 
-## Optional MCP
+| Your situation | What to do | Page |
+| --- | --- | --- |
+| ComfyUI runs on this computer | Find on this computer, or enter `http://127.0.0.1:8188` (the desktop app: port 8000) | [ComfyUI on this computer](This-Computer.md) |
+| ComfyUI runs on another computer | Start it there with `--listen`, enter `http://<its address>:8188` | [ComfyUI on another computer](Another-Computer.md) |
+| You also have an MCP server | Optional: add its address below the ComfyUI address | [MCP servers](MCP-Servers.md) |
 
-Add an MCP server in its separate section when you want information ComfyUI does not expose: sidecar model descriptions, pack README files and file fingerprints. The server must offer suitable read tools; an MCP server that only queues prompts is not a catalog source.
+## Settings ▸ Connection, from top to bottom
 
-Enter the MCP server's own URL, often ending in `/mcp`, and choose Check. Use the detected access mode: no sign-in, token or browser sign-in. Save settings; for browser sign-in, then sign in. Credentials belong to that MCP address. Remote MCP uses HTTPS; loopback MCP can use HTTP.
+1. **ComfyUI address**, with **Check ComfyUI** next to it.
+2. **Find on this computer**: asks this computer at ports 8188 and 8000 and fills the address in.
+3. A hint; for an address on another computer, also a hint about `--listen` and about plain `http`.
+4. The state, then **Read now** (reads ComfyUI with what is saved) and **Check this graph**.
+5. **MCP server (optional)**: a short text, the **MCP server URL** field with **Check**, a line that names the kind of
+   server once it is read, and the choice of access (No sign-in, Access token, Sign in through the browser).
 
-Every ComfyUI and MCP operation in this app is read-only: no queueing, uploads, installations or external graph edits.
+Save the settings after you change an address: the app reads ComfyUI with what is saved.
+
+## The first time
+
+1. On the empty canvas, step 1 **Connect ComfyUI** ▸ **Connect…** opens Settings ▸ Connection.
+2. Enter the address or choose **Find on this computer**, then **Check ComfyUI**. It says, for example, "ComfyUI 0.45.0
+   answers at this address. Save the settings, and the app reads it."
+3. **Save settings**, then step 1 **Read ComfyUI** (or Sync ▸ Sync now).
+4. The sync indicator at the top right ends at **Up to date**; its popover says where the library was read from. Your
+   nodes and models are in the library on the left; lessons and the check use them.
+
+Everything stays after a restart. To read again later: Sync ▸ Sync now, or switch on Sync automatically in Settings ▸
+Sync.
+
+## What the app never does there
+
+It only reads. Every request to ComfyUI is a `GET` on a short list of routes; the queue, prompts, uploads, installs
+and settings are refused before anything is sent. [ComfyUI is only read](../trust/Read-Only.md)
 
 ## See also
 
+- [Connecting](README.md)
 - [What each way shows](What-Each-Way-Shows.md)
-- [Connection settings](../interface/Settings-Connection.md)
+- [Connection problems](Connection-Problems.md)
+- [Settings: Connection](../interface/Settings-Connection.md)
