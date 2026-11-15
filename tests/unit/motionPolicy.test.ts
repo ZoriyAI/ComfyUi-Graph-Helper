@@ -10,6 +10,12 @@ import { levelFor, parseDuration } from '../../src/renderer/motion/policy';
 import { cameraPlan, cubicBezier, travel } from '../../src/renderer/motion/camera';
 import { autoFitView, AUTO_FIT_MIN_ZOOM } from '../../src/renderer/components/graph/lib/autoFit';
 import { OVERVIEW_EXIT } from '../../src/renderer/components/graph/lib/nodeSizes';
+import { replayChange } from '../../src/renderer/components/graph/lib/replayMotion';
+import { focusOf, passedMarks, placeOf } from '../../src/renderer/components/lessons/lessonMotion';
+import { checkedNodeIds } from '../../src/renderer/motion/attention';
+import { cullWindow, inWindow } from '../../src/renderer/components/graph/layers/DescriptionLayer';
+import { sameNodeProps } from '../../src/renderer/components/graph/nodes/ComfyNode';
+import type { GraphEdge, GraphNode } from '../../src/renderer/types/graph';
 
 const RENDERER = path.join(__dirname, '../../src/renderer');
 
@@ -179,5 +185,67 @@ describe('automatic fits land on something readable', () => {
     const view = autoFitView({ bounds: { x: 0, y: 0, width: 30000, height: 12000 }, focus: { x: 100, y: 100, width: 300, height: 200 }, count: 199, pane, options: { padding: 0.1, maxZoom: 1 } });
     expect(view.zoom).toBe(AUTO_FIT_MIN_ZOOM);
     expect(view.x).toBeCloseTo(pane.width / 2 - 250 * AUTO_FIT_MIN_ZOOM);
+  });
+});
+
+
+function node(id: string, x = 0, data: Record<string, unknown> = {}): GraphNode {
+  return { id, type: 'comfy', position: { x, y: 0 }, data: { comfyType: 'KSampler', title: id, inputs: [], outputs: [], ...data } } as unknown as GraphNode;
+}
+function edge(id: string, source: string, target: string): GraphEdge {
+  return { id, source, target } as GraphEdge;
+}
+
+describe('the history shows what a version changed', () => {
+  it('finds what appeared, left and changed', () => {
+    const before = { nodes: [node('a'), node('b'), node('c')], edges: [edge('e1', 'a', 'b')] };
+    const after = { nodes: [node('a'), node('b', 0, { title: 'renamed' }), node('d')], edges: [edge('e1', 'a', 'b'), edge('e2', 'b', 'd')] };
+    const change = replayChange(before, after);
+    expect(change.added).toEqual(['d']);
+    expect(change.addedEdges).toEqual(['e2']);
+    expect(change.removed.map((item) => item.id)).toEqual(['c']);
+    expect(change.changed).toEqual(['b']);
+  });
+});
+
+describe('a lesson on the canvas', () => {
+  const link = { kind: 'link' as const, from: { role: 'model', nodeId: '1' }, output: 'MODEL', to: { role: 'sampler', nodeId: '2' }, input: 'model', fedBy: null, absent: null };
+  it('focuses the two ends of a missing link and goes to where it ends', () => {
+    expect(focusOf(link)).toEqual(['1', '2']);
+    expect(placeOf(link)).toBe('2');
+    expect(focusOf({ kind: 'node', role: 'x', classes: ['A'] })).toBeNull();
+    expect(focusOf(undefined)).toBeNull();
+  });
+  it('flashes what closed a step: the new link, the new node, the field node', () => {
+    expect(passedMarks(link, {}, [edge('e9', '1', '2')])).toEqual({ nodes: ['2'], edges: ['e9'] });
+    expect(passedMarks({ kind: 'node', role: 'sampler', classes: ['KSampler'] }, { sampler: '7' }, [])).toEqual({ nodes: ['7'], edges: [] });
+  });
+});
+
+describe('the check wave', () => {
+  it('collects each marked node of the main canvas once', () => {
+    const report = {
+      missingNodes: [{ nodeId: '1', classType: 'X' }, { nodeId: '9', classType: 'Y', subgraphId: 's' }],
+      missingModels: [{ nodeId: '1', directory: 'd', name: 'n' }],
+      baseModelMismatches: [],
+      unconnectedRequiredInputs: [{ nodeId: '3', input: 'i', type: 'T' }],
+      cycles: [{ nodeIds: ['4', '5'] }],
+    };
+    expect(checkedNodeIds(report)).toEqual(['1', '3', '4', '5']);
+  });
+});
+
+describe('zoom performance helpers', () => {
+  it('draws description cards only around the view', () => {
+    const window = cullWindow([0, 0, 1, 1000, 800]);
+    expect(inWindow({ x: 100, y: 100, width: 50, height: 50 }, window, false)).toBe(true);
+    expect(inWindow({ x: 5000, y: 100, width: 50, height: 50 }, window, false)).toBe(false);
+    expect(inWindow({ x: 5000, y: 100, width: 50, height: 50 }, window, true)).toBe(true);
+  });
+  it('redraws a node only for its data or its selection', () => {
+    const data = { a: 1 };
+    expect(sameNodeProps({ id: 'n', data, selected: false }, { id: 'n', data, selected: false })).toBe(true);
+    expect(sameNodeProps({ id: 'n', data, selected: false }, { id: 'n', data: { a: 1 }, selected: false })).toBe(false);
+    expect(sameNodeProps({ id: 'n', data, selected: false }, { id: 'n', data, selected: true })).toBe(false);
   });
 });
