@@ -58,13 +58,15 @@ export function cubicBezier(x1: number, y1: number, x2: number, y2: number): (t:
   return (t: number) => {
     if (t <= 0) return 0;
     if (t >= 1) return 1;
-    // Solve x(u) = t by bisection: twenty steps are far below a pixel.
+    // Solve x(u) = t by bisection; thirty steps are far below a pixel.
     let low = 0;
     let high = 1;
     let u = t;
-    for (let step = 0; step < 20; step += 1) {
+    for (let step = 0; step < 30; step += 1) {
       u = (low + high) / 2;
-      if (sample(x1, x2, u) < t) low = u;
+      const x = sample(x1, x2, u);
+      if (Math.abs(x - t) < 1e-9) break;
+      if (x < t) low = u;
       else high = u;
     }
     return sample(y1, y2, u);
