@@ -91,7 +91,8 @@ async function main() {
     const window = app.window;
     await window.locator('#chat-provider').waitFor({ timeout: 60000 });
     const title = await window.title();
-    if (!title.includes('ComfyUI')) fail(`UNEXPECTED_TITLE ${title}`);
+    // The page title starts as the app's name and gains the project name once the texts load: either is the app.
+    if (!title.includes('NodeWise Studio') && !title.includes('ComfyUI')) fail(`UNEXPECTED_TITLE ${title}`);
     const provider = await window.locator('#chat-provider').getAttribute('data-value');
     if (provider !== '') fail(`UNEXPECTED_PROVIDER ${provider}`);
     console.log(`PACKAGED_MAIN_OK ${path.basename(debs[0])} bytes=${debStat.size}${rpms.length === 1 ? ` ${path.basename(rpms[0])} bytes=${fs.statSync(rpms[0]).size}` : ' (no rpm: rpmbuild missing)'}`);
