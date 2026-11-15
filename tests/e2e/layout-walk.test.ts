@@ -301,6 +301,9 @@ async function dockTab(page: Page, index: number): Promise<void> {
 async function openSettings(page: Page, section: number): Promise<Locator> {
   const dialog = settingsDialog(page);
   if (await dialog.count() === 0) {
+    // Ctrl+, is not for a text field (commands/hotkeys.ts), and the message field may hold the focus (it does
+    // right after a reload when LAYOUT_ONLY skips the parts before Settings): the key is pressed with nothing focused.
+    await page.evaluate(() => (document.activeElement instanceof HTMLElement ? document.activeElement.blur() : undefined));
     await page.keyboard.press('Control+,');
     await dialog.waitFor({ timeout: 10_000 });
   }
