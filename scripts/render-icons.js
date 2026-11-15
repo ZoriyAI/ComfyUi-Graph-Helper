@@ -3,8 +3,10 @@
 //   xvfb-run -a npx electron scripts/render-icons.js
 // Why Electron: it is already here and draws SVG exactly as the app does; no image tool is needed.
 // 16 and 24 px come from icon-small.svg, drawn for those sizes (fine detail turns to mush there); the rest from icon.svg.
-// Writes resources/icon.png (512, the window icon) and resources/icons/NxN.png (the desktop entry sizes).
+// Writes resources/icon.png (512, the window icon) and resources/icons/NxN.png (the desktop entry sizes), then
+// resources/icon.ico and resources/icon.icns (the Windows and macOS builds) from those PNGs.
 const { app, BrowserWindow } = require('electron');
+const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
@@ -42,6 +44,8 @@ app.whenReady().then(async () => {
       if (size === 512) fs.writeFileSync(path.join(root, 'resources', 'icon.png'), png);
       console.log(`icon ${size}x${size} ${png.length} bytes`);
     }
+    // The .ico and .icns hold the same PNGs; plain Node packs them (scripts/make-icon-containers.js).
+    execFileSync('node', [path.join(__dirname, 'make-icon-containers.js')], { stdio: 'inherit' });
   } catch (error) {
     console.error(error);
     process.exitCode = 1;
