@@ -104,6 +104,7 @@ const IPC_CHANNELS = {
   SECRETS_INVENTORY: 'secrets:inventory',
   SETTINGS_SECRET_STATUS: 'settings:secret-status',
   COMFY_CHECK: 'comfy:check',
+  COMFY_UPLOAD_MEDIA: 'comfy:upload-media',
   MCP_READ: 'mcp:read',
   MCP_SET_TOKEN: 'mcp:set-token',
   MCP_TOKEN_STATUS: 'mcp:token-status',
@@ -312,6 +313,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     | { ok: false; error: string }
   >,
   readMcp: () => ipcRenderer.invoke(IPC_CHANNELS.MCP_READ) as Promise<McpReadOutcome>,
+  uploadNodeFile: (name: string, data: ArrayBuffer) => ipcRenderer.invoke(IPC_CHANNELS.COMFY_UPLOAD_MEDIA, name, data) as Promise<import('../shared/contracts/media').MediaUploadResult>,
   mcpSetToken: (value: string, forUrl?: string) => ipcRenderer.invoke(IPC_CHANNELS.MCP_SET_TOKEN, value, forUrl) as Promise<{ held: boolean }>,
   mcpTokenStatus: () => ipcRenderer.invoke(IPC_CHANNELS.MCP_TOKEN_STATUS) as Promise<McpTokenStatus>,
   /** Without a value, the token held for this session is the one saved. */
@@ -611,6 +613,7 @@ export interface ElectronAPI {
   >;
   /** Runs the ordinary sync, from either address, and says what it read (Settings ▸ Connection ▸ "Read now"). */
   readMcp: () => Promise<McpReadOutcome>;
+  uploadNodeFile: (name: string, data: ArrayBuffer) => Promise<import('../shared/contracts/media').MediaUploadResult>;
   /** `forUrl`: the MCP URL the token is for (e.g. the draft being saved); defaults to the saved URL. */
   mcpSetToken: (value: string, forUrl?: string) => Promise<{ held: boolean }>;
   mcpTokenStatus: () => Promise<McpTokenStatus>;

@@ -3,6 +3,12 @@
  * `wide` in Properties (30px, full width). Colours come from the theme tokens so both read as the same control.
  */
 .root { min-width: 0; display: flex; align-items: center; }
+.media { flex-direction: column; align-items: stretch; gap: 4px; }
+.uploadButton { display: flex; align-items: center; justify-content: center; gap: 5px; min-height: var(--field-h); padding: 3px 6px; border: 1px solid var(--border); border-radius: var(--field-radius); background: var(--surface-sunken); color: var(--text); font: inherit; font-size: var(--field-font); cursor: pointer; }
+.uploadButton:hover:not(:disabled) { border-color: var(--border-strong); }
+.uploadButton:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.uploadButton:disabled { opacity: 0.55; cursor: default; }
+.uploadError { color: var(--danger); font-size: var(--text-xs); overflow-wrap: anywhere; }
 .compact { --field-h: 22px; --field-font: 12px; --field-radius: var(--radius-sm, 6px); }
 .wide { --field-h: 30px; --field-font: var(--text-sm, 13px); --field-radius: var(--radius-md, 8px); width: 100%; }
 

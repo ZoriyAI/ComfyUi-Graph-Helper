@@ -151,20 +151,22 @@ export default function NodeCard({ id, data, state, connected, live = true, head
           {state.subgraph ? null : <span className={`${styles.classType} graph-node-type`} data-class-line={classLine === data.comfyType ? undefined : 'other'} title={data.comfyType}>{classLine}</span>}
         </div>
       </div>
+      <div className={styles.portColumns}>
       {layout.linkInputs.length > 0 ? (
-        <ul className={`${styles.ports} port-list`} aria-label={String(t('node.inputs'))}>
+        <ul className={`${styles.ports} ${styles.inputPorts} port-list`} aria-label={String(t('node.inputs'))}>
           {layout.linkInputs.map((port) => (
             <PortRow key={port.id} nodeId={id} port={port} side="input" connected={connected.has(`in:${port.id}`)} focusable={Boolean(state.selected)} live={live} />
           ))}
         </ul>
       ) : null}
       {data.outputs.length > 0 ? (
-        <ul className={`${styles.ports} port-list`} aria-label={String(t('node.outputs'))}>
+        <ul className={`${styles.ports} ${styles.outputPorts} port-list`} aria-label={String(t('node.outputs'))}>
           {data.outputs.map((port) => (
             <PortRow key={port.id} nodeId={id} port={port} side="output" connected={connected.has(`out:${port.id}`)} focusable={Boolean(state.selected)} live={live} />
           ))}
         </ul>
       ) : null}
+      </div>
       {layout.fields.length > 0 ? (
         <ul className={`${styles.fields} node-fields`} aria-label={String(t('node.fields'))}>
           {layout.fields.map((field) => (

@@ -28,6 +28,7 @@ import {
 } from './fieldModel';
 import { ModelList, useFieldModels } from './ModelList';
 import styles from './FieldControl.module.css';
+import MediaUploadButton from './MediaUploadButton';
 
 /** Where the control sits: inside a canvas node (compact) or in Properties (wide). */
 export type FieldVariant = 'node' | 'panel';
@@ -60,8 +61,9 @@ export default function FieldControl(props: FieldControlProps) {
   const inNode = props.variant === 'node';
   const className = cx(styles.root, inNode ? styles.compact : styles.wide, inNode && 'nodrag nowheel');
   return (
-    <div className={className} data-field-kind={kind} data-field-name={props.name}>
+    <div className={cx(className, props.spec?.fileUpload && styles.media)} data-field-kind={kind} data-field-name={props.name}>
       <Control kind={kind} {...props} />
+      {props.spec?.fileUpload ? <MediaUploadButton {...props} /> : null}
     </div>
   );
 }
@@ -107,7 +109,11 @@ function ComboControl({ nodeId, name, value, spec, variant, disabled, labelledBy
   const listId = useId();
   const listRef = useRef<HTMLUListElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
-  const options = useMemo(() => (spec?.options ?? []).filter((option) => option !== ''), [spec?.options]);
+  const options = useMemo(() => {
+    const listed = (spec?.options ?? []).filter((option) => option !== '');
+    const selected = displayValue(value);
+    return spec?.fileUpload && selected && !listed.includes(selected) ? [...listed, selected] : listed;
+  }, [spec?.options, spec?.fileUpload, value]);
   const modelField = Boolean(spec?.modelDirectory);
   const models = useFieldModels(nodeId, name, modelField && open);
   const modelRows = models.state === 'ready' && models.result.models ? models.result.options : null;

@@ -20,11 +20,14 @@ const KIND_BY_TYPE: Record<string, FieldKind> = {
  * constructor (`widgetType` when object_info names one, else the input type), so a socket typed STRING but drawn
  * as a combo is still a combo.
  */
-export function fieldSpecOf(input: CatalogInput): FieldSpec | undefined {
+export function fieldSpecOf(input: CatalogInput, classType?: string): FieldSpec | undefined {
   if (!input.widget) return undefined;
   const constructor = input.widgetType ?? input.type;
   const kind = KIND_BY_TYPE[constructor] ?? (Array.isArray(input.options) ? 'combo' : 'other');
   const spec: FieldSpec = { kind };
+  if (input.mediaUpload || (classType === 'LoadAudio' && input.name === 'audio')) {
+    spec.fileUpload = input.mediaType ?? (classType === 'LoadAudio' ? 'audio' : /video/i.test(classType ?? input.name) ? 'video' : 'image');
+  }
   if (input.options) spec.options = input.options;
   if (input.min !== undefined) spec.min = input.min;
   if (input.max !== undefined) spec.max = input.max;

@@ -458,7 +458,7 @@ function nodeFromRow(row: CatalogRow): CatalogNode {
     pythonModule: typeof row.python_module === 'string' ? row.python_module : 'nodes',
     displayName: typeof row.display_name === 'string' ? row.display_name : '',
     category: typeof row.category === 'string' ? row.category : '',
-    inputs: parseInputs(row.inputs_json),
+    inputs: parseInputs(row.inputs_json, row.class_type),
     outputs: parseOutputs(row.outputs_json),
     ...parseWidgetOrder(row.widget_order_json),
   };
@@ -480,11 +480,11 @@ function parseWidgetOrder(text: string): { widgetOrder: string[]; widgetOrderRel
 }
 
 /** The stored inputs_json of one class as catalog inputs (defaults and field metadata included). */
-export function catalogInputsFromJson(text: string): CatalogInput[] {
-  return parseInputs(text);
+export function catalogInputsFromJson(text: string, classType?: string): CatalogInput[] {
+  return parseInputs(text, classType);
 }
 
-function parseInputs(text: string): CatalogInput[] {
+function parseInputs(text: string, classType?: string): CatalogInput[] {
   return parseArray(text).flatMap((item) => {
     if (!item || typeof item !== 'object') return [];
     const row = item as Record<string, unknown>;
@@ -506,6 +506,8 @@ function parseInputs(text: string): CatalogInput[] {
     if (row.multiline === true) input.multiline = true;
     if (row.multiSelect === true) input.multiSelect = true;
     if (row.mediaUpload === true) input.mediaUpload = true;
+    if (row.mediaType === 'image' || row.mediaType === 'video' || row.mediaType === 'audio' || row.mediaType === 'file') input.mediaType = row.mediaType;
+    if (classType === 'LoadAudio' && input.name === 'audio') { input.mediaUpload = true; input.mediaType = 'audio'; }
     return [input];
   });
 }

@@ -35,6 +35,21 @@ async function fixture(now?: () => number) {
 }
 
 describe('browser access', () => {
+  it('accepts selected media bytes only from a paired same-origin device', async () => {
+    const f = await fixture();
+    const send = (cookie = '', origin = f.url) => fetch(`${f.url}/browser/media?name=phone.png`, { method: 'POST', headers: { Origin: origin, Cookie: cookie, 'Content-Type': 'application/octet-stream' }, body: new Uint8Array([1, 2, 3]) });
+    expect((await send()).status).toBe(401);
+    const cookie = await f.pair();
+    expect((await send(cookie, 'https://example.invalid')).status).toBe(403);
+    const response = await send(cookie);
+    expect(response.status).toBe(200);
+    const result = await response.json() as { value: { method: string; args: unknown[] } };
+    expect(result.value.method).toBe('uploadNodeFile'); expect(result.value.args[0]).toBe('phone.png');
+    expect(result.value.args[1]).toEqual({ type: 'Buffer', data: [1, 2, 3] });
+    f.service.revoke(f.service.status().devices[0].id);
+    expect((await send(cookie)).status).toBe(401);
+    expect(f.calls()).toBe(1);
+  });
   it('defaults off and keeps only a validated configurable port and interface', () => {
     expect(parsePreferences({}).browserAccess).toEqual({ enabled: false, address: '', port: 8787 });
     expect(parsePreferences({ browserAccess: { enabled: true, address: '127.0.0.1', port: 80 } }).browserAccess.port).toBe(8787);

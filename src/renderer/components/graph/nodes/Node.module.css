@@ -76,6 +76,10 @@
   letter-spacing: 0.04em;
 }
 
+/* ComfyUI aligns left inputs and right outputs in the same slot rows, then puts widgets underneath. */
+.portColumns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.inputPorts { grid-column: 1; grid-row: 1; }
+.outputPorts { grid-column: 2; grid-row: 1; }
 .ports { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; }
 .port {
   position: relative;

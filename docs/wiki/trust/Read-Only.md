@@ -3,9 +3,7 @@
 
 # ComfyUI is only read
 
-NodeWise Studio reads your ComfyUI to learn which nodes and models it has. It never changes it: it does not install,
-download, delete, write, move or queue anything there. This page says what is read and how that promise is kept in
-the code.
+NodeWise Studio reads the ComfyUI catalog without changing models, packs or the queue. Choosing **Choose file…** in a media loader explicitly uploads one selected file to ComfyUI input. Existing files are not overwritten. The assistant cannot select files or initiate uploads.
 
 ## What is read
 
@@ -31,10 +29,10 @@ From an MCP server, only if you added one:
 
 ## How the promise is kept
 
-- **One gate for ComfyUI.** Every request to a ComfyUI goes through `src/main/comfy/gate.ts`: `GET` only, no
+- **One gate for ComfyUI.** Every catalog, metadata and preview request goes through `src/main/comfy/gate.ts`: `GET` only, no
   redirects followed, a size cap and a time limit, and only routes built from a fixed list. `/prompt`, `/queue`,
   `/interrupt`, `/free`, `/history`, uploads, user data, settings and every install or reboot route of
-  ComfyUI-Manager are refused before anything is sent, and no other module calls the network itself.
+  ComfyUI-Manager are refused before anything is sent, The separate `src/main/comfy/upload.ts` accepts only the selected file for `POST /upload/image`, with `type=input` and `overwrite=false`.
 - **One list for MCP servers.** Every MCP call goes through `src/main/mcp/readOnly.ts`. It holds the few read tools
   the app may call and the exact shape of their arguments. A tool that is not on the list, or a call with one extra
   field, is refused before it leaves the app; a server whose tools the app does not know is not called at all.
@@ -59,3 +57,7 @@ A call that would write is a security problem: please report it privately ([Secu
 - [Privacy](Privacy.md)
 - [Security](Security.md)
 - [Reading ComfyUI](../dev/Reading-ComfyUI.md)
+
+## A loader file selection
+
+**Choose file…** opens selection on this device, including a phone browser. The selected file, up to 64 MiB, goes to the configured ComfyUI input folder. Only a successful server response changes the node value. Cancellation or failure keeps the previous value. This is the only separate write path; the general read-only gate and the ban on queuing workflows remain.

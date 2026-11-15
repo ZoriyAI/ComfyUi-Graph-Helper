@@ -7,6 +7,7 @@ import { readFile, realpath } from 'node:fs/promises';
 import { extname, resolve, sep } from 'node:path';
 import type { BrowserAccessConfig, BrowserAccessStatus, BrowserAddress, BrowserDevice } from '../../shared/browser/contracts';
 import { BROWSER_METHODS } from '../../shared/browser/methods';
+import { MEDIA_UPLOAD_MAX_BYTES } from '../../shared/contracts/media';
 
 const SESSION_MS = 8 * 60 * 60_000;
 const PAIR_MS = 5 * 60_000;
@@ -194,6 +195,26 @@ export class BrowserAccessServer {
     if (pathname === '/browser/events' && req.method === 'GET') {
       res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', Connection: 'keep-alive' });
       session.peer.attach(res); return;
+    }
+    if (pathname === '/browser/media' && req.method === 'POST') {
+      if (String(req.headers['content-type']).split(';')[0] !== 'application/octet-stream') { this.json(res, 415, {}); return; }
+      if (Number(req.headers['content-length']) > MEDIA_UPLOAD_MAX_BYTES) { this.json(res, 413, {}); return; }
+      if (session.activeCalls >= 2) { this.json(res, 429, {}); return; }
+      const name = new URL(req.url ?? '/', origin).searchParams.get('name');
+      session.activeCalls += 1;
+      try {
+        const chunks: Buffer[] = []; let bytes = 0;
+        for await (const chunk of req) {
+          bytes += chunk.length;
+          if (bytes > MEDIA_UPLOAD_MAX_BYTES) { this.json(res, 413, {}); return; }
+          chunks.push(chunk);
+        }
+        if (session.peer.isDestroyed()) { this.json(res, 401, {}); return; }
+        const value = await this.deps.invoke('uploadNodeFile', [name, Buffer.concat(chunks, bytes)], session.peer);
+        this.json(res, session.peer.isDestroyed() ? 401 : 200, { value });
+      } catch { this.json(res, 400, {}); }
+      finally { session.activeCalls -= 1; }
+      return;
     }
     if (pathname !== '/browser/call' || req.method !== 'POST') { this.json(res, 404, {}); return; }
     let body; try { body = await this.body(req); } catch { this.json(res, 400, { error: 'invalid-request' }); return; }

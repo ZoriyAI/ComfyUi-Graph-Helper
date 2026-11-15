@@ -24,6 +24,7 @@ import { attemptSaveSecret, forgetProviderKey, forgetSecret, migrateLegacyProvid
 import { secretStatus } from './settings/secretDecision';
 import { isUnprotectedCipher } from '../shared/config/secretPolicy';
 import { checkComfy } from './comfy/direct';
+import { uploadComfyMedia } from './comfy/upload';
 import { registerKnowledgeIpc } from './ipc/knowledgeIpc';
 import { registerEngineIpc } from './ipc/engineIpc';
 import { registerAgentIpc } from './ipc/agentIpc';
@@ -539,6 +540,10 @@ export async function setupIPC(): Promise<void> {
     if (typeof address !== 'string' || address.length > 2000) return { ok: false as const, error: 'ComfyUI address is not an address.' };
     return checkComfy(address, (...args) => globalThis.fetch(...args));
   });
+  // The only ComfyUI write: the file the person explicitly chose, sent to input without overwriting another file.
+  ipcMain.handle(IPC_CHANNELS.COMFY_UPLOAD_MEDIA, (_event, name: unknown, data: unknown) => uploadComfyMedia(
+    () => savedEndpoints().comfyOrigin || reportedComfyUrl(getDatabase()) || '', name, data,
+  ));
 
   ipcMain.handle(IPC_CHANNELS.MCP_READ, async () => {
     // "Read through MCP" is the ordinary sync: every status (indicator, welcome card, popover) then says what was

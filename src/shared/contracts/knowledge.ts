@@ -61,6 +61,8 @@ export type FieldKind = 'combo' | 'int' | 'float' | 'string' | 'boolean' | 'othe
  */
 export interface FieldSpec {
   kind: FieldKind;
+  /** A media loader's explicit file chooser, in addition to its existing-file list. */
+  fileUpload?: 'image' | 'video' | 'audio' | 'file';
   options?: string[];
   min?: number;
   max?: number;

@@ -84,6 +84,7 @@ export default function NodeLibrary() {
   const [open, setOpen] = useState<NodeClassSummary | null>(null);
   const [failed, setFailed] = useState(false);
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
+  const [searchCollapsed, setSearchCollapsed] = useState<Set<string>>(() => new Set());
   const syncPart = useKnowledgeStore((state) => `${state.sync?.lastSyncAt ?? 0}:${state.sync?.counts.nodeClasses ?? 0}`);
   const sync = useKnowledgeStore((state) => state.sync);
   const openSettings = useUiStore((state) => state.openSettings);
@@ -117,20 +118,23 @@ export default function NodeLibrary() {
   }, [query, syncStamp]);
 
   const ranked = query.trim() !== '';
-  const rows = useMemo(() => {
-    const groups = groupByCategory(nodes ?? [], { ranked, uncategorized: String(t('library.uncategorized')) });
-    return flattenGroups(groups, ranked ? new Set() : collapsed);
-  }, [nodes, ranked, collapsed, t]);
+  const groups = useMemo(() => groupByCategory(nodes ?? [], { ranked, uncategorized: String(t('library.uncategorized')) }), [nodes, ranked, t]);
+  const activeCollapsed = ranked ? searchCollapsed : collapsed;
+  const rows = useMemo(() => flattenGroups(groups, activeCollapsed), [groups, activeCollapsed]);
+  // A new search opens its matches without losing the unfiltered list's folding choices.
+  useEffect(() => setSearchCollapsed(new Set()), [query]);
+  const setGroupFolds = ranked ? setSearchCollapsed : setCollapsed;
 
   const toggle = useCallback((category: string, open?: boolean) => {
-    setCollapsed((current) => {
+    const setFolds = ranked ? setSearchCollapsed : setCollapsed;
+    setFolds((current) => {
       const next = new Set(current);
       const isCollapsed = next.has(category);
       if (open === true || (open === undefined && isCollapsed)) next.delete(category);
       else next.add(category);
       return next;
     });
-  }, []);
+  }, [ranked]);
 
   const add = (node: NodeClassSummary) => {
     const name = node.displayName || node.classType;
@@ -195,6 +199,14 @@ export default function NodeLibrary() {
           placeholder={String(t('library.searchNodes'))}
           clearLabel={String(t('library.clear'))}
         />
+        <div className={styles.groupActions} role="group" aria-label={String(t('library.groupActions'))}>
+          <Button variant="ghost" size="sm" disabled={groups.length === 0 || groups.every((group) => activeCollapsed.has(group.category))} onClick={() => setGroupFolds(new Set(groups.map((group) => group.category)))}>
+            {t('library.collapseAll')}
+          </Button>
+          <Button variant="ghost" size="sm" disabled={groups.length === 0 || groups.every((group) => !activeCollapsed.has(group.category))} onClick={() => setGroupFolds(new Set())}>
+            {t('library.expandAll')}
+          </Button>
+        </div>
       </div>
       {neverRead ? (
         <EmptyState

@@ -5,6 +5,12 @@
 Releases, newest first. Each release has full notes in `docs/releases/`.
 This file is written by `node scripts/changelog.js`: change the notes, not this file.
 
+## 1.2.1
+
+Media loaders now let you choose a file from this device, including a phone browser. The node library has **Collapse all** and **Expand all** controls. Input and output ports share the same rows, following ComfyUI's node layout. Browser access over Wi-Fi from 1.2.0 is included.
+
+Notes: [docs/releases/v1.2.1.md](docs/releases/v1.2.1.md)
+
 ## 1.2.0
 
 Open the running app from your phone or tablet over Wi-Fi. The browser shares the computer's project and assistant, with a layout that fits a phone, tablet or desktop. This version also preserves lesson edits during saves and imports, tracks explanation changes in saved projects, and reports incomplete secret removal.

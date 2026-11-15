@@ -127,6 +127,8 @@ function parseNode(classType: string, value: unknown): CatalogNode {
   const info = value as Record<string, unknown>;
   const pythonModule = pythonModuleOf(info);
   const { inputs, widgetOrder, widgetOrderReliable } = inputsOf(info);
+  // Core audio adds its chooser in the frontend extension, outside INPUT_TYPES. It adds no serialized slot.
+  if (classType === 'LoadAudio') for (const input of inputs) if (input.widget && input.name === 'audio') { input.mediaUpload = true; input.mediaType = 'audio'; }
   return {
     classType,
     pack: pythonModule,
@@ -254,7 +256,7 @@ interface ParsedSpec {
   options?: string[];
   controlDefault?: string;
   /** Field metadata a control needs (range, step, multi-line, tooltip); see fieldMeta. */
-  meta: Partial<Pick<CatalogInput, 'widgetType' | 'min' | 'max' | 'step' | 'multiline' | 'multiSelect' | 'tooltip'>>;
+  meta: Partial<Pick<CatalogInput, 'widgetType' | 'min' | 'max' | 'step' | 'multiline' | 'multiSelect' | 'tooltip' | 'mediaType' | 'mediaUpload'>>;
 }
 
 function parseSpec(name: string, spec: unknown): ParsedSpec {
@@ -312,6 +314,10 @@ function fieldMeta(linkType: string, constructorType: string, options: Record<st
   const meta: ParsedSpec['meta'] = {};
   if (typeof options.tooltip === 'string' && options.tooltip.trim() !== '') meta.tooltip = options.tooltip.trim();
   if (!widget) return meta;
+  if (options.video_upload === true) meta.mediaType = 'video';
+  else if (options.image_upload === true || options.animated_image_upload === true) meta.mediaType = 'image';
+  else if (options.audio_upload === true) { meta.mediaType = 'audio'; meta.mediaUpload = true; }
+  else if (options.file_upload === true) { meta.mediaType = 'file'; meta.mediaUpload = true; }
   if (constructorType !== linkType) meta.widgetType = constructorType;
   if (constructorType === 'INT' || constructorType === 'FLOAT') {
     const min = finiteNumber(options.min);

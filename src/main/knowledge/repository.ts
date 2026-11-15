@@ -262,14 +262,14 @@ export function nodeClassDetail(db: Database.Database, classType: string): NodeC
  */
 function detailInputs(db: Database.Database, row: NodeRow): NodeClassInput[] {
   const raw = parseArray(row.inputs_json);
-  const parsed = catalogInputsFromJson(row.inputs_json);
+  const parsed = catalogInputsFromJson(row.inputs_json, row.class_type);
   const hasCombo = parsed.some((input) => input.widget && Array.isArray(input.options) && input.options.length > 0);
   const modelsByName = hasCombo ? modelNameIndex(db) : new Map<string, string[]>();
   return parsed.map((input) => {
     const stored = record(raw.find((item) => record(item)?.name === input.name));
     const out: NodeClassInput = { name: input.name, type: input.type, widget: input.widget, required: stored?.required !== false };
     if (input.tooltip) out.tooltip = input.tooltip;
-    const spec = fieldSpecOf(input);
+    const spec = fieldSpecOf(input, row.class_type);
     if (spec) {
       if (spec.kind === 'combo') {
         const directory = modelDirectoryOf(spec.options, modelsByName, modelDirectoryFor(row.class_type, input.name));

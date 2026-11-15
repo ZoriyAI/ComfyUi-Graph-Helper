@@ -35,6 +35,8 @@ export interface CatalogInput {
   multiSelect?: boolean;
   /** A file-upload combo: a newly uploaded file need not be in the last catalog listing. */
   mediaUpload?: boolean;
+  /** The file picker filter; independent of the serialized upload-button slot. */
+  mediaType?: 'image' | 'video' | 'audio' | 'file';
   /** object_info `tooltip`: the node author's one-line help for this input. Kept on sockets too. */
   tooltip?: string;
 }

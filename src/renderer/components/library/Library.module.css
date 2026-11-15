@@ -1,6 +1,8 @@
 /* The library rail tabs (NodeLibrary, ModelLibrary, SubgraphLibrary): search and filters, rows, chips, thumbnails. */
 .pane { display: flex; flex-direction: column; min-height: 0; min-width: 0; flex: 1 1 auto; gap: 8px; }
 .controls { display: flex; flex-direction: column; gap: 6px; padding: 0 10px; }
+.groupActions { display: flex; flex-wrap: wrap; gap: 4px; }
+.groupActions > button { flex: 1 1 auto; min-width: 0; }
 /* Filter selects side by side: labels on one line, controls the same height, aligned on one baseline. */
 .filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; align-items: end; }
 .filters :global(.field) { gap: 2px; min-width: 0; }

@@ -55,6 +55,12 @@ export async function installBrowserBridge(bootstrap: { platform?: string; versi
   };
   const api: Record<string, any> = {
     platform: bootstrap.platform ?? 'linux', versions: bootstrap.versions ?? {}, flags: bootstrap.flags ?? {},
+    uploadNodeFile: async (name: string, data: ArrayBuffer) => {
+      const response = await fetch(`/browser/media?name=${encodeURIComponent(name)}`, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: data });
+      if (response.status === 401) window.dispatchEvent(new CustomEvent(BROWSER_CONNECTION, { detail: 'unpaired' }));
+      if (!response.ok) return { ok: false, error: response.status === 413 ? 'large' : 'failed' };
+      return (await response.json()).value;
+    },
     setInterfaceScale: () => undefined,
     onSyncEvent: (listener: (payload: unknown) => void) => subscribe(IPC_CHANNELS.SYNC_EVENT, listener),
     onProposalsEvent: (listener: (payload: unknown) => void) => subscribe(IPC_CHANNELS.PROPOSALS_EVENT, listener),

@@ -59,6 +59,7 @@ export const IPC_CHANNELS = {
   SECRETS_INVENTORY: 'secrets:inventory',
   SETTINGS_SECRET_STATUS: 'settings:secret-status',
   COMFY_CHECK: 'comfy:check',
+  COMFY_UPLOAD_MEDIA: 'comfy:upload-media',
   MCP_READ: 'mcp:read',
   MCP_SET_TOKEN: 'mcp:set-token',
   MCP_TOKEN_STATUS: 'mcp:token-status',

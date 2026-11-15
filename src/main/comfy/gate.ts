@@ -1,10 +1,11 @@
 /**
  * The read-only gate for ComfyUI's own HTTP API, as strict as the MCP one (main/mcp/readOnly.ts).
  *
- * Every request the app makes to a ComfyUI address goes through `comfyGet`, and `comfyGet` can only build URLs from
+ * Catalog, metadata and preview requests go through `comfyGet`, and `comfyGet` can only build URLs from
  * the closed list of read routes below: GET only, no body, no redirect followed, a byte cap and a time limit per
  * route. A route that queues a prompt, uploads, frees memory, interrupts, deletes or writes history, writes user
- * data or settings, or installs anything has no constructor here and cannot be asked for.
+ * data or settings, or installs anything has no constructor here and cannot be asked for. The separate
+ * upload.ts module accepts only an explicit user-selected file for the fixed input upload route.
  * Callers: comfy/direct.ts (catalog read, metadata, previews) and comfy/read.ts (the object_info read the MCP
  * client does when a server names its ComfyUI). The product rule behind it: the tutor never changes ComfyUI.
  *

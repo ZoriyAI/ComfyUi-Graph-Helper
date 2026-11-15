@@ -12,10 +12,10 @@
 
 NodeWise Studio helps you learn ComfyUI and understand its graphs: it reads a running ComfyUI, explains every node and
 link, teaches with lessons you do by hand, and has an assistant that explains and builds step by step. It is for
-people new to ComfyUI and for anyone who wants to know why a graph works. It only reads ComfyUI and never changes it.
+people new to ComfyUI and for anyone who wants to know why a graph works. Catalog reads do not change ComfyUI. Choosing a file in a media loader uploads only that file to its input folder.
 
 NodeWise is an independent, experimental learning tool. It is not affiliated with or endorsed by Comfy Org. It
-contains no ComfyUI code and only reads a running ComfyUI; it never changes it.
+contains no ComfyUI code. It reads a running ComfyUI and uploads media only when you choose a file.
 
 ## Screenshots
 
