@@ -1,3 +1,8 @@
+/**
+ * Protects the live context the assistant gets each turn: every field of every node with secrets redacted, the
+ * person's recent actions in words, what is on screen, and the recent command list it is built from. When a person
+ * asks "why does this not work", the answer is only as good as this picture of what they did and see.
+ */
 import Database from 'better-sqlite3';
 import { describe, expect, it, vi } from 'vitest';
 import { buildSystemPrompt, buildTurnData, recentText, viewportText } from '../../../src/main/agent/prompt';
@@ -11,6 +16,7 @@ import type { GraphMutation } from '../../../src/shared/commands/types';
 import { DESKTOP_PROJECT_ID } from '../../../src/shared/project';
 import { fakeKnowledge, fakeProposals } from './fakes';
 
+/** A fresh in-memory database with the schema and the desktop workspace. */
 function openDb(): Database.Database {
   const db = new Database(':memory:');
   migrate(db);
@@ -19,6 +25,7 @@ function openDb(): Database.Database {
 }
 
 let counter = 0;
+/** Commits a change as the person would make it by hand and returns the command result. */
 function manual(db: Database.Database, payload: GraphMutation) {
   const current = readProjection(db, DESKTOP_PROJECT_ID)!;
   counter += 1;
@@ -29,8 +36,10 @@ function manual(db: Database.Database, payload: GraphMutation) {
   return outcome.result as Record<string, unknown>;
 }
 
+/** A long prompt text, still under the length at which the prompt shortens a value. */
 const LONG = 'a cat on a sofa '.repeat(30);
 
+/** A small graph with positions, a size, a pinned bypassed node, a secret-looking field, a group and a subgraph. */
 const SNAPSHOT = {
   nodes: [
     { id: '2', position: { x: 10.4, y: 20.6 }, data: { comfyType: 'CLIPTextEncode', title: 'Positive', outputs: [{ id: 'out-0', name: 'CONDITIONING', dataType: 'CONDITIONING' }], parameters: { text: LONG } } },
@@ -87,6 +96,7 @@ describe('prompt: recent actions and what is on screen', () => {
     const summary = summarizeGraph(SNAPSHOT);
     const line = recentActionsText(commands, summary, ['2', '3']);
     expect(line).toBe('connected 2:CONDITIONING → 4:positive; set 4.steps = 30; moved node 4 to (780,120); set 2.text = [redacted]; selected nodes 2, 3');
+    // Only the person's own actions are described; the assistant's add-node is left out.
     expect(line).not.toContain('VAEDecode');
     expect(describeCommand({ ...commands[0], type: 'import-workflow', payload: { type: 'import-workflow' } }, null)).toBe('imported a workflow');
     const context = parseTurnContext({ intent: 'chat', selection: [{ kind: 'node', id: '2' }, { kind: 'node', id: '3' }] }, 'en');

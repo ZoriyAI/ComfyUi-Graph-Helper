@@ -1,3 +1,9 @@
+/**
+ * Protects Preferences > Assistant and Privacy as the assistant really applies them: the default intent, answer
+ * language and length, the web switches, the step limit and whether field values leave the computer. The settings
+ * are read from the stored row on each turn. A person who turns off field values or the web must be able to trust
+ * that the next turn honours it, including for recent edits inside subgraphs and batches.
+ */
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import { buildSystemPrompt, buildTurnData } from '../../../src/main/agent/prompt';
@@ -14,11 +20,13 @@ import { DESKTOP_PROJECT_ID } from '../../../src/shared/project';
 import { fakeKnowledge, fakeProposals } from './fakes';
 import { INNER_ID, nestedSubgraphWorkflow } from '../../e2e/fixtures/nestedSubgraphWorkflow';
 
+/** One prompt node whose text shows up in the prompt only when field values are allowed. */
 const SNAPSHOT = {
   nodes: [{ id: 'node-1', data: { comfyType: 'CLIPTextEncode', title: 'Prompt', parameters: { text: 'a red fox in snow' } } }],
   edges: [],
 };
 
+/** A fresh in-memory database with the schema and the desktop workspace. */
 function openDb(): Database.Database {
   const db = new Database(':memory:');
   migrate(db);
@@ -90,6 +98,7 @@ describe('agent turn reads preferences from the settings row', () => {
     vi.restoreAllMocks();
   });
 
+  // Runs one chat turn with a model stub that records the options, tools, system text and person messages it got.
   async function turnWith(db: Database.Database) {
     const run = startRun(db, DESKTOP_PROJECT_ID);
     const seen: { options?: StreamOptions; tools?: string[]; system?: string; users: string[]; nativeAsked: number } = { users: [], nativeAsked: 0 };
@@ -262,6 +271,7 @@ describe('llm service: step limit, tool filter, probe', () => {
   it('probes the draft runtime with one injected request and reports latency', async () => {
     const service = new MainLLMService();
     const generate = vi.fn(async () => ({ text: 'pong' }));
+    // Each reading of the clock moves it 37 ms, so the reported latency is exactly one step.
     let clock = 1000;
     const now = () => (clock += 37);
     service.setSessionKey('anthropic', 'probe-key-value-123');

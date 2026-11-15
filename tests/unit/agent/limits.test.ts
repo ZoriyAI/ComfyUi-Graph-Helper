@@ -1,3 +1,9 @@
+/**
+ * Protects the assistant's size limits: the graph goes into the prompt whole (compact past a size), getGraph and the
+ * catalog searches have no maximum page, a turn pauses at the step limit and Continue finishes it, old messages are
+ * dropped by the model's context window with a note, and fetched pages have stated caps. A person with a large
+ * graph or a long build relies on the assistant seeing all of it and stopping only where they can resume.
+ */
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { runAgentTurn } from '../../../src/main/agent/turn';
@@ -17,6 +23,7 @@ import { BUILD_TOOL_SPECS } from '../../../src/shared/commands/toolSpecs';
 import { DESKTOP_PROJECT_ID } from '../../../src/shared/project';
 import { fakeKnowledge, fakeProposals } from './fakes';
 
+/** A fresh in-memory database with the schema and the desktop workspace. */
 function openDb(): Database.Database {
   const db = new Database(':memory:');
   migrate(db);
@@ -24,6 +31,7 @@ function openDb(): Database.Database {
   return db;
 }
 
+/** A straight chain of `count` KSamplers, each with a title and two fields, linked one to the next. */
 const graph = (count: number) => ({
   nodes: Array.from({ length: count }, (_, index) => ({
     id: `n${index}`,
@@ -86,6 +94,7 @@ describe('graph context without a cap', () => {
   it('shortens a very long value in the prompt only, and says so', () => {
     const snapshot = { nodes: [{ id: 'a', data: { comfyType: 'Note', parameters: { text: 'x'.repeat(2500) } } }], edges: [] };
     const text = graphSummaryText(summarizeGraph(snapshot));
+    // The prompt keeps 2000 characters of a value; getGraph still returns it whole.
     expect(text).toContain('… [+500 chars]');
   });
 });
@@ -120,6 +129,7 @@ describe('step checkpoint', () => {
       vi.restoreAllMocks();
     });
 
+    // Runs one build turn with the default preferences (step limit 60) and returns every chunk sent.
     async function turn(db: Database.Database, run: { runId: string; expectedRevisionId: string }, messages: Array<{ role: string; content: string }>) {
       const chunks: Array<{ type: string; content?: any }> = [];
       await runAgentTurn({
@@ -216,6 +226,7 @@ describe('history by context window', () => {
     const run = startRun(db, DESKTOP_PROJECT_ID);
     const systems: string[] = [];
     const sent: number[] = [];
+    // Ten long messages do not fit a 16k window, so some must be left out.
     const long = Array.from({ length: 10 }, (_, index) => ({ role: index % 2 === 0 ? 'user' : 'assistant', content: `${index} `.repeat(4_000) }));
     await runAgentTurn({
       db,
@@ -239,6 +250,7 @@ describe('history by context window', () => {
     });
     mainLLMService.setConfig({ provider: '' });
     vi.restoreAllMocks();
+    // Eleven dialog messages were given; fewer reached the model (the one system message is not counted).
     expect(sent[0]).toBeLessThan(11);
     const omitted = 11 - sent[0];
     expect(systems[0]).toContain(`${omitted} earlier messages were left out`);
@@ -249,6 +261,7 @@ describe('catalog searches: no maximum, and "more" when the list goes on', () =>
   it('returns the default 20 with more: true, and any larger limit the model asks for', async () => {
     const db = openDb();
     const rows = Array.from({ length: 75 }, (_, index) => ({ classType: `Node${index}` }));
+    // 75 classes, more than the tool's default of 20, so the result must say there is more.
     const knowledge = { ...fakeKnowledge(), searchNodeClasses: (_db: unknown, request: { limit?: number }) => rows.slice(0, request.limit ?? 30) } as any;
     const tools = createAgentTools({ db, projectId: DESKTOP_PROJECT_ID, runId: null, revision: 'r', knowledge, proposals: fakeProposals() });
     const call = (args: unknown) => (tools.searchNodeTypes as AgentToolDefinition).execute(args) as Promise<any>;

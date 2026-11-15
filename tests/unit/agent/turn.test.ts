@@ -1,3 +1,9 @@
+/**
+ * Protects one whole assistant turn as the llm:stream-chat handler runs it, with the offline test model: a build
+ * commits and streams its chunks in order, a chat turn only proposes ghosts, explain saves through the main tool,
+ * and a blocked provider ends in one clear error. This is the order the chat panel and canvas rely on to show a
+ * person what happened.
+ */
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { runAgentTurn } from '../../../src/main/agent/turn';
@@ -8,6 +14,7 @@ import { DESKTOP_PROJECT_ID } from '../../../src/shared/project';
 import { IPC_CHANNELS } from '../../../src/shared/ipc-channels';
 import { fakeKnowledge, fakeProposals } from './fakes';
 
+/** Tool specs as the renderer sends them; the turn must take only build tools from this list. */
 const RENDERER_SPECS = [
   { name: 'addNode', description: 'Add a node', parameters: { type: 'object', properties: { nodeType: { type: 'string' }, title: { type: 'string' }, x: { type: 'number' }, y: { type: 'number' } }, required: ['nodeType'] } },
   { name: 'annotateNode', description: 'Annotate', parameters: { type: 'object', properties: { nodeId: { type: 'string' }, annotation: { type: 'string' } }, required: ['nodeId', 'annotation'] } },
@@ -15,6 +22,7 @@ const RENDERER_SPECS = [
   { name: 'explain', description: 'renderer explain', parameters: { type: 'object', properties: {} } },
 ];
 
+/** A fresh in-memory database with the schema and the desktop workspace. */
 function openDb(): Database.Database {
   const db = new Database(':memory:');
   migrate(db);
@@ -22,6 +30,7 @@ function openDb(): Database.Database {
   return db;
 }
 
+/** Runs one turn on a fresh database through the real LLM service and records chunks, pushes and messages sent. */
 async function turn(text: string, extra: Partial<Parameters<typeof runAgentTurn>[0]> = {}) {
   const db = openDb();
   const run = startRun(db, DESKTOP_PROJECT_ID);

@@ -1,7 +1,14 @@
+/**
+ * Protects how a failed assistant turn is explained: provider errors are sorted into a few kinds (key, rate, server,
+ * unreachable and so on), a Retry-After wait is read in its three forms, details are short and redacted, and a local
+ * server that answers with HTML or 429 is reported once and correctly. The chat shows a person the next step from
+ * this kind, so a wrong kind sends them to fix the wrong thing.
+ */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { classifyTurnError, parseTurnError, retryAfterSeconds } from '../../../src/shared/agent/turnError';
 import { mainLLMService } from '../../../src/main/llmService';
 
+/** An error shaped like the AI SDK's API call error, with a status and response headers. */
 function apiError(statusCode: number, message: string, responseHeaders: Record<string, string> = {}) {
   return Object.assign(new Error(message), { name: 'AI_APICallError', statusCode, responseHeaders });
 }
@@ -53,6 +60,7 @@ describe('classifyTurnError', () => {
 describe('a local server reply', () => {
   afterEach(() => { vi.restoreAllMocks(); });
 
+  // Streams one local-server turn against the given fake reply and collects every part, or the classified throw.
   async function drain(response: () => Response): Promise<Array<{ type: string; content: any }>> {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async () => response());
     vi.spyOn(console, 'log').mockImplementation(() => undefined);

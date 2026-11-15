@@ -1,3 +1,9 @@
+/**
+ * Protects the assistant's web access in the main process: the fallback DuckDuckGo search and its lite page, the
+ * page reader with its redirect, size and type limits, and the address checks that keep it off this computer, the
+ * local network, the person's ComfyUI and the MCP server, even through DNS tricks. A person's local services and
+ * files must never be reachable through a link the assistant was given.
+ */
 import fs from 'fs';
 import path from 'path';
 import { describe, expect, it } from 'vitest';
@@ -28,6 +34,7 @@ import {
 import http from 'http';
 import type { AddressInfo } from 'net';
 
+/** A saved DuckDuckGo HTML results page with an ad, a bad link and a result without a snippet. */
 const FIXTURE = fs.readFileSync(path.join(__dirname, '../../fixtures/agent/ddg-results.html'), 'utf8');
 
 interface Seen { url: string; init?: RequestInit }
@@ -38,6 +45,7 @@ function stubLookup(table: Record<string, string[]> = {}): LookupAll {
 }
 const PUBLIC = { lookup: stubLookup() };
 
+/** A fetch that answers known URLs from `routes`, 404 for the rest, and records each request in `seen`. */
 function fakeFetch(routes: Record<string, () => Response>, seen: Seen[] = []): FetchLike {
   return async (url, init) => {
     seen.push({ url, init });
@@ -132,6 +140,7 @@ describe('page text', () => {
     await expect(fetchPageText('http://127.0.0.1:18188/', inward, PUBLIC)).rejects.toThrow('Only public http(s) addresses can be read.');
   });
 
+  // The byte cap is PAGE_BYTE_CAP (10 MB now); the test name keeps an older figure.
   it('caps the body at 2 MB and refuses binary pages', async () => {
     const big = 'a'.repeat(PAGE_BYTE_CAP + 1000);
     const fetchImpl = fakeFetch({
@@ -163,6 +172,7 @@ describe('fallback search', () => {
 });
 
 describe('address checks', () => {
+  // Names that look public but resolve to loopback, a private range, NAT64 or a benchmark range.
   const rebinding = stubLookup({
     '127.0.0.1.nip.io': ['127.0.0.1'],
     'localtest.me': ['127.0.0.1', '::1'],

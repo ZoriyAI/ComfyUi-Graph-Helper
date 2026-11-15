@@ -1,3 +1,9 @@
+/**
+ * Protects Pause and Stop during an assistant build: the next step waits while the run is paused and lands on the
+ * revision the person left after Continue, Stop, an abort, a new project or a storage failure end the build cleanly,
+ * and the build's steps share a run id so one Undo takes the whole build back. A person who pauses to look or edit
+ * must not have the assistant keep changing the canvas.
+ */
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createBuildTools, waitWhilePaused } from '../../../src/main/agent/buildTools';
@@ -8,6 +14,7 @@ import { BUILD_TOOL_SPECS } from '../../../src/shared/commands/toolSpecs';
 import { DESKTOP_PROJECT_ID } from '../../../src/shared/project';
 import { planUndo, EMPTY_SESSION } from '../../../src/renderer/state/undoState';
 
+/** A fresh in-memory database with the schema and the desktop workspace. */
 function openDb(): Database.Database {
   const db = new Database(':memory:');
   migrate(db);
@@ -27,6 +34,7 @@ describe('a paused build holds its next step', () => {
     const tools = createBuildTools(BUILD_TOOL_SPECS, {
       db,
       run: context,
+      // The injected sleep is the wait loop's only clock, so each call is one poll of the paused run.
       sleep: async () => {
         ticks += 1;
         // The person edits by hand during the pause, then presses Continue.
@@ -75,6 +83,7 @@ describe('a paused build holds its next step', () => {
     const run = startRun(db, DESKTOP_PROJECT_ID);
     const context = { projectId: DESKTOP_PROJECT_ID, runId: run.runId, expectedRevisionId: run.expectedRevisionId };
     pauseRun(db, DESKTOP_PROJECT_ID, run.runId);
+    // keepPaused is true when the turn ended at a checkpoint; then the paused run stays open for Continue.
     expect(closeIfRunning(db, context, true)?.activeRun?.status).toBe('paused');
     expect(closeIfRunning(db, context)?.activeRun ?? null).toBeNull();
   });
@@ -109,6 +118,7 @@ describe('a paused build holds its next step', () => {
       onStorageFailure: (error) => stopped.push(error),
     });
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    // A read-only database makes the next commit fail the way a full or locked disk would.
     db.pragma('query_only = ON');
     const result = await tools.addNode.execute({ nodeType: 'KSampler' }, { toolCallId: 'z' }) as Record<string, unknown>;
     expect(result).toMatchObject({ success: false, stopped: true, error: 'The change could not be stored.' });
