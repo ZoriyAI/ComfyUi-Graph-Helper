@@ -3,7 +3,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { topologicalOrder, incomingEdgeIds } from '../../src/renderer/components/graph/lib/topology';
 import { buildTour, firstExplanation, stepIndexOf, type TourNode } from '../../src/renderer/components/graph/tour/buildTour';
-import { connectCandidates, connectMutation, portKey } from '../../src/renderer/components/graph/lib/connectAssist';
+import { connectCandidates, connectMutation, portKey, type AssistNode } from '../../src/renderer/components/graph/lib/connectAssist';
 import { dropToAddNode, loaderForModel, MODEL_DRAG_TYPE, NODE_DRAG_TYPE } from '../../src/renderer/components/graph/lib/modelLoaders';
 import { boundsOf, ghostNodePosition, ghostSpotFree, groupRect, parameterPill, subgraphGhostRect, unplacedOrder } from '../../src/renderer/components/graph/lib/geometry';
 import { clampIndex, nextPlayIndex, playStartIndex, stepReplay } from '../../src/renderer/components/graph/lib/replay';
@@ -97,7 +97,8 @@ describe('buildTour', () => {
 });
 
 describe('connect assist', () => {
-  const nodes = txt2img().nodes.map((node) => ({ id: node.id, position: node.position, data: node.data }));
+  // The tour's nodes carry every port id the canvas gives them; the assist reads the same shape.
+  const nodes = txt2img().nodes.map((node) => ({ id: node.id, position: node.position, data: node.data })) as AssistNode[];
   const edges = txt2img().edges;
 
   it('lights compatible inputs for an output, prefers a free nearby one, and dims the rest', () => {
@@ -177,10 +178,10 @@ describe('ghost and group geometry', () => {
   ];
 
   it('places add-node ghosts at their position, else stacked right of the graph', () => {
-    expect(ghostNodePosition({ type: 'add-node', nodeType: 'X', x: 5, y: 600 }, nodes)).toEqual({ x: 5, y: 600 });
-    expect(ghostNodePosition({ type: 'add-node', nodeType: 'X' }, nodes, 0)).toEqual({ x: 620, y: 0 });
-    expect(ghostNodePosition({ type: 'add-node', nodeType: 'X' }, nodes, 1)).toEqual({ x: 620, y: 232 });
-    expect(ghostNodePosition({ type: 'add-node', nodeType: 'X' }, [], 0)).toEqual({ x: 0, y: 0 });
+    expect(ghostNodePosition({ x: 5, y: 600 }, nodes)).toEqual({ x: 5, y: 600 });
+    expect(ghostNodePosition({}, nodes, 0)).toEqual({ x: 620, y: 0 });
+    expect(ghostNodePosition({}, nodes, 1)).toEqual({ x: 620, y: 232 });
+    expect(ghostNodePosition({}, [], 0)).toEqual({ x: 0, y: 0 });
   });
 
   it('knows when a spot a ghost took earlier has a node under it now', () => {
@@ -189,16 +190,16 @@ describe('ghost and group geometry', () => {
     // A build tidied the graph and a node moved there: the ghost has to find another spot.
     const moved = [...nodes, { id: 'c', position: { x: 640, y: 40 }, measured: { width: 240, height: 180 } }];
     expect(ghostSpotFree({ x: 620, y: 0 }, moved)).toBe(false);
-    const next = ghostNodePosition({ type: 'add-node', nodeType: 'X', x: 620, y: 0 }, moved);
+    const next = ghostNodePosition({ x: 620, y: 0 }, moved);
     expect(ghostSpotFree(next, moved)).toBe(true);
   });
 
   it('never puts a ghost on top of a node', () => {
     // A proposed position on node a moves to free space right of the graph.
-    expect(ghostNodePosition({ type: 'add-node', nodeType: 'X', x: 5, y: 6 }, nodes)).toEqual({ x: 620, y: 0 });
+    expect(ghostNodePosition({ x: 5, y: 6 }, nodes)).toEqual({ x: 620, y: 0 });
     // With a selection the ghost goes right of the selected node, below anything in that column.
     const selected = [{ ...nodes[0], selected: true }, nodes[1]];
-    expect(ghostNodePosition({ type: 'add-node', nodeType: 'X' }, selected)).toEqual({ x: 280, y: 202 });
+    expect(ghostNodePosition({}, selected)).toEqual({ x: 280, y: 202 });
   });
 
   it('numbers only unplaced add-node ghosts', () => {

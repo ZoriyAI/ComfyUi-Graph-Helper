@@ -33,11 +33,11 @@ describe('Check: what the server wants becomes the choice and one sentence', () 
 
 describe('token status line', () => {
   it('says where the token is', () => {
-    expect(tokenPlaceKey({ held: false, source: 'none', stored: false })).toBe('settings.tokenPlaceNone');
-    expect(tokenPlaceKey({ held: true, source: 'session', stored: false })).toBe('settings.tokenPlaceSession');
-    expect(tokenPlaceKey({ held: true, source: 'os', stored: true })).toBe('settings.tokenPlaceOs');
+    expect(tokenPlaceKey({ held: false, source: 'none', stored: false, inFile: false })).toBe('settings.tokenPlaceNone');
+    expect(tokenPlaceKey({ held: true, source: 'session', stored: false, inFile: false })).toBe('settings.tokenPlaceSession');
+    expect(tokenPlaceKey({ held: true, source: 'os', stored: true, inFile: false })).toBe('settings.tokenPlaceOs');
     // Saved for the stored address but not loaded into memory yet: still "saved".
-    expect(tokenPlaceKey({ held: false, source: 'none', stored: true })).toBe('settings.tokenPlaceOs');
+    expect(tokenPlaceKey({ held: false, source: 'none', stored: true, inFile: false })).toBe('settings.tokenPlaceOs');
   });
 });
 

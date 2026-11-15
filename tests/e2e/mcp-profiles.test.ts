@@ -12,7 +12,7 @@ import { startPublicMcp } from '../fixtures/mcp/fakePublicMcp';
  * gives its model list while the nodes come from the ComfyUI address.
  */
 async function launch(userData: string): Promise<{ app: ElectronApplication; window: Page }> {
-  const env = { ...process.env, NODE_ENV: 'production' };
+  const env = { ...process.env, NODE_ENV: 'production' } as Record<string, string>;
   delete env.DBUS_SESSION_BUS_ADDRESS;
   delete env.GNOME_KEYRING_CONTROL;
   const app = await electron.launch({ args: [path.join(__dirname, '../../dist/main/index.js'), `--user-data-dir=${userData}`], env });

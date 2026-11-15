@@ -13,7 +13,7 @@ import {
 import { loaderFieldFor, loaderForModel, MODEL_DRAG_TYPE, modelFromDrop, NODE_DRAG_TYPE } from '../../src/renderer/components/graph/lib/modelLoaders';
 
 function model(directory: string, name: string, kind: ModelSummary['kind'], baseModel: ModelSummary['baseModel'], sizeBytes: number | null = 1): ModelSummary {
-  return { directory, name, kind, baseModel, sizeBytes, enriched: true };
+  return { directory, name, kind, baseModel, sizeBytes, enriched: true, title: '', preview: null, mature: false };
 }
 
 const CATALOG: ModelSummary[] = [
@@ -87,7 +87,7 @@ describe('putting a model on the canvas', () => {
   });
 
   it('reads a model drag and gives it the core loader with the file chosen', () => {
-    const payload = { [MODEL_DRAG_TYPE]: JSON.stringify({ directory: 'loras', name: 'x.safetensors' }) };
+    const payload: Record<string, string> = { [MODEL_DRAG_TYPE]: JSON.stringify({ directory: 'loras', name: 'x.safetensors' }) };
     expect(modelFromDrop((type) => payload[type] ?? '')).toEqual({ directory: 'loras', name: 'x.safetensors' });
     expect(modelFromDrop((type) => (type === NODE_DRAG_TYPE ? '{"classType":"KSampler"}' : ''))).toBeNull();
     expect(modelFromDrop(() => 'not json')).toBeNull();

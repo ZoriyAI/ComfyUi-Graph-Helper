@@ -47,7 +47,7 @@ async function loaders(window: Page): Promise<Array<Record<string, unknown>>> {
 test('model card: explains a LoRA and a checkpoint and puts the file on the canvas', async () => {
   const fake = await startFakeMcp();
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'model-card-'));
-  const env = { ...process.env, NODE_ENV: 'production' };
+  const env = { ...process.env, NODE_ENV: 'production' } as Record<string, string>;
   delete env.DBUS_SESSION_BUS_ADDRESS;
   delete env.GNOME_KEYRING_CONTROL;
   const app = await electron.launch({ args: [path.join(__dirname, '../../dist/main/index.js'), `--user-data-dir=${userData}`], env });
@@ -161,7 +161,7 @@ test('model card: shows what lies next to a file, and content marked as adult on
   test.setTimeout(180_000);
   const fake = await startFakeMcp();
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'model-notes-'));
-  const env = { ...process.env, NODE_ENV: 'production' };
+  const env = { ...process.env, NODE_ENV: 'production' } as Record<string, string>;
   delete env.DBUS_SESSION_BUS_ADDRESS;
   delete env.GNOME_KEYRING_CONTROL;
   const app = await electron.launch({ args: [path.join(__dirname, '../../dist/main/index.js'), `--user-data-dir=${userData}`], env });
@@ -303,7 +303,7 @@ test('model card: a file nothing describes is looked up on the internet when the
   const web = await startFakeModelWeb();
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'model-web-'));
   // A test build reads this to ask the fake of Civitai and Hugging Face; a packaged app never does.
-  const env = { ...process.env, NODE_ENV: 'production', GRAPH_HELPER_TEST_MODEL_WEB: web.origin };
+  const env = { ...process.env, NODE_ENV: 'production', GRAPH_HELPER_TEST_MODEL_WEB: web.origin } as Record<string, string>;
   delete env.DBUS_SESSION_BUS_ADDRESS;
   delete env.GNOME_KEYRING_CONTROL;
   const app = await electron.launch({ args: [path.join(__dirname, '../../dist/main/index.js'), `--user-data-dir=${userData}`], env });

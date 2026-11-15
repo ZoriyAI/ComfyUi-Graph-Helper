@@ -4,6 +4,11 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    // The default 5 s is a speed check in disguise: a sync against the fake servers (syncAddress) or the first import
+    // of the main-process modules (logPrivacy) takes 1–3 s on a quiet machine and more than 5 s on a busy one.
+    // A hang still fails, a little later.
+    testTimeout: 30_000,
+    hookTimeout: 30_000,
     include: ['tests/**/*.test.ts'],
     exclude: ['tests/e2e/**', 'node_modules/**'],
     reporters: ['default', 'json'],

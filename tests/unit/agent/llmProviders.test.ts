@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import { MainLLMService } from '../../../src/main/llmService';
 import { nonSecretSettingsSchema, nonSecretDefaults } from '../../../src/shared/config/schema';
 
@@ -12,7 +12,7 @@ const CLOUD = [
 ] as const;
 
 describe('chat providers', () => {
-  let fetchSpy: ReturnType<typeof vi.spyOn>;
+  let fetchSpy: MockInstance<typeof fetch>;
   let service: MainLLMService;
 
   beforeEach(() => {

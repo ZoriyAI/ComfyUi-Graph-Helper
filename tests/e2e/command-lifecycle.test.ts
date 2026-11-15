@@ -40,7 +40,9 @@ async function dbState(projectId: string) {
   }, { id: projectId, appRoot });
 }
 
-async function api(method: string, args: unknown[]) {
+// The bridge answers differ per method; the scenarios below read them field by field.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function api(method: string, args: unknown[]): Promise<any> {
   return window.evaluate(
     async ({ method, args }) => {
       const bridge = (window as unknown as { electronAPI: Record<string, (...values: unknown[]) => Promise<unknown>> }).electronAPI;

@@ -34,7 +34,7 @@ test('first run: connect, sync from MCP, browse the library, build, check and ex
   const fake = await startFakeMcp({ token: TOKEN });
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'first-run-sync-'));
   const exportPath = path.join(userData, 'first-run-workflow.json');
-  const env = { ...process.env, NODE_ENV: 'production' };
+  const env = { ...process.env, NODE_ENV: 'production' } as Record<string, string>;
   delete env.DBUS_SESSION_BUS_ADDRESS;
   delete env.GNOME_KEYRING_CONTROL;
   const app = await electron.launch({

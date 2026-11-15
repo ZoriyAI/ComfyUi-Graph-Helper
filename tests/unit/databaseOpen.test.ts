@@ -72,7 +72,7 @@ describe('opening the profile database', () => {
       if (version >= 1) {
         const settings = readSettings(db);
         expect(settings.source, `from version ${version}`).toBe('stored');
-        expect(settings.values?.model).toBe('stored-model');
+        expect(settings.source === 'stored' ? settings.values.model : null).toBe('stored-model');
       }
       // The upgraded database works: the workspace and a first change.
       ensureWorkspace(db);

@@ -40,7 +40,7 @@ test('live local model adds a loader and the export keeps its parameter', async 
       python_module: 'nodes',
     },
   }));
-  const env = { ...process.env, NODE_ENV: 'production' };
+  const env = { ...process.env, NODE_ENV: 'production' } as Record<string, string>;
   delete env.DBUS_SESSION_BUS_ADDRESS;
   delete env.GNOME_KEYRING_CONTROL;
   const electronApp = await electron.launch({

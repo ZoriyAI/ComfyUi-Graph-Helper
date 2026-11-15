@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import { buildSystemPrompt, buildTurnData } from '../../../src/main/agent/prompt';
 import { createAgentTools } from '../../../src/main/agent/tools';
 import { runAgentTurn } from '../../../src/main/agent/turn';
@@ -228,7 +228,7 @@ describe('agent turn reads preferences from the settings row', () => {
 });
 
 describe('llm service: step limit, tool filter, probe', () => {
-  let fetchSpy: ReturnType<typeof vi.spyOn>;
+  let fetchSpy: MockInstance<typeof fetch>;
   beforeEach(() => {
     fetchSpy = vi.spyOn(globalThis, 'fetch');
     vi.spyOn(console, 'log').mockImplementation(() => undefined);

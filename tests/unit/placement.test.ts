@@ -164,10 +164,10 @@ describe('accepting an add-node ghost', () => {
   it('lands where the canvas showed it, or in a free spot when no spot was sent', () => {
     const db = openDb();
     manual(db, 'a', { type: 'add-node', nodeType: 'KSampler', x: 0, y: 0 });
-    const shown = createProposal(db, { projectId: P, kind: 'add-node', payload: { type: 'add-node', nodeType: 'VAEDecode', x: 0, y: 0 }, note: '' });
+    const shown = createProposal(db, { projectId: P, runId: null, kind: 'add-node', payload: { type: 'add-node', nodeType: 'VAEDecode', x: 0, y: 0 }, note: '' });
     resolveProposal(db, { projectId: P, proposalId: shown.id, decision: 'accept', at: { x: 812.4, y: 40 } });
     expect(nodesOf(db).at(-1)!.position).toEqual({ x: 812, y: 40 });
-    const blind = createProposal(db, { projectId: P, kind: 'add-node', payload: { type: 'add-node', nodeType: 'VAEDecode', x: 0, y: 0 }, note: '' });
+    const blind = createProposal(db, { projectId: P, runId: null, kind: 'add-node', payload: { type: 'add-node', nodeType: 'VAEDecode', x: 0, y: 0 }, note: '' });
     resolveProposal(db, { projectId: P, proposalId: blind.id, decision: 'accept' });
     expectNoOverlap(nodesOf(db));
     db.close();
@@ -177,6 +177,7 @@ describe('accepting an add-node ghost', () => {
     const db = openDb();
     manual(db, 'a', { type: 'add-node', nodeType: 'KSampler', x: 420, y: 200 });
     const round = () => ['KSampler', 'VAEDecode', 'SaveImage'].map((nodeType, index) => createProposal(db, {
+      runId: null,
       projectId: P, kind: 'add-node', payload: { type: 'add-node', nodeType, x: 420 + index * 380, y: 200 }, note: '',
     }));
     for (let pass = 0; pass < 2; pass += 1) {
@@ -192,7 +193,7 @@ describe('accepting an add-node ghost', () => {
       expectNoOverlap(nodesOf(db));
     }
     // The canvas drew a ghost on a spot an earlier acceptance has taken since: it lands next to it instead.
-    const late = createProposal(db, { projectId: P, kind: 'add-node', payload: { type: 'add-node', nodeType: 'VAEDecode', x: 5000, y: 5000 }, note: '' });
+    const late = createProposal(db, { projectId: P, runId: null, kind: 'add-node', payload: { type: 'add-node', nodeType: 'VAEDecode', x: 5000, y: 5000 }, note: '' });
     resolveProposal(db, { projectId: P, proposalId: late.id, decision: 'accept', at: { x: 420, y: 200 } });
     expectNoOverlap(nodesOf(db));
     db.close();
@@ -205,7 +206,7 @@ describe('accepting an add-node ghost', () => {
     manual(db, 'sg', { type: 'create-subgraph', name: 'Decode', nodeIds: ['2'], inputs: [], outputs: [] });
     const definitionId = String((head(db).snapshot as Rec).subgraphs[0].id);
     // The helper suggests it right on the sampler; the canvas drew the ghost in free space and sends that spot.
-    const shown = createProposal(db, { projectId: P, kind: 'insert-subgraph', payload: { type: 'insert-subgraph', definitionId, x: 0, y: 0 }, note: '' });
+    const shown = createProposal(db, { projectId: P, runId: null, kind: 'insert-subgraph', payload: { type: 'insert-subgraph', definitionId, x: 0, y: 0 }, note: '' });
     const accepted = resolveProposal(db, { projectId: P, proposalId: shown.id, decision: 'accept', at: { x: 1200.6, y: 80 } });
     expect(accepted.command?.status).toBe('applied');
     expect(nodesOf(db).at(-1)!.position).toEqual({ x: 1201, y: 80 });

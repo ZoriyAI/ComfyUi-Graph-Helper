@@ -50,15 +50,13 @@ describe('mainLLMService.streamChatWithTools', () => {
     };
 
     const chunks: Array<{ type: string; content: any }> = [];
-    const started = Date.now();
     for await (const chunk of mainLLMService.streamChatWithTools(
       [{ role: 'user', content: 'Add a test node' }],
       tools
     )) {
+      // A stream that never ends fails on the test's own time limit, not on a wall-clock check that a busy
+      // machine trips.
       chunks.push(chunk);
-      if (Date.now() - started > 8000) {
-        throw new Error(`fullStream did not finish within 8s; last type=${chunk.type}`);
-      }
     }
 
     const types = chunks.map((chunk) => chunk.type);

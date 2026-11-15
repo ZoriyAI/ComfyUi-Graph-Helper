@@ -4,6 +4,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import { artifact } from './artifacts';
+import { temporaryProfile } from './support/app';
 
 /**
  * Electron desktop smoke test
@@ -15,7 +16,8 @@ test('Desktop smoke: app window loads with production renderer', async () => {
 
   // Launch Electron with production main.js
   const electronApp = await electron.launch({
-    args: [path.join(__dirname, '../../dist/main/index.js')],
+    // A profile of its own: never the profile of the person running the tests.
+    args: [path.join(__dirname, '../../dist/main/index.js'), `--user-data-dir=${temporaryProfile('desktop-smoke-')}`],
     env: {
       ...process.env,
       NODE_ENV: 'production',
