@@ -916,7 +916,7 @@ export const en = {
     historyNotCleared: 'Chat history could not be removed.',
     aboutVersion: 'Version {{version}}',
     aboutRuntime: 'Runtime: Electron {{electron}} · Chromium {{chrome}} · Node {{node}}',
-    aboutLicence: 'The source code is public under the MIT licence with the Commons Clause condition: you may use, change and share the app for free, but not sell it. The Geist font is under the SIL Open Font License 1.1.',
+    aboutLicence: 'The source code is public under the MIT license with the Commons Clause condition: you may use, change and share the app for free, but not sell it. The Geist font is under the SIL Open Font License 1.1.',
     aboutData: 'Your settings and projects are in a local SQLite database. ComfyUI is only read.',
   },
   // One object per area of the window.
@@ -2242,7 +2242,7 @@ export const en = {
     chromiumHint: 'Electron includes Chromium; its licenses are in a separate file.',
     chromiumFailed: 'The Chromium license file could not be opened',
     noNotices: 'The list is missing: this build of the app was made without it.',
-    commercial: 'Selling the app, or a paid product or service built mainly on it, is not allowed by the licence. It is possible only with the written permission of the copyright holder, by a separate agreement.',
+    commercial: 'Selling the app, or a paid product or service built mainly on it, is not allowed by the license. It is possible only with the written permission of the copyright holder, by a separate agreement.',
     commercialContact: 'To ask, open a discussion in the Commercial category of the project, or write to the repository owner through their GitHub profile.',
     independent: '{{name}} is an independent, experimental learning tool. It is not affiliated with or endorsed by Comfy Org. It contains no ComfyUI code and only reads a running ComfyUI; it never changes it.',
   },
