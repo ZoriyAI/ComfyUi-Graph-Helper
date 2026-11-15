@@ -254,7 +254,8 @@ async function saveSettings(page: Page, change: Record<string, unknown>): Promis
 async function commit(page: Page, payload: Record<string, unknown>): Promise<void> {
   const api = bridge(page);
   const current = await api('readProjection', ['desktop']) as { currentRevisionId: string };
-  await api('commitCommand', [{ projectId: 'desktop', actionId: `layout-walk-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, expectedRevisionId: current.currentRevisionId, actor: 'manual', runId: null, payload }]);
+  const outcome = await api('commitCommand', [{ projectId: 'desktop', actionId: `layout-walk-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, expectedRevisionId: current.currentRevisionId, actor: 'manual', runId: null, payload }]);
+  expect(outcome, `layout mutation ${JSON.stringify(payload)}`).toMatchObject({ status: 'applied' });
 }
 
 const settingsDialog = (page: Page): Locator => page.locator('[role="dialog"].settings-dialog');
@@ -483,7 +484,7 @@ test('nothing sticks out, is cut or overlaps on any screen at any window size', 
     await page.waitForTimeout(250);
     if (wants('reading')) {
       await visit(page, 'top bar while ComfyUI is read');
-      await visit(page, 'sync indicator while ComfyUI is read', async () => { await page.locator('.sync-indicator').click(); await page.getByRole('dialog').first().waitFor(); }, async () => { await escape(page); });
+      await visitScrolling(page, 'sync indicator while ComfyUI is read', async () => { await page.locator('.sync-indicator').click(); await page.getByRole('dialog').first().waitFor(); }, () => page.getByRole('dialog', { name: T('settings.sync'), exact: true }).locator(':scope > div').first(), async () => { await escape(page); });
       await visitScrolling(page, 'settings connection while model metadata is read', async () => { await openSettings(page, 1); }, () => settingsPanel(page));
       // The line a person reported: the state must read with its numbers, never with a placeholder.
       expect(await settingsPanel(page).innerText()).not.toContain('{{');
@@ -496,7 +497,7 @@ test('nothing sticks out, is cut or overlaps on any screen at any window size', 
     await escape(page);
     if (wants('reading')) {
       await visit(page, 'first screen, ComfyUI read');
-      await visit(page, 'sync indicator after reading', async () => { await page.locator('.sync-indicator').click(); await page.getByRole('dialog').first().waitFor(); }, async () => { await escape(page); });
+      await visitScrolling(page, 'sync indicator after reading', async () => { await page.locator('.sync-indicator').click(); await page.getByRole('dialog').first().waitFor(); }, () => page.getByRole('dialog', { name: T('settings.sync'), exact: true }).locator(':scope > div').first(), async () => { await escape(page); });
     }
 
     // ---------- The library with a real catalog ----------
@@ -681,9 +682,14 @@ test('nothing sticks out, is cut or overlaps on any screen at any window size', 
             await page.waitForTimeout(150);
           } else {
             // A choice that is the person's. "Show me where" says which node it is on.
-            await lessons.getByRole('button', { name: T('lessons.show'), exact: true }).click();
+            const show = lessons.getByRole('button', { name: T('lessons.show'), exact: true });
+            const targetId = await show.getAttribute('data-lesson-target');
+            expect(targetId, `${id}/${stepId}: the field has a target node`).toBeTruthy();
+            await show.click();
             const shown = page.locator('.react-flow__node.selected');
             await expect(shown, `${id}/${stepId}: the node the step speaks of`).toHaveCount(1);
+            // Show selects on the next animation frame; an earlier selection may already have count 1.
+            await expect(shown, `${id}/${stepId}: Show selected its target`).toHaveAttribute('data-id', targetId!);
             const nodeId = String(await shown.getAttribute('data-id'));
             const all = await held();
             const node = all.find((item) => item.id === nodeId)!;
@@ -1078,7 +1084,7 @@ test('nothing sticks out, is cut or overlaps on any screen at any window size', 
     await noteMenuWidth(page);
   } catch (error) {
     // The walk itself lost its way: said in the report, with everything it found up to there.
-    unreached.push(`the walk stopped: ${String((error as Error).message).split('\n').slice(0, 4).join(' | ')}`);
+    unreached.push(`the walk stopped: ${(error as Error).stack ?? String(error)}`);
     await shot(page, 'the walk stopped', HOME);
   } finally {
     await app.close().catch(() => undefined);

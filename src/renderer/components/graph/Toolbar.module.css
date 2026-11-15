@@ -22,7 +22,7 @@
     0 1px 2px rgba(0, 0, 0, 0.4),
     0 12px 28px -8px rgba(0, 0, 0, 0.6);
 }
-.group { position: relative; display: inline-flex; align-items: center; gap: 2px; }
+.group { position: relative; display: inline-flex; align-items: center; gap: 2px; min-width: 0; max-width: 100%; }
 .group + .group { padding-left: 6px; }
 .group + .group::before {
   content: "";
@@ -91,6 +91,10 @@
   margin: 0;
   display: inline-flex;
   flex-direction: row;
+  /* Both side panels can leave less room than the four camera controls need in one row. */
+  flex-wrap: wrap;
+  min-width: 0;
+  max-width: 100%;
   gap: 2px;
   padding: 0;
   border: 0;
@@ -98,7 +102,7 @@
   box-shadow: none;
   transform: none;
 }
-.controls :global(.react-flow__controls-button) { border-right: 1px solid transparent; }
+.controls :global(.react-flow__controls-button) { flex-shrink: 0; border-right: 1px solid transparent; }
 .controls :global(.react-flow__controls-button svg) { width: 13px; height: 13px; max-width: 13px; max-height: 13px; fill: currentColor; }
 .wide { padding: 0 10px; }
 /* A narrow canvas: the two labelled buttons keep their icons and tooltips and drop their words. */

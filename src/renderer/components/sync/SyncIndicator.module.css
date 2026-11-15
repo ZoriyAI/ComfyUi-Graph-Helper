@@ -26,7 +26,7 @@
 .label { overflow: hidden; text-overflow: ellipsis; min-width: 0; max-width: 260px; }
 
 .panel { display: flex; flex-direction: column; gap: 10px; }
-/* In a short window the popover scrolls (ui/Popover .scroll); the buttons stay in view at its bottom. */
+/* The whole panel scrolls in a short window; actions follow the notes without covering them. */
 .head { display: flex; align-items: center; gap: 8px; }
 .title { margin: 0; font-size: var(--text-md); line-height: 20px; font-weight: 600; }
 .counts { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; margin: 0; font-size: var(--text-sm); }
@@ -47,15 +47,13 @@
 }
 .interval input:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
 .actions {
-  position: sticky;
-  bottom: 0;
-  display: flex;
-  justify-content: flex-end;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   padding-top: 8px;
   background: var(--surface-overlay);
 }
 .warned .dot { background: var(--warn, var(--accent)); }
 .warnNote { margin: 0; color: var(--warn, var(--text)); font-size: var(--text-xs); line-height: 18px; overflow-wrap: anywhere; }
-.actions { flex-wrap: nowrap; }
-.actions > * { min-width: 0; }
+.actions > button { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+.actions > button > span { min-width: 0; }
