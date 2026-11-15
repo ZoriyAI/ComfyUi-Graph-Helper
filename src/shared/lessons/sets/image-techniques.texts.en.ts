@@ -413,7 +413,7 @@ export const IMAGE_TECHNIQUES_EN: Record<string, LessonWords> = {
     steps: {
       intro: {
         title: 'What this lesson is about',
-        body: 'A character is often built from several LoRAs: one for the person, one for the build of the body, one for the clothes, one for the style. Each pulls the picture its own way, and together they fight. This lesson shows how to tell them apart, how to see what each one does and how to keep the face.\n\nYou bring your own LoRA files and write your own words. A LoRA of a real person may be used only with that person\'s consent: only someone who agrees may be drawn this way. The app does not help with someone else\'s face without consent. The characters are adults.\n\nThe lesson goes on from "LoRA for pictures" and adds a third loader.',
+        body: 'A character is often built from several LoRAs: one for the person, one for the build of the body, one for the clothes, one for the style. Each pulls the picture its own way, and together they fight. This lesson shows how to tell them apart, how to see what each one does and how to keep the face.\n\nYou bring your own LoRA files and write your own words. A LoRA of a real person may be used only with that person\'s consent: only someone who agrees may be drawn this way. Get that consent first. The characters are adults.\n\nThe lesson goes on from "LoRA for pictures" and adds a third loader.',
       },
       graph: {
         title: 'The graph with two LoRAs is needed',
@@ -596,7 +596,7 @@ export const IMAGE_TECHNIQUES_EN: Record<string, LessonWords> = {
       },
       tune: {
         title: 'Fine tuning',
-        body: '- `start_at` and `end_at` say in which part of the steps it acts, as with ControlNet.\n- The pack\'s "IPAdapter Style & Composition" node takes one picture for the style and another for the composition.\n- `style transfer` is precise with SDXL and rougher with SD 1.5.\n- The pack\'s FaceID nodes carry a face. Only the face of someone who agrees may be carried this way. The app does not help with someone else\'s face without consent.',
+        body: '- `start_at` and `end_at` say in which part of the steps it acts, as with ControlNet.\n- The pack\'s "IPAdapter Style & Composition" node takes one picture for the style and another for the composition.\n- `style transfer` is precise with SDXL and rougher with SD 1.5.\n- The pack\'s FaceID nodes carry a face. Only the face of someone who agrees may be carried this way. Get that consent first.',
       },
       run: {
         title: 'The graph is ready',
