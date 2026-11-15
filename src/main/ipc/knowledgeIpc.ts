@@ -3,6 +3,12 @@
  * internet model lookup and the background catalog sync. Registered once from setupIPC in ipc.ts.
  * The handlers themselves live in knowledge/handlers.ts so tests can drive them without Electron.
  */
+import { graphResources, refreshResourceHardware } from '../knowledge/resources';
+import { ModelTranslations } from '../knowledge/modelTranslations';
+import { translateWithAssistant } from '../knowledge/translateWithAssistant';
+import { readSettings } from '../settings/repository';
+import { languageOf } from '../../shared/i18n';
+import { mainLLMService } from '../llmService';
 import { publishBrowserEvent } from '../browser/registry';
 import * as path from 'node:path';
 import { app, BrowserWindow, type IpcMain } from 'electron';
@@ -60,9 +66,13 @@ export function registerKnowledgeIpc(ipcMain: IpcMain): void {
   // A Hugging Face sample is downloaded at lookup to check it is a picture; it is kept, not downloaded again when shown.
   appWebClient().keepPreview = (url, got) => previews.keepWeb(url, got);
   const lookups = new ModelLookupService({ db: getDatabase, client: appWebClient, open: openSavedMcpSession });
+  const translations = new ModelTranslations({ db: getDatabase, language: () => languageOf(readSettings(getDatabase())), ready: () => Boolean(mainLLMService.currentProvider()) && !mainLLMService.sendBlock(), translate: translateWithAssistant });
+  const translationTimer = setInterval(() => translations.kick(), 30_000); translationTimer.unref?.();
   const handlers = knowledgeHandlers({
     db: getDatabase,
     sync: syncService,
+    resources: async (projectId, refresh) => { if (refresh) await refreshResourceHardware(getDatabase(), globalThis.fetch); return graphResources(getDatabase(), projectId); },
+    modelText: (detail) => translations.decorate(detail),
     fetchImpl: globalThis.fetch,
     preview: (directory, name) => previews.get(directory, name),
     lookup: { hash: (directory, name) => lookups.hash(directory, name), lookup: (directory, name) => lookups.lookup(directory, name) },
@@ -70,12 +80,16 @@ export function registerKnowledgeIpc(ipcMain: IpcMain): void {
   for (const [channel, handler] of Object.entries(handlers)) {
     guardedHandle(ipcMain, channel, (_event, ...args: unknown[]) => handler(...args));
   }
-  syncService.onStatus(broadcast);
+  let translatedSync: number | null = null;
+  syncService.onStatus((status) => {
+    broadcast(status);
+    if (status.state === 'idle' && status.lastSyncAt !== translatedSync) { translatedSync = status.lastSyncAt; const task = setTimeout(() => translations.kick(), 0); task.unref?.(); }
+  });
   // Quitting cancels the schedule and any background metadata reading, so no timer or MCP session outlives the app.
   try {
     app.on('before-quit', () => {
       syncService.stop();
-      previews.stop();
+      previews.stop(); translations.stop(); clearInterval(translationTimer);
     });
   } catch {
     // Not running inside Electron (tests).

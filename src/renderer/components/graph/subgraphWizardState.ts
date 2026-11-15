@@ -8,11 +8,11 @@ import type { SubgraphDefinition } from '../../../shared/graph/subgraphs';
 
 export interface SubgraphWizardRequest {
   id: string; levelId: string | null; revisionId: string; nodeIds: string[];
-  nodes: GraphNode[]; edges: GraphEdge[]; definition?: SubgraphDefinition; legacy: boolean;
+  nodes: GraphNode[]; edges: GraphEdge[]; definition?: SubgraphDefinition; legacy: boolean; templates?: boolean;
 }
 export const useSubgraphWizardStore = create<{ request: SubgraphWizardRequest | null; close: () => void }>((set) => ({ request: null, close: () => set({ request: null }) }));
 
-export function openSubgraphWizard(nodeIds: string[] = [], definitionId?: string): void {
+export function openSubgraphWizard(nodeIds: string[] = [], definitionId?: string, templates = false): void {
   if (useCanvasStore.getState().replay) return;
   const graph = useGraphStore.getState();
   const definition = definitionId ? graph.subgraphs.find((item) => item.id === definitionId && !item.opaque) : undefined;
@@ -20,8 +20,10 @@ export function openSubgraphWizard(nodeIds: string[] = [], definitionId?: string
   const level = graph.activeSubgraphId ? graph.subgraphs.find((item) => item.id === graph.activeSubgraphId) : null;
   useSubgraphWizardStore.setState({ request: {
     id: crypto.randomUUID(), levelId: graph.activeSubgraphId, revisionId: useProjectionStore.getState().currentRevisionId,
-    nodeIds, nodes: (definition?.nodes ?? level?.nodes ?? graph.nodes) as GraphNode[],
+    nodeIds, templates, nodes: (definition?.nodes ?? level?.nodes ?? graph.nodes) as GraphNode[],
     edges: (definition?.edges ?? level?.edges ?? graph.edges) as GraphEdge[], definition,
     legacy: !graph.activeSubgraphId && graph.document?.formatVersion === 0.4,
   } });
 }
+
+export function openTaskWizard(): void { openSubgraphWizard([], undefined, true); }

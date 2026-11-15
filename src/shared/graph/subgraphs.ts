@@ -54,6 +54,8 @@ export interface SubgraphDefinition {
   opaque?: true;
   /** Native fields we do not model (version, state, revision, config, extra, inputNode, outputNode, widgets, groups, ...). */
   raw: Record<string, unknown>;
+  /** Imported native instance defaults, internal projection data; export writes only native definition.raw. */
+  instanceDefaults?: Record<string, unknown>;
   /** Link ids the definition really had at import; an id a slot lists that is not here is stale and kept. */
   importedLinks?: string[];
 }

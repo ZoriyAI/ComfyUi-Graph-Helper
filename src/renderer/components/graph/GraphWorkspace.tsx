@@ -26,6 +26,7 @@ import { centerCamera, zoomCamera, zoomCameraTo } from '../../motion/camera';
 import { fitWhole } from './lib/autoFit';
 import { setCanvasHandle } from '../../commands/canvasHandle';
 import styles from './GraphWorkspace.module.css';
+import { addImageSource } from './imageSource';
 
 /**
  * One press of Zoom in / Zoom out (canvas.zoomIn, canvas.zoomOut) changes the zoom by this factor, as React Flow's
@@ -36,7 +37,7 @@ const ZOOM_STEP = 1.2;
 /** Only a node or a model file from the library can be dropped on the canvas; files from the desktop are not. */
 function acceptsDrag(event: React.DragEvent): boolean {
   const types = Array.from(event.dataTransfer.types);
-  return types.includes(NODE_DRAG_TYPE) || types.includes(MODEL_DRAG_TYPE);
+  return types.includes(NODE_DRAG_TYPE) || types.includes(MODEL_DRAG_TYPE) || types.includes('Files');
 }
 
 /** While a version from the history is on screen: which version it is and what that step did. */
@@ -114,8 +115,10 @@ function Workspace({ onImportWorkflow }: GraphWorkspaceProps) {
     setDragging(false);
     // A drop lands on the level on screen: the root graph, or the open subgraph.
     if (!acceptsDrag(event) || replaying) return;
-    event.preventDefault();
+    event.preventDefault(); event.stopPropagation();
     const point = flow.screenToFlowPosition({ x: event.clientX, y: event.clientY });
+    const image = Array.from(event.dataTransfer.files).find((file) => file.type.startsWith('image/'));
+    if (image) { void addImageSource(image, point); return; }
     // What was dropped is read now: the drag's data is gone once this handler returns.
     // A model file becomes its loader with the file chosen; the new node is selected and a toast says so.
     const model = modelFromDrop((type) => event.dataTransfer.getData(type));
@@ -148,6 +151,12 @@ function Workspace({ onImportWorkflow }: GraphWorkspaceProps) {
       onDragOver={onDragOver}
       onDragLeave={() => setDragging(false)}
       onDrop={onDrop}
+      onPaste={(event) => {
+        const target = event.target as HTMLElement;
+        if (target.closest('input,textarea,[contenteditable=true]') || replaying) return;
+        const file = Array.from(event.clipboardData.files).find((item) => item.type.startsWith('image/'));
+        if (file) { event.preventDefault(); event.stopPropagation(); void addImageSource(file); }
+      }}
     >
       <AnimatePresence>{empty && !replaying && !searching ? <Onboarding key="onboarding" onImport={onImportWorkflow} /> : null}</AnimatePresence>
       <CanvasFlow />

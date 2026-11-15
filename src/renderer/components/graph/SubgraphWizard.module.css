@@ -1,13 +1,20 @@
 .dialog { width: min(760px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); display: flex; flex-direction: column; overflow: hidden; }
-.header { padding: 20px 22px 12px; }
+.header { position: relative; padding: 20px 62px 12px 22px; }
 .title { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; color: var(--text); font-size: var(--text-lg); }
 .hint { color: var(--text-dim); font-size: var(--text-sm); line-height: 1.5; margin: 4px 0 12px; }
 .steps { display: flex; gap: 16px; list-style: none; padding: 12px 22px; margin: 0; border-block: 1px solid var(--border-subtle); font-size: var(--text-sm); color: var(--text-faint); }
-.steps li { display: flex; align-items: center; gap: 6px; }
+.steps li { min-width: 0; }
+.steps button { display: flex; align-items: center; gap: 6px; border: 0; background: transparent; color: inherit; font: inherit; min-height: 36px; cursor: pointer; padding: 0; }
+.steps button:disabled { cursor: default; }
+.steps b { font-weight: inherit; }
+.steps button:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+.close { position: absolute; right: 12px; top: 10px; min-width: 44px; min-height: 44px; }
+.stepCount { margin: 0; padding: 0 22px 8px; color: var(--text-dim); font-size: var(--text-xs); }
+.portField, .portTarget { display: flex; flex-direction: column; min-width: 0; gap: 5px; font-size: var(--text-xs); color: var(--text-dim); }
 .steps li[aria-current] { color: var(--text); font-weight: var(--weight-strong); }
 .steps li span { display: grid; place-items: center; width: 23px; height: 23px; border: 1px solid var(--border); border-radius: 50%; }
 .steps li[aria-current] span { background: var(--accent-soft); border-color: var(--accent-line); }
-.body { overflow: auto; padding: 18px 22px; min-height: 260px; }
+.body { flex: 1 1 auto; overflow: auto; overscroll-behavior: contain; padding: 18px 22px; min-height: 0; }
 .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; font-size: var(--text-sm); }
 .dialog input:not([type=checkbox]), .dialog textarea, .dialog select { width: 100%; min-width: 0; box-sizing: border-box; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-sunken); color: var(--text); font: inherit; padding: 8px 10px; }
 .dialog input:focus-visible, .dialog textarea:focus-visible, .dialog select:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
@@ -19,7 +26,7 @@
 .portSection { margin-block: 18px; }
 .portSection h3 { font-size: var(--text-sm); margin: 0 0 8px; }
 .portRow { display: grid; grid-template-columns: 1fr 105px 1.3fr auto; gap: 6px; margin-bottom: 8px; align-items: center; }
-.footer { display: flex; gap: 8px; padding: 12px 22px 16px; border-top: 1px solid var(--border-subtle); }
+.footer { flex-shrink: 0; display: flex; gap: 8px; padding: 12px 22px 16px; border-top: 1px solid var(--border-subtle); }
 .footer > span { flex: 1; }
 .preview { border: 1px solid var(--accent-line); border-radius: 10px; padding: 14px 18px; background: var(--surface-sunken); max-width: 440px; margin: 0 auto 16px; }
 .preview h3 { display: flex; gap: 8px; align-items: center; margin: 0 0 10px; }
@@ -28,4 +35,42 @@
 .previewPorts { display: flex; justify-content: space-between; gap: 18px; white-space: pre-line; font-size: var(--text-sm); margin-block: 14px; }
 .previewPorts span:last-child { text-align: right; }
 .error { color: var(--danger); font-size: var(--text-sm); }
-@media (max-width: 560px) { .header, .body { padding: 14px; } .steps { gap: 8px; padding: 10px; flex-wrap: wrap; } .portRow { grid-template-columns: 1fr 90px auto; } .portRow select { grid-column: 1 / 3; grid-row: 2; } .portRow button { grid-column: 3; grid-row: 1 / 3; } .footer { padding: 12px; } }
+@media (max-width: 700px), (max-width: 1000px) and (pointer: coarse) {
+  .dialog.dialog { inset: 0; translate: none; width: 100%; height: 100dvh; max-height: 100dvh; max-width: 100%; border-radius: 0; border: 0; }
+  .header { flex-shrink: 0; padding: max(14px, env(safe-area-inset-top)) 58px 8px 14px; }
+  .header .hint { margin-bottom: 0; }
+  .body { padding: 14px; }
+  .stepCount { padding: 0 14px 8px; }
+  .steps { flex-shrink: 0; gap: 8px; justify-content: space-between; padding: 6px 14px; }
+  .steps li { flex: 1; }
+  .steps button { width: 100%; min-height: 44px; justify-content: center; }
+  .steps li:not([aria-current]) b { display: none; }
+  .steps li[aria-current] { flex: 3; }
+  .steps span { flex-shrink: 0; width: 28px !important; height: 28px !important; }
+  .dialog input:not([type=checkbox]), .dialog textarea, .dialog select { font-size: 16px; min-height: 44px; }
+  .check { padding: 8px 0; min-height: 44px; align-items: center; }
+  .check input { width: 22px; height: 22px; flex-shrink: 0; }
+  .nodeList { max-height: none; overflow: visible; }
+  .portRow { grid-template-columns: minmax(0, 1fr) 100px 44px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 12px; align-items: end; }
+  .portTarget { grid-column: 1 / -1; grid-row: 2; }
+  .portRow button { grid-column: 3; grid-row: 1; min-height: 44px; }
+  .footer { padding: 10px 12px max(10px, env(safe-area-inset-bottom)); }
+  .footer > span { display: none; }
+  .footer > button { flex: 1; min-height: 48px; }
+  .preview { max-width: none; padding: 12px; }
+  .preview strong { float: none; display: block; margin-top: 4px; }
+}
+
+.families { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.families button, .templateList button { border: 1px solid var(--border); background: var(--surface-sunken); color: var(--text); border-radius: 8px; padding: 10px 12px; font: inherit; text-align: left; cursor: pointer; min-height: 44px; }
+.families button[aria-pressed=true], .templateList button[aria-selected=true] { border-color: var(--accent-line); background: var(--accent-soft); }
+.templateList { display: grid; gap: 8px; max-height: 290px; overflow: auto; overscroll-behavior: contain; padding: 2px; }
+.templateList button { width: 100%; }
+.templateList small { display: block; color: var(--text-dim); margin-top: 5px; font-size: var(--text-xs); }
+.templatePort { padding: 12px; border: 1px solid var(--border); border-radius: 8px; margin: 8px 0; overflow-wrap: anywhere; }
+.templatePort p { font-size: var(--text-sm); color: var(--text-dim); margin-bottom: 0; }
+.templatePort code { color: var(--text-dim); margin-left: 5px; }
+.teachingSteps { padding-left: 22px; font-size: var(--text-sm); line-height: 1.65; }
+.agentActions { display: flex; flex-wrap: wrap; gap: 8px; margin-block: 12px; }
+.dialog details { margin-block: 14px; overflow-wrap: anywhere; font-size: var(--text-sm); }
+.dialog summary { cursor: pointer; min-height: 36px; }

@@ -155,3 +155,8 @@
 .webSource { display: flex; align-items: center; gap: 6px; margin: 0; font-size: var(--text-sm); }
 .webSite { font-weight: var(--weight-strong); }
 .wrap { overflow-wrap: anywhere; }
+
+@media (pointer: coarse), (max-width: 700px) {
+  .header button, .actions button { min-height: 44px; min-width: 44px; }
+  .card { max-width: calc(100vw - 16px); }
+}

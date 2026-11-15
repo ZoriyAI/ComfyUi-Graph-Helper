@@ -157,6 +157,7 @@ function draft(name: string, input: Record<string, unknown>, context?: ToolConte
       ...(input.upgradeToV1 !== undefined ? { upgradeToV1: input.upgradeToV1 } : {}),
     };
   }
+  if (name === 'insertBlueprint') return { type: 'insert-blueprint', templateId: input.templateId, name: input.name, description: input.description, x: num(input.x) ?? 300, y: num(input.y) ?? 200, destinationDefinitionId: str(input.inSubgraph), upgradeToV1: input.upgradeToV1 };
   if (name === 'configureSubgraph') return { type: 'configure-subgraph', definitionId: input.definitionId, name: input.name, description: input.description ?? '', widgets: input.widgets ?? [] };
   if (name === 'insertSubgraph') {
     return {
@@ -177,7 +178,7 @@ export function mutationFromTool(name: string, args: Record<string, unknown> | u
   const scopedContext = definition ? { ...context, snapshot: { nodes: definition.nodes } } : context;
   let candidate = draft(name, args ?? {}, scopedContext);
   if (!candidate) return null;
-  if (args?.inSubgraph !== undefined) {
+  if (args?.inSubgraph !== undefined && name !== 'insertBlueprint') {
     if (!definitionId) return null;
     candidate = { type: 'edit-in-subgraph', definitionId, edit: candidate };
   }

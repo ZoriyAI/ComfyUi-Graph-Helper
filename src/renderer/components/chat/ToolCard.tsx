@@ -16,6 +16,7 @@ import ProvenanceBadge, { isProvenance } from '../explain/ProvenanceBadge';
 import { objectLabel } from './objectLabel';
 import ProposalCard from './ProposalCard';
 // The card of a lesson the assistant drafted (the draftLesson tool).
+import ExtensionDraftCard from './ExtensionDraftCard';
 import LessonDraftCard from '../lessons/LessonDraftCard';
 import Button from '../../ui/Button';
 import { compactArgs, toolLabelKey } from './toolPresentation';
@@ -122,6 +123,7 @@ export default function ToolCard({ call }: { call: ToolCall }) {
         </div>
       )}
       {isExplain ? <ExplainBody call={call} /> : null}
+      {call.toolName === 'draftExtension' && call.status === 'success' && isRecord(call.result) && typeof call.result.extensionDraftId === 'string' ? <ExtensionDraftCard draftId={call.result.extensionDraftId} /> : null}
       {call.toolName === 'draftLesson' && call.status === 'success' && isRecord(call.result) && typeof call.result.lessonDraftId === 'string' ? <LessonDraftCard draftId={call.result.lessonDraftId} /> : null}
       {error ? (
         <p className={`tool-diagnostic ${styles.error}`}>

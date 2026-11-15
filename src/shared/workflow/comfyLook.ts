@@ -1,3 +1,4 @@
+import type { SubgraphDefinition } from '../graph/subgraphs';
 /**
  * How an imported ComfyUI node looks, read from what the file saved on it (`data.comfy`): its size, whether it is
  * collapsed, its colours, the fields a subgraph copy promotes, the editor-only nodes (Reroute, Primitive, notes,
@@ -371,4 +372,16 @@ export function overlapCount(boxes: ReadonlyArray<PlacedBox>): number {
     }
   }
   return count;
+}
+
+/** A promoted inner widget can be backed by a renamed boundary input, as official blueprints do. */
+export function promotedInputSlot(field: PromotedField, definition: SubgraphDefinition | undefined): number {
+  if (!definition) return -1;
+  if (field.nodeId === '-1') return definition.inputs.findIndex((slot) => slot.name === field.name);
+  const inner = definition.nodes.find((node) => String(node.id) === field.nodeId);
+  const port = inner?.data?.inputs?.find((input: { name: string }) => input.name === field.name);
+  if (!port) return -1;
+  const edge = definition.edges.find((link) => String(link.source) === '-10' && String(link.target) === field.nodeId && link.targetHandle === port.id);
+  const match = edge ? /^out-(\d+)$/.exec(String(edge.sourceHandle)) : null;
+  return match ? Number(match[1]) : -1;
 }

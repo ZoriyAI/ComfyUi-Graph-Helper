@@ -21,6 +21,7 @@ import Button from '../../ui/Button';
 import IconButton from '../../ui/IconButton';
 import styles from './CheckPanel.module.css';
 import EmptyState from '../../ui/EmptyState';
+import ResourcePanel from './ResourcePanel';
 
 /** A finding row rises into place; a fixed one fades out. */
 const ROW_MOTION = {
@@ -141,6 +142,7 @@ export default function CheckPanel({ projectId }: { projectId: string }) {
     <section className={`check-panel ${styles.panel}`} aria-labelledby="check-title" data-project={projectId}>
       {/* The dock tab already says "Check"; the heading names the region for screen readers only. */}
       <h2 className="sr-only" id="check-title">{t('explain.checkTitle')}</h2>
+      <ResourcePanel projectId={projectId} />
       {(() => {
         // Before the first check it is the one thing to do here; afterwards checking again steps back.
         const runButton = (

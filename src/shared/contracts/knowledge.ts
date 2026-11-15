@@ -191,7 +191,12 @@ export interface ModelPreview {
 }
 
 /** One model file in full, for its card. */
+export interface ModelTextTranslation {
+  language: 'ru'; state: 'pending' | 'ready' | 'unavailable' | 'failed'; fields?: Record<string, string>;
+}
 export interface ModelDetail extends ModelSummary {
+  /** Cached display-only translation. Original metadata and description above are never overwritten. */
+  translation?: ModelTextTranslation;
   baseModelEvidence: Evidence;
   triggerWords: string[];
   description: string;

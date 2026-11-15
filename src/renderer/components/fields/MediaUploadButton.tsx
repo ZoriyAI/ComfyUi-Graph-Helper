@@ -19,6 +19,10 @@ export default function MediaUploadButton({ value, spec, disabled, onCommit }: F
   // A successful change from another paired device also clears this field's previous upload error.
   useEffect(() => setError(null), [value]);
   const accept = spec?.fileUpload === 'file' ? undefined : `${spec?.fileUpload ?? 'image'}/*`;
+  const rememberOrigin = () => {
+    origin.current = { at: captureEditOrigin(), value: current.current.value };
+    setError(null);
+  };
   const changed = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.currentTarget.files?.[0];
     event.currentTarget.value = '';
@@ -38,13 +42,16 @@ export default function MediaUploadButton({ value, spec, disabled, onCommit }: F
   };
   return (
     <>
-      <input ref={picker} type="file" accept={accept} hidden onChange={(event) => void changed(event)} />
-      <button type="button" className={styles.uploadButton} disabled={disabled || busy} title={String(t('field.uploadHint'))} onClick={() => {
-        origin.current = { at: captureEditOrigin(), value: current.current.value };
-        setError(null); picker.current?.click();
+      <label role="button" tabIndex={disabled || busy ? -1 : 0} aria-disabled={disabled || busy} className={`${styles.uploadButton} nodrag nopan`} title={String(t('field.uploadHint'))} onKeyDown={(event) => {
+        if ((event.key === 'Enter' || event.key === ' ') && !disabled && !busy) {
+          event.preventDefault(); rememberOrigin(); picker.current?.click();
+        }
       }}>
+        {/* The tap lands on the native input itself. Mobile pickers need trusted user activation, including Safari. */}
+        <input ref={picker} className={styles.nativePicker} type="file" accept={accept} tabIndex={-1} disabled={disabled || busy}
+          aria-label={String(t('field.chooseFile'))} onClickCapture={rememberOrigin} onChange={(event) => void changed(event)} />
         <Upload size={12} aria-hidden="true" />{busy ? t('field.uploading') : t('field.chooseFile')}
-      </button>
+      </label>
       {error ? <span className={styles.uploadError} role="alert">{t(`field.uploadError.${error}`)}</span> : null}
     </>
   );

@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { Layers, Plus, X } from 'lucide-react';
 import { DialogContent, DialogDescription, DialogOverlay, DialogPortal, DialogRoot, DialogTitle } from '../../ui/Dialog';
 import Button from '../../ui/Button';
+import IconButton from '../../ui/IconButton';
+import { requestWorkspacePanel } from '../../commands/events';
 import { useProjectionStore } from '../../services/commands/projection';
 import { useGraphStore } from '../../state/graphState';
 import { useCanvasStore } from './canvasStore';
@@ -15,6 +17,7 @@ import { runSyncNow } from '../sync/SyncIndicator';
 import { useSubgraphWizardStore, type SubgraphWizardRequest } from './subgraphWizardState';
 import type { GraphMutation } from '../../../shared/commands/types';
 import styles from './SubgraphWizard.module.css';
+const TaskWizard = React.lazy(() => import('./TaskWizard'));
 
 type Slot = { id: string; name: string; type: string; nodeId?: string; handle?: string };
 const keyOf = (nodeId: string, name: string) => JSON.stringify([nodeId, name]);
@@ -24,6 +27,7 @@ function Wizard({ request }: { request: SubgraphWizardRequest }) {
   const { t } = useTranslation();
   const close = useSubgraphWizardStore((state) => state.close);
   const [step, setStep] = useState(0);
+  const [visited, setVisited] = useState(0);
   const [name, setName] = useState(request.definition?.name ?? '');
   const [description, setDescription] = useState(String(request.definition?.raw.description ?? ''));
   const [selected, setSelected] = useState(request.definition ? request.nodes.map((node) => node.id) : request.nodeIds);
@@ -56,12 +60,12 @@ function Wizard({ request }: { request: SubgraphWizardRequest }) {
       <h3>{t(`subgraphWizard.${direction}s`)}</h3>
       {request.definition ? <p className={styles.hint}>{request.definition[direction === 'input' ? 'inputs' : 'outputs'].map((slot) => `${slot.name} · ${slot.type}`).join(', ') || t('subgraphWizard.none')}</p> : null}
       {list.map((slot, index) => <div key={slot.id} className={styles.portRow}>
-        <input aria-label={String(t('subgraphWizard.portName', { side: t(`subgraphWizard.${direction}`), index: index + 1 }))} value={slot.name} maxLength={200} onChange={(event) => set(list.map((item) => item.id === slot.id ? { ...item, name: event.target.value } : item))} />
-        <input aria-label={String(t('subgraphWizard.portType', { side: t(`subgraphWizard.${direction}`), index: index + 1 }))} value={slot.type} maxLength={200} list="subgraph-types" onChange={(event) => set(list.map((item) => item.id === slot.id ? { ...item, type: event.target.value } : item))} />
-        <select aria-label={String(t('subgraphWizard.portTarget', { side: t(`subgraphWizard.${direction}`), index: index + 1 }))} value={slot.nodeId ? keyOf(slot.nodeId, slot.handle!) : ''} onChange={(event) => {
+        <label className={styles.portField}><span>{t('subgraphWizard.portNameLabel')}</span><input aria-label={String(t('subgraphWizard.portName', { side: t(`subgraphWizard.${direction}`), index: index + 1 }))} value={slot.name} maxLength={200} onChange={(event) => set(list.map((item) => item.id === slot.id ? { ...item, name: event.target.value } : item))} /></label>
+        <label className={styles.portField}><span>{t('subgraphWizard.portTypeLabel')}</span><input aria-label={String(t('subgraphWizard.portType', { side: t(`subgraphWizard.${direction}`), index: index + 1 }))} value={slot.type} maxLength={200} list="subgraph-types" onChange={(event) => set(list.map((item) => item.id === slot.id ? { ...item, type: event.target.value } : item))} /></label>
+        <label className={styles.portTarget}><span>{t('subgraphWizard.portTargetLabel')}</span><select aria-label={String(t('subgraphWizard.portTarget', { side: t(`subgraphWizard.${direction}`), index: index + 1 }))} value={slot.nodeId ? keyOf(slot.nodeId, slot.handle!) : ''} onChange={(event) => {
           const target = targets(direction).find((item) => keyOf(item.nodeId, item.handle) === event.target.value);
           set(list.map((item) => item.id !== slot.id ? item : target ? { ...item, nodeId: target.nodeId, handle: target.handle, type: target.type, name: item.name || target.name } : { id: item.id, name: item.name, type: item.type }));
-        }}><option value="">{t('subgraphWizard.connectLater')}</option>{targets(direction).map((target) => <option key={keyOf(target.nodeId, target.handle)} value={keyOf(target.nodeId, target.handle)}>{target.title} · {target.name}</option>)}</select>
+        }}><option value="">{t('subgraphWizard.connectLater')}</option>{targets(direction).map((target) => <option key={keyOf(target.nodeId, target.handle)} value={keyOf(target.nodeId, target.handle)}>{target.title} · {target.name}</option>)}</select></label>
         <Button size="sm" aria-label={String(t('subgraphWizard.removePort'))} onClick={() => set(list.filter((item) => item.id !== slot.id))}><X size={14} /></Button>
       </div>)}
       <Button size="sm" icon={<Plus size={14} />} onClick={() => set([...list, { id: crypto.randomUUID(), name: '', type: '*' }])}>{t(`subgraphWizard.add${direction === 'input' ? 'Input' : 'Output'}`)}</Button>
@@ -85,14 +89,16 @@ function Wizard({ request }: { request: SubgraphWizardRequest }) {
       if (result?.status !== 'applied') { setError(String(t('subgraphWizard.failed'))); return; }
       const definitionId = request.definition?.id ?? String((result.result as { definitionId?: string })?.definitionId ?? '');
       close(); if (enter && definitionId) useGraphStore.getState().enterSubgraph(definitionId);
+      requestWorkspacePanel('canvas');
     } catch { setError(String(t('subgraphWizard.failed'))); } finally { setBusy(false); }
   };
   return <DialogRoot open onOpenChange={(open) => { if (!open && !busy) close(); }}><DialogPortal><DialogOverlay /><DialogContent className={styles.dialog} aria-describedby="subgraph-wizard-lead">
-    <header className={styles.header}><DialogTitle className={styles.title}><Layers size={18} />{t(request.definition ? 'subgraphWizard.editTitle' : 'subgraphWizard.title')}</DialogTitle><DialogDescription id="subgraph-wizard-lead" className={styles.hint}>{t('subgraphWizard.lead')}</DialogDescription></header>
-    <ol className={styles.steps} aria-label={String(t('subgraphWizard.steps'))}>{STEPS.map((key, index) => <li key={key} aria-current={index === step ? 'step' : undefined}><span>{index + 1}</span>{t(`subgraphWizard.${key}`)}</li>)}</ol>
+    <header className={styles.header}><IconButton className={styles.close} label={String(t('subgraphWizard.close'))} disabled={busy} onClick={close}><X size={20} /></IconButton><DialogTitle className={styles.title}><Layers size={18} />{t(request.definition ? 'subgraphWizard.editTitle' : 'subgraphWizard.title')}</DialogTitle><DialogDescription id="subgraph-wizard-lead" className={styles.hint}>{t('subgraphWizard.lead')}</DialogDescription></header>
+    <p className={styles.stepCount}>{t('subgraphWizard.stepCount', { current: step + 1, total: STEPS.length })}</p><ol className={styles.steps} aria-label={String(t('subgraphWizard.steps'))}>{STEPS.map((key, index) => <li key={key} aria-current={index === step ? 'step' : undefined}><button type="button" disabled={busy || index > visited || (index > 0 && !name.trim()) || (index > 1 && !slotsValid)} onClick={() => setStep(index)}><span>{index + 1}</span><b>{t(`subgraphWizard.${key}`)}</b></button></li>)}</ol>
     <div className={styles.body}>
       {stale ? <p role="alert" className={styles.error}>{t('subgraphWizard.changed')}</p> : null}
       {step === 0 ? <>
+        {!request.definition ? <Button onClick={() => useSubgraphWizardStore.setState({ request: { ...request, templates: true } })}>{t('taskWizard.open')}</Button> : null}
         <label className={styles.field}>{t('subgraphWizard.name')}<input value={name} maxLength={200} onChange={(event) => setName(event.target.value)} autoFocus /></label>
         <label className={styles.field}>{t('subgraphWizard.purpose')}<textarea value={description} maxLength={4000} rows={3} onChange={(event) => setDescription(event.target.value)} /></label>
         {request.definition ? <p>{t('subgraphWizard.editContents')}</p> : <>
@@ -107,11 +113,11 @@ function Wizard({ request }: { request: SubgraphWizardRequest }) {
       {step === 3 ? <><div className={styles.preview}><h3><Layers size={16} />{name || t('subgraphWizard.title')}</h3><p>{description}</p><div className={styles.previewPorts}><span>{[...(request.definition?.inputs ?? []), ...inputs].map((slot) => `${slot.name} · ${slot.type}`).join('\n') || t('subgraphWizard.none')}</span><span>{[...(request.definition?.outputs ?? []), ...outputs].map((slot) => `${slot.name} · ${slot.type}`).join('\n') || t('subgraphWizard.none')}</span></div>{candidates.filter((field) => chosen.includes(field.key)).map((field) => <p key={field.key}>{field.name} <strong>{displayValue(field.value).slice(0, 80)}</strong></p>)}</div><p>{t('subgraphWizard.summary', { nodes: nodes.length, controls: chosen.length })}</p><p className={styles.hint}>{t('subgraphWizard.execution')}</p><label className={styles.check}><input type="checkbox" checked={enter} onChange={(event) => setEnter(event.target.checked)} />{t('subgraphWizard.enter')}</label></> : null}
       {error ? <p role="alert" className={styles.error}>{error}</p> : null}
     </div>
-    <footer className={styles.footer}><Button variant="subtle" disabled={busy} onClick={close}>{t('subgraphWizard.cancel')}</Button><span />{step > 0 ? <Button disabled={busy} onClick={() => setStep(step - 1)}>{t('subgraphWizard.back')}</Button> : null}{step < 3 ? <Button variant="primary" disabled={stale || busy || (step === 0 && (!name.trim() || (request.legacy && !request.definition && !upgrade))) || (step === 1 && !slotsValid)} onClick={() => setStep(step + 1)}>{t('subgraphWizard.next')}</Button> : <Button variant="primary" disabled={stale || !valid} loading={busy} onClick={() => void save()}>{t(request.definition ? 'subgraphWizard.save' : 'subgraphWizard.create')}</Button>}</footer>
+    <footer className={styles.footer}><Button variant="subtle" disabled={busy} onClick={close}>{t('subgraphWizard.cancel')}</Button><span />{step > 0 ? <Button disabled={busy} onClick={() => setStep(step - 1)}>{t('subgraphWizard.back')}</Button> : null}{step < 3 ? <Button variant="primary" disabled={stale || busy || (step === 0 && (!name.trim() || (request.legacy && !request.definition && !upgrade))) || (step === 1 && !slotsValid)} onClick={() => { setVisited(Math.max(visited, step + 1)); setStep(step + 1); }}>{t('subgraphWizard.next')}</Button> : <Button variant="primary" disabled={stale || !valid} loading={busy} onClick={() => void save()}>{t(request.definition ? 'subgraphWizard.save' : 'subgraphWizard.create')}</Button>}</footer>
   </DialogContent></DialogPortal></DialogRoot>;
 }
 
 export default function SubgraphWizard() {
   const request = useSubgraphWizardStore((state) => state.request);
-  return request ? <Wizard key={request.id} request={request} /> : null;
+  return request ? request.templates ? <React.Suspense fallback={null}><TaskWizard key={request.id} request={request} /></React.Suspense> : <Wizard key={request.id} request={request} /> : null;
 }

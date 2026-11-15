@@ -57,7 +57,7 @@ import CanvasToolbar, { FIT_PADDING } from './CanvasToolbar';
 import { connectCandidates, type AssistNode } from './lib/connectAssist';
 import { flowingEdges } from './lib/flow';
 import { definitionView, NEW_INPUT_SLOT, NEW_OUTPUT_SLOT } from './lib/subgraphView';
-import { setInnerView } from './lib/level';
+import { setInnerView, selectOnLevel } from './lib/level';
 import { sameRefs, selectionRefs } from './lib/selection';
 import { stepIndexOf } from './tour/buildTour';
 import { typeColor } from './lib/typeColors';
@@ -67,7 +67,7 @@ import { useCheckWave } from './lib/checkWave';
 import { useReplayMotion } from './lib/replayMotion';
 import { useCameraStore, centerCamera } from '../../motion/camera';
 import { useAttentionStore } from '../../motion/attention';
-import { nextOverview, rememberSizes, setOverviewLevel, titleScale } from './lib/nodeSizes';
+import { rememberSizes, setOverviewLevel } from './lib/nodeSizes';
 import { autoFit } from './lib/autoFit';
 import { useProjectionStore } from '../../services/commands/projection';
 import { Pin } from 'lucide-react';
@@ -76,14 +76,12 @@ import { showToast } from '../../ui/toastStore';
 import { canvasHandle } from '../../commands/canvasHandle';
 import { useSpokenCanvas } from './lib/useSpokenCanvas';
 import styles from './GraphWorkspace.module.css';
-import overviewStyles from './Overview.module.css';
 
 // Defined outside the component: React Flow warns and re-mounts every node when these maps change identity.
 const nodeTypes: NodeTypes = { comfy: ComfyNode, boundary: BoundaryNodeView };
 /** Automatic fits (first nodes, a new level) never zoom past 100 %: one node must not fill the canvas. */
 const AUTO_FIT_MAX_ZOOM = 1;
 /** A zoom change this soon after a wheel, pinch or press on the canvas is the person's own. */
-const GESTURE_MS = 400;
 /** The status bar and the assistant's view of the camera are written this long after the camera last moved. */
 const REPORT_MS = 120;
 const edgeTypes: EdgeTypes = { default: TypedEdge };
@@ -111,43 +109,16 @@ function ZoomReporter() {
   return null;
 }
 
-/**
- * Sets `data-zoom="overview"` and the title scale on the canvas root straight on the element, so a zoom gesture
- * does not re-render the canvas on every frame.
- */
-function OverviewLevel({ host }: { host: React.RefObject<HTMLDivElement> }) {
+/** Zoom scales the full node, including its controls; it never replaces a node with a title-only tile. */
+function CanvasScale({ host }: { host: React.RefObject<HTMLDivElement> }) {
   const zoom = useStore((state) => state.transform[2]);
-  const level = useRef(false);
-  // When the person last zoomed by wheel, pinch or a press on the canvas (not on its toolbar): only then the band.
-  const lastGesture = useRef(0);
-  useEffect(() => {
-    const element = host.current;
-    if (!element) return undefined;
-    const note = (event: Event) => {
-      // A press on a panel (the toolbar's zoom buttons, the minimap) is not a zoom gesture on the canvas.
-      if (event.target instanceof Element && event.target.closest('.react-flow__panel')) return;
-      lastGesture.current = performance.now();
-    };
-    const options = { capture: true, passive: true } as const;
-    for (const type of ['wheel', 'pointerdown', 'touchstart']) element.addEventListener(type, note, options);
-    return () => {
-      for (const type of ['wheel', 'pointerdown', 'touchstart']) element.removeEventListener(type, note, options);
-    };
-  }, [host]);
   useEffect(() => {
     const element = host.current;
     if (!element) return;
-    const overview = nextOverview(level.current, zoom, performance.now() - lastGesture.current < GESTURE_MS);
-    level.current = overview;
-    setOverviewLevel(overview);
-    useCameraStore.getState().setOverview(overview);
-    if (overview) element.dataset.zoom = 'overview';
-    else delete element.dataset.zoom;
-    // Only the overview reads the title scale. Written on every zoom frame it restyled the whole canvas each frame;
-    // in steps of 0.05 the browser restyles only when the size visibly changes (motion package, zoom performance).
-    const scale = overview ? String(Math.round(titleScale(zoom) * 20) / 20) : '1';
-    if (element.style.getPropertyValue('--canvas-title-scale') !== scale) element.style.setProperty('--canvas-title-scale', scale);
-    // The plain inverse of the zoom, uncapped: group titles keep their screen size with it. Rounded for the same reason.
+    setOverviewLevel(false);
+    useCameraStore.getState().setOverview(false);
+    delete element.dataset.zoom;
+    element.style.setProperty('--canvas-title-scale', '1');
     const inverse = String(Math.round((zoom > 0 ? 1 / zoom : 1) * 20) / 20);
     if (element.style.getPropertyValue('--canvas-zoom-inverse') !== inverse) element.style.setProperty('--canvas-zoom-inverse', inverse);
   }, [zoom, host]);
@@ -189,6 +160,8 @@ function portsOf(node: LevelNode | undefined, side: 'inputs' | 'outputs'): PortD
  * boundary node adds a slot. Double-clicking empty canvas opens the add-node search there. A replay commits nothing.
  */
 export default function CanvasFlow() {
+  const touchSelect = useCanvasStore((state) => state.touchSelect);
+  const beforeTouchSelection = useRef<Set<string>>(new Set());
   const { t } = useTranslation();
   const flow = useReactFlow();
   const rootNodes = useGraphStore((state) => state.nodes);
@@ -585,13 +558,18 @@ export default function CanvasFlow() {
     return () => window.removeEventListener('keydown', onKey);
   }, [hasSelection]);
 
-  const onNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
+  const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
+    if (touchSelect && node.type !== 'boundary' && !(event.target as Element).closest('input,textarea,select,button,[role=button],[contenteditable=true]')) {
+      const selected = new Set(beforeTouchSelection.current);
+      if (selected.has(node.id)) selected.delete(node.id); else selected.add(node.id);
+      selectOnLevel([...selected]); return;
+    }
     const current = useUiStore.getState().tour;
     if (!current) return;
     // Clicking a node during a tour continues the tour from there.
     const index = stepIndexOf(current.steps, node.id);
     if (index >= 0) useUiStore.getState().setTourIndex(index);
-  }, []);
+  }, [touchSelect]);
 
   const onPaneClick = useCallback(() => {
     if (useCanvasStore.getState().connectFrom) setConnectFrom(null);
@@ -605,17 +583,18 @@ export default function CanvasFlow() {
 
   // Autoplay stops on any pointer interaction with the canvas; explanatory layers never fight the person.
   const onPointerDownCapture = useCallback(() => {
+    if (touchSelect) beforeTouchSelection.current = new Set(nodes.filter((node) => node.selected).map((node) => node.id));
     stopGlide();
     const ui = useUiStore.getState();
     if (ui.tour?.playing) ui.setTourPlaying(false);
     // uiState: following the helper ends with any manual action on the canvas.
     if (ui.followAgent) ui.setFollowAgent(false);
-  }, [stopGlide]);
+  }, [stopGlide, touchSelect, nodes]);
 
   return (
     <CanvasViewContext.Provider value={view}>
       <GraphContextMenu nodes={nodes} edges={edges} readOnly={readOnly}>
-        <div ref={host} className={`${styles.flowHost} ${overviewStyles.host}`} onPointerDownCapture={onPointerDownCapture} onDoubleClick={onDoubleClick} data-canvas-mode={mode} data-nodes-pinned={nodesPinned ? 'true' : undefined}>
+        <div ref={host} className={styles.flowHost} onPointerDownCapture={onPointerDownCapture} onDoubleClick={onDoubleClick} data-canvas-mode={mode} data-nodes-pinned={nodesPinned ? 'true' : undefined}>
           <ReactFlow
             nodes={spoken.nodes as Node[]}
             edges={spoken.edges}
@@ -648,8 +627,11 @@ export default function CanvasFlow() {
             }}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
-            nodesDraggable={!readOnly && !nodesPinned}
+            nodesDraggable={!readOnly && !nodesPinned && !touchSelect}
+            panOnDrag={!touchSelect}
+            selectionOnDrag={touchSelect}
             nodesConnectable={!readOnly}
+            connectOnClick
             elementsSelectable={!readOnly}
             colorMode="dark"
             attributionPosition="bottom-left"
@@ -678,7 +660,7 @@ export default function CanvasFlow() {
             }}
           >
             <ZoomReporter />
-            <OverviewLevel host={host} />
+            <CanvasScale host={host} />
             <Background variant={BackgroundVariant.Dots} gap={gridSize} size={1} color="var(--canvas-dot)" />
             <Panel position="top-center" className="nopan nowheel nodrag">
               <CanvasToolbar />

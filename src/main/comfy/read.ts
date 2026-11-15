@@ -5,6 +5,7 @@
  * acceptedComfyUrl exists because the address comes from the server, and a server must not steer the app elsewhere.
  */
 import type Database from 'better-sqlite3';
+import { hardwareOf, rememberHardware } from './hardware';
 import { upsertObjectInfo } from '../catalog/repository';
 import { redactSecrets } from '../../shared/config/draft';
 import { isLoopbackHost } from '../../shared/mcp/loopback';
@@ -97,6 +98,7 @@ export async function applyComfyRead(db: Database.Database, origin: string, fetc
     const stored = options.collect
       ? (options.collect(parsed, info.json), { nodes: parsed.nodes.length, models: parsed.models.length, skipped: parsed.skipped })
       : upsertObjectInfo(db, parsed);
+    rememberHardware(db, hardwareOf(base.origin, stats.json));
     console.log(`[Comfy] object_info ${(info.bytes / (1024 * 1024)).toFixed(1)} MiB, ${stored.nodes} classes read in ${Date.now() - started} ms`);
     return {
       ok: true,

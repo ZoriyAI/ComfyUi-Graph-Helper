@@ -411,24 +411,20 @@ export default function ModelCard({ model, all, onClose, onShowLoras, onAsk, onU
   const graphIdentity = useProjectionStore((state) => `${state.projectId}:${state.graphKey}`);
   const targetValue = target ? levelGraph.nodes.find((node) => node.id === target.nodeId)?.data.parameters?.[target.field] : undefined;
 
+  const [originalText, setOriginalText] = useState(false);
   useEffect(() => {
-    let cancelled = false;
-    setDetail(undefined);
-    setStep('idle');
-    setLookupError(null);
-    window.electronAPI.modelDetail(model.directory, model.name)
-      .then((found) => {
-        if (!cancelled) setDetail(found);
-      })
-      .catch(() => {
-        if (!cancelled) setDetail(null);
-      });
-    return () => {
-      cancelled = true;
+    let cancelled = false; let timer: ReturnType<typeof setTimeout> | undefined;
+    setDetail(undefined); setOriginalText(false); setStep('idle'); setLookupError(null);
+    const read = () => {
+      window.electronAPI.modelDetail(model.directory, model.name).then((found) => {
+        if (cancelled) return; setDetail(found);
+        if (found?.translation && found.translation.state !== 'ready') timer = setTimeout(read, found.translation.state === 'pending' ? 3000 : 15000);
+      }).catch(() => { if (!cancelled) setDetail(null); });
     };
-    // The key names the file; a new summary object for the same file is not a new card.
+    read();
+    return () => { cancelled = true; clearTimeout(timer); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
+  }, [key, language]);
 
   // Whether the one selected node can take this file; asked again when the selection, the level or the graph changes.
   useEffect(() => {
@@ -451,12 +447,13 @@ export default function ModelCard({ model, all, onClose, onShowLoras, onAsk, onU
   const unread = (unreadRows ?? [])
     .find((row) => row.kind === 'model' && row.directory === model.directory && row.name === model.name);
   const loader = loaderForModel(model.directory, model.name);
-  const notes = detail?.notes ?? null;
+  const translated = language === 'ru' && !originalText && detail?.translation?.state === 'ready' ? detail.translation.fields : undefined;
+  const notes = detail?.notes ? { ...detail.notes, notes: translated?.notes ?? detail.notes.notes } : null;
   const title = authorTitle(summary);
   const hidden = summary.mature && !showMarked && revealed !== key;
   const usage = notes ? usageLines(t, notes.usage) : [];
   const triggers = detail?.triggerWords ?? [];
-  const description = detail?.description ? plainDescription(detail.description) : '';
+  const description = detail?.description ? plainDescription(translated?.description ?? detail.description) : '';
   const source = safeModelSource(detail?.sourceUrl);
   const evidence = detail ? detail.baseModelEvidence : (summary.baseModel === 'unknown' ? 'none' : 'filename');
 
@@ -636,6 +633,11 @@ export default function ModelCard({ model, all, onClose, onShowLoras, onAsk, onU
             </ul>
           </section>
         ) : null}
+        {detail?.translation && language === 'ru' ? <div role="status" className={styles.note}>
+          {t(`modelTranslation.${detail.translation.state}`)}
+          {detail.translation.state === 'ready' ? <Button size="sm" variant="subtle" onClick={() => setOriginalText(!originalText)}>{t(originalText ? 'modelTranslation.showTranslation' : 'modelTranslation.showOriginal')}</Button> : null}
+        </div> : null}
+        {Object.entries(detail?.metadata ?? {}).filter(([key]) => /(^|[._ -])(description|comment|notes|summary|instructions)([._ -]|$)/i.test(key) && !/(prompt|trigger|dataset|json|frequency)/i.test(key)).map(([key, value]) => <div key={key}><h3 className={styles.heading}>{key}</h3><p className={styles.description}>{translated?.[`metadata:${key}`] ?? value}</p></div>)}
         {notes?.notes ? (
           <section className={styles.section} aria-labelledby="model-card-notes">
             <h3 id="model-card-notes" className={styles.heading}>{t('library.card.notes')}</h3>
@@ -663,7 +665,7 @@ export default function ModelCard({ model, all, onClose, onShowLoras, onAsk, onU
         ) : null}
         {detail ? (
           <WebSection
-            detail={detail}
+            detail={translated && detail.web.found ? { ...detail, web: { ...detail.web, found: { ...detail.web.found, summary: translated['web:summary'] ?? detail.web.found.summary, notes: { ...detail.web.found.notes, notes: translated['web:notes'] ?? detail.web.found.notes.notes } } } } : detail}
             step={step}
             error={lookupError}
             hidden={!showMarked && revealed !== key}

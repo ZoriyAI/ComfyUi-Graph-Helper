@@ -44,7 +44,7 @@ export function setExposedWidgets(definition: SubgraphDefinition, fields: Expose
 }
 
 /** Preserve values by source identity when controls are reordered or the definition is reconfigured. */
-export function refreshExposedWidgets(node: Node, definition: SubgraphDefinition, catalog?: CatalogView): void {
+export function refreshExposedWidgets(node: Node, definition: SubgraphDefinition, catalog?: CatalogView, previousFields?: ExposedWidget[]): void {
   const fields = exposedWidgets(definition);
   const data = node.data;
   const comfy = { ...(data.comfy ?? {}) };
@@ -55,11 +55,14 @@ export function refreshExposedWidgets(node: Node, definition: SubgraphDefinition
       if (Array.isArray(source) && index < comfy.widgets_values.length) old.set(JSON.stringify(source.map(String)), comfy.widgets_values[index]);
     });
   }
-  properties.proxyWidgets = fields.map((field) => [field.nodeId, field.name]);
+  const managed = new Set((previousFields ?? fields).map((field) => JSON.stringify([field.nodeId, field.name])));
+  const retained: string[][] = Array.isArray(properties.proxyWidgets) ? properties.proxyWidgets.filter((pair: unknown) => Array.isArray(pair) && pair.length === 2 && !managed.has(JSON.stringify(pair.map(String)))).map((pair: unknown[]) => pair.map(String)) : [];
+  const retainedKeys = new Set(retained.map((pair) => JSON.stringify(pair)));
+  properties.proxyWidgets = [...retained, ...fields.filter((field) => !retainedKeys.has(JSON.stringify([field.nodeId, field.name]))).map((field) => [field.nodeId, field.name])];
   comfy.properties = properties;
-  comfy.widgets_values = fields.map((field) => {
-    const key = JSON.stringify([field.nodeId, field.name]);
-    return old.has(key) ? old.get(key) : sourceValue(definition, field, catalog).value ?? null;
+  comfy.widgets_values = properties.proxyWidgets.map((pair: string[]) => {
+    const key = JSON.stringify(pair);
+    return old.has(key) ? old.get(key) : sourceValue(definition, { nodeId: pair[0], name: pair[1] }, catalog).value ?? null;
   });
   node.data = { ...data, comfy };
 }

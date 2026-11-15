@@ -34,6 +34,7 @@ import {
   searchNodeClasses,
 } from './repository';
 import { validateNodeClass } from './nodeClassGuard';
+import { graphResources } from './resources';
 import { fieldModels, fieldModelsSchema } from './fieldModels';
 
 /** One handler: the IPC arguments after the event, unvalidated. */
@@ -79,6 +80,8 @@ export function knowledgeHandlers(deps: {
   db: () => Database.Database;
   sync: SyncService;
   fetchImpl?: typeof fetch;
+  resources?: (projectId: string, refresh: boolean) => Promise<import('../../shared/contracts/resources').GraphResources>;
+  modelText?: (detail: import('../../shared/contracts/knowledge').ModelDetail | null) => import('../../shared/contracts/knowledge').ModelDetail | null;
   /** Reads the preview that lies next to a model file; without it no model has one. */
   preview?: (directory: string, name: string) => Promise<ModelPreview | null>;
   /** The card's "Find on the internet": the fingerprint on the server, then the lookup. Without it, neither. */
@@ -94,7 +97,7 @@ export function knowledgeHandlers(deps: {
     [IPC_CHANNELS.KNOWLEDGE_SEARCH_MODELS]: (request) => searchModels(db(), searchModelsSchema.parse(request) as SearchModelsRequest),
     [IPC_CHANNELS.KNOWLEDGE_MODEL_DETAIL]: (request) => {
       const key = modelKeySchema.parse(request);
-      return modelDetail(db(), key.directory, key.name);
+      return deps.modelText ? deps.modelText(modelDetail(db(), key.directory, key.name)) : modelDetail(db(), key.directory, key.name);
     },
     [IPC_CHANNELS.KNOWLEDGE_MODEL_PREVIEW]: (request) => {
       const key = modelKeySchema.parse(request);
@@ -117,6 +120,7 @@ export function knowledgeHandlers(deps: {
     },
     [IPC_CHANNELS.KNOWLEDGE_DELETE_EXPLANATION]: (id) => ({ removed: deletePersonExplanation(db(), id) }),
     [IPC_CHANNELS.KNOWLEDGE_DELETE_ASSISTANT_EXPLANATIONS]: (owner) => ({ removed: deleteAssistantExplanations(db(), owner) }),
+    [IPC_CHANNELS.KNOWLEDGE_GRAPH_RESOURCES]: (projectId, refresh) => deps.resources ? deps.resources(projectIdSchema.parse(projectId), refresh === true) : graphResources(db(), projectIdSchema.parse(projectId)),
     [IPC_CHANNELS.KNOWLEDGE_CHECK_GRAPH]: (projectId) => checkGraph(db(), projectIdSchema.parse(projectId)),
     [IPC_CHANNELS.KNOWLEDGE_VALIDATE_NODE_CLASS]: (classType) => validateNodeClass(db(), classTypeSchema.parse(classType)),
     [IPC_CHANNELS.KNOWLEDGE_FIELD_MODELS]: (request) => fieldModels(db(), fieldModelsSchema.parse(request)),

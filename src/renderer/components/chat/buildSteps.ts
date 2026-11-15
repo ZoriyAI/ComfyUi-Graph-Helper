@@ -201,6 +201,7 @@ const SENTENCE_KEYS: Record<string, { ok: string; failed: string }> = {
   removeNode: { ok: 'chat.step.removeNode', failed: 'chat.stepFailed.removeNode' },
   createSubgraph: { ok: 'chat.step.createSubgraph', failed: 'chat.stepFailed.createSubgraph' },
   configureSubgraph: { ok: 'chat.step.configureSubgraph', failed: 'chat.stepFailed.configureSubgraph' },
+  insertBlueprint: { ok: 'chat.step.insertSubgraph', failed: 'chat.stepFailed.insertSubgraph' },
   insertSubgraph: { ok: 'chat.step.insertSubgraph', failed: 'chat.stepFailed.insertSubgraph' },
   annotateNode: { ok: 'chat.step.annotateNode', failed: 'chat.stepFailed.annotateNode' },
   setComponentDocumentation: { ok: 'chat.step.documentNode', failed: 'chat.stepFailed.documentNode' },
@@ -383,6 +384,9 @@ export function quietSentence(call: ToolCall, t: Translate, names: Pick<StepName
       return query ? t('chat.quiet.findInstalledModels', { query: clean(query, 40) }) : t('chat.quiet.findInstalledModelsAll');
     case 'describeModel':
       return t('chat.quiet.describeModel', { name: clean(field(call.args, 'name') ?? '—') });
+    case 'assessResources': return t('chat.quiet.assessResources');
+    case 'searchBlueprints': return t('chat.quiet.searchBlueprints');
+    case 'inspectBlueprint': return t('chat.quiet.inspectBlueprint');
     case 'checkGraph':
       return t('chat.quiet.checkGraph');
     case 'searchWeb':

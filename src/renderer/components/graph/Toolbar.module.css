@@ -196,3 +196,17 @@
 .mark { padding: 0 5px; border-radius: var(--radius-pill); border: 1px solid var(--line, #2a3648); color: var(--text-dim, #a3b1c6); font-size: var(--text-xs); line-height: 16px; }
 .mark[data-mark="api"] { border-color: var(--warn, #e5b567); color: var(--warn, #e5b567); }
 .mark[data-mark="deprecated"] { color: var(--text-faint, #8b9bb0); }
+
+.touchActions { display: none; }
+@media (pointer: coarse), (max-width: 700px) {
+  .touchActions { display: flex; gap: 4px; max-width: calc(100vw - 16px); padding: 4px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-panel); overflow-x: auto; pointer-events: auto; }
+  .touchActions button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 44px; flex-shrink: 0; padding: 6px 10px; border: 0; border-radius: 6px; background: var(--surface-sunken); color: var(--text); font: inherit; font-size: 12px; touch-action: manipulation; }
+  .touchActions button:disabled { opacity: .5; }
+}
+
+.imageAdd { position: relative; display: inline-flex; gap: 6px; padding-inline: 8px; cursor: pointer; }
+.imageAdd[aria-disabled=true] { opacity: .5; cursor: default; }
+@media (max-width: 700px), (pointer: coarse) { .imageAdd { min-height: 44px; } }
+
+.touchActions button { min-width: 44px; }
+.touchActions button[aria-pressed=true] { color: var(--accent); background: var(--accent-soft); }

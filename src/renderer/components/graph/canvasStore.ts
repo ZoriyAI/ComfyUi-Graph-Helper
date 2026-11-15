@@ -167,6 +167,8 @@ interface CanvasState {
   minimapOn: boolean;
   /** View ▸ Pin nodes: nodes cannot be dragged (fields, links and the view still work). A chip says so while on. */
   nodesPinned: boolean;
+  /** Touch selection mode: tap nodes to add/remove them without a keyboard modifier. */
+  touchSelect: boolean;
   /** A link being dragged from a port: compatible ports glow and the rest dim while it lasts. */
   linkDrag: ConnectFrom | null;
   /** Nodes whose card the person closed; a dot on the node brings it back. */
@@ -260,6 +262,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   descriptionsOn: true,
   minimapOn: true,
   nodesPinned: false,
+  touchSelect: false,
   linkDrag: null,
   hiddenDescriptions: {},
   expandedDescriptions: {},

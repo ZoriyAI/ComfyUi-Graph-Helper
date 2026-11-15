@@ -5,7 +5,7 @@
  * canvas, the library, services/ask.ts, the command dialogs); state/frame.ts and viewMemory.ts keep it in balance
  * and remembered.
  */
-import { WORKSPACE_PANEL } from '../commands/events';
+import { requestWorkspacePanel } from '../commands/events';
 import { create } from 'zustand';
 
 /** Single-tab dock width range (px). */
@@ -65,7 +65,10 @@ export const useDockStore = create<DockUi>((set) => ({
   tab: 'assistant',
   split: false,
   width: TAB_DEFAULT,
-  setCollapsed: (collapsed) => set({ collapsed }),
+  setCollapsed: (collapsed) => {
+    set({ collapsed });
+    if (!collapsed) requestWorkspacePanel(useDockStore.getState().tab === 'assistant' ? 'assistant' : 'properties');
+  },
   setSplit: (split) => set((state) => {
     const range = dockRange(split, window.innerWidth);
     const width = Math.min(range.max, Math.max(range.min, split ? Math.max(state.width, SPLIT_MIN) : state.width));
@@ -73,7 +76,7 @@ export const useDockStore = create<DockUi>((set) => ({
   }),
   setWidth: (width) => set({ width }),
   show: (tab) => {
-    if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function' && typeof CustomEvent !== 'undefined') window.dispatchEvent(new CustomEvent(WORKSPACE_PANEL, { detail: normalizeDockTab(tab) === 'assistant' ? 'assistant' : 'properties' }));
+    requestWorkspacePanel(normalizeDockTab(tab) === 'assistant' ? 'assistant' : 'properties');
     set((state) => {
       const range = dockRange(false, window.innerWidth);
       return {

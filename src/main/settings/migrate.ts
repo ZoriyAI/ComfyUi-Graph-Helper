@@ -173,7 +173,7 @@ function applyVersion2(db: Database.Database): void {
  * whether what is on screen is in that file as it stands, across reloads and restarts.
  * Version 18 adds flags on node_catalog: the api, deprecated and experimental marks of a node class.
  */
-export const SCHEMA_VERSION = 18;
+export const SCHEMA_VERSION = 19;
 
 /**
  * Brings the database up to SCHEMA_VERSION (or `upTo`), one step at a time from the version it has.
@@ -311,6 +311,13 @@ export function migrate(db: Database.Database, options?: { failBeforeVersionStam
     const apply = db.transaction(() => {
       applyVersion18(db);
       db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (18, ?)').run(Date.now());
+    });
+    apply.immediate();
+  }
+  if (schemaVersion(db) === 18 && target > 18) {
+    const apply = db.transaction(() => {
+      db.exec("CREATE TABLE IF NOT EXISTS model_text_translations (source_hash TEXT NOT NULL, language TEXT NOT NULL, fields_json TEXT NOT NULL, updated_at INTEGER NOT NULL, PRIMARY KEY (source_hash, language))");
+      db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (19, ?)').run(Date.now());
     });
     apply.immediate();
   }

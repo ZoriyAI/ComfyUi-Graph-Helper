@@ -229,6 +229,12 @@ export const mutationSchema = z.discriminatedUnion('type', [
   }),
   createSubgraphMutation,
   z.object({
+    type: z.literal('insert-blueprint'), templateId: z.string().min(1).max(100),
+    name: z.string().trim().min(1).max(200).optional(), description: z.string().max(4000).optional(),
+    x: z.number().finite(), y: z.number().finite(), destinationDefinitionId: z.string().min(1).optional(),
+    upgradeToV1: z.boolean().optional(),
+  }),
+  z.object({
     type: z.literal('configure-subgraph'), definitionId: z.string().min(1),
     name: z.string().trim().min(1).max(200), description: z.string().max(4000).default(''),
     widgets: z.array(subgraphWidgetSchema).max(200).default([]),

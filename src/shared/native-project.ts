@@ -175,6 +175,7 @@ function readSubgraphs(value: unknown): SubgraphDefinition[] | undefined {
       nestedIn: item.nestedIn,
       ...(item.opaque === true ? { opaque: true as const } : {}),
       raw: item.raw,
+      ...(isRecord(item.instanceDefaults) ? { instanceDefaults: item.instanceDefaults } : {}),
       ...(Array.isArray(item.importedLinks) && item.importedLinks.every((id) => typeof id === 'string')
         ? { importedLinks: item.importedLinks as string[] }
         : {}),

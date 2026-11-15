@@ -104,7 +104,11 @@ const IPC_CHANNELS = {
   SECRETS_INVENTORY: 'secrets:inventory',
   SETTINGS_SECRET_STATUS: 'settings:secret-status',
   COMFY_CHECK: 'comfy:check',
+  EXTENSION_DRAFT_GET: 'extension:draft-get',
+  EXTENSION_STARTER: 'extension:starter',
+  KNOWLEDGE_GRAPH_RESOURCES: 'knowledge:graph-resources',
   COMFY_UPLOAD_MEDIA: 'comfy:upload-media',
+  COMFY_INPUT_PREVIEW: 'comfy:input-preview',
   MCP_READ: 'mcp:read',
   MCP_SET_TOKEN: 'mcp:set-token',
   MCP_TOKEN_STATUS: 'mcp:token-status',
@@ -313,6 +317,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     | { ok: false; error: string }
   >,
   readMcp: () => ipcRenderer.invoke(IPC_CHANNELS.MCP_READ) as Promise<McpReadOutcome>,
+  extensionDraft: (id: string) => ipcRenderer.invoke(IPC_CHANNELS.EXTENSION_DRAFT_GET, id) as Promise<import('../shared/contracts/extensions').ExtensionDraft | null>,
+  extensionStarter: () => ipcRenderer.invoke(IPC_CHANNELS.EXTENSION_STARTER) as Promise<import('../shared/contracts/extensions').ExtensionDraft>,
+  graphResources: (projectId: string, refresh = false) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_GRAPH_RESOURCES, projectId, refresh) as Promise<import('../shared/contracts/resources').GraphResources>,
+  inputImagePreview: (name: string) => ipcRenderer.invoke(IPC_CHANNELS.COMFY_INPUT_PREVIEW, name) as Promise<string | null>,
   uploadNodeFile: (name: string, data: ArrayBuffer) => ipcRenderer.invoke(IPC_CHANNELS.COMFY_UPLOAD_MEDIA, name, data) as Promise<import('../shared/contracts/media').MediaUploadResult>,
   mcpSetToken: (value: string, forUrl?: string) => ipcRenderer.invoke(IPC_CHANNELS.MCP_SET_TOKEN, value, forUrl) as Promise<{ held: boolean }>,
   mcpTokenStatus: () => ipcRenderer.invoke(IPC_CHANNELS.MCP_TOKEN_STATUS) as Promise<McpTokenStatus>,
@@ -613,6 +621,10 @@ export interface ElectronAPI {
   >;
   /** Runs the ordinary sync, from either address, and says what it read (Settings ▸ Connection ▸ "Read now"). */
   readMcp: () => Promise<McpReadOutcome>;
+  extensionDraft: (id: string) => Promise<import('../shared/contracts/extensions').ExtensionDraft | null>;
+  extensionStarter: () => Promise<import('../shared/contracts/extensions').ExtensionDraft>;
+  graphResources: (projectId: string, refresh?: boolean) => Promise<import('../shared/contracts/resources').GraphResources>;
+  inputImagePreview: (name: string) => Promise<string | null>;
   uploadNodeFile: (name: string, data: ArrayBuffer) => Promise<import('../shared/contracts/media').MediaUploadResult>;
   /** `forUrl`: the MCP URL the token is for (e.g. the draft being saved); defaults to the saved URL. */
   mcpSetToken: (value: string, forUrl?: string) => Promise<{ held: boolean }>;

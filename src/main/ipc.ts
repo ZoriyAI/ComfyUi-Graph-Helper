@@ -24,6 +24,9 @@ import { attemptSaveSecret, forgetProviderKey, forgetSecret, migrateLegacyProvid
 import { secretStatus } from './settings/secretDecision';
 import { isUnprotectedCipher } from '../shared/config/secretPolicy';
 import { checkComfy } from './comfy/direct';
+import { extensionDrafts } from './extensions/drafts';
+import { OLLAMA_STARTER } from './extensions/ollamaStarter';
+import { inputImagePreview } from './comfy/imagePreview';
 import { uploadComfyMedia } from './comfy/upload';
 import { registerKnowledgeIpc } from './ipc/knowledgeIpc';
 import { registerEngineIpc } from './ipc/engineIpc';
@@ -245,6 +248,8 @@ export async function setupIPC(): Promise<void> {
   registerUpdateIpc(ipcMain);
   registerStartIpc(ipcMain);
   registerPrivacyIpc(ipcMain);
+  ipcMain.handle(IPC_CHANNELS.EXTENSION_DRAFT_GET, (_event, id: unknown) => typeof id === 'string' && id.length <= 64 ? extensionDrafts.get(id) : null);
+  ipcMain.handle(IPC_CHANNELS.EXTENSION_STARTER, () => extensionDrafts.add(OLLAMA_STARTER, 'starter'));
   registerLessonsIpc(ipcMain, { language: () => languageOf(readSettings(getDatabase())) });
   // File operations
   // Every way of opening a file ends in openFileAtPath (ipc/openIpc.ts): one recognition, one commit, one follow-up.
@@ -544,6 +549,8 @@ export async function setupIPC(): Promise<void> {
   ipcMain.handle(IPC_CHANNELS.COMFY_UPLOAD_MEDIA, (_event, name: unknown, data: unknown) => uploadComfyMedia(
     () => savedEndpoints().comfyOrigin || reportedComfyUrl(getDatabase()) || '', name, data,
   ));
+
+  ipcMain.handle(IPC_CHANNELS.COMFY_INPUT_PREVIEW, (_event, name: unknown) => inputImagePreview(() => savedEndpoints().comfyOrigin || reportedComfyUrl(getDatabase()) || '', name));
 
   ipcMain.handle(IPC_CHANNELS.MCP_READ, async () => {
     // "Read through MCP" is the ordinary sync: every status (indicator, welcome card, popover) then says what was

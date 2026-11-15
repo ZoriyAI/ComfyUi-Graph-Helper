@@ -91,6 +91,11 @@ function spec(
 
 /** Tools that change the graph at once; each step carries a `why` for the person. */
 export const BUILD_TOOL_SPECS: GraphToolSpec[] = [
+  spec('insertBlueprint', `Create an independent editable copy of an official native subgraph blueprint. Inspect it first, explain the stages and check installed classes/models. Returns the new definition id and inner ids for stepwise variation with inSubgraph. It never queues execution or installs models/extensions. ${DIRECT} ${DATA}`, withWhy({
+    templateId: { type: 'string', description: 'Exact id from searchBlueprints.' },
+    name: subgraphProps.name, description: subgraphProps.description,
+    x: { type: 'number' }, y: { type: 'number' }, upgradeToV1: subgraphProps.upgradeToV1,
+  }), ['templateId']),
   spec('addNode', `Add a node. ${DIRECT} ${DATA}`, withWhy(addNodeProps), ['nodeType']),
   spec('connectNodes', `Connect an output to an input. Pass sourceNodeId and targetNodeId with a handle or slot index. ${DIRECT} ${DATA}`, withWhy(connectProps), []),
   spec('setParameter', `Set one widget value on a node. ${DIRECT} ${DATA}`, withWhy(parameterProps), ['nodeId', 'key', 'value']),

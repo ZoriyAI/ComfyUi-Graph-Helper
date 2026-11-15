@@ -4,6 +4,7 @@
  * click. tests/unit/asyncEditorOrigin.test.ts covers addNodeFromLibrary.
  */
 import { closeCard, focusCardTitle } from '../../a11y/cardFocus';
+import { requestWorkspacePanel, onWorkspaceCanvas } from '../../commands/events';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, Plug, SearchX } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -59,7 +60,10 @@ async function addNow(node: Pick<NodeClassSummary, 'classType' | 'displayName'>,
     if (result?.status === 'applied') {
       showToast({ id: 'library-add', tone: 'success', title: messages.added, duration: 4000 });
       // Selected and in view, so the person sees what the toast says was added.
-      if (originIsCurrent(origin)) revealNewNode(addedNodeId(result), undefined, origin);
+      if (originIsCurrent(origin)) {
+        revealNewNode(addedNodeId(result), undefined, origin);
+        requestWorkspacePanel('canvas');
+      }
     }
     else if (hasRefusalReason(result)) reportRefusal(result);
     else showToast({ id: 'library-add', tone: 'error', title: messages.failed });
@@ -83,6 +87,7 @@ export default function NodeLibrary() {
   /** The class whose card is open beside the rail. */
   const [open, setOpen] = useState<NodeClassSummary | null>(null);
   const [failed, setFailed] = useState(false);
+  useEffect(() => onWorkspaceCanvas(() => setOpen(null)), []);
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
   const [searchCollapsed, setSearchCollapsed] = useState<Set<string>>(() => new Set());
   const syncPart = useKnowledgeStore((state) => `${state.sync?.lastSyncAt ?? 0}:${state.sync?.counts.nodeClasses ?? 0}`);

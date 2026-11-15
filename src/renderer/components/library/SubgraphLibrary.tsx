@@ -18,7 +18,8 @@ import { hasRefusalReason, reportRefusal, scopedToLevel } from '../graph/commit'
 import { subgraphCardSize } from '../graph/lib/nodeSizes';
 import { subgraphSummary } from '../graph/SubgraphSummary';
 import { replayIsOpen } from '../../commands/replayGate';
-import { openSubgraphWizard } from '../graph/subgraphWizardState';
+import { requestWorkspacePanel } from '../../commands/events';
+import { openSubgraphWizard, openTaskWizard } from '../graph/subgraphWizardState';
 import styles from './Library.module.css';
 
 /** The graph store carries `subgraphs`; read it defensively (an empty graph may not have it yet). */
@@ -49,7 +50,7 @@ export default function SubgraphLibrary() {
         x: position.x,
         y: position.y,
       }));
-      if (result.status === 'applied') showToast({ id: 'library-add', tone: 'success', title: String(t('library.inserted', { name: definition.name })), duration: 4000 });
+      if (result.status === 'applied') { requestWorkspacePanel('canvas'); showToast({ id: 'library-add', tone: 'success', title: String(t('library.inserted', { name: definition.name })), duration: 4000 }); }
       else if (hasRefusalReason(result)) reportRefusal(result);
       else showToast({ id: 'library-add', tone: 'error', title: String(t('library.insertFailed')) });
     } catch {
@@ -60,7 +61,7 @@ export default function SubgraphLibrary() {
   if (subgraphs.length === 0) {
     return (
       <div className={styles.pane}>
-        <div className={styles.controls}><Button onClick={() => openSubgraphWizard()}>{t('subgraphWizard.menu')}</Button></div>
+        <div className={styles.controls}><Button onClick={openTaskWizard}>{t('taskWizard.open')}</Button><Button onClick={() => openSubgraphWizard()}>{t('subgraphWizard.menu')}</Button></div>
         <EmptyState icon={<Layers size={20} />} title={String(t('library.emptySubgraphsTitle'))}>
           {t('library.emptySubgraphsBody')}
         </EmptyState>
@@ -71,6 +72,7 @@ export default function SubgraphLibrary() {
   return (
     <div className={styles.pane}>
       <div className={styles.controls}>
+        <Button onClick={openTaskWizard}>{t('taskWizard.open')}</Button>
         <Button onClick={() => openSubgraphWizard()}>{t('subgraphWizard.menu')}</Button>
         <SearchField
           value={query}

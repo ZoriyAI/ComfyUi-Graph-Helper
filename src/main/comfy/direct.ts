@@ -6,6 +6,8 @@
  * The details of what this path can and cannot give follow below the imports.
  */
 import type Database from 'better-sqlite3';
+import { hardwareOf, rememberHardware } from './hardware';
+import type { HardwareSnapshot } from '../../shared/contracts/resources';
 import type { McpModelFile, McpSession, McpToolCallResult } from '../../shared/mcp/catalogSource';
 import { isModelFileIn } from '../../shared/mcp/catalogSource';
 import { ObjectInfoError, parseObjectInfo, type ParsedObjectInfo } from '../../shared/catalog/objectInfo';
@@ -257,6 +259,7 @@ export interface DirectReadSuccess {
   /** The address read, as an origin (`http://127.0.0.1:8188`). */
   origin: string;
   system: ComfySystem;
+  hardware?: HardwareSnapshot | null;
   nodes: number;
   packs: number;
   models: number;
@@ -380,6 +383,7 @@ export async function collectComfyDirect(
     ok: true,
     origin: origin.origin,
     system,
+    hardware: hardwareOf(origin.origin, jsonOf(stats)),
     nodes: parsed.nodes.length,
     packs: packRows.length,
     models: files.length,
@@ -414,6 +418,7 @@ export function publishComfyDirect(db: Database.Database, snapshot: DirectCatalo
       if (snapshot.failedFolders.length === 0) removeStaleModelFiles(db, now);
       else removeStaleModelFilesIn(db, now, Object.keys(snapshot.roots).filter((folder) => !snapshot.failedFolders.includes(folder)));
     }
+    rememberHardware(db, snapshot.hardware ?? null);
     inferModelsFromNames(db);
     bumpCatalogRevision(db);
     const { parsed: _parsed, packRows: _packs, files: _files, ...result } = snapshot;

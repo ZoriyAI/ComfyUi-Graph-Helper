@@ -6,7 +6,7 @@
  */
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { CheckCheck, ChevronLeft, ChevronRight, Compass, Maximize, MessageSquareText, MessagesSquare, Navigation, Pause, Play, Square, SquarePlus, Workflow, ZoomIn, ZoomOut } from 'lucide-react';
+import { CheckCheck, ChevronLeft, ChevronRight, Compass, Maximize, MessageSquareText, MessagesSquare, MoreHorizontal, Navigation, Undo2, Redo2, SquareDashed, CheckSquare, Pause, Play, Square, SquarePlus, Sparkles, Trash2, Workflow, ZoomIn, ZoomOut } from 'lucide-react';
 import { ControlButton, Controls, useStore, type ReactFlowState } from '@xyflow/react';
 import { openProposals, useProposalsStore } from '../../state/proposalsState';
 import { useUiStore } from '../../state/uiState';
@@ -16,6 +16,8 @@ import { useCanvasStore } from './canvasStore';
 import { startGraphTour } from './tour/startTour';
 import { runCommand, useCommandState } from '../../commands/registry';
 import styles from './Toolbar.module.css';
+import { openTaskWizard } from './subgraphWizardState';
+import { AddImageButton } from './imageSource';
 
 const zoomOf = (state: ReactFlowState) => state.transform[2];
 
@@ -63,6 +65,11 @@ export default function CanvasToolbar() {
   const arrange = useCommandState('graph.arrange');
   const replaying = useCanvasStore((state) => Boolean(state.replay));
   const descriptionsMode = useCanvasStore((state) => state.descriptionsMode);
+  const deleteSelection = useCommandState('edit.delete');
+  const selectAll = useCommandState('edit.selectAll');
+  const undoAction = useCommandState('edit.undo'); const redoAction = useCommandState('edit.redo');
+  const touchSelect = useCanvasStore((state) => state.touchSelect);
+  const connectFrom = useCanvasStore((state) => state.connectFrom);
   const open = openProposals(proposals).length;
   const zoom = useStore(zoomOf);
 
@@ -70,10 +77,26 @@ export default function CanvasToolbar() {
   // follow the assistant. The tour's transport is its own pill under the toolbar, so the toolbar does not jump.
   return (
     <div className={styles.stack}>
+    <div className={styles.touchActions} role="toolbar" aria-label={String(t('canvas.touchActions'))}>
+      <button type="button" disabled={!undoAction.enabled} aria-label={String(t('toolbar.undo'))} title={String(t('toolbar.undo'))} onClick={() => void runCommand('edit.undo')}><Undo2 size={18} /></button>
+      <button type="button" disabled={!redoAction.enabled} aria-label={String(t('toolbar.redo'))} title={String(t('toolbar.redo'))} onClick={() => void runCommand('edit.redo')}><Redo2 size={18} /></button>
+      <button type="button" disabled={replaying} aria-pressed={touchSelect} aria-label={String(t('canvas.touchSelect'))} title={String(t('canvas.touchSelect'))} onClick={() => useCanvasStore.setState({ touchSelect: !touchSelect })}><SquareDashed size={18} /></button>
+      <button type="button" aria-label={String(t('canvas.touchMenu'))} title={String(t('canvas.touchMenu'))} onClick={(event) => {
+        const root = event.currentTarget.closest('.react-flow');
+        const target = root?.querySelector('.react-flow__node.selected, .react-flow__edge.selected') ?? root?.querySelector('.react-flow__pane');
+        const box = event.currentTarget.getBoundingClientRect();
+        target?.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: box.left, clientY: box.bottom }));
+      }}><MoreHorizontal size={18} /></button>
+      <button type="button" disabled={!selectAll.enabled} aria-label={String(t('menu.selectAll'))} title={String(t('menu.selectAll'))} onClick={() => void runCommand('edit.selectAll')}><CheckSquare size={18} /></button>
+      <button type="button" disabled={!deleteSelection.enabled} aria-label={String(t('menu.deleteSelection'))} title={String(t('menu.deleteSelection'))} onClick={() => void runCommand('edit.delete')}><Trash2 size={18} /></button>
+      {connectFrom ? <button type="button" onClick={() => useCanvasStore.getState().setConnectFrom(null)}>{t('canvas.cancelConnection')}</button> : null}
+    </div>
     <div className={styles.toolbar} role="toolbar" aria-label={String(t('canvas.toolbar'))} data-replaying={replaying ? 'true' : undefined}>
       {/* While a version from the history is on screen nothing can be added or arranged: those tools step aside so the
           history's player fits on the same single row (motion package). */}
       {replaying ? null : <span className={styles.group}>
+        <AddImageButton />
+        <button type="button" className={styles.button} onClick={openTaskWizard} title={String(t('taskWizard.open'))} aria-label={String(t('taskWizard.open'))}><Sparkles size={16} /></button>
         <button type="button" className={`${styles.button} ${styles.primary} ${styles.wide}`} onClick={() => void runCommand('graph.addNode')} disabled={replaying} title={String(t('canvas.addNode'))} aria-label={String(t('canvas.addNode'))} data-canvas-add-node>
           <SquarePlus size={16} aria-hidden="true" />
           <span>{t('canvas.addNodeLabel')}</span>

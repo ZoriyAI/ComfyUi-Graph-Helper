@@ -44,6 +44,7 @@ import { parseNativeProject } from '../../shared/native-project';
 import { nestsItself, type GroupRecord, type SubgraphDefinition } from '../../shared/graph/subgraphs';
 import { applyGraphOp, blankDocument, GraphOpError, Ids, isGraphOp } from './graphOps';
 import { applyInnerEdit, keepDefinitionCounters } from './innerEdits';
+import { prepareBlueprint } from './blueprints';
 import { applyMoveNodes, classHints, nodeRectOf, placeHelperNode, placeHelperSubgraph, runCreatedNodeIds, tidyMoves } from './placement';
 import { boundsOfRects, findFreeSlot } from '../../shared/graph/layout';
 import { EditOpError, adoptLinkedType, applyEditOp, editorNode, isEditOp, refuseEditorLink } from './editOps';
@@ -576,6 +577,22 @@ function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutat
   const edges: Array<Record<string, any>> = snapshot.edges.map((edge) => ({ ...edge }));
   if (payload.type === 'remove-selection') return removeSelection(snapshot, payload);
   if (payload.type === 'paste-selection') return pasteSelection(snapshot, payload, catalog, context);
+  if (payload.type === 'insert-blueprint') {
+    try {
+      const prepared = prepareBlueprint(snapshot, payload);
+      const first = prepared.nodes[0].position;
+      const paste = { type: 'paste-selection' as const, nodes: prepared.nodes, edges: prepared.edges, offsetX: payload.x - first.x, offsetY: payload.y - first.y };
+      const applied = payload.destinationDefinitionId
+        ? applyMutation(prepared.snapshot as Snapshot, actionId, { type: 'edit-in-subgraph', definitionId: payload.destinationDefinitionId, edit: { ...paste, destinationDefinitionId: payload.destinationDefinitionId } }, catalog)
+        : pasteSelection(prepared.snapshot as Snapshot, paste, catalog);
+      const nodeIds = applied.result.nodeIds as string[];
+      return { snapshot: applied.snapshot, result: { ...applied.result, nodeId: nodeIds[0], definitionId: prepared.definitionId, definitionIds: prepared.definitionIds, templateId: payload.templateId } };
+    } catch (error) {
+      if (error instanceof GraphOpError) throw new CommandSignal('rejected', { error: error.message });
+      throw error;
+    }
+  }
+
   if (payload.type === 'add-node') {
     const work: GraphSnapshot = { nodes, edges, document: snapshot.document, subgraphs: snapshot.subgraphs };
     const nodeId = new Ids(work).node(new Set(nodes.map((node) => String(node.id))));

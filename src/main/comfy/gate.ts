@@ -16,6 +16,7 @@
  * ComfyUI-Manager (Comfy-Org/ComfyUI-Manager at cac0748, glob/manager_server.py `/customnode/installed`).
  */
 
+import { isPlainRelativeName } from '../../shared/mcp/serverPaths';
 import { connectFailureKind } from '../mcp/connectError';
 
 /** A read route of ComfyUI, with the byte cap and time limit of its answer. */
@@ -76,6 +77,12 @@ export const COMFY_ROUTES = {
     const name = fileOk(filename).split(/[\\/]/).map(encodeURIComponent).join('/');
     return { path: `/experiment/models/preview/${folderOk(folder)}/${pathIndex}/${name}`, maxBytes: 16 * MB, timeoutMs: 30_000, kind: 'image' };
   },
+  /** Explicitly named input raster only: no absolute path and no output/temp or arbitrary query. */
+  inputImage: (filename: string): ComfyRoute => {
+    if (!isPlainRelativeName(filename) || filename.includes('\\')) throw new ComfyGateError('file');
+    const parts = filename.split('/'); const name = parts.pop()!;
+    return { path: `/view?filename=${encodeURIComponent(name)}&type=input&subfolder=${encodeURIComponent(parts.join('/'))}&preview=webp%3B80`, maxBytes: 4 * MB, timeoutMs: 20_000, kind: 'image' };
+  },
   /** Installed node packs with versions, only when ComfyUI-Manager is installed (404 otherwise). */
   installedPacks: (): ComfyRoute => ({ path: '/customnode/installed', ...SMALL }),
   /** Node name translations from the packs' locales folders. */
@@ -92,6 +99,7 @@ const ALLOWED_PATHS: RegExp[] = [
   /^\/models\/[A-Za-z0-9_.-]{1,80}$/,
   /^\/view_metadata\/[A-Za-z0-9_.-]{1,80}\?filename=[^&#]+$/,
   /^\/experiment\/models\/preview\/[A-Za-z0-9_.-]{1,80}\/\d{1,3}\/[^?#]+$/,
+  /^\/view\?filename=[^&#]+&type=input&subfolder=[^&#]*&preview=webp%3B80$/,
   /^\/customnode\/installed$/,
   /^\/i18n$/,
 ];

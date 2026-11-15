@@ -17,6 +17,7 @@ import {
   isRunControl,
   primitiveTarget,
   promotedFields,
+  promotedInputSlot,
   ownPromotedValue,
   RUN_CONTROLS,
   savedValues,
@@ -272,7 +273,6 @@ function PromotedRow({ id, data, field, fields, definition, disabled, connected,
   const value = own.held
     ? own.value
     : source.innerData && source.innerKey ? fieldValue(source.innerData, source.innerKey, detail?.widgetOrder) : undefined;
-  const label = field.name === 'control_after_generate' ? String(t('importLook.runControl')) : field.name;
   const commit = (next: unknown) => {
     if (own.held) {
       void commitWidget(id, field.index, next);
@@ -284,7 +284,9 @@ function PromotedRow({ id, data, field, fields, definition, disabled, connected,
   };
   const known = own.held || Boolean(source.innerNodeId);
   // The copy's own field is also its input: a link can still feed it, as on any field.
-  const port = field.nodeId === '-1' ? data.inputs.find((input) => input.name === field.name) : undefined;
+  const inputSlot = promotedInputSlot(field, definition);
+  const port = inputSlot >= 0 ? data.inputs.find((input) => input.id === `in-${inputSlot}`) : field.nodeId === '-1' ? data.inputs.find((input) => input.name === field.name) : undefined;
+  const label = field.name === 'control_after_generate' ? String(t('importLook.runControl')) : port?.name ?? field.name;
   const linked = port ? connected.has(`in:${port.id}`) : false;
   return (
     <li
@@ -324,6 +326,10 @@ export function PromotedFields({ id, data, disabled, connected, focusable, panel
 }
 
 /** Names of the inputs a copy's promoted fields stand for: those ports are not repeated as sockets. */
-export function promotedInputNames(data: ComfyNodeData): Set<string> {
-  return new Set(promotedFields(data).filter((field) => field.nodeId === '-1').map((field) => field.name));
+export function promotedInputNames(data: ComfyNodeData, definition?: SubgraphDefinition): Set<string> {
+  return new Set(promotedFields(data).flatMap((field) => {
+    const slot = promotedInputSlot(field, definition);
+    const port = slot >= 0 ? data.inputs.find((input) => input.id === `in-${slot}`) : undefined;
+    return port ? [port.name] : field.nodeId === '-1' ? [field.name] : [];
+  }));
 }

@@ -124,6 +124,8 @@ function writeNotices() {
   fs.copyFileSync(path.join(root, 'NOTICE.md'), path.join(out, 'NOTICE.md'));
   fs.copyFileSync(path.join(root, 'NOTICE.ru.md'), path.join(out, 'NOTICE.ru.md'));
   const components = collect();
+  const blueprints = JSON.parse(fs.readFileSync(path.join(root, 'src/shared/templates/provenance.json'), 'utf8'));
+  components.push({ name: 'Comfy-Org/workflow_templates blueprints', version: blueprints.commit, license: 'MIT', text: fs.readFileSync(path.join(root, 'src/shared/templates/LICENSE.txt'), 'utf8') });
   fs.writeFileSync(path.join(out, 'third-party.json'), `${JSON.stringify(components)}\n`);
   const text = [
     `${pkg.productName} ${pkg.version} includes the following open-source components.`,

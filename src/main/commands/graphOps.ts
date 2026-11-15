@@ -188,7 +188,10 @@ function comfySlots(definition: SubgraphDefinition, previous?: Record<string, an
 /** A new instance node of a definition, with ports and a native record built from the definition's slots. */
 export function instanceNode(id: string, definition: SubgraphDefinition, x: number, y: number, title?: string, catalog?: CatalogView): Node {
   const ports = instancePorts(definition);
-  const slots = comfySlots(definition);
+  const defaults = structuredClone(definition.instanceDefaults ?? {}) as Record<string, any>;
+  if (Array.isArray(defaults.inputs)) defaults.inputs = defaults.inputs.map((input: Record<string, unknown>) => ({ ...input, link: null }));
+  if (Array.isArray(defaults.outputs)) defaults.outputs = defaults.outputs.map((output: Record<string, unknown>) => ({ ...output, links: [] }));
+  const slots = comfySlots(definition, Object.keys(defaults).length ? defaults : undefined);
   const name = title || definition.name;
   const node: Node = {
     id,
@@ -204,6 +207,7 @@ export function instanceNode(id: string, definition: SubgraphDefinition, x: numb
       parameters: {},
       annotations: [],
       comfy: {
+        ...defaults,
         id: idValue(id),
         type: definition.id,
         title: name,
@@ -212,7 +216,7 @@ export function instanceNode(id: string, definition: SubgraphDefinition, x: numb
         flags: {},
         order: 0,
         mode: 0,
-        properties: {},
+        properties: defaults.properties ?? {},
         inputs: slots.inputs,
         outputs: slots.outputs,
       },
@@ -505,21 +509,20 @@ function renameSubgraph(work: GraphSnapshot, payload: Extract<GraphMutation, { t
  * reset what the person set on the instance. Inner nodes with keyed widgets_values take them by name;
  * positional ones by the index the inner node's own `widgets` list (when stored) gives the name.
  */
-function promoteInstanceValues(instance: Node, restored: Node[], idMap: Map<string, string>, catalog?: CatalogView): void {
+function promoteInstanceValues(instance: Node, restored: Node[], idMap: Map<string, string>, definition: SubgraphDefinition, catalog?: CatalogView): void {
   const comfy = instance.data?.comfy;
   const proxies = comfy?.properties?.proxyWidgets;
   const values = comfy?.widgets_values;
   if (!Array.isArray(proxies) || !Array.isArray(values)) return;
-  proxies.forEach((pair: unknown, index: number) => {
-    if (!Array.isArray(pair) || pair.length < 2 || index >= values.length) return;
-    const target = restored.find((node) => String(node.id) === (idMap.get(String(pair[0])) ?? String(pair[0])));
+  const apply = (sourceId: string, rawName: string, value: unknown) => {
+    const target = restored.find((node) => String(node.id) === (idMap.get(sourceId) ?? sourceId));
     const inner = target?.data?.comfy;
-    if (!target || !inner || typeof inner !== 'object') return;
-    const name = String(pair[1]);
+    if (!target || !inner || typeof inner !== 'object') fail('Subgraph widget source is missing.');
+    const name = rawName.includes('::') ? rawName.split('::').at(-1)! : rawName;
     const widgets = inner.widgets_values;
     if (widgets && typeof widgets === 'object' && !Array.isArray(widgets)) {
-      inner.widgets_values = { ...widgets, [name]: values[index] };
-      target.data.parameters = { ...(target.data.parameters ?? {}), [name]: values[index] };
+      inner.widgets_values = { ...widgets, [name]: value };
+      target.data.parameters = { ...(target.data.parameters ?? {}), [name]: value };
       return;
     }
     const spec = catalog?.nodes.find((item) => item.classType === target.data.comfyType);
@@ -528,12 +531,21 @@ function promoteInstanceValues(instance: Node, restored: Node[], idMap: Map<stri
       : Array.isArray(inner.widgets) ? inner.widgets.map((item: { name?: unknown }) => String(item?.name ?? '')) : [];
     const slot = names.indexOf(name);
     if (Array.isArray(widgets) && slot >= 0 && slot < widgets.length) {
-      const copy = widgets.slice();
-      copy[slot] = values[index];
-      inner.widgets_values = copy;
-      target.data.parameters = { ...(target.data.parameters ?? {}), [name]: values[index] };
-    } else {
-      fail('Subgraph widget source is missing or its field layout is unknown.');
+      const copy = widgets.slice(); copy[slot] = value; inner.widgets_values = copy;
+      target.data.parameters = { ...(target.data.parameters ?? {}), [name]: value };
+    } else fail('Subgraph widget source is missing or its field layout is unknown.');
+  };
+  proxies.forEach((pair: unknown, index: number) => {
+    if (!Array.isArray(pair) || pair.length < 2 || index >= values.length) return;
+    if (String(pair[0]) !== '-1') { apply(String(pair[0]), String(pair[1]), values[index]); return; }
+    const input = definition.inputs.findIndex((slot) => slot.name === String(pair[1]));
+    const links = definition.edges.filter((edge) => String(edge.source) === SUBGRAPH_INPUT_NODE_ID && slotIndex(edge.sourceHandle) === input);
+    if (input < 0 || !links.length) fail('Subgraph promoted input is not connected to a known widget.');
+    for (const link of links) {
+      const source = definition.nodes.find((node) => String(node.id) === String(link.target));
+      const port = source?.data?.inputs?.find((item: { id: string }) => item.id === link.targetHandle);
+      if (!port?.name) fail('Subgraph promoted input has no known target widget.');
+      apply(String(link.target), String(port.name), values[index]);
     }
   });
 }
@@ -566,7 +578,7 @@ function dissolveSubgraph(work: GraphSnapshot, ids: Ids, payload: Extract<GraphM
     if (copy.data?.comfy && typeof copy.data.comfy === 'object') copy.data.comfy = { ...copy.data.comfy, id: idValue(id) };
     return copy;
   });
-  promoteInstanceValues(instance, restored, idMap, catalog);
+  promoteInstanceValues(instance, restored, idMap, definition, catalog);
   const mapped = (id: unknown) => idMap.get(String(id)) ?? String(id);
   const isBoundary = (edge: Edge) => String(edge.source) === SUBGRAPH_INPUT_NODE_ID || String(edge.target) === SUBGRAPH_OUTPUT_NODE_ID;
   const created: Edge[] = [];
@@ -673,12 +685,13 @@ export function applyGraphOp(snapshot: GraphSnapshot, _actionId: string, payload
     case 'create-subgraph': result = createSubgraph(work, ids, payload, catalog); break;
     case 'configure-subgraph': {
       const definition = findDefinition(work, payload.definitionId);
+      const previousWidgets = exposedWidgets(definition);
       try { setExposedWidgets(definition, payload.widgets, catalog); } catch (error) { fail((error as Error).message); }
       const previous = definition.name;
       definition.name = payload.name; definition.raw = { ...definition.raw, name: payload.name, description: payload.description };
       const update = (node: Node) => {
         if (node.data?.comfyType !== definition.id) return;
-        refreshExposedWidgets(node, definition, catalog);
+        refreshExposedWidgets(node, definition, catalog, previousWidgets);
         if (node.data.title === previous || node.data.title === definition.id) {
           node.data.title = payload.name; node.data.comfy.title = payload.name;
         }

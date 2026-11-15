@@ -4,6 +4,7 @@
  * dragged onto the canvas (graph/GraphWorkspace.tsx makes a loader of them).
  */
 import { closeCard, focusCardTitle } from '../../a11y/cardFocus';
+import { onWorkspaceCanvas } from '../../commands/events';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Boxes, Film, MessageCircleQuestion, SearchX, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -97,6 +98,7 @@ export default function ModelLibrary() {
   /** "LoRAs that fit this base model", set from a checkpoint's card; replaces the kind and family filters. */
   const [fitsFor, setFitsFor] = useState<ModelSummary | null>(null);
   const [open, setOpen] = useState<ModelSummary | null>(null);
+  useEffect(() => onWorkspaceCanvas(() => setOpen(null)), []);
   const [all, setAll] = useState<ModelSummary[] | null>(null);
   const [found, setFound] = useState<ModelSummary[] | null>(null);
   const [failed, setFailed] = useState(false);

@@ -30,6 +30,7 @@ const STEP_ICONS: Record<string, LucideIcon> = {
   removeNode: Trash2,
   createSubgraph: Boxes,
   insertSubgraph: Boxes,
+  insertBlueprint: Boxes,
   annotateNode: StickyNote,
   setComponentDocumentation: BookOpen,
   setProcess: Workflow,

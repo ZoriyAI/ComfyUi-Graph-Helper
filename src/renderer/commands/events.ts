@@ -11,3 +11,18 @@ export const SETTINGS_CHANGED = 'helper:settings-changed';
 
 /** An explicit panel opening, including actions outside the compact navigation. */
 export const WORKSPACE_PANEL = 'workspace:panel';
+
+/** Explicit navigation keeps the compact workspace in step with panels opened outside its bottom bar. */
+export function requestWorkspacePanel(panel: 'canvas' | 'library' | 'assistant' | 'properties'): void {
+  if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function' && typeof CustomEvent !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(WORKSPACE_PANEL, { detail: panel }));
+  }
+}
+
+/** Portaled flyouts close when a person returns to the canvas, including after an add. */
+export function onWorkspaceCanvas(listener: () => void): () => void {
+  if (typeof window === 'undefined' || !window.addEventListener) return () => undefined;
+  const requested = (event: Event) => { if ((event as CustomEvent<string>).detail === 'canvas') listener(); };
+  window.addEventListener(WORKSPACE_PANEL, requested);
+  return () => window.removeEventListener(WORKSPACE_PANEL, requested);
+}

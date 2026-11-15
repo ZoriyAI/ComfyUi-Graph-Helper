@@ -9,7 +9,7 @@ import { installFileOpening } from './commands/fileOpening';
 import JourneyHost from './components/journey/JourneyHost';
 import { Settings as SettingsIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { WORKSPACE_PANEL } from './commands/events';
+import { WORKSPACE_PANEL, requestWorkspacePanel } from './commands/events';
 import BrowserConnection, { installSharedSession } from './browser/SharedSession';
 import { useDockStore } from './state/dockState';
 import GraphWorkspace from './components/graph/GraphWorkspace';
@@ -31,8 +31,8 @@ import { startProposalsSubscription } from './state/proposalsState';
 import { useUiStore } from './state/uiState';
 import { installFrameBalance } from './state/frame';
 import { refreshKeySources, useProviderStore } from './state/providerState';
-import { applyProjection, useProjectionStore } from './services/commands/projection';
 import { getChatService } from './services/llm/chatService';
+import { applyProjection } from './services/commands/projection';
 import { installAppCommands } from './commands/appCommands';
 import { useCommandState } from './commands/registry';
 import { installFocusRescue } from './a11y/focusRescue';
@@ -60,6 +60,13 @@ const SettingsButton = forwardRef<HTMLButtonElement, React.ButtonHTMLAttributes<
 function App() {
   const { t } = useTranslation();
   const [mobilePanel, setMobilePanel] = useState('canvas');
+  const railOpen = useUiStore((state) => state.railOpen);
+  const dockCollapsed = useDockStore((state) => state.collapsed);
+  useEffect(() => {
+    if ((mobilePanel === 'library' && !railOpen) || ((mobilePanel === 'assistant' || mobilePanel === 'properties') && dockCollapsed)) {
+      requestWorkspacePanel('canvas');
+    }
+  }, [mobilePanel, railOpen, dockCollapsed]);
   useEffect(() => {
     const requested = (event: Event) => setMobilePanel((event as CustomEvent<string>).detail);
     window.addEventListener(WORKSPACE_PANEL, requested);
@@ -132,6 +139,10 @@ function App() {
       <BrowserConnection />
       <MenuBar />
       <Toolbar settings={settings} />
+      {mobilePanel !== 'canvas' ? <div className={styles.mobilePanelHeader}>
+        <Button onClick={() => requestWorkspacePanel('canvas')}>{t('browser.backToCanvas')}</Button>
+        <span>{t(mobilePanel === 'library' ? 'browser.library' : mobilePanel === 'assistant' ? 'browser.assistant' : 'browser.properties')}</span>
+      </div> : null}
       <div className={cx(styles.body, 'app-body')}>
         <Rail />
         <main className={cx(styles.canvas, 'graph-pane')}>
@@ -141,7 +152,8 @@ function App() {
       </div>
       <nav className={styles.mobileNav} aria-label={String(t('browser.panels'))}>
         {(['canvas', 'library', 'assistant', 'properties'] as const).map((panel) => <Button key={panel} aria-pressed={mobilePanel === panel} onClick={() => {
-          setMobilePanel(panel);
+          if (mobilePanel === panel && panel !== 'canvas') { requestWorkspacePanel('canvas'); return; }
+          requestWorkspacePanel(panel);
           if (panel === 'library') useUiStore.getState().setRail(true);
           if (panel === 'assistant' || panel === 'properties') useDockStore.getState().show(panel === 'assistant' ? 'assistant' : 'inspector');
         }}>{t(panel === 'canvas' ? 'browser.canvas' : panel === 'library' ? 'browser.library' : panel === 'assistant' ? 'browser.assistant' : 'browser.properties')}</Button>)}

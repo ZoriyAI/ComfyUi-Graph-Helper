@@ -6,6 +6,7 @@
  * Other parts of the window read it and call its actions; they do not reshape it.
  */
 import { create } from 'zustand';
+import { requestWorkspacePanel } from '../commands/events';
 import type { ObjectRef } from '../../shared/contracts';
 
 /** The library rail's tabs. */
@@ -112,7 +113,10 @@ export const useUiStore = create<UiState>((set) => ({
   setSelection: (selection) => set({ selection }),
   setFocus: (focusRef) => set({ focusRef }),
   setContextTarget: (contextTarget) => set({ contextTarget }),
-  setRail: (railOpen, railTab) => set((state) => ({ railOpen, railTab: railTab ?? state.railTab })),
+  setRail: (railOpen, railTab) => {
+    set((state) => ({ railOpen, railTab: railTab ?? state.railTab }));
+    if (railOpen) requestWorkspacePanel('library');
+  },
   setFollowAgent: (followAgent) => set({ followAgent }),
   startTour: (steps, playing = false) => set({ tour: steps.length > 0 ? { steps, index: 0, playing } : null }),
   setTourIndex: (index) => set((state) => (

@@ -1183,6 +1183,10 @@ export function markInstances(nodes: Array<Record<string, any>>, subgraphs: Subg
     if (!definition) continue;
     const ports = instancePorts(definition);
     node.data = { ...node.data, kind: SUBGRAPH_INSTANCE_KIND, subgraphId: definition.id, inputs: ports.inputs, outputs: ports.outputs };
+    const native = node.data.comfy;
+    if (!definition.instanceDefaults && Array.isArray(native?.properties?.proxyWidgets)) {
+      definition.instanceDefaults = Object.fromEntries(['inputs', 'outputs', 'properties', 'widgets_values', 'size'].filter((key) => native[key] !== undefined).map((key) => [key, structuredClone(native[key])]));
+    }
   }
 }
 

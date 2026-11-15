@@ -5,7 +5,7 @@
  */
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { AlertTriangle, CircleSlash, Layers, Lock, Sparkles } from 'lucide-react';
+import { AlertTriangle, CircleSlash, Layers, Lock, MoreHorizontal, Sparkles } from 'lucide-react';
 import type { ComfyNodeData } from '../../../types/graph';
 import { categoryAccent } from '../lib/typeColors';
 import { categoryLabel } from '../lib/categoryLabel';
@@ -24,6 +24,8 @@ import { ConstantLine, PrimitiveFields, PromotedFields, SavedValues, promotedInp
 import { fileStyle, useClassPresence } from './nodeLook';
 import { nodeDisplayName } from '../lib/nodeName';
 import styles from './Node.module.css';
+import { useGraphStore } from '../../../state/graphState';
+import { ImageSourcePreview } from '../imageSource';
 
 /** How the canvas shows a card right now; every flag maps to one CSS class of Node.module.css. */
 export interface NodeCardState {
@@ -72,7 +74,8 @@ export default function NodeCard({ id, data, state, connected, live = true, head
   const kind = state.subgraph ? null : editorKind(data.comfyType);
   const presence = useClassPresence(data.comfyType, Boolean(state.subgraph));
   const missing = presence === 'missing' && live;
-  const promoted = state.subgraph ? promotedInputNames(data) : new Set<string>();
+  const definition = useGraphStore((s) => state.subgraph ? s.subgraphs.find((d) => d.id === (data.subgraphId ?? data.comfyType)) : undefined);
+  const promoted = state.subgraph ? promotedInputNames(data, definition) : new Set<string>();
   const layout = promoted.size > 0 ? { ...baseLayout, linkInputs: baseLayout.linkInputs.filter((port) => !promoted.has(port.name)) } : baseLayout;
   const tinted = Boolean(fileColors(data).color || fileColors(data).bgcolor);
   // Subgraph instances have no catalog spec to place a value with; their fields show, read-only.
@@ -136,6 +139,12 @@ export default function NodeCard({ id, data, state, connected, live = true, head
               <React.Fragment key={index}>{index > 0 ? <wbr /> : null}{part}</React.Fragment>
             ))}
           </span>
+          {live && !state.ghost ? <button type="button" className={`${styles.touchMenu} nodrag nopan`} aria-label={String(t('node.touchMenu', { name: title }))}
+            onPointerDown={(event) => event.stopPropagation()} onClick={(event) => {
+              event.stopPropagation();
+              const button = event.currentTarget, box = button.getBoundingClientRect();
+              button.closest('.react-flow__node')?.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: box.right, clientY: box.bottom }));
+            }}><MoreHorizontal size={20} aria-hidden="true" /></button> : null}
           {data.locked ? <Lock size={13} aria-label={String(t('node.locked'))} className={styles.headerIcon} /> : null}
           {state.error ? <AlertTriangle size={13} aria-label={String(t('node.error'))} className={styles.errorIcon} /> : null}
           {state.aiTouched ? <Sparkles size={13} aria-label={String(t('node.aiTouched'))} className={styles.aiIcon} /> : null}
@@ -182,6 +191,7 @@ export default function NodeCard({ id, data, state, connected, live = true, head
           ))}
         </ul>
       ) : null}
+      {live && !state.ghost && data.comfyType === 'LoadImage' ? <ImageSourcePreview data={data} /> : null}
       {state.subgraph && live ? <PromotedFields id={id} data={data} disabled={!live || view.readOnly || Boolean(data.locked)} connected={connected} focusable={Boolean(state.selected)} /> : null}
       {kind === 'primitive' && live ? <PrimitiveFields id={id} data={data} disabled={fieldsDisabled} /> : null}
       {kind === 'set' || kind === 'get' ? <ConstantLine data={data} kind={kind} /> : null}

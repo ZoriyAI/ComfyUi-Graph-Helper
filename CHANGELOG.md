@@ -7,7 +7,7 @@ This file is written by `node scripts/changelog.js`: change the notes, not this 
 
 ## 1.2.2
 
-Synchronization reuses the ComfyUI registry it has already read and can finish model metadata through the verified ComfyUI origin when MCP's internal reader keeps answering “Not connected” after reconnection.
+Phone and tablet panels now close with a second tap or the back-to-canvas action, including their floating cards. Photo selection uses the current device's native picker. The **Image** button, paste and file drop add an ordinary ComfyUI `LoadImage` source with preview and an `IMAGE` output.
 
 Notes: [docs/releases/v1.2.2.md](docs/releases/v1.2.2.md)
 

@@ -22,6 +22,19 @@ function fixture() {
 }
 
 describe('native subgraph constructor', () => {
+  it('dissolves native boundary-promoted widget values back into the connected inner field', () => {
+    const { db, snap, commit, exported } = fixture();
+    const made = commit({ type: 'create-subgraph', name: 'Boundary controls', nodeIds: [], inputs: [{ name: 'seedControl', type: 'INT' }], outputs: [] });
+    const definitionId = made.result.definitionId;
+    const added = commit({ type: 'edit-in-subgraph', definitionId, edit: { type: 'add-node', nodeType: 'Sampler' } });
+    const inner = snap().subgraphs![0].nodes[0];
+    const seedPort = inner.data.inputs.find((p: { name: string }) => p.name === 'seed').id;
+    expect(commit({ type: 'edit-in-subgraph', definitionId, edit: { type: 'connect', source: '-10', sourceHandle: 'out-0', target: added.result.nodeId, targetHandle: seedPort } }).status).toBe('applied');
+    const native = exported(); native.nodes[0].properties.proxyWidgets = [['-1', 'seedControl']]; native.nodes[0].widgets_values = [123];
+    expect(commit({ type: 'import-workflow', document: native }).status).toBe('applied');
+    expect(commit({ type: 'dissolve-subgraph', nodeId: String(native.nodes[0].id) }).status).toBe('applied');
+    expect(snap().nodes[0].data.parameters.seed).toBe(123); expect(exported().nodes[0].widgets_values[0]).toBe(123); db.close();
+  });
   it('creates an empty finite graph with typed interface ports, then wires added inner nodes', () => {
     const { db, snap, commit, exported } = fixture();
     const created = commit({ type: 'create-subgraph', name: 'Reusable sampler', description: 'Model to samples', nodeIds: [], inputs: [{ name: 'model', type: 'MODEL' }], outputs: [{ name: 'samples', type: 'LATENT' }] });

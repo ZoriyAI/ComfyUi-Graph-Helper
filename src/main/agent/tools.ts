@@ -5,6 +5,8 @@
  * and every result is escaped so outside text cannot close the prompt's data block.
  */
 import type Database from 'better-sqlite3';
+import { graphResources } from '../knowledge/resources';
+import { BLUEPRINTS, BLUEPRINT_SOURCE, blueprintById, blueprintFacts } from '../../shared/templates/catalog';
 import { jsonSchema } from 'ai';
 import { z } from 'zod';
 import * as knowledgeRepository from '../knowledge/repository';
@@ -22,6 +24,7 @@ import { webSearchTransport } from '../llmService';
 import { escapeDataTagsDeep } from './prompt';
 import { validateNodeClass } from '../knowledge/nodeClassGuard';
 import { LINK_NOT_IN_CONVERSATION, type ConversationLinks } from './links';
+import { createExtensionDraftTool } from './extensionDraftTool';
 import { createLessonDraftTool } from './lessonDraftTool';
 
 /** Added to tool results that carry text from outside the app (files next to models, sites, workflows). */
@@ -109,7 +112,11 @@ const objectRefSchema = z.object({
 
 /** The zod checks of each tool's arguments, matching MAIN_TOOL_SPECS. */
 const schemas = {
+  assessResources: z.object({}).passthrough(),
+  searchBlueprints: z.object({ query: z.string().max(300).default(''), family: z.enum(['image', 'video', 'audio', '3d', 'text']).optional(), offset: z.number().int().min(0).default(0), limit: z.number().int().min(1).max(50).default(20) }),
+  inspectBlueprint: z.object({ templateId: z.string().min(1).max(100), definitionId: z.string().max(200).optional(), offset: z.number().int().min(0).default(0), limit: z.number().int().min(1).max(50).default(20) }),
   getGraph: z.object({
+    definitionId: z.string().min(1).max(200).optional(),
     offset: z.number().int().min(0).optional(),
     // No maximum: the person's graph is read whole when the model asks for it.
     limit: z.number().int().min(1).optional(),
@@ -278,14 +285,33 @@ export function createAgentTools(deps: AgentToolDeps): Record<string, AgentToolD
   });
 
   const tools: Record<string, AgentToolDefinition | unknown> = {
-    getGraph: define('getGraph', schemas.getGraph, (args) => {
+    assessResources: define('assessResources', schemas.assessResources, () => ({ success: true, ...graphResources(db, projectId) })),
+    searchBlueprints: define('searchBlueprints', schemas.searchBlueprints, (args) => {
+      const terms = args.query.toLocaleLowerCase().split(/\s+/).filter(Boolean);
+      const found = BLUEPRINTS.filter((entry) => (!args.family || entry.family === args.family) && terms.every((term) => `${entry.id} ${entry.title.en} ${entry.title.ru} ${entry.category} ${blueprintFacts(entry).classes.join(' ')}`.toLocaleLowerCase().includes(term)));
+      return { success: true, sourceCommit: BLUEPRINT_SOURCE.commit, total: found.length, nextOffset: args.offset + args.limit < found.length ? args.offset + args.limit : null,
+        results: found.slice(args.offset, args.offset + args.limit).map((entry) => { const facts = blueprintFacts(entry); return { id: entry.id, title: entry.title, description: entry.description, family: entry.family, inputs: facts.inputs, outputs: facts.outputs, nodeClasses: facts.classes, models: facts.models, api: facts.api }; }) };
+    }),
+    inspectBlueprint: define('inspectBlueprint', schemas.inspectBlueprint, (args) => {
+      const entry = blueprintById(args.templateId); if (!entry) return fail('Blueprint was not found.');
+      const facts = blueprintFacts(entry); const definition = args.definitionId ? facts.definitions.find((d) => d.id === args.definitionId) : facts.definition;
+      if (!definition) return fail('Blueprint definition was not found.');
+      const summary = summarizeGraph({ nodes: definition.nodes, edges: definition.edges, subgraphs: [], groups: [] }, { offset: args.offset, limit: args.limit, omitValues: deps.omitValues === true, fullText: true, widgetNames: widgetNamesOf(context()?.catalog) });
+      return { success: true, notice: OUTSIDE_DATA, templateId: entry.id, sourceCommit: BLUEPRINT_SOURCE.commit, title: entry.title, description: entry.description,
+        definitions: facts.definitions.map((d) => ({ id: d.id, name: d.name, inputs: d.inputs, outputs: d.outputs, nodeCount: d.nodes.length })), definitionId: definition.id, models: facts.models, packs: facts.packs, api: facts.api, ...summary };
+    }),
+    getGraph: define('getGraph' , schemas.getGraph, (args) => {
       const projection = readGraph(db, projectId);
       if (!projection) return fail('Project is not ready.');
+      const inner = args.definitionId ? projection.snapshot.subgraphs?.find((d) => d.id === args.definitionId && !d.opaque) : null;
+      if (args.definitionId && !inner) return fail('Subgraph definition was not found.');
+      const snapshot = inner ? { ...projection.snapshot, nodes: inner.nodes, edges: inner.edges, groups: [] } : projection.snapshot;
       return {
         success: true,
         notice: OUTSIDE_DATA,
         revisionId: projection.currentRevisionId,
-        ...summarizeGraph(projection.snapshot, { offset: args.offset, limit: args.limit ?? GRAPH_PAGE_LIMIT, ids: args.ids, omitValues: deps.omitValues === true, fullText: true, widgetNames: widgetNamesOf(context()?.catalog) }),
+        ...(inner ? { definitionId: inner.id, inputs: inner.inputs, outputs: inner.outputs } : {}),
+        ...summarizeGraph(snapshot, { offset: args.offset, limit: args.limit ?? GRAPH_PAGE_LIMIT, ids: args.ids, omitValues: deps.omitValues === true, fullText: true, widgetNames: widgetNamesOf(context()?.catalog) }),
       };
     }),
     searchNodeTypes: define('searchNodeTypes', schemas.searchNodeTypes, (args) => {
@@ -348,6 +374,7 @@ export function createAgentTools(deps: AgentToolDeps): Record<string, AgentToolD
       return { success: true, message: 'Saved the explanation to the object.', explanationId: saved.id, provenance: saved.provenance, owner: saved.owner };
     }),
     // LESSON FILES: a lesson draft the person keeps or discards (lessonDraftTool.ts).
+    draftExtension: createExtensionDraftTool(deps.signal),
     draftLesson: createLessonDraftTool({ db, nodeClassDetail: knowledge.nodeClassDetail, signal: deps.signal }),
     proposeNode: propose('proposeNode'),
     proposeConnection: propose('proposeConnection'),

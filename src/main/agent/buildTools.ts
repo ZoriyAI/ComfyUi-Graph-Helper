@@ -78,6 +78,7 @@ const BUILD_MESSAGES: Record<string, string> = {
   createSubgraph: 'Created the subgraph',
   configureSubgraph: 'Configured the subgraph',
   insertSubgraph: 'Inserted the subgraph',
+  insertBlueprint: 'Created an editable blueprint copy',
 };
 
 /** One port of a node: the handle connectNodes takes, its name and its data type. */
@@ -213,6 +214,7 @@ export function toolOutcome(name: string, args: Record<string, unknown> | undefi
         const value = result?.[key];
         if (typeof value === 'string' || typeof value === 'number') ids[key] = value;
       }
+      if (name === 'insertBlueprint' && Array.isArray(result?.definitionIds)) ids.definitionIds = result.definitionIds.filter((id) => typeof id === 'string');
       // Structured ends for the chat's step line; the English `message` stays what the model reads.
       const ends: Record<string, string> = name === 'connectNodes' ? linkEnds(outcome.projection, ids.edgeId ?? ids.linkId) : {};
       const titles: Record<string, string> = {};
@@ -281,6 +283,7 @@ export function stepTarget(
   const nodeOwner = (id: string | undefined): ObjectRef | null => (id ? { kind: 'node', id, ...(classType ? { classType } : {}) } : null);
   switch (name) {
     case 'addNode':
+    case 'insertBlueprint':
     case 'insertSubgraph':
       return { nodeId, subgraphId: idOf(result?.definitionId), owner: nodeOwner(nodeId) };
     case 'setParameter':
@@ -374,6 +377,7 @@ export function createBuildTools(
         // Inside its run the assistant changes only what it placed itself. A change to the person's nodes, links,
         // notes or the project's name becomes a grey draft the person accepts (ownership.ts).
         const owned = runOwned(options.db, options.run.projectId, options.run.runId);
+        if (payload.type === 'insert-blueprint' && payload.destinationDefinitionId && !owned.definitions.has(payload.destinationDefinitionId)) return { success: false, error: 'This build can insert blueprints inside only the subgraphs it created.' };
         if (payload.type === 'edit-in-subgraph' && !owned.definitions.has(payload.definitionId)) {
           return { success: false, error: 'This build can edit inside only the subgraphs it created. Keep pre-existing user definitions unchanged.' };
         }
