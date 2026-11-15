@@ -1,4 +1,4 @@
-import { ipcMain as rawIpcMain, app, dialog, safeStorage } from 'electron';
+import { ipcMain as rawIpcMain, app, BrowserWindow, dialog, safeStorage } from 'electron';
 import { guardedIpcMain } from './ipc/guard';
 import { randomUUID } from 'crypto';
 import * as fs from 'fs';
@@ -18,6 +18,9 @@ import { registerAgentIpc } from './ipc/agentIpc';
 import { registerDiagnosticsIpc } from './ipc/diagnosticsIpc';
 import { registerAboutIpc } from './ipc/aboutIpc';
 import { registerUpdateIpc } from './updates/updateIpc';
+import { registerStartIpc, watchReplacingCommit } from './ipc/startIpc';
+import { clearPreviewsForNewAddress, registerPrivacyIpc } from './ipc/privacyIpc';
+import { confirmingOpener } from './signInSite';
 import { mcpOriginOf, mcpToken, mcpTokenFor, mcpTokenOrigin, mcpTokenStatus, releaseMcpTokenIfOriginChanged, setMcpToken } from './mcp/token';
 import { readTokenFile, removeTokenFile, tokenFileHolds, writeTokenFile } from './mcp/tokenFile';
 import { isPasswordStoreChoice, readPasswordStoreOverride, writePasswordStoreOverride } from './settings/passwordStoreOverride';
@@ -44,7 +47,7 @@ import { bumpCatalogRevision, readCatalog, upsertObjectInfo } from './catalog/re
 import { nativeProjectFile, openNativeFile } from './ipc/projectFile';
 import { contentDigest, defaultSavePaths, projectFileState, rememberProjectFile, withFileExtension } from './projectFiles';
 import { exportWorkflow, type GraphSnapshot } from '../shared/workflow/codec';
-import { fileDialogCopy, languageOf } from '../shared/i18n';
+import { createTranslator, fileDialogCopy, languageOf } from '../shared/i18n';
 
 
 /** The saved ComfyUI origin and MCP URL, or empty strings when settings are unreadable. */
@@ -172,7 +175,17 @@ async function setupMcpOAuth(): Promise<void> {
       encrypt: (plain) => safeStorage.encryptStringAsync(plain),
       decrypt: async (cipher) => (await safeStorage.decryptStringAsync(cipher)).result ?? null,
     },
-    openExternal: browserOpener(),
+    // A sign-in page on another site than the server's is opened only after the person agreed (signInSite.ts).
+    openExternal: confirmingOpener({
+      open: browserOpener(),
+      mcpUrl: () => savedEndpoints().mcpUrl,
+      translate: () => createTranslator(languageOf(readSettings(getDatabase()))),
+      ask: async (options) => {
+        const owner = BrowserWindow.getAllWindows()[0];
+        return (owner && !owner.isDestroyed() ? dialog.showMessageBox(owner, options) : dialog.showMessageBox(options)).then((choice) => choice.response);
+      },
+      log: (line) => console.log(line),
+    }),
     language: () => languageOf(readSettings(getDatabase())),
     now: () => Date.now(),
   });
@@ -207,6 +220,8 @@ export async function setupIPC(): Promise<void> {
   registerDiagnosticsIpc(ipcMain);
   registerAboutIpc(ipcMain);
   registerUpdateIpc(ipcMain);
+  registerStartIpc(ipcMain);
+  registerPrivacyIpc(ipcMain);
   // File operations
   ipcMain.handle(IPC_CHANNELS.FILE_IMPORT_WORKFLOW, async () => {
     const copy = dialogCopy().importWorkflow;
@@ -221,7 +236,9 @@ export async function setupIPC(): Promise<void> {
     }
     try {
       const document = JSON.parse(readPickedFile(result.filePaths[0]));
-      return importWorkflowDocument(document);
+      const response = importWorkflowDocument(document);
+      watchReplacingCommit(app.getPath('userData'), { payload: { type: 'import-workflow' } }, response);
+      return response;
     } catch (error) {
       return { status: 'rejected', projection: readProjection(getDatabase(), DESKTOP_PROJECT_ID), result: { error: fileOpenErrorCode(error, 'Workflow JSON could not be parsed.') } };
     }
@@ -281,6 +298,7 @@ export async function setupIPC(): Promise<void> {
       const opened = openNativeDocument(document);
       // The graph that came from this file is in it as it stands: Ctrl+S writes back here.
       if (opened.status === 'applied') rememberProjectFile(getDatabase(), DESKTOP_PROJECT_ID, result.filePaths[0]);
+      watchReplacingCommit(app.getPath('userData'), { payload: { type: 'open-native' } }, opened);
       return opened;
     } catch (error) {
       return { status: 'rejected', projection: readProjection(getDatabase(), DESKTOP_PROJECT_ID), result: { error: fileOpenErrorCode(error, 'The project file could not be parsed.') } };
@@ -382,6 +400,7 @@ export async function setupIPC(): Promise<void> {
       // Another address: a sync for the old one stops, and the library is marked as read from the old one.
       if (before.mcpUrl.trim() !== result.values.mcpUrl.trim() || before.comfyOrigin.trim() !== result.values.comfyOrigin.trim()) {
         syncService.addressChanged(getDatabase());
+        clearPreviewsForNewAddress();
       }
       reseedCoreKnowledge(getDatabase(), result.values.language);
       mainLLMService.setConfig({
@@ -595,7 +614,10 @@ export async function setupIPC(): Promise<void> {
   });
 
   ipcMain.handle(IPC_CHANNELS.COMMAND_COMMIT, (_event, input: unknown) => {
-    return commitCommand(getDatabase(), input);
+    const response = commitCommand(getDatabase(), input);
+    // A graph that replaced the one on screen is watched until it is drawn (safe start, startGuard.ts).
+    watchReplacingCommit(app.getPath('userData'), input, response, true);
+    return response;
   });
 
   ipcMain.handle(IPC_CHANNELS.COMMAND_START_RUN, (_event, projectId: string) => {

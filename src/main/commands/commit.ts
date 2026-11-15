@@ -42,6 +42,7 @@ import { EXPLANATIONS_EXTENSION } from '../../shared/knowledge/projectExplanatio
 import { recentPayload, type RecentCommand } from '../../shared/agent/recentActions';
 import { pruneHistoryAfterCommit } from './history';
 import { storageErrorCode } from '../settings/databaseSafety';
+import { graphLimitError } from '../../shared/workflow/graphLimits';
 import type { RevisionSummary } from '../../shared/contracts/revisions';
 import {
   liftSubgraphsAndGroups,
@@ -683,23 +684,30 @@ function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutat
     const lifted = document && (!parsed.project.subgraphs || !parsed.project.groups)
       ? liftSubgraphsAndGroups(document.raw, graphNodes)
       : { subgraphs: [], groups: [] };
-    return {
-      snapshot: {
-        nodes: graphNodes,
-        edges: parsed.project.graph.edges,
-        document,
-        components: parsed.project.components,
-        process: parsed.project.process,
-        subgraphs: parsed.project.subgraphs ?? lifted.subgraphs,
-        groups: parsed.project.groups ?? lifted.groups,
-        projectExtras: projectExtrasOf(parsed.project.extensions, parsed.project.preserved),
-      },
-      result: { upgradedFrom: parsed.project.upgradedFrom },
+    const opened = {
+      nodes: graphNodes,
+      edges: parsed.project.graph.edges,
+      document,
+      components: parsed.project.components,
+      process: parsed.project.process,
+      subgraphs: parsed.project.subgraphs ?? lifted.subgraphs,
+      groups: parsed.project.groups ?? lifted.groups,
+      projectExtras: projectExtrasOf(parsed.project.extensions, parsed.project.preserved),
     };
+    // A file from anywhere is opened only up to the size the canvas can draw (graphLimits.ts).
+    const tooLarge = graphLimitError(opened);
+    if (tooLarge) throw new CommandSignal('rejected', { error: tooLarge });
+    return { snapshot: opened, result: { upgradedFrom: parsed.project.upgradedFrom } };
   }
   if (payload.type === 'import-workflow') {
+    // The plain counts of the file first, so a huge file is refused before any work on it.
+    const raw = payload.document && typeof payload.document === 'object' ? payload.document as Record<string, unknown> : null;
+    const rawTooLarge = raw ? graphLimitError({ nodes: raw.nodes, edges: raw.links }) : null;
+    if (rawTooLarge) throw new CommandSignal('rejected', { error: rawTooLarge });
     const projected = projectWorkflow(payload.document);
     if ('error' in projected) throw new CommandSignal('rejected', { error: projected.error });
+    const tooLarge = graphLimitError(projected.snapshot);
+    if (tooLarge) throw new CommandSignal('rejected', { error: tooLarge });
     return { snapshot: { ...projected.snapshot, projectExtras: undefined }, result: { formatVersion: projected.snapshot.document?.formatVersion ?? null } };
   }
   // --- edits inside a subgraph definition (begin) ---

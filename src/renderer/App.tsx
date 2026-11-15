@@ -27,6 +27,7 @@ import { useCommandState } from './commands/registry';
 import { installHotkeys } from './commands/hotkeys';
 import { installPreferences } from './state/preferencesBridge';
 import { importWorkflowFile } from './commands/actions';
+import { installDrawWatch } from './services/start/drawWatch';
 import { cx } from './ui/cx';
 import { DESKTOP_PROJECT_ID } from '../shared/project';
 
@@ -55,13 +56,16 @@ function App() {
     const offHotkeys = installHotkeys();
     const offPreferences = installPreferences();
     const offFrame = installFrameBalance();
-    window.electronAPI.readProjection(DESKTOP_PROJECT_ID).then((projection) => {
+    // Safe start: main may ask first whether to draw a graph the last start could not finish drawing.
+    const offDraw = installDrawWatch();
+    window.electronAPI.startState().catch(() => null).then(() => window.electronAPI.readProjection(DESKTOP_PROJECT_ID)).then((projection) => {
       applyProjection(projection);
     }).catch((error) => {
       console.error('[App] Projection load failed:', error);
     });
     void refreshKeySources().catch(() => undefined);
     return () => {
+      offDraw();
       offFrame();
       offPreferences();
       offHotkeys();

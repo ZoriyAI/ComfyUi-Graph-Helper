@@ -10,8 +10,12 @@ export class ResponseTooLargeError extends Error {
   }
 }
 
-/** The largest answer one MCP request may bring: far above a real object_info, below what a string can hold. */
-export const MCP_RESPONSE_MAX_BYTES = 512 * 1024 * 1024;
+/**
+ * The largest answer one MCP request may bring. A real object_info of a large install is tens of MB; parsing an
+ * answer inside its JSON-RPC envelope takes about seven times its size in memory and holds the app while it runs,
+ * so 512 MB (the old cap) meant gigabytes and a frozen window. 128 MB is several times the largest real one.
+ */
+export const MCP_RESPONSE_MAX_BYTES = 128 * 1024 * 1024;
 
 /** A copy of `response` whose body errors with ResponseTooLargeError once more than `maxBytes` came through. */
 export function capResponse(response: Response, maxBytes: number): Response {

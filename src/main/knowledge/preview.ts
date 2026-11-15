@@ -338,3 +338,53 @@ export function trimCache(folder: string, most: number, maxBytes = Infinity): vo
     // The folder is not there, or a file went away meanwhile.
   }
 }
+
+/** The folder under the profile where previews are kept. */
+export const PREVIEW_CACHE_FOLDER = 'model-previews';
+
+/**
+ * Empties the preview folder: Settings ▸ Privacy ▸ "Clear the picture cache", and a change of the server address
+ * (pictures of another server's models do not stay on the disk). Returns how many files and bytes went.
+ */
+export function clearPreviewCache(folder: string): { files: number; bytes: number } {
+  let files = 0;
+  let bytes = 0;
+  try {
+    for (const name of fs.readdirSync(folder)) {
+      const file = path.join(folder, name);
+      try {
+        const stat = fs.statSync(file);
+        if (!stat.isFile()) continue;
+        fs.rmSync(file, { force: true });
+        files += 1;
+        bytes += stat.size;
+      } catch {
+        // Gone meanwhile.
+      }
+    }
+  } catch {
+    // No folder: nothing kept.
+  }
+  return { files, bytes };
+}
+
+/** How many files and bytes the preview folder holds now. */
+export function previewCacheSize(folder: string): { files: number; bytes: number } {
+  let files = 0;
+  let bytes = 0;
+  try {
+    for (const name of fs.readdirSync(folder)) {
+      try {
+        const stat = fs.statSync(path.join(folder, name));
+        if (!stat.isFile()) continue;
+        files += 1;
+        bytes += stat.size;
+      } catch {
+        // Gone meanwhile.
+      }
+    }
+  } catch {
+    // No folder.
+  }
+  return { files, bytes };
+}

@@ -32,7 +32,34 @@ type Loose = Record<string, unknown>;
  */
 function looksSecret(name: string, value: string): boolean {
   if (isSecretField('value', value)) return true;
+  if (randomLooking(value)) return true;
   return isSecretField(name, value) && /^\S{8,}$/.test(value.trim());
+}
+
+/** Bits per character of a string (Shannon entropy over its characters). */
+function entropy(value: string): number {
+  const counts = new Map<string, number>();
+  for (const char of value) counts.set(char, (counts.get(char) ?? 0) + 1);
+  let bits = 0;
+  for (const count of counts.values()) {
+    const share = count / value.length;
+    bits -= share * Math.log2(share);
+  }
+  return bits;
+}
+
+/**
+ * A long random string, whatever its field is called: a key of a service the app does not know by shape. Only for
+ * the question before a file is written (a false alarm costs one click): one word of 32+ hex digits, or of 24+
+ * characters mixing upper case, lower case and digits with high entropy. File names, paths, prompts and seeds are
+ * not: they have dots, slashes, spaces, or only digits.
+ */
+export function randomLooking(raw: string): boolean {
+  const value = raw.trim();
+  if (value.length < 24 || value.length > 512 || /[\s./\\,]/.test(value)) return false;
+  if (/^[A-Fa-f0-9]{32,}$/.test(value)) return true;
+  if (!/[a-z]/.test(value) || !/[A-Z]/.test(value) || !/[0-9]/.test(value)) return false;
+  return entropy(value) >= 4;
 }
 
 function record(value: unknown): Loose | null {

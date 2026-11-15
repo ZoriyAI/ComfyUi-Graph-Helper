@@ -88,7 +88,8 @@ test('a hand-written description is saved with the project, stays off other grap
     await expect(window.getByText('Project opened.')).toBeVisible();
     await expect(sampleCard).toHaveAttribute('data-description-scope', 'node', { timeout: 20000 });
     await expect(sampleCard).toContainText(NOTE);
-    expect((await stored()).map((item) => [item.text, item.provenance])).toEqual([[NOTE, 'user']]);
+    // Opened from a file: whoever made the file wrote it, so it is marked "from the file", not as the person's own.
+    expect((await stored()).map((item) => [item.text, item.provenance])).toEqual([[NOTE, 'file']]);
 
     // Undo the open: the workflow graph comes back without it. Redo: the project's graph with it.
     await menu(window, 'Edit', 'Undo');

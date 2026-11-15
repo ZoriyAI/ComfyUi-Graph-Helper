@@ -1,6 +1,7 @@
 import i18next, { type InitOptions } from 'i18next';
 import { en, ru } from './catalog';
 import { redactSecrets } from '../config/draft';
+import { GRAPH_LINK_LIMIT, GRAPH_NODE_LIMIT, GRAPH_TOO_LARGE } from '../workflow/graphLimits';
 
 export { en, ru } from './catalog';
 export type { Catalog } from './catalog';
@@ -161,6 +162,8 @@ const SECTION_KEYS: Record<string, string> = {
 };
 
 function translatePattern(translate: Translator, code: string): string | null {
+  const large = GRAPH_TOO_LARGE.exec(code);
+  if (large) return translate('errors.graphTooLarge', { nodes: large[1], links: large[2], maxNodes: GRAPH_NODE_LIMIT, maxLinks: GRAPH_LINK_LIMIT });
   const refused = MCP_REFUSED.exec(code);
   if (refused) return translate('errors.mcpRefused', { tool: refused[1] });
   const unreachable = MCP_UNREACHABLE.exec(code);

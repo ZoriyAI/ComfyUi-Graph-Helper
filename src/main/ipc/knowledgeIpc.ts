@@ -5,7 +5,7 @@ import { guardedHandle } from './guard';
 import type { SyncStatus } from '../../shared/contracts/knowledge';
 import { getDatabase } from '../database';
 import { knowledgeHandlers } from '../knowledge/handlers';
-import { PreviewReader } from '../knowledge/preview';
+import { PREVIEW_CACHE_FOLDER, PreviewReader } from '../knowledge/preview';
 import { ModelLookupService } from '../knowledge/modelWeb';
 import { appWebClient, ModelWebClient, setAppWebClient } from '../knowledge/webLookup';
 import { openSavedMcpSession } from '../mcp/savedSession';
@@ -33,7 +33,7 @@ export function registerKnowledgeIpc(ipcMain: IpcMain): void {
   // Previews are kept in the app's own folder once read, so a card opens at once the second time.
   let cacheDir: string | null = null;
   try {
-    cacheDir = path.join(app.getPath('userData'), 'model-previews');
+    cacheDir = path.join(app.getPath('userData'), PREVIEW_CACHE_FOLDER);
   } catch {
     cacheDir = null;
   }

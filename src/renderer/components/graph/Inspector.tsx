@@ -94,6 +94,7 @@ const PROVENANCE_KEY: Record<Provenance, string> = {
   inference: 'inspector.provenanceInference',
   web: 'inspector.provenanceWeb',
   user: 'inspector.provenanceUser',
+  file: 'inspector.provenanceFile',
 };
 
 /**

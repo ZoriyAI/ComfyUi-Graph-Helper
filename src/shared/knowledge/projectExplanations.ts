@@ -50,7 +50,7 @@ const itemSchema = z.object({
   text: z.string().min(1).max(20000),
   provenance: z.enum(PROVENANCES),
   sourceUrl: sourceUrl.nullable().optional(),
-  createdBy: z.enum(['ai', 'user', 'sync', 'seed']),
+  createdBy: z.enum(['ai', 'user', 'sync', 'seed', 'file']),
   createdAt: z.number().finite().nonnegative().optional(),
   revisionId: z.string().min(1).max(200).nullable().optional(),
 });

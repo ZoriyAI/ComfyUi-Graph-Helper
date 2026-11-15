@@ -56,4 +56,6 @@ export const PROVENANCE_TONES: Record<Provenance, 'ok' | 'ai' | 'accent' | 'warn
   inference: 'ai',
   web: 'accent',
   user: 'warn',
+  // Written by whoever made a project file: not vouched for, so no reassuring colour.
+  file: 'warn',
 };

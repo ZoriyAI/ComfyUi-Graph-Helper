@@ -85,12 +85,14 @@ describe('object_info catalog', () => {
   });
 
   it('rejects a non-object snapshot and a nonsense size, but never caps a real size', () => {
+    // A real object_info of a large install is tens of MB; the cap is several times that (parsing holds the app).
     expect(() => parseObjectInfo([])).toThrow(ObjectInfoError);
     expect(() => parseObjectInfo({ KSampler: null })).toThrow(/not object_info/);
     expect(() => assertObjectInfoSize(Number.NaN)).toThrow(ObjectInfoError);
     expect(() => assertObjectInfoSize(-1)).toThrow(ObjectInfoError);
-    expect(() => assertObjectInfoSize(400 * 1024 * 1024)).not.toThrow();
-    // Above what one string can hold: an endless answer is stopped instead of filling memory.
+    expect(() => assertObjectInfoSize(100 * 1024 * 1024)).not.toThrow();
+    // Far above any real install: a broken or hostile answer is stopped instead of freezing the app.
+    expect(() => assertObjectInfoSize(200 * 1024 * 1024)).toThrow(ObjectInfoError);
     expect(() => assertObjectInfoSize(2 * 1024 * 1024 * 1024)).toThrow(ObjectInfoError);
   });
 

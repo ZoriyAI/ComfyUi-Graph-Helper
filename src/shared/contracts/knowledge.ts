@@ -183,7 +183,8 @@ export interface ModelDetail extends ModelSummary {
 }
 
 export type ExplanationAspect = 'what' | 'why' | 'connect' | 'next' | 'risk';
-export type Provenance = 'fact' | 'inference' | 'web' | 'user';
+/** `file`: written by whoever made a project file the person opened; the app cannot vouch for it. */
+export type Provenance = 'fact' | 'inference' | 'web' | 'user' | 'file';
 
 export interface Explanation {
   id: string;
@@ -197,7 +198,8 @@ export interface Explanation {
   /** Graph revision the explanation was written against; null for global knowledge. */
   revisionId: string | null;
   /** 'seed': built-in teaching knowledge written by the app itself (src/main/knowledge/seedCore.ts). */
-  createdBy: 'ai' | 'user' | 'sync' | 'seed';
+  /** `file`: came with a project file the person opened (never shown as the person's own or as built-in). */
+  createdBy: 'ai' | 'user' | 'sync' | 'seed' | 'file';
   createdAt: number;
 }
 
@@ -286,6 +288,8 @@ export interface SyncStatus {
   progress: { phase: string; done: number; total: number } | null;
   /** When the next automatic run is due (ms since epoch); null when auto sync is off. Optional for older callers. */
   nextRunAt?: number | null;
+  /** The last sync never ended (the app crashed or froze during it): automatic sync waits until one is started by hand. */
+  autoHeld?: boolean;
   /** The first run after startup is scheduled and has not started yet ("Starting…"). */
   startupPending?: boolean;
   /** When the last run started, and how long it took (listing plus the first metadata batch). */

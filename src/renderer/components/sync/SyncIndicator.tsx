@@ -237,6 +237,7 @@ export default function SyncIndicator() {
             <dt>{t('sync.nextRun')}</dt>
             <dd>{status?.nextRunAt ? formatSyncTime(status.nextRunAt, language) : t('sync.nextRunOff')}</dd>
           </dl>
+          {status?.autoHeld ? <p className={styles.warnNote}>{t('sync.autoHeld')}</p> : null}
           <p className={styles.note}>
             {status?.lastSyncAt ? t('settings.syncLast', { time: formatSyncTime(status.lastSyncAt, language) }) : t('settings.syncNever')}
           </p>

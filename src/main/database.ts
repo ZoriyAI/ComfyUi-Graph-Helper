@@ -11,6 +11,7 @@ import { migrate, schemaVersion, SCHEMA_VERSION } from './settings/migrate';
 import { backupBeforeUpgrade, classifyDatabaseError, DatabaseOpenError, setAsideDamaged } from './settings/databaseSafety';
 import { reseedCoreKnowledge } from './knowledge/seedCore';
 import { createTranslator } from '../shared/i18n';
+import { ownerOnlyFiles } from './profileFolder';
 
 let db: Database.Database | null = null;
 
@@ -32,6 +33,9 @@ export function openDatabase(dbPath: string): Database.Database {
     const copy = backupBeforeUpgrade(opened, dbPath, from, SCHEMA_VERSION);
     if (copy) console.log(`[Database] Copy before upgrade from version ${from}: ${path.basename(copy)}`);
     migrate(opened);
+    // The database holds prompts and conversations: readable by this user only, also when it is copied out of the
+    // profile folder, and so are its journal files (WAL mode created them above).
+    ownerOnlyFiles([dbPath, `${dbPath}-wal`, `${dbPath}-shm`]);
     return opened;
   } catch (error) {
     try {

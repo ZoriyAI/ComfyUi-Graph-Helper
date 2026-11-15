@@ -240,7 +240,9 @@ export async function runAgentTurn(options: AgentTurnOptions): Promise<void> {
       return { snapshot, catalog };
     };
 
-    // The page reader opens only addresses the person wrote in this conversation or a web search returned.
+    // The page reader opens only addresses the person wrote in this conversation or the app's own web search
+    // returned. Sources cited by a provider's built-in search are not added: outside text can steer that search to
+    // cite any address, a query string full of the person's data included.
     const links = conversationLinks(run.projectId);
     for (const message of whole) if (message.role === 'user') links.add(linksInText(message.content));
     const mainTools = createAgentTools({
@@ -294,7 +296,6 @@ export async function runAgentTurn(options: AgentTurnOptions): Promise<void> {
       allowFetchPage: assistant.allowFetchPage,
       abortSignal: signal,
       compact: compact !== null,
-      onSource: (url) => links.add([url]),
       // The top of this turn's record in the model conversation log.
       trace: {
         intent: context.intent,

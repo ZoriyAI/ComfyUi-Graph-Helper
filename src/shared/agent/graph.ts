@@ -91,8 +91,11 @@ export const GRAPH_PAGE_LIMIT = GRAPH_PAGE_DEFAULT;
 const TEXT_CAP = 500;
 /** In the prompt only, one widget value longer than this is shortened with a visible marker; getGraph returns it whole. */
 export const PARAMETER_CAP = 2000;
-/** Widget names that name a credential, even when the value itself looks harmless. */
-const SECRET_NAME = /(api[_-]?key|token|secret|password|passwd|authorization|credential|bearer)/i;
+/**
+ * Widget names that name a credential, even when the value itself looks harmless: `api_key`, `token`, a field called
+ * `key` or `auth` or ending in `_key` (`FAL_KEY`), and `<service>key` (`civitaikey`). `keyframe` and `monkey` are not.
+ */
+const SECRET_NAME = /(api[_-]?key|token|secret|password|passwd|authorization|credential|bearer)|(?:^|[_\-\s])(?:key|auth)$|(?:openai|civitai|fal|replicate|elevenlabs|gemini|google|anthropic|stability|runway|hf|huggingface|groq|kling|luma)[_\-]?key/i;
 
 /** True when a field looks like it holds a key or token: by its name, or by its value. */
 export function isSecretField(name: string, value: unknown): boolean {

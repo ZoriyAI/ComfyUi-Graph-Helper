@@ -30,6 +30,7 @@ import { useUiStore } from '../../../state/uiState';
 import styles from '../SettingsPanel.module.css';
 import { Group, hintClass, patchSection, rowClass, SectionHead, type DraftProps } from './common';
 import ConfirmDialog from './ConfirmDialog';
+import PreviewCacheRow from './PreviewCacheRow';
 import type { SecretInventoryReport } from '../../../../preload';
 
 /** Settings ▸ Privacy: what the model sees, whether chat is kept, and a plain account of where secrets live. */
@@ -194,6 +195,7 @@ export default function PrivacySection({ prefs, setPrefs, container }: DraftProp
           <li>{t('preferences.sentAlways')}</li>
           <li className={privacy.sendFieldValues ? styles.factOn : styles.factOff}>{t(privacy.sendFieldValues ? 'preferences.sentValuesOn' : 'preferences.sentValuesOff')}</li>
           <li className={styles.factOff}>{t('preferences.sentNever')}</li>
+          <li className="sent-elsewhere">{t('preferences.sentElsewhere')}</li>
           <li>{t('preferences.keysLive')}</li>
           <li className="web-limits">{t('preferences.webLimits', { bytes: megabytes(FETCH_PAGE_BYTE_CAP), chars: FETCH_PAGE_TEXT_CAP })}</li>
         </ul>
@@ -274,6 +276,7 @@ export default function PrivacySection({ prefs, setPrefs, container }: DraftProp
         onConfirm={() => void clearHistory()}
       />
       {note ? <p className={hintClass} role="status">{note}</p> : null}
+      <PreviewCacheRow />
     </>
   );
 }

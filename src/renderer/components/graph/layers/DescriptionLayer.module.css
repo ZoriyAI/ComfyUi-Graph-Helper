@@ -52,6 +52,7 @@
 .provDot[data-provenance="inference"] { background: var(--prov-inference, #b7a5ff); }
 .provDot[data-provenance="web"] { background: var(--prov-web, #6cc0f5); }
 .provDot[data-provenance="user"] { background: var(--prov-user, #f6ce7c); }
+.provDot[data-provenance="file"] { background: var(--text-faint); }
 .line {
   flex: 1 1 auto;
   min-width: 0;

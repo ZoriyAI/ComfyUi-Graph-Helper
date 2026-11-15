@@ -137,4 +137,9 @@ export const IPC_CHANNELS = {
   UPDATES_STATUS: 'updates:status',
   UPDATES_DISMISS: 'updates:dismiss',
   UPDATES_OPEN: 'updates:open',
+  /** Safe start (src/main/startGuard.ts): asked before the graph is drawn; told once it is on screen. */
+  APP_START_STATE: 'app:start-state',
+  APP_GRAPH_DRAWN: 'app:graph-drawn',
+  PRIVACY_PREVIEW_CACHE: 'privacy:preview-cache',
+  PRIVACY_CLEAR_PREVIEWS: 'privacy:clear-previews',
 } as const;
