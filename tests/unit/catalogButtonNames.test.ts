@@ -10,4 +10,11 @@ describe('sentences that quote a control', () => {
     expect(en.providers.variantMade).toContain(`“${en.preferences.check}”`);
     expect(ru.providers.variantMade).toContain(`«${ru.preferences.check}»`);
   });
+
+  it('say that the app checks for new versions only when the switch for it is on', () => {
+    expect(en.preferences.sentElsewhere).not.toMatch(/no update checks/);
+    expect(ru.preferences.sentElsewhere).not.toMatch(/ни проверки обновлений/);
+    expect(en.preferences.sentElsewhere).toContain(`unless you turn on “${en.updates.check}”`);
+    expect(ru.preferences.sentElsewhere).toContain(`только если вы включите «${ru.updates.check}»`);
+  });
 });
