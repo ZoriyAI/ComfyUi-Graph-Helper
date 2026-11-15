@@ -269,9 +269,13 @@ export default function ExplainPanel() {
   const edge = focus?.kind === 'edge' ? edges.find((item) => item.id === focus.id) : undefined;
   const edgeOutputType = edge ? nodes.find((item) => item.id === edge.source)?.data.outputs.find((port) => port.id === edge.sourceHandle)?.dataType : undefined;
   // A node shares its class knowledge; an edge shares the knowledge about the data type it carries.
+  // A port shares the knowledge about the data type it takes or gives (built-in knowledge, also with no assistant).
+  const portNode = focus?.kind === 'port' && focus.nodeId ? nodes.find((item) => item.id === focus.nodeId) : undefined;
+  const portList = portNode ? (focus?.direction === 'output' ? portNode.data.outputs : portNode.data.inputs) : undefined;
+  const portType = focus?.kind === 'port' ? portList?.find((port) => port.name === focus.portName || port.id === focus.id)?.dataType : undefined;
   const classRef: ObjectRef | null = classType
     ? { kind: 'nodeClass', id: classType, classType }
-    : edge ? linkTypeRef(edgeDataType(edge, edgeOutputType)) : null;
+    : edge ? linkTypeRef(edgeDataType(edge, edgeOutputType)) : portType ? linkTypeRef(portType) : null;
   const sharedTitle = classType ?? classRef?.id;
   const focusKey = focus ? objectKey(focus) : null;
   const classKey = classRef ? objectKey(classRef) : null;
