@@ -73,8 +73,8 @@ Your settings, keys, projects and logs are not in the package: the app keeps the
 ## Other ways
 
 - **From source on Linux**: [Building from source](../dev/Building-From-Source.md).
-- **Windows**: [Building and running on Windows](../dev/Building-On-Windows.md) (untested).
-- **macOS**: [Building and running on macOS](../dev/Building-On-macOS.md) (untested).
+- **Windows** and **macOS** are not supported. You may try running from source, but nothing has been tried there:
+  [Windows](../dev/Building-On-Windows.md), [macOS](../dev/Building-On-macOS.md).
 
 ## See also
 

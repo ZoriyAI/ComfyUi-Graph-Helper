@@ -23,12 +23,13 @@ See [ComfyUI and where to get it](ComfyUI.md).
 - **A canvas** where you build a graph with the nodes you really have. Fields offer the values your ComfyUI accepts;
   a link only joins outputs and inputs of the same data type.
 - **Explains** every node, input, output and link, and says where each explanation comes from.
-- **Lessons** you do by hand on the real canvas. The app checks each step on the graph itself; no model is needed.
+- **Lessons** you do by hand on the real canvas: 79 built-in ones in twelve groups, and your own in My lessons. The
+  app checks each step on the graph itself; no model is needed. File ▸ Examples opens the finished graph of a lesson.
 - **An assistant** that answers questions (Ask), builds step by step and says why (Build), or leads a lesson
   (Learn). It answers with a cloud model or a model on your own computer.
-- **A check** before saving: missing nodes and models, LoRAs that do not fit, empty fields, advice on descriptions.
-- **Workflows in and out**: open a workflow saved in ComfyUI; save one that ComfyUI opens as it was, except for what
-  you changed.
+- **A check** before saving: missing nodes and models, LoRAs that do not fit, empty fields, advice on prompts.
+- **Workflows in and out**: open a workflow saved in ComfyUI, also from the pictures and videos ComfyUI saves; save
+  one that ComfyUI opens as it was, except for what you changed.
 
 ## What it never does
 
@@ -49,8 +50,9 @@ Your ComfyUI  ──(read only)──>  NodeWise  ──(you save a workflow)─
 
 ## What you need
 
-- A computer with Linux, 64-bit x86, with `.deb` packages (Ubuntu 22.04 or newer, Debian 12 or newer, Linux Mint 21
-  or newer). Windows and macOS: only by [building from source](../dev/Building-From-Source.md), untested.
+- A computer with Linux, 64-bit x86: a `.deb` (Ubuntu 22.04 or newer, Debian 12 or newer, Linux Mint 21 or newer),
+  an `.rpm`, an AppImage or a `.tar.gz`. Windows and macOS are not supported; you may try
+  [building from source](../dev/Building-From-Source.md), but nothing has been tried there.
 - ComfyUI, running on this computer or on another one you can reach.
 - For the assistant (optional): a key for a cloud model, which costs money per question, or a model server on your
   own computer such as Ollama. Lessons need neither.
