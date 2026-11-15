@@ -1,6 +1,13 @@
+/**
+ * The graph commands and their schemas: every change to a graph, by hand or by the helper, is one of these
+ * mutations sent as a CommandRequest and applied by main as one revision (main/commands/commit.ts). The renderer,
+ * the agent tools (commands/tools.ts), proposals and the revision history all speak this language. Main checks every
+ * request against these schemas, because the renderer and the model are not trusted.
+ */
 import { z } from 'zod';
 import type { GroupRecord, SubgraphDefinition } from '../graph/subgraphs';
 
+/** One boundary slot of a new subgraph: its name and type, and the inner node port it connects to. */
 export const subgraphIOSchema = z.object({
   name: z.string().min(1).max(200),
   type: z.string().min(1).max(200),
@@ -9,6 +16,7 @@ export const subgraphIOSchema = z.object({
 });
 
 // ── Layout: one commit moves many nodes, so an arrangement is one undo step. ─────────────────────────
+/** Most nodes one command may touch; also the cap of a selection, a paste and most node lists below. */
 export const MOVE_NODES_MAX = 5000;
 export const moveNodesMutation = z.object({
   type: z.literal('move-nodes'),
@@ -62,6 +70,7 @@ export const collapseNodeMutation = z.object({
  * "@k" in source, target or nodeId stands for the node the k-th edit added (pasted nodes and their links).
  */
 export const BATCH_LABELS = ['delete', 'paste', 'duplicate', 'cut', 'move', 'add-linked'] as const;
+/** Most edits in one batch. */
 export const BATCH_MAX = 2000;
 export const batchMutation = z.object({
   type: z.literal('batch'),
@@ -122,6 +131,7 @@ export const setGroupMembersMutation = z.object({
   remove: z.array(z.string().min(1)).max(5000).default([]),
 });
 
+/** A group's frame colour from the same palette; null takes it off. */
 export const setGroupColorMutation = z.object({
   type: z.literal('set-group-color'),
   groupId: z.string().min(1),
@@ -129,6 +139,7 @@ export const setGroupColorMutation = z.object({
 });
 // --- editing commands (end) ---
 
+/** Every graph command, told apart by `type`. */
 export const mutationSchema = z.discriminatedUnion('type', [
   batchMutation,
   z.object({
@@ -349,6 +360,10 @@ export const mutationSchema = z.discriminatedUnion('type', [
 
 export type GraphMutation = z.infer<typeof mutationSchema>;
 
+/**
+ * One command as the renderer or the agent sends it. `actionId` makes a retry safe (the same id is applied once);
+ * `expectedRevisionId` is the revision the sender saw, so a command made against an older graph is a conflict.
+ */
 export const commandRequestSchema = z.object({
   projectId: z.string().min(1),
   actionId: z.string().min(1),
@@ -360,14 +375,17 @@ export const commandRequestSchema = z.object({
 
 export type CommandRequest = z.infer<typeof commandRequestSchema>;
 
+/** The state of an agent run that builds the graph step by step. */
 export type RunStatus = 'running' | 'paused' | 'cancelled' | 'completed' | 'closed';
 
+/** The run that currently holds the graph, if any. */
 export interface ActiveRun {
   runId: string;
   status: 'running' | 'paused';
   expectedRevisionId: string;
 }
 
+/** The current graph of a project as main hands it to the renderer: the snapshot and the revision it is at. */
 export interface Projection {
   projectId: string;
   snapshot: {
@@ -391,12 +409,17 @@ export interface Projection {
   graphKey?: string;
 }
 
+/**
+ * The answer to a command: applied, historical (this action id was already applied), conflict (the graph moved on)
+ * or rejected (the command is invalid). `result` carries what the command made, such as a new node id.
+ */
 export interface CommandResponse {
   status: 'applied' | 'historical' | 'conflict' | 'rejected';
   projection: Projection | null;
   result: unknown;
 }
 
+/** What starting an agent run returns: its id and the revision it starts from. */
 export interface RunStart {
   runId: string;
   baseRevisionId: string;

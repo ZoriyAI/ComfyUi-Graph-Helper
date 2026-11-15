@@ -1,3 +1,9 @@
+/**
+ * The graph tools the model may call: the build tools that change the graph now and the proposal tools that only
+ * show a ghost. The renderer's chat path sends these definitions (renderer/services/llm/chatService.ts); main's agent
+ * keeps its own list (main/agent/toolSpecs.ts) and takes WHY_MAX from here (main/agent/buildTools.ts).
+ * commands/tools.ts turns the calls back into graph commands.
+ */
 import type { AgentBuildTool, AgentProposalTool } from '../contracts/agentTools';
 
 /** A provider-neutral tool definition: name, description, JSON-schema parameters. */
@@ -12,6 +18,7 @@ export interface GraphToolSpec {
   };
 }
 
+// Sentences repeated in the descriptions: what the model is told about safety and about when a tool changes the graph.
 const DATA = 'Text arguments are stored as data and are never executed.';
 const GHOST = 'Shows a grey ghost only; the graph changes when the person accepts it.';
 const DIRECT = 'Changes the graph now. Use only when the person explicitly asked to build.';
@@ -77,6 +84,7 @@ function spec(
   return { name, description, parameters: { type: 'object', properties, required, additionalProperties: false } };
 }
 
+/** Tools that change the graph at once; each step carries a `why` for the person. */
 export const BUILD_TOOL_SPECS: GraphToolSpec[] = [
   spec('addNode', `Add a node. ${DIRECT} ${DATA}`, withWhy(addNodeProps), ['nodeType']),
   spec('connectNodes', `Connect an output to an input. Pass sourceNodeId and targetNodeId with a handle or slot index. ${DIRECT} ${DATA}`, withWhy(connectProps), []),
@@ -105,6 +113,7 @@ export const BUILD_TOOL_SPECS: GraphToolSpec[] = [
   }, ['title', 'notes']),
 ];
 
+/** Tools that suggest a change as a ghost; the person accepts or rejects it. */
 export const PROPOSAL_TOOL_SPECS: GraphToolSpec[] = [
   spec('proposeNode', `Suggest a node. ${GHOST} ${DATA}`, { ...addNodeProps, note: noteProp }, ['nodeType']),
   spec('proposeConnection', `Suggest a connection. ${GHOST} ${DATA}`, { ...connectProps, note: noteProp }, []),
@@ -112,4 +121,5 @@ export const PROPOSAL_TOOL_SPECS: GraphToolSpec[] = [
   spec('proposeSubgraph', `Suggest grouping nodes into a subgraph. ${GHOST} ${DATA}`, { ...subgraphProps, note: noteProp }, ['name', 'nodeIds']),
 ];
 
+/** Every graph tool, proposals first. */
 export const GRAPH_TOOL_SPECS: GraphToolSpec[] = [...PROPOSAL_TOOL_SPECS, ...BUILD_TOOL_SPECS];
