@@ -100,6 +100,8 @@ function App() {
 
   return (
     <div className={cx(styles.shell, 'app-shell')}>
+      {/* Accessibility: one top heading for the window, so a screen reader's heading list starts at the app. */}
+      <h1 className="sr-only">{t('shell.title')}</h1>
       <MenuBar />
       <Toolbar settings={settings} />
       <div className={cx(styles.body, 'app-body')}>
