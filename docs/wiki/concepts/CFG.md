@@ -25,7 +25,7 @@ How strictly the model follows the prompt, and the separate "guidance" number of
 | SD 1.5 | 7 to 8 |
 | SDXL, Pony, Illustrious | 5 to 7 (Pony often lower) |
 | SD 3.5 | about 4 to 5 |
-| Flux.1 dev, Krea | 1, with FluxGuidance about 3.5 |
+| Flux.1 dev, FLUX.1 Krea [dev] | 1, with FluxGuidance about 3.5 |
 | Flux.1 schnell, Z-Image Turbo and other distilled models | 1 |
 | Qwen-Image | about 2.5 to 4 |
 | Wan 2.2 14B (20 steps) | 3.5 |
@@ -39,7 +39,7 @@ The model's page is the final word: authors give the values they tested.
 - **"The negative prompt does nothing"**: cfg is 1.
 
 ## How the app helps
-The lessons check cfg ranges (1 to 4 for Wan's two passes, exactly 1 with a speed-up LoRA). **Check** says when cfg 1 leaves a negative prompt without effect.
+The lessons check cfg ranges (1 to 4 for Wan's two passes, exactly 1 with a speed-up LoRA) and say why. **Check** says when cfg 1 leaves a negative prompt without effect. In **Properties**, a field with a built-in note has a button **What this field does** next to its name; it opens the note under the field: what the field does and what to put in it.
 
 ## See also
 - [The negative prompt](Negative-Prompt.md)

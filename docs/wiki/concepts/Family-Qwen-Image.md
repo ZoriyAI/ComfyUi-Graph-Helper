@@ -18,7 +18,7 @@ About 1.6 megapixels (1328×1328, 1664×928); 20 to 50 steps, cfg about 2.5 to 4
 Only Qwen-Image LoRAs and ControlNets; edit models have their own LoRAs. Its VAE and encoder fit nothing else.
 
 ## How the app helps
-Shown as **Qwen-Image** on model cards. The built-in knowledge notes that the editing variants use their own graphs; there is no lesson for them yet.
+Shown as **Qwen-Image** on model cards. The lesson [Qwen-Image: words inside the picture](../lessons/Qwen-Image.md) builds the picture graph; [Editing a picture by words](../lessons/Edit-By-Words.md) builds an editing graph.
 
 ## See also
 - [Reference images](Reference-Images.md)

@@ -27,7 +27,7 @@ Length is set in seconds on the empty audio latent; longer sound costs more time
 - Cloning a real person's voice without consent: see [Content rules](../trust/Content-Rules.md).
 
 ## How the app helps
-The talking-portrait lessons and the Ovi lesson connect sound into clips; the built-in knowledge does not describe the `AUDIO` and `VIDEO` types yet. No lesson yet covers music from text.
+The lessons of the group **Sound and speech** build sound graphs: [Music from text: ACE-Step 1.5](../lessons/Audio-Music.md), [A sound from text: Stable Audio](../lessons/Audio-Sound.md), [Speech from text: Chatterbox](../lessons/Audio-Speech.md), [Sound for a silent video: MMAudio](../lessons/Audio-Foley.md) and [Speech to text: Whisper](../lessons/Audio-Transcribe.md). The talking-portrait lessons, the Ovi lesson and [Video with sound: LTX-2.5](../lessons/Video-LTX.md) put sound into clips. On a node's card in the library, hold the pointer over the type mark of an `AUDIO` or `VIDEO` port to read the built-in note on that type.
 
 ## See also
 - [Talking portraits](Talking-Portraits.md)

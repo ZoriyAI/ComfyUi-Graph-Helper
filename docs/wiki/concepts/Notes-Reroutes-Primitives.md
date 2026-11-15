@@ -27,7 +27,7 @@ A **group** is a coloured frame with a title around several nodes. It moves its 
 - Ignoring the notes of a template and then missing a model file.
 
 ## How the app helps
-The app draws notes, reroutes, primitives and groups from imported files and explains them in the **Explain** tab like any other node.
+The app draws notes, reroutes, primitives and groups from imported files and explains them in the **Explain** tab like any other node. The lessons [Reading someone else's workflow](../lessons/Reading-A-Workflow.md) and [Two versions of a prompt with one switch](../lessons/Prompt-Switch.md) use primitives.
 
 ## See also
 - [Nodes, inputs, outputs and links](Nodes-And-Links.md)

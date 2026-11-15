@@ -29,7 +29,7 @@
 12. [Пачка (batch)](Batch.ru.md)
 
 ## 3. Управление словами
-Вместе с уроком [Описание: как модель его читает](../lessons/Prompt.ru.md).
+Вместе с уроком [Промпт: как модель его читает](../lessons/Prompt.ru.md).
 1. [Промпт: как модель читает текст](Prompt.ru.md)
 2. [Синтаксис промпта и веса](Prompt-Syntax.ru.md)
 3. [Негативный промпт](Negative-Prompt.ru.md)
@@ -39,7 +39,7 @@
 1. [Семейства моделей](Model-Families.ru.md)
 2. [Почему файлы разных семейств не смешиваются](Why-Families-Do-Not-Mix.ru.md)
 3. [Отдельные загрузчики](Separate-Loaders.ru.md)
-4. По странице на семейство: [SD 1.5](Family-SD15.ru.md), [SDXL](Family-SDXL.ru.md), [Pony](Family-Pony.ru.md), [Illustrious](Family-Illustrious.ru.md), [SD 3 и 3.5](Family-SD3.ru.md), [Flux.1](Family-Flux1.ru.md), [Flux.1 Krea](Family-Krea.ru.md), [Flux.2](Family-Flux2.ru.md), [Chroma](Family-Chroma.ru.md), [Qwen-Image](Family-Qwen-Image.ru.md), [Z-Image](Family-Z-Image.ru.md), [Kolors](Family-Kolors.ru.md), [AuraFlow](Family-AuraFlow.ru.md), [Stable Cascade](Family-Stable-Cascade.ru.md), [Wan 2.1](Family-Wan21.ru.md), [Wan 2.2](Family-Wan22.ru.md), [HunyuanVideo](Family-HunyuanVideo.ru.md), [LTX-2](Family-LTX2.ru.md).
+4. По странице на семейство: [SD 1.5](Family-SD15.ru.md), [SDXL](Family-SDXL.ru.md), [Pony](Family-Pony.ru.md), [Illustrious](Family-Illustrious.ru.md), [SD 3 и 3.5](Family-SD3.ru.md), [Flux.1](Family-Flux1.ru.md), [Krea 2](Family-Krea.ru.md), [Flux.2](Family-Flux2.ru.md), [Chroma](Family-Chroma.ru.md), [Qwen-Image](Family-Qwen-Image.ru.md), [Z-Image](Family-Z-Image.ru.md), [Kolors](Family-Kolors.ru.md), [AuraFlow](Family-AuraFlow.ru.md), [Stable Cascade](Family-Stable-Cascade.ru.md), [Wan 2.1](Family-Wan21.ru.md), [Wan 2.2](Family-Wan22.ru.md), [HunyuanVideo](Family-HunyuanVideo.ru.md), [LTX-2](Family-LTX2.ru.md).
 
 ## 5. Приёмы с картинками
 Вместе с уроком [Доводка второй моделью](../lessons/Refine.ru.md).

@@ -25,8 +25,9 @@ Start ComfyUI with `--disable-partner-nodes` to hide them, or with `--offline` t
 - Expecting it to work without logging in or without credits.
 
 ## How the app helps
-The app runs nothing, so it never spends credits. It marks paid API nodes on the canvas so you can see them before you take a workflow to ComfyUI.
-<!-- verify: the mark of paid API nodes on the canvas (editing and search package) -->
+The app runs nothing, so it never spends credits. A paid node carries the mark **Paid** beside its name, on its card on the canvas and in the node search, so you see it before you add it or take a workflow to ComfyUI. Hold the pointer over the mark to read: "Runs on an outside service: ComfyUI asks you to sign in to your Comfy account and charges for each run." The same search marks nodes as **Outdated** or **Experimental** when their pack says so.
+
+The lesson [Editing a picture by words](../lessons/Edit-By-Words.md) builds an editing graph on local nodes and says that the paid API nodes for editing cost money and send your picture and your words to a cloud service.
 
 ## See also
 - [What ComfyUI is](What-Is-ComfyUI.md)

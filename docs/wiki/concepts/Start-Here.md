@@ -29,7 +29,7 @@ Then do the lesson [A first picture from text](../lessons/Image.md) and come bac
 12. [Batch](Batch.md)
 
 ## 3. Steering with words
-With the lesson [The description: how a model reads it](../lessons/Prompt.md).
+With the lesson [The prompt: how a model reads it](../lessons/Prompt.md).
 1. [The prompt: how models read text](Prompt.md)
 2. [Prompt syntax and weights](Prompt-Syntax.md)
 3. [The negative prompt](Negative-Prompt.md)
@@ -39,7 +39,7 @@ With the lesson [The description: how a model reads it](../lessons/Prompt.md).
 1. [Model families](Model-Families.md)
 2. [Why files of different families do not mix](Why-Families-Do-Not-Mix.md)
 3. [Separate loaders](Separate-Loaders.md)
-4. One page per family: [SD 1.5](Family-SD15.md), [SDXL](Family-SDXL.md), [Pony](Family-Pony.md), [Illustrious](Family-Illustrious.md), [SD 3 and 3.5](Family-SD3.md), [Flux.1](Family-Flux1.md), [Flux.1 Krea](Family-Krea.md), [Flux.2](Family-Flux2.md), [Chroma](Family-Chroma.md), [Qwen-Image](Family-Qwen-Image.md), [Z-Image](Family-Z-Image.md), [Kolors](Family-Kolors.md), [AuraFlow](Family-AuraFlow.md), [Stable Cascade](Family-Stable-Cascade.md), [Wan 2.1](Family-Wan21.md), [Wan 2.2](Family-Wan22.md), [HunyuanVideo](Family-HunyuanVideo.md), [LTX-2](Family-LTX2.md).
+4. One page per family: [SD 1.5](Family-SD15.md), [SDXL](Family-SDXL.md), [Pony](Family-Pony.md), [Illustrious](Family-Illustrious.md), [SD 3 and 3.5](Family-SD3.md), [Flux.1](Family-Flux1.md), [Krea 2](Family-Krea.md), [Flux.2](Family-Flux2.md), [Chroma](Family-Chroma.md), [Qwen-Image](Family-Qwen-Image.md), [Z-Image](Family-Z-Image.md), [Kolors](Family-Kolors.md), [AuraFlow](Family-AuraFlow.md), [Stable Cascade](Family-Stable-Cascade.md), [Wan 2.1](Family-Wan21.md), [Wan 2.2](Family-Wan22.md), [HunyuanVideo](Family-HunyuanVideo.md), [LTX-2](Family-LTX2.md).
 
 ## 5. Picture techniques
 With the lesson [Refining with a second model](../lessons/Refine.md).

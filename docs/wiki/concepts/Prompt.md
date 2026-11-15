@@ -25,7 +25,7 @@ How you write depends on the [text encoder](Text-Encoders.md) of your model.
 - Most models were trained on English captions. Wan and Qwen-Image also understand Chinese well. Other languages work noticeably worse.
 
 ## For video
-A clip also needs what changes: one action, the camera's move, the pace. See the lesson [A description for video](../lessons/Prompt-Video.md) and [Video models](Video-Models.md).
+A clip also needs what changes: one action, the camera's move, the pace. See the lesson [A prompt for video](../lessons/Prompt-Video.md) and [Video models](Video-Models.md).
 
 ## Typical mistakes
 - **Negations in the main prompt**: `no hat` tends to add a hat. Put unwanted things in the [negative prompt](Negative-Prompt.md).
@@ -34,14 +34,12 @@ A clip also needs what changes: one action, the camera's move, the pace. See the
 - **Colours and details bleed between objects** in tag models: describe each object in its own phrase.
 
 ## How the app helps
-The **Check** panel reads prompts the way ComfyUI will and lists "Descriptions: worth changing": syntax from other programs, unmatched parentheses, weights above 1.5, the same word in both prompts, negations, non-English text, prompts too long for the encoder, a missing LoRA trigger word. The **Models** tab card shows the trigger words and example prompts the author stored in the file.
-
-The app's own texts currently call the prompt a "description".
+The **Check** panel reads prompts the way ComfyUI will and lists "Prompts: worth changing": syntax from other programs, unmatched parentheses, weights above 1.5, the same word in both prompts, negations, non-English text, prompts too long for the encoder, a missing LoRA trigger word. The **Models** tab card shows the trigger words and example prompts the author stored in the file.
 
 ## See also
 - [Prompt syntax and weights](Prompt-Syntax.md)
 - [The negative prompt](Negative-Prompt.md)
 - [Text encoders](Text-Encoders.md)
 - [CFG and guidance](CFG.md)
-- [Lesson: The description: how a model reads it](../lessons/Prompt.md)
+- [Lesson: The prompt: how a model reads it](../lessons/Prompt.md)
 - [The Check panel](../interface/Check-Panel.md)

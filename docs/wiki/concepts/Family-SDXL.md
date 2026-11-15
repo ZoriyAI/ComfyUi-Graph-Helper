@@ -18,7 +18,7 @@ About one megapixel: 1024×1024, 832×1216, 1216×832, 1344×768. 20 to 35 steps
 SDXL LoRAs and ControlNets (also on Pony and Illustrious, with varying results). SD 1.5 and Flux add-ons do not work. A refiner pass can be any SDXL model.
 
 ## How the app helps
-Shown as **SDXL** on model cards; names with a separate `XL` word are recognised as SDXL. The refining and two-models lessons give SDXL sizes.
+Shown as **SDXL** on model cards; names with a separate `XL` word are recognised as SDXL. The lesson [SDXL done properly](../lessons/SDXL.md) sets the size and the sampler the family was trained for, and checks that the checkpoint is SDXL.
 
 ## See also
 - [Pony](Family-Pony.md)

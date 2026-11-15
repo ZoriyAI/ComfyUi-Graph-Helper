@@ -26,6 +26,8 @@ A method for understanding a workflow you downloaded, before you run it.
 - **Guided tour** (**Graph ▸ Guided tour**) walks through the graph node by node with explanations.
 - The **Explain** tab describes whatever you select; **Check** lists missing nodes, missing models and families that do not match.
 - **Ask** mode lets the assistant answer questions about the graph on the canvas.
+- The lesson [Reading someone else's workflow](../lessons/Reading-A-Workflow.md) practises it.
+
 ## See also
 - [Workflow formats](Workflow-Formats.md)
 - [Notes, reroutes and primitives](Notes-Reroutes-Primitives.md)

@@ -31,7 +31,7 @@ If even RAM runs out (the computer swaps or ComfyUI is killed), the model files 
 - Two copies of the same large model loaded under different nodes.
 
 ## How the app helps
-The app does not measure your card. Lessons name fp8 files and tell you to lower size or length when memory runs out; the WanVideoWrapper lesson explains BlockSwap and fp8 quantization.
+The app does not measure your card. Lessons name fp8 files and tell you to lower size or length when memory runs out. The lessons [When the graph does not fit the graphics card](../lessons/Graph-Too-Big.md), [When a video does not fit in memory](../lessons/Video-Memory.md) and [A quantised model: GGUF](../lessons/GGUF.md) are about memory; the WanVideoWrapper lesson explains BlockSwap and fp8 quantization.
 
 ## See also
 - [Separate loaders](Separate-Loaders.md)

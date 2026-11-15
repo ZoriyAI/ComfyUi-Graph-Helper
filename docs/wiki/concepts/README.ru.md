@@ -51,7 +51,7 @@
 - [Illustrious](Family-Illustrious.ru.md): Аниме-линия на SDXL.
 - [SD 3 и 3.5](Family-SD3.ru.md): Три текстовых энкодера, 16-канальный латент.
 - [Flux.1](Family-Flux1.ru.md): dev, schnell и модели-инструменты.
-- [Flux.1 Krea](Family-Krea.ru.md): Flux.1 dev, дообученный на реализм.
+- [Krea 2](Family-Krea.ru.md): своя модель картинок от Krea AI; не FLUX.1 Krea [dev].
 - [Flux.2](Family-Flux2.ru.md): Второе поколение Flux, dev и Klein.
 - [Chroma](Family-Chroma.ru.md): Открытая модель из Flux.1 schnell.
 - [Qwen-Image](Family-Qwen-Image.ru.md): Текст на картинках и правка.

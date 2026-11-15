@@ -17,6 +17,7 @@ A pose detector draws a stick-figure skeleton for every frame of a **driving vid
 | Wan 2.2 Animate | Body pose and face; can also replace a person in the video | One model. Built-in nodes in recent ComfyUI (WanAnimateToVideo), or WanVideoWrapper with the ComfyUI-WanAnimatePreprocess pack |
 | UniAnimate | Body pose only | Wan 2.1 `i2v` 14B plus the UniAnimate LoRA (WanVideoWrapper) |
 | VACE with a pose map | Body pose, look from the prompt and a reference picture | Wan with VACE modules |
+| Wan 2.2 Fun Control | Motion from a control video: a skeleton of a pose, a depth map or edges | The Fun Control 5B model on built-in nodes |
 | ControlNet OpenPose (pictures) | One pose for one picture | Any picture family with a pose ControlNet |
 
 ## Values and what they change
@@ -31,7 +32,7 @@ A pose detector draws a stick-figure skeleton for every frame of a **driving vid
 - A video at another frame rate: motion too fast or slow.
 
 ## How the app helps
-Lessons [Animation by pose: Wan Animate](../lessons/Wrapper-Animate.md) and [Animation by pose: UniAnimate](../lessons/Wrapper-UniAnimate.md), both with the consent rule as their first step.
+Lessons [Animation by pose: Wan Animate](../lessons/Wrapper-Animate.md) and [Animation by pose: UniAnimate](../lessons/Wrapper-UniAnimate.md), both with the consent rule as their first step, and [Video guided by another video: Wan 2.2 Fun Control](../lessons/Video-Control.md).
 
 ## See also
 - [Video to video](Video-To-Video.md)

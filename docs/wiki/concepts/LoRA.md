@@ -33,7 +33,7 @@ A LoRA works only with the family it was trained for: an SDXL LoRA on an SDXL-ba
 ## How the app helps
 - The **Models** tab card of a LoRA shows its **Family**, its **Trigger words** (click to copy), the strength the author advises, and which of your checkpoints it fits.
 - **Check** reports models of different families in one path and a prompt missing a LoRA's trigger words.
-- Lessons: [LoRA: add a style or a subject](../lessons/LoRA.md), [Fast video in four steps](../lessons/Video-Fast.md).
+- Lessons: [LoRA: add a style or a subject](../lessons/LoRA.md), [Fast video in four steps](../lessons/Video-Fast.md), [LoRA for pictures](../lessons/LoRA-Image.md), [LoRA for a character: face, body, clothes, pose](../lessons/LoRA-Character.md). A lesson checks that the LoRA is made for the family of the checkpoint and that its trigger words are in the prompt.
 
 ## See also
 - [Speed-up LoRAs](Speed-Up-LoRAs.md)

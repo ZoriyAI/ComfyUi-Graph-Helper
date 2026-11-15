@@ -18,7 +18,7 @@ About one megapixel (1024×1024); 28 to 40 steps; cfg about 4 to 5.5 (Large Turb
 Only SD3 or SD 3.5 LoRAs and ControlNets, and only for the same size (Medium and Large differ). SDXL and Flux add-ons do not work.
 
 ## How the app helps
-Shown as **SD 3** on model cards.
+Shown as **SD 3** on model cards. The lesson [SD 3.5: one file and a new empty latent](../lessons/SD35.md) builds its graph.
 
 ## See also
 - [Model families](Model-Families.md)

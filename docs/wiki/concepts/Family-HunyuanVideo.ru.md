@@ -18,7 +18,7 @@ HunyuanVideo (конец 2024) это модель видео из текста 
 LoRA, сделанные для HunyuanVideo (и отдельно для 1.5). LoRA для Wan не работают.
 
 ## Как помогает приложение
-Показывается как **HunyuanVideo** на карточках моделей. Нода EmptyHunyuanLatentVideo, названная по этому семейству, используется и в графах Wan.
+Показывается как **HunyuanVideo** на карточках моделей. Нода EmptyHunyuanLatentVideo, названная по этому семейству, используется и в графах Wan. Урок [Видео из текста: HunyuanVideo 1.5](../lessons/Video-Hunyuan.ru.md) собирает граф HunyuanVideo 1.5.
 
 ## См. также
 - [Генерация видео](Video-Models.ru.md)

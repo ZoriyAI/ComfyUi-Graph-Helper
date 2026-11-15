@@ -28,7 +28,7 @@
 - Ждать, что модель правки заработает в обычном графе картинки из текста: берите её шаблон.
 
 ## Как помогает приложение
-Встроенные знания описывают Load CLIP Vision и CLIP Vision Encode; уроки WanVideoWrapper пользуются CLIP Vision и образцами VACE. Урока об IP-Adapter, Redux или моделях правки пока нет.
+Встроенные знания описывают Load CLIP Vision и CLIP Vision Encode, а их статья «Облик: адаптер, LoRA или замена: что выбрать» сравнивает способы удержать лицо. Уроки: [Картинка-образец через IP-Adapter](../lessons/IP-Adapter.ru.md), [Картинка-образец для стиля (Flux Redux)](../lessons/Style-Reference.ru.md), [Правка картинки словами](../lessons/Edit-By-Words.ru.md), [Тот же персонаж на новой картинке: FLUX.1 Kontext](../lessons/Character-Kontext.ru.md), [Один персонаж на многих картинках](../lessons/Character-Series.ru.md), [То же лицо по одному фото: IP-Adapter FaceID](../lessons/Face-From-Photo.ru.md), [Перенести лицо на картинку: ReActor](../lessons/Face-Swap.ru.md), а для видео [Образец на весь ролик: Wan VACE](../lessons/Anchor-Reference.ru.md). Уроки, где берут лицо реального человека, требуют его согласия.
 
 ## См. также
 - [Картинка из картинки](Image-To-Image.ru.md)

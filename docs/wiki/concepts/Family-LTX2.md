@@ -18,7 +18,7 @@ Take size, length (8n + 1 frames), frame rate (around 24 to 25), steps and guida
 Only LTX-2 LoRAs. LoRAs for the older LTX-Video (0.9.x) models are not compatible.
 
 ## How the app helps
-Shown as **LTX-2** on model cards. There is no LTX-2 lesson yet.
+Shown as **LTX-2** on model cards. The lesson [Video with sound: LTX-2.5](../lessons/Video-LTX.md) builds a clip with sound in two stages.
 
 ## See also
 - [Audio](Audio.md)

@@ -18,7 +18,7 @@ About 1 megapixel (1024×1024); Turbo: about 8 to 9 steps, cfg 1 (so no negative
 Only Z-Image LoRAs and control patches. Flux LoRAs do not work, although the VAE is shared with Flux.1.
 
 ## How the app helps
-Shown as **Z-Image** on model cards.
+Shown as **Z-Image** on model cards. The lesson [Z-Image Turbo: a picture in eight steps](../lessons/Z-Image-Turbo.md) builds its graph.
 
 ## See also
 - [Speed-up LoRAs](Speed-Up-LoRAs.md)

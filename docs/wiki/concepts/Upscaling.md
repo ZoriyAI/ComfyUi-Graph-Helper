@@ -28,7 +28,7 @@ For very large pictures, **tiled** upscaling (for example the Ultimate SD Upscal
 - Out of memory on large pictures: use tiled VAE decode or tiled upscaling.
 
 ## How the app helps
-Built-in descriptions of the upscale, latent upscale and resize nodes, including the warning that an enlarged latent must be sampled again. There is no upscaling lesson yet.
+Built-in descriptions of the upscale, latent upscale and resize nodes, including the warning that an enlarged latent must be sampled again. The lessons [Upscaling with a model](../lessons/Upscale.md), [A second pass after upscaling (hires fix)](../lessons/Hires-Fix.md) and, for video, [A larger, sharper video: SeedVR2](../lessons/Video-Upscale.md).
 
 ## See also
 - [Denoise](Denoise.md)

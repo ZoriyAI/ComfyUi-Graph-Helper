@@ -31,7 +31,7 @@ How many steps a sampler takes, and what more of them changes.
 - **Comparing step counts with an ancestral sampler**: the picture changes for reasons other than steps.
 
 ## How the app helps
-The video lessons check the step split (`end_at_step` of the first sampler equals `start_at_step` of the second, `steps` the same in both), and four steps with a speed-up LoRA.
+The video lessons check the step split (`end_at_step` of the first sampler equals `start_at_step` of the second, `steps` the same in both), and four steps with a speed-up LoRA. [The sampler's settings](../lessons/Sampler-Settings.md) explains the field. In **Properties**, a field with a built-in note has a button **What this field does** next to its name; it opens the note under the field: what the field does and what to put in it.
 
 ## See also
 - [Sampler and sampler names](Sampler.md)

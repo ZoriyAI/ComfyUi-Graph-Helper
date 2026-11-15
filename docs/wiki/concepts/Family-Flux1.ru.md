@@ -18,14 +18,14 @@ Flux.1 от Black Forest Labs: большая модель картинок (dev
 Около 1 мегапикселя, гибко примерно до 2; dev: 20 до 30 шагов, cfg 1, FluxGuidance около 3.5 (ниже для большей естественности), `euler` с `simple` или `beta`. schnell: 4 шага, cfg 1. Промпт: обычные предложения; короткий текст в кавычках модель умеет написать на картинке. Негативный промпт при cfg 1 не действует.
 
 ## Что подходит
-Только LoRA и ControlNet для Flux.1. Файлы Flux.2 несовместимы. Krea и Chroma родственны, но с LoRA для Flux.1 ведут себя иначе.
+Только LoRA и ControlNet для Flux.1. Файлы Flux.2 несовместимы. FLUX.1 Krea [dev] это Flux.1 dev, заново дообученная Krea: она загружается в точности как Flux.1, и LoRA для Flux.1 dev обычно грузятся, хотя результат может отличаться. Chroma родственна, но с LoRA для Flux.1 ведёт себя иначе. Krea 2 это другая архитектура: файлы Flux с ней не работают.
 
 ## Как помогает приложение
-Показывается как **Flux.1** на карточках моделей. Встроенные знания описывают FluxGuidance и ModelSamplingFlux.
+Показывается как **Flux.1** на карточках моделей. Встроенные знания описывают FluxGuidance и ModelSamplingFlux. С Flux.1 работают уроки [Flux.1: картинка из отдельных файлов](../lessons/Flux1.ru.md), [Квантованная модель: GGUF](../lessons/GGUF.ru.md), [Картинка-образец для стиля (Flux Redux)](../lessons/Style-Reference.ru.md) и [Тот же персонаж на новой картинке: FLUX.1 Kontext](../lessons/Character-Kontext.ru.md).
 
 ## См. также
 - [CFG и guidance](CFG.ru.md)
-- [Flux.1 Krea](Family-Krea.ru.md)
+- [Krea 2](Family-Krea.ru.md)
 - [Flux.2](Family-Flux2.ru.md)
 - [Chroma](Family-Chroma.ru.md)
 - [Отдельные загрузчики](Separate-Loaders.ru.md)

@@ -10,14 +10,14 @@ Models do not draw in pixels. They work on a **latent**: a compressed form of th
 
 A latent is not a small picture you could look at. It is numbers in several channels (4 for SD 1.5 and SDXL, 16 for SD3 and Flux.1, more for some newer models). Only a [VAE](VAE.md) can turn it into pixels.
 
-For video, a latent is also compressed in time: Wan's VAE packs 4 frames into one latent frame (after the first), which is why Wan lengths are 4n + 1.
+For video, a latent is also compressed in time, and video models compress more. One latent cell holds 8 × 8 pixels and 4 frames for Wan 2.1 and the 14B Wan 2.2, 16 × 16 pixels and 4 frames for Wan 2.2 5B and HunyuanVideo 1.5, and 32 × 32 pixels and 8 frames for LTX. The first frame stands alone, which is why Wan lengths are 4n + 1 and LTX lengths 8n + 1.
 
 The lessons call an empty latent "the blank".
 
 <!-- diagram: a 1024×1024 picture on the left, an arrow "VAE Encode" to a small 128×128 grid of numbers in 4 layers, an arrow "VAE Decode" back to the picture -->
 
 ## Where you meet it in a graph
-- **Empty latent nodes** start text to image: Empty Latent Image (SD 1.5, SDXL), EmptySD3LatentImage (SD3, Flux.1 and others with 16 channels), EmptyHunyuanLatentVideo (Wan 14B, HunyuanVideo), Wan22ImageToVideoLatent (Wan 2.2 5B), and others per family. Their fields `width`, `height`, `batch_size` (and `length` for video) set the size.
+- **Empty latent nodes** start text to image: Empty Latent Image (SD 1.5, SDXL; the template of Krea 2 uses it too), EmptySD3LatentImage (SD3, Flux.1 and others with 16 channels), Empty Flux 2 Latent (Flux.2), EmptyHunyuanLatentVideo (Wan 14B), Wan22ImageToVideoLatent (Wan 2.2 5B), EmptyHunyuanVideo15Latent (HunyuanVideo 1.5), EmptyLTXVLatentVideo (LTX), and others per family. Their fields `width`, `height`, `batch_size` (and `length` for video) set the size.
 - **VAE Encode** makes a latent from a picture (image to image).
 - **Samplers** take a latent in `latent_image` and give a latent out.
 - **VAE Decode** turns the final latent into pixels.
@@ -33,7 +33,7 @@ The lessons call an empty latent "the blank".
 - **The empty latent of another family**: current ComfyUI quietly adjusts the channel count of an all-empty latent to the model, so a plain Empty Latent Image often still works with Flux; but for size rules and video, use the empty latent node the family's official template uses.
 
 ## How the app helps
-The node description of every empty latent says which family it is for. **Check** warns when models of different families meet in one path.
+The node description of an empty latent says which family it is for. In **Properties**, the `width` and `height` fields of Empty Latent Image, EmptySD3LatentImage and Empty Flux 2 Latent have a button **What this field does**: it opens a built-in note under the field with the sizes that suit. **Check** warns when models of different families meet in one path.
 
 ## See also
 - [VAE](VAE.md)

@@ -33,7 +33,7 @@ There are three generations of text encoders:
 - **Running out of memory on T5-XXL**: use the `fp8` file.
 
 ## How the app helps
-**Check** tells when a prompt is longer than CLIP's 75-token chunk or too long for T5. The card of a model in the **Models** tab shows its family, and the [prompt lesson](../lessons/Prompt.md) explains the two ways of reading.
+**Check** tells when a prompt is longer than CLIP's 75-token chunk or too long for T5. The card of a model in the **Models** tab shows its family, the [prompt lesson](../lessons/Prompt.md) explains the two ways of reading, and [Which loader for which file](../lessons/Which-Loader.md) sorts the loaders. In **Properties**, a field with a built-in note has a button **What this field does** next to its name; it opens the note under the field: what the field does and what to put in it.
 
 ## See also
 - [The prompt](Prompt.md)
