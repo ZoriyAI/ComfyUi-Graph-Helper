@@ -106,7 +106,7 @@ test('Help ▸ About: icon, name, version, licence, components, copy details, da
   }
 });
 
-test('Help ▸ User guide, Troubleshooting, What is new open the bundled pages in both languages', async () => {
+test('Help ▸ User guide, Troubleshooting, What is new, Content rules open the bundled pages in both languages', async () => {
   const { app, window, errors } = await launch();
   try {
     const reader = window.locator('.help-reader-dialog');
@@ -134,7 +134,18 @@ test('Help ▸ User guide, Troubleshooting, What is new open the bundled pages i
     await expect(reader.getByText(`v${pkg.version}`).first()).toBeVisible();
     await window.keyboard.press('Escape');
 
+    // The content rules, in the same words as everywhere else in the app.
+    await helpItem(window, RU('menu.help'), RU('helpReader.content'));
+    await expect(reader).toHaveAttribute('data-help-topic', 'content');
+    await expect(reader.getByText(RU('contentRules.lead'))).toBeVisible();
+    await expect(reader.getByText(RU('contentRules.animals'))).toBeVisible();
+    await window.keyboard.press('Escape');
+
     await useEnglish(window);
+    await helpItem(window, EN('menu.help'), EN('helpReader.content'));
+    await expect(reader.getByText(EN('contentRules.minors'))).toBeVisible();
+    await expect(reader.getByText(EN('contentRules.after'))).toBeVisible();
+    await window.keyboard.press('Escape');
     await helpItem(window, EN('menu.help'), EN('helpReader.guide'));
     await expect(reader.getByRole('heading', { name: 'Where your data lives' })).toBeVisible();
     await window.keyboard.press('Escape');

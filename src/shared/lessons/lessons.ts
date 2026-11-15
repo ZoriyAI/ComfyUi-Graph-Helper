@@ -84,6 +84,30 @@ const prompt: Lesson = {
 };
 
 /**
+ * The graph of the first lesson, named whole, its saver included, for a lesson that stands on it. A LoRA loader
+ * (with or without the text reader) on the way of the model does not break it.
+ */
+const imageGraphAtHand = {
+  roles: [
+    node('checkpoint', 'CheckpointLoaderSimple'),
+    node('positive', 'CLIPTextEncode'),
+    node('negative', 'CLIPTextEncode'),
+    node('sampler', 'KSampler'),
+    node('decode', 'VAEDecode'),
+    node('save', 'SaveImage', 'PreviewImage'),
+  ],
+  links: [
+    link('checkpoint', 'CLIP', 'positive', 'clip', CLIP_VIA),
+    link('checkpoint', 'CLIP', 'negative', 'clip', CLIP_VIA),
+    link('checkpoint', 'MODEL', 'sampler', 'model', LORA_ANY),
+    link('positive', 'CONDITIONING', 'sampler', 'positive'),
+    link('negative', 'CONDITIONING', 'sampler', 'negative'),
+    link('sampler', 'LATENT', 'decode', 'samples'),
+    link('decode', 'IMAGE', 'save', 'images'),
+  ],
+};
+
+/**
  * A second model redraws the picture of the first. The first pass is named whole, its saver included, so that
  * every node the second pass needs is a new one: what is already wired stays as it is.
  */
@@ -91,26 +115,7 @@ const refine: Lesson = {
   id: 'refine',
   steps: [
     { id: 'intro', read: true },
-    {
-      id: 'graph',
-      roles: [
-        node('checkpoint', 'CheckpointLoaderSimple'),
-        node('positive', 'CLIPTextEncode'),
-        node('negative', 'CLIPTextEncode'),
-        node('sampler', 'KSampler'),
-        node('decode', 'VAEDecode'),
-        node('save', 'SaveImage', 'PreviewImage'),
-      ],
-      links: [
-        link('checkpoint', 'CLIP', 'positive', 'clip', CLIP_VIA),
-        link('checkpoint', 'CLIP', 'negative', 'clip', CLIP_VIA),
-        link('checkpoint', 'MODEL', 'sampler', 'model', LORA_ANY),
-        link('positive', 'CONDITIONING', 'sampler', 'positive'),
-        link('negative', 'CONDITIONING', 'sampler', 'negative'),
-        link('sampler', 'LATENT', 'decode', 'samples'),
-        link('decode', 'IMAGE', 'save', 'images'),
-      ],
-    },
+    { id: 'graph', ...imageGraphAtHand },
     {
       id: 'second-model',
       roles: [node('checkpointB', 'CheckpointLoaderSimple')],
@@ -971,6 +976,8 @@ const adult: Lesson = {
     { id: 'graph', ...videoGraphAtHand },
     { id: 'tuned', read: true },
     { id: 'lora', read: true },
+    { id: 'pair-loras', read: true },
+    { id: 'anchor', read: true },
     { id: 'prompt', read: true },
     { id: 'trigger', roles: promptInUse.roles, links: promptInUse.links, fields: [triggerOfAnyLora] },
     { id: 'defects', read: true },
@@ -978,19 +985,114 @@ const adult: Lesson = {
   ],
 };
 
-/** In the order a person meets them. */
+/**
+ * The same for pictures: the graph of the first lesson, and what decides the result (the model of a family, the
+ * LoRAs made for that family, the description). The words a model was trained with are its author's: the lesson
+ * sends the person to the model's page and to its card in the app, and lists none itself. Like the video lesson
+ * it asks for no LoRA; one that is on the canvas, with or without the text reader, is held to its words.
+ */
+const triggerOfAnyImageLora = field('positive', 'text', { kind: 'has-trigger', of: [{ classType: 'LoraLoader', field: 'lora_name' }, { classType: 'LoraLoaderModelOnly', field: 'lora_name' }] });
+
+const adultImage: Lesson = {
+  id: 'adult-image',
+  steps: [
+    { id: 'rules', read: true },
+    { id: 'levers', read: true },
+    { id: 'graph', ...imageGraphAtHand },
+    { id: 'families', read: true },
+    { id: 'readers', read: true },
+    { id: 'lora', read: true },
+    { id: 'trigger', fields: [triggerOfAnyImageLora] },
+    { id: 'negative', read: true },
+    { id: 'size', read: true },
+    { id: 'defects', read: true },
+    { id: 'helper', read: true },
+  ],
+};
+
+/**
+ * Adult LoRAs on the first picture graph, the way ComfyUI's own LoRA example wires one (Load LoRA between the
+ * checkpoint and everything that takes its model and its text reader). The files and the words are the person's:
+ * the lesson says where a file goes, where its page names its family and its words, how strong to make it, and how
+ * two of them are balanced; it names no file and no word.
+ */
+const adultLora: Lesson = {
+  id: 'adult-lora',
+  steps: [
+    { id: 'rules', read: true },
+    { id: 'files', read: true },
+    { id: 'graph', ...imageGraphAtHand },
+    {
+      id: 'add',
+      roles: [node('lora', 'LoraLoader')],
+      links: [
+        link('checkpoint', 'MODEL', 'lora', 'model'),
+        link('checkpoint', 'CLIP', 'lora', 'clip'),
+        link('lora', 'MODEL', 'sampler', 'model', LORA_ANY),
+        link('lora', 'CLIP', 'positive', 'clip', CLIP_VIA),
+        link('lora', 'CLIP', 'negative', 'clip', CLIP_VIA),
+      ],
+      fields: [field('lora', 'lora_name', chosen)],
+    },
+    { id: 'family', read: true },
+    { id: 'trigger', fields: [field('positive', 'text', { kind: 'has-trigger', of: [{ role: 'lora', field: 'lora_name' }] })] },
+    { id: 'strength', read: true },
+    { id: 'compare', read: true },
+    { id: 'two', read: true },
+    { id: 'fight', read: true },
+    { id: 'helper', read: true },
+  ],
+};
+
+/** In the order a person meets them. The lessons for adults are a group of their own at the end (ADULT_LESSONS). */
 export const LESSONS: readonly Lesson[] = [
   ...FOUNDATIONS_FIRST,
   image, prompt,
   ...FOUNDATIONS_LESSONS,
   refine, videoText, promptVideo, videoImage, lora, videoFast,
   wrapper, wrapperImage, wrapperVace, wrapperAnimate, wrapperUni, wrapperTalk, wrapperDuo, wrapperFantasy, wrapperOvi, wrapperRecam,
-  twoModels, adult,
+  twoModels,
   ...IMAGE_MODEL_LESSONS,
   ...VIDEO_LESSONS,
   ...IMAGE_TECHNIQUE_LESSONS,
   ...FOUNDATIONS_TOOLS,
+  adultImage, adultLora, adult,
 ];
+
+/**
+ * The lessons about adult content. They are open only while the switch «Содержимое для взрослых (18+)» is on
+ * (preferences: adultContentOn); while it is off the list shows them as one closed group that leads to the switch,
+ * never hidden. They stand last, as one group, and are never offered as "the next lesson" after an ordinary one.
+ */
+/** Their group on the learning path: the last one, closed until the switch is on. */
+export const ADULT_GROUP: LessonGroup = { id: 'adult', title: { ru: 'Для взрослых (18+)', en: 'For adults (18+)' } };
+
+export const ADULT_LESSONS: ReadonlySet<string> = new Set(['adult-image', 'adult-lora', 'adult']);
+
+export function isAdultLesson(id: string): boolean {
+  return ADULT_LESSONS.has(id);
+}
+
+/** Whether a lesson can be opened: an ordinary one always, one for adults only while the switch is on. */
+export function lessonOpen(id: string, adultOn: boolean): boolean {
+  return lessonById(id) !== null && (adultOn || !isAdultLesson(id));
+}
+
+/** The lessons that are not for adults, in their order. */
+export function ordinaryLessons(): Lesson[] {
+  return LESSONS.filter((lesson) => !isAdultLesson(lesson.id));
+}
+
+/**
+ * The lesson offered at the end of a lesson: the next one in the list, within the same group. After the last
+ * ordinary lesson nothing is offered, so a lesson for adults never comes up by itself.
+ */
+export function nextLesson(id: string): Lesson | null {
+  const at = LESSONS.findIndex((lesson) => lesson.id === id);
+  const next = at >= 0 ? LESSONS[at + 1] : undefined;
+  if (!next || isAdultLesson(next.id) !== isAdultLesson(id)) return null;
+  return next;
+}
 
 /** Lessons that stand on the graph of another: said in the list, not enforced. */
 export const LESSON_AFTER: Readonly<Record<string, string[]>> = {
@@ -1004,6 +1106,8 @@ export const LESSON_AFTER: Readonly<Record<string, string[]>> = {
   'wrapper-vace': ['wrapper'],
   'wrapper-duo': ['wrapper-talk'],
   'two-models': ['video-image'],
+  'adult-image': ['image'],
+  'adult-lora': ['image'],
   adult: ['video-text'],
   ...IMAGE_MODEL_AFTER,
   ...VIDEO_LESSON_AFTER,
@@ -1018,11 +1122,14 @@ const WRAPPER_GROUP: LessonGroup = { id: 'wrapper', title: { en: 'WanVideoWrappe
 export const LESSON_PATH: Readonly<Record<string, { group: LessonGroup; follows: string[] }>> = {
   ...FOUNDATIONS_PATH,
   ...Object.fromEntries([image, prompt, refine, ...FOUNDATIONS_LESSONS.filter((lesson) => FOUNDATIONS_IN_FIRST_PICTURES.includes(lesson.id))].map((lesson) => [lesson.id, { group: BASICS_GROUP, follows: LESSON_AFTER[lesson.id] ?? [] }])),
-  ...Object.fromEntries([videoText, promptVideo, videoImage, lora, videoFast, twoModels, adult].map((lesson) => [lesson.id, { group: VIDEO_GROUP, follows: LESSON_AFTER[lesson.id] ?? [] }])),
+  ...Object.fromEntries([videoText, promptVideo, videoImage, lora, videoFast, twoModels].map((lesson) => [lesson.id, { group: VIDEO_GROUP, follows: LESSON_AFTER[lesson.id] ?? [] }])),
   ...Object.fromEntries([wrapper, wrapperImage, wrapperVace, wrapperAnimate, wrapperUni, wrapperTalk, wrapperDuo, wrapperFantasy, wrapperOvi, wrapperRecam].map((lesson) => [lesson.id, { group: WRAPPER_GROUP, follows: LESSON_AFTER[lesson.id] ?? [] }])),
   ...IMAGE_MODEL_PATH,
   ...VIDEO_PATH,
   ...IMAGE_TECHNIQUE_PATH,
+  'adult-image': { group: ADULT_GROUP, follows: ['image'] },
+  'adult-lora': { group: ADULT_GROUP, follows: ['image'] },
+  adult: { group: ADULT_GROUP, follows: ['video-text'] },
 };
 
 export function lessonById(id: string): Lesson | null {

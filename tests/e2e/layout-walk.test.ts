@@ -476,6 +476,14 @@ test('nothing sticks out, is cut or overlaps on any screen at any window size', 
         await visitScrolling(page, `settings connection, access ${index + 1}`, async () => { await openSettings(page, 1); }, () => settingsPanel(page));
       }
       await closeSettings(page);
+      // Privacy: turning on adult content first shows the rules and asks for one word; Escape leaves it off.
+      const adultDialog = page.locator('[role="dialog"].adult-content-dialog');
+      await visit(page, 'settings privacy, the rules before adult content', async () => {
+        const privacy = await openSettings(page, 6);
+        if (await adultDialog.count() === 0) await privacy.getByRole('switch', { name: T('preferences.adultContent') }).click();
+        await adultDialog.waitFor();
+      }, async () => { await escape(page); });
+      await closeSettings(page);
     }
 
     // ---------- ComfyUI is read: while it runs, and with 300 LoRAs waiting for their metadata ----------
@@ -571,8 +579,11 @@ test('nothing sticks out, is cut or overlaps on any screen at any window size', 
         if ((await lessons.getAttribute('data-lesson')) !== 'list') await lessons.getByRole('button', { name: T('lessons.back'), exact: true }).click();
         await expect(lessons).toHaveAttribute('data-lesson', 'list');
       };
+      // In a new profile the lessons for adults are one closed row at the end; the walk then opens them.
       await visitScrolling(page, 'lessons, the list', toList, () => lessons);
-      // A lesson that is all words first: the limits, said before anything else.
+      await saveSettings(page, { preferences: { privacy: { showMarkedPreviews: true } } });
+      await visitScrolling(page, 'lessons, the list with the lessons for adults', toList, () => lessons);
+      // A lesson that is all words first: the rules, said before anything else.
       await visitScrolling(page, 'lessons, a step that explains', async () => { await startLesson('adult'); }, () => lessons);
       await visitScrolling(page, 'lessons, the first step of a video lesson', async () => { await startLesson('video-text'); }, () => lessons);
       // A step to do: what it lacks, and the two things the app offers.
@@ -1050,7 +1061,7 @@ test('nothing sticks out, is cut or overlaps on any screen at any window size', 
           await page.locator('.model-log-dialog').waitFor();
         }
       }, () => page.locator('.model-log-dialog ul').first(), async () => { await escape(page); });
-      for (const [name, key] of [['user guide', 'helpReader.guide'], ['troubleshooting', 'helpReader.troubleshooting'], ['what is new', 'helpReader.whatsNew']] as const) {
+      for (const [name, key] of [['user guide', 'helpReader.guide'], ['troubleshooting', 'helpReader.troubleshooting'], ['what is new', 'helpReader.whatsNew'], ['content rules', 'helpReader.content']] as const) {
         await visit(page, name, async () => {
           await menus.last().click();
           await page.getByRole('menuitem', { name: T(key) }).click();

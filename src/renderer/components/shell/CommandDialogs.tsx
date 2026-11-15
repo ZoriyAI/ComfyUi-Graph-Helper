@@ -104,10 +104,11 @@ function AboutDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (ope
   );
 }
 
-const HELP_PAGES: Record<'help-guide' | 'help-troubleshooting' | 'help-whatsnew', { topic: HelpTopic; titleKey: string }> = {
+const HELP_PAGES: Record<'help-guide' | 'help-troubleshooting' | 'help-whatsnew' | 'help-content', { topic: HelpTopic; titleKey: string }> = {
   'help-guide': { topic: 'guide', titleKey: 'helpReader.guide' },
   'help-troubleshooting': { topic: 'troubleshooting', titleKey: 'helpReader.troubleshooting' },
   'help-whatsnew': { topic: 'whatsnew', titleKey: 'helpReader.whatsNew' },
+  'help-content': { topic: 'content', titleKey: 'helpReader.content' },
 };
 
 /** The page's own first heading when it only repeats the reader's title. */
@@ -116,7 +117,7 @@ export function withoutTitle(markdown: string, title: string): string {
   return match && match[1].trim() === title.trim() ? markdown.slice(match[0].length) : markdown;
 }
 
-/** Help ▸ User guide, Troubleshooting, What is new: the pages bundled with the app, read inside it. */
+/** Help ▸ User guide, Troubleshooting, What is new, Content rules: the pages bundled with the app, read inside it. */
 function HelpReaderDialog({ page, onOpenChange }: { page: keyof typeof HELP_PAGES | null; onOpenChange: (open: boolean) => void }) {
   const { t, i18n } = useTranslation();
   const language = i18n.language === 'en' ? 'en' : 'ru';
@@ -311,7 +312,7 @@ export default function CommandDialogs() {
     <>
       <ShortcutsDialog open={dialog === 'shortcuts'} onOpenChange={close} />
       <AboutDialog open={dialog === 'about'} onOpenChange={close} />
-      <HelpReaderDialog page={dialog === 'help-guide' || dialog === 'help-troubleshooting' || dialog === 'help-whatsnew' ? dialog : null} onOpenChange={close} />
+      <HelpReaderDialog page={dialog !== null && dialog in HELP_PAGES ? (dialog as keyof typeof HELP_PAGES) : null} onOpenChange={close} />
       <NewProjectDialog open={dialog === 'new-project'} onOpenChange={close} />
       <ExportGuardDialog open={dialog === 'export-guard'} onOpenChange={close} />
       <SecretGuardDialog />

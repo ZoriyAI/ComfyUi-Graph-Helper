@@ -139,8 +139,10 @@ export const preferencesSchema = z.object({
      */
     modelLog: z.boolean().default(true),
     /**
-     * Show the previews and example descriptions that lie next to the person's models when their author marked
-     * them as adult content. Off, a card shows them only when the person asks for that one file.
+     * The switch «Содержимое для взрослых (18+)» / "Adult content (18+)" (adultContentOn). On: the previews and
+     * example descriptions an author marked as adult content are shown, and the lessons for adults are open. Off,
+     * the default: they are closed but not hidden, and a card still shows them for one file when asked. The key
+     * keeps its first name (it once meant the previews alone), so a profile that had it on keeps the switch on.
      */
     showMarkedPreviews: z.boolean().default(false),
     /**
@@ -184,6 +186,11 @@ export const preferencesSchema = z.object({
 }).strict();
 
 export type Preferences = z.infer<typeof preferencesSchema>;
+
+/** Whether the person turned on adult content (Settings ▸ Privacy); stored as privacy.showMarkedPreviews. */
+export function adultContentOn(preferences: Pick<Preferences, 'privacy'> | null | undefined): boolean {
+  return preferences?.privacy?.showMarkedPreviews === true;
+}
 export type PreferenceSection = keyof Preferences;
 export type PreferencesPatch = {
   [K in PreferenceSection]?: K extends 'shortcuts'

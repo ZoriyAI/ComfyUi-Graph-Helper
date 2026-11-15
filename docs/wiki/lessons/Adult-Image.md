@@ -3,7 +3,9 @@
 
 # Pictures for adults: what changes
 
-This is a technique note, not a separate built-in lesson. It applies the same levers as the adult video lesson to pictures: model family, matching LoRAs and prompt style.
+<!-- lesson: adult-image -->
+<!-- verify: the lesson "adult-image" is built in again, in the closed group for adults; check its steps -->
+Lesson "adult-image", in the closed group for adults (open with Settings ▸ Privacy ▸ Adult content (18+)). It applies the same levers as the adult video lesson to pictures: model family, matching LoRAs and prompt style.
 
 ## The limits come first
 For lawful consensual adult (18+) use, obtain consent for real likenesses, permission for source material and follow local law. This page stays factual and non-graphic. Subject choice and preview controls are explained in [Subject choice and adult education](../trust/Content-Rules.md).

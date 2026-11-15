@@ -13,11 +13,12 @@ import {
   type Missing,
 } from '../../src/shared/lessons/engine';
 import { columnsOf, lessonSpot, type FlowRect } from '../../src/shared/lessons/flow';
-import { LESSONS, LESSON_AFTER, lessonById } from '../../src/shared/lessons/lessons';
 import { imageModelLessonSpecs } from '../fixtures/mcp/classes/image-models';
 import { videoSetSpecs } from '../fixtures/mcp/classes/video';
 import { IMAGE_TECHNIQUE_LESSON_CLASSES } from '../fixtures/mcp/classes/image-techniques';
 import { lessonSpecs } from '../fixtures/mcp/classes/foundations';
+import { ADULT_LESSONS, LESSONS, LESSON_AFTER, lessonById, lessonOpen, nextLesson, ordinaryLessons } from '../../src/shared/lessons/lessons';
+import { contentRules, contentRulesMarkdown } from '../../src/shared/content/rules';
 
 /**
  * ComfyUI's own nodes as far as the lessons use them: inputs with the value a fresh node starts with (link
@@ -455,6 +456,69 @@ describe('the lesson on adult content asks for neither a LoRA nor a further-trai
       // The step that checks the words says when there is nothing to check.
       expect(steps.trigger.body).toMatch(language === 'ru' ? /LoRA в графе нет/ : /has no LoRA/);
     }
+  });
+});
+
+describe('the lesson on pictures for adults stands on the first picture graph', () => {
+  const lesson = lessonById('adult-image')!;
+  const read = lesson.steps.filter((step) => step.read).map((step) => step.id);
+
+  it('is done on the graph of the first lesson: it asks for no LoRA and no further-trained model', () => {
+    const canvas = new Canvas();
+    carryOut(lessonById('image')!, canvas);
+    expect(lesson.steps[lessonProgress(lesson, canvas, FACTS, new Set()).current].id).toBe('rules');
+    expect(done(lesson, canvas, read).current).toBe(lesson.steps.length);
+    expect(rolesOf(lesson).map((spec) => spec.classes[0])).not.toContain('LoraLoader');
+    // Without the picture graph it waits at the step that asks for it.
+    expect(lesson.steps[done(lesson, new Canvas(), read).current].id).toBe('graph');
+  });
+
+  it('holds a LoRA on the canvas to its words, with or without the text reader', () => {
+    for (const classType of ['LoraLoader', 'LoraLoaderModelOnly']) {
+      const canvas = new Canvas();
+      carryOut(lessonById('image')!, canvas);
+      const loader = canvas.add(classType);
+      loader.values.lora_name = 'style-high.safetensors';
+      const asks = done(lesson, canvas, read);
+      expect(lesson.steps[asks.current].id, classType).toBe('trigger');
+      expect(asks.missing[0]).toMatchObject({ kind: 'field', field: 'text', test: { kind: 'has-trigger' } });
+      expect(fixFor(asks.missing[0], canvas, installed)).toBeNull();
+      canvas.node(asks.missing[0].kind === 'field' ? asks.missing[0].nodeId : '').values.text = 'a lighthouse at dusk, neon rain';
+      expect(done(lesson, canvas, read).current, classType).toBe(lesson.steps.length);
+    }
+  });
+});
+
+describe('the lessons for adults are one group at the end of the list', () => {
+  it('stands last, together, and goes on from the first lessons of its kind', () => {
+    const ordinary = ordinaryLessons();
+    const adult = LESSONS.filter((lesson) => ADULT_LESSONS.has(lesson.id));
+    expect(adult.map((lesson) => lesson.id)).toEqual(['adult-image', 'adult-lora', 'adult']);
+    expect(LESSONS.slice(-adult.length).map((lesson) => lesson.id)).toEqual(adult.map((lesson) => lesson.id));
+    expect(ordinary.length + adult.length).toBe(LESSONS.length);
+    expect([...ADULT_LESSONS].every((id) => lessonById(id) !== null)).toBe(true);
+    expect(LESSON_AFTER['adult-image']).toEqual(['image']);
+  });
+
+  it('is never offered as the next lesson after an ordinary one', () => {
+    for (const lesson of LESSONS) {
+      const next = nextLesson(lesson.id);
+      if (!ADULT_LESSONS.has(lesson.id)) expect(next && ADULT_LESSONS.has(next.id), lesson.id).toBeFalsy();
+    }
+    const ordinary = ordinaryLessons();
+    expect(nextLesson(ordinary[ordinary.length - 1].id)).toBeNull();
+    expect(nextLesson('image')?.id).toBe('prompt');
+    expect(nextLesson('adult-image')?.id).toBe('adult-lora');
+    expect(nextLesson('adult-lora')?.id).toBe('adult');
+    expect(nextLesson('adult')).toBeNull();
+  });
+
+  it('opens only while the switch is on; the ordinary lessons always', () => {
+    expect(lessonOpen('adult', false)).toBe(false);
+    expect(lessonOpen('adult-image', false)).toBe(false);
+    expect(lessonOpen('adult', true)).toBe(true);
+    expect(lessonOpen('image', false)).toBe(true);
+    expect(lessonOpen('nope', true)).toBe(false);
   });
 });
 
@@ -1095,18 +1159,21 @@ describe('the words of the lessons', () => {
     expect(strangers, 'fields a lesson names that no node of its graph has').toEqual([]);
   });
 
-  it('keeps adult teaching factual with consent, age and lawful-use guidance', async () => {
+  it('keeps the lessons on adult content to technique, and states the rules first, from the one place', async () => {
     const { lessonWords } = await import('../../src/shared/lessons/texts');
-    for (const language of ['ru', 'en'] as const) {
-      const words = lessonWords(language, 'adult')!;
-      const rules = words.steps.rules.body.toLowerCase();
-      // Age, consent and law are guidance, rather than a promised app topic filter.
-      expect(rules).toContain('18+');
-      expect(rules).toMatch(language === 'ru' ? /закон/ : /law/);
-      expect(rules).toMatch(language === 'ru' ? /согласие/ : /consent/);
-      expect(lessonById('adult')!.steps[0].id).toBe('rules');
-      // And the helper's privacy is said: descriptions travel with the graph.
-      expect(words.steps.helper.body).toMatch(language === 'ru' ? /Приватность/ : /Privacy/);
+    for (const id of ['adult', 'adult-image', 'adult-lora']) {
+      expect(lessonById(id)!.steps[0].id, id).toBe('rules');
+      for (const language of ['ru', 'en'] as const) {
+        const words = lessonWords(language, id)!;
+        // The whole rules text, word for word: the sentence, the five points in their order, the closing sentence.
+        expect(words.steps.rules.body, `${language}/${id}`).toBe(contentRulesMarkdown(language));
+        for (const point of contentRules(language).points) expect(words.steps.rules.body).toContain(point);
+        // And the helper's privacy is said: descriptions travel with the graph.
+        expect(words.steps.helper.body).toMatch(language === 'ru' ? /Приватность/ : /Privacy/);
+        // The words a model was trained with are its author's: the lesson sends the person to them and lists none.
+        const said = Object.values(words.steps).map((step) => step.body).join('\n');
+        expect(said).not.toMatch(/score_\d|rating_|\bnsfw\b/i);
+      }
     }
   });
 });
@@ -1121,5 +1188,15 @@ describe('what the lessons say about their own size', () => {
     expect(count('video-text')).toBe(14);
     expect(lessonWords('en', 'video-text')!.steps.intro.body).toContain('fourteen nodes');
     expect(lessonWords('ru', 'video-text')!.steps.intro.body).toContain('четырнадцать нод');
+  });
+
+  it('counts the lessons truthfully in the README and the guide', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const read = (file: string) => fs.readFileSync(path.join(__dirname, '..', '..', file), 'utf8');
+    expect(LESSONS).toHaveLength(68);
+    expect(read('README.md')).toContain('Сейчас их 68 в девяти группах:');
+    expect(read('docs/user/guide.ru.md')).toContain('68 уроков по темам:');
+    expect(read('docs/user/guide.en.md')).toContain('68 lessons grouped by topic:');
   });
 });

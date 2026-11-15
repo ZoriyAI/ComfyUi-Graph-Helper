@@ -79,7 +79,7 @@ const MENUS: Array<{ value: string; labelKey: string; entries: Entry[] }> = [
   {
     value: 'help',
     labelKey: 'menu.help',
-    entries: [command('help.guide'), command('help.troubleshooting'), command('help.whatsNew'), separator, command('help.shortcuts'), separator, command('help.modelLog'), command('help.openLogs'), command('help.copyDiagnostics'), separator, command('help.about')],
+    entries: [command('help.guide'), command('help.troubleshooting'), command('help.whatsNew'), command('help.content'), separator, command('help.shortcuts'), separator, command('help.modelLog'), command('help.openLogs'), command('help.copyDiagnostics'), separator, command('help.about')],
   },
 ];
 

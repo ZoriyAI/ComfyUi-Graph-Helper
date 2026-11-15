@@ -51,6 +51,55 @@ test('Forget all and Clear chat history ask first, say what goes, and are off wh
   await app.close();
 });
 
+test('adult content is turned on only through the rules and "I am 18 or older", and off at once', async () => {
+  const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'adult-content-'));
+  const app = await electron.launch({ args: [MAIN, `--user-data-dir=${userData}`] });
+  const window = await app.firstWindow();
+  await useEnglish(window);
+  const stored = () => window.evaluate(async () => (window as unknown as {
+    electronAPI: { getSettings: () => Promise<{ preferences?: { privacy: { showMarkedPreviews: boolean } } }> };
+  }).electronAPI.getSettings().then((read) => read.preferences?.privacy.showMarkedPreviews));
+  try {
+    await window.getByRole('button', { name: 'Settings', exact: true }).click();
+    const dialog = window.locator('[role="dialog"].settings-dialog');
+    await dialog.getByRole('tab', { name: 'Privacy' }).click();
+    const adult = dialog.getByRole('switch', { name: 'Adult content (18+)' });
+    // Off in a new profile.
+    await expect(adult).toHaveAttribute('aria-checked', 'false');
+    const confirm = window.locator('[role="dialog"].adult-content-dialog');
+    // "Leave it off" changes nothing.
+    await adult.click();
+    await expect(confirm.getByRole('listitem')).toHaveCount(5);
+    await expect(confirm).toContainText('What you make and where you post it is your responsibility');
+    await confirm.getByRole('button', { name: 'Leave it off', exact: true }).click();
+    await expect(confirm).toHaveCount(0);
+    await expect(adult).toHaveAttribute('aria-checked', 'false');
+    // The whole page of rules opens from the question, over it, and closes back to it.
+    await adult.click();
+    await confirm.getByRole('button', { name: 'Read the content rules', exact: true }).click();
+    const reader = window.locator('.help-reader-dialog');
+    await expect(reader).toHaveAttribute('data-help-topic', 'content');
+    await expect(reader.getByText('Reporting a violation')).toBeVisible();
+    await reader.getByRole('button', { name: 'Close', exact: true }).click();
+    await expect(reader).toHaveCount(0);
+    await expect(confirm).toBeVisible();
+    await confirm.getByRole('button', { name: 'I am 18 or older', exact: true }).click();
+    await expect(adult).toHaveAttribute('aria-checked', 'true');
+    await dialog.getByRole('button', { name: 'Save settings' }).click();
+    await expect.poll(stored).toBe(true);
+    // Off asks nothing.
+    await window.getByRole('button', { name: 'Settings', exact: true }).click();
+    await dialog.getByRole('tab', { name: 'Privacy' }).click();
+    await adult.click();
+    await expect(confirm).toHaveCount(0);
+    await expect(adult).toHaveAttribute('aria-checked', 'false');
+    await dialog.getByRole('button', { name: 'Save settings' }).click();
+    await expect.poll(stored).toBe(false);
+  } finally {
+    await app.close();
+  }
+});
+
 test('a second start on the same profile hands over to the first window and exits', async () => {
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'single-instance-'));
   const app = await electron.launch({ args: [MAIN, `--user-data-dir=${userData}`] });

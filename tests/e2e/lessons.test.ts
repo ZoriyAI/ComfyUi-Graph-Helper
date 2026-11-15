@@ -4,7 +4,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { startFakeMcp, type FakeMcp } from '../fixtures/mcp/fakeMcpServer';
 import { lessonGroups } from '../../src/shared/lessons/navigation';
-import { LESSONS } from '../../src/shared/lessons/lessons';
+import { LESSONS, ordinaryLessons } from '../../src/shared/lessons/lessons';
 import { expectSoundLayout } from './layoutProfile';
 import { useEnglish } from './locale';
 
@@ -108,17 +108,20 @@ test('lessons: the list fits ComfyUI, a lesson is followed by hand, and the grap
   page.on('pageerror', (error) => errors.push(error.message));
   try {
     await openLearn(page);
-    // The list: every lesson, each fitting this ComfyUI, none started.
+    // The list: every ordinary lesson, each fitting this ComfyUI, none started; the lessons for adults are one
+    // closed row at the end in a new profile.
     await expect(panel(page)).toHaveAttribute('data-lesson', 'list');
-    await expect(panel(page).locator('[data-lesson-card]')).toHaveCount(LESSONS.length);
+    // Every ordinary lesson is a card; the lessons for adults are one closed row in their group in a new profile.
+    await expect(panel(page).locator('[data-lesson-card]')).toHaveCount(ordinaryLessons().length);
     await expect(panel(page).locator('[data-lesson-group]')).toHaveCount(lessonGroups().length);
+    await expect(panel(page).locator('[data-lesson-group-closed="adult"]')).toHaveCount(1);
     // Every dependency is navigable without completing a predecessor.
     await panel(page).locator('[data-lesson-card="tags"]').getByRole('link').first().click();
     await expect(panel(page).locator('[data-lesson-card="sdxl"]')).toBeFocused();
     await panel(page).locator('[data-lesson-card="sdxl"]').getByRole('button', { name: 'Start', exact: true }).click();
     await stepIs(page, 'intro');
     await panel(page).getByRole('button', { name: 'All lessons', exact: true }).click();
-    for (const lesson of LESSONS) await expect(panel(page).locator(`[data-lesson-card="${lesson.id}"]`)).toHaveAttribute('data-lesson-state', 'new');
+    for (const lesson of ordinaryLessons()) await expect(panel(page).locator(`[data-lesson-card="${lesson.id}"]`)).toHaveAttribute('data-lesson-state', 'new');
     await expect(panel(page).getByText('Connect ComfyUI and read it first')).toHaveCount(0);
     // The mode says what it is, and there is no message field in it.
     await expect(page.getByText('You build; the app leads you step by step and checks.')).toBeVisible();
@@ -227,7 +230,7 @@ test('lessons: a lesson that does not fit says what is missing, and before Comfy
   try {
     await openLearn(fresh.page);
     await expect(panel(fresh.page).getByText('Lessons are fitted to your ComfyUI')).toBeVisible();
-    for (const lesson of LESSONS) await expect(panel(fresh.page).locator(`[data-lesson-card="${lesson.id}"]`).getByRole('button')).toBeDisabled();
+    for (const lesson of ordinaryLessons()) await expect(panel(fresh.page).locator(`[data-lesson-card="${lesson.id}"]`).getByRole('button')).toBeDisabled();
     await panel(fresh.page).getByRole('button', { name: 'Connect ComfyUI…', exact: true }).click();
     await expect(fresh.page.locator('[role="dialog"].settings-dialog')).toBeVisible();
     await expectSoundLayout(fresh.page, 'lessons before ComfyUI is read');
@@ -242,7 +245,7 @@ test('lessons: a lesson that does not fit says what is missing, and before Comfy
       await fresh.api('syncNow').catch(() => undefined);
       await expect.poll(async () => ((await fresh.api('syncStatus')) as { state: string }).state, { timeout: 90_000 }).not.toBe('running');
       await expect(panel(fresh.page).getByText('Lessons are fitted to your ComfyUI')).toHaveCount(0, { timeout: 15_000 });
-      for (const lesson of LESSONS) await expect(panel(fresh.page).locator(`[data-lesson-card="${lesson.id}"]`)).toHaveAttribute('data-lesson-state', 'new', { timeout: 15_000 });
+      for (const lesson of ordinaryLessons()) await expect(panel(fresh.page).locator(`[data-lesson-card="${lesson.id}"]`)).toHaveAttribute('data-lesson-state', 'new', { timeout: 15_000 });
       await expect(panel(fresh.page).locator('[data-lesson-card="image"]').getByRole('button', { name: 'Start', exact: true })).toBeEnabled();
     } finally {
       await late.close();
@@ -340,8 +343,30 @@ test('lessons: a video lesson is carried through, the choices that are the perso
     await expect(panel(page).locator('[data-lesson-card="video-text"]')).toContainText('Done');
     await expect(panel(page).locator('[data-lesson-card="lora"]')).toContainText('Video from text');
 
+    // The lessons for adults are closed in a new profile, not hidden: one row at the end that leads to the switch.
+    const closed = panel(page).locator('[data-lesson-group-closed="adult"]');
+    await expect(closed).toContainText('For adults (18+)');
+    await expect(panel(page).locator('[data-lesson-card="adult"]')).toHaveCount(0);
+    await closed.getByRole('button', { name: 'Open the setting', exact: true }).click();
+    const settings = page.locator('[role="dialog"].settings-dialog');
+    const adultSwitch = settings.getByRole('switch', { name: 'Adult content (18+)' });
+    await expect(adultSwitch).toHaveAttribute('aria-checked', 'false');
+    await adultSwitch.click();
+    // Turning it on shows the rules and asks one thing: the person's word that they are 18 or older.
+    const confirm = page.locator('[role="dialog"].adult-content-dialog');
+    await expect(confirm).toContainText('The app never helps with these and never teaches them:');
+    await expect(confirm).toContainText('anything the law forbids where you live.');
+    await shot(page, '5-adult-switch');
+    await expectSoundLayout(page, 'settings, the confirmation of adult content');
+    await confirm.getByRole('button', { name: 'I am 18 or older', exact: true }).click();
+    await expect(adultSwitch).toHaveAttribute('aria-checked', 'true');
+    await settings.getByRole('button', { name: 'Save settings' }).click();
+    await expect(settings).toHaveCount(0);
+    await expect(closed).toHaveCount(0);
+
     // The lesson on adult content stands on the same graph and asks for nothing more on the canvas. The subject
     // may come from a further-trained pair of models chosen in the two loaders, so the lesson asks for no LoRA.
+    await expect(panel(page).locator('[data-lesson-card="adult-image"]')).toContainText('A first picture from text');
     await expect(panel(page).locator('[data-lesson-card="adult"]')).toContainText('Video from text');
     await panel(page).locator('[data-lesson-card="adult"]').getByRole('button', { name: 'Start', exact: true }).click();
     const adult = LESSONS.find((item) => item.id === 'adult')!;
@@ -352,6 +377,7 @@ test('lessons: a video lesson is carried through, the choices that are the perso
         if (id === until) return shown;
         expect(adult.steps.find((item) => item.id === id)?.read, `the lesson on adult content waits at "${id}"`).toBe(true);
         shown.push(id);
+        if (id === 'rules') await expect(panel(page)).toContainText('sexual violence and coercion;');
         if (id === 'tuned') {
           await expect(panel(page)).toContainText('A further-trained version of Wan 2.2 usually also comes as a pair of files.');
           await shot(page, '5-adult-further-trained');
@@ -363,7 +389,7 @@ test('lessons: a video lesson is carried through, the choices that are the perso
       throw new Error(`the lesson did not come to "${until}"`);
     };
     // No LoRA on the canvas: the step about the graph and the step about a LoRA's words hold on their own.
-    expect(await readOn('end')).toEqual(['rules', 'levers', 'model', 'tuned', 'lora', 'prompt', 'defects', 'helper']);
+    expect(await readOn('end')).toEqual(['rules', 'levers', 'model', 'tuned', 'lora', 'pair-loras', 'anchor', 'prompt', 'defects', 'helper']);
     await expect(page.locator('.react-flow__node')).toHaveCount(14);
 
     // A LoRA whose file names its words is put on the canvas: now the lesson asks for them in the description.

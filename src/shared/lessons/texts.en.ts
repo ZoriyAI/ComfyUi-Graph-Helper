@@ -1,14 +1,16 @@
 import type { LessonWords } from './texts';
 import { IMAGE_MODEL_TEXTS_EN } from './sets/image-models.texts.en';
 import { IMAGE_TECHNIQUES_EN } from './sets/image-techniques.texts.en';
+import { contentRulesMarkdown } from '../content/rules';
 
 /**
  * The words of the lessons. Each step: what to do and why. `{role}` in a text is replaced by the name of the node
  * as this ComfyUI's library shows it. Field names and values stand in backticks: the person looks for them on
  * the node.
  *
- * The lesson on adult content is about technique and about limits. There are no explicit texts and no ready
- * scene descriptions here, and there will be none.
+ * The lessons on adult content (pictures and video) teach technique. There are no explicit texts, no ready scene
+ * descriptions and no lists of words here, and there will be none: a model's words come from its author's page. The
+ * rules in their first step come from one place (shared/content/rules.ts), the same one Settings and Help show.
  */
 
 const SAVE = 'Save the graph with "File ▸ Save workflow for ComfyUI…", open the file in ComfyUI and run it there. This app runs nothing in ComfyUI itself.';
@@ -270,13 +272,113 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
     },
   },
+  'adult-image': {
+    title: 'Pictures for adults: what changes',
+    result: 'You learn what the content of a picture depends on and check your graph.',
+    steps: {
+      rules: {
+        title: 'First, the rules',
+        body: contentRulesMarkdown('en'),
+      },
+      levers: {
+        title: 'The technique is the same',
+        body: 'The graph for such a picture is the one from "A first picture from text". What comes out is decided by three things:\n- the model: what it can draw at all;\n- the LoRA: what it was taught on top of that;\n- the description: what you asked for.\n\nEach in turn below.',
+      },
+      graph: {
+        title: 'A picture graph is needed',
+        body: 'This lesson goes on from the graph of "A first picture from text". The canvas must have {checkpoint}, two {positive} nodes, {sampler}, {decode} and {save}, connected as in that lesson.\n\nIf they are not there, do that lesson first.',
+      },
+      families: {
+        title: 'The model and its family',
+        body: 'Base models for pictures were mostly trained without such material. Left to itself such a model draws it badly: it muddles anatomy and drifts off the subject.\n\nSo people take a further-trained (fine-tuned) model of the family they need, or a LoRA made for that family. Through {checkpoint}, as one file, load SD 1.5, SDXL and two lines further trained from SDXL: Pony and Illustrious.\n\nFiles of different families do not mix: a LoRA for SD 1.5 does not work with an SDXL model. Pony and Illustrious are technically SDXL, but LoRAs made for them work best with them.\n\nThe card of a file in the "Models" tab shows which family it belongs to. The app downloads nothing: it works with the files already in your ComfyUI.',
+      },
+      readers: {
+        title: 'Tags or phrases, and the author\'s words',
+        body: 'SD 1.5, SDXL, Pony and Illustrious read a description as tags separated by commas. Models such as Flux.1 read plain phrases. "The description: how a model reads it" goes through this in detail.\n\nA further-trained model was taught with words of its own. On the model\'s page its author writes which quality words and which rating words it was trained with, and where they go. Without them such a model often works worse than it could.\n\nIn the app this is in the model\'s card in the "Models" tab: the author\'s notes, the trigger words and the example descriptions the author used. The examples an author marked as adult content open with the switch "Adult content (18+)".\n\nTake the words from there: each model has its own, and the lesson lists none.',
+      },
+      lora: {
+        title: 'LoRA: strength, several, words',
+        body: 'A LoRA node goes between {checkpoint} and the rest of the graph: `MODEL` and `CLIP` go into it, and its outputs go where the model\'s outputs went.\n\nThe strength is set in `strength_model` and `strength_clip`. Start from the one the author gives, usually 0.6–1. Too much strength breaks the picture.\n\nSeveral LoRAs are chained, one after another. Their effects add up, so give each less than you would give it alone. All of them must be made for the family of your model.\n\nMany LoRAs have trigger words: without them the LoRA barely acts. The card of the file shows them.',
+      },
+      trigger: {
+        title: 'The LoRA\'s words in the description',
+        body: 'If the graph has a LoRA, add its words to the `text` field of the {positive} node whose output goes into the `positive` input of {sampler}.\n\nThe app compares the description with the words written in the LoRA files on the canvas. If the graph has no LoRA, or its author wrote no words into the file, there is nothing to compare with and the step counts on its own.',
+      },
+      negative: {
+        title: 'The second text: defects',
+        body: 'The second {positive} node, the one that goes into `negative`, lists defects: distorted hands, extra fingers, blur, watermarks. The author of a model often gives a text for this field on the model\'s page: start from it.\n\n"No" and "without" in the main description do not work: what must not be there is written here. At `cfg` 1 this text does not act.',
+      },
+      size: {
+        title: 'The size for the family',
+        body: 'Each family was trained at its own size. Far from it the picture breaks: figures double, extra hands appear.\n- SD 1.5: about 512 on the short side, for example 512 × 768;\n- SDXL, Pony and Illustrious: about 1024 × 1024 in area, for example 832 × 1216 or 1216 × 832.\n\nThe size is set in the `width` and `height` fields of the blank. For a larger picture, make it at the native size first, then enlarge it.',
+      },
+      defects: {
+        title: 'If the result is poor',
+        body: 'What to change, and in what order:\n- the subject does not appear: check that the model or the LoRA is made for this family, and that the description has the trigger words and the words the author recommends;\n- anatomy drifts: lower `strength_model` of the LoRA to 0.6–0.8, remove extra LoRAs, check the size;\n- the picture is burnt out: lower `cfg` to the value the author recommends, usually 4–7;\n- small defects: add them to the second text;\n- everything is off: change `seed`. Some pictures simply fail by chance.',
+      },
+      helper: {
+        title: 'About the assistant in the app',
+        body: 'The lessons work without an assistant model. Questions in "Ask" mode go to the model you chose.\n\nThe assistant helps with graph construction and technical choices. Each provider or local model responds according to its own rules and capabilities. The rules at the start of this lesson are the app\'s own and hold whatever a model answers.\n\nThe assistant is sent the graph with the values of its fields, your descriptions among them. It does not see your pictures. Sending values can be switched off in "Settings ▸ Privacy".',
+      },
+    },
+  },
+  'adult-lora': {
+    title: 'Adult LoRAs: how to load and balance them',
+    result: 'You load your own LoRA, check which model it fits and learn to balance two LoRAs.',
+    steps: {
+      rules: {
+        title: 'First, the rules',
+        body: contentRulesMarkdown('en'),
+      },
+      files: {
+        title: 'Where the files go',
+        body: 'LoRAs for adult content work like any other: small files that teach a model one subject, a body, a character or a style. The files and the words in this lesson are yours: the lesson shows where to look and where to type, and names no file and no word.\n\nA LoRA file goes into the `models/loras` folder of your ComfyUI. Then choose "Sync ▸ Sync now" here, and the file appears in the "Models" tab. The app itself downloads nothing.',
+      },
+      graph: {
+        title: 'A picture graph is needed',
+        body: 'This lesson goes on from the graph of "A first picture from text". The canvas must have {checkpoint}, two {positive} nodes, {sampler}, {decode} and {save}, connected as in that lesson.\n\nIf they are not there, do that lesson first.',
+      },
+      add: {
+        title: 'Put the LoRA between the model and the graph',
+        body: 'Add a {lora} node and choose your file in `lora_name`. This is also how ComfyUI\'s official example loads a LoRA.\n\nConnect:\n- the `MODEL` and `CLIP` outputs of {checkpoint} to the `model` and `clip` inputs of {lora};\n- the `MODEL` output of {lora} to the `model` input of {sampler};\n- the `CLIP` output of {lora} to the `clip` input of both {positive} nodes.\n\nNow the model and the reading of the text go through the LoRA.',
+      },
+      family: {
+        title: 'Does the file fit the model',
+        body: 'A LoRA works only with the family it was trained for: an SDXL LoRA does not work with SD 1.5, and Pony and Illustrious work best with LoRAs made for them.\n\nWhere to see it:\n- in the card of the file in the "Models" tab: the family its author wrote down, and how that is known;\n- on the author\'s page of the file: the base model and the version it was made for.\n\nCompare it with the card of the model in {checkpoint}. If the families differ, take another file: strength cannot fix that.',
+      },
+      trigger: {
+        title: 'The LoRA\'s words in the description',
+        body: 'Many LoRAs have trigger words: without them the LoRA barely acts. The author writes them on the page of the file, and the app shows them in the card of the file. Read them there and type them yourself into the `text` field of the {positive} node whose output goes into the `positive` input of {sampler}.\n\nThe app compares the description with the words written in the file. If the author wrote none, there is nothing to compare with and the step counts on its own.',
+      },
+      strength: {
+        title: 'Two strengths',
+        body: 'The {lora} node has two strengths:\n- `strength_model`: how much the LoRA changes what the model draws;\n- `strength_clip`: how much it changes how the model reads the description.\n\nStart from the strength the author recommends, usually 0.6–1, and set both the same. If the LoRA follows the words too much or too little, change `strength_clip`. If it breaks the picture, lower `strength_model`.',
+      },
+      compare: {
+        title: 'Comparing on one seed',
+        body: 'To see what a file does, change only that file. Note the number in the sampler\'s `seed` field and keep it while you compare.\n\nMake a picture in ComfyUI with `strength_model` 0, then with the author\'s recommendation, then higher. The description and every other field stay the same. The difference between the pictures is what the LoRA does.',
+      },
+      two: {
+        title: 'Two LoRAs: a body and a character',
+        body: 'Several LoRAs are chained: the second {lora} node takes `MODEL` and `CLIP` from the first. A LoRA that teaches a body or anatomy and a character LoRA often each pull the face their own way: each was trained on its own pictures.\n\nHow to hold the face:\n- tune the strengths one at a time: first one LoRA, then the other, on one `seed`;\n- lower the strength of the body LoRA;\n- put the character LoRA last in the chain;\n- if the face still drifts, fix it with a separate pass over the face. Node packs have nodes for it, Impact Pack for example. You install the pack yourself in ComfyUI.',
+      },
+      fight: {
+        title: 'When two LoRAs fight',
+        body: 'Two LoRAs that teach different subjects can fight: the picture comes out smeared or like neither. Their effects add up.\n\nWhat to do:\n- lower both, for example to 0.5–0.7 each;\n- split them between passes: one in the first pass, the other in the second, as in "Refining with a second model";\n- for different parts of a picture, node packs have mask and region nodes. That is harder, and the lesson does not cover it.',
+      },
+      helper: {
+        title: 'About the assistant in the app',
+        body: 'The lesson works without an assistant model. Questions in "Ask" mode go to the model you chose.\n\nThe assistant helps with graph construction and technical choices. Each provider or local model responds according to its own rules and capabilities. The rules at the start of this lesson are the app\'s own and hold whatever a model answers.\n\nThe assistant is sent the graph with the values of its fields, your descriptions among them. Sending values can be switched off in "Settings ▸ Privacy".',
+      },
+    },
+  },
   adult: {
     title: 'Video for adults: what changes',
     result: 'You learn what the content of a clip depends on and check your graph.',
     steps: {
       rules: {
-        title: 'First, the limits',
-        body: 'This lesson explains the technical choices for lawful, consensual adult (18+) use in factual, non-graphic terms. The subject is your choice and responsibility. Use only adults; exclude minors and anyone who appears under 18. Obtain consent before using a real person’s likeness or voice, and permission for source material. Check local laws and the rules of the places where you share the result.',
+        title: 'First, the rules',
+        body: contentRulesMarkdown('en'),
       },
       levers: {
         title: 'The technique is the same',
@@ -284,7 +386,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
       model: {
         title: 'What the model can do',
-        body: 'Most open models were trained on material with few explicit scenes or none. Left to itself such a model draws them badly: it muddles anatomy and drifts off the subject.\n\nThis is put right in two ways: a further-trained version of the model, or a LoRA for the subject. Either must be made for your model: the files for `t2v` and for `i2v` differ, and so do those for Wan 2.1 and 2.2.\n\nThe app downloads nothing. It works with the files already in your ComfyUI and shows in the card of a file which model it belongs to.',
+        body: 'Most open models were trained on material with few explicit scenes or none. Left to itself such a model draws them badly: it muddles anatomy and drifts off the subject.\n\nThis is put right in two ways: a further-trained version of the model, or a LoRA for the subject. Either must fit your model: the files for `t2v` and for `i2v` differ, and the size of the model must match: 14B with 14B, 5B with 5B. Many LoRAs for Wan 2.1 14B, the common four-step speed-up ones among them, also work with Wan 2.2 14B. When the page of a LoRA for Wan 2.2 says which of the two passes it was made for, put it into that pass.\n\nThe app downloads nothing. It works with the files already in your ComfyUI and shows in the card of a file which model it belongs to.',
       },
       graph: NEED_VIDEO,
       tuned: {
@@ -294,6 +396,14 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       lora: {
         title: 'If you take a LoRA',
         body: 'A LoRA goes into the path of both models: one LoRA node between each {high} node and its {shiftHigh} node. How to put them in and which files to choose is shown in "LoRA: add a style or a subject". That lesson also checks the links.\n\nA LoRA can stand on top of a further-trained model too. If a speed-up LoRA is there as well, chain the nodes. The order in the chain does not matter.',
+      },
+      'pair-loras': {
+        title: 'LoRAs for the two passes',
+        body: 'A LoRA for Wan 2.2 14B often comes as a pair of files: one for the first pass, one for the second. The names usually show it: `high` and `low`, or `high_noise` and `low_noise`. The `high` file goes into the path of the first-pass {high} node, the `low` file into the path of the second {high} node. If the author gives one file, it goes into both paths. If the LoRA\'s page says it is for one pass, put it only there.\n\nA speed-up LoRA and a subject LoRA stand in one path as a chain. Keep the speed-up one at the strength its author recommends, usually 1. Tune the subject LoRA separately, on one `noise_seed`: start from the author\'s recommendation and change it in steps of 0.1–0.2.',
+      },
+      anchor: {
+        title: 'The anchor picture and a LoRA',
+        body: 'In a clip from a picture, the looks come from the start picture, and the LoRA adds what it was taught. If the picture was made by a picture model with its own LoRA, the video needs its own LoRA made for Wan: files for picture models do not fit Wan.\n\nIf a video LoRA pulls the looks away from the picture, lower its strength: then the picture holds the looks. How to work with an anchor picture is shown in "The start picture is the anchor" and "A reference for the whole clip: Wan VACE".',
       },
       prompt: {
         title: 'How to write the description',
@@ -309,7 +419,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
       helper: {
         title: 'About the assistant in the app',
-        body: 'The lessons work without an assistant model. Questions in "Ask" mode go to the model you chose.\n\nThe assistant helps with graph construction and technical choices. Each provider or local model responds according to its own rules and capabilities.\n\nThe helper is sent the graph with the values of its fields, your descriptions among them. It does not see your clips. Sending values can be switched off in "Settings ▸ Privacy".',
+        body: 'The lessons work without an assistant model. Questions in "Ask" mode go to the model you chose.\n\nThe assistant helps with graph construction and technical choices. Each provider or local model responds according to its own rules and capabilities.\n\nThe assistant is sent the graph with the values of its fields, your descriptions among them. It does not see your clips. Sending values can be switched off in "Settings ▸ Privacy".',
       },
     },
   },
