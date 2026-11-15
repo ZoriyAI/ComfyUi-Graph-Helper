@@ -1,19 +1,21 @@
-import { CANVAS_MIN, SPLIT_MIN, TAB_MIN, useDockStore } from './dockState';
-import { RAIL_WIDTH, useUiStore } from './uiState';
-
 /**
  * The window frame: the library on the left, the canvas, the right panel. Each side panel has a width it cannot
  * go under, so in a narrow window the two of them together squeezed the canvas to a strip (180 px in the smallest
  * window) and everything that floats over the canvas stuck out of it. The rule here: both panels are open only
  * while the canvas keeps its minimum; otherwise the one the person just opened stays and the other folds to its
  * strip of icons, one click away.
+ *
+ * Who uses it: App.tsx installs the balance once.
  */
+import { CANVAS_MIN, SPLIT_MIN, TAB_MIN, useDockStore } from './dockState';
+import { RAIL_WIDTH, useUiStore } from './uiState';
 
 /** Whether the window holds the library, the right panel at its narrowest and a usable canvas side by side. */
 export function holdsBothPanels(viewport: number, split: boolean): boolean {
   return viewport - RAIL_WIDTH - (split ? SPLIT_MIN : TAB_MIN) >= CANVAS_MIN;
 }
 
+/** Which panels are open, as the balance rule needs it. */
 export interface FrameState { railOpen: boolean; dockCollapsed: boolean; split: boolean }
 
 /**

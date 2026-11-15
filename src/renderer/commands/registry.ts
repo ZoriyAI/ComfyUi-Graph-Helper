@@ -1,3 +1,10 @@
+/**
+ * The command registry: every action the person can take, with its label, shortcut and enabled state.
+ *
+ * Who uses it: appCommands.ts, editingCommands.ts, diagnosticsCommands.ts and lessonCommands.ts register commands;
+ * the menu bar, toolbars, rail, dock, canvas context menu, lesson panel, Settings ▸ Shortcuts, state/preferencesBridge
+ * and commands/hotkeys.ts read them. Why: one definition per command keeps text, keys and state alike everywhere.
+ */
 import { useSyncExternalStore } from 'react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -34,6 +41,7 @@ export interface Command {
 
 const commands = new Map<string, Command>();
 const listeners = new Set<() => void>();
+/** Grows when commands or overrides change; hooks use it to know the list itself changed. */
 let revision = 0;
 /** Preferences ▸ Shortcuts: command id → chord ('' = no shortcut). */
 let overrides: Record<string, string> = {};
@@ -70,6 +78,7 @@ export function setShortcutOverrides(next: Record<string, string>): void {
   emit();
 }
 
+/** A copy of the current shortcut overrides. */
 export function shortcutOverrides(): Record<string, string> {
   return { ...overrides };
 }
@@ -95,14 +104,17 @@ export function registerCommands(list: Command[]): () => void {
   };
 }
 
+/** One command as surfaces see it (with the person's shortcut). */
 export function getCommand(id: string): Command | undefined {
   return view(commands.get(id));
 }
 
+/** Every registered command as surfaces see it. */
 export function allCommands(): Command[] {
   return [...commands.values()].map((command) => view(command) as Command);
 }
 
+/** Whether a command exists and is enabled now; a command whose check throws counts as off. */
 export function isEnabled(id: string): boolean {
   const command = commands.get(id);
   if (!command) return false;
@@ -113,6 +125,7 @@ export function isEnabled(id: string): boolean {
   }
 }
 
+/** The checked state of a toggle or radio command; undefined for a plain command. */
 export function isChecked(id: string): boolean | undefined {
   const command = commands.get(id);
   if (!command?.checked) return undefined;
@@ -131,17 +144,19 @@ export async function runCommand(id: string): Promise<boolean> {
   return true;
 }
 
-/**
- * Stores whose changes can flip a command's enabled or checked state. The app registers its zustand
- * stores here once; hooks re-read the commands they show when any of them changes. A source added after
- * a hook subscribed still reaches it, because every source feeds the same listener set.
- */
+/** A store's subscribe function (zustand's shape): takes a listener, returns the unsubscribe. */
 type Subscribe = (listener: () => void) => () => void;
 
+/** Tells every hook to re-read; unlike `emit` it keeps the revision, as the list itself did not change. */
 function notify(): void {
   for (const listener of listeners) listener();
 }
 
+/**
+ * Adds a store whose changes can flip a command's enabled or checked state. The app registers its zustand
+ * stores here once; hooks re-read the commands they show when any of them changes. A source added after
+ * a hook subscribed still reaches it, because every source feeds the same listener set.
+ */
 export function addCommandStateSource(subscribe: Subscribe): () => void {
   const off = subscribe(notify);
   emit();
@@ -168,12 +183,14 @@ export function hintOf(id: string): string | undefined {
   }
 }
 
+/** A command with its enabled and checked state, as one render reads them. */
 export interface CommandState {
   command: Command | undefined;
   enabled: boolean;
   checked: boolean | undefined;
 }
 
+/** A string that changes only when one of these commands changes state, so React skips other store updates. */
 function snapshotKey(ids: readonly string[]): string {
   return `${revision}|${ids.map((id) => `${isEnabled(id) ? 1 : 0}${String(isChecked(id))}${hintOf(id) ?? ''}`).join(',')}`;
 }
@@ -188,6 +205,7 @@ export function useCommandStates(ids: readonly string[]): CommandState[] {
   return ids.map((id) => ({ command: getCommand(id), enabled: isEnabled(id), checked: isChecked(id) }));
 }
 
+/** The live state of one command. */
 export function useCommandState(id: string): CommandState {
   return useCommandStates([id])[0];
 }

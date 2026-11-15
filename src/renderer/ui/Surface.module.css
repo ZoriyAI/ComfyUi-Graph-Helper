@@ -1,3 +1,4 @@
+/* The layered surfaces by elevation (ui/Surface.tsx). */
 .surface { border: 1px solid var(--border-subtle); color: var(--text); }
 .e0 { background: var(--surface-canvas); box-shadow: var(--elev-0); }
 .e1 { background: linear-gradient(180deg, rgba(255, 255, 255, 0.012), transparent 40%), var(--surface-panel); box-shadow: var(--elev-1); }

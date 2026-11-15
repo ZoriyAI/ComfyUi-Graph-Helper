@@ -1,3 +1,4 @@
+/* The breadcrumb path (ui/Breadcrumb.tsx). */
 .nav { min-width: 0; }
 .list { display: flex; align-items: center; gap: 2px; margin: 0; padding: 0; list-style: none; min-width: 0; }
 .item { display: inline-flex; align-items: center; gap: 2px; min-width: 0; color: var(--text-dim); font-size: var(--text-sm); }

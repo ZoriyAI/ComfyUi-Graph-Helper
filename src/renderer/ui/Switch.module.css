@@ -1,3 +1,4 @@
+/* The switch and its label row (ui/Switch.tsx). */
 .row { display: inline-flex; align-items: center; gap: 10px; color: var(--text); font-size: var(--text-md); line-height: 20px; cursor: pointer; }
 .root {
   position: relative;

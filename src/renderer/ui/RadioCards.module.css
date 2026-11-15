@@ -1,3 +1,4 @@
+/* The radio cards grid (ui/RadioCards.tsx); the radio mark itself is RadioMark.module.css. */
 .group { display: flex; flex-direction: column; gap: 6px; width: min(100%, var(--measure-form)); }
 .label { color: var(--text-dim); font-size: var(--text-md); line-height: 20px; }
 .cards { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }

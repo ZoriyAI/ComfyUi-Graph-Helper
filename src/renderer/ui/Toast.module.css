@@ -1,3 +1,4 @@
+/* Toasts and their viewport (ui/Toast.tsx). */
 .viewport {
   position: fixed;
   z-index: 65;

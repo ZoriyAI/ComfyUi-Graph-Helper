@@ -1,8 +1,13 @@
+/**
+ * A scroll container with thin scrollbars that match the night theme.
+ * Exported from ui/index.ts for panels; no component in the app imports it at present.
+ */
 import React, { forwardRef } from 'react';
 import * as SA from '@radix-ui/react-scroll-area';
 import styles from './ScrollArea.module.css';
 import { cx } from './cx';
 
+/** Props of ScrollArea: div attributes plus access to the scrolling viewport. */
 export interface ScrollAreaProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'dir'> {
   /** Ref to the scrolling viewport (for windowed lists). */
   viewportRef?: React.Ref<HTMLDivElement>;

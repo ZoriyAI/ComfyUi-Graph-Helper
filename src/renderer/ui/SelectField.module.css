@@ -1,3 +1,4 @@
+/* The labelled select, its list, note and action rows (ui/SelectField.tsx). */
 .field { display: flex; flex-direction: column; gap: 4px; font-size: var(--text-xs); line-height: 18px; color: var(--text-dim); }
 .trigger {
   display: inline-flex;

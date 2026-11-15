@@ -1,3 +1,9 @@
+/**
+ * Preferences as the renderer sees them, and the two ways to change them from outside Settings.
+ *
+ * Who uses it: state/preferencesBridge.ts fills it at start and applies it; the canvas, library, toolbar, lessons,
+ * menu commands and many settings sections read it or call savePreferencesPatch.
+ */
 import { create } from 'zustand';
 import {
   parsePreferences,
@@ -19,12 +25,14 @@ interface PreferencesState {
   setPreferences: (preferences: Preferences) => void;
 }
 
+/** The current preferences; the defaults until main has answered (`loaded`). */
 export const usePreferencesStore = create<PreferencesState>((set) => ({
   preferences: parsePreferences({}),
   loaded: false,
   setPreferences: (preferences) => set({ preferences, loaded: true }),
 }));
 
+/** The current preferences, for code outside React. */
 export function currentPreferences(): Preferences {
   return usePreferencesStore.getState().preferences;
 }
@@ -40,6 +48,7 @@ export function applyAppearance(appearance: Preferences['appearance'], root: HTM
   if (typeof window !== 'undefined') window.electronAPI?.setInterfaceScale?.((appearance.interfaceScale ?? 100) / 100);
 }
 
+/** Saves run one after another, so two quick patches do not read the same old row and lose one change. */
 let queue: Promise<unknown> = Promise.resolve();
 
 /**
@@ -65,4 +74,5 @@ export function savePreferencesPatch(patch: PreferencesPatch): Promise<boolean> 
   return run;
 }
 
+// Re-exported so renderer code reads the defaults from the same place as the store.
 export { preferencesDefaults };

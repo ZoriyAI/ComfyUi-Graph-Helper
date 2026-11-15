@@ -1,7 +1,11 @@
+/**
+ * A square button that shows only an icon. Who uses it: toolbars, cards and panels (about a dozen files).
+ */
 import React, { forwardRef } from 'react';
 import styles from './IconButton.module.css';
 import { cx } from './cx';
 
+/** Props of IconButton; `label` is required because nothing else names the button. */
 export interface IconButtonProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'aria-label'> {
   /** Accessible name; required because the button shows only an icon. */
   label: string;

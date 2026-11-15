@@ -1,11 +1,8 @@
-import { getViewportForBounds, type ReactFlowInstance, type Rect, type Viewport } from '@xyflow/react';
-import { create } from 'zustand';
-import { EASE_IN_OUT, motionLevel, tokenMs, type MotionLevel } from './policy';
-
 /**
- * The canvas camera: every move the app makes on its own (a fit, «Показать всё» / "Fit view", zoom buttons, centring
- * on a node for the tour, the live build, «Показать, где это» / "Show me where", a check finding, a draft, a replayed
- * version) goes through moveCamera, so they all travel the same way.
+ * The canvas camera: every move the app makes on its own (a fit, "Fit view", zoom buttons, centring on a node for
+ * the tour, the live build, "Show me where", a check finding, a draft, a replayed version) goes through moveCamera,
+ * so they all travel the same way. Callers live in components/graph (GraphWorkspace, CanvasFlow, the layers,
+ * lib/autoFit.ts, lib/glide.ts, importLook.ts, GraphContextMenu); useCameraStore is read by the description layer.
  *
  * Why: the camera used to have three behaviours (fits in a fixed 200 ms, centring in 600 ms with a fly-out curve,
  * the glide with its own curve). A short hop took as long as a trip across the graph, and a big zoom-out snapped.
@@ -16,6 +13,9 @@ import { EASE_IN_OUT, motionLevel, tokenMs, type MotionLevel } from './policy';
  *
  * The person's own pans and zooms never go through here; React Flow handles them directly.
  */
+import { getViewportForBounds, type ReactFlowInstance, type Rect, type Viewport } from '@xyflow/react';
+import { create } from 'zustand';
+import { EASE_IN_OUT, motionLevel, tokenMs, type MotionLevel } from './policy';
 
 /** The size of the canvas on screen, in pixels. */
 export interface Pane {
@@ -23,6 +23,7 @@ export interface Pane {
   height: number;
 }
 
+/** How long a camera move takes and which path React Flow uses ('smooth' zooms out and in on the way). */
 export interface CameraPlan {
   duration: number;
   interpolate: 'smooth' | 'linear';
@@ -43,11 +44,13 @@ export function travel(from: Viewport, to: Viewport, pane: Pane): number {
 /** Duration and path of one camera move. Pure, so the rule is tested without a canvas. */
 export function cameraPlan(from: Viewport, to: Viewport, pane: Pane, level: MotionLevel, limits = { min: 240, max: 640 }): CameraPlan {
   const distance = travel(from, to, pane);
+  // A move of a few pixels at most is a cut, as is any move with motion not full.
   if (level !== 'full' || distance < 0.002) return { duration: 0, interpolate: 'linear' };
   // One screen or one doubling of zoom reaches the longest move; anything shorter is proportionally quicker.
   const share = Math.min(1, distance);
   const duration = Math.round(limits.min + (limits.max - limits.min) * Math.sqrt(share));
   const zoomChange = Math.abs(Math.log2(to.zoom / from.zoom));
+  // The fly path only for a trip of more than one screen that also changes zoom by more than about half a doubling.
   const screens = distance - zoomChange * 0.5;
   return { duration, interpolate: screens > 1 && zoomChange > 0.6 ? 'smooth' : 'linear' };
 }
@@ -73,13 +76,9 @@ export function cubicBezier(x1: number, y1: number, x2: number, y2: number): (t:
   };
 }
 
+/** The camera's easing; lib/glide.ts uses it too, so nodes and the view travel alike. */
 export const cameraEase = cubicBezier(...EASE_IN_OUT);
 
-/**
- * Whether the camera is moving now, and whether that move changes the zoom. Layers that are costly to redraw at a
- * new zoom (the description cards) rest while the zoom changes and come back when it settles.
- * CanvasFlow feeds it from React Flow's move events, so the person's own wheel and pinch count too.
- */
 interface CameraState {
   zooming: boolean;
   /** Whether the canvas shows its overview level (the map of blocks); CanvasFlow's OverviewLevel sets it. */
@@ -91,6 +90,11 @@ interface CameraState {
   settle: (zoom: number) => void;
 }
 
+/**
+ * Whether the camera is moving now, and whether that move changes the zoom. Layers that are costly to redraw at a
+ * new zoom (the description cards) rest while the zoom changes and come back when it settles.
+ * CanvasFlow feeds it from React Flow's move events, so the person's own wheel and pinch count too.
+ */
 export const useCameraStore = create<CameraState>((set) => ({
   zooming: false,
   overview: false,
@@ -103,9 +107,11 @@ export const useCameraStore = create<CameraState>((set) => ({
 /** The canvas element's size, or a stand-in before it is laid out. */
 export function paneSize(): Pane {
   const pane = typeof document !== 'undefined' ? document.querySelector<HTMLElement>('.react-flow') : null;
+  // 1200 x 800 is a typical canvas size, so plans made before layout (or in tests) stay reasonable.
   return { width: pane?.clientWidth || 1200, height: pane?.clientHeight || 800 };
 }
 
+/** The shortest and longest camera move for the current motion level, from the stylesheet. */
 function limits(): { min: number; max: number } {
   return { min: tokenMs('--motion-camera-min'), max: tokenMs('--motion-camera') };
 }

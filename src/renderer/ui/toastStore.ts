@@ -1,7 +1,14 @@
+/**
+ * The toast queue, without React: any code can show a toast (services, store subscriptions, commands).
+ * Who uses it: ui/Toast.tsx draws it; about twenty-five files call showToast; tests/unit/shellLibrary.test.ts tests
+ * queueToast. Why a store apart from Toast.tsx: services must not import a component.
+ */
 import { create } from 'zustand';
 
+/** The toast's colour role. */
 export type ToastTone = 'info' | 'success' | 'warn' | 'error' | 'ai';
 
+/** What a caller gives to show a toast. */
 export interface ToastInput {
   /** Same id replaces the toast that is showing instead of stacking a second one. */
   id?: string;
@@ -13,6 +20,7 @@ export interface ToastInput {
   action?: { label: string; onSelect: () => void };
 }
 
+/** A toast in the queue; a closed one stays (open false) until the next toast is queued. */
 export interface ToastItem extends Required<Pick<ToastInput, 'title' | 'tone' | 'duration'>> {
   id: string;
   /** Changes whenever the toast is replaced, so the close timer restarts. */
@@ -31,8 +39,10 @@ interface ToastQueue {
 
 /** Five visible at most; older ones leave first. */
 export const MAX_TOASTS = 5;
+/** How long a toast stays when the caller gives no duration. */
 export const DEFAULT_TOAST_MS = 8000;
 
+/** Counts toasts; makes ids for toasts without one and a fresh key for each replacement. */
 let sequence = 0;
 
 /** Pure queue step, exported for tests. */
@@ -53,6 +63,7 @@ export function queueToast(current: ToastItem[], input: ToastInput): ToastItem[]
   return [...rest, item].slice(-MAX_TOASTS);
 }
 
+/** The queue on screen. */
 export const useToastStore = create<ToastQueue>((set) => ({
   toasts: [],
   show: (input) => {

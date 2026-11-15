@@ -1,6 +1,3 @@
-import { openDroppedFile, openPendingFile, refreshRecentFiles } from './actions';
-import { useKnowledgeStore } from '../state/knowledgeState';
-
 /**
  * The window's side of the ways a file arrives without a dialog: dropped on the window, or named on the command line
  * (at start, or by a second start while this window is open).
@@ -10,6 +7,8 @@ import { useKnowledgeStore } from '../state/knowledgeState';
  * text field keeps a dropped text. Every arrival goes to commands/actions.ts, which asks before replacing a graph and
  * ends in the one open path.
  */
+import { openDroppedFile, openPendingFile, refreshRecentFiles } from './actions';
+import { useKnowledgeStore } from '../state/knowledgeState';
 
 /** True when the drop lands in a field that takes text: the field keeps it. */
 function inTextField(target: EventTarget | null): boolean {
@@ -22,6 +21,7 @@ export function installFileOpening(): () => void {
   const onDrop = (event: DragEvent) => {
     const files = event.dataTransfer?.files;
     if (!files || files.length === 0 || inTextField(event.target)) return;
+    // A node or model dragged from the library is the canvas's own drop, not a file to open.
     if (Array.from(event.dataTransfer?.types ?? []).some((type) => type.startsWith('application/x-helper-'))) return;
     event.preventDefault();
     // One graph at a time: the first file of a drop opens.

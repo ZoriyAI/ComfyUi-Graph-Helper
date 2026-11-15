@@ -1,5 +1,3 @@
-import { useEffect, useState } from 'react';
-
 /**
  * The motion policy of the whole renderer: one answer to "how much may things move now?".
  *
@@ -7,8 +5,8 @@ import { useEffect, useState } from 'react';
  * history replay, panels driven by the motion library) and the few places that pick a scroll behaviour. CSS needs no
  * code: it reads the --motion-* tokens in theme/tokens.css, which the same setting rewrites.
  *
- * Why one module: the setting «Анимация» / "Motion" (System, On, Reduced, Off) and the system's reduced-motion wish
- * must mean the same thing everywhere. Before, two modules answered with different rules.
+ * Why one module: the "Motion" setting (System, On, Reduced, Off) and the system's reduced-motion wish must mean
+ * the same thing everywhere. Before, two modules answered with different rules.
  *
  * The levels:
  * - full: On, or System while the system does not ask to reduce motion.
@@ -16,6 +14,9 @@ import { useEffect, useState } from 'react';
  *   flights, no loops. Order and meaning stay (a build still shows its steps one by one).
  * - off: Off. Nothing animates; states change at once.
  */
+import { useEffect, useState } from 'react';
+
+/** How much may move now: see the levels above. */
 export type MotionLevel = 'full' | 'reduced' | 'off';
 
 /** The stored setting, as `data-motion` on <html> carries it. */
@@ -55,12 +56,14 @@ export const EASE_IN: [number, number, number, number] = [0.4, 0, 1, 1];
 /** The one curve for things that travel: the camera and nodes that glide (CSS: --motion-ease-in-out). */
 export const EASE_IN_OUT: [number, number, number, number] = [0.65, 0, 0.35, 1];
 
+/** The stored setting read from <html data-motion>; 'off' outside a browser, 'system' when unset or unknown. */
 export function motionMode(): MotionMode {
   if (typeof document === 'undefined') return 'off';
   const raw = document.documentElement.dataset.motion;
   return raw === 'on' || raw === 'reduced' || raw === 'off' ? raw : 'system';
 }
 
+/** The operating system's "reduce motion" wish, as the browser reports it. */
 function systemAsksToReduce(): boolean {
   return typeof window !== 'undefined' && Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
 }
@@ -73,11 +76,13 @@ export function levelFor(mode: MotionMode, systemReduce: boolean): MotionLevel {
   return systemReduce ? 'reduced' : 'full';
 }
 
+/** The motion level now; 'off' outside a browser (tests run without animation). */
 export function motionLevel(): MotionLevel {
   if (typeof document === 'undefined') return 'off';
   return levelFor(motionMode(), systemAsksToReduce());
 }
 
+/** True with full motion: callers choose smooth scrolling and travelling effects only then. */
 export function motionIsFull(): boolean {
   return motionLevel() === 'full';
 }
@@ -135,6 +140,7 @@ export function tokenMs(token: MotionToken): number {
   return value;
 }
 
+/** Token values read for one setting and system wish (`key`); cleared when either changes. */
 const cache: { key: string; values: Map<MotionToken, number> } = { key: '', values: new Map() };
 
 /** A token in seconds, for the motion library's `transition.duration`. */
@@ -153,6 +159,7 @@ export function motionMs(token: MotionToken): number {
 
 /** Reading pace for the step-by-step build and the history replay: still readable with motion reduced or off. */
 export function readingPaceMs(): number {
+  // 400 ms is the reading time that stays when the reveal itself is 0 (motion reduced or off).
   return motionMs('--motion-reveal') + 400;
 }
 

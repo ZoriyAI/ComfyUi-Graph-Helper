@@ -1,1 +1,2 @@
+/* Layout of the app mark (ui/AppMark.tsx); its colours are inline in the SVG. */
 .mark { display: block; flex: 0 0 auto; object-fit: contain; user-select: none; }

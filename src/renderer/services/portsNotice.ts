@@ -1,3 +1,10 @@
+/**
+ * The "ports unknown" toast: a node was just added whose class this app has no port list for.
+ *
+ * Who uses it: commands/appCommands.ts installs it with the commands.
+ * Why: such a node shows no inputs or outputs to link, and a person would not know that a sync of ComfyUI (with
+ * its server running) fixes it.
+ */
 import { i18n } from '../i18n';
 import { showToast } from '../ui/toastStore';
 import { useProjectionStore } from './commands/projection';
@@ -6,6 +13,7 @@ import { useGraphStore } from '../state/graphState';
 /** At most this many new nodes in one change count as "added"; more is an import or an opened project. */
 const ADDED_AT_ONCE = 3;
 
+/** Whether the toast was shown in this session; and the class guard's answer per class. */
 let shown = false;
 const verdicts = new Map<string, Promise<boolean>>();
 
@@ -22,7 +30,7 @@ function portsUnknown(classType: string): Promise<boolean> {
   return pending;
 }
 
-/** Shows the "ports unknown" toast once per session. Exported for tests. */
+/** Forgets that the toast was shown and the cached answers, so tests start fresh. */
 export function resetPortsNotice(): void {
   shown = false;
   verdicts.clear();
@@ -39,6 +47,7 @@ export function installPortsNotice(): () => void {
     const projection = useProjectionStore.getState();
     const ids = new Set(state.nodes.map((node) => node.id));
     const previous = known;
+    // Only a new revision counts: a graph store change without one (selection, size) adds nothing.
     const advanced = projection.revSeq > revSeq;
     known = ids;
     revSeq = projection.revSeq;

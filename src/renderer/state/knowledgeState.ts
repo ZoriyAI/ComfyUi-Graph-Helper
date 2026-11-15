@@ -1,3 +1,10 @@
+/**
+ * Knowledge the interface shows: the sync status of the catalog, explanations by object, the last graph check.
+ *
+ * Who uses it: about thirty files: the shell's sync indicator and Check button, the inspector, Explain and Check
+ * panels, the canvas layers (description cards, check marks), lessons, and commands that run a check or open files.
+ * Why one store: the same explanation shows in the dock, on the canvas card and in the chat, and must match.
+ */
 import { create } from 'zustand';
 import type { Explanation, ExplanationInput, GraphCheckReport, ObjectRef, SyncStatus } from '../../shared/contracts';
 import { objectKey } from '../../shared/contracts';
@@ -6,15 +13,13 @@ import { isGraphOwnerKind } from '../../shared/knowledge/projectExplanations';
 import { checkFindingCount } from '../components/check/checkModel';
 import { recentExplanations } from '../components/explain/explainModel';
 
+// Re-exported so the shell can count findings without importing the Check panel's model.
 export { checkFindingCount } from '../components/check/checkModel';
 
 /** How many explanations the Explain panel history shows. */
 export const RECENT_EXPLANATIONS = 20;
 
-/**
- * Knowledge the interface shows: sync status, explanations by object, the last graph check.
- * The shell reads `sync` for its indicator.
- */
+/** The knowledge store's shape. Explanations are keyed by objectKey(owner). */
 interface KnowledgeState {
   sync: SyncStatus | null;
   explanations: Record<string, Explanation[]>;
@@ -46,6 +51,7 @@ interface KnowledgeState {
 /** Owners loaded so far, so a reload can ask for them again. */
 const loadedOwners = new Map<string, { owner: ObjectRef; projectId: string }>();
 
+/** Sync status, explanations, the recent list and the last check. */
 export const useKnowledgeStore = create<KnowledgeState>((set, get) => ({
   sync: null,
   explanations: {},
@@ -70,6 +76,7 @@ export const useKnowledgeStore = create<KnowledgeState>((set, get) => ({
   },
   graphChanged: async () => {
     set((state) => ({
+      // A key is "<kind>:<id>"; the kind tells whether the explanation belongs to the graph.
       explanations: Object.fromEntries(Object.entries(state.explanations).filter(([key]) => !isGraphOwnerKind(key.slice(0, key.indexOf(':'))))),
       recent: state.recent.filter((item) => !isGraphOwnerKind(item.owner.kind)),
     }));
@@ -129,17 +136,19 @@ export function selectCheckCount(state: Pick<KnowledgeState, 'check'>): number |
   return state.check ? checkFindingCount(state.check) : null;
 }
 
+/** Whether the sync push listener is installed; it is installed once per window. */
 let subscribed = false;
 
-/** Reads the sync status once and keeps it current from main-process pushes. Safe to call more than once. */
 /**
- * Re-reads the sync status. Main pushes a status only around a sync run, so a saved MCP address or a token held in
- * Settings would otherwise keep showing "Set the MCP server address in Settings first" until the next run.
+ * Re-reads the sync status (Settings calls it after a save). Main pushes a status only around a sync run, so a
+ * saved MCP address or a token held in Settings would otherwise keep showing "Set the MCP server address in
+ * Settings first" until the next run.
  */
 export function refreshSyncStatus(): void {
   void window.electronAPI.syncStatus().then((status) => useKnowledgeStore.getState().setSync(status)).catch(() => undefined);
 }
 
+/** Reads the sync status once and keeps it current from main-process pushes. Safe to call more than once. */
 export function startSyncSubscription(): void {
   if (subscribed) return;
   subscribed = true;

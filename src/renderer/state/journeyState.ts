@@ -1,5 +1,3 @@
-import { create } from 'zustand';
-
 /**
  * Which journey card is open and where the window tour stands.
  *
@@ -9,7 +7,9 @@ import { create } from 'zustand';
  * them out of uiState leaves the shell's dialog list as it was. "Seen" flags live in localStorage: they are a
  * convenience for one person on one computer, and losing them only shows a card once more.
  */
+import { create } from 'zustand';
 
+/** The journey card on screen, or null. */
 export type JourneyDialog = 'run' | 'error' | 'no-comfy' | null;
 
 interface JourneyState {
@@ -24,6 +24,7 @@ interface JourneyState {
   setTourStep: (step: number | null) => void;
 }
 
+/** The open journey card, the error text it starts with, and the tour step. */
 export const useJourneyStore = create<JourneyState>((set) => ({
   dialog: null,
   errorText: '',
@@ -37,6 +38,7 @@ export const useJourneyStore = create<JourneyState>((set) => ({
 /** localStorage keys of the journey; a private window or blocked storage reads as "not seen" and never throws. */
 export const SEEN_KEYS = { tour: 'journey.tourSeen', runCard: 'journey.runCardOff' } as const;
 
+/** Whether a "seen" flag is set; false when storage cannot be read. */
 export function readFlag(key: string): boolean {
   try {
     return window.localStorage.getItem(key) === '1';
@@ -45,6 +47,7 @@ export function readFlag(key: string): boolean {
   }
 }
 
+/** Sets or clears a "seen" flag. */
 export function writeFlag(key: string, on: boolean): void {
   try {
     if (on) window.localStorage.setItem(key, '1');

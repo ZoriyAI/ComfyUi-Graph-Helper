@@ -1,3 +1,12 @@
+/**
+ * The projection on screen: the graph main last sent (its revision, its run), and the path every manual edit
+ * takes to main.
+ *
+ * Who uses it: nearly every part that changes or watches the graph: components/graph (commit.ts, CanvasFlow,
+ * canvasStore, the layers, clipboard, editBatch, ReplayPlayer), the library, the shell (Toolbar, StatusBar), App.tsx,
+ * services (chatService, drawWatch, portsNotice, catalogWatch, projectFile), state/proposalsState.ts and commands.
+ * Why: main owns the graph; the window shows the newest projection it accepted and sends edits one at a time.
+ */
 import { create } from 'zustand';
 import { acceptsProjection } from '../../../shared/commands/reconcile';
 import type { Projection } from '../../../shared/commands/types';
@@ -11,6 +20,7 @@ import { useKnowledgeStore } from '../../state/knowledgeState';
 import type { GraphEdge, GraphNode } from '../../types/graph';
 import { trackCommit } from './pending';
 
+/** What the window knows of the projection on screen, and the function that accepts a new one. */
 interface DisplayedProjection {
   projectId: string;
   revSeq: number;
@@ -21,6 +31,7 @@ interface DisplayedProjection {
   apply: (incoming: Projection) => boolean;
 }
 
+/** The projection on screen. `apply` refuses an older or foreign projection (shared/commands/reconcile.ts). */
 export const useProjectionStore = create<DisplayedProjection>((set, get) => ({
   projectId: DESKTOP_PROJECT_ID,
   revSeq: 0,
@@ -29,6 +40,7 @@ export const useProjectionStore = create<DisplayedProjection>((set, get) => ({
   graphKey: '',
   apply: (incoming) => {
     const displayed = get();
+    // revSeq 0 means nothing is shown yet, so any projection is accepted.
     const known = displayed.revSeq === 0 ? null : { projectId: displayed.projectId, revSeq: displayed.revSeq };
     if (!acceptsProjection(known, incoming)) return false;
     const nodes = keepUnchangedNodes(useGraphStore.getState().nodes, incoming.snapshot.nodes as GraphNode[]);
@@ -73,6 +85,7 @@ export const useProjectionStore = create<DisplayedProjection>((set, get) => ({
  */
 const lastNodes = new Map<string, { text: string; data: unknown }>();
 
+/** The incoming nodes, reusing the object on screen for each node whose content did not change. */
 export function keepUnchangedNodes(shown: GraphNode[], incoming: GraphNode[]): GraphNode[] {
   const byId = new Map(shown.map((node) => [node.id, node]));
   const seen = new Set<string>();
@@ -96,24 +109,28 @@ export function keepUnchangedNodes(shown: GraphNode[], incoming: GraphNode[]): G
   return result;
 }
 
+/** Another graph came onto the canvas: the knowledge store re-reads its explanations (when main offers them). */
 function graphReplaced(): void {
   if (typeof window === 'undefined' || !window.electronAPI?.listExplanations) return;
   void useKnowledgeStore.getState().graphChanged().catch(() => undefined);
 }
 
+/** Shows a projection main sent, if it is newer than the one on screen; true when it was taken. */
 export function applyProjection(incoming: Projection | null | undefined): boolean {
   if (!incoming) return false;
   return useProjectionStore.getState().apply(incoming);
 }
 
+/** Manual commits run one after another, each on the head the previous one made. */
 let manualQueue: Promise<unknown> = Promise.resolve();
 
 /**
- * Says whether a manual change may land now. The canvas installs it: while History replay shows an old version the
- * real graph is read-only, so a change from any panel (library, lessons, a model card) is refused there.
+ * Says whether a manual change may land now. commands/replayGate.ts installs it: while History replay shows an old
+ * version the real graph is read-only, so a change from any panel (library, lessons, a model card) is refused there.
  */
 let manualGate: (() => boolean) | null = null;
 
+/** Installs (or with null removes) the manual gate. */
 export function setManualGate(gate: (() => boolean) | null): void {
   manualGate = gate;
 }
@@ -123,6 +140,11 @@ export function manualChangesBlocked(): boolean {
   return manualGate ? !manualGate() : false;
 }
 
+/**
+ * Sends one manual edit to main. Refused at once while the gate is closed; otherwise tracked as pending (for undo)
+ * and queued. `context` names the graph the edit was made for; when another graph is on screen by the time it runs,
+ * it ends as a conflict and nothing is sent.
+ */
 export function submitManual(actionId: string, payload: unknown, context?: { projectId: string; graphKey: string; isCurrent?: () => boolean }) {
   if (manualChangesBlocked()) {
     const displayed = useProjectionStore.getState();
@@ -131,6 +153,7 @@ export function submitManual(actionId: string, payload: unknown, context?: { pro
   return trackCommit(() => submitNow(actionId, payload, context));
 }
 
+/** The queued part of submitManual: checks the graph is still the same, then commits on the current head. */
 function submitNow(actionId: string, payload: unknown, context?: { projectId: string; graphKey: string; isCurrent?: () => boolean }) {
   const original = context ?? useProjectionStore.getState();
   const run = manualQueue.then(async () => {

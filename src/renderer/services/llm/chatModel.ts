@@ -1,3 +1,10 @@
+/**
+ * Pure helpers for the chat: tool classification, result reading, and ChatRecord mapping.
+ * No store or bridge access here, so they are unit-tested directly.
+ *
+ * Who uses it: services/llm/chatService.ts, and in components/chat (ToolCard, ProposalCard, buildSteps.ts,
+ * toolPresentation.ts), ExplainPanel and CheckPanel for `isRecord`, `asObjectRef` and the tool kinds.
+ */
 import {
   AGENT_BUILD_TOOLS,
   AGENT_KNOWLEDGE_TOOLS,
@@ -9,16 +16,13 @@ import {
 } from '../../../shared/contracts';
 import type { ChatMessage, ToolCall, ToolKind, ToolStatus } from '../../types/chat';
 
-/**
- * Pure helpers for the chat: tool classification, result reading, and ChatRecord mapping.
- * No store or bridge access here, so they are unit-tested directly.
- */
-
+/** Tool names by family, from shared/contracts/agentTools.ts. */
 const READ = new Set<string>(AGENT_READ_TOOLS);
 const KNOWLEDGE = new Set<string>(AGENT_KNOWLEDGE_TOOLS);
 const PROPOSAL = new Set<string>(AGENT_PROPOSAL_TOOLS);
 const BUILD = new Set<string>(AGENT_BUILD_TOOLS);
 
+/** Which family a tool belongs to (read, knowledge, proposal, build); the card is drawn by it. */
 export function toolKind(name: string): ToolKind {
   if (READ.has(name)) return 'read';
   if (KNOWLEDGE.has(name)) return 'knowledge';
@@ -27,6 +31,7 @@ export function toolKind(name: string): ToolKind {
   return 'other';
 }
 
+/** A plain object (not null, not an array). */
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
 }
@@ -48,6 +53,7 @@ export function asObjectRef(value: unknown): ObjectRef | null {
   return ref;
 }
 
+/** A non-empty string field of an untrusted object, or undefined. */
 function stringField(value: unknown, key: string): string | undefined {
   if (!isRecord(value)) return undefined;
   const item = value[key];
@@ -89,6 +95,7 @@ export function withResultIds(call: ToolCall): ToolCall {
   };
 }
 
+/** A tool call as the chat first sees it: pending, with its kind. */
 export function newToolCall(id: string, name: string, args: Record<string, unknown> = {}): ToolCall {
   return { id, name, toolName: name, kind: toolKind(name), args, status: 'pending' };
 }
@@ -98,12 +105,14 @@ export const INTERRUPTED_ERROR = 'interrupted';
 
 /**
  * Largest tool result kept in a saved chat message, as JSON characters. A larger one keeps its message and ids
- * with `truncated: true` in the saved result the card shows. Only the stored copy of the card is shortened: the graph, the
- * catalog and the live turn are never cut, and the row stays well under the 5 MB store guard in main.
+ * with `truncated: true` in the saved result the card shows. Only the stored copy of the card is shortened: the
+ * graph, the catalog and the live turn are never cut, and the row stays well under the 5 MB store guard in main.
+ * Arguments are capped the same way (SAVED_ARG_CAP).
  */
 export const SAVED_RESULT_CAP = 20_000;
 const SAVED_ARG_CAP = 20_000;
 
+/** `value` when its JSON fits `cap`; else only the fields the cards need, marked truncated. */
 function capped(value: unknown, cap: number): unknown {
   if (value === undefined) return undefined;
   let text: string;
@@ -139,6 +148,7 @@ export function savedToolCall(call: ToolCall): Record<string, unknown> {
   };
 }
 
+/** A chat message as main stores it (one chat_messages row). */
 export function chatRecordFromMessage(message: ChatMessage, projectId: string, graphRevisionId: string | null): ChatRecord {
   const calls = message.toolCalls ?? [];
   return {
@@ -152,6 +162,7 @@ export function chatRecordFromMessage(message: ChatMessage, projectId: string, g
   };
 }
 
+/** A tool call read back from a saved message; null when the saved data has no tool name. */
 function toolCallFromSaved(value: unknown, index: number): ToolCall | null {
   if (!isRecord(value)) return null;
   const name = stringField(value, 'toolName') ?? stringField(value, 'name');
@@ -173,6 +184,7 @@ function toolCallFromSaved(value: unknown, index: number): ToolCall | null {
   return call;
 }
 
+/** A saved row back as a chat message, with its tool calls. */
 export function messageFromChatRecord(record: ChatRecord): ChatMessage {
   const toolCalls = (record.toolCalls ?? [])
     .map((item, index) => toolCallFromSaved(item, index))

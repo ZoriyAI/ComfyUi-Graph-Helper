@@ -1,3 +1,9 @@
+/**
+ * Types of the legacy in-window revision and action model.
+ *
+ * Who uses it: state/revisionState.ts, services/graph/graphService.ts, services/actions/actionExecutor.ts,
+ * services/llm/tools.ts and the conflict tests. The app's real revisions are main's (shared/contracts/revisions.ts).
+ */
 import { GraphNode, GraphEdge } from './graph';
 
 /**
@@ -38,5 +44,5 @@ export interface GraphAction {
   source: 'user' | 'ai';
   status: 'pending' | 'applied' | 'failed' | 'conflict' | 'cancelled';
   error?: string;
-  result?: any; // Result data from action execution (e.g. nodeId from add-node)
+  result?: any; // What the action produced (for example the nodeId of add-node), for the tool's answer.
 }

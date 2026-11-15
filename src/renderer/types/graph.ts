@@ -1,3 +1,9 @@
+/**
+ * The node and link types the canvas draws: React Flow's Node and Edge with the data of a ComfyUI node.
+ *
+ * Who uses it: the canvas (components/graph), state/graphState.ts, services/commands/projection.ts, commands and
+ * lessons; main sends the graph in this shape inside each projection snapshot.
+ */
 import { Node, Edge } from '@xyflow/react';
 
 /**
@@ -63,9 +69,7 @@ export interface EdgeData extends Record<string, unknown> {
  */
 export type GraphEdge = Edge<EdgeData>;
 
-/**
- * Complete graph state
- */
+/** Nodes and links together (the legacy revision snapshots use this shape). */
 export interface GraphState {
   nodes: GraphNode[];
   edges: GraphEdge[];

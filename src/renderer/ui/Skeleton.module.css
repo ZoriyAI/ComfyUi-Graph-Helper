@@ -1,3 +1,4 @@
+/* The loading placeholder (ui/Skeleton.tsx). */
 .skeleton {
   display: block;
   border-radius: var(--radius-sm);

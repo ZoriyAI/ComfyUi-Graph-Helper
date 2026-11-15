@@ -1,3 +1,4 @@
+/* The search input with icon and clear button (ui/SearchField.tsx). */
 .field { position: relative; display: flex; align-items: center; min-width: 0; }
 .icon { position: absolute; left: 9px; color: var(--text-faint); pointer-events: none; display: inline-flex; }
 .input {

@@ -1,3 +1,9 @@
+/**
+ * The open state of the conversation log window (Help ▸ Conversation log).
+ *
+ * Who uses it: components/log/ModelLogDialog.tsx draws the window; commands/diagnosticsCommands.ts and
+ * components/chat/Message.tsx (the log button on an answer) open it.
+ */
 import { create } from 'zustand';
 
 /**
@@ -11,6 +17,7 @@ interface ModelLogUi {
   hide: () => void;
 }
 
+/** The log window's open state and the turn it should show first. */
 export const useModelLogStore = create<ModelLogUi>((set) => ({
   open: false,
   focusTurn: null,

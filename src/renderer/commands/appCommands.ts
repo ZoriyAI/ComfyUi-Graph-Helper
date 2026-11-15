@@ -1,3 +1,11 @@
+/**
+ * Every command of the app's menus (File, Edit, Graph, View, Assistant, Sync, Help) and their installation.
+ *
+ * Who uses it: App.tsx calls installAppCommands once; components/shell/MenuBar.tsx lays the commands out and reads
+ * the choice lists; components/graph/Onboarding.tsx reads LANGUAGE_CHOICES.
+ * Why the install also starts watchers (undo history, project file, replay gate, view memory, catalog): they must
+ * live exactly as long as the commands whose state they feed.
+ */
 import {
   Ghost, Columns2, Compass, Database, FileCheck2, FilePlus2, FolderInput, FolderOpen, FolderOutput, GraduationCap, Group, History, Info, Keyboard,
   LogOut, Map as MapIcon, Maximize, MessageCircleQuestion, MessageSquare, MessageSquareText, Navigation, PanelLeft, PanelRight, Pause, Play,
@@ -50,6 +58,7 @@ import { buildEditingCommands } from './editingCommands';
 
 const always = () => true;
 
+/** The root graph has nodes. */
 function hasNodes(): boolean {
   return useGraphStore.getState().nodes.length > 0;
 }
@@ -59,10 +68,12 @@ function hasLevelNodes(): boolean {
   return levelNodes().length > 0;
 }
 
+/** History replay is open. */
 function replaying(): boolean {
   return Boolean(useCanvasStore.getState().replay);
 }
 
+/** The motion setting on screen (the data-motion attribute of the page), 'system' when unset. */
 function motionMode(): string {
   return document.documentElement.dataset.motion || 'system';
 }
@@ -79,6 +90,7 @@ export const DESCRIPTION_MODE_CHOICES: Array<{ value: DescriptionsMode; labelKey
   { value: 'off', labelKey: 'canvas.descriptionsOff' },
 ];
 
+/** The motion settings, as View ▸ Motion lists them. */
 export const MOTION_CHOICES: Array<{ value: 'system' | 'on' | 'reduced' | 'off'; labelKey: string }> = [
   { value: 'system', labelKey: 'settings.motionSystem' },
   { value: 'on', labelKey: 'settings.motionOn' },
@@ -86,6 +98,7 @@ export const MOTION_CHOICES: Array<{ value: 'system' | 'on' | 'reduced' | 'off';
   { value: 'off', labelKey: 'settings.motionOff' },
 ];
 
+/** The interface languages, as View ▸ Language and the first-run card list them. */
 export const LANGUAGE_CHOICES: Array<{ value: 'en' | 'ru'; labelKey: string }> = [
   { value: 'ru', labelKey: 'settings.languageRussian' },
   { value: 'en', labelKey: 'settings.languageEnglish' },
@@ -149,7 +162,7 @@ export function buildAppCommands(): Command[] {
       enabled: () => canEditGraph() && selectedNodes().length > 0,
       run: () => void addGroup(selectedNodes().map((node) => node.id)),
     },
-    // IMPORT+NODES: collapse the selected nodes to their title row, or open them, as ComfyUI's Alt+C.
+    // Collapse the selected nodes to their title row, or open them again, as ComfyUI's Alt+C does.
     {
       id: 'graph.collapse', group: 'graph', labelKey: 'importLook.menuCollapse', icon: ChevronsDownUp, shortcut: 'Alt+C',
       enabled: () => canEditLevel() && selectedNodes().length > 0,
@@ -217,6 +230,8 @@ export function buildAppCommands(): Command[] {
       checked: () => useDockStore.getState().split,
       run: () => {
         const next = !useDockStore.getState().split;
+        // The split dock is at least 560 px (SPLIT_MIN) and the canvas keeps 560 px (CANVAS_MIN): the library closes
+        // when both would not fit beside it.
         if (next && window.innerWidth - RAIL_WIDTH - 560 < 560) useUiStore.getState().setRail(false);
         useDockStore.getState().setSplit(next);
       },
@@ -329,6 +344,7 @@ export function buildAppCommands(): Command[] {
   return commands;
 }
 
+/** A command state source that fires when an attribute of <html> changes (data-motion, lang). */
 function domSource(attribute: string) {
   return (listener: () => void) => {
     const observer = new MutationObserver(listener);
@@ -337,11 +353,13 @@ function domSource(attribute: string) {
   };
 }
 
+/** A command state source for window resizes (View ▸ Show both depends on the width). */
 function resizeSource(listener: () => void) {
   window.addEventListener('resize', listener);
   return () => window.removeEventListener('resize', listener);
 }
 
+/** The uninstall of the current installation, so a second call returns it instead of registering twice. */
 let installed: (() => void) | null = null;
 
 /** Registers the app's commands and the stores their state depends on. Idempotent. */

@@ -1,5 +1,5 @@
 /*
- * Legacy chat rules, moved verbatim from theme.css.
+ * Legacy chat rules, moved verbatim from theme.css (which still @imports this file).
  * What is left here is the frame of the chat panel (header, log, composer). The messages, their cards and the
  * times are styled by the CSS Modules in components/chat; the old .message-*, .tool-list and .tool-row rules drew a
  * second frame (and a stray divider above every card) and are gone.

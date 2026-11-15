@@ -1,6 +1,13 @@
+/**
+ * The words and buttons the chat shows for a failed assistant turn.
+ *
+ * Who uses it: services/llm/chatService.ts (the error message) and components/chat/Message.tsx (the buttons).
+ * Why: a provider's raw error is long and technical; the person gets one plain sentence and a way forward.
+ */
 import { SETTINGS_KINDS, type TurnError } from '../../../shared/agent/turnError';
 import { TOOL_CAPABLE_EXAMPLES } from '../../../shared/agent/providerErrors';
 
+/** i18next's `t`, narrowed to what this module calls. */
 type Translate = (key: string, values?: Record<string, unknown>) => string;
 
 /** The one plain sentence the chat says about a failed turn, with its next step. Never the server's words. */

@@ -1,8 +1,12 @@
+/**
+ * A radio group drawn as cards. Who uses it: settings sections Appearance (accent) and Assistant (provider).
+ */
 import React, { useId, useRef } from 'react';
 import styles from './RadioCards.module.css';
 import { cx } from './cx';
 import radioMark from './RadioMark.module.css';
 
+/** One card of a RadioCards group. */
 export interface RadioCardOption {
   value: string;
   /** The card's name; it is the radio's accessible name. */
@@ -14,6 +18,7 @@ export interface RadioCardOption {
   trailing?: React.ReactNode;
 }
 
+/** Props of RadioCards. */
 export interface RadioCardsProps {
   /** Accessible name of the group (and its visible label unless `hideLabel`). */
   label: string;
@@ -34,6 +39,7 @@ export interface RadioCardsProps {
 export default function RadioCards({ label, hideLabel, value, options, onChange, columns = 3, compact, className }: RadioCardsProps) {
   const base = useId();
   const refs = useRef<Array<HTMLButtonElement | null>>([]);
+  // The tab stop sits on the chosen card, or on the first card when the value matches none.
   const selected = Math.max(0, options.findIndex((option) => option.value === value));
   const move = (from: number, delta: number) => {
     const next = (from + delta + options.length) % options.length;

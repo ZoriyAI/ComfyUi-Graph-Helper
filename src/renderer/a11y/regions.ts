@@ -1,15 +1,15 @@
 /**
  * The areas of the main window, in the order F6 visits them, and the element each area hands focus to.
  *
- * Who uses it: commands/hotkeys.ts (F6 and Shift+F6) and a11y/focusRescue.ts (which area lost focus, and its
- * fallback element when the element that had focus is gone).
+ * Who uses it: a11y/focusRescue.ts, both for F6 and Shift+F6 (its `cycleRegion`, called from commands/hotkeys.ts)
+ * and to find which area lost focus and its fallback element when the element that had focus is gone.
  *
  * Why: the canvas holds a Tab stop for every node and field, so a keyboard user needed 40 to 100 presses of Tab to
  * go from the library to the right panel. F6 moves between areas the way desktop programs do, and lands on the
  * element the person last used in that area.
  */
 
-/** One area: its name, the selector that finds it, and how to pick its entry element. */
+/** One area: its name and the selector that finds it. Its entry element is chosen by `entryOf`. */
 export interface Region {
   name: 'menubar' | 'toolbar' | 'library' | 'canvas' | 'dock' | 'status';
   selector: string;
@@ -46,6 +46,7 @@ export function regionIndexOf(element: Element | null): number {
   return REGIONS.findIndex((region) => element.closest(region.selector) !== null);
 }
 
+/** Elements the Tab key can reach; the last resort for an area's entry element. */
 const TABBABLE = 'button:not([disabled]), [href], input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /** Whether a person can put focus on this element now: connected, shown, not disabled. */

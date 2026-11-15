@@ -3,10 +3,15 @@
  * file dialog, a commit on its way to main. Undo and redo wait for them, so Ctrl+Z right after an action undoes that
  * action and not the one before it (an undo planned on the old head would restore a revision from before the edit
  * and silently drop it).
+ *
+ * Who uses it: services/commands/projection.ts (every manual commit), commands/actions.ts (opening files),
+ * components/graph/lib/editBatch.ts, AddNodeSearch.tsx, the library (NodeLibrary, placeModel) and commands/undo.ts.
  */
+/** How many tracked edits are still on their way, and who waits for the count to reach zero. */
 let pending = 0;
 let waiters: Array<() => void> = [];
 
+/** One tracked edit landed (or failed); wakes the waiters when it was the last. */
 function settle(): void {
   pending = Math.max(0, pending - 1);
   if (pending > 0) return;
@@ -34,6 +39,7 @@ export function whenSettled(): Promise<void> {
   return new Promise((resolve) => waiters.push(resolve));
 }
 
+/** How many tracked edits have not landed yet. */
 export function pendingCommits(): number {
   return pending;
 }

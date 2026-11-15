@@ -1,10 +1,15 @@
+/**
+ * The app's button, in four variants and two sizes. Who uses it: most panels and dialogs (about forty files).
+ */
 import React, { forwardRef } from 'react';
 import styles from './Button.module.css';
 import { cx } from './cx';
 
+/** primary: the main action; ghost: the default; subtle: a quiet secondary; danger: removes something. */
 export type ButtonVariant = 'primary' | 'ghost' | 'subtle' | 'danger';
 export type ButtonSize = 'sm' | 'md';
 
+/** Props of Button: native button attributes plus look and loading state. */
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
   size?: ButtonSize;

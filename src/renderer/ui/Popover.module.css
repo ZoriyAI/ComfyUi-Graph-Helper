@@ -1,3 +1,4 @@
+/* The popover box, its inner scroller and arrow (ui/Popover.tsx). */
 .content {
   z-index: 75;
   width: 320px;

@@ -2,10 +2,16 @@
  * Keyboard shortcuts as strings ('Mod+S', 'Mod+Shift+Z', 'F1', 'Delete'). `Mod` is Ctrl on Linux and
  * Windows and ⌘ on macOS. On a Latin layout a shortcut is the key marked with its letter or sign (AZERTY's Ctrl+A
  * is the key marked A); on a non-Latin layout it is the key in the same place as on a US keyboard, so Ctrl+S works
- * on a Russian layout where the key types «ы». See layoutToken.
+ * on a Russian layout where that key types a Cyrillic letter. See layoutToken.
+ *
+ * Who uses it: commands/hotkeys.ts (matching key presses), ui/Shortcut.tsx (drawing key caps) and
+ * components/settings/sections/ShortcutsSection.tsx (recording a shortcut and naming the local key).
  */
+
+/** The two ways shortcuts are written and drawn: macOS, and everything else. */
 export type Platform = 'mac' | 'other';
 
+/** A shortcut string split into its modifiers and its key. */
 export interface ParsedShortcut {
   mod: boolean;
   ctrl: boolean;
@@ -15,6 +21,7 @@ export interface ParsedShortcut {
   key: string;
 }
 
+/** The parts of a keyboard event the matching reads (a real KeyboardEvent fits; tests pass plain objects). */
 export interface KeyLike {
   key: string;
   code?: string;
@@ -24,11 +31,13 @@ export interface KeyLike {
   altKey: boolean;
 }
 
+/** macOS or not, from the browser's platform and user agent (or from `source` in tests). */
 export function detectPlatform(source?: string): Platform {
   const text = source ?? (typeof navigator === 'undefined' ? '' : `${navigator.platform} ${navigator.userAgent}`);
   return /Mac|iPhone|iPad/i.test(text) ? 'mac' : 'other';
 }
 
+/** Splits 'Mod+Shift+Z' into modifiers and key; a single-character key is upper-cased. */
 export function parseShortcut(shortcut: string): ParsedShortcut {
   const parts = shortcut.split('+');
   // 'Mod+=' splits cleanly; 'Mod++' would leave an empty last part, which means the plus key.
@@ -55,16 +64,19 @@ const SIGNS = new Set(['=', '+', '-', '/', ',', '.', ';', "'", '`', '[', ']', '\
  * Which kind of letters the keyboard types now. Latin layouts (QWERTY, AZERTY, QWERTZ, Dvorak) are matched by the
  * letter or sign a key types, so Ctrl+Z is the key marked Z wherever it sits. A non-Latin layout (Russian, Greek,
  * Hebrew…) types no Latin letters, so its keys are matched by their place on a US keyboard: Ctrl+Z is the key that
- * types «я». The keyboard says which it is with every letter typed (noteLayout); before any letter, Latin is assumed.
+ * types a Cyrillic letter there. The keyboard says which it is with every letter typed (noteLayout); before any
+ * letter, Latin is assumed.
  */
 let latinLayout = true;
 
+/** Learns the layout from one key press: a letter key that types a Latin letter, or another letter. */
 export function noteLayout(event: Pick<KeyLike, 'key' | 'code'>): void {
   if (!event.code || !/^Key[A-Z]$/.test(event.code) || typeof event.key !== 'string' || [...event.key].length !== 1) return;
   if (/^[a-z]$/i.test(event.key)) latinLayout = true;
   else if (/\p{L}/u.test(event.key)) latinLayout = false;
 }
 
+/** Whether the last letter typed was Latin. */
 export function layoutIsLatin(): boolean {
   return latinLayout;
 }
@@ -74,6 +86,7 @@ export function resetLayout(latin = true): void {
   latinLayout = latin;
 }
 
+/** One character outside ASCII (a Cyrillic or Greek letter, for example). */
 function nonLatinChar(key: string): boolean {
   return [...key].length === 1 && /[^\u0000-\u007f]/.test(key);
 }
@@ -83,7 +96,7 @@ function nonLatinChar(key: string): boolean {
  * - Letters: the Latin letter typed; on a non-Latin layout, the letter of the same place on a US keyboard.
  * - Digits: the digit typed, or the digit of the key's place (AZERTY types digits only with Shift).
  * - Signs: the sign typed (QWERTZ types / with Shift+7); on a non-Latin layout, the sign of the key's place on a US
- *   keyboard (the Russian layout types «б» where US has «,» and «.» where US has «/»).
+ *   keyboard (the Russian layout types a Cyrillic letter where US has «,» and «.» where US has «/»).
  */
 export function layoutToken(event: KeyLike, latin: boolean = latinLayout): string | null {
   const key = event.key ?? '';
@@ -121,6 +134,7 @@ export function matchesShortcut(event: KeyLike, shortcut: string, platform: Plat
   return event.shiftKey === parsed.shift;
 }
 
+/** macOS key-cap symbols for the modifiers, and short names of a few keys on each platform. */
 const MAC_SYMBOLS: Record<string, string> = { mod: '⌘', ctrl: '⌃', shift: '⇧', alt: '⌥' };
 const KEY_NAMES: Record<string, { mac: string; other: string }> = {
   Delete: { mac: '⌫', other: 'Del' },
@@ -153,6 +167,7 @@ export function shortcutKeys(shortcut: string, platform: Platform = detectPlatfo
   return [...caps, key];
 }
 
+/** Keys without a letter that may be recorded as a shortcut; and keys that are only modifiers. */
 const NAMED_KEYS = new Set([
   'Delete', 'Backspace', 'Enter', 'Escape', 'Tab', 'Home', 'End', 'PageUp', 'PageDown', 'Insert',
   'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
@@ -162,7 +177,7 @@ const MODIFIER_KEYS = new Set(['Control', 'Shift', 'Alt', 'Meta', 'AltGraph', 'O
 /**
  * The shortcut string a key press records (Preferences ▸ Shortcuts), or null for a lone modifier or a key
  * that cannot be a shortcut. Keys are read as layoutToken reads them, so AZERTY records the letter it types and
- * a Russian layout records 'Mod+S' for the key that types «ы».
+ * a Russian layout records 'Mod+S' for the key in the US place of S.
  * Ctrl on Linux and Windows (⌘ on macOS) becomes `Mod`.
  */
 export function chordFromEvent(event: KeyLike, platform: Platform = detectPlatform()): string | null {
@@ -206,13 +221,15 @@ const SIGN_CODES: Record<string, string> = {
 
 /**
  * What to press for a shortcut's key on this layout, when it is not simply the key marked with it:
- * - { kind: 'local', glyph: 'я' }: a non-Latin layout, where the shortcut is the key in the US place (Ctrl+Z → «я»);
+ * - { kind: 'local', glyph }: a non-Latin layout, where the shortcut is the key in the US place (Ctrl+Z is the key
+ *   that types a Cyrillic letter on a Russian layout), and `glyph` is what that key types;
  * - { kind: 'shift' }: a Latin layout that types the sign only with Shift or AltGr (QWERTZ's «/»);
  * - null: press the key marked with it, or the layout is not known.
  */
 export function localKeyFor(shortcut: string, layout: LayoutMap | null | undefined): { kind: 'local'; glyph: string } | { kind: 'shift' } | null {
   if (!layout || layout.size === 0) return null;
   const key = parseShortcut(shortcut).key;
+  // The Q key tells the layout's script: a Latin letter there (or no answer) means a Latin layout.
   const q = layout.get('KeyQ') ?? '';
   const latin = q === '' || /^[a-z]$/i.test(q);
   if (/^[A-Z]$/.test(key)) {

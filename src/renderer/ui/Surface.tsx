@@ -1,9 +1,15 @@
+/**
+ * A layered panel surface. Exported from ui/index.ts; no component in the app imports it at present (panels use
+ * the --surface-* tokens directly).
+ */
 import React, { forwardRef } from 'react';
 import styles from './Surface.module.css';
 import { cx } from './cx';
 
+/** 0 canvas, 1 panel, 2 raised, 3 overlay. */
 export type Elevation = 0 | 1 | 2 | 3;
 
+/** Props of Surface. */
 export interface SurfaceProps extends React.HTMLAttributes<HTMLElement> {
   /** 0 canvas, 1 panel, 2 raised, 3 overlay. Each level is a step lighter with a deeper shadow. */
   elevation?: Elevation;

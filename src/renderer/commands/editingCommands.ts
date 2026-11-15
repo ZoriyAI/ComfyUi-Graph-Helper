@@ -3,6 +3,8 @@
  * them: bypass and mute the selected nodes, add a note, place a node on the selected link, replace the selected
  * node, and colour nodes. Each one sends one mutation (main/commands/editOps.ts), so it is one undo step.
  *
+ * Who uses it: appCommands.ts registers them; components/shell/MenuBar.tsx and components/graph/editingMenu.tsx
+ * list them and call the helpers here directly for a node or link under the pointer.
  * Why the commands stay enabled while the selection does not fit: a person who presses the shortcut or picks the
  * menu item with nothing selected is told in one sentence what to select, instead of a silent key.
  */
@@ -41,6 +43,7 @@ function tell(key: string): void {
   showToast({ id: 'editing-selection', tone: 'info', title: translate(key), duration: 4000 });
 }
 
+/** The level on screen takes manual edits (no replay is open). */
 function editable(): boolean {
   return canEditLevel() && !useCanvasStore.getState().replay;
 }
@@ -78,6 +81,7 @@ export async function toggleRunMode(mode: 'bypass' | 'mute'): Promise<void> {
 
 /** A new Note in the middle of the view (or at `at`), selected like any added node. */
 export async function addNote(at: { x: number; y: number } | null = null): Promise<void> {
+  // 400 x 200 is the size a new Note gets, so the free spot is found for the whole note.
   const spot = await placeNewNode(at, { classType: 'Note', size: { width: 400, height: 200 } });
   await commitManual({ type: 'add-node', nodeType: 'Note', title: 'Note', x: Math.round(spot.x), y: Math.round(spot.y) });
 }

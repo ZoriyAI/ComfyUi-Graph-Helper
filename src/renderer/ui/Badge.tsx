@@ -1,3 +1,7 @@
+/**
+ * Badges: small labels for kinds, families, provenance and status.
+ * Who uses it: the library cards, the description cards on the canvas, lessons, the shell toolbar, the log dialog.
+ */
 import React, { forwardRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { familyNote } from '../../shared/knowledge/coreKnowledge';
@@ -7,8 +11,10 @@ import styles from './Badge.module.css';
 import { familyHue, kindHue, PROVENANCE_TONES, type BadgeHue } from './badgeHues';
 import { cx } from './cx';
 
+/** The badge's colour role. */
 export type BadgeTone = 'neutral' | 'accent' | 'ai' | 'warn' | 'danger' | 'ok';
 
+/** Props of Badge. */
 export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
   tone?: BadgeTone;
   /** Shows a leading dot in this hue (port-type palette). */
@@ -19,6 +25,7 @@ export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
   icon?: React.ReactNode;
 }
 
+/** Hue → its class in Badge.module.css. */
 const HUE_CLASS: Record<BadgeHue, string> = {
   model: styles.hueModel,
   clip: styles.hueClip,
@@ -55,6 +62,7 @@ export const Chip = forwardRef<HTMLSpanElement, BadgeProps>(function Chip(props,
   return <Badge ref={ref} pill {...props} />;
 });
 
+/** Where a piece of knowledge came from (fact, inference, web, the person, a file), with an explanation tooltip. */
 export function ProvenanceBadge({ provenance, className }: { provenance: Provenance; className?: string }) {
   const { t } = useTranslation();
   return (
@@ -64,6 +72,7 @@ export function ProvenanceBadge({ provenance, className }: { provenance: Provena
   );
 }
 
+/** A model's base family (SDXL, Flux and so on) in its fixed hue. */
 export function FamilyBadge({ family, className }: { family: BaseModelFamily; className?: string }) {
   const { t, i18n } = useTranslation();
   // The built-in note about the family (what it needs, which LoRAs fit) as the badge tooltip.
@@ -78,8 +87,10 @@ export function KindBadge({ kind, className, short }: { kind: ModelKind; classNa
   return <Badge hue={kindHue(kind)} className={className} title={short ? full : undefined}>{short ? t(kindShortLabelKey(kind)) : full}</Badge>;
 }
 
+/** A status as StatusBadge shows it. */
 export type StatusTone = 'idle' | 'running' | 'ok' | 'warn' | 'error';
 
+/** A status (idle, running, ok, warn, error) mapped to a badge tone. */
 export function StatusBadge({ status, children, className }: { status: StatusTone; children: React.ReactNode; className?: string }) {
   const tone: BadgeTone = status === 'ok' ? 'ok' : status === 'warn' ? 'warn' : status === 'error' ? 'danger' : status === 'running' ? 'accent' : 'neutral';
   return <Badge tone={tone} className={className}>{children}</Badge>;

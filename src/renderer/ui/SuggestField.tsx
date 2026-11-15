@@ -1,3 +1,7 @@
+/**
+ * A text field with a list of suggestions. Who uses it: settings sections Connection (ComfyUI and MCP addresses)
+ * and Assistant (models of the person's own server).
+ */
 import React, { useEffect, useId, useState } from 'react';
 import * as Select from '@radix-ui/react-select';
 import { Check, ChevronDown } from 'lucide-react';
@@ -7,6 +11,7 @@ import { CLOSE_OPEN_SELECT } from './SelectField';
 import styles from './SuggestField.module.css';
 import { cx } from './cx';
 
+/** One entry of the list. */
 export interface Suggestion {
   value: string;
   /** Main line; the value when absent. */
@@ -16,11 +21,13 @@ export interface Suggestion {
   badges?: Array<{ text: string; tone: BadgeTone }>;
 }
 
+/** A line under the field (for example "Found 3 models"), coloured by `tone`. */
 export interface SuggestStatus {
   text: string;
   tone?: 'neutral' | 'good' | 'bad';
 }
 
+/** Props of SuggestField. */
 export interface SuggestFieldProps {
   /** Visible label and the text input's accessible name. */
   label: string;
@@ -43,6 +50,7 @@ export interface SuggestFieldProps {
   className?: string;
 }
 
+/** The list's value when the typed text matches no suggestion. */
 const NOTHING = '';
 
 /**

@@ -1,3 +1,4 @@
+/* Tooltips (ui/Hint.tsx) and the wrapper span they hang on. */
 .target { display: inline-flex; min-width: 0; }
 /* A disabled control lets the pointer through to its wrapper, so the hint that says why it is off still opens. */
 .target > :disabled { pointer-events: none; }

@@ -1,14 +1,16 @@
+/**
+ * Remembers how the person left the window, per profile (Preferences ▸ view in SQLite, never a project file):
+ * the library tab and whether it is folded, the right panel's tab, width and whether it is folded, and the
+ * Models tab's kind, family and order. Restored once the preferences are read, after a reload and a restart.
+ *
+ * Who uses it: commands/appCommands.ts installs it; components/library/ModelLibrary.tsx uses useRememberedChoice.
+ */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Preferences } from '../../shared/config/preferences';
 import { usePreferencesStore } from './preferencesState';
 import { useUiStore, type RailTab } from './uiState';
 import { normalizeDockTab, useDockStore } from './dockState';
 
-/**
- * Remembers how the person left the window, per profile (Preferences ▸ view in SQLite, never a project file):
- * the library tab and whether it is folded, the right panel's tab, width and whether it is folded, and the
- * Models tab's kind, family and order. Restored once the preferences are read, after a reload and a restart.
- */
 type View = Preferences['view'];
 
 /** Saves are gathered for a moment: a drag of the panel edge sends one write, not one per pixel. */
@@ -16,6 +18,7 @@ const SAVE_DELAY_MS = 400;
 let pending: Partial<View> = {};
 let timer: ReturnType<typeof setTimeout> | null = null;
 
+/** Queues a change of the remembered view; it is saved SAVE_DELAY_MS after the last change. */
 export function rememberView(patch: Partial<View>): void {
   pending = { ...pending, ...patch };
   if (timer !== null) clearTimeout(timer);
@@ -30,7 +33,7 @@ export function rememberView(patch: Partial<View>): void {
   }, SAVE_DELAY_MS);
 }
 
-/** The stores take what was saved; true once that happened (so the first store change is not written back). */
+/** The stores take what was saved (the library and the right panel). */
 function restore(view: View): void {
   const ui = useUiStore.getState();
   const railTab = view.railTab as RailTab;
@@ -45,11 +48,13 @@ function restore(view: View): void {
   if (Object.keys(patch).length > 0) useDockStore.setState(patch);
 }
 
+/** The uninstall of the current installation, returned again by a second call. */
 let installed: (() => void) | null = null;
 
 /** Restores the view when the preferences arrive and keeps later changes saved. Idempotent. */
 export function installViewMemory(): () => void {
   if (installed) return installed;
+  // Store changes are saved only after the restore, so the defaults of a fresh window never overwrite the saved view.
   let restored = false;
   const start = () => {
     if (restored || !usePreferencesStore.getState().loaded) return;

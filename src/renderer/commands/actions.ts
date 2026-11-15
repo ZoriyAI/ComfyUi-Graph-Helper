@@ -1,3 +1,11 @@
+/**
+ * The work behind the commands: File (open, save, export, new), Graph (selection, subgraphs, groups, check),
+ * the assistant (lessons, chat, run control) and settings changed from the menu.
+ *
+ * Who uses it: appCommands.ts, editingCommands.ts, undo.ts, lessonCommands.ts and fileOpening.ts; also App.tsx,
+ * components/shell/MenuBar.tsx and CommandDialogs.tsx, components/graph/GraphContextMenu.tsx and Onboarding.tsx,
+ * and components/journey/RunInComfyDialog.tsx. Why one module: each action exists once, whichever surface runs it.
+ */
 import { useLessonStore } from '../state/lessonState';
 import { i18n, applyLanguage } from '../i18n';
 import { describeNote, type WorkflowNote } from '../components/shell/notices';
@@ -31,12 +39,10 @@ import { readFlag, SEEN_KEYS, useJourneyStore } from '../state/journeyState';
 
 export { SETTINGS_CHANGED };
 
-/**
- * The work behind the commands. App, the canvas context menu and the registry call these, so each action
- * exists once.
- */
+/** i18next's `t` in the shape shared/ code expects (it always returns a string). */
 const translate: Translator = (key, options) => (options ? String(i18n.t(key, options)) : String(i18n.t(key)));
 
+/** Shows a file or workflow message as a toast, with its buttons wired to the matching actions. */
 export function notify(note: WorkflowNote): void {
   showToast(describeNote(note, translate, { openCheck: checkGraph, syncNow: () => void runSyncNow(), howToRun: () => useJourneyStore.getState().open('run') }));
 }
@@ -47,6 +53,7 @@ export function exportedFileName(): string {
   return lastExportName;
 }
 
+/** The error text main gave with a rejected result, or `fallback`. */
 function rejectedReason(result: unknown, fallback: string): string {
   return result && typeof result === 'object' && 'error' in result ? String((result as { error: unknown }).error) : fallback;
 }
@@ -71,12 +78,14 @@ export async function importWorkflowFile(): Promise<void> {
   await importWorkflowNow();
 }
 
+/** Open workflow without the question: the replace dialog's confirm (CommandDialogs.tsx). */
 export async function importWorkflowNow(): Promise<void> {
   await finishOpen(() => window.electronAPI.importWorkflow());
 }
 
 /** What every way of opening a file answers (main/ipc/openIpc.ts). */
 type OpenResult = Awaited<ReturnType<typeof window.electronAPI.openPath>>;
+/** One way of opening, called only once the person may replace the graph on screen. */
 type OpenCall = () => Promise<OpenResult | { status: 'cancelled'; projection: null; result: null } | null>;
 
 /** An open waiting for the person's answer to "replace the graph on screen?". */
@@ -175,6 +184,7 @@ export async function refreshRecentFiles(): Promise<void> {
   }
 }
 
+/** File ▸ Load node list from file: reads a saved catalog snapshot (nodes and models) into the app. */
 export async function importCatalogSnapshot(): Promise<void> {
   const result = await window.electronAPI.importCatalog();
   if (!result || result.status === 'cancelled') return;
@@ -242,6 +252,7 @@ export async function openProjectFile(): Promise<void> {
 /** The File ▸ Open project dialog, kept as one function so `finishOpen` knows a project was asked for. */
 const openProjectCall: OpenCall = () => window.electronAPI.openProject();
 
+/** Open project without the question: the replace dialog's confirm (CommandDialogs.tsx). */
 export async function openProjectNow(): Promise<void> {
   await finishOpen(openProjectCall);
 }
@@ -268,6 +279,7 @@ export async function saveProjectFile(secrets?: 'omit' | 'keep', options: { save
   notify(result.ok ? { kind: 'saved-project' } : { kind: 'error', code: result.error || 'The project file could not be written.' });
 }
 
+/** File ▸ Save project as… (Ctrl+Shift+S). */
 export function saveProjectFileAs(): Promise<void> {
   return saveProjectFile(undefined, { saveAs: true });
 }
@@ -288,6 +300,7 @@ export async function requestNewProject(): Promise<void> {
   await startNewProject();
 }
 
+/** File ▸ New without the question: closes replay, tour and subgraph, then commits the empty workflow. */
 export async function startNewProject(): Promise<void> {
   useUiStore.getState().setDialog(null);
   useCanvasStore.getState().setReplay(null);
@@ -316,6 +329,7 @@ export function selectedNodes(): GraphNode[] {
   return levelNodes().filter((node) => node.selected);
 }
 
+/** Ids of the selected links of the level on screen. */
 export function selectedEdgeIds(): string[] {
   return levelEdges().filter((edge) => edge.selected).map((edge) => edge.id);
 }
@@ -336,14 +350,17 @@ export async function deleteSelection(): Promise<void> {
   ], 'delete');
 }
 
+/** Graph ▸ Subgraph from selection: the nodes move into a new subgraph with a default name. One undo step. */
 export function createSubgraph(nodeIds: string[]): Promise<unknown> {
   return commitManual({ type: 'create-subgraph', name: translate('contextMenu.subgraphName'), nodeIds, inputs: [], outputs: [] });
 }
 
+/** Puts a subgraph instance's inner nodes back on the root graph. */
 export function dissolveSubgraph(nodeId: string): Promise<unknown> {
   return commitManual({ type: 'dissolve-subgraph', nodeId });
 }
 
+/** A group frame around these nodes, with the default group title. */
 export function addGroup(nodeIds: string[]): Promise<unknown> {
   return commitManual({ type: 'add-group', title: translate('contextMenu.groupTitle'), nodeIds });
 }
@@ -359,6 +376,7 @@ export function openAddNode(at: { x: number; y: number } | null = null): void {
   useCanvasStore.getState().openAddSearch(at);
 }
 
+/** Graph ▸ Check: shows the Check panel and runs the check; a failed check leaves the panel's last state. */
 export function checkGraph(): void {
   useDockStore.getState().show('check');
   void useKnowledgeStore.getState().runCheck().catch(() => undefined);
@@ -372,6 +390,7 @@ export function openLessons(): void {
   useLessonStore.getState().setLearning(true);
 }
 
+/** Assistant ▸ Focus chat: shows the assistant panel and puts the cursor in the message field. */
 export function focusChat(): void {
   useDockStore.getState().show('assistant');
   // The dock may have been hidden; wait a frame for the panel to be on screen.
@@ -380,6 +399,7 @@ export function focusChat(): void {
   });
 }
 
+/** Assistant ▸ Ask about selection: a question about the first selected node goes to the chat. */
 export function askAboutSelection(): void {
   const node = selectedNodes()[0];
   if (!node) return;
@@ -389,14 +409,17 @@ export function askAboutSelection(): void {
   askAbout(nodeRef(node), translate(instance ? 'contextMenu.askSubgraph' : 'contextMenu.askWhat', { name }));
 }
 
+/** Pauses the assistant's build; a failure is silent because the status bar still shows the run. */
 export async function pauseRun(): Promise<void> {
   await getChatService().pause().catch(() => undefined);
 }
 
+/** Resumes a paused build. */
 export async function resumeRun(): Promise<void> {
   await getChatService().resume().catch(() => undefined);
 }
 
+/** Ends the open run in main, then stops the chat stream that drove it. */
 export async function endRun(): Promise<void> {
   const projection = useProjectionStore.getState();
   const run = projection.activeRun;
@@ -419,6 +442,7 @@ export async function saveSettingsPatch(patch: Partial<Pick<NonSecretSettings, '
   const base = 'values' in read && read.values ? read.values : null;
   if (patch.language) applyLanguage(patch.language);
   if (patch.motion) document.documentElement.dataset.motion = patch.motion;
+  // Applied on screen even when the stored settings cannot be read; then nothing is saved.
   if (!base) return;
   const result = await window.electronAPI.saveSettings({ ...base, ...patch });
   if (result.ok) window.dispatchEvent(new CustomEvent<NonSecretSettings>(SETTINGS_CHANGED, { detail: result.values }));

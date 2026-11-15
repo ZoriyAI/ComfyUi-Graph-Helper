@@ -1,5 +1,5 @@
 /*
- * Legacy canvas rules, moved verbatim from theme.css.
+ * Legacy canvas rules, moved verbatim from theme.css (which still @imports this file).
  * Replace them with CSS Modules in components/graph and delete this file.
  * Selectors: .graph-*, .canvas-empty, .react-flow overrides, .graph-minimap, .node-*, .port-*, .inspector-*, .subgraph-pick.
  */

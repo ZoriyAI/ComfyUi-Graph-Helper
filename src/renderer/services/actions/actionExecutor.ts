@@ -1,13 +1,19 @@
+/**
+ * An older executor for assistant graph actions, with pause, resume and conflict detection, over
+ * services/graph/graphService.ts.
+ *
+ * Who uses it: services/llm/tools.ts (which nothing in the app imports) and the conflict tests
+ * (tests/integration/aiHumanConflict.test.ts and others). The live assistant commits through main, which checks the
+ * expected revision itself. Why the tests matter: an assistant step planned on a graph the person has changed since
+ * must be refused, not applied over the person's change.
+ */
 import { GraphAction } from '../../types/revisions';
 import { getGraphService } from '../graph/graphService';
 import { useGraphStore } from '../../state/graphState';
 
 /**
- * Action executor with pause/resume and conflict detection
- * 
- * CRITICAL: baseRevisionId is captured BEFORE tool execution
- * and represents the state the model saw when planning the action.
- * It must NOT be updated during execution.
+ * Runs queued graph actions one by one. An action's beforeRevisionId is captured before the tool runs and stands
+ * for the graph the model saw when it planned the action; it must not be updated during execution.
  */
 export class ActionExecutor {
   private actionQueue: GraphAction[] = [];
@@ -16,9 +22,9 @@ export class ActionExecutor {
   private currentAction: GraphAction | null = null;
 
   /**
-   * Queue an action for execution
-   * The baseRevisionId is already set by the caller and represents
-   * the graph state at the time the model made the decision
+   * Queues an action. Its beforeRevisionId is set by the caller: the graph the model saw when it decided.
+   * Resolves once the queue has run, unless the queue is paused or already running, when it resolves at once and
+   * the action is still pending.
    */
   async queueAction(action: GraphAction): Promise<void> {
     console.log(`[ActionExecutor] Queueing action ${action.id} (base revision: ${action.beforeRevisionId})`);
@@ -143,7 +149,7 @@ export class ActionExecutor {
   }
 
   /**
-   * Notify about conflict (could trigger UI dialog)
+   * Reports a conflict to the console only; nothing in the window shows it.
    */
   private notifyConflict(action: GraphAction): void {
     console.warn('[ActionExecutor] CONFLICT:', {
@@ -153,8 +159,6 @@ export class ActionExecutor {
       error: action.error,
     });
 
-    // TODO: Emit event or show UI notification
-    // User should see: "AI action cancelled - graph was modified manually"
   }
 
   /**
@@ -214,9 +218,11 @@ export class ActionExecutor {
   }
 }
 
-// Singleton
+// One executor per window.
 let actionExecutorInstance: ActionExecutor | null = null;
 
+/** The window's one ActionExecutor, made on first use. */
+/** The window's one ActionExecutor, made on first use. */
 export function getActionExecutor(): ActionExecutor {
   if (!actionExecutorInstance) {
     actionExecutorInstance = new ActionExecutor();

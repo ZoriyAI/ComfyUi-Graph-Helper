@@ -19,6 +19,7 @@ export type RecordVerdict = 'record' | 'refuse' | 'leave';
 /** Keys that move around the window or type text; they need Ctrl, Alt or Meta to be a shortcut. */
 const NAVIGATION = new Set(['Enter', ' ', 'Spacebar', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown']);
 
+/** Decides what the shortcut recorder does with one key press (see the header for the rules). */
 export function recordVerdict(event: RecordKey): RecordVerdict {
   if (event.key === 'Tab' && !event.ctrlKey && !event.altKey && !event.metaKey) return 'leave';
   if (event.ctrlKey || event.altKey || event.metaKey) return 'record';

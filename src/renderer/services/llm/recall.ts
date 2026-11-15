@@ -1,5 +1,11 @@
 /**
- * ↑ and ↓ in an empty message box bring back the person's earlier messages, newest first, as a terminal does.
+ * Recall of earlier messages in the chat's message box.
+ *
+ * Who uses it: components/chat/MessageInput.tsx on the Up and Down keys. Pure, so it is tested without a window.
+ */
+
+/**
+ * Up and Down in an empty message box bring back the person's earlier messages, newest first, as a terminal does.
  * `position` counts back from the newest (0 is the newest); null means nothing is recalled.
  */
 export function recallStep(

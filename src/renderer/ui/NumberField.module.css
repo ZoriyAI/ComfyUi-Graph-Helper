@@ -1,3 +1,4 @@
+/* The number field with step buttons (ui/NumberField.tsx). */
 .field { display: flex; flex-direction: column; gap: 4px; width: min(100%, var(--measure-form)); }
 .label { color: var(--text-dim); font-size: var(--text-md); line-height: 20px; }
 .control { display: flex; align-items: center; gap: 4px; }

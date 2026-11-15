@@ -1,3 +1,10 @@
+/**
+ * The bridge from stored preferences to the live window: reads them at start and pushes every later change into
+ * the stores and the document (appearance, shortcuts, canvas toggles, follow mode, lessons).
+ *
+ * Who uses it: App.tsx calls installPreferences once.
+ * Why a bridge: the stores stay free of IPC, and a preference saved anywhere reaches every part the same way.
+ */
 import type { Preferences } from '../../shared/config/preferences';
 import { descriptionsModeOf, parsePreferences } from '../../shared/config/preferences';
 import { setShortcutOverrides } from '../commands/registry';
@@ -13,6 +20,7 @@ export const LEGACY_CANVAS_KEYS = {
   followAgent: 'helper.canvas.follow',
 } as const;
 
+/** The canvas toggles the old keys held, and the part of Storage the move needs (tests pass a fake). */
 type CanvasToggles = Pick<Preferences['canvas'], 'showDescriptions' | 'showMinimap' | 'followAgent'>;
 type StorageLike = Pick<Storage, 'getItem' | 'removeItem'>;
 
@@ -56,6 +64,7 @@ export async function migrateLegacyCanvas(
   return true;
 }
 
+/** The window's localStorage, or null where it is missing or blocked. */
 function storage(): StorageLike | null {
   try {
     return typeof window === 'undefined' ? null : window.localStorage;
@@ -83,6 +92,7 @@ function apply(next: Preferences, previous: Preferences | null): void {
   if (!previous) useLessonStore.getState().hydrate(next.lessons);
 }
 
+/** The uninstall of the current installation, returned again by a second call. */
 let installed: (() => void) | null = null;
 
 /**

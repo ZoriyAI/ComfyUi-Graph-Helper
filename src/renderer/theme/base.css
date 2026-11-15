@@ -3,6 +3,7 @@
  * Component styling lives in CSS Modules next to each component (ui/, components/shell, library, sync, settings).
  * The legacy .ghost-button / .send-button / .pause-button / .field-hint / .sr-only classes stay global because
  * canvas and chat panels still use them on raw elements; ui/Button adds .ghost-button to its ghost variant.
+ * Loaded through src/renderer/theme.css (@import), after tokens.css which index.tsx imports.
  */
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; background: var(--bg); color: var(--text); }

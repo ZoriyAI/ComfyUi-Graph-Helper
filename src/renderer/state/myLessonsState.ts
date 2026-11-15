@@ -1,7 +1,8 @@
 /**
  * "My lessons" in the window: the person's own, imported and accepted lessons as main keeps them in the profile,
  * and the lesson being written in the editor. The Lessons panel lists and runs them from here; the lesson state
- * (lessonState.ts) asks here whether a `my:` lesson can be opened.
+ * (lessonState.ts) asks here whether a `my:` lesson can be opened. Callers: components/lessons (LessonPanel,
+ * MyLessons, LessonEditor, LessonDraftCard, lessonAuthoring.ts, lessonFiles.ts) and state/lessonState.ts.
  *
  * Why a store of its own: the built-in lessons are constants of the app, these come and go (import, remove,
  * accept a draft). Main is the only one that writes them; this store only reads them back after every change.
@@ -30,6 +31,7 @@ interface MyLessonsState {
   setEditing: (editing: EditorState | null) => void;
 }
 
+/** My lessons as main last listed them, and the lesson open in the editor. */
 export const useMyLessonsStore = create<MyLessonsState>((set) => ({
   lessons: [],
   loaded: false,

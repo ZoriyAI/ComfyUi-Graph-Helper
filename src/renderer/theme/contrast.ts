@@ -1,10 +1,13 @@
 /**
  * WCAG 2.x contrast helpers and the token pairs the interface actually paints.
  * tests/unit/contrast.test.ts reads tokens.css, resolves every pair below and checks the floor;
- * theme/CONTRAST.md records the measured values.
+ * theme/CONTRAST.md records the measured values. Only that test imports this module; the app does not.
+ * Why: readable text on every surface is a product rule (WCAG AA), and a token change must not break it unseen.
  */
+/** A colour as red, green and blue, 0 to 255. */
 export type Rgb = [number, number, number];
 
+/** Reads '#rrggbb', 'rgb(...)' or 'rgba(...)' (alpha ignored here); null for anything else. */
 export function parseColor(value: string): Rgb | null {
   const text = value.trim();
   const hex = text.match(/^#([0-9a-f]{6})$/i);
@@ -28,19 +31,23 @@ export function alphaOf(value: string): number {
   return parts.length === 4 && Number.isFinite(parts[3]) ? parts[3] : 1;
 }
 
+/** `top` at `alpha` painted over `below`: the colour the eye sees. */
 export function blend(top: Rgb, alpha: number, below: Rgb): Rgb {
   return [0, 1, 2].map((index) => Math.round(top[index] * alpha + below[index] * (1 - alpha))) as Rgb;
 }
 
+/** One sRGB channel made linear, as WCAG defines it. */
 function channel(value: number): number {
   const scaled = value / 255;
   return scaled <= 0.03928 ? scaled / 12.92 : ((scaled + 0.055) / 1.055) ** 2.4;
 }
 
+/** WCAG relative luminance, 0 (black) to 1 (white). */
 export function luminance([r, g, b]: Rgb): number {
   return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
 }
 
+/** WCAG contrast ratio, 1 to 21; 4.5 is the floor for body text, 3 for large text and non-text marks. */
 export function contrastRatio(a: Rgb, b: Rgb): number {
   const left = luminance(a);
   const right = luminance(b);
@@ -63,6 +70,7 @@ export function readRootTokens(css: string): Record<string, string> {
   return Object.fromEntries(Object.entries(raw).map(([key, value]) => [key, resolve(value)]));
 }
 
+/** One colour pair the interface paints, with the ratio it must reach and where it is used. */
 export interface ContrastPair {
   /** Text token. */
   fg: string;
@@ -73,8 +81,10 @@ export interface ContrastPair {
   use: string;
 }
 
+/** The surfaces body text can sit on. */
 const SURFACES = ['--surface-canvas', '--surface-panel', '--surface-raised', '--surface-overlay', '--surface-sunken', '--surface-hover'];
 
+/** Every pair the test checks. */
 export const CONTRAST_PAIRS: ContrastPair[] = [
   ...SURFACES.flatMap((bg) => [
     { fg: '--text', bg, min: 4.5, use: 'body text' },
@@ -107,10 +117,12 @@ export const CONTRAST_PAIRS: ContrastPair[] = [
   )),
 ];
 
+/** A pair with its measured ratio (0 when a token could not be read). */
 export interface MeasuredPair extends ContrastPair {
   ratio: number;
 }
 
+/** Measures each pair against the given tokens. */
 export function measurePairs(tokens: Record<string, string>, pairs: ContrastPair[] = CONTRAST_PAIRS): MeasuredPair[] {
   return pairs.map((pair) => {
     const fg = parseColor(tokens[pair.fg] ?? '');

@@ -1,14 +1,16 @@
 /**
  * Focus rescue: when keyboard focus falls to the page body, it is put back on a sensible element.
  *
- * Who uses it: App.tsx installs it once for the main window; commands/hotkeys.ts uses `focusRegion` for F6.
+ * Who uses it: App.tsx installs it once for the main window; commands/hotkeys.ts calls `cycleRegion` for F6 and
+ * Shift+F6.
  *
  * Why: after many actions the element that had focus disappeared or was switched off (a deleted node or link, a
  * lesson step's button, a dialog opened from a menu whose item is gone, the chat field while an answer streams,
  * entering or leaving a subgraph). Focus then went to the page body, and the next Tab started again at the menu
  * bar, 40 to 100 presses away from where the person was. One rule now covers all of them: focus goes back to the
  * last element the person used in that area if it can still take focus, else to a place the area marked for
- * this (data-focus-fallback), else to an earlier one, else to the element nearest to where the lost one was (a node next to the deleted node), else to the area's entry element.
+ * this (data-focus-fallback), else to the node nearest to where a lost node or link was, else to an element used
+ * earlier in that area, else to the area's entry element.
  * A click on an empty spot, or a focus change while the window is in the background, is left alone.
  */
 import { REGIONS, entryOf, nextRegion, regionIndexOf, usable } from './regions';
@@ -16,6 +18,7 @@ import { REGIONS, entryOf, nextRegion, regionIndexOf, usable } from './regions';
 /** Where an element was on screen, to find its nearest neighbour after it is gone. */
 export interface Spot { x: number; y: number }
 
+/** One focused element as remembered: its area, its centre on screen, and whether it was a node, link or handle. */
 interface Remembered { element: HTMLElement; region: number; spot: Spot | null; nodeLike: boolean }
 
 /** How many recent elements are kept per area. */
@@ -54,9 +57,11 @@ function centre(element: Element): Spot | null {
   return box.width > 0 ? { x: box.left + box.width / 2, y: box.top + box.height / 2 } : null;
 }
 
+/** Recent focused elements per area index (newest last), and the area that had focus last. */
 const histories = new Map<number, Remembered[]>();
 let lastRegion = -1;
 
+/** Records a newly focused element in its area's history; elements inside floating layers are skipped. */
 function remember(element: Element | null): void {
   if (!(element instanceof HTMLElement) || element === document.body || element.closest(LAYER)) return;
   const region = regionIndexOf(element);
@@ -118,6 +123,7 @@ export function installFocusRescue(): () => void {
     const active = document.activeElement;
     if (active && active !== document.body && active !== document.documentElement) return;
     // A click on an empty spot moves focus nowhere on purpose; a window in the background is not ours to change.
+    // A pointer press in the last 600 ms means the person clicked, so the empty focus is theirs.
     if (Date.now() - pointerAt < 600 || !document.hasFocus()) return;
     // An open dialog or menu owns focus; it returns focus itself when it closes.
     if (document.querySelector('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"], [role="menu"][data-state="open"]')) return;

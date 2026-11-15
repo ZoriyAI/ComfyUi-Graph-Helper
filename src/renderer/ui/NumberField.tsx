@@ -1,8 +1,12 @@
+/**
+ * A number input with step buttons. Who uses it: settings sections Canvas and Assistant, and the sync settings.
+ */
 import React, { useEffect, useId, useState } from 'react';
 import { Minus, Plus } from 'lucide-react';
 import styles from './NumberField.module.css';
 import { cx } from './cx';
 
+/** Props of NumberField; the two button labels are their accessible names. */
 export interface NumberFieldProps {
   label: string;
   value: number;
@@ -18,9 +22,11 @@ export interface NumberFieldProps {
   className?: string;
 }
 
+/** Rounds `value` to the step grid from `min` and keeps it in range; anything not a number becomes `min`. */
 export function clampNumber(value: number, min: number, max: number, step = 1): number {
   if (!Number.isFinite(value)) return min;
   const stepped = Math.round((value - min) / step) * step + min;
+  // Three decimals remove float noise from fractional steps (0.1 + 0.2).
   return Math.max(min, Math.min(max, Math.round(stepped * 1000) / 1000));
 }
 
@@ -56,6 +62,7 @@ export default function NumberField({ label, value, min, max, step = 1, unit, hi
           onChange={(event) => {
             setDraft(event.target.value);
             const parsed = Number(event.target.value);
+            // A value in range takes effect while typing; anything else waits for blur or Enter.
             if (event.target.value !== '' && Number.isFinite(parsed) && parsed >= min && parsed <= max) onChange(clampNumber(parsed, min, max, step));
           }}
           onBlur={(event) => commit(event.target.value)}

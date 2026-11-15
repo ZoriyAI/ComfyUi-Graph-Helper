@@ -1,11 +1,17 @@
+/**
+ * A labelled drop-down list. Who uses it: settings sections, components/shell/Toolbar.tsx (the provider choice)
+ * and components/library/ModelLibrary.tsx (kind, family and order).
+ */
 import React, { useEffect, useState } from 'react';
 import * as Select from '@radix-ui/react-select';
 import { Check, ChevronDown, Settings2 } from 'lucide-react';
 import styles from './SelectField.module.css';
 import { cx } from './cx';
 
+/** A window event that closes any open SelectField or SuggestField list (SettingsPanel sends it on Escape). */
 export const CLOSE_OPEN_SELECT = 'close-open-select';
 
+/** One choice of the list. */
 export interface SelectOption {
   value: string;
   label: string;
@@ -17,6 +23,7 @@ export interface SelectAction {
   onSelect: () => void;
 }
 
+/** Radix select values: an action row is `__action__:<index>`; '' (Radix refuses it) is stored as `__empty__`. */
 const ACTION_PREFIX = '__action__:';
 
 const EMPTY = '__empty__';

@@ -1,3 +1,7 @@
+/**
+ * Tooltips. Who uses it: index.tsx mounts HintProvider; the toolbar, dock, message input, settings and other
+ * controls wrap themselves in Hint.
+ */
 import React, { useCallback, useRef, useState } from 'react';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import styles from './Hint.module.css';
@@ -9,12 +13,14 @@ import { cx } from './cx';
  * and a hint opened by it stayed over the panels.
  */
 let keyboardNavigation = false;
+/** Keys that move focus on their own; any other key (Escape, Enter) does not count as keyboard navigation. */
 const NAVIGATION_KEYS = new Set(['Tab', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown']);
 if (typeof window !== 'undefined') {
   window.addEventListener('keydown', (event) => { keyboardNavigation = NAVIGATION_KEYS.has(event.key); }, true);
   window.addEventListener('pointerdown', () => { keyboardNavigation = false; }, true);
 }
 
+/** Mount once near the root; hints open after 400 ms. */
 export function HintProvider({ children }: { children: React.ReactNode }) {
   return <Tooltip.Provider delayDuration={400}>{children}</Tooltip.Provider>;
 }
