@@ -129,6 +129,11 @@ yourself and a task of your own. The app checks the graph; the run and the asses
 - [A quality rubric and a blind comparison](Blind-Compare.md): lesson "blind-compare". Criteria written before the run, two variants scored without knowing which is which, and a choice with its cost.
 - [Model card: family, parts and license](Reading-A-Model-Card.md): lesson "model-card". A compatibility card for one model with its sources and unknowns, and the model tried with a LoRA of its own family.
 
+### Diagnostics, performance and safety
+Lessons of the new standard on finding the cause of a failure, auditing what you run and seeing what leaves your
+computer. The app reads and checks; everything done in ComfyUI is your own word.
+
+- [Diagnosing missing nodes, models and IMPORT FAILED](Diagnose-Missing.md): lesson "diagnose-missing". One failure named by its class with evidence, a known-good small graph that runs, and a fix confirmed by a second run.
 
 ### For adults (18+)
 Closed until the switch **Adult content (18+)** in **Settings ▸ Privacy** is on. Technique in general words for lawful adult (18+) work with consent; see [Content rules](../trust/Content-Rules.md).

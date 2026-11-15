@@ -134,6 +134,7 @@ export const LESSON_PROGRAMME: Readonly<Record<string, LessonPlace>> = {
   'blind-compare': at(2, 'core', 'base', 'image'),
   // Reliable practice: reading a model card; diagnostics, performance and safety.
   'model-card': at(2, 'core', 'base'),
+  'diagnose-missing': at(2, 'core', 'base'),
   // For adults: behind the switch, never on a path while it is off.
   'adult-image': at(3, 'deep', 'image'),
   'adult-lora': at(3, 'deep', 'image', 'lora'),

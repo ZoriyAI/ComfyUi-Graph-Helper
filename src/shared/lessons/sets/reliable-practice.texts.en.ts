@@ -166,4 +166,149 @@ export const RELIABLE_EN: Record<string, LessonWords> = {
       },
     },
   },
+  'diagnose-missing': {
+    title: 'Diagnosing missing nodes, models and IMPORT FAILED',
+    result: 'One failure named by its class with evidence, a known-good small graph that runs, and a fix confirmed by a second run.',
+    roles: GRAPH_ROLES,
+    meta: {
+      skill: 'Name the class of a ComfyUI failure (a node, a model, a pack that failed to import, the frontend, the environment) with evidence before installing anything.',
+      requires: ['A workflow that fails in your ComfyUI, with its error.', 'The lesson “A first picture from text”, or the same graph built by hand.', 'Access to the terminal or log of ComfyUI.'],
+      mistakes: [
+        {
+          sign: 'A node is red, and you install the first pack a search shows.',
+          fix: 'First read why it is red. A pack that is installed but failed to import needs its error read, not a second copy. Look for “(IMPORT FAILED)” in the start log.',
+        },
+        {
+          sign: '“Value not in list: ckpt_name” and you reinstall ComfyUI.',
+          fix: 'That is a missing model file, not a broken install. Put the file the workflow names into its folder, refresh ComfyUI and run again.',
+        },
+        {
+          sign: 'Everything fails, even the small picture graph.',
+          fix: 'Then it is not the workflow. Start ComfyUI with `--disable-all-custom-nodes`: if the small graph runs then, a pack breaks the start; if not, it is the environment (Python, the graphics driver, the install).',
+        },
+        {
+          sign: 'You updated everything at once to fix one node, and now more fails.',
+          fix: 'Go back with the snapshot you saved (“Restore” in ComfyUI Manager, applied at the next start), then change one thing at a time.',
+        },
+      ],
+      provenance: 'Built on ComfyUI\'s own nodes and its official troubleshooting pages (docs.comfy.org), the start log of ComfyUI and the ComfyUI Manager README. No workflow comes with the lesson: you use one that fails for you.',
+      notChecked: 'The app reads which nodes your ComfyUI has and checks the small graph on the canvas. It does not run anything, does not read the log of ComfyUI, does not install or update anything and does not know your versions: the evidence, the fix and every run are your own word.',
+    },
+    steps: {
+      intro: {
+        title: 'Find the class before you install',
+        body: 'A red node or a red message tempts you to install something at once. Often that makes it worse: a second copy of a pack, an update that breaks another pack.\n\nThe route of this lesson: the error and its object, the versions, the class of the problem with evidence, a known-good small graph, then a fix or a way back. Only the fix changes anything, and only after a backup.',
+      },
+      ready: {
+        title: 'Before you change anything',
+        body: 'One thing the app sees, two only you can do.',
+        items: {
+          comfy: { label: 'ComfyUI is running, and the app has read it.', how: 'The app sees this when it has read your ComfyUI (Sync).' },
+          version: { label: 'I wrote the versions of ComfyUI, Python and PyTorch.', how: 'The About page in the settings of ComfyUI lists them.' },
+          backup: { label: 'I have a way back: a snapshot, or a copy of the custom_nodes folder.', how: 'ComfyUI Manager has “Save snapshot”; or copy custom_nodes before you touch it.' },
+        },
+      },
+      kinds: {
+        title: 'Five classes and their signs',
+        body: '- **A node is missing**: the workflow names a node your ComfyUI does not have. ComfyUI lists the missing node types when it opens the workflow; this app\'s Check lists “Nodes that are not installed”.\n- **A model is missing**: “Value not in list: ckpt_name: … not in []”, or a dialog “This workflow is missing models”. The node is there; the file is not in its folder.\n- **A pack failed to import**: the pack is installed, but at start ComfyUI printed “Cannot import … module for custom nodes” with a traceback, and the list “Import times for custom nodes:” shows the pack with “(IMPORT FAILED)”. Usually a Python package is missing or of the wrong version.\n- **The frontend**: the canvas or a menu misbehaves while the graph itself is fine. Switching off the third-party extensions in the settings of ComfyUI tells.\n- **The environment**: even ComfyUI\'s own nodes fail: the Python, the graphics driver or the install.\n\nParts of different families give their own message, such as “mat1 and mat2 shapes cannot be multiplied”: the file is there but does not fit.',
+      },
+      evidence: {
+        title: 'Collect the evidence',
+        body: 'Work on the workflow that fails. Opening it in this app runs nothing: “File ▸ Open workflow…”.',
+        items: {
+          error: { label: 'I copied the full text of the error of ComfyUI.', how: 'The red message, or “Show report” in the dialog of a failed run, or the lines in the terminal.' },
+          explain: { label: 'I pasted it into “Explain a ComfyUI error…” in this app and read the meaning.', how: 'The item is in the “Graph” menu and the “Help” menu. It shows the nodes the error names.' },
+          check: { label: 'I opened the workflow in this app and pressed “Check graph”.', how: 'Write down “Nodes that are not installed” and “Models that are not on disk”.' },
+          log: { label: 'I read the start log of ComfyUI for “(IMPORT FAILED)”.', how: 'The list “Import times for custom nodes:” near the end of the start; the traceback of a failed pack is above it.' },
+        },
+      },
+      classify: {
+        title: 'Name the class',
+        body: 'Now decide, on paper, before you install anything.',
+        items: {
+          class: { label: 'I wrote the class: node, model, pack import, frontend or environment.' },
+          proof: { label: 'I wrote the line of evidence that shows it.', how: 'One line of the error, the check or the log.' },
+          nothing: { label: 'I have installed and updated nothing so far.' },
+        },
+      },
+      core: {
+        title: 'ComfyUI\'s own nodes are there',
+        body: 'The first fork: does ComfyUI itself work? The app checks that three of its own nodes are installed: KSampler, Load Checkpoint and Save Image. If they are missing, the problem is the environment, not a pack.',
+      },
+      graph: {
+        title: 'A known-good small graph',
+        body: `Start a new graph (“File ▸ New project”; the open one stays in the history). ${GRAPH}\n\nThis graph uses only ComfyUI\'s own nodes. If it runs, ComfyUI works, and the failure lives in the parts the failing workflow adds.`,
+      },
+      complete: {
+        title: 'Every node is in your ComfyUI',
+        body: 'The app checks that every node of the small graph is installed in your ComfyUI.',
+      },
+      test: {
+        title: 'Test, fix, run again',
+        body: `${RUN}\n\nThen fix by the class you named, one change at a time:\n- a missing node: install its pack through ComfyUI Manager (“Install Missing Custom Nodes” lists the packs of the open workflow), after checking the pack (the lesson “Auditing someone else\'s workflow and a custom pack”);\n- a missing model: put the file into its folder and refresh ComfyUI;\n- a failed import: update that pack through Manager, or remove it, then restart;\n- the frontend: switch off third-party extensions, then switch them on half at a time.\n\nEvery change to packs can break something: keep your snapshot. ${OWN_WORD}`,
+        items: {
+          baseline: { label: 'The small graph ran, and a picture appeared.', how: 'A new file in the output folder of ComfyUI.' },
+          half: { label: 'I started ComfyUI once with `--disable-all-custom-nodes` to see whether a pack breaks the start.', how: 'In the portable build, add the flag to a copy of its start file.' },
+          fix: { label: 'I made one change that matches the class I named.' },
+          rerun: { label: 'I ran the failing workflow again, and the error is gone or has changed.', how: 'Compare the new error, if any, with the first one.' },
+        },
+      },
+      assess: {
+        title: 'How did the diagnosis go?',
+        body: 'Judge your own work. The app records your choice and nothing else.',
+        criteria: {
+          class: {
+            title: 'The failure is named by its class with a line of evidence.',
+            levels: { no: 'No', partly: 'Partly', yes: 'Yes' },
+            tryNext: 'Read the error once more, then the start log. The line that names the node, the file or the pack is the evidence.',
+          },
+          first: {
+            title: 'I named the class before I installed or updated anything.',
+            levels: { no: 'No', yes: 'Yes' },
+            tryNext: 'Go back with your snapshot and start again from the evidence. A fix found by chance is not a diagnosis.',
+          },
+          minimal: {
+            title: 'The known-good small graph ran in my ComfyUI.',
+            levels: { no: 'No', yes: 'Yes' },
+            tryNext: 'If even it fails, the problem is the environment: compare your versions with the About page and the ComfyUI install notes.',
+          },
+          fixed: {
+            title: 'The failing workflow runs now, or I know the exact next step.',
+            levels: { no: 'No', partly: 'Partly', yes: 'Yes' },
+            tryNext: 'Write a report for the pack\'s author: the versions, the error, the start log and the smallest workflow that fails.',
+          },
+        },
+      },
+      recall: {
+        title: 'Check yourself',
+        body: 'Three short questions. A wrong answer costs nothing: read the explanation and go on.',
+        questions: {
+          'not-in-list': {
+            text: '“Value not in list: ckpt_name: … not in []”. What is missing?',
+            choices: { node: 'A node', model: 'A model file', pack: 'A pack' },
+            explain: 'The node is there; the file it asks for is not in its folder.',
+          },
+          import: {
+            text: 'The start log shows a pack with “(IMPORT FAILED)”. Where is the problem?',
+            choices: { model: 'In a model file', pack: 'In that pack or what it needs', frontend: 'In the frontend' },
+            explain: 'The pack is installed but could not load. The traceback above the list says why, often a missing Python package.',
+          },
+          core: {
+            text: 'KSampler itself is missing in your ComfyUI. What class is that?',
+            choices: { pack: 'A missing pack', environment: 'The environment', model: 'A missing model' },
+            explain: 'KSampler is a node of ComfyUI itself. When it is missing, the install or its Python is broken, not a pack.',
+          },
+        },
+      },
+      transfer: {
+        title: 'On your own: a report',
+        body: 'Use the route on the next failure you meet, without help, and write it up so another person could repeat it.',
+        items: {
+          next: { label: 'I took a new failure and named its class with evidence before changing anything.' },
+          report: { label: 'I wrote a report: the versions, the error, the log lines and what I tried.' },
+          minimal: { label: 'I cut the failing workflow down to the fewest nodes that still fail, and saved it with the report.' },
+        },
+      },
+    },
+  },
 };

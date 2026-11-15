@@ -165,15 +165,65 @@ const modelCard: Lesson = {
   ],
 };
 
+/**
+ * N30: name the class of a failure (a node, a model, a pack that failed to import, the frontend, the environment)
+ * with evidence before installing anything; then prove the environment on a known-good small graph and confirm the
+ * fix by running the failing workflow again.
+ */
+const diagnoseMissing: Lesson = {
+  id: 'diagnose-missing',
+  standard: 2,
+  outcomes: ['structure', 'run', 'result'],
+  meta: { prerequisites: ['image'], versions: [CORE, FRONTEND], checkedOn: CHECKED_ON },
+  steps: [
+    { id: 'intro', read: true },
+    { id: 'ready', checklist: [{ id: 'comfy', check: { kind: 'comfy-read' } }, { id: 'version' }, { id: 'backup' }] },
+    { id: 'kinds', read: true },
+    { id: 'evidence', checklist: [{ id: 'error' }, { id: 'explain' }, { id: 'check' }, { id: 'log' }] },
+    { id: 'classify', checklist: [{ id: 'class' }, { id: 'proof' }, { id: 'nothing' }] },
+    {
+      id: 'core',
+      readCheck: [
+        { kind: 'node-class', classes: ['KSampler'] },
+        { kind: 'node-class', classes: ['CheckpointLoaderSimple'] },
+        { kind: 'node-class', classes: ['SaveImage'] },
+      ],
+    },
+    { id: 'graph', ...baseGraph },
+    { id: 'complete', readCheck: [{ kind: 'workflow-complete' }] },
+    { id: 'test', checklist: [{ id: 'baseline', run: true }, { id: 'half', optional: true }, { id: 'fix' }, { id: 'rerun', run: true }] },
+    {
+      id: 'assess',
+      rubric: [
+        { id: 'class', levels: ['no', 'partly', 'yes'] },
+        { id: 'first', levels: ['no', 'yes'], pass: 'yes' },
+        { id: 'minimal', levels: ['no', 'yes'] },
+        { id: 'fixed', levels: ['no', 'partly', 'yes'] },
+      ],
+    },
+    {
+      id: 'recall',
+      quiz: [
+        { id: 'not-in-list', choices: ['node', 'model', 'pack'], answer: 'model' },
+        { id: 'import', choices: ['model', 'pack', 'frontend'], answer: 'pack' },
+        { id: 'core', choices: ['pack', 'environment', 'model'], answer: 'environment' },
+      ],
+    },
+    { id: 'transfer', transfer: true, checklist: [{ id: 'next' }, { id: 'report' }, { id: 'minimal' }] },
+  ],
+};
+
 /** The lessons of the set, in the order a person meets them. */
-export const RELIABLE_LESSONS: Lesson[] = [modelCard];
+export const RELIABLE_LESSONS: Lesson[] = [modelCard, diagnoseMissing];
 
 /** The group of each lesson and the lessons it goes on from. */
 export const RELIABLE_PATH: Record<string, { group: LessonGroup; follows: string[] }> = {
   'model-card': { group: EXPERIMENTS_GROUP, follows: ['image'] },
+  'diagnose-missing': { group: DIAGNOSTICS_GROUP, follows: ['image'] },
 };
 
 /** The graph each lesson starts from. */
 export const RELIABLE_AFTER: Record<string, string[]> = {
   'model-card': ['image'],
+  'diagnose-missing': ['image'],
 };
