@@ -352,7 +352,7 @@ export const IMAGE_TECHNIQUES_RU: Record<string, LessonWords> = {
       },
       graph: {
         title: 'Нужен граф с ControlNet',
-        body: 'На холсте должны быть {cnLoader}, {control}, {apply} и {sampler}, как их оставил урок о ControlNet.\n\nЕсли их нет, сначала пройдите тот урок.',
+        body: 'На холсте должны быть {checkpoint}, {cnLoader}, {control}, {apply} и {sampler}, как их оставил урок о ControlNet.\n\nЕсли их нет, сначала пройдите тот урок.',
       },
       depth: {
         title: 'Сделайте карту глубины',

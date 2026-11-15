@@ -300,8 +300,10 @@ const controlnetDepth: Lesson = {
     { id: 'intro', read: true },
     {
       id: 'graph',
-      roles: [node('cnLoader', 'ControlNetLoader'), node('control', 'LoadImage'), node('apply', 'ControlNetApplyAdvanced'), node('sampler', 'KSampler')],
-      links: [link('cnLoader', 'CONTROL_NET', 'apply', 'control_net'), link('apply', 'positive', 'sampler', 'positive', COND_VIA)],
+      // The checkpoint of the ControlNet lesson's graph is named too: the depth ControlNet is held to its family
+      // (fileTables FAMILY_PAIRS), and a rule on a role the lesson never brings would never apply.
+      roles: [node('checkpoint', 'CheckpointLoaderSimple'), node('cnLoader', 'ControlNetLoader'), node('control', 'LoadImage'), node('apply', 'ControlNetApplyAdvanced'), node('sampler', 'KSampler')],
+      links: [link('checkpoint', 'MODEL', 'sampler', 'model', MODEL_VIA), link('cnLoader', 'CONTROL_NET', 'apply', 'control_net'), link('apply', 'positive', 'sampler', 'positive', COND_VIA)],
     },
     {
       id: 'depth',

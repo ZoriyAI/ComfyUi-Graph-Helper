@@ -134,7 +134,7 @@ export type FieldTest =
   | { kind: 'same'; role: string; field: string };
 
 /** The roles a field rule looks at besides its own. */
-function otherRoles(test: FieldTest): string[] {
+export function otherRoles(test: FieldTest): string[] {
   if (test.kind === 'has-trigger') return test.of.flatMap((item) => ('role' in item ? [item.role] : []));
   if (test.kind === 'text') return test.notCopyOf ? [test.notCopyOf.role] : [];
   if (test.kind === 'size') return [test.of.role];

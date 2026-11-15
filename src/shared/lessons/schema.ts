@@ -1,4 +1,4 @@
-import type { FieldSpec, Lesson, LinkSpec } from './engine';
+import { otherRoles, type FieldSpec, type Lesson, type LinkSpec } from './engine';
 import { FILES } from './files';
 
 /**
@@ -40,8 +40,11 @@ function fieldProblems(spec: FieldSpec, known: ReadonlySet<string>, reasons: Rea
   const out: string[] = [];
   if (!known.has(spec.role)) out.push(`the field ${spec.field} names the role "${spec.role}" before any step brings it`);
   const test = spec.test;
-  if ((test.kind === 'differs' || test.kind === 'same' || test.kind === 'less' || test.kind === 'aspect') && !known.has(test.role)) {
-    out.push(`the rule on ${spec.field} compares with the role "${test.role}", which no step brings`);
+  // Every role a rule looks at besides its own (sameFamily, the trigger sources, the text it must not copy, the
+  // size it follows too): the engine never applies a rule whose roles are not all on the canvas, so a rule naming a
+  // role nobody brings would silently do nothing.
+  for (const role of new Set(otherRoles(test))) {
+    if (!known.has(role)) out.push(`the rule on ${spec.field} compares with the role "${role}", which no step brings`);
   }
   if (test.kind === 'between') {
     if (test.min > test.max) out.push(`the range of ${spec.field} runs backwards`);

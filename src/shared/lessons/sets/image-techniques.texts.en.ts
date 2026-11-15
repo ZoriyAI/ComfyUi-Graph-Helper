@@ -353,7 +353,7 @@ export const IMAGE_TECHNIQUES_EN: Record<string, LessonWords> = {
       },
       graph: {
         title: 'The ControlNet graph is needed',
-        body: 'The canvas must have {cnLoader}, {control}, {apply} and {sampler} as the ControlNet lesson leaves them.\n\nIf they are not there, do that lesson first.',
+        body: 'The canvas must have {checkpoint}, {cnLoader}, {control}, {apply} and {sampler} as the ControlNet lesson leaves them.\n\nIf they are not there, do that lesson first.',
       },
       depth: {
         title: 'Make the depth map',

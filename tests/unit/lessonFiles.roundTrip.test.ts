@@ -6,10 +6,10 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { lessonProgress, type Lesson, type LessonFacts, type LessonGraph } from '../../src/shared/lessons/engine';
+import { lessonProgress, otherRoles, type Lesson, type LessonFacts, type LessonGraph } from '../../src/shared/lessons/engine';
 import { LESSONS, LESSON_AFTER, LESSON_PATH, isAdultLesson, lessonById } from '../../src/shared/lessons/lessons';
 import { lessonWords } from '../../src/shared/lessons/texts';
-import { allBuiltinLessonsFile, builtinGroupFile, builtinGroupIds, builtinLessonDoc, deadRules, liveLesson } from '../../src/shared/lessons/share/builtin';
+import { allBuiltinLessonsFile, builtinGroupFile, builtinGroupIds, builtinLessonDoc } from '../../src/shared/lessons/share/builtin';
 import { engineLesson, readLessonFileText, type LessonDoc } from '../../src/shared/lessons/share/format';
 import { lessonShapes, tryLesson } from '../../src/shared/lessons/share/tryLesson';
 
@@ -40,8 +40,8 @@ describe('every built-in lesson as a lesson file', () => {
   it('gives back the same steps, words, group, order and adult flag', () => {
     for (const lesson of LESSONS) {
       const doc = docs.get(lesson.id)!;
-      // Equal to the lesson as the engine applies it: rules naming a role the lesson never brings are left out (liveLesson).
-      expect(engineLesson(doc, lesson.id), lesson.id).toEqual(liveLesson(lesson));
+      // Equal to the lesson itself: the export leaves no rule out.
+      expect(engineLesson(doc, lesson.id), lesson.id).toEqual(lesson);
       expect(doc.texts.en, lesson.id).toEqual(lessonWords('en', lesson.id));
       expect(doc.texts.ru, lesson.id).toEqual(lessonWords('ru', lesson.id));
       expect(doc.group, lesson.id).toEqual(LESSON_PATH[lesson.id].group);
@@ -52,10 +52,13 @@ describe('every built-in lesson as a lesson file', () => {
     }
   });
 
-  it('leaves out only rules the engine never applies, and names them', () => {
-    // Each is a field rule of a set's table naming a role of the lesson this one continues: dead in the engine.
-    console.info(`Built-in rules naming a role their lesson never brings: ${deadRules().join('; ') || 'none'}`);
-    for (const rule of deadRules()) expect(rule).toMatch(/^[a-z0-9-]+\/[a-z0-9-]+: /);
+  it('has no rule that names a role its lesson never brings, so the export drops nothing', () => {
+    // The engine never applies such a rule; schema.ts lessonProblems reports it, and a lesson file refuses it.
+    const brought = (lesson: (typeof LESSONS)[number]) => new Set(lesson.steps.flatMap((step) => (step.roles ?? []).map((spec) => spec.role)));
+    const dead = LESSONS.flatMap((lesson) => lesson.steps.flatMap((step) => (step.fields ?? [])
+      .filter((spec) => ![spec.role, ...otherRoles(spec.test)].every((role) => brought(lesson).has(role)))
+      .map((spec) => `${lesson.id}/${step.id}: ${spec.role}.${spec.field} (${spec.test.kind})`)));
+    expect(dead).toEqual([]);
   });
 
   it('exports each group as a pack that reads back', () => {
