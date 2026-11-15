@@ -10,6 +10,7 @@ The context window is how much text a model can read at once: the instructions, 
 - It reads the real window from your server (Ollama, LM Studio, a llama.cpp server, vLLM) when you press **Test connection** and while it answers.
 - It keeps the newest messages within 70 % of the window and tells the model how many earlier messages it left out.
 - Under 16 000 tokens it saves room: it offers the model fewer tools. "From the next question the assistant saves room: it offers the model fewer tools."
+- When the window is small or not known, it sends a shorter plan of the graph from the first question, and keeps the data it sends within about a third of the window.
 - It says so when the window is too small.
 
 ## What the app says
@@ -25,9 +26,9 @@ The context window is how much text a model can read at once: the instructions, 
 ## What to do when it is small
 
 1. Raise the window on the server to at least 16 384 tokens:
-   - **Ollama**: the variable `OLLAMA_CONTEXT_LENGTH` when the server starts, or `num_ctx` on the model. The steps with commands: [Ollama](Ollama.md). The app shows them too, under "How to do it (Ollama on Linux)", with **Copy**.
-   - **LM Studio**: load the model again with a larger context length.
-   - **llama.cpp**: start `llama-server` with a larger `-c`.
+   - **Ollama**: the variable `OLLAMA_CONTEXT_LENGTH` when the server starts, or `num_ctx` on the model. The steps with commands: [Ollama](Ollama.md). The app shows them too, under "How to do it (Ollama on Linux)", with **Copy**. Simpler: after **Test connection**, **Make a copy with a 16,384-token window** in Settings ▸ Assistant makes a copy of the model with the larger window, without downloading anything.
+   - **LM Studio**: load the model again with a larger "Context Length", or set it in the model's default settings.
+   - **llama.cpp**: start `llama-server` with a larger `-c`, and with `--jinja`, which tool calling needs.
    - **vLLM**: a larger `--max-model-len`.
 2. A larger window needs more memory. If the model gets slow or does not load, choose a smaller window or a smaller model.
 3. Ask again.

@@ -29,6 +29,8 @@ Every question you ask goes to the model you chose, together with what the model
 - Turn off **Send field values to the model**.
 - Turn off **Allow web search** and **Allow reading web pages** (Settings ▸ Assistant).
 - Use your own server: nothing then leaves your computers.
+- Choose no assistant: nothing is sent at all, and a question about an object is answered from the built-in knowledge in the Explain tab. See [Working without a model](Without-A-Model.md).
+- When the cloud provider's own web search is used, the provider sees the search words.
 - Turn off **Keep chat history in the project** if you do not want the conversation stored.
 
 ## See also

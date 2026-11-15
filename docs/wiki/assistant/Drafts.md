@@ -12,7 +12,7 @@ A grey draft is a change the assistant suggests but has not made: a node, a link
 | Draft | On the canvas |
 |---|---|
 | **Add a node** | a grey node, "Suggested node KSampler" |
-| **Connect** | a grey dashed link, "Suggested connection" |
+| **Connect** | a grey dashed link, "Suggested link" |
 | **Set a value** | a mark on the field, "Suggested value" |
 | **Make a subgraph** / **Insert a subgraph** | a grey block |
 | **Remove a node** | the node marked "Suggested removal" |
