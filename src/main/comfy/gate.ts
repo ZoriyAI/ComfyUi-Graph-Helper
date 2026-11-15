@@ -5,6 +5,8 @@
  * the closed list of read routes below: GET only, no body, no redirect followed, a byte cap and a time limit per
  * route. A route that queues a prompt, uploads, frees memory, interrupts, deletes or writes history, writes user
  * data or settings, or installs anything has no constructor here and cannot be asked for.
+ * Callers: comfy/direct.ts (catalog read, metadata, previews) and comfy/read.ts (the object_info read the MCP
+ * client does when a server names its ComfyUI). The product rule behind it: the tutor never changes ComfyUI.
  *
  * Verified against ComfyUI's public source (comfyanonymous/ComfyUI at eee59185, version 0.45.0, November 2026):
  * server.py (`/system_stats`, `/object_info`, `/models`, `/models/{folder}`, `/view_metadata/{folder}`),
@@ -27,11 +29,13 @@ export interface ComfyRoute {
 }
 
 const MB = 1024 * 1024;
-const SMALL = { maxBytes: 4 * MB, timeoutMs: 20_000, kind: 'json' as const };
+/** Limits for the small JSON answers (stats, folder lists, metadata, the Manager's pack list). */
+const SMALL ={ maxBytes: 4 * MB, timeoutMs: 20_000, kind: 'json' as const };
 
 /** A folder name as ComfyUI names its model folders (checkpoints, loras, text_encoders, LLM …). */
 const FOLDER = /^[A-Za-z0-9_.-]{1,80}$/;
 
+/** The folder name encoded for a path, or ComfyGateError when it is not a plain folder name. */
 function folderOk(folder: string): string {
   if (!FOLDER.test(folder) || folder === '.' || folder === '..') throw new ComfyGateError('folder');
   return encodeURIComponent(folder);
@@ -91,6 +95,7 @@ const ALLOWED_PATHS: RegExp[] = [
   /^\/i18n$/,
 ];
 
+/** Thrown when code asks for a route or argument the gate does not allow; `reason` names which check refused. */
 export class ComfyGateError extends Error {
   constructor(readonly reason: string) {
     super('ComfyUI request refused by the read-only gate.');
@@ -116,12 +121,17 @@ export function comfyOriginOf(address: string): URL | null {
   return new URL(url.origin);
 }
 
+/** The result of one gated read: parsed JSON, a picture, or why it failed. */
 export type ComfyAnswer =
   | { ok: true; status: number; json: unknown; bytes: number }
   | { ok: true; status: number; image: Buffer; mime: string }
   | { ok: false; status: number | null; error: ComfyFailure };
 
-/** Why a read did not work: 'timeout' (slow), 'unreachable' (refused or no such host), 'http' (answered with an error), 'shape' (not JSON), 'large'. */
+/**
+ * Why a read did not work: 'timeout' (slow), 'unreachable' (connection refused), 'hostNotFound' (no such host),
+ * 'notFound' (404), 'http' (another error status), 'redirect' (a 3xx, never followed), 'shape' (not JSON, or not a
+ * picture for the preview route), 'large' (past the route's byte cap).
+ */
 export type ComfyFailure = 'timeout' | 'unreachable' | 'hostNotFound' | 'notFound' | 'http' | 'redirect' | 'shape' | 'large';
 
 /**
@@ -130,6 +140,7 @@ export type ComfyFailure = 'timeout' | 'unreachable' | 'hostNotFound' | 'notFoun
  */
 export async function comfyGet(origin: URL, route: ComfyRoute, fetchImpl: typeof fetch, signal?: AbortSignal): Promise<ComfyAnswer> {
   if (!comfyPathAllowed(route.path)) throw new ComfyGateError('path');
+  // A path such as `//host/x` would resolve to another origin; the second check refuses it.
   const target = new URL(route.path, origin);
   if (target.origin !== origin.origin) throw new ComfyGateError('origin');
   const controller = new AbortController();
@@ -139,6 +150,7 @@ export async function comfyGet(origin: URL, route: ComfyRoute, fetchImpl: typeof
   const timer = setTimeout(() => controller.abort(), route.timeoutMs);
   timer.unref?.();
   try {
+    // redirect: 'manual' so a 3xx cannot carry the request past the gate to a route or host it did not check.
     const response = await fetchImpl(target, { method: 'GET', redirect: 'manual', signal: controller.signal, headers: { accept: route.kind === 'json' ? 'application/json' : 'image/*' } });
     if (response.status >= 300 && response.status < 400) {
       await response.body?.cancel().catch(() => undefined);
@@ -161,6 +173,7 @@ export async function comfyGet(origin: URL, route: ComfyRoute, fetchImpl: typeof
       return { ok: false, status: response.status, error: 'shape' };
     }
   } catch (error) {
+    // The caller's own abort is reported as 'timeout' as well: either way the answer did not come in time.
     if (controller.signal.aborted) return { ok: false, status: null, error: 'timeout' };
     return { ok: false, status: null, error: connectFailureKind(error).kind === 'hostNotFound' ? 'hostNotFound' : 'unreachable' };
   } finally {

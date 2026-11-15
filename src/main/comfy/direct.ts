@@ -1,3 +1,10 @@
+/**
+ * The direct catalog read of a plain ComfyUI (no MCP server), and the address check of Settings > Connection.
+ * Used by mcp/sync.ts (readComfyDirect, metadata and previews), mcp/client.ts (collectComfyDirect for the nodes),
+ * knowledge/preview.ts (readComfyPreview), settings/connectionSuggestions.ts and ipc.ts (checkComfy).
+ * Collecting and publishing are split so no network wait happens inside a SQLite transaction.
+ * The details of what this path can and cannot give follow below the imports.
+ */
 import type Database from 'better-sqlite3';
 import type { McpModelFile, McpSession, McpToolCallResult } from '../../shared/mcp/catalogSource';
 import { isModelFileIn } from '../../shared/mcp/catalogSource';
@@ -89,6 +96,7 @@ export function comfyAddress(value: string): { ok: true; origin: URL; looksLikeM
   }
   if (url.protocol !== 'http:' && url.protocol !== 'https:') return { ok: false, error: COMFY_URL_PROTOCOL };
   if (url.username || url.password) return { ok: false, error: COMFY_URL_CREDENTIALS };
+  // The host as typed, not as URL parsed it: URL silently turns a typo such as `192.168.1` into a full IPv4 address.
   const typedHost = /^[a-z][a-z0-9+.-]*:\/\/(?:[^@/?#]*@)?(\[[^\]]*\]|[^:/?#]*)/i.exec(text)?.[1] ?? url.hostname;
   if (!isPlausibleHost(typedHost)) return { ok: false, error: comfyUrlBadHost(typedHost) };
   // An MCP server is usually reached at /mcp (Streamable HTTP) or /sse; ComfyUI itself has no such page.
@@ -96,7 +104,10 @@ export function comfyAddress(value: string): { ok: true; origin: URL; looksLikeM
   return { ok: true, origin: new URL(url.origin), looksLikeMcp };
 }
 
-/** True when a ComfyUI address points at another computer over plain http (allowed: nothing secret is sent). */
+/**
+ * True when a ComfyUI address points at another computer over plain http (allowed: nothing secret is sent).
+ * No caller in the app uses it at present.
+ */
 export function comfyAddressIsRemoteHttp(value: string): boolean {
   const checked = comfyAddress(value);
   return checked.ok && checked.origin.protocol === 'http:' && !isLoopbackHost(checked.origin.hostname);
@@ -120,6 +131,7 @@ export function comfyFailureSentence(answer: Extract<ComfyAnswer, { ok: false }>
   }
 }
 
+/** The facts of /system_stats the app keeps and shows. */
 export interface ComfySystem {
   version: string;
   os: string;
@@ -145,7 +157,8 @@ export function systemOf(json: unknown): ComfySystem | null {
   };
 }
 
-export type ComfyCheck = ({ ok: true; origin: string; local: boolean } & ComfySystem) | { ok: false; error: string };
+/** The answer of the Connection "Check" button: what ComfyUI is, or the sentence of what went wrong. */
+export type ComfyCheck =({ ok: true; origin: string; local: boolean } & ComfySystem) | { ok: false; error: string };
 
 /**
  * Settings ▸ Connection ▸ "Check": does ComfyUI answer at this address? One GET of /system_stats, through the gate.
@@ -162,6 +175,7 @@ export async function checkComfy(value: string, fetchImpl: typeof fetch, timeout
   return { ok: true, origin: address.origin.origin, local: isLoopbackHost(address.origin.hostname), ...system };
 }
 
+/** The JSON of a successful answer, or undefined for a failure or a picture. */
 function jsonOf(answer: ComfyAnswer): unknown {
   return answer.ok && 'json' in answer ? answer.json : undefined;
 }
@@ -237,6 +251,7 @@ async function readManagerPacks(origin: URL, fetchImpl: typeof fetch, signal?: A
   return packs;
 }
 
+/** A direct read that worked: what was read, from where, and the non-fatal gaps. */
 export interface DirectReadSuccess {
   ok: true;
   /** The address read, as an origin (`http://127.0.0.1:8188`). */
@@ -259,6 +274,7 @@ export interface DirectReadSuccess {
 
 export type DirectReadResult = DirectReadSuccess | { ok: false; error: string };
 
+/** Options shared by collecting and publishing a direct read. */
 export interface DirectReadOptions {
   signal?: AbortSignal;
   sourceKey?: string;
