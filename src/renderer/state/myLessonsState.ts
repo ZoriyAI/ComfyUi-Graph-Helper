@@ -17,6 +17,12 @@ import type { LessonWords } from '../../shared/lessons/texts';
 
 /** The lesson the editor holds: a new one made from the graph, or one of "My lessons" being changed. */
 export interface EditorState {
+  /** A distinct editing session; an old save never owns another session. */
+  session: number;
+  /** Every local edit advances the revision, even while a save is pending. */
+  revision: number;
+  /** The latest revision main confirmed, or null before the first save. */
+  savedRevision: number | null;
   model: LessonDraftModel;
   /** The app id of the lesson it replaces when saved, or null for a new one. */
   replaces: string | null;
@@ -28,8 +34,12 @@ interface MyLessonsState {
   editing: EditorState | null;
   /** Reads the list from main again (after start, an import, a save, a removal, an accepted draft). */
   refresh: () => Promise<void>;
-  setEditing: (editing: EditorState | null) => void;
+  setEditing: (editing: Pick<EditorState, 'model' | 'replaces'> | null) => void;
+  /** Changes the current draft without starting another session. */
+  updateEditing: (model: LessonDraftModel) => void;
 }
+
+let nextSession = 0;
 
 /** My lessons as main last listed them, and the lesson open in the editor. */
 export const useMyLessonsStore = create<MyLessonsState>((set) => ({
@@ -45,7 +55,8 @@ export const useMyLessonsStore = create<MyLessonsState>((set) => ({
       set({ loaded: true });
     }
   },
-  setEditing: (editing) => set({ editing }),
+  setEditing: (editing) => set({ editing: editing ? { ...editing, session: ++nextSession, revision: 0, savedRevision: null } : null }),
+  updateEditing: (model) => set((state) => ({ editing: state.editing ? { ...state.editing, model, revision: state.editing.revision + 1 } : null })),
 }));
 
 /** One of "My lessons" by its app id. */

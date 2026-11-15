@@ -58,9 +58,11 @@ export default function LessonEditor({ editing }: { editing: EditorState }) {
   const { t, i18n } = useTranslation();
   const tr = (key: string, values?: Record<string, unknown>) => String(values ? t(key, values) : t(key));
   const setEditing = useMyLessonsStore((state) => state.setEditing);
+  const updateEditing = useMyLessonsStore((state) => state.updateEditing);
   const details = useNodeInfoStore((state) => state.details);
   const [verdict, setVerdict] = useState<Verdict>(null);
-  const [busy, setBusy] = useState(false);
+  const [busySession, setBusySession] = useState<number | null>(null);
+  const busy = busySession === editing.session;
   const ids = useId();
   const { model, replaces } = editing;
   const problem = lessonDocProblem(docFromDraft(model));
@@ -79,7 +81,7 @@ export default function LessonEditor({ editing }: { editing: EditorState }) {
 
   const update = (change: Partial<LessonDraftModel>) => {
     setVerdict(null);
-    setEditing({ model: { ...model, ...change }, replaces });
+    updateEditing({ ...model, ...change });
   };
   const updateStep = (index: number, change: Partial<LessonDraftModel['steps'][number]>) => {
     update({ steps: model.steps.map((step, at) => (at === index ? { ...step, ...change } : step)) });
@@ -112,13 +114,13 @@ export default function LessonEditor({ editing }: { editing: EditorState }) {
       setVerdict(verdictOf(tr, check, i18n.language));
       return;
     }
-    setBusy(true);
+    setBusySession(editing.session);
     try {
       const outcome = await saveEditorLesson(draft, replaces);
       const refusal = refusalText(tr, outcome, i18n.language);
-      if (refusal) setVerdict({ ok: false, text: refusal });
+      if (refusal && useMyLessonsStore.getState().editing?.session === editing.session) setVerdict({ ok: false, text: refusal });
     } finally {
-      setBusy(false);
+      setBusySession((session) => session === editing.session ? null : session);
     }
   };
 
@@ -242,6 +244,7 @@ export default function LessonEditor({ editing }: { editing: EditorState }) {
         <Button variant="primary" size="sm" icon={<Save size={14} />} loading={busy} onClick={() => void save()}>{t('lessonFiles.editor.save')}</Button>
         <Button variant="ghost" size="sm" onClick={() => setEditing(null)}>{t('lessonFiles.editor.cancel')}</Button>
       </div>
+      {editing.savedRevision !== null && editing.savedRevision < editing.revision ? <p role="status" className={styles.ok}>{t('lessonFiles.editor.savedEarlier')}</p> : null}
       {verdict ? (
         <p className={verdict.ok ? styles.ok : styles.bad} role="status" data-editor-verdict={verdict.ok ? 'ok' : 'bad'}>
           {verdict.ok ? <Check size={14} aria-hidden="true" /> : null} {verdict.text}

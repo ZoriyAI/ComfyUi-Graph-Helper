@@ -84,15 +84,30 @@ export function tryEditorLesson(model: LessonDraftModel, replaces: string | null
   return checkLessonDoc(doc, (docId) => mine.find((lesson) => lesson.doc.id === docId)?.doc ?? null, known ? catalogShapes((classType) => details[classType]) : undefined);
 }
 
-/** Saves the lesson in the editor to "My lessons"; the editor closes when main kept it. */
+/** Saves a captured draft; only an unchanged session closes when main kept it and the list was refreshed. */
 export async function saveEditorLesson(model: LessonDraftModel, replaces: string | null): Promise<LessonImportOutcome> {
   const bridge = window.electronAPI;
   if (!bridge?.saveMyLesson) return { ok: false, error: 'unavailable' };
   const doc = editorDoc(model, replaces);
-  const outcome = await bridge.saveMyLesson(doc);
+  const origin = useMyLessonsStore.getState().editing;
+  let outcome: LessonImportOutcome;
+  try {
+    outcome = await bridge.saveMyLesson(doc);
+  } catch {
+    return { ok: false, error: 'The lesson file could not be written.' };
+  }
   if (outcome.ok) {
+    const current = useMyLessonsStore.getState().editing;
+    const unchanged = current?.session === origin?.session && current?.revision === origin?.revision && current?.model === origin?.model;
+    let savedModel = current?.model;
+    if (origin && current?.session === origin.session) {
+      // A new lesson keeps its first saved id even if the person changed the title while waiting.
+      savedModel = current.replaces ? current.model : { ...current.model, id: doc.id };
+      useMyLessonsStore.setState({ editing: { ...current, model: savedModel, replaces: current.replaces ?? myLessonId(doc.id), savedRevision: Math.max(current.savedRevision ?? -1, origin.revision) } });
+    }
     await useMyLessonsStore.getState().refresh();
-    useMyLessonsStore.getState().setEditing(null);
+    const after = useMyLessonsStore.getState().editing;
+    if (origin && unchanged && after?.session === origin.session && after.revision === origin.revision && after.model === savedModel) useMyLessonsStore.getState().setEditing(null);
     // The reading of a changed lesson starts over: its steps may be others now.
     useLessonStore.getState().again(myLessonId(doc.id));
     showToast({ id: 'lesson-editor', tone: 'success', title: String(i18n.t('lessonFiles.editor.saved')), duration: 4000 });

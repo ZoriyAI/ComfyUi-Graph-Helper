@@ -2,7 +2,7 @@
  * Lessons as files in the real app: a lesson file dropped on the lesson list lands in "My lessons" with the mark
  * "From a file" and is still there after a restart of the page; a refused file says why; every built-in lesson card
  * and group has its export button; "Make a lesson from this graph" opens the editor with steps from the canvas, the
- * lesson is tried and saved, and a lesson of the person can be removed.
+ * lesson is tried and saved, and a lesson of the person can be removed. A delayed save preserves newer typing.
  */
 
 import { test, expect, _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
@@ -165,6 +165,45 @@ test('a lesson write failure says it was not saved and a later import can succee
     await drop(page, 'first.lesson.json', fileText([sampleDoc()]));
     await expect(page.locator('[data-lesson-card="my:my-first"]')).toBeVisible();
     expect((await api('listMyLessons')).map((lesson: { id: string }) => lesson.id)).toEqual(['my:my-first']);
+  } finally {
+    await app.close();
+  }
+});
+
+test('typing during a delayed lesson save stays in the editor and can be saved again', async () => {
+  const { app, page, api } = await launch();
+  try {
+    await openLearn(page);
+    await drop(page, 'first.lesson.json', fileText([sampleDoc()]));
+    await page.locator('[data-lesson-card="my:my-first"]').getByRole('button', { name: 'Edit', exact: true }).click();
+    const editor = page.locator('[data-lesson-editor="my:my-first"]');
+    await editor.getByLabel('Title', { exact: true }).fill('Earlier title');
+    await app.evaluate(({ app, ipcMain }, root) => {
+      const load = process.getBuiltinModule('module')!.createRequire(`${root}/package.json`);
+      const store = load(`${root}/dist/main/lessons/store.js`) as typeof import('../../src/main/lessons/store');
+      let release!: () => void;
+      const pending = new Promise<void>((resolve) => { release = resolve; });
+      const gate = { started: false, release };
+      (globalThis as unknown as { lessonSaveGate: typeof gate }).lessonSaveGate = gate;
+      ipcMain.removeHandler('lessons:save');
+      ipcMain.handle('lessons:save', async (_event, doc: ReturnType<typeof sampleDoc>) => {
+        gate.started = true;
+        await pending;
+        return store.importDocs(store.lessonsFolder(app.getPath('userData')), [doc], { origin: 'made' });
+      });
+    }, path.join(__dirname, '../..'));
+    await editor.getByRole('button', { name: 'Save to My lessons', exact: true }).click();
+    await expect.poll(() => app.evaluate(() => (globalThis as unknown as { lessonSaveGate: { started: boolean } }).lessonSaveGate.started)).toBe(true);
+    await editor.getByLabel('Title', { exact: true }).fill('Newer title');
+    await app.evaluate(() => (globalThis as unknown as { lessonSaveGate: { release: () => void } }).lessonSaveGate.release());
+    await expect(editor.getByText('Earlier changes are saved.', { exact: false })).toBeVisible();
+    await expect(editor.getByLabel('Title', { exact: true })).toHaveValue('Newer title');
+    expect((await api('listMyLessons'))[0].doc.texts.en.title).toBe('Earlier title');
+    await editor.getByRole('button', { name: 'Save to My lessons', exact: true }).click();
+    await expect(editor).toHaveCount(0);
+    const lessons = await api('listMyLessons');
+    expect(lessons).toHaveLength(1);
+    expect(lessons[0].doc.texts.en.title).toBe('Newer title');
   } finally {
     await app.close();
   }
