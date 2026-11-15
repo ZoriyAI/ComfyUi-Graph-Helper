@@ -2,14 +2,17 @@
  * Pure helpers for reading a ComfyUI catalog through an MCP server.
  * No network here: the main process passes tool results in, and these functions pick them apart.
  * Tool names are never invented. Each strategy is used only when the server lists that exact tool.
+ * Used by main's sync and reads (main/catalog/repository.ts, main/mcp, main/comfy/direct.ts, main/knowledge).
  */
 
+/** A tool result as the MCP client returns it: content blocks and, from newer servers, structured content. */
 export interface McpToolCallResult {
   content?: Array<{ type: string; text?: string }>;
   structuredContent?: unknown;
   isError?: boolean;
 }
 
+/** The part of an MCP client connection these helpers need; tests pass a fake one. */
 export interface McpSession {
   /** The tools a server lists; `inputSchema` (as the server sent it) recognises which kind of server it is. */
   listTools(): Promise<Array<{ name: string; inputSchema?: unknown }>>;
@@ -18,6 +21,7 @@ export interface McpSession {
   close(): Promise<void>;
 }
 
+/** A node class as the server's listing names it (no inputs or outputs). */
 export interface McpNodeClass {
   classType: string;
   module: string;
@@ -25,6 +29,7 @@ export interface McpNodeClass {
   category: string;
 }
 
+/** A model file as the server lists it: its models folder, its name in it and its size when known. */
 export interface McpModelFile {
   directory: string;
   name: string;
@@ -129,6 +134,7 @@ export async function readNodeClassesPaged(session: McpSession, pageLimit = 100,
   return { items: classes, complete: read.complete };
 }
 
+/** Every node class the server lists; a listing cut short still returns what it read. */
 export async function readNodeClasses(session: McpSession, pageLimit = 100, maxPages?: number): Promise<McpNodeClass[]> {
   return (await readNodeClassesPaged(session, pageLimit, maxPages)).items;
 }
