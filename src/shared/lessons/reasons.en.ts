@@ -65,4 +65,6 @@ export const REASONS_EN: Record<string, string> = {
   'im.sd35Steps': 'The SD 3.5 template uses 20 steps.',
   'im.sd35Cfg': 'cfg 7, the SDXL habit, burns the colors of SD 3.5; its template uses 4.',
   sameFamily: 'A LoRA or a ControlNet works only with the family of models it was made for; with another family it does nothing or spoils the picture.',
+  'ex.cfgLow': 'The first variant is the low guidance of the experiment: one cfg near 4, the other near 8, so the difference is easy to see.',
+  'ex.cfgHigh': 'The second variant is the high guidance: 8 is the value a new KSampler starts with, so this side is the familiar one.',
 };

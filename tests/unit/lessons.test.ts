@@ -28,6 +28,7 @@ import { lessonSpecs as sound3dFacesSpecs } from '../fixtures/mcp/classes/sound-
 import { ADULT_LESSONS, LESSONS, LESSON_AFTER, lessonById, lessonOpen, nextLesson, ordinaryLessons } from '../../src/shared/lessons/lessons';
 import { contentRules, contentRulesMarkdown } from '../../src/shared/content/rules';
 import { FILES, fileMiss } from '../../src/shared/lessons/files';
+import { answerAll, isPersonStep, type StepAnswers } from '../../src/shared/lessons/steps';
 
 /**
  * ComfyUI's own nodes as far as the lessons use them: inputs with the value a fresh node starts with (link
@@ -261,16 +262,23 @@ function decide(canvas: Canvas, missing: Missing): void {
 /** Does what the lesson says, one lack at a time, and returns how many actions each step took. */
 function carryOut(lesson: Lesson, canvas: Canvas, facts: LessonFacts = FACTS): number[] {
   const read = new Set<string>();
+  const answers: Record<string, StepAnswers> = {};
   const actions: number[] = lesson.steps.map(() => 0);
   // A cap on actions, so a lesson that never ends fails the test instead of hanging it.
   for (let guard = 0; guard < 400; guard += 1) {
-    const progress = lessonProgress(lesson, canvas, facts, read);
+    const progress = lessonProgress(lesson, canvas, facts, read, answers);
     if (progress.current === lesson.steps.length) return actions;
     const step = lesson.steps[progress.current];
     actions[progress.current] += 1;
     if (step.read) {
       expect(progress.missing, `${lesson.id}/${step.id}: a step that explains lacks nothing`).toEqual([]);
       read.add(step.id);
+      continue;
+    }
+    // A checklist, a rubric, a quiz or a read-check: the person answers it in the panel, once.
+    if (isPersonStep(step)) {
+      expect(answers[step.id], `${lesson.id}/${step.id}: answered once`).toBeUndefined();
+      answers[step.id] = answerAll(step);
       continue;
     }
     expect(progress.missing.length, `${lesson.id}/${step.id}: a step that is not done says what it lacks`).toBeGreaterThan(0);
@@ -284,8 +292,9 @@ function carryOut(lesson: Lesson, canvas: Canvas, facts: LessonFacts = FACTS): n
   throw new Error(`${lesson.id} did not come to its end`);
 }
 
-/** The lesson's progress on a canvas with every step to read already read. */
-const done = (lesson: Lesson, canvas: Canvas, read: string[] = lesson.steps.filter((step) => step.read).map((step) => step.id)) => lessonProgress(lesson, canvas, FACTS, new Set(read));
+/** The lesson's progress on a canvas with every step to read already read and every step to answer answered. */
+const done = (lesson: Lesson, canvas: Canvas, read: string[] = lesson.steps.filter((step) => step.read).map((step) => step.id)) =>
+  lessonProgress(lesson, canvas, FACTS, new Set(read), Object.fromEntries(lesson.steps.filter(isPersonStep).map((step) => [step.id, answerAll(step)])));
 
 describe('every lesson can be done by doing what it says', () => {
   for (const lesson of LESSONS) {
@@ -297,7 +306,7 @@ describe('every lesson can be done by doing what it says', () => {
       expect(done(lesson, canvas).current).toBe(lesson.steps.length);
       // Every step that explains was shown once.
       lesson.steps.forEach((step, index) => {
-        if (step.read) expect(actions[index], `${lesson.id}/${step.id}`).toBe(1);
+        if (step.read || isPersonStep(step)) expect(actions[index], `${lesson.id}/${step.id}`).toBe(1);
       });
     });
   }

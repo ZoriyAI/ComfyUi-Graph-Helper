@@ -135,6 +135,8 @@ export async function finishOpen(call: OpenCall): Promise<void> {
     notify({ kind: 'opened-project' });
     return;
   }
+  // Lessons: a read-check may ask whether the workflow came from a picture or an API-format file.
+  if (result.status === 'applied') useLessonStore.getState().setOpenedFrom(opened?.from ?? 'json');
   const report = result.result && typeof result.result === 'object' ? result.result as { formatVersion?: number; missingNodes?: string[]; missingModels?: Array<{ directory: string; name: string }>; shownDifferently?: Record<string, number> } : {};
   notify({
     kind: 'imported',

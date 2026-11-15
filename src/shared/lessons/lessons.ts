@@ -22,6 +22,8 @@ import { IMAGE_TECHNIQUE_AFTER, IMAGE_TECHNIQUE_LESSONS, IMAGE_TECHNIQUE_PATH } 
 import { SOUND_3D_FACES_AFTER, SOUND_3D_FACES_LESSONS, SOUND_3D_FACES_PATH } from './sets/sound-3d-faces';
 import { FILES, withFamilyPairs, withFileTable, type FileKind } from './files';
 import { FAMILY_PAIRS, SET_FILE_KINDS } from './fileTables';
+import { EXPERIMENT_AFTER, EXPERIMENT_LESSONS, EXPERIMENT_PATH } from './sets/experiments';
+import { levelOf } from './programme';
 
 // Short builders so each lesson below reads as a list of steps.
 const node = (role: string, ...classes: string[]): RoleSpec => ({ role, classes });
@@ -1097,6 +1099,7 @@ export const LESSONS: readonly Lesson[] = withFamilyPairs(withFileTable([
   ...IMAGE_TECHNIQUE_LESSONS,
   ...FOUNDATIONS_TOOLS,
   ...SOUND_3D_FACES_LESSONS,
+  ...EXPERIMENT_LESSONS,
   adultImage, adultLora, adult,
 ], SET_FILE_KINDS), FAMILY_PAIRS);
 
@@ -1131,8 +1134,9 @@ export function ordinaryLessons(): Lesson[] {
  * - of the same kind: a lesson for adults is never offered after an ordinary one, and an ordinary one after a lesson
  *   for adults; so with the switch off nothing of the closed group comes up by itself;
  * - not done yet, and one that fits this ComfyUI (`fits`; everything fits when it is not given);
- * - preferably one whose lessons it stands on are done (or are the one just finished); failing that, the next that
- *   fits and is not done.
+ * - preferably one whose lessons it stands on are done (or are the one just finished) and that is at most one level
+ *   above this one (programme.ts); failing that, one whose lessons are done at any level; failing that, the next
+ *   that fits and is not done.
  * Only lessons after this one in the list count. Null when nothing is left to offer.
  */
 export function nextLesson(id: string, fits: (lessonId: string) => boolean = () => true, done: ReadonlySet<string> = new Set()): Lesson | null {
@@ -1150,7 +1154,9 @@ export function nextLesson(id: string, fits: (lessonId: string) => boolean = () 
   const later = order.slice(from + 1);
   const open = later.filter((candidate) => isAdultLesson(candidate) === adult && !done.has(candidate) && fits(candidate));
   const ready = (candidate: string) => [...(LESSON_AFTER[candidate] ?? []), ...(LESSON_PATH[candidate]?.follows ?? [])].every((needed) => needed === id || done.has(needed));
-  const found = open.find(ready) ?? open[0];
+  // A level step at a time: after a lesson of the basics, a lesson of the next level before a recipe two levels up.
+  const near = (candidate: string) => levelOf(candidate) <= levelOf(id) + 1;
+  const found = open.find((candidate) => ready(candidate) && near(candidate)) ?? open.find(ready) ?? open[0];
   return found ? lessonById(found) : null;
 }
 
@@ -1174,6 +1180,7 @@ export const LESSON_AFTER: Readonly<Record<string, string[]>> = {
   ...IMAGE_TECHNIQUE_AFTER,
   ...FOUNDATIONS_AFTER,
   ...SOUND_3D_FACES_AFTER,
+  ...EXPERIMENT_AFTER,
 };
 
 const BASICS_GROUP: LessonGroup = { id: 'basics', title: { en: 'Pictures: first steps', ru: 'Картинки: первые шаги' } };
@@ -1189,6 +1196,7 @@ export const LESSON_PATH: Readonly<Record<string, { group: LessonGroup; follows:
   ...VIDEO_PATH,
   ...IMAGE_TECHNIQUE_PATH,
   ...SOUND_3D_FACES_PATH,
+  ...EXPERIMENT_PATH,
   'adult-image': { group: ADULT_GROUP, follows: ['image'] },
   'adult-lora': { group: ADULT_GROUP, follows: ['image'] },
   adult: { group: ADULT_GROUP, follows: ['video-text'] },

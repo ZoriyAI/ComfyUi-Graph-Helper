@@ -89,8 +89,18 @@ export function descriptionsPatch(mode: DescriptionsMode): { descriptions: Descr
 const CHORD = /^((Mod|Ctrl|Shift|Alt)\+)*([A-Z0-9]|F([1-9]|1[0-2])|[=\-/,.;']|\+|Delete|Backspace|Enter|Escape|Tab|Space|Home|End|PageUp|PageDown|Insert|ArrowUp|ArrowDown|ArrowLeft|ArrowRight|`|\[|\]|\\)$/;
 /** Command ids of the shortcut map: 'file.save', 'file.import'. */
 const COMMAND_ID = /^[a-z][A-Za-z0-9]*(\.[A-Za-z0-9]+)*$/;
-/** Ids of lessons and of their steps: 'video-text', 'first-pass'. */
-const LESSON_ID = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
+/** Ids of steps and of the items, criteria and questions in them: 'video-text', 'first-pass', '3d-image'. */
+const LESSON_ID = /^[a-z0-9][a-z0-9-]*$/;
+/**
+ * The id of a lesson in the app: a built-in id, or `my:` and the id of one of the person's lessons. An id may start
+ * with a digit (`3d-image`): the lesson file format allows it, and a stricter pattern refused every save of progress
+ * once such a lesson had been read.
+ */
+const LESSON_KEY = /^(my:)?[a-z0-9][a-z0-9-]*$/;
+/** How many lessons the progress keeps: the built-in ones and the person's own (share/mine.ts MY_LESSONS_MAX). */
+const LESSONS_KEPT = 1000;
+/** The values an answer may take: an id of a level or a choice, or 'yes' for a tick. */
+const ANSWER = /^[a-z0-9][a-z0-9-]*$/;
 
 /** True for a shortcut the Settings recorder can produce, or '' (no shortcut). */
 export function isChord(value: string): boolean {
@@ -210,10 +220,24 @@ export const preferencesSchema = z.object({
    */
   lessons: z.object({
     /** The open lesson; '' when the list of lessons is. */
-    active: z.string().regex(LESSON_ID).max(60).or(z.literal('')).default(''),
+    active: z.string().regex(LESSON_KEY).max(70).or(z.literal('')).default(''),
     /** Lesson id → ids of its explaining steps the person has read and passed. */
-    read: z.record(z.string().regex(LESSON_ID).max(60), z.array(z.string().regex(LESSON_ID).max(60)).max(100)).default({}),
-    done: z.array(z.string().regex(LESSON_ID).max(60)).max(100).default([]),
+    read: z.record(z.string().regex(LESSON_KEY).max(70), z.array(z.string().regex(LESSON_ID).max(64)).max(100)).default({}),
+    done: z.array(z.string().regex(LESSON_KEY).max(70)).max(LESSONS_KEPT).default([]),
+    /**
+     * Lesson id → step id → item, criterion or question id → the answer: 'yes' for a ticked checklist item or "I
+     * checked it myself", else the id of the level or choice. Ids only, never a text or a picture.
+     */
+    answers: z.record(
+      z.string().regex(LESSON_KEY).max(70),
+      z.record(z.string().regex(LESSON_ID).max(64), z.record(z.string().regex(LESSON_ID).max(64), z.string().regex(ANSWER).max(64))),
+    ).default({}),
+    /**
+     * Lesson id → the outcomes reached (shared/lessons/steps.ts): 'structure' (checked by the app), 'run-app' or
+     * 'run-self' (run in ComfyUI, by the app's check or on the person's word), 'result' (the person's assessment).
+     * Kept so the list shows them without the lesson's canvas.
+     */
+    outcomes: z.record(z.string().regex(LESSON_KEY).max(70), z.array(z.enum(['structure', 'run-app', 'run-self', 'result'])).max(4)).default({}),
   }).prefault({}),
 }).strict();
 

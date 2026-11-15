@@ -11,6 +11,11 @@
  * it is ever opened. Every string and every list has a cap, unknown keys are refused (a file from a newer version
  * says so instead of being half read), and the checks between parts (a link names roles the lesson brought in,
  * every step has its words) are made here, before anything is kept.
+ *
+ * Versions: 1 is the format of version 1.0 (steps to read and canvas steps). 2 adds the steps a person answers
+ * (checklist, rubric, quiz, read-check), transfer tasks, outcomes, the standard, level, tracks, priority and the
+ * template's metadata. Both are read. A file is written as version 1 whenever its lessons use nothing of version 2,
+ * so an export of an old lesson still opens in version 1.0.
  */
 
 import { z } from 'zod';
@@ -18,13 +23,17 @@ import type { FieldSpec, FieldTest, Lesson, LessonStep, LinkSpec } from '../engi
 import { BASE_MODEL_FAMILIES } from '../../knowledge/schemas';
 import { FILES, type FileWant } from '../files';
 import { REASONS_EN } from '../reasons.en';
-import { lessonRuleProblems, type LessonRuleProblem } from '../schema';
+import { STEP_CAPS, lessonRuleProblems, lessonStandardProblems, lessonWordsProblems, type LessonRuleProblem } from '../schema';
+import { LESSON_OUTCOMES, type ReadCondition } from '../steps';
+import { LESSON_PRIORITIES, LESSON_TRACKS } from '../programme';
 import { APP_ID } from '../../productNames';
 
 /** What the file says it is (`nodewise-studio/lessons`); any other value is not a lesson file. */
 export const LESSON_FILE_FORMAT = `${APP_ID}/lessons`;
-/** The version this app writes and reads. A higher one is refused with "made by a newer version". */
-export const LESSON_FILE_VERSION = 1;
+/** The highest version this app reads and writes. A higher one is refused with "made by a newer version". */
+export const LESSON_FILE_VERSION = 2;
+/** The versions this app reads. */
+export const LESSON_FILE_VERSIONS = [1, 2] as const;
 
 /** The caps. A built-in lesson is far below each (the longest step text is about 1100 characters). */
 export const LESSON_LIMITS = {
@@ -53,6 +62,10 @@ export const LESSON_LIMITS = {
   author: 120,
   source: 500,
   value: 2000,
+  /** A label, a level, a choice, a line of metadata. */
+  line: 600,
+  mistakes: 12,
+  requires: 16,
 } as const;
 
 /** Lesson, step and group ids: lower-case words joined by hyphens. Never a path, never a dot. */
@@ -124,6 +137,17 @@ const fieldTest = z.discriminatedUnion('kind', [
 
 const linkBase = { from: role, output: name, to: role, input: name, via: z.array(name).max(LESSON_LIMITS.via).optional() };
 
+/** A read-check condition, exactly the kinds steps.ts ReadCondition knows. */
+const readCondition: z.ZodType<ReadCondition> = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('comfy-read') }).strict(),
+  z.object({ kind: z.literal('node-class'), classes: z.array(name).min(1).max(LESSON_LIMITS.classesPerRole) }).strict(),
+  z.object({ kind: z.literal('model-file'), folder: z.string().min(1).max(LESSON_LIMITS.id).regex(/^[A-Za-z0-9_-]+$/), words: z.array(z.string().min(1).max(60).regex(NAME)).max(LESSON_LIMITS.marks).optional() }).strict(),
+  z.object({ kind: z.literal('workflow-complete') }).strict(),
+  z.object({ kind: z.literal('workflow-size'), min: z.number().int().min(0).max(10_000).optional(), max: z.number().int().min(0).max(10_000).optional() }).strict(),
+  z.object({ kind: z.literal('workflow-from'), from: z.enum(['picture', 'api']) }).strict(),
+  z.object({ kind: z.literal('workflow-partner'), present: z.boolean() }).strict(),
+]) as z.ZodType<ReadCondition>;
+
 const stepSchema = z.object({
   id,
   read: z.literal(true).optional(),
@@ -138,16 +162,43 @@ const stepSchema = z.object({
     identifies: z.literal(true).optional(),
     soft: z.literal(true).optional(),
   }).strict()).max(LESSON_LIMITS.fieldsPerStep).optional(),
+  // Version 2: the steps a person answers, and the transfer mark.
+  checklist: z.array(z.object({ id, optional: z.literal(true).optional(), check: readCondition.optional(), run: z.literal(true).optional() }).strict()).max(STEP_CAPS.items).optional(),
+  rubric: z.array(z.object({ id, levels: z.array(id).max(STEP_CAPS.levelsMax), pass: id.optional() }).strict()).max(STEP_CAPS.criteria).optional(),
+  quiz: z.array(z.object({ id, choices: z.array(id).max(STEP_CAPS.choicesMax), answer: id }).strict()).max(STEP_CAPS.questions).optional(),
+  readCheck: z.array(readCondition).max(STEP_CAPS.conditions).optional(),
+  transfer: z.literal(true).optional(),
+}).strict();
+
+const line = text(LESSON_LIMITS.line);
+
+/** The words of one step: its title and body, and (version 2) the words of its items, criteria or questions. */
+const stepWordsSchema = z.object({
+  title: text(LESSON_LIMITS.stepTitle).min(1),
+  body: text(LESSON_LIMITS.body),
+  items: z.record(id, z.object({ label: line.min(1), how: line.optional() }).strict()).optional(),
+  criteria: z.record(id, z.object({ title: line.min(1), levels: z.record(id, line.min(1)), tryNext: line.optional() }).strict()).optional(),
+  questions: z.record(id, z.object({ text: line.min(1), choices: z.record(id, line.min(1)), explain: line.min(1) }).strict()).optional(),
+}).strict();
+
+/** The words of the lesson template (version 2): skill, requirements, expected mistakes, provenance, what is not checked. */
+const metaWordsSchema = z.object({
+  skill: line.min(1),
+  requires: z.array(line.min(1)).max(LESSON_LIMITS.requires).optional(),
+  mistakes: z.array(z.object({ sign: line.min(1), fix: line.min(1) }).strict()).max(LESSON_LIMITS.mistakes).optional(),
+  provenance: text(LESSON_LIMITS.result).optional(),
+  notChecked: text(LESSON_LIMITS.result).optional(),
 }).strict();
 
 const wordsSchema = z.object({
   title: text(LESSON_LIMITS.title).min(1),
   result: text(LESSON_LIMITS.result),
-  steps: z.record(id, z.object({ title: text(LESSON_LIMITS.stepTitle).min(1), body: text(LESSON_LIMITS.body) }).strict()),
+  steps: z.record(id, stepWordsSchema),
   /** What a role's node is in this lesson (texts.ts LessonWords.roles): short labels, as many as a lesson has roles. */
   roles: z.record(role, text(LESSON_LIMITS.stepTitle).min(1))
     .refine((labels) => Object.keys(labels).length <= LESSON_LIMITS.steps * LESSON_LIMITS.rolesPerStep, { message: 'too many role labels' })
     .optional(),
+  meta: metaWordsSchema.optional(),
 }).strict();
 
 const titlesSchema = z.object({ en: text(LESSON_LIMITS.title).min(1).optional(), ru: text(LESSON_LIMITS.title).min(1).optional() }).strict();
@@ -167,11 +218,22 @@ const lessonSchema = z.object({
   needs: z.object({ packs: z.array(name).max(LESSON_LIMITS.needs), classes: z.array(name).max(LESSON_LIMITS.needs) }).strict().optional(),
   texts: z.object({ en: wordsSchema.optional(), ru: wordsSchema.optional() }).strict(),
   steps: z.array(stepSchema).min(1).max(LESSON_LIMITS.steps),
+  // Version 2: the standard, the outcomes, the place in the programme and the template's metadata.
+  standard: z.union([z.literal(1), z.literal(2)]).optional(),
+  outcomes: z.array(z.enum(LESSON_OUTCOMES)).max(LESSON_OUTCOMES.length).optional(),
+  level: z.number().int().min(0).max(5).optional(),
+  tracks: z.array(z.enum(LESSON_TRACKS)).max(LESSON_TRACKS.length).optional(),
+  priority: z.enum(LESSON_PRIORITIES).optional(),
+  meta: z.object({
+    prerequisites: z.array(id).max(LESSON_LIMITS.follows).optional(),
+    versions: z.array(line.min(1)).max(LESSON_LIMITS.requires).optional(),
+    checkedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  }).strict().optional(),
 }).strict();
 
 const fileSchema = z.object({
   format: z.literal(LESSON_FILE_FORMAT),
-  version: z.literal(LESSON_FILE_VERSION),
+  version: z.union([z.literal(1), z.literal(2)]),
   /** A pack's own name; a file with one lesson needs none. */
   title: titlesSchema.optional(),
   lessons: z.array(lessonSchema).min(1).max(LESSON_LIMITS.lessons),
@@ -340,9 +402,27 @@ export function lessonDocProblem(lesson: LessonDoc): LessonFileProblem | null {
   }
   if (lesson.steps.every((step) => step.read)) return { code: 'nothing-to-do', lesson: lesson.id };
   const engine = engineLesson(lesson, lesson.id);
-  const rules = lessonRuleProblems(engine, [engine], {}, REASON_IDS);
+  // Prerequisites may name lessons outside this file: a hint, so only their spelling is checked (by the schema).
+  const rules = lessonRuleProblems({ ...engine, meta: { ...engine.meta, prerequisites: [] } }, [engine], {}, REASON_IDS);
   if (rules.length > 0) return { code: 'rules', lesson: lesson.id, rule: rules[0] };
+  const words = { ...(lesson.texts.en ? { en: lesson.texts.en } : {}), ...(lesson.texts.ru ? { ru: lesson.texts.ru } : {}) };
+  const said = [...lessonWordsProblems(engine, words), ...lessonStandardProblems(engine, words)];
+  if (said.length > 0) return { code: 'rules', lesson: lesson.id, rule: said[0] };
   return null;
+}
+
+/** Whether a lesson uses anything of version 2 of the format. */
+function usesVersion2(lesson: LessonDoc): boolean {
+  const words = [lesson.texts.en, lesson.texts.ru].filter((item): item is LessonDocWords => item !== undefined);
+  return lesson.standard !== undefined || lesson.outcomes !== undefined || lesson.level !== undefined || lesson.tracks !== undefined
+    || lesson.priority !== undefined || lesson.meta !== undefined
+    || lesson.steps.some((step) => step.checklist || step.rubric || step.quiz || step.readCheck || step.transfer)
+    || words.some((item) => item.meta !== undefined || Object.values(item.steps).some((step) => step.items || step.criteria || step.questions));
+}
+
+/** The version a file of these lessons is written as: 1 unless a lesson needs version 2. */
+export function lessonFileVersion(lessons: readonly LessonDoc[]): 1 | 2 {
+  return lessons.some(usesVersion2) ? 2 : 1;
 }
 
 /** The roles a field rule looks at besides its own (the same reading as the engine's otherRoles). */
@@ -355,7 +435,7 @@ function testRoles(test: FieldTest): string[] {
 
 /** A lesson file holding these lessons. */
 export function lessonFileOf(lessons: LessonDoc[], title?: { en?: string; ru?: string }): LessonFile {
-  return { format: LESSON_FILE_FORMAT, version: LESSON_FILE_VERSION, ...(title && (title.en || title.ru) ? { title } : {}), lessons };
+  return { format: LESSON_FILE_FORMAT, version: lessonFileVersion(lessons), ...(title && (title.en || title.ru) ? { title } : {}), lessons };
 }
 
 function copyLink(spec: Omit<LinkSpec, 'alt'>): Omit<LinkSpec, 'alt'> {
@@ -369,6 +449,9 @@ function copyLink(spec: Omit<LinkSpec, 'alt'>): Omit<LinkSpec, 'alt'> {
 export function engineLesson(doc: LessonDoc, appId: string): Lesson {
   return {
     id: appId,
+    ...(doc.standard ? { standard: doc.standard } : {}),
+    ...(doc.outcomes ? { outcomes: [...doc.outcomes] } : {}),
+    ...(doc.meta ? { meta: JSON.parse(JSON.stringify(doc.meta)) as Lesson['meta'] } : {}),
     steps: doc.steps.map((step): LessonStep => ({
       id: step.id,
       ...(step.read ? { read: true as const } : {}),
@@ -384,6 +467,12 @@ export function engineLesson(doc: LessonDoc, appId: string): Lesson {
           ...(spec.soft ? { soft: true as const } : {}),
         })),
       } : {}),
+      // The steps a person answers are plain data: a deep copy shares nothing with the file.
+      ...(step.checklist ? { checklist: JSON.parse(JSON.stringify(step.checklist)) as LessonStep['checklist'] } : {}),
+      ...(step.rubric ? { rubric: JSON.parse(JSON.stringify(step.rubric)) as LessonStep['rubric'] } : {}),
+      ...(step.quiz ? { quiz: JSON.parse(JSON.stringify(step.quiz)) as LessonStep['quiz'] } : {}),
+      ...(step.readCheck ? { readCheck: JSON.parse(JSON.stringify(step.readCheck)) as LessonStep['readCheck'] } : {}),
+      ...(step.transfer ? { transfer: true as const } : {}),
     })),
   };
 }

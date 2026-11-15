@@ -6,15 +6,18 @@
  *
  * Who uses it: LessonPanel.tsx shows it in place of the list while useMyLessonsStore().editing is set.
  *
+ * A step the person answers (a checklist, a rubric, a quiz, a read-check) is kept as it came; a checklist's items can be
+ * edited as lines, and "Add a self-check" adds a checklist of things to do outside the app.
+ *
  * Why so plain: one column of ui primitives that fits a narrow panel; one glowing primary (Save); every other
  * action is subtle or an icon. The checks of a step are shown as sentences, not edited: they come from the graph.
  */
 
 import React, { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowDown, ArrowLeft, ArrowUp, Check, FlaskConical, Save, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, Check, FlaskConical, ListChecks, Save, Trash2 } from 'lucide-react';
 import type { FieldSpec, LinkSpec } from '../../../shared/lessons/engine';
-import type { LessonDraftModel } from '../../../shared/lessons/share/authoring';
+import { checklistLines, checklistStep, type LessonDraftModel } from '../../../shared/lessons/share/authoring';
 import type { LessonCheck } from '../../../shared/lessons/share/mine';
 import { useMyLessonsStore, type EditorState } from '../../state/myLessonsState';
 import Button from '../../ui/Button';
@@ -151,10 +154,31 @@ export default function LessonEditor({ editing }: { editing: EditorState }) {
               </span>
             </div>
             {step.read ? <p className={panel.cardMeta}>{t('lessonFiles.editor.stepRead')}</p> : null}
+            {step.extra?.rubric ? <p className={panel.cardMeta}>{t('lessonFiles.editor.stepRubric', { count: step.extra.rubric.length })}</p> : null}
+            {step.extra?.quiz ? <p className={panel.cardMeta}>{t('lessonFiles.editor.stepQuiz', { count: step.extra.quiz.length })}</p> : null}
+            {step.extra?.readCheck ? <p className={panel.cardMeta}>{t('lessonFiles.editor.stepReadCheck', { count: step.extra.readCheck.length })}</p> : null}
             <label className={styles.label} htmlFor={`${ids}-${step.id}-title`}>{t('lessonFiles.editor.stepTitle')}</label>
             <input id={`${ids}-${step.id}-title`} className={styles.field} value={step.title} maxLength={200} onChange={(event) => updateStep(index, { title: event.target.value })} />
             <label className={styles.label} htmlFor={`${ids}-${step.id}-body`}>{t('lessonFiles.editor.stepBody')}</label>
             <textarea id={`${ids}-${step.id}-body`} className={styles.field} value={step.body} maxLength={8000} rows={4} onChange={(event) => updateStep(index, { body: event.target.value })} />
+            {step.extra?.checklist ? (
+              <>
+                <label className={styles.label} htmlFor={`${ids}-${step.id}-items`}>{t('lessonFiles.editor.checklistItems')}</label>
+                <textarea
+                  id={`${ids}-${step.id}-items`}
+                  className={styles.field}
+                  rows={4}
+                  value={checklistLines(step).join('\n')}
+                  onChange={(event) => {
+                    // The items keep their checks (an item the app verifies) by position; new lines are plain ticks.
+                    const fresh = checklistStep(step.id, step.title, step.body, event.target.value.split('\n'));
+                    const before = step.extra?.checklist ?? [];
+                    const items = (fresh.extra?.checklist ?? []).map((item, at) => ({ ...(before[at] ?? {}), id: item.id }));
+                    updateStep(index, { extra: { ...step.extra, checklist: items }, extraWords: { ...step.extraWords, items: fresh.extraWords?.items } });
+                  }}
+                />
+              </>
+            ) : null}
             {step.roles.length > 0 || step.links.length > 0 ? (
               <ul className={styles.checks}>
                 {step.roles.map((spec) => <li key={spec.role}>{t('lessonFiles.editor.checkNode', { name: nameOfRole(spec.role) })}</li>)}
@@ -181,6 +205,17 @@ export default function LessonEditor({ editing }: { editing: EditorState }) {
           </li>
         ))}
       </ol>
+
+      <Button
+        variant="ghost"
+        size="sm"
+        icon={<ListChecks size={14} />}
+        onClick={() => {
+          let number = model.steps.length + 1;
+          while (model.steps.some((item) => item.id === `self-check-${number}`)) number += 1;
+          update({ steps: [...model.steps, checklistStep(`self-check-${number}`, tr('lessonFiles.editor.newChecklistTitle'), tr('lessonFiles.editor.newChecklistBody'), [tr('lessonFiles.editor.newChecklistItem')])] });
+        }}
+      >{t('lessonFiles.editor.addChecklist')}</Button>
 
       <div className={panel.actions}>
         <Button variant="subtle" size="sm" icon={<FlaskConical size={14} />} onClick={tryIt}>{t('lessonFiles.editor.tryIt')}</Button>

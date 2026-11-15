@@ -12,12 +12,31 @@
  *
  * Pure: no DOM, no catalog, no IPC. The renderer turns its graph into LessonGraph and supplies the facts
  * (renderer/components/lessons/lessonModel.ts); the lesson panel, the lesson editor and lackText.ts read the result.
+ *
+ * Besides the canvas steps and the steps to read, a step may be one the person answers in the panel: a checklist of
+ * things done outside the app, a rubric, a quiz or a read-check (steps.ts). Those are judged from the person's answers
+ * and from what the app already reads, never from a run: the app does not run anything in ComfyUI.
  */
 
 import { weightsOf } from '../prompt/inspect';
 import type { BaseModelFamily } from '../contracts/knowledge';
 import { familyOfFile, fileMiss, type FileMiss, type FileWant } from './files';
 import { familiesCompatible } from '../knowledge/baseModel';
+import {
+  LESSON_OUTCOMES,
+  isPersonStep,
+  itemState,
+  personStepDone,
+  stepKind,
+  type ChecklistItem,
+  type LessonAnswers,
+  type LessonOutcome,
+  type OutcomeState,
+  type QuizQuestion,
+  type ReadCondition,
+  type ReadFacts,
+  type RubricCriterion,
+} from './steps';
 
 /** An input or output of a node, as the lesson engine sees it. */
 export interface LessonPort {
@@ -166,7 +185,10 @@ export interface FieldSpec {
   soft?: true;
 }
 
-/** One step: the roles, links and field rules that hold once it is done, or a step to read. */
+/**
+ * One step: the roles, links and field rules that hold once it is done (a canvas step), a step to read, or a step
+ * the person answers in the panel (one of checklist, rubric, quiz, readCheck; steps.ts). A step has one kind.
+ */
 export interface LessonStep {
   id: string;
   /** A step that only explains: done once the person has read it and said so. */
@@ -174,6 +196,19 @@ export interface LessonStep {
   roles?: RoleSpec[];
   links?: LinkSpec[];
   fields?: FieldSpec[];
+  /** Things to do outside the app; done when every required item is ticked (or checked by the app). */
+  checklist?: ChecklistItem[];
+  /** Assess a result: one level per criterion; done when every criterion is answered (and passes, where it says so). */
+  rubric?: RubricCriterion[];
+  /** One to five questions with choices; done when every one is answered, right or not. */
+  quiz?: QuizQuestion[];
+  /** Conditions the app checks from what it already reads (never a run); done when all hold. */
+  readCheck?: ReadCondition[];
+  /**
+   * A task without a ready answer: a canvas step or a checklist the person does on their own. The panel offers no
+   * "Do this for me" and keeps the list of what is missing folded.
+   */
+  transfer?: true;
 }
 
 /** A group of the lesson list (pictures, video, sound...): its id and its title in both languages. */
@@ -182,10 +217,31 @@ export interface LessonGroup {
   title: { ru: string; en: string };
 }
 
+/**
+ * What the template of a lesson of the new standard asks for, as far as it is not words (the words of it, such as the
+ * target skill and the expected mistakes, live in texts.*.ts under `meta`).
+ */
+export interface LessonMeta {
+  /** Lessons that should be done first (a hint on the card and an edge of the path, never a lock). */
+  prerequisites?: string[];
+  /** The versions the lesson was written against, as text: "ComfyUI core nodes (KSampler, Save Image)". */
+  versions?: string[];
+  /** The date the lesson was last checked against those versions, YYYY-MM-DD. */
+  checkedOn?: string;
+}
+
 /** A lesson: an id and its steps in order. Its words live in texts.*.ts under the same id. */
 export interface Lesson {
   id: string;
   steps: LessonStep[];
+  /**
+   * 1: a lesson written before the new standard (the default). 2: the new standard; it must have the metadata of the
+   * template (schema.ts lessonStandardProblems) and a quiz and a transfer task.
+   */
+  standard?: 1 | 2;
+  /** The outcomes this lesson has (steps.ts LESSON_OUTCOMES); without it, only "structure checked". */
+  outcomes?: LessonOutcome[];
+  meta?: LessonMeta;
 }
 
 /** What the engine cannot read off the graph. */
@@ -194,6 +250,8 @@ export interface LessonFacts {
   triggers?: Record<string, string[]>;
   /** The family of a file by its name, when the catalog read it from the file's metadata or its description. */
   families?: Record<string, BaseModelFamily>;
+  /** What a read-check looks at: the catalog, the model lists, where the open workflow came from (steps.ts). */
+  read?: ReadFacts;
 }
 
 /** Role → node id. */
@@ -555,11 +613,12 @@ function missingOf(graph: LessonGraph, step: LessonStep, roles: Roles, facts: Le
 }
 
 /**
- * Where the person is in a lesson. `read` holds the ids of the explaining steps they have passed.
+ * Where the person is in a lesson. `read` holds the ids of the explaining steps they have passed, `answers` what
+ * they answered in the steps they answer (checklists, rubrics, quizzes, read-checks).
  * The current step is the first one that does not hold; everything before it does.
  */
-export function lessonProgress(lesson: Lesson, graph: LessonGraph, facts: LessonFacts, read: ReadonlySet<string>): Progress {
-  const progress = hardProgress(lesson, graph, facts, read);
+export function lessonProgress(lesson: Lesson, graph: LessonGraph, facts: LessonFacts, read: ReadonlySet<string>, answers: LessonAnswers = {}): Progress {
+  const progress = hardProgress(lesson, graph, facts, read, answers);
   const hints = softHints(lesson, graph, facts, progress);
   return hints.length > 0 ? { ...progress, hints } : progress;
 }
@@ -577,12 +636,17 @@ function softHints(lesson: Lesson, graph: LessonGraph, facts: LessonFacts, progr
 }
 
 /** Progress by the hard rules only: the first step that does not hold, and what it lacks. */
-function hardProgress(lesson: Lesson, graph: LessonGraph, facts: LessonFacts, read: ReadonlySet<string>): Progress {
+function hardProgress(lesson: Lesson, graph: LessonGraph, facts: LessonFacts, read: ReadonlySet<string>, answers: LessonAnswers): Progress {
   let roles: Roles = {};
   for (let index = 0; index < lesson.steps.length; index += 1) {
     const step = lesson.steps[index];
     if (step.read) {
       if (read.has(step.id)) continue;
+      return { current: index, roles, missing: [] };
+    }
+    // A step the person answers: done by their answers and what the app reads, never by the canvas.
+    if (isPersonStep(step)) {
+      if (personStepDone(step, answers[step.id], graph, facts.read)) continue;
       return { current: index, roles, missing: [] };
     }
     const upTo = lesson.steps.slice(0, index + 1);
@@ -826,4 +890,39 @@ export function preferredOf(test: Extract<FieldTest, { kind: 'between' }>, now: 
 /** Every role a lesson names, with the step that brings it in. */
 export function rolesOf(lesson: Lesson): Array<RoleSpec & { step: number }> {
   return lesson.steps.flatMap((step, index) => (step.roles ?? []).map((spec) => ({ ...spec, step: index })));
+}
+
+/** Whether a step asks for something on the canvas (roles, links or fields). */
+export function isCanvasStep(step: LessonStep): boolean {
+  return stepKind(step) === 'canvas';
+}
+
+/** The outcomes a lesson declares; a lesson that declares none has only "structure checked". */
+export function outcomesOf(lesson: Lesson): LessonOutcome[] {
+  const declared = lesson.outcomes ?? ['structure'];
+  return LESSON_OUTCOMES.filter((outcome) => declared.includes(outcome));
+}
+
+/**
+ * Where each declared outcome stands, said truthfully: "structure" is checked by the app once every canvas step is
+ * behind the person; "run" is done when every item marked as run evidence is done, by the app's check or on the
+ * person's word (any word makes it the person's); "result" is the person's own assessment once every rubric is
+ * answered. A lesson without canvas steps counts its structure once it is finished.
+ */
+export function lessonOutcomes(lesson: Lesson, progress: Progress, answers: LessonAnswers, graph: LessonGraph, facts: LessonFacts): Array<{ outcome: LessonOutcome; state: OutcomeState }> {
+  const lastCanvas = lesson.steps.reduce((last, step, index) => (isCanvasStep(step) ? index : last), -1);
+  return outcomesOf(lesson).map((outcome) => {
+    if (outcome === 'structure') {
+      const reached = lastCanvas >= 0 ? progress.current > lastCanvas : progress.current >= lesson.steps.length;
+      return { outcome, state: reached ? 'app' : 'open' };
+    }
+    if (outcome === 'run') {
+      const items = lesson.steps.flatMap((step) => (step.checklist ?? []).filter((item) => item.run).map((item) => itemState(item, answers[step.id]?.[item.id], graph, facts.read)));
+      if (items.length === 0 || items.some((item) => !item.done)) return { outcome, state: 'open' };
+      return { outcome, state: items.every((item) => item.by === 'app') ? 'app' : 'self' };
+    }
+    const rubrics = lesson.steps.filter((step) => step.rubric);
+    const answered = rubrics.length > 0 && rubrics.every((step) => personStepDone(step, answers[step.id], graph, facts.read));
+    return { outcome, state: answered ? 'self' : 'open' };
+  });
 }

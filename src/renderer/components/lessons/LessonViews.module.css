@@ -1,0 +1,27 @@
+/*
+ * The view choice of the lesson list, a lesson's place in the programme, its outcomes and the card "About this
+ * lesson" (LessonViews.tsx). Small, quiet text that wraps at any width of the panel.
+ */
+.bar { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.place { margin: 0; color: var(--text-faint); font-size: var(--text-xs); line-height: 18px; overflow-wrap: anywhere; }
+.outcomes, .outcomesFull { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 2px 12px; min-width: 0; }
+.outcomesFull { flex-direction: column; gap: 6px; }
+.outcomes li, .outcomesFull li { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; color: var(--text-dim); font-size: var(--text-xs); line-height: 18px; overflow-wrap: anywhere; }
+.outcomesFull li { font-size: var(--text-sm); line-height: 20px; color: var(--text); }
+.outcomes li[data-outcome-state="open"] { color: var(--text-faint); }
+.by { color: var(--text-faint); }
+.ok { color: var(--ok); flex: none; }
+.self { color: var(--accent); flex: none; }
+.faint { color: var(--text-faint); flex: none; }
+.about { margin: 0; color: var(--text-dim); font-size: var(--text-xs); line-height: 18px; overflow-wrap: anywhere; min-width: 0; }
+.aboutSummary { display: inline-flex; align-items: center; gap: 4px; width: fit-content; list-style: none; color: var(--text-dim); cursor: pointer; border-radius: var(--radius-xs); }
+.aboutSummary::-webkit-details-marker { display: none; }
+.aboutSummary:hover { color: var(--text); }
+.aboutSummary:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.aboutSummary svg { transition: transform var(--motion-feedback) var(--motion-ease-out); }
+.about[open] .aboutSummary svg { transform: rotate(90deg); }
+.aboutList { margin: 6px 0 0; display: flex; flex-direction: column; gap: 2px; }
+.aboutList dt { margin-top: 4px; color: var(--text); font-weight: 600; }
+.aboutList dd { margin: 0; }
+.aboutList ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 2px; }
+.fix { color: var(--text); }

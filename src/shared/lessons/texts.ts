@@ -14,13 +14,64 @@ import { FOUNDATIONS_LESSONS_RU } from './sets/foundations.texts.ru';
 import { REASONS_EN } from './reasons.en';
 import { REASONS_RU } from './reasons.ru';
 
+/** The words of one checklist item: what to do and, when it helps, how to see that it is done. */
+export interface ItemWords {
+  label: string;
+  how?: string;
+}
+
+/** The words of one rubric criterion: the question, each level by id, and what to try when the answer is low. */
+export interface CriterionWords {
+  title: string;
+  levels: Record<string, string>;
+  /** Shown when a level below the top one is chosen. */
+  tryNext?: string;
+}
+
+/** The words of one quiz question: the question, each choice by id, and the explanation shown after an answer. */
+export interface QuestionWords {
+  text: string;
+  choices: Record<string, string>;
+  explain: string;
+}
+
+/** The words of one step: its title and body, and the words of its items, criteria or questions. */
+export interface StepWords {
+  title: string;
+  body: string;
+  items?: Record<string, ItemWords>;
+  criteria?: Record<string, CriterionWords>;
+  questions?: Record<string, QuestionWords>;
+}
+
+/** One expected mistake: how a person recognises it and what to do. */
+export interface MistakeWords {
+  sign: string;
+  fix: string;
+}
+
+/**
+ * The words of the template of the new standard (schema.ts lessonStandardProblems): the one target skill, what a
+ * person needs before, the expected mistakes, where the material comes from and under what terms, and what the app
+ * does not check.
+ */
+export interface MetaWords {
+  skill: string;
+  requires?: string[];
+  mistakes?: MistakeWords[];
+  provenance?: string;
+  notChecked?: string;
+}
+
 /** The words of one lesson in one language. */
 export interface LessonWords {
   title: string;
   /** One line for the list: what the person ends up with. */
   result: string;
   /** By step id: a short title, and what to do and why (a small markdown: paragraphs, a list, `code`). */
-  steps: Record<string, { title: string; body: string }>;
+  steps: Record<string, StepWords>;
+  /** The words of the lesson template (standard 2). */
+  meta?: MetaWords;
   /**
    * By role: what that node is in THIS lesson, said in "Still to do" after a node's name when two nodes of one class
    * stand on the canvas. A role without an entry falls back to the shared label (catalog lessons.role), which is
