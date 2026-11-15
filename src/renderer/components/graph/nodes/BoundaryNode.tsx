@@ -1,3 +1,8 @@
+/**
+ * The React Flow node type "boundary": the input and output edges of an open subgraph definition, with renamable
+ * slots and an empty slot that adds a new one. CanvasFlow registers it in nodeTypes; lib/subgraphView.ts builds
+ * these pseudo-nodes. They are not graph nodes, so their place on screen is never saved.
+ */
 import React, { memo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { NodeProps } from '@xyflow/react';

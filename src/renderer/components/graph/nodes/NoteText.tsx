@@ -2,13 +2,14 @@
  * The text of a Note or Markdown Note on its card. A person reads it in place and, where the canvas can be edited,
  * writes it: a double click or Enter opens the box, Ctrl+Enter or leaving the box saves, Escape keeps the old text.
  * Saving sends `set-note-text` (main/commands/editOps.ts), one undo step, and the text goes into the workflow file
- * where ComfyUI reads it (widgets_values[0]).
+ * where ComfyUI reads it (widgets_values[0]). NodeCard renders it for Note and Markdown Note nodes.
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { commitManual } from '../commit';
 import styles from './Node.module.css';
 
+/** What NodeCard passes: the note's node, its text, whether it may be written, and how to draw it at rest. */
 interface NoteTextProps {
   nodeId: string;
   text: string;
@@ -18,12 +19,15 @@ interface NoteTextProps {
   display?: React.ReactNode;
 }
 
+/** The note's text, read in place or written in a box that saves as one undo step. */
 export default function NoteText({ nodeId, text, editable, display }: NoteTextProps) {
   const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(text);
   const box = useRef<HTMLTextAreaElement>(null);
 
+  // While the box is closed the draft follows the saved text (an undo, the helper's edit); while open it is the
+  // person's own.
   useEffect(() => {
     if (!editing) setDraft(text);
   }, [text, editing]);

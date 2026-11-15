@@ -1,3 +1,9 @@
+/**
+ * The Properties panel's parts for nodes the imported file describes in a way of its own: a class that is not
+ * installed, a node only the ComfyUI editor knows, a Set / Get pair, the promoted fields of a subgraph copy.
+ * Inspector.tsx renders them under a node's properties; they reuse the node card's pieces (EditorNodes.tsx) and
+ * styles so the panel and the canvas show the same values the same way.
+ */
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Crosshair } from 'lucide-react';

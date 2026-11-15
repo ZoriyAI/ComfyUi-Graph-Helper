@@ -1,3 +1,7 @@
+/**
+ * Wrap points for long class names in node titles. NodeCard uses them on the canvas and Inspector in the Properties
+ * header, so both break "CheckpointLoaderSimple" between its words, never in the middle of one.
+ */
 import { revealHidden } from '../../../../shared/text/reveal';
 
 /**

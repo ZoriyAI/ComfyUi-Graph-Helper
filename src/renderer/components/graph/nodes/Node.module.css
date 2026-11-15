@@ -1,6 +1,7 @@
 /*
- * Node cards. Doubled class selectors win over the legacy `.graph-node` rules in theme.css until the Shell
- * team removes them (see the Canvas report for the list).
+ * Node cards and every drawing in nodes/ (fields, ports, notes, boundary, collapsed and Reroute nodes, file looks),
+ * plus the Set / Get jump and promoted fields in Properties. Doubled class selectors win over the legacy
+ * `.graph-node` rules in theme/legacy-canvas.css while those still exist.
  */
 .node.node {
   --canvas-accent: var(--type-unknown, #8b939c);

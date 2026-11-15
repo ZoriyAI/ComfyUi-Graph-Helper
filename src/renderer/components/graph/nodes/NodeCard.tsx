@@ -1,3 +1,8 @@
+/**
+ * The node card drawn on the canvas: header, link ports, fields with live controls, notes and the marks of an
+ * imported file. ComfyNode draws real nodes with it, SubgraphNode wraps it for subgraph instances, and the ghost
+ * layer draws the assistant's proposed nodes with it, so a node reads the same whichever way it appears.
+ */
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { AlertTriangle, CircleSlash, Layers, Lock, Sparkles } from 'lucide-react';
@@ -20,6 +25,7 @@ import { fileStyle, useClassPresence } from './nodeLook';
 import { nodeDisplayName } from '../lib/nodeName';
 import styles from './Node.module.css';
 
+/** How the canvas shows a card right now; every flag maps to one CSS class of Node.module.css. */
 export interface NodeCardState {
   selected?: boolean;
   aiTouched?: boolean;
@@ -33,6 +39,7 @@ export interface NodeCardState {
   subgraph?: boolean;
 }
 
+/** What a card is given: the node, its state, its connected handles, and optional header and footer parts. */
 interface NodeCardProps {
   id: string;
   data: ComfyNodeData;
@@ -42,6 +49,7 @@ interface NodeCardProps {
   live?: boolean;
   /** Extra header content, e.g. the subgraph "Enter" button. */
   headerExtra?: React.ReactNode;
+  /** A line under the card's body, e.g. the subgraph's name under a copy with its own title. */
   footer?: React.ReactNode;
 }
 
