@@ -16,7 +16,12 @@ export function testSwitchesAllowed(packaged: boolean, env: NodeJS.ProcessEnv = 
  * The scripted TEST provider (testLLMTransport.ts) answers with canned text: offered and accepted only in an
  * unpackaged app (development and the e2e suite, which runs the built files with Electron). An installed app refuses
  * it even when an old profile has it saved.
+ *
+ * NODEWISE_PACKAGED_PROVIDERS=1 makes an unpackaged run offer exactly the providers an installed app offers. The
+ * public screenshots (tests/e2e/public-shots, `npm run shots:public`) are taken from an unpackaged run and set it,
+ * so Settings ▸ Assistant shows what a person who installed the app sees, without the TEST card. It can only take
+ * the TEST provider away, never give it to an installed app.
  */
-export function scriptedProviderAllowed(packaged: boolean): boolean {
-  return !packaged;
+export function scriptedProviderAllowed(packaged: boolean, env: NodeJS.ProcessEnv = process.env): boolean {
+  return !packaged && env.NODEWISE_PACKAGED_PROVIDERS !== '1';
 }

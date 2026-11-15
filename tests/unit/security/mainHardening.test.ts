@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { isDevelopmentRun, testSwitchesAllowed } from '../../../src/main/runMode';
+import { isDevelopmentRun, scriptedProviderAllowed, testSwitchesAllowed } from '../../../src/main/runMode';
 import { secureProfileFolder } from '../../../src/main/profileFolder';
 import { homeRedactor } from '../../../src/main/diagnostics';
 import { guardedIpcMain, UNGUARDED_LISTENER_ERROR } from '../../../src/main/ipc/guard';
@@ -18,6 +18,11 @@ describe('development and test switches', () => {
     expect(testSwitchesAllowed(false, { NODE_ENV: 'test' })).toBe(true);
     expect(testSwitchesAllowed(true, { NODE_ENV: 'test' })).toBe(false);
     expect(testSwitchesAllowed(false, { NODE_ENV: 'production' })).toBe(false);
+    // The scripted TEST provider: unpackaged runs only, and not when a run asks for an installed app's providers.
+    expect(scriptedProviderAllowed(false, {})).toBe(true);
+    expect(scriptedProviderAllowed(true, {})).toBe(false);
+    expect(scriptedProviderAllowed(false, { NODEWISE_PACKAGED_PROVIDERS: '1' })).toBe(false);
+    expect(scriptedProviderAllowed(true, { NODEWISE_PACKAGED_PROVIDERS: '0' })).toBe(false);
   });
 });
 

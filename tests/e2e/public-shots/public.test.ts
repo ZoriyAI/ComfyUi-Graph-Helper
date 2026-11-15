@@ -81,7 +81,8 @@ for (const language of LANGUAGES) {
     }
     const llm: ShowcaseLlm = await startShowcaseLlm(language);
     const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'public-shots-'));
-    const env: Record<string, string | undefined> = { ...process.env, NODE_ENV: 'production' };
+    // The providers of an installed app (runMode.ts scriptedProviderAllowed): no TEST card in Settings ▸ Assistant.
+    const env: Record<string, string | undefined> = { ...process.env, NODE_ENV: 'production', NODEWISE_PACKAGED_PROVIDERS: '1' };
     delete env.DBUS_SESSION_BUS_ADDRESS;
     delete env.GNOME_KEYRING_CONTROL;
     let app: ElectronApplication | null = null;
