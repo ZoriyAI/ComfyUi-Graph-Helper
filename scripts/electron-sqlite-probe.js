@@ -1,3 +1,8 @@
+/**
+ * Manual check, run with Electron (`electron scripts/electron-sqlite-probe.js` after `npm run build:main`): the
+ * built main's SQLite database loads inside Electron, settings survive a close and reopen, and a key is refused
+ * while no secret store is proven. Uses a throwaway profile folder. Each failure has its own exit code (2 to 7).
+ */
 const { app } = require('electron');
 const fs = require('fs');
 const os = require('os');
@@ -5,6 +10,7 @@ const path = require('path');
 const { currentMain } = require('./assert-current-main');
 
 const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'prep-probe-'));
+// A fresh profile, so the first read must come from the defaults and never touches the person's own settings.
 app.setPath('userData', userData);
 
 app.whenReady().then(() => {
@@ -37,6 +43,7 @@ app.whenReady().then(() => {
       app.exit(4);
       return;
     }
+    // No proof of an OS secret store was given, so the key must be refused and nothing written.
     const blocked = attemptSaveSecret(getDatabase());
     if (blocked.status !== 'secret-storage-blocked' || secretRecordCount(getDatabase()) !== 0) {
       console.error('ELECTRON_PROBE_FAIL secret');

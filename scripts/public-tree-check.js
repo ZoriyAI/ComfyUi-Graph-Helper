@@ -16,6 +16,9 @@
  *                                                         middle of every find is hidden)
  *
  * The same list can come from the environment: PUBLIC_TREE_PRIVATE_VALUES=/path/to/file.
+ *
+ * Run by CI and the release workflow on every change, and by scripts/make-public-snapshot.sh on the source and on
+ * the copy it makes. tests/unit/publicTreeCheck.test.ts tests the exported scanners.
  */
 const fs = require('fs');
 const path = require('path');
@@ -53,6 +56,7 @@ const SAFE_PRIVATE_ADDRESS = /^(?:192\.168\.[01]\.\d{1,3}|10\.0\.0\.\d{1,3})$/;
 /** Words inside a key that say it was made up for a test or an example. */
 const MADE_UP_KEY = /test|fake|example|sample|dummy|demo|placeholder|your|x{4,}|0{6,}|1234|abcd|a1b2c3|secret-?value|\.\.\./i;
 
+/** Paths that must never be tracked at all, whatever they hold, each with the reason the report gives. */
 const TRACKED_NEVER = [
   { pattern: /(^|\/)\.env(\.|$)/, why: 'a file with environment values' },
   { pattern: /\.(pem|p12|pfx|key|keystore)$/i, why: 'a private key or certificate store' },
@@ -63,6 +67,7 @@ const TRACKED_NEVER = [
   { pattern: /(^|\/)\.cursor\//, why: 'a folder of a coding assistant' },
 ];
 
+/** Files above this size are reported: a large file in a source repository is usually a mistake. */
 const BIG_FILE_BYTES = 2 * 1024 * 1024;
 
 function lineOf(text, index) {
@@ -71,6 +76,7 @@ function lineOf(text, index) {
   return line;
 }
 
+/** True for an IPv4 address inside a private range (10/8, 172.16/12, 192.168/16) or the 100.64/10 shared range. */
 function privateAddress(ip) {
   const parts = ip.split('.').map(Number);
   if (parts.length !== 4 || parts.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) return false;
@@ -174,6 +180,7 @@ function scanBinary(file, buffer, privateValues = []) {
   return scanText(file, text, privateValues).filter((find) => find.rule === 'private value' || find.rule === 'session link');
 }
 
+/** Finds that come from a file's path and size alone. */
 function scanName(file, size) {
   const finds = [];
   for (const { pattern, why } of TRACKED_NEVER) {
@@ -185,6 +192,7 @@ function scanName(file, size) {
   return finds;
 }
 
+/** The lines of the private values file; lines shorter than 3 characters are skipped, they would match everywhere. */
 function readPrivateValues(file) {
   if (!file) return [];
   return fs
@@ -229,6 +237,7 @@ function listTracked(root) {
   return files.filter((file) => !kept.has(file));
 }
 
+/** A NUL byte in the first 8000 bytes means binary, the same test git uses. */
 function looksBinary(buffer) {
   const end = Math.min(buffer.length, 8000);
   for (let i = 0; i < end; i += 1) if (buffer[i] === 0) return true;
@@ -258,6 +267,7 @@ function scanTree(root, files, privateValues = []) {
   return finds;
 }
 
+/** Hides the middle of a find, so the report does not itself repeat a private value in a CI log. */
 function hide(match) {
   if (match.length <= 6) return `${match.slice(0, 1)}…`;
   return `${match.slice(0, 3)}…${match.slice(-2)}`;

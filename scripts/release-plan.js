@@ -1,13 +1,22 @@
-/** Release reads fail closed. All gh calls use argv, never shell evaluation. */
+/**
+ * The release workflow's decisions (.github/workflows/release.yml), one phase per call:
+ *   node scripts/release-plan.js plan|recheck|runtime|previous|publish
+ * plan and recheck decide whether to build and which tag to publish; runtime picks the pinned AppImage runtime;
+ * previous downloads the last release's .deb for the upgrade test; publish creates the tag and the release.
+ * Results go to GITHUB_OUTPUT. Release reads fail closed: anything malformed or ambiguous stops the release.
+ * All gh calls use argv, never shell evaluation. Tested in tests/unit/releasePlan.test.ts with a fake gh.
+ */
 const fs = require('node:fs');
 const { execFileSync } = require('node:child_process');
 const semver = require('semver');
 const { DISPLAY_NAME } = require('./lib/product-names');
 
 const SHA = /^[a-f0-9]{40}$/;
+/** The AppImage runtime release used unless the workflow overrides it, pinned by its SHA-256. */
 const DEFAULT_RUNTIME = { tag: '20251108', sha256: '2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d' };
 function fail(message) { throw new Error(message); }
 function ghRunner(args) { return execFileSync('gh', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }); }
+/** A GitHub API read through gh; paginated reads come back as one flat list. */
 function api(gh, endpoint, paginated = false) {
   const value = JSON.parse(gh(['api', ...(paginated ? ['--paginate', '--slurp'] : []), endpoint]));
   if (!paginated) return value;
@@ -22,6 +31,7 @@ function releases(gh, repo) {
   }
   return rows;
 }
+/** True when `tag` already has a published release. A draft or a duplicate stops the run instead. */
 function published(gh, repo, tag) {
   const matches = releases(gh, repo).filter(row => row.tag_name === tag);
   if (matches.some(row => row.draft)) fail(`Draft release conflicts with ${tag}; deliberate recovery is required`);
@@ -32,6 +42,7 @@ function object(value) {
   if (!value || !SHA.test(value.sha) || !['commit', 'tag'].includes(value.type)) fail('Invalid tag object');
   return value;
 }
+/** The commit an existing tag points to (through annotated tags), or null when there is no such tag. */
 function tagTarget(gh, repo, tag) {
   const rows = api(gh, `repos/${repo}/git/matching-refs/tags/${encodeURIComponent(tag)}?per_page=100`, true);
   if (!rows.every(row => row && typeof row.ref === 'string' && row.object && typeof row.object.sha === 'string' && typeof row.object.type === 'string')) fail('Malformed tag reference');
@@ -60,6 +71,11 @@ function checkTag(gh, options) {
   if (!target && options.event === 'push' && options.ref.startsWith('refs/tags/')) fail('Event tag disappeared');
   return target;
 }
+/**
+ * What this run does. A push to main releases v<package version>; a pushed v* tag or a manual run names its tag;
+ * a weekly scheduled run builds only when there were commits in the last 8 days. An already published tag is not
+ * published again.
+ */
 function plan(options, gh = ghRunner) {
   const main = options.event === 'push' && options.ref === 'refs/heads/main';
   const tag = main ? `v${options.version}` : options.event === 'push' && options.ref.startsWith('refs/tags/v') ? options.ref.slice(10) : options.event === 'workflow_dispatch' ? options.input || '' : '';
@@ -72,6 +88,7 @@ function plan(options, gh = ghRunner) {
   checkTag(gh, opts);
   return { ...output, publish: !exists };
 }
+/** Tags the tested commit if needed and creates the release with `files`; false when it already exists. */
 function publish(options, files, gh = ghRunner) {
   validate(options);
   if (!files.length) fail('No release files');
@@ -85,6 +102,7 @@ function publish(options, files, gh = ghRunner) {
     '--title', `${DISPLAY_NAME} ${options.tag}`, '--notes-file', `docs/releases/${options.tag}.md`]);
   return true;
 }
+/** Downloads the .deb of the newest other stable release into options.directory; returns its tag or ''. */
 function previous(options, gh = ghRunner) {
   const release = releases(gh, options.repo).find(row => !row.draft && !row.prerelease && row.tag_name !== options.tag);
   if (!release) return '';
@@ -94,12 +112,14 @@ function previous(options, gh = ghRunner) {
   gh(['release', 'download', release.tag_name, '--repo', options.repo, '--pattern', '*.deb', '--dir', options.directory]);
   return release.tag_name;
 }
+/** The AppImage runtime to use: the default, or an override that names both a tag and its checksum. */
 function runtime(tag, sha256) {
   if (!tag && !sha256) return DEFAULT_RUNTIME;
   if (!tag || !sha256 || !/^[0-9A-Za-z._-]+$/.test(tag) || !/^[a-f0-9]{64}$/.test(sha256)) fail('AppImage runtime overrides require both a safe tag and SHA-256');
   if (tag === DEFAULT_RUNTIME.tag && sha256 !== DEFAULT_RUNTIME.sha256) fail('Default AppImage runtime checksum mismatch');
   return { tag, sha256 };
 }
+/** Appends step outputs; a line break in a value would let it write a second output, so it is refused. */
 function outputs(values) {
   for (const [key, value] of Object.entries(values)) {
     if (String(value).includes('\n') || String(value).includes('\r')) fail('Invalid output');

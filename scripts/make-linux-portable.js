@@ -14,7 +14,9 @@
  * runtime the SquashFS image is still made and kept as out/make/portable/appimage-payload.squashfs, so the AppImage's
  * contents can be checked; REQUIRE_APPIMAGE=1 (CI) makes a missing tool an error instead.
  *
- *   node scripts/make-linux-portable.js
+ *   node scripts/make-linux-portable.js   (`npm run make:linux` runs it right after electron-forge make)
+ *
+ * scripts/smoke-linux-portable.js checks both results; tests/unit/linuxPortable.test.ts tests the exported helpers.
  */
 const fs = require('fs');
 const path = require('path');
@@ -55,6 +57,7 @@ function desktopEntry() {
   return text;
 }
 
+/** The icon PNGs into the hicolor theme layout under `shareDir`, where desktops look for an app's icon. */
 function copyIcons(shareDir) {
   for (const size of ICON_SIZES) {
     const dir = path.join(shareDir, 'icons', 'hicolor', `${size}x${size}`, 'apps');
@@ -90,6 +93,7 @@ function checkRuntime(file) {
   }
 }
 
+/** The tar.gz: the packaged folder plus the start, install and uninstall scripts, the menu entry and icons. */
 function makeTarball(bundle, outDir, version) {
   const folder = `${NAME}-${version}-linux-${ARCH}`;
   const staging = path.join(outDir, folder);
@@ -110,6 +114,10 @@ function makeTarball(bundle, outDir, version) {
   return tarball;
 }
 
+/**
+ * The AppImage: an AppDir (app under usr/lib/<name>, AppRun, desktop entry, icons) packed into SquashFS and
+ * appended to the runtime. Returns null when a tool or the runtime is missing and REQUIRE_APPIMAGE is not set.
+ */
 function makeAppImage(bundle, outDir, version) {
   const required = process.env.REQUIRE_APPIMAGE === '1';
   if (!have('mksquashfs')) {

@@ -14,6 +14,7 @@ fs.mkdirSync(outDir, { recursive: true });
 const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'helper-shots-'));
 const taken = [];
 
+/** Saves one screenshot named `name` after a short pause, so transitions have settled. */
 async function shot(page, name) {
   await page.waitForTimeout(450);
   const file = path.join(outDir, `${name}.png`);
@@ -22,6 +23,7 @@ async function shot(page, name) {
   console.log('shot', name);
 }
 
+/** Runs one capture state; an error skips that state only. */
 async function step(name, fn) {
   try {
     await fn();
@@ -48,6 +50,7 @@ async function zoomTo100(page, x, y) {
   return zoomOf(page);
 }
 
+/** Puts workflow.json on the canvas with an import-workflow command, the one opening a workflow commits. */
 async function importWorkflow(page) {
   const workflow = JSON.parse(fs.readFileSync(path.join(__dirname, 'workflow.json'), 'utf8'));
   const imported = await page.evaluate(async (document) => {
