@@ -1,6 +1,7 @@
 import { app, BrowserWindow, type IpcMain, type WebContents } from 'electron';
 import { languageOf, type AppLanguage } from '../../shared/i18n';
 import { turnLinesAllowed } from '../trace/modelTrace';
+import { reportInterruptedRun } from '../agent/interrupted';
 import { IPC_CHANNELS } from '../../shared/ipc-channels';
 import { getDatabase } from '../database';
 import { readPreferences, readSettings } from '../settings/repository';
@@ -39,8 +40,11 @@ export function cancelTurns(senderId: number, runId?: unknown): number {
 }
 
 /** Aborts the turn when its window crashes, closes, or navigates away. Returns the cleanup. */
-function abortWithSender(sender: WebContents, controller: AbortController): () => void {
-  const abort = () => controller.abort();
+function abortWithSender(sender: WebContents, controller: AbortController, onGone?: () => void): () => void {
+  const abort = () => {
+    onGone?.();
+    controller.abort();
+  };
   const events = ['render-process-gone', 'destroyed', 'will-navigate'] as const;
   for (const name of events) sender.on(name as 'destroyed', abort);
   return () => {
@@ -62,7 +66,9 @@ export function registerAgentIpc(ipcMain: IpcMain): void {
       };
       const turn: LiveTurn = { controller: new AbortController(), senderId: event.sender.id, runId: String(runContext?.runId ?? '') };
       live.add(turn);
-      const release = abortWithSender(event.sender, turn.controller);
+      // The window went away during the turn (closed in a pause or a build): the chat keeps a trace of it.
+      let windowGone = false;
+      const release = abortWithSender(event.sender, turn.controller, () => { windowGone = true; });
       // The log records which runtime ran the turn and how it ended; never the prompt or a key.
       const runtime = mainLLMService.nextSendConfig();
       const started = Date.now();
@@ -91,6 +97,9 @@ export function registerAgentIpc(ipcMain: IpcMain): void {
         if (turnLinesAllowed()) log.info(`[Agent] Turn end provider=${runtime.provider || 'none'} model=${runtime.model || 'none'} steps=${steps} ms=${Date.now() - started} ${outcome}`);
         release();
         live.delete(turn);
+        if (windowGone && runContext?.projectId && runContext?.runId) {
+          reportInterruptedRun(getDatabase(), String(runContext.projectId), String(runContext.runId), settingsLanguage());
+        }
       }
     },
   );
