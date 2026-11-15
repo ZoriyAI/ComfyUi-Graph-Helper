@@ -2,7 +2,7 @@ import { ipcMain as rawIpcMain, app, BrowserWindow, dialog, safeStorage } from '
 import { guardedIpcMain } from './ipc/guard';
 import { randomUUID } from 'crypto';
 import * as fs from 'fs';
-import { fileOpenErrorCode, fileWriteErrorCode, readPickedFile, writeFileAtomic } from './files/atomicWrite';
+import { fileWriteErrorCode, writeFileAtomic } from './files/atomicWrite';
 import * as path from 'path';
 import { IPC_CHANNELS } from '../shared/ipc-channels';
 import { getDatabase } from './database';
@@ -20,6 +20,9 @@ import { registerDiagnosticsIpc } from './ipc/diagnosticsIpc';
 import { registerAboutIpc } from './ipc/aboutIpc';
 import { registerUpdateIpc } from './updates/updateIpc';
 import { registerStartIpc, watchReplacingCommit } from './ipc/startIpc';
+import { noteExported, openFileAtPath, registerOpenIpc } from './ipc/openIpc';
+import { OPENABLE_EXTENSIONS } from './files/openFile';
+import { rememberRecent, sourceOf } from './files/recentFiles';
 import { clearPreviewsForNewAddress, registerPrivacyIpc } from './ipc/privacyIpc';
 import { confirmingOpener } from './signInSite';
 import { mcpOriginOf, mcpToken, mcpTokenFor, mcpTokenOrigin, mcpTokenStatus, releaseMcpTokenIfOriginChanged, setMcpToken } from './mcp/token';
@@ -225,25 +228,21 @@ export async function setupIPC(): Promise<void> {
   registerStartIpc(ipcMain);
   registerPrivacyIpc(ipcMain);
   // File operations
+  // Every way of opening a file ends in openFileAtPath (ipc/openIpc.ts): one recognition, one commit, one follow-up.
+  registerOpenIpc(ipcMain, { importWorkflow: importWorkflowDocument, openProject: openNativeDocument });
   ipcMain.handle(IPC_CHANNELS.FILE_IMPORT_WORKFLOW, async () => {
     const copy = dialogCopy().importWorkflow;
     const result = await dialog.showOpenDialog({
       title: copy.title,
       buttonLabel: copy.buttonLabel,
-      filters: [{ name: copy.filter, extensions: ['json'] }],
+      // A picture or a video ComfyUI saved carries its workflow; the open path reads it from there.
+      filters: [{ name: copy.filter, extensions: [...OPENABLE_EXTENSIONS] }],
       properties: ['openFile'],
     });
     if (result.canceled || result.filePaths.length === 0) {
       return { status: 'cancelled', projection: null, result: null };
     }
-    try {
-      const document = JSON.parse(readPickedFile(result.filePaths[0]));
-      const response = importWorkflowDocument(document);
-      watchReplacingCommit(app.getPath('userData'), { payload: { type: 'import-workflow' } }, response);
-      return response;
-    } catch (error) {
-      return { status: 'rejected', projection: readProjection(getDatabase(), DESKTOP_PROJECT_ID), result: { error: fileOpenErrorCode(error, 'Workflow JSON could not be parsed.') } };
-    }
+    return openFileAtPath(result.filePaths[0]);
   });
 
   ipcMain.handle(IPC_CHANNELS.FILE_IMPORT_CATALOG, async () => {
@@ -277,9 +276,11 @@ export async function setupIPC(): Promise<void> {
     try {
       writeFileAtomic(withFileExtension(result.filePath, 'workflow'), JSON.stringify(exported.workflow, null, 2));
     } catch (error) {
-      return { ok: false, error: fileWriteErrorCode(error, 'The workflow file could not be written.') };
+      return { ok: false, error: fileWriteErrorCode(error, 'The workflow file could not be written.', withFileExtension(result.filePath, 'workflow')) };
     }
-    return { ok: true, unsetWidgets: exported.unsetWidgets };
+    // For the run card after the save: "Show in folder", and File ▸ Recent.
+    noteExported(withFileExtension(result.filePath, 'workflow'));
+    return { ok: true, unsetWidgets: exported.unsetWidgets, fileName: path.basename(withFileExtension(result.filePath, 'workflow')) };
   });
 
   ipcMain.handle(IPC_CHANNELS.WORKFLOW_EXPORT_DOCUMENT, () => exportWorkflowDocument());
@@ -295,16 +296,8 @@ export async function setupIPC(): Promise<void> {
     if (result.canceled || result.filePaths.length === 0) {
       return { status: 'cancelled', projection: null, result: null };
     }
-    try {
-      const document = JSON.parse(readPickedFile(result.filePaths[0]));
-      const opened = openNativeDocument(document);
-      // The graph that came from this file is in it as it stands: Ctrl+S writes back here.
-      if (opened.status === 'applied') rememberProjectFile(getDatabase(), DESKTOP_PROJECT_ID, result.filePaths[0]);
-      watchReplacingCommit(app.getPath('userData'), { payload: { type: 'open-native' } }, opened);
-      return opened;
-    } catch (error) {
-      return { status: 'rejected', projection: readProjection(getDatabase(), DESKTOP_PROJECT_ID), result: { error: fileOpenErrorCode(error, 'The project file could not be parsed.') } };
-    }
+    // The same path as every other open: a project opens as a project, a workflow picked here opens as a workflow.
+    return openFileAtPath(result.filePaths[0]);
   });
 
   ipcMain.handle(IPC_CHANNELS.FILE_SAVE_PROJECT, async (_event, secrets?: unknown, options?: { saveAs?: boolean }) => {
@@ -337,13 +330,18 @@ export async function setupIPC(): Promise<void> {
     try {
       writeFileAtomic(filePath, JSON.stringify(saved.project, null, 2));
     } catch (error) {
-      return { ok: false, error: fileWriteErrorCode(error, 'The project file could not be written.') };
+      return { ok: false, error: fileWriteErrorCode(error, 'The project file could not be written.', filePath) };
     }
     rememberProjectFile(getDatabase(), DESKTOP_PROJECT_ID, filePath, written);
+    rememberRecent(app.getPath('userData'), filePath, 'project');
     return { ok: true, filePath };
   });
 
-  ipcMain.handle(IPC_CHANNELS.FILE_PROJECT_STATE, () => projectFileState(getDatabase(), DESKTOP_PROJECT_ID));
+  ipcMain.handle(IPC_CHANNELS.FILE_PROJECT_STATE, () => {
+    const state = projectFileState(getDatabase(), DESKTOP_PROJECT_ID);
+    // The workflow file the graph came from names it in the app bar when it has no title and no project file.
+    return { ...state, sourceName: sourceOf(app.getPath('userData'), state.graphKey) };
+  });
 
   // Project operations
   ipcMain.handle(IPC_CHANNELS.DB_SAVE_PROJECT, (_event, project: unknown) => saveProjectRecord(getDatabase(), project));

@@ -1,3 +1,4 @@
+import { fileFromArgs, requestOpen } from './ipc/openIpc';
 import { app, BrowserWindow, dialog, Menu, net, protocol, screen, session, shell, type WebContents } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -333,6 +334,8 @@ app.whenReady().then(async () => {
     const settings = readSettings(getDatabase());
     log.info(`[Settings] Read source=${settings.source}${settings.source === 'corrupt' ? '' : ` provider=${settings.values.provider || 'none'} language=${settings.values.language}`}`);
     await setupIPC();
+    // A workflow or project named on the command line opens once the window asks for it (ipc/openIpc.ts).
+    requestOpen(fileFromArgs(process.argv, process.cwd()));
     logSyncRuns();
     Menu.setApplicationMenu(null);
     createWindow();
@@ -346,7 +349,9 @@ app.whenReady().then(async () => {
   }
 });
 
-app.on('second-instance', () => {
+app.on('second-instance', (_event, argv, workingDirectory) => {
+  // A second start with a file hands the file to this window, which asks before replacing its graph.
+  requestOpen(fileFromArgs(argv, workingDirectory));
   if (!mainWindow || mainWindow.isDestroyed()) return;
   if (mainWindow.isMinimized()) mainWindow.restore();
   mainWindow.show();

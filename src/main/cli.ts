@@ -39,6 +39,7 @@ export function commandLineAnswer(argv: readonly string[], version: string, lang
       ...optionLine('--user-data-dir=<folder>', t('cli.userDataDir', { folder: `~/.config/${STABLE_APP_NAME}` })),
       ...optionLine('--password-store=<store>', t('cli.passwordStore', { stores: 'gnome-libsecret, kwallet5, kwallet6' })),
       ...optionLine('--ozone-platform-hint=auto', t('cli.wayland')),
+      ...optionLine('[file]', t('cli.file')),
       '',
     ].join('\n');
   }

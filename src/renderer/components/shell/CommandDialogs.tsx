@@ -5,7 +5,7 @@ import Button from '../../ui/Button';
 import Shortcut from '../../ui/Shortcut';
 import { cx } from '../../ui/cx';
 import { allCommands, type CommandGroup } from '../../commands/registry';
-import { exportWorkflowNow, importWorkflowNow, openProjectNow, saveProjectFile, startNewProject } from '../../commands/actions';
+import { exportWorkflowNow, importWorkflowNow, openProjectNow, runQueuedOpen, saveProjectFile, startNewProject } from '../../commands/actions';
 import { secretFieldLabel, useSecretGuardStore } from '../../commands/secretGuard';
 import { stopBuildAndGo, useBuildGuardStore } from '../../commands/buildGuard';
 import { useKnowledgeStore } from '../../state/knowledgeState';
@@ -155,6 +155,8 @@ const REPLACE_COPY = {
   'new-project': { title: 'menu.newProjectTitle', body: 'menu.newProjectBody', confirm: 'menu.newProjectConfirm', run: startNewProject },
   'open-project': { title: 'menu.openProjectTitle', body: 'menu.openProjectBody', confirm: 'menu.openProjectConfirm', run: openProjectNow },
   'import-workflow': { title: 'menu.openWorkflowTitle', body: 'menu.openWorkflowBody', confirm: 'menu.openWorkflowConfirm', run: importWorkflowNow },
+  // Every other way of opening (drop, Recent, Examples, command line) asks the same question as Open workflow.
+  'open-file': { title: 'menu.openWorkflowTitle', body: 'menu.openWorkflowBody', confirm: 'menu.openWorkflowConfirm', run: runQueuedOpen },
 } as const;
 
 /**

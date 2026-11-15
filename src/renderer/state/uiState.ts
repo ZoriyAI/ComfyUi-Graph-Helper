@@ -18,7 +18,8 @@ export interface TourStep {
 export type ShellDialog = 'shortcuts' | 'about' | 'new-project' | 'export-guard' | 'help' | 'report-problem';
 
 /** What replaces the graph on screen once the person confirms: the "new-project" dialog asks for all three. */
-export type ReplaceIntent = 'new-project' | 'open-project' | 'import-workflow';
+/** 'open-file': a dropped file, File ▸ Recent or Examples, a file from the command line (commands/actions.ts openVia). */
+export type ReplaceIntent = 'new-project' | 'open-project' | 'import-workflow' | 'open-file';
 
 /** Settings sections, in the order of the Preferences window's navigation. The menu opens it on one. */
 export const SETTINGS_SECTIONS = ['assistant', 'connection', 'sync', 'canvas', 'appearance', 'shortcuts', 'privacy', 'about'] as const;
@@ -72,7 +73,12 @@ interface UiState {
 }
 
 /** Below this window width the rail starts as an icon strip, so the canvas keeps room for explanatory animation. */
-export const RAIL_AUTO_COLLAPSE = 1440;
+/**
+ * The window width from which the library starts open: wide enough for the library, the right panel at its narrowest
+ * and a usable canvas (state/frame.ts holdsBothPanels). It was 1440, wider than the 1400 the app opens at, so a
+ * first start hid the library, the one place nodes come from.
+ */
+export const RAIL_AUTO_COLLAPSE = 1180;
 export const RAIL_WIDTH = 300;
 export const RAIL_STRIP = 48;
 

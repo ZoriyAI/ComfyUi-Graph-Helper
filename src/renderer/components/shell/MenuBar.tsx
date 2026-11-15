@@ -13,13 +13,18 @@ import { providerChoices } from '../../state/providerState';
 import styles from './MenuBar.module.css';
 import AppMark from '../../ui/AppMark';
 import { COLOR_COMMAND_IDS } from '../../commands/editingCommands';
+import { useOpenListsStore } from '../../state/openListsState';
+import { openExampleGraph, openRecentFile } from '../../commands/actions';
+import { lessonWords } from '../../../shared/lessons/texts';
 
 /** One entry of a menu: a command, a check or radio row, a submenu, or a rule. */
 type Entry =
   | { kind: 'command'; id: string }
   | { kind: 'check'; id: string }
   | { kind: 'radio'; labelKey: string; ids: string[]; valueOf: (id: string) => string }
-  | { kind: 'separator' };
+  | { kind: 'separator' }
+  /** A submenu whose rows come from a store (File ▸ Open recent, File ▸ Examples): see FileListSubmenu. */
+  | { kind: 'files'; list: 'recent' | 'examples' };
 
 const command = (id: string): Entry => ({ kind: 'command', id });
 const check = (id: string): Entry => ({ kind: 'check', id });
@@ -30,7 +35,7 @@ const MENUS: Array<{ value: string; labelKey: string; entries: Entry[] }> = [
     value: 'file',
     labelKey: 'menu.file',
     entries: [
-      command('file.new'), command('file.open'), command('file.save'), command('file.saveAs'), separator,
+      command('file.new'), command('file.open'), { kind: 'files', list: 'recent' }, { kind: 'files', list: 'examples' }, command('file.save'), command('file.saveAs'), separator,
       command('file.import'), command('file.export'), command('file.catalog'), separator,
       command('file.settings'), separator, command('file.quit'),
     ],
@@ -63,7 +68,7 @@ const MENUS: Array<{ value: string; labelKey: string; entries: Entry[] }> = [
       check('graph.bypass'), check('graph.mute'),
       { kind: 'radio', labelKey: 'editing.color', ids: COLOR_COMMAND_IDS, valueOf: (id) => id.slice('graph.color.'.length) },
       command('graph.insertOnLink'), command('graph.replaceNode'), command('graph.addNote'), separator,
-      command('graph.check'), command('graph.acceptAll'), command('graph.rejectAll'), separator,
+      command('graph.check'), command('help.comfyError'), command('graph.acceptAll'), command('graph.rejectAll'), separator,
       check('graph.tour'), check('graph.replay'),
     ],
   },
@@ -85,9 +90,43 @@ const MENUS: Array<{ value: string; labelKey: string; entries: Entry[] }> = [
   {
     value: 'help',
     labelKey: 'menu.help',
-    entries: [command('help.guide'), command('help.glossary'), command('help.troubleshooting'), command('help.whatsNew'), command('help.content'), separator, command('help.site'), command('help.reportProblem'), command('help.releases'), separator, command('help.shortcuts'), separator, command('help.modelLog'), command('help.openLogs'), command('help.copyDiagnostics'), separator, command('help.about')],
+    entries: [command('help.guide'), command('help.tour'), command('help.glossary'), command('help.troubleshooting'), command('help.whatsNew'), command('help.content'), separator, command('help.site'), command('help.reportProblem'), command('help.releases'), separator, command('help.runInComfy'), command('help.comfyError'), separator, command('help.shortcuts'), separator, command('help.modelLog'), command('help.openLogs'), command('help.copyDiagnostics'), separator, command('help.about')],
   },
 ];
+
+/**
+ * File ▸ Open recent and File ▸ Examples: rows read from main (state/openListsState.ts), each opening through the one
+ * open path (commands/actions.ts openVia). An example is named by its lesson; an empty list says why it is empty.
+ */
+function FileListSubmenu({ list, onChoose }: { list: 'recent' | 'examples'; onChoose: () => void }) {
+  const { t, i18n } = useTranslation();
+  const recent = useOpenListsStore((state) => state.recent);
+  const examples = useOpenListsStore((state) => state.examples);
+  const rows = list === 'recent'
+    ? recent.map((item) => ({ key: item.path, label: item.name, hint: item.path, run: () => openRecentFile(item.path) }))
+    : examples.map((id) => ({ key: id, label: lessonWords(i18n.language, id)?.title ?? id, hint: undefined, run: () => openExampleGraph(id) }));
+  return (
+    <Menubar.Sub>
+      <Menubar.SubTrigger className={cx(menuStyles.item, styles.item)} data-command={`file.${list}`}>
+        <span className={styles.itemLabel}>{t(list === 'recent' ? 'journey.recent' : 'journey.examples')}</span>
+        <ChevronRight size={14} className={styles.subChevron} aria-hidden="true" />
+      </Menubar.SubTrigger>
+      <Menubar.Portal>
+        <Menubar.SubContent className={cx(menuStyles.content, styles.content)} sideOffset={2} alignOffset={-5}>
+          {rows.length === 0 ? (
+            <Menubar.Item className={cx(menuStyles.item, styles.item)} disabled>
+              <span className={styles.itemLabel}>{t(list === 'recent' ? 'journey.recentEmpty' : 'journey.examplesEmpty')}</span>
+            </Menubar.Item>
+          ) : rows.map((row) => (
+            <Menubar.Item key={row.key} className={cx(menuStyles.item, styles.item)} title={row.hint} onSelect={() => { onChoose(); window.setTimeout(() => void row.run(), 0); }}>
+              <span className={styles.itemLabel}>{row.label}</span>
+            </Menubar.Item>
+          ))}
+        </Menubar.SubContent>
+      </Menubar.Portal>
+    </Menubar.Sub>
+  );
+}
 
 function Label({ id }: { id: string }) {
   const { t } = useTranslation();
@@ -127,6 +166,7 @@ export default function MenuBar() {
 
   const renderEntry = (entry: Entry, index: number): React.ReactNode => {
     if (entry.kind === 'separator') return <Menubar.Separator key={`s${index}`} className={menuStyles.separator} />;
+    if (entry.kind === 'files') return <FileListSubmenu key={entry.list} list={entry.list} onChoose={() => { chosen.current = true; }} />;
     if (entry.kind === 'radio') {
       const current = entry.ids.find((id) => getCommand(id)?.checked?.()) ?? '';
       return (

@@ -1,4 +1,6 @@
 import React, { forwardRef, useEffect } from 'react';
+import { installFileOpening } from './commands/fileOpening';
+import JourneyHost from './components/journey/JourneyHost';
 import { Settings as SettingsIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import GraphWorkspace from './components/graph/GraphWorkspace';
@@ -27,7 +29,7 @@ import { useCommandState } from './commands/registry';
 import { installFocusRescue } from './a11y/focusRescue';
 import { installHotkeys } from './commands/hotkeys';
 import { installPreferences } from './state/preferencesBridge';
-import { importWorkflowFile } from './commands/actions';
+import { importWorkflowFile, openPendingFile } from './commands/actions';
 import { installDrawWatch } from './services/start/drawWatch';
 import { cx } from './ui/cx';
 import { DESKTOP_PROJECT_ID } from '../shared/project';
@@ -61,13 +63,18 @@ function App() {
     const offFrame = installFrameBalance();
     // Safe start: main may ask first whether to draw a graph the last start could not finish drawing.
     const offDraw = installDrawWatch();
+    // Files dropped on the window and named on the command line (commands/fileOpening.ts).
+    const offFiles = installFileOpening();
     window.electronAPI.startState().catch(() => null).then(() => window.electronAPI.readProjection(DESKTOP_PROJECT_ID)).then((projection) => {
       applyProjection(projection);
+      // A file named on the command line opens once the graph it may replace is known.
+      void openPendingFile();
     }).catch((error) => {
       console.error('[App] Projection load failed:', error);
     });
     void refreshKeySources().catch(() => undefined);
     return () => {
+      offFiles();
       offDraw();
       offFrame();
       offPreferences();
@@ -114,6 +121,7 @@ function App() {
       <StatusBar />
       <CommandDialogs />
       <ModelLogHost />
+      <JourneyHost />
     </div>
   );
 }
