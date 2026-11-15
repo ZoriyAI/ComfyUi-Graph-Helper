@@ -353,8 +353,8 @@ describe('the proxy bypass list', () => {
     const { PROXY_BYPASS } = await import('../../src/shared/config/proxy');
     const parts = PROXY_BYPASS.split(';');
     expect(parts).toContain('<local>');
-    // Five IPv4 ranges: loopback, the three private blocks and link-local.
-    expect(parts.filter((part) => /\/\d+$/.test(part))).toHaveLength(5);
+    // Six IPv4 ranges ("this network", loopback, the three private blocks, link-local) and two IPv6 ones.
+    expect(parts.filter((part) => /\/\d+$/.test(part))).toHaveLength(8);
   });
 });
 
