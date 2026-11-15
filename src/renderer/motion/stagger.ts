@@ -1,3 +1,9 @@
+/**
+ * Staggered arrival for items that appear together in a list.
+ *
+ * Who uses it: components/chat/Message.tsx, for the tool cards of an assistant's turn.
+ * Why: the steps of a turn read as steps when they come in one by one, not as one block.
+ */
 import { useEffect, useRef } from 'react';
 import { EASE_OUT, useMotionTimings } from './policy';
 
@@ -14,6 +20,7 @@ const MAX_WAIT_S = 0.42;
  */
 export function useStagger(keys: readonly string[]): (key: string) => { duration: number; delay: number; ease: typeof EASE_OUT } {
   const timings = useMotionTimings();
+  // The keys seen at the last render; null on the first render, so a list shown at once does not stagger.
   const known = useRef<Set<string> | null>(null);
   const fresh = known.current ? keys.filter((key) => !known.current!.has(key)) : [];
   useEffect(() => {

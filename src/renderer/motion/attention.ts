@@ -1,22 +1,24 @@
-import { create } from 'zustand';
-import { tokenMs } from './policy';
-
 /**
  * Teaching marks on the canvas: what just changed flashes, and what the lesson is about stands out while the rest
  * steps back.
  *
  * Who uses it:
- * - flash(): a lesson step that was just passed (its new node, link or field), «Показать, где это» / "Show me
- *   where" and a check finding's «Показать» (the node the camera arrived at), an accepted draft (the node it became).
- *   NodeCard and TypedEdge draw the flash; it holds for --motion-mark (a reading time, the same at every motion
+ * - flash(): a lesson step that was just passed (its new node, link or field), "Show me where" and a check
+ *   finding's "Show" button (the node the camera arrived at), an accepted draft (the node it became), the live build
+ *   (layers/BuildLayer.tsx) and the history replay (lib/replayMotion.ts). NodeCard and TypedEdge draw the flash; it holds for --motion-mark (a reading time, the same at every motion
  *   level). With full motion it is a ring that glows and fades; with Reduced it fades only; with Off it is a still
  *   ring that is simply removed.
  * - setLessonFocus(): the nodes the current lesson step is about. CanvasFlow dims every other node and link, as it
  *   does around the tour's step.
  *
+ * - flashWave() and checkedNodeIds(): the wave over a graph check's findings (components/graph/lib/checkWave.ts).
+ *
  * Why a store of its own: these marks come from places that do not render the canvas (the lesson panel, the
  * check panel, the chat), and only the node or link that is marked re-renders.
  */
+import { create } from 'zustand';
+import { tokenMs } from './policy';
+
 interface AttentionState {
   /** `node:<id>` or `edge:<id>` → a counter, so a second flash of the same thing starts its animation again. */
   flashes: Record<string, number>;
@@ -25,6 +27,7 @@ interface AttentionState {
   setLessonFocus: (ids: string[] | null) => void;
 }
 
+/** The flashes on screen and the lesson focus; read by NodeCard, TypedEdge and CanvasFlow. */
 export const useAttentionStore = create<AttentionState>((set) => ({
   flashes: {},
   lessonFocus: null,
@@ -34,6 +37,7 @@ export const useAttentionStore = create<AttentionState>((set) => ({
   }),
 }));
 
+/** Grows with every flash; a timer removes only the marks its own flash set, not a newer flash of the same thing. */
 let counter = 0;
 
 /** Flashes nodes and links for the mark's reading time. */
