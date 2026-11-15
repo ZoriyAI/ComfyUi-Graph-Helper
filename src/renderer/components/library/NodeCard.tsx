@@ -5,7 +5,7 @@ import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import type { Explanation, ExplanationAspect, NodeClassDetail, NodeClassInput, NodeClassSummary, ObjectRef, PackInfo } from '../../../shared/contracts';
 import { objectKey } from '../../../shared/contracts';
-import { CORE_KNOWLEDGE, type CoreLinkType } from '../../../shared/knowledge/coreKnowledge';
+import { linkTypeNote, packNote } from '../../../shared/knowledge/coreKnowledge';
 import { useKnowledgeStore } from '../../state/knowledgeState';
 import { ProvenanceBadge } from '../../ui/Badge';
 import Button from '../../ui/Button';
@@ -65,8 +65,9 @@ function fieldFacts(t: TFunction, input: NodeClassInput): string {
 }
 
 function TypeMark({ type, language }: { type: string; language: 'en' | 'ru' }) {
-  // The built-in note on the data type is the mark's tooltip: what flows through a port of this colour.
-  const note = CORE_KNOWLEDGE[language].linkTypes[type as CoreLinkType]?.what;
+  // The built-in note on the data type is the mark's tooltip: what flows through a port of this colour. Read through
+  // the knowledge layer, so types a later knowledge set adds (VIDEO, AUDIO, NOISE, GUIDER…) explain themselves too.
+  const note = linkTypeNote(type, language)?.what;
   return (
     <span className={styles.type} title={note}>
       <span className={styles.typeDot} style={{ background: typeColor(type) }} aria-hidden="true" />
@@ -179,6 +180,7 @@ export default function NodeCard({ node, onClose, onAdd, onAsk }: NodeCardProps)
   const outputs = detail?.outputs ?? [];
   const read = detail?.detailed === true;
   const pack = node.pack && node.pack !== 'core' ? detail?.packInfo ?? null : null;
+  const builtInPack = node.pack && node.pack !== 'core' ? packNote(node.pack, language) : null;
 
   const body = (
     <section
@@ -214,7 +216,11 @@ export default function NodeCard({ node, onClose, onAdd, onAsk }: NodeCardProps)
             </>
           ) : null}
           <dt>{t('library.nodeCard.pack')}</dt>
-          <dd>{node.pack && node.pack !== 'core' ? node.pack : t('library.nodeCard.core')}</dd>
+          <dd>
+            {node.pack && node.pack !== 'core' ? node.pack : t('library.nodeCard.core')}
+            {/* The built-in word on the pack, when a knowledge set has one: what the pack is for, in one sentence. */}
+            {builtInPack ? <span className={styles.packNote} data-pack-note="">{builtInPack.what}</span> : null}
+          </dd>
         </dl>
         {pack ? <PackAbout info={pack} /> : null}
 

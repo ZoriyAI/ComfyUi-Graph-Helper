@@ -162,12 +162,18 @@
   border-style: dashed;
   border-color: var(--warn, #f6ce7c);
 }
+.host[data-zoom="overview"] :global(.graph-node.is-missing) {
+  border-width: calc(1.5px * var(--canvas-title-scale, 1));
+}
+/* No category band on a class that is not installed: its colour would claim a kind the app cannot confirm. */
 .host[data-zoom="overview"] :global(.graph-node.is-missing) > :first-child {
   background: var(--surface-sunken, #0c1119);
+  box-shadow: none;
 }
 .host[data-zoom="overview"] :global(.graph-node[data-node-kind="reroute"]) > :first-child {
   padding: 0;
   background: var(--canvas-port);
+  box-shadow: none;
 }
 .host[data-zoom="overview"] :global(.graph-node[data-collapsed="true"]) > :first-child {
   padding: 0;

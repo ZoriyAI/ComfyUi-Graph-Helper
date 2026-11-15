@@ -2,7 +2,7 @@ import type { BaseModelFamily, ExplanationAspect, Provenance } from '../contract
 import { objectKey, type ObjectRef } from '../contracts/objects';
 import { CORE_KNOWLEDGE_EN } from './coreKnowledge.en';
 import { CORE_KNOWLEDGE_RU } from './coreKnowledge.ru';
-import { imageFamilyNote, imageModelSeeds } from './sets/image-models';
+import { fieldNote as imageFieldNote, imageFamilyNote, imageModelSeeds } from './sets/image-models';
 import { VIDEO_KNOWLEDGE_EN } from './sets/video.en';
 import { VIDEO_KNOWLEDGE_RU } from './sets/video.ru';
 import { VIDEO_KNOWLEDGE_DOCS } from './sets/video';
@@ -325,7 +325,10 @@ export function fieldNote(classType: string, field: string, language: KnowledgeL
     const note = set.fields[classType]?.[field];
     if (note) return note;
   }
-  return null;
+  // The picture-model set keeps its field notes in its own shape (what the field is, what to set); Properties
+  // shows them too, as one text.
+  const image = imageFieldNote(classType, field, language);
+  return image ? [image.what, image.set].filter((part) => part.trim()).join(' ') : null;
 }
 
 /** A glossary idea by its id, as a set writes it; null for an idea no set knows. */

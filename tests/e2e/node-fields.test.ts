@@ -106,7 +106,6 @@ test('node fields: lists, steppers and the model picker edit the graph', async (
     await stepsNote.click();
     await expect(stepsNote).toHaveAttribute('aria-expanded', 'true');
     await expect(inspector.locator('[data-field-note="steps"]')).toContainText(/\w{4,}/);
-    await expect(inspector.locator('[data-field-note="steps"]')).toContainText('What to put in it');
     await stepsNote.click();
     await expect(inspector.locator('[data-field-note="steps"]')).toHaveCount(0);
     await window.screenshot({ path: path.join(artifactDir, 'ksampler-properties.png') });
