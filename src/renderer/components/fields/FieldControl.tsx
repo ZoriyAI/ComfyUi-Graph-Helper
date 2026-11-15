@@ -1,3 +1,8 @@
+/**
+ * The one control for a node field, shared by the canvas and the Properties panel: a list or model picker, a number
+ * stepper, a switch, or a text box. graph/nodes/FieldRow.tsx and graph/nodes/EditorNodes.tsx render it inside nodes,
+ * graph/Inspector.tsx in Properties. One component for both places, so a field reads and behaves the same.
+ */
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import * as S from '@radix-ui/react-switch';
@@ -22,8 +27,10 @@ import {
 import { ModelList, useFieldModels } from './ModelList';
 import styles from './FieldControl.module.css';
 
+/** Where the control sits: inside a canvas node (compact) or in Properties (wide). */
 export type FieldVariant = 'node' | 'panel';
 
+/** Props of FieldControl. `onCommit` gets the new value once, when the person has finished the edit. */
 export interface FieldControlProps {
   /** The canvas node; the model picker asks main about this node's graph neighbours. */
   nodeId: string;
@@ -57,6 +64,7 @@ export default function FieldControl(props: FieldControlProps) {
   );
 }
 
+/** Picks the control for the field's kind; a widget type the app does not edit shows its value read-only. */
 function Control({ kind, ...props }: FieldControlProps & { kind: ControlKind }) {
   const { t } = useTranslation();
   switch (kind) {
@@ -85,6 +93,10 @@ function nameProps(props: Pick<FieldControlProps, 'labelledBy' | 'name'>): Recor
   return props.labelledBy ? { 'aria-labelledby': props.labelledBy } : { 'aria-label': props.name };
 }
 
+/**
+ * A list field in a popover. Past SEARCH_THRESHOLD options it gets a filter; a model field lists the person's files
+ * with fit marks (ModelList). A stored value that is not among the options is marked, not dropped.
+ */
 function ComboControl({ nodeId, name, value, spec, variant, disabled, labelledBy, onCommit }: FieldControlProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -105,6 +117,7 @@ function ComboControl({ nodeId, name, value, spec, variant, disabled, labelledBy
   const text = displayValue(value);
   const unset = isUnset(value) || text === '';
   const missing = !unset && options.length > 0 && !options.includes(text);
+  // Every opening starts with an empty filter.
   useEffect(() => {
     if (open) setQuery('');
   }, [open]);
@@ -127,6 +140,7 @@ function ComboControl({ nodeId, name, value, spec, variant, disabled, labelledBy
       const delta = event.key === 'ArrowDown' ? 1 : -1;
       setActive((current) => Math.max(0, Math.min(shown.length - 1, current + delta)));
     } else if (event.key === 'Home' || event.key === 'End') {
+      // In the filter box Home and End move the text cursor, not the list.
       if (event.target instanceof HTMLInputElement) return;
       event.preventDefault();
       setActive(event.key === 'Home' ? 0 : Math.max(0, shown.length - 1));
@@ -238,6 +252,10 @@ function ComboControl({ nodeId, name, value, spec, variant, disabled, labelledBy
 /** How long the note under a corrected number stays. */
 const NOTE_MS = 4000;
 
+/**
+ * A number field: minus, a text input, plus, and a dice button for seeds. A typed value is checked and brought into
+ * range on Enter or blur; Escape drops the draft. A short note says why the field shows something else than typed.
+ */
 function NumberControl({ name, value, spec, variant, disabled, labelledBy, onCommit, kind }: FieldControlProps & { kind: 'int' | 'float' }) {
   const { t } = useTranslation();
   const [draft, setDraft] = useState(displayValue(value));
@@ -245,7 +263,9 @@ function NumberControl({ name, value, spec, variant, disabled, labelledBy, onCom
   // Why the field shows something else than was typed (raised, lowered, rounded, not a number), for a moment.
   const [note, setNote] = useState<string | null>(null);
   const noteTimer = useRef<number | null>(null);
+  // Set by Escape, so the blur that follows does not commit the dropped draft.
   const cancelled = useRef(false);
+  // While the person types, an outside change of the value does not overwrite the draft.
   useEffect(() => {
     if (!editing) setDraft(displayValue(value));
   }, [value, editing]);
@@ -343,6 +363,7 @@ function NumberControl({ name, value, spec, variant, disabled, labelledBy, onCom
   );
 }
 
+/** A switch with an On / Off word beside it (the word is for the eye; the switch carries the name). */
 function BooleanControl({ name, value, disabled, labelledBy, onCommit }: FieldControlProps) {
   const { t } = useTranslation();
   const checked = value === true;
@@ -364,6 +385,10 @@ function BooleanControl({ name, value, disabled, labelledBy, onCommit }: FieldCo
   );
 }
 
+/**
+ * A one-line input, a growing prompt box (multiline), or a JSON value edited as text. Committed on blur, on Enter
+ * (Ctrl/Cmd+Enter in a prompt), not at all when nothing changed; invalid JSON is dropped back to the old value.
+ */
 function TextControl({ name, value, disabled, labelledBy, onCommit, multiline, json = false }: FieldControlProps & { multiline: boolean; json?: boolean }) {
   const { t } = useTranslation();
   const [draft, setDraft] = useState(displayValue(value));
@@ -388,6 +413,7 @@ function TextControl({ name, value, disabled, labelledBy, onCommit, multiline, j
       }
     }
     if (JSON.stringify(next) === JSON.stringify(value)) return;
+    // Focusing and leaving an unset field must not store an empty string in its place.
     if (isUnset(value) && raw === '') return;
     onCommit(next);
   };

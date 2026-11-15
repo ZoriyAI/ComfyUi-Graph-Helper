@@ -1,14 +1,16 @@
+/**
+ * The rules of node fields without React: which inputs are fields, the control kind, the shown value, number
+ * clamping and typing, seeds and the "after run" row. Used by FieldControl.tsx, ModelList.tsx, graph/Inspector.tsx,
+ * graph/nodes (FieldRow, EditorNodes, NodeCard) and lessons/lessonModel.ts; tests/unit/fieldControl.test.ts,
+ * typedNumber.test.ts and nodeMarks.test.ts cover it.
+ */
 import type { FieldKind, FieldSpec, NodeClassDetail } from '../../../shared/contracts/knowledge';
 import type { ComfyNodeData, PortDefinition } from '../../types/graph';
-
-/**
- * Pure helpers behind FieldControl and the node body: which inputs are fields, what kind of control each gets,
- * the value it shows, clamping and seeds. No React here so the rules are unit-tested.
- */
 
 /** 'json': a value with no spec that is neither a number, a string nor a boolean; edited as text, as before. */
 export type ControlKind = FieldKind | 'json';
 
+/** ComfyUI input types that are edited as fields when the catalog has no detail for the class. */
 const WIDGET_TYPES = new Set(['INT', 'FLOAT', 'STRING', 'BOOLEAN', 'COMBO']);
 
 /** A combo with more options than this gets a filter box: nobody scrolls 300 LoRAs. */
@@ -57,11 +59,12 @@ export function clampToSpec(raw: number, spec: FieldSpec | undefined, kind: Cont
   if (min !== undefined) value = Math.max(min, value);
   if (max !== undefined) value = Math.min(max, value);
   if (kind === 'int') value = Math.max(-MAX_SAFE, Math.min(MAX_SAFE, Math.round(value)));
-  // Strip float noise from the step grid (0.1 + 0.2), keeping as many decimals as the step has.
+  // Strip float noise from the step grid (0.1 + 0.2): round to the step's decimals plus four spare ones.
   if (kind !== 'int') value = Number(value.toFixed(decimalsOf(step) + 4));
   return Object.is(value, -0) ? 0 : value;
 }
 
+/** Decimals of a step as written (0.05 has two); two when there is no step. */
 function decimalsOf(step: number | undefined): number {
   if (!step) return 2;
   const text = String(step);
@@ -82,6 +85,7 @@ export type TypedNumber =
   | { kind: 'refused' }
   | { kind: 'value'; value: number; note: null | { key: 'field.raisedToMin' | 'field.loweredToMax' | 'field.roundedTo'; values: Record<string, string> } };
 
+/** Reads what the person typed into a number field; a comma counts as the decimal point. */
 export function readTypedNumber(raw: string, spec: FieldSpec | undefined, kind: ControlKind): TypedNumber {
   const trimmed = raw.trim();
   if (trimmed === '') return { kind: 'empty' };
@@ -143,6 +147,7 @@ export function displayValue(value: unknown): string {
   return JSON.stringify(value) ?? '';
 }
 
+/** One field row of a node: its name, value, catalog spec, and the port when a link can feed it. */
 export interface FieldEntry {
   name: string;
   /** The input port of this widget input, when the node has one (a link can feed the field). */
@@ -164,6 +169,7 @@ export function afterRunKey(name: string): string {
   return `${name}::control_after_generate`;
 }
 
+/** A node's inputs split into the ports that take only links and the fields set by hand. */
 export interface NodeLayout {
   /** Inputs that only take a link (MODEL, CLIP, LATENT…). */
   linkInputs: PortDefinition[];
@@ -222,6 +228,7 @@ export function nodeLayout(data: ComfyNodeData, detail: NodeClassDetail | null |
     pushAfterRun(fields, data, input.name, input, detail);
   }
   for (const name of Object.keys(parameters)) {
+    // A name with '::' is a hidden slot of another field (the "after run" choice); pushAfterRun shows it.
     if (seen.has(name) || name.includes('::')) continue;
     seen.add(name);
     fields.push(entry(data, name, specs.get(name), detail));
@@ -230,7 +237,7 @@ export function nodeLayout(data: ComfyNodeData, detail: NodeClassDetail | null |
 }
 
 /**
- * Editing package: a seed (any number field with ComfyUI's control_after_generate slot) gets a second row that says
+ * A seed (any number field with ComfyUI's control_after_generate slot) gets a second row that says
  * and changes what ComfyUI does to the value after each run: keep it, count up, count down, or draw a new one. Without
  * it a person cannot tell why ComfyUI gives a new picture every time, or make one result repeatable.
  */
@@ -253,6 +260,7 @@ function pushAfterRun(
   });
 }
 
+/** One FieldEntry with its value, spec, tooltip and port. */
 function entry(
   data: ComfyNodeData,
   name: string,
