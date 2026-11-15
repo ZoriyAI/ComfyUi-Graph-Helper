@@ -32,7 +32,7 @@ Later you can switch between the ones you set up with the chooser on the toolbar
 - **It must call tools.** The assistant reads your catalog and builds through tools. The model list marks each model **tools** or **no tool calls**; a model without tools gets "This model cannot call tools; the assistant needs them to read the catalog and build."
 - **Bigger is better at building.** A small local model (a few billion parameters) answers simple questions but often loses its way in a build.
 - **The context window matters** for a local model: 16 384 tokens or more. See [The context window](Context-Window.md).
-- Which model to start with, what it costs and how much memory it needs: [Which model to take](Which-Model.md).
+- Which model fits your hardware, what a cloud model costs, Ollama's cloud models, a two-minute test and a note for adult (18+) work: [Which model to take](Which-Model.md).
 
 ## Cloud or local?
 
@@ -43,7 +43,7 @@ Later you can switch between the ones you set up with the chooser on the toolbar
 | Quality for building | high | depends on the model and your hardware |
 | Setup | paste a key | install and start a server |
 
-What goes where: [What is sent to the model](What-Is-Sent.md). If your network needs a proxy for the cloud, set it under Settings ▸ Assistant ▸ **Network**; your own server is always reached directly.
+A model that Ollama runs in its own cloud (a name ending in `:cloud`) is reached through **Your own server** but is not local: see [Ollama](Ollama.md). What goes where: [What is sent to the model](What-Is-Sent.md). If your network needs a proxy for the cloud, set it under Settings ▸ Assistant ▸ **Network**; your own server is always reached directly.
 
 ## See also
 

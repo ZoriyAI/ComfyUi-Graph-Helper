@@ -10,7 +10,7 @@
 1. Settings ▸ Assistant ▸ **OpenAI-compatible** ("Another cloud service at its own address. Needs its key.").
 2. **Service address**: its OpenAI-compatible address in full, with https, usually ending in `/v1`. The service names it in its documentation.
 3. Paste the service's own key. The key field waits for the address: "Type the service address above first: the key belongs to that address." The key goes only to that address.
-4. **Model**: pick it from the service's list, or type its name. Choose a model that can call tools.
+4. **Model**: pick it from the service's list, or type its name. Choose a model that can call tools. Examples of services and their addresses, Ollama's cloud among them: [Which model to take](Which-Model.md).
 5. **Test connection**, then **Save settings**.
 
 **Remember on this computer** keeps the key in the system keychain, as for the other cloud providers. See [Keys and where they are kept](Keys.md).

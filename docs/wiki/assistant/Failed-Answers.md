@@ -27,7 +27,7 @@ When the assistant cannot answer, the conversation shows a block that says in on
 ## Above an answer
 
 - "The model read only part of the request" and "The model's context window is almost full": see [The context window](Context-Window.md).
-- **Answered without tools**: "This model cannot call tools, so the assistant answered from the graph it was sent: it could not look anything up, read more or change the graph. To build or to get drafts, choose a model that can call tools (for example qwen3 or llama3.1)."
+- **Answered without tools**: "This model cannot call tools, so the assistant answered from the graph it was sent: it could not look anything up, read more or change the graph. To build or to get drafts, choose a model that can call tools (for example qwen3.5 or gpt-oss)."
 - If even that does not work: "This model cannot call tools, and without them the assistant cannot read the graph, look up your nodes or suggest changes, so it did not answer. Choose a model marked “tools”…"
 - "Stopped by you: the answer may be unfinished." You stopped it; its build card says Stopped.
 

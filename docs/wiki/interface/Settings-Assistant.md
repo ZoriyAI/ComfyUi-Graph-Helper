@@ -34,9 +34,9 @@ See [OpenAI-compatible services](../assistant/OpenAI-Compatible.md).
 ## For your own server
 
 - **Server address**: the address with its port, for example `http://127.0.0.1:11434/v1` for Ollama.
-- **Find local servers** looks on this computer at the ports of Ollama (11434), LM Studio (1234), vLLM (8000) and the llama.cpp server (8080), and asks the MCP server when there is one. Found servers are in the list of the field. When nothing answers: "No local server answered. To have a model on this computer, install Ollama (ollama.com/download) and run “ollama pull qwen3:8b” (about 5 GB). Or start LM Studio, vLLM or llama.cpp’s server, or type its address."
+- **Find local servers** looks on this computer at the ports of Ollama (11434), LM Studio (1234), vLLM (8000) and the llama.cpp server (8080), and asks the MCP server when there is one. Found servers are in the list of the field. When nothing answers: "No local server answered. To have a model on this computer, install Ollama (ollama.com/download) and run “ollama pull qwen3.5:9b” (about 7 GB). Or start LM Studio, vLLM or llama.cpp’s server, or type its address."
 - **Key for this server (optional)**: only if your server asks for one (vLLM started with --api-key, LiteLLM, LM Studio with authentication on).
-- The app reads the server's model list as soon as there is an address. Advice shows which models do the job and how much video memory they need: qwen3:8b about 8 GB, qwen3:14b about 12 GB, qwen3:30b about 24 GB, with a window of at least 16 384 tokens. "A model on your own computer costs nothing per question, and nothing leaves the computer."
+- The app reads the server's model list as soon as there is an address. Advice shows which models do the job and how much video memory they need: qwen3.5:9b about 8 GB, gpt-oss:20b about 16 GB, qwen3.6:27b about 24 GB, with a window of at least 16 384 tokens (estimates; more models by hardware in [Which model to take](../assistant/Which-Model.md)). "A model on your own computer costs nothing per question, and nothing leaves the computer."
 
 ## Model
 
