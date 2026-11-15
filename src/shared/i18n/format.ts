@@ -31,8 +31,9 @@ export function formatByteSize(bytes: number, language: AppLanguage, locales?: r
 }
 
 /**
- * A whole number of megabytes with the unit word of the chosen language: "10 MB", "10 МБ". The Preferences pages
- * state the web-page byte cap this way (src/shared/agent/limits.ts keeps the English form for the model's texts).
+ * A whole number of megabytes with the unit word of the chosen language (units.megabytes): "10 MB" in English.
+ * The Preferences pages state the web-page byte cap this way (src/shared/agent/limits.ts keeps the English form for
+ * the model's texts).
  */
 export function formatMegabytes(bytes: number, language: AppLanguage, locales?: readonly string[]): string {
   const value = Math.round((Number.isFinite(bytes) && bytes > 0 ? bytes : 0) / (1024 * 1024));
