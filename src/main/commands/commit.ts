@@ -885,15 +885,21 @@ export function cachedCatalog(db: Database.Database): CatalogView {
   if (!watch) {
     // The temporary triggers are made outside a transaction, so a rollback cannot take them away.
     if (db.inTransaction) return readCatalog(db);
-    db.exec(`CREATE TEMP TABLE IF NOT EXISTS graph_helper_catalog_version (n INTEGER NOT NULL)`);
-    db.exec(`INSERT INTO graph_helper_catalog_version (n) SELECT 0 WHERE NOT EXISTS (SELECT 1 FROM graph_helper_catalog_version)`);
-    for (const table of ['node_catalog', 'model_catalog']) {
-      for (const event of ['INSERT', 'UPDATE', 'DELETE']) {
-        db.exec(`CREATE TEMP TRIGGER IF NOT EXISTS graph_helper_${table}_${event.toLowerCase()} AFTER ${event} ON main.${table}
-          BEGIN UPDATE graph_helper_catalog_version SET n = n + 1; END`);
+    try {
+      db.exec(`CREATE TEMP TABLE IF NOT EXISTS graph_helper_catalog_version (n INTEGER NOT NULL)`);
+      db.exec(`INSERT INTO graph_helper_catalog_version (n) SELECT 0 WHERE NOT EXISTS (SELECT 1 FROM graph_helper_catalog_version)`);
+      for (const table of ['node_catalog', 'model_catalog']) {
+        for (const event of ['INSERT', 'UPDATE', 'DELETE']) {
+          db.exec(`CREATE TEMP TRIGGER IF NOT EXISTS graph_helper_${table}_${event.toLowerCase()} AFTER ${event} ON main.${table}
+            BEGIN UPDATE graph_helper_catalog_version SET n = n + 1; END`);
+        }
       }
+      watch = { version: db.prepare('SELECT n FROM graph_helper_catalog_version').pluck(), view: null, key: '' };
+    } catch (error) {
+      // No temporary storage (a full disk, a locked or unwritable profile): read the catalog each time instead.
+      console.error('[Commit] Catalog cache unavailable:', error instanceof Error ? error.message.slice(0, 200) : 'unknown error');
+      return readCatalog(db);
     }
-    watch = { version: db.prepare('SELECT n FROM graph_helper_catalog_version').pluck(), view: null, key: '' };
     catalogWatches.set(db, watch);
   }
   const key = `${String(watch.version.get())}:${String(db.pragma('data_version', { simple: true }))}`;
@@ -915,8 +921,10 @@ export function commitCommand(
   }
   const request: CommandRequest = parsed.data;
   const payloadCanonical = canonicalPayload(request.payload);
-  if (!db.inTransaction) cachedCatalog(db);
   try {
+    // Sets up the catalog cache outside the transaction (it makes temporary triggers). Inside the try: on a database
+    // that cannot be written the person gets "not stored", not an exception.
+    if (!db.inTransaction) cachedCatalog(db);
     const outcome = db.transaction(() => {
       const existing = db
         .prepare(
