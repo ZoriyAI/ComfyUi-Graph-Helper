@@ -6,7 +6,7 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import { writeFileAtomic } from '../files/atomicWrite';
+import { removePrivateFile, writeFileAtomic, type FileRemoval } from '../files/atomicWrite';
 
 /** The file name in the profile folder. */
 export const TOKEN_FILE = 'mcp-token.json';
@@ -40,14 +40,9 @@ export function writeTokenFile(userData: string, origin: string, token: string):
   }
 }
 
-/** Deletes the file; true when there was one. */
-export function removeTokenFile(userData: string): boolean {
-  try {
-    fs.unlinkSync(tokenFilePath(userData));
-    return true;
-  } catch {
-    return false;
-  }
+/** Clears the token file and reports whether it is absent, removed or could not be cleared. */
+export function removeTokenFile(userData: string): FileRemoval {
+  return removePrivateFile(tokenFilePath(userData));
 }
 
 /** Whether the file holds a token for this origin (never the token itself). */

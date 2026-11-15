@@ -3,9 +3,31 @@
  * Called from ipc.ts (forgetEverySecret, secretInventory). What is removed and how is described below.
  */
 import type Database from 'better-sqlite3';
+import * as fs from 'fs';
+import * as path from 'path';
 import { KEY_PROVIDERS, type KeyProvider } from '../../shared/config/keyOrigin';
-import { readKeyFile, removeKeyFile } from './keyFile';
-import { readTokenFile, removeTokenFile } from '../mcp/tokenFile';
+import { keyFilePath, readKeyFile, removeKeyFile } from './keyFile';
+import { readTokenFile, removeTokenFile, tokenFilePath } from '../mcp/tokenFile';
+import { removePrivateFile } from '../files/atomicWrite';
+
+/** Only temporary names produced by writeFileAtomic for the two secret files, never neighboring user files. */
+function temporarySecretFiles(userData: string): { files: string[]; readable: boolean } {
+  try {
+    return { files: fs.readdirSync(userData).filter((name) => /^\.(?:model-key|mcp-token)\.json\.[a-f0-9]{12}\.tmp$/.test(name)).map((name) => path.join(userData, name)), readable: true };
+  } catch (error) {
+    return { files: [], readable: (error as { code?: string }).code === 'ENOENT' };
+  }
+}
+
+/** An empty file is cleared; an unreadable file or link cannot be assumed free of secret bytes. */
+function mayHoldSecret(file: string): boolean {
+  try {
+    const stat = fs.lstatSync(file);
+    return !stat.isFile() || stat.size > 0;
+  } catch (error) {
+    return (error as { code?: string }).code !== 'ENOENT';
+  }
+}
 
 /**
  * What "Forget all keys and tokens" reaches: every secret the app keeps, wherever it is.
@@ -33,6 +55,8 @@ export interface ForgetAllResult {
   files: number;
   /** False when the database could not be rebuilt; the rows are deleted all the same. */
   compacted: boolean;
+  /** Store kinds that could not be cleared or verified; never paths or secret values. */
+  failed: Array<'memory' | 'keys-file' | 'token-file' | 'temporary-files' | 'database'>;
 }
 
 /** Deletes every secret row and makes the deleted bytes unrecoverable from the database files. */
@@ -55,17 +79,28 @@ export function eraseSecretRecords(db: Database.Database): { records: number; co
 
 /** Forgets every secret: memory, then the app-folder files, then the database rows. */
 export function forgetEverySecret(deps: ForgetAllDeps): ForgetAllResult {
+  const failed = new Set<ForgetAllResult['failed'][number]>();
   // Memory first: nothing can be sent with a secret while the rows go.
   for (const clear of [deps.forgetKeys, deps.forgetMcpToken, deps.forgetSignIns]) {
     try {
       clear();
     } catch {
-      // One failing part must not keep the others.
+      failed.add('memory');
     }
   }
-  const files = [removeKeyFile(deps.userData), removeTokenFile(deps.userData)].filter(Boolean).length;
+  let files = 0;
+  const clearFile = (outcome: ReturnType<typeof removeKeyFile>, kind: ForgetAllResult['failed'][number]) => {
+    if (outcome === 'removed') files += 1;
+    if (outcome === 'failed') failed.add(kind);
+  };
+  clearFile(removeKeyFile(deps.userData), 'keys-file');
+  clearFile(removeTokenFile(deps.userData), 'token-file');
+  const temporary = temporarySecretFiles(deps.userData);
+  if (!temporary.readable) failed.add('temporary-files');
+  for (const file of temporary.files) clearFile(removePrivateFile(file), 'temporary-files');
   const { records, compacted } = eraseSecretRecords(deps.db);
-  return { records, files, compacted };
+  if (!compacted) failed.add('database');
+  return { records, files, compacted, failed: [...failed] };
 }
 
 /** What "Forget all" would remove right now: names and counts only, never a value. */
@@ -76,6 +111,25 @@ export interface SecretInventory {
   serverTokens: number;
   /** Browser sign-ins (MCP addresses with tokens), held now or remembered. */
   signIns: number;
+  /** Nonempty crash files or unreadable secret files not already accounted for by their readable contents. */
+  files?: number;
+  /** A profile folder that could not be listed, so crash files cannot yet be ruled out. */
+  unverified?: number;
+}
+
+/** Whether any known or unverified secret storage remains. */
+export function hasSecrets(inventory: SecretInventory): boolean {
+  return inventory.providers.length > 0 || inventory.serverTokens > 0 || inventory.signIns > 0 || (inventory.files ?? 0) > 0 || (inventory.unverified ?? 0) > 0;
+}
+
+/** The inventory confirmed gone, rather than everything that existed before a partial clear. */
+export function secretInventoryDifference(before: SecretInventory, after: SecretInventory): SecretInventory {
+  return {
+    providers: before.providers.filter((provider) => !after.providers.includes(provider)),
+    serverTokens: Math.max(0, before.serverTokens - after.serverTokens),
+    signIns: Math.max(0, before.signIns - after.signIns),
+    ...((before.files ?? 0) > (after.files ?? 0) ? { files: (before.files ?? 0) - (after.files ?? 0) } : {}),
+  };
 }
 
 /** What secretInventory needs to see the secrets held in memory (ipc.ts passes the live services). */
@@ -105,5 +159,9 @@ export function secretInventory(deps: InventoryDeps): SecretInventory {
   if (heldToken !== null) tokens.add(heldToken || 'unbound');
   const signIns = new Set(names.filter((name) => name.startsWith('mcp-oauth-tokens:')).map((name) => name.slice('mcp-oauth-tokens:'.length)));
   for (const origin of deps.heldSignIns()) signIns.add(origin);
-  return { providers, serverTokens: tokens.size, signIns: signIns.size };
+  const temporary = temporarySecretFiles(deps.userData);
+  const files = temporary.files.filter(mayHoldSecret).length
+    + (Object.keys(file).length === 0 && mayHoldSecret(keyFilePath(deps.userData)) ? 1 : 0)
+    + (!tokenFile && mayHoldSecret(tokenFilePath(deps.userData)) ? 1 : 0);
+  return { providers, serverTokens: tokens.size, signIns: signIns.size, ...(files > 0 ? { files } : {}), ...(!temporary.readable ? { unverified: 1 } : {}) };
 }

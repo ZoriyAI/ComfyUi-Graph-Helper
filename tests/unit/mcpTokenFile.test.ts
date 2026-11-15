@@ -36,8 +36,8 @@ describe('the token remembered in the app folder', () => {
     // Replaced, not appended: the previous origin is gone.
     writeTokenFile(dir, 'https://mcp.example.test', 'other');
     expect(tokenFileHolds(dir, 'http://127.0.0.1:29100')).toBe(false);
-    expect(removeTokenFile(dir)).toBe(true);
-    expect(removeTokenFile(dir)).toBe(false);
+    expect(removeTokenFile(dir)).toBe('removed');
+    expect(removeTokenFile(dir)).toBe('absent');
     expect(readTokenFile(dir)).toBeNull();
   });
 

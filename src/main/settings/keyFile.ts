@@ -4,7 +4,7 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import { writeFileAtomic } from '../files/atomicWrite';
+import { removePrivateFile, writeFileAtomic, type FileRemoval } from '../files/atomicWrite';
 import { KEY_PROVIDERS } from '../../shared/config/keyOrigin';
 
 /**
@@ -79,7 +79,7 @@ export function readKeyFileOrigins(userData: string): Partial<Record<KeyFileProv
 function writeKeys(userData: string, keys: KeyFileKeys, origins: Partial<Record<KeyFileProvider, string>> = {}): void {
   const file = keyFilePath(userData);
   if (Object.keys(keys).length === 0) {
-    removeKeyFile(userData);
+    if (removeKeyFile(userData) === 'failed') throw new Error('The key file could not be cleared.');
     return;
   }
   const kept = Object.fromEntries(Object.entries(origins).filter(([provider]) => provider in keys));
@@ -105,21 +105,32 @@ export function writeKeyFile(userData: string, provider: KeyFileProvider, key: s
 }
 
 /** Removes one provider's key; the file goes away when no key is left. */
-export function removeKeyFromFile(userData: string, provider: KeyFileProvider): void {
+export function removeKeyFromFile(userData: string, provider: KeyFileProvider): FileRemoval {
   const keys = readKeyFile(userData);
-  if (!(provider in keys)) return;
-  delete keys[provider];
-  writeKeys(userData, keys, readKeyFileOrigins(userData));
+  if (!(provider in keys)) {
+    if (Object.keys(keys).length > 0) return 'absent';
+    try { return fs.statSync(keyFilePath(userData)).size === 0 ? 'absent' : 'failed'; }
+    catch (error) { return (error as { code?: string }).code === 'ENOENT' ? 'absent' : 'failed'; }
+  }
+  try {
+    delete keys[provider];
+    writeKeys(userData, keys, readKeyFileOrigins(userData));
+    try {
+      const text = fs.readFileSync(keyFilePath(userData), 'utf8');
+      if (text.length === 0) return 'removed';
+      const read = JSON.parse(text) as { keys?: Record<string, unknown> };
+      return read.keys && !(provider in read.keys) ? 'removed' : 'failed';
+    } catch (error) {
+      return (error as { code?: string }).code === 'ENOENT' ? 'removed' : 'failed';
+    }
+  } catch {
+    return 'failed';
+  }
 }
 
-/** Deletes the whole file; true when there was one. */
-export function removeKeyFile(userData: string): boolean {
-  try {
-    fs.unlinkSync(keyFilePath(userData));
-    return true;
-  } catch {
-    return false;
-  }
+/** Clears the whole file and reports whether it is absent, removed or could not be cleared. */
+export function removeKeyFile(userData: string): FileRemoval {
+  return removePrivateFile(keyFilePath(userData));
 }
 
 /** Whether the file holds a key for this provider (never the key itself). */

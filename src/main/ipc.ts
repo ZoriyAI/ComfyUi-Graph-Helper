@@ -48,7 +48,7 @@ import { mcpReadOutcome, reportedComfyUrl, syncService } from './mcp/sync';
 import { withLoopbackScheme } from '../shared/mcp/loopback';
 import { listProjectRecords, loadProjectRecord } from './ipc/projectRecord';
 import { redactSecrets } from '../shared/config/draft';
-import { forgetEverySecret, secretInventory } from './settings/forgetAll';
+import { forgetEverySecret, hasSecrets, secretInventory, secretInventoryDifference } from './settings/forgetAll';
 import { guardSecretsIn, type SecretField } from './exportSecrets';
 import { setBlockedWebOrigins } from './agent/web';
 import { missingOnGraph } from '../shared/graph/compatibility';
@@ -443,16 +443,17 @@ export async function setupIPC(): Promise<void> {
 
   // With a provider: that provider's key only. Without one: every model key (Settings ▸ Privacy ▸ Forget all).
   ipcMain.handle(IPC_CHANNELS.SETTINGS_FORGET_SECRET, (_event, provider?: unknown) => {
+    let failed = false;
+    // Memory first; a disk failure must not leave a key usable by the running service.
+    try { mainLLMService.forgetKeys(isKeyProvider(provider) ? provider : undefined); } catch { failed = true; }
     if (isKeyProvider(provider)) {
-      forgetProviderKey(getDatabase(), provider);
-      removeKeyFromFile(app.getPath('userData'), provider);
-      mainLLMService.forgetKeys(provider);
+      if (removeKeyFromFile(app.getPath('userData'), provider) === 'failed') failed = true;
+      try { forgetProviderKey(getDatabase(), provider); } catch { failed = true; }
     } else {
-      forgetProviderKey(getDatabase());
-      removeKeyFile(app.getPath('userData'));
-      mainLLMService.forgetKeys();
+      if (removeKeyFile(app.getPath('userData')) === 'failed') failed = true;
+      try { forgetProviderKey(getDatabase()); } catch { failed = true; }
     }
-    return { status: 'removed' as const };
+    return { status: failed ? 'partial' as const : 'removed' as const };
   });
 
   // Settings ▸ Privacy ▸ Forget all: every key and token for every provider and address, in memory, in the
@@ -465,7 +466,7 @@ export async function setupIPC(): Promise<void> {
     heldSignIns: () => mcpOAuth()?.signedInOrigins() ?? [],
   });
   ipcMain.handle(IPC_CHANNELS.SECRETS_INVENTORY, () => inventory());
-  // Returns what was there before, i.e. what was removed, so the window can say it truthfully.
+  // Re-read every store: only the confirmed difference is reported as removed.
   ipcMain.handle(IPC_CHANNELS.SECRETS_FORGET_ALL, () => {
     const before = inventory();
     const result = forgetEverySecret({
@@ -475,8 +476,9 @@ export async function setupIPC(): Promise<void> {
       forgetMcpToken: () => setMcpToken(''),
       forgetSignIns: () => mcpOAuth()?.forgetAll(),
     });
+    const remaining = inventory();
     console.log(`[IPC] Forgot every secret: ${result.records} records, ${result.files} files${result.compacted ? '' : ' (database not compacted)'}`);
-    return { status: 'removed' as const, removed: before };
+    return { status: result.failed.length > 0 || hasSecrets(remaining) ? 'partial' as const : 'removed' as const, removed: secretInventoryDifference(before, remaining), remaining, failed: result.failed };
   });
 
   ipcMain.handle(IPC_CHANNELS.SETTINGS_SECRET_STATUS, async (_event, forProvider?: unknown) => {
@@ -567,11 +569,14 @@ export async function setupIPC(): Promise<void> {
   });
 
   ipcMain.handle(IPC_CHANNELS.MCP_FORGET_TOKEN, () => {
-    const name = mcpTokenRecordName(savedEndpoints().mcpUrl);
-    if (name) forgetSecret(getDatabase(), name);
-    removeTokenFile(app.getPath('userData'));
-    setMcpToken('');
-    return { status: 'removed' as const };
+    let failed = false;
+    try { setMcpToken(''); } catch { failed = true; }
+    if (removeTokenFile(app.getPath('userData')) === 'failed') failed = true;
+    try {
+      const name = mcpTokenRecordName(savedEndpoints().mcpUrl);
+      if (name) forgetSecret(getDatabase(), name);
+    } catch { failed = true; }
+    return { status: failed ? 'partial' as const : 'removed' as const };
   });
 
   // Settings ▸ Privacy ▸ Password store: what was found, and the choice for the next start.

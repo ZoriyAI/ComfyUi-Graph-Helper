@@ -107,6 +107,8 @@ export default function PrivacySection({ prefs, setPrefs, container }: DraftProp
     if (found.providers.length > 0) items.push(String(t('preferences.forgetItemKeys', { providers: found.providers.map((provider) => KEY_PROVIDER_NAMES[provider] || String(t('settings.providerLocal'))) })));
     if (found.serverTokens > 0) items.push(String(t('preferences.forgetItemTokens', { count: found.serverTokens })));
     if (found.signIns > 0) items.push(String(t('preferences.forgetItemSignIns', { count: found.signIns })));
+    if ((found.files ?? 0) > 0) items.push(String(t('preferences.forgetItemFiles', { count: found.files ?? 0 })));
+    if ((found.unverified ?? 0) > 0) items.push(String(t('preferences.forgetItemUnverified', { count: found.unverified ?? 0 })));
     return items;
   };
   const toForget = inventoryItems(inventory);
@@ -143,11 +145,16 @@ export default function PrivacySection({ prefs, setPrefs, container }: DraftProp
       setForgetNote(String(t('preferences.forgetFailed', { reason: errorSummary(translate, error) })));
       return;
     }
-    // Every key is gone in main: show that at once, before the slower re-reads below.
-    useProviderStore.getState().setKeySources(NO_KEYS);
+    if (result.status === 'removed') useProviderStore.getState().setKeySources(NO_KEYS);
     await refreshKeys();
     await refreshToken();
     await refreshInventory();
+    if (result.status === 'partial') {
+      const remaining = inventoryItems(result.remaining);
+      if (remaining.length === 0) remaining.push(String(t('preferences.forgetItemUnverified', { count: result.failed.length || 1 })));
+      setForgetNote(String(t('preferences.forgotPartial', { items: remaining.join('; ') })));
+      return;
+    }
     const removed = inventoryItems(result.removed);
     setForgetNote(removed.length > 0 ? String(t('preferences.forgotAll', { items: removed.join('; ') })) : String(t('preferences.forgetNothing')));
   };

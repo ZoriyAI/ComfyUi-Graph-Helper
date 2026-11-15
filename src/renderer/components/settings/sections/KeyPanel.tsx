@@ -163,7 +163,8 @@ export default function KeyPanel({ provider, baseURL, onSession, words = {} }: {
   const forget = async () => {
     setNote('');
     setVerdict({ kind: 'idle' });
-    await window.electronAPI.forgetSecret(provider);
+    const result = await window.electronAPI.forgetSecret(provider).catch(() => ({ status: 'partial' as const }));
+    if (result.status === 'partial') setNote(String(t('preferences.forgotPartial', { items: t('preferences.forgetItemUnverified', { count: 1 }) })));
     await refresh().catch(() => undefined);
   };
 

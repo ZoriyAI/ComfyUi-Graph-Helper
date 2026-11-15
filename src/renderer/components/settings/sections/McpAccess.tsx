@@ -175,7 +175,8 @@ function TokenPanel({ mcpUrl, focusRequest }: { mcpUrl: string; focusRequest: nu
   const forget = async () => {
     setNote('');
     setVerdict({ kind: 'idle' });
-    await window.electronAPI.mcpForgetToken();
+    const result = await window.electronAPI.mcpForgetToken().catch(() => ({ status: 'partial' as const }));
+    if (result.status === 'partial') setNote(String(t('preferences.forgotPartial', { items: t('preferences.forgetItemUnverified', { count: 1 }) })));
     await after();
   };
 

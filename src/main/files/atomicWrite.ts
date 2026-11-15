@@ -8,6 +8,38 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { randomBytes } from 'crypto';
 
+/** The confirmed outcome of clearing one app-owned secret file. */
+export type FileRemoval = 'absent' | 'removed' | 'failed';
+
+/** Removes one private file, or empties and reads it back when its folder does not allow unlinking. */
+export function removePrivateFile(file: string): FileRemoval {
+  try {
+    fs.unlinkSync(file);
+    try { fs.lstatSync(file); } catch (error) { return (error as { code?: string }).code === 'ENOENT' ? 'removed' : 'failed'; }
+    return 'failed';
+  } catch (error) {
+    if ((error as { code?: string }).code === 'ENOENT') return 'absent';
+  }
+  let handle: number | null = null;
+  try {
+    // Never follow a substituted link while emptying a file whose removal was refused.
+    handle = fs.openSync(file, fs.constants.O_RDWR | (fs.constants.O_NOFOLLOW ?? 0));
+    const before = fs.fstatSync(handle);
+    if (!before.isFile()) return 'failed';
+    fs.ftruncateSync(handle, 0);
+    fs.fsyncSync(handle);
+    const after = fs.lstatSync(file);
+    return after.isFile() && after.dev === before.dev && after.ino === before.ino
+      && after.size === 0 && fs.readFileSync(handle).length === 0 ? 'removed' : 'failed';
+  } catch {
+    return 'failed';
+  } finally {
+    if (handle !== null) {
+      try { fs.closeSync(handle); } catch { /* The outcome above was already checked. */ }
+    }
+  }
+}
+
 /**
  * Writes a file so that it is either the old file or the whole new one, never half of each: the bytes go to a
  * temporary file in the same folder, are flushed to the disk, and the temporary file then replaces the target

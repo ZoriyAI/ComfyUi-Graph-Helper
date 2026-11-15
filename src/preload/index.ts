@@ -288,10 +288,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveSecret: (provider: CloudKeyProvider, value?: string) => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SAVE_SECRET, provider, value),
   saveSecretFile: (provider: CloudKeyProvider) => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SAVE_SECRET_FILE, provider) as Promise<{ status: 'stored' | 'missing' }>,
   /** With a provider: that provider's key. Without: every model key. */
-  forgetSecret: (provider?: CloudKeyProvider) => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_FORGET_SECRET, provider) as Promise<{ status: 'removed' }>,
+  forgetSecret: (provider?: CloudKeyProvider) => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_FORGET_SECRET, provider) as Promise<{ status: 'removed' | 'partial' }>,
   secretStatus: (provider?: CloudKeyProvider) => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SECRET_STATUS, provider) as Promise<SecretStatus>,
   /** Every key and token: all providers, all server addresses, browser sign-ins, files, memory. */
-  forgetAllSecrets: () => ipcRenderer.invoke(IPC_CHANNELS.SECRETS_FORGET_ALL) as Promise<{ status: 'removed'; removed: SecretInventoryReport }>,
+  forgetAllSecrets: () => ipcRenderer.invoke(IPC_CHANNELS.SECRETS_FORGET_ALL) as Promise<ForgetAllSecretsResult>,
   /** What Forget all would remove now: names and counts, never a value. */
   secretInventory: () => ipcRenderer.invoke(IPC_CHANNELS.SECRETS_INVENTORY) as Promise<SecretInventoryReport>,
   /** Settings ▸ Connection ▸ "Check": whether ComfyUI answers at this address (one read-only GET). */
@@ -307,7 +307,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   mcpSaveTokenFile: (forUrl?: string) => ipcRenderer.invoke(IPC_CHANNELS.MCP_SAVE_TOKEN_FILE, forUrl) as Promise<{ status: 'stored' | 'missing' }>,
   secretStore: () => ipcRenderer.invoke(IPC_CHANNELS.SECRET_STORE_GET) as Promise<SecretStoreInfo>,
   setSecretStore: (choice: SecretStoreInfo['override']) => ipcRenderer.invoke(IPC_CHANNELS.SECRET_STORE_SET, choice) as Promise<{ ok: boolean }>,
-  mcpForgetToken: () => ipcRenderer.invoke(IPC_CHANNELS.MCP_FORGET_TOKEN) as Promise<{ status: 'removed' }>,
+  mcpForgetToken: () => ipcRenderer.invoke(IPC_CHANNELS.MCP_FORGET_TOKEN) as Promise<{ status: 'removed' | 'partial' }>,
   mcpDetectAuth: (url?: string) => ipcRenderer.invoke(IPC_CHANNELS.MCP_DETECT_AUTH, url) as Promise<McpAuthProbe>,
   mcpOAuthLogin: () => ipcRenderer.invoke(IPC_CHANNELS.MCP_OAUTH_LOGIN) as Promise<McpOAuthLoginResult>,
   mcpOAuthLogout: () => ipcRenderer.invoke(IPC_CHANNELS.MCP_OAUTH_LOGOUT) as Promise<McpOAuthStatus>,
@@ -481,6 +481,18 @@ export interface SecretInventoryReport {
   providers: KeyProvider[];
   serverTokens: number;
   signIns: number;
+  /** Nonempty crash files or unreadable files not already counted by their known contents. */
+  files?: number;
+  /** Storage places whose contents could not be checked. */
+  unverified?: number;
+}
+
+/** Confirmed removal and remaining inventory; failures contain only store kinds, never paths or values. */
+export interface ForgetAllSecretsResult {
+  status: 'removed' | 'partial';
+  removed: SecretInventoryReport;
+  remaining: SecretInventoryReport;
+  failed: string[];
 }
 
 /** A field that looks like a key or token, reported before a file is written. Never the value. */
@@ -571,9 +583,9 @@ export interface ElectronAPI {
   saveViewPreferences: (patch: unknown) => Promise<import('../shared/config/preferences').Preferences | null>;
   saveSecret: (provider: CloudKeyProvider, value?: string) => Promise<{ status: 'secret-storage-blocked' | 'stored' }>;
   saveSecretFile: (provider: CloudKeyProvider) => Promise<{ status: 'stored' | 'missing' }>;
-  forgetSecret: (provider?: CloudKeyProvider) => Promise<{ status: 'removed' }>;
+  forgetSecret: (provider?: CloudKeyProvider) => Promise<{ status: 'removed' | 'partial' }>;
   secretStatus: (provider?: CloudKeyProvider) => Promise<SecretStatus>;
-  forgetAllSecrets: () => Promise<{ status: 'removed'; removed: SecretInventoryReport }>;
+  forgetAllSecrets: () => Promise<ForgetAllSecretsResult>;
   secretInventory: () => Promise<SecretInventoryReport>;
   /** Settings ▸ Connection ▸ ComfyUI address ▸ "Check": whether ComfyUI answers at this address (one read-only GET). */
   checkComfy: (address: string) => Promise<
@@ -589,7 +601,7 @@ export interface ElectronAPI {
   secretStore: () => Promise<SecretStoreInfo>;
   setSecretStore: (choice: SecretStoreInfo['override']) => Promise<{ ok: boolean }>;
   mcpSaveToken: (value?: string, forUrl?: string) => Promise<{ status: 'stored' | 'secret-storage-blocked' }>;
-  mcpForgetToken: () => Promise<{ status: 'removed' }>;
+  mcpForgetToken: () => Promise<{ status: 'removed' | 'partial' }>;
   /** Settings ▸ Connection ▸ "Check": what the MCP server wants from a connection, found out by trying. */
   mcpDetectAuth: (url?: string) => Promise<McpAuthProbe>;
   /** Signs in to the saved MCP URL through the system browser; resolves when the browser comes back (or fails). */

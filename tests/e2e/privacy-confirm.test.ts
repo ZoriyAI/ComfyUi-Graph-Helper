@@ -16,6 +16,51 @@ const MAIN = path.join(__dirname, '../../dist/main/index.js');
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const ELECTRON_BINARY = require('electron') as unknown as string;
 
+test('failed secret files give a partial result and a retry removes the remainder', async () => {
+  const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'privacy-partial-'));
+  const app = await electron.launch({ args: [MAIN, `--user-data-dir=${userData}`] });
+  try {
+    const window = await app.firstWindow();
+    await useEnglish(window);
+    const call = (name: string, args: unknown[] = []) => window.evaluate(({ name, args }) => (window as unknown as { electronAPI: Record<string, (...args: unknown[]) => Promise<any>> }).electronAPI[name](...args), { name, args });
+    await call('llmSetSessionKey', ['google', 'fixture-google-key']);
+    expect(await call('saveSecretFile', ['google'])).toEqual({ status: 'stored' });
+    await call('mcpSetToken', ['fixture-token', 'http://127.0.0.1:9/mcp']);
+    expect(await call('mcpSaveTokenFile', ['http://127.0.0.1:9/mcp'])).toEqual({ status: 'stored' });
+    await app.evaluate((_electron, targets) => {
+      const native = process.getBuiltinModule('fs')!;
+      const mutable = native as { unlinkSync: typeof native.unlinkSync; openSync: typeof native.openSync };
+      const unlink = native.unlinkSync;
+      const open = native.openSync;
+      const blocked = new Set(targets);
+      mutable.unlinkSync = (file) => { if (blocked.has(String(file))) throw Object.assign(new Error('fixture-denied'), { code: 'EACCES' }); return unlink(file); };
+      mutable.openSync = (file, flags, mode) => { if (blocked.has(String(file)) && flags !== 'r' && flags !== 0) throw Object.assign(new Error('fixture-denied'), { code: 'EACCES' }); return open(file, flags, mode); };
+      (globalThis as unknown as { restoreSecretFs: () => void }).restoreSecretFs = () => { mutable.unlinkSync = unlink; mutable.openSync = open; };
+    }, [path.join(userData, 'model-key.json'), path.join(userData, 'mcp-token.json')]);
+    expect(await call('forgetSecret', ['google'])).toEqual({ status: 'partial' });
+    expect(await call('mcpForgetToken')).toEqual({ status: 'partial' });
+    await window.getByRole('button', { name: 'Settings', exact: true }).click();
+    const dialog = window.locator('[role="dialog"].settings-dialog');
+    await dialog.getByRole('tab', { name: 'Privacy' }).click();
+    const forget = dialog.getByRole('button', { name: 'Forget all keys and tokens' });
+    await forget.click();
+    const confirm = window.locator('[role="dialog"].forget-all-dialog');
+    await confirm.getByRole('button', { name: 'Forget', exact: true }).click();
+    await expect(dialog.getByText('Some keys or tokens remain:', { exact: false })).toBeVisible();
+    await expect(forget).toBeEnabled();
+    expect(await call('secretInventory')).toEqual({ providers: ['google'], serverTokens: 1, signIns: 0 });
+    await app.evaluate(() => (globalThis as unknown as { restoreSecretFs: () => void }).restoreSecretFs());
+    await forget.click();
+    await confirm.getByRole('button', { name: 'Forget', exact: true }).click();
+    await expect(dialog.getByText('Removed: model keys: Google; server access tokens: 1.')).toBeVisible();
+    await expect(forget).toBeDisabled();
+    expect(await call('secretInventory')).toEqual({ providers: [], serverTokens: 0, signIns: 0 });
+  } finally {
+    await app.close();
+    fs.rmSync(userData, { recursive: true, force: true });
+  }
+});
+
 test('Forget all and Clear chat history ask first, say what goes, and are off when there is nothing', async () => {
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'privacy-confirm-'));
   const app = await electron.launch({ args: [MAIN, `--user-data-dir=${userData}`] });
