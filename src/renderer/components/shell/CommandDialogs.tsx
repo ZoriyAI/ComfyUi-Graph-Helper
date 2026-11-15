@@ -1,3 +1,8 @@
+/**
+ * The small dialogs of the main window, all mounted at once by App.tsx and opened through uiState.dialog: keyboard
+ * shortcuts, About, Help, report a problem, the "replace the graph?" question, and the export guard. Two more open
+ * from their own stores: the secret guard (commands/secretGuard) and the stop-the-build guard (commands/buildGuard).
+ */
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { DialogClose, DialogContent, DialogDescription, DialogOverlay, DialogPortal, DialogRoot, DialogTitle } from '../../ui/Dialog';
@@ -19,6 +24,7 @@ import HelpReader from './HelpReader';
 import { showToast } from '../../ui/Toast';
 import styles from './CommandDialogs.module.css';
 
+/** The menus in menu-bar order; the shortcuts dialog lists its sections in this order. */
 const GROUPS: CommandGroup[] = ['file', 'edit', 'view', 'graph', 'assistant', 'sync', 'help'];
 
 /** Keys that are not commands of their own but people still need to know. */
@@ -188,6 +194,7 @@ function NewProjectDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
   );
 }
 
+/** How many findings or fields a guard dialog lists before "and N more", so the dialog stays short. */
 const GUARD_ROWS = 6;
 
 /** File ▸ Export with check findings: say what is wrong before a broken workflow is written. */
@@ -245,11 +252,7 @@ function ExportGuardDialog({ open, onOpenChange }: { open: boolean; onOpenChange
   );
 }
 
-/**
- * Before a workflow or project file is written: fields that look like a key or token. Save without those values,
- * save as it is, or cancel. The values themselves are never shown; main kept them.
- */
-/** Open, New or Import while the assistant builds: stop it first, then go on (P0 from the bug bash). */
+/** Open, New or Import while the assistant builds: stop it first, then go on. */
 function StopBuildDialog() {
   const { t } = useTranslation();
   const pending = useBuildGuardStore((state) => state.pending);
@@ -275,6 +278,10 @@ function StopBuildDialog() {
   );
 }
 
+/**
+ * Before a workflow or project file is written: fields that look like a key or token. Save without those values,
+ * save as it is, or cancel. The values themselves are never shown; main kept them.
+ */
 function SecretGuardDialog() {
   const { t } = useTranslation();
   const pending = useSecretGuardStore((state) => state.pending);
@@ -282,6 +289,7 @@ function SecretGuardDialog() {
   const fields = pending?.fields ?? [];
   const shown = fields.slice(0, GUARD_ROWS);
   const save = (choice: 'omit' | 'keep') => {
+    // Read the target before clear() empties the store, then write with the person's choice.
     const target = pending?.target;
     clear();
     if (target === 'workflow') void exportWorkflowNow(choice);

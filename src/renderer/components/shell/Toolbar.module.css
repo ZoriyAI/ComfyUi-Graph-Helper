@@ -1,4 +1,7 @@
-/* The compact toolbar under the menu bar: 36 px of buttons in groups, then the helper and the project. */
+/*
+ * The compact toolbar under the menu bar (Toolbar.tsx; App.tsx's settings gear borrows its button class):
+ * 36 px of buttons in groups, then the helper and the project.
+ */
 .toolbar {
   position: relative;
   z-index: 3;

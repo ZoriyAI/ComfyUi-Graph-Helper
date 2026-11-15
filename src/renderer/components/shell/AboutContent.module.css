@@ -1,4 +1,7 @@
-/* Help ▸ About and Settings ▸ About: one view (AboutContent.tsx). */
+/*
+ * Help ▸ About and Settings ▸ About: one view (AboutContent.tsx), shown by CommandDialogs and AboutSection.
+ * The app icon, name and version are centred; the links and the licence notes sit below.
+ */
 .main { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; min-width: 0; }
 .icon {
   width: 64px;

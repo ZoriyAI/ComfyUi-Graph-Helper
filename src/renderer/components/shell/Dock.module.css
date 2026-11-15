@@ -1,4 +1,8 @@
-/* The dock is a panel one step lighter than the canvas: a top sheen, a soft inner edge and a drop shadow onto the canvas. */
+/*
+ * Styles of the right-hand dock (Dock.tsx): the Assistant, Explain, Inspector and Check tabs, the strip shown when
+ * it is hidden, and how the chat header of ChatDock.tsx is shown inside it.
+ * The dock is a panel one step lighter than the canvas: a top sheen, a soft inner edge and a drop shadow onto the canvas.
+ */
 .dock {
   position: relative;
   z-index: 2;

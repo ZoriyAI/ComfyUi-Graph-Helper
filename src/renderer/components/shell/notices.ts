@@ -1,3 +1,8 @@
+/**
+ * The toasts of file actions (import, export, save and open a project, read a node catalog) built from one
+ * WorkflowNote. commands/actions.ts calls describeNote after each action; every note uses the same toast id, so a
+ * new action replaces the previous message instead of stacking. The journey and file-command tests pin the texts.
+ */
 import { explainError, type Translator } from '../../../shared/i18n';
 import type { ToastInput } from '../../ui/toastStore';
 
@@ -20,12 +25,14 @@ export type WorkflowNote =
   | { kind: 'opened-project' }
   | { kind: 'error'; code: string };
 
+/** The one toast id of every file note (see the header). */
 export const WORKFLOW_NOTE_ID = 'workflow-note';
 
 /** What export keeps but the canvas shows differently; counted by the import (codec shownDifferently). */
 export const SHOWN_KEYS = ['groupNodes'] as const;
 export type ShownKey = typeof SHOWN_KEYS[number];
 
+/** One sentence about what the canvas shows differently from the file, or undefined when nothing is. */
 function shownText(shown: Partial<Record<ShownKey, number>> | undefined, translate: Translator): string | undefined {
   const items = SHOWN_KEYS
     .filter((key) => (shown?.[key] ?? 0) > 0)
@@ -42,6 +49,7 @@ function missingText(names: string[], key: 'Nodes' | 'Models', translate: Transl
   return translate(`workflow.missing${key}Many`, { count: names.length, names: names.slice(0, NOTE_NAMES).join(', '), rest: names.length - NOTE_NAMES });
 }
 
+/** Optional buttons a note may carry; a missing action simply leaves the toast without its button. */
 export interface NoteActions {
   /** Opens the Check panel; the import toast offers it when something is missing. */
   openCheck?: () => void;
@@ -51,6 +59,10 @@ export interface NoteActions {
   howToRun?: () => void;
 }
 
+/**
+ * Turns a note into a toast. A note with more to read (missing names, what is shown differently) stays 15 s; a plain
+ * success is shorter (8 s or the toast default), and an error stays 12 s so its diagnostic can be read.
+ */
 export function describeNote(note: WorkflowNote, translate: Translator, actions: NoteActions = {}): ToastInput {
   if (note.kind === 'imported') {
     // Where it came from is said first, inside the same one message, never as a second toast.

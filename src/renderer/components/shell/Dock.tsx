@@ -1,3 +1,8 @@
+/**
+ * The right-hand dock of the main window (rendered by App.tsx): Assistant, Explain, Inspector and Check as tabs,
+ * a resize handle, the split view of Assistant and Inspector, and the icon strip shown when it is hidden. Its width,
+ * tab and split live in state/dockState so the View menu commands and these controls stay in step.
+ */
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { Columns2, Lightbulb, ListChecks, PanelRightClose, PanelRightOpen, SlidersHorizontal, Sparkles } from 'lucide-react';
@@ -18,6 +23,7 @@ import { EASE_OUT, useMotionTimings } from '../../motion/policy';
 import { runCommand, useCommandState } from '../../commands/registry';
 import styles from './Dock.module.css';
 
+/** The window's inner width, updated on resize; the dock's allowed width depends on it. */
 function useViewportWidth(): number {
   const [viewport, setViewport] = useState(() => window.innerWidth);
   useEffect(() => {
@@ -45,11 +51,13 @@ export function ToolSplitter() {
   const viewport = useViewportWidth();
   const reserve = useRailReserve();
 
+  // A window made too narrow for two panes leaves the split view.
   useEffect(() => {
     if (useDockStore.getState().split && !canUseSplit(viewport)) setSplit(false);
   }, [setSplit, viewport]);
 
   const range = dockRange(split, viewport, reserve);
+  // A stored width outside the current range (a smaller window, the rail opened) is pulled back into it.
   useEffect(() => {
     if (width < range.min || width > range.max) setWidth(Math.min(range.max, Math.max(range.min, width)));
   }, [range.max, range.min, setWidth, width]);
@@ -69,10 +77,12 @@ export function ToolSplitter() {
   );
 }
 
-/** Measures text the way the dock tabs draw it, so the header knows whether full labels fit. */
+// One offscreen canvas is reused for every measurement.
 let measureContext: CanvasRenderingContext2D | null = null;
+/** Measures text the way the dock tabs draw it, so the header knows whether full labels fit. */
 function textWidth(text: string): number {
   if (!measureContext) measureContext = document.createElement('canvas').getContext('2d');
+  // No 2D context (a test environment): a rough average width of a 13px character.
   if (!measureContext) return text.length * 7.5;
   measureContext.font = `600 13px ${getComputedStyle(document.documentElement).getPropertyValue('--font-sans') || 'sans-serif'}`;
   return measureContext.measureText(text).width;
@@ -94,6 +104,7 @@ function useLabelsFit(labels: string[]): [React.RefObject<HTMLDivElement>, boole
   useLayoutEffect(() => {
     const element = ref.current;
     if (!element) return undefined;
+    // The labels come back from the key, so the effect reruns only when the texts change (a language switch).
     const needed = fullTabsWidth(key.split('|'));
     const measure = () => setFits(element.clientWidth >= needed);
     measure();
@@ -176,6 +187,7 @@ function DockStrip() {
   );
 }
 
+/** The dock's tabs in order; `splitMember` marks the two panes shown side by side in the split view. */
 const TABS: Array<{ value: DockTab; label: string; splitMember: boolean; icon: React.ReactNode }> = [
   { value: 'assistant', label: 'dock.assistant', splitMember: true, icon: <Sparkles size={16} aria-hidden="true" /> },
   { value: 'explain', label: 'dock.explain', splitMember: false, icon: <Lightbulb size={16} aria-hidden="true" /> },

@@ -1,3 +1,7 @@
+/**
+ * The status bar at the bottom of the main window (App.tsx renders it): graph counts, zoom, the history step, the
+ * running agent with Pause, Resume and Stop, and the update notice. It only reads the graph and projection stores.
+ */
 import React from 'react';
 import { Pause, Play, Square } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -13,10 +17,15 @@ async function pauseRun() {
   await getChatService().pause();
 }
 
+/** Resumes a paused run through the chat service. */
 async function resumeRun() {
   await getChatService().resume();
 }
 
+/**
+ * Stops the run in main first, shows the projection main returns, then tells the chat service, so the chat never
+ * shows the run as ended while main still holds it.
+ */
 async function cancelRun(projectId: string, runId: string) {
   const result = await window.electronAPI.cancelRun(projectId, runId);
   applyProjection(result.projection);

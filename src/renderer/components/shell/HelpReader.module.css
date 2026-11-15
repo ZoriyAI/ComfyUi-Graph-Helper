@@ -1,4 +1,7 @@
-/* Help: the wiki reader (HelpReader.tsx). Sections on the left, the page on the right; both scroll inside. */
+/*
+ * Help: the wiki reader (HelpReader.tsx, opened from CommandDialogs). Sections on the left, the page on the right;
+ * both scroll inside, so the dialog keeps one size while a person reads.
+ */
 .dialog {
   width: min(1100px, calc(100vw - 32px));
   height: min(780px, calc(100vh - 48px));
