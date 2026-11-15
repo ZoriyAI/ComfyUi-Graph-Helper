@@ -1,3 +1,8 @@
+/**
+ * Wraps every locally run tool so its result and its error text pass through the redactor before the AI SDK sends
+ * them to the model or the renderer shows them. Used by llmService.ts when it hands tools to a turn: a tool result
+ * can quote a key, a token or a private path from the person's settings or MCP answers.
+ */
 import type { ToolSet } from 'ai';
 import type { ToolResultOutput } from '@ai-sdk/provider-utils';
 import { redactValue } from '../../shared/agent/redact';
@@ -29,6 +34,7 @@ export function privateToolResults(tools: ToolSet, redact: (text: string) => str
             (error) => { throw safeError(error); },
           );
         } catch (error) {
+          // A tool that throws before returning a promise: its message is redacted all the same.
           throw safeError(error);
         }
       },

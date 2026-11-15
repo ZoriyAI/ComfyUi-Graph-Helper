@@ -1,14 +1,17 @@
-import type { ModelChoice, ModelListResult } from '../../shared/contracts/pickers';
-
 /**
  * Reads which models a provider or a local server offers, so Settings ▸ Assistant can offer a list to pick from.
- * Only GET requests. A cloud key is attached here in main and never comes back; every error is a fixed sentence.
+ * Only GET requests, except Ollama's /api/show, a read that Ollama takes as POST. A cloud key is attached here in
+ * main and never comes back; every error is a fixed sentence. Used by llmService.ts (the pickers),
+ * localDiscovery.ts and localContext.ts.
  */
+import type { ModelChoice, ModelListResult } from '../../shared/contracts/pickers';
 
+/** How long one list request may take. */
 export const MODEL_LIST_TIMEOUT_MS = 8_000;
 /** A list of a few hundred models is tens of KB; anything far bigger is not a model list. */
 const MAX_BODY_CHARS = 8 * 1024 * 1024;
 
+// The fixed sentences a list read can end with; the renderer shows them as they are.
 export const MODEL_LIST_UNREAD = 'The model list could not be read.';
 export const MODEL_LIST_TIMEOUT = 'The server did not send the model list in time.';
 export const MODEL_LIST_UNREACHABLE = 'The server did not answer.';
@@ -16,9 +19,11 @@ export const MODEL_LIST_REFUSED = 'The provider refused the key.';
 export const MODEL_LIST_SHAPE = 'The server answered without a model list.';
 export const modelListHttpError = (status: number) => `The server answered HTTP ${status} to the model list request.`;
 
+/** The cloud providers whose model list the app can read; 'compatible' is any OpenAI-compatible gateway. */
 export type CloudListProvider = 'openai' | 'anthropic' | 'google' | 'compatible';
 
 type Fetch = typeof fetch;
+/** A JSON answer, or the fixed sentence that says why there is none. */
 type JsonRead = { ok: true; json: unknown } | { ok: false; error: string };
 
 function record(value: unknown): Record<string, unknown> | null {
@@ -35,6 +40,7 @@ function usableId(value: unknown): string {
   return id.length > 0 && id.length <= 300 && !/[\u0000-\u001f]/.test(id) ? id : '';
 }
 
+/** One entry per id (the first one wins), sorted by id. */
 function byId(models: ModelChoice[]): ModelChoice[] {
   const seen = new Map<string, ModelChoice>();
   for (const model of models) if (!seen.has(model.id)) seen.set(model.id, model);
@@ -78,6 +84,7 @@ export function parseOpenAiList(json: unknown): ModelChoice[] | null {
 /** Ids of OpenAI models that are not chat models; the assistant cannot use them. */
 const OPENAI_NOT_CHAT = /(embedding|tts|whisper|dall-e|image|realtime|moderation|transcribe|audio)/i;
 
+/** False for OpenAI ids that name embeddings, speech, image or moderation models. */
 export function isOpenAiChatModel(id: string): boolean {
   return !OPENAI_NOT_CHAT.test(id);
 }
@@ -131,12 +138,12 @@ export function parseOllamaCatalog(json: unknown): ModelChoice[] {
   return byId(out);
 }
 
-/** Anthropic `GET /v1/models`: `{data:[{id, display_name}]}`. */
 /** A window size a list gave, when it is a sane number of tokens. */
 function windowOf(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) && value >= 256 && value <= 16_000_000 ? Math.floor(value) : undefined;
 }
 
+/** Anthropic `GET /v1/models`: `{data:[{id, display_name, max_input_tokens}]}`. Null when not that shape. */
 export function parseAnthropicList(json: unknown): ModelChoice[] | null {
   const data = record(json)?.data;
   if (!Array.isArray(data)) return null;
@@ -146,7 +153,7 @@ export function parseAnthropicList(json: unknown): ModelChoice[] | null {
     const id = usableId(row?.id);
     if (!id) continue;
     const label = text(row?.display_name).slice(0, 200);
-    // The Models API says each model's input window (max_input_tokens) and whether it takes tools.
+    // The Models API says each model's input window (max_input_tokens); only that is kept here.
     const window = windowOf(row?.max_input_tokens);
     out.push({ id, ...(label && label !== id ? { label } : {}), ...(window ? { contextLength: window } : {}) });
   }
@@ -174,6 +181,7 @@ export function parseGoogleList(json: unknown): ModelChoice[] | null {
   return byId(out);
 }
 
+/** The address without trailing slashes, so a path can be added with one. */
 function trimSlash(value: string): string {
   return value.replace(/\/+$/, '');
 }
@@ -203,6 +211,7 @@ function withDetails(models: ModelChoice[], tags: ModelChoice[] | null): ModelCh
 /** Models that cannot chat (embeddings, speech, image, rerankers): never offered as the assistant's model. */
 const NOT_CHAT_ID = /(^|[/:_.-])(text-)?embed(ding)?s?([/:_.-]|$)|nomic-embed|(^|[/_-])bge-|(^|[/_-])e5-|mxbai-embed|all-minilm|snowflake-arctic-embed|rerank|whisper|(^|[/_-])tts([/_-]|$)|dall-e|stable-diffusion|flux/i;
 
+/** False for ids that name embedding, reranking, speech or image models. */
 export function isLocalChatModel(id: string): boolean {
   return !NOT_CHAT_ID.test(id);
 }
@@ -232,6 +241,7 @@ export interface OllamaShowFacts {
   chat?: boolean;
 }
 
+/** The facts in an `/api/show` answer; fields the answer does not have stay undefined. */
 export function parseOllamaShow(json: unknown): OllamaShowFacts {
   const row = record(json);
   const facts: OllamaShowFacts = {};
@@ -257,6 +267,7 @@ export function parseOllamaShow(json: unknown): OllamaShowFacts {
 /** At most this many models are asked about one by one; a server with more lists the rest without capabilities. */
 const SHOW_LIMIT = 40;
 
+/** POST with a time limit and no redirects, for Ollama's /api/show. Any failure is one fixed sentence. */
 async function postJson(fetchImpl: Fetch, url: string, body: unknown, headers: Record<string, string>, timeoutMs: number): Promise<JsonRead> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -294,6 +305,7 @@ export async function listLocalModels(base: string, fetchImpl: Fetch, timeoutMs 
   const root = trimSlash(base.trim());
   const origin = ollamaOrigin(root);
   const auth: Record<string, string> = key ? { authorization: `Bearer ${key}` } : {};
+  // All three reads start at once, so a server that does not answer costs one timeout, not three.
   const tagsRead = origin ? getJson(fetchImpl, `${origin}/api/tags`, auth, timeoutMs) : Promise.resolve(null);
   // LM Studio says which of its models are embeddings; any other server answers 404 here, which changes nothing.
   const typesRead = origin ? getJson(fetchImpl, `${origin}/api/v0/models`, auth, Math.min(timeoutMs, 3000)) : Promise.resolve(null);
@@ -308,6 +320,7 @@ export async function listLocalModels(base: string, fetchImpl: Fetch, timeoutMs 
   }
   if (!models && tagModels) models = tagModels;
   if (!models) {
+    // Without a key the refusal means "this server wants one"; with a key it means the key is wrong.
     if (!listed.ok && listed.error === MODEL_LIST_REFUSED) return { ok: false, error: key ? MODEL_LIST_REFUSED : MODEL_LIST_NEEDS_KEY };
     return { ok: false, error: listed.ok ? MODEL_LIST_SHAPE : listed.error };
   }
@@ -344,6 +357,7 @@ async function withOllamaFacts(models: ModelChoice[], origin: string, fetchImpl:
 /** The list request for one cloud provider: URL and the headers that carry the key. */
 export function cloudListRequest(provider: CloudListProvider, base: string, key: string): { url: string; headers: Record<string, string> } {
   const root = trimSlash(base);
+  // The page sizes ask for the whole list in one answer; the app does not follow further pages.
   if (provider === 'anthropic') return { url: `${root}/models?limit=1000`, headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01' } };
   if (provider === 'google') return { url: `${root}/models?pageSize=200`, headers: { 'x-goog-api-key': key } };
   return { url: `${root}/models`, headers: { authorization: `Bearer ${key}` } };
@@ -352,6 +366,7 @@ export function cloudListRequest(provider: CloudListProvider, base: string, key:
 /** Cloud: the official or configured https base, with the key main holds. The caller checks https and the key. */
 export async function listCloudModels(provider: CloudListProvider, base: string, key: string, fetchImpl: Fetch, timeoutMs = MODEL_LIST_TIMEOUT_MS, extraHeaders: Record<string, string> = {}): Promise<ModelListResult> {
   const request = cloudListRequest(provider, base, key);
+  // The provider's own key headers come last, so an extra header can never replace them.
   const read = await getJson(fetchImpl, request.url, { ...extraHeaders, ...request.headers }, timeoutMs);
   if (!read.ok) return read;
   const models = provider === 'anthropic'

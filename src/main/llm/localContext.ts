@@ -1,5 +1,3 @@
-import { getJson, MODEL_LIST_REFUSED, MODEL_LIST_SHAPE, ollamaOrigin } from './modelList';
-
 /**
  * How much text a model on the person's own server can hold at once.
  *
@@ -12,7 +10,11 @@ import { getJson, MODEL_LIST_REFUSED, MODEL_LIST_SHAPE, ollamaOrigin } from './m
  * Ollama's `GET /api/ps` lists the models loaded right now with the window each was loaded with. That is the
  * only place the real number shows, and only while the model is loaded, so the reader polls while a request is
  * in flight (a server set to unload after every answer shows the model only then).
+ *
+ * Used by llmService.ts (the fit check of each local turn, the window before the first question, the larger-window
+ * copy), main/index.ts (the watch during a request) and agent/turn.ts (the compact window size).
  */
+import { getJson, MODEL_LIST_REFUSED, MODEL_LIST_SHAPE, ollamaOrigin } from './modelList';
 
 type Fetch = typeof fetch;
 
@@ -26,6 +28,7 @@ export function estimateRequestTokens(bodyChars: number): number {
   return Math.ceil(Math.max(0, bodyChars) / CHARS_PER_TOKEN_JSON);
 }
 
+/** A model name with Ollama's default tag added when it has none. */
 function tagged(name: string): string {
   const trimmed = name.trim();
   // "llama3.2" and "llama3.2:latest" are the same model to Ollama.
@@ -84,6 +87,7 @@ export function parseVllmModels(json: unknown, model: string): number | null {
   return sane(row?.max_model_len);
 }
 
+/** A window size when it is a believable number of tokens (256 to 16 million), else null. */
 function sane(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) && value >= 256 && value <= 16_000_000 ? Math.floor(value) : null;
 }
@@ -224,6 +228,7 @@ export function watchLoadedContext(
 /** Room a turn needs beyond its request: a tool result or two and the answer. */
 const WORKING_ROOM = 2_500;
 
+/** The verdict of contextFit, also written to the conversation log as a 'context' note. */
 export interface ContextFit {
   /** The window the model is loaded with on the server. */
   window: number;
@@ -242,6 +247,7 @@ export interface ContextFit {
  */
 export function contextFit(window: number, bodyChars: number, counted: number | null): ContextFit {
   const estimated = estimateRequestTokens(bodyChars);
+  // 64 tokens of slack: a server that cut the prompt reports a count at or just under the window.
   const filled = counted !== null && counted >= window - 64;
   const needed = Math.max(estimated, counted ?? 0);
   if (estimated > window || filled) return { window, needed, state: 'cut' };
@@ -268,6 +274,7 @@ export async function loadAndReadContext(base: string, model: string, fetchImpl:
     const response = await fetchImpl(`${origin}/api/generate`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
+      // keep_alive 10m holds the model loaded long enough for the person's first question to use it.
       body: JSON.stringify({ model, prompt: '', stream: false, keep_alive: '10m' }),
       signal: controller.signal,
     });
@@ -294,6 +301,7 @@ export function windowVariantName(model: string, window: number): string {
   return `${trimmed}:${size}`;
 }
 
+/** The name of the new copy, or the fixed sentence that says why there is none. */
 export type WindowVariantResult = { ok: true; model: string } | { ok: false; error: string };
 export const WINDOW_VARIANT_NOT_OLLAMA = 'Only an Ollama server can make a copy with a larger window.';
 export const WINDOW_VARIANT_FAILED = 'Ollama did not make the copy.';
@@ -319,6 +327,7 @@ export async function createWindowVariant(base: string, model: string, window: n
     });
     const text = await response.text().catch(() => '');
     if (response.status === 404) return { ok: false, error: WINDOW_VARIANT_NOT_OLLAMA };
+    // Ollama can answer 200 with an error object in the body, so the text is checked too.
     if (!response.ok || /"error"/.test(text)) return { ok: false, error: WINDOW_VARIANT_FAILED };
     return { ok: true, model: name };
   } catch {
