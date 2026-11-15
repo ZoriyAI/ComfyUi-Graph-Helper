@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { Tool } from 'ai';
+import { jsonSchema, type Tool } from 'ai';
 import type { FileData } from '@ai-sdk/provider-utils';
 import { privateToolResults } from '../../../src/main/llm/toolPrivacy';
-import type { LanguageModelV4Prompt } from '@ai-sdk/provider';
+import type { JSONValue, LanguageModelV4Prompt } from '@ai-sdk/provider';
 import { MainLLMService } from '../../../src/main/llmService';
 import { createTestLLMModel } from '../../../src/main/testLLMTransport';
 
@@ -19,7 +19,7 @@ async function sdkRoundTrip(execute: () => unknown, toModelOutput?: Tool['toMode
   vi.spyOn(service, 'getModel').mockReturnValue({
     ...model,
     supportedUrls: { 'image/png': [/^https:\/\/files\.example\.test\//] },
-    doStream: async (options) => {
+    doStream: async (options: Parameters<typeof model.doStream>[0]) => {
       prompts.push(options.prompt);
       return model.doStream(options);
     },
@@ -91,7 +91,8 @@ describe('SDK tool result privacy boundary', () => {
     const expected = nesting === 'nested' ? { result: safe } : safe;
     const { output, chunks } = boundary === 'execute'
       ? await sdkRoundTrip(() => value)
-      : await sdkRoundTrip(() => ({ success: true, nodeId: 'fixture-node' }), () => ({ type: 'json', value }));
+      // A class instance is not JSON by type, but a tool's conversion can hand one over at run time: that is the case under test.
+      : await sdkRoundTrip(() => ({ success: true, nodeId: 'fixture-node' }), () => ({ type: 'json', value: value as unknown as JSONValue }));
     expect(output).toEqual({ type: 'json', value: expected });
     expect(JSON.stringify(chunks.filter((part) => part.type === 'tool-result'))).not.toContain(HELD);
     expect(reply.text).toBe(HELD);
@@ -132,7 +133,7 @@ describe('SDK tool result privacy boundary', () => {
     const { output } = await sdkRoundTrip(() => ({ success: true, nodeId: 'fixture-node' }),
       () => ({ type: 'json', value: { content: HELD, count: 4 } }));
     expect(output).toEqual({ type: 'json', value: { content: '[redacted]', count: 4 } });
-    const providerTool: Tool = { type: 'provider', id: 'provider.search', args: { maxUses: 5 } };
+    const providerTool: Tool = { type: 'provider', id: 'provider.search', args: { maxUses: 5 }, inputSchema: jsonSchema({ type: 'object', properties: {} }), isProviderExecuted: true };
     const wrapped = privateToolResults({ search: providerTool }, (text) => text);
     expect(wrapped.search).toBe(providerTool);
   });

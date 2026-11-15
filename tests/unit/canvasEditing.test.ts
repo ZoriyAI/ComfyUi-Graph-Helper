@@ -58,7 +58,7 @@ describe('copy and paste', () => {
     ];
     const fragment = fragmentOf(nodes, edges as never);
     expect(fragment.nodes).toEqual(nodes);
-    expect(fragment.nodes[1].data.comfy?.widgets_values).toEqual(['a fox']);
+    expect((fragment.nodes[1].data.comfy as { widgets_values?: unknown[] } | undefined)?.widgets_values).toEqual(['a fox']);
     expect(fragment.nodes[1].data.title).toBe('Positive');
     expect(fragment.edges).toEqual([edges[0]]);
     expect(pasteEdits(fragment, 40)).toEqual([

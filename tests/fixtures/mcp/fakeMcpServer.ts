@@ -484,7 +484,7 @@ export const CLASSES: ClassDef[] = [
  * a class is are caught when they merge.
  */
 function onceEach(defs: ClassDef[], before: readonly ClassDef[]): ClassDef[] {
-  const ports = (def: ClassDef) => JSON.stringify([Object.keys(def.required).sort(), def.output]);
+  const ports = (def: ClassDef) => JSON.stringify([Object.keys(def.required ?? {}).sort(), def.output]);
   const out: ClassDef[] = [];
   for (const def of defs) {
     const earlier = [...before, ...out].find((item) => item.classType === def.classType);

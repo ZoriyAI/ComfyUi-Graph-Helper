@@ -147,7 +147,7 @@ describe('async editor origin', () => {
     expect(await adding, JSON.stringify(vi.mocked(showToast).mock.calls)).not.toBeNull();
     await undoing;
     expect(command.mock.calls.map(([request]) => request.payload.type)).toEqual(['add-node', 'restore-revision']);
-    expect(readProjection(db, 'desktop')!.snapshot.nodes.map((item) => item.data.comfyType)).toEqual(['KSampler']);
+    expect(readProjection(db, 'desktop')!.snapshot.nodes.map((item) => (item as { data: { comfyType: string } }).data.comfyType)).toEqual(['KSampler']);
     expect(pendingCommits()).toBe(0);
     db.close();
   });

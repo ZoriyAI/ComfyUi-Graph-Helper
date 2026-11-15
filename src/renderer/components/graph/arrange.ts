@@ -30,7 +30,7 @@ function overlaps(a: Box, b: Box): boolean {
  * inside its frame, so a stranger there would join it on export). A stranger that the arrangement moves is pushed
  * below the group frame; nodes the arrangement leaves alone stay. Returns the corrected places.
  */
-export function clearGroups(rects: Map<string, Box>, groups: Array<{ nodeIds: string[] }>, movable: Set<string>, gap = LAYOUT_GAPS.gapY): Map<string, Box> {
+export function clearGroups(rects: Map<string, Box>, groups: Array<{ nodeIds: string[] }>, movable: Set<string>, gap: number = LAYOUT_GAPS.gapY): Map<string, Box> {
   const out = new Map([...rects].map(([id, rect]) => [id, { ...rect }]));
   for (let round = 0; round < 8; round += 1) {
     let changed = false;

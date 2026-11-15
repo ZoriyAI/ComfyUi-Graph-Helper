@@ -76,7 +76,9 @@ describe('selection commands', () => {
     if (!exported.ok) return;
     expect(exported.workflow.state).toMatchObject({ lastNodeId: 14, lastLinkId: 7 });
     expect(exported.workflow.links).toContainEqual(expect.objectContaining({ id: 7, origin_id: 13, target_id: 14 }));
-    const prompt = exported.workflow.nodes.find((node) => node.id === 14);
+    // The exported workflow is plain JSON to the type system: read the two fields this test looks at.
+    const nodes = exported.workflow.nodes as Array<{ id: number; inputs: Array<{ link: number | null }> }>;
+    const prompt = nodes.find((node) => node.id === 14)!;
     expect(prompt.inputs[0].link).toBe(7);
   });
 
@@ -218,9 +220,10 @@ describe('native clipboard integration regressions', () => {
     const exported = exportWorkflow(snapshot(db), '2026-11-15');
     expect(exported.ok).toBe(true);
     if (!exported.ok) return;
-    const link = exported.workflow.links.at(-1);
+    // A link is an object in a version 1 workflow and a tuple in version 0.4; a node is plain JSON.
+    const link = (exported.workflow.links as unknown[]).at(-1) as Record<string | number, unknown>;
     expect(version === 1 ? link.vendor_metadata : link[6]).toEqual(version === 1 ? { keep: ['native-link', 9] } : { vendor: 'tuple-tail' });
-    expect(exported.workflow.nodes.find((node: any) => node.vendor_node)?.vendor_node).toEqual({ keep: ['nested', 7] });
+    expect((exported.workflow.nodes as Array<{ vendor_node?: unknown }>).find((node) => node.vendor_node)?.vendor_node).toEqual({ keep: ['nested', 7] });
   });
 
   it.each(['out-99', 'in-0'])('rejects invalid source handle %s atomically', (handle) => {

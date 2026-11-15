@@ -3,7 +3,7 @@
  * the F6 area order, how the focus rescue picks its element, and the shortcuts that work while typing.
  */
 import { describe, expect, it } from 'vitest';
-import { edgeFocusable, edgeSpeech, linkedInputCounts, nodeSpeech, type Say } from '../../src/renderer/components/graph/lib/spoken';
+import { edgeFocusable, edgeSpeech, linkedInputCounts, nodeSpeech, type Say, type SpokenNodeInput } from '../../src/renderer/components/graph/lib/spoken';
 import { nextRegion, REGIONS } from '../../src/renderer/a11y/regions';
 import { nearest, pickRescue } from '../../src/renderer/a11y/focusRescue';
 import { shortcutAllowed } from '../../src/renderer/commands/hotkeys';
@@ -42,7 +42,7 @@ describe('spoken canvas', () => {
   });
 
   it('names a link by its two nodes and ports, never by ids', () => {
-    const nodes = new Map([[loader.id, loader], [sampler.id, sampler]]);
+    const nodes = new Map<string, SpokenNodeInput>([[loader.id, loader], [sampler.id, sampler]]);
     const titles = new Map([['1', 'Checkpoint A'], ['4', 'Sample']]);
     expect(edgeSpeech(link, nodes, ru, titles)).toBe('Связь от Checkpoint A · MODEL к Sample · model, тип MODEL');
     expect(edgeSpeech(link, nodes, en, titles)).toBe('Link from Checkpoint A · MODEL to Sample · model, type MODEL');

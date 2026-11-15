@@ -83,7 +83,7 @@ describe('chat run lifecycle', () => {
   });
 
   it('ending a run that paused at a checkpoint (status bar, menu) stops the card: no Continue on a run that is gone', () => {
-    const checkpoint = { reason: 'step-limit' as const, steps: 60, state: 'open' as const, context: { intent: 'build' as const } };
+    const checkpoint = { reason: 'step-limit' as const, steps: 60, state: 'open' as const, context: { intent: 'build' as const, selection: [], language: 'en' as const } };
     useChatStore.setState({
       messages: [
         { id: 'old', role: 'assistant', content: '', timestamp: 1, checkpoint: { ...checkpoint, state: 'continued' as const } },

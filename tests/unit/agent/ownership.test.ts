@@ -58,7 +58,9 @@ describe('a build changes only what it placed itself (P0)', () => {
 
     // The person's graph is exactly as it was; the drafts wait for them.
     const after = readProjection(db, P)!;
-    expect(after.snapshot.nodes.map((node) => node.id)).toEqual(before.snapshot.nodes.map((node) => node.id));
+    // Projection snapshots hold nodes as unknown: read only their ids.
+    const ids = (nodes: unknown[]) => nodes.map((node) => (node as { id: string }).id);
+    expect(ids(after.snapshot.nodes)).toEqual(ids(before.snapshot.nodes));
     expect(after.snapshot.edges).toHaveLength(1);
     expect((after.snapshot.process as { title: string }).title).toBe('My portrait');
     const drafts = listProposals(db, P, 'proposed');

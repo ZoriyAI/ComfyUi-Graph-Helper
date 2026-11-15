@@ -61,7 +61,7 @@ function commit(db: Database.Database, actionId: string, payload: Record<string,
   });
 }
 
-function reroute(id: number, links: Array<{ input?: number | null; output?: number[] }>) {
+function reroute(id: number, links: { input?: number | null; output?: number[] }) {
   return {
     id,
     type: 'Reroute',
@@ -189,7 +189,7 @@ describe('integrated graph-check regressions', () => {
     expect(linked.valuesOutOfRange).toEqual([]);
     expect(linked.valuesNotInList).toEqual([]);
     const edges = readProjection(db, DESKTOP_PROJECT_ID)!.snapshot.edges;
-    commit(db, 'unlink', { type: 'batch', label: 'delete', edits: edges.map((edge) => ({ type: 'remove-edge', edgeId: edge.id })) });
+    commit(db, 'unlink', { type: 'batch', label: 'delete', edits: edges.map((edge) => ({ type: 'remove-edge', edgeId: (edge as { id: string }).id })) });
     const unlinked = checkGraph(db, DESKTOP_PROJECT_ID);
     expect(unlinked.valuesOutOfRange).toHaveLength(1);
     expect(unlinked.valuesNotInList).toHaveLength(1);
