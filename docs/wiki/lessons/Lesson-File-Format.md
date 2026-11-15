@@ -65,6 +65,8 @@ The comments after `//` are for reading here; a real file has none. The app read
 - `needs`: node packs and classes, said on the card. The app checks the classes against your ComfyUI itself.
 - `texts`: the words in `en`, `ru` or both. Each has `title`, `result` and the words of every step: `title` and
   `body`. In a body, `{role}` becomes the name of that node in bold.
+  It may also have `roles`: a short label for a role, by role name, such as `"first": "first frame"`. The label
+  is shown beside the node's name in "Still to do", so two alike nodes are told apart.
 - `steps`: what each step asks for.
 
 ## What a step asks for
