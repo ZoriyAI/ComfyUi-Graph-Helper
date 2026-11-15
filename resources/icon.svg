@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- The app mark: a speech bubble (the app explains) holding two nodes and their link (a graph).
+       Night tile with a light rim, so it reads on dark docks and panels; no letters, so it survives a rename. -->
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1d2944"/>
+      <stop offset="1" stop-color="#0b1120"/>
+    </linearGradient>
+    <linearGradient id="bubble" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#a6eef8"/>
+      <stop offset="0.55" stop-color="#65d9ed"/>
+      <stop offset="1" stop-color="#3cbcd6"/>
+    </linearGradient>
+  </defs>
+  <rect x="16" y="16" width="480" height="480" rx="112" fill="url(#tile)"/>
+  <rect x="20" y="20" width="472" height="472" rx="108" fill="none" stroke="#4a5f86" stroke-opacity="0.7" stroke-width="8"/>
+  <path d="M168 104 H344 A80 80 0 0 1 424 184 V296 A80 80 0 0 1 344 376 H232 L150 436 L162 376 H168 A80 80 0 0 1 88 296 V184 A80 80 0 0 1 168 104 Z" fill="url(#bubble)"/>
+  <path d="M184 282 C 236 282, 268 196, 326 196" fill="none" stroke="#0b1120" stroke-width="26" stroke-linecap="round"/>
+  <circle cx="178" cy="284" r="38" fill="#0b1120"/>
+  <circle cx="332" cy="196" r="38" fill="#0b1120"/>
+  <circle cx="178" cy="284" r="14" fill="#b7a5ff"/>
+  <circle cx="332" cy="196" r="14" fill="#ffad5c"/>
+</svg>

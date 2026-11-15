@@ -99,6 +99,15 @@ test('node fields: lists, steppers and the model picker edit the graph', async (
     // The Ports table lists links only.
     await expect(inspector.locator('.inspector-port')).toHaveCount(5);
     await expect(inspector.getByRole('button', { name: 'Ask the assistant about this field' }).first()).toBeVisible();
+    // A field with a built-in note: the "i" beside its name opens what the field does, and closes it again.
+    const stepsNote = inspector.locator('[data-field-note-toggle="steps"]');
+    await expect(stepsNote).toHaveAttribute('aria-expanded', 'false');
+    await expect(inspector.locator('[data-field-note="steps"]')).toHaveCount(0);
+    await stepsNote.click();
+    await expect(stepsNote).toHaveAttribute('aria-expanded', 'true');
+    await expect(inspector.locator('[data-field-note="steps"]')).toContainText(/\w{4,}/);
+    await stepsNote.click();
+    await expect(inspector.locator('[data-field-note="steps"]')).toHaveCount(0);
     await window.screenshot({ path: path.join(artifactDir, 'ksampler-properties.png') });
 
     // A LoRA loader: the file field is a picker of the person's files with family badges.

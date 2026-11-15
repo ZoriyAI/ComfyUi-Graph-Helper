@@ -27,7 +27,7 @@
 .tool:disabled { color: var(--text-faint); }
 .tool[aria-pressed="true"] { color: var(--accent); background: var(--accent-wash); border-color: transparent; }
 .withBadge { width: auto; padding: 0 6px; gap: 4px; }
-.word { display: none; font-size: var(--text-xs); font-weight: 600; white-space: nowrap; }
+.word { display: none; font-size: var(--text-xs); font-weight: var(--weight-strong); white-space: nowrap; }
 /* From 1280 px the primary actions (Open, Save, Check) carry a short word; narrower windows keep icons and tooltips. */
 @media (min-width: 1280px) {
   .withWord { width: auto; padding: 0 8px 0 6px; gap: 6px; }

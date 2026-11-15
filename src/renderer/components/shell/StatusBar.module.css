@@ -26,12 +26,10 @@
 .group { display: inline-flex; align-items: center; flex: none; padding: 0 4px; }
 .item { display: inline-flex; align-items: center; gap: 4px; flex: none; }
 .item + .item::before { content: "·"; padding: 0 7px; color: var(--text-faint); }
-.mono { font-variant-numeric: tabular-nums; }
+.mono { font-variant-numeric: var(--numeric); }
 .spacer { flex: 1 1 0; min-width: 0; }
-/* Language and motion are settings shown for reference; zoom and the history step are next to go. */
-@container status (max-width: 760px) { .settings { display: none; } }
+/* Zoom and the history step are the first to go when the bar is short of room. */
 @container status (max-width: 560px) { .optional { display: none; } }
-@container status (max-width: 1160px) { .bar[data-run] .settings { display: none; } }
 @container status (max-width: 880px) { .bar[data-run] .optional { display: none; } }
 .run {
   display: inline-flex;

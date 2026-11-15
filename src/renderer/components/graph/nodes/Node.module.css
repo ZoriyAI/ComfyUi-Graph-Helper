@@ -63,13 +63,13 @@
 .classType.classType[data-class-line="other"] { font-family: inherit; }
 .headerIcon { color: var(--text-dim, #a3b1c6); flex: none; }
 .errorIcon { color: var(--danger, #ff9da8); flex: none; }
-.aiIcon { color: var(--focus, #b7a5ff); flex: none; }
+.aiIcon { color: var(--ai, #b7a5ff); flex: none; }
 .badge {
   flex: none;
   padding: 0 6px;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--focus, #b7a5ff) 50%, transparent);
-  color: var(--focus, #b7a5ff);
+  border: 1px solid color-mix(in srgb, var(--ai, #b7a5ff) 50%, transparent);
+  color: var(--ai, #b7a5ff);
   font-size: 11px;
   line-height: 16px;
   letter-spacing: 0.04em;
@@ -278,11 +278,11 @@
 /* Subgraph instance: a double frame (outer ring) and the definition name under the ports. */
 .subgraphWrap { position: relative; }
 .node.subgraph {
-  border-color: color-mix(in srgb, var(--focus, #b7a5ff) 55%, var(--line, #2a3648));
+  border-color: color-mix(in srgb, var(--ai, #b7a5ff) 55%, var(--line, #2a3648));
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.04),
     0 0 0 3px var(--bg, #0c1017),
-    0 0 0 4px color-mix(in srgb, var(--focus, #b7a5ff) 45%, transparent),
+    0 0 0 4px color-mix(in srgb, var(--ai, #b7a5ff) 45%, transparent),
     0 10px 28px rgba(0, 0, 0, 0.4);
 }
 .node.node.subgraph.selected { outline: none; }
@@ -310,18 +310,18 @@
   min-width: 160px;
   padding: 8px 0;
   border-radius: 10px;
-  border: 1px dashed color-mix(in srgb, var(--focus, #b7a5ff) 60%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--ai, #b7a5ff) 60%, transparent);
   background: color-mix(in srgb, var(--bg-raised, #1b2533) 80%, transparent);
   color: var(--text, #e8eef7);
 }
 .boundary.selected { border-style: solid; }
-.boundaryTitle { padding: 0 12px 4px; color: var(--focus, #b7a5ff); font-size: 12px; font-weight: 600; letter-spacing: 0.04em; }
+.boundaryTitle { padding: 0 12px 4px; color: var(--ai, #b7a5ff); font-size: 12px; font-weight: 600; letter-spacing: 0.04em; }
 /* A slot name being renamed in place on a boundary node. */
 .slotInput {
   min-width: 0;
   width: 9em;
   padding: 1px 4px;
-  border: 1px solid var(--focus, #b7a5ff);
+  border: 1px solid var(--ai, #b7a5ff);
   border-radius: 4px;
   background: var(--surface, #141b26);
   color: var(--text, #e8eef7);
@@ -339,7 +339,7 @@
   to { opacity: 1; transform: none; }
 }
 @keyframes aiPulse {
-  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--focus, #b7a5ff) 70%, transparent), 0 8px 24px rgba(0, 0, 0, 0.32); }
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ai, #b7a5ff) 70%, transparent), 0 8px 24px rgba(0, 0, 0, 0.32); }
   100% { box-shadow: 0 0 0 14px transparent, 0 8px 24px rgba(0, 0, 0, 0.32); }
 }
 @keyframes breathe {
@@ -504,8 +504,8 @@
 
 /* The partners of the selected Set or Get: a dashed line to each and a dashed frame around it. */
 .setGetLayer { position: absolute; left: 0; top: 0; width: 1px; height: 1px; overflow: visible; pointer-events: none; z-index: 0; }
-.setGetLine { stroke: var(--focus); stroke-width: 2; stroke-dasharray: 6 6; fill: none; opacity: 0.85; }
-.setGetFrame { stroke: var(--focus); stroke-width: 2; stroke-dasharray: 6 4; fill: none; }
+.setGetLine { stroke: var(--ai); stroke-width: 2; stroke-dasharray: 6 6; fill: none; opacity: 0.85; }
+.setGetFrame { stroke: var(--ai); stroke-width: 2; stroke-dasharray: 6 4; fill: none; }
 
 /* In Properties: the jump to a Set / Get partner, and a subgraph copy's promoted fields. */
 .jump { display: inline-flex; align-items: center; gap: 6px; margin: 4px 0 8px; }

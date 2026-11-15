@@ -160,7 +160,7 @@
   width: fit-content;
   padding: 4px 6px;
   border-radius: 10px;
-  border: 1px solid color-mix(in srgb, var(--focus, #b7a5ff) 40%, var(--line, #2a3648));
+  border: 1px solid color-mix(in srgb, var(--ai, #b7a5ff) 40%, var(--line, #2a3648));
   background: color-mix(in srgb, var(--bg-raised, #1b2533) 92%, transparent);
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
 }

@@ -132,3 +132,8 @@
   .actions { gap: 6px; }
   .actions :global(button) { min-height: 28px; padding: 4px 8px; font-size: var(--text-xs); line-height: 18px; gap: 4px; }
 }
+
+/* A step that is done says one line; it does not stretch to the height of the step still to do. */
+.step[data-state="done"] { align-self: start; }
+/* The ask button's short label stays on one line (in two lines the main button read as two); long labels still wrap. */
+.step[data-step="ask"] .stepAction :global(button) { white-space: nowrap; }

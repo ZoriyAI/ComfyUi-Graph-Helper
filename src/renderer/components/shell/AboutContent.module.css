@@ -7,8 +7,8 @@
   box-shadow: var(--elev-2);
   margin-bottom: 6px;
 }
-.name { margin: 0; font-size: 20px; line-height: 26px; font-weight: 600; color: var(--text); }
-.version { margin: 0; font-size: 13px; line-height: 18px; color: var(--text-dim); }
+.name { margin: 0; font-size: var(--text-xl); line-height: 26px; font-weight: var(--weight-strong); color: var(--text); }
+.version { margin: 0; font-size: var(--text-sm); line-height: 18px; color: var(--text-dim); }
 .lead { margin: 6px 0 0; max-width: 46ch; font-size: var(--text-sm); line-height: 19px; color: var(--text-dim); }
 .actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 6px; margin-top: 10px; }
 .details { align-self: stretch; margin-top: 8px; text-align: left; }
@@ -18,19 +18,19 @@
   margin: 0 auto;
   padding: 2px 6px;
   border-radius: var(--radius-sm, 6px);
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--text-faint);
 }
 .detailsSummary:hover { color: var(--text-dim); }
 .detailsSummary:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-.detailsBody { display: flex; flex-direction: column; gap: 4px; padding: 8px 4px 0; font-size: 12px; line-height: 17px; color: var(--text-faint); }
+.detailsBody { display: flex; flex-direction: column; gap: 4px; padding: 8px 4px 0; font-size: var(--text-xs); line-height: 17px; color: var(--text-faint); }
 .detailsBody p { margin: 0; overflow-wrap: anywhere; }
 .path { overflow-wrap: anywhere; }
 
 .sub { display: flex; flex-direction: column; gap: 8px; min-width: 0; min-height: 0; }
 .subHead { display: flex; align-items: center; gap: 8px; }
-.subTitle { margin: 0; font-size: var(--text-sm); font-weight: 600; color: var(--text); }
-.note { margin: 0; font-size: 12px; line-height: 17px; color: var(--text-faint); }
+.subTitle { margin: 0; font-size: var(--text-sm); font-weight: var(--weight-strong); color: var(--text); }
+.note { margin: 0; font-size: var(--text-xs); line-height: 17px; color: var(--text-faint); }
 .chromium { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .text,
 .itemText {
@@ -39,7 +39,7 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-xs);
   line-height: 16px;
   color: var(--text-dim);
   background: var(--bg-sunken);
@@ -68,5 +68,5 @@
 }
 .summary:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 .itemName { color: var(--text); min-width: 0; overflow-wrap: anywhere; }
-.itemMeta { flex: 0 0 auto; color: var(--text-faint); font-size: 12px; }
+.itemMeta { flex: 0 0 auto; color: var(--text-faint); font-size: var(--text-xs); }
 .itemText { margin: 0 4px 8px; max-height: 240px; overflow: auto; }

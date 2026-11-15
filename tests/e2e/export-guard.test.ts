@@ -74,6 +74,11 @@ test('Export with check findings asks first; Cancel writes nothing, Export anywa
   await expect(guard).toHaveCount(0);
   await expect(window.locator('.dock-tab[data-state="active"]')).toContainText(/Check/);
   expect(fs.existsSync(saved)).toBe(false);
+  // The findings are marked on their node too: the loader with the missing file carries a raspberry ring and a count.
+  const mark = window.locator('[data-check-mark]');
+  await expect(mark).toHaveCount(1);
+  await expect(mark).toHaveAttribute('data-check-level', 'error');
+  await expect(mark).toHaveAttribute('aria-label', /Findings of the check on this node: \d+/);
 
   await window.getByRole('button', { name: 'Save workflow for ComfyUI…', exact: true }).click();
   await guard.getByRole('button', { name: 'Export anyway' }).click();

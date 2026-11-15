@@ -19,7 +19,7 @@
 :global([data-motion="off"]) .card, :global([data-motion="reduced"]) .card { animation: none; }
 
 .header { display: flex; align-items: flex-start; gap: 8px; padding: 12px 10px 8px 14px; border-bottom: 1px solid var(--border-subtle); }
-.title { flex: 1 1 auto; min-width: 0; margin: 0; font-size: var(--text-md); line-height: 20px; font-weight: 600; overflow-wrap: anywhere; }
+.title { flex: 1 1 auto; min-width: 0; margin: 0; font-size: var(--text-md); line-height: 20px; font-weight: var(--weight-strong); overflow-wrap: anywhere; }
 
 .body { display: flex; flex-direction: column; gap: 10px; padding: 10px 14px 12px; overflow-y: auto; min-height: 0; flex: 1 1 auto; }
 
@@ -35,7 +35,7 @@
 
 .section { display: flex; flex-direction: column; gap: 6px; }
 .sectionHead { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-.heading { margin: 0; color: var(--text-dim); font-size: var(--text-xs); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+.heading { margin: 0; color: var(--text-dim); font-size: var(--text-xs); font-weight: var(--weight-strong); letter-spacing: 0.04em; text-transform: uppercase; }
 .lead { margin: 0; font-size: var(--text-sm); line-height: 19px; }
 .hint { margin: 0; color: var(--text-dim); font-size: var(--text-xs); line-height: 17px; }
 .note { margin: 0; padding: 7px 9px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--surface-raised); color: var(--text-dim); font-size: var(--text-xs); line-height: 17px; }
@@ -123,7 +123,7 @@
 
 /* The name its author gave the file stands on its own lines: in the table of facts it would widen the labels. */
 .author { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.authorName { font-size: var(--text-md); line-height: 20px; font-weight: 600; overflow-wrap: anywhere; }
+.authorName { font-size: var(--text-md); line-height: 20px; font-weight: var(--weight-strong); overflow-wrap: anywhere; }
 .tags { display: flex; flex-wrap: wrap; gap: 5px; margin: 0; padding: 0; list-style: none; }
 .tag {
   max-width: 100%;
@@ -153,5 +153,5 @@
 .webBusy { display: flex; flex-direction: column; gap: 4px; }
 .webAgain { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
 .webSource { display: flex; align-items: center; gap: 6px; margin: 0; font-size: var(--text-sm); }
-.webSite { font-weight: 600; }
+.webSite { font-weight: var(--weight-strong); }
 .wrap { overflow-wrap: anywhere; }
