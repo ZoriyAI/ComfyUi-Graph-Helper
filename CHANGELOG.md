@@ -5,6 +5,12 @@
 Releases, newest first. Each release has full notes in `docs/releases/`.
 This file is written by `node scripts/changelog.js`: change the notes, not this file.
 
+## 1.1.0
+
+Lessons now ask you things, not only the canvas: checklists, rubrics, questions and checks the app makes, each saying whether the app saw it or you said it. Lessons have levels, tracks and a path; 81 lessons in thirteen groups, with the new group Experiments and quality. Lesson progress is saved again after the 3D lesson or one of My lessons (1.0.0 lost it). A model of Ollama's cloud is no longer called local. A full guide to choosing a model, with current suggestions and prices. Copyright and authorship are stated in NOTICE and COPYRIGHT, and the packages carry them.
+
+Notes: [docs/releases/v1.1.0.md](docs/releases/v1.1.0.md)
+
 ## 1.0.0
 
 The app is now NodeWise Studio. A plain ComfyUI address is enough to connect, 79 lessons in twelve groups and lessons of your own, a first hour that leads a newcomer, an assistant that asks before it changes your work, editing as in ComfyUI, motion that explains, accessibility from the keyboard to the screen reader, and caps that keep a broken file from hanging the window. Packages for Linux, built, installed and started on the build server; on Windows and macOS an install script, new and not tested yet, builds the app from this release's source and installs it.

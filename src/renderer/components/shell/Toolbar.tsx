@@ -137,7 +137,8 @@ function HelperSelect() {
   const display = !provider
     ? String(t('provider.currentNone'))
     : model ? String(t('provider.currentModel', { name, model: modelDisplayName(model) })) : String(t('provider.current', { name }));
-  const note = String(t(providerNoteKey(provider, keySource)));
+  // An Ollama cloud model on your own server is named as leaving the computer (shared/config/ollamaCloud.ts).
+  const note = String(t(providerNoteKey(provider, keySource, model)));
   return (
     <div className={cx(styles.helper, 'helper-select')} data-key={providerKeyState(provider, keySource)}>
       <SelectField

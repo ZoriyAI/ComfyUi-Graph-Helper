@@ -73,7 +73,7 @@ function TurnRow({ turn, checked, focused, onToggle, onNotice, language }: {
   }
   const question = turn.question.trim() || String(t('modelLog.noQuestion'));
   // The model as a person names it; the test mode has no model of its own to name.
-  const who = [turn.provider === 'test' ? '' : modelDisplayName(turn.model ?? ''), String(t(providerLabelKey(turn.provider)))].filter((part) => part !== '').join(' · ');
+  const who = [turn.provider === 'test' ? '' : modelDisplayName(turn.model ?? ''), String(t(providerLabelKey(turn.provider, turn.model ?? '')))].filter((part) => part !== '').join(' · ');
 
   return (
     <li ref={ref} className={cx(styles.turn, checked && styles.turnChecked, 'model-log-turn')} data-outcome={turn.outcome} data-turn={turn.id}>

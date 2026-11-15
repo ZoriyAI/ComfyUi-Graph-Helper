@@ -6,6 +6,7 @@
 import type { ModelLogTurn } from '../../../shared/contracts/modelLog';
 import { formatByteSize } from '../../../shared/i18n/format';
 import { displayLocale } from '../../../shared/i18n/languages';
+import { isOllamaCloudModel } from '../../../shared/config/ollamaCloud';
 
 
 /** The colour of a turn's outcome badge. */
@@ -22,10 +23,13 @@ export function outcomeView(outcome: string): { labelKey: string; tone: OutcomeT
   }
 }
 
-/** Who answered, in the words the Helper settings use for the same choice. */
-export function providerLabelKey(provider: string): string {
+/**
+ * Who answered, in the words the Helper settings use for the same choice. Your own server with an Ollama cloud
+ * model (`model`) is named as Ollama's cloud, never as a local model.
+ */
+export function providerLabelKey(provider: string, model = ''): string {
   switch (provider) {
-    case 'local': return 'modelLog.provider.local';
+    case 'local': return isOllamaCloudModel(model) ? 'modelLog.provider.localCloud' : 'modelLog.provider.local';
     case 'openai': return 'modelLog.provider.openai';
     case 'anthropic': return 'modelLog.provider.anthropic';
     case 'google': return 'modelLog.provider.google';

@@ -71,6 +71,7 @@ export function LocalAdvice() {
         ))}
       </ul>
       <p className={styles.line}>{t('providers.localFree')}</p>
+      <p className={styles.line}>{t('providers.localCloudNames')}</p>
       <AddressLine label={String(t('providers.localInstall'))} url={LOCAL_INSTALL_PAGE} />
       <p className={styles.line}>{t('providers.localPull')}</p>
       <pre className={styles.command}>{`ollama pull ${LOCAL_ADVICE[0].model}`}</pre>

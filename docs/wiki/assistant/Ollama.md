@@ -3,7 +3,7 @@
 
 # Ollama
 
-Ollama runs language models on your own computer. The app talks to it through its OpenAI-compatible address. Nothing leaves your computer, and there is no key. Ollama itself is installed from its own site (ollama.com/download); this page starts when it is installed. The **No ComfyUI yet** card of the welcome screen has **Open the Ollama download page**.
+Ollama runs language models on your own computer. The app talks to it through its OpenAI-compatible address. With a model on your computer nothing leaves the computer, and there is no key. A cloud model of Ollama is different: see [Ollama's cloud models](#ollamas-cloud-models). Ollama itself is installed from its own site (ollama.com/download); this page starts when it is installed. The **No ComfyUI yet** card of the welcome screen has **Open the Ollama download page**.
 
 ## How to set it up
 
@@ -51,7 +51,7 @@ Ollama can also run a model in its own cloud: a name that ends with `:cloud` (fo
 3. **Model**: type the cloud name, for example `gemma4:cloud`.
 4. **Test connection**, then **Save settings**.
 
-This way is not tried by the project yet. The app cannot tell that such a model is in the cloud: it still says that nothing leaves the computer, which is not true here. When the app cannot read such a model's window, it saves room and offers the model fewer tools. **Make a copy with a 16,384-token window** is not for cloud models: Ollama gives them their full window. Instead you can use Ollama's cloud as an **OpenAI-compatible** service at `https://ollama.com/v1` with a key from your Ollama account. Which cloud models call tools and what they cost: [Which model to take](Which-Model.md).
+This way is not tried by the project yet. The app knows such a model by its name: a name whose tag is `cloud` or ends in `-cloud`, or a name that ends in `-cloud`. It then never calls the model local. The model list marks it **Ollama's cloud**; under the model, Settings ▸ Assistant says "The model “gemma4:cloud” runs in Ollama's cloud, not on this computer. Your question and the graph leave this computer through Ollama, and Ollama bills you for the use. The request still goes to the address above." The card **Your own server**, the assistant chip in the top bar, Settings ▸ Privacy ▸ **What is sent to the model** and the conversation log say the same. There is no switch to call such a model local. When the app cannot read such a model's window, it saves room and offers the model fewer tools. **Make a copy with a 16,384-token window** is not for cloud models: Ollama gives them their full window. Instead you can use Ollama's cloud as an **OpenAI-compatible** service at `https://ollama.com/v1` with a key from your Ollama account. Which cloud models call tools and what they cost: [Which model to take](Which-Model.md).
 
 To keep Ollama strictly local, start it with `OLLAMA_NO_CLOUD=1` (or set `"disable_ollama_cloud": true` in `~/.ollama/server.json`) and restart it.
 

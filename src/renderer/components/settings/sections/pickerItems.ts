@@ -7,6 +7,7 @@ import type { AddressSuggestion, LocalServer, ModelChoice } from '../../../../sh
 import type { Translator } from '../../../../shared/i18n';
 import type { Suggestion } from '../../../ui/SuggestField';
 import { withLoopbackScheme } from '../../../../shared/mcp/loopback';
+import { isOllamaCloudModel } from '../../../../shared/config/ollamaCloud';
 
 /** Two base URLs name the same server: trailing slashes, case and localhost vs 127.0.0.1 do not matter. */
 export function sameBase(a: string, b: string): boolean {
@@ -39,8 +40,11 @@ export function withKnownFacts(models: ModelChoice[], known: ModelChoice[] | und
   });
 }
 
-/** Picker rows for models: id first, display name and size below, capability badges on the right. */
-export function modelSuggestions(models: ModelChoice[], t: Translator): Suggestion[] {
+/**
+ * Picker rows for models: id first, display name and size below, capability badges on the right. On your own server
+ * (`ownServer`) an Ollama cloud model also gets the badge "Ollama's cloud", so it is not taken for a local one.
+ */
+export function modelSuggestions(models: ModelChoice[], t: Translator, ownServer = false): Suggestion[] {
   return models.map((model) => {
     const detail = [
       model.label,
@@ -54,6 +58,7 @@ export function modelSuggestions(models: ModelChoice[], t: Translator): Suggesti
     if (model.tools === false) badges.push({ text: t('picker.capNoTools'), tone: 'warn' });
     if (model.vision) badges.push({ text: t('picker.capVision'), tone: 'accent' });
     if (model.thinking) badges.push({ text: t('picker.capThinking'), tone: 'ai' });
+    if (ownServer && isOllamaCloudModel(model.id)) badges.push({ text: t('picker.capCloud'), tone: 'warn' });
     return { value: model.id, ...(detail ? { detail } : {}), ...(badges.length > 0 ? { badges } : {}) };
   });
 }
