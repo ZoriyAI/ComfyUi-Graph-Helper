@@ -162,7 +162,7 @@ describe('build progress and summary', () => {
     expect(buildSummary(buildCounts([call('annotateNode', { nodeId: '1' }, {})]), ru)).toBe('Готово: 1 заметка записана.');
     expect(buildSummary(buildCounts([call('setProcess', { title: 'x' }, {})]), ru)).toBe('Готово: граф назван.');
     const drafted = [call('addNode', {}, { nodeId: '5' }), call('removeNode', { nodeId: '1' }, { drafted: true, proposalId: 'p1', nodeTitle: 'KSampler' })];
-    expect(buildSummary(buildCounts(drafted), ru)).toBe('Готово: 1 нода, 1 серый черновик ждёт вашего решения: он меняет сделанное вами.');
+    expect(buildSummary(buildCounts(drafted), ru)).toBe('Готово: 1 нода и 1 серый черновик ждёт вашего решения: он меняет сделанное вами.');
     expect(stepSentence(drafted[1], ru, { node: () => undefined })).toBe('Предложено вам: удалить ноду KSampler');
   });
 });
