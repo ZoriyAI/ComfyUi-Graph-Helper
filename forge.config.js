@@ -1,6 +1,9 @@
 /**
- * Linux distributables for the already-built Electron app. The app is built and tested for Linux x64 only.
- * Electron Forge is the packager Electron documents for this step:
+ * Packaging for the already-built Electron app. Linux x64 gets its distributables here (the makers below). Windows
+ * x64 and macOS (Apple silicon and Intel) get only `electron-forge package`: an unpacked app folder or an unsigned
+ * .app, which scripts/install/install-windows.ps1 and install-macos.sh build on the person's own computer and install
+ * for that person (there are no signed packages for those systems). Electron Forge is the packager Electron
+ * documents for this step:
  * https://www.electronjs.org/docs/latest/tutorial/tutorial-packaging
  * The deb maker requires dpkg and fakeroot (https://www.electronforge.io/config/makers/deb); the rpm maker requires
  * rpmbuild (https://www.electronforge.io/config/makers/rpm). The AppImage and the tar.gz with install.sh are made
@@ -12,6 +15,7 @@ const path = require('path');
 const { FuseV1Options, FuseVersion } = require('@electron/fuses');
 const { addControlFields } = require('./scripts/lib/deb-control-fields');
 const { APP_ID, DISPLAY_NAME, LEGACY_APP_ID } = require('./scripts/lib/product-names');
+const { packageTarget, prebuildIgnore } = require('./scripts/lib/forge-target');
 
 const pkg = require('./package.json');
 /** The project address (src/main/identity.ts PROJECT_URL, mirrored in package.json); none while it is a placeholder. */
@@ -32,6 +36,8 @@ const LONG_DESCRIPTION = [
   'What you save for ComfyUI is a plain workflow JSON file.',
 ].join('\n');
 const DESKTOP_TEMPLATE = path.join(__dirname, 'resources', 'linux', 'desktop.ejs');
+// The system this run builds for (linux-x64 for the Linux packages), from --platform and --arch.
+const TARGET = packageTarget();
 const HAS_RPMBUILD = (process.env.PATH || '').split(path.delimiter).some((dir) => dir && fs.existsSync(path.join(dir, 'rpmbuild')));
 
 module.exports = {
@@ -39,8 +45,13 @@ module.exports = {
     asar: true,
     // productName names the bundle folder; the binary keeps the package name the deb maker links to.
     executableName: APP_ID,
-    // Extension added per platform by the packager; Linux takes the window icon from resources/icon.png.
+    // Extension added per platform by the packager: icon.ico for Windows, icon.icns for macOS (both made from the
+    // PNGs by scripts/make-icon-containers.js). Linux takes the window icon from resources/icon.png.
     icon: 'resources/icon',
+    // Windows: the names Task Manager and the file's properties show (the .exe is otherwise "Electron").
+    win32metadata: { ProductName: PRODUCT_NAME, FileDescription: PRODUCT_NAME },
+    // macOS: where Finder and Launchpad file the app. Unsigned here; install-macos.sh signs it ad hoc after copying.
+    appCategoryType: 'public.app-category.education',
     /**
      * Ship only what runs. The app is dist/ (main, preload, renderer bundle, notices, help), the runtime
      * node_modules of main (the renderer's libraries are inside its bundle and are devDependencies), package.json
@@ -49,10 +60,11 @@ module.exports = {
     ignore: [
       /^\/(?!(dist|node_modules|resources|package\.json)(\/|$))[^/]+/,
       /^\/resources\/(?!icon\.png$)/,
-      // better-sqlite3 loads prebuilds/<platform>-<arch>.node (N-API); its C sources and other platforms' binaries
-      // never run here. Only x64 is built today.
+      // better-sqlite3 loads prebuilds/<platform>-<arch>.node (N-API); its C sources and other systems' binaries
+      // never run here. Only the target's own module ships (scripts/lib/forge-target.js). When no prebuild fits, the
+      // install scripts compile one and put it at that same prebuilds/<target>.node.
       /^\/node_modules\/better-sqlite3\/(deps|src|build)(\/|$)/,
-      /^\/node_modules\/better-sqlite3\/prebuilds\/(?!linux-x64\.node$)/,
+      prebuildIgnore(TARGET),
       // Type declarations, source maps and readmes of dependencies.
       /\.(map|d\.ts|d\.mts|d\.cts)$/i,
       /^\/node_modules\/.*\.(md|markdown)$/i,

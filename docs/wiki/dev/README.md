@@ -25,8 +25,8 @@ How the code is built, how to change it and how a release is made.
 - [Package formats](Package-Formats.md): What is built, how and what is checked.
 - [Releasing](Releasing.md): The release checklist.
 - [Contributing](Contributing.md): Before a pull request.
-- [Building and running on Windows](Building-On-Windows.md): From source on Windows; untested.
-- [Building and running on macOS](Building-On-macOS.md): From source on macOS (Apple Silicon and Intel); untested.
+- [Building and running on Windows](Building-On-Windows.md): The steps of the Windows install script, by hand.
+- [Building and running on macOS](Building-On-macOS.md): The steps of the macOS install script, by hand (Apple silicon and Intel).
 - [Publishing a clean copy](Publishing-A-Clean-Copy.md): Why the public repository starts from one commit, and the two scripts that make it.
 
 ## See also

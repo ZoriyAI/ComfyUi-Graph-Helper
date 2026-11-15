@@ -21,7 +21,8 @@ import { installCrashHandlers } from './crash';
 import { startupFailureText } from './settings/databaseSafety';
 import { isExpectedRestart, watchWindowHang } from './windowWatch';
 import { appVersion, DISPLAY_NAME, STABLE_APP_NAME, usesStableProfile } from './identity';
-import { commandLineAnswer } from './cli';
+import { commandLineAnswer, writeCommandLineAnswer } from './cli';
+import { applicationMenuTemplate, usesPasswordStoreSwitch } from './platformMenu';
 import { clampWindowState, MIN_WINDOW_SIZE, readWindowState, trackWindowState, WINDOW_BACKGROUND, WINDOW_STATE_FILE } from './windowState';
 import { allowTestProvider, configureLocalContext, mainLLMService } from './llmService';
 import { watchLoadedContext } from './llm/localContext';
@@ -46,7 +47,7 @@ try { setSystemLanguages(app.getPreferredSystemLanguages()); } catch { /* the lo
 // `--version` / `--help`: answer on the terminal and leave before anything opens.
 const cliAnswer = commandLineAnswer(process.argv, appVersion(), systemLanguage());
 if (cliAnswer !== null) {
-  process.stdout.write(cliAnswer);
+  writeCommandLineAnswer(cliAnswer);
   process.exit(0);
 }
 
@@ -210,7 +211,10 @@ function logSyncRuns(): void {
 }
 
 // Settings ▸ Privacy ▸ Password store: the person's choice wins over the desktop heuristic. Read before ready.
-const storeFlag = readPasswordStoreOverride(app.getPath('userData')) ?? passwordStoreFlag(process.env.XDG_CURRENT_DESKTOP, process.argv);
+// Linux only: Windows and macOS have one keychain each (platformMenu.ts).
+const storeFlag = usesPasswordStoreSwitch()
+  ? readPasswordStoreOverride(app.getPath('userData')) ?? passwordStoreFlag(process.env.XDG_CURRENT_DESKTOP, process.argv)
+  : null;
 if (storeFlag) app.commandLine.appendSwitch('password-store', storeFlag);
 
 /** The one window; null before it is created and after it closed. */
@@ -386,7 +390,9 @@ app.whenReady().then(async () => {
     // A workflow or project named on the command line opens once the window asks for it (ipc/openIpc.ts).
     requestOpen(fileFromArgs(process.argv, process.cwd()));
     logSyncRuns();
-    Menu.setApplicationMenu(null);
+    // No native menu on Linux and Windows; the standard app, Edit and Window menus on macOS (platformMenu.ts).
+    const menuTemplate = applicationMenuTemplate();
+    Menu.setApplicationMenu(menuTemplate ? Menu.buildFromTemplate(menuTemplate) : null);
     createWindow();
     if (mainWindow) tellAboutProfileMove(mainWindow);
   } catch (error) {
@@ -408,7 +414,8 @@ app.on('second-instance', (_event, argv, workingDirectory) => {
   mainWindow.focus();
 });
 
-// macOS keeps an app running without windows; the app is built for Linux, where closing the window quits.
+// Linux and Windows quit with the last window. macOS keeps an app running without windows, as Mac apps do; a click
+// on its Dock icon opens the window again ('activate' below).
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();

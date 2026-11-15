@@ -39,9 +39,10 @@ at in the browser. An MCP server is optional. How to connect: [Connecting to Com
 
 ## Is there a version for Windows or macOS?
 
-No. NodeWise Studio is for Linux only. You may try running it from source on Windows or macOS, but nothing has been
-tried there and nothing is adapted for them.
-[Windows](../dev/Building-On-Windows.md), [macOS](../dev/Building-On-macOS.md)
+There are no packages for them, but each release has an install script for each: it builds the app on your
+computer from the project's source and installs it for your user, with one command. The scripts run on GitHub's
+Windows and macOS machines with every change; they have not yet been tried on a range of real computers.
+[Installing on Windows](Installing-On-Windows.md), [Installing on macOS](Installing-On-macOS.md)
 
 ## Where are my settings and projects?
 

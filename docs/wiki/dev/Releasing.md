@@ -20,7 +20,10 @@ How a version is made public, and what is still checked only by hand.
 6. **The project address.** `PROJECT_URL` in `src/main/identity.ts` and `homepage`, `repository`, `bugs` in
    `package.json` name the real repository (`tests/unit/identity.test.ts` compares them); until then the app greys out
    its project links and asks nothing about new versions.
-7. **Release.** Push a tag `vX.Y.Z`, or run the workflow "Build and package" by hand with `release_tag`. The plan job
+7. **The install scripts.** The latest run of "Install scripts" (`.github/workflows/install-scripts.yml`) on the
+   release commit is green on Windows and macOS: the scripts are release files, and the one-line installs in the
+   README download them from the latest release.
+8. **Release.** Push a tag `vX.Y.Z`, or run the workflow "Build and package" by hand with `release_tag`. The plan job
    checks that the tag, the version in `package.json` and the notes agree, and the release is made from that exact
    commit.
 
@@ -30,7 +33,9 @@ How a version is made public, and what is still checked only by hand.
 walk in Russian at every size, in English at two sizes, and with wider text at 125 %; the four packages made and
 started, `desktop-file-validate`, `shellcheck`, `lintian`, the installed `.deb` check; the upgrade test from the
 newest earlier release (skipped with a notice when there is none); the `.rpm` installed in a Fedora container;
-`SHA256SUMS` and an SBOM; then, in the `release` environment, the release with build provenance attestation.
+`install-windows.ps1` and `install-macos.sh` copied into the release files; `SHA256SUMS` over all of them and
+an SBOM; then, in the `release` environment, the release with build provenance attestation. `scripts/release-plan.js`
+refuses to publish a file list without the two install scripts and `SHA256SUMS`.
 Every pull request and push runs the fast checks of `.github/workflows/ci.yml`. [Package formats](Package-Formats.md)
 
 ## For the repository page
@@ -70,10 +75,17 @@ The rest the documentation says is not tried yet:
 5. 200 percent interface size on a 1080p screen with large system scaling.
 6. The ComfyUI install lines in [ComfyUI and where to get it](../start/ComfyUI.md): the repository address and the
    `torch` line follow the official instructions of November 2026, but no install was made from them here.
-7. Windows: running from source, model paths with backslashes, `--version` and `--help`.
-   [Building and running on Windows](Building-On-Windows.md)
-8. macOS: running from source, the bundle name (`NodeWise Studio.app`), the missing `.icns` icon, the Keychain item
-   name (`nodewise-studio Safe Storage`). [Building and running on macOS](Building-On-macOS.md)
+7. Windows, the install script: checked on GitHub's runners only, not yet on a range of real computers (Windows 10
+   and 11 desktops, a user name in another alphabet, a proxy, `-SystemNode` with winget, a computer that needs the C++
+   build tools). Also the taskbar identity, `--version` typed in a console window, and that SmartScreen stays silent
+   for a build made on the computer. [Installing on Windows](../start/Installing-On-Windows.md)
+8. macOS, the install script: checked on GitHub's runners only, not yet on a range of real Macs (macOS 13 itself, a
+   proxy, `--system-node`, `--system-applications`, a Mac that needs the Command Line Tools). Also the Keychain
+   question after an upgrade, `--purge-data` removing "nodewise-studio Safe Storage", the canvas's own `Cmd+C` and
+   `Cmd+Z` next to the Edit menu, and reopening the window from the Dock.
+   [Installing on macOS](../start/Installing-On-macOS.md), [Building and running on macOS](Building-On-macOS.md)
+9. Windows and macOS, the app itself: model paths with backslashes from ComfyUI on Windows, the end-to-end tests,
+   and the texts that still speak of Linux keyrings. [Known limits](../reference/Known-Limits.md)
 
 ## See also
 

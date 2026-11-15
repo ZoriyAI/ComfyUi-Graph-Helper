@@ -8,7 +8,9 @@ What the app is, getting ComfyUI and the app, the first hour, updating and remov
 - [What the app is](What-It-Is.md): What the app does, what it never does, and who it is for.
 - [ComfyUI and where to get it](ComfyUI.md): What ComfyUI is, how to install it and how to find its address.
 - [Quick start](Quick-Start.md): From nothing to a first picture in ComfyUI, in short steps.
-- [Installing](Installing.md): Every way to install the app on Linux.
+- [Installing](Installing.md): Every way to install the app: packages for Linux, scripts for Windows and macOS.
+- [Installing on Windows](Installing-On-Windows.md): The script that builds and installs the app on Windows.
+- [Installing on macOS](Installing-On-macOS.md): The script that builds and installs the app on a Mac.
 - [The first hour](First-Hour.md): The welcome steps, a first lesson, a first question to the assistant.
 - [Updating](Updating.md): Installing a new version; what is kept.
 - [Removing](Removing.md): Removing the app and, if you want, its data.

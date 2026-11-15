@@ -11,8 +11,13 @@
 - Linux: `~/.config/nodewise-studio`. Версия 0.9 хранила данные в папке со старым названием приложения; первый
   запуск 1.0 переносит её сюда ([Обновление](../start/Updating.ru.md)).
 - Другая папка, если запустить приложение с `--user-data-dir=<папка>` ([Командная строка](Command-Line.ru.md)).
-- Windows и macOS (сборка из исходников): см. [Windows](../dev/Building-On-Windows.ru.md) и
-  [macOS](../dev/Building-On-macOS.ru.md).
+- Windows: `%APPDATA%\nodewise-studio`, например `C:\Users\you\AppData\Roaming\nodewise-studio`. Сохранённые
+  ключи шифрует Windows (DPAPI) для вашего пользователя. [Установка на Windows](../start/Installing-On-Windows.ru.md)
+- macOS: `~/Library/Application Support/nodewise-studio`. Сохранённые ключи шифруются ключом, который macOS хранит в
+  вашей связке ключей под именем «nodewise-studio Safe Storage». [Установка на macOS](../start/Installing-On-macOS.ru.md)
+
+Скрипты установки для Windows и macOS не трогают эту папку при установке и обновлении; при удалении они спрашивают,
+прежде чем её удалить.
 
 Её открывает «Справка ▸ О программе ▸ Открыть папку с данными». В Linux папка доступна для чтения только вашему
 пользователю (права 0700), а база, её журнальные файлы и файлы, которые приложение пишет для вас, читает только ваш

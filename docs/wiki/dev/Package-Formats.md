@@ -3,8 +3,9 @@
 
 # Package formats
 
-What is built, how, and how each format is checked. All formats are Linux, 64-bit x86, unsigned; their origin is
-proven by GitHub's build provenance attestation and `SHA256SUMS`.
+What is built, how, and how each format is checked. All packages are Linux, 64-bit x86, unsigned; their origin is
+proven by GitHub's build provenance attestation and `SHA256SUMS`. Windows and macOS get install scripts instead,
+which build the app from the release's source on the person's computer (below).
 
 ## The four formats
 
@@ -15,7 +16,21 @@ proven by GitHub's build provenance attestation and `SHA256SUMS`.
 | `.tar.gz` with `run.sh`, `install.sh`, `uninstall.sh` | `scripts/make-linux-portable.js` | Built and run here: `run.sh --version` and the window, `install.sh` into a fresh home, install over a first copy, `uninstall.sh` keeps the profile, `--purge` deletes it. |
 | AppImage | `scripts/make-linux-portable.js` with `APPIMAGE_RUNTIME=<runtime-x86_64>` | The image contents were built and run here; the final `.AppImage` file and its runtime download are made and checked on CI only. |
 
-There is no ARM package and nothing for Windows or macOS.
+There is no ARM package for Linux and no package for Windows or macOS.
+
+## Windows and macOS: the install scripts
+
+| Script | Builds with | Installs | Checked |
+| --- | --- | --- | --- |
+| `install-windows.ps1` | `electron-forge package --platform win32 --arch x64`: an unpacked app folder | `%LOCALAPPDATA%\Programs\NodeWise Studio`, Start menu shortcut, an Installed apps entry (per user) | `.github/workflows/install-scripts.yml` on `windows-latest` (Windows PowerShell 5.1) and `windows-2022` (PowerShell 7); Pester tests and PSScriptAnalyzer. |
+| `install-macos.sh` | `electron-forge package --platform darwin --arch arm64` or `x64`: an unsigned `.app`, then signed ad hoc | `~/Applications/NodeWise Studio.app` | The same workflow on `macos-latest` (Apple silicon) and `macos-15-intel` (Intel), with `/bin/bash` 3.2; shellcheck. |
+
+The workflow runs each script as a person would, from the commit's source and once from the latest release: a dry
+run changes nothing; the installed app answers `--version`, opens and passes `scripts/smoke-installed-app.js` (its
+screenshot is uploaded); a second run upgrades and keeps a marker file in the data folder; the uninstaller removes the
+app and keeps the data. A Linux machine can package the macOS bundle for Intel too: its name, icon, database module
+and fuses were checked that way. [Installing on Windows](../start/Installing-On-Windows.md),
+[Installing on macOS](../start/Installing-On-macOS.md)
 
 ## The release files
 
@@ -26,6 +41,8 @@ There is no ARM package and nothing for Windows or macOS.
 | `nodewise-studio-<version>-x86_64.AppImage` | One file that runs on most distributions. |
 | `nodewise-studio-<version>-linux-x64.tar.gz` | The unpacked app with `run.sh`, `install.sh` and `uninstall.sh`. |
 | `nodewise-studio-<version>.cdx.json` | The SBOM: every component that ships, in CycloneDX form. |
+| `install-windows.ps1` | The install script for Windows: builds and installs the app from this release's source. |
+| `install-macos.sh` | The install script for macOS: builds and installs the app from this release's source. |
 | `SHA256SUMS` | The checksums of all the files above. |
 
 Version 0.9 named its files after the app's old name; its update notice looks for files under that name, so it
@@ -51,7 +68,8 @@ the profile too.
 
 Only what runs: `dist/` (main, preload, the renderer bundle, the notices, the bundled Help), the runtime
 `node_modules` of main, `package.json` and the window icon (`packagerConfig.ignore` in `forge.config.js`). Of
-`better-sqlite3` only the Linux x64 module ships. The fuses (`@electron-forge/plugin-fuses`) switch off running as
+`better-sqlite3` only the module of the target system ships: `linux-x64` in the Linux packages
+(`scripts/lib/forge-target.js`). The fuses (`@electron-forge/plugin-fuses`) switch off running as
 Node, `NODE_OPTIONS`, the inspector arguments and loading the app from outside `app.asar`; `scripts/check-fuses.js`
 reads them back from every built binary. The copyright file of both packages is the app's licence followed by the
 notices of everything that ships.

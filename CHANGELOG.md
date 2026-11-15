@@ -7,7 +7,7 @@ This file is written by `node scripts/changelog.js`: change the notes, not this 
 
 ## 1.0.0
 
-The app is now NodeWise Studio. A plain ComfyUI address is enough to connect, 79 lessons in twelve groups and lessons of your own, a first hour that leads a newcomer, an assistant that asks before it changes your work, editing as in ComfyUI, motion that explains, accessibility from the keyboard to the screen reader, and caps that keep a broken file from hanging the window. Linux only.
+The app is now NodeWise Studio. A plain ComfyUI address is enough to connect, 79 lessons in twelve groups and lessons of your own, a first hour that leads a newcomer, an assistant that asks before it changes your work, editing as in ComfyUI, motion that explains, accessibility from the keyboard to the screen reader, and caps that keep a broken file from hanging the window. Packages for Linux; on Windows and macOS an install script builds the app from this release's source and installs it.
 
 Notes: [docs/releases/v1.0.0.md](docs/releases/v1.0.0.md)
 

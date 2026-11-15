@@ -15,9 +15,16 @@ what to expect. Wishes go to the project's Discussions, problems to its Issues.
 
 ## Systems and packages
 
-- **Linux only**, 64-bit x86: `.deb`, `.rpm`, AppImage and a `.tar.gz`. There is no ARM package and no Flatpak.
-- Windows and macOS are not supported. You may try running the app from source; nothing there has been tried.
-  [Windows](../dev/Building-On-Windows.md), [macOS](../dev/Building-On-macOS.md)
+- **Packages for Linux only**, 64-bit x86: `.deb`, `.rpm`, AppImage and a `.tar.gz`. There is no ARM package for
+  Linux and no Flatpak.
+- **Windows and macOS are installed from source by a script**: `install-windows.ps1` (Windows 10 22H2 and 11, x64)
+  and `install-macos.sh` (macOS 13 or newer, Apple silicon or Intel) build the app on your computer and install it
+  for your user. The app is not signed by a publisher on either system. The scripts run on GitHub's Windows and macOS
+  machines with every change; they have not yet been tried on a range of real computers.
+  [Installing on Windows](../start/Installing-On-Windows.md), [Installing on macOS](../start/Installing-On-macOS.md)
+- On Windows and macOS some texts still speak of Linux: the keychain setting and its hints name GNOME Keyring and
+  KWallet, while Windows uses DPAPI and macOS the Keychain. On macOS the app's own menus stay inside the window; the
+  menu bar at the top of the screen has only the standard app, Edit and Window menus.
 - No automatic updates: install a new version from the project's Releases yourself. Settings ▸ Privacy ▸ Check for
   new versions can tell you when there is one. [Updating](../start/Updating.md)
 - Not tried yet on a real desktop: installing the `.deb` with apt, the `.rpm` with dnf on Fedora, the final AppImage

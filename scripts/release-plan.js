@@ -2,7 +2,9 @@
  * The release workflow's decisions (.github/workflows/release.yml), one phase per call:
  *   node scripts/release-plan.js plan|recheck|runtime|previous|publish
  * plan and recheck decide whether to build and which tag to publish; runtime picks the pinned AppImage runtime;
- * previous downloads the last release's .deb for the upgrade test; publish creates the tag and the release.
+ * previous downloads the last release's .deb for the upgrade test; publish creates the tag and the release, and refuses a
+ * file list without the install scripts for Windows and macOS (the documented one-line installs download them from
+ * the release) or without SHA256SUMS.
  * Results go to GITHUB_OUTPUT. Release reads fail closed: anything malformed or ambiguous stops the release.
  * All gh calls use argv, never shell evaluation. Tested in tests/unit/releasePlan.test.ts with a fake gh.
  */
@@ -102,6 +104,16 @@ function publish(options, files, gh = ghRunner) {
     '--title', `${DISPLAY_NAME} ${options.tag}`, '--notes-file', `docs/releases/${options.tag}.md`]);
   return true;
 }
+/**
+ * The files every release must carry besides the Linux packages: the two install scripts people download from the
+ * release page (docs/wiki/start/Installing-On-Windows.md and Installing-On-macOS.md) and the checksums of everything.
+ */
+const REQUIRED_RELEASE_FILES = ['install-windows.ps1', 'install-macos.sh', 'SHA256SUMS'];
+/** The required release files missing from `files` (paths such as release/SHA256SUMS). */
+function missingReleaseFiles(files) {
+  const names = new Set(files.map(file => file.split('/').pop()));
+  return REQUIRED_RELEASE_FILES.filter(name => !names.has(name));
+}
 /** Downloads the .deb of the newest other stable release into options.directory; returns its tag or ''. */
 function previous(options, gh = ghRunner) {
   const release = releases(gh, options.repo).find(row => !row.draft && !row.prerelease && row.tag_name !== options.tag);
@@ -151,7 +163,10 @@ if (require.main === module) {
         fs.mkdirSync(directory, { recursive: true });
         outputs({ tag: previous({ ...opts, directory }) });
       } else if (phase === 'publish') {
-        publish(opts, fs.readdirSync('release').map(name => `release/${name}`));
+        const files = fs.readdirSync('release').map(name => `release/${name}`);
+        const missing = missingReleaseFiles(files);
+        if (missing.length) fail(`Release files missing: ${missing.join(', ')}`);
+        publish(opts, files);
       } else fail('Unknown release phase');
     }
   } catch (error) {
@@ -159,4 +174,4 @@ if (require.main === module) {
     process.exitCode = 1;
   }
 }
-module.exports = { plan, publish, previous, runtime };
+module.exports = { plan, publish, previous, runtime, missingReleaseFiles, REQUIRED_RELEASE_FILES };

@@ -25,8 +25,8 @@
 - [Форматы пакетов](Package-Formats.ru.md): Что собирается, как и что проверяется.
 - [Выпуск версии](Releasing.ru.md): Порядок выпуска.
 - [Как участвовать](Contributing.ru.md): Что сделать перед pull request.
-- [Сборка и запуск на Windows](Building-On-Windows.ru.md): Из исходников на Windows; не проверено.
-- [Сборка и запуск на macOS](Building-On-macOS.ru.md): Из исходников на macOS (Apple Silicon и Intel); не проверено.
+- [Сборка и запуск на Windows](Building-On-Windows.ru.md): Шаги скрипта установки для Windows, вручную.
+- [Сборка и запуск на macOS](Building-On-macOS.ru.md): Шаги скрипта установки для macOS, вручную (Apple silicon и Intel).
 - [Публикация чистой копии](Publishing-A-Clean-Copy.ru.md): Почему публичный репозиторий начинается с одного коммита, и два скрипта, которые его делают.
 
 ## См. также

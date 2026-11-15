@@ -14,6 +14,11 @@ sudo apt remove nodewise-studio
 Пункт в меню, значок и файлы программы исчезнут. Папка с данными, сохранённые ключи и сохранённые вами файлы
 останутся.
 
+На **Windows**: Параметры ▸ Приложения ▸ Установленные приложения ▸ NodeWise Studio ▸ Удалить. На **macOS**:
+`bash ~/Library/Application\ Support/nodewise-studio-installer/install-macos.sh --uninstall`. Оба способа удаляют
+приложение и ярлыки, затем спрашивают, удалить ли и ваши данные (ответ «нет», если вы не скажете «да»).
+[Установка на Windows](Installing-On-Windows.ru.md), [Установка на macOS](Installing-On-macOS.ru.md)
+
 ## Удалите и данные
 
 1. Прежде чем удалять программу, забудьте сохранённые ключи и токены: **«Настройки ▸ Приватность ▸ Забыть все
@@ -26,6 +31,8 @@ sudo apt remove nodewise-studio
    rm -rf ~/.config/nodewise-studio
    ```
 
+   На Windows это папка `%APPDATA%\nodewise-studio`, на macOS `~/Library/Application Support/nodewise-studio`;
+   скрипты удаления удаляют её сами, если вы ответите «да» (`-PurgeData` или `--purge-data` удаляют без вопроса).
    В ней база (настройки, каталог, история графа, разговоры), журналы, журнал общения с помощником и сохранённые
    картинки моделей. См. [Папка с данными](../reference/Data-Folder.ru.md).
 
