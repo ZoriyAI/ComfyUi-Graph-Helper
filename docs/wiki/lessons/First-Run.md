@@ -57,4 +57,5 @@ docs.comfy.org: Installation, First generation; ComfyUI's own start log (server.
 ## See also
 - [ComfyUI and where to get it](../start/ComfyUI.md)
 - [The first hour](../start/First-Hour.md)
+- [A model library and shared folders](Model-Library.md)
 - [How ComfyUI works](How-ComfyUI-Works.md)

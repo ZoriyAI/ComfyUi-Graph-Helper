@@ -58,4 +58,5 @@ model_management.py).
 ## См. также
 - [ComfyUI и где его взять](../start/ComfyUI.ru.md)
 - [Первый час](../start/First-Hour.ru.md)
+- [Библиотека моделей и общие папки](Model-Library.ru.md)
 - [Как устроен ComfyUI](How-ComfyUI-Works.ru.md)

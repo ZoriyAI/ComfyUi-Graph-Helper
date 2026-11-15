@@ -260,4 +260,150 @@ export const ENVIRONMENT_EN: Record<string, LessonWords> = {
       },
     },
   },
+  'model-library': {
+    title: 'A model library and shared folders',
+    result: 'Models in the folders ComfyUI looks in, one copy of each, and a manifest of the important files with their hashes.',
+    roles: { model: 'model from your library' },
+    meta: {
+      skill: 'Keep model files where ComfyUI finds them, share one folder instead of copying it, and write a manifest that lets you rebuild the library.',
+      requires: ['A working ComfyUI (the lesson “Install and a first run without errors”) with at least one checkpoint.'],
+      mistakes: [
+        {
+          sign: 'A file is on disk, but no loader lists it.',
+          fix: 'It is in the folder of another kind, or ComfyUI has not read the folders again. Move it to the folder of its kind, press R in ComfyUI, then “Sync now” here.',
+        },
+        {
+          sign: 'After you edited extra_model_paths.yaml nothing changed, or ComfyUI does not start.',
+          fix: 'ComfyUI reads the file only at start: restart it. If it fails, put back the copy you saved before, and check the spaces of the indents and the base_path.',
+        },
+        {
+          sign: 'The same 6 GB model lies in two installs.',
+          fix: 'Keep one copy in a shared folder and point both installs to it with extra_model_paths.yaml (Desktop: add lines to its extra_models_config.yaml). Delete the second copy only after the shared one works.',
+        },
+        {
+          sign: 'A downloaded file has a new name and you no longer know which model it is.',
+          fix: 'Compare its hash with the one in your manifest or on the model\'s page. A name proves nothing; a hash does.',
+        },
+      ],
+      provenance: 'The folders, extra_model_paths.yaml and the refresh come from docs.comfy.org (models) and the example file in the ComfyUI repository, as of 2026-11-15. The hash commands are the ones built into Windows, macOS and Linux. No model comes with the lesson: mind the license of each file you keep.',
+      notChecked: `${NOT_CHANGED} It checks that it read your ComfyUI, that models/checkpoints lists a file, and that the loader on the canvas holds a picture model. It does not see your disk, the YAML file or the hashes: moving files, the manifest and the run are your own word.`,
+    },
+    steps: {
+      intro: {
+        title: 'A library, not a heap',
+        body: 'Models are the largest files you will have: gigabytes each. A heap of them in one folder costs disk and hides which file is which.\n\nIn this lesson you put each file in the folder of its kind, share one folder between installs where you need it, and write a manifest of the important files with their hashes. Moving and deleting files can lose work: every step that touches files starts with a copy.',
+      },
+      ready: {
+        title: 'Before you start',
+        body: 'The app checks both of these itself.',
+        items: {
+          comfy: { label: 'ComfyUI is running, and the app has read it.', how: 'The app sees this when it has read your ComfyUI (Sync).' },
+          model: { label: 'models/checkpoints holds at least one file.', how: 'The app sees it in the list of models of the last sync.' },
+        },
+      },
+      kinds: {
+        title: 'One folder per kind',
+        body: 'ComfyUI looks for files in sub-folders of `ComfyUI/models`, one per kind:\n\n- `checkpoints`: whole models (SD 1.5, SDXL);\n- `diffusion_models`: only the part that draws (Flux, Wan, Qwen-Image);\n- text_encoders, vae, loras, controlnet, upscale_models and more.\n\nEach loader lists only its own folder. A file in the wrong folder is not an error: it is simply absent from the list. Sub-folders are fine and show as part of the name, for example `sdxl/juggernaut.safetensors`. After you add or move a file, press R in ComfyUI (or restart it) and choose “Sync now” here.',
+      },
+      sort: {
+        title: 'Sort the files',
+        body: 'Sort what you have. Copy first, move after: a model you deleted by mistake is gigabytes to download again.',
+        items: {
+          backup: { label: 'Before moving anything I made sure I can get each file again (its page, or a copy on another disk).' },
+          list: { label: 'I know the kind of each file: a whole checkpoint, a diffusion model, a text encoder, a VAE, a LoRA.', how: 'The model\'s page says it; this app\'s glossary explains each kind.' },
+          move: { label: 'Each file is in the folder of its kind, with sub-folders by family where I have many.' },
+          refresh: { label: 'I pressed R in ComfyUI and “Sync now” in the app.' },
+        },
+      },
+      loader: {
+        title: 'Practice: the library in a loader',
+        body: 'Add a {model} node and choose a picture model in its `ckpt_name`. The list shows your checkpoints folder, sub-folders included.\n\nThe app checks that the file is a picture model, not a video model or a file of another kind.',
+      },
+      shared: {
+        title: 'One folder for several installs',
+        body: 'Two installs (for example Desktop and Portable), or ComfyUI and another program, can share one model folder instead of two copies. ComfyUI reads extra folders from `extra_model_paths.yaml`:\n\n- Portable and manual: copy `extra_model_paths.yaml.example` in the ComfyUI folder to `extra_model_paths.yaml` in the same folder and edit it.\n- Desktop keeps its own file, `extra_models_config.yaml`: add your lines to it, never replace what it wrote.\n\n`base_path` is the shared folder; each other line of the block below names a kind and its sub-folder. `is_default: true` makes these folders the first ones and the place downloads go. ComfyUI reads the file only at start: restart it after every change.\n\nA block of it looks like this:\n\n````\nmy_library:\n    base_path: D:/ai-models\n    checkpoints: checkpoints\n    loras: loras\n    vae: vae\n````',
+      },
+      share: {
+        title: 'Decide, then share',
+        body: 'You may not need a shared folder. With one install, keep the models in `ComfyUI/models`.',
+        items: {
+          decide: { label: 'I decided whether I need a shared folder, and wrote why.', how: 'Yes for two installs or another program that uses the same models; no for one install.' },
+          copy: { label: 'I saved a copy of the YAML file before editing it.' },
+          edit: { label: 'I added a block with base_path and the kinds I share.' },
+          restart: { label: 'I restarted ComfyUI, and its log shows no error about the file.' },
+        },
+      },
+      still: {
+        title: 'The models are still found',
+        body: 'Choose “Sync now” in the app. It checks that it read your ComfyUI and that models/checkpoints still lists a file after the change.',
+      },
+      manifest: {
+        title: 'A manifest of the important files',
+        body: 'A manifest is a short text file next to your models: for each important file its name, kind, size, where it came from and its hash. The hash is a fingerprint of the content: the same hash means the same file, whatever its name.\n\nTo get the SHA-256 hash:\n- Windows: `certutil -hashfile file.safetensors SHA256`\n- macOS: `shasum -a 256 file.safetensors`\n- Linux: `sha256sum file.safetensors`\n\nMany model pages show the SHA-256 too: compare them.',
+        items: {
+          file: { label: 'I made a manifest file next to my models.' },
+          hash: { label: 'It holds the SHA-256 of the files I would hate to lose.' },
+          source: { label: 'For each one I wrote the page it came from and its license.' },
+        },
+      },
+      run: {
+        title: 'Run from the library',
+        body: `${SAVE}\n\nOr open your control workflow from the lesson before. If you moved its model into a sub-folder, choose the file again in the loader: the name now holds the sub-folder.`,
+        items: {
+          ran: { label: 'A workflow ran with a model from its new place, without “Value not in list”.', how: 'The log prints “Prompt executed in … seconds”.' },
+        },
+      },
+      assess: {
+        title: 'Is the library in order?',
+        body: 'Answer for yourself. The app does not see your disk.',
+        criteria: {
+          found: {
+            title: 'Every model appears in the list of its loader.',
+            levels: { no: 'No', partly: 'Partly', yes: 'Yes' },
+            tryNext: 'Find the file that is missing and check its kind on its page. Then the folder, then R in ComfyUI.',
+          },
+          copies: {
+            title: 'Copies of the same model.',
+            levels: { many: 'Many', few: 'A few', none: 'None' },
+            tryNext: 'Compare the hashes of files that look alike. Keep one copy in a shared folder.',
+          },
+          manifest: {
+            title: 'With the manifest I could rebuild the library on a new disk.',
+            levels: { no: 'No', partly: 'Partly', yes: 'Yes' },
+            tryNext: 'Add the source page of every file you could not download again from memory.',
+          },
+        },
+      },
+      recall: {
+        title: 'Check yourself',
+        body: 'Three short questions. A wrong answer costs nothing.',
+        questions: {
+          'wrong-folder': {
+            text: 'A LoRA lies in models/checkpoints. What happens?',
+            choices: { error: 'ComfyUI shows an error', absent: 'Load LoRA does not list it', crash: 'ComfyUI stops' },
+            explain: 'Each loader lists only its own folder. The file is not an error, only invisible to the loader of its kind.',
+          },
+          'after-yaml': {
+            text: 'You changed extra_model_paths.yaml. What next?',
+            choices: { nothing: 'Nothing: it works at once', refresh: 'Press R', restart: 'Restart ComfyUI' },
+            explain: 'ComfyUI reads the file only when it starts.',
+          },
+          hash: {
+            text: 'Two files have different names. How do you know they are the same model?',
+            choices: { name: 'By the name', size: 'By the size', hash: 'By the hash' },
+            explain: 'Names change and sizes may match by chance. The same hash means the same content.',
+          },
+        },
+      },
+      transfer: {
+        title: 'On your own: a new kind of file',
+        body: 'Add a model of another kind than a checkpoint (a LoRA, a VAE or an upscaler) without the lesson.',
+        items: {
+          'new-kind': { label: 'I put the file into the folder of its kind.' },
+          listed: { label: 'Its loader lists it after R in ComfyUI and “Sync now” here.' },
+          written: { label: 'I added it to the manifest with its hash, page and license.' },
+        },
+      },
+    },
+  },
 };

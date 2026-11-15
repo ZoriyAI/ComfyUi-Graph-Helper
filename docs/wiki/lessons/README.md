@@ -19,6 +19,7 @@ do in ComfyUI is your own word.
 
 - [Desktop, Portable, a manual install or Cloud](Choose-Setup.md): lesson "choose-setup". A written choice of how you run ComfyUI, with its limits, made before anything is installed.
 - [Install and a first run without errors](First-Run.md): lesson "first-run". A working install proven by a first picture, and an environment card: system, graphics card, version, way of install and folders.
+- [A model library and shared folders](Model-Library.md): lesson "model-library". Models in the folders ComfyUI looks in, one copy of each, and a manifest of the important files with their hashes.
 
 ### ComfyUI basics
 

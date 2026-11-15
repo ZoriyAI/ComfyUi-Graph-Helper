@@ -57,6 +57,7 @@
  *   be very unstable" (ComfyUI README).
  */
 import type { FieldTest, Lesson, RoleSpec } from '../engine';
+import { FILES } from '../files';
 import type { LessonGroup } from './image-models';
 
 const node = (role: string, ...classes: string[]): RoleSpec => ({ role, classes });
@@ -160,11 +161,60 @@ const firstRun: Lesson = {
   ],
 };
 
+/**
+ * N03: a model library ComfyUI finds: each file in the folder of its kind, one shared folder instead of copies (through
+ * extra_model_paths.yaml when two programs need the files), and a manifest of the important files with their hashes.
+ */
+const modelLibrary: Lesson = {
+  id: 'model-library',
+  standard: 2,
+  outcomes: ['structure', 'run', 'result'],
+  meta: { prerequisites: ['first-run'], versions: [COMFY, DESKTOP], checkedOn: CHECKED_ON },
+  steps: [
+    { id: 'intro', read: true },
+    { id: 'ready', checklist: [{ id: 'comfy', check: { kind: 'comfy-read' } }, { id: 'model', check: { kind: 'model-file', folder: 'checkpoints' } }] },
+    { id: 'kinds', read: true },
+    { id: 'sort', checklist: [{ id: 'backup' }, { id: 'list' }, { id: 'move' }, { id: 'refresh' }] },
+    { id: 'loader', roles: [node('model', 'CheckpointLoaderSimple')], fields: [{ role: 'model', field: 'ckpt_name', test: { kind: 'file', want: FILES.imageCheckpoint } }] },
+    { id: 'shared', read: true },
+    {
+      id: 'share',
+      checklist: [
+        { id: 'decide' },
+        { id: 'copy', optional: true },
+        { id: 'edit', optional: true },
+        { id: 'restart', optional: true },
+      ],
+    },
+    { id: 'still', readCheck: [{ kind: 'comfy-read' }, { kind: 'model-file', folder: 'checkpoints' }] },
+    { id: 'manifest', checklist: [{ id: 'file' }, { id: 'hash' }, { id: 'source' }] },
+    { id: 'run', checklist: [{ id: 'ran', run: true }] },
+    {
+      id: 'assess',
+      rubric: [
+        { id: 'found', levels: ['no', 'partly', 'yes'] },
+        { id: 'copies', levels: ['many', 'few', 'none'] },
+        { id: 'manifest', levels: ['no', 'partly', 'yes'] },
+      ],
+    },
+    {
+      id: 'recall',
+      quiz: [
+        { id: 'wrong-folder', choices: ['error', 'absent', 'crash'], answer: 'absent' },
+        { id: 'after-yaml', choices: ['nothing', 'refresh', 'restart'], answer: 'restart' },
+        { id: 'hash', choices: ['name', 'size', 'hash'], answer: 'hash' },
+      ],
+    },
+    { id: 'transfer', transfer: true, checklist: [{ id: 'new-kind' }, { id: 'listed' }, { id: 'written' }] },
+  ],
+};
+
 /** The lessons of the group, in the order a person meets them. */
-export const ENVIRONMENT_LESSONS: Lesson[] = [chooseSetup, firstRun];
+export const ENVIRONMENT_LESSONS: Lesson[] = [chooseSetup, firstRun, modelLibrary];
 
 /** The group of each lesson and the lessons it goes on from. */
 export const ENVIRONMENT_PATH: Record<string, { group: LessonGroup; follows: string[] }> = {
   'choose-setup': { group: ENVIRONMENT_GROUP, follows: [] },
   'first-run': { group: ENVIRONMENT_GROUP, follows: ['choose-setup'] },
+  'model-library': { group: ENVIRONMENT_GROUP, follows: ['first-run'] },
 };
