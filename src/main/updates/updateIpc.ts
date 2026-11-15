@@ -21,7 +21,7 @@ let checker: UpdateChecker | null = null;
 function updateChecker(): UpdateChecker {
   checker ??= createUpdateChecker({
     projectUrl: PROJECT_URL,
-    // An unpackaged run reads package.json itself (appVersion): app.getVersion() can report Electron's own version there.
+    // An unpackaged run reads package.json itself (appVersion): app.getVersion() may report Electron's version.
     currentVersion: app.isPackaged ? app.getVersion() : appVersion(),
     enabled: () => {
       try {
