@@ -7,6 +7,11 @@ There is no ready Windows package yet. Instead, each release has a script, `inst
 on your computer from the project's own source and installs it for you. One command does everything; this page says
 what it does, what it asks and how to undo it.
 
+> **Not tested yet.** This script is new in 1.0.0 and has not been tested on real computers; a check on GitHub's
+> Windows machines exists and is still being made to pass. If you try it, please report what happened in the project's
+> Issues, with the log file the script names at the end (`%TEMP%\nodewise-studio-install.log`) and your Windows
+> version. If it fails, [Building and running on Windows](../dev/Building-On-Windows.md) is the manual way.
+
 ## What you need
 
 - Windows 10 22H2 or Windows 11, 64-bit x86 (x64). Windows on ARM is not supported yet.
@@ -116,8 +121,7 @@ your data too; the answer is "no" unless you type `y`. `-PurgeData` removes the 
 Signing a Windows program needs a paid certificate the project does not have yet. Nothing is downloaded as a finished
 program: the app is built on your computer. SmartScreen checks files that carry the "downloaded from the internet" mark;
 the files the script builds do not carry it, so SmartScreen is not expected to ask anything when you start the app.
-The project's automatic builds record whether any installed file carries the mark; this has not yet been watched on
-a real desktop.
+None of this has been seen on a real computer yet.
 
 ## Troubleshooting
 
@@ -143,10 +147,11 @@ The script ends with an exit code and a message, and prints the path of its log 
 
 ## What is not tried yet
 
-The project's automatic builds run this script on GitHub's Windows runners (Windows Server 2022 and the newest
-Windows Server image, with Windows PowerShell 5.1 and PowerShell 7). It has not yet been tried on a range of real
-computers: Windows 10 and 11 desktops, a user name with letters outside English, a proxy, `-SystemNode` with winget,
-and a computer that needs the C++ build tools. If something fails, please report it with the log.
+The whole script. It is new in 1.0.0 and has not been tested on a real computer. A check on GitHub's Windows machines
+(Windows Server 2022 and the newest image, with Windows PowerShell 5.1 and PowerShell 7) exists and is still being made
+to pass. Of special interest: Windows 10 and 11 desktops, a user name with letters outside English, a proxy,
+`-SystemNode` with winget, and a computer that needs the C++ build tools. Please report what happened in the project's
+Issues, with the log (`%TEMP%\nodewise-studio-install.log`) and your Windows version (Settings ▸ System ▸ About).
 
 ## See also
 

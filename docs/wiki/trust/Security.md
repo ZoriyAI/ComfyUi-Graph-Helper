@@ -104,7 +104,8 @@ Before a schema change the database is copied next to itself; a damaged one is s
 ## The install scripts for Windows and macOS
 
 `install-windows.ps1` and `install-macos.sh` are release files, listed in `SHA256SUMS` and covered by the release's
-build provenance, like the packages. What they download and how each download is checked:
+build provenance, like the packages. They are new in 1.0.0 and not tested yet on real computers; what follows is
+what they are written to do. What they download and how each download is checked:
 
 - **Only over HTTPS, only from five hosts**: `api.github.com`, `codeload.github.com` and `github.com` (which release is
   the latest, and the source archive), `nodejs.org` (Node.js, when none fits) and `registry.npmjs.org` (reachability).

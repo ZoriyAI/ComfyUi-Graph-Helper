@@ -114,6 +114,20 @@ describe('install scripts', () => {
     expect(clashes).toEqual([]);
   });
 
+  it('say at the start, and again when they fail, that they are not tested yet and where to report', () => {
+    // 1.0.0 shipped the scripts before any run on Windows or macOS passed: the person running one must know that.
+    expect(sh).toContain('ISSUES_URL="https://github.com/$REPOSITORY/issues"');
+    expect(ps1).toContain('$IssuesUrl = "https://github.com/$Repository/issues"');
+    expect(sh).toMatch(/^say untested "\$ISSUES_URL"$/m);
+    expect(ps1).toMatch(/^Show-Message 'untested' @\(\$IssuesUrl\)$/m);
+    expect(sh).toContain('warn untested_failed "$ISSUES_URL" "$LOG"');
+    expect(ps1).toContain("Get-Text 'untested_failed' @($IssuesUrl, $LogPath)");
+    for (const page of ['Installing-On-Windows.md', 'Installing-On-macOS.md']) {
+      expect(fs.readFileSync(path.join(ROOT, 'docs', 'wiki', 'start', page), 'utf8')).toContain('> **Not tested yet.**');
+      expect(fs.readFileSync(path.join(ROOT, 'docs', 'wiki', 'start', page.replace('.md', '.ru.md')), 'utf8')).toContain('> **Ещё не проверено.**');
+    }
+  });
+
   it('need no Git: every package comes from the npm registry', () => {
     const lock = JSON.parse(fs.readFileSync(path.join(ROOT, 'package-lock.json'), 'utf8')) as { packages: Record<string, { resolved?: string; link?: boolean }> };
     const elsewhere = Object.entries(lock.packages).filter(([name, entry]) => name && !entry.link && entry.resolved && !entry.resolved.startsWith('https://registry.npmjs.org/'));

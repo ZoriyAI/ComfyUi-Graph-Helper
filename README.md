@@ -60,6 +60,8 @@ where: [Installing](docs/wiki/start/Installing.md).
 
 ### Windows 10 22H2 and 11 (x64)
 
+> **Not tested yet:** see the note under the macOS lines below.
+
 There is no Windows package yet. A script from the release builds the app on your computer from this project's source
 and installs it for your user, without administrator rights. In PowerShell:
 
@@ -83,8 +85,13 @@ curl -fsSL https://github.com/ZoriyAI/nodewise-studio/releases/latest/download/i
 Add `--dry-run` to see every step first. What it does, what it asks, how to remove the app:
 [Installing on macOS](docs/wiki/start/Installing-On-macOS.md).
 
-The app is not signed by a publisher on Windows or macOS. The scripts run on GitHub's Windows and macOS machines with
-every change; they have not yet been tried on a range of real computers.
+The app is not signed by a publisher on Windows or macOS.
+
+> **Not tested yet.** The Windows and macOS scripts are new in 1.0.0 and have not been tested on real computers; a
+> check on GitHub's Windows and macOS machines exists and is still being made to pass. If you try one, please
+> [report what happened](https://github.com/ZoriyAI/nodewise-studio/issues) with the log file the script names at the end
+> (`%TEMP%\nodewise-studio-install.log` or `~/Library/Logs/nodewise-studio-install.log`) and your system version. The
+> Linux packages are built, installed and started on the build server for every release.
 
 ## First steps
 

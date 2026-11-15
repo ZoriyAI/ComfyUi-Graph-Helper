@@ -24,6 +24,8 @@ set -euo pipefail
 # (tests/unit/installScripts.test.ts compares them).
 REPOSITORY='ZoriyAI/nodewise-studio'
 APP_ID='nodewise-studio'
+# Where a person reports a problem with this script.
+ISSUES_URL="https://github.com/$REPOSITORY/issues"
 DISPLAY_NAME='NodeWise Studio'
 # The hosts this script downloads from; any other address is refused (fetch below).
 ALLOWED_HOSTS='api.github.com codeload.github.com github.com nodejs.org registry.npmjs.org'
@@ -149,6 +151,10 @@ t() {
   case "$UI_LANG:$1" in
     en:start) echo "NodeWise Studio installer for macOS. Log: %s" ;;
     ru:start) echo "Установка NodeWise Studio для macOS. Журнал: %s" ;;
+    en:untested) echo "Not tested yet: this install script is new in 1.0.0 and has not been tested on real Macs. If you try it, please report what happened at %s with the log file named at the end and your macOS version." ;;
+    ru:untested) echo "Ещё не проверено: этот скрипт установки появился в 1.0.0 и на настоящих Mac не проверялся. Если попробуете, сообщите, пожалуйста, что получилось, на %s, приложив файл журнала, названный в конце, и версию macOS." ;;
+    en:untested_failed) echo "This script is not tested yet, so this may be its own mistake. Please report it at %s with this log: %s, and your macOS version (Apple menu, About This Mac)." ;;
+    ru:untested_failed) echo "Этот скрипт ещё не проверен, так что ошибка может быть в нём самом. Сообщите о ней, пожалуйста, на %s, приложив этот журнал: %s, и версию macOS (меню Apple, «Об этом Mac»)." ;;
     en:dry) echo "Dry run: every step is printed, nothing is changed." ;;
     ru:dry) echo "Пробный прогон: шаги только печатаются, ничего не меняется." ;;
     en:step) echo "Step %s of %s: %s" ;;
@@ -333,6 +339,8 @@ finish() {
   fi
   # shellcheck disable=SC2059 # the template comes from t()
   [ "$status" = 0 ] || printf '%s\n' "$(printf "$(t log_at)" "$LOG")" >&2
+  # A failure of the script itself (not a refusal such as a busy app or a full disk): ask for a report.
+  case "$status" in "$EXIT_UNEXPECTED"|"$EXIT_PREREQUISITE"|"$EXIT_DOWNLOAD"|"$EXIT_BUILD"|"$EXIT_INSTALL"|"$EXIT_VERIFY") warn untested_failed "$ISSUES_URL" "$LOG" ;; esac
   log "EXIT $status"
   exit "$status"
 }
@@ -437,6 +445,7 @@ APP_PATH="$APPS_DIR/$DISPLAY_NAME.app"
 APP_EXE="$APP_PATH/Contents/MacOS/$APP_ID"
 
 say start "$LOG"
+say untested "$ISSUES_URL"
 [ "$OPT_DRY_RUN" = 1 ] && say dry
 log "script=$0 args: version=$OPT_VERSION main=$OPT_MAIN source=$OPT_SOURCE uninstall=$OPT_UNINSTALL yes=$OPT_YES system-apps=$OPT_SYSTEM_APPS system-node=$OPT_SYSTEM_NODE lang=$UI_LANG"
 log "home=$HOME build=$BUILD_DIR apps=$APPS_DIR"

@@ -5,7 +5,8 @@
 
 The manual way behind `install-macos.sh`: what the script does, step by step, for a developer who wants to build, run
 and change the app on a Mac. To just install the app, use the script:
-[Installing on macOS](../start/Installing-On-macOS.md).
+[Installing on macOS](../start/Installing-On-macOS.md). The script is new in 1.0.0 and not tested yet on real Macs;
+when it fails, these steps are the fallback.
 
 ## What to install
 
