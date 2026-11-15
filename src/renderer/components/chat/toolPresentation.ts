@@ -1,10 +1,14 @@
+/**
+ * Pure helpers that turn a tool call into what its card shows: the label key, the short argument list, the result
+ * line and the object a build step changed. ToolCard.tsx and BuildCard.tsx use them; tests/unit/chatHelpers.test.ts
+ * covers them (resultMessage is used only by that test today).
+ */
 import { AGENT_BUILD_TOOLS, AGENT_KNOWLEDGE_TOOLS, AGENT_PROPOSAL_TOOLS, AGENT_READ_TOOLS, type ObjectRef } from '../../../shared/contracts';
 import { redactDiagnostic } from '../../../shared/i18n';
 import type { ToolCall } from '../../types/chat';
 import { INTERRUPTED_ERROR, isRecord } from '../../services/llm/chatModel';
 
-/** Pure helpers that turn a tool call into what its card shows. */
-
+/** Every tool the agent may call; only these have a label in the catalog (agent.tools.*). */
 const KNOWN = new Set<string>([...AGENT_READ_TOOLS, ...AGENT_KNOWLEDGE_TOOLS, ...AGENT_PROPOSAL_TOOLS, ...AGENT_BUILD_TOOLS]);
 
 /** i18n key of the tool's label, or null for a name outside the agent lists. */
@@ -12,8 +16,10 @@ export function toolLabelKey(name: string): string | null {
   return KNOWN.has(name) ? `agent.tools.${name}` : null;
 }
 
+/** Longest argument value a card shows before it clips. */
 const VALUE_CAP = 80;
 
+/** One argument value on one line, redacted and clipped. */
 function shortValue(value: unknown): string {
   let text: string;
   if (typeof value === 'string') text = value;
@@ -45,6 +51,7 @@ export function resultMessage(call: ToolCall): string | null {
   return typeof message === 'string' && message.trim() ? redactDiagnostic(message.trim()) : null;
 }
 
+/** A non-empty string field of a record, else undefined. */
 function stringOf(record: unknown, key: string): string | undefined {
   if (!isRecord(record)) return undefined;
   const value = record[key];
@@ -65,6 +72,7 @@ export function buildTargetRef(call: ToolCall): ObjectRef | null {
     const definitionId = stringOf(result, 'definitionId') ?? stringOf(result, 'subgraphId') ?? stringOf(call.args, 'definitionId');
     if (definitionId) return { kind: 'subgraph', id: definitionId };
   }
+  // A removed node is gone from the canvas, so there is nothing to show; a new graph name points at the whole graph.
   if (call.toolName === 'removeNode' || call.toolName === 'setProcess') {
     return call.toolName === 'setProcess' ? { kind: 'process', id: 'process' } : null;
   }

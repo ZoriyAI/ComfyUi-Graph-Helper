@@ -1,3 +1,7 @@
+/*
+ * Chat Markdown (MarkdownLite.tsx), used in chat answers, lessons, the tour and the help reader. A table of three
+ * columns or more (data-wide) turns each row into a small card where the panel is narrow.
+ */
 .root { display: flex; flex-direction: column; gap: 8px; }
 .root p { margin: 0; }
 .root ul, .root ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 2px; }

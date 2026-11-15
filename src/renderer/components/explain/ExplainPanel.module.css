@@ -1,3 +1,4 @@
+/* The Explain tab (ExplainPanel.tsx): object head, aspect sections, source links, the note form and history. */
 .panel {
   display: flex;
   flex-direction: column;

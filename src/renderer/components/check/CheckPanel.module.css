@@ -1,3 +1,4 @@
+/* The Check tab (CheckPanel.tsx): intro and run button, groups of findings with Show and Ask why, prompt advice. */
 .panel {
   display: flex;
   flex-direction: column;

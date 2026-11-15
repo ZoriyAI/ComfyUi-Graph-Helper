@@ -1,3 +1,8 @@
+/**
+ * The helper's conversation dock: header with the run state and pause, the message log, the quick prompts of an
+ * empty chat, the composer, and the lessons panel when Learn mode replaces the conversation. shell/Dock.tsx mounts
+ * it. Ask requests from the rest of the app (services/ask.ts) are queued here so only one turn streams at a time.
+ */
 import React, { useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'motion/react';
@@ -18,7 +23,7 @@ import Button from '../../ui/Button';
 import styles from './ChatDock.module.css';
 
 /**
- * The conversation panel. Subscribes to services/ask.ts, sends messages with the
+ * Props of the conversation panel (ChatDock). The panel subscribes to services/ask.ts, sends messages with the
  * AgentTurnContext, renders tool and proposal cards, loads and saves history.
  *
  * Both props are optional. Without them the dock sends and pauses through getChatService().
@@ -30,14 +35,17 @@ export interface ChatDockProps {
   onPause?: () => void;
 }
 
+/** The whole graph as the object of a question ("explain my graph"). */
 const PROCESS_REF: ObjectRef = { kind: 'process', id: 'process' };
 
+/** A new message rises a few pixels into place; removed messages only fade. */
 const MESSAGE_MOTION = {
   initial: { opacity: 0, y: 6 },
   animate: { opacity: 1, y: 0 },
   exit: { opacity: 0 },
 } as const;
 
+/** The conversation panel; see ChatDockProps for the two optional overrides. */
 export default function ChatDock({ onSendMessage, onPause }: ChatDockProps = {}) {
   const { t } = useTranslation();
   // The scripted TEST fixture says so in the empty chat; a real helper gets no such note.
@@ -73,6 +81,7 @@ export default function ChatDock({ onSendMessage, onPause }: ChatDockProps = {})
     void getChatService().sendMessage(request.message, request.context);
   }), []);
 
+  // When a turn ends, the oldest waiting ask starts.
   useEffect(() => {
     if (isStreaming) return;
     const next = queue.current.shift();
@@ -94,6 +103,7 @@ export default function ChatDock({ onSendMessage, onPause }: ChatDockProps = {})
       return;
     }
     if (!grewAtEnd && messages[messages.length - 1]?.role !== 'assistant') return;
+    // 120 px from the bottom counts as "at the end": a person that close still follows new text.
     const distance = log.scrollHeight - log.scrollTop - log.clientHeight;
     // A person reading older messages is left there, except when they just sent one: then they follow their message.
     const sentNow = messages[messages.length - 1]?.role === 'user';
@@ -167,6 +177,7 @@ export default function ChatDock({ onSendMessage, onPause }: ChatDockProps = {})
         hidden={learning}
         onScroll={(event) => {
           const log = event.currentTarget;
+          // Near the top (80 px) the next older page of history is loaded.
           if (log.scrollTop > 80 || !getChatService().hasEarlier) return;
           const height = log.scrollHeight;
           void getChatService().loadEarlier().then((count) => {

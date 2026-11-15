@@ -1,3 +1,8 @@
+/**
+ * The chat composer: the Ask / Build / Learn mode strip, the message field with recall of earlier messages, and
+ * Send (or Stop while the helper answers). ChatDock.tsx renders it at the bottom of the dock. The field stays
+ * focusable while an answer streams, so keyboard focus is never thrown to the page.
+ */
 import React, { useState, useRef, useEffect } from 'react';
 import { usePreferencesStore } from '../../state/preferencesState';
 import { useChatStore } from '../../state/chatState';
@@ -22,6 +27,7 @@ interface MessageInputProps {
   onStop?: () => void;
 }
 
+/** The two composer modes, in the order of their buttons. Learn is a third button, shown only with onLearning. */
 const INTENTS: readonly ComposerIntent[] = ['ask', 'build'];
 
 /**
@@ -38,6 +44,7 @@ export default function MessageInput({ onSend, isStreaming, disabled = false, le
   const [intent, setIntent] = useState<ComposerIntent>(() => usePreferencesStore.getState().preferences.assistant.defaultIntent);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
+  // When an answer ends, focus returns to the field; offsetParent is null while the field is hidden (Learn mode).
   useEffect(() => {
     const field = inputRef.current;
     if (!isStreaming && field && field.offsetParent !== null) field.focus();
@@ -102,6 +109,7 @@ export default function MessageInput({ onSend, isStreaming, disabled = false, le
             setInput(event.target.value);
           }}
           onKeyDown={(event) => {
+            // An IME is still composing a word (keyCode 229 in some browsers): Enter belongs to it, not to Send.
             if (event.nativeEvent.isComposing || event.keyCode === 229) return;
             // Read-only while an answer streams: no recall into it either.
             if (isStreaming && event.key !== 'Tab') return;

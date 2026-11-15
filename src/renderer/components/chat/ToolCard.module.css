@@ -1,3 +1,4 @@
+/* A single tool call card (ToolCard.tsx) and the proposal card inside it (ProposalCard.tsx). */
 .card {
   --chat-tool-accent: var(--text-dim);
   display: flex;

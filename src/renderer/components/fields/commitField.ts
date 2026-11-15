@@ -1,3 +1,7 @@
+/**
+ * The single write path of a field edit. graph/nodes/FieldRow.tsx (a field on a node) and graph/Inspector.tsx
+ * (Properties) call it, so an edit from either place is the same command.
+ */
 import { commitManual } from '../graph/commit';
 
 /**

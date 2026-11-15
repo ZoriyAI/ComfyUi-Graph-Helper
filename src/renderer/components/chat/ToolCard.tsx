@@ -1,3 +1,8 @@
+/**
+ * The card of a single tool call in a chat message: an explanation the helper saved, a suggestion, a lesson draft,
+ * or a tool the chat does not know (with its arguments). Message.tsx renders it for every call that is neither a
+ * build step (BuildCard) nor a quiet read (QuietGroup).
+ */
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BookOpen, Hammer, Lightbulb, Search, Sparkles, Wrench, type LucideIcon } from 'lucide-react';
@@ -10,13 +15,14 @@ import { asObjectRef, isRecord } from '../../services/llm/chatModel';
 import ProvenanceBadge, { isProvenance } from '../explain/ProvenanceBadge';
 import { objectLabel } from './objectLabel';
 import ProposalCard from './ProposalCard';
-// LESSON FILES: the card of a lesson the assistant drafted.
+// The card of a lesson the assistant drafted (the draftLesson tool).
 import LessonDraftCard from '../lessons/LessonDraftCard';
 import Button from '../../ui/Button';
 import { compactArgs, toolLabelKey } from './toolPresentation';
 import { stepError, type Translate } from './buildSteps';
 import styles from './ToolCard.module.css';
 
+/** The head icon of each kind of tool. */
 const ICONS: Record<ToolKind, LucideIcon> = {
   read: Search,
   knowledge: Lightbulb,
@@ -25,8 +31,10 @@ const ICONS: Record<ToolKind, LucideIcon> = {
   other: Wrench,
 };
 
+/** The explanation aspects the card can name; any other value in the arguments is not shown. */
 const ASPECTS: readonly ExplanationAspect[] = ['what', 'why', 'connect', 'next', 'risk'];
 
+/** The body of an explain call: provenance, aspect, the text, and a button to the object it was saved on. */
 function ExplainBody({ call }: { call: ToolCall }) {
   const { t } = useTranslation();
   const nodes = useGraphStore((state) => state.nodes);
@@ -81,8 +89,8 @@ function ArgumentList({ args }: { args: Array<{ key: string; value: string }> })
 
 /**
  * A tool call that is neither a build step nor a quiet look: an explanation, a suggestion, or a tool the chat does
- * not know. A suggestion carries only its own status («Предложено», «Принято»…), never the tool call's; an explanation
- * shows what was saved and where. Graph changes go to BuildCard, reads to QuietGroup.
+ * not know. A suggestion carries only its own status (Suggested, Accepted, and so on), never the tool call's; an
+ * explanation shows what was saved and where. Graph changes go to BuildCard, reads to QuietGroup.
  */
 export default function ToolCard({ call }: { call: ToolCall }) {
   const { t } = useTranslation();

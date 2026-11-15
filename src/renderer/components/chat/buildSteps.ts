@@ -1,3 +1,9 @@
+/**
+ * Turns the tool calls of one assistant message into what the chat shows: build step sentences, quiet phrases,
+ * step errors, the build's progress against the canvas reveal queue, and the closing summary. Used by Message.tsx,
+ * BuildCard.tsx, BuildSummary.tsx, QuietGroup.tsx, ToolCard.tsx and stepNames.ts; tests/unit/buildSteps.test.ts
+ * pins the wording. Pure functions, so the tests need no React.
+ */
 import { redactDiagnostic, translateKnownError } from '../../../shared/i18n';
 import type { ToolCall } from '../../types/chat';
 import { INTERRUPTED_ERROR, isRecord } from '../../services/llm/chatModel';
@@ -9,6 +15,7 @@ import { stepKey as queueStepKey } from '../graph/lib/buildQueue';
  * Sentences are made from the structured arguments and result, never from the English `message` the model reads.
  */
 
+/** The i18next `t` narrowed to a string result, so these helpers stay free of React. */
 export type Translate = (key: string, options?: Record<string, unknown>) => string;
 
 /** Names the chat can look up on the current canvas and in the catalog. Every lookup may come back empty. */
@@ -58,16 +65,19 @@ export function groupToolCalls(calls: readonly ToolCall[]): ToolSegment[] {
   return segments;
 }
 
+/** A trimmed string or a finite number as text; anything else (and an empty string) is undefined. */
 function text(value: unknown): string | undefined {
   if (typeof value === 'string') return value.trim() || undefined;
   if (typeof value === 'number' && Number.isFinite(value)) return String(value);
   return undefined;
 }
 
+/** One text field of a tool's arguments or result, when the record has it. */
 function field(record: unknown, key: string): string | undefined {
   return isRecord(record) ? text(record[key]) : undefined;
 }
 
+/** Longest name and field value a step sentence shows before it clips with an ellipsis. */
 const NAME_CAP = 60;
 const VALUE_CAP = 40;
 
@@ -89,6 +99,7 @@ export function valueText(value: unknown): string {
   }
 }
 
+/** A node's name for a sentence: the name it had when the step ran, then the canvas, then the class. */
 function nodeName(id: string | undefined, names: StepNames, t: Translate, fallback?: { title?: string; classType?: string; at?: string }): string {
   // The name the node had when the step ran comes first: a card never renames itself after a restart or a new
   // project. Older cards without it read the canvas as before.
@@ -117,6 +128,7 @@ function portName(call: ToolCall, side: 'source' | 'target', nodeId: string | un
   return /^(in|out)-\d+$/.test(asHandle) ? undefined : asHandle;
 }
 
+/** Both ends of a connect call, each as "node · port". Ids come from the result first (main resolved them). */
 function linkEnds(call: ToolCall, names: StepNames, t: Translate): { from: string; to: string } {
   const sourceId = field(call.result, 'sourceNodeId') ?? field(call.args, 'sourceNodeId') ?? field(call.args, 'source');
   const targetId = field(call.result, 'targetNodeId') ?? field(call.args, 'targetNodeId') ?? field(call.args, 'target');
@@ -126,6 +138,7 @@ function linkEnds(call: ToolCall, names: StepNames, t: Translate): { from: strin
   };
 }
 
+/** A subgraph's name from the call's arguments, else from the canvas definitions. */
 function subgraphName(call: ToolCall, names: StepNames, t: Translate): string {
   const id = field(call.result, 'definitionId') ?? field(call.args, 'definitionId');
   const name = field(call.args, 'name') ?? field(call.args, 'title') ?? (id ? names.subgraph?.(id) : undefined);
@@ -179,6 +192,7 @@ function stepValues(call: ToolCall, names: StepNames, t: Translate): Record<stri
   }
 }
 
+/** The catalog keys of each build tool's sentence, for a step that worked and one that failed. */
 const SENTENCE_KEYS: Record<string, { ok: string; failed: string }> = {
   addNode: { ok: 'chat.step.addNode', failed: 'chat.stepFailed.addNode' },
   connectNodes: { ok: 'chat.step.connectNodes', failed: 'chat.stepFailed.connectNodes' },
@@ -191,10 +205,7 @@ const SENTENCE_KEYS: Record<string, { ok: string; failed: string }> = {
   setProcess: { ok: 'chat.step.setProcess', failed: 'chat.stepFailed.setProcess' },
 };
 
-/**
- * One build step as a sentence: «Добавлена нода Load Checkpoint», «Связь: Load Checkpoint · MODEL → KSampler · model»,
- * «Поле steps = 20 у KSampler». A failed step says what it tried: «Не удалось добавить ноду …».
- */
+/** The catalog keys of a step that was left as a grey draft instead of applied. */
 const DRAFT_KEYS: Record<string, string> = {
   connectNodes: 'chat.stepDraft.connectNodes',
   setParameter: 'chat.stepDraft.setParameter',
@@ -210,6 +221,10 @@ export function isDraftStep(call: ToolCall): boolean {
   return call.status === 'success' && isRecord(call.result) && call.result.drafted === true;
 }
 
+/**
+ * One build step as a sentence: "Added the node Load Checkpoint", "Link: Load Checkpoint · MODEL → KSampler · model",
+ * "Field steps = 20 on KSampler". A failed step says what it tried: "Could not add the node …".
+ */
 export function stepSentence(call: ToolCall, t: Translate, names: StepNames): string {
   const keys = SENTENCE_KEYS[call.toolName];
   const values = stepValues(call, names, t);
@@ -301,6 +316,7 @@ export interface BuildCounts {
   drafts: number;
 }
 
+/** Counts what the successful steps of a build made; drafts are counted apart, as they changed nothing yet. */
 export function buildCounts(calls: readonly ToolCall[]): BuildCounts {
   const counts: BuildCounts = { nodes: 0, links: 0, fields: 0, removed: 0, subgraphs: 0, notes: 0, named: false, drafts: 0 };
   for (const call of calls) {
@@ -320,7 +336,10 @@ export function buildCounts(calls: readonly ToolCall[]): BuildCounts {
   return counts;
 }
 
-/** «Готово: 7 нод, 9 связей.»; null when the build changed nothing a person can count. */
+/**
+ * "Done: 7 nodes, 9 links." (chat.summaryDone, or chat.summaryStopped); null when the build changed nothing a
+ * person can count.
+ */
 export function buildSummary(counts: BuildCounts, t: Translate, stopped = false): string | null {
   const parts: string[] = [];
   if (counts.nodes) parts.push(t('chat.summaryNodes', { count: counts.nodes }));
@@ -346,7 +365,7 @@ function hostOf(value: string | undefined): string | undefined {
   }
 }
 
-/** One thing the helper looked at, as a lower-case phrase: «прочитал граф», «искал в каталоге нод “lora”». */
+/** One thing the helper looked at, as a lower-case phrase: "read the graph", "searched the node catalog for “lora”". */
 export function quietSentence(call: ToolCall, t: Translate, names: Pick<StepNames, 'nodeClass'> = {}): string {
   const query = field(call.args, 'query');
   switch (call.toolName) {

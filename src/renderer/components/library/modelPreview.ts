@@ -1,25 +1,31 @@
+/**
+ * The preview that lies next to a model file, as something an <img> or a <video> can show. Main hands the bytes
+ * over; the window keeps them as an object URL for as long as the preview is among the most recently shown.
+ * Used by ModelLibrary.tsx (row thumbnails) and ModelCard.tsx (the large preview).
+ */
 import { useEffect, useState } from 'react';
 import type { ModelSummary } from '../../../shared/contracts';
 import { modelKey } from './libraryModel';
 
-/**
- * The preview that lies next to a model file, as something an <img> or a <video> can show. Main hands the bytes
- * over; the window keeps them as an object URL for as long as the preview is among the most recently shown.
- */
 
+/** What a component shows for a preview: nothing, a wait, a failure, or the object URL. */
 export type ModelPreviewState =
   | { state: 'none' }
   | { state: 'loading' }
   | { state: 'failed' }
   | { state: 'ready'; url: string; kind: 'image' | 'video' };
 
+/** A preview held in memory; null records a file that has no readable preview, so it is not asked again. */
 type Held = { url: string; kind: 'image' | 'video' } | null;
 
 /** How many previews stay ready. The ones on screen are always the most recent, so none of them is dropped. */
 const HELD_MOST = 240;
+/** Held previews by model key, oldest first (a Map keeps insertion order). */
 const held = new Map<string, Held>();
+/** Reads in flight, so two rows of one file share one request. */
 const waiting = new Map<string, Promise<Held>>();
 
+/** Marks a preview as the most recent and lets the oldest go past HELD_MOST, freeing their object URLs. */
 function remember(key: string, value: Held): void {
   held.delete(key);
   held.set(key, value);
@@ -43,6 +49,7 @@ export function forgetModelPreview(key: string): void {
   if (item) URL.revokeObjectURL(item.url);
 }
 
+/** Reads one preview from main once; callers of the same file wait on the same promise. */
 function load(model: Pick<ModelSummary, 'directory' | 'name'>, key: string): Promise<Held> {
   const running = waiting.get(key);
   if (running) return running;

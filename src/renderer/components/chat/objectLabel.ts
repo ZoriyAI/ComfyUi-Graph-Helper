@@ -1,3 +1,7 @@
+/**
+ * Short human names for the objects the chat and the Explain panel talk about. Message.tsx (the "about" chip),
+ * ToolCard.tsx and explain/ExplainPanel.tsx use it; tests/unit/chatHelpers.test.ts covers it.
+ */
 import type { ObjectRef } from '../../../shared/contracts';
 
 /** The parts of the graph a label needs; graphState nodes and edges fit this shape. */
@@ -6,6 +10,7 @@ export interface LabelGraph {
   edges?: ReadonlyArray<{ id: string; source: string; target: string }>;
 }
 
+/** A node's title, else its class, else its id; undefined when the node is not on the canvas. */
 function nodeName(graph: LabelGraph, nodeId: string | undefined): string | undefined {
   if (!nodeId) return undefined;
   const node = graph.nodes.find((item) => item.id === nodeId);

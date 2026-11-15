@@ -1,17 +1,28 @@
+/**
+ * Pure helpers of the library rail: grouping and windowing of node rows, keyboard movement, model filters, kind
+ * groups, sorting, which LoRAs fit which base model, plain text of model descriptions, sizes. Used by
+ * NodeLibrary.tsx, ModelLibrary.tsx, ModelCard.tsx, NodeCard.tsx, VirtualList.tsx, SubgraphLibrary.tsx,
+ * fields/ModelList.tsx and settings PreviewCacheRow.tsx; tests/unit/modelLibrary.test.ts and others cover them.
+ */
 import type { BaseModelFamily, ModelKind, ModelSummary, NodeClassSummary, SubgraphDefinition } from '../../../shared/contracts';
 import { queryWords, rankFields } from '../../../shared/knowledge/searchWords';
 import { familiesCompatible } from '../../../shared/knowledge/baseModel';
 import { formatByteSize } from '../../../shared/i18n/format';
 
-/** dataTransfer types the canvas accepts from the library (see ui-direction §7). */
+/**
+ * dataTransfer types the canvas accepts from the library. graph/lib/modelLoaders.ts declares the same two strings
+ * for the drop side; they must stay equal.
+ */
 export const NODE_DRAG_TYPE = 'application/x-helper-node';
 export const MODEL_DRAG_TYPE = 'application/x-helper-model';
 
+/** Node classes of one top-level category. */
 export interface NodeGroup {
   category: string;
   items: NodeClassSummary[];
 }
 
+/** One row of the node list: a category header or a node class. */
 export type LibraryRow =
   | { kind: 'header'; key: string; category: string; count: number; collapsed: boolean }
   | { kind: 'node'; key: string; node: NodeClassSummary };
@@ -49,6 +60,7 @@ export function flattenGroups(groups: NodeGroup[], collapsed: ReadonlySet<string
   return rows;
 }
 
+/** The slice of rows a windowed list renders, and where it sits. */
 export interface WindowRange {
   /** First rendered row index. */
   start: number;
@@ -93,12 +105,14 @@ export function moveActive(rows: Array<{ kind: string }>, current: number, key: 
   return clamp(current < 0 ? (step > 0 ? 0 : last) : current + step);
 }
 
+/** The model list's filters; an empty string means "any". */
 export interface ModelFilters {
   directory: string;
   baseModel: BaseModelFamily | '';
   kind: ModelKind | '';
 }
 
+/** One value of a filter and how many files have it. */
 export interface Facet<T extends string> {
   value: T;
   count: number;
@@ -118,7 +132,7 @@ export function modelFacets(models: ModelSummary[]): { directories: Facet<string
   };
 }
 
-/** Client-side equivalent of the searchModels filter, used for tests and for narrowing a cached list. */
+/** Client-side equivalent of the searchModels filter, used for tests and for narrowing the fitting-LoRA list. */
 export function filterModels(models: ModelSummary[], query: string, filters: ModelFilters): ModelSummary[] {
   const needle = query.trim().toLowerCase();
   return models.filter((model) => (
@@ -135,30 +149,35 @@ export function filterModels(models: ModelSummary[], query: string, filters: Mod
  * diffusion models (a checkpoint split into parts) sit with checkpoints and every other kind under "other".
  */
 export const KIND_GROUPS = ['all', 'checkpoint', 'lora', 'vae', 'controlnet', 'other'] as const;
+/** One of the kind chips. */
 export type KindGroup = typeof KIND_GROUPS[number];
 
 /** Kinds that are a base model a LoRA goes on. */
 const BASE_KINDS: ReadonlySet<ModelKind> = new Set<ModelKind>(['checkpoint', 'unet']);
 
+/** The chip a model kind falls under. */
 export function kindGroupOf(kind: ModelKind): Exclude<KindGroup, 'all'> {
   if (BASE_KINDS.has(kind)) return 'checkpoint';
   if (kind === 'lora' || kind === 'vae' || kind === 'controlnet') return kind;
   return 'other';
 }
 
+/** True when the model shows under the chip ('all' shows every model). */
 export function inKindGroup(model: Pick<ModelSummary, 'kind'>, group: KindGroup): boolean {
   return group === 'all' || kindGroupOf(model.kind) === group;
 }
 
+/** How many models each chip would show. */
 export function kindGroupCounts(models: Array<Pick<ModelSummary, 'kind'>>): Record<KindGroup, number> {
   const counts: Record<KindGroup, number> = { all: models.length, checkpoint: 0, lora: 0, vae: 0, controlnet: 0, other: 0 };
   for (const model of models) counts[kindGroupOf(model.kind)] += 1;
   return counts;
 }
 
+/** The order of the model list. */
 export type ModelSort = 'name' | 'size';
 
-/** Name order ignores case and folders' digits read as numbers ("v2" before "v10"); size puts the largest first. */
+/** Name order ignores case and reads digits as numbers ("v2" before "v10"); size puts the largest first. */
 export function sortModels<T extends Pick<ModelSummary, 'name' | 'sizeBytes'>>(models: T[], sort: ModelSort): T[] {
   const byName = (left: T, right: T) => left.name.localeCompare(right.name, undefined, { sensitivity: 'base', numeric: true });
   const copy = [...models];
@@ -166,6 +185,7 @@ export function sortModels<T extends Pick<ModelSummary, 'name' | 'sizeBytes'>>(m
   return copy.sort(byName);
 }
 
+/** True when two families are known and compatible. */
 function knownPair(left: BaseModelFamily, right: BaseModelFamily, names: { left: string; right: string }): boolean {
   // Unknown on either side means "cannot say", which must not read as "fits".
   return left !== 'unknown' && right !== 'unknown' && familiesCompatible(left, right, names);
@@ -181,10 +201,12 @@ export function fittingLoras(base: Pick<ModelSummary, 'name' | 'baseModel'>, all
   return all.filter((model) => model.kind === 'lora' && knownPair(model.baseModel, base.baseModel, { left: model.name, right: base.name }));
 }
 
+/** True for a base model a LoRA goes on (checkpoint or diffusion model). */
 export function isBaseModel(model: Pick<ModelSummary, 'kind'>): boolean {
   return BASE_KINDS.has(model.kind);
 }
 
+/** The HTML entities plainDescription decodes; any other stays as written. */
 const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', '#39': "'" };
 
 /**
@@ -212,10 +234,12 @@ export function safeModelSource(value: string | null | undefined): string | null
   }
 }
 
+/** The unique key of a model file: `folder/name`. Rows, caches and the card all use it. */
 export function modelKey(model: Pick<ModelSummary, 'directory' | 'name'>): string {
   return `${model.directory}/${model.name}`;
 }
 
+/** Letters and digits only, lower case, without a model file extension: for comparing a title with a file name. */
 const lettersOnly = (text: string) => text.toLowerCase().replace(/\.(safetensors|sft|ckpt|pt|pth|bin|gguf)$/i, '').replace(/[^\p{L}\p{N}]+/gu, '');
 
 /**
@@ -233,12 +257,13 @@ export function plainNumber(value: number): string {
   return String(Math.round(value * 100) / 100);
 }
 
+/** A file size in the language's format; a dash when the size is not known. */
 export function formatBytes(bytes: number | null, language: 'en' | 'ru'): string {
   if (bytes == null || !Number.isFinite(bytes) || bytes < 0) return '—';
   return formatByteSize(bytes, language);
 }
 
-/** Modelled (insertable) subgraph definitions matching a query. */
+/** Subgraph definitions that can be inserted (not opaque), whose name holds the query, by name. */
 export function insertableSubgraphs(definitions: SubgraphDefinition[], query: string): SubgraphDefinition[] {
   const needle = query.trim().toLowerCase();
   return definitions

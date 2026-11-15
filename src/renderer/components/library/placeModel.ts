@@ -1,3 +1,11 @@
+/**
+ * Puts a model file to work on the canvas: a new loader node with the file chosen (from the card or a drop),
+ * or the file put into the loader the person selected. Every path goes through the manual command path,
+ * selects what changed and says in one toast what happened.
+ *
+ * Who uses it: ModelCard.tsx (Add to canvas, Put into the selected node) and graph/GraphWorkspace.tsx (a model
+ * dropped on the canvas); tests/unit/asyncEditorOrigin.test.ts covers the edit-origin checks.
+ */
 import type { ModelSummary } from '../../../shared/contracts';
 import { i18n } from '../../i18n';
 import { showToast } from '../../ui/toastStore';
@@ -9,20 +17,18 @@ import { levelNodes, selectOnLevel } from '../graph/lib/level';
 import { replayIsOpen } from '../../commands/replayGate';
 import { revealNewNode } from '../graph/lib/reveal';
 
-/**
- * Puts a model file to work on the canvas: a new loader node with the file chosen (from the card or a drop),
- * or the file put into the loader the person selected. Every path goes through the manual command path,
- * selects what changed and says in one toast what happened.
- */
 
+/** A model file by its folder and name. */
 type ModelRef = Pick<ModelSummary, 'directory' | 'name'>;
 
+/** Toast text outside React. */
 const tr = (key: string, options?: Record<string, unknown>) => String(i18n.t(key, options ?? {}));
 
 function selectNode(nodeId: string): void {
   selectOnLevel([nodeId]);
 }
 
+/** The new node's id from an applied add-node result, else null. */
 function appliedNodeId(result: unknown): string | null {
   const response = result as { status?: unknown; result?: { nodeId?: unknown } } | null;
   if (response?.status !== 'applied') return null;
@@ -47,6 +53,10 @@ export function addModelLoader(model: ModelRef, at?: { x: number; y: number }): 
   const origin = captureEditOrigin();
   return trackCommit(() => addModelNow(model, at, origin));
 }
+/**
+ * The add itself, after trackCommit has taken it. Each await may let the person move to another graph or level;
+ * requireEditOrigin and commitAtOrigin make sure the node lands where the add began, or nowhere.
+ */
 async function addModelNow(model: ModelRef, at: { x: number; y: number } | undefined, origin: EditOrigin): Promise<string | null> {
   const loader = loaderForModel(model.directory, model.name);
   if (!loader) {
@@ -76,6 +86,7 @@ async function addModelNow(model: ModelRef, at: { x: number; y: number } | undef
   return nodeId;
 }
 
+/** A selected loader that can take the file: where it was found, its title and the field the file goes into. */
 export interface SelectedLoader {
   origin: EditOrigin;
   nodeId: string;

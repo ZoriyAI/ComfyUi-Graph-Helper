@@ -1,3 +1,8 @@
+/**
+ * The model card: one model file explained beside the library rail (what it is, what it fits, how its author uses
+ * it, what the internet says) with the actions that put it on the canvas. ModelLibrary.tsx opens it for a row.
+ * Adult previews and examples stay closed until the person opens them, here or in Settings.
+ */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, Copy, EyeOff, Globe, MessageCircleQuestion, Plus, Replace, Route, X } from 'lucide-react';
@@ -28,6 +33,7 @@ const SHOWN_FITS = 5;
 /** How many of the author's example descriptions the card shows. */
 const SHOWN_EXAMPLES = 3;
 
+/** Props of ModelCard. */
 export interface ModelCardProps {
   model: ModelSummary;
   /** Every model file in the catalog: what the card says fits is read from it. */
@@ -48,6 +54,7 @@ function useSingleSelectedNode(): string | null {
   return selected.length === 1 ? selected[0].id : null;
 }
 
+/** Copies text and remembers what was copied for 1.8 s, so the button can say "Copied". */
 function useCopied(): [string | null, (text: string, label: string) => void] {
   const [copied, setCopied] = useState<string | null>(null);
   useEffect(() => {
@@ -61,6 +68,7 @@ function useCopied(): [string | null, (text: string, label: string) => void] {
   return [copied, copy];
 }
 
+/** Up to SHOWN_FITS fitting models with their family, then "and N more". */
 function FitList({ models }: { models: ModelSummary[] }) {
   const { t } = useTranslation();
   const shown = models.slice(0, SHOWN_FITS);
@@ -161,6 +169,7 @@ function usageLines(t: TFunction, usage: ModelNotes['usage']): string[] {
   return lines;
 }
 
+/** The settings of an example picture (steps, CFG, sampler) on one line. */
 function exampleSettings(t: TFunction, example: ExamplePrompt): string {
   const parts: string[] = [];
   if (example.steps !== null) parts.push(String(t('library.card.exampleSteps', { value: plainNumber(example.steps) })));
@@ -369,13 +378,13 @@ function WebSection({ detail, step, error, hidden, onFind, onReveal, onCopy }: {
   );
 }
 
-/** A model explained and put to work: what it is, what it fits, and the actions that use it. */
 /** The summary part of a card's detail, as a list row holds it. */
 function summaryOf(detail: ModelDetail): ModelSummary {
   const { directory, name, kind, baseModel, sizeBytes, enriched, title, preview, mature } = detail;
   return { directory, name, kind, baseModel, sizeBytes, enriched, title, preview, mature };
 }
 
+/** A model explained and put to work: what it is, what it fits, and the actions that use it. */
 export default function ModelCard({ model, all, onClose, onShowLoras, onAsk, onUpdated }: ModelCardProps) {
   const { t, i18n } = useTranslation();
   const language = i18n.language === 'en' ? 'en' : 'ru';
@@ -419,6 +428,7 @@ export default function ModelCard({ model, all, onClose, onShowLoras, onAsk, onU
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
+  // Whether the one selected node can take this file; asked again when the selection, the level or the graph changes.
   useEffect(() => {
     let cancelled = false;
     setTarget(null);

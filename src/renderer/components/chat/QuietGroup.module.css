@@ -1,3 +1,4 @@
+/* The quiet line of what the helper only read (QuietGroup.tsx): small, dim, one row until opened. */
 .group { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: var(--text-xs); line-height: 18px; }
 .toggle {
   display: flex;

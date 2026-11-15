@@ -1,3 +1,11 @@
+/**
+ * "No ComfyUI yet": for a person who installed this app out of curiosity and has nothing to connect to.
+ *
+ * Who sees it: the welcome card's "I have no ComfyUI yet" while ComfyUI is not connected. Why: without ComfyUI the
+ * first screen asked for an address the person did not have. This says in the app's own words what ComfyUI is, that
+ * this app never runs anything, how to get ComfyUI and connect it, and what works meanwhile. Pages outside open only
+ * on a click, and main builds their addresses (ipc/openIpc.ts journeyLink).
+ */
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { BookA, ExternalLink, Search } from 'lucide-react';
@@ -9,14 +17,7 @@ import { useUiStore } from '../../state/uiState';
 import { openHelp } from '../../services/help';
 import styles from './Journey.module.css';
 
-/**
- * "No ComfyUI yet": for a person who installed this app out of curiosity and has nothing to connect to.
- *
- * Who sees it: the welcome card's "I have no ComfyUI yet" while ComfyUI is not connected. Why: without ComfyUI the
- * first screen asked for an address the person did not have. This says in the app's own words what ComfyUI is, that
- * this app never runs anything, how to get ComfyUI and connect it, and what works meanwhile. Pages outside open only
- * on a click, and main builds their addresses (ipc/openIpc.ts journeyLink).
- */
+/** The card; JourneyHost.tsx mounts it, journeyState's dialog 'no-comfy' opens it. */
 export default function NoComfyDialog() {
   const { t } = useTranslation();
   const open = useJourneyStore((state) => state.dialog === 'no-comfy');

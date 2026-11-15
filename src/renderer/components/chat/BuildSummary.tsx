@@ -1,3 +1,8 @@
+/**
+ * The closing line of a build turn: what was made and the next steps (tour, check, export). Message.tsx renders it
+ * under the BuildCard of an assistant message. It waits until the canvas has revealed every step, so the chat does
+ * not announce a finished graph that is still appearing.
+ */
 import React, { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CircleCheck, Compass, FileCheck2, FolderOutput } from 'lucide-react';
@@ -18,14 +23,14 @@ const NEXT = [
 const NEXT_IDS = NEXT.map((item) => item.id);
 
 /**
- * Closes a build turn: «Готово: 7 нод, 9 связей.» and what to do next, through the same commands as the menu bar
- * (tour, check, export), so a button here behaves exactly like the menu item.
+ * Closes a build turn: a count of nodes and links made (see buildSummary) and what to do next, through the same
+ * commands as the menu bar (tour, check, export), so a button here behaves exactly like the menu item.
  */
 export default function BuildSummary({ calls, stopped = false }: { calls: ToolCall[]; stopped?: boolean }) {
   const { t } = useTranslation();
   const translate: Translate = (key, options) => String(options ? t(key, options) : t(key));
   const states = useCommandStates(NEXT_IDS);
-  // «Готово» only once the canvas has shown every step, not while it still reveals them at reading pace.
+  // The summary shows only once the canvas has shown every step, not while it still reveals them at reading pace.
   const revealing = useCanvasStore((state) => state.queue.some((item) => calls.some((call) => callStepKey(call) === item.key)));
   const text = buildSummary(buildCounts(calls), translate, stopped);
   const shown = Boolean(text) && !revealing;

@@ -1,15 +1,22 @@
+/**
+ * Trigger-word counts for the model rows on screen. ModelLibrary.tsx shows them in each row and clears the cache
+ * after a sync. Only the rows on screen are read, since one detail request per file of a large library would be slow.
+ */
 import { useEffect, useState } from 'react';
 import type { ModelDetail, ModelSummary } from '../../../shared/contracts';
 import { modelKey } from './libraryModel';
 
 /** Trigger-word counts are only in the model detail; read them for the rows on screen and keep them. */
 const cache = new Map<string, number>();
+/** Files whose detail is being read now, so a re-render does not ask twice. */
 const inflight = new Set<string>();
 
+/** Forgets every count; ModelLibrary calls it when the catalog changes. */
 export function clearModelDetailCache(): void {
   cache.clear();
 }
 
+/** The counts known so far by model key; the component re-renders as each one arrives. */
 export function useTriggerCounts(visible: ModelSummary[]): Map<string, number> {
   const [, setTick] = useState(0);
   const keys = visible.map(modelKey).join('\n');

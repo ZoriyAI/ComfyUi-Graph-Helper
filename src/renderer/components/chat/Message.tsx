@@ -1,3 +1,8 @@
+/**
+ * One chat message: the person's bubble or the helper's answer with its tool cards, build card and summary, notices
+ * about the context window, a checkpoint card, and the link to the model log. ChatDock.tsx renders one per message.
+ * Notices are said by the app, not the model, because the model cannot know that its request was cut.
+ */
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'motion/react';
@@ -31,6 +36,7 @@ interface MessageProps {
   streaming?: boolean;
 }
 
+/** Tool cards rise a little less than whole messages (ChatDock's MESSAGE_MOTION), so they read as part of it. */
 const CARD_MOTION = {
   initial: { opacity: 0, y: 4 },
   animate: { opacity: 1, y: 0 },
@@ -95,7 +101,7 @@ function HowCommand({ command }: { command: string }) {
   );
 }
 
-/** «Как это сделать» under the small-window advice: the steps render only when opened. */
+/** The "how to do it" fold (chat.windowHowTitle) under the small-window advice: the steps render only when opened. */
 function WindowHowTo() {
   const { t } = useTranslation();
   const [open, setOpen] = React.useState(false);
@@ -159,6 +165,7 @@ function NoticeCard({ notice, logId }: { notice: TurnNotice; logId?: string }) {
   );
 }
 
+/** One message of the conversation; `streaming` marks the answer being written right now. */
 export default function Message({ message, streaming = false }: MessageProps) {
   const { t, i18n } = useTranslation();
   const nodes = useGraphStore((state) => state.nodes);
@@ -166,6 +173,7 @@ export default function Message({ message, streaming = false }: MessageProps) {
   const setFocus = useUiStore((state) => state.setFocus);
   const isUser = message.role === 'user';
   const [diagnosticOpen, setDiagnosticOpen] = React.useState(false);
+  // The chat service writes a failed turn as an assistant message whose text starts with "Error".
   const isError = !isUser && message.content.startsWith('Error');
   const language: AppLanguage = i18n.resolvedLanguage === 'ru' ? 'ru' : 'en';
   const about = isUser ? message.context?.objectRef : undefined;

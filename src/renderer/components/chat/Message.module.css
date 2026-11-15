@@ -1,3 +1,4 @@
+/* One chat message (Message.tsx): bubbles, error card, notices, checkpoint card and the time line. */
 .row { display: flex; margin: 0 0 16px; min-width: 0; }
 .row.user { justify-content: flex-end; }
 /* The person's words sit in a bubble at the right. */

@@ -1,3 +1,13 @@
+/**
+ * The helper's "Learn" mode. The person builds a graph by hand; the panel says what the step is and why, shows
+ * where it is on the canvas, and reads off the graph when the step is done. Nothing is asked of a model: the
+ * lessons are the app's own.
+ *
+ * Without an open lesson: the list, each lesson with whether it fits this ComfyUI. With one: the step, what it
+ * still lacks in plain words, "show me where", "do this for me" where the app can, and the steps as a list.
+ *
+ * Who uses it: chat/ChatDock.tsx renders it in place of the conversation while Learn mode is on.
+ */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, ArrowRight, Check, ChevronRight, CircleDashed, CircleDot, Crosshair, FolderOutput, GraduationCap, Lock, MessageCircleQuestion, Plug, RotateCcw, Settings, Wand2 } from 'lucide-react';
@@ -21,22 +31,16 @@ import { useLessonMotion } from './lessonMotion';
 import { canDo, clearShown, doFix, nodeNameOf, showMissing, useLessonCatalog, useLessonFacts, useLessonGraph } from './lessonModel';
 import { lackLines, lackText } from './lackText';
 import styles from './LessonPanel.module.css';
-// LESSON FILES: My lessons, export buttons, the drop target for lesson files, the lesson editor.
+// The person's own lessons: their group, export buttons, the drop target for lesson files, the lesson editor.
 import { DropMark, GroupExportButton, LessonExportButton, MyLessonNotice, MyLessonsGroup, useLessonDrop, useMyLessons } from './MyLessons';
 import LessonEditor from './LessonEditor';
 import { myLessonById, myLessonWords, useMyLessonsStore } from '../../state/myLessonsState';
 
-/**
- * The helper's "Learn" mode. The person builds a graph by hand; the panel says what the step is and why, shows
- * where it is on the canvas, and reads off the graph when the step is done. Nothing is asked of a model: the
- * lessons are the app's own.
- *
- * Without an open lesson: the list, each lesson with whether it fits this ComfyUI. With one: the step, what it
- * still lacks in plain words, "show me where", "do this for me" where the app can, and the steps as a list.
- */
 
+/** Catalog details by class; null for a class the catalog does not have. */
 type Details = Record<string, NodeClassDetail | null>;
 
+/** What every part of the panel reads: the catalog, the lesson view of the graph, and facts about it. */
 interface Shared {
   details: Details;
   ports: ClassPorts;
@@ -45,6 +49,7 @@ interface Shared {
   facts: LessonFacts;
 }
 
+/** One shared empty list, so a store selector with nothing stored keeps the same reference. */
 const NONE: readonly string[] = [];
 /** A lesson with more steps than this shows the steps near the current one, and the rest on request. */
 const FOLD_STEPS_OVER = 12;
@@ -81,6 +86,7 @@ function UnfitReasons({ lines }: { lines: string[] }) {
   );
 }
 
+/** The list of lessons by group, each card with its state, fit and dependencies, then the person's own lessons. */
 function LessonList({ shared, adultOn }: { shared: Shared; adultOn: boolean }) {
   const { t, i18n } = useTranslation();
   const read = useLessonStore((state) => state.read);
@@ -189,6 +195,10 @@ function LessonList({ shared, adultOn }: { shared: Shared; adultOn: boolean }) {
   );
 }
 
+/**
+ * One open lesson: the head with progress, the current (or a looked-at) step with what it lacks and the Show and
+ * Do it buttons, the end card with the next lesson, and the list of steps.
+ */
 function LessonRun({ lesson, shared, onAsk }: { lesson: Lesson; shared: Shared; onAsk: (question: string) => void }) {
   const { t, i18n } = useTranslation();
   const readIds = useLessonStore((state) => state.read[lesson.id]) ?? NONE;
@@ -406,6 +416,7 @@ function LessonRun({ lesson, shared, onAsk }: { lesson: Lesson; shared: Shared; 
   );
 }
 
+/** The Learn panel: the editor, an open lesson or the list. `onAsk` sends a question about a step to the chat. */
 export default function LessonPanel({ onAsk }: { onAsk: (question: string) => void }) {
   const active = useLessonStore((state) => state.active);
   const adultOn = usePreferencesStore((state) => adultContentOn(state.preferences));

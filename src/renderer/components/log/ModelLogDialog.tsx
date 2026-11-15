@@ -1,3 +1,8 @@
+/**
+ * The conversation log window (Help menu, or the log button under an answer): every recorded model turn with what
+ * was sent and what came back, ticked and saved into one file or copied as a short report. App.tsx mounts
+ * ModelLogHost once; state/modelLogState.ts opens it. The log stays on this computer until the person sends it.
+ */
 import { modelDisplayName } from '../shell/modelDisplayName';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -16,6 +21,7 @@ import { durationParts, formatLogBytes, formatTurnTime, intentLabelKey, outcomeV
 import styles from './ModelLogDialog.module.css';
 import { formatNumber } from '../../../shared/i18n/format';
 
+/** Props of ModelLogDialog; ModelLogHost passes the store's open state. */
 export interface ModelLogDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -23,6 +29,7 @@ export interface ModelLogDialogProps {
   focusTurn?: string | null;
 }
 
+/** The quick choices of which turns to tick (see modelLogView.pickTurns). This local name shadows TS's Pick. */
 type Pick = 'last' | 'today' | 'errors' | 'all' | 'none';
 
 /** What the last action did, said inside the window (a toast behind a modal cannot be clicked or heard). */
@@ -33,6 +40,7 @@ interface Notice {
   path?: string;
 }
 
+/** One recorded turn: tick box, time, outcome, model, sizes, and the copy-report button. */
 function TurnRow({ turn, checked, focused, onToggle, onNotice, language }: {
   turn: ModelLogTurn;
   checked: boolean;

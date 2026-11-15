@@ -1,12 +1,14 @@
+/**
+ * How the model conversation log reads to a person: what a recorded turn is called, how it ended, how long it
+ * took. Pure, so the wording rules are tested without a window (tests/unit/modelLogView.test.ts). Used by
+ * ModelLogDialog.tsx and services/diagnostics/modelLog.ts.
+ */
 import type { ModelLogTurn } from '../../../shared/contracts/modelLog';
 import { formatByteSize } from '../../../shared/i18n/format';
 import { displayLocale } from '../../../shared/i18n/languages';
 
-/**
- * How the model conversation log reads to a person: what a recorded turn is called, how it ended, how long it
- * took. Pure, so the wording rules are tested without a window.
- */
 
+/** The colour of a turn's outcome badge. */
 export type OutcomeTone = 'ok' | 'danger' | 'warn' | 'neutral';
 
 /** The words and the colour for how a turn ended. Unknown values read as "not finished", never as success. */
@@ -51,6 +53,7 @@ export function durationParts(ms: number | null): { minutes: number; seconds: nu
   return { minutes: Math.floor(whole / 60), seconds: whole % 60, tenths: false };
 }
 
+/** A size in the log window, never larger units than gigabytes. */
 export function formatLogBytes(bytes: number, language: 'en' | 'ru'): string {
   return formatByteSize(bytes, language, undefined, 'gigabytes');
 }
@@ -81,7 +84,8 @@ export function pickTurns(turns: ModelLogTurn[], choice: 'last' | 'today' | 'err
 }
 
 /**
- * Fixed sentences main answers with, mapped to translated ones. Anything else is shown as it came: it is a
+ * Fixed sentences main answers with (main/ipc/diagnosticsIpc.ts), mapped to translated ones. The strings must match
+ * main's word for word. Anything else is shown as it came: it is a
  * system message about a file or a folder and says more than a generic line would.
  */
 export function logErrorKey(error: string | undefined): string | null {

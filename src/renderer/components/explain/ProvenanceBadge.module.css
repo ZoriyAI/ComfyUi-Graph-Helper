@@ -1,3 +1,4 @@
+/* The provenance badge (ProvenanceBadge.tsx): one colour per source; assistant words take the inference colour. */
 .badge {
   --chat-badge-color: var(--text-dim);
   display: inline-flex;

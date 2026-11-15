@@ -1,3 +1,8 @@
+/**
+ * The model picker body of a model field: the person's files for that field, compared with the base model the node
+ * is fed from, with family, kind and size. FieldControl.tsx (ComboControl) renders it when the field has a model
+ * folder. The list and the fit marks come from main each time the picker opens.
+ */
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Check } from 'lucide-react';
@@ -13,6 +18,7 @@ import styles from './FieldControl.module.css';
 /** Folders of base models; the same set main uses to pick the reference (main/knowledge/fieldModels.ts). */
 const BASE_DIRECTORIES = new Set(['checkpoints', 'diffusion_models', 'unet']);
 
+/** The load state of the picker's files; `ready` carries main's answer. */
 export type FieldModelsState =
   | { state: 'idle' | 'loading' | 'error' }
   | { state: 'ready'; result: FieldModelsResult };

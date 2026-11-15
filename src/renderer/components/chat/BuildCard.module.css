@@ -1,3 +1,4 @@
+/* The build card of the chat (BuildCard.tsx): head with count and progress, the step timeline, why and errors. */
 .card {
   display: flex;
   flex-direction: column;

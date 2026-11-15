@@ -1,3 +1,4 @@
+/* The library rail tabs (NodeLibrary, ModelLibrary, SubgraphLibrary): search and filters, rows, chips, thumbnails. */
 .pane { display: flex; flex-direction: column; min-height: 0; min-width: 0; flex: 1 1 auto; gap: 8px; }
 .controls { display: flex; flex-direction: column; gap: 6px; padding: 0 10px; }
 /* Filter selects side by side: labels on one line, controls the same height, aligned on one baseline. */

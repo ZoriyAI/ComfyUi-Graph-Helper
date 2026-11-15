@@ -1,3 +1,12 @@
+/**
+ * "Run it in ComfyUI": the bridge from this app to ComfyUI after File ▸ Save workflow for ComfyUI.
+ *
+ * Who sees it: everyone after a save for ComfyUI (until they turn it off with the switch), and anyone from the save
+ * toast's "How to run it". Why: the app never runs a graph, and a newcomer does not know how a .json file gets into
+ * ComfyUI or where the picture appears. Three numbered steps say it, each with the one button that does its part:
+ * open ComfyUI at its saved address, show the file or copy the workflow (ComfyUI takes a pasted workflow), and where
+ * the result goes. An error from ComfyUI has its own way back: "Explain a ComfyUI error…".
+ */
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Copy, ExternalLink, FolderOpen, Stethoscope } from 'lucide-react';
@@ -10,21 +19,14 @@ import { useUiStore } from '../../state/uiState';
 import { exportedFileName } from '../../commands/actions';
 import styles from './Journey.module.css';
 
-/**
- * "Run it in ComfyUI": the bridge from this app to ComfyUI after File ▸ Save workflow for ComfyUI.
- *
- * Who sees it: everyone after a save for ComfyUI (until they turn it off with the switch), and anyone from the save
- * toast's "How to run it". Why: the app never runs a graph, and a newcomer does not know how a .json file gets into
- * ComfyUI or where the picture appears. Three numbered steps say it, each with the one button that does its part:
- * open ComfyUI at its saved address, show the file or copy the workflow (ComfyUI takes a pasted workflow), and where
- * the result goes. An error from ComfyUI has its own way back: "Explain a ComfyUI error…".
- */
+/** The card; JourneyHost.tsx mounts it, journeyState's dialog 'run' opens it. */
 export default function RunInComfyDialog() {
   const { t } = useTranslation();
   const open = useJourneyStore((state) => state.dialog === 'run');
   const close = useJourneyStore((state) => state.close);
   const [address, setAddress] = useState(false);
   const [always, setAlways] = useState(!readFlag(SEEN_KEYS.runCard));
+  // Each opening rereads the switch and asks main whether a ComfyUI address is saved (step 1 depends on it).
   useEffect(() => {
     if (!open) return;
     setAlways(!readFlag(SEEN_KEYS.runCard));

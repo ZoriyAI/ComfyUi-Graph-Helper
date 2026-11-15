@@ -1,3 +1,7 @@
+/**
+ * The placement of the library's flyout cards: just right of the library rail, over the canvas edge. ModelCard.tsx
+ * and NodeCard.tsx use it, so both cards open in the same place and never cover the row they belong to.
+ */
 import { useLayoutEffect, useState } from 'react';
 
 /** The width of a card that opens beside the library rail. */
@@ -18,6 +22,7 @@ export function useFlyoutBox(): { left: number; top: number; maxHeight: number }
       setBox({
         left: Math.min(rect.right + 8, Math.max(8, window.innerWidth - CARD_WIDTH - 8)),
         top,
+        // At least 240 px tall even in a very low window; the card scrolls inside.
         maxHeight: Math.max(240, rect.bottom - top - 8),
       });
     };

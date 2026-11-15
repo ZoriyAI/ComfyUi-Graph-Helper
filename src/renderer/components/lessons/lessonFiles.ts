@@ -17,8 +17,10 @@ import { LESSON_LIMITS, lessonFileName, lessonFileOf, type LessonFileProblem } f
 import { MY_LESSONS_MAX, type FailedTry, type LessonExportOutcome, type LessonImportOutcome } from '../../../shared/lessons/share/mine';
 import { myLesson, useMyLessonsStore } from '../../state/myLessonsState';
 
+/** The i18next `t`, or a plain function of the same shape (tests and the editor pass one). */
 type Translate = TFunction | ((key: string, options?: Record<string, unknown>) => string);
 
+/** Calls either shape of Translate and always returns a string. */
 const say = (t: Translate, key: string, values?: Record<string, unknown>) => String(values ? (t as (k: string, v: Record<string, unknown>) => string)(key, values) : (t as (k: string) => string)(key));
 
 /** Why a file does not read as a lesson file, in one sentence. */
@@ -127,6 +129,7 @@ export async function importDroppedFiles(files: readonly File[]): Promise<void> 
   }
 }
 
+/** Says how an export went, in a toast; a cancelled save dialog says nothing. */
 function reportExport(outcome: LessonExportOutcome): void {
   const t = i18n.t.bind(i18n) as Translate;
   if (outcome.ok) {

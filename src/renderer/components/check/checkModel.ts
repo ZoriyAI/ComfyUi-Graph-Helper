@@ -1,9 +1,12 @@
+/**
+ * Pure helpers that turn a graph check report into rows: findings per type, names in place of ids, prompt advice
+ * and the finding count. Used by CheckPanel.tsx, graph/lib/checkMarks.ts (marks on the canvas),
+ * shell/CommandDialogs.tsx, commands/exportGuard.ts (the check before export) and state/knowledgeState.ts.
+ */
 import type { GraphCheckReport, ObjectRef, PromptNote } from '../../../shared/contracts';
 import { nodeDisplayName } from '../graph/lib/nodeName';
 
-/** Pure helpers for the Check panel: one row per finding, grouped by finding type in report order. */
-
-/** What stops a graph from running as it is. */
+/** The kinds of problem a check reports (CheckPanel colours the ones that stop a run as errors). */
 export type CheckProblemType =
   | 'missingNodes'
   | 'missingModels'
@@ -23,6 +26,7 @@ export type CheckProblemType =
 /** A problem, or advice about a description (a prompt): shown apart from the problems and never counted as one. */
 export type CheckFindingType = CheckProblemType | 'promptNotes';
 
+/** Every problem type, in the order the Check panel lists its groups. */
 export const CHECK_FINDING_TYPES: readonly CheckProblemType[] = [
   'missingNodes',
   'missingModels',
@@ -39,6 +43,7 @@ export const CHECK_FINDING_TYPES: readonly CheckProblemType[] = [
   'valuesNotInList',
 ];
 
+/** One row of the Check panel. */
 export interface CheckFinding {
   key: string;
   type: CheckFindingType;
@@ -49,6 +54,7 @@ export interface CheckFinding {
   ref: ObjectRef;
 }
 
+/** The findings of one problem type, under one title. */
 export interface CheckGroup {
   type: CheckProblemType;
   /** i18n key of the group title, `check.<type>`. */
@@ -65,6 +71,7 @@ export type NodeNamer = (nodeId: string, subgraphId?: string) => string | undefi
 /** The parts of the graph store a namer needs. */
 interface NamedNode { id: string; data: { title?: string; comfyType?: string } }
 
+/** A NodeNamer over the canvas nodes and, for a finding inside a subgraph, that definition's nodes. */
 export function nodeNamer(nodes: ReadonlyArray<NamedNode>, definitions: ReadonlyArray<{ id: string; nodes: Array<Record<string, any>> }> = []): NodeNamer {
   return (nodeId, subgraphId) => {
     const level = subgraphId ? definitions.find((item) => item.id === subgraphId)?.nodes ?? [] : nodes;
@@ -92,6 +99,10 @@ export function findingNodeIds(values: Record<string, string>): string[] {
   return [...new Set([values.nodeId, values.otherNodeId, values.sourceId, values.targetId].filter((id): id is string => Boolean(id)))];
 }
 
+/**
+ * Every problem of a report as findings. A report mixes the top level and subgraph insides; each scope is handled
+ * on its own so ports and names resolve on the right level, and a subgraph finding's key and ref carry its id.
+ */
 export function findingsOf(report: GraphCheckReport, resolvePort?: PortResolver, nameOf?: NodeNamer): CheckFinding[] {
   const scopes = new Set<string | undefined>([undefined]);
   for (const value of Object.values(report)) if (Array.isArray(value)) for (const item of value) {
@@ -100,12 +111,14 @@ export function findingsOf(report: GraphCheckReport, resolvePort?: PortResolver,
   return [...scopes].flatMap((scope) => {
     const local = Object.fromEntries(Object.entries(report).map(([key, value]) => [key,
       Array.isArray(value) ? value.filter((item) => (item && typeof item === 'object' ? item.subgraphId : undefined) === scope)
+        // The output node is a property of the whole graph, so only the top level reports it.
         : key === 'noOutputNode' && scope ? null : value,
     ])) as unknown as GraphCheckReport;
     return localFindings(local, (id, input) => resolvePort?.(id, input, scope), (id) => nameOf?.(id, scope)).map((finding) => scope
       ? { ...finding, key: `${scope}:${finding.key}`, ref: { ...finding.ref, subgraphId: scope } } : finding);
   });
 }
+/** The findings of one level of the graph (the report already filtered to that scope). */
 function localFindings(report: GraphCheckReport, resolvePort?: PortResolver, nameOf?: NodeNamer): CheckFinding[] {
   const out: CheckFinding[] = [];
   const add = (type: CheckProblemType, key: string, values: Record<string, string>, ref: ObjectRef, textKey?: string) => {
@@ -181,6 +194,7 @@ function localFindings(report: GraphCheckReport, resolvePort?: PortResolver, nam
   return out;
 }
 
+/** Findings grouped by type in CHECK_FINDING_TYPES order; empty groups are left out. */
 export function groupCheckReport(report: GraphCheckReport, resolvePort?: PortResolver, nameOf?: NodeNamer): CheckGroup[] {
   const findings = findingsOf(report, resolvePort, nameOf);
   return CHECK_FINDING_TYPES.flatMap((type) => {
@@ -228,7 +242,7 @@ export function adviceOf(report: GraphCheckReport, nameOf?: NodeNamer): CheckFin
   });
 }
 
-/** Number of findings; the AppBar shows it as the check badge. */
+/** Number of problems (prompt advice not included); the toolbar's check badge and the Check panel show it. */
 export function checkFindingCount(report: GraphCheckReport | null | undefined): number {
   if (!report) return 0;
   return report.missingNodes.length

@@ -23,6 +23,7 @@ import { catalogShapes } from '../../../shared/lessons/share/tryLesson';
 import type { NodeClassDetail } from '../../../shared/contracts/knowledge';
 import { lessonGraphOf } from './lessonModel';
 
+/** Catalog details by class; null for a class the catalog does not have. */
 type Details = Record<string, NodeClassDetail | null>;
 
 /** What the editor needs of a class: the library's name and the kind of each field. */
@@ -34,6 +35,7 @@ export function classInfoOf(detail: NodeClassDetail | null | undefined): ClassIn
   };
 }
 
+/** The language a new lesson draft is written in: the app's language, English for anything but Russian. */
 function language(): 'en' | 'ru' {
   return i18n.language === 'ru' ? 'ru' : 'en';
 }

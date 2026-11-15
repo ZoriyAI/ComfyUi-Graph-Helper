@@ -1,3 +1,7 @@
+/**
+ * The Subgraphs tab of the library rail: the project's subgraph definitions, searchable, each insertable as an
+ * instance at the centre of the view. shell/Rail.tsx mounts it.
+ */
 import React, { useMemo, useState } from 'react';
 import { Layers } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -19,6 +23,7 @@ import styles from './Library.module.css';
 /** The graph store carries `subgraphs`; read it defensively (an empty graph may not have it yet). */
 const NONE: SubgraphDefinition[] = [];
 
+/** The store's subgraph list, or the shared empty list. */
 function readSubgraphs(state: object): SubgraphDefinition[] {
   const value = (state as { subgraphs?: SubgraphDefinition[] }).subgraphs;
   return Array.isArray(value) ? value : NONE;
