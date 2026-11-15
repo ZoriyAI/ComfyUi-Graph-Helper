@@ -261,6 +261,12 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
   const pressed = await importButton.evaluate((element) => getComputedStyle(element).transform);
   await window.mouse.up();
   console.log(`PRESS_BUTTON transform=${pressed} motion=${pressPolicy.motion} reduce=${pressPolicy.reduce}`);
+  // Releasing the pressed Import button opens the unsaved-workflow guard; cancel before measuring the canvas.
+  const replace = window.getByRole('dialog', { name: 'Open a workflow?', exact: true });
+  await expect(replace).toBeVisible();
+  await replace.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect(replace).toHaveCount(0);
+  await expect(window.locator('.react-flow__node')).toHaveCount(12);
   await window.setViewportSize({ width: 1440, height: 900 });
   await window.locator('.react-flow__controls-fitview').click();
   const zoom1440 = await expectSettledGraph(window);

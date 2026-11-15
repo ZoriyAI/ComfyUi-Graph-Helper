@@ -119,15 +119,15 @@ test('node card: says what a node is for before it is on the canvas', async () =
     await expectSoundLayout(window, 'node card of a node from a pack', HERE);
 
     // A node nobody described says so, and still shows its ports.
-    await search.fill('Get Image Size');
-    await row('GetImageSizeAndCount').click();
-    const bare = window.getByRole('dialog', { name: 'Get Image Size & Count' });
+    await search.fill('Seed (rgthree)');
+    await row('Seed (rgthree)').click();
+    const bare = window.getByRole('dialog', { name: 'Seed (rgthree)', exact: true });
     await expect(bare).toContainText('Neither ComfyUI nor the pack says what this node does.');
-    await expect(bare.locator('li').filter({ hasText: /^count/ })).toBeVisible();
+    await expect(bare.locator('li').filter({ hasText: /^SEED/ })).toBeVisible();
 
     // The card's button puts the node on the canvas; Escape closes the card.
     await bare.getByRole('button', { name: 'Add to canvas' }).click();
-    await expect(window.locator('.react-flow__node').filter({ hasText: 'Get Image Size & Count' })).toHaveCount(1);
+    await expect(window.locator('.react-flow__node').filter({ hasText: 'Seed (rgthree)' })).toHaveCount(1);
     await bare.press('Escape');
     await expect(bare).toHaveCount(0);
 
