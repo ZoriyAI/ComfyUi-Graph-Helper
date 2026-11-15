@@ -785,8 +785,9 @@ test('nothing sticks out, is cut or overlaps on any screen at any window size', 
       await page.getByRole('button', { name: T('menu.newProjectConfirm'), exact: true }).click();
       await expect(nodes).toHaveCount(0, { timeout: 15_000 });
       await reloaded(page);
-      // Learn mode stays on (it is remembered) and puts the lessons where the message field was: back to Ask.
-      await dockTab(page, 0);
+      // A lesson left open comes back in Learn mode at every reload (lessonState hydrate), and Learn mode puts the
+      // lessons where the message field was: the walk leaves the lesson for the list, then goes back to Ask.
+      await toList();
       await page.locator('[data-intent="ask"]').click();
       await expect(composer).toBeVisible();
     }
