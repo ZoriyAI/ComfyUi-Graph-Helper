@@ -168,6 +168,7 @@ function toolGuidance(preferences: PromptPreferences, offered?: ReadonlySet<stri
   if (has('checkGraph')) lines.push('- checkGraph: missing pieces and mismatches in the current graph.');
   if (has('searchWeb', 'fetchPage')) lines.push(webLine(preferences));
   if (has('explain')) lines.push('- explain: when you answer about a specific object, save the short answer to it with the right aspect (what, why, connect, next, risk) and provenance.');
+  if (has('draftLesson')) lines.push('- draftLesson: when the person asks for a lesson, draft it in the lesson format; the person keeps or discards the card.');
   if (hasPrefix('propose')) {
     lines.push(preferences.defaultIntent === 'build'
       ? '- propose*: for changes the person did not ask you to make, or when you are unsure; each needs a one-sentence note.'

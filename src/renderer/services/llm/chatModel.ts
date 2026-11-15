@@ -115,7 +115,7 @@ function capped(value: unknown, cap: number): unknown {
   if (text === undefined || text.length <= cap) return value;
   if (isRecord(value)) {
     const keep: Record<string, unknown> = {};
-    for (const key of ['success', 'message', 'error', 'proposalId', 'explanationId', 'provenance', 'owner', 'kind', 'note', 'nodeId', 'edgeId', 'definitionId']) {
+    for (const key of ['success', 'message', 'error', 'proposalId', 'explanationId', 'provenance', 'owner', 'kind', 'note', 'nodeId', 'edgeId', 'definitionId', 'lessonDraftId']) {
       if (value[key] !== undefined) keep[key] = value[key];
     }
     keep.truncated = true;

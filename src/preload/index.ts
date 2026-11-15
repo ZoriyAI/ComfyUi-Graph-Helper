@@ -3,6 +3,8 @@ import type { ChatRuntimeConfig, NonSecretSettings, SettingsRead } from '../shar
 import type { Preferences } from '../shared/config/preferences';
 import type { AboutInfo, HelpPage, HelpSearchHit, HelpTree, IssueDraft, ProjectLinkKind, ThirdPartyComponent } from '../shared/contracts/about';
 import type { UpdateLink, UpdateStatus } from '../shared/contracts/updates';
+import type { LessonDraft, LessonDraftResolution, LessonExportOutcome, LessonImportOutcome, MyLesson } from '../shared/lessons/share/mine';
+import type { LessonDoc, LessonFile } from '../shared/lessons/share/format';
 import type {
   AgentTurnContext,
   ChatRecord,
@@ -153,6 +155,15 @@ const IPC_CHANNELS = {
   APP_GRAPH_DRAWN: 'app:graph-drawn',
   PRIVACY_PREVIEW_CACHE: 'privacy:preview-cache',
   PRIVACY_CLEAR_PREVIEWS: 'privacy:clear-previews',
+  LESSONS_LIST: 'lessons:list',
+  LESSONS_IMPORT_DIALOG: 'lessons:import-dialog',
+  LESSONS_IMPORT_TEXT: 'lessons:import-text',
+  LESSONS_EXPORT: 'lessons:export',
+  LESSONS_SAVE: 'lessons:save',
+  LESSONS_REMOVE: 'lessons:remove',
+  LESSONS_MARK_ADULT: 'lessons:mark-adult',
+  LESSONS_DRAFT_GET: 'lessons:draft-get',
+  LESSONS_DRAFT_RESOLVE: 'lessons:draft-resolve',
 } as const;
 
 /** The app version main passes as `--app-version=…` (a sandboxed preload cannot read package.json). */
@@ -368,6 +379,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // The update notice: off unless Settings ▸ Privacy turns it on; main asks the releases page at most once a day.
   updateStatus: () => ipcRenderer.invoke(IPC_CHANNELS.UPDATES_STATUS) as Promise<UpdateStatus>,
   dismissUpdate: (version: string) => ipcRenderer.invoke(IPC_CHANNELS.UPDATES_DISMISS, version) as Promise<{ ok: true }>,
+  // Lessons as files (main/lessons/lessonsIpc.ts): every lesson is checked again in main before it is kept or written.
+  listMyLessons: () => ipcRenderer.invoke(IPC_CHANNELS.LESSONS_LIST) as Promise<MyLesson[]>,
+  importLessonsDialog: () => ipcRenderer.invoke(IPC_CHANNELS.LESSONS_IMPORT_DIALOG) as Promise<LessonImportOutcome>,
+  importLessonsText: (name: string, text: string) => ipcRenderer.invoke(IPC_CHANNELS.LESSONS_IMPORT_TEXT, name, text) as Promise<LessonImportOutcome>,
+  exportLessons: (file: LessonFile, suggestedName: string) => ipcRenderer.invoke(IPC_CHANNELS.LESSONS_EXPORT, file, suggestedName) as Promise<LessonExportOutcome>,
+  saveMyLesson: (doc: LessonDoc) => ipcRenderer.invoke(IPC_CHANNELS.LESSONS_SAVE, doc) as Promise<LessonImportOutcome>,
+  removeMyLesson: (id: string) => ipcRenderer.invoke(IPC_CHANNELS.LESSONS_REMOVE, id) as Promise<boolean>,
+  markMyLessonAdult: (id: string, adult: boolean) => ipcRenderer.invoke(IPC_CHANNELS.LESSONS_MARK_ADULT, id, adult) as Promise<boolean>,
+  lessonDraft: (draftId: string) => ipcRenderer.invoke(IPC_CHANNELS.LESSONS_DRAFT_GET, draftId) as Promise<LessonDraft | null>,
+  resolveLessonDraft: (draftId: string, accept: boolean) => ipcRenderer.invoke(IPC_CHANNELS.LESSONS_DRAFT_RESOLVE, draftId, accept) as Promise<LessonDraftResolution>,
   openUpdateLink: (link: UpdateLink) => ipcRenderer.invoke(IPC_CHANNELS.UPDATES_OPEN, link) as Promise<{ ok: boolean }>,
   // The model conversation log: what was sent to a model and what came back. Files stay in main; the renderer
   // gets summaries, a short text report, and asks main to save a file through a system dialog.
@@ -596,6 +617,20 @@ export interface ElectronAPI {
   /** The update notice: { state: 'off' } unless Settings ▸ Privacy turns the check on. */
   updateStatus: () => Promise<UpdateStatus>;
   dismissUpdate: (version: string) => Promise<{ ok: true }>;
+  /** "My lessons" in the profile, newest first. */
+  listMyLessons: () => Promise<MyLesson[]>;
+  /** File ▸ Import lessons…: the open dialog, then the file is checked and kept. */
+  importLessonsText: (name: string, text: string) => Promise<LessonImportOutcome>;
+  importLessonsDialog: () => Promise<LessonImportOutcome>;
+  /** Writes a lesson file where the person chooses in the save dialog. */
+  exportLessons: (file: LessonFile, suggestedName: string) => Promise<LessonExportOutcome>;
+  /** Keeps a lesson made in the editor (origin "made"). */
+  saveMyLesson: (doc: LessonDoc) => Promise<LessonImportOutcome>;
+  removeMyLesson: (id: string) => Promise<boolean>;
+  markMyLessonAdult: (id: string, adult: boolean) => Promise<boolean>;
+  /** An assistant's lesson draft waiting for the person; null when it is gone (after a restart). */
+  lessonDraft: (draftId: string) => Promise<LessonDraft | null>;
+  resolveLessonDraft: (draftId: string, accept: boolean) => Promise<LessonDraftResolution>;
   /** Opens the release page or the download in the browser; only addresses main found itself. */
   openUpdateLink: (link: UpdateLink) => Promise<{ ok: boolean }>;
   traceList: () => Promise<ModelLogList>;

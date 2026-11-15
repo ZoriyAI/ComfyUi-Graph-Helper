@@ -22,6 +22,7 @@ import { registerUpdateIpc } from './updates/updateIpc';
 import { registerStartIpc, watchReplacingCommit } from './ipc/startIpc';
 import { clearPreviewsForNewAddress, registerPrivacyIpc } from './ipc/privacyIpc';
 import { confirmingOpener } from './signInSite';
+import { registerLessonsIpc } from './lessons/lessonsIpc';
 import { mcpOriginOf, mcpToken, mcpTokenFor, mcpTokenOrigin, mcpTokenStatus, releaseMcpTokenIfOriginChanged, setMcpToken } from './mcp/token';
 import { readTokenFile, removeTokenFile, tokenFileHolds, writeTokenFile } from './mcp/tokenFile';
 import { isPasswordStoreChoice, readPasswordStoreOverride, writePasswordStoreOverride } from './settings/passwordStoreOverride';
@@ -224,6 +225,7 @@ export async function setupIPC(): Promise<void> {
   registerUpdateIpc(ipcMain);
   registerStartIpc(ipcMain);
   registerPrivacyIpc(ipcMain);
+  registerLessonsIpc(ipcMain, { language: () => languageOf(readSettings(getDatabase())) });
   // File operations
   ipcMain.handle(IPC_CHANNELS.FILE_IMPORT_WORKFLOW, async () => {
     const copy = dialogCopy().importWorkflow;

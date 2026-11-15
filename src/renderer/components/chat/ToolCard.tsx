@@ -10,6 +10,8 @@ import { asObjectRef, isRecord } from '../../services/llm/chatModel';
 import ProvenanceBadge, { isProvenance } from '../explain/ProvenanceBadge';
 import { objectLabel } from './objectLabel';
 import ProposalCard from './ProposalCard';
+// LESSON FILES: the card of a lesson the assistant drafted.
+import LessonDraftCard from '../lessons/LessonDraftCard';
 import Button from '../../ui/Button';
 import { compactArgs, toolLabelKey } from './toolPresentation';
 import { stepError, type Translate } from './buildSteps';
@@ -112,6 +114,7 @@ export default function ToolCard({ call }: { call: ToolCall }) {
         </div>
       )}
       {isExplain ? <ExplainBody call={call} /> : null}
+      {call.toolName === 'draftLesson' && call.status === 'success' && isRecord(call.result) && typeof call.result.lessonDraftId === 'string' ? <LessonDraftCard draftId={call.result.lessonDraftId} /> : null}
       {error ? (
         <p className={`tool-diagnostic ${styles.error}`}>
           {error.summary}

@@ -12,6 +12,8 @@ import * as http from 'http';
  * - "propose nodes": three proposeNode calls (KSampler, VAEDecode, SaveImage at fixed spots), then a sentence;
  * - "build slowly": eight build steps (six addNode, two connectNodes), one per request, 1.2 s apart;
  * - "build and fail": the same, with the third step naming a node that does not exist;
+ * - "draft a lesson": a draftLesson call whose lesson lacks the words of a step, then (after the refusal) the
+ *   corrected lesson, then a sentence: the assistant's lesson draft and its repair in one turn;
  * - anything else: one short sentence.
  */
 export const FAKE_MODEL = 'fixture-model:7b';
@@ -27,6 +29,27 @@ const MARKDOWN = [
   '- first item', '- second item with `code`', '', '| Field | Value |', '|---|---|', '| steps | 20 |', '',
   '```json', '{ "steps": 20 }', '```', '', 'More: [ComfyUI docs](https://docs.comfy.org/).',
 ].join('\n');
+
+/** The lesson the fake model drafts: a loader that feeds a sampler (the names of ComfyUI's own nodes). */
+const DRAFT_LESSON = () => ({
+  id: 'loader-and-sampler',
+  texts: {
+    en: {
+      title: 'A loader and a sampler',
+      result: 'A checkpoint that feeds a sampler.',
+      steps: {
+        intro: { title: 'What we build', body: 'Two nodes: the model and the sampler that uses it.' },
+        loader: { title: 'Add the loader', body: 'Add {checkpoint} and choose a model file in `ckpt_name`.' },
+        sampler: { title: 'Add the sampler', body: 'Add {sampler}, connect `MODEL` to `model` and set `steps` to 20.' },
+      },
+    },
+  },
+  steps: [
+    { id: 'intro', read: true },
+    { id: 'loader', roles: [{ role: 'checkpoint', classes: ['CheckpointLoaderSimple'] }], fields: [{ role: 'checkpoint', field: 'ckpt_name', test: { kind: 'chosen' } }] },
+    { id: 'sampler', roles: [{ role: 'sampler', classes: ['KSampler'] }], links: [{ from: 'checkpoint', output: 'MODEL', to: 'sampler', input: 'model' }], fields: [{ role: 'sampler', field: 'steps', test: { kind: 'between', min: 10, max: 40, prefer: 20 } }] },
+  ],
+});
 
 function lastUser(messages: Array<{ role: string; content: unknown }>): string {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
@@ -97,6 +120,15 @@ export async function startFakeLlm(initialWindow = 32768): Promise<FakeLlm> {
         if (failed || results.length >= plan.length) return say(failed ? `Step ${results.length} failed. I stop.` : 'Done: eight steps.');
         const step = plan[results.length];
         return toolCall([{ name: step.name, args: step.args() }]);
+      }
+      if (/draft a lesson/.test(text)) {
+        const last = results[results.length - 1];
+        if (last?.success === true) return say('I drafted the lesson. Keep it or discard it.');
+        if (results.length >= 3) return say('I could not draft the lesson.');
+        const lesson = DRAFT_LESSON();
+        // The first try forgets the words of the last step: the app's refusal names it, and the second try has them.
+        if (results.length === 0) delete (lesson.texts.en.steps as Record<string, unknown>).sampler;
+        return toolCall([{ name: 'draftLesson', args: { lesson } }]);
       }
       if (/propose nodes/.test(text) && results.length === 0) {
         return toolCall([

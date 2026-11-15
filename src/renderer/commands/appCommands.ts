@@ -38,6 +38,7 @@ import { RAIL_WIDTH } from '../state/uiState';
 import { savePreferencesPatch, usePreferencesStore } from '../state/preferencesState';
 import { INTERFACE_SCALE, nextInterfaceScale } from '../../shared/config/preferences';
 import { buildDiagnosticsCommands } from './diagnosticsCommands';
+import { buildLessonFileCommands } from './lessonCommands';
 import { Pin } from 'lucide-react';
 import { copySelection, cutSelection, duplicateSelection, hasClipboard, hasSelection, pasteClipboard, subscribeClipboard } from '../components/graph/lib/clipboard';
 import { installProjectFileWatch } from '../services/projectFile';
@@ -367,6 +368,7 @@ export function installAppCommands(): () => void {
     registerCommands(buildAppCommands()),
     registerCommands(buildDiagnosticsCommands()),
     registerCommands(buildEditingCommands()),
+    registerCommands(buildLessonFileCommands()),
   ];
   installed = () => {
     for (const off of offs) off();
