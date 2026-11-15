@@ -5,12 +5,17 @@
  *
  * Prices are US dollars per million tokens (standard tier, short prompts), read from the providers' own pricing
  * pages on ADVICE_DATE. A price is an estimate for the person: the provider's bill is the truth.
+ * Shown in Settings ▸ Assistant (AssistantSection.tsx, ProviderAdvice.tsx); main uses the prices for the cost of a
+ * turn (main/llmService.ts), and the chat names LOCAL_ADVICE models when a local model cannot call tools.
  */
 
+/** The day the advice and prices below were last checked against the providers' pages. */
 export const ADVICE_DATE = '2026-11-14';
 
+/** The cloud providers the advice covers. */
 export type AdviceProvider = 'openai' | 'anthropic' | 'google';
 
+/** What Settings tells a person about one cloud provider. */
 export interface ProviderAdvice {
   /** A model that answers well enough for little money. */
   cheap: string;
@@ -24,6 +29,7 @@ export interface ProviderAdvice {
   searchPer1000: number;
 }
 
+/** The advice for each cloud provider. */
 export const CLOUD_ADVICE: Record<AdviceProvider, ProviderAdvice> = {
   openai: {
     cheap: 'gpt-6-luna',
@@ -108,6 +114,7 @@ export const PRICES: ReadonlyArray<{ provider: AdviceProvider; prefix: string; i
   { provider: 'google', prefix: 'gemini-3.1-pro', input: 2, output: 12 },
 ];
 
+/** PRICES with the longest prefix first, so 'gpt-5-mini' finds its own row before 'gpt-5'. */
 const SORTED = [...PRICES].sort((a, b) => b.prefix.length - a.prefix.length);
 
 /** The price of a model id, or null when it is not in the table (a compatible service, a local model). */

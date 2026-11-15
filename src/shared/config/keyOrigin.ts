@@ -2,6 +2,8 @@
  * A cloud key belongs to the address it was pasted for. The official address of its provider unless the person
  * pasted it while their own https address was set; it is then sent there and nowhere else, and any other address
  * (a typo, a pasted "proxy") gets no key at all: the person pastes a key for that address.
+ * Main applies it when it stores and sends a key (main/settings/repository.ts, keyFile.ts, main/llmService.ts,
+ * main/ipc.ts); Settings ▸ Assistant shows which address a key belongs to (KeyPanel.tsx).
  */
 
 /**
@@ -18,6 +20,7 @@ export type CloudProviderId = typeof CLOUD_PROVIDER_IDS[number];
 /** The three with an official address. */
 export type OfficialProvider = 'openai' | 'anthropic' | 'google';
 
+/** Type guard for a provider name that came over IPC or from storage. */
 export function isKeyProvider(value: unknown): value is KeyProvider {
   return typeof value === 'string' && (KEY_PROVIDERS as readonly string[]).includes(value);
 }
@@ -29,6 +32,7 @@ export const OFFICIAL_BASE: Record<OfficialProvider, string> = {
   google: 'https://generativelanguage.googleapis.com/v1beta',
 };
 
+/** True for the providers with an official address (OFFICIAL_BASE). */
 export function hasOfficialBase(provider: KeyProvider): provider is OfficialProvider {
   return provider === 'openai' || provider === 'anthropic' || provider === 'google';
 }
@@ -69,6 +73,7 @@ export function encodeKeyRecord(provider: KeyProvider, key: string, origin: stri
   return origin === officialOrigin(provider) ? key : JSON.stringify({ v: 2, key, origin });
 }
 
+/** The key and its address from a stored record, or null when the record is empty or its address is not allowed. */
 export function decodeKeyRecord(provider: KeyProvider, plain: string): { key: string; origin: string } | null {
   if (plain.startsWith('{')) {
     try {

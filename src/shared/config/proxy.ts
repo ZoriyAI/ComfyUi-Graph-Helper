@@ -2,6 +2,7 @@
  * The proxy the app's internet requests go through (cloud models, the web search). Empty means the system's own
  * proxy settings, which is what most people need; a typed address is for a network whose proxy the system does not
  * announce. Requests to the person's own computer and home network never go through a proxy.
+ * main/net/proxy.ts applies it to the app's session; preferences.ts and Settings ▸ Assistant check a typed address.
  */
 
 /** The longest proxy address kept. */
@@ -50,6 +51,7 @@ export function isPrivateHost(hostname: string): boolean {
   return /^f[cd][0-9a-f]{2}:/.test(host) || /^fe80:/.test(host);
 }
 
-/** The bypass list given with a typed proxy: the same private hosts. */
+/** The private IPv4 ranges as [first part, second part, prefix length]. */
 const PRIVATE_RANGES: ReadonlyArray<[number, number, number]> = [[127, 0, 8], [10, 0, 8], [172, 16, 12], [192, 168, 16], [169, 254, 16]];
+/** The bypass list given with a typed proxy, in Chromium's format: this computer and the private ranges. */
 export const PROXY_BYPASS = ['<local>', 'localhost', '::1', '*.local', ...PRIVATE_RANGES.map(([a, b, bits]) => `${a}.${b}.0.0/${bits}`)].join(';');

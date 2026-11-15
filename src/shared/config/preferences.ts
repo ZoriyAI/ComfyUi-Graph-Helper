@@ -1,14 +1,17 @@
+/**
+ * Application preferences: one validated model stored as JSON on the settings row (`preferences_json`, v10).
+ * Every field has a default, so an older or partial row reads as a whole object. Secrets are never part of it:
+ * keys and tokens live in memory or OS storage, and a secret-shaped value anywhere here blocks the save.
+ * Main stores and reads it (main/settings/repository.ts) and the agent and sync obey it; the renderer edits it in
+ * Settings (renderer/components/settings) and keeps it in renderer/state/preferencesState.ts.
+ */
+
 import { z } from 'zod';
 import { PROXY_MAX, proxyAddressValid } from './proxy';
 import { LOCAL_ADVICE, suggestedModels } from './modelAdvice';
 import { carriesSecret } from './draft';
 
-/**
- * Application preferences: one validated model stored as JSON on the settings row (`preferences_json`, v10).
- * Every field has a default, so an older or partial row reads as a whole object. Secrets are never part of it:
- * keys and tokens live in memory or OS storage, and a secret-shaped value anywhere here blocks the save.
- */
-
+/** An http(s) address without a user name or password in it, or empty. */
 function httpOriginOrEmpty(value: string): boolean {
   if (value === '') return true;
   try {
@@ -19,12 +22,13 @@ function httpOriginOrEmpty(value: string): boolean {
   }
 }
 
+/** Providers that keep their own model and address in preferences.providers. */
 export const PREFERENCE_PROVIDERS = ['openai', 'anthropic', 'google', 'compatible', 'local'] as const;
 export type PreferenceProvider = typeof PREFERENCE_PROVIDERS[number];
 
 /**
  * Model steps per turn before the helper pauses at a checkpoint (each tool round trip is one step). Reaching it
- * never ends the work: the chat shows "paused — Continue / Stop" and Continue resumes the same run.
+ * never ends the work: the chat shows a pause with Continue and Stop, and Continue resumes the same run.
  */
 export const STEP_LIMIT = { min: 4, max: 200, default: 60 } as const;
 /** Interface size in percent (Settings ▸ Appearance, View menu): the steps offered and the limits. */
@@ -54,7 +58,9 @@ export const MCP_CALL_TIMEOUT_MS = 60_000;
  * machine; a server that is not there fails at once (connection refused), not after this.
  */
 export const MCP_CONNECT_TIMEOUT_MS = 30_000;
+/** Milliseconds between two steps of a live build on the canvas, so a person can follow it. */
 export const BUILD_PACE = { min: 300, max: 2000, default: 820, step: 20 } as const;
+/** Canvas grid in pixels. */
 export const GRID_SIZE = { min: 8, max: 48, default: 18, step: 2 } as const;
 
 /**
@@ -81,14 +87,17 @@ export function descriptionsPatch(mode: DescriptionsMode): { descriptions: Descr
 
 /** 'Mod+Shift+K', 'F1', 'Shift+1', 'Delete', or '' for "no shortcut". */
 const CHORD = /^((Mod|Ctrl|Shift|Alt)\+)*([A-Z0-9]|F([1-9]|1[0-2])|[=\-/,.;']|\+|Delete|Backspace|Enter|Escape|Tab|Space|Home|End|PageUp|PageDown|Insert|ArrowUp|ArrowDown|ArrowLeft|ArrowRight|`|\[|\]|\\)$/;
+/** Command ids of the shortcut map: 'file.save', 'file.import'. */
 const COMMAND_ID = /^[a-z][A-Za-z0-9]*(\.[A-Za-z0-9]+)*$/;
 /** Ids of lessons and of their steps: 'video-text', 'first-pass'. */
 const LESSON_ID = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
 
+/** True for a shortcut the Settings recorder can produce, or '' (no shortcut). */
 export function isChord(value: string): boolean {
   return value === '' || CHORD.test(value);
 }
 
+/** One provider's remembered model and address. */
 const providerEntry = z.object({
   model: z.string().trim().max(200).default(''),
   baseURL: z.string().trim().max(500).refine(httpOriginOrEmpty).default(''),
@@ -96,6 +105,7 @@ const providerEntry = z.object({
 
 const int = (range: { min: number; max: number; default: number }) => z.number().int().min(range.min).max(range.max).default(range.default);
 
+/** The whole preferences object, section by section. `strict`: an unknown section is refused on write. */
 export const preferencesSchema = z.object({
   assistant: z.object({
     /** ask: suggestions appear as ghosts first; build: the helper builds directly unless asked to suggest. */
@@ -136,7 +146,7 @@ export const preferencesSchema = z.object({
     /** own / all / off; absent on older rows, where descriptionsModeOf derives it from showDescriptions. */
     descriptions: z.enum(DESCRIPTION_MODES).optional(),
     showMinimap: z.boolean().default(true),
-    // On by default: a build the person cannot see happens off screen (polish wave F2). Stored choices are kept.
+    // On by default: otherwise a build happens off screen, where the person cannot see it. Stored choices are kept.
     followAgent: z.boolean().default(true),
     buildPaceMs: int(BUILD_PACE),
     tourAutoplay: z.boolean().default(true),
@@ -161,7 +171,7 @@ export const preferencesSchema = z.object({
      */
     modelLog: z.boolean().default(true),
     /**
-     * The switch «Содержимое для взрослых (18+)» / "Adult content (18+)" (adultContentOn). On: the previews and
+     * The switch "Adult content (18+)" (catalog key preferences.adultContent; read with adultContentOn). On: the previews and
      * example descriptions an author marked as adult content are shown, and the lessons for adults are open. Off,
      * the default: they are closed but not hidden, and a card still shows them for one file when asked. The key
      * keeps its first name (it once meant the previews alone), so a profile that had it on keeps the switch on.
@@ -214,6 +224,7 @@ export function adultContentOn(preferences: Pick<Preferences, 'privacy'> | null 
   return preferences?.privacy?.showMarkedPreviews === true;
 }
 export type PreferenceSection = keyof Preferences;
+/** A partial change to preferences, as Settings and the window send it. */
 export type PreferencesPatch = {
   [K in PreferenceSection]?: K extends 'shortcuts'
     ? Record<string, string>
@@ -222,8 +233,10 @@ export type PreferencesPatch = {
       : Partial<Preferences[K]>;
 };
 
+/** Every preference at its default: what a fresh profile reads. */
 export const preferencesDefaults: Preferences = preferencesSchema.parse({});
 
+/** The top-level sections, read one by one when a stored object does not parse whole. */
 const SECTIONS = Object.keys(preferencesDefaults) as PreferenceSection[];
 /** Fields without a default, so they are absent from preferencesDefaults but still kept when they parse. */
 const OPTIONAL_FIELDS: Partial<Record<PreferenceSection, string[]>> = { canvas: ['descriptions'], view: ['railOpen', 'dockTab', 'dockWidth', 'dockCollapsed'] };
@@ -339,8 +352,10 @@ function sortKeys(value: unknown): unknown {
   return Object.fromEntries(Object.keys(value).sort().map((key) => [key, sortKeys(value[key])]));
 }
 
-/** Suggestions only, shown under the Model field. The person types any id; nothing here is a default. */
-/** The cheap and the strong model of each company and the local models that call tools (shared/config/modelAdvice.ts). */
+/**
+ * Suggestions only, shown under the Model field. The person types any id; nothing here is a default.
+ * The cheap and the strong model of each company and the local models that call tools (shared/config/modelAdvice.ts).
+ */
 export const MODEL_SUGGESTIONS: Record<PreferenceProvider, readonly string[]> = {
   openai: suggestedModels('openai'),
   anthropic: suggestedModels('anthropic'),

@@ -1,7 +1,15 @@
+/**
+ * The app's secret detection and redaction: what looks like a key, token or password in free text or in a settings
+ * object. Settings refuse to store such a value (main/settings/repository.ts, renderer SettingsPanel.tsx), and text
+ * that goes to a model, a log or an error message is passed through redactSecrets first (agent/redact.ts,
+ * i18n/index.ts, main's agent and diagnostics). The patterns err towards hiding: a hidden word costs little.
+ */
 import { nonSecretSettingsSchema } from './schema';
 
+/** Field names that are a secret by name alone, whatever their value. */
 const SECRET_FIELD = /^(api[_-]?key|token|secret|password|authorization|credential)$/i;
 
+/** Words that name a secret inside a longer text (`api_key=`, `"token":`). */
 const KEYISH = '(?:api[_-]?key|apikey|access[_-]?token|auth[_-]?token|token|secret|password|passwd|credential|private[_-]?key|client[_-]?secret)';
 
 const SECRET_QUOTED_FIELD = new RegExp(`^${KEYISH}$`, 'i');
@@ -39,6 +47,7 @@ const SECRET_PATTERNS: readonly RegExp[] = [
   new RegExp(`(\\b${KEYISH}\\w*["']?\\s*(?:[:=]|is)\\s*["']?)(?:[A-Fa-f0-9]{32,}|[A-Za-z0-9+/_-]{32,}={0,2})`, 'gi'),
 ];
 
+// The patterns are global (/g), so lastIndex is reset around each test; a left-over index would skip a match.
 function valueCarriesSecret(value: string): boolean {
   return SECRET_PATTERNS.some((pattern) => {
     pattern.lastIndex = 0;
@@ -125,6 +134,7 @@ export function settingsProblemFields(input: unknown): SettingsField[] {
   return known.concat('other').filter((name) => found.has(name as SettingsField)) as SettingsField[];
 }
 
+/** Why a settings object cannot be written (a secret in it, or a schema mismatch), or null when it can. */
 export function settingsWriteError(input: unknown): string | null {
   if (carriesSecret(input)) return 'Settings cannot store a secret';
   if (!nonSecretSettingsSchema.safeParse(input).success) return 'Settings do not match the schema';
