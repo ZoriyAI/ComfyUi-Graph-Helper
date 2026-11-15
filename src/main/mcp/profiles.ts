@@ -1,8 +1,4 @@
-import type { McpModelFile, McpSession } from '../../shared/mcp/catalogSource';
-import { isModelFileIn, parseLocalModelsMarkdown, toolPayload } from '../../shared/mcp/catalogSource';
-import { isPlainRelativeName } from '../../shared/mcp/serverPaths';
-
-/*
+/**
  * Kinds of MCP server the app knows how to read, recognised by the tools a server lists (their names and input
  * schemas), never by its name or address. Each kind has its own short list of read-only calls; everything else a
  * server offers (queueing, downloads, installs) is never called, whatever the kind (readOnly.ts holds the
@@ -17,7 +13,14 @@ import { isPlainRelativeName } from '../../shared/mcp/serverPaths';
  *   `{models: [...]}` (joenorton/comfyui-mcp-server). Gives checkpoint names only.
  *
  * For the last two, the nodes come from the ComfyUI address in Settings (comfy/direct.ts).
+ * Used by mcp/client.ts (which kind a server is, and reading the model list of the two simpler kinds) and
+ * mcp/detect.ts (Settings > Connection "Check" reports the kind it found).
  */
+import type { McpModelFile, McpSession } from '../../shared/mcp/catalogSource';
+import { isModelFileIn, parseLocalModelsMarkdown, toolPayload } from '../../shared/mcp/catalogSource';
+import { isPlainRelativeName } from '../../shared/mcp/serverPaths';
+
+/** The kinds of MCP server described at the top of this file. */
 export type McpProfile = 'catalog' | 'modelList' | 'checkpointList';
 
 /** The tools that make a server a 'catalog' one. Any of them is enough: the reader asks only for what is listed. */
@@ -28,6 +31,10 @@ interface ListedTool {
   inputSchema?: unknown;
 }
 
+/**
+ * The properties and required names of a tool's input schema. A tool without a schema takes no arguments;
+ * null means there is no such tool, or its schema is not an object.
+ */
 function schemaOf(tool: ListedTool | undefined): { properties: Record<string, unknown>; required: string[] } | null {
   if (!tool) return null;
   const schema = tool.inputSchema;
@@ -60,6 +67,7 @@ export function recognizeProfile(tools: readonly ListedTool[]): McpProfile | nul
   return null;
 }
 
+/** The model list a simpler server gave, and how far it may replace what is stored. */
 export interface ProfileModels {
   /** Files collected, or null when the listing could not be read (same-source rows stay). */
   models: number | null;

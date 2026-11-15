@@ -12,7 +12,9 @@ import { McpPageError } from '../../shared/mcp/catalogSource';
 /** The ComfyUI check waits at most this long: it is a hint, never the reason a check is slow. */
 export const COMFY_PROBE_TIMEOUT_MS = 4_000;
 
+/** Error codes of a host that exists but did not let the connection through (or dropped it). */
 const REFUSED_CODES = /^(ECONNREFUSED|ECONNRESET|EHOSTUNREACH|ENETUNREACH|EPIPE|ETIMEDOUT|UND_ERR_SOCKET|UND_ERR_CONNECT_TIMEOUT)$/;
+/** Error codes of a name that does not resolve. */
 const NOT_FOUND_CODES = /^(ENOTFOUND|EAI_AGAIN|EAI_NONAME)$/;
 
 /** Walks an error and its causes; returns the first value `pick` finds. */
@@ -26,7 +28,8 @@ function findInChain<T>(error: unknown, pick: (item: Record<string, unknown>) =>
   return undefined;
 }
 
-export type ConnectFailureKind = 'timeout' | 'hostNotFound' | 'refused' | 'httpStatus' | 'notMcp' | 'auth' | 'other';
+/** The kinds of connect failure the person is told apart (each has its own sentence). */
+export type ConnectFailureKind ='timeout' | 'hostNotFound' | 'refused' | 'httpStatus' | 'notMcp' | 'auth' | 'other';
 
 /** What kind of failure this is, from the error alone (no network). Exported for tests. */
 export function connectFailureKind(error: unknown): { kind: ConnectFailureKind; status?: number; timeoutMs?: number } {
@@ -55,6 +58,7 @@ export function connectFailureKind(error: unknown): { kind: ConnectFailureKind; 
   return { kind: 'other' };
 }
 
+/** The host and port of an address, for a sentence; the text itself when it is not an address. */
 function hostOf(url: string): string {
   try {
     return new URL(url).host;

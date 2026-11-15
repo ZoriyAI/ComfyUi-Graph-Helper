@@ -1,17 +1,26 @@
+/**
+ * Readers of a 'catalog' MCP server's inventory: model files with their folders and side files, node packs, the
+ * server's identity (installation id, ComfyUI address) and the folders node packs live in.
+ * Used by mcp/client.ts (models, packs, identity) and mcp/sync.ts (pack folders). Every call is one of the
+ * read-only calls the gate (readOnly.ts) allows; answers are read field by field, never trusted as a shape.
+ */
 import { normalServerFolder, pathParts } from '../../shared/mcp/serverPaths';
 import type { McpModelFile, McpSession, PagedItems } from '../../shared/mcp/catalogSource';
 import { isModelFileIn, McpPageError, readAllPages, toolPayload } from '../../shared/mcp/catalogSource';
 import { SideFileIndex, sideFileOf } from '../../shared/knowledge/sidecar';
 import type { NodePackRow } from '../catalog/repository';
 
+/** The value as a plain object, or null. */
 function record(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
 }
 
+/** The value when it is a string, else ''. */
 function text(value: unknown): string {
   return typeof value === 'string' ? value : '';
 }
 
+/** The value when it is a non-empty string, else null. */
 function textOrNull(value: unknown): string | null {
   return typeof value === 'string' && value !== '' ? value : null;
 }
@@ -128,17 +137,22 @@ export async function readNodePacks(session: McpSession, pageLimit = 100, maxPag
   return { items: packs, complete: read.complete };
 }
 
+/**
+ * What `studio_info` says the server is: an installation id (tells two installs at one address apart) and the
+ * ComfyUI address it works with. Either may be missing.
+ */
 export interface ServerIdentity {
   installationId: string | null;
   comfyuiUrl: string | null;
 }
 
+/** Reads ServerIdentity out of a `studio_info` answer. */
 export function identityFromStudioInfo(payload: unknown): ServerIdentity {
   const row = record(payload);
   return { installationId: textOrNull(row?.installation_id), comfyuiUrl: textOrNull(row?.comfyui_url) };
 }
 
-/** More folders than this for node packs is not a ComfyUI setup the app reads pack files from. */
+/** At most this many node pack folders are kept (the first ones named); a real setup has one or two. */
 const MAX_CUSTOM_NODE_ROOTS = 4;
 
 /**

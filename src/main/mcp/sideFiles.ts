@@ -1,16 +1,18 @@
+/**
+ * Reading the files a model manager keeps next to a model: the description (`<name>.metadata.json`,
+ * `<name>.civitai.info`) and the preview picture or clip. Bytes are asked for through the read-only gate, in
+ * chunks, and never more than a bound; nothing is written anywhere on the server.
+ * Used by mcp/sync.ts (descriptions, pack README and pyproject files) and knowledge/preview.ts (preview bytes);
+ * knowledge/webLookup.ts shares PREVIEW_MAX_BYTES so a sample from the internet has the same bound.
+ */
 import type { McpSession } from '../../shared/mcp/catalogSource';
 import { toolPayload } from '../../shared/mcp/catalogSource';
 import { joinServerPath, pathStyle } from '../../shared/mcp/serverPaths';
 import { isPackFilePath, isSideFilePath, McpRefusedError, SIDE_FILE_CHUNK_BYTES, SIDE_FILE_MAX_BYTES } from './readOnly';
 
-/**
- * Reading the files a model manager keeps next to a model: the description (`<name>.metadata.json`,
- * `<name>.civitai.info`) and the preview picture or clip. Bytes are asked for through the read-only gate, in
- * chunks, and never more than a bound; nothing is written anywhere on the server.
- */
-
 /** A description is text of some tens of kilobytes; more than this is not one. */
 export const SIDECAR_MAX_BYTES = 2 * 1024 * 1024;
+/** A preview may be as large as the gate lets any side file be (a short clip). */
 export const PREVIEW_MAX_BYTES = SIDE_FILE_MAX_BYTES;
 
 /**
@@ -32,6 +34,7 @@ function chunkText(row: Record<string, unknown> | null): string | null {
   return typeof data === 'string' && data.length <= SIDE_FILE_CHUNK_BASE64_MAX ? data : null;
 }
 
+/** The value as a plain object, or null. */
 function record(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
 }
@@ -78,6 +81,10 @@ export async function readPackFile(session: McpSession, path: string, maxBytes: 
   return chunk.subarray(0, maxBytes);
 }
 
+/**
+ * Reads a file chunk by chunk with `workspace_files` read. The server may report the size as `size_bytes` or
+ * `total` and the end as `complete` or by size; an answer that skips or repeats bytes (`next_offset`) is refused.
+ */
 async function readWhole(session: McpSession, path: string, maxBytes: number): Promise<Buffer | null> {
   const limit = Math.min(maxBytes, SIDE_FILE_MAX_BYTES);
   const chunks: Buffer[] = [];

@@ -1,3 +1,10 @@
+/**
+ * The read-only gate for MCP: the closed list of tool calls the app may make, with exact argument shapes, and
+ * the session wrapper that enforces it on every call (readOnlySession). mcp/client.ts (openReadOnlySession) wraps
+ * the sessions it opens for reading; index.ts plugs in the call log and the known model folders; sideFiles.ts, sync.ts and
+ * knowledge/modelWeb.ts use its path rules. Why: an MCP server for ComfyUI can also queue, install, download and
+ * delete; the tutor only reads, so anything not listed here cannot be called, by the app or by a bug in it.
+ */
 import { z } from 'zod';
 import type { McpSession } from '../../shared/mcp/catalogSource';
 import { isPlainRelativeName, isPlainServerPath, isUnderServerFolder, normalServerFolder, pathParts } from '../../shared/mcp/serverPaths';
@@ -23,6 +30,7 @@ export const SIDE_FILE_CHUNK_BYTES = 1024 * 1024;
  */
 const SIDE_FILE_NAME = /\.(?:metadata\.json|civitai\.info|webp|png|jpe?g|gif|mp4|webm)$/i;
 
+/** Whether a path is a description or preview next to a model, as an absolute path. */
 export function isSideFilePath(path: string): boolean {
   return SIDE_FILE_NAME.test(path) && isPlainAbsolutePath(path);
 }
@@ -30,6 +38,7 @@ export function isSideFilePath(path: string): boolean {
 /** A model file: what a loader reads. Its fingerprint is the one thing the app asks the server to make of it. */
 const MODEL_FILE_NAME = /\.(?:safetensors|sft|ckpt|pt|pth|bin|gguf)$/i;
 
+/** Whether a path is a model file, as an absolute path (the only thing `hash` may be asked of). */
 export function isModelFilePath(path: string): boolean {
   return MODEL_FILE_NAME.test(path) && isPlainAbsolutePath(path);
 }
@@ -50,6 +59,7 @@ function isPlainAbsolutePath(path: string): boolean {
  */
 export const PACK_FILE_NAMES = ['pyproject.toml', 'README.md', 'readme.md', 'README.MD', 'Readme.md'] as const;
 
+/** Whether a path is exactly `/…/custom_nodes/<pack>/<one of PACK_FILE_NAMES>`. */
 export function isPackFilePath(path: string): boolean {
   if (!isPlainServerPath(path, 3)) return false;
   const [root, , file] = pathParts(path).slice(-3);
@@ -108,6 +118,7 @@ export const READ_ONLY_TOOLS: Readonly<Record<string, (args: Record<string, unkn
   Object.entries(READ_ONLY_SCHEMAS).map(([tool, schema]) => [tool, (args: Record<string, unknown>) => schema.safeParse(args).success]),
 );
 
+/** A call the gate refused: the app asked for a tool or arguments it may not use, so nothing was sent. */
 export class McpRefusedError extends Error {
   constructor(tool: string) {
     super(`MCP tool call refused: ${tool} is not on the read-only list.`);
@@ -115,6 +126,7 @@ export class McpRefusedError extends Error {
   }
 }
 
+/** Whether a call is on the list with arguments of its exact shape (own keys only, so `__proto__` lists nothing). */
 export function isReadOnlyCall(name: string, args: Record<string, unknown>): boolean {
   const allowed = Object.prototype.hasOwnProperty.call(READ_ONLY_TOOLS, name) ? READ_ONLY_TOOLS[name] : undefined;
   return allowed !== undefined && allowed(args ?? {});
@@ -144,6 +156,7 @@ export function setMcpCallObserver(next: ((note: McpCallNote) => void) | null): 
   observer = next;
 }
 
+/** The call note for the log: sizes, item count and error text are read from the answer; its content is not kept. */
 function noteOf(tool: string, args: Record<string, unknown>, started: number, result: unknown, error: unknown, remote: string = tool): McpCallNote {
   let argsText = '';
   try {
@@ -192,6 +205,7 @@ function noteOf(tool: string, args: Record<string, unknown>, started: number, re
  */
 let knownRootsSource: (() => Iterable<string>) | null = null;
 
+/** Set once by index.ts to the catalog's model folders (knownRoots.ts); null in tests that pass `roots`. */
 export function setKnownRootsSource(source: (() => Iterable<string>) | null): void {
   knownRootsSource = source;
 }
@@ -233,6 +247,7 @@ export function rootsNamedIn(payload: unknown, found: Set<string> = new Set(), d
   return found;
 }
 
+/** The answer's structured content, or its first text block parsed as JSON; undefined for an error or no JSON. */
 function payloadOf(result: unknown): unknown {
   if (!result || typeof result !== 'object') return undefined;
   const record = result as { isError?: unknown; structuredContent?: unknown; content?: unknown };
@@ -283,6 +298,7 @@ export function detectToolPrefix(names: readonly string[], known: readonly strin
 // The session wrapper
 // ---------------------------------------------------------------------------------------------------------------
 
+/** A `workspace_files` read outside every folder the server named. */
 export class McpRootRefusedError extends McpRefusedError {
   constructor() {
     super('workspace_files');
@@ -291,6 +307,7 @@ export class McpRootRefusedError extends McpRefusedError {
   }
 }
 
+/** Options of readOnlySession. */
 export interface ReadOnlySessionOptions {
   /** Folders known before this session (tests; main uses setKnownRootsSource). */
   roots?: Iterable<string>;
@@ -314,6 +331,7 @@ export function readOnlySession(session: McpSession, options: ReadOnlySessionOpt
   let prefix: string | null = null;
   let listing: Promise<Array<{ name: string; inputSchema?: unknown }>> | null = null;
   const list = (): Promise<Array<{ name: string; inputSchema?: unknown }>> => {
+    // Listed once per session; a failed listing is forgotten so the next call asks again.
     listing ??= session.listTools().then((tools) => {
       prefix = detectToolPrefix(tools.map((tool) => tool.name));
       if (!prefix) return tools;

@@ -1,3 +1,13 @@
+/**
+ * The catalog sync: reads what the person's ComfyUI has (through the MCP server, ComfyUI's own read routes, or
+ * both), then reads model metadata, pack files and, when allowed, internet lookups in the background. Owns the
+ * schedule, the status the window shows, and the run bookkeeping in sync_state.
+ * Used by ipc/knowledgeIpc.ts (starts it, forwards its status) and knowledge/handlers.ts (sync:* channels),
+ * ipc.ts (address changes, "Read through MCP"), index.ts (a status listener), ipc/diagnosticsIpc.ts (status),
+ * ipc/openIpc.ts and settings/connectionSuggestions.ts (sync_state).
+ * Why so careful: a sync can take minutes and the address can change in between; each run carries a ticket, and
+ * a run that is no longer current writes nothing.
+ */
 import type Database from 'better-sqlite3';
 import type { McpReadOutcome, SyncStatus } from '../../shared/contracts/knowledge';
 import { toolPayload, type McpSession } from '../../shared/mcp/catalogSource';
@@ -46,6 +56,7 @@ export const MAX_CONSECUTIVE_FAILURES = 5;
 /** Same-size/root replacements have no fingerprint; supported headers are refreshed at least daily. */
 export const HEADER_REFRESH_MS = 24 * 60 * 60 * 1000;
 
+/** Stored when every metadata read of a run failed. */
 const ALL_FAILED = 'Model metadata could not be read.';
 /** Fixed English sentences stored in sync_state; the renderer translates them (shared/i18n ERROR_KEYS and patterns). */
 export const METADATA_STOPPED = 'Model metadata reading stopped after 5 failed reads in a row; it continues at the next sync.';
@@ -74,6 +85,7 @@ export const COMFY_MODEL_ROOTS_KEY = 'comfy_model_roots';
 /** sync_state: the ComfyUI origin the library's previews and metadata are read from ('' when not ComfyUI). */
 export const COMFY_READ_ORIGIN_KEY = 'comfy_read_origin';
 
+/** Everything a sync reads from outside; the app uses defaultDeps, tests replace parts. */
 export interface SyncDeps {
   readUrl: (db: Database.Database) => string;
   /** Settings ▸ Connection ▸ ComfyUI address ('' when not set): node details may come from it. */
@@ -114,6 +126,7 @@ export interface SyncDeps {
 
 type Listener = (status: SyncStatus) => void;
 
+/** Preferences > Sync for metadata reading: which folders, how many files per batch, the pause between batches. */
 export interface EnrichmentSettings {
   scope: 'loaders' | 'all';
   perRun: number;
@@ -172,6 +185,7 @@ export function enrichBackoffMs(attempts: number): number {
 
 type FailureMap = Record<string, { attempts: number; lastAt: number }>;
 
+/** The stored failed reads, with malformed entries dropped. */
 function readFailures(state: Record<string, string>): FailureMap {
   try {
     const value = JSON.parse(state[ENRICH_FAILURES_KEY] ?? '{}') as unknown;
@@ -221,11 +235,13 @@ export function writeState(db: Database.Database, values: Record<string, string>
   }).immediate();
 }
 
+/** An auto-sync interval within the allowed range, in whole minutes. */
 function clampInterval(value: number): number {
   if (!Number.isFinite(value)) return SYNC_INTERVAL_DEFAULT_MINUTES;
   return Math.max(SYNC_INTERVAL_MIN_MINUTES, Math.min(SYNC_INTERVAL_MAX_MINUTES, Math.round(value)));
 }
 
+/** The auto-sync setting as stored in sync_state. */
 function autoOf(state: Record<string, string>): { enabled: boolean; intervalMinutes: number } {
   const stored = Number(state.auto_interval_minutes);
   return {
@@ -234,6 +250,7 @@ function autoOf(state: Record<string, string>): { enabled: boolean; intervalMinu
   };
 }
 
+/** Files with a safetensors header, the only kind whose metadata can be read. */
 function isHeaderFile(name: string): boolean {
   return /\.(safetensors|sft)$/i.test(name);
 }
@@ -307,6 +324,7 @@ function authModeOf(state: Record<string, string>): SyncStatus['authMode'] {
   return value === 'token' || value === 'oauth' || value === 'anonymous' ? value : null;
 }
 
+/** The last run's warnings as stored (fixed sentences). */
 function readWarnings(state: Record<string, string>): string[] {
   try {
     const value = JSON.parse(state.last_warnings ?? '[]') as unknown;
@@ -366,7 +384,7 @@ interface EnrichRun {
 }
 
 /**
- * Keeps the local catalog in step with the person's ComfyUI through read-only MCP calls.
+ * Keeps the local catalog in step with the person's ComfyUI through read-only MCP calls or ComfyUI's read routes.
  * One run at a time; a second request while running joins the first. After a successful listing, model metadata is
  * read in batches in the background until every file in scope is read or waits out its backoff.
  */
@@ -394,11 +412,13 @@ export class SyncService {
     this.deps = { ...defaultDeps, ...deps };
   }
 
+  /** Called with every status change (ipc/knowledgeIpc.ts pushes it to the windows); returns the unsubscribe. */
   onStatus(listener: Listener): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
   }
 
+  /** The status the window shows, from sync_state and the run in flight; a neutral status without a database. */
   status(db: Database.Database | null = this.db): SyncStatus {
     if (!db) {
       return {
@@ -490,6 +510,7 @@ export class SyncService {
     return this.running;
   }
 
+  /** Turns auto sync on or off and sets its interval; the timer is armed again at once. */
   setAuto(db: Database.Database, enabled: boolean, intervalMinutes: number): SyncStatus {
     this.db = db;
     // Auto sync without an address would only fail on a timer: it stays off until there is one to read.
@@ -1242,6 +1263,7 @@ export class SyncService {
   }
 }
 
+/** readState that reads as empty when the table is not there yet. */
 function readStateSafe(db: Database.Database): Record<string, string> {
   try {
     return readState(db);
@@ -1250,12 +1272,14 @@ function readStateSafe(db: Database.Database): Record<string, string> {
   }
 }
 
+/** What the library was read from; a library read before the key existed but with an MCP address counts as 'mcp'. */
 function librarySourceOf(state: Record<string, string>): SyncStatus['librarySource'] {
   if (state.last_sync_at == null) return null;
   const value = state[LIBRARY_SOURCE_KEY];
   return value === 'comfy' || value === 'mcp' || value === 'mcp+comfy' ? value : state.library_url ? 'mcp' : null;
 }
 
+/** The stored kind of MCP server, or null when it is not one of the known values. */
 function mcpProfileOf(state: Record<string, string>): SyncStatus['mcpProfile'] {
   const value = state[MCP_PROFILE_KEY];
   return value === 'catalog' || value === 'modelList' || value === 'checkpointList' || value === 'unknown' ? value : null;
@@ -1283,6 +1307,7 @@ export function comfyPreviewSource(db: Database.Database): { origin: string; roo
   }
 }
 
+/** The server identity as stored under `server_identity` (snake_case, read back by reportedComfyUrl). */
 function identityRecord(identity: ServerIdentity): Record<string, string | null> {
   return { installation_id: identity.installationId, comfyui_url: identity.comfyuiUrl };
 }
@@ -1382,6 +1407,7 @@ async function readPackFiles(session: McpSession, roots: string[], name: string)
   }
 }
 
+/** A stored JSON column, or `fallback` when empty or unreadable. */
 function storedJson<T>(text: string | null, fallback: T): T {
   if (!text) return fallback;
   try {
@@ -1413,6 +1439,7 @@ function enrichmentOver(row: EnrichRow, facts: SidecarFacts) {
   };
 }
 
+/** One file's header metadata through `model_metadata`; null for a failed read (a gate refusal is thrown). */
 async function readMetadata(session: McpSession, directory: string, name: string): Promise<ParsedModelMetadata | null> {
   try {
     const result = await session.callTool('model_metadata', { action: 'read', category: directory, name });

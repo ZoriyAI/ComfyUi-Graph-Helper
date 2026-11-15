@@ -1,3 +1,8 @@
+/**
+ * The model folders already known from the catalog, for the read-only gate's file reads.
+ * index.ts hands catalogModelRoots to readOnly.ts setKnownRootsSource at start. Kept in its own file so the
+ * gate (readOnly.ts) does not depend on the database.
+ */
 import type Database from 'better-sqlite3';
 
 /**
