@@ -147,22 +147,27 @@ test('lessons of the new standard: a checklist, the canvas, a check, a rubric, a
           await expect(step.locator('[data-item="model"]')).toHaveAttribute('data-item-state', 'app');
           await expect(step.locator('[data-item="comfy"]')).toContainText('The app sees this.');
         }
-        for (const box of await step.locator('input[type="checkbox"]:not(:checked):not(:disabled)').all()) await box.check();
-        if (stepId === 'run') await expect(step.locator('[data-item="ran"]')).toHaveAttribute('data-item-state', 'self');
+        // One tick at a time: the last tick moves the lesson on, and the list of open items changes under each click.
+        for (let tick = 0; tick < 12; tick += 1) {
+          if (stepId === 'run' && tick === 1) await expect(step.locator('[data-item="export"]')).toHaveAttribute('data-item-state', 'self');
+          const box = step.locator('input[type="checkbox"]:not(:checked):not(:disabled)').first();
+          if ((await current(page)) !== stepId || (await box.count()) === 0) break;
+          await box.click();
+        }
       } else if (kind === 'rubric') {
         await expect(step).toContainText('the app does not judge the picture itself');
-        await step.locator('[data-criterion="difference"]').getByRole('radio', { name: 'Partly' }).check();
+        await step.locator('[data-criterion="difference"]').getByRole('radio', { name: 'Partly' }).click();
         await expect(step.locator('[data-criterion="difference"]')).toContainText('What to try:');
-        await step.locator('[data-criterion="repeat"]').getByRole('radio', { name: 'Yes' }).check();
-        await step.locator('[data-criterion="conclusion"]').getByRole('radio', { name: 'Yes' }).check();
+        await step.locator('[data-criterion="repeat"]').getByRole('radio', { name: 'Yes' }).click();
+        await step.locator('[data-criterion="conclusion"]').getByRole('radio', { name: 'Yes' }).click();
       } else if (kind === 'quiz') {
         // A wrong answer is not punished: the explanation shows, and the lesson goes on once every question is answered.
-        await step.locator('[data-question="two-changes"]').getByRole('radio', { name: 'cfg helped' }).check();
+        await step.locator('[data-question="two-changes"]').getByRole('radio', { name: 'cfg helped' }).click();
         await expect(step.locator('[data-question="two-changes"]')).toHaveAttribute('data-answered', 'wrong');
         await expect(step.locator('[data-question="two-changes"]')).toContainText('Not quite');
-        await step.locator('[data-question="same-seed"]').getByRole('radio', { name: 'So that both start from the same noise' }).check();
+        await step.locator('[data-question="same-seed"]').getByRole('radio', { name: 'So that both start from the same noise' }).click();
         await expect(step.locator('[data-question="same-seed"]')).toHaveAttribute('data-answered', 'right');
-        await step.locator('[data-question="cache"]').getByRole('radio', { name: 'ComfyUI ends at once and shows what it already made' }).check();
+        await step.locator('[data-question="cache"]').getByRole('radio', { name: 'ComfyUI ends at once and shows what it already made' }).click();
       } else if (kind === 'readCheck') {
         throw new Error(`${stepId}: the app should see that every node is installed`);
       } else if (await step.getAttribute('data-transfer') === 'true') {
@@ -171,7 +176,10 @@ test('lessons of the new standard: a checklist, the canvas, a check, a rubric, a
         await expect(panel(page).getByRole('button', { name: 'Do this for me', exact: true })).toHaveCount(0);
         await expect(step).toContainText('there is no “Do this for me” here');
         await buildThirdVariant(page, api);
-      } else if (!(await letTheAppDo(page, api))) {
+      } else if (await letTheAppDo(page, api)) {
+        // A canvas step may take several actions: the loop comes back to it until it is done.
+        continue;
+      } else {
         // What only a person decides: a prompt, and names for the saved files.
         const { nodes } = await graphOf(api);
         if (stepId === 'graph') {
@@ -183,6 +191,7 @@ test('lessons of the new standard: a checklist, the canvas, a check, a rubric, a
         } else {
           throw new Error(`${stepId}: nothing to do`);
         }
+        continue;
       }
       await expect.poll(() => current(page), { timeout: 20_000 }).not.toBe(stepId);
     }

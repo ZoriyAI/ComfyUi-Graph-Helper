@@ -27,6 +27,12 @@ step adds its node, makes the links into it and sets the values that matter.
 
 Every step needs a title, and the lesson needs one too.
 
+**Add a self-check** adds a checklist step: things to do outside the app, one per line (for example "I saved the
+workflow for ComfyUI and ran it there"). The person ticks them; a tick is their own word. A lesson imported or drafted
+with a rubric, questions to check yourself or a check the app makes keeps those steps as they are; the editor shows
+how many criteria or questions they have and lets you change only the title and the words of such a step. See
+[The lesson file format](Lesson-File-Format.md).
+
 ## Try and save
 **Try the lesson** plays the lesson from an empty canvas, the way **Do this for me** would. It answers "The lesson
 can be done from an empty canvas." or names the step that cannot be done and why: none of the nodes it asks for

@@ -361,7 +361,8 @@ export function useReadFacts(lesson: Lesson | null, graph: LessonGraph, details:
   const request = useNodeInfoStore((state) => state.request);
   const openedFrom = useLessonStore((state) => state.openedFrom);
   const stamp = useFilesStamp();
-  const conditions = useMemo(() => (lesson ? conditionsOf(lesson) : []), [lesson]);
+  // With no lesson open, the list still shows where each lesson stands: it judges the checks of every lesson.
+  const conditions = useMemo(() => (lesson ? conditionsOf(lesson) : LESSONS.flatMap(conditionsOf)), [lesson]);
   const onCanvas = conditions.some((condition) => condition.kind === 'workflow-complete' || condition.kind === 'workflow-partner');
   const classes = useMemo(() => [...new Set([...conditions.flatMap(conditionClasses), ...(onCanvas ? graph.nodes.map((node) => node.classType) : [])])].sort(), [conditions, onCanvas, graph]);
   const classKey = classes.join('\n');
