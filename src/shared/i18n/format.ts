@@ -30,6 +30,15 @@ export function formatByteSize(bytes: number, language: AppLanguage, locales?: r
   return `${formatNumber(value, language, { maximumFractionDigits: digits, minimumFractionDigits: digits }, locales)} ${units[order[unit]]}`;
 }
 
+/**
+ * A whole number of megabytes with the unit word of the chosen language: "10 MB", "10 МБ". The Preferences pages
+ * state the web-page byte cap this way (src/shared/agent/limits.ts keeps the English form for the model's texts).
+ */
+export function formatMegabytes(bytes: number, language: AppLanguage, locales?: readonly string[]): string {
+  const value = Math.round((Number.isFinite(bytes) && bytes > 0 ? bytes : 0) / (1024 * 1024));
+  return `${formatNumber(value, language, { maximumFractionDigits: 0 }, locales)} ${CATALOGS[language].units.megabytes}`;
+}
+
 /** A date and time in the chosen language, with the parts `options` asks for. */
 export function formatDateTime(timestamp: number, language: AppLanguage, options: Intl.DateTimeFormatOptions, locales?: readonly string[]): string {
   return new Intl.DateTimeFormat(displayLocale(language, locales), options).format(timestamp);
