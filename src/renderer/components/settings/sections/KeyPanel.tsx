@@ -12,7 +12,7 @@ import { cx } from '../../../ui/cx';
 import { NO_KEYS, type KeySource, type KeySources } from '../../../state/providerState';
 import { useUiStore } from '../../../state/uiState';
 import settingsStyles from '../SettingsPanel.module.css';
-import { fieldClass, hintClass, rowClass } from './common';
+import { errorSummary, fieldClass, hintClass, rowClass } from './common';
 import { keyOriginFor } from '../../../../shared/config/keyOrigin';
 
 /** Typing or pasting applies the key after this pause, not on every key. */
@@ -24,7 +24,8 @@ type Verdict =
   | { kind: 'checking' }
   | { kind: 'accepted'; count: number }
   | { kind: 'rejected'; dropped: boolean }
-  | { kind: 'unchecked'; text: string };
+  | { kind: 'unchecked'; text: string }
+  | { kind: 'failed'; text: string };
 
 /** Company names are brand names: the same in every language, so they are not in the catalog. */
 const PROVIDER_NAMES: Record<string, string> = { openai: 'OpenAI', anthropic: 'Anthropic', google: 'Google' };
@@ -114,7 +115,14 @@ export default function KeyPanel({ provider, baseURL, onSession, words = {} }: {
         setNote('');
         setVerdict({ kind: 'checking' });
         const base = baseRef.current;
-        const held = await window.electronAPI.llmSetSessionKey(target, draft, base);
+        let held: Awaited<ReturnType<typeof window.electronAPI.llmSetSessionKey>>;
+        try {
+          held = await window.electronAPI.llmSetSessionKey(target, draft, base);
+        } catch (error) {
+          // Main could not take the key: say so instead of leaving "Checking…" on screen for good.
+          if (ticket === applyTicket.current) setVerdict({ kind: 'failed', text: errorSummary(translate, error) });
+          return;
+        }
         if (ticket === applyTicket.current) setSource(held.source);
         let listed: Awaited<ReturnType<typeof window.electronAPI.llmListModels>>;
         try {
@@ -169,7 +177,8 @@ export default function KeyPanel({ provider, baseURL, onSession, words = {} }: {
   const verdictText = verdict.kind === 'checking' ? t('settings.keyChecking')
     : verdict.kind === 'accepted' ? t('settings.keyAccepted', { count: verdict.count })
       : verdict.kind === 'rejected' ? (verdict.dropped ? t('settings.keyRejectedDropped', { provider: name }) : t('settings.keyRejected'))
-        : verdict.kind === 'unchecked' ? t('settings.keyUnchecked', { reason: verdict.text }) : '';
+        : verdict.kind === 'unchecked' ? t('settings.keyUnchecked', { reason: verdict.text })
+          : verdict.kind === 'failed' ? t('settings.keyApplyFailed', { reason: verdict.text }) : '';
   return (
     <div className={cx(settingsStyles.keyPanel, 'provider-key')} data-provider={provider}>
       <label className={fieldClass}>
@@ -194,7 +203,7 @@ export default function KeyPanel({ provider, baseURL, onSession, words = {} }: {
         </p>
       ) : null}
       {verdictText ? (
-        <p className={cx(hintClass, verdict.kind === 'rejected' || verdict.kind === 'unchecked' ? settingsStyles.errorNote : undefined)} role="status">{verdictText}</p>
+        <p className={cx(hintClass, verdict.kind === 'rejected' || verdict.kind === 'unchecked' || verdict.kind === 'failed' ? settingsStyles.errorNote : undefined)} role="status">{verdictText}</p>
       ) : null}
       <p className={hintClass} role="status" aria-label={label}>
         <span className={cx(settingsStyles.placeDot, (held || remembered) && settingsStyles.placeOn)} aria-hidden="true" />

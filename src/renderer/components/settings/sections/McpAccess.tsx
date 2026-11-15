@@ -16,7 +16,7 @@ import { ACCESS_CHOICES, tokenPlaceKey, type AccessChoice, type TokenStatus } fr
 import settingsStyles from '../SettingsPanel.module.css';
 import styles from './McpAccess.module.css';
 import radioMark from '../../../ui/RadioMark.module.css';
-import { fieldClass, hintClass, rowClass } from './common';
+import { errorSummary, fieldClass, hintClass, rowClass } from './common';
 
 /** The catalog keys of each choice's title and of the hint shown when it is chosen. */
 const TITLES: Record<AccessChoice, string> = { none: 'settings.accessNone', token: 'settings.accessToken', oauth: 'settings.accessOauth' };
@@ -132,7 +132,13 @@ function TokenPanel({ mcpUrl, focusRequest }: { mcpUrl: string; focusRequest: nu
       void (async () => {
         setNote('');
         setVerdict({ kind: 'checking' });
-        await window.electronAPI.mcpSetToken(draft, mcpUrl);
+        try {
+          await window.electronAPI.mcpSetToken(draft, mcpUrl);
+        } catch (error) {
+          // Main could not take the token: say so instead of leaving "Checking…" on screen for good.
+          if (ticket === applyTicket.current) setVerdict({ kind: 'failed', text: translate('settings.tokenApplyFailed', { reason: errorSummary(translate, error) }) });
+          return;
+        }
         let probe: Awaited<ReturnType<typeof window.electronAPI.mcpDetectAuth>>;
         try {
           probe = await window.electronAPI.mcpDetectAuth(mcpUrl);
@@ -247,6 +253,9 @@ function McpSignIn({ savedUrl, disabled }: { savedUrl: boolean; disabled: boolea
       const result = await window.electronAPI.mcpOAuthLogin();
       if (!result.ok) setNote(explainError(translate, result.error).summary);
       else if (result.anonymous) setInfo(String(t('settings.oauthNotNeeded')));
+    } catch (error) {
+      // The sign-in call itself failed (not a refusal the server gave): the alert says so, nothing stays silent.
+      setNote(errorSummary(translate, error));
     } finally {
       setWaiting(false);
       setStatus(await window.electronAPI.mcpOAuthStatus().catch(() => null));

@@ -11,6 +11,7 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BookOpen, Check, GraduationCap, X } from 'lucide-react';
+import { explainError } from '../../../shared/i18n';
 import { docWords } from '../../../shared/lessons/share/format';
 import type { LessonDraft } from '../../../shared/lessons/share/mine';
 import { useMyLessonsStore } from '../../state/myLessonsState';
@@ -52,6 +53,10 @@ export default function LessonDraftCard({ draftId }: { draftId: string }) {
         await useMyLessonsStore.getState().refresh();
       } else if ('gone' in outcome) setState({ kind: 'gone' });
       else setError(refusalText((key: string, values?: Record<string, unknown>) => String(values ? t(key, values) : t(key)), outcome, i18n.language));
+    } catch (failure) {
+      // The call to main itself failed: the card stays open with a reason, so the person can try again.
+      const translate = (key: string, values?: Record<string, unknown>) => String(values ? t(key, values) : t(key));
+      setError(explainError(translate, failure instanceof Error ? failure.message : String(failure)).summary);
     } finally {
       setBusy(false);
     }
