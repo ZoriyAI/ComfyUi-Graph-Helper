@@ -5,6 +5,10 @@ import '@fontsource/geist/400.css';
 import '@fontsource/geist/600.css';
 import '@fontsource/geist/cyrillic-400.css';
 import '@fontsource/geist/cyrillic-600.css';
+import '@fontsource/geist-mono/400.css';
+import '@fontsource/geist-mono/600.css';
+import '@fontsource/geist-mono/cyrillic-400.css';
+import '@fontsource/geist-mono/cyrillic-600.css';
 // Global tokens and base rules first, so component CSS Modules (imported below through App) come later
 // in the cascade and win at equal specificity.
 import './theme/tokens.css';
