@@ -50,6 +50,9 @@ const FIXTURE = `
 <section><span data-sound="own-words" class="said">The person wrote {{x}}, undefined and settings.mcpUrl</span></section>
 <section><span data-sound="address">Open https://docs.comfy.org/library.nodes/KSampler</span></section>
 <section><div data-sound="placing-wrapper" style="width: 120px"><div style="width: 120px; border: 1px solid #999; transform: scale(1.2); transform-origin: top left">Drawn larger</div></div></section>
+<!-- A closed disclosure: the browser lays its inside out where it would stand if opened, over the line that follows,
+     and paints none of it. Nothing a person sees lies on anything. -->
+<section data-sound="closed-disclosure"><details><summary>More about it</summary><p style="margin: 0">Words shown only once it is opened</p><button>Hidden button</button></details><p style="margin: 0">The line after the closed disclosure</p><button>The button after it</button></section>
 <section><div class="canvas-unit" style="position: absolute; left: 24px; top: 2px; width: 150px; height: 26px; background: #fc0">A note of a node</div><button data-sound="tool-on-top" style="position: absolute; left: 0; top: 0; width: 130px; z-index: 2">A canvas tool</button></section>
 `;
 
