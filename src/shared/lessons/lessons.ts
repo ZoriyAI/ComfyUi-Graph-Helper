@@ -4,8 +4,8 @@ import { IMAGE_MODEL_AFTER, IMAGE_MODEL_LESSONS, IMAGE_MODEL_PATH, type LessonGr
 import { VIDEO_FILE_KINDS, VIDEO_GROUP, VIDEO_LESSON_AFTER, VIDEO_LESSONS, VIDEO_PATH } from './sets/video';
 import { IMAGE_TECHNIQUE_AFTER, IMAGE_TECHNIQUE_LESSONS, IMAGE_TECHNIQUE_PATH } from './sets/image-techniques';
 import { SOUND_3D_FACES_AFTER, SOUND_3D_FACES_LESSONS, SOUND_3D_FACES_PATH } from './sets/sound-3d-faces';
-import { FILES, withFileTable, type FileKind } from './files';
-import { SET_FILE_KINDS } from './fileTables';
+import { FILES, withFamilyPairs, withFileTable, type FileKind } from './files';
+import { FAMILY_PAIRS, SET_FILE_KINDS } from './fileTables';
 
 /**
  * The lessons, as what must be on the canvas after each step. The words of a lesson (what to do and why) are in
@@ -1081,7 +1081,7 @@ const adultLora: Lesson = {
 };
 
 /** In the order a person meets them. The lessons for adults are a group of their own at the end (ADULT_LESSONS). */
-export const LESSONS: readonly Lesson[] = withFileTable([
+export const LESSONS: readonly Lesson[] = withFamilyPairs(withFileTable([
   ...FOUNDATIONS_FIRST,
   image, prompt,
   ...FOUNDATIONS_LESSONS,
@@ -1094,7 +1094,7 @@ export const LESSONS: readonly Lesson[] = withFileTable([
   ...FOUNDATIONS_TOOLS,
   ...SOUND_3D_FACES_LESSONS,
   adultImage, adultLora, adult,
-], SET_FILE_KINDS);
+], SET_FILE_KINDS), FAMILY_PAIRS);
 
 /**
  * The lessons about adult content. They are open only while the switch «Содержимое для взрослых (18+)» is on
@@ -1128,7 +1128,7 @@ export function ordinaryLessons(): Lesson[] {
  * - not done yet, and one that fits this ComfyUI (`fits`; everything fits when it is not given);
  * - preferably one whose lessons it stands on are done (or are the one just finished); failing that, the next that
  *   fits and is not done.
- * Null when nothing is left to offer.
+ * Only lessons after this one in the list count. Null when nothing is left to offer.
  */
 export function nextLesson(id: string, fits: (lessonId: string) => boolean = () => true, done: ReadonlySet<string> = new Set()): Lesson | null {
   const groups: string[] = [];
@@ -1140,7 +1140,8 @@ export function nextLesson(id: string, fits: (lessonId: string) => boolean = () 
   const from = order.indexOf(id);
   if (from < 0) return null;
   const adult = isAdultLesson(id);
-  const later = [...order.slice(from + 1), ...order.slice(0, from)];
+  // Forward only: after the last lesson of the list nothing is offered.
+  const later = order.slice(from + 1);
   const open = later.filter((candidate) => isAdultLesson(candidate) === adult && !done.has(candidate) && fits(candidate));
   const ready = (candidate: string) => [...(LESSON_AFTER[candidate] ?? []), ...(LESSON_PATH[candidate]?.follows ?? [])].every((needed) => needed === id || done.has(needed));
   const found = open.find(ready) ?? open[0];

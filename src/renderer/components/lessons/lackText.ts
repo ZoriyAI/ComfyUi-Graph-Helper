@@ -132,6 +132,11 @@ export function lackText(t: TFunction, missing: Missing, lesson: Lesson, context
       if (missing.why?.kind === 'frames') return String(t('lessons.lackFrames', { field, node, value }));
       if (missing.untouched && missing.test.prefer !== undefined) return String(t('lessons.lackUntouched', { field, node, value, wanted: missing.test.prefer })) + why;
       return String(t('lessons.lackBetween', { field, node, value, min: missing.test.min, max: missing.test.max })) + (missing.test.prefer !== undefined ? ` ${String(t('lessons.prefer', { wanted: missing.test.prefer }))}` : '') + why;
+    case 'sameFamily': {
+      const family = missing.why?.kind === 'family' ? missing.why : null;
+      if (!family) return String(t('lessons.lackChosen', { field, node }));
+      return String(t('lessons.lackSameFamily', { field, node, value, family: String(t(familyLabelKey(family.family))), other, otherFamily: String(t(familyLabelKey(family.other))) })) + why;
+    }
     case 'less':
       return String(t('lessons.lackLess', { field, node, value, otherField: missing.test.field, other: shown(t, missing.other?.value) })) + why;
     case 'size': {

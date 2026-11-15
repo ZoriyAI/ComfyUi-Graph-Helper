@@ -22,7 +22,7 @@ describe('the next lesson', () => {
 
   it('skips what does not fit or is done, and prefers a lesson whose lessons are done', () => {
     expect(nextLesson('image', () => false, new Set(['image']))).toBeNull();
-    const only = ordinary.find((id) => id !== 'image')!;
+    const only = ordinary[ordinary.length - 1];
     expect(nextLesson('image', (id) => id === only, new Set(['image']))?.id).toBe(only);
     expect(nextLesson('image', (id) => id === only, new Set(['image', only]))).toBeNull();
   });

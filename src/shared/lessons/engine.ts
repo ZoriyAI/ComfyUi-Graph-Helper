@@ -16,6 +16,7 @@
 import { weightsOf } from '../prompt/inspect';
 import type { BaseModelFamily } from '../contracts/knowledge';
 import { familyOfFile, fileMiss, type FileMiss, type FileWant } from './files';
+import { familiesCompatible } from '../knowledge/baseModel';
 
 export interface LessonPort {
   id: string;
@@ -111,6 +112,11 @@ export type FieldTest =
   | { kind: 'text'; minChars: number; has?: string[]; words?: number; english?: true; notCopyOf?: { role: string; field: string }; noNegation?: true }
   /** A model file of the kind the step names (files.ts): its family and the marks in its name. */
   | { kind: 'file'; want: FileWant }
+  /**
+   * A file made for the family of the file in that field: a LoRA or a ControlNet works only with the family of the
+   * checkpoint it is used with (SDXL, Pony and Illustrious count as one lineage; a family nothing tells is not judged).
+   */
+  | { kind: 'sameFamily'; role: string; field: string }
   /** A number below the one in that field: the first sampler stops before its last step. */
   | { kind: 'less'; role: string; field: string }
   /**
@@ -132,7 +138,7 @@ function otherRoles(test: FieldTest): string[] {
   if (test.kind === 'has-trigger') return test.of.flatMap((item) => ('role' in item ? [item.role] : []));
   if (test.kind === 'text') return test.notCopyOf ? [test.notCopyOf.role] : [];
   if (test.kind === 'size') return [test.of.role];
-  return test.kind === 'differs' || test.kind === 'same' || test.kind === 'less' || test.kind === 'aspect' ? [test.role] : [];
+  return test.kind === 'differs' || test.kind === 'same' || test.kind === 'less' || test.kind === 'aspect' || test.kind === 'sameFamily' ? [test.role] : [];
 }
 
 export interface FieldSpec {
@@ -222,6 +228,7 @@ export type FieldMiss =
   | { kind: 'file'; miss: FileMiss }
   | { kind: 'frames' }
   | { kind: 'size'; family: BaseModelFamily }
+  | { kind: 'family'; family: BaseModelFamily; other: BaseModelFamily }
   | { kind: 'text'; miss: TextMiss };
 
 export type TextMiss = 'short' | 'marks' | 'words' | 'english' | 'copy' | 'negation';
@@ -398,6 +405,14 @@ function fieldVerdict(byId: Map<string, LessonNode>, spec: FieldSpec, roles: Rol
       const other = byId.get(roles[test.role])?.values[test.field];
       return { holds: !isEmpty(value) && !isEmpty(other) && String(value) === String(other) };
     }
+    case 'sameFamily': {
+      const other = byId.get(roles[test.role])?.values[test.field];
+      if (isEmpty(value) || typeof value !== 'string') return { holds: false };
+      if (typeof other !== 'string' || other === '') return { holds: true };
+      const mine = familyOfFile(value, facts.families?.[value]);
+      const theirs = familyOfFile(other, facts.families?.[other]);
+      return familiesCompatible(mine, theirs) ? { holds: true } : { holds: false, why: { kind: 'family', family: mine, other: theirs } };
+    }
     case 'less': {
       const other = numberOf(byId.get(roles[test.role])?.values[test.field]);
       const number = numberOf(value);
@@ -507,7 +522,7 @@ function missingOf(graph: LessonGraph, step: LessonStep, roles: Roles, facts: Le
     if (verdict.holds) continue;
     const known = Object.prototype.hasOwnProperty.call(node.values, spec.field) || inputFor(node, spec.field) !== null;
     const test = spec.test;
-    const compared = test.kind === 'differs' || test.kind === 'same' || test.kind === 'less' || test.kind === 'aspect' ? byId.get(roles[test.role]) : undefined;
+    const compared = test.kind === 'differs' || test.kind === 'same' || test.kind === 'less' || test.kind === 'aspect' || test.kind === 'sameFamily' ? byId.get(roles[test.role]) : undefined;
     out.push({
       kind: 'field',
       role: spec.role,

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { fieldHolds } from '../../src/shared/lessons/engine';
 import { lessonById } from '../../src/shared/lessons/lessons';
 import { FILES, fileMiss, filesOfLesson } from '../../src/shared/lessons/files';
 
@@ -82,5 +83,32 @@ describe('one file check for every set', () => {
     expect(fileMiss('bbox/face_yolov8m.pt', want('detailer', 'detector', 'model_name'))).toBeNull();
     expect(fileMiss('segm/person_yolov8m-seg.pt', want('detailer', 'detector', 'model_name'))).toEqual({ kind: 'mark', marks: ['face', 'hand'] });
     expect(fileMiss('mmaudio_large_44k_v2_fp16.safetensors', want('audio-foley', 'model', 'mmaudio_model'))).toBeNull();
+  });
+});
+
+describe('a LoRA or a ControlNet of the family of its checkpoint', () => {
+  const pair = (lessonId: string, role: string) => lessonById(lessonId)!.steps.flatMap((step) => step.fields ?? []).find((rule) => rule.role === role && rule.test.kind === 'sameFamily');
+
+  it('is asked for in the LoRA and ControlNet lessons, the one for adults included', () => {
+    for (const [id, role] of [['lora-image', 'lora1'], ['lora-image', 'lora2'], ['lora-character', 'lora3'], ['controlnet', 'cnLoader'], ['controlnet-depth', 'cnLoader'], ['adult-lora', 'lora']]) {
+      expect(pair(id, role), `${id} ${role}`).toMatchObject({ test: { kind: 'sameFamily', role: 'checkpoint', field: 'ckpt_name' }, why: 'sameFamily' });
+    }
+  });
+
+  it('holds an SD 1.5 LoRA on an SDXL checkpoint wrong, a Pony LoRA on SDXL right, and an unknown file is not judged', () => {
+    const lesson = lessonById('lora-image')!;
+    const graph = (lora: string, checkpoint: string) => ({
+      nodes: [
+        { id: 'c', classType: 'CheckpointLoaderSimple', inputs: [], outputs: [], values: { ckpt_name: checkpoint } },
+        { id: 'l', classType: 'LoraLoader', inputs: [], outputs: [], values: { lora_name: lora } },
+      ],
+      links: [],
+    });
+    const rule = pair('lora-image', 'lora1')!;
+    const holds = (lora: string, checkpoint: string) => fieldHolds(new Map(graph(lora, checkpoint).nodes.map((node) => [node.id, node])), rule, { checkpoint: 'c', lora1: 'l' }, {});
+    expect(lesson.id).toBe('lora-image');
+    expect(holds('detail_tweaker_sd15.safetensors', 'juggernautXL_v9.safetensors')).toBe(false);
+    expect(holds('style_pony_v2.safetensors', 'sd_xl_base_1.0.safetensors')).toBe(true);
+    expect(holds('mystery.safetensors', 'juggernautXL_v9.safetensors')).toBe(true);
   });
 });

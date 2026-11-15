@@ -64,4 +64,5 @@ export const REASONS_EN: Record<string, string> = {
   'im.sd35Size': 'SD 3.5 was trained near one megapixel.',
   'im.sd35Steps': 'The SD 3.5 template uses 20 steps.',
   'im.sd35Cfg': 'cfg 7, the SDXL habit, burns the colors of SD 3.5; its template uses 4.',
+  sameFamily: 'A LoRA or a ControlNet works only with the family of models it was made for; with another family it does nothing or spoils the picture.',
 };

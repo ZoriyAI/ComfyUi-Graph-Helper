@@ -185,7 +185,7 @@ export function wantFromWords(row: Pick<FileRow, 'has' | 'any' | 'not'>): FileWa
   };
 }
 
-type RuledStep = { id: string; roles?: Array<{ role: string }>; fields?: Array<{ role: string; field: string; test: { kind: string }; identifies?: true }> };
+type RuledStep = { id: string; roles?: Array<{ role: string }>; fields?: Array<{ role: string; field: string; test: { kind: string }; identifies?: true; why?: string }> };
 
 /**
  * Puts the rows of a table into the steps of its lessons, in place, so the lessons stay the objects their set
@@ -205,6 +205,30 @@ export function withFileTable<L extends { id: string; steps: RuledStep[] }>(less
       if (lesson.steps.some((step) => step.fields?.some((item) => item.role === row.role && item.field === row.field && item.test.kind === 'file'))) continue;
       const bringing = lesson.steps.find((step) => step.roles?.some((item) => item.role === row.role));
       if (bringing) bringing.fields = [...(bringing.fields ?? []), { ...rule, identifies: true }];
+    }
+  }
+  return lessons;
+}
+
+/** A file that must be made for the family of another file of the lesson: a LoRA or a ControlNet and its checkpoint. */
+export interface FamilyPair {
+  role: string;
+  field: string;
+  of: { role: string; field: string };
+}
+
+/**
+ * Puts the "same family" rules into their lessons, in place, after the rule on the same field (or into the step
+ * that brings the role). Like withFileTable, so a set's list of pairs needs no change in the set's own file.
+ */
+export function withFamilyPairs<L extends { id: string; steps: RuledStep[] }>(lessons: readonly L[], table: Readonly<Record<string, ReadonlyArray<FamilyPair>>>): readonly L[] {
+  for (const lesson of lessons) {
+    for (const pair of table[lesson.id] ?? []) {
+      const rule = { role: pair.role, field: pair.field, test: { kind: 'sameFamily' as const, role: pair.of.role, field: pair.of.field }, why: 'sameFamily' };
+      if (lesson.steps.some((step) => step.fields?.some((item) => item.role === pair.role && item.field === pair.field && item.test.kind === 'sameFamily'))) continue;
+      const ruled = lesson.steps.find((step) => step.fields?.some((item) => item.role === pair.role && item.field === pair.field));
+      const step = ruled ?? lesson.steps.find((item) => item.roles?.some((spec) => spec.role === pair.role));
+      if (step) step.fields = [...(step.fields ?? []), ruled ? rule : { ...rule, identifies: true as const }];
     }
   }
   return lessons;
