@@ -1,4 +1,6 @@
 import type { ModelLogTurn } from '../../../shared/contracts/modelLog';
+import { formatByteSize } from '../../../shared/i18n/format';
+import { displayLocale } from '../../../shared/i18n/languages';
 
 /**
  * How the model conversation log reads to a person: what a recorded turn is called, how it ended, how long it
@@ -50,20 +52,12 @@ export function durationParts(ms: number | null): { minutes: number; seconds: nu
 }
 
 export function formatLogBytes(bytes: number, language: 'en' | 'ru'): string {
-  const units = language === 'ru' ? ['Б', 'КБ', 'МБ', 'ГБ'] : ['B', 'KB', 'MB', 'GB'];
-  let value = Number.isFinite(bytes) && bytes > 0 ? bytes : 0;
-  let unit = 0;
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024;
-    unit += 1;
-  }
-  const digits = unit === 0 || value >= 100 ? 0 : 1;
-  return `${new Intl.NumberFormat(language === 'ru' ? 'ru-RU' : 'en-US', { maximumFractionDigits: digits, minimumFractionDigits: digits }).format(value)} ${units[unit]}`;
+  return formatByteSize(bytes, language, undefined, 'gigabytes');
 }
 
 /** "Today, 14:32" reads faster than a date for what just happened; older turns show the day. */
 export function formatTurnTime(startedAt: number, language: 'en' | 'ru', now = Date.now()): { day: 'today' | 'yesterday' | 'date'; text: string } {
-  const locale = language === 'ru' ? 'ru-RU' : 'en-US';
+  const locale = displayLocale(language);
   const time = new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' }).format(startedAt);
   const dayStart = new Date(now);
   dayStart.setHours(0, 0, 0, 0);

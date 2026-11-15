@@ -24,7 +24,7 @@ test('step checkpoint: a 70-step build pauses at 60 with a card, and Continue fi
   await window.setViewportSize({ width: 1440, height: 900 });
   await useEnglish(window);
 
-  await pickOption(window, 'Chat provider', 'TEST mode');
+  await pickOption(window, 'Choose the assistant', 'TEST mode');
   await window.getByText('TEST mode is on').first().waitFor();
   await window.getByRole('tab', { name: 'Assistant' }).click();
   await window.getByRole('group', { name: 'Mode' }).getByRole('button', { name: 'Build', exact: true }).click();

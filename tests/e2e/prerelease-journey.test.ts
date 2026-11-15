@@ -95,18 +95,18 @@ test('prerelease journey configures a provider, builds a process, and exports a 
     const dialog = window.locator('[role="dialog"].settings-dialog');
     await dialog.getByRole('textbox', { name: 'ComfyUI address', exact: true }).fill(origin);
     await dialog.getByRole('tab', { name: 'Assistant' }).click();
-    await dialog.getByRole('radio', { name: 'Own server', exact: true }).click();
+    await dialog.getByRole('radio', { name: 'Your own server', exact: true }).click();
     await dialog.getByRole('textbox', { name: 'Model', exact: true }).fill('fixture-local');
-    await dialog.getByRole('textbox', { name: 'Base URL', exact: true }).fill('http://127.0.0.1:9/v1');
+    await dialog.getByRole('textbox', { name: 'Server address', exact: true }).fill('http://127.0.0.1:9/v1');
     await dialog.getByRole('button', { name: 'Save settings' }).click();
     await expect(dialog).toHaveCount(0);
-    await expect(window.getByText('Own server. No key is sent.')).toBeVisible();
+    await expect(window.getByText('Your own server. No key is sent.')).toBeVisible();
 
     await window.getByRole('button', { name: 'Settings', exact: true }).click();
     const restored = window.locator('[role="dialog"].settings-dialog');
     await restored.getByRole('tab', { name: 'Assistant' }).click();
     await expect(restored.getByRole('textbox', { name: 'Model', exact: true })).toHaveValue('fixture-local');
-    await expect(restored.getByRole('textbox', { name: 'Base URL', exact: true })).toHaveValue('http://127.0.0.1:9/v1');
+    await expect(restored.getByRole('textbox', { name: 'Server address', exact: true })).toHaveValue('http://127.0.0.1:9/v1');
     await restored.getByRole('tab', { name: 'Connection' }).click();
     await expect(restored.getByRole('textbox', { name: 'ComfyUI address', exact: true })).toHaveValue(origin);
     // The key lives under the provider choice in Assistant; pasting applies it for this session at once.
@@ -114,15 +114,15 @@ test('prerelease journey configures a provider, builds a process, and exports a 
     await restored.getByRole('radio', { name: 'OpenAI', exact: true }).click();
     // An https address nobody answers at: the marker is not a real key, and a provider that answered 401 would
     // (rightly) make the app drop it. Unchecked, it is held for this session.
-    await restored.getByRole('textbox', { name: 'Base URL', exact: true }).fill('https://127.0.0.1:9/v1');
+    await restored.getByRole('textbox', { name: 'Server address', exact: true }).fill('https://127.0.0.1:9/v1');
     const session = restored.getByRole('textbox', { name: 'OpenAI key', exact: true });
     await session.fill(SESSION_MARKER);
     await expect(restored.getByRole('status', { name: 'OpenAI key' })).toHaveText('The key is kept until restart.', { timeout: 20000 });
     // Without a password store the only offer is the app folder file, which this test does not take.
     await expect(restored.getByRole('button', { name: 'Remember on this computer' })).toHaveCount(0);
     // Back to the official address, so the draft holds no change but the key.
-    await restored.getByRole('textbox', { name: 'Base URL', exact: true }).fill('');
-    await restored.getByRole('radio', { name: 'Own server', exact: true }).click();
+    await restored.getByRole('textbox', { name: 'Server address', exact: true }).fill('');
+    await restored.getByRole('radio', { name: 'Your own server', exact: true }).click();
     const blocked = await window.evaluate(async (marker) => {
       const bridge = (window as unknown as { electronAPI: { saveSecret: (provider: string, value: string) => Promise<{ status: string }> } }).electronAPI;
       return bridge.saveSecret('openai', marker);
@@ -138,13 +138,13 @@ test('prerelease journey configures a provider, builds a process, and exports a 
     }, origin);
     expect(system).toMatchObject({ ok: true, version: 'fixture-0', devices: 1 });
     await restored.getByRole('button', { name: 'Read now', exact: true }).click();
-    await expect(restored.getByRole('status').filter({ hasText: 'Read 2 nodes, 0 packs and 0 model files.' })).toBeVisible();
+    await expect(restored.getByRole('status').filter({ hasText: 'Read from ComfyUI. Nodes: 2, packs: 0, model files: 0.' })).toBeVisible();
     expect(hits).toEqual(['GET /system_stats', 'GET /system_stats', 'GET /object_info', 'GET /customnode/installed', 'GET /experiment/models']);
     await window.screenshot({ path: artifact('pr13-prerelease-settings.png') });
     await restored.getByRole('button', { name: 'Cancel' }).click();
     await expect(restored).toHaveCount(0);
 
-    await pickOption(window, 'Chat provider', 'TEST mode');
+    await pickOption(window, 'Choose the assistant', 'TEST mode');
     await window.getByText('TEST mode is on').first().waitFor();
     await window.getByRole('tab', { name: 'Assistant' }).click();
     // Build tools exist only in a build turn: switch the composer to Build.
@@ -158,7 +158,7 @@ test('prerelease journey configures a provider, builds a process, and exports a 
     await expect(buildCard).toContainText('Added the node Fixture step');
     await expect(buildCard).toContainText('Wrote down what Fixture step is for');
     await expect(buildCard).toContainText(`Named the graph “${PROCESS_TITLE}”`);
-    await window.getByRole('tab', { name: 'Inspector' }).click();
+    await window.getByRole('tab', { name: 'Properties' }).click();
     await window.getByText('Fixture step', { exact: true }).click();
     const nodeForm = window.locator('[data-component-owner="node:1"]');
     await expect(nodeForm.locator('textarea').nth(0)).toHaveValue(PURPOSE);
@@ -255,7 +255,7 @@ test('object info import lets the agent export a loader parameter', async () => 
     await loadNodeList(window);
     await expect(window.getByText('Node list loaded. Nodes: 1. Models: 1. Skipped: 0.')).toBeVisible();
 
-    await pickOption(window, 'Chat provider', 'TEST mode');
+    await pickOption(window, 'Choose the assistant', 'TEST mode');
     await window.getByText('TEST mode is on').first().waitFor();
     await window.getByRole('tab', { name: 'Assistant' }).click();
     // Build tools exist only in a build turn: switch the composer to Build.
@@ -264,7 +264,7 @@ test('object info import lets the agent export a loader parameter', async () => 
     await input.fill('Build the loader fixture');
     await input.press('Enter');
     await expect(window.getByText('TEST fixture only: the loader parameter is in the export.')).toBeVisible({ timeout: 30000 });
-    await window.getByRole('tab', { name: 'Inspector' }).click();
+    await window.getByRole('tab', { name: 'Properties' }).click();
     await window.locator('.react-flow__node', { hasText: 'Portrait loader' }).click();
     const nodeForm = window.locator('[data-component-owner="node:1"]');
     await expect(nodeForm.locator('textarea').nth(0)).toHaveValue('Loads the portrait checkpoint');

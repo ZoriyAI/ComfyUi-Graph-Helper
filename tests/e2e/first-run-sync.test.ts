@@ -54,11 +54,11 @@ test('first run: connect, sync from MCP, browse the library, build, check and ex
     // A fresh profile has no MCP address: the empty canvas sends the person to Settings ▸ Connection.
     await window.getByRole('button', { name: 'Connect…' }).click();
     const dialog = window.locator('[role="dialog"].settings-dialog');
-    const mcpUrl = dialog.getByRole('textbox', { name: 'MCP server URL', exact: true });
+    const mcpUrl = dialog.getByRole('textbox', { name: 'MCP server address', exact: true });
     await expect(mcpUrl).toBeVisible();
     await mcpUrl.fill(fake.url);
     // "Check" asks the server: this one wants a token, so "Token" is selected and its field opens right there.
-    await dialog.getByRole('button', { name: 'Check', exact: true }).click();
+    await dialog.getByRole('button', { name: 'Test server', exact: true }).click();
     await expect(dialog.getByText('The server needs a token. “Token” is selected.')).toBeVisible();
     await expect(dialog.getByRole('radio', { name: 'Token', exact: true })).toBeChecked();
     // Pasting is enough: the app applies the token and asks the server whether it takes it.
@@ -138,7 +138,7 @@ test('first run: connect, sync from MCP, browse the library, build, check and ex
     await expect(modelList.getByRole('option').first()).toContainText('LoRA');
 
     // Ask about this model with the TEST provider: the question lands in the chat and the fixture answers.
-    await pickOption(window, 'Chat provider', 'TEST mode');
+    await pickOption(window, 'Choose the assistant', 'TEST mode');
     await modelSearch.fill('PastelDetailPonyV2');
     const ponyRow = modelList.getByRole('option').filter({ hasText: 'PastelDetailPonyV2' }).first();
     await ponyRow.hover();
@@ -149,7 +149,7 @@ test('first run: connect, sync from MCP, browse the library, build, check and ex
     // Check graph: the two unconnected nodes have required inputs left empty.
     await window.locator('.react-flow__pane').click({ position: { x: 20, y: 400 } });
     await window.keyboard.press('Control+Shift+C');
-    await expect(window.getByRole('heading', { name: 'Check before export' })).toBeVisible();
+    await expect(window.getByRole('heading', { name: 'Check before saving' })).toBeVisible();
     await expect(window.getByText(/Required inputs left empty/)).toBeVisible();
 
     // Export through the stubbed save dialog: plain ComfyUI JSON with numeric ids.

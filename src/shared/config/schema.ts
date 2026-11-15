@@ -1,4 +1,5 @@
 import type { Preferences } from './preferences';
+import type { AppLanguage } from '../i18n/languages';
 import { z } from 'zod';
 import { withLoopbackScheme } from '../mcp/loopback';
 
@@ -74,8 +75,8 @@ export const nonSecretDefaults: NonSecretSettings = {
  * Older callers ignore it.
  */
 export type SettingsRead =
-  | { source: 'default'; values: NonSecretSettings; preferences?: Preferences }
-  | { source: 'stored'; values: NonSecretSettings; preferences?: Preferences }
-  | { source: 'corrupt'; preferences?: Preferences };
+  | { source: 'default'; values: NonSecretSettings; preferences?: Preferences; systemLanguage?: AppLanguage }
+  | { source: 'stored'; values: NonSecretSettings; preferences?: Preferences; systemLanguage?: AppLanguage }
+  | { source: 'corrupt'; preferences?: Preferences; systemLanguage?: AppLanguage };
 
 export type SecretSaveResult = { status: 'secret-storage-blocked' };

@@ -107,12 +107,20 @@
   --radius-pill: 999px;
 
   /* Type scale */
-  --font-sans: "Geist", system-ui, sans-serif;
+  /*
+   * Geist draws Latin and Cyrillic. Names of nodes, packs and files often come in Chinese, Japanese or Korean, so
+   * the chain names the usual CJK fonts of Linux, Windows and macOS explicitly before the generic family: a system
+   * whose default sans-serif has no CJK still finds one it has, instead of drawing boxes.
+   */
+  --font-cjk: "Noto Sans CJK SC", "Noto Sans CJK JP", "Noto Sans CJK KR", "Noto Sans SC", "Noto Sans JP", "Noto Sans KR",
+    "Source Han Sans SC", "Source Han Sans", "WenQuanYi Micro Hei", "WenQuanYi Zen Hei", "Droid Sans Fallback",
+    "Microsoft YaHei", "Yu Gothic UI", "Malgun Gothic", "PingFang SC", "Hiragino Sans", "Apple SD Gothic Neo";
+  --font-sans: "Geist", var(--font-cjk), system-ui, sans-serif;
   /*
    * Monospace: Linux has none of ui-monospace / SF Mono / Menlo, so the stack names the faces a Linux desktop has.
    * "Geist Mono" comes first and is used once its @fontsource package is bundled (the sans face is Geist already).
    */
-  --font-mono: "Geist Mono", ui-monospace, "JetBrains Mono", "DejaVu Sans Mono", "Liberation Mono", "SFMono-Regular", Menlo, monospace;
+  --font-mono: "Geist Mono", ui-monospace, "JetBrains Mono", "DejaVu Sans Mono", "Liberation Mono", "SFMono-Regular", Menlo, var(--font-cjk), monospace;
   --text-xs: 12px;
   --text-sm: 13px;
   --text-md: 14px;

@@ -777,7 +777,8 @@ describe('sync error classification', () => {
     expect(translateKnownError(ru, 'ComfyUI is not running at 127.0.0.1:18188 — node ports were not updated; start ComfyUI and sync again.'))
       .toBe('ComfyUI не запущен на 127.0.0.1:18188, поэтому входы и выходы нод не обновлены. Запустите ComfyUI и синхронизируйте снова.');
     expect(translateKnownError(ru, 'MCP catalog section could not be read: node packs.')).toMatch(/список паков/);
-    expect(translateKnownError(createTranslator('en'), NODE_PORTS_NO_URL)).toBe(NODE_PORTS_NO_URL);
+    // The code says "ports"; on screen they are inputs and outputs.
+    expect(translateKnownError(createTranslator('en'), NODE_PORTS_NO_URL)).toBe(NODE_PORTS_NO_URL.replace('Node ports', 'Node inputs and outputs'));
   });
 
   it('a run with ComfyUI down stores the warning and stays idle', async () => {

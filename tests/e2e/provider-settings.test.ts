@@ -67,7 +67,7 @@ test('stored provider, model, and base URL are what the next send would use afte
   // Provider is a radio-card group in the Preferences window (it was a select).
   await dialog.getByRole('radio', { name: 'OpenAI', exact: true }).click();
   await dialog.getByRole('textbox', { name: 'Model', exact: true }).fill('  fixture-model  ');
-  await dialog.getByRole('textbox', { name: 'Base URL', exact: true }).fill(' https://example.test/v1 ');
+  await dialog.getByRole('textbox', { name: 'Server address', exact: true }).fill(' https://example.test/v1 ');
   await expect(dialog.getByRole('button', { name: 'Save settings' })).toBeEnabled();
   await dialog.getByRole('button', { name: 'Save settings' }).click();
   await expect(dialog).toHaveCount(0);
@@ -80,14 +80,14 @@ test('stored provider, model, and base URL are what the next send would use afte
   const savedDialog = await openSettings(window);
   await expect(savedDialog.getByRole('button', { name: 'Save settings' })).toBeDisabled();
   await expect(savedDialog.getByRole('textbox', { name: 'Model', exact: true })).toHaveValue('fixture-model');
-  await expect(savedDialog.getByRole('textbox', { name: 'Base URL', exact: true })).toHaveValue('https://example.test/v1');
+  await expect(savedDialog.getByRole('textbox', { name: 'Server address', exact: true })).toHaveValue('https://example.test/v1');
 
-  await savedDialog.getByRole('textbox', { name: 'Base URL', exact: true }).fill('notaurl');
+  await savedDialog.getByRole('textbox', { name: 'Server address', exact: true }).fill('notaurl');
   // The save that cannot happen names the field, marks it, and pressing Save takes the person to it.
   await expect(savedDialog.getByText(/The server address is not an address yet/)).toBeVisible();
-  await expect(savedDialog.getByRole('textbox', { name: 'Base URL', exact: true })).toHaveAttribute('aria-invalid', 'true');
+  await expect(savedDialog.getByRole('textbox', { name: 'Server address', exact: true })).toHaveAttribute('aria-invalid', 'true');
   await savedDialog.getByRole('button', { name: 'Save settings' }).click();
-  await expect(savedDialog.getByRole('textbox', { name: 'Base URL', exact: true })).toBeFocused();
+  await expect(savedDialog.getByRole('textbox', { name: 'Server address', exact: true })).toBeFocused();
   const schemaReject = await window.evaluate(async () => {
     const bridge = (window as unknown as { electronAPI: { saveSettings: (input: unknown) => Promise<{ ok: boolean; error?: string }> } }).electronAPI;
     return bridge.saveSettings({
@@ -138,14 +138,14 @@ test('stored provider, model, and base URL are what the next send would use afte
   await expect(restored.getByText('Settings loaded.')).toBeVisible();
   await expect(restored.getByRole('radio', { name: 'OpenAI', exact: true })).toHaveAttribute('aria-checked', 'true');
   await expect(restored.getByRole('textbox', { name: 'Model', exact: true })).toHaveValue('fixture-model');
-  await expect(restored.getByRole('textbox', { name: 'Base URL', exact: true })).toHaveValue('https://example.test/v1');
+  await expect(restored.getByRole('textbox', { name: 'Server address', exact: true })).toHaveValue('https://example.test/v1');
   const reread = await settingsRow(reopened, appRoot);
   expect(reread.row).toEqual({ provider: 'openai', model: 'fixture-model', base_url: 'https://example.test/v1' });
   expect(reread.secrets).toBe(0);
 
   await restored.getByRole('radio', { name: 'TEST mode', exact: true }).click();
   await restored.getByRole('textbox', { name: 'Model', exact: true }).fill('test-fixture');
-  await restored.getByRole('textbox', { name: 'Base URL', exact: true }).fill('https://fixture.example/v1');
+  await restored.getByRole('textbox', { name: 'Server address', exact: true }).fill('https://fixture.example/v1');
   await restored.getByRole('button', { name: 'Save settings' }).click();
   await expect(restored).toHaveCount(0);
   await expect.poll(async () => again.evaluate(() => (
@@ -171,7 +171,7 @@ test('a key pasted for one provider belongs to that provider only', async () => 
   const dialog = await openSettings(window);
   await dialog.getByRole('radio', { name: 'Anthropic', exact: true }).click();
   // An https address nobody answers at: the key cannot be checked, so it is kept and nothing reaches a provider.
-  await dialog.getByRole('textbox', { name: 'Base URL', exact: true }).fill('https://127.0.0.1:9/v1');
+  await dialog.getByRole('textbox', { name: 'Server address', exact: true }).fill('https://127.0.0.1:9/v1');
   await dialog.getByRole('textbox', { name: 'Anthropic key', exact: true }).fill(MARKER);
   await expect(dialog.getByRole('status', { name: 'Anthropic key' })).toHaveText('The key is kept until restart.', { timeout: 20000 });
   await expect(dialog.getByText(/^The key could not be checked:/)).toBeVisible();

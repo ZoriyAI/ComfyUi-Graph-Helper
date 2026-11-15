@@ -186,7 +186,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     app: appVersion(),
   },
   /** Build switches from main. `testProvider`: the scripted TEST fixture is offered (unpackaged runs and tests only). */
-  flags: { testProvider: hasFlag('--test-provider=1') },
+  flags: { testProvider: hasFlag('--test-provider=1'), pseudoLocale: hasFlag('--pseudo-locale=1') },
 
   // File operations
   importWorkflow: () => ipcRenderer.invoke(IPC_CHANNELS.FILE_IMPORT_WORKFLOW),
@@ -426,7 +426,8 @@ export interface ElectronAPI {
     app?: string;
   };
   /** Build switches from main. `testProvider`: the scripted TEST fixture is offered (unpackaged runs and tests only). */
-  flags: { testProvider: boolean };
+  /** pseudoLocale: every text drawn 40 % longer with accented letters (layout tests of unpackaged runs only). */
+  flags: { testProvider: boolean; pseudoLocale?: boolean };
   importWorkflow: () => Promise<import('../shared/commands/types').CommandResponse | { status: 'cancelled'; projection: null; result: null }>;
   importCatalog: () => Promise<
     | { status: 'applied'; result: { nodes: number; models: number; skipped: string[] } }

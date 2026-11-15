@@ -201,7 +201,7 @@ test('model card: shows what lies next to a file, and content marked as adult on
       'SDXL', 'from the description next to the file', 'Made for', 'SDXL 1.0', 'Version', 'v1.1', 'Author', 'nerijs',
       'style', 'retro', 'Strength the author suggests: 0.9', 'It works from 0.6 to 1.2', 'Your notes', 'Turn the strength down for portraits.',
       'Turns a picture into pixel art with a limited palette.', '• Works at 1024 x 1024.', 'Sharper edges than v1.0.',
-      'Descriptions the author used', 'pixel art, a lighthouse on a cliff, sunset, seagulls', 'Not wanted: blurry, 3d render', 'steps: 8 · cfg 1.5 · euler',
+      'Prompts the author used', 'pixel art, a lighthouse on a cliff, sunset, seagulls', 'Negative prompt: blurry, 3d render', 'steps: 8 · cfg 1.5 · euler',
       'pixel art, a cat sleeping on a bookshelf, warm lamp light',
     ]) await expect(card, text).toContainText(text);
     await expect(card.getByRole('button', { name: 'pixel art', exact: true })).toBeVisible();
@@ -214,7 +214,7 @@ test('model card: shows what lies next to a file, and content marked as adult on
     await shot(window, '1-card-with-preview');
     await expectSoundLayout(window, 'model card with a preview and examples', HERE);
     await card.getByRole('button', { name: 'Copy', exact: true }).first().click();
-    await expect(card.getByRole('status')).toContainText('Description copied');
+    await expect(card.getByRole('status')).toContainText('Prompt copied');
 
     // Another convention (a bare Civitai record, .preview.png): the author's name leads the row; the file name is
     // what the row is called when pointed at, and what heads its card.
@@ -348,8 +348,8 @@ test('model card: a file nothing describes is looked up on the internet when the
     // The fingerprint was made on the server (only for this one model file), then Civitai found the file by it.
     await expect(section).toHaveAttribute('data-web', 'found', { timeout: 30_000 });
     for (const text of [
-      'Civitai', 'Found by the file fingerprint: this is this very file.', 'Mystery Style', 'v3', 'fogmaker', 'SDXL 1.0',
-      'mystery style, a lighthouse in fog', 'Not wanted: sunny', '1 more example is hidden.', 'https://civitai.com/models/900100?modelVersionId=900101',
+      'Civitai', 'Found by the file fingerprint: it is exactly this file.', 'Mystery Style', 'v3', 'fogmaker', 'SDXL 1.0',
+      'mystery style, a lighthouse in fog', 'Negative prompt: sunny', '1 more example is hidden.', 'https://civitai.com/models/900100?modelVersionId=900101',
     ]) await expect(section, text).toContainText(text);
     await expect(section).not.toContainText('a figure on the stairs');
     await expect(section.getByRole('button', { name: 'mystery style', exact: true })).toBeVisible();

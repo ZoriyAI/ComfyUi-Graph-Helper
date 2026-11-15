@@ -217,20 +217,20 @@ describe('the model conversation log', () => {
     const report = turnReport(readTurnTrace(trace.id)!);
     expect(report).toContain('Модель: local / example-model:9b (http://127.0.0.1:21434)');
     expect(report).toContain('Системный текст: 5000 симв.');
-    expect(report).toContain('[ещё 2000 симв.]');
+    expect(report).toContain('[ещё 2\u00a0000 симв.]');
     expect(report).toContain('**user:** собери граф');
     expect(report).toContain('### Шаг 1');
     expect(report).toContain('вызов `addNode`');
     expect(report).toContain('результат С ОШИБКОЙ');
-    expect(report).toContain('Итог: Пауза на контрольной точке');
+    expect(report).toContain('Итог: Пауза по лимиту шагов');
     expect(report.length).toBeLessThan(20000);
     const english = turnReport(readTurnTrace(trace.id)!, 'en');
     expect(english).toContain('Model: local / example-model:9b (http://127.0.0.1:21434)');
     expect(english).toContain('System text: 5000 chars');
-    expect(english).toContain('[2000 more chars]');
+    expect(english).toContain('[2,000 more chars]');
     expect(english).toContain('### Step 1');
     expect(english).toContain('result FAILED');
-    expect(english).toContain('Outcome: Paused at a checkpoint');
+    expect(english).toContain('Outcome: Paused at the step limit');
     expect(english).not.toMatch(/Итог|Шаг|Модель/);
   });
 

@@ -1,4 +1,5 @@
 import type { McpReadOutcome, SyncStatus } from '../../../shared/contracts';
+import { formatDateTime } from '../../../shared/i18n/format';
 
 export type SyncState = SyncStatus['state'];
 
@@ -134,7 +135,7 @@ function summaryKey(params: Record<string, number>, continuing: boolean): { key:
 }
 
 export function formatSyncTime(timestamp: number, language: 'en' | 'ru'): string {
-  return new Intl.DateTimeFormat(language === 'ru' ? 'ru-RU' : 'en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(timestamp);
+  return formatDateTime(timestamp, language, { dateStyle: 'medium', timeStyle: 'short' });
 }
 
 /** Seconds with one decimal under 10 s, whole seconds above. */

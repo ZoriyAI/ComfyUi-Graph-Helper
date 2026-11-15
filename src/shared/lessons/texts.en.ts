@@ -45,8 +45,8 @@ const SAVE_VIDEO = {
 };
 
 const TRIGGER = {
-  title: 'Put the LoRA\'s words into the description',
-  body: 'Add your LoRA\'s words to the `text` field of the {positive} node whose output goes into a `positive` input.\n\nThe app compares the description with the words written in the LoRA file itself. If its author wrote none there, there is nothing to compare with and the step counts on its own.',
+  title: 'Put the LoRA\'s words into the prompt',
+  body: 'Add your LoRA\'s words to the `text` field of the {positive} node whose output goes into a `positive` input.\n\nThe app compares the prompt with the words written in the LoRA file itself. If its author wrote none there, there is nothing to compare with and the step counts on its own.',
 };
 
 export const LESSONS_EN: Record<string, LessonWords> = {
@@ -54,7 +54,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
   ...IMAGE_TECHNIQUES_EN,
   image: {
     title: 'A first picture from text',
-    result: 'You build a graph of seven nodes that draws a picture from a description.',
+    result: 'You build a graph of seven nodes that draws a picture from a prompt.',
     steps: {
       intro: {
         title: 'How a graph works',
@@ -86,7 +86,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
       'sampler-links': {
         title: 'Bring four links to the sampler',
-        body: 'Connect to the inputs of {sampler}:\n- to `model`, the `MODEL` output of {checkpoint};\n- to `positive`, the output of the node with your description;\n- to `negative`, the output of the other text node;\n- to `latent_image`, the output of {latent}.\n\nIf `positive` and `negative` are swapped, the model avoids what you described.',
+        body: 'Connect to the inputs of {sampler}:\n- to `model`, the `MODEL` output of {checkpoint};\n- to `positive`, the output of the node with your prompt;\n- to `negative`, the output of the other text node;\n- to `latent_image`, the output of {latent}.\n\nIf `positive` and `negative` are swapped, the model avoids what you described.',
       },
       decode: {
         title: 'Turn the result into a picture',
@@ -98,13 +98,13 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
       run: {
         title: 'The graph is ready',
-        body: `${SAVE}\n\nWhat to try in the sampler:\n- \`seed\`: another number gives another picture from the same description;\n- \`steps\`: more steps, a cleaner picture and a longer wait. 20–30 is usually enough;\n- \`cfg\`: how strictly the model follows the text. Usually 5–8.`,
+        body: `${SAVE}\n\nWhat to try in the sampler:\n- \`seed\`: another number gives another picture from the same prompt;\n- \`steps\`: more steps, a cleaner picture and a longer wait. 20-30 is usually enough;\n- \`cfg\`: how strictly the model follows the text. Usually 5-8.`,
       },
     },
   },
   'video-text': {
     title: 'Video from text',
-    result: 'You build a Wan 2.2 graph that makes a five-second clip from a description.',
+    result: 'You build a Wan 2.2 graph that makes a five-second clip from a prompt.',
     steps: {
       intro: {
         title: 'What a video is to a model',
@@ -123,7 +123,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
         body: 'Add a {vae} node and choose the `wan_2.1_vae` file in `vae_name`.\n\nThe VAE turns the result into frames. The large Wan 2.2 models need the VAE of version 2.1. The `wan2.2_vae` file fits only the small 5B model.',
       },
       prompts: {
-        title: 'Write the description',
+        title: 'Write the prompt',
         body: 'Add two {positive} nodes and connect the output of {clip} to the `clip` input of each. In the `text` field of one describe the clip: what is in the frame, what happens, how the camera moves. The other is for what must not be there.\n\nFor video the action matters. "A person walks along a beach, the camera follows from the side" works better than "a person on a beach".',
       },
       shift: {
@@ -158,7 +158,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
     steps: {
       intro: {
         title: 'What is different',
-        body: 'Here the clip starts from your picture. The description no longer says what is in the frame but what happens in it.\n\nThe graph is almost the one from "Video from text". If it is on your canvas, most steps are already done and the app goes straight to the new ones.\n\nThree things change: the model files, a node with the picture and a node that prepares the start.',
+        body: 'Here the clip starts from your picture. The prompt no longer says what is in the frame but what happens in it.\n\nThe graph is almost the one from "Video from text". If it is on your canvas, most steps are already done and the app goes straight to the new ones.\n\nThree things change: the model files, a node with the picture and a node that prepares the start.',
       },
       models: {
         title: 'Choose the models for a picture',
@@ -202,13 +202,13 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       save: SAVE_VIDEO,
       run: {
         title: 'The graph is ready',
-        body: `${SAVE}\n\nIf the clip stands still, add action and camera motion to the description. If a figure or a face drifts towards the end, shorten \`length\` or describe a calmer motion.`,
+        body: `${SAVE}\n\nIf the clip stands still, add action and camera motion to the prompt. If a figure or a face drifts towards the end, shorten \`length\` or describe a calmer motion.`,
       },
     },
   },
   lora: {
     title: 'LoRA: add a style or a subject',
-    result: 'You connect a LoRA to both models and put its words into the description.',
+    result: 'You connect a LoRA to both models and put its words into the prompt.',
     steps: {
       intro: {
         title: 'What a LoRA is',
@@ -225,16 +225,16 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
       files: {
         title: 'Choose the files and the strength',
-        body: 'Choose a file in `lora_name`. The node in the path of the `high_noise` model takes the `high` file, the one in the path of `low_noise` the `low` file. If the LoRA is a single file, put it into both nodes.\n\n`strength_model` is the strength. 1 means full strength. If the LoRA overrides everything else or spoils the picture, lower it to 0.6–0.8.\n\nSeveral LoRAs are chained: the output of one LoRA node to the input of the next.',
+        body: 'Choose a file in `lora_name`. The node in the path of the `high_noise` model takes the `high` file, the one in the path of `low_noise` the `low` file. If the LoRA is a single file, put it into both nodes.\n\n`strength_model` is the strength. 1 means full strength. If the LoRA overrides everything else or spoils the picture, lower it to 0.6-0.8.\n\nSeveral LoRAs are chained: the output of one LoRA node to the input of the next.',
       },
       'trigger-words': {
         title: 'The words that switch a LoRA on',
-        body: 'Many LoRAs act only when the description holds their words. These are called trigger words.\n\nOpen the card of the file in the "Models" tab: if the author wrote these words into the file, they are shown there. If they are not, look at the page you took the LoRA from.',
+        body: 'Many LoRAs act only when the prompt holds their words. These are called trigger words.\n\nOpen the card of the file in the "Models" tab: if the author wrote these words into the file, they are shown there. If they are not, look at the page you took the LoRA from.',
       },
       trigger: TRIGGER,
       result: {
         title: 'The LoRA is connected',
-        body: 'Run the graph in ComfyUI and compare with the clip without the LoRA.\n\nIf nothing changed, check three things: the file fits the model, the trigger words are in the description, the strength is not too low.',
+        body: 'Run the graph in ComfyUI and compare with the clip without the LoRA.\n\nIf nothing changed, check three things: the file fits the model, the trigger words are in the prompt, the strength is not too low.',
       },
     },
   },
@@ -244,7 +244,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
     steps: {
       intro: {
         title: 'Where the speed comes from',
-        body: 'A speed-up LoRA teaches the model to do in four steps what usually takes twenty. The best known one for Wan is called `lightx2v`.\n\nThe price: less variety and slightly rougher motion. For trying things out and finding the right description it nearly always pays: the clip is ready several times sooner.',
+        body: 'A speed-up LoRA teaches the model to do in four steps what usually takes twenty. The best known one for Wan is called `lightx2v`.\n\nThe price: less variety and slightly rougher motion. For trying things out and finding the right prompt it nearly always pays: the clip is ready several times sooner.',
       },
       graph: NEED_VIDEO,
       loras: {
@@ -269,7 +269,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
       result: {
         title: 'Now it is fast',
-        body: 'The clip is made several times sooner.\n\nOnce the description is right you can go back to twenty steps for quality: take the speed-up LoRAs out and set `steps` back to 20, `cfg` to 3.5 and the hand-over to step 10.',
+        body: 'The clip is made several times sooner.\n\nOnce the prompt is right you can go back to twenty steps for quality: take the speed-up LoRAs out and set `steps` back to 20, `cfg` to 3.5 and the hand-over to step 10.',
       },
     },
   },
@@ -283,7 +283,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
       levers: {
         title: 'The technique is the same',
-        body: 'The graph for such a picture is the one from "A first picture from text". What comes out is decided by three things:\n- the model: what it can draw at all;\n- the LoRA: what it was taught on top of that;\n- the description: what you asked for.\n\nEach in turn below.',
+        body: 'The graph for such a picture is the one from "A first picture from text". What comes out is decided by three things:\n- the model: what it can draw at all;\n- the LoRA: what it was taught on top of that;\n- the prompt: what you asked for.\n\nEach in turn below.',
       },
       graph: {
         title: 'A picture graph is needed',
@@ -295,19 +295,19 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
       readers: {
         title: 'Tags or phrases, and the author\'s words',
-        body: 'SD 1.5, SDXL, Pony and Illustrious read a description as tags separated by commas. Models such as Flux.1 read plain phrases. "The description: how a model reads it" goes through this in detail.\n\nA further-trained model was taught with words of its own. On the model\'s page its author writes which quality words and which rating words it was trained with, and where they go. Without them such a model often works worse than it could.\n\nIn the app this is in the model\'s card in the "Models" tab: the author\'s notes, the trigger words and the example descriptions the author used. The examples an author marked as adult content open with the switch "Adult content (18+)".\n\nTake the words from there: each model has its own, and the lesson lists none.',
+        body: 'SD 1.5, SDXL, Pony and Illustrious read a prompt as tags separated by commas. Models such as Flux.1 read plain phrases. "The prompt: how a model reads it" goes through this in detail.\n\nA further-trained model was taught with words of its own. On the model\'s page its author writes which quality words and which rating words it was trained with, and where they go. Without them such a model often works worse than it could.\n\nIn the app this is in the model\'s card in the "Models" tab: the author\'s notes, the trigger words and the example prompts the author used. The examples an author marked as adult content open with the switch "Adult content (18+)".\n\nTake the words from there: each model has its own, and the lesson lists none.',
       },
       lora: {
         title: 'LoRA: strength, several, words',
-        body: 'A LoRA node goes between {checkpoint} and the rest of the graph: `MODEL` and `CLIP` go into it, and its outputs go where the model\'s outputs went.\n\nThe strength is set in `strength_model` and `strength_clip`. Start from the one the author gives, usually 0.6–1. Too much strength breaks the picture.\n\nSeveral LoRAs are chained, one after another. Their effects add up, so give each less than you would give it alone. All of them must be made for the family of your model.\n\nMany LoRAs have trigger words: without them the LoRA barely acts. The card of the file shows them.',
+        body: 'A LoRA node goes between {checkpoint} and the rest of the graph: `MODEL` and `CLIP` go into it, and its outputs go where the model\'s outputs went.\n\nThe strength is set in `strength_model` and `strength_clip`. Start from the one the author gives, usually 0.6-1. Too much strength breaks the picture.\n\nSeveral LoRAs are chained, one after another. Their effects add up, so give each less than you would give it alone. All of them must be made for the family of your model.\n\nMany LoRAs have trigger words: without them the LoRA barely acts. The card of the file shows them.',
       },
       trigger: {
-        title: 'The LoRA\'s words in the description',
-        body: 'If the graph has a LoRA, add its words to the `text` field of the {positive} node whose output goes into the `positive` input of {sampler}.\n\nThe app compares the description with the words written in the LoRA files on the canvas. If the graph has no LoRA, or its author wrote no words into the file, there is nothing to compare with and the step counts on its own.',
+        title: 'The LoRA\'s words in the prompt',
+        body: 'If the graph has a LoRA, add its words to the `text` field of the {positive} node whose output goes into the `positive` input of {sampler}.\n\nThe app compares the prompt with the words written in the LoRA files on the canvas. If the graph has no LoRA, or its author wrote no words into the file, there is nothing to compare with and the step counts on its own.',
       },
       negative: {
         title: 'The second text: defects',
-        body: 'The second {positive} node, the one that goes into `negative`, lists defects: distorted hands, extra fingers, blur, watermarks. The author of a model often gives a text for this field on the model\'s page: start from it.\n\n"No" and "without" in the main description do not work: what must not be there is written here. At `cfg` 1 this text does not act.',
+        body: 'The second {positive} node, the one that goes into `negative`, lists defects: distorted hands, extra fingers, blur, watermarks. The author of a model often gives a text for this field on the model\'s page: start from it.\n\n"No" and "without" in the main prompt do not work: what must not be there is written here. At `cfg` 1 this text does not act.',
       },
       size: {
         title: 'The size for the family',
@@ -315,11 +315,11 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
       defects: {
         title: 'If the result is poor',
-        body: 'What to change, and in what order:\n- the subject does not appear: check that the model or the LoRA is made for this family, and that the description has the trigger words and the words the author recommends;\n- anatomy drifts: lower `strength_model` of the LoRA to 0.6–0.8, remove extra LoRAs, check the size;\n- the picture is burnt out: lower `cfg` to the value the author recommends, usually 4–7;\n- small defects: add them to the second text;\n- everything is off: change `seed`. Some pictures simply fail by chance.',
+        body: 'What to change, and in what order:\n- the subject does not appear: check that the model or the LoRA is made for this family, and that the prompt has the trigger words and the words the author recommends;\n- anatomy drifts: lower `strength_model` of the LoRA to 0.6-0.8, remove extra LoRAs, check the size;\n- the picture is burnt out: lower `cfg` to the value the author recommends, usually 4-7;\n- small defects: add them to the second text;\n- everything is off: change `seed`. Some pictures simply fail by chance.',
       },
       helper: {
         title: 'About the assistant in the app',
-        body: 'The lessons work without an assistant model. Questions in "Ask" mode go to the model you chose.\n\nThe assistant helps with graph construction and technical choices. Each provider or local model responds according to its own rules and capabilities. The rules at the start of this lesson are the app\'s own and hold whatever a model answers.\n\nThe assistant is sent the graph with the values of its fields, your descriptions among them. It does not see your pictures. Sending values can be switched off in "Settings ▸ Privacy".',
+        body: 'The lessons work without an assistant model. Questions in "Ask" mode go to the model you chose.\n\nThe assistant helps with graph construction and technical choices. Each provider or local model responds according to its own rules and capabilities. The rules at the start of this lesson are the app\'s own and hold whatever a model answers.\n\nThe assistant is sent the graph with the values of its fields, your prompts among them. It does not see your pictures. Sending values can be switched off in "Settings ▸ Privacy".',
       },
     },
   },
@@ -348,16 +348,16 @@ export const LESSONS_EN: Record<string, LessonWords> = {
         body: 'A LoRA works only with the family it was trained for: an SDXL LoRA does not work with SD 1.5, and Pony and Illustrious work best with LoRAs made for them.\n\nWhere to see it:\n- in the card of the file in the "Models" tab: the family its author wrote down, and how that is known;\n- on the author\'s page of the file: the base model and the version it was made for.\n\nCompare it with the card of the model in {checkpoint}. If the families differ, take another file: strength cannot fix that.',
       },
       trigger: {
-        title: 'The LoRA\'s words in the description',
-        body: 'Many LoRAs have trigger words: without them the LoRA barely acts. The author writes them on the page of the file, and the app shows them in the card of the file. Read them there and type them yourself into the `text` field of the {positive} node whose output goes into the `positive` input of {sampler}.\n\nThe app compares the description with the words written in the file. If the author wrote none, there is nothing to compare with and the step counts on its own.',
+        title: 'The LoRA\'s words in the prompt',
+        body: 'Many LoRAs have trigger words: without them the LoRA barely acts. The author writes them on the page of the file, and the app shows them in the card of the file. Read them there and type them yourself into the `text` field of the {positive} node whose output goes into the `positive` input of {sampler}.\n\nThe app compares the prompt with the words written in the file. If the author wrote none, there is nothing to compare with and the step counts on its own.',
       },
       strength: {
         title: 'Two strengths',
-        body: 'The {lora} node has two strengths:\n- `strength_model`: how much the LoRA changes what the model draws;\n- `strength_clip`: how much it changes how the model reads the description.\n\nStart from the strength the author recommends, usually 0.6–1, and set both the same. If the LoRA follows the words too much or too little, change `strength_clip`. If it breaks the picture, lower `strength_model`.',
+        body: 'The {lora} node has two strengths:\n- `strength_model`: how much the LoRA changes what the model draws;\n- `strength_clip`: how much it changes how the model reads the prompt.\n\nStart from the strength the author recommends, usually 0.6-1, and set both the same. If the LoRA follows the words too much or too little, change `strength_clip`. If it breaks the picture, lower `strength_model`.',
       },
       compare: {
         title: 'Comparing on one seed',
-        body: 'To see what a file does, change only that file. Note the number in the sampler\'s `seed` field and keep it while you compare.\n\nMake a picture in ComfyUI with `strength_model` 0, then with the author\'s recommendation, then higher. The description and every other field stay the same. The difference between the pictures is what the LoRA does.',
+        body: 'To see what a file does, change only that file. Note the number in the sampler\'s `seed` field and keep it while you compare.\n\nMake a picture in ComfyUI with `strength_model` 0, then with the author\'s recommendation, then higher. The prompt and every other field stay the same. The difference between the pictures is what the LoRA does.',
       },
       two: {
         title: 'Two LoRAs: a body and a character',
@@ -365,11 +365,11 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
       fight: {
         title: 'When two LoRAs fight',
-        body: 'Two LoRAs that teach different subjects can fight: the picture comes out smeared or like neither. Their effects add up.\n\nWhat to do:\n- lower both, for example to 0.5–0.7 each;\n- split them between passes: one in the first pass, the other in the second, as in "Refining with a second model";\n- for different parts of a picture, node packs have mask and region nodes. That is harder, and the lesson does not cover it.',
+        body: 'Two LoRAs that teach different subjects can fight: the picture comes out smeared or like neither. Their effects add up.\n\nWhat to do:\n- lower both, for example to 0.5-0.7 each;\n- split them between passes: one in the first pass, the other in the second, as in "Refining with a second model";\n- for different parts of a picture, node packs have mask and region nodes. That is harder, and the lesson does not cover it.',
       },
       helper: {
         title: 'About the assistant in the app',
-        body: 'The lesson works without an assistant model. Questions in "Ask" mode go to the model you chose.\n\nThe assistant helps with graph construction and technical choices. Each provider or local model responds according to its own rules and capabilities. The rules at the start of this lesson are the app\'s own and hold whatever a model answers.\n\nThe assistant is sent the graph with the values of its fields, your descriptions among them. Sending values can be switched off in "Settings ▸ Privacy".',
+        body: 'The lesson works without an assistant model. Questions in "Ask" mode go to the model you chose.\n\nThe assistant helps with graph construction and technical choices. Each provider or local model responds according to its own rules and capabilities. The rules at the start of this lesson are the app\'s own and hold whatever a model answers.\n\nThe assistant is sent the graph with the values of its fields, your prompts among them. Sending values can be switched off in "Settings ▸ Privacy".',
       },
     },
   },
@@ -383,7 +383,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
       levers: {
         title: 'The technique is the same',
-        body: 'The graph for such a clip is the one from the video lessons. What ends up in the frame is decided by three things:\n- the model: what it can draw at all;\n- the LoRA: what it was taught on top of that;\n- the description: what you asked for.\n\nEach in turn below.',
+        body: 'The graph for such a clip is the one from the video lessons. What ends up in the frame is decided by three things:\n- the model: what it can draw at all;\n- the LoRA: what it was taught on top of that;\n- the prompt: what you asked for.\n\nEach in turn below.',
       },
       model: {
         title: 'What the model can do',
@@ -400,37 +400,37 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
       'pair-loras': {
         title: 'LoRAs for the two passes',
-        body: 'A LoRA for Wan 2.2 14B often comes as a pair of files: one for the first pass, one for the second. The names usually show it: `high` and `low`, or `high_noise` and `low_noise`. The `high` file goes into the path of the first-pass {high} node, the `low` file into the path of the second {high} node. If the author gives one file, it goes into both paths. If the LoRA\'s page says it is for one pass, put it only there.\n\nA speed-up LoRA and a subject LoRA stand in one path as a chain. Keep the speed-up one at the strength its author recommends, usually 1. Tune the subject LoRA separately, on one `noise_seed`: start from the author\'s recommendation and change it in steps of 0.1–0.2.',
+        body: 'A LoRA for Wan 2.2 14B often comes as a pair of files: one for the first pass, one for the second. The names usually show it: `high` and `low`, or `high_noise` and `low_noise`. The `high` file goes into the path of the first-pass {high} node, the `low` file into the path of the second {high} node. If the author gives one file, it goes into both paths. If the LoRA\'s page says it is for one pass, put it only there.\n\nA speed-up LoRA and a subject LoRA stand in one path as a chain. Keep the speed-up one at the strength its author recommends, usually 1. Tune the subject LoRA separately, on one `noise_seed`: start from the author\'s recommendation and change it in steps of 0.1-0.2.',
       },
       anchor: {
         title: 'The anchor picture and a LoRA',
         body: 'In a clip from a picture, the looks come from the start picture, and the LoRA adds what it was taught. If the picture was made by a picture model with its own LoRA, the video needs its own LoRA made for Wan: files for picture models do not fit Wan.\n\nIf a video LoRA pulls the looks away from the picture, lower its strength: then the picture holds the looks. How to work with an anchor picture is shown in "The start picture is the anchor" and "A reference for the whole clip: Wan VACE".',
       },
       prompt: {
-        title: 'How to write the description',
-        body: 'Describe the scene in plain words and in order: who is in the frame, what happens, where, how the camera moves, what the light is. Say plainly that the people in the frame are adults.\n\nThe model draws what is named. What the description leaves out it makes up itself, not always well.\n\nThe text for the `negative` input lists defects: distorted hands, extra fingers, blur. At `cfg` 1 this text does not act.',
+        title: 'How to write the prompt',
+        body: 'Describe the scene in plain words and in order: who is in the frame, what happens, where, how the camera moves, what the light is. Say plainly that the people in the frame are adults.\n\nThe model draws what is named. What the prompt leaves out it makes up itself, not always well.\n\nThe text for the `negative` input lists defects: distorted hands, extra fingers, blur. At `cfg` 1 this text does not act.',
       },
       trigger: {
-        title: 'The LoRA\'s words in the description',
-        body: 'If the graph has a LoRA, add its words to the `text` field of the {positive} node whose output goes into a `positive` input.\n\nThe app compares the description with the words written in the LoRA files on the canvas. If the graph has no LoRA, or its author wrote no words into the file, there is nothing to compare with and the step counts on its own.',
+        title: 'The LoRA\'s words in the prompt',
+        body: 'If the graph has a LoRA, add its words to the `text` field of the {positive} node whose output goes into a `positive` input.\n\nThe app compares the prompt with the words written in the LoRA files on the canvas. If the graph has no LoRA, or its author wrote no words into the file, there is nothing to compare with and the step counts on its own.',
       },
       defects: {
         title: 'If the result is poor',
-        body: 'What to change, and in what order:\n- anatomy drifts: lower `strength_model` of the LoRA to 0.6–0.8 or shorten `length`;\n- the subject does not appear: check the trigger words and that the file fits the model;\n- the clip is burnt out: with a speed-up LoRA, and with a model that has the speed-up built in, `cfg` must be 1;\n- the motion jerks: describe a calmer motion and check that `fps` is 16;\n- everything is off: change `noise_seed` in the first sampler. Some clips simply fail by chance.',
+        body: 'What to change, and in what order:\n- anatomy drifts: lower `strength_model` of the LoRA to 0.6-0.8 or shorten `length`;\n- the subject does not appear: check the trigger words and that the file fits the model;\n- the clip is burnt out: with a speed-up LoRA, and with a model that has the speed-up built in, `cfg` must be 1;\n- the motion jerks: describe a calmer motion and check that `fps` is 16;\n- everything is off: change `noise_seed` in the first sampler. Some clips simply fail by chance.',
       },
       helper: {
         title: 'About the assistant in the app',
-        body: 'The lessons work without an assistant model. Questions in "Ask" mode go to the model you chose.\n\nThe assistant helps with graph construction and technical choices. Each provider or local model responds according to its own rules and capabilities.\n\nThe assistant is sent the graph with the values of its fields, your descriptions among them. It does not see your clips. Sending values can be switched off in "Settings ▸ Privacy".',
+        body: 'The lessons work without an assistant model. Questions in "Ask" mode go to the model you chose.\n\nThe assistant helps with graph construction and technical choices. Each provider or local model responds according to its own rules and capabilities.\n\nThe assistant is sent the graph with the values of its fields, your prompts among them. It does not see your clips. Sending values can be switched off in "Settings ▸ Privacy".',
       },
     },
   },
   prompt: {
-    title: 'The description: how a model reads it',
+    title: 'The prompt: how a model reads it',
     result: 'You learn what a model does with text and how to steer a picture with words.',
     steps: {
       intro: {
         title: 'What a model does with text',
-        body: 'A model does not understand text the way a person does. It was trained on pictures with captions and remembers which words stood next to which pictures. Your description pulls the result towards captions like it.\n\nThree things follow:\n- a word that was not in the captions does nothing, however exact it sounds;\n- a description is not an order: each word pulls its own way, and strong words outpull weak ones;\n- what you leave unsaid the model decides for itself.\n\nNext you take a description apart, piece by piece, on your own graph.',
+        body: 'A model does not understand text the way a person does. It was trained on pictures with captions and remembers which words stood next to which pictures. Your prompt pulls the result towards captions like it.\n\nThree things follow:\n- a word that was not in the captions does nothing, however exact it sounds;\n- a prompt is not an order: each word pulls its own way, and strong words outpull weak ones;\n- what you leave unsaid the model decides for itself.\n\nNext you take a prompt apart, piece by piece, on your own graph.',
       },
       graph: {
         title: 'A picture graph is needed',
@@ -438,27 +438,27 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
       readers: {
         title: 'Two ways of reading',
-        body: 'The text is read by a separate part of the model: it turns words into numbers. There are two kinds of this part, and one writes for them differently.\n\nThe first kind reads words and short phrases separated by commas. SD 1.5, SDXL and the models built on them, Pony and Illustrious, work this way. A description that suits them: `portrait of a woman, red coat, night street, rain, soft light`.\n\nThe second kind reads whole sentences and understands who does what and what is where. Flux, SD 3, Qwen-Image and Wan work this way. A description that suits them: `A woman in a red coat stands on a night street in the rain. Soft light from a shop window falls on her face.`\n\nWhich kind your model is shows in its card in the "Models" tab: the line "Family". Most models were trained on English captions: write in English.',
+        body: 'The text is read by a separate part of the model: it turns words into numbers. There are two kinds of this part, and one writes for them differently.\n\nThe first kind reads words and short phrases separated by commas. SD 1.5, SDXL and the models built on them, Pony and Illustrious, work this way. A prompt that suits them: `portrait of a woman, red coat, night street, rain, soft light`.\n\nThe second kind reads whole sentences and understands who does what and what is where. Flux, SD 3, Qwen-Image and Wan work this way. A prompt that suits them: `A woman in a red coat stands on a night street in the rain. Soft light from a shop window falls on her face.`\n\nWhich kind your model is shows in its card in the "Models" tab: the line "Family". Most models were trained on English captions: write in English.',
       },
       order: {
         title: 'Order and length',
-        body: 'Words at the start of a description weigh more than words at the end. So the main thing goes first: who or what is in the frame, then what happens, then the place, the light and the style.\n\nLength matters too. Models of the first kind read text in chunks of 75 tokens. A token is a word or a piece of one, so 75 tokens come to about 50 English words. Whatever comes after falls into the next chunk and holds together with the start less well. Models of the second kind read a long description whole, up to a few hundred tokens, yet they too keep a weaker hold on what stands at the very end.\n\nExtra words are not harmless: each takes attention away from the rest. Ten exact words work better than forty random ones.',
+        body: 'Words at the start of a prompt weigh more than words at the end. So the main thing goes first: who or what is in the frame, then what happens, then the place, the light and the style.\n\nLength matters too. Models of the first kind read text in chunks of 75 tokens. A token is a word or a piece of one, so 75 tokens come to about 50 English words. Whatever comes after falls into the next chunk and holds together with the start less well. Models of the second kind read a long prompt whole, up to a few hundred tokens, yet they too keep a weaker hold on what stands at the very end.\n\nExtra words are not harmless: each takes attention away from the rest. Ten exact words work better than forty random ones.',
       },
       write: {
-        title: 'Rewrite the description',
-        body: 'In the `text` field of the {positive} node that goes into the `positive` input write the description anew: the main thing first, then the action, the place, the light. At least 40 characters are needed.\n\nAn example for a model of the first kind: `portrait of a woman, red coat, night street, rain, soft light`.',
+        title: 'Rewrite the prompt',
+        body: 'In the `text` field of the {positive} node that goes into the `positive` input write the prompt anew: the main thing first, then the action, the place, the light. At least 40 characters are needed.\n\nAn example for a model of the first kind: `portrait of a woman, red coat, night street, rain, soft light`.',
       },
       weights: {
         title: 'Weight: how to stress what matters',
-        body: 'When the model misses something of the description, that thing can be given more weight. In ComfyUI a weight is written like this: `(red coat:1.2)`. The words in the parentheses get a pull of 1.2 instead of the usual 1. A number below 1 weakens: `(rain:0.8)`.\n\nKeep a weight between 0.5 and 1.5. Above that a picture burns out and distorts. 1.1–1.3 is enough most of the time.\n\nThe forms of other programs do not work in ComfyUI. `<lora:name:1>` connects nothing: a LoRA is added with a node of its own. `BREAK`, `AND` and square brackets are read by the model as plain characters. Descriptions from other people\'s pages are often full of such forms: take them out.\n\nThree forms ComfyUI understands itself. Besides the weight these are `embedding:name` for the files of the `embeddings` folder, and curly braces: of the options written in them with a vertical bar between, one is taken at each run. Plain parentheses that must stay in the text are written with a backslash: `\\(` and `\\)`.\n\nOn models of the second kind a weight acts weakly and unpredictably. For them what matters is said in words and put at the start.',
+        body: 'When the model misses something of the prompt, that thing can be given more weight. In ComfyUI a weight is written like this: `(red coat:1.2)`. The words in the parentheses get a pull of 1.2 instead of the usual 1. A number below 1 weakens: `(rain:0.8)`.\n\nKeep a weight between 0.5 and 1.5. Above that a picture burns out and distorts. 1.1-1.3 is enough most of the time.\n\nThe forms of other programs do not work in ComfyUI. `<lora:name:1>` connects nothing: a LoRA is added with a node of its own. `BREAK`, `AND` and square brackets are read by the model as plain characters. Prompts from other people\'s pages are often full of such forms: take them out.\n\nThree forms ComfyUI understands itself. Besides the weight these are `embedding:name` for the files of the `embeddings` folder, and curly braces: of the options written in them with a vertical bar between, one is taken at each run. Plain parentheses that must stay in the text are written with a backslash: `\\(` and `\\)`.\n\nOn models of the second kind a weight acts weakly and unpredictably. For them what matters is said in words and put at the start.',
       },
       weigh: {
         title: 'Stress one thing',
-        body: 'In the same `text` field put the most important thing into parentheses and give it a weight: for example `(red coat:1.2)`. The weight must be between 0.5 and 1.5 and other than 1.\n\nIf your model is of the second kind, do not expect a strong effect. The step is there so that you remember the form: you will meet it in other people\'s descriptions.',
+        body: 'In the same `text` field put the most important thing into parentheses and give it a weight: for example `(red coat:1.2)`. The weight must be between 0.5 and 1.5 and other than 1.\n\nIf your model is of the second kind, do not expect a strong effect. The step is there so that you remember the form: you will meet it in other people\'s prompts.',
       },
       negative: {
         title: 'The second text: what must not be there',
-        body: 'The text that goes into the `negative` input works differently from the first. At every step the model makes two sketches: one from your description and one from the second text. Then it moves away from the second sketch towards the first.\n\nSo the second text names the very things to move away from: `blurry, extra fingers, watermark, text`. There is no need to write "no" there.\n\nIn the main description negations do harm. Write `no hat` and a hat will most likely appear: the word `hat` pulls towards hats, and `no` weighs next to nothing. Whatever must not be there goes into the second text.\n\nA long second text is not better than a short one. Name what really creeps into your pictures.',
+        body: 'The text that goes into the `negative` input works differently from the first. At every step the model makes two sketches: one from your prompt and one from the second text. Then it moves away from the second sketch towards the first.\n\nSo the second text names the very things to move away from: `blurry, extra fingers, watermark, text`. There is no need to write "no" there.\n\nIn the main prompt negations do harm. Write `no hat` and a hat will most likely appear: the word `hat` pulls towards hats, and `no` weighs next to nothing. Whatever must not be there goes into the second text.\n\nA long second text is not better than a short one. Name what really creeps into your pictures.',
       },
       'negative-text': {
         title: 'Fill in the second text',
@@ -466,19 +466,19 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
       cfg: {
         title: 'cfg: how strictly to follow the text',
-        body: 'The `cfg` field of the sampler sets how far the model moves from the second sketch towards the first. The larger the number, the more strictly it follows the description.\n\nToo small a value gives a limp picture that follows the text poorly. Too large a value gives burnt colours and harsh outlines.\n\nUsual values:\n- SD 1.5: 7–8;\n- SDXL, Pony, Illustrious: 5–7;\n- speeded-up models and speed-up LoRAs: 1–2;\n- Flux: 1. Its strictness is set by a separate node, not by this field.\n\nAt `cfg` 1 the second sketch is not made at all. The text of the `negative` input then does nothing, whatever it says. The author gives the exact numbers on the model\'s page: start from those.',
+        body: 'The `cfg` field of the sampler sets how far the model moves from the second sketch towards the first. The larger the number, the more strictly it follows the prompt.\n\nToo small a value gives a limp picture that follows the text poorly. Too large a value gives burnt colours and harsh outlines.\n\nUsual values:\n- SD 1.5: 7-8;\n- SDXL, Pony, Illustrious: 5-7;\n- speeded-up models and speed-up LoRAs: 1-2;\n- Flux: 1. Its strictness is set by a separate node, not by this field.\n\nAt `cfg` 1 the second sketch is not made at all. The text of the `negative` input then does nothing, whatever it says. The author gives the exact numbers on the model\'s page: start from those.',
       },
       seed: {
         title: 'seed: one change at a time',
-        body: 'The `seed` field sets the noise a picture starts from. The same number with the same settings and the same description gives the same picture.\n\nThis is used to see what a change did. Keep `seed` as it was, change one thing in the description and compare. If the number and the words change together, there is no telling which of them acted.\n\nIn ComfyUI a switch named `control_after_generate` stands under the `seed` field. With `randomize` the number changes after every run, with `fixed` it stays.\n\nOnce the description is ready, change `seed` to get different pictures from one description. Some of them simply fail by chance: that is normal.',
+        body: 'The `seed` field sets the noise a picture starts from. The same number with the same settings and the same prompt gives the same picture.\n\nThis is used to see what a change did. Keep `seed` as it was, change one thing in the prompt and compare. If the number and the words change together, there is no telling which of them acted.\n\nIn ComfyUI a switch named `control_after_generate` stands under the `seed` field. With `randomize` the number changes after every run, with `fixed` it stays.\n\nOnce the prompt is ready, change `seed` to get different pictures from one prompt. Some of them simply fail by chance: that is normal.',
       },
       problems: {
         title: 'When the picture does not obey',
-        body: 'What to check, and in what order:\n- the model misses part of the description: move that part nearer the start, take out extra words, raise its weight to 1.2–1.3;\n- colours and details are mixed up between objects: models of the first kind read words with no ties between them. Describe each object in a phrase of its own and take out extra colours;\n- the picture is burnt out: `cfg` is too high, or a weight is above 1.5;\n- the picture is dull and limp: `cfg` is too low, or `steps` is too few;\n- extra arms, two heads, doubled figures: the size is larger than the one the model was trained at. For SD 1.5 that is 512, for SDXL 1024;\n- the second text changes nothing: check that `cfg` is above 1;\n- nothing helps: change `seed`. Then check in the model\'s card that the description is written in its manner.',
+        body: 'What to check, and in what order:\n- the model misses part of the prompt: move that part nearer the start, take out extra words, raise its weight to 1.2-1.3;\n- colours and details are mixed up between objects: models of the first kind read words with no ties between them. Describe each object in a phrase of its own and take out extra colours;\n- the picture is burnt out: `cfg` is too high, or a weight is above 1.5;\n- the picture is dull and limp: `cfg` is too low, or `steps` is too few;\n- extra arms, two heads, doubled figures: the size is larger than the one the model was trained at. For SD 1.5 that is 512, for SDXL 1024;\n- the second text changes nothing: check that `cfg` is above 1;\n- nothing helps: change `seed`. Then check in the model\'s card that the prompt is written in its manner.',
       },
       check: {
-        title: 'The app reads descriptions with you',
-        body: 'The "Check" button on the top toolbar reads the descriptions of a graph the way ComfyUI will. It says when forms of other programs are left in a text, the parentheses do not match, a weight is too high, the same thing stands in both texts, or the second text does not act because of `cfg` 1. These are advice, not errors: the graph runs with them too.\n\nThe card of a model in the "Models" tab shows what its author wrote down: the words that switch a LoRA on, the strength the author advises, and the descriptions the author\'s own examples were made from. Someone else\'s description that worked is the best textbook: copy it and change one thing at a time.',
+        title: 'The app reads prompts with you',
+        body: 'The "Check" button on the top toolbar reads the prompts of a graph the way ComfyUI will. It says when forms of other programs are left in a text, the parentheses do not match, a weight is too high, the same thing stands in both texts, or the second text does not act because of `cfg` 1. These are advice, not errors: the graph runs with them too.\n\nThe card of a model in the "Models" tab shows what its author wrote down: the words that switch a LoRA on, the strength the author advises, and the prompts the author\'s own examples were made from. Someone else\'s prompt that worked is the best textbook: copy it and change one thing at a time.',
       },
     },
   },
@@ -488,7 +488,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
     steps: {
       intro: {
         title: 'What refining is',
-        body: 'One model follows a description better and builds the composition. Another is better at skin, cloth or a style of its own. Refining takes the best of both: the first model draws a picture, the second redraws it on top.\n\nThe second model does not start from pure noise. Some noise is added to the finished picture, and the model removes it in its own way. The more noise is added, the more the picture changes.\n\nIn this lesson you build a second model onto a picture graph.',
+        body: 'One model follows a prompt better and builds the composition. Another is better at skin, cloth or a style of its own. Refining takes the best of both: the first model draws a picture, the second redraws it on top.\n\nThe second model does not start from pure noise. Some noise is added to the finished picture, and the model removes it in its own way. The more noise is added, the more the picture changes.\n\nIn this lesson you build a second model onto a picture graph.',
       },
       graph: {
         title: 'A picture graph is needed',
@@ -500,7 +500,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
       'second-texts': {
         title: 'Give the second model texts of its own',
-        body: 'Add two new {positiveB} nodes and connect the `CLIP` output of the second model to the `clip` input of each. In the `text` field of one describe the same picture in the manner the second model understands.\n\nThe texts of the first model must not be connected here: another model read them. The description can be copied when both models read alike, and must be rewritten when they do not.',
+        body: 'Add two new {positiveB} nodes and connect the `CLIP` output of the second model to the `clip` input of each. In the `text` field of one describe the same picture in the manner the second model understands.\n\nThe texts of the first model must not be connected here: another model read them. The prompt can be copied when both models read alike, and must be rewritten when they do not.',
       },
       encode: {
         title: 'Translate the picture for the second model',
@@ -524,7 +524,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
       loras: {
         title: 'LoRA in a graph with two models',
-        body: 'Each model has LoRAs of its own. A LoRA of the first model goes between the first {checkpoint} node and the first sampler, a LoRA of the second between the second {checkpointB} node and the second sampler.\n\nThe words of a LoRA go into the description of the model in whose path it stands.\n\nIf a LoRA sets the subject in the first pass and the second pass blurs it, lower `denoise`, or put into the second path a LoRA of the same subject made for the second model.',
+        body: 'Each model has LoRAs of its own. A LoRA of the first model goes between the first {checkpoint} node and the first sampler, a LoRA of the second between the second {checkpointB} node and the second sampler.\n\nThe words of a LoRA go into the prompt of the model in whose path it stands.\n\nIf a LoRA sets the subject in the first pass and the second pass blurs it, lower `denoise`, or put into the second path a LoRA of the same subject made for the second model.',
       },
       run: {
         title: 'The graph is ready',
@@ -533,28 +533,28 @@ export const LESSONS_EN: Record<string, LessonWords> = {
     },
   },
   'prompt-video': {
-    title: 'A description for video',
+    title: 'A prompt for video',
     result: 'You learn to describe a clip so that the model understands the motion and the camera.',
     steps: {
       intro: {
-        title: 'How the description of a clip differs',
-        body: 'Video models read whole sentences. Wan 2.2 was trained on long, detailed captions, so it understands a short description worse than a long one: what is left unsaid it makes up itself, and the clip comes out at random.\n\nA picture needs an answer to "what is in the frame". A clip also needs "what changes": who moves, where, how fast, and what the camera does. What is not said either stands still or moves any old way.\n\nWan understands English and Chinese. Weights in parentheses hardly act on it: what matters is said in words.',
+        title: 'How the prompt of a clip differs',
+        body: 'Video models read whole sentences. Wan 2.2 was trained on long, detailed captions, so it understands a short prompt worse than a long one: what is left unsaid it makes up itself, and the clip comes out at random.\n\nA picture needs an answer to "what is in the frame". A clip also needs "what changes": who moves, where, how fast, and what the camera does. What is not said either stands still or moves any old way.\n\nWan understands English and Chinese. Weights in parentheses hardly act on it: what matters is said in words.',
       },
       graph: {
         title: 'A video graph is needed',
         body: 'This lesson goes on from the graph of "Video from text" or "Video from a picture". The canvas must have a {positive} node whose output goes into a `positive` input.\n\nIf it is not there, do one of those lessons first.',
       },
       structure: {
-        title: 'What a description is made of',
-        body: 'A good description of a clip answers five questions, usually in this order:\n- who or what is in the frame, and what it looks like;\n- what happens: one action;\n- where it happens;\n- what the camera does;\n- what the light and the mood are.\n\nAn example: `A young woman in a red coat walks slowly along a wet city street at night. Neon signs reflect in the puddles. The camera follows her from the side at walking pace. Soft cinematic light, shallow depth of field.`\n\nThree to five sentences are about right. A very short description leaves the model too much freedom, and in a very long one it loses the main thing.',
+        title: 'What a prompt is made of',
+        body: 'A good prompt of a clip answers five questions, usually in this order:\n- who or what is in the frame, and what it looks like;\n- what happens: one action;\n- where it happens;\n- what the camera does;\n- what the light and the mood are.\n\nAn example: `A young woman in a red coat walks slowly along a wet city street at night. Neon signs reflect in the puddles. The camera follows her from the side at walking pace. Soft cinematic light, shallow depth of field.`\n\nThree to five sentences are about right. A very short prompt leaves the model too much freedom, and in a very long one it loses the main thing.',
       },
       write: {
-        title: 'Write a description to this pattern',
-        body: 'In the `text` field of {positive} write a description of several sentences: who is in the frame, what happens, where, what the camera does, what the light is. At least 80 characters are needed.\n\nWrite in English and in the present tense: `walks`, not `will walk`.',
+        title: 'Write a prompt to this pattern',
+        body: 'In the `text` field of {positive} write a prompt of several sentences: who is in the frame, what happens, where, what the camera does, what the light is. At least 80 characters are needed.\n\nWrite in English and in the present tense: `walks`, not `will walk`.',
       },
       action: {
         title: 'One action per clip',
-        body: 'The clip of the lesson lasts five seconds: 81 frames at 16 frames a second. One action fits into that. Describe three in a row and the model squeezes them together, mixes them up or does only the first.\n\nMotion is named with a verb and made exact: how fast, which way, with which part of the body. `She turns her head to the left and smiles` works. `She is happy` does not: that is a state, not a motion.\n\nIf there are several people in the frame, say of each what they do. Otherwise one of them moves and the rest freeze.\n\nA long scene is put together from several clips, not from one long description.',
+        body: 'The clip of the lesson lasts five seconds: 81 frames at 16 frames a second. One action fits into that. Describe three in a row and the model squeezes them together, mixes them up or does only the first.\n\nMotion is named with a verb and made exact: how fast, which way, with which part of the body. `She turns her head to the left and smiles` works. `She is happy` does not: that is a state, not a motion.\n\nIf there are several people in the frame, say of each what they do. Otherwise one of them moves and the rest freeze.\n\nA long scene is put together from several clips, not from one long prompt.',
       },
       camera: {
         title: 'Words for the camera',
@@ -562,19 +562,19 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
       picture: {
         title: 'When the clip starts from a picture',
-        body: 'In the graph of "Video from a picture" the look is already set by the picture. It need not be described again: name the subject in two or three words so that the model knows who is meant, and describe what changes.\n\nAn example: `The woman in the red coat slowly turns around and looks at the camera. Her hair moves in the wind. Static shot.`\n\nThe description must not argue with the picture. If it is night in the picture and day in the text, the model breaks the frame trying to please both.\n\nWhat the description does not name the model tries to leave as it is in the picture. So for video from a picture the description can be shorter.',
+        body: 'In the graph of "Video from a picture" the look is already set by the picture. It need not be described again: name the subject in two or three words so that the model knows who is meant, and describe what changes.\n\nAn example: `The woman in the red coat slowly turns around and looks at the camera. Her hair moves in the wind. Static shot.`\n\nThe prompt must not argue with the picture. If it is night in the picture and day in the text, the model breaks the frame trying to please both.\n\nWhat the prompt does not name the model tries to leave as it is in the picture. So for video from a picture the prompt can be shorter.',
       },
       negative: {
         title: 'The second text for video',
-        body: 'The second text, the one that goes into the `negative` input, lists the defects of a clip. In the ready ComfyUI templates for Wan it holds a long list in Chinese: overexposure, a still frame, blurred detail, subtitles, extra fingers, distorted faces and hands. It can be left as it is, or the same can be written in English: `overexposed, static, blurry details, subtitles, extra fingers, deformed hands`.\n\nThe second text acts only when `cfg` in the samplers is above 1. "Video from text" sets 3.5, and the text works. With the speed-up LoRA of "Fast video in four steps" `cfg` is 1, and the second text does not act at all. Then everything that matters must be in the main description.',
+        body: 'The second text, the one that goes into the `negative` input, lists the defects of a clip. In the ready ComfyUI templates for Wan it holds a long list in Chinese: overexposure, a still frame, blurred detail, subtitles, extra fingers, distorted faces and hands. It can be left as it is, or the same can be written in English: `overexposed, static, blurry details, subtitles, extra fingers, deformed hands`.\n\nThe second text acts only when `cfg` in the samplers is above 1. "Video from text" sets 3.5, and the text works. With the speed-up LoRA of "Fast video in four steps" `cfg` is 1, and the second text does not act at all. Then everything that matters must be in the main prompt.',
       },
       problems: {
         title: 'When the clip does not obey',
-        body: 'What to change, and in what order:\n- the clip stands still: the description has no action. Add a verb and a camera move;\n- the motion is limp, as if in slow motion: that is often the price of a speed-up LoRA. Describe a livelier motion, or make the clip without the speed-up, in twenty steps;\n- the camera moves when it should not: write `static shot`;\n- the face and the figure drift towards the end: too much motion for five seconds. Keep one action or lower `length`;\n- the model does something other than what is written: make that the first sentence and take out everything secondary;\n- the subject changes from clip to clip: describe it in the very same words each time, or start from a picture;\n- everything is off: change `noise_seed` in the first sampler.',
+        body: 'What to change, and in what order:\n- the clip stands still: the prompt has no action. Add a verb and a camera move;\n- the motion is limp, as if in slow motion: that is often the price of a speed-up LoRA. Describe a livelier motion, or make the clip without the speed-up, in twenty steps;\n- the camera moves when it should not: write `static shot`;\n- the face and the figure drift towards the end: too much motion for five seconds. Keep one action or lower `length`;\n- the model does something other than what is written: make that the first sentence and take out everything secondary;\n- the subject changes from clip to clip: describe it in the very same words each time, or start from a picture;\n- everything is off: change `noise_seed` in the first sampler.',
       },
       check: {
         title: 'What the app will tell you',
-        body: 'The "Check" button on the top toolbar reads the descriptions of a clip too. It says when a description is empty, when forms of other programs are left in it, when it is not written in English, when the second text does not act because of `cfg` 1, and when the description has none of the words of your LoRA.\n\nThe words of a LoRA and the descriptions its author used are shown in the card of the file in the "Models" tab. For a motion LoRA this matters most: without its words it often does not switch on.',
+        body: 'The "Check" button on the top toolbar reads the prompts of a clip too. It says when a prompt is empty, when forms of other programs are left in it, when it is not written in English, when the second text does not act because of `cfg` 1, and when the prompt has none of the words of your LoRA.\n\nThe words of a LoRA and the prompts its author used are shown in the card of the file in the "Models" tab. For a motion LoRA this matters most: without its words it often does not switch on.',
       },
     },
   },
@@ -599,8 +599,8 @@ export const LESSONS_EN: Record<string, LessonWords> = {
         body: 'Add a {vae} node and choose the `wan_2.1_vae` file in `model_name`.\n\nAs in the built-in graph, the large Wan 2.2 models need the VAE of version 2.1.',
       },
       prompt: {
-        title: 'Write the description',
-        body: 'Add a {text} node. Connect the output of {t5} to its `t5` input.\n\nHere both texts are in one node: the description of the clip in `positive_prompt`, what must not be there in `negative_prompt`. Write the way "A description for video" shows.',
+        title: 'Write the prompt',
+        body: 'Add a {text} node. Connect the output of {t5} to its `t5` input.\n\nHere both texts are in one node: the prompt of the clip in `positive_prompt`, what must not be there in `negative_prompt`. Write the way "A prompt for video" shows.',
       },
       embeds: {
         title: 'Set the size and the length',
@@ -639,8 +639,8 @@ export const LESSONS_EN: Record<string, LessonWords> = {
         body: 'Here a LoRA does not stand in the model\'s path: it is connected to the loader. Add a WanVideo Lora Select node, choose the file in its `lora` field and connect its output to the `lora` input of the model loader.\n\nEach model gets a node of its own: the `high` file to the loader of the `high_noise` model, the `low` file to the loader of `low_noise`. Several LoRAs are chained: the output of one select node to the `prev_lora` input of the next.\n\nLoRAs for the built-in Wan graph fit here too: they are the same files.',
       },
       trigger: {
-        title: 'The LoRA\'s words in the description',
-        body: 'If the canvas has a LoRA select node, add the words of its file to the `positive_prompt` field.\n\nThe app compares the description with the words written in the LoRA files on the canvas. If there is no LoRA, or its file holds no words, the step counts on its own.',
+        title: 'The LoRA\'s words in the prompt',
+        body: 'If the canvas has a LoRA select node, add the words of its file to the `positive_prompt` field.\n\nThe app compares the prompt with the words written in the LoRA files on the canvas. If there is no LoRA, or its file holds no words, the step counts on its own.',
       },
       fast: {
         title: 'Fast in four steps',
@@ -648,7 +648,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
       run: {
         title: 'The graph is ready',
-        body: `${SAVE}\n\nThe "Check" button reads this pack's descriptions too: it says when forms of other programs are left in a text or the second text does not act at \`cfg\` 1.\n\nNext: "Video from a picture on WanVideoWrapper" starts the clip from your picture.`,
+        body: `${SAVE}\n\nThe "Check" button reads this pack's prompts too: it says when forms of other programs are left in a text or the second text does not act at \`cfg\` 1.\n\nNext: "Video from a picture on WanVideoWrapper" starts the clip from your picture.`,
       },
     },
   },
@@ -686,7 +686,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
       run: {
         title: 'The graph is ready',
-        body: `${SAVE}\n\nThe description of a clip from a picture says what changes, not what is already seen. More on this in "A description for video".`,
+        body: `${SAVE}\n\nThe prompt of a clip from a picture says what changes, not what is already seen. More on this in "A prompt for video".`,
       },
     },
   },
@@ -696,7 +696,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
     steps: {
       intro: {
         title: 'What VACE is',
-        body: 'VACE is a module that teaches Wan to take a hint from a ready video. The hint can be the video itself, a depth map, a person\'s pose or outlines made from its frames. The description says what to draw, and the hint says how it moves and where it stands.\n\nThis is how a dancer\'s motion is moved onto another character, how a clip changes style while keeping its motion, or how a camera move is set by example.\n\nThe lesson goes on from the graph of "Video on WanVideoWrapper".',
+        body: 'VACE is a module that teaches Wan to take a hint from a ready video. The hint can be the video itself, a depth map, a person\'s pose or outlines made from its frames. The prompt says what to draw, and the hint says how it moves and where it stands.\n\nThis is how a dancer\'s motion is moved onto another character, how a clip changes style while keeping its motion, or how a camera move is set by example.\n\nThe lesson goes on from the graph of "Video on WanVideoWrapper".',
       },
       graph: {
         title: 'A WanVideoWrapper graph is needed',
@@ -712,7 +712,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
       control: {
         title: 'Frames, depth, a pose or outlines',
-        body: 'The frames can go to VACE as they are: then the model holds on to everything at once, shape, colour and motion. More often one hint is made from the frames first:\n- a depth map holds the layout and the motion and leaves the looks to the description;\n- a pose holds a person\'s motion and not their clothes or face;\n- outlines hold the shape of things.\n\nSuch nodes are in the comfyui_controlnet_aux pack: Depth Anything, OpenPose, DWPose, Canny, Lineart. They stand between {frames} and VACE: the frames into their input, their output on. The lesson counts a direct link and a link through them alike.',
+        body: 'The frames can go to VACE as they are: then the model holds on to everything at once, shape, colour and motion. More often one hint is made from the frames first:\n- a depth map holds the layout and the motion and leaves the looks to the prompt;\n- a pose holds a person\'s motion and not their clothes or face;\n- outlines hold the shape of things.\n\nSuch nodes are in the comfyui_controlnet_aux pack: Depth Anything, OpenPose, DWPose, Canny, Lineart. They stand between {frames} and VACE: the frames into their input, their output on. The lesson counts a direct link and a link through them alike.',
       },
       encode: {
         title: 'Prepare the hint for the model',
@@ -754,7 +754,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
       prompt: {
         title: 'Describe the scene briefly',
-        body: 'Add a {text} node and connect the output of {t5} to its `t5` input. In `positive_prompt` describe the character and the place in a couple of sentences.\n\nThe video sets the motion here, so the description is shorter than usual.',
+        body: 'Add a {text} node and connect the output of {t5} to its `t5` input. In `positive_prompt` describe the character and the place in a couple of sentences.\n\nThe video sets the motion here, so the prompt is shorter than usual.',
       },
       picture: {
         title: 'Load the picture of the character',
@@ -778,7 +778,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
       sampler: {
         title: 'Add the sampler',
-        body: 'Add a {sampler} node. Connect the model to `model`, the description to `text_embeds`, and the output of {animate} to `image_embeds`.\n\nThere is one sampler here: one model, no split into two passes. Take `steps` and `cfg` from the model\'s page. With a speed-up LoRA `steps` 6 and `cfg` 1 are usual.',
+        body: 'Add a {sampler} node. Connect the model to `model`, the prompt to `text_embeds`, and the output of {animate} to `image_embeds`.\n\nThere is one sampler here: one model, no split into two passes. Take `steps` and `cfg` from the model\'s page. With a speed-up LoRA `steps` 6 and `cfg` 1 are usual.',
       },
       decode: {
         title: 'Turn the result into frames',
@@ -840,7 +840,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
       sampler: {
         title: 'Add the sampler',
-        body: 'Add a {sampler} node and connect to it:\n- to `model`, the model;\n- to `text_embeds`, the description;\n- to `image_embeds`, the output of {start};\n- to `multitalk_embeds`, the `multitalk_embeds` output of {audio}.',
+        body: 'Add a {sampler} node and connect to it:\n- to `model`, the model;\n- to `text_embeds`, the prompt;\n- to `image_embeds`, the output of {start};\n- to `multitalk_embeds`, the `multitalk_embeds` output of {audio}.',
       },
       decode: {
         title: 'Turn the result into frames',
@@ -914,7 +914,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
       sampler: {
         title: 'Add the sampler',
-        body: 'Add the node {sampler} and connect to it:\n- the model to the input `model`;\n- the description to the input `text_embeds`;\n- the output of {start} to the input `image_embeds`;\n- the output of {pose} to the input `unianimate_poses`.',
+        body: 'Add the node {sampler} and connect to it:\n- the model to the input `model`;\n- the prompt to the input `text_embeds`;\n- the output of {start} to the input `image_embeds`;\n- the output of {pose} to the input `unianimate_poses`.',
       },
       decode: {
         title: 'Turn the result into frames',
@@ -1014,7 +1014,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
       sampler: {
         title: 'Add the sampler',
-        body: 'Add the node {sampler} and connect to it:\n- the model to the input `model`;\n- the description to the input `text_embeds`;\n- the output of {start} to the input `image_embeds`;\n- the output of {audio} to the input `fantasytalking_embeds`.',
+        body: 'Add the node {sampler} and connect to it:\n- the model to the input `model`;\n- the prompt to the input `text_embeds`;\n- the output of {start} to the input `image_embeds`;\n- the output of {audio} to the input `fantasytalking_embeds`.',
       },
       decode: {
         title: 'Turn the result into frames',
@@ -1044,7 +1044,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
     steps: {
       intro: {
         title: 'What Ovi does',
-        body: 'Ovi is two models working together: one draws the clip, the other makes its sound at the same time. You write the character\'s speech right in the description, and the lips match the words.\n\nThe clip always has one length: 121 frames, which is five seconds at 24 frames a second.\n\nThe model makes the voice up itself. The rule stays: do not put words into the mouths of real people without their consent.\n\nThe lesson builds the graph from an empty canvas: "File ▸ New project".',
+        body: 'Ovi is two models working together: one draws the clip, the other makes its sound at the same time. You write the character\'s speech right in the prompt, and the lips match the words.\n\nThe clip always has one length: 121 frames, which is five seconds at 24 frames a second.\n\nThe model makes the voice up itself. The rule stays: do not put words into the mouths of real people without their consent.\n\nThe lesson builds the graph from an empty canvas: "File ▸ New project".',
       },
       models: {
         title: 'Load the two models',
@@ -1064,11 +1064,11 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
       guidance: {
         title: 'Connect the sound setting',
-        body: 'Add the node {ovi} and connect the output of {text} to its input `original_text_embeds`.\n\nLeave the field `ovi_audio_cfg` at 3. It says how strictly the sound follows the description.',
+        body: 'Add the node {ovi} and connect the output of {text} to its input `original_text_embeds`.\n\nLeave the field `ovi_audio_cfg` at 3. It says how strictly the sound follows the prompt.',
       },
       'sound-negative': {
         title: 'Say what the sound must not be',
-        body: 'Add a second node {soundNo} and connect the output of {t5} to its input `t5`. In its field `positive_prompt` write what the sound must not have: robotic, muffled, echo, distorted.\n\nConnect the output of this node to the input `ovi_negative_text_embeds` of {ovi}.\n\nThis is no mistake: the words go into the upper field, and {ovi} takes exactly that one. If this node is not connected, the description itself stands in for it, and the setting `ovi_audio_cfg` nearly stops acting.',
+        body: 'Add a second node {soundNo} and connect the output of {t5} to its input `t5`. In its field `positive_prompt` write what the sound must not have: robotic, muffled, echo, distorted.\n\nConnect the output of this node to the input `ovi_negative_text_embeds` of {ovi}.\n\nThis is no mistake: the words go into the upper field, and {ovi} takes exactly that one. If this node is not connected, the prompt itself stands in for it, and the setting `ovi_audio_cfg` nearly stops acting.',
       },
       size: {
         title: 'Set the size and the length',
@@ -1146,7 +1146,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
       sampler: {
         title: 'Add the sampler',
-        body: 'Add the node {sampler} and connect to it:\n- the model to the input `model`;\n- the description to the input `text_embeds`;\n- the output `camera_embeds` of {recam} to the input `image_embeds`.\n\nSet `steps` to 20.',
+        body: 'Add the node {sampler} and connect to it:\n- the model to the input `model`;\n- the prompt to the input `text_embeds`;\n- the output `camera_embeds` of {recam} to the input `image_embeds`.\n\nSet `steps` to 20.',
       },
       decode: {
         title: 'Turn the result into frames',
@@ -1158,7 +1158,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
       tips: {
         title: 'If the scene changed',
-        body: 'What to check:\n- the clip shows another scene: the description does not fit the video. Describe what is really in it;\n- the picture is blurry: the video is of the wrong size. Bring it to 832 by 480;\n- an orbit by a set angle is needed: the pack has a separate node for it, WanVideo ReCamMaster Generate Orbit Camera. It stands in place of {camera}.',
+        body: 'What to check:\n- the clip shows another scene: the prompt does not fit the video. Describe what is really in it;\n- the picture is blurry: the video is of the wrong size. Bring it to 832 by 480;\n- an orbit by a set angle is needed: the pack has a separate node for it, WanVideo ReCamMaster Generate Orbit Camera. It stands in place of {camera}.',
       },
       run: {
         title: 'The graph is ready',
@@ -1168,7 +1168,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
   },
   'two-models': {
     title: 'Two models in one graph',
-    result: 'A picture model draws the first frame and Wan brings it to life. Each has its own LoRAs and its own description.',
+    result: 'A picture model draws the first frame and Wan brings it to life. Each has its own LoRAs and its own prompt.',
     steps: {
       intro: {
         title: 'Why join models',
@@ -1184,7 +1184,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
       'image-texts': {
         title: 'Give it texts of its own',
-        body: 'Add two new {imagePositive} nodes and connect the `CLIP` output of {checkpoint} to the `clip` input of each. In the `text` field of one describe the frame: who is in it, where, what the light is.\n\nThe texts of the video will not do: they were read for Wan. Each model has text nodes of its own, connected to its own text reader.\n\nWrite in the manner of this model. How to tell it is shown in "The description: how a model reads it".',
+        body: 'Add two new {imagePositive} nodes and connect the `CLIP` output of {checkpoint} to the `clip` input of each. In the `text` field of one describe the frame: who is in it, where, what the light is.\n\nThe texts of the video will not do: they were read for Wan. Each model has text nodes of its own, connected to its own text reader.\n\nWrite in the manner of this model. How to tell it is shown in "The prompt: how a model reads it".',
       },
       'image-sampler': {
         title: 'Build the part that draws the frame',
@@ -1203,12 +1203,12 @@ export const LESSONS_EN: Record<string, LessonWords> = {
         body: 'Add a {frame} node and connect the same `IMAGE` output of {imageDecode} to its `images` input.\n\nThis lets you see the frame apart from the clip. When a clip fails, it is clear at once where the fault is: in the frame or in the motion.',
       },
       descriptions: {
-        title: 'Two descriptions, each with its own job',
-        body: 'The graph now has two descriptions. The first, for the picture model, says what is in the frame: the subject, the clothes, the place, the light, the style. The second, for Wan, says what changes: the motion and the camera.\n\nDo not carry one over into the other. Words about motion in the description of a frame mean nothing to a picture model. And details of looks in the description of a clip argue with the finished frame.\n\nThe second texts, those for the `negative` input, differ too: each model has defects of its own.',
+        title: 'Two prompts, each with its own job',
+        body: 'The graph now has two prompts. The first, for the picture model, says what is in the frame: the subject, the clothes, the place, the light, the style. The second, for Wan, says what changes: the motion and the camera.\n\nDo not carry one over into the other. Words about motion in the prompt of a frame mean nothing to a picture model. And details of looks in the prompt of a clip argue with the finished frame.\n\nThe second texts, those for the `negative` input, differ too: each model has defects of its own.',
       },
       loras: {
         title: 'LoRA: each in the path of its own model',
-        body: 'A LoRA is made for one family of models. It goes into the path of the model it was made for:\n- a LoRA for the picture model: between {checkpoint} and {imageSampler}. If the LoRA node also has a `CLIP` input and output, connect the texts of the frame to its `CLIP` output;\n- a LoRA for Wan: between the loader of each of its two models and the node that sets the noise shift, as in "LoRA: add a style or a subject".\n\nA LoRA put into the wrong path does nothing. ComfyUI does not stop at it: it silently skips what did not fit.\n\nThe words of a LoRA go into the description of the same model. The words of a picture LoRA go into the description of the frame, the words of a Wan LoRA into the description of the clip.\n\nA handy division: looks and style come from the LoRAs of the picture model, motion from the LoRAs of the video model. Which family a file belongs to is shown by its card in the "Models" tab. The "Check" button says when models of different families meet in one path.',
+        body: 'A LoRA is made for one family of models. It goes into the path of the model it was made for:\n- a LoRA for the picture model: between {checkpoint} and {imageSampler}. If the LoRA node also has a `CLIP` input and output, connect the texts of the frame to its `CLIP` output;\n- a LoRA for Wan: between the loader of each of its two models and the node that sets the noise shift, as in "LoRA: add a style or a subject".\n\nA LoRA put into the wrong path does nothing. ComfyUI does not stop at it: it silently skips what did not fit.\n\nThe words of a LoRA go into the prompt of the same model. The words of a picture LoRA go into the prompt of the frame, the words of a Wan LoRA into the prompt of the clip.\n\nA handy division: looks and style come from the LoRAs of the picture model, motion from the LoRAs of the video model. Which family a file belongs to is shown by its card in the "Models" tab. The "Check" button says when models of different families meet in one path.',
       },
       memory: {
         title: 'Two models and memory',
@@ -1220,7 +1220,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
       run: {
         title: 'The graph is ready',
-        body: `${SAVE}\n\nWhat to try:\n- another frame: change \`seed\` in {imageSampler};\n- the same frame, another motion: change \`noise_seed\` in the first sampler of the video, or the description of the clip;\n- another style of frame: change the picture model or its LoRAs. The video part need not change.`,
+        body: `${SAVE}\n\nWhat to try:\n- another frame: change \`seed\` in {imageSampler};\n- the same frame, another motion: change \`noise_seed\` in the first sampler of the video, or the prompt of the clip;\n- another style of frame: change the picture model or its LoRAs. The video part need not change.`,
       },
     },
   },

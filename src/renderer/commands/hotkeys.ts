@@ -1,5 +1,5 @@
 import { allCommands, runCommand, type Command } from './registry';
-import { detectPlatform, matchesShortcut, type KeyLike, type Platform } from './shortcuts';
+import { detectPlatform, matchesShortcut, noteLayout, type KeyLike, type Platform } from './shortcuts';
 
 /** Shortcuts that still work while typing in a field or inside an open menu or dialog. */
 export const GLOBAL_SHORTCUTS = new Set(['Escape', 'Mod+S', 'Mod+Shift+S', 'Mod+O', 'Mod+N', 'Mod+Shift+C']);
@@ -95,6 +95,8 @@ export function installHotkeys(platform: Platform = detectPlatform()): () => voi
   let altAlone = false;
 
   const onKeyDown = (event: KeyboardEvent) => {
+    // Every letter typed tells which layout is on (Latin or not); shortcuts are read on that layout.
+    noteLayout(event);
     if (event.key === 'Alt') {
       altAlone = !event.ctrlKey && !event.shiftKey && !event.metaKey && !event.repeat;
       return;

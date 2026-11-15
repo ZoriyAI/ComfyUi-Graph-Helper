@@ -125,7 +125,7 @@ function lackText(t: TFunction, missing: Missing, lesson: Lesson, shared: Shared
           if (typeof file === 'string') for (const word of facts.triggers?.[file] ?? []) words.add(word);
         }
       }
-      return String(t('lessons.lackTrigger', { node, words: [...words].slice(0, 8).join(', ') }));
+      return String(t('lessons.lackTrigger', { node, words: [...words].slice(0, 8) }));
     }
     case 'differs':
       return differsText(t, missing, node, other);

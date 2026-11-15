@@ -82,15 +82,15 @@ describe('advice about the descriptions of a graph', () => {
     const rows = adviceOf(REPORT, NAMES);
     const english = createTranslator('en');
     const text = (kind: string, index = 0) => english(rows.filter((row) => row.key.includes(`:${kind}:`))[index].textKey, rows.filter((row) => row.key.includes(`:${kind}:`))[index].values);
-    expect(text('lora-tag')).toContain('The description in "What I want" holds <lora:neon:0.8>.');
+    expect(text('lora-tag')).toContain('The prompt in “What I want” contains <lora:neon:0.8>.');
     expect(text('unbalanced')).toContain('2 opening, 1 closing');
     // A node without a title is called by its class.
-    expect(text('negative-ignored')).toContain('The sampler "KSampler" has cfg 1');
-    expect(text('negative-ignored')).toContain('The text in "What I do not want" changes nothing now.');
+    expect(text('negative-ignored')).toContain('The sampler “KSampler” has cfg 1');
+    expect(text('negative-ignored')).toContain('The text in “What I do not want” changes nothing now.');
     expect(text('too-long', 0)).toContain('about 212 tokens. This model reads text in chunks of 75 tokens');
     expect(text('too-long', 1)).toContain('about 505 tokens. Its end may not fit');
-    expect(text('missing-trigger')).toContain('The LoRA neon.safetensors is switched on by its own words, and the description has none of them: neon rain, wet glass.');
+    expect(text('missing-trigger')).toContain('The LoRA neon.safetensors is switched on by its own words, and the prompt has none of them: neon rain, wet glass.');
     const russian = createTranslator('ru');
-    expect(russian(rows[0].textKey, rows[0].values)).toContain('В описании ноды «What I want» стоит запись <lora:neon:0.8>.');
+    expect(russian(rows[0].textKey, rows[0].values)).toContain('В промпте ноды «What I want» стоит запись <lora:neon:0.8>.');
   });
 });

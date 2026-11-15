@@ -14,6 +14,6 @@ export async function exportPastGuard(window: Page, options: { guard?: boolean }
   } else {
     await expect(dialog.or(done).first()).toBeVisible();
   }
-  if (await dialog.isVisible()) await dialog.getByRole('button', { name: 'Export anyway' }).click();
+  if (await dialog.isVisible()) await dialog.getByRole('button', { name: 'Save anyway' }).click();
   await expect(done.first()).toBeVisible();
 }

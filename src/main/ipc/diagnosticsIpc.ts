@@ -1,4 +1,5 @@
 import { app, dialog, shell, type IpcMain } from 'electron';
+import { systemLanguage } from '../systemLanguage';
 import * as path from 'path';
 import * as os from 'os';
 import { IPC_CHANNELS } from '../../shared/ipc-channels';
@@ -183,7 +184,7 @@ function reportLanguage(): AppLanguage {
   try {
     return languageOf(readSettings(getDatabase()));
   } catch {
-    return 'ru';
+    return systemLanguage();
   }
 }
 

@@ -6,6 +6,7 @@ import { trimAllHistories } from './commands/history';
 import { closeInterruptedRuns } from './agent/interrupted';
 import { readSettings } from './settings/repository';
 import { languageOf } from '../shared/i18n';
+import { systemLanguage } from './systemLanguage';
 import { databasePath } from '../shared/database-path';
 import { migrate, schemaVersion, SCHEMA_VERSION } from './settings/migrate';
 import { backupBeforeUpgrade, classifyDatabaseError, DatabaseOpenError, setAsideDamaged } from './settings/databaseSafety';
@@ -49,10 +50,10 @@ export function openDatabase(dbPath: string): Database.Database {
 
 /**
  * A damaged file: the person may put it aside (it is renamed, never deleted) and start with empty data, open the
- * folder, or quit. Russian first, like the rest of the app before the settings can be read.
+ * folder, or quit. The settings cannot be read, so it speaks the system's language.
  */
 function askAboutDamagedFile(dbPath: string): boolean {
-  const t = createTranslator('ru');
+  const t = createTranslator(systemLanguage());
   const folder = path.dirname(dbPath);
   for (;;) {
     const choice = dialog.showMessageBoxSync({

@@ -134,7 +134,7 @@ test('lessons: the list fits ComfyUI, a lesson is followed by hand, and the grap
     await expect(panel(page)).toHaveAttribute('data-lesson', 'image');
     await stepIs(page, 'intro');
     await expect(panel(page).getByText('Step 1 of 11')).toBeVisible();
-    await panel(page).getByRole('button', { name: 'Understood, next', exact: true }).click();
+    await panel(page).getByRole('button', { name: 'Got it, next', exact: true }).click();
 
     // A step to do: it names the node the way this ComfyUI's library does, and says what is lacking.
     await stepIs(page, 'model');
@@ -159,7 +159,7 @@ test('lessons: the list fits ComfyUI, a lesson is followed by hand, and the grap
     await stepIs(page, 'prompts-clip');
     // Two nodes of one name lack the same link: said once, with how many times.
     await expect(panel(page).locator('[class*="lacking"] li')).toHaveCount(1);
-    await expect(panel(page).locator('[class*="lacking"] li')).toHaveText('The input clip of "CLIP Text Encode (Prompt)" is empty. Drag a link to it from the output CLIP of "Load Checkpoint". ×2');
+    await expect(panel(page).locator('[class*="lacking"] li')).toHaveText('The input clip of “CLIP Text Encode (Prompt)” is empty. Drag a link to it from the output CLIP of “Load Checkpoint”. ×2');
     // "Show me where" for a link lights the output it starts from.
     await panel(page).getByRole('button', { name: 'Show me where', exact: true }).click();
     await expect(page.locator('.react-flow__node').filter({ hasText: 'Load Checkpoint' })).toHaveClass(/selected/, { timeout: 5000 }).catch(() => undefined);
@@ -171,7 +171,7 @@ test('lessons: the list fits ComfyUI, a lesson is followed by hand, and the grap
     // Words only the person can write: there is nothing the app offers to do.
     await stepIs(page, 'prompt-text');
     await expect(panel(page).getByRole('button', { name: 'Do this for me', exact: true })).toHaveCount(0);
-    await expect(panel(page).locator('[class*="lacking"] li')).toContainText('Write a description in the field text');
+    await expect(panel(page).locator('[class*="lacking"] li')).toContainText('Write a prompt in the field text');
     const prompt = page.locator('.react-flow__node').filter({ hasText: 'CLIP Text Encode' }).first().locator('textarea');
     await prompt.fill('a quiet lake at dawn, mist, soft light');
     await prompt.blur();
@@ -183,7 +183,7 @@ test('lessons: the list fits ComfyUI, a lesson is followed by hand, and the grap
       await letTheAppFinishStep(page, api);
     }
     await stepIs(page, 'run');
-    await panel(page).getByRole('button', { name: 'Understood, next', exact: true }).click();
+    await panel(page).getByRole('button', { name: 'Got it, next', exact: true }).click();
     await stepIs(page, 'end');
     await expect(panel(page).getByRole('heading', { name: 'The lesson is done' })).toBeVisible();
     await expect(page.locator('.react-flow__node')).toHaveCount(7);
@@ -208,13 +208,13 @@ test('lessons: the list fits ComfyUI, a lesson is followed by hand, and the grap
     // Back in the list the lesson is the one in progress.
     await panel(page).getByRole('button', { name: 'All lessons', exact: true }).click();
     await expect(panel(page).locator('[data-lesson-card="image"]')).toHaveAttribute('data-lesson-state', 'started');
-    await expect(panel(page).locator('[data-lesson-card="image"]').getByRole('button', { name: 'Go on', exact: true })).toBeVisible();
+    await expect(panel(page).locator('[data-lesson-card="image"]').getByRole('button', { name: 'Continue', exact: true })).toBeVisible();
 
     // A question about a step goes to the conversation as an ordinary question.
-    await panel(page).locator('[data-lesson-card="image"]').getByRole('button', { name: 'Go on', exact: true }).click();
+    await panel(page).locator('[data-lesson-card="image"]').getByRole('button', { name: 'Continue', exact: true }).click();
     await panel(page).getByRole('button', { name: 'Ask the assistant about this step', exact: true }).click();
     await expect(panel(page)).toHaveCount(0);
-    await expect(page.locator('.chat-log')).toContainText('Explain a step of the lesson "A first picture from text". The step: Add the sampler.');
+    await expect(page.locator('.chat-log')).toContainText('Explain a step of the lesson “A first picture from text”. The step: Add the sampler.');
     expect(errors).toEqual([]);
   } finally {
     await app.close();
@@ -271,7 +271,7 @@ test('lessons: a lesson that does not fit says what is missing, and before Comfy
     // The lesson on LoRA stands on the video graph, which cannot be built here: it does not fit either.
     const lora = panel(page).locator('[data-lesson-card="lora"]');
     await expect(lora).toHaveAttribute('data-lesson-state', 'unfit');
-    await expect(lora).toContainText('This lesson continues the lesson "Video from text", and that one does not fit your ComfyUI.');
+    await expect(lora).toContainText('This lesson continues the lesson “Video from text”, and that one does not fit your ComfyUI.');
     await expect(panel(page).locator('[data-lesson-card="prompt"]')).toHaveAttribute('data-lesson-state', 'new');
     await expectSoundLayout(page, 'lessons, some that do not fit');
     // The menu opens the same panel.
@@ -301,7 +301,7 @@ test('lessons: a video lesson is carried through, the choices that are the perso
       if (id === 'end') break;
       const step = lesson.steps.find((item) => item.id === id)!;
       if (step.read) {
-        await panel(page).getByRole('button', { name: 'Understood, next', exact: true }).click();
+        await panel(page).getByRole('button', { name: 'Got it, next', exact: true }).click();
         await expect.poll(current).not.toBe(id);
         continue;
       }
@@ -309,10 +309,10 @@ test('lessons: a video lesson is carried through, the choices that are the perso
       // What only the person decides: the second model file, the words of the description.
       const lack = await panel(page).locator('[class*="lacking"] li').first().innerText();
       const nodes = await nodesOf(api);
-      if (/holds the same file/.test(lack)) {
+      if (/has the same file/.test(lack)) {
         const loaders = nodes.filter((node) => node.data.comfyType === 'UNETLoader');
         await change(page, api, { type: 'set-parameter', nodeId: loaders[1].id, key: 'unet_name', value: 'z_image_turbo_bf16.safetensors' });
-      } else if (/Write a description/.test(lack)) {
+      } else if (/Write a prompt/.test(lack)) {
         const text = nodes.find((node) => node.data.comfyType === 'CLIPTextEncode')!;
         await change(page, api, { type: 'set-parameter', nodeId: text.id, key: 'text', value: 'a person walks along a beach, the camera follows from the side' });
       } else {
@@ -383,7 +383,7 @@ test('lessons: a video lesson is carried through, the choices that are the perso
           await shot(page, '5-adult-further-trained');
           await expectSoundLayout(page, 'lessons, a further-trained model');
         }
-        await panel(page).getByRole('button', { name: 'Understood, next', exact: true }).click();
+        await panel(page).getByRole('button', { name: 'Got it, next', exact: true }).click();
         await expect.poll(current).not.toBe(id);
       }
       throw new Error(`the lesson did not come to "${until}"`);
@@ -456,7 +456,7 @@ async function carry(page: Page, api: Bridge, id: string, each?: (stepId: string
     }
     const step = lesson.steps.find((item) => item.id === stepId)!;
     if (step.read) {
-      await panel(page).getByRole('button', { name: 'Understood, next', exact: true }).click();
+      await panel(page).getByRole('button', { name: 'Got it, next', exact: true }).click();
       await expect.poll(current).not.toBe(stepId);
       continue;
     }
@@ -472,22 +472,22 @@ async function carry(page: Page, api: Bridge, id: string, each?: (stepId: string
     const nodeId = String(await shown.getAttribute('data-id'));
     const node = (await nodesOf(api)).find((item) => item.id === nodeId)!;
     const field = /field (\w+) of/.exec(lack)?.[1] ?? (node.data.comfyType === 'WanVideoTextEncode' ? 'positive_prompt' : 'text');
-    if (/Choose a value|holds the same file/.test(lack)) {
+    if (/Choose a value|has the same file/.test(lack)) {
       const held = new Set((await nodesOf(api)).map((item) => item.data.parameters[field]));
       const value = (FILES[`${node.data.comfyType}.${field}`] ?? FILES[field] ?? []).find((item) => !held.has(item));
       if (!value) throw new Error(`${id}/${stepId}: nothing to choose for ${field}: ${lack}`);
       await change(page, api, { type: 'set-parameter', nodeId, key: field, value });
-    } else if (/Write a description|is short so far/.test(lack)) {
+    } else if (/Write a prompt|is too short/.test(lack)) {
       await change(page, api, { type: 'set-parameter', nodeId, key: field, value: words });
-    } else if (/lacks the marks/.test(lack)) {
+    } else if (/is missing the tags/.test(lack)) {
       await change(page, api, { type: 'set-parameter', nodeId, key: field, value: `${String(node.data.parameters[field] ?? '')} She says <S>Good evening.<E>` });
     } else if (/has no weight yet/.test(lack)) {
       await change(page, api, { type: 'set-parameter', nodeId, key: field, value: `${String(node.data.parameters[field] ?? '')} (red coat:1.2)` });
     } else {
-      throw new Error(`the lesson "${id}" waits at "${stepId}" for: ${lack}`);
+      throw new Error(`the lesson “${id}” waits at "${stepId}" for: ${lack}`);
     }
   }
-  throw new Error(`the lesson "${id}" did not come to its end`);
+  throw new Error(`the lesson “${id}” did not come to its end`);
 }
 
 async function startLesson(page: Page, id: string): Promise<void> {
@@ -518,7 +518,7 @@ test('lessons: descriptions, a second pass and a picture model in front of a vid
     await carry(page, api, 'image', undefined, 'a quiet lake at dawn');
     await stepIs(page, 'end');
     // The lesson after the first picture is the one on descriptions.
-    await expect(panel(page).locator('[data-next-lesson="prompt"]')).toContainText('The next lesson: "The description: how a model reads it".');
+    await expect(panel(page).locator('[data-next-lesson="prompt"]')).toContainText('The next lesson: “The prompt: how a model reads it”.');
     await panel(page).getByRole('button', { name: 'Start the next lesson', exact: true }).click();
     await expect(panel(page)).toHaveAttribute('data-lesson', 'prompt');
     const told: string[] = [];
@@ -527,7 +527,7 @@ test('lessons: descriptions, a second pass and a picture model in front of a vid
       await expectSoundLayout(page, `lessons, descriptions: ${stepId}`, wide);
       if (stepId === 'write') {
         // The description of the first lesson is a few words: the step says how many characters it has and needs.
-        await expect(panel(page).locator('[class*="lacking"] li').first()).toContainText(/is short so far\. Characters now: \d+; at least 40 are needed\./);
+        await expect(panel(page).locator('[class*="lacking"] li').first()).toContainText(/is too short: \d+ characters, at least 40 needed\./);
       }
       if (stepId === 'weigh') {
         await expect(panel(page).locator('[class*="lacking"] li').first()).toContainText('has no weight yet. Put what matters into parentheses with a number from 0.5 to 1.5 other than 1, like this: (red coat:1.2).');
@@ -677,7 +677,7 @@ test('lessons: a video on WanVideoWrapper is carried through, from text and then
     await page.getByRole('button', { name: 'Check graph', exact: true }).click();
     const check = page.locator('.check-panel');
     await expect(check.getByRole('button', { name: 'Check the graph', exact: true })).toBeEnabled();
-    await expect(check.locator('[data-check-group="promptNotes"]')).toContainText('has cfg 1, and at cfg 1 the negative description does not act at all.');
+    await expect(check.locator('[data-check-group="promptNotes"]')).toContainText('has cfg 1, and at cfg 1 the negative prompt has no effect at all.');
     await shot(page, '15-wrapper-check');
     await openLearn(page);
 
@@ -918,7 +918,7 @@ test('lessons: the graph a lesson built is checked, and its description is read 
       if (id === 'end') break;
       const step = lesson.steps.find((item) => item.id === id)!;
       if (step.read) {
-        await panel(page).getByRole('button', { name: 'Understood, next', exact: true }).click();
+        await panel(page).getByRole('button', { name: 'Got it, next', exact: true }).click();
         await expect.poll(current).not.toBe(id);
         continue;
       }
@@ -928,7 +928,7 @@ test('lessons: the graph a lesson built is checked, and its description is read 
       if (/Choose a value/.test(lack)) {
         const loader = nodes.find((node) => node.data.comfyType === 'CheckpointLoaderSimple')!;
         await change(page, api, { type: 'set-parameter', nodeId: loader.id, key: 'ckpt_name', value: 'juggernautXL_v9.safetensors' });
-      } else if (/Write a description/.test(lack)) {
+      } else if (/Write a prompt/.test(lack)) {
         const text = nodes.find((node) => node.data.comfyType === 'CLIPTextEncode')!;
         await change(page, api, { type: 'set-parameter', nodeId: text.id, key: 'text', value: brought });
       } else {
@@ -947,13 +947,13 @@ test('lessons: the graph a lesson built is checked, and its description is read 
     // The graph is whole: nothing stops it from running. What is said is about the description, and apart.
     await expect(check).toContainText('No problems found.');
     const advice = check.locator('[data-check-group="promptNotes"]');
-    await expect(advice.getByRole('heading')).toContainText('Descriptions: worth changing (3)');
+    await expect(advice.getByRole('heading')).toContainText('Prompts: worth changing (3)');
     await expect(advice).toContainText('These are not errors: the graph will run.');
     const rows = advice.getByRole('listitem');
     await expect(rows).toHaveCount(3);
-    await expect(rows.nth(0)).toContainText('holds <lora:neon:0.8>. In ComfyUI this connects nothing');
-    await expect(rows.nth(1)).toContainText('The weight (rain:1.9) in "CLIP Text Encode (Prompt)" is too high.');
-    await expect(rows.nth(2)).toContainText('holds the negation "no".');
+    await expect(rows.nth(0)).toContainText('contains <lora:neon:0.8>. In ComfyUI this connects nothing');
+    await expect(rows.nth(1)).toContainText('The weight (rain:1.9) in “CLIP Text Encode (Prompt)” is too high.');
+    await expect(rows.nth(2)).toContainText('contains the negation “no”.');
     await shot(page, '7-check-advice');
     await expectSoundLayout(page, 'check panel with advice about a description', [{ width: 1440, height: 900 }]);
     // "Show" takes the canvas to the node that holds the text.
@@ -974,7 +974,7 @@ test('lessons: the graph a lesson built is checked, and its description is read 
     await change(page, api, { type: 'set-parameter', nodeId: sampler.id, key: 'cfg', value: 1 });
     await runCheck();
     await expect(check.locator('[data-check-group="promptNotes"]').getByRole('listitem')).toHaveCount(1);
-    await expect(check.locator('[data-check-group="promptNotes"]')).toContainText('The sampler "KSampler" has cfg 1, and at cfg 1 the negative description does not act at all.');
+    await expect(check.locator('[data-check-group="promptNotes"]')).toContainText('The sampler “KSampler” has cfg 1, and at cfg 1 the negative prompt has no effect at all.');
   } finally {
     await app.close();
     await fake.close();

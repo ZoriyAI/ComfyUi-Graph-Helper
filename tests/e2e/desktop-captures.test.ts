@@ -223,10 +223,10 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
   await window.locator('#chat-provider').waitFor();
   await expect(window.locator('.react-flow__node')).toHaveCount(12);
   await window.setViewportSize({ width: 1024, height: 768 });
-  await window.getByRole('tab', { name: 'Inspector' }).click();
+  await window.getByRole('tab', { name: 'Properties' }).click();
   await window.locator('.react-flow__node').first().click();
   await window.locator('.react-flow__controls-fitview').click();
-  await expect(window.getByRole('region', { name: 'Inspector' })).toContainText('CheckpointLoaderSimple');
+  await expect(window.getByRole('region', { name: 'Properties' })).toContainText('CheckpointLoaderSimple');
   const zoom1024 = await expectSettledGraph(window);
   await window.screenshot({ path: path.join(artifactDir, 'desktop-1024-graph.png') });
   const importButton = window.getByRole('button', { name: 'Open workflow…', exact: true });
@@ -291,12 +291,12 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
   expect(zoom1024).not.toBe(zoom1280);
   console.log(`FIT_ZOOM 1024=${zoom1024.toFixed(4)} 1280=${zoom1280.toFixed(4)} 1440=${zoom1440.toFixed(4)}`);
   await window.locator('.react-flow__node').nth(1).click({ modifiers: ['Control'] });
-  await expect(window.getByRole('region', { name: 'Inspector' })).toContainText('2 nodes selected');
-  await expect(window.getByRole('region', { name: 'Inspector' })).toContainText('Shared edits are not available.');
+  await expect(window.getByRole('region', { name: 'Properties' })).toContainText('2 nodes selected');
+  await expect(window.getByRole('region', { name: 'Properties' })).toContainText('Shared edits are not available.');
   console.log('MULTI_SELECT 2 nodes; shared edits are not available');
   await window.locator('.react-flow__node').nth(2).click();
   await window.locator('.react-flow__node').first().click();
-  await expect(window.getByRole('region', { name: 'Inspector' })).toContainText('CheckpointLoaderSimple');
+  await expect(window.getByRole('region', { name: 'Properties' })).toContainText('CheckpointLoaderSimple');
   await window.locator('.react-flow__controls-fitview').click();
   await expectSettledGraph(window);
   await window.screenshot({ path: path.join(artifactDir, 'desktop-1280-graph.png') });
@@ -501,7 +501,7 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
   expect(errorColors.describedBy).toBe('settings-draft-error');
   expect(errorColors.role).toBe('status');
   await expect(contrastDialog.locator('#settings-draft-error')).toHaveText('Settings cannot hold a key or a password. Remove it from the field.');
-  await expect(contrastDialog.getByRole('textbox', { name: 'Base URL' })).not.toHaveAttribute('aria-invalid', 'true');
+  await expect(contrastDialog.getByRole('textbox', { name: 'Server address' })).not.toHaveAttribute('aria-invalid', 'true');
   console.log('IPC_SAVE_FAILED not-shown: saveSettings returns ok:false for a secret or a schema mismatch, and Save names the field before that call. No existing mock lets the dialog receive ok:false.');
   await window.keyboard.press('Escape');
   // The draft was changed, so closing asks first.
@@ -510,7 +510,7 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
   await window.getByRole('tab', { name: 'Assistant' }).click();
   await window.screenshot({ path: path.join(artifactDir, 'desktop-1280-assistant.png') });
   await window.getByRole('button', { name: 'Show both' }).click();
-  await expect(window.getByRole('region', { name: 'Inspector' })).toBeVisible();
+  await expect(window.getByRole('region', { name: 'Properties' })).toBeVisible();
   await expect(window.getByRole('textbox', { name: 'Chat message' })).toBeVisible();
   await window.screenshot({ path: path.join(artifactDir, 'desktop-1280-split.png') });
   const osScale = await electronApp.evaluate(({ screen }) => {

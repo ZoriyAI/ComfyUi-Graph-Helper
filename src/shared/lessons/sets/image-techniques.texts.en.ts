@@ -27,11 +27,11 @@ const INPAINT_GRAPH = {
 export const IMAGE_TECHNIQUES_EN: Record<string, LessonWords> = {
   img2img: {
     title: 'A picture from a picture',
-    result: 'A picture you already have becomes a new one: the same composition, drawn again by the model as the description says.',
+    result: 'A picture you already have becomes a new one: the same composition, drawn again by the model as the prompt says.',
     steps: {
       intro: {
         title: 'What image-to-image is',
-        body: 'Image-to-image starts not from empty noise but from your picture. The picture is turned into the compressed form the model works in, the latent; some noise is added to it, and the sampler removes that noise by your description.\n\nHow much noise is added is set by `denoise`. At 1 nothing of your picture is left. At 0.3 only fine detail changes. In between, the composition stays and the rest is drawn again.\n\nThe lesson adds three nodes to the graph of "A first picture from text".',
+        body: 'Image-to-image starts not from empty noise but from your picture. The picture is turned into the compressed form the model works in, the latent; some noise is added to it, and the sampler removes that noise by your prompt.\n\nHow much noise is added is set by `denoise`. At 1 nothing of your picture is left. At 0.3 only fine detail changes. In between, the composition stays and the rest is drawn again.\n\nThe lesson adds three nodes to the graph of "A first picture from text".',
       },
       graph: PICTURE_GRAPH,
       picture: {
@@ -52,7 +52,7 @@ export const IMAGE_TECHNIQUES_EN: Record<string, LessonWords> = {
       },
       denoise: {
         title: 'Set how much to draw again',
-        body: 'Set `denoise` of {sampler} to 0.6.\n\nAt 0.6 the composition and the large shapes stay, while textures, faces and the style follow the description. Lower it to 0.4 when the result must stay close to the original. Raise it to 0.8 when only the layout matters.\n\nDescribe what should be in the picture, not what to change: the model does not compare, it draws.',
+        body: 'Set `denoise` of {sampler} to 0.6.\n\nAt 0.6 the composition and the large shapes stay, while textures, faces and the style follow the prompt. Lower it to 0.4 when the result must stay close to the original. Raise it to 0.8 when only the layout matters.\n\nDescribe what should be in the picture, not what to change: the model does not compare, it draws.',
       },
       compare: {
         title: 'Compare variants fairly',
@@ -60,13 +60,13 @@ export const IMAGE_TECHNIQUES_EN: Record<string, LessonWords> = {
       },
       run: {
         title: 'The graph is ready',
-        body: `${SAVE}\n\nWhat to try: \`denoise\` 0.4 and 0.8 on the same \`seed\`; a drawing or a sketch as the picture, with a description of a photo.\n\nSave Image writes the whole graph, descriptions included, into the PNG it saves: the picture dragged into ComfyUI opens the graph again. Before you share a picture whose graph must stay private, convert it to another format or start ComfyUI with the \`--disable-metadata\` option, which writes no graph into the files.`,
+        body: `${SAVE}\n\nWhat to try: \`denoise\` 0.4 and 0.8 on the same \`seed\`; a drawing or a sketch as the picture, with a prompt of a photo.\n\nSave Image writes the whole graph, prompts included, into the PNG it saves: the picture dragged into ComfyUI opens the graph again. Before you share a picture whose graph must stay private, convert it to another format or start ComfyUI with the \`--disable-metadata\` option, which writes no graph into the files.`,
       },
     },
   },
   inpaint: {
     title: 'Inpainting: redraw part of a picture',
-    result: 'You paint a mask over part of a picture, and the model draws only that part again, by a new description.',
+    result: 'You paint a mask over part of a picture, and the model draws only that part again, by a new prompt.',
     steps: {
       intro: {
         title: 'What inpainting is',
@@ -98,7 +98,7 @@ export const IMAGE_TECHNIQUES_EN: Record<string, LessonWords> = {
       },
       prompt: {
         title: 'Describe what should be there',
-        body: 'Describe the whole picture with the new content, not an order to replace something. For a hat on a man: "a man in a red wool hat on a city street". The model sees the rest of the picture and fits the new part to it.\n\nThe description can be short: the picture around says the rest.',
+        body: 'Describe the whole picture with the new content, not an order to replace something. For a hat on a man: "a man in a red wool hat on a city street". The model sees the rest of the picture and fits the new part to it.\n\nThe prompt can be short: the picture around says the rest.',
       },
       edges: {
         title: 'When the border shows',
@@ -220,7 +220,7 @@ export const IMAGE_TECHNIQUES_EN: Record<string, LessonWords> = {
     steps: {
       intro: {
         title: 'What an upscale model is',
-        body: 'An upscale model is a small network trained to enlarge pictures: it draws edges and textures where simple stretching gives blur. It does not know your description and adds nothing new: it makes what is there larger.\n\nThe lesson adds three nodes to the graph of "A first picture from text".',
+        body: 'An upscale model is a small network trained to enlarge pictures: it draws edges and textures where simple stretching gives blur. It does not know your prompt and adds nothing new: it makes what is there larger.\n\nThe lesson adds three nodes to the graph of "A first picture from text".',
       },
       graph: PICTURE_GRAPH,
       loader: {
@@ -267,7 +267,7 @@ export const IMAGE_TECHNIQUES_EN: Record<string, LessonWords> = {
       },
       second: {
         title: 'The second sampler',
-        body: 'Add a second {samplerB} node and connect to it:\n- to `model`, the `MODEL` output of {checkpoint}, through the LoRA loaders when there are any;\n- to `positive` and `negative`, the same two texts;\n- to `latent_image`, the output of {encodeB}.\n\nThe same model and the same description draw their own picture again, now large.',
+        body: 'Add a second {samplerB} node and connect to it:\n- to `model`, the `MODEL` output of {checkpoint}, through the LoRA loaders when there are any;\n- to `positive` and `negative`, the same two texts;\n- to `latent_image`, the output of {encodeB}.\n\nThe same model and the same prompt draw their own picture again, now large.',
       },
       denoise: {
         title: 'Set how much to draw again',
@@ -297,7 +297,7 @@ export const IMAGE_TECHNIQUES_EN: Record<string, LessonWords> = {
     steps: {
       intro: {
         title: 'What ControlNet does',
-        body: 'A description says what to draw, not where. ControlNet adds a second kind of instruction, a control picture: edges, depth, the pose of a person. The model keeps to it while drawing what the description says.\n\nThe control picture is made from an ordinary one. In this lesson ComfyUI\'s own edge finder makes it. The lesson adds four nodes to the graph of "A first picture from text".',
+        body: 'A prompt says what to draw, not where. ControlNet adds a second kind of instruction, a control picture: edges, depth, the pose of a person. The model keeps to it while drawing what the prompt says.\n\nThe control picture is made from an ordinary one. In this lesson ComfyUI\'s own edge finder makes it. The lesson adds four nodes to the graph of "A first picture from text".',
       },
       graph: PICTURE_GRAPH,
       loader: {
@@ -314,10 +314,10 @@ export const IMAGE_TECHNIQUES_EN: Record<string, LessonWords> = {
       },
       apply: {
         title: 'Apply the ControlNet',
-        body: 'Add an {apply} node and connect to it:\n- to `positive` and `negative`, the two texts;\n- to `control_net`, the output of {cnLoader};\n- to `image`, the output of {canny}.\n\nThe node adds the edges to both descriptions, and the model gets them together with the words.',
+        body: 'Add an {apply} node and connect to it:\n- to `positive` and `negative`, the two texts;\n- to `control_net`, the output of {cnLoader};\n- to `image`, the output of {canny}.\n\nThe node adds the edges to both prompts, and the model gets them together with the words.',
       },
       wire: {
-        title: 'Give the sampler the new descriptions',
+        title: 'Give the sampler the new prompts',
         body: 'Connect the `positive` output of {apply} to the `positive` input of {sampler}, and `negative` to `negative`. The direct links from the texts are replaced.',
       },
       strength: {
@@ -334,7 +334,7 @@ export const IMAGE_TECHNIQUES_EN: Record<string, LessonWords> = {
       },
       run: {
         title: 'The graph is ready',
-        body: `${SAVE}\n\nWhat to try: the same edges with two different descriptions; \`strength\` 0.4.`,
+        body: `${SAVE}\n\nWhat to try: the same edges with two different prompts; \`strength\` 0.4.`,
       },
     },
   },
@@ -368,7 +368,7 @@ export const IMAGE_TECHNIQUES_EN: Record<string, LessonWords> = {
       },
       run: {
         title: 'The graph is ready',
-        body: `${SAVE}\n\nWhat to try: a photo of a room and a description of a room in another style.`,
+        body: `${SAVE}\n\nWhat to try: a photo of a room and a prompt of a room in another style.`,
       },
     },
   },
@@ -395,7 +395,7 @@ export const IMAGE_TECHNIQUES_EN: Record<string, LessonWords> = {
       },
       trigger: {
         title: 'Write their words',
-        body: 'Add the trigger words of both LoRAs to `text` of {positive}.\n\nMany LoRAs act only on their words. The app compares the description with the words written in the files themselves and in the notes of ComfyUI-Lora-Manager when it is installed. A file without words asks for none, and the step counts on its own.',
+        body: 'Add the trigger words of both LoRAs to `text` of {positive}.\n\nMany LoRAs act only on their words. The app compares the prompt with the words written in the files themselves and in the notes of ComfyUI-Lora-Manager when it is installed. A file without words asks for none, and the step counts on its own.',
       },
       family: {
         title: 'Which LoRA fits',
@@ -437,7 +437,7 @@ export const IMAGE_TECHNIQUES_EN: Record<string, LessonWords> = {
       },
       trigger: {
         title: 'Write the words of all three',
-        body: 'Add the trigger words of each LoRA to `text` of {positive}.\n\nA LoRA without its words often does little. Words of a LoRA that is not in the graph do nothing, or they push the model somewhere odd: keep in the description only the words of the LoRAs that are there.',
+        body: 'Add the trigger words of each LoRA to `text` of {positive}.\n\nA LoRA without its words often does little. Words of a LoRA that is not in the graph do nothing, or they push the model somewhere odd: keep in the prompt only the words of the LoRAs that are there.',
       },
       compare: {
         title: 'See what each LoRA does',
@@ -491,7 +491,7 @@ export const IMAGE_TECHNIQUES_EN: Record<string, LessonWords> = {
       },
       negative: {
         title: 'The second text',
-        body: 'Add a second {negative} node with the same three links and leave its `prompt` empty.\n\nThe sampler wants two descriptions. An empty one with the same picture means "nothing in particular", as in the template.',
+        body: 'Add a second {negative} node with the same three links and leave its `prompt` empty.\n\nThe sampler wants two prompts. An empty one with the same picture means "nothing in particular", as in the template.',
       },
       encode: {
         title: 'The starting latent',
@@ -529,15 +529,15 @@ export const IMAGE_TECHNIQUES_EN: Record<string, LessonWords> = {
     steps: {
       intro: {
         title: 'What Redux does',
-        body: 'Words describe a style poorly. Redux lets you show it: a vision model looks at a sample picture, and a small style model turns what it saw into an addition to the description.\n\nThe graph is ComfyUI\'s Flux.1 dev graph with the part of the official "Flux Redux" template that does this. It is built from an empty canvas: "File ▸ New project". Flux.1 dev needs a strong graphics card; its fp8 files need less memory.',
+        body: 'Words describe a style poorly. Redux lets you show it: a vision model looks at a sample picture, and a small style model turns what it saw into an addition to the prompt.\n\nThe graph is ComfyUI\'s Flux.1 dev graph with the part of the official "Flux Redux" template that does this. It is built from an empty canvas: "File ▸ New project". Flux.1 dev needs a strong graphics card; its fp8 files need less memory.',
       },
       models: {
         title: 'Load Flux.1',
-        body: `Add {model}, {clip} and {vae}.\n- \`unet_name\` of {model}: flux1-dev, from \`models/diffusion_models\`.\n- {clip} reads the description with two files: \`clip_name1\` clip_l, \`clip_name2\` t5xxl. Set \`type\` to \`flux\`.\n- \`vae_name\` of {vae}: ae.\n\n${noFile('the official template "Flux Redux"')}`,
+        body: `Add {model}, {clip} and {vae}.\n- \`unet_name\` of {model}: flux1-dev, from \`models/diffusion_models\`.\n- {clip} reads the prompt with two files: \`clip_name1\` clip_l, \`clip_name2\` t5xxl. Set \`type\` to \`flux\`.\n- \`vae_name\` of {vae}: ae.\n\n${noFile('the official template "Flux Redux"')}`,
       },
       prompt: {
-        title: 'Write the description',
-        body: 'Add {positive} and {zero}. The output of {clip} goes into `clip` of {positive}, the output of {positive} into `conditioning` of {zero}. Write in `text` what the picture shows: the subject, the place.\n\nFlux does not use a description of what is unwanted. {zero} gives the sampler an empty one, as ComfyUI\'s Flux template does.',
+        title: 'Write the prompt',
+        body: 'Add {positive} and {zero}. The output of {clip} goes into `clip` of {positive}, the output of {positive} into `conditioning` of {zero}. Write in `text` what the picture shows: the subject, the place.\n\nFlux does not use a prompt of what is unwanted. {zero} gives the sampler an empty one, as ComfyUI\'s Flux template does.',
       },
       reference: {
         title: 'Show the sample',
@@ -545,11 +545,11 @@ export const IMAGE_TECHNIQUES_EN: Record<string, LessonWords> = {
       },
       style: {
         title: 'Apply the style model',
-        body: 'Add {styleLoader} and {style}.\n- In `style_model_name` of {styleLoader}: flux1-redux-dev, from `models/style_models`.\n- {style} gets `conditioning` from {positive}, `style_model` from {styleLoader}, `clip_vision_output` from {vision}.\n\nThe output of {style} is your description with the sample added to it.',
+        body: 'Add {styleLoader} and {style}.\n- In `style_model_name` of {styleLoader}: flux1-redux-dev, from `models/style_models`.\n- {style} gets `conditioning` from {positive}, `style_model` from {styleLoader}, `clip_vision_output` from {vision}.\n\nThe output of {style} is your prompt with the sample added to it.',
       },
       sampler: {
         title: 'The empty latent and the sampler',
-        body: 'Add {latent} and {sampler}. Connect: `model` from {model}, `positive` from {style}, `negative` from {zero}, `latent_image` from {latent}. Set `cfg` to 1.\n\nFlux.1 dev is distilled: it follows the description without the usual guidance, and a higher `cfg` burns the picture. An empty latent of 1024 × 1024 suits it.',
+        body: 'Add {latent} and {sampler}. Connect: `model` from {model}, `positive` from {style}, `negative` from {zero}, `latent_image` from {latent}. Set `cfg` to 1.\n\nFlux.1 dev is distilled: it follows the prompt without the usual guidance, and a higher `cfg` burns the picture. An empty latent of 1024 × 1024 suits it.',
       },
       out: {
         title: 'Decode and save',
@@ -557,11 +557,11 @@ export const IMAGE_TECHNIQUES_EN: Record<string, LessonWords> = {
       },
       strength: {
         title: 'When the sample wins over the words',
-        body: 'At `strength` 1 of {style} Redux often copies the sample and forgets the description. Lower it to 0.5 and the words get their say again.\n\nTwo samples: chain two {style} nodes, the output of the first into `conditioning` of the second, each with its own picture, as the template does.\n\nFor SD 1.5 and SDXL the same idea is IP-Adapter, see "A reference picture with IP-Adapter".',
+        body: 'At `strength` 1 of {style} Redux often copies the sample and forgets the prompt. Lower it to 0.5 and the words get their say again.\n\nTwo samples: chain two {style} nodes, the output of the first into `conditioning` of the second, each with its own picture, as the template does.\n\nFor SD 1.5 and SDXL the same idea is IP-Adapter, see "A reference picture with IP-Adapter".',
       },
       run: {
         title: 'The graph is ready',
-        body: `${SAVE}\n\nWhat to try: one description with two very different samples.`,
+        body: `${SAVE}\n\nWhat to try: one prompt with two very different samples.`,
       },
     },
   },
@@ -588,7 +588,7 @@ export const IMAGE_TECHNIQUES_EN: Record<string, LessonWords> = {
       },
       apply: {
         title: 'Apply it to the model',
-        body: 'Add an {ip} node and connect: `model` and `ipadapter` from the outputs of {ipLoader} with the same names, `image` from {ref}. Its `MODEL` output goes into `model` of {sampler}, in place of the direct link.\n\nIP-Adapter changes the model itself, not the description; that is why it stands on the way of the model.',
+        body: 'Add an {ip} node and connect: `model` and `ipadapter` from the outputs of {ipLoader} with the same names, `image` from {ref}. Its `MODEL` output goes into `model` of {sampler}, in place of the direct link.\n\nIP-Adapter changes the model itself, not the prompt; that is why it stands on the way of the model.',
       },
       weight: {
         title: 'Set the weight and the kind',
@@ -610,7 +610,7 @@ export const IMAGE_TECHNIQUES_EN: Record<string, LessonWords> = {
     steps: {
       intro: {
         title: 'What a detailer does',
-        body: `In a full-length picture a face is small, and the model has too few pixels to draw it well. A detailer finds each face, cuts it out, enlarges it, draws it again with the same model and description at part of the noise, and puts it back.\n\nIt draws again the face that is there. It does not put another person's face in its place, and this lesson is not about that.\n\nThe nodes come with ComfyUI-Impact-Pack and ComfyUI-Impact-Subpack. ${PACK}\n\nThe lesson adds three nodes to the graph of "A first picture from text".`,
+        body: `In a full-length picture a face is small, and the model has too few pixels to draw it well. A detailer finds each face, cuts it out, enlarges it, draws it again with the same model and prompt at part of the noise, and puts it back.\n\nIt draws again the face that is there. It does not put another person's face in its place, and this lesson is not about that.\n\nThe nodes come with ComfyUI-Impact-Pack and ComfyUI-Impact-Subpack. ${PACK}\n\nThe lesson adds three nodes to the graph of "A first picture from text".`,
       },
       graph: PICTURE_GRAPH,
       detector: {

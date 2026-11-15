@@ -585,7 +585,7 @@ export const VIDEO_LESSONS_EN: Record<string, LessonWords> = {
       },
       tips: {
         title: 'When the result is not right',
-        body: '- A shadow or an edge of the object remains: raise `mask_dilates` to 8–10, or widen the mask itself.\n- The filled area is blurry: the background behind the object is never seen in the clip; ProPainter can only invent it roughly.\n- Out of memory: fewer frames, or a smaller size.',
+        body: '- A shadow or an edge of the object remains: raise `mask_dilates` to 8-10, or widen the mask itself.\n- The filled area is blurry: the background behind the object is never seen in the clip; ProPainter can only invent it roughly.\n- Out of memory: fewer frames, or a smaller size.',
       },
       run: { title: 'The graph is ready', body: SAVE },
     },
@@ -620,7 +620,7 @@ export const VIDEO_LESSONS_EN: Record<string, LessonWords> = {
       },
       motion: {
         title: 'Describe the motion, not the picture',
-        body: 'In the `text` field of {positive} describe what happens: who moves, how, what the camera does. "She turns her head to the window and smiles, the camera slowly moves closer."\n\nThe picture already says what is in the frame. Describing it again pulls the model towards drawing that description, and the clip may jump away from your image or stay still.',
+        body: 'In the `text` field of {positive} describe what happens: who moves, how, what the camera does. "She turns her head to the window and smiles, the camera slowly moves closer."\n\nThe picture already says what is in the frame. Describing it again pulls the model towards drawing that prompt, and the clip may jump away from your image or stay still.',
       },
       lora: {
         title: 'A character LoRA together with the anchor',

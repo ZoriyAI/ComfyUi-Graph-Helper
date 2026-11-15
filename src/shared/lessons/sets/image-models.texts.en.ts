@@ -113,7 +113,7 @@ export const IMAGE_MODEL_TEXTS_EN: Record<string, LessonWords> = {
       },
       prompt: {
         title: 'Write the prompt',
-        body: 'Add a {positive} node and connect the output of {clip} to its `clip` input. Describe the picture in its `text` field in sentences. Words to be written in the picture go in quotes: a ceramic mug on a wooden table with the word "MORNING" printed on it, soft window light.\n\nA language model reads a long, exact description better than a list of tags.',
+        body: 'Add a {positive} node and connect the output of {clip} to its `clip` input. Describe the picture in its `text` field in sentences. Words to be written in the picture go in quotes: a ceramic mug on a wooden table with the word "MORNING" printed on it, soft window light.\n\nA language model reads a long, exact prompt better than a list of tags.',
       },
       negative: {
         title: 'Feed the negative input',

@@ -88,8 +88,8 @@ test('Settings ▸ Assistant: model advice, tools marks, a larger window, a comp
     void key;
 
     // Your own server: the list marks the model without tools and leaves out the embedding model.
-    await dialog.getByRole('radio', { name: 'Own server', exact: true }).click();
-    await dialog.getByRole('textbox', { name: 'Base URL' }).fill(`${origin}/v1`);
+    await dialog.getByRole('radio', { name: 'Your own server', exact: true }).click();
+    await dialog.getByRole('textbox', { name: 'Server address', exact: true }).fill(`${origin}/v1`);
     await expect(dialog.getByText(/^2 models from/)).toBeVisible({ timeout: 15_000 });
     await expect(dialog.locator('.provider-advice[data-provider="local"]')).toContainText('qwen3:8b');
     await expect(dialog.locator('.provider-key input[type="password"]')).toBeEnabled();
@@ -98,7 +98,7 @@ test('Settings ▸ Assistant: model advice, tools marks, a larger window, a comp
     await dialog.getByRole('textbox', { name: 'Model', exact: true }).fill('fixture-tools:8b');
 
     // A small window: Ollama's copy with a larger window, chosen in place of the model.
-    await dialog.getByRole('button', { name: 'Check connection' }).click();
+    await dialog.getByRole('button', { name: 'Test connection' }).click();
     await expect(dialog.locator('.context-window-note')).toHaveAttribute('data-window', '8192', { timeout: 20_000 });
     await expect(dialog.locator('.window-help')).toContainText('How to set the window by hand');
     await dialog.getByRole('button', { name: /Make a copy with a 16,384-token window/ }).click();

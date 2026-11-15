@@ -1,6 +1,7 @@
 import i18next, { type InitOptions } from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import { en, ru, type AppLanguage } from '../shared/i18n';
+import { pseudoText } from '../shared/i18n/pseudo';
 
 export const i18n = i18next.createInstance();
 i18n.use(initReactI18next);
@@ -44,9 +45,19 @@ function publish(language: AppLanguage) {
   document.title = String(i18n.t('shell.title'));
 }
 
+/** Layout tests only (main passes --pseudo-locale=1 to an unpackaged run): every text 40 % longer. */
+function pseudoWanted(): boolean {
+  try {
+    return (window as unknown as { electronAPI?: { flags?: { pseudoLocale?: boolean } } }).electronAPI?.flags?.pseudoLocale === true;
+  } catch {
+    return false;
+  }
+}
+
 export function startI18n(language: AppLanguage) {
   if (!started) {
     started = true;
+    if (pseudoWanted()) i18n.use({ type: 'postProcessor', name: 'pseudo', process: (value: string) => pseudoText(value) });
     const options: InitOptions = {
       resources: resources(),
       lng: language,
@@ -59,6 +70,7 @@ export function startI18n(language: AppLanguage) {
       missingInterpolationHandler: (text: string, value: RegExpExecArray) => missingValue(text, value),
       returnNull: false,
       react: { useSuspense: false },
+      ...(pseudoWanted() ? { postProcess: ['pseudo'] } : {}),
     };
     (options as InitOptions & { initImmediate: boolean }).initImmediate = false;
     i18n.init(options);

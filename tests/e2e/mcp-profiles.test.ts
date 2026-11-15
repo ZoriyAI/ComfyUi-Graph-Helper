@@ -36,9 +36,9 @@ test('an MCP server the app does not know: an exact sentence, never "connected",
   const { app, window } = await launch(userData);
   try {
     const dialog = await openConnection(window);
-    const mcp = dialog.getByRole('textbox', { name: 'MCP server URL', exact: true });
+    const mcp = dialog.getByRole('textbox', { name: 'MCP server address', exact: true });
     await mcp.fill(server.url);
-    await dialog.getByRole('button', { name: 'Check', exact: true }).click();
+    await dialog.getByRole('button', { name: 'Test server', exact: true }).click();
     await expect(dialog.getByText(UNKNOWN)).toBeVisible({ timeout: 15_000 });
     await dialog.getByRole('button', { name: 'Save settings' }).click();
     await expect(dialog).toHaveCount(0);
@@ -64,8 +64,8 @@ test('a server that lists models only: recognised, its list read, the nodes from
   try {
     const dialog = await openConnection(window);
     await dialog.getByRole('textbox', { name: 'ComfyUI address', exact: true }).fill(comfy.url);
-    await dialog.getByRole('textbox', { name: 'MCP server URL', exact: true }).fill(server.url);
-    await dialog.getByRole('button', { name: 'Check', exact: true }).click();
+    await dialog.getByRole('textbox', { name: 'MCP server address', exact: true }).fill(server.url);
+    await dialog.getByRole('button', { name: 'Test server', exact: true }).click();
     await expect(dialog.getByText(/This MCP server lists models only\. The nodes come from the ComfyUI address above\./)).toBeVisible({ timeout: 15_000 });
     await dialog.getByRole('button', { name: 'Save settings' }).click();
     await expect(dialog).toHaveCount(0);

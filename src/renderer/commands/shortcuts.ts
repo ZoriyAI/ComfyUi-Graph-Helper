@@ -1,7 +1,8 @@
 /**
  * Keyboard shortcuts as strings ('Mod+S', 'Mod+Shift+Z', 'F1', 'Delete'). `Mod` is Ctrl on Linux and
- * Windows and ⌘ on macOS. Letters and digits match by physical key (event.code), so Ctrl+S works the same
- * on a Russian layout where the key types «ы».
+ * Windows and ⌘ on macOS. On a Latin layout a shortcut is the key marked with its letter or sign (AZERTY's Ctrl+A
+ * is the key marked A); on a non-Latin layout it is the key in the same place as on a US keyboard, so Ctrl+S works
+ * on a Russian layout where the key types «ы». See layoutToken.
  */
 export type Platform = 'mac' | 'other';
 
@@ -42,52 +43,82 @@ export function parseShortcut(shortcut: string): ParsedShortcut {
   };
 }
 
-/** Physical codes that produce a key token, so the match does not depend on the keyboard layout. */
-function codesFor(key: string): string[] {
-  if (/^[A-Z]$/.test(key)) return [`Key${key}`];
-  if (/^[0-9]$/.test(key)) return [`Digit${key}`, `Numpad${key}`];
-  switch (key) {
-    case '=': return ['Equal', 'NumpadAdd'];
-    case '+': return ['Equal', 'NumpadAdd'];
-    case '-': return ['Minus', 'NumpadSubtract'];
-    case '/': return ['Slash', 'NumpadDivide'];
-    case ',': return ['Comma'];
-    case '.': return ['Period'];
-    case ';': return ['Semicolon'];
-    case "'": return ['Quote'];
-    case '`': return ['Backquote'];
-    case '[': return ['BracketLeft'];
-    case ']': return ['BracketRight'];
-    case '\\': return ['Backslash'];
-    case 'Space': return ['Space'];
-    default: return [];
-  }
+/** The physical key a US layout prints each sign on: the fallback for a layout whose own sign is not Latin. */
+const CODE_KEYS: Record<string, string> = {
+  Equal: '=', Minus: '-', Slash: '/', Comma: ',', Period: '.', Semicolon: ';', Quote: "'", Backquote: '`',
+  BracketLeft: '[', BracketRight: ']', Backslash: '\\', NumpadAdd: '=', NumpadSubtract: '-', NumpadDivide: '/',
+};
+/** Signs a shortcut can be written with. A key whose value is one of these means that sign on any layout. */
+const SIGNS = new Set(['=', '+', '-', '/', ',', '.', ';', "'", '`', '[', ']', '\\']);
+
+/**
+ * Which kind of letters the keyboard types now. Latin layouts (QWERTY, AZERTY, QWERTZ, Dvorak) are matched by the
+ * letter or sign a key types, so Ctrl+Z is the key marked Z wherever it sits. A non-Latin layout (Russian, Greek,
+ * Hebrew…) types no Latin letters, so its keys are matched by their place on a US keyboard: Ctrl+Z is the key that
+ * types «я». The keyboard says which it is with every letter typed (noteLayout); before any letter, Latin is assumed.
+ */
+let latinLayout = true;
+
+export function noteLayout(event: Pick<KeyLike, 'key' | 'code'>): void {
+  if (!event.code || !/^Key[A-Z]$/.test(event.code) || typeof event.key !== 'string' || [...event.key].length !== 1) return;
+  if (/^[a-z]$/i.test(event.key)) latinLayout = true;
+  else if (/\p{L}/u.test(event.key)) latinLayout = false;
 }
 
-/** Key values that also count (the shifted '=' is '+', a numpad key, a layout without event.code). */
-function keysFor(key: string): string[] {
-  if (/^[A-Z]$/.test(key)) return [key, key.toLowerCase()];
+export function layoutIsLatin(): boolean {
+  return latinLayout;
+}
+
+/** For tests: forget what the keyboard said. */
+export function resetLayout(latin = true): void {
+  latinLayout = latin;
+}
+
+function nonLatinChar(key: string): boolean {
+  return [...key].length === 1 && /[^\u0000-\u007f]/.test(key);
+}
+
+/**
+ * The key a press means on the person's own layout, as a shortcut token ('Z', '0', '/', 'Delete'), or null.
+ * - Letters: the Latin letter typed; on a non-Latin layout, the letter of the same place on a US keyboard.
+ * - Digits: the digit typed, or the digit of the key's place (AZERTY types digits only with Shift).
+ * - Signs: the sign typed (QWERTZ types / with Shift+7); on a non-Latin layout, the sign of the key's place on a US
+ *   keyboard (the Russian layout types «б» where US has «,» and «.» where US has «/»).
+ */
+export function layoutToken(event: KeyLike, latin: boolean = latinLayout): string | null {
+  const key = event.key ?? '';
+  const code = event.code ?? '';
+  if (/^[a-z]$/i.test(key)) return key.toUpperCase();
+  if (/^[0-9]$/.test(key)) return key;
+  const place = /^Key[A-Z]$/.test(code) ? code.slice(3)
+    : /^(Digit|Numpad)[0-9]$/.test(code) ? code.slice(-1)
+      : CODE_KEYS[code] ?? null;
+  if (SIGNS.has(key) && (latin || !place || /^[0-9]$/.test(place))) return key;
+  if (place && /^[0-9]$/.test(place)) return place;
+  if (place && (nonLatinChar(key) || key === '' || key === 'Unidentified' || (!latin && SIGNS.has(key)))) return place;
+  if (key === ' ') return 'Space';
+  return key.length > 1 ? key : null;
+}
+
+/** Key values that also count (the shifted '=' is '+', the numpad's '+'). */
+function tokensFor(key: string): string[] {
   if (key === '=' || key === '+') return ['=', '+'];
-  if (key === 'Delete') return ['Delete'];
   if (key === 'Escape') return ['Escape', 'Esc'];
-  if (key === 'Space') return [' '];
   return [key];
 }
 
-/** True when the key event is this shortcut on this platform, with no extra modifiers held. */
-export function matchesShortcut(event: KeyLike, shortcut: string, platform: Platform = detectPlatform()): boolean {
+/** True when the key event is this shortcut on this platform and keyboard layout, with no extra modifiers held. */
+export function matchesShortcut(event: KeyLike, shortcut: string, platform: Platform = detectPlatform(), latin: boolean = latinLayout): boolean {
   const parsed = parseShortcut(shortcut);
   const wantMeta = parsed.mod && platform === 'mac';
   const wantCtrl = parsed.ctrl || (parsed.mod && platform !== 'mac');
   if (event.metaKey !== wantMeta || event.ctrlKey !== wantCtrl || event.altKey !== parsed.alt) return false;
-  // Zoom in is written 'Mod+=' but people press Ctrl+Shift+= (that is, Ctrl++) just as often.
-  const shiftFree = parsed.key === '=' || parsed.key === '+';
-  if (!shiftFree && event.shiftKey !== parsed.shift) return false;
-  const codes = codesFor(parsed.key);
-  if (event.code && codes.includes(event.code)) return true;
-  // Layout-independent keys (letters, digits) match only by code when a code is known.
-  if (event.code && /^[A-Z0-9]$/.test(parsed.key) && /^(Key|Digit|Numpad)/.test(event.code)) return false;
-  return keysFor(parsed.key).includes(event.key);
+  const token = layoutToken(event, latin);
+  if (token === null || !tokensFor(parsed.key).includes(token)) return false;
+  // A sign may need Shift to be typed at all on this layout (QWERTZ: / is Shift+7, zoom in is Ctrl++), so Shift is
+  // free for signs unless the shortcut itself asks for it. Letters, digits and named keys must match Shift exactly.
+  if (SIGNS.has(parsed.key) && !parsed.shift) return true;
+  return event.shiftKey === parsed.shift;
 }
 
 const MAC_SYMBOLS: Record<string, string> = { mod: '⌘', ctrl: '⌃', shift: '⇧', alt: '⌥' };
@@ -122,10 +153,6 @@ export function shortcutKeys(shortcut: string, platform: Platform = detectPlatfo
   return [...caps, key];
 }
 
-const CODE_KEYS: Record<string, string> = {
-  Equal: '=', Minus: '-', Slash: '/', Comma: ',', Period: '.', Semicolon: ';', Quote: "'", Backquote: '`',
-  BracketLeft: '[', BracketRight: ']', Backslash: '\\', NumpadAdd: '=', NumpadSubtract: '-', NumpadDivide: '/',
-};
 const NAMED_KEYS = new Set([
   'Delete', 'Backspace', 'Enter', 'Escape', 'Tab', 'Home', 'End', 'PageUp', 'PageDown', 'Insert',
   'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
@@ -134,19 +161,18 @@ const MODIFIER_KEYS = new Set(['Control', 'Shift', 'Alt', 'Meta', 'AltGraph', 'O
 
 /**
  * The shortcut string a key press records (Preferences ▸ Shortcuts), or null for a lone modifier or a key
- * that cannot be a shortcut. Letters and digits come from the physical key, so a Russian layout records 'Mod+S'.
+ * that cannot be a shortcut. Keys are read as layoutToken reads them, so AZERTY records the letter it types and
+ * a Russian layout records 'Mod+S' for the key that types «ы».
  * Ctrl on Linux and Windows (⌘ on macOS) becomes `Mod`.
  */
 export function chordFromEvent(event: KeyLike, platform: Platform = detectPlatform()): string | null {
   if (MODIFIER_KEYS.has(event.key)) return null;
   let key: string | null = null;
-  const code = event.code ?? '';
-  if (/^Key[A-Z]$/.test(code)) key = code.slice(3);
-  else if (/^(Digit|Numpad)[0-9]$/.test(code)) key = code.slice(-1);
-  else if (CODE_KEYS[code]) key = CODE_KEYS[code];
+  const token = layoutToken(event);
+  if (token && (/^[A-Z0-9]$/.test(token) || SIGNS.has(token))) key = token === '+' ? '=' : token;
   else if (/^F([1-9]|1[0-2])$/.test(event.key)) key = event.key;
   else if (NAMED_KEYS.has(event.key)) key = event.key;
-  else if (event.key === ' ' || code === 'Space') key = 'Space';
+  else if (event.key === ' ' || event.code === 'Space') key = 'Space';
   else if (/^[a-z0-9]$/i.test(event.key)) key = event.key.toUpperCase();
   if (!key) return null;
   const parts: string[] = [];
@@ -168,3 +194,51 @@ export function sameChord(left: string, right: string): boolean {
   const key = (value: string) => (value === '+' ? '=' : value);
   return a.mod === b.mod && a.ctrl === b.ctrl && a.shift === b.shift && a.alt === b.alt && key(a.key) === key(b.key);
 }
+
+/** A layout map as Chromium gives it (navigator.keyboard.getLayoutMap()): physical code → what the key types. */
+export type LayoutMap = ReadonlyMap<string, string>;
+
+/** The US place of each sign, for finding which key of a non-Latin layout stands there. */
+const SIGN_CODES: Record<string, string> = {
+  '=': 'Equal', '+': 'Equal', '-': 'Minus', '/': 'Slash', ',': 'Comma', '.': 'Period', ';': 'Semicolon', "'": 'Quote',
+  '`': 'Backquote', '[': 'BracketLeft', ']': 'BracketRight', '\\': 'Backslash',
+};
+
+/**
+ * What to press for a shortcut's key on this layout, when it is not simply the key marked with it:
+ * - { kind: 'local', glyph: 'я' }: a non-Latin layout, where the shortcut is the key in the US place (Ctrl+Z → «я»);
+ * - { kind: 'shift' }: a Latin layout that types the sign only with Shift or AltGr (QWERTZ's «/»);
+ * - null: press the key marked with it, or the layout is not known.
+ */
+export function localKeyFor(shortcut: string, layout: LayoutMap | null | undefined): { kind: 'local'; glyph: string } | { kind: 'shift' } | null {
+  if (!layout || layout.size === 0) return null;
+  const key = parseShortcut(shortcut).key;
+  const q = layout.get('KeyQ') ?? '';
+  const latin = q === '' || /^[a-z]$/i.test(q);
+  if (/^[A-Z]$/.test(key)) {
+    if (latin) return null;
+    const local = layout.get(`Key${key}`);
+    return local && local.toLowerCase() !== key.toLowerCase() ? { kind: 'local', glyph: local } : null;
+  }
+  const code = SIGN_CODES[key];
+  if (!code) return null;
+  if (!latin) {
+    const local = layout.get(code);
+    return local && local !== key ? { kind: 'local', glyph: local } : null;
+  }
+  const typed = new Set(layout.values());
+  if (typed.has(key) || (key === '=' && typed.has('+'))) return null;
+  return { kind: 'shift' };
+}
+
+/** The current layout map, or null where the browser has none (tests, older engines). */
+export async function readLayoutMap(): Promise<LayoutMap | null> {
+  const keyboard = (globalThis as { navigator?: { keyboard?: { getLayoutMap?: () => Promise<LayoutMap> } } }).navigator?.keyboard;
+  if (!keyboard?.getLayoutMap) return null;
+  try {
+    return await keyboard.getLayoutMap();
+  } catch {
+    return null;
+  }
+}
+

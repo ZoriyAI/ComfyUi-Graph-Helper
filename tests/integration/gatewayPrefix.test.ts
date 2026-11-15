@@ -82,7 +82,8 @@ describe('what the person is told when node details cannot be read from here', (
   });
 
   it('says it in plain words in both languages', () => {
-    expect(translateKnownError(createTranslator('en'), NODE_DETAILS_ELSEWHERE)).toBe(NODE_DETAILS_ELSEWHERE);
+    // The code names "settings" of nodes; on screen they are fields.
+    expect(translateKnownError(createTranslator('en'), NODE_DETAILS_ELSEWHERE)).toBe(NODE_DETAILS_ELSEWHERE.replace('inputs and settings of nodes', 'inputs and fields of nodes'));
     expect(translateKnownError(createTranslator('ru'), NODE_DETAILS_ELSEWHERE)).toMatch(/^Названия нод и модели прочитаны, а входы и настройки нод нет: сам ComfyUI отвечает только на своём компьютере\./);
   });
 });

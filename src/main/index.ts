@@ -28,10 +28,14 @@ import { syncService } from './mcp/sync';
 import { setMcpClientVersion } from './mcp/client';
 import { catalogModelRoots } from './mcp/knownRoots';
 import { createTranslator, languageOf, type AppLanguage } from '../shared/i18n';
+import { pseudoLocaleWanted, setSystemLanguages, systemLanguage } from './systemLanguage';
 import type { SyncStatus } from '../shared/contracts/knowledge';
 
+// The system's languages: the language of a first start and of dialogs shown before the settings can be read.
+try { setSystemLanguages(app.getPreferredSystemLanguages()); } catch { /* the locale variables stand in */ }
+
 // `--version` / `--help`: answer on the terminal and leave before anything opens.
-const cliAnswer = commandLineAnswer(process.argv, appVersion());
+const cliAnswer = commandLineAnswer(process.argv, appVersion(), systemLanguage());
 if (cliAnswer !== null) {
   process.stdout.write(cliAnswer);
   process.exit(0);
@@ -105,12 +109,12 @@ setKnownRootsSource(() => {
   }
 });
 
-/** The settings language, or Russian (the default) when the database cannot be read yet. */
+/** The settings language, or the system's language when the database cannot be read yet. */
 function uiLanguage(): AppLanguage {
   try {
     return languageOf(readSettings(getDatabase()));
   } catch {
-    return 'ru';
+    return systemLanguage();
   }
 }
 
@@ -266,7 +270,7 @@ function createWindow() {
       spellcheck: false,
       // The renderer's About section reads the app version from preload `versions.app`; the scripted TEST fixture
       // is a developer tool and is offered only when the app runs unpackaged (development and tests).
-      additionalArguments: [`--app-version=${displayVersion()}`, ...(scriptedProviderAllowed(app.isPackaged) ? ['--test-provider=1'] : [])],
+      additionalArguments: [`--app-version=${displayVersion()}`, ...(scriptedProviderAllowed(app.isPackaged) ? ['--test-provider=1'] : []), ...(pseudoLocaleWanted(app.isPackaged, process.env) ? ['--pseudo-locale=1'] : [])],
     },
   });
 

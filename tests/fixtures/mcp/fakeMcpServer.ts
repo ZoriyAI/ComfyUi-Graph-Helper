@@ -561,13 +561,31 @@ function packItems(classes: readonly ClassDef[]) {
   }));
 }
 
-function modelItems(extraLoras = 0) {
+/**
+ * Names that stretch a layout: Chinese, Japanese and Korean node titles and file names, and Latin names longer than
+ * any English one, as a German pack writes them. Served with `wideNames`, so the screen walk sees real long names.
+ */
+export const WIDE_CLASSES: ClassDef[] = [
+  { classType: 'WideCjkUpscale', pack: 1, display: '图像放大（高清修复）超分辨率模型加载器', category: '图像/放大', required: { image: ['IMAGE'], 强度: ['FLOAT', { default: 1, min: 0, max: 4, step: 0.1 }] }, output: ['IMAGE'], outputName: ['放大后的图像'], description: '使用模型放大图像。画像を拡大します。' },
+  { classType: 'WideJapanesePrompt', pack: 1, display: 'プロンプトを読み込む（日本語の長い名前のノード）', category: 'テキスト', required: { text: ['STRING', { multiline: true }] }, output: ['STRING'] },
+  { classType: 'WideKoreanLoader', pack: 1, display: '한국어 이름이 아주 긴 모델 불러오기 노드', category: '로더', required: { model_name: [['한국어_인물_사진_모델.safetensors']] }, output: ['MODEL'] },
+  { classType: 'WideGermanLoader', pack: 1, display: 'Bildvergrößerungsmodellladeknoten mit Kantenschärfungsvoreinstellung', category: 'image/upscaling', required: { image: ['IMAGE'], Schärfungsstärke: ['FLOAT', { default: 0.5 }] }, output: ['IMAGE'] },
+];
+
+export const WIDE_MODELS: Array<{ category: string; filename: string; size: number }> = [
+  { category: 'checkpoints', filename: '动漫风格_写实人像_第二版_最终.safetensors', size: 6_938_000_000 },
+  { category: 'loras', filename: 'アニメ/かわいい背景モデル_最終版_高解像度.safetensors', size: 151_000_000 },
+  { category: 'checkpoints', filename: '한국어_인물_사진_모델.safetensors', size: 2_132_000_000 },
+  { category: 'loras', filename: 'Hochauflösende_Landschaftsfotografie_Spezialmodell_Version_Zwei_mit_Nebel.safetensors', size: 228_000_000 },
+];
+
+function modelItems(extraLoras = 0, wideNames = false) {
   const extra = Array.from({ length: extraLoras }, (_, index) => ({
     category: 'loras', filename: `extra_lora_${String(index).padStart(3, '0')}.safetensors`, size: 100_000_000,
   }));
   // That server lists every regular file of a folder: the models, and what a manager keeps next to them.
   const side = SIDE_FILES.map((file) => ({ category: file.category, filename: file.filename, size: file.bytes.length }));
-  return [...MODELS, ...extra, ...side].map((model) => ({
+  return [...MODELS, ...(wideNames ? WIDE_MODELS : []), ...extra, ...side].map((model) => ({
     category: model.category,
     filename: model.filename,
     root_path: `${MODEL_ROOT}/${model.category}`,
@@ -595,7 +613,7 @@ function text(value: unknown, isError = false) {
   return { content: [{ type: 'text', text: typeof value === 'string' ? value : JSON.stringify(value) }], isError };
 }
 
-function callTool(name: string, args: Record<string, unknown>, comfyUrl: string, extraLoras = 0, classes: readonly ClassDef[] = CLASSES) {
+function callTool(name: string, args: Record<string, unknown>, comfyUrl: string, extraLoras = 0, classes: readonly ClassDef[] = CLASSES, wideNames = false) {
   switch (name) {
     case 'studio_info':
       return text({
@@ -621,7 +639,7 @@ function callTool(name: string, args: Record<string, unknown>, comfyUrl: string,
       return text({ items: ['checkpoints', 'loras', 'vae', 'controlnet'].map((category) => ({ category, root_count: 1 })), next_cursor: null, total: 4 });
     case 'models': {
       if (args.action !== 'list') return text({ error: { code: 'FAKE_NOT_IMPLEMENTED' } }, true);
-      const all = modelItems(extraLoras);
+      const all = modelItems(extraLoras, wideNames);
       // Like the real server: the plain listing names categories only; files are listed one category at a time.
       if (typeof args.category !== 'string') {
         const categories = [...new Set(all.map((item) => item.category))];
@@ -697,12 +715,14 @@ export interface FakeMcpOptions {
    * (`gateway_comfy-` makes `gateway_comfy-models`). A call by the bare name is then an unknown tool.
    */
   toolPrefix?: string;
+  /** Add node titles and file names in Chinese, Japanese, Korean and long German (WIDE_CLASSES, WIDE_MODELS). */
+  wideNames?: boolean;
 }
 
 export async function startFakeMcp(options: FakeMcpOptions = {}): Promise<FakeMcp> {
   const calls: FakeMcpCall[] = [];
   const comfyHits: string[] = [];
-  const classes = options.video ? [...CLASSES, ...VIDEO_CLASSES] : CLASSES;
+  const classes = [...CLASSES, ...(options.video ? VIDEO_CLASSES : []), ...(options.wideNames ? WIDE_CLASSES : [])];
   const comfy = startComfyFixture(comfyHits, classes);
   const comfyPort = await listen(comfy.server);
   if (options.comfyDown) await new Promise<void>((resolve) => comfy.server.close(() => resolve()));
@@ -784,7 +804,7 @@ export async function startFakeMcp(options: FakeMcpOptions = {}): Promise<FakeMc
         const called = String(params.name);
         result = prefix && !called.startsWith(prefix)
           ? text({ error: { code: 'FAKE_UNKNOWN_TOOL', tool: called } }, true)
-          : callTool(called.slice(prefix.length), record.args ?? {}, comfyUrl, options.extraLoras ?? 0, classes);
+          : callTool(called.slice(prefix.length), record.args ?? {}, comfyUrl, options.extraLoras ?? 0, classes, options.wideNames === true);
       }
       else if (method === 'ping') result = {};
       else {

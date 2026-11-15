@@ -80,7 +80,7 @@ describe('build step sentences', () => {
   it('says what a failed step tried, and why it failed in plain words', () => {
     const missing = call('addNode', { nodeType: 'KSamplr' }, { success: false, error: 'Unknown node class `KSamplr`. Did you mean: KSampler?', suggestions: ['KSampler', 'KSamplerAdvanced'] }, 'error', 'Unknown node class `KSamplr`. Did you mean: KSampler?');
     expect(stepSentence(missing, ru, names)).toBe('Не удалось добавить ноду KSamplr');
-    expect(stepError(missing, ru)).toEqual({ summary: 'Такой ноды нет в вашем ComfyUI. Похожие: KSampler, KSamplerAdvanced.', detail: null });
+    expect(stepError(missing, ru)).toEqual({ summary: 'Такой ноды нет в вашем ComfyUI. Похожие: KSampler или KSamplerAdvanced.', detail: null });
     const conflict = call('connectNodes', { sourceNodeId: '1', targetNodeId: '5' }, { success: false, conflict: true, error: 'conflict' }, 'error', 'conflict');
     expect(stepError(conflict, en)?.summary).toBe('The graph changed first, so this step was not applied.');
     const known = call('connectNodes', {}, { success: false, error: 'Port types cannot be connected.' }, 'error', 'Port types cannot be connected.');
@@ -154,9 +154,9 @@ describe('build progress and summary', () => {
       ...Array.from({ length: 9 }, (_, index) => call('connectNodes', {}, { edgeId: `e${index}` })),
       call('addNode', {}, {}, 'error', 'nope'),
     ];
-    expect(buildSummary(buildCounts(many), ru)).toBe('Готово: 7 нод, 9 связей.');
-    expect(buildSummary(buildCounts(many), en)).toBe('Done: 7 nodes, 9 links.');
-    expect(buildSummary(buildCounts(steps), ru)).toBe('Готово: 2 ноды, 1 связь, 1 поле задано.');
+    expect(buildSummary(buildCounts(many), ru)).toBe('Готово: 7 нод и 9 связей.');
+    expect(buildSummary(buildCounts(many), en)).toBe('Done: 7 nodes and 9 links.');
+    expect(buildSummary(buildCounts(steps), ru)).toBe('Готово: 2 ноды, 1 связь и 1 поле задано.');
     expect(buildSummary(buildCounts(steps.slice(0, 1)), ru, true)).toBe('Остановлено: 1 нода. Сделанное осталось в графе.');
     expect(buildSummary(buildCounts([call('annotateNode', { nodeId: '1' }, {})]), ru)).toBeNull();
   });

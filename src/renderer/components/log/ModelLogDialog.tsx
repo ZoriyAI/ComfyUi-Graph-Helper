@@ -13,6 +13,7 @@ import { useModelLogStore } from '../../state/modelLogState';
 import { clearModelLog, copyTurnReport, loadModelLog, openModelLogFolder, revealSavedLog, saveModelLog } from '../../services/diagnostics/modelLog';
 import { durationParts, formatLogBytes, formatTurnTime, intentLabelKey, outcomeView, pickTurns, providerLabelKey } from './modelLogView';
 import styles from './ModelLogDialog.module.css';
+import { formatNumber } from '../../../shared/i18n/format';
 
 export interface ModelLogDialogProps {
   open: boolean;
@@ -56,7 +57,7 @@ function TurnRow({ turn, checked, focused, onToggle, onNotice, language }: {
   if (duration) {
     facts.push(String(duration.minutes > 0
       ? t('modelLog.minutes', { minutes: duration.minutes, seconds: String(duration.seconds).padStart(2, '0') })
-      : t('modelLog.seconds', { seconds: new Intl.NumberFormat(language === 'ru' ? 'ru-RU' : 'en-US', { maximumFractionDigits: 1 }).format(duration.seconds) })));
+      : t('modelLog.seconds', { seconds: formatNumber(duration.seconds, language, { maximumFractionDigits: 1 }) })));
   }
   if (turn.inputTokens != null || turn.outputTokens != null) {
     facts.push(String(t('modelLog.tokens', { input: turn.inputTokens ?? '—', output: turn.outputTokens ?? '—' })));

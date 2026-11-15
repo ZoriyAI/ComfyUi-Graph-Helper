@@ -312,7 +312,7 @@ export const IMAGE_TECHNIQUES_KNOWLEDGE_RU: TechniqueTexts = {
   topics: {
     'inpainting-models': {
       what: 'Модели, обученные рисовать под маской: они видят картинку вокруг и сшивают границу. У SD 1.5 это чекпойнты со словом «inpainting» в названии (models/checkpoints); у Flux это Flux.1 Fill (models/diffusion_models, со своими загрузчиками). Инпейнтить умеет любая модель, просто граница заметнее.',
-      risk: 'Модели для инпейнтинга нужен denoise 1. Обычная лучше работает при 0.6–0.8 с InpaintModelConditioning и включённой маской шума.',
+      risk: 'Модели для инпейнтинга нужен denoise 1. Обычная лучше работает при 0.6-0.8 с InpaintModelConditioning и включённой маской шума.',
     },
     'upscale-models': {
       what: 'Небольшие сети, которые увеличивают картинки в 2 или 4 раза и рисуют чёткие края (ESRGAN и родственные), из models/upscale_models, загрузка через Load Upscale Model. Разные обучены на фотографиях, рисунках или аниме.',

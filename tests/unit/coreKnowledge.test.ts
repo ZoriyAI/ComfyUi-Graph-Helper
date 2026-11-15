@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { setSystemLanguages } from '../../src/main/systemLanguage';
 import Database from 'better-sqlite3';
 import { migrate } from '../../src/main/settings/migrate';
 import { saveSettings } from '../../src/main/settings/repository';
@@ -144,12 +145,17 @@ describe('seeding', () => {
     expect((db.prepare("SELECT COUNT(*) AS n FROM explanations WHERE id LIKE 'seed:ru:%'").get() as { n: number }).n).toBe(0);
   });
 
-  it('without a language argument follows the saved interface language (default ru)', () => {
+  it('without a language argument follows the saved interface language (the system language before a save)', () => {
     const db = freshDb();
+    setSystemLanguages(['ru-RU']);
     expect(seedCoreKnowledge(db).language).toBe('ru');
+    setSystemLanguages(['en-US']);
+    expect(seedCoreKnowledge(db).language).toBe('en');
+    setSystemLanguages(['ru-RU']);
     const saved = saveSettings(db, { ...nonSecretDefaults, language: 'en' });
     expect(saved.ok).toBe(true);
     expect(seedCoreKnowledge(db).language).toBe('en');
+    setSystemLanguages(null);
   });
 
   it('never touches AI or user explanations', () => {

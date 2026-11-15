@@ -134,7 +134,7 @@ test('catalog snapshot import persists guidance and workflow missing-deps use it
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [paths.broken] });
   }, { broken });
   await loadNodeList(window);
-  await expect(window.getByText('Catalog JSON could not be parsed.')).toBeVisible();
+  await expect(window.getByText('This file is not a node list: its text could not be read.')).toBeVisible();
   const afterReject = await electronApp.evaluate(async ({ app }, { appRoot: root }) => {
     const nodeModule = process.getBuiltinModule('module');
     const nodePath = process.getBuiltinModule('path');
@@ -150,7 +150,7 @@ test('catalog snapshot import persists guidance and workflow missing-deps use it
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [paths.arrayFile] });
   }, { arrayFile });
   await loadNodeList(window);
-  await expect(window.getByText('Catalog snapshot is not object_info.')).toBeVisible();
+  await expect(window.getByText('This file is not a node list saved from ComfyUI.')).toBeVisible();
   const afterArray = await electronApp.evaluate(async ({ app }, { appRoot: root }) => {
     const nodeModule = process.getBuiltinModule('module');
     const nodePath = process.getBuiltinModule('path');

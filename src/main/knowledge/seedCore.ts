@@ -1,4 +1,6 @@
 import type Database from 'better-sqlite3';
+import { languageOf as interfaceLanguageOf } from '../../shared/i18n';
+import { systemLanguage } from '../systemLanguage';
 import { coreSeeds, type KnowledgeLanguage } from '../../shared/knowledge/coreKnowledge';
 import { explanationInputSchema } from '../../shared/knowledge/schemas';
 import { readSettings } from '../settings/repository';
@@ -19,12 +21,11 @@ export const SEED_CREATED_AT = 0;
 function languageOf(db: Database.Database, language?: string): KnowledgeLanguage {
   if (language === 'en' || language === 'ru') return language;
   try {
-    const read = readSettings(db);
-    if (read.source !== 'corrupt' && read.values.language === 'en') return 'en';
+    return interfaceLanguageOf(readSettings(db));
   } catch {
-    // A database without the settings table reads as the default language.
+    // A database without the settings table reads as the system's language.
   }
-  return 'ru';
+  return systemLanguage();
 }
 
 /** Writes the seeds of `language` (default: the saved interface language) and removes the other language's. */

@@ -54,12 +54,12 @@ test('live local model adds a loader and the export keeps its parameter', async 
     await window.getByRole('button', { name: 'Settings', exact: true }).click();
     const settings = window.locator('[role="dialog"].settings-dialog');
     await settings.getByRole('tab', { name: 'Assistant' }).click();
-    await settings.getByRole('radio', { name: 'Own server', exact: true }).click();
+    await settings.getByRole('radio', { name: 'Your own server', exact: true }).click();
     await settings.getByRole('textbox', { name: 'Model', exact: true }).fill('qwen2.5-0.5b-instruct');
-    await settings.getByRole('textbox', { name: 'Base URL', exact: true }).fill(LOCAL_BASE);
+    await settings.getByRole('textbox', { name: 'Server address', exact: true }).fill(LOCAL_BASE);
     await settings.getByRole('button', { name: 'Save settings' }).click();
     await expect(settings).toHaveCount(0);
-    await expect(window.getByText('Own server. No key is sent.')).toBeVisible();
+    await expect(window.getByText('Your own server. No key is sent.')).toBeVisible();
 
     await electronApp.evaluate(({ dialog }, paths) => {
       dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [paths.catalogPath] });
@@ -73,7 +73,7 @@ test('live local model adds a loader and the export keeps its parameter', async 
     await input.press('Enter');
     await expect(window.locator('.react-flow__node', { hasText: 'Portrait loader' })).toBeVisible({ timeout: 90000 });
 
-    await window.getByRole('tab', { name: 'Inspector' }).click();
+    await window.getByRole('tab', { name: 'Properties' }).click();
     await window.locator('.react-flow__node', { hasText: 'Portrait loader' }).click();
     await electronApp.evaluate(({ dialog: fileDialog }, paths) => {
       fileDialog.showSaveDialog = async () => ({ canceled: false, filePath: paths.nativePath });

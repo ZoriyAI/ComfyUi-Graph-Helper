@@ -193,10 +193,10 @@ describe('sync view', () => {
     };
     const summary = syncSummary(done);
     expect(createTranslator('en')(summary.key, summary.params))
-      .toBe('Read 3272 nodes, 74 packs and 1987 model files. Model files are still being read: 40 of 316.');
+      .toBe('Read from ComfyUI. Nodes: 3,272, packs: 74, model files: 1,987. Model files are still being read: 40 of 316.');
     const finished = syncSummary({ ...done, progress: null, metadata: { done: 316, total: 316 } });
     expect(createTranslator('ru')(finished.key, finished.params))
-      .toBe('Прочитано нод: 3272, паков: 74, файлов моделей: 1987.');
+      .toBe('Прочитано нод: 3\u00a0272, паков: 74, файлов моделей: 1\u00a0987.');
   });
 
   it('toasts only the end of a run', () => {

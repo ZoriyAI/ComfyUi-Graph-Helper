@@ -28,7 +28,7 @@ test('explain this: provenance card, stored explanation, history after restart',
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'electron-chat-explain-'));
   let { app, window } = await launch(userData);
 
-  await pickOption(window, 'Chat provider', 'TEST mode');
+  await pickOption(window, 'Choose the assistant', 'TEST mode');
   await window.getByText('TEST mode is on').first().waitFor();
   await window.getByRole('tab', { name: 'Assistant' }).click();
 
@@ -86,7 +86,7 @@ test('propose a sampler: ghost card resolves through the proposals store', async
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'electron-chat-propose-'));
   const { app, window } = await launch(userData);
 
-  await pickOption(window, 'Chat provider', 'TEST mode');
+  await pickOption(window, 'Choose the assistant', 'TEST mode');
   await window.getByText('TEST mode is on').first().waitFor();
   await window.getByRole('tab', { name: 'Assistant' }).click();
   const before = await window.locator('.react-flow__node').count();

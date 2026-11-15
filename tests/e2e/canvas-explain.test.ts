@@ -70,10 +70,10 @@ test('canvas explains: context menu, tour, connect assist, subgraph breadcrumb a
   await expect(window.locator('[data-knowledge-dot]').first()).toBeVisible();
   const handle = window.locator('.react-flow__node').filter({ hasText: 'Sample' }).first().locator('.react-flow__handle.source').first();
   await handle.click({ button: 'right' });
-  await window.getByRole('menuitem', { name: 'Suggest a connection' }).click();
-  await expect(window.getByText(/Enter connects to/)).toBeVisible();
+  await window.getByRole('menuitem', { name: 'Suggest a link' }).click();
+  await expect(window.getByText(/Enter links to/)).toBeVisible();
   await window.locator('.react-flow__pane').click({ position: { x: 20, y: 400 } });
-  await expect(window.getByText(/Enter connects to/)).toHaveCount(0);
+  await expect(window.getByText(/Enter links to/)).toHaveCount(0);
 
   // Subgraph from selection, open it, see the boundary nodes, come back.
   await window.getByText('Positive', { exact: true }).click();
@@ -107,7 +107,7 @@ test('canvas explains: context menu, tour, connect assist, subgraph breadcrumb a
   await expect(window.locator('.react-flow__node')).toHaveCount(11);
 
   // Ghost: the TEST fixture proposes a node; it stays a ghost until accepted, then becomes a real node.
-  await pickOption(window, 'Chat provider', 'TEST mode');
+  await pickOption(window, 'Choose the assistant', 'TEST mode');
   await window.getByRole('tab', { name: 'Assistant' }).click();
   await window.locator('textarea[aria-label="Chat message"]').fill('propose a sampler');
   await window.getByRole('button', { name: 'Send' }).click();

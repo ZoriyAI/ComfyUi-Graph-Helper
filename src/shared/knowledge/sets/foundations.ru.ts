@@ -80,13 +80,13 @@ export const FOUNDATIONS_RU: FoundationsPack = {
     checkpoints: {
       what: 'Чекпойнты: один файл с целой моделью: частью, которая рисует, её текстовым энкодером и VAE. В основном SD 1.5, SDXL и сделанные из них модели (Pony, Illustrious) и некоторые файлы «всё в одном» новых семейств.',
       readers: 'Load Checkpoint (CheckpointLoaderSimple), а для видеомоделей из картинки Image Only Checkpoint Loader.',
-      size: 'Около 2–4 ГБ у SD 1.5, около 6,5–7 ГБ у SDXL, 10–20 ГБ у файлов «всё в одном» крупных семейств.',
+      size: 'Около 2-4 ГБ у SD 1.5, около 6,5-7 ГБ у SDXL, 10-20 ГБ у файлов «всё в одном» крупных семейств.',
       wrong: 'LoRA в этой папке падает с «Could not detect model type» и подсказкой про папку LoRA. Диффузионная модель без своего текстового энкодера и VAE здесь грузится с пустыми выходами или падает: её место в diffusion_models.',
     },
     diffusion_models: {
       what: 'Диффузионные модели: только часть, которая рисует (UNet или трансформер), без текстового энкодера и VAE. Так приходят Flux, Qwen-Image, Z-Image, Wan, HunyuanVideo, LTX и большинство семейств с 2024 года.',
       readers: 'Load Diffusion Model (UNETLoader); паки добавляют свои загрузчики (WanVideo Model Loader, Unet Loader (GGUF) для файлов .gguf).',
-      size: 'От примерно 5 ГБ (малые видеомодели) до 20–40 ГБ (Flux, Qwen-Image, Wan 14B в 16 битах); в fp8 вдвое меньше.',
+      size: 'От примерно 5 ГБ (малые видеомодели) до 20-40 ГБ (Flux, Qwen-Image, Wan 14B в 16 битах); в fp8 вдвое меньше.',
       wrong: 'Положенная в checkpoints, она не видна в Load Diffusion Model. Без подходящего текстового энкодера и VAE того же семейства она не запустится.',
     },
     unet: {
@@ -98,13 +98,13 @@ export const FOUNDATIONS_RU: FoundationsPack = {
     loras: {
       what: 'Файлы LoRA: небольшие добавки, обученные поверх базовой модели, для стиля, персонажа, понятия или ускорения (lightning, turbo, lightx2v).',
       readers: 'Load LoRA (LoraLoader) и LoraLoaderModelOnly; паки добавляют свои (Power Lora Loader из rgthree, WanVideo Lora Select).',
-      size: 'От нескольких МБ до примерно 1 ГБ; чаще всего 20–300 МБ.',
+      size: 'От нескольких МБ до примерно 1 ГБ; чаще всего 20-300 МБ.',
       wrong: 'LoRA другого семейства грузится без ошибки и ничего не делает или портит картинку; в консоли ComfyUI появляется «lora key not loaded». LoRA в checkpoints падает с «Could not detect model type».',
     },
     vae: {
       what: 'Файлы VAE: часть, которая превращает латент в пиксели и обратно. У каждого семейства свой.',
       readers: 'Load VAE (VAELoader); WanVideo VAE Loader и загрузчики других паков.',
-      size: 'Около 80–350 МБ для картинок; видео-VAE до 1,5 ГБ.',
+      size: 'Около 80-350 МБ для картинок; видео-VAE до 1,5 ГБ.',
       wrong: 'VAE другого семейства даёт неверные цвета, шум или ошибку размеров. Wan 2.2 14B нужен VAE от Wan 2.1; VAE от Wan 2.2 подходит только малой модели 5B.',
     },
     vae_approx: {
@@ -116,7 +116,7 @@ export const FOUNDATIONS_RU: FoundationsPack = {
     text_encoders: {
       what: 'Текстовые энкодеры: часть, которая читает промпт, у семейств, где она отдельно: CLIP-L и CLIP-G, T5-XXL, UMT5-XXL и языковые модели вроде Qwen и Gemma (их же берёт Generate Text).',
       readers: 'Load CLIP (CLIPLoader), DualCLIPLoader, TripleCLIPLoader, QuadrupleCLIPLoader и загрузчики паков вроде WanVideo T5 Text Encoder Loader.',
-      size: 'От примерно 250 МБ (CLIP-L) до 5–10 ГБ (T5-XXL, UMT5-XXL, языковая модель 4B) и больше.',
+      size: 'От примерно 250 МБ (CLIP-L) до 5-10 ГБ (T5-XXL, UMT5-XXL, языковая модель 4B) и больше.',
       wrong: 'Энкодер другого семейства или нужный файл с неверным type в Load CLIP дают ошибку вроде «mat1 and mat2 shapes cannot be multiplied» или картинку, которая не слушает промпт.',
     },
     clip: {
@@ -128,43 +128,43 @@ export const FOUNDATIONS_RU: FoundationsPack = {
     clip_vision: {
       what: 'Энкодеры CLIP Vision и SigLIP: читают картинку, а не текст. Нужны там, где картинка направляет результат: IP-Adapter, Flux Redux, видео из картинки на Wan 2.1, unCLIP.',
       readers: 'Load CLIP Vision (CLIPVisionLoader); IPAdapter Unified Loader пака ComfyUI_IPAdapter_plus тоже ищет здесь.',
-      size: 'Около 0,4–4 ГБ.',
+      size: 'Около 0,4-4 ГБ.',
       wrong: 'Текстовый энкодер здесь не грузится как модель зрения. IP-Adapter нужен ровно тот энкодер, с которым обучена его модель (ViT-H или ViT-bigG); чужой даёт ошибку размеров.',
     },
     controlnet: {
       what: 'Модели ControlNet и T2I-Adapter: заставляют картинку следовать позе, контурам, глубине или другой картинке-подсказке.',
       readers: 'Load ControlNet Model (ControlNetLoader) и DiffControlNetLoader; паки вроде ComfyUI-Advanced-ControlNet добавляют свои.',
-      size: 'Около 300 МБ – 1,5 ГБ для SD 1.5, около 2,5 ГБ для SDXL, больше для крупных семейств.',
+      size: 'От 300 МБ до 1,5 ГБ для SD 1.5, около 2,5 ГБ для SDXL, больше для крупных семейств.',
       wrong: 'ControlNet другого семейства падает с ошибкой размеров или не действует. Картинку-подсказку должен сделать подходящий препроцессор (контуры canny для модели canny).',
     },
     t2i_adapter: {
       what: 'Папка моделей T2I-Adapter. ComfyUI читает её как часть списка controlnet.',
       readers: 'Load ControlNet Model.',
-      size: 'Около 80–300 МБ.',
+      size: 'Около 80-300 МБ.',
       wrong: 'Между двумя папками ничего не ломается; адаптер другого семейства падает, как ControlNet.',
     },
     ipadapter: {
       what: 'Модели IP-Adapter: переносят облик, стиль или лицо с картинки-образца в новую. Папку создаёт ComfyUI_IPAdapter_plus.',
       readers: 'IPAdapter Model Loader и IPAdapter Unified Loader пака ComfyUI_IPAdapter_plus.',
-      size: 'Около 20 МБ – 1 ГБ.',
+      size: 'От 20 МБ до 1 ГБ.',
       wrong: 'Без подходящего энкодера CLIP Vision в clip_vision загрузчик падает. Адаптер для SD 1.5 на SDXL падает с ошибкой размеров. Моделям FaceID нужны ещё InsightFace (models/insightface) и своя LoRA.',
     },
     style_models: {
       what: 'Модели стиля: Flux Redux и старые стилевые адаптеры T2I. Добавляют картинку-образец к промпту.',
       readers: 'Load Style Model (StyleModelLoader) вместе с Apply Style Model.',
-      size: 'Около 100 МБ – 1 ГБ.',
+      size: 'От 100 МБ до 1 ГБ.',
       wrong: 'Модели стиля нужен выход энкодера CLIP Vision; без него ноде нечего применять.',
     },
     upscale_models: {
       what: 'Модели увеличения вроде ESRGAN, 4x-UltraSharp, SwinIR: увеличивают готовую картинку в пикселях, без промпта.',
       readers: 'Load Upscale Model (UpscaleModelLoader) вместе с Upscale Image (using Model).',
-      size: 'Обычно 1–70 МБ.',
+      size: 'Обычно 1-70 МБ.',
       wrong: 'Диффузионные увеличители (SeedVR2, латентные) сюда не относятся. Многие такие файлы в формате .pth: старый формат, который может выполнить код, поэтому берите их только с известной страницы.',
     },
     latent_upscale_models: {
       what: 'Латентные увеличители: увеличивают латент до декодирования, для второго прохода у семейств, где такой есть (HunyuanVideo 1.5, LTX).',
       readers: 'LatentUpscaleModelLoader.',
-      size: 'Сотни МБ – несколько ГБ.',
+      size: 'От сотен МБ до нескольких ГБ.',
       wrong: 'Пиксельный увеличитель здесь не грузится; латентный увеличитель подходит только своему семейству.',
     },
     embeddings: {
@@ -176,13 +176,13 @@ export const FOUNDATIONS_RU: FoundationsPack = {
     hypernetworks: {
       what: 'Гиперсети: старый вид добавок для SD 1.5, предшественник LoRA.',
       readers: 'HypernetworkLoader.',
-      size: 'Около 10–200 МБ.',
+      size: 'Около 10-200 МБ.',
       wrong: 'Работают только с тем семейством SD 1.x, для которого сделаны; сегодня ту же работу делает LoRA.',
     },
     gligen: {
       what: 'Модели GLIGEN для SD 1.5: размещают предметы в заданных рамках картинки по тексту.',
       readers: 'GLIGENLoader вместе с GLIGEN Textbox Apply.',
-      size: 'Сотни МБ – около 2 ГБ.',
+      size: 'От сотен МБ до 2 ГБ.',
       wrong: 'Только SD 1.5; с другими семействами падают.',
     },
     photomaker: {
@@ -194,13 +194,13 @@ export const FOUNDATIONS_RU: FoundationsPack = {
     insightface: {
       what: 'Модели InsightFace для анализа лица (antelopev2, buffalo_l) и замены лица (inswapper). Папку создают паки для лиц.',
       readers: 'Паки для лиц: ComfyUI_IPAdapter_plus (FaceID), InstantID, PuLID, ComfyUI-ReActor.',
-      size: 'Около 300–600 МБ на модель; файлы ONNX.',
+      size: 'Около 300-600 МБ на модель; файлы ONNX.',
       wrong: 'Каждый пак ждёт модель во вложенной папке со своим именем (models/insightface/models/antelopev2); файл уровнем выше или ниже не находится. Лицо реального человека только с его согласия.',
     },
     facerestore_models: {
       what: 'Модели восстановления лица (GFPGAN, CodeFormer, GPEN): поправляют лица после замены или увеличения.',
       readers: 'ComfyUI-ReActor и паки восстановления лиц.',
-      size: 'Около 300–400 МБ.',
+      size: 'Около 300-400 МБ.',
       wrong: 'Это файлы .pth, старый формат, который может выполнить код: берите их только с известной страницы.',
     },
     facedetection: {
@@ -218,25 +218,25 @@ export const FOUNDATIONS_RU: FoundationsPack = {
     sam2: {
       what: 'Модели Segment Anything 2: вырезают предмет из картинки или ведут его по видео по щелчку или рамке.',
       readers: 'ComfyUI-segment-anything-2 и паки выделения вроде ComfyUI-RMBG; часто они сами скачивают файл.',
-      size: 'Около 150 МБ – 1 ГБ.',
+      size: 'От 150 МБ до 1 ГБ.',
       wrong: 'Файлы SAM 2 не грузятся загрузчиками первой версии SAM (sams), и наоборот.',
     },
     sams: {
       what: 'Модели Segment Anything первой версии для масок.',
       readers: 'SAMLoader пака ComfyUI-Impact-Pack; ComfyUI-ReActor для масок лиц.',
-      size: 'Около 375 МБ (vit_b) – 2,5 ГБ (vit_h).',
+      size: 'От 375 МБ (vit_b) до 2,5 ГБ (vit_h).',
       wrong: 'Это файлы .pth, старый формат, который может выполнить код: берите их только с официальной страницы.',
     },
     ultralytics: {
       what: 'Детекторы Ultralytics YOLO, разложенные по bbox (рамки) и segm (контуры): находят лица, руки, людей для детейлеров.',
       readers: 'UltralyticsDetectorProvider пака ComfyUI-Impact-Subpack.',
-      size: 'Около 6–50 МБ.',
+      size: 'Около 6-50 МБ.',
       wrong: 'Модель рамок должна лежать в models/ultralytics/bbox, модель контуров в models/ultralytics/segm; в другом месте нода её не покажет. Эти файлы .pt могут выполнить код при загрузке: только с известной страницы.',
     },
     yolo: {
       what: 'Веса детекторов YOLO для паков, которые держат их отдельно от ultralytics.',
       readers: 'Паки поиска объектов, которые называют эту папку в своей инструкции.',
-      size: 'Около 5–100 МБ.',
+      size: 'Около 5-100 МБ.',
       wrong: 'Пак, который читает ultralytics, сюда не смотрит, и наоборот. Файлы .pt могут выполнить код при загрузке.',
     },
     detection: {
@@ -248,19 +248,19 @@ export const FOUNDATIONS_RU: FoundationsPack = {
     rembg: {
       what: 'Модели удаления фона старого вида rembg (U2-Net и похожие), ими пользуются паки удаления фона.',
       readers: 'Паки удаления фона, которые называют эту папку; многие сами скачивают файл.',
-      size: 'Около 5–200 МБ.',
+      size: 'Около 5-200 МБ.',
       wrong: 'Собственное удаление фона ComfyUI читает папку background_removal, а не эту.',
     },
     background_removal: {
       what: 'Модели удаления фона, которые читает сам ComfyUI (BiRefNet и похожие).',
       readers: 'LoadBackgroundRemovalModel вместе с Remove Background.',
-      size: 'Около 100 МБ – 1 ГБ.',
+      size: 'От 100 МБ до 1 ГБ.',
       wrong: 'Файл собственного формата пака (папка RMBG у ComfyUI-RMBG) здесь не появится.',
     },
     frame_interpolation: {
       what: 'Модели дорисовки кадров (RIFE, FILM и похожие): рисуют промежуточные кадры, чтобы ролик стал плавнее или медленнее.',
       readers: 'FrameInterpolationModelLoader вместе с Frame Interpolate. Пак ComfyUI-Frame-Interpolation держит свои модели в собственной папке.',
-      size: 'Около 20–100 МБ.',
+      size: 'Около 20-100 МБ.',
       wrong: 'Модель в формате пака может не загрузиться собственным загрузчиком ComfyUI, и наоборот.',
     },
     optical_flow: {
@@ -290,13 +290,13 @@ export const FOUNDATIONS_RU: FoundationsPack = {
     audio_encoders: {
       what: 'Аудиоэнкодеры (wav2vec2, энкодеры Whisper): превращают речь или музыку в данные, которым следует модель, для говорящего и звукового видео.',
       readers: 'AudioEncoderLoader самого ComfyUI, им пользуются графы Wan «речь в видео» и похожие.',
-      size: 'Сотни МБ – несколько ГБ.',
+      size: 'От сотен МБ до нескольких ГБ.',
       wrong: 'Модель wav2vec в формате пака (WanVideoWrapper читает models/wav2vec2) здесь не появится.',
     },
     mmaudio: {
       what: 'Модели MMAudio: делают звук для немого видео по картинке и промпту.',
       readers: 'ComfyUI-MMAudio; ноды Ovi пака WanVideoWrapper тоже заводят эту папку.',
-      size: 'Сотни МБ – несколько ГБ.',
+      size: 'От сотен МБ до нескольких ГБ.',
       wrong: 'Модель, её VAE и её вокодер должны быть из одного выпуска.',
     },
     hunyuan_foley: {
@@ -308,7 +308,7 @@ export const FOUNDATIONS_RU: FoundationsPack = {
     demucs: {
       what: 'Модели Demucs: раскладывают песню на голос, барабаны, бас и остальное.',
       readers: 'Паки разделения звука; у ComfyUI есть и шаблон разделения звука.',
-      size: 'Десятки – сотни МБ.',
+      size: 'От десятков до сотен МБ.',
       wrong: 'Её читает только пак, который её создал.',
     },
     'qwen-tts': {
@@ -332,7 +332,7 @@ export const FOUNDATIONS_RU: FoundationsPack = {
     wd14: {
       what: 'Модели теггера WD14: перечисляют теги, которые описывают картинку, для промптов и обучающих наборов.',
       readers: 'Паки теггера WD14, которые называют эту папку; WD14 Tagger от pysssss держит модели в собственной папке и сам их скачивает.',
-      size: 'Около 300–700 МБ (ONNX).',
+      size: 'Около 300-700 МБ (ONNX).',
       wrong: 'Модели нужен её список тегов (.csv) рядом.',
     },
     classifiers: {
@@ -344,7 +344,7 @@ export const FOUNDATIONS_RU: FoundationsPack = {
     geometry_estimation: {
       what: 'Модели геометрии (MoGe, Depth Anything 3): оценивают глубину и форму сцены по картинке, для 3D.',
       readers: 'LoadMoGeModel и LoadDA3Model самого ComfyUI.',
-      size: 'Сотни МБ – несколько ГБ.',
+      size: 'От сотен МБ до нескольких ГБ.',
       wrong: 'Модель глубины пака препроцессоров (comfyui_controlnet_aux) этот пак скачивает в собственную папку, а не сюда.',
     },
     unirig: {
@@ -362,7 +362,7 @@ export const FOUNDATIONS_RU: FoundationsPack = {
     model_patches: {
       what: 'Патчи моделей: добавки, которые меняют работу диффузионной модели, например ControlNet от DiffSynth и Fun для Qwen-Image и Z-Image.',
       readers: 'ModelPatchLoader самого ComfyUI вместе с нодой патча своего семейства.',
-      size: 'Сотни МБ – несколько ГБ.',
+      size: 'От сотен МБ до нескольких ГБ.',
       wrong: 'Патч подходит только своему семейству; обычный ControlNet здесь не грузится.',
     },
     diffusers: {
@@ -389,11 +389,11 @@ export const FOUNDATIONS_RU: FoundationsPack = {
     },
     steps: {
       what: 'Сколько шагов очистки от шума делает сэмплер. Больше шагов, чище результат и дольше ожидание, до некоторого предела.',
-      set: '20–30 для SD 1.5 и SDXL; дистиллированные и turbo-модели 4–8; для нового семейства берите число из его шаблона.',
+      set: '20-30 для SD 1.5 и SDXL; дистиллированные и turbo-модели 4-8; для нового семейства берите число из его шаблона.',
     },
     cfg: {
       what: 'Насколько строго модель следует промпту (classifier-free guidance). Выше: точнее, но цвета выгорают; ниже: мягче и свободнее.',
-      set: '5–8 для SD 1.5 и SDXL; около 1 для дистиллированных моделей и с LoRA-ускорителем (1 ещё и вдвое ускоряет); Flux dev читает guidance, а cfg держит на 1.',
+      set: '5-8 для SD 1.5 и SDXL; около 1 для дистиллированных моделей и с LoRA-ускорителем (1 ещё и вдвое ускоряет); Flux dev читает guidance, а cfg держит на 1.',
     },
     sampler_name: {
       what: 'Способ, которым шум убирается шаг за шагом. Имена с «ancestral» или «sde» на каждом шаге добавляют свежий шум: живее, но картинка не успокаивается.',
@@ -405,7 +405,7 @@ export const FOUNDATIONS_RU: FoundationsPack = {
     },
     denoise: {
       what: 'Какая доля начального латента заменяется шумом. 1 рисует с нуля; меньше сохраняет часть пришедшей картинки.',
-      set: '1 для картинки из текста. Для картинки из картинки 0.4–0.7; для второго прохода доводки 0.3–0.5.',
+      set: '1 для картинки из текста. Для картинки из картинки 0.4-0.7; для второго прохода доводки 0.3-0.5.',
     },
     width: {
       what: 'Ширина картинки или кадра в пикселях.',
@@ -421,7 +421,7 @@ export const FOUNDATIONS_RU: FoundationsPack = {
     },
     strength_model: {
       what: 'Насколько сильно LoRA меняет модель, которая рисует.',
-      set: '1, как задумал автор; 0.6–0.9, если она забивает картинку; 0 выключает её. Выше примерно 1.5 обычно искажает.',
+      set: '1, как задумал автор; 0.6-0.9, если она забивает картинку; 0 выключает её. Выше примерно 1.5 обычно искажает.',
     },
     strength_clip: {
       what: 'Насколько сильно LoRA меняет текстовый энкодер (есть только у Load LoRA).',
@@ -493,7 +493,7 @@ export const FOUNDATIONS_RU: FoundationsPack = {
     },
     scale_by: {
       what: 'Во сколько раз нода увеличивает или уменьшает.',
-      set: '1.5–2 для второго прохода; большие шаги теряют качество.',
+      set: '1.5-2 для второго прохода; большие шаги теряют качество.',
     },
     max_shift: {
       what: 'Сдвиг шума у Flux для больших картинок (ModelSamplingFlux).',
@@ -505,7 +505,7 @@ export const FOUNDATIONS_RU: FoundationsPack = {
     },
     'ControlNetApplyAdvanced.strength': {
       what: 'Насколько сильно действует подсказка ControlNet.',
-      set: '0.6–1; уменьшите, если картинка выглядит скованной или слишком точно копирует подсказку.',
+      set: '0.6-1; уменьшите, если картинка выглядит скованной или слишком точно копирует подсказку.',
     },
     start_percent: {
       what: 'С какой доли шагов начинает действовать подсказка (ControlNet, IP-Adapter, VACE), от 0 до 1.',
@@ -513,7 +513,7 @@ export const FOUNDATIONS_RU: FoundationsPack = {
     },
     end_percent: {
       what: 'На какой доле шагов подсказка перестаёт действовать, от 0 до 1.',
-      set: '1 для полного контроля; 0.6–0.8 оставляет последние шаги свободными для деталей.',
+      set: '1 для полного контроля; 0.6-0.8 оставляет последние шаги свободными для деталей.',
     },
     grow_mask_by: {
       what: 'На сколько пикселей расширить маску перед перерисовкой, чтобы новая часть вписалась.',
@@ -549,7 +549,7 @@ export const FOUNDATIONS_RU: FoundationsPack = {
     },
     max_length: {
       what: 'Сколько токенов (кусочков слов) самое большее может написать Generate Text.',
-      set: 'Около 256–512 для промпта; длинный предел стоит только времени, когда модель разговорится.',
+      set: 'Около 256-512 для промпта; длинный предел стоит только времени, когда модель разговорится.',
     },
     thinking: {
       what: 'Рассуждает ли умеющая это модель вслух перед ответом; эти рассуждения выходят из выхода thinking.',
@@ -607,7 +607,7 @@ export const FOUNDATIONS_RU: FoundationsPack = {
     },
     'vram-formats': {
       title: 'Лёгкие форматы и квантованные файлы',
-      body: 'Одна и та же модель бывает в файлах разной точности. Меньше бит на число, меньше файл и память, ценой части качества.\n\n- fp32: полная точность, вдвое больше fp16; нужна редко.\n- fp16 и bf16: 16 бит, обычные «полные» файлы.\n- fp8 (e4m3fn, scaled): половина fp16. Небольшая потеря у большинства моделей; обычный выбор для видеокарт на 12–16 ГБ. Load Diffusion Model умеет и сам загрузить 16-битный файл как fp8 (weight_dtype).\n- GGUF (Q8, Q6, Q5, Q4…): квантованные файлы, их читает пак ComfyUI-GGUF своей нодой Unet Loader (GGUF). Q8 близок к fp16 при половине размера; Q4 около четверти с заметной потерей. Текстовые энкодеры тоже бывают в GGUF.\n- nf4, int8 и похожие: другие сжатые виды, у каждого свой загрузчик.\n\nLoRA, обученная на полной модели, работает и на её файле fp8 или GGUF той же модели.',
+      body: 'Одна и та же модель бывает в файлах разной точности. Меньше бит на число, меньше файл и память, ценой части качества.\n\n- fp32: полная точность, вдвое больше fp16; нужна редко.\n- fp16 и bf16: 16 бит, обычные «полные» файлы.\n- fp8 (e4m3fn, scaled): половина fp16. Небольшая потеря у большинства моделей; обычный выбор для видеокарт на 12-16 ГБ. Load Diffusion Model умеет и сам загрузить 16-битный файл как fp8 (weight_dtype).\n- GGUF (Q8, Q6, Q5, Q4…): квантованные файлы, их читает пак ComfyUI-GGUF своей нодой Unet Loader (GGUF). Q8 близок к fp16 при половине размера; Q4 около четверти с заметной потерей. Текстовые энкодеры тоже бывают в GGUF.\n- nf4, int8 и похожие: другие сжатые виды, у каждого свой загрузчик.\n\nLoRA, обученная на полной модели, работает и на её файле fp8 или GGUF той же модели.',
     },
     'vram-offload': {
       title: 'Выгрузка: пусть поможет обычная память',

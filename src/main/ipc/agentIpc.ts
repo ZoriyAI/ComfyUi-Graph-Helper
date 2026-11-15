@@ -1,4 +1,5 @@
 import { app, BrowserWindow, type IpcMain, type WebContents } from 'electron';
+import { languageOf, type AppLanguage } from '../../shared/i18n';
 import { turnLinesAllowed } from '../trace/modelTrace';
 import { IPC_CHANNELS } from '../../shared/ipc-channels';
 import { getDatabase } from '../database';
@@ -10,9 +11,8 @@ import { mainLLMService } from '../llmService';
 import { log } from '../log';
 import { forgetConversationLinks } from '../agent/links';
 
-function settingsLanguage(): 'en' | 'ru' {
-  const read = readSettings(getDatabase());
-  return read.source === 'corrupt' ? 'ru' : read.values.language;
+function settingsLanguage(): AppLanguage {
+  return languageOf(readSettings(getDatabase()));
 }
 
 interface LiveTurn {
