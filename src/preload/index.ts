@@ -1,3 +1,10 @@
+/**
+ * The preload script of the window (main/index.ts loads its build, dist/preload/index.js): the one bridge between
+ * the page and the main process. It exposes window.electronAPI, a fixed list of calls, each one IPC channel; the
+ * page gets no ipcRenderer and no Node. The whole renderer calls through it, and ElectronAPI below is the type it
+ * reads. The window runs sandboxed, so this file cannot import the app's own modules at run time: only types, and
+ * the channel names are copied here (they must match src/shared/ipc-channels.ts).
+ */
 import { contextBridge, ipcRenderer, webFrame, webUtils } from 'electron';
 import type { ChatRuntimeConfig, NonSecretSettings, SettingsRead } from '../shared/config/schema';
 import type { Preferences } from '../shared/config/preferences';
@@ -48,7 +55,7 @@ import type {
   McpReadOutcome,
 } from '../shared/contracts';
 
-// IPC channel constants (inlined for sandbox-compatible preload)
+// IPC channel names, copied from src/shared/ipc-channels.ts: a sandboxed preload cannot load that module.
 const IPC_CHANNELS = {
   FILE_IMPORT_WORKFLOW: 'file:import-workflow',
   FILE_IMPORT_CATALOG: 'file:import-catalog',
@@ -193,7 +200,6 @@ function hasFlag(flag: string): boolean {
   return (process.argv ?? []).includes(flag);
 }
 
-// Expose safe IPC API to renderer
 /** How long a stream listener may outlive its call when no terminal chunk arrives. */
 const STREAM_LISTENER_GRACE_MS = 60_000;
 
@@ -334,6 +340,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     run: { projectId: string; runId: string; expectedRevisionId: string },
     context?: AgentTurnContext,
   ) => {
+    // A channel of its own for each turn, so chunks of two turns can never mix.
     const channel = `llm-stream-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     // One listener per turn, removed when the turn ends so listeners do not pile up across turns.
     const listener = (_event: unknown, chunk: { type: string; content: any }) => {
@@ -481,6 +488,7 @@ export interface RendererErrorReport {
   stack?: string;
 }
 
+/** What "Check connection" answers (llmService.ts ProbeResult plus the completed address). */
 export type LlmProbeResult = (
   | { ok: true; latencyMs: number; provider: string; model: string; /** The context window a local server loaded the model with, when it says. */ contextTokens?: number }
   | { ok: false; error: string; latencyMs: number | null }
@@ -489,6 +497,7 @@ export type LlmProbeResult = (
   completedUrl?: string;
 };
 
+/** What saving the settings answers: the values as stored, or why nothing was saved. */
 export type SettingsSaveResult =
   | { ok: true; values: NonSecretSettings; preferences?: Preferences }
   | { ok: false; error: string };
@@ -501,7 +510,7 @@ export interface OpenResponse {
   opened?: { kind: 'project' | 'workflow'; from: 'json' | 'picture' | 'video' | 'api' | 'example'; name: string };
 }
 
-// Type declaration for renderer
+/** window.electronAPI as the renderer sees it; it must match the object exposed above. */
 export interface ElectronAPI {
   platform: string;
   /** Sets the size of the whole interface (1 = normal, 2 = twice as large). */
@@ -513,8 +522,10 @@ export interface ElectronAPI {
     /** package.json version, passed by main; '' when unknown. */
     app?: string;
   };
-  /** Build switches from main. `testProvider`: the scripted TEST fixture is offered (unpackaged runs and tests only). */
-  /** pseudoLocale: every text drawn 40 % longer with accented letters (layout tests of unpackaged runs only). */
+  /**
+   * Build switches from main. `testProvider`: the scripted TEST fixture is offered (unpackaged runs and tests only).
+   * `pseudoLocale`: every text drawn 40 % longer with accented letters (layout tests of unpackaged runs only).
+   */
   flags: { testProvider: boolean; pseudoLocale?: boolean };
   importWorkflow: () => Promise<import('../shared/commands/types').CommandResponse | { status: 'cancelled'; projection: null; result: null }>;
   importCatalog: () => Promise<
@@ -569,8 +580,9 @@ export interface ElectronAPI {
   setSecretStore: (choice: SecretStoreInfo['override']) => Promise<{ ok: boolean }>;
   mcpSaveToken: (value?: string, forUrl?: string) => Promise<{ status: 'stored' | 'secret-storage-blocked' }>;
   mcpForgetToken: () => Promise<{ status: 'removed' }>;
-  /** Signs in to the saved MCP URL through the system browser; resolves when the browser comes back (or fails). */
+  /** Settings ▸ Connection ▸ "Check": what the MCP server wants from a connection, found out by trying. */
   mcpDetectAuth: (url?: string) => Promise<McpAuthProbe>;
+  /** Signs in to the saved MCP URL through the system browser; resolves when the browser comes back (or fails). */
   mcpOAuthLogin: () => Promise<McpOAuthLoginResult>;
   /** Forgets the browser sign-in for the saved MCP URL's origin. */
   mcpOAuthLogout: () => Promise<McpOAuthStatus>;
@@ -686,8 +698,9 @@ export interface ElectronAPI {
   dismissUpdate: (version: string) => Promise<{ ok: true }>;
   /** "My lessons" in the profile, newest first. */
   listMyLessons: () => Promise<MyLesson[]>;
-  /** File ▸ Import lessons…: the open dialog, then the file is checked and kept. */
+  /** A lesson file's text the page already has (a dropped file): checked and kept like an imported one. */
   importLessonsText: (name: string, text: string) => Promise<LessonImportOutcome>;
+  /** File ▸ Import lessons…: the open dialog, then the file is checked and kept. */
   importLessonsDialog: () => Promise<LessonImportOutcome>;
   /** Writes a lesson file where the person chooses in the save dialog. */
   exportLessons: (file: LessonFile, suggestedName: string) => Promise<LessonExportOutcome>;
