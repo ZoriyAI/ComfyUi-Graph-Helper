@@ -1,14 +1,14 @@
+/**
+ * Integration test of streaming into the chat store: text deltas and tool events must show in the chat messages in
+ * order, a failed tool must show as an error and never as success, and a tool result that arrives before its tool call
+ * must still be applied. A person reads the chat to learn what the assistant did, so it must match what happened.
+ */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useChatStore } from '../../src/renderer/state/chatState';
 import { useGraphStore } from '../../src/renderer/state/graphState';
 import { getChatService } from '../../src/renderer/services/llm/chatService';
 import { useProjectionStore } from '../../src/renderer/services/commands/projection';
 import { DESKTOP_PROJECT_ID } from '../../src/shared/project';
-
-/**
- * Integration test: Real streaming to Chat UI
- * Verifies text deltas and tool events appear in chat messages
- */
 
 const mockElectronAPI = {
   llmSetConfig: vi.fn(),

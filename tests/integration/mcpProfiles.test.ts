@@ -1,3 +1,9 @@
+/**
+ * Protects support for MCP servers other than the catalog one: each is recognised by its tool list, read only through
+ * its read-only tools, and the rest is taken from the ComfyUI address. A server of no known kind gets an exact
+ * sentence and the way forward, never a green state. A person may point the app at any ComfyUI MCP server they have.
+ * TEST fixtures on 127.0.0.1 (tests/fixtures/mcp/fakePublicMcp.ts, tests/fixtures/comfy/fakeComfy.ts).
+ */
 import Database from 'better-sqlite3';
 import { afterEach, describe, expect, it } from 'vitest';
 import { migrate } from '../../src/main/settings/migrate';
@@ -12,11 +18,6 @@ import { CLASSES } from '../fixtures/mcp/fakeMcpServer';
 import { startFakeComfy } from '../fixtures/comfy/fakeComfy';
 import { CHECKPOINT_LIST, PUBLIC_READ_TOOLS, startPublicMcp, type PublicKind } from '../fixtures/mcp/fakePublicMcp';
 
-/**
- * MCP servers other than the catalog one: recognised by their tool list, read only through their read-only tools,
- * the rest taken from the ComfyUI address. TEST fixtures on 127.0.0.1 (tests/fixtures/mcp/fakePublicMcp.ts,
- * tests/fixtures/comfy/fakeComfy.ts).
- */
 const closers: Array<() => Promise<void>> = [];
 afterEach(async () => {
   while (closers.length > 0) await closers.pop()?.();

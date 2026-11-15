@@ -1,15 +1,14 @@
+/**
+ * Chat flow test in one process: chat store, ChatService, tool execution and graph store, with only the preload
+ * bridge (window.electronAPI) mocked. Despite the name it is not a Playwright spec. It protects that a chat turn with
+ * tool calls ends with the nodes on the canvas, and that a failure shows a readable message instead of a raw error.
+ */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useChatStore } from '../../src/renderer/state/chatState';
 import { useGraphStore } from '../../src/renderer/state/graphState';
 import { getChatService } from '../../src/renderer/services/llm/chatService';
 import { useProjectionStore } from '../../src/renderer/services/commands/projection';
 import { DESKTOP_PROJECT_ID } from '../../src/shared/project';
-
-/**
- * E2E chat flow test
- * Tests full path: UI -> IPC -> AI SDK -> tool execution -> graph state
- * Mocks only electronAPI IPC bridge
- */
 
 describe('E2E Chat Flow', () => {
   beforeEach(() => {

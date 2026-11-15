@@ -1,3 +1,8 @@
+/**
+ * Protects the stale-response guard of the renderer's action executor (graphService, actionExecutor, revision store).
+ * An assistant action planned before a person's manual edit must be refused when it arrives, and applied when
+ * nothing changed in between. Without this the assistant could quietly overwrite what the person just did.
+ */
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useGraphStore } from '../../src/renderer/state/graphState';
 import { useRevisionStore } from '../../src/renderer/state/revisionState';
@@ -5,10 +10,6 @@ import { getGraphService } from '../../src/renderer/services/graph/graphService'
 import { getActionExecutor } from '../../src/renderer/services/actions/actionExecutor';
 import { GraphAction } from '../../src/renderer/types/revisions';
 
-/**
- * CRITICAL TEST: Delayed AI action after manual edit must be rejected
- * This proves stale-response protection works
- */
 describe('AI+Human Conflict Detection', () => {
   beforeEach(() => {
     // Reset all stores

@@ -1,3 +1,9 @@
+/**
+ * Protects the unsaved mark and Ctrl+S, which read the project file of the graph on screen. That state is kept per
+ * graph in SQLite, so a reload or a restart (a new connection to the same file) says the same, and an undo back to
+ * the saved content is clean. Also covers default file names and the extension a save adds.
+ * A wrong mark either loses work (clean when it is not) or nags the person (dirty when nothing changed).
+ */
 import { describe, expect, it } from 'vitest';
 import Database from 'better-sqlite3';
 import { migrate } from '../../src/main/settings/migrate';
@@ -6,10 +12,6 @@ import { contentDigest, defaultSavePaths, fileNameFromTitle, projectFileState, r
 import { DESKTOP_PROJECT_ID } from '../../src/shared/project';
 import { LEGACY_PROJECT_FILE_SUFFIXES } from '../../src/shared/legacyNames';
 
-/**
- * The unsaved mark and Ctrl+S read the project file of the graph on screen: kept per graph in SQLite, so a reload or
- * a restart (a new connection to the same file) says the same, and an undo back to the saved content is clean.
- */
 function open(): Database.Database {
   const db = new Database(':memory:');
   migrate(db);

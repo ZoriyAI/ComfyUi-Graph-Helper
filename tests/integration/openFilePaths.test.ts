@@ -1,3 +1,9 @@
+/**
+ * Protects the single open path (openFileAtPath in src/main/ipc/openIpc.ts): the File dialogs, a dropped file,
+ * File > Recent and a file from the command line. It drives the channels with real files of every kind ComfyUI writes
+ * (JSON, PNG, WebP, video), on a real database, and checks they all commit and are remembered the same way.
+ * A person should get the same result however they open a file, and foreign paths must be refused.
+ */
 import Database from 'better-sqlite3';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -5,13 +11,8 @@ import * as path from 'path';
 import * as zlib from 'zlib';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-/**
- * Every way of opening a file ends in one path (main/ipc/openIpc.ts openFileAtPath): the File dialogs, a dropped file,
- * File ▸ Recent and a file from the command line. This drives the channels with real files of every kind ComfyUI
- * writes, on a real database, and checks they all commit the same way and are remembered the same way.
- */
-
 const holder: { db: Database.Database | null; userData: string } = { db: null, userData: '' };
+// main reads the profile folder and the database through these two modules; both point at the test's own copies.
 vi.mock('electron', () => ({
   app: { getPath: () => holder.userData },
   BrowserWindow: { getAllWindows: () => [] },
