@@ -164,20 +164,24 @@ export function filesAtHand(wants: readonly FileWant[], names: readonly string[]
 export interface FileRow {
   role: string;
   field: string;
+  /** Words the name holds, every one of them. */
   has: string[];
+  /** Words of which the name holds at least one ("face" or "hand"). */
+  any?: string[];
   not?: string[];
 }
 
 /** The kind of file a row of words asks for. */
-export function wantFromWords(row: Pick<FileRow, 'has' | 'not'>): FileWant {
+export function wantFromWords(row: Pick<FileRow, 'has' | 'any' | 'not'>): FileWant {
   const compact = (word: string) => word.toLowerCase().replace(/[^a-z0-9]+/g, '');
+  const any = row.any ?? [];
   return {
     kind: 'named',
-    words: row.has,
-    marks: row.has.map((word) => [compact(word)]),
+    words: [...row.has, ...(any.length > 0 ? [any.join(' / ')] : [])],
+    marks: [...row.has.map((word) => [compact(word)]), ...(any.length > 0 ? [any.map(compact)] : [])],
     ...(row.not && row.not.length > 0 ? { notMarks: row.not.map(compact) } : {}),
     folder: '',
-    example: `${row.has.join('_')}.safetensors`,
+    example: `${[...row.has, ...any.slice(0, 1)].join('_') || 'model'}.safetensors`,
   };
 }
 

@@ -5,6 +5,7 @@ import { VIDEO_FILE_KINDS, VIDEO_GROUP, VIDEO_LESSON_AFTER, VIDEO_LESSONS, VIDEO
 import { IMAGE_TECHNIQUE_AFTER, IMAGE_TECHNIQUE_LESSONS, IMAGE_TECHNIQUE_PATH } from './sets/image-techniques';
 import { SOUND_3D_FACES_AFTER, SOUND_3D_FACES_LESSONS, SOUND_3D_FACES_PATH } from './sets/sound-3d-faces';
 import { FILES, withFileTable, type FileKind } from './files';
+import { SET_FILE_KINDS } from './fileTables';
 
 /**
  * The lessons, as what must be on the canvas after each step. The words of a lesson (what to do and why) are in
@@ -1080,7 +1081,7 @@ const adultLora: Lesson = {
 };
 
 /** In the order a person meets them. The lessons for adults are a group of their own at the end (ADULT_LESSONS). */
-export const LESSONS: readonly Lesson[] = [
+export const LESSONS: readonly Lesson[] = withFileTable([
   ...FOUNDATIONS_FIRST,
   image, prompt,
   ...FOUNDATIONS_LESSONS,
@@ -1093,7 +1094,7 @@ export const LESSONS: readonly Lesson[] = [
   ...FOUNDATIONS_TOOLS,
   ...SOUND_3D_FACES_LESSONS,
   adultImage, adultLora, adult,
-];
+], SET_FILE_KINDS);
 
 /**
  * The lessons about adult content. They are open only while the switch «Содержимое для взрослых (18+)» is on

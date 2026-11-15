@@ -60,3 +60,27 @@ describe('the picture-model lessons check the kind of file', () => {
     expect(fileMiss('flux1-dev-fp8.safetensors', FILES.ggufModel)).toEqual({ kind: 'mark', marks: ['.gguf'] });
   });
 });
+
+describe('one file check for every set', () => {
+  const ruleOn = (lessonId: string, role: string, field: string) => lessonById(lessonId)!.steps.flatMap((step) => step.fields ?? []).find((rule) => rule.role === role && rule.field === field && rule.test.kind === 'file');
+  const want = (lessonId: string, role: string, field: string) => {
+    const rule = ruleOn(lessonId, role, field);
+    if (!rule || rule.test.kind !== 'file') throw new Error(`no file rule on ${lessonId} ${role}.${field}`);
+    return rule.test.want;
+  };
+
+  it('turns the table of the video set into file rules', () => {
+    expect(fileMiss('wan2.2_ti2v_5B_fp16.safetensors', want('video-small', 'model', 'unet_name'))).toBeNull();
+    expect(fileMiss('wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors', want('video-small', 'model', 'unet_name'))).toEqual({ kind: 'mark', marks: ['ti2v'] });
+    expect(fileMiss('wan_2.1_vae.safetensors', want('video-small', 'vae', 'vae_name'))).toEqual({ kind: 'mark', marks: ['wan22vae'] });
+  });
+
+  it('turns the lists of the other sets into file rules', () => {
+    expect(fileMiss('none', want('face-restore', 'restore', 'model'))).toEqual({ kind: 'not-mark', mark: 'none' });
+    expect(fileMiss('GFPGANv1.4.pth', want('face-restore', 'restore', 'model'))).toBeNull();
+    expect(fileMiss('flux1-dev-fp8.safetensors', want('character-kontext', 'model', 'unet_name'))).toEqual({ kind: 'mark', marks: ['kontext'] });
+    expect(fileMiss('bbox/face_yolov8m.pt', want('detailer', 'detector', 'model_name'))).toBeNull();
+    expect(fileMiss('segm/person_yolov8m-seg.pt', want('detailer', 'detector', 'model_name'))).toEqual({ kind: 'mark', marks: ['face', 'hand'] });
+    expect(fileMiss('mmaudio_large_44k_v2_fp16.safetensors', want('audio-foley', 'model', 'mmaudio_model'))).toBeNull();
+  });
+});
