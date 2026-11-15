@@ -1,12 +1,14 @@
+/**
+ * The file checks of lessons (shared/lessons/files.ts, read by the lesson engine): the files the lessons on picture
+ * model families hold a field to (sets/image-models.ts), the tables and lists of the other sets turned into the same
+ * rules, and a LoRA or ControlNet held to the family of its checkpoint. Each case its author named has a right file
+ * and a wrong one, with the reason a person is told; a wrong file would pass a step and then fail in ComfyUI.
+ */
 import { describe, expect, it } from 'vitest';
 import { fieldHolds } from '../../src/shared/lessons/engine';
 import { lessonById } from '../../src/shared/lessons/lessons';
 import { FILES, fileMiss, filesOfLesson } from '../../src/shared/lessons/files';
 
-/**
- * The files the lessons on picture model families hold a field to (sets/image-models.ts): each case its author
- * named, a right file and a wrong one, with the reason a person is told.
- */
 describe('the picture-model lessons check the kind of file', () => {
   it('asks each lesson for the files its template names', () => {
     const kinds = (id: string) => filesOfLesson(lessonById(id)!).map((want) => want.kind);

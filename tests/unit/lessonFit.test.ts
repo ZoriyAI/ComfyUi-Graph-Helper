@@ -1,3 +1,9 @@
+/**
+ * Which lessons fit the person's ComfyUI (shared/lessons/fit.ts, shown by LessonPanel and MyLessons): a lesson whose
+ * nodes are missing, or that continues one that is, does not fit and says which nodes to install, once each, grouped
+ * by pack. Also "Do this for me" on a second loader picks another file. A person must not start a lesson they cannot
+ * finish on their install, and must be told what to install for it.
+ */
 import { describe, expect, it } from 'vitest';
 import { fitLines, fits, groupGaps, lessonFit, packOf } from '../../src/shared/lessons/fit';
 import { fixFor, lessonProgress, type ClassPorts, type LessonGraph } from '../../src/shared/lessons/engine';
@@ -17,6 +23,7 @@ function portsOf(video: boolean): ClassPorts {
   };
 }
 
+// A translator that returns the key and its values, so a test can read which sentence was chosen.
 const t = (key: string, values?: Record<string, unknown>) => `${key}${values ? JSON.stringify(values) : ''}`;
 
 describe('which lessons fit', () => {
@@ -39,6 +46,7 @@ describe('which lessons fit', () => {
       expect(new Set(lines).size, lesson.id).toBe(lines.length);
     }
     const vace = lessonFit(lessonById('wrapper-vace')!, ports);
+    // At most two names per pack; the rest is counted. The group with no known pack comes last.
     const { groups } = groupGaps(vace.gaps, (classType) => classType, 2);
     for (const group of groups) expect(new Set(group.names).size).toBe(group.names.length);
     const wrapper = groups.find((group) => group.pack === 'ComfyUI-WanVideoWrapper');
