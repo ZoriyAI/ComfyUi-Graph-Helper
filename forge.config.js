@@ -77,14 +77,17 @@ module.exports = {
   hooks: {
     /**
      * The deb maker turns the bundle's LICENSE (Electron's) into /usr/share/doc/<package>/copyright. Make it the
-     * app's licence followed by the notices of everything that ships with it, Electron included.
+     * app's COPYRIGHT (the holder; it starts with the product name), its licence, then the notices of everything
+     * that ships with it, Electron included.
      */
     postPackage: async (_config, result) => {
       const root = __dirname;
+      const copyright = fs.readFileSync(path.join(root, 'COPYRIGHT'), 'utf8').trim();
+      const head = copyright.startsWith(PRODUCT_NAME) ? copyright : `${PRODUCT_NAME}\n\n${copyright}`;
       const licence = fs.readFileSync(path.join(root, 'LICENSE'), 'utf8').trim();
       const notices = fs.readFileSync(path.join(root, 'dist', 'notices', 'THIRD_PARTY_NOTICES.txt'), 'utf8');
       for (const output of result.outputPaths) {
-        fs.writeFileSync(path.join(output, 'LICENSE'), `${PRODUCT_NAME}\n\n${licence}\n\n\n${notices}`);
+        fs.writeFileSync(path.join(output, 'LICENSE'), `${head}\n\n${licence}\n\n\n${notices}`);
         // Electron's shared libraries are loaded, never run: plain 0644, as Debian policy asks of a library.
         for (const name of fs.readdirSync(output)) {
           if (/\.so(\.\d+)*$/.test(name)) fs.chmodSync(path.join(output, name), 0o644);
