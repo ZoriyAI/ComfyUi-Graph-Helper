@@ -49,7 +49,7 @@ describe('app identity', () => {
   });
 
   it('keeps one project address: identity.ts, package.json, the issue forms and the README badges agree', () => {
-    expect(PROJECT_URL).toBe('https://github.com/ZoriyAI/ComfyUi-Graph-Helper');
+    expect(PROJECT_URL).toBe('https://github.com/ZoriyAI/nodewise-studio');
     expect(projectUrlIsSet()).toBe(true);
     expect(pkg.homepage).toBe(PROJECT_URL);
     expect(pkg.repository).toEqual({ type: 'git', url: `git+${PROJECT_URL}.git` });

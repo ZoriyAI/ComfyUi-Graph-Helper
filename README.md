@@ -4,8 +4,8 @@
 
 **A desktop tutor for ComfyUI graphs**
 
-[![Checks](https://github.com/ZoriyAI/ComfyUi-Graph-Helper/actions/workflows/ci.yml/badge.svg)](https://github.com/ZoriyAI/ComfyUi-Graph-Helper/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/ZoriyAI/ComfyUi-Graph-Helper)](https://github.com/ZoriyAI/ComfyUi-Graph-Helper/releases/latest)
+[![Checks](https://github.com/ZoriyAI/nodewise-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/ZoriyAI/nodewise-studio/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/ZoriyAI/nodewise-studio)](https://github.com/ZoriyAI/nodewise-studio/releases/latest)
 [![License: MIT with Commons Clause](https://img.shields.io/badge/license-MIT%20%2B%20Commons%20Clause-blue)](LICENSE)
 
 ![The app building a graph step by step, with the reason for every step](docs/screenshots/hero.png)

@@ -4,8 +4,8 @@ English version: [README.md](README.md)
 
 **Учебный помощник по графам ComfyUI**
 
-[![Checks](https://github.com/ZoriyAI/ComfyUi-Graph-Helper/actions/workflows/ci.yml/badge.svg)](https://github.com/ZoriyAI/ComfyUi-Graph-Helper/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/ZoriyAI/ComfyUi-Graph-Helper)](https://github.com/ZoriyAI/ComfyUi-Graph-Helper/releases/latest)
+[![Checks](https://github.com/ZoriyAI/nodewise-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/ZoriyAI/nodewise-studio/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/ZoriyAI/nodewise-studio)](https://github.com/ZoriyAI/nodewise-studio/releases/latest)
 [![Лицензия: MIT с Commons Clause](https://img.shields.io/badge/license-MIT%20%2B%20Commons%20Clause-blue)](LICENSE)
 
 ![Приложение собирает граф по шагам и объясняет каждый шаг](docs/screenshots/hero.png)
