@@ -2755,7 +2755,7 @@ export const en = {
     localPull: 'Then download a model with one command (qwen3:8b is about 5 GB):',
     variantLead: 'Ollama can make a copy of this model that loads with a window of {{window, number}} tokens. The copy uses the same files: nothing is downloaded. It needs more memory than the original.',
     variantButton: 'Make a copy with a {{window, number}}-token window',
-    variantMade: 'Ollama made the copy {{model}}, and it is now chosen as the model. Press “Check connection” to see the new window, then save the settings.',
+    variantMade: 'Ollama made the copy {{model}}, and it is now chosen as the model. Press “Test connection” to see the new window, then save the settings.',
     variantNotOllama: 'Only an Ollama server can make such a copy. Set the window by hand as described below.',
     variantFailed: 'Ollama did not make the copy. Set the window by hand as described below.',
     windowHowTitle: 'How to set the window by hand',
