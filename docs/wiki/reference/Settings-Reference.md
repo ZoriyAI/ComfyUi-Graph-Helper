@@ -76,7 +76,7 @@ Every command's shortcut can be changed, removed or reset; only your changes are
 | Send field values to the model | on | on, off |
 | Keep chat history in the project | on | on, off |
 | Keep a log of the conversation with the model | on | on, off |
-| Show previews and examples marked as adult content | off | on, off |
+| Adult content (18+) | off | on (after the confirmation "I am 18 or older"), off |
 | Look up models on the internet during sync | off | on, off |
 | Check for new versions | off | on, off |
 | Password store | Detect automatically | Detect automatically, GNOME Keyring, KWallet (applies after a restart; kept in `password-store.json`) |
