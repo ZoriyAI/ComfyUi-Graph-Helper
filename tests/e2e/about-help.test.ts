@@ -15,12 +15,16 @@ const RU = createTranslator('ru');
 const EN = createTranslator('en');
 const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'package.json'), 'utf8')) as { version: string };
 
-/** Starts the built app in a fresh temporary profile and records page errors for the end of the spec. */
+/**
+ * Starts the built app in a fresh temporary profile and records page errors for the end of the spec. The spec reads
+ * the Russian names first, so the app starts on a system that speaks Russian (a first start follows the system's
+ * language), whatever language the run itself was given.
+ */
 async function launch(): Promise<{ app: ElectronApplication; window: Page; userData: string; errors: string[] }> {
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'about-help-'));
   const app = await electron.launch({
     args: [path.join(__dirname, '../../dist/main/index.js'), `--user-data-dir=${userData}`],
-    env: { ...process.env, NODE_ENV: 'production' },
+    env: { ...process.env, NODE_ENV: 'production', LANGUAGE: 'ru', LANG: 'ru_RU.UTF-8' },
   });
   const window = await app.firstWindow();
   const errors: string[] = [];
