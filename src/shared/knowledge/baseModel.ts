@@ -20,8 +20,8 @@ const L = '(?<![a-z])';
 const R = '(?![a-z])';
 
 /**
- * Ordered most specific first. The first rule that matches wins, so e.g. "Flux.1 Krea" is krea, not flux1,
- * and "stable-diffusion-xl-v1" is sdxl, not sd15.
+ * Ordered most specific first. The first rule that matches wins, so e.g. "Flux.1 Krea" (a Flux.1 dev fine-tune)
+ * is flux1 before the plain "krea" rule can call it Krea 2, and "stable-diffusion-xl-v1" is sdxl, not sd15.
  */
 const RULES: ReadonlyArray<readonly [BaseModelFamily, RegExp]> = [
   ['wan2.2', new RegExp(`${L}wan${SEP}(?:video${SEP})?2${SEP}2(?!\\d)`)],
