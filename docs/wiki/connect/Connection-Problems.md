@@ -55,6 +55,16 @@ These do not stop the read; the rest of the library is updated.
 | "The models were read through the MCP server, but not the nodes: ComfyUI did not answer…" | A model-list server, and ComfyUI did not answer. | See the ComfyUI messages above. |
 | "The MCP tool … is not on the read-only list, so it was not called." | The app refused a call that is not a read. | Nothing to do. |
 
+## Model files that could not be read
+
+| The message begins | Cause | What to do |
+| --- | --- | --- |
+| "Reading model files stopped: the MCP server lost its connection for reading them…" | The server lost the connection it reads model files through, and a new connection did not help. Often one damaged file breaks it: that file is named under Settings ▸ Sync ▸ **Could not be read**. | Restart the MCP server. Check the named file (load it in ComfyUI once). The other files are read at the next sync. |
+| "Model descriptions could not be read: the connection to the MCP server was lost…" | Nothing at all could be read and the library has no model read before. | Restart the MCP server and sync again. |
+| "Model descriptions could not be read: the MCP server answered every file with an error." | The server's metadata tool fails for every file. | See the reasons under Settings ▸ Sync ▸ **Could not be read**. |
+
+A file that could not be read never stops the sync: the sync skips it, reads the rest and ends as done, with the report in [Settings: Sync](../interface/Settings-Sync.md). When the server answers a list with "not available yet, try again" (for example while ComfyUI starts), the app waits as the server asks and tries twice more before it names that list in the report.
+
 ## See also
 
 - [Connecting](README.md)

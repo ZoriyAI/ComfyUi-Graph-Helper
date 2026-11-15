@@ -27,6 +27,8 @@ import { forgetModelPreview, useModelPreview } from './modelPreview';
 import { CARD_WIDTH, useFlyoutBox } from './flyout';
 import { addModelLoader, putModelIntoNode, selectedLoaderFor, type SelectedLoader } from './placeModel';
 import styles from './ModelCard.module.css';
+import { useKnowledgeStore } from '../../state/knowledgeState';
+import { rowWhy } from '../sync/unreadReport';
 
 /** How many fitting models the card names before "and N more". */
 const SHOWN_FITS = 5;
@@ -442,8 +444,12 @@ export default function ModelCard({ model, all, onClose, onShowLoras, onAsk, onU
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, selectedId, definitionId, graphIdentity]);
 
+  const unreadRows = useKnowledgeStore((state) => state.sync?.unreadable);
   if (!box) return null;
   const summary = detail ?? model;
+  // The sync could not read this file (or the person skips it): say so, instead of a silent guess from the name.
+  const unread = (unreadRows ?? [])
+    .find((row) => row.kind === 'model' && row.directory === model.directory && row.name === model.name);
   const loader = loaderForModel(model.directory, model.name);
   const notes = detail?.notes ?? null;
   const title = authorTitle(summary);
@@ -580,7 +586,11 @@ export default function ModelCard({ model, all, onClose, onShowLoras, onAsk, onU
           </ul>
         ) : null}
         {summary.baseModel === 'unknown' && detail?.enriched ? <p className={styles.note}>{t('library.card.familyUnknown')}</p> : null}
-        {!summary.enriched ? <p className={styles.note} data-tone="info">{t('library.card.notRead')}</p> : null}
+        {!summary.enriched && unread ? (
+          <p className={styles.note} data-tone="info" data-unread-reason={unread.reason}>
+            {unread.skipped ? t('sync.unread.cardSkipped') : t('sync.unread.card', { why: rowWhy(unread, (key, options) => String(t(key, options as Record<string, unknown>))) })}
+          </p>
+        ) : !summary.enriched ? <p className={styles.note} data-tone="info">{t('library.card.notRead')}</p> : null}
 
         {detail === undefined ? <Skeleton height={48} /> : null}
 

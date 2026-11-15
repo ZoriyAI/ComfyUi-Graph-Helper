@@ -128,6 +128,14 @@ export const SYNC_INTERVAL_DEFAULT_MINUTES = 30;
 export const SYNC_INTERVAL_MIN_MINUTES = 5;
 export const SYNC_INTERVAL_MAX_MINUTES = 24 * 60;
 
+/** Settings ▸ Sync ▸ "Could not be read": the model file a row's "Try again now" or "Skip this file" acts on. */
+export const syncItemSchema = z.object({
+  directory: z.string().min(1).max(200),
+  name: z.string().min(1).max(1000),
+}).strict();
+/** "Skip this file" on or off for one model file. */
+export const syncSkipSchema = syncItemSchema.extend({ skip: z.boolean() }).strict();
+
 /** The input of "sync automatically": on or off, and how often. */
 export const setAutoSchema = z.object({
   enabled: z.boolean(),

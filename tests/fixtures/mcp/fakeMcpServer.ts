@@ -38,6 +38,8 @@ export interface FakeMcp {
   calls: FakeMcpCall[];
   /** HTTP requests the native ComfyUI fixture saw, as "GET /object_info". */
   comfyHits: string[];
+  /** With `metadataBreak` mode 'innerLost': the server's metadata reader works again (as after a server restart). */
+  heal: () => void;
   close: () => Promise<void>;
 }
 
@@ -771,6 +773,20 @@ export interface FakeMcpOptions {
   toolPrefix?: string;
   /** Add node titles and file names in Chinese, Japanese, Korean and long German (WIDE_CLASSES, WIDE_MODELS). */
   wideNames?: boolean;
+  /**
+   * One model file whose `model_metadata` read breaks the connection, the way a damaged file does on a real server:
+   * - 'innerLost': the server's own reader behind the tool dies on this file. The call ends with the JSON-RPC error
+   *   "MCP error -32000: Connection closed", and every later `model_metadata` call, in any session, ends with
+   *   "Not connected" until heal() (a server restart). Other tools keep answering.
+   * - 'dropSocket': the server closes the socket without an answer, each time this file is asked for.
+   * - 'cutStream': the answer starts and is cut off mid-body, each time this file is asked for.
+   */
+  metadataBreak?: { name: string; mode: 'innerLost' | 'dropSocket' | 'cutStream' };
+  /**
+   * The first `times` calls of `tool` answer the server's "ComfyUI is not available yet, try again" error
+   * ({ error: { code: 'COMFY_UNAVAILABLE', retryable: true, retry_after_ms } }, isError true).
+   */
+  retryable?: { tool: string; times: number; retryAfterMs: number };
 }
 
 /**
@@ -787,6 +803,9 @@ export async function startFakeMcp(options: FakeMcpOptions = {}): Promise<FakeMc
   const comfyUrl = `http://127.0.0.1:${comfyPort}`;
   let sessionCounter = 0;
   const sessions = new Set<string>();
+  // The server's metadata reader after a 'innerLost' break: dead until heal().
+  let innerLost = false;
+  let retryableLeft = options.retryable?.times ?? 0;
 
   const server = http.createServer(async (req, res) => {
     const authorized = !options.token || req.headers.authorization === `Bearer ${options.token}`;
@@ -860,6 +879,31 @@ export async function startFakeMcp(options: FakeMcpOptions = {}): Promise<FakeMc
       if (method === 'tools/list') result = { tools: TOOL_DEFS.map((tool) => ({ ...tool, name: `${prefix}${tool.name}` })) };
       else if (method === 'tools/call') {
         const called = String(params.name);
+        const bare = called.slice(prefix.length);
+        const broken = options.metadataBreak;
+        if (bare === 'model_metadata' && broken && (innerLost || record.args?.name === broken.name)) {
+          if (broken.mode === 'dropSocket' && !innerLost) {
+            req.socket.destroy();
+            return;
+          }
+          if (broken.mode === 'cutStream' && !innerLost) {
+            res.writeHead(200, headers);
+            res.write(`{"jsonrpc":"2.0","id":${JSON.stringify(message.id)},"result":{"content":[{"type":"text","text":"{\\"embedded`);
+            setTimeout(() => req.socket.destroy(), 20);
+            return;
+          }
+          const first = !innerLost;
+          innerLost = true;
+          res.writeHead(200, headers);
+          res.end(JSON.stringify({ jsonrpc: '2.0', id: message.id, error: { code: -32000, message: first ? 'MCP error -32000: Connection closed' : 'Not connected' } }));
+          return;
+        }
+        if (options.retryable && bare === options.retryable.tool && retryableLeft > 0) {
+          retryableLeft -= 1;
+          res.writeHead(200, headers);
+          res.end(JSON.stringify({ jsonrpc: '2.0', id: message.id, result: text({ error: { code: 'COMFY_UNAVAILABLE', retryable: true, retry_after_ms: options.retryable.retryAfterMs } }, true) }));
+          return;
+        }
         result = prefix && !called.startsWith(prefix)
           ? text({ error: { code: 'FAKE_UNKNOWN_TOOL', tool: called } }, true)
           : callTool(called.slice(prefix.length), record.args ?? {}, comfyUrl, options.extraLoras ?? 0, classes, options.wideNames === true);
@@ -883,5 +927,6 @@ export async function startFakeMcp(options: FakeMcpOptions = {}): Promise<FakeMc
     }
     s.close(() => resolve());
   }))).then(() => undefined);
-  return { url: `http://127.0.0.1:${port}/mcp`, comfyUrl, calls, comfyHits, close };
+  const heal = () => { innerLost = false; };
+  return { url: `http://127.0.0.1:${port}/mcp`, comfyUrl, calls, comfyHits, heal, close };
 }

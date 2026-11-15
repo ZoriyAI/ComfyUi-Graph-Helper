@@ -151,6 +151,8 @@ export interface McpReadSuccess {
   failedFolders?: string[];
   /** The native object_info read: done, ComfyUI did not answer, the URL was not allowed, or not needed/possible. */
   nativeComfy?: 'ok' | 'unreachable' | 'notAllowed' | 'notTried';
+  /** The server said ComfyUI is not available yet (COMFY_UNAVAILABLE), and still did after the polite retries. */
+  comfyUnavailable?: boolean;
 }
 
 /** A read or connect that did not work; `error` is one of the fixed sentences. */
@@ -319,6 +321,46 @@ export async function openReadOnlySession(
   }
 }
 
+/** Tools whose answers are lists the catalog read pages through; only these are asked again on a retryable answer. */
+const LISTING_TOOLS = new Set(['studio_info', 'studio_capabilities', 'models', 'list_local_models', 'list_models']);
+/** A retryable listing answer is asked again at most this often per call. */
+export const LISTING_RETRIES = 2;
+/** All waits for retryable answers in one catalog read together stay under this. */
+export const LISTING_RETRY_BUDGET_MS = 8_000;
+/** The longest wait one retryable answer may ask for; a longer one is waited this long. */
+const LISTING_RETRY_MAX_WAIT_MS = 4_000;
+
+/**
+ * A tool answer that says "try again": isError with { error: { retryable: true, retry_after_ms?, code? } }. The wait
+ * is the server's, kept between 100 ms and LISTING_RETRY_MAX_WAIT_MS (1 s when it names none). Null otherwise.
+ */
+export function retryableAnswer(result: McpToolCallResult): { waitMs: number; code: string | null } | null {
+  if (!result.isError) return null;
+  const text = result.content?.find((block) => block.type === 'text' && typeof block.text === 'string')?.text;
+  if (!text) return null;
+  try {
+    const error = (JSON.parse(text) as { error?: { retryable?: unknown; retry_after_ms?: unknown; code?: unknown } } | null)?.error;
+    if (!error || error.retryable !== true) return null;
+    const asked = typeof error.retry_after_ms === 'number' && Number.isFinite(error.retry_after_ms) ? error.retry_after_ms : 1_000;
+    return { waitMs: Math.min(LISTING_RETRY_MAX_WAIT_MS, Math.max(100, asked)), code: typeof error.code === 'string' ? error.code : null };
+  } catch {
+    return null;
+  }
+}
+
+/** Waits `ms`, or less when the read is cancelled (the caller then checks and stops). */
+function waitFor(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((settle) => {
+    const timer = setTimeout(done, ms);
+    function done() {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', done);
+      settle();
+    }
+    signal?.addEventListener('abort', done, { once: true });
+  });
+}
+
 /** A paged listing, or null when one of its pages failed. Transport errors and refusals still throw. */
 async function pagedOrNull<T>(read: () => Promise<T>): Promise<T | null> {
   try {
@@ -352,9 +394,27 @@ export async function readCatalogWithSession(
   };
   // Check each awaited MCP page too: a fake/remote session may still resolve after close().
   const connected = session;
+  // A listing the server answers with "not available yet, try again in N ms" (retryable) is asked again after
+  // that wait, at most LISTING_RETRIES times per call and LISTING_RETRY_BUDGET_MS per read; then the answer stands.
+  let retryBudget = LISTING_RETRY_BUDGET_MS;
+  let comfyUnavailable = false;
+  const listingCall = async (name: string, args: Record<string, unknown>) => {
+    let result = await connected.callTool(name, args);
+    for (let attempt = 0; attempt < LISTING_RETRIES && LISTING_TOOLS.has(name); attempt += 1) {
+      const retry = retryableAnswer(result);
+      if (!retry || retry.waitMs > retryBudget) break;
+      retryBudget -= retry.waitMs;
+      await waitFor(retry.waitMs, context.signal);
+      checkCurrent();
+      result = await connected.callTool(name, args);
+    }
+    const still = retryableAnswer(result);
+    if (still?.code === 'COMFY_UNAVAILABLE') comfyUnavailable = true;
+    return result;
+  };
   session = {
     listTools: async () => { checkCurrent(); const result = await connected.listTools(); checkCurrent(); return result; },
-    callTool: async (name, args) => { checkCurrent(); const result = await connected.callTool(name, args); checkCurrent(); return result; },
+    callTool: async (name, args) => { checkCurrent(); const result = await listingCall(name, args); checkCurrent(); return result; },
     close: () => connected.close(),
   };
   const skipped: SkippedPart[] = [];
@@ -444,6 +504,7 @@ export async function readCatalogWithSession(
         failedSections,
         failedFolders,
         nativeComfy: direct ? 'ok' : comfyOrigin ? 'unreachable' : 'notTried',
+        comfyUnavailable,
       },
       toolNames: tools,
       identity: { installationId: null, comfyuiUrl: null },
@@ -544,7 +605,7 @@ export async function readCatalogWithSession(
     nativeComfy = native?.ok ? 'ok' : nativeUrl ? 'unreachable' : 'notAllowed';
   }
   const detail: CatalogReadDetail = {
-    result: { ok: true, tools: tools.size, nodes, packs, models, objectInfo, comfyUrl, skipped, failedSections, failedFolders, nativeComfy },
+    result: { ok: true, tools: tools.size, nodes, packs, models, objectInfo, comfyUrl, skipped, failedSections, failedFolders, nativeComfy, comfyUnavailable },
     toolNames: tools,
     identity,
     profile,

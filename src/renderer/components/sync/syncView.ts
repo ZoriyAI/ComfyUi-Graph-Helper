@@ -97,7 +97,8 @@ export function syncView(status: SyncStatus | null): SyncView {
   }
   // The library was read from another address than the one now in Settings: not "up to date", whatever the last run.
   const elsewhere = state !== 'running' && status?.libraryElsewhere === true && blocked !== 'noUrl';
-  const warned = (state === 'idle' && (status?.warnings?.length ?? 0) > 0) || elsewhere;
+  // Something could not be read (the report in Settings ▸ Sync): the chip carries the warning mark, without a toast.
+  const warned = (state === 'idle' && ((status?.warnings?.length ?? 0) > 0 || unreadCount(status) > 0)) || elsewhere;
   if (!enriching && state === 'idle' && warned) labelKey = elsewhere ? 'sync.state.elsewhere' : 'sync.state.warned';
   if (elsewhere && state !== 'idle') labelKey = 'sync.state.elsewhere';
   if (elsewhere && hintKey === null) hintKey = 'sync.elsewhereHint';
@@ -113,6 +114,11 @@ export function clampInterval(raw: string | number): number {
   const value = typeof raw === 'number' ? raw : Number.parseInt(raw, 10);
   if (!Number.isFinite(value)) return MIN_INTERVAL_MINUTES;
   return Math.min(MAX_INTERVAL_MINUTES, Math.max(MIN_INTERVAL_MINUTES, Math.round(value)));
+}
+
+/** How many rows of the "Could not be read" report wait for the person's eye: every row that is not skipped. */
+export function unreadCount(status: SyncStatus | null | undefined): number {
+  return (status?.unreadable ?? []).filter((row) => !row.skipped).length;
 }
 
 /** Which toast, if any, a status change deserves: only the end of a run is news. */

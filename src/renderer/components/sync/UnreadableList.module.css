@@ -1,0 +1,19 @@
+/* Settings ▸ Sync ▸ "Could not be read" (UnreadableList.tsx): the summary, one card per row, the list actions. */
+.section { display: flex; flex-direction: column; gap: 8px; padding-top: 10px; border-top: 1px solid var(--border); }
+.title { margin: 0; font-size: var(--text-sm); font-weight: 600; color: var(--warn, var(--text)); }
+.note { margin: 0; color: var(--text-dim); font-size: var(--text-xs); line-height: 18px; }
+.list { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+}
+.name { margin: 0; font-size: var(--text-sm); color: var(--text); overflow-wrap: anywhere; }
+.why { margin: 0; font-size: var(--text-xs); line-height: 18px; color: var(--text); overflow-wrap: anywhere; }
+.todo { margin: 0; font-size: var(--text-xs); line-height: 18px; color: var(--text-dim); overflow-wrap: anywhere; }
+.rowActions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
