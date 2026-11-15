@@ -77,7 +77,9 @@ test('a paused build holds its steps, Continue lands all of them, and undo takes
     expect(await graph(page)).toEqual(held);
     await expect(page.locator('[data-tool-status="error"]')).toHaveCount(0);
     await page.locator('.pause-button').click();
-    await expect(page.locator('textarea[aria-label="Chat message"]')).toBeEnabled({ timeout: 60_000 });
+    // The chat field stays usable while the assistant answers, so the end of the turn is the pause button going
+    // away (the run is closed); until then Undo is off, because a run's steps are not undone while it is open.
+    await expect(page.locator('.pause-button')).toHaveCount(0, { timeout: 60_000 });
     await expect.poll(() => graph(page), { timeout: 30_000 }).toEqual({ nodes: 6, edges: 2 });
     await expect(page.locator('[data-tool-status="error"]')).toHaveCount(0);
     // The turn ended: nothing says the assistant is paused any more.
