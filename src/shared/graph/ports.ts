@@ -89,7 +89,9 @@ function portsFromCatalog(node: CatalogNode): { inputs: PortDefinition[]; output
       id: `in-${index}`,
       name: input.name,
       dataType: input.type,
-      optional: false,
+      // As the catalog lists it (object_info's optional group). A row without the flag (stored before it existed)
+      // reads as required, the safer guess for a link a node may need.
+      optional: input.required === false,
     })),
     outputs: node.outputs.map((output, index) => ({
       id: `out-${index}`,
