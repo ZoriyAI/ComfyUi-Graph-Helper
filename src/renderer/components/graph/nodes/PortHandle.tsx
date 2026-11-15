@@ -50,9 +50,10 @@ export function PortHandle({ nodeId, port, side, connected, focusable, quiet = f
   const isBest = view.plan?.best?.nodeId === nodeId && view.plan.best.handle === port.id;
   const empty = side === 'input' && !connected && view.emptyRequired.has(`${nodeId}:${port.name}`);
   const state = connected ? t('node.connected') : t('node.notConnected');
+  // Accessibility: an empty required input says so in words, not only by its warning glow.
   const label = String(side === 'input'
     ? t('node.portInput', { name: port.name, type: port.dataType, state })
-    : t('node.portOutput', { name: port.name, type: port.dataType, state }));
+    : t('node.portOutput', { name: port.name, type: port.dataType, state })) + (empty ? `, ${String(t('a11y.requiredEmpty'))}` : '');
   const start = (pin = false) => {
     if (view.readOnly) return;
     setConnectFrom({ nodeId, handle: port.id, direction: side, dataType: port.dataType }, pin);
@@ -77,6 +78,8 @@ export function PortHandle({ nodeId, port, side, connected, focusable, quiet = f
       className={className}
       data-port-type={port.dataType}
       tabIndex={focusable ? 0 : -1}
+      // A port is pressed (Enter links to the suggested match, Shift+F10 opens its menu): a button to a screen reader.
+      role="button"
       aria-label={label}
       title={empty ? String(t('node.emptyRequired')) : undefined}
       onFocus={(event) => {

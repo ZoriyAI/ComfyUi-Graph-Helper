@@ -125,6 +125,8 @@
 .port .handle:focus-visible::after { outline: 2px solid var(--focus, #b7a5ff); outline-offset: 2px; }
 .port .handleBest::after { transform: scale(1.25); animation: breathe calc(var(--motion-pulse, 1400ms)) ease-in-out infinite; }
 .port .handleWarn::after { box-shadow: 0 0 0 3px color-mix(in srgb, var(--warn, #f6ce7c) 45%, transparent); animation: warnPulse calc(var(--motion-pulse, 1400ms)) ease-in-out 3; }
+/* Accessibility: an empty required input is told by shape as well as colour: its dot is drawn dashed. */
+.port .handleWarn::after { border-style: dashed; border-color: var(--warn, #f6ce7c); }
 .dot { position: absolute; left: -12px; top: 1px; }
 .portOut .dot { left: auto; right: -12px; }
 

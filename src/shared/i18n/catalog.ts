@@ -2654,6 +2654,16 @@ export const en = {
     usageCost: 'about {{cost}}',
     usageCostUnknown: 'price unknown',
   },
+  /** Words only a screen reader hears, and keyboard help (accessibility: a11y/, graph/lib/spoken.ts). */
+  a11y: {
+    nodeRole: 'node',
+    edgeRole: 'link',
+    boundary: 'Subgraph boundary {{name}}',
+    inputsLinked: 'inputs linked: {{linked, number}} of {{count, number}}',
+    outputs: 'outputs: {{count, number}}',
+    edge: 'Link from {{from}} · {{output}} to {{to}} · {{input}}, type {{type}}',
+    requiredEmpty: 'required, empty',
+  },
 } as const;
 
 type MessageTree<T> = {
@@ -5310,5 +5320,15 @@ export const ru = {
     usageLine: 'отправлено {{input, number}} токенов, получено {{output, number}}',
     usageCost: 'около {{cost}}',
     usageCostUnknown: 'цена неизвестна',
+  },
+  /** Words only a screen reader hears, and keyboard help (accessibility: a11y/, graph/lib/spoken.ts). */
+  a11y: {
+    nodeRole: 'нода',
+    edgeRole: 'связь',
+    boundary: 'Граница субграфа {{name}}',
+    inputsLinked: 'входов подключено: {{linked, number}} из {{count, number}}',
+    outputs: 'выходов: {{count, number}}',
+    edge: 'Связь от {{from}} · {{output}} к {{to}} · {{input}}, тип {{type}}',
+    requiredEmpty: 'обязательный, пусто',
   },
 } satisfies Catalog;

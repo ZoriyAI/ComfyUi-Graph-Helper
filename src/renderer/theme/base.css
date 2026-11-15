@@ -14,6 +14,26 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
+/*
+ * Keyboard focus that the rules above miss (accessibility). Menu items: a highlight alone was a faint fill, too weak
+ * to find; with the keyboard the item also gets the focus outline. The menu bar's first menu when Alt or F10 moved
+ * focus there (commands/hotkeys.ts sets data-keyboard-focus). A link on the canvas: its line takes the focus colour.
+ * A node card, a port and a note use their own rings (Node.module.css).
+ */
+[role="menu"] [role^="menuitem"]:focus-visible,
+[role="listbox"] [role="option"]:focus-visible,
+[role="menubar"] [data-keyboard-focus] {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+.react-flow__edge:focus-visible { outline: none; }
+.react-flow__edge:focus-visible .react-flow__edge-path,
+.react-flow__edge:focus-visible path:first-of-type {
+  stroke: var(--focus) !important;
+  stroke-width: 3px !important;
+}
+/* F6 moved focus into an area (commands/regions.ts): the area itself shows where the keyboard is. */
+[data-region-focus]:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 .ghost-button { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 .sr-only {
   position: absolute;

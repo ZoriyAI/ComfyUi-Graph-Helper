@@ -1,5 +1,6 @@
 import { allCommands, runCommand, type Command } from './registry';
 import { detectPlatform, matchesShortcut, noteLayout, type KeyLike, type Platform } from './shortcuts';
+import { cycleRegion } from '../a11y/focusRescue';
 
 /** Shortcuts that still work while typing in a field or inside an open menu or dialog. */
 export const GLOBAL_SHORTCUTS = new Set(['Escape', 'Mod+S', 'Mod+Shift+S', 'Mod+O', 'Mod+N', 'Mod+Shift+C']);
@@ -27,6 +28,8 @@ export function focusContext(target: EventTarget | null, doc: Document = documen
 
 /** True when a command's shortcut may run in this focus context. */
 export function shortcutAllowed(shortcut: string, context: FocusContext): boolean {
+  // F1 (the shortcuts window) also works while typing, but not over another open dialog or menu.
+  if (shortcut === 'F1') return !context.layerOpen;
   if (GLOBAL_SHORTCUTS.has(shortcut)) {
     // Escape belongs to the open menu or dialog (Radix closes it); it stops explanations only on the canvas.
     if (shortcut === 'Escape') return !context.layerOpen && !context.editable;
@@ -84,6 +87,9 @@ function toggleMenuBarFocus(): void {
   if (!trigger) return;
   rememberFocusBeforeMenuBar(active);
   trigger.focus();
+  // A focus moved by script is not always drawn as keyboard focus; the mark makes the outline show (base.css).
+  trigger.setAttribute('data-keyboard-focus', '');
+  trigger.addEventListener('blur', () => trigger.removeAttribute('data-keyboard-focus'), { once: true });
 }
 
 /**
@@ -106,6 +112,12 @@ export function installHotkeys(platform: Platform = detectPlatform()): () => voi
     if (event.key === 'F10' && !event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey) {
       event.preventDefault();
       toggleMenuBarFocus();
+      return;
+    }
+    // F6 and Shift+F6 move between the areas of the window (a11y/regions.ts); not from inside a dialog or menu.
+    if (event.key === 'F6' && !event.ctrlKey && !event.altKey && !event.metaKey && !focusContext(event.target).layerOpen) {
+      event.preventDefault();
+      cycleRegion(event.shiftKey ? -1 : 1);
       return;
     }
     const command = commandForKey(event, focusContext(event.target), allCommands(), platform);
