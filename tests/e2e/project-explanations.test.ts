@@ -1,3 +1,9 @@
+/**
+ * E2E spec: explanations travel with the project. A description written by hand on a node is saved in the project file,
+ * does not appear on node 4 of another graph (New project, then the same numbers from a workflow), comes back when the
+ * project is opened, and undo and redo across the open bring each graph back with its own descriptions. Inside a
+ * subgraph definition the description lands on the inner node, not on the main node with the same number.
+ */
 import { test, expect, _electron as electron, type Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -6,11 +12,6 @@ import { denseWorkflow } from './fixtures/denseWorkflow';
 import { INNER_ID, nestedSubgraphWorkflow } from './fixtures/nestedSubgraphWorkflow';
 import { useEnglish } from './locale';
 
-/**
- * Explanations travel with the project: a description written by hand on a node is saved in the project file, does
- * not appear on node 4 of another graph (New project, then the same numbers from a workflow), comes back when the
- * project is opened, and undo and redo across the open bring each graph back with its own descriptions.
- */
 const NOTE = 'Renders prompt A at twenty steps.';
 
 test.setTimeout(240_000);

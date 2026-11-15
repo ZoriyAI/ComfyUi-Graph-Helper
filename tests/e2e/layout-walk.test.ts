@@ -1,15 +1,3 @@
-import { test, expect, _electron as electron, type CDPSession, type ElectronApplication, type Locator, type Page } from '@playwright/test';
-import { pseudoText } from '../../src/shared/i18n/pseudo';
-import * as fs from 'fs';
-import * as os from 'os';
-import * as path from 'path';
-import { createTranslator } from '../../src/shared/i18n';
-import { LESSONS } from '../../src/shared/lessons/lessons';
-import { startFakeMcp, type FakeMcp } from '../fixtures/mcp/fakeMcpServer';
-import { nestedSubgraphWorkflow } from './fixtures/nestedSubgraphWorkflow';
-import { auditLayout, describeIssues, type LayoutIssue } from './layoutAudit';
-import { APP_AUDIT, attachmentIssues } from './layoutProfile';
-
 /**
  * Walks the whole app the way a person meets it and, at every stop and every window size, asks the page what
  * sticks out of its box, is cut by a panel, leaves the window, lies on another control or is squeezed to nothing
@@ -35,6 +23,17 @@ import { APP_AUDIT, attachmentIssues } from './layoutProfile';
  * LAYOUT_DPR=1.5 draws at a screen scale of 150 % (the sizes above stay in the app's own pixels).
  * LAYOUT_BREAK=cards breaks description cards on purpose; the walk must fail then.
  */
+import { test, expect, _electron as electron, type CDPSession, type ElectronApplication, type Locator, type Page } from '@playwright/test';
+import { pseudoText } from '../../src/shared/i18n/pseudo';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+import { createTranslator } from '../../src/shared/i18n';
+import { LESSONS } from '../../src/shared/lessons/lessons';
+import { startFakeMcp, type FakeMcp } from '../fixtures/mcp/fakeMcpServer';
+import { nestedSubgraphWorkflow } from './fixtures/nestedSubgraphWorkflow';
+import { auditLayout, describeIssues, type LayoutIssue } from './layoutAudit';
+import { APP_AUDIT, attachmentIssues } from './layoutProfile';
 
 const LANG = process.env.LAYOUT_LANG === 'en' ? 'en' : 'ru';
 const OUT = process.env.LAYOUT_OUT ?? '';
@@ -189,6 +188,7 @@ async function visitScrolling(page: Page, stop: string, reach: (size: Size) => P
 
 async function launch(userData: string): Promise<{ app: ElectronApplication; page: Page }> {
   const env: Record<string, string | undefined> = { ...process.env, NODE_ENV: 'production' };
+  // No session bus and no keyring daemon, so Electron does not talk to the desktop's keyring during the run.
   delete env.DBUS_SESSION_BUS_ADDRESS;
   delete env.GNOME_KEYRING_CONTROL;
   if (HINTED_FONTS) env.FONTCONFIG_FILE = path.join(__dirname, 'fixtures/fonts-hinted.conf');
@@ -815,7 +815,7 @@ test('nothing sticks out, is cut or overlaps on any screen at any window size', 
       await visit(page, 'canvas with four nodes where the app put them, every description, 100 %', async () => { await descriptions('all'); await fit(); await page.keyboard.press('Control+0'); await page.waitForTimeout(450); });
       await descriptions(before);
     }
-    // «Разложить граф» from the keyboard; the search field of the library must not swallow it.
+    // "Arrange the graph" from the keyboard; the search field of the library must not swallow it.
     await page.evaluate(() => (document.activeElement instanceof HTMLElement ? document.activeElement.blur() : undefined));
     const placedBefore = await nodePositions(page);
     await page.keyboard.press('Control+Shift+L');

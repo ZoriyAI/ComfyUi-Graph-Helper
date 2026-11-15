@@ -1,3 +1,9 @@
+/**
+ * Protects the renderer's ChatService with a fake preload bridge: the context sent with each turn (selection,
+ * language, build tool specs), routing of explain and proposal results to the right panels, saving messages as
+ * ChatRecords, loading history once, and Stop. These decide whether the assistant sees what the person sees and
+ * whether a conversation is still there after a restart.
+ */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useChatStore } from '../../src/renderer/state/chatState';
 import { useKnowledgeStore } from '../../src/renderer/state/knowledgeState';
@@ -9,10 +15,6 @@ import { useProjectionStore } from '../../src/renderer/services/commands/project
 import { BUILD_TOOL_SPECS } from '../../src/shared/commands/toolSpecs';
 import type { ChatRecord, Explanation, Proposal } from '../../src/shared/contracts';
 import { DESKTOP_PROJECT_ID } from '../../src/shared/project';
-
-/**
- * The chat service with a fake bridge: turn context, tool specs, explain and proposal routing, persistence, history.
- */
 
 type Chunk = { type: string; content?: unknown };
 type StreamImpl = (messages: unknown, specs: unknown, onChunk: (chunk: Chunk) => void, run: unknown, context: unknown) => Promise<void>;

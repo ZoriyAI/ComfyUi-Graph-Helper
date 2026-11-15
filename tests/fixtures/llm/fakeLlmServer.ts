@@ -1,5 +1,3 @@
-import * as http from 'http';
-
 /**
  * A fake model server for tests (not a live model): OpenAI-compatible chat completions with streaming, plus the
  * Ollama routes the app reads (/api/tags, /api/ps). What it answers is chosen by words in the person's latest
@@ -15,15 +13,25 @@ import * as http from 'http';
  * - "draft a lesson": a draftLesson call whose lesson lacks the words of a step, then (after the refusal) the
  *   corrected lesson, then a sentence: the assistant's lesson draft and its repair in one turn;
  * - anything else: one short sentence.
+ *
+ * Used by assistant-runs.test.ts (e2e) and lessonDraft.test.ts (unit).
  */
+import * as http from 'http';
+
+/** The one model the fake lists in /v1/models, /api/tags and /api/ps. */
 export const FAKE_MODEL = 'fixture-model:7b';
 
+/**
+ * A running fake. `state.window` is the context size /api/ps reports (a test may change it), `state.bodies` holds
+ * every chat request body so a test can read what the app sent.
+ */
 export interface FakeLlm {
   origin: string;
   state: { window: number; bodies: string[] };
   close: () => Promise<void>;
 }
 
+// The answer to "markdown please": one of each element the chat renders.
 const MARKDOWN = [
   '## What KSampler does', '', 'The sampler **removes noise** step by step.', '',
   '- first item', '- second item with `code`', '', '| Field | Value |', '|---|---|', '| steps | 20 |', '',
@@ -51,6 +59,7 @@ const DRAFT_LESSON = () => ({
   ],
 });
 
+/** The text of the last user message; non-text content is turned into JSON so the word tests still work. */
 function lastUser(messages: Array<{ role: string; content: unknown }>): string {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = messages[index];
@@ -61,6 +70,7 @@ function lastUser(messages: Array<{ role: string; content: unknown }>): string {
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/** Starts the fake on a free 127.0.0.1 port; `initialWindow` is the context size it reports at first. */
 export async function startFakeLlm(initialWindow = 32768): Promise<FakeLlm> {
   const state = { window: initialWindow, bodies: [] as string[] };
   const server = http.createServer((req, res) => {
@@ -78,6 +88,7 @@ export async function startFakeLlm(initialWindow = 32768): Promise<FakeLlm> {
       state.bodies.push(raw);
       const body = JSON.parse(raw) as { stream?: boolean; messages: Array<{ role: string; content: unknown }> };
       const text = lastUser(body.messages);
+      // A rough token count of the request (about 3.3 characters a token), kept under the window so it looks real.
       const usage = { prompt_tokens: Math.min(Math.ceil(raw.length / 3.3), state.window - 6), completion_tokens: 4, total_tokens: 10 };
       if (!body.stream) return send(200, 'application/json', JSON.stringify({ id: 'c1', object: 'chat.completion', created: 1, model: FAKE_MODEL, choices: [{ index: 0, message: { role: 'assistant', content: 'pong' }, finish_reason: 'stop' }], usage }));
       if (/error401/.test(text)) return send(401, 'application/json', JSON.stringify({ error: { message: 'Incorrect API key provided', code: 'invalid_api_key' } }));
@@ -98,6 +109,7 @@ export async function startFakeLlm(initialWindow = 32768): Promise<FakeLlm> {
         res.write(chunk({}, 'stop', true));
         res.end('data: [DONE]\n\n');
       };
+      // Only tool results after the last question count: they tell which build step comes next.
       const userAt = body.messages.map((message) => message.role).lastIndexOf('user');
       const results = body.messages.slice(userAt).filter((message) => message.role === 'tool').map((message) => {
         try { return JSON.parse(String(message.content)) as Record<string, unknown>; } catch { return {}; }

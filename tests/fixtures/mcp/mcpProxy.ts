@@ -5,10 +5,12 @@
  *
  * A rule matches a JSON-RPC method (`tools/list`), a tool (`models`), or a tool with its first telling argument
  * (`models:loras`, `studio_capabilities:nodes`): the `section`, else `category`, else `action`.
+ * Used by syncAddress.test.ts (integration) to make one model folder fail or a run hang while the address changes.
  */
 import * as http from 'http';
 import type { AddressInfo } from 'net';
 
+/** One misbehaviour; the first rule that matches a request applies, `*` matches every request. */
 export interface McpProxyRule {
   match: string;
   /** Wait this long before forwarding or answering. */
@@ -21,6 +23,7 @@ export interface McpProxyRule {
   drop?: boolean;
 }
 
+/** A running proxy. A test changes `state` while it runs to switch misbehaviour on and off. */
 export interface McpProxy {
   /** The proxied MCP endpoint (same path as the target). */
   url: string;
@@ -50,6 +53,7 @@ export function requestKey(body: string): string {
   }
 }
 
+/** Starts a proxy on a free 127.0.0.1 port that forwards to the MCP endpoint `target` unless a rule says otherwise. */
 export async function startMcpProxy(target: string): Promise<McpProxy> {
   const to = new URL(target);
   const state: McpProxy['state'] = { rules: [], down: false, delayMs: 0, log: [] };

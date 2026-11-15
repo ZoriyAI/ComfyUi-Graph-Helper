@@ -1,3 +1,11 @@
+/**
+ * E2E spec for the live build: the TEST fixture builds a text-to-image graph one tool call per step, each with a `why`.
+ * Nodes appear on the canvas over time (not all at once), a speech-bubble callout carries the why while the
+ * build runs, the live-build strip counts the steps, and after the run the KSampler's description card holds
+ * the saved why with the inference badge. The chat tells the build once: one card with a sentence per step (made
+ * from the step's data, not the tool's English message), the why on the step, and a summary with what to do next.
+ * Watching the graph grow with a reason per step is how a learner understands what the assistant built.
+ */
 import { test, expect, _electron as electron } from '@playwright/test';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -5,13 +13,6 @@ import * as path from 'path';
 import { useEnglish } from './locale';
 import { pickOption } from './pickOption';
 
-/**
- * Live build: the TEST fixture builds a text-to-image graph one tool call per step, each with a `why`.
- * Nodes appear on the canvas over time (not all at once), a speech-bubble callout carries the why while the
- * build runs, the live-build strip counts the steps, and after the run the KSampler's description card holds
- * the saved why with the inference badge. The chat tells the build once: one card with a sentence per step (made
- * from the step's data, not the tool's English message), the why on the step, and a summary with what to do next.
- */
 test('live build: nodes appear step by step with their why on the canvas and in the chat', async () => {
   test.setTimeout(120000);
   const errors: string[] = [];

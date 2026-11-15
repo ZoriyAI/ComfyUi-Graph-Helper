@@ -1,3 +1,10 @@
+/**
+ * E2E spec: a subgraph is edited from the inside like the main canvas, against the fake MCP server (labelled fixture):
+ * make a subgraph from a selection, open it, add a node from the toolbar search and one by dragging it from the
+ * library (both land on free space), wire the new node to an inner node and to a new output slot, delete another
+ * inner node with the keyboard, undo and redo (also after leaving), check the instance on the main canvas, and
+ * read the workflow saved for ComfyUI, which must be well-formed for ComfyUI to load.
+ */
 import { test, expect, _electron as electron, type Locator, type Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -5,13 +12,6 @@ import * as path from 'path';
 import { useEnglish } from './locale';
 import { startFakeMcp } from '../fixtures/mcp/fakeMcpServer';
 
-/**
- * A subgraph is edited from the inside like the main canvas, against the fake MCP server (labelled fixture):
- * make a subgraph from a selection, open it, add a node from the toolbar search and one by dragging it from the
- * library (both land on free space), wire the new node to an inner node and to a new output slot, delete another
- * inner node with the keyboard, undo and redo (also after leaving), check the instance on the main canvas, and
- * read the workflow saved for ComfyUI.
- */
 const artifactDir = path.join(__dirname, '../../test-results/subgraph-inner-authoring');
 
 type Api = {

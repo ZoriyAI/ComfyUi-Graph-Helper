@@ -1,3 +1,9 @@
+/**
+ * E2E spec for File > Load node list from file (the object_info fallback when no server can be read): a snapshot
+ * saved from ComfyUI is stored as the catalog with its models, a workflow opened after it is checked against it for
+ * missing nodes and models (subgraphs included), and a file that is not a node list is refused with a plain sentence
+ * while the stored catalog stays. A person without a reachable ComfyUI still gets a library and checks.
+ */
 import { test, expect, _electron as electron } from '@playwright/test';
 import { useEnglish } from './locale';
 import * as fs from 'fs';
@@ -5,6 +11,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { loadNodeList } from './fileMenu';
 
+// A two-class /object_info as ComfyUI saves it; the VAE loader uses the newer COMBO form of a choice list.
 const snapshot = {
   CheckpointLoaderSimple: {
     input: {
@@ -35,6 +42,7 @@ const snapshot = {
   },
 };
 
+// One known model, one missing model, and a subgraph with a class the snapshot does not have.
 const workflow = {
   version: 1,
   state: { lastNodeId: 3, lastLinkId: 0 },

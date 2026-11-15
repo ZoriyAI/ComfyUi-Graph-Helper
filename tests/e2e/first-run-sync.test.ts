@@ -1,3 +1,9 @@
+/**
+ * E2E spec for the README first-run path against a fake MCP server on loopback (labelled fixture, not a real server):
+ * Settings > Connection (address, Check, token), Sync > Sync now, the library, Ask about a model (TEST provider),
+ * adding nodes from the library, Check graph and Export. The fake server logs every call; only read-only tools
+ * with read-only arguments may appear there. This is the path the README promises a new user.
+ */
 import { test, expect, _electron as electron } from '@playwright/test';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -8,12 +14,6 @@ import { pickOption } from './pickOption';
 import { isReadOnlyCall } from '../../src/main/mcp/readOnly';
 import { CLASSES, PACKS, READ_TOOLS, startFakeMcp, WRITE_TOOLS } from '../fixtures/mcp/fakeMcpServer';
 
-/**
- * The README first-run path against a fake MCP server on loopback (labelled fixture, not a real server):
- * Settings ▸ Connection (address, Check, token), Sync ▸ Sync now, the library, Ask about a model (TEST provider),
- * adding nodes from the library, Check graph and Export. The fake server logs every call; only read-only tools
- * with read-only arguments may appear there.
- */
 const TOKEN = 'first-run-token-marker';
 
 function containsMarker(dir: string, marker: string): string | null {
@@ -35,6 +35,7 @@ test('first run: connect, sync from MCP, browse the library, build, check and ex
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'first-run-sync-'));
   const exportPath = path.join(userData, 'first-run-workflow.json');
   const env = { ...process.env, NODE_ENV: 'production' } as Record<string, string>;
+  // No session bus, so Electron does not talk to the desktop's keyring during the run.
   delete env.DBUS_SESSION_BUS_ADDRESS;
   delete env.GNOME_KEYRING_CONTROL;
   const app = await electron.launch({

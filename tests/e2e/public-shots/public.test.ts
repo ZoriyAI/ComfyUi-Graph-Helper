@@ -1,3 +1,10 @@
+/**
+ * The screenshots of the public README and its gallery (docs/screenshots/en|ru/NN-name.png). Run by
+ * `npm run shots:public` after `npm run build`; skipped in an ordinary e2e run because it rewrites tracked files.
+ * Every state is reached the way a person reaches it, against fake servers only (the test MCP server and a showcase
+ * model server): no real server, no real person's data. A state that cannot be reached fails the run with its name,
+ * so a picture is never silently missing or half-empty. Reduced motion, fixed window 1440x900 at scale 1.
+ */
 import { test, expect, _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -8,14 +15,6 @@ import { nestedSubgraphWorkflow } from '../fixtures/nestedSubgraphWorkflow';
 import { startShowcaseLlm, SHOWCASE_MODEL, SHOWCASE_QUESTIONS, type ShowcaseLanguage, type ShowcaseLlm } from './showcaseLlm';
 import { PUBLIC_SHOTS } from './shotList';
 import { textToPictureWorkflow, unfinishedWorkflow, largeWorkflow } from './workflows';
-
-/**
- * The screenshots of the public README and its gallery (docs/screenshots/en|ru/NN-name.png). Run by
- * `npm run shots:public` after `npm run build`; skipped in an ordinary e2e run because it rewrites tracked files.
- * Every state is reached the way a person reaches it, against fake servers only (the test MCP server and a showcase
- * model server): no real server, no real person's data. A state that cannot be reached fails the run with its name,
- * so a picture is never silently missing or half-empty. Reduced motion, fixed window 1440x900 at scale 1.
- */
 
 const ENABLED = process.env.PUBLIC_SHOTS === '1';
 const ROOT = path.join(__dirname, '../../../docs/screenshots');
@@ -83,6 +82,7 @@ for (const language of LANGUAGES) {
     const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'public-shots-'));
     // The providers of an installed app (runMode.ts scriptedProviderAllowed): no TEST card in Settings ▸ Assistant.
     const env: Record<string, string | undefined> = { ...process.env, NODE_ENV: 'production', NODEWISE_PACKAGED_PROVIDERS: '1' };
+    // No session bus and no keyring daemon, so Electron does not talk to the desktop's keyring during the run.
     delete env.DBUS_SESSION_BUS_ADDRESS;
     delete env.GNOME_KEYRING_CONTROL;
     let app: ElectronApplication | null = null;

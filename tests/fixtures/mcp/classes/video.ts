@@ -12,6 +12,7 @@
 
 type InputSpec = [string, Record<string, unknown>?] | [string[], Record<string, unknown>?];
 
+/** One class in the fake server's shape: `pack` is an index into its PACKS, inputs as /object_info writes them. */
 export interface VideoClassDef {
   classType: string;
   /** Index into the fake server's PACKS. The packs of these lessons are not among them: their classes stand under 0. */
@@ -33,6 +34,7 @@ const STRING = (value: string): InputSpec => ['STRING', { default: value }];
 const COMBO = (options: string[], value?: string): InputSpec => (value === undefined ? [options] : [options, { default: value }]);
 const WAN_SIZE = { width: INT(832, { min: 16, step: 16 }), height: INT(480, { min: 16, step: 16 }) };
 
+/** The video set's classes, served by the fake server only with `video: true`. */
 export const VIDEO_SET_CLASSES: VideoClassDef[] = [
   // Wan 2.2: the small model's start, first and last frame, Fun Control, HuMo.
   {
@@ -158,7 +160,10 @@ export const VIDEO_SET_CLASSES: VideoClassDef[] = [
   },
 ];
 
-/** One input as the unit tests of the lessons write it: name, data type, and the value a fresh node starts with. */
+/**
+ * One class as the unit tests of the lessons write it: inputs (name, data type, and the value a fresh node starts
+ * with) and outputs (name, data type).
+ */
 export type LessonSpec = { inputs: Array<[string, string, unknown?]>; outputs: Array<[string, string]> };
 
 const WIDGET_TYPES = new Set(['INT', 'FLOAT', 'STRING', 'BOOLEAN']);

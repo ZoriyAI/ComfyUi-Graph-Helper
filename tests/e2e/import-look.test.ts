@@ -1,3 +1,10 @@
+/**
+ * E2E spec: an imported ComfyUI workflow looks and behaves the way its file describes it (IMPORT+NODES): sizes from the
+ * file, collapsed nodes, Reroute dots and native reroute points, a Primitive's value, notes, Set / Get partners,
+ * nodes that are not installed, colours, promoted fields of a subgraph copy, no node on another after the import,
+ * and the file's own view. LOOK_SHOTS=<dir> also opens real workflows (LOOK_FILES=name=path,...) and keeps shots.
+ * A person who opens a workflow from the internet should recognise it as the same graph ComfyUI shows.
+ */
 import { test, expect, _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -7,13 +14,6 @@ import { startFakeMcp, type FakeMcp } from '../fixtures/mcp/fakeMcpServer';
 import { estimateNodeSize } from '../../src/shared/graph/layout';
 import { classPresence } from '../../src/shared/workflow/comfyLook';
 
-/**
- * An imported ComfyUI workflow looks and behaves the way its file describes it (IMPORT+NODES): sizes from the
- * file, collapsed nodes, Reroute dots and native reroute points, a Primitive's value, notes, Set / Get partners,
- * nodes that are not installed, colours, promoted fields of a subgraph copy, no node on another after the import,
- * and the file's own view. LOOK_SHOTS=<dir> also opens real workflows (LOOK_FILES=name=path,...) and keeps shots.
- */
-
 const FIXTURE = path.join(__dirname, '../fixtures/workflows/import-look-0.4.json');
 const SHOTS = process.env.LOOK_SHOTS;
 
@@ -22,6 +22,7 @@ type Box = { id: string; x: number; y: number; width: number; height: number };
 async function launch(fake: FakeMcp, size = { width: 1600, height: 1000 }): Promise<{ app: ElectronApplication; page: Page }> {
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'import-look-'));
   const env: Record<string, string | undefined> = { ...process.env, NODE_ENV: 'production' };
+  // No session bus, so Electron does not talk to the desktop's keyring during the run.
   delete env.DBUS_SESSION_BUS_ADDRESS;
   const app = await electron.launch({ args: [path.join(__dirname, '../../dist/main/index.js'), `--user-data-dir=${userData}`], env: env as Record<string, string> });
   const page = await app.firstWindow();

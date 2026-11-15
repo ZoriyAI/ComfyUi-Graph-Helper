@@ -17,6 +17,7 @@ type Bridge = (name: string, args?: unknown[]) => Promise<any>;
 async function launch(): Promise<{ app: ElectronApplication; page: Page; api: Bridge }> {
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'lesson-files-'));
   const env: Record<string, string | undefined> = { ...process.env, NODE_ENV: 'production' };
+  // No session bus, so Electron does not talk to the desktop's keyring during the run.
   delete env.DBUS_SESSION_BUS_ADDRESS;
   delete env.GNOME_KEYRING_CONTROL;
   const app = await electron.launch({ args: [path.join(__dirname, '../../dist/main/index.js'), `--user-data-dir=${userData}`], env: env as Record<string, string> });

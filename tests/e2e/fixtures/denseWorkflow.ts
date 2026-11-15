@@ -1,3 +1,11 @@
+/**
+ * Workflows for canvas tests: a dense twelve-node graph of three partial text-to-picture chains, and a generated
+ * hundred-node graph. Used by e2e specs that look at the canvas (canvas-explain, canvas-descriptions, keyboard-route,
+ * locale, project-explanations, desktop-captures) and by unit tests of subgraphs, validation and selection editing.
+ * The dense graph is crowded and half wired on purpose, so the check and the layout have something to find.
+ */
+
+// Node builders in the saved native shape; every socket starts unlinked and the link list below fills them in.
 const checkpoint = (id: number, x: number, y: number, title: string) => ({
   id,
   type: 'CheckpointLoaderSimple',
@@ -69,6 +77,7 @@ const decode = (id: number, x: number, y: number, title: string) => ({
   outputs: [{ name: 'IMAGE', type: 'IMAGE', links: [] as number[] }],
 });
 
+/** Twelve nodes in three rows (A wired in part, B and C not at all), with six links in row A. */
 export const denseWorkflow = {
   version: 1,
   state: { lastNodeId: 12, lastLinkId: 6 },
@@ -98,6 +107,11 @@ export const denseWorkflow = {
 
 const TYPE_CYCLE = ['MODEL', 'CLIP', 'VAE', 'CONDITIONING', 'LATENT', 'IMAGE'] as const;
 
+/**
+ * A hundred nodes on a ten by ten grid, each with one socket of a data type taken in turn from TYPE_CYCLE.
+ * Nodes of the same type are linked to each other until that type has 25 links (150 in all), so the canvas has
+ * a large but still type-correct graph to draw. Used by desktop-captures for the large-graph picture.
+ */
 export function hundredNodeWorkflow() {
   const nodes = Array.from({ length: 100 }, (_, index) => {
     const id = index + 1;

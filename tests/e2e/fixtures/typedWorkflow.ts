@@ -1,3 +1,8 @@
+/**
+ * A tiny native workflow of three typed nodes (checkpoint, prompt, decoder) with one CLIP link and open MODEL,
+ * LATENT and VAE sockets. Used by editor-selection and workspace-motion e2e specs and by several unit tests
+ * (subgraphs, groupRename, graphTools, proposals, subgraphCodec) that need real socket types to connect or check.
+ */
 export const typedWorkflow = {
   version: 1,
   state: { lastNodeId: 3, lastLinkId: 2 },

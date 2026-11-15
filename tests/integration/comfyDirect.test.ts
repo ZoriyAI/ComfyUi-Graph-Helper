@@ -1,3 +1,9 @@
+/**
+ * Protects the main first-run path: only a ComfyUI address, no MCP server. Nodes, packs, model files, headers and
+ * previews are read from ComfyUI's own HTTP API through the read-only gate (src/main/comfy/direct.ts and the sync).
+ * It also pins the exact sentences a person sees when ComfyUI is not running, still starting, or is an MCP address.
+ * TEST fixture: a fake ComfyUI on 127.0.0.1 (tests/fixtures/comfy/fakeComfy.ts). Only GETs of read routes may go out.
+ */
 import Database from 'better-sqlite3';
 import { afterEach, describe, expect, it } from 'vitest';
 import { migrate } from '../../src/main/settings/migrate';
@@ -12,10 +18,6 @@ import { CLASSES, modelFileCount, PACKS } from '../fixtures/mcp/fakeMcpServer';
 import { BIG_PACK, READ_ROUTE, startFakeComfy, SUB_FOLDER_LORA, WEBP, type FakeComfyOptions } from '../fixtures/comfy/fakeComfy';
 import { startPublicMcp } from '../fixtures/mcp/fakePublicMcp';
 
-/**
- * The main path: only a ComfyUI address, no MCP server. Everything is read from ComfyUI's own HTTP API through the
- * read-only gate. TEST fixture: a fake ComfyUI on 127.0.0.1 (tests/fixtures/comfy/fakeComfy.ts).
- */
 const closers: Array<() => Promise<void>> = [];
 afterEach(async () => {
   while (closers.length > 0) await closers.pop()?.();

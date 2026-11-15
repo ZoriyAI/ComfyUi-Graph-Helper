@@ -1,3 +1,9 @@
+/**
+ * Protects explanations (the descriptions written for objects of the graph: nodes, ports, groups and more) as part of the
+ * project: saved in the project file and brought back exactly, kept apart between graphs and inside subgraphs, carried
+ * through undo, subgraph creation and dissolving, left out of a ComfyUI export, and kept by the schema 15 migration.
+ * A person's notes on their graph must not leak to another graph or be lost when the file moves to another machine.
+ */
 import Database from 'better-sqlite3';
 import { describe, expect, it } from 'vitest';
 import { commitCommand, ensureWorkspace, readProjection } from '../../src/main/commands/commit';

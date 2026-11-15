@@ -1,3 +1,8 @@
+/**
+ * E2E spec for the Preferences window (File > Settings): the section list, appearance, a recorded shortcut, a canvas
+ * toggle, the assistant fields that appear only when they apply, and Cancel throwing a draft away. Settings are where
+ * a person shapes the app; a draft must never be saved by accident.
+ */
 import { test, expect, _electron as electron } from '@playwright/test';
 import * as fs from 'fs';
 import * as os from 'os';

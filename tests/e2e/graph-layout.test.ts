@@ -1,17 +1,16 @@
+/**
+ * E2E spec for layout: nodes never land on each other and a graph stays readable.
+ * - a helper build on a canvas that already has nodes ends with no two node cards overlapping on screen;
+ * - "Arrange the graph" moves nodes in one commit, and one Undo puts every node back;
+ * - zoomed far out, the canvas switches to its overview level (data-zoom="overview") and back.
+ * LAYOUT_SHOTS=<dir> saves screenshots of the end of the build, for a person to look at.
+ */
 import { test, expect, _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { useEnglish } from './locale';
 import { pickOption } from './pickOption';
-
-/**
- * Layout: nodes never land on each other and a graph stays readable.
- * - a helper build on a canvas that already has nodes ends with no two node cards overlapping on screen;
- * - «Arrange the graph» moves nodes in one commit, and one Undo puts every node back;
- * - zoomed far out, the canvas switches to its overview level (data-zoom="overview") and back.
- * LAYOUT_SHOTS=<dir> saves screenshots of the end of the build, for a person to look at.
- */
 
 type Bridge = Record<string, (...args: unknown[]) => Promise<any>>;
 type Box = { id: string; x: number; y: number; width: number; height: number };

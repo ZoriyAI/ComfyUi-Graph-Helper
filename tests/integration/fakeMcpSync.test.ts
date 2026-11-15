@@ -1,3 +1,9 @@
+/**
+ * Protects the catalog sync over the real Streamable HTTP client against a fake MCP server on loopback: transport,
+ * paging, the comfy_api refusal and the native object_info fallback all run for real, and only read-only tools may be
+ * called. It also covers sign-in errors, the metadata batches, files a model manager keeps next to a model, and what
+ * a node pack says about itself. This is what fills the library a person browses. Labelled fixture, not a live server.
+ */
 import { catalogModelRoots } from '../../src/main/mcp/knownRoots';
 import { setKnownRootsSource } from '../../src/main/mcp/readOnly';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -16,10 +22,6 @@ import {
   WRITE_TOOLS, type FakeMcp,
 } from '../fixtures/mcp/fakeMcpServer';
 
-/**
- * The sync over the real Streamable HTTP client against a fake MCP server on loopback: the transport, paging,
- * the comfy_api refusal and the native object_info fallback all run for real. Labelled fixture, not a live server.
- */
 const TOKEN = 'fake-token-not-a-secret';
 let fake: FakeMcp | null = null;
 

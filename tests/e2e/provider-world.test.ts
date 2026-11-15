@@ -1,17 +1,16 @@
+/**
+ * E2E spec for Settings > Assistant for a person anywhere (a labelled fixture server on 127.0.0.1 that speaks like
+ * Ollama; not a live model): the local model list marks a model that cannot call tools, the advice says which model to
+ * take, a server that loads the model with a small window offers Ollama's copy with a larger one, an OpenAI-compatible
+ * service takes its key only after its https address, a cloud company shows where to get a key and what it costs,
+ * and the proxy field refuses an address with a password.
+ */
 import { test, expect, _electron as electron, type Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as http from 'http';
 import * as os from 'os';
 import * as path from 'path';
 import { useEnglish } from './locale';
-
-/**
- * Settings ▸ Assistant for a person anywhere (a labelled fixture server on 127.0.0.1 that speaks like Ollama; not a
- * live model): the local model list marks a model that cannot call tools, the advice says which model to take,
- * a server that loads the model with a small window offers Ollama's copy with a larger one, an OpenAI-compatible
- * service takes its key only after its https address, a cloud company shows where to get a key and what it costs,
- * and the proxy field refuses an address with a password.
- */
 
 type Created = { model: string; from: string; parameters: { num_ctx: number } };
 

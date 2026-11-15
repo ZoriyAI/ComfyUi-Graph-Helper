@@ -15,6 +15,7 @@
 
 type Spec = [string, Record<string, unknown>?] | [string[], Record<string, unknown>?];
 
+/** One class in the fake server's shape, except that `pack` is a pack name; fakeMcpServer.ts turns it into an index. */
 export interface DomainClassDef {
   classType: string;
   /** The name of the pack, as in SOUND_3D_FACES_PACKS or 'comfy-core'. */
@@ -28,6 +29,7 @@ export interface DomainClassDef {
   outputNode?: boolean;
 }
 
+/** The packs these classes come from that the fake server does not list yet; it appends them to its PACKS. */
 export const SOUND_3D_FACES_PACKS = [
   { name: 'ComfyUI-MMAudio', module: 'custom_nodes.ComfyUI-MMAudio', version: '1.0.3', commit: null },
   { name: 'ComfyUI_Fill-ChatterBox', module: 'custom_nodes.ComfyUI_Fill-ChatterBox', version: '1.0.4', commit: null },
@@ -39,6 +41,7 @@ const MMAUDIO_FILES = ['apple_DFN5B-CLIP-ViT-H-14-384_fp16.safetensors', 'mmaudi
 const WHISPER_MODELS = ['tiny.en', 'tiny', 'base.en', 'base', 'small.en', 'small', 'medium.en', 'medium', 'large-v1', 'large-v2', 'large-v3', 'large', 'large-v3-turbo', 'turbo'];
 const CORE = 'comfy-core';
 
+/** The sound, speech, 3D, faces and characters classes. */
 export const SOUND_3D_FACES_CLASSES: DomainClassDef[] = [
   // ComfyUI itself: sound.
   {

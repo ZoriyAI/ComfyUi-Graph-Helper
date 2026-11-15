@@ -1,3 +1,8 @@
+/**
+ * Protects the sync against an MCP server behind a gateway, which lists every tool as `gateway_comfy-<tool>`. The
+ * sync must read it all the same, through the same read-only allowlist, and the call log must still name the tool.
+ * It also pins what the person is told when node details cannot be read from this computer. Labelled fixture.
+ */
 import { afterEach, describe, expect, it } from 'vitest';
 import Database from 'better-sqlite3';
 import { migrate } from '../../src/main/settings/migrate';
@@ -6,10 +11,6 @@ import { readCatalogViaMcp } from '../../src/main/mcp/client';
 import { READ_ONLY_TOOLS, setMcpCallObserver, type McpCallNote } from '../../src/main/mcp/readOnly';
 import { CLASSES, modelFileCount, PACKS, startFakeMcp, WRITE_TOOLS, type FakeMcp } from '../fixtures/mcp/fakeMcpServer';
 
-/**
- * An MCP server behind a gateway lists every tool as `gateway_comfy-<tool>`. The sync must read it all the same,
- * through the same read-only allowlist, and the call log must still say which tool was called. Labelled fixture.
- */
 const PREFIX = 'gateway_comfy-';
 let fake: FakeMcp | null = null;
 

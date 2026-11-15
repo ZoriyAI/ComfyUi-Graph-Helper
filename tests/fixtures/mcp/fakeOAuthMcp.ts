@@ -1,19 +1,22 @@
-import { createHash, randomBytes } from 'crypto';
-import * as http from 'http';
-
 /**
  * TEST fixture: a fake OAuth authorization server and a fake MCP server on one loopback port, shaped like the
  * MCP server the app was built against: protected-resource metadata, RFC 8414 path-inserted authorization-server metadata,
  * dynamic registration, authorization code + PKCE S256, refresh tokens, and a Streamable HTTP endpoint that needs
  * the issued bearer. Plain `http`, no network beyond 127.0.0.1. Not a live server.
+ * Used by mcp-oauth.test.ts (e2e) and the mcpOAuth and mcpDetect unit tests: they prove the app signs in through
+ * the browser, refreshes tokens on its own and never follows the server to another origin with the bearer.
  */
+import { createHash, randomBytes } from 'crypto';
+import * as http from 'http';
+
 export interface FakeOAuthMcpOptions {
   /** Lifetime of issued access tokens, in seconds. */
   accessTtlSeconds?: number;
-  /** When set, the MCP endpoint answers every POST with a 307 to this URL (cross-origin redirect check). */
+  /** When set, the MCP endpoint answers every authorized request with a 307 to this URL (cross-origin redirect check). */
   redirectMcpTo?: string;
 }
 
+/** A running fake: its addresses, what it saw, and switches a test flips to make tokens fail or the server move. */
 export interface FakeOAuthMcp {
   origin: string;
   mcpUrl: string;
@@ -37,6 +40,8 @@ export interface FakeOAuthMcp {
   close(): Promise<void>;
 }
 
+// The MCP endpoint sits under a path prefix, and both metadata documents use the RFC 9728 and RFC 8414 forms that
+// insert that path after /.well-known, so the app has to build the discovery URLs the way the real server expects.
 const MCP_PATH = '/gateway_comfy/mcp';
 const PRM_PATH = `/.well-known/oauth-protected-resource${MCP_PATH}`;
 const AS_PATH = '/.well-known/oauth-authorization-server/mcp';
@@ -45,6 +50,7 @@ function base64url(buffer: Buffer): string {
   return buffer.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
+/** A random opaque value with a readable prefix (client, code, access or refresh). */
 function token(prefix: string): string {
   return `${prefix}-${base64url(randomBytes(18))}`;
 }
@@ -67,6 +73,7 @@ function textResult(value: unknown) {
   return { content: [{ type: 'text', text: JSON.stringify(value) }] };
 }
 
+// The read tools the app calls during a sync, with the smallest answers that still pass its parsers.
 const TOOLS = ['studio_info', 'studio_capabilities', 'models', 'model_metadata'];
 
 function toolAnswer(name: string, args: Record<string, unknown>) {
@@ -90,6 +97,7 @@ function toolAnswer(name: string, args: Record<string, unknown>) {
   return { content: [{ type: 'text', text: `unknown tool ${name}` }], isError: true };
 }
 
+/** Starts the fake on a free 127.0.0.1 port. Access tokens live `accessTtlSeconds` (60 by default). */
 export async function startFakeOAuthMcp(options: FakeOAuthMcpOptions = {}): Promise<FakeOAuthMcp> {
   const accessTtl = options.accessTtlSeconds ?? 60;
   const hits: string[] = [];
@@ -198,6 +206,7 @@ export async function startFakeOAuthMcp(options: FakeOAuthMcpOptions = {}): Prom
             sendJson(res, 400, { error: 'invalid_grant' });
             return;
           }
+          // Refresh tokens rotate: the one just used stops working.
           refresh.delete(presented);
           sendJson(res, 200, issue(clientId));
           return;
@@ -210,6 +219,7 @@ export async function startFakeOAuthMcp(options: FakeOAuthMcpOptions = {}): Prom
         const bearer = header.startsWith('Bearer ') ? header.slice(7) : '';
         const until = access.get(bearer);
         if (!until || until <= Date.now()) {
+          // The body is read before answering so the client never sees a reset connection instead of the 401.
           await readBody(req);
           unauthorized(res);
           return;

@@ -1,3 +1,9 @@
+/**
+ * Protects the graph size limits (src/shared/workflow/graphLimits.ts) at the points where a graph comes in: importing a
+ * workflow and opening a project file. A real-sized workflow opens; one over the node or link limit (subgraph nodes
+ * counted too) is refused, the graph on screen stays, and the reason reads plainly in both languages. Without the
+ * limit a file with tens of thousands of nodes made the window unusable at every later start.
+ */
 import Database from 'better-sqlite3';
 import { describe, expect, it } from 'vitest';
 import { commitCommand, ensureWorkspace, readProjection } from '../../src/main/commands/commit';

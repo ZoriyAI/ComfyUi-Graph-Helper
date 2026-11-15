@@ -1,3 +1,8 @@
+/**
+ * E2E spec for the safe start in the built app: a graph over the size limit is refused, and a graph the last start
+ * never drew is asked about at the next start (fixtures/answerStartDialog.js answers the question and records it).
+ * A person whose window hung on a graph must get back into the app without editing files by hand.
+ */
 import { test, expect, _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -15,6 +20,7 @@ function workflow(count: number) {
   return { version: 0.4, last_node_id: count, last_link_id: 0, nodes, links: [], groups: [], config: {}, extra: {} };
 }
 
+/** Starts the app; with `answer` the dialog stub is preloaded with `-r` so the start question is answered at once. */
 async function launch(userData: string, answer = false): Promise<{ app: ElectronApplication; window: Page }> {
   const app = await electron.launch({ args: [...(answer ? ['-r', ANSWER] : []), MAIN, `--user-data-dir=${userData}`], env: { ...process.env, NODE_ENV: 'production' } });
   const window = await app.firstWindow();
@@ -22,6 +28,7 @@ async function launch(userData: string, answer = false): Promise<{ app: Electron
   return { app, window };
 }
 
+/** Imports a workflow through the command bridge; returns the status, the error text and the new revision id. */
 async function commitImport(window: Page, document: unknown) {
   return window.evaluate(async (doc) => {
     const api = (window as any).electronAPI;

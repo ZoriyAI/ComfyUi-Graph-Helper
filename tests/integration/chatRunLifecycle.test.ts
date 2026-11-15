@@ -1,11 +1,14 @@
+/**
+ * Protects the run lifecycle in ChatService: Pause then Resume keeps the same run; Cancel stops the main stream before
+ * cancelling the run; a finished old turn cannot end a newer one; a run that ended while paused shows no Continue.
+ * These keep the assistant's buttons honest about what is really running.
+ */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useChatStore } from '../../src/renderer/state/chatState';
 import { useGraphStore } from '../../src/renderer/state/graphState';
 import { ChatService } from '../../src/renderer/services/llm/chatService';
 import { useProjectionStore } from '../../src/renderer/services/commands/projection';
 import { DESKTOP_PROJECT_ID } from '../../src/shared/project';
-
-/** Pause → Resume keeps the run; Cancel stops the main stream first; an old turn cannot end a newer one. */
 
 const projection = (runId: string | null, status: 'running' | 'paused' = 'running') => ({
   projectId: DESKTOP_PROJECT_ID,

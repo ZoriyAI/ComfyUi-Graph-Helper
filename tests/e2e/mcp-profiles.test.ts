@@ -1,3 +1,9 @@
+/**
+ * E2E spec for MCP servers other than the catalog one (labelled fixtures on 127.0.0.1,
+ * tests/fixtures/mcp/fakePublicMcp.ts): one the app does not know gets an exact sentence and is never shown as
+ * connected; one of a known public kind gives its model list while the nodes come from the ComfyUI address.
+ * A green "connected" for a server the app cannot read would leave a person with an empty library and no reason.
+ */
 import { test, expect, _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -6,13 +12,9 @@ import { useEnglish } from './locale';
 import { startFakeComfy } from '../fixtures/comfy/fakeComfy';
 import { startPublicMcp } from '../fixtures/mcp/fakePublicMcp';
 
-/**
- * MCP servers other than the catalog one (labelled fixtures on 127.0.0.1, tests/fixtures/mcp/fakePublicMcp.ts):
- * one the app does not know gets an exact sentence and is never shown as connected; one of a known public kind
- * gives its model list while the nodes come from the ComfyUI address.
- */
 async function launch(userData: string): Promise<{ app: ElectronApplication; window: Page }> {
   const env = { ...process.env, NODE_ENV: 'production' } as Record<string, string>;
+  // No session bus and no keyring daemon, so Electron does not talk to the desktop's keyring during the run.
   delete env.DBUS_SESSION_BUS_ADDRESS;
   delete env.GNOME_KEYRING_CONTROL;
   const app = await electron.launch({ args: [path.join(__dirname, '../../dist/main/index.js'), `--user-data-dir=${userData}`], env });

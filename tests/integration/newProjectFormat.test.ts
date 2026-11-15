@@ -1,3 +1,8 @@
+/**
+ * Protects that File > New project starts from the same empty workflow as a fresh profile (format 1), so "Make a
+ * subgraph from selection" works there. A workflow imported in the old 0.4 format still refuses, in words that say
+ * what to do. A person who starts a new project expects every editing command to work on it.
+ */
 import { describe, expect, it } from 'vitest';
 import Database from 'better-sqlite3';
 import { migrate } from '../../src/main/settings/migrate';
@@ -10,10 +15,6 @@ import { classifyWorkflow, emptyWorkflow, WORKFLOW_FORMAT_V1 } from '../../src/s
 import { createTranslator, translateKnownError } from '../../src/shared/i18n';
 import { CLASSES, objectInfoDocument } from '../fixtures/mcp/fakeMcpServer';
 
-/**
- * File > New project starts from the same empty workflow as a fresh profile (format 1), so "Make a subgraph
- * from selection" works there. A workflow imported in the old 0.4 format still refuses, in words that say what to do.
- */
 function open(): Database.Database {
   const db = new Database(':memory:');
   migrate(db);

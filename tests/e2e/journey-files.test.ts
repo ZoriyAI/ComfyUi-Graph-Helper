@@ -1,3 +1,10 @@
+/**
+ * E2E spec for the journey on the real window: the welcome card's three ways and "I have no ComfyUI yet", the window
+ * tour on a first start, an example opened from the welcome card, a picture ComfyUI saved dropped on the window (the
+ * workflow inside it opens, the one import message says so, File > Open recent lists it), the run card after Save
+ * workflow for ComfyUI, a ComfyUI error pasted back and pointed at its node, glossary hints in a lesson, and a file
+ * named on the command line. The ComfyUI is the fake MCP server's fixture; nothing reaches a real one.
+ */
 import { test, expect, _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -5,16 +12,9 @@ import * as path from 'path';
 import { useEnglish } from './locale';
 import { startFakeMcp } from '../fixtures/mcp/fakeMcpServer';
 
-/**
- * The journey on the real window: the welcome card's three ways and "I have no ComfyUI yet", the window tour on a
- * first start, an example opened from the welcome card, a picture ComfyUI saved dropped on the window (the workflow
- * inside it opens, the one import message says so, File ▸ Open recent lists it), the run card after Save workflow
- * for ComfyUI, a ComfyUI error pasted back and pointed at its node, glossary hints in a lesson, and a file named on
- * the command line. The ComfyUI is the fake MCP server's fixture; nothing reaches a real one.
- */
-
 async function launch(userData: string, extra: string[] = []): Promise<{ app: ElectronApplication; page: Page }> {
   const env: Record<string, string | undefined> = { ...process.env, NODE_ENV: 'production' };
+  // No session bus and no keyring daemon, so Electron does not talk to the desktop's keyring during the run.
   delete env.DBUS_SESSION_BUS_ADDRESS;
   delete env.GNOME_KEYRING_CONTROL;
   const app = await electron.launch({ args: [path.join(__dirname, '../../dist/main/index.js'), `--user-data-dir=${userData}`, ...extra], env: env as Record<string, string> });

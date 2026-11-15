@@ -1,3 +1,9 @@
+/**
+ * E2E spec for privacy controls that need consent: Forget all and Clear chat history ask first, say what goes, and are
+ * off when there is nothing to remove; adult content is turned on only through the content rules and "I am 18 or
+ * older", and off at once; a second start on the same profile hands over to the first window and exits.
+ * A person must not lose data by one stray click or see adult content without choosing to.
+ */
 import { test, expect, _electron as electron } from '@playwright/test';
 import { spawn } from 'child_process';
 import * as fs from 'fs';
@@ -6,6 +12,7 @@ import * as path from 'path';
 import { useEnglish } from './locale';
 
 const MAIN = path.join(__dirname, '../../dist/main/index.js');
+// Required, not imported: the electron package's main export is the path of its binary, used to start a second app.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const ELECTRON_BINARY = require('electron') as unknown as string;
 

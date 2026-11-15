@@ -1,3 +1,9 @@
+/**
+ * Protects the sync with Settings > Privacy > "Look up models on the internet" on, against the fake MCP server and the
+ * fake of Civitai and Hugging Face (labelled fixtures). Nothing is asked while the setting is off. Only files whose
+ * fingerprint is known and that nothing from Civitai describes are asked about; no fingerprint is made during sync;
+ * requests are spaced; answers are kept and not asked for again. This is the privacy promise of that setting.
+ */
 import { afterEach, describe, expect, it } from 'vitest';
 import Database from 'better-sqlite3';
 import { migrate } from '../../src/main/settings/migrate';
@@ -9,12 +15,6 @@ import { fakeFileHash, startFakeMcp, type FakeMcp } from '../fixtures/mcp/fakeMc
 import { CIVITAI_KNOWN, startFakeModelWeb, type FakeModelWeb } from '../fixtures/web/fakeModelWeb';
 import { steppingClock } from '../support/fakeClock';
 
-/**
- * Sync with Settings ▸ Privacy ▸ "Look up models on the internet" on, against the fake MCP server and the fake of
- * Civitai and Hugging Face (labelled fixtures). Only files whose fingerprint is known and that nothing from Civitai
- * describes are asked about; no fingerprint is made during sync; requests are spaced; answers are kept and not
- * asked for again.
- */
 let fake: FakeMcp | null = null;
 let web: FakeModelWeb | null = null;
 

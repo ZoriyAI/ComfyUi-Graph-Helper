@@ -1,3 +1,14 @@
+/**
+ * E2E spec for the helper's "Learn" mode: the person builds a graph by hand and the app follows along.
+ * - the list of lessons says which fit this ComfyUI, and why one does not;
+ * - a lesson is followed on the real canvas: reading a step, adding a node by hand through "Show me where",
+ *   letting the app do a step, writing a description, and the lesson is done when the graph is;
+ * - where a person is in a lesson is read off the graph: deleting a node takes the lesson back;
+ * - the open lesson and what was read in it are there again after a restart of the page;
+ * - whole video lessons (several on WanVideoWrapper among them) can be carried through, and the graph a lesson
+ *   built is checked, its description read for what will not work.
+ * LESSON_SHOTS=<dir> keeps pictures of the panel for a person to look at.
+ */
 import { test, expect, _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -8,22 +19,12 @@ import { LESSONS, ordinaryLessons } from '../../src/shared/lessons/lessons';
 import { expectSoundLayout } from './layoutProfile';
 import { useEnglish } from './locale';
 
-/**
- * The helper's "Learn" mode: the person builds a graph by hand and the app follows along.
- * - the list of lessons says which fit this ComfyUI, and why one does not;
- * - a lesson is followed on the real canvas: reading a step, adding a node by hand through "Show me where",
- *   letting the app do a step, writing a description, and the lesson is done when the graph is;
- * - where a person is in a lesson is read off the graph: deleting a node takes the lesson back;
- * - the open lesson and what was read in it are there again after a restart of the page;
- * - a whole video lesson can be carried through.
- * LESSON_SHOTS=<dir> keeps pictures of the panel for a person to look at.
- */
-
 type Bridge = (name: string, args?: unknown[]) => Promise<any>;
 
 async function launch(fake: FakeMcp | null): Promise<{ app: ElectronApplication; page: Page; api: Bridge; userData: string }> {
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'lessons-'));
   const env: Record<string, string | undefined> = { ...process.env, NODE_ENV: 'production' };
+  // No session bus and no keyring daemon, so Electron does not talk to the desktop's keyring during the run.
   delete env.DBUS_SESSION_BUS_ADDRESS;
   delete env.GNOME_KEYRING_CONTROL;
   const app = await electron.launch({ args: [path.join(__dirname, '../../dist/main/index.js'), `--user-data-dir=${userData}`], env: env as Record<string, string> });

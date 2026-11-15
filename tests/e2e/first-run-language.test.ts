@@ -1,14 +1,16 @@
+/**
+ * E2E spec for the first-run language: a first start speaks the system's language, Russian for a Russian system and
+ * English for any other. The welcome card offers the other language in one click, and the choice is kept for the next
+ * start. Each test sets LANGUAGE in its own launch env, overriding playwright.config.ts.
+ */
 import { test, expect, _electron as electron } from '@playwright/test';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 
-/**
- * A first start speaks the system's language: Russian for a Russian system, English for any other. The welcome card
- * offers the other language in one click, and the choice is kept for the next start.
- */
 async function launch(userData: string, systemLanguage: string) {
   const env = { ...process.env, NODE_ENV: 'production', LANGUAGE: systemLanguage, LANG: '' } as Record<string, string>;
+  // No session bus and no keyring daemon, so Electron does not talk to the desktop's keyring during the run.
   delete env.DBUS_SESSION_BUS_ADDRESS;
   delete env.GNOME_KEYRING_CONTROL;
   const app = await electron.launch({ args: [path.join(__dirname, '../../dist/main/index.js'), `--user-data-dir=${userData}`], env });

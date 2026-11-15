@@ -1,3 +1,8 @@
+/**
+ * The output folder for e2e screenshots and logs that a person may want to open after a run.
+ * Used by the e2e specs that save pictures (desktop, desktop-captures, workspace-motion, mcp-access, and others).
+ * One folder keeps CI uploads simple: the workflow uploads it as a whole when a run fails.
+ */
 import * as fs from 'fs';
 import * as path from 'path';
 

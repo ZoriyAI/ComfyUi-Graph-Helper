@@ -1,3 +1,10 @@
+/**
+ * E2E spec that captures the built app at desktop sizes (1024 and 1280 wide, then 1440) and measures what a person
+ * sees: rendered text contrast (WCAG ratio on the real colors), the minimap clear of nodes, a graph fit inside the
+ * canvas, hover and press feedback, settings dialogs, window maximize, resize and move, page zoom, the local fonts,
+ * and no remote request (runtimeWatch.ts). Screenshots go to the artifact folder; numbers go to the run log.
+ * It guards readability and a working layout on the small laptop screens many learners use.
+ */
 import { test, expect, type Page, _electron as electron } from '@playwright/test';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -9,6 +16,7 @@ import { ARTIFACT_DIR } from './artifacts';
 
 const artifactDir = ARTIFACT_DIR;
 
+/** A #rrggbb color as rgb(r, g, b); anything else is returned unchanged. */
 function asRgb(color: string): string {
   const hex = color.trim().match(/^#([0-9a-f]{6})$/i);
   if (!hex) return color;
@@ -16,6 +24,7 @@ function asRgb(color: string): string {
   return `rgb(${(value >> 16) & 255}, ${(value >> 8) & 255}, ${value & 255})`;
 }
 
+/** The WCAG 2 contrast ratio of two colors (1 to 21); the alpha channel is ignored. */
 function contrast(a: string, b: string): number {
   const parse = (color: string) => {
     const match = asRgb(color).match(/rgba?\(([^)]+)\)/);
@@ -37,6 +46,10 @@ function contrast(a: string, b: string): number {
   return (lighter + 0.05) / (darker + 0.05);
 }
 
+/**
+ * Waits until the canvas has stopped moving (the fit animation lasts data-fit-duration ms), then reports nodes cut
+ * by the pane edge and nodes under the minimap.
+ */
 async function readSettledGraph(window: Page) {
   const duration = Number(await window.locator('.graph-canvas').getAttribute('data-fit-duration')) || 0;
   const started = Date.now();

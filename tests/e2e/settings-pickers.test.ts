@@ -1,3 +1,8 @@
+/**
+ * E2E spec: Settings offers lists instead of making the person type: a local OpenAI-compatible server's models
+ * (a labelled fixture server on 127.0.0.1, not a discovered environment) and the addresses saved before.
+ * A typo in a model name or an address is the most common reason the assistant does not answer.
+ */
 import { test, expect, _electron as electron } from '@playwright/test';
 import * as fs from 'fs';
 import * as http from 'http';
@@ -5,10 +10,6 @@ import * as os from 'os';
 import * as path from 'path';
 import { useEnglish } from './locale';
 
-/**
- * Settings offers lists instead of making the person type: a local OpenAI-compatible server's models
- * (a labelled fixture server on 127.0.0.1, not a discovered environment) and the addresses saved before.
- */
 test('the model picker lists what a local server serves and fills the model field', async () => {
   const hits: string[] = [];
   const server = http.createServer((req, res) => {

@@ -1,3 +1,7 @@
+/**
+ * Shared e2e steps that open the File menu of the menu bar and run an item by its visible name.
+ * Used by catalog-snapshot, export-guard, live-local-electron and prerelease-journey.
+ */
 import type { Page } from '@playwright/test';
 
 /**

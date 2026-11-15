@@ -8,6 +8,7 @@
 
 type InputSpec = [string, Record<string, unknown>?] | [string[], Record<string, unknown>?];
 
+/** One class in the fake server's own shape: `pack` is an index into its PACKS, inputs as /object_info writes them. */
 export interface FoundationsClassDef {
   classType: string;
   pack: number;
@@ -21,6 +22,7 @@ export interface FoundationsClassDef {
   description?: string;
 }
 
+/** The foundations classes, all in pack 0 (comfy-core). */
 export const FOUNDATIONS_CLASSES: FoundationsClassDef[] = [
   { classType: 'PrimitiveInt', pack: 0, display: 'Int', category: 'utilities/primitive', required: { value: ['INT', { default: 0, control_after_generate: 'fixed' }] }, output: ['INT'] },
   { classType: 'PrimitiveStringMultiline', pack: 0, display: 'Text (Multiline)', category: 'utilities/primitive', required: { value: ['STRING', { multiline: true }] }, output: ['STRING'] },

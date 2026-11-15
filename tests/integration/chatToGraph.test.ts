@@ -1,3 +1,8 @@
+/**
+ * Integration test of the path from a chat message to the graph: chat UI, the preload bridge, tool execution and the
+ * graph store. A test transport stands in for the model (no real model calls). It protects that a tool call from the
+ * assistant really adds and annotates nodes, records who made the change, and fails cleanly when a tool fails.
+ */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useGraphStore } from '../../src/renderer/state/graphState';
 import { useChatStore } from '../../src/renderer/state/chatState';
@@ -6,11 +11,6 @@ import { getChatService } from '../../src/renderer/services/llm/chatService';
 import { useProjectionStore } from '../../src/renderer/services/commands/projection';
 import { DESKTOP_PROJECT_ID } from '../../src/shared/project';
 import { BUILD_TOOL_SPECS } from '../../src/shared/commands/toolSpecs';
-
-/**
- * Integration test: Chat UI -> IPC -> Main AI SDK -> Tool Execution -> Graph
- * Uses TEST fixture transport (not real LLM calls)
- */
 
 // Mock window.electronAPI with test transport
 const started = {

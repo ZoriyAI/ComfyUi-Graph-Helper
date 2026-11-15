@@ -1,3 +1,9 @@
+/**
+ * E2E spec for the step checkpoint: the TEST fixture "build a long chain" takes 70 tool steps. With the default 60
+ * steps per answer the turn pauses with a visible card ("The helper used 60 steps and paused"), the run stays paused,
+ * and Continue resumes the same run and sends "continue", so the build finishes all 70 steps.
+ * The checkpoint keeps a runaway assistant from spending a person's tokens without asking.
+ */
 import { test, expect, _electron as electron } from '@playwright/test';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -6,11 +12,6 @@ import { useEnglish } from './locale';
 import { pickOption } from './pickOption';
 import { expectSoundLayout } from './layoutProfile';
 
-/**
- * Step checkpoint: the TEST fixture "build a long chain" takes 70 tool steps. With the default 60 steps per
- * answer the turn pauses with a visible card ("The helper used 60 steps and paused"), the run stays paused, and
- * Continue resumes the same run and sends "continue", so the build finishes all 70 steps.
- */
 test('step checkpoint: a 70-step build pauses at 60 with a card, and Continue finishes it', async () => {
   test.setTimeout(240000);
   const errors: string[] = [];

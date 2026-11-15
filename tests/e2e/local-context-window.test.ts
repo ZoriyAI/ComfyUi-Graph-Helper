@@ -1,3 +1,9 @@
+/**
+ * E2E spec for a model on the person's own server that was loaded with a small context window (a labelled fixture
+ * server on 127.0.0.1 that speaks like Ollama; not a live model). The connection check in Settings reports the window,
+ * a question shows what happened in the chat in plain words, the record of the answer holds the numbers, and the
+ * next question goes out with the reduced tool set. A small local model must degrade with an explanation, not fail.
+ */
 import { test, expect, _electron as electron } from '@playwright/test';
 import * as fs from 'fs';
 import * as http from 'http';
@@ -5,13 +11,6 @@ import * as os from 'os';
 import * as path from 'path';
 import { useEnglish } from './locale';
 import { expectSoundLayout } from './layoutProfile';
-
-/**
- * A model on the person's own server that was loaded with a small context window (a labelled fixture server on
- * 127.0.0.1 that speaks like Ollama; not a live model). The connection check in Settings reports the window, a
- * question shows what happened in the chat in plain words, the record of the answer holds the numbers, and the
- * next question goes out with the reduced tool set.
- */
 
 const MODEL = 'fixture-small:4b';
 

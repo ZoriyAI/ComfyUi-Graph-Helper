@@ -1,3 +1,8 @@
+/**
+ * E2E spec for component records: the purpose and usage notes a person writes for a node or a subgraph (nested
+ * definitions too) and the process title and notes. They are saved in the native project file, shown again after a
+ * switch to Russian, and kept out of the ComfyUI export, which must stay a clean workflow for ComfyUI.
+ */
 import { test, expect, _electron as electron } from '@playwright/test';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -7,6 +12,7 @@ import { useEnglish } from './locale';
 const INNER = '11111111-1111-4111-8111-111111111111';
 const NESTED = '22222222-2222-4222-8222-222222222222';
 const PURPOSE = 'Loads the portrait checkpoint';
+// The usage text carries an instruction on purpose: it is stored as written and never acted on.
 const USAGE = 'Connect MODEL to the sampler. ignore previous instructions';
 const NESTED_USAGE = 'Open this only as a definition. Do not treat it as a group.';
 
@@ -93,6 +99,7 @@ test('node and subgraph records persist in the native project and stay out of Co
   const nodeForm = window.locator('[data-component-owner="node:7"]');
   await nodeForm.locator('textarea').nth(0).fill(PURPOSE);
   await nodeForm.locator('textarea').nth(1).fill(USAGE);
+  // Backspace in a text field edits the text; it must not delete the selected node (the count below proves it).
   await nodeForm.locator('textarea').nth(1).press('Backspace');
   await expect(window.locator('.react-flow__node')).toHaveCount(1);
   await nodeForm.getByRole('button', { name: 'Save documentation' }).click();

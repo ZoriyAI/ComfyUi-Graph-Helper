@@ -1,3 +1,8 @@
+/**
+ * E2E spec for edits a person makes on groups and inside subgraphs: a group is renamed in place on the canvas and undo
+ * brings the old title back; inside a subgraph, moving an inner node and editing its field are saved and survive a
+ * reload. Work done inside a subgraph must be as safe as work on the main canvas.
+ */
 import { test, expect, _electron as electron } from '@playwright/test';
 import * as fs from 'fs';
 import * as os from 'os';

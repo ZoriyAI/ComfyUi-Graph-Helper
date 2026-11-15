@@ -1,3 +1,9 @@
+/**
+ * Protects batch commands in the main command log (commitCommand): a multi-node delete, a paste with its inner links
+ * (new ids; "@k" names the k-th new node), a nudge of several nodes. Each batch is one revision, so one undo
+ * (restore to the revision before) brings everything back, and a batch with one bad edit is refused whole.
+ * A person expects Ctrl+Z after a paste or a group delete to undo all of it, not one node at a time.
+ */
 import { describe, expect, it } from 'vitest';
 import Database from 'better-sqlite3';
 import { migrate } from '../../src/main/settings/migrate';
@@ -9,10 +15,6 @@ import { CLASSES, objectInfoDocument } from '../fixtures/mcp/fakeMcpServer';
 import { fragmentOf, pasteEdits, type Fragment } from '../../src/renderer/components/graph/lib/clipboard';
 import { describeRevision } from '../../src/renderer/state/undoState';
 
-/**
- * A batch is one revision: a multi-node delete, a paste with its inner links (new ids, "@k" names the k-th new
- * node), a nudge of several nodes. One undo (restore to the revision before) brings everything back.
- */
 function open(): Database.Database {
   const db = new Database(':memory:');
   migrate(db);

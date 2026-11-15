@@ -1,3 +1,8 @@
+/**
+ * E2E spec for opening and saving ComfyUI workflows: an import puts the workflow on the canvas and the export keeps
+ * fields the app does not know (vendor keys, custom group and node fields); the Import and Export buttons use the file
+ * dialogs, and a cancelled dialog changes nothing. A person's workflow must come back to ComfyUI with nothing lost.
+ */
 import { test, expect, _electron as electron } from '@playwright/test';
 import { useEnglish } from './locale';
 import { exportPastGuard } from './exportGuard';
@@ -5,6 +10,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 
+// Fields the app has no use for (vendor, custom, customFlag) are here to prove the export keeps them.
 const workflow = {
   version: 1,
   state: { lastNodeId: 1, lastLinkId: 0 },

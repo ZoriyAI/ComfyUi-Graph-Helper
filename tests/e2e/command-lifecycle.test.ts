@@ -1,3 +1,9 @@
+/**
+ * E2E spec for the command log through the preload bridge of the built app: assistant runs and manual edits commit
+ * into one canonical graph. It covers stale revisions after a person's edit, project switches during a run, replays of
+ * the same action id, a lost answer retried, pause and resume, and cancel; dbState reads the SQLite file to check what
+ * was really stored. If this breaks, the assistant and the person could write over each other or apply an edit twice.
+ */
 import { test, expect, _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -9,6 +15,7 @@ let electronApp: ElectronApplication;
 let window: Page;
 let userData: string;
 
+/** Reads the project, its current revision, runs and applied commands straight from the profile's database. */
 async function dbState(projectId: string) {
   const appRoot = path.join(__dirname, '../..');
   return electronApp.evaluate(async ({ app }, { id, appRoot }) => {

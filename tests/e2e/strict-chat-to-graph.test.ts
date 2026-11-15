@@ -1,3 +1,17 @@
+/**
+ * STRICT E2E chat-to-graph test on the TEST fixture transport. Acceptance criteria (all must pass):
+ * 1. Fresh isolated profile (no persisted state)
+ * 2. Capture initial node IDs BEFORE config/send
+ * 3. ID set difference exactly 1 after completion
+ * 4. NEW node has annotation rendered in UI
+ * 5. addNode tool status: SUCCESS
+ * 6. annotateNode tool status: SUCCESS
+ * 7. Final assistant text contains expected completion
+ * 8. No error messages
+ * 9. Busy cleared: empty Send stays disabled; a nonempty draft (not sent)
+ *    enables Send while the input stays enabled
+ * A failed turn must show a readable error and leave the graph untouched.
+ */
 import { test, expect, _electron as electron } from '@playwright/test';
 import { pickOption } from './pickOption';
 import { useEnglish } from './locale';
@@ -6,21 +20,6 @@ import * as fs from 'fs';
 import * as os from 'os';
 import { artifact } from './artifacts';
 
-/**
- * STRICT E2E Chat-to-Graph Test
- * 
- * Acceptance Criteria (ALL must pass):
- * 1. Fresh isolated profile (no persisted state)
- * 2. Capture initial node IDs BEFORE config/send
- * 3. ID set difference exactly 1 after completion
- * 4. NEW node has annotation rendered in UI
- * 5. addNode tool status: SUCCESS
- * 6. annotateNode tool status: SUCCESS  
- * 7. Final assistant text contains expected completion
- * 8. No error messages
- * 9. Busy cleared: empty Send stays disabled; a nonempty draft (not sent)
- *    enables Send while the input stays enabled
- */
 const EXPECTED_REPLY = 'I have added a TestNode and annotated it.';
 const MAIN_LOG = artifact('strict-main-process.log');
 const RENDERER_LOG = artifact('strict-renderer-console.log');

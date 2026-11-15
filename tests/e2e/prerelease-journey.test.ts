@@ -1,3 +1,9 @@
+/**
+ * E2E spec for the journey a release must pass: configure a provider, build a process with the TEST fixture agent
+ * plus a local HTTP catalog fixture, and export a clean workflow; then import object_info so the agent can export a
+ * loader parameter. A session marker must not end up in any regular file of the profile.
+ * This is not a live model and it does not queue a ComfyUI prompt.
+ */
 import { test, expect, _electron as electron } from '@playwright/test';
 import * as fs from 'fs';
 import * as http from 'http';
@@ -9,14 +15,11 @@ import { exportPastGuard } from './exportGuard';
 import { loadNodeList } from './fileMenu';
 import { artifact, ARTIFACT_DIR } from './artifacts';
 
-/**
- * TEST fixture agent plus a local HTTP catalog fixture.
- * This is not a live model and it does not queue a ComfyUI prompt.
- */
 const SESSION_MARKER = 'session-marker-not-stored';
 const PURPOSE = 'Fixture node purpose';
 const PROCESS_TITLE = 'Fixture process';
 
+/** The first file under `dir` that holds the session marker, or null. */
 function containsMarker(dir: string): string | null {
   const needle = Buffer.from(SESSION_MARKER);
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -81,6 +84,7 @@ test('prerelease journey configures a provider, builds a process, and exports a 
   const comfyPath = path.join(userData, 'workflow.json');
   fs.mkdirSync(ARTIFACT_DIR, { recursive: true });
   const env = { ...process.env, NODE_ENV: 'production' } as Record<string, string>;
+  // No session bus and no keyring daemon, so Electron does not talk to the desktop's keyring during the run.
   delete env.DBUS_SESSION_BUS_ADDRESS;
   delete env.GNOME_KEYRING_CONTROL;
   const electronApp = await electron.launch({
@@ -239,6 +243,7 @@ test('object info import lets the agent export a loader parameter', async () => 
     },
   }));
   const env = { ...process.env, NODE_ENV: 'production' } as Record<string, string>;
+  // No session bus and no keyring daemon, so Electron does not talk to the desktop's keyring during the run.
   delete env.DBUS_SESSION_BUS_ADDRESS;
   delete env.GNOME_KEYRING_CONTROL;
   const electronApp = await electron.launch({

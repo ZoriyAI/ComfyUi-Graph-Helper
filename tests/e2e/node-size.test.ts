@@ -1,3 +1,13 @@
+/**
+ * E2E spec. Where a node goes is chosen before it is drawn, so the app works out how large it will be
+ * (shared/graph/layout.ts estimateNodeSize). When that came out smaller than the node really is, a tall node was
+ * put right against the one below it, or on it. These tests hold the worked-out size to the drawn one:
+ * - every class of a catalog is drawn and measured, and so are a node with a long name, a node with a note and a
+ *   subgraph: the worked-out height is never smaller than the drawn one, and at most a few pixels larger;
+ * - nodes a person adds one after another at the same place keep their distance, whatever their height,
+ *   also before ComfyUI is read.
+ * NODE_SIZE_OUT=<file> keeps the table of both sizes.
+ */
 import { test, expect, _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -6,16 +16,6 @@ import { startFakeMcp, type FakeMcp } from '../fixtures/mcp/fakeMcpServer';
 import { estimateNodeSize, type SizeHints, NODE_BOX } from '../../src/shared/graph/layout';
 import { NEW_NODE_GAP } from '../../src/renderer/components/graph/lib/geometry';
 
-/**
- * Where a node goes is chosen before it is drawn, so the app works out how large it will be
- * (shared/graph/layout.ts estimateNodeSize). When that came out smaller than the node really is, a tall node was
- * put right against the one below it, or on it. These tests hold the worked-out size to the drawn one:
- * - every class of a catalog is drawn and measured, and so are a node with a long name, a node with a note and a
- *   subgraph: the worked-out height is never smaller than the drawn one, and at most a few pixels larger;
- * - nodes a person adds one after another at the same place keep their distance, whatever their height;
- * NODE_SIZE_OUT=<file> keeps the table of both sizes.
- */
-
 type Bridge = (name: string, args?: unknown[]) => Promise<any>;
 interface Drawn { id: string; x: number; y: number; width: number; height: number }
 
@@ -23,6 +23,7 @@ interface Drawn { id: string; x: number; y: number; width: number; height: numbe
 async function launch(fake?: FakeMcp): Promise<{ app: ElectronApplication; page: Page; api: Bridge; userData: string }> {
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'node-size-'));
   const env: Record<string, string | undefined> = { ...process.env, NODE_ENV: 'production' };
+  // No session bus, so Electron does not talk to the desktop's keyring during the run.
   delete env.DBUS_SESSION_BUS_ADDRESS;
   delete env.GNOME_KEYRING_CONTROL;
   const app = await electron.launch({ args: [path.join(__dirname, '../../dist/main/index.js'), `--user-data-dir=${userData}`], env: env as Record<string, string> });

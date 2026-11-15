@@ -1,3 +1,9 @@
+/**
+ * Protects the sync when the MCP address changes in Settings, when one model folder fails, and without an address.
+ * The library must say which address it was read from, a folder that fails is named while its old list is kept, and
+ * no address is not a failure. TEST fixtures only: fake MCP servers and a misbehaving proxy on 127.0.0.1
+ * (tests/fixtures/mcp).
+ */
 import Database from 'better-sqlite3';
 import { afterEach, describe, expect, it } from 'vitest';
 import { migrate } from '../../src/main/settings/migrate';
@@ -7,10 +13,6 @@ import { syncSummary, syncView } from '../../src/renderer/components/sync/syncVi
 import { startFakeMcp, type FakeMcp } from '../fixtures/mcp/fakeMcpServer';
 import { startMcpProxy, toolText, type McpProxy } from '../fixtures/mcp/mcpProxy';
 
-/**
- * The sync when the address changes, when one model folder fails, and without an address. TEST fixtures only:
- * fake MCP servers and a misbehaving proxy on 127.0.0.1 (tests/fixtures/mcp).
- */
 const closers: Array<() => Promise<void>> = [];
 afterEach(async () => {
   while (closers.length > 0) await closers.pop()?.();

@@ -1,3 +1,8 @@
+/**
+ * Protects the safe start guard (src/main/startGuard.ts, src/main/ipc/startIpc.ts). When a graph replaced the one on
+ * screen and was never drawn (the window hung or closed on it), the next start asks whether to open it again or
+ * start from an empty canvas. A person must never be stuck in a crash loop on a graph that cannot be drawn.
+ */
 import Database from 'better-sqlite3';
 import * as fs from 'fs';
 import * as os from 'os';

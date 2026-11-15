@@ -1,11 +1,5 @@
-import { test, expect, _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
-import * as fs from 'fs';
-import * as os from 'os';
-import * as path from 'path';
-import { startFakeMcp, type FakeMcp } from '../fixtures/mcp/fakeMcpServer';
-
 /**
- * Files, history and the check in the real app, in Russian (the default):
+ * E2E spec for files, history and the check in the real app, in Russian (the default):
  * - the import toast counts what is missing and offers the check; a node this ComfyUI does not have is marked at once;
  * - the check names what ComfyUI refuses (no output node, a value out of range, a value not in its list);
  * - a node without its own title goes by the catalog name;
@@ -17,6 +11,11 @@ import { startFakeMcp, type FakeMcp } from '../fixtures/mcp/fakeMcpServer';
  * - a corrected number says why; the person's note is theirs; the view comes back after a restart.
  * Shots go to FILES_CHECK_SHOTS when set.
  */
+import { test, expect, _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+import { startFakeMcp, type FakeMcp } from '../fixtures/mcp/fakeMcpServer';
 
 type Bridge = (name: string, args?: unknown[]) => Promise<any>;
 interface Ctx { app: ElectronApplication; page: Page; api: Bridge; errors: string[] }
@@ -25,6 +24,7 @@ const SHOTS = process.env.FILES_CHECK_SHOTS ?? '';
 
 async function launch(userData: string, fake: FakeMcp, first: boolean): Promise<Ctx> {
   const env: Record<string, string | undefined> = { ...process.env, NODE_ENV: 'production' };
+  // No session bus and no keyring daemon, so Electron does not talk to the desktop's keyring during the run.
   delete env.DBUS_SESSION_BUS_ADDRESS;
   delete env.GNOME_KEYRING_CONTROL;
   const app = await electron.launch({ args: [path.join(__dirname, '../../dist/main/index.js'), `--user-data-dir=${userData}`], env: env as Record<string, string> });

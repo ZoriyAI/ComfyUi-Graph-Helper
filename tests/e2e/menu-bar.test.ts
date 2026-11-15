@@ -1,3 +1,9 @@
+/**
+ * E2E spec for the desktop menu bar drawn by the app (Electron's default menu is removed): it works with the mouse,
+ * with Alt and the arrow keys, through shortcuts, and runs the same commands as the toolbar. The import dialog is
+ * stubbed in main and counted, so a command that reaches it shows here. A person must find every command one way or
+ * another, and each way must do the same thing.
+ */
 import { test, expect, _electron as electron } from '@playwright/test';
 import * as fs from 'fs';
 import * as os from 'os';
