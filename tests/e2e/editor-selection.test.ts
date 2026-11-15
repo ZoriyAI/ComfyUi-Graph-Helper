@@ -11,6 +11,7 @@ import * as path from 'path';
 import type { Page } from '@playwright/test';
 import { useEnglish } from './locale';
 import { typedWorkflow } from './fixtures/typedWorkflow';
+import { en } from '../../src/shared/i18n/catalog';
 
 /** Starts the built app in a fresh profile, in English, and waits for the assistant panel. */
 async function launch() {
@@ -139,11 +140,12 @@ test('Check Show and Ask Why preserve a definition-local identity that also exis
     await window.keyboard.press('Control+Shift+c');
     const row = window.locator('.check-panel li[data-type="missingNodes"]').filter({ hasText: 'MissingInnerClass' });
     await expect(row).toHaveCount(1);
-    await row.getByRole('button', { name: 'Show', exact: true }).click();
+    // The whole finding is its Show button: named by its sentence, then by what it does (". Show").
+    await row.getByRole('button', { name: new RegExp(`\\. ${en.explain.checkShow}$`) }).click();
     await expect(window.locator('[data-canvas-mode="definition"]')).toBeVisible();
     await expect(window.locator('.react-flow__node[data-id="1"]')).toContainText('Inner node one');
     await expect(window.locator('.react-flow__node[data-id="1"]')).toHaveClass(/selected/);
-    await row.getByRole('button', { name: 'Ask why', exact: true }).click();
+    await row.getByRole('button', { name: en.explain.checkAskWhy, exact: true }).click();
     // Context belongs to the live turn; persisted ChatRecord rows intentionally omit it.
     await expect(window.locator('.message-row[data-role="user"] button[data-object-key]')).toHaveAttribute(
       'data-object-key', `node:1@${INNER_ID}`);

@@ -9,6 +9,7 @@ import type { GraphMutation } from '../../shared/commands/types';
 import { defaultParameters } from '../../shared/catalog/objectInfo';
 import { portsForClassType } from '../../shared/graph/ports';
 import {
+  afterRunSlot,
   boundsOfRects,
   estimateNodeSize,
   findFreeSlot,
@@ -47,7 +48,15 @@ export function classHints(catalog: CatalogView | null | undefined): ClassHints 
     if (!byClass) {
       byClass = new Map(catalog.nodes.map((node) => [
         node.classType,
-        { inputs: node.inputs.map((input) => ({ name: input.name, widget: input.widget, multiline: input.multiline })) },
+        {
+          inputs: node.inputs.map((input) => ({
+            name: input.name,
+            widget: input.widget,
+            multiline: input.multiline,
+            // A seed's "after run" row (the rule of shared/graph/layout.ts sizeHintsOfClass).
+            ...(input.controlDefault !== undefined && node.widgetOrder.includes(afterRunSlot(input.name)) ? { afterRun: true } : {}),
+          })),
+        },
       ]));
     }
     return byClass.get(classType) ?? null;

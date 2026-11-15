@@ -11,8 +11,9 @@ import * as os from 'os';
 import * as path from 'path';
 import { useEnglish } from './locale';
 import { startFakeMcp, type FakeMcp } from '../fixtures/mcp/fakeMcpServer';
-import { estimateNodeSize } from '../../src/shared/graph/layout';
+import { estimateNodeSize, sizeHintsOfClass } from '../../src/shared/graph/layout';
 import { classPresence } from '../../src/shared/workflow/comfyLook';
+import { en } from '../../src/shared/i18n/catalog';
 
 const FIXTURE = path.join(__dirname, '../fixtures/workflows/import-look-0.4.json');
 const SHOTS = process.env.LOOK_SHOTS;
@@ -42,7 +43,9 @@ async function openWorkflow(app: ElectronApplication, page: Page, file: string):
   await app.evaluate(({ dialog }, p) => {
     (dialog as any).showOpenDialog = async () => ({ canceled: false, filePaths: [p] });
   }, file);
-  await page.keyboard.press('Control+i');
+  // The toolbar's Open workflow… runs File ▸ Import. Ctrl+I would stay with the chat field, which has focus at the
+  // start (shortcuts other than Save, Open, New and Check do not work while typing).
+  await page.getByRole('toolbar', { name: en.toolbar.aria }).getByRole('button', { name: en.toolbar.import, exact: true }).click();
   await expect(page.locator('.react-flow__node').first()).toBeVisible({ timeout: 20_000 });
   await page.waitForTimeout(2500);
 }
@@ -102,7 +105,7 @@ test('an imported workflow is drawn as its file describes it', async () => {
       const data = projection.find((item: any) => item.id === id).data;
       const detail = await page.evaluate(async (type) => (window as any).electronAPI.nodeTypeDetail(type), data.comfyType);
       const missing = classPresence(data.comfyType, detail ?? null, true, data.kind === 'subgraph-instance') === 'missing';
-      const hints = detail ? { inputs: detail.inputs.map((input: any) => ({ name: input.name, widget: input.widget, multiline: Boolean(input.spec?.multiline) })), widgetOrder: detail.widgetOrder } : { missing };
+      const hints = detail ? sizeHintsOfClass(detail) : { missing };
       const estimate = estimateNodeSize(data, hints);
       const box = drawn.get(id)!;
       expect(Math.abs(box.width - estimate.width), `width of ${id}`).toBeLessThanOrEqual(1);

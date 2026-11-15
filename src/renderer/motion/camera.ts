@@ -116,11 +116,30 @@ function limits(): { min: number; max: number } {
   return { min: tokenMs('--motion-camera-min'), max: tokenMs('--motion-camera') };
 }
 
+/** Where the camera's move in flight is going, and until when (performance.now() milliseconds). */
+export interface Heading { to: Viewport; until: number }
+
+let heading: Heading | null = null;
+
+/**
+ * The view a relative move (a press of Zoom in or Zoom out) starts from: where the move in flight is going, else
+ * the view on screen. Starting from the view half-way through a glide lost most of each step, so eight quick
+ * presses of Zoom out on a slow computer barely left card zoom. Pure, so the rule is tested without a canvas.
+ */
+export function cameraBase(current: Viewport, inFlight: Heading | null, now: number): Viewport {
+  return inFlight && now < inFlight.until ? inFlight.to : current;
+}
+
 /** Moves the camera to `to` by the camera rule. Resolves when it arrives. */
 export function moveCamera(flow: ReactFlowInstance, to: Viewport): Promise<boolean> {
   const from = flow.getViewport();
   const plan = cameraPlan(from, to, paneSize(), motionLevel(), limits());
-  return flow.setViewport(to, { duration: plan.duration, ease: cameraEase, interpolate: plan.interpolate });
+  const mine: Heading | null = plan.duration > 0 ? { to, until: performance.now() + plan.duration } : null;
+  heading = mine;
+  return flow.setViewport(to, { duration: plan.duration, ease: cameraEase, interpolate: plan.interpolate }).finally(() => {
+    // Arrived (or stopped by the person's own pan or zoom): the view on screen is the base again.
+    if (heading === mine) heading = null;
+  });
 }
 
 /** How long the move to `to` will take now (0 when the camera cuts). */
@@ -146,7 +165,8 @@ export function centerCamera(flow: ReactFlowInstance, x: number, y: number, zoom
 
 /** Zooms about the canvas centre by `factor`, within React Flow's limits. */
 export function zoomCamera(flow: ReactFlowInstance, factor: number, limitsOf = { min: 0.1, max: 2 }): Promise<boolean> {
-  const view = flow.getViewport();
+  // A press during a glide steps from where the glide is going, so no press is lost.
+  const view = cameraBase(flow.getViewport(), heading, performance.now());
   const pane = paneSize();
   const zoom = Math.min(limitsOf.max, Math.max(limitsOf.min, view.zoom * factor));
   const cx = (pane.width / 2 - view.x) / view.zoom;
@@ -156,5 +176,5 @@ export function zoomCamera(flow: ReactFlowInstance, factor: number, limitsOf = {
 
 /** Zooms to an exact level about the canvas centre. */
 export function zoomCameraTo(flow: ReactFlowInstance, zoom: number): Promise<boolean> {
-  return zoomCamera(flow, zoom / flow.getZoom());
+  return zoomCamera(flow, zoom / cameraBase(flow.getViewport(), heading, performance.now()).zoom);
 }

@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import { edgeFocusable, edgeSpeech, linkedInputCounts, nodeSpeech, type Say, type SpokenNodeInput } from '../../src/renderer/components/graph/lib/spoken';
 import { nextRegion, REGIONS } from '../../src/renderer/a11y/regions';
-import { nearest, pickRescue } from '../../src/renderer/a11y/focusRescue';
+import { canvasSafe, nearest, pickRescue, type Closest } from '../../src/renderer/a11y/focusRescue';
 import { shortcutAllowed } from '../../src/renderer/commands/hotkeys';
 import { createTranslator } from '../../src/shared/i18n';
 import { recordVerdict } from '../../src/renderer/a11y/recordKeys';
@@ -71,6 +71,26 @@ describe('F6 areas and the focus rescue', () => {
     expect(pickRescue(['tab', 'field', 'gone'], (item) => item !== 'gone')).toBe('field');
     expect(pickRescue(['gone'], () => false)).toBeNull();
     expect(nearest({ x: 100, y: 100 }, [{ item: 'far', spot: { x: 900, y: 100 } }, { item: 'near', spot: { x: 160, y: 120 } }])).toBe('near');
+  });
+
+  it('on the canvas lands on the node that holds a field, not in the field', () => {
+    // A tiny stand-in for DOM elements: each knows the selectors it matches itself and its parent.
+    class Fake implements Closest<Fake> {
+      constructor(readonly name: string, readonly own: string[], readonly parent: Fake | null = null) {}
+      closest(selector: string): Fake | null {
+        const wanted = selector.split(',').map((part) => part.trim());
+        if (wanted.some((part) => this.own.includes(part))) return this;
+        return this.parent ? this.parent.closest(selector) : null;
+      }
+    }
+    const node = new Fake('node', ['.react-flow__node']);
+    const field = new Fake('steps', ['input'], node);
+    const button = new Fake('random seed', ['button'], node);
+    expect(canvasSafe(field, () => true).name).toBe('node');
+    expect(canvasSafe(button, () => true).name).toBe('random seed');
+    expect(canvasSafe(node, () => true).name).toBe('node');
+    // A node that cannot take focus leaves the field as it was.
+    expect(canvasSafe(field, (item) => item !== node).name).toBe('steps');
   });
 
   it('lets F1 open the shortcuts window while typing, but not over a dialog', () => {

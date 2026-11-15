@@ -1,6 +1,7 @@
 /**
  * E2E spec for layout: nodes never land on each other and a graph stays readable.
  * - a helper build on a canvas that already has nodes ends with no two node cards overlapping on screen;
+ * - a helper build on an empty canvas ends on readable cards around its middle, and Fit to view shows it whole;
  * - "Arrange the graph" moves nodes in one commit, and one Undo puts every node back;
  * - zoomed far out, the canvas switches to its overview level (data-zoom="overview") and back.
  * LAYOUT_SHOTS=<dir> saves screenshots of the end of the build, for a person to look at.
@@ -131,14 +132,24 @@ test('a helper build on an empty canvas is tidied and shown whole', async () => 
   await buildWithHelper(window, 7);
   await shot(window, 'build-on-empty');
   expect(overlaps(await nodeBoxes(window))).toEqual([]);
-  // Every node is on screen after the closing fit.
-  const pane = await window.locator('.react-flow').boundingBox();
-  for (const box of await nodeBoxes(window)) {
-    expect(box.x).toBeGreaterThanOrEqual(pane!.x - 1);
-    expect(box.x + box.width).toBeLessThanOrEqual(pane!.x + pane!.width + 1);
-  }
+  // The closing fit keeps the cards readable (lib/autoFit.ts): a seven-node build that almost fits is shown as
+  // cards around its middle, not as the overview map, so its outer nodes may reach past the edges.
+  const pane = (await window.locator('.react-flow').boundingBox())!;
+  await expect(window.locator('[data-canvas-mode="root"]')).not.toHaveAttribute('data-zoom', 'overview');
+  // How far the middle of what was built is from the middle of the canvas, in screen pixels.
+  const offCentre = async () => {
+    const built = await nodeBoxes(window);
+    const left = Math.min(...built.map((box) => box.x));
+    const right = Math.max(...built.map((box) => box.x + box.width));
+    const top = Math.min(...built.map((box) => box.y));
+    const bottom = Math.max(...built.map((box) => box.y + box.height));
+    return Math.max(Math.abs((left + right) / 2 - (pane.x + pane.width / 2)), Math.abs((top + bottom) / 2 - (pane.y + pane.height / 2)));
+  };
+  await expect.poll(offCentre).toBeLessThan(60);
+  // Fit to view shows it whole: every node is on screen.
   await window.locator('.react-flow__controls-fitview').click();
-  await window.waitForTimeout(600);
+  await expect.poll(async () => (await nodeBoxes(window)).filter((box) => box.x < pane.x - 1 || box.x + box.width > pane.x + pane.width + 1
+    || box.y < pane.y - 1 || box.y + box.height > pane.y + pane.height + 1).map((box) => box.id)).toEqual([]);
   await shot(window, 'build-on-empty-fit');
   expect(overlaps(await fullSizeBoxes(window))).toEqual([]);
   await shot(window, 'build-on-empty-100');

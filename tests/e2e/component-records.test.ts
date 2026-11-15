@@ -8,6 +8,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { useEnglish } from './locale';
+import { en } from '../../src/shared/i18n/catalog';
 
 const INNER = '11111111-1111-4111-8111-111111111111';
 const NESTED = '22222222-2222-4222-8222-222222222222';
@@ -95,6 +96,8 @@ test('node and subgraph records persist in the native project and stay out of Co
   await useEnglish(window);
   await expect(window.getByText('Portrait loader')).toBeVisible();
   await window.getByText('Portrait loader').click();
+  // The right panel opens on the Assistant; the notes are written in the Properties tab.
+  await window.getByRole('tab', { name: en.dock.inspector, exact: true }).click();
 
   const nodeForm = window.locator('[data-component-owner="node:7"]');
   await nodeForm.locator('textarea').nth(0).fill(PURPOSE);

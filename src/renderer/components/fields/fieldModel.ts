@@ -6,6 +6,7 @@
  */
 import type { FieldKind, FieldSpec, NodeClassDetail } from '../../../shared/contracts/knowledge';
 import type { ComfyNodeData, PortDefinition } from '../../types/graph';
+import { afterRunSlot } from '../../../shared/graph/layout';
 
 /** 'json': a value with no spec that is neither a number, a string nor a boolean; edited as text, as before. */
 export type ControlKind = FieldKind | 'json';
@@ -166,7 +167,8 @@ export const AFTER_RUN_CHOICES = ['fixed', 'increment', 'decrement', 'randomize'
 
 /** The slot that holds a field's "after run" choice. */
 export function afterRunKey(name: string): string {
-  return `${name}::control_after_generate`;
+  // One spelling with the size estimate, which counts this row (shared/graph/layout.ts).
+  return afterRunSlot(name);
 }
 
 /** A node's inputs split into the ports that take only links and the fields set by hand. */

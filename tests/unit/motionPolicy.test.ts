@@ -7,13 +7,13 @@ import { describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import { levelFor, parseDuration } from '../../src/renderer/motion/policy';
-import { cameraPlan, cubicBezier, travel } from '../../src/renderer/motion/camera';
+import { cameraBase, cameraPlan, cubicBezier, travel } from '../../src/renderer/motion/camera';
 import { autoFitView, AUTO_FIT_MIN_ZOOM } from '../../src/renderer/components/graph/lib/autoFit';
 import { OVERVIEW_EXIT } from '../../src/renderer/components/graph/lib/nodeSizes';
 import { replayChange } from '../../src/renderer/components/graph/lib/replayMotion';
 import { focusOf, passedMarks, placeOf } from '../../src/renderer/components/lessons/lessonMotion';
 import { checkedNodeIds } from '../../src/renderer/motion/attention';
-import { cullWindow, inWindow } from '../../src/renderer/components/graph/layers/DescriptionLayer';
+import { cardDrawn, cullWindow, inWindow } from '../../src/renderer/components/graph/layers/DescriptionLayer';
 import { sameNodeProps } from '../../src/renderer/components/graph/nodes/ComfyNode';
 import type { GraphEdge, GraphNode } from '../../src/renderer/types/graph';
 
@@ -157,6 +157,15 @@ describe('the camera rule', () => {
     expect(cameraPlan({ x: 5, y: 5, zoom: 1 }, { x: 5, y: 5, zoom: 1 }, pane, 'full', limits).duration).toBe(0);
   });
 
+  it('steps a zoom press from where a glide in flight is going, so quick presses add up', () => {
+    const onScreen = { x: 0, y: 0, zoom: 0.9 };
+    const target = { x: 100, y: 50, zoom: 0.5 };
+    expect(cameraBase(onScreen, { to: target, until: 1000 }, 400)).toBe(target);
+    // The glide is over (or none): the view on screen.
+    expect(cameraBase(onScreen, { to: target, until: 1000 }, 1000)).toBe(onScreen);
+    expect(cameraBase(onScreen, null, 400)).toBe(onScreen);
+  });
+
   it('eases in and out on one curve', () => {
     const ease = cubicBezier(0.65, 0, 0.35, 1);
     expect(ease(0)).toBe(0);
@@ -245,6 +254,12 @@ describe('zoom performance helpers', () => {
     expect(inWindow({ x: 100, y: 100, width: 50, height: 50 }, window, false)).toBe(true);
     expect(inWindow({ x: 5000, y: 100, width: 50, height: 50 }, window, false)).toBe(false);
     expect(inWindow({ x: 5000, y: 100, width: 50, height: 50 }, window, true)).toBe(true);
+  });
+  it('rests the cards while the zoom changes, but keeps the one being written in', () => {
+    expect(cardDrawn(true, '4', null)).toBe(true);
+    expect(cardDrawn(false, '4', null)).toBe(false);
+    expect(cardDrawn(false, '4', '4')).toBe(true);
+    expect(cardDrawn(false, '5', '4')).toBe(false);
   });
   it('redraws a node only for its data or its selection', () => {
     const data = { a: 1 };

@@ -11,6 +11,9 @@
  * last element the person used in that area if it can still take focus, else to a place the area marked for
  * this (data-focus-fallback), else to the node nearest to where a lost node or link was, else to an element used
  * earlier in that area, else to the area's entry element.
+ * On the canvas the rescue never lands in a field of a node: it lands on the node that holds the field. Otherwise
+ * focus that fell to the body when a floating box closed (the add-node search after Enter) went back into the last
+ * field the person typed in, and the next Ctrl+Z or Delete edited that field's text instead of the graph.
  * A click on an empty spot, or a focus change while the window is in the background, is left alone.
  */
 import { REGIONS, entryOf, nextRegion, regionIndexOf, usable } from './regions';
@@ -47,6 +50,22 @@ export function nearest<T>(spot: Spot, candidates: Array<{ item: T; spot: Spot }
     }
   }
   return best;
+}
+
+/** Where a person types text: a rescue must not put focus there on the canvas. */
+const TEXT_ENTRY = 'input, textarea, select, [contenteditable=""], [contenteditable="true"]';
+
+/** The part of an element `canvasSafe` needs; a DOM element has it, and the unit test fakes it. */
+export interface Closest<T> { closest(selector: string): T | null }
+
+/**
+ * The element a rescue on the canvas may focus: a field inside a node gives way to its node, so keys go to the
+ * graph (undo, delete) and not into a field the person had left. Anything else is returned as it is.
+ */
+export function canvasSafe<T extends Closest<T>>(target: T, isUsable: (element: T) => boolean): T {
+  if (!target.closest(TEXT_ENTRY)) return target;
+  const node = target.closest('.react-flow__node');
+  return node && isUsable(node) ? node : target;
 }
 
 /** Menus, dialogs and lists that float above the window manage focus themselves (Radix returns it on close). */
@@ -128,7 +147,8 @@ export function installFocusRescue(): () => void {
     // An open dialog or menu owns focus; it returns focus itself when it closes.
     if (document.querySelector('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"], [role="menu"][data-state="open"]')) return;
     if (lastRegion < 0) return;
-    const target = targetFor(lastRegion);
+    const found = targetFor(lastRegion);
+    const target = found && REGIONS[lastRegion]?.name === 'canvas' ? canvasSafe<Element>(found, usable) as HTMLElement : found;
     if (target) target.focus({ preventScroll: true });
   };
   // Two frames: Radix and React finish moving focus (or putting it back) before the check runs.
