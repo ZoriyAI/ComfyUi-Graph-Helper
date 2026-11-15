@@ -33,6 +33,7 @@ vi.mock('fs', async (importOriginal) => {
 });
 
 import { fileOpenErrorCode, fileWriteErrorCode, OPEN_FILE_MAX_BYTES, readPickedFile, writeFileAtomic } from '../../src/main/files/atomicWrite';
+import { readOpenedFile } from '../../src/main/files/openFile';
 import { createTranslator, translateKnownError } from '../../src/shared/i18n';
 
 const folders: string[] = [];
@@ -109,15 +110,17 @@ describe('opening a file the person picked', () => {
     const handle = fs.openSync(big, 'w');
     fs.ftruncateSync(handle, OPEN_FILE_MAX_BYTES + 1);
     fs.closeSync(handle);
-    const readsBefore = control.readCalls;
-    let caught: unknown = null;
-    try {
-      readPickedFile(big);
-    } catch (error) {
-      caught = error;
+    for (const read of [readPickedFile, readOpenedFile]) {
+      const readsBefore = control.readCalls;
+      let caught: unknown = null;
+      try {
+        read(big);
+      } catch (error) {
+        caught = error;
+      }
+      expect(control.readCalls).toBe(readsBefore);
+      expect(fileOpenErrorCode(caught, 'Workflow JSON could not be parsed.')).toBe('The file is too large to open.');
     }
-    expect(control.readCalls).toBe(readsBefore);
-    expect(fileOpenErrorCode(caught, 'Workflow JSON could not be parsed.')).toBe('The file is too large to open.');
     expect(translateKnownError(createTranslator('ru'), 'The file is too large to open.')).toBe('Этот файл слишком большой, чтобы его открыть.');
     expect(fileOpenErrorCode(new SyntaxError('Unexpected end'), 'Workflow JSON could not be parsed.')).toBe('Workflow JSON could not be parsed.');
   });

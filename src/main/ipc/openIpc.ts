@@ -25,7 +25,7 @@ import { getDatabase } from '../database';
 import { currentGraphKey } from '../knowledge/projectExplanations';
 import { rememberProjectFile } from '../projectFiles';
 import { fileOpenErrorCode } from '../files/atomicWrite';
-import { isOpenablePath, readOpenedFile } from '../files/openFile';
+import { isOpenablePath, PNG_TEXT_TOO_LARGE, readOpenedFile } from '../files/openFile';
 import { isRecent, recentFiles, rememberRecent, rememberSource } from '../files/recentFiles';
 import { watchReplacingCommit } from './startIpc';
 
@@ -67,7 +67,7 @@ export function openFileAtPath(filePath: string): OpenResponse {
   } catch (error) {
     // Only known codes pass through; any other message (a system error with a path in it) becomes a fixed code.
     const message = error instanceof Error ? error.message : '';
-    return rejected(message === 'This file holds no workflow.' || message === 'Workflow JSON could not be parsed.' ? message : fileOpenErrorCode(error, 'Workflow JSON could not be parsed.'));
+    return rejected(message === 'This file holds no workflow.' || message === 'Workflow JSON could not be parsed.' || message === PNG_TEXT_TOO_LARGE ? message : fileOpenErrorCode(error, 'Workflow JSON could not be parsed.'));
   }
   const userData = app.getPath('userData');
   const name = path.basename(filePath);

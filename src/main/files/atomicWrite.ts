@@ -92,7 +92,7 @@ export function fileWriteErrorCode(error: unknown, fallback: string, target?: st
 export const OPEN_FILE_MAX_BYTES = 64 * 1024 * 1024;
 
 /** A picked file over OPEN_FILE_MAX_BYTES; its message is the code the window translates. */
-class FileTooLargeError extends Error {
+export class FileTooLargeError extends Error {
   constructor() {
     super('The file is too large to open.');
   }

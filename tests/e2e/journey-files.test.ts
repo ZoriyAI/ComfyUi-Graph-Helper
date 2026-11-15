@@ -9,6 +9,7 @@ import { test, expect, _electron as electron, type ElectronApplication, type Pag
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import * as zlib from 'zlib';
 import { useEnglish } from './locale';
 import { startFakeMcp } from '../fixtures/mcp/fakeMcpServer';
 
@@ -62,6 +63,25 @@ async function dropFile(page: Page, file: string): Promise<void> {
     input.remove();
   });
 }
+
+test('an oversized picture workflow says why it cannot be opened and leaves the canvas alone', async () => {
+  const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'picture-limit-'));
+  const picture = path.join(userData, 'too-much.png');
+  const data = Buffer.concat([Buffer.from('workflow\0\0', 'latin1'), zlib.deflateSync(Buffer.alloc(16 * 1024 * 1024 + 1, 120))]);
+  const length = Buffer.alloc(4);
+  length.writeUInt32BE(data.length);
+  fs.writeFileSync(picture, Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), length, Buffer.from('zTXt'), data, Buffer.alloc(4)]));
+  const { app, page } = await launch(userData);
+  try {
+    await useEnglish(page);
+    await dropFile(page, picture);
+    await expect(page.getByText('The workflow text in this picture is too large.', { exact: false })).toBeVisible();
+    await expect(page.locator('.react-flow__node')).toHaveCount(0);
+  } finally {
+    await app.close();
+    fs.rmSync(userData, { recursive: true, force: true });
+  }
+});
 
 test('journey: welcome ways, tour, example, a dropped picture, run card, a ComfyUI error, term hints, command line', async () => {
   test.setTimeout(300_000);

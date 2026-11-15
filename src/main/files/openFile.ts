@@ -11,7 +11,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as zlib from 'zlib';
-import { OPEN_FILE_MAX_BYTES } from './atomicWrite';
+import { FileTooLargeError, OPEN_FILE_MAX_BYTES } from './atomicWrite';
 import { isNativeProjectFormat } from '../../shared/native-project';
 
 /** What a file holds, as far as opening it is concerned. */
@@ -22,6 +22,19 @@ export type OpenedFile =
 /** Error texts the window translates (shared/i18n ERROR_KEYS); the file's own words never reach the screen. */
 export const NO_WORKFLOW_IN_FILE = 'This file holds no workflow.';
 export const NOT_A_WORKFLOW_FILE = 'Workflow JSON could not be parsed.';
+/** A bounded PNG reader stopped before allocating more workflow text. */
+export const PNG_TEXT_TOO_LARGE = 'The workflow text in this picture is too large.';
+
+const PNG_TEXT_MAX = 16 * 1024 * 1024;
+const PNG_INFLATED_TOTAL_MAX = 32 * 1024 * 1024;
+const PNG_TEXT_CHUNKS_MAX = 256;
+
+/** Distinguished from damaged chunks, which may be skipped to read another workflow chunk. */
+class PngTextLimitError extends Error {
+  constructor() {
+    super(PNG_TEXT_TOO_LARGE);
+  }
+}
 
 /** Extensions the open dialog offers and a drop or a command line accepts. */
 export const OPENABLE_EXTENSIONS = ['json', 'png', 'webp', 'jpg', 'jpeg', 'mp4', 'webm', 'mkv', 'mov', 'gif', 'flac', 'mp3', 'opus', 'ogg'] as const;
@@ -44,9 +57,25 @@ export function isProjectDocument(document: unknown): boolean {
   return !!document && typeof document === 'object' && isNativeProjectFormat((document as { format?: unknown }).format);
 }
 
-/** Text chunks of a PNG by keyword (tEXt, zTXt and iTXt; compressed ones are inflated). */
+/** Workflow and prompt text of a PNG; compressed values and the number of text chunks are bounded. */
 export function pngTexts(bytes: Buffer): Record<string, string> {
   const out: Record<string, string> = {};
+  let textChunks = 0;
+  let inflated = 0;
+  const inflate = (data: Buffer): Buffer => {
+    const maxOutputLength = Math.min(PNG_TEXT_MAX, PNG_INFLATED_TOTAL_MAX - inflated);
+    if (maxOutputLength <= 0) throw new PngTextLimitError();
+    try {
+      const text = zlib.inflateSync(data, { maxOutputLength });
+      inflated += text.length;
+      return text;
+    } catch (error) {
+      // A damaged stream may have expanded before its checksum failed; charge its full possible output.
+      inflated += maxOutputLength;
+      if ((error as { code?: string }).code === 'ERR_BUFFER_TOO_LARGE') throw new PngTextLimitError();
+      throw error;
+    }
+  };
   // 0x89 'PNG' starts every PNG; chunks follow the 8-byte signature as length, type, data, CRC (4 + 4 + n + 4).
   if (bytes.length < 8 || bytes.readUInt32BE(0) !== 0x89504e47) return out;
   let at = 8;
@@ -55,30 +84,42 @@ export function pngTexts(bytes: Buffer): Record<string, string> {
     const type = bytes.toString('latin1', at + 4, at + 8);
     const start = at + 8;
     const end = start + length;
-    if (end > bytes.length) break;
+    if (end + 4 > bytes.length) break;
+    if (type === 'IEND') break;
+    if (type !== 'tEXt' && type !== 'zTXt' && type !== 'iTXt') {
+      at = end + 4;
+      continue;
+    }
+    textChunks += 1;
+    if (textChunks > PNG_TEXT_CHUNKS_MAX) throw new PngTextLimitError();
     const data = bytes.subarray(start, end);
     try {
       const zero = data.indexOf(0);
       if (zero > 0) {
         const keyword = data.toString('latin1', 0, zero);
+        if (keyword !== 'workflow' && keyword !== 'prompt') {
+          at = end + 4;
+          continue;
+        }
+        // Literal text is already bounded by the input file size; only inflation needs the smaller budget.
         if (type === 'tEXt') out[keyword] = data.toString('latin1', zero + 1);
         // zTXt: keyword, NUL, one compression-method byte, then the deflated text.
-        if (type === 'zTXt') out[keyword] = zlib.inflateSync(data.subarray(zero + 2)).toString('latin1');
+        if (type === 'zTXt' && data[zero + 1] === 0) out[keyword] = inflate(data.subarray(zero + 2)).toString('latin1');
         // iTXt: keyword, NUL, compression flag, method, language tag, NUL, translated keyword, NUL, text.
-        if (type === 'iTXt') {
+        if (type === 'iTXt' && (data[zero + 1] === 0 || data[zero + 1] === 1) && data[zero + 2] === 0) {
           const compressed = data[zero + 1] === 1;
           const language = data.indexOf(0, zero + 3);
           const translated = language >= 0 ? data.indexOf(0, language + 1) : -1;
           if (translated >= 0) {
             const text = data.subarray(translated + 1);
-            out[keyword] = (compressed ? zlib.inflateSync(text) : text).toString('utf8');
+            out[keyword] = (compressed ? inflate(text) : text).toString('utf8');
           }
         }
       }
-    } catch {
+    } catch (error) {
+      if (error instanceof PngTextLimitError) throw error;
       // A damaged chunk: the others may still hold the workflow.
     }
-    if (type === 'IEND') break;
     at = end + 4;
   }
   return out;
@@ -158,7 +199,7 @@ export function embeddedWorkflow(bytes: Buffer): unknown {
  * no workflow in it, not JSON.
  */
 export function readOpenedFile(filePath: string): OpenedFile {
-  if (fs.statSync(filePath).size > OPEN_FILE_MAX_BYTES) throw new Error('The file is too large to open.');
+  if (fs.statSync(filePath).size > OPEN_FILE_MAX_BYTES) throw new FileTooLargeError();
   const bytes = fs.readFileSync(filePath);
   const extension = path.extname(filePath).slice(1).toLowerCase();
   // A JSON file saved with another extension is still read as JSON when its text starts with '{'.

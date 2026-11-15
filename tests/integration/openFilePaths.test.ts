@@ -9,7 +9,17 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import * as zlib from 'zlib';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const inflateCalls = vi.hoisted(() => ({ count: 0 }));
+vi.mock('zlib', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('zlib')>();
+  const inflateSync = ((...args: Parameters<typeof actual.inflateSync>) => {
+    inflateCalls.count += 1;
+    return actual.inflateSync(...args);
+  }) as typeof actual.inflateSync;
+  return { ...actual, inflateSync, default: { ...actual, inflateSync } };
+});
 
 const holder: { db: Database.Database | null; userData: string } = { db: null, userData: '' };
 // main reads the profile folder and the database through these two modules; both point at the test's own copies.
@@ -29,6 +39,8 @@ import { fileFromArgs, journeyLink, openFileAtPath, registerOpenIpc, requestOpen
 import { nativeProjectFile, openNativeFile } from '../../src/main/ipc/projectFile';
 import { recentFiles, sourceOf } from '../../src/main/files/recentFiles';
 import { projectFileState } from '../../src/main/projectFiles';
+import { pngTexts } from '../../src/main/files/openFile';
+import { createTranslator, translateKnownError } from '../../src/shared/i18n';
 import { LEGACY_NATIVE_PROJECT_FORMAT_IDS, LEGACY_PROJECT_FILE_SUFFIXES } from '../../src/shared/legacyNames';
 
 const P = DESKTOP_PROJECT_ID;
@@ -59,6 +71,7 @@ let handlers: Map<string, (...args: unknown[]) => unknown>;
 const calls: string[] = [];
 
 beforeEach(() => {
+  inflateCalls.count = 0;
   holder.db = new Database(':memory:');
   migrate(holder.db);
   ensureWorkspace(holder.db);
@@ -75,6 +88,74 @@ beforeEach(() => {
       calls.push('project');
       return openNativeFile(holder.db!, P, document) as never;
     },
+  });
+});
+afterEach(() => {
+  holder.db?.close();
+  fs.rmSync(holder.userData, { recursive: true, force: true });
+});
+
+/** A PNG assembled from text chunks so compressed expansion and chunk-count limits can be exercised. */
+function withTextChunks(chunks: Buffer[]): Buffer {
+  return Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), ...chunks, chunk('IEND', Buffer.alloc(0))]);
+}
+
+describe('bounded PNG workflow text', () => {
+  it.each(['zTXt', 'iTXt'])('does not inflate an unrelated %s keyword', (type) => {
+    const data = Buffer.concat([Buffer.from(type === 'zTXt' ? 'Comment\0\0' : 'Comment\0\x01\0\0\0', 'latin1'), zlib.deflateSync(Buffer.alloc(1024 * 1024, 120))]);
+    const bytes = withTextChunks([chunk(type, data), chunk('tEXt', Buffer.from(`workflow\0${JSON.stringify(WORKFLOW)}`, 'latin1'))]);
+    expect(JSON.parse(pngTexts(bytes).workflow)).toEqual(WORKFLOW);
+    expect(inflateCalls.count).toBe(0);
+  });
+
+  it.each(['zTXt', 'iTXt'])('refuses an oversized %s expansion with a translated reason and no commit', (type) => {
+    const data = Buffer.concat([Buffer.from(type === 'zTXt' ? 'workflow\0\0' : 'workflow\0\x01\0\0\0', 'latin1'), zlib.deflateSync(Buffer.alloc(16 * 1024 * 1024 + 1, 120))]);
+    const bytes = withTextChunks([chunk(type, data)]);
+    const before = readProjection(holder.db!, P)!.currentRevisionId;
+    const response = openFileAtPath(write('too-much.png', bytes));
+    expect(response.status).toBe('rejected');
+    expect(response.result).toEqual({ error: 'The workflow text in this picture is too large.' });
+    expect(readProjection(holder.db!, P)!.currentRevisionId).toBe(before);
+    expect(calls).toEqual([]);
+    expect(translateKnownError(createTranslator('en'), 'The workflow text in this picture is too large.')).toBe('The workflow text in this picture is too large. Open its workflow JSON file instead.');
+    expect(translateKnownError(createTranslator('ru'), 'The workflow text in this picture is too large.')).toBe('Текст workflow в этой картинке слишком большой. Откройте файл workflow в формате JSON.');
+  });
+
+  it('bounds the total inflated text even when later chunks replace the same keyword', () => {
+    const compressed = zlib.deflateSync(Buffer.alloc(12 * 1024 * 1024, 120));
+    const data = Buffer.concat([Buffer.from('workflow\0\0', 'latin1'), compressed]);
+    expect(() => pngTexts(withTextChunks(Array.from({ length: 3 }, () => chunk('zTXt', data)))))
+      .toThrow('The workflow text in this picture is too large.');
+  });
+
+  it('bounds repeated small text chunks', () => {
+    expect(() => pngTexts(withTextChunks(Array.from({ length: 257 }, () => chunk('tEXt', Buffer.from('workflow\0{}', 'latin1'))))))
+      .toThrow('The workflow text in this picture is too large.');
+  });
+
+  it('accepts a compressed value at the per-value boundary', () => {
+    const text = Buffer.alloc(16 * 1024 * 1024, 120);
+    const data = Buffer.concat([Buffer.from('workflow\0\0', 'latin1'), zlib.deflateSync(text)]);
+    expect(pngTexts(withTextChunks([chunk('zTXt', data)])).workflow).toHaveLength(text.length);
+  });
+
+  it('charges damaged compressed streams to the file budget while still allowing one bad chunk', () => {
+    const damaged = zlib.deflateSync(Buffer.alloc(12 * 1024 * 1024, 120));
+    damaged[damaged.length - 1] ^= 0xff;
+    const bad = chunk('zTXt', Buffer.concat([Buffer.from('workflow\0\0', 'latin1'), damaged]));
+    const good = chunk('zTXt', Buffer.concat([Buffer.from('workflow\0\0', 'latin1'), zlib.deflateSync(Buffer.from('{"nodes":[]}'))]));
+    expect(JSON.parse(pngTexts(withTextChunks([bad, good])).workflow)).toEqual({ nodes: [] });
+    inflateCalls.count = 0;
+    expect(() => pngTexts(withTextChunks([bad, bad, good]))).toThrow('The workflow text in this picture is too large.');
+    expect(inflateCalls.count).toBe(2);
+  });
+
+  it('keeps ordinary uncompressed text within the file limit without applying an inflation cap', () => {
+    const text = Buffer.alloc(17 * 1024 * 1024, 120);
+    const texts = pngTexts(withTextChunks(['workflow', 'prompt'].map((key) => chunk('tEXt', Buffer.concat([Buffer.from(`${key}\0`, 'latin1'), text])))));
+    expect(texts.workflow).toHaveLength(text.length);
+    expect(texts.prompt).toHaveLength(text.length);
+    expect(inflateCalls.count).toBe(0);
   });
 });
 

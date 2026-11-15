@@ -72,6 +72,7 @@ const ERROR_KEYS: Record<string, string> = {
   'This file is protected from writing.': 'errors.writeProtectedFile',
   'The disk is full.': 'errors.writeDiskFull',
   'The file is too large to open.': 'errors.fileTooLarge',
+  'The workflow text in this picture is too large.': 'errors.pictureTextTooLarge',
   'This file holds no workflow.': 'errors.noWorkflowInFile',
   'This file cannot be opened here.': 'errors.notOpenable',
   'The file is no longer there.': 'errors.fileGone',
