@@ -415,7 +415,7 @@ test('lessons: a video lesson is carried through, the choices that are the perso
     const loader = (await nodesOf(api)).find((node) => node.data.comfyType === 'LoraLoaderModelOnly')!;
     await change(page, api, { type: 'set-parameter', nodeId: loader.id, key: 'lora_name', value: withWords });
     await stepIs(page, 'trigger');
-    await expect(panel(page).locator('[class*="lacking"] li').first()).toContainText('has none of the words of your LoRA: realism, photo');
+    await expect(panel(page).locator('[class*="lacking"] li').first()).toHaveText(said(en.lessons.lackTrigger, { node: 'CLIP Text Encode (Prompt) (prompt)', words: ['realism', 'photo'] }));
     await shot(page, '6-adult-words');
     const described = (await nodesOf(api)).find((node) => node.data.comfyType === 'CLIPTextEncode' && String(node.data.parameters.text ?? '').includes('beach'))!;
     await change(page, api, { type: 'set-parameter', nodeId: described.id, key: 'text', value: 'a person walks along a beach, photo, the camera follows from the side' });
@@ -895,7 +895,7 @@ test('lessons: two voices, FantasyTalking, UniAnimate, ReCamMaster and Ovi on Wa
     await carry(page, api, 'wrapper-ovi', async (stepId) => {
       await expectSoundLayout(page, `lessons, Ovi: ${stepId}`, wide);
       if (stepId === 'speech') {
-        await expect(panel(page).locator('[class*="lacking"] li').first()).toContainText('lacks the marks <S> <E>');
+        await expect(panel(page).locator('[class*="lacking"] li').first()).toContainText(said(en.lessons.lackTextMark, { field: 'positive_prompt', node: 'WanVideo TextEncode', marks: '<S> <E>' }));
         askedForMarks = true;
         await shot(page, '23-ovi-speech');
       }
