@@ -10,6 +10,7 @@ import { useUiStore } from '../../state/uiState';
 import { useDockStore } from '../../state/dockState';
 import { useKnowledgeStore } from '../../state/knowledgeState';
 import { resolveEdgeKnowledge } from './lib/linkTypeKnowledge';
+import { edgeRef } from './lib/selection';
 
 /** The interface language for the turn context: the app has two, so anything that is not English is Russian. */
 export function interfaceLanguage(): 'en' | 'ru' {
@@ -30,14 +31,15 @@ export function askAbout(objectRef: ObjectRef, message: string): void {
 }
 
 /**
- * "What flows here?" on a connection. When something is already known (an explanation of the edge, or the built-in
+ * "What flows here?" on a connection (`subgraphId`: the subgraph open on the canvas, null on the main canvas). When something is already known (an explanation of the edge, or the built-in
  * knowledge about the data type it carries), the Explain panel shows it at once, with no model call; otherwise the
  * question goes to the helper as before.
  */
-export async function askWhatFlows(edgeId: string, dataType: string, message: string): Promise<void> {
-  const ref: ObjectRef = { kind: 'edge', id: edgeId };
+export async function askWhatFlows(edgeId: string, dataType: string, message: string, subgraphId?: string | null): Promise<void> {
+  // Scoped to the open subgraph like the "Why" row: a link id there repeats one of the main canvas.
+  const ref: ObjectRef = edgeRef(edgeId, subgraphId);
   const load = useKnowledgeStore.getState().loadExplanations;
-  const known = await resolveEdgeKnowledge((owner) => load(owner), edgeId, dataType);
+  const known = await resolveEdgeKnowledge((owner) => load(owner), edgeId, dataType, subgraphId);
   if (known.length === 0) {
     askAbout(ref, message);
     return;

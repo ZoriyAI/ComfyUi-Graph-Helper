@@ -295,7 +295,7 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
       const type = String(edge.data?.dataType ?? '');
       items.push(
         askLabel,
-        item('flows', t('contextMenu.whatFlows'), () => void askWhatFlows(edge.id, type, say('contextMenu.askFlows', { type, source, target: targetName })), { icon: ArrowRightLeft }),
+        item('flows', t('contextMenu.whatFlows'), () => void askWhatFlows(edge.id, type, say('contextMenu.askFlows', { type, source, target: targetName }), activeSubgraphId), { icon: ArrowRightLeft }),
         item('why', t('contextMenu.whyEdge'), () => askAbout(ref, say('contextMenu.askWhyEdge', { source, target: targetName })), { icon: MessageCircleQuestion }),
         separator('s1'),
         ...edgeEditingItems((key) => String(t(key)), edge.id, !canBuild),
