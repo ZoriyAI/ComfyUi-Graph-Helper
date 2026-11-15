@@ -11,7 +11,7 @@ import * as path from 'path';
 import { execFileSync } from 'child_process';
 import { helpPage, helpSearch, helpTree, issueDraft, projectLinkUrl, systemLine } from '../../src/main/ipc/aboutIpc';
 import { HELP_IDS, pageForHelpId, resolveWikiLink, WHATS_NEW_PAGE } from '../../src/shared/help/contextHelp';
-import { parseInline, parseMarkdownLite } from '../../src/renderer/components/chat/markdownLite';
+import { parseInline, parseMarkdownLite } from '../../src/renderer/components/chat/markdownParse';
 import { readerText } from '../../src/renderer/components/shell/HelpReader';
 
 /** The repository root: help pages and release notes are read from docs/ there. */
