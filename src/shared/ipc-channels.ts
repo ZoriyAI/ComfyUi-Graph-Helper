@@ -6,7 +6,6 @@
  */
 export const IPC_CHANNELS = {
   // Database operations
-  DB_SAVE_PROJECT: 'db:save-project',
   DB_LOAD_PROJECT: 'db:load-project',
   DB_LIST_PROJECTS: 'db:list-projects',
   

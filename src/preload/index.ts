@@ -82,7 +82,6 @@ const IPC_CHANNELS = {
   /** The journey cards' links: the saved ComfyUI address or a fixed download page, opened in the browser on a click. */
   JOURNEY_OPEN_LINK: 'journey:open-link',
   JOURNEY_COMFY_KNOWN: 'journey:comfy-known',
-  DB_SAVE_PROJECT: 'db:save-project',
   DB_LOAD_PROJECT: 'db:load-project',
   DB_LIST_PROJECTS: 'db:list-projects',
   LLM_SET_CONFIG: 'llm:set-config',
@@ -274,7 +273,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openJourneyLink: (kind: 'comfyui' | 'comfyui-download' | 'ollama-download') => ipcRenderer.invoke(IPC_CHANNELS.JOURNEY_OPEN_LINK, kind),
 
   // Project operations
-  saveProject: (project: any) => ipcRenderer.invoke(IPC_CHANNELS.DB_SAVE_PROJECT, project),
   loadProject: (id: string) => ipcRenderer.invoke(IPC_CHANNELS.DB_LOAD_PROJECT, id),
   listProjects: () => ipcRenderer.invoke(IPC_CHANNELS.DB_LIST_PROJECTS),
 
@@ -558,7 +556,6 @@ export interface ElectronAPI {
   openJourneyLink: (kind: 'comfyui' | 'comfyui-download' | 'ollama-download') => Promise<{ ok: true } | { ok: false; error: string }>;
   saveProjectFile: (secrets?: 'omit' | 'keep', options?: { saveAs?: boolean }) => Promise<{ ok: true; filePath?: string } | { ok: false; canceled?: boolean; error?: string; secrets?: SecretFieldReport[] }>;
   projectFileState: () => Promise<import('../shared/contracts/projectFile').ProjectFileState>;
-  saveProject: (project: any) => Promise<{ success: boolean }>;
   loadProject: (id: string) => Promise<any>;
   listProjects: () => Promise<any[]>;
   getSettings: () => Promise<SettingsRead>;

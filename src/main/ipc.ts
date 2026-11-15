@@ -46,7 +46,7 @@ import { connectionSuggestions, rememberSavedAddresses } from './settings/connec
 import { browserOpener } from './mcp/browser';
 import { mcpReadOutcome, reportedComfyUrl, syncService } from './mcp/sync';
 import { withLoopbackScheme } from '../shared/mcp/loopback';
-import { listProjectRecords, loadProjectRecord, saveProjectRecord } from './ipc/projectRecord';
+import { listProjectRecords, loadProjectRecord } from './ipc/projectRecord';
 import { redactSecrets } from '../shared/config/draft';
 import { forgetEverySecret, secretInventory } from './settings/forgetAll';
 import { guardSecretsIn, type SecretField } from './exportSecrets';
@@ -365,8 +365,6 @@ export async function setupIPC(): Promise<void> {
   });
 
   // Project records in the projects table.
-  ipcMain.handle(IPC_CHANNELS.DB_SAVE_PROJECT, (_event, project: unknown) => saveProjectRecord(getDatabase(), project));
-
   ipcMain.handle(IPC_CHANNELS.DB_LOAD_PROJECT, (_event, id) => loadProjectRecord(getDatabase(), id, createTranslator(languageOf(readSettings(getDatabase())))));
 
   ipcMain.handle(IPC_CHANNELS.DB_LIST_PROJECTS, () => listProjectRecords(getDatabase()));
