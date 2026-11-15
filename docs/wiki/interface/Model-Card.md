@@ -17,7 +17,7 @@ The model card opens next to the library when you click a file in the **Models**
 | **Name from its author**, **Made for**, **Version**, **Author**, tags | what the author wrote in the description next to the file |
 | **Trigger words** | words that switch a LoRA on. Click a word to copy it, **Copy all** copies all. "The file names no trigger words: the LoRA works without them." when there are none. |
 | **How to use it** | "Strength the author suggests: 0.9", "It works from 0.6 to 1.2", "Clip skip: 2" |
-| **Descriptions the author used** | the prompts of the author's sample pictures, each with **Copy** |
+| **Prompts the author used** | the prompts of the author's sample pictures, each with **Copy**; a negative prompt is marked **Negative prompt:** |
 | **Fits** | for a LoRA: "Your base models it fits:" and the checkpoints you have of its family. For a checkpoint: "3 of your LoRAs fit this model" and **Show them in the list** |
 | **From the internet** | what Civitai or Hugging Face say about the file, after **Find on the internet** |
 | **Your notes** | the notes you wrote about this file in your model manager, read from the description next to the file |
@@ -27,11 +27,17 @@ The model card opens next to the library when you click a file in the **Models**
 - **Add to canvas** puts the loader node that fits the file, with the file chosen, and selects it: "Added “Load LoRA” with … The node is selected."
 - **Put into the selected node** appears when a node that loads this kind of file is selected: the node then loads this file.
 - **Ask the assistant** and **How do I connect it?** send a question about the file.
-- **Find on the internet** sends the file fingerprint to civitai.com and, if Civitai does not know the file, its name to huggingface.co. "The server reads the whole file. A large one takes a few minutes."
+- **Find on the internet** sends the file fingerprint to civitai.com and, if Civitai does not know the file, its name to huggingface.co. "The server reads the whole file. A large one takes a few minutes." The fingerprint is computed by an MCP server that reads files; when the app reads ComfyUI directly, there is no fingerprint, so the search goes by the file name only.
 
 ## Adult content
 
-When the author marked a file as adult content: "The author marked this as adult content. The preview and the examples made with it are hidden." **Show for this file** shows them for this file; **Hide again** hides them. To show them always: Settings ▸ Privacy.
+When the author marked a file as adult content: "The author marked this as adult content. The preview and the examples made with it are hidden." **Show for this file** shows them for this file; **Hide again** hides them. To show them always: Settings ▸ Privacy ▸ **Adult content (18+)**. See [Settings: Privacy](Settings-Privacy.md#adult-content) and the [content rules](../trust/Content-Rules.md).
+
+## Warnings about the file
+
+- A file in the format .ckpt, .pt, .pth or .bin: "This format (.ckpt, .pt, .pth, .bin) can run code when ComfyUI loads it. Prefer a .safetensors file of the same model, and load files of this kind only from authors you trust."
+- A name with hidden characters: "The file name holds hidden characters that change how it reads. They are shown as �. Check the name in your file manager."
+- A name that mixes Latin letters with look-alike letters of another alphabet: "The file name mixes Latin letters with letters of another alphabet that look the same. It may be made to pass for another file."
 
 ## What can go wrong
 
