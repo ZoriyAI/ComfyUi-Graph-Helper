@@ -477,7 +477,24 @@ export const CLASSES: ClassDef[] = [
  * ComfyUI's own video nodes (comfy_extras/nodes_hunyuan, nodes_wan, nodes_video), served only when a test asks
  * for them with `video: true`: the lessons on video need them, and every other test counts on the list above.
  */
-export const VIDEO_CLASSES: ClassDef[] = [
+/**
+ * Lesson sets bring their own classes, and two sets may bring the same core class. A class brought again with the
+ * same required inputs and outputs is kept once (the first set's lists of choices win); one brought with other ports
+ * stays twice, and the unit test tests/unit/fakeClasses.test.ts fails on it, so two sets that disagree about what
+ * a class is are caught when they merge.
+ */
+function onceEach(defs: ClassDef[], before: readonly ClassDef[]): ClassDef[] {
+  const ports = (def: ClassDef) => JSON.stringify([Object.keys(def.required).sort(), def.output]);
+  const out: ClassDef[] = [];
+  for (const def of defs) {
+    const earlier = [...before, ...out].find((item) => item.classType === def.classType);
+    if (earlier && ports(earlier) === ports(def)) continue;
+    out.push(def);
+  }
+  return out;
+}
+
+export const VIDEO_CLASSES: ClassDef[] = onceEach([
   // VACE, Wan Animate and InfiniteTalk on WanVideoWrapper, as the pack declares them; the pose and face finders of
   // ComfyUI-WanAnimatePreprocess; ComfyUI's own video, sound and CLIP vision loaders.
   { classType: 'WanVideoVACEModelSelect', pack: 2, display: 'WanVideo VACE Module Select', category: 'WanVideoWrapper', required: { vace_model: [names('diffusion_models')] }, output: ['VACEPATH'], outputName: ['extra_model'] },
@@ -527,7 +544,7 @@ export const VIDEO_CLASSES: ClassDef[] = [
   ...FOUNDATIONS_CLASSES,
   // Sound, speech, 3D, faces and characters (classes/sound-3d-faces.ts), each in its pack.
   ...SOUND_3D_FACES_CLASSES.map((def) => ({ ...def, pack: Math.max(0, PACKS.findIndex((pack) => pack.name === def.pack)) })),
-];
+], CLASSES);
 
 /** The /object_info document the native fixture serves. */
 export function objectInfoDocument(classes: readonly ClassDef[] = CLASSES): Record<string, unknown> {

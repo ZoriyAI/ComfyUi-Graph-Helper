@@ -743,7 +743,8 @@ const anchorReference: Lesson = {
     },
     samplerFrom('start'),
     { id: 'settings', fields: [field('sampler', 'steps', between(4, 30, 4)), field('sampler', 'cfg', between(1, 6, 1)), field('sampler', 'sampler_name', equals('uni_pc'))] },
-    { id: 'trim', roles: [node('trim', 'TrimVideoLatent')], links: [link('sampler', 'LATENT', 'trim', 'samples')] },
+    // trim_amount is a field that takes a link: the canvas draws an input for it, so the link is checked like any other.
+    { id: 'trim', roles: [node('trim', 'TrimVideoLatent')], links: [link('sampler', 'LATENT', 'trim', 'samples'), link('start', 'trim_latent', 'trim', 'trim_amount')] },
     { id: 'decode', roles: [node('decode', 'VAEDecode', 'VAEDecodeTiled')], links: [link('trim', 'LATENT', 'decode', 'samples'), link('vae', 'VAE', 'decode', 'vae')] },
     out(16)[1],
     { id: 'keeps', read: true },

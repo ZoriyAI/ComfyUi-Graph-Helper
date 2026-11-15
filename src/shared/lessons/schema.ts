@@ -8,7 +8,7 @@ import { FILES } from './files';
 export function lessonProblems(lesson: Lesson, all: readonly Lesson[], after: Readonly<Record<string, string[]>>, reasons: ReadonlySet<string>): string[] {
   const out: string[] = [];
   const say = (text: string) => out.push(`${lesson.id}: ${text}`);
-  if (!/^[a-z][a-z0-9-]*$/.test(lesson.id)) say('the id is lower case letters, digits and dashes');
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(lesson.id)) say('the id is lower case letters, digits and dashes');
   if (all.filter((item) => item.id === lesson.id).length > 1) say('another lesson has the same id');
   if (lesson.steps.length === 0) say('a lesson has steps');
   const stepIds = new Set<string>();
@@ -48,7 +48,7 @@ function fieldProblems(spec: FieldSpec, known: ReadonlySet<string>, reasons: Rea
     if (test.prefer !== undefined && (test.prefer < test.min || test.prefer > test.max)) out.push(`the number ${test.prefer} for ${spec.field} lies outside its range`);
     if (test.frames && test.prefer !== undefined && (test.prefer - 1) % 4 !== 0) out.push(`the frame count ${test.prefer} is not 4n + 1`);
   }
-  if (test.kind === 'file' && !Object.values(FILES).some((want) => want === test.want)) out.push(`the file rule on ${spec.field} uses a kind files.ts does not list`);
+  if (test.kind === 'file' && !test.want.words && !Object.values(FILES).some((want) => want === test.want)) out.push(`the file rule on ${spec.field} uses a kind files.ts does not list`);
   if (spec.why && !reasons.has(spec.why)) out.push(`the reason "${spec.why}" is not written`);
   return out;
 }

@@ -270,9 +270,9 @@ export const CORE_KNOWLEDGE_EN: CoreLanguagePack = {
       connect: 'Comes from the text nodes and is changed by ControlNet, area, combine and guidance nodes; goes to the positive or negative input of the sampler.',
     },
     LATENT: {
-      what: 'LATENT: a picture in compressed form, the form the model works in; for most models it is 8 times smaller than the picture on each side.',
+      what: 'LATENT: a picture or a video in compressed form, the form the model works in. Image models usually make it 8 times smaller on each side; video models compress more and in time too (Wan 2.1 and the 14B Wan 2.2: 8 × 8 pixels and 4 frames per cell; Wan 2.2 5B and HunyuanVideo 1.5: 16 × 16 and 4; LTX: 32 × 32 and 8).',
       why: 'Samplers read and write latents; the picture becomes visible only after VAE Decode.',
-      connect: 'Comes from Empty Latent Image, VAE Encode or a sampler; goes to samplers, latent upscale nodes or VAE Decode.',
+      connect: 'Comes from an empty latent node, VAE Encode or a sampler; goes to samplers, latent upscale nodes or VAE Decode.',
     },
     IMAGE: {
       what: 'IMAGE: a batch of ordinary pictures in pixels (red, green and blue).',
@@ -388,12 +388,12 @@ export const CORE_KNOWLEDGE_EN: CoreLanguagePack = {
       risk: 'Use LoRAs made for Wan 2.1 and for the same model size (1.3B and 14B are not interchangeable).',
     },
     'wan2.2': {
-      what: 'Wan 2.2 by Alibaba: a video model. The 14B models come as two experts, high noise and low noise, that run one after the other; they use the umt5_xxl text encoder and wan_2.1_vae, while the 5B model uses wan2.2_vae.',
-      risk: 'Use Wan 2.2 LoRAs for the right expert and size; the two 14B experts need two samplers with matching step ranges.',
+      what: 'Wan 2.2 by Alibaba: a family of video models. The 14B models come as two experts, high noise and low noise, run one after the other by two samplers (t2v for text, i2v for an image; also first-last frame, Fun Control, Fun Inpaint, S2V for speech and Animate for characters); they use umt5_xxl and wan_2.1_vae and draw 16 fps. The small TI2V 5B model takes text or an image with one sampler, uses wan2.2_vae and draws 24 fps.',
+      risk: 'LoRAs made for Wan 2.1 14B often work with the 2.2 14B models (the speed-up LoRAs are used so); check the LoRA\'s page. 1.3B, 5B and 14B LoRAs are not interchangeable, and wan2.2_vae fits only the 5B model.',
     },
     ltx2: {
-      what: 'LTX-2 by Lightricks: a model that makes video with sound, for text-to-video and image-to-video, with its own text encoder and upscale models; start from the official template for the exact files.',
-      risk: 'Only LTX-2 LoRAs work with it; LoRAs for the older LTX-Video models are not compatible.',
+      what: 'LTX-2 by Lightricks (versions 2.0, 2.3 and 2.5): video models that draw picture and sound together. Text to video, image to video, first and last frame, and control by depth, pose or edges with IC-LoRAs. The templates work in two stages with a latent upscaler between them; the text encoder is Gemma. 2.0 and 2.3 load from one checkpoint; 2.5 comes as separate model, video VAE, audio VAE and text encoder files.',
+      risk: 'Files of one version do not mix with another (the upscaler, the VAEs, the text encoder). Frames are of the form 8n + 1 and sides multiples of 32. LoRAs of the old LTX-Video 0.9 do not work.',
     },
     hunyuan: {
       what: 'HunyuanVideo by Tencent: a video model. The model loads with Load Diffusion Model, the text encoders clip_l and llava_llama3 with DualCLIPLoader (type hunyuan_video), and hunyuan_video_vae with Load VAE.',

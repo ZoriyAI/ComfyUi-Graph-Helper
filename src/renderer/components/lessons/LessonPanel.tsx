@@ -103,8 +103,10 @@ function LessonList({ shared, adultOn }: { shared: Shared; adultOn: boolean }) {
           const gaps = fit && !fits(fit) ? fitLines(fit, (key, values) => String(t(key, values ?? {})), (classType) => shared.details[classType]?.displayName || classType, (id) => lessonWords(i18n.language, id)?.title ?? id) : [];
           const progress = lessonProgress(lesson, shared.graph, shared.facts, new Set(read[lesson.id] ?? NONE));
           const total = lesson.steps.length;
-          const finished = progress.current >= total;
-          return { lesson, words, gaps, progress, total, finished, done: finished || done.includes(lesson.id) };
+          // A lesson once finished stays finished: a later lesson may rewire its graph (outpainting over inpainting,
+          // a face over the first picture), and that is no reason to tell the person the lesson is undone.
+          const finished = progress.current >= total || done.includes(lesson.id);
+          return { lesson, words, gaps, progress, total, finished, done: finished };
         });
         const doneHere = rows.filter((row) => row.done).length;
         return (

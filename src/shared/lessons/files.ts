@@ -32,6 +32,8 @@ export interface FileWant {
   folder: string;
   /** The file ends so (".gguf"): a loader of quantised models lists only such files. */
   ext?: string;
+  /** For a kind written as a table of words (a lesson set's own list): the words, as the person reads them. */
+  words?: string[];
 }
 
 /** Why a file is not the one asked for. */
@@ -152,4 +154,54 @@ export function filesOfLesson(lesson: { steps: ReadonlyArray<{ fields?: Readonly
  */
 export function filesAtHand(wants: readonly FileWant[], names: readonly string[], families: Readonly<Record<string, BaseModelFamily>> = {}): Array<{ want: FileWant; file: string | null }> {
   return wants.map((want) => ({ want, file: names.find((name) => fileMiss(name, want, families[name]) === null) ?? null }));
+}
+
+/**
+ * A lesson set may name its file kinds as a table instead of entries of FILES: per lesson, the role and field, the
+ * words a file name must hold and those it must not (video.ts VIDEO_FILE_KINDS). Each row becomes the same file
+ * rule FILES gives, so one mechanism checks every set.
+ */
+export interface FileRow {
+  role: string;
+  field: string;
+  has: string[];
+  not?: string[];
+}
+
+/** The kind of file a row of words asks for. */
+export function wantFromWords(row: Pick<FileRow, 'has' | 'not'>): FileWant {
+  const compact = (word: string) => word.toLowerCase().replace(/[^a-z0-9]+/g, '');
+  return {
+    kind: 'named',
+    words: row.has,
+    marks: row.has.map((word) => [compact(word)]),
+    ...(row.not && row.not.length > 0 ? { notMarks: row.not.map(compact) } : {}),
+    folder: '',
+    example: `${row.has.join('_')}.safetensors`,
+  };
+}
+
+type RuledStep = { id: string; roles?: Array<{ role: string }>; fields?: Array<{ role: string; field: string; test: { kind: string }; identifies?: true }> };
+
+/**
+ * Puts the rows of a table into the steps of its lessons, in place, so the lessons stay the objects their set
+ * exports: a row replaces the rule "something is chosen" on its field, or joins the step that brings its role when
+ * the field had no rule (then it tells the file apart without the step's text asking for it). Lessons the table does
+ * not name are left as they are. Returns the same list, for use in a registry.
+ */
+export function withFileTable<L extends { id: string; steps: RuledStep[] }>(lessons: readonly L[], table: Readonly<Record<string, ReadonlyArray<FileRow>>>): readonly L[] {
+  for (const lesson of lessons) {
+    for (const row of table[lesson.id] ?? []) {
+      const rule = { role: row.role, field: row.field, test: { kind: 'file' as const, want: wantFromWords(row) } };
+      const ruled = lesson.steps.find((step) => step.fields?.some((item) => item.role === row.role && item.field === row.field && item.test.kind === 'chosen'));
+      if (ruled) {
+        ruled.fields = ruled.fields!.map((item) => (item.role === row.role && item.field === row.field && item.test.kind === 'chosen' ? rule : item));
+        continue;
+      }
+      if (lesson.steps.some((step) => step.fields?.some((item) => item.role === row.role && item.field === row.field && item.test.kind === 'file'))) continue;
+      const bringing = lesson.steps.find((step) => step.roles?.some((item) => item.role === row.role));
+      if (bringing) bringing.fields = [...(bringing.fields ?? []), { ...rule, identifies: true }];
+    }
+  }
+  return lessons;
 }

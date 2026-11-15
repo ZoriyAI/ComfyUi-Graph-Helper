@@ -78,7 +78,7 @@ function fileText(t: TFunction, missing: Extract<Missing, { kind: 'field' }>, no
       : why.kind === 'mark'
         ? String(t('lessons.fileMark', { marks: why.marks.join(', ') }))
         : String(t('lessons.fileNotMark', { mark: why.mark }));
-  const kind = String(t(`lessons.fileKind.${want.kind}`));
+  const kind = want.words ? String(t('lessons.fileNamed', { words: want.words.join(', ') })) : String(t(`lessons.fileKind.${want.kind}`));
   let text = typeof missing.value === 'string' && missing.value !== ''
     ? String(t('lessons.lackFile', { field: missing.field, node, value, problem, kind }))
     : `${String(t('lessons.lackChosen', { field: missing.field, node }))} ${kind}.`;

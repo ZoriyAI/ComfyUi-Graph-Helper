@@ -1,10 +1,10 @@
 import type { FieldSpec, FieldTest, Lesson, LinkSpec, RoleSpec } from './engine';
 import { FOUNDATIONS_AFTER, FOUNDATIONS_FIRST, FOUNDATIONS_IN_FIRST_PICTURES, FOUNDATIONS_LESSONS, FOUNDATIONS_PATH, FOUNDATIONS_TOOLS } from './sets/foundations';
 import { IMAGE_MODEL_AFTER, IMAGE_MODEL_LESSONS, IMAGE_MODEL_PATH, type LessonGroup } from './sets/image-models';
-import { VIDEO_GROUP, VIDEO_LESSON_AFTER, VIDEO_LESSONS, VIDEO_PATH } from './sets/video';
+import { VIDEO_FILE_KINDS, VIDEO_GROUP, VIDEO_LESSON_AFTER, VIDEO_LESSONS, VIDEO_PATH } from './sets/video';
 import { IMAGE_TECHNIQUE_AFTER, IMAGE_TECHNIQUE_LESSONS, IMAGE_TECHNIQUE_PATH } from './sets/image-techniques';
 import { SOUND_3D_FACES_AFTER, SOUND_3D_FACES_LESSONS, SOUND_3D_FACES_PATH } from './sets/sound-3d-faces';
-import { FILES, type FileKind } from './files';
+import { FILES, withFileTable, type FileKind } from './files';
 
 /**
  * The lessons, as what must be on the canvas after each step. The words of a lesson (what to do and why) are in
@@ -1088,7 +1088,7 @@ export const LESSONS: readonly Lesson[] = [
   wrapper, wrapperImage, wrapperVace, wrapperAnimate, wrapperUni, wrapperTalk, wrapperDuo, wrapperFantasy, wrapperOvi, wrapperRecam,
   twoModels,
   ...IMAGE_MODEL_LESSONS,
-  ...VIDEO_LESSONS,
+  ...withFileTable(VIDEO_LESSONS, VIDEO_FILE_KINDS),
   ...IMAGE_TECHNIQUE_LESSONS,
   ...FOUNDATIONS_TOOLS,
   ...SOUND_3D_FACES_LESSONS,
