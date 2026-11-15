@@ -11,31 +11,32 @@ import { emptyWorkflow } from '../shared/workflow/codec';
 import type { GraphSnapshot } from '../shared/workflow/codec';
 import type { ProjectFileState } from '../shared/contracts/projectFile';
 import { readProjection } from './commands/commit';
-import { currentGraphKey } from './knowledge/projectExplanations';
+import { currentGraphKey, explanationsExtension } from './knowledge/projectExplanations';
+import type { ProjectExplanation } from '../shared/knowledge/projectExplanations';
 import { PROJECT_FILE_SUFFIX } from '../shared/productNames';
 import { LEGACY_PROJECT_FILE_SUFFIXES } from '../shared/legacyNames';
 
 /** Screen-only flags React Flow may leave on a stored node or link; they are not content. */
 const VOLATILE = new Set(['selected', 'dragging', 'measured', 'resizing']);
 
-/** A copy with object keys sorted and screen-only flags and undefined values dropped, so equal content prints equal. */
-function stable(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(stable);
+/** A sorted copy; recursive flag removal is reserved for reading a v1.1.0 fingerprint. */
+function stable(value: unknown, legacyFlags = false): unknown {
+  if (Array.isArray(value)) return value.map((item) => stable(item, legacyFlags));
   if (!value || typeof value !== 'object') return value;
   const out: Record<string, unknown> = {};
   for (const key of Object.keys(value as Record<string, unknown>).sort()) {
-    if (VOLATILE.has(key)) continue;
+    if (legacyFlags && VOLATILE.has(key)) continue;
     const item = (value as Record<string, unknown>)[key];
     if (item === undefined) continue;
-    out[key] = stable(item);
+    out[key] = stable(item, legacyFlags);
   }
   return out;
 }
 
-/** Fingerprint of what a project file holds of a graph: the same content gives the same digest, whatever its revision. */
-export function contentDigest(snapshot: GraphSnapshot | Record<string, unknown>): string {
+/** The graph fields written by both the old and current project file format. */
+function graphContent(snapshot: GraphSnapshot | Record<string, unknown>) {
   const graph = snapshot as GraphSnapshot;
-  const content = {
+  return {
     process: graph.process ?? { title: '', notes: '' },
     nodes: graph.nodes ?? [],
     edges: graph.edges ?? [],
@@ -45,7 +46,31 @@ export function contentDigest(snapshot: GraphSnapshot | Record<string, unknown>)
     groups: graph.groups ?? [],
     projectExtras: (snapshot as Record<string, unknown>).projectExtras ?? null,
   };
-  return createHash('sha256').update(JSON.stringify(stable(content))).digest('hex');
+}
+
+/** Screen-only flags belong to the node or link record, never its data or the native document. */
+function flowContent(record: unknown): unknown {
+  if (!record || typeof record !== 'object' || Array.isArray(record)) return record;
+  return Object.fromEntries(Object.entries(record).filter(([key]) => !VOLATILE.has(key)));
+}
+
+/** Fingerprint of saved content, including the semantic explanations and excluding only screen record flags. */
+export function contentDigest(snapshot: GraphSnapshot | Record<string, unknown>, explanations: readonly ProjectExplanation[] = []): string {
+  const graph = graphContent(snapshot);
+  const content = {
+    ...graph,
+    nodes: graph.nodes.map(flowContent),
+    edges: graph.edges.map(flowContent),
+    subgraphs: graph.subgraphs.map((definition) => ({ ...definition, nodes: definition.nodes.map(flowContent), edges: definition.edges.map(flowContent) })),
+    // Sorted serialized records keep ordering and bookkeeping changes out of the fingerprint.
+    explanations: explanations.map(({ owner, aspect, text, provenance, sourceUrl }) => JSON.stringify(stable({ owner, aspect, text, provenance, sourceUrl: sourceUrl ?? null }))).sort(),
+  };
+  return `v2:${createHash('sha256').update(JSON.stringify(stable(content))).digest('hex')}`;
+}
+
+/** The digest of a captured graph with the explanations main would write at this instant. */
+export function projectContentDigest(db: Database.Database, projectId: string, snapshot: GraphSnapshot): string {
+  return contentDigest(snapshot, explanationsExtension(db, projectId, snapshot).items);
 }
 
 /** Whether the graph holds nothing a person would want to save: no nodes, notes, title or native content. */
@@ -81,8 +106,17 @@ export function projectFileState(db: Database.Database, projectId: string): Proj
   const snapshot = (projection?.snapshot ?? { nodes: [], edges: [] }) as GraphSnapshot;
   const graphKey = currentGraphKey(db, projectId) ?? '';
   const row = graphKey ? rowOf(db, projectId, graphKey) : undefined;
-  const empty = isEmpty(snapshot);
-  const dirty = row ? row.saved_digest !== contentDigest(snapshot) : !empty;
+  const explanations = explanationsExtension(db, projectId, snapshot).items;
+  const empty = explanations.length === 0 && isEmpty(snapshot);
+  const digest = contentDigest(snapshot, explanations);
+  let dirty = row ? row.saved_digest !== digest : !empty;
+  if (row && /^[a-f0-9]{64}$/.test(row.saved_digest)
+    && row.saved_digest === createHash('sha256').update(JSON.stringify(stable(graphContent(snapshot), true))).digest('hex')) {
+    // An unchanged project saved by v1.1.0 stays clean; a changed or omitted save keeps its old dirty state.
+    db.prepare('UPDATE project_files SET saved_digest = ? WHERE project_id = ? AND graph_key = ? AND saved_digest = ?')
+      .run(digest, projectId, graphKey, row.saved_digest);
+    dirty = false;
+  }
   return {
     graphKey,
     filePath: row?.file_path ?? null,
@@ -100,7 +134,7 @@ export function rememberProjectFile(db: Database.Database, projectId: string, fi
   if (!projection || !graphKey) return;
   db.prepare(`INSERT INTO project_files (project_id, graph_key, file_path, saved_digest, saved_at) VALUES (?, ?, ?, ?, ?)
     ON CONFLICT(project_id, graph_key) DO UPDATE SET file_path = excluded.file_path, saved_digest = excluded.saved_digest, saved_at = excluded.saved_at`)
-    .run(projectId, graphKey, filePath, written?.digest ?? contentDigest(projection.snapshot as GraphSnapshot), Date.now());
+    .run(projectId, graphKey, filePath, written?.digest ?? projectContentDigest(db, projectId, projection.snapshot as GraphSnapshot), Date.now());
 }
 
 /** A file name made of the project title: letters, digits, spaces and a few marks; never empty. */

@@ -9,7 +9,8 @@ import { describe, expect, it } from 'vitest';
 import { commitCommand, ensureWorkspace, readProjection } from '../../src/main/commands/commit';
 import { nativeProjectFile, openNativeFile } from '../../src/main/ipc/projectFile';
 import { currentGraphKey, graphKeyOf } from '../../src/main/knowledge/projectExplanations';
-import { listExplanations, saveExplanation } from '../../src/main/knowledge/repository';
+import { deletePersonExplanation, listExplanations, saveExplanation } from '../../src/main/knowledge/repository';
+import { contentDigest, projectFileState, rememberProjectFile } from '../../src/main/projectFiles';
 import { migrate, schemaVersion, SCHEMA_VERSION } from '../../src/main/settings/migrate';
 import type { Explanation, ExplanationInput } from '../../src/shared/contracts/knowledge';
 import { inSubgraph, type ObjectRef } from '../../src/shared/contracts/objects';
@@ -101,6 +102,71 @@ const PROCESS: ObjectRef = { kind: 'process', id: 'process' };
 const OUTER_NODE: ObjectRef = { kind: 'node', id: '1', classType: INNER_ID, subgraphId: OUTER_ID };
 const INNER_NODE: ObjectRef = { kind: 'node', id: '1', classType: 'CLIPTextEncode', subgraphId: INNER_ID };
 const INNER_PORT: ObjectRef = { kind: 'port', id: '1:in-0', nodeId: '1', direction: 'input', portName: 'clip', subgraphId: INNER_ID };
+
+describe('project file fingerprints include graph explanations', () => {
+  it('marks explanation additions, edits and removals dirty, but not global knowledge or bookkeeping', () => {
+    const db = openDb();
+    importNested(db);
+    rememberProjectFile(db, P, '/tmp/explanations.json');
+    expect(projectFileState(db, P).dirty).toBe(false);
+    const note = write(db, NODE, 'First words.');
+    expect(projectFileState(db, P).dirty).toBe(true);
+    rememberProjectFile(db, P, '/tmp/explanations.json');
+    expect(projectFileState(db, P).dirty).toBe(false);
+    db.prepare('UPDATE explanations SET text = ? WHERE id = ?').run('Changed words.', note.id);
+    expect(projectFileState(db, P).dirty).toBe(true);
+    rememberProjectFile(db, P, '/tmp/explanations.json');
+    db.prepare('UPDATE explanations SET created_at = ?, revision_id = ?, created_by = ? WHERE id = ?').run(123, 'another-revision', 'file', note.id);
+    expect(projectFileState(db, P).dirty).toBe(false);
+    write(db, { kind: 'nodeClass', id: 'KSampler' }, 'Shared knowledge.');
+    expect(projectFileState(db, P).dirty).toBe(false);
+    db.prepare('UPDATE explanations SET created_by = ? WHERE id = ?').run('user', note.id);
+    expect(deletePersonExplanation(db, note.id)).toBe(1);
+    expect(projectFileState(db, P).dirty).toBe(true);
+    db.close();
+  });
+
+  it('is clean after opening the saved file, and later explanation changes count in that graph', () => {
+    const db = openDb();
+    importNested(db);
+    write(db, NODE, 'Travels with the graph.');
+    const file = saveFile(db);
+    const other = openDb();
+    openFile(other, file);
+    rememberProjectFile(other, P, '/tmp/opened.json');
+    expect(projectFileState(other, P).dirty).toBe(false);
+    write(other, NODE, 'Added after opening.', { aspect: 'why' });
+    expect(projectFileState(other, P).dirty).toBe(true);
+    db.close();
+    other.close();
+  });
+
+  it('treats a description-only project as meaningful content', () => {
+    const db = openDb();
+    write(db, PROCESS, 'The plan for this project.');
+    expect(projectFileState(db, P)).toMatchObject({ empty: false, dirty: true });
+    db.close();
+  });
+
+  it('uses semantic explanation fields, a stable order and the content captured before a save dialog', () => {
+    const db = openDb();
+    importNested(db);
+    write(db, NODE, 'Captured words.');
+    rememberProjectFile(db, P, '/tmp/captured.json');
+    const graphKey = projectFileState(db, P).graphKey;
+    const row = db.prepare('SELECT saved_digest FROM project_files WHERE project_id = ? AND graph_key = ?').get(P, graphKey) as { saved_digest: string };
+    write(db, NODE, 'New words while the dialog waits.', { aspect: 'why' });
+    rememberProjectFile(db, P, '/tmp/captured.json', { graphKey, digest: row.saved_digest });
+    expect(projectFileState(db, P).dirty).toBe(true);
+    const items = saveFile(db).extensions.explanations.items;
+    const graph = snap(db);
+    expect(contentDigest(graph, items)).toBe(contentDigest(graph, [...items].reverse().map((item) => ({ ...item, createdAt: 1, revisionId: 'other', createdBy: 'file' }))));
+    for (const patch of [{ text: 'Changed' }, { aspect: 'connect' }, { provenance: 'web' }, { sourceUrl: 'https://example.org/source' }, { owner: { kind: 'node', id: '2' } }]) {
+      expect(contentDigest(graph, items)).not.toBe(contentDigest(graph, [{ ...items[0], ...patch }, ...items.slice(1)]));
+    }
+    db.close();
+  });
+});
 
 function owners(db: Database.Database) {
   const snapshot = snap(db);

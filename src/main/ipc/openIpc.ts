@@ -74,6 +74,7 @@ export function openFileAtPath(filePath: string): OpenResponse {
   if (file.kind === 'project') {
     const opened = commits.openProject(file.document);
     if (opened.status === 'applied') {
+      // The commit has restored this graph's explanations before the saved fingerprint is captured.
       rememberProjectFile(getDatabase(), DESKTOP_PROJECT_ID, filePath);
       rememberRecent(userData, filePath, 'project');
     }

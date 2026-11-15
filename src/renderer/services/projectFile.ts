@@ -9,6 +9,7 @@
 import { create } from 'zustand';
 import type { ProjectFileState } from '../../shared/contracts/projectFile';
 import { useProjectionStore } from './commands/projection';
+import { useKnowledgeStore } from '../state/knowledgeState';
 
 interface ProjectFileStore {
   state: ProjectFileState | null;
@@ -39,13 +40,17 @@ export function graphIsDirty(): boolean {
   return useProjectFileStore.getState().state?.dirty ?? false;
 }
 
-/** Keeps the state in step with the head the canvas shows. Returns the unsubscribe. */
+/** Keeps the state in step with the graph head and its explanation cache. Returns the unsubscribe. */
 export function installProjectFileWatch(): () => void {
   let head = useProjectionStore.getState().currentRevisionId;
   void refreshProjectFile();
-  return useProjectionStore.subscribe((projection) => {
+  const offProjection = useProjectionStore.subscribe((projection) => {
     if (projection.currentRevisionId === head) return;
     head = projection.currentRevisionId;
     void refreshProjectFile();
   });
+  const offExplanations = useKnowledgeStore.subscribe((state, previous) => {
+    if (state.explanations !== previous.explanations) void refreshProjectFile();
+  });
+  return () => { offProjection(); offExplanations(); };
 }

@@ -6,6 +6,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import Database from 'better-sqlite3';
+import { createHash } from 'crypto';
 import { migrate } from '../../src/main/settings/migrate';
 import { commitCommand, ensureWorkspace, readProjection } from '../../src/main/commands/commit';
 import { contentDigest, defaultSavePaths, fileNameFromTitle, projectFileState, rememberProjectFile, withCurrentProjectSuffix, withFileExtension } from '../../src/main/projectFiles';
@@ -29,6 +30,22 @@ function commit(db: Database.Database, payload: Record<string, unknown>) {
 }
 
 const EMPTY = { last_node_id: 0, last_link_id: 0, nodes: [], links: [], groups: [], config: {}, extra: {}, version: 0.4 };
+
+/** The frozen v1.1.0 fingerprint; migration fixtures must not use the current digest function. */
+function oldDigest(snapshot: Record<string, unknown>): string {
+  const sorted = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(sorted);
+    if (!value || typeof value !== 'object') return value;
+    return Object.fromEntries(Object.entries(value).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)
+      .filter(([key, item]) => !['selected', 'dragging', 'measured', 'resizing'].includes(key) && item !== undefined)
+      .map(([key, item]) => [key, sorted(item)]));
+  };
+  return createHash('sha256').update(JSON.stringify(sorted({
+    process: snapshot.process ?? { title: '', notes: '' }, nodes: snapshot.nodes ?? [], edges: snapshot.edges ?? [],
+    document: snapshot.document ?? null, components: snapshot.components ?? [], subgraphs: snapshot.subgraphs ?? [],
+    groups: snapshot.groups ?? [], projectExtras: snapshot.projectExtras ?? null,
+  }))).digest('hex');
+}
 
 describe('project file state', () => {
   it('an empty canvas with no file is clean; a graph with no file is not', () => {
@@ -72,6 +89,51 @@ describe('project file state', () => {
     const b = { nodes: [{ id: '1', position: { x: 0, y: 0 }, data: { comfyType: 'KSampler' }, selected: true, measured: { width: 3 } }], edges: [] };
     expect(contentDigest(a)).toBe(contentDigest(b));
     expect(contentDigest(a)).not.toBe(contentDigest({ ...a, nodes: [{ ...a.nodes[0], position: { x: 1, y: 0 } }] }));
+  });
+
+  it.each(['selected', 'measured', 'dragging', 'resizing'])('keeps nested content named %s in the fingerprint', (key) => {
+    const node = { id: '1', data: { parameters: { [key]: 'before' } } };
+    const a = { nodes: [node], edges: [] };
+    expect(contentDigest(a)).not.toBe(contentDigest({ ...a, nodes: [{ ...node, data: { parameters: { [key]: 'after' } } }] }));
+    expect(contentDigest({ nodes: [], edges: [], document: { raw: { extra: { [key]: 1 } } } }))
+      .not.toBe(contentDigest({ nodes: [], edges: [], document: { raw: { extra: { [key]: 2 } } } }));
+    expect(contentDigest({ nodes: [], edges: [], projectExtras: { fields: { [key]: 1 } } }))
+      .not.toBe(contentDigest({ nodes: [], edges: [], projectExtras: { fields: { [key]: 2 } } }));
+  });
+
+  it('ignores only record flags on nodes and links of the main graph and subgraph definitions', () => {
+    const node = { id: '1', data: { parameters: { selected: 'kept' } } };
+    const edge = { id: 'link-1', source: '1', target: '2', data: { measured: 12 } };
+    const definition = { id: 'inner', nodes: [node], edges: [edge] };
+    const flags = { selected: true, dragging: true, measured: { width: 10 }, resizing: true };
+    const a = { nodes: [node], edges: [edge], subgraphs: [definition] };
+    const b = { nodes: [{ ...node, ...flags }], edges: [{ ...edge, ...flags }], subgraphs: [{ ...definition, nodes: [{ ...node, ...flags }], edges: [{ ...edge, ...flags }] }] };
+    expect(contentDigest(a)).toBe(contentDigest(b));
+    expect(contentDigest(a)).not.toBe(contentDigest({ ...a, subgraphs: [{ ...definition, nodes: [{ ...node, data: { parameters: { selected: 'changed' } } }] }] }));
+  });
+
+  it('keeps an unchanged v1.1.0 project clean and upgrades its old digest without a schema migration', () => {
+    const db = open();
+    commit(db, { type: 'add-node', nodeType: 'KSampler' });
+    const saved = readProjection(db, DESKTOP_PROJECT_ID)!;
+    const graphKey = projectFileState(db, DESKTOP_PROJECT_ID).graphKey;
+    const digest = oldDigest(saved.snapshot);
+    expect(digest).toMatch(/^[a-f0-9]{64}$/);
+    rememberProjectFile(db, DESKTOP_PROJECT_ID, '/tmp/legacy.json', { graphKey, digest });
+    expect(projectFileState(db, DESKTOP_PROJECT_ID).dirty).toBe(false);
+    const row = () => db.prepare('SELECT saved_digest FROM project_files WHERE project_id = ? AND graph_key = ?').get(DESKTOP_PROJECT_ID, graphKey) as { saved_digest: string };
+    expect(row().saved_digest).toBe(contentDigest(saved.snapshot));
+    expect(row().saved_digest).toMatch(/^v2:[a-f0-9]{64}$/);
+    commit(db, { type: 'move-node', nodeId: '1', x: 42, y: 13 });
+    expect(projectFileState(db, DESKTOP_PROJECT_ID).dirty).toBe(true);
+    // A changed old project remains dirty, and a save with omitted values is never upgraded to clean.
+    rememberProjectFile(db, DESKTOP_PROJECT_ID, '/tmp/legacy.json', { graphKey, digest });
+    expect(projectFileState(db, DESKTOP_PROJECT_ID).dirty).toBe(true);
+    expect(row().saved_digest).toBe(digest);
+    rememberProjectFile(db, DESKTOP_PROJECT_ID, '/tmp/omitted.json', { graphKey, digest: `omitted:${contentDigest(readProjection(db, DESKTOP_PROJECT_ID)!.snapshot)}` });
+    expect(projectFileState(db, DESKTOP_PROJECT_ID).dirty).toBe(true);
+    expect(row().saved_digest).toMatch(/^omitted:/);
+    db.close();
   });
 });
 

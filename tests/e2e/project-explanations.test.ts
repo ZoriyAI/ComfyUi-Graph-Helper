@@ -52,6 +52,8 @@ test('a hand-written description is saved with the project, stays off other grap
     // A workflow from ComfyUI, then a description written by hand on node 4.
     await menu(window, 'File', 'Open workflow…');
     await expect(window.locator('.react-flow__node')).toHaveCount(12, { timeout: 20000 });
+    await window.getByRole('button', { name: 'Save project' }).click();
+    await expect(window.locator('.project-chip')).toHaveAttribute('data-dirty', 'false');
     await window.getByRole('button', { name: 'Read the description: Sample', exact: true }).click();
     await expect(sampleCard).toHaveAttribute('data-expanded', 'true');
     await sampleCard.getByRole('button', { name: 'Edit the description' }).focus();
@@ -61,9 +63,17 @@ test('a hand-written description is saved with the project, stays off other grap
     await sampleCard.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(sampleCard).toHaveAttribute('data-description-scope', 'node');
     await expect(sampleCard).toContainText(NOTE);
+    await expect(window.locator('.project-chip')).toHaveAttribute('data-dirty', 'true');
+    await app.evaluate(({ dialog }) => {
+      dialog.showSaveDialog = async () => ({ canceled: true, filePath: '' });
+    });
+    const canceled = await window.evaluate(() => (window as unknown as { electronAPI: { saveProjectFile: (secrets: undefined, options: { saveAs: boolean }) => Promise<unknown> } }).electronAPI.saveProjectFile(undefined, { saveAs: true }));
+    expect(canceled).toEqual({ ok: false, canceled: true });
+    await expect(window.locator('.project-chip')).toHaveAttribute('data-dirty', 'true');
 
     // Save project: the description is in the file, with its source.
     await window.getByRole('button', { name: 'Save project' }).click();
+    await expect(window.locator('.project-chip')).toHaveAttribute('data-dirty', 'false');
     await expect(window.getByText('Project saved.')).toBeVisible();
     const file = JSON.parse(fs.readFileSync(projectPath, 'utf8')) as { extensions: { explanations: { version: number; items: Array<{ owner: { kind: string; id: string }; text: string; provenance: string; createdBy: string }> } } };
     expect(file.extensions.explanations.version).toBe(1);
@@ -87,6 +97,7 @@ test('a hand-written description is saved with the project, stays off other grap
     await expect(replace).toBeVisible();
     await replace.getByRole('button', { name: 'Open project', exact: true }).click();
     await expect(window.getByText('Project opened.')).toBeVisible();
+    await expect(window.locator('.project-chip')).toHaveAttribute('data-dirty', 'false');
     await expect(sampleCard).toHaveAttribute('data-description-scope', 'node', { timeout: 20000 });
     await expect(sampleCard).toContainText(NOTE);
     // Opened from a file: whoever made the file wrote it, so it is marked "from the file", not as the person's own.

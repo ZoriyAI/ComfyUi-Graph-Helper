@@ -57,7 +57,7 @@ import { DESKTOP_PROJECT_ID } from '../shared/project';
 import { assertObjectInfoSize, ObjectInfoError, parseObjectInfo } from '../shared/catalog/objectInfo';
 import { bumpCatalogRevision, readCatalog, upsertObjectInfo } from './catalog/repository';
 import { nativeProjectFile, openNativeFile } from './ipc/projectFile';
-import { contentDigest, defaultSavePaths, projectFileState, rememberProjectFile, withFileExtension } from './projectFiles';
+import { defaultSavePaths, projectContentDigest, projectFileState, rememberProjectFile, withFileExtension } from './projectFiles';
 import { exportWorkflow, type GraphSnapshot } from '../shared/workflow/codec';
 import { createTranslator, fileDialogCopy, languageOf } from '../shared/i18n';
 
@@ -329,7 +329,8 @@ export async function setupIPC(): Promise<void> {
     const changedByGuard = JSON.stringify(saved.project) !== JSON.stringify(prepared.project);
     // A file saved without its secret values is not the graph as it stands: the digest is marked, so the app bar
     // keeps showing unsaved changes.
-    const written = { graphKey: state.graphKey, digest: changedByGuard ? `omitted:${contentDigest(captured.snapshot)}` : contentDigest(captured.snapshot) };
+    const digest = projectContentDigest(getDatabase(), DESKTOP_PROJECT_ID, captured.snapshot as GraphSnapshot);
+    const written = { graphKey: state.graphKey, digest: changedByGuard ? `omitted:${digest}` : digest };
     // Save writes back to the project's own file without a question; Save as, or a graph with no file, asks where.
     let filePath = options?.saveAs ? null : state.filePath;
     // The folder of the earlier file is gone (a removed drive, a deleted folder): ask where instead of failing.
