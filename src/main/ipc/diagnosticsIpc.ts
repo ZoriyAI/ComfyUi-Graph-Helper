@@ -13,7 +13,7 @@ import { APP_ID } from '../identity';
 import { getDatabase } from '../database';
 import { readSettings } from '../settings/repository';
 import { catalogTotals } from '../catalog/repository';
-import { syncService } from '../mcp/sync';
+import { reportedComfyUrl, syncService } from '../mcp/sync';
 import { mainLLMService } from '../llmService';
 import { addressScrubber, buildDiagnosticsReport, homeRedactor } from '../diagnostics';
 import { log, logsDir, readLogTail, redactForLog } from '../log';
@@ -89,10 +89,9 @@ export function rendererErrorLine(input: unknown): string | null {
 }
 
 /**
- * Every server address the person set up: the MCP server (saved, and as the sync status reports it), the saved
- * ComfyUI address, the model server of each provider. The ComfyUI address an MCP server reported is not added
- * (the status field is read in the type but never pushed). Reports meant for someone else name these only by
- * where they are (diagnostics.ts addressScrubber).
+ * Every server address the person set up or was told of: the MCP server (saved, and as the sync status reports it),
+ * the saved ComfyUI address, the ComfyUI address the MCP server reported at its last sync, the model server of each
+ * provider. Reports meant for someone else name these only by where they are (diagnostics.ts addressScrubber).
  */
 export function personAddresses(): string[] {
   const found: string[] = [];
@@ -103,8 +102,11 @@ export function personAddresses(): string[] {
     const providers = (read.preferences as { providers?: Record<string, { baseURL?: unknown }> } | undefined)?.providers ?? {};
     for (const entry of Object.values(providers)) if (typeof entry?.baseURL === 'string') found.push(entry.baseURL);
     try {
-      const reported = syncService.status(db) as { mcpUrl?: unknown; comfyuiUrl?: unknown };
+      const reported = syncService.status(db) as { mcpUrl?: unknown };
       if (typeof reported.mcpUrl === 'string') found.push(reported.mcpUrl);
+      // The ComfyUI address the server named (it may differ from the saved one): as private as the saved one.
+      const comfyReported = reportedComfyUrl(db);
+      if (comfyReported) found.push(comfyReported);
     } catch {
       // No sync status: the saved addresses are enough.
     }
