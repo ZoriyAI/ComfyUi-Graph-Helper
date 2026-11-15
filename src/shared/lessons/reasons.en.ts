@@ -70,4 +70,5 @@ export const REASONS_EN: Record<string, string> = {
   'daily.wideWidth': 'A banner needs width: 768 suits an SD 1.5 model, up to 1216 or so an SDXL one.',
   'daily.wide': 'A banner is wide: the picture must be wider than it is tall.',
   'daily.batch': 'Two to four pictures in one run give a choice; each one more needs more memory of the graphics card.',
+  'daily.previewScale': 'A small copy is cheap to make and enough to judge the picture; half the size or less keeps the branch quick.',
 };

@@ -206,13 +206,64 @@ const queueHistory: Lesson = {
   ],
 };
 
+/**
+ * N10: partial execution and the cache. A second, cheap branch beside the saver; a change in that branch reruns only
+ * it, a partial run of its preview leaves the saver alone, a change upstream reruns what depends on it.
+ */
+const partialCache: Lesson = {
+  id: 'partial-cache',
+  standard: 2,
+  outcomes: ['structure', 'run', 'result'],
+  meta: { prerequisites: ['queue-history'], versions: [`${CORE_NODES}, Upscale Image By, Preview Image`, FRONTEND], checkedOn: CHECKED_ON },
+  steps: [
+    { id: 'intro', read: true },
+    READY,
+    { id: 'graph', ...baseGraph },
+    {
+      id: 'branch',
+      roles: [node('scale', 'ImageScaleBy'), node('preview', 'PreviewImage')],
+      links: [link('decode', 'IMAGE', 'scale', 'image'), link('scale', 'IMAGE', 'preview', 'images')],
+      fields: [field('scale', 'scale_by', { kind: 'between', min: 0.25, max: 0.75, prefer: 0.5 }, 'daily.previewScale')],
+    },
+    { id: 'complete', readCheck: [{ kind: 'workflow-complete' }] },
+    { id: 'full', checklist: [{ id: 'export' }, { id: 'fixed' }, { id: 'ran', run: true }, { id: 'again' }] },
+    { id: 'cache', read: true },
+    { id: 'downstream', checklist: [{ id: 'scale' }, { id: 'time' }] },
+    { id: 'partial', checklist: [{ id: 'select', run: true }, { id: 'seed' }, { id: 'whole' }] },
+    {
+      id: 'assess',
+      rubric: [
+        { id: 'branch', levels: ['no', 'partly', 'yes'] },
+        { id: 'faster', levels: ['no', 'partly', 'yes'] },
+        { id: 'upstream', levels: ['no', 'partly', 'yes'] },
+      ],
+    },
+    {
+      id: 'recall',
+      quiz: [
+        { id: 'scale', choices: ['all', 'branch', 'nothing'], answer: 'branch' },
+        { id: 'seed', choices: ['preview', 'sampler-on', 'nothing'], answer: 'sampler-on' },
+        { id: 'saver', choices: ['yes', 'no', 'twice'], answer: 'no' },
+      ],
+    },
+    {
+      id: 'transfer',
+      transfer: true,
+      roles: [node('saveSmall', 'SaveImage')],
+      links: [link('scale', 'IMAGE', 'saveSmall', 'images')],
+      fields: [field('saveSmall', 'filename_prefix', { kind: 'differs', role: 'save', field: 'filename_prefix' })],
+    },
+  ],
+};
+
 /** The lessons of the group, in the order a person meets them. */
-export const DAILY_CYCLE_LESSONS: Lesson[] = [templateOwn, queueHistory];
+export const DAILY_CYCLE_LESSONS: Lesson[] = [templateOwn, queueHistory, partialCache];
 
 /** The group of each lesson and the lessons it goes on from. */
 export const DAILY_CYCLE_PATH: Record<string, { group: LessonGroup; follows: string[] }> = {
   'template-own': { group: DAILY_CYCLE_GROUP, follows: ['read-workflow'] },
   'queue-history': { group: DAILY_CYCLE_GROUP, follows: ['template-own'] },
+  'partial-cache': { group: DAILY_CYCLE_GROUP, follows: ['queue-history'] },
 };
 
 /**
@@ -222,4 +273,5 @@ export const DAILY_CYCLE_PATH: Record<string, { group: LessonGroup; follows: str
 export const DAILY_CYCLE_AFTER: Record<string, string[]> = {
   'template-own': ['image'],
   'queue-history': ['image'],
+  'partial-cache': ['image'],
 };

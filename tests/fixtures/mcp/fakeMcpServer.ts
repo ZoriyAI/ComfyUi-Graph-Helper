@@ -19,6 +19,7 @@ import { imageModelClassDefs } from './classes/image-models';
 import { VIDEO_SET_CLASSES } from './classes/video';
 import { IMAGE_TECHNIQUE_PACKS, imageTechniqueClassDefs } from './classes/image-techniques';
 import { FOUNDATIONS_CLASSES } from './classes/foundations';
+import { DAILY_CYCLE_CLASSES } from './classes/daily-cycle';
 import { SOUND_3D_FACES_CLASSES, SOUND_3D_FACES_PACKS } from './classes/sound-3d-faces';
 
 export interface FakeMcpCall {
@@ -556,6 +557,8 @@ export const VIDEO_CLASSES: ClassDef[] = onceEach([
   ...FOUNDATIONS_CLASSES,
   // Sound, speech, 3D, faces and characters (classes/sound-3d-faces.ts), each in its pack.
   ...SOUND_3D_FACES_CLASSES.map((def) => ({ ...def, pack: Math.max(0, PACKS.findIndex((pack) => pack.name === def.pack)) })),
+  // The daily work cycle (classes/daily-cycle.ts).
+  ...DAILY_CYCLE_CLASSES,
 ], CLASSES);
 
 /** The /object_info document the native fixture serves. */

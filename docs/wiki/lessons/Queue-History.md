@@ -58,4 +58,5 @@ key Q: the ComfyUI README. Reuse of results: the ComfyUI README and the official
 ## See also
 - [How lessons work](How-Lessons-Work.md)
 - [Templates: from a ready workflow to your own](Template-Own.md)
+- [Partial execution and the cache](Partial-Cache.md)
 - [Running the result in ComfyUI](../graph/Running-In-ComfyUI.md)

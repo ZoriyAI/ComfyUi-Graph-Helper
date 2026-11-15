@@ -295,4 +295,138 @@ export const DAILY_CYCLE_EN: Record<string, LessonWords> = {
       },
     },
   },
+  'partial-cache': {
+    title: 'Partial execution and the cache',
+    result: 'A graph with a cheap preview branch beside the saver, and proof of which branch ran and why a run was faster.',
+    roles: {
+      save: 'saver of the full picture',
+      scale: 'small copy',
+      preview: 'preview of the small copy',
+      saveSmall: 'saver of the small copy',
+    },
+    meta: {
+      skill: 'Run only the branch you are working on, and tell from the time and the files which nodes ran again and why.',
+      requires: ['A ComfyUI you can run, with one picture model in models/checkpoints.', 'An interface (frontend) of version 1.24 or newer for partial execution: older ones may run the whole graph.'],
+      mistakes: [
+        {
+          sign: 'The run button does not appear when you select a node.',
+          fix: 'Partial execution starts from an output node. Select the Preview Image or a Save Image, not a node in the middle.',
+        },
+        {
+          sign: 'A partial run still runs the whole graph.',
+          fix: 'An old interface does that. Note your frontend version (Settings, About) and update ComfyUI; until then run the whole graph.',
+        },
+        {
+          sign: 'After a change nothing runs again, though you expected it to.',
+          fix: 'The change did not reach that node, or the value is the same as before. Check that the field you changed is on the way to the output you run.',
+        },
+        {
+          sign: 'Everything runs again each time, even the sampler.',
+          fix: 'The seed changes after every run. Set `control_after_generate` under `seed` to `fixed`.',
+        },
+      ],
+      provenance: 'Built on ComfyUI\'s own nodes (Upscale Image By, Preview Image) and the interface as the official documentation describes it. No model, picture or prompt comes with the lesson.',
+      notChecked: `The app checks the graph on the canvas, the scale of the small copy and that every node is installed. It does not see which nodes ran or how long a run took. ${NOT_CHECKED_TAIL}`,
+    },
+    steps: {
+      intro: {
+        title: 'Run only what you are working on',
+        body: 'ComfyUI remembers the result of every node. When you run again, it works out only the nodes whose inputs or settings changed, and what depends on them. Everything else comes from memory.\n\nYou can also run only one branch: select an output node and run just the way to it. That is partial execution.\n\nIn this lesson you add a cheap branch, a small preview of the picture, beside the saver. Then you prove with the time and the files which nodes ran: after a change at the end, after a partial run, and after a change at the start.',
+      },
+      ready: {
+        title: 'Before you start',
+        body: 'Two things the app can see for itself; the third only you know.',
+        items: READY_ITEMS,
+      },
+      graph: {
+        title: 'The picture graph',
+        body: 'Keep the picture graph of the first lesson, or build it: {checkpoint}, the prompt and the negative prompt in {positive} nodes, {latent}, {sampler}, {decode} and {save}. A model is chosen in `ckpt_name`, the prompt is written in `text`.',
+      },
+      branch: {
+        title: 'A second branch: a small preview',
+        body: 'Add {scale} and {preview}. Link the IMAGE output of {decode} to `image` of {scale}, and the output of {scale} to `images` of {preview}.\n\nSet `scale_by` of {scale} to 0.5: a copy at half the size.\n\nNow the decoded picture goes two ways: to {save}, which writes a file, and through {scale} to {preview}, which only shows it. Preview Image writes nothing to the output folder.',
+      },
+      complete: {
+        title: 'Every node is in your ComfyUI',
+        body: 'Before the graph goes to ComfyUI, the app checks that every node on the canvas is installed there.',
+      },
+      full: {
+        title: 'A full run and a run with nothing changed',
+        body: `${RUN}\n\nAfter each run ComfyUI prints "Prompt executed in … seconds" in its log (the Logs tab of the bottom panel, or the console). Note the times. ${OWN_WORD}`,
+        items: {
+          export: { label: 'I opened the workflow in ComfyUI.' },
+          fixed: { label: 'I set `control_after_generate` under `seed` to `fixed`.', how: 'Otherwise the seed changes after every run, and everything runs again.' },
+          ran: { label: 'I ran the whole graph: a file in the output folder, a small copy on the preview. I noted the time.' },
+          again: { label: 'I pressed Run again with nothing changed: it ended at once, and no new file appeared.' },
+        },
+      },
+      cache: {
+        title: 'What runs again',
+        body: 'A node runs again when one of its inputs or settings changed. Then every node after it runs again too. Nodes before it come from memory.\n\nChange `scale_by` and only {scale} and {preview} have something new to do. The model, the prompts and the sampler stay as they were, so the run takes a fraction of the first one.\n\nChange the seed and the sampler must run again, and with it everything after it: both branches.',
+      },
+      downstream: {
+        title: 'Change the end of the graph',
+        body: `In ComfyUI change only \`scale_by\` of Upscale Image By, for example from 0.5 to 0.25, and press Run. ${OWN_WORD}`,
+        items: {
+          scale: { label: 'The preview shows a smaller copy, and the sampler did not run again.', how: 'The progress of the sampler does not move, and the run ends in a moment.' },
+          time: { label: 'I compared the time with the first run.', how: 'The line "Prompt executed in … seconds" in the log.' },
+        },
+      },
+      partial: {
+        title: 'Run one branch only',
+        body: `Select the Preview Image node alone. The toolbox over the selection shows a run button, a triangle; press it. In versions without the toolbox the menu of the node may have "Queue Selected Output Nodes". ${OWN_WORD}`,
+        items: {
+          select: { label: 'I ran the preview branch alone.', how: 'Only the way to the preview runs. Save Image is not on it, so no file is written.' },
+          seed: { label: 'I changed the seed and ran the preview branch alone again: the sampler ran, the preview changed, and still no new file appeared.' },
+          whole: { label: 'I ran the whole graph: now Save Image wrote the picture of the new seed.' },
+        },
+      },
+      assess: {
+        title: 'What did you prove?',
+        body: 'Answer for yourself; your answers stay on this computer.',
+        criteria: {
+          branch: {
+            title: 'For each run I can say which branch ran, and show it by the files.',
+            levels: { no: 'No', partly: 'Partly', yes: 'Yes' },
+            tryNext: 'Count the files in the output folder before and after each run: a new file means Save Image ran.',
+          },
+          faster: {
+            title: 'I can say why the run after the change of scale_by was faster.',
+            levels: { no: 'No', partly: 'Partly', yes: 'Yes' },
+            tryNext: 'Read again what runs again: the nodes before the change came from memory.',
+          },
+          upstream: {
+            title: 'I can predict what a change of the seed or of the prompt reruns.',
+            levels: { no: 'No', partly: 'Partly', yes: 'Yes' },
+            tryNext: 'Follow the links from the changed node to the outputs: every node on the way runs again.',
+          },
+        },
+      },
+      recall: {
+        title: 'Check yourself',
+        body: 'Three short questions. A wrong answer costs nothing: read the explanation and go on.',
+        questions: {
+          scale: {
+            text: 'You change only scale_by and press Run. What runs?',
+            choices: { all: 'The whole graph', branch: 'Upscale Image By and the preview after it', nothing: 'Nothing' },
+            explain: 'Only the changed node and what depends on it run again; the rest comes from memory.',
+          },
+          seed: {
+            text: 'You change the seed and run only the preview branch. What runs?',
+            choices: { preview: 'Only the preview', 'sampler-on': 'The sampler and everything on the way to the preview', nothing: 'Nothing, the branch is cached' },
+            explain: 'The seed is a setting of the sampler, so the sampler and all after it on that branch must run again.',
+          },
+          saver: {
+            text: 'Does a partial run of the preview write a new file through Save Image?',
+            choices: { yes: 'Yes', no: 'No', twice: 'Yes, two files' },
+            explain: 'Save Image is not on the way to the preview, so a partial run leaves it alone.',
+          },
+        },
+      },
+      transfer: {
+        title: 'On your own: keep the small copy',
+        body: 'Without help: add {saveSmall} that keeps the small copy as a file, fed by {scale}, with a `filename_prefix` other than that of {save}. Then in ComfyUI run only that saver, and check that the full picture was not written again.',
+      },
+    },
+  },
 };

@@ -58,4 +58,5 @@ queue» и «Clear history»: docs.comfy.org, Interface, Job History. Ctrl+Enter
 ## См. также
 - [Как устроены уроки](How-Lessons-Work.ru.md)
 - [Шаблоны: от готового workflow к своему](Template-Own.ru.md)
+- [Частичное выполнение и кэш](Partial-Cache.ru.md)
 - [Запуск в ComfyUI](../graph/Running-In-ComfyUI.ru.md)

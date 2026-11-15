@@ -2288,6 +2288,9 @@ export const en = {
       output: 'result node',
       loader: 'model loader',
       card: 'card with notes',
+      scale: 'resize',
+      preview: 'preview',
+      saveSmall: 'saver of the small copy',
     },
     fileKind: {
       imageCheckpoint: 'a picture model (SD 1.5, SDXL, Pony, Illustrious, Flux and the like), not a video model',
@@ -5455,6 +5458,9 @@ export const ru = {
       output: 'нода результата',
       loader: 'загрузчик модели',
       card: 'карточка с записями',
+      scale: 'изменение размера',
+      preview: 'предпросмотр',
+      saveSmall: 'сохранение маленькой копии',
     },
     fileKind: {
       imageCheckpoint: 'модель для картинок (SD 1.5, SDXL, Pony, Illustrious, Flux и подобные), а не видео-модель',
