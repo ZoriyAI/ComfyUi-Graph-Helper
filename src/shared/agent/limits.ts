@@ -1,7 +1,8 @@
 /**
  * The agent's protective limits, in one place so the tool descriptions, the prompt and the Preferences page
  * state the same numbers. The person's own data (graph, chat, catalog) has no cap: these only guard against
- * hostile or runaway input from outside (web pages) and say so where they apply.
+ * hostile or runaway input from outside (web pages) and say so where they apply. Read by main/agent (web.ts,
+ * toolSpecs.ts), agent/graph.ts and Settings (Assistant and Privacy sections).
  */
 
 /** fetchPage reads at most this many bytes of one web page; the rest is not downloaded. */

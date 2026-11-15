@@ -1,3 +1,8 @@
+/**
+ * The person's own recent edits as one line of the helper's prompt, so it can answer "what did I just do" and
+ * notice a change made by hand. main/commands/commit.ts keeps the trimmed payload when a command is applied;
+ * main/agent/prompt.ts and turn.ts read the recent ones back and write the line.
+ */
 import { safeParameter, safeText, slotName, type GraphSummary } from './graph';
 
 /**
@@ -18,7 +23,9 @@ export interface RecentCommand {
   payload: Record<string, unknown>;
 }
 
+/** Commands whose payload is a whole graph or selection: only their type is kept. */
 const BULKY = new Set(['import-workflow', 'open-native', 'paste-selection']);
+/** Payload and result fields that name a touched object. */
 const ID_KEYS = ['nodeId', 'edgeId', 'source', 'target', 'groupId', 'definitionId'] as const;
 
 /** The payload a recent command keeps, and the ids it touched. */
@@ -76,6 +83,7 @@ function nodeName(id: string): string {
   return `node ${safeText(id, 80) || '?'}`;
 }
 
+/** "4:MODEL": a node id and its slot's name, looked up in the graph summary when the node is known. */
 function port(summary: GraphSummary | null, nodeId: string, handle: string, side: 'inputs' | 'outputs'): string {
   const node = summary?.nodes.find((item) => item.id === nodeId);
   const name = node ? slotName(node[side], handle) : '';

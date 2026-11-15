@@ -3,7 +3,8 @@
  * window, as its FAQ says (docs.ollama.com/faq, checked 2026-11): the server reads OLLAMA_CONTEXT_LENGTH when it
  * starts; installed as a systemd service, the variable goes into the service with `systemctl edit ollama.service`
  * under [Service], then `systemctl daemon-reload` and `systemctl restart ollama`. A one-off start takes it in front
- * of `ollama serve`. The app changes nothing itself: it only tells.
+ * of `ollama serve`. The app changes nothing itself: it only tells. Shown by the chat message that reports a too
+ * small window (renderer/components/chat/Message.tsx).
  */
 export interface WindowHowToStep {
   /** Catalog key of the sentence for this step. */
@@ -12,6 +13,7 @@ export interface WindowHowToStep {
   command?: string;
 }
 
+/** The steps for a window of `tokens` (never below 4096), with the number filled into the commands. */
 export function ollamaWindowSteps(tokens: number): WindowHowToStep[] {
   const size = Math.max(4096, Math.round(tokens));
   return [

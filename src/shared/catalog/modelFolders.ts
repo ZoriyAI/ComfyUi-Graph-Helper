@@ -5,6 +5,8 @@
  * object_info combo lists are filenames. The folder name is not a field on the input spec
  * (ComfyUI server.py node_info / comfy.comfy_types.node_typing.InputTypeOptions).
  * https://github.com/Comfy-Org/ComfyUI_frontend/blob/98700cfc/src/platform/assets/mappings/modelNodeMappings.ts
+ * Used to sort a catalog's model files into folders (objectInfo.ts, main/knowledge/repository.ts), to check that a
+ * graph's models exist (graph/compatibility.ts) and to find loaders on the canvas (renderer graph/lib/modelLoaders.ts).
  */
 const CORE_MODEL_WIDGETS: ReadonlyArray<readonly [string, string, string]> = [
   ['checkpoints', 'CheckpointLoaderSimple', 'ckpt_name'],
@@ -34,6 +36,7 @@ for (const [directory, classType, inputName] of CORE_MODEL_WIDGETS) {
   if (!byWidget.has(key)) byWidget.set(key, directory);
 }
 
+/** The models folder a core loader's file field reads from, or undefined for any other field. */
 export function modelDirectoryFor(classType: string, inputName: string): string | undefined {
   return byWidget.get(`${classType}\0${inputName}`);
 }

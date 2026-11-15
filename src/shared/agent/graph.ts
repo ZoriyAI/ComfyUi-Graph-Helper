@@ -1,14 +1,18 @@
-import { carriesSecret } from '../config/draft';
-import { GRAPH_PAGE_DEFAULT, PROMPT_FULL_GRAPH_NODES } from './limits';
-
 /**
  * A read-only summary of the graph for the model: ids, class types, titles, ports, connections, every widget
  * value, positions, sizes, the selection, groups and subgraph instances. The agent sees what the person sees.
  * The only filter is redaction: a value that looks like a key or token becomes "[redacted]" and never reaches a prompt.
+ * Main's agent builds the prompt from it (main/agent/prompt.ts, turn.ts) and answers the getGraph tool with it
+ * (main/agent/tools.ts); main/exportSecrets.ts reuses its secret test.
  */
+import { carriesSecret } from '../config/draft';
+import { GRAPH_PAGE_DEFAULT, PROMPT_FULL_GRAPH_NODES } from './limits';
+
 /** `handle` is what connectNodes takes (in-N / out-N, in socket order). */
 export interface GraphPortSummary { slot: number; handle: string; name: string; type: string }
+/** One widget value, already clipped and redacted. */
 export interface GraphParameterSummary { name: string; value: string }
+/** One node as the model reads it. */
 export interface GraphNodeSummary {
   id: string;
   classType: string;
@@ -30,6 +34,7 @@ export interface GraphNodeSummary {
   /** Subgraph definition id when the node is a subgraph instance. */
   subgraphId: string;
 }
+/** One connection, with the port names resolved so the model need not look them up. */
 export interface GraphEdgeSummary {
   id: string;
   source: string;
@@ -40,8 +45,10 @@ export interface GraphEdgeSummary {
   targetName: string;
   type: string;
 }
+/** A group and the nodes inside it. A subgraph: its definition, the nodes that use it and how many nodes it holds. */
 export interface GraphGroupSummary { id: string; title: string; nodeIds: string[] }
 export interface GraphSubgraphSummary { id: string; name: string; instances: string[]; inner: number }
+/** One page of the graph summary, with totals so the model knows what is not listed. */
 export interface GraphSummary {
   nodes: GraphNodeSummary[];
   edges: GraphEdgeSummary[];
@@ -62,6 +69,7 @@ export interface GraphSummary {
   focusIds?: string[];
 }
 
+/** What summarizeGraph lists and how much of each text it keeps. */
 export interface SummarizeOptions {
   /** Node ids the person has selected (the projection itself does not carry the selection). */
   selectedIds?: readonly string[];
@@ -123,6 +131,7 @@ function clip(text: string, cap: number): string {
   return text.length > cap ? `${text.slice(0, cap)}… [+${text.length - cap} chars]` : text;
 }
 
+/** A widget value as text: strings, numbers and booleans as they are, objects as JSON, '' when that fails. */
 function valueText(value: unknown): string {
   if (value === null || value === undefined) return String(value);
   if (typeof value === 'string') return value;
@@ -217,6 +226,7 @@ function lockedOf(node: Loose, data: Loose): boolean {
   return flags?.pinned === true;
 }
 
+/** ComfyUI's node mode: 4 is bypass, 2 is mute; anything else runs. */
 function modeOf(data: Loose): string {
   const mode = record(data.comfy)?.mode;
   if (mode === 4) return 'bypassed';
@@ -224,6 +234,10 @@ function modeOf(data: Loose): string {
   return '';
 }
 
+/**
+ * Builds the summary from a projection snapshot. The snapshot comes from storage and is read loosely: a missing or
+ * odd field gives an empty value, never an error. Priority nodes are listed even past the page.
+ */
 export function summarizeGraph(
   snapshot: { nodes?: unknown; edges?: unknown; components?: unknown; process?: unknown; groups?: unknown; subgraphs?: unknown } | null | undefined,
   options: SummarizeOptions = {},
@@ -340,6 +354,7 @@ function portsText(list: GraphPortSummary[]): string {
   return list.map((port) => `${port.name || port.type || '?'} (${port.handle})`).join(', ');
 }
 
+/** A node written in full: the head line, then its ports and its fields on indented lines. */
 function nodeLine(node: GraphNodeSummary): string[] {
   const parts = [`- ${node.id} ${node.classType}`];
   if (node.title && node.title !== node.classType) parts.push(`"${node.title}"`);
@@ -371,6 +386,7 @@ function compactLine(node: GraphNodeSummary): string {
   return parts.join(' ');
 }
 
+/** How graphSummaryText writes the summary. */
 export interface GraphTextOptions {
   /** Up to this many listed nodes, every node is written in full; past it, compact lines. Default 300. */
   fullNodes?: number;

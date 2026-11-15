@@ -1,7 +1,14 @@
+/**
+ * The graph context of the renderer's own chat path (renderer/services/llm/chatService.ts): the instructions and
+ * a one-line-per-node list it sends as the system message. Main builds a richer prompt for the agent turn
+ * (main/agent/prompt.ts) and puts it in this message's place.
+ */
+/** One line, single spaces: a title or note must not break the one-line-per-node list. */
 function clean(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
 }
 
+/** What the list is made from: the nodes, their documentation records and the process title and notes. */
 export interface AgentGraphContext {
   nodes: Array<{ id: string; data?: { comfyType?: string; title?: string } }>;
   components: Array<{ ownerKind: string; ownerId: string; purpose: string; usage: string }>;

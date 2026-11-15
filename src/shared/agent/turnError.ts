@@ -1,13 +1,16 @@
-import { isToolsUnsupportedError } from './providerErrors';
-
 /**
  * Why a helper turn failed, as a small closed set the chat can say in one plain sentence with the next step.
  * The provider's own words never become the message: they go to the conversation log, and a short redacted copy
- * travels as `details` for a collapsed "what the server said".
+ * travels as `details` for a collapsed "what the server said". Main sorts the error (main/agent/turn.ts,
+ * streamParts.ts); the renderer reads it back from the stream (chatService.ts) and words it (turnErrorText.ts).
  */
+import { isToolsUnsupportedError } from './providerErrors';
+
+/** The kinds of failure; a kind a server or a renderer sends that is not here is not trusted. */
 export const TURN_ERROR_KINDS = ['no-key', 'key', 'needs-key', 'model', 'rate', 'server', 'unreachable', 'unreadable', 'not-a-model', 'no-tools', 'storage', 'unknown'] as const;
 export type TurnErrorKind = typeof TURN_ERROR_KINDS[number];
 
+/** A failed turn as it travels from main to the chat. */
 export interface TurnError {
   kind: TurnErrorKind;
   /** For 'rate': how long the server asked to wait, when it said so. */
@@ -19,8 +22,10 @@ export interface TurnError {
 /** Kinds whose next step is in Settings ▸ Assistant (the key, the address, the model). */
 export const SETTINGS_KINDS: ReadonlySet<TurnErrorKind> = new Set(['no-key', 'key', 'needs-key', 'model', 'unreachable', 'not-a-model', 'no-tools']);
 
+/** Longest `details` kept, in characters: enough to recognise the server's words, not a whole error page. */
 export const DETAILS_CAP = 300;
 
+/** The fields read from an error of the AI SDK, a fetch or Node; none of them is trusted to exist. */
 type ErrorLike = {
   name?: unknown;
   message?: unknown;
@@ -49,11 +54,13 @@ function chain(error: unknown): ErrorLike[] {
   return out;
 }
 
+/** The messages of the whole chain, joined, so a wrapped cause's words are classified too. */
 function messageOf(error: unknown): string {
   if (typeof error === 'string') return error;
   return chain(error).map((item) => (typeof item.message === 'string' ? item.message : '')).filter(Boolean).join(' | ');
 }
 
+/** The first HTTP status in the chain that looks like one. */
 function statusOf(items: ErrorLike[]): number | null {
   for (const item of items) {
     const status = typeof item.statusCode === 'number' ? item.statusCode : typeof item.status === 'number' ? item.status : null;
@@ -81,6 +88,7 @@ export function retryAfterSeconds(headers: unknown, now = Date.now()): number | 
   return Number.isFinite(date) ? clampSeconds((date - now) / 1000) : null;
 }
 
+/** Whole seconds between 1 and an hour: a longer wait than that is not worth showing as a countdown. */
 function clampSeconds(seconds: number): number | null {
   if (!Number.isFinite(seconds) || seconds < 0) return null;
   return Math.min(3600, Math.max(1, Math.ceil(seconds)));
@@ -97,7 +105,9 @@ function secondsInText(text: string): number | null {
 /** The provider's words for a model it does not have (any more). */
 const MODEL_GONE = /model_not_found|model[ _-]?not[ _-]?found|no such model|unknown model|model .{1,120} (?:does not exist|not found|is not found|has been (?:deprecated|decommissioned|retired|shut down))|(?:deprecated|decommissioned|retired) model|is not supported for generateContent/i;
 
+/** Words of a connection that never got an answer: refused, not resolved, reset or timed out. */
 const UNREACHABLE = /ECONNREFUSED|ENOTFOUND|EAI_AGAIN|ETIMEDOUT|ECONNRESET|EHOSTUNREACH|ENETUNREACH|other side closed|socket hang up|fetch failed|Cannot connect to API|network error|timed? ?out|UND_ERR_/i;
+/** An answer arrived but could not be read as what the SDK expected. */
 const UNREADABLE_NAMES = /JSONParseError|TypeValidationError|InvalidResponseDataError|NoContentGeneratedError|InvalidStreamPart/i;
 const UNREADABLE_TEXT = /JSON parsing failed|Unexpected token|is not valid JSON|Expected property name|Invalid JSON response/i;
 
@@ -109,6 +119,7 @@ export function classifyTurnError(error: unknown, redact: (text: string) => stri
   const items = typeof error === 'string' ? [] : chain(error);
   const text = messageOf(error);
   const details = redact(text.length > DETAILS_CAP ? `${text.slice(0, DETAILS_CAP)}…` : text);
+  // An error that already carries one of the kinds (thrown by the app itself) keeps it.
   const known = items.map((item) => (typeof item.name === 'string' ? item.name : '')).join(' ');
   const explicit = items.map((item) => (typeof (item as { kind?: unknown }).kind === 'string' ? (item as { kind: string }).kind : '')).find((kind) => (TURN_ERROR_KINDS as readonly string[]).includes(kind));
   if (explicit) return { kind: explicit as TurnErrorKind, details };

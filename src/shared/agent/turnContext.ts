@@ -1,6 +1,12 @@
+/**
+ * Checks the turn context the renderer sends with a chat message (intent, selected objects, language, viewport)
+ * before main's agent turn uses it (main/agent/turn.ts). The renderer is not trusted: whatever does not match is
+ * dropped field by field, so a bad value never fails the whole turn.
+ */
 import { z } from 'zod';
 import type { AgentTurnContext } from '../contracts/agent';
 
+/** One ObjectRef (contracts/objects.ts); the length caps only guard against absurd input. */
 const objectRef = z.object({
   kind: z.enum(['node', 'port', 'edge', 'subgraph', 'group', 'nodeClass', 'model', 'process']),
   id: z.string().max(500),
@@ -18,6 +24,7 @@ const objectRef = z.object({
  */
 const SELECTION_CAP = 100_000;
 
+/** The schema of AgentTurnContext; every field falls back to a default instead of failing. */
 export const agentTurnContextSchema = z.object({
   intent: z.enum(['ask', 'build', 'chat']).default('chat').catch('chat'),
   objectRef: objectRef.optional().catch(undefined),

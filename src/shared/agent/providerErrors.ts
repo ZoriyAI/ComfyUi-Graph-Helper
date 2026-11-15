@@ -1,11 +1,13 @@
-import { LOCAL_ADVICE } from '../config/modelAdvice';
 /**
  * Recognises a local model server refusing tool (function) calling. Ollama answers a request with tools for a
  * model without tool support with `400 ... "<model>" does not support tools`; llama.cpp's server says tools need
  * `--jinja`; vLLM says `"auto" tool choice requires --enable-auto-tool-choice`; other OpenAI-compatible servers
  * mention "function calling" or "tools are not supported". The chat then explains what that means instead of
- * showing the raw error.
+ * showing the raw error. Used by the chat (renderer/services/llm/chatService.ts, turnErrorText.ts) and by
+ * turnError.ts, which sorts a failed turn into a kind.
  */
+
+import { LOCAL_ADVICE } from '../config/modelAdvice';
 
 const NO_TOOLS_PATTERNS: readonly RegExp[] = [
   /does not support tools/i,
@@ -25,6 +27,7 @@ const NO_TOOLS_PATTERNS: readonly RegExp[] = [
 /** Status 400 together with the word "tools" (or "function calling") counts too: the request's tools were refused. */
 const BAD_REQUEST_TOOLS = /\b400\b[\s\S]*\b(?:tools?|function[ _-]?call(?:ing)?)\b|\b(?:tools?|function[ _-]?call(?:ing)?)\b[\s\S]*\b400\b/i;
 
+/** True when an error text says the model or server refused the request's tools. Only the first 2000 characters are read. */
 export function isToolsUnsupportedError(message: unknown): boolean {
   if (typeof message !== 'string' || message.trim() === '') return false;
   const text = message.slice(0, 2000);
