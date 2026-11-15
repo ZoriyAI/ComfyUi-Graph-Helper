@@ -24,6 +24,7 @@ NodeWise это независимый экспериментальный уче
 | --- | --- |
 | [<img src="docs/screenshots/ru/02-canvas-explained.png" width="420" alt="Граф на холсте с объяснением под каждой нодой">](docs/screenshots/ru/02-canvas-explained.png) | [<img src="docs/screenshots/ru/07-lesson-step.png" width="420" alt="Шаг урока на настоящем холсте">](docs/screenshots/ru/07-lesson-step.png) |
 | [<img src="docs/screenshots/ru/05-assistant-build.png" width="420" alt="Помощник собирает граф по шагам">](docs/screenshots/ru/05-assistant-build.png) | [<img src="docs/screenshots/ru/08-check.png" width="420" alt="Проверка перед сохранением workflow">](docs/screenshots/ru/08-check.png) |
+| [<img src="docs/screenshots/ru/15-lesson-checklist.png" width="420" alt="Шаг урока, на который отвечаете вы: что видит приложение и что с ваших слов">](docs/screenshots/ru/15-lesson-checklist.png) | [<img src="docs/screenshots/ru/16-lesson-outcomes.png" width="420" alt="Конец урока: граф проверен, запущено в ComfyUI, результат оценён">](docs/screenshots/ru/16-lesson-outcomes.png) |
 
 [Все снимки экрана](docs/screenshots/README.ru.md)
 

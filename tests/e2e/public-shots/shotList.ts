@@ -16,7 +16,10 @@ export const PUBLIC_SHOTS: readonly string[] = [
   '11-settings-connection',
   '12-settings-assistant',
   '13-help',
+  '14-lesson-path',
+  '15-lesson-checklist',
+  '16-lesson-outcomes',
 ];
 
-/** The four pictures the root README shows as a 2x2 table, the rest live in the gallery. */
-export const README_SHOTS: readonly string[] = ['02-canvas-explained', '07-lesson-step', '05-assistant-build', '08-check'];
+/** The six pictures the root README shows as a table of two columns, the rest live in the gallery. */
+export const README_SHOTS: readonly string[] = ['02-canvas-explained', '07-lesson-step', '05-assistant-build', '08-check', '15-lesson-checklist', '16-lesson-outcomes'];

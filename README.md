@@ -23,6 +23,7 @@ contains no ComfyUI code and only reads a running ComfyUI; it never changes it.
 | --- | --- |
 | [<img src="docs/screenshots/en/02-canvas-explained.png" width="420" alt="A graph on the canvas with an explanation under every node">](docs/screenshots/en/02-canvas-explained.png) | [<img src="docs/screenshots/en/07-lesson-step.png" width="420" alt="A lesson step on the real canvas">](docs/screenshots/en/07-lesson-step.png) |
 | [<img src="docs/screenshots/en/05-assistant-build.png" width="420" alt="The assistant building a graph step by step">](docs/screenshots/en/05-assistant-build.png) | [<img src="docs/screenshots/en/08-check.png" width="420" alt="The check before saving a workflow">](docs/screenshots/en/08-check.png) |
+| [<img src="docs/screenshots/en/15-lesson-checklist.png" width="420" alt="A lesson step you answer: what the app sees and what is your own word">](docs/screenshots/en/15-lesson-checklist.png) | [<img src="docs/screenshots/en/16-lesson-outcomes.png" width="420" alt="The end of a lesson: structure checked, run in ComfyUI, result assessed">](docs/screenshots/en/16-lesson-outcomes.png) |
 
 [All screenshots](docs/screenshots/README.md)
 

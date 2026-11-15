@@ -158,12 +158,14 @@ export function largeWorkflow(language: TitleLanguage = 'en'): Record<string, un
   const builder = new Builder();
   const variants: Array<{ title: string; lora?: string; prompt: string; color: string }> = [
     { title: language === 'ru' ? 'Основа' : 'Base', prompt: PROMPT, color: '#3f789e' },
-    { title: language === 'ru' ? 'Пиксель-арт' : 'Pixel art', lora: 'pixel-art-xl.safetensors', prompt: `pixel art, ${PROMPT}`, color: '#8a5ab0' },
-    { title: language === 'ru' ? 'Больше деталей' : 'More detail', lora: 'add-detail-xl.safetensors', prompt: PROMPT, color: '#4a8a5c' },
+    { title: language === 'ru' ? 'Пиксели' : 'Pixel art', lora: 'pixel-art-xl.safetensors', prompt: `pixel art, ${PROMPT}`, color: '#8a5ab0' },
+    { title: language === 'ru' ? 'Детали' : 'Detail', lora: 'add-detail-xl.safetensors', prompt: PROMPT, color: '#4a8a5c' },
     { title: language === 'ru' ? 'Ночь' : 'Night', prompt: 'a lighthouse on a cliff at night, stars, calm sea', color: '#355070' },
-    { title: language === 'ru' ? 'Быстрый черновик' : 'Fast draft', lora: 'sdxl_lightning_8step_lora.safetensors', prompt: PROMPT, color: '#a0703a' },
+    { title: language === 'ru' ? 'Черновик' : 'Draft', lora: 'sdxl_lightning_8step_lora.safetensors', prompt: PROMPT, color: '#a0703a' },
     { title: language === 'ru' ? 'Зима' : 'Winter', prompt: 'a lighthouse on a snowy cliff, winter morning', color: '#5a6f8a' },
   ];
+  // The titles are short: zoomed out to see all six groups, the canvas keeps a group's title readable, and a long one
+  // would run over the first node of its group.
   variants.forEach((variant, index) => {
     const x = (index % 2) * 2200;
     const y = Math.floor(index / 2) * 900;
