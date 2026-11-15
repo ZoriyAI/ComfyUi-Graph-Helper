@@ -55,6 +55,13 @@ export interface AgentBuildStep {
 }
 
 /** One stored chat message of a project. */
+/**
+ * Messages one page of the chat holds: the chat service loads the newest page, then older ones as the person
+ * scrolls up, and takes a page shorter than this as "nothing older left". Main's chat history pages by the limit
+ * the renderer sends, so this one number is the page size on both sides.
+ */
+export const CHAT_PAGE_SIZE = 200;
+
 export interface ChatRecord {
   id: string;
   projectId: string;

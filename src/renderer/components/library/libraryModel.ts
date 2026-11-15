@@ -10,11 +10,10 @@ import { familiesCompatible } from '../../../shared/knowledge/baseModel';
 import { formatByteSize } from '../../../shared/i18n/format';
 
 /**
- * dataTransfer types the canvas accepts from the library. graph/lib/modelLoaders.ts declares the same two strings
- * for the drop side; they must stay equal.
+ * dataTransfer types the canvas accepts from the library, declared once in graph/lib/modelLoaders.ts (the drop side)
+ * so the drag and the drop can never disagree.
  */
-export const NODE_DRAG_TYPE = 'application/x-helper-node';
-export const MODEL_DRAG_TYPE = 'application/x-helper-model';
+export { MODEL_DRAG_TYPE, NODE_DRAG_TYPE } from '../graph/lib/modelLoaders';
 
 /** Node classes of one top-level category. */
 export interface NodeGroup {

@@ -99,9 +99,6 @@ function parseToolCalls(value: unknown): unknown[] | null {
   }
 }
 
-/** Messages one page of the chat holds (the newest first page, then older ones as the person scrolls up). */
-export const CHAT_PAGE = 200;
-
 /** Which page of the chat to load; without it every message is returned. */
 export interface ChatPageRequest {
   /** Most messages to return; the newest of them. */

@@ -40,6 +40,7 @@ import {
 } from '../lib/description';
 import { nodeRef } from '../lib/selection';
 import { nodeDisplayName } from '../lib/nodeName';
+import { TOOLBAR_ROOM_PX } from '../lib/followCamera';
 import { useNodeDetail } from '../nodeInfo';
 import { useCameraStore } from '../../../motion/camera';
 import styles from './DescriptionLayer.module.css';
@@ -580,8 +581,6 @@ function useCardDemand(selectedIds: string[]): void {
 
 /** Room kept free at the canvas edges, and under the floating toolbar at the top, in screen pixels. */
 const EDGE_PX = 8;
-/** The floating toolbar's room, as TOOLBAR_ROOM_PX in lib/followCamera.ts. */
-const TOOLBAR_PX = 64;
 type View = [number, number, number, number, number];
 /** Pan, zoom and canvas size, rounded so sub-pixel pans do not re-place cards. */
 const viewOf = (state: ReactFlowState): View => [Math.round(state.transform[0]), Math.round(state.transform[1]), state.transform[2], state.width, state.height];
@@ -685,7 +684,8 @@ export default function DescriptionLayer() {
     const [tx, ty, scale] = view;
     if (!(view[3] > 0 && view[4] > 0 && scale > 0)) return null;
     const left = EDGE_PX;
-    const top = TOOLBAR_PX;
+    // The floating toolbar's room, the same number the camera keeps free (lib/followCamera.ts).
+    const top = TOOLBAR_ROOM_PX;
     return { x: (left - tx) / scale, y: (top - ty) / scale, width: (view[3] - left - EDGE_PX) / scale, height: (view[4] - top - EDGE_PX) / scale };
   }, [view]);
   // Cards of nodes far outside the view are not drawn: the window is the view grown by one screen on each side,

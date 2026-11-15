@@ -18,7 +18,7 @@ import { providerErrorKey, TOOL_CAPABLE_EXAMPLES } from '../../../shared/agent/p
 import { parseTurnError } from '../../../shared/agent/turnError';
 import { turnErrorText } from './turnErrorText';
 import { BUILD_TOOL_SPECS } from '../../../shared/commands/toolSpecs';
-import type { AgentBuildStep, AgentTurnContext, Explanation } from '../../../shared/contracts';
+import { CHAT_PAGE_SIZE, type AgentBuildStep, type AgentTurnContext, type Explanation } from '../../../shared/contracts';
 import { useCanvasStore } from '../../components/graph/canvasStore';
 import { stepKey } from '../../components/graph/lib/buildQueue';
 import { DESKTOP_PROJECT_ID } from '../../../shared/project';
@@ -177,9 +177,6 @@ function markLastAnswerStopped(): void {
   const last = messages[messages.length - 1];
   if (last && last.role === 'assistant') useChatStore.getState().updateMessage(last.id, { stopped: true });
 }
-
-/** Messages per page of the chat (main/agent/chatHistory.ts CHAT_PAGE). */
-const CHAT_PAGE_SIZE = 200;
 
 /** One per window (getChatService): the turn in flight, the run it builds in, and the loaded chat history. */
 export class ChatService {

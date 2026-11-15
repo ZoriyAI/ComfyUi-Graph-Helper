@@ -12,17 +12,16 @@ import { glideMs } from './lib/glide';
 import { layoutRect } from './lib/nodeSizes';
 import { levelEdges, levelNodes } from './lib/level';
 import { useGraphStore } from '../../state/graphState';
-import type { PositionedNode } from './lib/geometry';
+import { GROUP_PADDING as GROUP_PAD, GROUP_TITLE, type PositionedNode } from './lib/geometry';
 
 /** The moves of one `move-nodes` commit. */
 type Moves = Extract<GraphMutation, { type: 'move-nodes' }>['moves'];
 
 /**
- * The margin a group draws around its members (lib/geometry groupRect), and room for its title. The title room is a
- * little larger than lib/geometry's GROUP_TITLE (32), so a node pushed below a frame never touches it.
+ * The margin a group draws around its members and the height of its title, the very numbers GroupLayer draws the
+ * frame with (lib/geometry groupRect), so the frame Arrange keeps strangers out of is the frame on screen.
  */
-export const GROUP_PAD = 24;
-export const GROUP_TITLE = 36;
+export { GROUP_PADDING as GROUP_PAD, GROUP_TITLE } from './lib/geometry';
 
 /** A node's rectangle on the canvas. */
 interface Box { x: number; y: number; width: number; height: number }
