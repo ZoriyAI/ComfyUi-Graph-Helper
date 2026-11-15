@@ -1,3 +1,9 @@
+/**
+ * The app's own project file (`*.nodewise.json`): the graph with its document mirror, component records, the
+ * process, subgraphs, groups and extension records. parseNativeProject checks a file before main opens it
+ * (main/files/openFile.ts, main/ipc/projectFile.ts, main/commands/commit.ts); serializeNativeProject writes one.
+ * Reading is strict about shape but keeps what it does not know, so a file from a newer version survives a save.
+ */
 import {
   PROCESS_NOTES_MAX,
   PROCESS_TITLE_MAX,
@@ -26,14 +32,17 @@ export function isNativeProjectFormat(value: unknown): boolean {
  * Versions 0 and 1 still open; their subgraphs and groups are lifted from the native document on open.
  */
 export const NATIVE_PROJECT_VERSION = 2;
+/** The versions this build opens. */
 const READABLE_VERSIONS = new Set([0, 1, 2]);
 
+/** The canvas nodes and edges, and the ComfyUI document mirror they came from. */
 export interface NativeGraph {
   nodes: Array<Record<string, unknown>>;
   edges: Array<Record<string, unknown>>;
   document: WorkflowDocumentState | null;
 }
 
+/** A project file as read: always the current version, with what the original file said kept in sourceVersion. */
 export interface NativeProject {
   format: typeof NATIVE_PROJECT_FORMAT;
   version: typeof NATIVE_PROJECT_VERSION;
@@ -56,6 +65,7 @@ export interface NativeProject {
   preserved?: Record<string, unknown>;
 }
 
+/** Top-level fields this version reads; any other is kept in `preserved`. */
 const KNOWN_FIELDS = new Set(['format', 'version', 'process', 'graph', 'components', 'subgraphs', 'groups', 'extensions', 'sourceVersion', 'upgradedFrom', 'preserved']);
 
 function unknownFields(input: Record<string, unknown>): Record<string, unknown> {
@@ -66,6 +76,7 @@ function unknownFields(input: Record<string, unknown>): Record<string, unknown> 
   return kept;
 }
 
+/** A project or the reason it could not be read (a fixed English sentence, translated by i18n/index.ts). */
 export type NativeParse = { ok: true; project: NativeProject } | { ok: false; error: string };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -189,6 +200,7 @@ function readGroups(value: unknown): GroupRecord[] | undefined {
   return out;
 }
 
+/** Reads a parsed JSON value as a project file. Version 0 files may lack components and process. */
 export function parseNativeProject(input: unknown): NativeParse {
   if (!isRecord(input) || !isNativeProjectFormat(input.format)) {
     return { ok: false, error: 'This file is not a native project.' };
@@ -227,6 +239,7 @@ export function parseNativeProject(input: unknown): NativeParse {
   };
 }
 
+/** The JSON object a project file is written as, in the current version. */
 export function serializeNativeProject(project: {
   process: ProcessMeta;
   graph: NativeGraph;
