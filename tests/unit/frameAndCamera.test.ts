@@ -1,8 +1,9 @@
 /**
  * The window frame (state/frame.ts, installed by App) and the camera that follows a build or a tour
- * (graph/lib/followCamera.ts, used by TourLayer and BuildLayer). In a narrow window the library and the right panel together left the
- * canvas a strip, and what floats over the canvas stuck out of it. And the camera put the step's bubble under the
- * build strip for any tall node. Both are arithmetic, checked here; tests/e2e/layout-walk.test.ts looks at the result.
+ * (graph/lib/followCamera.ts, used by TourLayer and BuildLayer). In a narrow window the library and the right
+ * panel together left the canvas a strip, and what floats over the canvas stuck out of it. And the camera put the
+ * step's bubble under the build strip for any tall node. Both are arithmetic, checked here;
+ * tests/e2e/layout-walk.test.ts looks at the result.
  */
 import { describe, expect, it } from 'vitest';
 import { holdsBothPanels, panelToFold } from '../../src/renderer/state/frame';

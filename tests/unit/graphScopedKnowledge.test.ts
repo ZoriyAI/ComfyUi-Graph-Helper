@@ -48,7 +48,7 @@ describe('the knowledge store when another graph is on screen', () => {
       const text = owner.kind === 'nodeClass' ? 'class' : `graph ${graph}`;
       return [{ id: `${graph}-${objectKey(owner)}`, projectId: DESKTOP_PROJECT_ID, owner, aspect: 'what', text, provenance: 'user', sourceUrl: null, revisionId: null, createdBy: 'user', createdAt: 1 }];
     });
-    // The test runs without a window; the store asks window.electronAPI, so a fake bridge with only this call stands in.
+    // The test runs without a window; the store asks window.electronAPI, so a fake bridge with this one call stands in.
     (globalThis as unknown as { window: unknown }).window = { electronAPI: { listExplanations } };
     const { useKnowledgeStore } = await import('../../src/renderer/state/knowledgeState');
     const { applyProjection } = await import('../../src/renderer/services/commands/projection');

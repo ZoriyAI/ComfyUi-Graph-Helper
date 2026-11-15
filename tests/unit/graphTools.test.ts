@@ -1,7 +1,8 @@
 /**
  * The assistant's graph tools: the specs a model is offered (commands/toolSpecs) and the mapping from a tool call to
- * a graph mutation or a ghost proposal (commands/tools, used by main/agent: tools, buildTools, turn). Models send loose shapes (indices, names, numbers as ids), so the mapping is tolerant but must never
- * produce a mutation the command schema refuses, and a proposal must stay a ghost the person accepts or not.
+ * a graph mutation or a ghost proposal (commands/tools, used by main/agent: tools, buildTools, turn). Models send
+ * loose shapes (indices, names, numbers as ids), so the mapping is tolerant but must never produce a mutation the
+ * command schema refuses, and a proposal must stay a ghost the person accepts or not.
  */
 import { describe, expect, it } from 'vitest';
 import { AGENT_BUILD_TOOLS, AGENT_PROPOSAL_TOOLS } from '../../src/shared/contracts/agentTools';

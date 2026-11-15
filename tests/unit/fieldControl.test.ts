@@ -87,7 +87,7 @@ describe('lists and files', () => {
   });
 });
 
-/** A catalog entry for KSampler as the knowledge layer returns it; widgetOrder carries ComfyUI's hidden seed control. */
+/** KSampler as the knowledge layer returns it; widgetOrder carries ComfyUI's hidden seed control slot. */
 const KSAMPLER: NodeClassDetail = {
   classType: 'KSampler',
   displayName: 'KSampler',

@@ -1,7 +1,8 @@
 /**
  * A large ComfyUI install, thousands of classes and model files, must not stall the app: object_info is parsed and
- * stored in one transaction within seconds (main/catalog/repository.ts, run when the catalog is read over MCP or straight from ComfyUI), and the node library
- * groups those rows and renders only a screenful (library/libraryModel.ts, used by NodeLibrary and VirtualList).
+ * stored in one transaction within seconds (main/catalog/repository.ts, run when the catalog is read over MCP or
+ * straight from ComfyUI), and the node library groups those rows and renders only a screenful
+ * (library/libraryModel.ts, used by NodeLibrary and VirtualList).
  * Time budgets are loose here; npm run test:perf holds them tighter.
  */
 import { describe, expect, it } from 'vitest';

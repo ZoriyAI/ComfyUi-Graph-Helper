@@ -127,7 +127,8 @@ describe('knowledge repository: node classes', () => {
     expect(searchNodeClasses(db, { query: '', limit: 2 })).toHaveLength(2);
     expect(searchNodeClasses(db, { query: 'zzz' })).toEqual([]);
     expect(searchNodeClasses(db, { query: 'power' })[0]).toMatchObject({ pack: 'rgthree-comfy', detailed: false });
-    // Ten catalog classes (with the seeded core ones) and the four editor nodes (Note, Markdown Note, Reroute, Primitive) the app always offers.
+    // Ten catalog classes (with the seeded core ones) and the four editor nodes (Note, Markdown Note, Reroute,
+    // Primitive) the app always offers.
     expect(searchNodeClasses(db, { query: '' })).toHaveLength(14);
     expect(searchNodeClasses(db, { query: '', limit: 10000 })).toHaveLength(14);
     expect(() => searchNodeClasses(db, { query: 'x', limit: 10001 })).toThrow();

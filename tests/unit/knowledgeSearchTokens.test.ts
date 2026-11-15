@@ -1,7 +1,8 @@
 /**
  * Multi-word search over node classes and model files (searchNodeClasses and searchModels in
- * main/knowledge/repository.ts, behind the library's search box and the assistant's search tools). "lora loader" must find the loaders, not every
- * class with one of the words, and a query that no class matches as a whole still shows the near ones.
+ * main/knowledge/repository.ts, behind the library's search box and the assistant's search tools). "lora loader"
+ * must find the loaders, not every class with one of the words, and a query that no class matches as a whole still
+ * shows the near ones.
  */
 import { describe, expect, it } from 'vitest';
 import Database from 'better-sqlite3';

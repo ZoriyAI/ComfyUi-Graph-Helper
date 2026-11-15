@@ -1,8 +1,8 @@
 /**
- * The app's identity (src/main/identity.ts, read by main/index.ts at start, the MCP client, the About IPC and the web readers): the
- * stable name that picks the profile folder and keyring entry, the display name, the version sent to servers, and the
- * one project address shared by package.json, the issue forms and the READMEs. A silent change of the stable name
- * would leave a person with an empty profile and lost saved keys.
+ * The app's identity (src/main/identity.ts, read by main/index.ts at start, the MCP client, the About IPC and the
+ * web readers): the stable name that picks the profile folder and keyring entry, the display name, the version sent
+ * to servers, and the one project address shared by package.json, the issue forms and the READMEs. A silent change
+ * of the stable name would leave a person with an empty profile and lost saved keys.
  */
 import { describe, expect, it } from 'vitest';
 import * as fs from 'fs';

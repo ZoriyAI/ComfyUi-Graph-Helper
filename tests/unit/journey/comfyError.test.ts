@@ -1,7 +1,8 @@
 /**
  * Reading a pasted ComfyUI error (shared/journey/comfyError.ts, behind ComfyErrorDialog): the nodes it names are found
  * in the server's JSON answer, in the red box text and in the terminal log, so the dialog can find them on the canvas
- * (a number names one node, a class every node of it). A person pastes whatever they have, so all three shapes must work, and a text with no node names none.
+ * (a number names one node, a class every node of it). A person pastes whatever they have, so all three shapes
+ * must work, and a text with no node names none.
  */
 import { describe, expect, it } from 'vitest';
 import { errorNodeRefs } from '../../../src/shared/journey/comfyError';
