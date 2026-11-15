@@ -1,5 +1,6 @@
 import type { LessonWords } from './texts';
 import { IMAGE_MODEL_TEXTS_EN } from './sets/image-models.texts.en';
+import { IMAGE_TECHNIQUES_EN } from './sets/image-techniques.texts.en';
 
 /**
  * The words of the lessons. Each step: what to do and why. `{role}` in a text is replaced by the name of the node
@@ -47,6 +48,7 @@ const TRIGGER = {
 
 export const LESSONS_EN: Record<string, LessonWords> = {
   ...IMAGE_MODEL_TEXTS_EN,
+  ...IMAGE_TECHNIQUES_EN,
   image: {
     title: 'A first picture from text',
     result: 'You build a graph of seven nodes that draws a picture from a description.',

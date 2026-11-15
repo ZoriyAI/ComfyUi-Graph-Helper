@@ -1,6 +1,7 @@
 import { lessonGaps, type ClassPorts, type Lesson, type LessonGap } from './engine';
 import { LESSON_AFTER, lessonById } from './lessons';
 import { VIDEO_PACK_OF } from './sets/video';
+import { imageTechniquePack } from './sets/image-techniques';
 
 /**
  * Whether a lesson can be done in this ComfyUI, and how to say why not: its own missing nodes and ports, or the
@@ -39,7 +40,7 @@ export function packOf(classType: string): string | null {
   if (/^(?:OnnxDetectionModelLoader|PoseAndFaceDetection|DrawViTPose)/.test(classType)) return 'ComfyUI-WanAnimatePreprocess';
   if (/^(?:UnetLoaderGGUF|(?:Dual|Triple|Quadruple)?CLIPLoaderGGUF)/.test(classType)) return 'ComfyUI-GGUF';
   for (const [pattern, pack] of VIDEO_PACK_OF) if (pattern.test(classType)) return pack;
-  return null;
+  return imageTechniquePack(classType);
 }
 
 export interface GapGroup {

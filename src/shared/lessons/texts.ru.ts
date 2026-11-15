@@ -1,5 +1,6 @@
 import type { LessonWords } from './texts';
 import { IMAGE_MODEL_TEXTS_RU } from './sets/image-models.texts.ru';
+import { IMAGE_TECHNIQUES_RU } from './sets/image-techniques.texts.ru';
 
 /**
  * Слова уроков. Каждый шаг: что сделать и зачем. `{роль}` в тексте заменяется названием ноды, как оно показано в
@@ -46,6 +47,7 @@ const TRIGGER = {
 
 export const LESSONS_RU: Record<string, LessonWords> = {
   ...IMAGE_MODEL_TEXTS_RU,
+  ...IMAGE_TECHNIQUES_RU,
   image: {
     title: 'Первая картинка из текста',
     result: 'Соберёте граф из семи нод, который рисует картинку по описанию.',

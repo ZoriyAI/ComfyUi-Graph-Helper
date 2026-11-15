@@ -16,6 +16,7 @@ import { columnsOf, lessonSpot, type FlowRect } from '../../src/shared/lessons/f
 import { LESSONS, LESSON_AFTER, lessonById } from '../../src/shared/lessons/lessons';
 import { imageModelLessonSpecs } from '../fixtures/mcp/classes/image-models';
 import { videoSetSpecs } from '../fixtures/mcp/classes/video';
+import { IMAGE_TECHNIQUE_LESSON_CLASSES } from '../fixtures/mcp/classes/image-techniques';
 
 /**
  * ComfyUI's own nodes as far as the lessons use them: inputs with the value a fresh node starts with (link
@@ -143,6 +144,7 @@ const CLASSES: Record<string, Spec> = {
   WanVideoDecodeOviAudio: { inputs: [['mmaudio_vae', 'MMAUDIOVAE'], ['samples', 'LATENT']], outputs: [['audio', 'AUDIO']] },
   // The lessons on picture model families.
   ...imageModelLessonSpecs(),
+  ...IMAGE_TECHNIQUE_LESSON_CLASSES,
 };
 
 const ports: ClassPorts = (classType) => {

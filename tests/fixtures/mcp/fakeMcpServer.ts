@@ -14,6 +14,7 @@ import type { AddressInfo } from 'net';
 import * as path from 'path';
 import { imageModelClassDefs } from './classes/image-models';
 import { VIDEO_SET_CLASSES } from './classes/video';
+import { IMAGE_TECHNIQUE_PACKS, imageTechniqueClassDefs } from './classes/image-techniques';
 
 export interface FakeMcpCall {
   /** JSON-RPC method, or the HTTP method for non-POST requests ("GET", "DELETE"). */
@@ -71,6 +72,7 @@ export const PACKS: Pack[] = [
   { name: 'comfyui_controlnet_aux', module: 'custom_nodes.comfyui_controlnet_aux', version: '1.1.2', commit: null },
   { name: 'rgthree-comfy', module: 'custom_nodes.rgthree-comfy', version: '1.0.0', commit: '9c8d7e6' },
   { name: 'ComfyUI-GGUF', module: 'custom_nodes.ComfyUI-GGUF', version: '1.0.0', commit: null },
+  ...IMAGE_TECHNIQUE_PACKS,
 ];
 
 export const MODELS: Array<{ category: string; filename: string; size: number }> = [
@@ -501,6 +503,8 @@ export const VIDEO_CLASSES: ClassDef[] = [
   ...imageModelClassDefs((name) => PACKS.findIndex((pack) => pack.name === name)),
   // The lessons of src/shared/lessons/sets/video.ts.
   ...VIDEO_SET_CLASSES,
+  // The lessons on picture techniques (classes/image-techniques.ts).
+  ...imageTechniqueClassDefs((name) => PACKS.findIndex((pack) => pack.name === name), names),
 ];
 
 /** The /object_info document the native fixture serves. */

@@ -1,6 +1,7 @@
 import type { FieldSpec, FieldTest, Lesson, LinkSpec, RoleSpec } from './engine';
 import { IMAGE_MODEL_AFTER, IMAGE_MODEL_LESSONS, IMAGE_MODEL_PATH, type LessonGroup } from './sets/image-models';
 import { VIDEO_GROUP, VIDEO_LESSON_AFTER, VIDEO_LESSONS, VIDEO_PATH } from './sets/video';
+import { IMAGE_TECHNIQUE_AFTER, IMAGE_TECHNIQUE_LESSONS, IMAGE_TECHNIQUE_PATH } from './sets/image-techniques';
 
 /**
  * The lessons, as what must be on the canvas after each step. The words of a lesson (what to do and why) are in
@@ -983,6 +984,7 @@ export const LESSONS: readonly Lesson[] = [
   twoModels, adult,
   ...IMAGE_MODEL_LESSONS,
   ...VIDEO_LESSONS,
+  ...IMAGE_TECHNIQUE_LESSONS,
 ];
 
 /** Lessons that stand on the graph of another: said in the list, not enforced. */
@@ -1000,6 +1002,7 @@ export const LESSON_AFTER: Readonly<Record<string, string[]>> = {
   adult: ['video-text'],
   ...IMAGE_MODEL_AFTER,
   ...VIDEO_LESSON_AFTER,
+  ...IMAGE_TECHNIQUE_AFTER,
 };
 
 const BASICS_GROUP: LessonGroup = { id: 'basics', title: { en: 'Pictures: first steps', ru: 'Картинки: первые шаги' } };
@@ -1012,6 +1015,7 @@ export const LESSON_PATH: Readonly<Record<string, { group: LessonGroup; follows:
   ...Object.fromEntries([wrapper, wrapperImage, wrapperVace, wrapperAnimate, wrapperUni, wrapperTalk, wrapperDuo, wrapperFantasy, wrapperOvi, wrapperRecam].map((lesson) => [lesson.id, { group: WRAPPER_GROUP, follows: LESSON_AFTER[lesson.id] ?? [] }])),
   ...IMAGE_MODEL_PATH,
   ...VIDEO_PATH,
+  ...IMAGE_TECHNIQUE_PATH,
 };
 
 export function lessonById(id: string): Lesson | null {
