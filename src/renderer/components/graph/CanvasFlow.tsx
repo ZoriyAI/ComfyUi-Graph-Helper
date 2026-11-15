@@ -504,7 +504,8 @@ export default function CanvasFlow() {
     if (!output || !input || connection.source === connection.target) return false;
     if (createsCycle(edges, connection.source, connection.target)) return false;
     return portsCompatible(output.dataType, input.dataType);
-  }, [findPort]);
+    // edges: the cycle check must see the links as they are now, including one just added.
+  }, [findPort, edges]);
 
   const onConnect = useCallback((connection: Connection) => {
     if (!connection.source || !connection.target || !connection.sourceHandle || !connection.targetHandle) return;
