@@ -107,7 +107,7 @@ describe('lesson files of version 2', () => {
     const read = readLessonFileText(JSON.stringify(pack));
     expect(read.ok).toBe(true);
     if (!read.ok) return;
-    expect(read.file.lessons.map((lesson) => lesson.id)).toEqual(['one-factor', 'blind-compare']);
+    expect(read.file.lessons.map((lesson) => lesson.id)).toEqual(['one-factor', 'blind-compare', 'model-card']);
     expect(engineLesson(read.file.lessons[0], 'one-factor').steps).toEqual(lessonById('one-factor')!.steps);
   });
 });

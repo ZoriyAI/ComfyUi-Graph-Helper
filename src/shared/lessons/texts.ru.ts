@@ -13,6 +13,7 @@ import { IMAGE_MODEL_TEXTS_RU } from './sets/image-models.texts.ru';
 import { IMAGE_TECHNIQUES_RU } from './sets/image-techniques.texts.ru';
 import { SOUND_3D_FACES_RU } from './sets/sound-3d-faces.texts.ru';
 import { EXPERIMENTS_RU } from './sets/experiments.texts.ru';
+import { RELIABLE_RU } from './sets/reliable-practice.texts.ru';
 import { contentRulesMarkdown } from '../content/rules';
 
 const SAVE = 'Сохраните граф через «Файл ▸ Сохранить workflow для ComfyUI…», откройте файл в ComfyUI и запустите там. Само приложение в ComfyUI ничего не запускает.';
@@ -1228,4 +1229,5 @@ export const LESSONS_RU: Record<string, LessonWords> = {
   },
   ...SOUND_3D_FACES_RU,
   ...EXPERIMENTS_RU,
+  ...RELIABLE_RU,
 };

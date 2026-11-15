@@ -127,6 +127,8 @@ yourself and a task of your own. The app checks the graph; the run and the asses
 
 - [A controlled experiment: one change at a time](One-Factor.md): lesson "one-factor". Two pictures that differ in one setting only, a repeat that gives the same pictures, and a conclusion you can defend.
 - [A quality rubric and a blind comparison](Blind-Compare.md): lesson "blind-compare". Criteria written before the run, two variants scored without knowing which is which, and a choice with its cost.
+- [Model card: family, parts and license](Reading-A-Model-Card.md): lesson "model-card". A compatibility card for one model with its sources and unknowns, and the model tried with a LoRA of its own family.
+
 
 ### For adults (18+)
 Closed until the switch **Adult content (18+)** in **Settings ▸ Privacy** is on. Technique in general words for lawful adult (18+) work with consent; see [Content rules](../trust/Content-Rules.md).

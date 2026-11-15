@@ -13,6 +13,7 @@ import { IMAGE_MODEL_TEXTS_EN } from './sets/image-models.texts.en';
 import { IMAGE_TECHNIQUES_EN } from './sets/image-techniques.texts.en';
 import { SOUND_3D_FACES_EN } from './sets/sound-3d-faces.texts.en';
 import { EXPERIMENTS_EN } from './sets/experiments.texts.en';
+import { RELIABLE_EN } from './sets/reliable-practice.texts.en';
 import { contentRulesMarkdown } from '../content/rules';
 
 const SAVE = 'Save the graph with "File ▸ Save workflow for ComfyUI…", open the file in ComfyUI and run it there. This app runs nothing in ComfyUI itself.';
@@ -1228,4 +1229,5 @@ export const LESSONS_EN: Record<string, LessonWords> = {
   },
   ...SOUND_3D_FACES_EN,
   ...EXPERIMENTS_EN,
+  ...RELIABLE_EN,
 };
