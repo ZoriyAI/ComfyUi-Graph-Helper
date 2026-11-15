@@ -110,3 +110,43 @@ test('lessons as files: drop, keep, export buttons, make from the graph, remove'
     await app.close();
   }
 });
+
+test('editing keeps both languages and asks before omitting a missing translation', async () => {
+  const { app, page, api } = await launch();
+  try {
+    await openLearn(page);
+    const doc = sampleDoc();
+    doc.texts.en!.roles = { checkpoint: 'Loader' };
+    doc.texts.ru = { ...structuredClone(doc.texts.en!), title: 'Другой заголовок' };
+    await drop(page, 'bilingual.lesson.json', fileText([doc]));
+    const card = page.locator('[data-lesson-card="my:my-first"]');
+    await card.getByRole('button', { name: 'Edit', exact: true }).click();
+    const editor = page.locator('[data-lesson-editor="my:my-first"]');
+    await editor.getByLabel('Title', { exact: true }).fill('Edited English');
+    await editor.getByRole('radio', { name: 'Russian', exact: true }).click();
+    await expect(editor.getByLabel('Title', { exact: true })).toHaveValue('Другой заголовок');
+    await editor.getByRole('radio', { name: 'English', exact: true }).click();
+    await expect(editor.getByLabel('Title', { exact: true })).toHaveValue('Edited English');
+    await editor.getByRole('button', { name: 'Save to My lessons', exact: true }).click();
+    await expect(editor).toHaveCount(0);
+    const saved = (await api('listMyLessons'))[0].doc;
+    expect(saved).toEqual({ ...doc, texts: { ...doc.texts, en: { ...doc.texts.en!, title: 'Edited English' } } });
+
+    await card.getByRole('button', { name: 'Edit', exact: true }).click();
+    await editor.getByRole('button', { name: 'Add a self-check', exact: true }).click();
+    await expect(editor.getByText('Some steps have no text in Russian.', { exact: false })).toBeVisible();
+    await editor.getByRole('button', { name: 'Add the missing text', exact: true }).click();
+    const added = editor.locator('[data-editor-step]').last();
+    await expect(added.getByLabel('Step title', { exact: true })).toHaveValue('');
+    // The person can return to the original words, then explicitly choose to omit the other language.
+    await editor.getByRole('radio', { name: 'English', exact: true }).click();
+    await editor.getByRole('button', { name: 'Save without Russian', exact: true }).click();
+    await expect(editor).toHaveCount(0);
+    const without = (await api('listMyLessons'))[0].doc;
+    expect(without.texts.ru).toBeUndefined();
+    expect(without.texts.en.roles).toEqual(doc.texts.en!.roles);
+    expect(without.steps).toHaveLength(doc.steps.length + 1);
+  } finally {
+    await app.close();
+  }
+});

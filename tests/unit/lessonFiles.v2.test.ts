@@ -148,6 +148,8 @@ describe('My lessons with version 2', () => {
     expect(step.extra).toEqual({ checklist: [{ id: 'item-1' }, { id: 'item-2' }] });
     expect(checklistLines(step)).toEqual(['I ran it.', 'I saved it.']);
     const model = draftFromDoc(builtinLessonDoc('image')!, 'en');
+    // A new bilingual step requires its second translation before it can be saved.
+    model.source!.texts.ru!.steps[step.id] = { title: 'Self-check', body: 'Tick.', items: step.extraWords!.items };
     const made = docFromDraft({ ...model, id: 'image-check', steps: [...model.steps, step] });
     expect(made.steps.at(-1)).toEqual({ id: 'self-check-9', checklist: [{ id: 'item-1' }, { id: 'item-2' }] });
     expect(checkLessonDoc(made)).toEqual({ ok: true });

@@ -17,7 +17,8 @@ import React, { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowDown, ArrowLeft, ArrowUp, Check, FlaskConical, ListChecks, Save, Trash2 } from 'lucide-react';
 import type { FieldSpec, LinkSpec } from '../../../shared/lessons/engine';
-import { checklistLines, checklistStep, type LessonDraftModel } from '../../../shared/lessons/share/authoring';
+import { changeDraftLanguage, checklistLines, checklistStep, docFromDraft, withoutDraftLanguage, type LessonDraftModel } from '../../../shared/lessons/share/authoring';
+import { lessonDocProblem } from '../../../shared/lessons/share/format';
 import type { LessonCheck } from '../../../shared/lessons/share/mine';
 import { useMyLessonsStore, type EditorState } from '../../state/myLessonsState';
 import Button from '../../ui/Button';
@@ -62,6 +63,11 @@ export default function LessonEditor({ editing }: { editing: EditorState }) {
   const [busy, setBusy] = useState(false);
   const ids = useId();
   const { model, replaces } = editing;
+  const problem = lessonDocProblem(docFromDraft(model));
+  const missingLanguage = problem?.code === 'missing-words' ? problem.language
+    : problem?.code === 'rules' && 'language' in problem.rule ? problem.rule.language : null;
+  const translation = missingLanguage && missingLanguage !== model.language ? missingLanguage : null;
+  const translationName = translation ? tr(`lessonFiles.editor.${translation === 'ru' ? 'russian' : 'english'}`) : '';
   // A role's name for the checks: the catalog display name of the first class that fills it.
   const nameOfRole = (role: string) => {
     for (const step of model.steps) {
@@ -86,29 +92,29 @@ export default function LessonEditor({ editing }: { editing: EditorState }) {
   };
 
   /** What the person must fill before a try means anything. */
-  const missing = (): string | null => {
-    if (!model.title.trim()) return tr('lessonFiles.editor.needTitle');
-    if (model.steps.some((step) => !step.title.trim())) return tr('lessonFiles.editor.needStepTitle');
+  const missing = (draft = model): string | null => {
+    if (!draft.title.trim()) return tr('lessonFiles.editor.needTitle');
+    if (draft.steps.some((step) => !step.title.trim())) return tr('lessonFiles.editor.needStepTitle');
     return null;
   };
   const tryIt = () => {
     const need = missing();
     setVerdict(need ? { ok: false, text: need } : verdictOf(tr, tryEditorLesson(model, replaces), i18n.language));
   };
-  const save = async () => {
-    const need = missing();
+  const save = async (draft = model) => {
+    const need = missing(draft);
     if (need) {
       setVerdict({ ok: false, text: need });
       return;
     }
-    const check = tryEditorLesson(model, replaces);
+    const check = tryEditorLesson(draft, replaces);
     if (!check.ok) {
       setVerdict(verdictOf(tr, check, i18n.language));
       return;
     }
     setBusy(true);
     try {
-      const outcome = await saveEditorLesson(model, replaces);
+      const outcome = await saveEditorLesson(draft, replaces);
       const refusal = refusalText(tr, outcome, i18n.language);
       if (refusal) setVerdict({ ok: false, text: refusal });
     } finally {
@@ -137,7 +143,7 @@ export default function LessonEditor({ editing }: { editing: EditorState }) {
           label={tr('lessonFiles.editor.language')}
           value={model.language}
           options={[{ value: 'en', label: tr('lessonFiles.editor.english') }, { value: 'ru', label: tr('lessonFiles.editor.russian') }]}
-          onChange={(value) => update({ language: value === 'ru' ? 'ru' : 'en' })}
+          onChange={(value) => update(changeDraftLanguage(model, value === 'ru' ? 'ru' : 'en'))}
         />
         <Switch label={t('lessonFiles.editor.adult')} checked={model.adult} onCheckedChange={(checked) => update({ adult: checked === true })} />
       </div>
@@ -216,6 +222,20 @@ export default function LessonEditor({ editing }: { editing: EditorState }) {
           update({ steps: [...model.steps, checklistStep(`self-check-${number}`, tr('lessonFiles.editor.newChecklistTitle'), tr('lessonFiles.editor.newChecklistBody'), [tr('lessonFiles.editor.newChecklistItem')])] });
         }}
       >{t('lessonFiles.editor.addChecklist')}</Button>
+
+      {translation ? (
+        <div role="status" className={panel.card}>
+          <p>{t('lessonFiles.editor.missingTranslation', { language: translationName })}</p>
+          <div className={panel.actions}>
+            <Button variant="subtle" size="sm" onClick={() => update(changeDraftLanguage(model, translation))}>{t('lessonFiles.editor.addTranslation')}</Button>
+            <Button variant="subtle" size="sm" loading={busy} onClick={() => {
+              const draft = withoutDraftLanguage(model, translation);
+              update(draft);
+              void save(draft);
+            }}>{t('lessonFiles.editor.saveWithoutTranslation', { language: translationName })}</Button>
+          </div>
+        </div>
+      ) : null}
 
       <div className={panel.actions}>
         <Button variant="subtle" size="sm" icon={<FlaskConical size={14} />} onClick={tryIt}>{t('lessonFiles.editor.tryIt')}</Button>

@@ -6,9 +6,10 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { lessonById } from '../../src/shared/lessons/lessons';
-import { buildOrder, docFromDraft, draftFromDoc, draftFromGraph, lessonIdFrom, roleNameOf, type ClassInfo } from '../../src/shared/lessons/share/authoring';
-import { LESSON_FILE_FORMAT, LESSON_FILE_VERSION, readLessonFile } from '../../src/shared/lessons/share/format';
+import { LESSONS, lessonById } from '../../src/shared/lessons/lessons';
+import { builtinLessonDoc } from '../../src/shared/lessons/share/builtin';
+import { buildOrder, changeDraftLanguage, docFromDraft, draftFromDoc, draftFromGraph, lessonIdFrom, roleNameOf, withoutDraftLanguage, type ClassInfo } from '../../src/shared/lessons/share/authoring';
+import { LESSON_FILE_FORMAT, LESSON_FILE_VERSION, lessonFileVersion, readLessonFile } from '../../src/shared/lessons/share/format';
 import { checkLessonDoc } from '../../src/shared/lessons/share/mine';
 import { lessonShapes, tryLesson, type ClassShapes } from '../../src/shared/lessons/share/tryLesson';
 import type { LessonGraph } from '../../src/shared/lessons/engine';
@@ -109,5 +110,49 @@ describe('a lesson from the graph on the canvas', () => {
 
   it('proposes nothing for an empty canvas', () => {
     expect(draftFromGraph({ nodes: [], links: [] }, info, 'en')).toBeNull();
+  });
+
+  it.each(LESSONS.map((lesson) => [lesson.id]))('keeps both languages, every rule and the file version when editing %s without changes', (id) => {
+    const doc = builtinLessonDoc(id)!;
+    expect(doc.texts.en).toBeDefined();
+    expect(doc.texts.ru).toBeDefined();
+    for (const language of ['en', 'ru'] as const) {
+      const saved = docFromDraft(draftFromDoc(doc, language));
+      expect(saved).toEqual(doc);
+      expect(lessonFileVersion([saved])).toBe(lessonFileVersion([doc]));
+    }
+  });
+
+  it('changes only the chosen title and keeps role labels and all other words', () => {
+    const doc = builtinLessonDoc('one-factor')!;
+    const model = draftFromDoc(doc, 'en');
+    const saved = docFromDraft({ ...model, title: 'A changed title' });
+    expect(saved).toEqual({ ...doc, texts: { ...doc.texts, en: { ...doc.texts.en!, title: 'A changed title' } } });
+  });
+
+  it('removes deleted steps from every language and refuses missing translations of new steps', () => {
+    const doc = builtinLessonDoc('image')!;
+    const model = draftFromDoc(doc, 'en');
+    const removed = model.steps[0].id;
+    const saved = docFromDraft({ ...model, steps: model.steps.slice(1) });
+    expect(saved.texts.en!.steps[removed]).toBeUndefined();
+    expect(saved.texts.ru!.steps[removed]).toBeUndefined();
+    const added = docFromDraft({ ...model, steps: [...model.steps, { id: 'extra', read: true, title: 'More', body: 'Read.', roles: [], links: [], fields: [] }] });
+    expect(added.texts.ru).toEqual(doc.texts.ru);
+    expect(checkLessonDoc(added)).toMatchObject({ ok: false, problem: { code: 'missing-words', language: 'ru', step: 'extra' } });
+  });
+
+  it('loads the chosen language and retains edits when switching back, without relabelling words', () => {
+    const doc = builtinLessonDoc('image')!;
+    const english = { ...draftFromDoc(doc, 'en'), title: 'Changed English' };
+    const russian = changeDraftLanguage(english, 'ru');
+    expect(russian.title).toBe(doc.texts.ru!.title);
+    expect(russian.steps[0].body).toBe(doc.texts.ru!.steps[russian.steps[0].id].body);
+    const back = changeDraftLanguage({ ...russian, title: 'Changed Russian' }, 'en');
+    expect(back.title).toBe('Changed English');
+    expect(docFromDraft(back).texts.ru!.title).toBe('Changed Russian');
+    const without = withoutDraftLanguage(back, 'ru');
+    expect(docFromDraft(without).texts.ru).toBeUndefined();
+    expect(doc.texts.ru).toBeDefined();
   });
 });

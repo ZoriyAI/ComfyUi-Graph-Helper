@@ -52,6 +52,8 @@ export interface LessonDraftModel {
   result: string;
   adult: boolean;
   steps: DraftStep[];
+  /** The complete document, including words in languages the editor is not showing. */
+  source?: LessonDoc;
   /** Kept from a lesson being edited, so saving changes only what the editor shows. */
   keep?: Pick<LessonDoc, 'group' | 'follows' | 'continues' | 'author' | 'source' | 'needs' | 'standard' | 'outcomes' | 'level' | 'tracks' | 'priority' | 'meta'>;
   /** The template's words of the lesson being edited (skill, mistakes...), in the editor's language. */
@@ -191,6 +193,7 @@ export function draftFromDoc(doc: LessonDoc, language: 'en' | 'ru'): LessonDraft
     title: words.title,
     result: words.result,
     adult: doc.adult === true,
+    source: JSON.parse(JSON.stringify(doc)) as LessonDoc,
     steps: doc.steps.map((step) => {
       const said = words.steps[step.id];
       const extra = JSON.parse(JSON.stringify({ checklist: step.checklist, rubric: step.rubric, quiz: step.quiz, readCheck: step.readCheck, transfer: step.transfer })) as DraftStep['extra'];
@@ -198,7 +201,7 @@ export function draftFromDoc(doc: LessonDoc, language: 'en' | 'ru'): LessonDraft
       return {
         id: step.id,
         ...(step.read ? { read: true as const } : {}),
-        roles: (step.roles ?? []).map((spec) => ({ role: spec.role, classes: [...spec.classes] })),
+        roles: (step.roles ?? []).map((spec) => ({ ...spec, classes: [...spec.classes] })),
         links: (step.links ?? []).map((spec) => ({ ...spec })),
         fields: (step.fields ?? []).map((spec) => ({ spec: { ...spec, test: { ...spec.test } as FieldTest }, on: true })),
         title: said?.title ?? step.id,
@@ -218,18 +221,26 @@ export function draftFromDoc(doc: LessonDoc, language: 'en' | 'ru'): LessonDraft
 /** The lesson document the editor saves: only the values that matter become rules. */
 export function docFromDraft(model: LessonDraftModel): LessonDoc {
   const keep = Object.fromEntries(Object.entries(model.keep ?? {}).filter(([, value]) => value !== undefined)) as LessonDraftModel['keep'];
+  const ids = new Set(model.steps.map((step) => step.id));
+  const texts: LessonDoc['texts'] = Object.fromEntries(Object.entries(model.source?.texts ?? {}).map(([language, words]) => [language, {
+    ...words,
+    steps: Object.fromEntries(Object.entries(words!.steps).filter(([id]) => ids.has(id))),
+  }]));
+  texts[model.language] = {
+    ...texts[model.language],
+    title: model.title.trim(),
+    result: model.result.trim(),
+    steps: Object.fromEntries(model.steps.filter((step) => step.title.trim() || step.body || texts[model.language]?.steps[step.id] || Object.keys(step.extraWords ?? {}).length > 0).map((step) => [step.id, {
+      ...texts[model.language]?.steps[step.id], title: step.title.trim(), body: step.body, ...(step.extraWords ?? {}),
+    }])),
+    ...(model.metaWords ? { meta: model.metaWords } : {}),
+  };
   return {
+    ...model.source,
     id: model.id,
     ...keep,
-    ...(model.adult ? { adult: true } : {}),
-    texts: {
-      [model.language]: {
-        title: model.title.trim(),
-        result: model.result.trim(),
-        steps: Object.fromEntries(model.steps.map((step) => [step.id, { title: step.title.trim(), body: step.body, ...(step.extraWords ?? {}) }])),
-        ...(model.metaWords ? { meta: model.metaWords } : {}),
-      },
-    },
+    ...(model.adult || model.source?.adult !== undefined ? { adult: model.adult } : {}),
+    texts,
     steps: model.steps.map((step) => {
       const fields = step.fields.filter((item) => item.on).map((item) => item.spec);
       return {
@@ -242,6 +253,29 @@ export function docFromDraft(model: LessonDraftModel): LessonDoc {
       };
     }),
   };
+}
+
+/** Changes the visible language after keeping the current words; absent translations start empty. */
+export function changeDraftLanguage(model: LessonDraftModel, language: 'en' | 'ru'): LessonDraftModel {
+  if (language === model.language) return model;
+  const source = docFromDraft(model);
+  const words = source.texts[language];
+  return {
+    ...model, source, language, title: words?.title ?? '', result: words?.result ?? '', metaWords: words?.meta,
+    steps: model.steps.map((step) => {
+      const said = words?.steps[step.id];
+      return { ...step, title: said?.title ?? '', body: said?.body ?? '', extraWords: said ? {
+        ...(said.items ? { items: said.items } : {}), ...(said.criteria ? { criteria: said.criteria } : {}), ...(said.questions ? { questions: said.questions } : {}),
+      } : undefined };
+    }),
+  };
+}
+
+/** Omits a translation only after the person explicitly chose to save without it. */
+export function withoutDraftLanguage(model: LessonDraftModel, language: 'en' | 'ru'): LessonDraftModel {
+  const source = docFromDraft(model);
+  delete source.texts[language];
+  return { ...model, source };
 }
 
 /**
