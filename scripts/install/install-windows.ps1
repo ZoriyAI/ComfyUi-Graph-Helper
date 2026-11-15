@@ -136,8 +136,8 @@ if ($Help) { Write-Host $UsageText; exit $ExitOk }
 $Messages = @{
   en = @{
     start = 'NodeWise Studio installer for Windows. Log: {0}'
-    untested = 'Not tested yet: this install script is new in 1.0.0 and has not been tested on real computers. If you try it, please report what happened at {0} with the log file named at the end and your Windows version.'
-    untested_failed = 'This script is not tested yet, so this may be its own mistake. Please report it at {0} with this log: {1}, and your Windows version (Settings > System > About).'
+    untested = 'This install script is checked on GitHub''s Windows machines, not yet on a range of real computers. If something goes wrong, please report it at {0} with the log file named at the end and your Windows version.'
+    untested_failed = 'This script is not yet tried on many real computers, so this may be its own mistake. Please report it at {0} with this log: {1}, and your Windows version (Settings > System > About).'
     dry = 'Dry run: every step is printed, nothing is changed.'
     step = 'Step {0} of {1}: {2}'
     s_check = 'checking this computer'
@@ -201,8 +201,8 @@ $Messages = @{
   }
   ru = @{
     start = 'Установка NodeWise Studio для Windows. Журнал: {0}'
-    untested = 'Ещё не проверено: этот скрипт установки появился в 1.0.0 и на настоящих компьютерах не проверялся. Если попробуете, сообщите, пожалуйста, что получилось, на {0}, приложив файл журнала, названный в конце, и версию Windows.'
-    untested_failed = 'Этот скрипт ещё не проверен, так что ошибка может быть в нём самом. Сообщите о ней, пожалуйста, на {0}, приложив этот журнал: {1}, и версию Windows (Параметры > Система > О системе).'
+    untested = 'Этот скрипт установки проверяется на машинах GitHub с Windows, на разных настоящих компьютерах его ещё не пробовали. Если что-то пойдёт не так, сообщите, пожалуйста, на {0}, приложив файл журнала, названный в конце, и версию Windows.'
+    untested_failed = 'Этот скрипт ещё мало пробовали на настоящих компьютерах, так что ошибка может быть в нём самом. Сообщите о ней, пожалуйста, на {0}, приложив этот журнал: {1}, и версию Windows (Параметры > Система > О системе).'
     dry = 'Пробный прогон: шаги только печатаются, ничего не меняется.'
     step = 'Шаг {0} из {1}: {2}'
     s_check = 'проверка компьютера'

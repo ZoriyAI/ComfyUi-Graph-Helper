@@ -7,10 +7,12 @@ There is no ready macOS package yet. Instead, each release has a script, `instal
 your Mac from the project's own source and installs it for you. One command does everything; this page says what it
 does, what it asks and how to undo it.
 
-> **Not tested yet.** This script is new in 1.0.0 and has not been tested on real Macs; a check on GitHub's macOS
-> machines exists and is still being made to pass. If you try it, please report what happened in the project's
-> Issues, with the log file the script names at the end (`~/Library/Logs/nodewise-studio-install.log`) and your macOS
-> version. If it fails, [Building and running on macOS](../dev/Building-On-macOS.md) is the manual way.
+> **Checked on GitHub's machines, not yet on real Macs.** Every change runs this script on GitHub's macOS machines
+> (Apple silicon with macOS 26 and Intel with macOS 15, with the bash 3.2 that macOS ships): it builds, installs,
+> starts, upgrades and removes the app there. It has not yet been tried on a range of real Macs. If you try it,
+> please report what happened in the project's Issues, with the log file the script names at the end
+> (`~/Library/Logs/nodewise-studio-install.log`) and your macOS version. If it fails,
+> [Building and running on macOS](../dev/Building-On-macOS.md) is the manual way.
 
 ## What you need
 
@@ -119,8 +121,10 @@ Signing and notarizing a Mac app needs a paid Apple developer membership the pro
 signs the app "ad hoc" on your Mac (`codesign --sign -`): such a signature names no publisher, it only lets an Apple
 silicon Mac run the code and lets macOS notice if the files change later. Gatekeeper checks apps that carry the
 "downloaded from the internet" mark; an app built on your Mac does not carry it (the script also clears it), so
-macOS is not expected to show the "cannot be opened" warning. None of this has been
-seen on a real Mac yet.
+macOS is not expected to show the "cannot be opened" warning. On GitHub's machines `codesign`
+reports the signature as `adhoc`, Gatekeeper's `spctl --assess` answers "rejected" (as it does for any ad hoc
+signature), and the app still opens from Launch Services and keeps running: the assessment is not applied to an app
+without the quarantine mark. On a real Mac this has not been watched yet.
 
 ## Troubleshooting
 
@@ -147,9 +151,10 @@ problem.
 
 ## What is not tried yet
 
-The whole script. It is new in 1.0.0 and has not been tested on a real Mac. A check on GitHub's macOS machines
-(Apple silicon and Intel, with the bash 3.2 that macOS ships) exists and is still being made to pass. Of special
-interest: macOS 13 itself, a proxy, `--system-node`, `--system-applications`, a Mac that needs the Command Line
+Every change runs the script on GitHub's macOS machines (Apple silicon with macOS 26 and Intel with macOS 15, with the
+bash 3.2 that macOS ships): a dry run that changes nothing, an install from the source, the app opened the way a
+double-click in Finder opens it, its `--version`, its window and its refusal to start twice, an upgrade that keeps the
+data folder, and the removal with the kept script. Not yet tried on a range of real Macs; of special interest: macOS 13 itself, a proxy, `--system-node`, `--system-applications`, a Mac that needs the Command Line
 Tools, and the Keychain question after an update. Please report what happened in the project's Issues, with the log
 (`~/Library/Logs/nodewise-studio-install.log`) and your macOS version (Apple menu ▸ About This Mac).
 

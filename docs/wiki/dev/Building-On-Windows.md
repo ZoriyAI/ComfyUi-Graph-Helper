@@ -5,8 +5,8 @@
 
 The manual way behind `install-windows.ps1`: what the script does, step by step, for a developer who wants to build,
 run and change the app on Windows. To just install the app, use the script:
-[Installing on Windows](../start/Installing-On-Windows.md). The script is new in 1.0.0 and not tested yet on real
-computers; when it fails, these steps are the fallback.
+[Installing on Windows](../start/Installing-On-Windows.md). The script is checked on GitHub's Windows machines on
+every change, not yet on a range of real computers; when it fails, these steps are the fallback.
 
 ## What to install
 

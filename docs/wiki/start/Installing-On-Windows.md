@@ -7,10 +7,12 @@ There is no ready Windows package yet. Instead, each release has a script, `inst
 on your computer from the project's own source and installs it for you. One command does everything; this page says
 what it does, what it asks and how to undo it.
 
-> **Not tested yet.** This script is new in 1.0.0 and has not been tested on real computers; a check on GitHub's
-> Windows machines exists and is still being made to pass. If you try it, please report what happened in the project's
-> Issues, with the log file the script names at the end (`%TEMP%\nodewise-studio-install.log`) and your Windows
-> version. If it fails, [Building and running on Windows](../dev/Building-On-Windows.md) is the manual way.
+> **Checked on GitHub's machines, not yet on real computers.** Every change runs this script on GitHub's Windows
+> machines (Windows Server 2022 and 2025, with Windows PowerShell 5.1 and PowerShell 7): it builds, installs, starts,
+> upgrades and removes the app there. It has not yet been tried on a range of real computers. If you try it, please
+> report what happened in the project's Issues, with the log file the script names at the end
+> (`%TEMP%\nodewise-studio-install.log`) and your Windows version. If it fails,
+> [Building and running on Windows](../dev/Building-On-Windows.md) is the manual way.
 
 ## What you need
 
@@ -147,9 +149,10 @@ The script ends with an exit code and a message, and prints the path of its log 
 
 ## What is not tried yet
 
-The whole script. It is new in 1.0.0 and has not been tested on a real computer. A check on GitHub's Windows machines
-(Windows Server 2022 and the newest image, with Windows PowerShell 5.1 and PowerShell 7) exists and is still being made
-to pass. Of special interest: Windows 10 and 11 desktops, a user name with letters outside English, a proxy,
+Every change runs the script on GitHub's Windows machines (Windows Server 2022 and 2025, with Windows PowerShell 5.1
+and PowerShell 7): a dry run that changes nothing, an install from the source, the installed app's `--version`, its
+window and its refusal to start twice, an upgrade that keeps the data folder, and the removal from the Installed apps
+entry. Not yet tried on a range of real computers; of special interest: Windows 10 and 11 desktops, a user name with letters outside English, a proxy,
 `-SystemNode` with winget, and a computer that needs the C++ build tools. Please report what happened in the project's
 Issues, with the log (`%TEMP%\nodewise-studio-install.log`) and your Windows version (Settings ▸ System ▸ About).
 

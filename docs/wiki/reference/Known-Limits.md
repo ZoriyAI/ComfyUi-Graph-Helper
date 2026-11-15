@@ -20,9 +20,9 @@ what to expect. Wishes go to the project's Discussions, problems to its Issues.
 - **Windows and macOS are installed from source by a script**: `install-windows.ps1` (Windows 10 22H2 and 11, x64)
   and `install-macos.sh` (macOS 13 or newer, Apple silicon or Intel) build the app on your computer and install it
   for your user. The app is not signed by a publisher on either system. The Linux packages are built, installed and
-  started on the build server for every release; the Windows and macOS scripts are new in 1.0.0 and **not tested yet**
-  on real computers (a check on GitHub's Windows and macOS machines exists and is still being made to pass). Reports
-  in the project's Issues, with the script's log and your system version, are welcome.
+  started on the build server for every release; the Windows and macOS scripts are checked on GitHub's Windows and
+  macOS machines on every change and **not yet tried on a range of real computers**. Reports in the project's Issues,
+  with the script's log and your system version, are welcome.
   [Installing on Windows](../start/Installing-On-Windows.md), [Installing on macOS](../start/Installing-On-macOS.md)
 - On Windows and macOS some texts still speak of Linux: the keychain setting and its hints name GNOME Keyring and
   KWallet, while Windows uses DPAPI and macOS the Keychain. On macOS the app's own menus stay inside the window; the

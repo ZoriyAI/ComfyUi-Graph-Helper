@@ -25,9 +25,9 @@ There is no ARM package for Linux and no package for Windows or macOS.
 | `install-windows.ps1` | `electron-forge package --platform win32 --arch x64`: an unpacked app folder | `%LOCALAPPDATA%\Programs\NodeWise Studio`, Start menu shortcut, an Installed apps entry (per user) | `.github/workflows/install-scripts.yml` on `windows-latest` (Windows PowerShell 5.1) and `windows-2022` (PowerShell 7); Pester tests and PSScriptAnalyzer. |
 | `install-macos.sh` | `electron-forge package --platform darwin --arch arm64` or `x64`: an unsigned `.app`, then signed ad hoc | `~/Applications/NodeWise Studio.app` | The same workflow on `macos-latest` (Apple silicon) and `macos-15-intel` (Intel), with `/bin/bash` 3.2; shellcheck. |
 
-**Not tested yet.** Both scripts are new in 1.0.0 and have not been tested on real computers, and the workflow
-below does not pass yet: it is still being made to. When it passes, it runs each script as a person would, from the
-commit's source and once from the latest release: a dry run changes nothing; the installed app answers `--version`, opens and passes `scripts/smoke-installed-app.js` (its
+The workflow runs each script as a person would, from the
+commit's source and once from the latest release, and passes on all four machines; the scripts are not yet tried on a
+range of real computers: a dry run changes nothing; the installed app answers `--version`, opens and passes `scripts/smoke-installed-app.js` (its
 screenshot is uploaded); a second run upgrades and keeps a marker file in the data folder; the uninstaller removes the
 app and keeps the data. A Linux machine can package the macOS bundle for Intel too: its name, icon, database module
 and fuses were checked that way. [Installing on Windows](../start/Installing-On-Windows.md),
