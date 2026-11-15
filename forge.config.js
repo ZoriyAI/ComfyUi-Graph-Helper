@@ -158,7 +158,7 @@ module.exports = {
           genericName: GENERIC_NAME,
           description: SUMMARY,
           productDescription: LONG_DESCRIPTION,
-          license: 'MIT',
+          license: 'MIT AND LicenseRef-Commons-Clause',
           categories: ['Graphics', 'Education'],
           // The maker's spec with chrome-sandbox SUID root and copyright retained as a license.
           specTemplate: path.join(__dirname, 'resources', 'linux', 'rpm.spec.ejs'),

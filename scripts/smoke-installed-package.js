@@ -74,7 +74,7 @@ function checkPackageFiles() {
     const maintainer = packageField('Maintainer');
     if (!/<[^>]+@[^>]+>/.test(maintainer)) fail(`DEB_MAINTAINER ${maintainer}`);
     if (packageField('Section') !== 'graphics') fail(`DEB_SECTION ${packageField('Section')}`);
-  } else if (packageField('License') !== 'MIT') {
+  } else if (packageField('License') !== 'MIT AND LicenseRef-Commons-Clause') {
     fail(`RPM_LICENSE ${packageField('License')}`);
   }
   const description = packageField('Description');
