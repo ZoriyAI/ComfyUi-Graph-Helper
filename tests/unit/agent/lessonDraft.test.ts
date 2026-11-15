@@ -56,6 +56,35 @@ describe('the draftLesson tool', () => {
     expect(drafts.get(String(result.lessonDraftId))?.doc.id).toBe('my-first');
   });
 
+  it('drafts a lesson with a checklist, a rubric and a quiz, and refuses one whose question has no words', async () => {
+    const description = MAIN_TOOL_SPECS.draftLesson.description;
+    for (const words of ['checklist', 'rubric', 'quiz', 'run: true', 'transfer: true', 'own word']) expect(description, words).toContain(words);
+    const db = openDb(true);
+    const drafts = new LessonDrafts();
+    const tool = createLessonDraftTool({ db, nodeClassDetail, drafts });
+    const doc = sampleDoc();
+    doc.steps.push(
+      { id: 'run', checklist: [{ id: 'ran', run: true }] },
+      { id: 'look', rubric: [{ id: 'fit', levels: ['no', 'yes'] }] },
+      { id: 'recall', quiz: [{ id: 'q', choices: ['a', 'b'], answer: 'a' }] },
+    );
+    Object.assign(doc.texts.en!.steps, {
+      run: { title: 'Run it', body: 'Run the workflow in ComfyUI.', items: { ran: { label: 'I ran it.' } } },
+      look: { title: 'Look', body: 'Your own assessment.', criteria: { fit: { title: 'It fits.', levels: { no: 'No', yes: 'Yes' } } } },
+      recall: { title: 'Check yourself', body: 'One question.', questions: { q: { text: 'Which?', choices: { a: 'A', b: 'B' }, explain: 'A, because.' } } },
+    });
+    const result = await run(tool, doc);
+    expect(result).toMatchObject({ success: true, steps: 6 });
+    expect(drafts.get(String(result.lessonDraftId))?.doc.steps.at(-1)).toEqual({ id: 'recall', quiz: [{ id: 'q', choices: ['a', 'b'], answer: 'a' }] });
+    delete (doc.texts.en!.steps.recall as { questions?: unknown }).questions;
+    expect(await run(tool, doc)).toMatchObject({ success: false, error: expect.stringContaining('the question "q" lacks its text') });
+    // A secret in the words of an item is found too.
+    const secret = sampleDoc({ id: 'my-secret' });
+    secret.steps.push({ id: 'run', checklist: [{ id: 'ran' }] });
+    Object.assign(secret.texts.en!.steps, { run: { title: 'Run', body: 'Run it.', items: { ran: { label: 'Use the key sk-proj-abcdefghijklmnopqrstuvwxyz0123456789ABCD.' } } } });
+    expect(await run(tool, secret)).toMatchObject({ success: false, error: expect.stringContaining('secret') });
+  });
+
   it('refuses a class this ComfyUI does not have, a broken lesson, a secret, and a step that cannot be done', async () => {
     const db = openDb(true);
     const drafts = new LessonDrafts();

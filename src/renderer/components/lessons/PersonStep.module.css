@@ -1,0 +1,32 @@
+/*
+ * The steps a person answers in the lesson panel (PersonStep.tsx): checklist items, rubric criteria, quiz questions
+ * and read-check conditions. One column that wraps at any width of the panel; the parts sit under a thin line inside
+ * the step card, like "Still to do", never in boxes of their own.
+ */
+.step { display: flex; flex-direction: column; gap: 10px; padding-top: 10px; border-top: 1px solid var(--border-subtle); min-width: 0; }
+.group { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.items { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.item { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.tick { display: flex; align-items: flex-start; gap: 8px; font-size: var(--text-sm); line-height: 20px; color: var(--text); overflow-wrap: anywhere; cursor: pointer; }
+.tick input { flex: none; margin: 3px 0 0; accent-color: var(--accent); cursor: pointer; }
+.tick input:disabled { cursor: default; }
+.how { margin: 0 0 0 22px; color: var(--text-dim); font-size: var(--text-xs); line-height: 18px; overflow-wrap: anywhere; }
+.note { display: flex; align-items: flex-start; gap: 6px; margin: 0 0 0 22px; color: var(--text-dim); font-size: var(--text-xs); line-height: 18px; overflow-wrap: anywhere; }
+.note svg { flex: none; margin-top: 2px; }
+.items .item[data-verdict] .note { margin-left: 0; }
+.ok { color: var(--ok); }
+.bad { color: var(--warn); }
+.faint { color: var(--text-faint); }
+.notice { margin: 0; color: var(--text-dim); font-size: var(--text-xs); line-height: 18px; overflow-wrap: anywhere; }
+.question { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; border: 0; min-width: 0; }
+.legend { padding: 0; margin-bottom: 4px; font-size: var(--text-sm); line-height: 20px; font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
+.choices { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.choicesColumn { display: flex; flex-direction: column; gap: 4px; }
+.choice { display: inline-flex; align-items: flex-start; gap: 8px; min-height: 24px; font-size: var(--text-sm); line-height: 20px; color: var(--text); overflow-wrap: anywhere; cursor: pointer; }
+.choice input { margin-top: 3px; }
+.choice input:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.explain { display: flex; align-items: flex-start; gap: 6px; margin: 2px 0 0; color: var(--text); font-size: var(--text-xs); line-height: 18px; overflow-wrap: anywhere; }
+.explain svg { flex: none; margin-top: 2px; }
+.actions { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.actions .how { margin-left: 0; }
+.clear.clear { align-self: flex-start; color: var(--text-dim); }

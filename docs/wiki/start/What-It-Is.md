@@ -23,7 +23,7 @@ See [ComfyUI and where to get it](ComfyUI.md).
 - **A canvas** where you build a graph with the nodes you really have. Fields offer the values your ComfyUI accepts;
   a link only joins outputs and inputs of the same data type.
 - **Explains** every node, input, output and link, and says where each explanation comes from.
-- **Lessons** you do by hand on the real canvas: 79 built-in ones in twelve groups, and your own in My lessons. The
+- **Lessons** you do by hand on the real canvas: built-in ones in groups by topic and by level, and your own in My lessons. The
   app checks each step on the graph itself; no model is needed. File ▸ Examples opens the finished graph of a lesson.
 - **An assistant** that answers questions (Ask), builds step by step and says why (Build), or leads a lesson
   (Learn). It answers with a cloud model or a model on your own computer.

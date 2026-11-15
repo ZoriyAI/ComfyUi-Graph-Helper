@@ -94,6 +94,93 @@ The tests:
 | `aspect` | the proportions of another node |
 | `has-trigger` | the trigger words of a LoRA chosen in the given fields |
 
+## Version 2: steps you answer, outcomes and the template
+Version 2 of the format adds what a lesson of version 1.1 of the app can hold. A file that uses none of it is still
+written as version 1, so version 1.0 of the app opens it; this app reads both.
+
+A step may be, instead of a step to read or a canvas step, one of these (never two at once):
+- `checklist`: items `{ "id", "optional"?, "check"?, "run"? }`. Their words are in `texts.<language>.steps.<step>.items`:
+  `{ "label", "how"? }`. `check` is a condition the app reads itself (below); `run: true` marks the item that says
+  the workflow was run in ComfyUI.
+- `rubric`: criteria `{ "id", "levels", "pass"? }`, two to four level ids from low to high; `pass` is the lowest level
+  that lets the person go on. Words in `criteria`: `{ "title", "levels": { "<level>": "…" }, "tryNext"? }`.
+- `quiz`: one to five questions `{ "id", "choices", "answer" }`. Words in `questions`: `{ "text", "choices": { … },
+  "explain" }`.
+- `readCheck`: one to six conditions the app checks from what it already reads, never by running anything:
+  `comfy-read`, `node-class` (`classes`), `model-file` (`folder`, `words`?), `workflow-complete`, `workflow-size`
+  (`min`?, `max`?), `workflow-from` (`from`: `picture` or `api`), `workflow-partner` (`present`).
+- `transfer: true` on a canvas step or a checklist: a task without a ready answer and without **Do this for me**.
+
+A lesson may also say:
+- `outcomes`: which of `structure`, `run` and `result` it ends with. `structure` needs a canvas step, `run` an item with
+  `run: true`, `result` a rubric. Without it a lesson has only `structure`.
+- `level` (0 to 5), `tracks` (`base`, `image`, `video`, `audio-3d`, `lora`, `api`, `nodes`, `projects`) and `priority`
+  (`core`, `pro`, `deep`).
+- `standard`: `2` for a lesson of the new standard. It must have `meta` with `versions` and `checkedOn` (YYYY-MM-DD),
+  a quiz, a transfer task, and in each language `meta` words: `skill`, `requires` (or `meta.prerequisites`),
+  at least three `mistakes` (`sign` and `fix`), `provenance` and `notChecked`.
+- `meta`: `prerequisites` (lesson ids), `versions` (text) and `checkedOn`.
+
+A small complete example (this exact file opens in the app):
+
+```json
+{
+  "format": "nodewise-studio/lessons",
+  "version": 2,
+  "lessons": [
+    {
+      "id": "first-run-check",
+      "outcomes": ["run", "result"],
+      "level": 1,
+      "tracks": ["base"],
+      "texts": {
+        "en": {
+          "title": "Did my first picture work?",
+          "result": "A first run in ComfyUI, checked and assessed.",
+          "steps": {
+            "intro": { "title": "What this is", "body": "You run the first picture in ComfyUI and look at it." },
+            "run": {
+              "title": "Run it",
+              "body": "Open the workflow in ComfyUI and press Run.",
+              "items": {
+                "read": { "label": "The app has read my ComfyUI." },
+                "ran": { "label": "I ran it, and a picture appeared.", "how": "A new file in the output folder." }
+              }
+            },
+            "look": {
+              "title": "Look at it",
+              "body": "The app does not see the picture: this is your own assessment.",
+              "criteria": {
+                "subject": { "title": "The subject matches the prompt.", "levels": { "no": "No", "partly": "Partly", "yes": "Yes" }, "tryNext": "Put the subject first in the prompt." }
+              }
+            },
+            "recall": {
+              "title": "Check yourself",
+              "body": "One question.",
+              "questions": {
+                "seed": { "text": "What gives the same picture again?", "choices": { "seed": "The same seed and settings", "luck": "Luck" }, "explain": "The seed decides the noise a picture starts from." }
+              }
+            },
+            "own": {
+              "title": "On your own",
+              "body": "Try it without help.",
+              "items": { "other": { "label": "I made a second picture with another seed and compared the two." } }
+            }
+          }
+        }
+      },
+      "steps": [
+        { "id": "intro", "read": true },
+        { "id": "run", "checklist": [{ "id": "read", "check": { "kind": "comfy-read" } }, { "id": "ran", "run": true }] },
+        { "id": "look", "rubric": [{ "id": "subject", "levels": ["no", "partly", "yes"] }] },
+        { "id": "recall", "quiz": [{ "id": "seed", "choices": ["seed", "luck"], "answer": "seed" }] },
+        { "id": "own", "transfer": true, "checklist": [{ "id": "other" }] }
+      ]
+    }
+  ]
+}
+```
+
 ## What the app checks before it keeps a file
 - The size (at most 2 MB), how deeply it nests, that it is JSON, the `format` and the `version`.
 - Every text and list against its cap; no control characters and no hidden direction marks.

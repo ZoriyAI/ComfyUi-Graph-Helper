@@ -1,6 +1,7 @@
 /**
- * The helper's "Learn" mode: which lesson is open and what the person has read in it. Where they are in a lesson
- * is not kept: it is read off the graph (shared/lessons/engine.ts). The session's state is here so the panel
+ * The helper's "Learn" mode: which lesson is open, what the person has read in it, what they answered in the steps
+ * they answer (checklists, rubrics, quizzes, "I checked it myself") and which outcomes a lesson reached. Where they
+ * are on the canvas is not kept: it is read off the graph (shared/lessons/engine.ts). The session's state is here so the panel
  * answers at once; every change is also saved to preferences, and read back from them at start.
  *
  * Who uses it: components/lessons (LessonPanel, MyLessons, lessonAuthoring.ts), components/chat/ChatDock.tsx,
@@ -27,21 +28,34 @@ interface LessonState extends Stored {
   /** Back to the list; the lesson keeps its place. */
   leave: () => void;
   markRead: (lessonId: string, stepId: string) => void;
+  /** Sets one answer of a step (a tick, a level, a choice); null takes it back. */
+  answer: (lessonId: string, stepId: string, itemId: string, value: string | null) => void;
+  /** Clears the answers of one step of a lesson, or of every step when no step is named. */
+  clearAnswers: (lessonId: string, stepId?: string) => void;
+  /** Keeps the outcomes a lesson has reached, for the list (see Preferences lessons.outcomes). */
+  setOutcomes: (lessonId: string, outcomes: Stored['outcomes'][string]) => void;
   finish: (lessonId: string) => void;
   /** Start the reading of a lesson over; what is on the canvas stays. */
   again: (lessonId: string) => void;
-  hydrate: (stored: Stored) => void;
+  /** Takes the stored part back; a profile saved before version 1.1 has no answers or outcomes. */
+  hydrate: (stored: Omit<Stored, 'answers' | 'outcomes'> & Partial<Pick<Stored, 'answers' | 'outcomes'>>) => void;
   /**
    * The furthest step reached in each lesson in this session. When the graph takes a lesson back behind it, the
    * panel says that something on the canvas changed instead of moving back without a word.
    */
   reached: Record<string, number>;
   reach: (lessonId: string, step: number) => void;
+  /**
+   * Where the workflow opened last in this session came from (a picture, an API-format file...), for the read-check
+   * "the workflow came from a picture". Set by commands/actions.ts finishOpen; never saved.
+   */
+  openedFrom: 'json' | 'picture' | 'video' | 'api' | 'example' | null;
+  setOpenedFrom: (from: LessonState['openedFrom']) => void;
 }
 
 /** Saves the stored part; `reached` and `learning` are for this session only. */
 function save(state: Stored): void {
-  void savePreferencesPatch({ lessons: { active: state.active, read: state.read, done: state.done } });
+  void savePreferencesPatch({ lessons: { active: state.active, read: state.read, done: state.done, answers: state.answers, outcomes: state.outcomes } });
 }
 
 /** The open lesson, what was read and finished, and whether the panel is in Learn mode. */
@@ -50,7 +64,11 @@ export const useLessonStore = create<LessonState>((set, get) => ({
   active: '',
   read: {},
   done: [],
+  answers: {},
+  outcomes: {},
   reached: {},
+  openedFrom: null,
+  setOpenedFrom: (openedFrom) => set({ openedFrom }),
   reach: (lessonId, step) => {
     if ((get().reached[lessonId] ?? -1) === step) return;
     set({ reached: { ...get().reached, [lessonId]: step } });
@@ -72,6 +90,35 @@ export const useLessonStore = create<LessonState>((set, get) => ({
     set({ read: { ...get().read, [lessonId]: [...seen, stepId] } });
     save(get());
   },
+  answer: (lessonId, stepId, itemId, value) => {
+    const lesson = get().answers[lessonId] ?? {};
+    const step = { ...(lesson[stepId] ?? {}) };
+    if ((step[itemId] ?? null) === value) return;
+    if (value === null) delete step[itemId];
+    else step[itemId] = value;
+    set({ answers: { ...get().answers, [lessonId]: { ...lesson, [stepId]: step } } });
+    save(get());
+  },
+  clearAnswers: (lessonId, stepId) => {
+    const answers = { ...get().answers };
+    if (stepId === undefined) delete answers[lessonId];
+    else {
+      const lesson = { ...(answers[lessonId] ?? {}) };
+      delete lesson[stepId];
+      answers[lessonId] = lesson;
+    }
+    set({ answers });
+    save(get());
+  },
+  setOutcomes: (lessonId, outcomes) => {
+    const before = get().outcomes[lessonId] ?? [];
+    if (before.length === outcomes.length && before.every((item, index) => item === outcomes[index])) return;
+    const next = { ...get().outcomes };
+    if (outcomes.length === 0) delete next[lessonId];
+    else next[lessonId] = [...outcomes];
+    set({ outcomes: next });
+    save(get());
+  },
   finish: (lessonId) => {
     if (get().done.includes(lessonId)) return;
     set({ done: [...get().done, lessonId] });
@@ -82,11 +129,17 @@ export const useLessonStore = create<LessonState>((set, get) => ({
     delete read[lessonId];
     const reached = { ...get().reached };
     delete reached[lessonId];
-    set({ read, reached, done: get().done.filter((id) => id !== lessonId) });
+    // Starting over clears the ticks, the scores and the outcomes too: the lesson is done anew.
+    const answers = { ...get().answers };
+    delete answers[lessonId];
+    const outcomes = { ...get().outcomes };
+    delete outcomes[lessonId];
+    set({ read, reached, answers, outcomes, done: get().done.filter((id) => id !== lessonId) });
     save(get());
   },
   hydrate: (stored) => {
-    set({ active: stored.active, read: stored.read, done: stored.done });
+    // A profile saved before version 1.1 has no answers or outcomes yet.
+    set({ active: stored.active, read: stored.read, done: stored.done, answers: stored.answers ?? {}, outcomes: stored.outcomes ?? {} });
     // A lesson that was open when the app closed is on screen again at once, at the step the canvas is at; a lesson
     // for adults only while the switch is on.
     const active = stored.active;

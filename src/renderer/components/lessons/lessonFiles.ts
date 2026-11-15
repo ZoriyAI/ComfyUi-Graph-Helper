@@ -59,8 +59,10 @@ export function problemText(t: Translate, problem: LessonFileProblem): string {
     case 'rules': {
       // One sentence per kind of rule, in the person's language; only the names come from the file.
       const key = problem.rule.code.replace(/-([a-z])/g, (_match, letter: string) => letter.toUpperCase());
-      const { step, role, field, value, name } = problem.rule;
-      return say(t, `lessonFiles.problem.rule.${key}`, { lesson: problem.lesson, step, role, field, value, name });
+      const { step, role, field, value, name, language } = problem.rule;
+      // Words missing in one language name that language; a rule about every language says "in its texts".
+      const where = say(t, language === 'en' ? 'lessonFiles.problem.languageEn' : language === 'ru' ? 'lessonFiles.problem.languageRu' : 'lessonFiles.problem.languageAny', {});
+      return say(t, `lessonFiles.problem.rule.${key}`, { lesson: problem.lesson, step, role, field, value, name, language: where });
     }
   }
 }

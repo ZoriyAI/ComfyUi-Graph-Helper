@@ -1,6 +1,6 @@
 /**
  * The words of the lessons, English; texts.ts reads them for the lesson panel. This file holds the first lessons and
- * spreads in the English words of the image-models, image-techniques and sound-3d-faces sets. Each step: what to do
+ * spreads in the English words of the image-models, image-techniques, sound-3d-faces and experiments sets. Each step: what to do
  * and why. `{role}` in a text is replaced by the name of the node as this ComfyUI's library shows it. Field names
  * and values stand in backticks: the person looks for them on the node.
  *
@@ -12,6 +12,7 @@ import type { LessonWords } from './texts';
 import { IMAGE_MODEL_TEXTS_EN } from './sets/image-models.texts.en';
 import { IMAGE_TECHNIQUES_EN } from './sets/image-techniques.texts.en';
 import { SOUND_3D_FACES_EN } from './sets/sound-3d-faces.texts.en';
+import { EXPERIMENTS_EN } from './sets/experiments.texts.en';
 import { contentRulesMarkdown } from '../content/rules';
 
 const SAVE = 'Save the graph with "File ▸ Save workflow for ComfyUI…", open the file in ComfyUI and run it there. This app runs nothing in ComfyUI itself.';
@@ -1226,4 +1227,5 @@ export const LESSONS_EN: Record<string, LessonWords> = {
     },
   },
   ...SOUND_3D_FACES_EN,
+  ...EXPERIMENTS_EN,
 };

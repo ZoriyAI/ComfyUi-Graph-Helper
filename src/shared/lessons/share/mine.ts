@@ -14,7 +14,7 @@ import { z } from 'zod';
 import type { Lesson } from '../engine';
 import { lessonById } from '../lessons';
 import { lessonWords } from '../texts';
-import { engineLesson, lessonDocProblem, readLessonFile, LESSON_FILE_FORMAT, LESSON_FILE_VERSION, LESSON_LIMITS, type LessonDoc, type LessonFileProblem } from './format';
+import { engineLesson, lessonDocProblem, lessonFileVersion, readLessonFile, LESSON_FILE_FORMAT, LESSON_FILE_VERSION, LESSON_LIMITS, type LessonDoc, type LessonFileProblem } from './format';
 import { lessonShapes, tryLesson, type ClassShapes, type TryResult } from './tryLesson';
 
 /** Where a lesson of the person came from: made in the editor, imported from a file, drafted by the assistant. */
@@ -78,7 +78,8 @@ export function safeFileName(name: unknown): string | undefined {
 
 const storedSchema = z.object({
   format: z.literal(`${LESSON_FILE_FORMAT}/mine`),
-  version: z.literal(LESSON_FILE_VERSION),
+  // A record written by version 1.0 says 1; a lesson that uses the steps of version 1.1 says 2.
+  version: z.union([z.literal(1), z.literal(2)]),
   origin: z.enum(['made', 'file', 'assistant']),
   savedAt: z.number().int().min(0),
   adultMark: z.boolean(),
@@ -90,7 +91,7 @@ const storedSchema = z.object({
 export function storedRecord(lesson: MyLesson): Record<string, unknown> {
   return {
     format: `${LESSON_FILE_FORMAT}/mine`,
-    version: LESSON_FILE_VERSION,
+    version: lessonFileVersion([lesson.doc]),
     origin: lesson.origin,
     savedAt: lesson.savedAt,
     adultMark: lesson.adultMark,

@@ -16,6 +16,7 @@ import { LESSONS, LESSON_AFTER, LESSON_PATH, isAdultLesson, lessonById } from '.
 import { lessonWords, type LessonWords } from '../texts';
 import { lessonFileOf, type LessonDoc, type LessonDocWords, type LessonFile } from './format';
 import { DISPLAY_NAME } from '../../productNames';
+import { lessonPlace } from '../programme';
 
 /** Who wrote a built-in lesson, as the file says it. */
 export const BUILTIN_AUTHOR = DISPLAY_NAME;
@@ -27,9 +28,11 @@ function wordsOf(words: LessonWords | null): LessonDocWords | undefined {
   return {
     title: words.title,
     result: words.result,
-    steps: Object.fromEntries(Object.entries(words.steps).map(([step, item]) => [step, { title: item.title, body: item.body }])),
+    // A deep copy: the words of checklist items, rubric criteria and quiz questions travel with their step.
+    steps: Object.fromEntries(Object.entries(words.steps).map(([step, item]) => [step, JSON.parse(JSON.stringify(item)) as LessonDocWords['steps'][string]])),
     // The lesson's own role labels travel with it, so an exported face swap still calls the face picture a face picture.
     ...(words.roles ? { roles: { ...words.roles } } : {}),
+    ...(words.meta ? { meta: JSON.parse(JSON.stringify(words.meta)) as LessonDocWords['meta'] } : {}),
   };
 }
 
@@ -47,8 +50,14 @@ export function builtinLessonDoc(id: string): LessonDoc | null {
   const en = wordsOf(lessonWords('en', id));
   const ru = wordsOf(lessonWords('ru', id));
   const continues = LESSON_AFTER[id] ?? [];
+  const place = lessonPlace(id);
   return {
     id,
+    // Where it stands in the programme, its standard, its outcomes and the template's metadata (format version 2).
+    ...(place ? { level: place.level, tracks: [...place.tracks], priority: place.priority } : {}),
+    ...(lesson.standard ? { standard: lesson.standard } : {}),
+    ...(lesson.outcomes ? { outcomes: [...lesson.outcomes] } : {}),
+    ...(lesson.meta ? { meta: JSON.parse(JSON.stringify(lesson.meta)) as LessonDoc['meta'] } : {}),
     ...(path ? { group: { id: path.group.id, title: { en: path.group.title.en, ru: path.group.title.ru } } } : {}),
     ...(path && path.follows.length > 0 ? { follows: [...path.follows] } : {}),
     ...(continues.length > 0 ? { continues: [...continues] } : {}),

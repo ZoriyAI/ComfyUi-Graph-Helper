@@ -7,13 +7,19 @@
  * Who uses it: the lesson editor (src/renderer/components/lessons/LessonEditor.tsx) and the assistant's draft tool
  * when it drafts from the current graph.
  *
+ * A lesson being edited keeps the steps a person answers (a checklist, a rubric, a quiz, a read-check) and its
+ * metadata as they are; the editor can also add a checklist step of its own ("a self-check": things to do outside the
+ * app, one item per line).
+ *
  * Why steps are derived this way: it is how the engine tests rebuild every built-in lesson from an empty canvas
  * (add the node, make the link, set the field), so a lesson made here asks for exactly what "Do this for me" and a
  * person can do. Pure: no DOM, no catalog access of its own; the caller says what it knows of each class.
  */
 
-import type { FieldSpec, FieldTest, LessonGraph, LessonNode, LinkSpec } from '../engine';
-import { LESSON_LIMITS, type LessonDoc } from './format';
+import type { FieldSpec, FieldTest, LessonGraph, LessonNode, LessonStep, LinkSpec } from '../engine';
+import type { StepWords } from '../texts';
+import { STEP_CAPS } from '../schema';
+import { LESSON_LIMITS, type LessonDoc, type LessonDocWords } from './format';
 
 /** What the caller knows of a class: the name the library shows, and the kind of each field. */
 export interface ClassInfo {
@@ -32,6 +38,10 @@ export interface DraftStep {
   fields: Array<{ spec: FieldSpec; on: boolean }>;
   title: string;
   body: string;
+  /** A step the person answers, kept as it is: its checklist, rubric, quiz or read-check, and a transfer mark. */
+  extra?: Pick<LessonStep, 'checklist' | 'rubric' | 'quiz' | 'readCheck' | 'transfer'>;
+  /** The words of its items, criteria or questions, in the editor's language. */
+  extraWords?: Pick<StepWords, 'items' | 'criteria' | 'questions'>;
 }
 
 /** A lesson being written in the editor, in one language. */
@@ -43,7 +53,9 @@ export interface LessonDraftModel {
   adult: boolean;
   steps: DraftStep[];
   /** Kept from a lesson being edited, so saving changes only what the editor shows. */
-  keep?: Pick<LessonDoc, 'group' | 'follows' | 'continues' | 'author' | 'source' | 'needs'>;
+  keep?: Pick<LessonDoc, 'group' | 'follows' | 'continues' | 'author' | 'source' | 'needs' | 'standard' | 'outcomes' | 'level' | 'tracks' | 'priority' | 'meta'>;
+  /** The template's words of the lesson being edited (skill, mistakes...), in the editor's language. */
+  metaWords?: LessonDocWords['meta'];
 }
 
 /** The most nodes a graph may have to become a lesson: one step per node, under the step cap. */
@@ -179,16 +191,27 @@ export function draftFromDoc(doc: LessonDoc, language: 'en' | 'ru'): LessonDraft
     title: words.title,
     result: words.result,
     adult: doc.adult === true,
-    steps: doc.steps.map((step) => ({
-      id: step.id,
-      ...(step.read ? { read: true as const } : {}),
-      roles: (step.roles ?? []).map((spec) => ({ role: spec.role, classes: [...spec.classes] })),
-      links: (step.links ?? []).map((spec) => ({ ...spec })),
-      fields: (step.fields ?? []).map((spec) => ({ spec: { ...spec, test: { ...spec.test } as FieldTest }, on: true })),
-      title: words.steps[step.id]?.title ?? step.id,
-      body: words.steps[step.id]?.body ?? '',
-    })),
-    keep: { group: doc.group, follows: doc.follows, continues: doc.continues, author: doc.author, source: doc.source, needs: doc.needs },
+    steps: doc.steps.map((step) => {
+      const said = words.steps[step.id];
+      const extra = JSON.parse(JSON.stringify({ checklist: step.checklist, rubric: step.rubric, quiz: step.quiz, readCheck: step.readCheck, transfer: step.transfer })) as DraftStep['extra'];
+      const extraWords = JSON.parse(JSON.stringify({ items: said?.items, criteria: said?.criteria, questions: said?.questions })) as DraftStep['extraWords'];
+      return {
+        id: step.id,
+        ...(step.read ? { read: true as const } : {}),
+        roles: (step.roles ?? []).map((spec) => ({ role: spec.role, classes: [...spec.classes] })),
+        links: (step.links ?? []).map((spec) => ({ ...spec })),
+        fields: (step.fields ?? []).map((spec) => ({ spec: { ...spec, test: { ...spec.test } as FieldTest }, on: true })),
+        title: said?.title ?? step.id,
+        body: said?.body ?? '',
+        ...(extra && Object.keys(extra).length > 0 ? { extra } : {}),
+        ...(extraWords && Object.keys(extraWords).length > 0 ? { extraWords } : {}),
+      };
+    }),
+    keep: {
+      group: doc.group, follows: doc.follows, continues: doc.continues, author: doc.author, source: doc.source, needs: doc.needs,
+      standard: doc.standard, outcomes: doc.outcomes, level: doc.level, tracks: doc.tracks, priority: doc.priority, meta: doc.meta,
+    },
+    ...(words.meta ? { metaWords: JSON.parse(JSON.stringify(words.meta)) as LessonDocWords['meta'] } : {}),
   };
 }
 
@@ -203,7 +226,8 @@ export function docFromDraft(model: LessonDraftModel): LessonDoc {
       [model.language]: {
         title: model.title.trim(),
         result: model.result.trim(),
-        steps: Object.fromEntries(model.steps.map((step) => [step.id, { title: step.title.trim(), body: step.body }])),
+        steps: Object.fromEntries(model.steps.map((step) => [step.id, { title: step.title.trim(), body: step.body, ...(step.extraWords ?? {}) }])),
+        ...(model.metaWords ? { meta: model.metaWords } : {}),
       },
     },
     steps: model.steps.map((step) => {
@@ -214,9 +238,34 @@ export function docFromDraft(model: LessonDraftModel): LessonDoc {
         ...(step.roles.length > 0 ? { roles: step.roles } : {}),
         ...(step.links.length > 0 ? { links: step.links } : {}),
         ...(fields.length > 0 ? { fields } : {}),
+        ...(step.extra ?? {}),
       };
     }),
   };
+}
+
+/**
+ * A checklist step from lines of text, one item per line (empty lines left out, at most STEP_CAPS.items): things the
+ * person does outside the app and ticks. Used by the editor's "Add a self-check".
+ */
+export function checklistStep(id: string, title: string, body: string, lines: readonly string[]): DraftStep {
+  const labels = lines.map((line) => line.trim().slice(0, LESSON_LIMITS.line)).filter((line) => line !== '').slice(0, STEP_CAPS.items);
+  const items = labels.map((_label, index) => ({ id: `item-${index + 1}` }));
+  return {
+    id,
+    roles: [],
+    links: [],
+    fields: [],
+    title,
+    body,
+    extra: { checklist: items },
+    extraWords: { items: Object.fromEntries(labels.map((label, index) => [`item-${index + 1}`, { label }])) },
+  };
+}
+
+/** The lines of a checklist step being edited, one item per line, in the order of its items. */
+export function checklistLines(step: DraftStep): string[] {
+  return (step.extra?.checklist ?? []).map((item) => step.extraWords?.items?.[item.id]?.label ?? '');
 }
 
 /** A lesson id from a title: Latin letters and digits joined by hyphens, else one made from the time. */

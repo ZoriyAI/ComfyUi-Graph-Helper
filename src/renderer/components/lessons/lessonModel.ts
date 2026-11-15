@@ -3,6 +3,9 @@
  * knows of the classes the lessons name, the trigger words of the files chosen on the canvas, and the two things
  * a step can ask the app for: show where it is, or do it.
  *
+ * Also what a read-check of a lesson looks at (useReadFacts): only what the app already knows, never a new request to
+ * ComfyUI.
+ *
  * Who uses it: LessonPanel.tsx, lackText.ts and lessonAuthoring.ts; tests/unit/lessonModel.test.ts covers it.
  */
 import { useEffect, useMemo, useState } from 'react';
@@ -24,6 +27,8 @@ import {
   type StepFix,
 } from '../../../shared/lessons/engine';
 import { lessonSpot } from '../../../shared/lessons/flow';
+import { conditionClasses, type ReadCondition, type ReadFacts } from '../../../shared/lessons/steps';
+import { useLessonStore } from '../../state/lessonState';
 import { LESSONS } from '../../../shared/lessons/lessons';
 import { LAYOUT_GAPS } from '../../../shared/graph/layout';
 import type { GraphEdge, GraphNode } from '../../types/graph';
@@ -105,9 +110,9 @@ export function classPortsOf(details: Details): ClassPorts {
   };
 }
 
-/** Every class any lesson names. */
+/** Every class any lesson names, in its roles and in its read-checks. */
 export function lessonClasses(lessons: readonly Lesson[] = LESSONS): string[] {
-  return [...new Set(lessons.flatMap((lesson) => rolesOf(lesson).flatMap((spec) => spec.classes)))];
+  return [...new Set(lessons.flatMap((lesson) => [...rolesOf(lesson).flatMap((spec) => spec.classes), ...conditionsOf(lesson).flatMap(conditionClasses)]))];
 }
 
 /** The name of the node that plays a role, as the library of this ComfyUI shows it. */
@@ -334,4 +339,79 @@ export function portLabel(graph: LessonGraph, nodeId: string, side: 'input' | 'o
   const node = graph.nodes.find((item) => item.id === nodeId);
   if (!node) return name;
   return side === 'input' ? inputFor(node, name)?.name ?? name : outputsFor(node, name)[0]?.name ?? name;
+}
+
+/** Every read-check condition of a lesson: its read-check steps and the checks of its checklist items. */
+export function conditionsOf(lesson: Lesson): ReadCondition[] {
+  return lesson.steps.flatMap((step) => [...(step.readCheck ?? []), ...(step.checklist ?? []).flatMap((item) => (item.check ? [item.check] : []))]);
+}
+
+/** Model file names by folder, asked of main once per sync for the folders a lesson's checks name. */
+const modelCache = new Map<string, readonly string[]>();
+/** The sync stamp modelCache was filled under. */
+let modelCacheStamp = '';
+
+/**
+ * What a read-check of the lesson looks at (shared/lessons/steps.ts ReadFacts): whether ComfyUI was read, whether a
+ * class is installed and is a partner node (the catalog's own detail, asked for the classes the checks and the canvas
+ * name), the model files of the folders the checks name (the last sync's list, read from main, never from ComfyUI),
+ * and where the last opened workflow came from. Nothing here makes a request to ComfyUI.
+ */
+export function useReadFacts(lesson: Lesson | null, graph: LessonGraph, details: Details, catalogRead: boolean): ReadFacts {
+  const request = useNodeInfoStore((state) => state.request);
+  const openedFrom = useLessonStore((state) => state.openedFrom);
+  const stamp = useFilesStamp();
+  // With no lesson open, the list still shows where each lesson stands: it judges the checks of every lesson.
+  const conditions = useMemo(() => (lesson ? conditionsOf(lesson) : LESSONS.flatMap(conditionsOf)), [lesson]);
+  const onCanvas = conditions.some((condition) => condition.kind === 'workflow-complete' || condition.kind === 'workflow-partner');
+  const classes = useMemo(() => [...new Set([...conditions.flatMap(conditionClasses), ...(onCanvas ? graph.nodes.map((node) => node.classType) : [])])].sort(), [conditions, onCanvas, graph]);
+  const classKey = classes.join('\n');
+  useEffect(() => {
+    for (const classType of classes) void request(classType);
+    // `classKey` stands for the list of classes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [classKey, request]);
+  const folders = useMemo(() => [...new Set(conditions.flatMap((condition) => (condition.kind === 'model-file' ? [condition.folder] : [])))].sort(), [conditions]);
+  const [version, setVersion] = useState(0);
+  useEffect(() => {
+    let live = true;
+    if (stamp !== modelCacheStamp) {
+      modelCache.clear();
+      modelCacheStamp = stamp;
+    }
+    const bridge = typeof window !== 'undefined' ? window.electronAPI : undefined;
+    for (const folder of folders) {
+      if (modelCache.has(folder) || !bridge?.searchModels) continue;
+      void bridge.searchModels({ query: '', directory: folder, limit: 200 }).catch(() => null).then((found) => {
+        if (modelCacheStamp !== stamp || !found) return;
+        modelCache.set(folder, found.map((item) => item.name));
+        if (live) setVersion((value) => value + 1);
+      });
+    }
+    return () => {
+      live = false;
+    };
+  }, [folders, stamp]);
+  return useMemo(() => {
+    const models: Record<string, readonly string[]> = {};
+    for (const folder of folders) {
+      const names = modelCache.get(folder);
+      if (names) models[folder] = names;
+    }
+    // A class the catalog has not been asked about yet is unknown; one it does not have is not installed.
+    const known = (classType: string) => (Object.prototype.hasOwnProperty.call(details, classType) ? details[classType] : undefined);
+    return {
+      catalogRead,
+      installed: (classType: string) => {
+        const detail = known(classType);
+        return detail === undefined ? null : Boolean(detail?.detailed);
+      },
+      partner: (classType: string) => {
+        const detail = known(classType);
+        return detail === undefined ? null : detail?.marks?.includes('api') === true;
+      },
+      models,
+      ...(openedFrom ? { openedFrom } : {}),
+    };
+  }, [catalogRead, details, folders, openedFrom, version]); // eslint-disable-line react-hooks/exhaustive-deps
 }

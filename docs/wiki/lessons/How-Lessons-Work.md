@@ -24,6 +24,22 @@ A lesson that needs nodes you lack says why: **This lesson does not fit your Com
 and, for nodes from a pack, the pack's name ("It needs the node pack …"), or "It needs a newer ComfyUI". You install
 nodes in ComfyUI yourself, then press **Sync ▸ Sync now**. The app never installs anything.
 
+## Topics, levels, tracks and the path
+Above the list, **Show the lessons** switches between four ways of reading it:
+- **Topics**: the groups, as described above.
+- **Levels**: every lesson has a level from 0 (setting up ComfyUI) to 5 (projects): 1 the graph basics, 2 reliable
+  practice (memory, samplers, loaders, experiments), 3 pictures, video, sound and 3D, 4 the technical tracks. Only
+  levels that have lessons are shown.
+- **Tracks**: the lessons of one track (Base, Pictures, Video and VFX, Sound and 3D, LoRA training, API and automation,
+  Making nodes, Projects). A track without built-in lessons yet says so.
+- **Path**: the recommended order for one track: each lesson after the lessons it leans on, lower levels first, numbered,
+  with what is done marked. It is a suggestion; every lesson stays open.
+
+Under its title a card says the level, how central the lesson is (core, professional or in depth) and its tracks. A
+lesson written to the new standard also has **About this lesson**: the skill it teaches, what it needs before, the
+versions it was written for and the date it was checked, common mistakes with what to do, what the app does not check,
+and where it comes from.
+
 ## The closed group for adults
 The group **For adults (18+)** stands at the end of the list. While the switch **Adult content (18+)** in
 **Settings ▸ Privacy** is off (it is off in a new profile), the group is one row with a lock, a line that says what
@@ -46,6 +62,27 @@ it holds and the button **Open the setting**. A lesson of this group cannot be s
   finished step needed is undone or deleted, the lesson goes back to that step and says "Step N is not done any
   more: something on the canvas changed."
 - Lessons follow the main canvas: inside a subgraph the lesson waits until you leave it.
+
+## Steps you answer
+Some lessons have steps that are not about the canvas. The app does not run anything in ComfyUI and does not see your
+pictures, so these steps say plainly who stands behind each answer.
+- **A checklist**: things to do outside the app, such as "I ran it, and both pictures appeared". You tick them. An item
+  the app can see for itself (ComfyUI was read, a model file is in a folder) is ticked by the app and says **The app
+  sees this**; while the app cannot tell, your tick counts as **Your own word**. **Clear my answers** takes the ticks
+  back.
+- **A rubric**: a question per criterion with two to four levels, for example "The subject matches the prompt: No,
+  Partly, Yes". You pick a level; a low one shows what to try. A criterion may need a level to go on (a blind score must
+  be blind). Only your choice is kept, on this computer.
+- **Questions to check yourself**: one to five questions with choices. Any answer moves the lesson on; the explanation
+  shows whether it was right.
+- **A check the app makes**: a condition the app reads from what it already knows: that ComfyUI was read, that a node or
+  a model file is there, that every node of the workflow on the canvas is installed, how many nodes the workflow has,
+  that the last workflow you opened came from a picture or was in API format, whether the workflow has partner nodes.
+  When the app cannot tell (not connected), **I checked it myself** lets you go on on your own word.
+- **Your own task**: a canvas step or a checklist with no ready answer. It has no **Do this for me**, and what is still
+  missing stays folded until you ask for it.
+
+Your answers are kept with the lesson's progress. **Start over** clears them.
 
 ## What a step checks
 - **The kind of model file.** A step that asks for a file checks what the file is, not only that one is chosen: its
@@ -71,7 +108,10 @@ stays. For a file, it picks the first file of the right kind in the list; when t
 the line says the file is missing.
 
 ## The end
-**The lesson is done**: everything this lesson is about is on the canvas. From there: **Save workflow for
+**The lesson is done**: everything this lesson is about is on the canvas. A lesson that ends with more than a graph lists
+what it ended with: **Structure checked** (checked by the app), **Run in ComfyUI** (your own word, or checked by the app
+where it can read it) and **Result assessed** (your own word), and says that the app ran nothing and did not see your
+pictures. The cards in the list show the same marks. From there: **Save workflow for
 ComfyUI…** to take the graph to ComfyUI and run it, or **Start the next lesson**. The app does not run the graph and
 does not download the model files a lesson names; you need them in your ComfyUI already. The texts of each lesson
 say which files, which folders, and which official ComfyUI template names them.
@@ -81,7 +121,7 @@ again from step 1.
 
 ## The next lesson
 The lesson offered at the end is the next one in the list, in the order of the groups, that is not done yet and
-fits your ComfyUI, preferably one whose earlier lessons are done. A lesson for adults is never offered after an
+fits your ComfyUI, preferably one whose earlier lessons are done and that is at most one level above the lesson just finished. A lesson for adults is never offered after an
 ordinary one, nor an ordinary one after a lesson for adults. After the last lesson of the list nothing is offered.
 
 ## See also

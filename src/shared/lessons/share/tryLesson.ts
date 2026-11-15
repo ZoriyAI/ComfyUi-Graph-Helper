@@ -3,7 +3,8 @@
  * step lacks the way "Do this for me" would (add the node, make the link, set the number), decides what only a
  * person decides (which file, what words) with a stand-in, and reads the step through, until the lesson ends or a
  * step cannot be done. The engine itself (../engine.ts) judges every step, so a lesson that passes here is one the
- * engine lets a person finish.
+ * engine lets a person finish. A step the person answers (a checklist, a rubric, a quiz, a read-check) is answered the
+ * way a person who did everything would answer it (steps.ts answerAll).
  *
  * Who uses it: the lesson editor before it saves (it names the step that cannot be done), the import (a refused
  * file says which step is impossible), the assistant's draftLesson tool before the person sees a draft, and the
@@ -16,6 +17,7 @@
 
 import { familyOfFile, fileMiss } from '../files';
 import { fixFor, lessonProgress, type FieldTest, type Lesson, type LessonFacts, type LessonGraph, type LessonNode, type Missing } from '../engine';
+import { answerAll, isPersonStep, type StepAnswers } from '../steps';
 
 /** What a class offers to a lesson that is being tried: inputs with the value a new node starts with, outputs. */
 export interface ClassShape {
@@ -256,17 +258,24 @@ export function tryLesson(lesson: Lesson, shapes: ClassShapes, options: TryOptio
 
 function carryOut(lesson: Lesson, canvas: TryCanvas, shapes: ClassShapes, facts: LessonFacts, options: TryOptions): TryResult {
   const read = new Set<string>();
+  const answers: Record<string, StepAnswers> = {};
   const limit = Math.max(40, lesson.steps.length * (options.actionsPerStep ?? 40));
   const installed = (classType: string) => shapes(classType) !== null;
   const seen = new Set<string>();
   for (let actions = 0; actions < limit; actions += 1) {
     options.observe?.(canvas.snapshot(), new Set(read), lesson);
-    const progress = lessonProgress(lesson, canvas, facts, read);
+    const progress = lessonProgress(lesson, canvas, facts, read, answers);
     if (progress.current >= lesson.steps.length) return { ok: true, actions };
     const step = lesson.steps[progress.current];
     const failure = (why: 'no-class' | 'stuck' | 'too-long', missing: Missing | null): TryResult => ({ ok: false, lessonId: lesson.id, step: progress.current, stepId: step.id, why, missing });
     if (step.read) {
       read.add(step.id);
+      continue;
+    }
+    if (isPersonStep(step)) {
+      // Answered once: a step that is still not done after that can never be (a pass level nobody reaches).
+      if (answers[step.id]) return failure('stuck', null);
+      answers[step.id] = answerAll(step);
       continue;
     }
     const missing = progress.missing[0];
@@ -291,7 +300,7 @@ function carryOut(lesson: Lesson, canvas: TryCanvas, shapes: ClassShapes, facts:
       return failure('stuck', missing);
     }
   }
-  const progress = lessonProgress(lesson, canvas, facts, read);
+  const progress = lessonProgress(lesson, canvas, facts, read, answers);
   const step = lesson.steps[Math.min(progress.current, lesson.steps.length - 1)];
   return { ok: false, lessonId: lesson.id, step: progress.current, stepId: step.id, why: 'too-long', missing: progress.missing[0] ?? null };
 }

@@ -58,7 +58,7 @@ why; you do it on the canvas; the lesson sees it is done and moves on. If a step
 words what is missing. Words of the glossary are underlined with dots the first time they appear: point at one, or
 reach it with `Tab`, to read its meaning. See [How lessons work](../lessons/How-Lessons-Work.md).
 
-There are 79 built-in lessons in twelve groups, and your own in My lessons. A lesson that needs nodes your ComfyUI
+There are built-in lessons in groups by topic, and your own in My lessons. A lesson that needs nodes your ComfyUI
 lacks says "This lesson does not fit your ComfyUI yet" and gives the reasons.
 
 ## Read your graph (10 minutes)

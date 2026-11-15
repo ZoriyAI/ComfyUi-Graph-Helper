@@ -210,6 +210,8 @@ export function lackText(t: TFunction, missing: Missing, lesson: Lesson, context
     case 'differs': {
       if (missing.test.kind !== 'differs') return '';
       if (missing.other && missing.other.nodeId === missing.nodeId) return String(t('lessons.lackDiffersField', { field, node, otherField: missing.test.field }));
+      // A setting such as a scheduler or a file name prefix is not a file: the sentence says "value", not "file".
+      if (!/\.[a-z0-9]{2,12}$/i.test(String(missing.value ?? ''))) return String(t('lessons.lackDiffersValue', { field, node, other }));
       return String(t('lessons.lackDiffers', { field, node, other }));
     }
     case 'same':

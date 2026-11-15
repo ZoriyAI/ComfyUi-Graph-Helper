@@ -61,21 +61,42 @@ describe('preferences schema', () => {
       shortcuts: {},
       privacy: { sendFieldValues: true, saveChatHistory: true, modelLog: true, showMarkedPreviews: false, lookupModelsOnline: false, checkUpdates: false },
       view: { railTab: 'nodes', modelKind: 'all', modelFamily: '', modelSort: 'name' },
-      lessons: { active: '', read: {}, done: [] },
+      lessons: { active: '', read: {}, done: [], answers: {}, outcomes: {} },
     });
     expect(preferencesSchema.parse({ canvas: { gridSize: 24 } }).canvas).toMatchObject({ gridSize: 24, showDescriptions: true });
   });
 
   it('keeps what a person has read in a lesson, and nothing that is not a lesson id', () => {
-    const stored = { lessons: { active: 'video-text', read: { 'video-text': ['intro', 'run'] }, done: ['image'] } };
+    const stored = { lessons: { active: 'video-text', read: { 'video-text': ['intro', 'run'] }, done: ['image'], answers: {}, outcomes: {} } };
     expect(parsePreferences(stored).lessons).toEqual(stored.lessons);
     expect(preferencesSchema.safeParse({ lessons: { active: 'Video Text' } }).success).toBe(false);
     expect(preferencesSchema.safeParse({ lessons: { read: { image: ['<script>'] } } }).success).toBe(false);
     // One bad field does not take the rest with it.
-    expect(parsePreferences({ lessons: { active: '../x', done: ['image'] } }).lessons).toEqual({ active: '', read: {}, done: ['image'] });
+    expect(parsePreferences({ lessons: { active: '../x', done: ['image'] } }).lessons).toEqual({ active: '', read: {}, done: ['image'], answers: {}, outcomes: {} });
     // A change of one field leaves the others.
     const merged = mergePreferences(parsePreferences(stored), { lessons: { active: '' } });
     expect(parsePreferences(merged).lessons).toEqual({ ...stored.lessons, active: '' });
+  });
+
+  it('keeps the answers and outcomes of lessons, the ids that start with a digit and the lessons of the person', () => {
+    // Before 1.1 a lesson id that starts with a digit (3d-image) or one of My lessons (my:...) was refused, and with it
+    // every later save of lesson progress.
+    const stored = {
+      lessons: {
+        active: 'my:sdxl-size',
+        read: { '3d-image': ['intro'], 'my:sdxl-size': ['intro'] },
+        done: ['3d-image', 'my:sdxl-size'],
+        answers: { 'one-factor': { ready: { question: 'yes' }, assess: { difference: 'partly' }, complete: { self: 'yes' } } },
+        outcomes: { 'one-factor': ['structure', 'run-self', 'result'] },
+      },
+    };
+    expect(preferencesSchema.safeParse(stored).success).toBe(true);
+    expect(parsePreferences(stored).lessons).toEqual(stored.lessons);
+    // An answer is an id, never a text a person or a file could fill with anything.
+    expect(preferencesSchema.safeParse({ lessons: { answers: { 'one-factor': { ready: { question: 'Hello <b>' } } } } }).success).toBe(false);
+    expect(preferencesSchema.safeParse({ lessons: { outcomes: { 'one-factor': ['done'] } } }).success).toBe(false);
+    // A profile saved before 1.1 reads with empty answers and outcomes.
+    expect(parsePreferences({ lessons: { active: '', read: {}, done: ['image'] } }).lessons).toEqual({ active: '', read: {}, done: ['image'], answers: {}, outcomes: {} });
   });
 
   it('enforces the ranges and enums', () => {

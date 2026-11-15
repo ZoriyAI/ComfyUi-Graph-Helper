@@ -650,6 +650,90 @@ test('nothing sticks out, is cut or overlaps on any screen at any window size', 
       await expect(lessons.locator('[data-lesson-step]'), 'the picture lesson came to its end').toHaveAttribute('data-lesson-step', 'end');
       await visitScrolling(page, 'lessons, a lesson done', async () => { await startLesson('image'); }, () => lessons);
       await visitScrolling(page, 'lessons, the list with a lesson done', toList, () => lessons);
+
+      // Version 1.1: the list by level and as a path, "About this lesson", and the steps a person answers, walked in a
+      // small lesson of the person's own (a checklist, a rubric, a quiz, a task of their own) so no canvas is needed.
+      const listView = async (view: string) => {
+        await toList();
+        await lessons.getByRole('radio', { name: T(`lessons.view.${view}`), exact: true }).click();
+      };
+      await visitScrolling(page, 'lessons, the list by level', async () => { await listView('levels'); }, () => lessons);
+      await visitScrolling(page, 'lessons, the path of a track', async () => { await listView('path'); }, () => lessons);
+      await visitScrolling(page, 'lessons, about a lesson', async () => {
+        await listView('groups');
+        const about = lessons.locator('[data-lesson-about="one-factor"]');
+        if ((await about.getAttribute('open')) === null) await about.locator('summary').click();
+        await about.scrollIntoViewIfNeeded();
+      }, () => lessons);
+      const words = (ru: boolean) => ({
+        title: ru ? 'Получилась ли первая картинка?' : 'Did my first picture work?',
+        result: ru ? 'Первый запуск в ComfyUI, проверенный и оценённый.' : 'A first run in ComfyUI, checked and assessed.',
+        steps: {
+          intro: { title: ru ? 'Что это' : 'What this is', body: ru ? 'Вы запускаете первую картинку в ComfyUI и смотрите на неё.' : 'You run the first picture in ComfyUI and look at it.' },
+          run: {
+            title: ru ? 'Запустите' : 'Run it',
+            body: ru ? 'Откройте workflow в ComfyUI и нажмите Run.' : 'Open the workflow in ComfyUI and press Run.',
+            items: {
+              read: { label: ru ? 'Приложение прочитало мой ComfyUI.' : 'The app has read my ComfyUI.' },
+              ran: { label: ru ? 'Я запустил его, и появилась картинка в папке output у ComfyUI, под именем, которое я дал.' : 'I ran it, and a picture appeared in the output folder of ComfyUI, under the name I gave.', how: ru ? 'Новый файл в папке output.' : 'A new file in the output folder.' },
+            },
+          },
+          look: {
+            title: ru ? 'Посмотрите' : 'Look at it',
+            body: ru ? 'Приложение не видит картинку: это ваша собственная оценка.' : 'The app does not see the picture: this is your own assessment.',
+            criteria: {
+              subject: { title: ru ? 'Предмет соответствует промпту.' : 'The subject matches the prompt.', levels: ru ? { no: 'Нет', partly: 'Отчасти', yes: 'Да' } : { no: 'No', partly: 'Partly', yes: 'Yes' }, tryNext: ru ? 'Поставьте предмет в первые слова промпта и уберите второстепенное.' : 'Put the subject first in the prompt.' },
+              defects: { title: ru ? 'Дефекты: руки, лица, надписи, края.' : 'Defects: hands, faces, text, edges.', levels: ru ? { many: 'Много', few: 'Немного', none: 'Нет' } : { many: 'Many', few: 'A few', none: 'None' } },
+            },
+          },
+          recall: {
+            title: ru ? 'Проверьте себя' : 'Check yourself',
+            body: ru ? 'Один вопрос.' : 'One question.',
+            questions: {
+              seed: {
+                text: ru ? 'Что снова даст ту же картинку?' : 'What gives the same picture again?',
+                choices: ru ? { seed: 'Тот же seed и те же настройки', luck: 'Удача', model: 'Другая модель с тем же промптом' } : { seed: 'The same seed and settings', luck: 'Luck', model: 'Another model with the same prompt' },
+                explain: ru ? 'Seed решает, с какого шума начинается картинка.' : 'The seed decides the noise a picture starts from.',
+              },
+            },
+          },
+          own: { title: ru ? 'Сами' : 'On your own', body: ru ? 'Попробуйте без подсказок.' : 'Try it without help.', items: { other: { label: ru ? 'Я сделал вторую картинку с другим seed и сравнил две.' : 'I made a second picture with another seed and compared the two.' } } },
+        },
+      });
+      const own = {
+        id: 'walk-steps',
+        outcomes: ['run', 'result'],
+        texts: { en: words(false), ru: words(true) },
+        steps: [
+          { id: 'intro', read: true },
+          { id: 'run', checklist: [{ id: 'read', check: { kind: 'comfy-read' } }, { id: 'ran', run: true }] },
+          { id: 'look', rubric: [{ id: 'subject', levels: ['no', 'partly', 'yes'] }, { id: 'defects', levels: ['many', 'few', 'none'] }] },
+          { id: 'recall', quiz: [{ id: 'seed', choices: ['seed', 'luck', 'model'], answer: 'seed' }] },
+          { id: 'own', transfer: true, checklist: [{ id: 'other' }] },
+        ],
+      };
+      expect(await api('importLessonsText', ['walk.lesson.json', JSON.stringify({ format: 'nodewise-studio/lessons', version: 2, lessons: [own] })])).toMatchObject({ ok: true });
+      await page.reload();
+      await page.locator('.app-shell').waitFor({ timeout: 20_000 });
+      await learnMode(page);
+      const ownStep = () => lessons.locator('[data-lesson-step]').getAttribute('data-lesson-step');
+      const toOwn = async (step: string) => {
+        await startLesson('my:walk-steps');
+        if ((await ownStep()) === 'intro') await lessons.getByRole('button', { name: T('lessons.understood'), exact: true }).click();
+        await expect(lessons.locator('[data-lesson-step]')).toHaveAttribute('data-lesson-step', step);
+      };
+      await visitScrolling(page, 'lessons, a checklist', async () => { await toOwn('run'); }, () => lessons);
+      await lessons.locator('[data-item="ran"] input').click();
+      await visitScrolling(page, 'lessons, a rubric', async () => {
+        await toOwn('look');
+        await lessons.locator('[data-criterion="subject"] input').nth(1).click();
+      }, () => lessons);
+      await lessons.locator('[data-criterion="defects"] input').nth(2).click();
+      await visitScrolling(page, 'lessons, a quiz', async () => { await toOwn('recall'); }, () => lessons);
+      await lessons.locator('[data-question="seed"] input').nth(2).click();
+      await visitScrolling(page, 'lessons, a task of your own', async () => { await toOwn('own'); }, () => lessons);
+      await lessons.locator('[data-item="other"] input').click();
+      await visitScrolling(page, 'lessons, the end with its outcomes', async () => { await toOwn('end'); }, () => lessons);
       // The canvas the lesson left: seven nodes where the app put them, a card under each.
       const fitView = async () => { await page.locator('.react-flow__controls-fitview').click(); await page.waitForTimeout(450); };
       await visit(page, 'canvas after a lesson', fitView);

@@ -13,6 +13,7 @@
 import type { CatalogView } from '../catalog/types';
 import { fixFor, lessonProgress, type Lesson, type LessonGraph, type LessonNode, type Missing } from './engine';
 import { isAdultLesson } from './lessons';
+import { answerAll, isPersonStep } from './steps';
 
 /** The prompt an example puts where a lesson asks the person to write one: plain and neutral, in English. */
 export const EXAMPLE_PROMPT = 'a quiet lake at dawn, light mist over the water, a small wooden boat, soft morning light';
@@ -80,10 +81,12 @@ export function exampleFromLesson(lesson: Lesson, catalog: CatalogView): Record<
   const graph: LessonGraph = { nodes: [], links: [] };
   // Steps that only explain count as read: an example has no one reading them.
   const read = new Set(lesson.steps.filter((step) => step.read).map((step) => step.id));
+  // Steps a person answers (a checklist, a rubric, a quiz) say nothing about the graph: an example answers them all.
+  const answers = Object.fromEntries(lesson.steps.filter(isPersonStep).map((step) => [step.id, answerAll(step)]));
   const installed = (classType: string) => catalog.nodes.some((item) => item.classType === classType);
   let next = 1;
   for (let turn = 0; turn < MAX_CHANGES; turn += 1) {
-    const progress = lessonProgress(lesson, graph, {}, read);
+    const progress = lessonProgress(lesson, graph, {}, read, answers);
     if (progress.current >= lesson.steps.length) return toApi(graph);
     const missing = progress.missing[0];
     if (!missing) return null;

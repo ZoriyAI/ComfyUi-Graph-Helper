@@ -64,7 +64,18 @@ export function problemForModel(problem: LessonFileProblem): string {
 
 /** Every text of a lesson in every language, to look for secrets in. */
 function texts(doc: LessonDoc): string[] {
-  return Object.values(doc.texts).flatMap((words) => (words ? [words.title, words.result, ...Object.values(words.steps).flatMap((step) => [step.title, step.body])] : []));
+  return Object.values(doc.texts).flatMap((words) => (words ? [
+    words.title,
+    words.result,
+    ...Object.values(words.steps).flatMap((step) => [
+      step.title,
+      step.body,
+      // The words of checklist items, rubric criteria and quiz questions are shown too.
+      ...Object.values(step.items ?? {}).flatMap((item) => [item.label, item.how ?? '']),
+      ...Object.values(step.criteria ?? {}).flatMap((item) => [item.title, item.tryNext ?? '', ...Object.values(item.levels)]),
+      ...Object.values(step.questions ?? {}).flatMap((item) => [item.text, item.explain, ...Object.values(item.choices)]),
+    ]),
+  ] : []));
 }
 
 /** The draftLesson tool definition for the AI SDK: description, input schema and the checks above. */
