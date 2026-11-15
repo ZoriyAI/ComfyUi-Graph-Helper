@@ -4,6 +4,7 @@ import { describeNote } from '../../../src/renderer/components/shell/notices';
 import { holdsBothPanels } from '../../../src/renderer/state/frame';
 import { RAIL_AUTO_COLLAPSE } from '../../../src/renderer/state/uiState';
 import { normalizeDockTab, useDockStore } from '../../../src/renderer/state/dockState';
+import { shouldAutoStartTour } from '../../../src/renderer/components/journey/WindowTour';
 
 describe('first-screen defaults', () => {
   it('the library starts open in any window that holds both panels, the 1400 px the app opens at included', () => {
@@ -32,5 +33,14 @@ describe('the one merged import message', () => {
   it('the save-for-ComfyUI message offers how to run it', () => {
     const note = describeNote({ kind: 'exported' }, t, { howToRun: () => undefined });
     expect(note.action?.label).toBe('Как запустить');
+  });
+});
+
+describe('the window tour', () => {
+  it('starts by itself once, on a first start, with no dialog open, never in an automated run', () => {
+    expect(shouldAutoStartTour({ seen: false, dialogOpen: false, automated: false })).toBe(true);
+    expect(shouldAutoStartTour({ seen: true, dialogOpen: false, automated: false })).toBe(false);
+    expect(shouldAutoStartTour({ seen: false, dialogOpen: true, automated: false })).toBe(false);
+    expect(shouldAutoStartTour({ seen: false, dialogOpen: false, automated: true })).toBe(false);
   });
 });

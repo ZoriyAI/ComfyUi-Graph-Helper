@@ -26,6 +26,15 @@ export const TOUR_STOPS = [
   { key: 'status', selector: '.status-bar' },
 ] as const;
 
+/**
+ * Whether the tour starts by itself: on a first start (never seen), with no dialog open, and not in an automated run
+ * (navigator.webdriver: the app's own end-to-end tests drive windows of fresh profiles and must not meet a tour on
+ * each; the tour's spec starts it from Help).
+ */
+export function shouldAutoStartTour(state: { seen: boolean; dialogOpen: boolean; automated: boolean }): boolean {
+  return !state.seen && !state.dialogOpen && !state.automated;
+}
+
 /** How long a first start waits before the tour, so the window has drawn and a start-up question can come first. */
 const FIRST_START_DELAY_MS = 1500;
 const CARD_WIDTH = 320;
@@ -60,7 +69,8 @@ export default function WindowTour() {
   useEffect(() => {
     if (readFlag(SEEN_KEYS.tour)) return;
     const timer = window.setTimeout(() => {
-      if (readFlag(SEEN_KEYS.tour) || document.querySelector('[role="dialog"][data-state="open"], [role="alertdialog"]') || useUiStore.getState().dialog) return;
+      const dialogOpen = Boolean(document.querySelector('[role="dialog"][data-state="open"], [role="alertdialog"]') || useUiStore.getState().dialog);
+      if (!shouldAutoStartTour({ seen: readFlag(SEEN_KEYS.tour), dialogOpen, automated: navigator.webdriver === true })) return;
       useJourneyStore.getState().startTour();
     }, FIRST_START_DELAY_MS);
     return () => window.clearTimeout(timer);

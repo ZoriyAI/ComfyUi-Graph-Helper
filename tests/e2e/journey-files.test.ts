@@ -14,10 +14,10 @@ import { startFakeMcp } from '../fixtures/mcp/fakeMcpServer';
  */
 
 async function launch(userData: string, extra: string[] = []): Promise<{ app: ElectronApplication; page: Page }> {
-  const env = { ...process.env, NODE_ENV: 'production' };
+  const env: Record<string, string | undefined> = { ...process.env, NODE_ENV: 'production' };
   delete env.DBUS_SESSION_BUS_ADDRESS;
   delete env.GNOME_KEYRING_CONTROL;
-  const app = await electron.launch({ args: [path.join(__dirname, '../../dist/main/index.js'), `--user-data-dir=${userData}`, ...extra], env });
+  const app = await electron.launch({ args: [path.join(__dirname, '../../dist/main/index.js'), `--user-data-dir=${userData}`, ...extra], env: env as Record<string, string> });
   const page = await app.firstWindow();
   await page.locator('.app-shell').waitFor({ timeout: 30_000 });
   await page.setViewportSize({ width: 1400, height: 860 });
@@ -74,8 +74,10 @@ test('journey: welcome ways, tour, example, a dropped picture, run card, a Comfy
   page.on('pageerror', (error) => errors.push(error.message));
   try {
     await useEnglish(page);
-    // A first start: the tour comes once, by itself, and can be skipped.
+    // The tour (it starts by itself on a person's first start; an automated run starts it from Help).
     const tour = page.locator('.window-tour');
+    await page.locator('.document-bar [role="menuitem"]').last().click();
+    await page.getByRole('menuitem', { name: 'Tour of the window' }).click();
     await expect(tour).toBeVisible({ timeout: 10_000 });
     await expect(tour).toContainText('The menu');
     await tour.getByRole('button', { name: 'Next' }).click();
