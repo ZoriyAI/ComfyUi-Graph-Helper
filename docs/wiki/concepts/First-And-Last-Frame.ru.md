@@ -24,7 +24,7 @@
 - Разные пропорции: один конец обрезан.
 
 ## Как помогает приложение
-Урока с этим графом пока нет; урок [Видео из картинки](../lessons/Video-Image.ru.md) собирает граф, из которого он вырастает, а [Видео из картинки на WanVideoWrapper](../lessons/Wrapper-Image.ru.md) упоминает `end_image`.
+Урок [Две опоры: первый и последний кадр](../lessons/First-And-Last-Frame.ru.md) собирает этот граф на Wan 2.2. Перед ним идёт [Стартовая картинка как опора](../lessons/Anchor-Start.ru.md), а [Длинное видео частями](../lessons/Anchor-Parts.ru.md) соединяет ролики по общим ключевым кадрам. На WanVideoWrapper урок [Видео из картинки на WanVideoWrapper](../lessons/Wrapper-Image.ru.md) упоминает `end_image`.
 
 ## См. также
 - [Генерация видео](Video-Models.ru.md)

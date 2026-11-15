@@ -32,7 +32,7 @@ With `denoise` below 1, the sampler runs only the last part of the schedule: at 
 - **Too low to change anything**, or too high to keep anything: compare two values side by side.
 
 ## How the app helps
-The refining lesson checks `denoise` of the second sampler between 0.2 and 0.5. The KSampler description warns about denoise below 1 on an empty latent.
+The refining lesson checks `denoise` of the second sampler between 0.2 and 0.5. The KSampler description warns about denoise below 1 on an empty latent. In **Properties**, a field with a built-in note has a button **What this field does** next to its name; it opens the note under the field: what the field does and what to put in it.
 
 ## See also
 - [Image to image](Image-To-Image.md)

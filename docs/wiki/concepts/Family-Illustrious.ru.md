@@ -18,7 +18,7 @@ Illustrious XL дообучили от SDXL на большом наборе и�
 Лучше всего LoRA, обученные для Illustrious или NoobAI; LoRA для SDXL грузятся с разным успехом; LoRA для Pony часто ведут себя плохо. Добавки SD 1.5 и Flux не работают.
 
 ## Как помогает приложение
-На карточках моделей показывается как **Illustrious**; распознаются имена с отдельными словами `illustrious`, `noobai`, `ill` или `ilxl`.
+На карточках моделей показывается как **Illustrious**; распознаются имена с отдельными словами `illustrious`, `noobai`, `ill` или `ilxl`. Урок [Pony и Illustrious: теги вместо предложений](../lessons/Pony-And-Illustrious.ru.md) пишет промпт тегами.
 
 ## См. также
 - [SDXL](Family-SDXL.ru.md)

@@ -29,7 +29,7 @@
 - Чужое видео без права на него: см. [Правила содержания](../trust/Content-Rules.ru.md).
 
 ## Как помогает приложение
-Уроки [VACE: движение из другого видео](../lessons/Wrapper-VACE.ru.md) и [Другая камера: ReCamMaster](../lessons/Wrapper-ReCam.ru.md).
+Уроки [VACE: движение из другого видео](../lessons/Wrapper-VACE.ru.md), [Другая камера: ReCamMaster](../lessons/Wrapper-ReCam.ru.md), [Видео по движению другого видео: Wan 2.2 Fun Control](../lessons/Video-Control.ru.md) и инструменты из уроков [Загрузить, обрезать и сохранить видео: VideoHelperSuite](../lessons/VideoHelperSuite.ru.md), [Видео крупнее и чётче: SeedVR2](../lessons/Video-Upscale.ru.md), [Убрать предмет из видео: ProPainter](../lessons/Video-Remove.ru.md) и [Плавнее движение: кадры между кадрами](../lessons/Video-Interpolate.ru.md).
 
 ## См. также
 - [ControlNet и препроцессоры](ControlNet.ru.md)

@@ -18,7 +18,7 @@ About 848×480 to 1280×720; up to about 129 frames at 24 fps (4n + 1); about 20
 LoRAs made for HunyuanVideo (and for 1.5 separately). Wan LoRAs do not work.
 
 ## How the app helps
-Shown as **HunyuanVideo** on model cards. The node EmptyHunyuanLatentVideo, named after this family, is also used by Wan graphs.
+Shown as **HunyuanVideo** on model cards. The node EmptyHunyuanLatentVideo, named after this family, is also used by Wan graphs. The lesson [Video from text: HunyuanVideo 1.5](../lessons/Video-Hunyuan.md) builds a HunyuanVideo 1.5 graph.
 
 ## See also
 - [Video generation](Video-Models.md)

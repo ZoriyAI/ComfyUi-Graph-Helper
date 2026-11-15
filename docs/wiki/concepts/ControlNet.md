@@ -27,7 +27,7 @@ A prompt says *what* to draw; it is poor at saying *exactly where*. A **ControlN
 - Strength 1 with a detailed edge map and a different prompt: a tracing, not a new picture.
 
 ## How the app helps
-Built-in descriptions of Load ControlNet Model and Apply ControlNet; **Check** reports models of different families in one path. There is no ControlNet lesson yet; the VACE lesson uses the same preprocessors for video.
+Built-in descriptions of Load ControlNet Model and Apply ControlNet; **Check** reports models of different families in one path. The lessons [ControlNet: drawing along the edges of a picture](../lessons/ControlNet.md) and [ControlNet from a depth map](../lessons/ControlNet-Depth.md) build it and check that the ControlNet is made for the family of the checkpoint. The VACE lesson and [Video guided by another video: Wan 2.2 Fun Control](../lessons/Video-Control.md) use the same idea for video.
 
 ## See also
 - [Video to video](Video-To-Video.md)

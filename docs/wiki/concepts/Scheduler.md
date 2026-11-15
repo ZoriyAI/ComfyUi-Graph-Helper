@@ -27,7 +27,7 @@ The **scheduler** decides how much noise is left after each step. Picture a stai
 - **Forgetting shift on Wan**: sluggish motion, detail that falls apart.
 
 ## How the app helps
-The video lessons check `shift` between 5 and 8 on both ModelSamplingSD3 nodes. The node descriptions explain SIGMAS and BasicScheduler.
+The video lessons check `shift` between 5 and 8 on both ModelSamplingSD3 nodes. The node descriptions explain SIGMAS and BasicScheduler, and [Choosing a sampler and a scheduler](../lessons/Choosing-A-Sampler.md) compares schedulers on one seed. In **Properties**, a field with a built-in note has a button **What this field does** next to its name; it opens the note under the field: what the field does and what to put in it.
 
 ## See also
 - [Sampler and sampler names](Sampler.md)

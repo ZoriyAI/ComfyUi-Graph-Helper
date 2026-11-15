@@ -16,7 +16,7 @@ Every model was trained at certain sizes. Near them it composes well. Far above 
 |---|---|---|
 | SD 1.5 | 512 px | 512×512, 512×768, 768×512 |
 | SDXL, Pony, Illustrious | 1 megapixel | 1024×1024, 832×1216, 896×1152, 1216×832, 1344×768, 768×1344 |
-| SD 3.5, Flux.1, Chroma, Krea | about 1 megapixel, flexible | 1024×1024, 832×1216, 1216×832; Flux handles up to about 2 megapixels |
+| SD 3.5, Flux.1, Chroma, Krea 2 | about 1 megapixel, flexible | 1024×1024, 832×1216, 1216×832; Flux handles up to about 2 megapixels |
 | Qwen-Image | about 1.6 megapixels | 1328×1328, 1664×928, 928×1664 |
 | Z-Image | about 1 megapixel | 1024×1024 and the same ratios as SDXL |
 | Wan 2.1 / 2.2 14B | 480p or 720p | 832×480, 480×832, 1280×720 |
@@ -33,7 +33,7 @@ Doubling width and height means four times the pixels, about four times the time
 - **Out of memory**: lower the size first.
 
 ## How the app helps
-The two-models lesson gives exact frame sizes for SDXL and SD 1.5 next to an 832×480 clip. The family of a model is on its card in the **Models** tab.
+The two-models lesson gives exact frame sizes for SDXL and SD 1.5 next to an 832×480 clip, and [SDXL done properly](../lessons/SDXL.md) checks the SDXL size. The first lesson advises the size of the chosen model. The family of a model is on its card in the **Models** tab. In **Properties**, a field with a built-in note has a button **What this field does** next to its name; it opens the note under the field: what the field does and what to put in it.
 
 ## See also
 - [Model families](Model-Families.md)

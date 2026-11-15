@@ -23,7 +23,7 @@ Extending a picture beyond its edges.
 - Huge padding on a plain model: repeated objects and a style that drifts.
 
 ## How the app helps
-Not covered by a lesson or the built-in knowledge yet; build it from the ComfyUI outpainting template and use **Check** before saving.
+The lesson [Outpainting: a picture beyond its edges](../lessons/Outpainting.md) builds it on the inpainting graph. Use **Check** before saving.
 
 ## See also
 - [Inpainting and masks](Inpainting.md)

@@ -28,7 +28,7 @@ In [image to image](Image-To-Image.md) the picture is the start that gets redraw
 - Expecting an editing model to work in an ordinary text to image graph: use its template.
 
 ## How the app helps
-The built-in knowledge describes Load CLIP Vision and CLIP Vision Encode; the WanVideoWrapper lessons use CLIP Vision and VACE references. No lesson yet covers IP-Adapter, Redux or editing models.
+The built-in knowledge describes Load CLIP Vision and CLIP Vision Encode, and its entry "Identity: adapter, LoRA or swap: which to choose" compares the ways to keep a face. The lessons: [A reference picture with IP-Adapter](../lessons/IP-Adapter.md), [A reference picture for style (Flux Redux)](../lessons/Style-Reference.md), [Editing a picture by words](../lessons/Edit-By-Words.md), [The same character in a new picture: FLUX.1 Kontext](../lessons/Character-Kontext.md), [One character in many pictures](../lessons/Character-Series.md), [The same face from one photo: IP-Adapter FaceID](../lessons/Face-From-Photo.md), [Put a face onto a picture: ReActor](../lessons/Face-Swap.md), and for video [A reference for the whole clip: Wan VACE](../lessons/Anchor-Reference.md). The lessons that use a real person's face ask for that person's consent.
 
 ## See also
 - [Image to image](Image-To-Image.md)

@@ -35,7 +35,7 @@ Flux.1 Fill dev is a model made for inpainting and outpainting; Qwen-Image and F
 - Inpainting a tiny area of a huge picture: little detail. Crop the area, inpaint at the model's size and paste back (packs such as crop-and-stitch nodes do this).
 
 ## How the app helps
-The app describes all three inpainting nodes; the description of VAE Encode (for Inpainting) warns that it needs denoise 1.0. There is no inpainting lesson yet.
+The app describes all three inpainting nodes; the description of VAE Encode (for Inpainting) warns that it needs denoise 1.0. The lessons [Inpainting: redraw part of a picture](../lessons/Inpainting.md) and [A mask by words](../lessons/Mask-By-Words.md) build it; the mask itself is painted in ComfyUI's mask editor.
 
 ## See also
 - [Outpainting](Outpainting.md)

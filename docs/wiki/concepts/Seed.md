@@ -29,11 +29,11 @@ The **seed** is the starting number for the random noise a picture begins from. 
 - **A different picture with the same seed** on another computer, graphics card or sampler: small differences are normal.
 
 ## How the app helps
-The prompt lesson has a step about using seed to compare one change at a time.
+The prompt lesson has a step about using seed to compare one change at a time, and [The sampler's settings](../lessons/Sampler-Settings.md) explains the field. In **Properties**, a field with a built-in note has a button **What this field does** next to its name; it opens the note under the field: what the field does and what to put in it.
 
 ## See also
 - [Sampler and sampler names](Sampler.md)
 - [Batch](Batch.md)
 - [What ComfyUI is](What-Is-ComfyUI.md)
-- [Lesson: The description: how a model reads it](../lessons/Prompt.md)
+- [Lesson: The prompt: how a model reads it](../lessons/Prompt.md)
 - [Node fields](../graph/Node-Fields.md)

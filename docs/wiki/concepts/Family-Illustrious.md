@@ -18,7 +18,7 @@ SDXL sizes, often a little larger (up to about 1536 on later versions, per the m
 LoRAs trained for Illustrious or NoobAI fit best; SDXL LoRAs load with mixed results; Pony LoRAs often misbehave. SD 1.5 and Flux add-ons do not work.
 
 ## How the app helps
-Shown as **Illustrious** on model cards; names with `illustrious`, `noobai`, `ill` or `ilxl` as separate words are recognised.
+Shown as **Illustrious** on model cards; names with `illustrious`, `noobai`, `ill` or `ilxl` as separate words are recognised. The lesson [Pony and Illustrious: tags instead of sentences](../lessons/Pony-And-Illustrious.md) writes a tag prompt.
 
 ## See also
 - [SDXL](Family-SDXL.md)

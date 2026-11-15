@@ -28,7 +28,7 @@ Uses: change the style of a photo or sketch, add detail to a rough drawing, refi
 - Encoding with one model's VAE and sampling with another family.
 
 ## How the app helps
-The lesson [Refining with a second model](../lessons/Refine.md) builds image to image as its second half; the VAE Encode description explains the start.
+The lesson [A picture from a picture](../lessons/Image-To-Image.md) builds it; [Refining with a second model](../lessons/Refine.md) uses it as its second half. The VAE Encode description explains the start.
 
 ## See also
 - [Denoise](Denoise.md)

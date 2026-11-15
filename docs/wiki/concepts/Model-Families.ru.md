@@ -24,7 +24,7 @@ SD 1.5, SDXL, Pony, Flux, Wan и другие: что такое семейст�
 | [Illustrious](Family-Illustrious.ru.md) | Картинки, на основе SDXL, аниме | Чекпойнт | Теги booru |
 | [SD 3 / 3.5](Family-SD3.ru.md) | Картинки | Чекпойнт или раздельно, три энкодера | Предложения |
 | [Flux.1](Family-Flux1.ru.md) | Картинки | Раздельно: модель, clip_l + t5xxl, VAE ae | Предложения |
-| [Flux.1 Krea](Family-Krea.ru.md) | Картинки, дообученный Flux.1 dev | Как Flux.1 | Предложения |
+| [Krea 2](Family-Krea.ru.md) | Картинки, своя архитектура (FLUX.1 Krea [dev] это Flux.1) | Раздельно: модель, qwen3vl_4b, qwen_image_vae | См. шаблон |
 | [Flux.2](Family-Flux2.ru.md) | Картинки и правка | Раздельно, свой энкодер и VAE | Предложения |
 | [Chroma](Family-Chroma.ru.md) | Картинки, из Flux.1 schnell | Раздельно, только T5 | Предложения |
 | [Qwen-Image](Family-Qwen-Image.ru.md) | Картинки, текст на картинках, правка | Раздельно, энкодер Qwen2.5-VL | Предложения |

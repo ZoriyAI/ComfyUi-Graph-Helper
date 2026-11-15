@@ -35,8 +35,9 @@ Some packs ship loaders of their own (for example GGUF loaders, or the WanVideoW
 
 ## How the app helps
 - Node descriptions say which folder each loader reads and which `type` values exist.
-- The video lessons check that `type` is `wan`.
+- The lesson [Which loader for which file](../lessons/Which-Loader.md) sorts the loaders; the video and picture-model lessons check `type` and the kind of each file.
 - **Check** lists model files that are not on disk and models of different families in one path.
+- In **Properties**, a field with a built-in note has a button **What this field does** next to its name; it opens the note under the field: what the field does and what to put in it.
 
 ## See also
 - [Checkpoint](Checkpoint.md)

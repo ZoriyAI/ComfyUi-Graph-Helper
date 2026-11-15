@@ -30,7 +30,7 @@ The app does not run graphs. You build or study a graph here, save it with **Fil
 
 ## How the app helps
 - The **Check** button finds what ComfyUI would refuse to run: missing nodes, model files that are not on disk, empty required inputs, links of the wrong type.
-- Lessons and node descriptions explain each part before you ever run it.
+- Lessons and node descriptions explain each part before you ever run it; the first lesson, [How ComfyUI works](../lessons/How-ComfyUI-Works.md), starts here.
 - The app never installs, downloads, queues or deletes anything in ComfyUI.
 
 ## See also

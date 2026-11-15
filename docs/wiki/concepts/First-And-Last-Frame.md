@@ -24,7 +24,7 @@ In image to video the model knows only where the clip begins. With **first and l
 - Different proportions: one end cropped.
 
 ## How the app helps
-No lesson builds this graph yet; the lesson [Video from a picture](../lessons/Video-Image.md) builds the graph it grows from, and [Video from a picture on WanVideoWrapper](../lessons/Wrapper-Image.md) mentions `end_image`.
+The lesson [Two anchors: first and last frame](../lessons/First-And-Last-Frame.md) builds this graph on Wan 2.2. [The start picture is the anchor](../lessons/Anchor-Start.md) comes before it, and [A longer video in parts](../lessons/Anchor-Parts.md) joins clips on shared key frames. On WanVideoWrapper, [Video from a picture on WanVideoWrapper](../lessons/Wrapper-Image.md) mentions `end_image`.
 
 ## See also
 - [Video generation](Video-Models.md)

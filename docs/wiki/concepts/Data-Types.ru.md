@@ -16,7 +16,7 @@ MODEL, CLIP, VAE, LATENT, IMAGE, CONDITIONING и другие виды данн�
 | `CLIP` | Текстовый энкодер, часть, которая читает промпт | Load Checkpoint, Load CLIP, DualCLIPLoader, Load LoRA | CLIP Text Encode и другие текстовые ноды |
 | `VAE` | Модель, которая переводит пиксели в латент и обратно | Load Checkpoint, Load VAE | VAE Decode, VAE Encode, ноды инпейнтинга и начала видео |
 | `CONDITIONING` | Закодированный промпт и подсказки к нему (ControlNet, область, guidance) | Текстовые ноды, ControlNet, ноды guidance и объединения | Входы `positive` и `negative` сэмплера |
-| `LATENT` | Картинка или видео в сжатом виде | Ноды пустого латента, VAE Encode, сэмплеры | Сэмплеры, увеличение латента, VAE Decode |
+| `LATENT` | Картинка или видео в сжатом виде; видеолатент сжат ещё и по времени | Ноды пустого латента (у видео есть `length`), VAE Encode, ноды старта ролика, сэмплеры | Сэмплеры, увеличение латента, VAE Decode |
 | `IMAGE` | Обычные картинки в пикселях, всегда пачкой (одна или больше) | Load Image, VAE Decode, ноды картинок | Save Image, Preview Image, VAE Encode, апскейлеры, ControlNet |
 | `MASK` | Чёрно-белая карта того, что менять | Load Image, ноды масок, редактор масок | Ноды инпейнтинга, SetLatentNoiseMask |
 | `CONTROL_NET` | Загруженная модель ControlNet | Load ControlNet Model | Apply ControlNet |
@@ -28,6 +28,7 @@ MODEL, CLIP, VAE, LATENT, IMAGE, CONDITIONING и другие виды данн�
 
 ## Частые ошибки
 - Пытаться сохранить `LATENT`: сначала раскройте его через VAE Decode.
+- Давать видеосэмплеру пустой латент картинки: тип тот же, `LATENT`, поэтому связь встаёт, но видео нужен латент с длиной. Берите пустой латент или ноду старта ролика своего видеосемейства.
 - Подать `CONDITIONING` для `negative` в `positive`: сэмплер уйдёт от того, что вы просили.
 - Ждать, что тип пака подойдёт ко встроенному входу: `WANVIDEOMODEL` это не `MODEL`.
 

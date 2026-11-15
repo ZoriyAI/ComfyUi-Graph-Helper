@@ -216,4 +216,4 @@ These lessons go on from this one: [Two models in one graph](Two-Models.md), [A 
 - [Video models](../concepts/Video-Models.md)
 - [Conditioning](../concepts/Conditioning.md)
 - [Wan 2.2](../concepts/Family-Wan22.md)
-- [A description for video](Prompt-Video.md)
+- [A prompt for video](Prompt-Video.md)

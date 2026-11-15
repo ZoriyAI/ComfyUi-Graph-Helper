@@ -1,27 +1,41 @@
 [Русский](Family-Krea.ru.md)
 [Home](../Home.md) › [ComfyUI concepts](README.md)
 
-# Flux.1 Krea
+# Krea 2
 
-FLUX.1 Krea [dev]: a Flux.1 dev model trained again by Krea and Black Forest Labs for a more natural, less "AI-looking" style.
+Krea 2 by Krea AI: a picture model trained from scratch, with an architecture of its own. The app shows the family
+as **Krea 2**.
 
 ## What it is
-FLUX.1 Krea [dev] (2025) keeps the Flux.1 dev architecture and was further trained for photographic realism and varied aesthetics. It is a drop-in replacement for Flux.1 dev.
+Krea 2 is not a version of Flux. It comes in two kinds:
+- **RAW**: the base, made for training LoRAs; it needs many steps (about 52).
+- **Turbo**: distilled to 8 steps, for making pictures.
+
+## Not FLUX.1 Krea [dev]
+FLUX.1 Krea [dev] is another model with a similar name: a Flux.1 dev model trained again by Krea. It loads exactly
+like Flux.1 and belongs to the [Flux.1](Family-Flux1.md) family. The app sorts files the same way: a name that holds
+both Flux and Krea ("Flux.1 Krea", "krea-flux") is Flux.1; a name that holds only "krea" or "krea2" is Krea 2.
 
 ## Files and nodes
-Exactly as Flux.1: **Load Diffusion Model** with the Krea file, **DualCLIPLoader** with `clip_l` and `t5xxl` (type `flux`), **Load VAE** with `ae.safetensors`, EmptySD3LatentImage, FluxGuidance.
+- The model, for example `krea2_turbo`, in `models/diffusion_models`, with **Load Diffusion Model**.
+- The text encoder `qwen3vl_4b` in `models/text_encoders`, with **Load CLIP**, `type` `krea2`.
+- The VAE `qwen_image_vae` in `models/vae`, with **Load VAE**.
+
+Start from ComfyUI's Krea 2 template for the exact files.
 
 ## Settings that work
-As Flux.1 dev: about 1 megapixel, 20 to 30 steps, cfg 1 with guidance about 3.5 to 4.5, `euler`. Prompt: natural sentences.
+The template of Krea 2 Turbo: **Empty Latent Image** 1024 × 1024, **KSampler** 8 steps, `cfg` 1, `euler`, `simple`,
+and **ConditioningZeroOut** in place of a negative prompt. RAW needs about 52 steps.
 
 ## What fits
-Flux.1 dev LoRAs usually load, but results can differ from the original model. Flux.2 files do not fit.
+Only files made for Krea 2. Flux LoRAs do not work with it. LoRAs trained on RAW also work on Turbo.
 
-## In the app
-The built-in knowledge has a family entry "krea" that describes FLUX.1 Krea [dev]. The app's file detection, however, sorts files named "Flux.1 Krea" under **Flux.1**, and shows the label **Krea 2** for files named only "krea", treating them as a separate architecture. So a FLUX.1 Krea file normally appears as Flux.1 on its card.
-<!-- verify: the krea family label and text (knowledge says FLUX.1 Krea dev, the label says Krea 2) -->
+## How the app helps
+Shown as **Krea 2** on model cards. Hold the pointer over the family label to read the built-in note: what Krea 2
+is, where its files go, and that it is not FLUX.1 Krea [dev], so Flux LoRAs do not work with it.
 
 ## See also
 - [Flux.1](Family-Flux1.md)
 - [Model families](Model-Families.md)
-- [CFG and guidance](CFG.md)
+- [Why families do not mix](Why-Families-Do-Not-Mix.md)
+- [Separate loaders](Separate-Loaders.md)

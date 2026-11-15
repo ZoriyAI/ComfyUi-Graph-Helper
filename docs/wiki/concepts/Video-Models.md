@@ -35,7 +35,7 @@ To a video model a clip is a stack of frames drawn **all at once**, so that the 
 A picture empty latent in a video graph; `fps` that does not match the model; a clip too long for memory; `t2v` models for image to video.
 
 ## How the app helps
-Video lessons on built-in nodes (six) and on the WanVideoWrapper pack (ten), and node descriptions for the core loaders and samplers.
+The lesson groups **Video**, **Video: the anchor picture**, **WanVideoWrapper** and **Packs and tools** build video graphs on Wan, LTX, HunyuanVideo and Kandinsky (see [Lessons](../lessons/README.md)), and node descriptions cover the core loaders and samplers.
 
 ## See also
 - [Wan 2.2 two passes](Wan-Two-Passes.md)

@@ -18,14 +18,14 @@ Released in 2024, Flux.1 is a 12-billion-parameter transformer. **dev** is the q
 About 1 megapixel, flexible up to about 2; dev: 20 to 30 steps, cfg 1, FluxGuidance about 3.5 (lower for more realism), `euler` with `simple` or `beta`. schnell: 4 steps, cfg 1. Prompt: natural sentences; it can write short text in quotes. The negative prompt does nothing at cfg 1.
 
 ## What fits
-Only Flux.1 LoRAs and ControlNets. Flux.2 files are not compatible. Krea and Chroma are related but behave differently with Flux.1 LoRAs.
+Only Flux.1 LoRAs and ControlNets. Flux.2 files are not compatible. FLUX.1 Krea [dev] is a Flux.1 dev model trained again by Krea: it loads exactly like Flux.1, and Flux.1 dev LoRAs usually load, though results can differ. Chroma is related but behaves differently with Flux.1 LoRAs. Krea 2 is another architecture: Flux files do not work with it.
 
 ## How the app helps
-Shown as **Flux.1** on model cards. The built-in knowledge describes FluxGuidance and ModelSamplingFlux.
+Shown as **Flux.1** on model cards. The built-in knowledge describes FluxGuidance and ModelSamplingFlux. The lessons [Flux.1: a picture from separate files](../lessons/Flux1.md), [A quantised model: GGUF](../lessons/GGUF.md), [A reference picture for style (Flux Redux)](../lessons/Style-Reference.md) and [The same character in a new picture: FLUX.1 Kontext](../lessons/Character-Kontext.md) work with Flux.1.
 
 ## See also
 - [CFG and guidance](CFG.md)
-- [Flux.1 Krea](Family-Krea.md)
+- [Krea 2](Family-Krea.md)
 - [Flux.2](Family-Flux2.md)
 - [Chroma](Family-Chroma.md)
 - [Separate loaders](Separate-Loaders.md)

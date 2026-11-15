@@ -17,6 +17,7 @@
 | Wan 2.2 Animate | Позу тела и лицо; умеет и заменить человека в видео | Одна модель. Встроенные ноды в свежем ComfyUI (WanAnimateToVideo) или WanVideoWrapper с паком ComfyUI-WanAnimatePreprocess |
 | UniAnimate | Только позу тела | Wan 2.1 `i2v` 14B и LoRA UniAnimate (WanVideoWrapper) |
 | VACE с картой позы | Позу тела, вид из промпта и картинки-образца | Wan с модулями VACE |
+| Wan 2.2 Fun Control | Движение из управляющего видео: скелет позы, карта глубины или контуры | Модель Fun Control 5B на встроенных нодах |
 | ControlNet OpenPose (картинки) | Одну позу на одну картинку | Любое семейство картинок с ControlNet для позы |
 
 ## Значения и что они меняют
@@ -31,7 +32,7 @@
 - Видео с другой частотой кадров: движение слишком быстрое или медленное.
 
 ## Как помогает приложение
-Уроки [Анимация по позе: Wan Animate](../lessons/Wrapper-Animate.ru.md) и [Анимация по позе: UniAnimate](../lessons/Wrapper-UniAnimate.ru.md); в обоих первым шагом идёт правило согласия.
+Уроки [Анимация по позе: Wan Animate](../lessons/Wrapper-Animate.ru.md) и [Анимация по позе: UniAnimate](../lessons/Wrapper-UniAnimate.ru.md); в обоих первым шагом идёт правило согласия. И урок [Видео по движению другого видео: Wan 2.2 Fun Control](../lessons/Video-Control.ru.md).
 
 ## См. также
 - [Видео из видео](Video-To-Video.ru.md)

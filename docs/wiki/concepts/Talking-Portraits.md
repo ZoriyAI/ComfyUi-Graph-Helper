@@ -18,6 +18,7 @@ A speech model (usually a **wav2vec** model) turns the sound into numbers that d
 | MultiTalk (WanVideoWrapper) | The predecessor of InfiniteTalk; several speakers |
 | FantasyTalking (WanVideoWrapper) | Simpler graph, short clips; 23 fps |
 | Wan 2.2 S2V | Sound to video model with built-in nodes in recent ComfyUI |
+| HuMo (built-in nodes) | A 17B model drawn from a reference picture, lips moved by the sound; 25 fps |
 | Ovi, LTX-2 | Generate the voice themselves together with the picture; no recording needed |
 
 ## Values and what they change
@@ -32,7 +33,7 @@ A speech model (usually a **wav2vec** model) turns the sound into numbers that d
 - Long recordings while tuning: take five to ten seconds.
 
 ## How the app helps
-Lessons [A talking video: InfiniteTalk](../lessons/Wrapper-Talk.md), [Two people talking](../lessons/Wrapper-Duo.md), [A talking portrait: FantasyTalking](../lessons/Wrapper-Fantasy.md) and [A video with sound: Ovi](../lessons/Wrapper-Ovi.md).
+Lessons [A talking video: InfiniteTalk](../lessons/Wrapper-Talk.md), [Two people talking](../lessons/Wrapper-Duo.md), [A talking portrait: FantasyTalking](../lessons/Wrapper-Fantasy.md), [A video with sound: Ovi](../lessons/Wrapper-Ovi.md), [A portrait that speaks: HuMo](../lessons/Video-Speech.md) and [Video with sound: LTX-2.5](../lessons/Video-LTX.md). A voice for them can come from [Speech from text: Chatterbox](../lessons/Audio-Speech.md). Each lesson with a person's face or voice starts with consent.
 
 ## See also
 - [Audio](Audio.md)

@@ -19,7 +19,7 @@ Wan 2.2 (2025) improves motion and look over Wan 2.1. The **14B** models (`t2v` 
 LoRAs for Wan 2.2 and the right expert (`high` or `low` files); many Wan 2.1 14B LoRAs work too. The 5B and 14B add-ons are not interchangeable.
 
 ## How the app helps
-Shown as **Wan 2.2** on model cards. Six built-in lessons and the WanVideoWrapper lessons are built on it.
+Shown as **Wan 2.2** on model cards. Most lessons of the groups **Video**, **Video: the anchor picture** and **WanVideoWrapper** are built on it, the 5B model among them in [Video on a modest graphics card: Wan 2.2 5B](../lessons/Video-Small.md).
 
 ## See also
 - [Wan 2.2 two passes](Wan-Two-Passes.md)

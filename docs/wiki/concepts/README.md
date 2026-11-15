@@ -51,7 +51,7 @@ An encyclopedia of ComfyUI for a newcomer, one idea per page. New here? Read [St
 - [Illustrious](Family-Illustrious.md): An anime SDXL line.
 - [SD 3 and 3.5](Family-SD3.md): Three text encoders, 16-channel latent.
 - [Flux.1](Family-Flux1.md): dev, schnell and the tool models.
-- [Flux.1 Krea](Family-Krea.md): A Flux.1 dev retrained for realism.
+- [Krea 2](Family-Krea.md): Krea AI's own picture model; not FLUX.1 Krea [dev].
 - [Flux.2](Family-Flux2.md): The second Flux generation, dev and Klein.
 - [Chroma](Family-Chroma.md): An open model made from Flux.1 schnell.
 - [Qwen-Image](Family-Qwen-Image.md): Text in pictures, and editing.

@@ -18,7 +18,7 @@ SDXL sizes (1024×1024, 832×1216); 25 to 30 steps; cfg about 5 to 7; `euler_anc
 LoRAs trained for Pony fit best. SDXL LoRAs load but often behave differently; Illustrious LoRAs are hit and miss. SD 1.5 and Flux add-ons do not work.
 
 ## How the app helps
-Shown as **Pony** on model cards, separate from plain SDXL, so a LoRA's card can tell Pony LoRAs from SDXL ones.
+Shown as **Pony** on model cards, separate from plain SDXL, so a LoRA's card can tell Pony LoRAs from SDXL ones. The lesson [Pony and Illustrious: tags instead of sentences](../lessons/Pony-And-Illustrious.md) writes a tag prompt.
 
 ## See also
 - [SDXL](Family-SDXL.md)

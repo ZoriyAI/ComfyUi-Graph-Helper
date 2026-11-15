@@ -38,7 +38,7 @@ Names ending in `_ancestral` or `_sde` add noise during sampling, so the same se
 - **`lcm` on an ordinary model**: a blurry, unfinished picture.
 
 ## How the app helps
-The node description of every sampler explains its inputs. In KSampler (Advanced) graphs the video lessons check that the two samplers hand over at the same step.
+The node description of every sampler explains its inputs. The lessons [The sampler's settings](../lessons/Sampler-Settings.md) and [Choosing a sampler and a scheduler](../lessons/Choosing-A-Sampler.md) go through its fields; in KSampler (Advanced) graphs the video lessons check that the two samplers hand over at the same step. In **Properties**, a field with a built-in note has a button **What this field does** next to its name; it opens the note under the field: what the field does and what to put in it.
 
 ## See also
 - [Scheduler](Scheduler.md)

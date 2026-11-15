@@ -24,7 +24,7 @@ The family of a file tells you:
 | [Illustrious](Family-Illustrious.md) | Pictures, SDXL-based, anime | Checkpoint | Booru tags |
 | [SD 3 / 3.5](Family-SD3.md) | Pictures | Checkpoint or separate, three encoders | Sentences |
 | [Flux.1](Family-Flux1.md) | Pictures | Separate: model, clip_l + t5xxl, ae VAE | Sentences |
-| [Flux.1 Krea](Family-Krea.md) | Pictures, Flux.1 dev fine-tune | As Flux.1 | Sentences |
+| [Krea 2](Family-Krea.md) | Pictures, its own architecture (FLUX.1 Krea [dev] is Flux.1) | Separate: model, qwen3vl_4b, qwen_image_vae | See the template |
 | [Flux.2](Family-Flux2.md) | Pictures and editing | Separate, its own encoder and VAE | Sentences |
 | [Chroma](Family-Chroma.md) | Pictures, from Flux.1 schnell | Separate, T5 only | Sentences |
 | [Qwen-Image](Family-Qwen-Image.md) | Pictures, text in pictures, editing | Separate, Qwen2.5-VL encoder | Sentences |

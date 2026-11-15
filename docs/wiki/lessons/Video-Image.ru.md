@@ -216,4 +216,4 @@
 - [Модели для видео](../concepts/Video-Models.ru.md)
 - [Conditioning](../concepts/Conditioning.ru.md)
 - [Wan 2.2](../concepts/Family-Wan22.ru.md)
-- [Описание для видео](Prompt-Video.ru.md)
+- [Промпт для видео](Prompt-Video.ru.md)

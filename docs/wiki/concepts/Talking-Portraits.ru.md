@@ -18,6 +18,7 @@
 | MultiTalk (WanVideoWrapper) | Предшественник InfiniteTalk; несколько говорящих |
 | FantasyTalking (WanVideoWrapper) | Граф проще, ролики короткие; 23 fps |
 | Wan 2.2 S2V | Модель «звук в видео» со встроенными нодами в свежем ComfyUI |
+| HuMo (встроенные ноды) | Модель 17B рисует по картинке-образцу и двигает губы по звуку; 25 кадров в секунду |
 | Ovi, LTX-2 | Сами создают голос вместе с картинкой; запись не нужна |
 
 ## Значения и что они меняют
@@ -32,7 +33,7 @@
 - Длинные записи, пока идёт подбор: берите пять до десяти секунд.
 
 ## Как помогает приложение
-Уроки [Говорящее видео: InfiniteTalk](../lessons/Wrapper-Talk.ru.md), [Разговор двоих](../lessons/Wrapper-Duo.ru.md), [Говорящий портрет: FantasyTalking](../lessons/Wrapper-Fantasy.ru.md) и [Видео со звуком: Ovi](../lessons/Wrapper-Ovi.ru.md).
+Уроки [Говорящее видео: InfiniteTalk](../lessons/Wrapper-Talk.ru.md), [Разговор двоих](../lessons/Wrapper-Duo.ru.md), [Говорящий портрет: FantasyTalking](../lessons/Wrapper-Fantasy.ru.md), [Видео со звуком: Ovi](../lessons/Wrapper-Ovi.ru.md), [Портрет, который говорит: HuMo](../lessons/Video-Speech.ru.md) и [Видео со звуком: LTX-2.5](../lessons/Video-LTX.ru.md). Голос для них может дать урок [Речь из текста: Chatterbox](../lessons/Audio-Speech.ru.md). Каждый урок с лицом или голосом человека начинается с согласия.
 
 ## См. также
 - [Звук](Audio.ru.md)

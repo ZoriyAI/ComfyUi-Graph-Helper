@@ -29,7 +29,7 @@ A source video can guide a new clip in several ways:
 - Using someone's video without the right to: see [Content rules](../trust/Content-Rules.md).
 
 ## How the app helps
-Lessons [VACE: motion from another video](../lessons/Wrapper-VACE.md) and [Another camera: ReCamMaster](../lessons/Wrapper-ReCam.md).
+Lessons [VACE: motion from another video](../lessons/Wrapper-VACE.md), [Another camera: ReCamMaster](../lessons/Wrapper-ReCam.md), [Video guided by another video: Wan 2.2 Fun Control](../lessons/Video-Control.md), and the tools of [Load, cut and save video: VideoHelperSuite](../lessons/VideoHelperSuite.md), [A larger, sharper video: SeedVR2](../lessons/Video-Upscale.md), [Remove an object from a video: ProPainter](../lessons/Video-Remove.md) and [Smoother motion: more frames between frames](../lessons/Video-Interpolate.md).
 
 ## See also
 - [ControlNet and preprocessors](ControlNet.md)
