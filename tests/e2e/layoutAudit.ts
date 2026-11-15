@@ -326,6 +326,12 @@ function auditInPage(options: PageOptions): LayoutIssue[] {
     // A control of fixed height whose words are taller: they lie over what comes next, or lose their last line.
     if (overY > 3 && element.clientHeight > 0 && (isControl(el) || el.closest(CONTROL) !== null) && !el.matches('textarea, select')) {
       const numbers = `content ${element.scrollHeight}px in a box of ${element.clientHeight}px`;
+      // A text held to a few lines (-webkit-line-clamp) ends its last line with an ellipsis: shortened, not cut.
+      const clamp = (style as CSSStyleDeclaration & { webkitLineClamp?: string }).webkitLineClamp;
+      if (clamp && clamp !== 'none' && style.overflowY !== 'visible') {
+        if (options.shortened && !shortenedOk(el)) report('shortened', el, `to ${clamp} lines: ${numbers}`);
+        continue;
+      }
       if (style.overflowY === 'visible') report('spills', el, `downwards: ${numbers}`);
       else if ((style.overflowY === 'hidden' || style.overflowY === 'clip') && hasOwnText(el)) report('cut', el, `downwards: ${numbers}`);
     }
