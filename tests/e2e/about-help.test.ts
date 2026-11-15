@@ -14,6 +14,16 @@ import { useEnglish } from './locale';
 const RU = createTranslator('ru');
 const EN = createTranslator('en');
 const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'package.json'), 'utf8')) as { version: string };
+/**
+ * How the notes of the version being tested begin: "What's new" shows the notes of the app's own version, so the
+ * expected words are read from that file and do not go stale when the version changes.
+ */
+function notesOpening(language: 'en' | 'ru'): string {
+  const file = path.join(__dirname, '..', '..', 'docs', 'releases', `v${pkg.version}${language === 'ru' ? '.ru' : ''}.md`);
+  const line = fs.readFileSync(file, 'utf8').split('\n').find((text) => text.trim() !== '' && !text.startsWith('#') && !text.startsWith('['));
+  if (!line) throw new Error(`No opening paragraph in ${file}`);
+  return line.trim().slice(0, 40);
+}
 
 /**
  * Starts the built app in a fresh temporary profile and records page errors for the end of the spec. The spec reads
@@ -176,7 +186,7 @@ test('Help opens the wiki: sections, links between pages, search, What is new, a
     // What is new: the notes of the running version, in the interface language.
     await helpItem(window, RU('menu.help'), RU('helpReader.whatsNew'));
     await expect(reader).toHaveAttribute('data-help-page', '@whats-new');
-    await expect(body).toContainText('45 уроков по темам');
+    await expect(body).toContainText(notesOpening('ru'));
     await window.keyboard.press('Escape');
 
     // The project address is set, so Help offers reporting a problem.
@@ -201,7 +211,7 @@ test('Help opens the wiki: sections, links between pages, search, What is new, a
     await expect(reader.getByRole('navigation').getByRole('button', { name: 'Reference' })).toBeVisible();
     await window.keyboard.press('Escape');
     await helpItem(window, EN('menu.help'), EN('helpReader.whatsNew'));
-    await expect(body).toContainText('45 lessons grouped by topic');
+    await expect(body).toContainText(notesOpening('en'));
     await window.keyboard.press('Escape');
     expect(errors).toEqual([]);
   } finally {
