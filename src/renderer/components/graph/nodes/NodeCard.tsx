@@ -8,6 +8,7 @@ import { nodeRunMode, noteTextOf } from '../../../../shared/graph/layout';
 import { useNodeDetail } from '../nodeInfo';
 import { PortRow } from './PortHandle';
 import FieldRow from './FieldRow';
+import NoteText from './NoteText';
 import { titleParts } from './titleBreaks';
 import { nodeLayout } from '../../fields/fieldModel';
 import { useCanvasView } from '../CanvasContext';
@@ -68,6 +69,7 @@ export default function NodeCard({ id, data, state, connected, live = true, head
   // How ComfyUI runs it (bypassed, muted) and a note's text, as the imported workflow saved them.
   const runMode = nodeRunMode(data as { comfy?: unknown });
   const noteText = noteTextOf(data as { comfyType: string; comfy?: unknown });
+  const isNote = data.comfyType === 'Note' || data.comfyType === 'MarkdownNote';
   const classes = [
     styles.node,
     'graph-node',
@@ -127,6 +129,8 @@ export default function NodeCard({ id, data, state, connected, live = true, head
         <div className={`${styles.typeRow} graph-node-meta`}>
           {state.subgraph ? <span className={styles.badge}>{t('node.subgraph')}</span> : null}
           {data.demo ? <span className={styles.badge}>{t('node.demo')}</span> : null}
+          {/* Editing package: a paid node on an outside service says so on the canvas (NodeMarks titles explain). */}
+          {detail?.marks?.includes('api') ? <span className={`${styles.badge} ${styles.paidBadge}`} title={String(t('editing.marks.apiTitle'))}>{t('editing.marks.api')}</span> : null}
           {runMode ? <span className={`${styles.modeChip} ${runMode === 'bypassed' ? styles.modeBypassed : styles.modeMuted}`} title={String(t(runMode === 'bypassed' ? 'node.bypassedTitle' : 'node.mutedTitle'))}>{t(runMode === 'bypassed' ? 'node.bypassed' : 'node.muted')}</span> : null}
           {missing ? <span className={styles.missingChip} title={String(t('importLook.missingHint', { type: data.comfyType }))}><CircleSlash size={11} aria-hidden="true" />{t('importLook.missing')}</span> : null}
           {state.subgraph ? null : <span className={`${styles.classType} graph-node-type`} data-class-line={classLine === data.comfyType ? undefined : 'other'} title={data.comfyType}>{classLine}</span>}
@@ -165,16 +169,15 @@ export default function NodeCard({ id, data, state, connected, live = true, head
       {kind === 'primitive' && live ? <PrimitiveFields id={id} data={data} disabled={fieldsDisabled} /> : null}
       {kind === 'set' || kind === 'get' ? <ConstantLine data={data} kind={kind} /> : null}
       {missing ? <SavedValues data={data} /> : null}
-      {noteText ? (
-        <div
-          className={`${styles.noteText} nowheel`}
-          role="note"
-          aria-label={String(t('node.noteText'))}
-          tabIndex={0}
-        >
-          {/* MarkdownLite draws a link as its words and address, never as something that opens. */}
-          {kind === 'markdown' ? <MarkdownLite text={noteText} className={styles.noteMarkdown} /> : noteText}
-        </div>
+      {noteText || isNote ? (
+        // Editing: the person writes the note in place (NoteText.tsx); shown as before while not being written.
+        <NoteText
+          nodeId={id}
+          text={noteText}
+          editable={!fieldsDisabled}
+          /* MarkdownLite draws a link as its words and address, never as something that opens. */
+          display={kind === 'markdown' ? <MarkdownLite text={noteText} className={styles.noteMarkdown} /> : undefined}
+        />
       ) : null}
       {data.annotations && data.annotations.length > 0 ? (
         <div className={`${styles.annotation} node-annotation`}>

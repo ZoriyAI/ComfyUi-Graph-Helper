@@ -150,6 +150,18 @@ export interface FieldEntry {
   spec?: FieldSpec;
   value: unknown;
   tooltip?: string;
+  /** Catalog key of the text shown instead of `name` (the "after run" choice of a seed: slot `seed::control_after_generate`). */
+  labelKey?: string;
+  /** Catalog key of the tooltip, when the tooltip is the app's own text. */
+  tooltipKey?: string;
+}
+
+/** ComfyUI's choices for what a number field does after each run (control_after_generate), in its own words. */
+export const AFTER_RUN_CHOICES = ['fixed', 'increment', 'decrement', 'randomize'];
+
+/** The slot that holds a field's "after run" choice. */
+export function afterRunKey(name: string): string {
+  return `${name}::control_after_generate`;
 }
 
 export interface NodeLayout {
@@ -199,6 +211,7 @@ export function nodeLayout(data: ComfyNodeData, detail: NodeClassDetail | null |
     }
     seen.add(port.name);
     fields.push(entry(data, port.name, known, detail, port));
+    pushAfterRun(fields, data, port.name, known, detail);
   }
   // Widget inputs the node has no port for (a node stored before its class was synced).
   for (const input of detail?.inputs ?? []) {
@@ -206,6 +219,7 @@ export function nodeLayout(data: ComfyNodeData, detail: NodeClassDetail | null |
     if (!Object.prototype.hasOwnProperty.call(parameters, input.name) && isUnset(fieldValue(data, input.name, detail?.widgetOrder))) continue;
     seen.add(input.name);
     fields.push(entry(data, input.name, input, detail));
+    pushAfterRun(fields, data, input.name, input, detail);
   }
   for (const name of Object.keys(parameters)) {
     if (seen.has(name) || name.includes('::')) continue;
@@ -213,6 +227,30 @@ export function nodeLayout(data: ComfyNodeData, detail: NodeClassDetail | null |
     fields.push(entry(data, name, specs.get(name), detail));
   }
   return { linkInputs, fields };
+}
+
+/**
+ * Editing package: a seed (any number field with ComfyUI's control_after_generate slot) gets a second row that says
+ * and changes what ComfyUI does to the value after each run: keep it, count up, count down, or draw a new one. Without
+ * it a person cannot tell why ComfyUI gives a new picture every time, or make one result repeatable.
+ */
+function pushAfterRun(
+  fields: FieldEntry[],
+  data: ComfyNodeData,
+  name: string,
+  input: NodeClassDetail['inputs'][number] | undefined,
+  detail: NodeClassDetail | null | undefined,
+): void {
+  const start = input?.spec?.control;
+  if (start === undefined || !detail?.widgetOrder.includes(afterRunKey(name))) return;
+  const stored = fieldValue(data, afterRunKey(name), detail.widgetOrder);
+  fields.push({
+    name: afterRunKey(name),
+    labelKey: 'editing.afterRun',
+    value: typeof stored === 'string' && stored !== '' ? stored : start,
+    spec: { kind: 'combo', options: AFTER_RUN_CHOICES },
+    tooltipKey: 'editing.afterRunHint',
+  });
 }
 
 function entry(

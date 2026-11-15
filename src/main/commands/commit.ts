@@ -36,6 +36,7 @@ import { applyGraphOp, blankDocument, GraphOpError, Ids, isGraphOp } from './gra
 import { applyInnerEdit, keepDefinitionCounters } from './innerEdits';
 import { applyMoveNodes, classHints, nodeRectOf, placeHelperNode, placeHelperSubgraph, runCreatedNodeIds, tidyMoves } from './placement';
 import { boundsOfRects, findFreeSlot } from '../../shared/graph/layout';
+import { EditOpError, adoptLinkedType, applyEditOp, editorNode, isEditOp, refuseEditorLink } from './editOps';
 import { supersedeAllOpen, supersedeForMissingNodes } from '../proposals/supersede';
 import { explanationsAfterCommit, graphKeyOf } from '../knowledge/projectExplanations';
 import { EXPLANATIONS_EXTENSION } from '../../shared/knowledge/projectExplanations';
@@ -523,6 +524,12 @@ function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutat
   if (payload.type === 'add-node') {
     const work: GraphSnapshot = { nodes, edges, document: snapshot.document, subgraphs: snapshot.subgraphs };
     const nodeId = new Ids(work).node(new Set(nodes.map((node) => String(node.id))));
+    // Editing: a Note, Reroute or Primitive is built from its own template (editOps.ts), not from the catalog.
+    const editor = editorNode(payload.nodeType, nodeId, payload.title, payload.x ?? 300, payload.y ?? 200);
+    if (editor) {
+      nodes.push(editor);
+      return { snapshot: { nodes, edges, document: work.document }, result: { nodeId, nodeType: payload.nodeType } };
+    }
     const ports = portsForClassType(payload.nodeType, catalog);
     const spec = catalog.nodes.find((item) => item.classType === payload.nodeType);
     // A new node starts with the widget values ComfyUI would give it; values the caller passed win.
@@ -751,6 +758,16 @@ function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutat
     return { snapshot: { nodes, edges, document: snapshot.document }, result: { nodeIds: applied.moved } };
   }
   // ── end layout ──
+  // Editing: bypass and mute, notes, a node on a link, replacing a node, colours (editOps.ts).
+  if (isEditOp(payload)) {
+    try {
+      const applied = applyEditOp(snapshot as GraphSnapshot, actionId, payload, catalog, (level, id, edit, view) => applyMutation(level as Snapshot, id, edit, view) as { snapshot: GraphSnapshot; result: Record<string, unknown> });
+      return { snapshot: applied.snapshot as Snapshot, result: applied.result };
+    } catch (error) {
+      if (error instanceof EditOpError) throw new CommandSignal('rejected', { error: error.message });
+      throw error;
+    }
+  }
   if (isGraphOp(payload)) {
     try {
       const applied = applyGraphOp(snapshot, actionId, payload);
@@ -780,6 +797,9 @@ function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutat
     if (createsCycle(edges.map((item) => ({ source: String(item.source), target: String(item.target) })), payload.source, payload.target)) {
       throw new CommandSignal('rejected', { error: 'Connection would create a cycle.' });
     }
+    // Editing: a Primitive feeds fields only (editOps.ts).
+    const editorRefusal = refuseEditorLink(source, target, String(payload.targetHandle ?? ''), catalog);
+    if (editorRefusal) throw new CommandSignal('rejected', { error: editorRefusal });
     const dataType = output.dataType;
     const work: GraphSnapshot = { nodes, edges, document: snapshot.document, subgraphs: snapshot.subgraphs };
     const linkId = new Ids(work).link();
@@ -800,6 +820,8 @@ function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutat
       targetHandle: payload.targetHandle,
       data: { dataType, linkId, comfyLink },
     });
+    // Editing: a Reroute or a Primitive takes the type of what it now carries (editOps.ts).
+    adoptLinkedType(nodes, kept[kept.length - 1], catalog);
     return {
       snapshot: { nodes, edges: kept, document: work.document },
       result: { edgeId, linkId, ...(replaced.length > 0 ? { replacedEdgeIds: replaced.map((item) => String(item.id)) } : {}) },

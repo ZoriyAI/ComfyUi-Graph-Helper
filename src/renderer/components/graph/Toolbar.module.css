@@ -120,7 +120,7 @@
   top: calc(100% + 8px);
   left: 0;
   z-index: 8;
-  width: 360px;
+  width: 420px;
   max-width: calc(100cqw - 32px);
   padding: 6px;
   border-radius: 10px;
@@ -139,7 +139,7 @@
   font: inherit;
 }
 .searchInput:focus-visible { outline: 2px solid var(--focus, #b7a5ff); outline-offset: 1px; }
-.results { list-style: none; margin: 6px 0 0; padding: 0; max-height: 280px; overflow: auto; }
+.results { list-style: none; margin: 6px 0 0; padding: 0; max-height: 340px; overflow: auto; }
 .result { display: flex; align-items: center; gap: 8px; min-height: 32px; padding: 4px 8px; border-radius: 6px; font-size: 13px; cursor: pointer; }
 .result[aria-selected="true"], .result:hover { background: var(--bg-hover, #243247); }
 /* A row: the category colour, the name (one line) with the class under it when they differ, the category. */
@@ -151,6 +151,9 @@
 .resultMeta { flex: 0 1 auto; max-width: 40%; color: var(--text-faint, #8b9bb0); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .match { padding: 0; border-radius: 2px; background: var(--accent-soft, rgba(101, 217, 237, 0.14)); color: var(--accent-strong, #8ae6f4); }
 .empty { display: flex; align-items: center; gap: 8px; padding: 10px 8px; color: var(--text-dim, #a3b1c6); font-size: 13px; }
+/* Editing (AddNodeSearch): what the box is open for, and one line under a result on what the node does. */
+.searchTitle { padding: 2px 4px 6px; color: var(--text-dim, #a3b1c6); font-size: var(--text-xs); }
+.resultDesc { color: var(--text-dim, #a3b1c6); font-size: var(--text-xs); line-height: 16px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; white-space: normal; }
 
 .crumbBar { position: absolute; z-index: 5; top: 64px; left: 16px; display: flex; flex-direction: column; gap: 4px; max-width: calc(100% - 32px); }
 .crumbs {
@@ -182,3 +185,9 @@
   font-size: 12px;
   line-height: 18px;
 }
+
+/* Editing (NodeMarks.tsx): small marks beside a node's name; paid and outdated stand out. */
+.marks { display: inline-flex; gap: 4px; margin-left: 6px; vertical-align: middle; }
+.mark { padding: 0 5px; border-radius: var(--radius-pill); border: 1px solid var(--line, #2a3648); color: var(--text-dim, #a3b1c6); font-size: var(--text-xs); line-height: 16px; }
+.mark[data-mark="api"] { border-color: var(--warn, #e5b567); color: var(--warn, #e5b567); }
+.mark[data-mark="deprecated"] { color: var(--text-faint, #8b9bb0); }

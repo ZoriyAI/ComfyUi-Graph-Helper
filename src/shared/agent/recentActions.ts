@@ -118,6 +118,14 @@ export function describeCommand(command: RecentCommand, summary: GraphSummary | 
     case 'move-nodes': return `arranged ${round(p.count)} nodes`;
     case 'rename-subgraph-io': return `renamed a subgraph ${p.direction === 'output' ? 'output' : 'input'} to "${safeText(str(p.name), 80)}"`;
     case 'rename-node': return `renamed ${nodeName(str(p.nodeId))} to "${safeText(str(p.title), 80)}"`;
+    // Editing commands made by hand on the canvas (main/commands/editOps.ts).
+    case 'set-node-mode': return `${p.mode === 'bypass' ? 'bypassed' : p.mode === 'mute' ? 'muted' : 'set to run'} ${Array.isArray(p.nodeIds) ? p.nodeIds.length : '?'} node(s): ${Array.isArray(p.nodeIds) ? p.nodeIds.slice(0, 8).map((id) => nodeName(str(id))).join(', ') : ''}`;
+    case 'set-note-text': return `wrote the text of note ${safeText(str(p.nodeId), 40)}`;
+    case 'insert-node-on-edge': return `placed ${safeText(str(p.nodeType), 120)} on link ${safeText(str(p.edgeId), 40)}`;
+    case 'replace-node': return `replaced ${nodeName(str(p.nodeId))} with ${safeText(str(p.nodeType), 120)}`;
+    case 'set-node-color': return `colored ${Array.isArray(p.nodeIds) ? p.nodeIds.length : '?'} node(s) ${safeText(str(p.color) || 'without color', 20)}`;
+    case 'set-group-members': return `changed the nodes of group ${safeText(str(p.groupId), 40)}`;
+    case 'set-group-color': return `colored group ${safeText(str(p.groupId), 40)} ${safeText(str(p.color) || 'without color', 20)}`;
     default: return safeText(command.type, 40);
   }
 }

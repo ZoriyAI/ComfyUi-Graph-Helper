@@ -51,6 +51,11 @@ export const searchNodesSchema = z.object({
   query: z.string().max(200),
   category: z.string().max(200).optional(),
   limit: limitSchema,
+  // Node search (main/knowledge/nodeSearch.ts): keep classes with an input or output of this type, and the
+  // language of the one-line description each result carries.
+  inputType: z.string().max(200).optional(),
+  outputType: z.string().max(200).optional(),
+  language: z.enum(['en', 'ru']).optional(),
 });
 
 export const searchModelsSchema = z.object({

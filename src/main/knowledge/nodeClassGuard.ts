@@ -1,3 +1,4 @@
+import { isEditorNodeType } from '../../shared/graph/editorNodes';
 import type Database from 'better-sqlite3';
 import { SEEDED_NODE_TYPES } from '../catalog/repository';
 import { hasBuiltinPorts } from '../../shared/graph/ports';
@@ -80,6 +81,8 @@ function portsKnown(db: Database.Database, classType: string): boolean {
  * - unknown class before any sync: allowed with a warning, since the catalog cannot tell.
  */
 export function validateNodeClass(db: Database.Database, classType: string): NodeClassVerdict {
+  // Note, Reroute and Primitive live only in ComfyUI's editor: no catalog lists them, yet ComfyUI opens them.
+  if (isEditorNodeType(classType)) return { ok: true, known: true, portsKnown: true };
   const known = db.prepare('SELECT 1 FROM node_catalog WHERE class_type = ?').get(classType) !== undefined;
   if (known) return { ok: true, known: true, portsKnown: portsKnown(db, classType) };
   if (!catalogSynced(db)) {

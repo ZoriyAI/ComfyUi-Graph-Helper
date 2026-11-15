@@ -176,6 +176,8 @@ describe('settings migration', () => {
       'pack_name',
       'output_node',
       'synced_at',
+      // Migration 18: node marks for the search and the canvas.
+      'flags',
     ]);
     const row = db.prepare('SELECT pack, python_module FROM node_catalog WHERE class_type = ?').get('CheckpointLoaderSimple') as {
       pack: string;

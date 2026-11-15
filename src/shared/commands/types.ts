@@ -69,6 +69,66 @@ export const batchMutation = z.object({
   edits: z.array(z.record(z.string(), z.unknown())).min(1).max(BATCH_MAX),
 });
 
+// --- editing commands (begin) ---
+// Canvas edits a person makes by hand from the node, link and group menus (main/commands/editOps.ts applies them).
+// Each is one commit, so one undo step, however many nodes it touches.
+
+/** How ComfyUI runs the nodes: always (mode 0), bypassed (mode 4, inputs pass through), muted (mode 2, never runs). */
+export const NODE_RUN_MODES = ['always', 'bypass', 'mute'] as const;
+export const setNodeModeMutation = z.object({
+  type: z.literal('set-node-mode'),
+  nodeIds: z.array(z.string().min(1)).min(1).max(5000),
+  mode: z.enum(NODE_RUN_MODES),
+});
+
+/** The text of a Note or Markdown Note (its widgets_values[0] in the workflow). */
+export const setNoteTextMutation = z.object({
+  type: z.literal('set-note-text'),
+  nodeId: z.string().min(1),
+  text: z.string().max(100000),
+});
+
+/** A new node placed on a link: the link's source feeds the new node, the new node feeds the link's target. */
+export const insertNodeOnEdgeMutation = z.object({
+  type: z.literal('insert-node-on-edge'),
+  edgeId: z.string().min(1),
+  nodeType: z.string().min(1),
+  title: z.string().max(500).optional(),
+  x: z.number().finite(),
+  y: z.number().finite(),
+});
+
+/** Another class in a node's place: same id and position, links and field values kept where names and types fit. */
+export const replaceNodeMutation = z.object({
+  type: z.literal('replace-node'),
+  nodeId: z.string().min(1),
+  nodeType: z.string().min(1),
+  title: z.string().max(500).optional(),
+});
+
+/** ComfyUI's node colour palette; null takes the colour off. */
+export const NODE_COLORS = ['red', 'brown', 'green', 'blue', 'pale_blue', 'cyan', 'purple', 'yellow', 'black'] as const;
+export const setNodeColorMutation = z.object({
+  type: z.literal('set-node-color'),
+  nodeIds: z.array(z.string().min(1)).min(1).max(5000),
+  color: z.enum(NODE_COLORS).nullable(),
+});
+
+/** Nodes go into a group or out of it; the group's frame follows its members, so this is how its size changes. */
+export const setGroupMembersMutation = z.object({
+  type: z.literal('set-group-members'),
+  groupId: z.string().min(1),
+  add: z.array(z.string().min(1)).max(5000).default([]),
+  remove: z.array(z.string().min(1)).max(5000).default([]),
+});
+
+export const setGroupColorMutation = z.object({
+  type: z.literal('set-group-color'),
+  groupId: z.string().min(1),
+  color: z.enum(NODE_COLORS).nullable(),
+});
+// --- editing commands (end) ---
+
 export const mutationSchema = z.discriminatedUnion('type', [
   batchMutation,
   z.object({
@@ -259,6 +319,12 @@ export const mutationSchema = z.discriminatedUnion('type', [
         y: z.number(),
         title: z.string().max(500).optional(),
       }),
+      // Editing commands work inside a subgraph as on the main canvas.
+      setNodeModeMutation,
+      setNoteTextMutation,
+      insertNodeOnEdgeMutation,
+      replaceNodeMutation,
+      setNodeColorMutation,
     ]),
   }),
   // --- edits inside a subgraph definition (end) ---
@@ -271,6 +337,14 @@ export const mutationSchema = z.discriminatedUnion('type', [
   moveNodesMutation,
   renameNodeMutation,
   collapseNodeMutation,
+  // Editing commands
+  setNodeModeMutation,
+  setNoteTextMutation,
+  insertNodeOnEdgeMutation,
+  replaceNodeMutation,
+  setNodeColorMutation,
+  setGroupColorMutation,
+  setGroupMembersMutation,
 ]);
 
 export type GraphMutation = z.infer<typeof mutationSchema>;

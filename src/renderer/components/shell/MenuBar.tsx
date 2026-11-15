@@ -12,6 +12,7 @@ import { DESCRIPTION_MODE_CHOICES, LANGUAGE_CHOICES, MOTION_CHOICES, providerCom
 import { providerChoices } from '../../state/providerState';
 import styles from './MenuBar.module.css';
 import AppMark from '../../ui/AppMark';
+import { COLOR_COMMAND_IDS } from '../../commands/editingCommands';
 
 /** One entry of a menu: a command, a check or radio row, a submenu, or a rule. */
 type Entry =
@@ -57,6 +58,10 @@ const MENUS: Array<{ value: string; labelKey: string; entries: Entry[] }> = [
     entries: [
       command('graph.addNode'), command('graph.arrange'), separator,
       command('graph.createSubgraph'), command('graph.dissolveSubgraph'), command('graph.addGroup'), separator,
+      // Editing (commands/editingCommands.ts).
+      check('graph.bypass'), check('graph.mute'),
+      { kind: 'radio', labelKey: 'editing.color', ids: COLOR_COMMAND_IDS, valueOf: (id) => id.slice('graph.color.'.length) },
+      command('graph.insertOnLink'), command('graph.replaceNode'), command('graph.addNote'), separator,
       command('graph.check'), command('graph.acceptAll'), command('graph.rejectAll'), separator,
       check('graph.tour'), check('graph.replay'),
     ],

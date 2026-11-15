@@ -19,6 +19,7 @@ function labelOf(command: Command, t: (key: string) => string): string {
   if (command.id.startsWith('view.language.')) return `${t('menu.language')}: ${label}`;
   if (command.id.startsWith('view.motion.')) return `${t('menu.motion')}: ${label}`;
   if (command.id.startsWith('assistant.provider.')) return `${t('menu.provider')}: ${label}`;
+  if (command.id.startsWith('graph.color.')) return `${t('editing.color')}: ${label}`;
   return label;
 }
 

@@ -159,7 +159,7 @@ function applyVersion2(db: Database.Database): void {
  * fingerprint of the content written there (table project_files): Ctrl+S saves in place, and the unsaved mark says
  * whether what is on screen is in that file as it stands, across reloads and restarts.
  */
-export const SCHEMA_VERSION = 17;
+export const SCHEMA_VERSION = 18;
 
 export function migrate(db: Database.Database, options?: { failBeforeVersionStamp?: boolean; /** Tests: stop at this version. */ upTo?: number }): void {
   const version = schemaVersion(db);
@@ -288,6 +288,23 @@ export function migrate(db: Database.Database, options?: { failBeforeVersionStam
       db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (17, ?)').run(Date.now());
     });
     apply.immediate();
+  }
+  if (schemaVersion(db) === 17 && target > 17) {
+    const apply = db.transaction(() => {
+      applyVersion18(db);
+      db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (18, ?)').run(Date.now());
+    });
+    apply.immediate();
+  }
+}
+
+/**
+ * Node marks for the node search and the canvas (editing package): the object_info flags api_node, deprecated and
+ * experimental, kept as words ("api deprecated"), so a person sees a paid or an outdated node before adding it.
+ */
+function applyVersion18(db: Database.Database): void {
+  if (tableNames(db).includes('node_catalog') && !columnNames(db, 'node_catalog').includes('flags')) {
+    db.exec("ALTER TABLE node_catalog ADD COLUMN flags TEXT NOT NULL DEFAULT ''");
   }
 }
 

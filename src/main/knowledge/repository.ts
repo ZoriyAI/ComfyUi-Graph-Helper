@@ -31,6 +31,9 @@ import {
   searchNodesSchema,
 } from '../../shared/knowledge/schemas';
 import { queryWords, rankFields } from '../../shared/knowledge/searchWords';
+import { knowledgeLine, knowledgeTexts, parseNodeQuery, scoreClass, shortDescription } from './nodeSearch';
+import { NODE_MARKS, type NodeMark } from '../../shared/contracts/knowledge';
+import { EDITOR_NODE_TYPES, editorNodeDisplayName, editorNodePorts, editorNodeWords, isEditorNodeType, type EditorNodeType } from '../../shared/graph/editorNodes';
 import { packInfoOf, webUrl } from '../../shared/knowledge/packInfo';
 import { notesFromJson, previewKind, type ModelNotes } from '../../shared/knowledge/sidecar';
 import { WEB_ERRORS, webFoundFromJson, type WebError, type WebFound } from '../../shared/knowledge/webLookup';
@@ -66,10 +69,13 @@ type NodeRow = {
   description: string;
   output_node: number;
   synced_at: number | null;
+  /** Marks from object_info (migration 18): 'api', 'deprecated', 'experimental'. */
+  flags: string;
+  python_module: string;
 };
 
 const NODE_COLUMNS = `class_type, display_name, category, pack, pack_name, inputs_json, outputs_json, widget_order_json,
-  description, output_node, synced_at`;
+  description, output_node, synced_at, flags, python_module`;
 
 function packOf(row: NodeRow): string {
   return row.pack_name || row.pack || '';
@@ -82,6 +88,8 @@ function summaryOf(row: NodeRow): NodeClassSummary {
     category: row.category ?? '',
     pack: packOf(row),
     detailed: parseArray(row.inputs_json).length > 0 || parseArray(row.outputs_json).length > 0,
+    // Editing package: paid, deprecated and experimental marks for the search, the library and the canvas.
+    ...(marksOf(row).length > 0 ? { marks: marksOf(row) } : {}),
   };
 }
 
@@ -95,28 +103,105 @@ const queryTokens = queryWords;
 const rankTokens = rankFields;
 
 /**
- * Case-insensitive search over class type, display name, category, and pack.
- * Rank: exact, prefix, whole word, substring, a Russian word for it, then one slip; each word of the query must
- * match some field and the best field per word is summed. A category filter also matches subcategories.
+ * The node search of the canvas, the library and the assistant: names first (class, display name, category, pack:
+ * exact, prefix, whole word, substring, a Russian word for it, one slip), then the description and the built-in
+ * explanation, with type filters and editor nodes; see nodeSearch.ts. A category filter also matches subcategories.
  */
 export function searchNodeClasses(db: Database.Database, request: SearchNodesRequest): NodeClassSummary[] {
   const parsed = searchNodesSchema.parse(request);
-  const tokens = queryTokens(parsed.query);
+  const query = parseNodeQuery(parsed.query);
+  if (parsed.inputType) query.inputType = parsed.inputType;
+  if (parsed.outputType) query.outputType = parsed.outputType;
+  const language = parsed.language ?? 'en';
   const rows = db.prepare(`SELECT ${NODE_COLUMNS} FROM node_catalog`).all() as NodeRow[];
   const category = parsed.category?.trim().toLowerCase();
-  const scored: Array<{ row: NodeRow; score: number }> = [];
+  const inCategory = (value: string) => {
+    const rowCategory = value.toLowerCase();
+    return !category || rowCategory === category || rowCategory.startsWith(`${category}/`);
+  };
+  const scored: Array<{ summary: NodeClassSummary; score: number; missing: number }> = [];
   for (const row of rows) {
-    const rowCategory = (row.category ?? '').toLowerCase();
-    if (category && rowCategory !== category && !rowCategory.startsWith(`${category}/`)) continue;
-    const fields = [row.class_type, row.display_name, row.category, packOf(row)];
-    const score = rankTokens(fields, tokens);
+    if (!inCategory(row.category ?? '')) continue;
+    const { score, missing } = scoreClass({
+      names: [row.class_type, row.display_name, row.category, packOf(row)],
+      texts: [row.description, ...knowledgeTexts(row.class_type)],
+      inputTypes: typesOf(row.inputs_json),
+      outputTypes: typesOf(row.outputs_json),
+    }, query);
     if (score === Infinity) continue;
-    scored.push({ row, score });
+    const summary = summaryOf(row);
+    const description = knowledgeLine(row.class_type, language) || shortDescription(row.description);
+    if (description) summary.description = description;
+    if (row.output_node === 1) summary.outputNode = true;
+    // An outdated node comes after its current neighbours.
+    scored.push({ summary, score: score + (summary.marks?.includes('deprecated') ? 2 : 0), missing });
   }
-  scored.sort((left, right) => left.score - right.score
-    || left.row.class_type.length - right.row.class_type.length
-    || left.row.class_type.localeCompare(right.row.class_type));
-  return scored.slice(0, limitOf(parsed.limit)).map((item) => summaryOf(item.row));
+  const known = new Set(rows.map((row) => row.class_type));
+  for (const classType of EDITOR_NODE_TYPES) {
+    if (known.has(classType) || !inCategory(EDITOR_CATEGORY)) continue;
+    const ports = editorNodePorts(classType);
+    const { score, missing } = scoreClass({
+      names: [classType, editorNodeDisplayName(classType), EDITOR_CATEGORY, ...editorNodeWords(classType)],
+      texts: knowledgeTexts(classType),
+      inputTypes: ports.inputs.map((port) => port.dataType),
+      outputTypes: ports.outputs.map((port) => port.dataType),
+    }, query);
+    if (score === Infinity) continue;
+    const description = knowledgeLine(classType, language);
+    scored.push({
+      summary: { classType, displayName: editorNodeDisplayName(classType), category: EDITOR_CATEGORY, pack: 'core', detailed: true, editor: true, ...(description ? { description } : {}) },
+      score,
+      missing,
+    });
+  }
+  // A class that misses a word counts only when no class matches every word.
+  const complete = scored.some((item) => item.missing === 0);
+  const kept = complete ? scored.filter((item) => item.missing === 0) : scored;
+  kept.sort((left, right) => left.score - right.score
+    || left.summary.classType.length - right.summary.classType.length
+    || left.summary.classType.localeCompare(right.summary.classType));
+  return kept.slice(0, limitOf(parsed.limit)).map((item) => item.summary);
+}
+
+/** The card of an editor node: ComfyUI's object_info never lists it, so its ports come from editorNodes.ts. */
+function editorNodeDetail(classType: EditorNodeType): NodeClassDetail {
+  const ports = editorNodePorts(classType);
+  return {
+    classType,
+    displayName: editorNodeDisplayName(classType),
+    category: EDITOR_CATEGORY,
+    pack: 'core',
+    detailed: true,
+    editor: true,
+    description: knowledgeLine(classType, 'en'),
+    inputs: ports.inputs.map((port) => ({ name: port.name, type: port.dataType, widget: false, required: true })),
+    outputs: ports.outputs.map((port) => ({ name: port.name, type: port.dataType })),
+    widgetOrder: [],
+    widgetOrderReliable: true,
+    outputNode: false,
+    syncedAt: null,
+  };
+}
+
+/**
+ * A node's marks: 'api' for a paid node that runs on an outside service (object_info api_node, or a class of
+ * ComfyUI's comfy_api_nodes package when the flag was never read), 'deprecated', 'experimental'.
+ */
+export function marksOf(row: { flags?: string | null; pack?: string; python_module?: string }): NodeMark[] {
+  const words = new Set((row.flags ?? '').split(/\s+/).filter(Boolean));
+  if ((row.python_module ?? '').startsWith('comfy_api_nodes')) words.add('api');
+  return NODE_MARKS.filter((mark) => words.has(mark));
+}
+
+/** The category ComfyUI files its editor nodes under. */
+const EDITOR_CATEGORY = 'utils';
+
+/** The link types of a stored inputs_json or outputs_json list. */
+function typesOf(json: string): string[] {
+  return parseArray(json).flatMap((item) => {
+    const port = record(item);
+    return port && typeof port.type === 'string' ? [port.type] : [];
+  });
 }
 
 /**
@@ -145,6 +230,7 @@ export function packInfo(db: Database.Database, name: string): PackInfo | null {
 export function nodeClassDetail(db: Database.Database, classType: string): NodeClassDetail | null {
   if (typeof classType !== 'string' || classType === '') return null;
   const row = db.prepare(`SELECT ${NODE_COLUMNS} FROM node_catalog WHERE class_type = ?`).get(classType) as NodeRow | undefined;
+  if (!row && isEditorNodeType(classType)) return editorNodeDetail(classType);
   if (!row) return null;
   const order = widgetOrderOf(row.widget_order_json);
   const pack = packInfo(db, packOf(row));

@@ -29,6 +29,7 @@ import { addGroup, createSubgraph, dissolveSubgraph, openAddNode } from '../../c
 import Shortcut from '../../ui/Shortcut';
 import { startGraphTour } from './tour/startTour';
 import { nodeDisplayName } from './lib/nodeName';
+import { edgeEditingItems, groupEditingItems, groupMembershipItems, nodeEditingItems, paneEditingItems } from './editingMenu';
 import styles from './GraphContextMenu.module.css';
 
 /** «Вставить субграф» from the menu: at the point of the click, moved to the nearest spot where it covers no node. */
@@ -217,6 +218,9 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
         }, { icon: StickyNote, disabled: inDefinition || readOnly }),
         // IMPORT+NODES: collapse / open (Alt+C), and the jump from a Get to its Set.
         ...lookMenuItems(node, nodes, selectionFor(node.id), !canBuild).map((entry) => item(entry.id, String(t(entry.labelKey, entry.values ?? {})), entry.run, { icon: entry.icon, shortcut: entry.shortcut, disabled: entry.disabled })),
+        // Editing rows (editingMenu.tsx) beside collapse: bypass, mute, colour, replace.
+        ...nodeEditingItems((key) => String(t(key)), node, nodes.filter((item): item is GraphNode => item.type === 'comfy' && selectionFor(node.id).includes(item.id)), !canBuild),
+        ...(inDefinition ? [] : groupMembershipItems((key) => String(t(key)), nodes.filter((item): item is GraphNode => item.type === 'comfy' && selectionFor(node.id).includes(item.id)), groups, !canBuildRoot)),
         separator('s2'),
         item('remove', t('contextMenu.remove'), () => void commitManual({ type: 'remove-node', nodeId: node.id }), { icon: Trash2, danger: true, disabled: !canBuild, shortcut: 'Delete' }),
       );
@@ -278,6 +282,7 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
         item('flows', t('contextMenu.whatFlows'), () => void askWhatFlows(edge.id, type, say('contextMenu.askFlows', { type, source, target: targetName })), { icon: ArrowRightLeft }),
         item('why', t('contextMenu.whyEdge'), () => askAbout(ref, say('contextMenu.askWhyEdge', { source, target: targetName })), { icon: MessageCircleQuestion }),
         separator('s1'),
+        ...edgeEditingItems((key) => String(t(key)), edge.id, !canBuild),
         item('remove', t('contextMenu.disconnect'), () => void commitManual({ type: 'remove-edge', edgeId: edge.id }), { icon: Unlink, danger: true, disabled: !canBuild }),
       );
     }
@@ -289,6 +294,7 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
         askLabel,
         item('what', t('contextMenu.whatGroup'), () => askAbout(ref, say('contextMenu.askGroup', { name: group.title })), { icon: CircleHelp }),
         separator('s1'),
+        ...groupEditingItems((key) => String(t(key)), group.id, group.color, !canBuildRoot),
         item('remove', t('contextMenu.removeGroup'), () => void commitManual({ type: 'remove-group', groupId: group.id }), { icon: Ungroup, danger: true, disabled: !canBuildRoot }),
       );
     }
@@ -298,6 +304,7 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
     const open = openProposals(proposals);
     items.push(commandItem('graph.addNode', () => openAddNode(at), { disabled: !canBuild }));
     items.push(commandItem('edit.paste', () => void pasteClipboard(), { disabled: !canBuild || !hasClipboard() }));
+    items.push(...paneEditingItems((key) => String(t(key)), at, !canBuild));
     items.push(
       <Menu.Sub key="insert">
         <Menu.SubTrigger className={styles.item} disabled={!canBuild}>

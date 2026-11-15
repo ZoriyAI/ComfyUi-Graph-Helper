@@ -53,6 +53,10 @@ export interface CatalogNode {
   /** object_info description and output_node. */
   description?: string;
   outputNode?: boolean;
+  /** object_info api_node (a paid node that runs on an outside service), deprecated and experimental. */
+  apiNode?: boolean;
+  deprecated?: boolean;
+  experimental?: boolean;
   inputs: CatalogInput[];
   outputs: CatalogOutput[];
   /** widgets_values slot names. Empty when widgetOrderReliable is false. */

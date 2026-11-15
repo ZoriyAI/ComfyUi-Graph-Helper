@@ -169,6 +169,14 @@ const ACTION_KEYS: Record<string, string> = {
   'collapse-node': 'undo.collapseNode',
   'rename-subgraph-io': 'undo.renameSubgraphIo',
   'edit-in-subgraph': 'undo.editInSubgraph',
+  // Editing commands (main/commands/editOps.ts).
+  'set-node-mode': 'undo.setNodeMode',
+  'set-note-text': 'undo.setNoteText',
+  'insert-node-on-edge': 'undo.insertNodeOnEdge',
+  'replace-node': 'undo.replaceNode',
+  'set-node-color': 'undo.setNodeColor',
+  'set-group-color': 'undo.setGroupColor',
+  'set-group-members': 'undo.setGroupMembers',
   'agent-run': 'undo.agentRun',
 };
 
