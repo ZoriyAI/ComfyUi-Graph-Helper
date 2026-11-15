@@ -40,9 +40,9 @@ at in the browser. An MCP server is optional. How to connect: [Connecting to Com
 ## Is there a version for Windows or macOS?
 
 There are no packages for them, but each release has an install script for each: it builds the app on your
-computer from the project's source and installs it for your user, with one command. The scripts are new in 1.0.0
-and not tested yet on real computers; if you try one, please report what happened in the project's Issues, with the
-log the script names at the end.
+computer from the project's source and installs it for your user, with one command. The scripts are checked on
+GitHub's Windows and macOS machines on every change, not yet on a range of real computers; if you try one, please
+report what happened in the project's Issues, with the log the script names at the end.
 [Installing on Windows](Installing-On-Windows.md), [Installing on macOS](Installing-On-macOS.md)
 
 ## Where are my settings and projects?

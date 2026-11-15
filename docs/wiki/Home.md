@@ -11,7 +11,7 @@ contains no ComfyUI code and only reads a running ComfyUI; it never changes it.
 NodeWise helps you learn ComfyUI and understand its graphs. It reads which nodes and models your ComfyUI has,
 explains every node and link, teaches with lessons you do by hand, and has an assistant that can explain and build
 a graph step by step. It comes as packages for Linux; on Windows and macOS a script builds and installs it from the
-project's source (new in 1.0.0, not tested yet on real computers). You save the result as an ordinary workflow and run it in ComfyUI yourself.
+project's source (checked on GitHub's machines, not yet on a range of real computers). You save the result as an ordinary workflow and run it in ComfyUI yourself.
 
 It is an experimental project: things change between versions and some parts are unfinished. Ideas and wishes are
 welcome in the project's Discussions; problems go to its Issues (Help ▸ Report a problem in the app). Who makes it

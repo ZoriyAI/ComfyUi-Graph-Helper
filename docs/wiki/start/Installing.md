@@ -18,9 +18,9 @@ project's source and installs it for you, with one command.
 | macOS 13 or newer (Apple silicon or Intel) | `install-macos.sh` from the release builds and installs the app. |
 
 The Linux packages are built, installed and started on the build server for every release. The Windows and macOS
-install scripts are new in 1.0.0 and **not tested yet** on real computers (a check on GitHub's Windows and macOS
-machines exists and is still being made to pass). If you try one, please report what happened in the project's
-Issues, with the log file the script names at the end and your system version.
+install scripts are checked on GitHub's Windows and macOS machines on every change; they are **not yet tried on a
+range of real computers**. If you try one, please report what happened in the project's Issues, with the log file
+the script names at the end and your system version.
 
 ## What you need
 

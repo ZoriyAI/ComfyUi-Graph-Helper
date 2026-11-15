@@ -151,10 +151,10 @@ t() {
   case "$UI_LANG:$1" in
     en:start) echo "NodeWise Studio installer for macOS. Log: %s" ;;
     ru:start) echo "Установка NodeWise Studio для macOS. Журнал: %s" ;;
-    en:untested) echo "Not tested yet: this install script is new in 1.0.0 and has not been tested on real Macs. If you try it, please report what happened at %s with the log file named at the end and your macOS version." ;;
-    ru:untested) echo "Ещё не проверено: этот скрипт установки появился в 1.0.0 и на настоящих Mac не проверялся. Если попробуете, сообщите, пожалуйста, что получилось, на %s, приложив файл журнала, названный в конце, и версию macOS." ;;
-    en:untested_failed) echo "This script is not tested yet, so this may be its own mistake. Please report it at %s with this log: %s, and your macOS version (Apple menu, About This Mac)." ;;
-    ru:untested_failed) echo "Этот скрипт ещё не проверен, так что ошибка может быть в нём самом. Сообщите о ней, пожалуйста, на %s, приложив этот журнал: %s, и версию macOS (меню Apple, «Об этом Mac»)." ;;
+    en:untested) echo "This install script is checked on GitHub's macOS machines, not yet on a range of real Macs. If something goes wrong, please report it at %s with the log file named at the end and your macOS version." ;;
+    ru:untested) echo "Этот скрипт установки проверяется на машинах GitHub с macOS, на разных настоящих Mac его ещё не пробовали. Если что-то пойдёт не так, сообщите, пожалуйста, на %s, приложив файл журнала, названный в конце, и версию macOS." ;;
+    en:untested_failed) echo "This script is not yet tried on many real Macs, so this may be its own mistake. Please report it at %s with this log: %s, and your macOS version (Apple menu, About This Mac)." ;;
+    ru:untested_failed) echo "Этот скрипт ещё мало пробовали на настоящих Mac, так что ошибка может быть в нём самом. Сообщите о ней, пожалуйста, на %s, приложив этот журнал: %s, и версию macOS (меню Apple, «Об этом Mac»)." ;;
     en:dry) echo "Dry run: every step is printed, nothing is changed." ;;
     ru:dry) echo "Пробный прогон: шаги только печатаются, ничего не меняется." ;;
     en:step) echo "Step %s of %s: %s" ;;
