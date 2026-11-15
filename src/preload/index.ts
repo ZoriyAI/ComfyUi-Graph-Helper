@@ -494,7 +494,7 @@ export interface RendererErrorReport {
   stack?: string;
 }
 
-/** What "Check connection" answers (llmService.ts ProbeResult plus the completed address). */
+/** What "Test connection" answers (llmService.ts ProbeResult plus the completed address). */
 export type LlmProbeResult = (
   | { ok: true; latencyMs: number; provider: string; model: string; /** The context window a local server loaded the model with, when it says. */ contextTokens?: number }
   | { ok: false; error: string; latencyMs: number | null }
@@ -619,7 +619,7 @@ export interface ElectronAPI {
    */
   llmSetSessionKey: (provider: CloudKeyProvider, value: string, forBase?: string) => Promise<{ held: boolean; source: KeySourceName }>;
   llmSessionStatus: () => Promise<SessionKeyStatus>;
-  /** Settings ▸ Assistant ▸ Check connection. Errors come back redacted. */
+  /** Settings ▸ Assistant ▸ Test connection. Errors come back redacted. */
   llmProbe: (draft: { provider: string; model: string; baseURL: string }) => Promise<LlmProbeResult>;
   /** Settings ▸ Assistant: the models the draft provider or local server offers. A cloud key is used in main only. */
   llmListModels: (draft: { provider: string; model?: string; baseURL: string }) => Promise<ModelListResult>;

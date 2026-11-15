@@ -20,7 +20,7 @@ export function noticeOf(status: UpdateStatus | null): Notice | null {
 
 /**
  * A quiet line in the status bar when Settings ▸ Privacy ▸ "Check for new versions" is on and a newer version
- * exists: "Version X is available · What is new · Download". Nothing is downloaded by the app; the links open in
+ * exists: "Version X is available · What's new · Download". Nothing is downloaded by the app; the links open in
  * the browser. With the check off (the default) it renders nothing and nothing is asked.
  */
 export default function UpdateNotice() {

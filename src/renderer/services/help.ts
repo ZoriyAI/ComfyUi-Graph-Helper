@@ -1,5 +1,5 @@
 /**
- * The ways into the in-app help: the help reader on a wiki page, What is new, and the project's web links.
+ * The ways into the in-app help: the help reader on a wiki page, What's new, and the project's web links.
  *
  * Who uses it: appCommands.ts (the Help menu), components/shell/AboutContent.tsx, components/lessons (MyLessons,
  * LessonDraftCard), components/settings/sections/PrivacySection.tsx and components/journey/NoComfyDialog.tsx.
@@ -18,7 +18,7 @@ export function openHelp(id: HelpId): void {
   useUiStore.getState().showHelp(pageForHelpId(id) ?? 'Home');
 }
 
-/** Help ▸ What is new: the notes of the running version. */
+/** Help ▸ What's new: the notes of the running version. */
 export function openWhatsNew(): void {
   useUiStore.getState().showHelp(WHATS_NEW_PAGE);
 }

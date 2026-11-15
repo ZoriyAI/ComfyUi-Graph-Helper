@@ -662,7 +662,7 @@ export async function setupIPC(): Promise<void> {
   // The next send's provider status plus every cloud provider's key place, for the cards. Never a key.
   ipcMain.handle(IPC_CHANNELS.LLM_SESSION_STATUS, () => ({ ...mainLLMService.sessionStatus(), providers: mainLLMService.keySources(), origins: mainLLMService.keyOrigins() }));
 
-  // Settings ▸ Assistant ▸ Check connection: one tiny request with the draft runtime and the held key.
+  // Settings ▸ Assistant ▸ Test connection: one tiny request with the draft runtime and the held key.
   ipcMain.handle(IPC_CHANNELS.LLM_PROBE, async (_event, draft: unknown) => {
     const input = draft && typeof draft === 'object' ? draft as Record<string, unknown> : {};
     const base = draftBaseUrl(input.baseURL);
