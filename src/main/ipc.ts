@@ -46,7 +46,7 @@ import { connectionSuggestions, rememberSavedAddresses } from './settings/connec
 import { browserOpener } from './mcp/browser';
 import { mcpReadOutcome, reportedComfyUrl, syncService } from './mcp/sync';
 import { withLoopbackScheme } from '../shared/mcp/loopback';
-import { saveProjectRecord } from './ipc/projectRecord';
+import { listProjectRecords, loadProjectRecord, saveProjectRecord } from './ipc/projectRecord';
 import { redactSecrets } from '../shared/config/draft';
 import { forgetEverySecret, secretInventory } from './settings/forgetAll';
 import { guardSecretsIn, type SecretField } from './exportSecrets';
@@ -367,37 +367,9 @@ export async function setupIPC(): Promise<void> {
   // Project records in the projects table.
   ipcMain.handle(IPC_CHANNELS.DB_SAVE_PROJECT, (_event, project: unknown) => saveProjectRecord(getDatabase(), project));
 
-  ipcMain.handle(IPC_CHANNELS.DB_LOAD_PROJECT, async (_event, id) => {
-    const db = getDatabase();
-    const stmt = db.prepare('SELECT * FROM projects WHERE id = ?');
-    const row = stmt.get(id) as any;
+  ipcMain.handle(IPC_CHANNELS.DB_LOAD_PROJECT, (_event, id) => loadProjectRecord(getDatabase(), id, createTranslator(languageOf(readSettings(getDatabase())))));
 
-    if (!row) return null;
-
-    return {
-      id: row.id,
-      name: row.name,
-      created_at: row.created_at,
-      updated_at: row.updated_at,
-      graph_data: JSON.parse(row.graph_data),
-      metadata: JSON.parse(row.metadata),
-    };
-  });
-
-  ipcMain.handle(IPC_CHANNELS.DB_LIST_PROJECTS, async () => {
-    const db = getDatabase();
-    const stmt = db.prepare('SELECT * FROM projects ORDER BY updated_at DESC');
-    const rows = stmt.all() as any[];
-
-    return rows.map((row) => ({
-      id: row.id,
-      name: row.name,
-      created_at: row.created_at,
-      updated_at: row.updated_at,
-      graph_data: JSON.parse(row.graph_data),
-      metadata: JSON.parse(row.metadata),
-    }));
-  });
+  ipcMain.handle(IPC_CHANNELS.DB_LIST_PROJECTS, () => listProjectRecords(getDatabase()));
 
   ipcMain.handle(IPC_CHANNELS.SETTINGS_GET, () => {
     return readSettings(getDatabase());

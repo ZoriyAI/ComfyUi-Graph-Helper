@@ -1911,6 +1911,7 @@ export const en = {
   },
   errors: {
     revisionMissing: 'That version of the graph is not in the history.',
+    projectRecordBroken: 'This project record is damaged, so it cannot be opened.',
     subgraphInItself: 'A subgraph cannot go inside itself, directly or through another subgraph.',
     secret: 'Settings cannot hold a key or a password. Remove it from the field.',
     schema: 'Check the highlighted fields; the settings cannot be saved without them.',
@@ -4881,6 +4882,7 @@ export const ru = {
   },
   errors: {
     revisionMissing: 'Этой версии графа нет в истории.',
+    projectRecordBroken: 'Запись проекта повреждена, поэтому её нельзя открыть.',
     subgraphInItself: 'Субграф нельзя положить внутрь самого себя, ни сразу, ни через другой субграф.',
     secret: 'В настройки нельзя записать ключ или пароль. Уберите его из поля.',
     schema: 'Проверьте выделенные поля: без них настройки не сохранятся.',
