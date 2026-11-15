@@ -34,7 +34,7 @@ describe('a sync that never ended holds automatic sync', () => {
     const run = sync.runSync(db);
     expect(readState(db).run_open).toBe('1700000000000');
     await run;
-    expect(readState(db).run_open).toBe('');
+    expect(readState(db).run_open).toBeUndefined();
     sync.stop();
   });
 

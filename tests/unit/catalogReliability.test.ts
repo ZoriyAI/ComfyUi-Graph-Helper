@@ -18,7 +18,9 @@ function seed(db: Database.Database) {
   writeModelEnrichment(db, 'loras', 'style.safetensors', { kind: 'lora', baseModel: 'sdxl', baseModelEvidence: 'metadata', triggerWords: ['old'], description: 'old', sourceUrl: 'https://old.test', metadata: { old: 'yes' }, enrichedAt: 2, sha256: 'old' });
   db.prepare("UPDATE model_catalog SET web_family = 'sdxl', web_status = 'found', preview_file = 'old.webp', notes_json = '{\"old\":true}'").run();
 }
-function snapshot(db: Database.Database) { return ['node_catalog', 'node_packs', 'model_catalog', 'sync_state'].map(table => db.prepare(`SELECT * FROM ${table} ORDER BY 1`).all()); }
+// `run_open` is not published state: it marks that a run is in flight (set when it starts, removed when it ends,
+// cancelled or not) so the next start can hold automatic sync after a run that never ended (sync.ts autoHeld).
+function snapshot(db: Database.Database) { return ['node_catalog', 'node_packs', 'model_catalog', 'sync_state'].map(table => db.prepare(`SELECT * FROM ${table}${table === 'sync_state' ? " WHERE key <> 'run_open'" : ''} ORDER BY 1`).all()); }
 function deferred<T>() { let resolve!: (value: T) => void; const promise = new Promise<T>(r => { resolve = r; }); return { promise, resolve }; }
 const info = { NewNode: { input: { required: {} }, output: [], python_module: 'custom_nodes.new' } };
 const response = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status });

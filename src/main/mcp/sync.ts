@@ -200,10 +200,14 @@ export function readState(db: Database.Database): Record<string, string> {
   return Object.fromEntries(rows.map((row) => [row.key, row.value]));
 }
 
-/** `run_open` in sync_state: when the run in flight started, or '' when none is. Never throws. */
+/**
+ * `run_open` in sync_state: when the run in flight started; the row is removed when the run ends, cancelled or not,
+ * so a finished or cancelled read leaves sync_state as it found it. Never throws.
+ */
 function markRunOpen(db: Database.Database, at: number | null): void {
   try {
-    writeState(db, { run_open: at === null ? '' : String(at) });
+    if (at === null) db.prepare("DELETE FROM sync_state WHERE key = 'run_open'").run();
+    else writeState(db, { run_open: String(at) });
   } catch {
     // Without the mark a crash during this run is not noticed at the next start; nothing else changes.
   }
