@@ -1,5 +1,5 @@
 import type { AgentBuildStep } from '../../../../shared/contracts/agent';
-import type { MotionLevel } from './motion';
+import type { MotionLevel } from '../../../motion/policy';
 
 /**
  * Pure logic of the live build on the canvas: what one revealed step is, how long to wait before the next,

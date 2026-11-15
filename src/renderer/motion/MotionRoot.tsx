@@ -1,30 +1,22 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { MotionConfig } from 'motion/react';
-import { motionIsFull } from './policy';
+import { EASE_OUT, useMotionTimings } from './policy';
 
-function effectiveReduced(): boolean {
-  return !motionIsFull();
-}
-
-/** CSS tokens stay the measured policy. MotionConfig only stops transform/layout when not fully on. */
+/**
+ * The motion library's defaults for the whole window, taken from the motion policy (motion/policy.ts).
+ *
+ * Who it serves: every component that animates with the motion library (the library rail, the dock's tab underline,
+ * chat messages and cards, Explain items, check rows, the welcome card, grey drafts on the canvas). A component that
+ * gives no `transition` of its own appears over --motion-enter on the ease-out curve.
+ *
+ * Why: «Уменьшена» / "Reduced" must mean the same here as in CSS. With motion reduced the library keeps fades
+ * (at the stylesheet's short --motion-enter) and drops movement and layout animation; with motion off every
+ * duration is 0. Before, the library cut to 0 under Reduced while dialogs and toasts still faded.
+ */
 export default function MotionRoot({ children }: { children: React.ReactNode }) {
-  const [reduced, setReduced] = useState(true);
-
-  useEffect(() => {
-    const read = () => setReduced(effectiveReduced());
-    read();
-    const observer = new MutationObserver(read);
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-motion'] });
-    const media = window.matchMedia('(prefers-reduced-motion: reduce)');
-    media.addEventListener('change', read);
-    return () => {
-      observer.disconnect();
-      media.removeEventListener('change', read);
-    };
-  }, []);
-
+  const { level, enter } = useMotionTimings();
   return (
-    <MotionConfig reducedMotion={reduced ? 'always' : 'never'} transition={reduced ? { duration: 0 } : undefined}>
+    <MotionConfig reducedMotion={level === 'full' ? 'never' : 'always'} transition={{ duration: enter, ease: EASE_OUT }}>
       {children}
     </MotionConfig>
   );

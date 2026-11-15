@@ -3,7 +3,7 @@ import { ViewportPortal, useNodes, useNodesInitialized, useReactFlow, type Node 
 import { editorKind, partnersOf, savedView } from '../../../../shared/workflow/comfyLook';
 import { useGraphStore } from '../../../state/graphState';
 import { useProjectionStore } from '../../../services/commands/projection';
-import { fitDurationMs } from '../../../motion/policy';
+import { moveCamera } from '../../../motion/camera';
 import { FIT_PADDING } from '../CanvasToolbar';
 import { autoFit, autoFitFloor } from '../lib/autoFit';
 import { setLookFlow, spreadCoveredNodes, useImportLookStore } from '../importLook';
@@ -76,11 +76,11 @@ function useFirstView(mode: 'root' | 'definition' | 'replay') {
             return rect.x < visible.x + visible.width && rect.x + rect.width > visible.x && rect.y < visible.y + visible.height && rect.y + rect.height > visible.y;
           });
           if (any) {
-            void flow.setViewport(view, { duration: fitDurationMs() });
+            void moveCamera(flow, view);
             return;
           }
         }
-        autoFit(flow, { padding: FIT_PADDING, duration: fitDurationMs(), maxZoom: 1 });
+        autoFit(flow, { padding: FIT_PADDING, maxZoom: 1 });
       } finally {
         useImportLookStore.getState().done('view');
         running.current = false;

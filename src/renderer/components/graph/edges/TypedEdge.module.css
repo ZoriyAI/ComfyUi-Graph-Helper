@@ -35,3 +35,17 @@
 
 /* A native reroute point of the link (IMPORT+NODES): a dot in the link's colour. */
 .reroutePoint { fill: var(--canvas-edge); stroke: var(--surface-canvas, #0a0e15); stroke-width: 2; }
+
+/* Motion package: a link that just changed flashes (motion/attention.ts); out of focus, a link steps far back. */
+.path[data-flash] { animation: edgeFlash var(--motion-mark) var(--motion-ease-out) 1; }
+@keyframes edgeFlash {
+  0% { stroke-width: 7; opacity: 1; filter: drop-shadow(0 0 8px var(--canvas-edge)); }
+  100% { stroke-width: 2; opacity: 0.9; filter: none; }
+}
+:global(html[data-motion="off"]) .path[data-flash],
+:global(html[data-motion="reduced"]) .path[data-flash] { stroke-width: 5; opacity: 1; filter: drop-shadow(0 0 6px var(--canvas-edge)); }
+@media (prefers-reduced-motion: reduce) {
+  :global(html[data-motion="system"]) .path[data-flash],
+  :global(html:not([data-motion])) .path[data-flash] { stroke-width: 5; opacity: 1; filter: drop-shadow(0 0 6px var(--canvas-edge)); }
+}
+.unfocused { opacity: 0.12; }

@@ -4,7 +4,7 @@ import { estimateNodeSize } from '../../../shared/graph/layout';
 import { classPresence, isCollapsed, overlapCount, spreadApart, type PlacedBox } from '../../../shared/workflow/comfyLook';
 import { i18n } from '../../i18n';
 import { showToast } from '../../ui/toastStore';
-import { fitDurationMs } from '../../motion/policy';
+import { centerCamera } from '../../motion/camera';
 import { commitManual } from './commit';
 import { levelNodes } from './lib/level';
 import { layoutRect, sizeHintsOf } from './lib/nodeSizes';
@@ -69,7 +69,7 @@ export function goToNode(nodeId: string): void {
   const width = node.measured?.width ?? 240;
   const height = node.measured?.height ?? 120;
   const zoom = Math.max(flow.getZoom(), 0.75);
-  void flow.setCenter(node.position.x + width / 2, node.position.y + height / 2, { zoom: Math.min(zoom, 1.25), duration: fitDurationMs() });
+  void centerCamera(flow, node.position.x + width / 2, node.position.y + height / 2, Math.min(zoom, 1.25));
   flow.setNodes((nodes) => nodes.map((item) => ({ ...item, selected: item.id === nodeId })));
 }
 

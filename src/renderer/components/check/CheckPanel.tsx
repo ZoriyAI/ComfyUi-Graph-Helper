@@ -21,7 +21,6 @@ const ROW_MOTION = {
   initial: { opacity: 0, y: 4 },
   animate: { opacity: 1, y: 0 },
   exit: { opacity: 0 },
-  transition: { duration: 0.16 },
 } as const;
 
 /** The kinds of finding that stop a graph from running: the colour and icon of errors. The rest are warnings. */

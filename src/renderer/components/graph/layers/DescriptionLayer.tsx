@@ -35,6 +35,7 @@ import {
 import { nodeRef } from '../lib/selection';
 import { nodeDisplayName } from '../lib/nodeName';
 import { useNodeDetail } from '../nodeInfo';
+import { useCameraStore } from '../../../motion/camera';
 import styles from './DescriptionLayer.module.css';
 
 /**
@@ -565,6 +566,22 @@ type View = [number, number, number, number, number];
 const viewOf = (state: ReactFlowState): View => [Math.round(state.transform[0]), Math.round(state.transform[1]), state.transform[2], state.width, state.height];
 const sameView = (a: View, b: View) => a.every((value, index) => value === b[index]);
 
+/** The flow rectangle in which description cards are drawn: the view plus one screen around it, on a coarse grid. */
+export function cullWindow(view: View): Box | null {
+  const [tx, ty, scale, width, height] = view;
+  if (!(width > 0 && height > 0 && scale > 0)) return null;
+  const step = Math.max(width, height) / 4;
+  const qx = Math.round(tx / step) * step;
+  const qy = Math.round(ty / step) * step;
+  return { x: (-qx - width) / scale, y: (-qy - height) / scale, width: (width * 3) / scale, height: (height * 3) / scale };
+}
+
+/** Whether a node's card is drawn: it lies in the window, or it is selected or spoken about (always shown). */
+export function inWindow(box: Box | undefined, window: Box | null, always: boolean | undefined): boolean {
+  if (always || !box || !window) return true;
+  return box.x + box.width >= window.x && box.x <= window.x + window.width && box.y + box.height >= window.y && box.y <= window.y + window.height;
+}
+
 /** Widest a card can reach from its node, in screen pixels: neighbours farther than this cannot be covered. */
 const REACH_PX = MAX_WIDTH + 40;
 
@@ -593,6 +610,10 @@ export default function DescriptionLayer() {
   const nodes = useNodes();
   const flowStore = useStoreApi();
   const zoom = useStore(zoomOf);
+  // Performance (motion package): while the zoom changes, and on the overview map where cards are not shown, no
+  // card is drawn. Re-placing every card on every frame of a zoom cost a large graph most of its frames; the cards
+  // come back, fading in, once the camera rests.
+  const resting = useCameraStore((state) => !state.zooming && !state.overview);
   const spotlight = useDescriptionSpotlight();
   const { readOnly } = useCanvasView();
   const components = useGraphStore((state) => state.components);
@@ -625,12 +646,14 @@ export default function DescriptionLayer() {
     return map;
   }, [nodes, flowStore, pending]);
   const neighbours = useMemo(() => {
+    // Not while the zoom changes: no card is drawn then, and this is the costly part (every node against every node).
+    if (!resting) return new Map<string, Box[]>();
     const all = [...boxes.values()];
     const reach = REACH_PX / (zoom > 0 ? zoom : 1);
     const map = new Map<string, Box[]>();
     for (const [id, box] of boxes) map.set(id, neighbourBoxes(box, all, reach));
     return map;
-  }, [boxes, zoom]);
+  }, [boxes, zoom, resting]);
 
   const single = selectedIds.length === 1 ? selectedIds[0] : null;
   const view = useStore(viewOf, sameView);
@@ -641,9 +664,13 @@ export default function DescriptionLayer() {
     const top = TOOLBAR_PX;
     return { x: (left - tx) / scale, y: (top - ty) / scale, width: (view[3] - left - EDGE_PX) / scale, height: (view[4] - top - EDGE_PX) / scale };
   }, [view]);
+  // Cards of nodes far outside the view are not drawn: the window is the view grown by one screen on each side,
+  // computed on a coarse grid of positions so a pan does not mount and unmount cards on every frame.
+  const window_ = useMemo(() => cullWindow(view), [view]);
+  if (!resting) return null;
   return (
     <>
-      {nodes.map((node) => (node.type === 'comfy' && !pending.includes(node.id) && node.id !== speaking
+      {nodes.map((node) => (node.type === 'comfy' && !pending.includes(node.id) && node.id !== speaking && inWindow(boxes.get(node.id), window_, node.selected || node.id === spotlight?.nodeId)
         ? (
           <DescriptionCard
             key={node.id}

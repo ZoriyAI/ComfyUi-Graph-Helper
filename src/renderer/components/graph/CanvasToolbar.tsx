@@ -7,7 +7,6 @@ import { useUiStore } from '../../state/uiState';
 import AddNodeSearch from './AddNodeSearch';
 import ReplayPlayer from './ReplayPlayer';
 import { useCanvasStore } from './canvasStore';
-import { fitDurationMs } from '../../motion/policy';
 import { startGraphTour } from './tour/startTour';
 import { runCommand, useCommandState } from '../../commands/registry';
 import styles from './Toolbar.module.css';
@@ -58,15 +57,16 @@ export default function CanvasToolbar() {
   const replaying = useCanvasStore((state) => Boolean(state.replay));
   const descriptionsMode = useCanvasStore((state) => state.descriptionsMode);
   const open = openProposals(proposals).length;
-  const duration = fitDurationMs();
   const zoom = useStore(zoomOf);
 
   // Groups: make (add, arrange) | camera (zoom out, zoom %, zoom in, fit) | explain (descriptions, tour, history) |
   // follow the assistant. The tour's transport is its own pill under the toolbar, so the toolbar does not jump.
   return (
     <div className={styles.stack}>
-    <div className={styles.toolbar} role="toolbar" aria-label={String(t('canvas.toolbar'))}>
-      <span className={styles.group}>
+    <div className={styles.toolbar} role="toolbar" aria-label={String(t('canvas.toolbar'))} data-replaying={replaying ? 'true' : undefined}>
+      {/* While a version from the history is on screen nothing can be added or arranged: those tools step aside so the
+          history's player fits on the same single row (motion package). */}
+      {replaying ? null : <span className={styles.group}>
         <button type="button" className={`${styles.button} ${styles.primary} ${styles.wide}`} onClick={() => void runCommand('graph.addNode')} disabled={replaying} title={String(t('canvas.addNode'))} aria-label={String(t('canvas.addNode'))} data-canvas-add-node>
           <SquarePlus size={16} aria-hidden="true" />
           <span>{t('canvas.addNodeLabel')}</span>
@@ -84,7 +84,7 @@ export default function CanvasToolbar() {
           <Workflow size={16} aria-hidden="true" />
           <span>{t('canvas.arrange')}</span>
         </button>
-      </span>
+      </span>}
       <span className={styles.group}>
         {/*
           React Flow's controls panel, laid out as − 100 % + ⛶: zoom drawn as magnifiers so it never looks like "add",
@@ -98,7 +98,6 @@ export default function CanvasToolbar() {
           showZoom={false}
           showFitView={false}
           showInteractive={false}
-          fitViewOptions={{ padding: FIT_PADDING, duration }}
         >
           <ControlButton className="react-flow__controls-zoomout" onClick={() => void runCommand('view.zoomOut')} title={String(t('canvas.zoomOut'))} aria-label={String(t('canvas.zoomOut'))}>
             <ZoomOut className={styles.glyph} aria-hidden="true" />
@@ -129,10 +128,12 @@ export default function CanvasToolbar() {
           {descriptionsMode === 'all' ? <MessagesSquare size={16} aria-hidden="true" /> : <MessageSquareText size={16} aria-hidden="true" />}
           <span>{t('canvas.descriptionsLabel')}</span>
         </button>
+{replaying ? null : (
         <button type="button" className={`${styles.button} ${styles.labelled}`} disabled={replaying} aria-pressed={Boolean(tour)} onClick={() => (tour ? stopTour() : void startGraphTour())} aria-label={String(t('canvas.tourStart'))} title={String(tour ? t('canvas.tourStop') : t('canvas.tourStart'))}>
           <Compass size={16} aria-hidden="true" />
           <span>{t('canvas.tourLabel')}</span>
         </button>
+        )}
         <ReplayPlayer />
       </span>
       <span className={styles.group}>

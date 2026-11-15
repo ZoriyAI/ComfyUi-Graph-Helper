@@ -14,7 +14,7 @@ import Inspector from '../graph/Inspector';
 import { canUseSplit, dockRange, normalizeDockTab, useDockStore, type DockTab } from '../../state/dockState';
 import { RAIL_STRIP, RAIL_WIDTH, useUiStore } from '../../state/uiState';
 import { DESKTOP_PROJECT_ID } from '../../../shared/project';
-import { motionIsFull } from '../../motion/policy';
+import { EASE_OUT, useMotionTimings } from '../../motion/policy';
 import { runCommand, useCommandState } from '../../commands/registry';
 import styles from './Dock.module.css';
 
@@ -197,7 +197,8 @@ export default function Dock({ onSendMessage, onPause }: { onSendMessage: (conte
   const show = useDockStore((state) => state.show);
   const labels = TABS.map((item) => String(t(item.label)));
   const [tabsRef, labelsFit] = useLabelsFit(labels);
-  const slide = motionIsFull() ? 0.2 : 0;
+  // The underline slides over --motion-panel; the motion library drops layout animation unless motion is full.
+  const slide = useMotionTimings().panel;
 
   const panels: Record<DockTab, React.ReactNode> = {
     assistant: <ChatDock onSendMessage={onSendMessage} onPause={onPause} />,
@@ -231,7 +232,7 @@ export default function Dock({ onSendMessage, onPause }: { onSendMessage: (conte
                       <span className={styles.tabIcon} aria-hidden="true">{item.icon}</span>
                       <span className={iconOnly ? 'sr-only' : styles.tabLabel}>{labels[index]}</span>
                       {active && !collapsed ? (
-                        <motion.span layoutId="dock-tab-underline" className={styles.underline} transition={{ duration: slide, ease: [0.2, 0, 0, 1] }} aria-hidden="true" />
+                        <motion.span layoutId="dock-tab-underline" className={styles.underline} transition={{ duration: slide, ease: EASE_OUT }} aria-hidden="true" />
                       ) : null}
                     </TabsTrigger>
                   );

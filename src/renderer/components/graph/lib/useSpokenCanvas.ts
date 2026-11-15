@@ -5,7 +5,7 @@
  * Why a hook: the names follow the interface language, the catalog's readable class names (which arrive late)
  * and the selection, and must be recomputed only when one of those changes.
  */
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNodeInfoStore } from '../nodeInfo';
 import { useKnowledgeStore } from '../../../state/knowledgeState';
@@ -27,6 +27,12 @@ export function useSpokenCanvas<N extends FlowNode, E extends FlowEdge>(nodes: N
       link.setAttribute('aria-hidden', 'true');
     });
   });
+  // The named node or link handed to React Flow last time, by id (motion package, performance): when neither the
+  // node nor its name changed, the same object goes back, so React Flow keeps what it measured and does not redraw
+  // it. New objects for every node on every change made a drag redraw the whole graph and a version in the history
+  // drop its links for a frame.
+  const nodeCache = useRef(new Map<string, { from: N; label: string; role: string; out: N }>());
+  const edgeCache = useRef(new Map<string, { from: E; label: string; focusable: boolean; role: string; out: E }>());
   return useMemo(() => {
     const say: Say = (key, values) => String(values ? t(key, values) : t(key));
     const linked = linkedInputCounts(edges);
@@ -47,14 +53,34 @@ export function useSpokenCanvas<N extends FlowNode, E extends FlowEdge>(nodes: N
         error: errorNodes.has(node.id),
       });
       // React Flow writes aria-roledescription="node" in English; the attribute here comes after it and wins.
-      return { ...node, ariaLabel, domAttributes: { ...(node.domAttributes ?? {}), 'aria-roledescription': say('a11y.nodeRole') } };
+      const role = say('a11y.nodeRole');
+      const kept = nodeCache.current.get(node.id);
+      if (kept && kept.from === node && kept.label === ariaLabel && kept.role === role) return kept.out;
+      const out = { ...node, ariaLabel, domAttributes: { ...(node.domAttributes ?? {}), 'aria-roledescription': role } } as N;
+      nodeCache.current.set(node.id, { from: node, label: ariaLabel, role, out });
+      return out;
     });
-    const spokenEdges = edges.map((edge) => ({
-      ...edge,
-      ariaLabel: edgeSpeech(edge, byId, say, titles),
-      focusable: edgeFocusable(edge, selected),
-      domAttributes: { ...((edge as { domAttributes?: Record<string, unknown> }).domAttributes ?? {}), 'aria-roledescription': say('a11y.edgeRole') },
-    }));
+    const edgeRole = say('a11y.edgeRole');
+    const spokenEdges = edges.map((edge) => {
+      const label = edgeSpeech(edge, byId, say, titles);
+      const focusable = edgeFocusable(edge, selected);
+      const kept = edgeCache.current.get(edge.id);
+      if (kept && kept.from === edge && kept.label === label && kept.focusable === focusable && kept.role === edgeRole) return kept.out;
+      const out = {
+        ...edge,
+        ariaLabel: label,
+        focusable,
+        domAttributes: { ...((edge as { domAttributes?: Record<string, unknown> }).domAttributes ?? {}), 'aria-roledescription': edgeRole },
+      } as E;
+      edgeCache.current.set(edge.id, { from: edge, label, focusable, role: edgeRole, out });
+      return out;
+    });
+    // Forget what left the canvas.
+    if (nodeCache.current.size > named.length * 2) nodeCache.current = new Map([...nodeCache.current].filter(([id]) => byId.has(id)));
+    if (edgeCache.current.size > spokenEdges.length * 2) {
+      const ids = new Set(edges.map((edge) => edge.id));
+      edgeCache.current = new Map([...edgeCache.current].filter(([id]) => ids.has(id)));
+    }
     return { nodes: named as N[], edges: spokenEdges as E[] };
     // i18n.language: the names are rebuilt in the new language at once.
   }, [nodes, edges, errorNodes, details, catalogRead, t, i18n.language]);

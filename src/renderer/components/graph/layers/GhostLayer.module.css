@@ -7,7 +7,7 @@
   stroke-width: 2;
   stroke-dasharray: 6 6;
   opacity: 0.75;
-  animation: march 900ms linear infinite;
+  animation: march var(--motion-march) linear infinite;
 }
 .midpoint { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 4px; pointer-events: auto; }
 .flag {

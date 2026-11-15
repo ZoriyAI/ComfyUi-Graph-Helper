@@ -100,9 +100,8 @@
 .step[data-state="done"] { --step-hue: var(--ok, #58c48a); border-color: color-mix(in srgb, var(--ok, #58c48a) 35%, var(--border-subtle)); }
 .step[data-state="done"] .stepBody { color: var(--text); }
 .step[data-state="problem"] { --step-hue: var(--danger, #ff6b6b); }
-.step[data-state="busy"] .icon { animation: onboard-pulse 1.4s ease-in-out infinite; }
+.step[data-state="busy"] .icon { animation: onboard-pulse var(--motion-pulse) var(--motion-ease-in-out) infinite; }
 @keyframes onboard-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
-@media (prefers-reduced-motion: reduce) { .step[data-state="busy"] .icon { animation: none; } }
 .actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 6px; }
 /* A narrow canvas: the steps stack, each as an icon beside its title, text and button. */
 @container (max-width: 700px) {

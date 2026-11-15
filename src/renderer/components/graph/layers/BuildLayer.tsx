@@ -11,14 +11,14 @@ import { useCanvasStore, type BuildCallout, type FadingNode } from '../canvasSto
 import { changedNodes, diffGraph, revealSteps } from '../lib/graphDiff';
 import { currentPreferences } from '../../../state/preferencesState';
 import { CALLOUT_HOLD_MS, calloutText, parameterChanges, stepCounter, stepDelayMs, type BuildItem } from '../lib/buildQueue';
-import { motionLevel, motionMs, useMotionLevel } from '../lib/motion';
+import { motionLevel, motionMs, useMotionLevel } from '../../../motion/policy';
 import { useNodeInfoStore } from '../nodeInfo';
 import { useCenterOn } from './TourLayer';
 import { nodeDisplayName } from '../lib/nodeName';
 import { BUILD_BUBBLE_PX, BUILD_ROOM_PX, CALLOUT_GAP_PX, CALLOUT_Z } from '../lib/followCamera';
 import { FIT_PADDING } from '../CanvasToolbar';
-import { fitDurationMs } from '../../../motion/policy';
 import { selectOnLevel } from '../lib/level';
+import { flash } from '../../../motion/attention';
 import { autoFit } from '../lib/autoFit';
 import styles from './Callout.module.css';
 
@@ -36,7 +36,7 @@ function later(ms: number, run: () => void): void {
 }
 
 function revealMs(): number {
-  return motionMs('--motion-reveal', 320);
+  return motionMs('--motion-reveal');
 }
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
@@ -192,6 +192,12 @@ export default function BuildLayer({ levelId }: { levelId: string | null }) {
         later(revealMs() * 2 + 80, () => useCanvasStore.getState().clearFading(gone.map((node) => node.id)));
       }
     }
+    // A node the person deleted fades where it stood too (motion package), as one the assistant removed does.
+    if (!agent && removed.length > 0 && motionLevel() === 'full' && !useCanvasStore.getState().replay) {
+      const gone = fadingOf(removed);
+      canvas.addFading(gone);
+      later(revealMs() * 2 + 80, () => useCanvasStore.getState().clearFading(gone.map((node) => node.id)));
+    }
     const added = [...diff.addedNodes, ...diff.addedEdges];
     if (!agent) {
       if (added.length === 0) return;
@@ -255,7 +261,7 @@ export default function BuildLayer({ levelId }: { levelId: string | null }) {
   useEffect(() => {
     if (activeRun || queue.length > 0 || !liveRunId || liveShown === 0 || fittedRun.current === liveRunId) return;
     fittedRun.current = liveRunId;
-    const fit = () => autoFit(flow, { padding: FIT_PADDING, duration: fitDurationMs(), maxZoom: BUILD_FIT_MAX_ZOOM });
+    const fit = () => autoFit(flow, { padding: FIT_PADDING, maxZoom: BUILD_FIT_MAX_ZOOM });
     // Not cancelled on re-render: it runs once per build.
     if (useUiStore.getState().followAgent) {
       later(FOLLOW_END_FIT_MS, () => {
@@ -282,7 +288,11 @@ export default function BuildLayer({ levelId }: { levelId: string | null }) {
     const frame = window.requestAnimationFrame(() => {
       if ((useGraphStore.getState().activeSubgraphId ?? null) !== levelId || !flow.getInternalNode(centerRequest.nodeId)) return;
       centerNode(centerRequest.nodeId);
-      selectOnLevel([centerRequest.nodeId]);
+      if (centerRequest.select !== false) {
+        selectOnLevel([centerRequest.nodeId]);
+        // "Here it is" (motion package): the node the camera was sent to rings once, so the eye finds it.
+        flash({ nodes: [centerRequest.nodeId] });
+      }
     });
     return () => window.cancelAnimationFrame(frame);
   }, [centerRequest, centerNode, flow, levelId]);

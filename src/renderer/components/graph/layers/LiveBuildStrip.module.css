@@ -19,7 +19,7 @@
   height: 8px;
   border-radius: 50%;
   background: var(--ai, #b7a5ff);
-  animation: breathe calc(var(--motion-pulse, 1200ms)) ease-in-out infinite;
+  animation: breathe calc(var(--motion-pulse, 1200ms)) var(--motion-ease-in-out) infinite;
 }
 .dot[data-paused="true"] { background: var(--warn, #f6ce7c); animation: none; }
 .text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

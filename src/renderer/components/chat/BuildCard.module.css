@@ -52,7 +52,7 @@
   font: inherit;
   text-align: left;
 }
-button.line { cursor: pointer; transition: background var(--motion-feedback) ease, color var(--motion-feedback) ease; }
+button.line { cursor: pointer; transition: background var(--motion-feedback) var(--motion-ease-out), color var(--motion-feedback) var(--motion-ease-out); }
 button.line:hover { background: var(--surface-hover); color: var(--text); }
 button.line:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--focus); }
 .icon { flex: none; margin-top: 2px; color: var(--accent); }
