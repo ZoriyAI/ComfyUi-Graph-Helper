@@ -1,0 +1,75 @@
+/** One constructor journey: bound ports, exposed controls, native export, entry and an empty nested subgraph. */
+import { test, expect, _electron as electron } from '@playwright/test';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { useEnglish } from './locale';
+import { startFakeMcp } from '../fixtures/mcp/fakeMcpServer';
+
+test('construct a native node with ports and settings, then build an empty subgraph inside it', async () => {
+  const profile = mkdtempSync(join(tmpdir(), 'nodewise-constructor-'));
+  const source = join(profile, 'sampler.json');
+  writeFileSync(source, JSON.stringify({ version: 1, state: { lastNodeId: 1, lastLinkId: 0 }, nodes: [{ id: 1, type: 'KSampler', pos: [100, 100], size: [300, 350], flags: {}, order: 0, mode: 0, properties: {}, inputs: [{ name: 'model', type: 'MODEL', link: null }], outputs: [{ name: 'LATENT', type: 'LATENT', links: [] }], widgets_values: [91, 'fixed', 23, 5, 'euler', 'normal', 1] }], links: [], groups: [], extra: {} }));
+  const fake = await startFakeMcp();
+  const env = { ...process.env, NODE_ENV: 'production' } as Record<string, string>;
+  delete env.DBUS_SESSION_BUS_ADDRESS; delete env.GNOME_KEYRING_CONTROL;
+  const app = await electron.launch({ args: [join(__dirname, '../../dist/main/index.js'), `--user-data-dir=${profile}`], env });
+  try {
+    const page = await app.firstWindow(); const errors: string[] = []; page.on('pageerror', (error) => errors.push(error.message));
+    await page.setViewportSize({ width: 1440, height: 1000 }); await useEnglish(page);
+    await page.evaluate(async (url) => {
+      const settings = await window.electronAPI.getSettings(); if (settings.source === 'corrupt') throw Error('Unreadable settings');
+      await window.electronAPI.saveSettings({ ...settings.values, mcpUrl: url, mcpAuth: 'none' });
+      const result = await window.electronAPI.syncNow(); if (result.state === 'error') throw Error(result.lastError ?? 'Sync failed');
+    }, fake.url);
+    await app.evaluate(({ dialog }, file) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [file] }); }, source);
+    await page.getByRole('button', { name: 'Open workflow…', exact: true }).click();
+    await expect(page.locator('.react-flow__node')).toHaveCount(1);
+    const rail = page.locator('#library-rail'); await rail.getByRole('tab', { name: 'Subgraphs', exact: true }).click();
+    await rail.getByRole('button', { name: 'Subgraph constructor…', exact: true }).click();
+    const wizard = page.getByRole('dialog', { name: 'Create a subgraph node', exact: true });
+    await wizard.getByRole('textbox', { name: 'Node name', exact: true }).fill('Sampler block');
+    await wizard.getByRole('textbox', { name: 'What this node does', exact: true }).fill('Turn a model into latent samples');
+    await wizard.getByRole('checkbox', { name: /KSampler/ }).check();
+    await wizard.getByRole('button', { name: 'Next', exact: true }).click();
+    await wizard.getByRole('button', { name: 'Add input', exact: true }).click();
+    await wizard.getByRole('textbox', { name: 'Input 1 name', exact: true }).fill('model');
+    await wizard.getByRole('combobox', { name: 'Input 1 inner connection', exact: true }).selectOption({ label: 'KSampler · model' });
+    await wizard.getByRole('button', { name: 'Add output', exact: true }).click();
+    await wizard.getByRole('textbox', { name: 'Output 1 name', exact: true }).fill('samples');
+    await wizard.getByRole('combobox', { name: 'Output 1 inner connection', exact: true }).selectOption({ label: 'KSampler · LATENT' });
+    await wizard.getByRole('button', { name: 'Next', exact: true }).click();
+    await wizard.getByRole('checkbox', { name: /KSampler · steps/ }).check();
+    await wizard.getByRole('button', { name: 'Next', exact: true }).click();
+    await wizard.getByRole('checkbox', { name: 'Open the inner graph after saving', exact: true }).uncheck();
+    await page.screenshot({ path: 'test-results/subgraph-constructor-review.png' });
+    await wizard.getByRole('button', { name: 'Create node', exact: true }).click();
+    await expect(wizard).toHaveCount(0);
+    const outer = page.locator('.react-flow__node').filter({ hasText: 'Sampler block' });
+    const steps = outer.getByRole('spinbutton', { name: 'steps', exact: true });
+    await expect(steps).toHaveValue('23'); await steps.fill('29'); await steps.press('Enter');
+    await expect(steps).toHaveValue('29');
+    const exported = await page.evaluate(() => window.electronAPI.exportWorkflowDocument());
+    expect(exported.ok).toBe(true); if (!exported.ok) throw Error('Export refused');
+    const file = exported.workflow as { nodes: Array<{ widgets_values: unknown[]; properties: { proxyWidgets: unknown[] } }>; definitions: { subgraphs: Array<{ widgets: unknown[]; links: unknown[]; inputs: Array<{ type: string }>; outputs: Array<{ type: string }> }> } };
+    expect(file.nodes[0].widgets_values).toEqual([29]); expect(file.nodes[0].properties.proxyWidgets).toEqual([['1', 'steps']]);
+    expect(file.definitions.subgraphs[0].widgets).toEqual([{ id: '1', name: 'steps' }]);
+    expect(file.definitions.subgraphs[0].links).toHaveLength(2);
+    expect(file.definitions.subgraphs[0].inputs[0].type).toBe('MODEL'); expect(file.definitions.subgraphs[0].outputs[0].type).toBe('LATENT');
+    await outer.getByRole('button', { name: 'Open subgraph Sampler block', exact: true }).click();
+    await rail.getByRole('button', { name: 'Subgraph constructor…', exact: true }).click();
+    const nested = page.getByRole('dialog', { name: 'Create a subgraph node', exact: true });
+    await nested.getByRole('textbox', { name: 'Node name', exact: true }).fill('Nested stage');
+    await nested.getByRole('button', { name: 'Next', exact: true }).click();
+    await nested.getByRole('button', { name: 'Next', exact: true }).click();
+    await nested.getByRole('button', { name: 'Next', exact: true }).click();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(nested.getByRole('button', { name: 'Create node', exact: true })).toBeInViewport();
+    await page.screenshot({ path: 'test-results/subgraph-constructor-mobile.png' });
+    await nested.getByRole('button', { name: 'Create node', exact: true }).click();
+    await expect(nested).toHaveCount(0);
+    const projection = await page.evaluate(() => window.electronAPI.readProjection('desktop'));
+    expect((projection!.snapshot.subgraphs as Array<{ name: string }>).map((item) => item.name)).toEqual(['Sampler block', 'Nested stage']);
+    expect(errors).toEqual([]);
+  } finally { await app.close(); await fake.close(); rmSync(profile, { recursive: true, force: true }); }
+});

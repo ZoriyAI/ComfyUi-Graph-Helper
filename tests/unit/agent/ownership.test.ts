@@ -86,4 +86,28 @@ describe('a build changes only what it placed itself (P0)', () => {
     expect(named).toMatchObject({ success: true });
     expect(named.drafted).toBeUndefined();
   });
+
+  it('constructs and configures its own nested graphs without acquiring the person\'s definitions or root ids', async () => {
+    const db = openDb();
+    const before = manual(db, 'user-subgraph', { type: 'create-subgraph', name: 'Mine', nodeIds: [] });
+    const personId = (before.result as { definitionId: string }).definitionId;
+    const run = startRun(db, P);
+    const tools = createBuildTools(BUILD_TOOL_SPECS, { db, run: { projectId: P, runId: run.runId, expectedRevisionId: run.expectedRevisionId }, toolContext: () => ({ snapshot: readProjection(db, P)!.snapshot as never }) });
+    const denied = await tools.configureSubgraph.execute({ definitionId: personId, name: 'Overwritten', widgets: [] }, { toolCallId: 'deny' });
+    expect(denied).toMatchObject({ success: false });
+    const made = await tools.createSubgraph.execute({ name: 'Agent outer', nodeIds: [] }, { toolCallId: 'outer' }) as { success: boolean; definitionId: string };
+    expect(made.success).toBe(true);
+    const nested = await tools.createSubgraph.execute({ name: 'Agent inner', nodeIds: [], inSubgraph: made.definitionId }, { toolCallId: 'inner' }) as { success: boolean; definitionId: string };
+    expect(nested.success).toBe(true);
+    const innerNode = await tools.addNode.execute({ nodeType: 'KSampler', inSubgraph: nested.definitionId }, { toolCallId: 'add' }) as { success: boolean; outputs: Array<{ name: string }> };
+    expect(innerNode.success).toBe(true);
+    expect(innerNode.outputs.some((port) => port.name === 'LATENT')).toBe(true);
+    expect(await tools.configureSubgraph.execute({ definitionId: nested.definitionId, name: 'Named inner', widgets: [] }, { toolCallId: 'configure' })).toMatchObject({ success: true });
+    expect(await tools.addNode.execute({ nodeType: 'KSampler', inSubgraph: personId }, { toolCallId: 'deny-inner' })).toMatchObject({ success: false });
+    const definitions = readProjection(db, P)!.snapshot.subgraphs as Array<{ id: string; name: string; nodes: unknown[] }>;
+    expect(definitions.find((item) => item.id === personId)).toMatchObject({ name: 'Mine', nodes: [] });
+    expect(definitions.find((item) => item.id === nested.definitionId)).toMatchObject({ name: 'Named inner' });
+    expect(definitions.find((item) => item.id === nested.definitionId)!.nodes).toHaveLength(1);
+    db.close();
+  });
 });

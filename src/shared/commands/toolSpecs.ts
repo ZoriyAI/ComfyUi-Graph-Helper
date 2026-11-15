@@ -31,7 +31,9 @@ const whyProp = {
   maxLength: WHY_MAX,
   description: 'One sentence for the person, shown next to the node as it appears; stored as the node\'s description. Give it on every step.',
 };
-const withWhy = (properties: Record<string, Record<string, unknown>>) => ({ ...properties, why: whyProp });
+const withWhy = (properties: Record<string, Record<string, unknown>>) => ({ ...properties, why: whyProp,
+  inSubgraph: { type: 'string', description: 'Optional definition id for addNode/connectNodes/setParameter/removeNode/createSubgraph/insertSubgraph inside a subgraph created by this build. Omit for the main canvas.' },
+});
 const noteProp = { type: 'string', maxLength: 2000, description: 'Short reason shown next to the ghost. Stored as data.' };
 const ioItem = {
   type: 'object',
@@ -41,7 +43,7 @@ const ioItem = {
     nodeId: { type: 'string', description: 'Id of the selected node the slot connects to inside the subgraph' },
     handle: { type: 'string', description: 'Port handle on that node, for example in-0 or out-1' },
   },
-  required: ['name', 'type', 'nodeId', 'handle'],
+  required: ['name', 'type'],
   additionalProperties: false,
 };
 
@@ -70,7 +72,10 @@ const parameterProps = {
 };
 const subgraphProps = {
   name: { type: 'string', description: 'Subgraph name' },
-  nodeIds: { type: 'array', items: { type: 'string' }, minItems: 1, description: 'Ids of the nodes to move into the subgraph' },
+  nodeIds: { type: 'array', items: { type: 'string' }, description: 'Ids of nodes to move; [] creates an empty subgraph to construct inside.' },
+  description: { type: 'string', maxLength: 4000, description: 'What this subgraph does.' },
+  widgets: { type: 'array', items: { type: 'object', properties: { nodeId, name: { type: 'string' } }, required: ['nodeId', 'name'], additionalProperties: false }, description: 'Known inner widget names to expose on each instance as independent controls.' },
+  upgradeToV1: { type: 'boolean', description: 'Explicitly upgrade an imported0.4 workflow to native format1, required for subgraphs.' },
   inputs: { type: 'array', items: ioItem, description: 'Extra boundary inputs. Edges that cross the boundary get slots automatically.' },
   outputs: { type: 'array', items: ioItem, description: 'Extra boundary outputs. Edges that cross the boundary get slots automatically.' },
 };
@@ -91,6 +96,9 @@ export const BUILD_TOOL_SPECS: GraphToolSpec[] = [
   spec('setParameter', `Set one widget value on a node. ${DIRECT} ${DATA}`, withWhy(parameterProps), ['nodeId', 'key', 'value']),
   spec('removeNode', `Remove a node and its links. ${DIRECT} ${DATA}`, withWhy({ nodeId }), ['nodeId']),
   spec('createSubgraph', `Move selected nodes into a new subgraph; one subgraph node replaces them. ${DIRECT} ${DATA}`, withWhy(subgraphProps), ['name', 'nodeIds']),
+  spec('configureSubgraph', `Set the name, purpose and exposed controls of a subgraph created in this build. Keeps its contents and links; pre-existing user definitions are protected. ${DIRECT} ${DATA}`, withWhy({
+    definitionId: { type: 'string' }, name: subgraphProps.name, description: subgraphProps.description, widgets: subgraphProps.widgets,
+  }), ['definitionId', 'name', 'widgets']),
   spec('insertSubgraph', `Place another instance of an existing subgraph definition. ${DIRECT} ${DATA}`, withWhy({
     definitionId: { type: 'string', description: 'Subgraph definition id' },
     x: { type: 'number', description: 'X position on the canvas' },

@@ -166,6 +166,7 @@ const ACTION_KEYS: Record<string, string> = {
   'set-component': 'undo.setComponent',
   'set-process': 'undo.setProcess',
   'create-subgraph': 'undo.createSubgraph',
+  'configure-subgraph': 'undo.createSubgraph',
   'insert-subgraph': 'undo.insertSubgraph',
   'dissolve-subgraph': 'undo.dissolveSubgraph',
   'rename-subgraph': 'undo.renameSubgraph',
@@ -206,7 +207,7 @@ export function describeRevision(revision: UndoRevision): { key: string; values:
     const all = typeof payload.count === 'number' ? payload.count : 0;
     const nodes = typeof payload.nodes === 'number' ? payload.nodes : 0;
     const count = label === 'delete' || label === 'move' ? all : nodes;
-    const keyOf: Record<string, string> = { delete: 'undo.batchDelete', paste: 'undo.batchPaste', duplicate: 'undo.batchDuplicate', cut: 'undo.batchCut', move: 'undo.batchMove', 'add-linked': 'undo.batchAddLinked' };
+    const keyOf: Record<string, string> = { delete: 'undo.batchDelete', paste: 'undo.batchPaste', duplicate: 'undo.batchDuplicate', cut: 'undo.batchCut', move: 'undo.batchMove', 'add-linked': 'undo.batchAddLinked', subgraph: 'undo.createSubgraph' };
     return { key: keyOf[label] ?? 'undo.batchMove', values: { count: String(count || all) } };
   }
   const key = ACTION_KEYS[type];

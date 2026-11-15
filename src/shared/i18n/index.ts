@@ -184,7 +184,7 @@ const MCP_REFUSED = /^MCP tool call refused: ([A-Za-z0-9_.-]{1,80}) is not on th
 /** AI SDK NoSuchToolError: the model asked for a tool this turn does not offer (a build tool in an Ask turn). */
 const UNAVAILABLE_TOOL = /Model tried to call unavailable tool '([A-Za-z0-9_.-]{1,80})'/;
 /** The build tools: a model that calls one in an Ask turn gets a sentence that says to switch to Build. */
-const BUILD_TOOL_NAMES = new Set(['addNode', 'connectNodes', 'setParameter', 'removeNode', 'createSubgraph', 'insertSubgraph', 'annotateNode', 'setComponentDocumentation', 'setProcess']);
+const BUILD_TOOL_NAMES = new Set(['addNode', 'connectNodes', 'setParameter', 'removeNode', 'createSubgraph', 'configureSubgraph', 'insertSubgraph', 'annotateNode', 'setComponentDocumentation', 'setProcess']);
 
 /** Sync errors and warnings that carry a host or a catalog section (src/main/mcp/sync.ts). */
 const MCP_UNREACHABLE = /^MCP server unreachable: ([A-Za-z0-9.:\[\]_-]{1,255})\.$/;

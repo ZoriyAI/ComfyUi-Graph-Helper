@@ -163,13 +163,14 @@ function insertNested(
   holder: SubgraphDefinition,
   work: GraphSnapshot,
   edit: Extract<InnerEdit['edit'], { type: 'insert-subgraph' }>,
+  catalog: CatalogView,
 ): { snapshot: GraphSnapshot; result: Record<string, unknown> } {
   const placed = definitions.find((item) => !item.opaque && item.id === edit.definitionId);
   if (!placed) throw new GraphOpError(SUBGRAPH_ERRORS.definitionMissing);
   if (nestsItself(definitions, holder.id, placed.id)) throw new GraphOpError(INNER_ERRORS.selfNesting);
   const nodeId = new Ids(work).node(new Set(work.nodes.map((node) => String(node.id))));
   return {
-    snapshot: { ...work, nodes: [...work.nodes, instanceNode(nodeId, placed, edit.x, edit.y, edit.title)] },
+    snapshot: { ...work, nodes: [...work.nodes, instanceNode(nodeId, placed, edit.x, edit.y, edit.title, catalog)] },
     result: { definitionId: placed.id, nodeId },
   };
 }
@@ -206,7 +207,7 @@ export function applyInnerEdit(
   const applied = edit.type === 'connect' && (boundary(edit.source) || boundary(edit.target))
     ? connectBoundary(definition, work, edit)
     : edit.type === 'insert-subgraph'
-      ? insertNested(definitions, definition, work, edit)
+      ? insertNested(definitions, definition, work, edit, catalog)
       : applyLevel(work, actionId, edit as GraphMutation, catalog);
   const nodes = applied.snapshot.nodes as Node[];
   const edges = applied.snapshot.edges as Edge[];
@@ -217,7 +218,7 @@ export function applyInnerEdit(
     lastLinkId: Math.max(before.lastLinkId, used.lastLinkId),
   });
   return {
-    snapshot: { ...snapshot, subgraphs: definitions.map((item) => (item === definition ? updated : item)) },
+    snapshot: { ...snapshot, subgraphs: [...definitions.map((item) => (item === definition ? updated : item)), ...(applied.snapshot.subgraphs ?? [])] },
     result: { definitionId: definition.id, edit: edit.type, ...applied.result },
   };
 }

@@ -15,6 +15,22 @@ export const subgraphIOSchema = z.object({
   handle: z.string().min(1),
 });
 
+/** An interface slot may be left unconnected while a new subgraph is being constructed. */
+export const subgraphDraftIOSchema = subgraphIOSchema.extend({
+  nodeId: z.string().min(1).optional(),
+  handle: z.string().min(1).optional(),
+}).refine((slot) => Boolean(slot.nodeId) === Boolean(slot.handle), { message: 'An inner node and handle must be provided together.' });
+export const subgraphWidgetSchema = z.object({ nodeId: z.string().min(1), name: z.string().min(1).max(200) });
+export const createSubgraphMutation = z.object({
+  type: z.literal('create-subgraph'), name: z.string().trim().min(1).max(200),
+  nodeIds: z.array(z.string().min(1)).max(5000),
+  inputs: z.array(subgraphDraftIOSchema).max(200).default([]),
+  outputs: z.array(subgraphDraftIOSchema).max(200).default([]),
+  widgets: z.array(subgraphWidgetSchema).max(200).optional(),
+  description: z.string().max(4000).optional(),
+  upgradeToV1: z.boolean().optional(),
+});
+
 // ── Layout: one commit moves many nodes, so an arrangement is one undo step. ─────────────────────────
 /** Most nodes one command may touch; also the cap of a selection, a paste and most node lists below. */
 export const MOVE_NODES_MAX = 5000;
@@ -69,7 +85,7 @@ export const collapseNodeMutation = z.object({
  * `edits` are other mutations, checked one by one when applied (no nested batch, no restore, no import). A string
  * "@k" in source, target or nodeId stands for the node the k-th edit added (pasted nodes and their links).
  */
-export const BATCH_LABELS = ['delete', 'paste', 'duplicate', 'cut', 'move', 'add-linked'] as const;
+export const BATCH_LABELS = ['delete', 'paste', 'duplicate', 'cut', 'move', 'add-linked', 'subgraph'] as const;
 /** Most edits in one batch. */
 export const BATCH_MAX = 2000;
 export const batchMutation = z.object({
@@ -211,12 +227,11 @@ export const mutationSchema = z.discriminatedUnion('type', [
     type: z.literal('open-native'),
     project: z.any(),
   }),
+  createSubgraphMutation,
   z.object({
-    type: z.literal('create-subgraph'),
-    name: z.string().min(1).max(200),
-    nodeIds: z.array(z.string().min(1)).min(1),
-    inputs: z.array(subgraphIOSchema).default([]),
-    outputs: z.array(subgraphIOSchema).default([]),
+    type: z.literal('configure-subgraph'), definitionId: z.string().min(1),
+    name: z.string().trim().min(1).max(200), description: z.string().max(4000).default(''),
+    widgets: z.array(subgraphWidgetSchema).max(200).default([]),
   }),
   z.object({
     type: z.literal('insert-subgraph'),
@@ -232,8 +247,8 @@ export const mutationSchema = z.discriminatedUnion('type', [
     name: z.string().min(1).max(200),
     /** The slot data type. Named dataType because `type` is the mutation discriminator. */
     dataType: z.string().min(1).max(200),
-    nodeId: z.string().min(1),
-    handle: z.string().min(1),
+    nodeId: z.string().min(1).optional(),
+    handle: z.string().min(1).optional(),
   }),
   z.object({
     type: z.literal('remove-subgraph-io'),
@@ -285,6 +300,7 @@ export const mutationSchema = z.discriminatedUnion('type', [
     type: z.literal('edit-in-subgraph'),
     definitionId: z.string().min(1),
     edit: z.discriminatedUnion('type', [
+      createSubgraphMutation,
       z.object({ type: z.literal('move-node'), nodeId: z.string().min(1), x: z.number(), y: z.number() }),
       z.object({
         type: z.literal('set-parameter'),

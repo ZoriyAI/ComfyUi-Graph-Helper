@@ -76,6 +76,7 @@ const BUILD_MESSAGES: Record<string, string> = {
   setParameter: 'Set the parameter',
   removeNode: 'Removed the node',
   createSubgraph: 'Created the subgraph',
+  configureSubgraph: 'Configured the subgraph',
   insertSubgraph: 'Inserted the subgraph',
 };
 
@@ -173,6 +174,12 @@ function titlesFor(name: string, args: Record<string, unknown> | undefined, proj
  * engine's refusal. The extra fields also feed the chat's step lines.
  */
 export function toolOutcome(name: string, args: Record<string, unknown> | undefined, outcome: CommandResponse) {
+  // Inner ids are a separate namespace. Never report ports/titles from a root node with the same number.
+  if (args?.inSubgraph && outcome.projection) {
+    const definitions = outcome.projection.snapshot.subgraphs as Array<{ id: string; nodes: unknown[]; edges: unknown[] }> | undefined;
+    const definition = definitions?.find((item) => item.id === args.inSubgraph);
+    if (definition) outcome = { ...outcome, projection: { ...outcome.projection, snapshot: { ...outcome.projection.snapshot, nodes: definition.nodes, edges: definition.edges } } };
+  }
   if (outcome.status === 'applied' || outcome.status === 'historical') {
     const result = outcome.result as Record<string, unknown> | null;
     if (name === 'addNode') {
@@ -283,7 +290,8 @@ export function stepTarget(
       const target = idOf(args?.targetNodeId) ?? idOf(args?.target);
       return { nodeId: target, edgeId, owner: edgeId ? { kind: 'edge', id: edgeId } : null };
     }
-    case 'createSubgraph': {
+    case 'createSubgraph':
+    case 'configureSubgraph': {
       const subgraphId = idOf(result?.definitionId);
       return { nodeId, subgraphId, owner: subgraphId ? { kind: 'subgraph', id: subgraphId } : null };
     }
@@ -349,6 +357,8 @@ export function createBuildTools(
         let context: ToolContext | undefined;
         try {
           context = options.toolContext?.();
+          const definition = context?.snapshot?.subgraphs?.find((item) => item.id === args.inSubgraph);
+          if (definition && context?.snapshot) context = { ...context, snapshot: { ...context.snapshot, nodes: definition.nodes } };
         } catch {
           context = undefined;
         }
@@ -358,11 +368,19 @@ export function createBuildTools(
           return { success: false, error: `Unknown tool: ${spec.name}` };
         }
         // An unknown class is refused once the catalog is synced, with the nearest installed names.
-        const guard = payload.type === 'add-node' ? validateNodeClass(options.db, payload.nodeType) : null;
+        const subject = payload.type === 'edit-in-subgraph' ? payload.edit : payload;
+        const guard = subject.type === 'add-node' ? validateNodeClass(options.db, subject.nodeType) : null;
         if (guard && !guard.ok) return { success: false, error: guard.error, suggestions: guard.suggestions };
         // Inside its run the assistant changes only what it placed itself. A change to the person's nodes, links,
         // notes or the project's name becomes a grey draft the person accepts (ownership.ts).
-        const draftKind = draftKindFor(payload as GraphMutation, runOwned(options.db, options.run.projectId, options.run.runId), readProjection(options.db, options.run.projectId));
+        const owned = runOwned(options.db, options.run.projectId, options.run.runId);
+        if (payload.type === 'edit-in-subgraph' && !owned.definitions.has(payload.definitionId)) {
+          return { success: false, error: 'This build can edit inside only the subgraphs it created. Keep pre-existing user definitions unchanged.' };
+        }
+        if (payload.type === 'configure-subgraph' && !owned.definitions.has(payload.definitionId)) {
+          return { success: false, error: 'This subgraph was not created by this build. Keep it unchanged; the person can configure its interface in the subgraph constructor.' };
+        }
+        const draftKind = draftKindFor(payload as GraphMutation, owned, readProjection(options.db, options.run.projectId));
         if (draftKind) {
           try {
             const proposal = (options.createDraft ?? createProposal)(options.db, {
@@ -419,7 +437,7 @@ export function createBuildTools(
           expectedRevisionId = outcome.projection.activeRun.expectedRevisionId;
           options.onRevision?.(expectedRevisionId);
         }
-        const step = outcome.status === 'applied' && isStepTool(spec.name)
+        const step = outcome.status === 'applied' && payload.type !== 'edit-in-subgraph' && isStepTool(spec.name)
           ? buildStep(spec.name, toolCallId, args, outcome, options)
           : null;
         if (outcome.projection) options.onProjection?.(outcome.projection);

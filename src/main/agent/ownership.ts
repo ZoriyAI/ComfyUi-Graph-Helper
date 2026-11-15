@@ -21,10 +21,11 @@ export function runOwned(db: Database.Database, projectId: string, runId: string
     .all(projectId, runId) as Array<{ payload_canonical: string; result_json: string }>;
   for (const row of rows) {
     try {
-      const payload = JSON.parse(row.payload_canonical) as { type?: unknown };
+      const outer = JSON.parse(row.payload_canonical) as { type?: unknown; edit?: { type?: unknown } };
+      const payload = outer.type === 'edit-in-subgraph' && outer.edit ? outer.edit : outer;
       const result = JSON.parse(row.result_json) as { nodeId?: unknown; definitionId?: unknown };
       const id = typeof result.nodeId === 'string' || typeof result.nodeId === 'number' ? String(result.nodeId) : null;
-      if ((payload.type === 'add-node' || payload.type === 'insert-subgraph' || payload.type === 'create-subgraph') && id) nodes.add(id);
+      if (outer.type !== 'edit-in-subgraph' && (payload.type === 'add-node' || payload.type === 'insert-subgraph' || payload.type === 'create-subgraph') && id) nodes.add(id);
       if (payload.type === 'create-subgraph' && typeof result.definitionId === 'string') definitions.add(result.definitionId);
       if (payload.type === 'set-process') process = true;
     } catch {

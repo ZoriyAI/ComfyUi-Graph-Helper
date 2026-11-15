@@ -34,6 +34,7 @@ import { titleParts } from './nodes/titleBreaks';
 import { hasOwnTitle, nodeDisplayName } from './lib/nodeName';
 import { MissingValues, PromotedPanel, SetGetJump, useLookSentence } from './nodes/InspectorLook';
 import { promotedFields } from '../../../shared/workflow/comfyLook';
+import { openSubgraphWizard } from './subgraphWizardState';
 import styles from './Inspector.module.css';
 
 /** The person's notes record for one node or subgraph, if the project has one. */
@@ -357,6 +358,8 @@ function NodeSection({ node, edges }: { node: GraphNode; edges: GraphEdge[] }) {
       {instance ? null : <NodeTitle node={node} shown={title} disabled={canvasReplay || Boolean(data.locked)} />}
       {instance && definition ? (
         <div className={styles.instance}>
+          <button type="button" className="ghost-button" disabled={canvasReplay || Boolean(data.locked)} onClick={() => openSubgraphWizard([], definition.id)}>{t('subgraphWizard.editTitle')}</button>
+          {typeof definition.raw.description === 'string' && definition.raw.description ? <p className={styles.description}>{definition.raw.description}</p> : null}
           <h3 className={styles.h3}>{t('inspector.instanceHeading')}</h3>
           <form
             className={styles.rename}

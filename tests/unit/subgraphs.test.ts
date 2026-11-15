@@ -180,11 +180,9 @@ describe('create-subgraph', () => {
     db.close();
   });
 
-  it('rejects empty, unknown, already-moved, mistyped and repeated selections, and conflicts on a stale revision', () => {
+  it('rejects unknown, already-moved, mistyped and repeated selections, and conflicts on a stale revision', () => {
     const db = openDb();
     const imported = importDense(db);
-    const empty = createPromptBlock(db, { nodeIds: [] });
-    expect(empty.status).toBe('rejected');
     const unknown = createPromptBlock(db, { nodeIds: ['2', '99'] });
     expect(unknown).toMatchObject({ status: 'rejected', result: { error: 'Node was not found.' } });
     const typed = createPromptBlock(db, { inputs: [{ name: 'x', type: 'IMAGE', nodeId: '4', handle: 'in-0' }] });

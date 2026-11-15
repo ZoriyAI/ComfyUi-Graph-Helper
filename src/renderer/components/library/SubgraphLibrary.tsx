@@ -18,6 +18,7 @@ import { hasRefusalReason, reportRefusal, scopedToLevel } from '../graph/commit'
 import { subgraphCardSize } from '../graph/lib/nodeSizes';
 import { subgraphSummary } from '../graph/SubgraphSummary';
 import { replayIsOpen } from '../../commands/replayGate';
+import { openSubgraphWizard } from '../graph/subgraphWizardState';
 import styles from './Library.module.css';
 
 /** The graph store carries `subgraphs`; read it defensively (an empty graph may not have it yet). */
@@ -59,6 +60,7 @@ export default function SubgraphLibrary() {
   if (subgraphs.length === 0) {
     return (
       <div className={styles.pane}>
+        <div className={styles.controls}><Button onClick={() => openSubgraphWizard()}>{t('subgraphWizard.menu')}</Button></div>
         <EmptyState icon={<Layers size={20} />} title={String(t('library.emptySubgraphsTitle'))}>
           {t('library.emptySubgraphsBody')}
         </EmptyState>
@@ -69,6 +71,7 @@ export default function SubgraphLibrary() {
   return (
     <div className={styles.pane}>
       <div className={styles.controls}>
+        <Button onClick={() => openSubgraphWizard()}>{t('subgraphWizard.menu')}</Button>
         <SearchField
           value={query}
           onValueChange={setQuery}

@@ -263,7 +263,7 @@ function PromotedRow({ id, data, field, fields, definition, disabled, connected,
   const { t } = useTranslation();
   const source = resolvePromoted(field, fields, definition);
   const detail = useNodeDetail(source.innerClass);
-  const own = field.nodeId === '-1' ? ownPromotedValue(data, field) : { held: false, value: undefined };
+  const own = ownPromotedValue(data, field);
   const found = source.innerKey?.endsWith('::control_after_generate')
     ? RUN_SPEC
     : detail?.inputs.find((input) => input.name === source.specName)?.spec;

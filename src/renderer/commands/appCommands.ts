@@ -144,8 +144,8 @@ export function buildAppCommands(): Command[] {
     // Graph
     { id: 'graph.addNode', group: 'graph', labelKey: 'contextMenu.addNode', icon: Plus, shortcut: 'Mod+K', enabled: () => !replaying(), run: () => openAddNode(null) },
     {
-      id: 'graph.createSubgraph', group: 'graph', labelKey: 'contextMenu.createSubgraph', icon: Combine, shortcut: 'Mod+G',
-      enabled: () => canEditGraph() && selectedNodes().length > 0,
+      id: 'graph.createSubgraph', group: 'graph', labelKey: 'subgraphWizard.menu', icon: Combine, shortcut: 'Mod+G',
+      enabled: canEditLevel,
       run: () => void createSubgraph(selectedNodes().map((node) => node.id)),
     },
     {

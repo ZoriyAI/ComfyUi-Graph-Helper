@@ -175,6 +175,7 @@ function stepValues(call: ToolCall, names: StepNames, t: Translate): Record<stri
       };
     case 'createSubgraph':
       return { name: subgraphName(call, names, t), count: Array.isArray(call.args.nodeIds) ? call.args.nodeIds.length : 0 };
+    case 'configureSubgraph':
     case 'insertSubgraph':
       return { name: subgraphName(call, names, t) };
     case 'annotateNode':
@@ -199,6 +200,7 @@ const SENTENCE_KEYS: Record<string, { ok: string; failed: string }> = {
   setParameter: { ok: 'chat.step.setParameter', failed: 'chat.stepFailed.setParameter' },
   removeNode: { ok: 'chat.step.removeNode', failed: 'chat.stepFailed.removeNode' },
   createSubgraph: { ok: 'chat.step.createSubgraph', failed: 'chat.stepFailed.createSubgraph' },
+  configureSubgraph: { ok: 'chat.step.configureSubgraph', failed: 'chat.stepFailed.configureSubgraph' },
   insertSubgraph: { ok: 'chat.step.insertSubgraph', failed: 'chat.stepFailed.insertSubgraph' },
   annotateNode: { ok: 'chat.step.annotateNode', failed: 'chat.stepFailed.annotateNode' },
   setComponentDocumentation: { ok: 'chat.step.documentNode', failed: 'chat.stepFailed.documentNode' },

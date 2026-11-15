@@ -6,6 +6,9 @@
  * The shapes written follow ComfyUI's workflow format 1, so an exported subgraph opens in ComfyUI as made here.
  */
 import { randomUUID } from 'crypto';
+import type { CatalogView } from '../../shared/catalog/types';
+import { exposedWidgets, refreshExposedWidgets, setExposedWidgets } from './subgraphWidgets';
+import { widgetOrderMatches } from '../../shared/workflow/widgetValues';
 import type { GraphMutation } from '../../shared/commands/types';
 import { portsCompatible } from '../../shared/graph/linkTypes';
 import {
@@ -57,6 +60,7 @@ type Edge = Record<string, any>;
 /** The mutation types applyGraphOp handles. */
 const GRAPH_OPS = new Set([
   'create-subgraph',
+  'configure-subgraph',
   'insert-subgraph',
   'add-subgraph-io',
   'remove-subgraph-io',
@@ -144,6 +148,7 @@ function idValue(id: string): string | number {
 
 /** The middle of the nodes' positions, and their leftmost and rightmost x. */
 function centre(nodes: Node[]): { x: number; y: number; minX: number; maxX: number } {
+  if (nodes.length === 0) return { x: 300, y: 200, minX: 300, maxX: 300 };
   const xs = nodes.map((node) => node.position?.x ?? 0);
   const ys = nodes.map((node) => node.position?.y ?? 0);
   const minX = Math.min(...xs);
@@ -165,7 +170,7 @@ function comfySlots(definition: SubgraphDefinition, previous?: Record<string, an
         const old = list[index];
         const base = old && typeof old === 'object' ? { ...(old as Record<string, unknown>) } : empty(slot);
         const label = slotLabel(slot);
-        const next: Record<string, unknown> = { ...base, name: slot.name, type: slot.type };
+        const next: Record<string, unknown> = { ...base, id: slot.id, name: slot.name, type: slot.type };
         if (label !== slot.name) next.label = label;
         else delete next.label;
         return next;
@@ -181,11 +186,11 @@ function comfySlots(definition: SubgraphDefinition, previous?: Record<string, an
 }
 
 /** A new instance node of a definition, with ports and a native record built from the definition's slots. */
-export function instanceNode(id: string, definition: SubgraphDefinition, x: number, y: number, title?: string): Node {
+export function instanceNode(id: string, definition: SubgraphDefinition, x: number, y: number, title?: string, catalog?: CatalogView): Node {
   const ports = instancePorts(definition);
   const slots = comfySlots(definition);
   const name = title || definition.name;
-  return {
+  const node: Node = {
     id,
     type: 'comfy',
     position: { x, y },
@@ -213,6 +218,8 @@ export function instanceNode(id: string, definition: SubgraphDefinition, x: numb
       },
     },
   };
+  if (exposedWidgets(definition).length > 0) refreshExposedWidgets(node, definition, catalog);
+  return node;
 }
 
 /** Rebuild ports of every instance of a definition, on the canvas and inside definitions. */
@@ -264,7 +271,13 @@ function newDefinitionRaw(name: string, moved: Node[]): Record<string, unknown> 
  * selection move with the nodes; each link that crosses the edge gets a slot, and the outer link is rewired to
  * the instance. A node already inside a subgraph cannot be chosen.
  */
-function createSubgraph(work: GraphSnapshot, ids: Ids, payload: Extract<GraphMutation, { type: 'create-subgraph' }>) {
+function createSubgraph(work: GraphSnapshot, ids: Ids, payload: Extract<GraphMutation, { type: 'create-subgraph' }>, catalog?: CatalogView) {
+  if (canvasFormat(work) === WORKFLOW_FORMAT_V04 && payload.upgradeToV1) {
+    const raw = { ...(work.document?.raw ?? {}) };
+    raw.state = { ...emptyWorkflowState(), lastNodeId: nextNodeId(work) - 1, lastLinkId: nextLinkId(work) - 1 };
+    delete raw.last_node_id; delete raw.last_link_id;
+    work.document = { formatVersion: WORKFLOW_FORMAT_V1, raw };
+  }
   requireFormat1(work);
   const wanted = [...new Set(payload.nodeIds)];
   const canvasIds = new Set(work.nodes.map((node) => String(node.id)));
@@ -282,9 +295,16 @@ function createSubgraph(work: GraphSnapshot, ids: Ids, payload: Extract<GraphMut
 
   const inputs: SubgraphSlot[] = [];
   const outputs: SubgraphSlot[] = [];
-  const inputKeys: string[] = [];
-  const outputKeys: string[] = [];
-  const addSlot = (direction: 'input' | 'output', name: string, type: string, nodeId: string, handle: string, listed: boolean) => {
+  const inputKeys: Array<string | null> = [];
+  const outputKeys: Array<string | null> = [];
+  const addSlot = (direction: 'input' | 'output', name: string, type: string, nodeId: string | undefined, handle: string | undefined, listed: boolean) => {
+    if (!nodeId && !handle) {
+      const list = direction === 'input' ? inputs : outputs;
+      list.push({ id: randomUUID(), name: uniqueSlotName(list, name, ''), type });
+      (direction === 'input' ? inputKeys : outputKeys).push(null);
+      return;
+    }
+    if (!nodeId || !handle) fail(SUBGRAPH_ERRORS.portMissing);
     const node = byId.get(nodeId);
     if (!node) fail(SUBGRAPH_ERRORS.portMissing);
     const found = port(node, direction, handle);
@@ -323,10 +343,12 @@ function createSubgraph(work: GraphSnapshot, ids: Ids, payload: Extract<GraphMut
 
   const boundary: Edge[] = [];
   inputKeys.forEach((key, index) => {
+    if (key === null) return;
     const [nodeId, handle] = key.split('\u0000');
     boundary.push(makeEdge(ids.link(), SUBGRAPH_INPUT_NODE_ID, `out-${index}`, nodeId, handle, inputs[index].type, WORKFLOW_FORMAT_V1));
   });
   outputKeys.forEach((key, index) => {
+    if (key === null) return;
     const [nodeId, handle] = key.split('\u0000');
     boundary.push(makeEdge(ids.link(), nodeId, handle, SUBGRAPH_OUTPUT_NODE_ID, `in-${index}`, outputs[index].type, WORKFLOW_FORMAT_V1));
   });
@@ -341,9 +363,11 @@ function createSubgraph(work: GraphSnapshot, ids: Ids, payload: Extract<GraphMut
     nestedIn: null,
     raw: newDefinitionRaw(payload.name, moved),
   };
+  definition.raw.description = payload.description ?? '';
+  try { setExposedWidgets(definition, payload.widgets ?? [], catalog); } catch (error) { fail((error as Error).message); }
   const box = centre(moved);
   const instanceId = ids.node(new Set([...canvasIds].filter((id) => !set.has(id))));
-  const instance = instanceNode(instanceId, definition, box.x, box.y);
+  const instance = instanceNode(instanceId, definition, box.x, box.y, undefined, catalog);
   for (const edge of incoming) {
     const index = inputKeys.indexOf(`${String(edge.target)}\u0000${String(edge.targetHandle ?? '')}`);
     edge.target = instanceId;
@@ -364,17 +388,24 @@ function createSubgraph(work: GraphSnapshot, ids: Ids, payload: Extract<GraphMut
   return { definitionId: definition.id, nodeId: instanceId, inputs: inputs.length, outputs: outputs.length };
 }
 
-function insertSubgraph(work: GraphSnapshot, ids: Ids, payload: Extract<GraphMutation, { type: 'insert-subgraph' }>) {
+function insertSubgraph(work: GraphSnapshot, ids: Ids, payload: Extract<GraphMutation, { type: 'insert-subgraph' }>, catalog?: CatalogView) {
   requireFormat1(work);
   const definition = findDefinition(work, payload.definitionId);
   const nodeId = ids.node(new Set(work.nodes.map((node) => String(node.id))));
-  work.nodes = [...work.nodes, instanceNode(nodeId, definition, payload.x, payload.y, payload.title)];
+  work.nodes = [...work.nodes, instanceNode(nodeId, definition, payload.x, payload.y, payload.title, catalog)];
   return { definitionId: definition.id, nodeId };
 }
 
 /** Adds a slot to a definition wired to one inner port, and gives every instance the new port. */
 function addSubgraphIO(work: GraphSnapshot, ids: Ids, payload: Extract<GraphMutation, { type: 'add-subgraph-io' }>) {
   const definition = findDefinition(work, payload.definitionId);
+  if (!payload.nodeId && !payload.handle) {
+    const side = payload.direction === 'input' ? definition.inputs : definition.outputs;
+    const slot = { id: randomUUID(), name: uniqueSlotName(side, payload.name, ''), type: payload.dataType };
+    side.push(slot); refreshInstances(work, definition);
+    return { definitionId: definition.id, slotId: slot.id, index: side.length - 1 };
+  }
+  if (!payload.nodeId || !payload.handle) fail(SUBGRAPH_ERRORS.portMissing);
   const node = definition.nodes.find((item) => String(item.id) === payload.nodeId);
   if (!node) fail(SUBGRAPH_ERRORS.nodeMissing);
   const found = port(node, payload.direction, payload.handle);
@@ -474,7 +505,7 @@ function renameSubgraph(work: GraphSnapshot, payload: Extract<GraphMutation, { t
  * reset what the person set on the instance. Inner nodes with keyed widgets_values take them by name;
  * positional ones by the index the inner node's own `widgets` list (when stored) gives the name.
  */
-function promoteInstanceValues(instance: Node, restored: Node[], idMap: Map<string, string>): void {
+function promoteInstanceValues(instance: Node, restored: Node[], idMap: Map<string, string>, catalog?: CatalogView): void {
   const comfy = instance.data?.comfy;
   const proxies = comfy?.properties?.proxyWidgets;
   const values = comfy?.widgets_values;
@@ -491,12 +522,18 @@ function promoteInstanceValues(instance: Node, restored: Node[], idMap: Map<stri
       target.data.parameters = { ...(target.data.parameters ?? {}), [name]: values[index] };
       return;
     }
-    const names = Array.isArray(inner.widgets) ? inner.widgets.map((item: { name?: unknown }) => String(item?.name ?? '')) : [];
+    const spec = catalog?.nodes.find((item) => item.classType === target.data.comfyType);
+    const names = widgetOrderMatches(widgets, spec?.widgetOrder, spec?.widgetOrderReliable !== false)
+      ? spec!.widgetOrder
+      : Array.isArray(inner.widgets) ? inner.widgets.map((item: { name?: unknown }) => String(item?.name ?? '')) : [];
     const slot = names.indexOf(name);
     if (Array.isArray(widgets) && slot >= 0 && slot < widgets.length) {
       const copy = widgets.slice();
       copy[slot] = values[index];
       inner.widgets_values = copy;
+      target.data.parameters = { ...(target.data.parameters ?? {}), [name]: values[index] };
+    } else {
+      fail('Subgraph widget source is missing or its field layout is unknown.');
     }
   });
 }
@@ -506,7 +543,7 @@ function promoteInstanceValues(instance: Node, restored: Node[], idMap: Map<stri
  * the slots to the inner ports. Inner ids that clash with canvas ids get new ones. The definition is removed only
  * when no other instance uses it.
  */
-function dissolveSubgraph(work: GraphSnapshot, ids: Ids, payload: Extract<GraphMutation, { type: 'dissolve-subgraph' }>) {
+function dissolveSubgraph(work: GraphSnapshot, ids: Ids, payload: Extract<GraphMutation, { type: 'dissolve-subgraph' }>, catalog?: CatalogView) {
   const instance = work.nodes.find((node) => String(node.id) === payload.nodeId);
   if (!instance) fail(SUBGRAPH_ERRORS.nodeMissing);
   const definition = (work.subgraphs ?? []).find((item) => !item.opaque && item.id === instance.data?.comfyType);
@@ -529,7 +566,7 @@ function dissolveSubgraph(work: GraphSnapshot, ids: Ids, payload: Extract<GraphM
     if (copy.data?.comfy && typeof copy.data.comfy === 'object') copy.data.comfy = { ...copy.data.comfy, id: idValue(id) };
     return copy;
   });
-  promoteInstanceValues(instance, restored, idMap);
+  promoteInstanceValues(instance, restored, idMap, catalog);
   const mapped = (id: unknown) => idMap.get(String(id)) ?? String(id);
   const isBoundary = (edge: Edge) => String(edge.source) === SUBGRAPH_INPUT_NODE_ID || String(edge.target) === SUBGRAPH_OUTPUT_NODE_ID;
   const created: Edge[] = [];
@@ -622,7 +659,7 @@ function renameGroup(work: GraphSnapshot, payload: Extract<GraphMutation, { type
  * Apply a subgraph or group mutation to a copy of the snapshot. Inputs are never mutated.
  * Throws GraphOpError for a refusal.
  */
-export function applyGraphOp(snapshot: GraphSnapshot, _actionId: string, payload: GraphMutation): { snapshot: GraphSnapshot; result: Record<string, unknown> } {
+export function applyGraphOp(snapshot: GraphSnapshot, _actionId: string, payload: GraphMutation, catalog?: CatalogView): { snapshot: GraphSnapshot; result: Record<string, unknown> } {
   const work: GraphSnapshot = {
     ...snapshot,
     nodes: structuredClone(snapshot.nodes),
@@ -633,13 +670,28 @@ export function applyGraphOp(snapshot: GraphSnapshot, _actionId: string, payload
   const ids = new Ids(work);
   let result: Record<string, unknown>;
   switch (payload.type) {
-    case 'create-subgraph': result = createSubgraph(work, ids, payload); break;
-    case 'insert-subgraph': result = insertSubgraph(work, ids, payload); break;
+    case 'create-subgraph': result = createSubgraph(work, ids, payload, catalog); break;
+    case 'configure-subgraph': {
+      const definition = findDefinition(work, payload.definitionId);
+      try { setExposedWidgets(definition, payload.widgets, catalog); } catch (error) { fail((error as Error).message); }
+      const previous = definition.name;
+      definition.name = payload.name; definition.raw = { ...definition.raw, name: payload.name, description: payload.description };
+      const update = (node: Node) => {
+        if (node.data?.comfyType !== definition.id) return;
+        refreshExposedWidgets(node, definition, catalog);
+        if (node.data.title === previous || node.data.title === definition.id) {
+          node.data.title = payload.name; node.data.comfy.title = payload.name;
+        }
+      };
+      work.nodes.forEach(update); for (const inner of work.subgraphs ?? []) inner.nodes.forEach(update);
+      result = { definitionId: definition.id }; break;
+    }
+    case 'insert-subgraph': result = insertSubgraph(work, ids, payload, catalog); break;
     case 'add-subgraph-io': result = addSubgraphIO(work, ids, payload); break;
     case 'remove-subgraph-io': result = removeSubgraphIO(work, payload); break;
     case 'rename-subgraph-io': result = renameSubgraphIO(work, payload); break;
     case 'rename-subgraph': result = renameSubgraph(work, payload); break;
-    case 'dissolve-subgraph': result = dissolveSubgraph(work, ids, payload); break;
+    case 'dissolve-subgraph': result = dissolveSubgraph(work, ids, payload, catalog); break;
     case 'add-group': result = addGroup(work, payload); break;
     case 'remove-group': result = removeGroup(work, payload); break;
     case 'rename-group': result = renameGroup(work, payload); break;

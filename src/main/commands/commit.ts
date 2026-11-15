@@ -826,7 +826,7 @@ function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutat
   }
   if (isGraphOp(payload)) {
     try {
-      const applied = applyGraphOp(snapshot, actionId, payload);
+      const applied = applyGraphOp(snapshot, actionId, payload, catalog);
       return { snapshot: applied.snapshot as Snapshot, result: applied.result };
     } catch (error) {
       if (error instanceof GraphOpError) throw new CommandSignal('rejected', { error: error.message });

@@ -21,6 +21,7 @@ import { useGraphStore } from '../../state/graphState';
 import { useUiStore } from '../../state/uiState';
 import AboutContent from './AboutContent';
 import HelpReader from './HelpReader';
+import SubgraphWizard from '../graph/SubgraphWizard';
 import { showToast } from '../../ui/Toast';
 import styles from './CommandDialogs.module.css';
 
@@ -340,6 +341,7 @@ export default function CommandDialogs() {
       <ExportGuardDialog open={dialog === 'export-guard'} onOpenChange={close} />
       <SecretGuardDialog />
       <StopBuildDialog />
+      <SubgraphWizard />
     </>
   );
 }

@@ -1,58 +1,51 @@
 [Русский](Subgraphs.ru.md)
 [Home](../Home.md) › [Working with a graph](README.md)
 
-# Subgraphs
+# Constructing subgraph nodes
 
-A subgraph is a few nodes folded into one block. On the canvas it looks like one node with its own inputs and outputs; inside it is an ordinary graph. Use it to hide a part you understand, or to use the same part several times. ComfyUI reads subgraphs from workflow format 1. Background: [Nodes and links](../concepts/Nodes-And-Links.md).
+A subgraph is a reusable ComfyUI node containing an inner graph. It exposes typed inputs and outputs and selected settings. Definitions are shared; values on each outer node are independent.
 
-<!-- picture: a subgraph block on the main canvas and, beside it, its inside with the input and output edges -->
+## Create a node
 
-## How to make one
+Open **Graph → Subgraph constructor…** (`Ctrl+G`), or **Library → Subgraphs → Subgraph constructor…**. This works on the main canvas and inside a subgraph.
 
-1. Select the nodes (`Shift`+click or `Ctrl`+click, or a `Shift` box).
-2. **Graph ▸ Make a subgraph from selection** (`Ctrl+G`), or right-click one of them ▸ **Make a subgraph from selection**.
-3. A block named "Subgraph" takes their place. Links that crossed the edge of the selection become the inputs and outputs of the block.
-4. Rename it in [Properties](../interface/Properties.md): **Subgraph name**, **Save name**.
+1. **Contents.** Name the node and describe what it does. Select inner nodes, including other subgraphs, or start with an empty graph.
+2. **Inputs and outputs.** Add named ports and choose their ComfyUI types. Connect each to an inner port now, or leave it to wire inside later. Existing links crossing the selection boundary are preserved automatically.
+3. **Controls.** Select known settings from the inner nodes to show on the outer node. Read the ComfyUI catalog if the app does not yet know their names and widget layout. Unknown values from imported workflows remain available by their position, but positional labels cannot be exported as invented widget names.
+4. **Review.** Check the outer node preview, then **Create node**. Leave **Open the inner graph after saving** checked to continue inside immediately.
 
-Only on the main canvas, not inside another subgraph.
+An imported0.4 workflow needs an explicit upgrade to native ComfyUI format1, offered in step1. Its node values and links are retained. Cancelling the constructor changes nothing; saving is one undo step. If the graph or editing level changes during a draft, reopen the constructor instead of overwriting that newer revision.
 
-## How to go inside and back
+## Build and wire the inside
 
-- Press **Open** on the block, or right-click it ▸ **Open subgraph**, or select it and press **Open subgraph** in Properties.
-- A path appears at the top: **Whole graph** › the subgraph name. Click **Whole graph**, use **Up one level**, or press `Escape` to go back out.
-- Inside, a line says: "Inside a subgraph: changes apply to every copy of it. Drag a link to the empty slot on the edge to add an input or output of the subgraph."
+Use the normal node library and canvas tools to add, connect, tune, move or delete inner nodes. **Subgraph inputs** and **Subgraph outputs** are the two boundary nodes.
 
-## How to edit the inside
+- Wire a declared input from the left boundary to an inner node, or wire an inner output to the right boundary.
+- Drag to the boundary's **New input** or **New output** slot, or right-click an inner port and expose it, to add an interface slot.
+- Double-click a boundary name, or use Properties, to rename it. Right-click a boundary slot to remove it.
+- Use the constructor inside to create another level of subgraphs, or insert an existing definition from the library. A definition cannot contain itself, directly or indirectly.
 
-Inside a subgraph you add, connect, change and delete nodes as on the main canvas. Two extra nodes stand at the edges: **Subgraph inputs** on the left and **Subgraph outputs** on the right.
+Open an existing node through its **Open** button, double-click its background, or use Properties. The breadcrumb and **Up one level** return to its parent. **Whole graph** returns to the root.
 
-- **Add an input**: drag a link from an inner input to the empty slot **New input** of **Subgraph inputs**. **Add an output**: drag from an inner output to **New output**.
-- Or right-click an inner port ▸ **Expose as subgraph input** / **Expose as subgraph output**.
-- **Rename** an input or output: double-click its name on the edge node ("Enter saves, Esc cancels"), or rename it in Properties (**Inputs and outputs**).
-- **Remove** one: right-click it on the edge ▸ **Remove this subgraph input or output**.
+## Change the outer node
 
-## Copies
+Select its instance and open **Properties → Configure subgraph node**. Change its name/purpose, add interface ports or choose the outer controls. Existing ports can be renamed or removed from the inner editor. Copies share the definition's structure and default inner settings; exposed values on each instance remain independent, including after control reordering. Editing the common inner graph affects all copies.
 
-Insert more copies from the **Subgraphs** tab of the library (**Insert**) or right-click an empty place ▸ **Insert subgraph**. All copies share one inside: a change inside one changes all. A subgraph may hold another subgraph, but never itself: "A subgraph cannot go inside itself, directly or through another subgraph."
+**Dissolve subgraph** on the main canvas restores ordinary nodes and links, applying that instance's exposed values to them. `Ctrl+Z` restores the previous revision.
 
-## How to undo a subgraph
+## Ask the assistant
 
-Select the block ▸ **Graph ▸ Dissolve subgraph** (or **Dissolve** in Properties, or right-click ▸ **Dissolve subgraph**). Its nodes come back onto the main canvas. Or simply `Ctrl+Z` after making it.
+In Build mode the assistant can create empty subgraphs or wrap its own nodes, choose typed ports and controls, and construct nested graphs through the same command engine. It can edit inside definitions created by that build; pre-existing user definitions remain protected. The lesson canvas and the assistant's initial view still start on the main graph.
 
-## Limits
+## Export and execution
 
-- The assistant builds only on the main canvas. If you are inside a subgraph when it starts, the canvas goes back: "The assistant builds on the main canvas, so the canvas went back to it."
-- Lessons follow the main canvas too.
-- In a workflow of the old format (0.4) a subgraph cannot be made. The app says: "This workflow is in the old ComfyUI format, which has no subgraphs. Select the nodes, copy them (Ctrl+C), start a new project (File > New project) and paste them there (Ctrl+V): a new project can make subgraphs." Workflows saved by a recent ComfyUI, and every new project, are format 1.
-- The marks the check puts on nodes are not shown inside a subgraph.
+Use **Save workflow for ComfyUI…**. The export uses native format1 `definitions.subgraphs`, typed boundary links and promoted-widget mappings. Open it in a ComfyUI frontend that supports subgraphs; install the node packs and models it needs. NodeWise edits and exports the graph; ComfyUI executes its inner nodes.
 
-## Fields of a subgraph from a workflow
+A subgraph composes existing node operations. Implementing a new algorithm requires a Python custom-node extension; this constructor does not generate or run such a package. Full parity with every custom JavaScript widget and execution on a real ComfyUI server have not been verified for this release.
 
-The author of a subgraph in ComfyUI can put some fields of its inner nodes on the block itself. When you open such a workflow, the block shows these fields under **Fields of the subgraph**, in the order of the file, on the canvas and in Properties. A change here is saved in the workflow for ComfyUI: a field of the copy goes to that copy, a field of an inner node goes to that node. On the block a long prompt is a one-line box; Properties shows the full box.
+## ComfyUI references
 
-## See also
-
-- [Subgraphs in the library](../interface/Subgraph-Library.md)
-- [Canvas menus](../interface/Canvas-Menus.md)
-- [Workflow formats](../concepts/Workflow-Formats.md)
-- [Groups](Groups.md)
+- [Subgraphs: creation, navigation and parameters](https://docs.comfy.org/interface/features/subgraph)
+- [Subgraph developer guide](https://docs.comfy.org/custom-nodes/js/subgraphs)
+- [Native workflow schema](https://github.com/Comfy-Org/ComfyUI_frontend/blob/7e95d1b8503809ab39543ed06dda2780d78e053f/packages/graph-model/src/workflowSchema.ts)
+- [Custom-node architecture](https://docs.comfy.org/custom-nodes/overview)

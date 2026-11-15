@@ -5,6 +5,10 @@
 
 The **Subgraphs** tab lists the subgraphs of this project: blocks of nodes you made or that came with an opened workflow. From here you put another copy of a subgraph on the canvas.
 
+## Constructor
+
+Use **Subgraph constructor…** in this tab or the Graph menu to create an empty or selected-node graph, define typed ports and expose controls. See [the four-step guide](../graph/Subgraphs.md). Copies share their internal structure and keep independent exposed values.
+
 ## How to put a subgraph on the canvas
 
 1. Open the **Subgraphs** tab. Type in **Search subgraphs** to narrow the list.

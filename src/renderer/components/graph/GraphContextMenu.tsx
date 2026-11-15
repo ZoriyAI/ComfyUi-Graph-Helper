@@ -212,7 +212,7 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
         commandItem('edit.cut', onSelection(cutSelection), { disabled: !canBuild }),
         commandItem('edit.duplicate', onSelection(duplicateSelection), { disabled: !canBuild }),
         separator('s-clip'),
-        commandItem('graph.createSubgraph', () => void createSubgraph(selectionFor(node.id)), { disabled: !canBuildRoot }),
+        commandItem('graph.createSubgraph', () => void createSubgraph(selectionFor(node.id)), { disabled: !canBuild }),
         commandItem('graph.addGroup', () => void addGroup(selectionFor(node.id)), { disabled: !canBuildRoot }),
         item('rename', t('contextMenu.rename'), () => {
           setSelection([ref]);

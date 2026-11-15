@@ -14,7 +14,7 @@ import { mutationSchema, type GraphMutation } from './types';
  * Without them an index N resolves to `in-N` / `out-N`, which matches imported and catalog ports.
  */
 export interface ToolContext {
-  snapshot?: { nodes: Array<Record<string, any>> };
+  snapshot?: { nodes: Array<Record<string, any>>; subgraphs?: Array<{ id: string; nodes: Array<Record<string, any>> }> };
   catalog?: CatalogView;
 }
 
@@ -77,7 +77,13 @@ function subgraphIO(value: unknown, direction: 'input' | 'output', context?: Too
   for (const item of value) {
     const io = record(item);
     const nodeId = str(io?.nodeId);
-    if (!io || !nodeId) return null;
+    if (!io) return null;
+    if (!nodeId && io.handle === undefined && io.index === undefined && io.slot === undefined) {
+      const name = str(io.name); const type = str(io.type);
+      if (!name || !type) return null;
+      list.push({ name, type }); continue;
+    }
+    if (!nodeId) return null;
     const handle = resolveHandle(nodeId, direction, io.handle, io.index ?? io.slot, context);
     if (!handle) return null;
     const port = portsOf(nodeId, direction, context).find((item) => item.id === handle) as { name?: string; dataType?: string } | undefined;
@@ -145,8 +151,13 @@ function draft(name: string, input: Record<string, unknown>, context?: ToolConte
     const inputs = subgraphIO(input.inputs, 'input', context);
     const outputs = subgraphIO(input.outputs, 'output', context);
     if (!inputs || !outputs) return null;
-    return { type: 'create-subgraph', name: input.name, nodeIds, inputs, outputs };
+    return { type: 'create-subgraph', name: input.name, nodeIds, inputs, outputs,
+      ...(input.widgets !== undefined ? { widgets: input.widgets } : {}),
+      ...(input.description !== undefined ? { description: input.description } : {}),
+      ...(input.upgradeToV1 !== undefined ? { upgradeToV1: input.upgradeToV1 } : {}),
+    };
   }
+  if (name === 'configureSubgraph') return { type: 'configure-subgraph', definitionId: input.definitionId, name: input.name, description: input.description ?? '', widgets: input.widgets ?? [] };
   if (name === 'insertSubgraph') {
     return {
       type: 'insert-subgraph',
@@ -161,8 +172,15 @@ function draft(name: string, input: Record<string, unknown>, context?: ToolConte
 
 /** Map a model tool call onto a graph command. Tool text is stored as data. Invalid arguments map to null. */
 export function mutationFromTool(name: string, args: Record<string, unknown> | undefined, context?: ToolContext): GraphMutation | null {
-  const candidate = draft(name, args ?? {}, context);
+  const definitionId = str(args?.inSubgraph);
+  const definition = definitionId ? context?.snapshot?.subgraphs?.find((item) => item.id === definitionId) : undefined;
+  const scopedContext = definition ? { ...context, snapshot: { nodes: definition.nodes } } : context;
+  let candidate = draft(name, args ?? {}, scopedContext);
   if (!candidate) return null;
+  if (args?.inSubgraph !== undefined) {
+    if (!definitionId) return null;
+    candidate = { type: 'edit-in-subgraph', definitionId, edit: candidate };
+  }
   const parsed = mutationSchema.safeParse(candidate);
   return parsed.success ? parsed.data : null;
 }

@@ -34,6 +34,7 @@ import { graphIsDirty, refreshProjectFile } from '../services/projectFile';
 import { trackCommit } from '../services/commands/pending';
 import { commitEdits } from '../components/graph/lib/editBatch';
 import { runSyncNow } from '../components/sync/SyncIndicator';
+import { openSubgraphWizard } from '../components/graph/subgraphWizardState';
 import { useOpenListsStore } from '../state/openListsState';
 import { readFlag, SEEN_KEYS, useJourneyStore } from '../state/journeyState';
 
@@ -354,7 +355,8 @@ export async function deleteSelection(): Promise<void> {
 
 /** Graph ▸ Subgraph from selection: the nodes move into a new subgraph with a default name. One undo step. */
 export function createSubgraph(nodeIds: string[]): Promise<unknown> {
-  return commitManual({ type: 'create-subgraph', name: translate('contextMenu.subgraphName'), nodeIds, inputs: [], outputs: [] });
+  openSubgraphWizard(nodeIds);
+  return Promise.resolve();
 }
 
 /** Puts a subgraph instance's inner nodes back on the root graph. */
