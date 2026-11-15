@@ -527,6 +527,9 @@
 
 /* A Primitive with nothing saved, the constant of a Set / Get. */
 .editorHint { margin: 6px 12px 0; color: var(--text-dim); font-size: var(--text-xs); }
+/* A Primitive with no value: always two rows, whichever language, so the size the app works out for the card
+   (shared/graph/layout.ts NODE_BOX.primitiveEmpty) is the size it is drawn at. */
+.primitiveEmpty { box-sizing: border-box; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; line-height: 16px; height: 32px; }
 .constant { box-sizing: border-box; display: flex; align-items: center; gap: 6px; height: 20px; margin: 6px 12px 0; color: var(--text-dim); font-size: var(--text-xs); }
 .constant span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 

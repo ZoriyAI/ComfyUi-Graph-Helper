@@ -5,7 +5,7 @@
  * outside the overview. Read by arrange.ts, placeNode.ts, importLook.ts, GhostLayer, autoFit.ts and lessonModel.ts.
  */
 import type { NodeClassDetail } from '../../../../shared/contracts/knowledge';
-import { estimateNodeSize, type Size, type SizeHints } from '../../../../shared/graph/layout';
+import { estimateNodeSize, sizeHintsOfClass, type Size, type SizeHints } from '../../../../shared/graph/layout';
 import { inferInputs, inferOutputs } from '../../../../shared/graph/ports';
 import { nodeRect, type PositionedNode, type Rect } from './geometry';
 
@@ -59,11 +59,7 @@ export function rememberSizes(nodes: PositionedNode[]): void {
 
 /** What the catalog says of a class's inputs, in the shape the size estimate reads. */
 export function sizeHintsOf(detail: Pick<NodeClassDetail, 'inputs'> & { widgetOrder?: string[] } | null | undefined): SizeHints | null {
-  if (!detail) return null;
-  return {
-    inputs: detail.inputs.map((input) => ({ name: input.name, widget: input.widget, multiline: Boolean(input.spec?.multiline) })),
-    ...((detail as { widgetOrder?: string[] }).widgetOrder ? { widgetOrder: (detail as { widgetOrder?: string[] }).widgetOrder } : {}),
-  };
+  return detail ? sizeHintsOfClass(detail) : null;
 }
 
 /**

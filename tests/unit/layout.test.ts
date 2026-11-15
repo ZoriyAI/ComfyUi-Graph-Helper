@@ -13,6 +13,7 @@ import {
   nodeRunMode,
   noteTextOf,
   rectsOverlap,
+  sizeHintsOfClass,
   type LayoutEdge,
   type LayoutNode,
   type Rect,
@@ -214,6 +215,30 @@ describe('estimateNodeSize', () => {
     expect(estimateNodeSize({ ...card, title: 'My upscale' }).height).toBe(bare + 26);
     // A card titled with the subgraph's own name does not repeat it.
     expect(estimateNodeSize({ ...card, title: 'Upscale' }, { subgraphName: 'Upscale' }).height).toBe(bare);
+  });
+
+  it('counts the "after run" row under a seed when the catalog gives the field one', () => {
+    const detail = {
+      inputs: [
+        { name: 'model', widget: false },
+        { name: 'positive', widget: false },
+        { name: 'seed', widget: true, spec: { control: 'randomize' } },
+        { name: 'steps', widget: true, spec: {} },
+      ],
+      widgetOrder: ['seed', 'seed::control_after_generate', 'steps'],
+    };
+    const hints = sizeHintsOfClass(detail);
+    expect(hints.inputs?.map((input) => Boolean(input.afterRun))).toEqual([false, false, true, false]);
+    expect(estimateNodeSize(sampler, hints).height).toBe(estimateNodeSize(sampler).height + NODE_BOX.field);
+    // No slot in the widget order: ComfyUI keeps no choice for it, so the card draws no row.
+    expect(sizeHintsOfClass({ ...detail, widgetOrder: ['seed', 'steps'] }).inputs?.[2].afterRun).toBeUndefined();
+  });
+
+  it('gives a Primitive with no value yet the line that says so', () => {
+    const empty = { comfyType: 'PrimitiveNode', inputs: [], outputs: [{ name: 'INT' }] };
+    expect(estimateNodeSize(empty).height).toBe(55 + (4 + 28) + 10 + NODE_BOX.primitiveEmpty);
+    const held = { ...empty, comfy: { widgets_values: [5, 'fixed'] } };
+    expect(estimateNodeSize(held).height).toBe(55 + (4 + 28) + 10 + (9 + 2 * 30));
   });
 });
 

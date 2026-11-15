@@ -154,7 +154,7 @@ export function PrimitiveFields({ id, data, disabled }: { id: string; data: Comf
   const name = feed.input ?? target.widget ?? 'value';
   const spec = detail?.inputs.find((input) => input.name === name)?.spec;
   const values = savedValues(data);
-  if (values.length === 0) return <p className={styles.editorHint}>{t('importLook.primitiveEmpty')}</p>;
+  if (values.length === 0) return <p className={`${styles.editorHint} ${styles.primitiveEmpty}`}>{t('importLook.primitiveEmpty')}</p>;
   return (
     <ul className={`${styles.fields} node-fields`} aria-label={String(t('node.fields'))} data-primitive-for={name}>
       <li className={`${styles.field} node-field`} data-field={name}>

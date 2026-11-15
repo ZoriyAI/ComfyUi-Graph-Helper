@@ -241,6 +241,24 @@ describe('the size main gives a node', () => {
     }],
   };
 
+  it('counts the "after run" row of a seed the catalog keeps a choice for', () => {
+    const seeded = {
+      nodeTypes: ['RandomNoise'],
+      models: [],
+      nodes: [{
+        classType: 'RandomNoise',
+        pack: 'core',
+        pythonModule: 'nodes',
+        inputs: [{ name: 'noise_seed', type: 'INT', widget: true, default: 0, controlDefault: 'randomize' }],
+        outputs: [{ name: 'NOISE', type: 'NOISE' }],
+        widgetOrder: ['noise_seed', 'noise_seed::control_after_generate'],
+      }],
+    };
+    expect(classHints(seeded)('RandomNoise')).toEqual({ inputs: [{ name: 'noise_seed', widget: true, multiline: undefined, afterRun: true }] });
+    // Header, the output list, two field rows (the seed and its "after run"), the bottom.
+    expect(newNodeSize({ type: 'add-node', nodeType: 'RandomNoise' }, seeded).height).toBe(55 + (4 + 28) + (9 + 2 * 30) + 10);
+  });
+
   it('is the size the canvas draws: the catalog says which inputs are fields and which is a text box', () => {
     // 209 px is what the canvas draws for this node (tests/e2e/node-size.test.ts).
     expect(newNodeSize({ type: 'add-node', nodeType: 'CLIPTextEncode' }, catalog)).toEqual({ width: 240, height: 209 });

@@ -13,7 +13,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { startFakeMcp, type FakeMcp } from '../fixtures/mcp/fakeMcpServer';
-import { estimateNodeSize, type SizeHints, NODE_BOX } from '../../src/shared/graph/layout';
+import { estimateNodeSize, sizeHintsOfClass, type SizeHints, NODE_BOX } from '../../src/shared/graph/layout';
 import { NEW_NODE_GAP } from '../../src/renderer/components/graph/lib/geometry';
 
 type Bridge = (name: string, args?: unknown[]) => Promise<any>;
@@ -101,8 +101,9 @@ test('the size the app works out for a node is the size the canvas draws it at',
       return at;
     };
     for (const item of classes) {
-      const detail = await api('nodeTypeDetail', [item.classType]) as { inputs: Array<{ name: string; widget: boolean; spec?: { multiline?: boolean } }> } | null;
-      if (detail) hints.set(item.classType, { inputs: detail.inputs.map((input) => ({ name: input.name, widget: input.widget, multiline: Boolean(input.spec?.multiline) })) });
+      const detail = await api('nodeTypeDetail', [item.classType]) as Parameters<typeof sizeHintsOfClass>[0] | null;
+      // The hints the app itself takes from the catalog: the widget order tells which field has an "after run" row.
+      if (detail) hints.set(item.classType, sizeHintsOfClass(detail));
       // The way the library adds it: under the name a person reads.
       await commit(api, { type: 'add-node', nodeType: item.classType, ...(item.displayName ? { title: item.displayName } : {}), ...place() });
     }

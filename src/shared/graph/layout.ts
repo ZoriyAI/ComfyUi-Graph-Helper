@@ -63,7 +63,11 @@ export const ESTIMATED_NODE_WIDTH = 240;
  * and its type is a widget type (the canvas's own rule, renderer/components/fields/fieldModel.ts nodeLayout).
  */
 export interface SizeHints {
-  inputs?: ReadonlyArray<{ name: string; widget: boolean; multiline?: boolean }>;
+  /**
+   * The class's inputs. `afterRun`: the field gets ComfyUI's "after run" row under it (a seed; the same rule as
+   * fields/fieldModel.ts pushAfterRun: the input has a control_after_generate start and the widget order a slot).
+   */
+  inputs?: ReadonlyArray<{ name: string; widget: boolean; multiline?: boolean; afterRun?: boolean }>;
   /** For a subgraph card: the name of the subgraph it holds, when the caller knows it. */
   subgraphName?: string;
   /** The class is not in the person's ComfyUI: the card lists the values the file saved. */
@@ -74,6 +78,31 @@ export interface SizeHints {
 
 /** Input types drawn as a field a person sets, not as a socket. */
 const WIDGET_TYPES = new Set(['INT', 'FLOAT', 'STRING', 'BOOLEAN', 'COMBO']);
+
+/** The slot name of a field's "after run" choice in widgets_values (ComfyUI's control_after_generate). */
+export function afterRunSlot(name: string): string {
+  return `${name}::control_after_generate`;
+}
+
+/**
+ * What a class's catalog entry says of its card size, in the shape estimateNodeSize reads. Used by the renderer
+ * (graph/lib/nodeSizes.ts sizeHintsOf) and by the tests that hold the estimate to the drawn card.
+ */
+export function sizeHintsOfClass(detail: {
+  inputs: ReadonlyArray<{ name: string; widget: boolean; spec?: { multiline?: boolean; control?: string } }>;
+  widgetOrder?: ReadonlyArray<string>;
+}): SizeHints {
+  const order = detail.widgetOrder;
+  return {
+    inputs: detail.inputs.map((input) => ({
+      name: input.name,
+      widget: input.widget,
+      multiline: Boolean(input.spec?.multiline),
+      ...(input.spec?.control !== undefined && order?.includes(afterRunSlot(input.name)) ? { afterRun: true } : {}),
+    })),
+    ...(order ? { widgetOrder: order } : {}),
+  };
+}
 
 /**
  * The node card in pixels, read off the canvas (nodes/Node.module.css) and held to it by a test that draws every
@@ -108,6 +137,8 @@ export const NODE_BOX = {
   noteText: 6 + 92,
   /** The line of a Set / Get that names its constant. */
   constant: 26,
+  /** "This Primitive has no saved value yet.": its top margin and two rows of 16 px, in both languages. */
+  primitiveEmpty: 6 + 32,
   /** The saved values of a node that is not installed: the list's top room, and each value's row. */
   savedTop: 8,
   savedValue: 20,
@@ -197,6 +228,7 @@ function estimateCardSize(data: SizedData | null | undefined, hints?: SizeHints 
     seen.add(name);
     fields += 1;
     if (spec?.multiline) textBoxes += 1;
+    if (spec?.afterRun) fields += 1;
   }
   // A widget input the node has no port for (stored before its class was read) shows once it holds a value.
   for (const input of hints?.inputs ?? []) {
@@ -204,6 +236,7 @@ function estimateCardSize(data: SizedData | null | undefined, hints?: SizeHints 
     seen.add(input.name);
     fields += 1;
     if (input.multiline) textBoxes += 1;
+    if (input.afterRun) fields += 1;
   }
   // A value with no input of its name is a field too; `seed::control_after_generate` rides with its field.
   for (const name of Object.keys(parameters)) {
@@ -224,12 +257,15 @@ function estimateCardSize(data: SizedData | null | undefined, hints?: SizeHints 
   // values (one row each); a Set or Get names its constant.
   const kind = data?.kind === 'subgraph-instance' ? null : editorKind(data?.comfyType);
   if (kind === 'primitive') extraFields = Math.min(2, savedValues(data).length);
+  // A Primitive with no value yet says so in a line of two rows (nodes/EditorNodes.tsx PrimitiveFields).
+  const primitiveEmpty = kind === 'primitive' && savedValues(data).length === 0;
   const note = Array.isArray(data?.annotations) && typeof data!.annotations[0] === 'string' ? data!.annotations[0] as string : '';
   let height = NODE_BOX.header + NODE_BOX.bottom;
   if (links > 0) height += NODE_BOX.list + links * NODE_BOX.port;
   if (outputs.length > 0) height += NODE_BOX.list + outputs.length * NODE_BOX.port;
   if (fields > 0) height += NODE_BOX.fieldsTop + fields * NODE_BOX.field + textBoxes * NODE_BOX.textBox;
   if (extraFields > 0) height += NODE_BOX.fieldsTop + extraFields * NODE_BOX.field;
+  if (primitiveEmpty) height += NODE_BOX.primitiveEmpty;
   if (kind === 'set' || kind === 'get') height += NODE_BOX.constant;
   if (hints?.missing) height += NODE_BOX.savedTop + savedValues(data).length * NODE_BOX.savedValue;
   if (note) height += NODE_BOX.note + Math.ceil((note.length + 9) / NODE_BOX.noteChars) * NODE_BOX.noteLine;
