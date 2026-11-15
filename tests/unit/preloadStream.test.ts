@@ -1,6 +1,13 @@
+/**
+ * The chat stream listener of the preload (src/preload/index, llmStreamChat): chunks that arrive after the IPC
+ * reply still reach the chat, the listener goes with the `done` chunk, stays briefly after an `error` chunk for
+ * what follows, and is always released later when no terminal chunk comes.
+ * Why: a lost chunk leaves the chat half-drawn, and listeners that pile up across turns slow the window down.
+ */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 type Listener = (event: unknown, chunk: unknown) => void;
+// What the mocked electron module records: listeners by channel, the exposed API, and every invoke call.
 const listeners = new Map<string, Set<Listener>>();
 let exposed: Record<string, any> = {};
 let reply: () => Promise<unknown> = async () => undefined;
@@ -24,6 +31,7 @@ vi.mock('electron', () => ({
   },
 }));
 
+/** How many stream listeners are still attached; `emit` plays a chunk sent by main on a channel. */
 const count = () => [...listeners.values()].reduce((sum, set) => sum + set.size, 0);
 const emit = (channel: string, chunk: unknown) => [...(listeners.get(channel) ?? [])].forEach((listener) => listener({}, chunk));
 const run = { projectId: 'p', runId: 'r', expectedRevisionId: 'x' };
@@ -55,6 +63,7 @@ describe('preload stream listener', () => {
     emit(channel, { type: 'error', content: 'model' });
     emit(channel, { type: 'projection', content: {} });
     expect(seen).toHaveLength(2);
+    // The error grace in the preload is 5 s.
     vi.advanceTimersByTime(5_000);
     expect(count()).toBe(0);
 
@@ -62,6 +71,7 @@ describe('preload stream listener', () => {
     await expect(exposed.llmStreamChat([], [], () => undefined, run)).rejects.toThrow('boom');
     reply = async () => undefined;
     for (let turn = 0; turn < 5; turn++) await exposed.llmStreamChat([], [], () => undefined, run);
+    // No terminal chunk came for these six turns: each listener waits out the 60 s release, then goes.
     expect(count()).toBe(6);
     vi.advanceTimersByTime(60_000);
     expect(count()).toBe(0);

@@ -1,3 +1,9 @@
+/**
+ * Opening and saving a NodeWise project file (src/main/ipc/projectFile, src/shared/native-project): fields and
+ * extensions this version does not know are written back unchanged, they are dropped when a workflow is imported
+ * over the project, and a file saved by 0.x under the old format id opens and is saved with the current one.
+ * Why: a person who opens a file made by a newer version or another tool and saves it must not lose what it held.
+ */
 import Database from 'better-sqlite3';
 import { describe, expect, it } from 'vitest';
 import { commitCommand, ensureWorkspace, readProjection } from '../../src/main/commands/commit';
@@ -8,6 +14,7 @@ import { isNativeProjectFormat, parseNativeProject, serializeNativeProject } fro
 import { NATIVE_PROJECT_FORMAT_ID } from '../../src/shared/productNames';
 import { LEGACY_NATIVE_PROJECT_FORMAT_IDS } from '../../src/shared/legacyNames';
 
+/** A migrated in-memory database with the desktop workspace ready. */
 function fresh(): Database.Database {
   const db = new Database(':memory:');
   migrate(db);

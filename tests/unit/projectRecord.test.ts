@@ -1,3 +1,8 @@
+/**
+ * The db:save-project IPC handler (saveProjectRecord in src/main/ipc/projectRecord): a valid record is stored with
+ * its JSON columns, and any other shape, including a cyclic graph, is refused with one fixed message.
+ * Why: the renderer is not trusted to send a well-formed record, and a bad one must not corrupt the project table.
+ */
 import { describe, expect, it } from 'vitest';
 import Database from 'better-sqlite3';
 import { migrate } from '../../src/main/settings/migrate';

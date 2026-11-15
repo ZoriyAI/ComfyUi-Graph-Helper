@@ -1,18 +1,20 @@
+/**
+ * The prompt notes of the graph check (promptNotes in src/main/knowledge/promptCheck): the descriptions of a graph
+ * read as ComfyUI will read them: which texts reach which sampler, through what, how the model that takes them
+ * reads text, and what follows for each text (LoRA tags, weights, negations, cfg 1, missing trigger words).
+ * Why: a learner's prompt often fails for reasons ComfyUI never reports; the tutor points at the exact text node.
+ */
 import { describe, expect, it } from 'vitest';
 import Database from 'better-sqlite3';
 import { migrate } from '../../src/main/settings/migrate';
 import { readCatalog, upsertModelFiles, writeModelEnrichment } from '../../src/main/catalog/repository';
 import { promptNotes } from '../../src/main/knowledge/promptCheck';
 
-/**
- * The descriptions of a graph read as ComfyUI will read them: which texts reach which sampler, through what, how
- * the model that takes them reads text, and what follows for each text.
- */
-
 type Port = { id: string; name: string; dataType: string };
 type Node = { id: string; data: { comfyType: string; parameters: Record<string, unknown>; inputs: Port[]; outputs: Port[] } };
 type Edge = { source: string; sourceHandle: string; target: string; targetHandle: string };
 
+/** Port and class specs for the nodes these tests use; widget inputs get no socket. */
 const port = (name: string, dataType: string): Port => ({ id: name, name, dataType });
 const SPECS = new Map([
   ['CheckpointLoaderSimple', { inputs: [{ name: 'ckpt_name', type: 'COMBO', widget: true }], outputs: [{ name: 'MODEL', type: 'MODEL' }, { name: 'CLIP', type: 'CLIP' }, { name: 'VAE', type: 'VAE' }] }],
@@ -29,6 +31,7 @@ const SPECS = new Map([
   ['ConditioningCombine', { inputs: [{ name: 'conditioning_1', type: 'CONDITIONING', widget: false }, { name: 'conditioning_2', type: 'CONDITIONING', widget: false }], outputs: [{ name: 'CONDITIONING', type: 'CONDITIONING' }] }],
 ]);
 
+/** A graph node of a class from SPECS with the given field values. */
 function node(id: string, comfyType: string, parameters: Record<string, unknown> = {}): Node {
   const spec = SPECS.get(comfyType)!;
   return {
@@ -43,6 +46,7 @@ function node(id: string, comfyType: string, parameters: Record<string, unknown>
 }
 const link = (source: string, sourceHandle: string, target: string, targetHandle: string): Edge => ({ source, sourceHandle, target, targetHandle });
 
+/** A catalog with an SDXL and a Flux checkpoint, an SDXL LoRA with trigger words and one without. */
 function openDb(): Database.Database {
   const db = new Database(':memory:');
   migrate(db);
@@ -80,6 +84,7 @@ function pictureGraph(texts: { positive: string; negative: string }, options: { 
   return { nodes, edges };
 }
 
+/** Runs the check on a graph; `brief` shortens each note to kind@node. */
 const run = (db: Database.Database, graph: { nodes: Node[]; edges: Edge[] }) => promptNotes(db, graph.nodes, graph.edges, SPECS, readCatalog(db));
 const brief = (notes: ReturnType<typeof promptNotes>) => notes.map((note) => `${note.kind}@${note.nodeId}`);
 

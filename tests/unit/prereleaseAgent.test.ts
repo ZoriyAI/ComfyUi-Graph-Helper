@@ -1,3 +1,10 @@
+/**
+ * Safety checks of the assistant's setup that guard a release: an API key is written only as ciphertext and only
+ * with a proven OS password store, settings refuse a bad address, sends stop before any network call when the
+ * model is not set up, a cloud key never goes to an http address, a local request carries no cloud key, the
+ * ComfyUI read is GET-only and follows no redirect, and the graph context the model receives.
+ * Why: the person's paid API key must never leak to disk in clear, to a log or to the wrong server.
+ */
 import http from 'http';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import Database from 'better-sqlite3';
@@ -12,12 +19,14 @@ import { missingOnGraph } from '../../src/shared/graph/compatibility';
 import { mutationFromTool } from '../../src/shared/commands/tools';
 import { agentGraphContext } from '../../src/shared/agent/context';
 
+/** The display part of a settings row; each test adds the provider and the addresses. */
 const SETTINGS = {
   theme: 'graphite',
   motion: 'system',
   language: 'en',
 } as const;
 
+/** Starts a plain HTTP server on a free 127.0.0.1 port. */
 function listen(handler: http.RequestListener): Promise<{ port: number; close: () => Promise<void> }> {
   const server = http.createServer(handler);
   return new Promise((resolve) => {
@@ -69,8 +78,10 @@ describe('prerelease agent configuration', () => {
       plaintextInCipher: false,
       unprotectedCipher: false,
     }).persist).toBe(true);
+    // On Linux Chromium marks its fallback cipher with a hard-coded password as v10; a keyring cipher is v11.
     expect(isUnprotectedCipher(Buffer.from('v10'))).toBe(true);
     expect(isUnprotectedCipher(Buffer.from('v11abc'))).toBe(false);
+    // No desktop named: ask for libsecret. A known desktop, or a store given on the command line: no flag.
     expect(passwordStoreFlag(undefined, [])).toBe('gnome-libsecret');
     expect(passwordStoreFlag('ubuntu:GNOME', [])).toBeNull();
     expect(passwordStoreFlag('KDE', [])).toBeNull();
@@ -87,6 +98,7 @@ describe('prerelease agent configuration', () => {
     expect(stored).toEqual({ status: 'stored' });
     const row = db.prepare('SELECT ciphertext FROM secret_records WHERE name = ?').get('provider-key:openai') as { ciphertext: Buffer };
     expect(Buffer.from(row.ciphertext).includes(Buffer.from('session-marker'))).toBe(false);
+    // A "cipher" equal to the plaintext, or one with the unprotected v10 mark, is refused.
     const leaked = saveSecretIfProven(db, { persist: true }, 'openai', 'session-marker', Buffer.from('session-marker'));
     expect(leaked).toEqual({ status: 'secret-storage-blocked' });
     const fallback = saveSecretIfProven(db, { persist: true }, 'openai', 'session-marker', Buffer.from('v10fallback'));
@@ -309,6 +321,7 @@ describe('prerelease agent configuration', () => {
     })) {
       if (part.type === 'text-delta') reply += String(part.content.text ?? '');
     }
+    // The 'test' provider answers from a fixture that calls addNode with the title 'Fixture step'.
     expect(calls).toContain('Fixture step');
     expect(reply).toContain('TEST fixture only:');
   });

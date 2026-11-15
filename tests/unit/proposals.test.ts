@@ -1,3 +1,9 @@
+/**
+ * Drafts (proposals) the assistant puts on the canvas as ghosts (src/main/proposals/repository and the engine IPC
+ * handlers): a draft never touches the graph until accepted, accepting commits it as the person's action, a refused
+ * or orphaned draft is superseded with the engine's reason, and the revision history can be listed and loaded.
+ * Why: in Ask mode the person decides; nothing the assistant suggests may change their graph on its own.
+ */
 import Database from 'better-sqlite3';
 import { afterEach, describe, expect, it } from 'vitest';
 import { commitCommand, ensureWorkspace, readProjection } from '../../src/main/commands/commit';
@@ -8,6 +14,7 @@ import { DESKTOP_PROJECT_ID } from '../../src/shared/project';
 import type { Proposal } from '../../src/shared/contracts/proposals';
 import { typedWorkflow } from '../e2e/fixtures/typedWorkflow';
 
+/** A migrated in-memory database with the desktop workspace ready. */
 function openDb(): Database.Database {
   const db = new Database(':memory:');
   migrate(db);
@@ -19,6 +26,7 @@ function current(db: Database.Database) {
   return readProjection(db, DESKTOP_PROJECT_ID)!;
 }
 
+/** Commits a command as the person, on the current revision. */
 function manual(db: Database.Database, actionId: string, payload: Record<string, unknown>) {
   return commitCommand(db, {
     projectId: DESKTOP_PROJECT_ID,
@@ -30,6 +38,7 @@ function manual(db: Database.Database, actionId: string, payload: Record<string,
   });
 }
 
+/** Creates an open draft whose kind is the payload's type. */
 function propose(db: Database.Database, payload: Record<string, unknown>, note = 'because') {
   return createProposal(db, {
     projectId: DESKTOP_PROJECT_ID,

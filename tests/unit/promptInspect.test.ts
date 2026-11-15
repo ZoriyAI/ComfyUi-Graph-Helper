@@ -1,3 +1,9 @@
+/**
+ * Reading one prompt text (src/shared/prompt/inspect, used by the graph check and the lessons): forms of other
+ * programs, LoRA tags, unbalanced brackets, weights, negations, language, length against the text encoder, the same
+ * phrase wanted and forbidden, trigger words, and whether a model reads tags (CLIP) or sentences (T5).
+ * Why: syntax copied from another tool silently does nothing in ComfyUI; the person learns why their prompt is ignored.
+ */
 import { describe, expect, it } from 'vitest';
 import {
   approxTokens,
@@ -10,6 +16,7 @@ import {
   weightsOf,
 } from '../../src/shared/prompt/inspect';
 
+/** The kinds of findings for a text, in order. */
 const kinds = (text: string, role: 'positive' | 'negative' = 'positive', reader: 'clip' | 't5' | 'unknown' = 'clip') => inspectText(text, role, reader).map((item) => item.kind);
 
 describe('reading a description the way ComfyUI will', () => {

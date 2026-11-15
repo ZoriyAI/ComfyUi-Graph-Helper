@@ -1,3 +1,10 @@
+/**
+ * Where nodes land (src/main/commands/placement with the command engine): the move-nodes command, placing the
+ * assistant's nodes and subgraphs off existing ones, the tidy at the end of a run as one undoable step, accepted
+ * drafts landing where their ghost was drawn, and the size main assumes for a new node.
+ * Why: the assistant must never drop a node on top of the person's own work, and one undo must take its whole
+ * build back.
+ */
 import Database from 'better-sqlite3';
 import { describe, expect, it } from 'vitest';
 import { closeRun, commitCommand, ensureWorkspace, listRecentCommands, listRevisions, readProjection, startRun } from '../../src/main/commands/commit';
@@ -11,6 +18,7 @@ import { describeRevision, planUndo, EMPTY_SESSION } from '../../src/renderer/st
 
 type Rec = Record<string, any>;
 
+/** A migrated in-memory database with the desktop workspace ready. */
 function openDb(): Database.Database {
   const db = new Database(':memory:');
   migrate(db);
@@ -18,6 +26,7 @@ function openDb(): Database.Database {
   return db;
 }
 
+/** The current projection; `manual` and `ai` commit a command as the person or inside an assistant run. */
 const head = (db: Database.Database) => readProjection(db, P)!;
 const manual = (db: Database.Database, actionId: string, payload: Rec) => commitCommand(db, {
   projectId: P, actionId, expectedRevisionId: head(db).currentRevisionId, actor: 'manual', runId: null, payload,
@@ -30,6 +39,7 @@ function nodesOf(db: Database.Database): Rec[] {
   return head(db).snapshot.nodes as Rec[];
 }
 
+/** Fails when any two node rectangles overlap. */
 function expectNoOverlap(nodes: Rec[]): void {
   const rects = nodes.map(nodeRectOf);
   for (let a = 0; a < rects.length; a += 1) {
@@ -247,6 +257,7 @@ describe('the size main gives a node', () => {
   });
 
   it('keeps room for a collapsed description card around a placed node', () => {
+    // A collapsed description card is 34 px high, with 8 px of air above and below it.
     expect(PLACE_GAP).toBeGreaterThanOrEqual(34 + 8 + 8);
   });
 });
