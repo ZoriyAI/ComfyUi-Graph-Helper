@@ -1,3 +1,7 @@
+/*
+ * Styles of ErrorFallback (ErrorBoundary.tsx): a full-window screen with one centred card. It uses only global
+ * tokens, since it must render even when the app's own components failed.
+ */
 .screen {
   position: fixed;
   inset: 0;

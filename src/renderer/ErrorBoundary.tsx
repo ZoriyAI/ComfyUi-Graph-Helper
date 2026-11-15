@@ -1,3 +1,8 @@
+/**
+ * The last guard of the renderer: a React error boundary around App (mounted in index.tsx). A render error would
+ * otherwise leave a blank window; instead a person sees what happened, can copy redacted diagnostics and reload.
+ * tests/unit/errorBoundary.test.ts checks the fallback and that secrets never reach the shown details.
+ */
 import React from 'react';
 import { AlertTriangle, ClipboardCopy, RotateCcw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -9,6 +14,7 @@ import styles from './ErrorBoundary.module.css';
 /** The card shown instead of the app after a render error: what happened, collapsed details, Reload and Copy. */
 export function ErrorFallback({ error, onReload, onCopy }: { error: Error; onReload: () => void; onCopy: () => void }) {
   const { t } = useTranslation();
+  // Keys can appear in error messages (a provider's reply); redact before showing, and cap the length for the card.
   const details = redactSecrets(`${error.name}: ${error.message}${error.stack ? `\n${error.stack}` : ''}`).slice(0, 4000);
   return (
     <div className={styles.screen}>

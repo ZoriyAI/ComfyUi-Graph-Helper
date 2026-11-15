@@ -1,3 +1,9 @@
+/**
+ * The main window's layout: menu bar, toolbar, rail, graph canvas, dock, status bar and the hosts for dialogs.
+ * Rendered by index.tsx inside ErrorBoundary. Its one effect installs the app-wide services (commands, hotkeys,
+ * focus rescue, preferences, sync and proposal subscriptions, file opening) and loads the saved project, then
+ * removes them on unmount so a remount in StrictMode does not install them twice.
+ */
 import React, { forwardRef, useEffect } from 'react';
 import { installFileOpening } from './commands/fileOpening';
 import JourneyHost from './components/journey/JourneyHost';
@@ -34,6 +40,7 @@ import { installDrawWatch } from './services/start/drawWatch';
 import { cx } from './ui/cx';
 import { DESKTOP_PROJECT_ID } from '../shared/project';
 
+// Kept for older imports; current callers import these from state/providerState directly.
 export { providerKeyState, providerNoteKey } from './state/providerState';
 
 /** The settings button at the right end of the toolbar: a gear, named "Settings" by its text. */
@@ -46,6 +53,7 @@ const SettingsButton = forwardRef<HTMLButtonElement, React.ButtonHTMLAttributes<
   );
 });
 
+/** The root component of the main window. */
 function App() {
   const { t } = useTranslation();
   // Preferences ▸ Shortcuts may move or remove Mod+, ; the hint shows what the command has now.
@@ -65,6 +73,7 @@ function App() {
     const offDraw = installDrawWatch();
     // Files dropped on the window and named on the command line (commands/fileOpening.ts).
     const offFiles = installFileOpening();
+    // The projection is read after the start state settles, even when it fails, so a broken start still shows a graph.
     window.electronAPI.startState().catch(() => null).then(() => window.electronAPI.readProjection(DESKTOP_PROJECT_ID)).then((projection) => {
       applyProjection(projection);
       // A file named on the command line opens once the graph it may replace is known.
