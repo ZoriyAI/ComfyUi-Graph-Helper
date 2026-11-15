@@ -17,6 +17,7 @@ It tours the level on screen: the main graph, or the inside of an open subgraph.
 ## While it runs
 
 - The view moves to each node in turn and shows its description card.
+- The node of the step and the nodes that feed it stand out; the rest of the graph dims.
 - A bar under the canvas toolbar has **Previous step**, **Play** / **Pause**, **Next step**, "Step 3 of 7" and **End tour**.
 - Click a node of the graph: the tour goes on from that node.
 - Any press on the canvas pauses the playing.
