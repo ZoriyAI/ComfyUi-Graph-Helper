@@ -149,4 +149,14 @@ export const IPC_CHANNELS = {
   APP_GRAPH_DRAWN: 'app:graph-drawn',
   PRIVACY_PREVIEW_CACHE: 'privacy:preview-cache',
   PRIVACY_CLEAR_PREVIEWS: 'privacy:clear-previews',
+  /** Lessons as files (src/main/lessons/lessonsIpc.ts): My lessons, import, export, save, remove, adult mark, assistant drafts. */
+  LESSONS_LIST: 'lessons:list',
+  LESSONS_IMPORT_DIALOG: 'lessons:import-dialog',
+  LESSONS_IMPORT_TEXT: 'lessons:import-text',
+  LESSONS_EXPORT: 'lessons:export',
+  LESSONS_SAVE: 'lessons:save',
+  LESSONS_REMOVE: 'lessons:remove',
+  LESSONS_MARK_ADULT: 'lessons:mark-adult',
+  LESSONS_DRAFT_GET: 'lessons:draft-get',
+  LESSONS_DRAFT_RESOLVE: 'lessons:draft-resolve',
 } as const;
