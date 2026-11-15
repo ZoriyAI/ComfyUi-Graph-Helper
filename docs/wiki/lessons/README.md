@@ -128,6 +128,11 @@ Closed until the switch **Adult content (18+)** in **Settings ▸ Privacy** is o
 - [Adult LoRAs: how to load and balance them](Adult-Lora.md): lesson "adult-lora". You load your own LoRA, check which model it fits and learn to balance two LoRAs.
 - [Video for adults: what changes](Adult.md): lesson "adult". You learn what the content of a clip depends on and check your graph.
 
+### My lessons
+
+- [My lessons](My-Lessons.md): make a lesson from a graph, try it, save it, import and export lessons.
+- [The lesson file format](Lesson-File-Format.md): what a `.lesson.json` file holds.
+
 ## About the lessons
 - [How lessons work](How-Lessons-Work.md): choosing, following, Show me where, Do this for me, the next lesson.
 
