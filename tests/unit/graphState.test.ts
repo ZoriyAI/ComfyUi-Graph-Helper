@@ -1,3 +1,8 @@
+/**
+ * The basic node actions of the renderer's graph store (state/graphState.ts, read by the canvas, the panels and the
+ * services that apply projections): add, remove, update and clear. Every view of the graph a person sees is drawn
+ * from this store, so these must change exactly the node asked for.
+ */
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useGraphStore } from '../../src/renderer/state/graphState';
 import { GraphNode } from '../../src/renderer/types/graph';

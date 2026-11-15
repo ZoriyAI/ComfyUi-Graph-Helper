@@ -1,3 +1,10 @@
+/**
+ * Tests of the lessons and the built-in knowledge on sound, speech, 3D, faces and characters
+ * (lessons/sets/sound-3d-faces.ts, knowledge/sets/sound-3d-faces*.ts): the lessons are registered in their groups,
+ * fit a ComfyUI with their nodes, name the pack of a missing node, say the numbers their checks want, and state the
+ * consent rule wherever a face or a voice is given to someone; the knowledge says the same in both languages and is
+ * seeded with the core set. A person working with real faces and voices must read the rule before anything is built.
+ */
 import { describe, expect, it } from 'vitest';
 import { lessonGaps, rolesOf, type ClassPorts, type FieldTest } from '../../src/shared/lessons/engine';
 import { packOf } from '../../src/shared/lessons/fit';
@@ -25,6 +32,7 @@ const ports: ClassPorts = (classType) => {
   return { inputs: [...Object.keys(item.required ?? {}), ...Object.keys(item.optional ?? {})], outputs: item.output.map((type, index) => ({ name: names[index] ?? type, type })) };
 };
 
+/** Every number in a text, with a decimal comma (as Russian writes it) read as a point. */
 const numbersIn = (text: string) => (text.match(/\d+(?:[.,]\d+)?/g) ?? []).map((item) => Number(item.replace(',', '.')));
 
 describe('the lessons on sound, speech, 3D, faces and characters', () => {

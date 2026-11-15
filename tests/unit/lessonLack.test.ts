@@ -1,3 +1,8 @@
+/**
+ * "Still to do" as a person reads it (lessons/lackText.ts, shown by LessonPanel): which of two alike nodes a sentence
+ * is about, two prompts that are swapped, a node of a similar class, and the reason a number is asked for. The panel
+ * shows these sentences as they are, so they are checked here word for word in English.
+ */
 import { describe, expect, it } from 'vitest';
 import i18next from 'i18next';
 import { en } from '../../src/shared/i18n/catalog';
@@ -5,11 +10,6 @@ import { lackLines, nodeLabel, type LackContext } from '../../src/renderer/compo
 import { lessonProgress, type LessonGraph, type LessonNode } from '../../src/shared/lessons/engine';
 import { lessonById } from '../../src/shared/lessons/lessons';
 import { useGraphStore } from '../../src/renderer/state/graphState';
-
-/**
- * "Still to do" as a person reads it: which of two alike nodes a sentence is about, two prompts that are swapped,
- * a node of a similar class, and the reason a number is asked for. The panel shows these sentences as they are.
- */
 
 const t = i18next.createInstance();
 void t.init({ lng: 'en', resources: { en: { translation: en } }, interpolation: { escapeValue: false } });
@@ -20,6 +20,7 @@ function make(id: string, classType: string, inputs: string[], outputs: string[]
   return { id, classType, inputs: port('in', inputs), outputs: port('out', outputs), values };
 }
 
+/** The first picture lesson's graph, done; with swap the two prompts go to the wrong sampler inputs. */
 function picture(swap: boolean): LessonGraph {
   const nodes = [
     make('ck', 'CheckpointLoaderSimple', ['ckpt_name'], ['MODEL', 'CLIP', 'VAE'], { ckpt_name: 'juggernautXL_v9.safetensors' }),
@@ -38,6 +39,7 @@ function picture(swap: boolean): LessonGraph {
   };
 }
 
+/** The sentences name nodes by their canvas title, read from the graph store, so the store gets the same nodes. */
 function context(graph: LessonGraph, roles: Record<string, string>): LackContext {
   useGraphStore.setState({ nodes: graph.nodes.map((node) => ({ id: node.id, type: 'comfy', position: { x: 0, y: 0 }, data: { comfyType: node.classType, title: node.classType === 'CLIPTextEncode' ? 'CLIP Text Encode (Prompt)' : node.classType, inputs: [], outputs: [], parameters: {} } })) } as never);
   return { details: {}, graph, facts: {}, roles, language: 'en' };

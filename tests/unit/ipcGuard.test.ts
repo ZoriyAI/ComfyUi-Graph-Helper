@@ -1,9 +1,16 @@
+/**
+ * Two guards against foreign content driving the app. The IPC sender guard (src/main/ipc/guard.ts, which wraps every
+ * handler main registers) answers only the app's own page, so a page opened by a link or a dropped file cannot read
+ * keys or change the graph. The drop guard (src/renderer/dropGuard.ts) stops a dropped file or link from navigating
+ * the window away, while the canvas's own drags still work.
+ */
 import { afterEach, describe, expect, it } from 'vitest';
 import { appEntryUrl, guardedHandle, guardedIpcMain, isTrustedAppUrl, setTrustedAppUrl, UNTRUSTED_SENDER_ERROR } from '../../src/main/ipc/guard';
 import { isForeignDrag } from '../../src/renderer/dropGuard';
 
 type Handler = (event: unknown, ...args: unknown[]) => unknown;
 
+/** A stand-in for Electron's ipcMain that only records handlers, so a test can call one with a made-up sender. */
 function fakeIpc() {
   const handlers = new Map<string, Handler>();
   return {

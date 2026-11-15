@@ -1,3 +1,10 @@
+/**
+ * The part a node plays, said after its name in "Still to do" when two nodes of one class stand on the canvas
+ * (lackText.ts nodeLabel). The label comes from the lesson (texts LessonWords.roles) and falls back to the shared
+ * catalog label of the role's name. A shared label is written for the common meaning of a name and read wrong in
+ * lessons that used the name for something else (the face picture of a face swap was called "video"), so every
+ * role that can have a twin in a lesson has a label of that lesson, or is on the list below, checked by hand.
+ */
 import { describe, expect, it } from 'vitest';
 import i18next from 'i18next';
 import { en, ru } from '../../src/shared/i18n/catalog';
@@ -6,14 +13,6 @@ import { LESSONS } from '../../src/shared/lessons/lessons';
 import { lessonWords } from '../../src/shared/lessons/texts';
 import { nodeLabel } from '../../src/renderer/components/lessons/lackText';
 import { useGraphStore } from '../../src/renderer/state/graphState';
-
-/**
- * The part a node plays, said after its name in "Still to do" when two nodes of one class stand on the canvas
- * (lackText.ts nodeLabel). The label comes from the lesson (texts LessonWords.roles) and falls back to the shared
- * catalog label of the role's name. A shared label is written for the common meaning of a name and read wrong in
- * lessons that used the name for something else (the face picture of a face swap was called "video"), so every
- * role that can have a twin in a lesson has a label of that lesson, or is on the list below, checked by hand.
- */
 
 /**
  * Roles whose shared label is true where they have twins: '*' for a name that means one thing in every lesson,

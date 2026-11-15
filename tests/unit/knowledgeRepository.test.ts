@@ -1,3 +1,10 @@
+/**
+ * The knowledge repository in main (main/knowledge/repository.ts, answered through the knowledge IPC and the
+ * assistant's tools): search and detail of node classes and model files, model notes read from the description file
+ * next to a model, saved explanations by project and owner, and the graph check. These feed the library, the model
+ * cards, the explanation cards and the Check panel, so a person finds the right node, sees what a LoRA is for and
+ * learns what is wrong with a graph before running it.
+ */
 import { describe, expect, it } from 'vitest';
 import Database from 'better-sqlite3';
 import { migrate } from '../../src/main/settings/migrate';
@@ -24,6 +31,7 @@ import {
 import { parseObjectInfo } from '../../src/shared/catalog/objectInfo';
 import { DESKTOP_PROJECT_ID } from '../../src/shared/project';
 
+/** Six classes: core loaders, a sampler with an optional input, an output node and one pack's class. */
 const OBJECT_INFO = {
   CheckpointLoaderSimple: {
     input: { required: { ckpt_name: [['sd_xl_base_1.0.safetensors']] } },
@@ -94,6 +102,7 @@ const OBJECT_INFO = {
   },
 };
 
+/** A database with the classes above synced at time 1000, next to the core classes the workspace seeds. */
 function openDb(): Database.Database {
   const db = new Database(':memory:');
   migrate(db);
@@ -118,11 +127,13 @@ describe('knowledge repository: node classes', () => {
     expect(searchNodeClasses(db, { query: '', limit: 2 })).toHaveLength(2);
     expect(searchNodeClasses(db, { query: 'zzz' })).toEqual([]);
     expect(searchNodeClasses(db, { query: 'power' })[0]).toMatchObject({ pack: 'rgthree-comfy', detailed: false });
-    // Ten synced classes and the four editor nodes (Note, Markdown Note, Reroute, Primitive) the app always offers.
+    // Ten catalog classes (with the seeded core ones) and the four editor nodes (Note, Markdown Note, Reroute,
+    // Primitive) the app always offers.
     expect(searchNodeClasses(db, { query: '' })).toHaveLength(14);
     expect(searchNodeClasses(db, { query: '', limit: 10000 })).toHaveLength(14);
     expect(() => searchNodeClasses(db, { query: 'x', limit: 10001 })).toThrow();
     upsertNodeClasses(db, Array.from({ length: 40 }, (_, index) => ({ classType: `Bulk${index}`, module: 'nodes', displayName: '', category: 'bulk' })));
+    // Without a limit a search returns a default page of 30; an explicit limit reaches all 54.
     expect(searchNodeClasses(db, { query: '' })).toHaveLength(30);
     expect(searchNodeClasses(db, { query: '', limit: 10000 })).toHaveLength(54);
     db.close();
@@ -273,6 +284,7 @@ describe('knowledge repository: explanations', () => {
   });
 });
 
+/** Opens a workflow document on the desktop project, as a manual import. */
 function importWorkflow(db: Database.Database, document: Record<string, unknown>) {
   const current = readProjection(db, DESKTOP_PROJECT_ID)!;
   const result = commitCommand(db, {
@@ -286,6 +298,7 @@ function importWorkflow(db: Database.Database, document: Record<string, unknown>
   expect(result.status).toBe('applied');
 }
 
+/** A ComfyUI UI-format node; each input is [name, type, link id or null]. */
 function node(id: number, type: string, inputs: Array<[string, string, number | null]>, outputs: string[], widgets: unknown[] = []) {
   return {
     id,

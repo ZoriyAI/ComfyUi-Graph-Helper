@@ -1,3 +1,9 @@
+/**
+ * The app's language and locale (shared/i18n and main/systemLanguage.ts): the first-run language from the system, the
+ * language used when the settings row cannot be read, the region for dates and numbers inside the chosen language,
+ * and lists joined with each language's words. A Russian-speaking person should see Russian from the first start,
+ * everyone else English, and dates in their own region's format.
+ */
 import { describe, expect, it } from 'vitest';
 import { joinList, languageFromSystem, languageOf, localeFor } from '../../src/shared/i18n';
 import { environmentLocales, setSystemLanguages, systemLanguage, systemLocaleFor } from '../../src/main/systemLanguage';
@@ -7,6 +13,7 @@ describe('first-run language from the system', () => {
     expect(languageFromSystem(['ru-RU'])).toBe('ru');
     expect(languageFromSystem(['ru'])).toBe('ru');
     expect(languageFromSystem(['en-US'])).toBe('en');
+    // The first language the app speaks wins; one it does not speak is skipped.
     expect(languageFromSystem(['en-GB', 'ru-RU'])).toBe('en');
     expect(languageFromSystem(['de-DE', 'ru-RU'])).toBe('ru');
     expect(languageFromSystem(['de-DE', 'fr-FR'])).toBe('en');

@@ -1,3 +1,9 @@
+/**
+ * The model server part of Settings (settings/sections/pickerItems.ts) and the context window the helper works with
+ * (shared/agent/contextWindow.ts): an address on this computer may be typed without http://, a server with one model
+ * fills it in, and the window is the person's setting unless the server loaded the model with less. A person should
+ * see the number the helper really uses and where it comes from.
+ */
 import { describe, expect, it } from 'vitest';
 import { contextWindowFor, effectiveContextWindow } from '../../src/shared/agent/contextWindow';
 import { contextSourceKey, discoveryEmptyNoteShown, listable, onlyModelToPick } from '../../src/renderer/components/settings/sections/pickerItems';

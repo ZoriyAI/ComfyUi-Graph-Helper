@@ -1,3 +1,9 @@
+/**
+ * The live build: when the assistant builds a graph, the canvas shows it one step at a time with a callout saying
+ * why (graph/lib/buildQueue.ts and canvasStore, drawn by BuildLayer; the steps arrive through the chat service). The
+ * pace must leave time to read, honour reduced motion, and catch up on a backlog, and a step's why must reach the
+ * callout and the knowledge store even when it arrives after the node is shown.
+ */
 import { describe, expect, it } from 'vitest';
 import {
   CALLOUT_HOLD_MS,

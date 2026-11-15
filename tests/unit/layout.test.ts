@@ -1,3 +1,9 @@
+/**
+ * Graph layout geometry (shared/graph/layout.ts, used by the commit and placement in main, Arrange, the ghost layer
+ * and the canvas node sizes): the layered left-to-right layout, the search for a free spot for a new node, the size
+ * estimate of a node card, and the run mode and note text read from an imported node. A person's graph must come out
+ * readable after Arrange, and no new or arranged node may land on top of another.
+ */
 import { describe, expect, it } from 'vitest';
 import {
   estimateNodeSize,
@@ -15,10 +21,12 @@ import {
 const node = (id: string, height = 100, width = 240, y?: number): LayoutNode => ({ id, width, height, ...(y === undefined ? {} : { y }) });
 const edge = (source: string, target: string): LayoutEdge => ({ source, target });
 
+/** The placed rectangle of every node, for the overlap check. */
 function rects(nodes: LayoutNode[], placed: Map<string, { x: number; y: number }>): Array<Rect & { id: string }> {
   return nodes.map((item) => ({ id: item.id, ...placed.get(item.id)!, width: item.width, height: item.height }));
 }
 
+/** Fails if any two rectangles intersect, or any rectangle intersects an obstacle. */
 function assertNoOverlap(list: Rect[], obstacles: Rect[] = []): void {
   for (let a = 0; a < list.length; a += 1) {
     for (let b = a + 1; b < list.length; b += 1) expect(rectsOverlap(list[a], list[b]), `${JSON.stringify(list[a])} vs ${JSON.stringify(list[b])}`).toBe(false);
@@ -39,6 +47,7 @@ describe('layoutGraph', () => {
   it('lays a chain out left to right on one line', () => {
     const nodes = [node('a'), node('b'), node('c')];
     const placed = layoutGraph(nodes, [edge('a', 'b'), edge('b', 'c')], { gapX: 100 });
+    // Each step is the node width (240) plus the gap.
     expect(placed.get('a')).toEqual({ x: 0, y: 0 });
     expect(placed.get('b')).toEqual({ x: 340, y: 0 });
     expect(placed.get('c')).toEqual({ x: 680, y: 0 });

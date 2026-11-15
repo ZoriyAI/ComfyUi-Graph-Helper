@@ -1,9 +1,16 @@
+/**
+ * Multi-word search over node classes and model files (searchNodeClasses and searchModels in
+ * main/knowledge/repository.ts, behind the library's search box and the assistant's search tools). "lora loader"
+ * must find the loaders, not every class with one of the words, and a query that no class matches as a whole still
+ * shows the near ones.
+ */
 import { describe, expect, it } from 'vitest';
 import Database from 'better-sqlite3';
 import { migrate } from '../../src/main/settings/migrate';
 import { inferModelsFromNames, upsertModelFiles, upsertNodeClasses } from '../../src/main/catalog/repository';
 import { searchModels, searchNodeClasses } from '../../src/main/knowledge/repository';
 
+/** Five core classes and four model files, with families inferred from their names. */
 function setup() {
   const db = new Database(':memory:');
   migrate(db);

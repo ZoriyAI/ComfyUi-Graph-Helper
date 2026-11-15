@@ -1,11 +1,15 @@
+/**
+ * The renderer side of explanations scoped by graph and by subgraph definition: object refs (contracts/objects,
+ * graph/lib/selection) and the knowledge store as projections arrive (state/knowledgeState with
+ * services/commands/projection). Node ids repeat across graphs and inside definitions, so without the scope a person
+ * would read the note written for another graph's node 3 on this one.
+ */
 import { describe, expect, it, vi } from 'vitest';
 import { inSubgraph, objectKey, objectScope, type ObjectRef } from '../../src/shared/contracts/objects';
 import type { Explanation } from '../../src/shared/contracts/knowledge';
 import type { Projection } from '../../src/shared/commands/types';
 import { DESKTOP_PROJECT_ID } from '../../src/shared/project';
 import { edgeRef, nodeRef, portRef, sameRefs, selectionRefs } from '../../src/renderer/components/graph/lib/selection';
-
-/** The renderer side of explanations scoped by graph and by subgraph definition. */
 
 describe('object refs inside a subgraph definition', () => {
   it('name their definition, so node 3 inside is not node 3 of the main canvas', () => {
@@ -44,6 +48,7 @@ describe('the knowledge store when another graph is on screen', () => {
       const text = owner.kind === 'nodeClass' ? 'class' : `graph ${graph}`;
       return [{ id: `${graph}-${objectKey(owner)}`, projectId: DESKTOP_PROJECT_ID, owner, aspect: 'what', text, provenance: 'user', sourceUrl: null, revisionId: null, createdBy: 'user', createdAt: 1 }];
     });
+    // The test runs without a window; the store asks window.electronAPI, so a fake bridge with this one call stands in.
     (globalThis as unknown as { window: unknown }).window = { electronAPI: { listExplanations } };
     const { useKnowledgeStore } = await import('../../src/renderer/state/knowledgeState');
     const { applyProjection } = await import('../../src/renderer/services/commands/projection');

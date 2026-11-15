@@ -1,3 +1,9 @@
+/**
+ * The rename-group command from the commit in main through export: a renamed group keeps its members and colour, is
+ * one undoable step with its own words in history and in the assistant's recent actions, refuses a missing group or a
+ * too long title, and keeps a non-Latin title through a saved workflow and a fresh import. A person renames groups to
+ * organise a graph and expects the name to survive a save and an undo.
+ */
 import Database from 'better-sqlite3';
 import { describe, expect, it } from 'vitest';
 import { commitCommand, ensureWorkspace, listRecentCommands, readProjection } from '../../src/main/commands/commit';
@@ -21,6 +27,7 @@ const commit = (db: Database.Database, actionId: string, payload: Record<string,
   projectId: P, actionId, expectedRevisionId: head(db).currentRevisionId, actor: 'manual', runId: null, payload,
 });
 
+/** The current graph exported as a ComfyUI workflow, with a fixed time so the output does not depend on the clock. */
 function exported(db: Database.Database): Record<string, any> {
   const result = exportWorkflow(snap(db), '2026-11-10T00:00:00.000Z');
   if (!result.ok) throw new Error(result.error);

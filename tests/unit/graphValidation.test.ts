@@ -1,3 +1,9 @@
+/**
+ * Graph validation in main: the commit refuses a self-link or a new cycle, and checkGraph (main/knowledge/check.ts,
+ * behind the Check panel's knowledge:check-graph IPC and the assistant's checkGraph tool) reports imported cycles,
+ * broken links, values out of range or not in a list, and wrong types, also inside subgraphs. A person sees these
+ * findings before ComfyUI refuses the queue, so a false alarm or a missed problem both cost them a run.
+ */
 import Database from 'better-sqlite3';
 import { describe, expect, it } from 'vitest';
 import { commitCommand, ensureWorkspace, readProjection } from '../../src/main/commands/commit';
@@ -8,6 +14,7 @@ import { parseObjectInfo } from '../../src/shared/catalog/objectInfo';
 import { DESKTOP_PROJECT_ID } from '../../src/shared/project';
 import { denseWorkflow } from '../e2e/fixtures/denseWorkflow';
 
+/** A trimmed object_info of three core classes, enough for ranges, combos and an upload field. */
 const CORE = {
   CheckpointLoaderSimple: {
     input: { required: { ckpt_name: [['base.safetensors']] } },
@@ -76,6 +83,10 @@ function reroute(id: number, links: { input?: number | null; output?: number[] }
   };
 }
 
+/**
+ * Two Reroutes linked 1 to 2. Cyclic adds a link back from 2 to 1 and a link to node 99, which does not exist, so the
+ * import carries both a cycle and a broken link.
+ */
 function rerouteWorkflow(cyclic: boolean) {
   const links: Array<Record<string, unknown>> = [
     { id: 1, origin_id: 1, origin_slot: 0, target_id: 2, target_slot: 0, type: '*' },
@@ -159,6 +170,7 @@ describe('integrated graph-check regressions', () => {
     const workflow = rerouteWorkflow(false);
     workflow.links[0].origin_slot = 99;
     workflow.links[0].target_slot = 99;
+    // Node -10 is the root graph's pseudo input boundary, which only a subgraph definition may link from.
     workflow.links.push({ id: 2, origin_id: -10, origin_slot: 0, target_id: 1, target_slot: 0, type: '*' });
     commit(db, 'bad-handles', { type: 'import-workflow', document: workflow });
     const report = checkGraph(db, DESKTOP_PROJECT_ID);

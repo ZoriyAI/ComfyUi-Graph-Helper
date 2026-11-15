@@ -1,3 +1,9 @@
+/**
+ * Shortcuts on keyboard layouts other than US (commands/shortcuts.ts and commands/hotkeys.ts, plus localKeyFor in the
+ * Shortcuts section of Settings). On AZERTY, QWERTZ, Dvorak and the Russian layout a shortcut must be the key marked
+ * with its letter or sign, or the key in its US place where the layout has no Latin letter. A wrong match would make
+ * Ctrl+A quit the app on AZERTY or leave Ctrl+Z dead on QWERTZ.
+ */
 import { afterEach, describe, expect, it } from 'vitest';
 import { chordFromEvent, layoutToken, matchesShortcut, noteLayout, resetLayout, type KeyLike } from '../../src/renderer/commands/shortcuts';
 import { commandForKey, type FocusContext } from '../../src/renderer/commands/hotkeys';
@@ -31,6 +37,7 @@ function commandFor(event: KeyLike): string | null {
   return commandForKey(event, canvas, commands(), 'other')?.id ?? null;
 }
 
+// The module remembers the last layout it saw (noteLayout); each test starts without that memory.
 afterEach(() => resetLayout());
 
 describe('shortcuts on French AZERTY', () => {

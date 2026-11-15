@@ -1,13 +1,20 @@
+/**
+ * The main process log (src/main/log.ts): levelled lines in main.log, secrets cut before anything is written,
+ * rotation that keeps three files under the size limit, and a memory buffer before the log is set up. A person may
+ * attach this log to a bug report, so it must never hold a key and never grow without bound.
+ */
 import { afterEach, describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { addLogRedactor, initLog, log, LOG_FILE, readLogTail, resetLog } from '../../src/main/log';
 
+/** A fresh temporary folder for one test's log files. */
 function tempDir(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'log-test-'));
 }
 
+// The log is module state: each test starts with no file, no redactors and an empty memory buffer.
 afterEach(() => resetLog());
 
 describe('main log', () => {

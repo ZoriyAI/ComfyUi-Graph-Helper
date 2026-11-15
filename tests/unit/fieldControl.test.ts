@@ -1,3 +1,9 @@
+/**
+ * The pure model behind every field a person edits on a node (fields/fieldModel.ts, used by FieldControl, FieldRow,
+ * the node cards and the Inspector): which control a field gets, how a typed number is clamped and snapped, how a
+ * seed is drawn, how a model list is filtered, and how a node is split into ports and fields. A mistake here shows a
+ * wrong control or quietly sends ComfyUI a value outside its range.
+ */
 import { describe, expect, it } from 'vitest';
 import {
   baseName,
@@ -81,6 +87,7 @@ describe('lists and files', () => {
   });
 });
 
+/** KSampler as the knowledge layer returns it; widgetOrder carries ComfyUI's hidden seed control slot. */
 const KSAMPLER: NodeClassDetail = {
   classType: 'KSampler',
   displayName: 'KSampler',
@@ -136,6 +143,7 @@ describe('node layout', () => {
   });
 
   it('reads an imported node\'s widgets_values by the catalog order, and keeps stray parameters', () => {
+    // 'fixed' is the seed's control_after_generate slot: it has a place in widgets_values but is not a field.
     const data = sampler({ parameters: { note: 'kept' } });
     (data as Record<string, unknown>).comfy = { widgets_values: [42, 'fixed', 30, 'dpmpp_2m'] };
     const layout = nodeLayout(data, KSAMPLER);

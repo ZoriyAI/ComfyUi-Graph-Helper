@@ -1,13 +1,14 @@
+/**
+ * A model family has one meaning in the three places that speak of it: the label a model card shows (i18n catalog),
+ * the built-in text about it (coreKnowledge), and the rule that sorts a file into it by name (familyFromText).
+ * If they disagree, a person sees a file filed under one family and an explanation of another. "krea" is Krea 2, its
+ * own architecture; FLUX.1 Krea [dev] is a Flux.1 model.
+ */
 import { describe, expect, it } from 'vitest';
 import { en, ru } from '../../src/shared/i18n/catalog';
 import { CORE_FAMILY_DOCS, CORE_KNOWLEDGE } from '../../src/shared/knowledge/coreKnowledge';
 import { familyFromText } from '../../src/shared/knowledge/baseModel';
 
-/**
- * A family has one meaning in the three places that speak of it: the label a model card shows, the built-in text
- * about it, and the rule that sorts a file into it by name. "krea" is Krea 2, its own architecture; FLUX.1 Krea
- * [dev] is a Flux.1 model.
- */
 describe('a family means the same thing everywhere', () => {
   it('krea is Krea 2, and FLUX.1 Krea is Flux.1', () => {
     expect(familyFromText('krea2_turbo_fp8_scaled.safetensors')).toBe('krea');

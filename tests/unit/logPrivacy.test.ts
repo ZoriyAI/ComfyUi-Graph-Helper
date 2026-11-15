@@ -1,8 +1,15 @@
+/**
+ * The conversation log keeps to itself: a log saved for a bug report (savedLogScrub in main/ipc/diagnosticsIpc.ts)
+ * names neither the profile folder nor the home folder, and with "Keep the log" off the model trace
+ * (main/trace/modelTrace.ts) writes no line about a turn. A person's folder names and chats stay on their computer
+ * unless they choose otherwise.
+ */
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+// diagnosticsIpc imports electron; the test runs outside it, so a minimal stand-in is enough.
 vi.mock('electron', () => ({ app: { getVersion: () => '0', getPath: () => '/tmp' }, dialog: {}, shell: {} }));
 
 describe('the conversation log keeps to itself', () => {
@@ -10,6 +17,7 @@ describe('the conversation log keeps to itself', () => {
 
   it('a saved log carries neither the profile folder nor the home folder', async () => {
     const { savedLogScrub } = await import('../../src/main/ipc/diagnosticsIpc');
+    // A folder whose name only begins like the home folder's is someone else's and stays as it is.
     const scrub = savedLogScrub('/home/ann/.config/nodewise-studio/', '/home/ann');
     expect(scrub('db at /home/ann/.config/nodewise-studio/app.db, file /home/ann/pics/a.png, other /home/anna/x'))
       .toBe('db at [app profile]/app.db, file ~/pics/a.png, other /home/anna/x');

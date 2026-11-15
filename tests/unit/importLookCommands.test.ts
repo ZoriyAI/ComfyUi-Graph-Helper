@@ -1,3 +1,10 @@
+/**
+ * What IMPORT+NODES reads from a file is written back exactly, and what it lets a person change on the canvas
+ * (collapse, a Primitive's value and switch, a promoted field of a subgraph copy) changes only that in the file.
+ * The fixture tests/fixtures/workflows/import-look-0.4.json goes through the commit in main and the workflow codec's
+ * export. A person who opens a ComfyUI workflow here and saves it must get back the file ComfyUI would, not a
+ * reshaped one.
+ */
 import * as fs from 'fs';
 import * as path from 'path';
 import { describe, expect, it } from 'vitest';
@@ -8,18 +15,16 @@ import { migrate } from '../../src/main/settings/migrate';
 import { DESKTOP_PROJECT_ID } from '../../src/shared/project';
 import { exportWorkflow, shownDifferently, type GraphSnapshot } from '../../src/shared/workflow/codec';
 
-/**
- * What IMPORT+NODES reads from a file is written back exactly, and what it lets a person change on the canvas
- * (collapse, a Primitive's value and switch, a promoted field of a subgraph copy) changes only that in the file.
- */
 type Json = Record<string, any>;
 const EXPORTED_AT = '2026-11-14T00:00:00.000Z';
 const FIXTURE = JSON.parse(fs.readFileSync(path.join(__dirname, '../fixtures/workflows/import-look-0.4.json'), 'utf8')) as Json;
 
+/** A deep copy through JSON, so a test can change the expected file without touching the shared fixture. */
 function copy<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
+// Each commit needs its own action id: the commit treats a repeated id as the same action sent twice.
 let seq = 0;
 function commit(db: Database.Database, payload: Record<string, unknown>) {
   const current = readProjection(db, DESKTOP_PROJECT_ID)!;
@@ -59,6 +64,7 @@ describe('import look round trip', () => {
     nodeOf(collapsed, 2).flags = { collapsed: true };
     expect(exported(db)).toEqual(collapsed);
 
+    // Node 6 is collapsed in the file itself.
     expect(commit(db, { type: 'collapse-node', nodeIds: ['6'], collapsed: false }).status).toBe('applied');
     nodeOf(collapsed, 6).flags = {};
     expect(exported(db)).toEqual(collapsed);

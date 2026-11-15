@@ -1,3 +1,9 @@
+/**
+ * Small pieces around files and history: the save and redo shortcuts (appCommands, hotkeys), the toast shown after a
+ * workflow is opened (shell/notices), the words the history replay speaks (graph/lib/replay), and the tracker that
+ * lets a save wait for edits still on their way to main (services/commands/pending). A person relies on Ctrl+S
+ * saving what they just typed and on a toast that names what is missing in their own language.
+ */
 import { describe, expect, it } from 'vitest';
 import { buildAppCommands } from '../../src/renderer/commands/appCommands';
 import { commandForKey } from '../../src/renderer/commands/hotkeys';
@@ -7,6 +13,7 @@ import { pendingCommits, trackCommit, whenSettled } from '../../src/renderer/ser
 import { createTranslator } from '../../src/shared/i18n';
 
 const key = (over: Partial<{ key: string; code: string; ctrlKey: boolean; shiftKey: boolean }>) => ({ key: '', code: '', ctrlKey: false, metaKey: false, shiftKey: false, altKey: false, ...over });
+// Focus on the canvas itself: not in a text field, and no menu, dialog or list open over it.
 const canvas = { editable: false, layerOpen: false };
 
 describe('file commands and shortcuts', () => {

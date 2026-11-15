@@ -1,3 +1,9 @@
+/**
+ * How a model file is sorted into a family and a kind (shared/knowledge/baseModel.ts and modelKind.ts), and that every
+ * family, kind and knowledge label has words in both languages. The model cards, the model lists in fields and the
+ * fit check read these, so a person is told which LoRA belongs with their checkpoint. Header metadata wins over a
+ * Civitai sidecar, which wins over the file name; a name with no family stays unknown rather than guessed.
+ */
 import { describe, expect, it } from 'vitest';
 import { familiesCompatible, familyFromText, inferBaseModel } from '../../src/shared/knowledge/baseModel';
 import { inferModelKind, kindFromDirectory } from '../../src/shared/knowledge/modelKind';
@@ -42,6 +48,7 @@ describe('base model inference', () => {
       .toEqual({ family: 'pony', evidence: 'metadata' });
     expect(inferBaseModel({ metadata: { ss_base_model_version: 'sdxl_base_v1-0' }, sidecarBaseModel: 'Illustrious' }))
       .toEqual({ family: 'illustrious', evidence: 'sidecar' });
+    // A sidecar may narrow the header's family to a related one, never replace it with an unrelated one.
     expect(inferBaseModel({ metadata: { ss_base_model_version: 'sdxl_base_v1-0' }, sidecarBaseModel: 'Flux.1 D' }))
       .toEqual({ family: 'sdxl', evidence: 'metadata' });
   });

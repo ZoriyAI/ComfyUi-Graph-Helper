@@ -1,9 +1,14 @@
+/**
+ * The wording of the adult lessons and of docs/wiki/trust/Content-Rules: in both languages they state 18+, consent
+ * and the law, and that the rules are the app's own whatever a model answers. The teaching text supplies guidance; it
+ * does not advertise an application topic filter, so no lesson may claim the app "never helps" with something. A
+ * person reads these rules as the app's promise, so lessons and wiki must say the same.
+ */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { LESSONS } from '../../src/shared/lessons/lessons';
 import { lessonWords } from '../../src/shared/lessons/texts';
 
-// The teaching text supplies guidance; it does not advertise an application topic filter.
 describe('subject-neutral lesson guidance', () => {
   it.each(['en', 'ru'] as const)('keeps adult teaching factual and consent/law guidance explicit in %s', (language) => {
     const words = lessonWords(language, 'adult')!;

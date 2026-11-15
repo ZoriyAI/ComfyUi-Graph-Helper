@@ -1,3 +1,10 @@
+/**
+ * A large ComfyUI install, thousands of classes and model files, must not stall the app: object_info is parsed and
+ * stored in one transaction within seconds (main/catalog/repository.ts, run when the catalog is read over MCP or
+ * straight from ComfyUI), and the node library groups those rows and renders only a screenful
+ * (library/libraryModel.ts, used by NodeLibrary and VirtualList).
+ * Time budgets are loose here; npm run test:perf holds them tighter.
+ */
 import { describe, expect, it } from 'vitest';
 import Database from 'better-sqlite3';
 import { readCatalog, upsertObjectInfo } from '../../src/main/catalog/repository';
@@ -75,6 +82,7 @@ describe('large catalog', () => {
     const db = new Database(':memory:');
     migrate(db);
     const parsed = parseObjectInfo(syntheticObjectInfo(500));
+    // Count prepared statements by wrapping prepare on this one database.
     let statements = 0;
     const prepare = db.prepare.bind(db);
     (db as unknown as { prepare: typeof db.prepare }).prepare = ((sql: string) => {
@@ -97,12 +105,14 @@ describe('large catalog', () => {
     const groups = groupByCategory(nodes, { ranked: false, uncategorized: 'Other' });
     const rows = flattenGroups(groups, new Set());
     const elapsed = performance.now() - started;
+    // 180 packs plus "Other" for the rows with no category.
     expect(groups.length).toBe(181);
     expect(groups[groups.length - 1].category).toBe('Other');
     expect(rows.length).toBe(3300 + groups.length);
     expect(groups.reduce((sum, group) => sum + group.items.length, 0)).toBe(3300);
     expectWithinBudget('group 3300 library rows', elapsed, 500);
     // Only a screenful is rendered, wherever the list is scrolled.
+    // Scrolled to row 3000 of 40 px rows in an 800 px viewport: the visible rows plus a small overscan margin.
     const range = windowRange(40 * 3000, 800, 40, rows.length);
     expect(range.end - range.start).toBeLessThanOrEqual(Math.ceil(800 / 40) + 1 + 12);
     expect(range.total).toBe(rows.length * 40);

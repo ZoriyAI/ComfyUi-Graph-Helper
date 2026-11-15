@@ -1,3 +1,9 @@
+/**
+ * Rules of the first steps in the app: what the first screen shows (library open, right panel on the assistant), the
+ * single import message that also says where a workflow came from (shell/notices), and when the window tour starts by
+ * itself (journey/WindowTour). A newcomer should land on a usable screen and see the tour once, never in an
+ * automated run.
+ */
 import { describe, expect, it } from 'vitest';
 import { createTranslator } from '../../../src/shared/i18n';
 import { describeNote } from '../../../src/renderer/components/shell/notices';

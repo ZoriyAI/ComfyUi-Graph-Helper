@@ -1,3 +1,9 @@
+/**
+ * Ready examples built from lessons (shared/lessons/example.ts) and API-format workflows turned into canvas workflows
+ * (shared/workflow/apiPrompt.ts); main/ipc/openIpc.ts uses both to open an example or an API-format file. A person
+ * who opens an example must get a complete, linked graph that fits their ComfyUI, and an API file must open with its
+ * node numbers, values and links, laid out to read left to right.
+ */
 import { describe, expect, it } from 'vitest';
 import { parseObjectInfo } from '../../../src/shared/catalog/objectInfo';
 import type { CatalogView } from '../../../src/shared/catalog/types';

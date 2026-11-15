@@ -1,3 +1,10 @@
+/**
+ * The words of a step and its checks say the same thing. Where a step's text names a number for a field ("set
+ * `cfg` to 3.5", "`end_at_step` 10", "`shift` from 5 to 8"), the rule on that field must want that very number:
+ * as its exact value, or as the value "Do this for me" sets inside its range. A text that names a range must name
+ * the rule's range. Both languages are read. Also: every number a rule wants has a reason, and every file kind and
+ * role has a label, so "Still to do" never asks for a value without saying why.
+ */
 import { describe, expect, it } from 'vitest';
 import type { FieldSpec, Lesson } from '../../src/shared/lessons/engine';
 import { LESSONS } from '../../src/shared/lessons/lessons';
@@ -13,15 +20,10 @@ import { SOUND_3D_FACES_LESSONS } from '../../src/shared/lessons/sets/sound-3d-f
 import { rolesOf } from '../../src/shared/lessons/engine';
 import { en, ru } from '../../src/shared/i18n/catalog';
 
-/**
- * The words of a step and its checks say the same thing. Where a step's text names a number for a field ("set
- * `cfg` to 3.5", "`end_at_step` 10", "`shift` from 5 to 8"), the rule on that field must want that very number:
- * as its exact value, or as the value "Do this for me" sets inside its range. A text that names a range must name
- * the rule's range. Both languages are read.
- */
-
+/** A number a step's text gives a field: one value, or a range "from min to max". */
 type Named = { field: string; value: number } | { field: string; min: number; max: number };
 
+// A range right after the field ("from 5 to 8" in either language), or the first number within a short phrase.
 const NUMBER = '(-?\\d+(?:\\.\\d+)?)';
 const RANGE = new RegExp(`^[^\\d]{0,12}(?:от|from)\\s+${NUMBER}\\s+(?:до|to)\\s+${NUMBER}`);
 const FIRST = new RegExp(`^[^\\d\\n]{0,40}?${NUMBER}`);
@@ -58,6 +60,7 @@ function wanted(rules: FieldSpec[], field: string): { value?: number; min?: numb
   return null;
 }
 
+/** Every place in a lesson where the text names a number its rule does not want, as a readable line. */
 function mismatches(lesson: Lesson, words: typeof LESSONS_RU, language: string): string[] {
   const out: string[] = [];
   for (const step of lesson.steps) {

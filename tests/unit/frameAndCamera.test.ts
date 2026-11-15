@@ -1,14 +1,16 @@
+/**
+ * The window frame (state/frame.ts, installed by App) and the camera that follows a build or a tour
+ * (graph/lib/followCamera.ts, used by TourLayer and BuildLayer). In a narrow window the library and the right
+ * panel together left the canvas a strip, and what floats over the canvas stuck out of it. And the camera put the
+ * step's bubble under the build strip for any tall node. Both are arithmetic, checked here;
+ * tests/e2e/layout-walk.test.ts looks at the result.
+ */
 import { describe, expect, it } from 'vitest';
 import { holdsBothPanels, panelToFold } from '../../src/renderer/state/frame';
 import { CANVAS_MIN, SPLIT_MIN, TAB_MIN } from '../../src/renderer/state/dockState';
 import { RAIL_WIDTH } from '../../src/renderer/state/uiState';
 import { BUILD_BUBBLE_PX, BUILD_ROOM_PX, cameraCenter, TOOLBAR_ROOM_PX } from '../../src/renderer/components/graph/lib/followCamera';
 
-/**
- * In a narrow window the library and the right panel together left the canvas a strip, and what floats over the
- * canvas stuck out of it. And the camera that follows a build put the step's bubble under the build strip for any
- * tall node. Both are arithmetic, checked here; the walk in tests/e2e/layout-walk.test.ts looks at the result.
- */
 describe('the window frame keeps the canvas usable', () => {
   const both = { railOpen: true, dockCollapsed: false, split: false };
 
