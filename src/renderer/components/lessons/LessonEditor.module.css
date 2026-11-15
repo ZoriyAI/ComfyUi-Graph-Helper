@@ -1,0 +1,32 @@
+/*
+ * The lesson editor: one column of labelled fields and step cards (the lesson cards of LessonPanel.module.css), so
+ * it fits the narrow helper panel. Text fields are wells (--surface-sunken) with the field focus ring.
+ */
+.form { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.label { color: var(--text-dim); font-size: var(--text-xs); line-height: 18px; font-weight: 600; }
+.field {
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--control-border);
+  background: var(--surface-sunken);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-sm);
+  line-height: 19px;
+}
+textarea.field { min-height: 72px; resize: vertical; }
+.field:focus-visible { outline: none; border-color: var(--focus); box-shadow: var(--focus-field); }
+
+.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.tools { display: inline-flex; gap: 2px; margin-left: auto; }
+.checks, .values { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; color: var(--text-dim); font-size: var(--text-xs); line-height: 18px; overflow-wrap: anywhere; }
+.value { display: flex; align-items: flex-start; gap: 6px; cursor: pointer; }
+.value input { margin: 2px 0 0; accent-color: var(--accent); }
+.value input:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+
+.ok, .bad { display: flex; align-items: center; gap: 6px; margin: 0; font-size: var(--text-sm); line-height: 19px; overflow-wrap: anywhere; }
+.ok { color: var(--ok); }
+.bad { color: var(--warn); }

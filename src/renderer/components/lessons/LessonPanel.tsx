@@ -20,6 +20,10 @@ import MarkdownLite from '../chat/MarkdownLite';
 import { canDo, clearShown, doFix, nodeNameOf, showMissing, useLessonCatalog, useLessonFacts, useLessonGraph } from './lessonModel';
 import { lackLines, lackText } from './lackText';
 import styles from './LessonPanel.module.css';
+// LESSON FILES: My lessons, export buttons, the drop target for lesson files, the lesson editor.
+import { DropMark, GroupExportButton, LessonExportButton, MyLessonNotice, MyLessonsGroup, useLessonDrop, useMyLessons } from './MyLessons';
+import LessonEditor from './LessonEditor';
+import { myLessonById, myLessonWords, useMyLessonsStore } from '../../state/myLessonsState';
 
 /**
  * The helper's "Learn" mode. The person builds a graph by hand; the panel says what the step is and why, shows
@@ -83,13 +87,15 @@ function LessonList({ shared, adultOn }: { shared: Shared; adultOn: boolean }) {
   const start = useLessonStore((state) => state.start);
   const again = useLessonStore((state) => state.again);
   const openSettings = useUiStore((state) => state.openSettings);
+  const drop = useLessonDrop();
   return (
-    <div className={styles.list}>
+    <div className={styles.list} {...drop.props}>
       <h3 className={styles.heading}>
         <GraduationCap size={16} aria-hidden="true" />
         {t('lessons.listTitle')}
       </h3>
       <p className={styles.intro}>{t('lessons.listIntro')}</p>
+      <DropMark over={drop.over} />
       {!shared.catalogRead ? (
         <div className={styles.notice} role="note">
           <p>{t('lessons.notRead')}</p>
@@ -115,6 +121,7 @@ function LessonList({ shared, adultOn }: { shared: Shared; adultOn: boolean }) {
             <h4 id={`lesson-group-${group.id}`} className={styles.groupTitle}>
               <span>{group.title[i18n.language === 'ru' ? 'ru' : 'en']}</span>
               <span className={styles.groupCount}>{t('lessons.groupDone', { done: doneHere, total: rows.length })}</span>
+              {group.id === ADULT_GROUP.id && !adultOn ? null : <GroupExportButton groupId={group.id} title={group.title[i18n.language === 'ru' ? 'ru' : 'en']} />}
             </h4>
             <ul className={styles.cards}>
               {/* The lessons for adults: closed, not hidden, while the switch is off; one row that leads to it. */}
@@ -167,6 +174,7 @@ function LessonList({ shared, adultOn }: { shared: Shared; adultOn: boolean }) {
                       <span className={styles.cardSteps}>
                         {started ? t('lessons.progress', { current: progress.current + 1, total }) : t('lessons.steps', { count: total })}
                       </span>
+                      <LessonExportButton lessonId={lesson.id} title={words.title} />
                     </div>
                   </li>
                 );
@@ -175,6 +183,7 @@ function LessonList({ shared, adultOn }: { shared: Shared; adultOn: boolean }) {
           </section>
         );
       })}
+      <MyLessonsGroup shared={shared} adultOn={adultOn} />
     </div>
   );
 }
@@ -191,7 +200,7 @@ function LessonRun({ lesson, shared, onAsk }: { lesson: Lesson; shared: Shared; 
   const doneIds = useLessonStore((state) => state.done);
   const reached = useLessonStore((state) => state.reached[lesson.id]);
   const reach = useLessonStore((state) => state.reach);
-  const words = lessonWords(i18n.language, lesson.id);
+  const words = lessonWords(i18n.language, lesson.id) ?? myLessonWords(i18n.language, lesson.id);
   const progress = useMemo(() => lessonProgress(lesson, shared.graph, shared.facts, new Set(readIds)), [lesson, shared.graph, shared.facts, readIds]);
   const total = lesson.steps.length;
   const finished = progress.current >= total;
@@ -266,6 +275,7 @@ function LessonRun({ lesson, shared, onAsk }: { lesson: Lesson; shared: Shared; 
         {finished && peek === null ? t('lessons.finishedTitle') : current ? `${t('lessons.progress', { current: progress.current + 1, total })}. ${withNodeNames(text.title, nameOf).replace(/\*\*/g, '')}` : ''}
       </span>
       {steppedBack && peek === null ? <p className={styles.notice} role="status" data-lesson-back="">{t('lessons.steppedBack', { step: progress.current + 1 })}</p> : null}
+      <MyLessonNotice lessonId={lesson.id} />
 
       {finished && peek === null ? (
         <section className={styles.step} data-step-state="end">
@@ -400,11 +410,14 @@ export default function LessonPanel({ onAsk }: { onAsk: (question: string) => vo
   const graph = useLessonGraph(catalog.details);
   const facts = useLessonFacts(graph, catalog.details);
   const shared: Shared = { details: catalog.details, ports: catalog.ports, catalogRead: catalog.read, graph, facts };
+  // The person's own lessons are read once the panel shows, so a `my:` lesson that was open comes back after a restart.
+  useMyLessons();
+  const editing = useMyLessonsStore((state) => state.editing);
   const shownId = shownLesson(active, adultOn);
-  const lesson = shownId ? lessonById(shownId) : null;
+  const lesson = shownId ? lessonById(shownId) ?? myLessonById(shownId) : null;
   return (
-    <div className={`lesson-panel ${styles.panel}`} data-lesson={lesson?.id ?? 'list'}>
-      {lesson ? <LessonRun lesson={lesson} shared={shared} onAsk={onAsk} /> : <LessonList shared={shared} adultOn={adultOn} />}
+    <div className={`lesson-panel ${styles.panel}`} data-lesson={editing ? 'editor' : lesson?.id ?? 'list'}>
+      {editing ? <LessonEditor editing={editing} /> : lesson ? <LessonRun lesson={lesson} shared={shared} onAsk={onAsk} /> : <LessonList shared={shared} adultOn={adultOn} />}
     </div>
   );
 }

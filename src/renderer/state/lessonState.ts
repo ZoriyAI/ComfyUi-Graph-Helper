@@ -3,6 +3,8 @@ import { adultContentOn, type Preferences } from '../../shared/config/preference
 import { lessonOpen } from '../../shared/lessons/lessons';
 import { currentPreferences, savePreferencesPatch } from './preferencesState';
 import { useDockStore } from './dockState';
+// LESSON FILES: a lesson of the person (`my:` id) opens like a built-in one, behind the same 18+ switch when marked.
+import { myLessonOpen } from './myLessonsState';
 
 /**
  * The helper's "Learn" mode: which lesson is open and what the person has read in it. Where they are in a lesson
@@ -48,7 +50,8 @@ export const useLessonStore = create<LessonState>((set, get) => ({
   },
   setLearning: (learning) => set({ learning }),
   start: (lessonId) => {
-    if (!lessonOpen(lessonId, adultContentOn(currentPreferences()))) return;
+    const adultOn = adultContentOn(currentPreferences());
+    if (!lessonOpen(lessonId, adultOn) && !myLessonOpen(lessonId, adultOn)) return;
     set({ learning: true, active: lessonId });
     save(get());
   },
@@ -91,5 +94,5 @@ export const useLessonStore = create<LessonState>((set, get) => ({
  * after it was opened, or a profile carried over). Then the list shows, and the lesson keeps its place.
  */
 export function shownLesson(active: string, adultOn: boolean): string {
-  return active !== '' && lessonOpen(active, adultOn) ? active : '';
+  return active !== '' && (lessonOpen(active, adultOn) || myLessonOpen(active, adultOn)) ? active : '';
 }

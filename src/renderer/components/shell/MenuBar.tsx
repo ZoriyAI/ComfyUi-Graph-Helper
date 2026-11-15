@@ -32,6 +32,7 @@ const MENUS: Array<{ value: string; labelKey: string; entries: Entry[] }> = [
     entries: [
       command('file.new'), command('file.open'), command('file.save'), command('file.saveAs'), separator,
       command('file.import'), command('file.export'), command('file.catalog'), separator,
+      command('file.importLessons'), command('file.lessonFromGraph'), separator,
       command('file.settings'), separator, command('file.quit'),
     ],
   },
