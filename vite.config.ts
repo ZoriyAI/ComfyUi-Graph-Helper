@@ -1,3 +1,8 @@
+/**
+ * Vite config for the renderer (src/renderer): `npm run dev:vite` serves it on port 5173 for `npm run dev`, and
+ * `npm run build:renderer` writes the bundle to dist/renderer, which main loads in the packaged app.
+ * base './' keeps asset paths relative, because the page is not served from a web root.
+ */
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 
