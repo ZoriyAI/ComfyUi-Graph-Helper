@@ -1,8 +1,13 @@
+/**
+ * Lesson navigation (shared/lessons/navigation.ts, the groups and "comes after" lists of LessonPanel): every lesson is
+ * in exactly one group, in registry order, and its predecessors are listed once. Navigation groups existing lessons;
+ * it never gates them on completion of predecessors, so a person can open any lesson. A new lesson changes the counts
+ * below on purpose.
+ */
 import { describe, expect, it } from 'vitest';
 import { LESSONS, LESSON_AFTER, LESSON_PATH } from '../../src/shared/lessons/lessons';
 import { lessonDependencies, lessonGroups } from '../../src/shared/lessons/navigation';
 
-// Navigation groups existing lessons; it never gates them on completion of predecessors.
 describe('lesson navigation', () => {
   it('groups all 79 lessons once, keeping registry order within each group', () => {
     const groups = lessonGroups();

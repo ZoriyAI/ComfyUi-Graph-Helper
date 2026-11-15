@@ -1,7 +1,11 @@
+/**
+ * The lesson offered at the end of a lesson (lessons.ts nextLesson, shown by LessonPanel) and the list of files a
+ * lesson needs with the ones the person already has (files.ts filesOfLesson and filesAtHand). The next lesson must
+ * fit the person's install, not be done already, and never cross between ordinary lessons and lessons for adults.
+ */
 import { describe, expect, it } from 'vitest';
 import { LESSONS, isAdultLesson, nextLesson } from '../../src/shared/lessons/lessons';
 
-/** The one rule for the lesson offered at the end of a lesson (lessons.ts nextLesson). */
 describe('the next lesson', () => {
   const ordinary = LESSONS.filter((lesson) => !isAdultLesson(lesson.id)).map((lesson) => lesson.id);
 
@@ -36,6 +40,7 @@ describe('what a lesson needs', () => {
     const wants = filesOfLesson(lessonById('video-text')!);
     expect(wants.map((want) => want.kind)).toEqual(['wanT2vHigh', 'wanT2vLow', 'umt5', 'wan21Vae']);
     expect(wants.map((want) => want.folder)).toEqual(['diffusion_models', 'diffusion_models', 'text_encoders', 'vae']);
+    // An i2v high-noise file is not the t2v one the lesson asks for, so that slot stays empty.
     const at = filesAtHand(wants, ['wan2.2_i2v_high_noise_14B.safetensors', 'wan2.2_t2v_low_noise_14B.safetensors', 'umt5_xxl_fp8_e4m3fn_scaled.safetensors']);
     expect(at.map((item) => [item.want.kind, item.file])).toEqual([
       ['wanT2vHigh', null],

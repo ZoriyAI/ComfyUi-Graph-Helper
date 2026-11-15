@@ -1,11 +1,14 @@
+/**
+ * The canvas and the catalog, as the app holds them, seen the way a lesson needs them (lessons/lessonModel.ts, used
+ * by LessonPanel and lesson authoring). The lesson engine judges this view, so a value missed from an imported node
+ * or a link counted twice would tell a person a step is not done when it is, or the other way round.
+ */
 import { describe, expect, it } from 'vitest';
 import { classPortsOf, lessonClasses, lessonGraphOf, nodeNameOf } from '../../src/renderer/components/lessons/lessonModel';
 import { lessonGaps, lessonProgress } from '../../src/shared/lessons/engine';
 import { LESSONS, lessonById } from '../../src/shared/lessons/lessons';
 import type { NodeClassDetail } from '../../src/shared/contracts/knowledge';
 import type { GraphEdge, GraphNode } from '../../src/renderer/types/graph';
-
-/** The canvas and the catalog, as the app holds them, seen the way a lesson needs them. */
 
 const detail = (classType: string, displayName: string, inputs: NodeClassDetail['inputs'], outputs: NodeClassDetail['outputs'], widgetOrder: string[] = []): NodeClassDetail => ({
   classType, displayName, category: '', pack: 'core', detailed: inputs.length + outputs.length > 0, description: '', inputs, outputs, widgetOrder, widgetOrderReliable: true, outputNode: false, syncedAt: 1,
@@ -19,6 +22,7 @@ const DETAILS: Record<string, NodeClassDetail | null> = {
   Missing: null,
 };
 
+/** A canvas node of a class above, link inputs first and then widget inputs, as the canvas numbers its ports. */
 function node(id: string, comfyType: string, extra: Partial<GraphNode['data']> = {}): GraphNode {
   const known = DETAILS[comfyType];
   const sockets = (known?.inputs ?? []).filter((input) => !input.widget);

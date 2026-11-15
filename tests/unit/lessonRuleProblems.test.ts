@@ -1,3 +1,9 @@
+/**
+ * A lesson file refused for breaking a rule of lessons (schema.ts) is told in the person's language: the problem
+ * comes as a code with the names it is about, and the catalog has a sentence for every code in both languages
+ * (lessons/lessonFiles.ts problemText). Before, an English sentence of the schema check sat inside the Russian
+ * message.
+ */
 import { describe, expect, it } from 'vitest';
 import i18next from 'i18next';
 import { en, ru } from '../../src/shared/i18n/catalog';
@@ -6,12 +12,7 @@ import { builtinLessonDoc } from '../../src/shared/lessons/share/builtin';
 import { LESSON_FILE_FORMAT, LESSON_FILE_VERSION, readLessonFile } from '../../src/shared/lessons/share/format';
 import { problemText } from '../../src/renderer/components/lessons/lessonFiles';
 
-/**
- * A lesson file refused for breaking a rule of lessons (schema.ts) is told in the person's language: the problem
- * comes as a code with the names it is about, and the catalog has a sentence for every code in both languages.
- * Before, an English sentence of the schema check sat inside the Russian message.
- */
-
+/** A translator over the app's own catalog in one language. */
 function translator(language: 'en' | 'ru') {
   const instance = i18next.createInstance();
   void instance.init({ lng: language, resources: { [language]: { translation: language === 'ru' ? ru : en } }, interpolation: { escapeValue: false } });

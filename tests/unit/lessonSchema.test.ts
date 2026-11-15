@@ -1,3 +1,8 @@
+/**
+ * The rules of lessons (shared/lessons/schema.ts lessonProblems; the same checks, as codes, hold a lesson file in
+ * share/format.ts): every built-in lesson passes them, and each mistake an author makes is named. A lesson the engine
+ * reads differently from what its author meant would leave a person on a step that can never be done.
+ */
 import { describe, expect, it } from 'vitest';
 import type { Lesson } from '../../src/shared/lessons/engine';
 import { LESSONS, LESSON_AFTER } from '../../src/shared/lessons/lessons';
@@ -5,6 +10,7 @@ import { REASONS_EN } from '../../src/shared/lessons/reasons.en';
 import { REASONS_RU } from '../../src/shared/lessons/reasons.ru';
 import { lessonProblems } from '../../src/shared/lessons/schema';
 
+// A reason counts as written only when both languages have it.
 const reasons = new Set(Object.keys(REASONS_RU).filter((id) => id in REASONS_EN));
 
 describe('every lesson is built the way the engine reads it', () => {
