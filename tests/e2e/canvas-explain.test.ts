@@ -94,7 +94,7 @@ test('canvas explains: context menu, tour, connect assist, subgraph breadcrumb a
   // Replay: read-only overlay of an older revision; the current revision does not change.
   const before = await api('readProjection', ['desktop']) as { currentRevisionId: string };
   await window.getByRole('button', { name: 'Replay history' }).click();
-  const slider = window.getByRole('slider', { name: 'Revision' });
+  const slider = window.getByRole('slider', { name: 'Version' });
   await expect(slider).toBeVisible();
   await slider.focus();
   await window.keyboard.press('Home');

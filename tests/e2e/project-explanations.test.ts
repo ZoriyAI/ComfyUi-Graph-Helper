@@ -82,6 +82,9 @@ test('a hand-written description is saved with the project, stays off other grap
 
     // Open the saved project: the description is back on node 4.
     await window.getByRole('button', { name: 'Open project' }).click();
+    const replace = window.getByRole('dialog', { name: 'Open another project?', exact: true });
+    await expect(replace).toBeVisible();
+    await replace.getByRole('button', { name: 'Open project', exact: true }).click();
     await expect(window.getByText('Project opened.')).toBeVisible();
     await expect(sampleCard).toHaveAttribute('data-description-scope', 'node', { timeout: 20000 });
     await expect(sampleCard).toContainText(NOTE);

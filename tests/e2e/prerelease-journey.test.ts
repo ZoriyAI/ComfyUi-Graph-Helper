@@ -64,6 +64,11 @@ test('prerelease journey configures a provider, builds a process, and exports a 
       }));
       return;
     }
+    if (req.url === '/customnode/installed' || req.url === '/experiment/models') {
+      res.setHeader('content-type', 'application/json');
+      res.end(req.url === '/customnode/installed' ? '{}' : '[]');
+      return;
+    }
     res.writeHead(404);
     res.end();
   });
@@ -126,9 +131,15 @@ test('prerelease journey configures a provider, builds a process, and exports a 
     expect(containsMarker(userData)).toBeNull();
 
     await restored.getByRole('tab', { name: 'Connection' }).click();
-    await restored.getByRole('button', { name: 'Read ComfyUI' }).click();
-    await expect(restored.getByText('Read ComfyUI fixture-0. Devices: 1. Nodes: 2.')).toBeVisible();
-    expect(hits).toEqual(['GET /system_stats', 'GET /object_info']);
+    // System details and catalog reading now have separate contracts; keep both checks.
+    const system = await window.evaluate(async (address) => {
+      const bridge = (window as unknown as { electronAPI: { checkComfy: (origin: string) => Promise<unknown> } }).electronAPI;
+      return bridge.checkComfy(address);
+    }, origin);
+    expect(system).toMatchObject({ ok: true, version: 'fixture-0', devices: 1 });
+    await restored.getByRole('button', { name: 'Read now', exact: true }).click();
+    await expect(restored.getByRole('status').filter({ hasText: 'Read 2 nodes, 0 packs and 0 model files.' })).toBeVisible();
+    expect(hits).toEqual(['GET /system_stats', 'GET /system_stats', 'GET /object_info', 'GET /customnode/installed', 'GET /experiment/models']);
     await window.screenshot({ path: artifact('pr13-prerelease-settings.png') });
     await restored.getByRole('button', { name: 'Cancel' }).click();
     await expect(restored).toHaveCount(0);
@@ -196,6 +207,9 @@ test('prerelease journey configures a provider, builds a process, and exports a 
     await nodeForm.locator('textarea').nth(0).fill('Temporary edit');
     await nodeForm.getByRole('button', { name: 'Save documentation' }).click();
     await window.getByRole('button', { name: 'Open project' }).click();
+    const replace = window.getByRole('dialog', { name: 'Open another project?', exact: true });
+    await expect(replace).toBeVisible();
+    await replace.getByRole('button', { name: 'Open project', exact: true }).click();
     await expect(window.getByText('Project opened.')).toBeVisible();
     await expect(window.locator('[data-component-owner="node:1"] textarea').nth(0)).toHaveValue(PURPOSE);
     expect(containsMarker(userData)).toBeNull();
@@ -295,6 +309,9 @@ test('object info import lets the agent export a loader parameter', async () => 
     await nodeForm.locator('textarea').nth(0).fill('Temporary edit');
     await nodeForm.getByRole('button', { name: 'Save documentation' }).click();
     await window.getByRole('button', { name: 'Open project' }).click();
+    const replace = window.getByRole('dialog', { name: 'Open another project?', exact: true });
+    await expect(replace).toBeVisible();
+    await replace.getByRole('button', { name: 'Open project', exact: true }).click();
     await expect(window.getByText('Project opened.')).toBeVisible();
     await expect(window.locator('[data-component-owner="node:1"] textarea').nth(0)).toHaveValue('Loads the portrait checkpoint');
   } finally {

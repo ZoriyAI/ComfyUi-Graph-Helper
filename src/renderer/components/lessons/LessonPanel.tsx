@@ -349,7 +349,11 @@ function LessonRun({ lesson, shared, onAsk }: { lesson: Lesson; shared: Shared; 
               ) : null}
               <div className={styles.actions}>
                 {first ? (
-                  <Button variant="primary" size="sm" icon={<Crosshair size={14} />} disabled={inSubgraph} onClick={() => showMissing(first, lesson, shared.graph, shared.details)}>{t('lessons.show')}</Button>
+                  <Button
+                    variant="primary" size="sm" icon={<Crosshair size={14} />} disabled={inSubgraph}
+                    data-lesson-target={first.kind === 'field' ? first.nodeId : first.kind === 'link' ? first.to.nodeId : undefined}
+                    onClick={() => showMissing(first, lesson, shared.graph, shared.details)}
+                  >{t('lessons.show')}</Button>
                 ) : null}
                 {first && fix ? (
                   <Button

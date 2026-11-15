@@ -154,9 +154,11 @@ test('an imported workflow is drawn as its file describes it', async () => {
     await expect(node(page, '15').locator('[data-field="text"] textarea, [data-field="text"] input')).toHaveValue('inner prompt');
 
     // Set / Get: selecting the Get shows its Set; the menu jumps there.
-    await node(page, '13').click({ position: { x: 40, y: 18 } });
+    // The imported Get is collapsed; its title remains the target at the file's 60% zoom.
+    const getTitle = node(page, '13').locator('.graph-node-title');
+    await getTitle.click();
     await expect(page.locator('[data-set-get-partners="12"]')).toHaveCount(1);
-    await node(page, '13').click({ button: 'right', position: { x: 40, y: 18 } });
+    await getTitle.click({ button: 'right' });
     await page.getByRole('menuitem', { name: 'Go to its Set' }).click();
     await expect(node(page, '12')).toHaveClass(/selected/);
     if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'fixture-after.png') });

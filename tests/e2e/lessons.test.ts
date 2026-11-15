@@ -436,9 +436,13 @@ async function carry(page: Page, api: Bridge, id: string, each?: (stepId: string
     }
     if (await letTheAppDo(page, api)) continue;
     const lack = await panel(page).locator('[class*="lacking"] li').first().innerText();
-    await panel(page).getByRole('button', { name: 'Show me where', exact: true }).click();
+    const show = panel(page).getByRole('button', { name: 'Show me where', exact: true });
+    const targetId = await show.getAttribute('data-lesson-target');
+    expect(targetId, `${id}/${stepId}: the field has a target node`).toBeTruthy();
+    await show.click();
     const shown = page.locator('.react-flow__node.selected');
     await expect(shown, `${id}/${stepId}: ${lack}`).toHaveCount(1);
+    await expect(shown, `${id}/${stepId}: Show selected its target`).toHaveAttribute('data-id', targetId!);
     const nodeId = String(await shown.getAttribute('data-id'));
     const node = (await nodesOf(api)).find((item) => item.id === nodeId)!;
     const field = /field (\w+) of/.exec(lack)?.[1] ?? (node.data.comfyType === 'WanVideoTextEncode' ? 'positive_prompt' : 'text');

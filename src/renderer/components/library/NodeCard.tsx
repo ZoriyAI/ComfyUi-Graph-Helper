@@ -230,7 +230,7 @@ export default function NodeCard({ node, onClose, onAdd, onAsk }: NodeCardProps)
             </section>
           ) : null;
         })}
-        {authorText && !known.has('what') ? (
+        {authorText ? (
           <section className={card.section}>
             <h3 className={card.heading}>{t('library.nodeCard.authorDescription')}</h3>
             <p className={card.description}>{authorText}</p>

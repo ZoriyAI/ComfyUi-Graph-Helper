@@ -12,7 +12,13 @@
 const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
+const { pathToFileURL } = require('url');
 const { chromium } = require('playwright');
+
+// Only upgrade preparation opts into the old loadFile renderer at its exact installed path.
+function isAppPageUrl(url, legacyRendererFile) {
+  return url.startsWith('app://') || (typeof legacyRendererFile === 'string' && url === pathToFileURL(legacyRendererFile).href);
+}
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -24,9 +30,10 @@ function sleep(ms) {
  * @param {string[]} [options.args]     extra arguments (e.g. --user-data-dir=…)
  * @param {NodeJS.ProcessEnv} [options.env]
  * @param {string} options.userData     the profile folder the app will use (where DevToolsActivePort appears)
+ * @param {string} [options.legacyRendererFile] exact old installed renderer, for upgrade preparation only
  * @param {number} [options.timeout]    milliseconds to wait for the window
  */
-async function launchOverCdp({ executable, args = [], env = process.env, userData, timeout = 90000 }) {
+async function launchOverCdp({ executable, args = [], env = process.env, userData, timeout = 90000, legacyRendererFile }) {
   const portFile = path.join(userData, 'DevToolsActivePort');
   fs.rmSync(portFile, { force: true });
   // Root (a container) needs --no-sandbox; a normal user keeps the sandbox.
@@ -57,9 +64,10 @@ async function launchOverCdp({ executable, args = [], env = process.env, userDat
   const browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`, { timeout });
   let window = null;
   while (!window) {
-    window = browser.contexts().flatMap((context) => context.pages()).find((page) => page.url().startsWith('app://')) ?? null;
+    const pages = browser.contexts().flatMap((context) => context.pages());
+    window = pages.find((page) => isAppPageUrl(page.url(), legacyRendererFile)) ?? null;
     if (window) break;
-    if (Date.now() > deadline) throw new Error('APP_NO_WINDOW');
+    if (Date.now() > deadline) throw new Error(`APP_NO_WINDOW pages=${JSON.stringify(pages.map((page) => page.url()))}\n${output}`);
     await sleep(250);
   }
 
@@ -75,4 +83,4 @@ async function launchOverCdp({ executable, args = [], env = process.env, userDat
   return { child, window, browser, close, output: () => output };
 }
 
-module.exports = { launchOverCdp };
+module.exports = { launchOverCdp, isAppPageUrl };

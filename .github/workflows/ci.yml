@@ -84,10 +84,11 @@ jobs:
       - run: npm ci
       - run: npm run build
       - name: Editor, file, privacy, check and lesson journeys
-        run: xvfb-run -a npx playwright test tests/e2e/editor-selection.test.ts tests/e2e/subgraph-inner-authoring.test.ts tests/e2e/privacy-confirm.test.ts tests/e2e/canvas-editing.test.ts tests/e2e/files-and-check.test.ts --workers=1 --trace off
+        run: |
+          xvfb-run -a npx playwright test tests/e2e/editor-selection.test.ts tests/e2e/subgraph-inner-authoring.test.ts tests/e2e/privacy-confirm.test.ts tests/e2e/canvas-editing.test.ts tests/e2e/files-and-check.test.ts tests/e2e/canvas-explain.test.ts tests/e2e/component-records.test.ts tests/e2e/desktop-captures.test.ts tests/e2e/import-look.test.ts tests/e2e/node-card.test.ts tests/e2e/prerelease-journey.test.ts tests/e2e/project-explanations.test.ts --workers=1 --trace off
       - name: Core lesson list and compatibility journeys
         run: |
-          xvfb-run -a npx playwright test tests/e2e/lessons.test.ts --grep 'lessons: the list fits ComfyUI|lessons: a lesson that does not fit' --workers=1 --trace off
+          xvfb-run -a npx playwright test tests/e2e/lessons.test.ts --grep 'lessons: the list fits ComfyUI|lessons: a lesson that does not fit|lessons: descriptions, a second pass' --workers=1 --trace off
       - name: Upload journey results
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

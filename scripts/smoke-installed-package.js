@@ -52,8 +52,8 @@ function profileOf(homeDir) {
   return path.join(homeDir, '.config', PACKAGE);
 }
 
-async function launch(homeDir) {
-  const app = await launchOverCdp({ executable: APP, env: appEnv(homeDir), userData: profileOf(homeDir), timeout: 90000 });
+async function launch(homeDir, legacyRendererFile) {
+  const app = await launchOverCdp({ executable: APP, env: appEnv(homeDir), userData: profileOf(homeDir), timeout: 90000, legacyRendererFile });
   await app.window.locator('.app-shell').waitFor({ timeout: 60000 });
   return app;
 }
@@ -153,7 +153,9 @@ async function check() {
 
 async function upgradePrepare() {
   const homeDir = home();
-  const app = await launch(homeDir);
+  // v0.8.0 uses loadFile; resolve the installed executable, not the checkout or an arbitrary file:// page.
+  const legacyRendererFile = path.join(path.dirname(fs.realpathSync(APP)), 'resources', 'app.asar', 'dist', 'renderer', 'index.html');
+  const app = await launch(homeDir, legacyRendererFile);
   try {
     const result = await app.window.evaluate(async (url) => {
       const api = window.electronAPI;
