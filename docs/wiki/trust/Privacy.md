@@ -51,7 +51,11 @@ else leaves your computer.
 - **Where:** the one model you chose:
   - a cloud provider: OpenAI (`api.openai.com`), Anthropic (`api.anthropic.com`), Google (`generativelanguage.googleapis.com`),
     or the address you set for that provider;
-  - your own server (Ollama, LM Studio, vLLM or another OpenAI-compatible server) at the address you gave.
+  - your own server (Ollama, LM Studio, vLLM or another OpenAI-compatible server) at the address you gave;
+  - Ollama's cloud, when the model on your own server is one of Ollama's cloud models (its name ends in `:cloud` or
+    `-cloud`, for example `gemma4:cloud`): the request goes to your Ollama, and Ollama sends it on to its servers.
+    The app then never calls the model local: Settings ▸ Assistant, the assistant chip, Settings ▸ Privacy and the
+    conversation log say that your question and the graph leave this computer through Ollama.
 - **What goes there:** your message; the graph (nodes, their inputs and outputs, links, positions); what is selected
   and on screen; your recent actions on the graph; a summary of your catalog; when the assistant looks at a model, the
   description saved next to it and what Civitai or Hugging Face said about it. Field values (descriptions, seeds,

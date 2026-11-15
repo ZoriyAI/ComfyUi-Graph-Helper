@@ -3,7 +3,7 @@
 
 # What is sent to the model
 
-Every question you ask goes to the model you chose, together with what the model needs to answer about your graph. For a cloud provider that means it leaves your computer; for your own server it goes only there. The same list stands in Settings ▸ Privacy ▸ **What is sent to the model**.
+Every question you ask goes to the model you chose, together with what the model needs to answer about your graph. For a cloud provider that means it leaves your computer; for your own server it goes only there. One exception: a model of Ollama's cloud (a name such as `gemma4:cloud` or `gpt-oss:120b-cloud`) on your own server runs in Ollama's cloud, so your question and the graph leave this computer through Ollama. The same list stands in Settings ▸ Privacy ▸ **What is sent to the model**, with a line that says where a question goes now, for example "Now the model “gemma4:cloud” runs in Ollama's cloud: your question and the graph leave this computer through Ollama, although the address is your own server."
 
 ## Sent with every question
 
@@ -28,7 +28,7 @@ Every question you ask goes to the model you chose, together with what the model
 
 - Turn off **Send field values to the model**.
 - Turn off **Allow web search** and **Allow reading web pages** (Settings ▸ Assistant).
-- Use your own server: nothing then leaves your computers.
+- Use your own server with a model on it: nothing then leaves your computers. A model whose name ends in `:cloud` or `-cloud` is not on it; see [Ollama](Ollama.md#ollamas-cloud-models).
 - Choose no assistant: nothing is sent at all, and a question about an object is answered from the built-in knowledge in the Explain tab. See [Working without a model](Without-A-Model.md).
 - When the cloud provider's own web search is used, the provider sees the search words.
 - Turn off **Keep chat history in the project** if you do not want the conversation stored.
