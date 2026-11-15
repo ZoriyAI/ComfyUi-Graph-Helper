@@ -163,13 +163,16 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
     expect(Math.min(...typeRatios)).toBeGreaterThanOrEqual(3);
     expect(metrics.undoDisabled).toBe(true);
     if (width === 1024) {
-      const canvas = await window.locator('.graph-pane').evaluate((element) => Math.round(element.getBoundingClientRect().width));
-      const dock = await window.locator('.dock').evaluate((element) => Math.round(element.getBoundingClientRect().width));
-      const rail = await window.locator('.rail').evaluate((element) => Math.round(element.getBoundingClientRect().width));
+      // Below 1440 the library rail folds to an icon strip (48px) beside the canvas. The fold is animated (about
+      // 0.2 s), so the three widths are read together until the rail has finished folding.
+      const widths = () => window.evaluate(() => {
+        const width = (selector: string) => Math.round(document.querySelector(selector)?.getBoundingClientRect().width ?? -1);
+        return { canvas: width('.graph-pane'), dock: width('.dock'), rail: width('.rail') };
+      });
+      await expect.poll(async () => (await widths()).rail).toBe(48);
+      const { canvas, dock, rail } = await widths();
       console.log(`CANVAS_1024 ${canvas} dock=${dock} rail=${rail}`);
       expect(dock).toBe(336);
-      // Below 1440 the library rail is an icon strip (48px) beside the canvas.
-      expect(rail).toBe(48);
       expect(canvas).toBe(1024 - 336 - rail);
       const toolbar = await window.locator('.workspace-toolbar').evaluate((element) => {
         const trigger = element.querySelector('#chat-provider');
