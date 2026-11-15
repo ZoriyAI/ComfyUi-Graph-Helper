@@ -1,9 +1,3 @@
-import type { CoreSeed, CoreTexts, FamilyTexts, KnowledgeLanguage } from '../coreKnowledge';
-import type { ExplanationAspect, Provenance } from '../../contracts/knowledge';
-import { objectKey, type ObjectRef } from '../../contracts/objects';
-import { IMAGE_MODELS_EN } from './image-models.en';
-import { IMAGE_MODELS_RU } from './image-models.ru';
-
 /**
  * Built-in knowledge on the families of picture models and how each is loaded: the loaders and family nodes the
  * official templates use beyond the core set (coreKnowledge.ts), a guide per family (files and folders, settings,
@@ -12,22 +6,35 @@ import { IMAGE_MODELS_RU } from './image-models.ru';
  * Sources: ComfyUI's nodes.py and comfy_extras (inputs, defaults), the official workflow templates (files, folders,
  * settings), docs.comfy.org (the pages linked below, checked against its sitemap), ComfyUI-GGUF's README and
  * nodes.py. As in the core set, `what` and `connect` of a node are facts with their page; advice is inference.
+ *
+ * Who uses it: coreKnowledge.ts adds imageModelSeeds to the core seeds and asks imageFamilyNote and fieldNote when
+ * no other set answers. Unlike the other sets it has its own shape (guides per family), so it is not one of
+ * KNOWLEDGE_SETS. familyGuide is only called by the tests today.
  */
+import type { CoreSeed, CoreTexts, FamilyTexts, KnowledgeLanguage } from '../coreKnowledge';
+import type { ExplanationAspect, Provenance } from '../../contracts/knowledge';
+import { objectKey, type ObjectRef } from '../../contracts/objects';
+import { IMAGE_MODELS_EN } from './image-models.en';
+import { IMAGE_MODELS_RU } from './image-models.ru';
 
+/** The node classes this set describes: ComfyUI's own family nodes and the ComfyUI-GGUF loaders. */
 export const IMAGE_MODEL_NODE_CLASSES = [
   'ModelSamplingSD3', 'ModelSamplingAuraFlow', 'ConditioningZeroOut', 'EmptyFlux2LatentImage', 'Flux2Scheduler', 'CFGGuider',
   'BasicGuider', 'RandomNoise', 'SamplerCustomAdvanced', 'TripleCLIPLoader', 'QuadrupleCLIPLoader', 'CLIPTextEncodeFlux',
   'CLIPTextEncodeSDXL', 'SDTurboScheduler', 'CFGNorm', 'UnetLoaderGGUF', 'UnetLoaderGGUFAdvanced', 'CLIPLoaderGGUF',
   'DualCLIPLoaderGGUF', 'TripleCLIPLoaderGGUF', 'QuadrupleCLIPLoaderGGUF',
 ] as const;
+/** One class of IMAGE_MODEL_NODE_CLASSES. */
 export type ImageModelNodeClass = typeof IMAGE_MODEL_NODE_CLASSES[number];
 
 /** Families the core set already introduces (what, risk): this set adds their files, settings and prompt. */
 export const GUIDED_FAMILIES = ['sd15', 'sdxl', 'pony', 'illustrious', 'sd3', 'flux1', 'flux2', 'chroma', 'qwen-image', 'zimage', 'krea'] as const;
+/** One family of GUIDED_FAMILIES. */
 export type GuidedFamily = typeof GUIDED_FAMILIES[number];
 
 /** Families of the official templates that the core set does not know: this set introduces them whole. */
 export const NEW_FAMILIES = ['hidream', 'lumina', 'anima', 'flux3', 'ovis', 'longcat', 'kandinsky5', 'omnigen2', 'ernie'] as const;
+/** One family of NEW_FAMILIES. */
 export type NewFamily = typeof NEW_FAMILIES[number];
 
 /** How a family is set up: which files go where, what the sampler wants, how the prompt is written. */
@@ -49,11 +56,13 @@ export interface FieldTexts {
   set: string;
 }
 
+/** What a pack is for and its key nodes. */
 export interface PackTexts {
   what: string;
   nodes: string;
 }
 
+/** The whole set in one language; image-models.en.ts and image-models.ru.ts each fill one. */
 export interface ImageModelsPack {
   nodes: Record<ImageModelNodeClass, CoreTexts>;
   guides: Record<GuidedFamily, FamilyGuide>;
@@ -63,6 +72,7 @@ export interface ImageModelsPack {
   packs: Record<string, PackTexts>;
 }
 
+/** The set by language. */
 export const IMAGE_MODELS_KNOWLEDGE: Record<KnowledgeLanguage, ImageModelsPack> = { en: IMAGE_MODELS_EN, ru: IMAGE_MODELS_RU };
 
 const DOCS = 'https://docs.comfy.org';
@@ -117,10 +127,12 @@ export const IMAGE_MODEL_FAMILY_DOCS: Record<GuidedFamily | NewFamily, string | 
   ernie: `${DOCS}/tutorials/image/ernie-image/ernie-image`,
 };
 
+/** The same id as coreSeedId of coreKnowledge.ts: kept here so this set takes only types from that module. */
 function seedId(owner: ObjectRef, aspect: ExplanationAspect, language: KnowledgeLanguage): string {
   return `seed:${language}:${objectKey(owner)}:${aspect}`;
 }
 
+/** One seed, or none for an empty text; only a fact keeps its source page. */
 function seed(owner: ObjectRef, aspect: ExplanationAspect, text: string | undefined, provenance: Provenance, url: string | null, language: KnowledgeLanguage): CoreSeed[] {
   const trimmed = text?.trim();
   if (!trimmed) return [];

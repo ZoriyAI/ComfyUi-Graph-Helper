@@ -1,5 +1,3 @@
-import { civitaiFileHash, plainText, sha256Text, type SidecarFacts } from './enrichment';
-
 /**
  * The files a model manager keeps next to a model file: what its author said about it, and a picture.
  *
@@ -8,7 +6,11 @@ import { civitaiFileHash, plainText, sha256Text, type SidecarFacts } from './enr
  * The Civitai helpers write `<name>.civitai.info` (the model-version record itself) and `<name>.preview.png`.
  * The app only reads these files and never writes one. It asks Civitai or Hugging Face about a file only when
  * the person says so (see shared/knowledge/webLookup.ts), and then with what these files give: the fingerprint.
+ *
+ * Who uses it: the model inventory and sync in main (main/mcp/inventory.ts, main/mcp/sync.ts) pair side files with
+ * models and parse them; main/knowledge/repository.ts and preview.ts store and serve the notes and the picture.
  */
+import { civitaiFileHash, plainText, sha256Text, type SidecarFacts } from './enrichment';
 
 const MODEL_EXTENSION = /\.(safetensors|sft|ckpt|pt|pth|bin|gguf)$/i;
 /** Sidecars, the one a model manager keeps up to date first. */
@@ -29,6 +31,7 @@ export function modelBase(filename: string): string | null {
   return MODEL_EXTENSION.test(filename) ? filename.replace(MODEL_EXTENSION, '') : null;
 }
 
+/** What a side file is to its model: its record or its picture. */
 export type SideRole = 'sidecar' | 'preview';
 
 /** What a file next to a model is, the base name it belongs to, and how it ranks among files of its role. */
@@ -47,6 +50,7 @@ export function sideFileOf(filename: string): { base: string; role: SideRole; ra
   return null;
 }
 
+/** The side files found for one model; null where it has none. */
 export interface SideFiles {
   sidecar: string | null;
   preview: string | null;
@@ -61,6 +65,7 @@ export class SideFileIndex {
     if (!side) return;
     const entry = this.byBase.get(side.base) ?? {};
     const held = entry[side.role];
+    // Keep the best-ranked file of each role: a model may have a .webp and a .preview.png beside it.
     if (!held || side.rank < held.rank) entry[side.role] = { name: filename, rank: side.rank };
     this.byBase.set(side.base, entry);
   }
@@ -72,10 +77,12 @@ export class SideFileIndex {
   }
 }
 
+/** Whether a preview is shown as a picture or played as a video. */
 export function previewKind(filename: string): 'image' | 'video' {
   return /\.(mp4|webm)$/i.test(filename) ? 'video' : 'image';
 }
 
+/** The content type a preview is served with. */
 export function previewMime(filename: string): string {
   const extension = /\.([a-z0-9]+)$/i.exec(filename)?.[1].toLowerCase() ?? '';
   switch (extension) {
@@ -121,6 +128,7 @@ export interface ModelNotes {
   mature: boolean;
 }
 
+/** Notes that say nothing: the value for a model without a sidecar. */
 export const EMPTY_NOTES: ModelNotes = {
   title: '',
   versionName: '',
@@ -134,6 +142,7 @@ export const EMPTY_NOTES: ModelNotes = {
   mature: false,
 };
 
+/** A sidecar read: the facts the catalog needs and the notes a card shows. */
 export interface ParsedSidecar {
   facts: SidecarFacts;
   notes: ModelNotes;

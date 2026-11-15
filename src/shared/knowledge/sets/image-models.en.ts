@@ -1,9 +1,9 @@
+/**
+ * Built-in knowledge on picture model families, English, read through sets/image-models.ts. The Russian pack
+ * (image-models.ru.ts) says the same things. Each text explains its own terms: a newcomer reads one at a time.
+ */
 import type { ImageModelsPack } from './image-models';
 
-/**
- * Built-in knowledge on picture model families, English. The Russian pack (image-models.ru.ts) says the same
- * things. Each text explains its own terms: a newcomer reads one at a time.
- */
 export const IMAGE_MODELS_EN: ImageModelsPack = {
   nodes: {
     ModelSamplingSD3: {

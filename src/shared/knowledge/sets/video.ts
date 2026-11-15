@@ -1,3 +1,7 @@
+/**
+ * The documentation links of the video knowledge set. The texts are in video.en.ts and video.ru.ts;
+ * coreKnowledge.ts joins the three into the built-in knowledge the node cards and explanations show.
+ */
 import type { KnowledgeSetDocs } from '../coreKnowledge';
 
 /**

@@ -1,5 +1,3 @@
-import type { KnowledgeSetDocs } from '../coreKnowledge';
-
 /**
  * Built-in knowledge of sound and speech, 3D, faces and characters. Facts come from ComfyUI's own source (0.45),
  * docs.comfy.org, the official workflow templates and the packs' own code and README; the provenance rule of
@@ -7,12 +5,14 @@ import type { KnowledgeSetDocs } from '../coreKnowledge';
  * describes (ModelSamplingAuraFlow, ConditioningZeroOut), and the detailer nodes and the IP-Adapter and Impact packs
  * the picture-techniques set describes (with FluxKontextImageScale and ReferenceLatent), are not repeated here.
  */
+import type { KnowledgeSetDocs } from '../coreKnowledge';
 
 const DOCS = 'https://docs.comfy.org';
 const node = (classType: string) => `${DOCS}/built-in-nodes/${classType}`;
 /** A pack's node, or a core node without a docs page, cites the repository it comes from. */
 const repo = (path: string) => `https://github.com/${path}`;
 
+/** The page of each node and family of the set; the texts are in sound-3d-faces.en.ts and .ru.ts. */
 export const SOUND_3D_FACES_KNOWLEDGE_DOCS: KnowledgeSetDocs = {
   nodes: {
     'TextEncodeAceStepAudio1.5': node('TextEncodeAceStepAudio1.5'),

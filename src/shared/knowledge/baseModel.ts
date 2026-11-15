@@ -1,10 +1,19 @@
+/**
+ * Which base-model family a model file belongs to (SD 1.5, SDXL, Pony, Flux, Wan...), guessed from its header, its
+ * Civitai sidecar and its file name, and which families can share LoRAs. The model sync and catalog in main, the
+ * model library, the model check and the lesson file rules (lessons/files.ts, lessons/engine.ts) all ask here, so a
+ * file has one family everywhere. A name no rule reads stays 'unknown' rather than defaulting to a family: a wrong
+ * family would warn about a good LoRA.
+ */
 import type { BaseModelFamily, Evidence } from '../contracts/knowledge';
 
+/** A family and the source it was read from. */
 export interface BaseModelGuess {
   family: BaseModelFamily;
   evidence: Evidence;
 }
 
+/** What the app knows of a file that can name its family. */
 export interface BaseModelSources {
   /** Embedded safetensors header fields, strings only. */
   metadata?: Record<string, string> | null;
@@ -14,6 +23,7 @@ export interface BaseModelSources {
   filename?: string | null;
 }
 
+/** Any run of separators between the parts of a name: "wan2.2", "wan_2_2", "Wan 2 2". */
 const SEP = '[\\s_.\\-/]*';
 /** No letter right before / after: keeps short tokens like "ill" or "pony" from matching inside words. */
 const L = '(?<![a-z])';
@@ -92,6 +102,7 @@ export function familyFromText(text: string | null | undefined): BaseModelFamily
   return 'unknown';
 }
 
+/** The family of a Civitai `baseModel` label, with Civitai's own short labels mapped first. */
 function familyFromSidecar(label: string | null | undefined): BaseModelFamily {
   if (!label) return 'unknown';
   const alias = SIDECAR_ALIASES[label.toLowerCase().replace(/[\s_.-]+/g, '')];
@@ -114,6 +125,7 @@ function familyFromMetadata(metadata: Record<string, string> | null | undefined)
   return refines(primary, named) ? named : primary;
 }
 
+/** Whether `candidate` is a fine-tune lineage of `base` (Pony of SDXL). */
 function refines(base: BaseModelFamily, candidate: BaseModelFamily): boolean {
   return (REFINES[base] ?? []).includes(candidate);
 }
@@ -135,6 +147,7 @@ export function inferBaseModel(sources: BaseModelSources): BaseModelGuess {
   return narrower ?? first;
 }
 
+/** The file name without its folders. */
 function baseName(filename: string | null | undefined): string {
   if (!filename) return '';
   const parts = filename.split(/[\\/]/);

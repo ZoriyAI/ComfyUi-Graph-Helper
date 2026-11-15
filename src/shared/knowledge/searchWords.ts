@@ -23,6 +23,7 @@ interface WordGroup {
   en: string[];
 }
 
+/** The table, grouped by what the words are about. */
 export const RU_WORDS: readonly WordGroup[] = [
   // Generating
   { ru: ['сэмплер', 'семплер', 'самплер', 'сэмплир', 'семплир', 'сэмплинг', 'семплинг'], en: ['sampler', 'ksampler', 'sampling'] },
@@ -102,7 +103,7 @@ export const RU_WORDS: readonly WordGroup[] = [
   { ru: ['быстр', 'ускор'], en: ['lightning', 'turbo', 'fast', 'lightx2v'] },
 ];
 
-/** Lower case, ё as е: the way the table is written. */
+/** Lower case, with the Russian letter yo read as ye: the way the table is written. */
 export function normalizeWord(text: string): string {
   return text.toLowerCase().replace(/ё/g, 'е');
 }

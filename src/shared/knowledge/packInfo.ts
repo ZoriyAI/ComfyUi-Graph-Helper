@@ -3,6 +3,8 @@
  * short description, the repository link and the name the pack gives itself in ComfyUI's registry) and the
  * README (the first paragraphs, as plain text). Both readers are pure and forgiving: a file they do not
  * understand gives nothing rather than an error, because a pack that says nothing is an ordinary pack.
+ * The node sync (main/mcp/sync.ts) reads both files of every pack; main/knowledge/repository.ts serves the result
+ * to the pack card.
  */
 
 /** The parts of a pyproject.toml the app shows. Empty strings and nulls where the file says nothing. */
@@ -118,6 +120,7 @@ export function webUrl(value: string | null | undefined): string | null {
   }
 }
 
+/** Cut to `max` characters at a word (when one ends late enough), with an ellipsis. */
 function clipAtWord(value: string, max: number): string {
   if (value.length <= max) return value;
   const cut = value.slice(0, max);
@@ -130,6 +133,7 @@ function oneLine(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
 }
 
+/** The `[project.urls]` keys that may name the repository, in the order they are preferred. */
 const URL_KEYS = ['repository', 'source', 'source code', 'sourcecode', 'code', 'github', 'homepage', 'home', 'documentation'];
 
 /**

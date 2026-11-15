@@ -98,6 +98,10 @@ const TERMS: Record<KnowledgeLanguage, Record<string, string>> = {
   },
 };
 
+/**
+ * The texts as a KnowledgeSet: fields grouped by class, and each topic as a glossary concept named by TERMS, its
+ * risk appended to its text.
+ */
 function toSet(texts: TechniqueTexts, language: KnowledgeLanguage): KnowledgeSet {
   const fields: Record<string, Record<string, string>> = {};
   for (const [key, note] of Object.entries(texts.fields)) {
@@ -112,6 +116,7 @@ function toSet(texts: TechniqueTexts, language: KnowledgeLanguage): KnowledgeSet
   return { nodes: texts.nodes, linkTypes: {}, families: {}, packs: texts.packs, fields, concepts };
 }
 
+/** The set by language, in the KnowledgeSet shape coreKnowledge.ts reads. */
 export const IMAGE_TECHNIQUES_KNOWLEDGE: Record<KnowledgeLanguage, KnowledgeSet> = {
   en: toSet(IMAGE_TECHNIQUES_KNOWLEDGE_EN, 'en'),
   ru: toSet(IMAGE_TECHNIQUES_KNOWLEDGE_RU, 'ru'),

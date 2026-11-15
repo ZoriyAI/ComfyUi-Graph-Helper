@@ -1,3 +1,9 @@
+/**
+ * The zod schemas and value lists of the knowledge contract: the families, model kinds, aspects and provenances,
+ * object references, and the inputs of the knowledge IPC (search, explanations, sync interval). Main checks every
+ * request with them (main/knowledge/handlers.ts, repository.ts, main/ipc/engineIpc.ts); the lesson file format and
+ * the sync settings read the lists. Kept in shared so the renderer and main agree on the same limits.
+ */
 import { z } from 'zod';
 import type { BaseModelFamily, ExplanationAspect, ModelKind, Provenance } from '../contracts/knowledge';
 import type { ObjectKind } from '../contracts/objects';
@@ -30,6 +36,7 @@ void exhaustive;
 
 const shortText = z.string().max(500);
 
+/** A reference to any object an explanation can belong to (contracts/objects.ts ObjectRef). */
 export const objectRefSchema = z.object({
   kind: z.enum(OBJECT_KINDS),
   id: z.string().min(1).max(500),
@@ -44,9 +51,11 @@ export const objectRefSchema = z.object({
 
 /** The agent prompt builder lists the whole catalog, so a search may ask for up to this many rows. */
 export const SEARCH_LIMIT_MAX = 10000;
+/** How many rows a search returns when the caller does not say. */
 export const SEARCH_LIMIT_DEFAULT = 30;
 const limitSchema = z.number().int().min(1).max(SEARCH_LIMIT_MAX).optional();
 
+/** The input of a node search. */
 export const searchNodesSchema = z.object({
   query: z.string().max(200),
   category: z.string().max(200).optional(),
@@ -58,6 +67,7 @@ export const searchNodesSchema = z.object({
   language: z.enum(['en', 'ru']).optional(),
 });
 
+/** The input of a model search: words, and optional folder, family and kind filters. */
 export const searchModelsSchema = z.object({
   query: z.string().max(200),
   directory: z.string().max(200).optional(),
@@ -66,8 +76,10 @@ export const searchModelsSchema = z.object({
   limit: limitSchema,
 });
 
+/** One model file: its folder and its name inside it. */
 export const modelKeySchema = z.object({ directory: z.string().min(1).max(200), name: z.string().min(1).max(1000) });
 
+/** Which explanations to list: of one project (null for the app's own knowledge) and of one owner. */
 export const listExplanationsSchema = z.object({
   projectId: z.string().min(1).max(200).nullable().optional(),
   owner: objectRefSchema.optional(),
@@ -83,6 +95,7 @@ const sourceUrlSchema = z.string().max(2000).refine((value) => {
   }
 }, 'Source URL must be http or https.');
 
+/** One explanation as it is saved, from any source (the assistant, the person, a sync, the seed, a file). */
 export const explanationInputSchema = z.object({
   projectId: z.string().min(1).max(200).nullable(),
   owner: objectRefSchema,
@@ -106,13 +119,16 @@ export const userExplanationInputSchema = explanationInputSchema.refine((input) 
   path: ['owner'],
 });
 
+/** Ids that arrive over IPC: bounded so a bad request cannot carry a huge string. */
 export const projectIdSchema = z.string().min(1).max(200);
 export const classTypeSchema = z.string().min(1).max(500);
 
+/** How often the automatic sync with ComfyUI runs, in minutes: the default and the limits Settings allows. */
 export const SYNC_INTERVAL_DEFAULT_MINUTES = 30;
 export const SYNC_INTERVAL_MIN_MINUTES = 5;
 export const SYNC_INTERVAL_MAX_MINUTES = 24 * 60;
 
+/** The input of "sync automatically": on or off, and how often. */
 export const setAutoSchema = z.object({
   enabled: z.boolean(),
   intervalMinutes: z.number().int().min(SYNC_INTERVAL_MIN_MINUTES).max(SYNC_INTERVAL_MAX_MINUTES),

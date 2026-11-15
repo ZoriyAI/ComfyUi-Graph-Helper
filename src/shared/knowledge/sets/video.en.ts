@@ -1,13 +1,14 @@
-import type { KnowledgeSet } from '../coreKnowledge';
-
 /**
- * Built-in knowledge about video, English. The Russian set (video.ru.ts) says the same things.
+ * Built-in knowledge about video, English; coreKnowledge.ts reads it for the English interface. The Russian set
+ * (video.ru.ts) says the same things.
  *
  * Sources: ComfyUI's own source (comfy_extras/nodes_wan.py, nodes_lt*.py, nodes_hunyuan.py, nodes_kandinsky5.py,
  * nodes_video.py, nodes_audio*.py, nodes_custom_sampler.py, nodes_frame_interpolation.py, nodes.py), the official
  * workflow templates, and the packs' own repositories. A few entries correct the core knowledge (LATENT, the Wan
  * 2.2 and LTX-2 families): a set's entry replaces the core one with the same owner.
  */
+import type { KnowledgeSet } from '../coreKnowledge';
+
 export const VIDEO_KNOWLEDGE_EN: KnowledgeSet = {
   nodes: {
     // Built-in video nodes that the existing video lessons use.

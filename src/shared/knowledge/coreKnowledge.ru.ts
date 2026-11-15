@@ -1,12 +1,13 @@
+/**
+ * Built-in teaching knowledge, Russian. The English pack (coreKnowledge.en.ts) says the same things; coreKnowledge.ts
+ * picks the pack of the person's language.
+ *
+ * A newcomer reads these in node cards and explanations, one text at a time, so each text explains its own terms:
+ * latent (the compressed form of a picture), conditioning (the encoded description the sampler follows),
+ * inpainting (redrawing part of a picture under a mask) and so on, or uses a plain word instead.
+ */
 import type { CoreLanguagePack } from './coreKnowledge';
 
-/**
- * Встроенные учебные знания, русский. Английский пакет (coreKnowledge.en.ts) говорит то же самое.
- *
- * Новичок читает их в карточках нод и объяснениях по одному тексту, поэтому каждый текст сам объясняет свои
- * термины: латент (сжатый вид картинки), conditioning (закодированное описание, которому следует сэмплер),
- * инпейнтинг (перерисовка части картинки под маской) и так далее, или обходится простым словом.
- */
 export const CORE_KNOWLEDGE_RU: CoreLanguagePack = {
   nodes: {
     CheckpointLoaderSimple: {
