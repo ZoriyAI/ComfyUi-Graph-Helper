@@ -57,6 +57,19 @@ renames these settings:
   so a person sees it before sending. A pull request that arrives is closed with thanks and a pointer to Issues;
   a saved reply (your profile settings ▸ Saved replies) keeps that answer at hand.
 
+## To strengthen the record
+
+Actions only the owner can take; none of them is done yet unless the owner records it here. Why: `NOTICE.md`.
+
+- After each release, request snapshots of the repository and of the website in the Internet Archive's Wayback
+  Machine ("Save Page Now") and in Software Heritage ("Save code now").
+- Keep release pages and tags as published: never move or delete a tag, never replace a release's files.
+- After each release, fill in its row of the dated record in `NOTICE.md` and `NOTICE.ru.md`.
+- Consider registering "NodeWise Studio" and the app icon as a trademark; then update the trademark line in `NOTICE.md`.
+- Consider a short consultation with an intellectual property lawyer before any commercial deal.
+- Keep a private, dated log of design decisions (what was decided, when, and why).
+- Make the licence and copyright line of the website repository match `COPYRIGHT` and `NOTICE.md`.
+
 ## Badges for the README
 
 `README.md` and `README.ru.md` carry three badges under the name and its line: the Checks workflow (`ci.yml`), the
@@ -82,3 +95,12 @@ Interaction limits; эти ограничения временные (от су�
 вписывает правило на двух языках в каждый новый pull request, и человек видит его до отправки. Пришедший pull request
 закрывается с благодарностью и ссылкой на обращения; готовый ответ удобно держать в Saved replies. Заведите и метку
 `install-test` для формы отчёта о проверке установки.
+
+Чтобы укрепить запись (`NOTICE.ru.md`), только владелец может и пока ничего из этого не сделано: после каждой версии
+запрашивать снимки репозитория и сайта в Wayback Machine у Internet Archive («Save Page Now») и в Software Heritage
+(«Save code now»); не переносить и не удалять метки, не заменять файлы опубликованных версий; после каждой версии
+заполнять её строку в записи дат `NOTICE.md` и `NOTICE.ru.md`; подумать о регистрации «NodeWise Studio» и значка как
+товарного знака и тогда обновить строку о нём в `NOTICE.md`; перед любой коммерческой сделкой подумать о короткой
+консультации юриста по интеллектуальной собственности; вести закрытый датированный журнал решений по замыслу и
+оформлению; привести строку о лицензии и авторском праве в репозитории сайта в соответствие с `COPYRIGHT` и
+`NOTICE.md`.
