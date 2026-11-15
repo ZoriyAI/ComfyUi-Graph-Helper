@@ -1,11 +1,3 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { useTranslation } from 'react-i18next';
-import Button from '../../ui/Button';
-import MarkdownLite from '../chat/MarkdownLite';
-import { readFlag, SEEN_KEYS, useJourneyStore, writeFlag } from '../../state/journeyState';
-import { useUiStore } from '../../state/uiState';
-import styles from './Journey.module.css';
-
 /**
  * A short tour of the window: six stops, each a ring around one part of the window and a card that says what it is.
  *
@@ -15,6 +7,14 @@ import styles from './Journey.module.css';
  * move through it, and its card takes focus so a keyboard user can follow it. Glossary words in the cards explain
  * themselves (MarkdownLite `terms`). A part that is folded or missing is skipped.
  */
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import Button from '../../ui/Button';
+import MarkdownLite from '../chat/MarkdownLite';
+import { readFlag, SEEN_KEYS, useJourneyStore, writeFlag } from '../../state/journeyState';
+import { useUiStore } from '../../state/uiState';
+import styles from './Journey.module.css';
+
 
 /** The stops: a selector of the part of the window, and the catalog keys of its card. */
 export const TOUR_STOPS = [
@@ -37,9 +37,11 @@ export function shouldAutoStartTour(state: { seen: boolean; dialogOpen: boolean;
 
 /** How long a first start waits before the tour, so the window has drawn and a start-up question can come first. */
 const FIRST_START_DELAY_MS = 1500;
+/** The card's width and its distance from the ring, in pixels. */
 const CARD_WIDTH = 320;
 const GAP = 12;
 
+/** The on-screen box of a tour stop, or null when the part is missing or folded to nothing. */
 function targetRect(selector: string): DOMRect | null {
   const element = document.querySelector(selector);
   if (!element) return null;
@@ -58,11 +60,13 @@ function cardPlace(rect: DOMRect, height: number): { left: number; top: number }
   return { left: clampX(rect.left + rect.width / 2 - width / 2), top: clampY(rect.top - GAP - height) };
 }
 
+/** The tour's ring and card; JourneyHost.tsx mounts it, journeyState's tourStep drives it. */
 export default function WindowTour() {
   const { t, i18n } = useTranslation();
   const step = useJourneyStore((state) => state.tourStep);
   const setStep = useJourneyStore((state) => state.setTourStep);
   const card = useRef<HTMLDivElement | null>(null);
+  // A resize moves the parts of the window; a bump of this counter redraws the ring and the card.
   const [, redraw] = useState(0);
 
   // The first start: once, after the window has drawn, unless a dialog is open then.
@@ -83,6 +87,7 @@ export default function WindowTour() {
     setStep(null);
   };
 
+  // No dependency list: the handlers close over the current step and stops, so they are bound again each render.
   useEffect(() => {
     if (step === null) return;
     const onKey = (event: KeyboardEvent) => {
@@ -108,6 +113,7 @@ export default function WindowTour() {
   if (!rect) return null;
   const index = stops.indexOf(current);
   const last = index === stops.length - 1;
+  // On the first render the card has no height yet: 170 px is a typical card.
   const place = cardPlace(rect, card.current?.offsetHeight ?? 170);
   return (
     <>

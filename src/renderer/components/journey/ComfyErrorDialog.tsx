@@ -1,3 +1,13 @@
+/**
+ * "Explain a ComfyUI error": the way back from ComfyUI when a run fails.
+ *
+ * Who uses it: a person whose graph ComfyUI refused or broke on; it opens from the Help menu command
+ * help.comfyError (commands/appCommands.ts) and from the "Run it in ComfyUI" card. Why: the red text of ComfyUI
+ * is English jargon with node numbers. The person pastes it; the app explains every message it knows with the built-in notes (knowledge/sets/foundations.ts
+ * comfyErrorNotes, no assistant needed), lists the nodes it names (shared/journey/comfyError.ts) with "Show on the
+ * canvas", and offers the assistant for anything else. The text is read here only; it is sent to the assistant only
+ * when the person presses "Ask the assistant".
+ */
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Crosshair, MessageCircleQuestion } from 'lucide-react';
@@ -14,16 +24,7 @@ import { comfyErrorNotes } from '../../../shared/knowledge/sets/foundations';
 import { errorNodeRefs } from '../../../shared/journey/comfyError';
 import styles from './Journey.module.css';
 
-/**
- * "Explain a ComfyUI error": the way back from ComfyUI when a run fails.
- *
- * Who uses it: a person whose graph ComfyUI refused or broke on; it opens from Graph ▸ Explain a ComfyUI error… and
- * from the "Run it in ComfyUI" card. Why: the red text of ComfyUI is English jargon with node numbers. The person
- * pastes it; the app explains every message it knows with the built-in notes (knowledge/sets/foundations.ts
- * comfyErrorNotes, no assistant needed), lists the nodes it names (shared/journey/comfyError.ts) with "Show on the
- * canvas", and offers the assistant for anything else. The text is read here only; it is sent to the assistant only
- * when the person presses "Ask the assistant".
- */
+/** The error card; JourneyHost.tsx mounts it, journeyState's dialog 'error' opens it. */
 export default function ComfyErrorDialog() {
   const { t, i18n } = useTranslation();
   const open = useJourneyStore((state) => state.dialog === 'error');
@@ -32,6 +33,7 @@ export default function ComfyErrorDialog() {
   const nodes = useGraphStore((state) => state.nodes);
   const [text, setText] = useState('');
   const [explained, setExplained] = useState('');
+  // Each opening starts from the text the store holds (the last one, or one passed to open()), already explained.
   useEffect(() => {
     if (open) {
       setText(start);
@@ -54,6 +56,7 @@ export default function ComfyErrorDialog() {
   const ask = () => {
     close();
     useDockStore.getState().show('assistant');
+    // 4000 characters hold the messages that matter; a whole traceback would crowd the model's window.
     void getChatService().sendMessage(String(t('journey.error.askMessage', { text: explained.trim().slice(0, 4000) })));
   };
   return (
