@@ -17,6 +17,14 @@ export const DAILY_CYCLE_CLASSES: FoundationsClassDef[] = [
     required: { image: ['IMAGE'], upscale_method: [['nearest-exact', 'bilinear', 'area', 'bicubic', 'lanczos']], scale_by: ['FLOAT', { default: 1, min: 0.01, max: 8, step: 0.01 }] },
     output: ['IMAGE'],
   },
+  {
+    classType: 'EmptyImage',
+    pack: 0,
+    display: 'Empty Image',
+    category: 'image',
+    required: { width: ['INT', { default: 512, min: 1, max: 16384 }], height: ['INT', { default: 512, min: 1, max: 16384 }], batch_size: ['INT', { default: 1, min: 1, max: 4096 }], color: ['INT', { default: 0, min: 0, max: 16777215 }] },
+    output: ['IMAGE'],
+  },
 ];
 
 /** The classes as the lesson tests describe a node: inputs with their start value, and outputs. */

@@ -429,4 +429,142 @@ export const DAILY_CYCLE_EN: Record<string, LessonWords> = {
       },
     },
   },
+  'minimal-example': {
+    title: 'Logs and a minimal failing example',
+    result: 'A failure read in the log, a workflow cut down to the few nodes that still fail, and a report another person can repeat.',
+    roles: {
+      save: 'saver that fails',
+      source: 'plain picture',
+    },
+    meta: {
+      skill: 'Read a failure in the log and cut the workflow down to the smallest one that still fails, then write a report another person can repeat.',
+      requires: ['A ComfyUI you can run.', 'The lesson “Run, queue, history and cancel”, or the same skills.'],
+      mistakes: [
+        {
+          sign: 'You changed several things at once and the error went away, but you do not know why.',
+          fix: 'Undo, then change one thing per run. When the error goes away, the last thing you removed or changed holds the cause.',
+        },
+        {
+          sign: 'You read only the last red line and it means nothing to you.',
+          fix: 'Read the whole block: the line "Exception during processing" names the error, the traceback shows where it came from, and its last line gives the reason. A path with custom_nodes in it points to a node pack.',
+        },
+        {
+          sign: 'The cut-down workflow no longer fails.',
+          fix: 'The cause was in what you removed. Put back half of it and run; keep halving until the error comes back.',
+        },
+        {
+          sign: 'Your report holds your user name, private folders or a key.',
+          fix: 'Look through the log text and the workflow before you send them. Replace a path with your user name by a placeholder, and remove any key or token: never share those.',
+        },
+      ],
+      provenance: 'Built on ComfyUI\'s own nodes (Save Image, Empty Image). The failure is made on purpose with a guard of ComfyUI itself: Save Image refuses to write outside its output folder, so nothing is written anywhere. The lesson brings no model.',
+      notChecked: `The app checks the graph on the canvas: the name that fails, the plain picture that feeds the saver, and that the workflow is small. It does not read the log of ComfyUI. ${NOT_CHECKED_TAIL}`,
+    },
+    steps: {
+      intro: {
+        title: 'Find the cause, not a workaround',
+        body: 'When a workflow fails, changing things at random may make the error go away without telling you why, and it comes back. The way out has four parts:\n\n1. **Repeat** the failure, so you know it is not chance.\n2. **Read** the log: what failed, where, and why.\n3. **Cut** the workflow down while the failure stays, until nothing more can go.\n4. **Report** with the small workflow, the versions and the log text.\n\nIn this lesson you make a failure on purpose and safely, read it, cut the graph down to two nodes and write the report.',
+      },
+      ready: {
+        title: 'Before you start',
+        body: 'The first item the app sees for itself; the others only you know.',
+        items: {
+          comfy: { label: 'ComfyUI is running, and the app has read it.', how: 'The app sees this when it has read your ComfyUI (Sync).' },
+          log: { label: 'I know where to read the log of my ComfyUI.', how: 'In ComfyUI: the Logs tab of the bottom panel (View, "Bottom Panel", or Ctrl with the backquote key). Or the console window ComfyUI runs in. The Desktop app on Windows also keeps files in AppData\\Roaming\\ComfyUI\\logs.' },
+          version: { label: 'I wrote down the versions: ComfyUI, its interface, Python, PyTorch, my graphics card and system.', how: 'Settings, the page About, shows most of them.' },
+        },
+      },
+      plant: {
+        title: 'A failure on purpose',
+        body: 'Keep the picture graph of the first lesson on the canvas, or any graph with a {save}.\n\nSet `filename_prefix` of {save} to `../broken`. The two dots mean "the folder above". ComfyUI refuses to save outside its output folder, so this name makes Save Image fail every time, and nothing is written anywhere.\n\nThis is a safe stand-in for a real failure: the method is the same. Should your ComfyUI save the file anyway, delete it from the folder above output and use a failure of your own for this lesson.',
+      },
+      reproduce: {
+        title: 'Repeat it and find it in the log',
+        body: `${RUN}\n\n${OWN_WORD}`,
+        items: {
+          ran: { label: 'I ran it, and the run stopped at Save Image with an error.', how: 'ComfyUI marks the node and shows the message. The whole picture was made first, so this took a full run.' },
+          lines: { label: 'I found the block in the log: "Exception during processing", the traceback, and "Saving image outside the output folder is not allowed."' },
+          again: { label: 'I ran it a second time and got the same error.' },
+        },
+      },
+      'read-log': {
+        title: 'How to read the block',
+        body: 'A failure in the log reads from the top down:\n\n- The line with "Exception during processing" says that a node failed and gives the message.\n- "Traceback (most recent call last)" begins the way the error took through the code. Most of it is ComfyUI\'s own code.\n- The **last line** is the reason itself. Here: saving outside the output folder is not allowed.\n- A path with `custom_nodes` in the traceback points to a node pack: then the pack is the first suspect.\n\nA failure that happens before anything runs is a check of the graph instead: "Prompt outputs failed validation", with the node and the field below it.\n\nNow the question that cuts the graph: does this error need the model, the prompt and the sampler at all?',
+      },
+      cut: {
+        title: 'Cut it down',
+        body: 'The error is in {save}; what it saves does not matter. Test that.\n\nAdd {source}: a plain picture of one color, made without any model. Link its IMAGE output to `images` of {save}. Then delete every other node: the loader, the prompts, the blank, the sampler and the decoder.\n\nWhat remains is two nodes.',
+      },
+      confirm: {
+        title: 'Is it small, and does it still fail?',
+        body: `The app checks the size of the workflow itself. ${RUN}\n\nThe run is your own word: the app cannot see ComfyUI.`,
+        items: {
+          small: { label: 'The workflow on the canvas has at most three nodes.', how: 'The app checks this itself. A minimal example is one where nothing more can go.' },
+          same: { label: 'I ran the two nodes, and the same error came.' },
+          faster: { label: 'It failed in a moment, without loading a model.', how: 'If the error had gone away, the cause would have been in what you removed: put back half of it and run again.' },
+        },
+      },
+      report: {
+        title: 'Write the report',
+        body: `A report someone else can repeat. ${OWN_WORD}`,
+        items: {
+          workflow: { label: 'I saved the minimal workflow as a .json file.' },
+          versions: { label: 'I added the versions I wrote down at the start and the list of my node packs.' },
+          text: { label: 'I added what I expected, what happened, and the log block from "Exception during processing" to the last line.' },
+          private: { label: 'I looked through it for my user name in paths, private folders and keys, and removed them.' },
+        },
+      },
+      assess: {
+        title: 'How good is the example?',
+        body: 'Answer for yourself; your answers stay on this computer.',
+        criteria: {
+          minimal: {
+            title: 'No node can be removed without the error going away.',
+            levels: { no: 'No', partly: 'Partly', yes: 'Yes' },
+            tryNext: 'Try to remove each node in turn and run. Any that the error survives was not needed.',
+          },
+          repeat: {
+            title: 'The minimal workflow fails every time I run it.',
+            levels: { no: 'No', yes: 'Yes' },
+            tryNext: 'A failure that comes and goes needs its conditions written down: what else ran before, how much memory was free.',
+          },
+          complete: {
+            title: 'The report has the workflow, the versions, the log block and what I expected.',
+            levels: { no: 'No', partly: 'Partly', yes: 'Yes' },
+            tryNext: 'Read it as a stranger would: could you repeat the failure from it alone?',
+          },
+        },
+      },
+      recall: {
+        title: 'Check yourself',
+        body: 'Three short questions. A wrong answer costs nothing: read the explanation and go on.',
+        questions: {
+          where: {
+            text: 'Where in a traceback is the reason for the failure, most often?',
+            choices: { first: 'In the first line', last: 'In the last line', middle: 'In the middle' },
+            explain: 'The traceback lists the way through the code; the last line says what went wrong.',
+          },
+          gone: {
+            text: 'You removed a node and the error went away. What does that tell you?',
+            choices: { fixed: 'The problem is fixed', removed: 'The cause is in what I removed', luck: 'Nothing' },
+            explain: 'Put the node back and the error should return: then you have found where the cause lives.',
+          },
+          why: {
+            text: 'Why send a minimal example rather than your whole workflow?',
+            choices: { shorter: 'It is shorter to type', 'faster-others': 'Others can repeat it fast, without your models and packs', pretty: 'It looks neater' },
+            explain: 'A helper who must download your models and packs first will often not try at all.',
+          },
+        },
+      },
+      transfer: {
+        title: 'On your own: a real failure',
+        body: 'Use the method without help on a failure of your own: a workflow that failed for you, or one from someone else that does not run. Give Save Image a normal name again first.',
+        items: {
+          own: { label: 'I repeated a real failure and found its block in the log.' },
+          cut: { label: 'I cut the workflow down while the error stayed, one change per run.' },
+          write: { label: 'I wrote a report with the minimal workflow, the versions and the log text, checked for private data.' },
+        },
+      },
+    },
+  },
 };

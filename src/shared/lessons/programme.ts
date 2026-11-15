@@ -147,6 +147,7 @@ export const LESSON_PROGRAMME: Readonly<Record<string, LessonPlace>> = {
   'template-own': at(1, 'core', 'base'),
   'queue-history': at(1, 'core', 'base'),
   'partial-cache': at(1, 'core', 'base'),
+  'minimal-example': at(1, 'core', 'base'),
   // For adults: behind the switch, never on a path while it is off.
   'adult-image': at(3, 'deep', 'image'),
   'adult-lora': at(3, 'deep', 'image', 'lora'),

@@ -56,3 +56,4 @@ frontend. Upscale Image By and Preview Image: ComfyUI nodes.py. "Prompt executed
 ## See also
 - [How lessons work](How-Lessons-Work.md)
 - [Run, queue, history and cancel](Queue-History.md)
+- [Logs and a minimal failing example](Minimal-Example.md)

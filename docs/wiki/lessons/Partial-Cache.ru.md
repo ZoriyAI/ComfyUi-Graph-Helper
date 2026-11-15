@@ -56,3 +56,4 @@ Upscale Image By и Preview Image: nodes.py ComfyUI. «Prompt executed in … se
 ## См. также
 - [Как устроены уроки](How-Lessons-Work.ru.md)
 - [Run, очередь, история и отмена](Queue-History.ru.md)
+- [Логи и минимальный неработающий пример](Minimal-Example.ru.md)

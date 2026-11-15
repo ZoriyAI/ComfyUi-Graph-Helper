@@ -18,7 +18,7 @@ import { lessonShapes, tryLesson } from '../../src/shared/lessons/share/tryLesso
 import { builtinLessonDoc } from '../../src/shared/lessons/share/builtin';
 import { checkLessonDoc } from '../../src/shared/lessons/share/mine';
 
-const IDS = ['template-own', 'queue-history', 'partial-cache'];
+const IDS = ['template-own', 'queue-history', 'partial-cache', 'minimal-example'];
 
 /** The canvas at the end of a lesson, played from an empty canvas after the lessons whose graph it stands on. */
 function finished(id: string): LessonGraph {
@@ -87,6 +87,17 @@ describe('the lessons of “The daily work cycle”', () => {
 });
 
 describe('what the app checks itself', () => {
+  it('the minimal example: a saver fed by a plain picture, and at most three nodes', () => {
+    const lesson = lessonById('minimal-example')!;
+    const graph = finished('minimal-example');
+    expect(graph.nodes.map((node) => node.classType).sort()).toEqual(['EmptyImage', 'SaveImage']);
+    const small = lesson.steps.find((step) => step.id === 'confirm')!.checklist!.find((item) => item.id === 'small')!.check!;
+    expect(readVerdict(small, graph, undefined)).toBe('holds');
+    // The whole picture graph is not a minimal example: the check fails, and a tick of the person does not count.
+    const big = finished('queue-history');
+    expect(readVerdict(small, big, undefined)).toBe('fails');
+  });
+
   it('partial execution: the preview branch is a cheap copy, and the transfer task saves it apart from the full picture', () => {
     const lesson = lessonById('partial-cache')!;
     const graph = finished('partial-cache');

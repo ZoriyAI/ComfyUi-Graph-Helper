@@ -256,14 +256,68 @@ const partialCache: Lesson = {
   ],
 };
 
+/**
+ * N11: the log and a minimal failing example. A failure made on purpose and safe (Save Image refuses a name outside
+ * its folder), read in the log, then the graph cut down until only what the failure needs is left, and a report.
+ */
+const minimalExample: Lesson = {
+  id: 'minimal-example',
+  standard: 2,
+  outcomes: ['structure', 'run', 'result'],
+  meta: { prerequisites: ['queue-history'], versions: [`${CORE_NODES}, Empty Image`, FRONTEND], checkedOn: CHECKED_ON },
+  steps: [
+    { id: 'intro', read: true },
+    {
+      id: 'ready',
+      checklist: [
+        { id: 'comfy', check: { kind: 'comfy-read' } },
+        { id: 'log' },
+        { id: 'version' },
+      ],
+    },
+    {
+      id: 'plant',
+      roles: [node('save', 'SaveImage')],
+      fields: [field('save', 'filename_prefix', { kind: 'text', minChars: 8, has: ['../'] })],
+    },
+    { id: 'reproduce', checklist: [{ id: 'ran', run: true }, { id: 'lines' }, { id: 'again' }] },
+    { id: 'read-log', read: true },
+    {
+      id: 'cut',
+      roles: [node('source', 'EmptyImage')],
+      links: [link('source', 'IMAGE', 'save', 'images')],
+    },
+    { id: 'confirm', checklist: [{ id: 'small', check: { kind: 'workflow-size', max: 3 } }, { id: 'same', run: true }, { id: 'faster' }] },
+    { id: 'report', checklist: [{ id: 'workflow' }, { id: 'versions' }, { id: 'text' }, { id: 'private' }] },
+    {
+      id: 'assess',
+      rubric: [
+        { id: 'minimal', levels: ['no', 'partly', 'yes'] },
+        { id: 'repeat', levels: ['no', 'yes'], pass: 'yes' },
+        { id: 'complete', levels: ['no', 'partly', 'yes'] },
+      ],
+    },
+    {
+      id: 'recall',
+      quiz: [
+        { id: 'where', choices: ['first', 'last', 'middle'], answer: 'last' },
+        { id: 'gone', choices: ['fixed', 'removed', 'luck'], answer: 'removed' },
+        { id: 'why', choices: ['shorter', 'faster-others', 'pretty'], answer: 'faster-others' },
+      ],
+    },
+    { id: 'transfer', transfer: true, checklist: [{ id: 'own' }, { id: 'cut' }, { id: 'write' }] },
+  ],
+};
+
 /** The lessons of the group, in the order a person meets them. */
-export const DAILY_CYCLE_LESSONS: Lesson[] = [templateOwn, queueHistory, partialCache];
+export const DAILY_CYCLE_LESSONS: Lesson[] = [templateOwn, queueHistory, partialCache, minimalExample];
 
 /** The group of each lesson and the lessons it goes on from. */
 export const DAILY_CYCLE_PATH: Record<string, { group: LessonGroup; follows: string[] }> = {
   'template-own': { group: DAILY_CYCLE_GROUP, follows: ['read-workflow'] },
   'queue-history': { group: DAILY_CYCLE_GROUP, follows: ['template-own'] },
   'partial-cache': { group: DAILY_CYCLE_GROUP, follows: ['queue-history'] },
+  'minimal-example': { group: DAILY_CYCLE_GROUP, follows: ['partial-cache'] },
 };
 
 /**
