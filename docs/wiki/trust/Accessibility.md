@@ -3,46 +3,88 @@
 
 # Accessibility
 
-What works today with a keyboard, a screen reader, reduced motion and contrast, and what does not work well yet.
+What works today with a keyboard, a screen reader, a larger interface, reduced motion and contrast, and what is not
+done yet.
 
-## Keyboard
+## Moving around the window
 
-- Every menu is reachable from the keyboard: `Alt` or `F10` opens the menu bar, `Shift+F10` the context menu.
-- The main commands have shortcuts, and they work in the Russian keyboard layout too.
-  [Keyboard shortcuts](../reference/Shortcuts.md)
-- On the canvas a node can be selected, moved and connected with the keyboard: `Enter` or `Space` selects a node,
-  the arrow keys move it, `Delete` removes it, `Esc` cancels.
+- `F6` and `Shift+F6` move between the menu bar, toolbar, library, canvas, right panel and status bar. Each time the
+  focus lands on the element you used last in that area.
+- `Alt` or `F10` goes to File in the menu bar, with a visible outline. `Shift+F10` or the Menu key opens a context
+  menu.
+- `F8` goes to the notifications.
+- `F1` opens Keyboard shortcuts, also while you type in a field, but not over another dialog. The list there includes
+  these keyboard routes. [Keyboard shortcuts](../reference/Shortcuts.md)
+- Shortcuts follow your keyboard: on a Latin layout the key marked with the letter, on a Russian or another
+  non-Latin layout the key in the same place as on a US keyboard.
 - Dialogs keep the focus inside them and close with `Esc`.
+- When the focus would fall to nowhere (after a delete, after a dialog closes, after Undo), it goes back to the last
+  element used in that area, or to the nearest node.
 
-**Not well yet:** after many actions in a row the focus can fall back to the start of the window, and moving with
-`Tab` through the nodes of a large graph follows the order they were added, not their place on the canvas.
+## On the canvas
+
+- `Tab` reaches the nodes. `Enter` or `Space` selects the node that has focus; the arrow keys move it; `Delete` or
+  `Backspace` removes it, and the focus moves to the nearest node. `Ctrl+Z` undoes.
+- A link becomes a `Tab` stop only after one of its two nodes is selected, so `Tab` does not wade through every link.
+- To link two nodes by keyboard: `Tab` into an input or output of a selected node, press `Shift+F10`, choose "Suggest
+  a link", then `Enter`.
+- A note is written in place: `Enter` opens it, `Ctrl+Enter` saves, `Esc` keeps the old text.
+
+## In the library
+
+`↓` from the search goes into the list. `Space` opens the node's card with the focus on it, `Esc` returns to the
+list, `Enter` adds the node. On Models, `Enter` opens the model card.
 
 ## Screen readers
 
-- Menus, dialogs, settings, the library and the chat have names and roles a screen reader announces.
-- Short notices (copied, saved, checking) are announced as they appear.
+What the app gives a screen reader:
 
-**Not well yet:**
+- A node is read with its title, its class, its marks (bypassed, muted, not installed, needs attention) and how many
+  of its inputs are linked; its role is "node". A link is read by its two nodes and ports and its type, for example
+  "Link from Load Checkpoint · MODEL to KSampler · model, type MODEL", in the language of the interface.
+- An input or output is a button. An empty required input adds "required, empty" to its name, and its dot is drawn
+  dashed, not only in another colour.
+- A finished answer of the assistant is read once, not piece by piece while it grows. The message box stays
+  reachable while an answer is written.
+- A new lesson step is read ("Step N of M" and its title), and so is the end of a lesson. The start and the end of a
+  sync are read.
+- Menus, dialogs, settings, the library and the chat have names and roles. Each finding of the check is named by
+  its text.
 
-- Nodes and links on the canvas are announced with little more than their number; a link is announced as "Edge from
-  1 to 2", in English whatever the interface language.
-- While the assistant writes, its answer is announced piece by piece as it grows, which can flood the reader.
-  Pausing the reader until the answer ends helps.
+Not tried yet with a real screen reader (such as Orca): the names and announcements above are checked by the app's
+own tests of the window, not by listening to a reader.
 
-<!-- verify: screen reader behaviour on the current build -->
+## Interface size
+
+Settings ▸ Appearance & Motion ▸ Interface size makes every text, button and panel larger or smaller, from 80 to
+200 percent. From the View menu: Larger interface (`Ctrl+Alt+=`), Smaller interface (`Ctrl+Alt+-`), Normal interface
+size (`Ctrl+Alt+0`). `Ctrl+=` and `Ctrl+-` zoom the canvas only.
 
 ## Motion
 
-Settings ▸ Appearance & Motion ▸ Motion: System (follows your system's "reduce motion" setting), On, Reduced or Off. With Off,
-the canvas does not glide when it moves to a node and the assistant's build appears without its step-by-step
-animation. <!-- verify: what Reduced and Off switch off -->
+Settings ▸ Appearance & Motion ▸ Motion applies to everything that moves:
 
-## Contrast and size
+- **On:** things travel and loop. The canvas glides to a place, the camera takes longer the farther it goes.
+- **Reduced**, and **System** when your system asks to reduce motion: only short fades. Nothing loops or travels,
+  and the camera jumps.
+- **Off:** nothing animates. Marks still appear and then go. The assistant's build appears without its step-by-step
+  animation.
 
-- Text and controls are checked against the WCAG contrast levels: 4.5:1 for text and 3:1 for focus rings, borders
-  and port colours. A test fails the build when a colour pair drops below its level.
-- The canvas zooms (`Ctrl+=`, `Ctrl+-`, `Ctrl+0`). The rest of the window has no zoom of its own yet; use your
-  system's text scaling.
+## Contrast
+
+Text and controls are checked against the WCAG contrast levels: 4.5:1 for text and 3:1 for focus rings, borders and
+port colours. A test fails the build when a colour pair drops below its level. The keyboard focus is drawn with a
+visible outline, also on menu items and list options.
+
+## Not done yet
+
+- The arrow keys do not move the focus from node to node: they move the selected node, and `Tab` steps through the
+  nodes.
+- At 200 percent on a 1080p screen with large system scaling the window does not fit: its smallest size is 800 × 560.
+- Small targets remain: the description dots, the seed stepper, the button that opens a subgraph, the link in the
+  conversation log.
+- The live strip of a running build is not slowed down for a screen reader.
+- After Add node… (`Ctrl+K`) and `Enter`, the focus goes back to where you were, not to the new node.
 
 ## Reporting a problem
 
@@ -53,3 +95,4 @@ An accessibility problem is a bug: please open an Issue and say which reader or 
 - [Trust](README.md)
 - [Keyboard shortcuts](../reference/Shortcuts.md)
 - [Known limitations](../reference/Known-Limits.md)
+- [Settings: Appearance](../interface/Settings-Appearance.md)

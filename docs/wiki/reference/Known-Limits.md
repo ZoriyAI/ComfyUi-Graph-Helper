@@ -15,15 +15,18 @@ what to expect. Wishes go to the project's Discussions, problems to its Issues.
 
 ## Systems and packages
 
-- Only a `.deb` package for 64-bit x86 Linux is built. There is no AppImage, Flatpak, RPM or ARM package.
-- Windows and macOS: the app can be built from source; the steps are untested there and each system has its own
-  limits. [Windows](../dev/Building-On-Windows.md), [macOS](../dev/Building-On-macOS.md)
-- No automatic updates: install a new version from the project's Releases yourself. [Updating](../start/Updating.md)
+- **Linux only**, 64-bit x86: `.deb`, `.rpm`, AppImage and a `.tar.gz`. There is no ARM package and no Flatpak.
+- Windows and macOS are not supported. You may try running the app from source; nothing there has been tried.
+  [Windows](../dev/Building-On-Windows.md), [macOS](../dev/Building-On-macOS.md)
+- No automatic updates: install a new version from the project's Releases yourself. Settings ▸ Privacy ▸ Check for
+  new versions can tell you when there is one. [Updating](../start/Updating.md)
+- Not tried yet on a real desktop: installing the `.deb` with apt, the `.rpm` with dnf on Fedora, the final AppImage
+  file. These are checked on CI only.
 
 ## Connection and reading
 
-- The connection is checked against test servers that speak ComfyUI's routes; it has not yet been run against a real
-  ComfyUI install.
+- Not tried yet on a real install: the connection was checked against test servers that answer the way ComfyUI
+  does, not against a real ComfyUI, ComfyUI on Windows, the ComfyUI desktop app or a real MCP server.
 - Straight from ComfyUI there are no descriptions next to model files, no pack READMEs and no fingerprints, so Find on
   the internet searches by file name only. An MCP server that reads files adds them.
   [What each way shows](../connect/What-Each-Way-Shows.md)
@@ -39,33 +42,46 @@ what to expect. Wishes go to the project's Discussions, problems to its Issues.
 - When the cloud model has no web search of its own, the assistant searches through DuckDuckGo's HTML page, which can
   stop working when that page changes.
 
+## Size of a graph
+
+- **About a thousand nodes is slow.** On a graph of about 1000 nodes, dragging and zooming run at about 5 frames per
+  second, and the first drawing takes many seconds.
+- **The cap is 1500 nodes and 3000 links**, subgraphs counted. A larger workflow or project is refused before
+  anything changes: "This graph is too large to open…". The largest of 1335 real workflows the app was tried on has
+  603 nodes.
+- If the canvas did not finish drawing a graph at the last start, the app asks once whether to start with an empty
+  canvas (the graph stays in the history) or to open the graph again.
+
 ## The graph
 
 - Inside a subgraph you cannot make a new subgraph or a group, and a nested subgraph cannot be dissolved: do that on
   the main canvas. Groups that came inside a subgraph from ComfyUI are kept on save but not shown.
-- A workflow saved in the older format (0.4) cannot hold a subgraph; the app says so. Copy its nodes, start a new
-  project (which uses format 1) and paste them there. [Subgraphs](../graph/Subgraphs.md)
+- A workflow saved in the older format (0.4) cannot hold a subgraph; the app says so. Open it in a current ComfyUI and
+  save it again, or copy its nodes into a new project (which uses format 1). [Subgraphs](../graph/Subgraphs.md)
 - Legacy group nodes of older workflows are shown as one unknown node; they are saved back as they were.
 - Inputs that grow as you connect them, and list marks on inputs, are not shown yet.
-- Native reroute points are drawn, but cannot be added or moved.
-- Dragging nodes is slow on graphs of more than about a hundred nodes.
-- Pictures with a workflow inside them are not opened; open the workflow `.json` file.
-  <!-- verify: opening a picture with a workflow inside -->
+- Native reroute points of ComfyUI are drawn and saved back, but cannot be moved. Add reroute in the menu of a link adds
+  a Reroute node instead.
+- **A group frame follows its nodes.** You cannot resize it by hand: add nodes to it or take them out (Add to group,
+  Take out of group).
+- A picture or video opens only when ComfyUI wrote the workflow into it. A picture from elsewhere, or one sent
+  through a chat app, usually has none.
 
 ## The assistant and lessons
 
 - The assistant builds only on the main canvas. If a subgraph is open, the canvas returns to the main level and says
   so. Lessons also run only on the main canvas.
-- A pause at a checkpoint (the step limit) does not survive a restart of the app: ask again after the restart.
+- A pause at a pause point (the step limit) does not survive a restart of the app: ask again after the restart.
 - The quality of answers depends on the model. Small local models with a small context window lose track of long
   builds. [The context window](../assistant/Context-Window.md)
 - The video lessons on WanVideoWrapper cover a part of that pack; the rest of its features have no lesson.
+- A lesson the assistant drafted is gone after a restart unless you kept it in My lessons.
 
 ## Accessibility
 
-- Nodes and links on the canvas are hard to follow with a screen reader, and the assistant's answer is announced
-  piece by piece while it is written.
-- Only the canvas zooms; the rest of the window follows your system's text scaling.
+- The arrow keys do not move the focus between nodes: they move the selected node, and `Tab` steps through the nodes.
+- Not tried yet with a real screen reader.
+- At 200 percent interface size on a 1080p screen the window does not fit.
 
 More: [Accessibility](../trust/Accessibility.md).
 
