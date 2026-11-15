@@ -25,7 +25,7 @@ part follows the [Code of Conduct](CODE_OF_CONDUCT.md).
 ## Set up
 
 ```bash
-git clone <the project address> nodewise-studio && cd nodewise-studio
+git clone https://github.com/ZoriyAI/nodewise-studio.git nodewise-studio && cd nodewise-studio
 npm ci
 npm run build
 npm start

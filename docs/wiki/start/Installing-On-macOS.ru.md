@@ -19,7 +19,7 @@
 Откройте **Терминал** (Launchpad ▸ Другие ▸ Терминал) и вставьте:
 
 ```bash
-curl -fsSL <адрес проекта>/releases/latest/download/install-macos.sh -o install-macos.sh && bash install-macos.sh
+curl -fsSL https://github.com/ZoriyAI/nodewise-studio/releases/latest/download/install-macos.sh -o install-macos.sh && bash install-macos.sh
 ```
 
 На главной странице проекта (README) та же строка показана с настоящим адресом.

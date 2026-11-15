@@ -27,7 +27,7 @@ sudo apt-get install -y --no-install-recommends fakeroot dpkg xvfb libnss3 libat
 ## Получите исходники и установите зависимости
 
 ```bash
-git clone <адрес проекта>.git nodewise-studio
+git clone https://github.com/ZoriyAI/nodewise-studio.git nodewise-studio
 cd nodewise-studio
 npm ci
 ```

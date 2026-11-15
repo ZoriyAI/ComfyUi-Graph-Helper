@@ -20,7 +20,7 @@ what it does, what it asks and how to undo it.
 Open **PowerShell** (Start menu, type "PowerShell") and paste these two lines:
 
 ```powershell
-Invoke-WebRequest -UseBasicParsing <project address>/releases/latest/download/install-windows.ps1 -OutFile install-windows.ps1
+Invoke-WebRequest -UseBasicParsing https://github.com/ZoriyAI/nodewise-studio/releases/latest/download/install-windows.ps1 -OutFile install-windows.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install-windows.ps1
 ```
 

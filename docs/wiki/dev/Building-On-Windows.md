@@ -20,7 +20,7 @@ run and change the app on Windows. To just install the app, use the script:
 In PowerShell or the Git Bash window:
 
 ```powershell
-git clone <project address>.git nodewise-studio
+git clone https://github.com/ZoriyAI/nodewise-studio.git nodewise-studio
 cd nodewise-studio
 npm ci
 ```

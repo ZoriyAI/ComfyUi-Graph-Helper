@@ -21,7 +21,7 @@
 Откройте **PowerShell** (меню «Пуск», наберите «PowerShell») и вставьте две строки:
 
 ```powershell
-Invoke-WebRequest -UseBasicParsing <адрес проекта>/releases/latest/download/install-windows.ps1 -OutFile install-windows.ps1
+Invoke-WebRequest -UseBasicParsing https://github.com/ZoriyAI/nodewise-studio/releases/latest/download/install-windows.ps1 -OutFile install-windows.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install-windows.ps1
 ```
 

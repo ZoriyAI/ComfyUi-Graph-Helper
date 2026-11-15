@@ -64,7 +64,7 @@ There is no Windows package yet. A script from the release builds the app on you
 and installs it for your user, without administrator rights. In PowerShell:
 
 ```powershell
-Invoke-WebRequest -UseBasicParsing https://github.com/ZoriyAI/ComfyUi-Graph-Helper/releases/latest/download/install-windows.ps1 -OutFile install-windows.ps1
+Invoke-WebRequest -UseBasicParsing https://github.com/ZoriyAI/nodewise-studio/releases/latest/download/install-windows.ps1 -OutFile install-windows.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install-windows.ps1
 ```
 
@@ -77,7 +77,7 @@ There is no macOS package yet. A script from the release builds the app on your 
 installs it in `~/Applications`. In Terminal:
 
 ```bash
-curl -fsSL https://github.com/ZoriyAI/ComfyUi-Graph-Helper/releases/latest/download/install-macos.sh -o install-macos.sh && bash install-macos.sh
+curl -fsSL https://github.com/ZoriyAI/nodewise-studio/releases/latest/download/install-macos.sh -o install-macos.sh && bash install-macos.sh
 ```
 
 Add `--dry-run` to see every step first. What it does, what it asks, how to remove the app:

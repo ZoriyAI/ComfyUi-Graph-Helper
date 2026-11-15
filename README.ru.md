@@ -65,7 +65,7 @@ NodeWise это независимый экспериментальный уче
 проекта и ставит его для вашего пользователя, без прав администратора. В PowerShell:
 
 ```powershell
-Invoke-WebRequest -UseBasicParsing https://github.com/ZoriyAI/ComfyUi-Graph-Helper/releases/latest/download/install-windows.ps1 -OutFile install-windows.ps1
+Invoke-WebRequest -UseBasicParsing https://github.com/ZoriyAI/nodewise-studio/releases/latest/download/install-windows.ps1 -OutFile install-windows.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install-windows.ps1
 ```
 
@@ -79,7 +79,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install-windows.ps1
 его в `~/Applications`. В Терминале:
 
 ```bash
-curl -fsSL https://github.com/ZoriyAI/ComfyUi-Graph-Helper/releases/latest/download/install-macos.sh -o install-macos.sh && bash install-macos.sh
+curl -fsSL https://github.com/ZoriyAI/nodewise-studio/releases/latest/download/install-macos.sh -o install-macos.sh && bash install-macos.sh
 ```
 
 Добавьте `--dry-run`, чтобы сначала увидеть все шаги. Что скрипт делает, о чём спрашивает и как удалить приложение:
