@@ -112,6 +112,7 @@ export default function ReplayPlayer() {
       </span>
     );
   }
+  // "Return to this version" is offered below the newest version only: the newest is the graph already.
   return (
     <span className={styles.group} data-replay="on">
       <button
@@ -134,7 +135,6 @@ export default function ReplayPlayer() {
         onChange={(event) => patchReplay({ index: clampIndex(Number(event.target.value), count), playing: false })}
       />
       <span className={styles.label}>{replay.revisions[replay.index]?.revSeq}</span>
-      {/* The newest version is the graph already: there is nothing to return to. */}
       {replay.index < count - 1 ? (
         <button
           type="button"

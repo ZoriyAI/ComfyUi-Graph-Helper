@@ -45,6 +45,7 @@ function TypedEdge({ id, source, target, sourceX, sourceY, targetX, targetY, sou
     dimmed ? styles.dimmed : '',
     unfocused ? styles.unfocused : '',
   ].filter(Boolean).join(' ');
+  // The second path is an invisible wide copy of the first: a 2 px line is too thin to click or right-click.
   return (
     <>
       <path
@@ -56,7 +57,6 @@ function TypedEdge({ id, source, target, sourceX, sourceY, targetX, targetY, sou
         data-edge-type={dataType}
         data-flash={flashMark}
       />
-      {/* An invisible wide copy of the path: a 2 px line is too thin to click or right-click. */}
       <path d={path} fill="none" strokeOpacity={0} strokeWidth={20} className="react-flow__edge-interaction" />
       {via?.map((point) => <circle key={point.id} cx={point.x} cy={point.y} r={5} className={styles.reroutePoint} style={{ '--canvas-edge': color } as React.CSSProperties} data-reroute-point={point.id} />)}
       {flowing && !pending ? (
