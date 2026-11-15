@@ -1,4 +1,4 @@
-import type { KnowledgeSetTexts } from '../knowledgeSets';
+import type { KnowledgeSet } from '../coreKnowledge';
 
 /**
  * Встроенные знания о звуке и речи, 3D, лицах и персонажах, по-русски. Английский файл говорит то же самое.
@@ -10,7 +10,7 @@ const RULE = 'Лицо или голос настоящего человека �
 const PACK_CODE = 'Пак запускает чужой код: ставьте его сами через менеджер ComfyUI и только тот, которому доверяете.';
 const OLD_FORMAT = 'Файлы старых форматов (.ckpt, .pt, .pth, .bin) могут при загрузке выполнить код: берите их только со страницы самой модели.';
 
-export const SOUND_3D_FACES_KNOWLEDGE_RU: KnowledgeSetTexts = {
+export const SOUND_3D_FACES_KNOWLEDGE_RU: KnowledgeSet = {
   nodes: {
     // Сам ComfyUI: звук.
     'TextEncodeAceStepAudio1.5': {
@@ -46,11 +46,6 @@ export const SOUND_3D_FACES_KNOWLEDGE_RU: KnowledgeSetTexts = {
       what: 'Проигрывает звук на ноде в ComfyUI, не сохраняя его.',
       why: 'Чтобы пробовать настройки, ничего не сохраняя.',
       connect: 'Вход: AUDIO. В папку output ничего не пишется.',
-    },
-    LoadAudio: {
-      what: 'Load Audio: загружает звуковой файл из папки input ComfyUI (или загруженный вами) как AUDIO.',
-      why: 'Начало любого графа, который работает с готовым звуком: образец голоса, песня для разделения, речь для записи текстом.',
-      connect: 'Вход: файл (audio). Выход: AUDIO.',
     },
     TrimAudioDuration: {
       what: 'Вырезает кусок звука: от start_index (секунды; отрицательное число считает от конца) длиной duration секунд.',
@@ -111,16 +106,6 @@ export const SOUND_3D_FACES_KNOWLEDGE_RU: KnowledgeSetTexts = {
       connect: 'Входы: mesh (MESH или 3D-файл) и filename_prefix. Файл .glb открывается в Blender, в игровых движках и в любом просмотрщике glTF.',
     },
     // Сам ComfyUI: персонажи и лица.
-    FluxKontextImageScale: {
-      what: 'Приводит картинку к ближайшему размеру, на котором учился FLUX.1 Kontext.',
-      why: 'Kontext лучше всего держит героя, когда картинка-образец одного из его размеров.',
-      connect: 'Вход: image. Выход: IMAGE для VAE Encode.',
-    },
-    ReferenceLatent: {
-      what: 'Прикрепляет закодированную картинку к описанию как образец, которого модель должна держаться.',
-      why: 'Так редактирующие модели (FLUX.1 Kontext, FLUX.2, Qwen-Image Edit и другие) видят картинку, которую меняют.',
-      connect: 'Входы: conditioning от текстовой ноды и latent от VAE Encode. Выход: CONDITIONING для FluxGuidance или сэмплера.',
-    },
     PhotoMakerLoader: {
       what: 'Загружает файл PhotoMaker из models/photomaker.',
       why: 'PhotoMaker держит одно лицо через много картинок SDXL, взяв его с нескольких фотографий этого лица.',
@@ -153,17 +138,6 @@ export const SOUND_3D_FACES_KNOWLEDGE_RU: KnowledgeSetTexts = {
       risk: 'Модель учили на роликах около 8 секунд; на намного более длинных качество падает.',
     },
     // ComfyUI-VideoHelperSuite.
-    VHS_LoadVideo: {
-      what: 'Load Video (Upload) из Video Helper Suite: читает видеофайл кадрами, вместе с его звуком и сведениями.',
-      why: 'Загрузчик, которым пользуется большинство примеров паков; умеет пропускать, прореживать и ограничивать кадры.',
-      connect: 'Входы: video и настройки вроде frame_load_cap и skip_first_frames. Выходы: IMAGE (кадры), frame_count, audio, video_info.',
-    },
-    VHS_VideoCombine: {
-      what: 'Video Combine из Video Helper Suite: собирает кадры и, если дан, звук в видео или анимированную картинку.',
-      why: 'Обычный конец видеографа на паках.',
-      connect: 'Входы: images, audio (по желанию), frame_rate, format и filename_prefix. С включённым save_output файл попадает в папку output.',
-      risk: 'frame_rate должна быть родной частотой ролика, иначе картинка и звук разъедутся.',
-    },
     // ComfyUI_Fill-ChatterBox.
     FL_ChatterboxTTS: {
       what: 'Читает текст вслух моделью Chatterbox; если дать короткую запись голоса, говорит этим голосом.',
@@ -208,22 +182,17 @@ export const SOUND_3D_FACES_KNOWLEDGE_RU: KnowledgeSetTexts = {
       connect: 'Входы: model и ipadapter от загрузчика FaceID, image (лицо), weight, weight_faceidv2, start_at и end_at. Выход: MODEL для сэмплера.',
       risk: `${RULE} Слишком большой weight сжигает картинку: резкий контраст, сломанные цвета, застывшее лицо.`,
     },
-    UltralyticsDetectorProvider: {
-      what: 'Загружает детектор YOLO из models/ultralytics (bbox для рамок, segm для контуров) для детейлеров Impact Pack.',
-      why: 'FaceDetailer нужно что-то, что находит лица; это делает face_yolov8m.pt.',
-      connect: 'Вход: model_name. Выходы: BBOX_DETECTOR и SEGM_DETECTOR для FaceDetailer и других детейлеров.',
-      risk: 'Файлы детекторов в формате .pt, а такой файл может при загрузке выполнить код: берите их только со страницы самой модели.',
+  },
+  linkTypes: {
+    MESH: {
+      what: 'Трёхмерная поверхность из треугольников: точки (вершины) и треугольники между ними, иногда с цветом или текстурой.',
+      why: 'То, что получается в графе «картинка в 3D» и что открывают 3D-программы.',
+      connect: 'Выходит из Voxel to Mesh и нод 3D-моделей; идёт в Save 3D Model, которая записывает файл .glb.',
     },
-    SAMLoader: {
-      what: 'SAMLoader из Impact Pack: загружает из models/sams модель Segment Anything, которая обводит точный контур найденного детектором.',
-      why: 'С ней FaceDetailer перерисовывает само лицо, а не всю рамку вокруг.',
-      connect: 'Входы: model_name и device_mode. Выход: SAM_MODEL на вход sam_model_opt ноды FaceDetailer.',
-    },
-    FaceDetailer: {
-      what: 'FaceDetailer из Impact Pack: находит каждое лицо, вырезает, увеличивает до guide_size, перерисовывает заданной моделью и описаниями и вклеивает обратно.',
-      why: 'Мелкие лица на картинках в полный рост и групповых выходят смазанными; эта нода их чинит.',
-      connect: 'Входы: image, model, clip, vae, positive, negative, bbox_detector и по желанию sam_model_opt; denoise, guide_size, bbox_threshold и настройки сэмплера. Выходы: image, вырезанные лица до и после и маска.',
-      risk: 'Слишком большой denoise превращает лицо в другого человека.',
+    VOXEL: {
+      what: 'Сетка маленьких кубиков в пространстве, каждый внутри предмета или снаружи: сырая форма, в которую раскодируется 3D-модель.',
+      why: 'Шаг между латентом 3D-модели и сеткой.',
+      connect: 'Выходит из Hunyuan 3D VAE Decode; идёт в Voxel to Mesh.',
     },
   },
   families: {
@@ -296,152 +265,220 @@ export const SOUND_3D_FACES_KNOWLEDGE_RU: KnowledgeSetTexts = {
     'ComfyUI-MMAudio': {
       what: 'Звук для видео моделью MMAudio: модель смотрит кадры и делает звук в такт с ними.',
       nodes: 'MMAudio ModelLoader, MMAudio FeatureUtilsLoader, MMAudio VoCoderLoader, MMAudio Sampler.',
-      limits: `Лучше всего около 8 секунд за запуск. Файлы в models/mmaudio. ${PACK_CODE}`,
+      risk: `Лучше всего около 8 секунд за запуск. Файлы в models/mmaudio. ${PACK_CODE}`,
     },
     'ComfyUI-HunyuanVideo-Foley': {
       what: 'Звук для видео или звук по тексту моделью HunyuanVideo-Foley от Tencent.',
       nodes: 'Hunyuan-Foley Model Loader, Hunyuan-Foley Dependencies Loader, Hunyuan-Foley Sampler; по желанию Torch Compile и BlockSwap Settings.',
-      limits: `Примерно 10 до 12 ГБ видеопамяти в fp16, меньше 8 ГБ с fp8. Файлы в models/foley. ${PACK_CODE}`,
+      risk: `Примерно 10 до 12 ГБ видеопамяти в fp16, меньше 8 ГБ с fp8. Файлы в models/foley. ${PACK_CODE}`,
     },
     'ComfyUI-Qwen-TTS': {
       what: 'Речь из текста моделью Qwen3-TTS: готовые голоса, голос по словесному описанию, копирование голоса, диалоги нескольких ролей.',
       nodes: 'Qwen3-TTS Custom Voice, Voice Design, Voice Clone, Multi-role Dialogue, Load Speaker, Save Voice.',
-      limits: `${RULE} Десять языков. Файлы в models/qwen-tts. ${PACK_CODE}`,
+      risk: `${RULE} Десять языков. Файлы в models/qwen-tts. ${PACK_CODE}`,
     },
     'ComfyUI-Whisper': {
       what: 'Речь в текст и субтитры моделью Whisper.',
       nodes: 'Apply Whisper, Save SRT, Add Subtitles To Frames, Add Subtitles To Background.',
-      limits: `Модели скачиваются в models/stt/whisper при первом запуске. Лицензия не разрешает коммерческое использование. ${PACK_CODE}`,
+      risk: `Модели скачиваются в models/stt/whisper при первом запуске. Лицензия не разрешает коммерческое использование. ${PACK_CODE}`,
     },
     'ComfyUI_AudioTools': {
       what: 'Повседневные инструменты для звука: загрузка, громкость, склейка, удаление тишины, очистка голоса, водяной знак.',
       nodes: 'Load Audio (MW), Adjust Audio, Audio Concatenate, Remove Silence, ClearVoice, Audio Add Watermark и другие.',
-      limits: `Сам ComfyUI уже обрезает, склеивает, смешивает звук и меняет громкость; пак добавляет остальное. ${PACK_CODE}`,
+      risk: `Сам ComfyUI уже обрезает, склеивает, смешивает звук и меняет громкость; пак добавляет остальное. ${PACK_CODE}`,
     },
     'ComfyUI_Fill-ChatterBox': {
       what: 'Речь из текста и замена голоса моделью Chatterbox.',
       nodes: 'FL Chatterbox TTS, Turbo TTS, Multilingual TTS, Dialog TTS, VC (замена голоса).',
-      limits: `${RULE} Около 40 секунд за запуск; модели скачиваются в models/chatterbox при первом запуске. ${PACK_CODE}`,
-    },
-    'ComfyUI-VideoHelperSuite': {
-      what: 'Загрузка и сохранение видео: кадры на входе, кадры и звук на выходе, во многих форматах.',
-      nodes: 'Load Video (Upload), Load Video (Path), Video Combine, Load Audio, Video Info.',
-      limits: PACK_CODE,
+      risk: `${RULE} Около 40 секунд за запуск; модели скачиваются в models/chatterbox при первом запуске. ${PACK_CODE}`,
     },
     'ComfyUI-3D-Pack': {
       what: 'Большой набор 3D-инструментов: картинка в 3D многими моделями (Hunyuan3D, TRELLIS, TripoSG, StableFast3D и другие), сетки, текстуры, гауссовы сплаты.',
       nodes: 'Загрузчики и сэмплеры для каждой модели, сохранение сеток и сплатов (.obj, .ply, .glb), облёт камерой, запекание текстур.',
-      limits: `Трудно ставится: готовые сборки есть только для некоторых версий Python, CUDA и torch, а часть нод компилируется при запуске. ${PACK_CODE}`,
+      risk: `Трудно ставится: готовые сборки есть только для некоторых версий Python, CUDA и torch, а часть нод компилируется при запуске. ${PACK_CODE}`,
     },
     'ComfyUI-Trellis2': {
       what: 'Обёртка над TRELLIS.2 от Microsoft с дополнительными инструментами для сеток: текстуры, чистка, перестройка сетки, экспорт.',
       nodes: 'Export Mesh, Voxel to Mesh, Smooth Mesh, Simplify, Weld Vertices, Render MultiView и другие.',
-      limits: `В самом ComfyUI теперь есть свои ноды TRELLIS.2 и официальный шаблон; пак нужен для того, чего они не делают. Нужен доступ к модели DINOv3. ${PACK_CODE}`,
+      risk: `В самом ComfyUI теперь есть свои ноды TRELLIS.2 и официальный шаблон; пак нужен для того, чего они не делают. Нужен доступ к модели DINOv3. ${PACK_CODE}`,
     },
     'ComfyUI-UniRig': {
       what: 'Автоматический риггинг: ставит скелет в сетку персонажа и привязывает к нему кожу (UniRig или Make it Animatable для человекоподобных).',
       nodes: 'Извлечение скелета, привязка кожи, позирование и экспорт оснащённой модели.',
-      limits: `Ставит своё окружение (вместе с Blender) экспериментальным установщиком. Модели в models/unirig. ${PACK_CODE}`,
+      risk: `Ставит своё окружение (вместе с Blender) экспериментальным установщиком. Модели в models/unirig. ${PACK_CODE}`,
     },
     'ComfyUI_InfiniteYou': {
       what: 'Одно лицо на картинках FLUX (InfiniteYou от ByteDance).',
       nodes: 'InfuseNet Loader, InfuseNet Apply, ID Embedding Model Loader, Extract ID Embedding, Extract Face Pose Image.',
-      limits: `${RULE} Около 43 ГБ видеопамяти в bf16, около 24 ГБ с FP8; только для академических исследований. ${PACK_CODE}`,
+      risk: `${RULE} Около 43 ГБ видеопамяти в bf16, около 24 ГБ с FP8; только для академических исследований. ${PACK_CODE}`,
     },
     'ComfyUI-ReActor': {
       what: 'Замена и восстановление лиц.',
       nodes: 'Fast Face Swap, Face Swap [Options], Face Booster, Restore Face, Restore Face Advanced, Build / Save / Load Face Model, Masking Helper.',
-      limits: `${RULE} Пак своим детектором отказывается работать с откровенными картинками. Модели InsightFace и CodeFormer только для некоммерческого использования. ${PACK_CODE}`,
+      risk: `${RULE} Пак своим детектором отказывается работать с откровенными картинками. Модели InsightFace и CodeFormer только для некоммерческого использования. ${PACK_CODE}`,
     },
     facerestore_cf: {
       what: 'Восстановление лиц моделями CodeFormer и GFPGAN, та же мысль, что у восстановления лиц в других программах.',
       nodes: 'Загрузчик модели и нода восстановления с настройкой точности CodeFormer.',
-      limits: `Модели в models/facerestore_models; модели поиска лиц скачиваются в models/facedetection. ${OLD_FORMAT}`,
-    },
-    'ComfyUI_IPAdapter_plus': {
-      what: 'IP-Adapter для SD 1.5 и SDXL: картинка вместо промпта для стиля, композиции или лица; FaceID держит лицо с фото.',
-      nodes: 'IPAdapter Unified Loader, IPAdapter Unified Loader FaceID, IPAdapter, IPAdapter Advanced, IPAdapter FaceID, IPAdapter Encoder, IPAdapter Weights.',
-      limits: `${RULE} Не для Flux, SD3 и Wan. FaceID нужен пакет Python InsightFace и его модели. ${PACK_CODE}`,
-    },
-    'ComfyUI-Impact-Pack': {
-      what: 'Найти, вырезать, перерисовать и вклеить обратно: детейлеры для лиц, рук и любой части под маской и много помощников вокруг них.',
-      nodes: 'FaceDetailer, Detailer (SEGS), MaskDetailer, SAMLoader, BBOX Detector (SEGS), Iterative Upscale.',
-      limits: `Детекторы даёт ComfyUI-Impact-Subpack. ${PACK_CODE}`,
-    },
-    'ComfyUI-Impact-Subpack': {
-      what: 'Детекторы Impact Pack: модели YOLO из models/ultralytics, которые находят лица, руки или людей.',
-      nodes: 'UltralyticsDetectorProvider.',
-      limits: `${OLD_FORMAT} ${PACK_CODE}`,
+      risk: `Модели в models/facerestore_models; модели поиска лиц скачиваются в models/facedetection. ${OLD_FORMAT}`,
     },
     'ComfyUI_InstantID': {
       what: 'InstantID для SDXL: лицо с одного фото сохраняется на новых картинках вместе с поворотом головы.',
       nodes: 'InstantID Model Loader, InstantID Face Analysis, Apply InstantID.',
-      limits: `${RULE} Только SDXL. Файлы в models/instantid, models/controlnet и models/insightface. ${PACK_CODE}`,
+      risk: `${RULE} Только SDXL. Файлы в models/instantid, models/controlnet и models/insightface. ${PACK_CODE}`,
     },
-  },
-  folders: {
-    mmaudio: 'Файлы MMAudio: модель, её VAE, Synchformer и модель CLIP (папку добавляет ComfyUI-MMAudio).',
-    foley: 'Файлы HunyuanVideo-Foley: модель, Synchformer и DAC-VAE (ComfyUI-HunyuanVideo-Foley).',
-    hunyuan_foley: 'Файлы HunyuanVideo-Foley в папке, которую используют некоторые установки; нынешний пак читает models/foley.',
-    'qwen-tts': 'Модели Qwen3-TTS, токенизатор и сохранённые голоса (ComfyUI-Qwen-TTS).',
-    stt: 'Модели «речь в текст»; ComfyUI-Whisper держит Whisper в models/stt/whisper.',
-    chatterbox: 'Модели речи Chatterbox, их туда скачивает ComfyUI_Fill-ChatterBox.',
-    audio_encoders: 'Звуковые энкодеры, которые читает встроенная нода Audio Encoder Loader, например wav2vec2, для видеомоделей, которые слушают голос.',
-    demucs: 'Модели Demucs, которые делят песню на голос, барабаны, бас и остальное; их читают паки для разделения на дорожки.',
-    facerestore_models: 'Модели восстановления лиц (CodeFormer, GFPGAN, GPEN), их читают ReActor и facerestore_cf.',
-    facedetection: 'Модели поиска лиц для паков восстановления лиц.',
-    facexlib: 'Модели поиска и разбора лиц библиотеки facexlib, их используют некоторые паки для лиц.',
-    insightface: 'Модели анализа лиц InsightFace (AntelopeV2, buffalo_l) и модель замены ReActor; нужны для замены лиц, FaceID и InfiniteYou.',
-    photomaker: 'Файлы PhotoMaker для SDXL (ноды самого ComfyUI).',
-    ipadapter: 'Файлы IP-Adapter, в том числе FaceID (ComfyUI_IPAdapter_plus).',
-    infinite_you: 'Файлы InfiniteYou (ComfyUI_InfiniteYou).',
-    reswapper: 'Модели замены лиц ReSwapper для ReActor.',
-    unirig: 'Модели риггинга UniRig (ComfyUI-UniRig).',
-    ultralytics: 'Детекторы YOLO (bbox и segm) пака ComfyUI-Impact-Subpack, например bbox/face_yolov8m.pt.',
-    sams: 'Модели Segment Anything, например sam_vit_b_01ec64.pth, для Impact Pack и ReActor.',
-    instantid: 'Адаптер InstantID (ComfyUI_InstantID).',
-    pulid: 'Файлы PuLID для паков PuLID.',
   },
   fields: {
-    'TextEncodeAceStepAudio1.5.tags': 'Стиль песни короткими словами через запятую: жанр, настроение, инструменты, голос.',
-    'TextEncodeAceStepAudio1.5.lyrics': 'Слова для пения, части песни в квадратных скобках на отдельных строках ([Verse 1], [Chorus]).',
-    'TextEncodeAceStepAudio1.5.bpm': 'Удары в минуту: около 70 для баллады, от 120 до 130 для танцевальной музыки.',
-    'TextEncodeAceStepAudio1.5.duration': 'Длина, которую задумывает модель, в секундах; ставьте равной seconds пустого латента.',
-    'TextEncodeAceStepAudio1.5.language': 'Язык, на котором поются слова.',
-    'EmptyAceStep1.5LatentAudio.seconds': 'Настоящая длина песни в секундах; шаблон ставит 120.',
-    'EmptyLatentAudio.seconds': 'Длина звука; Stable Audio Open 1.0 делает примерно до 47 секунд.',
-    'ModelSamplingAuraFlow.shift': 'Сдвиг шума: 3 для ACE-Step 1.5, 1 для Hunyuan3D 2, как ставят их шаблоны.',
-    'MMAudioSampler.duration': 'Длина звука в секундах: длина ролика, лучше всего около 8.',
-    'MMAudioSampler.prompt': 'Необязательные слова о звуке; ведут кадры.',
-    'MMAudioSampler.mask_away_clip': 'Включено: модель не смотрит на кадры и следует только тексту.',
-    'MMAudioFeatureUtilsLoader.mode': '16k или 44k: частота модели и её VAE; все файлы должны совпадать.',
-    'VHS_VideoCombine.frame_rate': 'Кадров в секунду в готовом ролике; родная частота ролика держит звук и картинку вместе.',
-    'FL_ChatterboxTTS.exaggeration': 'Насколько живая речь; по умолчанию 0.5, выше выразительнее и менее ровно.',
-    'FL_ChatterboxTTS.cfg_weight': 'Насколько точно модель следует образцу голоса; ниже медленнее и спокойнее. По умолчанию 0.5.',
-    'FL_ChatterboxTTS.temperature': 'Насколько прочтения отличаются от запуска к запуску. По умолчанию 0.8.',
-    'Apply Whisper.model': 'Размер Whisper: tiny и base быстрые, large-v3 и turbo точные; имена на .en знают только английский.',
-    'Apply Whisper.language': 'Язык речи или auto, чтобы модель определила его сама.',
-    'EmptyLatentHunyuan3Dv2.resolution': 'Насколько тонко прорабатывается форма: 3072 в шаблоне 2.0, 4096 в шаблоне 2.1.',
-    'VoxelToMesh.threshold': 'Где кончается «внутри» предмета: ниже делает его толще, выше тоньше и с дырами. В шаблонах 0.6.',
-    'VoxelToMesh.algorithm': 'surface net даёт гладкую поверхность, basic ступенчатую.',
-    'FluxGuidance.guidance': 'Насколько сильно модель FLUX следует описанию; FLUX.1 Kontext ставит 2.5.',
-    'ReActorRestoreFace.visibility': 'Насколько сильно восстановленное лицо закрывает старое; ниже смешивает их.',
-    'ReActorRestoreFace.codeformer_weight': 'Только для CodeFormer: ближе к 0 чётче и меньше похоже, ближе к 1 похожее и мягче.',
-    'ReActorRestoreFace.facedetection': 'Как ищутся лица: retinaface_resnet50 самый аккуратный, YOLOv5n самый быстрый.',
-    'IPAdapterUnifiedLoaderFaceID.preset': 'Какой адаптер FaceID и какую LoRA загрузить; FACEID PLUS V2 выбран в примере пака.',
-    'IPAdapterUnifiedLoaderFaceID.lora_strength': 'Сила LoRA FaceID; 0.6 в примере пака. Больше давит лицо сильнее и делает картинку деревянной.',
-    'IPAdapterFaceID.weight': 'Насколько сильно лицо вдавливается в картинку; 1 в примере, уменьшайте к 0.7, когда картинка горит.',
-    'IPAdapterFaceID.weight_faceidv2': 'Только для адаптеров V2: насколько лицо следует фото; 2 в примере.',
-    'ReActorFaceSwap.face_restore_visibility': 'Насколько сильно восстановленное лицо закрывает перенесённое; 1 закрывает целиком, меньше смешивает.',
-    'ReActorFaceSwap.input_faces_index': 'Какие лица на картинке меняются, считая с 0 слева.',
-    'FaceDetailer.denoise': 'Сколько от старого лица перерисовывается; 0.5 в примере, меньше сохраняет больше от лица.',
-    'FaceDetailer.guide_size': 'До какого размера лицо увеличивается перед перерисовкой; по умолчанию 512.',
-    'FaceDetailer.bbox_threshold': 'Насколько детектор должен быть уверен, что нашёл лицо; по умолчанию 0.5.',
-  },
-  topics: {
-    identity: {
-      title: 'Облик: адаптер, LoRA или замена: что выбрать',
-      body: `${RULE}\n\nОдно лицо или одного героя держат три способа:\n- адаптер (IP-Adapter FaceID, InstantID, PuLID или картинка-образец в Kontext): одно фото, ничего не обучать, вокруг лица рисуется новая картинка; лицо он держит, а причёску, возраст и свет нет;\n- LoRA, обученная на герое: десяток картинок и больше и обучение; потом лицо, тело и одежда держатся на каждой картинке, а LoRA работает только со своим семейством моделей;\n- замена (ReActor): у готовой картинки остаются поза, свет и одежда, меняется только лицо; быстро, но лицо выходит мелким и его надо восстанавливать.\n\nНачинайте со слов описания и закреплённого seed, потом адаптер; учите LoRA, когда должна держаться длинная серия; заменой правьте одну готовую картинку.`,
+    'TextEncodeAceStepAudio1.5': {
+      tags: 'Стиль песни короткими словами через запятую: жанр, настроение, инструменты, голос.',
+      lyrics: 'Слова для пения, части песни в квадратных скобках на отдельных строках ([Verse 1], [Chorus]).',
+      bpm: 'Удары в минуту: около 70 для баллады, от 120 до 130 для танцевальной музыки.',
+      duration: 'Длина, которую задумывает модель, в секундах; ставьте равной seconds пустого латента.',
+      language: 'Язык, на котором поются слова.',
+    },
+    'EmptyAceStep1.5LatentAudio': {
+      seconds: 'Настоящая длина песни в секундах; шаблон ставит 120.',
+    },
+    EmptyLatentAudio: {
+      seconds: 'Длина звука; Stable Audio Open 1.0 делает примерно до 47 секунд.',
+    },
+    ModelSamplingAuraFlow: {
+      shift: 'Сдвиг шума: 3 для ACE-Step 1.5, 1 для Hunyuan3D 2, как ставят их шаблоны.',
+    },
+    MMAudioSampler: {
+      duration: 'Длина звука в секундах: длина ролика, лучше всего около 8.',
+      prompt: 'Необязательные слова о звуке; ведут кадры.',
+      mask_away_clip: 'Включено: модель не смотрит на кадры и следует только тексту.',
+    },
+    MMAudioFeatureUtilsLoader: {
+      mode: '16k или 44k: частота модели и её VAE; все файлы должны совпадать.',
+    },
+    FL_ChatterboxTTS: {
+      exaggeration: 'Насколько живая речь; по умолчанию 0.5, выше выразительнее и менее ровно.',
+      cfg_weight: 'Насколько точно модель следует образцу голоса; ниже медленнее и спокойнее. По умолчанию 0.5.',
+      temperature: 'Насколько прочтения отличаются от запуска к запуску. По умолчанию 0.8.',
+    },
+    'Apply Whisper': {
+      model: 'Размер Whisper: tiny и base быстрые, large-v3 и turbo точные; имена на .en знают только английский.',
+      language: 'Язык речи или auto, чтобы модель определила его сама.',
+    },
+    EmptyLatentHunyuan3Dv2: {
+      resolution: 'Насколько тонко прорабатывается форма: 3072 в шаблоне 2.0, 4096 в шаблоне 2.1.',
+    },
+    VoxelToMesh: {
+      threshold: 'Где кончается «внутри» предмета: ниже делает его толще, выше тоньше и с дырами. В шаблонах 0.6.',
+      algorithm: 'surface net даёт гладкую поверхность, basic ступенчатую.',
+    },
+    FluxGuidance: {
+      guidance: 'Насколько сильно модель FLUX следует описанию; FLUX.1 Kontext ставит 2.5.',
+    },
+    ReActorRestoreFace: {
+      visibility: 'Насколько сильно восстановленное лицо закрывает старое; ниже смешивает их.',
+      codeformer_weight: 'Только для CodeFormer: ближе к 0 чётче и меньше похоже, ближе к 1 похожее и мягче.',
+      facedetection: 'Как ищутся лица: retinaface_resnet50 самый аккуратный, YOLOv5n самый быстрый.',
+    },
+    IPAdapterUnifiedLoaderFaceID: {
+      preset: 'Какой адаптер FaceID и какую LoRA загрузить; FACEID PLUS V2 выбран в примере пака.',
+      lora_strength: 'Сила LoRA FaceID; 0.6 в примере пака. Больше давит лицо сильнее и делает картинку деревянной.',
+    },
+    IPAdapterFaceID: {
+      weight: 'Насколько сильно лицо вдавливается в картинку; 1 в примере, уменьшайте к 0.7, когда картинка горит.',
+      weight_faceidv2: 'Только для адаптеров V2: насколько лицо следует фото; 2 в примере.',
+    },
+    ReActorFaceSwap: {
+      face_restore_visibility: 'Насколько сильно восстановленное лицо закрывает перенесённое; 1 закрывает целиком, меньше смешивает.',
+      input_faces_index: 'Какие лица на картинке меняются, считая с 0 слева.',
     },
   },
+  concepts: {
+    identity: {
+      term: 'Облик: адаптер, LoRA или замена: что выбрать',
+      text: `${RULE}\n\nОдно лицо или одного героя держат три способа:\n- адаптер (IP-Adapter FaceID, InstantID, PuLID или картинка-образец в Kontext): одно фото, ничего не обучать, вокруг лица рисуется новая картинка; лицо он держит, а причёску, возраст и свет нет;\n- LoRA, обученная на герое: десяток картинок и больше и обучение; потом лицо, тело и одежда держатся на каждой картинке, а LoRA работает только со своим семейством моделей;\n- замена (ReActor): у готовой картинки остаются поза, свет и одежда, меняется только лицо; быстро, но лицо выходит мелким и его надо восстанавливать.\n\nНачинайте со слов описания и закреплённого seed, потом адаптер; учите LoRA, когда должна держаться длинная серия; заменой правьте одну готовую картинку.`,
+    },
+    'models-mmaudio': {
+      term: 'models/mmaudio',
+      text: 'Файлы MMAudio: модель, её VAE, Synchformer и модель CLIP (папку добавляет ComfyUI-MMAudio).',
+    },
+    'models-foley': {
+      term: 'models/foley',
+      text: 'Файлы HunyuanVideo-Foley: модель, Synchformer и DAC-VAE (ComfyUI-HunyuanVideo-Foley).',
+    },
+    'models-hunyuan_foley': {
+      term: 'models/hunyuan_foley',
+      text: 'Файлы HunyuanVideo-Foley в папке, которую используют некоторые установки; нынешний пак читает models/foley.',
+    },
+    'models-qwen-tts': {
+      term: 'models/qwen-tts',
+      text: 'Модели Qwen3-TTS, токенизатор и сохранённые голоса (ComfyUI-Qwen-TTS).',
+    },
+    'models-stt': {
+      term: 'models/stt',
+      text: 'Модели «речь в текст»; ComfyUI-Whisper держит Whisper в models/stt/whisper.',
+    },
+    'models-chatterbox': {
+      term: 'models/chatterbox',
+      text: 'Модели речи Chatterbox, их туда скачивает ComfyUI_Fill-ChatterBox.',
+    },
+    'models-audio_encoders': {
+      term: 'models/audio_encoders',
+      text: 'Звуковые энкодеры, которые читает встроенная нода Audio Encoder Loader, например wav2vec2, для видеомоделей, которые слушают голос.',
+    },
+    'models-demucs': {
+      term: 'models/demucs',
+      text: 'Модели Demucs, которые делят песню на голос, барабаны, бас и остальное; их читают паки для разделения на дорожки.',
+    },
+    'models-facerestore_models': {
+      term: 'models/facerestore_models',
+      text: 'Модели восстановления лиц (CodeFormer, GFPGAN, GPEN), их читают ReActor и facerestore_cf.',
+    },
+    'models-facedetection': {
+      term: 'models/facedetection',
+      text: 'Модели поиска лиц для паков восстановления лиц.',
+    },
+    'models-facexlib': {
+      term: 'models/facexlib',
+      text: 'Модели поиска и разбора лиц библиотеки facexlib, их используют некоторые паки для лиц.',
+    },
+    'models-insightface': {
+      term: 'models/insightface',
+      text: 'Модели анализа лиц InsightFace (AntelopeV2, buffalo_l) и модель замены ReActor; нужны для замены лиц, FaceID и InfiniteYou.',
+    },
+    'models-photomaker': {
+      term: 'models/photomaker',
+      text: 'Файлы PhotoMaker для SDXL (ноды самого ComfyUI).',
+    },
+    'models-ipadapter': {
+      term: 'models/ipadapter',
+      text: 'Файлы IP-Adapter, в том числе FaceID (ComfyUI_IPAdapter_plus).',
+    },
+    'models-infinite_you': {
+      term: 'models/infinite_you',
+      text: 'Файлы InfiniteYou (ComfyUI_InfiniteYou).',
+    },
+    'models-reswapper': {
+      term: 'models/reswapper',
+      text: 'Модели замены лиц ReSwapper для ReActor.',
+    },
+    'models-unirig': {
+      term: 'models/unirig',
+      text: 'Модели риггинга UniRig (ComfyUI-UniRig).',
+    },
+    'models-ultralytics': {
+      term: 'models/ultralytics',
+      text: 'Детекторы YOLO (bbox и segm) пака ComfyUI-Impact-Subpack, например bbox/face_yolov8m.pt.',
+    },
+    'models-sams': {
+      term: 'models/sams',
+      text: 'Модели Segment Anything, например sam_vit_b_01ec64.pth, для Impact Pack и ReActor.',
+    },
+    'models-instantid': {
+      term: 'models/instantid',
+      text: 'Адаптер InstantID (ComfyUI_InstantID).',
+    },
+    'models-pulid': {
+      term: 'models/pulid',
+      text: 'Файлы PuLID для паков PuLID.',
+    },
+  },
+
 };

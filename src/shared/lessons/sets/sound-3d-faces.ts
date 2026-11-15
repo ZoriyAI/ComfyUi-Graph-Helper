@@ -8,7 +8,8 @@ import type { FieldSpec, FieldTest, Lesson, LinkSpec, RoleSpec } from '../engine
  * Sound and speech: ACE-Step 1.5 music, Stable Audio Open sound, Chatterbox speech, MMAudio sound for a silent
  * video, Whisper speech to text. 3D: Hunyuan3D 2 picture to model. Faces and characters: the same invented
  * character with FLUX.1 Kontext and in a series, the same face from one photo with IP-Adapter FaceID, a face put
- * onto a picture with ReActor, a small face redrawn with FaceDetailer, a face restored with ReActor. Every lesson
+ * onto a picture with ReActor, a face restored with ReActor (a small face redrawn with FaceDetailer is the
+ * picture-techniques lesson 'detailer'). Every lesson
  * that gives, keeps or changes a face says the consent rule first.
  */
 
@@ -327,7 +328,6 @@ const restore: Lesson = {
 
 /** What may stand between a checkpoint's model and the sampler in the lessons that go on from the first picture. */
 const MODEL_VIA = ['LoraLoader', 'LoraLoaderModelOnly', 'IPAdapterUnifiedLoaderFaceID', 'IPAdapterFaceID'];
-const CLIP_VIA = ['LoraLoader', 'CLIPSetLastLayer'];
 
 /**
  * The same face from one photo with IP-Adapter FaceID: the pack's own example (ComfyUI_IPAdapter_plus,
@@ -393,52 +393,6 @@ const faceSwap: Lesson = {
 };
 
 /**
- * A small or broken face redrawn with FaceDetailer: the pack's own example (ComfyUI-Impact-Pack,
- * example_workflows/1-FaceDetailer.json). It goes on from the first picture lesson: the detector finds the face,
- * FaceDetailer crops it, redraws it larger with the same model and descriptions and pastes it back.
- */
-const faceDetail: Lesson = {
-  id: 'face-detail',
-  steps: [
-    { id: 'intro', read: true },
-    {
-      id: 'graph',
-      roles: [node('checkpoint', 'CheckpointLoaderSimple'), node('positive', 'CLIPTextEncode'), node('negative', 'CLIPTextEncode'), node('sampler', 'KSampler'), node('decode', 'VAEDecode')],
-      links: [
-        link('checkpoint', 'CLIP', 'positive', 'clip', CLIP_VIA),
-        link('checkpoint', 'CLIP', 'negative', 'clip', CLIP_VIA),
-        link('positive', 'CONDITIONING', 'sampler', 'positive'),
-        link('negative', 'CONDITIONING', 'sampler', 'negative'),
-        link('sampler', 'LATENT', 'decode', 'samples'),
-      ],
-    },
-    {
-      id: 'finders',
-      roles: [node('detector', 'UltralyticsDetectorProvider'), node('sam', 'SAMLoader')],
-      fields: [field('detector', 'model_name', chosen), field('sam', 'model_name', chosen)],
-    },
-    {
-      id: 'detailer',
-      roles: [node('detailer', 'FaceDetailer')],
-      links: [
-        link('decode', 'IMAGE', 'detailer', 'image'),
-        link('checkpoint', 'MODEL', 'detailer', 'model', MODEL_VIA),
-        link('checkpoint', 'CLIP', 'detailer', 'clip', CLIP_VIA),
-        link('checkpoint', 'VAE', 'detailer', 'vae'),
-        link('positive', 'CONDITIONING', 'detailer', 'positive'),
-        link('negative', 'CONDITIONING', 'detailer', 'negative'),
-        link('detector', 'BBOX_DETECTOR', 'detailer', 'bbox_detector'),
-        link('sam', 'SAM_MODEL', 'detailer', 'sam_model_opt'),
-      ],
-    },
-    { id: 'settings', fields: [field('detailer', 'denoise', between(0.3, 0.6, 0.5)), field('detailer', 'guide_size', between(384, 1024, 512)), field('detailer', 'bbox_threshold', between(0.3, 0.7, 0.5))] },
-    { id: 'save', roles: [node('fixed', 'SaveImage', 'PreviewImage')], links: [link('detailer', 'image', 'fixed', 'images')] },
-    { id: 'tips', read: true },
-    { id: 'run', read: true },
-  ],
-};
-
-/**
  * One character in many pictures: what holds identity and in which order to reach for it, practised on the graph of
  * the FLUX.1 Kontext lesson (template flux_kontext_dev_basic): a new pose and new clothes in the description while
  * the reference keeps the face.
@@ -462,12 +416,11 @@ const characterSeries: Lesson = {
 };
 
 /** In the order a person meets them. */
-export const SOUND_3D_FACES_LESSONS: readonly Lesson[] = [music, sound, speech, foley, transcribe, model3d, character, characterSeries, faceSame, faceSwap, faceDetail, restore];
+export const SOUND_3D_FACES_LESSONS: readonly Lesson[] = [music, sound, speech, foley, transcribe, model3d, character, characterSeries, faceSame, faceSwap, restore];
 
 /** Lessons that stand on the graph of another: said in the list, not enforced. */
 export const SOUND_3D_FACES_AFTER: Readonly<Record<string, string[]>> = {
   'face-same-photo': ['image'],
-  'face-detail': ['image'],
   'character-series': ['character-kontext'],
 };
 
@@ -490,7 +443,6 @@ export const SOUND_3D_FACES_LESSON_GROUP: Readonly<Record<string, string>> = {
   'character-series': 'faces-characters',
   'face-same-photo': 'faces-characters',
   'face-swap': 'faces-characters',
-  'face-detail': 'faces-characters',
   'face-restore': 'faces-characters',
 };
 
@@ -509,7 +461,6 @@ const FOLLOWS: Readonly<Record<string, string[]>> = {
   'character-series': ['character-kontext'],
   'face-same-photo': ['image'],
   'face-swap': ['face-restore'],
-  'face-detail': ['image'],
   'face-restore': [],
 };
 
@@ -525,6 +476,4 @@ export const SOUND_3D_FACES_PACKS: ReadonlyArray<readonly [RegExp, string]> = [
   [/^(?:Apply Whisper|Save SRT|Add Subtitles To )/, 'ComfyUI-Whisper'],
   [/^ReActor/, 'ComfyUI-ReActor'],
   [/^IPAdapter/, 'ComfyUI_IPAdapter_plus'],
-  [/^UltralyticsDetectorProvider$/, 'ComfyUI-Impact-Subpack'],
-  [/^(?:FaceDetailer|SAMLoader)$/, 'ComfyUI-Impact-Pack'],
 ];

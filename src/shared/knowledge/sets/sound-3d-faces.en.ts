@@ -1,4 +1,4 @@
-import type { KnowledgeSetTexts } from '../knowledgeSets';
+import type { KnowledgeSet } from '../coreKnowledge';
 
 /**
  * Built-in knowledge of sound and speech, 3D, faces and characters, English. The Russian file says the same.
@@ -10,7 +10,7 @@ const RULE = 'A real person\'s face or voice only with their consent; never in e
 const PACK_CODE = 'A pack runs other people\'s code: install it yourself through ComfyUI\'s manager, and only one you trust.';
 const OLD_FORMAT = 'Files in the old formats (.ckpt, .pt, .pth, .bin) can run code when they are loaded: take them only from the model\'s official page.';
 
-export const SOUND_3D_FACES_KNOWLEDGE_EN: KnowledgeSetTexts = {
+export const SOUND_3D_FACES_KNOWLEDGE_EN: KnowledgeSet = {
   nodes: {
     // ComfyUI itself: sound.
     'TextEncodeAceStepAudio1.5': {
@@ -46,11 +46,6 @@ export const SOUND_3D_FACES_KNOWLEDGE_EN: KnowledgeSetTexts = {
       what: 'Plays a sound on the node in ComfyUI without keeping it.',
       why: 'For trying settings before saving anything.',
       connect: 'Input: AUDIO. Nothing is written to the output folder.',
-    },
-    LoadAudio: {
-      what: 'Load Audio: loads a sound file from ComfyUI\'s input folder (or one you upload) as AUDIO.',
-      why: 'The start of every graph that works with an existing sound: a voice sample, a song to separate, speech to write down.',
-      connect: 'Input: the file (audio). Output: AUDIO.',
     },
     TrimAudioDuration: {
       what: 'Cuts a piece out of a sound: from start_index (seconds; negative counts from the end) for duration seconds.',
@@ -111,16 +106,6 @@ export const SOUND_3D_FACES_KNOWLEDGE_EN: KnowledgeSetTexts = {
       connect: 'Inputs: mesh (a MESH or a 3D file) and filename_prefix. A .glb opens in Blender, in game engines and in any glTF viewer.',
     },
     // ComfyUI itself: characters and faces.
-    FluxKontextImageScale: {
-      what: 'Scales a picture to the nearest size FLUX.1 Kontext was trained on.',
-      why: 'Kontext keeps a character best when the reference picture has one of its sizes.',
-      connect: 'Input: image. Output: IMAGE for VAE Encode.',
-    },
-    ReferenceLatent: {
-      what: 'Attaches an encoded picture to a description as a reference the model must keep to.',
-      why: 'How edit models (FLUX.1 Kontext, FLUX.2, Qwen-Image Edit and others) see the picture they change.',
-      connect: 'Inputs: conditioning from the text node and latent from VAE Encode. Output: CONDITIONING, for FluxGuidance or the sampler.',
-    },
     PhotoMakerLoader: {
       what: 'Loads a PhotoMaker file from models/photomaker.',
       why: 'PhotoMaker keeps one face through many SDXL pictures, taken from a few pictures of that face.',
@@ -153,17 +138,6 @@ export const SOUND_3D_FACES_KNOWLEDGE_EN: KnowledgeSetTexts = {
       risk: 'The model was trained on clips of about 8 seconds; much longer ones lose quality.',
     },
     // ComfyUI-VideoHelperSuite.
-    VHS_LoadVideo: {
-      what: 'Load Video (Upload) of Video Helper Suite: reads a video file as frames, with its sound and its facts.',
-      why: 'The loader most pack examples use; it can skip, thin out and cap frames.',
-      connect: 'Inputs: video and settings such as frame_load_cap and skip_first_frames. Outputs: IMAGE (the frames), frame_count, audio, video_info.',
-    },
-    VHS_VideoCombine: {
-      what: 'Video Combine of Video Helper Suite: puts frames, and a sound if given, into a video or an animated picture.',
-      why: 'The usual end of a video graph built with packs.',
-      connect: 'Inputs: images, audio (optional), frame_rate, format and filename_prefix. With save_output on the file goes into the output folder.',
-      risk: 'frame_rate must be the clip\'s own, or picture and sound drift apart.',
-    },
     // ComfyUI_Fill-ChatterBox.
     FL_ChatterboxTTS: {
       what: 'Reads a text aloud with Chatterbox; given a short voice recording, speaks in that voice.',
@@ -208,22 +182,17 @@ export const SOUND_3D_FACES_KNOWLEDGE_EN: KnowledgeSetTexts = {
       connect: 'Inputs: model and ipadapter from the FaceID loader, image (the face), weight, weight_faceidv2, start_at and end_at. Output: MODEL for the sampler.',
       risk: `${RULE} A weight too high burns the picture: harsh contrast, broken colours, a stiff face.`,
     },
-    UltralyticsDetectorProvider: {
-      what: 'Loads a YOLO detector from models/ultralytics (bbox for boxes, segm for outlines) for the Impact Pack detailers.',
-      why: 'FaceDetailer needs something that finds the faces; face_yolov8m.pt does.',
-      connect: 'Input: model_name. Outputs: BBOX_DETECTOR and SEGM_DETECTOR for FaceDetailer and the other detailers.',
-      risk: 'The detector files are .pt files, which can run code when loaded: take them only from the model\'s official page.',
+  },
+  linkTypes: {
+    MESH: {
+      what: 'A 3D surface made of triangles: the points (vertices) and the triangles (faces) between them, sometimes with colours or a texture.',
+      why: 'What a picture-to-3D graph produces and what 3D programs open.',
+      connect: 'Comes out of Voxel to Mesh and the 3D model nodes; goes into Save 3D Model, which writes a .glb file.',
     },
-    SAMLoader: {
-      what: 'SAMLoader of the Impact Pack: loads a Segment Anything model from models/sams that draws the exact outline of what a detector found.',
-      why: 'With it FaceDetailer redraws the face itself, not the whole box around it.',
-      connect: 'Inputs: model_name and device_mode. Output: SAM_MODEL for the sam_model_opt input of FaceDetailer.',
-    },
-    FaceDetailer: {
-      what: 'FaceDetailer of the Impact Pack: finds every face, crops it, enlarges it to guide_size, redraws it with the given model and descriptions and pastes it back.',
-      why: 'Small faces of full-figure and group pictures come out smeared; this repairs them.',
-      connect: 'Inputs: image, model, clip, vae, positive, negative, bbox_detector and optionally sam_model_opt; denoise, guide_size, bbox_threshold and the sampler settings. Outputs: image, the cropped faces before and after, and the mask.',
-      risk: 'A denoise too high turns the face into another person.',
+    VOXEL: {
+      what: 'A grid of small cubes in space, each either inside the object or outside: the raw shape a 3D model decodes to.',
+      why: 'The step between a 3D model\'s latent and a mesh.',
+      connect: 'Comes out of Hunyuan 3D VAE Decode; goes into Voxel to Mesh.',
     },
   },
   families: {
@@ -296,152 +265,220 @@ export const SOUND_3D_FACES_KNOWLEDGE_EN: KnowledgeSetTexts = {
     'ComfyUI-MMAudio': {
       what: 'Sound for a video with MMAudio: the model watches the frames and makes the sound in time with them.',
       nodes: 'MMAudio ModelLoader, MMAudio FeatureUtilsLoader, MMAudio VoCoderLoader, MMAudio Sampler.',
-      limits: `About 8 seconds per run work best. Files in models/mmaudio. ${PACK_CODE}`,
+      risk: `About 8 seconds per run work best. Files in models/mmaudio. ${PACK_CODE}`,
     },
     'ComfyUI-HunyuanVideo-Foley': {
       what: 'Sound for a video, or sound from text, with Tencent\'s HunyuanVideo-Foley.',
       nodes: 'Hunyuan-Foley Model Loader, Hunyuan-Foley Dependencies Loader, Hunyuan-Foley Sampler; optional Torch Compile and BlockSwap Settings.',
-      limits: `About 10 to 12 GB of video memory at fp16, under 8 GB with fp8. Files in models/foley. ${PACK_CODE}`,
+      risk: `About 10 to 12 GB of video memory at fp16, under 8 GB with fp8. Files in models/foley. ${PACK_CODE}`,
     },
     'ComfyUI-Qwen-TTS': {
       what: 'Speech from text with Qwen3-TTS: preset voices, a voice described in words, voice cloning, dialogues of several roles.',
       nodes: 'Qwen3-TTS Custom Voice, Voice Design, Voice Clone, Multi-role Dialogue, Load Speaker, Save Voice.',
-      limits: `${RULE} Ten languages. Files in models/qwen-tts. ${PACK_CODE}`,
+      risk: `${RULE} Ten languages. Files in models/qwen-tts. ${PACK_CODE}`,
     },
     'ComfyUI-Whisper': {
       what: 'Speech to text and subtitles with Whisper.',
       nodes: 'Apply Whisper, Save SRT, Add Subtitles To Frames, Add Subtitles To Background.',
-      limits: `Models download to models/stt/whisper on first use. The license allows no commercial use. ${PACK_CODE}`,
+      risk: `Models download to models/stt/whisper on first use. The license allows no commercial use. ${PACK_CODE}`,
     },
     'ComfyUI_AudioTools': {
       what: 'Everyday sound tools: loading, volume, joining, removing silence, cleaning a voice, a watermark.',
       nodes: 'Load Audio (MW), Adjust Audio, Audio Concatenate, Remove Silence, ClearVoice, Audio Add Watermark, and more.',
-      limits: `ComfyUI itself already trims, joins, mixes and changes the volume of sound; the pack adds the rest. ${PACK_CODE}`,
+      risk: `ComfyUI itself already trims, joins, mixes and changes the volume of sound; the pack adds the rest. ${PACK_CODE}`,
     },
     'ComfyUI_Fill-ChatterBox': {
       what: 'Speech from text and voice conversion with Chatterbox.',
       nodes: 'FL Chatterbox TTS, Turbo TTS, Multilingual TTS, Dialog TTS, VC (voice conversion).',
-      limits: `${RULE} About 40 seconds per run; models download to models/chatterbox on first use. ${PACK_CODE}`,
-    },
-    'ComfyUI-VideoHelperSuite': {
-      what: 'Loading and saving video: frames in, frames and sound out, in many formats.',
-      nodes: 'Load Video (Upload), Load Video (Path), Video Combine, Load Audio, Video Info.',
-      limits: PACK_CODE,
+      risk: `${RULE} About 40 seconds per run; models download to models/chatterbox on first use. ${PACK_CODE}`,
     },
     'ComfyUI-3D-Pack': {
       what: 'A large set of 3D tools: picture to 3D with many models (Hunyuan3D, TRELLIS, TripoSG, StableFast3D and more), meshes, textures, Gaussian splats.',
       nodes: 'Loaders and samplers per model, mesh and splat savers (.obj, .ply, .glb), orbit renders, texture baking.',
-      limits: `Hard to install: prebuilt parts exist only for some versions of Python, CUDA and torch, and some nodes compile at runtime. ${PACK_CODE}`,
+      risk: `Hard to install: prebuilt parts exist only for some versions of Python, CUDA and torch, and some nodes compile at runtime. ${PACK_CODE}`,
     },
     'ComfyUI-Trellis2': {
       what: 'A wrapper of Microsoft TRELLIS.2 with extra mesh tools: texturing, cleaning, remeshing, export.',
       nodes: 'Export Mesh, Voxel to Mesh, Smooth Mesh, Simplify, Weld Vertices, Render MultiView, and others.',
-      limits: `ComfyUI now has its own TRELLIS.2 nodes and an official template; the pack is for what those do not do. Needs access to the DINOv3 model. ${PACK_CODE}`,
+      risk: `ComfyUI now has its own TRELLIS.2 nodes and an official template; the pack is for what those do not do. Needs access to the DINOv3 model. ${PACK_CODE}`,
     },
     'ComfyUI-UniRig': {
       what: 'Automatic rigging: puts a skeleton into a character mesh and binds the skin to it (UniRig, or Make it Animatable for humanoids).',
       nodes: 'Skeleton extraction, skinning, posing and export of the rigged model.',
-      limits: `It installs its own environment (Blender included) with an experimental installer. Models in models/unirig. ${PACK_CODE}`,
+      risk: `It installs its own environment (Blender included) with an experimental installer. Models in models/unirig. ${PACK_CODE}`,
     },
     'ComfyUI_InfiniteYou': {
       what: 'One face kept through FLUX pictures (ByteDance InfiniteYou).',
       nodes: 'InfuseNet Loader, InfuseNet Apply, ID Embedding Model Loader, Extract ID Embedding, Extract Face Pose Image.',
-      limits: `${RULE} About 43 GB of video memory at bf16, about 24 GB with FP8; academic research only. ${PACK_CODE}`,
+      risk: `${RULE} About 43 GB of video memory at bf16, about 24 GB with FP8; academic research only. ${PACK_CODE}`,
     },
     'ComfyUI-ReActor': {
       what: 'Face swap and face restoration.',
       nodes: 'Fast Face Swap, Face Swap [Options], Face Booster, Restore Face, Restore Face Advanced, Build / Save / Load Face Model, Masking Helper.',
-      limits: `${RULE} The pack refuses explicit pictures with its own detector. The InsightFace and CodeFormer models are for non-commercial use. ${PACK_CODE}`,
+      risk: `${RULE} The pack refuses explicit pictures with its own detector. The InsightFace and CodeFormer models are for non-commercial use. ${PACK_CODE}`,
     },
     facerestore_cf: {
       what: 'Face restoration with CodeFormer and GFPGAN, the same idea as the face restore option of other programs.',
       nodes: 'A model loader and a restore node with a CodeFormer fidelity setting.',
-      limits: `Models in models/facerestore_models; face detection models download to models/facedetection. ${OLD_FORMAT}`,
-    },
-    'ComfyUI_IPAdapter_plus': {
-      what: 'IP-Adapter for SD 1.5 and SDXL: a picture as a prompt for style, composition or a face; FaceID keeps a face from a photo.',
-      nodes: 'IPAdapter Unified Loader, IPAdapter Unified Loader FaceID, IPAdapter, IPAdapter Advanced, IPAdapter FaceID, IPAdapter Encoder, IPAdapter Weights.',
-      limits: `${RULE} Not for Flux, SD3 or Wan. FaceID needs the InsightFace Python package and models. ${PACK_CODE}`,
-    },
-    'ComfyUI-Impact-Pack': {
-      what: 'Detect, crop, redraw and paste back: detailers for faces, hands and any masked part, and many helpers around them.',
-      nodes: 'FaceDetailer, Detailer (SEGS), MaskDetailer, SAMLoader, BBOX Detector (SEGS), Iterative Upscale.',
-      limits: `The detectors come from ComfyUI-Impact-Subpack. ${PACK_CODE}`,
-    },
-    'ComfyUI-Impact-Subpack': {
-      what: 'The detectors of the Impact Pack: YOLO models from models/ultralytics that find faces, hands or people.',
-      nodes: 'UltralyticsDetectorProvider.',
-      limits: `${OLD_FORMAT} ${PACK_CODE}`,
+      risk: `Models in models/facerestore_models; face detection models download to models/facedetection. ${OLD_FORMAT}`,
     },
     'ComfyUI_InstantID': {
       what: 'InstantID for SDXL: a face from one photo kept in new pictures, with the angle of the head.',
       nodes: 'InstantID Model Loader, InstantID Face Analysis, Apply InstantID.',
-      limits: `${RULE} SDXL only. Files in models/instantid, models/controlnet and models/insightface. ${PACK_CODE}`,
+      risk: `${RULE} SDXL only. Files in models/instantid, models/controlnet and models/insightface. ${PACK_CODE}`,
     },
-  },
-  folders: {
-    mmaudio: 'MMAudio files: the model, its VAE, Synchformer and the CLIP model (ComfyUI-MMAudio adds this folder).',
-    foley: 'HunyuanVideo-Foley files: the model, Synchformer and the DAC-VAE (ComfyUI-HunyuanVideo-Foley).',
-    hunyuan_foley: 'HunyuanVideo-Foley files in a folder some installs use; the current pack reads models/foley.',
-    'qwen-tts': 'Qwen3-TTS models, the tokenizer and saved voices (ComfyUI-Qwen-TTS).',
-    stt: 'Speech-to-text models; ComfyUI-Whisper keeps Whisper in models/stt/whisper.',
-    chatterbox: 'Chatterbox speech models, downloaded there by ComfyUI_Fill-ChatterBox.',
-    audio_encoders: 'Sound encoders read by ComfyUI\'s own Audio Encoder Loader, such as wav2vec2, for video models that listen to a voice.',
-    demucs: 'Demucs models that split a song into vocals, drums, bass and the rest; read by stem-separation packs.',
-    facerestore_models: 'Face restoration models (CodeFormer, GFPGAN, GPEN), read by ReActor and facerestore_cf.',
-    facedetection: 'Face detection models of the face restoration packs.',
-    facexlib: 'Face detection and parsing models of the facexlib library, used by some face packs.',
-    insightface: 'InsightFace face analysis models (AntelopeV2, buffalo_l) and ReActor\'s swap model; needed by face swap, FaceID and InfiniteYou.',
-    photomaker: 'PhotoMaker files for SDXL (nodes of ComfyUI itself).',
-    ipadapter: 'IP-Adapter files, the FaceID ones included (ComfyUI_IPAdapter_plus).',
-    infinite_you: 'InfiniteYou files (ComfyUI_InfiniteYou).',
-    reswapper: 'ReSwapper face swap models for ReActor.',
-    unirig: 'UniRig rigging models (ComfyUI-UniRig).',
-    ultralytics: 'YOLO detectors (bbox and segm) of ComfyUI-Impact-Subpack, such as bbox/face_yolov8m.pt.',
-    sams: 'Segment Anything models, such as sam_vit_b_01ec64.pth, for the Impact Pack and ReActor.',
-    instantid: 'The InstantID adapter (ComfyUI_InstantID).',
-    pulid: 'PuLID files of the PuLID packs.',
   },
   fields: {
-    'TextEncodeAceStepAudio1.5.tags': 'The style of the song in short words separated by commas: genre, mood, instruments, voice.',
-    'TextEncodeAceStepAudio1.5.lyrics': 'The sung words, with the parts of the song in square brackets on their own lines ([Verse 1], [Chorus]).',
-    'TextEncodeAceStepAudio1.5.bpm': 'Beats a minute: about 70 for a ballad, 120 to 130 for dance music.',
-    'TextEncodeAceStepAudio1.5.duration': 'The length the model plans, in seconds; set it equal to seconds of the empty latent.',
-    'TextEncodeAceStepAudio1.5.language': 'The language the lyrics are sung in.',
-    'EmptyAceStep1.5LatentAudio.seconds': 'The real length of the song in seconds; the template uses 120.',
-    'EmptyLatentAudio.seconds': 'The length of the sound; Stable Audio Open 1.0 makes up to about 47 seconds.',
-    'ModelSamplingAuraFlow.shift': 'The noise shift: 3 for ACE-Step 1.5, 1 for Hunyuan3D 2, as their templates set it.',
-    'MMAudioSampler.duration': 'The length of the sound in seconds: the length of the clip, about 8 at best.',
-    'MMAudioSampler.prompt': 'Optional words about the sound; the frames lead.',
-    'MMAudioSampler.mask_away_clip': 'On: the model ignores the frames and follows the text alone.',
-    'MMAudioFeatureUtilsLoader.mode': '16k or 44k: the sample rate of the model and its VAE; all files must match.',
-    'VHS_VideoCombine.frame_rate': 'Frames a second of the finished clip; the clip\'s own rate keeps sound and picture together.',
-    'FL_ChatterboxTTS.exaggeration': 'How lively the speech is; 0.5 is the default, higher is more expressive and less steady.',
-    'FL_ChatterboxTTS.cfg_weight': 'How closely the model follows the voice sample; lower is slower and calmer. Default 0.5.',
-    'FL_ChatterboxTTS.temperature': 'How much the readings vary from run to run. Default 0.8.',
-    'Apply Whisper.model': 'The size of Whisper: tiny and base are fast, large-v3 and turbo accurate; names ending in .en know English only.',
-    'Apply Whisper.language': 'The language of the speech, or auto to let the model find it.',
-    'EmptyLatentHunyuan3Dv2.resolution': 'How finely the shape is worked out: 3072 in the template of 2.0, 4096 in that of 2.1.',
-    'VoxelToMesh.threshold': 'Where the inside of the object ends: lower makes it fatter, higher thinner and with holes. 0.6 in the templates.',
-    'VoxelToMesh.algorithm': 'surface net gives a smooth surface, basic a blocky one.',
-    'FluxGuidance.guidance': 'How strongly a FLUX model follows the description; FLUX.1 Kontext uses 2.5.',
-    'ReActorRestoreFace.visibility': 'How strongly the restored face covers the old one; lower blends them.',
-    'ReActorRestoreFace.codeformer_weight': 'For CodeFormer only: near 0 sharper and less alike, near 1 more alike and softer.',
-    'ReActorRestoreFace.facedetection': 'How faces are found: retinaface_resnet50 is the most careful, YOLOv5n the fastest.',
-    'IPAdapterUnifiedLoaderFaceID.preset': 'Which FaceID adapter and LoRA to load; FACEID PLUS V2 is the pack example\'s choice.',
-    'IPAdapterUnifiedLoaderFaceID.lora_strength': 'The strength of the FaceID LoRA; 0.6 in the pack\'s example. Higher presses the face harder and stiffens the picture.',
-    'IPAdapterFaceID.weight': 'How strongly the face is pressed into the picture; 1 in the example, lower towards 0.7 when the picture burns.',
-    'IPAdapterFaceID.weight_faceidv2': 'For the V2 adapters only: how closely the face follows the photo; 2 in the example.',
-    'ReActorFaceSwap.face_restore_visibility': 'How strongly the restored face covers the swapped one; 1 covers fully, lower blends.',
-    'ReActorFaceSwap.input_faces_index': 'Which faces of the picture are changed, counted from 0 at the left.',
-    'FaceDetailer.denoise': 'How much of the old face is redrawn; 0.5 in the example, lower keeps more of the face.',
-    'FaceDetailer.guide_size': 'The size a face is enlarged to before it is redrawn; 512 by default.',
-    'FaceDetailer.bbox_threshold': 'How sure the detector must be that it found a face; 0.5 by default.',
-  },
-  topics: {
-    identity: {
-      title: 'Identity: adapter, LoRA or swap: which to choose',
-      body: `${RULE}\n\nThree ways keep one face or one character:\n- an adapter (IP-Adapter FaceID, InstantID, PuLID, or a reference picture in Kontext): one photo, nothing to train, a new picture is drawn around the face; it keeps the face but not the hair, age or light;\n- a LoRA trained on the character: a dozen or more pictures and a training run; then the face, the body and the clothes hold in every picture, and the LoRA works with its own model family only;\n- a swap (ReActor): a picture that already exists keeps its pose, light and clothes, and only the face is replaced; quick, but the face is small and needs restoring.\n\nStart with the words of the description and a fixed seed, then an adapter; train a LoRA when a long series must hold; use a swap to fix a single finished picture.`,
+    'TextEncodeAceStepAudio1.5': {
+      tags: 'The style of the song in short words separated by commas: genre, mood, instruments, voice.',
+      lyrics: 'The sung words, with the parts of the song in square brackets on their own lines ([Verse 1], [Chorus]).',
+      bpm: 'Beats a minute: about 70 for a ballad, 120 to 130 for dance music.',
+      duration: 'The length the model plans, in seconds; set it equal to seconds of the empty latent.',
+      language: 'The language the lyrics are sung in.',
+    },
+    'EmptyAceStep1.5LatentAudio': {
+      seconds: 'The real length of the song in seconds; the template uses 120.',
+    },
+    EmptyLatentAudio: {
+      seconds: 'The length of the sound; Stable Audio Open 1.0 makes up to about 47 seconds.',
+    },
+    ModelSamplingAuraFlow: {
+      shift: 'The noise shift: 3 for ACE-Step 1.5, 1 for Hunyuan3D 2, as their templates set it.',
+    },
+    MMAudioSampler: {
+      duration: 'The length of the sound in seconds: the length of the clip, about 8 at best.',
+      prompt: 'Optional words about the sound; the frames lead.',
+      mask_away_clip: 'On: the model ignores the frames and follows the text alone.',
+    },
+    MMAudioFeatureUtilsLoader: {
+      mode: '16k or 44k: the sample rate of the model and its VAE; all files must match.',
+    },
+    FL_ChatterboxTTS: {
+      exaggeration: 'How lively the speech is; 0.5 is the default, higher is more expressive and less steady.',
+      cfg_weight: 'How closely the model follows the voice sample; lower is slower and calmer. Default 0.5.',
+      temperature: 'How much the readings vary from run to run. Default 0.8.',
+    },
+    'Apply Whisper': {
+      model: 'The size of Whisper: tiny and base are fast, large-v3 and turbo accurate; names ending in .en know English only.',
+      language: 'The language of the speech, or auto to let the model find it.',
+    },
+    EmptyLatentHunyuan3Dv2: {
+      resolution: 'How finely the shape is worked out: 3072 in the template of 2.0, 4096 in that of 2.1.',
+    },
+    VoxelToMesh: {
+      threshold: 'Where the inside of the object ends: lower makes it fatter, higher thinner and with holes. 0.6 in the templates.',
+      algorithm: 'surface net gives a smooth surface, basic a blocky one.',
+    },
+    FluxGuidance: {
+      guidance: 'How strongly a FLUX model follows the description; FLUX.1 Kontext uses 2.5.',
+    },
+    ReActorRestoreFace: {
+      visibility: 'How strongly the restored face covers the old one; lower blends them.',
+      codeformer_weight: 'For CodeFormer only: near 0 sharper and less alike, near 1 more alike and softer.',
+      facedetection: 'How faces are found: retinaface_resnet50 is the most careful, YOLOv5n the fastest.',
+    },
+    IPAdapterUnifiedLoaderFaceID: {
+      preset: 'Which FaceID adapter and LoRA to load; FACEID PLUS V2 is the pack example\'s choice.',
+      lora_strength: 'The strength of the FaceID LoRA; 0.6 in the pack\'s example. Higher presses the face harder and stiffens the picture.',
+    },
+    IPAdapterFaceID: {
+      weight: 'How strongly the face is pressed into the picture; 1 in the example, lower towards 0.7 when the picture burns.',
+      weight_faceidv2: 'For the V2 adapters only: how closely the face follows the photo; 2 in the example.',
+    },
+    ReActorFaceSwap: {
+      face_restore_visibility: 'How strongly the restored face covers the swapped one; 1 covers fully, lower blends.',
+      input_faces_index: 'Which faces of the picture are changed, counted from 0 at the left.',
     },
   },
+  concepts: {
+    identity: {
+      term: 'Identity: adapter, LoRA or swap: which to choose',
+      text: `${RULE}\n\nThree ways keep one face or one character:\n- an adapter (IP-Adapter FaceID, InstantID, PuLID, or a reference picture in Kontext): one photo, nothing to train, a new picture is drawn around the face; it keeps the face but not the hair, age or light;\n- a LoRA trained on the character: a dozen or more pictures and a training run; then the face, the body and the clothes hold in every picture, and the LoRA works with its own model family only;\n- a swap (ReActor): a picture that already exists keeps its pose, light and clothes, and only the face is replaced; quick, but the face is small and needs restoring.\n\nStart with the words of the description and a fixed seed, then an adapter; train a LoRA when a long series must hold; use a swap to fix a single finished picture.`,
+    },
+    'models-mmaudio': {
+      term: 'models/mmaudio',
+      text: 'MMAudio files: the model, its VAE, Synchformer and the CLIP model (ComfyUI-MMAudio adds this folder).',
+    },
+    'models-foley': {
+      term: 'models/foley',
+      text: 'HunyuanVideo-Foley files: the model, Synchformer and the DAC-VAE (ComfyUI-HunyuanVideo-Foley).',
+    },
+    'models-hunyuan_foley': {
+      term: 'models/hunyuan_foley',
+      text: 'HunyuanVideo-Foley files in a folder some installs use; the current pack reads models/foley.',
+    },
+    'models-qwen-tts': {
+      term: 'models/qwen-tts',
+      text: 'Qwen3-TTS models, the tokenizer and saved voices (ComfyUI-Qwen-TTS).',
+    },
+    'models-stt': {
+      term: 'models/stt',
+      text: 'Speech-to-text models; ComfyUI-Whisper keeps Whisper in models/stt/whisper.',
+    },
+    'models-chatterbox': {
+      term: 'models/chatterbox',
+      text: 'Chatterbox speech models, downloaded there by ComfyUI_Fill-ChatterBox.',
+    },
+    'models-audio_encoders': {
+      term: 'models/audio_encoders',
+      text: 'Sound encoders read by ComfyUI\'s own Audio Encoder Loader, such as wav2vec2, for video models that listen to a voice.',
+    },
+    'models-demucs': {
+      term: 'models/demucs',
+      text: 'Demucs models that split a song into vocals, drums, bass and the rest; read by stem-separation packs.',
+    },
+    'models-facerestore_models': {
+      term: 'models/facerestore_models',
+      text: 'Face restoration models (CodeFormer, GFPGAN, GPEN), read by ReActor and facerestore_cf.',
+    },
+    'models-facedetection': {
+      term: 'models/facedetection',
+      text: 'Face detection models of the face restoration packs.',
+    },
+    'models-facexlib': {
+      term: 'models/facexlib',
+      text: 'Face detection and parsing models of the facexlib library, used by some face packs.',
+    },
+    'models-insightface': {
+      term: 'models/insightface',
+      text: 'InsightFace face analysis models (AntelopeV2, buffalo_l) and ReActor\'s swap model; needed by face swap, FaceID and InfiniteYou.',
+    },
+    'models-photomaker': {
+      term: 'models/photomaker',
+      text: 'PhotoMaker files for SDXL (nodes of ComfyUI itself).',
+    },
+    'models-ipadapter': {
+      term: 'models/ipadapter',
+      text: 'IP-Adapter files, the FaceID ones included (ComfyUI_IPAdapter_plus).',
+    },
+    'models-infinite_you': {
+      term: 'models/infinite_you',
+      text: 'InfiniteYou files (ComfyUI_InfiniteYou).',
+    },
+    'models-reswapper': {
+      term: 'models/reswapper',
+      text: 'ReSwapper face swap models for ReActor.',
+    },
+    'models-unirig': {
+      term: 'models/unirig',
+      text: 'UniRig rigging models (ComfyUI-UniRig).',
+    },
+    'models-ultralytics': {
+      term: 'models/ultralytics',
+      text: 'YOLO detectors (bbox and segm) of ComfyUI-Impact-Subpack, such as bbox/face_yolov8m.pt.',
+    },
+    'models-sams': {
+      term: 'models/sams',
+      text: 'Segment Anything models, such as sam_vit_b_01ec64.pth, for the Impact Pack and ReActor.',
+    },
+    'models-instantid': {
+      term: 'models/instantid',
+      text: 'The InstantID adapter (ComfyUI_InstantID).',
+    },
+    'models-pulid': {
+      term: 'models/pulid',
+      text: 'PuLID files of the PuLID packs.',
+    },
+  },
+
 };

@@ -7,7 +7,10 @@
  * ComfyUI-Whisper apply_whisper.py and save_srt.py, ComfyUI-ReActor nodes.py, ComfyUI_IPAdapter_plus IPAdapterPlus.py and
  * the ComfyUI registry, ComfyUI-Impact-Pack modules/impact/impact_pack.py, ComfyUI-Impact-Subpack as the registry lists it).
  *
- * The fake server serves them with its video classes; the lesson tests read them through `lessonSpecs`.
+ * The fake server serves them with its video classes; the lesson tests read them through `lessonSpecs`. Classes the
+ * picture-model and video fixtures already serve (DualCLIPLoader, FluxGuidance, ConditioningZeroOut,
+ * ModelSamplingAuraFlow, the Video Helper Suite loader and combiner, FaceDetailer, SAMLoader, UltralyticsDetectorProvider
+ * and the IP-Adapter and Impact packs) are not repeated here.
  */
 
 type Spec = [string, Record<string, unknown>?] | [string[], Record<string, unknown>?];
@@ -27,13 +30,9 @@ export interface DomainClassDef {
 
 export const SOUND_3D_FACES_PACKS = [
   { name: 'ComfyUI-MMAudio', module: 'custom_nodes.ComfyUI-MMAudio', version: '1.0.3', commit: null },
-  { name: 'ComfyUI-VideoHelperSuite', module: 'custom_nodes.ComfyUI-VideoHelperSuite', version: '1.7.9', commit: null },
   { name: 'ComfyUI_Fill-ChatterBox', module: 'custom_nodes.ComfyUI_Fill-ChatterBox', version: '1.0.4', commit: null },
   { name: 'ComfyUI-Whisper', module: 'custom_nodes.ComfyUI-Whisper', version: null, commit: null },
   { name: 'ComfyUI-ReActor', module: 'custom_nodes.ComfyUI-ReActor', version: '0.7.2', commit: null },
-  { name: 'ComfyUI_IPAdapter_plus', module: 'custom_nodes.ComfyUI_IPAdapter_plus', version: '2.0.0', commit: null },
-  { name: 'ComfyUI-Impact-Pack', module: 'custom_nodes.ComfyUI-Impact-Pack', version: '8.30.0', commit: null },
-  { name: 'ComfyUI-Impact-Subpack', module: 'custom_nodes.ComfyUI-Impact-Subpack', version: '1.3.5', commit: null },
 ];
 
 const MMAUDIO_FILES = ['apple_DFN5B-CLIP-ViT-H-14-384_fp16.safetensors', 'mmaudio_large_44k_v2_fp16.safetensors', 'mmaudio_synchformer_fp16.safetensors', 'mmaudio_vae_44k_fp16.safetensors'];
@@ -54,8 +53,6 @@ export const SOUND_3D_FACES_CLASSES: DomainClassDef[] = [
     output: ['CONDITIONING'],
   },
   { classType: 'EmptyAceStep1.5LatentAudio', pack: CORE, display: 'Empty Ace Step 1.5 Latent Audio', category: 'model/latent/ace', required: { seconds: ['FLOAT', { default: 120, min: 1, max: 1000, step: 0.01 }], batch_size: ['INT', { default: 1, min: 1 }] }, output: ['LATENT'] },
-  { classType: 'ModelSamplingAuraFlow', pack: CORE, display: 'ModelSamplingAuraFlow', category: 'model/patch', required: { model: ['MODEL'], shift: ['FLOAT', { default: 1.73, min: 0, max: 100, step: 0.01 }] }, optional: { sampling: [['flow', 'img_to_img_velocity'], { default: 'flow' }] }, output: ['MODEL'] },
-  { classType: 'ConditioningZeroOut', pack: CORE, display: 'ConditioningZeroOut', category: 'advanced/conditioning', required: { conditioning: ['CONDITIONING'] }, output: ['CONDITIONING'] },
   { classType: 'VAEDecodeAudio', pack: CORE, display: 'VAE Decode Audio', category: 'latent/audio', required: { samples: ['LATENT'], vae: ['VAE'] }, output: ['AUDIO'] },
   { classType: 'EmptyLatentAudio', pack: CORE, display: 'Empty Latent Audio', category: 'latent/audio', required: { seconds: ['FLOAT', { default: 47.6, min: 1, max: 1000, step: 0.1 }], batch_size: ['INT', { default: 1, min: 1 }] }, output: ['LATENT'] },
   { classType: 'SaveAudioAdvanced', pack: CORE, display: 'Save Audio (Advanced)', category: 'audio', required: { audio: ['AUDIO'], filename_prefix: ['STRING', { default: 'audio/ComfyUI' }], format: [['flac', 'mp3', 'opus']] }, output: ['AUDIO'], outputName: ['audio'], outputNode: true },
@@ -69,10 +66,8 @@ export const SOUND_3D_FACES_CLASSES: DomainClassDef[] = [
   { classType: 'VoxelToMesh', pack: CORE, display: 'Voxel to Mesh', category: '3d', required: { voxel: ['VOXEL'], algorithm: [['surface net', 'basic']], threshold: ['FLOAT', { default: 0.6, min: -1, max: 1, step: 0.01 }] }, output: ['MESH'] },
   { classType: 'SaveGLB', pack: CORE, display: 'Save 3D Model', category: '3d', required: { mesh: ['MESH'], filename_prefix: ['STRING', { default: '3d/ComfyUI' }] }, output: [], outputNode: true },
   // ComfyUI itself: FLUX.1 Kontext.
-  { classType: 'DualCLIPLoader', pack: CORE, display: 'DualCLIPLoader', category: 'advanced/loaders', required: { clip_name1: [['clip_l.safetensors', 't5xxl_fp8_e4m3fn_scaled.safetensors']], clip_name2: [['clip_l.safetensors', 't5xxl_fp8_e4m3fn_scaled.safetensors']], type: [['sdxl', 'sd3', 'flux', 'hunyuan_video', 'ace']] }, optional: { device: [['default', 'cpu']] }, output: ['CLIP'] },
   { classType: 'FluxKontextImageScale', pack: CORE, display: 'FluxKontextImageScale', category: 'advanced/conditioning/flux', required: { image: ['IMAGE'] }, output: ['IMAGE'] },
   { classType: 'ReferenceLatent', pack: CORE, display: 'ReferenceLatent', category: 'advanced/conditioning/edit_models', required: { conditioning: ['CONDITIONING'] }, optional: { latent: ['LATENT'] }, output: ['CONDITIONING'] },
-  { classType: 'FluxGuidance', pack: CORE, display: 'FluxGuidance', category: 'advanced/conditioning/flux', required: { conditioning: ['CONDITIONING'], guidance: ['FLOAT', { default: 3.5, min: 0, max: 100, step: 0.1 }] }, output: ['CONDITIONING'] },
   // ComfyUI-MMAudio.
   { classType: 'MMAudioModelLoader', pack: 'ComfyUI-MMAudio', display: 'MMAudio ModelLoader', category: 'MMAudio', required: { mmaudio_model: [MMAUDIO_FILES], base_precision: [['fp16', 'fp32', 'bf16'], { default: 'fp16' }] }, output: ['MMAUDIO_MODEL'], outputName: ['mmaudio_model'] },
   {
@@ -90,25 +85,6 @@ export const SOUND_3D_FACES_CLASSES: DomainClassDef[] = [
     },
     optional: { images: ['IMAGE'] },
     output: ['AUDIO'], outputName: ['audio'],
-  },
-  // ComfyUI-VideoHelperSuite.
-  {
-    classType: 'VHS_LoadVideo', pack: 'ComfyUI-VideoHelperSuite', display: 'Load Video (Upload)', category: 'Video Helper Suite',
-    required: {
-      video: [['silent-clip.mp4', 'talk.mp4']], force_rate: ['FLOAT', { default: 0 }], custom_width: ['INT', { default: 0 }], custom_height: ['INT', { default: 0 }],
-      frame_load_cap: ['INT', { default: 0 }], skip_first_frames: ['INT', { default: 0 }], select_every_nth: ['INT', { default: 1 }],
-    },
-    optional: { meta_batch: ['VHS_BatchManager'], vae: ['VAE'], format: [['AnimateDiff']] },
-    output: ['IMAGE', 'INT', 'AUDIO', 'VHS_VIDEOINFO'], outputName: ['IMAGE', 'frame_count', 'audio', 'video_info'],
-  },
-  {
-    classType: 'VHS_VideoCombine', pack: 'ComfyUI-VideoHelperSuite', display: 'Video Combine', category: 'Video Helper Suite',
-    required: {
-      images: ['IMAGE'], frame_rate: ['FLOAT', { default: 8 }], loop_count: ['INT', { default: 0 }], filename_prefix: ['STRING', { default: 'AnimateDiff' }],
-      format: [['image/gif', 'image/webp', 'video/h264-mp4']], pingpong: ['BOOLEAN', { default: false }], save_output: ['BOOLEAN', { default: true }],
-    },
-    optional: { audio: ['AUDIO'], meta_batch: ['VHS_BatchManager'], vae: ['VAE'] },
-    output: ['VHS_FILENAMES'], outputName: ['Filenames'], outputNode: true,
   },
   // ComfyUI_Fill-ChatterBox.
   {
@@ -166,24 +142,6 @@ export const SOUND_3D_FACES_CLASSES: DomainClassDef[] = [
     },
     optional: { image_negative: ['IMAGE'], attn_mask: ['MASK'], clip_vision: ['CLIP_VISION'], insightface: ['INSIGHTFACE'] },
     output: ['MODEL', 'IMAGE'], outputName: ['MODEL', 'face_image'],
-  },
-  // ComfyUI-Impact-Pack and ComfyUI-Impact-Subpack (modules/impact/impact_pack.py; the subpack's detector provider).
-  { classType: 'UltralyticsDetectorProvider', pack: 'ComfyUI-Impact-Subpack', display: 'UltralyticsDetectorProvider', category: 'ImpactPack', required: { model_name: [['bbox/face_yolov8m.pt', 'bbox/hand_yolov8s.pt', 'segm/person_yolov8m-seg.pt']] }, output: ['BBOX_DETECTOR', 'SEGM_DETECTOR'] },
-  { classType: 'SAMLoader', pack: 'ComfyUI-Impact-Pack', display: 'SAMLoader (Impact)', category: 'ImpactPack', required: { model_name: [['sam_vit_b_01ec64.pth']], device_mode: [['AUTO', 'Prefer GPU', 'CPU']] }, output: ['SAM_MODEL'] },
-  {
-    classType: 'FaceDetailer', pack: 'ComfyUI-Impact-Pack', display: 'FaceDetailer', category: 'ImpactPack/Simple',
-    required: {
-      image: ['IMAGE'], model: ['MODEL'], clip: ['CLIP'], vae: ['VAE'], guide_size: ['FLOAT', { default: 512 }], guide_size_for: ['BOOLEAN', { default: true }],
-      max_size: ['FLOAT', { default: 1024 }], seed: ['INT', { default: 0 }], steps: ['INT', { default: 20 }], cfg: ['FLOAT', { default: 8 }],
-      sampler_name: [['euler', 'euler_ancestral', 'dpmpp_2m']], scheduler: [['normal', 'karras', 'simple']], positive: ['CONDITIONING'], negative: ['CONDITIONING'],
-      denoise: ['FLOAT', { default: 0.5 }], feather: ['INT', { default: 5 }], noise_mask: ['BOOLEAN', { default: true }], force_inpaint: ['BOOLEAN', { default: true }],
-      bbox_threshold: ['FLOAT', { default: 0.5 }], bbox_dilation: ['INT', { default: 10 }], bbox_crop_factor: ['FLOAT', { default: 3 }],
-      sam_detection_hint: [['center-1', 'horizontal-2', 'none']], sam_dilation: ['INT', { default: 0 }], sam_threshold: ['FLOAT', { default: 0.93 }],
-      sam_bbox_expansion: ['INT', { default: 0 }], sam_mask_hint_threshold: ['FLOAT', { default: 0.7 }], sam_mask_hint_use_negative: [['False', 'Small', 'Outter']],
-      drop_size: ['INT', { default: 10 }], bbox_detector: ['BBOX_DETECTOR'], wildcard: ['STRING', { default: '' }], cycle: ['INT', { default: 1 }],
-    },
-    optional: { sam_model_opt: ['SAM_MODEL'], segm_detector_opt: ['SEGM_DETECTOR'], detailer_hook: ['DETAILER_HOOK'], inpaint_model: ['BOOLEAN', { default: false }], noise_mask_feather: ['INT', { default: 20 }] },
-    output: ['IMAGE', 'IMAGE', 'IMAGE', 'MASK', 'DETAILER_PIPE', 'IMAGE'], outputName: ['image', 'cropped_refined', 'cropped_enhanced_alpha', 'mask', 'detailer_pipe', 'cnet_images'],
   },
 ];
 

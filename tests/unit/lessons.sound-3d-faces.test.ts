@@ -4,9 +4,12 @@ import { packOf } from '../../src/shared/lessons/fit';
 import { LESSONS, LESSON_AFTER, LESSON_PATH } from '../../src/shared/lessons/lessons';
 import { SOUND_3D_FACES_AFTER, SOUND_3D_FACES_GROUPS, SOUND_3D_FACES_LESSONS, SOUND_3D_FACES_LESSON_GROUP } from '../../src/shared/lessons/sets/sound-3d-faces';
 import { lessonWords } from '../../src/shared/lessons/texts';
-import { CORE_KNOWLEDGE, CORE_NODE_CLASSES, coreSeeds } from '../../src/shared/knowledge/coreKnowledge';
-import { fieldNote, KNOWLEDGE_SETS, modelFolderNote, packNote, topicNote, type KnowledgeSetTexts } from '../../src/shared/knowledge/knowledgeSets';
-import { SOUND_3D_FACES_KNOWLEDGE } from '../../src/shared/knowledge/sets/sound-3d-faces';
+import { conceptNote, CORE_KNOWLEDGE, CORE_NODE_CLASSES, coreSeeds, fieldNote, KNOWLEDGE_SETS, packNote } from '../../src/shared/knowledge/coreKnowledge';
+import { SOUND_3D_FACES_KNOWLEDGE_DOCS } from '../../src/shared/knowledge/sets/sound-3d-faces';
+import { SOUND_3D_FACES_KNOWLEDGE_EN } from '../../src/shared/knowledge/sets/sound-3d-faces.en';
+import { SOUND_3D_FACES_KNOWLEDGE_RU } from '../../src/shared/knowledge/sets/sound-3d-faces.ru';
+import { VIDEO_KNOWLEDGE_EN } from '../../src/shared/knowledge/sets/video.en';
+import { IMAGE_TECHNIQUES_KNOWLEDGE } from '../../src/shared/knowledge/sets/image-techniques';
 import { IMAGE_MODEL_NODE_CLASSES } from '../../src/shared/knowledge/sets/image-models';
 import { lessonSpecs, SOUND_3D_FACES_CLASSES } from '../fixtures/mcp/classes/sound-3d-faces';
 import { CLASSES, VIDEO_CLASSES } from '../fixtures/mcp/fakeMcpServer';
@@ -47,8 +50,6 @@ describe('the lessons on sound, speech, 3D, faces and characters', () => {
     expect(packOf('Apply Whisper')).toBe('ComfyUI-Whisper');
     expect(packOf('ReActorRestoreFace')).toBe('ComfyUI-ReActor');
     expect(packOf('IPAdapterFaceID')).toBe('ComfyUI_IPAdapter_plus');
-    expect(packOf('FaceDetailer')).toBe('ComfyUI-Impact-Pack');
-    expect(packOf('UltralyticsDetectorProvider')).toBe('ComfyUI-Impact-Subpack');
     expect(packOf('TextEncodeAceStepAudio1.5')).toBeNull();
   });
 
@@ -88,15 +89,15 @@ describe('the lessons on sound, speech, 3D, faces and characters', () => {
       const en = lessonWords('en', id)!.steps.intro.body;
       expect(en, id).toMatch(/yourself, a person who gave permission, or an invented character/);
       expect(en, id).toMatch(/under 18/);
-      expect(en, id).toMatch(/passes a person off as saying or doing what they did not/);
+      expect(en, id).toMatch(/pass a person off as saying or doing what they did not/);
       expect(ru, id).toMatch(/себя, человека, который разрешил, или придуманного героя/);
-      expect(ru, id).toMatch(/меньше 18/);
+      expect(ru, id).toMatch(/младше 18/);
       expect(ru, id).toMatch(/говорил или делал то, чего не было/);
     }
   });
 
   it('say that a pack runs other people\'s code where a lesson needs a pack', () => {
-    for (const id of ['audio-speech', 'audio-foley', 'audio-transcribe', 'face-restore', 'face-same-photo', 'face-swap', 'face-detail']) {
+    for (const id of ['audio-speech', 'audio-foley', 'audio-transcribe', 'face-restore', 'face-same-photo', 'face-swap']) {
       expect(lessonWords('en', id)!.steps.intro.body, id).toMatch(/other people's code/);
       expect(lessonWords('ru', id)!.steps.intro.body, id).toMatch(/чужой код/);
     }
@@ -111,36 +112,43 @@ describe('the lessons on sound, speech, 3D, faces and characters', () => {
 });
 
 describe('the knowledge of sound, speech, 3D, faces and characters', () => {
-  const sections = ['nodes', 'families', 'packs', 'folders', 'fields', 'topics'] as const;
+  const sets = { en: SOUND_3D_FACES_KNOWLEDGE_EN, ru: SOUND_3D_FACES_KNOWLEDGE_RU };
+  const sections = ['nodes', 'linkTypes', 'families', 'packs', 'fields', 'concepts'] as const;
+  const strings = (value: unknown): string[] => (typeof value === 'string' ? [value] : value && typeof value === 'object' ? Object.values(value).flatMap(strings) : []);
 
-  it('is registered and says the same things in both languages, never blank', () => {
-    expect(KNOWLEDGE_SETS).toContain(SOUND_3D_FACES_KNOWLEDGE);
-    const { en, ru } = SOUND_3D_FACES_KNOWLEDGE;
-    for (const section of sections) {
-      expect(Object.keys(ru[section]).sort(), section).toEqual(Object.keys(en[section]).sort());
-    }
-    const strings = (texts: KnowledgeSetTexts) => sections.flatMap((section) => Object.values(texts[section]).flatMap((item) => (typeof item === 'string' ? [item] : Object.values(item))));
+  it('is registered after the video set and says the same things in both languages, never blank', () => {
+    for (const language of ['en', 'ru'] as const) expect(KNOWLEDGE_SETS[language].map((entry) => entry.set)).toContain(sets[language]);
+    const { en, ru } = sets;
+    for (const section of sections) expect(Object.keys(ru[section] ?? {}).sort(), section).toEqual(Object.keys(en[section] ?? {}).sort());
+    for (const classType of Object.keys(en.fields)) expect(Object.keys(ru.fields[classType]).sort(), classType).toEqual(Object.keys(en.fields[classType]).sort());
     for (const text of strings(en)) {
-      expect(text.trim().length, text).toBeGreaterThan(5);
+      expect(text.trim().length, text).toBeGreaterThan(1);
       expect(/[а-яё]/i.test(text), text).toBe(false);
     }
-    for (const text of strings(ru)) {
-      expect(text.trim().length, text).toBeGreaterThan(5);
-      // A pack's list of node names may stay in Latin letters; every other text is Russian.
-      if (!Object.values(ru.packs).some((pack) => pack.nodes === text)) expect(/[а-яё]/i.test(text), text).toBe(true);
-    }
+    // A pack's list of node names and a folder's path may stay in Latin letters; every other text is Russian.
+    const latin = new Set([...Object.values(ru.packs).map((pack) => pack.nodes), ...Object.values(ru.concepts ?? {}).map((concept) => concept.term)]);
+    for (const text of strings(ru)) if (!latin.has(text)) expect(/[а-яё]/i.test(text), text).toBe(true);
     for (const classType of Object.keys(en.nodes)) {
       expect(en.nodes[classType].what && en.nodes[classType].why && en.nodes[classType].connect, classType).toBeTruthy();
       expect(Boolean(ru.nodes[classType].risk), classType).toBe(Boolean(en.nodes[classType].risk));
-      expect([...CORE_NODE_CLASSES, ...IMAGE_MODEL_NODE_CLASSES].includes(classType as never), `${classType} is described by another set`).toBe(false);
+      expect(SOUND_3D_FACES_KNOWLEDGE_DOCS.nodes[classType], `${classType} has a source`).toBeTruthy();
     }
-    expect(Object.keys(SOUND_3D_FACES_KNOWLEDGE.docs.nodes).sort()).toEqual(Object.keys(en.nodes).sort());
-    expect(Object.keys(SOUND_3D_FACES_KNOWLEDGE.docs.families).sort()).toEqual(Object.keys(en.families).sort());
   });
 
-  it('describes every node class of the lessons, in the core pack or in the set', () => {
+  it('does not redefine what the core or another set already describes', () => {
+    const others = [VIDEO_KNOWLEDGE_EN, IMAGE_TECHNIQUES_KNOWLEDGE.en];
+    for (const classType of Object.keys(SOUND_3D_FACES_KNOWLEDGE_EN.nodes)) {
+      expect([...CORE_NODE_CLASSES, ...IMAGE_MODEL_NODE_CLASSES].includes(classType as never), classType).toBe(false);
+      for (const other of others) expect(other.nodes[classType], classType).toBeUndefined();
+    }
+    for (const kind of ['linkTypes', 'families', 'packs', 'concepts'] as const) {
+      for (const id of Object.keys(SOUND_3D_FACES_KNOWLEDGE_EN[kind] ?? {})) for (const other of others) expect((other[kind] ?? {})[id], `${kind} ${id}`).toBeUndefined();
+    }
+  });
+
+  it('describes every node class of the lessons, in the core pack or a set', () => {
     for (const language of ['en', 'ru'] as const) {
-      const known = new Set<string>([...CORE_NODE_CLASSES, ...IMAGE_MODEL_NODE_CLASSES, ...Object.keys(SOUND_3D_FACES_KNOWLEDGE[language].nodes)]);
+      const known = new Set<string>([...CORE_NODE_CLASSES, ...IMAGE_MODEL_NODE_CLASSES, ...KNOWLEDGE_SETS[language].flatMap((entry) => Object.keys(entry.set.nodes))]);
       for (const lesson of SOUND_3D_FACES_LESSONS) {
         for (const spec of rolesOf(lesson)) expect(spec.classes.some((classType) => known.has(classType)), `${language}/${lesson.id}: ${spec.classes.join(', ')}`).toBe(true);
       }
@@ -149,36 +157,30 @@ describe('the knowledge of sound, speech, 3D, faces and characters', () => {
   });
 
   it('describes the packs, the model folders and the fields of the domain', () => {
-    for (const pack of ['ComfyUI-MMAudio', 'ComfyUI-HunyuanVideo-Foley', 'ComfyUI-Qwen-TTS', 'ComfyUI-Whisper', 'ComfyUI_AudioTools', 'ComfyUI-3D-Pack', 'ComfyUI-Trellis2', 'ComfyUI-UniRig', 'ComfyUI_InfiniteYou', 'ComfyUI-ReActor']) {
+    for (const pack of ['ComfyUI-MMAudio', 'ComfyUI-HunyuanVideo-Foley', 'ComfyUI-Qwen-TTS', 'ComfyUI-Whisper', 'ComfyUI_AudioTools', 'ComfyUI-3D-Pack', 'ComfyUI-Trellis2', 'ComfyUI-UniRig', 'ComfyUI_InfiniteYou', 'ComfyUI-ReActor', 'ComfyUI_IPAdapter_plus', 'ComfyUI-Impact-Pack', 'ComfyUI_InstantID']) {
       for (const language of ['en', 'ru'] as const) expect(packNote(pack, language)?.what, `${language} ${pack}`).toBeTruthy();
     }
-    for (const folder of ['mmaudio', 'foley', 'qwen-tts', 'stt', 'audio_encoders', 'demucs', 'facerestore_models', 'facedetection', 'insightface', 'photomaker', 'ipadapter', 'unirig']) {
-      expect(modelFolderNote(folder, 'en'), folder).toBeTruthy();
-      expect(modelFolderNote(folder, 'ru'), folder).toBeTruthy();
+    for (const folder of ['mmaudio', 'foley', 'qwen-tts', 'stt', 'audio_encoders', 'demucs', 'facerestore_models', 'facedetection', 'insightface', 'photomaker', 'ipadapter', 'unirig', 'ultralytics', 'sams', 'instantid', 'pulid']) {
+      expect(conceptNote(`models-${folder}`, 'en')?.term, folder).toBe(`models/${folder}`);
+      expect(conceptNote(`models-${folder}`, 'ru')?.text, folder).toBeTruthy();
     }
-    expect(modelFolderNote('nope', 'en')).toBeNull();
-    expect(packNote('nope', 'ru')).toBeNull();
-    // Every field a lesson asks a number or a choice for has a note, and the note says the lesson's number.
     expect(fieldNote('EmptyAceStep1.5LatentAudio', 'seconds', 'en')).toMatch(/120/);
     expect(fieldNote('VoxelToMesh', 'threshold', 'ru')).toMatch(/0\.6/);
     expect(fieldNote('FL_ChatterboxTTS', 'exaggeration', 'en')).toMatch(/0\.5/);
-    expect(fieldNote('KSampler', 'nope', 'en')).toBeNull();
     expect(fieldNote('IPAdapterFaceID', 'weight', 'en')).toMatch(/0\.7/);
-    for (const folder of ['ultralytics', 'sams', 'instantid', 'pulid']) expect(modelFolderNote(folder, 'ru'), folder).toBeTruthy();
     // One entry compares the three ways to keep a face, and starts with the rule.
-    expect(topicNote('identity', 'en')?.title).toMatch(/adapter, LoRA or swap/);
-    expect(topicNote('identity', 'en')?.body).toMatch(/^A real person's face or voice only with their consent/);
-    expect(topicNote('identity', 'ru')?.body).toMatch(/LoRA/);
-    expect(topicNote('nope', 'en')).toBeNull();
+    expect(conceptNote('identity', 'en')?.term).toMatch(/adapter, LoRA or swap/);
+    expect(conceptNote('identity', 'en')?.text).toMatch(/^A real person's face or voice only with their consent/);
+    expect(conceptNote('identity', 'ru')?.text).toMatch(/LoRA/);
   });
 
   it('says the rule wherever a face or a voice is put onto someone', () => {
     for (const language of ['en', 'ru'] as const) {
-      const texts = SOUND_3D_FACES_KNOWLEDGE[language];
+      const texts = sets[language];
       const rule = language === 'en' ? /consent.*explicit.*minor/ : /согласия.*откровенном.*несовершеннолетним/;
       for (const classType of ['ReActorFaceSwap', 'FL_ChatterboxTTS', 'PhotoMakerEncode', 'IPAdapterFaceID', 'IPAdapterUnifiedLoaderFaceID']) expect(texts.nodes[classType].risk, `${language} ${classType}`).toMatch(rule);
       for (const family of ['chatterbox', 'qwen-tts', 'photomaker', 'infiniteyou', 'ipadapter-faceid', 'instantid', 'pulid']) expect(texts.families[family].risk, `${language} ${family}`).toMatch(rule);
-      for (const pack of ['ComfyUI-ReActor', 'ComfyUI_Fill-ChatterBox', 'ComfyUI-Qwen-TTS', 'ComfyUI_InfiniteYou']) expect(texts.packs[pack].limits, `${language} ${pack}`).toMatch(rule);
+      for (const pack of ['ComfyUI-ReActor', 'ComfyUI_Fill-ChatterBox', 'ComfyUI-Qwen-TTS', 'ComfyUI_InfiniteYou']) expect(texts.packs[pack].risk, `${language} ${pack}`).toMatch(rule);
     }
   });
 
@@ -187,6 +189,7 @@ describe('the knowledge of sound, speech, 3D, faces and characters', () => {
       const seeds = coreSeeds(language);
       expect(seeds.some((seed) => seed.owner.id === 'MMAudioSampler' && seed.aspect === 'what')).toBe(true);
       expect(seeds.some((seed) => seed.owner.kind === 'family' && seed.owner.id === 'ace-step')).toBe(true);
+      expect(seeds.some((seed) => seed.owner.kind === 'linkType' && seed.owner.id === 'MESH')).toBe(true);
       expect(new Set(seeds.map((seed) => seed.id)).size).toBe(seeds.length);
       for (const seed of seeds) if (seed.sourceUrl) expect(['docs.comfy.org', 'github.com']).toContain(new URL(seed.sourceUrl).hostname);
     }

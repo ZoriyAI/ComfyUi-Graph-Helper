@@ -19,9 +19,8 @@ const OLD_FORMAT = 'Files in the old formats (.ckpt, .pt, .pth, .bin) can run co
 const START = 'The lesson builds the graph from an empty canvas: "File ▸ New project".';
 
 /** The rule every lesson that gives, keeps or changes a face starts with, in the words of the talking-portrait lessons. */
-const FACE_RULE = 'Only someone who agrees may be shown this way: yourself, a person who gave permission, or an invented character. The app does not help with someone else\'s face without consent. Never a real person in explicit content, never anyone under 18 or who looks under 18, and nothing that passes a person off as saying or doing what they did not. This lesson teaches technique.';
+const FACE_RULE = 'Only someone who agrees may be shown this way: yourself, a person who gave permission, or an invented character. Obtain consent before using a real person\'s likeness and permission for the source material, and follow local law. Do not put a real person\'s likeness into explicit content; exclude anyone who is or appears under 18; do not pass a person off as saying or doing what they did not. This lesson teaches technique.';
 
-const FACE_RULE_SHORT = 'Repair the faces of your own pictures: yourself, a person who agreed, or a character you generated.';
 
 export const SOUND_3D_FACES_EN: Record<string, LessonWords> = {
   'audio-music': {
@@ -134,7 +133,7 @@ export const SOUND_3D_FACES_EN: Record<string, LessonWords> = {
     steps: {
       intro: {
         title: 'First, about voices',
-        body: `Chatterbox reads a text aloud. Given a recording of a voice, it speaks in that voice.\n\nOnly someone who agrees may be voiced this way, with their own voice or a voice you have permission for. The app does not help with someone else's voice without consent. Never use a voice in explicit content, and never the voice of someone who looks like a minor.\n\n${PACK('ComfyUI_Fill-ChatterBox')} The pack itself downloads its models to models/chatterbox the first time the graph runs in ComfyUI.\n\n${START}`,
+        body: `Chatterbox reads a text aloud. Given a recording of a voice, it speaks in that voice.\n\nOnly someone who agrees may be voiced this way, with their own voice or a voice you have permission for. Obtain the speaker's consent and permission for the source material, and follow local law. Do not put a real person's voice into explicit content, and exclude anyone who is or appears to be a minor.\n\n${PACK('ComfyUI_Fill-ChatterBox')} The pack itself downloads its models to models/chatterbox the first time the graph runs in ComfyUI.\n\n${START}`,
       },
       voice: {
         title: 'Load the voice',
@@ -306,7 +305,7 @@ export const SOUND_3D_FACES_EN: Record<string, LessonWords> = {
     steps: {
       intro: {
         title: 'First, about faces',
-        body: `FLUX.1 Kontext takes a picture and a sentence of what to change, and keeps the rest: the same face, the same clothes, the same style. That is how one character goes through a whole series of pictures.\n\nThe example in this lesson is an invented character or yourself. A real person's face only with their consent; never in explicit content; never anyone who looks like a minor.\n\n${START}`,
+        body: `FLUX.1 Kontext takes a picture and a sentence of what to change, and keeps the rest: the same face, the same clothes, the same style. That is how one character goes through a whole series of pictures.\n\nThe example in this lesson is an invented character or yourself. Obtain consent before using a real person's likeness, and follow local law. Do not put a real person's likeness into explicit content; exclude anyone who appears to be a minor.\n\n${START}`,
       },
       model: {
         title: 'Load the model',
@@ -364,7 +363,7 @@ export const SOUND_3D_FACES_EN: Record<string, LessonWords> = {
     steps: {
       intro: {
         title: 'First, what restoring is',
-        body: `A restoration model finds the faces in a picture and draws them again, sharp. It does not know the real face: it guesses the details. The result is a likeness, not a record of how the person looked.\n\nRestore pictures you have the right to use: your own, your family's with their agreement, invented people. A real person's face only with their consent; never in explicit content.\n\n${PACK('ComfyUI-ReActor')} If the folder models/facerestore_models is empty, the pack itself downloads four restoration models there when ComfyUI starts.\n\n${START}`,
+        body: `A restoration model finds the faces in a picture and draws them again, sharp. It does not know the real face: it guesses the details. The result is a likeness, not a record of how the person looked.\n\nRestore pictures you have the right to use: your own, your family's with their agreement, invented people. Obtain consent before using a real person's likeness, and do not put it into explicit content.\n\n${PACK('ComfyUI-ReActor')} If the folder models/facerestore_models is empty, the pack itself downloads four restoration models there when ComfyUI starts.\n\n${START}`,
       },
       picture: {
         title: 'Load the picture',
@@ -426,7 +425,7 @@ export const SOUND_3D_FACES_EN: Record<string, LessonWords> = {
       },
       next: {
         title: 'What next',
-        body: 'The next steps for a character: a LoRA trained on the character for pictures, and a start picture for video, so that a clip begins from the character you made. Look for these in the lesson list under "Pictures: techniques" and "Video".',
+        body: 'The next steps for a character: a start picture for video, so that a clip begins from the character you made ("The start picture is the anchor"), and a reference that holds the character through a whole clip ("A reference for the whole clip: Wan VACE"). A LoRA trained on the character holds it in pictures: "LoRA for a character: face, body, clothes, pose".',
       },
     },
   },
@@ -514,49 +513,11 @@ export const SOUND_3D_FACES_EN: Record<string, LessonWords> = {
       },
       tips: {
         title: 'When the result is bad',
-        body: '- The face looks pasted on: lower `face_restore_visibility` to 0.7, or try `GFPGANv1.4.pth`.\n- The wrong face is changed: set `input_faces_index`.\n- The skin tone differs: pick a source photo with similar light.\n- Nothing happens: no face was found; use a larger, frontal face.\n\nThe InsightFace models the swap uses are for non-commercial use only.',
+        body: '- The face looks pasted on: lower `face_restore_visibility` to 0.7, or try `GFPGANv1.4.pth`.\n- The wrong face is changed: set `input_faces_index`.\n- The skin tone differs: pick a source photo with similar light.\n- Nothing happens: no face was found; use a larger, frontal face.\n\nA face that is small or broken in a picture you drew is repaired in "Fixing faces and hands with a detailer".\n\nThe InsightFace models the swap uses are for non-commercial use only.',
       },
       run: {
         title: 'The graph is ready',
         body: `${SAVE}\n\nNothing made this way may pass a person off as saying or doing what they did not.`,
-      },
-    },
-  },
-  'face-detail': {
-    title: 'Repair a small face: FaceDetailer',
-    result: 'You add FaceDetailer to the first picture graph: it finds the face, redraws it larger and puts it back.',
-    steps: {
-      intro: {
-        title: 'Why small faces break',
-        body: `A model draws a face well only when the face is large in the picture. In a full figure or a crowd the face gets a few pixels, and they come out smeared.\n\nFaceDetailer finds the face, cuts it out, enlarges it, redraws it with the same model and the same description, and pastes it back. ${FACE_RULE_SHORT}\n\n${PACK('ComfyUI-Impact-Pack')} The face detector comes from ComfyUI-Impact-Subpack.\n\nThis lesson goes on from the graph of "A first picture from text".`,
-      },
-      graph: {
-        title: 'The first picture graph is needed',
-        body: 'The canvas must hold {checkpoint}, the texts {positive} and {negative}, {sampler} and {decode}, linked as in the first lesson.',
-      },
-      finders: {
-        title: 'Load the face finders',
-        body: `Add a {detector} node and choose \`bbox/face_yolov8m.pt\` in \`model_name\`: it finds the box around each face. The file goes into models/ultralytics/bbox.\n\nAdd a {sam} node and choose \`sam_vit_b_01ec64.pth\` in \`model_name\`: it draws the exact outline of the face inside the box. The file goes into models/sams.\n\n${OLD_FORMAT}`,
-      },
-      detailer: {
-        title: 'Add FaceDetailer',
-        body: 'Add a {detailer} node and connect:\n- `image` from {decode};\n- `model`, `clip` and `vae` from {checkpoint};\n- `positive` and `negative` from the two texts;\n- `bbox_detector` from {detector};\n- `sam_model_opt` from {sam}.\n\nIt redraws with the same model and the same description as the whole picture, so the face matches the rest.',
-      },
-      settings: {
-        title: 'Set how much is redrawn',
-        body: 'In {detailer} set:\n- `denoise`: 0.5, how much of the old face is redrawn; higher changes the face more, lower only cleans it;\n- `guide_size`: 512, the size the face is enlarged to before it is redrawn;\n- `bbox_threshold`: 0.5, how sure the detector must be that it found a face.',
-      },
-      save: {
-        title: 'Save the repaired picture',
-        body: 'Add a {fixed} node and connect the `image` output of {detailer} to its `images` input.\n\nKeep the saver of the first picture too: comparing the two shows what was repaired.',
-      },
-      tips: {
-        title: 'When the result is bad',
-        body: '- The face is a different person: lower `denoise` to 0.3.\n- The face is still blurred: raise `guide_size`.\n- A seam around the face: raise `feather`.\n- No face found: lower `bbox_threshold`, or the face is too small even for the detector.\n\nTo keep a particular face while repairing, put IP-Adapter FaceID into the model path first, as in "The same face from one photo: IP-Adapter FaceID".',
-      },
-      run: {
-        title: 'The graph is ready',
-        body: SAVE,
       },
     },
   },
