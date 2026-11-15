@@ -9,6 +9,9 @@
  * No port number is built in: the origins come from Settings and from what the MCP server reports. Without an
  * injected fetch the connection is pinned to the checked address, so a second DNS answer (rebinding) cannot
  * redirect it.
+ *
+ * Used by agent/tools.ts (searchWeb and fetchPage), knowledge/webLookup.ts (the address check and the pinned
+ * request) and main/ipc.ts (setBlockedWebOrigins after every settings save and sync).
  */
 
 import dns from 'node:dns/promises';
@@ -19,14 +22,17 @@ import { Readable } from 'node:stream';
 import { FETCH_PAGE_BYTE_CAP, FETCH_PAGE_TEXT_CAP, megabytes } from '../../shared/agent/limits';
 import { userAgent } from '../identity';
 
+/** A fetch that takes a URL string; tests and the proxy-aware search transport pass one in. */
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
+/** One search result as the model receives it. */
 export interface WebResult {
   title: string;
   url: string;
   snippet: string;
 }
 
+/** One page read as text, with its final address after redirects. */
 export interface PageText {
   url: string;
   title: string;
@@ -36,11 +42,13 @@ export interface PageText {
   note?: string;
 }
 
+/** The search page asked first; the query is appended URL-encoded. */
 export const SEARCH_ENDPOINT = 'https://html.duckduckgo.com/html/?q=';
 /** The same engine's second public page, asked when the first cannot be read (its layout changed, an error). */
 export const SEARCH_ENDPOINT_LITE = 'https://lite.duckduckgo.com/lite/?q=';
 /** What the search tool says when neither page could be read: the assistant tells the person, never "nothing found". */
 export const SEARCH_UNAVAILABLE = 'Web search is unavailable now: the search pages could not be read. Say so to the person; do not say nothing was found.';
+/** One search or one page read, redirects included, must finish within this time. */
 export const WEB_TIMEOUT_MS = 10_000;
 /** Protective: search results come from an outside page; eight links are what one search answer needs. */
 export const MAX_RESULTS = 8;
@@ -52,11 +60,13 @@ export const MAX_REDIRECTS = 3;
 
 const USER_AGENT_PURPOSE = 'page reader';
 
+/** The named HTML entities common in titles and snippets; any other stays as written. */
 const NAMED_ENTITIES: Record<string, string> = {
   amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', ndash: '–', mdash: '—', hellip: '…',
   laquo: '«', raquo: '»', copy: '©', reg: '®', trade: '™', rsquo: '’', lsquo: '‘', rdquo: '”', ldquo: '“',
 };
 
+/** Decodes numeric and the common named HTML entities. */
 export function decodeEntities(value: string): string {
   return value.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole, body: string) => {
     if (body[0] === '#') {
@@ -67,6 +77,7 @@ export function decodeEntities(value: string): string {
   });
 }
 
+/** An HTML fragment as one line of plain text. */
 function stripTags(html: string): string {
   return decodeEntities(html.replace(/<[^>]*>/g, ' ')).replace(/\s+/g, ' ').trim();
 }
@@ -81,6 +92,7 @@ export function decodeResultLink(href: string): string | null {
     return null;
   }
   const wrapped = url.searchParams.get('uddg');
+  // An unwrapped link is a result only when it points away from the search host.
   const target = wrapped ?? (url.hostname.endsWith('duckduckgo.com') ? null : url.toString());
   if (!target) return null;
   try {
@@ -106,9 +118,11 @@ export function parseDuckDuckGoLite(html: string, max = MAX_RESULTS): WebResult[
 
 /** A page that says it found nothing, as opposed to a page whose layout the parser no longer knows. */
 export function saysNoResults(html: string): boolean {
+  // The pattern holds the engine's English and Russian "nothing found" texts.
   return /no[-_ ]results|no more results|ничего не найдено/i.test(html);
 }
 
+/** Result links by their class, each with the snippet that follows it before the next link. Duplicates are dropped. */
 function parseResults(html: string, linkClass: string, snippetClass: string, max: number): WebResult[] {
   const results: WebResult[] = [];
   // Attribute values may be double- or single-quoted.
@@ -151,6 +165,7 @@ export function htmlToText(html: string): { title: string; text: string } {
 /** The result of resolving a host name: every address it answers with. */
 export type LookupAll = (hostname: string) => Promise<Array<{ address: string; family: number }>>;
 
+/** Test seams and extra refusals for the address checks. */
 export interface WebGuardOptions {
   /** Resolves a host to every address. Defaults to `dns.lookup({ all: true })`. Tests pass a stub. */
   lookup?: LookupAll;
@@ -160,6 +175,7 @@ export interface WebGuardOptions {
 
 const defaultLookup: LookupAll = (hostname) => dns.lookup(hostname, { all: true, verbatim: true });
 
+/** The origins set by setBlockedWebOrigins. */
 let blockedWebOrigins: string[] = [];
 
 /**
@@ -187,11 +203,13 @@ export function blockedWebOriginsSnapshot(): string[] {
   return [...blockedWebOrigins];
 }
 
+/** The four numbers of an IPv4 literal, or null when the text is not one. */
 function ipv4Parts(host: string): number[] | null {
   if (net.isIPv4(host) !== true) return null;
   return host.split('.').map((part) => Number(part));
 }
 
+/** True for IPv4 ranges that are this machine, private, shared, reserved or not routed on the public internet. */
 function blockedIPv4(parts: number[]): boolean {
   const [a, b, c] = parts;
   return a === 0 // "this" network
@@ -228,6 +246,7 @@ export function ipv6Groups(host: string): number[] | null {
   return groups.length === 8 && groups.every((group) => Number.isInteger(group) && group >= 0 && group <= 0xffff) ? groups : null;
 }
 
+/** True for IPv6 ranges that are local, private, documentation, multicast or carry an IPv4 address inside. */
 function blockedIPv6(groups: number[]): boolean {
   const [g0, g1, g2, g3, g4, g5, g6, g7] = groups;
   if (g0 === 0 && g1 === 0 && g2 === 0 && g3 === 0 && g4 === 0) {
@@ -253,13 +272,16 @@ export function isBlockedAddress(address: string): boolean {
   if (v4) return blockedIPv4(v4);
   const v6 = ipv6Groups(host);
   if (v6) return blockedIPv6(v6);
+  // Not an address at all: refused, since nothing can be said about where it leads.
   return true;
 }
 
+/** The host in lower case without IPv6 brackets or trailing dots, the one spelling every check compares. */
 function bareHost(url: URL): string {
   return url.hostname.toLowerCase().replace(/^\[|\]$/g, '').replace(/\.+$/, '');
 }
 
+/** The port the connection really uses, the scheme's default when none is written. */
 function effectivePort(url: URL): string {
   return url.port || (url.protocol === 'https:' ? '443' : '80');
 }
@@ -268,6 +290,7 @@ function isSearchHost(host: string): boolean {
   return host === new URL(SEARCH_ENDPOINT).hostname;
 }
 
+/** Whether the address is one of the refused origins (same host and port, whatever the scheme). */
 function matchesBlockedOrigin(url: URL, extra: string[] = []): boolean {
   const host = bareHost(url);
   const port = effectivePort(url);
@@ -302,6 +325,7 @@ export function publicWebUrl(value: string, options: WebGuardOptions = {}): URL 
   const host = bareHost(url);
   if (host === '' || host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local') || host.endsWith('.internal')
     || host.endsWith('.home.arpa') || host.endsWith('.lan')) return null;
+  // A single-label name ("nas", "printer") is a name on the home network.
   if (!host.includes('.') && !host.includes(':')) return null;
   if (net.isIP(host) !== 0 && isBlockedAddress(host)) return null;
   const port = effectivePort(url);
@@ -310,6 +334,7 @@ export function publicWebUrl(value: string, options: WebGuardOptions = {}): URL 
   return url;
 }
 
+/** An address that passed every check, with the resolved IP the connection must use. */
 export interface VettedTarget {
   url: URL;
   address: string;
@@ -332,17 +357,20 @@ export async function vetWebTarget(url: URL, options: WebGuardOptions = {}): Pro
     return null;
   }
   if (!Array.isArray(answers) || answers.length === 0) return null;
+  // Any blocked answer refuses the host: the OS could pick that answer when connecting.
   if (answers.some((answer) => isBlockedAddress(answer.address))) return null;
   const first = answers[0];
   return { url: checked, address: first.address, family: net.isIP(first.address) === 6 ? 6 : 4 };
 }
 
+/** An abort signal that fires after `ms`, and a function that cancels the timer once the work is done. */
 function timeoutSignal(ms: number): { signal: AbortSignal; done: () => void } {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(new Error('timeout')), ms);
   return { signal: controller.signal, done: () => clearTimeout(timer) };
 }
 
+/** The body as text, at most `cap` bytes; reading stops (and the download is cancelled) at the cap. */
 async function readCapped(response: Response, cap: number): Promise<{ text: string; capped: boolean }> {
   if (!response.body) {
     const buffer = Buffer.from(await response.arrayBuffer());
@@ -369,10 +397,12 @@ async function readCapped(response: Response, cap: number): Promise<{ text: stri
   return { text: Buffer.concat(chunks).toString('utf8'), capped };
 }
 
+/** The only request headers sent: a user agent and an accept line. No cookie, no key. */
 function headers(): Record<string, string> {
   return { 'user-agent': userAgent(USER_AGENT_PURPOSE), accept: 'text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.5' };
 }
 
+/** Statuses the Response constructor refuses a body for. */
 const NULL_BODY_STATUS = new Set([101, 103, 204, 205, 304]);
 
 /**
@@ -383,6 +413,7 @@ const NULL_BODY_STATUS = new Set([101, 103, 204, 205, 304]);
 export function pinnedRequest(target: VettedTarget, init: RequestInit = {}): Promise<Response> {
   const { url, address, family } = target;
   const client = url.protocol === 'https:' ? https : http;
+  // Node asks this lookup instead of DNS, and it always answers with the vetted address.
   const pinnedLookup = (_host: string, options: unknown, callback: (...args: unknown[]) => void) => {
     const all = typeof options === 'object' && options !== null && (options as { all?: boolean }).all === true;
     if (all) callback(null, [{ address, family }]);
@@ -398,6 +429,7 @@ export function pinnedRequest(target: VettedTarget, init: RequestInit = {}): Pro
       method: 'GET',
       headers: init.headers as Record<string, string> | undefined,
       lookup: pinnedLookup as never,
+      // No shared agent: a pooled connection made for another address must never be reused here.
       agent: false,
     }, (incoming) => {
       const responseHeaders = new Headers();
@@ -406,6 +438,7 @@ export function pinnedRequest(target: VettedTarget, init: RequestInit = {}): Pro
         else if (typeof value === 'string') responseHeaders.set(name, value);
       }
       const status = incoming.statusCode ?? 502;
+      // Statuses a Response cannot carry with a body (or at all) are answered without one; odd ones become 502.
       if (NULL_BODY_STATUS.has(status) || status < 200 || status > 599) {
         incoming.resume();
         resolve(new Response(null, { status: status < 200 || status > 599 ? 502 : status, headers: responseHeaders }));
@@ -439,11 +472,12 @@ export function isSearchChallenge(html: string): boolean {
   return /anomaly-modal|challenge-form|bots use DuckDuckGo|captcha/i.test(html);
 }
 
+/** The reason recorded when the search page is a human check rather than results. */
 export const SEARCH_CHALLENGE_ERROR = 'Web search asked for a human check, so no results were read.';
 
 /**
- * Fallback search when the provider has no native web search. Redirects are followed only within the
- * search host. Throws on a challenge page so the tool reports a failure, not an empty result.
+ * Neither search page could be read (an error, a human check, a layout the parser does not know). `reasons` keeps
+ * why each page failed; the message is SEARCH_UNAVAILABLE, so the tool reports a failure, not an empty result.
  */
 export class SearchUnavailableError extends Error {
   constructor(readonly reasons: string[]) {
@@ -471,6 +505,7 @@ export async function searchWebFallback(query: string, fetchImpl?: FetchLike, op
   throw new SearchUnavailableError(reasons);
 }
 
+/** One search page: redirects are followed only within the search host over https. Throws when it cannot be read. */
 async function searchOnce(trimmed: string, endpoint: string, parse: (html: string) => WebResult[], fetchImpl: FetchLike | undefined, options: WebGuardOptions): Promise<WebResult[]> {
   const timer = timeoutSignal(WEB_TIMEOUT_MS);
   try {
@@ -508,6 +543,7 @@ async function searchOnce(trimmed: string, endpoint: string, parse: (html: strin
   }
 }
 
+/** Content types the page reader returns as text; images, archives and other binary files are refused. */
 const TEXTUAL = /^(text\/|application\/(xhtml\+xml|xml|json|ld\+json|rss\+xml|atom\+xml))/i;
 
 /**

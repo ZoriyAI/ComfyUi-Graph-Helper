@@ -1,3 +1,9 @@
+/**
+ * The main-process tools of a turn: read the graph, search and describe the catalog, read the web, save
+ * explanations, draft lessons and propose changes as ghosts. agent/turn.ts creates them for every turn; the build
+ * tools come from buildTools.ts. Every argument is checked with zod here, since the model's input is not trusted,
+ * and every result is escaped so outside text cannot close the prompt's data block.
+ */
 import type Database from 'better-sqlite3';
 import { jsonSchema } from 'ai';
 import { z } from 'zod';
@@ -27,6 +33,7 @@ export type KnowledgeApi = Pick<typeof knowledgeRepository,
 /** The proposal functions the agent writes ghosts through. Defaults to the Engine repository. */
 export type ProposalApi = Pick<typeof proposalRepository, 'createProposal' | 'listProposals'>;
 
+/** What the tools need from the turn; most fields are optional so tests can pass fakes. */
 export interface AgentToolDeps {
   db: Database.Database;
   projectId: string;
@@ -40,6 +47,7 @@ export interface AgentToolDeps {
   notify?: (channel: string, payload: unknown) => void;
   /** Provider-executed web search tool, or null for the main-process fallback. */
   nativeSearch?: unknown | null;
+  /** Reads the project's graph; the commit store's readProjection by default. */
   readGraph?: (db: Database.Database, projectId: string) => Projection | null;
   /** Snapshot and catalog for resolving port names and slot indices in proposals. */
   toolContext?: () => ToolContext | undefined;
@@ -58,6 +66,7 @@ export interface AgentToolDeps {
   links?: ConversationLinks;
 }
 
+/** A tool in the shape the AI SDK takes. */
 export interface AgentToolDefinition {
   description: string;
   inputSchema: ReturnType<typeof jsonSchema>;
@@ -77,6 +86,7 @@ function page<T>(rows: T[], limit: number): { success: true; results: T[]; more?
   return { success: true, results: rows.slice(0, limit), more: true, note: `More than ${limit} match; pass a larger limit or a narrower query to see the rest.` };
 }
 
+/** The text of a thrown error the model may read, or the fallback when it is empty or looks like a secret. */
 function errorText(error: unknown, fallback: string): string {
   const message = error instanceof Error ? error.message : '';
   // Messages from our repositories are plain sentences; anything secret-shaped is replaced.
@@ -85,6 +95,7 @@ function errorText(error: unknown, fallback: string): string {
   return message.length > 300 ? `${message.slice(0, 300)}…` : message;
 }
 
+/** The zod check of an object reference (the explain tool's owner). */
 const objectRefSchema = z.object({
   kind: z.enum(['node', 'port', 'edge', 'subgraph', 'group', 'nodeClass', 'model', 'process']),
   id: z.string().min(1).max(500),
@@ -96,6 +107,7 @@ const objectRefSchema = z.object({
   name: z.string().max(500).optional(),
 });
 
+/** The zod checks of each tool's arguments, matching MAIN_TOOL_SPECS. */
 const schemas = {
   getGraph: z.object({
     offset: z.number().int().min(0).optional(),
@@ -135,8 +147,10 @@ export const PROPOSAL_BUILD_TWIN: Record<AgentProposalTool, string> = {
   proposeSubgraph: 'createSubgraph',
 };
 
+/** The graph changes a ghost may carry; anything else a twin produces is refused. */
 const PROPOSAL_KINDS: readonly ProposalKind[] = ['add-node', 'connect', 'set-parameter', 'create-subgraph', 'insert-subgraph', 'remove-node'];
 
+/** Checks a tool's arguments; a failure names the first wrong field so the model can correct its call. */
 function parse<T>(schema: z.ZodType<T>, args: unknown): { ok: true; value: T } | { ok: false; failure: Failure } {
   const parsed = schema.safeParse(args ?? {});
   if (parsed.success) return { ok: true, value: parsed.data };
@@ -170,6 +184,7 @@ function withHandles<T extends { inputs?: unknown; outputs?: unknown }>(detail: 
   };
 }
 
+/** A source address an explanation may keep: http(s) only, else null. */
 function webSource(value: string | undefined): string | null {
   if (!value) return null;
   try {
@@ -181,7 +196,7 @@ function webSource(value: string | undefined): string | null {
 }
 
 /**
- * Builds the main-process agent tools (read, knowledge, proposals). Build tools are added by the IPC layer
+ * Builds the main-process agent tools (read, knowledge, proposals). Build tools are added by agent/turn.ts
  * from renderer specs. Nothing here installs, downloads, queues, or calls MCP.
  */
 export function createAgentTools(deps: AgentToolDeps): Record<string, AgentToolDefinition | unknown> {
@@ -210,6 +225,7 @@ export function createAgentTools(deps: AgentToolDeps): Record<string, AgentToolD
     return null;
   };
 
+  /** One tool from its spec, its argument check and its body; a thrown error becomes a plain failure result. */
   const define = <T>(name: keyof typeof MAIN_TOOL_SPECS, schema: z.ZodType<T>, run: (args: T) => unknown | Promise<unknown>): AgentToolDefinition => ({
     description: MAIN_TOOL_SPECS[name].description,
     inputSchema: jsonSchema(MAIN_TOOL_SPECS[name].parameters as any),
@@ -225,6 +241,7 @@ export function createAgentTools(deps: AgentToolDeps): Record<string, AgentToolD
     },
   });
 
+  /** A propose* tool: its build twin's arguments become the graph change the ghost carries. */
   const propose = (name: AgentProposalTool): AgentToolDefinition => define(name, schemas.proposal, (args) => {
     const { note, ...rest } = args as { note: string } & Record<string, unknown>;
     if (carriesSecret({ note })) return fail('The note looks like it carries a secret.');
@@ -273,6 +290,7 @@ export function createAgentTools(deps: AgentToolDeps): Record<string, AgentToolD
     }),
     searchNodeTypes: define('searchNodeTypes', schemas.searchNodeTypes, (args) => {
       const limit = args.limit ?? SEARCH_PAGE;
+      // One row more than asked: it tells whether the list goes on, without counting the whole catalog.
       return page(knowledge.searchNodeClasses(db, { query: args.query, category: args.category, limit: limit + 1 }), limit);
     }),
     describeNodeType: define('describeNodeType', schemas.describeNodeType, (args) => {
@@ -316,7 +334,7 @@ export function createAgentTools(deps: AgentToolDeps): Record<string, AgentToolD
       const global = globalOwner(owner);
       // The assistant's words are never stored as a fact (only the app's own reading of ComfyUI is), and what it
       // writes about a node class or a model stays in this project: nothing global is written without the person
-      // (P0 of the assistant review; the security review's finding from the other side).
+      // (a project-level note never changes what other projects read).
       const saved = knowledge.saveExplanation(db, {
         projectId,
         owner,
@@ -337,6 +355,7 @@ export function createAgentTools(deps: AgentToolDeps): Record<string, AgentToolD
     proposeSubgraph: propose('proposeSubgraph'),
   };
 
+  // The person's web switches remove the tools, so the model is never offered what it may not use.
   if (deps.allowFetchPage === false) delete tools.fetchPage;
   if (deps.allowWebSearch === false) return tools;
   const native = deps.nativeSearch === undefined ? null : deps.nativeSearch;

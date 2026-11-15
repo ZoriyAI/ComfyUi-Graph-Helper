@@ -1,15 +1,15 @@
+/**
+ * Assistant runs that ended without finishing: one chat line saying the run was cut off and how many of its nodes
+ * stayed on the canvas. main/database.ts calls closeInterruptedRuns when the database opens at start;
+ * ipc/agentIpc.ts calls reportInterruptedRun when a window goes away during a run.
+ * The line has the id `interrupted-<runId>`, so a run is never reported twice.
+ */
 import type Database from 'better-sqlite3';
 import { closeStaleRuns, readProjection } from '../commands/commit';
 import { runCreatedNodeIds } from '../commands/placement';
 import { saveChatMessage } from './chatHistory';
 import { createTranslator, type AppLanguage } from '../../shared/i18n';
 
-/**
- * At startup no turn is in flight: a run the previous session left running or paused was cut off by closing the
- * app. It is closed (as before), and when it had changed the graph the chat gets one visible line saying what
- * happened and what stayed on the canvas. A run that changed nothing (a plain question) leaves no line.
- * Returns how many lines were written.
- */
 /**
  * One run cut off because its window went away (closed during a pause or a build): the same line in the chat as at
  * the next start, written now, since the turn's end closes the run and the start-up check would not see it.
@@ -29,12 +29,19 @@ export function reportInterruptedRun(db: Database.Database, projectId: string, r
       timestamp: now,
       graphRevisionId: null,
       toolCalls: null,
+    // No held-secret check: the line is the app's own catalog text, not the person's or the model's words.
     }, () => false).ok;
   } catch {
     return false;
   }
 }
 
+/**
+ * At startup no turn is in flight: a run the previous session left running or paused was cut off by closing the
+ * app. It is closed (as before), and when it had changed the graph the chat gets one visible line saying what
+ * happened and what stayed on the canvas. A run that changed nothing (a plain question) leaves no line.
+ * Returns how many lines were written.
+ */
 export function closeInterruptedRuns(db: Database.Database, language: AppLanguage, now = Date.now()): number {
   let written = 0;
   try {

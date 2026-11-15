@@ -1,3 +1,9 @@
+/**
+ * One assistant turn from start to end, in main: reads the graph, the catalog and the preferences, builds the
+ * system message and the data block, picks the tools (fewer in a small context window), streams the model's answer
+ * to the renderer and closes or pauses the run. ipc/agentIpc.ts runs it for every llm:stream-chat request.
+ * It lives in main because the renderer cannot see the catalog, the action log or the held keys.
+ */
 import type Database from 'better-sqlite3';
 import { turnLinesAllowed, turnLog } from '../trace/modelTrace';
 import { closeRun, listRecentCommands, pauseRun, readProjection } from '../commands/commit';
@@ -29,6 +35,7 @@ import type { Preferences } from '../../shared/config/preferences';
 
 type ChatMessage = { role: 'system' | 'user' | 'assistant'; content: string };
 
+/** Everything one turn needs; the optional fields are test seams with the app's real objects as defaults. */
 export interface AgentTurnOptions {
   db: Database.Database;
   messages: unknown;
@@ -44,6 +51,7 @@ export interface AgentTurnOptions {
   notify: (channel: string, payload: unknown) => void;
   /** Aborted by llm:cancel or when the window goes away: the provider request and the tool loop stop. */
   signal?: AbortSignal;
+  /** The model service; the app's one by default, a fake in tests. */
   llm?: Pick<typeof mainLLMService, 'streamChatWithTools' | 'nativeSearchTool'>
     & Partial<Pick<typeof mainLLMService, 'redact' | 'charsPerToken' | 'localContextTokens' | 'rememberLocalContext' | 'nextSendConfig' | 'ensureLocalWindow' | 'listedContextTokens'>>;
   /** Model id for the context window table. Default: the configured model of the next send. */
@@ -57,6 +65,7 @@ export interface AgentTurnOptions {
   appVersion?: string;
 }
 
+/** The renderer's messages reduced to user and assistant text; its system messages are dropped (main writes its own). */
 function dialog(input: unknown): ChatMessage[] {
   if (!Array.isArray(input)) return [];
   return input.flatMap((item) => {
@@ -69,11 +78,13 @@ function dialog(input: unknown): ChatMessage[] {
   });
 }
 
+/** The renderer's build-tool specs, keeping only entries that have a name. */
 function specs(input: unknown): RendererToolSpec[] {
   if (!Array.isArray(input)) return [];
   return input.filter((item): item is RendererToolSpec => !!item && typeof item === 'object' && typeof (item as RendererToolSpec).name === 'string');
 }
 
+/** Tool names a renderer spec may define even when main has a tool of that name. */
 const BUILD = new Set<string>(AGENT_BUILD_TOOLS);
 /** A recency window, not a cap on data: the prompt says when the list is the latest 30 only; the graph is complete. */
 const RECENT_LIMIT = 30;
@@ -105,6 +116,7 @@ const COMPACT_ASK = [...COMPACT_READ, 'describeModel', 'explain', 'proposeNode',
 /** Roughly what one tool's name, description and schema take in the request, in characters. */
 const TOOL_CHARS = 700;
 
+/** The tools a compact turn offers: the build set in a build turn, the ask set otherwise. */
 export function compactToolNames(buildAllowed: boolean): readonly string[] {
   return buildAllowed ? COMPACT_BUILD : COMPACT_ASK;
 }
@@ -155,6 +167,7 @@ export const DATA_SHARE = 0.35;
 
 /** Characters the data block may take in a window of `tokens`. */
 export function dataBudgetChars(tokens: number, charsPerToken: number): number {
+  // A floor: even a tiny window gets 2000 characters of data rather than none.
   return Math.max(2000, Math.floor(tokens * DATA_SHARE * charsPerToken));
 }
 
@@ -171,6 +184,7 @@ export function fitTurnData(
   if (data.length <= options.budgetChars || !projection) return data;
   const planned = { ...input, graphPlan: true };
   data = buildTurnData(planned);
+  // Halve the number of nodes in the plan until it fits; below 10 nodes the plan says too little, so it stops there.
   for (let limit = Math.max(10, Math.floor((input.graph?.totalNodes ?? 0) / 2)); data.length > options.budgetChars && limit >= 10; limit = Math.floor(limit / 2)) {
     const graph = summarizeGraph(projection.snapshot, { selectedIds: options.selectedIds, priorityIds: options.priority, omitValues: options.omitValues, widgetNames: options.widgetNames, limit });
     data = buildTurnData({ ...planned, graph });
@@ -200,6 +214,7 @@ export async function runAgentTurn(options: AgentTurnOptions): Promise<void> {
   const stopper = new AbortController();
   let storageFailure: string | null = null;
   let runEnded = false;
+  // The caller's signal (cancel, window closed) feeds the turn's own stopper, which the turn can also fire itself.
   const outer = options.signal;
   const onOuterAbort = () => stopper.abort();
   if (outer?.aborted) stopper.abort();
@@ -265,6 +280,7 @@ export async function runAgentTurn(options: AgentTurnOptions): Promise<void> {
       priority: priorityIds(context, recent),
       omitValues: !privacy.sendFieldValues,
       widgetNames,
+      // A local window not known yet is taken as half the compact size, so the first turn surely fits.
       budgetChars: dataBudgetChars(unknownLocal ? COMPACT_WINDOW / 2 : knownWindow.tokens, charsPerTokenNow),
     }));
 
@@ -370,6 +386,7 @@ export async function runAgentTurn(options: AgentTurnOptions): Promise<void> {
     // the data block, and the chat says truthfully that the answer came without them.
     let toolsRefused = false;
     const offered = Object.keys(tools).length > 0;
+    /** Streams one model request to the renderer; `refusable` swallows a "no tools" refusal so the turn can retry. */
     const run1 = async (toolSet: Record<string, unknown>, systemText: string, refusable: boolean) => {
       for await (const chunk of llm.streamChatWithTools([{ role: 'system', content: systemText }, ...messages], toolSet as Record<string, any>, streamOptions)) {
         if (signal.aborted) break;
@@ -412,6 +429,7 @@ export async function runAgentTurn(options: AgentTurnOptions): Promise<void> {
   } finally {
     outer?.removeEventListener('abort', onOuterAbort);
     if (storageFailure) terminal = { type: 'error', content: { message: storageFailure, kind: 'storage', details: storageFailure } };
+    // Always the same ending: close (or keep paused) the run, send the final projection, then done or error.
     const closed = closeIfRunning(db, run, checkpoint);
     if (closed) send({ type: 'projection', content: closed });
     send(terminal);

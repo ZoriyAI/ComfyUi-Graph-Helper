@@ -3,6 +3,8 @@
  * messages, and the ones a web search returned in it. Anything else (an address found in a model description, a
  * workflow note or a page) is refused, so text from outside cannot make the helper send the person's data to an
  * address of its choosing. Exact addresses: the fragment aside, the address must be the one written or returned.
+ * agent/turn.ts fills the list from each turn; agent/tools.ts checks it before the page reader opens an address;
+ * ipc/agentIpc.ts forgets it when the chat is cleared.
  */
 
 /** The address as compared: parsed, fragment dropped; null for anything that is not http(s). */
@@ -22,6 +24,7 @@ export function normalLink(value: string): string | null {
 export function linksInText(text: string): string[] {
   const found: string[] = [];
   for (const match of text.matchAll(/https?:\/\/[^\s<>"'`«»]+/gi)) {
+    // "See https://example.org/page." means the page, not "page.".
     const raw = match[0].replace(/[.,;:!?)\]}]+$/, '');
     const link = normalLink(raw);
     if (link && !found.includes(link)) found.push(link);
@@ -32,13 +35,16 @@ export function linksInText(text: string): string[] {
 /** Most addresses one conversation keeps: older ones are dropped first. */
 const LINKS_PER_CONVERSATION = 500;
 
+/** The addresses one conversation may open, oldest dropped first past the cap. */
 export class ConversationLinks {
   private readonly links = new Set<string>();
 
+  /** Adds addresses as they are, query included (the person's own). */
   add(urls: Iterable<string>): void {
     for (const url of urls) {
       const link = normalLink(url);
       if (!link) continue;
+      // Delete and add again: a Set keeps insertion order, so a used address moves to the newest end.
       this.links.delete(link);
       this.links.add(link);
       if (this.links.size > LINKS_PER_CONVERSATION) this.links.delete(this.links.values().next().value as string);
@@ -62,12 +68,14 @@ export class ConversationLinks {
     this.add(bare);
   }
 
+  /** Whether the page reader may open this exact address. */
   allows(url: string): boolean {
     const link = normalLink(url);
     return link !== null && this.links.has(link);
   }
 }
 
+/** One list per project, in memory only: a restart starts every conversation with no allowed address. */
 const byProject = new Map<string, ConversationLinks>();
 
 /** The links of one project's conversation, kept for this run of the app. */

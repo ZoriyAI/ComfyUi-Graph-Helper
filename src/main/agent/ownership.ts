@@ -1,11 +1,11 @@
+/**
+ * What a build run may change on its own: only what it placed itself in this run. Anything on the person's own
+ * nodes, links, notes or the project's name becomes a grey draft the person accepts, so a build never silently
+ * rewrites the person's work. Used by agent/buildTools.ts before each change of a build.
+ */
 import type Database from 'better-sqlite3';
 import type { GraphMutation, Projection } from '../../shared/commands/types';
 import type { ProposalKind } from '../../shared/contracts';
-
-/**
- * What a build run may change on its own (P0 from the assistant review): only what it placed itself in this run.
- * Anything on the person's own nodes, links, notes or the project's name becomes a grey draft the person accepts.
- */
 
 /** Nodes (and subgraph definitions) this run made: added nodes, inserted subgraphs, subgraphs it made of its nodes. */
 export function runOwned(db: Database.Database, projectId: string, runId: string): { nodes: Set<string>; definitions: Set<string>; process: boolean } {
@@ -34,6 +34,7 @@ export function runOwned(db: Database.Database, projectId: string, runId: string
   return { nodes, definitions, process };
 }
 
+/** The project's name as the graph holds it now, or '' when it has none. */
 function processTitle(projection: Projection | null): string {
   const process = projection?.snapshot.process as { title?: unknown } | null | undefined;
   return typeof process?.title === 'string' ? process.title.trim() : '';

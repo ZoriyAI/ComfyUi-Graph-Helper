@@ -2,14 +2,17 @@
  * What of an AI SDK fullStream part reaches the renderer, and the loop guard on failed tool results.
  * Only the fields the chat uses are forwarded: provider metadata, raw request and response bodies, and
  * error objects (which can echo a request) stay in main. Error messages are redacted.
+ * Used by llmService.ts (forwarding and the stop condition) and agent/turn.ts (error messages).
  */
 
 import { classifyTurnError } from '../../shared/agent/turnError';
 
+/** The part fields the chat reads; every other field stays in main. */
 const FORWARDED = ['id', 'text', 'toolCallId', 'toolName', 'input', 'output', 'finishReason'] as const;
 /** Protective: provider errors can echo a request; 500 characters (with "…") is enough to say what went wrong. */
 const ERROR_CAP = 500;
 
+/** Hides secrets in a text; llmService passes its own redactor. */
 export type Redact = (text: string) => string;
 
 /** A plain, redacted message for any thrown value or stream error. */
@@ -39,6 +42,7 @@ export function forwardPart(part: { type: string } & Record<string, unknown>, re
   return { type: part.type, content };
 }
 
+/** Whether a tool's result object reports a failure (the app's tools return `success: false` or `conflict: true`). */
 function failed(output: unknown): boolean {
   if (!output || typeof output !== 'object' || Array.isArray(output)) return false;
   const record = output as { success?: unknown; conflict?: unknown };
