@@ -273,6 +273,8 @@ export async function setupIPC(): Promise<void> {
       buttonLabel: copy.buttonLabel,
       filters: [{ name: copy.filter, extensions: ['json'] }],
       defaultPath: defaultSavePaths(projectFileState(getDatabase(), DESKTOP_PROJECT_ID)).workflow,
+      // GTK on Linux replaces an existing file without asking unless told to ask.
+      properties: ['showOverwriteConfirmation'],
     });
     if (result.canceled || !result.filePath) return { ok: false, canceled: true };
     try {
@@ -324,6 +326,8 @@ export async function setupIPC(): Promise<void> {
         buttonLabel: copy.buttonLabel,
         filters: [{ name: copy.filter, extensions: ['json'] }],
         defaultPath: defaultSavePaths(state).project,
+        // GTK on Linux replaces an existing file without asking unless told to ask.
+        properties: ['showOverwriteConfirmation'],
       });
       if (result.canceled || !result.filePath) return { ok: false, canceled: true };
       // A name typed without .json would hide the file from Open, which lists only *.json.
