@@ -99,6 +99,21 @@ describe('install scripts', () => {
     for (const key of shUsed) expect(shKeys('en'), `install-macos.sh uses ${key}`).toContain(key);
   });
 
+  it('build on the case-insensitive file systems of Windows and macOS: no two files differ only in letter case', () => {
+    // An import names a module without its extension, so markdownLite.ts beside MarkdownLite.tsx is one module name
+    // on a Mac or a Windows computer (the first macOS build failed on exactly that).
+    const tracked = execFileSync('git', ['ls-files', '-z'], { cwd: ROOT, maxBuffer: 1 << 26 }).toString('utf8').split('\0').filter(Boolean);
+    const seen = new Map<string, string>();
+    const clashes: string[] = [];
+    for (const file of tracked) {
+      const key = file.replace(/\.(tsx?|jsx?|mjs|cjs)$/, '').toLowerCase();
+      const other = seen.get(key);
+      if (other && other !== file) clashes.push(`${other} / ${file}`);
+      seen.set(key, file);
+    }
+    expect(clashes).toEqual([]);
+  });
+
   it('need no Git: every package comes from the npm registry', () => {
     const lock = JSON.parse(fs.readFileSync(path.join(ROOT, 'package-lock.json'), 'utf8')) as { packages: Record<string, { resolved?: string; link?: boolean }> };
     const elsewhere = Object.entries(lock.packages).filter(([name, entry]) => name && !entry.link && entry.resolved && !entry.resolved.startsWith('https://registry.npmjs.org/'));

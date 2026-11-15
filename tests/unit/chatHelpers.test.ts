@@ -5,7 +5,7 @@
  * up as garbled text, a missing label or a secret on screen.
  */
 import { describe, expect, it } from 'vitest';
-import { parseInline, parseMarkdownLite } from '../../src/renderer/components/chat/markdownLite';
+import { parseInline, parseMarkdownLite } from '../../src/renderer/components/chat/markdownParse';
 import {
   chatRecordFromMessage,
   INTERRUPTED_ERROR,

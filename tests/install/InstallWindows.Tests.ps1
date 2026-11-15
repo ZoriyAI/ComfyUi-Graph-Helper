@@ -3,6 +3,15 @@
 # options stop with exit code 2, another system is refused with 3, and a dry run prints every step and changes
 # nothing. On Linux and macOS the dry run uses -PretendWindows. Run by .github/workflows/install-scripts.yml:
 #   Invoke-Pester -Path tests/install -Output Detailed
+# OnWindowsAtDiscovery is read by -Skip below, where the analyzer does not see it.
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '', Justification = 'Read by -Skip at discovery')]
+param()
+
+# -Skip is decided while Pester discovers the tests, before BeforeAll runs, so the system is known here too.
+BeforeDiscovery {
+  $OnWindowsAtDiscovery = [System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT
+}
+
 BeforeAll {
   $script:Installer = Join-Path $PSScriptRoot '..\..\scripts\install\install-windows.ps1'
   $script:Shell = (Get-Process -Id $PID).Path
@@ -53,13 +62,13 @@ Describe 'install-windows.ps1' {
     $result.Output | Should -Match 'exclude each other'
   }
 
-  It 'refuses another system with exit code 3' -Skip:$script:OnWindows {
+  It 'refuses another system with exit code 3' -Skip:$OnWindowsAtDiscovery {
     $result = Invoke-Installer @('-DryRun')
     $result.Code | Should -Be 3
     $result.Output | Should -Match 'This script is for Windows'
   }
 
-  It 'speaks Russian with -Language ru' -Skip:$script:OnWindows {
+  It 'speaks Russian with -Language ru' -Skip:$OnWindowsAtDiscovery {
     $result = Invoke-Installer @('-DryRun', '-Language', 'ru')
     $result.Output | Should -Match 'Этот скрипт для Windows'
   }

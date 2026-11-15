@@ -122,6 +122,8 @@ jobs:
           $result = Invoke-Pester -Path tests/install -Output Detailed -PassThru
           if ($result.FailedCount -gt 0) { exit 1 }
       - name: A dry run changes nothing
+        # Independent of the step before: run it anyway, so one run shows every failure (the job still fails).
+        if: ${{ !cancelled() }}
         run: |
           & $env:PS_EXE -NoProfile -ExecutionPolicy Bypass -File scripts\install\install-windows.ps1 -DryRun -Source . -LogPath "$env:RUNNER_TEMP\results\dry-run.log"
           if ($LASTEXITCODE -ne 0) { throw "dry run exited with $LASTEXITCODE" }
@@ -129,10 +131,14 @@ jobs:
             if (Test-Path -LiteralPath $path) { throw "the dry run left $path" }
           }
       - name: Install from this commit, as a person would (private Node.js)
+        id: install
+        # Independent of the step before: run it anyway, so one run shows every failure (the job still fails).
+        if: ${{ !cancelled() }}
         run: |
           & $env:PS_EXE -NoProfile -ExecutionPolicy Bypass -File scripts\install\install-windows.ps1 -Source $env:GITHUB_WORKSPACE -PrivateNode -Yes -KeepBuild -DesktopShortcut -LogPath "$env:RUNNER_TEMP\results\install-1.log"
           if ($LASTEXITCODE -ne 0) { throw "install exited with $LASTEXITCODE" }
       - name: What was installed
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: |
           $exe = Join-Path $env:INSTALL_DIR 'nodewise-studio.exe'
           if (-not (Test-Path -LiteralPath $exe)) { throw "no $exe" }
@@ -151,11 +157,13 @@ jobs:
           Write-Host "Files with a Zone.Identifier (mark of the web): $($marked.Count)"
           "Windows ${{ matrix.os }}: files with mark of the web in the installed app: $($marked.Count)" | Add-Content $env:GITHUB_STEP_SUMMARY
       - name: The installed app answers --version, opens and passes the smoke check (screenshot)
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: |
           $source = "$env:LOCALAPPDATA\nodewise-studio-installer\work\src"
           node "$source\scripts\smoke-installed-app.js" --app (Join-Path $env:INSTALL_DIR 'nodewise-studio.exe') --expect-version $env:VERSION --screenshot "$env:RUNNER_TEMP\results\first-window-${{ matrix.os }}.png"
           if ($LASTEXITCODE -ne 0) { throw "smoke check exited with $LASTEXITCODE" }
       - name: A second run upgrades in place and keeps the data
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: |
           New-Item -ItemType Directory -Path $env:DATA_DIR -Force | Out-Null
           Set-Content -LiteralPath "$env:DATA_DIR\install-check-marker.txt" -Value 'kept'
@@ -165,6 +173,7 @@ jobs:
           if ((Get-Content -LiteralPath "$env:DATA_DIR\install-check-marker.txt") -ne 'kept') { throw 'the marker in the data folder is gone' }
           if (-not (Test-Path -LiteralPath (Join-Path $env:INSTALL_DIR 'nodewise-studio.exe'))) { throw 'the app is gone after the upgrade' }
       - name: Uninstall from the Installed apps entry removes the app and keeps the data
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: |
           $command = (Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\nodewise-studio').QuietUninstallString
           Write-Host "Running: $command"
@@ -180,6 +189,14 @@ jobs:
             if (Test-Path -LiteralPath $path) { throw "uninstall left $path" }
           }
           if ((Get-Content -LiteralPath "$env:DATA_DIR\install-check-marker.txt") -ne 'kept') { throw 'uninstall removed the data' }
+      - name: On failure, the end of every log
+        if: failure()
+        run: |
+          foreach ($log in Get-ChildItem "$env:RUNNER_TEMP\results" -Filter *.log -ErrorAction SilentlyContinue) {
+            Write-Host "===== $($log.Name) (last 200 lines) ====="
+            Get-Content -LiteralPath $log.FullName -Tail 200 | ForEach-Object { Write-Host $_ }
+          }
+          foreach ($path in @($env:INSTALL_DIR, "$env:LOCALAPPDATA\nodewise-studio-installer")) { Write-Host "$path exists: $(Test-Path -LiteralPath $path)" }
       - name: Upload the logs and the screenshot
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -220,14 +237,20 @@ jobs:
       - name: Started from zsh, the script runs itself under bash
         run: zsh scripts/install/install-macos.sh --help | grep -q 'Exit codes'
       - name: A dry run changes nothing
+        # Independent of the step before: run it anyway, so one run shows every failure (the job still fails).
+        if: ${{ !cancelled() }}
         run: |
           /bin/bash scripts/install/install-macos.sh --dry-run --source . --log "$RUNNER_TEMP/results/dry-run.log"
           for path in "$APP" "$HOME/Library/Caches/nodewise-studio-installer" "$HOME/Library/Application Support/nodewise-studio-installer"; do
             if [ -e "$path" ]; then echo "the dry run left $path"; exit 1; fi
           done
       - name: Install from this commit, as a person would (bash 3.2, private Node.js)
+        id: install
+        # Independent of the step before: run it anyway, so one run shows every failure (the job still fails).
+        if: ${{ !cancelled() }}
         run: /bin/bash scripts/install/install-macos.sh --source "$GITHUB_WORKSPACE" --private-node --yes --keep-build --log "$RUNNER_TEMP/results/install-1.log"
       - name: What was installed, and what Gatekeeper makes of it
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: |
           test -x "$APP/Contents/MacOS/nodewise-studio"
           plutil -p "$APP/Contents/Info.plist" | grep -E 'CFBundle(Name|ShortVersionString|Identifier|Executable)|LSApplicationCategoryType'
@@ -247,6 +270,7 @@ jobs:
             echo "- files with com.apple.quarantine: $(cat "$RUNNER_TEMP/results/quarantine-count.txt")"
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Opened through Launch Services (as a double-click in Finder does)
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: |
           open -n -a "$APP" --args --use-mock-keychain --user-data-dir="$RUNNER_TEMP/open-profile"
           for _ in $(seq 1 60); do
@@ -264,11 +288,13 @@ jobs:
           pkill -f "$APP/Contents/MacOS/nodewise-studio" || true
           sleep 3
       - name: The installed app answers --version, opens and passes the smoke check (screenshot)
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: |
           node "$HOME/Library/Caches/nodewise-studio-installer/work/src/scripts/smoke-installed-app.js" \
             --app "$APP/Contents/MacOS/nodewise-studio" --expect-version "$VERSION" \
             --screenshot "$RUNNER_TEMP/results/first-window-${{ matrix.os }}.png"
       - name: A second run upgrades in place and keeps the data
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: |
           mkdir -p "$DATA_DIR"
           echo kept > "$DATA_DIR/install-check-marker.txt"
@@ -277,11 +303,21 @@ jobs:
           test "$(cat "$DATA_DIR/install-check-marker.txt")" = kept
           test -x "$APP/Contents/MacOS/nodewise-studio"
       - name: The kept uninstaller removes the app and keeps the data
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: |
           /bin/bash "$HOME/Library/Application Support/nodewise-studio-installer/install-macos.sh" --uninstall --yes --log "$RUNNER_TEMP/results/uninstall.log"
           if [ -e "$APP" ]; then echo "uninstall left $APP"; exit 1; fi
           if [ -e "$HOME/Library/Application Support/nodewise-studio-installer" ]; then echo 'uninstall left the installer folder'; exit 1; fi
           test "$(cat "$DATA_DIR/install-check-marker.txt")" = kept
+      - name: On failure, the end of every log
+        if: failure()
+        run: |
+          for log in "$RUNNER_TEMP"/results/*.log; do
+            [ -f "$log" ] || continue
+            echo "===== $(basename "$log") (last 200 lines) ====="
+            tail -n 200 "$log"
+          done
+          ls -la "$HOME/Applications" "$HOME/Library/Caches/nodewise-studio-installer" 2>&1 || true
       - name: Upload the logs and the screenshot
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -316,6 +352,8 @@ jobs:
           New-Item -ItemType Directory -Path "$env:RUNNER_TEMP\results" -Force | Out-Null
           powershell -NoProfile -ExecutionPolicy Bypass -File scripts\install\install-windows.ps1 -Yes -LogPath "$env:RUNNER_TEMP\results\install-latest.log"
           $code = $LASTEXITCODE
+          Write-Host "install-windows.ps1 exited with $code"
+          if ($code -ne 0) { Get-Content -LiteralPath "$env:RUNNER_TEMP\results\install-latest.log" -Tail 80 | ForEach-Object { Write-Host $_ } }
           if ($code -eq 13) { Write-Host '::notice::The latest release predates install-windows.ps1 (exit code 13).'; exit 0 }
           if ($code -ne 0) { throw "install exited with $code" }
           & powershell -NoProfile -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\Programs\NodeWise Studio\install-windows.ps1" -Uninstall -Yes -LogPath "$env:RUNNER_TEMP\results\uninstall-latest.log"
@@ -328,8 +366,10 @@ jobs:
           /bin/bash scripts/install/install-macos.sh --yes --log "$RUNNER_TEMP/results/install-latest.log"
           code=$?
           set -e
+          echo "install-macos.sh exited with $code"
+          if [ "$code" != 0 ]; then tail -n 80 "$RUNNER_TEMP/results/install-latest.log"; fi
           if [ "$code" = 13 ]; then echo '::notice::The latest release predates install-macos.sh (exit code 13).'; exit 0; fi
-          test "$code" = 0
+          if [ "$code" != 0 ]; then echo "::error::install-macos.sh exited with $code"; exit 1; fi
           /bin/bash "$HOME/Library/Application Support/nodewise-studio-installer/install-macos.sh" --uninstall --yes --log "$RUNNER_TEMP/results/uninstall-latest.log"
       - name: Upload the logs
         if: always()

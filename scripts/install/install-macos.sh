@@ -197,6 +197,8 @@ t() {
     ru:not_ours) echo "Скачанный код не похож на NodeWise Studio (%s). Ничего не установлено." ;;
     en:too_old_version) echo "Version %s cannot be installed with this script: only versions that ship install-macos.sh can. Choose a newer one with --version." ;;
     ru:too_old_version) echo "Версию %s этим скриптом не установить: только версии, в которых есть install-macos.sh. Выберите более новую через --version." ;;
+    en:tools) echo "Build tools: Node.js %s, npm %s (%s)." ;;
+    ru:tools) echo "Инструменты сборки: Node.js %s, npm %s (%s)." ;;
     en:node_found) echo "Node.js %s found at %s; it is used for the build." ;;
     ru:node_found) echo "Найден Node.js %s (%s); сборка пойдёт с ним." ;;
     en:node_private) echo "Node.js %s is needed only for the build. A private copy goes into the build folder; your Mac is not changed." ;;
@@ -322,7 +324,7 @@ finish() {
   trap - EXIT
   if [ "$status" != 0 ] && [ "$DIED" = 0 ]; then
     log "FAILED command status=$status during: $CURRENT_ACTION"
-    if [ -f "$LOG" ]; then echo '--- last lines of the log ---' >&2; tail -n 25 "$LOG" >&2 || true; fi
+    if [ -f "$LOG" ]; then echo '--- last lines of the log ---' >&2; tail -n 60 "$LOG" >&2 || true; fi
     case "$FAIL_KEY" in
       build_failed|install_failed|verify_failed) warn "$FAIL_KEY" "$CURRENT_ACTION" "$LOG" ;;
       *) warn unexpected "$LOG" ;;
@@ -401,7 +403,7 @@ fetch() {
 # when the API answers nothing (its limit for anonymous calls is low on shared networks).
 latest_tag_from_page() {
   curl --silent --show-error --head --proto '=https' --tlsv1.2 --max-time 30 "https://github.com/$REPOSITORY/releases/latest" 2>> "$LOG" \
-    | tr -d '\r' | sed -nE 's#^[Ll]ocation: https://github\.com/[^/]+/[^/]+/releases/tag/([^/ ]+)$#\1#p' | head -n 1
+    | tr -d '\r' | sed -nE 's#^[Ll]ocation: https://github\.com/[^/]+/[^/]+/releases/tag/([^/ ]+)$#\1#p' | sed -n 1p
 }
 
 # reachable URL: whether HTTPS to this address answers at all (any HTTP status counts).
@@ -553,7 +555,7 @@ else
   else
     latest_file="${TMPDIR:-/tmp}/nodewise-latest.$$.json"
     if fetch "https://api.github.com/repos/$REPOSITORY/releases/latest" "$latest_file"; then
-      TAG=$(sed -nE 's/^ *"tag_name": *"([^"]+)".*/\1/p' "$latest_file" | head -n 1)
+      TAG=$(sed -nE 's/^ *"tag_name": *"([^"]+)".*/\1/p' "$latest_file" | sed -n 1p)
     else
       TAG=''
     fi
@@ -577,7 +579,7 @@ else
     fetch "$ARCHIVE_URL" "$ARCHIVE" || die $EXIT_DOWNLOAD download_failed "$ARCHIVE_URL" "$LOG"
     log "source archive sha256 $(shasum -a 256 "$ARCHIVE" | cut -d ' ' -f 1) bytes $(wc -c < "$ARCHIVE" | tr -d ' ')"
     # GitHub names the archive's top folder after the repository: a first check that this is the expected project.
-    top=$(tar -tzf "$ARCHIVE" | head -n 1 | cut -d / -f 1)
+    top=$(tar -tzf "$ARCHIVE" | sed -n 1p | cut -d / -f 1)
     case "$top" in "${REPOSITORY#*/}"-*) ;; *) die $EXIT_DOWNLOAD not_ours "top folder $top" ;; esac
     mkdir -p "$SRC"
     tar -xzf "$ARCHIVE" -C "$SRC" --strip-components 1
@@ -588,15 +590,17 @@ fi
 
 # The project it must be: its package names, and (for a tag) the version the tag names.
 if [ "$OPT_DRY_RUN" = 0 ] || [ -n "$OPT_SOURCE" ]; then
-  pkg_name=$(sed -nE 's/^  "name": "([^"]+)".*/\1/p' "$CHECK_DIR/package.json" | head -n 1)
-  pkg_product=$(sed -nE 's/^  "productName": "([^"]+)".*/\1/p' "$CHECK_DIR/package.json" | head -n 1)
-  PKG_VERSION=$(sed -nE 's/^  "version": "([^"]+)".*/\1/p' "$CHECK_DIR/package.json" | head -n 1)
+  pkg_name=$(sed -nE 's/^  "name": "([^"]+)".*/\1/p' "$CHECK_DIR/package.json" | sed -n 1p)
+  pkg_product=$(sed -nE 's/^  "productName": "([^"]+)".*/\1/p' "$CHECK_DIR/package.json" | sed -n 1p)
+  PKG_VERSION=$(sed -nE 's/^  "version": "([^"]+)".*/\1/p' "$CHECK_DIR/package.json" | sed -n 1p)
   log "package name=$pkg_name productName=$pkg_product version=$PKG_VERSION"
+  # First whether this version knows this installer at all: a release from before the scripts (0.9 still had the
+  # app's old name in package.json) is "too old" (13), not "someone else's code" (7). Nothing is built either way.
+  [ -f "$CHECK_DIR/scripts/install/install-macos.sh" ] || die $EXIT_UNSUPPORTED_VERSION too_old_version "${TAG:-$PKG_VERSION} (package.json name=$pkg_name)"
   if [ "$pkg_name" != "$APP_ID" ] || [ "$pkg_product" != "$DISPLAY_NAME" ]; then die $EXIT_DOWNLOAD not_ours "package.json name=$pkg_name"; fi
   if [ -n "${TAG:-}" ] && [ "$TAG" != main ] && [ "v$PKG_VERSION" != "$TAG" ]; then die $EXIT_DOWNLOAD not_ours "tag $TAG, package version $PKG_VERSION"; fi
-  [ -f "$CHECK_DIR/scripts/install/install-macos.sh" ] || die $EXIT_UNSUPPORTED_VERSION too_old_version "${TAG:-$PKG_VERSION}"
   NODE_MAJOR=$(tr -d ' \nv' < "$CHECK_DIR/.nvmrc" 2>/dev/null | cut -d . -f 1 || true)
-  [ -n "$NODE_MAJOR" ] || NODE_MAJOR=$(sed -nE 's/^ *"node": ">=([0-9]+).*/\1/p' "$CHECK_DIR/package.json" | head -n 1)
+  [ -n "$NODE_MAJOR" ] || NODE_MAJOR=$(sed -nE 's/^ *"node": ">=([0-9]+).*/\1/p' "$CHECK_DIR/package.json" | sed -n 1p)
 else
   PKG_VERSION="${TAG#v}"
   NODE_MAJOR=22
@@ -655,7 +659,7 @@ else
       act "download the Node.js installer and check its checksum and signature" -- curl -o node.pkg "$NODE_DIST/node-v$NODE_MAJOR.x.pkg"
       act "install Node.js for the whole Mac" -- sudo installer -pkg node.pkg -target /
     else
-      pkg=$(awk '$2 ~ /^node-v[0-9.]+\.pkg$/ {print $2}' "$SUMS" | head -n 1)
+      pkg=$(awk '$2 ~ /^node-v[0-9.]+\.pkg$/ {print $2}' "$SUMS" | sed -n 1p)
       verified_download "$pkg"
       # The official .pkg is signed by the Node.js project with an Apple Developer ID; pkgutil checks the chain.
       signature=$(pkgutil --check-signature "$BUILD_DIR/$pkg" 2>&1 || echo 'pkgutil-failed')
@@ -675,7 +679,7 @@ else
       act "download Node.js $NODE_MAJOR for $ELECTRON_ARCH and check its checksum" -- curl -o node.tar.gz "$NODE_DIST/node-v$NODE_MAJOR.x-darwin-$ELECTRON_ARCH.tar.gz"
       act "unpack it into the build folder" -- tar -xzf node.tar.gz -C "$BUILD_DIR/node" --strip-components 1
     else
-      tarball=$(awk -v a="darwin-$ELECTRON_ARCH.tar.gz" '$2 ~ ("^node-v[0-9.]+-" a "$") {print $2}' "$SUMS" | head -n 1)
+      tarball=$(awk -v a="darwin-$ELECTRON_ARCH.tar.gz" '$2 ~ ("^node-v[0-9.]+-" a "$") {print $2}' "$SUMS" | sed -n 1p)
       verified_download "$tarball"
       rm -rf "$BUILD_DIR/node"
       mkdir -p "$BUILD_DIR/node"
@@ -688,6 +692,10 @@ else
 fi
 NODE_DIR=$(dirname "$NODE_BIN")
 log "node for the build: $NODE_BIN"
+# Versions on screen and in the log: the first thing to compare when a build fails on one Mac and not another.
+if [ "$OPT_DRY_RUN" = 0 ]; then
+  say tools "$("$NODE_BIN" --version 2>&1 || echo '?')" "$(PATH="$NODE_DIR:$PATH" "$NODE_DIR/npm" --version 2>&1 || echo '?')" "$NODE_BIN"
+fi
 
 # ---------------------------------------------------------------------------------------------------------------
 # Step 4: npm ci, the build, the native module, and the .app made by Electron Forge.

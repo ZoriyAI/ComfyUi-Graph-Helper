@@ -7,7 +7,7 @@ import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link2 } from 'lucide-react';
 import { showToast } from '../../ui/toastStore';
-import { parseMarkdownLite, type InlineToken } from './markdownLite';
+import { parseMarkdownLite, type InlineToken } from './markdownParse';
 import styles from './MarkdownLite.module.css';
 import TermText from '../journey/TermText';
 

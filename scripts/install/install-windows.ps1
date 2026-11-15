@@ -160,6 +160,7 @@ $Messages = @{
     download_failed = 'The download of {0} failed. The log says why: {1}'
     not_ours = 'The downloaded source is not NodeWise Studio ({0}). Nothing was installed.'
     too_old_version = 'Version {0} cannot be installed with this script: only versions that ship install-windows.ps1 can. Choose a newer one with -Version.'
+    tools = 'Build tools: Node.js {0}, npm {1} ({2}).'
     node_found = 'Node.js {0} found at {1}; it is used for the build.'
     node_private = 'Node.js {0} is needed only for the build. A private copy goes into the build folder; Windows is not changed.'
     node_other = 'Node.js {0} is on this computer, but the build needs version {1}. Yours stays as it is.'
@@ -222,6 +223,7 @@ $Messages = @{
     download_failed = 'Не удалось скачать {0}. Причина в журнале: {1}'
     not_ours = 'Скачанный код не похож на NodeWise Studio ({0}). Ничего не установлено.'
     too_old_version = 'Версию {0} этим скриптом не установить: только версии, в которых есть install-windows.ps1. Выберите более новую через -Version.'
+    tools = 'Инструменты сборки: Node.js {0}, npm {1} ({2}).'
     node_found = 'Найден Node.js {0} ({1}); сборка пойдёт с ним.'
     node_private = 'Node.js {0} нужен только для сборки. Его отдельная копия ляжет в папку сборки; Windows не меняется.'
     node_other = 'На компьютере есть Node.js {0}, а сборке нужна версия {1}. Ваш Node.js останется как есть.'
@@ -720,13 +722,15 @@ try {
     $package = Get-Content -LiteralPath (Join-Path $CheckDir 'package.json') -Raw -Encoding UTF8 | ConvertFrom-Json
     $PackageVersion = [string]$package.version
     Add-LogLine ("package name={0} productName={1} version={2}" -f $package.name, $package.productName, $PackageVersion)
-    if ($package.name -ne $AppId -or $package.productName -ne $DisplayName) { Exit-Install $ExitDownload 'not_ours' @("package.json name=$($package.name)") }
-    if ($Tag -and $Tag -ne 'main' -and "v$PackageVersion" -ne $Tag) { Exit-Install $ExitDownload 'not_ours' @("tag $Tag, package version $PackageVersion") }
+    # First whether this version knows this installer at all: a release from before the scripts (0.9 still had the
+    # app's old name in package.json) is "too old" (13), not "someone else's code" (7). Nothing is built either way.
     if (-not (Test-Path -LiteralPath (Join-Path $CheckDir 'scripts\install\install-windows.ps1'))) {
       $named = $Tag
       if (-not $named) { $named = $PackageVersion }
-      Exit-Install $ExitUnsupportedVersion 'too_old_version' @($named)
+      Exit-Install $ExitUnsupportedVersion 'too_old_version' @("$named (package.json name=$($package.name))")
     }
+    if ($package.name -ne $AppId -or $package.productName -ne $DisplayName) { Exit-Install $ExitDownload 'not_ours' @("package.json name=$($package.name)") }
+    if ($Tag -and $Tag -ne 'main' -and "v$PackageVersion" -ne $Tag) { Exit-Install $ExitDownload 'not_ours' @("tag $Tag, package version $PackageVersion") }
     $nvmrc = Join-Path $CheckDir '.nvmrc'
     if (Test-Path -LiteralPath $nvmrc) { $NodeMajor = Get-Major ((Get-Content -LiteralPath $nvmrc -Raw).Trim()) }
     elseif ($package.PSObject.Properties['engines'] -and $package.engines.node -match '>=\s*(\d+)') { $NodeMajor = [int]$Matches[1] }
@@ -830,6 +834,14 @@ try {
   $NpmCli = Join-Path $NodeDir 'node_modules\npm\bin\npm-cli.js'
   $NpxCli = Join-Path $NodeDir 'node_modules\npm\bin\npx-cli.js'
   Add-LogLine "node for the build: $NodeExe"
+  # Versions on screen and in the log: the first thing to compare when a build fails on one computer and not another.
+  if (-not $DryRun) {
+    $nodeVersion = '?'
+    $npmVersion = '?'
+    try { $nodeVersion = (& $NodeExe --version) -join ' ' } catch { Add-LogLine "node --version: $($_.Exception.Message)" }
+    try { $npmVersion = (& $NodeExe $NpmCli --version) -join ' ' } catch { Add-LogLine "npm --version: $($_.Exception.Message)" }
+    Show-Message 'tools' @($nodeVersion, $npmVersion, $NodeExe)
+  }
 
   # --------------------------------------------------------------------------------------------------------------
   # Step 4: npm ci, the build, the native module, and the app folder made by Electron Forge.
@@ -974,7 +986,7 @@ try {
   Add-LogLine ($_ | Out-String)
   Add-LogLine $_.ScriptStackTrace
   Write-Host '--- last lines of the log ---'
-  Get-Content -LiteralPath $LogPath -Tail 25 | ForEach-Object { Write-Host $_ }
+  Get-Content -LiteralPath $LogPath -Tail 60 | ForEach-Object { Write-Host $_ }
   if ($script:FailKey -in @('build_failed', 'install_failed', 'verify_failed')) {
     Exit-Install $script:FailCode $script:FailKey @($script:CurrentAction, $LogPath)
   }
