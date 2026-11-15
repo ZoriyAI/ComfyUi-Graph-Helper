@@ -222,6 +222,7 @@ describe('imported run modes and notes', () => {
     expect(noteTextOf({ ...note, comfyType: 'KSampler' })).toBe('');
     expect(noteTextOf({ ...note, comfy: { widgets_values: [''] } })).toBe('');
     expect(estimateNodeSize(note).height).toBe(NODE_BOX.header + NODE_BOX.bottom + NODE_BOX.noteText);
-    expect(estimateNodeSize({ ...note, comfy: { widgets_values: [] } }).height).toBe(NODE_BOX.header + NODE_BOX.bottom);
+    // An empty note still shows the box the person writes into (nodes/NoteText.tsx).
+    expect(estimateNodeSize({ ...note, comfy: { widgets_values: [] } }).height).toBe(NODE_BOX.header + NODE_BOX.bottom + NODE_BOX.noteText);
   });
 });
