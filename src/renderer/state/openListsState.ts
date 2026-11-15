@@ -1,12 +1,12 @@
-import { create } from 'zustand';
-
 /**
  * File ▸ Recent and File ▸ Examples as the window last read them from main (main/ipc/openIpc.ts).
  *
- * Who uses it: the File menu's two submenus and the welcome card's "Recent" and "Examples" rows.
+ * Who uses it: the File menu's two submenus (components/shell/MenuBar.tsx) and the welcome card's "Recent" and
+ * "Examples" rows (components/graph/Onboarding.tsx); commands/actions.ts refreshRecentFiles fills it.
  * Why a store: the menu bar is drawn from command states and cannot wait for IPC while it opens, so the lists are
  * read at start, after every open or save, and after ComfyUI is read again (examples depend on its node list).
  */
+import { create } from 'zustand';
 
 /** One remembered file as the menu shows it: its name, and its full path as a hint. */
 export interface RecentEntry {
@@ -23,6 +23,7 @@ interface OpenListsState {
   set: (recent: RecentEntry[], examples: string[]) => void;
 }
 
+/** The two lists, replaced together on every read. */
 export const useOpenListsStore = create<OpenListsState>((set) => ({
   recent: [],
   examples: [],

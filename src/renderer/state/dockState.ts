@@ -1,3 +1,10 @@
+/**
+ * The right panel (the dock): which tab is open, its width, whether it is folded, and "Show both".
+ *
+ * Who uses it: components/shell/Dock.tsx draws it; anything that sends the person to a tab calls `show` (the
+ * canvas, the library, services/ask.ts, the command dialogs); state/frame.ts and viewMemory.ts keep it in balance
+ * and remembered.
+ */
 import { create } from 'zustand';
 
 /** Single-tab dock width range (px). */
@@ -15,13 +22,16 @@ export type DockTab = 'assistant' | 'explain' | 'inspector' | 'check';
 /** 'chat' is accepted as another name for the assistant tab. */
 export type DockTabAlias = DockTab | 'chat';
 
+/** The tabs in the order the dock shows them. */
 export const DOCK_TABS: readonly DockTab[] = ['assistant', 'explain', 'inspector', 'check'];
 
+/** A known tab from any stored or requested name; an unknown one falls back to the inspector. */
 export function normalizeDockTab(tab: string): DockTab {
   if (tab === 'chat') return 'assistant';
   return (DOCK_TABS as readonly string[]).includes(tab) ? (tab as DockTab) : 'inspector';
 }
 
+/** Whether "Show both" is offered: a window of at least 1280 px that keeps the canvas minimum beside it. */
 export function canUseSplit(viewport: number): boolean {
   return viewport >= 1280 && viewport - SPLIT_MIN >= CANVAS_MIN;
 }
@@ -47,6 +57,7 @@ interface DockUi {
   show: (tab: DockTabAlias) => void;
 }
 
+/** The dock's state; widths are kept inside dockRange for the current window. */
 export const useDockStore = create<DockUi>((set) => ({
   collapsed: false,
   // A first start opens on the assistant: an empty Properties tab says nothing to a newcomer.

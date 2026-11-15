@@ -1,12 +1,15 @@
+/**
+ * Ghost proposals of the current project: changes the assistant suggested instead of making them.
+ *
+ * Who uses it: the canvas draws the `proposed` ones (components/graph/layers/GhostLayer.tsx, GraphContextMenu,
+ * CanvasToolbar), the chat shows cards for them and calls `resolve` (components/chat/ProposalCard.tsx);
+ * GraphWorkspace.tsx starts the subscription; services/llm/chatService.ts and appCommands.ts read it.
+ */
 import { create } from 'zustand';
 import type { Proposal, ResolveProposalRequest } from '../../shared/contracts';
 import { DESKTOP_PROJECT_ID } from '../../shared/project';
 import { applyProjection } from '../services/commands/projection';
 
-/**
- * Ghost proposals of the current project. The canvas draws `proposed` ones; the chat shows cards for them.
- * The chat reads it and calls `resolve`.
- */
 interface ProposalsState {
   proposals: Proposal[];
   /** Ids the person is resolving right now, so a card or ghost can show a pending state. */
@@ -17,11 +20,13 @@ interface ProposalsState {
 }
 
 /**
- * Where the canvas drew the ghost of each suggested node or subgraph (flow coordinates, a spot that covers no node). Accepting sends it,
- * so the node lands exactly where the person saw the ghost, from the canvas chips, the chat card or "accept all".
+ * Where the canvas drew the ghost of each suggested node or subgraph (flow coordinates, a spot that covers no
+ * node). Accepting sends it, so the node lands exactly where the person saw the ghost, from the canvas chips, the
+ * chat card or "accept all". GhostLayer.tsx fills it and drops spots of proposals that are no longer open.
  */
 export const ghostSpots = new Map<string, { x: number; y: number }>();
 
+/** All proposals of the project (any status) and the ids being resolved now. */
 export const useProposalsStore = create<ProposalsState>((set, get) => ({
   proposals: [],
   resolving: [],
@@ -51,6 +56,7 @@ export function openProposals(proposals: Proposal[]): Proposal[] {
   return proposals.filter((item) => item.status === 'proposed');
 }
 
+/** Whether the push listener is installed; it is installed once per window. */
 let subscribed = false;
 
 /** Loads the list once and keeps it current from main-process pushes. Safe to call more than once. */

@@ -1,3 +1,11 @@
+/**
+ * The assistant's provider as the window shows it: which provider is chosen, where its key lives, and the choice
+ * itself (top bar, Assistant menu, Settings ▸ Assistant).
+ *
+ * Who uses it: components/shell (Toolbar, MenuBar), components/chat/ChatDock.tsx, components/settings (the panel,
+ * AssistantSection, KeyPanel, PrivacySection), components/graph/Onboarding.tsx, services/ask.ts and appCommands.ts.
+ * The key itself never reaches the window; only where it lives.
+ */
 import { create } from 'zustand';
 import type { ChatRuntimeConfig, NonSecretSettings } from '../../shared/config/schema';
 import { isPreferenceProvider } from '../../shared/config/preferences';
@@ -17,13 +25,16 @@ async function persistChoice(runtime: ChatRuntimeConfig): Promise<NonSecretSetti
   }
 }
 
-/** Where the provider's key lives right now: nowhere, in memory for this session, or in OS storage. */
+/** Where the provider's key lives right now: nowhere, in memory for this session, in OS storage, or in a file. */
 export type KeySource = 'none' | 'session' | 'os' | 'file';
 
-/** How the provider's key stands, shown as the colour of the chip's dot. */
-/** `setup`: your own server chosen without an address yet (the card must not say "ready"). */
+/**
+ * How the provider's key stands, shown as the colour of the chip's dot. `setup`: your own server chosen without an
+ * address yet (the card must not say "ready").
+ */
 export type ProviderKeyState = 'none' | 'test' | 'ok' | 'session' | 'missing' | 'setup';
 
+/** Providers that need a key from the person. */
 export const CLOUD_PROVIDERS = new Set(['openai', 'anthropic', 'google', 'compatible']);
 
 /** Values of the provider select (`#chat-provider`) and of the Assistant ▸ Provider menu, in order. */
@@ -73,6 +84,7 @@ export function providerKeyState(provider: string, keySource: KeySource): Provid
 
 /** Each cloud provider's key place. A key belongs to one provider; no card borrows another's. */
 export type KeySources = Record<'openai' | 'anthropic' | 'google' | 'compatible' | 'local', KeySource>;
+/** No key anywhere: the state before main has answered. */
 export const NO_KEYS: KeySources = { openai: 'none', anthropic: 'none', google: 'none', compatible: 'none', local: 'none' };
 
 /** The key place of one provider ('none' for test and no provider; your own server only when it asked for one). */
@@ -105,6 +117,7 @@ interface ProviderState {
   choose: (next: string) => Promise<void>;
 }
 
+/** The chosen provider, the stored runtime and where each key lives. */
 export const useProviderStore = create<ProviderState>((set, get) => ({
   provider: '',
   keySource: 'none',

@@ -1,3 +1,11 @@
+/**
+ * The graph on screen: nodes, links, subgraphs, groups and the process notes, as the last projection from main
+ * brought them, plus which subgraph level the canvas shows.
+ *
+ * Who uses it: nearly the whole window (about fifty files): the canvas, the inspector, the library, lessons, the
+ * chat and commands. services/commands/projection.ts is the one place that replaces the graph from main; the
+ * add, update and remove actions here edit only the window's copy and are used by the legacy graph service and tests.
+ */
 import { create } from 'zustand';
 import type { ComponentRecord, ProcessMeta } from '../../shared/components/model';
 import { EMPTY_PROCESS } from '../../shared/components/model';
@@ -6,10 +14,13 @@ import type { GroupRecord, SubgraphDefinition } from '../../shared/graph/subgrap
 import { GraphNode, GraphEdge } from '../types/graph';
 
 interface GraphState {
+  /** Nodes and links of the root graph, as React Flow draws them. */
   nodes: GraphNode[];
   edges: GraphEdge[];
+  /** The components (named blocks) and the process title and notes the person wrote about the graph. */
   components: ComponentRecord[];
   process: ProcessMeta;
+  /** The opened workflow file's format version and raw JSON, as main keeps them. */
   document: WorkflowDocumentState | null;
   /** Modelled subgraph definitions from the projection snapshot. */
   subgraphs: SubgraphDefinition[];
@@ -41,6 +52,7 @@ interface GraphState {
   exitSubgraph: (depth?: number) => void;
 }
 
+/** The graph on screen; see the header for who writes it. */
 export const useGraphStore = create<GraphState>((set) => ({
   nodes: [],
   edges: [],

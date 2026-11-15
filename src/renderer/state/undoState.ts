@@ -1,6 +1,3 @@
-import { create } from 'zustand';
-import type { RevisionSummary } from '../../shared/contracts/revisions';
-
 /**
  * Undo and redo over the engine's revision history. Nothing is rewound: undo commits `restore-revision` with
  * the revision before the current state, redo commits `restore-revision` with the state the undo left.
@@ -10,14 +7,22 @@ import type { RevisionSummary } from '../../shared/contracts/revisions';
  *   restored (followed through chains of restores), every other revision points at itself;
  * - undo restores the pointer's parent (again followed through restores), so a restore commit is never
  *   itself the step that is undone;
- * - the person's own revisions are undone one by one; the helper's contiguous revisions from one run are undone as one step
- *   (manual edits and other runs form boundaries, and redo restores that interval), and nothing while a run is still open;
+ * - the person's own revisions are undone one by one; the helper's contiguous revisions from one run are undone
+ *   as one step (manual edits and other runs form boundaries, and redo restores that interval), and nothing while
+ *   a run is still open;
  * - redo is a stack kept for this session. It holds while the head is the revision the last undo or redo
  *   made; any other commit (a new manual edit, an agent step) clears it.
+ *
+ * Who uses it: commands/undo.ts (the Edit menu), commands/appCommands.ts (state source) and
+ * components/graph/lib/replay.ts (names of revisions in History replay).
  */
+import { create } from 'zustand';
+import type { RevisionSummary } from '../../shared/contracts/revisions';
 
+/** The fields of a revision summary the undo plan reads. */
 export type UndoRevision = Pick<RevisionSummary, 'id' | 'revSeq' | 'source'> & Partial<Pick<RevisionSummary, 'description' | 'actor' | 'payload' | 'restoredRevisionId' | 'runId'>>;
 
+/** The redo state of this window session. */
 export interface UndoSession {
   /** Revision ids to restore on redo; the last one is next. */
   redo: string[];
@@ -25,11 +30,13 @@ export interface UndoSession {
   expectedHead: string | null;
 }
 
+/** No redo available. */
 export const EMPTY_SESSION: UndoSession = { redo: [], expectedHead: null };
 
 /** running: a helper run is still open; too-old: the version before a build is no longer kept (bounded history). */
 export type UndoBlock = 'none' | 'running' | 'too-old';
 
+/** What Undo and Redo would restore now, from planUndo. */
 export interface UndoPlan {
   /** The revision whose content is current. */
   pointer: string | null;
@@ -41,6 +48,7 @@ export interface UndoPlan {
   blocked: UndoBlock;
 }
 
+/** A revision made by an undo or redo (a restore commit). */
 function isRestore(revision: UndoRevision): boolean {
   return revision.description === 'restore-revision' || Boolean(revision.restoredRevisionId);
 }
@@ -140,6 +148,7 @@ export function afterRedo(session: UndoSession, previousHead: string, newHead: s
   return { redo: kept.slice(0, -1), expectedHead: newHead };
 }
 
+/** Command type of a revision → the i18n key that names it in the Undo and Redo hints. */
 const ACTION_KEYS: Record<string, string> = {
   'add-node': 'undo.addNode',
   'remove-node': 'undo.removeNode',
@@ -180,6 +189,7 @@ const ACTION_KEYS: Record<string, string> = {
   'agent-run': 'undo.agentRun',
 };
 
+/** A payload value as short text for a hint ('?' when missing). */
 function text(value: unknown): string {
   if (typeof value === 'number') return String(value);
   return typeof value === 'string' ? value.slice(0, 80) : '?';
@@ -215,6 +225,7 @@ export function describeRevision(revision: UndoRevision): { key: string; values:
   };
 }
 
+/** The revision list of the project on screen, the redo session and whether a restore is in flight. */
 interface UndoState {
   projectId: string | null;
   revisions: UndoRevision[];
@@ -226,6 +237,7 @@ interface UndoState {
   setBusy: (busy: boolean) => void;
 }
 
+/** Undo state; a revision list of another project starts a fresh session (no redo across projects). */
 export const useUndoStore = create<UndoState>((set, get) => ({
   projectId: null,
   revisions: [],

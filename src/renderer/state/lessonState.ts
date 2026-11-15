@@ -1,17 +1,21 @@
+/**
+ * The helper's "Learn" mode: which lesson is open and what the person has read in it. Where they are in a lesson
+ * is not kept: it is read off the graph (shared/lessons/engine.ts). The session's state is here so the panel
+ * answers at once; every change is also saved to preferences, and read back from them at start.
+ *
+ * Who uses it: components/lessons (LessonPanel, MyLessons, lessonAuthoring.ts), components/chat/ChatDock.tsx,
+ * commands/actions.ts (openLessons) and state/preferencesBridge.ts (hydrate at start).
+ */
 import { create } from 'zustand';
 import { adultContentOn, type Preferences } from '../../shared/config/preferences';
 import { lessonOpen } from '../../shared/lessons/lessons';
 import { currentPreferences, savePreferencesPatch } from './preferencesState';
 import { useDockStore } from './dockState';
-// LESSON FILES: a lesson of the person (`my:` id) opens like a built-in one, behind the same 18+ switch when marked.
+// A lesson of the person (`my:` id) opens like a built-in one, behind the same 18+ switch when marked.
 import { myLessonOpen, useMyLessonsStore } from './myLessonsState';
 import { isMyLessonId } from '../../shared/lessons/share/mine';
 
-/**
- * The helper's "Learn" mode: which lesson is open and what the person has read in it. Where they are in a lesson
- * is not kept: it is read off the graph (shared/lessons/engine.ts). The session's state is here so the panel
- * answers at once; every change is also saved to preferences, and read back from them at start.
- */
+/** The part of the lesson state that is saved in preferences. */
 type Stored = Preferences['lessons'];
 
 interface LessonState extends Stored {
@@ -35,10 +39,12 @@ interface LessonState extends Stored {
   reach: (lessonId: string, step: number) => void;
 }
 
+/** Saves the stored part; `reached` and `learning` are for this session only. */
 function save(state: Stored): void {
   void savePreferencesPatch({ lessons: { active: state.active, read: state.read, done: state.done } });
 }
 
+/** The open lesson, what was read and finished, and whether the panel is in Learn mode. */
 export const useLessonStore = create<LessonState>((set, get) => ({
   learning: false,
   active: '',
