@@ -31,7 +31,7 @@ export function aboutDetailsText(name: string, info: AboutInfo): string {
 }
 
 /**
- * Help ▸ About and Settings ▸ About show this one view: the app's icon, name and version, what it is, its licence,
+ * Help ▸ About and Settings ▸ About show this one view: the app's icon, name, version and author, what it is, its licence,
  * the components that ship with it, a "copy details" for bug reports and the data folder. `renderTitle` lets the
  * dialog give the name its accessible title element.
  */
@@ -130,6 +130,7 @@ export default function AboutContent({ renderTitle }: { renderTitle?: (text: str
       {/* The line under the name: the same words as the desktop entry, package.json and the README. */}
       <p className={styles.version} data-about-tagline>{t('shell.tagline')}</p>
       <p className={styles.version} data-about-version>{t('appInfo.version', { version })}</p>
+      <p className={styles.version} data-about-author>{t('appInfo.author')}</p>
       <p className={styles.lead}>{t('appInfo.independent', { name })}</p>
       <p className={styles.lead}>{t('appInfo.lead')}</p>
       <div className={styles.actions}>

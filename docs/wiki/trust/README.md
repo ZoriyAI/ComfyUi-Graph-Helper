@@ -11,6 +11,7 @@ Privacy, content rules, security, licenses and accessibility.
 - [Security](Security.md): How keys are kept and how to report a vulnerability.
 - [License and third-party notices](Licence.md): The app's license and the components it ships.
 - [Accessibility](Accessibility.md): Keyboard, screen readers, motion and contrast.
+- [The author and the experiment](Author.md): Who makes the app, why, and the principles it keeps.
 
 ## See also
 

@@ -103,8 +103,14 @@ reporting, and asks about new versions only if you switch that on. Every place i
 - A security problem: privately, see [SECURITY.md](SECURITY.md).
 - Code: [CONTRIBUTING.md](CONTRIBUTING.md); everyone follows the [Code of Conduct](CODE_OF_CONDUCT.md).
 
-**How this project is made.** Most of the code and the texts were written by AI coding agents, directed and reviewed
-by the maintainer, who answers for everything published here.
+## Who makes it
+
+NodeWise Studio is made by Aleksey Ponomarenko, an independent developer who experiments in the field of AI
+development. The app is one of those experiments: can a program teach ComfyUI by explaining your own graph, and how
+far can one developer take a real desktop product when AI agents do much of the engineering under his direction?
+Most of the code and the texts were written by AI coding agents, directed and reviewed by him, and he answers for
+everything published here. More, with the principles the app keeps:
+[The author and the experiment](docs/wiki/trust/Author.md).
 
 ## Licence
 

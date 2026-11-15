@@ -2610,6 +2610,7 @@ export const en = {
     noNotices: 'The list is missing: this build of the app was made without it.',
     commercial: 'Selling the app, or a paid product or service built mainly on it, is not allowed by the license. It is possible only with the written permission of the copyright holder, by a separate agreement.',
     commercialContact: 'To ask, open a discussion in the Commercial category of the project, or write to the repository owner through their GitHub profile.',
+    author: 'Author: Aleksey Ponomarenko',
     independent: '{{name}} is an independent, experimental learning tool. It is not affiliated with or endorsed by Comfy Org. It contains no ComfyUI code and only reads a running ComfyUI; it never changes it.',
   },
   editing: {
@@ -5625,6 +5626,7 @@ export const ru = {
     noNotices: 'Списка нет: эта сборка приложения сделана без него.',
     commercial: 'Продавать приложение, а также платный продукт или услугу, построенные в основном на нём, лицензия не разрешает. Это возможно только с письменного разрешения правообладателя, по отдельному договору.',
     commercialContact: 'Чтобы спросить, откройте обсуждение в категории Commercial в проекте или напишите владельцу репозитория через его профиль на GitHub.',
+    author: 'Автор: Алексей Пономаренко',
     independent: '{{name}} это независимый экспериментальный учебный инструмент. Он не связан с Comfy Org и не одобрен ею. В нём нет кода ComfyUI, он только читает запущенный ComfyUI и никогда его не меняет.',
   },
   editing: {
