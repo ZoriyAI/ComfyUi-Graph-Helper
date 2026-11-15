@@ -1,10 +1,3 @@
-import * as fs from 'fs';
-import * as os from 'os';
-import * as path from 'path';
-import { APP_ID } from '../shared/productNames';
-import { LEGACY_APP_ID } from '../shared/legacyNames';
-import type { Translator } from '../shared/i18n';
-
 /**
  * Taking over the 0.x profile folder at the first start of 1.0.
  *
@@ -23,6 +16,12 @@ import type { Translator } from '../shared/i18n';
  *
  * No Electron import, so the whole decision is unit-tested (tests/unit/profileAdoption.test.ts).
  */
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+import { APP_ID } from '../shared/productNames';
+import { LEGACY_APP_ID } from '../shared/legacyNames';
+import type { Translator } from '../shared/i18n';
 
 /** What the start did with the 0.x profile. */
 export type ProfileAdoption =
@@ -36,8 +35,10 @@ export type ProfileAdoption =
 /** The file left in the adopted folder until the person has been told once (see takeAdoptionNotice). */
 export const ADOPTION_NOTICE_FILE = 'profile-adopted.json';
 
+/** The file functions the adoption uses, so tests can pass a fake file system. */
 type FsLike = Pick<typeof fs, 'lstatSync' | 'statSync' | 'accessSync' | 'readdirSync' | 'readlinkSync' | 'renameSync' | 'writeFileSync' | 'readFileSync' | 'rmSync'>;
 
+/** Test seams: file system, host name, process check and clock. */
 export interface AdoptionDeps {
   fs?: FsLike;
   hostname?: string;
@@ -46,6 +47,7 @@ export interface AdoptionDeps {
   now?: () => Date;
 }
 
+/** Whether anything is at the path; lstat, so a broken link counts too and is never replaced. */
 function exists(fsImpl: FsLike, file: string): boolean {
   try {
     fsImpl.lstatSync(file);
@@ -55,6 +57,7 @@ function exists(fsImpl: FsLike, file: string): boolean {
   }
 }
 
+/** Whether a process with this id runs; signal 0 only checks, it sends nothing. */
 function processAlive(pid: number): boolean {
   try {
     process.kill(pid, 0);
@@ -79,6 +82,7 @@ export function profileInUse(dir: string, deps: AdoptionDeps = {}): boolean {
   }
   const match = /^(.*)-(\d+)$/.exec(target);
   if (!match) return false;
+  // A lock written by another computer (a profile on a shared home folder) cannot be checked from here.
   if (match[1] !== (deps.hostname ?? os.hostname())) return false;
   return (deps.alive ?? processAlive)(Number(match[2]));
 }

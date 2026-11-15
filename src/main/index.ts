@@ -1,3 +1,10 @@
+/**
+ * The main process entry point (package.json "main" points at its build, dist/main/index.js). In order: the
+ * command-line answers, the profile folder (and the 0.x takeover), the single-instance lock, the log, then at
+ * ready the permissions, the app:// page server, the database, the IPC handlers and the one window.
+ * The order matters: nothing may open a file in the profile folder before the folder is settled and the lock held,
+ * so most of this file runs at the top level, before app.whenReady.
+ */
 import { fileFromArgs, requestOpen } from './ipc/openIpc';
 import { app, BrowserWindow, dialog, Menu, net, protocol, screen, session, shell, type WebContents } from 'electron';
 import * as path from 'path';
@@ -48,6 +55,7 @@ if (cliAnswer !== null) {
  * package name: it names the profile folder (database, window state, logs) and the OS keyring entry the provider
  * key is encrypted under. --user-data-dir still wins (tests). See src/main/identity.ts.
  */
+/** What the start did with a 0.x profile folder; read again once the window exists, for the notice. */
 let profileAdoption: ProfileAdoption = { outcome: 'none' };
 if (usesStableProfile(app.getName(), app.isPackaged)) {
   app.setName(STABLE_APP_NAME);
@@ -129,6 +137,7 @@ function uiLanguage(): AppLanguage {
   }
 }
 
+// Set at quit: errors and dying renderers while the app shuts down are logged but not shown.
 let quitting = false;
 app.on('before-quit', () => {
   quitting = true;
@@ -162,6 +171,7 @@ app.on('render-process-gone', (_event, contents, details) => {
   if (quitting || details.reason === 'clean-exit' || contents.isDestroyed() || isExpectedRestart(contents)) return;
   const owner = BrowserWindow.fromWebContents(contents);
   if (!owner || owner.isDestroyed()) return;
+  // The graph lives in the database, so a reload brings the page back with nothing committed lost.
   const t = createTranslator(uiLanguage());
   void dialog.showMessageBox(owner, {
     type: 'error',
@@ -203,6 +213,7 @@ function logSyncRuns(): void {
 const storeFlag = readPasswordStoreOverride(app.getPath('userData')) ?? passwordStoreFlag(process.env.XDG_CURRENT_DESKTOP, process.argv);
 if (storeFlag) app.commandLine.appendSwitch('password-store', storeFlag);
 
+/** The one window; null before it is created and after it closed. */
 let mainWindow: BrowserWindow | null = null;
 
 // Only an unpackaged app may be a development run: an installed app never trusts the dev server (runMode.ts).
@@ -252,6 +263,7 @@ function displayVersion(): string {
   return app.getVersion();
 }
 
+/** Creates the window with its saved bounds, the locked-down webPreferences and the page for this kind of run. */
 function createWindow() {
   const stateFile = path.join(app.getPath('userData'), WINDOW_STATE_FILE);
   let workAreas: Array<{ x: number; y: number; width: number; height: number }> = [];
@@ -347,6 +359,7 @@ app.whenReady().then(async () => {
     const t = createTranslator(systemLanguage());
     const text = adoptionTexts(t, 'old-in-use', homeRelative(profileAdoption.from));
     await dialog.showMessageBox({ type: 'info', buttons: [t('diagnostics.ok')], defaultId: 0, noLink: true, ...text });
+    // The throw-away folder made for this start (see the top of this file) goes again.
     fs.rmSync(app.getPath('userData'), { recursive: true, force: true });
     app.exit(0);
     return;
@@ -395,6 +408,7 @@ app.on('second-instance', (_event, argv, workingDirectory) => {
   mainWindow.focus();
 });
 
+// macOS keeps an app running without windows; the app is built for Linux, where closing the window quits.
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();

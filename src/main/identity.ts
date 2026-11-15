@@ -1,9 +1,7 @@
-import * as fs from 'fs';
-import * as path from 'path';
-
 /**
  * How the app names itself, for the main process: window, dialogs, desktop entry, profile folder, user agents,
- * MCP clientInfo and the update check all take their names from here.
+ * MCP clientInfo and the update check all take their names from here (main/index.ts, cli.ts, diagnostics.ts,
+ * agent/web.ts, knowledge/webLookup.ts, mcp/client.ts, mcp/oauth.ts, ipc/aboutIpc.ts, updates/updateIpc.ts).
  *
  * The spellings themselves live in src/shared/productNames.ts (the renderer's texts need them too and cannot import
  * main-process code); this module re-exports them so main-process code has one place to read every name from.
@@ -18,8 +16,12 @@ import * as path from 'path';
  *
  * No Electron import here, so unit tests can load every module that names the app.
  */
+import * as fs from 'fs';
+import * as path from 'path';
+
 export { APP_ID, DISPLAY_NAME, SHORT_NAME, USER_AGENT_PRODUCT } from '../shared/productNames';
 import { APP_ID, USER_AGENT_PRODUCT } from '../shared/productNames';
+/** The name Electron runs under; it names the profile folder and the keyring entry (see the header). */
 export const STABLE_APP_NAME = APP_ID;
 
 /**
@@ -51,6 +53,7 @@ export function appVersion(): string {
   for (const file of [path.join(__dirname, '..', '..', 'package.json'), path.join(__dirname, '..', 'package.json')]) {
     try {
       const parsed = JSON.parse(fs.readFileSync(file, 'utf8')) as { name?: unknown; version?: unknown };
+      // The name check skips a package.json of some other package that happens to sit at that place.
       if (parsed.name === STABLE_APP_NAME && typeof parsed.version === 'string') {
         cachedVersion = parsed.version;
         return cachedVersion;

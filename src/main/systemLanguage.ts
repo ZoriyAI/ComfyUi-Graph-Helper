@@ -1,12 +1,15 @@
-import { languageFromSystem, localeFor, type AppLanguage } from '../shared/i18n/languages';
-
 /**
  * The languages of the person's system, as the main process knows them. Main sets them once at start from
  * app.getPreferredSystemLanguages(); until then (and in unit tests) the POSIX locale variables stand in.
  * No Electron import here, so every module that needs the system language can be loaded in a test.
+ * Read by main/index.ts, main/database.ts, settings/repository.ts, knowledge/seedCore.ts and ipc/diagnosticsIpc.ts.
  */
+import { languageFromSystem, localeFor, type AppLanguage } from '../shared/i18n/languages';
+
+/** The system's languages as Electron reported them; null until set. */
 let preferred: string[] | null = null;
 
+/** Stores the system's languages (main/index.ts, at start). An empty list leaves the locale variables in charge. */
 export function setSystemLanguages(list: readonly string[] | null | undefined): void {
   const clean = (list ?? []).filter((tag): tag is string => typeof tag === 'string' && tag.trim() !== '');
   preferred = clean.length > 0 ? clean : null;
@@ -23,6 +26,7 @@ export function environmentLocales(env: NodeJS.ProcessEnv = process.env): string
   return found;
 }
 
+/** The system's locale tags, most preferred first. */
 export function systemLocales(): string[] {
   return preferred ?? environmentLocales();
 }

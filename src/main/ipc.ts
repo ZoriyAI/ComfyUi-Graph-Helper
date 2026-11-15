@@ -1,3 +1,10 @@
+/**
+ * The IPC setup of the main process: setupIPC (called once by main/index.ts after the database opens) holds the
+ * saved keys and tokens again, applies the network settings, registers every area's handlers (ipc/*.ts) and
+ * itself handles files, settings, keys and tokens, the MCP connection, graph commands and the model settings.
+ * Every handler goes through guardedIpcMain, so only the app's own page can call it; keys and tokens never go back
+ * to the renderer, which gets statuses only.
+ */
 import { ipcMain as rawIpcMain, app, BrowserWindow, dialog, safeStorage } from 'electron';
 import { guardedIpcMain } from './ipc/guard';
 import { randomUUID } from 'crypto';
@@ -55,7 +62,6 @@ import { exportWorkflow, type GraphSnapshot } from '../shared/workflow/codec';
 import { createTranslator, fileDialogCopy, languageOf } from '../shared/i18n';
 
 
-/** The saved ComfyUI origin and MCP URL, or empty strings when settings are unreadable. */
 /**
  * The address of the person's own model server as typed in the draft: `127.0.0.1:11434/v1` or `localhost:1234`
  * without http:// is completed (the same rule the saved settings follow), and the answer says so.
@@ -66,6 +72,7 @@ function draftBaseUrl(value: unknown): { url: unknown; completed: boolean } {
   return { url, completed: url !== value.trim() };
 }
 
+/** The saved ComfyUI origin and MCP URL, or empty strings when settings are unreadable. */
 function savedEndpoints(): { comfyOrigin: string; mcpUrl: string } {
   const read = readSettings(getDatabase());
   return read.source === 'corrupt' ? { comfyOrigin: '', mcpUrl: '' } : { comfyOrigin: read.values.comfyOrigin, mcpUrl: read.values.mcpUrl };
@@ -87,10 +94,12 @@ function refreshBlockedWebOrigins(): void {
   setBlockedWebOrigins([comfyOrigin, mcpOriginOf(mcpUrl), reported]);
 }
 
+/** The file dialogs' texts in the interface language. */
 function dialogCopy() {
   return fileDialogCopy(languageOf(readSettings(getDatabase())));
 }
 
+/** At start: the model service takes the provider, model and address saved in settings. */
 function adoptStoredChatRuntime(): void {
   const read = readSettings(getDatabase());
   if (read.source === 'corrupt') return;
@@ -134,11 +143,13 @@ async function adoptStoredKeys(): Promise<void> {
   }
 }
 
+/** The provider saved in settings, or '' when settings are unreadable. */
 function savedProvider(): string {
   const read = readSettings(getDatabase());
   return read.source === 'corrupt' ? '' : read.values.provider;
 }
 
+/** The secrets-table name of the MCP token for this URL's origin: one saved token per server. */
 function mcpTokenRecordName(url: string | null | undefined): string | null {
   const origin = mcpOriginOf(url);
   return origin ? `mcp-token:${origin}` : null;
@@ -208,6 +219,7 @@ async function setupMcpOAuth(): Promise<void> {
   }
 }
 
+/** Registers every IPC handler; the awaits before the handlers make sure stored keys are held before any call. */
 export async function setupIPC(): Promise<void> {
   // Every handler below, and the domain handlers, check that the sender is the app's own page.
   const ipcMain = guardedIpcMain(rawIpcMain);
@@ -315,9 +327,12 @@ export async function setupIPC(): Promise<void> {
     const state = projectFileState(getDatabase(), DESKTOP_PROJECT_ID);
     const captured = readProjection(getDatabase(), DESKTOP_PROJECT_ID)!;
     const changedByGuard = JSON.stringify(saved.project) !== JSON.stringify(prepared.project);
+    // A file saved without its secret values is not the graph as it stands: the digest is marked, so the app bar
+    // keeps showing unsaved changes.
     const written = { graphKey: state.graphKey, digest: changedByGuard ? `omitted:${contentDigest(captured.snapshot)}` : contentDigest(captured.snapshot) };
     // Save writes back to the project's own file without a question; Save as, or a graph with no file, asks where.
     let filePath = options?.saveAs ? null : state.filePath;
+    // The folder of the earlier file is gone (a removed drive, a deleted folder): ask where instead of failing.
     if (filePath && !fs.existsSync(path.dirname(filePath))) filePath = null;
     if (!filePath) {
       const copy = dialogCopy().saveProject;
@@ -349,7 +364,7 @@ export async function setupIPC(): Promise<void> {
     return { ...state, sourceName: sourceOf(app.getPath('userData'), state.graphKey) };
   });
 
-  // Project operations
+  // Project records in the projects table.
   ipcMain.handle(IPC_CHANNELS.DB_SAVE_PROJECT, (_event, project: unknown) => saveProjectRecord(getDatabase(), project));
 
   ipcMain.handle(IPC_CHANNELS.DB_LOAD_PROJECT, async (_event, id) => {
@@ -691,13 +706,14 @@ export async function setupIPC(): Promise<void> {
     return base.completed ? { ...result, completedUrl: base.url } : result;
   });
 
-  // Settings ▸ Assistant ▸ Find local servers: the MCP server's Ollama targets (read-only tools) and loopback probes.
+  // Settings ▸ Assistant: an Ollama copy of the model with a larger context window, made only on the person's click.
   ipcMain.handle(IPC_CHANNELS.LLM_OLLAMA_WINDOW, async (_event, draft: unknown, window: unknown) => {
     const input = (draft && typeof draft === 'object' ? draft : {}) as { provider?: unknown; model?: unknown; baseURL?: unknown };
     const size = typeof window === 'number' && Number.isFinite(window) ? window : 0;
     return mainLLMService.makeWindowVariant({ provider: input.provider, model: input.model, baseURL: input.baseURL }, size);
   });
 
+  // Settings ▸ Assistant ▸ Find local servers: the MCP server's Ollama targets (read-only tools) and loopback probes.
   ipcMain.handle(IPC_CHANNELS.LLM_DISCOVER_LOCAL, () => {
     const url = savedEndpoints().mcpUrl;
     const openMcp: OpenMcp | null = url ? async () => {
@@ -718,6 +734,7 @@ export async function setupIPC(): Promise<void> {
     return discoverLocalServers({ fetchImpl: (...args) => globalThis.fetch(...args), openMcp });
   });
 
+  // Settings ▸ Connection: addresses to offer (used before, or found answering on this computer when `probe`).
   ipcMain.handle(IPC_CHANNELS.SETTINGS_CONNECTION_SUGGESTIONS, (_event, probe: unknown) => (
     connectionSuggestions(getDatabase(), (...args) => globalThis.fetch(...args), { probe: probe === true })
   ));
@@ -727,6 +744,7 @@ export async function setupIPC(): Promise<void> {
   console.log('[IPC] Handlers registered');
 }
 
+/** Commits a read workflow as the person's own import against the current revision (one undoable step). */
 function importWorkflowDocument(document: unknown) {
   const db = getDatabase();
   const current = readProjection(db, DESKTOP_PROJECT_ID);
@@ -741,8 +759,10 @@ function importWorkflowDocument(document: unknown) {
   });
 }
 
+/** File ▸ Import catalog: an object_info JSON saved from ComfyUI, read into the catalog as a sync would. */
 function importCatalogFile(filePath: string) {
   try {
+    // The size is checked before the read and again after it, in case the file grew in between.
     const size = fs.statSync(filePath).size;
     assertObjectInfoSize(size);
     const bytes = fs.readFileSync(filePath);
@@ -771,6 +791,7 @@ function guardSecrets<T>(document: T, choice: unknown): { document: T } | { ok: 
   return guardSecretsIn(document, readProjection(getDatabase(), DESKTOP_PROJECT_ID)?.snapshot ?? null, choice);
 }
 
+/** The graph as a ComfyUI workflow document, with the catalog for widget names. */
 function exportWorkflowDocument() {
   const projection = readProjection(getDatabase(), DESKTOP_PROJECT_ID);
   if (!projection) return { ok: false as const, error: 'Project is not ready.' };
@@ -778,10 +799,12 @@ function exportWorkflowDocument() {
   return exportWorkflow(snapshot, new Date().toISOString(), readCatalog(getDatabase()));
 }
 
+/** The graph as a project file document. */
 function nativeProjectDocument() {
   return nativeProjectFile(getDatabase(), DESKTOP_PROJECT_ID);
 }
 
+/** Opens a read project file document onto the canvas. */
 function openNativeDocument(document: unknown) {
   return openNativeFile(getDatabase(), DESKTOP_PROJECT_ID, document);
 }

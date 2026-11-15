@@ -1,11 +1,12 @@
-import * as path from 'path';
-import { pathToFileURL } from 'url';
-
 /**
  * The built page is served as `app://bundle/…` instead of `file://…`. On a file: page Chromium's CSP `'self'`
  * matches every file: URL on the disk; on this scheme `'self'` is the bundle folder and nothing else, and the
- * handler below serves only files inside that folder.
+ * handler below serves only files inside that folder. main/index.ts registers the scheme and its handler.
  */
+import * as path from 'path';
+import { pathToFileURL } from 'url';
+
+// The scheme, its one host and the page the window loads.
 export const APP_SCHEME = 'app';
 export const APP_HOST = 'bundle';
 export const APP_ENTRY = `${APP_SCHEME}://${APP_HOST}/index.html`;
@@ -31,9 +32,11 @@ export function bundleFileFor(bundleDir: string, requestUrl: string): string | n
   } catch {
     return null;
   }
+  // A backslash is refused too, so a path means the same thing on every system.
   if (relative.includes('\0') || relative.includes('\\')) return null;
   const root = path.resolve(bundleDir);
   const file = path.resolve(root, `.${relative.startsWith('/') ? relative : `/${relative}`}`);
+  // Resolved first, then compared: a `..` that climbs out of the folder lands outside `root` and is refused.
   if (file === root || !file.startsWith(`${root}${path.sep}`)) return null;
   return file;
 }

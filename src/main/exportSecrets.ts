@@ -1,14 +1,16 @@
-import { isSecretField } from '../shared/agent/graph';
-
 /**
  * Before "Save workflow for ComfyUI" and "Save project" write a file: fields that look like a key or a token (an API
  * node's `api_key`, a pasted bearer token) are reported to the person, who chooses to save without those values or
  * as they are. The values never leave main: the renderer gets the node and the field name only. Blanking works on
- * the finished document by value, so the workflow codec is not touched.
+ * the finished document by value, so the workflow codec is not touched. main/ipc.ts runs guardSecretsIn before
+ * every such save.
  */
+import { isSecretField } from '../shared/agent/graph';
 
+/** The person's answer: not asked yet, save without the values, or save them as they are. */
 export type SecretChoice = 'ask' | 'omit' | 'keep';
 
+/** One secret-looking field as the person is shown it: which node and which field, never the value. */
 export interface SecretField {
   nodeId: string;
   classType: string;
@@ -20,6 +22,7 @@ interface Found extends SecretField {
   value: string;
 }
 
+/** The renderer's answer; anything unknown means "ask". */
 export function parseSecretChoice(value: unknown): SecretChoice {
   return value === 'omit' || value === 'keep' ? value : 'ask';
 }
@@ -75,6 +78,7 @@ function text(value: unknown): string {
  * any ComfyUI node inside it (`widgets_values` of subgraph definitions and the kept raw document). Depth-bounded.
  */
 function collect(snapshot: unknown): Found[] {
+  // The same value in the same field of the same node is reported once, however often the snapshot repeats it.
   const found: Found[] = [];
   const seen = new Set<string>();
   const add = (owner: Loose, name: string, value: unknown) => {
@@ -106,6 +110,7 @@ function collect(snapshot: unknown): Found[] {
     const data = record(node.data);
     if (data) {
       const named = record(data.parameters);
+      // Named parameters when the node has them; the raw widgets_values otherwise, named only by position.
       if (named && Object.keys(named).length > 0) for (const [name, item] of Object.entries(named)) add(node, name, item);
       else fields(node, record(data.comfy)?.widgets_values);
     }
@@ -147,6 +152,7 @@ export function withoutSecretValues<T>(document: T, snapshot: unknown): T {
     if (Array.isArray(value)) return value.map((item) => scrub(item, depth + 1));
     const out: Loose = {};
     for (const [key, child] of Object.entries(value as Loose)) {
+      // defineProperty, not assignment: a key named "__proto__" in a loaded file stays a plain key.
       Object.defineProperty(out, key, { value: scrub(child, depth + 1), enumerable: true, writable: true, configurable: true });
     }
     return out;
