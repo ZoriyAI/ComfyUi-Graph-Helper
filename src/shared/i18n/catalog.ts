@@ -2285,6 +2285,8 @@ export const en = {
       schedule: 'schedule',
       shift: 'shift',
       gguf: 'GGUF model',
+      output: 'result node',
+      loader: 'model loader',
     },
     fileKind: {
       imageCheckpoint: 'a picture model (SD 1.5, SDXL, Pony, Illustrious, Flux and the like), not a video model',
@@ -5449,6 +5451,8 @@ export const ru = {
       schedule: 'расписание',
       shift: 'сдвиг',
       gguf: 'модель GGUF',
+      output: 'нода результата',
+      loader: 'загрузчик модели',
     },
     fileKind: {
       imageCheckpoint: 'модель для картинок (SD 1.5, SDXL, Pony, Illustrious, Flux и подобные), а не видео-модель',

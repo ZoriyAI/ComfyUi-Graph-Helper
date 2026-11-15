@@ -23,6 +23,7 @@ import { SOUND_3D_FACES_AFTER, SOUND_3D_FACES_LESSONS, SOUND_3D_FACES_PATH } fro
 import { FILES, withFamilyPairs, withFileTable, type FileKind } from './files';
 import { FAMILY_PAIRS, SET_FILE_KINDS } from './fileTables';
 import { EXPERIMENT_AFTER, EXPERIMENT_LESSONS, EXPERIMENT_PATH } from './sets/experiments';
+import { RELIABLE_AFTER, RELIABLE_LESSONS, RELIABLE_PATH } from './sets/reliable-practice';
 import { levelOf } from './programme';
 
 // Short builders so each lesson below reads as a list of steps.
@@ -1100,6 +1101,7 @@ export const LESSONS: readonly Lesson[] = withFamilyPairs(withFileTable([
   ...FOUNDATIONS_TOOLS,
   ...SOUND_3D_FACES_LESSONS,
   ...EXPERIMENT_LESSONS,
+  ...RELIABLE_LESSONS,
   adultImage, adultLora, adult,
 ], SET_FILE_KINDS), FAMILY_PAIRS);
 
@@ -1181,6 +1183,7 @@ export const LESSON_AFTER: Readonly<Record<string, string[]>> = {
   ...FOUNDATIONS_AFTER,
   ...SOUND_3D_FACES_AFTER,
   ...EXPERIMENT_AFTER,
+  ...RELIABLE_AFTER,
 };
 
 const BASICS_GROUP: LessonGroup = { id: 'basics', title: { en: 'Pictures: first steps', ru: 'Картинки: первые шаги' } };
@@ -1197,6 +1200,7 @@ export const LESSON_PATH: Readonly<Record<string, { group: LessonGroup; follows:
   ...IMAGE_TECHNIQUE_PATH,
   ...SOUND_3D_FACES_PATH,
   ...EXPERIMENT_PATH,
+  ...RELIABLE_PATH,
   'adult-image': { group: ADULT_GROUP, follows: ['image'] },
   'adult-lora': { group: ADULT_GROUP, follows: ['image'] },
   adult: { group: ADULT_GROUP, follows: ['video-text'] },
