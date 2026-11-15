@@ -7,7 +7,7 @@ The context window is how much text a model can read at once: the instructions, 
 
 ## What the app does about it
 
-- It reads the real window from your server (Ollama, LM Studio, a llama.cpp server, vLLM) when you press **Check connection** and while it answers.
+- It reads the real window from your server (Ollama, LM Studio, a llama.cpp server, vLLM) when you press **Test connection** and while it answers.
 - It keeps the newest messages within 70 % of the window and tells the model how many earlier messages it left out.
 - Under 16 000 tokens it saves room: it offers the model fewer tools. "From the next question the assistant saves room: it offers the model fewer tools."
 - It says so when the window is too small.
@@ -16,9 +16,9 @@ The context window is how much text a model can read at once: the instructions, 
 
 | Where | Text | What it means |
 |---|---|---|
-| Check connection | "Context window on the server: 32768 tokens. The assistant's requests fit." | fine |
-| Check connection | "… The assistant will save room by offering the model fewer tools. For long builds and web search, 16384 or more is better" | works, but long builds may not |
-| Check connection | "… That is too small: a request from the assistant with its tools takes 3 to 6 thousand, so no room is left for the answer and for build steps." | raise it before you ask |
+| Test connection | "Context window on the server: 32768 tokens. The assistant's requests fit." | fine |
+| Test connection | "… The assistant will save room by offering the model fewer tools. For long builds and web search, 16384 or more is better" | works, but long builds may not |
+| Test connection | "… That is too small: a request from the assistant with its tools takes 3 to 6 thousand, so no room is left for the answer and for build steps." | raise it before you ask |
 | Above an answer | "The model's context window is almost full" | little room is left for a long build |
 | Above an answer | "The model read only part of the request … so this answer may be random." | the answer cannot be trusted; raise the window and ask again |
 

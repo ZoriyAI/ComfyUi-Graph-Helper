@@ -14,7 +14,7 @@ When the assistant cannot answer, the conversation shows a block that says in wo
 | "The server did not accept the key. Check the key in the assistant settings." | the key is wrong, revoked or of another provider; paste a new one |
 | "The server asks to wait. Ask again in a minute." / "The server asks to wait 30 s. Then ask again." | a rate limit or an empty account; wait, or check your account with the provider |
 | "Something broke on the model server. Try again a little later." | an error on the provider's or your server's side |
-| "The model server does not answer. Check that it is running and the address in the assistant settings." | start the server; check **Base URL** |
+| "The model server does not answer. Check that it is running and the address in the assistant settings." | start the server; check **Server address** |
 | "The server answered, but not as a model. Check the address in the assistant settings." | the address points to something else; for a local server it usually ends with `/v1` |
 | "The server sent a reply that could not be read. Ask again; if that does not help, open the log of this answer." | ask again; then look at the log |
 | "A step could not be saved: the disk is full or the app's file cannot be written. The build stopped; what was built so far stays." | free disk space |

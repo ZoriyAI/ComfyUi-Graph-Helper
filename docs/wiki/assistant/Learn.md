@@ -24,7 +24,7 @@ A lesson uses only nodes your ComfyUI has. One that needs a pack you do not have
 
 ## Learn and the other modes
 
-Your progress is read from the graph, so you can leave a lesson, ask or build, and come back with **Go on**. The lessons follow the main canvas, not the inside of a subgraph.
+Your progress is read from the graph, so you can leave a lesson, ask or build, and come back with **Continue**. The lessons follow the main canvas, not the inside of a subgraph.
 
 ## See also
 

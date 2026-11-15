@@ -9,13 +9,13 @@ In **Build** mode the assistant builds the graph on the canvas while you watch: 
 
 1. Open the **Assistant** tab and choose **Build** under the conversation.
 2. Write in **Ask for a graph change** what you want, for example "a picture from text with my SDXL checkpoint" or "add a LoRA to this graph". Press `Enter`.
-3. Watch. Do not edit the canvas while it builds.
+3. Watch. The assistant changes only what it places in this build. If a step would change your own nodes, values, notes or links, the process name or a component, it becomes a grey draft instead. See [Grey drafts](Drafts.md).
 
 ## What you see while it builds
 
 - **On the canvas**: each new node fades in, each link is drawn, each changed field lights up, at the pace set in Settings ▸ Canvas (**Build pace, ms per step**, 820 ms by default). With **Follow the assistant** on, the view moves to each new node; any pan or zoom of yours stops following for now.
 - **A bubble at the step**: its kind (**New node**, **New link**, **Field changed**), "9/16", what was done and why, for example "Link: Positive prompt → KSampler. What you want goes into the sampler's positive input."
-- **A strip under the canvas toolbar**: "The assistant is building: step 3 of 8", with **Pause the build**, **Resume the build**, **Stop the build** and **Show all now** (skip the animation).
+- **A strip under the canvas toolbar**: "The assistant is building: step 3 of 8" and, after a colon, the reason for that step, with **Pause the build**, **Resume the build**, **Stop the build** and **Show all now** (skip the animation).
 - **In the conversation**: **Build · 8 steps**, a list of the steps ("Added the node KSampler", "Link: Load Checkpoint → KSampler", "Field steps = 20 on KSampler"), each with **Show on the canvas**. **Why each step** shows the reason the assistant gave. Steps that did not work are marked "did not work", with the reason ("This node is not in your ComfyUI. Similar ones: …").
 - **In the status bar**: "The assistant is changing the graph" with **Pause** and **Stop**.
 - **On each node it touched**: a spark, "Changed by the assistant".
@@ -26,7 +26,7 @@ A **Build result**: "Done: 7 nodes, 9 links, 5 fields set." (or "Stopped: … Wh
 
 ## How to undo a build
 
-One `Ctrl+Z` takes back the whole build: "Undo: the assistant's build (steps: 16)". It works only when the build has ended (stop it first), and only while the version of the graph before the build is still kept.
+One `Ctrl+Z` takes back the steps the assistant made one after another: "Undo: the assistant's consecutive steps (16)". It works only when the build has ended (stop it first), and only while the version of the graph before the build is still kept; otherwise "This build is too old to undo in one step: the version of the graph before it is no longer kept."
 
 ## Limits
 
@@ -34,7 +34,10 @@ One `Ctrl+Z` takes back the whole build: "Undo: the assistant's build (steps: 16
 - It uses only nodes and models your ComfyUI has. A node you do not have is refused, with similar names.
 - A long build pauses at the step limit. See [Pausing and stopping](Pause-And-Stop.md).
 - A model on your own server with a small context window may lose track in a long build. See [The context window](Context-Window.md).
-- If the app is closed during a build: "The assistant's work stopped when the app was closed. What it had added stayed on the canvas (nodes: 4); undo takes it back in one step."
+- If the app is closed during a build: "The assistant's work stopped when the app was closed. What it had added stayed on the canvas (nodes: 4); Undo takes back consecutive assistant steps, stopping at your edits."
+- New project, Open project or Open workflow during a build ask "The assistant is still building. Stop it?". What was built stays in the old graph.
+- If a step cannot be saved (the disk is full or the app cannot write its data file), the build stops: "A step could not be saved: the disk is full or the app cannot write its data file. The build stopped; what was built so far stays."
+- A history replay closes when a build starts.
 
 ## See also
 
