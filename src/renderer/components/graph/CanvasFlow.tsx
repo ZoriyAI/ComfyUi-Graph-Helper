@@ -1,3 +1,10 @@
+/**
+ * The React Flow canvas of the graph editor: the root graph, an open subgraph definition or a replayed version, with
+ * its toolbar, minimap, context menu and the explanation layers (groups, ghosts, tour, descriptions, live build,
+ * check marks). GraphWorkspace renders it inside the React Flow provider. Edits go through commitManual and the edit
+ * batch, so every canvas gesture is one undo step; drags, zoom reports and the overview level are kept off the stores
+ * on purpose because writing app-wide stores on every frame cost big graphs most of their frames.
+ */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -71,6 +78,7 @@ import { useSpokenCanvas } from './lib/useSpokenCanvas';
 import styles from './GraphWorkspace.module.css';
 import overviewStyles from './Overview.module.css';
 
+// Defined outside the component: React Flow warns and re-mounts every node when these maps change identity.
 const nodeTypes: NodeTypes = { comfy: ComfyNode, boundary: BoundaryNodeView };
 /** Automatic fits (first nodes, a new level) never zoom past 100 %: one node must not fill the canvas. */
 const AUTO_FIT_MAX_ZOOM = 1;
@@ -81,6 +89,7 @@ const REPORT_MS = 120;
 const edgeTypes: EdgeTypes = { default: TypedEdge };
 const DELETE_KEYS = ['Backspace', 'Delete'];
 
+/** A node of the level on screen: a graph node, or the input / output boundary of an open definition. */
 type LevelNode = GraphNode | BoundaryNode;
 
 /** Reports the camera: zoom to the graph store, and the whole viewport (with the canvas size) for the agent's turn context. */
@@ -115,6 +124,7 @@ function OverviewLevel({ host }: { host: React.RefObject<HTMLDivElement> }) {
     const element = host.current;
     if (!element) return undefined;
     const note = (event: Event) => {
+      // A press on a panel (the toolbar's zoom buttons, the minimap) is not a zoom gesture on the canvas.
       if (event.target instanceof Element && event.target.closest('.react-flow__panel')) return;
       lastGesture.current = performance.now();
     };
@@ -154,10 +164,12 @@ function useFitAfterBuild(fit: () => void) {
   useEffect(() => {
     if (activeRun || queued > 0 || !runId || shown === 0 || fitted.current === runId) return;
     fitted.current = runId;
+    // The 40 ms margin lets the glide's last frame land before the fit measures the nodes.
     window.setTimeout(() => window.requestAnimationFrame(fit), glideMs() + 40);
   }, [activeRun, queued, runId, shown, fit]);
 }
 
+/** The ports of one side of a level node, boundary pseudo-nodes included. */
 function portsOf(node: LevelNode | undefined, side: 'inputs' | 'outputs'): PortDefinition[] {
   if (!node) return [];
   if (node.type === 'boundary') {
@@ -320,7 +332,7 @@ export default function CanvasFlow() {
     : glidedNodes), [glidedNodes, dragPlaces]);
   const host = useRef<HTMLDivElement>(null);
 
-  // Sizes at a readable zoom, for «Разложить граф» while the overview has collapsed the nodes.
+  // Sizes at a readable zoom, for Arrange the graph (canvas.arrangeGraph) while the overview has collapsed the nodes.
   useEffect(() => {
     if (mode === 'root') rememberSizes(rootNodes);
   }, [mode, rootNodes]);
@@ -557,6 +569,7 @@ export default function CanvasFlow() {
   const hasSelection = nodes.some((node) => node.selected);
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      // The view moves the other way from the arrow: ArrowLeft shows what is to the left, so the graph moves right.
       const step = ({ ArrowLeft: [1, 0], ArrowRight: [-1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] } as Record<string, number[]>)[event.key];
       if (!step || event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || hasSelection) return;
       const target = event.target instanceof Element ? event.target : null;

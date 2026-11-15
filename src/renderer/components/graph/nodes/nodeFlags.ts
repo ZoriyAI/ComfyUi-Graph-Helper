@@ -1,3 +1,7 @@
+/**
+ * The per-node canvas flags (touched by the assistant, being revealed, waiting in the live build, flagged by the
+ * check, dimmed by the connect assist, out of focus). ComfyNode and SubgraphNode read them and pass them to NodeCard.
+ */
 import { useCanvasStore } from '../canvasStore';
 import { useCanvasView } from '../CanvasContext';
 

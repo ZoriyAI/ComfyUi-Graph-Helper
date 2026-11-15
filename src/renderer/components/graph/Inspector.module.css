@@ -1,3 +1,8 @@
+/*
+ * The Properties panel (Inspector.tsx): headings, fields, ports, explanations, notes
+ * and subgraph slots. Doubled class selectors (.root.root) win over the older `.inspector` rules in
+ * theme/legacy-canvas.css, which the component still carries as class names.
+ */
 /* The panel scrolls down only: whatever is wider than the panel wraps or shortens inside it. */
 .root.root { display: flex; flex-direction: column; gap: 6px; padding: 12px; background: transparent; overflow-x: hidden; overflow-y: auto; min-height: 0; min-width: 0; flex: 1; }
 .h2.h2 { margin: 0; font-size: var(--text-lg); line-height: 22px; overflow-wrap: anywhere; }

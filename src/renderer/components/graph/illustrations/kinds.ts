@@ -1,4 +1,8 @@
-/** Which micro-illustration a node class gets. Pure, so the mapping is tested without React. */
+/**
+ * Which micro-illustration a node class gets, and the seeded noise its pictures use. Illustration.tsx reads it;
+ * tests/unit/canvasLogic.test.ts checks the mapping. Pure, so the mapping is tested without React.
+ */
+/** The picture kinds Illustration.tsx can draw. */
 export type IllustrationKind =
   | 'sampler'
   | 'vae-decode'
@@ -15,11 +19,13 @@ export type IllustrationKind =
   | 'subgraph'
   | 'generic';
 
+/** Every kind, in one list, for tests that walk all pictures. */
 export const ILLUSTRATION_KINDS: readonly IllustrationKind[] = [
   'sampler', 'vae-decode', 'vae-encode', 'text-encode', 'lora', 'weights', 'controlnet', 'image', 'empty-latent',
   'video', 'audio', 'set-get', 'subgraph', 'generic',
 ];
 
+/** Core classes whose picture is known by name; everything else is guessed from words in the class name. */
 const EXACT: Record<string, IllustrationKind> = {
   KSampler: 'sampler',
   KSamplerAdvanced: 'sampler',
@@ -47,6 +53,7 @@ const EXACT: Record<string, IllustrationKind> = {
   EmptySD3LatentImage: 'empty-latent',
 };
 
+/** The picture for a class: an exact core name first, then words of the name, the order deciding ties. */
 export function illustrationKind(classType: string | undefined): IllustrationKind {
   if (!classType) return 'generic';
   const exact = EXACT[classType];
@@ -73,6 +80,7 @@ export function illustrationKind(classType: string | undefined): IllustrationKin
 export function noisePoints(count: number, width: number, height: number, seed = 7): Array<{ x: number; y: number; r: number }> {
   let state = seed;
   const next = () => {
+    // A classic linear congruential step (the C library's constants): cheap and the same on every run.
     state = (state * 1103515245 + 12345) % 2147483648;
     return state / 2147483648;
   };

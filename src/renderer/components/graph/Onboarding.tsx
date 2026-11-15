@@ -1,3 +1,9 @@
+/**
+ * The first screen on an empty canvas: three ways to begin, the two setup steps they need, the import and recent
+ * files, and a one-click switch to the other interface language. GraphWorkspace shows it while the root graph is
+ * empty and nothing is replayed or searched. Each setup row reads the live sync and provider state, so the card
+ * always says where things stand now and offers the one button that moves them on.
+ */
 import { modelDisplayName } from '../shell/modelDisplayName';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -18,8 +24,10 @@ import { LANGUAGE_CHOICES } from '../../commands/appCommands';
 import { explainError, type Translator } from '../../../shared/i18n';
 import styles from './Onboarding.module.css';
 
+/** Where a row stands: still to do, in progress, done, or stuck with a reason. */
 type StepState = 'todo' | 'busy' | 'done' | 'problem';
 
+/** One row of the card: a way to begin or a setup step, with its one button. */
 interface Step {
   key: string;
   icon: React.ReactNode;
@@ -30,6 +38,7 @@ interface Step {
   action?: { label: string; onClick: () => void; icon?: React.ReactNode; primary?: boolean };
 }
 
+/** Brand names of the cloud providers as a person knows them; other providers show their id. */
 const PROVIDER_NAMES: Record<string, string> = { openai: 'OpenAI', anthropic: 'Anthropic', google: 'Google', test: 'TEST' };
 
 /**
@@ -59,6 +68,7 @@ export default function Onboarding({ onImport }: { onImport?: () => void }) {
     connect = { ...connectBase, state: 'busy', text: translate('canvas.onboardReading') };
   } else if (status?.state === 'error') {
     // A busy server is not a wrong address: the way on is to read again, not to change settings.
+    // Matched on the English error text the main process writes, not on the translated sentence.
     const slow = /answered too slowly/.test(status.lastError ?? '');
     connect = {
       ...connectBase,

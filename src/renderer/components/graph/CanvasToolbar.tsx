@@ -1,3 +1,9 @@
+/**
+ * The floating toolbar over the graph canvas, its tour transport pill, and the accept-all / reject-all helpers for
+ * the assistant's grey drafts. CanvasFlow mounts the toolbar in a top-center React Flow Panel; appCommands.ts runs the
+ * two proposal helpers as menu commands; CanvasFlow, GraphWorkspace and the build and import layers fit the view with
+ * FIT_PADDING. Every button runs a command from the registry, so the toolbar, the menu and the shortcuts share one path.
+ */
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { CheckCheck, ChevronLeft, ChevronRight, Compass, Maximize, MessageSquareText, MessagesSquare, Navigation, Pause, Play, Square, SquarePlus, Workflow, ZoomIn, ZoomOut } from 'lucide-react';
@@ -13,6 +19,7 @@ import styles from './Toolbar.module.css';
 
 const zoomOf = (state: ReactFlowState) => state.transform[2];
 
+/** The tooltip for each description mode: it names the current mode and what a click does next. */
 const DESCRIPTION_TITLES = {
   own: 'canvas.descriptionsTitleOwn',
   all: 'canvas.descriptionsTitleAll',
@@ -30,7 +37,7 @@ export async function acceptAllProposals(): Promise<void> {
   }
 }
 
-/** «Отклонить все»: every open grey draft is rejected, nothing on the graph changes. */
+/** Reject all (catalog canvas.rejectAll): every open grey draft is rejected, nothing on the graph changes. */
 export async function rejectAllProposals(): Promise<void> {
   const store = useProposalsStore.getState();
   for (const proposal of openProposals(store.proposals)) {
@@ -39,11 +46,11 @@ export async function rejectAllProposals(): Promise<void> {
 }
 
 /**
- * Floating canvas toolbar: add node (labelled «Нода», its own shape so it never reads as zoom), «Разложить»,
- * zoom in / out (magnifier glyphs), React Flow's fit and interactivity controls, follow the helper, description
- * cards (own / all / off), the tour player, replay, and accept-all when there are proposals. "Show all now" for
- * a live build lives only on the live-build strip. Mounted as a React Flow Panel so it sits in the canvas tab zone;
- * onBeforeDelete and React Flow's input check keep graph shortcuts out of its search field.
+ * Floating canvas toolbar: add node (labelled with canvas.addNodeLabel, its own shape so it never reads as zoom),
+ * Arrange (canvas.arrange), zoom out / reset / in (magnifier glyphs) and fit, description cards (own / all / off),
+ * the tour, the history replay player, follow the helper, and accept-all / reject-all when two or more proposals are
+ * open. "Show all now" for a live build lives only on the live-build strip. Mounted as a React Flow Panel so it sits
+ * in the canvas tab zone; onBeforeDelete and React Flow's input check keep graph shortcuts out of its search field.
  */
 export default function CanvasToolbar() {
   const { t } = useTranslation();

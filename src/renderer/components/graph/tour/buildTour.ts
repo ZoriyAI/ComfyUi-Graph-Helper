@@ -1,7 +1,13 @@
+/**
+ * The canvas tour's steps: one per node, from loaders to outputs, each with a title and a sentence. startTour.ts
+ * builds a tour with it; CanvasFlow uses stepIndexOf to continue a tour from a clicked node; the unit tests check the
+ * order and the texts. Pure and deterministic, so a tour of the same graph always says the same.
+ */
 import type { Explanation } from '../../../../shared/contracts/knowledge';
 import type { TourStep } from '../../../state/uiState';
 import { topologicalOrder, type TopoEdge } from '../lib/topology';
 
+/** The parts of a graph node the tour reads. */
 export interface TourNode {
   id: string;
   position: { x: number; y: number };
@@ -15,9 +21,9 @@ export interface TourNode {
 
 /** What the tour may say about each node, gathered beforehand (see tourTexts.ts). */
 export interface TourTexts {
-  /** First explanation written for the node itself, by node id. */
+  /** The explanation firstExplanation picks for the node itself, by node id. */
   byNode: Record<string, string | undefined>;
-  /** First explanation written for the class, by class type. */
+  /** The explanation firstExplanation picks for the class, by class type. */
   byClass: Record<string, string | undefined>;
   /** Catalog description and display name, by class type. */
   catalog: Record<string, { description?: string; displayName?: string } | undefined>;

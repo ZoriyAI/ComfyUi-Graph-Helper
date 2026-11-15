@@ -1,3 +1,9 @@
+/**
+ * The canvas context menu: right-click (or Shift+F10 / the Menu key) on a node, a port, a link, a group or empty
+ * canvas lists the questions for the helper about that object and the edits that apply to it. CanvasFlow wraps the
+ * whole canvas in it. The rows come from the command registry where a command exists, so labels, shortcuts and the
+ * enabled state match the menu bar; editingMenu.tsx and lookMenu add the editing and collapse rows.
+ */
 import React, { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import * as Menu from '@radix-ui/react-context-menu';
@@ -32,7 +38,10 @@ import { nodeDisplayName } from './lib/nodeName';
 import { edgeEditingItems, groupEditingItems, groupMembershipItems, nodeEditingItems, paneEditingItems } from './editingMenu';
 import styles from './GraphContextMenu.module.css';
 
-/** «Вставить субграф» from the menu: at the point of the click, moved to the nearest spot where it covers no node. */
+/**
+ * Insert subgraph (contextMenu.insertSubgraph) from the menu: at the point of the click, moved to the nearest spot
+ * where it covers no node.
+ */
 async function insertSubgraphAt(definition: { id: string; name: string; inputs: unknown[]; outputs: unknown[] }, at: { x: number; y: number }): Promise<void> {
   const spot = await placeNewNode(at, { size: subgraphCardSize(definition) });
   await commitManual({ type: 'insert-subgraph', definitionId: definition.id, x: spot.x, y: spot.y });
@@ -63,10 +72,12 @@ export function targetFromElement(element: Element | null, at: { x: number; y: n
   return { kind: 'pane', at };
 }
 
+/** The name a person sees on the node card, for the questions' wording. */
 function nodeName(node: GraphNode | undefined): string {
   return nodeDisplayName(node?.data);
 }
 
+/** The port behind a handle id on one side of a node. */
 function findPort(node: GraphNode | undefined, direction: 'input' | 'output', handle: string): PortDefinition | undefined {
   return (direction === 'input' ? node?.data.inputs : node?.data.outputs)?.find((port) => port.id === handle);
 }
@@ -81,7 +92,7 @@ interface Props {
 
 /**
  * Right-click (or Shift+F10 / Menu key) anywhere on the canvas: questions about the object, and the build
- * actions that apply to it. Questions go out through services/ask.ts and highlight the object; build
+ * actions that apply to it. Questions go out through askAbout.ts (services/ask.ts) and highlight the object; build
  * actions commit mutations. Radix primitives directly; the Shell's styled ContextMenu can replace them.
  */
 export default function GraphContextMenu({ children, nodes: levelNodes, edges, readOnly }: Props) {
@@ -125,6 +136,8 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
     if (!(active instanceof HTMLElement) || !event.currentTarget.contains(active)) return;
     if (active.closest('input, textarea, select')) return;
     event.preventDefault();
+    // A synthetic contextmenu event on the focused element opens the same Radix menu a right-click opens; the point
+    // stays near the element's top-left so the menu opens beside it, not in the middle of a wide node.
     const box = active.getBoundingClientRect();
     active.dispatchEvent(new MouseEvent('contextmenu', {
       bubbles: true,
@@ -191,6 +204,7 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
       // Copy, cut and duplicate act on the selection; a right-click on a node outside it selects that node first.
       const onSelection = (run: () => unknown) => () => {
         if (!selectedIds.includes(node.id)) selectOnLevel([node.id]);
+        // The next tick: the selection change must reach the stores before the clipboard reads it.
         window.setTimeout(() => void run(), 0);
       };
       items.push(
@@ -204,6 +218,7 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
           setSelection([ref]);
           selectOnLevel([node.id]);
           useDockStore.getState().show('inspector');
+          // The Properties panel needs a moment to mount the field for the newly selected node.
           window.setTimeout(() => {
             const field = document.getElementById(`node-title-${node.id}`) as HTMLInputElement | null;
             field?.focus();
@@ -249,6 +264,7 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
     );
     if (definition && !readOnly) {
       if (isBoundary) {
+        // A boundary node's handles end in the slot's index ("out-2"); the empty slot at the end matches no slot.
         const slotIndex = Number(/-(\d+)$/.exec(target.handle)?.[1] ?? -1);
         const direction = target.nodeId === SUBGRAPH_INPUT_NODE_ID ? 'input' : 'output';
         const slot = (direction === 'input' ? definition.inputs : definition.outputs)[slotIndex];

@@ -1,3 +1,7 @@
+/**
+ * One field row of a node card: the field's name, its in-place control, and the quiet link handle that keeps a
+ * widget input linkable. NodeCard renders a row per field. A linked field shows a link mark instead of a control.
+ */
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import FieldControl from '../../fields/FieldControl';
@@ -8,6 +12,7 @@ import { PortHandle } from './PortHandle';
 import { isServiceData } from '../../../../shared/workflow/comfyLook';
 import styles from './Node.module.css';
 
+/** What NodeCard passes for one field. */
 interface FieldRowProps {
   nodeId: string;
   field: FieldEntry;
@@ -26,6 +31,7 @@ interface FieldRowProps {
  */
 export default function FieldRow({ nodeId, field, linked, focusable, live, disabled }: FieldRowProps) {
   const { t } = useTranslation();
+  // A multiline text gets its own line under the name; every other control sits beside it.
   const stacked = !linked && controlKind(field.spec, field.value) === 'string' && Boolean(field.spec?.multiline);
   const port = field.port;
   return (

@@ -1,3 +1,8 @@
+/*
+ * Styles of the canvas context menu (GraphContextMenu.tsx) and its editing rows (editingMenu.tsx): a raised list
+ * with an icon column, a caption over the helper's questions, shortcuts at the right and danger rows in red.
+ * .trigger fills the canvas so a right-click anywhere on it reaches the menu.
+ */
 .trigger { position: absolute; inset: 0; }
 .content {
   z-index: 50;

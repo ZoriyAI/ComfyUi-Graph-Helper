@@ -1,3 +1,9 @@
+/**
+ * The Properties panel: the selected node, link or subgraph instance in detail, with editable fields, the ports and
+ * their links, explanations with their provenance, the person's own notes on a node or subgraph, and the notes on
+ * the whole process. The dock (shell/Dock.tsx) renders it as the inspector tab; the canvas context menu opens that
+ * tab to rename a node or edit its notes. It works on the level on screen, so inner nodes of a subgraph edit too.
+ */
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CircleHelp, Info, LogIn, MessageCircleQuestion, MousePointerClick, Ungroup } from 'lucide-react';
@@ -30,10 +36,15 @@ import { MissingValues, PromotedPanel, SetGetJump, useLookSentence } from './nod
 import { promotedFields } from '../../../shared/workflow/comfyLook';
 import styles from './Inspector.module.css';
 
+/** The person's notes record for one node or subgraph, if the project has one. */
 function recordFor(components: ComponentRecord[], kind: ComponentOwnerKind, ownerId: string): ComponentRecord | undefined {
   return components.find((item) => item.ownerKind === kind && item.ownerId === ownerId);
 }
 
+/**
+ * The person's own notes on a node or a subgraph: what it is for and how to use it, saved together as one
+ * `set-component` edit. The context menu focuses the purpose field by its id (`component-purpose-node-<id>`).
+ */
 function DocsEditor({
   ownerKind,
   ownerId,
@@ -89,6 +100,7 @@ function DocsEditor({
   );
 }
 
+/** The badge words for where an explanation came from. */
 const PROVENANCE_KEY: Record<Provenance, string> = {
   fact: 'inspector.provenanceFact',
   inference: 'inspector.provenanceInference',
@@ -114,6 +126,7 @@ function Explanations({ refs, fallback = null }: { refs: ObjectRef[]; fallback?:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [joined, load]);
   const own = keys.flatMap((key) => cache[key] ?? []);
+  // The four newest lines only, so the narrow panel stays short.
   const list: Explanation[] = edgeKnowledge(own, fallbackKey ? cache[fallbackKey] : undefined)
     .sort((left, right) => right.createdAt - left.createdAt).slice(0, 4);
   return (
@@ -273,6 +286,7 @@ function NodeTitle({ node, shown, disabled }: { node: GraphNode; shown: string; 
   );
 }
 
+/** Everything Properties shows for one node or subgraph instance: header, rename, slots, ports, fields, explanations. */
 function NodeSection({ node, edges }: { node: GraphNode; edges: GraphEdge[] }) {
   const { t } = useTranslation();
   const data = node.data as ComfyNodeData;
@@ -415,6 +429,7 @@ function NodeSection({ node, edges }: { node: GraphNode; edges: GraphEdge[] }) {
   );
 }
 
+/** Properties of one link: its ends, its type, what flows through it and the explanations of the link or its type. */
 function EdgeSection({ edge, nodes }: { edge: GraphEdge; nodes: GraphNode[] }) {
   const { t } = useTranslation();
   const source = nodes.find((node) => node.id === edge.source);
@@ -460,7 +475,7 @@ function EdgeSection({ edge, nodes }: { edge: GraphEdge; nodes: GraphNode[] }) {
  */
 export default function Inspector() {
   const { t } = useTranslation();
-  // the level on screen (root, or the open subgraph's inner graph), so inner nodes can be edited too.
+  // The level on screen (root, or the open subgraph's inner graph), so inner nodes can be edited too.
   const { nodes, edges, inDefinition } = useLevelGraph();
   const components = useGraphStore((state) => state.components);
   const process = useGraphStore((state) => state.process);
@@ -476,6 +491,7 @@ export default function Inspector() {
     setProcessTitle(process.title);
     setProcessNotes(process.notes);
   }, [process.title, process.notes]);
+  // A subgraph picked here that was dissolved or removed is forgotten, so the notes editor does not point at nothing.
   useEffect(() => {
     if (subgraphId && !census.definitions.some((item) => item.id === subgraphId)) setSubgraphId(null);
   }, [census.definitions, subgraphId]);

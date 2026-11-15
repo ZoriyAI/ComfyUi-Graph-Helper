@@ -1,3 +1,7 @@
+/**
+ * Starts the graph tour of the level on screen. The toolbar's tour button, the context menu's "tour from here" and
+ * the commands call startGraphTour; the tour itself plays in TourLayer and the toolbar's transport pill.
+ */
 import { currentPreferences } from '../../../state/preferencesState';
 import { i18n } from '../../../i18n';
 import { useGraphStore } from '../../../state/graphState';

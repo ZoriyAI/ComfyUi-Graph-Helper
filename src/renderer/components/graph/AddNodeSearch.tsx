@@ -1,10 +1,11 @@
 /**
- * The node search on the canvas (Ctrl+K, «Нода», a double click on empty canvas, the context menus, a link dropped on
- * empty canvas). A person types a name or what the node does, picks with arrows and Enter, and the node lands where
- * they asked. The same box serves two editing commands (commands/editingCommands.ts): placing a node on a link (only
- * nodes that fit the link are listed) and putting another node in a node's place. Each result carries one line on
- * what it does, so a person can tell "Upscale Image" from "Upscale Image (using Model)" before choosing; nodes added
- * lately come first while nothing is typed.
+ * The node search on the canvas (Ctrl+K, the toolbar's Node button canvas.addNodeLabel, a double click on empty
+ * canvas, the context menus, a link dropped on empty canvas). A person types a name or what the node does, picks
+ * with arrows and Enter, and the node lands where they asked. The same box serves two editing commands
+ * (commands/editingCommands.ts): placing a node on a link (only nodes that fit the link are listed) and putting
+ * another node in a node's place. Each result carries one line on what it does, so a person can tell "Upscale Image"
+ * from "Upscale Image (using Model)" before choosing; nodes added lately come first while nothing is typed.
+ * CanvasToolbar renders the box; it opens from canvasStore.openAddSearch.
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -173,11 +174,11 @@ function Highlighted({ text, query }: { text: string; query: string }) {
 }
 
 /**
- * Add-node search: type, pick with arrows and Enter, and the node lands where the person asked
- * (right-click position) or in the middle of the view, in the nearest free spot. Commits `add-node` through commitManual.
+ * How many classes a search from a dropped link reads before keeping the ones that fit. Fitting is checked per class
+ * against its catalog detail, so the search reads wide and the list keeps the first LINK_RESULTS that fit.
  */
-/** How many classes a search from a dropped link reads before keeping the ones that fit. */
 const LINK_SEARCH_LIMIT = 400;
+/** How many fitting nodes a search from a dropped link lists. */
 const LINK_RESULTS = 12;
 
 /** The found classes that have a port for the dropped link, in search order. */
@@ -193,6 +194,11 @@ async function nodesThatFit(found: NodeClassSummary[], link: ConnectFrom): Promi
   return fitting;
 }
 
+/**
+ * Add-node search: type, pick with arrows and Enter, and the node lands where the person asked
+ * (right-click position) or in the middle of the view, in the nearest free spot. Commits `add-node` (or the editing
+ * command of its purpose) through commitAtOrigin, so an edit started in one graph never lands in another.
+ */
 export default function AddNodeSearch() {
   const { t, i18n: instance } = useTranslation();
   const search = useCanvasStore((state) => state.addSearch);
@@ -234,13 +240,14 @@ export default function AddNodeSearch() {
         const fitting = link ? await nodesThatFit(found, link)
           : purpose?.kind === 'replace' ? found.filter((item) => !item.editor)
             : purpose ? found : withRecent(found, query);
+        // A newer query or a closed box has dropped this answer: an old list must not replace a newer one.
         if (live) {
           setResults(fitting);
           setResultsFor(query.trim());
           setActive(0);
         }
       });
-    }, 120);
+    }, 120); // A short debounce: one search per pause in typing, not one per key.
     return () => {
       live = false;
       window.clearTimeout(timer);
@@ -318,6 +325,7 @@ export default function AddNodeSearch() {
           event.stopPropagation();
         }}
         onBlur={(event) => {
+          // A click on a result keeps the box open (the row is inside it); focus going anywhere else closes it.
           if (!event.currentTarget.parentElement?.contains(event.relatedTarget as Node | null)) close();
         }}
       />
@@ -330,6 +338,7 @@ export default function AddNodeSearch() {
             aria-selected={index === active}
             className={styles.result}
             tabIndex={-1}
+            // No focus move on press, so the input's blur does not close the box before the click picks the row.
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => pick(item)}
           >

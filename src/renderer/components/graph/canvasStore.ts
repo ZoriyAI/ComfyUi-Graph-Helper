@@ -1,3 +1,9 @@
+/**
+ * The canvas store: short-lived state of the graph canvas (the add-node search, the replay, the live build queue
+ * and its callout, description cards, link drags, the minimap and pin toggles, the camera report). The canvas and
+ * its layers read and write it; commands, lessons, the chat's build cards and the check panel read it to steer the
+ * canvas. Only the description mode and the minimap are saved, through Preferences ▸ Canvas.
+ */
 import { create } from 'zustand';
 import type { ObjectRef } from '../../../shared/contracts/objects';
 import type { RevisionSnapshot, RevisionSummary } from '../../../shared/contracts/revisions';
@@ -19,10 +25,12 @@ export function descriptionScopeOf(graphKey: string, subgraphId: string | null |
   return [graphKey, subgraphId ?? ''].filter(Boolean).join('|');
 }
 
+/** The description scope of the graph and subgraph on screen now. */
 export function descriptionScope(): string {
   return descriptionScopeOf(useProjectionStore.getState().graphKey, useGraphStore.getState().activeSubgraphId);
 }
 
+/** The key a node's card state is remembered under: the node id inside the scope. */
 export function descriptionKey(nodeId: string, scope: string = descriptionScope()): string {
   return scope ? `${scope}#${nodeId}` : nodeId;
 }
@@ -35,11 +43,6 @@ export function useDescriptionScope(): string {
 }
 
 /**
- * Ephemeral canvas state: what the explanatory layers are showing right now.
- * Lives inside components/graph because nothing outside the canvas reads it; persistent and shared
- * state stays in graphState / uiState / proposalsState.
- */
-/**
  * What the add-node search is open for: a plain add, a node to place on a link (the search lists only nodes with an
  * input for what the link carries and an output for where it goes), or a node to put in another's place.
  */
@@ -47,6 +50,7 @@ export type AddSearchPurpose =
   | { kind: 'insert'; edgeId: string; dataType: string; targetType: string }
   | { kind: 'replace'; nodeId: string; name: string };
 
+/** The history replay: the versions, the one under the slider, whether it plays, and its loaded snapshot. */
 export interface ReplayState {
   revisions: RevisionSummary[];
   index: number;
@@ -57,6 +61,7 @@ export interface ReplayState {
 
 /** Where a canvas toggle is remembered: Preferences ▸ Canvas in SQLite (state/preferencesBridge installs it). */
 export type CanvasPersist = (patch: CanvasPatch) => void;
+/** The canvas toggles that are saved between sessions. */
 export interface CanvasPatch {
   showDescriptions?: boolean;
   descriptions?: DescriptionsMode;
@@ -70,6 +75,7 @@ export function setCanvasPersist(next: CanvasPersist | null): void {
   persist = next;
 }
 
+/** Saves a toggle; a failing writer never breaks the toggle itself. */
 function remember(patch: CanvasPatch): void {
   try {
     persist?.(patch);
@@ -78,6 +84,7 @@ function remember(patch: CanvasPatch): void {
   }
 }
 
+/** The bubble beside the node the live build just showed: what the step did and why. */
 export interface BuildCallout {
   /** The node the bubble points at. */
   nodeId: string;
@@ -111,6 +118,10 @@ export interface FadingNode {
   title: string;
 }
 
+/**
+ * Ephemeral canvas state: what the explanatory layers are showing right now. Persistent and shared state stays in
+ * graphState / uiState / proposalsState.
+ */
 interface CanvasState {
   /** "What connects here": the port being explained; null when the assist is off. */
   connectFrom: ConnectFrom | null;
@@ -133,18 +144,19 @@ interface CanvasState {
   callout: BuildCallout | null;
   /** The canvas camera and size, for the agent's turn context. */
   viewport: AgentViewport | null;
-  /** A request to centre a node (the chat's "Show"); the nonce makes a repeat request count. */
-  /** `select: false` only looks (a lesson's next place): the camera goes there and nothing is selected. */
+  /**
+   * A request to centre a node (the chat's "Show"); the nonce makes a repeat request count.
+   * `select: false` only looks (a lesson's next place): the camera goes there and nothing is selected.
+   */
   centerRequest: { nodeId: string; nonce: number; subgraphId?: string; select?: boolean } | null;
   /** Manual commits in flight; their projections do not start a build reveal. */
   manualInFlight: number;
   replay: ReplayState | null;
-  /** Add-node search: open, and where the node goes (flow coordinates) when picked. */
-  /** `query` is typed into the search as it opens (a lesson asking for a node by name). */
   /**
-   * The add-node search. `linkFrom`: a link was dropped on empty canvas from this port; the search lists the nodes
-   * that can take it, and the chosen one is connected. `purpose` (editing package): the search places a node on a
-   * link or puts one in another's place.
+   * The add-node search: open, and where the node goes (flow coordinates) when picked. `query` is typed into the
+   * search as it opens (a lesson asking for a node by name). `linkFrom`: a link was dropped on empty canvas from
+   * this port; the search lists the nodes that can take it, and the chosen one is connected. `purpose` (editing
+   * package): the search places a node on a link or puts one in another's place.
    */
   addSearch: { open: boolean; at: { x: number; y: number } | null; query?: string; linkFrom?: ConnectFrom; purpose?: AddSearchPurpose };
   /** Description cards under the nodes: own / all / off (remembered in Preferences ▸ Canvas). */
@@ -209,18 +221,21 @@ interface CanvasState {
   setDescriptionExpanded: (nodeId: string, expanded: boolean) => void;
 }
 
+/** A copy of the id set with these ids added (the store never mutates a record in place). */
 function withIds(record: Record<string, true>, ids: string[]): Record<string, true> {
   const next = { ...record };
   for (const id of ids) next[id] = true;
   return next;
 }
 
+/** A copy of the id set without these ids. */
 function withoutIds(record: Record<string, true>, ids: string[]): Record<string, true> {
   const next = { ...record };
   for (const id of ids) delete next[id];
   return next;
 }
 
+/** The canvas store itself; see CanvasState for each field. */
 export const useCanvasStore = create<CanvasState>((set, get) => ({
   connectFrom: null,
   connectPinned: false,
@@ -271,6 +286,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   addFading: (nodes) => set((state) => ({ fading: [...state.fading.filter((item) => !nodes.some((node) => node.id === item.id)), ...nodes] })),
   clearFading: (ids) => set((state) => ({ fading: state.fading.filter((item) => !ids.includes(item.id)) })),
   setCallout: (callout) => set(callout && (callout.kind ?? 'node') === 'node' ? { callout, revealedDescription: callout.nodeId } : { callout }),
+  // An unchanged camera writes nothing, so subscribers do not wake for a report that says the same.
   setViewport: (viewport) => set((state) => (
     state.viewport && state.viewport.x === viewport.x && state.viewport.y === viewport.y && state.viewport.zoom === viewport.zoom
       && state.viewport.width === viewport.width && state.viewport.height === viewport.height

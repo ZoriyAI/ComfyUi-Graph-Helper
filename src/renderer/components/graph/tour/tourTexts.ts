@@ -1,3 +1,8 @@
+/**
+ * Collects, before a tour starts, what it may say about each node: the explanations saved for the node and its class
+ * and the catalog's name and description. startTour.ts calls it; all reads run at once so a big graph's tour does
+ * not wait node by node.
+ */
 import { inSubgraph } from '../../../../shared/contracts/objects';
 import { DESKTOP_PROJECT_ID } from '../../../../shared/project';
 import { useNodeInfoStore } from '../nodeInfo';

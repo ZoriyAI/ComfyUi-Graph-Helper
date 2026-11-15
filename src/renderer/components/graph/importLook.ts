@@ -1,3 +1,9 @@
+/**
+ * How an imported workflow is shown, outside the node components: collapsing, the first view, nodes that cover
+ * each other after an import, and jumping from a Get to its Set. CanvasFlow mounts ImportLookLayer, which hands
+ * this module the camera and runs the steps that wait for the canvas to be drawn. The file commands
+ * (commands/actions.ts, appCommands.ts), the collapse menu rows (lookMenu.ts) and Properties (InspectorLook) call it.
+ */
 import type { ReactFlowInstance } from '@xyflow/react';
 import { create } from 'zustand';
 import { estimateNodeSize } from '../../../shared/graph/layout';
@@ -10,28 +16,27 @@ import { levelNodes } from './lib/level';
 import { layoutRect, sizeHintsOf } from './lib/nodeSizes';
 import { useNodeInfoStore } from './nodeInfo';
 
-/**
- * How an imported workflow is shown, outside the node components: collapsing, the first view, nodes that cover
- * each other after an import, and jumping from a Get to its Set. CanvasFlow mounts ImportLookLayer, which hands
- * this module the camera and runs the steps that wait for the canvas to be drawn.
- */
-
+/** The canvas's React Flow instance, set by ImportLookLayer while the canvas is mounted. */
 let flow: ReactFlowInstance | null = null;
 
+/** ImportLookLayer hands in the canvas instance on mount and null on unmount. */
 export function setLookFlow(instance: ReactFlowInstance | null): void {
   flow = instance;
 }
 
+/** The steps an import still waits for until the canvas has drawn its nodes. */
 interface ImportLookState {
   /** An import just replaced the graph: once it is drawn, move covered nodes apart and say so. */
   spreadPending: boolean;
   /** The graph on screen changed (a new graph, an import, undo across one): set the first view once drawn. */
   viewPending: boolean;
-  /** Node ids the canvas highlights as the partners of the selected Set or Get. */
+  /** Asks for both steps after an import (afterWorkflowOpened). */
   request: () => void;
+  /** ImportLookLayer marks a step finished once it has run. */
   done: (what: 'spread' | 'view') => void;
 }
 
+/** The pending import steps; ImportLookLayer reads them and runs each once the canvas is drawn. */
 export const useImportLookStore = create<ImportLookState>((set) => ({
   spreadPending: false,
   viewPending: false,
@@ -66,6 +71,7 @@ export function goToNode(nodeId: string): void {
   if (!flow) return;
   const node = flow.getNode(nodeId);
   if (!node) return;
+  // An unmeasured node is taken at the default card size; the zoom stays between 0.75 and 1.25 so the node reads.
   const width = node.measured?.width ?? 240;
   const height = node.measured?.height ?? 120;
   const zoom = Math.max(flow.getZoom(), 0.75);

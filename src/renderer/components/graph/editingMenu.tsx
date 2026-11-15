@@ -1,8 +1,9 @@
 /**
- * The editing rows of the canvas context menu (GraphContextMenu.tsx): on a node, «Обойти», «Выключить», «Цвет» and
- * «Заменить на…»; on a link, «Вставить ноду…» and «Добавить reroute»; on a group, «Цвет»; on empty canvas,
- * «Добавить заметку». They run the same functions as the menu bar and the shortcuts (commands/editingCommands.ts),
- * so a node the person right-clicks, or the selection it belongs to, is what changes.
+ * The editing rows of the canvas context menu (GraphContextMenu.tsx): on a node, Bypass, Mute, Color and Replace
+ * with (catalog editing.bypass, editing.mute, editing.color, editing.replaceNode); on a link, Insert node and Add
+ * reroute; on a group, Color; on empty canvas, Add note (editing.addNote). They run the same functions as the menu
+ * bar and the shortcuts (commands/editingCommands.ts), so a node the person right-clicks, or the selection it
+ * belongs to, is what changes.
  */
 import React from 'react';
 import * as Menu from '@radix-ui/react-context-menu';
@@ -20,6 +21,7 @@ import Shortcut from '../../ui/Shortcut';
 import type { GraphNode } from '../../types/graph';
 import styles from './GraphContextMenu.module.css';
 
+/** A plain translate function the context menu passes in. */
 type Translate = (key: string) => string;
 
 /**
@@ -41,7 +43,7 @@ function checkRow(key: string, label: string, checked: boolean, run: () => void,
   );
 }
 
-/** «Цвет» with ComfyUI's palette and «Без цвета»; `current` is ticked. */
+/** Color (editing.color) with ComfyUI's palette and No color (editing.colorNone); `current` is ticked. */
 function colorSubmenu(key: string, t: Translate, current: ColorName | 'none' | null, run: (color: ColorName | null) => void, disabled: boolean, swatch: 'node' | 'group') {
   return (
     <Menu.Sub key={key}>
@@ -85,6 +87,7 @@ function sharedColor(nodes: GraphNode[]): ColorName | 'none' | null {
 
 /** Rows for a node: they act on the node, or on the whole selection when the node is part of it. */
 export function nodeEditingItems(t: Translate, node: GraphNode, targets: GraphNode[], disabled: boolean): React.ReactNode[] {
+  // Notes never run, so bypass and mute do not apply to them; colour still does.
   const runnable = targets.filter((item) => !['Note', 'MarkdownNote'].includes(String(item.data.comfyType)));
   const ids = runnable.map((item) => item.id);
   const all = (mode: 'bypassed' | 'muted') => runnable.length > 0 && runnable.every((item) => nodeRunMode(item.data as { comfy?: unknown }) === mode);
@@ -110,8 +113,8 @@ export function nodeEditingItems(t: Translate, node: GraphNode, targets: GraphNo
 }
 
 /**
- * «Добавить в группу» (a submenu of the groups) and «Вынуть из группы»: a group's frame is drawn around its nodes,
- * so this is how a group grows or shrinks. Main canvas only, where groups live.
+ * Add to group (editing.addToGroup, a submenu of the groups) and Take out of group (editing.removeFromGroup): a
+ * group's frame is drawn around its nodes, so this is how a group grows or shrinks. Main canvas only, where groups live.
  */
 export function groupMembershipItems(t: Translate, targets: GraphNode[], groups: GroupRecord[], disabled: boolean): React.ReactNode[] {
   const ids = targets.map((item) => item.id);
@@ -136,6 +139,7 @@ export function groupMembershipItems(t: Translate, targets: GraphNode[], groups:
       </Menu.Sub>,
     );
   }
+  // Taking out is offered only when one group holds the nodes, so it is clear which group they leave.
   const holding = groups.filter((group) => ids.some((id) => group.nodeIds.includes(id)));
   if (holding.length === 1) {
     const group = holding[0];
@@ -163,13 +167,13 @@ export function edgeEditingItems(t: Translate, edgeId: string, disabled: boolean
   ];
 }
 
-/** «Цвет» for a group. */
+/** Color (editing.color) for a group. */
 export function groupEditingItems(t: Translate, groupId: string, color: unknown, disabled: boolean): React.ReactNode[] {
   const current = color === undefined || color === null ? 'none' : paletteNameOf(color);
   return [colorSubmenu('group-color', t, current, (next) => void colorGroup(groupId, next), disabled, 'group')];
 }
 
-/** «Добавить заметку» on empty canvas, at the point of the click. */
+/** Add note (editing.addNote) on empty canvas, at the point of the click. */
 export function paneEditingItems(t: Translate, at: { x: number; y: number }, disabled: boolean): React.ReactNode[] {
   return [
     <Menu.Item key="add-note" className={styles.item} disabled={disabled} onSelect={() => void addNote(at)}>

@@ -1,3 +1,7 @@
+/**
+ * The canvas card of a subgraph instance. ComfyNode renders it for nodes of kind 'subgraph-instance'; it wraps
+ * NodeCard with the subgraph frame, the definition's name and the Enter button that opens the definition.
+ */
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { LogIn } from 'lucide-react';

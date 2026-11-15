@@ -1,3 +1,8 @@
+/**
+ * The size of a subgraph in words ("3 nodes · 2 inputs · 1 output"), as a text function and a small component.
+ * The library's Subgraphs tab (library/SubgraphLibrary.tsx) uses the function; the Properties panel's subgraph list
+ * (Inspector.tsx) uses the component. A person tells subgraphs apart by name and size, never by id.
+ */
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Translator } from '../../../shared/i18n';

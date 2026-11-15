@@ -1,3 +1,8 @@
+/**
+ * Questions to the helper about one canvas object. The canvas context menu, the Properties panel (Inspector), the
+ * description cards and commands/actions.ts call these, so every "ask about this" goes the same way: the canvas
+ * highlights the object and the chat turn carries it with the selection and the interface language.
+ */
 import { i18n } from '../../i18n';
 import type { ObjectRef } from '../../../shared/contracts/objects';
 import { requestAsk } from '../../services/ask';
@@ -6,6 +11,7 @@ import { useDockStore } from '../../state/dockState';
 import { useKnowledgeStore } from '../../state/knowledgeState';
 import { resolveEdgeKnowledge } from './lib/linkTypeKnowledge';
 
+/** The interface language for the turn context: the app has two, so anything that is not English is Russian. */
 export function interfaceLanguage(): 'en' | 'ru' {
   return (i18n.language || 'ru').toLowerCase().startsWith('en') ? 'en' : 'ru';
 }

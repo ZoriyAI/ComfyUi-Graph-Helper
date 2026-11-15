@@ -1,3 +1,8 @@
+/**
+ * Link ports of a node card: the typed React Flow handle with the connect assist and keyboard linking, the port row
+ * around it, and the set of a node's linked handles. NodeCard, FieldRow, EditorNodes, ComfyNode and SubgraphNode use
+ * them. The focused port is not scoped to a subgraph here; CanvasFlow scopes it when it builds the selection.
+ */
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Handle, Position } from '@xyflow/react';
@@ -11,6 +16,7 @@ import { commitManual } from '../commit';
 import { shortPortType } from '../../../../shared/workflow/comfyLook';
 import styles from './Node.module.css';
 
+/** What NodeCard passes for one link port row. */
 interface PortRowProps {
   nodeId: string;
   port: PortDefinition;
@@ -22,6 +28,7 @@ interface PortRowProps {
   live?: boolean;
 }
 
+/** What a port row or a field row passes to its handle. */
 interface HandleProps {
   nodeId: string;
   port: PortDefinition;
@@ -58,6 +65,7 @@ export function PortHandle({ nodeId, port, side, connected, focusable, quiet = f
     if (view.readOnly) return;
     setConnectFrom({ nodeId, handle: port.id, direction: side, dataType: port.dataType }, pin);
   };
+  // A pinned assist (chosen from the context menu) outlives hover and blur; only Escape or a pane click ends it.
   const stop = () => {
     const current = useCanvasStore.getState();
     if (!current.connectPinned && current.connectFrom?.nodeId === nodeId && current.connectFrom.handle === port.id) setConnectFrom(null);

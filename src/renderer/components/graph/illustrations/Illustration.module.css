@@ -1,3 +1,7 @@
+/*
+ * The small node pictures (Illustration.tsx): a framed 120 by 48 scene per kind of node, with one short animation
+ * that plays only in the animated variant and only when the motion policy is full.
+ */
 .root {
   display: block;
   width: 120px;

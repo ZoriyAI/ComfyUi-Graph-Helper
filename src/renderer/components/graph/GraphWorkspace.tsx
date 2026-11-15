@@ -1,3 +1,9 @@
+/**
+ * The graph area of the main window: the React Flow provider, the canvas (CanvasFlow), the empty-canvas onboarding,
+ * the subgraph breadcrumb, the history replay banner and drops from the library. App.tsx renders it once. It also
+ * registers the canvas camera (commands/canvasHandle.ts), so menu commands and shortcuts outside React Flow can fit,
+ * zoom, pan and reveal a node.
+ */
 import React, { useCallback, useEffect, useState } from 'react';
 import { AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
@@ -21,14 +27,19 @@ import { fitWhole } from './lib/autoFit';
 import { setCanvasHandle } from '../../commands/canvasHandle';
 import styles from './GraphWorkspace.module.css';
 
-/** One press of «Приблизить» / «Отдалить» (zoom in / out) changes the zoom by this factor, as React Flow's own buttons did. */
+/**
+ * One press of Zoom in / Zoom out (canvas.zoomIn, canvas.zoomOut) changes the zoom by this factor, as React Flow's
+ * own buttons did.
+ */
 const ZOOM_STEP = 1.2;
 
+/** Only a node or a model file from the library can be dropped on the canvas; files from the desktop are not. */
 function acceptsDrag(event: React.DragEvent): boolean {
   const types = Array.from(event.dataTransfer.types);
   return types.includes(NODE_DRAG_TYPE) || types.includes(MODEL_DRAG_TYPE);
 }
 
+/** While a version from the history is on screen: which version it is and what that step did. */
 function ReplayBanner() {
   const { t } = useTranslation();
   const replay = useCanvasStore((state) => state.replay);
@@ -43,6 +54,7 @@ function ReplayBanner() {
   );
 }
 
+/** The graph area inside the React Flow provider, so it can use the flow instance for the camera and drops. */
 function Workspace({ onImportWorkflow }: GraphWorkspaceProps) {
   const { t } = useTranslation();
   const flow = useReactFlow();
@@ -56,6 +68,7 @@ function Workspace({ onImportWorkflow }: GraphWorkspaceProps) {
   // The longest camera move under the motion policy (motion/camera.ts): 0 when the camera cuts. e2e reads it.
   const fitDuration = useMotionLevel() === 'full' ? tokenMs('--motion-camera') : 0;
 
+  // Loads the helper's proposals (the grey drafts) and keeps them current; it starts once per window.
   useEffect(() => {
     startProposalsSubscription();
   }, []);
@@ -145,17 +158,18 @@ function Workspace({ onImportWorkflow }: GraphWorkspaceProps) {
   );
 }
 
-/**
- * The whole graph area. Wraps React Flow with the floating toolbar, subgraph breadcrumb,
- * ghost layer, flow pulses, tour callouts, context menu and library drop handling.
- * The shell renders it once and passes nothing; state flows through the stores
- * (graphState, proposalsState, uiState) and questions go out through services/ask.ts.
- */
+/** What App.tsx passes to the graph area. */
 export interface GraphWorkspaceProps {
   /** Opens the workflow import (the empty-canvas onboarding offers it). */
   onImportWorkflow?: () => void;
 }
 
+/**
+ * The whole graph area. Wraps React Flow with the floating toolbar, subgraph breadcrumb,
+ * ghost layer, flow pulses, tour callouts, context menu and library drop handling.
+ * The shell renders it once and passes only the import action; state flows through the stores
+ * (graphState, proposalsState, uiState) and questions go out through services/ask.ts.
+ */
 export default function GraphWorkspace({ onImportWorkflow }: GraphWorkspaceProps = {}) {
   return (
     <ReactFlowProvider>

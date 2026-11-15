@@ -1,3 +1,9 @@
+/**
+ * Node drawings for what a ComfyUI file saves in ways of its own: a collapsed node, a Reroute dot, a Primitive's
+ * value, a Set / Get constant, the saved values of a class that is not installed, and the promoted fields of a
+ * subgraph copy. ComfyNode, NodeCard and the Properties panel (InspectorLook) render them. Edits name the file's
+ * widgets_values slot, so an imported graph saves back exactly as ComfyUI wrote it.
+ */
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Handle, Position, useStore } from '@xyflow/react';
@@ -35,6 +41,7 @@ export function commitWidget(nodeId: string, index: number, value: unknown): Pro
   return commitManual({ type: 'set-parameter', nodeId, key: `widgets::${index}`, value, widgetIndex: index }, 'parameter');
 }
 
+/** The "after each run" switch (fixed, increment and so on) as a list field. */
 const RUN_SPEC: FieldSpec = { kind: 'combo', options: [...RUN_CONTROLS] };
 
 /** Every handle of a node, stacked on its left and right edge: links still end at a collapsed node. */
@@ -194,6 +201,7 @@ export function SavedValues({ data }: { data: ComfyNodeData }) {
   );
 }
 
+/** A saved value as one line of text; an object (a node's own state) is named, not printed. */
 function readable(value: unknown, service: string): string {
   if (value === null || value === undefined) return '—';
   if (typeof value === 'object') return service;
@@ -212,6 +220,7 @@ interface PromotedSource {
   specName: string;
 }
 
+/** Finds where a promoted field's value is kept: in the copy's own slot or in a node inside the subgraph. */
 function resolvePromoted(field: PromotedField, fields: PromotedField[], definition: SubgraphDefinition | undefined): PromotedSource {
   const empty: PromotedSource = { innerNodeId: null, innerKey: null, innerClass: undefined, innerData: undefined, specName: field.name };
   if (!definition) return empty;
@@ -239,6 +248,7 @@ function resolvePromoted(field: PromotedField, fields: PromotedField[], definiti
   return { innerNodeId: String(inner.id), innerKey: port.name, innerClass: data?.comfyType, innerData: data, specName: port.name };
 }
 
+/** One promoted field on a subgraph copy or in Properties, with its control and, for the copy's own field, a port. */
 function PromotedRow({ id, data, field, fields, definition, disabled, connected, focusable, panel }: {
   id: string;
   data: ComfyNodeData;

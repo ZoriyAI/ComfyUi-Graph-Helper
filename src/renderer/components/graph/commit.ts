@@ -1,3 +1,9 @@
+/**
+ * The single door for manual graph edits: commitManual sends an edit to the engine, scoped to the subgraph that is
+ * open, and reports a refusal in plain words. The canvas, its menus and toolbar, the Properties panel, the library,
+ * lessons and the editing commands all commit through it, so every manual edit is one undo step, is refused during a
+ * replay, and never starts the live-build reveal meant for the assistant's edits.
+ */
 import type { GraphMutation } from '../../../shared/commands/types';
 import { SUBGRAPH_INPUT_NODE_ID, SUBGRAPH_OUTPUT_NODE_ID } from '../../../shared/graph/subgraphs';
 import { translateKnownError } from '../../../shared/i18n';
@@ -8,6 +14,7 @@ import { useGraphStore } from '../../state/graphState';
 import { useCanvasStore } from './canvasStore';
 import { sayReplayLocked } from '../../commands/replayGate';
 
+/** i18n.t with a plain string result, for code outside React components. */
 const translate = (key: string, options?: Record<string, unknown>) => String(i18n.t(key, options ?? {}));
 
 /** Tell the person an edit did not land; the projection that came back is already on the canvas. */
@@ -30,8 +37,10 @@ export function hasRefusalReason(result: { status?: unknown; result?: unknown } 
   return typeof (result.result as { error?: unknown } | null | undefined)?.error === 'string';
 }
 
+/** An edit the engine can apply inside a subgraph definition. */
 type InnerEdit = Extract<GraphMutation, { type: 'edit-in-subgraph' }>['edit'];
 
+/** The input and output boundary pseudo-nodes of an open definition: link endpoints, not graph nodes. */
 const BOUNDARY = new Set([SUBGRAPH_INPUT_NODE_ID, SUBGRAPH_OUTPUT_NODE_ID]);
 
 /**
@@ -45,6 +54,7 @@ export function scopedToLevel(payload: GraphMutation): GraphMutation {
   const graph = useGraphStore.getState();
   const definitionId = graph.activeSubgraphId;
   if (!definitionId) return payload;
+  // An opaque definition (one the app cannot model) has no inner ids to check against: the edit goes out unchanged.
   const definition = graph.subgraphs.find((item) => item.id === definitionId && !item.opaque);
   if (!definition) return payload;
   const nodeIds = new Set(definition.nodes.map((node) => String(node.id)));
@@ -78,6 +88,7 @@ export function scopedToLevel(payload: GraphMutation): GraphMutation {
 export function commitManual(payload: GraphMutation, prefix = 'manual', options: { level?: 'shown' | 'root'; context?: { projectId: string; graphKey: string; isCurrent?: () => boolean } } = {}): Promise<unknown> {
   const canvas = useCanvasStore.getState();
   const displayed = useProjectionStore.getState();
+  // An edit started in another project or graph (the person switched while it waited) is dropped, not misapplied.
   if (options.context && (options.context.projectId !== displayed.projectId || options.context.graphKey !== displayed.graphKey)) return Promise.resolve(null);
   if (canvas.replay) {
     sayReplayLocked();

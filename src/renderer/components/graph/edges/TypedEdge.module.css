@@ -1,3 +1,7 @@
+/*
+ * Links on the canvas (TypedEdge.tsx): the stroke in the type's colour, its selected, flowing, dimmed and pending
+ * states, the draw-in on first appearance, the type label beside a flowing link and ComfyUI's reroute points.
+ */
 .path {
   stroke: var(--canvas-edge);
   stroke-width: 2;

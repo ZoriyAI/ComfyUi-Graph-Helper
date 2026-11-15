@@ -1,3 +1,8 @@
+/*
+ * The graph area (GraphWorkspace.tsx) and the canvas host (CanvasFlow.tsx): the night canvas background, the violet
+ * frame inside a subgraph, the dimmed look and banner of a replayed version, the drop hint and the pinned-nodes chip.
+ * The canvas is a size container named "canvas" so floating parts can size themselves against it.
+ */
 .root {
   --canvas-dim: rgba(8, 10, 14, 0.55);
   position: relative;

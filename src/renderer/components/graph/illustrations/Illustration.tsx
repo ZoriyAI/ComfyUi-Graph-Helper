@@ -1,10 +1,15 @@
+/**
+ * Small SVG pictures of what a node does (a sampler clearing noise, a VAE turning a latent grid into an image).
+ * The Properties header (Inspector.tsx), the tour callouts (TourLayer) and the live build's bubble (BuildLayer)
+ * show them, so a newcomer sees the idea of a node before reading about it. Colours come from the port type colours.
+ */
 import React, { useState } from 'react';
 import { typeColor } from '../lib/typeColors';
 import { illustrationKind, noisePoints, type IllustrationKind } from './kinds';
 import styles from './Illustration.module.css';
 
 /**
- * Micro-illustrations: what a node does, in 120×48. Each has a static first frame (animate=false) that
+ * Props of a micro-illustration: what a node does, in 120×48. Each has a static first frame (animate=false) that
  * carries the whole idea; the animated variant plays once for 1–2 s, on hover or when a tour opens it.
  */
 export interface IllustrationProps {
@@ -17,9 +22,11 @@ export interface IllustrationProps {
   label?: string;
 }
 
+/** The picture's size in CSS pixels; Illustration.module.css gives the same box. */
 const W = 120;
 const H = 48;
 
+/** A small "turns into" arrow between two halves of a picture. */
 function Arrow({ x }: { x: number }) {
   return <path className={styles.ink} d={`M${x} 24 h10 m-4 -4 l4 4 l-4 4`} />;
 }
@@ -45,6 +52,7 @@ function Sampler() {
   );
 }
 
+/** A square of cells: few large ones for a latent, many small ones for an image. */
 function Grid({ x, size, step, color, className }: { x: number; size: number; step: number; color: string; className?: string }) {
   const cells: React.ReactNode[] = [];
   for (let row = 0; row < size; row += 1) {
@@ -202,6 +210,7 @@ function Subgraph() {
   );
 }
 
+/** The picture for one kind; anything unknown gets the generic box. */
 function Body({ kind }: { kind: IllustrationKind }) {
   switch (kind) {
     case 'sampler': return <Sampler />;
@@ -221,6 +230,7 @@ function Body({ kind }: { kind: IllustrationKind }) {
   }
 }
 
+/** The picture for a class (or an explicit kind), static unless asked to play. */
 export default function Illustration({ classType, kind, animate = false, hoverPlay = false, label }: IllustrationProps) {
   const resolved = kind ?? illustrationKind(classType);
   // Remounting the body restarts the CSS animation: hover plays it again from the first frame.
