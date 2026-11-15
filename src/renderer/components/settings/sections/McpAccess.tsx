@@ -163,7 +163,7 @@ function TokenPanel({ mcpUrl, focusRequest }: { mcpUrl: string; focusRequest: nu
   const rememberInFile = async () => {
     setNote('');
     const saved = await window.electronAPI.mcpSaveTokenFile(mcpUrl);
-    if (saved.status !== 'stored') setNote(String(t('settings.tokenPlaceNone')));
+    if (saved.status !== 'stored') setNote(String(t('settings.tokenFileSaveFailed')));
     await after();
   };
   const forget = async () => {

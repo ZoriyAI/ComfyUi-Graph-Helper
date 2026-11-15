@@ -149,7 +149,7 @@ export default function KeyPanel({ provider, baseURL, onSession, words = {} }: {
   const rememberInFile = async () => {
     setNote('');
     const saved = await window.electronAPI.saveSecretFile(provider);
-    if (saved.status !== 'stored') setNote(String(t('settings.keyPlaceNone')));
+    if (saved.status !== 'stored') setNote(String(t('settings.keyFileSaveFailed')));
     await refresh().catch(() => undefined);
   };
   const forget = async () => {
