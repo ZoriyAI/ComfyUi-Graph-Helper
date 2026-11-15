@@ -212,11 +212,11 @@ test('lessons: the list fits ComfyUI, a lesson is followed by hand, and the grap
     await expect(panel(page).locator('[data-lesson-card="image"]')).toHaveAttribute('data-lesson-state', 'done');
     await expect(panel(page).locator('[data-lesson-card="image"]').getByRole('button', { name: 'Go through it again', exact: true })).toBeVisible();
 
-    // A question about a step goes to the conversation as an ordinary question.
+    // Going through it again starts from its first step; a question about a step goes to the conversation as an ordinary question.
     await panel(page).locator('[data-lesson-card="image"]').getByRole('button', { name: 'Go through it again', exact: true }).click();
     await panel(page).getByRole('button', { name: 'Ask the assistant about this step', exact: true }).click();
     await expect(panel(page)).toHaveCount(0);
-    await expect(page.locator('.chat-log')).toContainText('Explain a step of the lesson “A first picture from text”. The step: Add the sampler.');
+    await expect(page.locator('.chat-log')).toContainText('Explain a step of the lesson “A first picture from text”. The step: How a graph works.');
     expect(errors).toEqual([]);
   } finally {
     await app.close();
