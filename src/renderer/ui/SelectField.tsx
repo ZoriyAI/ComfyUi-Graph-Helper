@@ -92,8 +92,9 @@ export default function SelectField({
           <Select.Content className={cx(styles.content, 'select-content')} position="popper" sideOffset={4} collisionPadding={8}>
             <Select.Viewport>
               {note ? <Select.Group><Select.Label className={cx(styles.note, 'select-note')}>{note}</Select.Label></Select.Group> : null}
+              {/* Keyed by value: the value is what the select tells apart; two options may share a label. */}
               {options.map((option) => (
-                <Select.Item key={option.label} className={cx(styles.item, 'select-item')} value={option.value === '' ? EMPTY : option.value}>
+                <Select.Item key={option.value} className={cx(styles.item, 'select-item')} value={option.value === '' ? EMPTY : option.value}>
                   <Select.ItemText>{option.label}</Select.ItemText>
                   <Select.ItemIndicator className={cx(styles.check, 'select-check')} aria-hidden="true"><Check size={14} /></Select.ItemIndicator>
                 </Select.Item>
