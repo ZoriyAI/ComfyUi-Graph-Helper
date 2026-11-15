@@ -420,7 +420,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
       helper: {
         title: 'About the assistant in the app',
-        body: 'The lessons work without an assistant model. Questions in "Ask" mode go to the model you chose.\n\nThe assistant helps with graph construction and technical choices. Each provider or local model responds according to its own rules and capabilities.\n\nThe assistant is sent the graph with the values of its fields, your prompts among them. It does not see your clips. Sending values can be switched off in "Settings ▸ Privacy".',
+        body: 'The lessons work without an assistant model. Questions in "Ask" mode go to the model you chose.\n\nThe assistant helps with graph construction and technical choices. Each provider or local model responds according to its own rules and capabilities. The rules at the start of this lesson are the app\'s own and hold whatever a model answers.\n\nThe assistant is sent the graph with the values of its fields, your prompts among them. It does not see your clips. Sending values can be switched off in "Settings ▸ Privacy".',
       },
     },
   },
