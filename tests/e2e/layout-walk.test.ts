@@ -680,6 +680,8 @@ test('nothing sticks out, is cut or overlaps on any screen at any window size', 
         OnnxDetectionModelLoader: { key: 'vitpose_model', values: ['vitpose-l-wholebody.onnx', 'yolov10m.onnx'] },
       };
       const WORDS = 'A young woman in a red coat walks slowly along a wet city street at night. The camera follows her from the side. Soft cinematic light.';
+      // What the picture must not have: a negative description that copies the positive one is refused by the lesson.
+      const NEGATIVE_WORDS = 'blurry, low quality, watermark, extra fingers';
       const carryLesson = async (id: string, label: string | null) => {
         const lesson = LESSONS.find((item) => item.id === id)!;
         await resize(page, HOME);
@@ -726,7 +728,7 @@ test('nothing sticks out, is cut or overlaps on any screen at any window size', 
             } else {
               const key = node.data.comfyType === 'WanVideoTextEncode' ? 'positive_prompt' : 'text';
               const text = String(node.data.parameters[key] ?? '');
-              await commit(page, { type: 'set-parameter', nodeId, key, value: stepId === 'weigh' ? `${text} (red coat:1.2)` : stepId === 'speech' ? `${WORDS} She says <S>Good evening.<E>` : WORDS });
+              await commit(page, { type: 'set-parameter', nodeId, key, value: stepId === 'weigh' ? `${text} (red coat:1.2)` : stepId === 'speech' ? `${WORDS} She says <S>Good evening.<E>` : stepId === 'negative-text' ? NEGATIVE_WORDS : WORDS });
             }
             await expect.poll(revision, { timeout: 15_000 }).not.toBe(before);
             await reloaded(page);
@@ -783,6 +785,10 @@ test('nothing sticks out, is cut or overlaps on any screen at any window size', 
       await page.getByRole('button', { name: T('menu.newProjectConfirm'), exact: true }).click();
       await expect(nodes).toHaveCount(0, { timeout: 15_000 });
       await reloaded(page);
+      // Learn mode stays on (it is remembered) and puts the lessons where the message field was: back to Ask.
+      await dockTab(page, 0);
+      await page.locator('[data-intent="ask"]').click();
+      await expect(composer).toBeVisible();
     }
 
     // ---------- A helper with a long name, a project with a long name ----------
