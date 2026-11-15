@@ -1,3 +1,9 @@
+/**
+ * Protects the description cards on the canvas (components/graph/lib/description and the canvas store): which text a
+ * card shows, the own / all / off modes and their saved preference, where a card goes so it covers no neighbour or
+ * port at any zoom, per-graph memory of opened and hidden cards, and an export that carries no description text.
+ * A person reads a graph through these cards, and a workflow they share must stay plain ComfyUI JSON.
+ */
 import Database from 'better-sqlite3';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { commitCommand, ensureWorkspace, readProjection } from '../../src/main/commands/commit';
@@ -28,6 +34,7 @@ import { DESKTOP_PROJECT_ID } from '../../src/shared/project';
 import { exportWorkflow, type GraphSnapshot } from '../../src/shared/workflow/codec';
 
 let seq = 0;
+/** An assistant explanation of node 3 in the desktop project; ids and times grow with each call. */
 function explanation(partial: Partial<Explanation> & Pick<Explanation, 'aspect' | 'text'>): Explanation {
   seq += 1;
   return {
@@ -147,6 +154,7 @@ describe('description visibility', () => {
 
 describe('card placement avoids other nodes and their ports', () => {
   const node: Box = { x: 0, y: 0, width: 200, height: 100 };
+  // The card's full size and its one-line compact size, in screen pixels at zoom 1.
   const size = { width: 220, height: 34 };
   const compact = { width: 200, height: 30 };
 
@@ -358,6 +366,7 @@ describe('description toggles in the canvas store', () => {
 });
 
 describe('export stays clean of descriptions', () => {
+  // Unique words that must not appear anywhere in the exported JSON.
   const NODE_TEXT = 'DESCRIPTION_NODE_SENTINEL_51a7';
   const CLASS_TEXT = 'DESCRIPTION_CLASS_SENTINEL_51a7';
   const WHY_TEXT = 'DESCRIPTION_WHY_SENTINEL_51a7';

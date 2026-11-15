@@ -1,9 +1,10 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
-
 /**
  * Renderer side of the step checkpoint: a 'turn-paused' chunk puts an open Continue / Stop card on the turn's
  * message and leaves the chat paused; Continue resumes the same run and sends "continue" with the same context.
+ * A long build that hits the step limit must wait for the person, and Continue must not start a second run.
  */
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
 describe('checkpoint card (renderer chat service)', () => {
   afterEach(() => {
     delete (globalThis as { window?: unknown }).window;
@@ -38,6 +39,7 @@ describe('checkpoint card (renderer chat service)', () => {
         onChunk({ type: 'done' });
       },
     };
+    // The chat service talks to the main process only through window.electronAPI, so a fake preload is enough.
     (globalThis as { window?: unknown }).window = { electronAPI: api };
     const { ChatService } = await import('../../../src/renderer/services/llm/chatService');
     const { useChatStore } = await import('../../../src/renderer/state/chatState');

@@ -1,3 +1,9 @@
+/**
+ * Protects the assistant's read, knowledge and proposal tools as createAgentTools builds them: catalog lookups,
+ * getGraph without secrets, ghost proposals with a note, explanations kept in the project, and a web reader that
+ * opens only public addresses the person wrote or a search returned. A person must be able to trust that the
+ * assistant suggests rather than changes, and that a planted link cannot make it fetch anything.
+ */
 import Database from 'better-sqlite3';
 import { describe, expect, it } from 'vitest';
 import { createAgentTools, OUTSIDE_DATA, PROPOSAL_BUILD_TWIN, type AgentToolDefinition } from '../../../src/main/agent/tools';
@@ -11,6 +17,7 @@ import { DESKTOP_PROJECT_ID } from '../../../src/shared/project';
 import { fakeKnowledge, fakeProposals, throwingKnowledge } from './fakes';
 import type { FetchLike } from '../../../src/main/agent/web';
 
+/** A fresh in-memory database with the schema and the desktop workspace. */
 function openDb(): Database.Database {
   const db = new Database(':memory:');
   migrate(db);
@@ -18,6 +25,10 @@ function openDb(): Database.Database {
   return db;
 }
 
+/**
+ * Builds the tools on a fresh run with fake knowledge and proposals, a fetch that returns one search result, and
+ * a notify that records what was pushed to the renderer. `call` runs one tool by name.
+ */
 function setup(overrides: Partial<Parameters<typeof createAgentTools>[0]> = {}) {
   const db = openDb();
   const run = startRun(db, DESKTOP_PROJECT_ID);
@@ -27,6 +38,7 @@ function setup(overrides: Partial<Parameters<typeof createAgentTools>[0]> = {}) 
   const fetched: string[] = [];
   const fetchImpl: FetchLike = async (url) => {
     fetched.push(url);
+    // One result in the shape of the DuckDuckGo HTML page, with its redirect link.
     return new Response('<a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.org%2F">Example</a>');
   };
   const tools = createAgentTools({

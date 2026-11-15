@@ -1,3 +1,9 @@
+/**
+ * Protects the command engine's rules in main/commands/commit: every change names the revision it was made on, an
+ * assistant step sent from before a manual edit conflicts, a run can pause, resume and close, a repeated action id
+ * replays without a second change, and a failed commit rolls back whole. These rules are why the assistant and the
+ * person can edit one graph at the same time without either losing work.
+ */
 import { describe, expect, it } from 'vitest';
 import Database from 'better-sqlite3';
 import { acceptsProjection } from '../../src/shared/commands/reconcile';
@@ -17,6 +23,7 @@ import {
 } from '../../src/main/commands/commit';
 import { migrate } from '../../src/main/settings/migrate';
 
+/** A fresh in-memory database with the schema and the desktop workspace. */
 function openDb(): Database.Database {
   const db = new Database(':memory:');
   migrate(db);
@@ -24,11 +31,13 @@ function openDb(): Database.Database {
   return db;
 }
 
+/** The nodes of a project's current snapshot. */
 function nodesOf(db: Database.Database, projectId = DESKTOP_PROJECT_ID): Array<Record<string, any>> {
   const projection = readProjection(db, projectId);
   return (projection?.snapshot.nodes ?? []) as Array<Record<string, any>>;
 }
 
+/** Commits a change as the assistant, inside a run, on the revision it names. */
 function ai(db: Database.Database, runId: string, expected: string, actionId: string, payload: Record<string, unknown>, projectId = DESKTOP_PROJECT_ID) {
   return commitCommand(db, {
     projectId,
@@ -40,6 +49,7 @@ function ai(db: Database.Database, runId: string, expected: string, actionId: st
   });
 }
 
+/** Commits a change as the person; a manual commit needs no run. */
 function manual(db: Database.Database, expected: string, actionId: string, payload: Record<string, unknown>, projectId = DESKTOP_PROJECT_ID, runId: string | null = null) {
   return commitCommand(db, {
     projectId,

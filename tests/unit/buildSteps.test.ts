@@ -1,3 +1,9 @@
+/**
+ * Protects how the chat tells a build (renderer/components/chat/buildSteps, used by BuildCard, BuildSummary,
+ * QuietGroup, ToolCard and Message): one sentence per step in the person's language with real node and port names,
+ * a plain reason for a failed step, reads grouped quietly, and a closing summary of what was made. A person follows
+ * the assistant's build through these sentences, so they must be true, readable and free of secrets.
+ */
 import { describe, expect, it } from 'vitest';
 import { createTranslator } from '../../src/shared/i18n';
 import { newToolCall } from '../../src/renderer/services/llm/chatModel';
@@ -18,11 +24,13 @@ import {
 const ru = createTranslator('ru');
 const en = createTranslator('en');
 
+/** What the canvas knows: two nodes with their titles and port names by handle. */
 const NODES: Record<string, { title: string; inputs: Record<string, string>; outputs: Record<string, string> }> = {
   '1': { title: 'Load Checkpoint', inputs: {}, outputs: { 'out-0': 'MODEL', 'out-1': 'CLIP' } },
   '5': { title: 'KSampler', inputs: { 'in-0': 'model', 'in-1': 'positive' }, outputs: { 'out-0': 'LATENT' } },
 };
 
+/** Name lookups as the chat gets them from the canvas and the catalog. */
 const names: StepNames = {
   node: (id) => NODES[id]?.title,
   nodeClass: (classType) => (classType === 'CheckpointLoaderSimple' ? 'Load Checkpoint' : undefined),
@@ -30,6 +38,7 @@ const names: StepNames = {
   subgraph: (id) => (id === 'sg-1' ? 'Upscale' : undefined),
 };
 
+/** A tool call in the chat's shape; the random id keeps calls with the same tool apart. */
 function call(name: string, args: Record<string, unknown>, result?: Record<string, unknown>, status: ToolCall['status'] = 'success', error?: string): ToolCall {
   return { ...newToolCall(`${name}-${Math.random()}`, name, args), status, ...(result ? { result } : {}), ...(error ? { error } : {}) };
 }

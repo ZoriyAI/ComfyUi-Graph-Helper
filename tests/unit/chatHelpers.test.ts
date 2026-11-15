@@ -1,3 +1,9 @@
+/**
+ * Protects the helpers behind the chat panel and its neighbours: the markdown-lite reader, tool names and result
+ * summaries, the mapping between chat messages and saved records, object labels, check report grouping and the
+ * Explain tab's explanation model. A person reads every answer and tool card through these, so a parsing slip shows
+ * up as garbled text, a missing label or a secret on screen.
+ */
 import { describe, expect, it } from 'vitest';
 import { parseInline, parseMarkdownLite } from '../../src/renderer/components/chat/markdownLite';
 import {

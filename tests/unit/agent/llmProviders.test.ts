@@ -1,9 +1,17 @@
+/**
+ * Protects how the main process picks and guards a chat provider (OpenAI, Anthropic, Google, a local server): a send
+ * is blocked without a key, model id or https address, a key goes only to the address it was given for, and the
+ * provider web search is offered only where it works. A person's key must never reach a gateway they did not choose.
+ * No case may make a network request; afterEach checks that fetch was never called.
+ */
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import { MainLLMService } from '../../../src/main/llmService';
 import { nonSecretSettingsSchema, nonSecretDefaults } from '../../../src/shared/config/schema';
 
+/** A stand-in key; tests check that it never appears in config or tool output. */
 const KEY = 'provider-matrix-marker';
 
+/** Each cloud provider with the SDK provider name it should build and the id of its web search tool. */
 const CLOUD = [
   { provider: 'openai', modelProvider: 'openai.responses', searchId: 'openai.web_search', searchModel: 'fixture-model' },
   { provider: 'anthropic', modelProvider: 'anthropic.messages', searchId: 'anthropic.web_search_20250305', searchModel: 'fixture-model' },

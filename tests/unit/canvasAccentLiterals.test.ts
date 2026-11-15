@@ -1,13 +1,14 @@
+/**
+ * The canvas paints the action colour from the accent tokens, so Preferences > Appearance can change it. A literal
+ * cyan (#65d9ed, rgb 101 217 237) in its CSS or TSX would stay cyan under a violet or mint accent. A literal is
+ * allowed only as the fallback of a `var(--token, …)`. This test reads every file under components/graph as text.
+ */
 import { describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 
-/**
- * The canvas paints the action colour from the accent tokens, so Preferences ▸ Appearance can change it. A literal
- * cyan (#65d9ed, rgb 101 217 237) in its CSS or TSX would stay cyan under a violet or mint accent. A literal is
- * allowed only as the fallback of a `var(--token, …)`.
- */
 const ROOT = path.join(__dirname, '../../src/renderer/components/graph');
+/** The default cyan accent and its light variant, as hex, plus the cyan as rgb() or rgba(). */
 const ACCENT = /#65d9ed|#8ae6f4|rgba?\(\s*101\s*,\s*217\s*,\s*237/i;
 
 function files(dir: string): string[] {

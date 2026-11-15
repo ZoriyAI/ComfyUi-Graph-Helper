@@ -1,3 +1,8 @@
+/**
+ * Protects the long chat: the saved history loads in pages of 200, newest first, with nothing lost between pages,
+ * and the up and down arrows in the message box bring back the person's earlier messages. A person with a long
+ * conversation must be able to scroll back to the start and reuse what they typed.
+ */
 import Database from 'better-sqlite3';
 import { describe, expect, it } from 'vitest';
 import { loadChatHistory, saveChatMessage } from '../../src/main/agent/chatHistory';
@@ -11,6 +16,7 @@ describe('the chat loads in pages (RB-11) and the up arrow brings back earlier m
     migrate(db);
     ensureWorkspace(db);
     for (let index = 0; index < 450; index += 1) {
+      // Three messages share each timestamp, so page boundaries must not rely on time alone.
       saveChatMessage(db, { id: `m${index}`, projectId: 'desktop', role: index % 2 ? 'assistant' : 'user', content: `message ${index}`, timestamp: 1000 + Math.floor(index / 3), graphRevisionId: null, toolCalls: null }, () => false);
     }
     expect(loadChatHistory(db, 'desktop')).toHaveLength(450);

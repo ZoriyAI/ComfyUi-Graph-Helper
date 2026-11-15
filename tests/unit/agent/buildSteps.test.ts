@@ -1,3 +1,9 @@
+/**
+ * Protects the "why" each build step carries: the build tools accept an optional reason, clip it, drop secret-looking
+ * text, save it as an explanation after the commit and announce the step to the chat right after the canvas update.
+ * A person watching the assistant build reads these reasons step by step, so a lost or leaked one is visible to them.
+ * The last case runs the offline test transport through a full text to image build.
+ */
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createBuildTools, stepWhy } from '../../../src/main/agent/buildTools';
@@ -11,6 +17,7 @@ import { BUILD_STEP_TOOLS, type AgentBuildStep } from '../../../src/shared/contr
 import { DESKTOP_PROJECT_ID } from '../../../src/shared/project';
 import { fakeKnowledge, fakeProposals } from './fakes';
 
+/** A fresh in-memory database with the schema and the desktop workspace. */
 function openDb(): Database.Database {
   const db = new Database(':memory:');
   migrate(db);
@@ -63,11 +70,13 @@ describe('build tool `why`', () => {
     expect(sampler.why).toBeUndefined();
     const link = await tools.connectNodes.execute({ sourceNodeId: loader.nodeId, sourceHandle: 'out-0', targetNodeId: sampler.nodeId, targetHandle: 'in-0', why: 'The sampler needs the model.' }, { toolCallId: 'c3' }) as Record<string, unknown>;
     expect(link).toMatchObject({ success: true, explanationId: 'exp-2' });
+    // A removal keeps its why in the result but saves no explanation: the node it would belong to is gone.
     const removed = await tools.removeNode.execute({ nodeId: sampler.nodeId, why: 'Not needed after all.' }, { toolCallId: 'c4' }) as Record<string, unknown>;
     expect(removed).toMatchObject({ success: true, why: 'Not needed after all.', explanationId: null });
     const note = await tools.annotateNode.execute({ nodeId: loader.nodeId, annotation: 'x', why: 'ignored' }, { toolCallId: 'c5' }) as Record<string, unknown>;
     expect(note.why).toBeUndefined();
 
+    // The trailing projection is the annotation, which is not a build step.
     expect(events).toEqual(['projection', 'build-step', 'projection', 'build-step', 'projection', 'build-step', 'projection', 'build-step', 'projection']);
     expect(knowledge.saved).toEqual([
       expect.objectContaining({ owner: { kind: 'node', id: loader.nodeId, classType: 'CheckpointLoaderSimple' }, aspect: 'why', provenance: 'inference', createdBy: 'ai', projectId: DESKTOP_PROJECT_ID, text: 'Brings the model.' }),
@@ -122,6 +131,7 @@ describe('build tool `why`', () => {
 describe('TEST transport: build a text to image graph', () => {
   beforeEach(() => {
     vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    // The test provider plays a recorded build without a network or a key.
     mainLLMService.setConfig({ provider: 'test', model: 'test-fixture' });
   });
   afterEach(() => {
@@ -145,6 +155,7 @@ describe('TEST transport: build a text to image graph', () => {
       notify: () => undefined,
       knowledge,
       proposals: fakeProposals(),
+      // Any web lookup during the turn fails at once instead of reaching the internet.
       fetchImpl: async () => { throw new Error('no network'); },
     });
     const types = chunks.map((chunk) => chunk.type);
@@ -154,6 +165,7 @@ describe('TEST transport: build a text to image graph', () => {
     expect(snapshot.nodes.map((node) => node.data.comfyType)).toEqual(['CheckpointLoaderSimple', 'CLIPTextEncode', 'CLIPTextEncode', 'EmptyLatentImage', 'KSampler', 'VAEDecode', 'SaveImage']);
     expect(snapshot.edges).toHaveLength(9);
     const steps = chunks.filter((chunk) => chunk.type === 'build-step').map((chunk) => chunk.content as AgentBuildStep);
+    // Seven nodes plus nine links make sixteen steps.
     expect(steps).toHaveLength(16);
     expect(steps.every((step) => step.why.length > 0 && step.explanationId)).toBe(true);
     // Each build-step directly follows its projection.

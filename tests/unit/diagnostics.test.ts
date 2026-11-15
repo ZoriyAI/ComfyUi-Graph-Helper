@@ -1,10 +1,18 @@
+/**
+ * Protects what leaves the app when a person copies diagnostics or the app logs a failure (main/diagnostics,
+ * ipc/diagnosticsIpc, main/crash): versions and settings go in, keys, tokens and the hosts the person set up do not,
+ * renderer error lines are clipped and rate-limited, and crash notices show at most once a minute. A person must be
+ * able to paste a report into a public issue without giving away a key or their network.
+ */
 import { describe, expect, it } from 'vitest';
 import { buildDiagnosticsReport, scrubUrl } from '../../src/main/diagnostics';
 import { createRateLimiter, rendererErrorLine } from '../../src/main/ipc/diagnosticsIpc';
 import { redactSecrets, exactMatchRedactor } from '../../src/shared/config/draft';
 import { createNoticeGate } from '../../src/main/crash';
 
+/** A value caught by its key-like shape. */
 const FAKE_KEY = 'sk-proj-FAKEKEY1234567890abcdef';
+/** A token the app holds; it looks like plain text, so only the exact match can catch it. */
 const HELD = 'plain-held-token-value-9876';
 
 describe('diagnostics report', () => {

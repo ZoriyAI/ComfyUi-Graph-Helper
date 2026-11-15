@@ -1,3 +1,8 @@
+/**
+ * Protects how the assistant's own words about a node class are kept: always as an inference, only in the current
+ * project, removable in one action without touching the person's notes or built-in knowledge, and shown after both
+ * in the Explain tab. A person must never mistake a model's guess for a fact or lose their own notes with it.
+ */
 import Database from 'better-sqlite3';
 import { describe, expect, it } from 'vitest';
 import { ensureWorkspace, startRun } from '../../src/main/commands/commit';
@@ -8,6 +13,7 @@ import { groupByAspect, trustRank } from '../../src/renderer/components/explain/
 import { DESKTOP_PROJECT_ID as P } from '../../src/shared/project';
 import type { Explanation } from '../../src/shared/contracts';
 
+/** A fresh in-memory database with the schema and the desktop workspace. */
 function openDb(): Database.Database {
   const db = new Database(':memory:');
   migrate(db);
@@ -23,6 +29,7 @@ describe('the assistant\'s words about a node class (P0)', () => {
     const run = startRun(db, P);
     const tools = createAgentTools({ db, projectId: P, runId: run.runId, revision: run.expectedRevisionId });
     const explain = tools.explain as AgentToolDefinition;
+    // The model claims a fact; the tool must store it as an inference anyway.
     const saved = await explain.execute({ owner: CLASS, aspect: 'what', text: 'KSampler brews coffee.', provenance: 'fact' }) as Record<string, unknown>;
     expect(saved).toMatchObject({ success: true, provenance: 'inference' });
     // Another project does not see it: nothing global was written.

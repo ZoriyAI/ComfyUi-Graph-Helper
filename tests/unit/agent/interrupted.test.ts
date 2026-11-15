@@ -1,3 +1,8 @@
+/**
+ * Protects what a person sees after the app or the window closed in the middle of an assistant build: the run is
+ * closed at the next start and the chat gets one line saying how many nodes were added, while a run that changed
+ * nothing leaves no line. Build step cards also keep the node title they were made with.
+ */
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { closeInterruptedRuns, reportInterruptedRun } from '../../../src/main/agent/interrupted';
@@ -8,6 +13,7 @@ import { migrate } from '../../../src/main/settings/migrate';
 import { BUILD_TOOL_SPECS } from '../../../src/shared/commands/toolSpecs';
 import { DESKTOP_PROJECT_ID as P } from '../../../src/shared/project';
 
+/** A fresh in-memory database with the schema and the desktop workspace. */
 function openDb(): Database.Database {
   const db = new Database(':memory:');
   migrate(db);
@@ -21,6 +27,7 @@ describe('a run cut off by closing the app', () => {
 
   it('is closed at the next start with one line in the chat; a run that changed nothing leaves none', async () => {
     const db = openDb();
+    // A run that made no change: closing it must not write to the chat.
     const quiet = startRun(db, P);
     expect(closeInterruptedRuns(db, 'ru')).toBe(0);
     expect(loadChatHistory(db, P)).toHaveLength(0);
@@ -30,6 +37,7 @@ describe('a run cut off by closing the app', () => {
     const tools = createBuildTools(BUILD_TOOL_SPECS, { db, run: { projectId: P, runId: run.runId, expectedRevisionId: run.expectedRevisionId } });
     await tools.addNode.execute({ nodeType: 'CheckpointLoaderSimple' }, { toolCallId: 'a' });
     await tools.addNode.execute({ nodeType: 'KSampler' }, { toolCallId: 'b' });
+    // A paused run is still open; the next start must close it too.
     pauseRun(db, P, run.runId);
     expect(closeInterruptedRuns(db, 'ru', 1000)).toBe(1);
     const lines = loadChatHistory(db, P);

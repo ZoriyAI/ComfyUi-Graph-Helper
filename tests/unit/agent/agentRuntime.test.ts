@@ -1,3 +1,9 @@
+/**
+ * Protects the assistant's run loop end to end: tools reach Google models, ports resolve by name or slot, action ids
+ * are scoped per run, getGraph pages large graphs, the answer language follows the question, secrets never leave in
+ * errors or prompts, Ask and Chat never build, and Stop really ends a turn. A person relies on each of these when
+ * they let the assistant read or change their graph. The "item N" labels group the cases by topic.
+ */
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { LanguageModelV4, LanguageModelV4StreamPart } from '@ai-sdk/provider';
@@ -21,6 +27,7 @@ import { AGENT_BUILD_TOOLS, AGENT_KNOWLEDGE_TOOLS, AGENT_PROPOSAL_TOOLS, AGENT_R
 import { DESKTOP_PROJECT_ID } from '../../../src/shared/project';
 import { fakeKnowledge, fakeProposals } from './fakes';
 
+/** A fresh in-memory database with the schema and the desktop workspace, like the app has after first start. */
 function openDb(): Database.Database {
   const db = new Database(':memory:');
   migrate(db);
@@ -30,6 +37,7 @@ function openDb(): Database.Database {
 
 type Exec = { execute: (args: Record<string, unknown>, call?: { toolCallId?: string }) => Promise<any> };
 
+/** Starts a run and returns the build tools bound to it, reading the live projection and catalog on each call. */
 function buildSetup(db = openDb()) {
   const run = startRun(db, DESKTOP_PROJECT_ID);
   const tools = createBuildTools(BUILD_TOOL_SPECS as any, {
@@ -48,6 +56,7 @@ function finish(unified: 'stop' | 'tool-calls'): LanguageModelV4StreamPart {
   };
 }
 
+/** A language model whose stream the test writes by hand; generate is never used by the app. */
 function scriptedModel(doStream: LanguageModelV4['doStream']): LanguageModelV4 {
   return {
     specificationVersion: 'v4',
@@ -59,6 +68,7 @@ function scriptedModel(doStream: LanguageModelV4['doStream']): LanguageModelV4 {
   };
 }
 
+/** A real LLM service that hands out the scripted model instead of building a provider client. */
 function serviceWith(model: LanguageModelV4): MainLLMService {
   const service = new MainLLMService();
   service.setConfig({ provider: 'test', model: 'scripted' });
@@ -80,6 +90,7 @@ describe('Google tools (item 1)', () => {
     const service = new MainLLMService();
     service.setSessionKey('google', 'google-key-for-request-capture');
     service.setConfig({ provider: 'google', model: 'gemini-2.5-flash', baseURL: '' });
+    // Capture the request body and answer with an error: only what was sent matters here.
     const bodies: any[] = [];
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, init) => {
       bodies.push(JSON.parse(String((init as RequestInit).body)));
@@ -223,6 +234,7 @@ describe('turn context, language, history, loop guard (items 7, 9, 10)', () => {
       { role: 'assistant', content: 'd'.repeat(5_000) },
       { role: 'user', content: 'last' },
     ];
+    // The budget is in tokens and only the last three messages fit, so the two oldest go.
     const kept = trimHistory(messages, 6_000).messages;
     expect(kept.map((message) => message.content[0])).toEqual(['c', 'd', 'l']);
     // A tool message is never left without the call before it.
@@ -233,6 +245,7 @@ describe('turn context, language, history, loop guard (items 7, 9, 10)', () => {
       { role: 'user', content: 'now' },
     ], 40).messages;
     expect(withTool.map((message) => message.role)).toEqual(['user']);
+    // The latest person message is kept even when it alone is over the budget.
     expect(trimHistory([{ role: 'user', content: 'z'.repeat(50_000) }], 6_000).messages).toHaveLength(1);
   });
 
@@ -364,6 +377,7 @@ describe('cancellation and run lifecycle (item 4)', () => {
       language: 'en',
       send: (chunk) => {
         chunks.push(chunk);
+        // Press Stop as soon as the first words arrive; the stream itself never finishes.
         if (chunk.type === 'text-delta') controller.abort();
       },
       notify: () => undefined,
@@ -393,6 +407,7 @@ describe('cancellation and run lifecycle (item 4)', () => {
     controller.abort();
     expect(await propose()).toMatchObject({ success: false });
 
+    // Second path: the run is cancelled in the database rather than through the signal.
     const run2 = startRun(db, DESKTOP_PROJECT_ID);
     const tools2 = createAgentTools({ db, projectId: DESKTOP_PROJECT_ID, runId: run2.runId, revision: run2.expectedRevisionId, knowledge, proposals });
     cancelRun(db, DESKTOP_PROJECT_ID, run2.runId);

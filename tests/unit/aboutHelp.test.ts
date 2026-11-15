@@ -1,3 +1,9 @@
+/**
+ * Protects the About window and the built-in Help reader: the system line, the Report a problem link that carries
+ * versions only, context help ids that point at wiki pages in both languages, safe links between pages, the bundled
+ * wiki tree and search, and release notes for the running version. A person pressing F1 or reporting a bug must
+ * land on a real page and send nothing private.
+ */
 import { describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -8,6 +14,7 @@ import { HELP_IDS, pageForHelpId, resolveWikiLink, WHATS_NEW_PAGE } from '../../
 import { parseInline, parseMarkdownLite } from '../../src/renderer/components/chat/markdownLite';
 import { readerText } from '../../src/renderer/components/shell/HelpReader';
 
+/** The repository root: help pages and release notes are read from docs/ there. */
 const root = path.join(__dirname, '..', '..');
 const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')) as { version: string };
 
@@ -57,6 +64,7 @@ describe('context help ids', () => {
     expect(resolveWikiLink('start/Quick-Start', 'Installing.md#deb')).toBe('start/Installing');
     expect(resolveWikiLink('start/README', '../Home.md')).toBe('Home');
     expect(resolveWikiLink('Home', 'start/README.md')).toBe('start/README');
+    // A link out of the wiki or to a non-page file resolves to nothing.
     expect(resolveWikiLink('Home', '../../src/main/index.ts')).toBeNull();
     expect(resolveWikiLink('Home', '../outside.md')).toBeNull();
   });

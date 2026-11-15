@@ -1,3 +1,8 @@
+/**
+ * Protects the error boundary around the app (renderer/ErrorBoundary): children render as they are until something
+ * fails, then a localized card offers Reload and Copy diagnostics with collapsed, redacted details. A person whose
+ * window crashed must get a way back and a report they can share without leaking a key.
+ */
 import { describe, expect, it } from 'vitest';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -6,6 +11,7 @@ import { createInstance } from 'i18next';
 import ErrorBoundary, { ErrorFallback } from '../../src/renderer/ErrorBoundary';
 import { en, ru } from '../../src/shared/i18n';
 
+/** An i18next instance loaded synchronously with the app catalog, for static rendering. */
 function translator(language: 'en' | 'ru') {
   const i18n = createInstance();
   void i18n.init({ resources: { en: { translation: en }, ru: { translation: ru } }, lng: language, interpolation: { escapeValue: false }, initImmediate: false } as Parameters<typeof i18n.init>[0]);
@@ -23,6 +29,7 @@ describe('error boundary', () => {
   });
 
   it('renders the fallback card after an error, with details collapsed and redacted', () => {
+    // Static rendering cannot throw into a boundary, so the test sets the error state the way React would.
     const boundary = new ErrorBoundary({ children: React.createElement('p', null, 'the app') });
     boundary.state = ErrorBoundary.getDerivedStateFromError(new Error('render failed with sk-ant-abcdefghijklmnop'));
     const html = render(boundary.render() as React.ReactElement);

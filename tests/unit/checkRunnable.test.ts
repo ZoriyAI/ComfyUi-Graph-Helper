@@ -1,3 +1,8 @@
+/**
+ * What ComfyUI refuses at queue time that the check (main/knowledge/check) must say before export: no output node,
+ * a number outside its range, a list value the list does not have, and a loop. And no false alarm on a sound graph.
+ * A person who exports a graph the check passed should not then see ComfyUI reject it.
+ */
 import { describe, expect, it } from 'vitest';
 import Database from 'better-sqlite3';
 import { migrate } from '../../src/main/settings/migrate';
@@ -10,10 +15,7 @@ import { CLASSES, MODELS, objectInfoDocument } from '../fixtures/mcp/fakeMcpServ
 import { checkFindingCount, findingsOf } from '../../src/renderer/components/check/checkModel';
 import { exportGuardFindings } from '../../src/renderer/commands/exportGuard';
 
-/**
- * What ComfyUI refuses at queue time that the check must say before export: no output node, a number outside
- * its range, a list value the list does not have, and a loop. And no false alarm on a sound graph.
- */
+/** A database with the workspace and the fake MCP server's classes and model files as the catalog. */
 function openDb(): Database.Database {
   const db = new Database(':memory:');
   migrate(db);
@@ -23,9 +25,12 @@ function openDb(): Database.Database {
   return db;
 }
 
+/** An output slot of a workflow file node, with the ids of its links. */
 const out = (name: string, type: string, links: number[] = []) => ({ name, type, links });
+/** An input slot of a workflow file node, with the id of its link. */
 const inp = (name: string, type: string, link: number | null = null) => ({ name, type, link });
 
+/** What txt2img changes from the sound graph; each case changes one or two of these. */
 interface Over { steps?: number; sampler?: string; denoise?: number; noSave?: boolean; loop?: boolean; image?: string; extra?: unknown[] }
 
 /** A sound text-to-image graph, with one thing changed at a time. */
@@ -39,6 +44,7 @@ function txt2img(over: Over = {}) {
     { id: 6, type: 'VAEDecode', inputs: [inp('samples', 'LATENT', 7), inp('vae', 'VAE', 8)], outputs: [out('IMAGE', 'IMAGE', over.noSave ? [] : [9])] },
   ];
   const links: unknown[][] = [[1, 1, 0, 5, 0, 'MODEL'], [2, 1, 1, 2, 0, 'CLIP'], [3, 1, 1, 3, 0, 'CLIP'], [4, 2, 0, 5, 1, 'CONDITIONING'], [5, 3, 0, 5, 2, 'CONDITIONING'], [7, 5, 0, 6, 0, 'LATENT'], [8, 1, 2, 6, 1, 'VAE']];
+  // Links are [id, from node, from slot, to node, to slot, type]; the loop feeds the sampler its own output.
   links.push(over.loop ? [10, 5, 0, 5, 3, 'LATENT'] : [6, 4, 0, 5, 3, 'LATENT']);
   if (!over.noSave) {
     nodes.push({ id: 7, type: 'SaveImage', inputs: [inp('images', 'IMAGE', 9)], widgets_values: ['ComfyUI'] });
@@ -51,6 +57,7 @@ function txt2img(over: Over = {}) {
   };
 }
 
+/** Imports the workflow into a fresh database and returns the graph check report. */
 function check(document: unknown) {
   const db = openDb();
   const current = readProjection(db, DESKTOP_PROJECT_ID)!;

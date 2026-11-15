@@ -1,3 +1,9 @@
+/**
+ * Protects the renderer command system (commands/registry, shortcuts and hotkeys): commands register and unregister
+ * cleanly, a disabled one never runs, shortcuts parse and show the way each platform writes them, letters match by
+ * physical key on a Russian layout, and only the global shortcuts fire while a field or dialog has focus. A person
+ * typing a prompt must not trigger Delete or Select all on the canvas by accident.
+ */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   addCommandStateSource,
@@ -12,10 +18,12 @@ import {
 import { formatShortcut, matchesShortcut, parseShortcut, shortcutKeys, detectPlatform, type KeyLike } from '../../src/renderer/commands/shortcuts';
 import { commandForKey, GLOBAL_SHORTCUTS, shortcutAllowed, type FocusContext } from '../../src/renderer/commands/hotkeys';
 
+/** A key event with no modifiers unless the test sets them. */
 function key(partial: Partial<KeyLike> & { key: string }): KeyLike {
   return { code: undefined, ctrlKey: false, metaKey: false, shiftKey: false, altKey: false, ...partial };
 }
 
+// Where focus can be: the canvas, a text field, or an open dialog or menu.
 const canvas: FocusContext = { editable: false, layerOpen: false };
 const field: FocusContext = { editable: true, layerOpen: false };
 const dialog: FocusContext = { editable: false, layerOpen: true };
@@ -26,6 +34,7 @@ afterEach(() => {
   cleanups = [];
 });
 
+/** Registers commands for one test; afterEach removes them again. */
 function register(list: Command[]) {
   cleanups.push(registerCommands(list));
 }

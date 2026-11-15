@@ -1,3 +1,8 @@
+/**
+ * Protects the person's own work from an assistant build: removing, renaming, documenting, retuning or rewiring
+ * anything the person made becomes a grey draft they accept or decline, while the assistant's own nodes change
+ * directly. A person who asks for help must never find their graph changed behind their back.
+ */
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createBuildTools } from '../../../src/main/agent/buildTools';
@@ -8,6 +13,7 @@ import { migrate } from '../../../src/main/settings/migrate';
 import { BUILD_TOOL_SPECS } from '../../../src/shared/commands/toolSpecs';
 import { DESKTOP_PROJECT_ID as P } from '../../../src/shared/project';
 
+/** A fresh in-memory database with the schema and the desktop workspace. */
 function openDb(): Database.Database {
   const db = new Database(':memory:');
   migrate(db);
@@ -15,6 +21,7 @@ function openDb(): Database.Database {
   return db;
 }
 
+/** Commits a change as the person, on top of the current revision. */
 const manual = (db: Database.Database, actionId: string, payload: Record<string, unknown>) => commitCommand(db, {
   projectId: P, actionId, expectedRevisionId: readProjection(db, P)!.currentRevisionId, actor: 'manual', runId: null, payload: payload as never,
 });

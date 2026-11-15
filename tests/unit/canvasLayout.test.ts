@@ -1,3 +1,9 @@
+/**
+ * Protects where new and suggested nodes go and how big the layout thinks they are (components/graph/lib geometry,
+ * nodeSizes, autoFit, the ghost layer and Arrange): a new node gets the height its class is drawn at, a spot is
+ * chosen with that height, a ghost reserves the room of the node that lands, and the overview level switches with
+ * hysteresis. Without these, a node or a suggestion lands on top of the person's other nodes.
+ */
 import { describe, expect, it } from 'vitest';
 import { arrangeMoves } from '../../src/renderer/components/graph/arrange';
 import { easeInOut, lerpPoint, movedFrom } from '../../src/renderer/components/graph/lib/glide';
@@ -46,6 +52,7 @@ const PROMPT: NodeClassDetail = {
   widgetOrder: ['text'],
 };
 
+/** A canvas node at a position, measured 240 by 120 unless `extra` says otherwise. */
 const at = (id: string, x: number, y: number, extra: Record<string, unknown> = {}) => ({ id, position: { x, y }, measured: { width: 240, height: 120 }, ...extra });
 
 describe('manual placement', () => {
@@ -98,6 +105,7 @@ describe('manual placement', () => {
   it('sizes a node the canvas has not measured yet by its ports and fields, so the next node is not put on it', () => {
     setOverviewLevel(false);
     const data = { inputs: [{ name: 'model', dataType: 'MODEL' }], outputs: [{ name: 'LATENT' }], parameters: { steps: 20 } };
+    // Header, one input row, one output row, one field row and the bottom padding, in pixels.
     const whole = 55 + (4 + 28) + (4 + 28) + (9 + 30) + 10;
     // Added a moment ago: no measurement, and nothing remembered of it.
     expect(layoutRect(at('just-added', 0, 0, { data, measured: undefined })).height).toBe(whole);

@@ -1,3 +1,8 @@
+/**
+ * Protects the saved chat: messages come back in order per project, a streaming update replaces its row, long
+ * answers are kept whole up to the row guard, secret-looking text is redacted, and the exact held key or token is
+ * refused outright. A person reopening the app expects the whole conversation back and no key written to disk.
+ */
 import Database from 'better-sqlite3';
 import { describe, expect, it } from 'vitest';
 import { CHAT_CONTENT_CAP, loadChatHistory, saveChatMessage } from '../../../src/main/agent/chatHistory';
@@ -7,6 +12,7 @@ import { DESKTOP_PROJECT_ID } from '../../../src/shared/project';
 import type { ChatRecord } from '../../../src/shared/contracts';
 import { mainLLMService } from '../../../src/main/llmService';
 
+/** A fresh in-memory database with the schema and the desktop workspace. */
 function openDb(): Database.Database {
   const db = new Database(':memory:');
   migrate(db);
@@ -14,6 +20,7 @@ function openDb(): Database.Database {
   return db;
 }
 
+/** A valid person message in the desktop project; each case overrides only what it tests. */
 const record = (overrides: Partial<ChatRecord>): ChatRecord => ({
   id: 'm1', projectId: DESKTOP_PROJECT_ID, role: 'user', content: 'hello', timestamp: 1, graphRevisionId: null, toolCalls: null, ...overrides,
 });
@@ -54,6 +61,7 @@ describe('chat history', () => {
 
   it('redacts secret-shaped text instead of refusing the message', () => {
     const db = openDb();
+    // No held key is set, so only the pattern redaction is at work.
     const none = () => false;
     expect(saveChatMessage(db, record({ id: 'a', content: 'my key is sk-abc123def, keep the rest' }), none)).toEqual({ ok: true });
     expect(saveChatMessage(db, record({ id: 'b', content: 'api_key: 123', timestamp: 2 }), none)).toEqual({ ok: true });

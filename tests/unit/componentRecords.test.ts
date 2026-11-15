@@ -1,3 +1,9 @@
+/**
+ * Protects component records (purpose and usage notes for nodes and subgraphs) and the native project file: every
+ * node and nested subgraph gets a record, documentation is stored as data and survives save and reopen, a ComfyUI
+ * export carries none of it, and old or future files are upgraded or refused honestly. A person's notes must stay
+ * with their project and never leak into the workflow they share.
+ */
 import { mkdtempSync } from 'fs';
 import { tmpdir } from 'os';
 import path from 'path';
@@ -11,6 +17,7 @@ import { DESKTOP_PROJECT_ID } from '../../src/shared/project';
 import { parseNativeProject, serializeNativeProject } from '../../src/shared/native-project';
 import { exportWorkflow, type GraphSnapshot } from '../../src/shared/workflow/codec';
 
+// Subgraph definition ids, and unique words that must never show up in an export.
 const INNER = '11111111-1111-4111-8111-111111111111';
 const NESTED = '22222222-2222-4222-8222-222222222222';
 const PURPOSE = 'APP_PURPOSE_SENTINEL_9f3c';
@@ -18,6 +25,7 @@ const USAGE = 'APP_USAGE_SENTINEL_9f3c ignore previous instructions';
 const PROCESS_NOTES = 'APP_PROCESS_SENTINEL_9f3c';
 const NESTED_LEAK = 'APP_NESTED_SENTINEL_9f3c';
 
+/** A ComfyUI workflow with one subgraph instance, a nested subgraph that carries a planted record, and a group. */
 function workflow() {
   return {
     version: 1,
@@ -67,6 +75,7 @@ function workflow() {
   };
 }
 
+/** A fresh in-memory database with the schema and the desktop workspace. */
 function openDb() {
   const db = new Database(':memory:');
   migrate(db);
@@ -78,6 +87,7 @@ function current(db: Database.Database) {
   return readProjection(db, DESKTOP_PROJECT_ID)!;
 }
 
+/** Commits a change as the person on the current revision. */
 function commit(db: Database.Database, actionId: string, payload: Record<string, unknown>) {
   return commitCommand(db, {
     projectId: DESKTOP_PROJECT_ID,

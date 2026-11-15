@@ -1,3 +1,8 @@
+/**
+ * In-memory stand-ins for the knowledge base and the proposal store that the assistant's tools call.
+ * Used by the agent tests in this folder and by nodeClassGuard, localContext and security/providerSources tests,
+ * so a tool can be exercised without a synced ComfyUI catalog or a real database of explanations.
+ */
 import type Database from 'better-sqlite3';
 import type {
   Explanation,
@@ -11,12 +16,14 @@ import type {
 import type { KnowledgeApi, ProposalApi } from '../../../src/main/agent/tools';
 import { EMPTY_NOTES } from '../../../src/shared/knowledge/sidecar';
 
+/** A tiny node catalog: two core classes with full detail and one custom-pack class without it. */
 export const NODE_CLASSES: NodeClassSummary[] = [
   { classType: 'KSampler', displayName: 'KSampler', category: 'sampling', pack: 'core', detailed: true },
   { classType: 'CheckpointLoaderSimple', displayName: 'Load Checkpoint', category: 'loaders', pack: 'core', detailed: true },
   { classType: 'FancyNode', displayName: 'Fancy', category: 'custom', pack: 'fancy-pack', detailed: false },
 ];
 
+/** Models of several base families (SDXL, Flux, Illustrious) so base-model matching has something to match. */
 export const MODELS: ModelSummary[] = [
   { directory: 'checkpoints', name: 'juggernautXL.safetensors', kind: 'checkpoint', baseModel: 'sdxl', sizeBytes: 1, enriched: true, title: '', preview: null, mature: false },
   { directory: 'checkpoints', name: 'flux1-dev.safetensors', kind: 'checkpoint', baseModel: 'flux1', sizeBytes: 1, enriched: true, title: '', preview: null, mature: false },
@@ -25,6 +32,10 @@ export const MODELS: ModelSummary[] = [
   { directory: 'loras', name: 'anime_lines.safetensors', kind: 'lora', baseModel: 'illustrious', sizeBytes: 1, enriched: false, title: '', preview: null, mature: false },
 ];
 
+/**
+ * A knowledge API that filters the lists above by name and records every saved explanation in `saved`.
+ * Only KSampler has a class detail; checkGraph always reports a clean graph.
+ */
 export function fakeKnowledge(): KnowledgeApi & { saved: ExplanationInput[] } {
   const saved: ExplanationInput[] = [];
   return {
@@ -61,12 +72,13 @@ export function fakeKnowledge(): KnowledgeApi & { saved: ExplanationInput[] } {
   };
 }
 
-/** Every function throws like the unimplemented KB stub. */
+/** Every function throws, to test how tools and the prompt behave when the knowledge base fails. */
 export function throwingKnowledge(): KnowledgeApi {
   const fail = () => { throw new Error('knowledge: not implemented yet'); };
   return { searchNodeClasses: fail, nodeClassDetail: fail, searchModels: fail, modelDetail: fail, saveExplanation: fail, checkGraph: fail };
 }
 
+/** A proposal store that keeps created proposals in `created`, in order, all with status 'proposed'. */
 export function fakeProposals(): ProposalApi & { created: Proposal[] } {
   const created: Proposal[] = [];
   return {

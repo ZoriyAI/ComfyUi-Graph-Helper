@@ -1,3 +1,8 @@
+/**
+ * Protects the advice rows the graph check gives about prompt texts (components/check/checkModel): one row per note,
+ * never counted as a problem, every placeholder of its sentence filled in English and Russian, and nodes named as
+ * the person titled them. A person reading the check must get a full, true sentence about their own node.
+ */
 import { describe, expect, it } from 'vitest';
 import type { GraphCheckReport, PromptNote } from '../../src/shared/contracts';
 import { createTranslator } from '../../src/shared/i18n';
@@ -22,6 +27,7 @@ const NOTES: PromptNote[] = [
   { kind: 'missing-trigger', nodeId: '5', classType: 'LoraLoader', found: '', model: 'neon.safetensors', words: ['neon rain', 'wet glass'] },
 ];
 
+/** A clean report that carries only the advice notes above. */
 const REPORT: GraphCheckReport = {
   ok: true,
   missingNodes: [],
@@ -34,6 +40,7 @@ const REPORT: GraphCheckReport = {
   promptNotes: NOTES,
 };
 
+/** Node names as the canvas shows them; node 4 has no title, so it is named by its class. */
 const NAMES = nodeNamer([
   { id: '2', data: { title: 'What I want', comfyType: 'CLIPTextEncode' } },
   { id: '3', data: { title: 'What I do not want', comfyType: 'CLIPTextEncode' } },
@@ -41,6 +48,7 @@ const NAMES = nodeNamer([
   { id: '5', data: { title: 'Neon LoRA', comfyType: 'LoraLoader' } },
 ]);
 
+/** The raw catalog string at a dotted key, or '' when the key is missing. */
 function leaf(catalog: unknown, key: string): string {
   let value: unknown = catalog;
   for (const part of key.split('.')) value = (value as Record<string, unknown> | undefined)?.[part];

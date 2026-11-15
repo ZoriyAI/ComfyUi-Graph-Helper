@@ -1,9 +1,16 @@
+/**
+ * Protects opening the profile database at start (main/database and settings/databaseSafety): every older schema
+ * upgrades to the same shape as a new one with its data, a copy is kept before an upgrade, a file from a newer
+ * version or a damaged one is never overwritten, and each failure is explained in plain words. A person's projects
+ * and settings live in this file; a bad start must not lose them.
+ */
 import Database from 'better-sqlite3';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+// main/database imports electron; the tests need none of it, only the import to succeed.
 vi.mock('electron', () => ({ app: {}, dialog: {}, shell: {} }));
 
 import { openDatabase } from '../../src/main/database';
@@ -33,6 +40,7 @@ afterEach(() => {
 
 const ru = createTranslator('ru');
 const en = createTranslator('en');
+/** Example profile and log folders that a failure message may name. */
 const PROFILE = { profile: '/home/someone/.config/app', logs: '/home/someone/.config/app/logs' };
 
 /** The shape of the schema: every table with its columns and every index with its columns. */

@@ -1,3 +1,9 @@
+/**
+ * Protects the read-only gate to ComfyUI (main/comfy/gate): only listed read routes go out, as GET without a body
+ * or redirects, no folder or file name can climb to another route, failures come back as plain error kinds, and no
+ * other module under main/comfy calls fetch itself (this test reads those files as text). A person connecting the
+ * app to their ComfyUI must be sure it never queues, uploads, deletes or installs anything there.
+ */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -14,6 +20,7 @@ function recorder(respond: (url: string, init: RequestInit) => Response | Promis
   return { seen, fetchImpl };
 }
 
+/** A local ComfyUI on its usual port. */
 const origin = new URL('http://127.0.0.1:8188');
 
 describe('the read-only gate for ComfyUI', () => {

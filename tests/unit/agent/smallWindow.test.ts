@@ -1,3 +1,9 @@
+/**
+ * Protects the assistant on small local models: positional values get their widget names, a large graph becomes a
+ * short plan that fits the window, a model that cannot call tools is asked again without them and the chat says so,
+ * and a model with an unknown window starts in short mode. A person running a small model on their own computer
+ * should still get a useful answer instead of an error.
+ */
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildToolsAllowed, dataBudgetChars, fitTurnData, runAgentTurn } from '../../../src/main/agent/turn';
@@ -27,6 +33,7 @@ function imported(count: number) {
     edges: Array.from({ length: count - 1 }, (_, index) => ({ id: `e${index}`, source: String(index + 1), target: String(index + 2), sourceHandle: 'out-0', targetHandle: 'in-0' })),
   };
 }
+/** KSampler's widget order, as the catalog would give it. */
 const ORDER = ['seed', 'control_after_generate', 'steps', 'cfg', 'sampler_name', 'scheduler', 'denoise'];
 
 describe('a small context window (item 4)', () => {
@@ -57,6 +64,7 @@ describe('a small context window (item 4)', () => {
       question: 'hi',
       preferences: {},
     };
+    // An 8k window at 3.3 characters per token, the size of a small local model.
     const budget = dataBudgetChars(8192, 3.3);
     const data = fitTurnData(input as never, { snapshot } as never, { selectedIds: [], priority: [], omitValues: false, widgetNames: () => ORDER, budgetChars: budget });
     expect(data.length).toBeLessThanOrEqual(budget);
@@ -79,6 +87,7 @@ describe('a model that cannot call tools, an unknown window, a link of the perso
     const run = startRun(db, P);
     const calls: Array<{ tools: string[]; system: string }> = [];
     const chunks: Array<{ type: string; content?: any }> = [];
+    // A local model that refuses any request carrying tools and answers one without them.
     const llm = {
       nativeSearchTool: () => null,
       nextSendConfig: () => ({ provider: 'local', model: 'small:4b', baseURL: 'http://127.0.0.1:9/v1' }),

@@ -1,3 +1,9 @@
+/**
+ * Static render of the Explain and Check panels with English strings; effects do not run here. Protects what the
+ * dock shows: how to ask when nothing is focused, explanations grouped by aspect with their provenance, stale mark
+ * and web source, and the check's not-run, all-clear and grouped finding states. These panels are where a person
+ * reads why a node is there and what is wrong with the graph.
+ */
 import { describe, expect, it, beforeEach, vi } from 'vitest';
 
 // Zustand serves its initial state to a server render. This copy of `create` serves the live state instead,
@@ -29,8 +35,6 @@ import { useGraphStore } from '../../src/renderer/state/graphState';
 import type { Explanation, GraphCheckReport } from '../../src/shared/contracts';
 import { en } from '../../src/shared/i18n';
 
-/** Static render of the Explain and Check panels with English strings; effects do not run here. */
-
 const i18n = createInstance();
 void i18n.init({ resources: { en: { translation: en } }, lng: 'en', interpolation: { escapeValue: false }, initImmediate: false } as Parameters<typeof i18n.init>[0]);
 
@@ -38,6 +42,7 @@ function render(element: React.ReactElement): string {
   return renderToStaticMarkup(React.createElement(I18nextProvider, { i18n }, element));
 }
 
+/** An explanation with defaults; each case overrides what it shows. */
 const item = (patch: Partial<Explanation>): Explanation => ({
   id: 'e', projectId: 'p', owner: { kind: 'node', id: 'n1' }, aspect: 'what', text: 'Loads weights.', provenance: 'fact',
   sourceUrl: null, revisionId: 'rev-2', createdBy: 'ai', createdAt: 1, ...patch,

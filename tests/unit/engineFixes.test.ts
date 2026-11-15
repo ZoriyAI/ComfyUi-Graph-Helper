@@ -1,3 +1,9 @@
+/**
+ * Protects fixes in the graph engine (main/commands/commit and the workflow codec) against old bugs coming back:
+ * one link per input, numeric node ids that are never reused, dissolving a subgraph without stray boundary ids or
+ * lost values, missing-node reports that follow the live graph, refusals without a new revision, proposals
+ * superseded when their node goes, and the catalog cache. Each one once broke a graph a person had made or exported.
+ */
 import Database from 'better-sqlite3';
 import { describe, expect, it } from 'vitest';
 import { cachedCatalog, commitCommand, ensureWorkspace, listRevisions, readProjection } from '../../src/main/commands/commit';
@@ -15,6 +21,7 @@ import { nestedSubgraphWorkflow } from '../e2e/fixtures/nestedSubgraphWorkflow';
 
 type Rec = Record<string, any>;
 
+/** A fresh in-memory database with the schema and the desktop workspace. */
 function openDb(): Database.Database {
   const db = new Database(':memory:');
   migrate(db);
@@ -23,14 +30,17 @@ function openDb(): Database.Database {
 }
 
 const snap = (db: Database.Database) => readProjection(db, P)!.snapshot as Rec;
+/** Commits a change as the person on the current revision. */
 const commit = (db: Database.Database, actionId: string, payload: Rec) => commitCommand(db, {
   projectId: P, actionId, expectedRevisionId: readProjection(db, P)!.currentRevisionId, actor: 'manual', runId: null, payload,
 });
+/** The current graph exported as ComfyUI workflow JSON, with a fixed time stamp. */
 const exported = (db: Database.Database): Rec => {
   const result = exportWorkflow(snap(db) as never, '2026-11-09T00:00:00.000Z');
   if (!result.ok) throw new Error(result.error);
   return result.workflow;
 };
+/** Creates a ghost proposal outside any run. */
 const propose = (db: Database.Database, payload: Rec, note = '') => createProposal(db, {
   projectId: P, runId: null, kind: payload.type as Proposal['kind'], payload: payload as Proposal['payload'], note,
 });
