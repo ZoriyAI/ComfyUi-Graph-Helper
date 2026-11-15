@@ -13,15 +13,15 @@ NodeWise Studio: a desktop tutor for ComfyUI graphs. Learn ComfyUI with lessons 
 
 ## Repository name
 
-The repository is still named `ZoriyAI/ComfyUi-Graph-Helper`, after the app's name before 1.0. Rename it to
-`nodewise-studio` (Settings ▸ General ▸ Repository name): the brand rule keeps "ComfyUI" out of the product's own
-names, and the repository's name is one of them. GitHub sends the old address on to the new one. Then change
-`PROJECT_URL` in `src/main/identity.ts`; `tests/unit/identity.test.ts` lists every copy of the address that must
-follow (package.json, the issue forms' links, the README badges).
+The repository is named `ZoriyAI/nodewise-studio` (until 1.0 it carried the app's old name; GitHub sends the old
+address on to the new one). `PROJECT_URL` in `src/main/identity.ts` holds the address, and
+`tests/unit/identity.test.ts` keeps every copy equal (package.json, the issue forms' links, the README badges).
+What remains for the owner is the "About" box: paste the description above, the website and the topics below, and
+upload the social preview.
 
 ## Website
 
-The documentation home page: `https://github.com/ZoriyAI/ComfyUi-Graph-Helper/blob/HEAD/docs/wiki/Home.md`
+The documentation home page: `https://github.com/ZoriyAI/nodewise-studio/blob/HEAD/docs/wiki/Home.md`
 (`PROJECT_URL` in `src/main/identity.ts`, with that path added).
 
 ## Social preview
@@ -44,14 +44,14 @@ comfyui comfyui-workflow stable-diffusion generative-ai learning tutorial educat
 ## Badges for the README
 
 `README.md` and `README.ru.md` carry three badges under the name and its line: the Checks workflow (`ci.yml`), the
-latest release and the licence. They use the project address; when the repository is renamed, change them with it.
+latest release and the licence. They use the project address (`ZoriyAI/nodewise-studio`).
 
 ## По-русски
 
 Поле «About» на GitHub заполняет только владелец репозитория (шестерёнка рядом с «About»). Описание, сайт и темы
-выше вставляются как есть, по-английски: так их найдут в поиске GitHub. Репозиторий стоит переименовать в
-`nodewise-studio` (Settings ▸ General ▸ Repository name): правило бренда не пускает «ComfyUI» в собственные имена
-продукта, а имя репозитория одно из них; после этого поменяйте `PROJECT_URL` в `src/main/identity.ts`. Картинку для ссылок (Social preview)
+выше вставляются как есть, по-английски: так их найдут в поиске GitHub. Репозиторий называется
+`ZoriyAI/nodewise-studio` (до 1.0 он носил старое имя приложения; старый адрес GitHub переводит на новый), адрес
+проекта хранит `PROJECT_URL` в `src/main/identity.ts`. Осталось заполнить поле «About»: описание, сайт и темы. Картинку для ссылок (Social preview)
 загрузите из `docs/screenshots/social-preview.png`. В настройках включите Discussions с
 категорией `Commercial`, закрытые сообщения об уязвимостях и заведите метку `content-rules`. Значки в README уже
 стоят и ведут на адрес проекта.

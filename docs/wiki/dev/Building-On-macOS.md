@@ -18,7 +18,7 @@ and change the app on a Mac. To just install the app, use the script:
 ## Get the source
 
 ```bash
-git clone <project address>.git nodewise-studio
+git clone https://github.com/ZoriyAI/nodewise-studio.git nodewise-studio
 cd nodewise-studio
 npm ci
 ```

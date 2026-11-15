@@ -24,7 +24,7 @@ NodeWise Studio это экспериментальное приложение, 
 ## Подготовка
 
 ```bash
-git clone <адрес проекта> nodewise-studio && cd nodewise-studio
+git clone https://github.com/ZoriyAI/nodewise-studio.git nodewise-studio && cd nodewise-studio
 npm ci
 npm run build
 npm start

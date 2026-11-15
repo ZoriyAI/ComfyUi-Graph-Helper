@@ -22,7 +22,7 @@ set -euo pipefail
 # ---------------------------------------------------------------------------------------------------------------
 # Fixed facts. The names match src/shared/productNames.ts and the address src/main/identity.ts PROJECT_URL
 # (tests/unit/installScripts.test.ts compares them).
-REPOSITORY='ZoriyAI/ComfyUi-Graph-Helper'
+REPOSITORY='ZoriyAI/nodewise-studio'
 APP_ID='nodewise-studio'
 DISPLAY_NAME='NodeWise Studio'
 # The hosts this script downloads from; any other address is refused (fetch below).

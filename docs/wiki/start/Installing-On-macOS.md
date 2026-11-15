@@ -19,7 +19,7 @@ does, what it asks and how to undo it.
 Open **Terminal** (Launchpad ▸ Other ▸ Terminal) and paste:
 
 ```bash
-curl -fsSL <project address>/releases/latest/download/install-macos.sh -o install-macos.sh && bash install-macos.sh
+curl -fsSL https://github.com/ZoriyAI/nodewise-studio/releases/latest/download/install-macos.sh -o install-macos.sh && bash install-macos.sh
 ```
 
 The project's front page (README) shows the same line with the address filled in.

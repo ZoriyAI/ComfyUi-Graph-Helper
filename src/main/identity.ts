@@ -27,11 +27,12 @@ export const STABLE_APP_NAME = APP_ID;
 /**
  * The public project address (the repository on GitHub): the one constant for it. package.json (repository,
  * homepage, bugs), the issue forms' config and the README badges repeat it, and tests/unit/identity.test.ts
- * compares them. The repository still has its pre-1.0 name; when the owner renames it, change this value and the
- * test lists every copy to follow. A placeholder value (`OWNER/REPOSITORY`) greys the project links out and stops
- * the update check.
+ * compares them; the update check builds its releases address from it (updates/updateCheck.ts) and the .deb and
+ * .rpm take it as their homepage (forge.config.js). The repository was renamed to nodewise-studio after 1.0's
+ * rename; GitHub sends the old address on. A placeholder value (`OWNER/REPOSITORY`) greys the project links out and
+ * stops the update check.
  */
-export const PROJECT_URL = 'https://github.com/ZoriyAI/ComfyUi-Graph-Helper';
+export const PROJECT_URL = 'https://github.com/ZoriyAI/nodewise-studio';
 
 /** False while PROJECT_URL is the placeholder: no link to a project page is offered or sent. */
 export function projectUrlIsSet(url: string = PROJECT_URL): boolean {

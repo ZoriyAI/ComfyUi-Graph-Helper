@@ -21,7 +21,7 @@
 В PowerShell или в окне Git Bash:
 
 ```powershell
-git clone <адрес проекта>.git nodewise-studio
+git clone https://github.com/ZoriyAI/nodewise-studio.git nodewise-studio
 cd nodewise-studio
 npm ci
 ```

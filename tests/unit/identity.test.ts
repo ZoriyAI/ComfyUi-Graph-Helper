@@ -48,20 +48,26 @@ describe('app identity', () => {
     expect(usesStableProfile('Electron', false)).toBe(false);
   });
 
-  it('keeps one project address: identity.ts, package.json, the issue forms and the README badges agree', () => {
-    expect(PROJECT_URL).toBe('https://github.com/ZoriyAI/ComfyUi-Graph-Helper');
+  it('keeps one project address: identity.ts, package.json, the issue forms, the README, the clone and install lines and the install scripts agree', () => {
+    expect(PROJECT_URL).toBe('https://github.com/ZoriyAI/nodewise-studio');
     expect(projectUrlIsSet()).toBe(true);
     expect(pkg.homepage).toBe(PROJECT_URL);
     expect(pkg.repository).toEqual({ type: 'git', url: `git+${PROJECT_URL}.git` });
     expect(pkg.bugs).toEqual({ url: `${PROJECT_URL}/issues` });
     const root = path.join(__dirname, '..', '..');
     // Every github.com repository address in these files is the project's own.
-    for (const file of ['.github/ISSUE_TEMPLATE/config.yml', 'README.md', 'README.ru.md']) {
+    const repository = PROJECT_URL.replace('https://github.com/', '');
+    const pages = ['CONTRIBUTING', 'docs/wiki/dev/Building-From-Source', 'docs/wiki/dev/Building-On-Windows', 'docs/wiki/dev/Building-On-macOS', 'docs/wiki/start/Installing-On-Windows', 'docs/wiki/start/Installing-On-macOS']
+      .flatMap((page) => [`${page}.md`, `${page}.ru.md`]);
+    for (const file of ['.github/ISSUE_TEMPLATE/config.yml', 'README.md', 'README.ru.md', ...pages]) {
       const text = fs.readFileSync(path.join(root, file), 'utf8');
       const repositories = [...text.matchAll(/https:\/\/(?:img\.shields\.io\/github\/v\/release\/|github\.com\/)([A-Za-z0-9-]+\/[A-Za-z0-9._-]+)/g)].map((match) => match[1].replace(/\.git$/, ''));
       expect(repositories.length, file).toBeGreaterThan(0);
-      expect(new Set(repositories.filter((repo) => !repo.startsWith('actions/'))), file).toEqual(new Set([PROJECT_URL.replace('https://github.com/', '')]));
+      expect(new Set(repositories.filter((repo) => !repo.startsWith('actions/'))), file).toEqual(new Set([repository]));
     }
+    // The install scripts for Windows and macOS ask this repository for the latest release.
+    expect(fs.readFileSync(path.join(root, 'scripts/install/install-macos.sh'), 'utf8')).toContain(`REPOSITORY='${repository}'`);
+    expect(fs.readFileSync(path.join(root, 'scripts/install/install-windows.ps1'), 'utf8')).toContain(`$Repository = '${repository}'`);
   });
 
   it('offers project links only for a real address', () => {
