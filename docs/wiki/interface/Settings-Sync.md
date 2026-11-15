@@ -3,17 +3,17 @@
 
 # Settings: Sync
 
-"The library comes from your ComfyUI through read-only MCP tools." This section shows how the last sync went, runs one now, sets automatic sync, and says how model files are read.
+"The library comes from ComfyUI directly or through optional read-only MCP tools. Auto-sync and the interval apply at once; the rest saves with Save settings." This section shows how the last sync went, runs one now, sets automatic sync, and says how model files are read.
 
 ## What it shows
 
-The state and a summary: "Up to date · 812 node classes, 41 packs, 331 models (120 with metadata). Last sync 14:05." Warnings of the last sync, a paused reading ("Metadata reading is paused at 120 / 331. It continues with the next sync, or press Sync now.") and the last error.
+The state and a summary: "Up to date · Node types: 812, packs: 41, models: 331 (120 with metadata). Last sync: 14:05." Warnings of the last sync, a paused reading ("Metadata reading is paused at 120 / 331. It continues with the next sync, or press Sync now.") and the last error.
 
 ## Fields and buttons
 
 | Field | Default | What it does |
 |---|---|---|
-| **Sync automatically** | off | Reads ComfyUI again on a timer. It can be switched on only with an MCP server address: "Automatic sync can be switched on once the MCP server address is set in Connection." |
+| **Sync automatically** | off | Reads ComfyUI again on a timer. It works with the ComfyUI address or with an MCP server. Without an address: "Automatic sync can be switched on once the ComfyUI address is set in Connection." If the last sync did not finish, automatic sync waits until you press **Sync now**. |
 | **Interval, minutes** | 30 | From 5 minutes to a day. A number out of range is corrected: "The interval must be from 5 minutes to a day, so it is now 5 min." |
 | **Sync now** | | Reads ComfyUI now. |
 | **Pause metadata reading** | | Appears while model files are read. |
@@ -21,11 +21,11 @@ The state and a summary: "Up to date · 812 node classes, 41 packs, 331 models (
 | **Models per batch** | 50 (10 to 1000) | Metadata is read in batches of this size, one after another, until every file is read. |
 | **Pause between batches, ms** | 1500 (0 to 10 000) | Gives the MCP server and ComfyUI a breather. It does not stop the reading. |
 
+Read straight from ComfyUI, the app gets the header metadata of model files (title, trigger phrase, base model) but no description files next to them and no fingerprints; an MCP server that reads files adds those.
+
 A line at the bottom says the fixed timeout: one MCP call may take up to 60 s; after 5 failed metadata reads in a row the reading waits for the next sync, and each failed file is tried again after 1 h, 6 h, then 24 h.
 
 Automatic sync and its interval also live in the [sync indicator](Sync-Indicator.md) popover, where they apply at once. Here they apply with **Save settings**.
-
-<!-- verify: the connection branch adds reading a plain ComfyUI without MCP; the sentence about MCP tools will change -->
 
 ## See also
 

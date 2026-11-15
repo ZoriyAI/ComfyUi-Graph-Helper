@@ -29,7 +29,7 @@ Some things apply at once, without Save:
 
 ## The line at the bottom
 
-"Settings loaded.", "Default settings, not saved yet.", "Settings are not saved yet.", "Nothing to save: nothing has changed yet.", "Fix the highlighted fields first." (a field is marked red, for example "The MCP server address is not an address yet. Fix it in Connection; the field is marked."), "Settings could not be saved.", "Stored settings could not be read; default settings are shown."
+"Settings loaded.", "Default settings, not saved yet.", "Settings are not saved yet.", "Nothing to save: nothing has changed yet.", "Fix the highlighted fields first." (a field is marked red, for example "The ComfyUI address is not an address yet. Fix it in Connection; the field is marked."), "Settings could not be saved.", "Stored settings could not be read; default settings are shown."
 
 ## Rules for every field
 
