@@ -1100,7 +1100,7 @@ export const en = {
       rangeItem: 'Field {{name}} on “{{node}}” is outside the allowed range ({{expected}}): {{found}}.',
       choiceItem: 'Field {{name}} on “{{node}}” has {{found}}, which is not one of the catalog choices.',
     },
-    promptNotes: 'Descriptions: worth changing',
+    promptNotes: 'Prompts: worth changing',
     promptNotesLead: 'These are not errors: the graph will run. But with them the result usually comes out worse than you expect.',
     prompt: {
       loraTag: 'The prompt in “{{node}}” contains {{found}}. In ComfyUI this connects nothing: a LoRA is added with its own node, and the model reads these characters as plain words. Take it out of the prompt.',
@@ -1468,7 +1468,7 @@ export const en = {
     replayLockedTitle: 'History replay is open',
     replayLockedBody: 'While it is open the graph does not change. Close the replay or press “Return to this version”.',
     replayClosedForBuild: 'History replay closed: the helper is building on the current graph.',
-    acceptAll: 'Accept all ({{count}})',
+    acceptAll: 'Accept all ({{count, number}})',
     showAll: 'Show all now',
     // Layout
     addNodeLabel: 'Node',
@@ -3511,7 +3511,7 @@ export const ru = {
       rangeItem: 'Поле {{name}} ноды «{{node}}» выходит за допустимый диапазон ({{expected}}): {{found}}.',
       choiceItem: 'Поле {{name}} ноды «{{node}}» содержит {{found}}: этого значения нет в списке каталога.',
     },
-    promptNotes: 'Описания: что стоит поправить',
+    promptNotes: 'Промпты: что стоит поправить',
     promptNotesLead: 'Это не ошибки: граф запустится. Но с этим результат обычно выходит хуже, чем вы ждёте.',
     prompt: {
       loraTag: 'В промпте ноды «{{node}}» стоит запись {{found}}. В ComfyUI она ничего не подключает: LoRA добавляют отдельной нодой, а эти знаки модель прочтёт как обычные слова. Уберите запись из промпта.',
@@ -3879,7 +3879,7 @@ export const ru = {
     replayLockedTitle: 'Открыт просмотр истории',
     replayLockedBody: 'Пока он открыт, граф не меняется. Закройте просмотр или нажмите «Вернуться к этой версии».',
     replayClosedForBuild: 'Просмотр истории закрыт: помощник строит на текущем графе.',
-    acceptAll: 'Принять все ({{count}})',
+    acceptAll: 'Принять все ({{count, number}})',
     showAll: 'Показать всё сразу',
     // Layout
     addNodeLabel: 'Нода',
