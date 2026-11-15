@@ -3,14 +3,15 @@
 
 # History and undo
 
-Every change of the graph, yours or the assistant's, makes a new version of the graph. The status bar shows its number ("Revision 79"). From this history come undo, redo and the replay of how the graph grew. The history is kept in the app's data and survives a restart.
+Every change of the graph, yours or the assistant's, makes a new version of the graph. The status bar shows its number ("Version 79"). From this history come undo, redo and the replay of how the graph grew. The history is kept in the app's data and survives a restart.
 
 ## Undo and redo
 
 - **Edit ▸ Undo** (`Ctrl+Z`) or the back arrow on the toolbar takes back the last change. Its tooltip names it: "Undo: add KSampler", "Undo: set KSampler.steps", "Undo: arrange the graph".
 - **Edit ▸ Redo** (`Ctrl+Shift+Z`) puts it back.
-- A whole build of the assistant is one step: "Undo: the assistant's build (steps: 16)".
-- Opening a workflow, a new project and arranging are one step each.
+- The steps the assistant made one after another are one step: "Undo: the assistant's consecutive steps (16)".
+- These are one step each too: opening a workflow, a new project, arranging, deleting several nodes ("removing 3 items"), a paste, a cut or a duplicate, a burst of arrow presses or a drag of several nodes, a group moved by its title, a node added from a dropped link together with that link ("adding a node with its link"), bypass, mute, a colour, replacing a node.
+- If you press Undo while an edit is still landing, the app waits for it and undoes that edit.
 
 ## What undo cannot do
 
@@ -21,11 +22,12 @@ Every change of the graph, yours or the assistant's, makes a new version of the 
 ## Replay the history
 
 1. Press the clock button on the canvas toolbar, or **Graph ▸ Replay history**.
-2. The canvas shows the newest version, read-only: "Revision 40 of 40: add Save Image. Read-only."
-3. Drag the **Revision** slider, or press **Play** to watch the graph grow.
+2. The canvas shows the newest version, read-only: "Version 40 of 40: add Save Image. Read-only."
+3. Drag the **Version** slider, or press **Play** to watch the graph grow. Each version shows what it changed: new nodes and links draw in, removed ones fade, changed ones flash, moved ones glide.
 4. **Exit replay**, `Escape` or the same menu item go back to the current graph. Nothing changed.
+5. **Return to this version** makes the graph this version again, as a new step: "The graph is back at version 12. Later versions stay in the history."
 
-While the replay shows, nothing can be edited.
+While the replay shows, the graph does not change: an edit says "History replay is open". **Node**, **Arrange** and **Tour** are hidden on the canvas toolbar. When the assistant starts a build, the replay closes: "History replay closed: the helper is building on the current graph."
 
 ## How much is kept
 
@@ -34,9 +36,6 @@ Up to 2000 versions per project; for very large graphs fewer, never fewer than 2
 ## Limits
 
 - On a graph of many hundreds of nodes an undo can take a second or more.
-- Moving or deleting several nodes is one step per node.
-
-<!-- verify: the canvas and files branch makes a multi-move and a multi-delete one step each -->
 
 ## See also
 
