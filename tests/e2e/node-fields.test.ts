@@ -11,6 +11,7 @@ import * as path from 'path';
 import { useEnglish } from './locale';
 import { exportPastGuard } from './exportGuard';
 import { startFakeMcp } from '../fixtures/mcp/fakeMcpServer';
+import { en } from '../../src/shared/i18n/catalog';
 
 const artifactDir = path.join(__dirname, '../../test-results/node-fields');
 
@@ -61,9 +62,11 @@ test('node fields: lists, steppers and the model picker edit the graph', async (
     await addFromLibrary(window, 'ksampler', /^KSampler\s*KSampler/);
     const sampler = window.locator('.react-flow__node').filter({ hasText: 'latent_image' }).first();
     await expect(sampler).toBeVisible();
-    // Link ports stay ports; widget inputs are field rows with a quiet handle each (11 handles in all).
+    // Link ports stay ports; widget inputs are field rows with a quiet handle each (11 handles in all). The seed has
+    // a second row, "after run" (ComfyUI's control_after_generate), right below it.
     await expect(sampler.locator('.port-list .port-name')).toHaveText(['model', 'positive', 'negative', 'latent_image', 'LATENT']);
-    await expect(sampler.locator('.node-fields .node-field-name')).toHaveText(['seed', 'steps', 'cfg', 'sampler_name', 'scheduler', 'denoise']);
+    await expect(sampler.locator('.node-fields .node-field-name'))
+      .toHaveText(['seed', en.editing.afterRun, 'steps', 'cfg', 'sampler_name', 'scheduler', 'denoise']);
     await expect(sampler.locator('.react-flow__handle')).toHaveCount(11);
     // No developer type words next to fields.
     await expect(sampler.locator('.node-fields')).not.toContainText('COMBO');
