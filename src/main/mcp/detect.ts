@@ -66,7 +66,7 @@ async function detectAt(
   return { ok: true, mode: (await advertisesOAuth(url, fetchImpl)) ? 'oauth' : 'token' };
 }
 
-/** One request for a metadata document: no redirect followed, a short time limit, a body that is not JSON reads as null. */
+/** One request for a metadata document: no redirect followed, a short time limit, a non-JSON body reads as null. */
 async function fetchJson(fetchImpl: typeof fetch, target: string, init: RequestInit = {}): Promise<{ status: number; headers: Headers; body: unknown }> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), METADATA_TIMEOUT_MS);

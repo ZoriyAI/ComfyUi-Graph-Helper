@@ -65,7 +65,7 @@ export function readKeyFileOrigins(userData: string): Partial<Record<KeyFileProv
     const out: Partial<Record<KeyFileProvider, string>> = {};
     if (parsed?.origins && typeof parsed.origins === 'object') {
       for (const [provider, origin] of Object.entries(parsed.origins as Record<string, unknown>)) {
-        // Only a bare https origin (plain http for a local server) is taken: a key must never go to a page or a user@host.
+        // Only a bare https origin (plain http for a local server): a key must never go to a page or a user@host.
         if (isKeyFileProvider(provider) && typeof origin === 'string' && (/^https:\/\/[^/@]+$/.test(origin) || (provider === 'local' && /^http:\/\/[^/@]+$/.test(origin)))) out[provider] = origin;
       }
     }

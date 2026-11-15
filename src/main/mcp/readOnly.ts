@@ -1,9 +1,9 @@
 /**
  * The read-only gate for MCP: the closed list of tool calls the app may make, with exact argument shapes, and
  * the session wrapper that enforces it on every call (readOnlySession). mcp/client.ts (openReadOnlySession) wraps
- * the sessions it opens for reading; index.ts plugs in the call log and the known model folders; sideFiles.ts, sync.ts and
- * knowledge/modelWeb.ts use its path rules. Why: an MCP server for ComfyUI can also queue, install, download and
- * delete; the tutor only reads, so anything not listed here cannot be called, by the app or by a bug in it.
+ * the sessions it opens for reading; index.ts plugs in the call log and the known model folders; sideFiles.ts,
+ * sync.ts and knowledge/modelWeb.ts use its path rules. Why: an MCP server for ComfyUI can also queue, install,
+ * download and delete; the tutor only reads, so anything not listed here cannot be called, by the app or a bug in it.
  */
 import { z } from 'zod';
 import type { McpSession } from '../../shared/mcp/catalogSource';

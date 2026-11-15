@@ -230,7 +230,7 @@ export function packInfo(db: Database.Database, name: string): PackInfo | null {
   return info.description || info.repositoryUrl || info.readmeSummary ? info : null;
 }
 
-/** Everything the app knows of one class: ports with field specs, pack, explanation; editor nodes from their template. */
+/** All the app knows of one class: ports with field specs, pack, explanation; editor nodes from their template. */
 export function nodeClassDetail(db: Database.Database, classType: string): NodeClassDetail | null {
   if (typeof classType !== 'string' || classType === '') return null;
   const row = db.prepare(`SELECT ${NODE_COLUMNS} FROM node_catalog WHERE class_type = ?`).get(classType) as NodeRow | undefined;
@@ -357,7 +357,7 @@ function modelSummaryOf(row: ModelRow, notes: ModelNotes = notesFromJson(row.not
   };
 }
 
-/** The model search of the library and the assistant: folder, family and kind filters, then ranked by the query words. */
+/** The model search of the library and the assistant: folder, family and kind filters, ranked by the query words. */
 export function searchModels(db: Database.Database, request: SearchModelsRequest): ModelSummary[] {
   const parsed = searchModelsSchema.parse(request);
   const where: string[] = [];

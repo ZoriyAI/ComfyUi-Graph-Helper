@@ -55,7 +55,7 @@ interface WikiIndex {
 }
 type SearchCorpus = Record<HelpLanguage, Array<{ ref: string; title: string; text: string }>>;
 
-/** The bundled index and search text never change while the app runs, so they are read once (tests pass other folders). */
+/** The bundled index and search text never change while the app runs: read once (tests pass other folders). */
 let indexCache: WikiIndex | null = null;
 let corpusCache: SearchCorpus | null = null;
 
