@@ -72,7 +72,8 @@ export function rankText(text: string, word: string): number {
   const whole = new RegExp(`(^|[^a-zа-я0-9])${escape(needle)}([^a-zа-я0-9]|$)`);
   if (whole.test(value)) return TEXT_PENALTY;
   if (needle.length >= 4 && new RegExp(`(^|[^a-zа-я0-9])${escape(needle)}`).test(value)) return TEXT_PENALTY + 0.5;
-  // A Russian word changes its ending: "картинку" is found as "картин…".
+  // A Russian word changes its ending with its role in the sentence: a word of five letters or more is also
+  // looked for without its last two letters, so another form of the same word still matches.
   if (/[а-я]/.test(needle) && needle.length >= 5 && new RegExp(`(^|[^a-zа-я0-9])${escape(needle.slice(0, -2))}`).test(value)) return TEXT_PENALTY + 1;
   for (const english of englishFor(needle)) {
     if (new RegExp(`(^|[^a-z0-9])${escape(english)}`).test(value)) return TEXT_PENALTY + 1;
