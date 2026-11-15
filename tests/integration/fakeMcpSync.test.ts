@@ -288,7 +288,7 @@ describe('what a model manager keeps next to a model', () => {
     };
     // As main does at start: the gate knows the model folders of the last sync.
     setKnownRootsSource(() => catalogModelRoots(db));
-    const reader = new PreviewReader({ db: () => db, open, cacheDir });
+    const reader = new PreviewReader({ db: () => db, open, cacheDir, mcpBinding: () => url });
     try {
       const before = sideReads().length;
       // A list asks for several at once: one connection, one read each.

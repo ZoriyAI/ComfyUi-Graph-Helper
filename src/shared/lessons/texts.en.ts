@@ -274,7 +274,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
     steps: {
       rules: {
         title: 'First, the limits',
-        body: 'The app teaches technique and does not decide for you what to make. There are two things it never helps with:\n- depicting minors, or anyone who looks like a minor;\n- depicting real people without their consent.\n\nThe rest is your responsibility: the laws of your country and the rules of the places where you post clips.',
+        body: 'This lesson explains the technical choices for lawful, consensual adult (18+) use in factual, non-graphic terms. The subject is your choice and responsibility. Use only adults; exclude minors and anyone who appears under 18. Obtain consent before using a real person’s likeness or voice, and permission for source material. Check local laws and the rules of the places where you share the result.',
       },
       levers: {
         title: 'The technique is the same',
@@ -307,7 +307,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
       helper: {
         title: 'About the assistant in the app',
-        body: 'The lessons work without an assistant model. Questions in "Ask" mode go to the model you chose.\n\nCloud models usually do not answer on such subjects: those are their owners\' rules. A model of your own on this computer answers the way it was trained.\n\nThe helper is sent the graph with the values of its fields, your descriptions among them. It does not see your clips. Sending values can be switched off in "Settings ▸ Privacy".',
+        body: 'The lessons work without an assistant model. Questions in "Ask" mode go to the model you chose.\n\nThe assistant helps with graph construction and technical choices. Each provider or local model responds according to its own rules and capabilities.\n\nThe helper is sent the graph with the values of its fields, your descriptions among them. It does not see your clips. Sending values can be switched off in "Settings ▸ Privacy".',
       },
     },
   },
@@ -629,7 +629,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
     steps: {
       intro: {
         title: 'What Wan Animate does',
-        body: 'Wan 2.2 Animate takes a picture of a character and a video of a person moving. Special nodes take the pose and the face out of every frame of the video, and the model draws your character in those poses with that face.\n\nOnly someone who agrees may be brought to life this way: yourself, a made-up character, or a person who gave permission. The app does not help with someone else\'s face without consent.\n\nThis is a separate model in one file, not a pair of `high` and `low`. The lesson builds the graph from an empty canvas: "File ▸ New project".',
+        body: 'Wan 2.2 Animate takes a picture of a character and a video of a person moving. Special nodes take the pose and the face out of every frame of the video, and the model draws your character in those poses with that face.\n\nOnly someone who agrees may be brought to life this way: yourself, a made-up character, or a person who gave permission. Obtain permission for the source material and follow local law.\n\nThis is a separate model in one file, not a pair of `high` and `low`. The lesson builds the graph from an empty canvas: "File ▸ New project".',
       },
       model: {
         title: 'Load the Animate model',
@@ -691,7 +691,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
     steps: {
       intro: {
         title: 'What InfiniteTalk does',
-        body: 'InfiniteTalk gives the Wan 2.1 "image to video" model the ability to listen to sound. You give a portrait and a voice recording, and the model draws the person of the portrait saying those words. The sound goes into the clip as its track.\n\nOnly someone who agrees may be voiced this way, with their own voice or a voice you have permission for. The app does not help with someone else\'s face or voice without consent.\n\nThis graph runs on one Wan 2.1 model, not on the Wan 2.2 pair. The lesson builds it from an empty canvas: "File ▸ New project".',
+        body: 'InfiniteTalk gives the Wan 2.1 "image to video" model the ability to listen to sound. You give a portrait and a voice recording, and the model draws the person of the portrait saying those words. The sound goes into the clip as its track.\n\nOnly someone who agrees may be voiced this way, with their own voice or a voice you have permission for. Obtain permission for the source material and follow local law.\n\nThis graph runs on one Wan 2.1 model, not on the Wan 2.2 pair. The lesson builds it from an empty canvas: "File ▸ New project".',
       },
       model: {
         title: 'Load the model',
@@ -757,7 +757,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
     steps: {
       intro: {
         title: 'What UniAnimate does',
-        body: 'UniAnimate is a LoRA for the Wan 2.1 "image to video" model. With it the model obeys a skeleton: the pose is taken out of every frame of a video of a person moving, and the character from your picture repeats those moves.\n\nUnlike Wan Animate it does not carry the face over, only the body. In return no separate model is needed.\n\nOnly someone who agrees may be brought to life this way: yourself, a made-up character, or a person who gave permission. The app does not help with someone else\'s face without consent.\n\nThe lesson builds the graph from an empty canvas: "File ▸ New project".',
+        body: 'UniAnimate is a LoRA for the Wan 2.1 "image to video" model. With it the model obeys a skeleton: the pose is taken out of every frame of a video of a person moving, and the character from your picture repeats those moves.\n\nUnlike Wan Animate it does not carry the face over, only the body. In return no separate model is needed.\n\nOnly someone who agrees may be brought to life this way: yourself, a made-up character, or a person who gave permission. Obtain permission for the source material and follow local law.\n\nThe lesson builds the graph from an empty canvas: "File ▸ New project".',
       },
       model: {
         title: 'Load the model',
@@ -865,7 +865,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
     steps: {
       intro: {
         title: 'What FantasyTalking does',
-        body: 'FantasyTalking also teaches the Wan 2.1 "image to video" model to listen to sound, but it is built more simply than InfiniteTalk: a plain start from a picture, with no stitching of pieces. The clip comes out short, but the graph reads at a glance.\n\nOnly someone who agrees may be voiced this way, with their own voice or a voice you have permission for. The app does not help with someone else\'s face or voice without consent.\n\nThe lesson builds the graph from an empty canvas: "File ▸ New project".',
+        body: 'FantasyTalking also teaches the Wan 2.1 "image to video" model to listen to sound, but it is built more simply than InfiniteTalk: a plain start from a picture, with no stitching of pieces. The clip comes out short, but the graph reads at a glance.\n\nOnly someone who agrees may be voiced this way, with their own voice or a voice you have permission for. Obtain permission for the source material and follow local law.\n\nThe lesson builds the graph from an empty canvas: "File ▸ New project".',
       },
       model: {
         title: 'Load the model',

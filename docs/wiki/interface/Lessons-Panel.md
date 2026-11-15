@@ -15,7 +15,7 @@ The lessons are the **Learn** mode of the **Assistant** tab. Instead of the conv
 
 ## The list
 
-**Lessons**, a line on how they work, then one card per lesson: the title, what you build, "Steps: 11", and "Goes on from the lesson "…"." when it continues another. The button is **Start**, **Go on** for a lesson you began, or **Go through it again** for one marked **Done**.
+The 45 lessons are arranged in six topic groups with counts. Each card shows the title, what you build, step count and links to all related lessons. A related link scrolls to that card; completion is not required. The main button is **Start**, **Go on** for a lesson you began, or **Go through it again** for one marked **Done**.
 
 A lesson that your ComfyUI cannot do says why: "This lesson does not fit your ComfyUI yet.", "It needs the node pack … Missing nodes: …", "It needs a newer ComfyUI.", and "You install nodes in ComfyUI yourself, then press Sync ▸ Sync now. The app never installs anything." Before ComfyUI is read: "Lessons are fitted to your ComfyUI: they use only the nodes it has. Connect ComfyUI and read it first." with **Connect ComfyUI…**.
 
@@ -31,7 +31,6 @@ A lesson that your ComfyUI cannot do says why: "This lesson does not fit your Co
 
 Lessons follow the main canvas: inside a subgraph the tab says "Lessons follow the main canvas. Leave the subgraph to go on."
 
-<!-- verify: the lesson engine branch changes the flow of a lesson and the dock look branch groups the lesson list -->
 
 ## See also
 

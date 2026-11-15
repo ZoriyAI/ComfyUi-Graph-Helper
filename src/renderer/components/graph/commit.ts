@@ -2,7 +2,7 @@ import type { GraphMutation } from '../../../shared/commands/types';
 import { SUBGRAPH_INPUT_NODE_ID, SUBGRAPH_OUTPUT_NODE_ID } from '../../../shared/graph/subgraphs';
 import { translateKnownError } from '../../../shared/i18n';
 import { i18n } from '../../i18n';
-import { submitManual } from '../../services/commands/projection';
+import { useProjectionStore, submitManual } from '../../services/commands/projection';
 import { showToast } from '../../ui/toastStore';
 import { useGraphStore } from '../../state/graphState';
 import { useCanvasStore } from './canvasStore';
@@ -60,6 +60,8 @@ export function scopedToLevel(payload: GraphMutation): GraphMutation {
   else if (payload.type === 'move-nodes' && payload.moves.every((move) => nodeIds.has(move.nodeId))) edit = payload;
   else if (payload.type === 'connect' && endpoint(payload.source) && endpoint(payload.target)) edit = payload;
   else if ((payload.type === 'remove-edge' || payload.type === 'retarget-edge') && edgeIds.has(payload.edgeId)) edit = payload;
+  else if (payload.type === 'remove-selection' && payload.nodeIds.every((id) => nodeIds.has(id)) && payload.edgeIds.every((id) => edgeIds.has(id))) edit = payload;
+  else if (payload.type === 'paste-selection') edit = { ...payload, destinationDefinitionId: definitionId };
   else if (payload.type === 'add-node' || payload.type === 'insert-subgraph') edit = payload;
   return edit ? { type: 'edit-in-subgraph', definitionId, edit } : payload;
 }
@@ -69,19 +71,29 @@ export function scopedToLevel(payload: GraphMutation): GraphMutation {
  * showing (the replay is read-only), and marked so its projection does not start a build reveal.
  * A refusal or conflict is shown as a toast; submitManual has already put the engine's projection back.
  */
-export function commitManual(payload: GraphMutation, prefix = 'manual', options: { level?: 'shown' | 'root' } = {}): Promise<unknown> {
+export function commitManual(payload: GraphMutation, prefix = 'manual', options: { level?: 'shown' | 'root'; context?: { projectId: string; graphKey: string; isCurrent?: () => boolean } } = {}): Promise<unknown> {
   const canvas = useCanvasStore.getState();
+  const displayed = useProjectionStore.getState();
+  if (options.context && (options.context.projectId !== displayed.projectId || options.context.graphKey !== displayed.graphKey)) return Promise.resolve(null);
   if (canvas.replay) {
     sayReplayLocked();
     return Promise.resolve(null);
   }
   canvas.beginManual();
   // Lessons follow the main canvas: they pass level 'root', so their edits never land in an open subgraph.
-  return submitManual(`${prefix}-${crypto.randomUUID()}`, options.level === 'root' ? payload : scopedToLevel(payload))
+  return submitManual(`${prefix}-${crypto.randomUUID()}`, options.level === 'root' ? payload : scopedToLevel(payload), options.context)
     .then((result) => {
       reportRefusal(result);
       return result;
     })
-    .catch(() => null)
+    .catch((error: unknown) => {
+      showToast({
+        id: 'canvas-edit-error',
+        tone: 'error',
+        title: translate('canvas.editRefused'),
+        description: error instanceof Error ? (translateKnownError(translate, error.message) ?? error.message) : translate('canvas.editUnexpected'),
+      });
+      return null;
+    })
     .finally(() => useCanvasStore.getState().endManual());
 }

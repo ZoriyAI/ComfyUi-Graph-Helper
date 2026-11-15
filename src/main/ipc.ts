@@ -40,9 +40,9 @@ import { missingOnGraph } from '../shared/graph/compatibility';
 import { cancelRun, closeRun, commitCommand, pauseRun, readProjection, resumeRun, startRun, switchProject } from './commands/commit';
 import { DESKTOP_PROJECT_ID } from '../shared/project';
 import { assertObjectInfoSize, ObjectInfoError, parseObjectInfo } from '../shared/catalog/objectInfo';
-import { readCatalog, upsertObjectInfo } from './catalog/repository';
+import { bumpCatalogRevision, readCatalog, upsertObjectInfo } from './catalog/repository';
 import { nativeProjectFile, openNativeFile } from './ipc/projectFile';
-import { defaultSavePaths, projectFileState, rememberProjectFile, withFileExtension } from './projectFiles';
+import { contentDigest, defaultSavePaths, projectFileState, rememberProjectFile, withFileExtension } from './projectFiles';
 import { exportWorkflow, type GraphSnapshot } from '../shared/workflow/codec';
 import { fileDialogCopy, languageOf } from '../shared/i18n';
 
@@ -296,6 +296,9 @@ export async function setupIPC(): Promise<void> {
     if ('secrets' in guarded) return guarded;
     const saved = { ...prepared, project: guarded.document };
     const state = projectFileState(getDatabase(), DESKTOP_PROJECT_ID);
+    const captured = readProjection(getDatabase(), DESKTOP_PROJECT_ID)!;
+    const changedByGuard = JSON.stringify(saved.project) !== JSON.stringify(prepared.project);
+    const written = { graphKey: state.graphKey, digest: changedByGuard ? `omitted:${contentDigest(captured.snapshot)}` : contentDigest(captured.snapshot) };
     // Save writes back to the project's own file without a question; Save as, or a graph with no file, asks where.
     let filePath = options?.saveAs ? null : state.filePath;
     if (filePath && !fs.existsSync(path.dirname(filePath))) filePath = null;
@@ -316,7 +319,7 @@ export async function setupIPC(): Promise<void> {
     } catch (error) {
       return { ok: false, error: fileWriteErrorCode(error, 'The project file could not be written.') };
     }
-    rememberProjectFile(getDatabase(), DESKTOP_PROJECT_ID, filePath);
+    rememberProjectFile(getDatabase(), DESKTOP_PROJECT_ID, filePath, written);
     return { ok: true, filePath };
   });
 
@@ -709,7 +712,13 @@ function importCatalogFile(filePath: string) {
     const bytes = fs.readFileSync(filePath);
     assertObjectInfoSize(bytes.length);
     const parsed = parseObjectInfo(JSON.parse(bytes.toString('utf8')));
-    const result = upsertObjectInfo(getDatabase(), parsed);
+    const db = getDatabase();
+    const result = db.transaction(() => {
+      const applied = upsertObjectInfo(db, parsed);
+      bumpCatalogRevision(db);
+      return applied;
+    }).immediate();
+    syncService.notify(db);
     return { status: 'applied' as const, result };
   } catch (error) {
     if (error instanceof ObjectInfoError) return { status: 'rejected' as const, error: redactSecrets(error.message) };

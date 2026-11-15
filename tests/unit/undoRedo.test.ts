@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3';
 import { describe, expect, it } from 'vitest';
-import { commitCommand, ensureWorkspace, listRecentCommands, listRevisions, readProjection } from '../../src/main/commands/commit';
+import { commitCommand, ensureWorkspace, listRecentCommands, listRevisions, readProjection, startRun, closeRun } from '../../src/main/commands/commit';
 import { migrate } from '../../src/main/settings/migrate';
 import { createProposal, listProposals } from '../../src/main/proposals/repository';
 import { describeCommand } from '../../src/shared/agent/recentActions';
@@ -51,6 +51,33 @@ describe('engine: restore-revision', () => {
     expect(list.at(-1)).toMatchObject({ description: 'restore-revision', source: 'user', actor: 'manual', restoredRevisionId: before.currentRevisionId });
     const recent = listRecentCommands(db, P);
     expect(describeCommand(recent.at(-1)!, null)).toBe(`restored revision ${before.revSeq}`);
+    db.close();
+  });
+
+  it('preserves an interleaved manual title through AI undo and redo snapshots', () => {
+    const db = openDb();
+    commit(db, 'loader', { type: 'add-node', nodeType: 'KSampler' });
+    const { runId } = startRun(db, P);
+    const ai = (actionId: string, value: number) => commitCommand(db, {
+      projectId: P, actionId, expectedRevisionId: head(db).currentRevisionId, actor: 'ai', runId,
+      payload: { type: 'move-node', nodeId: '1', x: value, y: 0 },
+    });
+    expect(ai('ai-first', 10).status).toBe('applied');
+    commit(db, 'manual-title', { type: 'rename-node', nodeId: '1', title: 'My manual title' });
+    const manualHead = head(db).currentRevisionId;
+    expect(ai('ai-second', 20).status).toBe('applied');
+    expect(ai('ai-third', 30).status).toBe('applied');
+    closeRun(db, P, runId);
+    const previousHead = head(db).currentRevisionId;
+    const plan = planUndo(listRevisions(db, P), previousHead, EMPTY_SESSION, { running: false });
+    expect(plan.undo?.target).toBe(manualHead);
+    commit(db, 'undo-ai', { type: 'restore-revision', revisionId: plan.undo!.target });
+    const node = () => (head(db).snapshot.nodes as Rec[])[0];
+    expect(node()).toMatchObject({ position: { x: 10, y: 0 }, data: { title: 'My manual title' } });
+    const session = afterUndo(EMPTY_SESSION, previousHead, plan.pointer!, head(db).currentRevisionId);
+    const redo = planUndo(listRevisions(db, P), head(db).currentRevisionId, session, { running: false });
+    commit(db, 'redo-ai', { type: 'restore-revision', revisionId: redo.redo!.target });
+    expect(node()).toMatchObject({ position: { x: 30, y: 0 }, data: { title: 'My manual title' } });
     db.close();
   });
 
@@ -147,7 +174,7 @@ describe('undo pointer', () => {
     expect(plan.undo?.target).toBe('r2');
   });
 
-  it('undoes a closed helper run as one step and puts it back with redo; nothing while a run is open', () => {
+  it('undoes only the contiguous helper steps after a manual edit and redoes them; nothing while a run is open', () => {
     const list = [
       ...base,
       rev('r4', 4, { source: 'ai', actor: 'ai', description: 'add-node', runId: 'run-1', payload: { type: 'add-node' } }),
@@ -158,17 +185,17 @@ describe('undo pointer', () => {
     // The run is still open: undo waits and says why.
     expect(planUndo(list, 'r7', EMPTY_SESSION, { running: false, activeRunId: 'run-1' })).toMatchObject({ undo: null, blocked: 'running' });
     expect(planUndo(base, 'r3', EMPTY_SESSION, { running: true })).toMatchObject({ undo: null, blocked: 'running' });
-    // Closed: one undo goes back to before the run's first step.
+    // Closed: stop at the manual edit, even though the earlier AI step has the same run id.
     const plan = planUndo(list, 'r7', EMPTY_SESSION, { running: false, activeRunId: null });
-    expect(plan.undo?.target).toBe('r3');
-    expect(plan.undo?.undone.payload).toEqual({ type: 'agent-run', count: 3 });
-    expect(describeRevision(plan.undo!.undone)).toEqual({ key: 'undo.agentRun', values: expect.objectContaining({ count: '3' }) });
+    expect(plan.undo?.target).toBe('r5');
+    expect(plan.undo?.undone.payload).toEqual({ type: 'agent-run', count: 2 });
+    expect(describeRevision(plan.undo!.undone)).toEqual({ key: 'undo.agentRun', values: expect.objectContaining({ count: '2' }) });
     const undone = step(list, EMPTY_SESSION, 'undo');
     const back = planUndo(undone.list, undone.list.at(-1)!.id, undone.session, { running: false });
     expect(back.redo?.target).toBe('r7');
     expect(planUndo(undone.list, undone.list.at(-1)!.id, undone.session, { running: true }).redo).toBeNull();
     // The bounded history trimmed the version before the build: undo says it is too old instead of failing.
-    const trimmed = list.slice(3);
+    const trimmed = list.slice(5);
     expect(planUndo(trimmed, 'r7', EMPTY_SESSION, { running: false, activeRunId: null })).toMatchObject({ undo: null, blocked: 'too-old' });
   });
 

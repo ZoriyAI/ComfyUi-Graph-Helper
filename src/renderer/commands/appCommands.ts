@@ -2,7 +2,7 @@ import {
   Ghost, Columns2, Compass, Database, FileCheck2, FilePlus2, FolderInput, FolderOpen, FolderOutput, GraduationCap, Group, History, Info, Keyboard,
   LogOut, Map as MapIcon, Maximize, MessageCircleQuestion, MessageSquare, MessageSquareText, Navigation, PanelLeft, PanelRight, Pause, Play,
   Plus, Redo2, RefreshCw, Save, Settings, SquareDashedMousePointer, Square, Trash2, Undo2, Ungroup, Combine, ZoomIn, ZoomOut, RotateCcw,
-  Workflow, BookOpen, LifeBuoy, Sparkles, ChevronsDownUp,
+  Workflow, BookOpen, LifeBuoy, Sparkles, ChevronsDownUp, Copy, ClipboardPaste, Scissors, CopyPlus,
 } from 'lucide-react';
 import { arrangeGraph } from '../components/graph/arrange';
 import { toggleCollapseSelection } from '../components/graph/importLook';
@@ -35,8 +35,8 @@ import { runSyncNow, setAutoSync } from '../components/sync/SyncIndicator';
 import { RAIL_WIDTH } from '../state/uiState';
 import { savePreferencesPatch } from '../state/preferencesState';
 import { buildDiagnosticsCommands } from './diagnosticsCommands';
-import { ClipboardPaste, Copy, CopyPlus, Pin, Scissors } from 'lucide-react';
-import { copySelection, cutSelection, duplicateSelection, hasClipboard, hasSelection, pasteClipboard } from '../components/graph/lib/clipboard';
+import { Pin } from 'lucide-react';
+import { copySelection, cutSelection, duplicateSelection, hasClipboard, hasSelection, pasteClipboard, subscribeClipboard } from '../components/graph/lib/clipboard';
 import { installProjectFileWatch } from '../services/projectFile';
 import { installReplayGate } from './replayGate';
 import { installViewMemory } from '../state/viewMemory';
@@ -335,6 +335,7 @@ export function installAppCommands(): () => void {
     addCommandStateSource(domSource('data-motion')),
     addCommandStateSource(domSource('lang')),
     addCommandStateSource(resizeSource),
+    addCommandStateSource(subscribeClipboard),
     registerCommands(buildAppCommands()),
     registerCommands(buildDiagnosticsCommands()),
   ];

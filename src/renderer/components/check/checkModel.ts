@@ -12,10 +12,13 @@ export type CheckProblemType =
   | 'unconnectedRequiredInputs'
   | 'unknownNodeTypes'
   | 'unsetWidgets'
+  | 'cycles'
+  | 'brokenEdges'
+  | 'invalidParameters'
   | 'noOutputNode'
   | 'valuesOutOfRange'
-  | 'valuesNotInList'
-  | 'cycles';
+  | 'valuesNotInList';
+
 
 /** A problem, or advice about a description (a prompt): shown apart from the problems and never counted as one. */
 export type CheckFindingType = CheckProblemType | 'promptNotes';
@@ -28,10 +31,12 @@ export const CHECK_FINDING_TYPES: readonly CheckProblemType[] = [
   'unconnectedRequiredInputs',
   'unknownNodeTypes',
   'unsetWidgets',
+  'cycles',
+  'brokenEdges',
+  'invalidParameters',
   'noOutputNode',
   'valuesOutOfRange',
   'valuesNotInList',
-  'cycles',
 ];
 
 export interface CheckFinding {
@@ -52,17 +57,18 @@ export interface CheckGroup {
 }
 
 /** Finds the React Flow handle of a named input; the check report names inputs, the canvas knows handles. */
-export type PortResolver = (nodeId: string, inputName: string) => string | undefined;
+export type PortResolver = (nodeId: string, inputName: string, subgraphId?: string) => string | undefined;
 
 /** The name a person sees for a node id (its title, else its type); undefined when the graph has no such node. */
-export type NodeNamer = (nodeId: string) => string | undefined;
+export type NodeNamer = (nodeId: string, subgraphId?: string) => string | undefined;
 
 /** The parts of the graph store a namer needs. */
 interface NamedNode { id: string; data: { title?: string; comfyType?: string } }
 
-export function nodeNamer(nodes: ReadonlyArray<NamedNode>): NodeNamer {
-  return (nodeId) => {
-    const node = nodes.find((item) => item.id === nodeId);
+export function nodeNamer(nodes: ReadonlyArray<NamedNode>, definitions: ReadonlyArray<{ id: string; nodes: Array<Record<string, any>> }> = []): NodeNamer {
+  return (nodeId, subgraphId) => {
+    const level = subgraphId ? definitions.find((item) => item.id === subgraphId)?.nodes ?? [] : nodes;
+    const node = (level as ReadonlyArray<NamedNode>).find((item) => item.id === nodeId);
     return node ? nodeDisplayName(node.data) || undefined : undefined;
   };
 }
@@ -87,9 +93,23 @@ export function findingNodeIds(values: Record<string, string>): string[] {
 }
 
 export function findingsOf(report: GraphCheckReport, resolvePort?: PortResolver, nameOf?: NodeNamer): CheckFinding[] {
+  const scopes = new Set<string | undefined>([undefined]);
+  for (const value of Object.values(report)) if (Array.isArray(value)) for (const item of value) {
+    if (item && typeof item === 'object' && 'subgraphId' in item) scopes.add(item.subgraphId);
+  }
+  return [...scopes].flatMap((scope) => {
+    const local = Object.fromEntries(Object.entries(report).map(([key, value]) => [key,
+      Array.isArray(value) ? value.filter((item) => (item && typeof item === 'object' ? item.subgraphId : undefined) === scope)
+        : key === 'noOutputNode' && scope ? null : value,
+    ])) as unknown as GraphCheckReport;
+    return localFindings(local, (id, input) => resolvePort?.(id, input, scope), (id) => nameOf?.(id, scope)).map((finding) => scope
+      ? { ...finding, key: `${scope}:${finding.key}`, ref: { ...finding.ref, subgraphId: scope } } : finding);
+  });
+}
+function localFindings(report: GraphCheckReport, resolvePort?: PortResolver, nameOf?: NodeNamer): CheckFinding[] {
   const out: CheckFinding[] = [];
-  const add = (type: CheckProblemType, key: string, values: Record<string, string>, ref: ObjectRef) => {
-    out.push({ key: `${type}:${key}`, type, textKey: `check.${type}Item`, values: nameFindingValues(values, nameOf), ref });
+  const add = (type: CheckProblemType, key: string, values: Record<string, string>, ref: ObjectRef, textKey?: string) => {
+    out.push({ key: `${type}:${key}`, type, textKey: textKey ?? `check.${type}Item`, values: nameFindingValues(values, nameOf), ref });
   };
   report.missingNodes.forEach((item) => add('missingNodes', item.nodeId, { ...item }, { kind: 'node', id: item.nodeId, classType: item.classType }));
   report.missingModels.forEach((item) => add('missingModels', `${item.nodeId}:${item.directory}/${item.name}`, { ...item }, { kind: 'node', id: item.nodeId }));
@@ -117,6 +137,19 @@ export function findingsOf(report: GraphCheckReport, resolvePort?: PortResolver,
   });
   report.unknownNodeTypes.forEach((classType) => add('unknownNodeTypes', classType, { classType }, { kind: 'nodeClass', id: classType, classType }));
   (report.unsetWidgets ?? []).forEach((item) => add('unsetWidgets', `${item.nodeId}:${item.name}`, { ...item }, { kind: 'node', id: item.nodeId, classType: item.classType }));
+  (report.brokenEdges ?? []).forEach((item) => add(
+    'brokenEdges',
+    item.edgeId,
+    { edgeId: item.edgeId, sourceId: item.source, targetId: item.target },
+    { kind: 'edge', id: item.edgeId },
+  ));
+  (report.invalidParameters ?? []).forEach((item) => add(
+    'invalidParameters',
+    `${item.nodeId}:${item.name}:${item.reason}:${item.expected}`,
+    { nodeId: item.nodeId, classType: item.classType, name: item.name, expected: item.expected, found: item.found },
+    { kind: 'node', id: item.nodeId, classType: item.classType },
+    `check.invalidParameterMessages.${item.reason}Item`,
+  ));
   if (report.noOutputNode) add('noOutputNode', report.noOutputNode.nodeId, { nodeId: report.noOutputNode.nodeId }, { kind: 'node', id: report.noOutputNode.nodeId });
   (report.valuesOutOfRange ?? []).forEach((item) => {
     const limit = item.min !== undefined && item.value < item.min ? 'min' : 'max';
@@ -139,7 +172,7 @@ export function findingsOf(report: GraphCheckReport, resolvePort?: PortResolver,
   });
   (report.cycles ?? []).forEach((item) => {
     const names = item.nodeIds.map((id) => nameOf?.(id) ?? id);
-    add('cycles', item.nodeIds.join(','), { nodeId: item.nodeIds[0] ?? '', nodes: names.join(' → ') }, { kind: 'node', id: item.nodeIds[0] ?? '' });
+    add('cycles', item.nodeIds.join(','), { nodeId: item.nodeIds[0] ?? '', nodes: names.join(', ') }, { kind: 'node', id: item.nodeIds[0] ?? '' });
   });
   for (const finding of out) {
     // Two sentences for one finding type: below the minimum, above the maximum.
@@ -208,5 +241,7 @@ export function checkFindingCount(report: GraphCheckReport | null | undefined): 
     + (report.noOutputNode ? 1 : 0)
     + (report.valuesOutOfRange ?? []).length
     + (report.valuesNotInList ?? []).length
-    + (report.cycles ?? []).length;
+    + (report.cycles ?? []).length
+    + (report.brokenEdges ?? []).length
+    + (report.invalidParameters ?? []).length;
 }

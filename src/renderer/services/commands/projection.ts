@@ -123,17 +123,19 @@ export function manualChangesBlocked(): boolean {
   return manualGate ? !manualGate() : false;
 }
 
-export function submitManual(actionId: string, payload: unknown) {
+export function submitManual(actionId: string, payload: unknown, context?: { projectId: string; graphKey: string; isCurrent?: () => boolean }) {
   if (manualChangesBlocked()) {
     const displayed = useProjectionStore.getState();
     return Promise.resolve({ status: 'rejected' as const, projection: null, result: { error: 'History replay is open.' }, projectId: displayed.projectId });
   }
-  return trackCommit(() => submitNow(actionId, payload));
+  return trackCommit(() => submitNow(actionId, payload, context));
 }
 
-function submitNow(actionId: string, payload: unknown) {
+function submitNow(actionId: string, payload: unknown, context?: { projectId: string; graphKey: string; isCurrent?: () => boolean }) {
+  const original = context ?? useProjectionStore.getState();
   const run = manualQueue.then(async () => {
     const displayed = useProjectionStore.getState();
+    if (manualChangesBlocked() || displayed.projectId !== original.projectId || displayed.graphKey !== original.graphKey || context?.isCurrent?.() === false) return { status: 'conflict' as const, projection: null, result: null };
     const result = await window.electronAPI.commitCommand({
       projectId: displayed.projectId,
       actionId,

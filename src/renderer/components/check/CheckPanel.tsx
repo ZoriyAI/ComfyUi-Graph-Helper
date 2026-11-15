@@ -33,12 +33,14 @@ export default function CheckPanel({ projectId }: { projectId: string }) {
   const runCheck = useKnowledgeStore((state) => state.runCheck);
   const setFocus = useUiStore((state) => state.setFocus);
   const nodes = useGraphStore((state) => state.nodes);
+  const definitions = useGraphStore((state) => state.subgraphs);
   const [error, setError] = useState<string | null>(null);
 
-  const resolvePort = useCallback((nodeId: string, inputName: string) => {
-    const node = nodes.find((item) => item.id === nodeId);
-    return node?.data.inputs.find((port) => port.name === inputName)?.id;
-  }, [nodes]);
+  const resolvePort = useCallback((nodeId: string, inputName: string, subgraphId?: string) => {
+    const level = subgraphId ? definitions.find((item) => item.id === subgraphId)?.nodes ?? [] : nodes;
+    const node = level.find((item) => item.id === nodeId);
+    return node?.data.inputs.find((port: { name: string; id: string }) => port.name === inputName)?.id;
+  }, [nodes, definitions]);
 
   const run = async () => {
     setError(null);
@@ -54,9 +56,12 @@ export default function CheckPanel({ projectId }: { projectId: string }) {
    * or one of its ports the canvas goes to the node and selects it, so it is found without looking for it.
    */
   const show = (finding: CheckFinding) => {
+    const graph = useGraphStore.getState();
+    if (finding.ref.subgraphId) graph.enterSubgraph(finding.ref.subgraphId);
+    else graph.exitSubgraph();
     setFocus(finding.ref);
     const nodeId = finding.ref.kind === 'node' ? finding.ref.id : finding.ref.kind === 'port' ? finding.ref.nodeId : undefined;
-    if (nodeId && nodes.some((node) => node.id === nodeId)) useCanvasStore.getState().requestCenter(nodeId);
+    if (nodeId) useCanvasStore.getState().requestCenter(nodeId, finding.ref.subgraphId);
   };
 
   const findingText = (finding: CheckFinding): string => {
@@ -82,9 +87,9 @@ export default function CheckPanel({ projectId }: { projectId: string }) {
 
   const count = checkFindingCount(report);
   // Findings name nodes by their titles on the canvas; the ids stay in each row's tooltip.
-  const groups = report ? groupCheckReport(report, resolvePort, nodeNamer(nodes)) : [];
+  const groups = report ? groupCheckReport(report, resolvePort, nodeNamer(nodes, definitions)) : [];
   // Advice about the descriptions stands apart: the graph runs with it, so it is not a problem and not counted.
-  const advice = report ? adviceOf(report, nodeNamer(nodes)) : [];
+  const advice = report ? adviceOf(report, nodeNamer(nodes, definitions)) : [];
   const idsHint = (finding: CheckFinding): string | undefined => {
     const ids = findingNodeIds(finding.values);
     return ids.length > 0 ? String(t('check.nodeIds', { count: ids.length, ids: ids.join(', ') })) : undefined;

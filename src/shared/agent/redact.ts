@@ -2,7 +2,7 @@
  * The agent path's redaction helpers. The patterns live in src/shared/config/draft.ts (redactSecrets,
  * exactMatchRedactor); this module re-exports them so agent code keeps its import path.
  */
-import { exactMatchRedactor as draftExactMatchRedactor, redactSecrets } from '../config/draft';
+import { exactMatchRedactor as draftExactMatchRedactor, redactFieldValue, redactSecrets } from '../config/draft';
 
 export { redactSecrets };
 
@@ -23,4 +23,27 @@ export function exactMatchRedactor(values: ReadonlyArray<string | null | undefin
 /** True when one of the exact held values appears in the text. */
 export function containsExact(values: ReadonlyArray<string | null | undefined>, text: string): boolean {
   return heldValues(values).some((value) => text.includes(value));
+}
+
+/** Redacts structured textual fields, retaining supported opaque SDK file data and primitive types. */
+export function redactValue(value: unknown, redact: (text: string) => string): unknown {
+  if (typeof value === 'string') return redact(value);
+  if (Array.isArray(value)) return value.map((item) => redactValue(item, redact));
+  if (value instanceof URL) {
+    const safe = redact(value.href);
+    if (safe === value.href) return value;
+    // Keep a valid URL instance even if a whole held URL was replaced by the redactor.
+    return URL.canParse(safe) ? new URL(safe) : new URL('about:blank#redacted');
+  }
+  if (value && typeof value === 'object') {
+    // Only supported binary file values bypass traversal, not arbitrary class instances.
+    if (value instanceof Uint8Array || value instanceof ArrayBuffer) return value;
+    // Match the SDK's standard JSON normalization for dates (invalid dates become null).
+    if (value instanceof Date) return redactValue(value.toJSON(), redact);
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [
+      redact(key),
+      typeof item === 'string' ? redact(redactFieldValue(key, item)) : redactValue(item, redact),
+    ]));
+  }
+  return value;
 }

@@ -3,10 +3,7 @@
 Документы для тех, кто меняет код. Что приложение делает для человека, написано в [`README.md`](../README.md) и в
 руководстве [`docs/user/guide.ru.md`](user/guide.ru.md).
 
-- Бриф и контракты: [`docs/design/2026-11-08-helper-brief.md`](design/2026-11-08-helper-brief.md)
-- Направление интерфейса: [`docs/design/2026-11-08-ui-direction.md`](design/2026-11-08-ui-direction.md)
 - Дизайн-система: [`docs/DESIGN.md`](DESIGN.md), [`src/renderer/ui/README.md`](../src/renderer/ui/README.md)
-- Решения: [`docs/decisions/`](decisions/)
 
 ## Как это устроено
 
@@ -18,7 +15,7 @@
 
 | Слой | Что делает | Где |
 |---|---|---|
-| Синхронизация | MCP-клиент (Streamable HTTP), планировщик, только читающие инструменты, обогащение метаданными safetensors и Civitai-sidecar | `src/main/mcp/` |
+| Синхронизация | Прямое HTTP-чтение ComfyUI и необязательный MCP-клиент (Streamable HTTP), планировщик, метаданные safetensors и sidecar | `src/main/comfy/`, `src/main/mcp/` |
 | Знания | каталог узлов и моделей, вывод семьи базовой модели и вида модели, объяснения с источником, проверка графа перед экспортом | `src/main/knowledge/`, `src/shared/knowledge/` |
 | Движок графа | команды с ревизиями и конфликтами, run с паузой и отменой, субграфы и группы, призрачные предложения, история ревизий | `src/main/commands/`, `src/main/proposals/`, `src/shared/commands/` |
 | Кодек | импорт и экспорт нативного workflow JSON, subgraph definitions без потерь | `src/shared/workflow/` |
@@ -27,6 +24,19 @@
 | Контракты | типы IPC и предметной области, общие для main и renderer | `src/shared/contracts/` |
 
 База: SQLite (`better-sqlite3`), схема версионируется миграциями в `src/main/settings/migrate.ts`.
+
+Каталог публикуется одной синхронной транзакцией после сетевого чтения. Адрес источника берётся из текущего
+соединения; ключ источника в `sync_state` — SHA-256, чтобы не сохранять в нём query-параметры MCP-адреса.
+При смене источника (и при первом чтении старого каталога без такого ключа) каталог узлов, пакетов и моделей
+заполняется заново. Проекты, графы и пользовательские объяснения остаются. Ошибка отдельной папки сохраняет
+её прежние факты только для того же источника; новый источник может дать свежие имена из `object_info`.
+
+Известное изменение размера или корневой папки модели сбрасывает её метаданные, hash, web-факты и preview.
+Замена файла с тем же именем, размером и путём без fingerprint не обнаруживается надёжно. При доступном
+metadata-tool заголовки `.safetensors`/`.sft` перечитываются после 24 часов на следующей синхронизации;
+это обновляет доступные метаданные, но не вычисляет SHA-256 больших файлов. Свежие неизменные файлы
+используют кеш. `SyncStatus.catalogRevision` меняется после принятой публикации, обновления фактов и импорта
+`object_info`; renderer получает её через существующий `sync:event`.
 
 ## Команды
 
@@ -41,7 +51,7 @@ npm run dev           # Vite + Electron
 npm start             # собрать и запустить
 xvfb-run -a npx playwright test --trace off --grep-invert "live-local|layout-walk"   # e2e на Electron (Linux без дисплея)
 xvfb-run -a npx playwright test tests/e2e/layout-walk.test.ts --trace off  # обход всех экранов, отдельно
-npm run package:linux # .deb через Electron Forge и smoke-проверка
+npm run package:linux # Linux-пакеты через Electron Forge, portable builder и smoke-проверки
 ```
 
 `better-sqlite3` 13 загружает готовый модуль N-API (`prebuilds/linux-x64.node`) и в Node, и в Electron, поэтому
@@ -81,8 +91,12 @@ LAYOUT_DPR=1.5 xvfb-run -a npx playwright test tests/e2e/layout-walk.test.ts --t
 
 ## Сборка пакета
 
-`npm run package:linux` собирает `dist/`, делает `.deb` через Electron Forge (`forge.config.js`) и запускает
-`scripts/smoke-linux-package.js`. Нужны `dpkg` и `fakeroot`.
+`npm run package:linux` собирает `dist/`, делает `.deb` и, при наличии `rpmbuild`, `.rpm` через Electron Forge
+(`forge.config.js`), затем переносимый `.tar.gz` с `install.sh` и AppImage через `scripts/make-linux-portable.js`.
+Для `.deb` нужны `dpkg` и `fakeroot`; AppImage требует `mksquashfs` и `APPIMAGE_RUNTIME`. Без них локальная
+сборка может пропустить AppImage; в release workflow он обязателен (`REQUIRE_APPIMAGE=1`). После сборки идут
+`scripts/smoke-linux-package.js` и `scripts/smoke-linux-portable.js`. Наличие сборщика в исходниках не
+подтверждает наличие формата в опубликованном выпуске.
 
 - В пакет попадает только то, что работает: `dist/`, `node_modules` основного процесса, `package.json` и
   `resources/icon.png`. Библиотеки интерфейса (React, Radix, React Flow, lucide, motion) лежат в
@@ -112,5 +126,22 @@ LAYOUT_DPR=1.5 xvfb-run -a npx playwright test tests/e2e/layout-walk.test.ts --t
 1. `docs/releases/vX.Y.Z.md`: заметки к выпуску; `node scripts/changelog.js` обновляет `CHANGELOG.md`.
 2. `npm version X.Y.Z --no-git-tag-version`.
 3. Всё зелёное на коммите: тесты, обход экранов, пакет, проверка установленного пакета и обновления.
-4. GitHub Actions ▸ Build and package ▸ Run workflow с `release_tag: vX.Y.Z`. Шаг выпуска сверяет тег с версией
-   и наличием заметок, кладёт рядом с `.deb` файл `SHA256SUMS`.
+4. Объедините проверенную версию в main: Build and package автоматически проверит новую версию и выпустит
+   её после E2E, всех обходов экранов, package/installed/upgrade-проверок и подтверждения окружения `release`.
+   Тег, package.json и заметки должны совпадать. Все jobs используют SHA из первого checkout; существующий
+   тег обязан указывать на этот коммит. Уже опубликованная версия main пропускается до сравнения старого тега.
+   Сохраняются запуск по тегу, ручной запуск с `release_tag` и обычная сборка без тега, а также недельный запуск.
+5. Ошибка API, скачивания предыдущего .deb или конфликт тега/черновика останавливает выпуск. Отсутствие
+   предыдущего выпуска или .deb подтверждается успешным чтением всех страниц API. Ничего не перезаписывается.
+   Финальная повторная проверка выполняется под блокировкой версии и write-токеном; отсутствующий тег создаётся
+   один раз перед `gh release create --verify-tag`. Внешние изменения тегов требуют правил защиты репозитория;
+   workflow не меняет их. При конфликте или частичной публикации нужна отдельная проверка, не автоматический ремонт.
+6. AppImage использует runtime `20251108`, SHA-256
+   `2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d`.
+   Для замены задайте обе Actions variables: `APPIMAGE_RUNTIME_TAG` и `APPIMAGE_RUNTIME_SHA256`.
+   Проверка контрольной суммы обязательна; ошибка скачивания или несовпадение останавливает сборку.
+
+`scripts/release-plan.js` использует официальный `gh` и точный `semver` как devDependency; `yaml` — только для
+проверки конфигурации workflow. Обе библиотеки используются при разработке/в CI и не добавляются в приложение.
+Проверка: `npx vitest run tests/unit/releasePlan.test.ts`. Локальные fixtures не доказывают прохождение GitHub
+Actions: перед объявлением выпуска проверьте SHA, итоги jobs, опубликованные файлы, SHA256SUMS и аттестацию.

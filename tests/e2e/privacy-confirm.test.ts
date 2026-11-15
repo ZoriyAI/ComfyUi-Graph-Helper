@@ -62,15 +62,22 @@ test('a second start on the same profile hands over to the first window and exit
     electronApp.on('second-instance', () => { (globalThis as { secondSeen?: boolean }).secondSeen = true; });
   });
 
-  // Chromium refuses to start as root without --no-sandbox (CI containers); Playwright adds it to the first one too.
-  const rootOnly = process.getuid?.() === 0 ? ['--no-sandbox'] : [];
-  const second = spawn(ELECTRON_BINARY, [MAIN, ...rootOnly, `--user-data-dir=${userData}`], { env: { ...process.env }, stdio: 'ignore' });
-  const code = await new Promise<number | null>((resolve) => {
-    const timer = setTimeout(() => { second.kill(); resolve(-1); }, 30_000);
-    second.on('exit', (exitCode) => { clearTimeout(timer); resolve(exitCode); });
+  // Match Playwright's actual Linux test launch flags, including on non-root Ubuntu runners.
+  // Packaged application defaults and BrowserWindow sandbox settings stay untouched.
+  const harnessFlags = app.process().spawnargs.includes('--no-sandbox') ? ['--no-sandbox'] : [];
+  const second = spawn(ELECTRON_BINARY, [...harnessFlags, MAIN, `--user-data-dir=${userData}`], {
+    env: { ...process.env }, stdio: ['ignore', 'ignore', 'pipe'],
   });
-  // The second process leaves at once; the first window is shown again and is the only one.
-  expect(code).toBe(0);
+  let stderr = '';
+  second.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
+  const result = await new Promise<{ code: number | null; signal: NodeJS.Signals | null; timedOut: boolean }>((resolve, reject) => {
+    let timedOut = false;
+    const timer = setTimeout(() => { timedOut = true; second.kill(); }, 30_000);
+    second.once('error', (error) => { clearTimeout(timer); reject(error); });
+    second.once('close', (code, signal) => { clearTimeout(timer); resolve({ code, signal, timedOut }); });
+  });
+  // A signal/crash is a failure, even if the first process received the hand-over.
+  expect(result, stderr).toEqual({ code: 0, signal: null, timedOut: false });
   await expect.poll(() => app.evaluate(() => (globalThis as { secondSeen?: boolean }).secondSeen === true)).toBe(true);
   expect(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isVisible())).toBe(true);
   expect(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length)).toBe(1);

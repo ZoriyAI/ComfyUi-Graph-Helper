@@ -20,6 +20,26 @@ export const moveNodesMutation = z.object({
 });
 // ── end layout ────────────────────────────────────────────────────────────────────────────────────────
 
+/** One selection removed as one revision, including every edge attached to a removed node. */
+export const removeSelectionMutation = z.object({
+  type: z.literal('remove-selection'),
+  nodeIds: z.array(z.string().min(1)).max(MOVE_NODES_MAX).default([]),
+  edgeIds: z.array(z.string().min(1)).max(MOVE_NODES_MAX).default([]),
+}).refine((value) => value.nodeIds.length > 0 || value.edgeIds.length > 0, {
+  message: 'The selection is empty.',
+});
+
+/** Raw canvas nodes and their internal edges. The engine remaps every id and never trusts clipboard handles. */
+export const pasteSelectionMutation = z.object({
+  type: z.literal('paste-selection'),
+  nodes: z.array(z.record(z.string(), z.unknown())).min(1).max(MOVE_NODES_MAX),
+  edges: z.array(z.record(z.string(), z.unknown())).max(MOVE_NODES_MAX),
+  offsetX: z.number().finite().default(32),
+  offsetY: z.number().finite().default(32),
+  /** Set only by edit-in-subgraph scoping; lets the engine reject recursive subgraph instances. */
+  destinationDefinitionId: z.string().min(1).optional(),
+});
+
 /** The name a node shows on the canvas (its native `title`). The class stays what it is. */
 export const renameNodeMutation = z.object({
   type: z.literal('rename-node'),
@@ -68,6 +88,8 @@ export const mutationSchema = z.discriminatedUnion('type', [
     type: z.literal('remove-node'),
     nodeId: z.string().min(1),
   }),
+  removeSelectionMutation,
+  pasteSelectionMutation,
   z.object({
     type: z.literal('move-node'),
     nodeId: z.string().min(1),
@@ -218,6 +240,8 @@ export const mutationSchema = z.discriminatedUnion('type', [
         parameters: z.record(z.string(), z.unknown()).optional(),
       }),
       z.object({ type: z.literal('remove-node'), nodeId: z.string().min(1) }),
+      removeSelectionMutation,
+      pasteSelectionMutation,
       moveNodesMutation,
       renameNodeMutation,
       collapseNodeMutation,

@@ -7,7 +7,7 @@
 Lesson "wrapper-animate": the character from your picture repeats the moves and the face of the person in a video.
 
 ## Consent first
-Only someone who agrees may be animated: yourself, a made-up character, or a person who gave permission. The app does not help with someone else's face without consent. See [Content rules](../trust/Content-Rules.md).
+Only someone who agrees may be animated: yourself, a made-up character, or a person who gave permission. Obtain permission for the source material and follow local law. See [Content rules](../trust/Content-Rules.md).
 
 ## What you will be able to do
 Build a one-model Wan 2.2 Animate graph: show the character to the model, take pose and face out of a driving video, and combine them in one sampler.

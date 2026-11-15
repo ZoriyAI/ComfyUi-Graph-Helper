@@ -172,3 +172,10 @@
 .steps li[data-step-mark="done"] .mark { border-color: transparent; background: var(--ok-soft, rgba(130, 221, 179, 0.14)); color: var(--ok, #82ddb3); }
 .steps li[data-step-mark="now"] .mark { border-color: var(--accent); color: var(--accent); }
 .stepName { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+
+.group { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.groupTitle { margin: 10px 0 0; font-size: 14px; line-height: 20px; color: var(--text); overflow-wrap: anywhere; }
+.groupTitle span { color: var(--text-dim); font-weight: 400; }
+.dependencies { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; font-size: 12px; line-height: 18px; color: var(--text-dim); }
+.dependencies a { border: 0; padding: 0; background: transparent; color: var(--accent); font: inherit; text-align: start; text-decoration: underline; overflow-wrap: anywhere; cursor: pointer; }
+.dependencies a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

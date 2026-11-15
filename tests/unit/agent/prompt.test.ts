@@ -53,9 +53,6 @@ describe('teaching system prompt', () => {
     expect(prompt).toContain('teach');
     expect(prompt).toContain('ghosts');
     expect(prompt).toContain('Never claim a workflow ran');
-    // The two limits are in every turn, whoever the model is and whatever the person asks about.
-    expect(prompt).toContain('sexual content that involves minors or anyone who looks like a minor');
-    expect(prompt).toContain('sexual content that depicts real people');
     // What the lessons teach about descriptions and about several models is what the helper is told too.
     expect(prompt).toContain('The only weight form is (words:1.2)');
     expect(prompt).toContain('<lora:name:1>, BREAK, AND and square brackets do nothing here');
@@ -82,6 +79,14 @@ describe('teaching system prompt', () => {
     expect(prompt).not.toContain('sk-live1234567');
     expect(prompt).toContain('You see every field and the person\'s recent actions; refer to them by node id and title.');
     expect(prompt).toContain('give `why` every time');
+  });
+
+  it.each(['en', 'ru'] as const)('keeps subject choice with the person in %s turns', (language) => {
+    const prompt = buildSystemPrompt({ context: { intent: 'chat', selection: [], language }, graph: null, catalog: '' });
+    const principle = prompt.split('\n').find((line) => line.startsWith('9.'));
+    expect(principle).toBe("9. Help the person learn and solve their ComfyUI task: graphs, subgraphs, nodes, models, LoRAs, helpers and prompts. The subject they choose is their choice and responsibility.");
+    expect(prompt).not.toMatch(/sexual content|never help with|override.{0,30}(polic|rules)|ignore.{0,30}(polic|rules)/i);
+    expect(prompt).toContain(language === 'ru' ? 'Answer in Russian.' : 'Answer in English.');
   });
 
   it('degrades to "not synced yet" when the knowledge stub throws', () => {

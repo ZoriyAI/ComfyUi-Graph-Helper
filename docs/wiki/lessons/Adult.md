@@ -8,7 +8,7 @@
 Lesson "adult": what the content of a clip depends on, the limits the app keeps, and a check of your graph. For adults only.
 
 ## The limits come first
-The lesson opens with the rules, and so does this page. The app teaches technique and does not decide for you what to make, within one list of things it never helps with, written in the same words everywhere. That list, and how the 18+ switch works, is on [Content rules](../trust/Content-Rules.md). Face and voice of a real person need that person's consent. The laws of your country and the rules of the places where you post are your responsibility.
+The lesson covers factual, non-graphic technical education for lawful consensual 18+ use. The subject remains your choice and responsibility. Consent, source permissions, lawful sharing and your preview choices are described in [Subject choice and adult education](../trust/Content-Rules.md). The app does not verify age, consent or legality.
 
 The lessons for adults stand apart from the others and are not offered as "the next lesson". This page describes technique in general words only; the app has no explicit texts and no ready scene descriptions, and neither does this wiki.
 

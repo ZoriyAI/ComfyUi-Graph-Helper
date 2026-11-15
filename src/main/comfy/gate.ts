@@ -128,11 +128,14 @@ export type ComfyFailure = 'timeout' | 'unreachable' | 'hostNotFound' | 'notFoun
  * GET one allowed route of the ComfyUI at `origin`. Never throws for network problems; throws ComfyGateError for a
  * route outside the list (a programming error, never a server's doing).
  */
-export async function comfyGet(origin: URL, route: ComfyRoute, fetchImpl: typeof fetch): Promise<ComfyAnswer> {
+export async function comfyGet(origin: URL, route: ComfyRoute, fetchImpl: typeof fetch, signal?: AbortSignal): Promise<ComfyAnswer> {
   if (!comfyPathAllowed(route.path)) throw new ComfyGateError('path');
   const target = new URL(route.path, origin);
   if (target.origin !== origin.origin) throw new ComfyGateError('origin');
   const controller = new AbortController();
+  const abort = () => controller.abort();
+  if (signal?.aborted) controller.abort();
+  signal?.addEventListener('abort', abort, { once: true });
   const timer = setTimeout(() => controller.abort(), route.timeoutMs);
   timer.unref?.();
   try {
@@ -162,6 +165,7 @@ export async function comfyGet(origin: URL, route: ComfyRoute, fetchImpl: typeof
     return { ok: false, status: null, error: connectFailureKind(error).kind === 'hostNotFound' ? 'hostNotFound' : 'unreachable' };
   } finally {
     clearTimeout(timer);
+    signal?.removeEventListener('abort', abort);
   }
 }
 

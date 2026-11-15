@@ -151,8 +151,8 @@ describe('a first run with only a ComfyUI address', () => {
     const partial = await again.runSync(db);
     again.stop();
     expect(partial.warnings).toContain(folderUnreadWarning('loras'));
-    // The old list of the broken folder stays.
-    expect((db.prepare("SELECT COUNT(*) AS n FROM model_catalog WHERE directory = 'loras'").get() as { n: number }).n).toBeGreaterThan(0);
+    // Fresh object_info placeholders may name these models, but cannot inherit the old server's file identity.
+    expect((db.prepare("SELECT COUNT(*) AS n FROM model_catalog WHERE directory = 'loras' AND (size_bytes IS NOT NULL OR root_path IS NOT NULL)").get() as { n: number }).n).toBe(0);
     expect(translateKnownError(createTranslator('ru'), COMFY_MODELS_NAMES_ONLY)).toContain('старый ComfyUI');
     db.close();
   }, 30_000);

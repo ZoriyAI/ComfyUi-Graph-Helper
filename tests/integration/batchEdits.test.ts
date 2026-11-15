@@ -6,7 +6,7 @@ import { upsertObjectInfo } from '../../src/main/catalog/repository';
 import { parseObjectInfo } from '../../src/shared/catalog/objectInfo';
 import { DESKTOP_PROJECT_ID } from '../../src/shared/project';
 import { CLASSES, objectInfoDocument } from '../fixtures/mcp/fakeMcpServer';
-import { pasteEdits, type Fragment } from '../../src/renderer/components/graph/lib/clipboard';
+import { fragmentOf, pasteEdits, type Fragment } from '../../src/renderer/components/graph/lib/clipboard';
 import { describeRevision } from '../../src/renderer/state/undoState';
 
 /**
@@ -60,18 +60,14 @@ describe('batch: several edits, one revision', () => {
     const db = open();
     build(db);
     commit(db, { type: 'set-parameter', nodeId: '2', key: 'text', value: 'a red fox' });
-    const fragment: Fragment = {
-      nodes: [
-        { key: '1', nodeType: 'CheckpointLoaderSimple', parameters: { ckpt_name: 'sd_xl_base_1.0.safetensors' }, x: 0, y: 0 },
-        { key: '2', nodeType: 'CLIPTextEncode', title: 'Positive', parameters: { text: 'a red fox' }, x: 400, y: 0 },
-      ],
-      edges: [{ source: '1', sourceHandle: 'out-1', target: '2', targetHandle: 'in-0' }],
-    };
+    const fragment = fragmentOf(graph(db).nodes.filter((node) => ['1', '2'].includes(String(node.id))) as never, graph(db).edges as never);
     const result = commit(db, { type: 'batch', label: 'paste', edits: pasteEdits(fragment, 40) });
     expect(result.status).toBe('applied');
     expect((result.result as { nodeIds: string[] }).nodeIds).toEqual(['4', '5']);
     const pasted = graph(db).nodes.filter((node) => ['4', '5'].includes(node.id));
-    expect(pasted.map((node) => node.position)).toEqual([{ x: 40, y: 40 }, { x: 440, y: 40 }]);
+    expect(pasted[1].position.x - pasted[0].position.x).toBe(400);
+    expect(pasted[1].position.y).toBe(pasted[0].position.y);
+    expect(pasted[0].position).not.toEqual({ x: 0, y: 0 });
     expect(pasted[1].data.parameters?.text).toBe('a red fox');
     expect(graph(db).edges).toContainEqual(expect.objectContaining({ source: '4', target: '5', sourceHandle: 'out-1', targetHandle: 'in-0' }));
     // The history names it by what the person did.

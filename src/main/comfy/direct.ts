@@ -1,13 +1,17 @@
 import type Database from 'better-sqlite3';
 import type { McpModelFile, McpSession, McpToolCallResult } from '../../shared/mcp/catalogSource';
 import { isModelFileIn } from '../../shared/mcp/catalogSource';
-import { ObjectInfoError, parseObjectInfo } from '../../shared/catalog/objectInfo';
+import { ObjectInfoError, parseObjectInfo, type ParsedObjectInfo } from '../../shared/catalog/objectInfo';
 import { hasScheme, isLoopbackHost, isPlausibleHost, withLoopbackScheme } from '../../shared/mcp/loopback';
 import { isPlainRelativeName, normalServerFolder } from '../../shared/mcp/serverPaths';
 import {
+  acceptCatalogSource,
+  bumpCatalogRevision,
+  catalogSourceKey,
   inferModelsFromNames,
   packNameFromModule,
   removeStaleModelFiles,
+  removeStaleModelFilesIn,
   removeStaleNodeClasses,
   replaceNodePacks,
   upsertModelFiles,
@@ -169,10 +173,11 @@ interface FolderListing {
 }
 
 /** The folders, with their paths on the ComfyUI machine (newer ComfyUI), or their names only (older). */
-async function readFolders(origin: URL, fetchImpl: typeof fetch): Promise<{ folders: FolderListing[]; detailed: boolean } | null> {
-  const detailed = await comfyGet(origin, COMFY_ROUTES.modelFolders(), fetchImpl);
+async function readFolders(origin: URL, fetchImpl: typeof fetch, signal?: AbortSignal): Promise<{ folders: FolderListing[]; detailed: boolean } | null> {
+  const detailed = await comfyGet(origin, COMFY_ROUTES.modelFolders(), fetchImpl, signal);
   const listed = jsonOf(detailed);
-  if (Array.isArray(listed)) {
+  if (signal?.aborted) return null;
+  if (Array.isArray(listed) && listed.length <= MAX_FOLDERS) {
     const folders: FolderListing[] = [];
     for (const item of listed.slice(0, MAX_FOLDERS)) {
       if (!item || typeof item !== 'object') continue;
@@ -184,8 +189,8 @@ async function readFolders(origin: URL, fetchImpl: typeof fetch): Promise<{ fold
     }
     return { folders, detailed: true };
   }
-  const legacy = jsonOf(await comfyGet(origin, COMFY_ROUTES.modelFoldersLegacy(), fetchImpl));
-  if (!Array.isArray(legacy)) return null;
+  const legacy = jsonOf(await comfyGet(origin, COMFY_ROUTES.modelFoldersLegacy(), fetchImpl, signal));
+  if (!Array.isArray(legacy) || legacy.length > MAX_FOLDERS) return null;
   const folders = legacy.slice(0, MAX_FOLDERS)
     .filter((name): name is string => typeof name === 'string' && /^[A-Za-z0-9_.-]{1,80}$/.test(name) && !NOT_MODEL_FOLDERS.has(name))
     .map((name) => ({ name, roots: [] }));
@@ -195,10 +200,11 @@ async function readFolders(origin: URL, fetchImpl: typeof fetch): Promise<{ fold
 type DirectModelFile = McpModelFile & { rootPath: string | null };
 
 /** The files of one folder, or null when the folder could not be listed. */
-async function readFolderFiles(origin: URL, folder: FolderListing, detailed: boolean, fetchImpl: typeof fetch): Promise<DirectModelFile[] | null> {
+async function readFolderFiles(origin: URL, folder: FolderListing, detailed: boolean, fetchImpl: typeof fetch, signal?: AbortSignal): Promise<DirectModelFile[] | null> {
   if (detailed) {
-    const listed = jsonOf(await comfyGet(origin, COMFY_ROUTES.modelFiles(folder.name), fetchImpl));
-    if (Array.isArray(listed)) {
+    const listed = jsonOf(await comfyGet(origin, COMFY_ROUTES.modelFiles(folder.name), fetchImpl, signal));
+    if (signal?.aborted) return null;
+    if (Array.isArray(listed) && listed.length <= MAX_FILES_PER_FOLDER) {
       const files: DirectModelFile[] = [];
       for (const item of listed.slice(0, MAX_FILES_PER_FOLDER)) {
         if (!item || typeof item !== 'object') continue;
@@ -211,17 +217,17 @@ async function readFolderFiles(origin: URL, folder: FolderListing, detailed: boo
       return files;
     }
   }
-  const names = jsonOf(await comfyGet(origin, COMFY_ROUTES.modelFilesLegacy(folder.name), fetchImpl));
-  if (!Array.isArray(names)) return null;
+  const names = jsonOf(await comfyGet(origin, COMFY_ROUTES.modelFilesLegacy(folder.name), fetchImpl, signal));
+  if (!Array.isArray(names) || names.length > MAX_FILES_PER_FOLDER) return null;
   return names.slice(0, MAX_FILES_PER_FOLDER)
     .filter((name): name is string => typeof name === 'string' && isPlainRelativeName(name) && isModelFileIn(folder.name, name))
     .map((name) => ({ directory: folder.name, name, sizeBytes: null, rootPath: null }));
 }
 
 /** Packs as ComfyUI-Manager lists them (`/customnode/installed`), or null when no manager answers. */
-async function readManagerPacks(origin: URL, fetchImpl: typeof fetch): Promise<Map<string, { version: string | null; enabled: boolean }> | null> {
-  const listed = jsonOf(await comfyGet(origin, COMFY_ROUTES.installedPacks(), fetchImpl));
-  if (!listed || typeof listed !== 'object' || Array.isArray(listed)) return null;
+async function readManagerPacks(origin: URL, fetchImpl: typeof fetch, signal?: AbortSignal): Promise<Map<string, { version: string | null; enabled: boolean }> | null> {
+  const listed = jsonOf(await comfyGet(origin, COMFY_ROUTES.installedPacks(), fetchImpl, signal));
+  if (!listed || typeof listed !== 'object' || Array.isArray(listed) || Object.keys(listed).length > 5000) return null;
   const packs = new Map<string, { version: string | null; enabled: boolean }>();
   for (const [name, value] of Object.entries(listed as Record<string, unknown>).slice(0, 5000)) {
     if (!/^[^\u0000-\u001f\u007f/\\]{1,200}$/.test(name) || !value || typeof value !== 'object') continue;
@@ -254,6 +260,10 @@ export interface DirectReadSuccess {
 export type DirectReadResult = DirectReadSuccess | { ok: false; error: string };
 
 export interface DirectReadOptions {
+  signal?: AbortSignal;
+  sourceKey?: string;
+  /** Synchronous state writes participate in catalog publication; must not emit. */
+  publishState?: (result: DirectReadSuccess) => void;
   /** Read the model folders too. Off when an MCP server gives the model list and ComfyUI only the nodes. */
   models?: boolean;
   /** The phase in progress, for the indicator. */
@@ -263,30 +273,27 @@ export interface DirectReadOptions {
 }
 
 /**
- * Reads the whole catalog from the ComfyUI at `address` and stores it. Rows carry `now`; after a complete listing,
- * rows an earlier read stored that ComfyUI no longer lists are dropped. Only GETs of the gate's routes go out.
- * Never throws for network problems: the result says what went wrong as a fixed sentence.
+ * Collects the catalog from ComfyUI without touching SQLite. Only GETs of the gate's routes go out.
+ * Network failures return a fixed sentence; a successful snapshot is published synchronously below.
  */
-export async function readComfyDirect(
-  db: Database.Database,
+export async function collectComfyDirect(
   address: string,
   fetchImpl: typeof fetch,
-  now: number,
   options: DirectReadOptions = {},
-): Promise<DirectReadResult> {
+): Promise<DirectCollectedResult> {
   const checked = comfyAddress(address);
   if (!checked.ok) return checked;
   const { origin, looksLikeMcp } = checked;
   const statsRoute = COMFY_ROUTES.systemStats();
-  const stats = await comfyGet(origin, statsRoute, fetchImpl);
+  const stats = await comfyGet(origin, statsRoute, fetchImpl, options.signal);
   if (!stats.ok) return { ok: false, error: comfyFailureSentence(stats, origin, statsRoute, looksLikeMcp) };
   const system = systemOf(jsonOf(stats));
   if (!system) return { ok: false, error: looksLikeMcp ? COMFY_IS_MCP : COMFY_NOT_COMFY };
-  if (options.cancelled?.()) return { ok: false, error: COMFY_URL_EMPTY };
+  if (options.signal?.aborted || options.cancelled?.()) return { ok: false, error: COMFY_URL_EMPTY };
 
   options.onPhase?.('catalog', 0, 0);
   const infoRoute = COMFY_ROUTES.objectInfo();
-  const info = await comfyGet(origin, infoRoute, fetchImpl);
+  const info = await comfyGet(origin, infoRoute, fetchImpl, options.signal);
   if (!info.ok) {
     if (info.error === 'timeout' || info.error === 'unreachable' || info.error === 'hostNotFound' || info.error === 'large') {
       return { ok: false, error: comfyFailureSentence(info, origin, infoRoute) };
@@ -300,9 +307,7 @@ export async function readComfyDirect(
     return { ok: false, error: error instanceof ObjectInfoError && /too large/i.test(error.message) ? COMFY_TOO_LARGE : COMFY_NODES_UNREAD };
   }
   if (parsed.nodes.length === 0) return { ok: false, error: COMFY_NODES_UNREAD };
-  if (options.cancelled?.()) return { ok: false, error: COMFY_URL_EMPTY };
-  const stored = upsertObjectInfo(db, parsed, now);
-  removeStaleNodeClasses(db, now);
+  if (options.signal?.aborted || options.cancelled?.()) return { ok: false, error: COMFY_URL_EMPTY };
 
   // Packs: ComfyUI-Manager's list when it answers (it knows versions and disabled packs), else the folders the
   // node classes were loaded from.
@@ -312,7 +317,7 @@ export async function readComfyDirect(
     const pack = packNameFromModule(node.pythonModule ?? '');
     if (pack !== 'core') counts.set(pack, (counts.get(pack) ?? 0) + 1);
   }
-  const manager = await readManagerPacks(origin, fetchImpl);
+  const manager = await readManagerPacks(origin, fetchImpl, options.signal);
   const packRows: NodePackRow[] = [];
   if (manager) {
     for (const [name, pack] of manager) {
@@ -324,28 +329,27 @@ export async function readComfyDirect(
   } else {
     for (const [name, count] of counts) packRows.push({ name, version: null, commitSha: null, installedState: 'installed', importState: 'imported', classCount: count });
   }
-  const packs = replaceNodePacks(db, packRows, now, true);
+  if (options.signal?.aborted || options.cancelled?.()) return { ok: false, error: COMFY_URL_EMPTY };
 
   const warnings: string[] = [];
   const failedFolders: string[] = [];
   const roots: Record<string, string[]> = {};
-  let models = 0;
+  const files: DirectModelFile[] = [];
   let modelListing: DirectReadSuccess['modelListing'] = 'none';
   if (options.models !== false) {
-    const folders = await readFolders(origin, fetchImpl);
+    const folders = await readFolders(origin, fetchImpl, options.signal);
     if (!folders) {
       warnings.push(COMFY_MODELS_UNREAD);
     } else {
       modelListing = folders.detailed ? 'detailed' : 'names';
       if (!folders.detailed) warnings.push(COMFY_MODELS_NAMES_ONLY);
-      const files: DirectModelFile[] = [];
       for (const [index, folder] of folders.folders.entries()) {
-        if (options.cancelled?.()) return { ok: false, error: COMFY_URL_EMPTY };
+        if (options.signal?.aborted || options.cancelled?.()) return { ok: false, error: COMFY_URL_EMPTY };
         options.onPhase?.('models', index, folders.folders.length);
         roots[folder.name] = folder.roots;
         let listed: DirectModelFile[] | null;
         try {
-          listed = await readFolderFiles(origin, folder, folders.detailed, fetchImpl);
+          listed = await readFolderFiles(origin, folder, folders.detailed, fetchImpl, options.signal);
         } catch (error) {
           if (!(error instanceof ComfyGateError)) throw error;
           listed = null;
@@ -353,18 +357,19 @@ export async function readComfyDirect(
         if (listed) files.push(...listed);
         else failedFolders.push(folder.name);
       }
-      models = upsertModelFiles(db, files, now);
-      if (failedFolders.length === 0) removeStaleModelFiles(db, now);
     }
   }
-  inferModelsFromNames(db);
+  if (options.signal?.aborted || options.cancelled?.()) return { ok: false, error: COMFY_URL_EMPTY };
   return {
     ok: true,
     origin: origin.origin,
     system,
-    nodes: stored.nodes,
-    packs,
-    models,
+    nodes: parsed.nodes.length,
+    packs: packRows.length,
+    models: files.length,
+    parsed,
+    packRows,
+    files,
     packsFrom: manager ? 'manager' : 'modules',
     modelListing,
     failedFolders,
@@ -373,13 +378,48 @@ export async function readComfyDirect(
   };
 }
 
+export interface DirectCatalogSnapshot extends DirectReadSuccess {
+  parsed: ParsedObjectInfo;
+  packRows: NodePackRow[];
+  files: DirectModelFile[];
+}
+export type DirectCollectedResult = DirectCatalogSnapshot | { ok: false; error: string };
+
+/** No network work occurs inside this transaction. Provenance failures roll back every catalog section. */
+export function publishComfyDirect(db: Database.Database, snapshot: DirectCatalogSnapshot, now: number, options: DirectReadOptions = {}): DirectReadSuccess {
+  return db.transaction(() => {
+    if (options.signal?.aborted || options.cancelled?.()) throw new Error('Catalog collection cancelled');
+    acceptCatalogSource(db, options.sourceKey ?? catalogSourceKey(['comfy', snapshot.origin]));
+    upsertObjectInfo(db, snapshot.parsed, now);
+    removeStaleNodeClasses(db, now);
+    replaceNodePacks(db, snapshot.packRows, now, true);
+    upsertModelFiles(db, snapshot.files, now);
+    if (snapshot.modelListing !== 'none') {
+      if (snapshot.failedFolders.length === 0) removeStaleModelFiles(db, now);
+      else removeStaleModelFilesIn(db, now, Object.keys(snapshot.roots).filter((folder) => !snapshot.failedFolders.includes(folder)));
+    }
+    inferModelsFromNames(db);
+    bumpCatalogRevision(db);
+    const { parsed: _parsed, packRows: _packs, files: _files, ...result } = snapshot;
+    options.publishState?.(result);
+    return result;
+  }).immediate();
+}
+
+export async function readComfyDirect(db: Database.Database, address: string, fetchImpl: typeof fetch, now: number, options: DirectReadOptions = {}): Promise<DirectReadResult> {
+  const collected = await collectComfyDirect(address, fetchImpl, options);
+  if (!collected.ok) return collected;
+  if (options.signal?.aborted || options.cancelled?.()) return { ok: false, error: COMFY_URL_EMPTY };
+  return publishComfyDirect(db, collected, now, options);
+}
+
 /**
  * The header metadata of model files, read from ComfyUI's /view_metadata, shaped as the one metadata tool the
  * sync's reading already understands (`model_metadata` read → `{embedded_metadata, civitai_sidecar}`). A file with
  * no metadata (ComfyUI answers 404) is a file read with nothing to say; a failed read throws so it is retried later.
  * Only `model_metadata` is answered; any other name is refused.
  */
-export function comfyMetadataSession(originText: string, fetchImpl: typeof fetch): McpSession {
+export function comfyMetadataSession(originText: string, fetchImpl: typeof fetch, signal?: AbortSignal): McpSession {
   const origin = new URL(originText);
   const answer = (payload: unknown): McpToolCallResult => ({ content: [{ type: 'text', text: JSON.stringify(payload) }], structuredContent: payload as Record<string, unknown> });
   return {
@@ -390,7 +430,7 @@ export function comfyMetadataSession(originText: string, fetchImpl: typeof fetch
       const file = String((args as { name?: unknown }).name ?? '');
       // ComfyUI reads the header of .safetensors files only; any other file has none to read.
       if (!/\.safetensors$/i.test(file)) return answer({ embedded_metadata: {}, civitai_sidecar: null });
-      const read = await comfyGet(origin, COMFY_ROUTES.viewMetadata(category, file), fetchImpl);
+      const read = await comfyGet(origin, COMFY_ROUTES.viewMetadata(category, file), fetchImpl, signal);
       if (read.ok && 'json' in read) {
         const meta = read.json && typeof read.json === 'object' && !Array.isArray(read.json) ? read.json : {};
         return answer({ embedded_metadata: meta, civitai_sidecar: null });
@@ -409,6 +449,7 @@ export async function readComfyPreview(
   pathIndex: number,
   name: string,
   fetchImpl: typeof fetch,
+  signal?: AbortSignal,
 ): Promise<{ bytes: Buffer; mime: string } | null> {
   let origin: URL;
   try {
@@ -422,6 +463,6 @@ export async function readComfyPreview(
   } catch {
     return null;
   }
-  const read = await comfyGet(origin, route, fetchImpl);
+  const read = await comfyGet(origin, route, fetchImpl, signal);
   return read.ok && 'image' in read ? { bytes: read.image, mime: read.mime } : null;
 }

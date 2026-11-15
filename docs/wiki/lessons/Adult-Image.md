@@ -3,12 +3,10 @@
 
 # Pictures for adults: what changes
 
-<!-- lesson: adult-image -->
-<!-- verify: adult lessons changed; this lesson is being added (id "adult-image"), check its title and steps -->
-Lesson "adult-image": the same levers as in the video lesson, for pictures: the model family, LoRAs made for it, the prompt. For adults only.
+This is a technique note, not a separate built-in lesson. It applies the same levers as the adult video lesson to pictures: model family, matching LoRAs and prompt style.
 
 ## The limits come first
-The lesson opens with the rules. The one list of what the app never helps with, the consent rule for real people, and the 18+ switch are on [Content rules](../trust/Content-Rules.md). This page describes technique in general words only; there are no explicit texts or example prompts here.
+For lawful consensual adult (18+) use, obtain consent for real likenesses, permission for source material and follow local law. This page stays factual and non-graphic. Subject choice and preview controls are explained in [Subject choice and adult education](../trust/Content-Rules.md).
 
 ## What you will be able to do
 Know which picture families and fine-tuned lines suit the subject, how their prompt style differs (tags or sentences), why a LoRA must match the family, what the negative prompt and the size do, and how to diagnose poor results.
@@ -22,8 +20,8 @@ The graph of [A first picture from text](Image.md). Files of your choice that ar
 - **A LoRA** must be made for the family; with Load LoRA its trigger words go into the prompt.
 - **The negative prompt** lists defects; the **size** must be the family's.
 
-## What the lesson checks
-A picture graph is on the canvas, and the positive prompt holds the trigger words of any LoRA loader on the canvas (none needed if there is no LoRA or its file names no words).
+## What to check yourself
+Check the picture graph, model family and LoRA trigger words using the catalog and model author’s notes. This note has no automatic lesson progress check. A green graph check does not prove execution or quality.
 
 ## See also
 - [Content rules](../trust/Content-Rules.md)

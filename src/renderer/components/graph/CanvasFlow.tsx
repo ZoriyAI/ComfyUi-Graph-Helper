@@ -22,6 +22,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import { moveAnnouncement, type Translator } from '../../../shared/i18n';
 import { portsCompatible } from '../../../shared/graph/linkTypes';
+import { createsCycle } from '../../../shared/graph/cycles';
 import { SUBGRAPH_INPUT_NODE_ID, SUBGRAPH_OUTPUT_NODE_ID } from '../../../shared/graph/subgraphs';
 import { pruneSubgraphPath, useGraphStore } from '../../state/graphState';
 import { useUiStore } from '../../state/uiState';
@@ -44,7 +45,7 @@ import { CanvasViewContext, type CanvasView } from './CanvasContext';
 import { useCanvasStore } from './canvasStore';
 import { usePreferencesStore } from '../../state/preferencesState';
 import { commitManual } from './commit';
-import { queueEdit, queueNudge } from './lib/editBatch';
+import { commitEdits, queueEdit, queueNudge } from './lib/editBatch';
 import CanvasToolbar, { FIT_PADDING } from './CanvasToolbar';
 import { connectCandidates, type AssistNode } from './lib/connectAssist';
 import { flowingEdges } from './lib/flow';
@@ -54,6 +55,7 @@ import { sameRefs, selectionRefs } from './lib/selection';
 import { stepIndexOf } from './tour/buildTour';
 import { typeColor } from './lib/typeColors';
 import { glideMs, useGlide } from './lib/glide';
+
 import { nextOverview, rememberSizes, setOverviewLevel, titleScale } from './lib/nodeSizes';
 import { autoFit } from './lib/autoFit';
 import { useProjectionStore } from '../../services/commands/projection';
@@ -307,20 +309,21 @@ export default function CanvasFlow() {
   const stepNodeId = tourStep?.ref.kind === 'node' ? tourStep.ref.id : callout?.nodeId ?? null;
   const selectedEdges = useMemo(() => edges.filter((edge) => edge.selected).map((edge) => edge.id), [edges]);
   const flowing = useMemo(
-    () => flowingEdges(edges, { focus: focusRef, selectedEdges, stepNodeId }),
-    [edges, focusRef, selectedEdges, stepNodeId],
+    () => flowingEdges(edges, { focus: (focusRef?.subgraphId ?? null) === activeSubgraphId ? focusRef : null, selectedEdges, stepNodeId }),
+    [edges, focusRef, selectedEdges, stepNodeId, activeSubgraphId],
   );
 
   const view = useMemo<CanvasView>(() => {
     const errorNodes = new Set<string>();
     const emptyRequired = new Set<string>();
-    if (check && mode === 'root') {
-      for (const item of check.missingNodes) errorNodes.add(item.nodeId);
-      for (const item of check.baseModelMismatches) errorNodes.add(item.nodeId);
-      for (const item of check.unconnectedRequiredInputs) emptyRequired.add(`${item.nodeId}:${item.input}`);
+    if (check && mode !== 'replay') {
+      const here = (item: { subgraphId?: string }) => (item.subgraphId ?? null) === (mode === 'definition' ? activeSubgraphId : null);
+      for (const item of check.missingNodes.filter(here)) errorNodes.add(item.nodeId);
+      for (const item of check.baseModelMismatches.filter(here)) errorNodes.add(item.nodeId);
+      for (const item of check.unconnectedRequiredInputs.filter(here)) emptyRequired.add(`${item.nodeId}:${item.input}`);
     }
     return { edges, plan, flowing, readOnly, inDefinition: mode === 'definition', emptyRequired, errorNodes };
-  }, [edges, plan, flowing, readOnly, mode, check]);
+  }, [edges, plan, flowing, readOnly, mode, check, activeSubgraphId]);
 
   // Selection → uiState as ObjectRefs (nodes, edges, and the focused port).
   useEffect(() => {
@@ -359,6 +362,7 @@ export default function CanvasFlow() {
       // A finished drag and a removal of an inner node are saved in the definition (commitManual scopes them to
       // the open definition). The boundary pseudo-nodes are not graph nodes: their place stays on screen only.
       if (local.length > 0) setInner((current) => (current ? { ...current, nodes: applyNodeChanges(local, current.nodes as Node[]) as LevelNode[] } : current));
+
       for (const change of changes) {
         if (change.type === 'add' || change.id === SUBGRAPH_INPUT_NODE_ID || change.id === SUBGRAPH_OUTPUT_NODE_ID) continue;
         if (change.type === 'remove') {
@@ -373,20 +377,13 @@ export default function CanvasFlow() {
     // The person's own move (a drag, an arrow key) is drawn at once, never glided.
     if (changes.some((change) => change.type === 'position')) ownMove();
     if (local.length > 0) setRootNodes(applyNodeChanges(local, rootNodes) as GraphNode[]);
+
     for (const change of changes) {
       if (change.type === 'position' && change.dragging === false && change.position) moved(change.id, change.position);
       // Several nodes deleted at once are one step (one undo brings them all back with their links).
       if (change.type === 'remove') queueEdit({ type: 'remove-node', nodeId: change.id }, 'delete');
     }
   }, [mode, rootNodes, setRootNodes, ownMove, moved]);
-
-  // Nodes the Delete key is removing right now. React Flow removes their links first; the node's own removal takes
-  // them too, so the whole deletion is one revision (one undo brings the node back with its links).
-  const doomed = useRef<Set<string>>(new Set());
-  const removesLink = useCallback((edgeId: string) => {
-    const edge = edges.find((item) => item.id === edgeId);
-    return !edge || !(doomed.current.has(edge.source) || doomed.current.has(edge.target));
-  }, [edges]);
 
   const onEdgesChange: OnEdgesChange = useCallback((changes) => {
     if (mode === 'replay') return;
@@ -395,15 +392,15 @@ export default function CanvasFlow() {
       if (local.length > 0) setInner((current) => (current ? { ...current, edges: applyEdgeChanges(local, current.edges as Edge[]) as GraphEdge[] } : current));
       // Removing an inner link (a slot link too) is saved in the definition.
       for (const change of changes) {
-        if (change.type === 'remove' && removesLink(change.id)) queueEdit({ type: 'remove-edge', edgeId: change.id }, 'delete');
+        if (change.type === 'remove') queueEdit({ type: 'remove-edge', edgeId: change.id }, 'delete');
       }
       return;
     }
     if (local.length > 0) setRootEdges(applyEdgeChanges(local, rootEdges) as GraphEdge[]);
     for (const change of changes) {
-      if (change.type === 'remove' && removesLink(change.id)) queueEdit({ type: 'remove-edge', edgeId: change.id }, 'delete');
+      if (change.type === 'remove') queueEdit({ type: 'remove-edge', edgeId: change.id }, 'delete');
     }
-  }, [mode, rootEdges, setRootEdges, removesLink]);
+  }, [mode, rootEdges, setRootEdges]);
 
   const findPort = useCallback((nodeId: string, side: 'inputs' | 'outputs', handle: string | null | undefined) => (
     portsOf(nodes.find((node) => node.id === nodeId), side).find((port) => port.id === handle)
@@ -422,6 +419,7 @@ export default function CanvasFlow() {
     const output = findPort(connection.source, 'outputs', connection.sourceHandle);
     const input = findPort(connection.target, 'inputs', connection.targetHandle);
     if (!output || !input || connection.source === connection.target) return false;
+    if (createsCycle(edges, connection.source, connection.target)) return false;
     return portsCompatible(output.dataType, input.dataType);
   }, [findPort]);
 
@@ -547,18 +545,21 @@ export default function CanvasFlow() {
             zoomOnDoubleClick={false}
             // Delete, as the menu says, and Backspace, as in ComfyUI, remove the selection on every level.
             deleteKeyCode={DELETE_KEYS}
-            onBeforeDelete={({ nodes: removing }) => {
+            onBeforeDelete={({ nodes: removing, edges: removingEdges }) => {
               if (mode === 'replay') return Promise.resolve(false);
               const active = document.activeElement;
               const inGraph = active instanceof Element && active.closest('.react-flow') != null;
               const blocked = active instanceof Element && active.closest('[role="dialog"], [role="listbox"], [role="menu"], .select-content') != null;
-              // The boundary pseudo-nodes of an open subgraph are not deletable; its inner nodes are, as on the root.
+              // One command for the whole selection; React Flow's per-node/per-edge removals stay out of the way.
               const allowed = inGraph && !blocked;
-              if (allowed && removing.length > 0) {
-                doomed.current = new Set(removing.map((node) => node.id));
-                window.setTimeout(() => { doomed.current = new Set(); }, 0);
+              if (allowed && (removing.length > 0 || removingEdges.length > 0)) {
+                const ids = new Set(removing.map((node) => node.id));
+                void commitEdits([
+                  ...removing.map((node) => ({ type: 'remove-node' as const, nodeId: node.id })),
+                  ...removingEdges.filter((edge) => !ids.has(edge.source) && !ids.has(edge.target)).map((edge) => ({ type: 'remove-edge' as const, edgeId: edge.id })),
+                ], 'delete');
               }
-              return Promise.resolve(allowed);
+              return Promise.resolve(false);
             }}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
@@ -630,7 +631,7 @@ export default function CanvasFlow() {
             <ConnectAssistLayer />
             <DescriptionLayer />
             <TourLayer />
-            <BuildLayer />
+            <BuildLayer levelId={mode === 'definition' ? inner!.id : null} />
             <LiveBuildStrip />
             <ImportLookLayer mode={mode} />
           </ReactFlow>

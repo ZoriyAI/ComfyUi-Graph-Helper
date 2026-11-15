@@ -2,7 +2,7 @@ import type Database from 'better-sqlite3';
 import { upsertObjectInfo } from '../catalog/repository';
 import { redactSecrets } from '../../shared/config/draft';
 import { isLoopbackHost } from '../../shared/mcp/loopback';
-import { OBJECT_INFO_MAX_BYTES, ObjectInfoError, parseObjectInfo } from '../../shared/catalog/objectInfo';
+import { OBJECT_INFO_MAX_BYTES, ObjectInfoError, parseObjectInfo, type ParsedObjectInfo } from '../../shared/catalog/objectInfo';
 import { COMFY_ROUTES, comfyGet, comfyOriginOf } from './gate';
 
 export { isLoopbackHost };
@@ -71,20 +71,22 @@ function deviceCount(value: unknown): number {
  * GET /system_stats and GET /object_info on the origin, through the read-only gate (gate.ts). Never queues a
  * prompt. Stores the node classes only: the whole read (packs, models) is comfy/direct.ts.
  */
-export async function applyComfyRead(db: Database.Database, origin: string, fetchImpl: typeof fetch): Promise<ComfyReadSuccess | ComfyReadFailure> {
+export async function applyComfyRead(db: Database.Database, origin: string, fetchImpl: typeof fetch, options: { signal?: AbortSignal; collect?: (parsed: ParsedObjectInfo) => void } = {}): Promise<ComfyReadSuccess | ComfyReadFailure> {
   const base = comfyOriginOf(origin);
   if (!base) return { ok: false, error: 'Comfy origin is empty.' };
-  const stats = await comfyGet(base, COMFY_ROUTES.systemStats(), fetchImpl);
+  const stats = await comfyGet(base, COMFY_ROUTES.systemStats(), fetchImpl, options.signal);
   if (!stats.ok || !('json' in stats)) return { ok: false, error: 'Comfy origin was not read.' };
-  const info = await comfyGet(base, COMFY_ROUTES.objectInfo(), fetchImpl);
+  const info = await comfyGet(base, COMFY_ROUTES.objectInfo(), fetchImpl, options.signal);
   if (!info.ok || !('json' in info)) {
     return { ok: false, error: !info.ok && info.error === 'large' ? 'Catalog snapshot is too large.' : !info.ok && info.error === 'shape' ? 'Catalog JSON could not be parsed.' : 'Comfy origin was not read.' };
   }
   try {
     const started = Date.now();
     const parsed = parseObjectInfo(info.json);
-    const stored = upsertObjectInfo(db, parsed);
-    console.log(`[Comfy] object_info ${(info.bytes / (1024 * 1024)).toFixed(1)} MiB, ${stored.nodes} classes stored in ${Date.now() - started} ms`);
+    const stored = options.collect
+      ? (options.collect(parsed), { nodes: parsed.nodes.length, models: parsed.models.length, skipped: parsed.skipped })
+      : upsertObjectInfo(db, parsed);
+    console.log(`[Comfy] object_info ${(info.bytes / (1024 * 1024)).toFixed(1)} MiB, ${stored.nodes} classes read in ${Date.now() - started} ms`);
     return {
       ok: true,
       version: versionOf(stats.json),

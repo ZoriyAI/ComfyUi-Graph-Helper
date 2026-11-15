@@ -109,6 +109,19 @@ describe('MCP catalog source', () => {
     expect(comfyUrlFromStudioInfo({})).toBeNull();
   });
 
+  it('refuses a remote MCP redirect to a local native object_info endpoint', async () => {
+    const db = new Database(':memory:');
+    migrate(db);
+    let requests = 0;
+    const server = await listen((_req, res) => { requests += 1; res.end('{}'); });
+    const result = await readCatalogViaMcp(db, { url: 'https://mcp.example.test/mcp', token: null }, globalThis.fetch,
+      async () => fakeSession({ comfyUrl: server.origin, comfyApiWorks: false, calls: [] }));
+    await server.close();
+    expect(result).toMatchObject({ ok: true, objectInfo: 'none', nativeComfy: 'notAllowed' });
+    expect(requests).toBe(0);
+    db.close();
+  });
+
   it('stores classes and models, then falls back to the native URL for object_info', async () => {
     const server = await listen((req, res) => {
       res.setHeader('content-type', 'application/json');
@@ -124,7 +137,7 @@ describe('MCP catalog source', () => {
     const calls: string[] = [];
     const result = await readCatalogViaMcp(
       db,
-      { url: 'https://mcp.example.test/mcp', token: 'secret-token' },
+      { url: `${server.origin}/mcp`, token: 'secret-token' },
       globalThis.fetch,
       async () => fakeSession({ comfyUrl: server.origin, comfyApiWorks: false, calls }),
     );

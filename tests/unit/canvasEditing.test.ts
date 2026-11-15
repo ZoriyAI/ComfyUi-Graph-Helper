@@ -56,14 +56,15 @@ describe('copy and paste', () => {
       { id: 'e1', source: '1', target: '2', sourceHandle: 'out-1', targetHandle: 'in-0' },
       { id: 'e2', source: '2', target: '7', sourceHandle: 'out-0', targetHandle: 'in-1' },
     ];
-    const fragment = fragmentOf(nodes, edges as never, { CLIPTextEncode: text });
-    expect(fragment.nodes[0]).toEqual({ key: '1', nodeType: 'CheckpointLoaderSimple', parameters: {}, x: 0, y: 0 });
-    expect(fragment.nodes[1]).toMatchObject({ key: '2', title: 'Positive', parameters: { text: 'a fox' } });
-    expect(fragment.edges).toEqual([{ source: '1', sourceHandle: 'out-1', target: '2', targetHandle: 'in-0' }]);
+    const fragment = fragmentOf(nodes, edges as never);
+    expect(fragment.nodes).toEqual(nodes);
+    expect(fragment.nodes[1].data.comfy?.widgets_values).toEqual(['a fox']);
+    expect(fragment.nodes[1].data.title).toBe('Positive');
+    expect(fragment.edges).toEqual([edges[0]]);
     expect(pasteEdits(fragment, 40)).toEqual([
-      { type: 'add-node', nodeType: 'CheckpointLoaderSimple', x: 40, y: 40 },
-      { type: 'add-node', nodeType: 'CLIPTextEncode', title: 'Positive', x: 440, y: 40, parameters: { text: 'a fox' } },
-      { type: 'connect', source: '@0', sourceHandle: 'out-1', target: '@1', targetHandle: 'in-0' },
+      { type: 'paste-selection', nodes, edges: [edges[0]], offsetX: 40, offsetY: 40 },
     ]);
+    fragment.nodes[1].data.title = 'Changed copy';
+    expect(nodes[1].data.title).toBe('Positive');
   });
 });

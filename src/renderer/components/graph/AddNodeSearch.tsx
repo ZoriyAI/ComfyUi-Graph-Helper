@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { NodeClassSummary } from '../../../shared/contracts/knowledge';
 import { useCanvasStore } from './canvasStore';
-import { commitManual } from './commit';
+import { captureEditOrigin, commitAtOrigin, originIsCurrent, requireEditOrigin, type EditOrigin } from './lib/editOrigin';
 import { placeNewNode } from './placeNode';
 import { useNodeInfoStore } from './nodeInfo';
 import type { ConnectFrom } from './lib/connectAssist';
@@ -22,9 +22,9 @@ import styles from './Toolbar.module.css';
  * Commits add-node after the class guard: an unknown class (with a synced catalog) is refused with the
  * nearest installed names; the guard being unreachable does not block the edit.
  */
-function addCheckedNode(classType: string, at: { x: number; y: number } | null, title?: string, link?: ConnectFrom): Promise<void> {
+export function addCheckedNode(classType: string, at: { x: number; y: number } | null, title?: string, link?: ConnectFrom, origin = captureEditOrigin()): Promise<void> {
   // Counted as landing from the pick on (the class check and the size come first), so Ctrl+Z waits for it.
-  return trackCommit(() => addNow(classType, at, title, link));
+  return trackCommit(() => addNow(classType, at, title, link, origin));
 }
 
 /**
@@ -43,10 +43,11 @@ export function linkHandleFor(detail: NodeClassDetail | null | undefined, from: 
   return index >= 0 ? `out-${index}` : null;
 }
 
-async function addNow(classType: string, at: { x: number; y: number } | null, title?: string, link?: ConnectFrom): Promise<void> {
-  if (replayIsOpen(true)) return;
+async function addNow(classType: string, at: { x: number; y: number } | null, title: string | undefined, link: ConnectFrom | undefined, origin: EditOrigin): Promise<void> {
+  if (!requireEditOrigin(origin) || replayIsOpen(true)) return;
   const t = (key: string, options?: Record<string, unknown>) => String(i18n.t(key, options ?? {}));
   const verdict = await window.electronAPI?.validateNodeClass?.(classType).catch(() => null);
+  if (!requireEditOrigin(origin)) return;
   if (verdict && !verdict.ok) {
     showToast({
       id: 'add-node-unknown-class',
@@ -62,20 +63,32 @@ async function addNow(classType: string, at: { x: number; y: number } | null, ti
   const spot = await placeNewNode(at, { classType });
   // Under the name the library shows, as a node added from the library is: one node, one name, whichever way.
   const add = { type: 'add-node' as const, nodeType: classType, ...(title && title !== classType ? { title } : {}), x: spot.x, y: spot.y };
+  if (!requireEditOrigin(origin)) return;
   const handle = link ? linkHandleFor(await useNodeInfoStore.getState().request(classType).catch(() => null), link) : null;
   if (link && handle) {
     // A link dropped on empty canvas: the new node and its link are one step.
     const connect = link.direction === 'output'
       ? { type: 'connect' as const, source: link.nodeId, sourceHandle: link.handle, target: '@0', targetHandle: handle }
       : { type: 'connect' as const, source: '@0', sourceHandle: handle, target: link.nodeId, targetHandle: link.handle };
-    const result = await commitManual({ type: 'batch', label: 'add-linked', edits: [add, connect] }) as { status?: string; result?: { nodeIds?: unknown } } | null;
+    const result = await commitAtOrigin(origin, { type: 'batch', label: 'add-linked', edits: [add, connect] }) as { status?: string; result?: { nodeIds?: unknown } } | null;
     const ids = result?.status === 'applied' && Array.isArray(result.result?.nodeIds) ? result.result.nodeIds.map(String) : [];
-    revealNewNode(ids[0] ?? null);
+    if (originIsCurrent(origin)) revealNewNode(ids[0] ?? null, undefined, origin);
     return;
   }
-  const result = await commitManual(add);
+  const result = await commitAtOrigin(origin, add);
   // The new node is selected and in view, wherever the free spot was.
-  revealNewNode(addedNodeId(result));
+  if (originIsCurrent(origin)) revealNewNode(addedNodeId(result), undefined, origin);
+}
+
+/** Enter before results arrive: the search is part of the same originating gesture. */
+export function addTypedNode(typed: string, at: { x: number; y: number } | null, link?: ConnectFrom): Promise<void> {
+  const origin = captureEditOrigin();
+  return trackCommit(async () => {
+    const found = await window.electronAPI?.searchNodeTypes?.({ query: typed, limit: 1 }).catch(() => []) ?? [];
+    if (!requireEditOrigin(origin)) return;
+    const first = found[0];
+    await addNow(first?.classType ?? typed, at, first?.displayName || undefined, link, origin);
+  });
 }
 
 /** The name with the typed words marked, so a person sees why a row came up. */
@@ -195,11 +208,7 @@ export default function AddNodeSearch() {
     const link = search.linkFrom;
     input.current?.blur();
     close();
-    void trackCommit(async () => {
-      const found = await window.electronAPI?.searchNodeTypes?.({ query: typed, limit: 1 }).catch(() => []) ?? [];
-      const first = found[0];
-      await addCheckedNode(first?.classType ?? typed, at, first?.displayName || undefined, link);
-    });
+    void addTypedNode(typed, at, link);
   };
 
   const listId = 'canvas-add-node-results';

@@ -120,3 +120,25 @@ describe('graph check: what ComfyUI refuses to run', () => {
     expect(keys).toEqual(expect.arrayContaining(['check.noOutputNodeItem', 'check.valuesBelowMinItem', 'check.valuesNotInListItem']));
   });
 });
+
+it('keeps equal local ids in separate definitions distinct through names, port resolution and Ask Why refs', () => {
+  const report = check(txt2img());
+  report.valuesOutOfRange = ['A', 'B'].map((subgraphId) => ({ subgraphId, nodeId: '1', classType: 'KSampler', input: 'steps', value: 0, min: 1 }));
+  const rows = findingsOf(report, (_id, _input, scope) => scope === 'A' ? 'in-2' : 'in-3', (_id, scope) => `${scope} sampler`)
+    .filter((row) => row.type === 'valuesOutOfRange');
+  expect(new Set(rows.map((row) => row.key)).size).toBe(2);
+  expect(rows.map((row) => row.values.node)).toEqual(['A sampler', 'B sampler']);
+  expect(rows.map((row) => row.ref)).toEqual([
+    { kind: 'port', id: '1:in-2', nodeId: '1', portName: 'in-2', direction: 'input', subgraphId: 'A' },
+    { kind: 'port', id: '1:in-3', nodeId: '1', portName: 'in-3', direction: 'input', subgraphId: 'B' },
+  ]);
+});
+
+it('does not count an unused definition as an executable output, but traverses instantiated definitions', () => {
+  const workflow = txt2img({ noSave: true }) as Record<string, any>;
+  const output = { id: 'unused-output', version: 1, name: 'Unused output', nodes: [{ id: 1, type: 'SaveImage', inputs: [], outputs: [], widgets_values: ['test'] }], links: [], inputs: [], outputs: [], state: {} };
+  workflow.definitions = { subgraphs: [output] };
+  expect(check(workflow as never).noOutputNode).not.toBeNull();
+  workflow.nodes.push({ id: 99, type: output.id, inputs: [], outputs: [] });
+  expect(check(workflow as never).noOutputNode).toBeNull();
+});

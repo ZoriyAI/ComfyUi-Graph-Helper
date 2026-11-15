@@ -7,7 +7,7 @@ import { civitaiUrl, parseModelMetadata, plainText, triggerWordsOf, type ParsedM
 import { EMPTY_NOTES, parseSidecarFile, type ParsedSidecar } from '../../shared/knowledge/sidecar';
 import { SYNC_INTERVAL_DEFAULT_MINUTES, SYNC_INTERVAL_MAX_MINUTES, SYNC_INTERVAL_MIN_MINUTES } from '../../shared/knowledge/schemas';
 import { ENRICH_PAUSE_MS, ENRICH_PER_RUN } from '../../shared/config/preferences';
-import { catalogTotals, packInfoSig, packsDueForInfo, writeModelEnrichment, writeModelNotes, writePackInfo } from '../catalog/repository';
+import { bumpCatalogRevision, catalogTotals, packInfoSig, packsDueForInfo, writeModelEnrichment, writeModelNotes, writePackInfo } from '../catalog/repository';
 import { packInfoOf, parsePyproject, summarizeReadme, type PackInfo } from '../../shared/knowledge/packInfo';
 import { readPreferences, readSettings } from '../settings/repository';
 import type { McpAuthMode } from '../../shared/config/schema';
@@ -43,6 +43,8 @@ export const DEFAULT_ENRICH_PAUSE_MS = ENRICH_PAUSE_MS.default;
 export const STARTUP_DELAY_MS = 5_000;
 /** Background metadata reading stops after this many failed reads in a row; backoff applies at the next run. */
 export const MAX_CONSECUTIVE_FAILURES = 5;
+/** Same-size/root replacements have no fingerprint; supported headers are refreshed at least daily. */
+export const HEADER_REFRESH_MS = 24 * 60 * 60 * 1000;
 
 const ALL_FAILED = 'Model metadata could not be read.';
 /** Fixed English sentences stored in sync_state; the renderer translates them (shared/i18n ERROR_KEYS and patterns). */
@@ -148,6 +150,7 @@ const defaultDeps: SyncDeps = {
 
 /** The internet lookups of one sync: after metadata reading, one file at a time, spaced, until done or cancelled. */
 interface WebRun {
+  isCurrent: () => boolean;
   cancelled: boolean;
   done: Promise<void>;
 }
@@ -319,12 +322,16 @@ function numberOrNull(value: string | undefined): number | null {
 
 /** The run in flight, so a change of address can cancel it: its session is closed and its result dropped. */
 interface RunTicket {
+  controller: AbortController;
+  generation: number;
   cancelled: boolean;
   session: McpSession | null;
 }
 
 /** One run's metadata reading: the first batch inside the run, then batches in the background on the same session. */
 interface EnrichRun {
+  isCurrent: () => boolean;
+  signal: AbortSignal;
   session: McpSession;
   /** When the sync this reading belongs to began. */
   startedAt: number;
@@ -361,6 +368,7 @@ export class SyncService {
   private webRun: WebRun | null = null;
   private enrichmentPaused = false;
   private ticket: RunTicket | null = null;
+  private generation = 0;
   private readonly listeners = new Set<Listener>();
   private readonly deps: SyncDeps;
 
@@ -427,6 +435,7 @@ export class SyncService {
       comfyOrigin,
       librarySource: librarySourceOf(state),
       mcpProfile: mcpProfileOf(state),
+      catalogRevision: Number(state.catalog_revision) || 0,
     };
   }
 
@@ -488,16 +497,20 @@ export class SyncService {
    */
   addressChanged(db: Database.Database): SyncStatus {
     this.db = db;
+    this.generation += 1;
+    const generation = this.generation;
     const ticket = this.ticket;
-    if (this.running && ticket) {
+    if (ticket) {
       ticket.cancelled = true;
-      void ticket.session?.close().catch(() => undefined);
+      ticket.controller.abort();
+      if (this.running) void this.closeTicket(ticket);
     }
     this.cancelEnrichment();
     if (this.webRun) this.webRun.cancelled = true;
     const auto = autoOf(readStateSafe(db));
     const after = this.running ?? Promise.resolve(this.status(db));
     void after.catch(() => undefined).then(() => {
+      if (generation !== this.generation) return;
       if (auto.enabled && this.hasAddress(db)) void this.runSync(db);
       else this.emit(db);
     });
@@ -526,6 +539,12 @@ export class SyncService {
 
   /** Clears the schedule and cancels background reading. Leaves no timer behind (app quit, tests). */
   stop(): void {
+    this.generation += 1;
+    if (this.ticket) {
+      this.ticket.cancelled = true;
+      this.ticket.controller.abort();
+      if (this.running) void this.closeTicket(this.ticket);
+    }
     this.clearSchedule();
     this.cancelEnrichment();
     if (this.webRun) this.webRun.cancelled = true;
@@ -548,7 +567,8 @@ export class SyncService {
       enabled = false;
     }
     if (!enabled) return;
-    const run: WebRun = { cancelled: false, done: Promise.resolve() };
+    const generation = this.generation;
+    const run: WebRun = { cancelled: false, done: Promise.resolve(), isCurrent: () => generation === this.generation };
     const pauseMs = Math.max(SYNC_LOOKUP_PAUSE_MS, this.deps.lookupPauseMs ?? SYNC_LOOKUP_PAUSE_MS);
     const work = async () => {
       let rows: ReturnType<typeof dueLookups> = [];
@@ -559,11 +579,15 @@ export class SyncService {
       }
       let failures = 0;
       for (const row of rows) {
-        if (run.cancelled) return;
+        if (run.cancelled || !run.isCurrent()) return;
         const outcome = await this.deps.webClient().lookup({ sha256: row.sha256, filename: row.name }, pauseMs);
-        if (run.cancelled) return;
+        if (run.cancelled || !run.isCurrent()) return;
         try {
-          writeWebOutcome(db, row.directory, row.name, outcome, this.deps.now());
+          db.transaction(() => {
+            writeWebOutcome(db, row.directory, row.name, outcome, this.deps.now());
+            bumpCatalogRevision(db);
+          }).immediate();
+          this.emit(db);
         } catch {
           return;
         }
@@ -714,8 +738,8 @@ export class SyncService {
    * Files in the scope; with `onlyPending`, those still to read. A file is read when its header was read and,
    * where the server hands over description files, when the description next to it is the one last read.
    */
-  private scopeRows(db: Database.Database, scope: 'loaders' | 'all', onlyPending: boolean, sideFiles = false): EnrichRow[] {
-    const pending = onlyPending ? ` AND NOT (${readCondition(sideFiles)})` : '';
+  private scopeRows(db: Database.Database, scope: 'loaders' | 'all', onlyPending: boolean, sideFiles = false, refreshHeaders = true): EnrichRow[] {
+    const pending = onlyPending ? ` AND NOT (${readCondition(sideFiles, this.deps.now(), refreshHeaders)})` : '';
     return (scope === 'all'
       ? db.prepare(`SELECT ${ENRICH_COLUMNS} FROM model_catalog WHERE 1 = 1${pending}`).all()
       : db.prepare(
@@ -726,22 +750,33 @@ export class SyncService {
   /** Files in the enrichment scope, and how many are read (see scopeRows). */
   private metadataCounts(db: Database.Database): { done: number; total: number } {
     const { scope } = this.enrichmentSettings(db);
-    const sideFiles = readStateSafe(db)[SIDE_FILES_KEY] === '1';
+    const state = readStateSafe(db);
+    const sideFiles = state[SIDE_FILES_KEY] === '1';
     const where = scope === 'all' ? '' : `WHERE directory IN (${ENRICH_DIRECTORIES.map(() => '?').join(', ')})`;
-    const row = db.prepare(`SELECT COUNT(*) AS total, COUNT(CASE WHEN ${readCondition(sideFiles)} THEN 1 END) AS done FROM model_catalog ${where}`)
+    const row = db.prepare(`SELECT COUNT(*) AS total, COUNT(CASE WHEN ${readCondition(sideFiles, this.deps.now(), state.header_metadata_tool !== '0')} THEN 1 END) AS done FROM model_catalog ${where}`)
       .get(...(scope === 'all' ? [] : ENRICH_DIRECTORIES)) as { total: number; done: number };
     return { done: row.done, total: row.total };
+  }
+
+  private async closeTicket(ticket: RunTicket): Promise<void> {
+    const session = ticket.session;
+    ticket.session = null;
+    await session?.close().catch(() => undefined);
+  }
+
+  private isCurrent(ticket: RunTicket): boolean {
+    return !ticket.cancelled && !ticket.controller.signal.aborted && ticket.generation === this.generation;
   }
 
   private async execute(db: Database.Database, fetchImpl: typeof fetch, factory: McpSessionFactory): Promise<void> {
     const startedAt = this.deps.now();
     const url = this.deps.readUrl(db);
     const comfyOrigin = this.readComfyOriginSafe(db);
-    const ticket: RunTicket = { cancelled: false, session: null };
+    const ticket: RunTicket = { cancelled: false, session: null, controller: new AbortController(), generation: ++this.generation };
     this.ticket = ticket;
     // A run cancelled because the address changed leaves no result: the library stays marked as read from the old one.
     const finish = (values: Record<string, string>) => {
-      if (ticket.cancelled) return;
+      if (!this.isCurrent(ticket)) return;
       writeState(db, {
         ...values,
         ...(values.last_sync_at ? { library_url: url, library_comfy_origin: comfyOrigin } : {}),
@@ -786,8 +821,8 @@ export class SyncService {
     }
     const session = opened.session;
     ticket.session = session;
-    if (ticket.cancelled) {
-      await session.close().catch(() => undefined);
+    if (!this.isCurrent(ticket)) {
+      await this.closeTicket(ticket);
       return;
     }
     // Remembered so the indicator knows whether this server needs any credentials at all.
@@ -796,12 +831,29 @@ export class SyncService {
     try {
       this.setProgress(db, 'catalog', 0, 0);
       const now = this.deps.now();
-      const read = await readCatalogWithSession(db, session, fetchImpl, now, { mcpUrl: url, comfyOrigin });
+      const read = await readCatalogWithSession(db, session, fetchImpl, now, {
+        mcpUrl: url, comfyOrigin, signal: ticket.controller.signal, isCurrent: () => this.isCurrent(ticket),
+        publishState: (accepted) => {
+          if (!this.isCurrent(ticket)) throw new Error('Catalog collection cancelled');
+          const previousIdentity = storedJson<{ installation_id?: string | null }>(readStateSafe(db).server_identity ?? null, {});
+          writeState(db, {
+            server_identity: JSON.stringify({ ...identityRecord(accepted.identity), installation_id: accepted.identity.installationId ?? previousIdentity.installation_id ?? null }),
+            [SIDE_FILES_KEY]: accepted.toolNames.has('workspace_files') ? '1' : '0',
+            header_metadata_tool: (accepted.profile === 'catalog' ? accepted.toolNames.has('model_metadata') : accepted.direct != null) ? '1' : '0',
+            [MCP_PROFILE_KEY]: accepted.profile,
+            [LIBRARY_SOURCE_KEY]: accepted.direct || accepted.result.objectInfo === 'native' ? 'mcp+comfy' : 'mcp',
+            [COMFY_READ_ORIGIN_KEY]: accepted.direct?.origin ?? '',
+            [COMFY_MODEL_ROOTS_KEY]: '{}',
+          });
+          finish({ last_sync_at: String(now), last_error: '', last_warnings: JSON.stringify([...catalogWarnings(accepted.result, url), ...accepted.warnings]) });
+        },
+      });
+      if (!this.isCurrent(ticket)) return;
       if ('ok' in read) {
         // A server of no known kind: with a ComfyUI address, everything is read from ComfyUI, and the status says
         // why; without one, the sentence names the way forward. Never a green "connected".
         if (read.error === MCP_UNKNOWN_SERVER && comfyOrigin) {
-          await session.close().catch(() => undefined);
+          await this.closeTicket(ticket);
           await this.executeDirect(db, fetchImpl, comfyOrigin, startedAt, ticket, finish, [MCP_UNKNOWN_READ_COMFY], 'unknown');
           return;
         }
@@ -809,7 +861,7 @@ export class SyncService {
         finish({ last_error: redactSecrets(read.error) });
         return;
       }
-      writeState(db, { server_identity: JSON.stringify(identityRecord(read.identity)) });
+      this.emit(db);
       const warnings = [...catalogWarnings(read.result, url), ...read.warnings];
       const settings = this.enrichmentSettings(db);
       let resolve: () => void = () => undefined;
@@ -817,18 +869,14 @@ export class SyncService {
         resolve = settle;
       });
       const hasFiles = read.toolNames.has('workspace_files');
-      writeState(db, {
-        [SIDE_FILES_KEY]: hasFiles ? '1' : '0',
-        [MCP_PROFILE_KEY]: read.profile,
-        [LIBRARY_SOURCE_KEY]: read.direct ? 'mcp+comfy' : 'mcp',
-        [COMFY_READ_ORIGIN_KEY]: read.direct?.origin ?? '',
-        [COMFY_MODEL_ROOTS_KEY]: '{}',
-      });
-      if (hasFiles && read.toolNames.has('studio_capabilities')) await this.readPackInfo(db, session);
+      if (hasFiles && read.toolNames.has('studio_capabilities')) await this.readPackInfo(db, session, () => this.isCurrent(ticket));
+      if (!this.isCurrent(ticket)) return;
       // A server that gives no metadata tool of its own: the headers are read from the ComfyUI address, when read.
       const metadataFromComfy = read.profile !== 'catalog' && read.direct != null;
       const run: EnrichRun = {
-        session: metadataFromComfy && read.direct ? comfyMetadataSession(read.direct.origin, fetchImpl) : session,
+        isCurrent: () => this.isCurrent(ticket),
+        signal: ticket.controller.signal,
+        session: metadataFromComfy && read.direct ? comfyMetadataSession(read.direct.origin, fetchImpl, ticket.controller.signal) : session,
         startedAt,
         hasTool: metadataFromComfy || (read.profile === 'catalog' && read.toolNames.has('model_metadata')),
         hasFiles,
@@ -847,7 +895,7 @@ export class SyncService {
       const enrichError = run.attempted > 0 && run.failed === run.attempted ? ALL_FAILED : null;
       if (first.stopped && !enrichError) warnings.push(METADATA_STOPPED);
       finish({ last_sync_at: String(now), last_error: enrichError ?? '', last_warnings: JSON.stringify(warnings) });
-      if (ticket.cancelled) {
+      if (!this.isCurrent(ticket)) {
         resolve();
         return;
       }
@@ -863,7 +911,8 @@ export class SyncService {
       const signInLost = (authProvider as { signInRequired?: boolean } | null)?.signInRequired === true;
       finish({ last_error: signInLost ? MCP_SIGN_IN_AGAIN : classifySyncError(error, url) });
     } finally {
-      if (!handedOver) await session.close().catch(() => undefined);
+      if (!handedOver) await this.closeTicket(ticket);
+      else ticket.session = null;
     }
   }
 
@@ -892,25 +941,28 @@ export class SyncService {
     try {
       read = await readComfyDirect(db, comfyOrigin, fetchImpl, now, {
         onPhase: (phase, done, total) => this.setProgress(db, phase === 'catalog' ? 'catalog' : phase === 'models' ? 'models' : 'comfyPacks', done, total),
-        cancelled: () => ticket.cancelled,
+        cancelled: () => !this.isCurrent(ticket),
+        signal: ticket.controller.signal,
+        publishState: (accepted) => {
+          if (!this.isCurrent(ticket)) throw new Error('Catalog collection cancelled');
+          writeState(db, {
+            [SIDE_FILES_KEY]: '0', header_metadata_tool: '1', [MCP_PROFILE_KEY]: mcpProfile, [LIBRARY_SOURCE_KEY]: 'comfy',
+            [COMFY_READ_ORIGIN_KEY]: accepted.origin, [COMFY_MODEL_ROOTS_KEY]: JSON.stringify(accepted.roots),
+            server_identity: JSON.stringify({ installation_id: null, comfyui_url: accepted.origin }),
+          });
+          finish({ last_sync_at: String(now), last_error: '', last_warnings: JSON.stringify([...extraWarnings, ...accepted.warnings, ...accepted.failedFolders.map(folderUnreadWarning)]) });
+        },
       });
     } catch {
       read = { ok: false, error: 'Comfy origin was not read.' };
     }
-    if (ticket.cancelled) return;
+    if (!this.isCurrent(ticket)) return;
     if (!read.ok) {
       writeState(db, { [MCP_PROFILE_KEY]: mcpProfile });
       finish({ last_error: redactSecrets(read.error) });
       return;
     }
-    writeState(db, {
-      [SIDE_FILES_KEY]: '0',
-      [MCP_PROFILE_KEY]: mcpProfile,
-      [LIBRARY_SOURCE_KEY]: 'comfy',
-      [COMFY_READ_ORIGIN_KEY]: read.origin,
-      [COMFY_MODEL_ROOTS_KEY]: JSON.stringify(read.roots),
-      server_identity: JSON.stringify({ installation_id: null, comfyui_url: read.origin }),
-    });
+    this.emit(db);
     const warnings = [...extraWarnings, ...read.warnings, ...read.failedFolders.map(folderUnreadWarning)];
     const settings = this.enrichmentSettings(db);
     let resolve: () => void = () => undefined;
@@ -918,7 +970,9 @@ export class SyncService {
       resolve = settle;
     });
     const run: EnrichRun = {
-      session: comfyMetadataSession(read.origin, fetchImpl),
+      isCurrent: () => this.isCurrent(ticket),
+      signal: ticket.controller.signal,
+      session: comfyMetadataSession(read.origin, fetchImpl, ticket.controller.signal),
       startedAt,
       hasTool: true,
       hasFiles: false,
@@ -943,7 +997,7 @@ export class SyncService {
     const enrichError = run.attempted > 0 && run.failed === run.attempted ? ALL_FAILED : null;
     if (first.stopped && !enrichError) warnings.push(METADATA_STOPPED);
     finish({ last_sync_at: String(now), last_error: enrichError ?? '', last_warnings: JSON.stringify(warnings) });
-    if (ticket.cancelled) {
+    if (!this.isCurrent(ticket)) {
       resolve();
       return;
     }
@@ -959,14 +1013,15 @@ export class SyncService {
    * Whether ComfyUI has a preview picture for a file (its preview route answers with one). When it has, the row is
    * marked so the library shows a picture there; the card asks for it again (it is kept then). Never throws.
    */
-  private async askComfyPreview(db: Database.Database, source: NonNullable<EnrichRun['comfyPreviews']>, row: EnrichRow): Promise<void> {
+  private async askComfyPreview(source: NonNullable<EnrichRun['comfyPreviews']>, row: EnrichRow, signal: AbortSignal): Promise<number | null> {
     try {
       const index = row.root_path ? (source.roots[row.directory] ?? []).indexOf(row.root_path) : -1;
-      if (index < 0) return;
-      const found = await readComfyPreview(source.origin, row.directory, index, row.name, source.fetchImpl);
-      if (found) db.prepare('UPDATE model_catalog SET preview_file = ?, preview_sig = ? WHERE directory = ? AND name = ?').run(COMFY_PREVIEW_FILE, String(found.bytes.length), row.directory, row.name);
+      if (index < 0) return null;
+      const found = await readComfyPreview(source.origin, row.directory, index, row.name, source.fetchImpl, signal);
+      return found?.bytes.length ?? null;
     } catch {
       // No picture is shown; the file is read like any other.
+      return null;
     }
   }
 
@@ -976,23 +1031,28 @@ export class SyncService {
    * or commit), are read, one after another; on a server that has not changed this asks one question at most.
    * Nothing here ever fails the run: a pack whose read broke on the way is tried again at the next sync.
    */
-  private async readPackInfo(db: Database.Database, session: McpSession): Promise<void> {
+  private async readPackInfo(db: Database.Database, session: McpSession, isCurrent: () => boolean): Promise<void> {
     try {
       const due = packsDueForInfo(db).filter((pack) => !CORE_PACKS.has(pack.name)).slice(0, PACK_INFO_PER_RUN);
       if (due.length === 0) return;
       const roots = await readCustomNodeRoots(session);
-      if (roots.length === 0) return;
+      if (!isCurrent() || roots.length === 0) return;
       let failures = 0;
       for (const [index, pack] of due.entries()) {
         this.setProgress(db, 'packs', index, due.length);
+        if (!isCurrent()) return;
         const info = await readPackFiles(session, roots, pack.name);
+        if (!isCurrent()) return;
         if (!info) {
           failures += 1;
           if (failures >= MAX_CONSECUTIVE_FAILURES) break;
           continue;
         }
         failures = 0;
-        writePackInfo(db, pack.name, info, packInfoSig(pack), this.deps.now());
+        db.transaction(() => {
+          writePackInfo(db, pack.name, info, packInfoSig(pack), this.deps.now());
+          bumpCatalogRevision(db);
+        }).immediate();
       }
       this.setProgress(db, 'packs', due.length, due.length);
     } catch {
@@ -1004,10 +1064,10 @@ export class SyncService {
     this.background = run;
     const step = async () => {
       run.timer = null;
-      if (run.cancelled) return;
+      if (run.cancelled || !run.isCurrent()) return;
       try {
         const result = await this.enrichBatch(db, run, 'enrichment');
-        if (run.cancelled) return;
+        if (run.cancelled || !run.isCurrent()) return;
         if (result.stopped) {
           const warnings = readWarnings(readState(db));
           if (!warnings.includes(METADATA_STOPPED)) writeState(db, { last_warnings: JSON.stringify([...warnings, METADATA_STOPPED]) });
@@ -1019,7 +1079,7 @@ export class SyncService {
         run.timer = setTimeout(() => void step(), run.pauseMs);
         run.timer.unref?.();
       } catch (error) {
-        if (run.cancelled) return;
+        if (run.cancelled || !run.isCurrent()) return;
         try {
           writeState(db, { last_error: error instanceof McpRefusedError ? redactSecrets(error.message) : classifySyncError(error, this.deps.readUrl(db)) });
         } catch {
@@ -1038,7 +1098,7 @@ export class SyncService {
     this.background = null;
     void run.session.close().catch(() => undefined);
     run.resolve();
-    this.startWebLookups(db, run.startedAt);
+    if (!run.cancelled && run.isCurrent()) this.startWebLookups(db, run.startedAt);
     try {
       this.emit(db);
     } catch {
@@ -1054,7 +1114,7 @@ export class SyncService {
   private async enrichBatch(db: Database.Database, run: EnrichRun, phase: 'enrich' | 'enrichment'): Promise<{ remaining: number; stopped: boolean }> {
     const now = this.deps.now();
     const failures = readFailures(readState(db));
-    const due = this.scopeRows(db, run.scope, true, run.hasFiles)
+    const due = this.scopeRows(db, run.scope, true, run.hasFiles, run.hasTool)
       .filter((row) => {
         const failure = failures[`${row.directory}/${row.name}`];
         return !failure || now - failure.lastAt >= enrichBackoffMs(failure.attempts);
@@ -1067,7 +1127,7 @@ export class SyncService {
     let stopped = false;
     try {
       for (const [index, row] of rows.entries()) {
-        if (run.cancelled) break;
+        if (run.cancelled || !run.isCurrent()) break;
         if (phase === 'enrich') this.setProgress(db, 'enrich', index, rows.length);
         else this.emit(db);
         const key = `${row.directory}/${row.name}`;
@@ -1080,11 +1140,11 @@ export class SyncService {
           failures[key] = { attempts: (previous?.attempts ?? 0) + 1, lastAt: this.deps.now() };
           return run.consecutiveFailures >= MAX_CONSECUTIVE_FAILURES;
         };
-        const headerDue = row.enriched_at == null;
+        const headerDue = row.enriched_at == null || (run.hasTool && isHeaderFile(row.name) && now - row.enriched_at >= HEADER_REFRESH_MS);
         let parsed: ParsedModelMetadata | null = null;
         if (headerDue && run.hasTool && isHeaderFile(row.name)) {
           parsed = await readMetadata(run.session, row.directory, row.name);
-          if (run.cancelled) break;
+          if (run.cancelled || !run.isCurrent()) break;
           run.attempted += 1;
           if (!parsed) {
             if (failed()) {
@@ -1101,7 +1161,7 @@ export class SyncService {
         const sidePath = run.hasFiles ? sideFilePath(row.root_path, row.sidecar_file) : null;
         if (sidePath) {
           const read = await readSidecar(run.session, sidePath);
-          if (run.cancelled) break;
+          if (run.cancelled || !run.isCurrent()) break;
           run.attempted += 1;
           if (!read.ok) {
             if (failed()) {
@@ -1114,24 +1174,27 @@ export class SyncService {
           side = read.side;
         }
         delete failures[key];
-        if (headerDue && run.comfyPreviews) {
-          await this.askComfyPreview(db, run.comfyPreviews, row);
-          if (run.cancelled) break;
-        }
-        const sidecar = run.hasFiles ? { notes: side?.notes ?? EMPTY_NOTES, readSig: row.sidecar_sig ?? null } : undefined;
-        if (headerDue) {
-          writeModelEnrichment(db, row.directory, row.name, { ...enrichmentOf(row.directory, row.name, parsed, side?.facts ?? null, this.deps.now()), sidecar });
-        } else if (sidecar && side) {
-          // The header was read at an earlier run; what the description says is laid over what was stored then.
-          writeModelEnrichment(db, row.directory, row.name, { ...enrichmentOver(row, side.facts), sidecar });
-        } else if (sidecar) {
-          writeModelNotes(db, row.directory, row.name, sidecar.notes, sidecar.readSig);
-        }
+        const previewSize = headerDue && run.comfyPreviews ? await this.askComfyPreview(run.comfyPreviews, row, run.signal) : null;
+        if (run.cancelled || !run.isCurrent()) break;
+        db.transaction(() => {
+          if (previewSize !== null) db.prepare('UPDATE model_catalog SET preview_file = ?, preview_sig = ? WHERE directory = ? AND name = ?').run(COMFY_PREVIEW_FILE, String(previewSize), row.directory, row.name);
+          const sidecar = run.hasFiles ? { notes: side?.notes ?? EMPTY_NOTES, readSig: row.sidecar_sig ?? null } : undefined;
+          if (headerDue) {
+            writeModelEnrichment(db, row.directory, row.name, { ...enrichmentOf(row.directory, row.name, parsed, side?.facts ?? null, this.deps.now()), sidecar });
+          } else if (sidecar && side) {
+            // The header was read at an earlier run; what the description says is laid over what was stored then.
+            writeModelEnrichment(db, row.directory, row.name, { ...enrichmentOver(row, side.facts), sidecar });
+          } else if (sidecar) {
+            writeModelNotes(db, row.directory, row.name, sidecar.notes, sidecar.readSig);
+          }
+          bumpCatalogRevision(db);
+        }).immediate();
         handled += 1;
       }
     } finally {
-      writeState(db, { [ENRICH_FAILURES_KEY]: JSON.stringify(failures) });
+      if (!run.cancelled && run.isCurrent()) writeState(db, { [ENRICH_FAILURES_KEY]: JSON.stringify(failures) });
     }
+    if (run.cancelled || !run.isCurrent()) return { remaining: 0, stopped: true };
     if (phase === 'enrich' && rows.length > 0) this.setProgress(db, 'enrich', handled, rows.length);
     return { remaining: due.length - handled, stopped };
   }
@@ -1218,10 +1281,10 @@ interface EnrichRow {
 }
 
 /** SQL for "this file is read": its header, and with `sideFiles` the description next to it as the listing has it. */
-function readCondition(sideFiles: boolean): string {
-  return sideFiles
-    ? "enriched_at IS NOT NULL AND COALESCE(sidecar_sig, '') = COALESCE(sidecar_read_sig, '')"
-    : 'enriched_at IS NOT NULL';
+function readCondition(sideFiles: boolean, now: number, refreshHeaders = true): string {
+  const cutoff = (Number.isFinite(now) ? now : Date.now()) - HEADER_REFRESH_MS;
+  const headerRead = refreshHeaders ? `enriched_at IS NOT NULL AND (enriched_at > ${cutoff} OR (LOWER(name) NOT LIKE '%.safetensors' AND LOWER(name) NOT LIKE '%.sft'))` : 'enriched_at IS NOT NULL';
+  return sideFiles ? `${headerRead} AND COALESCE(sidecar_sig, '') = COALESCE(sidecar_read_sig, '')` : headerRead;
 }
 
 /**

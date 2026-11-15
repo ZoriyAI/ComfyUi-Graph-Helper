@@ -18,8 +18,8 @@ const GENERIC_NAME = 'ComfyUI graph tutor';
 const SUMMARY = 'learn to build ComfyUI graphs with a read-only helper';
 const LONG_DESCRIPTION = [
   'Graph Helper for ComfyUI is a desktop helper for people new to ComfyUI.',
-  'It reads the nodes and models you have through the MCP server next to your',
-  'ComfyUI, never changes anything there, and helps you build and understand a',
+  'It reads the nodes and models from your ComfyUI directly, with optional MCP',
+  'for extra metadata, never changes anything there, and helps you understand a',
   'graph: a canvas, built-in lessons and an assistant that explains every step.',
   'What you save for ComfyUI is a plain workflow JSON file.',
 ].join('\n');

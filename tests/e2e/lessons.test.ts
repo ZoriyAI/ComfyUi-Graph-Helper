@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { startFakeMcp, type FakeMcp } from '../fixtures/mcp/fakeMcpServer';
+import { lessonGroups } from '../../src/shared/lessons/navigation';
 import { LESSONS } from '../../src/shared/lessons/lessons';
 import { expectSoundLayout } from './layoutProfile';
 import { useEnglish } from './locale';
@@ -110,6 +111,13 @@ test('lessons: the list fits ComfyUI, a lesson is followed by hand, and the grap
     // The list: every lesson, each fitting this ComfyUI, none started.
     await expect(panel(page)).toHaveAttribute('data-lesson', 'list');
     await expect(panel(page).locator('[data-lesson-card]')).toHaveCount(LESSONS.length);
+    await expect(panel(page).locator('[data-lesson-group]')).toHaveCount(lessonGroups().length);
+    // Every dependency is navigable without completing a predecessor.
+    await panel(page).locator('[data-lesson-card="tags"]').getByRole('link').first().click();
+    await expect(panel(page).locator('[data-lesson-card="sdxl"]')).toBeFocused();
+    await panel(page).locator('[data-lesson-card="sdxl"]').getByRole('button', { name: 'Start', exact: true }).click();
+    await stepIs(page, 'intro');
+    await panel(page).getByRole('button', { name: 'All lessons', exact: true }).click();
     for (const lesson of LESSONS) await expect(panel(page).locator(`[data-lesson-card="${lesson.id}"]`)).toHaveAttribute('data-lesson-state', 'new');
     await expect(panel(page).getByText('Connect ComfyUI and read it first')).toHaveCount(0);
     // The mode says what it is, and there is no message field in it.
@@ -330,11 +338,11 @@ test('lessons: a video lesson is carried through, the choices that are the perso
     // The next lesson stands on this graph: most of it is already there.
     await panel(page).getByRole('button', { name: 'All lessons', exact: true }).click();
     await expect(panel(page).locator('[data-lesson-card="video-text"]')).toContainText('Done');
-    await expect(panel(page).locator('[data-lesson-card="lora"]')).toContainText('Goes on from the lesson "Video from text".');
+    await expect(panel(page).locator('[data-lesson-card="lora"]')).toContainText('Video from text');
 
     // The lesson on adult content stands on the same graph and asks for nothing more on the canvas. The subject
     // may come from a further-trained pair of models chosen in the two loaders, so the lesson asks for no LoRA.
-    await expect(panel(page).locator('[data-lesson-card="adult"]')).toContainText('Goes on from the lesson "Video from text".');
+    await expect(panel(page).locator('[data-lesson-card="adult"]')).toContainText('Video from text');
     await panel(page).locator('[data-lesson-card="adult"]').getByRole('button', { name: 'Start', exact: true }).click();
     const adult = LESSONS.find((item) => item.id === 'adult')!;
     const readOn = async (until: string): Promise<string[]> => {
@@ -469,10 +477,10 @@ test('lessons: descriptions, a second pass and a picture model in front of a vid
   try {
     await openLearn(page);
     // The list offers ten lessons, each new one saying which graph it goes on from.
-    await expect(panel(page).locator('[data-lesson-card="prompt"]')).toContainText('Goes on from the lesson "A first picture from text".');
-    await expect(panel(page).locator('[data-lesson-card="refine"]')).toContainText('Goes on from the lesson "A first picture from text".');
-    await expect(panel(page).locator('[data-lesson-card="prompt-video"]')).toContainText('Goes on from the lesson "Video from text".');
-    await expect(panel(page).locator('[data-lesson-card="two-models"]')).toContainText('Goes on from the lesson "Video from a picture".');
+    await expect(panel(page).locator('[data-lesson-card="prompt"]')).toContainText('A first picture from text');
+    await expect(panel(page).locator('[data-lesson-card="refine"]')).toContainText('A first picture from text');
+    await expect(panel(page).locator('[data-lesson-card="prompt-video"]')).toContainText('Video from text');
+    await expect(panel(page).locator('[data-lesson-card="two-models"]')).toContainText('Video from a picture');
 
     // ---- Pictures: the first graph, then what a description is, then a second model over the first ----
     await startLesson(page, 'image');
@@ -608,7 +616,7 @@ test('lessons: a video on WanVideoWrapper is carried through, from text and then
   try {
     await openLearn(page);
     await expect(panel(page).locator('[data-lesson-card="wrapper"]')).toHaveAttribute('data-lesson-state', 'new');
-    await expect(panel(page).locator('[data-lesson-card="wrapper-image"]')).toContainText('Goes on from the lesson "Video on WanVideoWrapper".');
+    await expect(panel(page).locator('[data-lesson-card="wrapper-image"]')).toContainText('Video on WanVideoWrapper');
     await startLesson(page, 'wrapper');
     await carry(page, api, 'wrapper', async (stepId) => {
       await expectSoundLayout(page, `lessons, WanVideoWrapper: ${stepId}`, wide);

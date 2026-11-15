@@ -93,3 +93,37 @@ describe('default file names', () => {
       .toEqual({ project: '/work/a/fox.graph-helper.json', workflow: '/work/a/Fox.json' });
   });
 });
+
+describe('empty-root and captured-save regressions', () => {
+  it('keeps last-node deletion dirty even though the root is empty', () => {
+    const db = open();
+    commit(db, { type: 'add-node', nodeType: 'KSampler' });
+    rememberProjectFile(db, DESKTOP_PROJECT_ID, '/tmp/saved.json');
+    commit(db, { type: 'remove-node', nodeId: '1' });
+    expect(projectFileState(db, DESKTOP_PROJECT_ID)).toMatchObject({ dirty: true, empty: true });
+  });
+  it('treats definitions and process-only projects as meaningful unsaved content', async () => {
+    const { nestedSubgraphWorkflow } = await import('../e2e/fixtures/nestedSubgraphWorkflow');
+    const db = open();
+    commit(db, { type: 'import-workflow', document: { ...nestedSubgraphWorkflow, nodes: [], links: [] } });
+    expect(projectFileState(db, DESKTOP_PROJECT_ID)).toMatchObject({ dirty: true, empty: false });
+    commit(db, { type: 'import-workflow', document: EMPTY });
+    expect(projectFileState(db, DESKTOP_PROJECT_ID).dirty).toBe(false);
+    commit(db, { type: 'set-process', title: 'Only metadata', notes: '' });
+    expect(projectFileState(db, DESKTOP_PROJECT_ID)).toMatchObject({ dirty: true, empty: false });
+  });
+  it('records the content actually written when a save dialog overlapped an edit or graph replacement', () => {
+    const db = open();
+    commit(db, { type: 'add-node', nodeType: 'KSampler' });
+    const saved = readProjection(db, DESKTOP_PROJECT_ID)!;
+    const written = { graphKey: projectFileState(db, DESKTOP_PROJECT_ID).graphKey, digest: contentDigest(saved.snapshot) };
+    commit(db, { type: 'move-node', nodeId: '1', x: 123, y: 456 });
+    rememberProjectFile(db, DESKTOP_PROJECT_ID, '/tmp/earlier.json', written);
+    expect(projectFileState(db, DESKTOP_PROJECT_ID).dirty).toBe(true);
+    commit(db, { type: 'restore-revision', revisionId: saved.currentRevisionId });
+    expect(projectFileState(db, DESKTOP_PROJECT_ID).dirty).toBe(false);
+    commit(db, { type: 'import-workflow', document: EMPTY });
+    rememberProjectFile(db, DESKTOP_PROJECT_ID, '/tmp/earlier.json', written);
+    expect(projectFileState(db, DESKTOP_PROJECT_ID).filePath).toBeNull();
+  });
+});

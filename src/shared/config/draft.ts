@@ -4,6 +4,8 @@ const SECRET_FIELD = /^(api[_-]?key|token|secret|password|authorization|credenti
 
 const KEYISH = '(?:api[_-]?key|apikey|access[_-]?token|auth[_-]?token|token|secret|password|passwd|credential|private[_-]?key|client[_-]?secret)';
 
+const SECRET_QUOTED_FIELD = new RegExp(`^${KEYISH}$`, 'i');
+
 /**
  * Secret shapes. Where a pattern captures a prefix (group 1: "Bearer ", "api_key=", "token: "), the prefix stays
  * readable and only the value is replaced. Provider keys are anchored on a
@@ -47,6 +49,11 @@ export function redactSecrets(text: string): string {
     result = result.replace(pattern, (_match: string, prefix?: unknown) => (typeof prefix === 'string' ? `${prefix}[redacted]` : '[redacted]'));
   }
   return result;
+}
+
+/** A string field uses the same key-aware policy as a quoted JSON key/value in free text. */
+export function redactFieldValue(key: string, value: string): string {
+  return value !== '' && SECRET_QUOTED_FIELD.test(key) ? '[redacted]' : redactSecrets(value);
 }
 
 /** True when free text holds a secret shape. */

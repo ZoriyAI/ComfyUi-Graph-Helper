@@ -47,10 +47,9 @@ function rejectedReason(result: unknown, fallback: string): string {
 
 /**
  * True when the graph on screen would be lost from the canvas by replacing it and is not in a project file as it
- * stands (main/projectFiles.ts). An empty canvas never asks.
+ * stands (main/projectFiles.ts). Pristine New projects do not ask.
  */
 async function replacingNeedsAsk(): Promise<boolean> {
-  if (useGraphStore.getState().nodes.length === 0) return false;
   const state = await refreshProjectFile();
   return state ? state.dirty : graphIsDirty();
 }
@@ -86,6 +85,7 @@ export async function importWorkflowNow(): Promise<void> {
     catalogNotRead: (useKnowledgeStore.getState().sync?.counts.nodeClasses ?? 0) === 0,
   });
 }
+
 
 export async function importCatalogSnapshot(): Promise<void> {
   const result = await window.electronAPI.importCatalog();
@@ -235,7 +235,7 @@ export function selectAllNodes(): void {
   selectOnLevel('all');
 }
 
-/** Removes the selected nodes and links, one commit each so every step stays in the history. */
+/** Removes the selected nodes and links as one revision, so one undo restores the whole selection. */
 export async function deleteSelection(): Promise<void> {
   const nodes = selectedNodes().map((node) => node.id);
   const removed = new Set(nodes);

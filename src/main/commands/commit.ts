@@ -15,6 +15,8 @@ import { defaultParameters, widgetIndexFor } from '../../shared/catalog/objectIn
 import type { CatalogView } from '../../shared/catalog/types';
 import { ensureCatalog, readCatalog } from '../catalog/repository';
 import { portsCompatible } from '../../shared/graph/linkTypes';
+import { validEdgeEndpoints } from '../../shared/graph/structure';
+import { createsCycle } from '../../shared/graph/cycles';
 import { portsForClassType } from '../../shared/graph/ports';
 import {
   EMPTY_PROCESS,
@@ -29,10 +31,11 @@ import {
 import { DESKTOP_PROJECT_ID } from '../../shared/project';
 import { withCollapsed } from '../../shared/workflow/comfyLook';
 import { parseNativeProject } from '../../shared/native-project';
-import type { GroupRecord, SubgraphDefinition } from '../../shared/graph/subgraphs';
+import { nestsItself, type GroupRecord, type SubgraphDefinition } from '../../shared/graph/subgraphs';
 import { applyGraphOp, blankDocument, GraphOpError, Ids, isGraphOp } from './graphOps';
 import { applyInnerEdit, keepDefinitionCounters } from './innerEdits';
-import { applyMoveNodes, placeHelperNode, placeHelperSubgraph, runCreatedNodeIds, tidyMoves } from './placement';
+import { applyMoveNodes, classHints, nodeRectOf, placeHelperNode, placeHelperSubgraph, runCreatedNodeIds, tidyMoves } from './placement';
+import { boundsOfRects, findFreeSlot } from '../../shared/graph/layout';
 import { supersedeAllOpen, supersedeForMissingNodes } from '../proposals/supersede';
 import { explanationsAfterCommit, graphKeyOf } from '../knowledge/projectExplanations';
 import { EXPLANATIONS_EXTENSION } from '../../shared/knowledge/projectExplanations';
@@ -307,6 +310,158 @@ function outputPort(node: Record<string, any>, handle: string): { dataType: stri
   return portById(node, 'outputs', handle);
 }
 
+function removeSelection(
+  snapshot: Snapshot,
+  payload: Extract<GraphMutation, { type: 'remove-selection' }>,
+): { snapshot: Snapshot; result: Record<string, unknown> } {
+  const nodeIds = new Set(payload.nodeIds);
+  const selectedEdgeIds = new Set(payload.edgeIds);
+  const presentNodes = new Set(snapshot.nodes.map((node) => String(node.id)));
+  const presentEdges = new Set(snapshot.edges.map((edge) => String(edge.id)));
+  for (const id of nodeIds) if (!presentNodes.has(id)) throw new CommandSignal('rejected', { error: 'Node was not found.' });
+  for (const id of selectedEdgeIds) if (!presentEdges.has(id)) throw new CommandSignal('rejected', { error: 'Connection was not found.' });
+  const removedEdgeIds = snapshot.edges
+    .filter((edge) => selectedEdgeIds.has(String(edge.id)) || nodeIds.has(String(edge.source)) || nodeIds.has(String(edge.target)))
+    .map((edge) => String(edge.id));
+  return {
+    snapshot: {
+      ...snapshot,
+      nodes: snapshot.nodes.filter((node) => !nodeIds.has(String(node.id))),
+      edges: snapshot.edges.filter((edge) => !removedEdgeIds.includes(String(edge.id))),
+    },
+    result: { nodeIds: [...nodeIds], edgeIds: removedEdgeIds },
+  };
+}
+
+function clipboardNode(raw: Record<string, unknown>, subgraphs: SubgraphDefinition[], destinationDefinitionId?: string): Record<string, any> {
+  const node = structuredClone(raw) as Record<string, any>;
+  if (
+    typeof node.id !== 'string' || node.id === ''
+    || !Number.isFinite(node.position?.x) || !Number.isFinite(node.position?.y)
+    || typeof node.data?.comfyType !== 'string' || node.data.comfyType === ''
+  ) {
+    throw new CommandSignal('rejected', { error: 'Clipboard data is not valid.' });
+  }
+  if (node.data.kind === 'subgraph-instance' || subgraphs.some((item) => item.id === node.data.comfyType)) {
+    // Class identity and the engine's registry decide nesting, never clipboard-supplied kind/destination flags.
+    const definitionId = String(node.data.comfyType);
+    if (node.data.subgraphId && node.data.subgraphId !== definitionId) throw new CommandSignal('rejected', { error: 'Clipboard data is not valid.' });
+    const definition = subgraphs.find((item) => item.id === definitionId && !item.opaque);
+    if (!definition) throw new CommandSignal('rejected', { error: 'The pasted subgraph definition was not found.' });
+    node.data.kind = 'subgraph-instance';
+    node.data.subgraphId = definitionId;
+    if (destinationDefinitionId && nestsItself(subgraphs, destinationDefinitionId, definitionId)) {
+      throw new CommandSignal('rejected', { error: 'A subgraph cannot contain itself.' });
+    }
+  }
+  return node;
+}
+
+function pasteSelection(
+  snapshot: Snapshot,
+  payload: Extract<GraphMutation, { type: 'paste-selection' }>,
+  catalog: CatalogView,
+  context?: { definitions: SubgraphDefinition[]; destinationId: string },
+): { snapshot: Snapshot; result: Record<string, unknown> } {
+  const sourceNodes = payload.nodes.map((node) => clipboardNode(node, context?.definitions ?? snapshot.subgraphs ?? [], context?.destinationId));
+  const sourceIds = new Set(sourceNodes.map((node) => String(node.id)));
+  const sourceEdges = payload.edges.map((raw) => {
+    const edge = structuredClone(raw) as Record<string, any>;
+    if (
+      typeof edge.source !== 'string' || typeof edge.target !== 'string'
+      || typeof edge.sourceHandle !== 'string' || typeof edge.targetHandle !== 'string'
+      || !sourceIds.has(edge.source) || !sourceIds.has(edge.target)
+    ) {
+      throw new CommandSignal('rejected', { error: 'Clipboard data is not valid.' });
+    }
+    return edge;
+  });
+  if (sourceIds.size !== sourceNodes.length || sourceEdges.some((edge) => !validEdgeEndpoints(sourceNodes, edge))) {
+    throw new CommandSignal('rejected', { error: 'Clipboard connection endpoints are not valid.' });
+  }
+  const hints = classHints(catalog);
+  const bounds = boundsOfRects(sourceNodes.map((node) => nodeRectOf(node, hints)));
+  if (!bounds) throw new CommandSignal('rejected', { error: 'Clipboard data is not valid.' });
+  const obstacles = snapshot.nodes.map((node) => nodeRectOf(node, hints));
+  const spot = findFreeSlot(
+    obstacles,
+    { x: bounds.x + payload.offsetX, y: bounds.y + payload.offsetY },
+    { width: bounds.width, height: bounds.height },
+  );
+  const dx = spot.x - bounds.x;
+  const dy = spot.y - bounds.y;
+  const work: Snapshot = {
+    ...snapshot,
+    nodes: snapshot.nodes.map((node) => ({ ...node, data: { ...node.data }, position: { ...node.position } })),
+    edges: snapshot.edges.map((edge) => ({ ...edge })),
+  };
+  const ids = new Ids(work);
+  const taken = new Set(work.nodes.map((node) => String(node.id)));
+  const idMap = new Map<string, string>();
+  const addedNodes = sourceNodes.map((source) => {
+    const oldId = String(source.id);
+    const nodeId = ids.node(taken);
+    taken.add(nodeId);
+    idMap.set(oldId, nodeId);
+    const x = source.position.x + dx;
+    const y = source.position.y + dy;
+    const comfy = source.data.comfy && typeof source.data.comfy === 'object'
+      ? structuredClone(source.data.comfy) as Record<string, any>
+      : { type: source.data.comfyType, flags: {}, order: 0, mode: 0, properties: {} };
+    comfy.id = Number(nodeId);
+    comfy.pos = [x, y];
+    if (Array.isArray(comfy.inputs)) comfy.inputs = comfy.inputs.map((input: Record<string, unknown>) => ({ ...input, link: null }));
+    if (Array.isArray(comfy.outputs)) comfy.outputs = comfy.outputs.map((output: Record<string, unknown>) => ({ ...output, links: [] }));
+    const data = { ...source.data, comfy };
+    delete data.importedLinks;
+    return {
+      ...source,
+      id: nodeId,
+      type: 'comfy',
+      position: { x, y },
+      selected: false,
+      dragging: false,
+      measured: undefined,
+      data,
+    } as Record<string, any>;
+  });
+  const addedEdges = sourceEdges.map((source) => {
+    const linkId = ids.link();
+    const sourceId = idMap.get(source.source)!;
+    const targetId = idMap.get(source.target)!;
+    const dataType = typeof source.data?.dataType === 'string' ? source.data.dataType : 'unknown';
+    const originId = /^\d+$/.test(sourceId) ? Number(sourceId) : sourceId;
+    const targetIdValue = /^\d+$/.test(targetId) ? Number(targetId) : targetId;
+    const originSlot = numericSlot(source.sourceHandle);
+    const targetSlot = numericSlot(source.targetHandle);
+    if (originSlot === null || targetSlot === null) throw new CommandSignal('rejected', { error: 'Connection slots must be numbers.' });
+    const native = source.data?.comfyLink;
+    const comfyLink = work.document?.formatVersion === 0.4
+      ? Object.assign(Array.isArray(native) ? structuredClone(native) : [], [linkId, originId, originSlot, targetIdValue, targetSlot, dataType])
+      : { ...(native && !Array.isArray(native) ? structuredClone(native) : {}), id: linkId, origin_id: originId, origin_slot: originSlot, target_id: targetIdValue, target_slot: targetSlot, type: dataType };
+    return {
+      ...source,
+      id: `link-${linkId}`,
+      source: sourceId,
+      target: targetId,
+      sourceHandle: source.sourceHandle,
+      targetHandle: source.targetHandle,
+      selected: false,
+      data: { ...source.data, dataType, linkId, comfyLink },
+    };
+  });
+  work.nodes.push(...addedNodes);
+  work.edges.push(...addedEdges);
+  return {
+    snapshot: work,
+    result: {
+      nodeIds: addedNodes.map((node) => String(node.id)),
+      edgeIds: addedEdges.map((edge) => String(edge.id)),
+      idMap: Object.fromEntries(idMap),
+    },
+  };
+}
+
 function stampComponentAuthor(snapshot: Snapshot, payload: { ownerKind: string; ownerId: string }, author: 'user' | 'assistant'): void {
   snapshot.components = (snapshot.components ?? []).map((record) => (
     record.ownerKind === payload.ownerKind && record.ownerId === payload.ownerId ? { ...record, author } : record
@@ -351,10 +506,10 @@ function applyBatch(snapshot: Snapshot, actionId: string, edits: Array<Record<st
     results.push(applied.result);
     added.push(addedNodeId(applied.result));
   });
-  return { snapshot: current, result: { results, nodeIds: added.filter((id): id is string => id !== null) } };
+  return { snapshot: current, result: { results, nodeIds: results.flatMap((result, index) => Array.isArray(result.nodeIds) ? result.nodeIds.map(String) : added[index] ? [added[index]!] : []) } };
 }
 
-function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutation, catalog: CatalogView): { snapshot: Snapshot; result: Record<string, unknown> } {
+function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutation, catalog: CatalogView, context?: { definitions: SubgraphDefinition[]; destinationId: string }): { snapshot: Snapshot; result: Record<string, unknown> } {
   if (payload.type === 'batch') return applyBatch(snapshot, actionId, payload.edits, catalog);
   const nodes: Array<Record<string, any>> = snapshot.nodes.map((node) => ({
     ...node,
@@ -362,6 +517,8 @@ function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutat
     position: { ...node.position },
   }));
   const edges: Array<Record<string, any>> = snapshot.edges.map((edge) => ({ ...edge }));
+  if (payload.type === 'remove-selection') return removeSelection(snapshot, payload);
+  if (payload.type === 'paste-selection') return pasteSelection(snapshot, payload, catalog, context);
   if (payload.type === 'add-node') {
     const work: GraphSnapshot = { nodes, edges, document: snapshot.document, subgraphs: snapshot.subgraphs };
     const nodeId = new Ids(work).node(new Set(nodes.map((node) => String(node.id))));
@@ -471,6 +628,9 @@ function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutat
     if (!portsCompatible(output.dataType, input.dataType)) {
       throw new CommandSignal('rejected', { error: 'Port types cannot be connected.' });
     }
+    if (createsCycle(edges.filter((item) => item !== edge).map((item) => ({ source: String(item.source), target: String(item.target) })), String(edge.source), payload.target)) {
+      throw new CommandSignal('rejected', { error: 'Connection would create a cycle.' });
+    }
     edge.target = payload.target;
     edge.targetHandle = payload.targetHandle;
     // An input takes one link: the edge that held it is replaced, as in ComfyUI.
@@ -547,7 +707,7 @@ function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutat
     // The same rules as on the root canvas, run on the definition's inner graph with the definition's own id
     // counters, then written back into the definition (innerEdits.ts). The root canvas keeps its nodes and edges.
     try {
-      const inner = applyInnerEdit(snapshot as GraphSnapshot, actionId, payload, catalog, (level, id, edit, view) => applyMutation(level as Snapshot, id, edit, view) as { snapshot: GraphSnapshot; result: Record<string, unknown> });
+      const inner = applyInnerEdit(snapshot as GraphSnapshot, actionId, payload, catalog, (level, id, edit, view) => applyMutation(level as Snapshot, id, edit, view, { definitions: snapshot.subgraphs ?? [], destinationId: payload.definitionId }) as { snapshot: GraphSnapshot; result: Record<string, unknown> });
       return { snapshot: { ...snapshot, nodes, edges, subgraphs: inner.snapshot.subgraphs }, result: inner.result };
     } catch (error) {
       if (error instanceof GraphOpError) throw new CommandSignal('rejected', { error: error.message });
@@ -608,6 +768,9 @@ function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutat
     if (!input) throw new CommandSignal('rejected', { error: 'Target handle is not an input on that node.' });
     if (!portsCompatible(output.dataType, input.dataType)) {
       throw new CommandSignal('rejected', { error: 'Port types cannot be connected.' });
+    }
+    if (createsCycle(edges.map((item) => ({ source: String(item.source), target: String(item.target) })), payload.source, payload.target)) {
+      throw new CommandSignal('rejected', { error: 'Connection would create a cycle.' });
     }
     const dataType = output.dataType;
     const work: GraphSnapshot = { nodes, edges, document: snapshot.document, subgraphs: snapshot.subgraphs };

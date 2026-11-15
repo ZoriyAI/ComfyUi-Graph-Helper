@@ -11,6 +11,7 @@ import { STEP_LIMIT } from '../shared/config/preferences';
 import type { ModelListResult } from '../shared/contracts/pickers';
 import { listCloudModels, listLocalModels, MODEL_LIST_REFUSED } from './llm/modelList';
 import { originOf, startTurnTrace, turnLog, type TurnMeta } from './trace/modelTrace';
+import { privateToolResults } from './llm/toolPrivacy';
 import { contextFit, estimateRequestTokens, type ContextFit } from './llm/localContext';
 import { KEY_OTHER_ADDRESS, keyOriginFor, OFFICIAL_BASE, officialOrigin } from '../shared/config/keyOrigin';
 
@@ -561,7 +562,7 @@ class MainLLMService {
     tools: Record<string, any>,
     options: StreamOptions = {},
   ): AsyncGenerator<{ type: string; content: any }> {
-    const offered = toolsForSend(tools, options);
+    const offered = privateToolResults(toolsForSend(tools, options), this.redact);
     const text = messages
       .filter((message) => message.role === 'system')
       .map((message) => message.content)

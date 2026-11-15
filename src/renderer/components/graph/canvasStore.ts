@@ -124,7 +124,7 @@ interface CanvasState {
   /** The canvas camera and size, for the agent's turn context. */
   viewport: AgentViewport | null;
   /** A request to centre a node (the chat's "Show"); the nonce makes a repeat request count. */
-  centerRequest: { nodeId: string; nonce: number } | null;
+  centerRequest: { nodeId: string; nonce: number; subgraphId?: string } | null;
   /** Manual commits in flight; their projections do not start a build reveal. */
   manualInFlight: number;
   replay: ReplayState | null;
@@ -172,7 +172,7 @@ interface CanvasState {
   clearFading: (ids: string[]) => void;
   setCallout: (callout: BuildCallout | null) => void;
   setViewport: (viewport: AgentViewport) => void;
-  requestCenter: (nodeId: string) => void;
+  requestCenter: (nodeId: string, subgraphId?: string) => void;
   beginManual: () => void;
   endManual: () => void;
   setReplay: (replay: ReplayState | null) => void;
@@ -264,7 +264,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       ? {}
       : { viewport }
   )),
-  requestCenter: (nodeId) => set((state) => ({ centerRequest: { nodeId, nonce: (state.centerRequest?.nonce ?? 0) + 1 } })),
+  requestCenter: (nodeId, subgraphId) => set((state) => ({ centerRequest: { nodeId, subgraphId, nonce: (state.centerRequest?.nonce ?? 0) + 1 } })),
   beginManual: () => set((state) => ({ manualInFlight: state.manualInFlight + 1 })),
   endManual: () => set((state) => ({ manualInFlight: Math.max(0, state.manualInFlight - 1) })),
   setReplay: (replay) => set({ replay }),

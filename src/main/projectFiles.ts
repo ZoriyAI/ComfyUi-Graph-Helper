@@ -1,6 +1,7 @@
 import type Database from 'better-sqlite3';
 import { createHash } from 'crypto';
 import * as path from 'path';
+import { emptyWorkflow } from '../shared/workflow/codec';
 import type { GraphSnapshot } from '../shared/workflow/codec';
 import type { ProjectFileState } from '../shared/contracts/projectFile';
 import { readProjection } from './commands/commit';
@@ -37,12 +38,26 @@ export function contentDigest(snapshot: GraphSnapshot | Record<string, unknown>)
     edges: graph.edges ?? [],
     document: graph.document ?? null,
     components: graph.components ?? [],
+    subgraphs: graph.subgraphs ?? [],
+    groups: graph.groups ?? [],
+    projectExtras: (snapshot as Record<string, unknown>).projectExtras ?? null,
   };
   return createHash('sha256').update(JSON.stringify(stable(content))).digest('hex');
 }
 
 function isEmpty(snapshot: GraphSnapshot): boolean {
-  return (snapshot.nodes ?? []).length === 0;
+  if (snapshot.nodes.length || snapshot.edges.length || snapshot.subgraphs?.length || snapshot.groups?.length || snapshot.components?.length) return false;
+  if (Object.values(snapshot.process ?? {}).some((value) => value !== '' && value != null)) return false;
+  if ((snapshot as unknown as Record<string, unknown>).projectExtras) return false;
+  const raw = snapshot.document?.raw;
+  if (!raw) return true;
+  const baseline = emptyWorkflow();
+  // Counters and an empty definition registry are bookkeeping, all other native content matters.
+  const meaningful = (value: Record<string, unknown>) => Object.fromEntries(Object.entries(value).filter(([key, item]) =>
+    key !== 'state' && key !== 'last_node_id' && key !== 'last_link_id' && key !== 'version'
+    && !(key === 'definitions' && JSON.stringify(item) === '{"subgraphs":[]}')
+    && !(Array.isArray(item) && item.length === 0) && !(item && typeof item === 'object' && Object.keys(item).length === 0)));
+  return JSON.stringify(stable(meaningful(raw))) === JSON.stringify(stable(meaningful(baseline)));
 }
 
 interface Row { file_path: string; saved_digest: string }
@@ -73,13 +88,13 @@ export function projectFileState(db: Database.Database, projectId: string): Proj
 }
 
 /** After an open or a save: this graph is in `filePath` as it stands now. */
-export function rememberProjectFile(db: Database.Database, projectId: string, filePath: string): void {
+export function rememberProjectFile(db: Database.Database, projectId: string, filePath: string, written?: { graphKey: string; digest: string }): void {
   const projection = readProjection(db, projectId);
-  const graphKey = currentGraphKey(db, projectId);
+  const graphKey = written?.graphKey ?? currentGraphKey(db, projectId);
   if (!projection || !graphKey) return;
   db.prepare(`INSERT INTO project_files (project_id, graph_key, file_path, saved_digest, saved_at) VALUES (?, ?, ?, ?, ?)
     ON CONFLICT(project_id, graph_key) DO UPDATE SET file_path = excluded.file_path, saved_digest = excluded.saved_digest, saved_at = excluded.saved_at`)
-    .run(projectId, graphKey, filePath, contentDigest(projection.snapshot as GraphSnapshot), Date.now());
+    .run(projectId, graphKey, filePath, written?.digest ?? contentDigest(projection.snapshot as GraphSnapshot), Date.now());
 }
 
 /** A file name made of the project title: letters, digits, spaces and a few marks; never empty. */
