@@ -140,6 +140,7 @@ export const IMAGE_TECHNIQUES_EN: Record<string, LessonWords> = {
   'mask-text': {
     title: 'A mask by words',
     result: 'ComfyUI finds an object by its name and gives its mask to the inpainting node, with no painting by hand.',
+    roles: { checkpoint: 'inpainting model', segModel: 'SAM3 finder', segText: 'what to find' },
     steps: {
       intro: {
         title: 'What SAM3 does',
@@ -217,6 +218,7 @@ export const IMAGE_TECHNIQUES_EN: Record<string, LessonWords> = {
   upscale: {
     title: 'Upscaling with a model',
     result: 'The finished picture is enlarged by a model that draws sharp detail instead of stretching the pixels.',
+    roles: { save: 'saver of the picture', big: 'saver of the large picture' },
     steps: {
       intro: {
         title: 'What an upscale model is',
@@ -248,6 +250,7 @@ export const IMAGE_TECHNIQUES_EN: Record<string, LessonWords> = {
   'hires-fix': {
     title: 'A second pass after upscaling (hires fix)',
     result: 'The enlarged picture is drawn once more by the model: sharp detail at a size the model cannot draw in one go.',
+    roles: { sampler: 'first pass', samplerB: 'second pass', decode: 'decoder of the first pass', decodeB: 'decoder of the second pass', save: 'saver of the first pass', saveB: 'saver of the second pass' },
     steps: {
       intro: {
         title: 'Why two passes',
@@ -375,6 +378,7 @@ export const IMAGE_TECHNIQUES_EN: Record<string, LessonWords> = {
   'lora-image': {
     title: 'LoRA for pictures',
     result: 'Two LoRAs in a chain change the style and the subject of a picture model, each with its own strength.',
+    roles: { lora1: 'first LoRA', lora2: 'second LoRA' },
     steps: {
       intro: {
         title: 'What a LoRA is',
@@ -410,6 +414,7 @@ export const IMAGE_TECHNIQUES_EN: Record<string, LessonWords> = {
   'lora-character': {
     title: 'LoRA for a character: face, body, clothes, pose',
     result: 'Three LoRAs on one picture, each tuned on its own, the face kept while a body or clothing LoRA works.',
+    roles: { lora1: 'first LoRA', lora2: 'second LoRA', lora3: 'third LoRA' },
     steps: {
       intro: {
         title: 'What this lesson is about',
@@ -607,6 +612,7 @@ export const IMAGE_TECHNIQUES_EN: Record<string, LessonWords> = {
   detailer: {
     title: 'Fixing faces and hands with a detailer',
     result: 'The Impact Pack finds the faces in a finished picture and draws each one again at a larger size, so small faces come out sharp.',
+    roles: { save: 'saver of the picture', fixed: 'saver of the fixed picture' },
     steps: {
       intro: {
         title: 'What a detailer does',

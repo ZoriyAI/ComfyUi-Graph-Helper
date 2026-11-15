@@ -139,6 +139,7 @@ export const IMAGE_TECHNIQUES_RU: Record<string, LessonWords> = {
   'mask-text': {
     title: 'Маска по словам',
     result: 'ComfyUI находит предмет по названию и отдаёт его маску ноде инпейнтинга, рисовать рукой не нужно.',
+    roles: { checkpoint: 'модель для инпейнтинга', segModel: 'искатель SAM3', segText: 'что искать' },
     steps: {
       intro: {
         title: 'Что делает SAM3',
@@ -216,6 +217,7 @@ export const IMAGE_TECHNIQUES_RU: Record<string, LessonWords> = {
   upscale: {
     title: 'Увеличение моделью',
     result: 'Готовую картинку увеличивает модель, которая дорисовывает чёткие детали, а не растягивает пиксели.',
+    roles: { save: 'сохранение картинки', big: 'сохранение большой картинки' },
     steps: {
       intro: {
         title: 'Что такое модель увеличения',
@@ -247,6 +249,7 @@ export const IMAGE_TECHNIQUES_RU: Record<string, LessonWords> = {
   'hires-fix': {
     title: 'Второй проход после увеличения (hires fix)',
     result: 'Увеличенную картинку модель рисует ещё раз: чёткие детали в размере, который ей не нарисовать за один раз.',
+    roles: { sampler: 'первый проход', samplerB: 'второй проход', decode: 'превращение первого прохода', decodeB: 'превращение второго прохода', save: 'сохранение первого прохода', saveB: 'сохранение второго прохода' },
     steps: {
       intro: {
         title: 'Зачем два прохода',
@@ -374,6 +377,7 @@ export const IMAGE_TECHNIQUES_RU: Record<string, LessonWords> = {
   'lora-image': {
     title: 'LoRA для картинок',
     result: 'Две LoRA цепочкой меняют стиль и предмет у модели для картинок, каждая со своей силой.',
+    roles: { lora1: 'первая LoRA', lora2: 'вторая LoRA' },
     steps: {
       intro: {
         title: 'Что такое LoRA',
@@ -409,6 +413,7 @@ export const IMAGE_TECHNIQUES_RU: Record<string, LessonWords> = {
   'lora-character': {
     title: 'LoRA для персонажа: лицо, тело, одежда, поза',
     result: 'Три LoRA на одной картинке, каждая настроена отдельно, и лицо держится, пока работает LoRA тела или одежды.',
+    roles: { lora1: 'первая LoRA', lora2: 'вторая LoRA', lora3: 'третья LoRA' },
     steps: {
       intro: {
         title: 'О чём этот урок',
@@ -606,6 +611,7 @@ export const IMAGE_TECHNIQUES_RU: Record<string, LessonWords> = {
   detailer: {
     title: 'Исправление лиц и рук детейлером',
     result: 'Impact Pack находит лица на готовой картинке и рисует каждое заново в большем размере, так что мелкие лица выходят чёткими.',
+    roles: { save: 'сохранение картинки', fixed: 'сохранение исправленной картинки' },
     steps: {
       intro: {
         title: 'Что делает детейлер',

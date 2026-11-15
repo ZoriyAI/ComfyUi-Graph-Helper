@@ -199,6 +199,7 @@ export const FOUNDATIONS_LESSONS_EN: Record<string, LessonWords> = {
   switch: {
     title: 'Two versions of a prompt with one switch',
     result: 'You keep two prompts in one graph and choose between them with one yes/no value, the way ComfyUI\'s templates do.',
+    roles: { first: 'first version', second: 'second version' },
     steps: {
       intro: {
         title: 'Compare without rewiring',
@@ -241,6 +242,7 @@ export const FOUNDATIONS_LESSONS_EN: Record<string, LessonWords> = {
   'llm-prompt': {
     title: 'A language model writes the prompt',
     result: 'You let a language model inside ComfyUI turn a short idea into a detailed prompt, and compare it with your own by the switch.',
+    roles: { idea: 'your idea', instruction: 'instruction for the model' },
     steps: {
       intro: {
         title: 'A language model in the graph',

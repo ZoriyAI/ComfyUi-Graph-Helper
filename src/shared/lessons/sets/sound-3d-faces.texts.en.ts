@@ -482,6 +482,7 @@ export const SOUND_3D_FACES_EN: Record<string, LessonWords> = {
   'face-swap': {
     title: 'Put a face onto a picture: ReActor',
     result: 'You build a graph that puts a face from one picture onto a person in another picture you already have.',
+    roles: { target: 'picture to change', source: 'picture with the face' },
     steps: {
       intro: {
         title: 'First, about faces',

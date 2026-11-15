@@ -28,6 +28,8 @@ function wordsOf(words: LessonWords | null): LessonDocWords | undefined {
     title: words.title,
     result: words.result,
     steps: Object.fromEntries(Object.entries(words.steps).map(([step, item]) => [step, { title: item.title, body: item.body }])),
+    // The lesson's own role labels travel with it, so an exported face swap still calls the face picture a face picture.
+    ...(words.roles ? { roles: { ...words.roles } } : {}),
   };
 }
 

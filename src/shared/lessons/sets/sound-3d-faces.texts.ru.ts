@@ -482,6 +482,7 @@ export const SOUND_3D_FACES_RU: Record<string, LessonWords> = {
   'face-swap': {
     title: 'Перенести лицо на картинку: ReActor',
     result: 'Вы соберёте граф, который переносит лицо с одной картинки на человека на другой, уже готовой картинке.',
+    roles: { target: 'картинка, которую меняем', source: 'картинка с лицом' },
     steps: {
       intro: {
         title: 'Сначала о лицах',

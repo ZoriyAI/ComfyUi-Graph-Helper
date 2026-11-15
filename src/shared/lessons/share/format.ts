@@ -144,6 +144,10 @@ const wordsSchema = z.object({
   title: text(LESSON_LIMITS.title).min(1),
   result: text(LESSON_LIMITS.result),
   steps: z.record(id, z.object({ title: text(LESSON_LIMITS.stepTitle).min(1), body: text(LESSON_LIMITS.body) }).strict()),
+  /** What a role's node is in this lesson (texts.ts LessonWords.roles): short labels, as many as a lesson has roles. */
+  roles: z.record(role, text(LESSON_LIMITS.stepTitle).min(1))
+    .refine((labels) => Object.keys(labels).length <= LESSON_LIMITS.steps * LESSON_LIMITS.rolesPerStep, { message: 'too many role labels' })
+    .optional(),
 }).strict();
 
 const titlesSchema = z.object({ en: text(LESSON_LIMITS.title).min(1).optional(), ru: text(LESSON_LIMITS.title).min(1).optional() }).strict();
