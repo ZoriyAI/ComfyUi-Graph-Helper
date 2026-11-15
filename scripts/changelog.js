@@ -17,6 +17,7 @@ const path = require('path');
 const root = path.join(__dirname, '..');
 const releases = path.join(root, 'docs', 'releases');
 
+// The fixed words of each language's changelog file.
 const TEXT = {
   en: {
     other: 'Русский',
@@ -46,6 +47,7 @@ const TEXT = {
   },
 };
 
+/** [major, minor, patch] of a notes file name in `lang`, or null when the name is not one. */
 function parseVersion(file, lang) {
   const match = (lang === 'ru' ? /^v(\d+)\.(\d+)\.(\d+)\.ru\.md$/ : /^v(\d+)\.(\d+)\.(\d+)\.md$/).exec(file);
   return match ? match.slice(1).map(Number) : null;
@@ -66,6 +68,7 @@ function summary(text) {
   return out.join(' ');
 }
 
+/** The whole changelog text in `lang`. */
 function build(lang) {
   const t = TEXT[lang];
   const files = fs.readdirSync(releases)
