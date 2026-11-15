@@ -27,7 +27,7 @@ const NO_TOOLS_PATTERNS: readonly RegExp[] = [
 /** Status 400 together with the word "tools" (or "function calling") counts too: the request's tools were refused. */
 const BAD_REQUEST_TOOLS = /\b400\b[\s\S]*\b(?:tools?|function[ _-]?call(?:ing)?)\b|\b(?:tools?|function[ _-]?call(?:ing)?)\b[\s\S]*\b400\b/i;
 
-/** True when an error text says the model or server refused the request's tools. Only the first 2000 characters are read. */
+/** True when an error text says the model or server refused the request's tools. Reads the first 2000 characters. */
 export function isToolsUnsupportedError(message: unknown): boolean {
   if (typeof message !== 'string' || message.trim() === '') return false;
   const text = message.slice(0, 2000);

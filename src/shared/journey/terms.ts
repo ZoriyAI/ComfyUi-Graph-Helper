@@ -5,7 +5,8 @@
  * mention of each glossary term and show its one-sentence meaning on hover or keyboard focus.
  * Why word stems: Russian changes the end of a word with its case and number (the word for "node" takes several
  * endings), so a term matches from its stem; English adds "s". Only whole words match, and only terms of three
- * letters and more, so short words never light up inside others. The glossary itself (knowledge/sets/foundations.ts) is the one source of the meanings.
+ * letters and more, so short words never light up inside others. The glossary itself (knowledge/sets/foundations.ts)
+ * is the one source of the meanings.
  */
 
 import { glossary, type GlossaryEntry } from '../knowledge/sets/foundations';

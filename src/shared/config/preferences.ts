@@ -171,10 +171,10 @@ export const preferencesSchema = z.object({
      */
     modelLog: z.boolean().default(true),
     /**
-     * The switch "Adult content (18+)" (catalog key preferences.adultContent; read with adultContentOn). On: the previews and
-     * example descriptions an author marked as adult content are shown, and the lessons for adults are open. Off,
-     * the default: they are closed but not hidden, and a card still shows them for one file when asked. The key
-     * keeps its first name (it once meant the previews alone), so a profile that had it on keeps the switch on.
+     * The switch "Adult content (18+)" (catalog key preferences.adultContent; read with adultContentOn). On: the
+     * previews and example descriptions an author marked as adult content are shown, and the lessons for adults are
+     * open. Off, the default: they are closed but not hidden, and a card still shows them for one file when asked.
+     * The key keeps its first name (it once meant the previews alone), so a profile that had it on keeps the switch on.
      */
     showMarkedPreviews: z.boolean().default(false),
     /**

@@ -714,8 +714,9 @@ export function exportedWidgets(
 let unsetCollector: UnsetWidget[] | null = null;
 
 /**
- * One canvas node as a file node: the native record it came from with the app's changes applied (position, title,
- * field values, slots), or a new record for a node the app made. `lenient` writes what it can instead of refusing.
+ * One canvas node as a file node: the native record it came from with the app's changes applied (position, id,
+ * field values), or a new record with slots for a node the app made. When field values cannot be placed the export
+ * is refused (ExportRefused); `lenient` writes the node without them instead.
  */
 function exportedNode(node: Record<string, any>, catalog?: CatalogView, lenient = false): Record<string, unknown> {
   const hasComfy = node.data?.comfy && typeof node.data.comfy === 'object';
