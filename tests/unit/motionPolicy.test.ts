@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import { levelFor, parseDuration } from '../../src/renderer/motion/policy';
-import { cameraPlan, cubicBezier, travel } from '../../src/renderer/motion/camera';
+import { cameraBase, cameraPlan, cubicBezier, travel } from '../../src/renderer/motion/camera';
 import { autoFitView, AUTO_FIT_MIN_ZOOM } from '../../src/renderer/components/graph/lib/autoFit';
 import { OVERVIEW_EXIT } from '../../src/renderer/components/graph/lib/nodeSizes';
 import { replayChange } from '../../src/renderer/components/graph/lib/replayMotion';
@@ -155,6 +155,15 @@ describe('the camera rule', () => {
 
   it('stands still for no move', () => {
     expect(cameraPlan({ x: 5, y: 5, zoom: 1 }, { x: 5, y: 5, zoom: 1 }, pane, 'full', limits).duration).toBe(0);
+  });
+
+  it('steps a zoom press from where a glide in flight is going, so quick presses add up', () => {
+    const onScreen = { x: 0, y: 0, zoom: 0.9 };
+    const target = { x: 100, y: 50, zoom: 0.5 };
+    expect(cameraBase(onScreen, { to: target, until: 1000 }, 400)).toBe(target);
+    // The glide is over (or none): the view on screen.
+    expect(cameraBase(onScreen, { to: target, until: 1000 }, 1000)).toBe(onScreen);
+    expect(cameraBase(onScreen, null, 400)).toBe(onScreen);
   });
 
   it('eases in and out on one curve', () => {

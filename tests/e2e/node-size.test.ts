@@ -249,9 +249,10 @@ test('nodes added one after another at the same place keep their distance, tall 
 
     // The same from the canvas's map (zoomed far out), where a node is drawn as a small block: the next node
     // still gets room for the whole node.
+    // Each press steps from where the camera is going (motion/camera.ts cameraBase), so eight quick presses reach
+    // the map however slowly the glides run; the level switches once the zoom passes below its line.
     await page.locator('.react-flow__controls-fitview').click();
     for (let turn = 0; turn < 8; turn += 1) await page.locator('.react-flow__controls-zoomout').click();
-    await page.waitForTimeout(500);
     await expect(page.locator('[data-canvas-mode="root"]')).toHaveAttribute('data-zoom', 'overview');
     await addFromLibrary(page, search, 'KSamplerAdvanced', added.length + 1);
     await search.fill('');
