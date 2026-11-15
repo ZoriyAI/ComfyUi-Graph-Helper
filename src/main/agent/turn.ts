@@ -45,7 +45,7 @@ export interface AgentTurnOptions {
   /** Aborted by llm:cancel or when the window goes away: the provider request and the tool loop stop. */
   signal?: AbortSignal;
   llm?: Pick<typeof mainLLMService, 'streamChatWithTools' | 'nativeSearchTool'>
-    & Partial<Pick<typeof mainLLMService, 'redact' | 'charsPerToken' | 'localContextTokens' | 'rememberLocalContext' | 'nextSendConfig'>>;
+    & Partial<Pick<typeof mainLLMService, 'redact' | 'charsPerToken' | 'localContextTokens' | 'rememberLocalContext' | 'nextSendConfig' | 'ensureLocalWindow' | 'listedContextTokens'>>;
   /** Model id for the context window table. Default: the configured model of the next send. */
   model?: string;
   knowledge?: KnowledgeApi;
@@ -194,6 +194,8 @@ export async function runAgentTurn(options: AgentTurnOptions): Promise<void> {
       loadedWindow = readStoredWindow(db, runtime.baseURL, runtime.model);
       if (loadedWindow !== null) llm.rememberLocalContext?.(loadedWindow);
     }
+    // Provider detail: the window before the first question (Ollama loads the model to say it), so the first turn fits.
+    if (loadedWindow === null && runtime?.provider === 'local') loadedWindow = await (llm.ensureLocalWindow?.() ?? Promise.resolve(null));
     const buildAllowed = buildToolsAllowed(context, assistant.defaultIntent);
     const compact = loadedWindow !== null && loadedWindow < COMPACT_WINDOW ? { offered: compactToolNames(buildAllowed), window: loadedWindow } : null;
 
@@ -217,7 +219,7 @@ export async function runAgentTurn(options: AgentTurnOptions): Promise<void> {
     // History budget: 70 % of the model's context window (Preferences ▸ Assistant overrides it) minus the prompt.
     // With "auto" the window the server was seen to load the model with IS the window; a setting of the person's
     // stands unless the server loaded less (shared/agent/contextWindow.ts effectiveContextWindow, also the page's).
-    const window = effectiveContextWindow(options.model ?? mainLLMService.nextSendConfig().model, assistant.contextTokens, loadedWindow);
+    const window = effectiveContextWindow(options.model ?? mainLLMService.nextSendConfig().model, assistant.contextTokens, loadedWindow, llm.listedContextTokens?.() ?? null);
     const charsPerToken = (llm.charsPerToken ?? (() => 4)).call(llm);
     // In a small window the tool descriptions are a large share of the request; count them against the history.
     const toolChars = compact ? compact.offered.length * TOOL_CHARS : 0;

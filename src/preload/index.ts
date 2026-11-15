@@ -100,6 +100,7 @@ const IPC_CHANNELS = {
   LLM_PROBE: 'llm:probe',
   LLM_LIST_MODELS: 'llm:list-models',
   LLM_DISCOVER_LOCAL: 'llm:discover-local',
+  LLM_OLLAMA_WINDOW: 'llm:ollama-window',
   SETTINGS_CONNECTION_SUGGESTIONS: 'settings:connection-suggestions',
   KNOWLEDGE_SEARCH_NODES: 'knowledge:search-nodes',
   KNOWLEDGE_NODE_DETAIL: 'knowledge:node-detail',
@@ -254,6 +255,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   llmProbe: (draft: { provider: string; model: string; baseURL: string }) => ipcRenderer.invoke(IPC_CHANNELS.LLM_PROBE, draft) as Promise<LlmProbeResult>,
   llmListModels: (draft: { provider: string; model?: string; baseURL: string }) => ipcRenderer.invoke(IPC_CHANNELS.LLM_LIST_MODELS, draft) as Promise<ModelListResult>,
   llmDiscoverLocal: () => ipcRenderer.invoke(IPC_CHANNELS.LLM_DISCOVER_LOCAL) as Promise<LocalDiscovery>,
+  llmOllamaWindow: (draft: { provider: string; model: string; baseURL: string }, window: number) => ipcRenderer.invoke(IPC_CHANNELS.LLM_OLLAMA_WINDOW, draft, window) as Promise<{ ok: true; model: string } | { ok: false; error: string }>,
   connectionSuggestions: (probe?: boolean) => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_CONNECTION_SUGGESTIONS, probe === true) as Promise<ConnectionSuggestions>,
   llmStreamChat: (
     messages: Array<{ role: string; content: string }>,
@@ -495,6 +497,8 @@ export interface ElectronAPI {
   llmListModels: (draft: { provider: string; model?: string; baseURL: string }) => Promise<ModelListResult>;
   /** Settings ▸ Assistant ▸ Find local servers: the MCP server's Ollama targets and servers answering on this computer. */
   llmDiscoverLocal: () => Promise<LocalDiscovery>;
+  /** Asks Ollama for a copy of the draft model that loads with a larger window (Settings ▸ Assistant). */
+  llmOllamaWindow: (draft: { provider: string; model: string; baseURL: string }, window: number) => Promise<{ ok: true; model: string } | { ok: false; error: string }>;
   /** Settings ▸ Connection: reported, saved and recent addresses; with `probe`, also a ComfyUI answering on this computer. */
   connectionSuggestions: (probe?: boolean) => Promise<ConnectionSuggestions>;
   llmStreamChat: (

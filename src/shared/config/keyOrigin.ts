@@ -4,20 +4,41 @@
  * (a typo, a pasted "proxy") gets no key at all: the person pastes a key for that address.
  */
 
-export type KeyProvider = 'openai' | 'anthropic' | 'google';
+/**
+ * Every provider a key can be held for. The three big companies have an official address; "compatible" is any cloud
+ * service that speaks the OpenAI chat completions interface (a gateway, a regional provider) and has no official
+ * address: its key always belongs to the https address the person typed. "local" is the person's own server, which
+ * asks for a key only sometimes (vLLM with --api-key, LiteLLM, LM Studio with authentication on).
+ */
+export const KEY_PROVIDERS = ['openai', 'anthropic', 'google', 'compatible', 'local'] as const;
+export type KeyProvider = typeof KEY_PROVIDERS[number];
+/** The providers that answer from the internet and need a key on every request. */
+export const CLOUD_PROVIDER_IDS = ['openai', 'anthropic', 'google', 'compatible'] as const;
+export type CloudProviderId = typeof CLOUD_PROVIDER_IDS[number];
+/** The three with an official address. */
+export type OfficialProvider = 'openai' | 'anthropic' | 'google';
+
+export function isKeyProvider(value: unknown): value is KeyProvider {
+  return typeof value === 'string' && (KEY_PROVIDERS as readonly string[]).includes(value);
+}
 
 /** Official endpoints. Passed explicitly so an environment variable never redirects a held key. */
-export const OFFICIAL_BASE: Record<KeyProvider, string> = {
+export const OFFICIAL_BASE: Record<OfficialProvider, string> = {
   openai: 'https://api.openai.com/v1',
   anthropic: 'https://api.anthropic.com/v1',
   google: 'https://generativelanguage.googleapis.com/v1beta',
 };
 
+export function hasOfficialBase(provider: KeyProvider): provider is OfficialProvider {
+  return provider === 'openai' || provider === 'anthropic' || provider === 'google';
+}
+
 /** Returned (never thrown at the person as is: the renderer translates it) when a key belongs to another address. */
 export const KEY_OTHER_ADDRESS = 'The key was given for another address.';
 
-export function officialOrigin(provider: KeyProvider): string {
-  return new URL(OFFICIAL_BASE[provider]).origin;
+/** The official origin, or null for a provider that has none (compatible, local). */
+export function officialOrigin(provider: KeyProvider): string | null {
+  return hasOfficialBase(provider) ? new URL(OFFICIAL_BASE[provider]).origin : null;
 }
 
 /**
@@ -29,7 +50,10 @@ export function keyOriginFor(provider: KeyProvider, base: string | null | undefi
   if (trimmed === '') return officialOrigin(provider);
   try {
     const url = new URL(trimmed);
-    if (url.protocol !== 'https:' || url.username !== '' || url.password !== '') return null;
+    if (url.username !== '' || url.password !== '') return null;
+    // The person's own server may answer on http (this computer, the home network); a cloud key needs https.
+    const allowed = provider === 'local' ? url.protocol === 'https:' || url.protocol === 'http:' : url.protocol === 'https:';
+    if (!allowed) return null;
     return url.origin;
   } catch {
     return null;
@@ -57,5 +81,7 @@ export function decodeKeyRecord(provider: KeyProvider, plain: string): { key: st
       // Not a record of ours: read as a bare key below.
     }
   }
-  return plain === '' ? null : { key: plain, origin: officialOrigin(provider) };
+  const official = officialOrigin(provider);
+  // A bare key means the official address; a provider without one never had a bare record.
+  return plain === '' || !official ? null : { key: plain, origin: official };
 }

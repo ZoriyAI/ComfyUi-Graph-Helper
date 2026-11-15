@@ -14,6 +14,8 @@ export interface ModelChoice {
   tools?: boolean;
   vision?: boolean;
   thinking?: boolean;
+  /** The model's own maximum context window in tokens, when the server says (Ollama's /api/show). */
+  contextLength?: number;
 }
 
 /**

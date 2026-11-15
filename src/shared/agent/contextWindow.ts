@@ -24,8 +24,19 @@ export const CHARS_PER_TOKEN = 4;
 const KNOWN: Record<string, number> = {
   // Anthropic
   claude: 200_000,
+  // From the 4.6 generation on (and every 5.x model) the window is a million tokens (provider docs, 2026-11).
+  'claude-opus-4-6': 1_000_000,
+  'claude-opus-4-7': 1_000_000,
+  'claude-opus-4-8': 1_000_000,
+  'claude-sonnet-4-6': 1_000_000,
+  'claude-opus-5': 1_000_000,
+  'claude-sonnet-5': 1_000_000,
+  'claude-haiku-5': 1_000_000,
+  'claude-fable': 1_000_000,
   // OpenAI
   'gpt-5': 400_000,
+  // Priced up to 272K tokens of prompt at the short rate (provider pricing, 2026-11): at least that much.
+  'gpt-6': 272_000,
   'gpt-4.1': 1_047_576,
   'gpt-4o': 128_000,
   'chatgpt-4o': 128_000,
@@ -41,6 +52,7 @@ const KNOWN: Record<string, number> = {
   'gemini-1.5-flash': 1_048_576,
   'gemini-2': 1_048_576,
   'gemini-3': 1_048_576,
+  'gemini-4': 1_048_576,
   // Common Ollama / local models (the model's own window; Ollama's num_ctx may be set lower on the server)
   'llama3.1': 131_072,
   'llama3.2': 131_072,
@@ -87,8 +99,8 @@ export interface ContextWindow {
  * window, larger or smaller than the published one; without a report, the published window, else 32k. Settings ▸
  * Assistant shows this same number as the "auto" value, so the page and the turn never disagree.
  */
-export function effectiveContextWindow(model: string, override = 0, serverTokens: number | null = null): ContextWindow {
-  const chosen = contextWindowFor(model, override);
+export function effectiveContextWindow(model: string, override = 0, serverTokens: number | null = null, listedTokens: number | null = null): ContextWindow {
+  const chosen = contextWindowFor(model, override, listedTokens);
   const server = serverTokens !== null && Number.isFinite(serverTokens) && serverTokens >= 256 ? Math.floor(serverTokens) : null;
   if (server === null) return chosen;
   if (chosen.source === 'override' && chosen.tokens <= server) return chosen;
@@ -96,8 +108,10 @@ export function effectiveContextWindow(model: string, override = 0, serverTokens
 }
 
 /** The window the history budget uses: the override when set, else the known window, else 32k. */
-export function contextWindowFor(model: string, override = 0): ContextWindow {
+export function contextWindowFor(model: string, override = 0, listedTokens: number | null = null): ContextWindow {
   if (Number.isFinite(override) && override > 0) return { tokens: Math.floor(override), source: 'override' };
+  // The window the provider's or the server's own model list gave for this model (Anthropic, Google, Ollama).
+  if (listedTokens !== null && Number.isFinite(listedTokens) && listedTokens >= 256) return { tokens: Math.floor(listedTokens), source: 'known' };
   const known = knownContextTokens(model);
   return known ? { tokens: known, source: 'known' } : { tokens: DEFAULT_CONTEXT_TOKENS, source: 'default' };
 }

@@ -163,20 +163,22 @@ describe('a key per provider', () => {
 
   it('reports each provider\'s key place and forgets one without touching the others', () => {
     const service = new MainLLMService();
-    expect(service.keySources()).toEqual({ openai: 'none', anthropic: 'none', google: 'none' });
+    expect(service.keySources()).toEqual({ openai: 'none', anthropic: 'none', google: 'none', compatible: 'none', local: 'none' });
     service.setSessionKey('anthropic', ANTHROPIC_KEY);
     service.holdOsKey('google', GOOGLE_KEY);
-    expect(service.keySources()).toEqual({ openai: 'none', anthropic: 'session', google: 'os' });
+    expect(service.keySources()).toEqual({ openai: 'none', anthropic: 'session', google: 'os', compatible: 'none', local: 'none' });
     service.setConfig({ provider: 'openai', model: 'gpt-5' });
     expect(service.sessionStatus()).toEqual({ held: false, source: 'none' });
     service.setConfig({ provider: 'anthropic', model: 'claude-x' });
     expect(service.sessionStatus()).toEqual({ held: true, source: 'session' });
     service.setSessionKey('anthropic', '');
-    expect(service.keySources()).toEqual({ openai: 'none', anthropic: 'none', google: 'os' });
+    expect(service.keySources()).toEqual({ openai: 'none', anthropic: 'none', google: 'os', compatible: 'none', local: 'none' });
+    // Your own server takes a key only with its address; with none there is nowhere to bind it.
     expect(service.setSessionKey('local', OPENAI_KEY)).toEqual({ held: false, source: 'none' });
+    expect(service.setSessionKey('mistral', OPENAI_KEY)).toEqual({ held: false, source: 'none' });
     expect(service.setSessionKey('test', OPENAI_KEY)).toEqual({ held: false, source: 'none' });
     service.forgetKeys();
-    expect(service.keySources()).toEqual({ openai: 'none', anthropic: 'none', google: 'none' });
+    expect(service.keySources()).toEqual({ openai: 'none', anthropic: 'none', google: 'none', compatible: 'none', local: 'none' });
   });
 
   it('the renderer reads each card\'s own key place', () => {
@@ -234,7 +236,7 @@ describe('stored key records', () => {
     const db = openDb();
     expect(saveSecretIfProven(db, { persist: true }, 'openai', OPENAI_KEY, Buffer.from('cipher-openai'))).toEqual({ status: 'stored' });
     expect(saveSecretIfProven(db, { persist: true }, 'google', GOOGLE_KEY, Buffer.from('cipher-google'))).toEqual({ status: 'stored' });
-    expect(saveSecretIfProven(db, { persist: true }, 'local', OPENAI_KEY, Buffer.from('cipher-local'))).toEqual({ status: 'secret-storage-blocked' });
+    expect(saveSecretIfProven(db, { persist: true }, 'mistral', OPENAI_KEY, Buffer.from('cipher-mistral'))).toEqual({ status: 'secret-storage-blocked' });
     expect(readProviderKeyCipher(db, 'openai')?.toString()).toBe('cipher-openai');
     expect(readProviderKeyCipher(db, 'google')?.toString()).toBe('cipher-google');
     expect(readProviderKeyCipher(db, 'anthropic')).toBeNull();
@@ -313,7 +315,7 @@ describe('the app folder key file', () => {
   it('ignores unknown providers and unreadable files', () => {
     const userData = tempDir();
     expect(readKeyFile(userData)).toEqual({});
-    fs.writeFileSync(keyFilePath(userData), JSON.stringify({ version: 2, keys: { openai: OPENAI_KEY, local: 'x', google: '' } }));
+    fs.writeFileSync(keyFilePath(userData), JSON.stringify({ version: 2, keys: { openai: OPENAI_KEY, mistral: 'x', google: '' } }));
     expect(readKeyFile(userData)).toEqual({ openai: OPENAI_KEY });
     fs.writeFileSync(keyFilePath(userData), 'not json');
     expect(readKeyFile(userData)).toEqual({});

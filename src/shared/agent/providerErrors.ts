@@ -1,3 +1,4 @@
+import { LOCAL_ADVICE } from '../config/modelAdvice';
 /**
  * Recognises a local model server refusing tool (function) calling. Ollama answers a request with tools for a
  * model without tool support with `400 ... "<model>" does not support tools`; llama.cpp's server says tools need
@@ -32,7 +33,7 @@ export function isToolsUnsupportedError(message: unknown): boolean {
 }
 
 /** Local models known to call tools, named in the explanation. */
-export const TOOL_CAPABLE_EXAMPLES = ['qwen3', 'qwen2.5', 'llama3.1', 'mistral-nemo'];
+export const TOOL_CAPABLE_EXAMPLES = LOCAL_ADVICE.map((item) => item.model);
 
 /** The provider-specific explanation key, or null when the raw error should be shown as before. */
 export function providerErrorKey(provider: string | null | undefined, message: unknown): 'diagnostics.localModelNoTools' | null {

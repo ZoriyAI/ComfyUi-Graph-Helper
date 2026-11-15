@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { PROXY_MAX, proxyAddressValid } from './proxy';
+import { LOCAL_ADVICE, suggestedModels } from './modelAdvice';
 import { carriesSecret } from './draft';
 
 /**
@@ -17,7 +19,7 @@ function httpOriginOrEmpty(value: string): boolean {
   }
 }
 
-export const PREFERENCE_PROVIDERS = ['openai', 'anthropic', 'google', 'local'] as const;
+export const PREFERENCE_PROVIDERS = ['openai', 'anthropic', 'google', 'compatible', 'local'] as const;
 export type PreferenceProvider = typeof PREFERENCE_PROVIDERS[number];
 
 /**
@@ -101,7 +103,15 @@ export const preferencesSchema = z.object({
     openai: providerEntry.prefault({}),
     anthropic: providerEntry.prefault({}),
     google: providerEntry.prefault({}),
+    compatible: providerEntry.prefault({}),
     local: providerEntry.prefault({}),
+  }).prefault({}),
+  network: z.object({
+    /** A proxy address for internet requests (cloud models, the web search); empty: the system's settings. */
+    proxy: z.string().trim().max(PROXY_MAX).refine(proxyAddressValid).default(''),
+    /** OpenAI only, for a key that belongs to several organizations or projects: sent as OpenAI-Organization / OpenAI-Project. */
+    openaiOrganization: z.string().trim().max(200).regex(/^[A-Za-z0-9_-]*$/).default(''),
+    openaiProject: z.string().trim().max(200).regex(/^[A-Za-z0-9_-]*$/).default(''),
   }).prefault({}),
   sync: z.object({
     /** loaders: only loader folders (checkpoints, loras, …); all: every model folder. */
@@ -318,11 +328,13 @@ function sortKeys(value: unknown): unknown {
 }
 
 /** Suggestions only, shown under the Model field. The person types any id; nothing here is a default. */
+/** The cheap and the strong model of each company and the local models that call tools (shared/config/modelAdvice.ts). */
 export const MODEL_SUGGESTIONS: Record<PreferenceProvider, readonly string[]> = {
-  openai: ['gpt-5', 'gpt-5-mini', 'gpt-4.1'],
-  anthropic: ['claude-sonnet-4-5', 'claude-opus-4-1', 'claude-haiku-4-5'],
-  google: ['gemini-2.5-pro', 'gemini-2.5-flash'],
-  local: ['llama3.1', 'qwen2.5', 'mistral'],
+  openai: suggestedModels('openai'),
+  anthropic: suggestedModels('anthropic'),
+  google: suggestedModels('google'),
+  compatible: [],
+  local: LOCAL_ADVICE.map((item) => item.model),
 };
 
 export function isPreferenceProvider(value: string): value is PreferenceProvider {

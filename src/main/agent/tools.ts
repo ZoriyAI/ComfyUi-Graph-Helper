@@ -11,7 +11,8 @@ import { IPC_CHANNELS } from '../../shared/ipc-channels';
 import type { Projection } from '../../shared/commands/types';
 import type { AgentProposalTool, ObjectRef, ProposalKind } from '../../shared/contracts';
 import { MAIN_TOOL_SPECS } from './toolSpecs';
-import { fetchPageText, searchWebFallback, SearchUnavailableError, SEARCH_UNAVAILABLE, type FetchLike } from './web';
+import { fetchPageText, searchWebFallback, SearchUnavailableError, SEARCH_ENDPOINT, SEARCH_UNAVAILABLE, type FetchLike } from './web';
+import { webSearchTransport } from '../llmService';
 import { validateNodeClass } from '../knowledge/nodeClassGuard';
 import { LINK_NOT_IN_CONVERSATION, type ConversationLinks } from './links';
 
@@ -325,7 +326,8 @@ export function createAgentTools(deps: AgentToolDeps): Record<string, AgentToolD
   tools.searchWeb = native ?? define('searchWeb', schemas.searchWeb, async (args) => {
     let results;
     try {
-      results = await searchWebFallback(args.query, fetchImpl);
+      // Provider detail: behind a proxy the search goes through it (main/net/proxy.ts); otherwise unchanged.
+      results = await searchWebFallback(args.query, fetchImpl ?? await webSearchTransport(SEARCH_ENDPOINT));
     } catch (error) {
       // Neither search page could be read: the assistant says the search is unavailable, never "nothing found".
       if (error instanceof SearchUnavailableError) return { success: false, unavailable: true, error: SEARCH_UNAVAILABLE };

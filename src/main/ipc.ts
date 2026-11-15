@@ -7,7 +7,8 @@ import * as path from 'path';
 import { IPC_CHANNELS } from '../shared/ipc-channels';
 import { getDatabase } from './database';
 import { reseedCoreKnowledge } from './knowledge/seedCore';
-import { CLOUD, isCloudProvider, mainLLMService, type CloudProvider, type KeySource } from './llmService';
+import { KEYED, mainLLMService, type KeySource } from './llmService';
+import { applyNetworkSettings } from './llm/network';
 import { attemptSaveSecret, forgetProviderKey, forgetSecret, migrateLegacyProviderKey, readProviderKeyCipher, readSecretCipher, readSettings, saveNamedSecretIfProven, saveSecretIfProven, saveSettings, saveViewPreferences } from './settings/repository';
 import { secretStatus } from './settings/secretDecision';
 import { isUnprotectedCipher } from '../shared/config/secretPolicy';
@@ -25,7 +26,7 @@ import { mcpOriginOf, mcpToken, mcpTokenFor, mcpTokenOrigin, mcpTokenStatus, rel
 import { readTokenFile, removeTokenFile, tokenFileHolds, writeTokenFile } from './mcp/tokenFile';
 import { isPasswordStoreChoice, readPasswordStoreOverride, writePasswordStoreOverride } from './settings/passwordStoreOverride';
 import { keyFileHolds, readKeyFile, readKeyFileOrigins, removeKeyFile, removeKeyFromFile, writeKeyFile } from './settings/keyFile';
-import { decodeKeyRecord, encodeKeyRecord, officialOrigin } from '../shared/config/keyOrigin';
+import { decodeKeyRecord, encodeKeyRecord, isKeyProvider, officialOrigin, type KeyProvider } from '../shared/config/keyOrigin';
 import { configureMcpOAuth, loginToMcp, logoutFromMcp, mcpOAuth, oauthStatus } from './mcp/oauth';
 import { detectMcpAuth } from './mcp/detect';
 import { connectStreamableHttp, openReadOnlySession } from './mcp/client';
@@ -107,7 +108,7 @@ async function adoptStoredKeys(): Promise<void> {
   const decision = await secretStatus();
   const file = readKeyFile(app.getPath('userData'));
   const fileOrigins = readKeyFileOrigins(app.getPath('userData'));
-  for (const provider of CLOUD) {
+  for (const provider of KEYED) {
     if (decision.persist) {
       const cipher = readProviderKeyCipher(getDatabase(), provider);
       if (cipher && !isUnprotectedCipher(cipher)) {
@@ -207,6 +208,7 @@ export async function setupIPC(): Promise<void> {
   // Every handler below, and the domain handlers, check that the sender is the app's own page.
   const ipcMain = guardedIpcMain(rawIpcMain);
   adoptStoredChatRuntime();
+  await applyNetworkSettings(getDatabase());
   await adoptStoredKeys();
   await adoptStoredMcpToken();
   await setupMcpOAuth();
@@ -403,6 +405,7 @@ export async function setupIPC(): Promise<void> {
         clearPreviewsForNewAddress();
       }
       reseedCoreKnowledge(getDatabase(), result.values.language);
+      void applyNetworkSettings(getDatabase());
       mainLLMService.setConfig({
         provider: result.values.provider,
         model: result.values.model,
@@ -416,18 +419,19 @@ export async function setupIPC(): Promise<void> {
   // stored, held or forgotten under that provider. Values are never returned or logged.
 
   /** The key to remember for a provider: the one just pasted, or the one already held for it. Never logged. */
-  const keyToRemember = (provider: CloudProvider, value: unknown): string | null => {
+  const keyToRemember = (provider: KeyProvider, value: unknown): string | null => {
     if (typeof value === 'string' && value.length > 0 && value.length <= 4000) return value;
     return mainLLMService.heldKey(provider);
   };
 
   ipcMain.handle(IPC_CHANNELS.SETTINGS_SAVE_SECRET, async (_event, provider: unknown, value: unknown) => {
-    if (!isCloudProvider(provider)) return attemptSaveSecret(getDatabase());
+    if (!isKeyProvider(provider)) return attemptSaveSecret(getDatabase());
     const decision = await secretStatus();
     const text = keyToRemember(provider, value);
     // A key pasted with this call is for the official address; the held key keeps the address it was pasted for.
-    const origin = typeof value === 'string' && value.length > 0 ? officialOrigin(provider) : mainLLMService.keyOrigin(provider) ?? officialOrigin(provider);
-    if (!decision.persist || !text) return attemptSaveSecret(getDatabase());
+    // A provider without an official address (compatible, local) only ever remembers a held key with its address.
+    const origin = (typeof value === 'string' && value.length > 0 ? officialOrigin(provider) : null) ?? mainLLMService.keyOrigin(provider) ?? officialOrigin(provider);
+    if (!decision.persist || !text || !origin) return attemptSaveSecret(getDatabase());
     const record = encodeKeyRecord(provider, text, origin);
     const cipher = await safeStorage.encryptStringAsync(record);
     const saved = saveSecretIfProven(getDatabase(), decision, provider, record, cipher);
@@ -437,10 +441,10 @@ export async function setupIPC(): Promise<void> {
 
   // The person's explicit choice on a computer without a password store: the key in an owner-only file.
   ipcMain.handle(IPC_CHANNELS.SETTINGS_SAVE_SECRET_FILE, (_event, provider: unknown) => {
-    if (!isCloudProvider(provider)) return { status: 'missing' as const };
+    if (!isKeyProvider(provider)) return { status: 'missing' as const };
     const text = keyToRemember(provider, undefined);
-    if (!text) return { status: 'missing' as const };
     const origin = mainLLMService.keyOrigin(provider) ?? officialOrigin(provider);
+    if (!text || !origin) return { status: 'missing' as const };
     writeKeyFile(app.getPath('userData'), provider, text, origin === officialOrigin(provider) ? null : origin);
     mainLLMService.holdFileKey(provider, text, origin);
     console.log(`[IPC] ${provider} model key remembered in the app folder file (value NOT logged)`);
@@ -449,7 +453,7 @@ export async function setupIPC(): Promise<void> {
 
   // With a provider: that provider's key only. Without one: every model key (Settings ▸ Privacy ▸ Forget all).
   ipcMain.handle(IPC_CHANNELS.SETTINGS_FORGET_SECRET, (_event, provider?: unknown) => {
-    if (isCloudProvider(provider)) {
+    if (isKeyProvider(provider)) {
       forgetProviderKey(getDatabase(), provider);
       removeKeyFromFile(app.getPath('userData'), provider);
       mainLLMService.forgetKeys(provider);
@@ -466,7 +470,7 @@ export async function setupIPC(): Promise<void> {
   const inventory = () => secretInventory({
     db: getDatabase(),
     userData: app.getPath('userData'),
-    heldProviders: () => CLOUD.filter((provider) => mainLLMService.keyStatus(provider).held),
+    heldProviders: () => KEYED.filter((provider) => mainLLMService.keyStatus(provider).held),
     heldTokenOrigin: () => mcpTokenOrigin(),
     heldSignIns: () => mcpOAuth()?.signedInOrigins() ?? [],
   });
@@ -488,13 +492,13 @@ export async function setupIPC(): Promise<void> {
   ipcMain.handle(IPC_CHANNELS.SETTINGS_SECRET_STATUS, async (_event, forProvider?: unknown) => {
     const decision = await secretStatus();
     const userData = app.getPath('userData');
-    const providers = Object.fromEntries(CLOUD.map((provider) => [provider, {
+    const providers = Object.fromEntries(KEYED.map((provider) => [provider, {
       source: mainLLMService.keyStatus(provider).source,
       stored: readProviderKeyCipher(getDatabase(), provider) != null,
       inFile: keyFileHolds(userData, provider),
-    }])) as Record<CloudProvider, { source: KeySource; stored: boolean; inFile: boolean }>;
-    const provider = isCloudProvider(forProvider) ? forProvider : savedProvider();
-    const one = isCloudProvider(provider) ? providers[provider] : { stored: false, inFile: false };
+    }])) as Record<KeyProvider, { source: KeySource; stored: boolean; inFile: boolean }>;
+    const provider = isKeyProvider(forProvider) ? forProvider : savedProvider();
+    const one = isKeyProvider(provider) ? providers[provider] : { stored: false, inFile: false };
     return { ...decision, stored: one.stored, inFile: one.inFile, providers };
   });
 
@@ -660,7 +664,7 @@ export async function setupIPC(): Promise<void> {
 
   // `forBase`: the address shown when the key was pasted (empty: the official one). The key goes there only.
   ipcMain.handle(IPC_CHANNELS.LLM_SET_SESSION_KEY, (_event, provider: unknown, value: unknown, forBase?: unknown) => {
-    console.log(`[IPC] Session key updated for ${isCloudProvider(provider) ? provider : 'no provider'} (value NOT logged)`);
+    console.log(`[IPC] Session key updated for ${isKeyProvider(provider) ? provider : 'no provider'} (value NOT logged)`);
     return mainLLMService.setSessionKey(provider, value, typeof forBase === 'string' && forBase.length <= 2000 ? forBase : '');
   });
 
@@ -684,6 +688,12 @@ export async function setupIPC(): Promise<void> {
   });
 
   // Settings ▸ Assistant ▸ Find local servers: the MCP server's Ollama targets (read-only tools) and loopback probes.
+  ipcMain.handle(IPC_CHANNELS.LLM_OLLAMA_WINDOW, async (_event, draft: unknown, window: unknown) => {
+    const input = (draft && typeof draft === 'object' ? draft : {}) as { provider?: unknown; model?: unknown; baseURL?: unknown };
+    const size = typeof window === 'number' && Number.isFinite(window) ? window : 0;
+    return mainLLMService.makeWindowVariant({ provider: input.provider, model: input.model, baseURL: input.baseURL }, size);
+  });
+
   ipcMain.handle(IPC_CHANNELS.LLM_DISCOVER_LOCAL, () => {
     const url = savedEndpoints().mcpUrl;
     const openMcp: OpenMcp | null = url ? async () => {

@@ -447,7 +447,7 @@ test('nothing sticks out, is cut or overlaps on any screen at any window size', 
         await page.waitForTimeout(450);
         await visitScrolling(page, `settings helper, choice ${index + 1}`, async () => { await openSettings(page, 0); }, () => settingsPanel(page));
         const key = assistant.locator('input[type="password"]').first();
-        if (await key.count() > 0 && await key.isVisible()) {
+        if (await key.count() > 0 && await key.isVisible() && await key.isEnabled()) {
           await key.fill('sk-layout-walk-not-a-real-key-0123456789abcdef');
           await page.waitForTimeout(2500);
           await visitScrolling(page, `settings helper, choice ${index + 1}, key pasted`, async () => { await openSettings(page, 0); }, () => settingsPanel(page));

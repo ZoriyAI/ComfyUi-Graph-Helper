@@ -9,11 +9,12 @@ import { containsExact, exactMatchRedactor, redactSecrets } from '../shared/agen
 import { failureStreakReached, forwardPart, type Redact } from './agent/streamParts';
 import { STEP_LIMIT } from '../shared/config/preferences';
 import type { ModelListResult } from '../shared/contracts/pickers';
-import { listCloudModels, listLocalModels, MODEL_LIST_REFUSED } from './llm/modelList';
+import { listCloudModels, listLocalModels, MODEL_LIST_NEEDS_KEY, MODEL_LIST_REFUSED } from './llm/modelList';
 import { originOf, startTurnTrace, turnLog, type TurnMeta } from './trace/modelTrace';
 import { privateToolResults } from './llm/toolPrivacy';
-import { contextFit, estimateRequestTokens, type ContextFit } from './llm/localContext';
-import { KEY_OTHER_ADDRESS, keyOriginFor, OFFICIAL_BASE, officialOrigin } from '../shared/config/keyOrigin';
+import { contextFit, createWindowVariant, estimateRequestTokens, loadAndReadContext, type ContextFit, type WindowVariantResult } from './llm/localContext';
+import { ADVICE_DATE, costOf } from '../shared/config/modelAdvice';
+import { CLOUD_PROVIDER_IDS, hasOfficialBase, isKeyProvider, KEY_OTHER_ADDRESS, KEY_PROVIDERS, keyOriginFor, OFFICIAL_BASE, officialOrigin, type CloudProviderId, type KeyProvider } from '../shared/config/keyOrigin';
 
 /**
  * Main-process LLM service
@@ -21,11 +22,14 @@ import { KEY_OTHER_ADDRESS, keyOriginFor, OFFICIAL_BASE, officialOrigin } from '
  * Renderer never sees API keys
  */
 
-export type ChatProvider = 'openai' | 'anthropic' | 'google' | 'test' | 'local';
-export type CloudProvider = 'openai' | 'anthropic' | 'google';
+export type ChatProvider = CloudProviderId | 'test' | 'local';
+/** A provider that answers from the internet and needs a key: the three companies and an OpenAI-compatible service. */
+export type CloudProvider = CloudProviderId;
 
-const PROVIDERS: readonly ChatProvider[] = ['openai', 'anthropic', 'google', 'test', 'local'];
-export const CLOUD: readonly CloudProvider[] = ['openai', 'anthropic', 'google'];
+const PROVIDERS: readonly ChatProvider[] = [...CLOUD_PROVIDER_IDS, 'test', 'local'];
+export const CLOUD: readonly CloudProvider[] = CLOUD_PROVIDER_IDS;
+/** Every provider a key may be held for: the cloud ones and the person's own server (for a server that asks). */
+export const KEYED: readonly KeyProvider[] = KEY_PROVIDERS;
 
 /**
  * The scripted TEST transport is a developer tool: main sets this false in the packaged app (index.ts), so a
@@ -54,6 +58,8 @@ interface LLMConfig {
 }
 
 const LOCAL_PLACEHOLDER = 'local';
+/** A compatible cloud service has no official address: without the person's https address nothing is sent. */
+export const COMPATIBLE_NO_ADDRESS = 'A compatible service needs its https address.';
 /** Stream parts that show the model answered: words, reasoning, a tool call, or an error of its own. */
 const ANSWER_PARTS = new Set(['text-delta', 'reasoning-delta', 'tool-call', 'tool-input-start', 'error', 'source']);
 const NOT_A_MODEL = 'The server answered, but not as a model: no words, no tool calls.';
@@ -184,6 +190,31 @@ export type ProbeResult =
  */
 export type LocalContextWatcher = (base: string, model: string, signal: AbortSignal) => Promise<number | null>;
 let localContextWatcher: LocalContextWatcher | null = null;
+
+/**
+ * How requests to cloud providers travel: the app wires a proxy-aware fetch at start (main/net/proxy.ts); unit tests
+ * keep Node's fetch. Your own server is always asked directly.
+ */
+let transport: typeof fetch = (...args) => globalThis.fetch(...args);
+export function configureTransport(fetchImpl: typeof fetch): void {
+  transport = fetchImpl;
+}
+/**
+ * The web search's way out (main/agent/tools.ts): undefined means the search connects itself to the address it
+ * vetted (the default, and always without a proxy); behind a proxy it gets the proxy-aware fetch, since a direct
+ * connection would not get through.
+ */
+let searchTransport: (url: string) => Promise<typeof fetch | undefined> = async () => undefined;
+export function configureSearchTransport(pick: (url: string) => Promise<typeof fetch | undefined>): void {
+  searchTransport = pick;
+}
+export function webSearchTransport(url: string): Promise<typeof fetch | undefined> {
+  return searchTransport(url).catch(() => undefined);
+}
+/** The fetch for cloud requests right now. */
+export function cloudTransport(): typeof fetch {
+  return transport;
+}
 export function configureLocalContext(watcher: LocalContextWatcher | null): void {
   localContextWatcher = watcher;
 }
@@ -229,7 +260,7 @@ class MainLLMService {
    * One key per cloud company, with where it came from. A request to one provider only ever reads that provider's
    * entry: a key pasted for Anthropic is never attached to an OpenAI or Google request after a switch.
    */
-  private keys = new Map<CloudProvider, { value: string; source: HeldSource; origin: string }>();
+  private keys = new Map<KeyProvider, { value: string; source: HeldSource; origin: string }>();
   /** Context windows local servers were seen to load a model with, by "origin|model". */
   private loadedWindows = new Map<string, number>();
   /** 'tight' notices already shown, by "origin|model|window": said once per run, not on every turn. */
@@ -248,6 +279,59 @@ class MainLLMService {
   localContextTokens(): number | null {
     const key = this.windowKey(this.config);
     return key ? this.loadedWindows.get(key) ?? null : null;
+  }
+
+  /**
+   * The window before the first question on your own server: asks the server, loading the model on Ollama when it
+   * is not loaded yet, and remembers the number. Null for a cloud model or a server that does not say.
+   */
+  async ensureLocalWindow(fetchImpl: typeof fetch = (...args) => globalThis.fetch(...args)): Promise<number | null> {
+    const known = this.localContextTokens();
+    if (known !== null) return known;
+    const config = this.config;
+    const key = this.windowKey(config);
+    if (!config || !key || !config.baseURL || !localContextWatcher) return null;
+    const window = await loadAndReadContext(config.baseURL, config.model.trim(), fetchImpl);
+    if (window !== null) this.loadedWindows.set(key, window);
+    return window;
+  }
+
+  /**
+   * Settings ▸ Assistant ▸ "Make a copy with a larger window": Ollama makes a copy of the draft model that loads with
+   * `window` tokens. Only a local Ollama address; the person asks for it with the button.
+   */
+  async makeWindowVariant(draft: ProbeDraft, window: number, fetchImpl: typeof fetch = (...args) => globalThis.fetch(...args)): Promise<WindowVariantResult> {
+    const base = typeof draft.baseURL === 'string' ? draft.baseURL.trim() : '';
+    const model = typeof draft.model === 'string' ? draft.model.trim() : '';
+    if (knownProvider(draft.provider) !== 'local' || !httpEndpoint(base) || model === '') return { ok: false, error: 'Local model has no endpoint.' };
+    const size = Math.max(4096, Math.min(262_144, Math.round(window)));
+    return createWindowVariant(base, model, size, fetchImpl);
+  }
+
+  /** The window each model's list entry gave (provider|model → tokens), so a turn uses what the list said. */
+  private listedWindows = new Map<string, number>();
+  /** The listed window of the configured model, or null when no list said one. */
+  listedContextTokens(): number | null {
+    const config = this.config;
+    return config ? this.listedWindows.get(`${config.provider}|${config.model.trim()}`) ?? null : null;
+  }
+  private rememberListed(provider: string, result: ModelListResult): ModelListResult {
+    if (result.ok) for (const model of result.models) if (model.contextLength) this.listedWindows.set(`${provider}|${model.id}`, model.contextLength);
+    return result;
+  }
+
+  /** OpenAI organization and project for a key that belongs to several (Settings ▸ Assistant); empty: none sent. */
+  private openaiAccount: { organization: string; project: string } = { organization: '', project: '' };
+  setOpenAiAccount(account: { organization?: string; project?: string }): void {
+    const clean = (value: unknown) => (typeof value === 'string' && /^[A-Za-z0-9_-]{1,200}$/.test(value.trim()) ? value.trim() : '');
+    this.openaiAccount = { organization: clean(account.organization), project: clean(account.project) };
+  }
+  /** The OpenAI-Organization / OpenAI-Project headers to send, none when empty. */
+  openAiAccountHeaders(): Record<string, string> {
+    return {
+      ...(this.openaiAccount.organization ? { 'OpenAI-Organization': this.openaiAccount.organization } : {}),
+      ...(this.openaiAccount.project ? { 'OpenAI-Project': this.openaiAccount.project } : {}),
+    };
   }
 
   /** Remembers a window read earlier (kept across restarts by the caller) for the configured server and model. */
@@ -275,7 +359,7 @@ class MainLLMService {
   }
 
   private hold(provider: unknown, value: unknown, source: HeldSource, origin?: string | null): { held: boolean; source: KeySource } {
-    if (!isCloudProvider(provider)) return { held: false, source: 'none' };
+    if (!isKeyProvider(provider)) return { held: false, source: 'none' };
     const bound = origin === undefined ? officialOrigin(provider) : origin;
     if (typeof value !== 'string' || value.length === 0 || value.length > 4000 || !bound) {
       this.keys.delete(provider);
@@ -292,48 +376,48 @@ class MainLLMService {
    * sent there and nowhere else.
    */
   setSessionKey(provider: unknown, value: unknown, forBase?: unknown): { held: boolean; source: KeySource } {
-    const origin = isCloudProvider(provider) ? keyOriginFor(provider, typeof forBase === 'string' ? forBase : '') : null;
+    const origin = isKeyProvider(provider) ? keyOriginFor(provider, typeof forBase === 'string' ? forBase : '') : null;
     return this.hold(provider, value, 'session', origin);
   }
 
   /** Holds a key just decrypted from OS storage for its provider and the address it was remembered for. */
-  holdOsKey(provider: CloudProvider, value: string, origin: string = officialOrigin(provider)): void {
-    if (value.length === 0 || value.length > 4000) return;
+  holdOsKey(provider: KeyProvider, value: string, origin: string | null = officialOrigin(provider)): void {
+    if (value.length === 0 || value.length > 4000 || !origin) return;
     this.hold(provider, value, 'os', origin);
   }
 
   /** Holds a key read from the app folder file the person chose on a computer without a password store. */
-  holdFileKey(provider: CloudProvider, value: string, origin: string = officialOrigin(provider)): void {
-    if (value.length === 0 || value.length > 4000) return;
+  holdFileKey(provider: KeyProvider, value: string, origin: string | null = officialOrigin(provider)): void {
+    if (value.length === 0 || value.length > 4000 || !origin) return;
     this.hold(provider, value, 'file', origin);
   }
 
   /** The address (origin) the held key of a provider belongs to, or null. Not a secret. */
   keyOrigin(provider: unknown): string | null {
-    return isCloudProvider(provider) ? this.keys.get(provider)?.origin ?? null : null;
+    return isKeyProvider(provider) ? this.keys.get(provider)?.origin ?? null : null;
   }
 
   /** Every provider's key address, for the cards ("this key is for …"). Never a key. */
-  keyOrigins(): Record<CloudProvider, string | null> {
-    return { openai: this.keyOrigin('openai'), anthropic: this.keyOrigin('anthropic'), google: this.keyOrigin('google') };
+  keyOrigins(): Record<KeyProvider, string | null> {
+    return Object.fromEntries(KEYED.map((provider) => [provider, this.keyOrigin(provider)])) as Record<KeyProvider, string | null>;
   }
 
   /** The held key of a provider when it belongs to the address `base` sends to; null otherwise. */
-  private keyFor(provider: CloudProvider, base: string | null | undefined): string | null {
+  private keyFor(provider: KeyProvider, base: string | null | undefined): string | null {
     const entry = this.keys.get(provider);
     const origin = keyOriginFor(provider, base);
     return entry && origin && entry.origin === origin ? entry.value : null;
   }
 
   /** Forgets one provider's key, or every provider's key without an argument. */
-  forgetKeys(provider?: CloudProvider): void {
+  forgetKeys(provider?: KeyProvider): void {
     if (provider) this.keys.delete(provider);
     else this.keys.clear();
   }
 
   /** The key held for a provider, for remembering it; never returned to the renderer. */
   heldKey(provider: unknown): string | null {
-    return isCloudProvider(provider) ? this.keys.get(provider)?.value ?? null : null;
+    return isKeyProvider(provider) ? this.keys.get(provider)?.value ?? null : null;
   }
 
   /** Every held LLM key and the MCP token, for exact-match redaction only. Never returned to a caller. */
@@ -352,13 +436,13 @@ class MainLLMService {
 
   /** Where one provider's key lives right now (never the key). */
   keyStatus(provider: unknown): { held: boolean; source: KeySource } {
-    const entry = isCloudProvider(provider) ? this.keys.get(provider) : undefined;
+    const entry = isKeyProvider(provider) ? this.keys.get(provider) : undefined;
     return entry ? { held: true, source: entry.source } : { held: false, source: 'none' };
   }
 
-  /** Every cloud provider's key place, for the provider cards. */
-  keySources(): Record<CloudProvider, KeySource> {
-    return { openai: this.keyStatus('openai').source, anthropic: this.keyStatus('anthropic').source, google: this.keyStatus('google').source };
+  /** Every provider's key place, for the provider cards. */
+  keySources(): Record<KeyProvider, KeySource> {
+    return Object.fromEntries(KEYED.map((provider) => [provider, this.keyStatus(provider).source])) as Record<KeyProvider, KeySource>;
   }
 
   /** The key status of the provider of the next send ('none' for local, test and no provider). */
@@ -379,6 +463,7 @@ class MainLLMService {
   private blockFor(config: LLMConfig | null): string | null {
     if (!config) return 'Model not configured';
     const { provider } = config;
+    if (provider === 'compatible' && (config.baseURL?.trim() ?? '') === '') return COMPATIBLE_NO_ADDRESS;
     if (isCloud(provider)) {
       const key = this.heldKey(provider);
       if (key && !httpsCloudEndpoint(config.baseURL)) return 'Cloud key is not sent to an http address.';
@@ -431,6 +516,9 @@ class MainLLMService {
       return { ok: true, latencyMs, provider, model: config.model, ...(contextTokens !== null ? { contextTokens } : {}) };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      if (provider === 'local' && refusedForKey(error) && !this.keyFor('local', config.baseURL)) {
+        return { ok: false, error: MODEL_LIST_NEEDS_KEY, latencyMs: Math.max(0, Math.round(now() - started)) };
+      }
       return { ok: false, error: redactProbeError(message, this.heldValues()), latencyMs: Math.max(0, Math.round(now() - started)) };
     } finally {
       clearTimeout(timer);
@@ -443,7 +531,7 @@ class MainLLMService {
    * draft base URL; cloud providers at the official (or configured https) base with the key held here, which is
    * never returned or logged. Without a key nothing is sent. Errors are fixed sentences with any key redacted.
    */
-  async listModels(draft: ProbeDraft, fetchImpl: typeof fetch = (...args) => globalThis.fetch(...args)): Promise<ModelListResult> {
+  async listModels(draft: ProbeDraft, fetchImpl?: typeof fetch): Promise<ModelListResult> {
     const provider = knownProvider(draft.provider);
     if (!provider) return { ok: false, error: 'Model not configured' };
     const baseURL = typeof draft.baseURL === 'string' ? draft.baseURL.trim() : '';
@@ -451,8 +539,9 @@ class MainLLMService {
     try {
       if (provider === 'local') {
         if (!httpEndpoint(baseURL)) return { ok: false, error: 'Local model has no endpoint.' };
-        return await listLocalModels(baseURL, fetchImpl);
+        return this.rememberListed('local', await listLocalModels(baseURL, fetchImpl ?? ((...args) => globalThis.fetch(...args)), undefined, this.keyFor('local', baseURL)));
       }
+      if (provider === 'compatible' && baseURL === '') return { ok: false, error: COMPATIBLE_NO_ADDRESS };
       const config: LLMConfig = { provider, model: '', baseURL };
       const base = this.cloudBase(provider as CloudProvider, config);
       if (!base) return { ok: false, error: 'Cloud key is not sent to an http address.' };
@@ -461,8 +550,8 @@ class MainLLMService {
       if (!entry) return { ok: false, error: 'Cloud model has no key for this session.' };
       // Nothing is sent to an address the key was not pasted for: not the key, not a request without it.
       if (!this.keyFor(cloud, baseURL)) return { ok: false, error: KEY_OTHER_ADDRESS };
-      const result = await listCloudModels(cloud, base, entry.value, fetchImpl);
-      if (result.ok) return result;
+      const result = await listCloudModels(cloud, base, entry.value, fetchImpl ?? transport, undefined, cloud === 'openai' ? this.openAiAccountHeaders() : {});
+      if (result.ok) return this.rememberListed(cloud, result);
       // A key the provider refused must not be sent again: a key pasted for this session is dropped at once.
       // A remembered key stays until the person forgets it, so one 401 cannot erase what they chose to save.
       // A network failure says nothing about the key and keeps it.
@@ -488,7 +577,9 @@ class MainLLMService {
 
   private cloudBase(provider: CloudProvider, config: LLMConfig | null = this.config): string | null {
     if (!httpsCloudEndpoint(config?.baseURL)) return null;
-    return config?.baseURL?.trim() || OFFICIAL_BASE[provider];
+    const typed = config?.baseURL?.trim() ?? '';
+    if (typed !== '') return typed;
+    return hasOfficialBase(provider) ? OFFICIAL_BASE[provider] : null;
   }
 
   /**
@@ -518,15 +609,22 @@ class MainLLMService {
       if (!baseURL) return null;
       // Only the key held for this provider and this address; another provider's key is never a fallback.
       const apiKey = this.keyFor(provider, config.baseURL) ?? '';
-      const wire = fetchImpl ? { fetch: fetchImpl } : {};
-      if (provider === 'openai') return createOpenAI({ apiKey, baseURL, ...wire })(model);
+      const wire = { fetch: fetchImpl ?? transport };
+      // OpenAI's own service reads the Responses interface; every compatible service (a gateway, a regional
+      // provider) reads chat completions, the interface they all share.
+      if (provider === 'compatible') return createOpenAI({ apiKey, baseURL, name: 'compatible', ...wire }).chat(model);
+      if (provider === 'openai') {
+        const account = this.openaiAccount;
+        return createOpenAI({ apiKey, baseURL, ...(account.organization ? { organization: account.organization } : {}), ...(account.project ? { project: account.project } : {}), ...wire })(model);
+      }
       if (provider === 'anthropic') return createAnthropic({ apiKey, baseURL, ...wire })(model);
       return createGoogleGenerativeAI({ apiKey, baseURL, ...wire })(model);
     }
 
     if (provider === 'local') {
       const local = createOpenAI({
-        apiKey: LOCAL_PLACEHOLDER,
+        // A server that asks for a key gets the one pasted for its address; any other gets a placeholder.
+        apiKey: this.keyFor('local', config.baseURL) ?? LOCAL_PLACEHOLDER,
         baseURL: config.baseURL,
         name: 'local',
         ...(fetchImpl ? { fetch: fetchImpl } : {}),
@@ -545,7 +643,7 @@ class MainLLMService {
    * Building the tool sends nothing and needs no key.
    */
   nativeSearchTool(): unknown | null {
-    if (!this.config || !isCloud(this.config.provider)) return null;
+    if (!this.config || !isCloud(this.config.provider) || this.config.provider === 'compatible') return null;
     if ((this.config.baseURL?.trim() ?? '') !== '') return null;
     const { provider, model } = this.config;
     // The key is not attached here; a tool definition never carries it.
@@ -553,7 +651,7 @@ class MainLLMService {
     if (provider === 'anthropic') return createAnthropic({ apiKey: '' }).tools.webSearch_20250305({ maxUses: 5 });
     // Before Gemini 3, @ai-sdk/google sends only the search tool when it is present and drops every
     // function tool. Those models use the main-process search fallback instead.
-    if (!model.trim().toLowerCase().startsWith('gemini-3')) return null;
+    if (!/^gemini-([3-9]|\d{2,})/.test(model.trim().toLowerCase())) return null;
     return createGoogleGenerativeAI({ apiKey: '' }).tools.googleSearch({});
   }
 
@@ -721,6 +819,7 @@ class MainLLMService {
     let breakBeforeText = false;
     for await (const part of result.fullStream) {
       partCount++;
+      if (part.type === 'error') this.markProviderError((part as { error?: unknown }).error);
       trace?.part(part as unknown as { type: string } & Record<string, unknown>);
       if (part.type === 'start-step') breakBeforeText = wroteText;
       if (ANSWER_PARTS.has(part.type)) answered = true;
@@ -763,11 +862,26 @@ class MainLLMService {
     }
     // A count the server stopped at its window says nothing about how many characters make a token.
     if (local?.said !== 'cut') this.noteUsage(messages, steps);
+    const usage = turnUsage(this.config, steps);
+    if (usage) yield { type: 'usage', content: usage };
+    // The model stopped because it reached its length limit, not because it was done: the chat says so.
+    const last = steps[steps.length - 1] as { finishReason?: unknown } | undefined;
+    if (last?.finishReason === 'length') yield { type: 'notice', content: { code: 'answer-cut', reason: 'length' } };
     const paused = pauseOf(steps, maxSteps);
     if (paused) {
       turnLog(`[MainLLMService] Turn paused: ${paused.reason} after ${paused.steps} steps`);
       yield { type: 'turn-paused', content: paused };
     }
+  }
+
+  /**
+   * A failure only the provider side can name: your own server refused the request for want of a key the person
+   * never gave it ("needs-key", not "the key was refused"). The chat reads the kind (shared/agent/turnError.ts).
+   */
+  private markProviderError(error: unknown): void {
+    const config = this.config;
+    if (!config || config.provider !== 'local' || !error || typeof error !== 'object') return;
+    if (refusedForKey(error) && !this.keyFor('local', config.baseURL)) (error as { kind?: string }).kind = 'needs-key';
   }
 
   /** Characters per token measured on the last send (the provider's input-token count of its first step), or null. */
@@ -787,6 +901,58 @@ class MainLLMService {
     const key = `${this.config?.provider ?? ''}/${this.config?.model ?? ''}`;
     return this.measuredCharsPerToken?.model === key ? this.measuredCharsPerToken.ratio : 4;
   }
+}
+
+/**
+ * What one turn cost: the tokens every step counted and, for a cloud model in the dated price table, an estimate in
+ * dollars (shared/config/modelAdvice.ts). Null when the server counted nothing. The chat shows it under the answer.
+ */
+export interface TurnUsage {
+  provider: string;
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  /** Dollars, or null when the price is not known (a compatible service, a model not in the table). */
+  costUsd: number | null;
+  /** The date of the price table the estimate came from. */
+  pricesFrom: string;
+  /** False for your own server: nothing is billed. */
+  billed: boolean;
+}
+
+export function turnUsage(config: { provider: string; model: string } | null, steps: ReadonlyArray<{ usage?: { inputTokens?: number; outputTokens?: number } }>): TurnUsage | null {
+  if (!config) return null;
+  let input = 0;
+  let output = 0;
+  let counted = false;
+  for (const step of steps) {
+    const tokensIn = step.usage?.inputTokens;
+    const tokensOut = step.usage?.outputTokens;
+    if (typeof tokensIn === 'number' && Number.isFinite(tokensIn)) { input += tokensIn; counted = true; }
+    if (typeof tokensOut === 'number' && Number.isFinite(tokensOut)) { output += tokensOut; counted = true; }
+  }
+  if (!counted) return null;
+  const billed = isCloudProvider(config.provider);
+  return {
+    provider: config.provider,
+    model: config.model,
+    inputTokens: input,
+    outputTokens: output,
+    costUsd: billed ? costOf(config.provider, config.model, input, output) : null,
+    pricesFrom: ADVICE_DATE,
+    billed,
+  };
+}
+
+/** Whether a provider error is a 401 or 403, the answer of a server that wants a key. */
+export function refusedForKey(error: unknown): boolean {
+  let current: unknown = error;
+  for (let depth = 0; depth < 5 && current && typeof current === 'object'; depth += 1) {
+    const status = (current as { statusCode?: unknown; status?: unknown }).statusCode ?? (current as { status?: unknown }).status;
+    if (status === 401 || status === 403) return true;
+    current = (current as { lastError?: unknown; cause?: unknown }).lastError ?? (current as { cause?: unknown }).cause;
+  }
+  return false;
 }
 
 export { MainLLMService };

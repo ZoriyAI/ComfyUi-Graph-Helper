@@ -24,7 +24,7 @@ export type KeySource = 'none' | 'session' | 'os' | 'file';
 /** `setup`: your own server chosen without an address yet (the card must not say "ready"). */
 export type ProviderKeyState = 'none' | 'test' | 'ok' | 'session' | 'missing' | 'setup';
 
-export const CLOUD_PROVIDERS = new Set(['openai', 'anthropic', 'google']);
+export const CLOUD_PROVIDERS = new Set(['openai', 'anthropic', 'google', 'compatible']);
 
 /** Values of the provider select (`#chat-provider`) and of the Assistant ▸ Provider menu, in order. */
 export const PROVIDER_CHOICES: Array<{ value: string; labelKey: string }> = [
@@ -33,6 +33,7 @@ export const PROVIDER_CHOICES: Array<{ value: string; labelKey: string }> = [
   { value: 'openai', labelKey: 'provider.openaiSession' },
   { value: 'anthropic', labelKey: 'provider.anthropicSession' },
   { value: 'google', labelKey: 'provider.googleSession' },
+  { value: 'compatible', labelKey: 'provider.compatibleSession' },
   { value: 'local', labelKey: 'provider.localChip' },
 ];
 
@@ -58,6 +59,7 @@ export function providerNoteKey(provider: string, keySource: KeySource): string 
   if (provider === 'openai') return keySource === 'os' ? 'provider.openaiStored' : keySource === 'session' ? 'provider.openaiHeld' : 'provider.openai';
   if (provider === 'anthropic') return keySource === 'os' ? 'provider.cloudStored' : keySource === 'session' ? 'provider.anthropicHeld' : 'provider.anthropic';
   if (provider === 'google') return keySource === 'os' ? 'provider.cloudStored' : keySource === 'session' ? 'provider.googleHeld' : 'provider.google';
+  if (provider === 'compatible') return keySource === 'os' ? 'provider.cloudStored' : keySource === 'session' ? 'provider.compatibleHeld' : 'provider.compatible';
   return 'provider.none';
 }
 
@@ -70,12 +72,12 @@ export function providerKeyState(provider: string, keySource: KeySource): Provid
 }
 
 /** Each cloud provider's key place. A key belongs to one provider; no card borrows another's. */
-export type KeySources = Record<'openai' | 'anthropic' | 'google', KeySource>;
-export const NO_KEYS: KeySources = { openai: 'none', anthropic: 'none', google: 'none' };
+export type KeySources = Record<'openai' | 'anthropic' | 'google' | 'compatible' | 'local', KeySource>;
+export const NO_KEYS: KeySources = { openai: 'none', anthropic: 'none', google: 'none', compatible: 'none', local: 'none' };
 
-/** The key place of one provider ('none' for local, test and no provider). */
+/** The key place of one provider ('none' for test and no provider; your own server only when it asked for one). */
 export function keySourceOf(sources: KeySources, provider: string): KeySource {
-  return CLOUD_PROVIDERS.has(provider) ? sources[provider as keyof KeySources] ?? 'none' : 'none';
+  return CLOUD_PROVIDERS.has(provider) || provider === 'local' ? sources[provider as keyof KeySources] ?? 'none' : 'none';
 }
 
 /** Asks main where each provider's key lives and shows it (never a key). */

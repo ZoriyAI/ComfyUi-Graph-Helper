@@ -183,7 +183,7 @@ test('a key pasted for one provider belongs to that provider only', async () => 
   const status = await window.evaluate(() => (window as unknown as {
     electronAPI: { llmSessionStatus: () => Promise<{ providers: Record<string, string> }> };
   }).electronAPI.llmSessionStatus());
-  expect(status.providers).toEqual({ openai: 'none', anthropic: 'session', google: 'none' });
+  expect(status.providers).toEqual({ openai: 'none', anthropic: 'session', google: 'none', compatible: 'none', local: 'none' });
 
   // The OpenAI panel is OpenAI's: no key there, and a check of OpenAI stops in main.
   await dialog.getByRole('radio', { name: 'OpenAI', exact: true }).click();
@@ -209,6 +209,6 @@ test('a key pasted for one provider belongs to that provider only', async () => 
   const cleared = await window.evaluate(() => (window as unknown as {
     electronAPI: { llmSessionStatus: () => Promise<{ providers: Record<string, string> }> };
   }).electronAPI.llmSessionStatus());
-  expect(cleared.providers).toEqual({ openai: 'none', anthropic: 'none', google: 'none' });
+  expect(cleared.providers).toEqual({ openai: 'none', anthropic: 'none', google: 'none', compatible: 'none', local: 'none' });
   await app.close();
 });

@@ -1,3 +1,4 @@
+import { KEY_PROVIDERS, type KeyProvider } from '../config/keyOrigin';
 /**
  * OAuth sign-in to the MCP server. Main keeps every token; the renderer only ever sees this status.
  * `persisted`: the tokens are stored as OS-encrypted ciphertext; false means they live for this session only.
@@ -47,9 +48,12 @@ export interface McpTokenStatus {
   inFile: boolean;
 }
 
-/** A cloud model provider; each has its own key, never shared with another. */
-export type CloudKeyProvider = 'openai' | 'anthropic' | 'google';
-export const CLOUD_KEY_PROVIDERS: readonly CloudKeyProvider[] = ['openai', 'anthropic', 'google'];
+/**
+ * A model provider a key can be held for (the three companies, a compatible cloud service, the person's own
+ * server); each has its own key, never shared with another. The name stays for the callers that read it.
+ */
+export type CloudKeyProvider = KeyProvider;
+export const CLOUD_KEY_PROVIDERS: readonly CloudKeyProvider[] = KEY_PROVIDERS;
 
 /** Where one provider's key lives right now: nowhere, in memory for this session, in the OS store, or in the file. */
 export type KeySourceName = 'none' | 'session' | 'os' | 'file';

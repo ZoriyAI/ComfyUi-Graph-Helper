@@ -44,6 +44,8 @@ export interface TraceConfig {
   folderCapFiles?: number;
   turnCapBytes?: number;
   textCap?: number;
+  /** How the recorded request travels (the proxy-aware fetch in the app); Node's fetch when absent. */
+  transport?: typeof fetch;
 }
 
 export interface TurnMeta {
@@ -88,6 +90,7 @@ let config: (Required<Pick<TraceConfig, 'dir' | 'redact' | 'enabled'>> & {
   folderCapFiles: number;
   turnCapBytes: number;
   textCap: number;
+  transport?: typeof fetch;
 }) | null = null;
 
 export function configureModelTrace(options: TraceConfig): void {
@@ -100,6 +103,7 @@ export function configureModelTrace(options: TraceConfig): void {
     folderCapFiles: options.folderCapFiles ?? FOLDER_CAP_FILES,
     turnCapBytes: options.turnCapBytes ?? TURN_CAP_BYTES,
     textCap: options.textCap ?? TEXT_CAP,
+    ...(options.transport ? { transport: options.transport } : {}),
   };
 }
 
@@ -391,7 +395,7 @@ export class TurnTrace {
     this.write('wire-request', { step: this.step + 1, method: init?.method ?? 'GET', url, bodyChars: body?.length ?? null, body: body === null ? null : this.clip(body) }, true);
     let response: Response;
     try {
-      response = await fetch(input, init);
+      response = await (this.options.transport ?? fetch)(input, init);
     } catch (error) {
       this.write('wire-error', { url, ms: this.options.now() - started, ...errorFields(error, this.options.redact, 2000) });
       throw error;

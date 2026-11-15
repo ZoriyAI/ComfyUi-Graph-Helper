@@ -37,7 +37,13 @@ export function withKnownFacts(models: ModelChoice[], known: ModelChoice[] | und
 /** Picker rows for models: id first, display name and size below, capability badges on the right. */
 export function modelSuggestions(models: ModelChoice[], t: Translator): Suggestion[] {
   return models.map((model) => {
-    const detail = [model.label, model.detail, model.tools === false ? t('picker.capNoTools') : ''].filter(Boolean).join(' · ');
+    const detail = [
+      model.label,
+      model.detail,
+      // The model's own window, as its server or provider says it (Ollama, Anthropic, Google).
+      model.contextLength ? t('picker.capWindow', { tokens: model.contextLength }) : '',
+      model.tools === false ? t('picker.capNoTools') : '',
+    ].filter(Boolean).join(' · ');
     const badges: NonNullable<Suggestion['badges']> = [];
     if (model.tools === true) badges.push({ text: t('picker.capTools'), tone: 'ok' });
     if (model.tools === false) badges.push({ text: t('picker.capNoTools'), tone: 'warn' });
@@ -68,6 +74,8 @@ export function addressSuggestions(items: AddressSuggestion[], t: Translator): S
 /** Whether a model list can be asked for: a cloud provider (main checks key and https), or a local http(s) address. */
 export function listable(provider: string, baseURL: string): boolean {
   if (provider === 'openai' || provider === 'anthropic' || provider === 'google') return true;
+  // A compatible service is asked only at the https address the person typed (main checks the key for it).
+  if (provider === 'compatible') return /^https:\/\/[^\s/]+/i.test(baseURL.trim());
   if (provider !== 'local') return false;
   try {
     // `127.0.0.1:11434/v1` is asked as http://… (main completes it the same way and says so).

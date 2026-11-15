@@ -6,13 +6,14 @@ import { listLocalModels, parseOllamaCatalog } from './modelList';
 
 /**
  * Settings ▸ Assistant ▸ "Find local servers": the Ollama servers the person's MCP server runs, and whatever
- * answers on this computer at the usual ports of Ollama, LM Studio and vLLM. These ports are only places to look:
+ * answers on this computer at the usual ports of Ollama, LM Studio, vLLM and llama.cpp's server. These ports are only places to look:
  * a server is offered only when it answered, labelled as found on this computer, and any other address can be typed.
  */
 export const LOCAL_PROBES: ReadonlyArray<{ port: number; name: string }> = [
   { port: 11434, name: 'Ollama' },
   { port: 1234, name: 'LM Studio' },
   { port: 8000, name: 'vLLM' },
+  { port: 8080, name: 'llama.cpp' },
 ];
 export const PROBE_TIMEOUT_MS = 1_500;
 /** The MCP server is asked about at most this many targets. */

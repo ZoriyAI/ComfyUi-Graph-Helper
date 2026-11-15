@@ -5,7 +5,7 @@ import { isToolsUnsupportedError } from './providerErrors';
  * The provider's own words never become the message: they go to the conversation log, and a short redacted copy
  * travels as `details` for a collapsed "what the server said".
  */
-export const TURN_ERROR_KINDS = ['no-key', 'key', 'rate', 'server', 'unreachable', 'unreadable', 'not-a-model', 'no-tools', 'storage', 'unknown'] as const;
+export const TURN_ERROR_KINDS = ['no-key', 'key', 'needs-key', 'model', 'rate', 'server', 'unreachable', 'unreadable', 'not-a-model', 'no-tools', 'storage', 'unknown'] as const;
 export type TurnErrorKind = typeof TURN_ERROR_KINDS[number];
 
 export interface TurnError {
@@ -17,7 +17,7 @@ export interface TurnError {
 }
 
 /** Kinds whose next step is in Settings ▸ Assistant (the key, the address, the model). */
-export const SETTINGS_KINDS: ReadonlySet<TurnErrorKind> = new Set(['no-key', 'key', 'unreachable', 'not-a-model', 'no-tools']);
+export const SETTINGS_KINDS: ReadonlySet<TurnErrorKind> = new Set(['no-key', 'key', 'needs-key', 'model', 'unreachable', 'not-a-model', 'no-tools']);
 
 export const DETAILS_CAP = 300;
 
@@ -94,6 +94,9 @@ function secondsInText(text: string): number | null {
   return clampSeconds(found[2].toLowerCase() === 'ms' ? value / 1000 : value);
 }
 
+/** The provider's words for a model it does not have (any more). */
+const MODEL_GONE = /model_not_found|model[ _-]?not[ _-]?found|no such model|unknown model|model .{1,120} (?:does not exist|not found|is not found|has been (?:deprecated|decommissioned|retired|shut down))|(?:deprecated|decommissioned|retired) model|is not supported for generateContent/i;
+
 const UNREACHABLE = /ECONNREFUSED|ENOTFOUND|EAI_AGAIN|ETIMEDOUT|ECONNRESET|EHOSTUNREACH|ENETUNREACH|other side closed|socket hang up|fetch failed|Cannot connect to API|network error|timed? ?out|UND_ERR_/i;
 const UNREADABLE_NAMES = /JSONParseError|TypeValidationError|InvalidResponseDataError|NoContentGeneratedError|InvalidStreamPart/i;
 const UNREADABLE_TEXT = /JSON parsing failed|Unexpected token|is not valid JSON|Expected property name|Invalid JSON response/i;
@@ -113,6 +116,8 @@ export function classifyTurnError(error: unknown, redact: (text: string) => stri
   const status = statusOf(items) ?? (/\b(401|403|429|5\d\d)\b/.exec(text)?.[1] ? Number(/\b(401|403|429|5\d\d)\b/.exec(text)![1]) : null);
   // No key at all: nothing was sent anywhere, so the sentence must not blame a server.
   if (status === null && /has no key|no api key|api key is missing/i.test(text)) return { kind: 'no-key', details };
+  // A retired or mistyped model: the provider answers 404 (or 400) and names the model.
+  if (MODEL_GONE.test(text) || (status === 404 && /\bmodel\b/i.test(text))) return { kind: 'model', details };
   if (status === 401 || status === 403 || /invalid[_ ]api[_ ]key|incorrect api key|unauthori[sz]ed|authentication|has no key|no api key|api key is missing/i.test(text)) return { kind: 'key', details };
   if (status === 429 || /rate limit|too many requests/i.test(text)) {
     const headers = items.map((item) => item.responseHeaders).find(Boolean);

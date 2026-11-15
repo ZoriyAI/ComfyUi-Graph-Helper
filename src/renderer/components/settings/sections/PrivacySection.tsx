@@ -22,7 +22,7 @@ const STORE_NAME_KEYS: Record<string, string> = {
 };
 const storeNameKey = (backend: string): string => STORE_NAME_KEYS[backend] ?? 'preferences.secretStoreName.unknown';
 
-const KEY_PROVIDER_NAMES: Record<CloudKeyProvider, string> = { openai: 'OpenAI', anthropic: 'Anthropic', google: 'Google' };
+const KEY_PROVIDER_NAMES: Record<CloudKeyProvider, string> = { openai: 'OpenAI', anthropic: 'Anthropic', google: 'Google', compatible: 'OpenAI-compatible', local: '' };
 import { tokenPlaceKey } from '../mcpAccess';
 import { cx } from '../../../ui/cx';
 import { useChatStore } from '../../../state/chatState';
@@ -90,7 +90,7 @@ export default function PrivacySection({ prefs, setPrefs, container }: DraftProp
   const inventoryItems = (found: SecretInventoryReport | null): string[] => {
     if (!found) return [];
     const items: string[] = [];
-    if (found.providers.length > 0) items.push(String(t('preferences.forgetItemKeys', { providers: found.providers.map((provider) => KEY_PROVIDER_NAMES[provider]).join(', ') })));
+    if (found.providers.length > 0) items.push(String(t('preferences.forgetItemKeys', { providers: found.providers.map((provider) => KEY_PROVIDER_NAMES[provider] || String(t('settings.providerLocal'))).join(', ') })));
     if (found.serverTokens > 0) items.push(String(t('preferences.forgetItemTokens', { count: found.serverTokens })));
     if (found.signIns > 0) items.push(String(t('preferences.forgetItemSignIns', { count: found.signIns })));
     return items;
@@ -218,7 +218,7 @@ export default function PrivacySection({ prefs, setPrefs, container }: DraftProp
               </tr>
             ) : keyRows.map((row) => (
               <tr key={row.provider} data-provider={row.provider}>
-                <th scope="row">{t('preferences.providerKeyRowFor', { provider: KEY_PROVIDER_NAMES[row.provider] })}</th>
+                <th scope="row">{t('preferences.providerKeyRowFor', { provider: KEY_PROVIDER_NAMES[row.provider] || String(t('settings.providerLocal')) })}</th>
                 <td><span className={cx(styles.placeDot, styles.placeOn)} aria-hidden="true" />{t(keyPlace(row.source))}</td>
               </tr>
             ))}

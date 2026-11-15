@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { writeFileAtomic } from '../files/atomicWrite';
+import { KEY_PROVIDERS } from '../../shared/config/keyOrigin';
 
 /**
  * Model providers' keys remembered in a plain file, by the person's explicit choice, on a computer without a
@@ -14,7 +15,7 @@ import { writeFileAtomic } from '../files/atomicWrite';
  */
 export const KEY_FILE = 'model-key.json';
 
-export const KEY_FILE_PROVIDERS = ['openai', 'anthropic', 'google'] as const;
+export const KEY_FILE_PROVIDERS = KEY_PROVIDERS;
 export type KeyFileProvider = typeof KEY_FILE_PROVIDERS[number];
 export type KeyFileKeys = Partial<Record<KeyFileProvider, string>>;
 
@@ -59,7 +60,7 @@ export function readKeyFileOrigins(userData: string): Partial<Record<KeyFileProv
     const out: Partial<Record<KeyFileProvider, string>> = {};
     if (parsed?.origins && typeof parsed.origins === 'object') {
       for (const [provider, origin] of Object.entries(parsed.origins as Record<string, unknown>)) {
-        if (isKeyFileProvider(provider) && typeof origin === 'string' && /^https:\/\/[^/@]+$/.test(origin)) out[provider] = origin;
+        if (isKeyFileProvider(provider) && typeof origin === 'string' && (/^https:\/\/[^/@]+$/.test(origin) || (provider === 'local' && /^http:\/\/[^/@]+$/.test(origin)))) out[provider] = origin;
       }
     }
     return out;

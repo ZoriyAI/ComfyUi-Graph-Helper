@@ -1,4 +1,5 @@
 import type Database from 'better-sqlite3';
+import { KEY_PROVIDERS, type KeyProvider } from '../../shared/config/keyOrigin';
 import { readKeyFile, removeKeyFile } from './keyFile';
 import { readTokenFile, removeTokenFile } from '../mcp/tokenFile';
 
@@ -64,7 +65,7 @@ export function forgetEverySecret(deps: ForgetAllDeps): ForgetAllResult {
 /** What "Forget all" would remove right now: names and counts only, never a value. */
 export interface SecretInventory {
   /** Cloud providers with a key held now or remembered (OS store record or app folder file). */
-  providers: Array<'openai' | 'anthropic' | 'google'>;
+  providers: KeyProvider[];
   /** Server access tokens: held now, remembered per address, or in the app folder file. */
   serverTokens: number;
   /** Browser sign-ins (MCP addresses with tokens), held now or remembered. */
@@ -82,7 +83,7 @@ export interface InventoryDeps {
   heldSignIns: () => string[];
 }
 
-const PROVIDERS = ['openai', 'anthropic', 'google'] as const;
+const PROVIDERS = KEY_PROVIDERS;
 
 export function secretInventory(deps: InventoryDeps): SecretInventory {
   const names = (deps.db.prepare('SELECT name FROM secret_records').all() as Array<{ name: string }>).map((row) => row.name);

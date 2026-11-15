@@ -22,6 +22,18 @@ type Verdict =
 
 const PROVIDER_NAMES: Record<string, string> = { openai: 'OpenAI', anthropic: 'Anthropic', google: 'Google' };
 
+/** What a panel says instead of the cloud wording: your own server's optional key, a compatible service's key. */
+export interface KeyPanelWords {
+  /** The provider's name in sentences (a compatible service: the host of its address). */
+  name?: string;
+  /** The field's label. */
+  label?: string;
+  /** The line under the field. */
+  hint?: string;
+  /** Why the field cannot take a key yet (no address); the field is disabled while it is set. */
+  blocked?: string;
+}
+
 /** Where the key lives, for the status line under the field. */
 export function keyPlaceKey(source: KeySource, stored: boolean, inFile: boolean): string {
   if (source === 'os' || stored) return 'settings.keyPlaceOs';
@@ -38,7 +50,7 @@ export function keyPlaceKey(source: KeySource, stored: boolean, inFile: boolean)
  * keeps the key and says it was not checked. Remembering fits this computer: the OS password manager when it
  * proved encryption, else the app folder file the person chooses knowingly. The key is never shown back.
  */
-export default function KeyPanel({ provider, baseURL, onSession }: { provider: CloudKeyProvider; baseURL: string; onSession: (sources: KeySources) => void }) {
+export default function KeyPanel({ provider, baseURL, onSession, words = {} }: { provider: CloudKeyProvider; baseURL: string; onSession: (sources: KeySources) => void; words?: KeyPanelWords }) {
   const { t } = useTranslation();
   const translate: Translator = (key, options) => (options ? String(t(key, options)) : String(t(key)));
   const [draft, setDraft] = useState('');
@@ -142,7 +154,8 @@ export default function KeyPanel({ provider, baseURL, onSession }: { provider: C
   const wanted = keyOriginFor(provider, baseURL);
   const otherAddress = held && keyOrigin !== null && wanted !== keyOrigin;
   const remembered = source === 'os' || stored || source === 'file' || inFile;
-  const name = PROVIDER_NAMES[provider] ?? provider;
+  const name = words.name ?? PROVIDER_NAMES[provider] ?? provider;
+  const label = words.label ?? String(t('settings.keyField', { provider: name }));
   const verdictText = verdict.kind === 'checking' ? t('settings.keyChecking')
     : verdict.kind === 'accepted' ? t('settings.keyAccepted', { count: verdict.count })
       : verdict.kind === 'rejected' ? (verdict.dropped ? t('settings.keyRejectedDropped', { provider: name }) : t('settings.keyRejected'))
@@ -150,17 +163,19 @@ export default function KeyPanel({ provider, baseURL, onSession }: { provider: C
   return (
     <div className={cx(settingsStyles.keyPanel, 'provider-key')} data-provider={provider}>
       <label className={fieldClass}>
-        {t('settings.keyField', { provider: name })}
+        {label}
         <input
           type="password"
           autoComplete="off"
           spellCheck={false}
-          aria-label={String(t('settings.keyField', { provider: name }))}
+          aria-label={label}
           value={draft}
+          disabled={Boolean(words.blocked)}
           onChange={(event) => setDraft(event.target.value)}
         />
       </label>
-      <p className={hintClass}>{t('settings.keyPasteHint', { provider: name })} {t('settings.appliesNow')}</p>
+      {words.blocked ? <p className={hintClass} role="status">{words.blocked}</p> : null}
+      <p className={hintClass}>{words.hint ?? t('settings.keyPasteHint', { provider: name })} {t('settings.appliesNow')}</p>
       {/* Without a password store a pasted key lives until the app closes: one line here, the full account in Privacy. */}
       {!canStore ? (
         <p className={cx(hintClass, settingsStyles.keyStoreNote, 'key-store-note')}>
@@ -171,7 +186,7 @@ export default function KeyPanel({ provider, baseURL, onSession }: { provider: C
       {verdictText ? (
         <p className={cx(hintClass, verdict.kind === 'rejected' || verdict.kind === 'unchecked' ? settingsStyles.errorNote : undefined)} role="status">{verdictText}</p>
       ) : null}
-      <p className={hintClass} role="status" aria-label={String(t('settings.keyField', { provider: name }))}>
+      <p className={hintClass} role="status" aria-label={label}>
         <span className={cx(settingsStyles.placeDot, (held || remembered) && settingsStyles.placeOn)} aria-hidden="true" />
         {t(keyPlaceKey(source, stored, inFile))}
       </p>

@@ -1,4 +1,5 @@
 import type Database from 'better-sqlite3';
+import { KEY_PROVIDERS as KEY_PROVIDER_IDS } from '../../shared/config/keyOrigin';
 import { carriesSecret } from '../../shared/config/draft';
 import { isUnprotectedCipher } from '../../shared/config/secretPolicy';
 import {
@@ -174,7 +175,9 @@ export function providerKeyRecord(provider: string): string {
 /** The single record of the one-key era (before keys were held per provider). Read only by the migration. */
 export const LEGACY_PROVIDER_KEY_RECORD = 'provider-key';
 
-const KEY_PROVIDERS = ['openai', 'anthropic', 'google'] as const;
+const KEY_PROVIDERS = KEY_PROVIDER_IDS;
+/** Legacy one-key records belonged to one of the three companies only. */
+const LEGACY_KEY_PROVIDERS = ['openai', 'anthropic', 'google'] as const;
 
 /** Writes one provider's key ciphertext only when the caller already proved an OS password manager. */
 export function saveSecretIfProven(
@@ -198,7 +201,7 @@ export function migrateLegacyProviderKey(db: Database.Database, savedProvider: s
   const legacy = readSecretCipher(db, LEGACY_PROVIDER_KEY_RECORD);
   if (!legacy) return 'none';
   const move = db.transaction(() => {
-    if (!(KEY_PROVIDERS as readonly string[]).includes(savedProvider)) {
+    if (!(LEGACY_KEY_PROVIDERS as readonly string[]).includes(savedProvider)) {
       forgetSecret(db, LEGACY_PROVIDER_KEY_RECORD);
       return 'dropped' as const;
     }

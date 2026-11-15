@@ -164,7 +164,11 @@ describe('local model list', () => {
     }, seen);
     const result = await listLocalModels('http://127.0.0.1:21434/v1/', fetchImpl);
     expect(result).toEqual({ ok: true, source: 'http://127.0.0.1:21434', models: [{ id: 'mistral:7b', detail: '7.2B · llama' }, { id: 'qwen3:14b', detail: '14.8B · qwen3' }] });
-    expect(seen.map((request) => request.url).sort()).toEqual(['http://127.0.0.1:21434/api/tags', 'http://127.0.0.1:21434/v1/models']);
+    // Also asked: LM Studio's list of model types and Ollama's capabilities per model (both answer nothing here).
+    expect(seen.map((request) => request.url).sort()).toEqual([
+      'http://127.0.0.1:21434/api/show', 'http://127.0.0.1:21434/api/show', 'http://127.0.0.1:21434/api/tags',
+      'http://127.0.0.1:21434/api/v0/models', 'http://127.0.0.1:21434/v1/models',
+    ]);
     expect(seen.every((request) => request.redirect === 'error' && !('authorization' in request.headers))).toBe(true);
   });
 

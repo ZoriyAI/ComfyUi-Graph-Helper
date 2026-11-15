@@ -263,7 +263,8 @@ export default function SettingsPanel({
       ? explainError(translate, note.code)
       : null;
   const statusText = firstProblem && firstProblem !== 'other'
-    ? translate(`settings.fixField.${firstProblem}`)
+    // A compatible service's address is an https address, not a server with a port.
+    ? (firstProblem === 'baseURL' && values.provider === 'compatible' ? translate('settings.fixField.baseURLCompatible') : translate(`settings.fixField.${firstProblem}`))
     : explained?.summary ?? translate(note.kind === 'key' ? note.key : 'settings.saveFailed');
   const invalidFields: string[] = problems.filter((name) => name !== 'other');
   const fieldError = (name: string): Record<string, string | boolean> => (

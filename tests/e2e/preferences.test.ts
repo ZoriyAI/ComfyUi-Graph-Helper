@@ -45,12 +45,14 @@ test('preferences window: sections, appearance, a recorded shortcut, a canvas to
   // Steps per answer is a checkpoint (default 60, up to 200); the context window is auto (0); web limits are stated.
   await expect(dialog.getByRole('spinbutton', { name: 'Steps per answer' })).toHaveValue('60');
   await expect(dialog.getByRole('spinbutton', { name: 'Steps per answer' })).toHaveAttribute('max', '200');
-  await expect(dialog.getByRole('spinbutton', { name: 'Context window (tokens)' })).toHaveValue('0');
+  // With no model there is no context window to set; with a provider it is auto (0).
+  await expect(dialog.getByRole('spinbutton', { name: 'Context window (tokens)' })).toHaveCount(0);
   await expect(dialog.locator('p.web-limits')).toContainText('at most 10 MB of a web page');
   // The provider's key sits right under the provider choice, only once a cloud provider is chosen.
   await expect(dialog.getByRole('textbox', { name: /key$/ })).toHaveCount(0);
   await dialog.getByRole('radio', { name: 'Anthropic', exact: true }).click();
   await expect(dialog.getByRole('textbox', { name: 'Anthropic key', exact: true })).toBeVisible();
+  await expect(dialog.getByRole('spinbutton', { name: 'Context window (tokens)' })).toHaveValue('0');
   await dialog.getByRole('radio', { name: 'Not chosen', exact: true }).click();
   await nav.getByRole('tab', { name: 'Sync' }).click();
   await expect(dialog.getByRole('spinbutton', { name: 'Models per batch' })).toHaveValue('50');

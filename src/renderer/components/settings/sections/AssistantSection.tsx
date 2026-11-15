@@ -20,6 +20,9 @@ import { cx } from '../../../ui/cx';
 import { CLOUD_PROVIDERS, keySourceOf, providerKeyState, useProviderStore, type KeySources, type ProviderKeyState, testProviderOffered } from '../../../state/providerState';
 import type { CloudKeyProvider } from '../../../../shared/contracts';
 import KeyPanel from './KeyPanel';
+import { CloudAdvice, LocalAdvice, WindowHelp } from './ProviderAdvice';
+import { CLOUD_ADVICE } from '../../../../shared/config/modelAdvice';
+import { proxyAddressValid } from '../../../../shared/config/proxy';
 import styles from '../SettingsPanel.module.css';
 import { fieldClass, Group, hintClass, patchSection, rowClass, SectionHead, type DraftProps } from './common';
 import { discoveryEmptyNoteShown, listable, modelSuggestions, onlyModelToPick, serverFor, serverSuggestions, withKnownFacts } from './pickerItems';
@@ -29,6 +32,7 @@ const PROVIDERS: Array<{ value: NonSecretSettings['provider']; labelKey: string;
   { value: 'openai', labelKey: 'settings.providerOpenAI', descriptionKey: 'preferences.providerDesc.openai' },
   { value: 'anthropic', labelKey: 'settings.providerAnthropic', descriptionKey: 'preferences.providerDesc.anthropic' },
   { value: 'google', labelKey: 'settings.providerGoogle', descriptionKey: 'preferences.providerDesc.google' },
+  { value: 'compatible', labelKey: 'settings.providerCompatible', descriptionKey: 'preferences.providerDesc.compatible' },
   { value: 'local', labelKey: 'settings.providerLocal', descriptionKey: 'preferences.providerDesc.local' },
   { value: 'test', labelKey: 'settings.providerTest', descriptionKey: 'preferences.providerDesc.test' },
 ];
@@ -39,6 +43,19 @@ type ProbeNote = { kind: 'idle' } | { kind: 'running' } | { kind: 'ok'; ms: numb
 
 type ModelList = { kind: 'idle' } | { kind: 'loading' } | { kind: 'ok'; models: ModelChoice[]; source: string } | { kind: 'failed'; error: string };
 type Discovery = { kind: 'idle' } | { kind: 'loading' } | { kind: 'done'; servers: LocalServer[]; notes: string[] };
+
+/** Main's sentence for a cloud provider without a key: here the field to paste it is right above. */
+const NO_KEY = 'Cloud model has no key for this session.';
+
+/** The host of a compatible service's https address, or null while the address is not one. */
+export function compatibleHost(baseURL: string): string | null {
+  try {
+    const url = new URL(baseURL.trim());
+    return url.protocol === 'https:' && url.hostname !== '' ? url.host : null;
+  } catch {
+    return null;
+  }
+}
 
 /** Typing in the base URL asks again after a short pause, not on every key. */
 const LIST_DEBOUNCE_MS = 450;
@@ -53,6 +70,7 @@ export default function AssistantSection({ values, setValues, prefs, setPrefs, c
   const [modelList, setModelList] = useState<ModelList>({ kind: 'idle' });
   const [listTick, setListTick] = useState(0);
   const [discovery, setDiscovery] = useState<Discovery>({ kind: 'idle' });
+  const [variant, setVariant] = useState<{ busy: boolean; note: string }>({ busy: false, note: '' });
   const listRequest = useRef(0);
   const valuesRef = useRef(values);
   valuesRef.current = values;
@@ -118,6 +136,22 @@ export default function AssistantSection({ values, setValues, prefs, setPrefs, c
       setPrefs((current) => ({ ...current, providers: { ...current.providers, [remembered]: { ...current.providers[remembered], [field]: text } } }));
     }
   };
+  // Ollama makes a copy of the model that loads with a larger window; the copy is chosen in its place.
+  const makeVariant = async () => {
+    setVariant({ busy: true, note: '' });
+    try {
+      const result = await window.electronAPI.llmOllamaWindow({ provider: values.provider, model: values.model, baseURL: values.baseURL }, RECOMMENDED_WINDOW);
+      if (result.ok) {
+        setRuntime('model', result.model);
+        setProbe({ kind: 'idle' });
+        setVariant({ busy: false, note: String(t('providers.variantMade', { model: result.model })) });
+      } else {
+        setVariant({ busy: false, note: errorText(result.error) });
+      }
+    } catch {
+      setVariant({ busy: false, note: String(t('errors.unknown')) });
+    }
+  };
   const checkConnection = async () => {
     setProbe({ kind: 'running' });
     try {
@@ -134,23 +168,29 @@ export default function AssistantSection({ values, setValues, prefs, setPrefs, c
 
   const providerHint = provider === 'local'
     ? String(t('settings.providerLocalHint'))
-    : provider === 'openai' || provider === 'anthropic' || provider === 'google'
+    : provider === 'compatible'
+      ? String(t('providers.compatibleHint'))
+      : provider === 'openai' || provider === 'anthropic' || provider === 'google'
       ? String(t('settings.cloudHint', { provider: provider === 'openai' ? 'OpenAI' : provider === 'anthropic' ? 'Anthropic' : 'Google' }))
       : '';
   const assistant = prefs.assistant;
   // The window the server reported on "Check connection" is the "auto" value, the same number the helper uses.
   const serverWindow = probe.kind === 'ok' ? probe.contextTokens : null;
-  const chosenWindow = effectiveContextWindow(values.model, assistant.contextTokens, serverWindow);
-  const autoWindow = effectiveContextWindow(values.model, 0, serverWindow);
+
+  const servers = discovery.kind === 'done' ? discovery.servers : [];
+  const known = provider === 'local' ? serverFor(servers, values.baseURL)?.models : undefined;
+  const models = modelList.kind === 'ok' ? withKnownFacts(modelList.models, known) : [];
+  const chosenModel = models.find((model) => model.id === values.model.trim());
+  // The model's own window from its list entry counts as known, the same number a turn uses.
+  const listedWindow = chosenModel?.contextLength ?? null;
+  const chosenWindow = effectiveContextWindow(values.model, assistant.contextTokens, serverWindow, listedWindow);
+  const autoWindow = effectiveContextWindow(values.model, 0, serverWindow, listedWindow);
   const contextHint = String(t('preferences.contextTokensHint', {
     tokens: assistant.contextTokens > 0 ? chosenWindow.tokens : autoWindow.tokens,
     model: values.model || '—',
     source: t(contextSourceKey(chosenWindow.source)),
   }));
-  const servers = discovery.kind === 'done' ? discovery.servers : [];
-  const known = provider === 'local' ? serverFor(servers, values.baseURL)?.models : undefined;
-  const models = modelList.kind === 'ok' ? withKnownFacts(modelList.models, known) : [];
-  const chosenModel = models.find((model) => model.id === values.model.trim());
+
   const modelStatus: SuggestStatus | null = modelList.kind === 'loading'
     ? { text: String(t('picker.modelsLoading')) }
     : modelList.kind === 'ok'
@@ -158,7 +198,7 @@ export default function AssistantSection({ values, setValues, prefs, setPrefs, c
         ? { text: String(t('picker.modelsFound', { count: models.length, source: modelList.source })), tone: 'good' }
         : { text: String(t('picker.modelsNone', { source: modelList.source })) }
       : modelList.kind === 'failed'
-        ? { text: String(t('picker.modelsFailed', { error: errorText(modelList.error) })), tone: 'bad' }
+        ? { text: modelList.error === NO_KEY ? String(t('providers.pasteKeyAbove')) : String(t('picker.modelsFailed', { error: errorText(modelList.error) })), tone: 'bad' }
         : provider === 'local'
           ? { text: String(t('picker.modelsNeedServer')) }
           : null;
@@ -214,7 +254,35 @@ export default function AssistantSection({ values, setValues, prefs, setPrefs, c
         })}
       />
       {providerHint ? <p className={hintClass}>{providerHint}</p> : null}
-      {CLOUD_PROVIDERS.has(provider) ? <KeyPanel provider={provider as CloudKeyProvider} baseURL={values.baseURL} onSession={onSession} /> : null}
+      {CLOUD_PROVIDERS.has(provider) ? <p className={cx(hintClass, 'provider-sent')}>{t('providers.sentList')}</p> : null}
+      {provider === 'compatible' ? (
+        <>
+          <label className={fieldClass}>
+            {t('providers.compatibleAddress')}
+            <input
+              aria-label={String(t('providers.compatibleAddress'))}
+              value={values.baseURL}
+              spellCheck={false}
+              placeholder="https://"
+              onChange={(event) => setRuntime('baseURL', event.target.value)}
+              {...fieldError('baseURL')}
+            />
+          </label>
+          <p className={hintClass}>{t('providers.compatibleAddressHint')}</p>
+        </>
+      ) : null}
+      {CLOUD_PROVIDERS.has(provider) ? (
+        <KeyPanel
+          provider={provider as CloudKeyProvider}
+          baseURL={values.baseURL}
+          onSession={onSession}
+          words={provider === 'compatible' ? {
+            name: compatibleHost(values.baseURL) ?? String(t('providers.compatibleName')),
+            blocked: compatibleHost(values.baseURL) ? undefined : String(t('providers.compatibleNeedsAddress')),
+          } : undefined}
+        />
+      ) : null}
+      {provider === 'openai' || provider === 'anthropic' || provider === 'google' ? <CloudAdvice provider={provider} /> : null}
       {provider === 'local' ? (
         <SuggestField
           className={fieldClass}
@@ -233,7 +301,20 @@ export default function AssistantSection({ values, setValues, prefs, setPrefs, c
         />
       ) : null}
       {provider === 'local' ? <p className={hintClass}>{t('settings.baseUrlHint')}</p> : null}
-      {/* With no assistant chosen there is no model, address or connection to check. */}
+      {provider === 'local' ? (
+        <KeyPanel
+          provider="local"
+          baseURL={values.baseURL}
+          onSession={onSession}
+          words={{
+            name: String(t('settings.providerLocal')),
+            label: String(t('providers.localKeyField')),
+            hint: String(t('providers.localKeyHint')),
+            blocked: values.baseURL.trim() === '' ? String(t('providers.localKeyNeedsAddress')) : undefined,
+          }}
+        />
+      ) : null}
+      {/* With no assistant chosen there is no model, address or connection to check */}
       {provider !== '' ? (<>
       <SuggestField
         className={fieldClass}
@@ -256,7 +337,8 @@ export default function AssistantSection({ values, setValues, prefs, setPrefs, c
         container={container}
       />
       {chosenModel?.tools === false ? <p className={styles.errorNote} role="alert">{t('picker.modelsNoTools')}</p> : null}
-      {remembered && !(modelList.kind === 'ok' && models.length > 0) ? (
+      {provider === 'local' ? <LocalAdvice /> : null}
+      {remembered && MODEL_SUGGESTIONS[remembered].length > 0 && !(modelList.kind === 'ok' && models.length > 0) ? (
         <div className={styles.suggestions}>
           <span className={hintClass}>{t('preferences.suggestions')}</span>
           <div className={styles.chips}>
@@ -275,7 +357,7 @@ export default function AssistantSection({ values, setValues, prefs, setPrefs, c
           </div>
         </div>
       ) : null}
-      {provider !== 'local' ? (
+      {provider !== 'local' && provider !== 'compatible' ? (
         <label className={fieldClass}>
           {t('settings.baseUrlOptional')}
           <input
@@ -287,7 +369,32 @@ export default function AssistantSection({ values, setValues, prefs, setPrefs, c
           />
         </label>
       ) : null}
-      {provider !== 'local' ? <p className={hintClass}>{t('settings.cloudBaseUrlHint')}</p> : null}
+      {provider !== 'local' && provider !== 'compatible' ? <p className={hintClass}>{t('settings.cloudBaseUrlHint')}</p> : null}
+      {provider === 'openai' ? (
+        <>
+          <label className={fieldClass}>
+            {t('providers.openaiOrganization')}
+            <input
+              aria-label={String(t('providers.openaiOrganization'))}
+              value={prefs.network.openaiOrganization}
+              spellCheck={false}
+              placeholder="org-…"
+              onChange={(event) => patchSection(setPrefs, 'network', { openaiOrganization: event.target.value.trim() })}
+            />
+          </label>
+          <label className={fieldClass}>
+            {t('providers.openaiProject')}
+            <input
+              aria-label={String(t('providers.openaiProject'))}
+              value={prefs.network.openaiProject}
+              spellCheck={false}
+              placeholder="proj_…"
+              onChange={(event) => patchSection(setPrefs, 'network', { openaiProject: event.target.value.trim() })}
+            />
+          </label>
+          <p className={hintClass}>{t('providers.openaiAccountHint')}</p>
+        </>
+      ) : null}
       <div className={cx(rowClass, styles.rowStart)}>
         <Button
           size="sm"
@@ -315,6 +422,9 @@ export default function AssistantSection({ values, setValues, prefs, setPrefs, c
           })}
         </p>
       ) : null}
+      {provider === 'local' && ((probe.kind === 'ok' && probe.contextTokens !== null && probe.contextTokens < COMPACT_WINDOW) || variant.note !== '') ? (
+        <WindowHelp onVariant={probe.kind === 'ok' ? () => void makeVariant() : null} busy={variant.busy} note={variant.note} />
+      ) : null}
       </>) : null}
 
       <Group title={String(t('preferences.behaviour'))}>
@@ -339,7 +449,7 @@ export default function AssistantSection({ values, setValues, prefs, setPrefs, c
           increaseLabel={String(t('preferences.increase', { label: t('preferences.maxSteps') }))}
           onChange={(next) => patchSection(setPrefs, 'assistant', { maxStepsPerTurn: next })}
         />
-        <NumberField
+        {provider !== '' ? <NumberField
           label={String(t('preferences.contextTokens'))}
           value={assistant.contextTokens}
           min={CONTEXT_TOKENS.min}
@@ -349,10 +459,13 @@ export default function AssistantSection({ values, setValues, prefs, setPrefs, c
           decreaseLabel={String(t('preferences.decrease', { label: t('preferences.contextTokens') }))}
           increaseLabel={String(t('preferences.increase', { label: t('preferences.contextTokens') }))}
           onChange={(next) => patchSection(setPrefs, 'assistant', { contextTokens: next })}
-        />
+        /> : null}
         <Switch label={t('preferences.allowWebSearch')} checked={assistant.allowWebSearch} onCheckedChange={(next) => patchSection(setPrefs, 'assistant', { allowWebSearch: next })} />
         <Switch label={t('preferences.allowFetchPage')} checked={assistant.allowFetchPage} onCheckedChange={(next) => patchSection(setPrefs, 'assistant', { allowFetchPage: next })} />
         <p className={hintClass}>{t('preferences.webHint')}</p>
+        {provider === 'openai' || provider === 'anthropic' || provider === 'google' ? (
+          <p className={cx(hintClass, 'web-search-paid')}>{t('providers.searchPaid', { price: CLOUD_ADVICE[provider].searchPer1000 })}</p>
+        ) : null}
         <p className={cx(hintClass, 'web-limits')}>{t('preferences.webLimits', { bytes: megabytes(FETCH_PAGE_BYTE_CAP), chars: FETCH_PAGE_TEXT_CAP })}</p>
         <SelectField
           label={String(t('preferences.answerLanguage'))}
@@ -375,6 +488,22 @@ export default function AssistantSection({ values, setValues, prefs, setPrefs, c
           container={container}
           onChange={(next) => patchSection(setPrefs, 'assistant', { verbosity: next as 'short' | 'normal' })}
         />
+      </Group>
+
+      <Group title={String(t('providers.networkTitle'))}>
+        <label className={fieldClass}>
+          {t('providers.proxyLabel')}
+          <input
+            aria-label={String(t('providers.proxyLabel'))}
+            value={prefs.network.proxy}
+            spellCheck={false}
+            placeholder="http://proxy.example:8080"
+            aria-invalid={proxyAddressValid(prefs.network.proxy) ? undefined : true}
+            onChange={(event) => patchSection(setPrefs, 'network', { proxy: event.target.value })}
+          />
+        </label>
+        {proxyAddressValid(prefs.network.proxy) ? null : <p className={styles.errorNote} role="alert">{t('providers.proxyInvalid')}</p>}
+        <p className={hintClass}>{t('providers.proxyHint')}</p>
       </Group>
     </>
   );

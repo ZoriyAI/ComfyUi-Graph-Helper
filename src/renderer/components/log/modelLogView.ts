@@ -25,6 +25,7 @@ export function providerLabelKey(provider: string): string {
     case 'openai': return 'modelLog.provider.openai';
     case 'anthropic': return 'modelLog.provider.anthropic';
     case 'google': return 'modelLog.provider.google';
+    case 'compatible': return 'modelLog.provider.compatible';
     case 'test': return 'modelLog.provider.test';
     default: return 'modelLog.provider.none';
   }

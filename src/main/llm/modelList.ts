@@ -16,7 +16,7 @@ export const MODEL_LIST_REFUSED = 'The provider refused the key.';
 export const MODEL_LIST_SHAPE = 'The server answered without a model list.';
 export const modelListHttpError = (status: number) => `The server answered HTTP ${status} to the model list request.`;
 
-export type CloudListProvider = 'openai' | 'anthropic' | 'google';
+export type CloudListProvider = 'openai' | 'anthropic' | 'google' | 'compatible';
 
 type Fetch = typeof fetch;
 type JsonRead = { ok: true; json: unknown } | { ok: false; error: string };
@@ -132,6 +132,11 @@ export function parseOllamaCatalog(json: unknown): ModelChoice[] {
 }
 
 /** Anthropic `GET /v1/models`: `{data:[{id, display_name}]}`. */
+/** A window size a list gave, when it is a sane number of tokens. */
+function windowOf(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 256 && value <= 16_000_000 ? Math.floor(value) : undefined;
+}
+
 export function parseAnthropicList(json: unknown): ModelChoice[] | null {
   const data = record(json)?.data;
   if (!Array.isArray(data)) return null;
@@ -141,7 +146,9 @@ export function parseAnthropicList(json: unknown): ModelChoice[] | null {
     const id = usableId(row?.id);
     if (!id) continue;
     const label = text(row?.display_name).slice(0, 200);
-    out.push(label && label !== id ? { id, label } : { id });
+    // The Models API says each model's input window (max_input_tokens) and whether it takes tools.
+    const window = windowOf(row?.max_input_tokens);
+    out.push({ id, ...(label && label !== id ? { label } : {}), ...(window ? { contextLength: window } : {}) });
   }
   return byId(out);
 }
@@ -161,7 +168,8 @@ export function parseGoogleList(json: unknown): ModelChoice[] | null {
     const id = usableId(text(row?.name).replace(/^models\//, ''));
     if (!id) continue;
     const label = text(row?.displayName).slice(0, 200);
-    out.push(label && label !== id ? { id, label } : { id });
+    const window = windowOf(row?.inputTokenLimit);
+    out.push({ id, ...(label && label !== id ? { label } : {}), ...(window ? { contextLength: window } : {}) });
   }
   return byId(out);
 }
@@ -192,24 +200,145 @@ function withDetails(models: ModelChoice[], tags: ModelChoice[] | null): ModelCh
   return models.map((model) => (detail.get(model.id) ? { ...model, detail: detail.get(model.id) } : model));
 }
 
+/** Models that cannot chat (embeddings, speech, image, rerankers): never offered as the assistant's model. */
+const NOT_CHAT_ID = /(^|[/:_.-])(text-)?embed(ding)?s?([/:_.-]|$)|nomic-embed|(^|[/_-])bge-|(^|[/_-])e5-|mxbai-embed|all-minilm|snowflake-arctic-embed|rerank|whisper|(^|[/_-])tts([/_-]|$)|dall-e|stable-diffusion|flux/i;
+
+export function isLocalChatModel(id: string): boolean {
+  return !NOT_CHAT_ID.test(id);
+}
+
+/** LM Studio's REST list (`GET /api/v0/models`): `{data:[{id, type:"llm"|"vlm"|"embeddings", ...}]}`. Ids that are not chat models. */
+export function lmStudioNonChat(json: unknown): Set<string> {
+  const out = new Set<string>();
+  const data = record(json)?.data;
+  if (!Array.isArray(data)) return out;
+  for (const item of data) {
+    const row = record(item);
+    const id = text(row?.id);
+    const type = text(row?.type);
+    if (id && type && type !== 'llm' && type !== 'vlm') out.add(id);
+  }
+  return out;
+}
+
+/** What Ollama's `POST /api/show` says about one model: capabilities and the window the model was trained for. */
+export interface OllamaShowFacts {
+  tools?: boolean;
+  vision?: boolean;
+  thinking?: boolean;
+  /** The model's own maximum window (model_info "<arch>.context_length"); not the window the server loads it with. */
+  contextLength?: number;
+  /** Whether the model can chat at all ("completion"); embeddings answer false. */
+  chat?: boolean;
+}
+
+export function parseOllamaShow(json: unknown): OllamaShowFacts {
+  const row = record(json);
+  const facts: OllamaShowFacts = {};
+  if (Array.isArray(row?.capabilities)) {
+    const caps = new Set(row.capabilities.filter((cap): cap is string => typeof cap === 'string'));
+    facts.tools = caps.has('tools');
+    facts.vision = caps.has('vision');
+    facts.thinking = caps.has('thinking');
+    facts.chat = caps.has('completion');
+  }
+  const info = record(row?.model_info);
+  if (info) {
+    for (const [key, value] of Object.entries(info)) {
+      if (key.endsWith('.context_length') && typeof value === 'number' && Number.isFinite(value) && value >= 256) {
+        facts.contextLength = Math.floor(value);
+        break;
+      }
+    }
+  }
+  return facts;
+}
+
+/** At most this many models are asked about one by one; a server with more lists the rest without capabilities. */
+const SHOW_LIMIT = 40;
+
+async function postJson(fetchImpl: Fetch, url: string, body: unknown, headers: Record<string, string>, timeoutMs: number): Promise<JsonRead> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  timer.unref?.();
+  try {
+    const response = await fetchImpl(url, { method: 'POST', headers: { accept: 'application/json', 'content-type': 'application/json', ...headers }, body: JSON.stringify(body), redirect: 'error', signal: controller.signal });
+    if (!response.ok) return { ok: false, error: modelListHttpError(response.status) };
+    const text = await response.text();
+    if (text.length > MAX_BODY_CHARS) return { ok: false, error: MODEL_LIST_SHAPE };
+    return { ok: true, json: JSON.parse(text) };
+  } catch {
+    return { ok: false, error: MODEL_LIST_UNREAD };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Ollama's facts for one model, or null when the server is not Ollama or does not say. */
+export async function readOllamaShow(origin: string, model: string, fetchImpl: Fetch, headers: Record<string, string> = {}, timeoutMs = 4000): Promise<OllamaShowFacts | null> {
+  const read = await postJson(fetchImpl, `${origin}/api/show`, { model }, headers, timeoutMs);
+  return read.ok ? parseOllamaShow(read.json) : null;
+}
+
+/** Said when a server of the person's own refused the list for want of a key. */
+export const MODEL_LIST_NEEDS_KEY = 'The server asks for a key.';
+
 /**
  * A local OpenAI-compatible server: `GET {base}/models`. When that fails and the base looks like Ollama, its own
- * `GET {origin}/api/tags`. When both answer, the tags add parameter size and family to the list.
- * The base URL is the person's own server (configured or found on this computer); no key is sent.
+ * `GET {origin}/api/tags`. When both answer, the tags add parameter size and family to the list, and Ollama's
+ * `/api/show` adds what each model can do (tools, vision, thinking) and its own maximum window. Models that cannot
+ * chat (embeddings and the like) are left out. `key`: the key pasted for this server's address, for a server that
+ * asks for one; nothing is sent otherwise.
  */
-export async function listLocalModels(base: string, fetchImpl: Fetch, timeoutMs = MODEL_LIST_TIMEOUT_MS): Promise<ModelListResult> {
+export async function listLocalModels(base: string, fetchImpl: Fetch, timeoutMs = MODEL_LIST_TIMEOUT_MS, key: string | null = null): Promise<ModelListResult> {
   const root = trimSlash(base.trim());
   const origin = ollamaOrigin(root);
-  const tagsRead = origin ? getJson(fetchImpl, `${origin}/api/tags`, {}, timeoutMs) : Promise.resolve(null);
-  const [listed, tags] = await Promise.all([getJson(fetchImpl, `${root}/models`, {}, timeoutMs), tagsRead]);
+  const auth: Record<string, string> = key ? { authorization: `Bearer ${key}` } : {};
+  const tagsRead = origin ? getJson(fetchImpl, `${origin}/api/tags`, auth, timeoutMs) : Promise.resolve(null);
+  // LM Studio says which of its models are embeddings; any other server answers 404 here, which changes nothing.
+  const typesRead = origin ? getJson(fetchImpl, `${origin}/api/v0/models`, auth, Math.min(timeoutMs, 3000)) : Promise.resolve(null);
+  const [listed, tags, types] = await Promise.all([getJson(fetchImpl, `${root}/models`, auth, timeoutMs), tagsRead, typesRead]);
   const tagModels = tags && tags.ok ? parseOllamaTags(tags.json) : null;
+  const nonChat = types && types.ok ? lmStudioNonChat(types.json) : new Set<string>();
   const source = new URL(root).origin;
+  let models: ModelChoice[] | null = null;
   if (listed.ok) {
-    const models = parseOpenAiList(listed.json);
-    if (models) return { ok: true, models: withDetails(models, tagModels), source };
+    const parsed = parseOpenAiList(listed.json);
+    if (parsed) models = withDetails(parsed, tagModels);
   }
-  if (tagModels) return { ok: true, models: tagModels, source };
-  return { ok: false, error: listed.ok ? MODEL_LIST_SHAPE : listed.error };
+  if (!models && tagModels) models = tagModels;
+  if (!models) {
+    if (!listed.ok && listed.error === MODEL_LIST_REFUSED) return { ok: false, error: key ? MODEL_LIST_REFUSED : MODEL_LIST_NEEDS_KEY };
+    return { ok: false, error: listed.ok ? MODEL_LIST_SHAPE : listed.error };
+  }
+  models = models.filter((model) => isLocalChatModel(model.id) && !nonChat.has(model.id));
+  if (origin && tagModels) models = await withOllamaFacts(models, origin, fetchImpl, auth);
+  return { ok: true, models, source };
+}
+
+/** Ollama only: what each listed model can do, asked in parallel; a model Ollama says cannot chat is left out. */
+async function withOllamaFacts(models: ModelChoice[], origin: string, fetchImpl: Fetch, headers: Record<string, string>): Promise<ModelChoice[]> {
+  const asked = models.slice(0, SHOW_LIMIT);
+  const facts = await Promise.all(asked.map((model) => readOllamaShow(origin, model.id, fetchImpl, headers).catch(() => null)));
+  const out: ModelChoice[] = [];
+  models.forEach((model, index) => {
+    const fact = index < asked.length ? facts[index] : null;
+    if (!fact) {
+      out.push(model);
+      return;
+    }
+    if (fact.chat === false) return;
+    out.push({
+      ...model,
+      ...(fact.tools !== undefined ? { tools: fact.tools } : {}),
+      ...(fact.vision !== undefined ? { vision: fact.vision } : {}),
+      ...(fact.thinking !== undefined ? { thinking: fact.thinking } : {}),
+      ...(fact.contextLength !== undefined ? { contextLength: fact.contextLength } : {}),
+    });
+  });
+  // Models that call tools come first, those that cannot come last: the assistant needs tools.
+  const rank = (model: ModelChoice) => (model.tools === true ? 0 : model.tools === false ? 2 : 1);
+  return out.map((model, index) => ({ model, index })).sort((a, b) => rank(a.model) - rank(b.model) || a.index - b.index).map((item) => item.model);
 }
 
 /** The list request for one cloud provider: URL and the headers that carry the key. */
@@ -221,15 +350,18 @@ export function cloudListRequest(provider: CloudListProvider, base: string, key:
 }
 
 /** Cloud: the official or configured https base, with the key main holds. The caller checks https and the key. */
-export async function listCloudModels(provider: CloudListProvider, base: string, key: string, fetchImpl: Fetch, timeoutMs = MODEL_LIST_TIMEOUT_MS): Promise<ModelListResult> {
+export async function listCloudModels(provider: CloudListProvider, base: string, key: string, fetchImpl: Fetch, timeoutMs = MODEL_LIST_TIMEOUT_MS, extraHeaders: Record<string, string> = {}): Promise<ModelListResult> {
   const request = cloudListRequest(provider, base, key);
-  const read = await getJson(fetchImpl, request.url, request.headers, timeoutMs);
+  const read = await getJson(fetchImpl, request.url, { ...extraHeaders, ...request.headers }, timeoutMs);
   if (!read.ok) return read;
   const models = provider === 'anthropic'
     ? parseAnthropicList(read.json)
     : provider === 'google'
       ? parseGoogleList(read.json)
-      : parseOpenAiList(read.json)?.filter((model) => isOpenAiChatModel(model.id)) ?? null;
+      : provider === 'compatible'
+        // A gateway lists every kind of model; those that cannot chat are left out by their names.
+        ? parseOpenAiList(read.json)?.filter((model) => isOpenAiChatModel(model.id) && isLocalChatModel(model.id)) ?? null
+        : parseOpenAiList(read.json)?.filter((model) => isOpenAiChatModel(model.id)) ?? null;
   if (!models) return { ok: false, error: MODEL_LIST_SHAPE };
   return { ok: true, models, source: new URL(base).host };
 }

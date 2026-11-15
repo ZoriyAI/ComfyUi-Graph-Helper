@@ -1,0 +1,7 @@
+.block { display: flex; flex-direction: column; gap: 6px; width: min(100%, var(--measure-form)); }
+.title { margin: 0; color: var(--text); font-size: var(--text-xs); font-weight: 600; line-height: 18px; }
+.line { margin: 0; color: var(--text-dim); font-size: var(--text-xs); line-height: 18px; }
+.address { display: flex; align-items: center; gap: 6px; min-width: 0; color: var(--text-dim); font-size: var(--text-xs); }
+.url { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; font-family: var(--font-mono); color: var(--text-mono); }
+.list { margin: 0; padding-left: 18px; color: var(--text-dim); font-size: var(--text-xs); line-height: 18px; }
+.command { margin: 0; padding: 6px 8px; border: 1px solid var(--border-subtle); border-radius: 6px; background: var(--surface-sunken); font-family: var(--font-mono); font-size: var(--text-mono-xs); color: var(--text-mono); white-space: pre-wrap; overflow-wrap: anywhere; }

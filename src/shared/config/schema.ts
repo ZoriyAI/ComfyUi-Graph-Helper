@@ -25,7 +25,7 @@ export function coerceLegacyComfyOrigin(input: unknown): unknown {
 export const nonSecretSettingsSchema = z.object({
   theme: z.literal('graphite'),
   motion: z.enum(['system', 'on', 'reduced', 'off']),
-  provider: z.union([z.literal(''), z.literal('test'), z.literal('openai'), z.literal('anthropic'), z.literal('google'), z.literal('local')]),
+  provider: z.union([z.literal(''), z.literal('test'), z.literal('openai'), z.literal('anthropic'), z.literal('google'), z.literal('compatible'), z.literal('local')]),
   model: z.string().trim().max(200),
   // An address on this computer typed without http:// is completed (shared/mcp/loopback.ts withLoopbackScheme).
   baseURL: z.string().trim().max(500).transform(withLoopbackScheme).refine(httpOriginOrEmpty).default(''),
@@ -41,6 +41,12 @@ export const nonSecretSettingsSchema = z.object({
   mcpAuth: z.enum(['', 'none', 'token', 'oauth']).default(''),
   language: z.enum(['en', 'ru']).default('ru'),
 }).superRefine((value, ctx) => {
+  // An OpenAI-compatible cloud service has no official address: its https address is the provider.
+  if (value.provider === 'compatible') {
+    if (!/^https:\/\//i.test(value.baseURL)) ctx.addIssue({ code: 'custom', path: ['baseURL'], message: 'compatible endpoint' });
+    if (value.model.trim() === '') ctx.addIssue({ code: 'custom', path: ['model'], message: 'compatible model' });
+    return;
+  }
   if (value.provider !== 'local') return;
   if (value.baseURL === '') ctx.addIssue({ code: 'custom', path: ['baseURL'], message: 'local endpoint' });
   if (value.model.trim() === '') ctx.addIssue({ code: 'custom', path: ['model'], message: 'local model' });

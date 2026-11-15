@@ -19,6 +19,7 @@ import { allowTestProvider, configureLocalContext, mainLLMService } from './llmS
 import { watchLoadedContext } from './llm/localContext';
 import { readPreferences, readSettings } from './settings/repository';
 import { configureModelTrace } from './trace/modelTrace';
+import { internetFetch } from './net/proxy';
 import { setKnownRootsSource, setMcpCallObserver } from './mcp/readOnly';
 import { isDevelopmentRun, scriptedProviderAllowed } from './runMode';
 import { APP_ENTRY, APP_SCHEME, APP_SCHEME_PRIVILEGES, bundleFileFor, bundleFileUrl } from './appProtocol';
@@ -70,6 +71,7 @@ configureLocalContext((base, model, signal) => watchLoadedContext(base, model, (
 // The model conversation log lives next to the main log; the same redaction applies to every line of it.
 configureModelTrace({
   dir: path.join(app.getPath('userData'), 'logs'),
+  transport: internetFetch,
   redact: (text) => mainLLMService.redact(redactForLog(text)),
   enabled: () => {
     try {
