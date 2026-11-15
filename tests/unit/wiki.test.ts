@@ -1,10 +1,6 @@
-import { describe, expect, it } from 'vitest';
-import * as fs from 'fs';
-import * as path from 'path';
-import { LESSONS } from '../../src/shared/lessons/lessons';
-
 /**
- * Keeps docs/wiki honest (see docs/wiki/dev/Wiki-Style.md):
+ * Keeps docs/wiki honest (see docs/wiki/dev/Wiki-Style.md), so a reader of either language never meets a missing
+ * page or a dead link:
  * - every page exists in English (`Name.md`) and Russian (`Name.ru.md`), and the first line links to the other;
  * - the second line is a breadcrumb back to Home (and to the folder index inside a folder);
  * - every relative link resolves to a file (anchors are not checked);
@@ -12,6 +8,11 @@ import { LESSONS } from '../../src/shared/lessons/lessons';
  * - with WIKI_STRICT=1 (the truth pass before a release), no `<!-- verify: … -->` and no
  *   `<!-- skeleton: … -->` comment is left, and every lesson of the app has its page in both languages.
  */
+import { describe, expect, it } from 'vitest';
+import * as fs from 'fs';
+import * as path from 'path';
+import { LESSONS } from '../../src/shared/lessons/lessons';
+
 const WIKI = path.join(__dirname, '..', '..', 'docs', 'wiki');
 const STRICT = process.env.WIKI_STRICT === '1';
 

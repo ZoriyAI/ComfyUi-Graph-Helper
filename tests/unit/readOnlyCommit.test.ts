@@ -1,3 +1,8 @@
+/**
+ * Protects graph edits when the profile database cannot be written (a read-only disk or file, no room for
+ * temporary tables). The edit is refused with a reason and the graph stays at its revision, instead of the
+ * main process throwing and the person's window losing its connection to the project.
+ */
 import { afterAll, describe, expect, it, vi } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';

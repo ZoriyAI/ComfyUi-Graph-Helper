@@ -1,3 +1,8 @@
+/**
+ * Protects the saved size and place of the main window (window-state.json in the profile). A person gets the
+ * window back where they left it, but never off screen after a display was unplugged, never smaller than the
+ * minimum, and never larger than a small first screen. Saves wait for a pause so dragging does not write constantly.
+ */
 import { describe, expect, it, vi } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -69,6 +74,7 @@ describe('window state', () => {
     });
     listeners.get('resize')!();
     listeners.get('move')!();
+    // Resize and move fold into one write after the 500 ms pause; close writes at once, maximized state included.
     expect(writes).toHaveLength(0);
     vi.advanceTimersByTime(500);
     expect(writes).toHaveLength(1);

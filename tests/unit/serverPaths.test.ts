@@ -1,3 +1,8 @@
+/**
+ * Protects the reading of file paths a ComfyUI server reports over MCP about its own disk, which may be Linux,
+ * macOS or Windows whatever the app runs on. Paths that climb out of a model folder or hide control characters
+ * are refused, so a server cannot make the app ask for files outside the folders the person shared.
+ */
 import { describe, expect, it } from 'vitest';
 import { isPlainRelativeName, isPlainServerPath, isUnderServerFolder, joinServerPath, normalServerFolder, pathStyle } from '../../src/shared/mcp/serverPaths';
 

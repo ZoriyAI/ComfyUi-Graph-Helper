@@ -1,8 +1,14 @@
+/**
+ * Protects the file mode of the profile database and its SQLite side files (-wal, -shm): owner read and
+ * write only. They hold the person's chats, workflows and settings, so other accounts on the same computer
+ * must not read them, even when the umask would have created them world readable.
+ */
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { describe, expect, it, vi } from 'vitest';
 
+// The database module imports electron at load time; an empty stand-in lets it load under Node.
 vi.mock('electron', () => ({ app: {}, dialog: {}, shell: {} }));
 
 import { openDatabase } from '../../../src/main/database';

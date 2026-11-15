@@ -1,3 +1,9 @@
+/**
+ * Editing inside a subgraph definition the way the root canvas is edited: add, remove, move many, rename,
+ * nest another definition, wire the boundary slots. Ids come from the definition's own counters; undo is one
+ * revision; the export is a well-formed `definitions.subgraphs` entry that round-trips. A person working inside a
+ * subgraph gets the same tools as on the main canvas, and a note written for an inner node never moves to another.
+ */
 import Database from 'better-sqlite3';
 import { describe, expect, it } from 'vitest';
 import { commitCommand, ensureWorkspace, readProjection } from '../../src/main/commands/commit';
@@ -12,12 +18,7 @@ import { DESKTOP_PROJECT_ID as P } from '../../src/shared/project';
 import { exportWorkflow, type GraphSnapshot } from '../../src/shared/workflow/codec';
 import { INNER_ID, OUTER_ID, nestedSubgraphWorkflow } from '../e2e/fixtures/nestedSubgraphWorkflow';
 
-/**
- * Editing inside a subgraph definition the way the root canvas is edited: add, remove, move many, rename,
- * nest another definition, wire the boundary slots. Ids come from the definition's own counters; undo is one
- * revision; the export is a well-formed `definitions.subgraphs` entry that round-trips.
- */
-
+/** A trimmed object_info with the three conditioning nodes the tests add inside definitions. */
 const OBJECT_INFO = {
   CLIPTextEncode: {
     input: { required: { text: ['STRING', { multiline: true }], clip: ['CLIP'] } },
@@ -70,6 +71,7 @@ function importNested(db: Database.Database) {
   expect(commit(db, 'import', { type: 'import-workflow', document: structuredClone(nestedSubgraphWorkflow) }).status).toBe('applied');
 }
 
+/** Restores a revision as the Undo command does; the random action id keeps repeated undos distinct. */
 function undo(db: Database.Database, revisionId: string) {
   expect(commit(db, `undo-${revisionId}-${Math.random()}`, { type: 'restore-revision', revisionId }).status).toBe('applied');
 }

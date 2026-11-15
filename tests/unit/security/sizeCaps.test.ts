@@ -1,3 +1,8 @@
+/**
+ * Protects the size limits on answers from servers the app talks to (MCP servers, a ComfyUI address, side files
+ * such as model preview pictures). A broken or hostile server that streams without end must be cut off as the
+ * bytes arrive, not after they fill memory, so the app stays responsive for the person using it.
+ */
 import { describe, expect, it } from 'vitest';
 import { capResponse, cappedFetch, ResponseTooLargeError } from '../../../src/main/net/capped';
 import { readBody } from '../../../src/main/comfy/read';

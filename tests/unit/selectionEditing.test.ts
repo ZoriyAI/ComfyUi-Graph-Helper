@@ -1,3 +1,9 @@
+/**
+ * Protects copy, paste, cut and delete of a selection on the canvas. Each is one revision (one undo step), pasted
+ * nodes and links get fresh ids and a free place, a subgraph can never be pasted into itself even when its marks are
+ * stripped, unknown native fields survive cut and paste, and a bad paste changes nothing. Pruning history keeps the
+ * revision an open proposal was built on. A person can rearrange work freely without corrupting the file.
+ */
 import Database from 'better-sqlite3';
 import { describe, expect, it } from 'vitest';
 import { commitCommand, ensureWorkspace, readProjection } from '../../src/main/commands/commit';
@@ -35,6 +41,7 @@ function importDense(db: Database.Database): void {
   expect(commit(db, 'import', { type: 'import-workflow', document: structuredClone(denseWorkflow) }).status).toBe('applied');
 }
 
+/** Pastes nodes 1 and 2 of the dense fixture with the link between them, 32 px down and right. */
 function pasteFirstPrompt(db: Database.Database, actionId: string) {
   const current = snapshot(db);
   return commit(db, actionId, {
@@ -171,6 +178,7 @@ describe('native clipboard integration regressions', () => {
     commit(db, 'nested', { type: 'import-workflow', document: nestedSubgraphWorkflow });
     const outer = snapshot(db).subgraphs!.find((d) => d.id === OUTER_ID)!;
     const nested = outer.nodes.find((node) => node.data.comfyType === INNER_ID)!;
+    // The destination the caller names is ignored: the engine uses the definition the edit is in.
     const pasted = commit(db, 'duplicate-nested', { type: 'edit-in-subgraph', definitionId: OUTER_ID, edit: {
       type: 'paste-selection', nodes: [nested], edges: [], destinationDefinitionId: 'untrusted-caller-value',
     } });
@@ -183,6 +191,8 @@ describe('native clipboard integration regressions', () => {
     expect(commit(db, 'root-to-inner', { type: 'edit-in-subgraph', definitionId: OUTER_ID, edit: { type: 'paste-selection', nodes: [rootInner], edges: [] } }).status).toBe('applied');
     const rootOuter = snapshot(db).nodes.find((node) => node.data.comfyType === OUTER_ID)!;
     const before = readProjection(db, DESKTOP_PROJECT_ID)!;
+    // Pasting into INNER must be refused for INNER itself, for OUTER (which holds INNER), and for an INNER instance
+    // whose instance marks were removed: the engine looks at the node type, not at what the caller says.
     const disguised = structuredClone(rootInner);
     delete disguised.data.kind;
     delete disguised.data.subgraphId;

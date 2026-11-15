@@ -1,3 +1,9 @@
+/**
+ * Protects ComfyUI's native subgraphs and groups in the app: a workflow with nested subgraph definitions imports,
+ * is stored, edited (rename, new boundary output, dissolve) and exports in the shape the ComfyUI frontend reads, and
+ * the app's own project file (version 2) keeps them, while version 1 files and older stored revisions still open.
+ * A person's subgraphs must survive every trip through NodeWise Studio.
+ */
 import Database from 'better-sqlite3';
 import { describe, expect, it } from 'vitest';
 import { commitCommand, ensureWorkspace, readProjection } from '../../src/main/commands/commit';
@@ -130,6 +136,7 @@ describe('native subgraph codec', () => {
     const db = openDb();
     const projected = projectWorkflow(structuredClone(nestedSubgraphWorkflow));
     if ('error' in projected) throw new Error(projected.error);
+    // A revision row as older versions wrote it: nodes, edges and the native document, with no subgraph or group data.
     db.prepare(`INSERT INTO graph_revisions (id, project_id, timestamp, nodes, edges, parent_revision_id, description, source, rev_seq, document, components, process_meta)
       VALUES ('rev-legacy', ?, 1, ?, ?, NULL, 'legacy', 'user', 2, ?, '[]', '{}')`).run(
       DESKTOP_PROJECT_ID,

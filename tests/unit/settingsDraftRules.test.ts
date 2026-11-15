@@ -1,3 +1,8 @@
+/**
+ * Protects rules of the Settings draft that a person meets when saving: a save that cannot happen points at the
+ * field to fix, automatic sync cannot be switched on without a server address, a shortcut moved onto a taken chord
+ * frees it from the other command, and the sync status never shows a stale green or points "above" outside Settings.
+ */
 import { describe, expect, it } from 'vitest';
 import { settingsProblemFields } from '../../src/shared/config/draft';
 import { nonSecretDefaults } from '../../src/shared/config/schema';
@@ -12,6 +17,7 @@ describe('a save that cannot happen names its field', () => {
   it('names the model of your own server, its address and an MCP address that is not one', () => {
     expect(settingsProblemFields({ ...nonSecretDefaults, provider: 'local', baseURL: 'http://127.0.0.1:11434/v1', model: '' })).toEqual(['model']);
     expect(settingsProblemFields({ ...nonSecretDefaults, provider: 'local', baseURL: '', model: 'm' })).toEqual(['baseURL']);
+    // Free words are not an address; a bare host and port without a scheme is accepted.
     expect(settingsProblemFields({ ...nonSecretDefaults, mcpUrl: 'мой комфи' })).toEqual(['mcpUrl']);
     expect(settingsProblemFields({ ...nonSecretDefaults, mcpUrl: '127.0.0.1:9000/mcp' })).toEqual([]);
     expect(settingsProblemFields(nonSecretDefaults)).toEqual([]);
@@ -60,6 +66,7 @@ describe('a token that lived until the app closed', () => {
     const ru = createTranslator('ru');
     const error = 'MCP server requires sign-in.';
     expect(accessErrorText(error, base, ru, 'elsewhere')).toBe(ru('sync.needsToken'));
+    // The Russian word for "above" must not appear: outside Settings there is no field above to point at.
     expect(accessErrorText(error, base, ru, 'elsewhere')).not.toContain('выше');
     expect(accessErrorText(error, base, ru)).toBe(ru('settings.needsTokenPasted'));
   });

@@ -1,3 +1,8 @@
+/**
+ * Protects the check that tells whether the graph changed since a revision, which decides whether an assistant
+ * proposal built on that revision is still safe to apply. Sizes and selection that React Flow writes on render
+ * must not count as edits, or every proposal would look stale; a real edit or an unknown base revision must count.
+ */
 import { beforeEach, describe, expect, it } from 'vitest';
 import { getGraphService } from '../../src/renderer/services/graph/graphService';
 import { useGraphStore } from '../../src/renderer/state/graphState';

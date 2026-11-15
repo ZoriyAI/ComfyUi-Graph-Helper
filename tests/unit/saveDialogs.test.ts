@@ -1,12 +1,12 @@
-import * as fs from 'fs';
-import * as path from 'path';
-import { describe, expect, it } from 'vitest';
-
 /**
  * Every save dialog of the app asks before it replaces a file. On Linux (GTK) Electron's save dialog replaces an
  * existing file silently unless the call sets `showOverwriteConfirmation`, so each call in main must set it. The
- * test reads the sources: a new save dialog without it fails here.
+ * test reads the sources: a new save dialog without it fails here. A person must never lose a file by picking
+ * its name in a save dialog by mistake.
  */
+import * as fs from 'fs';
+import * as path from 'path';
+import { describe, expect, it } from 'vitest';
 
 function sources(dir: string): string[] {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {

@@ -1,3 +1,8 @@
+/**
+ * Protects how a number typed into a node field is read: a comma decimal is accepted, a value out of range
+ * is clamped with a note that says why, and junk is refused instead of becoming zero.
+ * A person must never have a field silently changed to a value they did not mean.
+ */
 import { describe, expect, it } from 'vitest';
 import { readTypedNumber } from '../../src/renderer/components/fields/fieldModel';
 

@@ -1,3 +1,8 @@
+/**
+ * Protects the read-only gate in front of the person's ComfyUI MCP server. The app may only call tools that read,
+ * under a gateway prefix too; file reads stay inside folders the server itself named; paths with control characters
+ * or climbing parts are refused. Syncing the catalog must never install, run or read anything else on that machine.
+ */
 import { describe, expect, it } from 'vitest';
 import type { McpSession, McpToolCallResult } from '../../../src/shared/mcp/catalogSource';
 import {
@@ -9,6 +14,7 @@ function json(value: unknown): McpToolCallResult {
   return { content: [{ type: 'text', text: JSON.stringify(value) }] };
 }
 
+/** A fake MCP session that lists the given tool names and records every call that reaches it. */
 function fake(names: string[], answer: (name: string, args: Record<string, unknown>) => McpToolCallResult = () => json({ ok: true })) {
   const calls: Array<{ name: string; args: Record<string, unknown> }> = [];
   const session: McpSession = {
@@ -42,6 +48,7 @@ describe('the gateway prefix', () => {
     expect(calls).toEqual([{ name: 'gw-models', args: { action: 'list' } }]);
     await expect(guarded.callTool('install_custom_node', {})).rejects.toBeInstanceOf(McpRefusedError);
     await expect(guarded.callTool('gw-install_custom_node', {})).rejects.toBeInstanceOf(McpRefusedError);
+    // Only the bare name is callable once a prefix is known; the prefixed spelling is refused even for a read.
     await expect(guarded.callTool('gw-models', { action: 'list' })).rejects.toBeInstanceOf(McpRefusedError);
     await expect(guarded.callTool('workspace_exec', { command: 'id' })).rejects.toBeInstanceOf(McpRefusedError);
     expect(calls).toHaveLength(1);

@@ -1,3 +1,8 @@
+/**
+ * Protects what happens when the app window hangs: one question in the interface language with Wait and
+ * Reload, no pile of repeated dialogs, and a reload that is not then reported as a crash. A person can
+ * get a frozen window back without losing the app or seeing a false crash report.
+ */
 import { EventEmitter } from 'events';
 import { describe, expect, it, vi } from 'vitest';
 import { isExpectedRestart, watchWindowHang } from '../../src/main/windowWatch';

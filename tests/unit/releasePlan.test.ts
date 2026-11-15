@@ -1,3 +1,9 @@
+/**
+ * Protects scripts/release-plan.js and .github/workflows/release.yml: when the release workflow builds and when it
+ * publishes, that a release goes out once, only from the commit that passed the tests, and that any GitHub API
+ * failure stops it instead of guessing. People who download NodeWise Studio must get exactly the build that was
+ * tested, with checksums and provenance, never a duplicate or a half-published release.
+ */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -7,6 +13,10 @@ const source = 'a'.repeat(40);
 const opts = { event: 'push', ref: 'refs/heads/main', version: '0.9.0', source, notes: true, repo: 'owner/repo', recent: true, tag: 'v0.9.0' };
 const release = { id: 1, tag_name: 'v0.9.0', draft: false, prerelease: false };
 const ref = (sha = source, type = 'commit', tag = 'v0.9.0') => ({ ref: `refs/tags/${tag}`, object: { sha, type } });
+/**
+ * A fake `gh` command that answers with the given responses in order (an Error is thrown, a string is returned as is,
+ * anything else as JSON) and records every call. A call beyond the list fails, so a test also proves no extra call.
+ */
 function fixture(...responses: unknown[]) {
   const calls: string[][] = [];
   const gh = (args: string[]) => {

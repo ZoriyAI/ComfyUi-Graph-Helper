@@ -1,3 +1,8 @@
+/**
+ * Protects the question asked before an imported workflow or an opened project replaces the graph on screen.
+ * The main process's "dirty" flag decides, not the visible node count: a person who deleted every node has
+ * still changed the project and must not lose that change to Open or Import without being asked.
+ */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { importWorkflowFile, importWorkflowNow, openProjectFile } from '../../src/renderer/commands/actions';
 import { useGraphStore } from '../../src/renderer/state/graphState';

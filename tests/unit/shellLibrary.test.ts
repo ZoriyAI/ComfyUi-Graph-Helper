@@ -1,3 +1,9 @@
+/**
+ * Protects the pure logic behind the window shell: grouping and windowed scrolling of the node library (thousands of
+ * classes stay fast), model filters and sizes, subgraphs offered for insert, the sync status line and its toasts,
+ * the toast queue, and the dock width that keeps room for the canvas. These decide what a person sees in the side
+ * rail, the dock and the status bar on every screen size.
+ */
 import { describe, expect, it } from 'vitest';
 import type { ModelSummary, NodeClassSummary, SubgraphDefinition } from '../../src/shared/contracts';
 import {
@@ -67,6 +73,7 @@ describe('node library grouping', () => {
 
 describe('windowing', () => {
   it('renders only the visible rows plus overscan', () => {
+    // Arguments: scroll top, viewport height, row height, row count, overscan rows.
     expect(windowRange(0, 400, 40, 3000, 6)).toEqual({ start: 0, end: 17, offset: 0, total: 120000 });
     const middle = windowRange(4000, 400, 40, 3000, 6);
     expect(middle.start).toBe(94);
@@ -118,6 +125,7 @@ describe('model library filters', () => {
     expect(formatBytes(null, 'en')).toBe('—');
     expect(formatBytes(512, 'en')).toBe('512 B');
     expect(formatBytes(6.5 * 1024 ** 3, 'en')).toBe('6.5 GB');
+    // Russian uses a decimal comma and a no-break space; the space is normalized before comparing.
     expect(formatBytes(6.5 * 1024 ** 3, 'ru').replace(/\s/g, ' ')).toBe('6,5 ГБ');
   });
 });
@@ -138,6 +146,7 @@ describe('subgraphs in the library', () => {
     const russian = createTranslator('ru');
     const english = createTranslator('en');
     const shape = { nodes: [1, 2, 3], inputs: [1, 2], outputs: [1] };
+    // Russian plural forms differ for 1, 2 to 4, and 0 or 5 and up; each form is checked.
     expect(subgraphSummary(russian, shape)).toBe('3 ноды · 2 входа · 1 выход');
     expect(subgraphSummary(english, shape)).toBe('3 nodes · 2 inputs · 1 output');
     expect(subgraphSummary(russian, { nodes: [], inputs: [], outputs: [] })).toBe('0 нод');
@@ -234,6 +243,7 @@ describe('toast queue, dock and frame state', () => {
   });
 
   it('keeps the canvas at its minimum beside the rail and the dock', () => {
+    // Arguments: "Show both" split on, window width, width the rail already takes.
     expect(dockRange(false, 1400, 300)).toEqual({ min: TAB_MIN, max: 540 });
     expect(dockRange(false, 2400, 300)).toEqual({ min: TAB_MIN, max: TAB_MAX });
     expect(dockRange(false, 1024, 48).max).toBeGreaterThanOrEqual(TAB_DEFAULT);

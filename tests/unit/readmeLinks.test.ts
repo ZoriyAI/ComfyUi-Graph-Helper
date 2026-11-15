@@ -1,13 +1,13 @@
+/**
+ * The front page of the repository: every relative link and picture in README.md and README.ru.md leads to a file
+ * that exists, and each page shows screenshots and wiki pages of its own language.
+ * Links to the repository's own GitHub pages (`../../releases`, `../../issues`, …) and absolute addresses are not
+ * files and are left out; code spans and fenced blocks are not links.
+ */
 import { describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 
-/**
- * The front page of the repository: every relative link and picture in README.md and README.ru.md leads to a file
- * that exists.
- * Links to the repository's own GitHub pages (`../../releases`, `../../issues`, …) and absolute addresses are not
- * files and are left out; code spans and fenced blocks are not links.
- */
 const ROOT = path.join(__dirname, '..', '..');
 
 function relativeLinks(text: string): string[] {

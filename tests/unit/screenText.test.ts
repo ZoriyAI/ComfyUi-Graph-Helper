@@ -1,9 +1,14 @@
+/**
+ * Rules every text on screen follows, in both languages: the i18n catalog, lessons and built-in knowledge use no
+ * long dash, the agreed glossary words and American spelling, and curly quotes around names. The font stacks name
+ * Chinese, Japanese and Korean fonts so such text in a workflow does not show as empty boxes.
+ * A person reads one consistent voice in either language instead of a mix of styles and terms.
+ */
 import { describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import { catalogLeaves, en, ru } from '../../src/shared/i18n';
 
-/** Rules every text on screen follows, in both languages (the glossary of the brief). */
 const ROOT = path.join(__dirname, '../..');
 const LONG_DASH = /[—–]/;
 
@@ -37,6 +42,7 @@ describe('texts on screen', () => {
   });
 
   it('call the text given to a model a prompt in Russian lessons and knowledge, not «описание промпта»', () => {
+    // Catches the Russian phrases for "negative description" in any word form.
     const found: string[] = [];
     for (const file of SCREEN_TEXT_FILES.filter((name) => name.endsWith('.ru.ts'))) {
       fs.readFileSync(path.join(ROOT, file), 'utf8').split('\n').forEach((line, index) => {
@@ -47,6 +53,7 @@ describe('texts on screen', () => {
   });
 
   it('say input and output, not port or slot, in Russian sentences', () => {
+    // The Russian words for "port" (every case ending) and "slot", as whole words only.
     const found = catalogLeaves(ru)
       .filter((key) => /(^|[^а-яё])(порт(а|у|ом|е|ы|ов|ам|ами|ах)?|слот\p{L}*)([^а-яё]|$)/iu.test(leaf(ru, key)))
       // A port of a network address is a port.
@@ -56,6 +63,7 @@ describe('texts on screen', () => {
 
   it('use American spelling and the glossary words in English', () => {
     const banned = /\b(colour|behaviour|licence|centre|cancelled|uncategorised|revision|inspector)\b/i;
+    // Placeholders such as {{revision}} are code names, not words on screen, so they are cut out first.
     const found = catalogLeaves(en).filter((key) => banned.test(leaf(en, key).replace(/\{\{[^}]+\}\}/g, '')));
     expect(found).toEqual([]);
   });

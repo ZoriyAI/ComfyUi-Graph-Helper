@@ -1,3 +1,9 @@
+/**
+ * Protects subgraph and group commands on the canvas: making a subgraph from selected nodes (every crossing link
+ * rerouted through boundary slots), inserting more instances, dissolving one back to the original wiring, adding,
+ * renaming and removing boundary slots, and groups that follow their members. The export must stay in the shape the
+ * ComfyUI frontend reads, so a person can fold and unfold parts of a graph without breaking the workflow.
+ */
 import { mkdtempSync } from 'fs';
 import { tmpdir } from 'os';
 import path from 'path';
@@ -49,6 +55,7 @@ function exported(db: Database.Database): Record<string, any> {
   return result.workflow as Record<string, any>;
 }
 
+/** Folds the dense fixture's two prompt encoders and its sampler (nodes 2, 3, 4) into "Prompt block". */
 function createPromptBlock(db: Database.Database, extra: Record<string, unknown> = {}) {
   return commit(db, 'make-sg', {
     type: 'create-subgraph',

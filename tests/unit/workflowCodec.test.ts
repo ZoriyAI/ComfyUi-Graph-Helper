@@ -1,3 +1,10 @@
+/**
+ * Protects the ComfyUI workflow codec: import of format 1 and legacy 0.4 files, edits that keep every unknown field
+ * of the file, new links and nodes with numeric ids and counters that never go down, refusal of an API prompt as a
+ * canvas, and app-only data (component notes, process notes) kept out of the exported file. A widget value is written
+ * only where the catalog's widget order is known to be reliable, so a person's export never shifts values between
+ * fields in ComfyUI.
+ */
 import { describe, expect, it } from 'vitest';
 import Database from 'better-sqlite3';
 import { commitCommand, ensureWorkspace, readProjection } from '../../src/main/commands/commit';
@@ -24,6 +31,10 @@ function importWorkflow(db: Database.Database, document: Record<string, unknown>
   });
 }
 
+/**
+ * A format 1 workflow full of fields the app does not know (marked "keep"), a dict-shaped and an array widgets_values,
+ * a node type missing from the catalog and a model reference, to prove what survives an edit and an export.
+ */
 const uiV1 = {
   version: 1,
   state: { lastNodeId: 3, lastLinkId: 9, customState: 'keep-state' },
@@ -427,6 +438,7 @@ describe('workflow codec', () => {
     expect(node.widgets_values).toEqual(['other.safetensors']);
     expect(JSON.stringify(exported.workflow)).not.toContain('graphHelper');
 
+    // The catalog now says it does not know this node's widget order, so a parameter has no safe place.
     db.prepare('UPDATE node_catalog SET widget_order_json = ? WHERE class_type = ?').run(
       JSON.stringify({ reliable: false, order: [] }),
       'CheckpointLoaderSimple',

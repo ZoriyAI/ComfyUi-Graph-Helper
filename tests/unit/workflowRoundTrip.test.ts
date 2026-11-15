@@ -1,3 +1,9 @@
+/**
+ * Protects the promise that a ComfyUI workflow file opened in NodeWise Studio and exported again comes out the same,
+ * byte for byte in JSON terms, except for what the person changed. Odd fields (stale link ids, string counters,
+ * dict-shaped widget values, unknown keys) are carried untouched, and nodes added in the app get valid ids and slots.
+ * A person can move a workflow between the app and ComfyUI without losing anything.
+ */
 import * as fs from 'fs';
 import * as path from 'path';
 import { describe, expect, it } from 'vitest';
@@ -79,6 +85,7 @@ describe('workflow round trip through the app', () => {
     commit(db, { type: 'remove-node', nodeId: '2' });
     const removed = JSON.parse(JSON.stringify(moved)) as Json;
     removed.nodes.splice(1, 1);
+    // The expected file after removing node 2: its links go, and the slots that pointed at them are cleared.
     removed.links = removed.links.filter((link: unknown[]) => link[0] === 11);
     removed.nodes[0].outputs[0].links = [11, 7];
     removed.nodes[1].inputs[0].link = null;
@@ -135,6 +142,7 @@ describe('workflow round trip through the app', () => {
       { name: 'style', type: 'COMBO', link: null, widget: { name: 'style' } },
     ]);
     expect(node.outputs).toEqual([{ name: 'PICTURE', type: 'PICTURE', links: [], slot_index: 0 }]);
+    // A seed with control_after_generate takes an extra widget value right after it, as ComfyUI writes it.
     expect(node.widgets_values).toEqual([640, 7, 'randomize', 'thin']);
     expect(node.properties).toEqual({ 'Node name for S&R': 'SketchFrame' });
     expect(workflow.nodes[1].outputs[0].links).toEqual([12, 13]);
@@ -172,6 +180,7 @@ describe('what the app says on import', () => {
       nodes: [{ classType: 'ImageResizeKJ', pack: 'custom_nodes.comfyui-kjnodes', pythonModule: 'custom_nodes.comfyui-kjnodes', inputs: [], outputs: [], widgetOrder: [] }],
     };
     expect(missingDeps(document, withPack).missingNodes).toEqual(['InnerPainter', 'PaletteMix', 'PaletteSink', 'SwatchLeft']);
+    // A subgraph instance carries its definition's id as its type; neither it nor a Reroute counts as missing.
     const canvas = [{ data: { comfyType: 'Reroute' } }, { data: { comfyType: '9b1f0c2d-1111-4222-8333-444455556666' } }];
     expect(missingOnGraph(canvas, withPack, document).missingNodes).toEqual(['InnerPainter', 'PaletteMix', 'PaletteSink', 'SwatchLeft']);
   });

@@ -1,3 +1,9 @@
+/**
+ * Protects the derived sync state that the Sync panel and the Settings MCP section show: when "Sync now" is
+ * blocked, which hint names the fix, and when the browser sign-in is offered. Only the server decides whether
+ * credentials are needed, so a person with an open server is never blocked, and the hint follows the access
+ * method they chose (token, browser sign-in or none).
+ */
 import { describe, expect, it } from 'vitest';
 import type { SyncStatus } from '../../src/shared/contracts';
 import { syncView } from '../../src/renderer/components/sync/syncView';

@@ -1,3 +1,9 @@
+/**
+ * Protects hardening of the main process: development and test switches work only in an unpackaged app, the
+ * profile folder is private to the user, the home folder becomes ~ in texts shared with others, every IPC listener
+ * carries a sender check, the app:// scheme serves only bundle files to one trusted page, and plain-http tokens go
+ * only to this machine. An installed copy must not be opened up by an environment variable or a hostile page.
+ */
 import { describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';

@@ -1,3 +1,8 @@
+/**
+ * Protects edits made inside an open subgraph (the "edit-in-subgraph" command): a move, a field value or a link
+ * changes only that definition, even when the root or another definition has a node with the same local id, and the
+ * change survives export and a fresh import. A person editing inside a subgraph must never see a node elsewhere move.
+ */
 import Database from 'better-sqlite3';
 import { describe, expect, it } from 'vitest';
 import { commitCommand, ensureWorkspace, readProjection } from '../../src/main/commands/commit';
@@ -96,6 +101,7 @@ describe('edit-in-subgraph', () => {
     importNested(db);
     expect(commit(db, 'x1', { type: 'edit-in-subgraph', definitionId: 'nope', edit: { type: 'move-node', nodeId: '1', x: 0, y: 0 } })).toMatchObject({ status: 'rejected', result: { error: 'Subgraph definition was not found.' } });
     expect(commit(db, 'x2', { type: 'edit-in-subgraph', definitionId: INNER_ID, edit: { type: 'move-node', nodeId: '3', x: 0, y: 0 } }).status).toBe('rejected');
+    // -10 and -20 are the ids ComfyUI gives the definition's input and output boundary nodes.
     expect(commit(db, 'x3', { type: 'edit-in-subgraph', definitionId: INNER_ID, edit: { type: 'move-node', nodeId: '-10', x: 0, y: 0 } }).status).toBe('rejected');
     expect(commit(db, 'x4', { type: 'edit-in-subgraph', definitionId: INNER_ID, edit: { type: 'remove-node', nodeId: '-20' } }).status).toBe('rejected');
     db.close();
