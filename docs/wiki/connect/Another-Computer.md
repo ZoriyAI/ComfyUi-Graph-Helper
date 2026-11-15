@@ -3,7 +3,7 @@
 
 # ComfyUI on another computer
 
-ComfyUI runs on another computer in your network (a desktop with the graphics card, a home server), CozyGraph on
+ComfyUI runs on another computer in your network (a desktop with the graphics card, a home server), NodeWise Studio on
 this one.
 
 <!-- verify: checked against test servers that speak ComfyUI's routes; not yet run against a real ComfyUI install. -->
@@ -19,7 +19,7 @@ python main.py --listen 0.0.0.0
 Then every computer on the network can reach it, and ComfyUI has no password of its own: anyone on the network can
 use it. Do this only on a network you trust.
 
-## In CozyGraph
+## In NodeWise Studio
 
 1. Settings ▸ Connection ▸ **ComfyUI address**: `http://<address of that computer>:8188`, for example
    `http://192.168.1.50:8188`. For another computer the `http://` (or `https://`) must be written.

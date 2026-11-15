@@ -18,11 +18,10 @@ work, please say what happened in the project's Issues.
 In PowerShell or the Git Bash window:
 
 ```powershell
-git clone <project address>.git cozygraph
-cd cozygraph
+git clone <project address>.git nodewise-studio
+cd nodewise-studio
 npm ci
 ```
-<!-- verify: technical rename; the project address is set in src/main/identity.ts -->
 
 `npm ci` also downloads Electron for Windows.
 
@@ -38,14 +37,14 @@ npm start
 
 ## Where your data ends up
 
-`C:\Users\you\AppData\Roaming\cozygraph` (`%APPDATA%\cozygraph`). <!-- verify: technical rename --> To keep a test
-profile apart: `npx electron . --user-data-dir=C:\Users\you\cozygraph-test` after `npm run build`.
+`C:\Users\you\AppData\Roaming\nodewise-studio` (`%APPDATA%\nodewise-studio`). To keep a test
+profile apart: `npx electron . --user-data-dir=C:\Users\you\nodewise-test` after `npm run build`.
 
 Keys are encrypted by Windows (DPAPI) through Electron.
 
 ## An app folder you can start without npm
 
-Electron Forge, the packaging tool the project uses, can make a folder with `cozygraph.exe` and everything it needs:
+Electron Forge, the packaging tool the project uses, can make a folder with `nodewise-studio.exe` and everything it needs:
 
 ```powershell
 npm run build
@@ -55,7 +54,8 @@ npx electron-forge package
 The folder appears under `out\`. Before you run this, open `forge.config.js`: one `ignore` rule keeps only the Linux
 database file (`prebuilds/(?!linux-x64\.node$)`). Let the Windows file through as well (for example
 `(?!(linux-x64|win32-x64)\.node$)`), or the packaged app cannot open its database. There is no Windows installer.
-<!-- verify: technical rename (the executable name); the folder name on Windows; the missing .ico icon -->
+The folder is `out\NodeWise Studio-win32-x64`. The project has no `.ico` file, so the program keeps Electron's own
+icon (untested).
 
 ## Update the source
 
@@ -68,8 +68,8 @@ npm run build
 ## Remove everything
 
 1. In the app: Settings ▸ Privacy ▸ Forget all keys and tokens.
-2. Delete the project folder (`cozygraph`) and, if you made one, the packaged folder under `out\`.
-3. Delete `%APPDATA%\cozygraph`.
+2. Delete the project folder (`nodewise-studio`) and, if you made one, the packaged folder under `out\`.
+3. Delete `%APPDATA%\nodewise-studio`.
 
 ## Known limits on this system
 

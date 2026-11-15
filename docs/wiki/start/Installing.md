@@ -3,7 +3,7 @@
 
 # Installing
 
-CozyGraph is built for Linux on 64-bit x86, in four formats: `.deb`, `.rpm`, AppImage and a `.tar.gz` you install
+NodeWise Studio is built for Linux on 64-bit x86, in four formats: `.deb`, `.rpm`, AppImage and a `.tar.gz` you install
 for your user only. Download only the files actually attached to the release you choose. There are no ARM packages.
 Windows and macOS are not supported; you may try running the app from source (untested).
 
@@ -18,8 +18,7 @@ Windows and macOS are not supported; you may try running the app from source (un
 
 ## Install the .deb
 
-1. Open the project's Releases page and download the file `cozygraph_<version>_amd64.deb` of the latest version.
-   <!-- verify: technical rename -->
+1. Open the project's Releases page and download the file `nodewise-studio_<version>_amd64.deb` of the latest version.
 2. Optional but wise: download `SHA256SUMS` from the same release into the same folder and check the file:
 
    ```bash
@@ -30,9 +29,8 @@ Windows and macOS are not supported; you may try running the app from source (un
 3. Install with apt, which also installs what the app needs from your distribution:
 
    ```bash
-   sudo apt install ./cozygraph_*_amd64.deb
+   sudo apt install ./nodewise-studio_*_amd64.deb
    ```
-   <!-- verify: technical rename -->
 
    The `./` matters: it tells apt to install this file and not look for a package by name.
 
@@ -40,11 +38,10 @@ Windows and macOS are not supported; you may try running the app from source (un
 
 | Format | How |
 |---|---|
-| `.rpm` | `sudo dnf install ./cozygraph-*.rpm` (or your distribution's package manager). |
+| `.rpm` | `sudo dnf install ./nodewise-studio-*.rpm` (or your distribution's package manager). |
 | AppImage | Make the file executable (`chmod +x`) and open it. |
-| `.tar.gz` | Unpack it. `./run.sh` starts the app in place; `./install.sh` installs it for your user only, without root; `~/.local/share/cozygraph/uninstall.sh` removes it again (`--purge` also deletes your data folder). |
+| `.tar.gz` | Unpack it. `./run.sh` starts the app in place; `./install.sh` installs it for your user only, without root; `~/.local/share/nodewise-studio/uninstall.sh` removes it again (`--purge` also deletes your data folder). |
 
-<!-- verify: technical rename -->
 
 The `.deb` and `.rpm` keep Chromium's sandbox. The unpacked formats (AppImage, `.tar.gz`) start without it on
 Ubuntu 24.04 and newer, and say why when they start. The `.rpm` installed with dnf and the final AppImage file are
@@ -52,11 +49,11 @@ checked only by the project's automatic builds, not on a real desktop yet.
 
 ## Start it
 
-- From the applications menu: "CozyGraph".
-- From a terminal: `cozygraph`. <!-- verify: technical rename -->
+- From the applications menu: "NodeWise Studio".
+- From a terminal: `nodewise-studio`.
 
-`cozygraph --version` prints the version, `cozygraph --help` the options it accepts
-([The command line](../reference/Command-Line.md)). <!-- verify: technical rename -->
+`nodewise-studio --version` prints the version, `nodewise-studio --help` the options it accepts
+([The command line](../reference/Command-Line.md)).
 
 Do not start it with `sudo`: the app refuses to run as root. See [Troubleshooting](../reference/Troubleshooting.md).
 
@@ -64,11 +61,11 @@ Do not start it with `sudo`: the app refuses to run as root. See [Troubleshootin
 
 | Where | What |
 |---|---|
-| `/usr/lib/cozygraph/` | The program itself. <!-- verify: technical rename --> |
-| `/usr/bin/cozygraph` | A link to start it from a terminal. <!-- verify: technical rename --> |
+| `/usr/lib/nodewise-studio/` | The program itself. |
+| `/usr/bin/nodewise-studio` | A link to start it from a terminal. |
 | `/usr/share/applications/` | The menu entry. |
 | `/usr/share/icons/hicolor/` | The icon in sizes from 16 to 512 pixels. |
-| `/usr/share/doc/cozygraph/copyright` | The licence and the third-party notices. <!-- verify: technical rename --> |
+| `/usr/share/doc/nodewise-studio/copyright` | The licence and the third-party notices. |
 
 Your settings, keys, projects and logs are not in the package: the app keeps them in your home folder, see
 [The data folder](../reference/Data-Folder.md).

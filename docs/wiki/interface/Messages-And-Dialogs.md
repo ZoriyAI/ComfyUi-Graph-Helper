@@ -40,7 +40,7 @@ The app talks to you in two ways. A **message** (a toast) appears at the bottom 
 | **The window is not responding** | **Wait** or **Reload**. |
 | **The app's data file is damaged** "You can start with empty data. The damaged file is not deleted…" | **Start with empty data**, **Open folder** or **Quit**. |
 | "Your data was saved by a newer version of the app. Install that version again to open it. Nothing was changed." | install the newer version |
-| **Graph Helper for ComfyUI could not start** "The log is in …" | open the log folder and see [Troubleshooting](../reference/Troubleshooting.md) |
+| **NodeWise Studio could not start** "The log is in …" | open the log folder and see [Troubleshooting](../reference/Troubleshooting.md) |
 
 ## See also
 

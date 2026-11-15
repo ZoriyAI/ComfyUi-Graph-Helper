@@ -5,7 +5,7 @@
 
 Short answers, each with a link to the page that says more.
 
-## Does CozyGraph run my workflow?
+## Does NodeWise Studio run my workflow?
 
 No. It builds and explains graphs; ComfyUI runs them. You save a workflow and open it in ComfyUI.
 [Running the result in ComfyUI](../graph/Running-In-ComfyUI.md)

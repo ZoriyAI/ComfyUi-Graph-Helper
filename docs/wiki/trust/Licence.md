@@ -3,9 +3,9 @@
 
 # Licence and third-party notices
 
-**CozyGraph: a desktop tutor for ComfyUI graphs**
+**NodeWise Studio: a desktop tutor for ComfyUI graphs**
 
-CozyGraph is an independent, experimental learning tool. It is not affiliated with or endorsed by Comfy Org. It
+NodeWise is an independent, experimental learning tool. It is not affiliated with or endorsed by Comfy Org. It
 contains no ComfyUI code and only reads a running ComfyUI; it never changes it.
 
 This page explains the licence in plain words. It is an explanation, not the licence: the text that counts is the
@@ -13,7 +13,7 @@ This page explains the licence in plain words. It is an explanation, not the lic
 
 ## The licence in one paragraph
 
-CozyGraph is under the MIT licence with the Commons Clause condition. MIT lets you use, copy, change and share the
+NodeWise is under the MIT licence with the Commons Clause condition. MIT lets you use, copy, change and share the
 software. The Commons Clause takes one thing away: the right to sell it. That makes the project **source-available**:
 everyone can read, use and change the source, but it is not open source in the usual sense, because selling is not
 allowed.
@@ -46,15 +46,14 @@ some parts are unfinished.
 
 The app ships with open-source components made by other people (Electron, React, React Flow, better-sqlite3, the
 Geist font and others). Each keeps its own licence. The full list, with each licence text, is in the app under Help ▸
-About ▸ Third-party components, and in the installed package in `/usr/share/doc/cozygraph/copyright`.
-<!-- verify: technical rename -->
+About ▸ Third-party components, and in the installed package in `/usr/share/doc/nodewise-studio/copyright`.
 Chromium has its own list: About ▸ Third-party components ▸ Chromium licences.
 
 ## The ComfyUI frontend
 
 | Question | Answer |
 | --- | --- |
-| Does CozyGraph contain ComfyUI code? | No. |
+| Does NodeWise contain ComfyUI code? | No. |
 | Why does it follow the ComfyUI frontend? | So that a saved workflow opens in ComfyUI as it is: the order of widget values, slot numbers, subgraph definitions. |
 | Was anything taken from the frontend? | One table of facts: which core loader node reads which model folder (from `modelNodeMappings.ts` of `Comfy-Org/ComfyUI_frontend`, GPL-3.0). It is credited in `src/shared/catalog/modelFolders.ts`. |
 | Does the app change ComfyUI? | No. It only reads a running ComfyUI. [ComfyUI is only read](Read-Only.md) |

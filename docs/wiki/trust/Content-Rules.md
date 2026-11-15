@@ -3,7 +3,7 @@
 
 # Content rules
 
-CozyGraph teaches how to build graphs in your own ComfyUI. The subject of your work is your choice and your
+NodeWise Studio teaches how to build graphs in your own ComfyUI. The subject of your work is your choice and your
 responsibility. These rules say what the lessons cover and what to keep out of your work; the app and its lessons
 state them in the same words. The assistant is a model you choose: the app adds no subject rules of its own to it,
 and each provider or local model answers by its own rules.

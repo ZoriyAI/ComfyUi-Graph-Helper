@@ -3,7 +3,7 @@
 
 # Project files
 
-A project file (`.graph-helper.json`) keeps the graph together with everything the app knows about it: the explanations of nodes and links, your notes and descriptions, the purpose of each node, the title and notes of the graph. Open it later and all of it comes back. ComfyUI cannot open a project file; for ComfyUI save a [workflow](Saving-Workflows.md).
+A project file (`.nodewise.json`) keeps the graph together with everything the app knows about it: the explanations of nodes and links, your notes and descriptions, the purpose of each node, the title and notes of the graph. Open it later and all of it comes back. ComfyUI cannot open a project file; for ComfyUI save a [workflow](Saving-Workflows.md).
 
 ## How to save a project
 
@@ -16,7 +16,7 @@ The dot after the project name in the toolbar disappears: there are no unsaved c
 ## How to open a project
 
 1. **File ▸ Open project** (`Ctrl+O`) or **Open** on the toolbar.
-2. Choose a file of the type **Graph Helper for ComfyUI project**. "Project opened."
+2. Choose a file of the type **NodeWise Studio project**. "Project opened."
 
 The graph replaces the canvas; it is one step of the history.
 
@@ -26,7 +26,7 @@ The graph in ComfyUI's own form, plus the explanations, the component records (p
 
 ## What can go wrong
 
-- "This file is not a Graph Helper for ComfyUI project."
+- "This file is not a NodeWise Studio project."
 - "This project file version is not supported (3). Update the app to open it."
 - "The project file is damaged. Open another copy of the project."
 - "The project file has the same description twice. Open another copy of the project."

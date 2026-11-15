@@ -8,9 +8,8 @@ Removing the package removes the program. Your data stays until you remove it yo
 ## Remove the program
 
 ```bash
-sudo apt remove cozygraph
+sudo apt remove nodewise-studio
 ```
-<!-- verify: technical rename -->
 
 The menu entry, the icon and the program files are gone. Your data folder, your saved keys and the files you saved
 are not touched.
@@ -24,15 +23,13 @@ are not touched.
 3. Remove the data folder:
 
    ```bash
-   rm -rf ~/.config/cozygraph
+   rm -rf ~/.config/nodewise-studio
    ```
-   <!-- verify: technical rename -->
 
    It holds the database (settings, the catalog, the history of the graph, chats), the logs, the conversation log
    and the cached model pictures. See [The data folder](../reference/Data-Folder.md).
 
-Project files (`*.cozygraph.json`) and workflows you saved elsewhere are yours; remove them by hand if you want.
-<!-- verify: technical rename -->
+Project files (`*.nodewise.json`) and workflows you saved elsewhere are yours; remove them by hand if you want.
 
 ## See also
 

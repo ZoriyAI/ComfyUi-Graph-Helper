@@ -1,14 +1,14 @@
 [Русский](Home.ru.md)
 Home
 
-# CozyGraph
+# NodeWise Studio
 
 **A desktop tutor for ComfyUI graphs**
 
-CozyGraph is an independent, experimental learning tool. It is not affiliated with or endorsed by Comfy Org. It
+NodeWise Studio is an independent, experimental learning tool. It is not affiliated with or endorsed by Comfy Org. It
 contains no ComfyUI code and only reads a running ComfyUI; it never changes it.
 
-CozyGraph helps you learn ComfyUI and understand its graphs. It reads which nodes and models your ComfyUI has,
+NodeWise helps you learn ComfyUI and understand its graphs. It reads which nodes and models your ComfyUI has,
 explains every node and link, teaches with lessons you do by hand, and has an assistant that can explain and build
 a graph step by step. You save the result as an ordinary workflow and run it in ComfyUI yourself.
 

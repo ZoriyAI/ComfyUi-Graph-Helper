@@ -16,11 +16,10 @@ please say what happened in the project's Issues.
 ## Get the source
 
 ```bash
-git clone <project address>.git cozygraph
-cd cozygraph
+git clone <project address>.git nodewise-studio
+cd nodewise-studio
 npm ci
 ```
-<!-- verify: technical rename; the project address is set in src/main/identity.ts -->
 
 `npm ci` also downloads Electron for your Mac.
 
@@ -34,8 +33,8 @@ npm run dev        # Vite with live reload, and Electron
 
 ## Where your data ends up
 
-`~/Library/Application Support/cozygraph` (for example `/Users/you/Library/Application Support/cozygraph`).
-<!-- verify: technical rename --> To keep a test profile apart: `npx electron . --user-data-dir=/Users/you/cozygraph-test`
+`~/Library/Application Support/nodewise-studio` (for example `/Users/you/Library/Application Support/nodewise-studio`).
+To keep a test profile apart: `npx electron . --user-data-dir=/Users/you/nodewise-test`
 after `npm run build`.
 
 Keys are encrypted with a key Electron keeps in your login Keychain.
@@ -66,8 +65,8 @@ npm run build
 ## Remove everything
 
 1. In the app: Settings ▸ Privacy ▸ Forget all keys and tokens.
-2. Delete the project folder (`cozygraph`) and, if you made one, the bundle under `out/`.
-3. Delete `~/Library/Application Support/cozygraph`.
+2. Delete the project folder (`nodewise-studio`) and, if you made one, the bundle under `out/`.
+3. Delete `~/Library/Application Support/nodewise-studio`.
 4. In Keychain Access, delete the item that ends with "Safe Storage" and carries the app's name.
    <!-- verify: the Keychain item name on macOS -->
 

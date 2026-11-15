@@ -16,11 +16,10 @@
 ## Получите исходники
 
 ```bash
-git clone <адрес проекта>.git cozygraph
-cd cozygraph
+git clone <адрес проекта>.git nodewise-studio
+cd nodewise-studio
 npm ci
 ```
-<!-- verify: technical rename; the project address is set in src/main/identity.ts -->
 
 `npm ci` заодно скачивает Electron для вашего Mac.
 
@@ -34,9 +33,9 @@ npm run dev        # Vite с живой перезагрузкой и Electron
 
 ## Где окажутся ваши данные
 
-`~/Library/Application Support/cozygraph` (например, `/Users/you/Library/Application Support/cozygraph`).
-<!-- verify: technical rename --> Чтобы держать проверочный профиль отдельно:
-`npx electron . --user-data-dir=/Users/you/cozygraph-test` после `npm run build`.
+`~/Library/Application Support/nodewise-studio` (например, `/Users/you/Library/Application Support/nodewise-studio`).
+Чтобы держать проверочный профиль отдельно:
+`npx electron . --user-data-dir=/Users/you/nodewise-test` после `npm run build`.
 
 Ключи шифруются ключом, который Electron хранит в вашей связке ключей (Keychain).
 
@@ -66,8 +65,8 @@ npm run build
 ## Как удалить всё
 
 1. В приложении: «Настройки ▸ Приватность ▸ Забыть все ключи и токены».
-2. Удалите папку проекта (`cozygraph`) и, если делали, пакет в `out/`.
-3. Удалите `~/Library/Application Support/cozygraph`.
+2. Удалите папку проекта (`nodewise-studio`) и, если делали, пакет в `out/`.
+3. Удалите `~/Library/Application Support/nodewise-studio`.
 4. В «Связке ключей» удалите запись, которая кончается на «Safe Storage» и несёт имя приложения.
    <!-- verify: the Keychain item name on macOS -->
 

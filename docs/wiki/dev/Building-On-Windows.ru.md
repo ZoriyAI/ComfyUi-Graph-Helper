@@ -18,11 +18,10 @@
 В PowerShell или в окне Git Bash:
 
 ```powershell
-git clone <адрес проекта>.git cozygraph
-cd cozygraph
+git clone <адрес проекта>.git nodewise-studio
+cd nodewise-studio
 npm ci
 ```
-<!-- verify: technical rename; the project address is set in src/main/identity.ts -->
 
 `npm ci` заодно скачивает Electron для Windows.
 
@@ -38,14 +37,14 @@ npm start
 
 ## Где окажутся ваши данные
 
-`C:\Users\you\AppData\Roaming\cozygraph` (`%APPDATA%\cozygraph`). <!-- verify: technical rename --> Чтобы держать
-проверочный профиль отдельно: `npx electron . --user-data-dir=C:\Users\you\cozygraph-test` после `npm run build`.
+`C:\Users\you\AppData\Roaming\nodewise-studio` (`%APPDATA%\nodewise-studio`). Чтобы держать
+проверочный профиль отдельно: `npx electron . --user-data-dir=C:\Users\you\nodewise-test` после `npm run build`.
 
 Ключи шифрует Windows (DPAPI) через Electron.
 
 ## Папка приложения, которая запускается без npm
 
-Electron Forge, инструмент упаковки проекта, может сделать папку с `cozygraph.exe` и всем, что ему нужно:
+Electron Forge, инструмент упаковки проекта, может сделать папку с `nodewise-studio.exe` и всем, что ему нужно:
 
 ```powershell
 npm run build
@@ -55,7 +54,8 @@ npx electron-forge package
 Папка появится в `out\`. Прежде чем запускать, откройте `forge.config.js`: одно правило `ignore` оставляет только
 файл базы для Linux (`prebuilds/(?!linux-x64\.node$)`). Пропустите и файл для Windows (например,
 `(?!(linux-x64|win32-x64)\.node$)`), иначе упакованное приложение не откроет свою базу. Установщика для Windows нет.
-<!-- verify: technical rename (the executable name); the folder name on Windows; the missing .ico icon -->
+Папка называется `out\NodeWise Studio-win32-x64`. Файла `.ico` в проекте нет, поэтому у программы остаётся значок
+самого Electron (не проверялось).
 
 ## Обновление исходников
 
@@ -68,8 +68,8 @@ npm run build
 ## Как удалить всё
 
 1. В приложении: «Настройки ▸ Приватность ▸ Забыть все ключи и токены».
-2. Удалите папку проекта (`cozygraph`) и, если делали, упакованную папку в `out\`.
-3. Удалите `%APPDATA%\cozygraph`.
+2. Удалите папку проекта (`nodewise-studio`) и, если делали, упакованную папку в `out\`.
+3. Удалите `%APPDATA%\nodewise-studio`.
 
 ## Известные ограничения на этой системе
 

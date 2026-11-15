@@ -7,10 +7,12 @@ The files the app reads and writes, outside its [data folder](Data-Folder.md). A
 
 ## The project file
 
-- **Name:** `*.cozygraph.json` is suggested when you save. Files saved by earlier versions as `*.graph-helper.json`
-  still open: the app goes by what is inside, not by the name. <!-- verify: technical rename -->
+- **Name:** `*.nodewise.json` is suggested when you save. Project files saved by version 0.9, under the file ending
+  of the app's old name, still open: the app goes by what is inside, not by the name. Save writes such a file back
+  under its own name; Save project as suggests the `.nodewise.json` ending.
 - **Written by:** File ▸ Save project. **Read by:** File ▸ Open project.
-- **Inside:** a `format` field that names the project format, a `version` (2 today; versions 0 and 1 still open), the
+- **Inside:** a `format` field that names the project format (`nodewise-studio-project`; the id version 0.9 wrote
+  is still read, and the file is written back with the new one), a `version` (2 today; versions 0 and 1 still open), the
   graph in ComfyUI's own form, the component records (purpose, how to use), subgraphs, groups, the title and notes of
   the graph, and the explanations and notes you wrote.
 - **Not inside:** the chat, the settings and keys. A field that looks like a key or a token is shown to you before

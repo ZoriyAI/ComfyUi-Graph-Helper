@@ -26,10 +26,12 @@ not start at all.
 
 ## The per-user install
 
-`install.sh` installs to `~/.local/share/cozygraph`, a launcher in `~/.local/bin` and the menu entry and icons under
+`install.sh` installs to `~/.local/share/nodewise-studio`, a launcher in `~/.local/bin` and the menu entry and icons under
 `~/.local/share`. It refuses to overwrite a launcher it did not make, refuses while the app is running, and replaces
-an old copy in one step. `uninstall.sh` removes only what `install.sh` made and keeps the profile; `--purge` deletes
-the profile too. <!-- verify: technical rename -->
+an old copy in one step. A copy of version 0.9 that its `install.sh` put in the home folder under the app's old
+name is removed with that copy's own `uninstall.sh` (its settings stay, for the app to take over); while that copy
+runs, it stays and `install.sh` says so. `uninstall.sh` removes only what `install.sh` made and keeps the profile; `--purge` deletes
+the profile too.
 
 ## What goes into a package
 

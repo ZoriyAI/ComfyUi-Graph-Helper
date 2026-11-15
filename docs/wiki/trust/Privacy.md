@@ -3,7 +3,7 @@
 
 # Privacy
 
-This page lists every place CozyGraph can contact, when it does so, on whose action, and what goes there. Nothing
+This page lists every place NodeWise Studio can contact, when it does so, on whose action, and what goes there. Nothing
 else leaves your computer.
 
 ## What the app never does

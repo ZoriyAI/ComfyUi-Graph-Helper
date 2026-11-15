@@ -3,7 +3,7 @@
 
 # Connecting to ComfyUI
 
-CozyGraph learns which nodes and models you have by reading a running ComfyUI. All it needs is the address you open
+NodeWise Studio learns which nodes and models you have by reading a running ComfyUI. All it needs is the address you open
 ComfyUI at in the browser. An MCP server is optional and adds a few things ComfyUI itself does not serve.
 
 <!-- verify: this chapter is checked against test servers that speak ComfyUI's routes; it has not yet been run

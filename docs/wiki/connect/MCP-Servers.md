@@ -3,7 +3,7 @@
 
 # MCP servers
 
-An MCP server is a small program next to ComfyUI that answers questions of other programs. CozyGraph does not need
+An MCP server is a small program next to ComfyUI that answers questions of other programs. NodeWise Studio does not need
 one: the ComfyUI address is enough. A server that can read files adds what ComfyUI itself does not serve: the
 descriptions model managers keep next to model files (`.civitai.info`, `.metadata.json`), the README and
 `pyproject.toml` of node packs, and a file's fingerprint (for an exact search on Civitai).

@@ -12,7 +12,7 @@ A **workflow** is a graph saved to a file. It holds the nodes, their fields, the
 - **Workflow (UI format), `.json`.** What ComfyUI saves with "Save" and "Export". It describes the canvas: nodes with positions and sizes, links as a separate table, groups, notes, subgraph definitions. This is the format people share, and the one the app opens and saves.
 - **API format, `.json`.** What the editor actually sends to the server when you press Run: just the nodes that run, each with its class and its inputs, keyed by node number. No positions, no notes, no Primitive nodes (their values are written straight into the nodes they feed). ComfyUI saves it with "Export (API)". Scripts and services use it.
 - **A picture or a clip that carries its workflow.** Save Image writes the workflow and the API prompt into the PNG file's metadata. Drag such a PNG onto ComfyUI and the graph that made it opens. Some other formats saved by ComfyUI (animated WebP, video) can carry it too. Many sites strip metadata, so a picture downloaded from the web often carries nothing.
-- **The app's project file.** Graph Helper also keeps a project file of its own, next to the plain workflow, with the explanations and notes made in the app. ComfyUI does not need it.
+- **The app's project file.** NodeWise also keeps a project file of its own, next to the plain workflow, with the explanations and notes made in the app. ComfyUI does not need it.
 
 How to tell UI format from API format: a UI file has `"nodes": [...]` and `"links": [...]` at the top; an API file is a list of numbered entries with `"class_type"` and `"inputs"`.
 

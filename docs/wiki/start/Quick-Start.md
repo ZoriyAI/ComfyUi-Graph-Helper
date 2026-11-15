@@ -11,18 +11,17 @@ most of it for installing ComfyUI and downloading a model.
 Install ComfyUI, put one checkpoint model into `ComfyUI/models/checkpoints`, start ComfyUI and open its address in
 the browser (usually `http://127.0.0.1:8188`). Details: [ComfyUI and where to get it](ComfyUI.md).
 
-## 2. Install CozyGraph
+## 2. Install NodeWise Studio
 
 ```bash
-sudo apt install ./cozygraph_*_amd64.deb
+sudo apt install ./nodewise-studio_*_amd64.deb
 ```
-<!-- verify: technical rename -->
 
 Get the file from the project's Releases page. Details: [Installing](Installing.md).
 
 ## 3. Start it
 
-Open "CozyGraph" from the menu. An empty canvas with a welcome card appears. The card lists three steps and marks
+Open "NodeWise Studio" from the menu. An empty canvas with a welcome card appears. The card lists three steps and marks
 the ones that are done: connect ComfyUI and read it, choose who answers, ask or build. See
 [The welcome card](../interface/Welcome.md).
 

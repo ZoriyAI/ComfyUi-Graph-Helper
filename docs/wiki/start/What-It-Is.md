@@ -3,7 +3,7 @@
 
 # What the app is
 
-CozyGraph is a desktop app for people who are learning ComfyUI. It shows what is in your ComfyUI, explains how a
+NodeWise Studio is a desktop app for people who are learning ComfyUI. It shows what is in your ComfyUI, explains how a
 graph works, and lets you build one by hand or with an assistant. It is a tutor, not a runner: it never runs a graph
 and never changes your ComfyUI.
 
@@ -42,7 +42,7 @@ See [ComfyUI and where to get it](ComfyUI.md).
 ## How it fits together
 
 ```
-Your ComfyUI  ──(read only)──>  CozyGraph  ──(you save a workflow)──>  a .json file  ──(you open it)──>  ComfyUI runs it
+Your ComfyUI  ──(read only)──>  NodeWise  ──(you save a workflow)──>  a .json file  ──(you open it)──>  ComfyUI runs it
                                     │
                                     └── an assistant: a cloud model or a model on your own computer (optional)
 ```
@@ -58,7 +58,7 @@ Your ComfyUI  ──(read only)──>  CozyGraph  ──(you save a workflow)�
 
 ## An experimental project
 
-CozyGraph is young. Things change between versions, some parts are unfinished, and there is no promise of support.
+NodeWise is young. Things change between versions, some parts are unfinished, and there is no promise of support.
 What is not done yet is listed in [Known limitations](../reference/Known-Limits.md). Ideas and wishes are welcome in
 the project's Discussions; problems go to Issues (Help ▸ Report a problem in the app).
 

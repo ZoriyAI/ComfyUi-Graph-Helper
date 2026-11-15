@@ -5,12 +5,16 @@ finish the whole site, and check it in a real browser before you say it is done.
 
 ## 0. Set these first
 
-- `PRODUCT_NAME`: **NodeWise Studio** (short form where space is tight: **NodeWise**). Keep both in ONE place; never
-  type them into components or texts by hand, so that a rename is one edit.
+- `PRODUCT_NAME`: **NodeWise Studio** (short form **NodeWise** where space is tight or after the first mention).
+  Keep both in ONE place; never type them into components or texts by hand, so that a rename is one edit. "ComfyUI"
+  is never part of the product's name, ids, file names or icon names; it appears only in sentences that say what
+  the app works with.
 - `REPO_URL`: `https://github.com/ZoriyAI/ComfyUi-Graph-Helper` (one constant as well; the owner will rename the
   repository, most likely to `nodewise-studio`).
 - Technical names you will meet in the documents: package and command `nodewise-studio`, profile folder
   `~/.config/nodewise-studio`, project files `*.nodewise.json`.
+- Download file names: `nodewise-studio_<version>_amd64.deb`, `nodewise-studio-<version>-1.x86_64.rpm`,
+  `nodewise-studio-<version>-x86_64.AppImage`, `nodewise-studio-<version>-linux-x64.tar.gz`.
 - Tagline, the same words everywhere: English "A desktop tutor for ComfyUI graphs", Russian «Учебный помощник по
   графам ComfyUI».
 

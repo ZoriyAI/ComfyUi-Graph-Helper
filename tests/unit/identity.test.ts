@@ -1,20 +1,23 @@
 import { describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
-import { APP_ID, DISPLAY_NAME, PROJECT_URL, STABLE_APP_NAME, appVersion, projectLinks, projectUrlIsSet, userAgent, usesStableProfile } from '../../src/main/identity';
+import { APP_ID, DISPLAY_NAME, PROJECT_URL, SHORT_NAME, STABLE_APP_NAME, appVersion, projectLinks, projectUrlIsSet, userAgent, usesStableProfile } from '../../src/main/identity';
 import { mcpClientInfo, setMcpClientVersion } from '../../src/main/mcp/client';
 
 const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'package.json'), 'utf8')) as Record<string, unknown>;
 
 describe('app identity', () => {
-  it('keeps the profile name that every released deb used', () => {
-    // The profile folder ~/.config/comfyui-graph-builder and the keyring entry depend on it: never change it.
-    expect(STABLE_APP_NAME).toBe('comfyui-graph-builder');
+  it('runs under the 1.0 name: profile folder, package and executable', () => {
+    // The profile folder ~/.config/nodewise-studio and the keyring entry depend on it. It changed once, for 1.0
+    // (src/main/profileAdoption.ts takes the 0.x folder over); every further change costs people their saved keys.
+    expect(STABLE_APP_NAME).toBe('nodewise-studio');
+    expect(APP_ID).toBe('nodewise-studio');
     expect(pkg.name).toBe(STABLE_APP_NAME);
   });
 
   it('shows one display name, the one package.json gives the window', () => {
-    expect(DISPLAY_NAME).toBe('Graph Helper for ComfyUI');
+    expect(DISPLAY_NAME).toBe('NodeWise Studio');
+    expect(SHORT_NAME).toBe('NodeWise');
     expect(pkg.productName).toBe(DISPLAY_NAME);
   });
 
@@ -27,34 +30,43 @@ describe('app identity', () => {
     setMcpClientVersion(appVersion());
     expect(mcpClientInfo()).toEqual({ name: APP_ID, version: pkg.version });
     const site = projectUrlIsSet() ? `+${PROJECT_URL}; ` : '';
-    expect(userAgent('page reader')).toBe(`GraphHelperForComfyUI/${pkg.version} (${site}read-only; page reader)`);
+    expect(userAgent('page reader')).toBe(`NodeWiseStudio/${pkg.version} (${site}read-only; page reader)`);
   });
 
   it('uses the stable profile whatever the display name is', () => {
-    expect(usesStableProfile('Graph Helper for ComfyUI', true)).toBe(true);
-    expect(usesStableProfile('Graph Helper for ComfyUI', false)).toBe(true);
-    expect(usesStableProfile('ComfyUI Graph Helper', false)).toBe(true);
+    expect(usesStableProfile('NodeWise Studio', true)).toBe(true);
+    expect(usesStableProfile('NodeWise Studio', false)).toBe(true);
     expect(usesStableProfile('Some Later Name', false)).toBe(true);
-    expect(usesStableProfile('comfyui-graph-builder', true)).toBe(true);
+    expect(usesStableProfile('nodewise-studio', true)).toBe(true);
     // A bare script launch keeps Electron's own name and folder.
     expect(usesStableProfile('Electron', false)).toBe(false);
   });
 
-  it('keeps one project address: identity.ts and package.json agree', () => {
+  it('keeps one project address: identity.ts, package.json, the issue forms and the README badges agree', () => {
+    expect(PROJECT_URL).toBe('https://github.com/ZoriyAI/ComfyUi-Graph-Helper');
+    expect(projectUrlIsSet()).toBe(true);
     expect(pkg.homepage).toBe(PROJECT_URL);
     expect(pkg.repository).toEqual({ type: 'git', url: `git+${PROJECT_URL}.git` });
     expect(pkg.bugs).toEqual({ url: `${PROJECT_URL}/issues` });
+    const root = path.join(__dirname, '..', '..');
+    // Every github.com repository address in these files is the project's own.
+    for (const file of ['.github/ISSUE_TEMPLATE/config.yml', 'README.md', 'README.ru.md']) {
+      const text = fs.readFileSync(path.join(root, file), 'utf8');
+      const repositories = [...text.matchAll(/https:\/\/(?:img\.shields\.io\/github\/v\/release\/|github\.com\/)([A-Za-z0-9-]+\/[A-Za-z0-9._-]+)/g)].map((match) => match[1].replace(/\.git$/, ''));
+      expect(repositories.length, file).toBeGreaterThan(0);
+      expect(new Set(repositories.filter((repo) => !repo.startsWith('actions/'))), file).toEqual(new Set([PROJECT_URL.replace('https://github.com/', '')]));
+    }
   });
 
   it('offers project links only for a real address', () => {
     expect(projectUrlIsSet('https://github.com/PLACEHOLDER-OWNER/PLACEHOLDER-REPOSITORY')).toBe(false);
     expect(projectLinks('https://github.com/PLACEHOLDER-OWNER/PLACEHOLDER-REPOSITORY')).toBeNull();
     expect(projectUrlIsSet('http://github.com/a/b')).toBe(false);
-    expect(projectLinks('https://github.com/example/graph-helper')).toEqual({
-      site: 'https://github.com/example/graph-helper',
-      releases: 'https://github.com/example/graph-helper/releases',
-      issues: 'https://github.com/example/graph-helper/issues',
-      newIssue: 'https://github.com/example/graph-helper/issues/new',
+    expect(projectLinks('https://github.com/example/some-project')).toEqual({
+      site: 'https://github.com/example/some-project',
+      releases: 'https://github.com/example/some-project/releases',
+      issues: 'https://github.com/example/some-project/issues',
+      newIssue: 'https://github.com/example/some-project/issues/new',
     });
   });
 });

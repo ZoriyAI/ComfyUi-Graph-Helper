@@ -4,6 +4,10 @@ English version: [README.md](README.md)
 
 **Учебный помощник по графам ComfyUI**
 
+[![Checks](https://github.com/ZoriyAI/ComfyUi-Graph-Helper/actions/workflows/ci.yml/badge.svg)](https://github.com/ZoriyAI/ComfyUi-Graph-Helper/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/ZoriyAI/ComfyUi-Graph-Helper)](https://github.com/ZoriyAI/ComfyUi-Graph-Helper/releases/latest)
+[![Лицензия: MIT с Commons Clause](https://img.shields.io/badge/license-MIT%20%2B%20Commons%20Clause-blue)](LICENSE)
+
 ![Приложение собирает граф по шагам и объясняет каждый шаг](docs/screenshots/hero.png)
 
 NodeWise Studio помогает учиться работать с ComfyUI и разбираться в графах: он читает запущенный ComfyUI, объясняет каждую
@@ -11,7 +15,7 @@ NodeWise Studio помогает учиться работать с ComfyUI и �
 помощником. Он для тех, кто только начинает с ComfyUI, и для всех, кто хочет понимать, почему граф работает. ComfyUI
 он только читает и никогда не меняет.
 
-NodeWise Studio это независимый экспериментальный учебный инструмент. Он не связан с Comfy Org и не одобрен ею. В нём нет
+NodeWise это независимый экспериментальный учебный инструмент. Он не связан с Comfy Org и не одобрен ею. В нём нет
 кода ComfyUI, он только читает запущенный ComfyUI и никогда его не меняет.
 
 ## Снимки экрана
@@ -50,15 +54,13 @@ Linux, 64 бита, x86. Скачайте со страницы [выпуско�
 | AppImage | `chmod +x` для файла, затем откройте его |
 | `.tar.gz` | распакуйте, затем `./install.sh` (для вашего пользователя, без root) или `./run.sh` (на месте) |
 
-<!-- verify: technical rename -->
-
 У каждого выпуска есть файл `SHA256SUMS`: `sha256sum -c SHA256SUMS --ignore-missing`. Обновление, удаление и что
 куда ставится: [Установка](docs/wiki/start/Installing.ru.md).
 
 ## Первые шаги
 
 1. Запустите ComfyUI. Его ещё нет? [ComfyUI и где его взять](docs/wiki/start/ComfyUI.ru.md).
-2. В NodeWise Studio: «Настройки ▸ Подключение», впишите адрес, по которому открываете ComfyUI в браузере (например,
+2. В NodeWise: «Настройки ▸ Подключение», впишите адрес, по которому открываете ComfyUI в браузере (например,
    `http://127.0.0.1:8188`), или нажмите «Найти на этом компьютере», сохраните и прочитайте.
    [Подключение к ComfyUI](docs/wiki/connect/Connecting.ru.md)
 3. Откройте правую панель, выберите «Учиться» и пройдите первый урок. [Быстрый старт](docs/wiki/start/Quick-Start.ru.md)
@@ -88,7 +90,7 @@ Linux, 64 бита, x86. Скачайте со страницы [выпуско�
 
 ## Что работает сегодня и известные ограничения
 
-NodeWise Studio экспериментальный: от версии к версии многое меняется, некоторые части не доделаны. Чего он пока не
+NodeWise экспериментальный: от версии к версии многое меняется, некоторые части не доделаны. Чего он пока не
 умеет: [Известные ограничения](docs/wiki/reference/Known-Limits.ru.md). Что изменилось:
 [CHANGELOG.ru.md](CHANGELOG.ru.md).
 
@@ -108,7 +110,7 @@ NodeWise Studio экспериментальный: от версии к вер�
 
 ## Лицензия
 
-MIT с условием Commons Clause: NodeWise Studio можно бесплатно использовать, менять и распространять, но нельзя продавать
+MIT с условием Commons Clause: NodeWise можно бесплатно использовать, менять и распространять, но нельзя продавать
 его или продукт или услугу, ценность которых в основном в нём. Исходный код открыт для чтения, но это не «открытый
 исходный код» в обычном смысле. [LICENSE](LICENSE), [лицензия простыми словами](docs/wiki/trust/Licence.ru.md),
 коммерческое использование: [COMMERCIAL.ru.md](COMMERCIAL.ru.md). Сторонние компоненты:
