@@ -1,9 +1,17 @@
+/**
+ * The chat's own types: a message, its tool calls, a checkpoint pause, the app's notices about a turn.
+ *
+ * Who uses it: services/llm/chatService.ts and chatModel.ts, state/chatState.ts, and components/chat (Message,
+ * ToolCard, BuildCard, BuildSummary, QuietGroup, buildSteps.ts, toolPresentation.ts).
+ * Why "not persisted" marks: main stores a chat message without these fields, so they live only in this session.
+ */
 import type { TurnError } from '../../shared/agent/turnError';
 import type { AgentTurnContext } from '../../shared/contracts';
 
 /** Tool family, from the AGENT_* name lists in shared/contracts/agentTools.ts. */
 export type ToolKind = 'read' | 'knowledge' | 'proposal' | 'build' | 'other';
 
+/** A call is pending until its result arrives. */
 export type ToolStatus = 'pending' | 'success' | 'error';
 
 /**
@@ -80,9 +88,7 @@ export function parseTurnNotice(input: unknown): TurnNotice | null {
   };
 }
 
-/**
- * Chat message
- */
+/** One message of the chat, from the person, the assistant or the app. */
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant' | 'system';
@@ -103,13 +109,14 @@ export interface ChatMessage {
   notices?: TurnNotice[];
   /**
    * Set on the message that says a turn failed: the kind (key, rate, …), the server's short redacted words, and
-   * the question with its context so "Повторить" can send it again. Not persisted.
+   * the question with its context so "Retry" (chat.retry) can send it again. Not persisted.
    */
   turnError?: ChatTurnError;
   /** The person stopped this answer (Stop): its build card says stopped, not done. Not persisted. */
   stopped?: boolean;
 }
 
+/** A failed turn's error plus what Retry needs to ask again. */
 export interface ChatTurnError extends TurnError {
   question: string;
   context?: AgentTurnContext;
