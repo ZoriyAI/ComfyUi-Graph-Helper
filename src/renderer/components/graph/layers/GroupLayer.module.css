@@ -1,6 +1,8 @@
+/* ComfyUI groups on the canvas (GroupLayer.tsx): the translucent frame in the group's colour and its title. */
 .group {
   --canvas-group: var(--accent, #65d9ed);
   position: absolute;
+  /* Behind the nodes, so a group never covers its members. */
   z-index: -1;
   border-radius: 14px;
   border: 1px solid color-mix(in srgb, var(--canvas-group) 35%, transparent);

@@ -1,3 +1,8 @@
+/**
+ * The guided tour layer of the canvas: the callout of the current tour step above its node, the step numbers of the
+ * other steps when motion is reduced, autoplay, and the tour keys. CanvasFlow mounts it; the steps come from
+ * uiState (built by tour/buildTour.ts). useCenterOn is shared with BuildLayer.
+ */
 import React, { useCallback, useEffect, useLayoutEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
@@ -13,6 +18,7 @@ import styles from './Callout.module.css';
 /** How long an autoplayed step stays: enough to read one sentence and watch the pulses once or twice. */
 export const TOUR_STEP_MS = 4800;
 
+/** Whether a key event comes from a field, a dialog or a menu; the tour keys leave those alone. */
 function typingTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   if (target.isContentEditable) return true;
@@ -21,8 +27,9 @@ function typingTarget(target: EventTarget | null): boolean {
 }
 
 /**
- * Bring the camera to a node by the camera rule (motion/camera.ts; instant without full motion). The node, and the callout above
- * it when `room.above` says there is one, land under the canvas's own controls, not behind them.
+ * Bring the camera to a node by the camera rule (motion/camera.ts; instant without full motion). The node, and the
+ * callout above it when `room.above` says there is one, land under the canvas's own controls, not behind them.
+ * Used here for tour steps and by BuildLayer for build steps and centre requests.
  */
 export function useCenterOn() {
   const flow = useReactFlow();
@@ -33,6 +40,7 @@ export function useCenterOn() {
     const width = node.measured?.width ?? 240;
     const height = node.measured?.height ?? 120;
     const at = node.internals.positionAbsolute;
+    // Zooms in to at least 0.85 so the node's text is readable, but never past the caller's maxZoom.
     const zoom = Math.min(room.maxZoom ?? Infinity, Math.max(flow.getZoom(), 0.85));
     const pane = store.getState();
     const center = cameraCenter(
@@ -98,6 +106,7 @@ export default function TourLayer() {
       event.preventDefault();
       event.stopPropagation();
     };
+    // Capture phase: the tour keys win over the canvas's own arrow-key nudges and shortcuts.
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
   }, [active, setTourIndex, setTourPlaying, stopTour]);

@@ -1,3 +1,8 @@
+/**
+ * The group layer of the canvas: ComfyUI groups drawn as translucent frames behind their member nodes, with a title
+ * that can be renamed in place and dragged to move the whole group. CanvasFlow mounts it. Groups are not React Flow
+ * nodes, so they never count as graph nodes; their geometry comes from lib/geometry.ts groupRect.
+ */
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNodes, useReactFlow, ViewportPortal } from '@xyflow/react';
@@ -20,6 +25,7 @@ function GroupTitle({ id, title, editable, members }: { id: string; title: strin
   const flow = useReactFlow();
   // A drag of the title moves the whole group: its members follow the pointer and land as one step.
   const drag = useRef<{ x: number; y: number; zoom: number; from: Map<string, { x: number; y: number }>; moved: boolean } | null>(null);
+  // No group drag while nodes are pinned in place, during a replay, or for a group without members.
   const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0 || !editable || useCanvasStore.getState().nodesPinned || members.length === 0) return;
     event.stopPropagation();
@@ -33,8 +39,10 @@ function GroupTitle({ id, title, editable, members }: { id: string; title: strin
     if (!state) return;
     const dx = (event.clientX - state.x) / state.zoom;
     const dy = (event.clientY - state.y) / state.zoom;
+    // Under 3 screen pixels the pointer has not really moved: a double-click to rename must not nudge the group.
     if (!state.moved && Math.hypot(dx * state.zoom, dy * state.zoom) < 3) return;
     state.moved = true;
+    // While dragging only the local store moves; the engine gets one move-nodes commit at the end.
     useGraphStore.setState((graph) => ({
       nodes: graph.nodes.map((node) => {
         const start = state.from.get(node.id);

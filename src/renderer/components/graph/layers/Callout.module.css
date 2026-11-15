@@ -1,3 +1,8 @@
+/*
+ * Speech-bubble callouts over canvas nodes: the tour step callout and its step numbers (TourLayer.tsx), the live
+ * build bubble with its change pill, and the fading boxes of removed nodes (BuildLayer.tsx). Shared so the tour and
+ * the build speak in one visual voice.
+ */
 .callout {
   width: 300px;
   padding: 10px 12px;

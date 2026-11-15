@@ -1,4 +1,7 @@
-/* Description cards under nodes: a quiet raised note that reads as part of the node, not a popup. */
+/*
+ * Description cards under nodes (DescriptionLayer.tsx): a quiet raised note that reads as part of the node, not a
+ * popup, with its dot, its edit form and its provenance badge.
+ */
 .card {
   box-sizing: border-box;
   padding: 4px 4px 4px 6px;

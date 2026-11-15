@@ -1,7 +1,7 @@
 /**
  * The Check tab's findings, marked on the nodes they are about: a ring around the node in the colour of the worst
  * finding (raspberry when the graph will not run, amber when it may run badly) and a small count at its corner.
- * Who sees it: a person who ran "Check the graph" and looks at the canvas instead of the list.
+ * Who sees it: a person who ran "Check graph" and looks at the canvas instead of the list. CanvasFlow mounts it.
  * Why it hides after any edit: the report describes the graph as it was checked; after a change it may no longer be
  * true, and a mark that lies is worse than none. Running the check again brings the marks back.
  * Drawn in the viewport (it moves and zooms with the canvas); the ring and the count keep their screen size.
@@ -23,8 +23,10 @@ useKnowledgeStore.subscribe((state, previous) => {
   if (state.check !== previous.check) useCheckedRevision.setState({ revision: state.check ? useRevisionStore.getState().currentRevisionId : null });
 });
 
+/** React Flow store selector: the canvas zoom, which keeps the ring and the count at screen size. */
 const zoomOf = (state: ReactFlowState) => state.transform[2];
 
+/** The marks over the nodes; nothing when there is no report, it is stale, or a subgraph is open. */
 export default function CheckMarkLayer() {
   const { t } = useTranslation();
   const report = useKnowledgeStore((state) => state.check);
