@@ -9,13 +9,13 @@ import { artifact } from './artifacts';
 
 /**
  * Settings ▸ Connection ▸ Sign in against a fake OAuth + MCP server on loopback (labelled fixture, not a real
- * server). The system browser is replaced by the test build's stand-in (NODE_ENV=test + GRAPH_HELPER_TEST_BROWSER),
+ * server). The system browser is replaced by the test build's stand-in (NODE_ENV=test + NODEWISE_TEST_BROWSER),
  * which GETs the authorization URL and follows its redirect to the app's loopback callback.
  */
 test('signs in to the MCP server through the browser and syncs without a manual token', async () => {
   const fake = await startFakeOAuthMcp({ accessTtlSeconds: 3600 });
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'mcp-oauth-'));
-  const env = { ...process.env, NODE_ENV: 'test', GRAPH_HELPER_TEST_BROWSER: 'follow-redirects' } as Record<string, string>;
+  const env = { ...process.env, NODE_ENV: 'test', NODEWISE_TEST_BROWSER: 'follow-redirects' } as Record<string, string>;
   delete env.DBUS_SESSION_BUS_ADDRESS;
   delete env.GNOME_KEYRING_CONTROL;
   const app = await electron.launch({

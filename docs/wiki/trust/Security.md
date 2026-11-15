@@ -3,7 +3,7 @@
 
 # Security
 
-How CozyGraph keeps your keys and your computer safe, and how to report a vulnerability.
+How NodeWise Studio keeps your keys and your computer safe, and how to report a vulnerability.
 
 ## Keys and tokens
 

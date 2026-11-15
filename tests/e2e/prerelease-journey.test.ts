@@ -77,7 +77,7 @@ test('prerelease journey configures a provider, builds a process, and exports a 
   if (!address || typeof address === 'string') throw new Error('fixture server has no port');
   const origin = `http://127.0.0.1:${address.port}`;
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'prerelease-journey-'));
-  const nativePath = path.join(userData, 'project.graph-helper.json');
+  const nativePath = path.join(userData, 'project.nodewise.json');
   const comfyPath = path.join(userData, 'workflow.json');
   fs.mkdirSync(ARTIFACT_DIR, { recursive: true });
   const env = { ...process.env, NODE_ENV: 'production' } as Record<string, string>;
@@ -185,7 +185,7 @@ test('prerelease journey configures a provider, builds a process, and exports a 
       process: { title: string; notes: string };
       components: Array<{ ownerId: string; purpose: string }>;
     };
-    expect(native.format).toBe('comfy-graph-helper-project');
+    expect(native.format).toBe('nodewise-studio-project');
     expect(native.version).toBe(2);
     expect(native.process.title).toBe(PROCESS_TITLE);
     expect(native.components.find((item) => item.ownerId === '1')?.purpose).toBe(PURPOSE);
@@ -223,7 +223,7 @@ test('prerelease journey configures a provider, builds a process, and exports a 
 test('object info import lets the agent export a loader parameter', async () => {
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'loader-export-'));
   const catalogPath = path.join(userData, 'object_info.json');
-  const nativePath = path.join(userData, 'project.graph-helper.json');
+  const nativePath = path.join(userData, 'project.nodewise.json');
   const comfyPath = path.join(userData, 'workflow.json');
   fs.writeFileSync(catalogPath, JSON.stringify({
     CheckpointLoaderSimple: {
@@ -287,7 +287,7 @@ test('object info import lets the agent export a loader parameter', async () => 
       process: { title: string };
       components: Array<{ ownerId: string; purpose: string }>;
     };
-    expect(native.format).toBe('comfy-graph-helper-project');
+    expect(native.format).toBe('nodewise-studio-project');
     expect(native.process.title).toBe('Portrait process');
     expect(native.components.find((item) => item.ownerId === '1')?.purpose).toBe('Loads the portrait checkpoint');
 

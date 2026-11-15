@@ -1,17 +1,20 @@
 #!/bin/sh
-# Graph Helper for ComfyUI: install this folder for the current user, without root.
+# NodeWise Studio: install this folder for the current user, without root.
 #
 #   ./install.sh
 #
-# Puts the app in ~/.local/share/comfyui-graph-builder, a launcher in ~/.local/bin, a menu entry in
-# ~/.local/share/applications and the icons in ~/.local/share/icons. Running it again replaces an older copy.
-# Settings, projects and keys live apart, in ~/.config/comfyui-graph-builder, and are kept.
-# To remove the app: ~/.local/share/comfyui-graph-builder/uninstall.sh
+# Puts the app in ~/.local/share/nodewise-studio, a launcher in ~/.local/bin, a menu entry in
+# ~/.local/share/applications and the icons in ~/.local/share/icons. Running it again replaces an older copy,
+# also a copy of version 0.9 installed under the app's old name. Settings, projects and keys live apart, in
+# ~/.config/nodewise-studio, and are kept. To remove the app: ~/.local/share/nodewise-studio/uninstall.sh
 set -eu
 
-NAME=comfyui-graph-builder
-DISPLAY_NAME='Graph Helper for ComfyUI'
-MARK='Installed by install.sh of Graph Helper for ComfyUI'
+# The names (src/shared/productNames.ts; tests/unit/productNames.test.ts compares them).
+NAME=nodewise-studio
+DISPLAY_NAME='NodeWise Studio'
+MARK='Installed by install.sh of NodeWise Studio'
+# The name 0.9 was installed under (src/shared/legacyNames.ts LEGACY_APP_ID): its copy is removed below.
+LEGACY_NAME=comfyui-graph-builder
 
 here=$(dirname "$(readlink -f "$0")")
 data_home=${XDG_DATA_HOME:-$HOME/.local/share}
@@ -75,7 +78,7 @@ chmod 755 "$launcher"
 
 # The menu entry starts the launcher by its full path: ~/.local/bin is not on every desktop's PATH.
 sed -e "s|^Exec=.*|Exec=\"$launcher\" %U|" -e '/^TryExec=/d' "$here/share/applications/$NAME.desktop" > "$desktop_entry.tmp"
-printf 'X-GraphHelper-Installer=install.sh\n' >> "$desktop_entry.tmp"
+printf 'X-NodeWise-Installer=install.sh\n' >> "$desktop_entry.tmp"
 mv "$desktop_entry.tmp" "$desktop_entry"
 chmod 644 "$desktop_entry"
 
@@ -84,6 +87,18 @@ for icon in "$here"/share/icons/hicolor/*/apps/"$NAME".png; do
   mkdir -p "$data_home/icons/hicolor/$size/apps"
   cp "$icon" "$data_home/icons/hicolor/$size/apps/$NAME.png"
 done
+
+# A copy of 0.9 that this script installed under the old name would stay in the menu next to the new one: remove
+# it with its own uninstall.sh (app folder, launcher, menu entry, icons; never its settings). Its settings folder
+# is taken over by the app on its first start (src/main/profileAdoption.ts).
+legacy_dir=$data_home/$LEGACY_NAME
+if [ -x "$legacy_dir/uninstall.sh" ] && [ -x "$legacy_dir/$LEGACY_NAME" ]; then
+  if "$legacy_dir/uninstall.sh" >/dev/null; then
+    echo "$DISPLAY_NAME: the copy of version 0.9 in $legacy_dir is removed; its settings and projects are kept."
+  else
+    echo "$DISPLAY_NAME: the copy of version 0.9 in $legacy_dir is still there (is it running?). Quit it and run install.sh again to remove it." >&2
+  fi
+fi
 
 if command -v update-desktop-database >/dev/null 2>&1; then
   update-desktop-database -q "$data_home/applications" || true

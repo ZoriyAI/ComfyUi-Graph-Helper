@@ -28,6 +28,7 @@ import { fileFromArgs, journeyLink, openFileAtPath, registerOpenIpc, requestOpen
 import { nativeProjectFile, openNativeFile } from '../../src/main/ipc/projectFile';
 import { recentFiles, sourceOf } from '../../src/main/files/recentFiles';
 import { projectFileState } from '../../src/main/projectFiles';
+import { LEGACY_NATIVE_PROJECT_FORMAT_IDS, LEGACY_PROJECT_FILE_SUFFIXES } from '../../src/shared/legacyNames';
 
 const P = DESKTOP_PROJECT_ID;
 const WORKFLOW = {
@@ -119,12 +120,21 @@ describe('one open path', () => {
     openFileAtPath(write('w.json', JSON.stringify(WORKFLOW)));
     const project = nativeProjectFile(holder.db!, P);
     expect(project.ok).toBe(true);
-    const file = write('mine.graph-helper.json', `﻿${JSON.stringify((project as { project: unknown }).project)}`);
+    const file = write('mine.nodewise.json', `﻿${JSON.stringify((project as { project: unknown }).project)}`);
     const response = handlers.get(IPC_CHANNELS.FILE_OPEN_PATH)!({}, file) as { status: string; opened: { kind: string } };
     expect(response.status).toBe('applied');
     expect(response.opened.kind).toBe('project');
     expect(calls.at(-1)).toBe('project');
     expect(projectFileState(holder.db!, P).filePath).toBe(file);
+  });
+
+  it('a project file saved by 0.x (old format id and file ending) still opens as a project', () => {
+    openFileAtPath(write('w.json', JSON.stringify(WORKFLOW)));
+    const project = (nativeProjectFile(holder.db!, P) as { project: Record<string, unknown> }).project;
+    const file = write(`old${LEGACY_PROJECT_FILE_SUFFIXES[0]}`, JSON.stringify({ ...project, format: LEGACY_NATIVE_PROJECT_FORMAT_IDS[0] }));
+    const response = handlers.get(IPC_CHANNELS.FILE_OPEN_PATH)!({}, file) as { status: string; opened: { kind: string } };
+    expect(response.status).toBe('applied');
+    expect(response.opened.kind).toBe('project');
   });
 
   it('drop, Recent and the command line end in the same commit; foreign paths and kinds are refused', () => {

@@ -5,7 +5,7 @@
 
 Короткие ответы, у каждого ссылка на страницу, где сказано больше.
 
-## CozyGraph запускает мой workflow?
+## NodeWise Studio запускает мой workflow?
 
 Нет. Он собирает и объясняет графы, а запускает их ComfyUI. Вы сохраняете workflow и открываете его в ComfyUI.
 [Как запустить результат в ComfyUI](../graph/Running-In-ComfyUI.ru.md)

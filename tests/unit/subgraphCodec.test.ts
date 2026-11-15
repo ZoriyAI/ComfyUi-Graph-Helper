@@ -184,7 +184,7 @@ describe('native project version 2', () => {
     const projected = projectWorkflow(structuredClone(nestedSubgraphWorkflow));
     if ('error' in projected) throw new Error(projected.error);
     const v1 = {
-      format: 'comfy-graph-helper-project',
+      format: 'nodewise-studio-project',
       version: 1,
       process: { title: 'Old', notes: '' },
       graph: { nodes: projected.snapshot.nodes, edges: projected.snapshot.edges, document: projected.snapshot.document },
@@ -206,7 +206,7 @@ describe('native project version 2', () => {
 
   it('rejects a version 2 file with a malformed subgraph list', () => {
     const bad = parseNativeProject({
-      format: 'comfy-graph-helper-project',
+      format: 'nodewise-studio-project',
       version: 2,
       process: { title: '', notes: '' },
       graph: { nodes: [], edges: [], document: null },

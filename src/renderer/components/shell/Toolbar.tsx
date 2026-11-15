@@ -11,6 +11,8 @@ import { hintOf, runCommand, useCommandState } from '../../commands/registry';
 import { useGraphStore } from '../../state/graphState';
 import { useUiStore } from '../../state/uiState';
 import { useProjectFileStore } from '../../services/projectFile';
+import { PROJECT_FILE_SUFFIX } from '../../../shared/productNames';
+import { LEGACY_PROJECT_FILE_SUFFIXES } from '../../../shared/legacyNames';
 import { useKnowledgeStore, selectCheckCount } from '../../state/knowledgeState';
 import { usePreferencesStore } from '../../state/preferencesState';
 import { isPreferenceProvider } from '../../../shared/config/preferences';
@@ -18,6 +20,9 @@ import { providerChoices, providerKeyState, providerNoteKey, useProviderStore } 
 import { useProjectionStore } from '../../services/commands/projection';
 import { modelDisplayName } from './modelDisplayName';
 import styles from './Toolbar.module.css';
+
+/** Project file endings left out of the window title: the current one and those of 0.x files. */
+const PROJECT_FILE_ENDINGS = new RegExp(`(${[PROJECT_FILE_SUFFIX, ...LEGACY_PROJECT_FILE_SUFFIXES].map((suffix) => suffix.replace(/\./g, '\\.')).join('|')})$`, 'i');
 
 /**
  * One button for a registry command. The accessible name is the command label (kept as text, so
@@ -85,7 +90,7 @@ function ProjectName() {
   const file = useProjectFileStore((state) => state.state);
   const dirty = file?.dirty ?? false;
   // An untitled graph goes by its file: the project file, else the workflow (or picture) it was opened from.
-  const fileStem = (file?.fileName ?? file?.sourceName ?? '').replace(/\.graph-helper\.json$/i, '').replace(/\.[^.]+$/, '');
+  const fileStem = (file?.fileName ?? file?.sourceName ?? '').replace(PROJECT_FILE_ENDINGS, '').replace(/\.[^.]+$/, '');
   const name = title.trim() || fileStem || String(t('shell.untitled'));
   // The window's own title names the project too, so the task bar and the window switcher tell projects apart.
   useEffect(() => {

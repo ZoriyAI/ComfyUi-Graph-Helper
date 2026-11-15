@@ -29,7 +29,7 @@ function leaf(catalog: unknown, key: string): string {
 const ASCII_RU = new Set([
   // a spoken zoom value: only a number and the action's own name
   '{{zoom, number}}%, {{action}}',
-  'Graph Helper for ComfyUI',
+  '{{app}}',
   'English',
   // Provider names are product names and read the same in both languages.
   'OpenAI',

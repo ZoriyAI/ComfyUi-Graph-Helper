@@ -48,7 +48,11 @@ test('Help ▸ About: icon, name, version, licence, components, copy details, da
     const icon = dialog.locator('img').first();
     await expect.poll(() => icon.evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth)).toBeGreaterThan(0);
     expect(await icon.evaluate((image: HTMLImageElement) => image.getBoundingClientRect().width)).toBe(64);
-    await expect(dialog.getByRole('heading', { name: 'Graph Helper for ComfyUI' })).toBeVisible();
+    await expect(dialog.getByRole('heading', { name: 'NodeWise Studio' })).toBeVisible();
+    // The line under the name, and the window title, carry the product's name.
+    await expect(dialog.locator('[data-about-tagline]')).toHaveText(RU('shell.tagline'));
+    expect(await window.title()).toContain('NodeWise Studio');
+    expect(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getTitle())).toContain('NodeWise Studio');
     await expect(dialog.locator('[data-about-version]')).toHaveText(RU('appInfo.version', { version: pkg.version }));
 
     // Details: runtime, system and the data folder, folded until asked for.
@@ -84,7 +88,7 @@ test('Help ▸ About: icon, name, version, licence, components, copy details, da
     await dialog.getByRole('button', { name: RU('appInfo.copyInfo') }).click();
     await expect(window.getByText(RU('appInfo.copied'))).toBeVisible();
     const clipboard = await app.evaluate(({ clipboard }) => clipboard.readText());
-    expect(clipboard).toContain(`Graph Helper for ComfyUI ${pkg.version}`);
+    expect(clipboard).toContain(`NodeWise Studio ${pkg.version}`);
     expect(clipboard).toMatch(/Electron \d+/);
     expect(clipboard).toMatch(/Chromium \d+/);
 
@@ -92,9 +96,9 @@ test('Help ▸ About: icon, name, version, licence, components, copy details, da
     await dialog.getByRole('button', { name: RU('appInfo.openData') }).click();
     await expect.poll(() => app.evaluate(() => (globalThis as unknown as { __opened: string[] }).__opened)).toEqual([userData]);
 
-    // The project links wait for the project address: greyed out in this build.
+    // The project address is set (identity.ts PROJECT_URL): the project links are offered.
     for (const key of ['projectLinks.site', 'projectLinks.report', 'projectLinks.releases']) {
-      await expect(dialog.locator('[data-about-project]').getByRole('button', { name: RU(key) })).toBeDisabled();
+      await expect(dialog.locator('[data-about-project]').getByRole('button', { name: RU(key) })).toBeEnabled();
     }
 
     await dialog.getByRole('button', { name: RU('menu.close') }).click();
@@ -161,9 +165,9 @@ test('Help opens the wiki: sections, links between pages, search, What is new, a
     await expect(body).toContainText('45 уроков по темам');
     await window.keyboard.press('Escape');
 
-    // The project links wait for the project address.
+    // The project address is set, so Help offers reporting a problem.
     await window.locator('.document-bar').getByRole('menuitem', { name: RU('menu.help'), exact: true }).click();
-    await expect(window.getByRole('menu').getByRole('menuitem', { name: RU('projectLinks.report') })).toBeDisabled();
+    await expect(window.getByRole('menu').getByRole('menuitem', { name: RU('projectLinks.report') })).toBeEnabled();
     await window.keyboard.press('Escape');
 
     // The content rules, in the same words as everywhere else in the app.

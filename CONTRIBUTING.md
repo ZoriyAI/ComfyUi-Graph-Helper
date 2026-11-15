@@ -2,7 +2,7 @@
 
 # Contributing
 
-CozyGraph is an experimental desktop app that helps you learn ComfyUI and understand its graphs.
+NodeWise Studio is an experimental desktop app that helps you learn ComfyUI and understand its graphs.
 Ideas, wishes and questions are welcome in [Discussions](../../discussions); problems go to [Issues](../../issues).
 Pull requests are welcome too. This page says what to do before you send one.
 
@@ -25,7 +25,7 @@ part follows the [Code of Conduct](CODE_OF_CONDUCT.md).
 ## Set up
 
 ```bash
-git clone <the project address> cozygraph && cd cozygraph
+git clone <the project address> nodewise-studio && cd nodewise-studio
 npm ci
 npm run build
 npm start
@@ -35,9 +35,10 @@ You need Node.js 22 (the version in `.nvmrc`) and, for the end-to-end tests, Xvf
 [Building from source](docs/wiki/dev/Building-From-Source.md).
 
 `npm run dev` starts the window from the Vite dev server with DevTools. Note that a development run uses the same
-profile folder as an installed app (`~/.config/cozygraph`) <!-- verify: technical rename -->; start it with
-`--user-data-dir=<a folder of your own>` (`npx electron . --user-data-dir=/tmp/gh-dev` after `npm run build`) if you
-do not want a newer database version in your real profile.
+profile folder as an installed app (`~/.config/nodewise-studio`), and like the installed app it takes over the folder
+of version 0.9 when there is one; start it with `--user-data-dir=<a folder of your own>`
+(`npx electron . --user-data-dir=/tmp/nodewise-dev` after `npm run build`) if you do not want a newer database
+version in your real profile.
 
 ## Checks before a pull request
 
@@ -75,8 +76,9 @@ size; run it when you change layout (see [Testing](docs/wiki/dev/Testing.md)). E
 
 ## A few things to know
 
-- The package name `cozygraph` names the profile folder and the keyring entry of every installed copy, so it
-  never changes once released ([Code words](docs/wiki/dev/Code-Words.md)). <!-- verify: technical rename -->
+- The package name `nodewise-studio` names the profile folder and the keyring entry of every installed copy. It
+  changed once, for 1.0, and must not change again: each change costs people the keys they saved in the system
+  password store ([Code words](docs/wiki/dev/Code-Words.md)).
 - The app only reads ComfyUI. A change that would write, install, download or queue anything there will not be
   accepted ([ComfyUI is only read](docs/wiki/trust/Read-Only.md)).
 - How this project is made: most of the code and texts were written by AI coding agents, directed and reviewed by

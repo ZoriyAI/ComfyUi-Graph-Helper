@@ -38,7 +38,7 @@ export function registerKnowledgeIpc(ipcMain: IpcMain): void {
     cacheDir = null;
   }
   // A test build (never a packaged app) may point the model lookup at a fake of Civitai and Hugging Face.
-  const fake = app.isPackaged ? '' : process.env.GRAPH_HELPER_TEST_MODEL_WEB ?? '';
+  const fake = app.isPackaged ? '' : process.env.NODEWISE_TEST_MODEL_WEB ?? '';
   if (/^http:\/\/127\.0\.0\.1:\d+$/.test(fake)) {
     setAppWebClient(new ModelWebClient({ endpoints: { civitai: `${fake}/civitai`, huggingface: `${fake}/hf` }, fetchImpl: (url, init) => globalThis.fetch(url, init) }));
   }

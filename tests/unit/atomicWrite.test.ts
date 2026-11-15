@@ -29,7 +29,7 @@ import { createTranslator, translateKnownError } from '../../src/shared/i18n';
 
 const folders: string[] = [];
 function folder(): string {
-  const made = fs.mkdtempSync(path.join(os.tmpdir(), 'graph-helper-files-'));
+  const made = fs.mkdtempSync(path.join(os.tmpdir(), 'nodewise-files-'));
   folders.push(made);
   return made;
 }
@@ -41,12 +41,12 @@ afterEach(() => {
 describe('writing a file the person saves', () => {
   it('writes a new file and replaces an old one, leaving nothing else behind', () => {
     const dir = folder();
-    const target = path.join(dir, 'Мой проект с пробелами.graph-helper.json');
+    const target = path.join(dir, 'Мой проект с пробелами.nodewise.json');
     writeFileAtomic(target, '{"a":1}');
     expect(fs.readFileSync(target, 'utf8')).toBe('{"a":1}');
     writeFileAtomic(target, '{"a":2,"текст":"ё"}');
     expect(JSON.parse(fs.readFileSync(target, 'utf8'))).toEqual({ a: 2, текст: 'ё' });
-    expect(fs.readdirSync(dir)).toEqual(['Мой проект с пробелами.graph-helper.json']);
+    expect(fs.readdirSync(dir)).toEqual(['Мой проект с пробелами.nodewise.json']);
   });
 
   it('keeps the permissions of the file it replaces and writes through a link', () => {

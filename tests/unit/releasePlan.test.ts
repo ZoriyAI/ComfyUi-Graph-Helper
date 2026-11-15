@@ -69,7 +69,7 @@ describe('release decisions using the publication helper', () => {
     const { gh, calls } = fixture([[]], [[]], {}, [[ref()]], '');
     expect(publish(opts, ['release/app.deb'], gh)).toBe(true);
     expect(calls[2]).toEqual(['api', '--method', 'POST', 'repos/owner/repo/git/refs', '-f', 'ref=refs/tags/v0.9.0', '-f', `sha=${source}`]);
-    expect(calls[4]).toEqual(['release', 'create', 'v0.9.0', 'release/app.deb', '--verify-tag', '--repo', 'owner/repo', '--target', source, '--title', 'Graph Helper for ComfyUI v0.9.0', '--notes-file', 'docs/releases/v0.9.0.md']);
+    expect(calls[4]).toEqual(['release', 'create', 'v0.9.0', 'release/app.deb', '--verify-tag', '--repo', 'owner/repo', '--target', source, '--title', 'NodeWise Studio v0.9.0', '--notes-file', 'docs/releases/v0.9.0.md']);
     const failed = fixture([[]], [[]], new Error('write failed'));
     expect(() => publish(opts, ['release/app.deb'], failed.gh)).toThrow('write failed');
     expect(failed.calls).toHaveLength(3);

@@ -16,11 +16,11 @@ const os = require('os');
 const path = require('path');
 const { execFileSync } = require('child_process');
 const { launchOverCdp } = require('./lib/cdp-launch');
+const { DISPLAY_NAME } = require('./lib/product-names');
 
 const root = path.join(__dirname, '..');
 const pkg = require(path.join(root, 'package.json'));
 const NAME = pkg.name;
-const DISPLAY_NAME = 'Graph Helper for ComfyUI';
 const OUT = path.join(root, 'out', 'make', 'portable');
 const ROOT_USER = process.getuid && process.getuid() === 0;
 

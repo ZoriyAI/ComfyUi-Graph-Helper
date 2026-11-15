@@ -3,7 +3,7 @@
 
 # File menu
 
-The **File** menu works with files: the project file of this app (`.graph-helper.json`, the graph with its explanations) and the workflow file of ComfyUI (`.json`, the graph only). It also opens Settings and closes the app.
+The **File** menu works with files: the project file of this app (`.nodewise.json`, the graph with its explanations) and the workflow file of ComfyUI (`.json`, the graph only). It also opens Settings and closes the app.
 
 <!-- verify: the canvas and files branch adds save in place, Save as and a question before replacing a file; the items and their names may change -->
 
@@ -26,7 +26,7 @@ Every item here can always be chosen.
 
 - "Project saved." / "Project opened." / "Workflow saved for ComfyUI." appear at the bottom right after a file is written or read.
 - When a field looks like a key or a token, the app asks before it writes the file: "1 field looks like a key or token". See [Messages and dialogs](Messages-And-Dialogs.md).
-- When a file cannot be opened, the message says why, for example "This file is not a Graph Helper for ComfyUI project." or "This is an API file, not a canvas workflow. Open a file saved from ComfyUI with Save."
+- When a file cannot be opened, the message says why, for example "This file is not a NodeWise Studio project." or "This is an API file, not a canvas workflow. Open a file saved from ComfyUI with Save."
 
 ## See also
 

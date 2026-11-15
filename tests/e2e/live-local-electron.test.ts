@@ -25,7 +25,7 @@ test('live local model adds a loader and the export keeps its parameter', async 
 
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'live-local-electron-'));
   const catalogPath = path.join(userData, 'object_info.json');
-  const nativePath = path.join(userData, 'project.graph-helper.json');
+  const nativePath = path.join(userData, 'project.nodewise.json');
   const comfyPath = path.join(userData, 'workflow.json');
   fs.writeFileSync(catalogPath, JSON.stringify({
     CheckpointLoaderSimple: {
@@ -82,7 +82,7 @@ test('live local model adds a loader and the export keeps its parameter', async 
     await window.getByRole('button', { name: 'Save project' }).click();
     await expect(window.getByText('Project saved.')).toBeVisible();
     const native = JSON.parse(fs.readFileSync(nativePath, 'utf8')) as { format: string };
-    expect(native.format).toBe('comfy-graph-helper-project');
+    expect(native.format).toBe('nodewise-studio-project');
 
     await electronApp.evaluate(({ dialog: fileDialog }, paths) => {
       fileDialog.showSaveDialog = async () => ({ canceled: false, filePath: paths.comfyPath });

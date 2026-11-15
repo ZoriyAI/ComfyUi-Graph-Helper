@@ -2,7 +2,7 @@
 
 # Third-party notices
 
-CozyGraph ships with open-source components made by other people. Each keeps its own licence.
+NodeWise Studio ships with open-source components made by other people. Each keeps its own licence.
 
 ## Where the full list is
 
@@ -10,7 +10,7 @@ The full list, with the version, the licence and the licence text of every compo
 written when the app is built:
 
 - in the app: Help ▸ About ▸ Third-party components;
-- in the installed package: `/usr/share/doc/cozygraph/copyright` <!-- verify: technical rename --> (the app's licence first, then the
+- in the installed package: `/usr/share/doc/nodewise-studio/copyright` (the app's licence first, then the
   notices);
 - in a build from source: `dist/notices/THIRD_PARTY_NOTICES.txt` and `dist/notices/third-party.json`, written by
   `scripts/build-assets.js` during `npm run build`.

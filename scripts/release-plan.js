@@ -2,6 +2,7 @@
 const fs = require('node:fs');
 const { execFileSync } = require('node:child_process');
 const semver = require('semver');
+const { DISPLAY_NAME } = require('./lib/product-names');
 
 const SHA = /^[a-f0-9]{40}$/;
 const DEFAULT_RUNTIME = { tag: '20251108', sha256: '2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d' };
@@ -81,7 +82,7 @@ function publish(options, files, gh = ghRunner) {
   }
   if (checkTag(gh, options) !== options.source) fail('Release tag missing after creation');
   gh(['release', 'create', options.tag, ...files, '--verify-tag', '--repo', options.repo, '--target', options.source,
-    '--title', `Graph Helper for ComfyUI ${options.tag}`, '--notes-file', `docs/releases/${options.tag}.md`]);
+    '--title', `${DISPLAY_NAME} ${options.tag}`, '--notes-file', `docs/releases/${options.tag}.md`]);
   return true;
 }
 function previous(options, gh = ghRunner) {

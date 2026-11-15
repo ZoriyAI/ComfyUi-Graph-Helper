@@ -8,7 +8,7 @@ What ComfyUI is, and what happens between pressing Run and seeing a result.
 ## In plain words
 ComfyUI is a free program that makes pictures, video and sound with open models on your own computer (or on a rented one). You do not press one "generate" button with a few settings. You build a **graph**: boxes called **nodes**, each doing one small job, joined by **links** that carry the result of one node to the next. Loading a model, reading your prompt, removing noise, turning the result into pixels and saving the file are all separate nodes.
 
-ComfyUI has two halves. The **server** (written in Python) holds the models and does the work on the graphics card. The **editor** (a web page in your browser, or the window of ComfyUI Desktop) is where you build and run graphs. Graph Helper for ComfyUI talks only to the server, and only to read it: which nodes exist, which packs and which model files are installed.
+ComfyUI has two halves. The **server** (written in Python) holds the models and does the work on the graphics card. The **editor** (a web page in your browser, or the window of ComfyUI Desktop) is where you build and run graphs. NodeWise Studio talks only to the server, and only to read it: which nodes exist, which packs and which model files are installed.
 
 <!-- diagram: a row of boxes from left to right: Load Checkpoint, two CLIP Text Encode, KSampler (with Empty Latent Image below it), VAE Decode, Save Image; an arrow from a "Run" button into a queue, and from the queue to the output folder -->
 

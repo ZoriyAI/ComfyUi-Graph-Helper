@@ -1,5 +1,6 @@
-# The rpm spec of electron-installer-redhat 4.0.0 (MIT), with the sandbox helper installed SUID root as in the .deb
-# and copyright marked as a license so installations excluding documentation retain the bundled notices.
+# The rpm spec of electron-installer-redhat 4.0.0 (MIT), with the sandbox helper installed SUID root as in the .deb,
+# copyright marked as a license so installations excluding documentation retain the bundled notices, and Obsoletes /
+# Provides for the package name used before 1.0.
 # rpmbuild warns "File listed twice" for chrome-sandbox; its explicit attr line wins.
 %define _binary_payload w<%= compressionLevel %>.xzdio
 
@@ -18,6 +19,11 @@ if (license || homepage) { print('\n') }
 
 %>Requires: <%= requires.join(', ') %>
 AutoReqProv: no
+<% /* The package this one replaces (forge.config.js legacyPackages): dnf and rpm remove it on install, and anything
+   that asked for it is satisfied by this one (Fedora's guideline for a renamed package). */
+if (typeof legacyPackages !== 'undefined') { legacyPackages.forEach(function (old) {
+  print(`Provides: ${old} = %{version}-%{release}\nObsoletes: ${old} < %{version}-%{release}\n`)
+}) } %>
 
 <% if (productDescription) {
 %>%description

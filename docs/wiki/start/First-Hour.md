@@ -3,7 +3,7 @@
 
 # The first hour
 
-What to do in the first hour with CozyGraph, in an order that never leaves you stuck. It assumes ComfyUI runs and
+What to do in the first hour with NodeWise Studio, in an order that never leaves you stuck. It assumes ComfyUI runs and
 has at least one checkpoint model ([ComfyUI and where to get it](ComfyUI.md)).
 
 ## Look around (5 minutes)

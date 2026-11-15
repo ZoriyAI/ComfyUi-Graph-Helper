@@ -3,7 +3,7 @@
 
 # ComfyUI is only read
 
-CozyGraph reads your ComfyUI to learn which nodes and models it has. It never changes it: it does not install,
+NodeWise Studio reads your ComfyUI to learn which nodes and models it has. It never changes it: it does not install,
 download, delete, write, move or queue anything there. This page says what is read and how that promise is kept in
 the code.
 
@@ -49,7 +49,7 @@ From an MCP server, only if you added one:
 
 - Your ComfyUI, its models, its node packs and its queue stay exactly as they were.
 - Missing nodes or models are named, never installed. Install them in ComfyUI.
-- The graph you build lives in CozyGraph until you save it as a workflow and open it in ComfyUI.
+- The graph you build lives in NodeWise until you save it as a workflow and open it in ComfyUI.
 
 A call that would write is a security problem: please report it privately ([Security](Security.md)).
 

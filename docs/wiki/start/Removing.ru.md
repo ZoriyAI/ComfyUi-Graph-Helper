@@ -8,9 +8,8 @@
 ## Удалите программу
 
 ```bash
-sudo apt remove cozygraph
+sudo apt remove nodewise-studio
 ```
-<!-- verify: technical rename -->
 
 Пункт в меню, значок и файлы программы исчезнут. Папка с данными, сохранённые ключи и сохранённые вами файлы
 останутся.
@@ -24,15 +23,13 @@ sudo apt remove cozygraph
 3. Удалите папку с данными:
 
    ```bash
-   rm -rf ~/.config/cozygraph
+   rm -rf ~/.config/nodewise-studio
    ```
-   <!-- verify: technical rename -->
 
    В ней база (настройки, каталог, история графа, разговоры), журналы, журнал общения с помощником и сохранённые
    картинки моделей. См. [Папка с данными](../reference/Data-Folder.ru.md).
 
-Файлы проектов (`*.cozygraph.json`) и workflow, сохранённые в других местах, ваши; удалите их вручную, если нужно.
-<!-- verify: technical rename -->
+Файлы проектов (`*.nodewise.json`) и workflow, сохранённые в других местах, ваши; удалите их вручную, если нужно.
 
 ## См. также
 

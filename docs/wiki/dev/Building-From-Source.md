@@ -27,11 +27,10 @@ sudo apt-get install -y --no-install-recommends fakeroot dpkg xvfb libnss3 libat
 ## Get the source and install
 
 ```bash
-git clone <project address>.git cozygraph
-cd cozygraph
+git clone <project address>.git nodewise-studio
+cd nodewise-studio
 npm ci
 ```
-<!-- verify: technical rename; the project address is set in src/main/identity.ts -->
 
 ## Build and run
 
@@ -42,7 +41,7 @@ npm run dev        # Vite with live reload, and Electron
 ```
 
 `npm start` and `npm run dev` use the same data folder as an installed app. To keep a test profile apart, pass
-`--user-data-dir`: `npx electron . --user-data-dir=/tmp/cozygraph-test` after `npm run build`.
+`--user-data-dir`: `npx electron . --user-data-dir=/tmp/nodewise-test` after `npm run build`.
 
 ## Check your change
 

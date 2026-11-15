@@ -14,7 +14,7 @@ describe('diagnostics report', () => {
       versions: { app: '0.1.0', electron: '45.2.3' },
       platform: { os: 'linux', release: '6.0', arch: 'x64' },
       locale: 'en-US',
-      paths: { userData: '/home/me/.config/comfyui-graph-builder', logs: '/home/me/.config/comfyui-graph-builder/logs' },
+      paths: { userData: '/home/me/.config/nodewise-studio', logs: '/home/me/.config/nodewise-studio/logs' },
       settingsSource: 'stored',
       settings: {
         provider: 'openai', model: 'gpt-x', baseURL: `https://user:${HELD}@api.example.com/v1?key=${HELD}`,

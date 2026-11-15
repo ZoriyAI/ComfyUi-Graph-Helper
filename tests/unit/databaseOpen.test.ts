@@ -23,7 +23,7 @@ import { DESKTOP_PROJECT_ID as P } from '../../src/shared/project';
 
 const folders: string[] = [];
 function tempFolder(): string {
-  const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'graph-helper-db-'));
+  const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'nodewise-db-'));
   folders.push(folder);
   return folder;
 }

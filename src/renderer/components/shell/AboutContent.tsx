@@ -118,6 +118,8 @@ export default function AboutContent({ renderTitle }: { renderTitle?: (text: str
     <div className={styles.main} data-about-view="main">
       <img className={styles.icon} src={iconUrl} width={64} height={64} alt="" aria-hidden="true" />
       {renderTitle ? renderTitle(name, styles.name) : <p className={styles.name}>{name}</p>}
+      {/* The line under the name: the same words as the desktop entry, package.json and the README. */}
+      <p className={styles.version} data-about-tagline>{t('shell.tagline')}</p>
       <p className={styles.version} data-about-version>{t('appInfo.version', { version })}</p>
       <p className={styles.lead}>{t('appInfo.independent', { name })}</p>
       <p className={styles.lead}>{t('appInfo.lead')}</p>

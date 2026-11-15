@@ -27,7 +27,7 @@ describe('Report a problem', () => {
   const info = { version: '1.2.3', electron: '45', chrome: '140', node: '22', system: 'Linux 6.8 x64' };
 
   it('carries versions only', () => {
-    expect(issueDraft(info).details).toBe('Graph Helper for ComfyUI 1.2.3\nElectron 45\nChromium 140\nNode 22\nLinux 6.8 x64');
+    expect(issueDraft(info).details).toBe('NodeWise Studio 1.2.3\nElectron 45\nChromium 140\nNode 22\nLinux 6.8 x64');
   });
 
   it('opens the bug form with the details filled in, and nothing without a project address', () => {
@@ -35,7 +35,7 @@ describe('Report a problem', () => {
     const url = new URL(projectLinkUrl('issue', links, issueDraft(info)) ?? '');
     expect(url.origin + url.pathname).toBe('https://github.com/a/b/issues/new');
     expect(url.searchParams.get('template')).toBe('bug.yml');
-    expect(url.searchParams.get('details')).toContain('Graph Helper for ComfyUI 1.2.3');
+    expect(url.searchParams.get('details')).toContain('NodeWise Studio 1.2.3');
     expect(projectLinkUrl('releases', links, issueDraft(info))).toBe('https://github.com/a/b/releases');
     expect(projectLinkUrl('site', null, issueDraft(info))).toBeNull();
   });

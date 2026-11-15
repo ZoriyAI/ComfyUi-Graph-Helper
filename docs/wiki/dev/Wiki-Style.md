@@ -3,7 +3,7 @@
 
 # Writing wiki pages
 
-This wiki is the documentation of Graph Helper for ComfyUI: for people who use the app and for people who change
+This wiki is the documentation of NodeWise Studio: for people who use the app and for people who change
 its code. The app shows the same pages in Help, in the language of the interface.
 
 ## Where a page goes

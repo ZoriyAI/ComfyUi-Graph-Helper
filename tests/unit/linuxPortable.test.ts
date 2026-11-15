@@ -3,10 +3,11 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { execFileSync } from 'child_process';
+import { LEGACY_APP_ID } from '../../src/shared/legacyNames';
 
 const ROOT = path.join(__dirname, '..', '..');
 const PORTABLE = path.join(ROOT, 'resources', 'linux', 'portable');
-const NAME = 'comfyui-graph-builder';
+const NAME = 'nodewise-studio';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { appRunScript, desktopEntry } = require('../../scripts/make-linux-portable.js') as { appRunScript: () => string; desktopEntry: () => string };
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -88,6 +89,45 @@ describe('Linux tar.gz: run.sh, install.sh, uninstall.sh', () => {
   });
 });
 
+describe('Linux tar.gz: a copy of 0.9 installed under the old name', () => {
+  /** A 0.9 install as its install.sh left it; its uninstall.sh is a stand-in that removes what it made, or refuses. */
+  function legacyInstall(home: string, refuse: boolean): { dir: string; launcher: string; profile: string } {
+    const dir = path.join(home, '.local', 'share', LEGACY_APP_ID);
+    const launcher = path.join(home, '.local', 'bin', LEGACY_APP_ID);
+    const profile = path.join(home, '.config', LEGACY_APP_ID);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.mkdirSync(path.dirname(launcher), { recursive: true });
+    fs.mkdirSync(profile, { recursive: true });
+    fs.writeFileSync(path.join(profile, 'comfyui-desktop.db'), 'data');
+    fs.writeFileSync(path.join(dir, LEGACY_APP_ID), '#!/bin/sh\n', { mode: 0o755 });
+    fs.writeFileSync(launcher, '#!/bin/sh\n', { mode: 0o755 });
+    const body = refuse ? 'echo running >&2; exit 1' : `rm -f "${launcher}"; rm -rf "${dir}"`;
+    fs.writeFileSync(path.join(dir, 'uninstall.sh'), `#!/bin/sh\n${body}\n`, { mode: 0o755 });
+    return { dir, launcher, profile };
+  }
+
+  it('install.sh removes it with its own uninstall.sh and leaves its settings for the app to take over', () => {
+    const folder = fakeArchive();
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'portable-home-'));
+    const legacy = legacyInstall(home, false);
+    const output = execFileSync(path.join(folder, 'install.sh'), [], { env: envFor(home, path.join(home, 'args')), encoding: 'utf8' });
+    expect(fs.existsSync(legacy.dir)).toBe(false);
+    expect(fs.existsSync(legacy.launcher)).toBe(false);
+    expect(fs.readFileSync(path.join(legacy.profile, 'comfyui-desktop.db'), 'utf8')).toBe('data');
+    expect(fs.existsSync(path.join(home, '.local', 'share', NAME, NAME))).toBe(true);
+    expect(output).toContain('version 0.9');
+  });
+
+  it('install.sh still installs when the old copy cannot be removed (it is running), and says so', () => {
+    const folder = fakeArchive();
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'portable-home-'));
+    const legacy = legacyInstall(home, true);
+    execFileSync(path.join(folder, 'install.sh'), [], { env: envFor(home, path.join(home, 'args')), stdio: 'ignore' });
+    expect(fs.existsSync(legacy.dir)).toBe(true);
+    expect(fs.existsSync(path.join(home, '.local', 'share', NAME, NAME))).toBe(true);
+  });
+});
+
 describe('Linux AppImage and fuses', () => {
   it('AppRun is run.sh pointed at usr/lib inside the image', () => {
     const script = appRunScript();
@@ -96,8 +136,10 @@ describe('Linux AppImage and fuses', () => {
     expect(script).not.toMatch(/^APP_SUBDIR=\.$/m);
   });
 
-  it('the menu entry is the deb\'s entry with the name filled in', () => {
+  it('the menu entry is the deb\'s entry with the names filled in', () => {
     const entry = desktopEntry();
+    expect(entry).toContain('Name=NodeWise Studio\n');
+    expect(entry).toContain('Comment=A desktop tutor for ComfyUI graphs\n');
     expect(entry).toContain(`Exec=${NAME} %U`);
     expect(entry).toContain(`StartupWMClass=${NAME}`);
     expect(entry).not.toContain('<%');

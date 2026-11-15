@@ -3,7 +3,7 @@
 
 # The command line
 
-The program is `cozygraph`. <!-- verify: technical rename --> Started without options it opens the window. It
+The program is `nodewise-studio`. Started without options it opens the window. It
 accepts these options:
 
 | Option | What it does |
@@ -19,11 +19,10 @@ Other options are Chromium's own and are passed on to it unchanged.
 ## Examples
 
 ```bash
-cozygraph --version
-cozygraph --user-data-dir="$HOME/cozygraph-test"
-cozygraph --password-store=kwallet6
+nodewise-studio --version
+nodewise-studio --user-data-dir="$HOME/nodewise-test"
+nodewise-studio --password-store=kwallet6
 ```
-<!-- verify: technical rename -->
 
 Only one window of the app runs at a time for one data folder: starting it again brings the open window to the
 front.

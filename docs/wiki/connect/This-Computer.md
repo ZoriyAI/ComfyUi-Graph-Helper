@@ -3,14 +3,14 @@
 
 # ComfyUI on this computer
 
-The usual case: ComfyUI and CozyGraph on the same computer.
+The usual case: ComfyUI and NodeWise Studio on the same computer.
 
 <!-- verify: checked against test servers that speak ComfyUI's routes; not yet run against a real ComfyUI install. -->
 
 ## Steps
 
 1. Start ComfyUI and wait until its page opens in the browser.
-2. In CozyGraph: Settings ▸ Connection ▸ **Find on this computer**. The app asks this computer at ports 8188 (ComfyUI
+2. In NodeWise: Settings ▸ Connection ▸ **Find on this computer**. The app asks this computer at ports 8188 (ComfyUI
    started from its folder) and 8000 (the ComfyUI desktop app), fills the address in and says, for example,
    "ComfyUI answers on this computer: http://127.0.0.1:8188." If nothing answers: "No ComfyUI answers on this
    computer at ports 8188 and 8000. Start ComfyUI, or enter its address."

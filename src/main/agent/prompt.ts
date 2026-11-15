@@ -5,6 +5,7 @@ import { recentActionsText, type RecentCommand } from '../../shared/agent/recent
 import { redactSecrets } from '../../shared/agent/redact';
 import type { KnowledgeApi } from './tools';
 import type { Preferences } from '../../shared/config/preferences';
+import { DISPLAY_NAME } from '../../shared/productNames';
 
 /**
  * System prompt for one teaching turn. Built in main from the turn context (selection, what is on screen),
@@ -100,7 +101,7 @@ export function describeRef(ref: ObjectRef): string {
 }
 
 const ROLE = [
-  'You are the helper inside Graph Helper for ComfyUI. You teach one person how to build in their own ComfyUI and why each step is there.',
+  `You are the helper inside ${DISPLAY_NAME}. You teach one person how to build in their own ComfyUI and why each step is there.`,
   'The person builds; you explain, suggest from what is actually installed, and show examples when asked. You are not an executor.',
 ].join(' ');
 

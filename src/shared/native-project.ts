@@ -7,8 +7,20 @@ import {
 } from './components/model';
 import type { GroupRecord, SubgraphDefinition } from './graph/subgraphs';
 import type { WorkflowDocumentState } from './workflow/codec';
+import { NATIVE_PROJECT_FORMAT_ID } from './productNames';
+import { LEGACY_NATIVE_PROJECT_FORMAT_IDS } from './legacyNames';
 
-export const NATIVE_PROJECT_FORMAT = 'comfy-graph-helper-project';
+/** The `format` field this version writes (src/shared/productNames.ts). */
+export const NATIVE_PROJECT_FORMAT = NATIVE_PROJECT_FORMAT_ID;
+
+/**
+ * Whether a file's `format` field names a project file: the current id, or the id 0.x wrote before the product's
+ * rename (src/shared/legacyNames.ts), so a project saved by 0.9 still opens. A file opened this way is written
+ * back with the current id.
+ */
+export function isNativeProjectFormat(value: unknown): boolean {
+  return value === NATIVE_PROJECT_FORMAT || (LEGACY_NATIVE_PROJECT_FORMAT_IDS as readonly unknown[]).includes(value);
+}
 /**
  * Version 2 adds modelled `subgraphs`, `groups`, and an opaque `extensions` bag.
  * Versions 0 and 1 still open; their subgraphs and groups are lifted from the native document on open.
@@ -178,8 +190,8 @@ function readGroups(value: unknown): GroupRecord[] | undefined {
 }
 
 export function parseNativeProject(input: unknown): NativeParse {
-  if (!isRecord(input) || input.format !== NATIVE_PROJECT_FORMAT) {
-    return { ok: false, error: 'This file is not a Graph Helper for ComfyUI project.' };
+  if (!isRecord(input) || !isNativeProjectFormat(input.format)) {
+    return { ok: false, error: 'This file is not a native project.' };
   }
   if (typeof input.version !== 'number' || !READABLE_VERSIONS.has(input.version)) {
     return { ok: false, error: `Unsupported native project version ${String(input.version)}.` };

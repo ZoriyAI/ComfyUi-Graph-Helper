@@ -25,6 +25,7 @@ import { setKnownRootsSource, setMcpCallObserver } from './mcp/readOnly';
 import { isDevelopmentRun, scriptedProviderAllowed } from './runMode';
 import { APP_ENTRY, APP_SCHEME, APP_SCHEME_PRIVILEGES, bundleFileFor, bundleFileUrl } from './appProtocol';
 import { secureProfileFolder } from './profileFolder';
+import { adoptLegacyProfile, adoptionTexts, homeRelative, takeAdoptionNotice, type ProfileAdoption } from './profileAdoption';
 import { syncService } from './mcp/sync';
 import { setMcpClientVersion } from './mcp/client';
 import { catalogModelRoots } from './mcp/knownRoots';
@@ -43,14 +44,22 @@ if (cliAnswer !== null) {
 }
 
 /**
- * package.json productName ("Graph Helper for ComfyUI") names the bundle and the window. Inside the app the name
- * stays the package name, as before: it names the profile folder (database, window state, logs) and the OS keyring
- * entry the provider key is encrypted under, so an update keeps both. --user-data-dir still wins (tests).
- * See src/main/identity.ts: the rule no longer depends on the display name.
+ * package.json productName (the display name) names the bundle and the window. Inside the app the name is the
+ * package name: it names the profile folder (database, window state, logs) and the OS keyring entry the provider
+ * key is encrypted under. --user-data-dir still wins (tests). See src/main/identity.ts.
  */
+let profileAdoption: ProfileAdoption = { outcome: 'none' };
 if (usesStableProfile(app.getName(), app.isPackaged)) {
   app.setName(STABLE_APP_NAME);
-  if (!app.commandLine.hasSwitch('user-data-dir')) app.setPath('userData', path.join(app.getPath('appData'), STABLE_APP_NAME));
+  if (!app.commandLine.hasSwitch('user-data-dir')) {
+    // 1.0 renamed the profile folder: take over the 0.x one before anything below opens a file in the new one.
+    profileAdoption = adoptLegacyProfile(app.getPath('appData'));
+    // While a running 0.x holds the old folder, this start must not create the new one (it would block the
+    // adoption for good): it runs on a throw-away folder only long enough to say so, then quits (see whenReady).
+    app.setPath('userData', profileAdoption.outcome === 'old-in-use'
+      ? fs.mkdtempSync(path.join(os.tmpdir(), `${STABLE_APP_NAME}-waiting-`))
+      : path.join(app.getPath('appData'), STABLE_APP_NAME));
+  }
 }
 
 // One app at a time: a second start hands over to the first window (see 'second-instance' below) and exits, so two
@@ -99,6 +108,7 @@ log.info(
   + `node=${process.versions.node} platform=${process.platform}/${process.arch} packaged=${app.isPackaged}`,
 );
 log.info(`[App] Paths userData=${app.getPath('userData')} logs=${logsDir()}`);
+if (profileAdoption.outcome !== 'none') log.info(`[App] Profile of 0.x: ${profileAdoption.outcome}${'error' in profileAdoption ? ` (${profileAdoption.error})` : ''}`);
 
 // workspace_files reads only inside a folder the server named: the model folders of the last sync are known here.
 setKnownRootsSource(() => {
@@ -314,7 +324,33 @@ function createWindow() {
   });
 }
 
+/**
+ * What the person is told about the 0.x profile: once after it was taken over (which keys must be entered again),
+ * or that it could not be read. Shown over the window once it has painted; never blocks the start.
+ */
+function tellAboutProfileMove(window: BrowserWindow): void {
+  const notice = takeAdoptionNotice(app.getPath('userData'));
+  const unreadable = profileAdoption.outcome === 'old-unreadable' || profileAdoption.outcome === 'failed' ? profileAdoption.from : null;
+  if (!notice && !unreadable) return;
+  const t = createTranslator(uiLanguage());
+  const options = notice
+    ? adoptionTexts(t, 'adopted', homeRelative(app.getPath('userData')))
+    : { title: t('profileMove.unreadableTitle'), message: t('profileMove.unreadableMessage', { folder: homeRelative(unreadable ?? '') }), detail: '' };
+  window.once('ready-to-show', () => {
+    void dialog.showMessageBox(window, { type: 'info', buttons: [t('diagnostics.ok')], defaultId: 0, noLink: true, ...options });
+  });
+}
+
 app.whenReady().then(async () => {
+  if (profileAdoption.outcome === 'old-in-use') {
+    // A running 0.x still holds its profile: say so and leave without touching either folder.
+    const t = createTranslator(systemLanguage());
+    const text = adoptionTexts(t, 'old-in-use', homeRelative(profileAdoption.from));
+    await dialog.showMessageBox({ type: 'info', buttons: [t('diagnostics.ok')], defaultId: 0, noLink: true, ...text });
+    fs.rmSync(app.getPath('userData'), { recursive: true, force: true });
+    app.exit(0);
+    return;
+  }
   try {
     // No camera, microphone, notifications, geolocation or any other permission. Writing to the clipboard
     // (the "copy link" button) is the one exception; reading it is not.
@@ -339,6 +375,7 @@ app.whenReady().then(async () => {
     logSyncRuns();
     Menu.setApplicationMenu(null);
     createWindow();
+    if (mainWindow) tellAboutProfileMove(mainWindow);
   } catch (error) {
     log.error('[App] Startup failed', error);
     // Truly fatal: nothing can run without the database and the handlers. Say so before exiting.

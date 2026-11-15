@@ -27,11 +27,10 @@ sudo apt-get install -y --no-install-recommends fakeroot dpkg xvfb libnss3 libat
 ## Получите исходники и установите зависимости
 
 ```bash
-git clone <адрес проекта>.git cozygraph
-cd cozygraph
+git clone <адрес проекта>.git nodewise-studio
+cd nodewise-studio
 npm ci
 ```
-<!-- verify: technical rename; the project address is set in src/main/identity.ts -->
 
 ## Соберите и запустите
 
@@ -42,7 +41,7 @@ npm run dev        # Vite с живой перезагрузкой и Electron
 ```
 
 `npm start` и `npm run dev` берут ту же папку с данными, что и установленное приложение. Чтобы держать проверочный
-профиль отдельно, передайте `--user-data-dir`: `npx electron . --user-data-dir=/tmp/cozygraph-test` после
+профиль отдельно, передайте `--user-data-dir`: `npx electron . --user-data-dir=/tmp/nodewise-test` после
 `npm run build`.
 
 ## Проверьте изменение

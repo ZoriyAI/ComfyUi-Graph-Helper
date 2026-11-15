@@ -34,8 +34,8 @@ The words of the app and of ComfyUI, in short. Each word links to the page that 
 - **Library**: the left panel with your nodes, models and subgraphs. [The library](../interface/Library.md)
 - **MCP server**: a small program next to ComfyUI that tells the app which nodes and model files you have.
   [MCP servers](../connect/MCP-Servers.md)
-- **Project file**: a file with the graph and everything the app knows about it (`*.cozygraph.json`).
-  <!-- verify: technical rename --> [Project files](../graph/Project-Files.md)
+- **Project file**: a file with the graph and everything the app knows about it (`*.nodewise.json`).
+ [Project files](../graph/Project-Files.md)
 - **Provider**: who answers for the assistant: a cloud service or your own server.
   [Choosing who answers](../assistant/Choosing-Who-Answers.md)
 - **Step**: one action of the assistant: reading the catalog, adding a node, drawing a link.
@@ -63,7 +63,7 @@ The words of the app and of ComfyUI, in short. Each word links to the page that 
 - **Negative prompt**: what you do not want in the picture. [The negative prompt](../concepts/Negative-Prompt.md)
 - **Node**: one block of the graph that does one thing. [Nodes and links](../concepts/Nodes-And-Links.md)
 - **Prompt**: the text that describes what you want. [The prompt](../concepts/Prompt.md)
-- **Queue**: where ComfyUI puts a workflow to run. CozyGraph never touches it.
+- **Queue**: where ComfyUI puts a workflow to run. NodeWise Studio never touches it.
   [What ComfyUI is](../concepts/What-Is-ComfyUI.md)
 - **Sampler**: the node that makes the picture step by step. [Sampler](../concepts/Sampler.md)
 - **Scheduler**: how noise is removed over the steps. [Scheduler](../concepts/Scheduler.md)

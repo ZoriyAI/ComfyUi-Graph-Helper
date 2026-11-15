@@ -3,7 +3,7 @@
 
 # Командная строка
 
-Программа называется `cozygraph`. <!-- verify: technical rename --> Без параметров она открывает окно. Она понимает
+Программа называется `nodewise-studio`. Без параметров она открывает окно. Она понимает
 такие параметры:
 
 | Параметр | Что делает |
@@ -19,11 +19,10 @@
 ## Примеры
 
 ```bash
-cozygraph --version
-cozygraph --user-data-dir="$HOME/cozygraph-test"
-cozygraph --password-store=kwallet6
+nodewise-studio --version
+nodewise-studio --user-data-dir="$HOME/nodewise-test"
+nodewise-studio --password-store=kwallet6
 ```
-<!-- verify: technical rename -->
 
 Для одной папки с данными одновременно работает только одно окно приложения: повторный запуск выводит открытое окно
 на передний план.

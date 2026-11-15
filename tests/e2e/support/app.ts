@@ -32,13 +32,13 @@ export interface LaunchedApp {
   close: () => Promise<void>;
 }
 
-/** A temporary profile folder; GRAPH_HELPER_KEEP_PROFILES=1 keeps them after the run for a look. */
-export function temporaryProfile(prefix = 'graph-helper-e2e-'): string {
+/** A temporary profile folder; NODEWISE_KEEP_PROFILES=1 keeps them after the run for a look. */
+export function temporaryProfile(prefix = 'nodewise-e2e-'): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), prefix));
 }
 
 export function removeProfile(folder: string): void {
-  if (process.env.GRAPH_HELPER_KEEP_PROFILES === '1') return;
+  if (process.env.NODEWISE_KEEP_PROFILES === '1') return;
   fs.rmSync(folder, { recursive: true, force: true, maxRetries: 3, retryDelay: 200 });
 }
 

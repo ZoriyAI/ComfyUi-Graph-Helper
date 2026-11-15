@@ -18,7 +18,7 @@ import { parsePreferences } from '../../src/shared/config/preferences';
 import { PROJECT_URL } from '../../src/main/identity';
 import { noticeOf } from '../../src/renderer/components/shell/UpdateNotice';
 
-const PROJECT = 'https://github.com/example-owner/graph-helper';
+const PROJECT = 'https://github.com/example-owner/nodewise-studio';
 
 function release(tag: string, extra: Record<string, unknown> = {}) {
   return {
@@ -27,10 +27,10 @@ function release(tag: string, extra: Record<string, unknown> = {}) {
     draft: false,
     prerelease: false,
     assets: [
-      { name: `comfyui-graph-builder_${tag.slice(1)}_amd64.deb`, browser_download_url: `${PROJECT}/releases/download/${tag}/comfyui-graph-builder_${tag.slice(1)}_amd64.deb` },
-      { name: `comfyui-graph-builder-${tag.slice(1)}-1.x86_64.rpm`, browser_download_url: `${PROJECT}/releases/download/${tag}/comfyui-graph-builder-${tag.slice(1)}-1.x86_64.rpm` },
-      { name: `comfyui-graph-builder-${tag.slice(1)}-x86_64.AppImage`, browser_download_url: `${PROJECT}/releases/download/${tag}/comfyui-graph-builder-${tag.slice(1)}-x86_64.AppImage` },
-      { name: `comfyui-graph-builder-${tag.slice(1)}-linux-x64.tar.gz`, browser_download_url: `${PROJECT}/releases/download/${tag}/comfyui-graph-builder-${tag.slice(1)}-linux-x64.tar.gz` },
+      { name: `nodewise-studio_${tag.slice(1)}_amd64.deb`, browser_download_url: `${PROJECT}/releases/download/${tag}/nodewise-studio_${tag.slice(1)}_amd64.deb` },
+      { name: `nodewise-studio-${tag.slice(1)}-1.x86_64.rpm`, browser_download_url: `${PROJECT}/releases/download/${tag}/nodewise-studio-${tag.slice(1)}-1.x86_64.rpm` },
+      { name: `nodewise-studio-${tag.slice(1)}-x86_64.AppImage`, browser_download_url: `${PROJECT}/releases/download/${tag}/nodewise-studio-${tag.slice(1)}-x86_64.AppImage` },
+      { name: `nodewise-studio-${tag.slice(1)}-linux-x64.tar.gz`, browser_download_url: `${PROJECT}/releases/download/${tag}/nodewise-studio-${tag.slice(1)}-linux-x64.tar.gz` },
       { name: 'elsewhere.deb', browser_download_url: 'https://example.com/elsewhere_amd64.deb' },
     ],
     ...extra,
@@ -51,7 +51,7 @@ function setup(options: { enabled?: boolean; fetch?: typeof fetch; now?: () => n
     enabled: () => options.enabled ?? true,
     stateFile,
     fetch: fetchMock as unknown as typeof fetch,
-    userAgent: 'GraphHelperForComfyUI/1.1.0 (+read-only; update check)',
+    userAgent: 'NodeWiseStudio/1.1.0 (+read-only; update check)',
     kind: 'deb',
     now: options.now,
   });
@@ -87,7 +87,7 @@ describe('update check: once a day', () => {
     expect(await checker.status()).toEqual({ state: 'available', notice: { version: '1.2.0' } });
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
-    expect(url).toBe('https://api.github.com/repos/example-owner/graph-helper/releases/latest');
+    expect(url).toBe('https://api.github.com/repos/example-owner/nodewise-studio/releases/latest');
     expect((init.headers as Record<string, string>)['User-Agent']).toContain('update check');
   });
 
@@ -142,7 +142,7 @@ describe('update check: once a day', () => {
     const { checker } = setup();
     await checker.status();
     expect(checker.linkFor('notes')).toBe(`${PROJECT}/releases/tag/v1.2.0`);
-    expect(checker.linkFor('download')).toBe(`${PROJECT}/releases/download/v1.2.0/comfyui-graph-builder_1.2.0_amd64.deb`);
+    expect(checker.linkFor('download')).toBe(`${PROJECT}/releases/download/v1.2.0/nodewise-studio_1.2.0_amd64.deb`);
   });
 });
 
@@ -166,7 +166,7 @@ describe('update check: reading the answer', () => {
   });
 
   it('names the API address only for a real github.com repository', () => {
-    expect(releasesApiUrl(`${PROJECT}/`)).toBe('https://api.github.com/repos/example-owner/graph-helper/releases/latest');
+    expect(releasesApiUrl(`${PROJECT}/`)).toBe('https://api.github.com/repos/example-owner/nodewise-studio/releases/latest');
     expect(releasesApiUrl('https://gitlab.com/a/b')).toBeNull();
     expect(releasesApiUrl('http://github.com/a/b')).toBeNull();
     expect(githubRepository('https://github.com/a')).toBeNull();
@@ -184,14 +184,14 @@ describe('update check: reading the answer', () => {
   it('tells the kind of install from where the program runs', () => {
     const files = new Set<string>();
     const exists = (file: string) => files.has(file);
-    expect(installKind('/tmp/x/comfyui-graph-builder', { APPIMAGE: '/var/tmp/person/app.AppImage' }, exists, 'comfyui-graph-builder')).toBe('appimage');
-    files.add('/var/tmp/person/.local/share/comfyui-graph-builder/run.sh');
-    files.add('/var/tmp/person/.local/share/comfyui-graph-builder/uninstall.sh');
-    expect(installKind('/var/tmp/person/.local/share/comfyui-graph-builder/comfyui-graph-builder', {}, exists, 'comfyui-graph-builder')).toBe('tarball');
-    expect(installKind('/usr/lib/comfyui-graph-builder/comfyui-graph-builder', {}, exists, 'comfyui-graph-builder')).toBe('rpm');
-    files.add('/var/lib/dpkg/info/comfyui-graph-builder.list');
-    expect(installKind('/usr/lib/comfyui-graph-builder/comfyui-graph-builder', {}, exists, 'comfyui-graph-builder')).toBe('deb');
-    expect(installKind('/repo/node_modules/electron/dist/electron', {}, exists, 'comfyui-graph-builder')).toBeNull();
+    expect(installKind('/tmp/x/nodewise-studio', { APPIMAGE: '/var/tmp/person/app.AppImage' }, exists, 'nodewise-studio')).toBe('appimage');
+    files.add('/var/tmp/person/.local/share/nodewise-studio/run.sh');
+    files.add('/var/tmp/person/.local/share/nodewise-studio/uninstall.sh');
+    expect(installKind('/var/tmp/person/.local/share/nodewise-studio/nodewise-studio', {}, exists, 'nodewise-studio')).toBe('tarball');
+    expect(installKind('/usr/lib/nodewise-studio/nodewise-studio', {}, exists, 'nodewise-studio')).toBe('rpm');
+    files.add('/var/lib/dpkg/info/nodewise-studio.list');
+    expect(installKind('/usr/lib/nodewise-studio/nodewise-studio', {}, exists, 'nodewise-studio')).toBe('deb');
+    expect(installKind('/repo/node_modules/electron/dist/electron', {}, exists, 'nodewise-studio')).toBeNull();
   });
 
   it('the window shows a line only for an available version', () => {

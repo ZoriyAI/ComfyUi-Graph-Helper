@@ -192,7 +192,7 @@ async function launch(userData: string): Promise<{ app: ElectronApplication; pag
   delete env.DBUS_SESSION_BUS_ADDRESS;
   delete env.GNOME_KEYRING_CONTROL;
   if (HINTED_FONTS) env.FONTCONFIG_FILE = path.join(__dirname, 'fixtures/fonts-hinted.conf');
-  if (PSEUDO_TEXT) env.GRAPH_HELPER_PSEUDO_LOCALE = '1';
+  if (PSEUDO_TEXT) env.NODEWISE_PSEUDO_LOCALE = '1';
   const app = await electron.launch({ args: [path.join(__dirname, '../../dist/main/index.js'), `--user-data-dir=${userData}`], env: env as Record<string, string> });
   const page = await app.firstWindow();
   page.on('console', (message) => {

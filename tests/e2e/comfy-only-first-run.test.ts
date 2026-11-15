@@ -4,6 +4,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { useEnglish } from './locale';
 import { CLASSES } from '../fixtures/mcp/fakeMcpServer';
+import { EDITOR_NODE_TYPES } from '../../src/shared/graph/editorNodes';
 import { READ_ROUTE, startFakeComfy, type FakeComfy } from '../fixtures/comfy/fakeComfy';
 
 /**
@@ -77,7 +78,10 @@ test('first run with only a ComfyUI address: find, check, read, library, lesson,
 
     const rail = window.locator('#library-rail');
     await rail.getByRole('tab', { name: 'Nodes' }).click();
-    await expect(window.getByText(`${CLASSES.length} nodes`, { exact: true })).toBeVisible();
+    // The library lists the classes read from ComfyUI plus the editor nodes (Note, Markdown Note, Reroute, Primitive),
+    // which only ComfyUI's editor knows and so are never in what the server sends.
+    const libraryCount = CLASSES.length + EDITOR_NODE_TYPES.filter((type) => !CLASSES.some((item) => item.classType === type)).length;
+    await expect(window.getByText(`${libraryCount} nodes`, { exact: true })).toBeVisible();
 
     // The lessons fit this ComfyUI: none asks to connect first.
     await window.getByRole('tab', { name: 'Assistant' }).click();

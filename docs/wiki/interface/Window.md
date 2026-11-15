@@ -3,7 +3,7 @@
 
 # The window
 
-Graph Helper for ComfyUI is one window. Every part of it has one job: the menu bar and the toolbar at the top hold the commands, the library on the left holds what your ComfyUI has, the canvas in the middle holds the graph, the right panel explains and checks it, and the status bar at the bottom counts what is on the canvas.
+NodeWise Studio is one window. Every part of it has one job: the menu bar and the toolbar at the top hold the commands, the library on the left holds what your ComfyUI has, the canvas in the middle holds the graph, the right panel explains and checks it, and the status bar at the bottom counts what is on the canvas.
 
 <!-- picture: the whole window at 1400x860 with the six parts numbered -->
 

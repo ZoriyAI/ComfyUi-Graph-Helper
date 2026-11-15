@@ -15,11 +15,12 @@ import { packOf } from '../fit';
 import { LESSONS, LESSON_AFTER, LESSON_PATH, isAdultLesson, lessonById } from '../lessons';
 import { lessonWords, type LessonWords } from '../texts';
 import { lessonFileOf, type LessonDoc, type LessonDocWords, type LessonFile } from './format';
+import { DISPLAY_NAME } from '../../productNames';
 
 /** Who wrote a built-in lesson, as the file says it. */
-export const BUILTIN_AUTHOR = 'Graph Helper for ComfyUI';
+export const BUILTIN_AUTHOR = DISPLAY_NAME;
 /** Where a built-in lesson comes from, as text in the file. */
-export const BUILTIN_SOURCE = 'Built-in lesson of Graph Helper for ComfyUI';
+export const BUILTIN_SOURCE = `Built-in lesson of ${DISPLAY_NAME}`;
 
 function wordsOf(words: LessonWords | null): LessonDocWords | undefined {
   if (!words) return undefined;

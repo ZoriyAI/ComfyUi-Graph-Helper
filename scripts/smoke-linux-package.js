@@ -4,6 +4,7 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 const asar = require('@electron/asar');
 const { launchOverCdp } = require('./lib/cdp-launch');
+const { DISPLAY_NAME } = require('./lib/product-names');
 
 const root = path.join(__dirname, '..');
 const pkg = require(path.join(root, 'package.json'));
@@ -70,7 +71,7 @@ async function main() {
   if (foreign.length > 0) fail(`PACKAGED_FOREIGN_NATIVE ${foreign.map((file) => path.basename(file)).join(' ')}`);
   // The deb's copyright file is made from the bundle's LICENSE: the app's licence, then the notices.
   const bundleLicence = fs.readFileSync(path.join(bundle, 'LICENSE'), 'utf8');
-  if (!bundleLicence.startsWith('Graph Helper for ComfyUI') || !bundleLicence.includes('“Commons Clause” License Condition v1.0') || !bundleLicence.includes('Copyright (c) 2026 ZoriyAI') || !bundleLicence.includes('electron ')) {
+  if (!bundleLicence.startsWith(DISPLAY_NAME) || !bundleLicence.includes('“Commons Clause” License Condition v1.0') || !bundleLicence.includes('Copyright (c) 2026 ZoriyAI') || !bundleLicence.includes('electron ')) {
     fail('PACKAGED_LICENCE');
   }
 

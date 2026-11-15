@@ -1,6 +1,10 @@
 export const en = {
   shell: {
-    title: 'Graph Helper for ComfyUI',
+    // The product's name comes from src/shared/productNames.ts through the default values {{app}} / {{appShort}}
+    // (src/shared/i18n/index.ts NAME_VALUES); no text spells it.
+    title: '{{app}}',
+    // The line under the name: About, the desktop entry, package.json and the README say the same words.
+    tagline: 'A desktop tutor for ComfyUI graphs',
     settings: 'Settings',
     untitled: 'Untitled project',
     dirty: 'Unsaved changes',
@@ -1909,7 +1913,7 @@ export const en = {
     rejected: 'The file could not be opened.',
     exportFailed: 'The workflow could not be saved.',
     componentMissing: 'That component is not in the graph.',
-    nativeFormat: 'This file is not a Graph Helper for ComfyUI project.',
+    nativeFormat: 'This file is not a {{app}} project.',
     nativeVersion: 'This project file version is not supported ({{version}}). Update the app to open it.',
     nativeShape: 'The project file is damaged. Open another copy of the project.',
     nativeDuplicate: 'The project file has the same description twice. Open another copy of the project.',
@@ -2325,7 +2329,7 @@ export const en = {
     saveProjectTitle: 'Save the project',
     openProjectButton: 'Open',
     saveProjectButton: 'Save',
-    projectFilter: 'Graph Helper for ComfyUI project',
+    projectFilter: '{{app}} project',
   },
   modelLog: {
     title: 'Conversation log',
@@ -2499,7 +2503,7 @@ export const en = {
     rendererGoneMessage: 'The app window stopped working. Reload it to continue; your graph is saved.',
     reload: 'Reload',
     close: 'Close',
-    startupFailedTitle: 'Graph Helper for ComfyUI could not start',
+    startupFailedTitle: '{{app}} could not start',
     startupFailedMessage: 'The app could not start. The log is in {{logs}}.',
     boundaryTitle: 'Something went wrong',
     boundaryBody: 'This part of the window hit an error. Reload the window to continue; your graph is saved.',
@@ -2693,6 +2697,17 @@ export const en = {
     region: 'New version',
   },
   /** `--help` on the command line (src/main/cli.ts). Option names stay as typed; the words follow the system language. */
+  // The first start of 1.0 after 0.x: the profile folder was taken over under the new name (src/main/profileAdoption.ts).
+  profileMove: {
+    adoptedTitle: '{{app}} has your work',
+    adoptedMessage: 'Settings, projects and conversations from version 0.9 are now in {{folder}}.',
+    adoptedKeys: 'Keys you kept in the system password store must be entered again in Settings: the store keeps them under the old name of the app, and {{appShort}} cannot open them under the new one. Keys you kept in a file on this computer came along and work.',
+    inUseTitle: 'Version 0.9 is still open',
+    inUseMessage: 'Quit the old version, then start {{appShort}} again.',
+    inUseDetail: '{{appShort}} takes over the old settings and projects in {{folder}} on its first start, and it cannot do that while the old version uses them.',
+    unreadableTitle: 'The old settings could not be read',
+    unreadableMessage: '{{appShort}} starts with new settings. Your work from version 0.9 is untouched in {{folder}}.',
+  },
   cli: {
     usage: 'Usage: {{command}} [options] [file]',
     file: 'A workflow (.json), a project, or a picture or video saved by ComfyUI: it opens in the window.',
@@ -2931,7 +2946,8 @@ export type Catalog = MessageTree<typeof en>;
 
 export const ru = {
   shell: {
-    title: 'Graph Helper for ComfyUI',
+    title: '{{app}}',
+    tagline: 'Учебный помощник по графам ComfyUI',
     settings: 'Настройки',
     untitled: 'Проект без названия',
     dirty: 'Есть несохранённые изменения',
@@ -4840,7 +4856,7 @@ export const ru = {
     rejected: 'Этот файл не открылся.',
     exportFailed: 'Workflow не сохранён.',
     componentMissing: 'Этого компонента нет в графе.',
-    nativeFormat: 'Этот файл не проект Graph Helper for ComfyUI.',
+    nativeFormat: 'Этот файл не проект {{app}}.',
     nativeVersion: 'Эта версия файла проекта не поддерживается ({{version}}). Обновите приложение, чтобы открыть его.',
     nativeShape: 'Файл проекта повреждён. Откройте другую копию проекта.',
     nativeDuplicate: 'В файле проекта одно описание записано дважды. Откройте другую копию проекта.',
@@ -5256,7 +5272,7 @@ export const ru = {
     saveProjectTitle: 'Сохранить проект',
     openProjectButton: 'Открыть',
     saveProjectButton: 'Сохранить',
-    projectFilter: 'Проект Graph Helper for ComfyUI',
+    projectFilter: 'Проект {{app}}',
   },
   modelLog: {
     title: 'Журнал общения с помощником',
@@ -5429,7 +5445,7 @@ export const ru = {
     rendererGoneMessage: 'Окно приложения перестало работать. Перезагрузите его, чтобы продолжить; граф сохранён.',
     reload: 'Перезагрузить',
     close: 'Закрыть',
-    startupFailedTitle: 'Graph Helper for ComfyUI не запустился',
+    startupFailedTitle: '{{app}} не запустился',
     startupFailedMessage: 'Приложение не смогло запуститься. Журнал находится в {{logs}}.',
     boundaryTitle: 'Что-то пошло не так',
     boundaryBody: 'В этой части окна произошла ошибка. Перезагрузите окно, чтобы продолжить; граф сохранён.',
@@ -5616,6 +5632,16 @@ export const ru = {
     download: 'Скачать',
     dismiss: 'Скрыть до следующей версии',
     region: 'Новая версия',
+  },
+  profileMove: {
+    adoptedTitle: 'Ваша работа в {{app}}',
+    adoptedMessage: 'Настройки, проекты и разговоры из версии 0.9 теперь лежат в {{folder}}.',
+    adoptedKeys: 'Ключи, которые хранились в системном хранилище паролей, нужно ввести заново в настройках: хранилище держит их под старым названием приложения, и {{appShort}} не может открыть их под новым. Ключи из файла на этом компьютере перенеслись и работают.',
+    inUseTitle: 'Версия 0.9 ещё открыта',
+    inUseMessage: 'Закройте старую версию и запустите {{appShort}} снова.',
+    inUseDetail: '{{appShort}} при первом запуске забирает старые настройки и проекты из {{folder}} и не может этого сделать, пока ими пользуется старая версия.',
+    unreadableTitle: 'Старые настройки не прочитать',
+    unreadableMessage: '{{appShort}} начинает с новыми настройками. Ваша работа из версии 0.9 не тронута и лежит в {{folder}}.',
   },
   cli: {
     usage: 'Запуск: {{command}} [параметры] [файл]',

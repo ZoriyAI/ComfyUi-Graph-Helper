@@ -24,7 +24,7 @@ describe('development and test switches', () => {
 describe('the profile folder', () => {
   it('becomes readable by this user only', () => {
     const base = fs.mkdtempSync(path.join(os.tmpdir(), 'profile-'));
-    const dir = path.join(base, 'comfyui-graph-builder');
+    const dir = path.join(base, 'nodewise-studio');
     fs.mkdirSync(dir, { mode: 0o755 });
     fs.chmodSync(dir, 0o755);
     try {

@@ -27,15 +27,15 @@ describe('the scripted test provider', () => {
 
 describe('command line', () => {
   it('prints the version and the help without starting the app', () => {
-    expect(commandLineAnswer(['/usr/lib/comfyui-graph-builder/comfyui-graph-builder', '--version'], '1.2.3')).toBe('Graph Helper for ComfyUI 1.2.3\n');
-    expect(commandLineAnswer(['app', '-v'], '1.2.3')).toBe('Graph Helper for ComfyUI 1.2.3\n');
+    expect(commandLineAnswer(['/usr/lib/nodewise-studio/nodewise-studio', '--version'], '1.2.3')).toBe('NodeWise Studio 1.2.3\n');
+    expect(commandLineAnswer(['app', '-v'], '1.2.3')).toBe('NodeWise Studio 1.2.3\n');
     const help = commandLineAnswer(['app', '--help'], '1.2.3') ?? '';
-    expect(help).toContain('Usage: comfyui-graph-builder [options]');
+    expect(help).toContain('Usage: nodewise-studio [options]');
     expect(help).toContain('--user-data-dir=<folder>');
     expect(help).toContain('Print the version and exit.');
     // The help speaks the system's language; option names stay as typed.
     const russian = commandLineAnswer(['app', '--help'], '1.2.3', 'ru') ?? '';
-    expect(russian).toContain('Запуск: comfyui-graph-builder [параметры]');
+    expect(russian).toContain('Запуск: nodewise-studio [параметры]');
     expect(russian).toContain('--password-store=<store>');
     expect(russian).toContain('Напечатать версию и выйти.');
     expect(help.split('\n').every((line) => line.length <= 110)).toBe(true);

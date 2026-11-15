@@ -35,7 +35,7 @@ Fedora; `SHA256SUMS` и SBOM; затем в окружении `release` сам 
 ## Для страницы репозитория
 
 Описание, сайт и темы для поля «About» на GitHub, картинка для ссылок и настройки, которые может поменять только
-владелец, собраны в `docs/REPOSITORY-CARD.md`. Предлагаемое описание в одну строку: «CozyGraph: a desktop tutor for
+владелец, собраны в `docs/REPOSITORY-CARD.md`. Предлагаемое описание в одну строку: «NodeWise Studio: a desktop tutor for
 ComfyUI graphs». Темы: `comfyui`, `comfyui-workflow`, `stable-diffusion`, `generative-ai`, `learning`, `tutorial`,
 `education`, `node-graph`, `desktop-app`, `electron`, `linux`, `ai-assistant`.
 

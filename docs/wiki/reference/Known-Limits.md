@@ -3,7 +3,7 @@
 
 # Known limitations
 
-What the app does not do, and where it is weak today. CozyGraph is an experimental project; this list says plainly
+What the app does not do, and where it is weak today. NodeWise Studio is an experimental project; this list says plainly
 what to expect. Wishes go to the project's Discussions, problems to its Issues.
 
 ## By design

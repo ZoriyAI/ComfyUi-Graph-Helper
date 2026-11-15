@@ -93,7 +93,7 @@ test('conversation log: record, open from the answer, copy a report, save a file
   await expect(notice).toContainText(saved);
   const lines = fs.readFileSync(saved, 'utf8').split('\n').filter(Boolean).map((line) => JSON.parse(line) as Record<string, unknown>);
   expect(lines[0].type).toBe('bundle');
-  expect(String(lines[0].diagnostics)).toContain('# Graph Helper for ComfyUI diagnostics');
+  expect(String(lines[0].diagnostics)).toContain('# NodeWise Studio diagnostics');
   expect(lines[0].turns).toBe(1);
   const types = lines.map((line) => line.type);
   expect(types).toContain('turn-start');

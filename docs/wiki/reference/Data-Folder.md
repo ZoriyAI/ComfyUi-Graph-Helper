@@ -8,7 +8,8 @@ saved them.
 
 ## Where it is
 
-- Linux: `~/.config/cozygraph` <!-- verify: technical rename -->
+- Linux: `~/.config/nodewise-studio`. Version 0.9 kept its data in a folder named after the app's old name; the
+  first start of 1.0 moves that folder here ([Updating](../start/Updating.md)).
 - Another folder, if you start the app with `--user-data-dir=<folder>` ([The command line](Command-Line.md)).
 - Windows and macOS (builds from source): see [Windows](../dev/Building-On-Windows.md) and
   [macOS](../dev/Building-On-macOS.md).
@@ -26,6 +27,7 @@ Help ▸ About ▸ Open data folder opens it. On Linux the folder is made readab
 | `logs/model/` | The conversation log with the model, one file per answer, while Settings ▸ Privacy ▸ Keep a log of the conversation with the model is on. | At most 300 files and 150 MB; the oldest go first. |
 | `model-previews/` | Pictures of models fetched for model cards. | At most 3000 files and 512 MB; the oldest go first. |
 | `window-state.json` | The window's size and place. | Tiny. |
+| `profile-adopted.json` | Left by the first start of 1.0 after it moved the 0.9 folder here; removed once the app has told you. | Tiny. |
 | `update-check.json` | The last answer about new versions, only if Check for new versions is on. | Tiny. |
 | `password-store.json` | Which password store to use, if you chose one in Settings ▸ Privacy. Not a secret. | Tiny. |
 | `model-key.json` | A model key kept unencrypted, only if you chose that place for it. Readable by your user only. | Tiny. |

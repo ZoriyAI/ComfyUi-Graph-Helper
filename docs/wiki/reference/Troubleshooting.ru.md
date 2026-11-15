@@ -43,8 +43,7 @@
 
 Запущенное через `sudo` или от root, приложение останавливается с ошибкой «Running as root without --no-sandbox is
 not supported». Защита Chromium работает только у обычного пользователя. Запустите приложение из меню или командой
-`cozygraph` без `sudo`.
-<!-- verify: technical rename -->
+`nodewise-studio` без `sudo`.
 
 ## ComfyUI на другом компьютере
 

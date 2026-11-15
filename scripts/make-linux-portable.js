@@ -3,10 +3,10 @@
  * The two Linux formats Electron Forge has no maker for, made from the folder `electron-forge package` (or `make`)
  * left in out/:
  *
- *   out/make/portable/comfyui-graph-builder-<version>-linux-x64.tar.gz
+ *   out/make/portable/nodewise-studio-<version>-linux-x64.tar.gz
  *       the app folder with run.sh (start in place), install.sh (install for the current user, no root) and
  *       uninstall.sh; icons and the menu entry under share/
- *   out/make/portable/comfyui-graph-builder-<version>-x86_64.AppImage
+ *   out/make/portable/nodewise-studio-<version>-x86_64.AppImage
  *       one file that runs on any distribution: the AppImage runtime followed by a SquashFS image of the app
  *
  * The AppImage needs mksquashfs (squashfs-tools) and the AppImage type 2 runtime for x86_64
@@ -41,11 +41,17 @@ function have(command) {
   }
 }
 
-/** The desktop entry of the deb and rpm (resources/linux/desktop.ejs), with the package name filled in. */
+/**
+ * The desktop entry of the deb and rpm (resources/linux/desktop.ejs), with the package name, the display name
+ * (productName) and the line under it (description) filled in, as the makers fill them from forge.config.js.
+ */
 function desktopEntry() {
   const template = fs.readFileSync(path.join(root, 'resources', 'linux', 'desktop.ejs'), 'utf8');
-  const text = template.replace(/<%=\s*name\s*%>/g, NAME);
-  if (text.includes('<%')) fail('desktop.ejs uses more than <%= name %>; teach make-linux-portable.js the new field');
+  const text = template
+    .replace(/<%=\s*name\s*%>/g, NAME)
+    .replace(/<%=\s*productName\s*%>/g, pkg.productName)
+    .replace(/<%=\s*description\s*%>/g, pkg.description);
+  if (text.includes('<%')) fail('desktop.ejs uses a field make-linux-portable.js does not fill; teach it the new field');
   return text;
 }
 

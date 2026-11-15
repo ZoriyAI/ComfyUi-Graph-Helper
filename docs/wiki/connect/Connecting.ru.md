@@ -3,7 +3,7 @@
 
 # Подключение к ComfyUI
 
-CozyGraph узнаёт, какие у вас есть ноды и модели, читая запущенный ComfyUI. Нужен только адрес, по которому вы
+NodeWise Studio узнаёт, какие у вас есть ноды и модели, читая запущенный ComfyUI. Нужен только адрес, по которому вы
 открываете ComfyUI в браузере. MCP-сервер необязателен и добавляет немногое, чего сам ComfyUI не отдаёт.
 
 <!-- verify: this chapter is checked against test servers that speak ComfyUI's routes; it has not yet been run

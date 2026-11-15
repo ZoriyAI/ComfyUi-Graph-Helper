@@ -39,8 +39,7 @@ starts, or `num_ctx` on the model. More: [The context window](../assistant/Conte
 ## The app does not start as root
 
 Started with `sudo` or as root, the app stops with "Running as root without --no-sandbox is not supported". Chromium's
-protection works only for an ordinary user. Start the app from the menu, or as `cozygraph` without `sudo`.
-<!-- verify: technical rename -->
+protection works only for an ordinary user. Start the app from the menu, or as `nodewise-studio` without `sudo`.
 
 ## ComfyUI is on another computer
 

@@ -4,7 +4,7 @@
 # ComfyUI and where to get it
 
 ComfyUI is a free program that makes pictures and video with AI models. You build the work as a graph: boxes
-(nodes) joined by wires (links). CozyGraph teaches you to build and read those graphs; ComfyUI is the one that runs
+(nodes) joined by wires (links). NodeWise Studio teaches you to build and read those graphs; ComfyUI is the one that runs
 them. You need both.
 
 ## What ComfyUI is
@@ -13,7 +13,7 @@ them. You need both.
 - You work with it in a web browser: ComfyUI starts a small web server, usually at `http://127.0.0.1:8188`.
 - What it can do depends on the models and node packs you add to it. See [Checkpoint](../concepts/Checkpoint.md)
   and [Node packs](../concepts/Node-Packs.md).
-- It is made by its own project, independent of CozyGraph.
+- It is made by its own project, independent of NodeWise.
 
 ## Ways to get it
 
@@ -52,14 +52,14 @@ comfy launch
 ## Find its address
 
 When ComfyUI starts, it prints its address in the terminal, for example `To see the GUI go to:
-http://127.0.0.1:8188`. Open it in your browser to check that ComfyUI works. That address is what CozyGraph needs.
+http://127.0.0.1:8188`. Open it in your browser to check that ComfyUI works. That address is what NodeWise needs.
 
 - On the same computer, the address is usually `http://127.0.0.1:8188`.
 - To reach ComfyUI from another computer at home, start it with `--listen` (for example `python main.py --listen
   0.0.0.0`) and use that computer's address in the network, for example `http://192.168.1.50:8188`. Only do this on
   a network you trust: ComfyUI has no password.
 
-How CozyGraph connects is described in [Connecting to ComfyUI](../connect/Connecting.md).
+How NodeWise connects is described in [Connecting to ComfyUI](../connect/Connecting.md).
 
 ## A first model
 
@@ -68,14 +68,14 @@ A fresh ComfyUI has no models. For a first picture you need one checkpoint (a ma
 1. Download a checkpoint (a `.safetensors` file) of a family your graphics card can run. SD 1.5 models are the
    smallest; SDXL needs more memory. See [Model families](../concepts/Model-Families.md).
 2. Put it into the folder `ComfyUI/models/checkpoints`.
-3. In ComfyUI, refresh the page; in CozyGraph, read ComfyUI again (Sync ▸ Sync now) so the library shows it.
+3. In ComfyUI, refresh the page; in NodeWise, read ComfyUI again (Sync ▸ Sync now) so the library shows it.
 
 Where every kind of file goes: [Where ComfyUI files live](../concepts/Where-Files-Live.md).
 
 ## Node packs
 
 Many lessons and workflows use nodes that are not part of ComfyUI itself, for example WanVideoWrapper for video.
-They come in node packs, which you install with ComfyUI Manager or by hand. CozyGraph never installs them; it tells
+They come in node packs, which you install with ComfyUI Manager or by hand. NodeWise never installs them; it tells
 you which pack a missing node belongs to when it knows. See [Node packs](../concepts/Node-Packs.md).
 
 ## See also

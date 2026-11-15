@@ -3,6 +3,7 @@ import { systemLanguage } from '../systemLanguage';
 import * as path from 'path';
 import * as os from 'os';
 import { IPC_CHANNELS } from '../../shared/ipc-channels';
+import { APP_ID } from '../identity';
 import { getDatabase } from '../database';
 import { readSettings } from '../settings/repository';
 import { catalogTotals } from '../catalog/repository';
@@ -209,7 +210,7 @@ export function registerDiagnosticsIpc(ipcMain: IpcMain): void {
     if (ids.length === 0) return { ok: false, error: 'The log has no turns to save.' };
     const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
     const chosen = await dialog.showSaveDialog({
-      defaultPath: path.join(app.getPath('documents'), `graph-helper-model-log-${stamp}.jsonl`),
+      defaultPath: path.join(app.getPath('documents'), `${APP_ID}-model-log-${stamp}.jsonl`),
       filters: [{ name: 'JSON Lines', extensions: ['jsonl'] }],
     });
     if (chosen.canceled || !chosen.filePath) return { ok: false, canceled: true };

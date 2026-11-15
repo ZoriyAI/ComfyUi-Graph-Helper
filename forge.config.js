@@ -10,6 +10,8 @@
 const fs = require('fs');
 const path = require('path');
 const { FuseV1Options, FuseVersion } = require('@electron/fuses');
+const { addControlFields } = require('./scripts/lib/deb-control-fields');
+const { APP_ID, DISPLAY_NAME, LEGACY_APP_ID } = require('./scripts/lib/product-names');
 
 const pkg = require('./package.json');
 /** The project address (src/main/identity.ts PROJECT_URL, mirrored in package.json); none while it is a placeholder. */
@@ -17,11 +19,13 @@ const HOMEPAGE = typeof pkg.homepage === 'string' && !pkg.homepage.includes('PLA
 
 const ICON_SIZES = [16, 24, 32, 48, 64, 128, 256, 512];
 const ICONS = Object.fromEntries(ICON_SIZES.map((size) => [`${size}x${size}`, `resources/icons/${size}x${size}.png`]));
-const PRODUCT_NAME = 'Graph Helper for ComfyUI';
+// The names come from src/shared/productNames.ts (scripts/lib/product-names.js); package.json repeats them.
+const PRODUCT_NAME = DISPLAY_NAME;
 const GENERIC_NAME = 'ComfyUI graph tutor';
-const SUMMARY = 'experimental app to learn ComfyUI and understand its graphs';
+// The line under the name, the same words as package.json description and the About window.
+const SUMMARY = pkg.description;
 const LONG_DESCRIPTION = [
-  'Graph Helper for ComfyUI is an experimental desktop app for people new to ComfyUI.',
+  `${DISPLAY_NAME} is an experimental desktop app for people new to ComfyUI.`,
   'It reads the nodes and models from your ComfyUI directly, with optional MCP',
   'for extra metadata, never changes anything there, and helps you understand a',
   'graph: a canvas, built-in lessons and an assistant that explains every step.',
@@ -34,7 +38,7 @@ module.exports = {
   packagerConfig: {
     asar: true,
     // productName names the bundle folder; the binary keeps the package name the deb maker links to.
-    executableName: 'comfyui-graph-builder',
+    executableName: APP_ID,
     // Extension added per platform by the packager; Linux takes the window icon from resources/icon.png.
     icon: 'resources/icon',
     /**
@@ -68,12 +72,26 @@ module.exports = {
       const licence = fs.readFileSync(path.join(root, 'LICENSE'), 'utf8').trim();
       const notices = fs.readFileSync(path.join(root, 'dist', 'notices', 'THIRD_PARTY_NOTICES.txt'), 'utf8');
       for (const output of result.outputPaths) {
-        fs.writeFileSync(path.join(output, 'LICENSE'), `Graph Helper for ComfyUI\n\n${licence}\n\n\n${notices}`);
+        fs.writeFileSync(path.join(output, 'LICENSE'), `${PRODUCT_NAME}\n\n${licence}\n\n\n${notices}`);
         // Electron's shared libraries are loaded, never run: plain 0644, as Debian policy asks of a library.
         for (const name of fs.readdirSync(output)) {
           if (/\.so(\.\d+)*$/.test(name)) fs.chmodSync(path.join(output, name), 0o644);
         }
       }
+    },
+    /**
+     * Until 1.0 the app was packaged as LEGACY_APP_ID. The .deb says it replaces that package (Replaces and
+     * Conflicts), so dpkg and apt remove the old package when this one is installed over it; the maker's control
+     * template has no such fields, so they are added to the finished file. The .rpm says the same with Obsoletes
+     * and Provides in resources/linux/rpm.spec.ejs.
+     */
+    postMake: async (_config, makeResults) => {
+      for (const result of makeResults) {
+        for (const artifact of result.artifacts) {
+          if (artifact.endsWith('.deb')) addControlFields(artifact, { Replaces: LEGACY_APP_ID, Conflicts: LEGACY_APP_ID });
+        }
+      }
+      return makeResults;
     },
   },
   plugins: [
@@ -159,6 +177,8 @@ module.exports = {
           description: SUMMARY,
           productDescription: LONG_DESCRIPTION,
           license: 'MIT AND LicenseRef-Commons-Clause',
+          // The 0.x package this one replaces (Obsoletes and Provides in rpm.spec.ejs).
+          legacyPackages: [LEGACY_APP_ID],
           categories: ['Graphics', 'Education'],
           // The maker's spec with chrome-sandbox SUID root and copyright retained as a license.
           specTemplate: path.join(__dirname, 'resources', 'linux', 'rpm.spec.ejs'),

@@ -3,7 +3,7 @@
 
 # Architecture
 
-CozyGraph is an Electron app: one main process, one window, and a small preload script between them. This page shows
+NodeWise Studio is an Electron app: one main process, one window, and a small preload script between them. This page shows
 how they divide the work and how one change travels from a click to the database and back.
 
 ## The three parts

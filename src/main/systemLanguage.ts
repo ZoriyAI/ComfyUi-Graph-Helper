@@ -38,9 +38,9 @@ export function systemLocaleFor(language: AppLanguage): string {
 }
 
 /**
- * The pseudo-translation of the layout tests (GRAPH_HELPER_PSEUDO_LOCALE=1): every text drawn about 40 % longer, so
+ * The pseudo-translation of the layout tests (NODEWISE_PSEUDO_LOCALE=1): every text drawn about 40 % longer, so
  * a translation into a longer language is tried before it exists. Never in an installed app.
  */
 export function pseudoLocaleWanted(isPackaged: boolean, env: NodeJS.ProcessEnv = process.env): boolean {
-  return !isPackaged && env.GRAPH_HELPER_PSEUDO_LOCALE === '1';
+  return !isPackaged && env.NODEWISE_PSEUDO_LOCALE === '1';
 }

@@ -3,7 +3,7 @@
 
 # Privacy
 
-This page lists every place CozyGraph can contact, when it does so, on whose action, and what goes there. Nothing
+This page lists every place NodeWise Studio can contact, when it does so, on whose action, and what goes there. Nothing
 else leaves your computer.
 
 ## What the app never does
@@ -105,6 +105,10 @@ else leaves your computer.
 The app opens your system browser, never a window of its own, for: signing in to an MCP server, Help ▸ Project
 website, Help ▸ New versions and Help ▸ Report a problem. Report a problem first shows you what the new issue will
 contain (the versions of the app and the system, nothing else).
+
+Two download pages are opened there only when you click their buttons in the **No ComfyUI yet** window:
+**Open the ComfyUI download page** (`https://www.comfy.org/download`) and **Open the Ollama download page**
+(`https://ollama.com/download`). The app itself sends nothing to either site.
 
 ## What stays on your computer
 

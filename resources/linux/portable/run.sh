@@ -1,10 +1,11 @@
 #!/bin/sh
-# Graph Helper for ComfyUI: start the app from this folder, without installing anything.
+# NodeWise Studio: start the app from this folder, without installing anything.
 # Also the start script of the AppImage (AppRun) and of the per-user install (install.sh).
 # Arguments are passed on to the app (for example --version or --user-data-dir=<folder>).
 set -eu
 
-NAME=comfyui-graph-builder
+NAME=nodewise-studio
+DISPLAY_NAME='NodeWise Studio'
 # The folder that holds the app's files, relative to this script, and whether this is the AppImage
 # (scripts/make-linux-portable.js rewrites both lines for it).
 APP_SUBDIR=.
@@ -14,7 +15,7 @@ here=$(dirname "$(readlink -f "$0")")
 app_dir="$here/$APP_SUBDIR"
 binary="$app_dir/$NAME"
 if [ ! -x "$binary" ]; then
-  echo "Graph Helper for ComfyUI: $binary is missing. Unpack the whole archive again." >&2
+  echo "$DISPLAY_NAME: $binary is missing. Unpack the whole archive again." >&2
   exit 1
 fi
 
@@ -43,7 +44,7 @@ if sandbox_available; then
   exec "$binary" "$@"
 fi
 
-echo "Graph Helper for ComfyUI: this system does not let the app use Chromium's sandbox here, so it starts without it." >&2
+echo "$DISPLAY_NAME: this system does not let the app use Chromium's sandbox here, so it starts without it." >&2
 if [ "$IN_APPIMAGE" = 1 ]; then
   echo "To keep the sandbox, install the .deb or .rpm package instead of the AppImage." >&2
 else

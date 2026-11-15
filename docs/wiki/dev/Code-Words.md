@@ -44,10 +44,14 @@ screen words can be found in the code.
 | `secret`, `safeStorage` | key, token; the system password store | ключ, токен; хранилище паролей |
 | `userData` | the data folder | папка с данными |
 
-The app's names: `DISPLAY_NAME` (what people read), `APP_ID` (user agents, the MCP client name) and
-`STABLE_APP_NAME` (the package, the program, the profile folder and the password-store entry) in
-`src/main/identity.ts`. `STABLE_APP_NAME` must never change once released: an update would open an empty profile and
-could not decrypt saved keys.
+The app's names are spelled once, in `src/shared/productNames.ts`, and the main process reads them through
+`src/main/identity.ts`: `DISPLAY_NAME` (what people read, "NodeWise Studio"), `SHORT_NAME` ("NodeWise"), `APP_ID`
+(the package, the program, the desktop file, the icons, the MCP client name: `nodewise-studio`) and `STABLE_APP_NAME`
+(the name the app runs under: the profile folder and the password-store entry; the same value). Texts in the catalog
+never spell the name: they use `{{app}}` and `{{appShort}}`. `STABLE_APP_NAME` changed once, for 1.0: the first start
+moves the 0.9 profile folder over (`src/main/profileAdoption.ts`), but keys the password store encrypted under the
+old name do not open and are entered again. It must not change again. The names 0.9 used live only in
+`src/shared/legacyNames.ts`, for that upgrade.
 
 ## See also
 

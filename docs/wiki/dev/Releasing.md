@@ -35,7 +35,7 @@ Every pull request and push runs the fast checks of `.github/workflows/ci.yml`. 
 ## For the repository page
 
 The description, website and topics of the GitHub "About" box, the social preview picture and the settings only the
-owner can change are in `docs/REPOSITORY-CARD.md`. Suggested one-line description: "CozyGraph: a desktop tutor for
+owner can change are in `docs/REPOSITORY-CARD.md`. Suggested one-line description: "NodeWise Studio: a desktop tutor for
 ComfyUI graphs". Topics: `comfyui`, `comfyui-workflow`, `stable-diffusion`, `generative-ai`, `learning`, `tutorial`,
 `education`, `node-graph`, `desktop-app`, `electron`, `linux`, `ai-assistant`.
 
