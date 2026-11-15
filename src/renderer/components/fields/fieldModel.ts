@@ -7,6 +7,8 @@
 import type { FieldKind, FieldSpec, NodeClassDetail } from '../../../shared/contracts/knowledge';
 import type { ComfyNodeData, PortDefinition } from '../../types/graph';
 import { afterRunSlot } from '../../../shared/graph/layout';
+import { editorKind } from '../../../shared/workflow/comfyLook';
+import { widgetOrderMatches } from '../../../shared/workflow/widgetValues';
 
 /** 'json': a value with no spec that is neither a number, a string nor a boolean; edited as text, as before. */
 export type ControlKind = FieldKind | 'json';
@@ -158,6 +160,9 @@ export interface FieldEntry {
   tooltip?: string;
   /** Catalog key of the text shown instead of `name` (the "after run" choice of a seed: slot `seed::control_after_generate`). */
   labelKey?: string;
+  labelValues?: { index: number };
+  /** Exact saved slot for imported positional values, including fields whose names are unknown. */
+  widgetIndex?: number;
   /** Catalog key of the tooltip, when the tooltip is the app's own text. */
   tooltipKey?: string;
 }
@@ -188,7 +193,8 @@ export function fieldValue(data: { parameters?: Record<string, unknown>; comfy?:
   if (Object.prototype.hasOwnProperty.call(parameters, name) && !isUnset(parameters[name])) return parameters[name];
   const comfy = (data as { comfy?: { widgets_values?: unknown } }).comfy;
   const widgets = comfy?.widgets_values;
-  if (Array.isArray(widgets) && widgetOrder) {
+  if (Array.isArray(widgets) && widgetOrderMatches(widgets, widgetOrder)) {
+    if (!widgetOrder) return parameters[name];
     const index = widgetOrder.indexOf(name);
     if (index >= 0 && index < widgets.length) return widgets[index];
   } else if (widgets && typeof widgets === 'object' && !Array.isArray(widgets)) {
@@ -206,34 +212,48 @@ export function fieldValue(data: { parameters?: Record<string, unknown>; comfy?:
  */
 export function nodeLayout(data: ComfyNodeData, detail: NodeClassDetail | null | undefined): NodeLayout {
   const parameters = data.parameters ?? {};
+  const widgets = (data as { comfy?: { widgets_values?: unknown } }).comfy?.widgets_values;
+  const positional = Array.isArray(widgets);
+  const mapped = widgetOrderMatches(widgets, detail?.widgetOrder, detail?.widgetOrderReliable !== false);
+  // An incomplete or opaque class description cannot name positional values safely. Keep its sockets, then
+  // expose every saved slot below instead of silently hiding the values or shifting them between fields.
+  const fieldsDetail = positional && !mapped ? null : detail;
   const specs = new Map((detail?.inputs ?? []).map((input) => [input.name, input]));
   const linkInputs: PortDefinition[] = [];
   const fields: FieldEntry[] = [];
   const seen = new Set<string>();
   for (const port of data.inputs) {
     const known = specs.get(port.name);
-    const widget = known ? known.widget : (Object.prototype.hasOwnProperty.call(parameters, port.name) && WIDGET_TYPES.has(port.dataType.toUpperCase()));
+    const named = Object.prototype.hasOwnProperty.call(parameters, port.name);
+    const widget = known ? known.widget && (!positional || mapped || named) : (named && WIDGET_TYPES.has(port.dataType.toUpperCase()));
     if (!widget) {
       linkInputs.push(port);
       continue;
     }
     seen.add(port.name);
-    fields.push(entry(data, port.name, known, detail, port));
-    pushAfterRun(fields, data, port.name, known, detail);
+    fields.push(entry(data, port.name, known, fieldsDetail, port));
+    pushAfterRun(fields, data, port.name, known, fieldsDetail);
   }
   // Widget inputs the node has no port for (a node stored before its class was synced).
-  for (const input of detail?.inputs ?? []) {
+  for (const input of fieldsDetail?.inputs ?? []) {
     if (!input.widget || seen.has(input.name) || input.spec?.kind === 'other') continue;
     if (!Object.prototype.hasOwnProperty.call(parameters, input.name) && isUnset(fieldValue(data, input.name, detail?.widgetOrder))) continue;
     seen.add(input.name);
-    fields.push(entry(data, input.name, input, detail));
-    pushAfterRun(fields, data, input.name, input, detail);
+    fields.push(entry(data, input.name, input, fieldsDetail));
+    pushAfterRun(fields, data, input.name, input, fieldsDetail);
   }
   for (const name of Object.keys(parameters)) {
     // A name with '::' is a hidden slot of another field (the "after run" choice); pushAfterRun shows it.
     if (seen.has(name) || name.includes('::')) continue;
     seen.add(name);
-    fields.push(entry(data, name, specs.get(name), detail));
+    fields.push(entry(data, name, specs.get(name), fieldsDetail));
+  }
+  if (positional && !mapped && data.kind !== 'subgraph-instance' && !editorKind(data.comfyType)) {
+    widgets.forEach((value, index) => fields.push({
+      name: `widgets::${index}`, value, widgetIndex: index,
+      labelKey: 'importLook.savedValue', labelValues: { index: index + 1 },
+      ...(typeof value === 'string' && (value.includes('\n') || value.length > 100) ? { spec: { kind: 'string' as const, multiline: true } } : {}),
+    }));
   }
   return { linkInputs, fields };
 }
@@ -258,6 +278,7 @@ function pushAfterRun(
     labelKey: 'editing.afterRun',
     value: typeof stored === 'string' && stored !== '' ? stored : start,
     spec: { kind: 'combo', options: AFTER_RUN_CHOICES },
+    widgetIndex: Array.isArray((data as { comfy?: { widgets_values?: unknown } }).comfy?.widgets_values) ? detail.widgetOrder.indexOf(afterRunKey(name)) : undefined,
     tooltipKey: 'editing.afterRunHint',
   });
 }
@@ -271,6 +292,11 @@ function entry(
   port?: PortDefinition,
 ): FieldEntry {
   const out: FieldEntry = { name, value: fieldValue(data, name, detail?.widgetOrder) };
+  const widgets = (data as { comfy?: { widgets_values?: unknown } }).comfy?.widgets_values;
+  if (widgetOrderMatches(widgets, detail?.widgetOrder, detail?.widgetOrderReliable !== false)) {
+    const index = detail!.widgetOrder.indexOf(name);
+    if (index >= 0) out.widgetIndex = index;
+  }
   if (port) out.port = port;
   if (input?.spec) out.spec = input.spec;
   const tooltip = input?.spec?.tooltip ?? input?.tooltip;

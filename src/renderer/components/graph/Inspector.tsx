@@ -173,7 +173,7 @@ function ParameterField({ nodeId, nodeName, classType, field, linked, disabled }
   return (
     <div className={`inspector-field ${styles.param}`} data-field={field.name}>
       <div className={styles.paramHead}>
-        <span id={labelId} className={styles.paramName} title={field.tooltipKey ? String(t(field.tooltipKey)) : foreignTip ? field.tooltip : undefined}>{field.labelKey ? t(field.labelKey) : field.name}</span>
+        <span id={labelId} className={styles.paramName} title={field.tooltipKey ? String(t(field.tooltipKey)) : foreignTip ? field.tooltip : undefined}>{field.labelKey ? t(field.labelKey, field.labelValues ?? {}) : field.name}</span>
         {note ? (
           <button
             type="button"
@@ -214,7 +214,7 @@ function ParameterField({ nodeId, nodeName, classType, field, linked, disabled }
           variant="panel"
           labelledBy={labelId}
           disabled={disabled}
-          onCommit={(value) => void commitField(nodeId, field.name, value)}
+          onCommit={(value) => void commitField(nodeId, field.name, value, field.widgetIndex)}
         />
       )}
       {tip || range ? (
@@ -414,7 +414,7 @@ function NodeSection({ node, edges }: { node: GraphNode; edges: GraphEdge[] }) {
       </ul>
       <h3 className={styles.h3}>{t('inspector.properties')}</h3>
       {lookSentence ? <p className={`inspector-look ${styles.hint}`}>{lookSentence}</p> : null}
-      <MissingValues data={data} instance={instance} />
+      {layout.fields.length === 0 ? <MissingValues data={data} instance={instance} /> : null}
       <SetGetJump node={node} nodes={levelNodes} />
       {instance ? <PromotedPanel node={node} disabled={canvasReplay || Boolean(data.locked)} /> : null}
       {layout.fields.length === 0 ? (lookSentence || promotedCount > 0 ? null : <p className={`inspector-empty ${styles.hint}`}>{t(unnamedValues ? 'inspector.fieldsUnknown' : 'inspector.noParameters')}</p>) : (
@@ -424,6 +424,7 @@ function NodeSection({ node, edges }: { node: GraphNode; edges: GraphEdge[] }) {
           ))}
         </div>
       )}
+      {layout.fields.some((field) => field.labelValues) ? <p className={`inspector-empty ${styles.hint}`}>{t('inspector.fieldsUnknown')}</p> : null}
       <Explanations refs={[ref, ...(instance ? [] : [{ kind: 'nodeClass' as const, id: data.comfyType, classType: data.comfyType }])]} />
     </>
   );

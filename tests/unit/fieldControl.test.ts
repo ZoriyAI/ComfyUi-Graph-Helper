@@ -155,4 +155,25 @@ describe('node layout', () => {
     ]);
     expect(fieldValue({ parameters: { steps: 4 }, comfy: { widgets_values: [1, 'fixed', 30] } }, 'steps', KSAMPLER.widgetOrder)).toBe(4);
   });
+
+  it.each([null, { ...KSAMPLER, inputs: [], widgetOrder: [] }, { ...KSAMPLER, widgetOrderReliable: false }, { ...KSAMPLER, widgetOrder: ['steps'] }])(
+    'exposes positional settings when the class layout is absent, empty, opaque or mismatched', (detail) => {
+      const values = [0, 'fixed', 31, 'dpmpp_2m', false, 'line one\nline two', { ownState: true }, null];
+      const data = sampler({ parameters: {}, comfy: { widgets_values: values } } as never);
+      const layout = nodeLayout(data, detail);
+      expect(layout.fields.map((field) => field.value)).toEqual(values);
+      expect(layout.fields.map((field) => field.widgetIndex)).toEqual(values.map((_, i) => i));
+      expect(layout.fields.map((field) => field.name)).toEqual(values.map((_, i) => `widgets::${i}`));
+      expect(layout.fields[5].spec).toEqual({ kind: 'string', multiline: true });
+    },
+  );
+
+  it('uses named fields again after catalog refresh without stale positional aliases or defaults', () => {
+    const data = sampler({ parameters: { 'widgets::2': 37 }, comfy: { widgets_values: [42, 'fixed', 37, 'dpmpp_2m'] } } as never);
+    const fields = nodeLayout(data, KSAMPLER).fields;
+    expect(fields.map((field) => [field.name, field.value, field.widgetIndex])).toEqual([
+      ['seed', 42, 0], ['steps', 37, 2], ['sampler_name', 'dpmpp_2m', 3],
+    ]);
+    expect(fieldValue(data, 'steps', ['steps'])).toBeUndefined();
+  });
 });

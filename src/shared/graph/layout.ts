@@ -7,6 +7,7 @@
  */
 
 import { collapsedWidth, editorKind, FILE_BOX, fileBox, isCollapsed, promotedFields, REROUTE_BOX, savedValues, shownTitle } from '../workflow/comfyLook';
+import { widgetOrderMatches } from '../workflow/widgetValues';
 
 export interface Point {
   x: number;
@@ -74,6 +75,7 @@ export interface SizeHints {
   missing?: boolean;
   /** The catalog's widget order: an imported node keeps its values in widgets_values by this order. */
   widgetOrder?: ReadonlyArray<string>;
+  widgetOrderReliable?: boolean;
 }
 
 /** Input types drawn as a field a person sets, not as a socket. */
@@ -91,6 +93,7 @@ export function afterRunSlot(name: string): string {
 export function sizeHintsOfClass(detail: {
   inputs: ReadonlyArray<{ name: string; widget: boolean; spec?: { multiline?: boolean; control?: string } }>;
   widgetOrder?: ReadonlyArray<string>;
+  widgetOrderReliable?: boolean;
 }): SizeHints {
   const order = detail.widgetOrder;
   return {
@@ -101,6 +104,7 @@ export function sizeHintsOfClass(detail: {
       ...(input.spec?.control !== undefined && order?.includes(afterRunSlot(input.name)) ? { afterRun: true } : {}),
     })),
     ...(order ? { widgetOrder: order } : {}),
+    ...(detail.widgetOrderReliable === false ? { widgetOrderReliable: false } : {}),
   };
 }
 
@@ -203,7 +207,11 @@ function estimateCardSize(data: SizedData | null | undefined, hints?: SizeHints 
   const known = new Map((hints?.inputs ?? []).map((input) => [input.name, input]));
   // A value the node holds: in its parameters, or (a node from a file) in widgets_values at the catalog's place.
   const saved = data?.comfy && typeof data.comfy === 'object' ? (data.comfy as { widgets_values?: unknown }).widgets_values : undefined;
-  const order = hints?.widgetOrder;
+  const kind = data?.kind === 'subgraph-instance' ? null : editorKind(data?.comfyType);
+  const positional = Array.isArray(saved);
+  const mapped = widgetOrderMatches(saved, hints?.widgetOrder, hints?.widgetOrderReliable !== false);
+  const fallback = positional && !mapped && !kind && data?.kind !== 'subgraph-instance';
+  const order = positional && !mapped ? undefined : hints?.widgetOrder;
   const inFile = (name: string) => {
     if (Array.isArray(saved)) {
       const at = order ? order.indexOf(name) : -1;
@@ -220,7 +228,7 @@ function estimateCardSize(data: SizedData | null | undefined, hints?: SizeHints 
   for (const port of inputs) {
     const name = typeof port?.name === 'string' ? port.name : '';
     const spec = known.get(name);
-    const widget = spec ? spec.widget : holds(name) && WIDGET_TYPES.has(String(port?.dataType ?? '').toUpperCase());
+    const widget = spec ? spec.widget && (!positional || mapped || Object.prototype.hasOwnProperty.call(parameters, name)) : holds(name) && WIDGET_TYPES.has(String(port?.dataType ?? '').toUpperCase());
     if (!widget) {
       links += 1;
       continue;
@@ -255,7 +263,10 @@ function estimateCardSize(data: SizedData | null | undefined, hints?: SizeHints 
   }
   // A Primitive draws its value and its "after each run" switch; a node that is not installed lists its saved
   // values (one row each); a Set or Get names its constant.
-  const kind = data?.kind === 'subgraph-instance' ? null : editorKind(data?.comfyType);
+  if (fallback) {
+    fields += saved.length;
+    textBoxes += saved.filter((value) => typeof value === 'string' && (value.includes('\n') || value.length > 100)).length;
+  }
   if (kind === 'primitive') extraFields = Math.min(2, savedValues(data).length);
   // A Primitive with no value yet says so in a line of two rows (nodes/EditorNodes.tsx PrimitiveFields).
   const primitiveEmpty = kind === 'primitive' && savedValues(data).length === 0;
@@ -267,7 +278,7 @@ function estimateCardSize(data: SizedData | null | undefined, hints?: SizeHints 
   if (extraFields > 0) height += NODE_BOX.fieldsTop + extraFields * NODE_BOX.field;
   if (primitiveEmpty) height += NODE_BOX.primitiveEmpty;
   if (kind === 'set' || kind === 'get') height += NODE_BOX.constant;
-  if (hints?.missing) height += NODE_BOX.savedTop + savedValues(data).length * NODE_BOX.savedValue;
+  if (hints?.missing && !fallback) height += NODE_BOX.savedTop + savedValues(data).length * NODE_BOX.savedValue;
   if (note) height += NODE_BOX.note + Math.ceil((note.length + 9) / NODE_BOX.noteChars) * NODE_BOX.noteLine;
   // A note always shows its text box, an empty one too (the person writes into it: nodes/NoteText.tsx).
   if (noteTextOf(data) || NOTE_TYPES.has(String(data?.comfyType ?? ''))) height += NODE_BOX.noteText;

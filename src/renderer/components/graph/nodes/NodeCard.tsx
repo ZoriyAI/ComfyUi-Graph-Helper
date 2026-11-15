@@ -185,7 +185,7 @@ export default function NodeCard({ id, data, state, connected, live = true, head
       {state.subgraph && live ? <PromotedFields id={id} data={data} disabled={!live || view.readOnly || Boolean(data.locked)} connected={connected} focusable={Boolean(state.selected)} /> : null}
       {kind === 'primitive' && live ? <PrimitiveFields id={id} data={data} disabled={fieldsDisabled} /> : null}
       {kind === 'set' || kind === 'get' ? <ConstantLine data={data} kind={kind} /> : null}
-      {missing ? <SavedValues data={data} /> : null}
+      {missing && layout.fields.length === 0 ? <SavedValues data={data} /> : null}
       {noteText || isNote ? (
         // Editing: the person writes the note in place (NoteText.tsx); shown as before while not being written.
         <NoteText

@@ -2,7 +2,7 @@
  * One field row of a node card: the field's name, its in-place control, and the quiet link handle that keeps a
  * widget input linkable. NodeCard renders a row per field. A linked field shows a link mark instead of a control.
  */
-import React from 'react';
+import React, { useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import FieldControl from '../../fields/FieldControl';
 import { commitField } from '../../fields/commitField';
@@ -31,6 +31,7 @@ interface FieldRowProps {
  */
 export default function FieldRow({ nodeId, field, linked, focusable, live, disabled }: FieldRowProps) {
   const { t } = useTranslation();
+  const labelId = useId();
   // A multiline text gets its own line under the name; every other control sits beside it.
   const stacked = !linked && controlKind(field.spec, field.value) === 'string' && Boolean(field.spec?.multiline);
   const port = field.port;
@@ -45,7 +46,7 @@ export default function FieldRow({ nodeId, field, linked, focusable, live, disab
       style={port ? ({ '--canvas-port': typeColor(port.dataType) } as React.CSSProperties) : undefined}
     >
       {port && live ? <PortHandle nodeId={nodeId} port={port} side="input" connected={linked} focusable={focusable} quiet={!linked} /> : null}
-      <span className={`${styles.fieldName} node-field-name`} title={field.tooltipKey ? String(t(field.tooltipKey)) : field.tooltip ?? field.name}>{field.labelKey ? t(field.labelKey) : field.name}</span>
+      <span id={labelId} className={`${styles.fieldName} node-field-name`} title={field.tooltipKey ? String(t(field.tooltipKey)) : field.tooltip ?? field.name}>{field.labelKey ? t(field.labelKey, field.labelValues ?? {}) : field.name}</span>
       {linked ? (
         <span className={styles.linkedMark} title={String(t('field.linkedHint'))}>{t('field.linked')}</span>
       ) : !field.spec && isServiceData(field.value) ? (
@@ -58,8 +59,9 @@ export default function FieldRow({ nodeId, field, linked, focusable, live, disab
           value={field.value}
           spec={field.spec}
           variant="node"
+          labelledBy={labelId}
           disabled={disabled}
-          onCommit={(value) => void commitField(nodeId, field.name, value)}
+          onCommit={(value) => void commitField(nodeId, field.name, value, field.widgetIndex)}
         />
       )}
     </li>
