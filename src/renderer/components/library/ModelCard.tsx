@@ -501,7 +501,7 @@ export default function ModelCard({ model, all, onClose, onShowLoras, onAsk, onU
       }}
     >
       <header className={styles.header}>
-        <h2 id="model-card-title" className={styles.title}>{revealHidden(model.name)}</h2>
+        <h2 id="model-card-title" className={styles.title} tabIndex={-1}>{revealHidden(model.name)}</h2>
         <IconButton size="sm" label={String(t('library.card.close'))} onClick={onClose}>
           <X size={14} aria-hidden="true" />
         </IconButton>

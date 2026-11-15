@@ -5,7 +5,7 @@
  * Why a hook: the names follow the interface language, the catalog's readable class names (which arrive late)
  * and the selection, and must be recomputed only when one of those changes.
  */
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNodeInfoStore } from '../nodeInfo';
 import { useKnowledgeStore } from '../../../state/knowledgeState';
@@ -19,6 +19,14 @@ export function useSpokenCanvas<N extends FlowNode, E extends FlowEdge>(nodes: N
   const { t, i18n } = useTranslation();
   const details = useNodeInfoStore((state) => state.details);
   const catalogRead = useKnowledgeStore((state) => (state.sync?.counts.nodeClasses ?? 0) > 0);
+  // The React Flow credit stays visible but leaves the Tab order and the reading order: an English link to a web
+  // site was a Tab stop between the canvas and the right panel (the library is credited in About).
+  useEffect(() => {
+    document.querySelectorAll<HTMLElement>('.react-flow__attribution a').forEach((link) => {
+      link.tabIndex = -1;
+      link.setAttribute('aria-hidden', 'true');
+    });
+  });
   return useMemo(() => {
     const say: Say = (key, values) => String(values ? t(key, values) : t(key));
     const linked = linkedInputCounts(edges);

@@ -1,3 +1,4 @@
+import { closeCard, focusCardTitle } from '../../a11y/cardFocus';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Boxes, Film, MessageCircleQuestion, SearchX, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -278,7 +279,11 @@ export default function ModelLibrary() {
             rowHeight={ROW_HEIGHT}
             label={String(t('library.modelList'))}
             getKey={modelKey}
-            onActivate={(model) => setOpen(model)}
+            onActivate={(model) => {
+              setOpen(model);
+              // Enter opened it from the keyboard: the card takes focus (a11y/cardFocus.ts).
+              focusCardTitle('.model-card #model-card-title');
+            }}
             onRowKey={(_model, event) => {
               // Escape in the list closes the card the keyboard opened with Enter.
               if (event.key !== 'Escape' || !open) return false;
@@ -371,7 +376,7 @@ export default function ModelLibrary() {
           key={modelKey(open)}
           model={open}
           all={all}
-          onClose={() => setOpen(null)}
+          onClose={() => closeCard('.model-card', '#library-rail [role="listbox"]', () => setOpen(null))}
           onShowLoras={(base) => {
             setFitsFor(base);
             setOpen(null);

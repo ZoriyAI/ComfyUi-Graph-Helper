@@ -7,8 +7,8 @@
  * lesson step's button, a dialog opened from a menu whose item is gone, the chat field while an answer streams,
  * entering or leaving a subgraph). Focus then went to the page body, and the next Tab started again at the menu
  * bar, 40 to 100 presses away from where the person was. One rule now covers all of them: focus goes back to the
- * last element the person used in that area if it can still take focus, else to an earlier one, else to the
- * element nearest to where the lost one was (a node next to the deleted node), else to the area's entry element.
+ * last element the person used in that area if it can still take focus, else to a place the area marked for
+ * this (data-focus-fallback), else to an earlier one, else to the element nearest to where the lost one was (a node next to the deleted node), else to the area's entry element.
  * A click on an empty spot, or a focus change while the window is in the background, is left alone.
  */
 import { REGIONS, entryOf, nextRegion, regionIndexOf, usable } from './regions';
@@ -72,9 +72,12 @@ function targetFor(region: number): HTMLElement | null {
   const area = document.querySelector(REGIONS[region]?.selector ?? '');
   if (!area) return null;
   const list = histories.get(region) ?? [];
-  const kept = pickRescue(list, (item) => usable(item.element));
-  if (kept) return kept.element;
   const lost = list[list.length - 1];
+  if (lost && usable(lost.element)) return lost.element;
+  // The element is gone: a place the area marked for this (a lesson's new step title) comes before older history.
+  const marked = Array.from(area.querySelectorAll('[data-focus-fallback]')).find(usable);
+  if (marked) return marked;
+  // A deleted node or link: the node nearest to where it was, before anything used earlier.
   if (lost?.spot && lost.nodeLike) {
     const nodes = Array.from(area.querySelectorAll('.react-flow__node')).filter(usable)
       .map((item) => ({ item: item as HTMLElement, spot: centre(item) }))
@@ -82,6 +85,8 @@ function targetFor(region: number): HTMLElement | null {
     const near = nearest(lost.spot, nodes);
     if (near) return near;
   }
+  const kept = pickRescue(list, (item) => usable(item.element));
+  if (kept) return kept.element;
   return entryOf(area);
 }
 

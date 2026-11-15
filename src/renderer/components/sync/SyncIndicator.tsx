@@ -197,6 +197,9 @@ export default function SyncIndicator() {
           <span className={styles.label} title={stateLabel}>{pillLabel}</span>
         </button>
       </PopoverTrigger>
+      {/* Accessibility: a screen reader hears that a read started and how it ended, without the popover open.
+          Only the state is said (not the counters), so a long read is not announced file by file. */}
+      <span className="sr-only" role="status">{i18n.exists(`sync.state.${view.state}`) && view.state !== 'never' ? String(t(`sync.state.${view.state}`)) : ''}</span>
       <PopoverContent align="end" aria-label={String(t('settings.sync'))}>
         <div className={styles.panel}>
           <div className={styles.head}>

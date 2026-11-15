@@ -2663,6 +2663,8 @@ export const en = {
     outputs: 'outputs: {{count, number}}',
     edge: 'Link from {{from}} · {{output}} to {{to}} · {{input}}, type {{type}}',
     requiredEmpty: 'required, empty',
+    zoomNow: '{{zoom, number}}%, {{action}}',
+    recordRefused: 'This key moves around the window or types text. Hold Ctrl or Alt with it. Esc cancels.',
   },
 } as const;
 
@@ -5330,5 +5332,7 @@ export const ru = {
     outputs: 'выходов: {{count, number}}',
     edge: 'Связь от {{from}} · {{output}} к {{to}} · {{input}}, тип {{type}}',
     requiredEmpty: 'обязательный, пусто',
+    zoomNow: '{{zoom, number}}%, {{action}}',
+    recordRefused: 'Эта клавиша нужна для перемещения по окну или для ввода текста. Нажмите её вместе с Ctrl или Alt. Escape отменяет.',
   },
 } satisfies Catalog;

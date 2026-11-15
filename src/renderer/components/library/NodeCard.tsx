@@ -199,7 +199,7 @@ export default function NodeCard({ node, onClose, onAdd, onAsk }: NodeCardProps)
     >
       <header className={card.header}>
         <div className={styles.titles}>
-          <h2 id="node-card-title" className={card.title}>{name}</h2>
+          <h2 id="node-card-title" className={card.title} tabIndex={-1}>{name}</h2>
           {name !== node.classType ? <span className={card.mono}>{node.classType}</span> : null}
         </div>
         <IconButton size="sm" label={String(t('library.card.close'))} onClick={onClose}>

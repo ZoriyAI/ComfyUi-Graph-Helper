@@ -103,6 +103,8 @@ export default function MessageInput({ onSend, isStreaming, disabled = false, le
           }}
           onKeyDown={(event) => {
             if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+            // Read-only while an answer streams: no recall into it either.
+            if (isStreaming && event.key !== 'Tab') return;
             // ↑ / ↓ in an empty box (or on a recalled message) bring back earlier messages of the person.
             if ((event.key === 'ArrowUp' || event.key === 'ArrowDown') && (input === '' || recalled.current !== null) && !event.shiftKey) {
               const sent = useChatStore.getState().messages.filter((message) => message.role === 'user').map((message) => message.content);
@@ -119,7 +121,10 @@ export default function MessageInput({ onSend, isStreaming, disabled = false, le
             }
           }}
           placeholder={String(t(intent === 'ask' ? 'chat.placeholderAsk' : 'chat.placeholder'))}
-          disabled={disabled || isStreaming}
+          // While an answer streams the field stays focusable (read-only), so keyboard focus is not thrown to the page.
+          disabled={disabled}
+          readOnly={isStreaming}
+          aria-busy={isStreaming || undefined}
         />
         {isStreaming && onStop ? (
           // While the helper answers, Stop takes Send's place: the one control at the end of the field.

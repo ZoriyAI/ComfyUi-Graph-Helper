@@ -162,6 +162,9 @@ export default function ChatDock({ onSendMessage, onPause }: ChatDockProps = {})
         role="log"
         aria-label={String(t('chat.log'))}
         aria-live="polite"
+        // A streaming answer changes the log many times a second; busy holds the announcements until it is done,
+        // so a screen reader reads the answer once instead of word by word.
+        aria-busy={isStreaming || undefined}
         hidden={learning}
         onScroll={(event) => {
           const log = event.currentTarget;

@@ -8,6 +8,7 @@ import { nextRegion, REGIONS } from '../../src/renderer/a11y/regions';
 import { nearest, pickRescue } from '../../src/renderer/a11y/focusRescue';
 import { shortcutAllowed } from '../../src/renderer/commands/hotkeys';
 import { createTranslator } from '../../src/shared/i18n';
+import { recordVerdict } from '../../src/renderer/a11y/recordKeys';
 
 const ru = createTranslator('ru') as unknown as Say;
 const en = createTranslator('en') as unknown as Say;
@@ -74,5 +75,24 @@ describe('F6 areas and the focus rescue', () => {
   it('lets F1 open the shortcuts window while typing, but not over a dialog', () => {
     expect(shortcutAllowed('F1', { editable: true, layerOpen: false })).toBe(true);
     expect(shortcutAllowed('F1', { editable: false, layerOpen: true })).toBe(false);
+  });
+});
+
+describe('the shortcut recorder', () => {
+  const key = (k: string, mods: Partial<{ ctrlKey: boolean; altKey: boolean; metaKey: boolean; shiftKey: boolean }> = {}, code?: string) => ({ key: k, code, ctrlKey: false, altKey: false, metaKey: false, shiftKey: false, ...mods });
+  it('lets Tab and Shift+Tab leave instead of recording them', () => {
+    expect(recordVerdict(key('Tab'))).toBe('leave');
+    expect(recordVerdict(key('Tab', { shiftKey: true }))).toBe('leave');
+    expect(recordVerdict(key('Tab', { ctrlKey: true }))).toBe('record');
+  });
+  it('refuses keys that move around the window or type text, unless a modifier is held', () => {
+    expect(recordVerdict(key('d'))).toBe('refuse');
+    expect(recordVerdict(key('Enter'))).toBe('refuse');
+    expect(recordVerdict(key(' ', {}, 'Space'))).toBe('refuse');
+    expect(recordVerdict(key('ArrowLeft', { shiftKey: true }))).toBe('refuse');
+    expect(recordVerdict(key('!', { shiftKey: true }))).toBe('record');
+    expect(recordVerdict(key('d', { ctrlKey: true }))).toBe('record');
+    expect(recordVerdict(key('Delete'))).toBe('record');
+    expect(recordVerdict(key('F2'))).toBe('record');
   });
 });
