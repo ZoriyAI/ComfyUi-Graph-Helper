@@ -1,3 +1,8 @@
+/**
+ * Where a node added by hand lands: the drop point or the view's centre, moved to the nearest free spot. The add-node
+ * search, drops on the canvas, the context menu, the library, lessons, the menu bar and the editing commands all
+ * place through it, so a new node never covers another one whichever way it was added.
+ */
 import { useCanvasStore } from './canvasStore';
 import { freeSpotFor, viewCentreSpot, NEW_NODE_SIZE, type PositionedNode } from './lib/geometry';
 import { layoutRect, newNodeSize, sizeHintsOf } from './lib/nodeSizes';

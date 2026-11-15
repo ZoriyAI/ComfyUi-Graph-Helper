@@ -1,3 +1,7 @@
+/**
+ * The breadcrumb bar over the canvas while a subgraph is open: the root graph, each subgraph on the way in, an Up
+ * button and a line saying the canvas shows a definition. GraphWorkspace renders it; it hides itself on the root.
+ */
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronRight, CornerLeftUp } from 'lucide-react';

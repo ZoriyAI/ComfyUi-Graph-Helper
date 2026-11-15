@@ -1,3 +1,9 @@
+/**
+ * The node catalog cache of the renderer: each class's ports, fields and description, asked of the main process once
+ * per class and shared. Node cards, Properties, the add-node search, layers, the tour, lessons and the library read
+ * it. It re-asks every known class after each new read of ComfyUI, so a class installed since appears without a
+ * restart.
+ */
 import { useEffect } from 'react';
 import { create } from 'zustand';
 import type { NodeClassDetail } from '../../../shared/contracts/knowledge';
@@ -12,8 +18,10 @@ interface NodeInfoState {
   request: (classType: string) => Promise<NodeClassDetail | null>;
 }
 
+/** Requests on their way, so many nodes of one class asking at once make a single bridge call. */
 const inflight = new Map<string, Promise<NodeClassDetail | null>>();
 
+/** The cache itself: `details` by class type and `request`, which fills it. */
 export const useNodeInfoStore = create<NodeInfoState>((set, get) => ({
   details: {},
   request: (classType) => {
@@ -48,6 +56,7 @@ export function refreshNodeInfo(): void {
   }
 }
 
+// Module-level watch on the sync status: a finished read with a new timestamp refreshes every class asked so far.
 let seenStatus = false;
 let lastRead: number | null = null;
 useKnowledgeStore.subscribe((state) => {

@@ -1,3 +1,9 @@
+/**
+ * Arrange the graph (canvas.arrangeGraph): where each node goes, and the one commit that moves them. The
+ * graph.arrange command (commands/appCommands.ts) runs arrangeGraph from the toolbar, the menu and its shortcut;
+ * tests/unit/canvasLayout.test.ts and canvasEditing.test.ts check the moves. Groups get special care because in
+ * ComfyUI a group holds whatever lies inside its frame.
+ */
 import type { GraphMutation } from '../../../shared/commands/types';
 import { boundsOfRects, layoutGraph, LAYOUT_GAPS } from '../../../shared/graph/layout';
 import { canvasHandle } from '../../commands/canvasHandle';
@@ -8,17 +14,17 @@ import { levelEdges, levelNodes } from './lib/level';
 import { useGraphStore } from '../../state/graphState';
 import type { PositionedNode } from './lib/geometry';
 
+/** The moves of one `move-nodes` commit. */
 type Moves = Extract<GraphMutation, { type: 'move-nodes' }>['moves'];
 
 /**
- * «Разложить граф»: where each node goes. Two or more selected nodes are arranged among themselves around the
- * rest (which stays put); otherwise the whole graph. Sizes are React Flow's measurements at a readable zoom.
- * Returns only nodes that move.
+ * The margin a group draws around its members (lib/geometry groupRect), and room for its title. The title room is a
+ * little larger than lib/geometry's GROUP_TITLE (32), so a node pushed below a frame never touches it.
  */
-/** The margin a group draws around its members (lib/geometry groupRect), and room for its title. */
 export const GROUP_PAD = 24;
 export const GROUP_TITLE = 36;
 
+/** A node's rectangle on the canvas. */
 interface Box { x: number; y: number; width: number; height: number }
 
 function overlaps(a: Box, b: Box): boolean {
@@ -32,6 +38,8 @@ function overlaps(a: Box, b: Box): boolean {
  */
 export function clearGroups(rects: Map<string, Box>, groups: Array<{ nodeIds: string[] }>, movable: Set<string>, gap: number = LAYOUT_GAPS.gapY): Map<string, Box> {
   const out = new Map([...rects].map(([id, rect]) => [id, { ...rect }]));
+  // A node pushed out of one frame can land in another; a few rounds settle that, and the cap of 8 ends a loop
+  // that would not.
   for (let round = 0; round < 8; round += 1) {
     let changed = false;
     for (const group of groups) {
@@ -50,6 +58,11 @@ export function clearGroups(rects: Map<string, Box>, groups: Array<{ nodeIds: st
   return out;
 }
 
+/**
+ * Arrange the graph: where each node goes. Two or more selected nodes are arranged among themselves around the
+ * rest (which stays put); otherwise the whole graph. Sizes are React Flow's measurements at a readable zoom.
+ * Returns only nodes that move.
+ */
 export function arrangeMoves(nodes: Array<PositionedNode & { selected?: boolean }>, edges: Array<{ source: string; target: string }>, groups: Array<{ nodeIds: string[] }> = []): Moves {
   const selected = nodes.filter((node) => node.selected);
   const target = selected.length >= 2 ? selected : nodes;
@@ -80,6 +93,7 @@ export function arrangeMoves(nodes: Array<PositionedNode & { selected?: boolean 
   for (const node of ordered) {
     const next = cleared.get(node.id);
     if (!next) continue;
+    // Under half a pixel is no move: rounding alone must not make an undo step.
     if (Math.abs(node.position.x - next.x) < 0.5 && Math.abs(node.position.y - next.y) < 0.5) continue;
     moves.push({ nodeId: node.id, x: next.x, y: next.y });
   }

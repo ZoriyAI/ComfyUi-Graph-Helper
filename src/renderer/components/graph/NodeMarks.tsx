@@ -1,7 +1,8 @@
 /**
- * Small marks beside a node's name: «Платная» (a paid node on an outside service), «Устарела», «Опытная» and, in the
- * node search, «Результат» (a node that saves or shows a result). The node search (AddNodeSearch.tsx) and the node
- * card (nodes/NodeCard.tsx, paid only) use them, so a newcomer sees cost and age before adding a node.
+ * Small marks beside a node's name: Paid (editing.marks.api, a node on an outside service), Outdated, Experimental
+ * and Result (a node that saves or shows a result). The node search (AddNodeSearch.tsx) renders this component, so
+ * a newcomer sees cost and age before adding a node. The node card (nodes/NodeCard.tsx) shows the same Paid mark
+ * with its own badge, not through this component.
  */
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -14,6 +15,7 @@ interface NodeMarksProps {
   output?: boolean;
 }
 
+/** The marks of one search result, in catalog order; nothing when it has none. */
 export default function NodeMarks({ marks, output }: NodeMarksProps) {
   const { t } = useTranslation();
   const shown: Array<'api' | 'deprecated' | 'experimental' | 'output'> = [...(marks ?? [])];

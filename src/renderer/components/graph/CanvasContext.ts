@@ -1,3 +1,9 @@
+/**
+ * The canvas view context: what every node and link on the level on screen needs (its edges, the connect plan, the
+ * check's marks, the attention focus). CanvasFlow computes it once and provides it; node cards, ports, boundary and
+ * subgraph nodes, TypedEdge and the connect-assist and description layers read it with useCanvasView. One context
+ * value instead of per-node store reads keeps a big graph from recomputing the same sets in every node.
+ */
 import { createContext, useContext } from 'react';
 import type { GraphEdge } from '../../types/graph';
 import type { ConnectPlan } from './lib/connectAssist';
@@ -25,6 +31,7 @@ export interface CanvasView {
   focusNodes: Set<string> | null;
 }
 
+/** The context CanvasFlow fills; the default (empty, editable) only shows outside a canvas, as in a unit test. */
 export const CanvasViewContext = createContext<CanvasView>({
   edges: [],
   plan: null,
@@ -36,6 +43,7 @@ export const CanvasViewContext = createContext<CanvasView>({
   focusNodes: null,
 });
 
+/** The current level's CanvasView, for a component drawn inside CanvasFlow. */
 export function useCanvasView(): CanvasView {
   return useContext(CanvasViewContext);
 }

@@ -1,2 +1,2 @@
-/* The size of a subgraph in words, quieter than its name. */
+/* The size of a subgraph in words (SubgraphSummary.tsx), quieter than its name beside it. */
 .summary { color: var(--text-dim); font-size: var(--text-xs, 12px); font-variant-numeric: tabular-nums; white-space: nowrap; }

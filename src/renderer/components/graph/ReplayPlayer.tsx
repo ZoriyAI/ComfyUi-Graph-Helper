@@ -1,3 +1,8 @@
+/**
+ * The history player in the canvas toolbar: a button that opens the replay, then play / pause, a slider over the
+ * saved versions, "Return to this version" and close. CanvasToolbar renders it; appCommands.ts runs openReplay for
+ * the Graph menu. The version shown is a read-only picture; only "Return to this version" changes the graph.
+ */
 import React, { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { History, Pause, Play, Undo2, X } from 'lucide-react';
@@ -10,7 +15,7 @@ import { i18n } from '../../i18n';
 import { readingPaceMs } from '../../motion/policy';
 import styles from './Toolbar.module.css';
 
-/** Opens the replay on the newest revision. Shared by the canvas toolbar and the Graph ▸ Replay command. */
+/** Opens the replay on the newest revision. Shared by the toolbar's player and the Graph ▸ Replay command. */
 export async function openReplay(projectId: string = useProjectionStore.getState().projectId): Promise<void> {
   const bridge = window.electronAPI;
   if (!bridge?.listRevisions) return;
@@ -46,6 +51,7 @@ export default function ReplayPlayer() {
 
   const open = () => openReplay(projectId);
 
+  // Loads the snapshot of the version under the slider; a newer pick drops an older answer still on its way.
   const revisionId = replay ? replay.revisions[replay.index]?.id : undefined;
   useEffect(() => {
     if (!revisionId) return undefined;
@@ -64,6 +70,7 @@ export default function ReplayPlayer() {
   const playing = replay?.playing ?? false;
   const index = replay?.index ?? 0;
   const loading = replay?.loading ?? true;
+  // Playing steps to the next version once the current one is loaded and has been on screen for a reading pause.
   useEffect(() => {
     if (!playing || loading) return undefined;
     const timer = window.setTimeout(() => {
@@ -75,6 +82,7 @@ export default function ReplayPlayer() {
     return () => window.clearTimeout(timer);
   }, [playing, index, loading, patchReplay]);
 
+  // Escape closes the replay, unless the key was pressed inside a dialog, a menu or a list.
   const active = Boolean(replay);
   useEffect(() => {
     if (!active) return undefined;
@@ -126,6 +134,7 @@ export default function ReplayPlayer() {
         onChange={(event) => patchReplay({ index: clampIndex(Number(event.target.value), count), playing: false })}
       />
       <span className={styles.label}>{replay.revisions[replay.index]?.revSeq}</span>
+      {/* The newest version is the graph already: there is nothing to return to. */}
       {replay.index < count - 1 ? (
         <button
           type="button"
