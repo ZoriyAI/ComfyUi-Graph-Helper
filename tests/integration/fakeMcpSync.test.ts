@@ -66,8 +66,8 @@ describe('sync against the fake MCP server', () => {
       expect(READ_ONLY_TOOLS[call.tool!](call.args ?? {})).toBe(true);
       expect(WRITE_TOOLS as readonly string[]).not.toContain(call.tool);
     }
-    // Paging ran past the server's page cap.
-    expect(tools.filter((call) => call.tool === 'studio_capabilities' && call.args?.kind === 'classes').length).toBeGreaterThan(1);
+    // Full native definitions already supplied the registry: avoid asking discovery to rebuild it per page.
+    expect(tools.filter((call) => call.tool === 'studio_capabilities' && call.args?.kind === 'classes')).toHaveLength(0);
     expect(tools.some((call) => call.tool === 'comfy_api')).toBe(true);
     expect(fake.comfyHits).toEqual(['GET /system_stats', 'GET /object_info']);
     expect(fake.calls.every((call) => call.authorized)).toBe(true);

@@ -195,11 +195,10 @@ describe('a listing the server answers with "try again"', () => {
     const sync = service(fake.url, []);
     const status = await sync.runSync(db);
     const asked = fake.calls.filter((call) => call.tool === 'studio_capabilities');
-    // Classes and packs: each asked once and retried at most LISTING_RETRIES times.
-    expect(asked).toHaveLength(2 * (1 + LISTING_RETRIES));
+    // Native object_info already supplied the classes; only packs need the retryable discovery tool.
+    expect(asked).toHaveLength(1 + LISTING_RETRIES);
     expect(status.state).toBe('idle');
     expect(status.unreadable?.filter((row) => row.kind === 'section')).toEqual([
-      expect.objectContaining({ name: 'node classes', reason: 'comfyDown' }),
       expect.objectContaining({ name: 'node packs', reason: 'comfyDown' }),
     ]);
     sync.stop();

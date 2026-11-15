@@ -363,6 +363,9 @@ interface EnrichRun {
   isCurrent: () => boolean;
   signal: AbortSignal;
   session: McpSession;
+  /** Read-only native fallback, only after this run verified the accepted ComfyUI origin. */
+  metadataFallback?: McpSession;
+  nativeMetadata?: boolean;
   /** When the sync this reading belongs to began. */
   startedAt: number;
   hasTool: boolean;
@@ -1072,6 +1075,7 @@ export class SyncService {
         ...this.newRun(ticket, metadataSession, startedAt, settings, done, resolve),
         hasTool: metadataFromComfy || (read.profile === 'catalog' && read.toolNames.has('model_metadata')),
         hasFiles,
+        ...(read.metadataOrigin ? { metadataFallback: comfyMetadataSession(read.metadataOrigin, fetchImpl, ticket.controller.signal, { allowMissing: false }) } : {}),
         // A lost MCP connection is opened again through the same factory with the same sign-in; the ComfyUI
         // reader asks over plain HTTP and is simply asked again.
         reconnect: metadataFromComfy ? async () => metadataSession : async () => {
@@ -1433,16 +1437,23 @@ export class SyncService {
         const headerDue = row.enriched_at == null || (run.hasTool && isHeaderFile(row.name) && now - row.enriched_at >= HEADER_REFRESH_MS);
         let parsed: ParsedModelMetadata | null = null;
         if (headerDue && run.hasTool && isHeaderFile(row.name)) {
-          let outcome = await readMetadata(run.session, row.directory, row.name);
+          let outcome = await readMetadata(run.nativeMetadata && run.metadataFallback ? run.metadataFallback : run.session, row.directory, row.name);
           if (run.cancelled || !run.isCurrent()) break;
           run.attempted += 1;
-          if (!outcome.ok && isConnectionLoss(outcome.failure)) {
+          if (!outcome.ok && isConnectionLoss(outcome.failure) && !run.nativeMetadata) {
             const droppedHere = outcome.failure.reason === 'dropped';
             const restored = await this.restoreConnection(run);
             if (run.cancelled || !run.isCurrent()) break;
             if (restored) {
               outcome = await readMetadata(run.session, row.directory, row.name);
               if (run.cancelled || !run.isCurrent()) break;
+            }
+            if (!outcome.ok && isConnectionLoss(outcome.failure) && run.metadataFallback) {
+              // MCP may still list tools while its internal reader is disconnected. Keep the MCP session for
+              // sidecars; read this and subsequent headers through the already verified native origin instead.
+              const fallback = await readMetadata(run.metadataFallback, row.directory, row.name);
+              if (run.cancelled || !run.isCurrent()) break;
+              if (fallback.ok) { outcome = fallback; run.nativeMetadata = true; }
             }
             if (!outcome.ok && isConnectionLoss(outcome.failure)) {
               // The file broke a connection and fails again on a new one: it is the one that breaks it. It alone

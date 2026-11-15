@@ -94,9 +94,9 @@ describe('the read-only gate for ComfyUI', () => {
   });
 
   it('is the only way the ComfyUI reader reaches the network', () => {
-    // Every module that talks to a ComfyUI address calls comfyGet; none calls fetch itself.
+    // Catalog readers use comfyGet. The separately guarded, user-selected media upload is an explicit write.
     const folder = path.resolve(__dirname, '../../src/main/comfy');
-    for (const file of fs.readdirSync(folder).filter((name) => name.endsWith('.ts') && name !== 'gate.ts')) {
+    for (const file of fs.readdirSync(folder).filter((name) => name.endsWith('.ts') && !['gate.ts', 'upload.ts'].includes(name))) {
       const source = fs.readFileSync(path.join(folder, file), 'utf8');
       expect(/\bfetchImpl\s*\(|\bfetch\s*\(/.test(source), file).toBe(false);
     }

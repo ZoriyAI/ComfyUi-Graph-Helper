@@ -435,7 +435,7 @@ export async function readComfyDirect(db: Database.Database, address: string, fe
  * no metadata (ComfyUI answers 404) is a file read with nothing to say; a failed read throws so it is retried later.
  * Only `model_metadata` is answered; any other name is refused.
  */
-export function comfyMetadataSession(originText: string, fetchImpl: typeof fetch, signal?: AbortSignal): McpSession {
+export function comfyMetadataSession(originText: string, fetchImpl: typeof fetch, signal?: AbortSignal, options: { allowMissing?: boolean } = {}): McpSession {
   const origin = new URL(originText);
   const answer = (payload: unknown): McpToolCallResult => ({ content: [{ type: 'text', text: JSON.stringify(payload) }], structuredContent: payload as Record<string, unknown> });
   return {
@@ -451,7 +451,7 @@ export function comfyMetadataSession(originText: string, fetchImpl: typeof fetch
         const meta = read.json && typeof read.json === 'object' && !Array.isArray(read.json) ? read.json : {};
         return answer({ embedded_metadata: meta, civitai_sidecar: null });
       }
-      if (!read.ok && read.error === 'notFound') return answer({ embedded_metadata: {}, civitai_sidecar: null });
+      if (!read.ok && read.error === 'notFound' && options.allowMissing !== false) return answer({ embedded_metadata: {}, civitai_sidecar: null });
       throw new Error('ComfyUI metadata read failed');
     },
     close: async () => undefined,

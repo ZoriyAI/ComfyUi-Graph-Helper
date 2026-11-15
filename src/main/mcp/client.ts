@@ -8,7 +8,7 @@
  */
 import type Database from 'better-sqlite3';
 import { Client, StreamableHTTPClientTransport, type OAuthClientProvider } from '@modelcontextprotocol/client';
-import type { McpSession, McpToolCallResult } from '../../shared/mcp/catalogSource';
+import type { McpNodeClass, McpSession, McpToolCallResult } from '../../shared/mcp/catalogSource';
 import {
   comfyUrlFromStudioInfo,
   McpPageError,
@@ -264,6 +264,8 @@ export interface CatalogReadDetail {
   profile: McpProfile;
   /** The ComfyUI address read for the nodes, when the server gives models only. */
   direct: DirectReadSuccess | null;
+  /** Native origin whose object_info was actually read through the accepted-origin gate in this run. */
+  metadataOrigin?: string;
   /** Sentences about the ComfyUI part of the read (the MCP part's own come from catalogWarnings). */
   warnings: string[];
 }
@@ -431,6 +433,7 @@ export async function readCatalogWithSession(
   // Every catalog write waits here until all reads are done, then runs in one transaction (publish): a read that
   // fails or is cancelled halfway leaves the stored catalog exactly as it was.
   const writes: Array<() => void> = [];
+  const definitionWrites: Array<() => void> = [];
   let identity: ServerIdentity = { installationId: null, comfyuiUrl: null };
   let comfyUrl: string | null = null;
   if (tools.has('studio_info')) {
@@ -448,6 +451,7 @@ export async function readCatalogWithSession(
       // A caller without a captured endpoint cannot establish a new source identity.
       if (endpoint) acceptCatalogSource(db, sourceKey);
       for (const write of writes) write();
+      for (const write of definitionWrites) write();
       inferModelsFromNames(db);
       if (endpoint) {
         const state = db.prepare('INSERT INTO sync_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
@@ -516,11 +520,56 @@ export async function readCatalogWithSession(
     return detail;
   }
 
+  // Read definitions once before discovery: some MCP servers recompute /object_info for every class page.
+  let objectInfoClasses: McpNodeClass[] | null = null;
+  const captureClasses = (document: unknown) => {
+    if (!document || typeof document !== 'object' || Array.isArray(document)) return;
+    const rows = Object.entries(document).flatMap(([classType, value]): McpNodeClass[] => {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
+      const info = value as Record<string, unknown>;
+      return [{ classType, module: typeof info.python_module === 'string' ? info.python_module : 'nodes',
+        displayName: typeof info.display_name === 'string' ? info.display_name : '',
+        category: typeof info.category === 'string' ? info.category : '' }];
+    });
+    if (rows.length > 0) objectInfoClasses = rows;
+  };
+  let objectInfo: McpReadSuccess['objectInfo'] = 'none';
+  if (tools.has('comfy_api')) {
+    const payload = toolPayload(await session.callTool('comfy_api', { method: 'GET', route: '/object_info' }));
+    const read = payload && typeof payload === 'object' && !('error' in (payload as object)) ? payload : null;
+    if (read) {
+      try {
+        const parsed = parseObjectInfo(read);
+        captureClasses(read);
+        definitionWrites.push(() => { upsertObjectInfo(db, parsed, now); });
+        objectInfo = 'mcp';
+      } catch {
+        skipped.push('nodeDetailsMcp');
+      }
+    } else {
+      skipped.push('nodeDetailsMcp');
+    }
+  }
+  let actualComfyOrigin: string | null = null;
+  let nativeComfy: NonNullable<McpReadSuccess['nativeComfy']> = 'notTried';
+  if (objectInfo === 'none' && (comfyUrl || comfyOrigin)) {
+    // The address the server named, when it is the saved one or both are on this computer; else the saved one.
+    // The server must not steer reads elsewhere.
+    const nativeUrl = (comfyUrl ? acceptedComfyUrl(comfyUrl, comfyOrigin, context.mcpUrl) : null) ?? (comfyOrigin || null);
+    const checkedNative = comfyAddress(nativeUrl ?? '');
+    actualComfyOrigin = checkedNative.ok ? checkedNative.origin.origin : null;
+    const native = nativeUrl ? await applyComfyRead(db, nativeUrl, fetchImpl, { signal: context.signal, collect: (parsed, document) => { captureClasses(document); definitionWrites.push(() => { upsertObjectInfo(db, parsed, now); }); } }) : null;
+    if (native?.ok) { objectInfo = 'native'; actualComfyOrigin = new URL(nativeUrl!).origin; }
+    else skipped.push('nodeDetailsNative');
+    nativeComfy = native?.ok ? 'ok' : nativeUrl ? 'unreachable' : 'notAllowed';
+  }
   // Rows this run stores carry `now`; after a complete listing, older synced rows are gone from the server.
   let nodes = 0;
   let packs = 0;
-  if (tools.has('studio_capabilities')) {
-    const classes = await pagedOrNull(() => readNodeClassesPaged(session));
+  if (tools.has('studio_capabilities') || objectInfoClasses) {
+    const classes = objectInfoClasses
+      ? { items: objectInfoClasses, complete: true }
+      : await pagedOrNull(() => readNodeClassesPaged(session));
     if (classes) {
       nodes = classes.items.length;
       writes.push(() => {
@@ -531,12 +580,12 @@ export async function readCatalogWithSession(
       skipped.push('nodeClasses');
       failedSections.push('node classes');
     }
-    const packList = await pagedOrNull(() => readNodePacks(session));
+    const packList = tools.has('studio_capabilities') ? await pagedOrNull(() => readNodePacks(session)) : null;
     if (packList) {
       packs = packList.items.length;
       writes.push(() => { replaceNodePacks(db, packList.items, now, packList.complete); });
     }
-    else {
+    else if (tools.has('studio_capabilities')) {
       skipped.push('nodePacks');
       failedSections.push('node packs');
     }
@@ -575,41 +624,13 @@ export async function readCatalogWithSession(
     skipped.push('modelFiles');
   }
 
-  let objectInfo: McpReadSuccess['objectInfo'] = 'none';
-  if (tools.has('comfy_api')) {
-    const payload = toolPayload(await session.callTool('comfy_api', { method: 'GET', route: '/object_info' }));
-    const read = payload && typeof payload === 'object' && !('error' in (payload as object)) ? payload : null;
-    if (read) {
-      try {
-        const parsed = parseObjectInfo(read);
-        writes.push(() => { upsertObjectInfo(db, parsed, now); });
-        objectInfo = 'mcp';
-      } catch {
-        skipped.push('nodeDetailsMcp');
-      }
-    } else {
-      skipped.push('nodeDetailsMcp');
-    }
-  }
-  let actualComfyOrigin: string | null = null;
-  let nativeComfy: NonNullable<McpReadSuccess['nativeComfy']> = 'notTried';
-  if (objectInfo === 'none' && (comfyUrl || comfyOrigin)) {
-    // The address the server named, when it is the saved one or both are on this computer; else the saved one.
-    // The server must not steer reads elsewhere.
-    const nativeUrl = (comfyUrl ? acceptedComfyUrl(comfyUrl, comfyOrigin, context.mcpUrl) : null) ?? (comfyOrigin || null);
-    const checkedNative = comfyAddress(nativeUrl ?? '');
-    actualComfyOrigin = checkedNative.ok ? checkedNative.origin.origin : null;
-    const native = nativeUrl ? await applyComfyRead(db, nativeUrl, fetchImpl, { signal: context.signal, collect: (parsed) => { writes.push(() => { upsertObjectInfo(db, parsed, now); }); } }) : null;
-    if (native?.ok) { objectInfo = 'native'; actualComfyOrigin = new URL(nativeUrl!).origin; }
-    else skipped.push('nodeDetailsNative');
-    nativeComfy = native?.ok ? 'ok' : nativeUrl ? 'unreachable' : 'notAllowed';
-  }
   const detail: CatalogReadDetail = {
     result: { ok: true, tools: tools.size, nodes, packs, models, objectInfo, comfyUrl, skipped, failedSections, failedFolders, nativeComfy, comfyUnavailable },
     toolNames: tools,
     identity,
     profile,
     direct: null,
+    ...(nativeComfy === 'ok' && actualComfyOrigin ? { metadataOrigin: actualComfyOrigin } : {}),
     warnings: [],
   };
   publish(detail, actualComfyOrigin);

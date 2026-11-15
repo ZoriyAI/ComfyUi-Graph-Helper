@@ -81,7 +81,7 @@ function deviceCount(value: unknown): number {
  * GET /system_stats and GET /object_info on the origin, through the read-only gate (gate.ts). Never queues a
  * prompt. Stores the node classes only: the whole read (packs, models) is comfy/direct.ts.
  */
-export async function applyComfyRead(db: Database.Database, origin: string, fetchImpl: typeof fetch, options: { signal?: AbortSignal; collect?: (parsed: ParsedObjectInfo) => void } = {}): Promise<ComfyReadSuccess | ComfyReadFailure> {
+export async function applyComfyRead(db: Database.Database, origin: string, fetchImpl: typeof fetch, options: { signal?: AbortSignal; collect?: (parsed: ParsedObjectInfo, document: unknown) => void } = {}): Promise<ComfyReadSuccess | ComfyReadFailure> {
   const base = comfyOriginOf(origin);
   if (!base) return { ok: false, error: 'Comfy origin is empty.' };
   const stats = await comfyGet(base, COMFY_ROUTES.systemStats(), fetchImpl, options.signal);
@@ -95,7 +95,7 @@ export async function applyComfyRead(db: Database.Database, origin: string, fetc
     const parsed = parseObjectInfo(info.json);
     // With `collect` the caller stores the classes itself, later, inside its own catalog publication.
     const stored = options.collect
-      ? (options.collect(parsed), { nodes: parsed.nodes.length, models: parsed.models.length, skipped: parsed.skipped })
+      ? (options.collect(parsed, info.json), { nodes: parsed.nodes.length, models: parsed.models.length, skipped: parsed.skipped })
       : upsertObjectInfo(db, parsed);
     console.log(`[Comfy] object_info ${(info.bytes / (1024 * 1024)).toFixed(1)} MiB, ${stored.nodes} classes read in ${Date.now() - started} ms`);
     return {

@@ -5,6 +5,12 @@
 Releases, newest first. Each release has full notes in `docs/releases/`.
 This file is written by `node scripts/changelog.js`: change the notes, not this file.
 
+## 1.2.2
+
+Synchronization reuses the ComfyUI registry it has already read and can finish model metadata through the verified ComfyUI origin when MCP's internal reader keeps answering “Not connected” after reconnection.
+
+Notes: [docs/releases/v1.2.2.md](docs/releases/v1.2.2.md)
+
 ## 1.2.1
 
 Media loaders now let you choose a file from this device, including a phone browser. The node library has **Collapse all** and **Expand all** controls. Input and output ports share the same rows, following ComfyUI's node layout. Browser access over Wi-Fi from 1.2.0 is included.

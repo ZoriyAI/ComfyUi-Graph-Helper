@@ -31,8 +31,11 @@ const OBJECT_INFO = {
     input_order: { required: ['model', 'seed'] },
     output: ['LATENT'],
     output_name: ['LATENT'],
-    python_module: 'nodes',
+    python_module: 'nodes', display_name: 'KSampler', category: 'sampling',
   },
+  // The full registry names these classes even when their widget definitions cannot be parsed.
+  LoraLoader: { input: null, output: [], python_module: 'nodes', display_name: 'Load LoRA', category: 'loaders' },
+  CustomThing: { input: null, output: [], python_module: 'custom_nodes.example', display_name: 'Custom', category: 'x' },
 };
 
 /** A deterministic stand-in for the home ComfyUI MCP server. Labelled test fixture, not a discovered environment. */
