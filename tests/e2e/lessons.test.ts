@@ -245,7 +245,8 @@ test('lessons: a lesson that does not fit says what is missing, and before Comfy
   try {
     await openLearn(fresh.page);
     await expect(panel(fresh.page).getByText('Lessons are fitted to your ComfyUI')).toBeVisible();
-    for (const lesson of ordinaryLessons()) await expect(panel(fresh.page).locator(`[data-lesson-card="${lesson.id}"]`).getByRole('button')).toBeDisabled();
+    // Start waits for ComfyUI; exporting a lesson to a file does not need it, so only Start is held.
+    for (const lesson of ordinaryLessons()) await expect(panel(fresh.page).locator(`[data-lesson-card="${lesson.id}"]`).getByRole('button', { name: en.lessons.start, exact: true })).toBeDisabled();
     await panel(fresh.page).getByRole('button', { name: 'Connect ComfyUI…', exact: true }).click();
     await expect(fresh.page.locator('[role="dialog"].settings-dialog')).toBeVisible();
     await expectSoundLayout(fresh.page, 'lessons before ComfyUI is read');
@@ -282,7 +283,7 @@ test('lessons: a lesson that does not fit says what is missing, and before Comfy
     // One sentence per source of nodes, each node once, and that the person installs them.
     await expect(video).toContainText('It needs a newer ComfyUI. Missing nodes: EmptyHunyuanLatentVideo, CreateVideo, SaveVideo.');
     await expect(video).toContainText('You install nodes in ComfyUI yourself');
-    await expect(video.getByRole('button')).toBeDisabled();
+    await expect(video.getByRole('button', { name: en.lessons.start, exact: true })).toBeDisabled();
     // The lesson on LoRA stands on the video graph, which cannot be built here: it does not fit either.
     const lora = panel(page).locator('[data-lesson-card="lora"]');
     await expect(lora).toHaveAttribute('data-lesson-state', 'unfit');
