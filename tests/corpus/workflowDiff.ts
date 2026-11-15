@@ -9,10 +9,13 @@
  * Everything else is reported as a Difference with a class. A class is the generalised path
  * (array indexes replaced by []) plus the kind of change. ACCEPTABLE_CLASSES lists the classes
  * that are deliberate and harmless, with the reason. Every other class counts as loss.
+ * Used by workflowRoundTrip.test.ts to decide whether a workflow survived the app unchanged.
  */
 
+/** missing: a key the original had is gone; added: a new key; changed: another value; length: an array resized. */
 export type DifferenceKind = 'missing' | 'added' | 'changed' | 'length';
 
+/** One difference at one JSON path (`nodes[3].pos`), with its class and the two values. */
 export interface Difference {
   path: string;
   kind: DifferenceKind;
@@ -34,6 +37,7 @@ const COLLAPSE_AFTER = [
   /^(.*\.)?config/,
 ];
 
+/** The class part of a path: indexes become [] and the path is cut at a collapsed container. */
 export function classPath(path: string): string {
   const general = path.replace(/\[\d+\]/g, '[]');
   for (const pattern of COLLAPSE_AFTER) {
@@ -43,6 +47,10 @@ export function classPath(path: string): string {
   return general;
 }
 
+/**
+ * Walks both values and appends every difference to `out`. Array items are compared by index, so an inserted item
+ * shows as changes after it plus one `length` difference; that is enough to flag loss, not to explain it.
+ */
 export function diffJson(before: unknown, after: unknown, path = '', out: Difference[] = []): Difference[] {
   if (Object.is(before, after)) return out;
   if (typeof before === 'number' && typeof after === 'number' && before === after) return out;
@@ -90,6 +98,7 @@ const RAISED_COUNTERS = new Set([
   'changed definitions.subgraphs[].state.lastLinkId',
 ]);
 
+/** Whether a difference is deliberate: a counter that went up, or a class listed in ACCEPTABLE_CLASSES. */
 export function isAcceptable(difference: Difference): boolean {
   if (RAISED_COUNTERS.has(difference.cls)) {
     return typeof difference.before === 'number' && typeof difference.after === 'number' && difference.after > difference.before;
@@ -101,6 +110,7 @@ export function lossOnly(differences: Difference[]): Difference[] {
   return differences.filter((difference) => !isAcceptable(difference));
 }
 
+/** A value as JSON, cut to `limit` characters, for a readable report line. */
 export function short(value: unknown, limit = 160): string {
   let text: string;
   try {
