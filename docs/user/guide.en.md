@@ -46,7 +46,9 @@ Right-click a node, a port or a link: "Ask the assistant" about that part of the
 
 ## Lessons
 
-"Learn" has 45 lessons grouped by topic: a first picture from text, how a model reads a description, video on Wan 2.2, LoRA, video with the WanVideoWrapper pack and more. Related lessons are linked as suggestions; completion is not a prerequisite. A lesson is available when its required node classes and ports fit your ComfyUI. The lesson looks at the graph and sees by itself that a step is done. If something is wrong, it says in words what. "Show me where" and "Do this for me" are there where the choice is not yours to make.
+"Learn" has 68 lessons grouped by topic: a first picture from text, how a model reads a description, video on Wan 2.2, LoRA, video with the WanVideoWrapper pack and more. Related lessons are linked as suggestions; completion is not a prerequisite. A lesson is available when its required node classes and ports fit your ComfyUI. The lesson looks at the graph and sees by itself that a step is done. If something is wrong, it says in words what. "Show me where" and "Do this for me" are there where the choice is not yours to make.
+
+Three lessons for adults, on pictures, on LoRAs for pictures and on video, stand at the end of the list as a group of their own. While the switch "Adult content (18+)" in "Settings ▸ Privacy" is off, the group is closed, and its button leads to the switch. The content rules: "Help ▸ Content rules".
 
 ## Canvas, nodes and subgraphs
 

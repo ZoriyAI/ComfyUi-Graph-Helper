@@ -2,7 +2,7 @@ import {
   Ghost, Columns2, Compass, Database, FileCheck2, FilePlus2, FolderInput, FolderOpen, FolderOutput, GraduationCap, Group, History, Info, Keyboard,
   LogOut, Map as MapIcon, Maximize, MessageCircleQuestion, MessageSquare, MessageSquareText, Navigation, PanelLeft, PanelRight, Pause, Play,
   Plus, Redo2, RefreshCw, Save, Settings, SquareDashedMousePointer, Square, Trash2, Undo2, Ungroup, Combine, ZoomIn, ZoomOut, RotateCcw,
-  Workflow, BookOpen, LifeBuoy, Sparkles, ChevronsDownUp, Copy, ClipboardPaste, Scissors, CopyPlus,
+  Workflow, BookOpen, LifeBuoy, Sparkles, ChevronsDownUp, Copy, ClipboardPaste, Scissors, CopyPlus, ShieldCheck,
 } from 'lucide-react';
 import { arrangeGraph } from '../components/graph/arrange';
 import { toggleCollapseSelection } from '../components/graph/importLook';
@@ -289,6 +289,7 @@ export function buildAppCommands(): Command[] {
     { id: 'help.guide', group: 'help', labelKey: 'helpReader.guide', icon: BookOpen, enabled: always, run: () => useUiStore.getState().setDialog('help-guide') },
     { id: 'help.troubleshooting', group: 'help', labelKey: 'helpReader.troubleshooting', icon: LifeBuoy, enabled: always, run: () => useUiStore.getState().setDialog('help-troubleshooting') },
     { id: 'help.whatsNew', group: 'help', labelKey: 'helpReader.whatsNew', icon: Sparkles, enabled: always, run: () => useUiStore.getState().setDialog('help-whatsnew') },
+    { id: 'help.content', group: 'help', labelKey: 'helpReader.content', icon: ShieldCheck, enabled: always, run: () => useUiStore.getState().setDialog('help-content') },
     { id: 'help.shortcuts', group: 'help', labelKey: 'menu.shortcuts', icon: Keyboard, shortcut: 'F1', enabled: always, run: () => useUiStore.getState().setDialog('shortcuts') },
     { id: 'help.about', group: 'help', labelKey: 'menu.about', icon: Info, enabled: always, run: () => useUiStore.getState().setDialog('about') },
   ];

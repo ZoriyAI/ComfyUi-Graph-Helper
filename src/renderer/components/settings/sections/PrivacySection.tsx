@@ -1,7 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Eraser, Trash2 } from 'lucide-react';
+import { BookOpen, Eraser, ShieldCheck, Trash2 } from 'lucide-react';
 import { DESKTOP_PROJECT_ID } from '../../../../shared/project';
+import { adultContentOn } from '../../../../shared/config/preferences';
+import { contentRules } from '../../../../shared/content/rules';
 import { FETCH_PAGE_BYTE_CAP, FETCH_PAGE_TEXT_CAP, megabytes } from '../../../../shared/agent/limits';
 import Button from '../../../ui/Button';
 import Switch from '../../../ui/Switch';
@@ -24,6 +26,7 @@ const KEY_PROVIDER_NAMES: Record<CloudKeyProvider, string> = { openai: 'OpenAI',
 import { tokenPlaceKey } from '../mcpAccess';
 import { cx } from '../../../ui/cx';
 import { useChatStore } from '../../../state/chatState';
+import { useUiStore } from '../../../state/uiState';
 import styles from '../SettingsPanel.module.css';
 import { Group, hintClass, patchSection, rowClass, SectionHead, type DraftProps } from './common';
 import ConfirmDialog from './ConfirmDialog';
@@ -31,8 +34,10 @@ import type { SecretInventoryReport } from '../../../../preload';
 
 /** Settings ▸ Privacy: what the model sees, whether chat is kept, and a plain account of where secrets live. */
 export default function PrivacySection({ prefs, setPrefs, container }: DraftProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const privacy = prefs.privacy;
+  const [askAdult, setAskAdult] = useState(false);
+  const rules = contentRules(i18n.language);
   const [note, setNote] = useState('');
   // Settings ▸ Privacy ▸ Password store: what the app found, and the person's choice for the next start.
   const [store, setStore] = useState<SecretStoreInfo | null>(null);
@@ -156,8 +161,30 @@ export default function PrivacySection({ prefs, setPrefs, container }: DraftProp
       <p className={hintClass}>{t('preferences.saveChatHistoryHint')}</p>
       <Switch label={t('preferences.modelLog')} checked={privacy.modelLog} onCheckedChange={(next) => patchSection(setPrefs, 'privacy', { modelLog: next })} />
       <p className={hintClass}>{t('preferences.modelLogHint')}</p>
-      <Switch label={t('preferences.showMarkedPreviews')} checked={privacy.showMarkedPreviews} onCheckedChange={(next) => patchSection(setPrefs, 'privacy', { showMarkedPreviews: next })} />
-      <p className={hintClass}>{t('preferences.showMarkedPreviewsHint')}</p>
+      {/* Adult content (18+): turned on only through the rules and "I am 18 or older"; turned off at once. */}
+      <Switch
+        className="adult-content"
+        label={t('preferences.adultContent')}
+        checked={adultContentOn(prefs)}
+        onCheckedChange={(next) => (next ? setAskAdult(true) : patchSection(setPrefs, 'privacy', { showMarkedPreviews: false }))}
+      />
+      <p className={hintClass}>{t('preferences.adultContentHint')}</p>
+      <ConfirmDialog
+        className="adult-content-dialog"
+        tone="agree"
+        icon={<ShieldCheck size={16} />}
+        open={askAdult}
+        onOpenChange={setAskAdult}
+        title={String(t('preferences.adultConfirmTitle'))}
+        lead={rules.lead}
+        items={rules.points}
+        after={rules.after}
+        confirmLabel={String(t('preferences.adultConfirm'))}
+        cancelLabel={String(t('preferences.adultCancel'))}
+        onConfirm={() => patchSection(setPrefs, 'privacy', { showMarkedPreviews: true })}
+      >
+        <Button size="sm" variant="ghost" className="adult-content-rules" icon={<BookOpen size={14} aria-hidden="true" />} onClick={() => useUiStore.getState().setDialog('help-content')}>{t('preferences.adultRulesPage')}</Button>
+      </ConfirmDialog>
       <Switch label={t('preferences.lookupModelsOnline')} checked={privacy.lookupModelsOnline} onCheckedChange={(next) => patchSection(setPrefs, 'privacy', { lookupModelsOnline: next })} />
       <p className={hintClass}>{t('preferences.lookupModelsOnlineHint')}</p>
       <Switch label={t('updates.check')} checked={privacy.checkUpdates} onCheckedChange={(next) => patchSection(setPrefs, 'privacy', { checkUpdates: next })} />

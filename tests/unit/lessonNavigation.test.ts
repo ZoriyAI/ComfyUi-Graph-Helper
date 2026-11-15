@@ -4,16 +4,16 @@ import { lessonDependencies, lessonGroups } from '../../src/shared/lessons/navig
 
 // Navigation groups existing lessons; it never gates them on completion of predecessors.
 describe('lesson navigation', () => {
-  it('groups all 77 lessons once, keeping registry order within each group', () => {
+  it('groups all 79 lessons once, keeping registry order within each group', () => {
     const groups = lessonGroups();
-    expect(LESSONS).toHaveLength(77);
+    expect(LESSONS).toHaveLength(79);
     expect(groups.map(({ id, lessons }) => [id, lessons.length])).toEqual([
-      ['foundations', 3], ['basics', 4], ['video', 15], ['wrapper', 10], ['images-models', 10], ['video-anchor', 4], ['packs-tools', 8], ['image-techniques', 12],
-      ['sound-speech', 5], ['3d', 1], ['faces-characters', 5],
+      ['foundations', 3], ['basics', 4], ['video', 14], ['wrapper', 10], ['images-models', 10], ['video-anchor', 4], ['packs-tools', 8], ['image-techniques', 12],
+      ['sound-speech', 5], ['3d', 1], ['faces-characters', 5], ['adult', 3],
     ]);
     const all = groups.flatMap((group) => group.lessons);
-    expect(all).toHaveLength(77);
-    expect(new Set(all.map((lesson) => lesson.id)).size).toBe(77);
+    expect(all).toHaveLength(79);
+    expect(new Set(all.map((lesson) => lesson.id)).size).toBe(79);
     for (const group of groups) {
       expect(group.title.en).toBeTruthy();
       expect(group.title.ru).toBeTruthy();

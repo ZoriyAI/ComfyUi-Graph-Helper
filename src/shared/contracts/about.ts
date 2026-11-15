@@ -21,7 +21,7 @@ export interface ThirdPartyComponent {
 }
 
 /** The pages Help opens in the app's own reader. */
-export const HELP_TOPICS = ['guide', 'troubleshooting', 'whatsnew'] as const;
+export const HELP_TOPICS = ['guide', 'troubleshooting', 'whatsnew', 'content'] as const;
 export type HelpTopic = typeof HELP_TOPICS[number];
 
 export type HelpPage = { ok: true; text: string } | { ok: false; error: string };

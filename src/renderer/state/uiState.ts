@@ -15,7 +15,7 @@ export interface TourStep {
 }
 
 /** Shell dialogs opened from the menu bar or a hotkey. */
-export type ShellDialog = 'shortcuts' | 'about' | 'new-project' | 'export-guard' | 'help-guide' | 'help-troubleshooting' | 'help-whatsnew';
+export type ShellDialog = 'shortcuts' | 'about' | 'new-project' | 'export-guard' | 'help-guide' | 'help-troubleshooting' | 'help-whatsnew' | 'help-content';
 
 /** What replaces the graph on screen once the person confirms: the "new-project" dialog asks for all three. */
 export type ReplaceIntent = 'new-project' | 'open-project' | 'import-workflow';

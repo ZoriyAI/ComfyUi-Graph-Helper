@@ -24,3 +24,11 @@
   background: var(--surface-overlay);
   box-shadow: var(--highlight-top);
 }
+/* Agreeing to something rather than removing it: the mark is the accent's, not a warning. */
+.markAgree.markAgree {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.after { padding: 0 20px 8px; }
+.more { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 20px 12px; }

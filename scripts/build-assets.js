@@ -6,8 +6,9 @@
  * - dist/notices/third-party.json and THIRD_PARTY_NOTICES.txt: every package that ships with the app (main's
  *   runtime dependencies, the packages the renderer bundle is built from, and Electron itself) with its version,
  *   licence and licence text. Settings ▸ About lists them; the deb's copyright file carries the text.
- * - dist/help/*.md: the user guide and troubleshooting in both languages, and the notes of the current release,
- *   for Help ▸ «Руководство», «Решение проблем», «Что нового».
+ * - dist/help/*.md: the user guide and troubleshooting in both languages, the notes of the current release, and
+ *   the content rules (docs/CONTENT.md and docs/CONTENT.ru.md as content.en.md and content.ru.md), for
+ *   Help ▸ «Руководство», «Решение проблем», «Что нового», «Правила содержимого».
  *
  * Usage: node scripts/build-assets.js   (part of `npm run build`)
  */
@@ -134,6 +135,12 @@ function writeHelp() {
       fs.copyFileSync(path.join(userDocs, file), path.join(out, file));
       count += 1;
     }
+  }
+  for (const [source, target] of [['CONTENT.md', 'content.en.md'], ['CONTENT.ru.md', 'content.ru.md']]) {
+    const file = path.join(root, 'docs', source);
+    if (!fs.existsSync(file)) continue;
+    fs.copyFileSync(file, path.join(out, target));
+    count += 1;
   }
   const notes = path.join(root, 'docs', 'releases', `v${pkg.version}.md`);
   if (fs.existsSync(notes)) {

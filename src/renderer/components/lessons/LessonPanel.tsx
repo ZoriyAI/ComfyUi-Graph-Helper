@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, ArrowRight, Check, ChevronRight, CircleDashed, CircleDot, Crosshair, FolderOutput, GraduationCap, MessageCircleQuestion, Plug, RotateCcw, Wand2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, ChevronRight, CircleDashed, CircleDot, Crosshair, FolderOutput, GraduationCap, Lock, MessageCircleQuestion, Plug, RotateCcw, Settings, Wand2 } from 'lucide-react';
 import type { TFunction } from 'i18next';
 import { lessonProgress, type ClassPorts, type Lesson, type LessonFacts, type LessonGraph, type Missing } from '../../../shared/lessons/engine';
-import { LESSONS, lessonById } from '../../../shared/lessons/lessons';
+import { ADULT_GROUP, lessonById, nextLesson as nextLessonOf } from '../../../shared/lessons/lessons';
+import { adultContentOn } from '../../../shared/config/preferences';
 import { lessonDependencies, lessonGroups } from '../../../shared/lessons/navigation';
 import { fitLines, fits, lessonFit } from '../../../shared/lessons/fit';
 import { lessonWords, withNodeNames } from '../../../shared/lessons/texts';
@@ -11,7 +12,8 @@ import { weightsOf } from '../../../shared/prompt/inspect';
 import type { NodeClassDetail } from '../../../shared/contracts/knowledge';
 import { runCommand } from '../../commands/registry';
 import { useGraphStore } from '../../state/graphState';
-import { useLessonStore } from '../../state/lessonState';
+import { shownLesson, useLessonStore } from '../../state/lessonState';
+import { usePreferencesStore } from '../../state/preferencesState';
 import { useUiStore } from '../../state/uiState';
 import Button from '../../ui/Button';
 import IconButton from '../../ui/IconButton';
@@ -196,7 +198,7 @@ function UnfitReasons({ lines }: { lines: string[] }) {
   );
 }
 
-function LessonList({ shared }: { shared: Shared }) {
+function LessonList({ shared, adultOn }: { shared: Shared; adultOn: boolean }) {
   const { t, i18n } = useTranslation();
   const read = useLessonStore((state) => state.read);
   const done = useLessonStore((state) => state.done);
@@ -235,7 +237,19 @@ function LessonList({ shared }: { shared: Shared }) {
               <span className={styles.groupCount}>{t('lessons.groupDone', { done: doneHere, total: rows.length })}</span>
             </h4>
             <ul className={styles.cards}>
-              {rows.map(({ lesson, words, gaps, progress, total, finished, done: isDone }) => {
+              {/* The lessons for adults: closed, not hidden, while the switch is off; one row that leads to it. */}
+              {group.id === ADULT_GROUP.id && !adultOn ? (
+                <li className={styles.card} data-lesson-group-closed="adult" data-lesson-state="closed">
+                  <div className={styles.cardHead}>
+                    <span className={styles.cardTitle}><Lock size={14} aria-hidden="true" /> {t('lessons.adultGroup')}</span>
+                  </div>
+                  <p className={styles.cardText}>{t('lessons.adultClosed')}</p>
+                  <div className={styles.cardActions}>
+                    <Button variant="subtle" quiet size="sm" icon={<Settings size={14} />} onClick={() => openSettings('privacy')}>{t('lessons.adultOpen')}</Button>
+                  </div>
+                </li>
+              ) : null}
+              {(group.id === ADULT_GROUP.id && !adultOn ? [] : rows).map(({ lesson, words, gaps, progress, total, finished, done: isDone }) => {
                 if (!words) return null;
                 const started = progress.current > 0 && !finished;
                 const before = lessonDependencies(lesson.id).map((id) => ({ id, title: lessonWords(i18n.language, id)?.title ?? id }));
@@ -326,7 +340,8 @@ function LessonRun({ lesson, shared, onAsk }: { lesson: Lesson; shared: Shared; 
   const current = peek === null && !finished;
   const first = current ? progress.missing[0] : undefined;
   const fix = first ? canDo(first, shared.graph, shared.ports, shared.details) : null;
-  const nextLesson = LESSONS[LESSONS.findIndex((item) => item.id === lesson.id) + 1];
+  // Within the lesson's own kind: a lesson for adults is never offered after an ordinary one.
+  const nextLesson = nextLessonOf(lesson.id);
   const nextTitle = nextLesson ? lessonWords(i18n.language, nextLesson.id)?.title : undefined;
   const doneCount = Math.min(progress.current, total);
 
@@ -476,14 +491,16 @@ function LessonRun({ lesson, shared, onAsk }: { lesson: Lesson; shared: Shared; 
 
 export default function LessonPanel({ onAsk }: { onAsk: (question: string) => void }) {
   const active = useLessonStore((state) => state.active);
+  const adultOn = usePreferencesStore((state) => adultContentOn(state.preferences));
   const catalog = useLessonCatalog();
   const graph = useLessonGraph(catalog.details);
   const facts = useLessonFacts(graph);
   const shared: Shared = { details: catalog.details, ports: catalog.ports, catalogRead: catalog.read, graph, facts };
-  const lesson = active ? lessonById(active) : null;
+  const shownId = shownLesson(active, adultOn);
+  const lesson = shownId ? lessonById(shownId) : null;
   return (
     <div className={`lesson-panel ${styles.panel}`} data-lesson={lesson?.id ?? 'list'}>
-      {lesson ? <LessonRun lesson={lesson} shared={shared} onAsk={onAsk} /> : <LessonList shared={shared} />}
+      {lesson ? <LessonRun lesson={lesson} shared={shared} onAsk={onAsk} /> : <LessonList shared={shared} adultOn={adultOn} />}
     </div>
   );
 }

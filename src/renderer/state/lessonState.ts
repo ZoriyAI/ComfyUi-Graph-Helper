@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import type { Preferences } from '../../shared/config/preferences';
-import { savePreferencesPatch } from './preferencesState';
+import { adultContentOn, type Preferences } from '../../shared/config/preferences';
+import { lessonOpen } from '../../shared/lessons/lessons';
+import { currentPreferences, savePreferencesPatch } from './preferencesState';
 
 /**
  * The helper's "Learn" mode: which lesson is open and what the person has read in it. Where they are in a lesson
@@ -13,7 +14,7 @@ interface LessonState extends Stored {
   /** The helper panel shows lessons instead of the conversation. */
   learning: boolean;
   setLearning: (learning: boolean) => void;
-  /** Opens a lesson (and the Learn mode with it). */
+  /** Opens a lesson (and the Learn mode with it). A lesson for adults opens only while the switch is on. */
   start: (lessonId: string) => void;
   /** Back to the list; the lesson keeps its place. */
   leave: () => void;
@@ -35,6 +36,7 @@ export const useLessonStore = create<LessonState>((set, get) => ({
   done: [],
   setLearning: (learning) => set({ learning }),
   start: (lessonId) => {
+    if (!lessonOpen(lessonId, adultContentOn(currentPreferences()))) return;
     set({ learning: true, active: lessonId });
     save(get());
   },
@@ -61,3 +63,11 @@ export const useLessonStore = create<LessonState>((set, get) => ({
   },
   hydrate: (stored) => set({ active: stored.active, read: stored.read, done: stored.done }),
 }));
+
+/**
+ * The lesson the panel shows: the open one, unless it is a lesson for adults and the switch is off now (turned off
+ * after it was opened, or a profile carried over). Then the list shows, and the lesson keeps its place.
+ */
+export function shownLesson(active: string, adultOn: boolean): string {
+  return active !== '' && lessonOpen(active, adultOn) ? active : '';
+}

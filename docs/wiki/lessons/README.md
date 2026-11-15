@@ -36,7 +36,8 @@ In Learn mode you build real graphs by hand on the canvas while the app leads yo
 - [Another camera: ReCamMaster](Wrapper-ReCam.md): Lesson "wrapper-recam".
 
 **For adults.** Factual, non-graphic technical education for lawful consensual 18+ use. See [Content rules](../trust/Content-Rules.md).
-- [Picture techniques for adults](Adult-Image.md): a reference note, not a separate built-in lesson.
+- [Pictures for adults: what changes](Adult-Image.md): Lesson "adult-image".
+- [Adult LoRAs: how to load and balance them](Adult-Lora.md): Lesson "adult-lora".
 - [Video for adults: what changes](Adult.md): Lesson "adult".
 
 **About the lessons**
