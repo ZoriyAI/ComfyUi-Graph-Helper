@@ -1,3 +1,9 @@
+/**
+ * Safety of the MCP catalog sync: rows the server no longer lists are removed only after a complete read, a failed
+ * or looping page keeps what is stored, plain http is refused for a remote MCP server, a server-reported ComfyUI
+ * URL is trusted only on loopback or the saved origin, and the token is forgotten when the MCP origin changes.
+ * Why: a flaky server must never wipe the person's catalog, and their token must never reach another server.
+ */
 import { describe, expect, it } from 'vitest';
 import Database from 'better-sqlite3';
 import { migrate } from '../../src/main/settings/migrate';
@@ -7,10 +13,12 @@ import { acceptedComfyUrl } from '../../src/main/comfy/read';
 import { McpPageError, readAllPages, type McpSession, type McpToolCallResult } from '../../src/shared/mcp/catalogSource';
 import { mcpToken, mcpTokenFor, releaseMcpTokenIfOriginChanged, setMcpToken } from '../../src/main/mcp/token';
 
+/** Wraps a value the way an MCP tool answers: one text content block holding JSON. */
 function json(value: unknown): McpToolCallResult {
   return { content: [{ type: 'text', text: JSON.stringify(value) }] };
 }
 
+/** What the fake server lists, and which of its pages fail or echo their cursor. */
 interface Server {
   classes: string[];
   packs: string[];
@@ -70,6 +78,7 @@ describe('catalog listings that remove what the server dropped', () => {
     expect(classesOf(db)).toContain('OldNode');
     await readCatalogWithSession(db, session({ classes: ['KSampler', 'Keep'], packs: ['b'], models: ['keep.safetensors'] }), noFetch, 2000);
     expect(classesOf(db)).not.toContain('OldNode');
+    // CLIPTextEncode and SaveImage come from the built-in seed, not from the server, so they survive the cleanup.
     expect(classesOf(db)).toEqual(expect.arrayContaining(['Keep', 'KSampler', 'CLIPTextEncode', 'SaveImage']));
     expect(modelsOf(db)).toEqual(['keep.safetensors']);
     expect(packsOf(db)).toEqual(['b']);
@@ -91,6 +100,7 @@ describe('catalog listings that remove what the server dropped', () => {
     await readCatalogWithSession(db, session({ classes: ['A'], packs: [], models: ['old.safetensors'] }), noFetch, 1000);
     const calls: string[] = [];
     await readCatalogWithSession(db, session({ classes: ['A'], packs: [], models: ['new.safetensors'], echoModels: true }, calls), noFetch, 2000);
+    // The second page returned the same cursor again: the read stops there and removes nothing old.
     expect(calls.filter((call) => call.startsWith('models:'))).toHaveLength(2);
     expect(modelsOf(db)).toEqual(['new.safetensors', 'old.safetensors']);
     db.close();
@@ -166,6 +176,7 @@ describe('MCP URL and ComfyUI URL checks', () => {
     expect(mcpTokenFor('https://a.example/other')).toBe('tok-1');
     releaseMcpTokenIfOriginChanged('https://b.example/mcp');
     expect(mcpToken()).toBeNull();
+    // A token set with no address is bound to the first origin that asks for it, and refused for any other.
     setMcpToken('tok-2');
     expect(mcpTokenFor('https://c.example/mcp')).toBe('tok-2');
     expect(mcpTokenFor('https://d.example/mcp')).toBeNull();

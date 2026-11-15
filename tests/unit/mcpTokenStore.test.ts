@@ -1,3 +1,8 @@
+/**
+ * The in-memory MCP token holder (src/main/mcp/token): it reports where the token came from (pasted, OS password
+ * store) and forgets the token when the MCP address moves to another origin.
+ * Why: the Settings status line must tell the truth, and a token must never follow the person to another server.
+ */
 import { describe, expect, it, beforeEach } from 'vitest';
 import { mcpOriginOf, mcpTokenFor, mcpTokenStatus, releaseMcpTokenIfOriginChanged, setMcpToken } from '../../src/main/mcp/token';
 

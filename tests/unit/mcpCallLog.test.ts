@@ -1,9 +1,16 @@
+/**
+ * The call log of the read-only MCP session (src/main/mcp/readOnly): one note per tool call with the tool, its
+ * arguments, item count, size and errors, but never the returned payload; refused calls are not noted and a broken
+ * observer never breaks the call.
+ * Why: the log helps a person (or support) see what the app asked the server without leaking their file lists.
+ */
 import { afterEach, describe, expect, it } from 'vitest';
 import { McpRefusedError, readOnlySession, setMcpCallObserver, type McpCallNote } from '../../src/main/mcp/readOnly';
 import type { McpSession } from '../../src/shared/mcp/catalogSource';
 
 afterEach(() => setMcpCallObserver(null));
 
+/** A fake MCP session whose callTool answers with `answer`; an Error result is thrown as a transport failure. */
 function session(answer: (name: string, args: Record<string, unknown>) => unknown): McpSession {
   return {
     async listTools() {

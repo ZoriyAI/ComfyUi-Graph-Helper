@@ -1,3 +1,9 @@
+/**
+ * Reading the node and model catalog through an MCP server (src/main/mcp/client, src/shared/mcp/catalogSource):
+ * paging node classes and model files, dropping cache files, taking object_info through comfy_api or the
+ * server-reported native ComfyUI URL, and refusing that URL when a remote server points at this machine.
+ * Why: the catalog is what the tutor knows about the person's nodes and models; a wrong or unsafe read misleads it.
+ */
 import http from 'http';
 import { describe, expect, it } from 'vitest';
 import Database from 'better-sqlite3';
@@ -14,6 +20,7 @@ import {
   type McpToolCallResult,
 } from '../../src/shared/mcp/catalogSource';
 
+/** Wraps a value the way an MCP tool answers: one text content block holding JSON. */
 function json(value: unknown): McpToolCallResult {
   return { content: [{ type: 'text', text: JSON.stringify(value) }] };
 }
@@ -71,6 +78,7 @@ function fakeSession(options: { comfyUrl: string | null; comfyApiWorks: boolean;
   };
 }
 
+/** Starts a plain HTTP server on a free 127.0.0.1 port that plays the native ComfyUI API. */
 function listen(handler: http.RequestListener): Promise<{ origin: string; close: () => Promise<void> }> {
   const server = http.createServer(handler);
   return new Promise((resolve) => {
@@ -110,6 +118,7 @@ describe('MCP catalog source', () => {
   });
 
   it('refuses a remote MCP redirect to a local native object_info endpoint', async () => {
+    // A remote server must not steer the app into reading a port on this machine: zero requests may reach it.
     const db = new Database(':memory:');
     migrate(db);
     let requests = 0;
@@ -150,6 +159,7 @@ describe('MCP catalog source', () => {
     expect(sampler?.widgetOrder).toEqual(['seed', 'seed::control_after_generate']);
     expect(catalog.nodes.find((node) => node.classType === 'LoraLoader')).toMatchObject({ displayName: 'Load LoRA', inputs: [] });
     expect(catalog.models).toContainEqual({ directory: 'loras', name: 'style.safetensors', sizeBytes: 1024 });
+    // The bearer token goes only into the transport header, never into a tool argument.
     expect(calls.some((call) => call.includes('secret-token'))).toBe(false);
     db.close();
   });
