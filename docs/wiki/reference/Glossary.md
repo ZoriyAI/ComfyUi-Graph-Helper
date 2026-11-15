@@ -14,7 +14,7 @@ community uses in English, the one to search for.
 - **[assistant](../assistant/Assistant.md)**: The part of this app that answers questions about the graph and can propose changes.
 - **[batch](../concepts/Batch.md)**: Several pictures made or passed at once; it multiplies the memory a run needs.
 - **block swap**: Keeping some blocks of a model in ordinary memory and bringing each to the card for its turn.
-- **[bypass](../concepts/Bypass-And-Mute.md)**: Skipping a node so that its inputs pass straight through (Ctrl+B, purple).
+- **[bypass](../concepts/Bypass-And-Mute.md)**: Skipping a node so that its inputs pass straight through (Ctrl+B in ComfyUI, Ctrl+Shift+B here; the node turns purple).
 - **[canvas](../interface/Canvas.md)**: The surface where the nodes of a graph stand.
 - **[CFG](../concepts/CFG.md)**: How strictly the model follows the prompt.
 - **[checkpoint](../concepts/Checkpoint.md)**: One file with a whole model: the part that draws, the text encoder and the VAE.

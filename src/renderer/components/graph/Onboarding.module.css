@@ -149,3 +149,7 @@
 .setupIcon { display: inline-flex; flex: 0 0 auto; color: var(--text-dim); }
 .setupRow[data-state="done"] .setupIcon { color: var(--accent); }
 .setupText { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+/* In a setup row the button keeps its own width and one line: the text beside it is what gives way.
+   Without this the row squeezed the button and its label ran out of it. */
+.setupRow .stepAction { flex: 0 0 auto; margin-top: 0; padding-top: 0; max-width: 50%; }
+.setupRow .stepAction :global(button) { white-space: nowrap; }

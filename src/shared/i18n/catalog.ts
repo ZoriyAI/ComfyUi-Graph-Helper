@@ -2701,7 +2701,7 @@ export const en = {
   profileMove: {
     adoptedTitle: '{{app}} has your work',
     adoptedMessage: 'Settings, projects and conversations from version 0.9 are now in {{folder}}.',
-    adoptedKeys: 'Keys you kept in the system password store must be entered again in Settings: the store keeps them under the old name of the app, and {{appShort}} cannot open them under the new one. Keys you kept in a file on this computer came along and work.',
+    adoptedKeys: 'Keys you kept in the system keychain must be entered again in Settings: the keychain keeps them under the old name of the app, and {{appShort}} cannot open them under the new one. Keys you kept in a file on this computer came along and work.',
     inUseTitle: 'Version 0.9 is still open',
     inUseMessage: 'Quit the old version, then start {{appShort}} again.',
     inUseDetail: '{{appShort}} takes over the old settings and projects in {{folder}} on its first start, and it cannot do that while the old version uses them.',

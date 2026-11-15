@@ -897,7 +897,7 @@ export const FOUNDATIONS_EN: FoundationsPack = {
     reroute: { term: 'reroute', text: 'A dot on a link that only passes data on, to route long links.' },
     primitive: { term: 'primitive', text: 'A node that holds one value and passes it to fields of other nodes.' },
     'set-get': { term: 'Set / Get', text: 'Nodes of a pack that pass a value by name without a visible link.' },
-    bypass: { term: 'bypass', text: 'Skipping a node so that its inputs pass straight through (Ctrl+B, purple).' },
+    bypass: { term: 'bypass', text: 'Skipping a node so that its inputs pass straight through (Ctrl+B in ComfyUI, Ctrl+Shift+B here; the node turns purple).' },
     mute: { term: 'mute', text: 'Switching a node off so that it and what depends only on it do not run (Ctrl+M, grey).' },
     subgraph: { term: 'subgraph', text: 'A node that holds a whole graph inside.' },
     switch: { term: 'switch', text: 'A node that passes one of two inputs, chosen by a yes/no value.' },

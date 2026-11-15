@@ -119,9 +119,9 @@ for (const language of LANGUAGES) {
       };
       const railOpen = async (open: boolean) => {
         const rail = page.locator('#library-rail');
-        // A field or card that holds focus keeps the key to itself; the shortcut is for the window.
-        await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
-        if (((await rail.getAttribute('data-open')) === 'true') !== open) await page.keyboard.press('Control+b');
+        // The rail's own button is pressed, not Ctrl+B: after a search the app hands focus back to the search field,
+        // and a field that holds focus keeps the key to itself.
+        if (((await rail.getAttribute('data-open')) === 'true') !== open) await page.locator('button[aria-controls="library-rail"]').first().click();
         await expect(rail).toHaveAttribute('data-open', String(open));
         await page.waitForTimeout(400);
       };
