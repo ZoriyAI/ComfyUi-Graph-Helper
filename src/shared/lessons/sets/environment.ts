@@ -71,6 +71,10 @@ const CHECKED_ON = '2026-11-15';
 /** What the lessons were checked against. */
 const COMFY = 'ComfyUI 0.45.0 (master on 2026-11-15) and the official documentation at docs.comfy.org on that date';
 const DESKTOP = 'Comfy Desktop as docs.comfy.org describes it on 2026-11-15 (Manage panel: Update and Snapshots tabs)';
+const MANAGER = 'ComfyUI-Manager built into ComfyUI (comfyui_manager 4.2.2 in manager_requirements.txt), new and legacy interface';
+
+/** The classes of the first pack, ComfyUI-Custom-Scripts: any one of them shows the pack loaded. */
+export const FIRST_PACK_CLASSES = ['ShowText|pysssss', 'MathExpression|pysssss', 'StringFunction|pysssss'];
 
 /** The text node that keeps a card (a choice, the environment, a pack) inside a workflow. */
 const TEXT_NODE = 'PrimitiveStringMultiline';
@@ -209,12 +213,53 @@ const modelLibrary: Lesson = {
   ],
 };
 
+/**
+ * N04: tell a node, a model, a dependency and a workflow apart, and install a first node pack the safe way: found in
+ * the Manager, its source and version checked, installed, ComfyUI restarted, the import log read, the version written
+ * down, and a small graph with one of its nodes run.
+ */
+const firstPack: Lesson = {
+  id: 'first-pack',
+  standard: 2,
+  outcomes: ['structure', 'run', 'result'],
+  meta: { prerequisites: ['first-run'], versions: [COMFY, MANAGER, 'ComfyUI-Custom-Scripts 1.2.5 (comfyui-custom-scripts in the Registry)'], checkedOn: CHECKED_ON },
+  steps: [
+    { id: 'intro', read: true },
+    { id: 'kinds', read: true },
+    { id: 'ready', checklist: [{ id: 'comfy', check: { kind: 'comfy-read' } }, { id: 'manager' }, { id: 'backup' }] },
+    { id: 'find', checklist: [{ id: 'search' }, { id: 'source' }, { id: 'version' }] },
+    { id: 'install', checklist: [{ id: 'install' }, { id: 'restart' }, { id: 'log' }] },
+    { id: 'installed', readCheck: [{ kind: 'node-class', classes: FIRST_PACK_CLASSES }] },
+    { id: 'record', roles: [node('card', TEXT_NODE)], fields: [{ role: 'card', field: 'value', test: card(20, 3) }] },
+    { id: 'run', checklist: [{ id: 'export' }, { id: 'link' }, { id: 'ran', run: true }] },
+    {
+      id: 'assess',
+      rubric: [
+        { id: 'source', levels: ['no', 'yes'], pass: 'yes' },
+        { id: 'log', levels: ['failed', 'warnings', 'clean'] },
+        { id: 'record', levels: ['no', 'partly', 'yes'] },
+      ],
+    },
+    {
+      id: 'recall',
+      quiz: [
+        { id: 'lora', choices: ['node', 'model', 'pack'], answer: 'model' },
+        { id: 'code', choices: ['no', 'yes'], answer: 'yes' },
+        { id: 'failed', choices: ['missing-model', 'pack-not-loaded', 'slow'], answer: 'pack-not-loaded' },
+        { id: 'after', choices: ['nothing', 'restart'], answer: 'restart' },
+      ],
+    },
+    { id: 'transfer', transfer: true, checklist: [{ id: 'need' }, { id: 'check' }, { id: 'decide' }] },
+  ],
+};
+
 /** The lessons of the group, in the order a person meets them. */
-export const ENVIRONMENT_LESSONS: Lesson[] = [chooseSetup, firstRun, modelLibrary];
+export const ENVIRONMENT_LESSONS: Lesson[] = [chooseSetup, firstRun, modelLibrary, firstPack];
 
 /** The group of each lesson and the lessons it goes on from. */
 export const ENVIRONMENT_PATH: Record<string, { group: LessonGroup; follows: string[] }> = {
   'choose-setup': { group: ENVIRONMENT_GROUP, follows: [] },
   'first-run': { group: ENVIRONMENT_GROUP, follows: ['choose-setup'] },
   'model-library': { group: ENVIRONMENT_GROUP, follows: ['first-run'] },
+  'first-pack': { group: ENVIRONMENT_GROUP, follows: ['first-run'] },
 };

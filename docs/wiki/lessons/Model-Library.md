@@ -54,3 +54,4 @@ macOS and Linux.
 ## See also
 - [Where ComfyUI files live](../concepts/Where-Files-Live.md)
 - [Checkpoint](../concepts/Checkpoint.md)
+- [The Manager: a first node pack, safely](First-Pack.md)

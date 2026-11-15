@@ -406,4 +406,143 @@ export const ENVIRONMENT_EN: Record<string, LessonWords> = {
       },
     },
   },
+  'first-pack': {
+    title: 'The Manager: a first node pack, safely',
+    result: 'A first node pack installed through the Manager, its source and version checked, the import log clean, and a run that uses its node.',
+    roles: { card: 'note about the pack' },
+    meta: {
+      skill: 'Tell a node, a model, a dependency and a workflow apart, and install a node pack the safe way: source and version checked, the import log read, the version written down.',
+      requires: ['A working ComfyUI (the lesson “Install and a first run without errors”).', 'The Manager turned on: it is in Desktop; Portable and manual installs need `--enable-manager`.'],
+      mistakes: [
+        {
+          sign: 'The log shows the pack with “(IMPORT FAILED)”, and its nodes are missing.',
+          fix: 'Read the lines above the list: they name the error, often a missing Python package or a too old ComfyUI. Update or remove the pack in the Manager; do not install packages by hand you do not understand.',
+        },
+        {
+          sign: 'There is no Manager in the menu.',
+          fix: 'In Portable and manual installs it is off by default: install `manager_requirements.txt` and start ComfyUI with `--enable-manager`, as the official Manager page says.',
+        },
+        {
+          sign: 'You installed a pack from a link in a video, without looking at who made it.',
+          fix: 'A pack runs code with all the rights of ComfyUI. Check the author, the repository and how many people use it, or remove the pack.',
+        },
+        {
+          sign: 'You installed it and the nodes are not in the library.',
+          fix: 'ComfyUI loads packs at start: restart it, refresh the browser page, and choose “Sync now” here.',
+        },
+      ],
+      provenance: 'The Manager steps come from docs.comfy.org (Manager install, pack management, legacy interface) and the install guide for custom nodes, as of 2026-11-15. The pack is ComfyUI-Custom-Scripts by pythongosssss, MIT license, version 1.2.5 in the Registry on that date. It is an example: the method fits any pack.',
+      notChecked: `${NOT_CHANGED} It checks that it read your ComfyUI, that a node of the pack is installed after a sync, and that your note is written on the canvas. It does not see the Manager, the log or the run: those are your own word.`,
+    },
+    steps: {
+      intro: {
+        title: 'A pack is a program',
+        body: 'A node pack adds nodes ComfyUI does not have. It is a folder in `ComfyUI/custom_nodes` with Python code, and that code runs with all the rights of ComfyUI on your computer. So the first pack is a good place to learn the safe way, once.\n\nThe pack here is ComfyUI-Custom-Scripts by pythongosssss: widely used, with no extra Python packages. Its node Show Text 🐍 shows a text on the canvas.',
+      },
+      kinds: {
+        title: 'Node, model, dependency, workflow',
+        body: 'Four things people mix up:\n\n- a **node** is one block of a graph; ComfyUI has its own, and packs add more;\n- a **model** is a file of numbers in `models/…`, read by a loader node; it is not a pack;\n- a **dependency** is a Python package a pack needs; the Manager installs it with the pack;\n- a **workflow** is a graph saved as `.json` (or inside a picture); it names nodes and files but holds neither.\n\nA workflow that “needs a pack” needs its nodes; one that “needs a model” needs a file in a folder.',
+      },
+      ready: {
+        title: 'Before you install',
+        body: 'Make a way back first, in case the pack breaks the start.',
+        items: {
+          comfy: { label: 'ComfyUI is running, and the app has read it.', how: 'The app sees this after a sync.' },
+          manager: { label: 'The Manager opens in ComfyUI.', how: 'Desktop has it. In Portable and manual installs it needs `--enable-manager`; the legacy interface has a “Manager” button in the top bar.' },
+          backup: { label: 'I made a way back: a snapshot (Desktop: Manage ▸ Snapshots ▸ Create Snapshot; legacy Manager: Save snapshot), or I wrote down the list of my packs.' },
+        },
+      },
+      find: {
+        title: 'Find it and check the source',
+        body: 'In the Manager search for “Custom-Scripts” (with the filter on node packs, where there is one) and open its card.',
+        items: {
+          search: { label: 'I found ComfyUI-Custom-Scripts by pythongosssss.' },
+          source: { label: 'Its repository is github.com/pythongosssss/ComfyUI-Custom-Scripts, and many people use it.', how: 'The card links the repository; the number of installs or stars is on the card or the repository page.' },
+          version: { label: 'I wrote down the version I am about to install.', how: 'The card shows it; the Manager may offer a “Version” to choose.' },
+        },
+      },
+      install: {
+        title: 'Install, restart, read the log',
+        body: 'Press “Install”. ComfyUI loads packs only at start: restart it when the Manager asks, then refresh the browser page.\n\nIn the start log, find “Import times for custom nodes:”. Each pack has a line; a pack that failed has “(IMPORT FAILED)” after its name.',
+        items: {
+          install: { label: 'I pressed “Install” and waited for it to finish.' },
+          restart: { label: 'I restarted ComfyUI and refreshed the page.' },
+          log: { label: 'The line of ComfyUI-Custom-Scripts under “Import times for custom nodes:” has no “(IMPORT FAILED)”.' },
+        },
+      },
+      installed: {
+        title: 'The pack is loaded',
+        body: 'Choose “Sync ▸ Sync now” in the app. It checks that a node of the pack (Show Text 🐍, Math Expression 🐍 or String Function 🐍) is now installed in your ComfyUI.',
+      },
+      record: {
+        title: 'Write the pack down',
+        body: 'Add a {card} node and write in its `value` the pack, its author and the version you installed, for example: `ComfyUI-Custom-Scripts by pythongosssss, 1.2.5, installed 2026-11-15`.\n\nThis note is also the input of the run below.',
+      },
+      run: {
+        title: 'Run a node of the pack',
+        body: `${SAVE}\n\nIn ComfyUI add Show Text 🐍 (or here: the library shows it after the sync), link the \`STRING\` output of the note to its text input, and press Run.`,
+        items: {
+          export: { label: 'I opened the workflow with the note in ComfyUI.' },
+          link: { label: 'I linked the note to Show Text 🐍.' },
+          ran: { label: 'I ran it, and the note appeared on Show Text 🐍.', how: 'The log prints “Prompt executed in … seconds”.' },
+        },
+      },
+      assess: {
+        title: 'Was it safe and clean?',
+        body: 'Answer for yourself. The app does not see the Manager or the log.',
+        criteria: {
+          source: {
+            title: 'I checked the author and the repository before I pressed Install.',
+            levels: { no: 'No', yes: 'Yes' },
+            tryNext: 'Open the pack\'s repository now: who wrote it, when it changed last, and what its issues say. Remove it if you would not install it after reading.',
+          },
+          log: {
+            title: 'The import log of the pack.',
+            levels: { failed: 'IMPORT FAILED', warnings: 'Warnings', clean: 'Clean' },
+            tryNext: 'Read the error above the list of import times, then update the pack or ComfyUI, or remove the pack.',
+          },
+          record: {
+            title: 'I wrote down the pack, its author and its version.',
+            levels: { no: 'No', partly: 'Partly', yes: 'Yes' },
+            tryNext: 'Add the missing part from the Manager\'s card: the version is what you need to go back.',
+          },
+        },
+      },
+      recall: {
+        title: 'Check yourself',
+        body: 'Four short questions. A wrong answer costs nothing.',
+        questions: {
+          lora: {
+            text: 'A file my-style.safetensors in models/loras is a…',
+            choices: { node: 'node', model: 'model', pack: 'node pack' },
+            explain: 'It is a model file, read by a LoRA loader. A pack is code in custom_nodes.',
+          },
+          code: {
+            text: 'Does a node pack run code on your computer?',
+            choices: { no: 'No, it only adds boxes', yes: 'Yes, with all the rights of ComfyUI' },
+            explain: 'A pack is Python code that ComfyUI loads at start. Install packs from authors you trust.',
+          },
+          failed: {
+            text: 'A pack shows “(IMPORT FAILED)” in the log. What does it mean?',
+            choices: { 'missing-model': 'A model is missing', 'pack-not-loaded': 'The pack did not load, so its nodes are missing', slow: 'The pack is slow' },
+            explain: 'The pack\'s code failed at start. The lines above the list name the cause.',
+          },
+          after: {
+            text: 'What must follow an install?',
+            choices: { nothing: 'Nothing', restart: 'A restart of ComfyUI' },
+            explain: 'ComfyUI loads packs only when it starts.',
+          },
+        },
+      },
+      transfer: {
+        title: 'On your own: the next pack',
+        body: 'Next time a workflow needs a pack, use the same method without the lesson.',
+        items: {
+          need: { label: 'I named the nodes I need and the pack that brings them.' },
+          check: { label: 'I checked its author, repository, version and recent issues.' },
+          decide: { label: 'I installed it the same way and read the log, or decided not to, and wrote why.' },
+        },
+      },
+    },
+  },
 };

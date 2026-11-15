@@ -56,3 +56,4 @@ Windows, macOS и Linux.
 ## См. также
 - [Где лежат файлы ComfyUI](../concepts/Where-Files-Live.ru.md)
 - [Чекпоинт](../concepts/Checkpoint.ru.md)
+- [Manager: установка первого пака безопасно](First-Pack.ru.md)
