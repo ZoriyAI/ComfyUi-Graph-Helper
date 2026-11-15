@@ -1,10 +1,6 @@
-import * as fs from 'fs';
-import * as path from 'path';
-import ts from 'typescript';
-import { NAME_VALUES } from '../../../src/shared/i18n';
-
 /**
- * A static check of every translated text in the app. Each call of a translation function is read from the
+ * A static check of every translated text in the app, used by tests/unit/i18nUsage.test.ts and
+ * tests/unit/checkAdvice.test.ts. Each call of a translation function is read from the
  * source with the TypeScript type checker, its key is looked up in the catalog, and the values the text needs
  * ({{done}}, {{count}}, …) are compared with what the call passes. A text shown without its values prints the
  * placeholder itself on screen ("Reading model metadata: {{done}} / {{total}}"), and a key that is not in the
@@ -19,7 +15,15 @@ import { NAME_VALUES } from '../../../src/shared/i18n';
  * When any text the key can be needs values, the call must pass values. A key this check cannot follow is
  * reported too, so nothing is assumed safe by silence.
  */
+import * as fs from 'fs';
+import * as path from 'path';
+import ts from 'typescript';
+import { NAME_VALUES } from '../../../src/shared/i18n';
 
+/**
+ * One problem at one translation call: a key missing from the catalog, values the text needs but the call does not
+ * pass, a value that can be empty, or a key this check could not follow.
+ */
 export interface AuditFinding {
   kind: 'unknown-key' | 'missing-values' | 'dynamic-needs-values' | 'empty-value' | 'unresolved';
   file: string;
@@ -31,6 +35,7 @@ export interface AuditFinding {
 /** Names a translation function is called by. Wrappers that pass their own parameter on are found by themselves. */
 const CALLEES = new Set(['t', 'translate', 'tr']);
 const PLURAL = /_(zero|one|two|few|many|other)$/;
+/** Above this many combinations a template key is checked as a pattern instead of a list of exact keys. */
 const MAX_KEYS = 400;
 
 function leaves(value: unknown, prefix = ''): Array<[string, string]> {
@@ -39,12 +44,14 @@ function leaves(value: unknown, prefix = ''): Array<[string, string]> {
   return Object.entries(value as Record<string, unknown>).flatMap(([key, child]) => leaves(child, prefix ? `${prefix}.${key}` : key));
 }
 
+/** The value names a text uses, `{{name}}` or `{{name, format}}`, each once. */
 export function placeholdersOf(text: string): string[] {
   const names = new Set<string>();
   for (const match of text.matchAll(/\{\{\s*([A-Za-z0-9_]+)\s*(?:,[^}]*)?\}\}/g)) names.add(match[1]);
   return [...names];
 }
 
+/** Every key of the given language catalogs with its texts in all languages, plural forms also under their base key. */
 export class Catalog {
   private readonly texts = new Map<string, string[]>();
 
@@ -145,6 +152,10 @@ export interface AuditStats {
   followed: number;
 }
 
+/**
+ * Reads every .ts and .tsx file under `root` and checks each translation call against `catalogs`. `skip` leaves
+ * files out of the report (their writes are still followed); `stats` is filled with how many calls were read.
+ */
 export function auditTranslations(
   root: string,
   catalogs: unknown[],
@@ -496,6 +507,7 @@ export function auditTranslations(
     while (current && !isFunctionLike(current)) current = current.parent;
     return current;
   };
+  // A wrapper of a wrapper is found only once the inner one is known, so repeat until nothing new (at most 4 rounds).
   for (let round = 0; round < 4; round += 1) {
     let grew = false;
     for (const source of sources) {
