@@ -17,6 +17,7 @@ import { useUiStore } from '../../state/uiState';
 import Button from '../../ui/Button';
 import IconButton from '../../ui/IconButton';
 import MarkdownLite from '../chat/MarkdownLite';
+import { useLessonMotion } from './lessonMotion';
 import { canDo, clearShown, doFix, nodeNameOf, showMissing, useLessonCatalog, useLessonFacts, useLessonGraph } from './lessonModel';
 import { lackLines, lackText } from './lackText';
 import styles from './LessonPanel.module.css';
@@ -210,6 +211,8 @@ function LessonRun({ lesson, shared, onAsk }: { lesson: Lesson; shared: Shared; 
   const [allSteps, setAllSteps] = useState(false);
   const folded = !allSteps && lesson.steps.length > FOLD_STEPS_OVER;
   useEffect(() => setPeek(null), [progress.current, lesson.id]);
+  // The canvas follows the lesson: focus on the step's place, a flash for a passed step (motion package).
+  useLessonMotion(lesson.id, progress, !finished);
   useEffect(() => {
     if (finished) finish(lesson.id);
   }, [finished, finish, lesson.id]);

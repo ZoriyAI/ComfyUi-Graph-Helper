@@ -12,6 +12,7 @@ import NoteText from './NoteText';
 import { titleParts } from './titleBreaks';
 import { nodeLayout } from '../../fields/fieldModel';
 import { useCanvasView } from '../CanvasContext';
+import { useFlash } from '../../../motion/attention';
 import MarkdownLite from '../../chat/MarkdownLite';
 import { editorKind, fileBox, fileColors } from '../../../../shared/workflow/comfyLook';
 import { ConstantLine, PrimitiveFields, PromotedFields, SavedValues, promotedInputNames } from './EditorNodes';
@@ -25,6 +26,8 @@ export interface NodeCardState {
   ghost?: boolean;
   error?: boolean;
   dimmed?: boolean;
+  /** Out of the focus of a tour step or a lesson step: steps far back (motion package). */
+  unfocused?: boolean;
   revealing?: boolean;
   pending?: boolean;
   subgraph?: boolean;
@@ -53,6 +56,8 @@ interface NodeCardProps {
 export default function NodeCard({ id, data, state, connected, live = true, headerExtra, footer }: NodeCardProps) {
   const { t } = useTranslation();
   const view = useCanvasView();
+  // A teaching flash on this node (motion/attention.ts): a lesson step passed here, the camera was sent here.
+  const flashMark = useFlash(`node:${id}`);
   const detail = useNodeDetail(state.subgraph ? undefined : data.comfyType);
   const baseLayout = nodeLayout(data, state.subgraph ? null : detail);
   // What the file says of the node (IMPORT+NODES): editor-only kinds, a class that is not installed, colours, size.
@@ -79,6 +84,7 @@ export default function NodeCard({ id, data, state, connected, live = true, head
     state.ghost ? styles.ghost : '',
     state.error ? styles.error : '',
     state.dimmed ? styles.dimmed : '',
+    state.unfocused ? styles.unfocused : '',
     state.revealing ? styles.revealing : '',
     state.pending ? styles.pending : '',
     state.subgraph ? styles.subgraph : '',
@@ -106,6 +112,7 @@ export default function NodeCard({ id, data, state, connected, live = true, head
       data-node-kind={state.subgraph ? 'subgraph-instance' : 'node'}
       data-run-mode={runMode ?? undefined}
       data-build-pending={state.pending ? 'true' : undefined}
+      data-flash={flashMark}
       data-editor-kind={kind ?? undefined}
       data-class-missing={missing ? 'true' : undefined}
       data-file-size={live && fileBox(data) ? 'true' : undefined}

@@ -18,6 +18,11 @@ export interface CanvasView {
   emptyRequired: Set<string>;
   /** Nodes the last graph check flagged (missing class, base-model mismatch). */
   errorNodes: Set<string>;
+  /**
+   * The nodes a tour step or a lesson step is about (motion package): every other node and every link that does not
+   * join two of them steps back. Null when nothing asks for attention.
+   */
+  focusNodes: Set<string> | null;
 }
 
 export const CanvasViewContext = createContext<CanvasView>({
@@ -28,6 +33,7 @@ export const CanvasViewContext = createContext<CanvasView>({
   inDefinition: false,
   emptyRequired: new Set(),
   errorNodes: new Set(),
+  focusNodes: null,
 });
 
 export function useCanvasView(): CanvasView {

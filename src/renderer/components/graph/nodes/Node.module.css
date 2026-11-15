@@ -371,6 +371,31 @@
 }
 
 /*
+ * Motion package: teaching marks (motion/attention.ts). A flash rings the node that just changed and fades over
+ * --motion-mark; with Reduced or Off the ring stands still for the same time. Out of focus (a tour step or a
+ * lesson step elsewhere), a node steps far back; it fades there over the node's own opacity transition.
+ */
+.node[data-flash="a"] { animation: flashA var(--motion-mark) var(--motion-ease-out) 1; }
+.node[data-flash="b"] { animation: flashB var(--motion-mark) var(--motion-ease-out) 1; }
+@keyframes flashA {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 85%, transparent), 0 8px 24px rgba(0, 0, 0, 0.32); }
+  18% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 60%, transparent), 0 8px 24px rgba(0, 0, 0, 0.32); }
+  100% { box-shadow: 0 0 0 22px transparent, 0 8px 24px rgba(0, 0, 0, 0.32); }
+}
+@keyframes flashB {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 85%, transparent), 0 8px 24px rgba(0, 0, 0, 0.32); }
+  18% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 60%, transparent), 0 8px 24px rgba(0, 0, 0, 0.32); }
+  100% { box-shadow: 0 0 0 22px transparent, 0 8px 24px rgba(0, 0, 0, 0.32); }
+}
+:global(html[data-motion="off"]) .node[data-flash],
+:global(html[data-motion="reduced"]) .node[data-flash] { box-shadow: 0 0 0 3px var(--surface-canvas, #0a0e15), 0 0 0 6px var(--accent), 0 8px 24px rgba(0, 0, 0, 0.32); }
+@media (prefers-reduced-motion: reduce) {
+  :global(html[data-motion="system"]) .node[data-flash],
+  :global(html:not([data-motion])) .node[data-flash] { box-shadow: 0 0 0 3px var(--surface-canvas, #0a0e15), 0 0 0 6px var(--accent), 0 8px 24px rgba(0, 0, 0, 0.32); }
+}
+.node.unfocused { opacity: 0.2; filter: saturate(0.2); }
+
+/*
  * IMPORT+NODES: what a ComfyUI file says of a node, drawn here (shared/workflow/comfyLook.ts).
  * Sizes stay in step with shared/graph/layout.ts (estimateNodeSize, FILE_BOX, REROUTE_BOX, NODE_BOX).
  */

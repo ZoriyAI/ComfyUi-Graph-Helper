@@ -56,7 +56,9 @@ import { stepIndexOf } from './tour/buildTour';
 import { typeColor } from './lib/typeColors';
 import { glideMs, useGlide } from './lib/glide';
 import { useCameraSignals } from './lib/cameraHooks';
+import { useCheckWave } from './lib/checkWave';
 import { useCameraStore, centerCamera } from '../../motion/camera';
+import { useAttentionStore } from '../../motion/attention';
 import { nextOverview, rememberSizes, setOverviewLevel, titleScale } from './lib/nodeSizes';
 import { autoFit } from './lib/autoFit';
 import { useProjectionStore } from '../../services/commands/projection';
@@ -298,6 +300,7 @@ export default function CanvasFlow() {
   }, [mode, activeSubgraphId, flow]);
 
   const cameraSignals = useCameraSignals();
+  useCheckWave();
 
   // The glow on compatible ports and the dimming of the rest: for the "what connects here" assist, and while a
   // link is being dragged from a port.
@@ -316,6 +319,18 @@ export default function CanvasFlow() {
     [edges, focusRef, selectedEdges, stepNodeId, activeSubgraphId],
   );
 
+  // Attention (motion package, motion/attention.ts): the tour's step with the nodes that feed it, else what the
+  // lesson step is about. Everything else steps back while the person reads.
+  const lessonFocus = useAttentionStore((state) => state.lessonFocus);
+  const focusNodes = useMemo(() => {
+    if (mode !== 'root') return null;
+    if (tourStep?.ref.kind === 'node') {
+      const id = tourStep.ref.id;
+      return new Set([id, ...edges.filter((edge) => edge.target === id).map((edge) => edge.source)]);
+    }
+    return lessonFocus && lessonFocus.length > 0 ? new Set(lessonFocus) : null;
+  }, [mode, tourStep, edges, lessonFocus]);
+
   const view = useMemo<CanvasView>(() => {
     const errorNodes = new Set<string>();
     const emptyRequired = new Set<string>();
@@ -325,8 +340,8 @@ export default function CanvasFlow() {
       for (const item of check.baseModelMismatches.filter(here)) errorNodes.add(item.nodeId);
       for (const item of check.unconnectedRequiredInputs.filter(here)) emptyRequired.add(`${item.nodeId}:${item.input}`);
     }
-    return { edges, plan, flowing, readOnly, inDefinition: mode === 'definition', emptyRequired, errorNodes };
-  }, [edges, plan, flowing, readOnly, mode, check, activeSubgraphId]);
+    return { edges, plan, flowing, readOnly, inDefinition: mode === 'definition', emptyRequired, errorNodes, focusNodes };
+  }, [edges, plan, flowing, readOnly, mode, check, activeSubgraphId, focusNodes]);
   // Accessibility: names for nodes and links, links focusable only beside a selection (lib/spoken.ts).
   const spoken = useSpokenCanvas(drawnNodes as LevelNode[], edges, view.errorNodes);
 

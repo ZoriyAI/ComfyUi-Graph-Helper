@@ -6,13 +6,14 @@ import { EdgePulse } from '../layers/FlowLayer';
 import { typeColor } from '../lib/typeColors';
 import { pathThrough, useReroutePoints } from '../lib/nativeReroutes';
 import { useMotionLevel } from '../../../motion/policy';
+import { useFlash } from '../../../motion/attention';
 import styles from './TypedEdge.module.css';
 
 /**
  * An edge in the colour of its type: brighter and thicker when selected, drawn in once when it first
  * appears (stroke-dashoffset over --motion-reveal), and carrying flow pulses when FlowLayer says so.
  */
-function TypedEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, selected }: EdgeProps) {
+function TypedEdge({ id, source, target, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, selected }: EdgeProps) {
   const [bezier] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition });
   // ComfyUI's own reroute points on a link (IMPORT+NODES): the link passes through each of them.
   const via = useReroutePoints(id);
@@ -25,6 +26,9 @@ function TypedEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, tar
   const color = typeColor(dataType);
   const flowing = view.flowing.has(id);
   const dimmed = Boolean(view.plan);
+  // Motion package: out of a tour or lesson focus unless it joins two nodes in focus; a flash when it just changed.
+  const unfocused = view.focusNodes ? !(view.focusNodes.has(source) && view.focusNodes.has(target)) : false;
+  const flashMark = useFlash(`edge:${id}`);
   const className = [
     styles.path,
     selected ? styles.selected : '',
@@ -32,6 +36,7 @@ function TypedEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, tar
     revealing ? styles.reveal : '',
     pending ? styles.pending : '',
     dimmed ? styles.dimmed : '',
+    unfocused ? styles.unfocused : '',
   ].filter(Boolean).join(' ');
   return (
     <>
@@ -42,6 +47,7 @@ function TypedEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, tar
         pathLength={revealing ? 1 : undefined}
         style={{ '--canvas-edge': color } as React.CSSProperties}
         data-edge-type={dataType}
+        data-flash={flashMark}
       />
       <path d={path} fill="none" strokeOpacity={0} strokeWidth={20} className="react-flow__edge-interaction" />
       {via?.map((point) => <circle key={point.id} cx={point.x} cy={point.y} r={5} className={styles.reroutePoint} style={{ '--canvas-edge': color } as React.CSSProperties} data-reroute-point={point.id} />)}

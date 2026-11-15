@@ -1,6 +1,7 @@
-import React, { useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'motion/react';
+import { EASE_IN, tokenSeconds } from '../../../motion/policy';
 import { Check, X } from 'lucide-react';
 import { getBezierPath, Position, useStore, ViewportPortal } from '@xyflow/react';
 import type { Proposal } from '../../../../shared/contracts/proposals';
@@ -17,6 +18,7 @@ import { ghostNodePosition, ghostSpotFree, parameterPill, subgraphGhostRect, unp
 import { newNodeSize } from '../lib/nodeSizes';
 import { estimateNodeSize } from '../../../../shared/graph/layout';
 import { handlePoint } from '../lib/handles';
+import { canvasHandle } from '../../../commands/canvasHandle';
 import { useLayoutKey } from '../lib/useLayoutKey';
 import { typeColor } from '../lib/typeColors';
 import styles from './GhostLayer.module.css';
@@ -49,11 +51,26 @@ function Note({ text }: { text: string }) {
   return <p className={`${styles.note} ghost-note`} title={text}>{text}</p>;
 }
 
-const fade = {
-  initial: { opacity: 0, scale: 0.97 },
-  animate: { opacity: 1, scale: 1 },
-  exit: { opacity: 0, scale: 0.97 },
-};
+/**
+ * How a grey draft comes and goes (motion package). It fades in; once decided it leaves by the decision: an
+ * accepted draft fades out quickly where the live node draws itself in (the canvas reveals every new node), so the
+ * draft seems to become it; a rejected one dissolves (shrinks, blurs, fades) on the leaving curve.
+ * The decision reaches a leaving draft through AnimatePresence's `custom` (its own props are frozen as it leaves).
+ */
+function fadeFor(id: string) {
+  return {
+    initial: 'hidden',
+    animate: 'shown',
+    exit: 'gone',
+    variants: {
+      hidden: { opacity: 0, scale: 0.97 },
+      shown: { opacity: 1, scale: 1 },
+      gone: (decisions?: ReadonlyMap<string, string>) => (decisions?.get(id) === 'accepted'
+        ? { opacity: 0, transition: { duration: tokenSeconds('--motion-exit'), ease: EASE_IN } }
+        : { opacity: 0, scale: 0.9, filter: 'blur(6px)', transition: { duration: tokenSeconds('--motion-reveal'), ease: EASE_IN } }),
+    },
+  };
+}
 
 function catalogPorts(detail: ReturnType<typeof useNodeDetail>): { inputs: PortDefinition[]; outputs: PortDefinition[] } {
   if (!detail) return { inputs: [], outputs: [] };
@@ -97,7 +114,7 @@ function AddNodeGhost({ proposal, payload, at }: { proposal: Proposal; payload: 
     parameters: payload.parameters ?? {},
   };
   return (
-    <motion.div {...fade} className={styles.anchor} style={{ left: at.x, top: at.y }} data-ghost={proposal.id} data-ghost-kind="add-node" aria-label={String(t('canvas.ghostNode', { title }))} role="group">
+    <motion.div {...fadeFor(proposal.id)} className={styles.anchor} style={{ left: at.x, top: at.y }} data-ghost={proposal.id} data-ghost-kind="add-node" aria-label={String(t('canvas.ghostNode', { title }))} role="group">
       <span className={`${styles.flag} ghost-flag`}>{t('canvas.suggested')}</span>
       <NodeCard id={`ghost-${proposal.id}`} data={data} state={{ ghost: true }} connected={new Set()} live={false} />
       <Note text={proposal.note} />
@@ -121,7 +138,7 @@ function ConnectGhost({ proposal, payload }: { proposal: Proposal; payload: Payl
     targetX: target.x, targetY: target.y, targetPosition: Position.Left,
   });
   return (
-    <motion.div {...fade} className={styles.layer} data-ghost={proposal.id} data-ghost-kind="connect">
+    <motion.div {...fadeFor(proposal.id)} className={styles.layer} data-ghost={proposal.id} data-ghost-kind="connect">
       <svg className={styles.svg} aria-hidden="true">
         <path d={path} className={styles.ghostEdge} style={{ stroke: color }} />
       </svg>
@@ -141,7 +158,7 @@ function ParameterGhost({ proposal, payload }: { proposal: Proposal; payload: Pa
   if (!node) return null;
   const rect = nodeRect(node);
   return (
-    <motion.div {...fade} className={styles.anchor} style={{ left: rect.x + rect.width + 12, top: rect.y }} data-ghost={proposal.id} data-ghost-kind="set-parameter" role="group" aria-label={String(t('canvas.ghostParameter'))}>
+    <motion.div {...fadeFor(proposal.id)} className={styles.anchor} style={{ left: rect.x + rect.width + 12, top: rect.y }} data-ghost={proposal.id} data-ghost-kind="set-parameter" role="group" aria-label={String(t('canvas.ghostParameter'))}>
       <span className={styles.pill}>{pill.text}</span>
       <Note text={proposal.note} />
       <Chips proposal={proposal} />
@@ -155,7 +172,7 @@ function SubgraphGhost({ proposal, payload }: { proposal: Proposal; payload: Pay
   const rect = subgraphGhostRect(payload, nodes);
   if (!rect) return null;
   return (
-    <motion.div {...fade} className={styles.outline} style={{ left: rect.x, top: rect.y, width: rect.width, height: rect.height }} data-ghost={proposal.id} data-ghost-kind="create-subgraph" role="group" aria-label={String(t('canvas.ghostSubgraph', { name: payload.name }))}>
+    <motion.div {...fadeFor(proposal.id)} className={styles.outline} style={{ left: rect.x, top: rect.y, width: rect.width, height: rect.height }} data-ghost={proposal.id} data-ghost-kind="create-subgraph" role="group" aria-label={String(t('canvas.ghostSubgraph', { name: payload.name }))}>
       <div className={styles.outlineTitle}>
         <span className={`${styles.flag} ghost-flag`}>{t('canvas.suggested')}</span>
         <span>{payload.name}</span>
@@ -189,7 +206,7 @@ function InsertGhost({ proposal, payload, at }: { proposal: Proposal; payload: P
     parameters: {},
   };
   return (
-    <motion.div {...fade} className={styles.anchor} style={{ left: at.x, top: at.y }} data-ghost={proposal.id} data-ghost-kind="insert-subgraph" role="group" aria-label={String(t('canvas.ghostInsert'))}>
+    <motion.div {...fadeFor(proposal.id)} className={styles.anchor} style={{ left: at.x, top: at.y }} data-ghost={proposal.id} data-ghost-kind="insert-subgraph" role="group" aria-label={String(t('canvas.ghostInsert'))}>
       <span className={`${styles.flag} ghost-flag`}>{t('canvas.suggested')}</span>
       <NodeCard id={`ghost-${proposal.id}`} data={data} state={{ ghost: true, subgraph: true }} connected={new Set()} live={false} />
       <Note text={proposal.note} />
@@ -204,7 +221,7 @@ function RemoveGhost({ proposal, payload }: { proposal: Proposal; payload: Paylo
   if (!node) return null;
   const rect = nodeRect(node);
   return (
-    <motion.div {...fade} className={`${styles.outline} ${styles.removal}`} style={{ left: rect.x - 8, top: rect.y - 8, width: rect.width + 16, height: rect.height + 16 }} data-ghost={proposal.id} data-ghost-kind="remove-node" role="group" aria-label={String(t('canvas.ghostRemove'))}>
+    <motion.div {...fadeFor(proposal.id)} className={`${styles.outline} ${styles.removal}`} style={{ left: rect.x - 8, top: rect.y - 8, width: rect.width + 16, height: rect.height + 16 }} data-ghost={proposal.id} data-ghost-kind="remove-node" role="group" aria-label={String(t('canvas.ghostRemove'))}>
       <div className={styles.outlineTitle}>
         <span className={`${styles.flag} ghost-flag`}>{t('canvas.ghostRemove')}</span>
         <Chips proposal={proposal} />
@@ -225,6 +242,8 @@ export default function GhostLayer() {
   const replaying = useCanvasStore((state) => Boolean(state.replay));
   useLayoutKey();
   const open = useMemo(() => openProposals(proposals), [proposals]);
+  // What became of each draft, for the way a decided one leaves (fadeFor).
+  const decisions = useMemo(() => new Map(proposals.map((proposal) => [proposal.id, proposal.status as string])), [proposals]);
   const order = useMemo(() => unplacedOrder(open), [open]);
   // A ghost keeps the spot it first got, so selecting another node does not make it jump. It moves only when a
   // node came to lie under it (a build tidied the graph, the person dragged a node there).
@@ -244,11 +263,26 @@ export default function GhostLayer() {
     if (nodes.length > 0 && nodes.every((node) => node.measured?.height)) placed.current.set(proposal.id, spot);
     return spot;
   };
+  // A new draft the person cannot see (motion package): the camera brings it into view once, by the camera rule.
+  // A draft that is already on screen leaves the camera alone.
+  const shownDrafts = useRef(new Set<string>());
+  const freshKey = open.map((proposal) => proposal.id).filter((id) => !shownDrafts.current.has(id)).join(' ');
+  useEffect(() => {
+    if (!freshKey || inDefinition || replaying) return;
+    const ids = freshKey.split(' ');
+    ids.forEach((id) => shownDrafts.current.add(id));
+    // After the draft is drawn and its spot known (spotOf runs while drawing).
+    const frame = window.requestAnimationFrame(() => {
+      const spot = ids.map((id) => ghostSpots.get(id)).find(Boolean);
+      if (spot) canvasHandle()?.reveal({ x: spot.x, y: spot.y, width: GHOST_SIZE.width, height: GHOST_SIZE.height });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [freshKey, inDefinition, replaying]);
   if (inDefinition || replaying) return null;
   return (
     <ViewportPortal>
       <div className={styles.root}>
-        <AnimatePresence>
+        <AnimatePresence custom={decisions}>
           {open.map((proposal) => {
             const payload = proposal.payload;
             switch (payload.type) {

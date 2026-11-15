@@ -13,5 +13,7 @@ export function useNodeFlags(id: string) {
     pending,
     error: view.errorNodes.has(id),
     dimmed: view.plan?.dimmed.has(id) ?? false,
+    // Out of the tour's or the lesson's focus (motion package).
+    unfocused: view.focusNodes ? !view.focusNodes.has(id) : false,
   };
 }

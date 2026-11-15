@@ -18,6 +18,7 @@ import { nodeDisplayName } from '../lib/nodeName';
 import { BUILD_BUBBLE_PX, BUILD_ROOM_PX, CALLOUT_GAP_PX, CALLOUT_Z } from '../lib/followCamera';
 import { FIT_PADDING } from '../CanvasToolbar';
 import { selectOnLevel } from '../lib/level';
+import { flash } from '../../../motion/attention';
 import { autoFit } from '../lib/autoFit';
 import styles from './Callout.module.css';
 
@@ -281,7 +282,11 @@ export default function BuildLayer({ levelId }: { levelId: string | null }) {
     const frame = window.requestAnimationFrame(() => {
       if ((useGraphStore.getState().activeSubgraphId ?? null) !== levelId || !flow.getInternalNode(centerRequest.nodeId)) return;
       centerNode(centerRequest.nodeId);
-      selectOnLevel([centerRequest.nodeId]);
+      if (centerRequest.select !== false) {
+        selectOnLevel([centerRequest.nodeId]);
+        // "Here it is" (motion package): the node the camera was sent to rings once, so the eye finds it.
+        flash({ nodes: [centerRequest.nodeId] });
+      }
     });
     return () => window.cancelAnimationFrame(frame);
   }, [centerRequest, centerNode, flow, levelId]);
