@@ -82,9 +82,11 @@ before a release.
 
 ## What CI runs
 
-`.github/workflows/build.yml`, on every push: the changelog check, `npm ci`, `npm test`, `npm run type-check`,
-`npm run build`, the end-to-end tests, the layout walk in Russian and in English and with wider text at 125 %, the
-package and its checks ([Package formats](Package-Formats.md)).
+- `.github/workflows/ci.yml`, on every pull request and every push to the default branch: the changelog check,
+  `node scripts/public-tree-check.js`, `npm ci`, the type check, the unit and integration tests and the build. It
+  has read-only rights and no secrets.
+- `.github/workflows/release.yml`, for tags, by hand and weekly: the end-to-end tests, the layout walks, the four
+  packages and their checks, the upgrade test, then the release. [Releasing](Releasing.md)
 
 ## See also
 

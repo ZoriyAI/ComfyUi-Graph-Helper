@@ -22,6 +22,7 @@ On macOS (a build from source) `Cmd` takes the place of `Ctrl`.
 | `Ctrl+N` | New project |
 | `Ctrl+O` | Open project |
 | `Ctrl+S` | Save project |
+| `Ctrl+Shift+S` | Save project as… |
 | `Ctrl+I` | Open workflow… |
 | `Ctrl+E` | Save workflow for ComfyUI… |
 | `Ctrl+,` | Settings… |
@@ -32,7 +33,11 @@ On macOS (a build from source) `Cmd` takes the place of `Ctrl`.
 | Keys | Command |
 | --- | --- |
 | `Ctrl+Z` | Undo |
-| `Ctrl+Shift+Z` | Redo |
+| `Ctrl+Shift+Z` or `Ctrl+Y` | Redo |
+| `Ctrl+C` | Copy |
+| `Ctrl+X` | Cut |
+| `Ctrl+V` | Paste |
+| `Ctrl+D` | Duplicate |
 | `Ctrl+A` | Select all |
 | `Delete` or `Backspace` | Delete selection |
 
@@ -42,6 +47,7 @@ On macOS (a build from source) `Cmd` takes the place of `Ctrl`.
 | --- | --- |
 | `Ctrl+K` | Add node… |
 | `Ctrl+G` | Make a subgraph from selection |
+| `Alt+C` | Collapse or expand the selected nodes |
 | `Ctrl+Shift+L` | Arrange the graph |
 | `Ctrl+Shift+C` | Check graph |
 

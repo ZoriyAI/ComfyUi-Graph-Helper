@@ -16,6 +16,7 @@ The files the app reads and writes, outside its [data folder](Data-Folder.md). A
 - **Not inside:** the chat, the settings and keys. A field that looks like a key or a token is shown to you before
   saving, and you choose to save without it or as it is.
 - **Forward-compatible:** fields this version does not know are kept and written back on save.
+- A new project holds its graph in workflow format 1, so subgraphs can be made in it.
 - A project file from a newer version is refused with a message that names its version.
 
 More: [Project files](../graph/Project-Files.md).
@@ -25,6 +26,7 @@ More: [Project files](../graph/Project-Files.md).
 - **Written by:** File ▸ Save workflow for ComfyUI… **Read by:** File ▸ Open workflow… (and ComfyUI).
 - **Inside:** an ordinary ComfyUI workflow in the format the ComfyUI frontend saves (versions 0.4 and 1), with
   subgraphs. What you did not change comes back exactly as it was, including values the app does not show.
+- **The older format 0.4** opens, but cannot hold a subgraph: the app says to copy the nodes into a new project.
 - **Not read:** the API format of ComfyUI (a file of prompts by node number). The app says so instead of guessing.
 - Keys are handled as for the project file.
 

@@ -43,11 +43,12 @@ what to expect. Wishes go to the project's Discussions, problems to its Issues.
 
 - Inside a subgraph you cannot make a new subgraph or a group, and a nested subgraph cannot be dissolved: do that on
   the main canvas. Groups that came inside a subgraph from ComfyUI are kept on save but not shown.
-- A new project (File ▸ New project) starts in the older workflow format, in which a subgraph cannot be made. A graph
-  opened from a recent ComfyUI does not have this limit. [Subgraphs](../graph/Subgraphs.md)
-  <!-- verify: remove when New project starts in workflow format 1 -->
-- Nodes cannot be copied, cut, pasted or duplicated yet; `Ctrl+C` and `Ctrl+V` work in text fields only.
-  [Copy and paste](../graph/Copy-And-Paste.md) <!-- verify: copy and paste of nodes -->
+- A workflow saved in the older format (0.4) cannot hold a subgraph; the app says so. Copy its nodes, start a new
+  project (which uses format 1) and paste them there. [Subgraphs](../graph/Subgraphs.md)
+- Legacy group nodes of older workflows are shown as one unknown node; they are saved back as they were.
+- Inputs that grow as you connect them, and list marks on inputs, are not shown yet.
+- Native reroute points are drawn, but cannot be added or moved.
+- Dragging nodes is slow on graphs of more than about a hundred nodes.
 - Pictures with a workflow inside them are not opened; open the workflow `.json` file.
   <!-- verify: opening a picture with a workflow inside -->
 
