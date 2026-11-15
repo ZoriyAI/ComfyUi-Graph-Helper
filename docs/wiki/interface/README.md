@@ -5,8 +5,8 @@
 
 One page per part of the window.
 
-- [The window at a glance](Window.md): The parts of the window and what each is for.
-- [The welcome card](Welcome.md): The three first steps on an empty canvas.
+- [The window at a glance](Window.md): The parts of the window, the keys between them, interface size and the tour of the window.
+- [The welcome card](Welcome.md): Three ways to start, what they need, and the language button.
 - [The menu bar](Menu-Bar.md): The menus and how to reach them from the keyboard.
 - [File menu](File-Menu.md): Every item of the File menu.
 - [Edit menu](Edit-Menu.md): Every item of the Edit menu.
@@ -25,20 +25,20 @@ One page per part of the window.
 - [The canvas](Canvas.md): Moving around, zoom, selection and the map.
 - [The canvas toolbar](Canvas-Toolbar.md): The buttons that float over the canvas.
 - [Canvas menus](Canvas-Menus.md): What a right-click on a node, a port, a link, a group or an empty place offers.
-- [A node on the canvas](Node.md): Title, inputs, outputs, fields and the description card.
+- [A node on the canvas](Node.md): Title, marks, bypass and mute, colours, fields, notes and the check marks.
 - [Description cards](Description-Cards.md): The notes under the nodes, their three modes and writing your own.
-- [Properties](Properties.md): The panel that shows the selected node or the graph.
+- [Properties](Properties.md): The selected node, link or graph, with field notes.
 - [The right panel](Dock.md): Its tabs and how to show or hide it.
 - [The assistant tab](Assistant-Panel.md): The conversation, the mode switch and the input field.
 - [The explanations tab](Explain-Panel.md): Explanations of the selected object and their source.
 - [The check tab](Check-Panel.md): Findings of the check and advice on descriptions.
-- [The lessons tab](Lessons-Panel.md): Choosing a lesson and following its steps.
+- [The lessons tab](Lessons-Panel.md): Choosing a lesson, following its steps, and My lessons.
 - [Settings](Settings.md): The settings window and how saving works.
 - [Settings: Assistant](Settings-Assistant.md): Every field of the Assistant section.
 - [Settings: Connection](Settings-Connection.md): Every field of the Connection section.
 - [Settings: Sync](Settings-Sync.md): Every field of the Sync section.
 - [Settings: Canvas](Settings-Canvas.md): Every field of the Canvas section.
-- [Settings: Appearance and animation](Settings-Appearance.md): Language, animation, density and colour.
+- [Settings: Appearance and animation](Settings-Appearance.md): Language, motion, interface size, density and colour.
 - [Settings: Shortcuts](Settings-Shortcuts.md): Changing a key combination.
 - [Settings: Privacy](Settings-Privacy.md): Every switch of the Privacy section.
 - [Settings: About](Settings-About.md): The About section.
