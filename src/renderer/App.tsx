@@ -24,6 +24,7 @@ import { applyProjection, useProjectionStore } from './services/commands/project
 import { getChatService } from './services/llm/chatService';
 import { installAppCommands } from './commands/appCommands';
 import { useCommandState } from './commands/registry';
+import { installFocusRescue } from './a11y/focusRescue';
 import { installHotkeys } from './commands/hotkeys';
 import { installPreferences } from './state/preferencesBridge';
 import { importWorkflowFile } from './commands/actions';
@@ -54,6 +55,8 @@ function App() {
     startProposalsSubscription();
     const offCommands = installAppCommands();
     const offHotkeys = installHotkeys();
+    // Keyboard focus that falls to the page body goes back to a sensible element (a11y/focusRescue.ts).
+    const offFocusRescue = installFocusRescue();
     const offPreferences = installPreferences();
     const offFrame = installFrameBalance();
     // Safe start: main may ask first whether to draw a graph the last start could not finish drawing.
@@ -69,6 +72,7 @@ function App() {
       offFrame();
       offPreferences();
       offHotkeys();
+      offFocusRescue();
       offCommands();
     };
   }, []);
@@ -96,6 +100,8 @@ function App() {
 
   return (
     <div className={cx(styles.shell, 'app-shell')}>
+      {/* Accessibility: one top heading for the window, so a screen reader's heading list starts at the app. */}
+      <h1 className="sr-only">{t('shell.title')}</h1>
       <MenuBar />
       <Toolbar settings={settings} />
       <div className={cx(styles.body, 'app-body')}>

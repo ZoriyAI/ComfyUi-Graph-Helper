@@ -1,3 +1,4 @@
+import { closeCard, focusCardTitle } from '../../a11y/cardFocus';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, Plug, SearchX } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -246,7 +247,10 @@ export default function NodeLibrary() {
                     return true;
                   }
                   if (event.key === ' ') {
-                    setOpen(open?.classType === row.node.classType ? null : row.node);
+                    const opening = open?.classType !== row.node.classType;
+                    setOpen(opening ? row.node : null);
+                    // Opened from the keyboard: the card takes focus, so its buttons are reachable (a11y/cardFocus.ts).
+                    if (opening) focusCardTitle('.node-card #node-card-title');
                     return true;
                   }
                   return false;
@@ -311,7 +315,7 @@ export default function NodeLibrary() {
         <NodeCard
           key={open.classType}
           node={open}
-          onClose={() => setOpen(null)}
+          onClose={() => closeCard('.node-card', '#node-library-list', () => setOpen(null))}
           onAdd={add}
           onAsk={(message) => ask(open, message)}
         />

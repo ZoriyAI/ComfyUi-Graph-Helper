@@ -103,7 +103,8 @@ export default function CanvasToolbar() {
           <ControlButton className="react-flow__controls-zoomout" onClick={() => void runCommand('view.zoomOut')} title={String(t('canvas.zoomOut'))} aria-label={String(t('canvas.zoomOut'))}>
             <ZoomOut className={styles.glyph} aria-hidden="true" />
           </ControlButton>
-          <ControlButton className={`${styles.zoomLevel} react-flow__controls-zoomreset`} onClick={() => void runCommand('view.zoomReset')} title={String(t('menu.zoomReset'))} aria-label={String(t('menu.zoomReset'))}>
+          <ControlButton className={`${styles.zoomLevel} react-flow__controls-zoomreset`} onClick={() => void runCommand('view.zoomReset')} title={String(t('menu.zoomReset'))} aria-label={String(t('a11y.zoomNow', { zoom: Math.round(zoom * 100), action: t('menu.zoomReset') }))}>
+            {/* The name starts with the number on the button, so the words a person sees are the words that are read. */}
             {Math.round(zoom * 100)}%
           </ControlButton>
           <ControlButton className="react-flow__controls-zoomin" onClick={() => void runCommand('view.zoomIn')} title={String(t('canvas.zoomIn'))} aria-label={String(t('canvas.zoomIn'))}>

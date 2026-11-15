@@ -36,6 +36,8 @@ export function applyAppearance(appearance: Preferences['appearance'], root: HTM
   root.dataset.density = appearance.density;
   if (appearance.reduceGlow) root.dataset.glow = 'reduced';
   else delete root.dataset.glow;
+  // Accessibility: the interface size is browser zoom of the whole window (preload setInterfaceScale).
+  if (typeof window !== 'undefined') window.electronAPI?.setInterfaceScale?.((appearance.interfaceScale ?? 100) / 100);
 }
 
 let queue: Promise<unknown> = Promise.resolve();

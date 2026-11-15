@@ -191,7 +191,9 @@ describe('hotkey focus rules', () => {
     expect(shortcutAllowed('Mod+A', canvas)).toBe(true);
     expect(shortcutAllowed('Mod+A', field)).toBe(false);
     expect(shortcutAllowed('Mod+A', dialog)).toBe(false);
-    expect(shortcutAllowed('F1', field)).toBe(false);
+    // F1 (the shortcuts window) is help: it also works while typing, but not over an open dialog.
+    expect(shortcutAllowed('F1', field)).toBe(true);
+    expect(shortcutAllowed('F1', dialog)).toBe(false);
     // Escape belongs to the open layer (Radix closes it) and to the field.
     expect(shortcutAllowed('Escape', canvas)).toBe(true);
     expect(shortcutAllowed('Escape', dialog)).toBe(false);

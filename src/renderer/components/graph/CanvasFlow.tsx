@@ -64,6 +64,7 @@ import { Pin } from 'lucide-react';
 import Button from '../../ui/Button';
 import { showToast } from '../../ui/toastStore';
 import { canvasHandle } from '../../commands/canvasHandle';
+import { useSpokenCanvas } from './lib/useSpokenCanvas';
 import styles from './GraphWorkspace.module.css';
 import overviewStyles from './Overview.module.css';
 
@@ -327,6 +328,8 @@ export default function CanvasFlow() {
     }
     return { edges, plan, flowing, readOnly, inDefinition: mode === 'definition', emptyRequired, errorNodes };
   }, [edges, plan, flowing, readOnly, mode, check, activeSubgraphId]);
+  // Accessibility: names for nodes and links, links focusable only beside a selection (lib/spoken.ts).
+  const spoken = useSpokenCanvas(drawnNodes as LevelNode[], edges, view.errorNodes);
 
   // Selection → uiState as ObjectRefs (nodes, edges, and the focused port).
   useEffect(() => {
@@ -535,8 +538,8 @@ export default function CanvasFlow() {
       <GraphContextMenu nodes={nodes} edges={edges} readOnly={readOnly}>
         <div ref={host} className={`${styles.flowHost} ${overviewStyles.host}`} onPointerDownCapture={onPointerDownCapture} onDoubleClick={onDoubleClick} data-canvas-mode={mode} data-nodes-pinned={nodesPinned ? 'true' : undefined}>
           <ReactFlow
-            nodes={drawnNodes as Node[]}
-            edges={edges}
+            nodes={spoken.nodes as Node[]}
+            edges={spoken.edges}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}

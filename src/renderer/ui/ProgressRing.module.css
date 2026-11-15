@@ -3,4 +3,7 @@
 .bar { stroke: var(--accent); transition: stroke-dashoffset var(--motion-panel) var(--motion-ease-out); }
 .indeterminate { transform-origin: center; animation: turn 1100ms linear infinite; }
 :global(html[data-motion="off"]) .indeterminate { animation: none; }
+/* Accessibility: reduced motion (the app's choice or the system's) also stops the endless spin. */
+:global(html[data-motion="reduced"]) .indeterminate { animation: none; }
+@media (prefers-reduced-motion: reduce) { :global(html[data-motion="system"]) .indeterminate { animation: none; } }
 @keyframes turn { to { transform: rotate(360deg); } }

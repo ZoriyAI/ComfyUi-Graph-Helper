@@ -1,3 +1,4 @@
+import { INTERFACE_SCALE } from '../../../../shared/config/preferences';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import type { NonSecretSettings } from '../../../../shared/config/schema';
@@ -67,6 +68,15 @@ export default function AppearanceSection({ values, setValues, prefs, setPrefs, 
         container={container}
         onChange={(density) => set({ density: density as Preferences['appearance']['density'] })}
       />
+      {/* Accessibility: the whole interface larger or smaller (the canvas zoom stays its own). */}
+      <SelectField
+        label={String(t('a11y.interfaceScale'))}
+        value={String(appearance.interfaceScale)}
+        options={INTERFACE_SCALE.steps.map((step) => ({ value: String(step), label: `${step}%` }))}
+        container={container}
+        onChange={(scale) => set({ interfaceScale: Number(scale) })}
+      />
+      <p className={hintClass}>{t('a11y.interfaceScaleHint')}</p>
       <RadioCards
         label={String(t('preferences.accent'))}
         value={appearance.accent}

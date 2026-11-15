@@ -25,6 +25,15 @@ const GROUPS: CommandGroup[] = ['file', 'edit', 'view', 'graph', 'assistant', 's
 const EXTRA_KEYS: Array<{ shortcuts: string[]; labelKey: string; group: CommandGroup }> = [
   { shortcuts: ['Alt', 'F10'], labelKey: 'shortcuts.menuBar', group: 'help' },
   { shortcuts: ['Shift+F10'], labelKey: 'shortcuts.contextMenu', group: 'help' },
+  // Accessibility: the keyboard routes a person can rely on, which are not commands of their own.
+  { shortcuts: ['F6', 'Shift+F6'], labelKey: 'a11y.keysRegions', group: 'help' },
+  { shortcuts: ['F8'], labelKey: 'a11y.keysNotifications', group: 'help' },
+  { shortcuts: ['Enter', 'Space'], labelKey: 'a11y.keysSelectNode', group: 'graph' },
+  { shortcuts: ['←↑↓→'], labelKey: 'a11y.keysMoveNode', group: 'graph' },
+  { shortcuts: ['Backspace'], labelKey: 'a11y.keysDelete', group: 'graph' },
+  { shortcuts: ['Shift+F10'], labelKey: 'a11y.keysLink', group: 'graph' },
+  { shortcuts: ['Space'], labelKey: 'a11y.keysLibraryCard', group: 'graph' },
+  { shortcuts: ['Enter'], labelKey: 'a11y.keysLibraryAdd', group: 'graph' },
 ];
 
 /** Help ▸ Keyboard shortcuts (F1): every command that has a shortcut, by menu. */

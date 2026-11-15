@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, webFrame } from 'electron';
 import type { ChatRuntimeConfig, NonSecretSettings, SettingsRead } from '../shared/config/schema';
 import type { Preferences } from '../shared/config/preferences';
 import type { AboutInfo, HelpPage, HelpSearchHit, HelpTree, IssueDraft, ProjectLinkKind, ThirdPartyComponent } from '../shared/contracts/about';
@@ -190,6 +190,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   /** Build switches from main. `testProvider`: the scripted TEST fixture is offered (unpackaged runs and tests only). */
   flags: { testProvider: hasFlag('--test-provider=1'), pseudoLocale: hasFlag('--pseudo-locale=1') },
+
+  /**
+   * Accessibility: the size of the whole interface (Settings ▸ Appearance ▸ Interface size, View menu), as browser
+   * zoom does it, so every text, control and panel grows together. Kept within 0.8 to 2.
+   */
+  setInterfaceScale: (factor: number) => webFrame.setZoomFactor(Math.min(2, Math.max(0.8, Number(factor) || 1))),
 
   // File operations
   importWorkflow: () => ipcRenderer.invoke(IPC_CHANNELS.FILE_IMPORT_WORKFLOW),
@@ -423,6 +429,8 @@ export type SettingsSaveResult =
 // Type declaration for renderer
 export interface ElectronAPI {
   platform: string;
+  /** Sets the size of the whole interface (1 = normal, 2 = twice as large). */
+  setInterfaceScale: (factor: number) => void;
   versions: {
     node: string;
     chrome: string;

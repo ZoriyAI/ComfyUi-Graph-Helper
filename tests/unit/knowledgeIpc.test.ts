@@ -33,7 +33,8 @@ describe('knowledge IPC handlers', () => {
 
   it('answers valid requests and rejects invalid ones with a clean message', async () => {
     const { handlers, db } = setup();
-    expect(await handlers[IPC_CHANNELS.KNOWLEDGE_SEARCH_NODES]({ query: 'ksam' })).toEqual([
+    // The result also carries the line on what the node does and its marks; this test pins the identity fields.
+    expect(await handlers[IPC_CHANNELS.KNOWLEDGE_SEARCH_NODES]({ query: 'ksam' })).toMatchObject([
       { classType: 'KSampler', displayName: 'KSampler', category: 'sampling', pack: 'core', detailed: true },
     ]);
     expect(await handlers[IPC_CHANNELS.KNOWLEDGE_NODE_DETAIL]('KSampler')).toMatchObject({ classType: 'KSampler' });

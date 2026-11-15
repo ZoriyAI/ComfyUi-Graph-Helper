@@ -42,13 +42,15 @@ function FindingRow({ finding, text, hint, onShow, onAsk }: { finding: CheckFind
   const textId = `check-finding-${finding.key.replace(/[^\w-]/g, '_')}`;
   return (
     <>
-      <button type="button" className={styles.show} aria-label={String(t('explain.checkShow'))} aria-describedby={textId} title={hint} onClick={onShow}>
+      {/* Accessibility: the button is named by the finding it shows (the words on it), then by what it does. */}
+      <button type="button" className={styles.show} title={hint} onClick={onShow}>
         <Icon className={styles.severity} size={14} aria-hidden="true" />
         <span className={styles.text} id={textId}>{withNames(text)}</span>
+        <span className="sr-only">{`. ${String(t('explain.checkShow'))}`}</span>
         <Crosshair className={styles.showMark} size={14} aria-hidden="true" />
       </button>
       {/* Its name is its tooltip (IconButton): the panel also renders where no tooltip provider is mounted. */}
-      <IconButton size="sm" className={styles.ask} label={String(t('explain.checkAskWhy'))} onClick={onAsk}>
+      <IconButton size="sm" className={styles.ask} label={String(t('explain.checkAskWhy'))} aria-describedby={textId} onClick={onAsk}>
         <MessageCircleQuestion size={15} aria-hidden="true" />
       </IconButton>
     </>

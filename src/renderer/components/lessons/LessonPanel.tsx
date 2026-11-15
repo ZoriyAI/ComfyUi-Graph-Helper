@@ -137,7 +137,8 @@ function LessonList({ shared, adultOn }: { shared: Shared; adultOn: boolean }) {
                 return (
                   <li key={lesson.id} id={`lesson-${lesson.id}`} tabIndex={-1} className={styles.card} data-lesson-card={lesson.id} data-lesson-state={blocked ? 'unfit' : finished ? 'done' : started ? 'started' : 'new'}>
                     <div className={styles.cardHead}>
-                      <span className={styles.cardTitle}>{words.title}</span>
+                      {/* Lesson names are headings under their group (h4), so a screen reader can jump between lessons. */}
+                      <span className={styles.cardTitle} role="heading" aria-level={5}>{words.title}</span>
                       {isDone ? <span className={styles.doneMark}><Check size={12} aria-hidden="true" />{t('lessons.done')}</span> : null}
                     </div>
                     <p className={styles.cardText}>{words.result}</p>
@@ -260,11 +261,15 @@ function LessonRun({ lesson, shared, onAsk }: { lesson: Lesson; shared: Shared; 
           {lackText(t, hint, lesson, { details: shared.details, graph: shared.graph, facts: shared.facts, roles: progress.roles, language: i18n.language })}
         </p>
       )) : null}
+      {/* Accessibility: a screen reader hears the new step when the lesson moves on (or is done), once per step. */}
+      <span className="sr-only" role="status" aria-live="polite">
+        {finished && peek === null ? t('lessons.finishedTitle') : current ? `${t('lessons.progress', { current: progress.current + 1, total })}. ${withNodeNames(text.title, nameOf).replace(/\*\*/g, '')}` : ''}
+      </span>
       {steppedBack && peek === null ? <p className={styles.notice} role="status" data-lesson-back="">{t('lessons.steppedBack', { step: progress.current + 1 })}</p> : null}
 
       {finished && peek === null ? (
         <section className={styles.step} data-step-state="end">
-          <h4 className={styles.stepTitle}><Check size={16} aria-hidden="true" />{t('lessons.finishedTitle')}</h4>
+          <h4 className={styles.stepTitle} tabIndex={-1} data-focus-fallback=""><Check size={16} aria-hidden="true" />{t('lessons.finishedTitle')}</h4>
           <p className={styles.plain}>{t('lessons.finishedBody')}</p>
           <div className={styles.actions}>
             <Button variant={nextLesson && nextTitle ? 'subtle' : 'primary'} quiet size="sm" icon={<FolderOutput size={14} />} onClick={() => void runCommand('file.export')}>{t('lessons.save')}</Button>
@@ -283,7 +288,8 @@ function LessonRun({ lesson, shared, onAsk }: { lesson: Lesson; shared: Shared; 
         </section>
       ) : (
         <section className={styles.step} data-step-state={current ? (step.read ? 'read' : 'do') : 'passed'}>
-          <h4 className={styles.stepTitle}>{withNodeNames(text.title, nameOf).replace(/\*\*/g, '')}</h4>
+          {/* Accessibility: when the button that moved the lesson on disappears, focus lands here (a11y/focusRescue.ts). */}
+          <h4 className={styles.stepTitle} tabIndex={-1} data-focus-fallback="">{withNodeNames(text.title, nameOf).replace(/\*\*/g, '')}</h4>
           <MarkdownLite text={withNodeNames(text.body, nameOf)} className={styles.body} />
           {current && step.read ? (
             <div className={styles.actions}>

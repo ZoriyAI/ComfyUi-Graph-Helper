@@ -27,6 +27,16 @@ export type PreferenceProvider = typeof PREFERENCE_PROVIDERS[number];
  * never ends the work: the chat shows "paused — Continue / Stop" and Continue resumes the same run.
  */
 export const STEP_LIMIT = { min: 4, max: 200, default: 60 } as const;
+/** Interface size in percent (Settings ▸ Appearance, View menu): the steps offered and the limits. */
+export const INTERFACE_SCALE = { min: 80, max: 200, default: 100, steps: [80, 90, 100, 110, 125, 150, 175, 200] } as const;
+
+/** The next interface size up (1) or down (-1) from `current`, staying within the offered steps. */
+export function nextInterfaceScale(current: number, direction: 1 | -1): number {
+  const steps: readonly number[] = INTERFACE_SCALE.steps;
+  if (direction === 1) return steps.find((step) => step > current) ?? steps[steps.length - 1];
+  return [...steps].reverse().find((step) => step < current) ?? steps[0];
+}
+
 /** Context window override in tokens; 0 means auto (from the model id, 32k when unknown). */
 export const CONTEXT_TOKENS = { min: 0, max: 10_000_000, default: 0, step: 1000 } as const;
 /** Model files whose metadata is read in one batch. Pacing only: batches continue until every file is read. */
@@ -136,6 +146,8 @@ export const preferencesSchema = z.object({
     density: z.enum(['comfortable', 'compact']).default('comfortable'),
     accent: z.enum(['cyan', 'violet', 'mint', 'amber']).default('cyan'),
     reduceGlow: z.boolean().default(false),
+    /** Accessibility: the size of the whole interface in percent (100 = normal), for people who need larger text. */
+    interfaceScale: z.number().int().min(INTERFACE_SCALE.min).max(INTERFACE_SCALE.max).default(INTERFACE_SCALE.default),
   }).prefault({}),
   /** Command id → chord. Only overrides are stored; '' removes the default shortcut. */
   shortcuts: z.record(z.string().regex(COMMAND_ID).max(80), z.string().max(40).refine(isChord)).default({}),

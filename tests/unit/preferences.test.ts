@@ -48,7 +48,7 @@ describe('preferences schema', () => {
       network: { proxy: '', openaiOrganization: '', openaiProject: '' },
       sync: { enrichmentScope: 'loaders', enrichPerRun: 50, enrichPauseMs: 1500 },
       canvas: { showDescriptions: true, showMinimap: true, followAgent: true, buildPaceMs: 820, tourAutoplay: true, gridSize: 18 },
-      appearance: { density: 'comfortable', accent: 'cyan', reduceGlow: false },
+      appearance: { density: 'comfortable', accent: 'cyan', reduceGlow: false, interfaceScale: 100 },
       shortcuts: {},
       privacy: { sendFieldValues: true, saveChatHistory: true, modelLog: true, showMarkedPreviews: false, lookupModelsOnline: false, checkUpdates: false },
       view: { railTab: 'nodes', modelKind: 'all', modelFamily: '', modelSort: 'name' },

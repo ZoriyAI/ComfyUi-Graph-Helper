@@ -1,3 +1,4 @@
+import { recordVerdict } from '../../../a11y/recordKeys';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { RotateCcw, X } from 'lucide-react';
@@ -63,6 +64,9 @@ export default function ShortcutsSection({ prefs, setPrefs }: DraftProps) {
   const tr = (key: string) => String(t(key));
   const platform = detectPlatform();
   const [recording, setRecording] = useState<string | null>(null);
+  // The last key pressed while recording could not be a shortcut (a11y/recordKeys.ts).
+  const [refused, setRefused] = useState(false);
+  useEffect(() => setRefused(false), [recording]);
   // The keyboard layout as it is now, read when the section opens and after each key press (a layout switch).
   const [layout, setLayout] = useState<LayoutMap | null>(null);
   useEffect(() => {
@@ -99,8 +103,19 @@ export default function ShortcutsSection({ prefs, setPrefs }: DraftProps) {
   useEffect(() => {
     if (!recording) return undefined;
     const onKey = (event: KeyboardEvent) => {
+      // Accessibility (a11y/recordKeys.ts): Tab leaves the recorder and moves focus as usual; a key that moves
+      // around the window or types text is refused with a sentence that says why.
+      const verdict = recordVerdict(event);
+      if (verdict === 'leave') {
+        setRecording(null);
+        return;
+      }
       event.preventDefault();
       event.stopPropagation();
+      if (verdict === 'refuse') {
+        setRefused(true);
+        return;
+      }
       if (event.key === 'Escape' && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) {
         setRecording(null);
         return;
@@ -215,7 +230,7 @@ export default function ShortcutsSection({ prefs, setPrefs }: DraftProps) {
           </table>
         );
       })}
-      {recording ? <p className={hintClass} role="status">{t('preferences.recordingHint', { command: labels[recording] ?? recording })}</p> : null}
+      {recording ? <p className={hintClass} role="status">{refused ? t('a11y.recordRefused') : t('preferences.recordingHint', { command: labels[recording] ?? recording })}</p> : null}
     </>
   );
 }
