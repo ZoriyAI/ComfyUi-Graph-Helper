@@ -137,6 +137,8 @@ export const LESSON_PROGRAMME: Readonly<Record<string, LessonPlace>> = {
   'diagnose-missing': at(2, 'core', 'base'),
   'audit-workflow': at(2, 'core', 'base'),
   'partner-cost': at(2, 'core', 'base'),
+  // Start and a reliable setup: level 0, before the graph basics.
+  'choose-setup': at(0, 'core', 'base'),
   // For adults: behind the switch, never on a path while it is off.
   'adult-image': at(3, 'deep', 'image'),
   'adult-lora': at(3, 'deep', 'image', 'lora'),

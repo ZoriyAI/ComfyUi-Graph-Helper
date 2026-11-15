@@ -2287,6 +2287,7 @@ export const en = {
       gguf: 'GGUF model',
       output: 'result node',
       loader: 'model loader',
+      card: 'card with notes',
     },
     fileKind: {
       imageCheckpoint: 'a picture model (SD 1.5, SDXL, Pony, Illustrious, Flux and the like), not a video model',
@@ -5453,6 +5454,7 @@ export const ru = {
       gguf: 'модель GGUF',
       output: 'нода результата',
       loader: 'загрузчик модели',
+      card: 'карточка с записями',
     },
     fileKind: {
       imageCheckpoint: 'модель для картинок (SD 1.5, SDXL, Pony, Illustrious, Flux и подобные), а не видео-модель',
