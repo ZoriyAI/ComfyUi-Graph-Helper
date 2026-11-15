@@ -6,6 +6,7 @@ import type { BaseModelFamily, GraphCheckReport } from '../../shared/contracts/k
 import { canvasModelRefs, missingOnGraph, type GraphNodeLike } from '../../shared/graph/compatibility';
 import { portsCompatible } from '../../shared/graph/linkTypes';
 import { graphCycles } from '../../shared/graph/cycles';
+import { nodeRunMode } from '../../shared/graph/layout';
 import { endpointPort, validEdgeEndpoints } from '../../shared/graph/structure';
 import { SUBGRAPH_INPUT_NODE_ID, SUBGRAPH_OUTPUT_NODE_ID, type SubgraphDefinition } from '../../shared/graph/subgraphs';
 import { familiesCompatible } from '../../shared/knowledge/baseModel';
@@ -450,23 +451,25 @@ export function checkGraph(db: Database.Database, projectId: string): GraphCheck
     if (!classType || known.has(classType) || isLocal(classType)) return [];
     return [{ nodeId: String(node.id), classType }];
   })));
-  const missingModels = levels.flatMap((level) => scoped(level, missingOnGraph(level.nodes, catalog, null).missingModels.flatMap((model) => {
-    const owners = level.nodes.filter((node) => canvasModelRefs(node, catalog).some((ref) => ref.directory === model.directory && ref.name === model.name));
+  // Bypassed and muted nodes do not run in ComfyUI: their empty inputs, fields and model files cannot stop a run.
+  const runs = (list: CanvasNode[]) => list.filter((node) => nodeRunMode(node.data as { comfy?: unknown } | undefined) === null);
+  const missingModels = levels.flatMap((level) => scoped(level, missingOnGraph(runs(level.nodes), catalog, null).missingModels.flatMap((model) => {
+    const owners = runs(level.nodes).filter((node) => canvasModelRefs(node, catalog).some((ref) => ref.directory === model.directory && ref.name === model.name));
     return owners.map((node) => ({ nodeId: String(node.id), directory: model.directory, name: model.name }));
   })));
   const unknownNodeTypes = [...new Set([...missing.missingNodes, ...missingNodes.map((item) => item.classType)])]
     .filter((type) => !isLocal(type))
     .sort();
-  const fields = levels.map((level) => ({ level, values: fieldValues(level.nodes, level.edges, catalog) }));
+  const fields = levels.map((level) => ({ level, values: fieldValues(runs(level.nodes), level.edges, catalog) }));
   const report: GraphCheckReport = {
     ok: true,
     missingNodes,
     missingModels,
     typeMismatches: levels.flatMap((level) => scoped(level, typeMismatches(level.nodes, level.edges, specs, level.definition))),
     baseModelMismatches: levels.flatMap((level) => scoped(level, baseModelMismatches(db, level.nodes, level.edges, catalog))),
-    unconnectedRequiredInputs: levels.flatMap((level) => scoped(level, unconnectedInputs(level.nodes, level.edges, specs))),
+    unconnectedRequiredInputs: levels.flatMap((level) => scoped(level, unconnectedInputs(runs(level.nodes), level.edges, specs))),
     unknownNodeTypes,
-    unsetWidgets: levels.flatMap((level) => scoped(level, unsetWidgets(level.nodes, level.edges, catalog, ignored))),
+    unsetWidgets: levels.flatMap((level) => scoped(level, unsetWidgets(runs(level.nodes), level.edges, catalog, ignored))),
     cycles: levels.flatMap((level) => scoped(level, cycles(level))),
     brokenEdges: levels.flatMap((level) => scoped(level, brokenEdges(level))),
     invalidParameters: fields.flatMap(({ level, values }) => scoped(level, values.invalidParameters)),

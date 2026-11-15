@@ -11,6 +11,8 @@ export type WorkflowNote =
     shown?: Partial<Record<ShownKey, number>>;
     /** No node list has been read from ComfyUI yet: every class would look missing, so none is called missing. */
     catalogNotRead?: boolean;
+    /** Where the workflow came from when it was not a plain .json file (main/ipc/openIpc.ts). */
+    from?: 'picture' | 'video' | 'api' | 'example';
   }
   | { kind: 'catalog'; nodes: number; models: number; skipped: number }
   | { kind: 'exported'; unset?: string[] }
@@ -45,11 +47,15 @@ export interface NoteActions {
   openCheck?: () => void;
   /** Reads ComfyUI now; the import toast offers it when no node list has been read yet. */
   syncNow?: () => void;
+  /** Opens the "Run it in ComfyUI" card; the save-for-ComfyUI toast offers it. */
+  howToRun?: () => void;
 }
 
 export function describeNote(note: WorkflowNote, translate: Translator, actions: NoteActions = {}): ToastInput {
   if (note.kind === 'imported') {
-    const shown = shownText(note.shown, translate);
+    // Where it came from is said first, inside the same one message, never as a second toast.
+    const origin = note.from ? translate(`workflow.from${note.from[0].toUpperCase()}${note.from.slice(1)}`) : undefined;
+    const shown = [origin, shownText(note.shown, translate)].filter(Boolean).join(' ') || undefined;
     if (note.catalogNotRead) {
       return {
         id: WORKFLOW_NOTE_ID,
@@ -96,7 +102,12 @@ export function describeNote(note: WorkflowNote, translate: Translator, actions:
         duration: 15000,
       };
     }
-    return { id: WORKFLOW_NOTE_ID, tone: 'success', title: translate('workflow.exported') };
+    return {
+      id: WORKFLOW_NOTE_ID,
+      tone: 'success',
+      title: translate('workflow.exported'),
+      ...(actions.howToRun ? { action: { label: translate('journey.run.how'), onSelect: actions.howToRun } } : {}),
+    };
   }
   if (note.kind === 'saved-project') return { id: WORKFLOW_NOTE_ID, tone: 'success', title: translate('workflow.savedProject') };
   if (note.kind === 'opened-project') return { id: WORKFLOW_NOTE_ID, tone: 'success', title: translate('workflow.openedProject') };

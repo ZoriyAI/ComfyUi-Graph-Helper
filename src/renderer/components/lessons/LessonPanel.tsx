@@ -300,7 +300,7 @@ function LessonRun({ lesson, shared, onAsk }: { lesson: Lesson; shared: Shared; 
         <section className={styles.step} data-step-state={current ? (step.read ? 'read' : 'do') : 'passed'}>
           {/* Accessibility: when the button that moved the lesson on disappears, focus lands here (a11y/focusRescue.ts). */}
           <h4 className={styles.stepTitle} tabIndex={-1} data-focus-fallback="">{withNodeNames(text.title, nameOf).replace(/\*\*/g, '')}</h4>
-          <MarkdownLite text={withNodeNames(text.body, nameOf)} className={styles.body} />
+          <MarkdownLite text={withNodeNames(text.body, nameOf)} className={styles.body} terms={i18n.language} />
           {current && step.read ? (
             <div className={styles.actions}>
               <Button variant="primary" quiet size="sm" icon={<ArrowRight size={14} />} onClick={() => markRead(lesson.id, step.id)}>{t('lessons.understood')}</Button>

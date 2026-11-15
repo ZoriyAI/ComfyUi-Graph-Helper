@@ -26,6 +26,8 @@ import { graphIsDirty, refreshProjectFile } from '../services/projectFile';
 import { trackCommit } from '../services/commands/pending';
 import { commitEdits } from '../components/graph/lib/editBatch';
 import { runSyncNow } from '../components/sync/SyncIndicator';
+import { useOpenListsStore } from '../state/openListsState';
+import { readFlag, SEEN_KEYS, useJourneyStore } from '../state/journeyState';
 
 export { SETTINGS_CHANGED };
 
@@ -36,7 +38,13 @@ export { SETTINGS_CHANGED };
 const translate: Translator = (key, options) => (options ? String(i18n.t(key, options)) : String(i18n.t(key)));
 
 export function notify(note: WorkflowNote): void {
-  showToast(describeNote(note, translate, { openCheck: checkGraph, syncNow: () => void runSyncNow() }));
+  showToast(describeNote(note, translate, { openCheck: checkGraph, syncNow: () => void runSyncNow(), howToRun: () => useJourneyStore.getState().open('run') }));
+}
+
+/** The name of the workflow file last saved for ComfyUI, for the run card. */
+let lastExportName = '';
+export function exportedFileName(): string {
+  return lastExportName;
 }
 
 function rejectedReason(result: unknown, fallback: string): string {
@@ -64,14 +72,58 @@ export async function importWorkflowFile(): Promise<void> {
 }
 
 export async function importWorkflowNow(): Promise<void> {
+  await finishOpen(() => window.electronAPI.importWorkflow());
+}
+
+/** What every way of opening a file answers (main/ipc/openIpc.ts). */
+type OpenResult = Awaited<ReturnType<typeof window.electronAPI.openPath>>;
+type OpenCall = () => Promise<OpenResult | { status: 'cancelled'; projection: null; result: null } | null>;
+
+/** An open waiting for the person's answer to "replace the graph on screen?". */
+let queuedOpen: OpenCall | null = null;
+
+/**
+ * The one entry for every way of opening besides the two File dialogs: a dropped file, File ▸ Recent, File ▸
+ * Examples, a file from the command line. Like Open workflow, it asks first when the graph on screen is not in a
+ * project file as it stands, then ends in `finishOpen`.
+ */
+export async function openVia(call: OpenCall): Promise<void> {
+  if (await replacingNeedsAsk()) {
+    queuedOpen = call;
+    useUiStore.getState().askReplace('open-file');
+    return;
+  }
+  await finishOpen(call);
+}
+
+/** The replace question's "Open": runs the open that was waiting. */
+export async function runQueuedOpen(): Promise<void> {
+  const call = queuedOpen;
+  queuedOpen = null;
+  if (call) await finishOpen(call);
+}
+
+/**
+ * What follows every open, whichever way the file came: the projection, then for a workflow the camera and the one
+ * merged import message, for a project its file state and "Project opened"; File ▸ Recent is read again.
+ */
+export async function finishOpen(call: OpenCall): Promise<void> {
   useUiStore.getState().setDialog(null);
-  const result = await trackCommit(() => window.electronAPI.importWorkflow());
+  const result = await trackCommit(call);
   if (!result || result.status === 'cancelled') return;
+  const opened = 'opened' in result ? result.opened : undefined;
+  const project = opened?.kind === 'project' || (!opened && call === openProjectCall);
   // Once drawn: nodes that cover each other move apart, and the camera takes the file's own view.
-  if (result.status === 'applied') afterWorkflowOpened();
+  if (result.status === 'applied' && !project) afterWorkflowOpened();
   if (result.projection) applyProjection(result.projection);
+  void refreshRecentFiles();
   if (result.status === 'rejected') {
-    notify({ kind: 'error', code: rejectedReason(result.result, 'Import was rejected.') });
+    notify({ kind: 'error', code: rejectedReason(result.result, project ? 'The native project file is not valid.' : 'Import was rejected.') });
+    return;
+  }
+  await refreshProjectFile();
+  if (project) {
+    notify({ kind: 'opened-project' });
     return;
   }
   const report = result.result && typeof result.result === 'object' ? result.result as { formatVersion?: number; missingNodes?: string[]; missingModels?: Array<{ directory: string; name: string }>; shownDifferently?: Record<string, number> } : {};
@@ -83,9 +135,45 @@ export async function importWorkflowNow(): Promise<void> {
     shown: report.shownDifferently,
     // With no node list read yet every class would look missing; the toast says so and offers to sync instead.
     catalogNotRead: (useKnowledgeStore.getState().sync?.counts.nodeClasses ?? 0) === 0,
+    ...(opened && opened.from !== 'json' ? { from: opened.from } : {}),
   });
 }
 
+/** A file dropped on the window: its path through the preload, then the one open path. */
+export async function openDroppedFile(file: File): Promise<void> {
+  const filePath = window.electronAPI.pathForFile(file);
+  if (!filePath) {
+    notify({ kind: 'error', code: 'This file cannot be opened here.' });
+    return;
+  }
+  await openVia(() => window.electronAPI.openPath(filePath));
+}
+
+/** File ▸ Recent: a file from the list. */
+export function openRecentFile(filePath: string): Promise<void> {
+  return openVia(() => window.electronAPI.openRecent(filePath));
+}
+
+/** File ▸ Examples and the welcome card: the finished graph of a lesson, built from this ComfyUI's node list. */
+export function openExampleGraph(lessonId: string): Promise<void> {
+  return openVia(() => window.electronAPI.openExample(lessonId));
+}
+
+/** A file named on the command line or handed over by a second start (main keeps it until asked). */
+export async function openPendingFile(): Promise<void> {
+  const pending = await window.electronAPI.pendingOpen();
+  if (pending) await openVia(() => window.electronAPI.openPending());
+}
+
+/** Reads File ▸ Recent and File ▸ Examples again, for the menu and the welcome card. */
+export async function refreshRecentFiles(): Promise<void> {
+  try {
+    const [recent, examples] = await Promise.all([window.electronAPI.recentFiles(), window.electronAPI.examples()]);
+    useOpenListsStore.getState().set(recent, examples);
+  } catch {
+    // The lists are a convenience; the menus show what they had.
+  }
+}
 
 export async function importCatalogSnapshot(): Promise<void> {
   const result = await window.electronAPI.importCatalog();
@@ -136,6 +224,10 @@ export async function exportWorkflowNow(secrets?: 'omit' | 'keep'): Promise<void
   notify(unset.length > 0
     ? { kind: 'exported', unset: unset.map((item) => `${item.classType} #${item.nodeId} ${item.name}`) }
     : { kind: 'exported' });
+  void refreshRecentFiles();
+  // The bridge to ComfyUI: how to open and run the file there, unless the person turned the card off.
+  lastExportName = result.fileName ?? '';
+  if (!readFlag(SEEN_KEYS.runCard)) useJourneyStore.getState().open('run');
 }
 
 /** File ▸ Open project: asks first when the graph on screen is not in a project file as it stands. */
@@ -147,17 +239,11 @@ export async function openProjectFile(): Promise<void> {
   await openProjectNow();
 }
 
+/** The File ▸ Open project dialog, kept as one function so `finishOpen` knows a project was asked for. */
+const openProjectCall: OpenCall = () => window.electronAPI.openProject();
+
 export async function openProjectNow(): Promise<void> {
-  useUiStore.getState().setDialog(null);
-  const result = await trackCommit(() => window.electronAPI.openProject());
-  if (!result || result.status === 'cancelled') return;
-  if (result.projection) applyProjection(result.projection);
-  if (result.status === 'rejected') {
-    notify({ kind: 'error', code: rejectedReason(result.result, 'The native project file is not valid.') });
-    return;
-  }
-  await refreshProjectFile();
-  notify({ kind: 'opened-project' });
+  await finishOpen(openProjectCall);
 }
 
 /** Whether the save the key check is asking about was a "Save as": the answer repeats it. */
@@ -178,6 +264,7 @@ export async function saveProjectFile(secrets?: 'omit' | 'keep', options: { save
   }
   if (!result.ok && result.canceled) return;
   await refreshProjectFile();
+  void refreshRecentFiles();
   notify(result.ok ? { kind: 'saved-project' } : { kind: 'error', code: result.error || 'The project file could not be written.' });
 }
 
@@ -207,6 +294,8 @@ export async function startNewProject(): Promise<void> {
   useUiStore.getState().stopTour();
   if (useGraphStore.getState().activeSubgraphId) useGraphStore.getState().exitSubgraph(0);
   await commitManual({ type: 'import-workflow', document: EMPTY_WORKFLOW }, 'new-project');
+  // The last check was about the graph that is gone: its count must not stay on the Check button.
+  useKnowledgeStore.setState({ check: null });
   await refreshProjectFile();
 }
 

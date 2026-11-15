@@ -1,0 +1,183 @@
+import * as fs from 'fs';
+import * as path from 'path';
+import * as zlib from 'zlib';
+import { OPEN_FILE_MAX_BYTES } from './atomicWrite';
+
+/**
+ * Reads a file a person wants to open and says what it holds: a project of this app, a workflow, or nothing.
+ *
+ * Who uses it: every way of opening a file (File ▸ Open workflow, a file dropped on the window, a file named on the
+ * command line, File ▸ Recent) through `openFileAtPath` in main/ipc.ts, so they all end in one code path.
+ * Why: ComfyUI writes its workflow into the pictures and videos it saves (PNG text chunks, WebP EXIF, the metadata of
+ * MP4, WebM and MKV files written by video nodes), and people share workflows that way more than as .json. A text
+ * file may start with a byte order mark (Windows Notepad writes one). A workflow is DATA: nothing in a file is run,
+ * and only the JSON text found in it is read.
+ */
+
+/** What a file holds, as far as opening it is concerned. */
+export type OpenedFile =
+  | { kind: 'project'; document: unknown }
+  | { kind: 'workflow'; document: unknown; from: 'json' | 'picture' | 'video' };
+
+/** Error texts the window translates (shared/i18n ERROR_KEYS); the file's own words never reach the screen. */
+export const NO_WORKFLOW_IN_FILE = 'This file holds no workflow.';
+export const NOT_A_WORKFLOW_FILE = 'Workflow JSON could not be parsed.';
+
+/** Extensions the open dialog offers and a drop or a command line accepts. */
+export const OPENABLE_EXTENSIONS = ['json', 'png', 'webp', 'jpg', 'jpeg', 'mp4', 'webm', 'mkv', 'mov', 'gif', 'flac', 'mp3', 'opus', 'ogg'] as const;
+const PICTURES = new Set(['png', 'webp', 'jpg', 'jpeg', 'gif']);
+
+/** Whether a path names a kind of file this app opens (by its extension). */
+export function isOpenablePath(filePath: string): boolean {
+  const extension = path.extname(filePath).slice(1).toLowerCase();
+  return (OPENABLE_EXTENSIONS as readonly string[]).includes(extension);
+}
+
+/** The text without a leading byte order mark. */
+export function withoutBom(text: string): string {
+  return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+}
+
+/** True when the parsed JSON is a project file of this app rather than a workflow. */
+export function isProjectDocument(document: unknown): boolean {
+  return !!document && typeof document === 'object' && (document as { format?: unknown }).format === 'comfy-graph-helper-project';
+}
+
+/** Text chunks of a PNG by keyword (tEXt, zTXt and iTXt; compressed ones are inflated). */
+export function pngTexts(bytes: Buffer): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (bytes.length < 8 || bytes.readUInt32BE(0) !== 0x89504e47) return out;
+  let at = 8;
+  while (at + 12 <= bytes.length) {
+    const length = bytes.readUInt32BE(at);
+    const type = bytes.toString('latin1', at + 4, at + 8);
+    const start = at + 8;
+    const end = start + length;
+    if (end > bytes.length) break;
+    const data = bytes.subarray(start, end);
+    try {
+      const zero = data.indexOf(0);
+      if (zero > 0) {
+        const keyword = data.toString('latin1', 0, zero);
+        if (type === 'tEXt') out[keyword] = data.toString('latin1', zero + 1);
+        if (type === 'zTXt') out[keyword] = zlib.inflateSync(data.subarray(zero + 2)).toString('latin1');
+        if (type === 'iTXt') {
+          const compressed = data[zero + 1] === 1;
+          const language = data.indexOf(0, zero + 3);
+          const translated = language >= 0 ? data.indexOf(0, language + 1) : -1;
+          if (translated >= 0) {
+            const text = data.subarray(translated + 1);
+            out[keyword] = (compressed ? zlib.inflateSync(text) : text).toString('utf8');
+          }
+        }
+      }
+    } catch {
+      // A damaged chunk: the others may still hold the workflow.
+    }
+    if (type === 'IEND') break;
+    at = end + 4;
+  }
+  return out;
+}
+
+/**
+ * The JSON object that starts at `from` (a '{'), read up to its matching '}' with strings and escapes respected;
+ * null when it does not close or does not parse.
+ */
+function objectAt(bytes: Buffer, from: number): unknown {
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let index = from; index < bytes.length; index += 1) {
+    const byte = bytes[index];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (byte === 0x5c) escaped = true;
+      else if (byte === 0x22) inString = false;
+      continue;
+    }
+    if (byte === 0x22) inString = true;
+    else if (byte === 0x7b) depth += 1;
+    else if (byte === 0x7d) {
+      depth -= 1;
+      if (depth === 0) {
+        try {
+          return JSON.parse(bytes.toString('utf8', from, index + 1));
+        } catch {
+          return null;
+        }
+      }
+    } else if (byte < 0x09) {
+      // A raw control byte cannot be inside JSON text: this was not the start of an object.
+      return null;
+    }
+  }
+  return null;
+}
+
+/** True when a value looks like a canvas workflow (nodes and links). */
+function isCanvasWorkflow(value: unknown): boolean {
+  return !!value && typeof value === 'object' && Array.isArray((value as { nodes?: unknown }).nodes);
+}
+
+/**
+ * The workflow a binary file carries after a label ("workflow", then "prompt"): the first JSON object found a few
+ * bytes after the label that is one. Video and WebP files keep it in metadata next to such a label; a video node may
+ * also write one object holding both ({"prompt": …, "workflow": …}).
+ */
+export function embeddedWorkflow(bytes: Buffer): unknown {
+  for (const label of ['workflow', 'prompt']) {
+    const needle = Buffer.from(label, 'latin1');
+    let at = bytes.indexOf(needle);
+    while (at >= 0) {
+      // Container headers (atom sizes, tag ids, "workflow:" in EXIF) sit between the label and the JSON.
+      const window = Math.min(bytes.length, at + needle.length + 48);
+      for (let index = at + needle.length; index < window; index += 1) {
+        if (bytes[index] !== 0x7b) continue;
+        const found = objectAt(bytes, index);
+        if (found && typeof found === 'object') {
+          const record = found as Record<string, unknown>;
+          if (label === 'workflow' && isCanvasWorkflow(record)) return record;
+          if (label === 'workflow' && isCanvasWorkflow(record.workflow)) return record.workflow;
+          if (label === 'prompt' && !Array.isArray(record)) return record;
+        }
+        break;
+      }
+      at = bytes.indexOf(needle, at + needle.length);
+    }
+  }
+  return null;
+}
+
+/**
+ * Reads and recognises a file. Throws an Error whose message is a code the window translates: too large, unreadable,
+ * no workflow in it, not JSON.
+ */
+export function readOpenedFile(filePath: string): OpenedFile {
+  if (fs.statSync(filePath).size > OPEN_FILE_MAX_BYTES) throw new Error('The file is too large to open.');
+  const bytes = fs.readFileSync(filePath);
+  const extension = path.extname(filePath).slice(1).toLowerCase();
+  const head = withoutBom(bytes.subarray(0, 64).toString('utf8')).trimStart();
+  if (extension === 'json' || head.startsWith('{')) {
+    let document: unknown;
+    try {
+      document = JSON.parse(withoutBom(bytes.toString('utf8')));
+    } catch {
+      throw new Error(NOT_A_WORKFLOW_FILE);
+    }
+    return isProjectDocument(document) ? { kind: 'project', document } : { kind: 'workflow', document, from: 'json' };
+  }
+  const from = PICTURES.has(extension) ? 'picture' : 'video';
+  const texts = pngTexts(bytes);
+  for (const key of ['workflow', 'prompt']) {
+    if (!texts[key]) continue;
+    try {
+      return { kind: 'workflow', document: JSON.parse(texts[key]), from };
+    } catch {
+      // Not JSON in this chunk; try the next way.
+    }
+  }
+  const found = embeddedWorkflow(bytes);
+  if (found) return { kind: 'workflow', document: found, from };
+  throw new Error(NO_WORKFLOW_IN_FILE);
+}

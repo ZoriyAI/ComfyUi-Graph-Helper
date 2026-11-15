@@ -55,10 +55,27 @@ export function writeFileAtomic(target: string, data: string | Buffer, options: 
   }
 }
 
+/** True when the folder can be written to but the file in it cannot (read-only, or made immutable). */
+function fileIsProtected(target: string): boolean {
+  try {
+    fs.accessSync(path.dirname(target), fs.constants.W_OK);
+  } catch {
+    return false;
+  }
+  try {
+    fs.accessSync(target, fs.constants.W_OK);
+    return false;
+  } catch (error) {
+    return (error as { code?: string }).code !== 'ENOENT';
+  }
+}
+
 /** Codes the window translates (shared/i18n ERROR_KEYS) for a file that could not be written. */
-export function fileWriteErrorCode(error: unknown, fallback: string): string {
+export function fileWriteErrorCode(error: unknown, fallback: string, target?: string): string {
   const code = typeof (error as { code?: unknown })?.code === 'string' ? (error as { code: string }).code : '';
   if (code === 'ENOSPC' || code === 'EDQUOT' || code === 'EFBIG') return 'The disk is full.';
+  // A folder that takes files but a file in it that is protected: say which of the two is in the way.
+  if ((code === 'EACCES' || code === 'EPERM') && target && fileIsProtected(target)) return 'This file is protected from writing.';
   if (code === 'EACCES' || code === 'EPERM' || code === 'EROFS') return 'The folder cannot be written to.';
   return fallback;
 }

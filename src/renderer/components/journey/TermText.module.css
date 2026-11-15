@@ -1,0 +1,8 @@
+/* A glossary word that explains itself: a quiet dotted underline, the meaning on hover or keyboard focus. */
+.term {
+  text-decoration: underline dotted var(--accent-line);
+  text-underline-offset: 3px;
+  cursor: help;
+  border-radius: var(--radius-sm);
+}
+.term:focus-visible { outline: none; box-shadow: var(--focus-ring); }

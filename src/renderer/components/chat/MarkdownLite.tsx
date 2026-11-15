@@ -4,6 +4,7 @@ import { Link2 } from 'lucide-react';
 import { showToast } from '../../ui/toastStore';
 import { parseMarkdownLite, type InlineToken } from './markdownLite';
 import styles from './MarkdownLite.module.css';
+import TermText from '../journey/TermText';
 
 /** Characters of code that fit one line of the narrowest panel the app has. */
 const SHORT_CODE = 28;
@@ -29,6 +30,12 @@ function LinkWords({ text, address }: { text: string; address: string }) {
   );
 }
 
+/**
+ * Set by MarkdownLite when the text should explain glossary words (`terms`: the language). `seen` collects the terms
+ * already explained in this text, so each is underlined once, where it first appears (journey/TermText.tsx).
+ */
+const TermContext = React.createContext<{ language: string; seen: Set<string> } | null>(null);
+
 /** Set by MarkdownLite when the text may carry relative links (the help reader). */
 const LinkContext = React.createContext<((target: string) => void) | null>(null);
 
@@ -47,10 +54,16 @@ function Inline({ tokens }: { tokens: InlineToken[] }) {
         if (token.type === 'code') return <code key={index} className={styles.code} data-short={token.text.length <= SHORT_CODE ? 'true' : undefined}>{token.text}</code>;
         if (token.type === 'strong') return <strong key={index}>{token.text}</strong>;
         if (token.type === 'em') return <em key={index}>{token.text}</em>;
-        return <React.Fragment key={index}>{token.text}</React.Fragment>;
+        return <PlainText key={index} text={token.text} />;
       })}
     </>
   );
+}
+
+/** Plain words: with glossary hints when the text asks for them, else as they are. */
+function PlainText({ text }: { text: string }) {
+  const terms = React.useContext(TermContext);
+  return terms ? <TermText text={text} language={terms.language} seen={terms.seen} /> : <>{text}</>;
 }
 
 function Lines({ lines }: { lines: InlineToken[][] }) {
@@ -70,10 +83,13 @@ function Lines({ lines }: { lines: InlineToken[][] }) {
  * Chat text with paragraphs, headings, lists, quotes, tables and code. Rendered as elements; the text is never
  * parsed as HTML. A table keeps to the width of the panel: its cells wrap.
  */
-export default function MarkdownLite({ text, className, onLink }: { text: string; className?: string; /** Relative links become buttons that call this (help reader only). */ onLink?: (target: string) => void }) {
+export default function MarkdownLite({ text, className, onLink, terms }: { text: string; className?: string; /** Relative links become buttons that call this (help reader only). */ onLink?: (target: string) => void; /** The language whose glossary words explain themselves (lessons, the tour). */ terms?: string }) {
   const links = Boolean(onLink);
   const blocks = useMemo(() => parseMarkdownLite(text, { links }), [text, links]);
+  // A fresh set each render: children render in order, so the first mention of a term is the one underlined.
+  const termContext = terms ? { language: terms, seen: new Set<string>() } : null;
   return (
+    <TermContext.Provider value={termContext}>
     <LinkContext.Provider value={onLink ?? null}>
     <div className={`${styles.root}${className ? ` ${className}` : ''}`}>
       {blocks.map((block, index) => {
@@ -112,5 +128,6 @@ export default function MarkdownLite({ text, className, onLink }: { text: string
       })}
     </div>
     </LinkContext.Provider>
+    </TermContext.Provider>
   );
 }

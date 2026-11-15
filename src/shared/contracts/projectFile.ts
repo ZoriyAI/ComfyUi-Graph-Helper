@@ -10,4 +10,6 @@ export interface ProjectFileState {
   empty: boolean;
   /** The project title, for default file names. */
   title: string;
+  /** The workflow file the graph was opened from (main/files/recentFiles.ts); the app bar names an untitled graph by it. */
+  sourceName?: string | null;
 }

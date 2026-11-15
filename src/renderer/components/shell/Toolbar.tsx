@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import Button from '../../ui/Button';
@@ -84,7 +84,13 @@ function ProjectName() {
   const title = useGraphStore((state) => state.process.title);
   const file = useProjectFileStore((state) => state.state);
   const dirty = file?.dirty ?? false;
-  const name = title.trim() || String(t('shell.untitled'));
+  // An untitled graph goes by its file: the project file, else the workflow (or picture) it was opened from.
+  const fileStem = (file?.fileName ?? file?.sourceName ?? '').replace(/\.graph-helper\.json$/i, '').replace(/\.[^.]+$/, '');
+  const name = title.trim() || fileStem || String(t('shell.untitled'));
+  // The window's own title names the project too, so the task bar and the window switcher tell projects apart.
+  useEffect(() => {
+    document.title = `${dirty ? '• ' : ''}${name} · ${String(t('shell.title'))}`;
+  }, [name, dirty, t]);
   const chipTitle = file?.fileName ? String(t('menu.projectFile', { name, file: file.fileName })) : String(t('menu.projectName', { name }));
   return (
     <span className={cx(styles.project, 'project-chip')} title={chipTitle} data-dirty={dirty ? 'true' : 'false'}>

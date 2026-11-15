@@ -139,3 +139,14 @@
 .step[data-step="ask"] .stepAction :global(button) { white-space: nowrap; }
 /* The other interface language, in the card's top corner: the first thing a person who cannot read this one needs. */
 .language { position: absolute; top: 10px; right: 10px; }
+/* What the three ways need (journey package): two compact rows under them, left-aligned, the state on the left. */
+.setup { display: flex; flex-direction: column; gap: 6px; width: 100%; margin: 0 0 4px; padding: 0; list-style: none; }
+.setupRow {
+  display: flex; align-items: center; gap: 10px; min-width: 0;
+  padding: 8px 10px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md);
+  background: var(--surface-raised); text-align: left;
+}
+.setupRow[data-state="problem"] { border-color: color-mix(in srgb, var(--danger, var(--accent)) 45%, transparent); }
+.setupIcon { display: inline-flex; flex: 0 0 auto; color: var(--text-dim); }
+.setupRow[data-state="done"] .setupIcon { color: var(--accent); }
+.setupText { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }

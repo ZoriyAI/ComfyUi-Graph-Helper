@@ -1,3 +1,5 @@
+import { missingOnGraph, type GraphNodeLike } from '../../shared/graph/compatibility';
+import { nodeRunMode } from '../../shared/graph/layout';
 import { randomUUID } from 'crypto';
 import type Database from 'better-sqlite3';
 import { canonicalPayload } from '../../shared/commands/canonical';
@@ -217,6 +219,14 @@ function innerComponents(existing: ComponentRecord[], subgraphs: SubgraphDefinit
 function parseDocument(parsed: Record<string, unknown> | null): WorkflowDocumentState | null {
   if (!parsed || !parsed.raw || typeof parsed.raw !== 'object' || (parsed.formatVersion !== 1 && parsed.formatVersion !== 0.4)) return null;
   return { formatVersion: parsed.formatVersion, raw: parsed.raw as Record<string, unknown> };
+}
+
+/** The import report with the model files the nodes' fields name and this ComfyUI does not have. */
+function withFieldModels(report: { missingNodes: string[]; missingModels: Array<{ directory: string; name: string }> }, nodes: GraphNodeLike[], catalog: CatalogView): { missingNodes: string[]; missingModels: Array<{ directory: string; name: string }> } {
+  if (catalog.models.length === 0) return report;
+  const fromFields = missingOnGraph(nodes.filter((node) => nodeRunMode(node.data as { comfy?: unknown } | undefined) === null), catalog, null).missingModels;
+  const seen = new Set(report.missingModels.map((model) => `${model.directory}/${model.name}`));
+  return { ...report, missingModels: [...report.missingModels, ...fromFields.filter((model) => !seen.has(`${model.directory}/${model.name}`))] };
 }
 
 export function readProjection(db: Database.Database, projectId: string): Projection | null {
@@ -985,7 +995,9 @@ export function commitCommand(
         const census = listSubgraphDefinitions(applied.snapshot.document?.raw);
         applied.result = {
           ...applied.result,
-          ...missingDeps(request.payload.document, catalog),
+          // Model files by the fields of the nodes as well as the file's own list, as the check counts them; with no
+          // model list read yet nothing is called missing (the import message says the node list is not read).
+          ...withFieldModels(missingDeps(request.payload.document, catalog), applied.snapshot.nodes as GraphNodeLike[], catalog),
           shownDifferently: shownDifferently(request.payload.document),
           duplicateSubgraphIds: census.duplicateIds,
           unidentifiedSubgraphs: census.unidentified,

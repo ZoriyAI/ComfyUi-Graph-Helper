@@ -49,7 +49,8 @@ interface DockUi {
 
 export const useDockStore = create<DockUi>((set) => ({
   collapsed: false,
-  tab: 'inspector',
+  // A first start opens on the assistant: an empty Properties tab says nothing to a newcomer.
+  tab: 'assistant',
   split: false,
   width: TAB_DEFAULT,
   setCollapsed: (collapsed) => set({ collapsed }),

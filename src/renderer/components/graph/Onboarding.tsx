@@ -2,7 +2,7 @@ import { modelDisplayName } from '../shell/modelDisplayName';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'motion/react';
-import { Check, FolderInput, GraduationCap, Languages, MessageCircleQuestion, Plug, RefreshCw, Sparkles } from 'lucide-react';
+import { Check, CircleHelp, FolderInput, GraduationCap, History, Languages, MessageCircleQuestion, Plug, RefreshCw, Shapes, Sparkles } from 'lucide-react';
 import Button from '../../ui/Button';
 import { motionIsFull } from '../../motion/policy';
 import { runSyncNow } from '../sync/SyncIndicator';
@@ -10,7 +10,9 @@ import { syncView } from '../sync/syncView';
 import { useKnowledgeStore } from '../../state/knowledgeState';
 import { useUiStore } from '../../state/uiState';
 import { keySourceOf, providerKeyState, useProviderStore } from '../../state/providerState';
-import { focusChat, openLessons } from '../../commands/actions';
+import { focusChat, openExampleGraph, openLessons, openRecentFile } from '../../commands/actions';
+import { useOpenListsStore } from '../../state/openListsState';
+import { useJourneyStore } from '../../state/journeyState';
 import { runCommand } from '../../commands/registry';
 import { LANGUAGE_CHOICES } from '../../commands/appCommands';
 import { explainError, type Translator } from '../../../shared/i18n';
@@ -31,10 +33,11 @@ interface Step {
 const PROVIDER_NAMES: Record<string, string> = { openai: 'OpenAI', anthropic: 'Anthropic', google: 'Google', test: 'TEST' };
 
 /**
- * The empty canvas is the person's first screen, so it leads them through the three things that make the helper
- * useful: connect ComfyUI and read it, choose who answers, ask. Each step shows where it stands right now and the
- * one button that moves it on. Keeps the legacy `.canvas-empty` class and the `graph.empty` sentence; the parent
- * fades it out when the first node lands.
+ * The empty canvas is the person's first screen. It offers three ways to start (take a lesson, open an example built
+ * from their own nodes, ask the assistant) and, under them, the two things those ways need (ComfyUI read, an
+ * assistant chosen), each with where it stands now and the one button that moves it on. A person with no ComfyUI
+ * gets "I have no ComfyUI yet" (components/journey/NoComfyDialog.tsx); recent files are one click away. Keeps the
+ * legacy `.canvas-empty` class and the `graph.empty` sentence; the parent fades it out when the first node lands.
  */
 export default function Onboarding({ onImport }: { onImport?: () => void }) {
   const { t } = useTranslation();
@@ -82,7 +85,7 @@ export default function Onboarding({ onImport }: { onImport?: () => void }) {
   const helperBase = { key: 'helper', icon: <Sparkles size={18} aria-hidden="true" />, tone: 'ai' as const, title: translate('canvas.onboardHelperTitle') };
   let helper: Step;
   if (provider === '') {
-    helper = { ...helperBase, state: 'todo', text: translate('canvas.onboardHelperBody'), action: { label: translate('canvas.onboardChooseHelper'), onClick: () => openSettings('assistant'), icon: <Sparkles size={16} aria-hidden="true" />, primary: connect.state === 'done' } };
+    helper = { ...helperBase, state: 'todo', text: translate('canvas.onboardHelperBody'), action: { label: translate('canvas.onboardChooseHelper'), onClick: () => openSettings('assistant'), icon: <Sparkles size={16} aria-hidden="true" /> } };
   } else if (keyState === 'missing') {
     helper = { ...helperBase, state: 'problem', text: translate('canvas.onboardHelperNeedsKey'), action: { label: translate('canvas.onboardAddKey'), onClick: () => openSettings('assistant') } };
   } else {
@@ -94,19 +97,45 @@ export default function Onboarding({ onImport }: { onImport?: () => void }) {
     helper = { ...helperBase, state: 'done', text: translate('canvas.onboardHelperReady', { name }) };
   }
 
-  // Step 3: ask. Always possible; it is the point of the app.
+  // The three ways to start: a lesson, an example, the assistant. The two setup steps above are what they need.
   const ready = connect.state === 'done' && helper.state === 'done';
-  const ask: Step = {
-    key: 'ask',
-    icon: <MessageCircleQuestion size={18} aria-hidden="true" />,
-    tone: 'ghost',
-    title: translate('canvas.onboardAskTitle'),
-    text: translate('canvas.onboardAskBody'),
-    state: 'todo',
-    action: { label: translate('canvas.onboardAsk'), onClick: focusChat, icon: <MessageCircleQuestion size={16} aria-hidden="true" />, primary: ready },
-  };
-
-  const steps = [connect, helper, ask];
+  const examples = useOpenListsStore((state) => state.examples);
+  const recent = useOpenListsStore((state) => state.recent);
+  // The first picture lesson's example when this ComfyUI can build it, else the first one it can.
+  const example = examples.includes('image') ? 'image' : examples[0];
+  const ways: Step[] = [
+    {
+      key: 'lesson',
+      icon: <GraduationCap size={18} aria-hidden="true" />,
+      tone: 'accent',
+      title: translate('journey.welcome.lessonTitle'),
+      text: translate('journey.welcome.lessonBody'),
+      state: 'todo',
+      action: { label: translate('journey.welcome.lessonAction'), onClick: openLessons, icon: <GraduationCap size={16} aria-hidden="true" />, primary: connect.state === 'done' },
+    },
+    {
+      key: 'example',
+      icon: <Shapes size={18} aria-hidden="true" />,
+      tone: 'accent',
+      title: translate('journey.welcome.exampleTitle'),
+      text: translate(example ? 'journey.welcome.exampleBody' : 'journey.welcome.exampleWaiting'),
+      state: 'todo',
+      ...(example ? { action: { label: translate('journey.welcome.exampleAction'), onClick: () => void openExampleGraph(example), icon: <Shapes size={16} aria-hidden="true" /> } } : {}),
+    },
+    {
+      key: 'ask',
+      icon: <MessageCircleQuestion size={18} aria-hidden="true" />,
+      tone: 'ghost',
+      title: translate('journey.welcome.askTitle'),
+      text: translate('journey.welcome.askBody'),
+      state: 'todo',
+      action: provider === ''
+        ? { label: translate('journey.welcome.chooseAction'), onClick: () => openSettings('assistant'), icon: <Sparkles size={16} aria-hidden="true" /> }
+        : { label: translate('journey.welcome.askAction'), onClick: focusChat, icon: <MessageCircleQuestion size={16} aria-hidden="true" /> },
+    },
+  ];
+  const setup = [connect, helper];
+  const noComfy = connect.state !== 'done' && connect.state !== 'busy';
   return (
     <motion.section
       className={`canvas-empty ${styles.root}`}
@@ -121,15 +150,33 @@ export default function Onboarding({ onImport }: { onImport?: () => void }) {
         <h2 id="canvas-onboard-title" className={styles.title}>{t('canvas.onboardTitle')}</h2>
         {/* Once ComfyUI is read and an assistant is chosen, the lead stops promising what is already done. */}
         <p className={styles.lead}>{t('graph.empty')} {t(ready ? 'canvas.onboardLeadReady' : 'canvas.onboardLead')}</p>
-        <ol className={styles.steps} data-ready={ready ? 'true' : undefined} aria-label={String(t('canvas.onboardSteps'))}>
-          {steps.map((step, index) => (
-            <li key={step.key} className={styles.step} data-tone={step.tone} data-state={step.state} data-step={step.key}>
-              <span className={styles.icon}>{step.state === 'done' ? <Check size={18} aria-hidden="true" /> : step.icon}</span>
-              <span className={styles.number} aria-hidden="true">{index + 1}</span>
-              <span className={styles.stepTitle}>{step.title}</span>
-              <span className={styles.stepBody} role={step.state === 'busy' || step.state === 'problem' ? 'status' : undefined}>
-                {step.state === 'done' ? <span className={styles.srOnly}>{t('canvas.onboardDone')} </span> : null}
-                {step.text}
+        <ol className={styles.steps} data-ready={ready ? 'true' : undefined} aria-label={String(t('journey.welcome.ways'))}>
+          {ways.map((way) => (
+            <li key={way.key} className={styles.step} data-tone={way.tone} data-way={way.key}>
+              <span className={styles.icon}>{way.icon}</span>
+              <span className={styles.stepTitle}>{way.title}</span>
+              <span className={styles.stepBody}>{way.text}</span>
+              {way.action ? (
+                <span className={styles.stepAction}>
+                  <Button size="sm" variant={way.action.primary ? 'primary' : 'subtle'} icon={way.action.icon} onClick={way.action.onClick}>
+                    {way.action.label}
+                  </Button>
+                </span>
+              ) : null}
+            </li>
+          ))}
+        </ol>
+        {/* What the ways need: ComfyUI read and an assistant. Each row says where it stands and offers its one button. */}
+        <ul className={styles.setup} aria-label={String(t('journey.welcome.setup'))}>
+          {setup.map((step) => (
+            <li key={step.key} className={styles.setupRow} data-tone={step.tone} data-state={step.state} data-step={step.key}>
+              <span className={styles.setupIcon}>{step.state === 'done' ? <Check size={16} aria-hidden="true" /> : step.icon}</span>
+              <span className={styles.setupText}>
+                <span className={styles.stepTitle}>{step.title}</span>
+                <span className={styles.stepBody} role={step.state === 'busy' || step.state === 'problem' ? 'status' : undefined}>
+                  {step.state === 'done' ? <span className={styles.srOnly}>{t('canvas.onboardDone')} </span> : null}
+                  {step.text}
+                </span>
               </span>
               {step.action ? (
                 <span className={styles.stepAction}>
@@ -140,15 +187,21 @@ export default function Onboarding({ onImport }: { onImport?: () => void }) {
               ) : null}
             </li>
           ))}
-        </ol>
+        </ul>
         <div className={styles.actions}>
-          {/* The third way to work with the helper: it leads, the person builds. */}
-          <Button variant="subtle" icon={<GraduationCap size={16} aria-hidden="true" />} onClick={openLessons}>
-            {t('canvas.onboardLearn')}
-          </Button>
           {onImport ? (
             <Button variant="subtle" icon={<FolderInput size={16} aria-hidden="true" />} onClick={onImport}>
               {t('canvas.onboardImport')}
+            </Button>
+          ) : null}
+          {recent.slice(0, 2).map((item) => (
+            <Button key={item.path} variant="subtle" quiet icon={<History size={16} aria-hidden="true" />} title={item.path} onClick={() => void openRecentFile(item.path)}>
+              {item.name}
+            </Button>
+          ))}
+          {noComfy ? (
+            <Button variant="ghost" icon={<CircleHelp size={16} aria-hidden="true" />} onClick={() => useJourneyStore.getState().open('no-comfy')}>
+              {t('journey.welcome.noComfy')}
             </Button>
           ) : null}
         </div>

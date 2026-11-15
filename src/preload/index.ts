@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer, webFrame } from 'electron';
+import { contextBridge, ipcRenderer, webFrame, webUtils } from 'electron';
 import type { ChatRuntimeConfig, NonSecretSettings, SettingsRead } from '../shared/config/schema';
 import type { Preferences } from '../shared/config/preferences';
 import type { AboutInfo, HelpPage, HelpSearchHit, HelpTree, IssueDraft, ProjectLinkKind, ThirdPartyComponent } from '../shared/contracts/about';
@@ -57,6 +57,22 @@ const IPC_CHANNELS = {
   FILE_SAVE_PROJECT: 'file:save-project',
   FILE_PROJECT_STATE: 'file:project-state',
   WORKFLOW_EXPORT_DOCUMENT: 'workflow:export-document',
+  /** Ways of opening that end in one path (main/ipc/openIpc.ts): a dropped file, File ▸ Recent and Examples, the command line. */
+  FILE_OPEN_PATH: 'file:open-path',
+  FILE_RECENT_LIST: 'file:recent-list',
+  FILE_OPEN_RECENT: 'file:open-recent',
+  FILE_EXAMPLES_LIST: 'file:examples-list',
+  FILE_OPEN_EXAMPLE: 'file:open-example',
+  FILE_PENDING_OPEN: 'file:pending-open',
+  FILE_OPEN_PENDING: 'file:open-pending',
+  /** Main → window: a file arrived from a second start; the window asks before replacing its graph. */
+  FILE_OPEN_REQUEST: 'file:open-request',
+  /** The run card after a save: shows the written workflow in its folder. */
+  FILE_SHOW_EXPORTED: 'file:show-exported',
+  FILE_COPY_EXPORTED: 'file:copy-exported',
+  /** The journey cards' links: the saved ComfyUI address or a fixed download page, opened in the browser on a click. */
+  JOURNEY_OPEN_LINK: 'journey:open-link',
+  JOURNEY_COMFY_KNOWN: 'journey:comfy-known',
   DB_SAVE_PROJECT: 'db:save-project',
   DB_LOAD_PROJECT: 'db:load-project',
   DB_LIST_PROJECTS: 'db:list-projects',
@@ -218,6 +234,36 @@ contextBridge.exposeInMainWorld('electronAPI', {
   /** `options.saveAs`: always ask where (File ▸ Save project as…); otherwise the project's own file is written in place. */
   saveProjectFile: (secrets?: 'omit' | 'keep', options?: { saveAs?: boolean }) => ipcRenderer.invoke(IPC_CHANNELS.FILE_SAVE_PROJECT, secrets, options ?? {}),
   projectFileState: () => ipcRenderer.invoke(IPC_CHANNELS.FILE_PROJECT_STATE),
+  // Every other way of opening a file ends in main's one open path (main/ipc/openIpc.ts).
+  /** The path of a file dropped on the window (Electron no longer puts it on File), '' when it has none. */
+  pathForFile: (file: File) => {
+    try {
+      return webUtils.getPathForFile(file);
+    } catch {
+      return '';
+    }
+  },
+  openPath: (filePath: string) => ipcRenderer.invoke(IPC_CHANNELS.FILE_OPEN_PATH, filePath),
+  recentFiles: () => ipcRenderer.invoke(IPC_CHANNELS.FILE_RECENT_LIST),
+  openRecent: (filePath: string) => ipcRenderer.invoke(IPC_CHANNELS.FILE_OPEN_RECENT, filePath),
+  examples: () => ipcRenderer.invoke(IPC_CHANNELS.FILE_EXAMPLES_LIST),
+  openExample: (lessonId: string) => ipcRenderer.invoke(IPC_CHANNELS.FILE_OPEN_EXAMPLE, lessonId),
+  pendingOpen: () => ipcRenderer.invoke(IPC_CHANNELS.FILE_PENDING_OPEN),
+  openPending: () => ipcRenderer.invoke(IPC_CHANNELS.FILE_OPEN_PENDING),
+  onOpenRequest: (listener: (request: { name: string }) => void) => {
+    const handler = (_event: unknown, request: { name: string }) => listener(request);
+    ipcRenderer.on(IPC_CHANNELS.FILE_OPEN_REQUEST, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.FILE_OPEN_REQUEST, handler);
+    };
+  },
+  showExported: () => ipcRenderer.invoke(IPC_CHANNELS.FILE_SHOW_EXPORTED),
+  /** The text of the workflow file last written for ComfyUI, for the run card's copy; null when there is none. */
+  exportedText: () => ipcRenderer.invoke(IPC_CHANNELS.FILE_COPY_EXPORTED),
+  /** Whether the app knows a ComfyUI address to open (saved, or reported by an MCP server). */
+  comfyAddressKnown: () => ipcRenderer.invoke(IPC_CHANNELS.JOURNEY_COMFY_KNOWN),
+  /** 'comfyui' (the saved address), 'comfyui-download' or 'ollama-download'; main builds the address. */
+  openJourneyLink: (kind: 'comfyui' | 'comfyui-download' | 'ollama-download') => ipcRenderer.invoke(IPC_CHANNELS.JOURNEY_OPEN_LINK, kind),
 
   // Project operations
   saveProject: (project: any) => ipcRenderer.invoke(IPC_CHANNELS.DB_SAVE_PROJECT, project),
@@ -447,6 +493,14 @@ export type SettingsSaveResult =
   | { ok: true; values: NonSecretSettings; preferences?: Preferences }
   | { ok: false; error: string };
 
+/** What every way of opening a file answers (main/ipc/openIpc.ts): the commit's response and what was opened. */
+export interface OpenResponse {
+  status: 'applied' | 'rejected' | 'conflict' | 'cancelled' | string;
+  projection: any;
+  result: any;
+  opened?: { kind: 'project' | 'workflow'; from: 'json' | 'picture' | 'video' | 'api' | 'example'; name: string };
+}
+
 // Type declaration for renderer
 export interface ElectronAPI {
   platform: string;
@@ -469,9 +523,22 @@ export interface ElectronAPI {
     | { status: 'rejected'; error: string }
   >;
   /** Without an answer, key-like fields come back in `secrets` (node and field, never the value) and nothing is written. */
-  exportWorkflow: (secrets?: 'omit' | 'keep') => Promise<{ ok: true; unsetWidgets?: Array<{ nodeId: string; classType: string; name: string }> } | { ok: false; canceled?: boolean; error?: string; secrets?: SecretFieldReport[] }>;
+  exportWorkflow: (secrets?: 'omit' | 'keep') => Promise<{ ok: true; unsetWidgets?: Array<{ nodeId: string; classType: string; name: string }>; fileName?: string } | { ok: false; canceled?: boolean; error?: string; secrets?: SecretFieldReport[] }>;
   exportWorkflowDocument: () => Promise<{ ok: true; workflow: Record<string, unknown>; unsetWidgets?: Array<{ nodeId: string; classType: string; name: string }> } | { ok: false; error: string }>;
   openProject: () => Promise<import('../shared/commands/types').CommandResponse | { status: 'cancelled'; projection: null; result: null }>;
+  pathForFile: (file: File) => string;
+  openPath: (filePath: string) => Promise<OpenResponse>;
+  recentFiles: () => Promise<Array<{ path: string; name: string; kind: 'project' | 'workflow'; at: number }>>;
+  openRecent: (filePath: string) => Promise<OpenResponse>;
+  examples: () => Promise<string[]>;
+  openExample: (lessonId: string) => Promise<OpenResponse>;
+  pendingOpen: () => Promise<{ name: string } | null>;
+  openPending: () => Promise<OpenResponse>;
+  onOpenRequest: (listener: (request: { name: string }) => void) => () => void;
+  showExported: () => Promise<{ name: string } | null>;
+  exportedText: () => Promise<string | null>;
+  comfyAddressKnown: () => Promise<boolean>;
+  openJourneyLink: (kind: 'comfyui' | 'comfyui-download' | 'ollama-download') => Promise<{ ok: true } | { ok: false; error: string }>;
   saveProjectFile: (secrets?: 'omit' | 'keep', options?: { saveAs?: boolean }) => Promise<{ ok: true; filePath?: string } | { ok: false; canceled?: boolean; error?: string; secrets?: SecretFieldReport[] }>;
   projectFileState: () => Promise<import('../shared/contracts/projectFile').ProjectFileState>;
   saveProject: (project: any) => Promise<{ success: boolean }>;

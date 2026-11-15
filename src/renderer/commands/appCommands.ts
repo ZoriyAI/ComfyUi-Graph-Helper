@@ -4,6 +4,7 @@ import {
   Plus, Redo2, RefreshCw, Save, Settings, SquareDashedMousePointer, Square, Trash2, Undo2, Ungroup, Combine, ZoomIn, ZoomOut, RotateCcw,
   Workflow, BookOpen, LifeBuoy, Sparkles, ChevronsDownUp, Copy, ClipboardPaste, Scissors, CopyPlus, ShieldCheck, BookA, Globe, Bug, Download,
 } from 'lucide-react';
+import { useJourneyStore } from '../state/journeyState';
 import { openHelp, openProjectLink, openWhatsNew, projectLinksAvailable } from '../services/help';
 import { arrangeGraph } from '../components/graph/arrange';
 import { toggleCollapseSelection } from '../components/graph/importLook';
@@ -39,7 +40,7 @@ import { savePreferencesPatch, usePreferencesStore } from '../state/preferencesS
 import { INTERFACE_SCALE, nextInterfaceScale } from '../../shared/config/preferences';
 import { buildDiagnosticsCommands } from './diagnosticsCommands';
 import { buildLessonFileCommands } from './lessonCommands';
-import { Pin } from 'lucide-react';
+import { Pin, Stethoscope } from 'lucide-react';
 import { copySelection, cutSelection, duplicateSelection, hasClipboard, hasSelection, pasteClipboard, subscribeClipboard } from '../components/graph/lib/clipboard';
 import { installProjectFileWatch } from '../services/projectFile';
 import { installReplayGate } from './replayGate';
@@ -318,6 +319,10 @@ export function buildAppCommands(): Command[] {
     { id: 'help.site', group: 'help', labelKey: 'projectLinks.site', icon: Globe, enabled: projectLinksAvailable, run: () => void openProjectLink('site') },
     { id: 'help.reportProblem', group: 'help', labelKey: 'projectLinks.report', icon: Bug, enabled: projectLinksAvailable, run: () => useUiStore.getState().setDialog('report-problem') },
     { id: 'help.releases', group: 'help', labelKey: 'projectLinks.releases', icon: Download, enabled: projectLinksAvailable, run: () => void openProjectLink('releases') },
+    // The journey: the window tour on demand, and the way back from a ComfyUI error (components/journey).
+    { id: 'help.tour', group: 'help', labelKey: 'journey.tour.start', icon: Compass, enabled: always, run: () => useJourneyStore.getState().startTour() },
+    { id: 'help.comfyError', group: 'help', labelKey: 'journey.run.errorButton', icon: Stethoscope, enabled: always, run: () => useJourneyStore.getState().open('error') },
+    { id: 'help.runInComfy', group: 'help', labelKey: 'journey.run.title', icon: Play, enabled: always, run: () => useJourneyStore.getState().open('run') },
     { id: 'help.shortcuts', group: 'help', labelKey: 'menu.shortcuts', icon: Keyboard, shortcut: 'F1', enabled: always, run: () => useUiStore.getState().setDialog('shortcuts') },
     { id: 'help.about', group: 'help', labelKey: 'menu.about', icon: Info, enabled: always, run: () => useUiStore.getState().setDialog('about') },
   ];

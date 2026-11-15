@@ -26,6 +26,22 @@ export const IPC_CHANNELS = {
   FILE_SAVE_PROJECT: 'file:save-project',
   FILE_PROJECT_STATE: 'file:project-state',
   WORKFLOW_EXPORT_DOCUMENT: 'workflow:export-document',
+  /** Ways of opening that end in one path (main/ipc/openIpc.ts): a dropped file, File ▸ Recent and Examples, the command line. */
+  FILE_OPEN_PATH: 'file:open-path',
+  FILE_RECENT_LIST: 'file:recent-list',
+  FILE_OPEN_RECENT: 'file:open-recent',
+  FILE_EXAMPLES_LIST: 'file:examples-list',
+  FILE_OPEN_EXAMPLE: 'file:open-example',
+  FILE_PENDING_OPEN: 'file:pending-open',
+  FILE_OPEN_PENDING: 'file:open-pending',
+  /** Main → window: a file arrived from a second start; the window asks before replacing its graph. */
+  FILE_OPEN_REQUEST: 'file:open-request',
+  /** The run card after a save: shows the written workflow in its folder. */
+  FILE_SHOW_EXPORTED: 'file:show-exported',
+  FILE_COPY_EXPORTED: 'file:copy-exported',
+  /** The journey cards' links: the saved ComfyUI address or a fixed download page, opened in the browser on a click. */
+  JOURNEY_OPEN_LINK: 'journey:open-link',
+  JOURNEY_COMFY_KNOWN: 'journey:comfy-known',
   FILE_SELECT_DIRECTORY: 'file:select-directory',
   
   // Non-secret settings. Secret saves are rejected without a write.
