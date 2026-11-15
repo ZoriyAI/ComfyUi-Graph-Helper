@@ -80,6 +80,7 @@ Every command's shortcut can be changed, removed or reset; only your changes are
 | Keep a log of the conversation with the model | on | on, off |
 | Show previews and examples marked as adult content | off | on, off |
 | Look up models on the internet during sync | off | on, off |
+| Check for new versions | off | on, off |
 | Password store | Detect automatically | Detect automatically, GNOME Keyring, KWallet (applies after a restart; kept in `password-store.json`) |
 
 Also here: **Where keys are kept**, **Forget all keys and tokens** and **Clear chat history**.

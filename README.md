@@ -4,113 +4,111 @@
 
 **A desktop tutor for ComfyUI graphs**
 
+![The app building a graph step by step, with the reason for every step](docs/screenshots/hero.png)
+
+CozyGraph helps you learn ComfyUI and understand its graphs: it reads a running ComfyUI, explains every node and
+link, teaches with lessons you do by hand, and has an assistant that explains and builds step by step. It is for
+people new to ComfyUI and for anyone who wants to know why a graph works. It only reads ComfyUI and never changes it.
+
 CozyGraph is an independent, experimental learning tool. It is not affiliated with or endorsed by Comfy Org. It
 contains no ComfyUI code and only reads a running ComfyUI; it never changes it.
 
-An experimental desktop app that helps you learn ComfyUI and understand its graphs. Ideas and wishes are welcome in
-[Discussions](../../discussions); problems go to [Issues](../../issues).
+## Screenshots
 
-The app reads which nodes and models your ComfyUI has, explains every node and link, teaches with lessons you do by
-hand, and has an assistant that can explain and build a graph step by step. It never runs or changes anything in
-ComfyUI: what you build, you save as an ordinary workflow and open in ComfyUI yourself.
+| | |
+| --- | --- |
+| [<img src="docs/screenshots/en/02-canvas-explained.png" width="420" alt="A graph on the canvas with an explanation under every node">](docs/screenshots/en/02-canvas-explained.png) | [<img src="docs/screenshots/en/07-lesson-step.png" width="420" alt="A lesson step on the real canvas">](docs/screenshots/en/07-lesson-step.png) |
+| [<img src="docs/screenshots/en/05-assistant-build.png" width="420" alt="The assistant building a graph step by step">](docs/screenshots/en/05-assistant-build.png) | [<img src="docs/screenshots/en/08-check.png" width="420" alt="The check before saving a workflow">](docs/screenshots/en/08-check.png) |
 
-> **Experimental.** This is a young project. Things change between versions, some parts are unfinished, and there
-> is no promise of support. It is useful today, and it is honest about its limits: see
-> [Known limitations](docs/wiki/reference/Known-Limits.md).
+[All screenshots](docs/screenshots/README.md)
 
-<!-- screenshots: the pictures package inserts this section -->
+## What it does
+
+- **Reads your ComfyUI** at its address: nodes, packs and model files, with an optional MCP server for more.
+  [Connecting](docs/wiki/connect/README.md)
+- **A canvas for ComfyUI graphs**: real fields, typed links, subgraphs, groups, copy and paste, undo and redo.
+  [Working with a graph](docs/wiki/graph/README.md)
+- **Explains** every node, input, output and link, and says where each explanation comes from.
+  [The window](docs/wiki/interface/README.md)
+- **About eighty lessons** in twelve groups you do by hand on the real canvas, checked step by step, no AI model
+  needed.
+  [Lessons](docs/wiki/lessons/README.md)
+- **An assistant** that asks, builds or teaches, with a cloud model and your key or a model on your own computer.
+  [The assistant](docs/wiki/assistant/README.md)
+- **Checks a graph** before you save it, and saves an ordinary workflow you run in ComfyUI.
+  [Checking a graph](docs/wiki/graph/Checking-A-Graph.md)
 
 ## Install
 
-On Linux (64-bit x86, a distribution with `.deb` packages such as Ubuntu 22.04 or newer, Debian 12 or newer,
-Linux Mint 21 or newer):
+Linux, 64-bit x86. Download from the [Releases](../../releases) page the format that suits your system:
 
-1. Download the `.deb` file of the latest version from [Releases](../../releases).
-2. Install it:
+| Format | Install |
+| --- | --- |
+| `.deb` (Ubuntu, Debian, Mint) | `sudo apt install ./cozygraph_*_amd64.deb` |
+| `.rpm` (Fedora, openSUSE) | `sudo dnf install ./cozygraph-*.rpm` |
+| AppImage | `chmod +x` the file, then open it |
+| `.tar.gz` | unpack, then `./install.sh` (for your user, no root) or `./run.sh` (in place) |
 
-   ```bash
-   sudo apt install ./cozygraph_*_amd64.deb
-   ```
-   <!-- verify: technical rename -->
+<!-- verify: technical rename -->
 
-3. Start "CozyGraph" from the menu, or run `cozygraph` in a terminal. <!-- verify: technical rename -->
+Each release has a `SHA256SUMS` file: `sha256sum -c SHA256SUMS --ignore-missing`. Updating, removing, and what goes
+where: [Installing](docs/wiki/start/Installing.md).
 
-Each release also has a `SHA256SUMS` file. To check the download: `sha256sum -c SHA256SUMS --ignore-missing`.
+## First steps
 
-Updating is the same command with the new file; settings, keys and projects are kept. Removing, the data folder
-and every other way to install: [Installing](docs/wiki/start/Installing.md).
-
-### Windows and macOS: build from source
-
-There are no ready packages for Windows or macOS. You can build and run the app from source:
-[Windows](docs/wiki/dev/Building-On-Windows.md), [macOS](docs/wiki/dev/Building-On-macOS.md). These steps follow
-from the project's build setup and have not been tested on those systems; please tell us in
-[Issues](../../issues) what happens.
-
-## Quick start
-
-1. Have ComfyUI running. If you have none yet, see [ComfyUI and where to get it](docs/wiki/start/ComfyUI.md).
-2. Start the app. The empty canvas shows three steps and marks the ones already done.
-3. Connect ComfyUI and read it once: your nodes and models appear in the library on the left.
-   <!-- verify: the connection steps are being rebuilt; the wiki page connect/Connecting is written last -->
-4. Open the right panel, choose Learn and take the lesson "A first picture from text". No model is needed for lessons.
-5. When the graph is ready: File ▸ Save workflow for ComfyUI…, then open that file in ComfyUI and run it there.
-
-The whole path, step by step: [Quick start](docs/wiki/start/Quick-Start.md).
-
-## What works today
-
-- **Reading your ComfyUI.** Node classes, node packs, model files and what is written about them next to the files
-  (LoRA trigger words, base model, example pictures). Only reading.
-- **A canvas** for ComfyUI graphs: nodes with real fields (lists from your ComfyUI, numbers with their limits, model
-  files with their family), links that check their data types, subgraphs edited from the inside, groups, an
-  arrangement in one command, a history of versions with undo and redo.
-- **Explanations** of every node, input, output and link, with their source shown: built-in, read from the files,
-  from the internet, or written by you.
-- **Twenty lessons** you do by hand on the real canvas, from a first picture to video with WanVideoWrapper. The app
-  checks each step on the graph. No model is needed.
-- **An assistant** in three modes: Ask (answers and grey drafts you accept), Build (builds on the canvas step by
-  step and says why), Learn (the lessons). It answers with a cloud model (OpenAI, Anthropic, Google; you bring a
-  key) or a model on your own computer (Ollama, LM Studio, vLLM or any OpenAI-compatible server).
-- **A check** before saving: missing nodes and models, LoRAs that do not fit the checkpoint, empty fields, advice
-  on descriptions.
-- **Workflows in and out:** open a workflow saved in ComfyUI; save one for ComfyUI that comes back as it was except
-  for what you changed. Project files keep your explanations too.
-- **A conversation log** that shows what was sent to the model and what came back, without keys.
-- Russian and English interface; Help with this documentation inside the app.
-
-Known limits are listed on one page: [Known limitations](docs/wiki/reference/Known-Limits.md).
-
-## What the app never does
-
-- It never installs, downloads, deletes, writes or queues anything in ComfyUI.
-- It never sends your keys anywhere except to the address you pasted them for.
-- It has no telemetry, no crash reporting and no update check. Every place it can contact is listed in
-  [Privacy](docs/wiki/trust/Privacy.md).
+1. Start ComfyUI. No ComfyUI yet? [ComfyUI and where to get it](docs/wiki/start/ComfyUI.md).
+2. In CozyGraph: Settings ▸ Connection, enter the address you open ComfyUI at in the browser (for example
+   `http://127.0.0.1:8188`) or choose Find on this computer, save, and read it.
+   [Connecting to ComfyUI](docs/wiki/connect/Connecting.md)
+3. Open the right panel, choose Learn and take the first lesson. [Quick start](docs/wiki/start/Quick-Start.md)
 
 ## Documentation
 
-- [The documentation](docs/wiki/Home.md) (also in the app: Help ▸ User guide), in English and Russian.
-- [Questions and answers](docs/wiki/start/FAQ.md), [Troubleshooting](docs/wiki/reference/Troubleshooting.md),
-  [Glossary](docs/wiki/reference/Glossary.md).
-- [Content rules](docs/wiki/trust/Content-Rules.md).
-- [Privacy](docs/wiki/trust/Privacy.md) and [Security](SECURITY.md).
-- [Changes](CHANGELOG.md).
+| Chapter | What is in it |
+| --- | --- |
+| [Start](docs/wiki/start/README.md) | What the app is, installing, the first hour, updating and removing. |
+| [Connecting](docs/wiki/connect/README.md) | Connecting the app to ComfyUI, on this computer or another. |
+| [The window](docs/wiki/interface/README.md) | One page per part of the window. |
+| [Working with a graph](docs/wiki/graph/README.md) | Building, checking, saving and running a graph. |
+| [The assistant](docs/wiki/assistant/README.md) | Ask, Build, Learn, who answers and what is sent. |
+| [Lessons](docs/wiki/lessons/README.md) | The built-in lessons, grouped by topic. |
+| [ComfyUI concepts](docs/wiki/concepts/README.md) | An encyclopedia of ComfyUI for a newcomer. |
+| [Reference](docs/wiki/reference/README.md) | Settings, shortcuts, messages, file formats, the glossary, troubleshooting. |
+| [Trust](docs/wiki/trust/README.md) | Privacy, security, the licence, subject choice and accessibility. |
+| [For developers](docs/wiki/dev/README.md) | How the code works, how to change it, how a release is made. |
 
-## Taking part
+The same documentation is in the app: Help ▸ User guide.
 
-Ideas, wishes and questions: [Discussions](../../discussions). Problems: [Issues](../../issues) (Help ▸ Report a
-problem in the app fills in the versions for you). Code: [CONTRIBUTING.md](CONTRIBUTING.md) and
-[the developer documentation](docs/wiki/dev/README.md). Everyone taking part follows the
-[Code of Conduct](CODE_OF_CONDUCT.md).
+## Build from source
+
+On Linux: [Building from source](docs/wiki/dev/Building-From-Source.md). Windows and macOS are not supported; you may
+try running the app from source, untested: [Windows](docs/wiki/dev/Building-On-Windows.md),
+[macOS](docs/wiki/dev/Building-On-macOS.md).
+
+## What works today and known limits
+
+CozyGraph is experimental: things change between versions and some parts are unfinished. What it does not do yet:
+[Known limitations](docs/wiki/reference/Known-Limits.md). What changed: [CHANGELOG.md](CHANGELOG.md).
+
+It never installs, downloads, deletes, writes or queues anything in ComfyUI, has no telemetry and no crash
+reporting, and asks about new versions only if you switch that on. Every place it can contact:
+[Privacy](docs/wiki/trust/Privacy.md).
+
+## Wishes, questions, problems
+
+- Ideas, wishes and questions: [Discussions](../../discussions).
+- Problems: [Issues](../../issues) (Help ▸ Report a problem in the app fills in the versions).
+- A security problem: privately, see [SECURITY.md](SECURITY.md).
+- Code: [CONTRIBUTING.md](CONTRIBUTING.md); everyone follows the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 **How this project is made.** Most of the code and the texts were written by AI coding agents, directed and reviewed
-by the maintainer, who answers for everything that is published here.
+by the maintainer, who answers for everything published here.
 
 ## Licence
 
-The source code is public under the MIT licence with the Commons Clause condition: you may use, change and share the
-app for free, but you may not sell it or a product or service whose value comes mainly from it. See
-[LICENSE](LICENSE), the explanation in plain words in [Licence](docs/wiki/trust/Licence.md), and for commercial use
-[COMMERCIAL.md](COMMERCIAL.md). This is not "open source" in the usual sense of the word: it is source-available.
-Third-party components keep their own licences: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+MIT with the Commons Clause condition: you may use, change and share CozyGraph for free, but not sell it or a product
+or service whose value comes mainly from it. It is source-available, not open source in the usual sense.
+[LICENSE](LICENSE), [the licence in plain words](docs/wiki/trust/Licence.md), commercial use:
+[COMMERCIAL.md](COMMERCIAL.md). Third-party components: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+Subject choice and adult education: [Content rules](docs/wiki/trust/Content-Rules.md).

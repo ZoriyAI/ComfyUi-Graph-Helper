@@ -1,0 +1,52 @@
+name: A problem
+description: Something in CozyGraph does not work as it should. / Что-то в CozyGraph работает не так.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you. Please write in English or Russian. A security problem goes privately to the Security tab, not here.
+        Спасибо. Пишите по-английски или по-русски. О проблеме безопасности сообщайте закрыто через вкладку Security.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened / Что случилось
+      description: What you did, what you expected and what you saw instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to repeat it / Как повторить
+      placeholder: |
+        1. …
+        2. …
+  - type: textarea
+    id: details
+    attributes:
+      label: Versions / Версии
+      description: Help ▸ Report a problem fills this in; or Help ▸ About ▸ Copy details.
+      render: text
+    validations:
+      required: true
+  - type: input
+    id: distribution
+    attributes:
+      label: Linux distribution and desktop / Дистрибутив и рабочий стол
+      placeholder: Ubuntu 24.04, GNOME, Wayland
+  - type: input
+    id: package
+    attributes:
+      label: How it was installed / Как установлено
+      placeholder: .deb, .rpm, AppImage, .tar.gz, from source
+  - type: input
+    id: connection
+    attributes:
+      label: How it reaches ComfyUI / Как подключён ComfyUI
+      placeholder: ComfyUI address on this computer / another computer / an MCP server
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log or diagnostics / Журнал или диагностика
+      description: Help ▸ Copy diagnostics (keys and tokens are left out). Attach a conversation log file if the assistant is involved.
+      render: text

@@ -1,0 +1,24 @@
+name: A wish
+description: Something CozyGraph could do. For open ideas and questions, Discussions are better. / Пожелание.
+labels: [wish]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ideas still being thought through are welcome in Discussions; this form is for a concrete wish.
+        Идеи, которые ещё обдумываются, лучше нести в обсуждения; эта форма для конкретного пожелания.
+  - type: textarea
+    id: need
+    attributes:
+      label: What you want to do / Что вы хотите сделать
+      description: The task, in your words, and why it matters to you.
+    validations:
+      required: true
+  - type: textarea
+    id: today
+    attributes:
+      label: How you do it today / Как вы делаете это сейчас
+  - type: textarea
+    id: idea
+    attributes:
+      label: How it could work / Как это могло бы работать

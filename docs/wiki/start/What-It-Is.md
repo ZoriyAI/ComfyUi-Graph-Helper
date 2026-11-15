@@ -36,8 +36,8 @@ See [ComfyUI and where to get it](ComfyUI.md).
   [ComfyUI is only read](../trust/Read-Only.md).
 - It never runs a graph. You open the saved workflow in ComfyUI and run it there:
   [Running the result in ComfyUI](../graph/Running-In-ComfyUI.md).
-- It never sends a key to an address other than the one you pasted it for, and has no telemetry, no crash reports
-  and no update check: [Privacy](../trust/Privacy.md).
+- It never sends a key to an address other than the one you pasted it for, and has no telemetry and no crash reports;
+  it asks about new versions only if you switch that on: [Privacy](../trust/Privacy.md).
 
 ## How it fits together
 

@@ -57,8 +57,8 @@ address you pasted it for, never into logs, project files or the text sent to a 
 ## What does the app send over the internet?
 
 Only what is listed in [Privacy](../trust/Privacy.md): your questions to the model you chose, web searches of the
-assistant (on by default, can be switched off), model lookups when you ask. No telemetry, no crash reports, no update
-check.
+assistant (on by default, can be switched off), model lookups when you ask. A question about new versions only if you switch it on
+(off by default). No telemetry, no crash reports.
 
 ## Can I open a workflow I found on the internet?
 

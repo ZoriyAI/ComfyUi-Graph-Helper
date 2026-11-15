@@ -26,6 +26,7 @@ Help ▸ About ▸ Open data folder opens it. On Linux the folder is made readab
 | `logs/model/` | The conversation log with the model, one file per answer, while Settings ▸ Privacy ▸ Keep a log of the conversation with the model is on. | At most 300 files and 150 MB; the oldest go first. |
 | `model-previews/` | Pictures of models fetched for model cards. | At most 3000 files and 512 MB; the oldest go first. |
 | `window-state.json` | The window's size and place. | Tiny. |
+| `update-check.json` | The last answer about new versions, only if Check for new versions is on. | Tiny. |
 | `password-store.json` | Which password store to use, if you chose one in Settings ▸ Privacy. Not a secret. | Tiny. |
 | `model-key.json` | A model key kept unencrypted, only if you chose that place for it. Readable by your user only. | Tiny. |
 | `mcp-token.json` | A server access token kept unencrypted, only if you chose that place for it. Readable by your user only. | Tiny. |

@@ -10,7 +10,8 @@ else leaves your computer.
 
 - **No telemetry.** It does not count, measure or report how you use it.
 - **No crash reporting.** Errors go to a log file on your computer only.
-- **No update check.** It never asks anyone whether a new version exists.
+- **No update check unless you ask for it.** Settings ▸ Privacy ▸ Check for new versions is off by default (see
+  below).
 - **No account.** It needs no sign-up with the project.
 - **No spell checker downloads.** The spell checker of the window is switched off, so Chromium does not fetch
   dictionaries.
@@ -18,19 +19,28 @@ else leaves your computer.
 
 ## Every place the app can contact
 
-### Your ComfyUI and its MCP server
+### Your ComfyUI
 
-<!-- verify: connection chapter. The connection is being rebuilt; this section is checked against the connection
-notes. -->
+- **When:** when you check or read ComfyUI (Check ComfyUI, Read now, Sync ▸ Sync now), on the sync timer if you
+  switched it on in Settings ▸ Sync, and when a model card shows a picture ComfyUI has for a model.
+- **Where:** only the ComfyUI address you saved in Settings ▸ Connection. Find on this computer asks only this
+  computer (`127.0.0.1`, ports 8188 and 8000).
+- **What goes there:** read-only `GET` requests, through one gate that refuses every other route: the list of
+  nodes (`/object_info`), the versions (`/system_stats`), the model folders and files, the metadata inside a
+  `.safetensors` header (`/view_metadata`), a model's preview picture, and, when ComfyUI-Manager is installed, its
+  list of installed packs. Never a prompt, a queue, an upload, an install or a setting. No password is sent: ComfyUI
+  has none.
 
-- **When:** when you read ComfyUI (Read ComfyUI, Sync ▸ Sync now), on the sync timer if you switched it on in
-  Settings ▸ Sync, when you check the connection in Settings ▸ Connection, and when a model card opens a picture that lies next
-  to a model file.
-- **Where:** only the addresses you gave in Settings ▸ Connection, and the ComfyUI address the MCP server names when
-  it is on this computer or you saved it.
-- **What goes there:** read-only requests: the list of nodes (`/object_info`, `/system_stats`), the model folders, the
-  files next to a model (its description, its example picture), the fingerprint of a model file. The access token or
-  the sign-in, if the server needs one. Never a write, an install, a download or a queued run.
+### Your MCP server (optional)
+
+- **When:** as for ComfyUI, if you set an MCP server address in Settings ▸ Connection; and when you choose Find on
+  the internet in a model card (the server computes the file's fingerprint).
+- **Where:** only the MCP server address you gave, and a ComfyUI address it names if that is on this computer too,
+  or is the address you saved.
+- **What goes there:** calls of the few read tools the app knows, with fixed arguments: the node, pack and model
+  lists, the files next to a model (description, example picture), a pack's `pyproject.toml` and README, a model
+  file's fingerprint. The access token or the sign-in, if the server needs one. A server whose tools the app does not
+  know is not called at all.
 - **Sign-in through the browser:** your system browser opens the server's sign-in page; the app waits for the answer
   on a local address of this computer (`127.0.0.1`).
 
@@ -74,6 +84,15 @@ notes. -->
   hosts) for an example picture.
 - **What goes there:** for Civitai, the fingerprint (SHA-256) of the model file; for Hugging Face, the name of the
   file. Nothing else. A picture marked as adult content is not downloaded unless you choose to see it.
+
+### New versions (only if you switch it on)
+
+- **When:** only while Settings ▸ Privacy ▸ Check for new versions is on (off by default); at most once a day, and
+  an hour later after a failed try.
+- **Where:** GitHub (`api.github.com`), the project's latest release.
+- **What goes there:** a request that names the app and its version; GitHub sees your computer's address, as any
+  site does. The answer is kept in `update-check.json` in the data folder. The app downloads nothing: a line in the
+  status bar offers the release page and the download, and you choose.
 
 ### Finding servers on this computer
 
