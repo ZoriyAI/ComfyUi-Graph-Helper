@@ -30,11 +30,13 @@ import styles from './LessonEditor.module.css';
 /** The verdict shown under the actions: a sentence and whether it is good news. */
 type Verdict = { ok: boolean; text: string } | null;
 
+/** The sentence for the result of trying a lesson. */
 function verdictOf(t: (key: string, values?: Record<string, unknown>) => string, check: LessonCheck, language: string): Verdict {
   if (check.ok) return { ok: true, text: t('lessonFiles.editor.triedOk') };
   return { ok: false, text: 'problem' in check ? problemText(t, check.problem) : triedText(t, check.tried, language) };
 }
 
+/** A field check in words (any value, equals, between, at least some characters). */
 function ruleText(t: (key: string, values?: Record<string, unknown>) => string, spec: FieldSpec): string {
   const test = spec.test;
   if (test.kind === 'chosen') return t('lessonFiles.editor.ruleChosen');
@@ -44,6 +46,10 @@ function ruleText(t: (key: string, values?: Record<string, unknown>) => string, 
   return t('lessonFiles.editor.ruleOther');
 }
 
+/**
+ * The editor of one lesson model. Every change goes back to the store, so the draft survives the panel closing
+ * (but not a restart).
+ */
 export default function LessonEditor({ editing }: { editing: EditorState }) {
   const { t, i18n } = useTranslation();
   const tr = (key: string, values?: Record<string, unknown>) => String(values ? t(key, values) : t(key));
@@ -53,6 +59,7 @@ export default function LessonEditor({ editing }: { editing: EditorState }) {
   const [busy, setBusy] = useState(false);
   const ids = useId();
   const { model, replaces } = editing;
+  // A role's name for the checks: the catalog display name of the first class that fills it.
   const nameOfRole = (role: string) => {
     for (const step of model.steps) {
       const spec = step.roles.find((item) => item.role === role);

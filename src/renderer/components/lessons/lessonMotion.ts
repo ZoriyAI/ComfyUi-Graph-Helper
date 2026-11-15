@@ -1,10 +1,3 @@
-import { useEffect, useRef } from 'react';
-import type { Missing, Progress } from '../../../shared/lessons/engine';
-import { useGraphStore } from '../../state/graphState';
-import { useCanvasStore } from '../graph/canvasStore';
-import { flash, useAttentionStore } from '../../motion/attention';
-import { tokenMs } from '../../motion/policy';
-
 /**
  * How a lesson moves on the canvas (motion package). LessonPanel's running lesson mounts useLessonMotion.
  *
@@ -15,7 +8,15 @@ import { tokenMs } from '../../motion/policy';
  * Why: the panel said "done" and moved on in text only; on a big graph the person had to look for both the thing
  * that counted and the next place.
  * Every move follows the motion policy: the flash is a still ring with motion reduced or off, and the camera cuts.
+ * tests/unit/motionPolicy.test.ts covers focusOf, passedMarks and placeOf.
  */
+import { useEffect, useRef } from 'react';
+import type { Missing, Progress } from '../../../shared/lessons/engine';
+import { useGraphStore } from '../../state/graphState';
+import { useCanvasStore } from '../graph/canvasStore';
+import { flash, useAttentionStore } from '../../motion/attention';
+import { tokenMs } from '../../motion/policy';
+
 
 /** The nodes a step's first missing thing is about. */
 export function focusOf(missing: Missing | undefined): string[] | null {
@@ -42,8 +43,10 @@ export function placeOf(missing: Missing | undefined): string | null {
   return null;
 }
 
+/** Drives the canvas for a running lesson; `active` is false once the lesson is finished. */
 export function useLessonMotion(lessonId: string, progress: Progress, active: boolean): void {
   const first = active ? progress.missing[0] : undefined;
+  // The focus as a string, so a recomputed but equal list does not set the store again.
   const focusKey = JSON.stringify(focusOf(first));
   useEffect(() => {
     useAttentionStore.getState().setLessonFocus(JSON.parse(focusKey) as string[] | null);

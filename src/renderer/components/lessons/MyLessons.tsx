@@ -32,6 +32,7 @@ import { makeLessonFromGraph, editMyLesson } from './lessonAuthoring';
 import panel from './LessonPanel.module.css';
 import styles from './MyLessons.module.css';
 
+/** One shared empty list, so a store selector with nothing stored keeps the same reference. */
 const NONE: readonly string[] = [];
 
 /** What the list shares with this group: the catalog as the lessons see it, the canvas, the facts. */
@@ -132,6 +133,7 @@ export function MyLessonNotice({ lessonId }: { lessonId: string }) {
   );
 }
 
+/** One of the person's lessons as a card: origin, fit, progress, and edit, export, 18+ mark and remove. */
 function MyLessonCard({ lesson, shared }: { lesson: MyLesson; shared: MyLessonsShared }) {
   const { t, i18n } = useTranslation();
   const read = useLessonStore((state) => state.read[lesson.id]) ?? NONE;
@@ -219,6 +221,7 @@ export function MyLessonsGroup({ shared, adultOn }: { shared: MyLessonsShared; a
   const openSettings = useUiStore((state) => state.openSettings);
   const doneIds = useLessonStore((state) => state.done);
   const classes = useMemo(() => [...new Set(lessons.flatMap((lesson) => lesson.doc.steps.flatMap((step) => (step.roles ?? []).flatMap((spec) => spec.classes))))], [lessons]);
+  // The catalog details of every class the person's lessons name, so their fit and names can be read.
   useEffect(() => {
     for (const classType of classes) void request(classType);
   }, [classes, request]);

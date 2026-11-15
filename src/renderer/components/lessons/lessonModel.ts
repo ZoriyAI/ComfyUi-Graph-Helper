@@ -1,3 +1,10 @@
+/**
+ * Between the lesson engine (shared/lessons) and the app: the canvas as the engine sees it, what the catalog
+ * knows of the classes the lessons name, the trigger words of the files chosen on the canvas, and the two things
+ * a step can ask the app for: show where it is, or do it.
+ *
+ * Who uses it: LessonPanel.tsx, lackText.ts and lessonAuthoring.ts; tests/unit/lessonModel.test.ts covers it.
+ */
 import { useEffect, useMemo, useState } from 'react';
 import type { BaseModelFamily, NodeClassDetail } from '../../../shared/contracts/knowledge';
 import type { GraphMutation } from '../../../shared/commands/types';
@@ -32,12 +39,8 @@ import { layoutRect, newNodeSize, sizeHintsOf } from '../graph/lib/nodeSizes';
 import { useNodeInfoStore } from '../graph/nodeInfo';
 import { placeNewNode } from '../graph/placeNode';
 
-/**
- * Between the lesson engine (shared/lessons) and the app: the canvas as the engine sees it, what the catalog
- * knows of the classes the lessons name, the trigger words of the files chosen on the canvas, and the two things
- * a step can ask the app for: show where it is, or do it.
- */
 
+/** Catalog details by class; null for a class the catalog does not have. */
 type Details = Record<string, NodeClassDetail | null>;
 
 /** A class the catalog has read: it has ports. Before ComfyUI is read a core class is a name without any. */
@@ -133,11 +136,14 @@ export function useLessonGraph(details: Details): LessonGraph {
   return useMemo(() => lessonGraphOf(nodes, edges, details), [nodes, edges, details]);
 }
 
+/** The core LoRA loaders: their lora_name list is LoRA files even when the catalog names no folder. */
 const LORA_CLASSES = new Set(['LoraLoaderModelOnly', 'LoraLoader']);
+/** What a model file's own description says: its trigger words and its base model family. */
 interface FileFacts {
   triggers: string[];
   family: BaseModelFamily;
 }
+/** Facts by `folder/name`, kept for the whole session: a file's description is asked of main only once. */
 const fileCache = new Map<string, FileFacts>();
 
 /**
@@ -172,6 +178,7 @@ export function useLessonFacts(graph: LessonGraph, details: Details = {}): Lesso
       const id = `${file.directory}/${file.name}`;
       if (fileCache.has(id) || !bridge?.modelDetail) continue;
       void bridge.modelDetail(file.directory, file.name).catch(() => null).then((detail) => {
+        // A family guessed only from the file name is not trusted: the lesson would judge the file by its name.
         fileCache.set(id, { triggers: detail?.triggerWords ?? [], family: detail && detail.baseModelEvidence !== 'filename' ? detail.baseModel : 'unknown' });
         if (live) setVersion((value) => value + 1);
       });
@@ -286,7 +293,7 @@ export async function doFix(fix: StepFix, place?: FixPlace): Promise<void> {
   } else {
     payload = { type: 'set-parameter', nodeId: fix.nodeId, key: fix.field, value: fix.value };
   }
-  // Lessons follow the main canvas, also while a subgraph is open.
+  // The change goes to the root level, where lessons live (the guard above already stops it inside a subgraph).
   await commitManual(payload, 'lesson', { level: 'root' });
   // The person sees what was done: the canvas goes to the node the change is on, a new node included.
   const shown = fix.kind === 'connect' ? fix.to : fix.kind === 'set-field' ? fix.nodeId : useGraphStore.getState().nodes.find((node) => !before.has(node.id))?.id;

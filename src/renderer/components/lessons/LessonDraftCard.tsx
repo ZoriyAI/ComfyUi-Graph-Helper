@@ -21,8 +21,10 @@ import { refusalText } from './lessonFiles';
 import styles from './MyLessons.module.css';
 import panel from './LessonPanel.module.css';
 
+/** The card's life: loading the draft, open with it, or a final line (gone, kept, discarded). */
 type State = { kind: 'loading' } | { kind: 'open'; draft: LessonDraft } | { kind: 'gone' } | { kind: 'kept' } | { kind: 'discarded' };
 
+/** The card for one draft id; it draws nothing while the draft loads. */
 export default function LessonDraftCard({ draftId }: { draftId: string }) {
   const { t, i18n } = useTranslation();
   const [state, setState] = useState<State>({ kind: 'loading' });

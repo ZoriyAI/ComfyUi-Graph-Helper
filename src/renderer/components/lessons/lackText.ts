@@ -1,3 +1,11 @@
+/**
+ * "Still to do" in words a person can act on: what is missing, which node it is about (by its part in the lesson
+ * when two nodes on the canvas share a name), what exactly is wrong with a file or a text, and why the step asks
+ * for the value. Pure apart from the canvas titles and the catalog it is handed.
+ *
+ * Who uses it: LessonPanel.tsx (the "still to do" list and the hints of a step); tests/unit/lessonLack.test.ts and
+ * lessonRoleLabels.test.ts pin the sentences.
+ */
 import type { TFunction } from 'i18next';
 import type { NodeClassDetail } from '../../../shared/contracts/knowledge';
 import { familyLabelKey } from '../../../shared/knowledge/labels';
@@ -7,14 +15,11 @@ import { lessonReason } from '../../../shared/lessons/texts';
 import { weightsOf } from '../../../shared/prompt/inspect';
 import { fieldChoices, nodeNameOf, portLabel, titleOnCanvas } from './lessonModel';
 
-/**
- * "Still to do" in words a person can act on: what is missing, which node it is about (by its part in the lesson
- * when two nodes on the canvas share a name), what exactly is wrong with a file or a text, and why the step asks
- * for the value. Pure apart from the canvas titles and the catalog it is handed.
- */
 
+/** Catalog details by class; null for a class the catalog does not have. */
 type Details = Record<string, NodeClassDetail | null>;
 
+/** What the sentences need besides the lack itself: the catalog, the lesson's view of the canvas, the language. */
 export interface LackContext {
   details: Details;
   graph: LessonGraph;
@@ -65,6 +70,7 @@ function reasonOf(language: string, id: string | undefined): string {
   return text ? ` ${text.replace(/`/g, '')}` : '';
 }
 
+/** A field value as a sentence shows it; an empty value is said in words (lessons.empty). */
 function shown(t: TFunction, value: unknown): string {
   if (value === undefined || value === null || value === '') return String(t('lessons.empty'));
   return typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' ? String(value) : JSON.stringify(value);
@@ -72,8 +78,10 @@ function shown(t: TFunction, value: unknown): string {
 
 /** "word:1.2" written without the parentheses ComfyUI reads a weight in. */
 const BARE_WEIGHT = /(?:^|[,;]\s*)([A-Za-z][A-Za-z ]{0,40}?:\d+(?:\.\d+)?)(?=\s*(?:,|;|$))/;
+/** The first negation in a prompt ("no hat", "without people"), English or Russian, to quote it back. */
 const NEGATION_FOUND = /(?:^|[\s,.;(])((?:no|not|without|never|don't|нет|без|не)\s+[A-Za-zЀ-ӿ]+)/i;
 
+/** The sentence for a model file field that holds no file, or a file of the wrong kind or family. */
 function fileText(t: TFunction, missing: Extract<Missing, { kind: 'field' }>, node: string, context: LackContext): string {
   if (missing.test.kind !== 'file') return '';
   const want = missing.test.want;
