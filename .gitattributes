@@ -7,3 +7,4 @@ docs/design/** export-ignore
 docs/decisions/** export-ignore
 docs/research/** export-ignore
 STATUS.md export-ignore
+docs/WEBSITE-BRIEF.md export-ignore
