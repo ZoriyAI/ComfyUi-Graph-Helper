@@ -3,7 +3,8 @@
 
 # File formats
 
-The files the app reads and writes, outside its [data folder](Data-Folder.md). All of them are JSON text.
+The files the app reads and writes, outside its [data folder](Data-Folder.md). All of them are JSON text, except
+the pictures and videos a workflow is read from. A file larger than 64 MB is not opened.
 
 ## The project file
 
@@ -29,10 +30,31 @@ More: [Project files](../graph/Project-Files.md).
 - **Inside:** an ordinary ComfyUI workflow in the format the ComfyUI frontend saves (versions 0.4 and 1), with
   subgraphs. What you did not change comes back exactly as it was, including values the app does not show.
 - **The older format 0.4** opens, but cannot hold a subgraph: the app says to copy the nodes into a new project.
-- **Not read:** the API format of ComfyUI (a file of prompts by node number). The app says so instead of guessing.
+- **From a picture or a video:** File ▸ Open workflow… also offers the pictures and videos ComfyUI saves (PNG,
+  WebP, JPEG, GIF, MP4, WebM, MKV, MOV) and its audio files (FLAC, MP3, Opus, OGG). ComfyUI writes the workflow into
+  the files it saves; the app reads it from there and says "Read from the picture…" or "Read from the video…". A
+  file without a workflow says "There is no workflow in this file…".
+- **The API format** of ComfyUI (a file of prompts by node number, with no positions) opens too: the app lays the
+  nodes out from left to right and says "This file was in the API format, which has no positions…". It opens as
+  format 0.4.
+- A file dropped on the window, or named on the [command line](Command-Line.md), opens the same way.
 - Keys are handled as for the project file.
 
 More: [Opening a workflow](../graph/Opening-Workflows.md), [Saving a workflow for ComfyUI](../graph/Saving-Workflows.md).
+
+## The lesson file
+
+- **Name:** `*.lesson.json`. **Written by:** the export button on a lesson card or next to a group title.
+  **Read by:** File ▸ Import lessons…, the Import… button in My lessons, or a file dropped on the lesson list.
+- **Inside:** a `format` field (`nodewise-studio/lessons`), a `version` (1 today; a newer one is refused with a
+  message) and one lesson or more (at most 200): ids, the words in English, Russian or both, the steps and what each
+  step checks on the canvas. Next to `title`, `result` and `steps`, the words of a language may carry an optional
+  `roles` map: what each node is called in this lesson, so "Still to do" can tell two alike nodes apart. A file is at
+  most 2 MB.
+- A refused file says which rule it breaks, in the language of the interface.
+- **Data only:** nothing in it is run or opened; a file is all or nothing.
+
+The whole format: [The lesson file format](../lessons/Lesson-File-Format.md).
 
 ## The node list file
 

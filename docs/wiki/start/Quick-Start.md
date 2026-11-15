@@ -21,8 +21,10 @@ Get the file from the project's Releases page. Details: [Installing](Installing.
 
 ## 3. Start it
 
-Open "NodeWise Studio" from the menu. An empty canvas with a welcome card appears. The card lists three steps and marks
-the ones that are done: connect ComfyUI and read it, choose who answers, ask or build. See
+Open "NodeWise Studio" from the menu. It speaks your system's language; the button in the top corner of the welcome
+card switches between Русский and English. The tour of the window runs once; Skip the tour if you like. The welcome
+card offers three ways to start (Take a lesson, Open an example, Ask the assistant) and, under them, what they need:
+Connect ComfyUI and Choose the assistant. No ComfyUI yet? Choose **I have no ComfyUI yet**. See
 [The welcome card](../interface/Welcome.md).
 
 ## 4. Connect ComfyUI and read it
@@ -34,8 +36,8 @@ model files it read, and the library on the left shows them. The whole chapter: 
 
 ## 5. Take a first lesson
 
-Open the right panel (**View ▸ Tools panel**, `Ctrl+J`) and choose **Learn**. Pick the lesson **A first picture from
-text** and follow its steps. You add the nodes and links yourself; the lesson checks each step on the graph and says
+Choose **Take a lesson** on the welcome card (or choose **Learn** in the right panel). Pick the lesson **A first
+picture from text** and follow its steps. You add the nodes and links yourself; the lesson checks each step on the graph and says
 in words what is missing. **Show me where** points at the place on the canvas; **Do this for me** does a step where
 the choice is not yours to make. No assistant model is needed. See
 [A first picture from text](../lessons/Image.md).
@@ -47,14 +49,15 @@ the choice is not yours to make. No assistant model is needed. See
 
 ## 7. Run it in ComfyUI
 
-Drag the `.json` file onto the ComfyUI page in the browser and press its run button. The picture appears in the Save
+After saving, the card **Run it in ComfyUI** opens. Choose **Open ComfyUI**, drag the `.json` file onto the ComfyUI
+page in the browser (or **Copy workflow** and press `Ctrl+V` on the ComfyUI canvas), and press Run there. The picture appears in the Save
 Image node and is written to `ComfyUI/output`. Details: [Running the result in ComfyUI](../graph/Running-In-ComfyUI.md).
 
 ## 8. Optional: an assistant
 
 To ask questions about any node or let the assistant build, choose who answers: a cloud model with your key, or a
-model on your own computer (Ollama, LM Studio, vLLM). Choose the assistant in the top toolbar or in Settings ▸
-Assistant. See [Choosing who answers](../assistant/Choosing-Who-Answers.md). Cloud answers cost money per question.
+model on your own computer (Ollama, LM Studio, vLLM, the llama.cpp server). Choose the assistant on the welcome card
+or in Settings ▸ Assistant. See [Choosing who answers](../assistant/Choosing-Who-Answers.md). Cloud answers cost money per question.
 
 ## See also
 

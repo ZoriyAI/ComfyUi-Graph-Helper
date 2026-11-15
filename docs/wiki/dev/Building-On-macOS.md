@@ -52,7 +52,9 @@ The bundle appears under `out/`. Before you run this, open `forge.config.js`: on
 database file (`prebuilds/(?!linux-x64\.node$)`). Let your Mac's file through as well (for example
 `(?!(linux-x64|darwin-arm64)\.node$)` on Apple Silicon), or the packaged app cannot open its database. The bundle is
 not signed: macOS asks before opening it the first time (Control-click ▸ Open).
-<!-- verify: the bundle name; the missing .icns icon -->
+
+Not tried on a Mac: the bundle should be named `NodeWise Studio.app` after the product name, and since the project
+has no `resources/icon.icns`, it probably shows Electron's default icon.
 
 ## Update the source
 
@@ -67,16 +69,16 @@ npm run build
 1. In the app: Settings ▸ Privacy ▸ Forget all keys and tokens.
 2. Delete the project folder (`nodewise-studio`) and, if you made one, the bundle under `out/`.
 3. Delete `~/Library/Application Support/nodewise-studio`.
-4. In Keychain Access, delete the item that ends with "Safe Storage" and carries the app's name.
-   <!-- verify: the Keychain item name on macOS -->
+4. In Keychain Access, delete the item that ends with "Safe Storage" and carries the app's name. The app names
+   itself `nodewise-studio`, so the item should be `nodewise-studio Safe Storage`; this is not tried on a Mac.
 
 ## Known limits on this system
 
 - **No macOS app menu.** The app draws its menu bar inside the window and sets no native menu. Without a native Edit
   menu, `Cmd+C`, `Cmd+V`, `Cmd+X` and `Cmd+A` may not work in text fields, and there is no `Cmd+Q`, `Cmd+H`, `Cmd+M` or
-  `Cmd+W`. Use File ▸ Exit to quit.
+  `Cmd+W`. Use File ▸ Quit to quit.
 - **Not signed and not notarized.** There is no code signing, no notarization and no `.dmg`.
-- **Texts written for Linux.** The password store setting, its hints and Troubleshooting speak of GNOME Keyring and
+- **Texts written for Linux.** The keychain setting, its hints and Troubleshooting speak of GNOME Keyring and
   KWallet; on macOS, Electron uses the Keychain.
 - **The package checks are Linux-only**: `scripts/smoke-linux-package.js`, `scripts/smoke-installed-deb.js` and
   `xvfb-run` in the test commands. Run the end-to-end tests with `npx playwright test` without `xvfb-run`.

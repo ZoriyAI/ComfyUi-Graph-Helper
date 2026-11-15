@@ -14,7 +14,7 @@ Windows and macOS are not supported; you may try running the app from source (un
   distributions.
 - About 320 MB of disk space for the app.
 - A desktop session (X11 or Wayland).
-- Optional: a password store (GNOME Keyring, KWallet) so the app can keep keys between starts.
+- Optional: a system keychain (GNOME Keyring, KWallet) so the app can keep keys between starts.
 
 ## Install the .deb
 
@@ -65,7 +65,7 @@ Do not start it with `sudo`: the app refuses to run as root. See [Troubleshootin
 | `/usr/bin/nodewise-studio` | A link to start it from a terminal. |
 | `/usr/share/applications/` | The menu entry. |
 | `/usr/share/icons/hicolor/` | The icon in sizes from 16 to 512 pixels. |
-| `/usr/share/doc/nodewise-studio/copyright` | The licence and the third-party notices. |
+| `/usr/share/doc/nodewise-studio/copyright` | The license and the third-party notices. |
 
 Your settings, keys, projects and logs are not in the package: the app keeps them in your home folder, see
 [The data folder](../reference/Data-Folder.md).
@@ -73,8 +73,8 @@ Your settings, keys, projects and logs are not in the package: the app keeps the
 ## Other ways
 
 - **From source on Linux**: [Building from source](../dev/Building-From-Source.md).
-- **Windows**: [Building and running on Windows](../dev/Building-On-Windows.md) (untested).
-- **macOS**: [Building and running on macOS](../dev/Building-On-macOS.md) (untested).
+- **Windows** and **macOS** are not supported. You may try running from source, but nothing has been tried there:
+  [Windows](../dev/Building-On-Windows.md), [macOS](../dev/Building-On-macOS.md).
 
 ## See also
 

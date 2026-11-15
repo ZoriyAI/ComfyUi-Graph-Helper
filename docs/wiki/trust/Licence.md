@@ -1,19 +1,19 @@
 [Русский](Licence.ru.md)
 [Home](../Home.md) › [Trust](README.md)
 
-# Licence and third-party notices
+# License and third-party notices
 
 **NodeWise Studio: a desktop tutor for ComfyUI graphs**
 
 NodeWise is an independent, experimental learning tool. It is not affiliated with or endorsed by Comfy Org. It
 contains no ComfyUI code and only reads a running ComfyUI; it never changes it.
 
-This page explains the licence in plain words. It is an explanation, not the licence: the text that counts is the
-`LICENSE` file at the top of the project, also shown in the app under Help ▸ About ▸ Licence.
+This page explains the license in plain words. It is an explanation, not the license: the text that counts is the
+`LICENSE` file at the top of the project, also shown in the app under Help ▸ About ▸ License.
 
-## The licence in one paragraph
+## The license in one paragraph
 
-NodeWise is under the MIT licence with the Commons Clause condition. MIT lets you use, copy, change and share the
+NodeWise is under the MIT license with the Commons Clause condition. MIT lets you use, copy, change and share the
 software. The Commons Clause takes one thing away: the right to sell it. That makes the project **source-available**:
 everyone can read, use and change the source, but it is not open source in the usual sense, because selling is not
 allowed.
@@ -24,7 +24,7 @@ allowed.
   you then make in ComfyUI.
 - Read the source and learn from it.
 - Change it for yourself.
-- Share a copy, changed or not, for free, as long as the licence text goes with it.
+- Share a copy, changed or not, for free, as long as the license text goes with it.
 - Use it in a course or a workshop you teach.
 
 ## What you may not do
@@ -45,9 +45,9 @@ some parts are unfinished.
 ## Components of other people
 
 The app ships with open-source components made by other people (Electron, React, React Flow, better-sqlite3, the
-Geist font and others). Each keeps its own licence. The full list, with each licence text, is in the app under Help ▸
+Geist font and others). Each keeps its own license. The full list, with each license text, is in the app under Help ▸
 About ▸ Third-party components, and in the installed package in `/usr/share/doc/nodewise-studio/copyright`.
-Chromium has its own list: About ▸ Third-party components ▸ Chromium licences.
+Chromium has its own list: About ▸ Third-party components ▸ Chromium licenses.
 
 ## The ComfyUI frontend
 
@@ -58,7 +58,7 @@ Chromium has its own list: About ▸ Third-party components ▸ Chromium licence
 | Was anything taken from the frontend? | One table of facts: which core loader node reads which model folder (from `modelNodeMappings.ts` of `Comfy-Org/ComfyUI_frontend`, GPL-3.0). It is credited in `src/shared/catalog/modelFolders.ts`. |
 | Does the app change ComfyUI? | No. It only reads a running ComfyUI. [ComfyUI is only read](Read-Only.md) |
 
-ComfyUI and the ComfyUI frontend are projects of their own authors, under their own licences.
+ComfyUI and the ComfyUI frontend are projects of their own authors, under their own licenses.
 
 ## See also
 

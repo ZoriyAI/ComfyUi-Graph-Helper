@@ -3,7 +3,7 @@
 
 # What each way shows
 
-<!-- verify: checked against test servers that speak ComfyUI's routes; not yet run against a real ComfyUI install. -->
+Not tried yet on a real install: this page was checked against test servers that answer the way ComfyUI does.
 
 | What | ComfyUI address only | With a full-catalog MCP server |
 | --- | --- | --- |

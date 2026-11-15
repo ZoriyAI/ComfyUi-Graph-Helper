@@ -6,7 +6,7 @@
 ComfyUI runs on another computer in your network (a desktop with the graphics card, a home server), NodeWise Studio on
 this one.
 
-<!-- verify: checked against test servers that speak ComfyUI's routes; not yet run against a real ComfyUI install. -->
+Not tried yet on a real install: this page was checked against test servers that answer the way ComfyUI does.
 
 ## On the computer with ComfyUI
 

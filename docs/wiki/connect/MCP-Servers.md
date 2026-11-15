@@ -8,14 +8,14 @@ one: the ComfyUI address is enough. A server that can read files adds what Comfy
 descriptions model managers keep next to model files (`.civitai.info`, `.metadata.json`), the README and
 `pyproject.toml` of node packs, and a file's fingerprint (for an exact search on Civitai).
 
-<!-- verify: checked against test servers that speak the same tools; not yet run against real MCP servers. -->
+Not tried yet with real MCP servers: this page was checked against test servers that offer the same tools.
 
 ## Adding one
 
-1. Settings ▸ Connection ▸ **MCP server (optional)** ▸ **MCP server URL**: paste the address as the server shows it,
+1. Settings ▸ Connection ▸ **MCP server (optional)** ▸ **MCP server address**: paste the address as the server shows it,
    for example `http://127.0.0.1:9000/mcp`. An address on another computer must use `https`.
-2. **Check**. The line under the field names the kind of server (below).
-3. If the server needs access, choose **Access token** (paste the token) or **Sign in through the browser**; a server
+2. **Test server**. The line under the field names the kind of server (below).
+3. If the server needs access, choose **Token** (paste the token) or **Sign in through the browser**; a server
    that needs nothing: **No sign-in**. A token or sign-in belongs to that MCP address only.
 4. **Save settings**, then **Read now**.
 

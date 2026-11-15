@@ -9,10 +9,11 @@ Problems and their way out. Problems with the connection to ComfyUI have their o
 
 ## A key or a token is not kept
 
-The app keeps keys in the system password store (GNOME Keyring or KWallet). When there is none, or it is locked, a
-key lives only until the app closes, and the settings say "Stored for this session only".
+The app keeps keys in the system keychain (GNOME Keyring or KWallet). When there is none, or it is locked, a
+key lives only until the app closes, and the settings say "The key is kept until restart."
 
-1. Settings ▸ Privacy ▸ Password store: choose the one you have, GNOME Keyring (`gnome-libsecret`) or KWallet. The
+1. Settings ▸ Privacy ▸ Which keychain the app uses: choose the one you have, GNOME "Passwords and Keys" or
+   KWallet. The
    choice applies after a restart.
 2. If there is no store at all, install one, for example `sudo apt install gnome-keyring`, then log out and in again.
 3. Or do without a store: **Remember in the app folder** writes the key unencrypted to a file only your user can
@@ -25,13 +26,14 @@ key lives only until the app closes, and the settings say "Stored for this sessi
 2. Make sure ComfyUI is running and its page opens in the browser at the address you saved.
 3. In Settings ▸ Connection choose **Check ComfyUI**; the message under the field names the problem
    ([Connection problems](../connect/Connection-Problems.md)). Then **Read now**.
-4. Still empty: Help ▸ Copy diagnostics puts a report without keys and tokens on the clipboard, for an Issue.
+4. Still empty: Help ▸ Copy diagnostics puts a report without keys, tokens or addresses on the clipboard, for an Issue.
 
 ## Your own model answers off the point or cuts its answer short
 
 A model on your own server reads only what fits into its context window. Ollama gives a small window by default, and
 the assistant's request with its tools takes 3 to 6 thousand tokens; the server silently drops what does not fit.
-The app notices and says so above the answer; Settings ▸ Assistant ▸ Check connection shows the window right away.
+The app notices and says so above the answer; Settings ▸ Assistant ▸ Test connection shows the window right away. With Ollama it can also make a copy of
+the model with a 16 384-token window, without a download.
 
 Make the window on the server at least 16 384 tokens. For Ollama: `OLLAMA_CONTEXT_LENGTH=16384` when the server
 starts, or `num_ctx` on the model. More: [The context window](../assistant/Context-Window.md).

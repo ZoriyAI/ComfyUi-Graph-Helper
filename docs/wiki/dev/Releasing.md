@@ -14,7 +14,8 @@ How a version is made public, and what is still checked only by hand.
    `--check` fails when they are out of date (CI runs it).
 3. **The version.** `npm version X.Y.Z --no-git-tag-version`.
 4. **The wiki.** `WIKI_STRICT=1 npx vitest run tests/unit/wiki.test.ts` lists every `verify` and `skeleton` comment
-   left in the documentation; resolve them or accept them knowingly.
+   left in the documentation. Resolve each against the code; what cannot be checked here is said as "not tried" in
+   the page itself and listed below. [Writing wiki pages](Wiki-Style.md)
 5. **Nothing private.** `node scripts/public-tree-check.js` (CI runs it too). [Publishing a clean copy](Publishing-A-Clean-Copy.md)
 6. **The project address.** `PROJECT_URL` in `src/main/identity.ts` and `homepage`, `repository`, `bugs` in
    `package.json` name the real repository (`tests/unit/identity.test.ts` compares them); until then the app greys out
@@ -57,6 +58,22 @@ machine:
 
 Packages: installing the `.deb` with apt on a real desktop, the `.rpm` with dnf on Fedora, the final AppImage file,
 and the upgrade from an earlier release are checked on CI only.
+
+The rest the documentation says is not tried yet:
+
+1. The upgrade from 0.9 on a real desktop: the data folder moves, keys from GNOME Keyring and from KWallet must be
+   entered again, keys from the key file come along, and the old "Safe Storage" entry stays in the keyring.
+2. KWallet as the keychain (Settings ▸ Privacy ▸ Which keychain the app uses, `--password-store=kwallet5|kwallet6`).
+3. The update notice of 0.9 against a 1.0 release whose files carry the new name.
+4. A real screen reader (Orca): the spoken names of nodes, links and inputs, the finished answer read once, lesson
+   steps and sync announced. [Accessibility](../trust/Accessibility.md)
+5. 200 percent interface size on a 1080p screen with large system scaling.
+6. The ComfyUI install lines in [ComfyUI and where to get it](../start/ComfyUI.md): the repository address and the
+   `torch` line follow the official instructions of November 2026, but no install was made from them here.
+7. Windows: running from source, model paths with backslashes, `--version` and `--help`.
+   [Building and running on Windows](Building-On-Windows.md)
+8. macOS: running from source, the bundle name (`NodeWise Studio.app`), the missing `.icns` icon, the Keychain item
+   name (`nodewise-studio Safe Storage`). [Building and running on macOS](Building-On-macOS.md)
 
 ## See also
 

@@ -75,8 +75,8 @@ NodeWise Studio собирается для Linux на 64-битных x86 в ч
 ## Другие способы
 
 - **Из исходников на Linux**: [Сборка из исходников](../dev/Building-From-Source.ru.md).
-- **Windows**: [Сборка и запуск на Windows](../dev/Building-On-Windows.ru.md) (не проверено).
-- **macOS**: [Сборка и запуск на macOS](../dev/Building-On-macOS.ru.md) (не проверено).
+- **Windows** и **macOS** не поддерживаются. Можно попробовать запуск из исходников, но там ничего не проверялось:
+  [Windows](../dev/Building-On-Windows.ru.md), [macOS](../dev/Building-On-macOS.ru.md).
 
 ## См. также
 

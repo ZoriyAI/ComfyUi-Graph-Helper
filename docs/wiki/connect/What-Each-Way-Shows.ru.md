@@ -3,7 +3,7 @@
 
 # Что даёт каждый способ
 
-<!-- verify: checked against test servers that speak ComfyUI's routes; not yet run against a real ComfyUI install. -->
+Пока не проверено на настоящей установке: страница сверена с тестовыми серверами, которые отвечают так же, как ComfyUI.
 
 | Что | Только адрес ComfyUI | С MCP-сервером, дающим весь каталог |
 | --- | --- | --- |

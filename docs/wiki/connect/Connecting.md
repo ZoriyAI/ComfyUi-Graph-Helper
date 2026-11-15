@@ -6,8 +6,8 @@
 NodeWise Studio learns which nodes and models you have by reading a running ComfyUI. All it needs is the address you open
 ComfyUI at in the browser. An MCP server is optional and adds a few things ComfyUI itself does not serve.
 
-<!-- verify: this chapter is checked against test servers that speak ComfyUI's routes; it has not yet been run
-against a real ComfyUI install. -->
+Not tried yet on a real install: this chapter was checked against test servers that answer the way ComfyUI does.
+The first run against a real ComfyUI is on the release checklist.
 
 ## The three cases
 
@@ -23,8 +23,8 @@ against a real ComfyUI install. -->
 2. **Find on this computer**: asks this computer at ports 8188 and 8000 and fills the address in.
 3. A hint; for an address on another computer, also a hint about `--listen` and about plain `http`.
 4. The state, then **Read now** (reads ComfyUI with what is saved) and **Check this graph**.
-5. **MCP server (optional)**: a short text, the **MCP server URL** field with **Check**, a line that names the kind of
-   server once it is read, and the choice of access (No sign-in, Access token, Sign in through the browser).
+5. **MCP server (optional)**: a short text, the **MCP server address** field with **Test server**, a line that names the kind of
+   server once it is read, and the choice of access (No sign-in, Token, Sign in through the browser).
 
 Save the settings after you change an address: the app reads ComfyUI with what is saved.
 
