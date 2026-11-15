@@ -19,7 +19,7 @@ const OLD_FORMAT = 'Files in the old formats (.ckpt, .pt, .pth, .bin) can run co
 const START = 'The lesson builds the graph from an empty canvas: "File ▸ New project".';
 
 /** The rule every lesson that gives, keeps or changes a face starts with, in the words of the talking-portrait lessons. */
-const FACE_RULE = 'Only someone who agrees may be shown this way: yourself, a person who gave permission, or an invented character. Obtain consent before using a real person\'s likeness and permission for the source material, and follow local law. Do not put a real person\'s likeness into explicit content; exclude anyone who is or appears under 18; do not pass a person off as saying or doing what they did not. This lesson teaches technique.';
+export const FACE_RULE = 'Only someone who agrees may be shown this way: yourself, a person who gave permission, or an invented character. Obtain consent before using a real person\'s likeness and permission for the source material, and follow local law. Do not put a real person\'s likeness into explicit content; exclude anyone who is or appears under 18; do not pass a person off as saying or doing what they did not. This lesson teaches technique.';
 
 
 export const SOUND_3D_FACES_EN: Record<string, LessonWords> = {

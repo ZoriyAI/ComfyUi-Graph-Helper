@@ -4,6 +4,8 @@
  * shows it. The English file says the same, with the same numbers and the same words in backticks.
  */
 import type { LessonWords } from '../texts';
+// The consent rule of the face lessons, in their very words: the ipadapter lesson says it first too.
+import { FACE_RULE } from './sound-3d-faces.texts.ru';
 
 const SAVE = 'Сохраните граф через «Файл ▸ Сохранить workflow для ComfyUI…», откройте файл в ComfyUI и запустите там. Само приложение в ComfyUI ничего не запускает.';
 
@@ -575,7 +577,7 @@ export const IMAGE_TECHNIQUES_RU: Record<string, LessonWords> = {
     steps: {
       intro: {
         title: 'Что делает IP-Adapter',
-        body: `IP-Adapter это «LoRA из одной картинки»: он показывает модели образец, и модель рисует в его манере. Он работает с моделями SD 1.5 и SDXL.\n\nНоды приходят с паком ComfyUI_IPAdapter_plus. ${PACK} Автор держит пак в режиме поддержки: он работает, но новые модели не добавляются.\n\nУрок добавляет три ноды к графу из урока «Первая картинка из текста».`,
+        body: `${FACE_RULE}\n\nIP-Adapter это «LoRA из одной картинки»: он показывает модели образец, и модель рисует в его манере. Он работает с моделями SD 1.5 и SDXL.\n\nНоды приходят с паком ComfyUI_IPAdapter_plus. ${PACK} Автор держит пак в режиме поддержки: он работает, но новые модели не добавляются.\n\nУрок добавляет три ноды к графу из урока «Первая картинка из текста».`,
       },
       graph: PICTURE_GRAPH,
       files: {
@@ -600,7 +602,7 @@ export const IMAGE_TECHNIQUES_RU: Record<string, LessonWords> = {
       },
       tune: {
         title: 'Тонкая настройка',
-        body: '- `start_at` и `end_at` говорят, в какой части шагов он действует, как у ControlNet.\n- Нода пака «IPAdapter Style & Composition» берёт одну картинку для стиля, а другую для композиции.\n- `style transfer` точен с SDXL и грубее с SD 1.5.\n- Ноды FaceID этого пака переносят лицо. Переносить так можно лицо только того, кто на это согласен. Сначала получите это согласие.',
+        body: '- `start_at` и `end_at` говорят, в какой части шагов он действует, как у ControlNet.\n- Нода пака «IPAdapter Style & Composition» берёт одну картинку для стиля, а другую для композиции.\n- `style transfer` точен с SDXL и грубее с SD 1.5.\n- Ноды FaceID этого пака переносят лицо. Для них действует правило из начала урока: сначала получите это согласие.',
       },
       run: {
         title: 'Граф готов',
