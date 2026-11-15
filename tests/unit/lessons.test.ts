@@ -25,6 +25,7 @@ import { videoSetSpecs } from '../fixtures/mcp/classes/video';
 import { IMAGE_TECHNIQUE_LESSON_CLASSES } from '../fixtures/mcp/classes/image-techniques';
 import { lessonSpecs } from '../fixtures/mcp/classes/foundations';
 import { lessonSpecs as sound3dFacesSpecs } from '../fixtures/mcp/classes/sound-3d-faces';
+import { dailyCycleSpecs } from '../fixtures/mcp/classes/daily-cycle';
 import { ADULT_LESSONS, LESSONS, LESSON_AFTER, lessonById, lessonOpen, nextLesson, ordinaryLessons } from '../../src/shared/lessons/lessons';
 import { contentRules, contentRulesMarkdown } from '../../src/shared/content/rules';
 import { FILES, fileMiss } from '../../src/shared/lessons/files';
@@ -160,6 +161,7 @@ const CLASSES: Record<string, Spec> = {
   // The general-purpose nodes of the foundations lessons.
   ...lessonSpecs(),
   ...sound3dFacesSpecs(),
+  ...dailyCycleSpecs(),
 };
 
 const ports: ClassPorts = (classType) => {

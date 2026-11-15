@@ -15,6 +15,7 @@ import { SOUND_3D_FACES_EN } from './sets/sound-3d-faces.texts.en';
 import { EXPERIMENTS_EN } from './sets/experiments.texts.en';
 import { RELIABLE_EN } from './sets/reliable-practice.texts.en';
 import { ENVIRONMENT_EN } from './sets/environment.texts.en';
+import { DAILY_CYCLE_EN } from './sets/daily-cycle.texts.en';
 import { contentRulesMarkdown } from '../content/rules';
 
 const SAVE = 'Save the graph with "File ▸ Save workflow for ComfyUI…", open the file in ComfyUI and run it there. This app runs nothing in ComfyUI itself.';
@@ -1232,4 +1233,5 @@ export const LESSONS_EN: Record<string, LessonWords> = {
   ...EXPERIMENTS_EN,
   ...RELIABLE_EN,
   ...ENVIRONMENT_EN,
+  ...DAILY_CYCLE_EN,
 };
