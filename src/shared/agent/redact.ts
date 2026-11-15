@@ -3,21 +3,19 @@
  * exactMatchRedactor); this module re-exports them so agent code keeps its import path. Used by main's agent turn,
  * prompt and chat history, main/llmService.ts and main/llm/toolPrivacy.ts before text goes to a model or a log.
  */
-import { exactMatchRedactor as draftExactMatchRedactor, redactFieldValue, redactSecrets } from '../config/draft';
+import { EXACT_MATCH_MIN_LENGTH, exactMatchRedactor as draftExactMatchRedactor, redactFieldValue, redactSecrets } from '../config/draft';
 
 export { redactSecrets };
 
 /** The text that stands in for a removed secret. */
 export const REDACTED = '[redacted]';
 
-/** Held values shorter than this are not matched exactly, so they cannot blank ordinary words. */
-const EXACT_MIN_LENGTH = 8;
-
+/** The held values long enough to match exactly (config/draft.ts EXACT_MATCH_MIN_LENGTH, the one minimum). */
 function heldValues(values: ReadonlyArray<string | null | undefined>): string[] {
-  return values.filter((value): value is string => typeof value === 'string' && value.length >= EXACT_MIN_LENGTH);
+  return values.filter((value): value is string => typeof value === 'string' && value.length >= EXACT_MATCH_MIN_LENGTH);
 }
 
-/** A redactor for exact held values (the LLM key, the MCP token). Values shorter than 8 characters are ignored. */
+/** A redactor for exact held values (the LLM key, the MCP token). Values shorter than four characters are ignored. */
 export function exactMatchRedactor(values: ReadonlyArray<string | null | undefined>): (text: string) => string {
   return draftExactMatchRedactor(heldValues(values));
 }
