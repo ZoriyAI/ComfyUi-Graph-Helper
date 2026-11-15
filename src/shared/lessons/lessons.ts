@@ -24,6 +24,7 @@ import { FILES, withFamilyPairs, withFileTable, type FileKind } from './files';
 import { FAMILY_PAIRS, SET_FILE_KINDS } from './fileTables';
 import { EXPERIMENT_AFTER, EXPERIMENT_LESSONS, EXPERIMENT_PATH } from './sets/experiments';
 import { RELIABLE_AFTER, RELIABLE_LESSONS, RELIABLE_PATH } from './sets/reliable-practice';
+import { ENVIRONMENT_LESSONS, ENVIRONMENT_PATH } from './sets/environment';
 import { levelOf } from './programme';
 
 // Short builders so each lesson below reads as a list of steps.
@@ -1089,6 +1090,8 @@ const adultLora: Lesson = {
 
 /** In the order a person meets them. The lessons for adults are a group of their own at the end (ADULT_LESSONS). */
 export const LESSONS: readonly Lesson[] = withFamilyPairs(withFileTable([
+  // Level 0, setting up ComfyUI: met before everything else.
+  ...ENVIRONMENT_LESSONS,
   ...FOUNDATIONS_FIRST,
   image, prompt,
   ...FOUNDATIONS_LESSONS,
@@ -1201,6 +1204,7 @@ export const LESSON_PATH: Readonly<Record<string, { group: LessonGroup; follows:
   ...SOUND_3D_FACES_PATH,
   ...EXPERIMENT_PATH,
   ...RELIABLE_PATH,
+  ...ENVIRONMENT_PATH,
   'adult-image': { group: ADULT_GROUP, follows: ['image'] },
   'adult-lora': { group: ADULT_GROUP, follows: ['image'] },
   adult: { group: ADULT_GROUP, follows: ['video-text'] },

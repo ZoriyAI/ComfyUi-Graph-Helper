@@ -166,16 +166,18 @@ const only = (canvas: Canvas, classType: string) => {
 
 describe('the foundations lessons', () => {
   it('are registered: the first one before every other lesson, the rest with what they continue and a group each', () => {
-    expect(LESSONS[0].id).toBe('comfy-basics');
+    // Only the level 0 lessons of setting up ComfyUI (group "environment") stand before it.
+    expect(LESSONS.filter((lesson) => LESSON_PATH[lesson.id].group.id !== 'environment')[0].id).toBe('comfy-basics');
     for (const lesson of DOMAIN) {
       expect(lessonById(lesson.id), lesson.id).toBe(lesson);
       if (FOUNDATIONS_PATH[lesson.id]) expect(LESSON_PATH[lesson.id], lesson.id).toEqual(FOUNDATIONS_PATH[lesson.id]);
       for (const id of LESSON_PATH[lesson.id].follows) expect(lessonById(id), id).not.toBeNull();
     }
-    // The foundations are the first group of the lesson list; the sampler's settings join the first pictures.
+    // The foundations are the first group of the lesson list after the setup; the sampler's settings join the first pictures.
     const groups = lessonGroups();
-    expect(groups[0].id).toBe('foundations');
-    expect(groups[0].lessons.map((lesson) => lesson.id)).toEqual(['comfy-basics', 'read-workflow', 'vram']);
+    expect(groups[0].id).toBe('environment');
+    expect(groups[1].id).toBe('foundations');
+    expect(groups[1].lessons.map((lesson) => lesson.id)).toEqual(['comfy-basics', 'read-workflow', 'vram']);
     expect(LESSON_PATH['sampler-fields'].group.id).toBe(LESSON_PATH.image.group.id);
     expect(LESSON_PATH['llm-prompt'].group.id).toBe('packs-tools');
     for (const [id, before] of Object.entries(FOUNDATIONS_AFTER)) expect(LESSON_AFTER[id]).toEqual(before);

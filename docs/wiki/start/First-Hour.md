@@ -94,3 +94,4 @@ mode it builds step by step. See [The assistant](../assistant/Assistant.md).
 - [Quick start](Quick-Start.md)
 - [Working with a graph](../graph/Working-With-A-Graph.md)
 - [Glossary](../reference/Glossary.md)
+- No ComfyUI yet, or not sure it is set up well: the lessons of the group "Start and a reliable setup", from [Desktop, Portable, a manual install or Cloud](../lessons/Choose-Setup.md)

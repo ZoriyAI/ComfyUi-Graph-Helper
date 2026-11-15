@@ -12,6 +12,17 @@ A lesson card may say that the lesson goes on from another one. That is a hint, 
 
 ## The lessons by group
 
+### Start and a reliable setup
+Level 0, before everything else: choose how to run ComfyUI, install it and prove it with a first picture, keep a model
+library, install a first pack safely, and update with a way back. The app reads ComfyUI and never changes it: what you
+do in ComfyUI is your own word.
+
+- [Desktop, Portable, a manual install or Cloud](Choose-Setup.md): lesson "choose-setup". A written choice of how you run ComfyUI, with its limits, made before anything is installed.
+- [Install and a first run without errors](First-Run.md): lesson "first-run". A working install proven by a first picture, and an environment card: system, graphics card, version, way of install and folders.
+- [A model library and shared folders](Model-Library.md): lesson "model-library". Models in the folders ComfyUI looks in, one copy of each, and a manifest of the important files with their hashes.
+- [The Manager: a first node pack, safely](First-Pack.md): lesson "first-pack". A first node pack installed through the Manager, its source and version checked, the import log clean, and a run that uses its node.
+- [Snapshots, updates and the way back](Snapshots.md): lesson "snapshots". An update made with a tested point to return to, the control workflow run before and after, and a written way back.
+
 ### ComfyUI basics
 
 - [How ComfyUI works](How-ComfyUI-Works.md): lesson "comfy-basics". You learn what a graph, the queue and the models folder are, and find a node, an output and a model file yourself.

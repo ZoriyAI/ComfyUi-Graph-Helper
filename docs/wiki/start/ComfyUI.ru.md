@@ -91,3 +91,4 @@ comfy launch
 - [Подключение к ComfyUI](../connect/Connecting.ru.md)
 - [Где лежат файлы ComfyUI](../concepts/Where-Files-Live.ru.md)
 - [Память видеокарты](../concepts/Graphics-Card-Memory.ru.md)
+- Уроки, которые проводят через это: [Desktop, Portable, ручная установка или Cloud](../lessons/Choose-Setup.ru.md), [Установка и первый запуск без ошибок](../lessons/First-Run.ru.md), [Библиотека моделей и общие папки](../lessons/Model-Library.ru.md), [Manager: установка первого пака безопасно](../lessons/First-Pack.ru.md), [Снимки, обновления и откат](../lessons/Snapshots.ru.md)
