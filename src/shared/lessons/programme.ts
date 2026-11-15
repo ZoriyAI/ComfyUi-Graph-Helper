@@ -142,6 +142,7 @@ export const LESSON_PROGRAMME: Readonly<Record<string, LessonPlace>> = {
   'first-run': at(0, 'core', 'base'),
   'model-library': at(0, 'core', 'base'),
   'first-pack': at(0, 'core', 'base'),
+  snapshots: at(0, 'core', 'base'),
   // For adults: behind the switch, never on a path while it is off.
   'adult-image': at(3, 'deep', 'image'),
   'adult-lora': at(3, 'deep', 'image', 'lora'),

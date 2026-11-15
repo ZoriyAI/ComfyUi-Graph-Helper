@@ -21,6 +21,7 @@ do in ComfyUI is your own word.
 - [Install and a first run without errors](First-Run.md): lesson "first-run". A working install proven by a first picture, and an environment card: system, graphics card, version, way of install and folders.
 - [A model library and shared folders](Model-Library.md): lesson "model-library". Models in the folders ComfyUI looks in, one copy of each, and a manifest of the important files with their hashes.
 - [The Manager: a first node pack, safely](First-Pack.md): lesson "first-pack". A first node pack installed through the Manager, its source and version checked, the import log clean, and a run that uses its node.
+- [Snapshots, updates and the way back](Snapshots.md): lesson "snapshots". An update made with a tested point to return to, the control workflow run before and after, and a written way back.
 
 ### ComfyUI basics
 

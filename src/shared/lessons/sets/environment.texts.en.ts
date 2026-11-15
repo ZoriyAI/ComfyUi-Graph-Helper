@@ -545,4 +545,146 @@ export const ENVIRONMENT_EN: Record<string, LessonWords> = {
       },
     },
   },
+  snapshots: {
+    title: 'Snapshots, updates and the way back',
+    result: 'An update made with a tested point to return to, the control workflow run before and after, and a written way back.',
+    roles: { save: 'saver of the control workflow', card: 'environment card' },
+    meta: {
+      skill: 'Update ComfyUI so that you can go back: a snapshot kept outside the install, a control workflow run before and after, and a written rollback path.',
+      requires: ['The control workflow and environment card of the lesson “Install and a first run without errors”.', 'At least one pack installed (the lesson “The Manager: a first node pack, safely”).'],
+      mistakes: [
+        {
+          sign: 'After the update a pack shows “(IMPORT FAILED)”.',
+          fix: 'Update that pack in the Manager first. If it still fails, restore the snapshot you made before, or set the pack back to its old version.',
+        },
+        {
+          sign: 'You took the newest commits, and things broke.',
+          fix: 'Commits between stable releases may be unstable. Go back to the stable channel (Desktop: Stable; Portable: update_comfyui_stable.bat; manual: the last release tag).',
+        },
+        {
+          sign: 'You expected the snapshot to bring back your models and pictures.',
+          fix: 'A snapshot records versions of ComfyUI, packs and Python packages. Models, workflows and outputs are files: back them up separately.',
+        },
+        {
+          sign: 'You restored a Manager snapshot and nothing changed.',
+          fix: 'A Manager restore takes effect at the next start of ComfyUI. Restart it and read the log.',
+        },
+      ],
+      provenance: 'Snapshots and updates as docs.comfy.org describes them on 2026-11-15 (Desktop: manage installations; updating ComfyUI; the Manager legacy interface) and the ComfyUI README on releases. The control workflow is your own from the earlier lesson.',
+      notChecked: `${NOT_CHANGED} It checks the control workflow on the canvas, that every node of it is installed before and after the update, and that it read your ComfyUI again. It does not see snapshots, versions or pictures: the snapshot, the update, both runs and the comparison are your own word.`,
+    },
+    steps: {
+      intro: {
+        title: 'An update you can undo',
+        body: 'ComfyUI makes a release every week or two, and packs change too. Most updates go well. The one that does not breaks a workflow you need on the day you need it.\n\nIn this lesson you make the update reversible: you run a control workflow, make a snapshot and keep it outside the install, update, run the control workflow again, and write how you would go back.',
+      },
+      what: {
+        title: 'What a snapshot holds',
+        body: 'A snapshot records the state of an install: the version of ComfyUI, the packs and their versions, the Python packages. It does not hold models, workflows or pictures.\n\n- **Desktop**: the Manage panel of an install, tab “Snapshots”: “Create Snapshot”, “Export”, “Import”. Desktop also makes a snapshot itself before every update.\n- **Manager, legacy interface**: “Save snapshot”, and “Restore”, which takes effect at the next start.\n- **Manual install**: Git knows the version; `git log --oneline -1` shows the commit you are on.\n\nWhat you see in the menus may differ by version: look for the tab or button with “snapshot” in its name.',
+      },
+      control: {
+        title: 'The control workflow',
+        body: 'Open your known good workflow from the lesson “Install and a first run without errors” (the picture, or its saved file), with {save} at its end and the {card} on it. Write in its `value` the run time you will compare.\n\nIf you do not have it, open any small picture workflow that ran well, and add the card.',
+      },
+      complete: {
+        title: 'Every node is installed now',
+        body: 'Before the update, the app checks that every node of the control workflow is installed in your ComfyUI.',
+      },
+      before: {
+        title: 'Before the update',
+        body: `${SAVE}\n\nThen make the way back.`,
+        items: {
+          baseline: { label: 'I ran the control workflow and kept its picture and time.', how: 'The log prints “Prompt executed in … seconds”.' },
+          version: { label: 'I wrote the version from the line “ComfyUI version:” onto the card.' },
+          snapshot: { label: 'I made a snapshot (Desktop: Create Snapshot; legacy Manager: Save snapshot; manual: I wrote down the commit).' },
+          export: { label: 'I keep a copy of the snapshot outside the ComfyUI folder.', how: 'Desktop: “Export”. Otherwise copy the snapshot file or the commit line to another place.' },
+        },
+      },
+      update: {
+        title: 'Update',
+        body: 'Update the way of your install:\n\n- Desktop: the Manage panel, tab “Update”. “Stable” is the default; “Latest on GitHub” takes newer, less tested commits.\n- Portable: `update/update_comfyui_stable.bat`. Leave `update_comfyui_and_python_dependencies.bat` for a broken environment.\n- Manual: in the ComfyUI folder `git pull`, then `pip install -r requirements.txt` in its environment.\n\nThen update the packs in the Manager, one at a time if you can.',
+        items: {
+          channel: { label: 'I chose the stable channel, or wrote why I take newer commits.' },
+          update: { label: 'I updated and started ComfyUI again.' },
+          log: { label: 'I read the new “ComfyUI version:” line and the import list of the packs.' },
+        },
+      },
+      'after-read': {
+        title: 'Read it again',
+        body: 'Choose “Sync now” in the app. It checks that it read your updated ComfyUI and that every node of the control workflow is still installed.',
+      },
+      after: {
+        title: 'The same workflow, after',
+        body: 'Run the control workflow again with the same seed and compare.',
+        items: {
+          ran: { label: 'I ran the control workflow after the update.', how: 'The log prints “Prompt executed in … seconds”.' },
+          compare: { label: 'I compared the new picture and time with the ones from before.' },
+        },
+      },
+      rollback: {
+        title: 'The way back',
+        body: 'Write the way back before you need it:\n\n- Desktop: restore the snapshot from the “Snapshots” tab, or go back to “Stable” if you were ahead of it. “Copy & Update” updates a copy and leaves the original alone: a safe way to try an update first.\n- Manager: open the snapshot, “Restore”, then restart ComfyUI.\n- Manual: `git checkout` the commit you wrote down, then `pip install -r requirements.txt`.\n- One pack: choose its old version in the Manager.\n\nModels, workflows and outputs are not in a snapshot: keep their copies yourself.',
+      },
+      plan: {
+        title: 'Your rollback path',
+        body: 'Write it where you will find it on a bad day.',
+        items: {
+          write: { label: 'I wrote the steps back for my way of install, with the name of my snapshot or my commit.' },
+          where: { label: 'I know where the exported snapshot lies, outside the ComfyUI folder.' },
+          drill: { label: 'I tried the way back on a copy (Desktop: Copy & Update) or on a spare install.' },
+        },
+      },
+      assess: {
+        title: 'Is the update reversible?',
+        body: 'Answer for yourself. The app does not see the snapshot or the pictures.',
+        criteria: {
+          same: {
+            title: 'The control workflow gave the same picture after the update.',
+            levels: { no: 'No', partly: 'Nearly', yes: 'Yes' },
+            tryNext: 'Tiny differences can come from new code for the graphics card. A different layout means something changed: read the release notes, or go back.',
+          },
+          changed: {
+            title: 'I can say what changed: the version of ComfyUI and of each pack.',
+            levels: { no: 'No', partly: 'Partly', yes: 'Yes' },
+            tryNext: 'Desktop shows the version change on each snapshot; elsewhere compare the “ComfyUI version:” lines and the Manager\'s versions.',
+          },
+          path: {
+            title: 'My way back.',
+            levels: { no: 'None', written: 'Written', tried: 'Written and tried' },
+            tryNext: 'Write the three or four steps back for your way of install with the name of the snapshot.',
+          },
+        },
+      },
+      recall: {
+        title: 'Check yourself',
+        body: 'Three short questions. A wrong answer costs nothing.',
+        questions: {
+          holds: {
+            text: 'What does a snapshot hold?',
+            choices: { models: 'The models', versions: 'The versions of ComfyUI, packs and Python packages', pictures: 'The pictures you made' },
+            explain: 'A snapshot is a record of versions. Files such as models and pictures need their own copies.',
+          },
+          when: {
+            text: 'When do you make a snapshot?',
+            choices: { before: 'Before the update', after: 'After the update', broken: 'When something breaks' },
+            explain: 'A snapshot taken after the change records the broken state.',
+          },
+          restore: {
+            text: 'You press Restore in the Manager. When does it work?',
+            choices: { 'at-once': 'At once', 'next-start': 'At the next start of ComfyUI' },
+            explain: 'The Manager applies a restore when ComfyUI starts next time.',
+          },
+        },
+      },
+      transfer: {
+        title: 'On your own: one pack',
+        body: 'Next time a single pack offers an update, do it with the same method, without the lesson.',
+        items: {
+          'one-pack': { label: 'I chose one pack to update and wrote its current version.' },
+          'same-method': { label: 'Snapshot, update, restart, read the log, run the control workflow.' },
+          result: { label: 'I kept the update or went back, and wrote which and why.' },
+        },
+      },
+    },
+  },
 };

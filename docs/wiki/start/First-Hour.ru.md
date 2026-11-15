@@ -97,3 +97,4 @@ ComfyUI»**, перетащите файл на страницу ComfyUI (или
 - [Быстрый старт](Quick-Start.ru.md)
 - [Работа с графом](../graph/Working-With-A-Graph.ru.md)
 - [Словарь](../reference/Glossary.ru.md)
+- ComfyUI ещё нет или нет уверенности, что он настроен хорошо: уроки группы «Старт и надёжная среда», начиная с [Desktop, Portable, ручная установка или Cloud](../lessons/Choose-Setup.ru.md)

@@ -51,4 +51,5 @@ docs.comfy.org: установка Manager, управление паками, �
 
 ## См. также
 - [Паки нод](../concepts/Node-Packs.ru.md)
+- [Снимки, обновления и откат](Snapshots.ru.md)
 - [Как читать чужой workflow](Reading-A-Workflow.ru.md)

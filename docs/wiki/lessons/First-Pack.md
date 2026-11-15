@@ -51,4 +51,5 @@ import list); the pack's own repository and its Registry entry.
 
 ## See also
 - [Node packs](../concepts/Node-Packs.md)
+- [Snapshots, updates and the way back](Snapshots.md)
 - [Reading someone else's workflow](Reading-A-Workflow.md)

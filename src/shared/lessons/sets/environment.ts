@@ -253,8 +253,52 @@ const firstPack: Lesson = {
   ],
 };
 
+/**
+ * N05: make an update reversible: a control workflow run before, a snapshot made and kept outside the install, the
+ * update, the same workflow run after, and a rollback path written down (and, where it is safe, tried).
+ */
+const snapshots: Lesson = {
+  id: 'snapshots',
+  standard: 2,
+  outcomes: ['structure', 'run', 'result'],
+  meta: { prerequisites: ['first-run', 'first-pack'], versions: [COMFY, DESKTOP, MANAGER], checkedOn: CHECKED_ON },
+  steps: [
+    { id: 'intro', read: true },
+    { id: 'what', read: true },
+    {
+      id: 'control',
+      roles: [node('save', 'SaveImage'), node('card', TEXT_NODE)],
+      fields: [{ role: 'card', field: 'value', test: card(40, 6) }],
+    },
+    { id: 'complete', readCheck: [{ kind: 'workflow-complete' }] },
+    { id: 'before', checklist: [{ id: 'baseline', run: true }, { id: 'version' }, { id: 'snapshot' }, { id: 'export' }] },
+    { id: 'update', checklist: [{ id: 'channel' }, { id: 'update' }, { id: 'log' }] },
+    { id: 'after-read', readCheck: [{ kind: 'comfy-read' }, { kind: 'workflow-complete' }] },
+    { id: 'after', checklist: [{ id: 'ran', run: true }, { id: 'compare' }] },
+    { id: 'rollback', read: true },
+    { id: 'plan', checklist: [{ id: 'write' }, { id: 'where' }, { id: 'drill', optional: true }] },
+    {
+      id: 'assess',
+      rubric: [
+        { id: 'same', levels: ['no', 'partly', 'yes'] },
+        { id: 'changed', levels: ['no', 'partly', 'yes'] },
+        { id: 'path', levels: ['no', 'written', 'tried'], pass: 'written' },
+      ],
+    },
+    {
+      id: 'recall',
+      quiz: [
+        { id: 'holds', choices: ['models', 'versions', 'pictures'], answer: 'versions' },
+        { id: 'when', choices: ['before', 'after', 'broken'], answer: 'before' },
+        { id: 'restore', choices: ['at-once', 'next-start'], answer: 'next-start' },
+      ],
+    },
+    { id: 'transfer', transfer: true, checklist: [{ id: 'one-pack' }, { id: 'same-method' }, { id: 'result' }] },
+  ],
+};
+
 /** The lessons of the group, in the order a person meets them. */
-export const ENVIRONMENT_LESSONS: Lesson[] = [chooseSetup, firstRun, modelLibrary, firstPack];
+export const ENVIRONMENT_LESSONS: Lesson[] = [chooseSetup, firstRun, modelLibrary, firstPack, snapshots];
 
 /** The group of each lesson and the lessons it goes on from. */
 export const ENVIRONMENT_PATH: Record<string, { group: LessonGroup; follows: string[] }> = {
@@ -262,4 +306,5 @@ export const ENVIRONMENT_PATH: Record<string, { group: LessonGroup; follows: str
   'first-run': { group: ENVIRONMENT_GROUP, follows: ['choose-setup'] },
   'model-library': { group: ENVIRONMENT_GROUP, follows: ['first-run'] },
   'first-pack': { group: ENVIRONMENT_GROUP, follows: ['first-run'] },
+  snapshots: { group: ENVIRONMENT_GROUP, follows: ['first-pack'] },
 };

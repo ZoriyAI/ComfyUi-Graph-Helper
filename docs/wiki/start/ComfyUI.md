@@ -89,3 +89,4 @@ you which pack a missing node belongs to when it knows. See [Node packs](../conc
 - [Connecting to ComfyUI](../connect/Connecting.md)
 - [Where ComfyUI files live](../concepts/Where-Files-Live.md)
 - [Graphics card memory](../concepts/Graphics-Card-Memory.md)
+- Lessons that walk through it: [Desktop, Portable, a manual install or Cloud](../lessons/Choose-Setup.md), [Install and a first run without errors](../lessons/First-Run.md), [A model library and shared folders](../lessons/Model-Library.md), [The Manager: a first node pack, safely](../lessons/First-Pack.md), [Snapshots, updates and the way back](../lessons/Snapshots.md)
