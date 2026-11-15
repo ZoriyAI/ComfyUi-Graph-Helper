@@ -1,7 +1,14 @@
+/**
+ * Protects saving and opening the person's files (main/files/atomicWrite): a save replaces the file whole or not at
+ * all, keeps its permissions and links, leaves no temporary file, and explains a failure in plain words; an open
+ * refuses a too large file before reading it. A full disk in the middle of a save must never cost a person the
+ * project they already had.
+ */
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+/** Switches for the fs mock below: fail writes after N chunks (-1 means never) and count file reads. */
 const control = vi.hoisted(() => ({ failWriteAfter: -1, readCalls: 0 }));
 
 vi.mock('fs', async (importOriginal) => {
@@ -11,6 +18,7 @@ vi.mock('fs', async (importOriginal) => {
     if (control.failWriteAfter >= 0) {
       writes += 1;
       if (writes > control.failWriteAfter) throw Object.assign(new Error('no space left on device'), { code: 'ENOSPC' });
+      // Write at most four bytes per call, so a later call can fail half way through the file.
       const [handle, buffer, offset, length] = args as unknown as [number, Buffer, number, number];
       return actual.writeSync(handle, buffer, offset, Math.min(length, 4));
     }

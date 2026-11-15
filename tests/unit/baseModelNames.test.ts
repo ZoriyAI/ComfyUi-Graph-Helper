@@ -1,3 +1,8 @@
+/**
+ * Protects how a model's base family (SDXL, SD 1.5, Flux, Pony, Wan and others) is read from its file name, and when
+ * two families count as compatible. The app warns a person when a LoRA does not fit the checkpoint it is loaded with,
+ * so a wrong guess here gives a false warning or hides a real mismatch.
+ */
 import { describe, expect, it } from 'vitest';
 import { familiesCompatible, familyFromText, inferBaseModel, parameterSizeOf } from '../../src/shared/knowledge/baseModel';
 
@@ -38,6 +43,7 @@ describe('base model from release-style file names', () => {
     expect(familiesCompatible('wan2.2', 'wan2.2', { left: 'wan_style.safetensors', right: 'wan2.2_ti2v_5B.safetensors' })).toBe(true);
     expect(familiesCompatible('wan2.2', 'wan2.2')).toBe(true);
     expect(familiesCompatible('sdxl', 'flux1')).toBe(false);
+    // Pony is trained on SDXL, so its LoRAs and checkpoints mix.
     expect(familiesCompatible('pony', 'sdxl')).toBe(true);
   });
 });

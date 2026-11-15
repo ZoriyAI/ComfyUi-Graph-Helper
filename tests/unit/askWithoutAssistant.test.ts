@@ -1,3 +1,8 @@
+/**
+ * Protects "Ask about this" when no assistant is chosen: the question opens the Explain tab on the object with the
+ * built-in knowledge instead of going to a chat that cannot answer. With an assistant chosen, it goes to the chat.
+ * A person without a model key must still get help from a right click.
+ */
 import { describe, expect, it, vi } from 'vitest';
 
 // The dock reads the window size; a small window object is enough here.

@@ -1,3 +1,9 @@
+/**
+ * Protects the pure logic under the canvas (components/graph/lib, the tour, illustrations and graphState): step order
+ * for the guided tour, connect assist, library drops, ghost and group geometry, replay, build reveal order, flow
+ * pulses, the subgraph view, selection, type colours and the node illustrations. None of it needs a browser, and
+ * each part decides what a person sees or can do on the canvas.
+ */
 import { describe, expect, it } from 'vitest';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -20,8 +26,10 @@ import type { Proposal } from '../../src/shared/contracts/proposals';
 import type { Explanation } from '../../src/shared/contracts/knowledge';
 import type { SubgraphDefinition } from '../../src/shared/graph/subgraphs';
 
+/** A required port in the canvas node data shape. */
 const port = (id: string, name: string, dataType: string) => ({ id, name, dataType, optional: false });
 
+/** A text to image graph listed out of order, so the tour must sort it from loaders to the save node. */
 function txt2img(): { nodes: TourNode[]; edges: Array<{ id: string; source: string; target: string; sourceHandle: string; targetHandle: string }> } {
   return {
     nodes: [

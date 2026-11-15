@@ -1,3 +1,9 @@
+/**
+ * Protects canvas additions that wait on something (a search, a class check, placement, model metadata, the commit):
+ * each one remembers the level and graph where the person started it and is refused if they moved to another
+ * subgraph or another graph meanwhile, and Ctrl+Z waits for a pending add before it undoes. Without this a node
+ * could land inside the wrong subgraph, or Undo could take back the person's earlier work instead.
+ */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import Database from 'better-sqlite3';
 import { addCheckedNode, addTypedNode } from '../../src/renderer/components/graph/AddNodeSearch';
@@ -21,12 +27,14 @@ vi.mock('../../src/renderer/components/graph/placeNode', () => ({ placeNewNode: 
 vi.mock('../../src/renderer/components/graph/lib/reveal', () => ({ addedNodeId: (r: any) => r?.result?.nodeId ?? null, revealNewNode: vi.fn() }));
 vi.mock('../../src/renderer/ui/toastStore', () => ({ showToast: vi.fn() }));
 
+/** A promise the test resolves by hand, to switch levels while an add is waiting on it. */
 function deferred<T>() { let resolve!: (value: T) => void; const promise = new Promise<T>((done) => { resolve = done; }); return { promise, resolve }; }
 const model = { directory: 'checkpoints', name: 'chosen.safetensors' };
 const node = { id: '1', type: 'comfy', position: { x: 0, y: 0 }, data: { comfyType: 'CheckpointLoaderSimple', inputs: [], outputs: [], parameters: { ckpt_name: 'old.safetensors' } } };
 const definition = (id: string) => ({ id, name: id, nodes: [structuredClone(node)], edges: [], inputs: [], outputs: [], nestedIn: null, raw: {} });
 const detail = { displayName: 'Loader', inputs: [{ widget: true, name: 'ckpt_name' }] };
 const command = vi.fn(async (_request: any): Promise<any> => ({ status: 'applied', projection: null, result: { nodeId: '2' } }));
+// The preload API the add paths call; every call resolves at once unless a test swaps in a deferred one.
 const api = {
   commitCommand: command,
   validateNodeClass: vi.fn(async () => ({ ok: true })),
@@ -138,7 +146,9 @@ describe('async editor origin', () => {
     const metadata = deferred<any>();
     api.nodeTypeDetail.mockReturnValueOnce(metadata.promise);
     const adding = addModelLoader(model);
+    // Undo is pressed while the loader add still waits for its metadata; it must not run first.
     const undoing = undo();
+    // Let pending microtasks run, so an undo that did not wait would have sent its command by now.
     await Promise.resolve();
     await Promise.resolve();
     expect(command).not.toHaveBeenCalled();

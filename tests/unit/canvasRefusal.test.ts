@@ -1,3 +1,9 @@
+/**
+ * Protects what a person sees when a canvas edit does not go through (components/graph/commit): an unexpected error
+ * or a refused or conflicting edit shows one toast, the in-flight counter is always released, and an AI build is
+ * revealed edge and node in an order where every link appears with both of its ends. A silent failure would leave
+ * the person thinking their edit was made.
+ */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { commitManual, reportRefusal } from '../../src/renderer/components/graph/commit';
 import { useToastStore } from '../../src/renderer/ui/toastStore';

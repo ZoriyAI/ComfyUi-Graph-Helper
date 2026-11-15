@@ -1,3 +1,8 @@
+/**
+ * Protects the app command list (renderer/commands/appCommands) that App installs into the command registry, from
+ * which the menus and shortcuts work: unique ids and shortcuts, a label in English and Russian for each, and the
+ * expected default shortcuts. A person who learns Mod+S or F1 expects it to work and to do one thing only.
+ */
 import { describe, expect, it } from 'vitest';
 import { buildAppCommands } from '../../src/renderer/commands/appCommands';
 import { catalogLeaves, en, ru } from '../../src/shared/i18n';

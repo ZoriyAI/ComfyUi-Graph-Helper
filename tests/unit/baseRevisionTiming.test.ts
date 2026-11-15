@@ -1,14 +1,15 @@
+/**
+ * Protects conflict detection in the renderer action executor (services/actions/actionExecutor): the base revision
+ * is taken before the model thinks, so a tool call that arrives after a manual edit is refused and the edit stays.
+ * Only renderer/services/llm/tools.ts calls this executor, and nothing in src imports that file; the live app
+ * checks revisions in main/commands/commit instead.
+ */
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useGraphStore } from '../../src/renderer/state/graphState';
 import { useRevisionStore } from '../../src/renderer/state/revisionState';
 import { getGraphService } from '../../src/renderer/services/graph/graphService';
 import { getActionExecutor } from '../../src/renderer/services/actions/actionExecutor';
 import { GraphAction } from '../../src/renderer/types/revisions';
-
-/**
- * Unit test: Base revision timing for conflict detection
- * Verifies that base revision captured BEFORE model thinking protects against manual edits
- */
 
 describe('Base Revision Timing', () => {
   beforeEach(() => {

@@ -1,8 +1,14 @@
+/**
+ * Protects how scripts/lib/cdp-launch.js picks the app page when the package smoke scripts drive the installed app over
+ * the Chrome DevTools protocol: normally only the app:// page, and the exact file of an older installed renderer
+ * only when an upgrade check asks for it. Picking a wrong page would make a release check pass on the wrong window.
+ */
 import { describe, expect, it } from 'vitest';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 const { isAppPageUrl } = createRequire(import.meta.url)('../../scripts/lib/cdp-launch.js');
 
+/** Where an older package installed its renderer, which it loaded from a file URL instead of app://. */
 const legacyRenderer = '/usr/lib/nodewise-studio/resources/app.asar/dist/renderer/index.html';
 const legacyUrl = pathToFileURL(legacyRenderer).href;
 
