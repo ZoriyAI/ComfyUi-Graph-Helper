@@ -1,3 +1,8 @@
+/**
+ * Closes open proposals the graph has outgrown. Called by main/commands/commit.ts inside its commit transaction:
+ * when a commit removes nodes a proposal names, or when an import or an opened project replaces the whole graph.
+ * A superseded proposal keeps its note with the reason in brackets, so the chat and the canvas can say why it closed.
+ */
 import type Database from 'better-sqlite3';
 import type { GraphMutation } from '../../shared/commands/types';
 import { proposalsChanged } from './events';
@@ -38,6 +43,7 @@ export function supersedeForMissingNodes(db: Database.Database, projectId: strin
     try {
       payload = JSON.parse(row.payload) as GraphMutation;
     } catch {
+      // A row with a broken payload cannot name nodes; it is left as it is.
       continue;
     }
     const missing = nodeRefsOf(payload).filter((id) => gone.has(id));
@@ -49,6 +55,7 @@ export function supersedeForMissingNodes(db: Database.Database, projectId: strin
   return count;
 }
 
+/** Tells the windows about the changed open list once the current commit is over. */
 function pushLater(db: Database.Database, projectId: string): void {
   // Push after the synchronous commit transaction has finished; if it rolled back, the push shows the unchanged list.
   queueMicrotask(() => {

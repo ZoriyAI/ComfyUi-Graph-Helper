@@ -1,14 +1,16 @@
-import * as fs from 'fs';
-import * as path from 'path';
-
 /**
  * Window bounds and maximized state, remembered in `<userData>/window-state.json`. Restoring checks the saved
  * rectangle against the displays connected now: a window saved on a monitor that is gone comes back on the
- * primary display, and a window larger than the work area is shrunk to fit.
+ * primary display, and a window larger than the work area is shrunk to fit. main/index.ts reads it before it
+ * creates the window and tracks the window with it.
  */
+import * as fs from 'fs';
+import * as path from 'path';
 
+/** A rectangle in screen coordinates (a window or a display's work area). */
 export interface Rect { x: number; y: number; width: number; height: number }
 
+/** What is saved: the normal (not maximized) bounds, and whether the window was maximized. */
 export interface WindowState {
   x?: number;
   y?: number;
@@ -17,14 +19,18 @@ export interface WindowState {
   maximized: boolean;
 }
 
+/** The file name in the profile folder. */
 export const WINDOW_STATE_FILE = 'window-state.json';
+/** The size of the first window, before anything was saved. */
 export const DEFAULT_WINDOW_SIZE = { width: 1400, height: 900 };
+/** The smallest size the layout works at; also the window's minimum size. */
 export const MIN_WINDOW_SIZE = { width: 800, height: 560 };
 /** The window's own colour before the page paints: the night theme's --bg (src/renderer/theme/tokens.css). */
 export const WINDOW_BACKGROUND = '#0a0e15';
 /** How much of the window (title bar side) must stay on a display for its position to be kept. */
 const VISIBLE_MARGIN = 64;
 
+/** A real number (not NaN or Infinity). */
 function finite(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value);
 }
@@ -46,6 +52,7 @@ export function parseWindowState(value: unknown): WindowState | null {
   return state;
 }
 
+/** The size of the area two rectangles share; zero when they do not meet. */
 function overlap(a: Rect, b: Rect): { width: number; height: number } {
   const width = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
   const height = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
@@ -58,6 +65,7 @@ function overlap(a: Rect, b: Rect): { width: number; height: number } {
  */
 export function clampWindowState(saved: WindowState | null, workAreas: Rect[]): { bounds: Partial<Rect> & { width: number; height: number }; maximized: boolean } {
   const primary = workAreas[0] ?? { x: 0, y: 0, ...DEFAULT_WINDOW_SIZE };
+  // The minimum size gives way on a screen smaller than it; the saved size gives way to the work area.
   const fit = (size: { width: number; height: number }, area: Rect) => ({
     width: Math.max(Math.min(MIN_WINDOW_SIZE.width, area.width), Math.min(size.width, area.width)),
     height: Math.max(Math.min(MIN_WINDOW_SIZE.height, area.height), Math.min(size.height, area.height)),
@@ -81,6 +89,7 @@ export function clampWindowState(saved: WindowState | null, workAreas: Rect[]): 
   return { bounds: fit(saved, primary), maximized: saved.maximized };
 }
 
+/** The saved state, or null when there is none or it does not read. */
 export function readWindowState(file: string): WindowState | null {
   try {
     return parseWindowState(JSON.parse(fs.readFileSync(file, 'utf8')));
@@ -89,6 +98,7 @@ export function readWindowState(file: string): WindowState | null {
   }
 }
 
+/** Saves the state through a temporary file and a rename, so a crash never leaves half a file. Never throws. */
 export function writeWindowState(file: string, state: WindowState): void {
   try {
     fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -113,7 +123,9 @@ export interface TrackedWindow {
 export function trackWindowState(win: TrackedWindow, file: string, debounceMs = 500, write = writeWindowState): () => void {
   let timer: ReturnType<typeof setTimeout> | null = null;
   const snapshot = (): WindowState | null => {
+    // A minimized window is not saved: its bounds say nothing about where the person wants it.
     if (win.isDestroyed() || win.isMinimized()) return null;
+    // Normal bounds, so a maximized window restores to the size it had before it was maximized.
     const bounds = win.getNormalBounds();
     return { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height, maximized: win.isMaximized() };
   };

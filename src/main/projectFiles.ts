@@ -1,3 +1,9 @@
+/**
+ * The project file of the graph on screen: where it was last opened from or saved to, and whether the graph is in
+ * that file as it stands. Kept per graph (graph_key), so undo across "Open" or "New project" brings the earlier
+ * graph's file back with it, and so it survives a reload and a restart (table project_files, schema version 16).
+ * Used by main/ipc.ts (save commands and the app bar's state) and ipc/openIpc.ts (opening a file).
+ */
 import type Database from 'better-sqlite3';
 import { createHash } from 'crypto';
 import * as path from 'path';
@@ -9,15 +15,10 @@ import { currentGraphKey } from './knowledge/projectExplanations';
 import { PROJECT_FILE_SUFFIX } from '../shared/productNames';
 import { LEGACY_PROJECT_FILE_SUFFIXES } from '../shared/legacyNames';
 
-/**
- * The project file of the graph on screen: where it was last opened from or saved to, and whether the graph is in
- * that file as it stands. Kept per graph (graph_key), so undo across "Open" or "New project" brings the earlier
- * graph's file back with it, and so it survives a reload and a restart (table project_files, schema version 16).
- */
-
 /** Screen-only flags React Flow may leave on a stored node or link; they are not content. */
 const VOLATILE = new Set(['selected', 'dragging', 'measured', 'resizing']);
 
+/** A copy with object keys sorted and screen-only flags and undefined values dropped, so equal content prints equal. */
 function stable(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(stable);
   if (!value || typeof value !== 'object') return value;
@@ -47,6 +48,7 @@ export function contentDigest(snapshot: GraphSnapshot | Record<string, unknown>)
   return createHash('sha256').update(JSON.stringify(stable(content))).digest('hex');
 }
 
+/** Whether the graph holds nothing a person would want to save: no nodes, notes, title or native content. */
 function isEmpty(snapshot: GraphSnapshot): boolean {
   if (snapshot.nodes.length || snapshot.edges.length || snapshot.subgraphs?.length || snapshot.groups?.length || snapshot.components?.length) return false;
   if (Object.values(snapshot.process ?? {}).some((value) => value !== '' && value != null)) return false;
@@ -62,8 +64,10 @@ function isEmpty(snapshot: GraphSnapshot): boolean {
   return JSON.stringify(stable(meaningful(raw))) === JSON.stringify(stable(meaningful(baseline)));
 }
 
+/** One row of project_files: the file and the digest of what was last written to or read from it. */
 interface Row { file_path: string; saved_digest: string }
 
+/** The remembered file of one graph of a project. */
 function rowOf(db: Database.Database, projectId: string, graphKey: string): Row | undefined {
   return db.prepare('SELECT file_path, saved_digest FROM project_files WHERE project_id = ? AND graph_key = ?').get(projectId, graphKey) as Row | undefined;
 }
@@ -105,6 +109,7 @@ export function fileNameFromTitle(title: string, fallback: string): string {
     .replace(/[\\/:*?"<>|\u0000-\u001f]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
+    // No leading dots: the file would be hidden on Linux.
     .replace(/^\.+/, '')
     .slice(0, 80)
     .trim();

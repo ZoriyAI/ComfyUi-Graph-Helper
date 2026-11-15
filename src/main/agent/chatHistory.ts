@@ -1,3 +1,9 @@
+/**
+ * The chat's stored messages: save one, load a project's messages page by page, clear them. The renderer's chat
+ * (services/llm/chatService.ts) and Settings ▸ Privacy reach it through ipc/agentIpc.ts; agent/interrupted.ts
+ * writes its own line through saveChatMessage. Every write is checked for the held key and token and redacted,
+ * because the database is a plain file in the profile folder.
+ */
 import type Database from 'better-sqlite3';
 import { z } from 'zod';
 import { redactSecrets } from '../../shared/agent/redact';
@@ -12,6 +18,7 @@ export const CHAT_CONTENT_CAP = 1_000_000;
 /** Protective (one SQLite row): tool calls larger than this are refused with an error the chat logs. */
 const TOOL_CALLS_CAP = 5_000_000;
 
+/** The shape a message must have to be stored; the renderer's input is not trusted. */
 const chatRecordSchema = z.object({
   id: z.string().min(1).max(200),
   projectId: z.string().min(1).max(200),
@@ -28,9 +35,10 @@ export type { ChatSaveResult } from '../../shared/contracts';
 export type HeldSecretCheck = (text: string) => boolean;
 
 /**
- * Stores one chat message. Content over a million characters is stored with a marker saying how much was left out. Secret-shaped substrings (an sk- key, an api
- * key assignment, a bearer token) are replaced with [redacted] before the write, so the rest of the message is
- * kept. A message that contains the exact held LLM key or MCP token is refused outright.
+ * Stores one chat message. Content over a million characters is stored with a marker saying how much was left out.
+ * Secret-shaped substrings (an sk- key, an api key assignment, a bearer token) are replaced with [redacted] before
+ * the write, so the rest of the message is kept. A message that contains the exact held LLM key or MCP token is
+ * refused outright.
  */
 export function saveChatMessage(
   db: Database.Database,
@@ -54,6 +62,7 @@ export function saveChatMessage(
     if (toolCalls.length > TOOL_CALLS_CAP) return { ok: false, error: 'Tool calls are too large to store.' };
     if (heldSecret(toolCalls)) return { ok: false, error: 'Tool calls contain the held key or token and were not stored.' };
     toolCalls = redactSecrets(toolCalls);
+    // Redaction works on the text, so it could in theory break the JSON; such a record is refused, not stored broken.
     try {
       JSON.parse(toolCalls);
     } catch {
@@ -79,6 +88,7 @@ export function saveChatMessage(
   return { ok: true };
 }
 
+/** The stored tool calls as an array, or null when there are none or the text does not parse. */
 function parseToolCalls(value: unknown): unknown[] | null {
   if (typeof value !== 'string') return null;
   try {
@@ -89,10 +99,10 @@ function parseToolCalls(value: unknown): unknown[] | null {
   }
 }
 
-/** Every stored message of a project, oldest first. The person's own chat is never cut to a count. */
 /** Messages one page of the chat holds (the newest first page, then older ones as the person scrolls up). */
 export const CHAT_PAGE = 200;
 
+/** Which page of the chat to load; without it every message is returned. */
 export interface ChatPageRequest {
   /** Most messages to return; the newest of them. */
   limit?: number;
@@ -112,7 +122,10 @@ export function loadChatHistory(db: Database.Database, projectId: unknown, page?
   const anchor = before
     ? db.prepare('SELECT timestamp, rowid AS seq FROM chat_messages WHERE project_id = ? AND id = ?').get(projectId, before) as { timestamp: number; seq: number } | undefined
     : undefined;
+  // An unknown anchor (a message cleared meanwhile) gives an empty page rather than the whole chat again.
   if (before && !anchor) return [];
+  // No page asked: every message in order. A page: the newest `limit` before the anchor, read newest first, then
+  // turned back to oldest first. rowid breaks ties between messages with the same timestamp.
   const rows = (limit === null && !anchor
     ? db.prepare(`
     SELECT * FROM (

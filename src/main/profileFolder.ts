@@ -1,3 +1,7 @@
+/**
+ * Owner-only permissions for the profile folder and the files in it. main/index.ts secures the folder at start;
+ * main/database.ts makes the database files owner-only when it opens them.
+ */
 import * as fs from 'fs';
 
 /**

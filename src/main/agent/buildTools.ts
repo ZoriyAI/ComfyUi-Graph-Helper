@@ -1,3 +1,9 @@
+/**
+ * The build tools of a turn (addNode, connectNodes, setParameter, ...): each call becomes one graph command
+ * committed as the assistant's own action, so it shows on the canvas at once and the person can undo it.
+ * agent/turn.ts creates them from the specs the renderer sends; ipc/agentIpc.ts uses only the RunContext type.
+ * Changes to the person's own work become drafts instead (ownership.ts), and a paused run holds its next step.
+ */
 import type Database from 'better-sqlite3';
 import { turnLog } from '../trace/modelTrace';
 import { randomUUID } from 'crypto';
@@ -15,12 +21,14 @@ import { carriesSecret } from '../../shared/config/draft';
 import type { CommandResponse, GraphMutation, Projection } from '../../shared/commands/types';
 import { BUILD_STEP_TOOLS, type AgentBuildStep, type AgentRunContext, type BuildStepTool, type Explanation, type ExplanationInput, type ObjectRef } from '../../shared/contracts';
 
+/** A build tool as the renderer describes it: name, description and JSON schema of its arguments. */
 export interface RendererToolSpec {
   name: string;
   description?: string;
   parameters?: unknown;
 }
 
+/** The run a build belongs to: project, run id and the revision it expects to build on. */
 export type RunContext = AgentRunContext;
 
 /** How long a paused run's next step waits between looks at the run (ms). */
@@ -28,6 +36,7 @@ export const PAUSE_POLL_MS = 150;
 
 type RunRow = { status: string; expected_revision_id: string } | undefined;
 
+/** The run's status and expected revision as stored, or undefined when the row cannot be read. */
 function readRun(db: Database.Database, run: RunContext): RunRow {
   try {
     return db.prepare('SELECT status, expected_revision_id FROM runs WHERE project_id = ? AND run_id = ?').get(run.projectId, run.runId) as RunRow;
@@ -50,6 +59,7 @@ export async function waitWhilePaused(
   for (;;) {
     if (options.signal?.aborted) return { state: 'ended' };
     const row = readRun(db, run);
+    // No row (a test without runs, or a read error): the step goes on against the revision it already has.
     if (!row) return { state: 'running', expectedRevisionId: null };
     if (row.status === 'running') return { state: 'running', expectedRevisionId: row.expected_revision_id };
     if (row.status !== 'paused') return { state: 'ended' };
@@ -60,6 +70,7 @@ export async function waitWhilePaused(
 /** Ids a command result may carry; copied onto the tool result so the model can refer to them next. */
 const RESULT_IDS = ['nodeId', 'nodeType', 'edgeId', 'linkId', 'definitionId', 'subgraphId', 'groupId', 'key'] as const;
 
+/** The English line the model reads after a successful step of these tools. */
 const BUILD_MESSAGES: Record<string, string> = {
   connectNodes: 'Connected the nodes',
   setParameter: 'Set the parameter',
@@ -68,8 +79,10 @@ const BUILD_MESSAGES: Record<string, string> = {
   insertSubgraph: 'Inserted the subgraph',
 };
 
+/** One port of a node: the handle connectNodes takes, its name and its data type. */
 export interface PortHandle { handle: string; name: string; type: string }
 
+/** The ports of a node's data, with in-N / out-N handles for ports that have no id of their own. */
 function portHandles(value: unknown, prefix: 'in' | 'out'): PortHandle[] {
   if (!Array.isArray(value)) return [];
   return value.map((port, index) => {
@@ -155,6 +168,10 @@ function titlesFor(name: string, args: Record<string, unknown> | undefined, proj
   return out;
 }
 
+/**
+ * The tool result the model reads for a committed command: success with the new ids, ports and titles, or the
+ * engine's refusal. The extra fields also feed the chat's step lines.
+ */
 export function toolOutcome(name: string, args: Record<string, unknown> | undefined, outcome: CommandResponse) {
   if (outcome.status === 'applied' || outcome.status === 'historical') {
     const result = outcome.result as Record<string, unknown> | null;
@@ -203,6 +220,7 @@ export function toolOutcome(name: string, args: Record<string, unknown> | undefi
       }
       return { success: true, message: BUILD_MESSAGES[name], ...ids, ...ends, ...titles };
     }
+    // What is left of the build tools is annotateNode.
     const annotated = nodeTitleAt(outcome.projection, result?.nodeId ?? args?.nodeId);
     return { success: true, message: `Annotated node ${result?.nodeId || ''}`, ...(annotated ? { nodeTitle: annotated } : {}) };
   }
@@ -214,6 +232,7 @@ export function toolOutcome(name: string, args: Record<string, unknown> | undefi
 /** Saves a build step's `why`; the knowledge repository's saveExplanation in the app. */
 export type SaveWhy = (db: Database.Database, input: ExplanationInput) => Explanation;
 
+/** Whether a tool's applied call is shown on the canvas as a build step with its `why`. */
 function isStepTool(name: string): name is BuildStepTool {
   return (BUILD_STEP_TOOLS as readonly string[]).includes(name);
 }
@@ -226,12 +245,14 @@ export function stepWhy(args: unknown): string {
   return text && !carriesSecret({ why: text }) ? text : '';
 }
 
+/** An id as a string, whether the graph stored it as a string or a number; undefined for anything else. */
 function idOf(value: unknown): string | undefined {
   if (typeof value === 'string' && value !== '') return value;
   if (typeof value === 'number' && Number.isFinite(value)) return String(value);
   return undefined;
 }
 
+/** The ComfyUI class of a node in the projection. */
 function classTypeOf(projection: Projection | null, nodeId: string | undefined): string | undefined {
   if (!projection || !nodeId) return undefined;
   const node = (projection.snapshot.nodes as Array<{ id?: unknown; data?: { comfyType?: unknown } }>).find((item) => String(item.id) === nodeId);
@@ -340,7 +361,7 @@ export function createBuildTools(
         const guard = payload.type === 'add-node' ? validateNodeClass(options.db, payload.nodeType) : null;
         if (guard && !guard.ok) return { success: false, error: guard.error, suggestions: guard.suggestions };
         // Inside its run the assistant changes only what it placed itself. A change to the person's nodes, links,
-        // notes or the project's name becomes a grey draft the person accepts (P0 of the assistant review).
+        // notes or the project's name becomes a grey draft the person accepts (ownership.ts).
         const draftKind = draftKindFor(payload as GraphMutation, runOwned(options.db, options.run.projectId, options.run.runId), readProjection(options.db, options.run.projectId));
         if (draftKind) {
           try {
@@ -416,6 +437,7 @@ export function createBuildTools(
   return tools;
 }
 
+/** The canvas's record of one applied step: where it landed, its `why`, and the explanation saved from it. */
 function buildStep(
   name: BuildStepTool,
   toolCallId: string,

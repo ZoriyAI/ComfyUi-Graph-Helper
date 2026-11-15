@@ -1,3 +1,8 @@
+/**
+ * The one profile database (SQLite): opened, checked and upgraded at start by initDatabase (main/index.ts), then
+ * handed out with getDatabase to every IPC handler, the update check and the MCP session store. A damaged file is
+ * never deleted: the person chooses to put it aside and start empty, open its folder, or quit.
+ */
 import Database from 'better-sqlite3';
 import * as path from 'path';
 import { app, dialog, shell } from 'electron';
@@ -14,6 +19,7 @@ import { reseedCoreKnowledge } from './knowledge/seedCore';
 import { createTranslator } from '../shared/i18n';
 import { ownerOnlyFiles } from './profileFolder';
 
+/** The open database; null before initDatabase and after closeDatabase. */
 let db: Database.Database | null = null;
 
 /**
@@ -69,12 +75,18 @@ function askAboutDamagedFile(dbPath: string): boolean {
     if (choice === 0) return true;
     if (choice === 1) {
       void shell.openPath(folder);
+      // Opening the folder answers nothing: the question comes back until the person starts empty or quits.
       continue;
     }
     return false;
   }
 }
 
+/**
+ * Opens the database at start and brings it to a usable state: the workspace project, interrupted runs closed,
+ * the built-in knowledge reseeded, long histories trimmed. Throws a DatabaseOpenError when the file cannot be
+ * opened, or is damaged and the person declines to put it aside.
+ */
 export function initDatabase(): void {
   const userDataDir = app.getPath('userData');
   const dbPath = databasePath(userDataDir);
@@ -99,6 +111,7 @@ export function initDatabase(): void {
   console.log('[Database] Schema ready');
 }
 
+/** The open database; throws when called before initDatabase. */
 export function getDatabase(): Database.Database {
   if (!db) {
     throw new Error('Database not initialized');
@@ -106,6 +119,7 @@ export function getDatabase(): Database.Database {
   return db;
 }
 
+/** Closes the database at quit, so the WAL journal is folded back into the file. */
 export function closeDatabase(): void {
   if (db) {
     console.log('[Database] Closing');

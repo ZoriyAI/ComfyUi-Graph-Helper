@@ -1,8 +1,14 @@
+/**
+ * The command-line answers: `--version` and `--help` print and the app quits before any window opens.
+ * main/index.ts asks commandLineAnswer first thing at start. The help also lists the Chromium switches a Linux
+ * user may need (profile folder, keyring, Wayland).
+ */
 import { DISPLAY_NAME, STABLE_APP_NAME } from './identity';
 import { createTranslator, type AppLanguage } from '../shared/i18n';
 
 /** One option line: the option as typed, then its explanation, wrapped under it. */
 function optionLine(option: string, text: string): string[] {
+  // Explanations start at column 30 and wrap before 110 characters, so the help fits a usual terminal.
   const column = 30;
   const words = text.split(' ');
   const lines: string[] = [];

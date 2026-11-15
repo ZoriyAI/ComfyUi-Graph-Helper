@@ -23,6 +23,7 @@ import { validateNodeClass } from '../knowledge/nodeClassGuard';
 import { lessonDrafts, type LessonDrafts } from '../lessons/drafts';
 import { MAIN_TOOL_SPECS } from './toolSpecs';
 
+/** What the tool needs from the turn; tests pass their own drafts store. */
 export interface LessonDraftToolDeps {
   db: Database.Database;
   /** The catalog of the person's ComfyUI: a class with its inputs and outputs, or null. */
@@ -61,10 +62,12 @@ export function problemForModel(problem: LessonFileProblem): string {
   }
 }
 
+/** Every text of a lesson in every language, to look for secrets in. */
 function texts(doc: LessonDoc): string[] {
   return Object.values(doc.texts).flatMap((words) => (words ? [words.title, words.result, ...Object.values(words.steps).flatMap((step) => [step.title, step.body])] : []));
 }
 
+/** The draftLesson tool definition for the AI SDK: description, input schema and the checks above. */
 export function createLessonDraftTool(deps: LessonDraftToolDeps) {
   const drafts = deps.drafts ?? lessonDrafts;
   const fail = (error: string) => ({ success: false, error });
@@ -74,6 +77,7 @@ export function createLessonDraftTool(deps: LessonDraftToolDeps) {
     execute: async (args: unknown) => {
       if (deps.signal?.aborted) return fail('The turn was cancelled; no draft was shown.');
       const lesson = args && typeof args === 'object' ? (args as { lesson?: unknown }).lesson : undefined;
+      // The lesson is wrapped as a one-lesson file, so it passes exactly the reader an imported file passes.
       const read = readLessonFile({ format: LESSON_FILE_FORMAT, version: LESSON_FILE_VERSION, lessons: [lesson] });
       if (!read.ok) return fail(problemForModel(read.problem));
       const doc = read.file.lessons[0];
@@ -84,6 +88,7 @@ export function createLessonDraftTool(deps: LessonDraftToolDeps) {
       let synced = true;
       for (const list of classes.map((item) => item.split('|'))) {
         const verdicts = list.map((classType) => ({ classType, verdict: validateNodeClass(deps.db, classType) }));
+        // known === false: the catalog is not read yet, so nothing can be judged installed or missing.
         if (verdicts.some((item) => item.verdict.ok && item.verdict.known === false)) synced = false;
         if (synced && !verdicts.some((item) => item.verdict.ok)) {
           const first = verdicts[0];
@@ -91,6 +96,7 @@ export function createLessonDraftTool(deps: LessonDraftToolDeps) {
         }
         for (const classType of list) details.set(classType, deps.nodeClassDetail(deps.db, classType));
       }
+      // With the catalog the trial uses the real inputs and outputs; without it, only what the lesson itself says.
       const withCatalog = synced && [...details.values()].some((detail) => detail?.detailed);
       const shapes = withCatalog ? catalogShapes((classType) => (details.get(classType)?.detailed ? details.get(classType) : null)) : undefined;
       const check = checkLessonDoc(doc, () => null, shapes);
@@ -99,6 +105,7 @@ export function createLessonDraftTool(deps: LessonDraftToolDeps) {
         const missing = check.tried.missing ? ` What it lacks then: ${JSON.stringify(check.tried.missing).slice(0, 400)}.` : '';
         return fail(`Tried from an empty canvas, step "${check.tried.stepId}" cannot be done (${check.tried.why}).${missing} Fix that step and draft again.`);
       }
+      // Checked again: the checks above can take a while, and the person may have cancelled meanwhile.
       if (deps.signal?.aborted) return fail('The turn was cancelled; no draft was shown.');
       const draft = drafts.add(doc, withCatalog ? 'catalog' : 'lesson');
       const words = doc.texts.en ?? doc.texts.ru!;

@@ -1,3 +1,9 @@
+/**
+ * Proposals: changes the assistant suggests as dashed "ghosts" on the canvas instead of applying them. This module
+ * creates them (agent/buildTools.ts, agent/tools.ts) and resolves them when the person accepts or rejects one
+ * (ipc/engineIpc.ts). An accepted ghost goes through the same commitCommand as a manual edit, so undo, history and
+ * the engine's checks treat it like the person's own change.
+ */
 import { randomUUID } from 'crypto';
 import type Database from 'better-sqlite3';
 import type { Proposal, ProposalInput, ProposalKind, ProposalResolution, ResolveProposalRequest } from '../../shared/contracts/proposals';
@@ -12,6 +18,7 @@ import { nodeRefsOf } from './supersede';
 export { listProposals } from './store';
 export { setProposalsNotifier, proposalsChanged, type ProposalsNotifier } from './events';
 
+/** The messages a ProposalError carries; tests compare against them. */
 export const PROPOSAL_ERRORS = {
   payload: 'The proposal payload is not a graph change.',
   kind: 'The proposal kind does not match its payload.',
@@ -19,8 +26,10 @@ export const PROPOSAL_ERRORS = {
   missing: 'Proposal was not found.',
 } as const;
 
+/** A proposal that cannot be stored or resolved (bad payload, unknown id, no project). */
 export class ProposalError extends Error {}
 
+/** Pushes the project's open proposals to the windows. */
 function notify(db: Database.Database, projectId: string): void {
   proposalsChanged(projectId, listProposals(db, projectId, 'proposed'));
 }
@@ -35,6 +44,7 @@ export function createProposal(
 ): Proposal {
   const parsed = mutationSchema.safeParse(input.payload);
   if (!parsed.success) throw new ProposalError(PROPOSAL_ERRORS.payload);
+  // The declared kind must be the payload's own type, so a list filtered by kind never shows a different change.
   const kind = input.kind as ProposalKind;
   if (!PROPOSAL_KINDS.includes(kind) || parsed.data.type !== kind) throw new ProposalError(PROPOSAL_ERRORS.kind);
   const projection = readProjection(db, input.projectId);
@@ -63,12 +73,14 @@ export function createProposal(
   return proposal;
 }
 
+/** The engine's own words for a refused command, or a plain reason when it gave none. */
 function reasonOf(response: CommandResponse): string {
   const detail = response.result as { error?: unknown } | null;
   if (detail && typeof detail.error === 'string') return detail.error;
   return response.status === 'conflict' ? 'The graph changed before it could apply.' : 'The engine refused the change.';
 }
 
+/** Closes a proposal with a final status (and a new note when given) and returns it as stored. */
 function finish(db: Database.Database, id: string, status: Proposal['status'], note?: string): Proposal {
   if (note === undefined) {
     db.prepare('UPDATE proposals SET status = ?, resolved_at = ? WHERE id = ?').run(status, Date.now(), id);
@@ -83,6 +95,7 @@ function finish(db: Database.Database, id: string, status: Proposal['status'], n
  * was made, or a node it names is gone or now has a different class type.
  */
 function staleReason(db: Database.Database, proposal: Proposal, nodes: Array<Record<string, any>>): string | null {
+  // A replacing revision newer than the one the proposal was made on: the whole graph it was meant for is gone.
   const replaced = db
     .prepare(
       `SELECT description FROM graph_revisions
@@ -97,6 +110,7 @@ function staleReason(db: Database.Database, proposal: Proposal, nodes: Array<Rec
   const now = new Map(nodes.map((node) => [String(node.id), node]));
   const gone = refs.filter((id) => !now.has(id));
   if (gone.length > 0) return `node ${gone.join(', ')} is not in the graph`;
+  // The node with that id now has another class type (it was replaced), so the change would land on the wrong node.
   const then = loadRevision(db, proposal.projectId, proposal.revisionId);
   if (!then) return null;
   const before = new Map((then.nodes as Array<Record<string, any>>).map((node) => [String(node.id), node]));

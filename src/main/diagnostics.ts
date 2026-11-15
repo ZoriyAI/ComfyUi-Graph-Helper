@@ -1,13 +1,15 @@
-import { carriesSecret } from '../shared/config/draft';
-import { DISPLAY_NAME } from './identity';
-
 /**
  * Help ▸ Copy diagnostics: a plain-text report a person can paste into an issue. It never carries a key or
  * token: settings and preferences are copied field by field with secret-named fields dropped, every URL keeps only
  * its scheme, where the server is (this computer, local network, internet) and its port, the hosts the person set
  * up are replaced wherever they appear, and the whole text passes through the log redactor at the end.
+ * ipc/diagnosticsIpc.ts builds the report and the conversation log export with it; main/index.ts adds
+ * homeRedactor to the log.
  */
+import { carriesSecret } from '../shared/config/draft';
+import { DISPLAY_NAME } from './identity';
 
+/** Everything the report says, gathered by ipc/diagnosticsIpc.ts. */
 export interface DiagnosticsInput {
   generatedAt: string;
   versions: Record<string, string | undefined>;
@@ -26,6 +28,7 @@ export interface DiagnosticsInput {
   addresses?: ReadonlyArray<string | null | undefined>;
 }
 
+/** Field names whose values are never copied, whatever the value looks like. */
 const SECRET_KEY = /(api[_-]?key|apikey|token|secret|password|passwd|authorization|credential|cookie|private[_-]?key)/i;
 
 /** Public services every install talks to the same way: naming them in a report says nothing about the person. */
@@ -79,6 +82,7 @@ export function addressScrubber(addresses: ReadonlyArray<string | null | undefin
       // Not an address: nothing to replace.
     }
   }
+  // Longest first, so "box.example.org" is replaced before a shorter host that is part of it.
   const sorted = [...hosts].sort((left, right) => right.length - left.length);
   return (text) => {
     if (typeof text !== 'string' || text === '') return text;
@@ -96,6 +100,7 @@ export function scrubValue(value: unknown, depth = 0): unknown {
   if (!value || typeof value !== 'object') return value;
   const result: Record<string, unknown> = {};
   for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+    // tokenHeld is a yes/no about the token, not the token, and it helps to know.
     if (SECRET_KEY.test(key) && key !== 'tokenHeld') {
       result[key] = '[omitted]';
       continue;
@@ -109,10 +114,12 @@ export function scrubValue(value: unknown, depth = 0): unknown {
   return result;
 }
 
+/** One titled part of the report. */
 function section(title: string, body: string): string {
   return `## ${title}\n${body.trimEnd()}\n`;
 }
 
+/** A value as scrubbed, indented JSON. */
 function json(value: unknown): string {
   try {
     return JSON.stringify(scrubValue(value), null, 2) ?? 'null';
@@ -121,6 +128,7 @@ function json(value: unknown): string {
   }
 }
 
+/** The whole report as Markdown-like text; redaction and address scrubbing run last, over every line. */
 export function buildDiagnosticsReport(input: DiagnosticsInput): string {
   const versions = Object.entries(input.versions).map(([name, version]) => `${name}: ${version || 'unknown'}`).join('\n');
   const paths = Object.entries(input.paths).map(([name, value]) => `${name}: ${value ?? 'unknown'}`).join('\n');

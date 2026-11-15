@@ -1,19 +1,23 @@
+/**
+ * TEST-ONLY model: the scripted "test" provider. Each doStream call is one SDK step. The next step is chosen from
+ * the person's words (a fixed phrase picks a scenario) and from the tool results the SDK places on the prompt after
+ * execute() resolves. The model does not call tools itself. llmService.ts builds it only in an unpackaged app
+ * (runMode.ts), for development and the integration and e2e tests, which drive whole chat turns without a network.
+ */
 import type { LanguageModelV4, LanguageModelV4Prompt, LanguageModelV4StreamPart } from '@ai-sdk/provider';
 import { convertArrayToReadableStream } from '@ai-sdk/provider-utils/test';
 import { DATA_CLOSE, DATA_OPEN } from './agent/prompt';
 
-/**
- * TEST-ONLY model. Each doStream call is one SDK step.
- * The next step is chosen from tool results the SDK places on the prompt
- * after execute() resolves. The model does not call tools itself.
- */
+/** The final words of the default scenario (add a node, annotate it). */
 const COMPLETION = 'I have added a TestNode and annotated it.';
 
+/** One tool result found on the prompt: which tool and the value it returned. */
 interface ToolResultRecord {
   toolName: string;
   value: unknown;
 }
 
+/** Every tool result on the prompt, in order: what the earlier steps of this turn did. */
 function collectToolResults(prompt: LanguageModelV4Prompt | undefined): ToolResultRecord[] {
   const found: ToolResultRecord[] = [];
   for (const message of prompt ?? []) {
@@ -30,12 +34,14 @@ function collectToolResults(prompt: LanguageModelV4Prompt | undefined): ToolResu
   return found;
 }
 
+/** The nodeId an addNode result carries, or null. */
 function nodeIdFrom(value: unknown): string | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   const nodeId = (value as { nodeId?: unknown }).nodeId;
   return typeof nodeId === 'string' && nodeId.length > 0 ? nodeId : null;
 }
 
+/** The person's latest words, without the data block in front of them. */
 function latestUserText(prompt: LanguageModelV4Prompt | undefined): string {
   let text = '';
   for (const message of prompt ?? []) {
@@ -52,10 +58,12 @@ function latestUserText(prompt: LanguageModelV4Prompt | undefined): string {
   return end >= 0 ? text.slice(end + DATA_CLOSE.length + 2) : text;
 }
 
+/** A tool-call stream part. */
 function toolCall(id: string, name: string, input: unknown): LanguageModelV4StreamPart {
   return { type: 'tool-call', toolCallId: id, toolName: name, input: JSON.stringify(input) };
 }
 
+/** A whole text answer that ends the turn. */
 function textParts(message: string): LanguageModelV4StreamPart[] {
   const textId = 'text-process';
   return [
@@ -170,6 +178,7 @@ function singleToolFixtureParts(
   return textParts(done);
 }
 
+/** One-tool scenarios, chosen by the first pattern that matches the person's latest words. */
 const SCRIPTED: Array<{ match: RegExp; call: { id: string; name: string; input: unknown | ((text: string) => unknown) }; done: string }> = [
   {
     // Library ▸ "Ask about this model" (en and ru wording): a read-only catalog lookup, valid in Ask and Build turns.
@@ -238,6 +247,7 @@ interface BuildScriptStep {
   input: (ids: Record<string, string>) => Record<string, unknown>;
 }
 
+/** A connectNodes step between two nodes named earlier in the script. */
 const connect = (from: string, out: string, to: string, input: string, why: string): BuildScriptStep => ({
   name: 'connectNodes',
   input: (ids) => ({ sourceNodeId: ids[from], sourceHandle: out, targetNodeId: ids[to], targetHandle: input, why }),
@@ -263,6 +273,7 @@ const TEXT_TO_IMAGE: BuildScriptStep[] = [
   connect('decode', 'out-0', 'save', 'in-0', 'The decoded image goes to Save Image.'),
 ];
 
+/** The next step of TEXT_TO_IMAGE: the number of results so far is the index of the next step. */
 function textToImageParts(prompt: LanguageModelV4Prompt | undefined): LanguageModelV4StreamPart[] {
   const results = collectToolResults(prompt).filter((result) => result.toolName === 'addNode' || result.toolName === 'connectNodes');
   const ids: Record<string, string> = {};
@@ -287,6 +298,7 @@ function textToImageParts(prompt: LanguageModelV4Prompt | undefined): LanguageMo
 export const LONG_CHAIN_STEPS = 70;
 const LONG_CHAIN = /build a long chain|построй длинную цепочку/i;
 
+/** Whether any of the person's messages in the dialog matches. */
 function anyUserText(prompt: LanguageModelV4Prompt | undefined, pattern: RegExp): boolean {
   for (const message of prompt ?? []) {
     if (message.role !== 'user') continue;
@@ -327,6 +339,7 @@ function longChainParts(prompt: LanguageModelV4Prompt | undefined): LanguageMode
   ];
 }
 
+/** The end of a step: 'tool-calls' lets the SDK run the tools and ask again, 'stop' ends the turn. Fixed usage. */
 function finish(unified: 'stop' | 'tool-calls'): LanguageModelV4StreamPart {
   return {
     type: 'finish',
@@ -338,6 +351,7 @@ function finish(unified: 'stop' | 'tool-calls'): LanguageModelV4StreamPart {
   };
 }
 
+/** The scripted model; the scenario checks below run in a fixed order, the first match wins. */
 export function createTestLLMModel(): LanguageModelV4 {
   return {
     specificationVersion: 'v4' as const,
@@ -365,6 +379,7 @@ export function createTestLLMModel(): LanguageModelV4 {
         };
       }
       const latest = latestUserText(prompt);
+      // "continue" after a paused long chain keeps building it.
       if (LONG_CHAIN.test(latest) || (/^\s*(continue|продолжай)\s*$/i.test(latest) && anyUserText(prompt, LONG_CHAIN))) {
         return {
           stream: convertArrayToReadableStream(longChainParts(prompt)),
@@ -384,6 +399,7 @@ export function createTestLLMModel(): LanguageModelV4 {
           rawCall: { rawPrompt: null, rawSettings: {} },
         };
       }
+      // The default scenario: add a TestNode, annotate it, then answer one character at a time (streamed text).
       const results = collectToolResults(prompt);
       const addNode = results.find((result) => result.toolName === 'addNode');
       const annotate = results.find((result) => result.toolName === 'annotateNode');

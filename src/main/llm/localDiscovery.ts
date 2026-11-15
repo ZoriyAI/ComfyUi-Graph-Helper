@@ -1,26 +1,31 @@
+/**
+ * Settings ▸ Assistant ▸ "Find local servers": the Ollama servers the person's MCP server runs, and whatever
+ * answers on this computer at the usual ports of Ollama, LM Studio, vLLM and llama.cpp's server. These ports are
+ * only places to look: a server is offered only when it answered, labelled as found on this computer, and any other
+ * address can be typed. Served by main/ipc.ts.
+ */
 import type { LocalDiscovery, LocalServer } from '../../shared/contracts/pickers';
 import type { McpSession } from '../../shared/mcp/catalogSource';
 import { toolPayload } from '../../shared/mcp/catalogSource';
 import { failure, type McpReadFailure } from '../mcp/client';
 import { listLocalModels, parseOllamaCatalog } from './modelList';
 
-/**
- * Settings ▸ Assistant ▸ "Find local servers": the Ollama servers the person's MCP server runs, and whatever
- * answers on this computer at the usual ports of Ollama, LM Studio, vLLM and llama.cpp's server. These ports are only places to look:
- * a server is offered only when it answered, labelled as found on this computer, and any other address can be typed.
- */
+/** The usual ports of the local servers the app knows, each tried on 127.0.0.1. */
 export const LOCAL_PROBES: ReadonlyArray<{ port: number; name: string }> = [
   { port: 11434, name: 'Ollama' },
   { port: 1234, name: 'LM Studio' },
   { port: 8000, name: 'vLLM' },
   { port: 8080, name: 'llama.cpp' },
 ];
+/** A local server answers at once or not at all; a short wait keeps the search quick. */
 export const PROBE_TIMEOUT_MS = 1_500;
 /** The MCP server is asked about at most this many targets. */
 const MAX_TARGETS = 8;
 
+/** Opens a session to the saved MCP server, or says why it could not. */
 export type OpenMcp = () => Promise<{ ok: true; session: McpSession } | McpReadFailure>;
 
+/** What the search needs from outside; tests pass a fake fetch and a fake MCP session. */
 export interface DiscoveryDeps {
   fetchImpl: typeof fetch;
   /** Opens a read-only MCP session to the saved server, or null when no MCP URL is saved. */
@@ -49,6 +54,7 @@ export function openAiBase(value: unknown): string | null {
   }
 }
 
+/** One Ollama server as the MCP server names it: its name, its /v1 base, its GPU and its default model. */
 export interface OllamaTarget {
   target: string;
   base: string;
@@ -78,6 +84,7 @@ export function parseOllamaTargets(json: unknown): OllamaTarget[] {
   return out;
 }
 
+/** The Ollama servers the MCP server knows, with their models; a failure becomes a note, not an error. */
 async function fromMcp(openMcp: OpenMcp): Promise<{ servers: LocalServer[]; note?: string }> {
   const opened = await openMcp();
   if (!opened.ok) return { servers: [], note: opened.error };
@@ -114,6 +121,7 @@ async function fromMcp(openMcp: OpenMcp): Promise<{ servers: LocalServer[]; note
   }
 }
 
+/** The known ports on this computer that answered with a model list, all asked at once. */
 async function fromProbes(fetchImpl: typeof fetch, timeoutMs: number): Promise<LocalServer[]> {
   const found = await Promise.all(LOCAL_PROBES.map(async ({ port, name }) => {
     const value = `http://127.0.0.1:${port}/v1`;
@@ -133,6 +141,7 @@ export function mergeServers(mcp: LocalServer[], probed: LocalServer[]): LocalSe
   return [...out.values()];
 }
 
+/** Both searches at once; the result lists every server found and a note when the MCP server could not be asked. */
 export async function discoverLocalServers(deps: DiscoveryDeps): Promise<LocalDiscovery> {
   const [mcp, probed] = await Promise.all([
     deps.openMcp ? fromMcp(deps.openMcp) : Promise.resolve<{ servers: LocalServer[]; note?: string }>({ servers: [] }),

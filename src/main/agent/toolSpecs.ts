@@ -1,15 +1,18 @@
+/**
+ * JSON-schema specs (description and parameters) for the tools that run in main: what the model reads about each
+ * tool. Used by tools.ts and lessonDraftTool.ts to define the tools. Build-tool specs are not here: they come
+ * from the renderer (shared/commands/toolSpecs.ts), and buildTools.ts takes them as RendererToolSpec.
+ */
 import type { AgentKnowledgeTool, AgentProposalTool, AgentReadTool } from '../../shared/contracts/agentTools';
 import { FETCH_PAGE_BYTE_CAP, FETCH_PAGE_TEXT_CAP, GRAPH_PAGE_DEFAULT, megabytes } from '../../shared/agent/limits';
 
-/**
- * JSON-schema specs for the tools that run in main. Build-tool specs still come from the renderer.
- * The renderer can render tool cards from these shapes.
- */
+/** One tool as the model sees it: what it does and the JSON schema of its arguments. */
 export interface AgentToolSpec {
   description: string;
   parameters: Record<string, unknown>;
 }
 
+// The value lists the schemas offer; they follow the kinds and families the knowledge base knows.
 const OBJECT_KINDS = ['node', 'port', 'edge', 'subgraph', 'group', 'nodeClass', 'model', 'process'];
 const BASE_FAMILIES = [
   'sd15', 'sd2', 'sdxl', 'pony', 'illustrious', 'sd3', 'flux1', 'flux2', 'chroma', 'qwen-image', 'wan2.1', 'wan2.2',
@@ -20,8 +23,10 @@ const MODEL_KINDS = [
   'style', 'ipadapter', 'other',
 ];
 
+/** The `note` argument every propose* tool takes. */
 const note = { type: 'string', maxLength: 500, description: 'One short sentence shown beside the ghost: why this step. Stored as data.' };
 
+/** An object on the canvas or in the catalog an explanation belongs to. */
 export const OBJECT_REF_SCHEMA = {
   type: 'object',
   properties: {
@@ -37,6 +42,7 @@ export const OBJECT_REF_SCHEMA = {
   required: ['kind', 'id'],
 };
 
+/** Every main-process tool by name. The descriptions are the model's only manual, so they state limits and paging. */
 export const MAIN_TOOL_SPECS: Record<AgentReadTool | AgentKnowledgeTool | AgentProposalTool, AgentToolSpec> = {
   getGraph: {
     description: `Read the current graph: node ids, class types, titles, ports with their handles (in-N / out-N), every connection that touches the listed nodes, every widget value in full (values that look like secrets are [redacted]), positions, sizes, groups and subgraphs. Pages of ${GRAPH_PAGE_DEFAULT} nodes by default (any larger limit is allowed): when nextOffset is not null, call again with that offset until it is null; or pass ids to read specific nodes.`,

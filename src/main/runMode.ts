@@ -1,4 +1,10 @@
 /**
+ * Which development and test switches this run may honour. Read by main/index.ts (dev server, the scripted
+ * provider) and main/mcp/browser.ts (test switches). Every answer is no in an installed app, whatever the
+ * environment says.
+ */
+
+/**
  * Whether this run is a development run: only an unpackaged app (`electron .` from the repository) started with
  * NODE_ENV=development. An installed app never loads the Vite dev server or opens DevTools, whatever the environment
  * says: a variable exported for another project must not make localhost:5173 the trusted app page.

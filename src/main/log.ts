@@ -1,24 +1,28 @@
+/**
+ * The main-process log: `<userData>/logs/main.log`, appended line by line, rotated at 5 MB into main.log.1 and
+ * main.log.2 (three files in all). Every line passes through redactSecrets and any extra redactor (the held
+ * provider key and MCP token), so a key that reaches a log call is never written. Pure Node: no Electron import,
+ * so the IPC guard and tests can use it. main/index.ts opens it and routes console into it at start; crash.ts,
+ * windowWatch.ts, the update check and the IPC handlers write to it; ipc/diagnosticsIpc.ts reads its tail.
+ */
 import * as fs from 'fs';
 import * as path from 'path';
 import { format } from 'util';
 import { redactSecrets } from '../shared/config/draft';
 
-/**
- * The main-process log: `<userData>/logs/main.log`, appended line by line, rotated at 5 MB into main.log.1 and
- * main.log.2 (three files in all). Every line passes through redactSecrets and any extra redactor (the held
- * provider key and MCP token), so a key that reaches a log call is never written. Pure Node: no Electron import,
- * so the IPC guard and tests can use it.
- */
-
+/** The levels a line can have; each maps to the console method of the same weight. */
 export type LogLevel = 'info' | 'warn' | 'error';
 
+/** The current log file's name inside the log folder. */
 export const LOG_FILE = 'main.log';
+/** The size at which the file is rotated. */
 export const LOG_MAX_BYTES = 5 * 1024 * 1024;
 /** main.log plus this many rotated files. */
 export const LOG_ROTATED_FILES = 2;
 /** One line never exceeds this; a runaway message is clipped. */
 const LINE_CAP = 8000;
 
+/** The open log: where it writes, how large the file is now, and the rotation settings. */
 interface LogState {
   dir: string;
   file: string;
@@ -30,6 +34,7 @@ interface LogState {
 
 type ConsoleMethod = (...args: unknown[]) => void;
 
+/** Null until initLog: lines then go to memory and the console only. */
 let state: LogState | null = null;
 const extraRedactors: Array<(text: string) => string> = [];
 /** The console methods as they were before routeConsole, so mirroring and fallback never recurse. */
@@ -42,6 +47,7 @@ const original: Record<LogLevel, ConsoleMethod> = {
 const memory: string[] = [];
 const MEMORY_LINES = 400;
 
+/** Where the log goes; the caps can be set small in tests. */
 export interface LogOptions {
   dir: string;
   /** Also print to stdout/stderr (development and unpackaged runs). */
@@ -77,6 +83,7 @@ export function resetLog(): void {
   extraRedactors.length = 0;
 }
 
+/** The log folder, or null before initLog. */
 export function logsDir(): string | null {
   return state?.dir ?? null;
 }
@@ -99,6 +106,7 @@ export function redactForLog(text: string): string {
   return result;
 }
 
+/** console-style formatting of the arguments; an Error shows its stack. */
 function formatArgs(args: unknown[]): string {
   const parts = args.map((value) => (value instanceof Error ? (value.stack || `${value.name}: ${value.message}`) : value));
   try {
@@ -108,6 +116,7 @@ function formatArgs(args: unknown[]): string {
   }
 }
 
+/** main.log becomes main.log.1, main.log.1 becomes main.log.2, and the oldest is removed. */
 function rotate(current: LogState): void {
   const name = (index: number) => (index === 0 ? current.file : `${current.file}.${index}`);
   try {
@@ -125,6 +134,7 @@ function rotate(current: LogState): void {
   current.size = 0;
 }
 
+/** Keeps the line in memory too (the last MEMORY_LINES), for a diagnostics tail when the file cannot be read. */
 function remember(line: string): void {
   memory.push(line);
   if (memory.length > MEMORY_LINES) memory.splice(0, memory.length - MEMORY_LINES);
@@ -160,12 +170,14 @@ export function writeLog(level: LogLevel, ...args: unknown[]): void {
   }
 }
 
+/** The logger the main process writes with. */
 export const log = {
   info: (...args: unknown[]) => writeLog('info', ...args),
   warn: (...args: unknown[]) => writeLog('warn', ...args),
   error: (...args: unknown[]) => writeLog('error', ...args),
 };
 
+/** Set once console is routed, so a second call never wraps the wrappers. */
 let routed = false;
 
 /** console.log/info/warn/error in main go through the log (and still reach stdout when mirroring). */
@@ -193,6 +205,7 @@ export function readLogTail(count = 200): string[] {
         lines.unshift(...found);
         if (lines.length >= count) break;
       }
+      // Redacted again: a redactor added after a line was written (a key entered later) applies to it too.
       return lines.slice(-count).map((line) => redactForLog(line));
     } catch {
       // Fall through to memory.
@@ -201,6 +214,7 @@ export function readLogTail(count = 200): string[] {
   return memory.slice(-count);
 }
 
+/** The last `maxBytes` bytes of a file as text, starting at a whole line. */
 function readTail(file: string, maxBytes: number): string {
   const size = fs.statSync(file).size;
   const start = Math.max(0, size - maxBytes);

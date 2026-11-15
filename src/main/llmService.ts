@@ -1,3 +1,10 @@
+/**
+ * The main-process LLM service: holds the chat runtime (provider, model, address) and one key per provider, builds
+ * the AI SDK model for a send, and streams a turn with tools to the caller. Keys live in this process only: pasted
+ * for the session, or held again at start from the OS password store or the owner-only key file (main/ipc.ts).
+ * The renderer never sees a key; every text that leaves through here is redacted against the held values.
+ * Used by agent/turn.ts for every chat turn, by main/ipc.ts for Settings ▸ Assistant, and by many modules for redact.
+ */
 import { generateText, streamText, LanguageModel, isStepCount } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createAnthropic } from '@ai-sdk/anthropic';
@@ -16,12 +23,7 @@ import { contextFit, createWindowVariant, estimateRequestTokens, loadAndReadCont
 import { ADVICE_DATE, costOf } from '../shared/config/modelAdvice';
 import { CLOUD_PROVIDER_IDS, hasOfficialBase, isKeyProvider, KEY_OTHER_ADDRESS, KEY_PROVIDERS, keyOriginFor, OFFICIAL_BASE, officialOrigin, type CloudProviderId, type KeyProvider } from '../shared/config/keyOrigin';
 
-/**
- * Main-process LLM service
- * Credentials are ephemeral (session-only, NOT persisted)
- * Renderer never sees API keys
- */
-
+/** Every provider a send can use: the cloud ones, the scripted TEST fixture and the person's own server. */
 export type ChatProvider = CloudProviderId | 'test' | 'local';
 /** A provider that answers from the internet and needs a key: the three companies and an OpenAI-compatible service. */
 export type CloudProvider = CloudProviderId;
@@ -36,27 +38,32 @@ export const KEYED: readonly KeyProvider[] = KEY_PROVIDERS;
  * provider saved as `test` never makes a release build answer with canned text.
  */
 let testProviderAllowed = true;
+/** Turns the TEST provider on or off for this run (main/index.ts, from runMode.ts). */
 export function allowTestProvider(allowed: boolean): void {
   testProviderAllowed = allowed;
 }
 
+/** The provider named, or null for anything unknown (and for TEST when it is not allowed). */
 function knownProvider(value: unknown): ChatProvider | null {
   if (typeof value !== 'string' || !(PROVIDERS as readonly string[]).includes(value)) return null;
   if (value === 'test' && !testProviderAllowed) return null;
   return value as ChatProvider;
 }
 
+/** Whether a value names a cloud provider. */
 export function isCloudProvider(value: unknown): value is CloudProvider {
   return typeof value === 'string' && (CLOUD as readonly string[]).includes(value);
 }
 
 
+/** The runtime of the next send: never a key. */
 interface LLMConfig {
   provider: ChatProvider;
   model: string;
   baseURL?: string;
 }
 
+/** The API key sent to a local server that asks for none: the OpenAI client refuses an empty one. */
 const LOCAL_PLACEHOLDER = 'local';
 /** A compatible cloud service has no official address: without the person's https address nothing is sent. */
 export const COMPATIBLE_NO_ADDRESS = 'A compatible service needs its https address.';
@@ -64,10 +71,12 @@ export const COMPATIBLE_NO_ADDRESS = 'A compatible service needs its https addre
 const ANSWER_PARTS = new Set(['text-delta', 'reasoning-delta', 'tool-call', 'tool-input-start', 'error', 'source']);
 const NOT_A_MODEL = 'The server answered, but not as a model: no words, no tool calls.';
 
+/** isCloudProvider for a value already known to be a provider. */
 function isCloud(provider: ChatProvider): provider is CloudProvider {
   return (CLOUD as readonly string[]).includes(provider);
 }
 
+/** An http(s) address without user info: the only kind a local server may have. */
 function httpEndpoint(value: string | undefined): boolean {
   if (!value) return false;
   try {
@@ -90,9 +99,11 @@ function httpsCloudEndpoint(value: string | undefined): boolean {
   }
 }
 
+/** Where a held key came from: pasted this session, the OS password store, or the owner-only key file. */
 export type KeySource = 'none' | 'session' | 'os' | 'file';
 type HeldSource = Exclude<KeySource, 'none'>;
 
+/** How one turn is streamed; agent/turn.ts fills it from the preferences and the turn. */
 export interface StreamOptions {
   /** Upper bound on model steps. Each tool round trip is one step. Clamped to the preferences range. */
   maxSteps?: number;
@@ -104,7 +115,10 @@ export interface StreamOptions {
   allowFetchPage?: boolean;
   /** The turn already offers the reduced tool set for a small context window; said in the notice and the log. */
   compact?: boolean;
-  /** Each address a provider-run web search cited (a `source` part), so the page reader may open it later. */
+  /**
+   * Called with each address a provider-run web search cited (a `source` part). agent/turn.ts passes none: cited
+   * addresses are not added to what the page reader may open (see links.ts).
+   */
   onSource?: (url: string) => void;
   /** What the turn is for, written at the top of its record in the model conversation log. */
   trace?: Pick<TurnMeta, 'intent' | 'language' | 'runId' | 'projectId' | 'app'> & {
@@ -118,6 +132,7 @@ export interface StreamOptions {
 /** The loop stops after this many failed or conflicted tool results in a row. */
 export const FAILURE_STREAK_LIMIT = 3;
 
+/** One message of the dialog as the turn passes it in. */
 type StreamMessage = { role: 'system' | 'user' | 'assistant'; content: string };
 
 /** One turn's watch on a local server: the size of its first request and the window the model was loaded with. */
@@ -138,9 +153,11 @@ export function dropEmptyAssistant(messages: StreamMessage[]): StreamMessage[] {
 }
 
 
+// The step limit's range, the same as the preference allows.
 export const MAX_STEPS_FLOOR = STEP_LIMIT.min;
 export const MAX_STEPS_CEILING = STEP_LIMIT.max;
 
+/** The step limit of a turn: the preference within its range, the default when it is not a number. */
 export function clampSteps(value: number | undefined): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) return STEP_LIMIT.default;
   return Math.max(MAX_STEPS_FLOOR, Math.min(MAX_STEPS_CEILING, Math.round(value)));
@@ -148,6 +165,7 @@ export function clampSteps(value: number | undefined): number {
 
 /** Why a turn stopped before the model finished: the step checkpoint or the failure-streak guard. */
 export type PauseReason = 'step-limit' | 'failure-streak';
+/** The content of a 'turn-paused' chunk: why, after how many steps, and that Continue is offered. */
 export interface TurnPaused { reason: PauseReason; steps: number; canContinue: true; failures?: number }
 
 /**
@@ -179,6 +197,7 @@ export interface ProbeDraft {
   baseURL?: unknown;
 }
 
+/** What "Check connection" shows: the time the answer took, or a redacted error. */
 export type ProbeResult =
   | { ok: true; latencyMs: number; provider: string; model: string; /** The window the server loaded the model with, when it says. */ contextTokens?: number }
   | { ok: false; error: string; latencyMs: number | null };
@@ -196,6 +215,7 @@ let localContextWatcher: LocalContextWatcher | null = null;
  * keep Node's fetch. Your own server is always asked directly.
  */
 let transport: typeof fetch = (...args) => globalThis.fetch(...args);
+/** Sets the fetch for cloud requests (llm/network.ts, at start and after each settings save). */
 export function configureTransport(fetchImpl: typeof fetch): void {
   transport = fetchImpl;
 }
@@ -205,9 +225,11 @@ export function configureTransport(fetchImpl: typeof fetch): void {
  * connection would not get through.
  */
 let searchTransport: (url: string) => Promise<typeof fetch | undefined> = async () => undefined;
+/** Sets how the web search picks its fetch (llm/network.ts). */
 export function configureSearchTransport(pick: (url: string) => Promise<typeof fetch | undefined>): void {
   searchTransport = pick;
 }
+/** The fetch the web search should use for `url`, or undefined to connect itself. Never throws. */
 export function webSearchTransport(url: string): Promise<typeof fetch | undefined> {
   return searchTransport(url).catch(() => undefined);
 }
@@ -215,6 +237,7 @@ export function webSearchTransport(url: string): Promise<typeof fetch | undefine
 export function cloudTransport(): typeof fetch {
   return transport;
 }
+/** Sets the local window watcher (main/index.ts, at start). */
 export function configureLocalContext(watcher: LocalContextWatcher | null): void {
   localContextWatcher = watcher;
 }
@@ -230,6 +253,7 @@ export interface ContextNotice extends ContextFit {
 /** One tiny generation. Injected in tests so nothing leaves the process there. */
 export type ProbeGenerate = (input: { model: LanguageModel; abortSignal: AbortSignal }) => Promise<unknown>;
 
+/** A check that takes longer than this counts as no answer; a cold local model may need a while to load. */
 const PROBE_TIMEOUT_MS = 20_000;
 
 const defaultProbeGenerate: ProbeGenerate = ({ model, abortSignal }) => generateText({
@@ -254,6 +278,7 @@ export function redactProbeError(message: string, secrets: Array<string | null |
   return text.replace(/\s+/g, ' ').trim().slice(0, 300) || 'The provider did not answer.';
 }
 
+/** The service; the app uses the one instance, mainLLMService. */
 class MainLLMService {
   private config: LLMConfig | null = null;
   /**
@@ -266,6 +291,7 @@ class MainLLMService {
   /** 'tight' notices already shown, by "origin|model|window": said once per run, not on every turn. */
   private tightSaid = new Set<string>();
 
+  /** "origin|model" for a local runtime, the key of the window maps; null for anything else. */
   private windowKey(config: LLMConfig | null): string | null {
     if (!config || config.provider !== 'local') return null;
     const origin = originOf(config.baseURL);
@@ -304,6 +330,7 @@ class MainLLMService {
     const base = typeof draft.baseURL === 'string' ? draft.baseURL.trim() : '';
     const model = typeof draft.model === 'string' ? draft.model.trim() : '';
     if (knownProvider(draft.provider) !== 'local' || !httpEndpoint(base) || model === '') return { ok: false, error: 'Local model has no endpoint.' };
+    // The copy's window stays in a sane range: 4k to 256k tokens.
     const size = Math.max(4096, Math.min(262_144, Math.round(window)));
     return createWindowVariant(base, model, size, fetchImpl);
   }
@@ -315,6 +342,7 @@ class MainLLMService {
     const config = this.config;
     return config ? this.listedWindows.get(`${config.provider}|${config.model.trim()}`) ?? null : null;
   }
+  /** Keeps the windows a model list named and passes the list on unchanged. */
   private rememberListed(provider: string, result: ModelListResult): ModelListResult {
     if (result.ok) for (const model of result.models) if (model.contextLength) this.listedWindows.set(`${provider}|${model.id}`, model.contextLength);
     return result;
@@ -322,6 +350,7 @@ class MainLLMService {
 
   /** OpenAI organization and project for a key that belongs to several (Settings ▸ Assistant); empty: none sent. */
   private openaiAccount: { organization: string; project: string } = { organization: '', project: '' };
+  /** Sets the organization and project (llm/network.ts); anything that is not a plain id is dropped. */
   setOpenAiAccount(account: { organization?: string; project?: string }): void {
     const clean = (value: unknown) => (typeof value === 'string' && /^[A-Za-z0-9_-]{1,200}$/.test(value.trim()) ? value.trim() : '');
     this.openaiAccount = { organization: clean(account.organization), project: clean(account.project) };
@@ -358,6 +387,7 @@ class MainLLMService {
     };
   }
 
+  /** Holds or (with an empty value or no address) forgets one provider's key, bound to its address. */
   private hold(provider: unknown, value: unknown, source: HeldSource, origin?: string | null): { held: boolean; source: KeySource } {
     if (!isKeyProvider(provider)) return { held: false, source: 'none' };
     const bound = origin === undefined ? officialOrigin(provider) : origin;
@@ -460,6 +490,7 @@ class MainLLMService {
     return this.blockFor(this.config);
   }
 
+  /** The send rules for any runtime (the held one, or a draft being checked); null when a send may go. */
   private blockFor(config: LLMConfig | null): string | null {
     if (!config) return 'Model not configured';
     const { provider } = config;
@@ -508,6 +539,7 @@ class MainLLMService {
     try {
       await generate({ model, abortSignal: controller.signal });
       const latencyMs = Math.max(0, Math.round(now() - started));
+      // The answer is in: give the watcher at most 0.7 s more to report the window.
       const contextTokens = watch ? await Promise.race([watch, new Promise<null>((resolve) => setTimeout(() => resolve(null), 700))]) : null;
       if (contextTokens !== null) {
         const key = this.windowKey(config);
@@ -566,6 +598,7 @@ class MainLLMService {
     }
   }
 
+  /** The runtime the next send uses, with empty strings when none is set. Never a key. */
   nextSendConfig(): ChatRuntimeConfig {
     if (!this.config) return { provider: '', model: '', baseURL: '' };
     return {
@@ -575,6 +608,7 @@ class MainLLMService {
     };
   }
 
+  /** The address a cloud request goes to: the typed https one, else the official one; null when neither may be used. */
   private cloudBase(provider: CloudProvider, config: LLMConfig | null = this.config): string | null {
     if (!httpsCloudEndpoint(config?.baseURL)) return null;
     const typed = config?.baseURL?.trim() ?? '';
@@ -595,6 +629,7 @@ class MainLLMService {
     return this.modelFor(this.config, fetchImpl);
   }
 
+  /** The AI SDK model for a runtime, with the key that belongs to its address; null when it cannot be built. */
   private modelFor(config: LLMConfig, fetchImpl?: typeof fetch): LanguageModel | null {
     const { provider, model } = config;
 
@@ -655,6 +690,11 @@ class MainLLMService {
     return createGoogleGenerativeAI({ apiKey: '' }).tools.googleSearch({});
   }
 
+  /**
+   * One turn: the system messages become the instructions, the rest the dialog, and the model may call the tools
+   * for up to the step limit. Yields the forwarded stream parts plus the app's own chunks ('trace', 'notice',
+   * 'usage', 'turn-paused'); throws when the send is blocked or the provider fails before streaming.
+   */
   async* streamChatWithTools(
     messages: StreamMessage[],
     tools: Record<string, any>,
@@ -695,6 +735,7 @@ class MainLLMService {
     const recording = trace?.fetch;
     const wire: typeof fetch | undefined = local && config?.baseURL
       ? (input, init) => {
+        // The first request's size, and a watcher started with it (the model loads when the request arrives).
         if (local.requestChars === 0 && typeof init?.body === 'string') local.requestChars = init.body.length;
         if (!local.window && localContextWatcher) local.window = localContextWatcher(config.baseURL as string, config.model, local.stop.signal).catch(() => null);
         return (recording ?? globalThis.fetch)(input, init);
@@ -775,6 +816,7 @@ class MainLLMService {
     return originOf(config.baseURL);
   }
 
+  /** Runs the AI SDK stream and turns its parts into the chunks the renderer reads. */
   private async* streamSteps(
     model: LanguageModel,
     text: string,
@@ -803,9 +845,11 @@ class MainLLMService {
         isStepCount(maxSteps),
         failureStreakReached(FAILURE_STREAK_LIMIT),
       ],
+      // One tool at a time: build steps commit in order, each against the revision the one before left.
       toolCallConcurrency: 1,
       abortSignal: options.abortSignal,
-      // No quick retries: a server that asks to wait (429) gets its wait, and the person gets "Повторить".
+      // No quick retries: a server that asks to wait (429) gets its wait, and the person gets the Retry button
+      // (catalog chat.retry).
       maxRetries: 0,
       // The SDK's default prints the whole error object. The chat gets the error as a stream part, the main log
       // gets one line at the turn's end, and the conversation log keeps the server's full answer.
@@ -887,9 +931,11 @@ class MainLLMService {
   /** Characters per token measured on the last send (the provider's input-token count of its first step), or null. */
   private measuredCharsPerToken: { model: string; ratio: number } | null = null;
 
+  /** Measures characters per token from the first step's input count, for the next history budget. */
   private noteUsage(messages: StreamMessage[], steps: ReadonlyArray<{ usage?: { inputTokens?: number } }>): void {
     const tokens = steps[0]?.usage?.inputTokens;
     const chars = messages.reduce((sum, message) => sum + message.content.length, 0);
+    // Too short a request says little about the ratio.
     if (typeof tokens !== 'number' || !Number.isFinite(tokens) || tokens < 200 || chars < 800) return;
     // Tool schemas also count as input tokens, so the measure leans low; clamp to a sane range.
     const ratio = Math.max(2, Math.min(6, chars / tokens));
@@ -920,6 +966,7 @@ export interface TurnUsage {
   billed: boolean;
 }
 
+/** The usage of a turn from its steps, or null when no step counted anything. */
 export function turnUsage(config: { provider: string; model: string } | null, steps: ReadonlyArray<{ usage?: { inputTokens?: number; outputTokens?: number } }>): TurnUsage | null {
   if (!config) return null;
   let input = 0;
@@ -947,6 +994,7 @@ export function turnUsage(config: { provider: string; model: string } | null, st
 /** Whether a provider error is a 401 or 403, the answer of a server that wants a key. */
 export function refusedForKey(error: unknown): boolean {
   let current: unknown = error;
+  // The SDK wraps errors (a retry error around the last one, a cause chain): look a few levels down.
   for (let depth = 0; depth < 5 && current && typeof current === 'object'; depth += 1) {
     const status = (current as { statusCode?: unknown; status?: unknown }).statusCode ?? (current as { status?: unknown }).status;
     if (status === 401 || status === 403) return true;
@@ -956,4 +1004,5 @@ export function refusedForKey(error: unknown): boolean {
 }
 
 export { MainLLMService };
+/** The one service of the app. */
 export const mainLLMService = new MainLLMService();

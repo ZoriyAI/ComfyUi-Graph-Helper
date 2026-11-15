@@ -1,8 +1,3 @@
-import * as fs from 'fs';
-import * as path from 'path';
-import { randomBytes } from 'crypto';
-import { createTranslator } from '../../shared/i18n';
-
 /**
  * The model conversation log: what the app sent to a model (local or cloud) and what came back, one file per
  * turn under `<logs>/model/`, one JSON object per line. It exists so a person can hand a failed or odd answer to
@@ -16,8 +11,17 @@ import { createTranslator } from '../../shared/i18n';
  *   The folder, each record and each saved file are readable by the owner only.
  * - It is bounded: one text is capped, one turn is capped, the folder is capped by size and by count.
  * Pure Node (no Electron import), so tests can drive it.
+ *
+ * Who uses it: main/index.ts configures it at start; agent/turn.ts, agent/buildTools.ts, llmService.ts and
+ * llm/localContextStore.ts record turns; ipc/agentIpc.ts and ipc/diagnosticsIpc.ts serve the log window
+ * (list, read, copy report, export, clear).
  */
+import * as fs from 'fs';
+import * as path from 'path';
+import { randomBytes } from 'crypto';
+import { createTranslator } from '../../shared/i18n';
 
+/** Hides secrets in a text before it is written (main/index.ts passes the app's redactor). */
 export type Redact = (text: string) => string;
 
 /** One captured text (a prompt, a body): longer ones are cut and say how long they were. */
@@ -26,13 +30,16 @@ export const TEXT_CAP = 2_000_000;
 export const TURN_CAP_BYTES = 30 * 1024 * 1024;
 /** The folder keeps at most this much, oldest turns removed first. */
 export const FOLDER_CAP_BYTES = 150 * 1024 * 1024;
+/** The folder keeps at most this many turn files. */
 export const FOLDER_CAP_FILES = 300;
+/** The subfolder of the log folder that holds the turn files. */
 export const TRACE_FOLDER = 'model';
 const FILE_PREFIX = 'turn-';
 const FILE_SUFFIX = '.jsonl';
 /** Response headers worth keeping: ids for the provider's support, rate limits, timing. Never a credential. */
 const RESPONSE_HEADERS = /^(content-type|x-request-id|request-id|retry-after|openai-processing-ms|x-ratelimit-.*|anthropic-ratelimit-.*)$/i;
 
+/** Setup for the log; the optional caps and clock exist so tests can use small numbers and a fixed time. */
 export interface TraceConfig {
   /** The log folder (`<userData>/logs`); turns go into its `model` subfolder. */
   dir: string;
@@ -48,6 +55,7 @@ export interface TraceConfig {
   transport?: typeof fetch;
 }
 
+/** What the first line of a turn file says about the turn: who answered it and in which mode. */
 export interface TurnMeta {
   provider: string;
   model: string;
@@ -62,6 +70,7 @@ export interface TurnMeta {
   platform?: string;
 }
 
+/** One row of the log window's list of turns, read from the first and last lines of a file. */
 export interface TraceSummary {
   id: string;
   startedAt: number;
@@ -82,8 +91,10 @@ export interface TraceSummary {
   question: string;
 }
 
+/** One line of a turn file: `t` is milliseconds since the turn started, `type` names the event. */
 export type TraceEvent = { t: number; type: string } & Record<string, unknown>;
 
+/** The active setup, with defaults filled in; null until configureModelTrace runs (the log is then off). */
 let config: (Required<Pick<TraceConfig, 'dir' | 'redact' | 'enabled'>> & {
   now: () => number;
   folderCapBytes: number;
@@ -93,6 +104,7 @@ let config: (Required<Pick<TraceConfig, 'dir' | 'redact' | 'enabled'>> & {
   transport?: typeof fetch;
 }) | null = null;
 
+/** Sets up the log; called once by main/index.ts, and by tests with a temporary folder. */
 export function configureModelTrace(options: TraceConfig): void {
   config = {
     dir: path.join(options.dir, TRACE_FOLDER),
@@ -112,6 +124,7 @@ export function traceDir(): string | null {
   return config?.dir ?? null;
 }
 
+/** The file of a turn id, or null when the id is not one this log makes (so no path can be smuggled in). */
 function fileOf(id: string): string | null {
   if (!config || !/^[0-9A-Za-z-]{8,64}$/.test(id)) return null;
   return path.join(config.dir, `${FILE_PREFIX}${id}${FILE_SUFFIX}`);
@@ -121,6 +134,7 @@ function two(value: number): string {
   return String(value).padStart(2, '0');
 }
 
+/** A turn id: the UTC start time, so names sort by time, plus a random tail so two turns in a second differ. */
 function newId(now: number): string {
   const date = new Date(now);
   const stamp = `${date.getUTCFullYear()}${two(date.getUTCMonth() + 1)}${two(date.getUTCDate())}-${two(date.getUTCHours())}${two(date.getUTCMinutes())}${two(date.getUTCSeconds())}`;
@@ -137,6 +151,7 @@ export function originOf(url: string | null | undefined): string {
   }
 }
 
+/** The turn files in the folder, oldest first, with their sizes. */
 function turnFiles(dir: string): Array<{ name: string; file: string; bytes: number; mtime: number }> {
   let names: string[] = [];
   try {
@@ -178,6 +193,7 @@ function prune(keep: string | null): void {
   }
 }
 
+/** The parts of an error worth keeping (name, message, HTTP status, server body, network code), all redacted. */
 function errorFields(error: unknown, redact: Redact, cap: number): Record<string, unknown> {
   if (!error || typeof error !== 'object') return { message: redact(String(error ?? '')).slice(0, cap) };
   const record = error as Record<string, unknown>;
@@ -223,12 +239,14 @@ export class TurnTrace {
     this.write('turn-start', { id: this.id, startedAt: new Date(this.started).toISOString(), ...meta, baseUrl: originOf(meta.baseUrl) || meta.baseUrl });
   }
 
+  /** Redacts a text and cuts it at the text cap, saying how long it was. */
   private clip(value: string): string {
     const cap = this.options.textCap;
     const redacted = this.options.redact(value);
     return redacted.length > cap ? `${redacted.slice(0, cap)}…[cut: ${redacted.length} characters in all]` : redacted;
   }
 
+  /** A value for the file: strings clipped, objects redacted through their JSON text. */
   private safe(value: unknown): unknown {
     if (typeof value === 'string') return this.clip(value);
     if (value === undefined) return undefined;
@@ -243,6 +261,7 @@ export class TurnTrace {
     }
   }
 
+  /** Appends one line. `body` marks a large event that is dropped once the turn passed its size cap. */
   private write(type: string, data: Record<string, unknown>, body = false): void {
     if (this.ended && type !== 'turn-end') return;
     // Past the cap the turn keeps its small events and drops bodies, so the end is always readable.
@@ -279,6 +298,7 @@ export class TurnTrace {
     }, true);
   }
 
+  /** Writes the reasoning and text gathered since the last flush as one line each. */
   private flushText(): void {
     if (this.reasoning !== '') {
       this.write('reasoning', { step: this.step, text: this.clip(this.reasoning) }, true);
@@ -321,6 +341,7 @@ export class TurnTrace {
         break;
       case 'tool-result': {
         const output = part.output as { success?: unknown; conflict?: unknown } | undefined;
+        // The app's tools report failure in their result object, not by throwing; a conflict counts as a failure too.
         const failed = Boolean(output && typeof output === 'object' && (output.success === false || output.conflict === true));
         this.write('tool-result', { step: this.step, id: part.toolCallId, name: part.toolName, ok: !failed, output: this.safe(part.output) }, true);
         break;
@@ -391,7 +412,9 @@ export class TurnTrace {
     } catch {
       url = '';
     }
+    // The AI SDK sends JSON text bodies; any other body kind is noted as absent rather than read.
     const body = typeof init?.body === 'string' ? init.body : null;
+    // A request belongs to the step about to start: the start-step part arrives only after the request is sent.
     this.write('wire-request', { step: this.step + 1, method: init?.method ?? 'GET', url, bodyChars: body?.length ?? null, body: body === null ? null : this.clip(body) }, true);
     let response: Response;
     try {
@@ -450,9 +473,11 @@ export class TurnTrace {
   async finish(outcome: 'ok' | 'paused' | 'cancelled' | 'error', extra: Record<string, unknown> = {}): Promise<void> {
     if (this.ended) return;
     this.flushText();
+    // 1.5 s at most: a body still streaming after that is not worth holding the end of the turn for.
     await Promise.race([Promise.allSettled(this.pending), new Promise((resolve) => setTimeout(resolve, 1500))]);
     const ms = this.options.now() - this.started;
     this.write('turn-end', {
+      // A turn whose stream reported an error is not "ok", whatever the caller concluded.
       outcome: this.lastError && outcome === 'ok' ? 'error' : outcome,
       steps: this.steps,
       toolCalls: this.toolCalls,
@@ -493,6 +518,7 @@ export function startTurnTrace(meta: TurnMeta): TurnTrace | null {
     // Owner only, whatever the profile folder allows: records hold the person's prompts and graph values.
     fs.mkdirSync(config.dir, { recursive: true, mode: 0o700 });
     const trace = new TurnTrace(config, meta);
+    // Pruned at every turn start, so the folder never grows past its caps by more than the turn being written.
     prune(trace.file);
     return trace;
   } catch {
@@ -500,6 +526,7 @@ export function startTurnTrace(meta: TurnMeta): TurnTrace | null {
   }
 }
 
+/** The events of a piece of a turn file, one per line; partial or broken lines are skipped. */
 function parseLines(text: string): TraceEvent[] {
   const events: TraceEvent[] = [];
   for (const line of text.split('\n')) {
@@ -525,6 +552,7 @@ export function readTurnTrace(id: string): TraceEvent[] | null {
   }
 }
 
+/** The first `bytes` bytes of a file, so a list never reads whole bodies. */
 function readHead(file: string, bytes: number): string {
   const fd = fs.openSync(file, 'r');
   try {
@@ -536,6 +564,7 @@ function readHead(file: string, bytes: number): string {
   }
 }
 
+/** The last `bytes` bytes of a file of `size` bytes; the first line may be cut, and parseLines skips it. */
 function readTail(file: string, size: number, bytes: number): string {
   const fd = fs.openSync(file, 'r');
   try {
@@ -646,6 +675,7 @@ export function exportTurnTraces(
   return { bytes, turns };
 }
 
+/** The interface languages the copied report can be written in. */
 type ReportLanguage = 'ru' | 'en';
 
 /** The words of the copied report, in the interface language (catalog modelLog.report). */
@@ -655,18 +685,15 @@ function reportWords(language: ReportLanguage) {
   return { ...words, more: (n: number) => t('modelLog.report.more', { count: n }) };
 }
 
+/** Every key under modelLog.report in the catalog that the report uses. */
 const REPORT_KEYS = ['turn', 'model', 'mode', 'language', 'stepLimit', 'app', 'system', 'started', 'outcome', 'steps', 'toolCalls', 'tokensIn', 'out', 'time', 'ms', 'error', 'unfinished', 'given', 'systemText', 'chars', 'messages', 'tools', 'toolList', 'systemStart', 'dialog', 'stepsTitle', 'step', 'reasoning', 'modelText', 'call', 'result', 'failed', 'ok', 'toolError', 'stepEnd', 'tokensStep', 'firstToken', 'served', 'errorBold', 'network', 'request', 'counted', 'compact', 'noWindow', 'need', 'tokens', 'window', 'cut', 'tight', 'fits', 'truncated', 'abort', 'requests', 'answer', 'footer'] as const;
 
+/** A value as text cut to `cap` characters, with a note of how many more there were. */
 function cut(value: unknown, cap: number, w: ReturnType<typeof reportWords> = reportWords('ru')): string {
   const text = typeof value === 'string' ? value : JSON.stringify(value) ?? '';
   return text.length > cap ? `${text.slice(0, cap)}… ${w.more(text.length - cap)}` : text;
 }
 
-/**
- * A short report of one turn for pasting into a chat: what was asked, what the model was given (sizes and the
- * start of the system text), each step with its text, tool calls and results cut to readable lengths, errors in
- * full, tokens and timings. The whole detail stays in the exported file. It is written in the interface language.
- */
 /** A recorded value named in the interface language with the words the log window uses; unknown values stay as they are. */
 function catalogWord(language: ReportLanguage, group: 'intent' | 'outcome', value: unknown): string {
   const raw = String(value ?? '');
@@ -678,6 +705,11 @@ function catalogWord(language: ReportLanguage, group: 'intent' | 'outcome', valu
   return text && text !== key ? text : raw;
 }
 
+/**
+ * A short report of one turn for pasting into a chat: what was asked, what the model was given (sizes and the
+ * start of the system text), each step with its text, tool calls and results cut to readable lengths, errors in
+ * full, tokens and timings. The whole detail stays in the exported file. It is written in the interface language.
+ */
 export function turnReport(events: TraceEvent[], language: ReportLanguage = 'ru'): string {
   const w = reportWords(language === 'en' ? 'en' : 'ru');
   const c = (value: unknown, cap: number) => cut(value, cap, w);
@@ -703,6 +735,7 @@ export function turnReport(events: TraceEvent[], language: ReportLanguage = 'ru'
     lines.push(`- ${w.toolList}: ${tools.join(', ') || '—'}`);
     lines.push('', `### ${w.systemStart}`, '```', c(prompt.system, 3000), '```');
     lines.push('', `### ${w.dialog}`);
+    // The last eight messages: the start of a long dialog says little about why this turn went wrong.
     for (const message of messages.slice(-8)) lines.push(`**${String(message.role)}:** ${c(message.content ?? '', 1500)}`, '');
   }
   lines.push(`## ${w.stepsTitle}`);
@@ -720,6 +753,7 @@ export function turnReport(events: TraceEvent[], language: ReportLanguage = 'ru'
       lines.push(`- **${w.errorBold}**${event.status ? ` HTTP ${String(event.status)}` : ''}: ${c(event.message ?? '', 3000)}`);
       if (event.responseBody) lines.push('```', c(event.responseBody, 3000), '```');
     } else if (event.type === 'wire-error') lines.push(`- **${w.network}**: ${c(event.message ?? event.code ?? '', 1000)} (${String(event.url ?? '')})`);
+    // A 'context' note (written by llmService.ts) tells whether the request fit the local model's context window.
     else if (event.type === 'context') {
       const size = event.requestChars === undefined ? '' : `${w.request} ${String(event.requestChars)} ${w.chars}, `;
       const counted = typeof event.counted === 'number' ? `; ${w.counted} ${String(event.counted)}` : '';
