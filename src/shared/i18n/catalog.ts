@@ -2654,6 +2654,7 @@ export const en = {
     usageLine: '{{input, number}} tokens sent, {{output, number}} received',
     usageCost: 'about {{cost}}',
     usageCostUnknown: 'price unknown',
+  },
   // LESSON FILES: lessons as files (My lessons, import, export, the lesson editor, the assistant's lesson drafts).
   lessonFiles: {
     dialog: {
@@ -2725,6 +2726,8 @@ export const en = {
       roleTwice: 'In lesson "{{lesson}}", step "{{step}}" adds the node "{{role}}" a second time.',
       badRange: 'In lesson "{{lesson}}", step "{{step}}" asks for a range of "{{field}}" that is empty.',
       nothingToDo: 'Lesson "{{lesson}}" only explains: it has no step to do.',
+      unknownFileKind: 'In lesson "{{lesson}}", step "{{step}}" asks for a kind of model file in "{{field}}" that this app does not know.',
+      rules: 'Lesson "{{lesson}}" breaks a rule of lessons: {{detail}}',
     },
     tried: {
       noClass: 'Step "{{step}}" of "{{lesson}}" cannot be done: none of the nodes it asks for is there.',
@@ -5464,6 +5467,7 @@ export const ru = {
     usageLine: 'отправлено {{input, number}} токенов, получено {{output, number}}',
     usageCost: 'около {{cost}}',
     usageCostUnknown: 'цена неизвестна',
+  },
   // LESSON FILES: уроки как файлы (Мои уроки, импорт, экспорт, редактор урока, черновики уроков от помощника).
   lessonFiles: {
     dialog: {
@@ -5535,6 +5539,8 @@ export const ru = {
       roleTwice: 'В уроке «{{lesson}}» шаг «{{step}}» добавляет ноду «{{role}}» второй раз.',
       badRange: 'В уроке «{{lesson}}» шаг «{{step}}» просит для «{{field}}» пустой диапазон.',
       nothingToDo: 'Урок «{{lesson}}» только объясняет: в нём нет ни одного шага, который нужно сделать.',
+      unknownFileKind: 'В уроке «{{lesson}}» шаг «{{step}}» просит в поле «{{field}}» вид файла модели, которого это приложение не знает.',
+      rules: 'Урок «{{lesson}}» нарушает правило уроков (по-английски): {{detail}}',
     },
     tried: {
       noClass: 'Шаг «{{step}}» урока «{{lesson}}» нельзя выполнить: ни одной из нужных нод нет.',

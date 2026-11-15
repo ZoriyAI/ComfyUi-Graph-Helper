@@ -15,12 +15,13 @@ import { useTranslation } from 'react-i18next';
 import { ArrowRight, BookOpen, Download, FileUp, Lock, Pencil, RotateCcw, Settings, ShieldAlert, Trash2, Wand2 } from 'lucide-react';
 import { lessonGaps, lessonProgress, rolesOf, type ClassPorts, type LessonFacts, type LessonGraph } from '../../../shared/lessons/engine';
 import { fitLines, packOf } from '../../../shared/lessons/fit';
-import { docWords } from '../../../shared/lessons/files/format';
-import { isAdultMine, myEngineLesson, type MyLesson } from '../../../shared/lessons/files/mine';
+import { docWords } from '../../../shared/lessons/share/format';
+import { isAdultMine, myEngineLesson, type MyLesson } from '../../../shared/lessons/share/mine';
 import type { NodeClassDetail } from '../../../shared/contracts/knowledge';
 import { useLessonStore } from '../../state/lessonState';
 import { useMyLessonsStore } from '../../state/myLessonsState';
 import { useUiStore } from '../../state/uiState';
+import { openHelp } from '../../services/help';
 import Badge from '../../ui/Badge';
 import Button from '../../ui/Button';
 import IconButton from '../../ui/IconButton';
@@ -125,7 +126,7 @@ export function MyLessonNotice({ lessonId }: { lessonId: string }) {
       {lesson.doc.source ? <p className={panel.cardMeta}>{t('lessonFiles.source', { source: lesson.doc.source })}</p> : null}
       <p className={panel.cardMeta}>
         {t('lessonFiles.rules')}{' '}
-        <Button variant="ghost" size="sm" className={styles.inline} icon={<BookOpen size={14} />} onClick={() => useUiStore.getState().setDialog('help-content')}>{t('lessonFiles.rulesOpen')}</Button>
+        <Button variant="ghost" size="sm" className={styles.inline} icon={<BookOpen size={14} />} onClick={() => openHelp('content-rules')}>{t('lessonFiles.rulesOpen')}</Button>
       </p>
     </div>
   );

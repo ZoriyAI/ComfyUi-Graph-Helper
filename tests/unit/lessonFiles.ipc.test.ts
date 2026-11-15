@@ -15,8 +15,8 @@ vi.mock('electron', () => ({ app: { getPath: () => '/nowhere' }, dialog }));
 import { registerLessonsIpc, withLessonExtension } from '../../src/main/lessons/lessonsIpc';
 import { lessonDrafts } from '../../src/main/lessons/drafts';
 import { IPC_CHANNELS } from '../../src/shared/ipc-channels';
-import { LESSON_FILE_FORMAT, LESSON_FILE_VERSION, readLessonFileText } from '../../src/shared/lessons/files/format';
-import { builtinGroupFile } from '../../src/shared/lessons/files/builtin';
+import { LESSON_FILE_FORMAT, LESSON_FILE_VERSION, readLessonFileText } from '../../src/shared/lessons/share/format';
+import { builtinGroupFile } from '../../src/shared/lessons/share/builtin';
 import { sampleDoc } from '../fixtures/lessons/sampleLesson';
 
 type Handler = (event: unknown, ...args: unknown[]) => unknown;

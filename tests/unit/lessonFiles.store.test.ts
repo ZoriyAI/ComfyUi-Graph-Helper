@@ -9,9 +9,9 @@ import * as os from 'os';
 import * as path from 'path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { importLessonText, listMyLessons, markMyLessonAdult, removeMyLesson, writeMyLesson } from '../../src/main/lessons/store';
-import { LESSON_FILE_FORMAT, LESSON_FILE_VERSION } from '../../src/shared/lessons/files/format';
-import { isAdultMine, myEngineLesson, MY_LESSONS_MAX } from '../../src/shared/lessons/files/mine';
-import { builtinLessonDoc } from '../../src/shared/lessons/files/builtin';
+import { LESSON_FILE_FORMAT, LESSON_FILE_VERSION } from '../../src/shared/lessons/share/format';
+import { isAdultMine, myEngineLesson, MY_LESSONS_MAX } from '../../src/shared/lessons/share/mine';
+import { builtinLessonDoc } from '../../src/shared/lessons/share/builtin';
 import { lessonById } from '../../src/shared/lessons/lessons';
 import { sampleDoc } from '../fixtures/lessons/sampleLesson';
 

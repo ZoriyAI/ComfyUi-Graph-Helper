@@ -9,9 +9,9 @@
 
 import { create } from 'zustand';
 import type { Lesson } from '../../shared/lessons/engine';
-import { docWords } from '../../shared/lessons/files/format';
-import type { LessonDraftModel } from '../../shared/lessons/files/authoring';
-import { isAdultMine, isMyLessonId, myEngineLesson, type MyLesson } from '../../shared/lessons/files/mine';
+import { docWords } from '../../shared/lessons/share/format';
+import type { LessonDraftModel } from '../../shared/lessons/share/authoring';
+import { isAdultMine, isMyLessonId, myEngineLesson, type MyLesson } from '../../shared/lessons/share/mine';
 import type { LessonWords } from '../../shared/lessons/texts';
 
 /** The lesson the editor holds: a new one made from the graph, or one of "My lessons" being changed. */

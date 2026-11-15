@@ -14,8 +14,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { writeFileAtomic } from '../files/atomicWrite';
-import { LESSON_LIMITS, lessonFileName, readLessonFileText, type LessonDoc } from '../../shared/lessons/files/format';
-import { checkLessonDoc, docIdOf, myLessonId, readStoredRecord, roomFor, safeFileName, storedRecord, type LessonImportOutcome, type LessonOrigin, type MyLesson } from '../../shared/lessons/files/mine';
+import { LESSON_LIMITS, lessonFileName, readLessonFileText, type LessonDoc } from '../../shared/lessons/share/format';
+import { checkLessonDoc, docIdOf, myLessonId, readStoredRecord, roomFor, safeFileName, storedRecord, type LessonImportOutcome, type LessonOrigin, type MyLesson } from '../../shared/lessons/share/mine';
 
 /** The folder of a profile that holds the person's lessons. */
 export function lessonsFolder(userData: string): string {

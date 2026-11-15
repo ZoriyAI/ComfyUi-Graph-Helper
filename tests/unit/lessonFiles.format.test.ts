@@ -14,8 +14,8 @@ import {
   lessonFileName,
   readLessonFile,
   readLessonFileText,
-} from '../../src/shared/lessons/files/format';
-import { lessonShapes, tryLesson } from '../../src/shared/lessons/files/tryLesson';
+} from '../../src/shared/lessons/share/format';
+import { lessonShapes, tryLesson } from '../../src/shared/lessons/share/tryLesson';
 import { sampleDoc } from '../fixtures/lessons/sampleLesson';
 
 const file = (lessons: unknown[], extra: Record<string, unknown> = {}) => ({ format: LESSON_FILE_FORMAT, version: LESSON_FILE_VERSION, lessons, ...extra });
@@ -118,6 +118,21 @@ describe('reading a lesson file', () => {
     expect(readLessonFile(file([prefer]))).toMatchObject({ ok: false, problem: { code: 'bad-range' } });
     const reading = sampleDoc({ steps: [{ id: 'intro', read: true }], texts: { en: { title: 'Only words', result: '', steps: { intro: { title: 'Hi', body: '' } } } } });
     expect(readLessonFile(file([reading]))).toEqual({ ok: false, problem: { code: 'nothing-to-do', lesson: 'my-first' } });
+  });
+
+  it('holds a file to the kinds of model file the app knows and the reasons the app has written', () => {
+    const known = sampleDoc();
+    known.steps[1].fields![0].test = { kind: 'file', want: { kind: 'imageCheckpoint', notFamilies: ['wan2.1', 'wan2.2', 'ltx2', 'hunyuan'], folder: 'checkpoints', example: 'juggernautXL_v9.safetensors' } };
+    expect(readLessonFile(file([known])).ok).toBe(true);
+    const invented = sampleDoc();
+    invented.steps[1].fields![0].test = { kind: 'file', want: { kind: 'anythingGoes', folder: 'checkpoints', example: 'x.safetensors' } };
+    expect(readLessonFile(file([invented]))).toMatchObject({ ok: false, problem: { code: 'unknown-file-kind', step: 'loader' } });
+    const changed = sampleDoc();
+    changed.steps[1].fields![0].test = { kind: 'file', want: { kind: 'imageCheckpoint', folder: '../../etc', example: 'x' } };
+    expect(readLessonFile(file([changed]))).toMatchObject({ ok: false, problem: { code: 'invalid' } });
+    const reason = sampleDoc();
+    reason.steps[2].fields![0].why = 'myOwnSentence';
+    expect(readLessonFile(file([reason]))).toMatchObject({ ok: false, problem: { code: 'rules', lesson: 'my-first' } });
   });
 
   it('reads a lesson in one language only', () => {

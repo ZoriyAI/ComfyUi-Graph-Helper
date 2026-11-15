@@ -3,7 +3,7 @@
  * the tests of lesson files: the format, the store in the profile, the editor and the assistant's draft tool.
  */
 
-import type { LessonDoc } from '../../../src/shared/lessons/files/format';
+import type { LessonDoc } from '../../../src/shared/lessons/share/format';
 
 /** A small lesson that holds together: a loader feeding a sampler, its file chosen. */
 export function sampleDoc(overrides: Partial<LessonDoc> = {}): LessonDoc {

@@ -14,7 +14,11 @@
  */
 
 import { z } from 'zod';
-import type { FieldTest, Lesson, LessonStep } from '../engine';
+import type { FieldSpec, FieldTest, Lesson, LessonStep, LinkSpec } from '../engine';
+import { BASE_MODEL_FAMILIES } from '../../knowledge/schemas';
+import { FILES, type FileWant } from '../files';
+import { REASONS_EN } from '../reasons.en';
+import { lessonProblems } from '../schema';
 
 /** What the file says it is; any other value is not a lesson file. */
 export const LESSON_FILE_FORMAT = 'graph-helper-for-comfyui/lessons';
@@ -65,13 +69,47 @@ const name = z.string().min(1).max(LESSON_LIMITS.name).regex(NAME);
 const text = (max: number) => z.string().max(max).regex(TEXT);
 const number = z.number().finite();
 
-/** A field rule, exactly the kinds engine.ts FieldTest knows. A new kind there needs its line here. */
+const fieldRef = z.object({ role, field: name }).strict();
+const families = z.array(z.enum(BASE_MODEL_FAMILIES)).max(32);
+const marks = z.array(z.string().min(1).max(60).regex(NAME)).max(32);
+
+/**
+ * A kind of model file (files.ts FileWant): data the engine compares file names and families with. A file may name
+ * a kind the app lists (files.ts FILES) or describe one by words, as a set's table does (wantFromWords); a kind
+ * without words that the app does not list has no sentence to tell a person, so it is refused.
+ */
+const fileWant = z.object({
+  kind: z.string().min(1).max(LESSON_LIMITS.id).regex(/^[A-Za-z][A-Za-z0-9]*$/),
+  families: families.optional(),
+  notFamilies: families.optional(),
+  marks: z.array(marks).max(32).optional(),
+  notMarks: marks.optional(),
+  example: text(LESSON_LIMITS.name),
+  folder: z.string().max(LESSON_LIMITS.name).regex(/^[A-Za-z0-9_-]*$/),
+  ext: z.string().max(16).regex(/^\.[A-Za-z0-9]+$/).optional(),
+  words: z.array(text(LESSON_LIMITS.name).min(1)).max(32).optional(),
+}).strict();
+
+/** A field rule, exactly the kinds engine.ts FieldTest knows. A new kind there needs its line here (the round-trip test fails until it has one). */
 const fieldTest = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('chosen') }).strict(),
   z.object({ kind: z.literal('weighted'), min: number, max: number }).strict(),
   z.object({ kind: z.literal('equals'), value: z.union([text(LESSON_LIMITS.value), number, z.boolean()]) }).strict(),
-  z.object({ kind: z.literal('between'), min: number, max: number, prefer: number.optional() }).strict(),
-  z.object({ kind: z.literal('text'), minChars: z.number().int().min(0).max(LESSON_LIMITS.body), has: z.array(z.string().min(1).max(40).regex(NAME)).max(LESSON_LIMITS.marks).optional() }).strict(),
+  z.object({ kind: z.literal('between'), min: number, max: number, prefer: number.optional(), frames: z.literal(true).optional() }).strict(),
+  z.object({
+    kind: z.literal('text'),
+    minChars: z.number().int().min(0).max(LESSON_LIMITS.body),
+    has: z.array(z.string().min(1).max(40).regex(NAME)).max(LESSON_LIMITS.marks).optional(),
+    words: z.number().int().min(0).max(1000).optional(),
+    english: z.literal(true).optional(),
+    notCopyOf: fieldRef.optional(),
+    noNegation: z.literal(true).optional(),
+  }).strict(),
+  z.object({ kind: z.literal('file'), want: fileWant }).strict(),
+  z.object({ kind: z.literal('sameFamily'), role, field: name }).strict(),
+  z.object({ kind: z.literal('less'), role, field: name }).strict(),
+  z.object({ kind: z.literal('size'), of: fieldRef }).strict(),
+  z.object({ kind: z.literal('aspect'), role }).strict(),
   z.object({
     kind: z.literal('has-trigger'),
     of: z.array(z.union([
@@ -83,12 +121,22 @@ const fieldTest = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('same'), role, field: name }).strict(),
 ]);
 
+const linkBase = { from: role, output: name, to: role, input: name, via: z.array(name).max(LESSON_LIMITS.via).optional() };
+
 const stepSchema = z.object({
   id,
   read: z.literal(true).optional(),
   roles: z.array(z.object({ role, classes: z.array(name).min(1).max(LESSON_LIMITS.classesPerRole) }).strict()).max(LESSON_LIMITS.rolesPerStep).optional(),
-  links: z.array(z.object({ from: role, output: name, to: role, input: name, via: z.array(name).max(LESSON_LIMITS.via).optional() }).strict()).max(LESSON_LIMITS.linksPerStep).optional(),
-  fields: z.array(z.object({ role, field: name, test: fieldTest }).strict()).max(LESSON_LIMITS.fieldsPerStep).optional(),
+  links: z.array(z.object({ ...linkBase, alt: z.array(z.object(linkBase).strict()).max(LESSON_LIMITS.marks).optional() }).strict()).max(LESSON_LIMITS.linksPerStep).optional(),
+  fields: z.array(z.object({
+    role,
+    field: name,
+    test: fieldTest,
+    /** The id of a reason the app has written (reasons.*.ts); a lesson file cannot bring sentences of its own there. */
+    why: z.string().min(1).max(LESSON_LIMITS.id).regex(/^[A-Za-z][A-Za-z0-9.-]*$/).optional(),
+    identifies: z.literal(true).optional(),
+    soft: z.literal(true).optional(),
+  }).strict()).max(LESSON_LIMITS.fieldsPerStep).optional(),
 }).strict();
 
 const wordsSchema = z.object({
@@ -147,7 +195,10 @@ export type LessonFileProblem =
   | { code: 'unknown-role'; lesson: string; step: string; role: string }
   | { code: 'role-twice'; lesson: string; step: string; role: string }
   | { code: 'bad-range'; lesson: string; step: string; field: string }
-  | { code: 'nothing-to-do'; lesson: string };
+  | { code: 'nothing-to-do'; lesson: string }
+  | { code: 'unknown-file-kind'; lesson: string; step: string; field: string }
+  /** A rule of schema.ts lessonProblems, in its own English sentence. */
+  | { code: 'rules'; lesson: string; detail: string };
 
 export type LessonFileRead = { ok: true; file: LessonFile } | { ok: false; problem: LessonFileProblem };
 
@@ -223,7 +274,32 @@ export function readLessonFile(value: unknown): LessonFileRead {
   return { ok: true, file };
 }
 
-/** The rules between the parts of one lesson that a schema of each part cannot say. Null when it holds together. */
+/** The reasons the app has written, by id: a lesson file may point at one of them, never bring its own. */
+const REASON_IDS: ReadonlySet<string> = new Set(Object.keys(REASONS_EN));
+
+/** Key order does not matter when a file's kind of model file is compared with the app's own. */
+function sameData(a: unknown, b: unknown): boolean {
+  const sorted = (value: unknown): unknown => (Array.isArray(value) ? value.map(sorted) : value && typeof value === 'object' ? Object.fromEntries(Object.keys(value as object).sort().map((key) => [key, sorted((value as Record<string, unknown>)[key])])) : value);
+  return JSON.stringify(sorted(a)) === JSON.stringify(sorted(b));
+}
+
+/**
+ * The app's own kind of file for a file's want: a want without words must be one files.ts lists, as it is, and is
+ * then that very object (the engine and its schema check know the app's kinds by identity); a want of the kind
+ * "named" (a set's table of words) is data of its own. Null for a want the app cannot tell a person about.
+ */
+export function canonicalWant(want: FileWant): FileWant | null {
+  // The kind a set's table of words makes (files.ts wantFromWords): the words are what the person reads.
+  if (want.kind === 'named') return { ...want, words: want.words ?? [] };
+  const known = (FILES as Record<string, FileWant>)[want.kind];
+  return known && sameData(known, want) ? known : null;
+}
+
+/**
+ * The rules between the parts of one lesson that a schema of each part cannot say, with the codes the window
+ * turns into sentences; then the engine owner's own schema check (schema.ts lessonProblems), so a file is held to
+ * exactly the rules a built-in lesson is held to. Null when it holds together.
+ */
 export function lessonDocProblem(lesson: LessonDoc): LessonFileProblem | null {
   const languages = (['en', 'ru'] as const).filter((language) => lesson.texts[language]);
   if (languages.length === 0) return { code: 'no-words', lesson: lesson.id };
@@ -240,7 +316,7 @@ export function lessonDocProblem(lesson: LessonDoc): LessonFileProblem | null {
       brought.add(spec.role);
     }
     const named = [
-      ...(step.links ?? []).flatMap((spec) => [spec.from, spec.to]),
+      ...(step.links ?? []).flatMap((spec) => [spec.from, spec.to, ...(spec.alt ?? []).flatMap((alt) => [alt.from, alt.to])]),
       ...(step.fields ?? []).flatMap((spec) => [spec.role, ...testRoles(spec.test)]),
     ];
     const unknown = named.find((item) => !brought.has(item));
@@ -249,21 +325,31 @@ export function lessonDocProblem(lesson: LessonDoc): LessonFileProblem | null {
       const test = spec.test;
       if ((test.kind === 'between' || test.kind === 'weighted') && test.min > test.max) return { code: 'bad-range', lesson: lesson.id, step: step.id, field: spec.field };
       if (test.kind === 'between' && test.prefer !== undefined && (test.prefer < test.min || test.prefer > test.max)) return { code: 'bad-range', lesson: lesson.id, step: step.id, field: spec.field };
+      if (test.kind === 'file' && !canonicalWant(test.want)) return { code: 'unknown-file-kind', lesson: lesson.id, step: step.id, field: spec.field };
     }
   }
   if (lesson.steps.every((step) => step.read)) return { code: 'nothing-to-do', lesson: lesson.id };
+  const engine = engineLesson(lesson, lesson.id);
+  const rules = lessonProblems(engine, [engine], {}, REASON_IDS);
+  if (rules.length > 0) return { code: 'rules', lesson: lesson.id, detail: rules[0].slice(0, 300) };
   return null;
 }
 
-/** The roles a field rule looks at besides its own (the same reading as the engine's). */
+/** The roles a field rule looks at besides its own (the same reading as the engine's otherRoles). */
 function testRoles(test: FieldTest): string[] {
   if (test.kind === 'has-trigger') return test.of.flatMap((item) => ('role' in item ? [item.role] : []));
-  return test.kind === 'differs' || test.kind === 'same' ? [test.role] : [];
+  if (test.kind === 'text') return test.notCopyOf ? [test.notCopyOf.role] : [];
+  if (test.kind === 'size') return [test.of.role];
+  return test.kind === 'differs' || test.kind === 'same' || test.kind === 'less' || test.kind === 'aspect' || test.kind === 'sameFamily' ? [test.role] : [];
 }
 
 /** A lesson file holding these lessons. */
 export function lessonFileOf(lessons: LessonDoc[], title?: { en?: string; ru?: string }): LessonFile {
   return { format: LESSON_FILE_FORMAT, version: LESSON_FILE_VERSION, ...(title && (title.en || title.ru) ? { title } : {}), lessons };
+}
+
+function copyLink(spec: Omit<LinkSpec, 'alt'>): Omit<LinkSpec, 'alt'> {
+  return { from: spec.from, output: spec.output, to: spec.to, input: spec.input, ...(spec.via ? { via: [...spec.via] } : {}) };
 }
 
 /**
@@ -277,31 +363,28 @@ export function engineLesson(doc: LessonDoc, appId: string): Lesson {
       id: step.id,
       ...(step.read ? { read: true as const } : {}),
       ...(step.roles ? { roles: step.roles.map((spec) => ({ role: spec.role, classes: [...spec.classes] })) } : {}),
-      ...(step.links ? { links: step.links.map((spec) => ({ from: spec.from, output: spec.output, to: spec.to, input: spec.input, ...(spec.via ? { via: [...spec.via] } : {}) })) } : {}),
-      ...(step.fields ? { fields: step.fields.map((spec) => ({ role: spec.role, field: spec.field, test: copyTest(spec.test) })) } : {}),
+      ...(step.links ? { links: step.links.map((spec): LinkSpec => ({ ...copyLink(spec), ...(spec.alt ? { alt: spec.alt.map(copyLink) } : {}) })) } : {}),
+      ...(step.fields ? {
+        fields: step.fields.map((spec): FieldSpec => ({
+          role: spec.role,
+          field: spec.field,
+          test: copyTest(spec.test),
+          ...(spec.why ? { why: spec.why } : {}),
+          ...(spec.identifies ? { identifies: true as const } : {}),
+          ...(spec.soft ? { soft: true as const } : {}),
+        })),
+      } : {}),
     })),
   };
 }
 
+/** A copy of a field rule that shares nothing with the file; a kind of model file becomes the app's own object. */
 function copyTest(test: FieldTest): FieldTest {
-  switch (test.kind) {
-    case 'chosen':
-      return { kind: 'chosen' };
-    case 'weighted':
-      return { kind: 'weighted', min: test.min, max: test.max };
-    case 'equals':
-      return { kind: 'equals', value: test.value };
-    case 'between':
-      return test.prefer === undefined ? { kind: 'between', min: test.min, max: test.max } : { kind: 'between', min: test.min, max: test.max, prefer: test.prefer };
-    case 'text':
-      return test.has ? { kind: 'text', minChars: test.minChars, has: [...test.has] } : { kind: 'text', minChars: test.minChars };
-    case 'has-trigger':
-      return { kind: 'has-trigger', of: test.of.map((item) => ('role' in item ? { role: item.role, field: item.field } : { classType: item.classType, field: item.field })) };
-    case 'differs':
-      return { kind: 'differs', role: test.role, field: test.field };
-    case 'same':
-      return { kind: 'same', role: test.role, field: test.field };
+  if (test.kind === 'file') {
+    const known = canonicalWant(test.want);
+    return { kind: 'file', want: known === test.want || !known ? JSON.parse(JSON.stringify(test.want)) as FileWant : known };
   }
+  return JSON.parse(JSON.stringify(test)) as FieldTest;
 }
 
 /** The words of a lesson document in a language, falling back to the one it has. */

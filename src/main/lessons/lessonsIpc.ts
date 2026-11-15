@@ -15,10 +15,10 @@ import { app, dialog, type IpcMain } from 'electron';
 import * as fs from 'fs';
 import { IPC_CHANNELS } from '../../shared/ipc-channels';
 import { createTranslator, type AppLanguage } from '../../shared/i18n';
-import { LESSON_FILE_FORMAT, LESSON_FILE_VERSION, LESSON_LIMITS, readLessonFile } from '../../shared/lessons/files/format';
+import { LESSON_FILE_FORMAT, LESSON_FILE_VERSION, LESSON_LIMITS, readLessonFile } from '../../shared/lessons/share/format';
 import { fileWriteErrorCode, writeFileAtomic } from '../files/atomicWrite';
 import { importDocs, importLessonText, lessonsFolder, listMyLessons, markMyLessonAdult, removeMyLesson } from './store';
-import type { LessonDraftResolution, LessonExportOutcome, LessonImportOutcome } from '../../shared/lessons/files/mine';
+import type { LessonDraftResolution, LessonExportOutcome, LessonImportOutcome } from '../../shared/lessons/share/mine';
 import { lessonDrafts } from './drafts';
 
 /** A lesson file always ends in .json, so that the open dialog (which lists *.json) finds it again. */

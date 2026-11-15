@@ -3,8 +3,8 @@ import type { ChatRuntimeConfig, NonSecretSettings, SettingsRead } from '../shar
 import type { Preferences } from '../shared/config/preferences';
 import type { AboutInfo, HelpPage, HelpSearchHit, HelpTree, IssueDraft, ProjectLinkKind, ThirdPartyComponent } from '../shared/contracts/about';
 import type { UpdateLink, UpdateStatus } from '../shared/contracts/updates';
-import type { LessonDraft, LessonDraftResolution, LessonExportOutcome, LessonImportOutcome, MyLesson } from '../shared/lessons/files/mine';
-import type { LessonDoc, LessonFile } from '../shared/lessons/files/format';
+import type { LessonDraft, LessonDraftResolution, LessonExportOutcome, LessonImportOutcome, MyLesson } from '../shared/lessons/share/mine';
+import type { LessonDoc, LessonFile } from '../shared/lessons/share/format';
 import type {
   AgentTurnContext,
   ChatRecord,

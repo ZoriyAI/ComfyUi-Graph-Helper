@@ -14,6 +14,7 @@
  * promises. Pure: no DOM, no IPC.
  */
 
+import { familyOfFile, fileMiss } from '../files';
 import { fixFor, lessonProgress, type FieldTest, type Lesson, type LessonFacts, type LessonGraph, type LessonNode, type Missing } from '../engine';
 
 /** What a class offers to a lesson that is being tried: inputs with the value a new node starts with, outputs. */
@@ -85,6 +86,17 @@ export class TryCanvas implements LessonGraph {
 /** The sentences a stand-in person writes, as many as a text rule asks characters for. */
 const SENTENCES = ['A quiet lake at dawn.', 'Mist drifts slowly over the water.', 'The camera glides forward at walking pace.', 'Soft morning light, calm and clear.'];
 
+/** What a negative description lists, as long as a rule asks. */
+function FAULTS(minChars: number): string {
+  const words = ['blurry', 'low quality', 'extra fingers', 'watermark', 'text', 'jpeg artifacts', 'deformed hands', 'oversaturated'];
+  let out = '';
+  for (const word of words) {
+    if (out.length >= Math.max(minChars, 5)) break;
+    out = out ? `${out}, ${word}` : word;
+  }
+  return out;
+}
+
 function textOf(minChars: number): string {
   let out = '';
   while (out.length < minChars) out = `${out} ${SENTENCES[Math.floor(out.length / 20) % SENTENCES.length]}`.trim();
@@ -126,7 +138,10 @@ function decide(canvas: TryCanvas, missing: Missing, facts: LessonFacts): boolea
     case 'text': {
       const held = typeof now === 'string' ? now.trim() : '';
       const marks = test.has ?? [];
-      const base = held.length >= test.minChars ? held : textOf(test.minChars);
+      // A text that must not be a copy of another (the negative description of the positive one) is a list of faults.
+      const copyOf = test.notCopyOf ? canvas.nodes.find((item) => item.values[test.notCopyOf!.field] !== undefined && item.id !== node.id)?.values[test.notCopyOf.field] : undefined;
+      const fresh = test.notCopyOf || missing.role.toLowerCase().includes('negative') ? FAULTS(test.minChars) : textOf(test.minChars);
+      const base = held.length >= test.minChars && held !== copyOf ? held : fresh;
       node.values[missing.field] = marks.length > 0 ? `${base} ${marks.join(' Hello there. ')}` : base;
       return true;
     }
@@ -151,6 +166,52 @@ function decide(canvas: TryCanvas, missing: Missing, facts: LessonFacts): boolea
       const word = words.find((item) => item.trim() !== '');
       if (!word) return false;
       node.values[missing.field] = `${typeof now === 'string' ? now : ''}, ${word}`;
+      return true;
+    }
+    case 'file': {
+      // A file of the kind the step names: one in the list that fits, else the name a model page gives as example.
+      const fits = options.find((option): option is string => typeof option === 'string' && fileMiss(option, test.want, facts.families?.[option]) === null);
+      node.values[missing.field] = fits ?? test.want.example;
+      return true;
+    }
+    case 'sameFamily': {
+      const holder = missing.other ? canvas.node(missing.other.nodeId) : undefined;
+      const theirs = holder?.values[test.field];
+      if (typeof theirs !== 'string' || theirs === '') return false;
+      const family = familyOfFile(theirs, facts.families?.[theirs]);
+      const fits = options.find((option): option is string => typeof option === 'string' && familyOfFile(option, facts.families?.[option]) === family);
+      // A stand-in named after the file it goes with is read as the same family.
+      node.values[missing.field] = fits ?? `${theirs.replace(/\.[a-z0-9]+$/i, '')}_companion.safetensors`;
+      return true;
+    }
+    case 'less': {
+      const holder = missing.other ? canvas.node(missing.other.nodeId) : undefined;
+      if (!holder) return false;
+      if (!Number.isFinite(Number(holder.values[test.field])) || empty(holder.values[test.field])) holder.values[test.field] = 20;
+      node.values[missing.field] = Math.max(0, Math.floor(Number(holder.values[test.field]) / 2));
+      return true;
+    }
+    case 'size': {
+      // A square at the size the family was trained at: 512 for SD 1.5, a megapixel otherwise.
+      const holder = Object.values(canvas.nodes).find((item) => item.id === missing.other?.nodeId);
+      const file = holder?.values[test.of.field];
+      const side = typeof file === 'string' && familyOfFile(file, facts.families?.[file]) === 'sd15' ? 512 : 1024;
+      node.values.width = side;
+      node.values.height = side;
+      return true;
+    }
+    case 'aspect': {
+      const holder = missing.other ? canvas.node(missing.other.nodeId) : undefined;
+      // A frame or a picture whose size the canvas does not know (a loaded image) gets a plain one first.
+      if (!(Number(node.values.height) > 0)) node.values.height = 480;
+      if (holder && !(Number(holder.values.width) > 0 && Number(holder.values.height) > 0)) {
+        holder.values.width = Number(node.values.width) > 0 ? node.values.width : 832;
+        holder.values.height = Number(node.values.height) > 0 ? node.values.height : 480;
+      }
+      const ratio = Number(holder?.values.width) / Number(holder?.values.height);
+      const height = Number(node.values.height);
+      if (!Number.isFinite(ratio) || !Number.isFinite(height) || ratio <= 0 || height <= 0) return false;
+      node.values.width = Math.round((height * ratio) / 8) * 8;
       return true;
     }
     case 'same': {
@@ -213,7 +274,7 @@ function carryOut(lesson: Lesson, canvas: TryCanvas, shapes: ClassShapes, facts:
     const key = `${progress.current}|${JSON.stringify(missing)}|${JSON.stringify(canvas.nodes.map((node) => node.values))}|${JSON.stringify(canvas.links)}`;
     if (seen.has(key)) return failure('stuck', missing);
     seen.add(key);
-    const fix = fixFor(missing, canvas, installed, (nodeId, field) => canvas.options(nodeId, field));
+    const fix = fixFor(missing, canvas, installed, (nodeId, field) => canvas.options(nodeId, field), facts);
     if (fix?.kind === 'add-node') {
       if (!canvas.add(fix.classType)) return failure('no-class', missing);
     } else if (fix?.kind === 'connect') {

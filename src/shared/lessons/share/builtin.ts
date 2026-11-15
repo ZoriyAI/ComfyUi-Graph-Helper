@@ -10,7 +10,7 @@
  * gathers those pieces into one document.
  */
 
-import { rolesOf } from '../engine';
+import { rolesOf, type FieldSpec, type Lesson } from '../engine';
 import { packOf } from '../fit';
 import { LESSONS, LESSON_AFTER, LESSON_PATH, isAdultLesson, lessonById } from '../lessons';
 import { lessonWords, type LessonWords } from '../texts';
@@ -28,6 +28,43 @@ function wordsOf(words: LessonWords | null): LessonDocWords | undefined {
     result: words.result,
     steps: Object.fromEntries(Object.entries(words.steps).map(([step, item]) => [step, { title: item.title, body: item.body }])),
   };
+}
+
+/** The roles a field rule names: its own and the ones it compares with (engine.ts otherRoles). */
+function rolesOfRule(spec: FieldSpec): string[] {
+  const test = spec.test;
+  const others = test.kind === 'has-trigger' ? test.of.flatMap((item) => ('role' in item ? [item.role] : []))
+    : test.kind === 'text' ? (test.notCopyOf ? [test.notCopyOf.role] : [])
+      : test.kind === 'size' ? [test.of.role]
+        : 'role' in test && typeof test.role === 'string' ? [test.role] : [];
+  return [spec.role, ...others];
+}
+
+/**
+ * The lesson without the field rules that name a role the lesson never brings. The engine never applies such a
+ * rule (its roles are never all matched), so leaving it out changes nothing a person meets; a lesson file refuses
+ * it, because in a file it is a mistake. deadRules lists them for the lesson engine owner.
+ */
+export function liveLesson(lesson: Lesson): Lesson {
+  const brought = new Set(rolesOf(lesson).map((spec) => spec.role));
+  return {
+    ...lesson,
+    steps: lesson.steps.map((step) => {
+      if (!step.fields) return step;
+      const fields = step.fields.filter((spec) => rolesOfRule(spec).every((role) => brought.has(role)));
+      if (fields.length === step.fields.length) return step;
+      const { fields: _dropped, ...rest } = step;
+      return fields.length > 0 ? { ...rest, fields } : rest;
+    }),
+  };
+}
+
+/** The built-in rules liveLesson leaves out, as "lesson/step: role.field". */
+export function deadRules(): string[] {
+  return LESSONS.flatMap((lesson) => {
+    const brought = new Set(rolesOf(lesson).map((spec) => spec.role));
+    return lesson.steps.flatMap((step) => (step.fields ?? []).filter((spec) => !rolesOfRule(spec).every((role) => brought.has(role))).map((spec) => `${lesson.id}/${step.id}: ${spec.role}.${spec.field} (${spec.test.kind})`));
+  });
 }
 
 /** The node classes a lesson names and the packs (other than ComfyUI itself) they come from. */
@@ -55,7 +92,7 @@ export function builtinLessonDoc(id: string): LessonDoc | null {
     needs: lessonNeeds(rolesOf(lesson).flatMap((spec) => spec.classes)),
     texts: { ...(en ? { en } : {}), ...(ru ? { ru } : {}) },
     // A deep copy through JSON: the document never shares an object with the running lesson.
-    steps: JSON.parse(JSON.stringify(lesson.steps)) as LessonDoc['steps'],
+    steps: JSON.parse(JSON.stringify(liveLesson(lesson).steps)) as LessonDoc['steps'],
   };
 }
 

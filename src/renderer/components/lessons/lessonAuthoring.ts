@@ -17,9 +17,9 @@ import { useKnowledgeStore } from '../../state/knowledgeState';
 import { useLessonStore } from '../../state/lessonState';
 import { useMyLessonsStore } from '../../state/myLessonsState';
 import { useNodeInfoStore } from '../graph/nodeInfo';
-import { draftFromDoc, draftFromGraph, docFromDraft, lessonIdFrom, type ClassInfo, type LessonDraftModel } from '../../../shared/lessons/files/authoring';
-import { checkLessonDoc, myLessonId, type LessonCheck, type LessonImportOutcome, type MyLesson } from '../../../shared/lessons/files/mine';
-import { catalogShapes } from '../../../shared/lessons/files/tryLesson';
+import { draftFromDoc, draftFromGraph, docFromDraft, lessonIdFrom, type ClassInfo, type LessonDraftModel } from '../../../shared/lessons/share/authoring';
+import { checkLessonDoc, myLessonId, type LessonCheck, type LessonImportOutcome, type MyLesson } from '../../../shared/lessons/share/mine';
+import { catalogShapes } from '../../../shared/lessons/share/tryLesson';
 import type { NodeClassDetail } from '../../../shared/contracts/knowledge';
 import { lessonGraphOf } from './lessonModel';
 
@@ -70,7 +70,7 @@ export function editorDoc(model: LessonDraftModel, replaces: string | null) {
   return docFromDraft({ ...model, id });
 }
 
-/** Tries the lesson in the editor from an empty canvas (see shared/lessons/files/tryLesson.ts). */
+/** Tries the lesson in the editor from an empty canvas (see shared/lessons/share/tryLesson.ts). */
 export function tryEditorLesson(model: LessonDraftModel, replaces: string | null): LessonCheck {
   const doc = editorDoc(model, replaces);
   const details = useNodeInfoStore.getState().details as Details;

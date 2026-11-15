@@ -7,10 +7,10 @@
 
 import { describe, expect, it } from 'vitest';
 import { lessonById } from '../../src/shared/lessons/lessons';
-import { buildOrder, docFromDraft, draftFromDoc, draftFromGraph, lessonIdFrom, roleNameOf, type ClassInfo } from '../../src/shared/lessons/files/authoring';
-import { LESSON_FILE_FORMAT, LESSON_FILE_VERSION, readLessonFile } from '../../src/shared/lessons/files/format';
-import { checkLessonDoc } from '../../src/shared/lessons/files/mine';
-import { lessonShapes, tryLesson, type ClassShapes } from '../../src/shared/lessons/files/tryLesson';
+import { buildOrder, docFromDraft, draftFromDoc, draftFromGraph, lessonIdFrom, roleNameOf, type ClassInfo } from '../../src/shared/lessons/share/authoring';
+import { LESSON_FILE_FORMAT, LESSON_FILE_VERSION, readLessonFile } from '../../src/shared/lessons/share/format';
+import { checkLessonDoc } from '../../src/shared/lessons/share/mine';
+import { lessonShapes, tryLesson, type ClassShapes } from '../../src/shared/lessons/share/tryLesson';
 import type { LessonGraph } from '../../src/shared/lessons/engine';
 
 /** The first built-in lesson, done on a canvas: the graph a person would make a lesson from. */

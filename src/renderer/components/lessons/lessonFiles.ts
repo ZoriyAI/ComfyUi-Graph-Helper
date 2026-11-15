@@ -12,9 +12,9 @@
 import type { TFunction } from 'i18next';
 import { i18n } from '../../i18n';
 import { showToast } from '../../ui/toastStore';
-import { builtinGroupFile, builtinLessonDoc } from '../../../shared/lessons/files/builtin';
-import { LESSON_LIMITS, lessonFileName, lessonFileOf, type LessonFileProblem } from '../../../shared/lessons/files/format';
-import { MY_LESSONS_MAX, type FailedTry, type LessonExportOutcome, type LessonImportOutcome } from '../../../shared/lessons/files/mine';
+import { builtinGroupFile, builtinLessonDoc } from '../../../shared/lessons/share/builtin';
+import { LESSON_LIMITS, lessonFileName, lessonFileOf, type LessonFileProblem } from '../../../shared/lessons/share/format';
+import { MY_LESSONS_MAX, type FailedTry, type LessonExportOutcome, type LessonImportOutcome } from '../../../shared/lessons/share/mine';
 import { myLesson, useMyLessonsStore } from '../../state/myLessonsState';
 
 type Translate = TFunction | ((key: string, options?: Record<string, unknown>) => string);
@@ -52,6 +52,10 @@ export function problemText(t: Translate, problem: LessonFileProblem): string {
       return say(t, 'lessonFiles.problem.badRange', { lesson: problem.lesson, step: problem.step, field: problem.field });
     case 'nothing-to-do':
       return say(t, 'lessonFiles.problem.nothingToDo', { lesson: problem.lesson });
+    case 'unknown-file-kind':
+      return say(t, 'lessonFiles.problem.unknownFileKind', { lesson: problem.lesson, step: problem.step, field: problem.field });
+    case 'rules':
+      return say(t, 'lessonFiles.problem.rules', { lesson: problem.lesson, detail: problem.detail });
   }
 }
 
