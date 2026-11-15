@@ -85,7 +85,9 @@ test('Help ▸ About: icon, name, version, licence, components, copy details, da
     const flow = list.locator('li', { hasText: '@xyflow/react' });
     await flow.locator('summary').click();
     await expect(flow.locator('pre')).toContainText('MIT');
-    await expect(list.locator('li', { hasText: '@fontsource/geist' })).toContainText('OFL-1.1');
+    // Both fonts the app ships (Geist and Geist Mono) are listed with their own licence.
+    await expect(list.locator('li', { hasText: /^@fontsource\/geist\d/ })).toContainText('OFL-1.1');
+    await expect(list.locator('li', { hasText: /^@fontsource\/geist-mono\d/ })).toContainText('OFL-1.1');
     await expect(list.locator('li', { hasText: /^electron/ }).first()).toBeVisible();
     // Nothing in the list sticks out of the dialog sideways.
     const overflow = await list.evaluate((element) => element.scrollWidth - element.clientWidth);
