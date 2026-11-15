@@ -1,3 +1,10 @@
+/**
+ * Every text of the interface, in English (`en`) and Russian (`ru`), keyed by section and name. The window reads it
+ * through i18next (src/renderer/i18n.ts), main through i18n/index.ts, and lesson and content code reads some
+ * sections directly. `ru` must have exactly the keys of `en` (the Catalog type and the i18n tests hold it to that).
+ * The texts are code: the comments only say where each part is shown.
+ */
+// ── English ──
 export const en = {
   shell: {
     // The product's name comes from src/shared/productNames.ts through the default values {{app}} / {{appShort}}
@@ -2955,13 +2962,16 @@ export const en = {
   },
 } as const;
 
+/** The shape of a catalog: the same keys as `en`, every text a plain string. */
 type MessageTree<T> = {
   [K in keyof T]: T[K] extends string ? string : MessageTree<T[K]>;
 
 };
 
+/** The type every language's catalog must match. */
 export type Catalog = MessageTree<typeof en>;
 
+// ── Russian: the same keys as `en` (checked by `satisfies Catalog` at the end). ──
 export const ru = {
   shell: {
     title: '{{app}}',
@@ -3394,7 +3404,7 @@ export const ru = {
     slotNameOutput: 'Имя выхода',
     slotRenameHint: 'Двойной щелчок, чтобы переименовать. Enter сохраняет, Esc отменяет.',
   },
-  /** поля нод на холсте и в «Свойствах» (components/fields). */
+  /** Node fields on the canvas and in Properties (components/fields). */
   field: {
     search: 'Найти в списке',
     unset: 'не задано',
@@ -3811,7 +3821,7 @@ export const ru = {
     syncNever: 'Ещё не прочитано',
     syncSaved: 'Настройка автосинхронизации применена.',
   },
-  /** Окно настроек: разделы, поля и подсказки сверх исходных ключей settings.*. */
+  /** The Settings window: sections, fields and hints beyond the original settings.* keys. */
   preferences: {
     nav: {
       assistant: 'Помощник',
@@ -4376,7 +4386,7 @@ export const ru = {
     inserted: 'Субграф {{name}} вставлен.',
     insertFailed: 'Субграф не вставлен.',
     loadFailed: 'Не удалось прочитать библиотеку.',
-    // Вкладка «Модели»: чипы видов, порядок, пустые состояния и карточка модели.
+    // The Models tab: kind chips, order, empty states and the model card.
     kindChips: 'Вид модели',
     kindGroup: { all: 'Все', checkpoint: 'Чекпойнты', lora: 'LoRA', vae: 'VAE', controlnet: 'ControlNet', other: 'Прочее' },
     sort: 'Порядок',
@@ -5641,7 +5651,7 @@ export const ru = {
     spreadTitle: 'Ноды раздвинуты, чтобы не накрывать друг друга: {{count, number}}',
     spreadBody: 'Колонки и их порядок остались как у автора. Отмена вернёт ноды на места из файла.',
   },
-  // BUILDS: уведомление о новой версии (переключатель в Настройки ▸ Приватность и тихая строка в строке состояния).
+  // BUILDS: the update notice (Settings ▸ Privacy switch and the quiet line in the status bar).
   updates: {
     check: 'Проверять новые версии',
     checkHint: 'Раз в день приложение спрашивает страницу выпусков проекта на github.com, есть ли новая версия. С вопросом уходят только название и версия приложения; GitHub видит адрес вашего компьютера, как любой сайт. Само приложение ничего не скачивает: решаете вы. По умолчанию выключено.',
@@ -5731,7 +5741,7 @@ export const ru = {
     usageCost: 'около {{cost}}',
     usageCostUnknown: 'цена неизвестна',
   },
-  // LESSON FILES: уроки как файлы (Мои уроки, импорт, экспорт, редактор урока, черновики уроков от помощника).
+  // LESSON FILES: lessons as files (My lessons, import, export, the lesson editor, lesson drafts from the helper).
   lessonFiles: {
     dialog: {
       importTitle: 'Импорт уроков',

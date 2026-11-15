@@ -1,9 +1,12 @@
 /**
  * The languages of the interface, in one place. A third language is added here, in the catalog and in the
  * locale table below; code that needs "which language" uses AppLanguage and these helpers instead of 'en' | 'ru'.
+ * Used by the settings schema, i18n/index.ts and format.ts, and by main to pick the first-start language
+ * (main/systemLanguage.ts).
  */
 export const APP_LANGUAGES = ['en', 'ru'] as const;
 
+/** A language the interface speaks. */
 export type AppLanguage = (typeof APP_LANGUAGES)[number];
 
 /** The language used when nothing better is known (a person whose system speaks none of ours). */
@@ -12,6 +15,7 @@ export const FALLBACK_LANGUAGE: AppLanguage = 'en';
 /** The locale for dates and numbers when the system gives none in this language. */
 const DEFAULT_LOCALE: Record<AppLanguage, string> = { en: 'en-US', ru: 'ru-RU' };
 
+/** Type guard for a language code from storage or the system. */
 export function isAppLanguage(value: unknown): value is AppLanguage {
   return typeof value === 'string' && (APP_LANGUAGES as readonly string[]).includes(value);
 }

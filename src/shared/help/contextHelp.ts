@@ -6,6 +6,8 @@
  * To link a new place of the app to the wiki: add an id here (lower-case words joined by hyphens), point it at a
  * page, and call `openHelp('<id>')` from the renderer (services/help.ts). tests/unit/aboutHelp.test.ts fails when
  * an id points at a page that does not exist in both languages. See docs/wiki/dev/Context-Help.md.
+ * Read by the renderer's help service and reader (services/help.ts, shell/HelpReader.tsx) and by main, which serves
+ * the pages (main/ipc/aboutIpc.ts).
  */
 export const HELP_IDS = {
   home: 'Home',
@@ -34,6 +36,7 @@ export const HELP_IDS = {
   'content-rules': 'trust/Content-Rules',
 } as const;
 
+/** A help id the app may open. */
 export type HelpId = keyof typeof HELP_IDS;
 
 /** The reader's own page for the notes of the running version (docs/releases), not a wiki page. */
