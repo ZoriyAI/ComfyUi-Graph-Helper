@@ -516,10 +516,10 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
   console.log(`DASH ${dash.offName} ${dash.onName} on ${dash.before}->${dash.after} off ${dash.offBefore}`);
   await expect(window.locator('.graph-canvas')).toHaveAttribute('data-fit-duration', '0');
   await window.evaluate(() => { document.documentElement.dataset.motion = 'on'; });
-  await expect(window.locator('.graph-canvas')).toHaveAttribute('data-fit-duration', '200');
+  await expect(window.locator('.graph-canvas')).toHaveAttribute('data-fit-duration', '640');
   await window.evaluate(() => { document.documentElement.dataset.motion = 'off'; });
   await expect(window.locator('.graph-canvas')).toHaveAttribute('data-fit-duration', '0');
-  console.log('FIT_DURATION 0/200/0');
+  console.log('FIT_DURATION 0/640/0');
   const ports = await window.locator('.port-list li[data-port-side="input"]').first().evaluate((row) => {
     const handle = row.querySelector('.react-flow__handle')?.getBoundingClientRect();
     const name = row.querySelector('.port-name')?.getBoundingClientRect();
