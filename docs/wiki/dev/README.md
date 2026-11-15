@@ -24,7 +24,7 @@ How the code is built, how to change it and how a release is made.
 - [Building from source](Building-From-Source.md): Linux step by step; Windows and macOS notes.
 - [Package formats](Package-Formats.md): What is built, how and what is checked.
 - [Releasing](Releasing.md): The release checklist.
-- [Contributing](Contributing.md): Before a pull request.
+- [Contributing](Contributing.md): How to take part, and why code from outside is not merged.
 - [Building and running on Windows](Building-On-Windows.md): The steps of the Windows install script, by hand.
 - [Building and running on macOS](Building-On-macOS.md): The steps of the macOS install script, by hand (Apple silicon and Intel).
 - [Publishing a clean copy](Publishing-A-Clean-Copy.md): Why the public repository starts from one commit, and the two scripts that make it.

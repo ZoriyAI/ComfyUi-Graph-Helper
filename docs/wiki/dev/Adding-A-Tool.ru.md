@@ -43,7 +43,7 @@
    на обоих языках.
 6. **Тесты**: `tests/unit/agent/` и `tests/integration/chatToGraph.test.ts` для всего пути с заготовленной моделью.
 
-## Перед запросом на слияние
+## Проверки после изменения
 
 - `npm test`, `npm run type-check`.
 - `xvfb-run -a npx playwright test tests/e2e/strict-chat-to-graph.test.ts --trace off` для инструмента сборки.

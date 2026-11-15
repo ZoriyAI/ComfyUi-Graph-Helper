@@ -42,7 +42,7 @@ Every file a new tool touches, in order. How a turn uses tools: [How the assista
 6. **Tests**: `tests/unit/agent/`, and `tests/integration/chatToGraph.test.ts` for the whole path with the scripted
    model.
 
-## Before the pull request
+## Checks after the change
 
 - `npm test`, `npm run type-check`.
 - `xvfb-run -a npx playwright test tests/e2e/strict-chat-to-graph.test.ts --trace off` for a build tool.

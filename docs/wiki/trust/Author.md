@@ -56,7 +56,8 @@ The author can be reached through the project on GitHub only.
 - **Ideas and wishes:** the project's Discussions.
 - **Problems:** the project's Issues. Help ▸ Report a problem in the app opens the form with the versions filled in.
 - **A security problem:** privately, as described in [Security](Security.md#reporting-a-vulnerability).
-- **Code and texts:** [Contributing](../dev/Contributing.md).
+- **Code and texts** are written by the author; the project does not merge code from outside. Ideas, reports and
+  tests of the app are how to take part: [Contributing](../dev/Contributing.md).
 - **Commercial use:** contact the author through GitHub first: [Commercial use](../../../COMMERCIAL.md).
 
 ## See also
