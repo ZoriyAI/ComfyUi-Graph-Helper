@@ -1,3 +1,8 @@
+/**
+ * Glossary terms found in a text (shared/journey/terms.ts, used by TermText to mark a term and give its
+ * explanation). A term is found in its other word forms and as a whole word only, and explained once per text, so a
+ * newcomer gets help on "node" without every repeat or a word that merely contains it being marked.
+ */
 import { describe, expect, it } from 'vitest';
 import { findTerms } from '../../../src/shared/journey/terms';
 

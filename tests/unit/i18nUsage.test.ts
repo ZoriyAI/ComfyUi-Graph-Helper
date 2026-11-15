@@ -1,18 +1,19 @@
+/**
+ * No text reaches the screen with a placeholder in it. A person once saw "MCP state: Reading model metadata:
+ * {{done}} / {{total}}": the label was translated without its numbers. This runs the translation audit
+ * (support/i18nAudit.ts) over every t() call in src, checks that each text gets the values it needs and that each key
+ * exists, and first proves the audit on its own fixture (fixtures/i18nAudit/cases.tsx).
+ */
 import * as fs from 'fs';
 import * as path from 'path';
 import { describe, expect, it } from 'vitest';
 import { createTranslator, en, ru } from '../../src/shared/i18n';
 import { auditTranslations, placeholdersOf, type AuditStats } from './support/i18nAudit';
 
-/**
- * No text reaches the screen with a placeholder in it. A person once saw "MCP state: Reading model metadata:
- * {{done}} / {{total}}": the label was translated without its numbers. This reads every translation call in the
- * app and checks that each text gets the values it needs, and that each key exists.
- */
-
 const SRC = path.resolve(__dirname, '../../src');
 const FIXTURE = path.resolve(__dirname, 'fixtures/i18nAudit');
 
+/** The catalog the fixture's calls are judged against: plain texts, texts with values and plural forms. */
 const FIXTURE_CATALOG = {
   status: { idle: 'Idle', running: 'Running', reading: 'Reading: {{done}} / {{total}}', hint: 'Set the address first' },
   menu: { file: 'File', edit: 'Edit' },
@@ -58,6 +59,7 @@ describe('the translation audit itself', () => {
 describe('every translated text in the app', () => {
   it('gets the values it needs, and every key exists', () => {
     const stats: AuditStats = { calls: 0, followed: 0 };
+    // The catalog itself is skipped: it defines the texts, it does not call t().
     const findings = auditTranslations(SRC, [en, ru], (file) => file.endsWith(path.join('i18n', 'catalog.ts')), stats);
     const report = findings.map((finding) => `${finding.kind} ${finding.file}:${finding.line}\n    ${finding.code}\n    ${finding.detail}`).join('\n');
     expect(report).toBe('');
