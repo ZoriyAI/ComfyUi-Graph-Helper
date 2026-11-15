@@ -7,7 +7,20 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { spawnSync } from 'child_process';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+const fault = vi.hoisted(() => ({ target: '' }));
+vi.mock('fs', async (original) => {
+  const real = await original<typeof import('fs')>();
+  return { ...real, renameSync: (from: fs.PathLike, to: fs.PathLike) => {
+    if (String(to) === fault.target) {
+      fault.target = '';
+      throw Object.assign(new Error('Write refused'), { code: 'ENOSPC' });
+    }
+    return real.renameSync(from, to);
+  } };
+});
 import { importLessonText, listMyLessons, markMyLessonAdult, removeMyLesson, writeMyLesson } from '../../src/main/lessons/store';
 import { LESSON_FILE_FORMAT, LESSON_FILE_VERSION } from '../../src/shared/lessons/share/format';
 import { isAdultMine, myEngineLesson, MY_LESSONS_MAX } from '../../src/shared/lessons/share/mine';
@@ -22,12 +35,72 @@ function folder(): string {
   return path.join(dir, 'lessons');
 }
 afterEach(() => {
+  fault.target = '';
   for (const dir of folders.splice(0)) fs.rmSync(dir, { recursive: true, force: true });
 });
 
 const text = (lessons: unknown[]) => JSON.stringify({ format: LESSON_FILE_FORMAT, version: LESSON_FILE_VERSION, lessons });
 
 describe('my lessons in the profile', () => {
+  it.each(['replacement', 'addition', 'committed'])('recovers the whole pack after the process exits at %s', (phase) => {
+    const dir = folder();
+    importLessonText(dir, text([sampleDoc()]), { origin: 'file', now: 1 });
+    listMyLessons(dir);
+    const before = fs.readFileSync(path.join(dir, 'my-first.lesson.json'));
+    const docs = [sampleDoc(), sampleDoc({ id: 'second' }), sampleDoc({ id: 'third' })];
+    docs[0].texts.en!.title = 'Changed';
+    // A real child exits during the source store's rename, leaving exactly the files a crash leaves.
+    const script = `
+      const fs = require('fs'), ts = require('typescript');
+      require.extensions['.ts'] = (module, file) => module._compile(ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText, file);
+      const folder = process.argv[1], phase = process.argv[2];
+      const rename = fs.renameSync;
+      fs.renameSync = (from, to) => {
+        rename(from, to);
+        if (phase === 'replacement' && String(to).endsWith('/my-first.lesson.json') || phase === 'addition' && String(to).endsWith('/second.lesson.json') || phase === 'committed' && String(to).endsWith('/.import-journal.json') && JSON.parse(fs.readFileSync(to, 'utf8')).state === 'committed') process.exit(91);
+      };
+      require(process.argv[3]).importDocs(folder, JSON.parse(process.argv[4]), { origin: 'file', now: 2 });
+    `;
+    const child = spawnSync(process.execPath, ['-e', script, dir, phase, path.resolve('src/main/lessons/store.ts'), JSON.stringify(docs)], { encoding: 'utf8' });
+    expect(child.status, child.stderr).toBe(91);
+    const listed = listMyLessons(dir);
+    if (phase === 'committed') {
+      expect(listed).toHaveLength(3);
+      expect(listed.find((item) => item.id === 'my:my-first')!.doc.texts.en!.title).toBe('Changed');
+    } else {
+      expect(fs.readFileSync(path.join(dir, 'my-first.lesson.json'))).toEqual(before);
+      expect(listed.map((item) => item.id)).toEqual(['my:my-first']);
+    }
+    expect(fs.readdirSync(dir).every((name) => name.endsWith('.lesson.json'))).toBe(true);
+    expect(listMyLessons(dir)).toEqual(listed);
+  });
+
+  it.each([2, 3])('restores original bytes and removes additions after write %s fails', (at) => {
+    const dir = folder();
+    importLessonText(dir, text([sampleDoc()]), { origin: 'file', now: 1 });
+    const first = path.join(dir, 'my-first.lesson.json');
+    const before = fs.readFileSync(first);
+    const docs = [sampleDoc(), sampleDoc({ id: 'second' }), sampleDoc({ id: 'third' })];
+    docs[0].texts.en!.title = 'Changed';
+    fault.target = path.join(dir, `${docs[at - 1].id}.lesson.json`);
+    expect(importLessonText(dir, text(docs), { origin: 'file', now: 2 })).toEqual({ ok: false, error: 'The disk is full.' });
+    expect(fs.readFileSync(first)).toEqual(before);
+    expect(listMyLessons(dir).map((lesson) => lesson.id)).toEqual(['my:my-first']);
+    expect(fs.readdirSync(dir)).toEqual(['my-first.lesson.json']);
+  });
+
+  it('leaves replacements untouched when another target is a directory', () => {
+    const dir = folder();
+    importLessonText(dir, text([sampleDoc()]), { origin: 'file' });
+    const before = fs.readFileSync(path.join(dir, 'my-first.lesson.json'));
+    fs.mkdirSync(path.join(dir, 'blocked.lesson.json'));
+    const changed = sampleDoc();
+    changed.texts.en!.title = 'Changed';
+    expect(importLessonText(dir, text([changed, sampleDoc({ id: 'blocked' })]), { origin: 'file' })).toMatchObject({ ok: false, error: expect.any(String) });
+    expect(fs.readFileSync(path.join(dir, 'my-first.lesson.json'))).toEqual(before);
+    expect(fs.statSync(path.join(dir, 'blocked.lesson.json')).isDirectory()).toBe(true);
+  });
+
   it('imports, lists after a restart, replaces by id, and removes', () => {
     const dir = folder();
     expect(importLessonText(dir, text([sampleDoc()]), { origin: 'file', fileName: '/home/someone/Downloads/first.lesson.json', now: 1 })).toEqual({ ok: true, added: ['my:my-first'], replaced: [] });

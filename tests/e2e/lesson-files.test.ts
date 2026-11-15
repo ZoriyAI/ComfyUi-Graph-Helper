@@ -150,3 +150,22 @@ test('editing keeps both languages and asks before omitting a missing translatio
     await app.close();
   }
 });
+
+test('a lesson write failure says it was not saved and a later import can succeed', async () => {
+  const { app, page, api } = await launch();
+  try {
+    await openLearn(page);
+    const folder = path.join(await app.evaluate(({ app }) => app.getPath('userData')), 'lessons');
+    if (fs.existsSync(folder)) fs.rmdirSync(folder);
+    fs.writeFileSync(folder, 'occupied');
+    await drop(page, 'first.lesson.json', fileText([sampleDoc()]));
+    await expect(page.getByText('The lessons could not be saved.', { exact: false })).toBeVisible();
+    await expect(page.locator('[data-lesson-card="my:my-first"]')).toHaveCount(0);
+    fs.unlinkSync(folder);
+    await drop(page, 'first.lesson.json', fileText([sampleDoc()]));
+    await expect(page.locator('[data-lesson-card="my:my-first"]')).toBeVisible();
+    expect((await api('listMyLessons')).map((lesson: { id: string }) => lesson.id)).toEqual(['my:my-first']);
+  } finally {
+    await app.close();
+  }
+});

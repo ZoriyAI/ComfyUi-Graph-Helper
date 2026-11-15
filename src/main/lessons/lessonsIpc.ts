@@ -39,6 +39,13 @@ export interface LessonsIpcDeps {
 export function registerLessonsIpc(ipcMain: IpcMain, deps: LessonsIpcDeps): void {
   const folder = () => lessonsFolder((deps.userData ?? (() => app.getPath('userData')))());
   const translate = () => createTranslator(deps.language());
+  const write = (operation: () => LessonImportOutcome): LessonImportOutcome => {
+    try {
+      return operation();
+    } catch (error) {
+      return { ok: false, error: fileWriteErrorCode(error, 'The lesson file could not be written.') };
+    }
+  };
 
   ipcMain.handle(IPC_CHANNELS.LESSONS_LIST, () => listMyLessons(folder()));
 
@@ -55,7 +62,8 @@ export function registerLessonsIpc(ipcMain: IpcMain, deps: LessonsIpcDeps): void
     try {
       // The size is read before the file: a huge file is refused unread (a character takes up to four bytes).
       if (fs.statSync(file).size > LESSON_LIMITS.fileBytes * 4) return { ok: false, problem: { code: 'too-large' } };
-      return importLessonText(folder(), fs.readFileSync(file, 'utf8'), { origin: 'file', fileName: file });
+      const text = fs.readFileSync(file, 'utf8');
+      return write(() => importLessonText(folder(), text, { origin: 'file', fileName: file }));
     } catch {
       return { ok: false, error: 'The file could not be read.' };
     }
@@ -63,13 +71,13 @@ export function registerLessonsIpc(ipcMain: IpcMain, deps: LessonsIpcDeps): void
 
   ipcMain.handle(IPC_CHANNELS.LESSONS_IMPORT_TEXT, (_event, name: unknown, text: unknown): LessonImportOutcome => {
     if (typeof text !== 'string') return { ok: false, problem: { code: 'not-json' } };
-    return importLessonText(folder(), text, { origin: 'file', fileName: name });
+    return write(() => importLessonText(folder(), text, { origin: 'file', fileName: name }));
   });
 
   ipcMain.handle(IPC_CHANNELS.LESSONS_SAVE, (_event, doc: unknown): LessonImportOutcome => {
     const read = readLessonFile({ format: LESSON_FILE_FORMAT, version: LESSON_FILE_VERSION, lessons: [doc] });
     if (!read.ok) return { ok: false, problem: read.problem };
-    return importDocs(folder(), read.file.lessons, { origin: 'made' });
+    return write(() => importDocs(folder(), read.file.lessons, { origin: 'made' }));
   });
 
   ipcMain.handle(IPC_CHANNELS.LESSONS_REMOVE, (_event, id: unknown) => typeof id === 'string' && removeMyLesson(folder(), id));
@@ -106,9 +114,14 @@ export function registerLessonsIpc(ipcMain: IpcMain, deps: LessonsIpcDeps): void
     const draft = lessonDrafts.take(draftId);
     if (!draft) return { ok: false, gone: true };
     if (accept !== true) return { ok: true, rejected: true };
-    const outcome = importDocs(folder(), [draft.doc], { origin: 'assistant' });
-    // A draft that could not be kept stays a draft: the person can try again.
-    if (!outcome.ok) lessonDrafts.put(draft);
-    return outcome;
+    let kept = false;
+    try {
+      const outcome = write(() => importDocs(folder(), [draft.doc], { origin: 'assistant' }));
+      kept = outcome.ok;
+      return outcome;
+    } finally {
+      // Every failure, including an exception, leaves the draft available for another attempt.
+      if (!kept) lessonDrafts.put(draft);
+    }
   });
 }

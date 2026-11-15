@@ -37,6 +37,26 @@ afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
 const fileText = (lessons: unknown[]) => JSON.stringify({ format: LESSON_FILE_FORMAT, version: LESSON_FILE_VERSION, lessons });
 
 describe('lessons IPC', () => {
+  it.each([IPC_CHANNELS.LESSONS_IMPORT_TEXT, IPC_CHANNELS.LESSONS_SAVE, IPC_CHANNELS.LESSONS_IMPORT_DIALOG])('returns a write error from %s when the lessons folder cannot be created', async (channel) => {
+    fs.writeFileSync(path.join(dir, 'lessons'), 'occupied');
+    const file = path.join(dir, 'import.json');
+    fs.writeFileSync(file, fileText([sampleDoc()]));
+    dialog.showOpenDialog.mockResolvedValueOnce({ canceled: false, filePaths: [file] });
+    const args = channel === IPC_CHANNELS.LESSONS_IMPORT_TEXT ? ['x.lesson.json', fileText([sampleDoc()])] : channel === IPC_CHANNELS.LESSONS_SAVE ? [sampleDoc()] : [];
+    expect(await call(channel, ...args)).toEqual({ ok: false, error: 'The lesson file could not be written.' });
+  });
+
+  it('keeps an accepted draft available after a write failure and allows retry', async () => {
+    const draft = lessonDrafts.add(sampleDoc({ id: 'recover-draft' }), 'lesson');
+    const conflict = path.join(dir, 'lessons');
+    fs.writeFileSync(conflict, 'occupied');
+    expect(await call(IPC_CHANNELS.LESSONS_DRAFT_RESOLVE, draft.id, true)).toEqual({ ok: false, error: 'The lesson file could not be written.' });
+    expect(lessonDrafts.get(draft.id)).toEqual(draft);
+    fs.unlinkSync(conflict);
+    expect(await call(IPC_CHANNELS.LESSONS_DRAFT_RESOLVE, draft.id, true)).toMatchObject({ ok: true, added: ['my:recover-draft'] });
+    expect(lessonDrafts.get(draft.id)).toBeNull();
+  });
+
   it('registers every lessons channel', () => {
     const expected = Object.entries(IPC_CHANNELS).filter(([key]) => key.startsWith('LESSONS_')).map(([, channel]) => channel).sort();
     expect(Object.keys(handlers).sort()).toEqual(expected);

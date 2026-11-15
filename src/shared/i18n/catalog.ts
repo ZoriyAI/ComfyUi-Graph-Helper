@@ -3013,6 +3013,7 @@ export const en = {
     removed: 'The lesson is removed.',
     full: 'My lessons hold at most {{max, number}} lessons. Remove some first.',
     unreadable: 'The file could not be read.',
+    writeFailed: 'The lessons could not be saved. Check that the app folder can be written to, then try again.',
     problem: {
       tooLarge: 'The file is too large for a lesson file.',
       tooDeep: 'The file is nested too deeply to be a lesson file.',
@@ -6177,6 +6178,7 @@ export const ru = {
     removed: 'Урок удалён.',
     full: 'В «Моих уроках» помещается не больше {{max, number}} уроков. Сначала удалите лишние.',
     unreadable: 'Файл не удалось прочитать.',
+    writeFailed: 'Не удалось сохранить уроки. Проверьте, можно ли записывать в папку приложения, и попробуйте ещё раз.',
     problem: {
       tooLarge: 'Файл слишком большой для файла урока.',
       tooDeep: 'В файле слишком глубокая вложенность для файла урока.',

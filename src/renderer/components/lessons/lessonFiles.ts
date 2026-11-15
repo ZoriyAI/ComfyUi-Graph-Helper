@@ -10,6 +10,7 @@
  */
 
 import type { TFunction } from 'i18next';
+import { translateKnownError } from '../../../shared/i18n';
 import { i18n } from '../../i18n';
 import { showToast } from '../../ui/toastStore';
 import { builtinGroupFile, builtinLessonDoc } from '../../../shared/lessons/share/builtin';
@@ -82,6 +83,9 @@ export function refusalText(t: Translate, outcome: LessonImportOutcome, language
   if ('problem' in outcome) return problemText(t, outcome.problem);
   if ('tried' in outcome) return triedText(t, outcome.tried, language);
   if ('full' in outcome) return say(t, 'lessonFiles.full', { max: MY_LESSONS_MAX });
+  if (outcome.error === 'The lesson file could not be written.') return say(t, 'lessonFiles.writeFailed');
+  const known = translateKnownError((key, values) => say(t, key, values), outcome.error);
+  if (known) return known;
   return say(t, 'lessonFiles.unreadable');
 }
 

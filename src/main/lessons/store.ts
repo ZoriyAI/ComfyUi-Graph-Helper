@@ -13,7 +13,9 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { writeFileAtomic } from '../files/atomicWrite';
+import { randomBytes } from 'crypto';
+import { z } from 'zod';
+import { fileWriteErrorCode, writeFileAtomic } from '../files/atomicWrite';
 import { LESSON_LIMITS, lessonFileName, readLessonFileText, type LessonDoc } from '../../shared/lessons/share/format';
 import { checkLessonDoc, docIdOf, myLessonId, readStoredRecord, roomFor, safeFileName, storedRecord, type LessonImportOutcome, type LessonOrigin, type MyLesson } from '../../shared/lessons/share/mine';
 
@@ -35,8 +37,94 @@ function fileOf(folder: string, docId: string): string {
   return file;
 }
 
+const JOURNAL = '.import-journal.json';
+const journalSchema = z.object({
+  batch: z.string().regex(/^[a-f0-9]{16}$/),
+  state: z.enum(['prepared', 'committed', 'rolled-back']),
+  entries: z.array(z.object({ id: z.string().regex(/^[a-z0-9][a-z0-9-]*$/).max(LESSON_LIMITS.id), original: z.boolean() }).strict()).max(LESSON_LIMITS.lessons),
+}).strict();
+type ImportJournal = z.infer<typeof journalSchema>;
+
+/** Transaction-owned names never look like lessons and never come from a path in a document. */
+function stagedFile(folder: string, journal: ImportJournal, index: number, kind: 'stage' | 'original'): string {
+  return path.join(folder, `.import-${journal.batch}-${index}.${kind}`);
+}
+
+/** Refuses links and directories instead of reading or writing through them. */
+function regularFile(file: string): boolean {
+  try {
+    if (!fs.lstatSync(file).isFile()) throw new Error('The lesson file could not be written.');
+    return true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
+    throw error;
+  }
+}
+
+/** Completes a committed cleanup or restores every original after an interrupted pack import. */
+function recoverImport(folder: string): void {
+  const file = path.join(folder, JOURNAL);
+  if (!regularFile(file)) return;
+  if (fs.statSync(file).size > LESSON_LIMITS.fileBytes) throw new Error('The lesson file could not be written.');
+  const journal = journalSchema.parse(JSON.parse(fs.readFileSync(file, 'utf8')));
+  if (journal.state === 'prepared') {
+    journal.entries.forEach((entry, index) => {
+      const target = fileOf(folder, entry.id);
+      regularFile(target);
+      if (entry.original) {
+        const original = stagedFile(folder, journal, index, 'original');
+        if (!regularFile(original)) throw new Error('The lesson file could not be written.');
+        writeFileAtomic(target, fs.readFileSync(original), { mode: 0o600 });
+      } else {
+        fs.rmSync(target, { force: true });
+      }
+    });
+    // Recovery itself may be interrupted: retain originals until all restores are durable.
+    journal.state = 'rolled-back';
+    writeFileAtomic(file, JSON.stringify(journal), { mode: 0o600 });
+  }
+  journal.entries.forEach((_entry, index) => {
+    for (const kind of ['stage', 'original'] as const) fs.rmSync(stagedFile(folder, journal, index, kind), { force: true });
+  });
+  fs.unlinkSync(file);
+}
+
+/** Stages the whole pack and its original bytes before any visible lesson is replaced. */
+function writePack(folder: string, lessons: MyLesson[]): void {
+  ensureFolder(folder);
+  const journal: ImportJournal = {
+    batch: randomBytes(8).toString('hex'), state: 'prepared',
+    entries: lessons.map((lesson) => ({ id: lesson.doc.id, original: regularFile(fileOf(folder, lesson.doc.id)) })),
+  };
+  const file = path.join(folder, JOURNAL);
+  const staged: string[] = [];
+  let journalWritten = false;
+  try {
+    journal.entries.forEach((entry, index) => {
+      if (entry.original) {
+        const original = stagedFile(folder, journal, index, 'original');
+        staged.push(original);
+        writeFileAtomic(original, fs.readFileSync(fileOf(folder, entry.id)), { mode: 0o600 });
+      }
+      const stage = stagedFile(folder, journal, index, 'stage');
+      staged.push(stage);
+      writeFileAtomic(stage, JSON.stringify(storedRecord(lessons[index]), null, 2), { mode: 0o600 });
+    });
+    writeFileAtomic(file, JSON.stringify(journal), { mode: 0o600 });
+    journalWritten = true;
+    journal.entries.forEach((entry, index) => fs.renameSync(stagedFile(folder, journal, index, 'stage'), fileOf(folder, entry.id)));
+    writeFileAtomic(file, JSON.stringify({ ...journal, state: 'committed' }), { mode: 0o600 });
+    // The next list/import cleans a committed journal; cleanup failure must not report a committed pack as refused.
+  } catch (error) {
+    if (journalWritten) recoverImport(folder);
+    else for (const temporary of staged) fs.rmSync(temporary, { force: true });
+    throw error;
+  }
+}
+
 /** Every lesson in the folder that reads back whole, newest first. A file that does not read is left alone, unlisted. */
 export function listMyLessons(folder: string): MyLesson[] {
+  recoverImport(folder);
   let names: string[];
   try {
     names = fs.readdirSync(folder);
@@ -79,7 +167,7 @@ export function removeMyLesson(folder: string, id: string): boolean {
 }
 
 /** The outcomes an import here can have (the dialog adds canceled and unreadable). */
-export type ImportOutcome = Extract<LessonImportOutcome, { added: string[] } | { problem: unknown } | { tried: unknown } | { full: true }>;
+export type ImportOutcome = Extract<LessonImportOutcome, { added: string[] } | { problem: unknown } | { tried: unknown } | { full: true } | { error: string }>;
 
 /**
  * Imports a lesson file's text: read, checked lesson by lesson (parts that hold together, can be done from an
@@ -93,6 +181,15 @@ export function importLessonText(folder: string, text: string, options: { origin
 
 /** Checks and writes lesson documents already read; see importLessonText. */
 export function importDocs(folder: string, docs: LessonDoc[], options: { origin: LessonOrigin; fileName?: unknown; now?: number }): ImportOutcome {
+  try {
+    return checkedImport(folder, docs, options);
+  } catch (error) {
+    return { ok: false, error: fileWriteErrorCode(error, 'The lesson file could not be written.') };
+  }
+}
+
+/** Validation and the file transaction share the same synchronous main-process operation. */
+function checkedImport(folder: string, docs: LessonDoc[], options: { origin: LessonOrigin; fileName?: unknown; now?: number }): ImportOutcome {
   const kept = listMyLessons(folder);
   const keptById = new Map(kept.map((lesson) => [lesson.doc.id, lesson]));
   const incoming = new Map(docs.map((doc) => [doc.id, doc]));
@@ -108,12 +205,14 @@ export function importDocs(folder: string, docs: LessonDoc[], options: { origin:
   const fileName = safeFileName(options.fileName);
   const added: string[] = [];
   const replaced: string[] = [];
+  const lessons: MyLesson[] = [];
   for (const doc of docs) {
     const before = keptById.get(doc.id);
     // A lesson imported again keeps the person's own adult mark.
-    writeMyLesson(folder, { id: myLessonId(doc.id), origin: options.origin, savedAt: now, adultMark: before?.adultMark ?? false, ...(fileName ? { fileName } : {}), doc });
+    lessons.push({ id: myLessonId(doc.id), origin: options.origin, savedAt: now, adultMark: before?.adultMark ?? false, ...(fileName ? { fileName } : {}), doc });
     (before ? replaced : added).push(myLessonId(doc.id));
   }
+  writePack(folder, lessons);
   return { ok: true, added, replaced };
 }
 
