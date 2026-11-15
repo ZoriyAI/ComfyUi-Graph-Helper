@@ -70,6 +70,7 @@ const IPC_CHANNELS = {
   FILE_COPY_EXPORTED: 'file:copy-exported',
   /** The journey cards' links: the saved ComfyUI address or a fixed download page, opened in the browser on a click. */
   JOURNEY_OPEN_LINK: 'journey:open-link',
+  JOURNEY_COMFY_KNOWN: 'journey:comfy-known',
   DB_SAVE_PROJECT: 'db:save-project',
   DB_LOAD_PROJECT: 'db:load-project',
   DB_LIST_PROJECTS: 'db:list-projects',
@@ -248,6 +249,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   showExported: () => ipcRenderer.invoke(IPC_CHANNELS.FILE_SHOW_EXPORTED),
   /** The text of the workflow file last written for ComfyUI, for the run card's copy; null when there is none. */
   exportedText: () => ipcRenderer.invoke(IPC_CHANNELS.FILE_COPY_EXPORTED),
+  /** Whether the app knows a ComfyUI address to open (saved, or reported by an MCP server). */
+  comfyAddressKnown: () => ipcRenderer.invoke(IPC_CHANNELS.JOURNEY_COMFY_KNOWN),
   /** 'comfyui' (the saved address), 'comfyui-download' or 'ollama-download'; main builds the address. */
   openJourneyLink: (kind: 'comfyui' | 'comfyui-download' | 'ollama-download') => ipcRenderer.invoke(IPC_CHANNELS.JOURNEY_OPEN_LINK, kind),
 
@@ -513,6 +516,7 @@ export interface ElectronAPI {
   onOpenRequest: (listener: (request: { name: string }) => void) => () => void;
   showExported: () => Promise<{ name: string } | null>;
   exportedText: () => Promise<string | null>;
+  comfyAddressKnown: () => Promise<boolean>;
   openJourneyLink: (kind: 'comfyui' | 'comfyui-download' | 'ollama-download') => Promise<{ ok: true } | { ok: false; error: string }>;
   saveProjectFile: (secrets?: 'omit' | 'keep', options?: { saveAs?: boolean }) => Promise<{ ok: true; filePath?: string } | { ok: false; canceled?: boolean; error?: string; secrets?: SecretFieldReport[] }>;
   projectFileState: () => Promise<import('../shared/contracts/projectFile').ProjectFileState>;

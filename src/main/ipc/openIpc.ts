@@ -8,6 +8,7 @@ import { LESSONS, lessonById } from '../../shared/lessons/lessons';
 import { DESKTOP_PROJECT_ID } from '../../shared/project';
 import { readCatalog } from '../catalog/repository';
 import { readSettings } from '../settings/repository';
+import { reportedComfyUrl } from '../mcp/sync';
 import { readProjection } from '../commands/commit';
 import { getDatabase } from '../database';
 import { currentGraphKey } from '../knowledge/projectExplanations';
@@ -168,10 +169,12 @@ export function journeyLink(kind: unknown, comfyOrigin = savedComfyOrigin()): st
   return typeof kind === 'string' && kind in DOWNLOAD_PAGES ? DOWNLOAD_PAGES[kind as keyof typeof DOWNLOAD_PAGES] : null;
 }
 
+/** The ComfyUI address: the one saved in Settings ▸ Connection, else the one an MCP server reported. */
 function savedComfyOrigin(): string {
   try {
     const read = readSettings(getDatabase());
-    return read.source === 'corrupt' ? '' : read.values.comfyOrigin;
+    const saved = read.source === 'corrupt' ? '' : read.values.comfyOrigin;
+    return saved || reportedComfyUrl(getDatabase()) || '';
   } catch {
     return '';
   }
@@ -220,6 +223,8 @@ export function registerOpenIpc(ipcMain: IpcMain, opening: OpenCommits): void {
       return null;
     }
   });
+  // Whether "Open ComfyUI" has an address to open (the run card says where to set one when not).
+  ipcMain.handle(IPC_CHANNELS.JOURNEY_COMFY_KNOWN, () => journeyLink('comfyui') !== null);
   ipcMain.handle(IPC_CHANNELS.FILE_SHOW_EXPORTED, () => {
     if (lastExport && fs.existsSync(lastExport)) shell.showItemInFolder(lastExport);
     return lastExport ? { name: path.basename(lastExport) } : null;

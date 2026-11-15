@@ -41,6 +41,7 @@ export const IPC_CHANNELS = {
   FILE_COPY_EXPORTED: 'file:copy-exported',
   /** The journey cards' links: the saved ComfyUI address or a fixed download page, opened in the browser on a click. */
   JOURNEY_OPEN_LINK: 'journey:open-link',
+  JOURNEY_COMFY_KNOWN: 'journey:comfy-known',
   FILE_SELECT_DIRECTORY: 'file:select-directory',
   
   // Non-secret settings. Secret saves are rejected without a write.

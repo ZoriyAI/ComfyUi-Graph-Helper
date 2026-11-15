@@ -23,12 +23,12 @@ export default function RunInComfyDialog() {
   const { t } = useTranslation();
   const open = useJourneyStore((state) => state.dialog === 'run');
   const close = useJourneyStore((state) => state.close);
-  const [address, setAddress] = useState<string>('');
+  const [address, setAddress] = useState(false);
   const [always, setAlways] = useState(!readFlag(SEEN_KEYS.runCard));
   useEffect(() => {
     if (!open) return;
     setAlways(!readFlag(SEEN_KEYS.runCard));
-    void window.electronAPI.getSettings().then((read) => setAddress(String((read as { values?: { comfyOrigin?: string } }).values?.comfyOrigin ?? ''))).catch(() => setAddress(''));
+    void window.electronAPI.comfyAddressKnown().then(setAddress).catch(() => setAddress(false));
   }, [open]);
   const name = exportedFileName();
   const say = (title: string, tone: 'success' | 'error') => showToast({ id: 'journey-run', title, tone, duration: 4000 });
