@@ -48,7 +48,10 @@ More: [Opening a workflow](../graph/Opening-Workflows.md), [Saving a workflow fo
   **Read by:** File ▸ Import lessons…, the Import… button in My lessons, or a file dropped on the lesson list.
 - **Inside:** a `format` field (`nodewise-studio/lessons`), a `version` (1 today; a newer one is refused with a
   message) and one lesson or more (at most 200): ids, the words in English, Russian or both, the steps and what each
-  step checks on the canvas. A file is at most 2 MB.
+  step checks on the canvas. Next to `title`, `result` and `steps`, the words of a language may carry an optional
+  `roles` map: what each node is called in this lesson, so "Still to do" can tell two alike nodes apart. A file is at
+  most 2 MB.
+- A refused file says which rule it breaks, in the language of the interface.
 - **Data only:** nothing in it is run or opened; a file is all or nothing.
 
 The whole format: [The lesson file format](../lessons/Lesson-File-Format.md).

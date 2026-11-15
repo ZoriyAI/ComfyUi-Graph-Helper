@@ -30,8 +30,8 @@ npm run test:perf                # пределы времени tests/unit/larg
 ## Проверка типов и lint
 
 ```bash
-npm run type-check               # main и renderer
-npm run type-check:tests         # ещё и тесты (tsconfig.tests.json)
+npm run type-check               # main, renderer и тесты
+npm run type-check:tests         # только тесты (tsconfig.tests.json)
 npm run lint                     # ESLint по src, tests, scripts и forge.config.js (eslint.config.mjs)
 ```
 
@@ -41,6 +41,8 @@ npm run lint                     # ESLint по src, tests, scripts и forge.conf
 `tests/e2e/support/app.ts`, а не сам: она даёт приложению временный профиль через `--user-data-dir` (удаляется при
 закрытии; `NODEWISE_KEEP_PROFILES=1` оставляет его, чтобы посмотреть), поэтому тест никогда не читает и не пишет
 профиль того, кто его запускает. Сначала `npm run build`, иначе тесты проверяют старый код.
+`NODEWISE_PACKAGED_PROVIDERS=1` заставляет запуск без упаковки предлагать ровно тех помощников, что и установленное
+приложение (без проверочного режима TEST); им пользуется `npm run shots:public` для публичных снимков экрана.
 
 ```bash
 npm run build

@@ -29,6 +29,9 @@ What each setting does in detail: the Settings pages in [The interface](../inter
 | Answer language | Same as the interface | Same as the interface, English, Russian |
 | Answer length | Short | Short, Detailed |
 
+Which model to take: [Which model](../assistant/Which-Model.md); a compatible service:
+[OpenAI-compatible services](../assistant/OpenAI-Compatible.md).
+
 ### Network
 
 | Setting | Default | Values |
@@ -102,7 +105,8 @@ The app also remembers, without asking:
 - the size and place of the window (`window-state.json`);
 - how you left the window: the library tab and whether it is folded, the right panel's tab, width and whether it is
   folded, and the kind, family and order chosen on the Models tab (in the database, never in a project file);
-- which lesson is open, which lesson steps you read and which lessons you finished;
+- which lesson is open (also one of My lessons; an adult one only while Adult content (18+) is on), which lesson
+  steps you read and which lessons you finished;
 - the last 10 files you opened or saved (`recent-files.json`);
 - your own lessons, in the `lessons` folder;
 - in the window's own storage (Chromium's folders in the data folder): whether the tour of the window was already

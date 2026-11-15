@@ -29,8 +29,8 @@ npm run test:perf                # the time budgets of tests/unit/largeCatalog.t
 ## Type check and lint
 
 ```bash
-npm run type-check               # main and renderer
-npm run type-check:tests         # the tests too (tsconfig.tests.json)
+npm run type-check               # main, renderer and the tests
+npm run type-check:tests         # the tests alone (tsconfig.tests.json)
 npm run lint                     # ESLint over src, tests, scripts and forge.config.js (eslint.config.mjs)
 ```
 
@@ -39,7 +39,9 @@ npm run lint                     # ESLint over src, tests, scripts and forge.con
 They start the built app in Electron through Playwright. A spec starts the app through `launchApp()` of
 `tests/e2e/support/app.ts`, never on its own: it gives the app a temporary profile with `--user-data-dir` (removed on
 close; `NODEWISE_KEEP_PROFILES=1` keeps it for a look), so a spec never reads or writes the profile of the person
-running it. `npm run build` comes first, or the specs test old code.
+running it. `npm run build` comes first, or the specs test old code. `NODEWISE_PACKAGED_PROVIDERS=1` makes an
+unpackaged run offer exactly the assistants an installed app offers (no TEST mode); `npm run shots:public` uses it
+for the public screenshots.
 
 ```bash
 npm run build
