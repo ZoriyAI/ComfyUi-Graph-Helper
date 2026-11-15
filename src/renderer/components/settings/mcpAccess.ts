@@ -1,3 +1,8 @@
+/**
+ * Pure text rules of the MCP access choice (none, token, browser sign-in): what "Check" found, where the token lives,
+ * and which sentence explains a sign-in error to this person. Used by SettingsPanel, ConnectionSection, McpAccess,
+ * PrivacySection, SyncSection and the sync indicator; kept free of React so tests/unit/mcpAccess*.test.ts can pin them.
+ */
 import type { McpAuthMode } from '../../../shared/config/schema';
 import type { McpAuthProbe, McpTokenStatus, SyncStatus } from '../../../shared/contracts';
 import { explainError, type Translator } from '../../../shared/i18n';
@@ -8,6 +13,7 @@ export const NEEDS_SIGN_IN = 'MCP server requires sign-in.';
 /** A made choice of how to reach the MCP server ('' in the settings means "not chosen yet"). */
 export type AccessChoice = Exclude<McpAuthMode, ''>;
 
+/** The choices in the order the radio group shows them. */
 export const ACCESS_CHOICES: AccessChoice[] = ['none', 'token', 'oauth'];
 
 /** What "Check" found: the choice to select (null when the server could not be asked) and one sentence for the person. */
@@ -26,6 +32,7 @@ export function detectionNote(probe: McpAuthProbe, translate: Translator): Detec
   return { ...note, completedUrl: probe.completedUrl, text: `${translate('settings.addressCompleted')} ${note.text}` };
 }
 
+/** The note before the address completion is added: an error, an unknown server kind, or the access found. */
 function noteOf(probe: McpAuthProbe, translate: Translator): DetectionNote {
   if (!probe.ok) return { mode: null, text: explainError(translate, probe.error).summary, tone: 'bad' };
   // The server let the app in, but lists none of the tools of a kind the app reads: never a green "connected".
@@ -37,6 +44,7 @@ function noteOf(probe: McpAuthProbe, translate: Translator): DetectionNote {
   return kind && known.tone === 'good' ? { ...known, text: `${known.text}${kind}` } : known;
 }
 
+/** The sentence for a server that answered: no credentials needed, browser sign-in, or a token (tried or not). */
 function noteOfAccess(probe: Extract<McpAuthProbe, { ok: true }>, translate: Translator): DetectionNote {
   if (probe.mode === 'none') return { mode: 'none', text: translate('settings.detectedNone', { tools: probe.tools }), tone: 'good' };
   if (probe.mode === 'oauth') return { mode: 'oauth', text: translate('settings.detectedOauth'), tone: 'good' };
@@ -46,10 +54,12 @@ function noteOfAccess(probe: Extract<McpAuthProbe, { ok: true }>, translate: Tra
   return { mode: 'token', text: translate('settings.detectedToken'), tone: 'good' };
 }
 
+/** Where the MCP token is kept, as main reports it. */
 export type TokenStatus = McpTokenStatus;
 
 /** The status line under the token field: where the token lives, or that there is none. */
 export function tokenPlaceKey(status: TokenStatus): string {
+  // The strongest place wins: OS storage, then the settings file, then memory for this session only.
   if (status.source === 'os' || status.stored) return 'settings.tokenPlaceOs';
   if (status.source === 'file' || status.inFile) return 'settings.tokenPlaceFile';
   if (status.held) return 'settings.tokenPlaceSession';

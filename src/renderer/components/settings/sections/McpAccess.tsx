@@ -1,3 +1,8 @@
+/**
+ * The "Access to the server" block of Settings > Connection (ConnectionSection renders it): the choice of how the app
+ * reaches the MCP server, the token field and the browser sign-in. The choice is a draft value saved with the dialog;
+ * the token and the sign-in act at once in main, because a secret must never sit in the settings draft.
+ */
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { McpAuthMode } from '../../../../shared/config/schema';
@@ -13,6 +18,7 @@ import styles from './McpAccess.module.css';
 import radioMark from '../../../ui/RadioMark.module.css';
 import { fieldClass, hintClass, rowClass } from './common';
 
+/** The catalog keys of each choice's title and of the hint shown when it is chosen. */
 const TITLES: Record<AccessChoice, string> = { none: 'settings.accessNone', token: 'settings.accessToken', oauth: 'settings.accessOauth' };
 const HINTS: Record<AccessChoice, string> = { none: 'settings.accessNoneHint', token: 'settings.accessTokenHint', oauth: 'settings.accessOauthHint' };
 
@@ -35,6 +41,7 @@ export default function McpAccess({ value, savedValue, onChange, mcpUrl, savedUr
   focusToken?: number;
 }) {
   const { t } = useTranslation();
+  // A unique radio group name, so two instances (or tests) never share one group.
   const name = useId();
   return (
     <fieldset className={cx(styles.access, 'mcp-access')} data-access={value || 'unchosen'}>
@@ -79,6 +86,7 @@ export default function McpAccess({ value, savedValue, onChange, mcpUrl, savedUr
 /** Typing or pasting applies the token after this pause, not on every key. */
 const APPLY_DEBOUNCE_MS = 600;
 
+/** The result of checking a pasted token against the server. */
 type Verdict = { kind: 'idle' } | { kind: 'checking' } | { kind: 'accepted'; tools: number } | { kind: 'rejected' } | { kind: 'notNeeded' } | { kind: 'failed'; text: string };
 
 /**
@@ -96,6 +104,7 @@ function TokenPanel({ mcpUrl, focusRequest }: { mcpUrl: string; focusRequest: nu
   const [verdict, setVerdict] = useState<Verdict>({ kind: 'idle' });
   const [note, setNote] = useState('');
   const input = useRef<HTMLInputElement | null>(null);
+  // Each apply takes a new ticket; an answer for an older ticket is ignored.
   const applyTicket = useRef(0);
 
   const refresh = async () => {
@@ -222,6 +231,7 @@ function McpSignIn({ savedUrl, disabled }: { savedUrl: boolean; disabled: boolea
   const [info, setInfo] = useState('');
   const language = i18n.language === 'en' ? 'en' : 'ru';
 
+  // The sign-in belongs to the saved address, so its status is only asked for once there is one.
   useEffect(() => {
     if (!savedUrl) return;
     void window.electronAPI.mcpOAuthStatus().then(setStatus).catch(() => undefined);
@@ -231,6 +241,7 @@ function McpSignIn({ savedUrl, disabled }: { savedUrl: boolean; disabled: boolea
     setNote('');
     setInfo('');
     setWaiting(true);
+    // Show "waiting for the browser" at once; the real status is read again when the sign-in ends.
     setStatus((current) => ({ state: 'pending', persisted: current?.persisted ?? false }));
     try {
       const result = await window.electronAPI.mcpOAuthLogin();

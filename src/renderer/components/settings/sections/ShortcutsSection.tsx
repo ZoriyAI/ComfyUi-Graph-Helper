@@ -1,3 +1,8 @@
+/**
+ * Settings > Shortcuts, one section of SettingsPanel: every registry command with its shortcut, a recorder to change
+ * it, conflict marks and resets. Changes are draft overrides in preferences.shortcuts, applied after Save.
+ * shortcutConflicts and moveChord are exported for tests/unit/preferencesRenderer and settingsDraftRules.
+ */
 import { recordVerdict } from '../../../a11y/recordKeys';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -12,6 +17,7 @@ import { cx } from '../../../ui/cx';
 import styles from '../SettingsPanel.module.css';
 import { hintClass, SectionHead, type DraftProps } from './common';
 
+/** The menus in menu-bar order; each becomes one table. */
 const GROUPS: CommandGroup[] = ['file', 'edit', 'view', 'graph', 'assistant', 'sync', 'help'];
 
 /** Radio choices read as "Motion: On", "Provider: OpenAI" so a row is clear on its own. */
@@ -24,6 +30,7 @@ function labelOf(command: Command, t: (key: string) => string): string {
   return label;
 }
 
+/** One command's row: its default chord and the chord it has in the draft ('' means no shortcut). */
 export interface ShortcutRow {
   id: string;
   group: CommandGroup;
@@ -32,7 +39,7 @@ export interface ShortcutRow {
   chord: string;
 }
 
-/** Each row's chord after the draft overrides, and which other rows share it. */
+/** For every row whose chord another row also has, the ids of those other rows. Rows without a chord never clash. */
 export function shortcutConflicts(rows: Array<Pick<ShortcutRow, 'id' | 'chord'>>): Record<string, string[]> {
   const conflicts: Record<string, string[]> = {};
   for (const row of rows) {
@@ -91,6 +98,7 @@ export default function ShortcutsSection({ prefs, setPrefs }: DraftProps) {
   const conflicts = shortcutConflicts(rows);
   const labels = Object.fromEntries(rows.map((row) => [row.id, row.label]));
 
+  // Storing the default as an override would hide later changes of the default, so a default removes the override.
   const setChord = (id: string, chord: string) => {
     setPrefs((current) => {
       const next = { ...current.shortcuts };
@@ -116,11 +124,13 @@ export default function ShortcutsSection({ prefs, setPrefs }: DraftProps) {
         setRefused(true);
         return;
       }
+      // A bare Escape cancels; Escape with a modifier can still be recorded as a shortcut.
       if (event.key === 'Escape' && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) {
         setRecording(null);
         return;
       }
       const chord = chordFromEvent(event, platform);
+      // A modifier alone, or a key no shortcut can use, gives no chord: keep recording.
       if (!chord) return;
       const others = rows.filter((row) => row.id !== recording && row.chord && sameChord(row.chord, chord)).map((row) => row.id);
       if (others.length > 0) setTaken({ id: recording, chord, others });

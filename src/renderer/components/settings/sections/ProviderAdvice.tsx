@@ -1,3 +1,8 @@
+/**
+ * The advice blocks of Settings > Assistant (AssistantSection renders them): which cloud model to take and what it
+ * costs, which local models call tools, and how to give a local server a larger context window. The facts come from
+ * shared/config/modelAdvice so they are dated and kept in one place.
+ */
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Copy } from 'lucide-react';
@@ -24,6 +29,7 @@ export function AddressLine({ label, url }: { label: string; url: string }) {
   );
 }
 
+/** A price in US dollars in the interface's number format; cents only for prices under one dollar. */
 function money(value: number, language: string): string {
   return new Intl.NumberFormat(language === 'ru' ? 'ru-RU' : 'en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: value < 1 ? 2 : 0 }).format(value);
 }
@@ -79,6 +85,7 @@ export function LocalAdvice() {
  */
 export function WindowHelp({ onVariant, busy, note }: { onVariant: (() => void) | null; busy: boolean; note: string }) {
   const { t } = useTranslation();
+  // The usual ways to run a local server, each with a sentence and, where there is one, a command to copy.
   const ways: Array<{ text: string; command?: string }> = [
     { text: 'providers.windowService', command: 'sudo systemctl edit ollama.service' },
     { text: 'providers.windowServiceLines', command: `[Service]\nEnvironment="OLLAMA_CONTEXT_LENGTH=${LOCAL_WINDOW_ADVICE}"` },

@@ -1,3 +1,9 @@
+/**
+ * Settings > Assistant, the first section of SettingsPanel: the provider cards, the provider's key (KeyPanel), the
+ * model and address with live pickers, Check connection, the context window advice, the helper's behaviour and the
+ * network proxy. Provider, model and address are fields of the settings row; each provider also remembers its last
+ * model and address in preferences.providers, so switching back restores them. Keys apply at once in main.
+ */
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { COMPACT_WINDOW, MIN_WORKING_WINDOW, RECOMMENDED_WINDOW } from '../../../../shared/agent/contextWindow';
@@ -27,6 +33,7 @@ import styles from '../SettingsPanel.module.css';
 import { fieldClass, Group, hintClass, patchSection, rowClass, SectionHead, type DraftProps } from './common';
 import { discoveryEmptyNoteShown, listable, modelSuggestions, onlyModelToPick, serverFor, serverSuggestions, withKnownFacts } from './pickerItems';
 
+/** The provider cards in order; the scripted test provider is only offered in unpackaged runs and tests. */
 const PROVIDERS: Array<{ value: NonSecretSettings['provider']; labelKey: string; descriptionKey: string }> = [
   { value: '', labelKey: 'settings.providerNone', descriptionKey: 'preferences.providerDesc.none' },
   { value: 'openai', labelKey: 'settings.providerOpenAI', descriptionKey: 'preferences.providerDesc.openai' },
@@ -37,10 +44,13 @@ const PROVIDERS: Array<{ value: NonSecretSettings['provider']; labelKey: string;
   { value: 'test', labelKey: 'settings.providerTest', descriptionKey: 'preferences.providerDesc.test' },
 ];
 
+/** The badge colour of each key state on a provider card. */
 const KEY_TONES: Record<ProviderKeyState, BadgeTone> = { none: 'neutral', test: 'ai', ok: 'ok', session: 'accent', missing: 'warn', setup: 'neutral' };
 
+/** The state of Check connection: idle, running, or its result (latency and the window the server reported). */
 type ProbeNote = { kind: 'idle' } | { kind: 'running' } | { kind: 'ok'; ms: number; contextTokens: number | null } | { kind: 'failed'; error: string };
 
+/** The live model list of the chosen provider, and the local servers that discovery found. */
 type ModelList = { kind: 'idle' } | { kind: 'loading' } | { kind: 'ok'; models: ModelChoice[]; source: string } | { kind: 'failed'; error: string };
 type Discovery = { kind: 'idle' } | { kind: 'loading' } | { kind: 'done'; servers: LocalServer[]; notes: string[] };
 
@@ -71,12 +81,16 @@ export default function AssistantSection({ values, setValues, prefs, setPrefs, c
   const [listTick, setListTick] = useState(0);
   const [discovery, setDiscovery] = useState<Discovery>({ kind: 'idle' });
   const [variant, setVariant] = useState<{ busy: boolean; note: string }>({ busy: false, note: '' });
+  // Each list request takes a new ticket; an answer for an older ticket is ignored.
   const listRequest = useRef(0);
+  // The list callback reads the current model through this ref, not the value captured when the request started.
   const valuesRef = useRef(values);
   valuesRef.current = values;
+  // Discovery runs by itself only once while the section is mounted; after that only the Find button runs it.
   const discoveryStarted = useRef(false);
   const provider = values.provider;
   const remembered: PreferenceProvider | null = isPreferenceProvider(provider) ? provider : null;
+  // The longer diagnostic when there is one: the section has room for it, unlike a toast.
   const errorText = (code: string) => {
     const explained = explainError(translate, code);
     return explained.diagnostic ?? explained.summary;
@@ -106,6 +120,7 @@ export default function AssistantSection({ values, setValues, prefs, setPrefs, c
         });
     }, LIST_DEBOUNCE_MS);
     return () => clearTimeout(timer);
+  // listTick is bumped by the refresh button; the key source is a dependency so a pasted key lists again.
   }, [provider, values.baseURL, keySourceOf(keySources, provider), listTick]);
 
   const findServers = () => {
@@ -130,6 +145,7 @@ export default function AssistantSection({ values, setValues, prefs, setPrefs, c
       return { ...current, provider: value, model: entry.model, baseURL: entry.baseURL };
     });
   };
+  /** Sets the model or address in the draft row and in the provider's remembered entry together. */
   const setRuntime = (field: 'model' | 'baseURL', text: string) => {
     setValues((current) => ({ ...current, [field]: text }));
     if (remembered) {
@@ -184,6 +200,7 @@ export default function AssistantSection({ values, setValues, prefs, setPrefs, c
   // The model's own window from its list entry counts as known, the same number a turn uses.
   const listedWindow = chosenModel?.contextLength ?? null;
   const chosenWindow = effectiveContextWindow(values.model, assistant.contextTokens, serverWindow, listedWindow);
+  // The window "auto" (0) gives; the hint names it while no fixed value is set.
   const autoWindow = effectiveContextWindow(values.model, 0, serverWindow, listedWindow);
   const contextHint = String(t('preferences.contextTokensHint', {
     tokens: assistant.contextTokens > 0 ? chosenWindow.tokens : autoWindow.tokens,

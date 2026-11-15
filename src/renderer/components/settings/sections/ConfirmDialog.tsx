@@ -1,3 +1,8 @@
+/**
+ * The confirmation dialog used inside Settings: SettingsPanel asks with it before discarding a changed draft, and
+ * PrivacySection before removing stored data or agreeing to a choice. It borrows the frame of the shell's command
+ * dialogs so a question looks the same wherever it is asked.
+ */
 import React from 'react';
 import { DialogClose, DialogContent, DialogDescription, DialogOverlay, DialogPortal, DialogRoot, DialogTitle } from '../../../ui/Dialog';
 import Button from '../../../ui/Button';
@@ -30,7 +35,9 @@ export default function ConfirmDialog({ open, onOpenChange, title, lead, items, 
     <DialogRoot open={open} onOpenChange={onOpenChange}>
       <DialogPortal>
         <DialogOverlay />
-        <DialogContent className={cx(styles.dialog, className)} aria-describedby={`${className ?? 'confirm'}-lead`}>
+        <DialogContent
+          // The lead's id comes from the class name, so two confirm dialogs on one page do not share an id.
+          className={cx(styles.dialog, className)} aria-describedby={`${className ?? 'confirm'}-lead`}>
           <header className={cx(styles.header, own.head)}>
             <span className={cx(own.mark, tone === 'agree' && own.markAgree)} aria-hidden="true">{icon ?? <Trash2 size={16} />}</span>
             <DialogTitle className={styles.title}>{title}</DialogTitle>

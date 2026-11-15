@@ -1,3 +1,9 @@
+/**
+ * The Settings (Preferences) dialog: it owns the draft of the non-secret settings row and the preferences, shows one
+ * section at a time from ./sections, and saves them together. App.tsx renders it once behind the toolbar's gear;
+ * the menu, Mod+, and other places open it through uiState's settingsRequest. Everything waits for Save so a person
+ * can try values and walk away with Cancel; only keys and tokens are stored at once by their own buttons.
+ */
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Bot, Info, Keyboard, LayoutGrid, Palette, Plug, RefreshCw, ShieldCheck, type LucideIcon } from 'lucide-react';
@@ -47,10 +53,12 @@ import { setAutoSync } from '../sync/SyncIndicator';
 import { sameAuto, type AutoDraft } from './settingsDraft';
 import styles from './SettingsPanel.module.css';
 
+/** Puts the motion level on <html data-motion>, where motion/policy.ts and the stylesheets read it. */
 function applyMotion(motion: NonSecretSettings['motion']) {
   document.documentElement.dataset.motion = motion;
 }
 
+/** Whether two settings rows are equal field by field; a new field in the schema must be added here too. */
 function sameSettings(left: NonSecretSettings, right: NonSecretSettings) {
   return left.theme === right.theme
     && left.motion === right.motion
@@ -72,6 +80,7 @@ const FIELD_SECTION: Record<SettingsField, SettingsSection> = {
   other: 'assistant',
 };
 
+/** The label and icon of each section in the left list; the order comes from SETTINGS_SECTIONS. */
 const SECTION_META: Record<SettingsSection, { labelKey: string; icon: LucideIcon }> = {
   assistant: { labelKey: 'preferences.nav.assistant', icon: Bot },
   connection: { labelKey: 'preferences.nav.connection', icon: Plug },
@@ -83,6 +92,7 @@ const SECTION_META: Record<SettingsSection, { labelKey: string; icon: LucideIcon
   about: { labelKey: 'preferences.nav.about', icon: Info },
 };
 
+/** The footer status line: a catalog key, or an error code from main that explainError turns into a sentence. */
 type NoteState = { kind: 'key'; key: string } | { kind: 'error'; code: string };
 
 /**
@@ -99,7 +109,8 @@ function seedProviders(values: NonSecretSettings, preferences: Preferences): Pre
 /**
  * The Preferences window: a section list on the left, the section on the right, Save and Cancel below.
  * Non-secret values and preferences save together and fail closed (a secret in any field blocks the save);
- * keys and tokens go only to memory or OS storage through their own buttons. Sync's schedule applies at once.
+ * keys and tokens go only to memory or OS storage through their own buttons. Auto sync is a draft too and is
+ * applied on Save (settingsDraft.ts).
  */
 export default function SettingsPanel({
   onRead,
@@ -121,6 +132,7 @@ export default function SettingsPanel({
   const savedPrefsRef = useRef<Preferences>(parsePreferences({}));
   const onReadRef = useRef(onRead);
   const onSavedRef = useRef(onSaved);
+  // The callbacks are read through refs so the load effect below runs once and still calls the latest props.
   onReadRef.current = onRead;
   onSavedRef.current = onSaved;
   const [open, setOpen] = useState(false);
@@ -137,7 +149,6 @@ export default function SettingsPanel({
   const syncAuto = useKnowledgeStore((state) => state.sync?.auto ?? null);
   const onSessionRef = useRef(onSession);
   onSessionRef.current = onSession;
-  // Whether keys and tokens can be kept in the system password store; null until asked (the note stays hidden).
 
   const adoptPreferences = (stored: Preferences, row: NonSecretSettings) => {
     const seeded = seedProviders(row, stored);
@@ -145,6 +156,7 @@ export default function SettingsPanel({
     setPrefs(seeded);
   };
 
+  // Load the stored row once. A corrupt file falls back to the defaults in English and says so in the footer.
   useEffect(() => {
     let cancelled = false;
     window.electronAPI.getSettings().then((read: SettingsRead) => {
@@ -208,6 +220,7 @@ export default function SettingsPanel({
     return () => window.removeEventListener(SETTINGS_CHANGED, onChanged);
   }, []);
 
+  /** Throws the draft away; the language is put back too, since AppearanceSection applies it live for preview. */
   const discard = () => {
     setValues(savedRef.current);
     setPrefs(savedPrefsRef.current);
@@ -226,9 +239,12 @@ export default function SettingsPanel({
     refreshSyncStatus();
   };
   const closeFromEscape = requestClose;
+  // The window-level key listener is installed once, so it calls the latest close through a ref.
   const closeFromEscapeRef = useRef(closeFromEscape);
   closeFromEscapeRef.current = closeFromEscape;
 
+  // Escape is handled in the capture phase, before the dialog sees it, so one press closes only the innermost thing:
+  // a shortcut recording, then an open select, then the dialog itself (asking first about a changed draft).
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
@@ -250,6 +266,7 @@ export default function SettingsPanel({
   const draftError = settingsWriteError(values) ?? preferencesWriteError(prefs);
   const autoChanged = autoDraft !== null && syncAuto !== null && !sameAuto(autoDraft, syncAuto);
   const dirty = !sameSettings(values, savedRef.current) || !samePreferences(prefs, savedPrefsRef.current) || autoChanged;
+  // requestClose is defined above and reads this ref, so it always sees the current draft state.
   const dirtyRef = useRef(dirty);
   dirtyRef.current = dirty;
   // A draft that cannot be saved keeps Save pressable: pressing it opens the field to fix.
@@ -298,6 +315,7 @@ export default function SettingsPanel({
     const field = firstProblem ?? problems[0];
     if (!field) return;
     setSection(FIELD_SECTION[field]);
+    // Wait for the tab switch to render the section before looking for the invalid field in it.
     window.setTimeout(() => {
       document.querySelector<HTMLElement>('.settings-panel[data-state="active"] [aria-invalid="true"]')?.focus();
     }, 60);
@@ -351,9 +369,11 @@ export default function SettingsPanel({
     </Button>
   );
 
+  // The props every section gets: the draft, the saved row to compare against, and the portal container for popups.
   const draft: DraftProps = { values, setValues, saved: savedRef.current, prefs, setPrefs, container, fieldError, pending, dirty };
   const panelClass = cx(styles.panel, 'settings-panel');
   const panel = (id: SettingsSection, children: React.ReactNode) => (
+    // forceMount keeps every section mounted, so field state and focus targets survive switching sections.
     <TabsContent key={id} className={panelClass} value={id} tabIndex={-1} forceMount>
       {children}
     </TabsContent>
@@ -381,6 +401,7 @@ export default function SettingsPanel({
           className={cx(styles.dialog, 'settings-dialog')}
           aria-describedby="settings-lead"
           onOpenAutoFocus={(event) => {
+            // Focus the first useful control of the open section rather than the dialog's first button.
             event.preventDefault();
             const active = document.querySelector('.settings-panel[data-state="active"]');
             const target = active?.querySelector<HTMLElement>('input:not([disabled]), [role="combobox"], [role="radio"][tabindex="0"]')
@@ -397,6 +418,7 @@ export default function SettingsPanel({
             event.preventDefault();
             window.dispatchEvent(new Event(CLOSE_OPEN_SELECT));
           }}
+          // Select popups are portalled outside the dialog; a click in one must not count as a click outside.
           onPointerDownOutside={(event) => {
             const target = event.target;
             if (target instanceof Element && target.closest('.select-content')) event.preventDefault();

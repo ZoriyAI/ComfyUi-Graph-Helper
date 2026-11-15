@@ -1,3 +1,7 @@
+/**
+ * One row of Settings > Privacy (PrivacySection renders it): the size of the model preview cache that main keeps
+ * (main/knowledge/preview.ts) and a button that empties it.
+ */
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ImageOff } from 'lucide-react';
@@ -13,6 +17,7 @@ import { hintClass, rowClass } from './common';
  */
 export default function PreviewCacheRow() {
   const { t, i18n } = useTranslation();
+  // Only the number format of the sizes depends on it.
   const language = i18n.language === 'en' ? 'en' : 'ru';
   const [size, setSize] = useState<{ files: number; bytes: number } | null>(null);
   const [note, setNote] = useState('');
@@ -21,6 +26,7 @@ export default function PreviewCacheRow() {
   }, []);
   const clear = async () => {
     const cleared = await window.electronAPI.clearPreviewCache().catch(() => null);
+    // A failed clear leaves the shown size as it was.
     if (!cleared) return;
     setSize({ files: 0, bytes: 0 });
     setNote(String(t('preferences.previewCacheCleared', { files: cleared.files, size: formatBytes(cleared.bytes, language) })));
