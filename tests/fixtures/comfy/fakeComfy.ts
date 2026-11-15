@@ -1,13 +1,14 @@
-import http from 'node:http';
-import type { AddressInfo } from 'node:net';
-import { CLASSES, MODELS, objectInfoDocument, PACKS } from '../mcp/fakeMcpServer';
-
 /**
  * A plain ComfyUI, as its own HTTP API answers (comfyanonymous/ComfyUI 0.45.0: server.py, app/model_manager.py),
  * with ComfyUI-Manager's `/customnode/installed` when asked for. Every request is recorded as `METHOD /path?query`
  * so a test can prove the app sent nothing but GETs of the read routes. Anything that is not a GET gets 405.
  * Labelled fixture: names, sizes and versions are made up.
+ * Used by comfy-only-first-run, mcp-profiles and public e2e specs and by the comfyDirect and mcpProfiles integration
+ * tests, which check how the app talks to a ComfyUI that has no MCP server in front of it.
  */
+import http from 'node:http';
+import type { AddressInfo } from 'node:net';
+import { CLASSES, MODELS, objectInfoDocument, PACKS } from '../mcp/fakeMcpServer';
 
 export interface FakeComfyOptions {
   /** Paths and sub-folder names as a ComfyUI on Windows reports them (`C:\ComfyUI\models\loras`, `sdxl\style.safetensors`). */
@@ -26,6 +27,7 @@ export interface FakeComfyOptions {
   port?: number;
 }
 
+/** A running fake: its base URL, every request as `METHOD /path?query`, and a close that ends open connections. */
 export interface FakeComfy {
   url: string;
   hits: string[];
@@ -56,6 +58,7 @@ export const WEBP = Buffer.from('UklGRiQAAABXRUJQVlA4IBgAAAAwAQCdASoBAAEAAwA0JaQ
 /** A big pack for a large /object_info: `custom_nodes.ComfyUI-BigPack`. */
 export const BIG_PACK = 'ComfyUI-BigPack';
 
+/** The disk path ComfyUI reports for a model folder; `index` 1 is a second, shared path (only loras has one). */
 function rootOf(folder: string, index: number, windows: boolean): string {
   if (windows) return index === 0 ? `C:\\ComfyUI\\models\\${folder}` : `D:\\AI\\shared\\${folder}`;
   return index === 0 ? `/srv/comfyui/models/${folder}` : `/mnt/shared/${folder}`;
@@ -75,6 +78,7 @@ function filesOf(folder: string, windows: boolean): Array<{ name: string; pathIn
     }));
 }
 
+/** The /object_info document of the MCP fixture's classes plus `extra` generated classes of the big pack. */
 function documentWith(extra: number): Record<string, unknown> {
   const doc = objectInfoDocument(CLASSES);
   for (let index = 0; index < extra; index += 1) {
@@ -96,6 +100,7 @@ function documentWith(extra: number): Record<string, unknown> {
   return doc;
 }
 
+/** Starts the fake on 127.0.0.1. The /object_info body is built once, so a large catalog costs time only here. */
 export async function startFakeComfy(options: FakeComfyOptions = {}): Promise<FakeComfy> {
   const hits: string[] = [];
   const windows = options.windows === true;

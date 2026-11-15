@@ -7,6 +7,7 @@
  * One list serves two fixtures: the lesson tests' table of classes and the fake ComfyUI's /object_info.
  */
 
+/** One class in a neutral shape that both readers below turn into their own form. */
 export interface FixtureClass {
   classType: string;
   display: string;
@@ -21,6 +22,7 @@ export interface FixtureClass {
 
 const SAMPLERS = ['euler', 'euler_ancestral', 'dpmpp_2m', 'dpmpp_2m_sde', 'res_multistep', 'er_sde', 'lcm', 'uni_pc'];
 
+/** The picture-model classes, from ComfyUI itself and from ComfyUI-GGUF. */
 export const IMAGE_MODEL_CLASSES: readonly FixtureClass[] = [
   {
     classType: 'DualCLIPLoader', display: 'DualCLIPLoader', category: 'advanced/loaders', pack: 'comfy-core',

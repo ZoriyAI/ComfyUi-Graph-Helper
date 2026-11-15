@@ -1,6 +1,3 @@
-import http from 'node:http';
-import type { AddressInfo } from 'node:net';
-
 /**
  * MCP servers of other kinds than the catalog one, speaking Streamable HTTP with JSON answers, as the public servers
  * list their tools (names and input schemas copied in shape from their sources):
@@ -8,9 +5,15 @@ import type { AddressInfo } from 'node:net';
  * - 'checkpointList': joenorton/comfyui-mcp-server (`list_models` with no arguments; `{models, count, default}`).
  * - 'foreign': a server about something else entirely.
  * Each also lists tools that act (queue, download, install); the app must never call them. Labelled fixture.
+ * Used by the comfyDirect and mcpProfiles integration tests and mcp-profiles.test.ts (e2e), which check that the
+ * app recognizes such a server, reads its model list and calls nothing else.
  */
+import http from 'node:http';
+import type { AddressInfo } from 'node:net';
+
 export type PublicKind = 'modelList' | 'checkpointList' | 'foreign';
 
+/** One request the fake received: the JSON-RPC method and, for tools/call, the tool and its arguments. */
 export interface PublicMcpCall {
   method: string;
   tool?: string;
@@ -23,6 +26,7 @@ export interface PublicMcp {
   close: () => Promise<void>;
 }
 
+// A JSON schema for an object with the given properties, the shape MCP tool inputs use.
 const obj = (properties: Record<string, unknown> = {}, required: string[] = []) => ({ type: 'object', properties, required, additionalProperties: false });
 
 const TOOLS: Record<PublicKind, Array<{ name: string; inputSchema: Record<string, unknown> }>> = {
@@ -72,6 +76,7 @@ export const MODEL_LIST_MARKDOWN = [
   '',
 ].join('\n');
 
+/** What `list_models` of the checkpointList kind answers; its `default` is the last entry. */
 export const CHECKPOINT_LIST = ['sd_xl_base_1.0.safetensors', 'juggernautXL_v9.safetensors', 'v1-5-pruned-emaonly.ckpt'];
 
 function readBody(req: http.IncomingMessage): Promise<string> {
@@ -83,6 +88,7 @@ function readBody(req: http.IncomingMessage): Promise<string> {
   });
 }
 
+/** The answer to one tool call: only the read tool of each kind answers, every other call gets an MCP error. */
 function answer(kind: PublicKind, tool: string, args: Record<string, unknown>): unknown {
   const text = (value: unknown, isError = false) => ({ content: [{ type: 'text', text: typeof value === 'string' ? value : JSON.stringify(value) }], isError });
   if (kind === 'modelList' && tool === 'list_local_models' && args.action === 'list') return text(MODEL_LIST_MARKDOWN);
@@ -93,6 +99,10 @@ function answer(kind: PublicKind, tool: string, args: Record<string, unknown>): 
   return text(`The fixture does not answer ${tool}.`, true);
 }
 
+/**
+ * Starts a fake of the given kind on a free 127.0.0.1 port at /mcp. Sessions are checked like a real Streamable
+ * HTTP server: every request after initialize must carry the session id, or it gets 404.
+ */
 export async function startPublicMcp(kind: PublicKind): Promise<PublicMcp> {
   const calls: PublicMcpCall[] = [];
   const sessions = new Set<string>();
@@ -129,6 +139,7 @@ export async function startPublicMcp(kind: PublicKind): Promise<PublicMcp> {
       call.args = (params.arguments as Record<string, unknown>) ?? {};
     }
     calls.push(call);
+    // A message without an id is a notification: accepted, never answered.
     if (message.id === undefined) {
       res.writeHead(202);
       res.end();

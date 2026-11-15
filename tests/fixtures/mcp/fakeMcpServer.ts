@@ -6,6 +6,9 @@
  *
  * It also lists tools that write or run (install, download, queue). Every call is recorded in `calls` so a test can
  * prove the app only used read-only tools. The bearer token is checked but never recorded.
+ *
+ * The main MCP fixture of the suite: most integration tests, many unit tests (lessons, checks, search words) and
+ * the e2e specs that need a synced catalog start it, and fakeComfy.ts and fakeModelWeb.ts reuse its data.
  */
 import { createHash } from 'crypto';
 import * as fs from 'fs';
@@ -38,6 +41,7 @@ export interface FakeMcp {
   close: () => Promise<void>;
 }
 
+/** The MCP protocol version the fake prefers; it answers an older one when the client asks for one it supports. */
 export const PROTOCOL_VERSION = '2025-11-25';
 const SUPPORTED_VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
 /** That server caps pages; a small cap makes the app follow next_cursor. */
@@ -67,6 +71,7 @@ export const READ_TOOLS = ['studio_info', 'studio_capabilities', 'models', 'mode
 
 interface Pack { name: string; module: string; version: string | null; commit: string | null }
 
+/** Installed node packs; a class names its pack by index into this list, so the order matters. */
 export const PACKS: Pack[] = [
   { name: 'comfy-core', module: 'nodes', version: '0.3.68', commit: null },
   { name: 'ComfyUI-KJNodes', module: 'custom_nodes.ComfyUI-KJNodes', version: '1.1.7', commit: 'a1b2c3d' },
@@ -78,6 +83,7 @@ export const PACKS: Pack[] = [
   ...SOUND_3D_FACES_PACKS,
 ];
 
+/** Model files on the fake's disk, by folder. Entries that start with a dot are cache files the app must skip. */
 export const MODELS: Array<{ category: string; filename: string; size: number }> = [
   { category: 'checkpoints', filename: 'juggernautXL_v9.safetensors', size: 6_938_000_000 },
   { category: 'checkpoints', filename: 'sd_xl_base_1.0.safetensors', size: 6_938_040_000 },
@@ -257,8 +263,11 @@ const sidePathOf = (file: { category: string; filename: string }) => `${MODEL_RO
 /** Where ComfyUI loads node packs from, as `studio_capabilities` section roots names it. */
 export const CUSTOM_NODE_ROOT = '/srv/comfyui/custom_nodes';
 
+/** What KJNodes says about itself in its pyproject.toml, which the node card shows as the pack's description. */
 export const KJNODES_DESCRIPTION = 'Various quality of life and masking related nodes and scripts made by combining functionality of existing nodes for ComfyUI.';
+/** The repository URL from the same pyproject.toml. */
 export const KJNODES_REPOSITORY = 'https://github.com/kijai/ComfyUI-KJNodes';
+/** The first sentence of WanVideoWrapper's README, which the app keeps as that pack's summary. */
 export const WAN_README_OPENING = 'ComfyUI wrapper nodes for WanVideo and related models. Work in progress, expect things to change.';
 
 /**
@@ -425,6 +434,7 @@ const SAMPLERS = ['euler', 'euler_ancestral', 'dpmpp_2m', 'dpmpp_2m_sde', 'uni_p
 const SCHEDULERS = ['normal', 'karras', 'sgm_uniform', 'simple', 'beta'];
 const IMAGES = ['example.png', 'portrait.jpg'];
 
+/** The node classes every test sees: ComfyUI core plus the packs above and the lesson sets' classes. */
 export const CLASSES: ClassDef[] = [
   // comfy-core (25)
   { classType: 'CheckpointLoaderSimple', pack: 0, display: 'Load Checkpoint', category: 'loaders', required: { ckpt_name: [names('checkpoints'), { tooltip: 'The name of the checkpoint (model) to load.' }] }, output: ['MODEL', 'CLIP', 'VAE'] },
@@ -474,10 +484,6 @@ export const CLASSES: ClassDef[] = [
 ];
 
 /**
- * ComfyUI's own video nodes (comfy_extras/nodes_hunyuan, nodes_wan, nodes_video), served only when a test asks
- * for them with `video: true`: the lessons on video need them, and every other test counts on the list above.
- */
-/**
  * Lesson sets bring their own classes, and two sets may bring the same core class. A class brought again with the
  * same required inputs and outputs is kept once (the first set's lists of choices win); one brought with other ports
  * stays twice, and the unit test tests/unit/fakeClasses.test.ts fails on it, so two sets that disagree about what
@@ -494,6 +500,10 @@ function onceEach(defs: ClassDef[], before: readonly ClassDef[]): ClassDef[] {
   return out;
 }
 
+/**
+ * ComfyUI's own video nodes (comfy_extras/nodes_hunyuan, nodes_wan, nodes_video), served only when a test asks
+ * for them with `video: true`: the lessons on video need them, and every other test counts on the list above.
+ */
 export const VIDEO_CLASSES: ClassDef[] = onceEach([
   // VACE, Wan Animate and InfiniteTalk on WanVideoWrapper, as the pack declares them; the pose and face finders of
   // ComfyUI-WanAnimatePreprocess; ComfyUI's own video, sound and CLIP vision loaders.
@@ -571,6 +581,7 @@ export function objectInfoDocument(classes: readonly ClassDef[] = CLASSES): Reco
   return doc;
 }
 
+/** `studio_capabilities` section nodes: one item per class, as that server lists them. */
 function classItems(classes: readonly ClassDef[]) {
   return classes.map((def) => ({
     class_type: def.classType,
@@ -582,6 +593,7 @@ function classItems(classes: readonly ClassDef[]) {
   }));
 }
 
+/** `studio_capabilities` section nodes, kind packs: one item per pack with its count of imported classes. */
 function packItems(classes: readonly ClassDef[]) {
   return PACKS.map((pack, index) => ({
     name: pack.name,
@@ -604,6 +616,7 @@ export const WIDE_CLASSES: ClassDef[] = [
   { classType: 'WideGermanLoader', pack: 1, display: 'Bildvergrößerungsmodellladeknoten mit Kantenschärfungsvoreinstellung', category: 'image/upscaling', required: { image: ['IMAGE'], Schärfungsstärke: ['FLOAT', { default: 0.5 }] }, output: ['IMAGE'] },
 ];
 
+/** Model files with the same kind of wide names, added to the model list with `wideNames`. */
 export const WIDE_MODELS: Array<{ category: string; filename: string; size: number }> = [
   { category: 'checkpoints', filename: '动漫风格_写实人像_第二版_最终.safetensors', size: 6_938_000_000 },
   { category: 'loras', filename: 'アニメ/かわいい背景モデル_最終版_高解像度.safetensors', size: 151_000_000 },
@@ -611,6 +624,7 @@ export const WIDE_MODELS: Array<{ category: string; filename: string; size: numb
   { category: 'loras', filename: 'Hochauflösende_Landschaftsfotografie_Spezialmodell_Version_Zwei_mit_Nebel.safetensors', size: 228_000_000 },
 ];
 
+/** The `models` tool's items: MODELS, optional wide and extra LoRA files, and the side files next to them. */
 function modelItems(extraLoras = 0, wideNames = false) {
   const extra = Array.from({ length: extraLoras }, (_, index) => ({
     category: 'loras', filename: `extra_lora_${String(index).padStart(3, '0')}.safetensors`, size: 100_000_000,
@@ -626,6 +640,10 @@ function modelItems(extraLoras = 0, wideNames = false) {
   }));
 }
 
+/**
+ * One page of a list the way that server pages: the caller's limit cut to PAGE_CAP, an opaque `c<offset>` cursor,
+ * and `complete: true` only on the last page.
+ */
 function page<T>(items: T[], args: Record<string, unknown>, extra: Record<string, unknown> = {}) {
   const requested = typeof args.limit === 'number' ? args.limit : 50;
   const limit = Math.max(1, Math.min(PAGE_CAP, requested));
@@ -645,6 +663,7 @@ function text(value: unknown, isError = false) {
   return { content: [{ type: 'text', text: typeof value === 'string' ? value : JSON.stringify(value) }], isError };
 }
 
+/** The answer to one tool call by its bare name; a write tool, or a read action that writes, gets an error. */
 function callTool(name: string, args: Record<string, unknown>, comfyUrl: string, extraLoras = 0, classes: readonly ClassDef[] = CLASSES, wideNames = false) {
   switch (name) {
     case 'studio_info':
@@ -714,6 +733,7 @@ function readBody(req: http.IncomingMessage): Promise<string> {
   });
 }
 
+/** The tiny native ComfyUI that studio_info points at: GET /system_stats and /object_info only. */
 function startComfyFixture(hits: string[], classes: readonly ClassDef[] = CLASSES): { server: http.Server } {
   const info = JSON.stringify(objectInfoDocument(classes));
   const server = http.createServer((req, res) => {
@@ -734,7 +754,9 @@ function startComfyFixture(hits: string[], classes: readonly ClassDef[] = CLASSE
   return { server };
 }
 
+/** How a test shapes the fake. Every option is off by default, which gives the plain catalog. */
 export interface FakeMcpOptions {
+  /** The bearer token the server expects; without one, every request is accepted. */
   token?: string;
   /** Extra LoRA files (extra_lora_000.safetensors …) on top of MODELS, for a catalog that needs many metadata batches. */
   extraLoras?: number;
@@ -751,6 +773,10 @@ export interface FakeMcpOptions {
   wideNames?: boolean;
 }
 
+/**
+ * Starts the native ComfyUI fixture and the MCP server, both on free 127.0.0.1 ports. With `comfyDown` the native
+ * fixture is closed at once, so its address is real but refuses connections.
+ */
 export async function startFakeMcp(options: FakeMcpOptions = {}): Promise<FakeMcp> {
   const calls: FakeMcpCall[] = [];
   const comfyHits: string[] = [];

@@ -12,6 +12,7 @@
 
 type LessonSpec = { inputs: Array<[string, string, unknown?]>; outputs: Array<[string, string]> };
 
+/** The classes in the lesson tests' form, keyed by class type. */
 export const IMAGE_TECHNIQUE_LESSON_CLASSES: Record<string, LessonSpec> = {
   ImageScaleToTotalPixels: { inputs: [['image', 'IMAGE'], ['upscale_method', 'COMBO', 'nearest-exact'], ['megapixels', 'FLOAT', 1], ['resolution_steps', 'INT', 1]], outputs: [['IMAGE', 'IMAGE']] },
   InpaintModelConditioning: {

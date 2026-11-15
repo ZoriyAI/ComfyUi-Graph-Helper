@@ -7,6 +7,7 @@
  *
  * Paths: /civitai/api/v1/model-versions/by-hash/<sha256>, /hf/api/models?search=…, /hf/api/models/<id>,
  * /hf/<id>/raw/main/README.md, /hf/<id>/resolve/main/<file>, /img/<name>.
+ * Used by modelWebSync (integration), modelWebLookup (unit) and model-card.test.ts (e2e).
  */
 import * as fs from 'fs';
 import * as http from 'http';
@@ -14,6 +15,7 @@ import type { AddressInfo } from 'net';
 import * as path from 'path';
 import { fakeFileHash } from '../mcp/fakeMcpServer';
 
+/** One request the fake received: path with query, arrival time in ms, and any credential headers. */
 export interface FakeModelWebRequest {
   path: string;
   at: number;
@@ -27,6 +29,7 @@ export interface FakeModelWeb {
   close: () => Promise<void>;
 }
 
+// The one real picture every picture route answers with.
 const STILL = fs.readFileSync(path.join(__dirname, '../mcp/side/still.png'));
 
 /** Files Civitai knows, by the fake MCP server's fingerprint of them. */
@@ -37,6 +40,7 @@ export const CIVITAI_KNOWN = {
   marked: fakeFileHash('loras', 'Wan21_CausVid_14B_T2V_lora_rank32.safetensors'),
 } as const;
 
+/** The Civitai version record for a known hash, or null (the route then answers 404 like the site). */
 function civitaiRecord(hash: string, origin: string): Record<string, unknown> | null {
   if (hash === CIVITAI_KNOWN.mystery) {
     return {
@@ -163,6 +167,7 @@ function json(res: http.ServerResponse, status: number, value: unknown): void {
   res.end(JSON.stringify(value));
 }
 
+/** Starts the fake on a free 127.0.0.1 port. Picture URLs in the records point back at this origin. */
 export async function startFakeModelWeb(): Promise<FakeModelWeb> {
   const requests: FakeModelWebRequest[] = [];
   let origin = '';
