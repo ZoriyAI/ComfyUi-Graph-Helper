@@ -41,7 +41,7 @@ function ruleText(t: (key: string, values?: Record<string, unknown>) => string, 
   if (test.kind === 'equals') return t('lessonFiles.editor.ruleEquals', { value: String(test.value).slice(0, 80) });
   if (test.kind === 'between') return t('lessonFiles.editor.ruleBetween', { min: test.min, max: test.max });
   if (test.kind === 'text') return t('lessonFiles.editor.ruleText', { min: test.minChars });
-  return test.kind;
+  return t('lessonFiles.editor.ruleOther');
 }
 
 export default function LessonEditor({ editing }: { editing: EditorState }) {

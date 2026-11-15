@@ -4,7 +4,8 @@
  * Reading and knowledge tools run in main through main/knowledge and main/proposals repositories.
  */
 export const AGENT_READ_TOOLS = ['getGraph', 'searchNodeTypes', 'describeNodeType', 'findInstalledModels', 'describeModel', 'checkGraph', 'searchWeb', 'fetchPage'] as const;
-export const AGENT_KNOWLEDGE_TOOLS = ['explain'] as const;
+/** `draftLesson` writes nothing either: its draft waits for the person (src/main/agent/lessonDraftTool.ts). */
+export const AGENT_KNOWLEDGE_TOOLS = ['explain', 'draftLesson'] as const;
 export const AGENT_PROPOSAL_TOOLS = ['proposeNode', 'proposeConnection', 'proposeParameter', 'proposeSubgraph'] as const;
 export const AGENT_BUILD_TOOLS = ['addNode', 'connectNodes', 'setParameter', 'removeNode', 'createSubgraph', 'insertSubgraph', 'annotateNode', 'setComponentDocumentation', 'setProcess'] as const;
 

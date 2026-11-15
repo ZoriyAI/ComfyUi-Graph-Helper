@@ -128,6 +128,47 @@ export const MAIN_TOOL_SPECS: Record<AgentReadTool | AgentKnowledgeTool | AgentP
       required: ['owner', 'aspect', 'text', 'provenance'],
     },
   },
+  draftLesson: {
+    description: [
+      'Draft a lesson for the Lessons panel: the person builds a graph by hand while each step is checked on the canvas. Use it when the person asks for a lesson (from the current graph, or "teach me X with what I have installed"). Read the graph and the installed node classes first; every class you name must be installed.',
+      'The draft is checked and tried from an empty canvas before the person sees it, then shown as a card they keep or discard; nothing is saved without them. If the result is an error, fix what it names and call again.',
+      'Format of `lesson`: id (lower-case words joined by hyphens); texts.en and/or texts.ru = { title, result (one line: what the person ends up with), steps: { <stepId>: { title, body } } } with a title and body for EVERY step; steps = ordered list of { id, read?: true, roles?, links?, fields? }.',
+      'The first step is { id: "intro", read: true } and explains the goal. A step that does something brings nodes as roles [{ role: "sampler", classes: ["KSampler"] }] (each role once, before anything names it), links [{ from: role, output: output name or data type, to: role, input: input name }], and fields [{ role, field, test }].',
+      'Tests: { kind: "chosen" } (a file chosen, a text written), { kind: "equals", value }, { kind: "between", min, max, prefer } (prefer is the number the text names and "Do this for me" sets), { kind: "text", minChars }, { kind: "differs" | "same", role, field }. In bodies write {role} where the node name belongs, field names in backticks, and give the same numbers the tests set.',
+      'Content rules (0.9.0): lessons teach technique. Adults (18+) may learn any lawful adult content, with the consent of everyone involved; set adult: true for such a lesson. Never minors or anyone who looks like one, real people in explicit content, sexual violence, animals in explicit content, or anything unlawful. Write no explicit text: no scene descriptions, no explicit example prompts, no explicit tag lists.',
+    ].join(' '),
+    parameters: {
+      type: 'object',
+      properties: {
+        lesson: {
+          type: 'object',
+          description: 'The lesson document.',
+          properties: {
+            id: { type: 'string', maxLength: 64 },
+            adult: { type: 'boolean' },
+            texts: { type: 'object', description: 'en and/or ru: { title, result, steps: { stepId: { title, body } } }' },
+            steps: {
+              type: 'array',
+              maxItems: 100,
+              items: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string' },
+                  read: { type: 'boolean' },
+                  roles: { type: 'array', items: { type: 'object', properties: { role: { type: 'string' }, classes: { type: 'array', items: { type: 'string' } } }, required: ['role', 'classes'] } },
+                  links: { type: 'array', items: { type: 'object', properties: { from: { type: 'string' }, output: { type: 'string' }, to: { type: 'string' }, input: { type: 'string' } }, required: ['from', 'output', 'to', 'input'] } },
+                  fields: { type: 'array', items: { type: 'object', properties: { role: { type: 'string' }, field: { type: 'string' }, test: { type: 'object' } }, required: ['role', 'field', 'test'] } },
+                },
+                required: ['id'],
+              },
+            },
+          },
+          required: ['id', 'texts', 'steps'],
+        },
+      },
+      required: ['lesson'],
+    },
+  },
   proposeNode: {
     description: 'Suggest a node as a ghost. It enters the graph only if the person accepts it.',
     parameters: {
