@@ -70,7 +70,6 @@ function Rule() {
 
 /** Findings of the last check, as a small badge on the Check graph button. */
 function CheckBadge() {
-  const { t } = useTranslation();
   const findings = useKnowledgeStore(selectCheckCount);
   if (findings === null) return null;
   // The count is drawn only: the check now runs by itself after an open, and the button keeps its name

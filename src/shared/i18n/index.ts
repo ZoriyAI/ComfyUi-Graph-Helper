@@ -265,7 +265,6 @@ export function createTranslator(language: AppLanguage): Translator {
     missingInterpolationHandler: () => '…',
     returnNull: false,
   };
-  (options as InitOptions & { initImmediate: boolean }).initImmediate = false;
   instance.init(options);
   return (key, options) => String(instance.t(key, options ?? {}));
 }

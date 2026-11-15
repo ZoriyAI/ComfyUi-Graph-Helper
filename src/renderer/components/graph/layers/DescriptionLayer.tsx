@@ -99,15 +99,6 @@ export function useDescriptionSpotlight(): DescriptionSpotlight | null {
   return null;
 }
 
-/**
- * True when the node's description card is on screen, so the tour and the build leave the text to it. The tour
- * step's card shows in every mode but off (own mode opens it on demand), so only off and a closed card count.
- */
-export function useDescriptionCardShown(nodeId: string | undefined): boolean {
-  const scope = useDescriptionScope();
-  return useCanvasStore((state) => Boolean(nodeId) && state.descriptionsMode !== 'off' && !state.hiddenDescriptions[descriptionKey(nodeId ?? '', scope)]);
-}
-
 /** React Flow store selector: the canvas zoom. */
 const zoomOf = (state: ReactFlowState) => state.transform[2];
 

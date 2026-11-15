@@ -1,7 +1,7 @@
 /**
  * Copy, cut, paste and duplicate of canvas nodes. The clipboard lives in this module, not in the system clipboard,
  * so a copied node keeps every field of the workflow, including data this app does not know. Used by
- * GraphContextMenu, the app commands (commands/appCommands.ts, the Edit menu and shortcuts) and selectionEditing.ts.
+ * GraphContextMenu, the app commands (commands/appCommands.ts, the Edit menu and shortcuts).
  */
 import type { CommandResponse, GraphMutation } from '../../../../shared/commands/types';
 import type { GraphEdge, GraphNode } from '../../../types/graph';
@@ -44,8 +44,6 @@ function selectedFragment(): Fragment | null {
 /** Whether any node is selected on the level on screen (Copy, Cut and Duplicate need one). */
 export function hasSelection(): boolean { return levelNodes().some((node) => node.selected); }
 export function hasClipboard(): boolean { return Boolean(clipboard?.nodes.length); }
-/** Old name of hasClipboard, still exported through selectionEditing.ts. */
-export const hasClipboardSelection = hasClipboard;
 /** Copies the selected nodes of the level on screen; false when nothing is selected. */
 export function copySelection(): boolean {
   const fragment = selectedFragment();
