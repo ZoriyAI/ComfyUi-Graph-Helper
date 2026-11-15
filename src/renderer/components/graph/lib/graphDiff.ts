@@ -1,18 +1,25 @@
-/** What a new projection added, for the reveal animation and the step-by-step build. */
+/**
+ * What a new projection added or changed, for the reveal animation and the step-by-step build. Used by BuildLayer
+ * (the live build) and replayMotion.ts (replay). Pure, so it is tested without React.
+ */
+/** Anything with an id: a node or an edge. */
 export interface Identified {
   id: string;
 }
 
+/** An edge with its two ends. */
 export interface EdgeLike extends Identified {
   source: string;
   target: string;
 }
 
+/** Ids of the nodes and edges a new projection added. */
 export interface GraphDiff {
   addedNodes: string[];
   addedEdges: string[];
 }
 
+/** What `next` has that `previous` did not, in `next`'s order. */
 export function diffGraph(previous: { nodes: Identified[]; edges: Identified[] }, next: { nodes: Identified[]; edges: Identified[] }): GraphDiff {
   const nodes = new Set(previous.nodes.map((node) => node.id));
   const edges = new Set(previous.edges.map((edge) => edge.id));
@@ -22,6 +29,7 @@ export function diffGraph(previous: { nodes: Identified[]; edges: Identified[] }
   };
 }
 
+/** One thing to reveal in a build: a node or an edge. */
 export interface RevealStep {
   kind: 'node' | 'edge';
   id: string;

@@ -1,3 +1,7 @@
+/**
+ * The history view ("Replay history") shows what each version changed (motion package). CanvasFlow mounts
+ * useReplayMotion while a version is on screen.
+ */
 import { useEffect, useRef } from 'react';
 import type { GraphEdge, GraphNode } from '../../../types/graph';
 import { useCanvasStore } from '../canvasStore';
@@ -7,9 +11,6 @@ import { flash } from '../../../motion/attention';
 import { motionMs } from '../../../motion/policy';
 
 /**
- * «Просмотр истории» / "History" shows what each version changed (motion package). CanvasFlow mounts it while a
- * version is on screen.
- *
  * Between the version shown before and the one shown now:
  * - nodes and links that appear draw themselves in (the reveal every new node and link has);
  * - nodes that leave fade where they stood;
@@ -20,6 +21,7 @@ import { motionMs } from '../../../motion/policy';
  * With motion reduced or off the changes still carry their marks, without movement.
  */
 
+/** Ids of nodes and links that appeared, nodes that left (whole, to draw them fading) and nodes that changed. */
 export interface ReplayChange {
   added: string[];
   addedEdges: string[];
@@ -39,10 +41,12 @@ export function replayChange(before: { nodes: GraphNode[]; edges: GraphEdge[] },
   };
 }
 
+/** A node's box; an unmeasured node gets a typical card size. */
 function boxOf(node: GraphNode): { x: number; y: number; width: number; height: number } {
   return { x: node.position.x, y: node.position.y, width: node.measured?.width ?? node.width ?? 240, height: node.measured?.height ?? node.height ?? 120 };
 }
 
+/** Plays the change between the previous and the current version whenever `view` changes; null outside replay. */
 export function useReplayMotion(view: { nodes: GraphNode[]; edges: GraphEdge[] } | null): void {
   const previous = useRef<{ nodes: GraphNode[]; edges: GraphEdge[] } | null>(null);
   useEffect(() => {
@@ -54,6 +58,7 @@ export function useReplayMotion(view: { nodes: GraphNode[]; edges: GraphEdge[] }
     const appeared = [...change.added, ...change.addedEdges];
     if (appeared.length > 0) {
       canvas.markAdded(appeared);
+      // The reveal mark is cleared a little after the reveal animation ends, so the animation is never cut short.
       window.setTimeout(() => useCanvasStore.getState().clearAdded(appeared), motionMs('--motion-reveal') + 80);
     }
     if (change.removed.length > 0 && motionMs('--motion-reveal') > 0) {

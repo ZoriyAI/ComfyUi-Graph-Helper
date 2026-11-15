@@ -1,3 +1,9 @@
+/**
+ * Geometry of the graph canvas in flow coordinates: node boxes, group frames, where a new node or a ghost (a
+ * suggested change not yet accepted) may go without covering another node, and the text of a change pill. Used by
+ * placeNode.ts, arrange.ts, GhostLayer, GroupLayer, GraphContextMenu, reveal.ts, subgraphView.ts, nodeSizes.ts and
+ * lessons/lessonModel.ts. Pure, so it is tested without React.
+ */
 import type { GraphMutation } from '../../../../shared/commands/types';
 import type { Proposal } from '../../../../shared/contracts/proposals';
 import type { GroupRecord } from '../../../../shared/graph/subgraphs';
@@ -5,9 +11,12 @@ import { findFreeSlot } from '../../../../shared/graph/layout';
 
 /** Size the canvas assumes for a node React Flow has not measured yet (the ComfyNode default width). */
 export const DEFAULT_NODE_SIZE = { width: 240, height: 120 };
+/** Space between a group's frame and its member nodes. */
 export const GROUP_PADDING = 24;
+/** Height of a group's title bar, added above the top padding. */
 export const GROUP_TITLE = 32;
 
+/** A box in flow coordinates. */
 export interface Rect {
   x: number;
   y: number;
@@ -15,6 +24,7 @@ export interface Rect {
   height: number;
 }
 
+/** The part of a canvas node that placement needs: its position, its measured size and some of its data. */
 export interface PositionedNode {
   id: string;
   position: { x: number; y: number };
@@ -25,6 +35,7 @@ export interface PositionedNode {
   selected?: boolean;
 }
 
+/** A node's box: the size React Flow measured, else the size given, else DEFAULT_NODE_SIZE. */
 export function nodeRect(node: PositionedNode): Rect {
   return {
     x: node.position.x,
@@ -34,6 +45,7 @@ export function nodeRect(node: PositionedNode): Rect {
   };
 }
 
+/** The box around all `rects`, grown by `padding` (and by `top` above); null for no rects. */
 export function boundsOf(rects: Rect[], padding = 0, top = padding): Rect | null {
   if (rects.length === 0) return null;
   const minX = Math.min(...rects.map((rect) => rect.x));
@@ -100,6 +112,7 @@ export const GHOST_SIZE = { width: DEFAULT_NODE_SIZE.width, height: 200 };
 
 type Box = { width: number; height: number };
 
+/** Whether two boxes come closer than `gap` to each other. */
 function overlaps(a: Rect, b: Rect, gap: number): boolean {
   return a.x < b.x + b.width + gap && a.x + a.width + gap > b.x && a.y < b.y + b.height + gap && a.y + a.height + gap > b.y;
 }
@@ -111,6 +124,7 @@ function overlaps(a: Rect, b: Rect, gap: number): boolean {
 function freeSlot(x: number, y: number, rects: Rect[], order: number, size: Box): { x: number; y: number } {
   let top = y;
   let skipped = 0;
+  // A bound on the search: a column of 200 nodes is far beyond any real graph, and the loop can never hang.
   for (let guard = 0; guard < 200; guard += 1) {
     const slot = { x, y: top, ...size };
     const hit = rects.find((rect) => overlaps(slot, rect, GHOST_GAP));
@@ -147,6 +161,7 @@ export function ghostNodePosition(payload: { x?: number; y?: number }, nodes: Po
   const selected = nodes.find((node) => node.selected);
   if (selected) {
     const anchor = nodeRect(selected);
+    // 80 flow units to the right: room for the link the person will draw to the ghost.
     return freeSlot(anchor.x + anchor.width + 80, anchor.y, rects, order, size);
   }
   return freeSlot(bounds.x + bounds.width + 80, bounds.y, rects, order, size);
@@ -157,6 +172,7 @@ export function subgraphGhostRect(payload: Extract<GraphMutation, { type: 'creat
   return boundsOf(nodes.filter((node) => payload.nodeIds.includes(node.id)).map(nodeRect), 16, 16 + GROUP_TITLE);
 }
 
+/** A value cut to 18 characters for a ghost's change pill. */
 function short(value: unknown): string {
   if (value === undefined) return '—';
   const text = typeof value === 'string' ? value : JSON.stringify(value);

@@ -1,17 +1,19 @@
+/**
+ * After "Check graph" (motion package): a wave runs over the nodes the check marked, left to right.
+ * CanvasFlow mounts useCheckWave. Only a new report starts a wave; a report read again on start-up does not.
+ */
 import { useEffect, useRef } from 'react';
 import { useKnowledgeStore } from '../../../state/knowledgeState';
 import { useGraphStore } from '../../../state/graphState';
 import { checkedNodeIds, flashWave } from '../../../motion/attention';
 import { motionIsFull } from '../../../motion/policy';
 
-/**
- * After «Проверить граф» / "Check the graph" (motion package): a wave runs over the nodes the check marked, left to
- * right. CanvasFlow mounts it. Only a new report starts a wave; a report read again on start-up does not.
- */
+/** Starts the check wave whenever a new check report arrives in the knowledge store. */
 export function useCheckWave(): void {
   const check = useKnowledgeStore((state) => state.check);
   const first = useRef(true);
   useEffect(() => {
+    // The first value is the report already in the store at mount (read on start-up): no wave for it.
     if (first.current) {
       first.current = false;
       return;

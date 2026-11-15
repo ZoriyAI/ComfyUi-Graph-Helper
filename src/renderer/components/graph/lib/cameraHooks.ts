@@ -1,7 +1,3 @@
-import { useCallback, useEffect, useRef } from 'react';
-import type { OnMove, OnMoveEnd, OnMoveStart, ReactFlowInstance, Viewport } from '@xyflow/react';
-import { useCameraStore } from '../../../motion/camera';
-
 /**
  * Camera hooks of the canvas (CanvasFlow mounts them).
  *
@@ -9,6 +5,9 @@ import { useCameraStore } from '../../../motion/camera';
  *   description cards) can rest while the zoom changes, whoever moves the camera (the person's wheel or pinch, or
  *   the app's own camera).
  */
+import { useCallback, useEffect, useRef } from 'react';
+import type { OnMove, OnMoveEnd, OnMoveStart, ReactFlowInstance, Viewport } from '@xyflow/react';
+import { useCameraStore } from '../../../motion/camera';
 
 /** How long the zoom must stay still before the camera counts as settled. */
 const SETTLE_MS = 140;
@@ -23,6 +22,7 @@ function holdRaster(on: boolean): void {
   if (viewport) viewport.style.willChange = on ? 'transform' : '';
 }
 
+/** The onMoveStart / onMove / onMoveEnd handlers CanvasFlow passes to React Flow. */
 export function useCameraSignals(): { onMoveStart: OnMoveStart; onMove: OnMove; onMoveEnd: OnMoveEnd } {
   const startZoom = useRef(1);
   const timer = useRef<number | null>(null);
@@ -33,6 +33,7 @@ export function useCameraSignals(): { onMoveStart: OnMoveStart; onMove: OnMove; 
   useEffect(() => clear, []);
   const onMoveStart = useCallback<OnMoveStart>((_event, view: Viewport) => {
     clear();
+    // A new gesture during an unsettled zoom keeps the first start zoom, so the zoom counts as still changing.
     startZoom.current = useCameraStore.getState().zooming ? startZoom.current : view.zoom;
   }, []);
   const onMove = useCallback<OnMove>((_event, view: Viewport) => {

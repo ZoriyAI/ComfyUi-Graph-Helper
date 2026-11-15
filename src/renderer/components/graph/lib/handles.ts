@@ -1,3 +1,7 @@
+/**
+ * Where a port handle sits in flow coordinates, for drawings that start or end at a port outside React Flow's own
+ * edges: the ghost links of GhostLayer and the suggestion line of ConnectAssistLayer.
+ */
 import { Position, type InternalNode } from '@xyflow/react';
 
 /** Flow-coordinate centre of a handle, from React Flow's measured handle bounds. Null until measured. */

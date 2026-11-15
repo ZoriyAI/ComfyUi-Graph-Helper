@@ -1,7 +1,13 @@
+/**
+ * What the app explains about a link (edge): the explanations written for that edge, else the knowledge about the
+ * data type it carries. Used by the Properties panel (Inspector), askAbout.ts and the Explain panel
+ * (explain/ExplainPanel.tsx), so a link with no notes of its own still teaches what a MODEL or a LATENT is.
+ */
 import type { Explanation } from '../../../../shared/contracts/knowledge';
 import type { ObjectRef } from '../../../../shared/contracts/objects';
 import { linkTypeRef } from '../../../../shared/knowledge/coreKnowledge';
 
+/** The knowledge owner of a link data type ('MODEL', 'LATENT', ...), re-exported for the renderer. */
 export { linkTypeRef };
 
 /** The data type an edge carries: its own dataType, else the type of the output it leaves. */

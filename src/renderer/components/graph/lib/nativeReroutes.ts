@@ -1,14 +1,19 @@
+/**
+ * The native reroute points of the links on the canvas (ComfyUI's link midpoints: `reroutes` and the links'
+ * `parentId`, or extra.reroutes / extra.linkExtensions). Read-only: the file keeps them and export writes them
+ * back as they were; the canvas draws each link through its points. Used by edges/TypedEdge.tsx.
+ */
 import { useGraphStore } from '../../../state/graphState';
 import { reroutePaths, type ReroutePoint } from '../../../../shared/workflow/comfyLook';
 
 /**
- * The native reroute points of the links on the main canvas (ComfyUI's link midpoints: `reroutes` and the links'
- * `parentId`, or extra.reroutes / extra.linkExtensions). Read-only: the file keeps them and export writes them
- * back as they were; the canvas draws each link through its points.
+ * One computed table for the last raw workflow and edge list: every edge asks for its points on every store change,
+ * and the store keeps the same objects until the graph really changes.
  */
 let cacheKey: { raw: unknown; edges: unknown } | null = null;
 let cache = new Map<string, ReroutePoint[]>();
 
+/** Reroute points of every link, keyed by edge id (`link-<native link id>`). */
 function pointsByEdge(raw: unknown, edges: ReadonlyArray<{ id: string; data?: Record<string, unknown> }>): Map<string, ReroutePoint[]> {
   if (cacheKey && cacheKey.raw === raw && cacheKey.edges === edges) return cache;
   const links = edges.map((edge) => {
@@ -40,6 +45,7 @@ export function pathThrough(points: Array<{ x: number; y: number }>): string {
   for (let at = 1; at < points.length; at += 1) {
     const a = points[at - 1];
     const b = points[at];
+    // Handles reach half the gap, at least 24 units, so a short or backward hop still leaves and enters horizontally.
     const dx = Math.max(Math.abs(b.x - a.x) / 2, 24);
     path += ` C ${a.x + dx},${a.y} ${b.x - dx},${b.y} ${b.x},${b.y}`;
   }

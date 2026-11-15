@@ -1,3 +1,9 @@
+/**
+ * After a person adds a node (node search, the library, a model card, a drop on the canvas), it is selected and
+ * brought into view. Used by AddNodeSearch, GraphWorkspace, the node library (NodeLibrary.tsx) and
+ * library/placeModel.ts. The edit origin guard keeps a late reveal from selecting a node of the same id in another
+ * graph or level.
+ */
 import { captureEditOrigin, originIsCurrent, type EditOrigin } from './editOrigin';
 import { canvasHandle } from '../../../commands/canvasHandle';
 import { NEW_NODE_SIZE } from './geometry';

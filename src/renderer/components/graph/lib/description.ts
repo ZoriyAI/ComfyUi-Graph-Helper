@@ -1,11 +1,19 @@
+/**
+ * Pure rules of the description cards that hang under canvas nodes: which text a card shows (node, class, catalog
+ * or component knowledge, in that order), whether a node shows a card, a dot or nothing in each descriptions mode,
+ * how large a card is drawn and where it can go without covering other nodes. layers/DescriptionLayer.tsx draws the
+ * cards; the canvas store and TourLayer use the same rules. Pure, so it is tested without React.
+ */
 import type { Explanation, Provenance } from '../../../../shared/contracts/knowledge';
 import { DESCRIPTION_MODES, type DescriptionsMode } from '../../../../shared/config/preferences';
 
+/** The description modes ('own', 'all', 'off') live in the preferences contract; re-exported for the canvas. */
 export { DESCRIPTION_MODES, descriptionsModeOf, type DescriptionsMode } from '../../../../shared/config/preferences';
 
 /** Where the text of a description card comes from, in priority order. */
 export type DescriptionScope = 'node' | 'nodeClass' | 'catalog' | 'component';
 
+/** One text of a card, with where it comes from (its badge). */
 export interface DescriptionPart {
   text: string;
   provenance: Provenance;
@@ -24,6 +32,7 @@ export interface DescriptionContent {
   explained: boolean;
 }
 
+/** Everything known about one node that a card may show. */
 export interface DescriptionSources {
   /** Explanations whose owner is the node itself (newest last, as listExplanations returns them). */
   own?: Explanation[];
@@ -38,6 +47,7 @@ export interface DescriptionSources {
   purpose?: string | { text: string; author?: 'user' | 'assistant' } | null;
 }
 
+/** The newest non-empty explanation of one aspect. */
 function newest(list: Explanation[], aspect: 'what' | 'why'): Explanation | undefined {
   let found: Explanation | undefined;
   for (const item of list) {
@@ -47,6 +57,7 @@ function newest(list: Explanation[], aspect: 'what' | 'why'): Explanation | unde
   return found;
 }
 
+/** Card content from a list of explanations, or null when none has text. */
 function fromExplanations(list: Explanation[] | undefined, scope: 'node' | 'nodeClass'): DescriptionContent | null {
   if (!list || list.length === 0) return null;
   const what = newest(list, 'what');
@@ -108,18 +119,20 @@ export interface DescriptionDemand {
   revealed?: boolean;
   /** The person expanded the card (or opened it from its dot). */
   pinned?: boolean;
+  /** The person is editing the node's text in the card. */
   editing?: boolean;
 }
 
+/** Whether anything at all asks for the card right now. */
 export function demanded(demand: DescriptionDemand): boolean {
   return Boolean(demand.selected || demand.hovered || demand.focused || demand.tour || demand.revealed || demand.pinned || demand.editing);
 }
 
 /**
  * What a node shows under it:
- * - 'card' — the description card;
- * - 'dot' — a small knowledge dot ("there is something to read"; a click opens the card);
- * - 'none' — nothing (nothing is known about the node).
+ * - 'card': the description card;
+ * - 'dot': a small knowledge dot ("there is something to read"; a click opens the card);
+ * - 'none': nothing (nothing is known about the node).
  * all: a card wherever there is content. own: a card for the node's own text; class knowledge (seeds, class
  * explanations, the catalog) only on demand, a dot otherwise. off: dots only, except a card the person opened
  * from its dot or is editing. A tour step without any content still gets a card for its text (except off,
@@ -148,6 +161,7 @@ export interface Box {
   height: number;
 }
 
+/** The side of its node a card is drawn on. */
 export type CardSide = 'bottom' | 'right' | 'left' | 'top';
 
 /** Where a card goes: a side of its node, full or compact (one truncated line); null means "only a dot". */
@@ -183,6 +197,7 @@ export const CARD_GAP = 8;
 export const CARD_SIDE_GAP = 14;
 /** How far port handles reach out of a node's box, in flow units; other nodes' boxes grow by this sideways. */
 export const HANDLE_REACH = 8;
+/** Default order of sides to try: under the node reads most naturally, above is the last resort. */
 const SIDES: CardSide[] = ['bottom', 'right', 'left', 'top'];
 
 /**
@@ -208,6 +223,7 @@ export function cardRect(node: Box, side: CardSide, size: { width: number; heigh
   }
 }
 
+/** The area two boxes share (0 when they do not touch). */
 function overlap(a: Box, b: Box): number {
   const w = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
   const h = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
@@ -224,6 +240,7 @@ function outside(rect: Box, bounds: Box): number {
   return rect.width * rect.height - overlap(rect, bounds);
 }
 
+/** The total area of other nodes (with their handles) that `rect` would cover. */
 function coveredBy(rect: Box, others: Box[]): number {
   let total = 0;
   for (const other of others) total += overlap(rect, blocked(other));
@@ -232,9 +249,9 @@ function coveredBy(rect: Box, others: Box[]): number {
 
 /**
  * Overlap avoidance for one card. Tries under the node, then right, then left, then above, at full size; then a
- * compact one-line card (about the node's width) in the same order. A card nobody asked for gets null (a dot) when even that would cover
- * another node or its ports. A card that was asked for (`required`: selected, hovered, tour…) always gets a
- * place: the first free one, else the one that covers least (it is drawn above other cards).
+ * compact one-line card (about the node's width) in the same order. A card nobody asked for gets null (a dot) when
+ * even that would cover another node or its ports. A card that was asked for (`required`: selected, hovered,
+ * tour…) always gets a place: the first free one, else the one that covers least (it is drawn above other cards).
  */
 export function placeCard(input: {
   node: Box;
@@ -273,6 +290,7 @@ export function placeCard(input: {
     }
   }
   if (!required) return null;
+  // The cast is for TypeScript: `best` is assigned inside a closure, so its narrowed type would read as null here.
   const fallback = (best as { placement: CardPlacement } | null)?.placement ?? { side: 'bottom' as const, compact: false };
   return { ...fallback, covers: true };
 }

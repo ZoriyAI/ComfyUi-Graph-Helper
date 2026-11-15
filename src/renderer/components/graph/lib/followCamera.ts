@@ -3,6 +3,7 @@
  * A callout stands above the node in screen pixels, and the canvas has its own things at the top (the floating
  * toolbar, and the build strip under it while the helper builds). Centring the node alone put the callout under
  * them for any tall node or short window, so the pair "callout + node" is placed in the room that is really free.
+ * Used by BuildLayer and TourLayer.
  */
 
 /** The floating toolbar's room at the top of the canvas (15 px margin, 40 px tall, a gap). */
@@ -18,8 +19,11 @@ export const TOUR_CALLOUT_PX = 220;
 /** Kept free under the node. */
 const BOTTOM_ROOM_PX = 24;
 
+/** A node's box in flow coordinates. */
 export interface CameraNode { x: number; y: number; width: number; height: number }
+/** The canvas size in screen pixels. */
 export interface CameraCanvas { width: number; height: number }
+/** Screen room the camera must keep free above the node. */
 export interface CameraRoom {
   /** Screen pixels at the top of the canvas taken by its own controls. */
   top: number;

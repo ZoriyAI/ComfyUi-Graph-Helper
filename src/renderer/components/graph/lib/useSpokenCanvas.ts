@@ -15,6 +15,7 @@ import { edgeFocusable, edgeSpeech, linkedInputCounts, nodeSpeech, spokenTitle, 
 type FlowNode = SpokenNodeInput & { domAttributes?: Record<string, unknown>; ariaLabel?: string; position: unknown };
 type FlowEdge = SpokenEdgeInput & { ariaLabel?: string; focusable?: boolean };
 
+/** Returns the nodes and edges with their spoken names; unchanged items keep their object identity. */
 export function useSpokenCanvas<N extends FlowNode, E extends FlowEdge>(nodes: N[], edges: E[], errorNodes: Set<string>): { nodes: N[]; edges: E[] } {
   const { t, i18n } = useTranslation();
   const details = useNodeInfoStore((state) => state.details);
