@@ -1,3 +1,8 @@
+/**
+ * IPC of the assistant chat: run one agent turn with streamed chunks, cancel turns, and the stored chat history.
+ * Registered once from setupIPC in ipc.ts; the turn itself is agent/turn.ts.
+ * Turns are tied to the window that asked, so a closed or crashed window never leaves a turn running on its own.
+ */
 import { app, BrowserWindow, type IpcMain, type WebContents } from 'electron';
 import { languageOf, type AppLanguage } from '../../shared/i18n';
 import { turnLinesAllowed } from '../trace/modelTrace';
@@ -16,6 +21,7 @@ function settingsLanguage(): AppLanguage {
   return languageOf(readSettings(getDatabase()));
 }
 
+/** One turn in flight: how to stop it and whose it is. */
 interface LiveTurn {
   controller: AbortController;
   senderId: number;
@@ -46,6 +52,7 @@ function abortWithSender(sender: WebContents, controller: AbortController, onGon
     controller.abort();
   };
   const events = ['render-process-gone', 'destroyed', 'will-navigate'] as const;
+  // The cast only satisfies Electron's overloaded `on` typing; each event gets the same handler.
   for (const name of events) sender.on(name as 'destroyed', abort);
   return () => {
     for (const name of events) sender.removeListener(name as 'destroyed', abort);

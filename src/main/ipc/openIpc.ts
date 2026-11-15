@@ -1,3 +1,14 @@
+/**
+ * Every way a file, an example or a remembered file reaches the canvas, and the bridge back to ComfyUI after a save.
+ *
+ * Who uses it: File ▸ Open workflow and File ▸ Open project (dialogs in main/ipc.ts), a file dropped on the window,
+ * a file named on the command line or handed over by a second start, File ▸ Recent and File ▸ Examples, all in the
+ * renderer through the preload bridge; the "Run it in ComfyUI" card after a save (show the file in its folder).
+ * Why one module: they must behave the same. Each ends in `openFileAtPath` (or, for an example, in the same import
+ * commit with the same follow-ups), which recognises the file, turns the API format into a canvas workflow, commits
+ * one import or open, marks the drawing for the safe start, and remembers the file. The renderer then runs the same
+ * `finishOpen` for all of them (commands/actions.ts): the camera, the one merged import message, the check.
+ */
 import * as fs from 'fs';
 import * as path from 'path';
 import { app, BrowserWindow, shell, type IpcMain } from 'electron';
@@ -18,18 +29,6 @@ import { isOpenablePath, readOpenedFile } from '../files/openFile';
 import { isRecent, recentFiles, rememberRecent, rememberSource } from '../files/recentFiles';
 import { watchReplacingCommit } from './startIpc';
 
-/**
- * Every way a file, an example or a remembered file reaches the canvas, and the bridge back to ComfyUI after a save.
- *
- * Who uses it: File ▸ Open workflow and File ▸ Open project (dialogs in main/ipc.ts), a file dropped on the window,
- * a file named on the command line or handed over by a second start, File ▸ Recent and File ▸ Examples, all in the
- * renderer through the preload bridge; the "Run it in ComfyUI" card after a save (show the file in its folder).
- * Why one module: they must behave the same. Each ends in `openFileAtPath` (or, for an example, in the same import
- * commit with the same follow-ups), which recognises the file, turns the API format into a canvas workflow, commits
- * one import or open, marks the drawing for the safe start, and remembers the file. The renderer then runs the same
- * `finishOpen` for all of them (commands/actions.ts): the camera, the one merged import message, the check.
- */
-
 /** What the renderer's open helpers get back: the commit's response plus what was opened. */
 export interface OpenResponse {
   status: string;
@@ -44,12 +43,14 @@ export interface OpenCommits {
   openProject: (document: unknown) => { status: string; projection: unknown; result: unknown };
 }
 
+/** Set by registerOpenIpc; until then every open is refused as "not ready". */
 let commits: OpenCommits | null = null;
 /** A file named on the command line or by a second start, waiting for the window to ask for it. */
 let pending: string | null = null;
 /** The last workflow file written for ComfyUI, for "Show in folder" on the run card. */
 let lastExport: string | null = null;
 
+/** A refused open, with the graph as it is so the window redraws nothing new. */
 function rejected(error: string): OpenResponse {
   return { status: 'rejected', projection: readProjection(getDatabase(), DESKTOP_PROJECT_ID), result: { error } };
 }
@@ -64,6 +65,7 @@ export function openFileAtPath(filePath: string): OpenResponse {
   try {
     file = readOpenedFile(filePath);
   } catch (error) {
+    // Only known codes pass through; any other message (a system error with a path in it) becomes a fixed code.
     const message = error instanceof Error ? error.message : '';
     return rejected(message === 'This file holds no workflow.' || message === 'Workflow JSON could not be parsed.' ? message : fileOpenErrorCode(error, 'Workflow JSON could not be parsed.'));
   }

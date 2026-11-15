@@ -1,3 +1,9 @@
+/**
+ * IPC of Help > Diagnostics and the model conversation log: the copyable diagnostics report, the log folders,
+ * renderer error reports, and listing, saving and clearing recorded assistant turns.
+ * Registered from setupIPC in ipc.ts. Everything that leaves the app here is scrubbed first (keys, addresses,
+ * the home folder), because people paste these reports into public issues.
+ */
 import { app, dialog, shell, type IpcMain } from 'electron';
 import { systemLanguage } from '../systemLanguage';
 import * as path from 'path';
@@ -61,8 +67,10 @@ export function createRateLimiter(limit: number, windowMs: number, now: () => nu
   };
 }
 
+/** Longest renderer stack kept in the log, so a flood of huge reports cannot fill the disk. */
 const TEXT_CAP = 2000;
 
+/** A string cut to `cap` characters; anything that is not a string is empty. */
 function clip(value: unknown, cap = TEXT_CAP): string {
   if (typeof value !== 'string') return '';
   return value.length > cap ? `${value.slice(0, cap)}…` : value;
@@ -81,8 +89,10 @@ export function rendererErrorLine(input: unknown): string | null {
 }
 
 /**
- * Every server address the person set up: the MCP server, ComfyUI (saved and reported), the model server of each
- * provider. Reports meant for someone else name these only by where they are (diagnostics.ts addressScrubber).
+ * Every server address the person set up: the MCP server (saved, and as the sync status reports it), the saved
+ * ComfyUI address, the model server of each provider. The ComfyUI address an MCP server reported is not added
+ * (the status field is read in the type but never pushed). Reports meant for someone else name these only by
+ * where they are (diagnostics.ts addressScrubber).
  */
 export function personAddresses(): string[] {
   const found: string[] = [];
@@ -104,6 +114,10 @@ export function personAddresses(): string[] {
   return found.filter((value) => typeof value === 'string' && value.trim() !== '');
 }
 
+/**
+ * The diagnostics report as text. Each part that cannot be read (no database, an old schema, no sync) is reported
+ * as unknown rather than failing the whole report, since the report is most needed when something is broken.
+ */
 export function collectDiagnostics(): string {
   let settingsSource = 'unknown';
   let settings: Record<string, unknown> | null = null;
@@ -155,6 +169,7 @@ export function collectDiagnostics(): string {
   });
 }
 
+/** Whether Preferences > Privacy keeps the model log; on when the preferences cannot be read. */
 function modelLogEnabled(): boolean {
   try {
     return readPreferences(getDatabase()).privacy.modelLog;

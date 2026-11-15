@@ -1,3 +1,8 @@
+/**
+ * Wires the model and node library to the window: knowledge:* and sync:* channels, the preview reader, the
+ * internet model lookup and the background catalog sync. Registered once from setupIPC in ipc.ts.
+ * The handlers themselves live in knowledge/handlers.ts so tests can drive them without Electron.
+ */
 import * as path from 'node:path';
 import { app, BrowserWindow, type IpcMain } from 'electron';
 import { IPC_CHANNELS } from '../../shared/ipc-channels';

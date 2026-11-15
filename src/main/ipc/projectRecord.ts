@@ -1,11 +1,20 @@
+/**
+ * The db:save-project handler: writes a project row (name, times, a graph_data blob) from the renderer.
+ * Registered in ipc.ts; the preload exposes it as saveProject, though no renderer code calls it at present.
+ * The graph itself is not stored here but in graph_revisions by commands/commit.ts; this is the older record.
+ * Input is validated strictly and capped in size, because it comes from the renderer.
+ */
 import type Database from 'better-sqlite3';
 import { z } from 'zod';
 
+/** The one error text for any refused record, so nothing of the input is echoed back. */
 export const PROJECT_RECORD_ERROR = 'The project record does not match the schema.';
+/** Largest graph_data plus metadata accepted, in bytes. */
 export const PROJECT_RECORD_MAX_BYTES = 20 * 1024 * 1024;
 
 const timestamp = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
 
+/** The accepted record; unknown keys are refused (strict). */
 export const projectRecordSchema = z.object({
   id: z.string().min(1).max(200),
   name: z.string().min(1).max(500),
