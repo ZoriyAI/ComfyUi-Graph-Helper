@@ -18,6 +18,8 @@ const root = path.join(__dirname, '..');
 
 /** The package URL of an npm package; a scope's `@` is percent-encoded, as the purl spec asks. */
 function purl(name, version) {
+  // Bundled workflow libraries are source data, not npm packages. Encode their identity as a generic purl.
+  if (!/^(?:@[a-z0-9._-]+\/)?[a-z0-9._-]+$/.test(name)) return `pkg:generic/${encodeURIComponent(name)}@${encodeURIComponent(version)}`;
   const [scope, bare] = name.startsWith('@') ? name.split('/') : [null, name];
   return scope ? `pkg:npm/${encodeURIComponent(scope)}/${bare}@${version}` : `pkg:npm/${name}@${version}`;
 }
