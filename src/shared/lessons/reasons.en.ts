@@ -67,4 +67,7 @@ export const REASONS_EN: Record<string, string> = {
   sameFamily: 'A LoRA or a ControlNet works only with the family of models it was made for; with another family it does nothing or spoils the picture.',
   'ex.cfgLow': 'The first variant is the low guidance of the experiment: one cfg near 4, the other near 8, so the difference is easy to see.',
   'ex.cfgHigh': 'The second variant is the high guidance: 8 is the value a new KSampler starts with, so this side is the familiar one.',
+  'daily.wideWidth': 'A banner needs width: 768 suits an SD 1.5 model, up to 1216 or so an SDXL one.',
+  'daily.wide': 'A banner is wide: the picture must be wider than it is tall.',
+  'daily.batch': 'Two to four pictures in one run give a choice; each one more needs more memory of the graphics card.',
 };

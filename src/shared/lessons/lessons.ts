@@ -25,6 +25,7 @@ import { FAMILY_PAIRS, SET_FILE_KINDS } from './fileTables';
 import { EXPERIMENT_AFTER, EXPERIMENT_LESSONS, EXPERIMENT_PATH } from './sets/experiments';
 import { RELIABLE_AFTER, RELIABLE_LESSONS, RELIABLE_PATH } from './sets/reliable-practice';
 import { ENVIRONMENT_LESSONS, ENVIRONMENT_PATH } from './sets/environment';
+import { DAILY_CYCLE_AFTER, DAILY_CYCLE_LESSONS, DAILY_CYCLE_PATH } from './sets/daily-cycle';
 import { levelOf } from './programme';
 
 // Short builders so each lesson below reads as a list of steps.
@@ -1105,6 +1106,7 @@ export const LESSONS: readonly Lesson[] = withFamilyPairs(withFileTable([
   ...SOUND_3D_FACES_LESSONS,
   ...EXPERIMENT_LESSONS,
   ...RELIABLE_LESSONS,
+  ...DAILY_CYCLE_LESSONS,
   adultImage, adultLora, adult,
 ], SET_FILE_KINDS), FAMILY_PAIRS);
 
@@ -1187,6 +1189,7 @@ export const LESSON_AFTER: Readonly<Record<string, string[]>> = {
   ...SOUND_3D_FACES_AFTER,
   ...EXPERIMENT_AFTER,
   ...RELIABLE_AFTER,
+  ...DAILY_CYCLE_AFTER,
 };
 
 const BASICS_GROUP: LessonGroup = { id: 'basics', title: { en: 'Pictures: first steps', ru: 'Картинки: первые шаги' } };
@@ -1205,6 +1208,7 @@ export const LESSON_PATH: Readonly<Record<string, { group: LessonGroup; follows:
   ...EXPERIMENT_PATH,
   ...RELIABLE_PATH,
   ...ENVIRONMENT_PATH,
+  ...DAILY_CYCLE_PATH,
   'adult-image': { group: ADULT_GROUP, follows: ['image'] },
   'adult-lora': { group: ADULT_GROUP, follows: ['image'] },
   adult: { group: ADULT_GROUP, follows: ['video-text'] },

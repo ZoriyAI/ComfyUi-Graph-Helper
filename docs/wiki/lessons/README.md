@@ -148,6 +148,13 @@ computer. The app reads and checks; everything done in ComfyUI is your own word.
 - [Auditing someone else's workflow and a custom pack](Audit-Workflow.md): lesson "audit-workflow". A written verdict on a workflow and its packs: run, run with limits, or do not run, with the evidence and the unknowns.
 - [Partner nodes: data, licenses and the cost of a run](Partner-Cost.md): lesson "partner-cost". A map of what a workflow sends out and under which terms, the cost of a series, and a local alternative that sends nothing.
 
+### The daily work cycle
+How you work with ComfyUI from day to day: a template made your own, the queue and the history, running one branch,
+the log and a minimal failing example, and the forms of a workflow file. The app checks the graph; what you do in
+ComfyUI is your own word.
+
+- [Templates: from a ready workflow to your own](Template-Own.md): lesson "template-own". Your own version of a template, saved apart from it, with its inputs, outputs, models and notes written down and one task changed.
+
 ### For adults (18+)
 Closed until the switch **Adult content (18+)** in **Settings ▸ Privacy** is on. Technique in general words for lawful adult (18+) work with consent; see [Content rules](../trust/Content-Rules.md).
 
