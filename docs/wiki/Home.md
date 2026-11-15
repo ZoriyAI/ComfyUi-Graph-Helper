@@ -13,7 +13,8 @@ explains every node and link, teaches with lessons you do by hand, and has an as
 a graph step by step. It runs on Linux. You save the result as an ordinary workflow and run it in ComfyUI yourself.
 
 It is an experimental project: things change between versions and some parts are unfinished. Ideas and wishes are
-welcome in the project's Discussions; problems go to its Issues (Help ▸ Report a problem in the app).
+welcome in the project's Discussions; problems go to its Issues (Help ▸ Report a problem in the app). Who makes it
+and why: [The author and the experiment](trust/Author.md).
 
 ## Start here
 

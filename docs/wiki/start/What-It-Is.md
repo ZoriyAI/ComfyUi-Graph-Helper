@@ -62,7 +62,8 @@ Your ComfyUI  ──(read only)──>  NodeWise  ──(you save a workflow)─
 
 NodeWise is young. Things change between versions, some parts are unfinished, and there is no promise of support.
 What is not done yet is listed in [Known limitations](../reference/Known-Limits.md). Ideas and wishes are welcome in
-the project's Discussions; problems go to Issues (Help ▸ Report a problem in the app).
+the project's Discussions; problems go to Issues (Help ▸ Report a problem in the app). Who makes the app and why:
+[The author and the experiment](../trust/Author.md).
 
 ## See also
 
