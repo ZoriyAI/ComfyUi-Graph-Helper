@@ -1,15 +1,16 @@
+/**
+ * Settings ▸ Connection: addresses to pick from for the ComfyUI origin and the MCP URL, so nobody has to remember
+ * them: the ComfyUI address the MCP server named at the last sync, the saved values, the last few saved ones,
+ * and a ComfyUI that answers on this computer at its usual ports. The text fields stay; these are only offers.
+ * Used by ipc.ts: the Connection panel's pickers, and rememberSavedAddresses after every settings save.
+ */
 import type Database from 'better-sqlite3';
 import type { AddressSuggestion, ConnectionSuggestions } from '../../shared/contracts/pickers';
 import { readState, reportedComfyUrl, writeState } from '../mcp/sync';
 import { readSettings } from './repository';
 import { checkComfy } from '../comfy/direct';
 
-/**
- * Settings ▸ Connection: addresses to pick from for the ComfyUI origin and the MCP URL, so nobody has to remember
- * them: the ComfyUI address the MCP server named at the last sync, the saved values, the last few saved ones,
- * and a ComfyUI that answers on this computer at its usual ports. The text fields stay; these are only offers.
- */
-
+/** sync_state keys of the two address histories, and how many recent addresses each keeps. */
 export const MCP_URL_HISTORY_KEY = 'mcp_url_history';
 export const COMFY_ORIGIN_HISTORY_KEY = 'comfy_origin_history';
 export const HISTORY_LIMIT = 5;
@@ -33,6 +34,7 @@ function usableAddress(value: unknown): string | null {
   }
 }
 
+/** One history, most recent first, with anything that is not a usable address dropped. */
 export function readHistory(db: Database.Database, key: HistoryKey): string[] {
   try {
     const parsed = JSON.parse(readState(db)[key] ?? '[]') as unknown;
@@ -77,6 +79,7 @@ export function assembleSuggestions(input: {
     for (const [raw, source] of entries) {
       const value = usableAddress(raw);
       if (!value) continue;
+      // `http://127.0.0.1:8188/` and `HTTP://127.0.0.1:8188` are one address: offered once, the first source wins.
       const key = value.replace(/\/+$/, '').toLowerCase();
       if (seen.has(key)) continue;
       seen.add(key);

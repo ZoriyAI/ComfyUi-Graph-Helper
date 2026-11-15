@@ -1,3 +1,10 @@
+/**
+ * The settings row (theme, language, provider, addresses), the preferences beside it, and the encrypted secret
+ * records (provider keys, server tokens, sign-ins) in SQLite.
+ * Read across main: ipc.ts (Settings), agent/turn.ts, mcp/*, knowledge/*, llm/network.ts, updates/updateIpc.ts.
+ * Why it is strict: the settings row must never hold a secret (a save that carries one is refused whole), and a
+ * secret is written only as ciphertext the OS password store proved, never in a form anyone could read back.
+ */
 import type Database from 'better-sqlite3';
 import { KEY_PROVIDERS as KEY_PROVIDER_IDS } from '../../shared/config/keyOrigin';
 import { carriesSecret } from '../../shared/config/draft';
@@ -33,6 +40,7 @@ type SettingsRow = {
   language: string;
 };
 
+/** The SQL row in the shape the settings schema reads (snake_case columns to camelCase fields). */
 function rowToInput(row: SettingsRow): unknown {
   return {
     theme: row.theme,
@@ -47,6 +55,10 @@ function rowToInput(row: SettingsRow): unknown {
   };
 }
 
+/**
+ * The settings as stored: 'default' when no row was ever saved, 'corrupt' when the row does not pass the schema
+ * (callers then use no address at all rather than a guess), 'stored' otherwise.
+ */
 export function readSettings(db: Database.Database): SettingsRead {
   const row = db.prepare('SELECT theme, motion, provider, model, base_url, comfy_origin, mcp_url, mcp_auth, language FROM settings WHERE id = 1').get() as
     | SettingsRow
@@ -78,6 +90,7 @@ export function readPreferences(db: Database.Database): Preferences {
   }
 }
 
+/** A saved row and preferences, or the fixed reason the save was refused. */
 export type SettingsSaveResult =
   | { ok: true; values: NonSecretSettings; preferences: Preferences }
   | { ok: false; error: string };
@@ -157,11 +170,16 @@ export function saveViewPreferences(db: Database.Database, patch: unknown): Pref
   return updated.changes > 0 ? merged.data : null;
 }
 
+/** How many secret records are stored. */
 export function secretRecordCount(db: Database.Database): number {
   const row = db.prepare('SELECT COUNT(*) AS count FROM secret_records').get() as { count: number };
   return row.count;
 }
 
+/**
+ * The answer to a secret save that may not be stored: 'secret-storage-blocked'. It writes nothing; counting the
+ * records before and after turns any future write slipped in here into a loud error instead of a silent leak.
+ */
 export function attemptSaveSecret(db: Database.Database): SecretSaveResult {
   const before = secretRecordCount(db);
   const after = secretRecordCount(db);
@@ -238,15 +256,18 @@ export function saveNamedSecretIfProven(
   return { status: 'stored' };
 }
 
+/** The stored ciphertext of one record, or null. Decrypting is the caller's job (safeStorage). */
 export function readSecretCipher(db: Database.Database, name: string): Buffer | null {
   const row = db.prepare('SELECT ciphertext FROM secret_records WHERE name = ?').get(name) as { ciphertext: Buffer } | undefined;
   return row ? Buffer.from(row.ciphertext) : null;
 }
 
+/** Deletes one secret record by name. */
 export function forgetSecret(db: Database.Database, name: string): void {
   db.prepare('DELETE FROM secret_records WHERE name = ?').run(name);
 }
 
+/** The stored ciphertext of one provider's key, or null. */
 export function readProviderKeyCipher(db: Database.Database, provider: string): Buffer | null {
   return readSecretCipher(db, providerKeyRecord(provider));
 }

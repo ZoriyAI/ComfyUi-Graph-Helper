@@ -1,10 +1,14 @@
+/**
+ * Settings ▸ Privacy ▸ "Forget all keys and tokens" and the list of what it would remove.
+ * Called from ipc.ts (forgetEverySecret, secretInventory). What is removed and how is described below.
+ */
 import type Database from 'better-sqlite3';
 import { KEY_PROVIDERS, type KeyProvider } from '../../shared/config/keyOrigin';
 import { readKeyFile, removeKeyFile } from './keyFile';
 import { readTokenFile, removeTokenFile } from '../mcp/tokenFile';
 
 /**
- * Settings ▸ Privacy ▸ "Forget all keys and tokens": every secret the app keeps, wherever it is.
+ * What "Forget all keys and tokens" reaches: every secret the app keeps, wherever it is.
  * - `secret_records`: every row (model keys of every provider, manual MCP tokens for every address, browser sign-in
  *   client records and tokens for every address, the one-key-era record). The table holds nothing else.
  * - The two app-folder files (model keys, MCP token).
@@ -23,6 +27,7 @@ export interface ForgetAllDeps {
   forgetSignIns: () => void;
 }
 
+/** What was removed, for the confirmation the panel shows. */
 export interface ForgetAllResult {
   records: number;
   files: number;
@@ -48,6 +53,7 @@ export function eraseSecretRecords(db: Database.Database): { records: number; co
   return { records, compacted };
 }
 
+/** Forgets every secret: memory, then the app-folder files, then the database rows. */
 export function forgetEverySecret(deps: ForgetAllDeps): ForgetAllResult {
   // Memory first: nothing can be sent with a secret while the rows go.
   for (const clear of [deps.forgetKeys, deps.forgetMcpToken, deps.forgetSignIns]) {
@@ -72,6 +78,7 @@ export interface SecretInventory {
   signIns: number;
 }
 
+/** What secretInventory needs to see the secrets held in memory (ipc.ts passes the live services). */
 export interface InventoryDeps {
   db: Database.Database;
   userData: string;
@@ -85,6 +92,7 @@ export interface InventoryDeps {
 
 const PROVIDERS = KEY_PROVIDERS;
 
+/** Counts by kind; a secret both held and stored counts once. Record names are `<kind>:<provider or origin>`. */
 export function secretInventory(deps: InventoryDeps): SecretInventory {
   const names = (deps.db.prepare('SELECT name FROM secret_records').all() as Array<{ name: string }>).map((row) => row.name);
   const file = readKeyFile(deps.userData);
