@@ -277,8 +277,8 @@ describe('the lessons on picture techniques', () => {
   it('says that a detailer draws the face that is there, and that a face is carried only with consent', () => {
     expect(lessonWords('en', 'detailer')!.steps.intro.body).toContain("does not put another person's face");
     expect(lessonWords('ru', 'detailer')!.steps.intro.body).toContain('не ставит на его место лицо другого человека');
-    expect(lessonWords('en', 'ipadapter')!.steps.tune.body).toContain('without consent');
-    expect(lessonWords('ru', 'ipadapter')!.steps.tune.body).toContain('без согласия');
+    expect(lessonWords('en', 'ipadapter')!.steps.tune.body).toContain('Get that consent first');
+    expect(lessonWords('ru', 'ipadapter')!.steps.tune.body).toContain('получите это согласие');
     expect(lessonWords('en', 'edit-words')!.steps.families.body).toMatch(/cost money and send/);
     expect(lessonWords('ru', 'edit-words')!.steps.families.body).toMatch(/стоят денег и отправляют/);
   });
