@@ -119,24 +119,39 @@ test('node fields: lists, steppers and the model picker edit the graph', async (
     await loader.getByRole('combobox', { name: 'ckpt_name' }).click();
     await window.getByRole('listbox', { name: 'ckpt_name' }).getByRole('option').filter({ hasText: 'sd_xl_base_1.0' }).click();
     await expect(loader.getByRole('combobox', { name: 'ckpt_name' })).toHaveAttribute('data-value', 'sd_xl_base_1.0.safetensors');
-    await window.locator('.react-flow__controls-fitview').click().catch(() => undefined);
+    const readProjection = () => window.evaluate(() => {
+      const api = (window as unknown as { electronAPI: { readProjection: (id: string) => Promise<{
+        revSeq: number;
+        snapshot: { edges: Array<{ source: string; sourceHandle: string; target: string; targetHandle: string }> };
+      }> } }).electronAPI;
+      return api.readProjection('desktop');
+    });
+    const loaderId = await loader.getAttribute('data-id');
+    const loraId = await lora.getAttribute('data-id');
+    // Library placement can leave these two handles overlapping. Arrange, then reload the committed layout
+    // so the arrangement's delayed camera fit cannot move a handle during the connection gesture.
+    const arrangeFrom = (await readProjection()).revSeq;
+    await window.getByRole('button', { name: 'Arrange the graph' }).click();
+    await expect.poll(async () => (await readProjection()).revSeq).toBe(arrangeFrom + 1);
+    await window.reload();
+    await expect(window.locator('.react-flow__node')).toHaveCount(3);
+    await window.locator('.react-flow__controls-fitview').click();
     const from = loader.locator('.react-flow__handle[data-handleid="out-0"]');
     const to = lora.locator('.react-flow__handle[data-handleid="in-0"]');
-    // A slow drag with intermediate moves: React Flow needs pointer moves to start a connection.
-    const drag = async () => {
-      const a = await from.boundingBox();
-      const b = await to.boundingBox();
-      if (!a || !b) throw new Error('handles not on screen');
-      await window.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
-      await window.mouse.down();
-      await window.mouse.move(a.x + a.width / 2 - 20, a.y + a.height / 2 + 10, { steps: 4 });
-      await window.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 12 });
-      await window.mouse.up();
-    };
-    await expect(async () => {
-      if (await window.locator('.react-flow__edge').count() === 0) await drag();
-      await expect(window.locator('.react-flow__edge')).toHaveCount(1, { timeout: 2000 });
-    }).toPass({ timeout: 15000 });
+    // Locator actions wait for stable, unobstructed handles before the one real mouse drag.
+    await to.hover();
+    await from.hover();
+    const a = await from.boundingBox();
+    const b = await to.boundingBox();
+    if (!a || !b) throw new Error('handles not on screen');
+    await window.mouse.down();
+    await window.mouse.move(a.x + a.width / 2 + 20, a.y + a.height / 2 + 10, { steps: 4 });
+    await window.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 12 });
+    await window.mouse.up();
+    await expect(window.locator('.react-flow__edge')).toHaveCount(1);
+    await expect.poll(async () => (await readProjection()).snapshot.edges).toEqual([
+      expect.objectContaining({ source: loaderId, sourceHandle: 'out-0', target: loraId, targetHandle: 'in-0' }),
+    ]);
     await loraName.click();
     await expect(window.getByText(/Compared with sd_xl_base_1\.0\.safetensors \(SDXL\)/)).toBeVisible();
     const options = files.getByRole('option');

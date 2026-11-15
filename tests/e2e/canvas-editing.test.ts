@@ -250,6 +250,8 @@ test('editing on the canvas: one step per action, copy and paste, link guidance,
     await commit(ctx, { type: 'add-group', title: 'Pair', nodeIds: ['1', '2'] });
     await reload(ctx);
     const groupTitle = page.locator('[data-group-id] > div[data-group-id]').first();
+    // Reload can still be fitting the camera; wait for the title to be stable and receive pointer events.
+    await groupTitle.hover();
     const members = (await snap(ctx)).nodes.filter((item) => ['1', '2'].includes(item.id)).map((item) => item.position);
     const groupFrom = await revSeq(ctx);
     const gt = await centre(groupTitle);
@@ -259,6 +261,9 @@ test('editing on the canvas: one step per action, copy and paste, link guidance,
     expect(movedMembers[0].x - members[0].x).toBeGreaterThan(20);
     expect(movedMembers[1].x - members[1].x).toBeCloseTo(movedMembers[0].x - members[0].x, 0);
     await shot(page, '05-group-moved');
+    expect(await revSeq(ctx)).toBe(groupFrom + 1);
+    await undoOnce(ctx);
+    expect((await snap(ctx)).nodes.filter((item) => ['1', '2'].includes(item.id)).map((item) => item.position)).toEqual(members);
 
     // ── A node added from the search is selected and in view.
     await blur(page);
