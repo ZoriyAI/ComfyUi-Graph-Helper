@@ -15,7 +15,7 @@ export interface TourStep {
 }
 
 /** Shell dialogs opened from the menu bar or a hotkey. */
-export type ShellDialog = 'shortcuts' | 'about' | 'new-project' | 'export-guard' | 'help-guide' | 'help-troubleshooting' | 'help-whatsnew' | 'help-content';
+export type ShellDialog = 'shortcuts' | 'about' | 'new-project' | 'export-guard' | 'help' | 'report-problem';
 
 /** What replaces the graph on screen once the person confirms: the "new-project" dialog asks for all three. */
 export type ReplaceIntent = 'new-project' | 'open-project' | 'import-workflow';
@@ -50,6 +50,8 @@ interface UiState {
   dialog: ShellDialog | null;
   /** What the "new-project" dialog is asking about (New project, Open project, Open workflow). */
   replaceIntent: ReplaceIntent;
+  /** The page the help reader shows (a wiki ref such as `start/Quick-Start`, or `@whats-new`); seq changes per request. */
+  helpRequest: { page: string; seq: number } | null;
 
   setSelection: (refs: ObjectRef[]) => void;
   setFocus: (ref: ObjectRef | null) => void;
@@ -65,6 +67,8 @@ interface UiState {
   setDialog: (dialog: ShellDialog | null) => void;
   /** Asks before the graph on screen, which is in no project file as it stands, is replaced. */
   askReplace: (intent: ReplaceIntent) => void;
+  /** Opens the help reader on a page (services/help.ts openHelp takes a context help id). */
+  showHelp: (page: string) => void;
 }
 
 /** Below this window width the rail starts as an icon strip, so the canvas keeps room for explanatory animation. */
@@ -88,6 +92,7 @@ export const useUiStore = create<UiState>((set) => ({
   settingsRequest: null,
   dialog: null,
   replaceIntent: 'new-project',
+  helpRequest: null,
 
   setSelection: (selection) => set({ selection }),
   setFocus: (focusRef) => set({ focusRef }),
@@ -104,4 +109,5 @@ export const useUiStore = create<UiState>((set) => ({
   openSettings: (section) => set((state) => ({ settingsRequest: { section: section ?? null, seq: (state.settingsRequest?.seq ?? 0) + 1 } })),
   setDialog: (dialog) => set({ dialog }),
   askReplace: (replaceIntent) => set({ replaceIntent, dialog: 'new-project' }),
+  showHelp: (page) => set((state) => ({ dialog: 'help', helpRequest: { page, seq: (state.helpRequest?.seq ?? 0) + 1 } })),
 }));

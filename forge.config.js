@@ -11,13 +11,17 @@ const fs = require('fs');
 const path = require('path');
 const { FuseV1Options, FuseVersion } = require('@electron/fuses');
 
+const pkg = require('./package.json');
+/** The project address (src/main/identity.ts PROJECT_URL, mirrored in package.json); none while it is a placeholder. */
+const HOMEPAGE = typeof pkg.homepage === 'string' && !pkg.homepage.includes('PLACEHOLDER') && !pkg.homepage.endsWith('/OWNER/REPOSITORY') ? pkg.homepage : '';
+
 const ICON_SIZES = [16, 24, 32, 48, 64, 128, 256, 512];
 const ICONS = Object.fromEntries(ICON_SIZES.map((size) => [`${size}x${size}`, `resources/icons/${size}x${size}.png`]));
 const PRODUCT_NAME = 'Graph Helper for ComfyUI';
 const GENERIC_NAME = 'ComfyUI graph tutor';
-const SUMMARY = 'learn to build ComfyUI graphs with a read-only helper';
+const SUMMARY = 'experimental app to learn ComfyUI and understand its graphs';
 const LONG_DESCRIPTION = [
-  'Graph Helper for ComfyUI is a desktop helper for people new to ComfyUI.',
+  'Graph Helper for ComfyUI is an experimental desktop app for people new to ComfyUI.',
   'It reads the nodes and models from your ComfyUI directly, with optional MCP',
   'for extra metadata, never changes anything there, and helps you understand a',
   'graph: a canvas, built-in lessons and an assistant that explains every step.',
@@ -108,7 +112,8 @@ module.exports = {
           depends: ['libc6'],
           categories: ['Graphics', 'Education'],
           maintainer: 'ZoriyAI <229329866+ZoriyAI@users.noreply.github.com>',
-          // No Homepage while the repository is private: the link would show a 404 to everyone else.
+          // Homepage from package.json; left out (empty) while the project address is still a placeholder.
+          homepage: HOMEPAGE,
           icon: ICONS,
           desktopTemplate: DESKTOP_TEMPLATE,
           scripts: {
@@ -153,7 +158,7 @@ module.exports = {
           genericName: GENERIC_NAME,
           description: SUMMARY,
           productDescription: LONG_DESCRIPTION,
-          license: 'MIT',
+          license: 'MIT AND LicenseRef-Commons-Clause',
           categories: ['Graphics', 'Education'],
           // The maker's spec with chrome-sandbox SUID root and copyright retained as a license.
           specTemplate: path.join(__dirname, 'resources', 'linux', 'rpm.spec.ejs'),

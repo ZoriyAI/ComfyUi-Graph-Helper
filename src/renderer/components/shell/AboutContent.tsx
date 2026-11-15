@@ -8,6 +8,8 @@ import type { AboutInfo, ThirdPartyComponent } from '../../../shared/contracts/a
 import { version as packageVersion } from '../../../../package.json';
 import iconUrl from '../../../../resources/icon.png';
 import styles from './AboutContent.module.css';
+import { openProjectLink } from '../../services/help';
+import { useUiStore } from '../../state/uiState';
 
 type View = 'main' | 'licence' | 'components';
 
@@ -73,6 +75,9 @@ export default function AboutContent({ renderTitle }: { renderTitle?: (text: str
           <Button variant="ghost" size="sm" icon={<ArrowLeft size={14} />} onClick={() => setView('main')}>{t('appInfo.back')}</Button>
           <p className={styles.subTitle}>{t('appInfo.licenceTitle')}</p>
         </div>
+        <p className={styles.note} data-about-commercial>
+          {t('appInfo.commercial')} {t('appInfo.commercialContact')}
+        </p>
         <pre className={styles.text} tabIndex={0}>{licence ?? ''}</pre>
       </div>
     );
@@ -114,12 +119,19 @@ export default function AboutContent({ renderTitle }: { renderTitle?: (text: str
       <img className={styles.icon} src={iconUrl} width={64} height={64} alt="" aria-hidden="true" />
       {renderTitle ? renderTitle(name, styles.name) : <p className={styles.name}>{name}</p>}
       <p className={styles.version} data-about-version>{t('appInfo.version', { version })}</p>
+      <p className={styles.lead}>{t('appInfo.independent', { name })}</p>
       <p className={styles.lead}>{t('appInfo.lead')}</p>
       <div className={styles.actions}>
         <Button variant="ghost" size="sm" onClick={openLicence}>{t('appInfo.licence')}</Button>
         <Button variant="ghost" size="sm" onClick={openComponents}>{t('appInfo.components')}</Button>
         <Button variant="ghost" size="sm" onClick={() => void copyDetails()}>{t('appInfo.copyInfo')}</Button>
         <Button variant="ghost" size="sm" onClick={() => void openData()}>{t('appInfo.openData')}</Button>
+      </div>
+      {/* The project's pages; greyed out while this build has no project address (identity.ts PROJECT_URL). */}
+      <div className={styles.actions} data-about-project>
+        <Button variant="ghost" size="sm" disabled={!info?.projectLinks} title={info?.projectLinks ? undefined : String(t('projectLinks.unavailable'))} onClick={() => void openProjectLink('site')}>{t('projectLinks.site')}</Button>
+        <Button variant="ghost" size="sm" disabled={!info?.projectLinks} title={info?.projectLinks ? undefined : String(t('projectLinks.unavailable'))} onClick={() => useUiStore.getState().setDialog('report-problem')}>{t('projectLinks.report')}</Button>
+        <Button variant="ghost" size="sm" disabled={!info?.projectLinks} title={info?.projectLinks ? undefined : String(t('projectLinks.unavailable'))} onClick={() => void openProjectLink('releases')}>{t('projectLinks.releases')}</Button>
       </div>
       <details className={styles.details}>
         <summary className={styles.detailsSummary}>{t('appInfo.details')}</summary>

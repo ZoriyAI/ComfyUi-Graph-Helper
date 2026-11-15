@@ -74,7 +74,7 @@ function checkPackageFiles() {
     const maintainer = packageField('Maintainer');
     if (!/<[^>]+@[^>]+>/.test(maintainer)) fail(`DEB_MAINTAINER ${maintainer}`);
     if (packageField('Section') !== 'graphics') fail(`DEB_SECTION ${packageField('Section')}`);
-  } else if (packageField('License') !== 'MIT') {
+  } else if (packageField('License') !== 'MIT AND LicenseRef-Commons-Clause') {
     fail(`RPM_LICENSE ${packageField('License')}`);
   }
   const description = packageField('Description');
@@ -91,7 +91,7 @@ function checkPackageFiles() {
   // Both packages make the bundle's LICENSE (the app's licence and the notices) their copyright file.
   const licenceFile = `/usr/share/doc/${PACKAGE}/copyright`;
   const copyright = fs.readFileSync(licenceFile, 'utf8');
-  if (!copyright.startsWith(DISPLAY_NAME) || !copyright.includes('Copyright (c) 2026 ZoriyAI') || !copyright.includes('@xyflow/react')) {
+  if (!copyright.startsWith(DISPLAY_NAME) || !copyright.includes('“Commons Clause” License Condition v1.0') || !copyright.includes('Copyright (c) 2026 ZoriyAI') || !copyright.includes('@xyflow/react')) {
     fail(`COPYRIGHT_FILE ${licenceFile} is not the app licence with the notices`);
   }
   const sandbox = fs.statSync(`/usr/lib/${PACKAGE}/chrome-sandbox`);

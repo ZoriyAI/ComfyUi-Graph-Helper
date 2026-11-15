@@ -78,8 +78,8 @@ test('adult content is turned on only through the rules and "I am 18 or older", 
     await adult.click();
     await confirm.getByRole('button', { name: 'Read the content rules', exact: true }).click();
     const reader = window.locator('.help-reader-dialog');
-    await expect(reader).toHaveAttribute('data-help-topic', 'content');
-    await expect(reader.getByText('Reporting a violation')).toBeVisible();
+    await expect(reader).toHaveAttribute('data-help-page', 'trust/Content-Rules');
+    await expect(reader.getByRole('heading', { name: 'Reporting a problem with content' })).toBeVisible();
     await reader.getByRole('button', { name: 'Close', exact: true }).click();
     await expect(reader).toHaveCount(0);
     await expect(confirm).toBeVisible();

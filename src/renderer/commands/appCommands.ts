@@ -2,8 +2,9 @@ import {
   Ghost, Columns2, Compass, Database, FileCheck2, FilePlus2, FolderInput, FolderOpen, FolderOutput, GraduationCap, Group, History, Info, Keyboard,
   LogOut, Map as MapIcon, Maximize, MessageCircleQuestion, MessageSquare, MessageSquareText, Navigation, PanelLeft, PanelRight, Pause, Play,
   Plus, Redo2, RefreshCw, Save, Settings, SquareDashedMousePointer, Square, Trash2, Undo2, Ungroup, Combine, ZoomIn, ZoomOut, RotateCcw,
-  Workflow, BookOpen, LifeBuoy, Sparkles, ChevronsDownUp, Copy, ClipboardPaste, Scissors, CopyPlus, ShieldCheck,
+  Workflow, BookOpen, LifeBuoy, Sparkles, ChevronsDownUp, Copy, ClipboardPaste, Scissors, CopyPlus, ShieldCheck, BookA, Globe, Bug, Download,
 } from 'lucide-react';
+import { openHelp, openProjectLink, openWhatsNew, projectLinksAvailable } from '../services/help';
 import { arrangeGraph } from '../components/graph/arrange';
 import { toggleCollapseSelection } from '../components/graph/importLook';
 import { levelNodes } from '../components/graph/lib/level';
@@ -286,10 +287,14 @@ export function buildAppCommands(): Command[] {
     { id: 'sync.settings', group: 'sync', labelKey: 'menu.syncSettings', icon: Settings, enabled: always, run: () => useUiStore.getState().openSettings('sync') },
 
     // Help
-    { id: 'help.guide', group: 'help', labelKey: 'helpReader.guide', icon: BookOpen, enabled: always, run: () => useUiStore.getState().setDialog('help-guide') },
-    { id: 'help.troubleshooting', group: 'help', labelKey: 'helpReader.troubleshooting', icon: LifeBuoy, enabled: always, run: () => useUiStore.getState().setDialog('help-troubleshooting') },
-    { id: 'help.whatsNew', group: 'help', labelKey: 'helpReader.whatsNew', icon: Sparkles, enabled: always, run: () => useUiStore.getState().setDialog('help-whatsnew') },
-    { id: 'help.content', group: 'help', labelKey: 'helpReader.content', icon: ShieldCheck, enabled: always, run: () => useUiStore.getState().setDialog('help-content') },
+    { id: 'help.guide', group: 'help', labelKey: 'helpReader.guide', icon: BookOpen, enabled: always, run: () => openHelp('home') },
+    { id: 'help.glossary', group: 'help', labelKey: 'helpReader.glossary', icon: BookA, enabled: always, run: () => openHelp('glossary') },
+    { id: 'help.troubleshooting', group: 'help', labelKey: 'helpReader.troubleshooting', icon: LifeBuoy, enabled: always, run: () => openHelp('troubleshooting') },
+    { id: 'help.whatsNew', group: 'help', labelKey: 'helpReader.whatsNew', icon: Sparkles, enabled: always, run: () => openWhatsNew() },
+    { id: 'help.content', group: 'help', labelKey: 'helpReader.content', icon: ShieldCheck, enabled: always, run: () => openHelp('content-rules') },
+    { id: 'help.site', group: 'help', labelKey: 'projectLinks.site', icon: Globe, enabled: projectLinksAvailable, run: () => void openProjectLink('site') },
+    { id: 'help.reportProblem', group: 'help', labelKey: 'projectLinks.report', icon: Bug, enabled: projectLinksAvailable, run: () => useUiStore.getState().setDialog('report-problem') },
+    { id: 'help.releases', group: 'help', labelKey: 'projectLinks.releases', icon: Download, enabled: projectLinksAvailable, run: () => void openProjectLink('releases') },
     { id: 'help.shortcuts', group: 'help', labelKey: 'menu.shortcuts', icon: Keyboard, shortcut: 'F1', enabled: always, run: () => useUiStore.getState().setDialog('shortcuts') },
     { id: 'help.about', group: 'help', labelKey: 'menu.about', icon: Info, enabled: always, run: () => useUiStore.getState().setDialog('about') },
   ];

@@ -1,194 +1,114 @@
-# Graph Helper for ComfyUI
+Русская версия: [README.ru.md](README.ru.md)
 
-**Помощник для того, кто начинает работать с ComfyUI.** Настольное приложение для Linux. Оно подключается к
-вашему ComfyUI напрямую по его адресу (MCP-сервер можно добавить для дополнительных сведений), читает, какие ноды, паки и модели у вас есть, и **показывает, как собрать граф,
-и объясняет, зачем каждый шаг**: на живом графе, в разговоре и в уроках, которые вы проходите руками.
+# CozyGraph
 
-Приложение не работает вместо вас. Вы строите сами, зовёте помощника, когда застряли, или просите показать пример.
-В конце получается обычный workflow JSON для ComfyUI, и вы понимаете, из чего он состоит.
+**A desktop tutor for ComfyUI graphs**
 
-- Руководство: [`docs/user/guide.ru.md`](docs/user/guide.ru.md) ([English](docs/user/guide.en.md)); в приложении
-  «Справка ▸ Руководство».
-- Решение проблем: [`docs/user/troubleshooting.ru.md`](docs/user/troubleshooting.ru.md)
-  ([English](docs/user/troubleshooting.en.md)); в приложении «Справка ▸ Решение проблем».
-- Что нового: [`CHANGELOG.md`](CHANGELOG.md) и «Справка ▸ Что нового».
+![The app building a graph step by step, with the reason for every step](docs/screenshots/hero.png)
 
-## Принципы
+CozyGraph helps you learn ComfyUI and understand its graphs: it reads a running ComfyUI, explains every node and
+link, teaches with lessons you do by hand, and has an assistant that explains and builds step by step. It is for
+people new to ComfyUI and for anyone who wants to know why a graph works. It only reads ComfyUI and never changes it.
 
-1. **ComfyUI не трогаем.** Прямое подключение и MCP используют только чтение. Приложение ничего не
-   устанавливает, не скачивает, не удаляет и не ставит в очередь. Поток данных: ComfyUI → приложение.
-2. **Помощник, а не исполнитель.** Предложения помощника стоят на холсте серыми черновиками; в граф они
-   попадают только после того, как человек их принял. Сам помощник строит только по явной просьбе.
-3. **Факт, догадка, интернет, человек.** У каждого объяснения виден источник.
-4. **Объяснения живут в проекте.** Спросил про вход или выход ноды: ответ записан к этому месту графа и к версии графа.
-   Файл проекта хранит их вместе с графом; workflow для ComfyUI их не содержит.
-5. **Анимация объясняет.** Импульсы по связям, экскурсия по графу, пошаговая сборка, микроиллюстрации
-   того, что делает нода, повтор истории. Настройка анимации (как в системе / включена / уменьшена / выключена) соблюдается везде.
-6. **Совместимость на первом месте.** Для каждой модели и LoRA известно семейство базовой модели; несовпадения
-   подсвечиваются до экспорта.
-7. **Два формата.** Внутренний проект хранит всё; в ComfyUI уходит только нативный workflow JSON.
-8. **Ключи и токены** не пишутся в базу открыто, не попадают в журнал, в запрос к модели и в сохранённые файлы.
+CozyGraph is an independent, experimental learning tool. It is not affiliated with or endorsed by Comfy Org. It
+contains no ComfyUI code and only reads a running ComfyUI; it never changes it.
 
-## Три способа работать с помощником
+## Screenshots
 
-- **Спросить.** Помощник отвечает и предлагает. В граф попадает только то, что вы приняли.
-- **Строить.** Помощник строит на холсте по шагам и объясняет каждый.
-- **Учиться.** Вы собираете сами. Приложение говорит, что сделать и зачем, показывает, где это на холсте, и по
-  графу видит, что шаг выполнен. Ошиблись со связью или значением: говорит словами, что не так. Модель для
-  этого не нужна: уроки встроены в приложение.
+| | |
+| --- | --- |
+| [<img src="docs/screenshots/en/02-canvas-explained.png" width="420" alt="A graph on the canvas with an explanation under every node">](docs/screenshots/en/02-canvas-explained.png) | [<img src="docs/screenshots/en/07-lesson-step.png" width="420" alt="A lesson step on the real canvas">](docs/screenshots/en/07-lesson-step.png) |
+| [<img src="docs/screenshots/en/05-assistant-build.png" width="420" alt="The assistant building a graph step by step">](docs/screenshots/en/05-assistant-build.png) | [<img src="docs/screenshots/en/08-check.png" width="420" alt="The check before saving a workflow">](docs/screenshots/en/08-check.png) |
 
-Уроки подбираются под ваш ComfyUI: в них только те ноды, которые у вас стоят. Сейчас их 68 в девяти группах: основы, первые картинки, видео, WanVideoWrapper, модели для картинок, опорная картинка, паки и инструменты, приёмы для картинок и отдельная группа из трёх уроков для взрослых.
-Уроки собраны по темам, связанные уроки доступны по ссылкам; проходить всё по порядку не требуется. Среди тем:
+[All screenshots](docs/screenshots/README.md)
 
-- первая картинка из текста;
-- описание: как модель его читает (два вида моделей, порядок и длина, вес, второй текст, `cfg`, `seed`, что
-  менять, когда картинка не слушается);
-- доводка второй моделью: одна модель строит композицию, вторая перерисовывает картинку поверх;
-- видео из текста и видео из картинки на Wan 2.2;
-- описание для видео: из чего оно состоит, одно действие на ролик, слова для камеры;
-- LoRA и быстрое видео за четыре шага;
-- видео на нодах пака WanVideoWrapper: из текста и из картинки, с подсказками, что делать при нехватке памяти;
-- на том же паке: VACE (движение, глубина или контуры из другого видео), анимация по позе Wan Animate и говорящий
-  портрет InfiniteTalk. Два последних урока прямо говорят: чужое лицо и голос только с согласия человека;
-- ещё пять уроков на том же паке: анимация по позе UniAnimate, разговор двоих на InfiniteTalk, говорящий
-  портрет FantasyTalking, видео сразу со звуком и речью на Ovi, то же видео с другой камеры на ReCamMaster;
-- две модели в одном графе: модель для картинок рисует первый кадр, Wan его оживляет, у каждой свои LoRA и
-  своё описание;
-- отдельной группой в конце три урока для взрослых: что меняется для картинок и для видео (семейства моделей,
-  дообученные модели, LoRA, слова автора модели, описание, дефекты) и как подключать и уравновешивать LoRA для
-  взрослых (сила, сравнение на одном seed, две LoRA сразу). Они открываются переключателем
-  «Содержимое для взрослых (18+)», об этом ниже. Приложение не добавляет запреты по теме в системный промпт
-  помощника; выбранная модель отвечает согласно собственным правилам.
+## What it does
 
-Готовых описаний сцен в уроках нет. Когда шаг делает приложение, новая нода встаёт в свою колонку, и граф
-читается слева направо. Урок не просит переподключать ноды, которые уже работают на другую часть графа: если на
-холсте стоит видео, урок о картинке попросит свои ноды, а не займёт чужие.
+- **Reads your ComfyUI** at its address: nodes, packs and model files, with an optional MCP server for more.
+  [Connecting](docs/wiki/connect/README.md)
+- **A canvas for ComfyUI graphs**: real fields, typed links, subgraphs, groups, copy and paste, undo and redo.
+  [Working with a graph](docs/wiki/graph/README.md)
+- **Explains** every node, input, output and link, and says where each explanation comes from.
+  [The window](docs/wiki/interface/README.md)
+- **About eighty lessons** in twelve groups you do by hand on the real canvas, checked step by step, no AI model
+  needed.
+  [Lessons](docs/wiki/lessons/README.md)
+- **An assistant** that asks, builds or teaches, with a cloud model and your key or a model on your own computer.
+  [The assistant](docs/wiki/assistant/README.md)
+- **Checks a graph** before you save it, and saves an ordinary workflow you run in ComfyUI.
+  [Checking a graph](docs/wiki/graph/Checking-A-Graph.md)
 
-## Что приложение знает о моделях, нодах и описаниях
+## Install
 
-- **Карточка модели.** Щелчок по файлу во вкладке «Модели» показывает то, что записал автор: название, для
-  какой модели сделано, слова, которые включают LoRA, силу, которую он советует, заметки и описания, по которым
-  он делал свои примеры. Если рядом с файлом лежит картинка или ролик-пример, они показаны в карточке и
-  в списке. Всё это читается из файлов, которые менеджер моделей (ComfyUI-Lora-Manager, Civitai Helper) кладёт
-  рядом с моделью.
-- **Описание из интернета, по вашей кнопке.** Если рядом с файлом ничего нет, кнопка «Найти в интернете» в
-  карточке ищет модель на Civitai по отпечатку файла (это точно тот файл) и на Hugging Face по имени (это
-  догадка, карточка так и пишет). На эти сайты уходит отпечаток или имя файла, больше ничего. Искать сразу для
-  всех файлов при синхронизации можно включить в «Настройки ▸ Приватность»; по умолчанию это выключено.
-- **Отмеченное автором как взрослое закрыто.** Такую картинку и такие примеры описаний приложение не читает и
-  не показывает, пока вы сами не откроете их кнопкой в карточке или настройкой в «Приватность».
-- **Карточка ноды.** Щелчок по ноде в библиотеке: что она делает и зачем, что в неё входит, какие у неё
-  настройки и что они принимают, что выходит и из какого она пака. О паке сказано то, что он пишет о себе сам:
-  описание, начало README и ссылка на репозиторий.
-- **«Проверить» читает описания.** Кроме ошибок графа она даёт советы по текстам: запись `<lora:…>`, `BREAK`,
-  `AND` и квадратные скобки из других программ, несошедшиеся скобки, слишком большой вес, отрицание в основном
-  описании, второй текст при `cfg` 1, одно и то же в обоих текстах, нет слов LoRA, описание не по-английски
-  или слишком длинное. Это советы, а не ошибки: сохранению они не мешают.
+Linux, 64-bit x86. Download from the [Releases](../../releases) page the format that suits your system:
 
-«Проверить» сверяет структуру графа с прочитанным каталогом: известные классы, порты, связи, значения и
-семейства моделей. Успех означает, что эти статические проверки не нашли проблем. Он не подтверждает
-запуск в ComfyUI, качество результата, совместимость неизвестных метаданных или достаточную видеопамять.
-Результат зависит от полноты и свежести каталога. Реальные импорты/экспорты в официальном интерфейсе,
-большие графы и каталоги, конкретные GPU и рабочие столы требуют отдельных проверок.
+| Format | Install |
+| --- | --- |
+| `.deb` (Ubuntu, Debian, Mint) | `sudo apt install ./cozygraph_*_amd64.deb` |
+| `.rpm` (Fedora, openSUSE) | `sudo dnf install ./cozygraph-*.rpm` |
+| AppImage | `chmod +x` the file, then open it |
+| `.tar.gz` | unpack, then `./install.sh` (for your user, no root) or `./run.sh` (in place) |
 
-## Требования
+<!-- verify: technical rename -->
 
-- Linux x64. Ориентир для `.deb`: Ubuntu 22.04+, Debian 12+, Linux Mint 21+; проверка конкретного рабочего стола и версии ОС остаётся отдельным шагом.
-- Запущенный ComfyUI на этом или другом компьютере. MCP-сервер необязателен.
-- Хранилище паролей (GNOME Keyring или KWallet), если ключи и токены нужно помнить между запусками.
-- Для помощника: облачная модель с ключом или своя модель на OpenAI-совместимом сервере (Ollama, LM Studio, vLLM).
-  Уроки работают и без модели.
-- В исходниках настроены `.deb`, `.rpm`, AppImage и переносимый `.tar.gz` с `install.sh` для текущего пользователя.
-  `.rpm` требует `rpmbuild`, AppImage — `mksquashfs` и runtime AppImage. Наличие сборщика в исходниках
-  не означает, что этот формат уже опубликован: скачивайте только файлы, фактически приложенные к выпуску.
-  Сборки для ARM нет.
+Each release has a `SHA256SUMS` file: `sha256sum -c SHA256SUMS --ignore-missing`. Updating, removing, and what goes
+where: [Installing](docs/wiki/start/Installing.md).
 
-## Установка, обновление, удаление
+## First steps
 
-Если на странице выбранного выпуска приложен `.deb`, установка и обновление одной командой:
+1. Start ComfyUI. No ComfyUI yet? [ComfyUI and where to get it](docs/wiki/start/ComfyUI.md).
+2. In CozyGraph: Settings ▸ Connection, enter the address you open ComfyUI at in the browser (for example
+   `http://127.0.0.1:8188`) or choose Find on this computer, save, and read it.
+   [Connecting to ComfyUI](docs/wiki/connect/Connecting.md)
+3. Open the right panel, choose Learn and take the first lesson. [Quick start](docs/wiki/start/Quick-Start.md)
 
-```bash
-sudo apt install ./comfyui-graph-builder_*.deb
-```
+## Documentation
 
-Приложение появится в меню как «Graph Helper for ComfyUI»; из терминала: `comfyui-graph-builder`
-(`--version` и `--help` печатают версию и подсказку). При обновлении настройки, ключи и проекты сохраняются.
+| Chapter | What is in it |
+| --- | --- |
+| [Start](docs/wiki/start/README.md) | What the app is, installing, the first hour, updating and removing. |
+| [Connecting](docs/wiki/connect/README.md) | Connecting the app to ComfyUI, on this computer or another. |
+| [The window](docs/wiki/interface/README.md) | One page per part of the window. |
+| [Working with a graph](docs/wiki/graph/README.md) | Building, checking, saving and running a graph. |
+| [The assistant](docs/wiki/assistant/README.md) | Ask, Build, Learn, who answers and what is sent. |
+| [Lessons](docs/wiki/lessons/README.md) | The built-in lessons, grouped by topic. |
+| [ComfyUI concepts](docs/wiki/concepts/README.md) | An encyclopedia of ComfyUI for a newcomer. |
+| [Reference](docs/wiki/reference/README.md) | Settings, shortcuts, messages, file formats, the glossary, troubleshooting. |
+| [Trust](docs/wiki/trust/README.md) | Privacy, security, the licence, subject choice and accessibility. |
+| [For developers](docs/wiki/dev/README.md) | How the code works, how to change it, how a release is made. |
 
-Удаление: `sudo apt remove comfyui-graph-builder`. Папка с данными остаётся; как убрать и её, сказано в руководстве.
+The same documentation is in the app: Help ▸ User guide.
 
-## Где лежат данные
+## Build from source
 
-Всё в `~/.config/comfyui-graph-builder`: база `comfyui-desktop.db` (настройки, каталог, история графа), журналы
-`logs/` и `logs/model/`, размер окна `window-state.json`. Перед обновлением базы рядом с ней остаётся копия
-`comfyui-desktop.db.before-v<версия>.bak`; повреждённая база откладывается как `comfyui-desktop.db.damaged-<дата>`. «Справка ▸ О программе ▸ Открыть папку с данными»
-открывает эту папку. Файлы проектов (`.graph-helper.json`) и workflow лежат там, куда вы их сохранили.
+On Linux: [Building from source](docs/wiki/dev/Building-From-Source.md). Windows and macOS are not supported; you may
+try running the app from source, untested: [Windows](docs/wiki/dev/Building-On-Windows.md),
+[macOS](docs/wiki/dev/Building-On-macOS.md).
 
-## Первый запуск
+## What works today and known limits
 
-На пустом холсте приложение само ведёт через три шага и отмечает сделанные:
+CozyGraph is experimental: things change between versions and some parts are unfinished. What it does not do yet:
+[Known limitations](docs/wiki/reference/Known-Limits.md). What changed: [CHANGELOG.md](CHANGELOG.md).
 
-1. **Подключите ComfyUI.** «Настройки ▸ Подключение»: укажите адрес, по которому открываете сам ComfyUI
-   в браузере, например `http://127.0.0.1:8188` (ComfyUI Desktop обычно использует порт 8000).
-   «Найти на этом компьютере» ищет локальные адреса; «Проверить» проверяет выбранный адрес. Сохраните настройки.
-   MCP добавляется отдельно, если нужны sidecar-описания моделей, README паков и отпечатки файлов;
-   его токен или вход через браузер привязан к адресу MCP-сервера.
-2. **Прочитайте ComfyUI.** «Синхронизация ▸ Синхронизировать сейчас». Когда индикатор справа вверху покажет
-   «Синхронизировано», в библиотеке слева будут ваши ноды и модели.
-3. **Выберите, кто отвечает.** Облачная модель (Anthropic, Google, OpenAI) с ключом или своя модель на этом
-   компьютере: кнопка «Найти локальные серверы» находит её сама.
+It never installs, downloads, deletes, writes or queues anything in ComfyUI, has no telemetry and no crash
+reporting, and asks about new versions only if you switch that on. Every place it can contact:
+[Privacy](docs/wiki/trust/Privacy.md).
 
-Порты нигде не зашиты: адреса ComfyUI, MCP-сервера и своей модели задаются целиком, вместе с портом. Подробно
-каждый шаг описан в руководстве.
+## Wishes, questions, problems
 
-## Журнал общения с моделью
+- Ideas, wishes and questions: [Discussions](../../discussions).
+- Problems: [Issues](../../issues) (Help ▸ Report a problem in the app fills in the versions).
+- A security problem: privately, see [SECURITY.md](SECURITY.md).
+- Code: [CONTRIBUTING.md](CONTRIBUTING.md); everyone follows the [Code of Conduct](CODE_OF_CONDUCT.md).
 
-Если помощник ответил странно, с ошибкой или не ответил вовсе, это можно разобрать по записи.
+**How this project is made.** Most of the code and the texts were written by AI coding agents, directed and reviewed
+by the maintainer, who answers for everything published here.
 
-- Приложение записывает каждый ваш вопрос: что оно отправило модели (инструкции, граф, список инструментов),
-  что модель ответила на каждом шаге, какие инструменты вызвала и что получила, ошибки со словами самого сервера,
-  счёт токенов и время. Для облачных и локальных моделей одинаково.
-- **Справка ▸ Журнал общения с помощником…** показывает список вопросов. Последний уже отмечен. «Сохранить в
-  файл…» кладёт отмеченные вопросы в один файл `graph-helper-model-log-….jsonl` вместе со сведениями о приложении
-  и концом основного журнала; «Показать файл» открывает папку с ним. Этот файл и нужно отправить целиком.
-- «Скопировать отчёт» у вопроса кладёт в буфер короткий текст (что спросили, шаги, ошибки), его можно вставить
-  прямо в сообщение.
-- У ответа в чате при наведении появляется значок журнала: он открывает запись именно этого ответа. У ответа с
-  ошибкой такая кнопка видна сразу.
-- Ключи и токены в журнал не попадают: заголовки запросов не записываются вовсе, а текст проходит ту же очистку,
-  что и основной журнал. Журнал хранится только на этом компьютере (папка `logs/model` в профиле приложения),
-  старые записи удаляются сами (не больше 300 вопросов и 150 МБ). Выключить запись: «Настройки ▸ Приватность ▸
-  Вести журнал общения с моделью» или переключатель в самом окне журнала.
+## Licence
 
-## Своя модель и окно контекста
+MIT with the Commons Clause condition: you may use, change and share CozyGraph for free, but not sell it or a product
+or service whose value comes mainly from it. It is source-available, not open source in the usual sense.
+[LICENSE](LICENSE), [the licence in plain words](docs/wiki/trust/Licence.md), commercial use:
+[COMMERCIAL.md](COMMERCIAL.md). Third-party components: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
-Модель на вашем сервере читает только то, что помещается в её окно контекста, и запрос не может это окно
-увеличить. Ollama задаёт окно на сервере: 4 тысячи токенов при видеопамяти меньше 24 ГБ, 32 тысячи до 48 ГБ, либо
-то, что указано в `OLLAMA_CONTEXT_LENGTH` или в `num_ctx` модели. Всё, что не поместилось, сервер молча
-отбрасывает. Запрос помощника вместе с инструментами занимает от 3 до 6 тысяч токенов и с каждым шагом сборки
-растёт.
-
-Приложение за этим следит:
-
-- Пока идёт запрос, оно спрашивает у сервера, с каким окном загружена модель (список загруженных моделей Ollama).
-  «Настройки ▸ Помощник ▸ Проверить связь» показывает это число сразу.
-- Если окно меньше 16 тысяч, помощник экономит место: предлагает модели только самые нужные инструменты.
-- Если запрос не поместился или места осталось мало, в чате появляется карточка с двумя числами и советом:
-  увеличить окно на сервере хотя бы до 16 384. Проверка идёт на каждом шаге сборки.
-- Окно запоминается между запусками, а в журнале хода записано, сколько занял запрос и что насчитал сервер.
-
-## Содержимое для взрослых
-
-Взрослые могут учиться делать любое законное содержимое для взрослых: приложение учит технике и не мешает. Что
-запрещено, приложение не делает и не учит, и говорит об этом везде одними словами. Переключатель
-«Содержимое для взрослых (18+)» в «Настройки ▸ Приватность» открывает уроки для взрослых и превью, которые автор
-модели отметил как такое содержимое; в новом профиле он выключен. Правила целиком: «Справка ▸ Правила
-содержимого» и [`docs/CONTENT.ru.md`](docs/CONTENT.ru.md) (по-английски [`docs/CONTENT.md`](docs/CONTENT.md)).
-
-## Для разработчиков
-
-Как устроен код, команды сборки и тестов, сборка пакета и выпуск: [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md).
-
-## Лицензия
-
-MIT, см. [`LICENSE`](LICENSE). Шрифт Geist распространяется по SIL OFL 1.1. Лицензии всех пакетов, которые идут
-вместе с приложением: «Справка ▸ О программе ▸ Сторонние компоненты».
+Subject choice and adult education: [Content rules](docs/wiki/trust/Content-Rules.md).

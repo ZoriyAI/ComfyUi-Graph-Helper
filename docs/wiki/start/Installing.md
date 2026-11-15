@@ -3,17 +3,86 @@
 
 # Installing
 
-The app targets Linux x64. Download the format actually attached to your chosen release. Source builders for a format do not prove that it has been published or verified on your desktop. ARM builds are not provided.
+CozyGraph is built for Linux on 64-bit x86, in four formats: `.deb`, `.rpm`, AppImage and a `.tar.gz` you install
+for your user only. Download only the files actually attached to the release you choose. There are no ARM packages.
+Windows and macOS are not supported; you may try running the app from source (untested).
 
-| Format in source | Installation or launch |
+## What you need
+
+- Linux, 64-bit x86. For the `.deb`: Ubuntu 22.04 or newer, Debian 12 or newer, Linux Mint 21 or newer, and others
+  based on them; for the `.rpm`: Fedora, openSUSE and others with rpm packages; AppImage and `.tar.gz` run on most
+  distributions.
+- About 320 MB of disk space for the app.
+- A desktop session (X11 or Wayland).
+- Optional: a password store (GNOME Keyring, KWallet) so the app can keep keys between starts.
+
+## Install the .deb
+
+1. Open the project's Releases page and download the file `cozygraph_<version>_amd64.deb` of the latest version.
+   <!-- verify: technical rename -->
+2. Optional but wise: download `SHA256SUMS` from the same release into the same folder and check the file:
+
+   ```bash
+   sha256sum -c SHA256SUMS --ignore-missing
+   ```
+
+   It must say `OK`.
+3. Install with apt, which also installs what the app needs from your distribution:
+
+   ```bash
+   sudo apt install ./cozygraph_*_amd64.deb
+   ```
+   <!-- verify: technical rename -->
+
+   The `./` matters: it tells apt to install this file and not look for a package by name.
+
+## The other formats
+
+| Format | How |
 |---|---|
-| `.deb` | On a Debian-based system: `sudo apt install ./comfyui-graph-builder_*.deb` |
-| `.rpm` | Install the downloaded file with your distribution's package manager, for example `sudo dnf install ./comfyui-graph-builder-*.rpm` |
-| AppImage | Make the downloaded file executable and open it; the launcher checks sandbox support |
-| `.tar.gz` | Extract it; `./run.sh` starts in place, `./install.sh` installs for the current user and `./uninstall.sh` removes that installation |
+| `.rpm` | `sudo dnf install ./cozygraph-*.rpm` (or your distribution's package manager). |
+| AppImage | Make the file executable (`chmod +x`) and open it. |
+| `.tar.gz` | Unpack it. `./run.sh` starts the app in place; `./install.sh` installs it for your user only, without root; `~/.local/share/cozygraph/uninstall.sh` removes it again (`--purge` also deletes your data folder). |
 
-The source build uses Node 22 and the existing Electron Forge toolchain. `.deb` needs `dpkg` and `fakeroot`; `.rpm` also needs `rpmbuild`. AppImage needs `mksquashfs` and an AppImage type 2 runtime. See [Development](../../DEVELOPMENT.md) for build and package checks.
+<!-- verify: technical rename -->
 
-The profile stays in `~/.config/comfyui-graph-builder` across updates. Project and workflow files stay where you saved them. Package removal does not erase your profile. A working OS password store is needed to remember encrypted credentials. Target OS, keyring, display scaling and real desktop checks are separate from source tests.
+The `.deb` and `.rpm` keep Chromium's sandbox. The unpacked formats (AppImage, `.tar.gz`) start without it on
+Ubuntu 24.04 and newer, and say why when they start. The `.rpm` installed with dnf and the final AppImage file are
+checked only by the project's automatic builds, not on a real desktop yet.
 
-Start ComfyUI separately, then [connect using its browser address](../connect/Connecting.md). MCP is optional. Lessons work without an assistant model.
+## Start it
+
+- From the applications menu: "CozyGraph".
+- From a terminal: `cozygraph`. <!-- verify: technical rename -->
+
+`cozygraph --version` prints the version, `cozygraph --help` the options it accepts
+([The command line](../reference/Command-Line.md)). <!-- verify: technical rename -->
+
+Do not start it with `sudo`: the app refuses to run as root. See [Troubleshooting](../reference/Troubleshooting.md).
+
+## What the package puts where
+
+| Where | What |
+|---|---|
+| `/usr/lib/cozygraph/` | The program itself. <!-- verify: technical rename --> |
+| `/usr/bin/cozygraph` | A link to start it from a terminal. <!-- verify: technical rename --> |
+| `/usr/share/applications/` | The menu entry. |
+| `/usr/share/icons/hicolor/` | The icon in sizes from 16 to 512 pixels. |
+| `/usr/share/doc/cozygraph/copyright` | The licence and the third-party notices. <!-- verify: technical rename --> |
+
+Your settings, keys, projects and logs are not in the package: the app keeps them in your home folder, see
+[The data folder](../reference/Data-Folder.md).
+
+## Other ways
+
+- **From source on Linux**: [Building from source](../dev/Building-From-Source.md).
+- **Windows**: [Building and running on Windows](../dev/Building-On-Windows.md) (untested).
+- **macOS**: [Building and running on macOS](../dev/Building-On-macOS.md) (untested).
+
+## See also
+
+- [Start](README.md)
+- [Updating](Updating.md)
+- [Removing](Removing.md)
+- [The data folder](../reference/Data-Folder.md)
+- [Package formats](../dev/Package-Formats.md)

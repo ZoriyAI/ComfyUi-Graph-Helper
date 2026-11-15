@@ -16,10 +16,24 @@ export const APP_ID = 'graph-helper-for-comfyui';
 export const STABLE_APP_NAME = 'comfyui-graph-builder';
 
 /**
- * The project's public address. PLACEHOLDER until the repository is published (the documentation package owns this
- * constant and puts the real address here). While it is the placeholder the update check asks nothing.
+ * The public project address (the repository on GitHub): the one constant for it. The value here is a placeholder
+ * until the address is set; set the same address in package.json (repository, homepage, bugs), which
+ * tests/unit/identity.test.ts compares. While it is the placeholder the app shows the project links greyed out and
+ * the update check asks nothing.
  */
 export const PROJECT_URL = 'https://github.com/OWNER/REPOSITORY';
+
+/** False while PROJECT_URL is the placeholder: no link to a project page is offered or sent. */
+export function projectUrlIsSet(url: string = PROJECT_URL): boolean {
+  return /^https:\/\/github\.com\/[A-Za-z0-9-]+\/[A-Za-z0-9._-]+$/.test(url)
+    && !url.includes('PLACEHOLDER') && !url.endsWith('/OWNER/REPOSITORY');
+}
+
+/** The pages the app can open in the browser: the project, its releases and a new issue. */
+export function projectLinks(url: string = PROJECT_URL): { site: string; releases: string; issues: string; newIssue: string } | null {
+  if (!projectUrlIsSet(url)) return null;
+  return { site: url, releases: `${url}/releases`, issues: `${url}/issues`, newIssue: `${url}/issues/new` };
+}
 
 let cachedVersion: string | null = null;
 
@@ -42,7 +56,8 @@ export function appVersion(): string {
 
 /** The user agent for one kind of outbound read. */
 export function userAgent(purpose: string): string {
-  return `GraphHelperForComfyUI/${appVersion()} (+read-only; ${purpose})`;
+  const site = projectUrlIsSet() ? `+${PROJECT_URL}; ` : '';
+  return `GraphHelperForComfyUI/${appVersion()} (${site}read-only; ${purpose})`;
 }
 
 /**

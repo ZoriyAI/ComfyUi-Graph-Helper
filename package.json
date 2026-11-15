@@ -3,7 +3,7 @@
   "productName": "Graph Helper for ComfyUI",
   "desktopName": "comfyui-graph-builder.desktop",
   "version": "0.9.0",
-  "description": "Learn to build ComfyUI graphs: a read-only helper that reads your ComfyUI and explains every node",
+  "description": "An experimental desktop tutor that helps you learn ComfyUI and understand its graphs; it reads a running ComfyUI and never changes it",
   "main": "dist/main/index.js",
   "engines": {
     "node": ">=22 <23"
@@ -27,13 +27,28 @@
   },
   "keywords": [
     "comfyui",
-    "workflow",
-    "graph",
-    "llm",
-    "electron"
+    "comfyui-workflow",
+    "stable-diffusion",
+    "generative-ai",
+    "learning",
+    "tutorial",
+    "education",
+    "node-graph",
+    "desktop-app",
+    "electron",
+    "linux",
+    "ai-assistant"
   ],
   "author": "ZoriyAI",
-  "license": "MIT",
+  "license": "SEE LICENSE IN LICENSE",
+  "homepage": "https://github.com/OWNER/REPOSITORY",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OWNER/REPOSITORY.git"
+  },
+  "bugs": {
+    "url": "https://github.com/OWNER/REPOSITORY/issues"
+  },
   "private": true,
   "devDependencies": {
     "@electron-forge/cli": "8.0.1",

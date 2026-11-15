@@ -11,7 +11,14 @@ export type InlineToken =
   | { type: 'strong'; text: string }
   | { type: 'em'; text: string }
   /** A link: its words are shown, its address is copied on a click. The chat opens nothing. */
-  | { type: 'link'; text: string; address: string };
+  | { type: 'link'; text: string; address: string }
+  /** Only with `links: true` (the help reader): a relative link to another wiki page, opened inside the reader. */
+  | { type: 'page'; text: string; target: string };
+
+export interface ParseOptions {
+  /** Relative links `[words](page.md)` become page tokens; web addresses stay link tokens. */
+  links?: boolean;
+}
 
 export type Block =
   | { type: 'paragraph'; lines: InlineToken[][] }
@@ -37,7 +44,7 @@ const LINK = /\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g;
  * [words](address) becomes a link token: the words in the text, the address behind them (shown as a tooltip and
  * copied on a click). The words are still parsed for code, bold and emphasis.
  */
-export function parseInline(source: string): InlineToken[] {
+function parseWebLinks(source: string): InlineToken[] {
   // Each link is held by a private mark while bold, emphasis and code are read around it, then put back.
   const links: Array<{ text: string; address: string }> = [];
   const marked = source.replace(LINK, (_match, words: string, address: string) => {
@@ -52,7 +59,7 @@ export function parseInline(source: string): InlineToken[] {
       tokens.push({ type: 'code', text: token.text.replace(/(\d+)/g, (_m, i: string) => `[${links[Number(i)].text}](${links[Number(i)].address})`) });
       continue;
     }
-    if (token.type === 'link' || !token.text.includes('')) {
+    if (token.type === 'link' || token.type === 'page' || !token.text.includes('')) {
       tokens.push(token);
       continue;
     }
@@ -62,6 +69,23 @@ export function parseInline(source: string): InlineToken[] {
     }
   }
   return tokens;
+}
+
+/** Inline tokens of one line. With `links: true`, relative links `[words](page.md)` become page tokens first. */
+export function parseInline(source: string, options: ParseOptions = {}): InlineToken[] {
+  if (!options.links) return parseWebLinks(source);
+  // Split around relative links (no scheme); everything between them is parsed as in the chat.
+  const out: InlineToken[] = [];
+  const page = /\[([^\]\n]+)\]\((?![a-z][a-z0-9+.-]*:)([^\s)]+)\)/gi;
+  let at = 0;
+  let found: RegExpExecArray | null;
+  while ((found = page.exec(source)) !== null) {
+    if (found.index > at) out.push(...parseWebLinks(source.slice(at, found.index)));
+    out.push({ type: 'page', text: found[1], target: found[2] });
+    at = found.index + found[0].length;
+  }
+  if (at < source.length) out.push(...parseWebLinks(source.slice(at)));
+  return out;
 }
 
 function parsePlain(text: string): InlineToken[] {
@@ -87,7 +111,8 @@ function tableCells(line: string): string[] {
   return inner.split(/(?<!\\)\|/).map((cell) => cell.trim().replace(/\\\|/g, '|'));
 }
 
-export function parseMarkdownLite(source: string): Block[] {
+export function parseMarkdownLite(source: string, options: ParseOptions = {}): Block[] {
+  const inline = (line: string) => parseInline(line, options);
   const lines = source.replace(/\r\n?/g, '\n').split('\n');
   const blocks: Block[] = [];
   let paragraph: string[] = [];
@@ -95,15 +120,15 @@ export function parseMarkdownLite(source: string): Block[] {
   let list: { ordered: boolean; start: number; items: string[] } | null = null;
 
   const flushParagraph = () => {
-    if (paragraph.length > 0) blocks.push({ type: 'paragraph', lines: paragraph.map(parseInline) });
+    if (paragraph.length > 0) blocks.push({ type: 'paragraph', lines: paragraph.map(inline) });
     paragraph = [];
   };
   const flushQuote = () => {
-    if (quote.length > 0) blocks.push({ type: 'quote', lines: quote.map(parseInline) });
+    if (quote.length > 0) blocks.push({ type: 'quote', lines: quote.map(inline) });
     quote = [];
   };
   const flushList = () => {
-    if (list) blocks.push({ type: 'list', ordered: list.ordered, start: list.start, items: list.items.map(parseInline) });
+    if (list) blocks.push({ type: 'list', ordered: list.ordered, start: list.start, items: list.items.map(inline) });
     list = null;
   };
   const flushAll = () => {
@@ -132,13 +157,13 @@ export function parseMarkdownLite(source: string): Block[] {
     const heading = HEADING.exec(line);
     if (heading) {
       flushAll();
-      blocks.push({ type: 'heading', level: Math.min(3, heading[1].length) as 1 | 2 | 3, tokens: parseInline(heading[2]) });
+      blocks.push({ type: 'heading', level: Math.min(3, heading[1].length) as 1 | 2 | 3, tokens: inline(heading[2]) });
       continue;
     }
     // A table: a row of cells, then the row of dashes. Without the dashes a line with bars is just a line.
     if (TABLE_ROW.test(line) && index + 1 < lines.length && TABLE_RULE.test(lines[index + 1]) && lines[index + 1].includes('-')) {
       flushAll();
-      const header = tableCells(line).map(parseInline);
+      const header = tableCells(line).map(inline);
       const rows: InlineToken[][][] = [];
       index += 2;
       while (index < lines.length && TABLE_ROW.test(lines[index])) {
@@ -147,7 +172,7 @@ export function parseMarkdownLite(source: string): Block[] {
         const fitted = cells.length > header.length
           ? [...cells.slice(0, header.length - 1), cells.slice(header.length - 1).join(' | ')]
           : [...cells, ...Array.from({ length: header.length - cells.length }, () => '')];
-        rows.push(fitted.map(parseInline));
+        rows.push(fitted.map(inline));
         index += 1;
       }
       index -= 1;

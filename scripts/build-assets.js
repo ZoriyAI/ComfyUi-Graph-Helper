@@ -6,9 +6,8 @@
  * - dist/notices/third-party.json and THIRD_PARTY_NOTICES.txt: every package that ships with the app (main's
  *   runtime dependencies, the packages the renderer bundle is built from, and Electron itself) with its version,
  *   licence and licence text. Settings ▸ About lists them; the deb's copyright file carries the text.
- * - dist/help/*.md: the user guide and troubleshooting in both languages, the notes of the current release, and
- *   the content rules (docs/CONTENT.md and docs/CONTENT.ru.md as content.en.md and content.ru.md), for
- *   Help ▸ «Руководство», «Решение проблем», «Что нового», «Правила содержимого».
+ * - dist/help: the wiki (docs/wiki) with its section tree and a search corpus, and the notes of the running
+ *   version, for the help reader.
  *
  * Usage: node scripts/build-assets.js   (part of `npm run build`)
  */
@@ -124,32 +123,89 @@ function writeNotices() {
   return components.length;
 }
 
+/** The page's `# ` title, or its file name. */
+function titleOf(text, fallback) {
+  const line = text.split('\n').find((row) => /^#\s+/.test(row));
+  return line ? line.replace(/^#\s+/, '').trim() : fallback;
+}
+
+/** Page references a page links to, in order: `folder/README.md` from Home, `Page.md` from a folder index. */
+function linkedPages(text, folder) {
+  const prose = text.replace(/```[\s\S]*?```/g, '').replace(/`[^`\n]*`/g, '');
+  const refs = [];
+  for (const match of prose.matchAll(/\]\(([^)\s#]+?)(?:\.ru)?\.md(?:#[^)]*)?\)/g)) {
+    const target = match[1];
+    if (/^[a-z]+:/i.test(target) || target.startsWith('..')) continue;
+    const ref = folder ? `${folder}/${target}` : target;
+    if (!refs.includes(ref)) refs.push(ref);
+  }
+  return refs;
+}
+
+/** Markdown to plain words for search: no markup, no links' addresses, no comments. */
+function plainText(text) {
+  return text
+    .split('\n').slice(2).join('\n')
+    .replace(/^#\s+.*$/m, '')
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/[`*_#>|]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * The wiki for Help: docs/wiki copied to dist/help/wiki, an index (the section tree in the order Home and the folder
+ * indexes list them, and every page's titles) and a search corpus per language. The notes of the running version
+ * become dist/help/whatsnew.md and whatsnew.ru.md.
+ */
 function writeHelp() {
   const out = path.join(root, 'dist', 'help');
   fs.rmSync(out, { recursive: true, force: true });
-  fs.mkdirSync(out, { recursive: true });
-  const userDocs = path.join(root, 'docs', 'user');
-  let count = 0;
-  if (fs.existsSync(userDocs)) {
-    for (const file of fs.readdirSync(userDocs).filter((name) => name.endsWith('.md'))) {
-      fs.copyFileSync(path.join(userDocs, file), path.join(out, file));
+  fs.mkdirSync(path.join(out, 'wiki'), { recursive: true });
+  const wiki = path.join(root, 'docs', 'wiki');
+  const pages = {};
+  const search = { en: [], ru: [] };
+  const walk = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (entry.name.endsWith('.md')) {
+        const rel = path.relative(wiki, full).split(path.sep).join('/');
+        const lang = rel.endsWith('.ru.md') ? 'ru' : 'en';
+        const ref = rel.replace(/(\.ru)?\.md$/, '');
+        const text = fs.readFileSync(full, 'utf8');
+        fs.mkdirSync(path.dirname(path.join(out, 'wiki', rel)), { recursive: true });
+        fs.writeFileSync(path.join(out, 'wiki', rel), text);
+        pages[ref] = pages[ref] || { title: {} };
+        pages[ref].title[lang] = titleOf(text, ref);
+        search[lang].push({ ref, title: pages[ref].title[lang], text: plainText(text) });
+      }
+    }
+  };
+  if (fs.existsSync(wiki)) walk(wiki);
+  const home = fs.existsSync(path.join(wiki, 'Home.md')) ? fs.readFileSync(path.join(wiki, 'Home.md'), 'utf8') : '';
+  const folders = linkedPages(home, '')
+    .filter((ref) => /^[a-z]+\/README$/.test(ref))
+    .map((indexRef) => {
+      const folder = indexRef.split('/')[0];
+      const index = fs.readFileSync(path.join(wiki, folder, 'README.md'), 'utf8');
+      return { folder, index: indexRef, pages: linkedPages(index, folder).filter((ref) => pages[ref] && ref !== indexRef) };
+    });
+  fs.writeFileSync(path.join(out, 'wiki-index.json'), `${JSON.stringify({ folders, pages })}\n`);
+  fs.writeFileSync(path.join(out, 'wiki-search.json'), `${JSON.stringify(search)}\n`);
+  let count = Object.keys(pages).length;
+  for (const [suffix, lang] of [['', 'en'], ['.ru', 'ru']]) {
+    const notes = path.join(root, 'docs', 'releases', `v${pkg.version}${suffix}.md`);
+    if (fs.existsSync(notes)) {
+      fs.copyFileSync(notes, path.join(out, `whatsnew${lang === 'ru' ? '.ru' : ''}.md`));
       count += 1;
     }
-  }
-  for (const [source, target] of [['CONTENT.md', 'content.en.md'], ['CONTENT.ru.md', 'content.ru.md']]) {
-    const file = path.join(root, 'docs', source);
-    if (!fs.existsSync(file)) continue;
-    fs.copyFileSync(file, path.join(out, target));
-    count += 1;
-  }
-  const notes = path.join(root, 'docs', 'releases', `v${pkg.version}.md`);
-  if (fs.existsSync(notes)) {
-    fs.copyFileSync(notes, path.join(out, 'whatsnew.md'));
-    count += 1;
   }
   return count;
 }
 
 const components = writeNotices();
 const help = writeHelp();
-console.log(`build-assets: ${components} third-party components, ${help} help files`);
+console.log(`build-assets: ${components} third-party components, ${help} help pages`);

@@ -10,6 +10,8 @@ export interface AboutInfo {
   dataFolder: string;
   /** Chromium's own licence file sits next to the executable. */
   chromiumLicences: boolean;
+  /** The project address is set (identity.ts PROJECT_URL is not the placeholder): project links can open. */
+  projectLinks: boolean;
 }
 
 /** One package that ships with the app, from dist/notices/third-party.json (scripts/build-assets.js). */
@@ -20,8 +22,32 @@ export interface ThirdPartyComponent {
   text: string;
 }
 
-/** The pages Help opens in the app's own reader. */
-export const HELP_TOPICS = ['guide', 'troubleshooting', 'whatsnew', 'content'] as const;
-export type HelpTopic = typeof HELP_TOPICS[number];
+export type HelpLanguage = 'en' | 'ru';
 
-export type HelpPage = { ok: true; text: string } | { ok: false; error: string };
+/** The section tree of the help reader, in the order Home and the folder indexes list it. */
+export interface HelpTree {
+  home: { ref: string; title: string };
+  folders: Array<{ folder: string; ref: string; title: string; pages: Array<{ ref: string; title: string }> }>;
+}
+
+/** One wiki page in the asked language (or English when that language has none). */
+export type HelpPage =
+  | { ok: true; ref: string; language: HelpLanguage; title: string; text: string }
+  | { ok: false; error: 'unknown' | 'missing' };
+
+export interface HelpSearchHit {
+  ref: string;
+  title: string;
+  /** A few words around the first match. */
+  snippet: string;
+}
+
+/** Pages of the project the app can open in the browser. */
+export const PROJECT_LINK_KINDS = ['site', 'releases', 'issue'] as const;
+export type ProjectLinkKind = typeof PROJECT_LINK_KINDS[number];
+
+/** What "Report a problem" will put into the new issue; shown to the person before anything opens. */
+export interface IssueDraft {
+  title: string;
+  details: string;
+}

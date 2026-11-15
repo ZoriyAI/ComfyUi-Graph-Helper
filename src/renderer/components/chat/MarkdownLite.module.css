@@ -67,3 +67,17 @@
   .table[data-wide] td:not(:first-child)::before { content: attr(data-label) ": "; color: var(--text-dim); }
   .table[data-wide] td:not(:first-child):empty { display: none; }
 }
+/* A relative link in a help page: it opens the other page in the reader. */
+.link {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.link:hover { color: var(--text); }
+.link:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 2px; }

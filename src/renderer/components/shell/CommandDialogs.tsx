@@ -14,8 +14,8 @@ import { nameFindingValues, nodeNamer } from '../check/checkModel';
 import { useGraphStore } from '../../state/graphState';
 import { useUiStore } from '../../state/uiState';
 import AboutContent from './AboutContent';
-import MarkdownLite from '../chat/MarkdownLite';
-import type { HelpTopic } from '../../../shared/contracts/about';
+import HelpReader from './HelpReader';
+import { showToast } from '../../ui/Toast';
 import styles from './CommandDialogs.module.css';
 
 const GROUPS: CommandGroup[] = ['file', 'edit', 'view', 'graph', 'assistant', 'sync', 'help'];
@@ -104,59 +104,35 @@ function AboutDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (ope
   );
 }
 
-const HELP_PAGES: Record<'help-guide' | 'help-troubleshooting' | 'help-whatsnew' | 'help-content', { topic: HelpTopic; titleKey: string }> = {
-  'help-guide': { topic: 'guide', titleKey: 'helpReader.guide' },
-  'help-troubleshooting': { topic: 'troubleshooting', titleKey: 'helpReader.troubleshooting' },
-  'help-whatsnew': { topic: 'whatsnew', titleKey: 'helpReader.whatsNew' },
-  'help-content': { topic: 'content', titleKey: 'helpReader.content' },
-};
-
-/** The page's own first heading when it only repeats the reader's title. */
-export function withoutTitle(markdown: string, title: string): string {
-  const match = /^#\s+(.+)\n+/.exec(markdown);
-  return match && match[1].trim() === title.trim() ? markdown.slice(match[0].length) : markdown;
-}
-
-/** Help ▸ User guide, Troubleshooting, What is new, Content rules: the pages bundled with the app, read inside it. */
-function HelpReaderDialog({ page, onOpenChange }: { page: keyof typeof HELP_PAGES | null; onOpenChange: (open: boolean) => void }) {
-  const { t, i18n } = useTranslation();
-  const language = i18n.language === 'en' ? 'en' : 'ru';
-  const [text, setText] = React.useState<string | null>(null);
-  const [missing, setMissing] = React.useState(false);
-  const topic = page ? HELP_PAGES[page].topic : null;
+/** Help ▸ Report a problem: what the new issue will carry, read before the browser opens. */
+function ReportProblemDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  const { t } = useTranslation();
+  const [details, setDetails] = React.useState('');
   React.useEffect(() => {
-    if (!topic) return undefined;
-    let alive = true;
-    setText(null);
-    setMissing(false);
-    const read = window.electronAPI?.readHelp?.(topic, language);
-    if (!read) {
-      setMissing(true);
-      return undefined;
-    }
-    void read.then((result) => {
-      if (!alive) return;
-      if (result.ok) setText(result.text);
-      else setMissing(true);
-    }).catch(() => { if (alive) setMissing(true); });
-    return () => { alive = false; };
-  }, [topic, language]);
+    if (!open) return;
+    void window.electronAPI?.issueDraft?.().then((draft) => setDetails(draft.details)).catch(() => setDetails(''));
+  }, [open]);
+  const openIssue = async () => {
+    const result = await window.electronAPI?.openProjectLink?.('issue').catch(() => ({ ok: false as const, error: 'failed' }));
+    onOpenChange(false);
+    if (!result || !result.ok) showToast({ id: 'project-link', tone: 'error', title: String(t('projectLinks.unavailable')) });
+  };
   return (
-    <DialogRoot open={page !== null} onOpenChange={onOpenChange}>
+    <DialogRoot open={open} onOpenChange={onOpenChange}>
       <DialogPortal>
         <DialogOverlay />
-        <DialogContent className={cx(styles.dialog, styles.wide, styles.reader, 'help-reader-dialog')} aria-describedby={undefined} data-help-topic={topic ?? undefined}>
+        <DialogContent className={cx(styles.dialog, 'report-problem-dialog')} aria-describedby="report-problem-lead">
           <header className={styles.header}>
-            <DialogTitle className={styles.title}>{page ? t(HELP_PAGES[page].titleKey) : ''}</DialogTitle>
-            {topic === 'whatsnew' && language === 'en' ? <p className={styles.lead}>{t('helpReader.russianOnly')}</p> : null}
+            <DialogTitle className={styles.title}>{t('projectLinks.reportTitle')}</DialogTitle>
+            <DialogDescription id="report-problem-lead" className={styles.lead}>{t('projectLinks.reportLead')}</DialogDescription>
           </header>
-          <div className={styles.readerBody} tabIndex={0}>
-            {missing ? <p className={styles.note}>{t('helpReader.missing')}</p> : text === null ? <p className={styles.note}>{t('helpReader.loading')}</p> : <MarkdownLite text={withoutTitle(text, page ? String(t(HELP_PAGES[page].titleKey)) : '')} />}
-          </div>
+          <pre className={styles.details} data-issue-details>{details}</pre>
+          <p className={styles.hint}>{t('projectLinks.reportHint')}</p>
           <footer className={styles.footer}>
             <DialogClose asChild>
-              <Button variant="subtle" size="sm">{t('menu.close')}</Button>
+              <Button variant="subtle" size="sm">{t('menu.cancel')}</Button>
             </DialogClose>
+            <Button variant="primary" size="sm" onClick={() => void openIssue()}>{t('projectLinks.reportOpen')}</Button>
           </footer>
         </DialogContent>
       </DialogPortal>
@@ -312,7 +288,8 @@ export default function CommandDialogs() {
     <>
       <ShortcutsDialog open={dialog === 'shortcuts'} onOpenChange={close} />
       <AboutDialog open={dialog === 'about'} onOpenChange={close} />
-      <HelpReaderDialog page={dialog !== null && dialog in HELP_PAGES ? (dialog as keyof typeof HELP_PAGES) : null} onOpenChange={close} />
+      <HelpReader open={dialog === 'help'} onOpenChange={close} />
+      <ReportProblemDialog open={dialog === 'report-problem'} onOpenChange={close} />
       <NewProjectDialog open={dialog === 'new-project'} onOpenChange={close} />
       <ExportGuardDialog open={dialog === 'export-guard'} onOpenChange={close} />
       <SecretGuardDialog />
