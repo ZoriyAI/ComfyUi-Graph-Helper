@@ -3,8 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { CONTENT_RULE_POINTS, contentRules, contentRulesMarkdown } from '../../src/shared/content/rules';
 import { adultContentOn, parsePreferences, preferencesDefaults } from '../../src/shared/config/preferences';
-import { helpFile } from '../../src/main/ipc/aboutIpc';
-import { HELP_TOPICS } from '../../src/shared/contracts/about';
+import { HELP_IDS } from '../../src/shared/help/contextHelp';
 
 const root = path.join(__dirname, '..', '..');
 
@@ -42,22 +41,19 @@ describe('the content rules', () => {
   });
 
   it('are word for word the same on the page Help ▸ Content rules, in each language', () => {
-    for (const [file, language] of [['CONTENT.md', 'en'], ['CONTENT.ru.md', 'ru']] as const) {
-      const page = fs.readFileSync(path.join(root, 'docs', file), 'utf8');
+    for (const [file, language] of [['Content-Rules.md', 'en'], ['Content-Rules.ru.md', 'ru']] as const) {
+      const page = fs.readFileSync(path.join(root, 'docs', 'wiki', 'trust', file), 'utf8');
       expect(page, file).toContain(contentRulesMarkdown(language));
-      // The place for the contact is marked, so it cannot ship unnoticed as if it were filled in.
-      expect(page, file).toMatch(/TODO/);
+      // Reports go through GitHub only: no mailbox, no placeholder left.
+      expect(page, file).toContain('content-rules');
+      expect(page, file).not.toMatch(/TODO|@[a-z0-9-]+\.[a-z]{2,}/i);
     }
   });
 
-  it('are bundled with the app as a page of Help', () => {
-    expect(HELP_TOPICS).toContain('content');
-    expect(helpFile('/d', 'content', 'en')).toEqual([path.join('/d', 'help', 'content.en.md'), path.join('/d', 'help', 'content.ru.md')]);
-    const script = fs.readFileSync(path.join(root, 'scripts', 'build-assets.js'), 'utf8');
-    expect(script).toContain("['CONTENT.md', 'content.en.md']");
-    expect(script).toContain("['CONTENT.ru.md', 'content.ru.md']");
-    // The README points to the page.
-    expect(fs.readFileSync(path.join(root, 'README.md'), 'utf8')).toContain('docs/CONTENT.ru.md');
+  it('are a page of the Help reader, and the README points to it', () => {
+    expect(HELP_IDS['content-rules']).toBe('trust/Content-Rules');
+    expect(fs.readFileSync(path.join(root, 'README.md'), 'utf8')).toContain('docs/wiki/trust/Content-Rules.md');
+    expect(fs.readFileSync(path.join(root, 'README.ru.md'), 'utf8')).toContain('docs/wiki/trust/Content-Rules.ru.md');
   });
 });
 

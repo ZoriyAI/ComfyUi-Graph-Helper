@@ -132,7 +132,11 @@ export const IPC_CHANNELS = {
   ABOUT_NOTICES: 'about:notices',
   ABOUT_OPEN_DATA_FOLDER: 'about:open-data-folder',
   ABOUT_OPEN_CHROMIUM_LICENCES: 'about:open-chromium-licences',
-  HELP_READ: 'help:read',
+  ABOUT_ISSUE_DRAFT: 'about:issue-draft',
+  ABOUT_OPEN_PROJECT_LINK: 'about:open-project-link',
+  HELP_TREE: 'help:tree',
+  HELP_PAGE: 'help:page',
+  HELP_SEARCH: 'help:search',
   /** The update notice (src/main/updates/updateIpc.ts): off by default; status, close, open its links. */
   UPDATES_STATUS: 'updates:status',
   UPDATES_DISMISS: 'updates:dismiss',

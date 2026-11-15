@@ -3,10 +3,67 @@
 
 # Known limitations
 
-What the app does not do yet, and what is slow.
+What the app does not do, and where it is weak today. CozyGraph is an experimental project; this list says plainly
+what to expect. Wishes go to the project's Discussions, problems to its Issues.
 
-<!-- skeleton: to be written by the lead writer -->
+## By design
+
+- **It never runs a workflow.** It builds and explains; ComfyUI runs. [Running the result in ComfyUI](../graph/Running-In-ComfyUI.md)
+- **It never changes ComfyUI.** It does not install nodes or models, download files or queue prompts.
+  [ComfyUI is only read](../trust/Read-Only.md)
+- **Two languages:** English and Russian.
+
+## Systems and packages
+
+- Only a `.deb` package for 64-bit x86 Linux is built. There is no AppImage, Flatpak, RPM or ARM package.
+- Windows and macOS: the app can be built from source; the steps are untested there and each system has its own
+  limits. [Windows](../dev/Building-On-Windows.md), [macOS](../dev/Building-On-macOS.md)
+- No automatic updates: install a new version from the project's Releases yourself. [Updating](../start/Updating.md)
+
+## Connection and reading
+
+<!-- verify: connection chapter -->
+
+- The context window of a model on your own server is read only from Ollama. Other servers do not report it; the app
+  then notices a request that did not fit only by the token count of the answer.
+- Model lookup: Civitai finds a file exactly by its fingerprint; Hugging Face is searched by the file name, and the
+  card says it is a guess. Computing the fingerprint of a large file takes the server minutes, so sync does not do it.
+- A node pack is described from its `pyproject.toml` and the start of its README; a pack without them shows only its
+  name and version.
+- When the cloud model has no web search of its own, the assistant searches through DuckDuckGo's HTML page, which can
+  stop working when that page changes.
+
+## The graph
+
+- Inside a subgraph you cannot make a new subgraph or a group, and a nested subgraph cannot be dissolved: do that on
+  the main canvas. Groups that came inside a subgraph from ComfyUI are kept on save but not shown.
+- A new project (File ▸ New project) starts in the older workflow format, in which a subgraph cannot be made. A graph
+  opened from a recent ComfyUI does not have this limit. [Subgraphs](../graph/Subgraphs.md)
+  <!-- verify: remove when New project starts in workflow format 1 -->
+- Nodes cannot be copied, cut, pasted or duplicated yet; `Ctrl+C` and `Ctrl+V` work in text fields only.
+  [Copy and paste](../graph/Copy-And-Paste.md) <!-- verify: copy and paste of nodes -->
+- Pictures with a workflow inside them are not opened; open the workflow `.json` file.
+  <!-- verify: opening a picture with a workflow inside -->
+
+## The assistant and lessons
+
+- The assistant builds only on the main canvas. If a subgraph is open, the canvas returns to the main level and says
+  so. Lessons also run only on the main canvas.
+- A pause at a checkpoint (the step limit) does not survive a restart of the app: ask again after the restart.
+- The quality of answers depends on the model. Small local models with a small context window lose track of long
+  builds. [The context window](../assistant/Context-Window.md)
+- The video lessons on WanVideoWrapper cover a part of that pack; the rest of its features have no lesson.
+
+## Accessibility
+
+- Nodes and links on the canvas are hard to follow with a screen reader, and the assistant's answer is announced
+  piece by piece while it is written.
+- Only the canvas zooms; the rest of the window follows your system's text scaling.
+
+More: [Accessibility](../trust/Accessibility.md).
 
 ## See also
 
 - [Reference](README.md)
+- [Troubleshooting](Troubleshooting.md)
+- [Questions and answers](../start/FAQ.md)

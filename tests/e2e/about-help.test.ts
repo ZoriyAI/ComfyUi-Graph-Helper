@@ -57,9 +57,11 @@ test('Help ▸ About: icon, name, version, licence, components, copy details, da
     await expect(dialog.getByText(RU('appInfo.dataFolder', { path: userData }))).toBeVisible();
     await expect(dialog.getByText(/^Среда: Electron /)).toBeVisible();
 
-    // Licence: the app's MIT text.
+    // Licence: the Commons Clause condition with the MIT text, and the sentence about commercial use.
     await dialog.getByRole('button', { name: RU('appInfo.licence'), exact: true }).click();
+    await expect(dialog.locator('[data-about-view="licence"] pre')).toContainText('“Commons Clause” License Condition v1.0');
     await expect(dialog.locator('[data-about-view="licence"] pre')).toContainText('Copyright (c) 2026 ZoriyAI');
+    await expect(dialog.locator('[data-about-commercial]')).toContainText(RU('appInfo.commercial'));
     await dialog.getByRole('button', { name: RU('appInfo.back') }).click();
 
     // Third-party components: the list built at build time, React Flow credited, a licence text opens.
@@ -90,6 +92,11 @@ test('Help ▸ About: icon, name, version, licence, components, copy details, da
     await dialog.getByRole('button', { name: RU('appInfo.openData') }).click();
     await expect.poll(() => app.evaluate(() => (globalThis as unknown as { __opened: string[] }).__opened)).toEqual([userData]);
 
+    // The project links wait for the project address: greyed out in this build.
+    for (const key of ['projectLinks.site', 'projectLinks.report', 'projectLinks.releases']) {
+      await expect(dialog.locator('[data-about-project]').getByRole('button', { name: RU(key) })).toBeDisabled();
+    }
+
     await dialog.getByRole('button', { name: RU('menu.close') }).click();
     await expect(dialog).toBeHidden();
 
@@ -106,37 +113,62 @@ test('Help ▸ About: icon, name, version, licence, components, copy details, da
   }
 });
 
-test('Help ▸ User guide, Troubleshooting, What is new, Content rules open the bundled pages in both languages', async () => {
+test('Help opens the wiki: sections, links between pages, search, What is new, and both languages', async () => {
   const { app, window, errors } = await launch();
   try {
     const reader = window.locator('.help-reader-dialog');
+    const body = reader.locator('[data-help-body]');
 
+    // Help ▸ User guide opens the wiki's front page, in Russian here.
     await helpItem(window, RU('menu.help'), RU('helpReader.guide'));
     await expect(reader).toBeVisible();
-    await expect(reader.getByRole('heading', { name: RU('helpReader.guide') }).first()).toBeVisible();
-    await expect(reader.getByRole('heading', { name: 'Где лежат данные' })).toBeVisible();
-    await expect(reader.getByText('sudo apt install ./comfyui-graph-builder_*.deb').first()).toBeVisible();
-    // A long page scrolls inside the reader; the window itself does not grow past the screen.
-    const body = reader.locator('div[tabindex="0"]');
-    expect(await body.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true);
-    const box = await reader.boundingBox();
-    const viewport = await window.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }));
-    expect(box && box.y >= 0 && box.y + box.height <= viewport.height + 1).toBe(true);
+    await expect(reader).toHaveAttribute('data-help-page', 'Home');
+    await expect(reader.getByRole('navigation', { name: RU('helpReader.sections') })).toBeVisible();
+    // No language link on the page: the reader follows the interface language.
+    await expect(body.getByText('English', { exact: true })).toHaveCount(0);
+
+    // A section in the tree, then a link inside a page, then Back.
+    await reader.getByRole('navigation').getByRole('button', { name: 'Справочник' }).click();
+    await expect(reader).toHaveAttribute('data-help-page', 'reference/README');
+    await body.locator('[data-link="Glossary.ru.md"]').click();
+    await expect(reader).toHaveAttribute('data-help-page', 'reference/Glossary');
+    await expect(reader.getByRole('heading', { name: 'Словарь' }).first()).toBeVisible();
+    await reader.getByRole('button', { name: RU('helpReader.back') }).click();
+    await expect(reader).toHaveAttribute('data-help-page', 'reference/README');
+
+    // Search finds a page by a word and opens it.
+    await reader.getByRole('searchbox', { name: RU('helpReader.searchPlaceholder') }).fill('приватность');
+    const results = reader.locator('[data-help-results]');
+    await expect(results.getByRole('button').first()).toBeVisible();
+    await results.getByRole('button', { name: /Приватность/ }).first().click();
+    await expect(reader).toHaveAttribute('data-help-page', /Privacy$/);
+    await reader.getByRole('searchbox').fill('qqqzzzxxx');
+    await expect(reader.getByText(RU('helpReader.noResults'))).toBeVisible();
     await window.keyboard.press('Escape');
     await expect(reader).toBeHidden();
 
+    // Help ▸ Glossary and Troubleshooting open their pages directly.
+    await helpItem(window, RU('menu.help'), RU('helpReader.glossary'));
+    await expect(reader).toHaveAttribute('data-help-page', 'reference/Glossary');
+    await window.keyboard.press('Escape');
     await helpItem(window, RU('menu.help'), RU('helpReader.troubleshooting'));
-    await expect(reader.getByText('После синхронизации библиотека пустая')).toBeVisible();
+    await expect(reader).toHaveAttribute('data-help-page', 'reference/Troubleshooting');
     await window.keyboard.press('Escape');
 
+    // What is new: the notes of the running version, in the interface language.
     await helpItem(window, RU('menu.help'), RU('helpReader.whatsNew'));
-    await expect(reader).toHaveAttribute('data-help-topic', 'whatsnew');
-    await expect(reader.getByText(`v${pkg.version}`).first()).toBeVisible();
+    await expect(reader).toHaveAttribute('data-help-page', '@whats-new');
+    await expect(body).toContainText('45 уроков по темам');
+    await window.keyboard.press('Escape');
+
+    // The project links wait for the project address.
+    await window.locator('.document-bar').getByRole('menuitem', { name: RU('menu.help'), exact: true }).click();
+    await expect(window.getByRole('menu').getByRole('menuitem', { name: RU('projectLinks.report') })).toBeDisabled();
     await window.keyboard.press('Escape');
 
     // The content rules, in the same words as everywhere else in the app.
     await helpItem(window, RU('menu.help'), RU('helpReader.content'));
-    await expect(reader).toHaveAttribute('data-help-topic', 'content');
+    await expect(reader).toHaveAttribute('data-help-page', 'trust/Content-Rules');
     await expect(reader.getByText(RU('contentRules.lead'))).toBeVisible();
     await expect(reader.getByText(RU('contentRules.animals'))).toBeVisible();
     await window.keyboard.press('Escape');
@@ -147,10 +179,11 @@ test('Help ▸ User guide, Troubleshooting, What is new, Content rules open the 
     await expect(reader.getByText(EN('contentRules.after'))).toBeVisible();
     await window.keyboard.press('Escape');
     await helpItem(window, EN('menu.help'), EN('helpReader.guide'));
-    await expect(reader.getByRole('heading', { name: 'Where your data lives' })).toBeVisible();
+    await expect(reader).toHaveAttribute('data-help-page', 'Home');
+    await expect(reader.getByRole('navigation').getByRole('button', { name: 'Reference' })).toBeVisible();
     await window.keyboard.press('Escape');
     await helpItem(window, EN('menu.help'), EN('helpReader.whatsNew'));
-    await expect(reader.getByText(EN('helpReader.russianOnly'))).toBeVisible();
+    await expect(body).toContainText('45 lessons grouped by topic');
     await window.keyboard.press('Escape');
     expect(errors).toEqual([]);
   } finally {

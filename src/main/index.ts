@@ -255,6 +255,8 @@ function createWindow() {
       contextIsolation: true,
       sandbox: true,
       webSecurity: true,
+      // No spell checker: Chromium would download its dictionaries from the internet on its own (trust/Privacy).
+      spellcheck: false,
       // The renderer's About section reads the app version from preload `versions.app`; the scripted TEST fixture
       // is a developer tool and is offered only when the app runs unpackaged (development and tests).
       additionalArguments: [`--app-version=${displayVersion()}`, ...(scriptedProviderAllowed(app.isPackaged) ? ['--test-provider=1'] : [])],

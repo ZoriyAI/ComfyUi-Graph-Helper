@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type { ChatRuntimeConfig, NonSecretSettings, SettingsRead } from '../shared/config/schema';
 import type { Preferences } from '../shared/config/preferences';
-import type { AboutInfo, HelpPage, HelpTopic, ThirdPartyComponent } from '../shared/contracts/about';
+import type { AboutInfo, HelpPage, HelpSearchHit, HelpTree, IssueDraft, ProjectLinkKind, ThirdPartyComponent } from '../shared/contracts/about';
 import type { UpdateLink, UpdateStatus } from '../shared/contracts/updates';
 import type {
   AgentTurnContext,
@@ -137,7 +137,11 @@ const IPC_CHANNELS = {
   ABOUT_NOTICES: 'about:notices',
   ABOUT_OPEN_DATA_FOLDER: 'about:open-data-folder',
   ABOUT_OPEN_CHROMIUM_LICENCES: 'about:open-chromium-licences',
-  HELP_READ: 'help:read',
+  ABOUT_ISSUE_DRAFT: 'about:issue-draft',
+  ABOUT_OPEN_PROJECT_LINK: 'about:open-project-link',
+  HELP_TREE: 'help:tree',
+  HELP_PAGE: 'help:page',
+  HELP_SEARCH: 'help:search',
   UPDATES_STATUS: 'updates:status',
   UPDATES_DISMISS: 'updates:dismiss',
   UPDATES_OPEN: 'updates:open',
@@ -339,7 +343,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   aboutNotices: () => ipcRenderer.invoke(IPC_CHANNELS.ABOUT_NOTICES) as Promise<ThirdPartyComponent[]>,
   openDataFolder: () => ipcRenderer.invoke(IPC_CHANNELS.ABOUT_OPEN_DATA_FOLDER) as Promise<{ ok: true } | { ok: false; error: string }>,
   openChromiumLicences: () => ipcRenderer.invoke(IPC_CHANNELS.ABOUT_OPEN_CHROMIUM_LICENCES) as Promise<{ ok: true } | { ok: false; error: string }>,
-  readHelp: (topic: HelpTopic, language: string) => ipcRenderer.invoke(IPC_CHANNELS.HELP_READ, topic, language) as Promise<HelpPage>,
+  issueDraft: () => ipcRenderer.invoke(IPC_CHANNELS.ABOUT_ISSUE_DRAFT) as Promise<IssueDraft>,
+  openProjectLink: (kind: ProjectLinkKind) => ipcRenderer.invoke(IPC_CHANNELS.ABOUT_OPEN_PROJECT_LINK, kind) as Promise<{ ok: true } | { ok: false; error: string }>,
+  helpTree: (language: string) => ipcRenderer.invoke(IPC_CHANNELS.HELP_TREE, language) as Promise<HelpTree>,
+  helpPage: (ref: string, language: string) => ipcRenderer.invoke(IPC_CHANNELS.HELP_PAGE, ref, language) as Promise<HelpPage>,
+  helpSearch: (query: string, language: string) => ipcRenderer.invoke(IPC_CHANNELS.HELP_SEARCH, query, language) as Promise<HelpSearchHit[]>,
   // The update notice: off unless Settings ▸ Privacy turns it on; main asks the releases page at most once a day.
   updateStatus: () => ipcRenderer.invoke(IPC_CHANNELS.UPDATES_STATUS) as Promise<UpdateStatus>,
   dismissUpdate: (version: string) => ipcRenderer.invoke(IPC_CHANNELS.UPDATES_DISMISS, version) as Promise<{ ok: true }>,
@@ -538,8 +546,14 @@ export interface ElectronAPI {
   openDataFolder: () => Promise<{ ok: true } | { ok: false; error: string }>;
   /** Opens Chromium's licence file that sits next to the executable. */
   openChromiumLicences: () => Promise<{ ok: true } | { ok: false; error: string }>;
-  /** A bundled help page (markdown) in the given language. */
-  readHelp: (topic: HelpTopic, language: string) => Promise<HelpPage>;
+  /** What Help ▸ Report a problem puts into a new issue (versions only); shown before anything opens. */
+  issueDraft: () => Promise<IssueDraft>;
+  /** Opens the project page, its releases or a new issue in the browser; main builds the address. */
+  openProjectLink: (kind: ProjectLinkKind) => Promise<{ ok: true } | { ok: false; error: string }>;
+  /** The help reader: the section tree, one page (wiki ref or '@whats-new'), and a search over the pages. */
+  helpTree: (language: string) => Promise<HelpTree>;
+  helpPage: (ref: string, language: string) => Promise<HelpPage>;
+  helpSearch: (query: string, language: string) => Promise<HelpSearchHit[]>;
   /** The update notice: { state: 'off' } unless Settings ▸ Privacy turns the check on. */
   updateStatus: () => Promise<UpdateStatus>;
   dismissUpdate: (version: string) => Promise<{ ok: true }>;

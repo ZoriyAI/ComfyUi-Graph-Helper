@@ -91,7 +91,7 @@ function checkPackageFiles() {
   // Both packages make the bundle's LICENSE (the app's licence and the notices) their copyright file.
   const licenceFile = `/usr/share/doc/${PACKAGE}/copyright`;
   const copyright = fs.readFileSync(licenceFile, 'utf8');
-  if (!copyright.startsWith(DISPLAY_NAME) || !copyright.includes('Copyright (c) 2026 ZoriyAI') || !copyright.includes('@xyflow/react')) {
+  if (!copyright.startsWith(DISPLAY_NAME) || !copyright.includes('“Commons Clause” License Condition v1.0') || !copyright.includes('Copyright (c) 2026 ZoriyAI') || !copyright.includes('@xyflow/react')) {
     fail(`COPYRIGHT_FILE ${licenceFile} is not the app licence with the notices`);
   }
   const sandbox = fs.statSync(`/usr/lib/${PACKAGE}/chrome-sandbox`);

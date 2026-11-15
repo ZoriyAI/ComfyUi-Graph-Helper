@@ -26,7 +26,7 @@ const KEY_PROVIDER_NAMES: Record<CloudKeyProvider, string> = { openai: 'OpenAI',
 import { tokenPlaceKey } from '../mcpAccess';
 import { cx } from '../../../ui/cx';
 import { useChatStore } from '../../../state/chatState';
-import { useUiStore } from '../../../state/uiState';
+import { openHelp } from '../../../services/help';
 import styles from '../SettingsPanel.module.css';
 import { Group, hintClass, patchSection, rowClass, SectionHead, type DraftProps } from './common';
 import ConfirmDialog from './ConfirmDialog';
@@ -183,7 +183,7 @@ export default function PrivacySection({ prefs, setPrefs, container }: DraftProp
         cancelLabel={String(t('preferences.adultCancel'))}
         onConfirm={() => patchSection(setPrefs, 'privacy', { showMarkedPreviews: true })}
       >
-        <Button size="sm" variant="ghost" className="adult-content-rules" icon={<BookOpen size={14} aria-hidden="true" />} onClick={() => useUiStore.getState().setDialog('help-content')}>{t('preferences.adultRulesPage')}</Button>
+        <Button size="sm" variant="ghost" className="adult-content-rules" icon={<BookOpen size={14} aria-hidden="true" />} onClick={() => openHelp('content-rules')}>{t('preferences.adultRulesPage')}</Button>
       </ConfirmDialog>
       <Switch label={t('preferences.lookupModelsOnline')} checked={privacy.lookupModelsOnline} onCheckedChange={(next) => patchSection(setPrefs, 'privacy', { lookupModelsOnline: next })} />
       <p className={hintClass}>{t('preferences.lookupModelsOnlineHint')}</p>

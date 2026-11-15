@@ -63,14 +63,14 @@ async function main() {
   const stray = files.filter((file) => (/\.(md|map|d\.ts)$/i.test(file) && !file.startsWith('/dist/help/')) || /^\/(src|tests|docs|scripts|\.github)(\/|$)/.test(file)
     || /^\/(README|STATUS|LICENSE)/.test(file));
   if (stray.length > 0) fail(`PACKAGED_STRAY_FILES ${stray.slice(0, 10).join(' ')}`);
-  for (const needed of ['/dist/notices/third-party.json', '/dist/notices/LICENSE.txt', '/dist/help/guide.ru.md', '/dist/help/troubleshooting.en.md', '/dist/help/whatsnew.md', '/resources/icon.png']) {
+  for (const needed of ['/dist/notices/third-party.json', '/dist/notices/LICENSE.txt', '/dist/help/wiki/Home.md', '/dist/help/wiki/Home.ru.md', '/dist/help/wiki-index.json', '/dist/help/wiki-search.json', '/dist/help/whatsnew.md', '/dist/help/whatsnew.ru.md', '/resources/icon.png']) {
     if (!files.includes(needed)) fail(`PACKAGED_MISSING ${needed}`);
   }
   const foreign = unpackedNodes.filter((file) => !file.endsWith(`${path.sep}linux-x64.node`));
   if (foreign.length > 0) fail(`PACKAGED_FOREIGN_NATIVE ${foreign.map((file) => path.basename(file)).join(' ')}`);
   // The deb's copyright file is made from the bundle's LICENSE: the app's licence, then the notices.
   const bundleLicence = fs.readFileSync(path.join(bundle, 'LICENSE'), 'utf8');
-  if (!bundleLicence.startsWith('Graph Helper for ComfyUI') || !bundleLicence.includes('Copyright (c) 2026 ZoriyAI') || !bundleLicence.includes('electron ')) {
+  if (!bundleLicence.startsWith('Graph Helper for ComfyUI') || !bundleLicence.includes('“Commons Clause” License Condition v1.0') || !bundleLicence.includes('Copyright (c) 2026 ZoriyAI') || !bundleLicence.includes('electron ')) {
     fail('PACKAGED_LICENCE');
   }
 

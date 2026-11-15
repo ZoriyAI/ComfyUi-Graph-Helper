@@ -44,8 +44,18 @@
 /* Help ▸ About: the shared About view, centred, with Close at the right. */
 .about { width: min(480px, calc(100vw - 32px)); }
 .aboutBody { padding: 24px 20px 14px; overflow: auto; min-height: 0; }
-/* Help ▸ User guide, Troubleshooting, What is new: a page of text that scrolls inside the window. */
-.reader { height: min(720px, calc(100vh - 48px)); }
-.readerBody { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 4px 20px 16px; border-top: 1px solid var(--border-subtle); font-size: var(--text-sm); line-height: 20px; color: var(--text); }
-.readerBody:focus { outline: none; }
-.readerBody:focus-visible { box-shadow: inset 0 0 0 1px var(--focus); }
+/* Help ▸ Report a problem: the details the new issue will carry, as they are. */
+.details {
+  margin: 0 20px;
+  padding: 10px 12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 17px;
+  color: var(--text-dim);
+  background: var(--bg-sunken);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md, 8px);
+}
+.hint { margin: 10px 20px 12px; color: var(--text-dim); font-size: var(--text-sm); line-height: 19px; }

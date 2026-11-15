@@ -900,7 +900,7 @@ export const en = {
     historyNotCleared: 'Chat history could not be removed.',
     aboutVersion: 'Version {{version}}',
     aboutRuntime: 'Runtime: Electron {{electron}} · Chromium {{chrome}} · Node {{node}}',
-    aboutLicence: 'Licensed under MIT. The Geist font is under the SIL Open Font License 1.1.',
+    aboutLicence: 'The source code is public under the MIT licence with the Commons Clause condition: you may use, change and share the app for free, but not sell it. The Geist font is under the SIL Open Font License 1.1.',
     aboutData: 'Your settings and projects are in a local SQLite database. ComfyUI is only read.',
   },
   // One object per area of the window.
@@ -2121,7 +2121,7 @@ export const en = {
   },
   // Help ▸ About and Settings ▸ About (one shared view), and Help's reader for the bundled pages.
   appInfo: {
-    lead: 'A learning helper for ComfyUI: it reads which nodes and models you have and helps you build and understand a graph. It changes nothing in ComfyUI itself.',
+    lead: 'An experimental desktop app that helps you learn ComfyUI and understand its graphs. It reads which nodes and models you have, explains every node and link, and teaches with lessons you do by hand. It never runs or changes anything in ComfyUI.',
     version: 'Version {{version}}',
     licence: 'Licence',
     components: 'Third-party components',
@@ -2143,6 +2143,9 @@ export const en = {
     chromiumHint: 'Electron includes Chromium; its licences are in a separate file.',
     chromiumFailed: 'The Chromium licence file could not be opened',
     noNotices: 'The list is missing: this build of the app was made without it.',
+    commercial: 'Selling the app, or a paid product or service built mainly on it, is not allowed by the licence. It is possible only with the written permission of the copyright holder, by a separate agreement.',
+    commercialContact: 'To ask, open a discussion in the Commercial category of the project, or write to the repository owner through their GitHub profile.',
+    independent: '{{name}} is an independent, experimental learning tool. It is not affiliated with or endorsed by Comfy Org. It contains no ComfyUI code and only reads a running ComfyUI; it never changes it.',
   },
   helpReader: {
     guide: 'User guide',
@@ -2152,10 +2155,26 @@ export const en = {
     missing: 'This page is not in this build of the app.',
     russianOnly: 'Release notes are written in Russian.',
     content: 'Content rules',
+    title: 'Help',
+    glossary: 'Glossary',
+    back: 'Back',
+    sections: 'Sections of the help',
+    searchPlaceholder: 'Search the help',
+    noResults: 'Nothing found. Try another word.',
+  },
+  projectLinks: {
+    site: 'Project website',
+    report: 'Report a problem…',
+    releases: 'New versions',
+    unavailable: 'This build of the app has no project address.',
+    reportTitle: 'Report a problem',
+    reportLead: 'A page for a new issue opens in your browser with these details already filled in. Everyone can read an issue: look through the details and everything you add before you post it.',
+    reportHint: 'Say what you did, what you expected and what happened. If a log would help, look through it first and attach it yourself.',
+    reportOpen: 'Open the page',
   },
   /**
    * The rules about content: the only place their words live. The switch's confirmation, the lessons for adults and
-   * the page Help ▸ Content rules (docs/CONTENT.md, held to these words by a test) all show them from here.
+   * the page Help ▸ Content rules (docs/wiki/trust/Content-Rules.md and .ru.md, held to these words by a test) all show them from here.
    */
   contentRules: {
     lead: 'Adults (18+) may make any lawful adult content with the consent of everyone involved, and the app explains the technique. Keep these out of your work:',
@@ -3121,7 +3140,7 @@ export const ru = {
     historyNotCleared: 'Историю чата не удалось удалить.',
     aboutVersion: 'Версия {{version}}',
     aboutRuntime: 'Среда: Electron {{electron}} · Chromium {{chrome}} · Node {{node}}',
-    aboutLicence: 'Лицензия MIT. Шрифт Geist — по лицензии SIL Open Font License 1.1.',
+    aboutLicence: 'Исходный код открыт по лицензии MIT с условием Commons Clause: приложением можно пользоваться, менять его и делиться им бесплатно, но продавать нельзя. Шрифт Geist распространяется по лицензии SIL Open Font License 1.1.',
     aboutData: 'Настройки и проекты лежат в локальной базе SQLite. ComfyUI только читается.',
   },
   // One object per area of the window.
@@ -4341,7 +4360,7 @@ export const ru = {
     localModelNoTools: 'Эта локальная модель не поддерживает инструменты: помощник может отвечать, но не может читать граф или предлагать изменения. Выберите модель с поддержкой инструментов, например {{examples}}.',
   },
   appInfo: {
-    lead: 'Учебный помощник для ComfyUI: читает, какие ноды и модели у вас есть, и помогает собрать и понять граф. В самом ComfyUI он ничего не меняет.',
+    lead: 'Экспериментальное приложение, которое помогает учиться работать с ComfyUI и разбираться в графах. Оно читает, какие ноды и модели у вас есть, объясняет каждую ноду и связь и учит уроками, которые вы проходите руками. В самом ComfyUI оно ничего не запускает и не меняет.',
     version: 'Версия {{version}}',
     licence: 'Лицензия',
     components: 'Сторонние компоненты',
@@ -4363,6 +4382,9 @@ export const ru = {
     chromiumHint: 'В Electron входит Chromium, его лицензии лежат в отдельном файле.',
     chromiumFailed: 'Файл с лицензиями Chromium не открылся',
     noNotices: 'Списка нет: эта сборка приложения сделана без него.',
+    commercial: 'Продавать приложение, а также платный продукт или услугу, построенные в основном на нём, лицензия не разрешает. Это возможно только с письменного разрешения правообладателя, по отдельному договору.',
+    commercialContact: 'Чтобы спросить, откройте обсуждение в категории Commercial в проекте или напишите владельцу репозитория через его профиль на GitHub.',
+    independent: '{{name}} это независимый экспериментальный учебный инструмент. Он не связан с Comfy Org и не одобрен ею. В нём нет кода ComfyUI, он только читает запущенный ComfyUI и никогда его не меняет.',
   },
   helpReader: {
     guide: 'Руководство',
@@ -4372,6 +4394,22 @@ export const ru = {
     missing: 'Этой страницы нет в этой сборке приложения.',
     russianOnly: 'Заметки к выпуску написаны по-русски.',
     content: 'Правила содержимого',
+    title: 'Справка',
+    glossary: 'Словарь',
+    back: 'Назад',
+    sections: 'Разделы справки',
+    searchPlaceholder: 'Поиск по справке',
+    noResults: 'Ничего не нашлось. Попробуйте другое слово.',
+  },
+  projectLinks: {
+    site: 'Сайт проекта',
+    report: 'Сообщить о проблеме…',
+    releases: 'Новые версии',
+    unavailable: 'В этой сборке приложения не задан адрес проекта.',
+    reportTitle: 'Сообщить о проблеме',
+    reportLead: 'В браузере откроется страница новой задачи, в неё уже вписаны эти сведения. Задачу видят все: прочитайте сведения и всё, что допишете, прежде чем отправить.',
+    reportHint: 'Напишите, что вы делали, что ожидали и что случилось. Если нужен журнал, сначала просмотрите его и приложите сами.',
+    reportOpen: 'Открыть страницу',
   },
   contentRules: {
     lead: 'Взрослые (18+) могут делать любое законное содержимое для взрослых с согласия всех участников, и приложение объясняет технику. В вашей работе этого быть не должно:',

@@ -29,11 +29,20 @@ function LinkWords({ text, address }: { text: string; address: string }) {
   );
 }
 
+/** Set by MarkdownLite when the text may carry relative links (the help reader). */
+const LinkContext = React.createContext<((target: string) => void) | null>(null);
+
 function Inline({ tokens }: { tokens: InlineToken[] }) {
+  const onLink = React.useContext(LinkContext);
   return (
     <>
       {tokens.map((token, index) => {
         if (token.type === 'link') return <LinkWords key={index} text={token.text} address={token.address} />;
+        if (token.type === 'page') {
+          return onLink
+            ? <button key={index} type="button" className={styles.link} data-link={token.target} onClick={() => onLink(token.target)}>{token.text}</button>
+            : <React.Fragment key={index}>{token.text}</React.Fragment>;
+        }
         // A short piece of code (a field name, a weight) is marked: where there is room for it, a panel may keep it whole.
         if (token.type === 'code') return <code key={index} className={styles.code} data-short={token.text.length <= SHORT_CODE ? 'true' : undefined}>{token.text}</code>;
         if (token.type === 'strong') return <strong key={index}>{token.text}</strong>;
@@ -61,9 +70,11 @@ function Lines({ lines }: { lines: InlineToken[][] }) {
  * Chat text with paragraphs, headings, lists, quotes, tables and code. Rendered as elements; the text is never
  * parsed as HTML. A table keeps to the width of the panel: its cells wrap.
  */
-export default function MarkdownLite({ text, className }: { text: string; className?: string }) {
-  const blocks = useMemo(() => parseMarkdownLite(text), [text]);
+export default function MarkdownLite({ text, className, onLink }: { text: string; className?: string; /** Relative links become buttons that call this (help reader only). */ onLink?: (target: string) => void }) {
+  const links = Boolean(onLink);
+  const blocks = useMemo(() => parseMarkdownLite(text, { links }), [text, links]);
   return (
+    <LinkContext.Provider value={onLink ?? null}>
     <div className={`${styles.root}${className ? ` ${className}` : ''}`}>
       {blocks.map((block, index) => {
         if (block.type === 'code') return <pre key={index} className={styles.pre}>{block.text}</pre>;
@@ -100,5 +111,6 @@ export default function MarkdownLite({ text, className }: { text: string; classN
         return <p key={index}><Lines lines={block.lines} /></p>;
       })}
     </div>
+    </LinkContext.Provider>
   );
 }
