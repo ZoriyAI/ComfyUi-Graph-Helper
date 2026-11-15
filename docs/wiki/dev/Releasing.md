@@ -75,11 +75,13 @@ The rest the documentation says is not tried yet:
 5. 200 percent interface size on a 1080p screen with large system scaling.
 6. The ComfyUI install lines in [ComfyUI and where to get it](../start/ComfyUI.md): the repository address and the
    `torch` line follow the official instructions of November 2026, but no install was made from them here.
-7. Windows, the install script: checked on GitHub's runners only, not yet on a range of real computers (Windows 10
+7. Windows, the install script: not tested at all yet. Its workflow (`install-scripts.yml`) is still being made to
+   pass; after that, real computers remain (Windows 10
    and 11 desktops, a user name in another alphabet, a proxy, `-SystemNode` with winget, a computer that needs the C++
    build tools). Also the taskbar identity, `--version` typed in a console window, and that SmartScreen stays silent
    for a build made on the computer. [Installing on Windows](../start/Installing-On-Windows.md)
-8. macOS, the install script: checked on GitHub's runners only, not yet on a range of real Macs (macOS 13 itself, a
+8. macOS, the install script: not tested at all yet. Its workflow is still being made to pass; after that, real Macs
+   remain (macOS 13 itself, a
    proxy, `--system-node`, `--system-applications`, a Mac that needs the Command Line Tools). Also the Keychain
    question after an upgrade, `--purge-data` removing "nodewise-studio Safe Storage", the canvas's own `Cmd+C` and
    `Cmd+Z` next to the Edit menu, and reopening the window from the Dock.

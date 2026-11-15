@@ -75,6 +75,8 @@ $ProgressPreference = 'SilentlyContinue'
 # (tests/unit/installScripts.test.ts compares them).
 $Repository = 'ZoriyAI/nodewise-studio'
 $AppId = 'nodewise-studio'
+# Where a person reports a problem with this script.
+$IssuesUrl = "https://github.com/$Repository/issues"
 $DisplayName = 'NodeWise Studio'
 # The hosts this script downloads from; any other address is refused (Get-Remote below).
 $AllowedHosts = @('api.github.com', 'codeload.github.com', 'github.com', 'nodejs.org', 'registry.npmjs.org')
@@ -134,6 +136,8 @@ if ($Help) { Write-Host $UsageText; exit $ExitOk }
 $Messages = @{
   en = @{
     start = 'NodeWise Studio installer for Windows. Log: {0}'
+    untested = 'Not tested yet: this install script is new in 1.0.0 and has not been tested on real computers. If you try it, please report what happened at {0} with the log file named at the end and your Windows version.'
+    untested_failed = 'This script is not tested yet, so this may be its own mistake. Please report it at {0} with this log: {1}, and your Windows version (Settings > System > About).'
     dry = 'Dry run: every step is printed, nothing is changed.'
     step = 'Step {0} of {1}: {2}'
     s_check = 'checking this computer'
@@ -197,6 +201,8 @@ $Messages = @{
   }
   ru = @{
     start = 'Установка NodeWise Studio для Windows. Журнал: {0}'
+    untested = 'Ещё не проверено: этот скрипт установки появился в 1.0.0 и на настоящих компьютерах не проверялся. Если попробуете, сообщите, пожалуйста, что получилось, на {0}, приложив файл журнала, названный в конце, и версию Windows.'
+    untested_failed = 'Этот скрипт ещё не проверен, так что ошибка может быть в нём самом. Сообщите о ней, пожалуйста, на {0}, приложив этот журнал: {1}, и версию Windows (Параметры > Система > О системе).'
     dry = 'Пробный прогон: шаги только печатаются, ничего не меняется.'
     step = 'Шаг {0} из {1}: {2}'
     s_check = 'проверка компьютера'
@@ -361,6 +367,12 @@ function Exit-Install {
   Write-Host $text -ForegroundColor Yellow
   Add-LogLine ("FAILED({0}) {1}" -f $Code, $text)
   if ($Code -ne $ExitOk) { Write-Host (Get-Text 'log_at' @($LogPath)) }
+  # A failure of the script itself (not a refusal such as a busy app or a full disk): ask for a report.
+  if (@($ExitUnexpected, $ExitPrerequisite, $ExitDownload, $ExitBuild, $ExitInstall, $ExitVerify) -contains $Code) {
+    $note = Get-Text 'untested_failed' @($IssuesUrl, $LogPath)
+    Write-Host $note -ForegroundColor Yellow
+    Add-LogLine $note
+  }
   Add-LogLine "EXIT $Code"
   exit $Code
 }
@@ -549,6 +561,7 @@ function Expand-Zip {
 
 # ----------------------------------------------------------------------------------------------------------------
 Show-Message 'start' @($LogPath)
+Show-Message 'untested' @($IssuesUrl)
 if ($DryRun) { Show-Message 'dry' }
 Add-LogLine ("exit codes: ok=$ExitOk cancelled=$ExitCancelled (see -Help)")
 Add-LogLine ("args: Version={0} Main={1} Source={2} Uninstall={3} Yes={4} SystemNode={5} PrivateNode={6} DesktopShortcut={7} Language={8} PowerShell={9}" -f $Version, $Main, $Source, $Uninstall, $Yes, $SystemNode, $PrivateNode, $DesktopShortcut, $UiLanguage, $PSVersionTable.PSVersion)

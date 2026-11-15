@@ -17,6 +17,11 @@ project's source and installs it for you, with one command.
 | Windows 10 22H2 or 11 (x64) | `install-windows.ps1` from the release builds and installs the app. |
 | macOS 13 or newer (Apple silicon or Intel) | `install-macos.sh` from the release builds and installs the app. |
 
+The Linux packages are built, installed and started on the build server for every release. The Windows and macOS
+install scripts are new in 1.0.0 and **not tested yet** on real computers (a check on GitHub's Windows and macOS
+machines exists and is still being made to pass). If you try one, please report what happened in the project's
+Issues, with the log file the script names at the end and your system version.
+
 ## What you need
 
 - Linux, 64-bit x86. For the `.deb`: Ubuntu 22.04 or newer, Debian 12 or newer, Linux Mint 21 or newer, and others
