@@ -26,7 +26,7 @@ A free desktop app for Linux that teaches a newcomer ComfyUI, the node-graph too
   workflow file that the person opens in ComfyUI.
 - **Canvas**: a real graph editor with typed links, real fields, subgraphs, groups, copy and paste, undo and redo,
   and an explanation card for every node, input, output and link.
-- **Lessons**: about eighty hands-on lessons in twelve groups (ComfyUI basics, first pictures, picture models,
+- **Lessons**: 95 hands-on lessons in sixteen groups (setting up ComfyUI, ComfyUI basics, first pictures, picture models,
   picture techniques, video, the anchor picture for video, sound and speech, 3D, faces and characters, packs and
   tools, and more). The person builds on the real canvas; the app checks each step and says why a number or a file
   is right. No language model is needed for lessons.
@@ -112,7 +112,7 @@ Build these, in this order of importance:
    hovering a finding lights its node.
 6. **Read-only shield:** a simple, clear diagram: the app on the left, ComfyUI on the right, arrows only one way
    ("reads"), a crossed-out arrow back ("never writes"). Animated once on entering the view.
-7. **Lesson map:** the twelve groups as a constellation of nodes joined by links; hovering a group lifts it and
+7. **Lesson map:** the sixteen groups as a constellation of nodes joined by links; hovering a group lifts it and
    lists its lessons; the count animates up to the real number.
 8. Micro-interactions: magnetic primary button, link underlines that draw, cards that tilt a few degrees to the
    pointer, a cursor trail of a link only inside the hero, number counters, a page transition where a link is
@@ -140,7 +140,7 @@ Rules that are not optional:
    GitHub release (read the release list at build time and at run time with a graceful fallback to the Releases
    page; never hard-code a version), checksums note, first steps in three short steps, honest note on Windows and
    macOS with a link to the build-from-source pages.
-3. **Lessons**: the twelve groups and their lessons with a search and a filter by group; each lesson links to its
+3. **Lessons**: the sixteen groups and their lessons with a search and a filter by group; each lesson links to its
    wiki page. Generate the list from data extracted from the repository at build time (the wiki's lesson index),
    not typed by hand.
 4. **Screenshots**: a gallery of the 13 pictures in the page's language with their captions from

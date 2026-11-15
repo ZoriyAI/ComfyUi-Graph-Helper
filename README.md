@@ -34,7 +34,7 @@ contains no ComfyUI code and only reads a running ComfyUI; it never changes it.
   [Working with a graph](docs/wiki/graph/README.md)
 - **Explains** every node, input, output and link, and says where each explanation comes from.
   [The window](docs/wiki/interface/README.md)
-- **About eighty lessons** in twelve groups you do by hand on the real canvas, checked step by step, no AI model
+- **95 lessons** in sixteen groups you do by hand on the real canvas, checked step by step, no AI model
   needed.
   [Lessons](docs/wiki/lessons/README.md)
 - **An assistant** that asks, builds or teaches, with a cloud model and your key or a model on your own computer.
