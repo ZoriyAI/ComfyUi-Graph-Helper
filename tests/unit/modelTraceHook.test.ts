@@ -1,3 +1,10 @@
+/**
+ * The model conversation log as a real turn fills it (MainLLMService in src/main/llmService writing through
+ * src/main/trace/modelTrace): the service sends through the turn's recording fetch, so the record holds what went
+ * to the server and what came back, and never what travelled in the headers. Also refusals, a missing model,
+ * a stopped answer, and the log switched off.
+ * Why: when the assistant misbehaves the person can see the real exchange without exposing their key.
+ */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -7,24 +14,23 @@ import { tool } from 'ai';
 import { MainLLMService } from '../../src/main/llmService';
 import { configureModelTrace, listTurnTraces, readTurnTrace, turnReport } from '../../src/main/trace/modelTrace';
 
-/**
- * The model conversation log as a real turn fills it: the service sends through the turn's recording fetch, so
- * the record holds what went to the server and what came back, and never what travelled in the headers.
- */
-
+// The local provider sends this placeholder key; the test checks it never reaches the log file.
 const SECRET_HEADER = 'Bearer local';
 let dir = '';
 
+/** Points the log at a fresh temporary folder, switched on or off. */
 function setup(enabled = true): void {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), 'model-trace-hook-'));
   configureModelTrace({ dir, redact: (text) => text, enabled: () => enabled });
 }
 
+/** A server-sent events response like an OpenAI-compatible server streams, with headers that must not be logged. */
 function sse(lines: unknown[]): Response {
   const body = `${lines.map((line) => `data: ${typeof line === 'string' ? line : JSON.stringify(line)}\n\n`).join('')}`;
   return new Response(body, { status: 200, headers: { 'content-type': 'text/event-stream', 'x-request-id': 'req-77', 'set-cookie': 'session=abc' } });
 }
 
+/** One chat.completion.chunk event with the given delta, finish reason and usage. */
 function chunk(delta: Record<string, unknown>, finish: string | null = null, usage?: Record<string, number>): unknown {
   return {
     id: 'chatcmpl-1',
@@ -36,6 +42,7 @@ function chunk(delta: Record<string, unknown>, finish: string | null = null, usa
   };
 }
 
+/** Reads a stream to its end and returns every part. */
 async function drain(stream: AsyncGenerator<{ type: string; content: any }>): Promise<Array<{ type: string; content: any }>> {
   const chunks: Array<{ type: string; content: any }> = [];
   for await (const part of stream) chunks.push(part);

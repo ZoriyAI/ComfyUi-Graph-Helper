@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest';
 import { PUBLIC_SHOTS, README_SHOTS } from '../e2e/public-shots/shotList';
 
 const ROOT = path.join(__dirname, '../../docs/screenshots');
+/** The pictures in one language folder; `linked` lists the pictures a gallery page links, in order. */
 const pngs = (language: string) => fs.readdirSync(path.join(ROOT, language)).filter((name) => name.endsWith('.png')).sort();
 const linked = (page: string, language: string) => Array.from(fs.readFileSync(path.join(ROOT, page), 'utf8').matchAll(/\]\(([a-z]{2})\/([^)]+\.png)\)/g))
   .map((match) => { expect(match[1], `${page} links a picture of another language`).toBe(language); return match[2]; });
@@ -33,6 +34,7 @@ describe('public screenshots', () => {
   });
 
   it('the wide pictures are composed at their sizes (README top 1600x800, social preview 1280x640 under 1 MB)', () => {
+    // A PNG stores its width and height as big-endian numbers at bytes 16 and 20.
     const size = (name: string) => { const png = fs.readFileSync(path.join(ROOT, name)); return [png.readUInt32BE(16), png.readUInt32BE(20)]; };
     expect(size('hero.png')).toEqual([1600, 800]);
     expect(size('social-preview.png')).toEqual([1280, 640]);

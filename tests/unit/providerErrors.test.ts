@@ -1,3 +1,9 @@
+/**
+ * Telling a local model without tool support apart from other errors (src/shared/agent/providerErrors), for the
+ * messages Ollama, llama.cpp, vLLM and similar servers give, and only for the local provider.
+ * Why: the assistant builds graphs through tools; the person must read "this model cannot use tools, pick another"
+ * instead of a raw server error.
+ */
 import { describe, expect, it } from 'vitest';
 import { isToolsUnsupportedError, providerErrorKey } from '../../src/shared/agent/providerErrors';
 

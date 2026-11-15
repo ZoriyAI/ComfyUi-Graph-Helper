@@ -1,8 +1,16 @@
+/**
+ * The model file inventory read through the MCP `models` tool (src/main/mcp/inventory): one paged listing per
+ * category, only loader files kept, a failed category leaving the rest, older servers that list everything at once,
+ * and the description and preview files that lie next to each model, matched by folder and root.
+ * Why: the model library and the tutor's advice are built from this list, so a missing folder or a wrong preview
+ * would show the person a library that is not theirs.
+ */
 import { describe, expect, it } from 'vitest';
 import { readModelFilesWithRoots } from '../../src/main/mcp/inventory';
 import { McpPageError } from '../../src/shared/mcp/catalogSource';
 import type { McpSession, McpToolCallResult } from '../../src/shared/mcp/catalogSource';
 
+/** Wraps a value the way an MCP tool answers: one text content block holding JSON. */
 function json(value: unknown): McpToolCallResult {
   return { content: [{ type: 'text', text: JSON.stringify(value) }] };
 }

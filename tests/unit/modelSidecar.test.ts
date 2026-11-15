@@ -1,3 +1,10 @@
+/**
+ * The files a model manager keeps next to a model file (src/shared/knowledge/sidecar): which file is a
+ * description or a preview and whose, and what a Lora Manager or bare Civitai record says (base, trigger words,
+ * description, usage, examples, adult flag, fingerprint), with markup removed and sizes bounded.
+ * Why: these records fill the model card the person reads; a wrong match would describe another model, and raw
+ * HTML from the internet must never reach the screen.
+ */
 import { describe, expect, it } from 'vitest';
 import {
   EMPTY_NOTES,

@@ -1,7 +1,7 @@
 /**
  * The motion policy as tests: one set of durations and curves for the whole app, Reduced and Off honoured by every
  * animation, and the camera's rule. Who reads this: anyone who adds an animation; a literal "300ms" or a bare "ease"
- * in a stylesheet fails here, so the setting «Анимация» / "Motion" keeps meaning the same thing everywhere.
+ * in a stylesheet fails here, so the Motion setting keeps meaning the same thing everywhere.
  */
 import { describe, expect, it } from 'vitest';
 import * as fs from 'fs';
@@ -19,6 +19,7 @@ import type { GraphEdge, GraphNode } from '../../src/renderer/types/graph';
 
 const RENDERER = path.join(__dirname, '../../src/renderer');
 
+/** Every .css file under `dir`, recursively. */
 function cssFiles(dir: string): string[] {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const full = path.join(dir, entry.name);
@@ -41,6 +42,7 @@ function motionDeclarations(text: string): Array<{ raw: string; rest: string }> 
   return found;
 }
 
+/** The --motion-* custom properties declared in the first rule block that follows `selector`. */
 function block(css: string, selector: string): Record<string, string> {
   const start = css.indexOf(selector);
   const body = css.slice(css.indexOf('{', start) + 1, css.indexOf('}', start));
@@ -189,9 +191,11 @@ describe('automatic fits land on something readable', () => {
 });
 
 
+/** A minimal KSampler graph node for the replay test. */
 function node(id: string, x = 0, data: Record<string, unknown> = {}): GraphNode {
   return { id, type: 'comfy', position: { x, y: 0 }, data: { comfyType: 'KSampler', title: id, inputs: [], outputs: [], ...data } } as unknown as GraphNode;
 }
+/** A minimal edge between two node ids. */
 function edge(id: string, source: string, target: string): GraphEdge {
   return { id, source, target } as GraphEdge;
 }

@@ -1,3 +1,9 @@
+/**
+ * Detecting what an MCP server wants before connecting (src/main/mcp/detect, used by Check in Settings): no
+ * credentials, a token (and whether a held token was accepted) or browser sign-in, plus clear refusals for an
+ * unreachable or unusable address. Only the handshake is sent, never a tool call, and no token ever leaks.
+ * Why: the person picks the right way in from one press of Check, without trial and error.
+ */
 import { afterEach, describe, expect, it } from 'vitest';
 import { detectMcpAuth } from '../../src/main/mcp/detect';
 import { startFakeMcp, type FakeMcp } from '../fixtures/mcp/fakeMcpServer';
@@ -10,12 +16,14 @@ afterEach(async () => {
   while (closers.length > 0) await closers.pop()?.();
 });
 
+/** Starts the plain fake MCP server (optionally token-protected) and closes it after the test. */
 async function plain(options: Parameters<typeof startFakeMcp>[0] = {}): Promise<FakeMcp> {
   const server = await startFakeMcp(options);
   closers.push(server.close);
   return server;
 }
 
+/** Starts the fake MCP server that publishes OAuth metadata and closes it after the test. */
 async function oauth(): Promise<FakeOAuthMcp> {
   const server = await startFakeOAuthMcp({ accessTtlSeconds: 60 });
   closers.push(server.close);

@@ -1,3 +1,11 @@
+/**
+ * Reading the small files that lie next to a model (description, preview) and at the top of a node pack
+ * (pyproject.toml, README) through the MCP `workspace_files` tool (src/main/mcp/sideFiles): which paths are
+ * allowed, chunked reads with size bounds, refusal before any call for anything else, and the database columns
+ * that hold what was read (migrations 12 and 13).
+ * Why: these files give the person a model's description and a pack's summary, while the app must never read
+ * anything else on their ComfyUI machine.
+ */
 import { describe, expect, it } from 'vitest';
 import Database from 'better-sqlite3';
 import type { McpSession } from '../../src/shared/mcp/catalogSource';
@@ -5,7 +13,7 @@ import { McpRefusedError, readOnlySession } from '../../src/main/mcp/readOnly';
 import { packFilePath, readPackFile, readSideFile, sideFilePath } from '../../src/main/mcp/sideFiles';
 import { migrate } from '../../src/main/settings/migrate';
 
-/** A server that holds one file and answers `workspace_files` read a slice at a time, at most `cap` bytes each. */
+/** A server that holds the given files and answers `workspace_files` read a slice at a time, at most `cap` bytes each. */
 function serverWith(files: Record<string, Buffer>, cap = 1048576): { session: McpSession; calls: Array<Record<string, unknown>> } {
   // The folders the files lie in are the ones the server named (the gate reads only inside those).
   const roots = ['/srv', ...Object.keys(files).map((file) => file.split('/').slice(0, -2).join('/'))];

@@ -1,3 +1,10 @@
+/**
+ * Node ports and the link rule (src/shared/graph/linkTypes, src/shared/graph/ports, the connect and retarget-edge
+ * commands): the ComfyUI frontend's wildcard, comma-list and case rule, ports taken from the catalog once it is
+ * synced and from a built-in map before, refused links that change nothing, and socket inputs numbered before
+ * widget inputs the way the frontend numbers its slots.
+ * Why: a link the person or the assistant makes here must load in ComfyUI on the same slot with the same type.
+ */
 import { describe, expect, it } from 'vitest';
 import Database from 'better-sqlite3';
 import { commitCommand, ensureWorkspace, readProjection } from '../../src/main/commands/commit';
@@ -9,6 +16,7 @@ import { inferInputs } from '../../src/shared/graph/ports';
 import { DESKTOP_PROJECT_ID } from '../../src/shared/project';
 import { exportWorkflow } from '../../src/shared/workflow/codec';
 
+/** A migrated in-memory database with the desktop workspace ready. */
 function openDb(): Database.Database {
   const db = new Database(':memory:');
   migrate(db);
@@ -16,6 +24,7 @@ function openDb(): Database.Database {
   return db;
 }
 
+/** Commits a command as the person, on the current revision. */
 function manual(db: Database.Database, actionId: string, payload: Record<string, unknown>) {
   const current = readProjection(db, DESKTOP_PROJECT_ID)!;
   return commitCommand(db, {
@@ -28,11 +37,13 @@ function manual(db: Database.Database, actionId: string, payload: Record<string,
   });
 }
 
+/** The data of one node in the current projection. */
 function nodeData(db: Database.Database, nodeId: string): Record<string, any> {
   const node = (readProjection(db, DESKTOP_PROJECT_ID)!.snapshot.nodes as Array<Record<string, any>>).find((item) => item.id === nodeId);
   return node!.data;
 }
 
+/** Test classes: outputs with a wildcard and a lower-case type, inputs with a wildcard and a comma list. */
 const catalog = {
   PortSource: {
     input: { required: {} },
@@ -310,6 +321,7 @@ describe('catalog ports and connection types', () => {
 
     const encodeInputs = nodeData(db, '3').inputs;
     const samplerInputs = nodeData(db, '4').inputs;
+    // Sockets come first, then widgets that can be turned into inputs, matching the frontend's slot numbers.
     expect(encodeInputs).toEqual([
       { id: 'in-0', name: 'clip', dataType: 'CLIP', optional: false },
       { id: 'in-1', name: 'text', dataType: 'STRING', optional: false },
@@ -347,6 +359,7 @@ describe('catalog ports and connection types', () => {
     expect(positive.status).toBe('applied');
 
     const before = readProjection(db, DESKTOP_PROJECT_ID);
+    // in-1 of the encoder is the text widget (STRING): a CLIP link into it is refused.
     const text = manual(db, 'connect-text', {
       type: 'connect',
       source: '5',

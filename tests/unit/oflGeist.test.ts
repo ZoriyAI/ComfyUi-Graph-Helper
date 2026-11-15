@@ -1,3 +1,9 @@
+/**
+ * The Geist font licence: the bundled @fontsource/geist package is the pinned version under the SIL OFL, its
+ * notice is present, and the renderer entry imports the Latin and Cyrillic faces.
+ * Why: the font ships inside the app, so its licence notice must ship with it, and Russian text must not fall back
+ * to another font.
+ */
 import { readFileSync } from 'fs';
 import { describe, expect, it } from 'vitest';
 

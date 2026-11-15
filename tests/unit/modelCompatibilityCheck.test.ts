@@ -1,3 +1,10 @@
+/**
+ * The graph check that warns about a LoRA of another model family than the base model it is loaded on
+ * (src/main/knowledge/check), including custom loader classes and wrapper packs where the LoRA select feeds the
+ * model loader, and how model files are found in a node's values (src/main/knowledge/loadedModels).
+ * Why: a Flux LoRA on a Pony checkpoint runs without error but gives a broken picture; the tutor must catch it
+ * whatever loader node the person uses.
+ */
 import { describe, expect, it } from 'vitest';
 import Database from 'better-sqlite3';
 import { migrate } from '../../src/main/settings/migrate';
@@ -45,6 +52,7 @@ const OBJECT_INFO = {
   },
 };
 
+/** A workspace whose catalog holds the loaders above and their model files, with families guessed from names. */
 function openDb(): Database.Database {
   const db = new Database(':memory:');
   migrate(db);
@@ -61,6 +69,7 @@ function openDb(): Database.Database {
   return db;
 }
 
+/** A node in ComfyUI's saved workflow format; `inputs` are [name, type, link id or null]. */
 function node(id: number, type: string, inputs: Array<[string, string, number | null]>, outputs: string[], widgets: unknown[] = []) {
   return {
     id,
@@ -77,6 +86,7 @@ function node(id: number, type: string, inputs: Array<[string, string, number | 
   };
 }
 
+/** Imports a workflow document into the desktop project the way the Import command does. */
 function importWorkflow(db: Database.Database, document: Record<string, unknown>) {
   const current = readProjection(db, DESKTOP_PROJECT_ID)!;
   const result = commitCommand(db, {
@@ -90,6 +100,7 @@ function importWorkflow(db: Database.Database, document: Record<string, unknown>
   expect(result.status).toBe('applied');
 }
 
+/** A Pony checkpoint feeding the custom StackedLoraLoader that holds `lora`. */
 function customChain(lora: string) {
   return {
     version: 1,

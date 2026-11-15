@@ -1,6 +1,10 @@
+/**
+ * Choosing the assistant in the top bar (useProviderStore in src/renderer/state/providerState): the choice is saved
+ * as the stored setting, "none" included, and choosing an own server with no address opens Settings to ask for it.
+ * Why: what the top bar shows, what Settings shows and what a restart brings back must be the same assistant.
+ */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-/** The top-bar choice of the assistant is the stored setting. */
 describe('choosing the assistant in the top bar', () => {
   let saved: Array<Record<string, unknown>>;
   let row: Record<string, unknown>;
@@ -10,6 +14,7 @@ describe('choosing the assistant in the top bar', () => {
     saved = [];
     configs = [];
     row = { theme: 'graphite', motion: 'system', provider: 'local', model: 'm', baseURL: 'http://127.0.0.1:11434/v1', comfyOrigin: '', mcpUrl: '', mcpAuth: '', language: 'ru' };
+    // A stand-in window: an event target with the preload API that keeps one settings row in memory.
     const target = new EventTarget();
     vi.stubGlobal('CustomEvent', class extends Event { detail: unknown; constructor(type: string, init?: { detail?: unknown }) { super(type); this.detail = init?.detail; } });
     vi.stubGlobal('window', Object.assign(target, {

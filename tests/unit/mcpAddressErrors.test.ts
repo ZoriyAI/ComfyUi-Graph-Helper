@@ -1,3 +1,9 @@
+/**
+ * How the app reacts to a wrong MCP server address: a bare loopback address gets http:// added (also on save),
+ * each kind of typo gets its own sentence in both languages, and asking the address tells apart ComfyUI itself,
+ * a wrong path, a plain web page, a closed port and a slow server.
+ * Why: a person connecting the MCP server should read what is actually wrong, never a misleading "needs https".
+ */
 import * as http from 'http';
 import type { AddressInfo } from 'net';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -18,6 +24,7 @@ afterEach(async () => {
   while (closers.length > 0) await closers.pop()?.();
 });
 
+/** Starts a plain HTTP server on a free port of 127.0.0.1 and returns its origin; afterEach closes it. */
 async function tinyServer(handler: http.RequestListener): Promise<string> {
   const server = http.createServer(handler);
   const port = await new Promise<number>((resolve) => server.listen(0, '127.0.0.1', () => resolve((server.address() as AddressInfo).port)));

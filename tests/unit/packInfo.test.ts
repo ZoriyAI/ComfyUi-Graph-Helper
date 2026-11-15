@@ -1,3 +1,10 @@
+/**
+ * What the node pack card says about a pack (src/shared/knowledge/packInfo): the description and repository link
+ * from its pyproject.toml (a small tolerant TOML reader), else the opening prose of its README without badges,
+ * markup, setup steps or talk about the author, bounded to what the card shows, and only web links.
+ * Why: the person sees in one sentence what an installed pack does, and a link from a file on disk can never be a
+ * script or a local file.
+ */
 import { describe, expect, it } from 'vitest';
 import { isChatter, packInfoOf, parsePyproject, README_SUMMARY_MAX_CHARS, summarizeReadme, webUrl } from '../../src/shared/knowledge/packInfo';
 

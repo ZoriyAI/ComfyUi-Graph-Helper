@@ -1,3 +1,9 @@
+/**
+ * Two small files in the app folder: the MCP token file (src/main/mcp/tokenFile), used on a computer without a
+ * password store, and the password store chosen for the next start (src/main/settings/passwordStoreOverride).
+ * The token file is owner-only, holds one origin, and a broken or oversized file is ignored.
+ * Why: a remembered token must stay private and must never be sent to a server it was not saved for.
+ */
 import { afterEach, describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -6,6 +12,7 @@ import { readTokenFile, removeTokenFile, tokenFileHolds, tokenFilePath, writeTok
 import { PASSWORD_STORE_FILE, readPasswordStoreOverride, writePasswordStoreOverride } from '../../src/main/settings/passwordStoreOverride';
 
 const dirs: string[] = [];
+/** A fresh temporary app folder; afterEach removes it. */
 function tempDir(): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'helper-token-file-'));
   dirs.push(dir);
@@ -51,6 +58,7 @@ describe('the password store chosen for the next start', () => {
     expect(readPasswordStoreOverride(dir)).toBeNull();
     writePasswordStoreOverride(dir, 'kwallet6');
     expect(readPasswordStoreOverride(dir)).toBe('kwallet6');
+    // 'basic' is not a store the app offers, so a hand-edited file with it is ignored.
     fs.writeFileSync(path.join(dir, PASSWORD_STORE_FILE), JSON.stringify({ store: 'basic' }));
     expect(readPasswordStoreOverride(dir)).toBeNull();
     writePasswordStoreOverride(dir, 'gnome-libsecret');

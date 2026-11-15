@@ -1,3 +1,9 @@
+/**
+ * The exact Russian and English sentences of the MCP access block in Settings: whether the server took a pasted
+ * token, what the next step is when the server requires sign-in (per chosen way in), and the token file in the app
+ * folder as a place the token can live.
+ * Why: "requires sign-in" alone leaves a person stuck; each sentence must name the one thing to do next.
+ */
 import { describe, expect, it } from 'vitest';
 import { createTranslator } from '../../src/shared/i18n';
 import { accessErrorText, detectionNote, NEEDS_SIGN_IN, tokenPlaceKey } from '../../src/renderer/components/settings/mcpAccess';

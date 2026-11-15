@@ -1,3 +1,11 @@
+/**
+ * The MCP catalog sync (src/main/mcp/sync, started by the main process and by "Sync now" in Settings) and the
+ * read-only gate in front of every MCP call (src/main/mcp/readOnly): which tool calls and argument shapes may pass,
+ * how packs, models and metadata are read and enriched in background batches, retry backoff, the startup and
+ * automatic schedule, the chosen access mode, and the errors and warnings the person sees.
+ * Why: the app reads the person's ComfyUI machine and must never change it; the sync must keep their catalog
+ * fresh without hammering a failing server or leaking their token.
+ */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import Database from 'better-sqlite3';
 import { migrate } from '../../src/main/settings/migrate';
@@ -15,10 +23,12 @@ import { parseSidecar, stringifyMetadata } from '../../src/shared/knowledge/enri
 
 const TOKEN = 'tok-very-secret-123';
 
+/** Wraps a value the way an MCP tool answers: one text content block holding JSON. */
 function json(value: unknown): McpToolCallResult {
   return { content: [{ type: 'text', text: JSON.stringify(value) }] };
 }
 
+/** How the fake server behaves; `calls` records every tool call it received. */
 interface FakeOptions {
   tools?: string[];
   calls: Array<{ name: string; args: Record<string, unknown> }>;
@@ -78,6 +88,7 @@ function fakeSession(options: FakeOptions): McpSession {
   };
 }
 
+/** An in-memory database with a settings row whose MCP address is `url`. */
 function openDb(url = 'https://mcp.example.test/mcp'): Database.Database {
   const db = new Database(':memory:');
   migrate(db);
@@ -85,6 +96,7 @@ function openDb(url = 'https://mcp.example.test/mcp'): Database.Database {
   return db;
 }
 
+/** A SyncService over the fake server; `tokens` records the token handed to each new connection. */
 function service(options: FakeOptions, extra: Partial<ConstructorParameters<typeof SyncService>[0]> = {}) {
   const tokens: Array<string | null> = [];
   const sync = new SyncService({
@@ -405,6 +417,8 @@ describe('sync service', () => {
     const reads = () => calls.filter((call) => call.name === 'model_metadata').map((call) => `${call.args.category}/${call.args.name}`);
     await sync.runSync(db);
     expect(reads()).toEqual(['loras/Band_Shirt_Crop_Top_SDXL.safetensors', 'loras/zimage_style.safetensors', 'checkpoints/mystery.safetensors']);
+    // Each step moves the clock and says how many of the three failed files are read again. The waits after
+    // 1, 2 and 3+ failures are 1 h, 6 h and 24 h, so a run inside a wait reads nothing.
     const steps: Array<[number, number]> = [[30 * 60_000, 0], [31 * 60_000, 3], [5 * 3_600_000, 0], [3_600_000 + 1, 3], [23 * 3_600_000, 0], [3_600_000 + 1, 3], [24 * 3_600_000, 3]];
     for (const [advance, expected] of steps) {
       calls.length = 0;
@@ -476,6 +490,7 @@ describe('sync service', () => {
   });
 });
 
+/** A model_metadata answer whose header names an SDXL base model. */
 const metadataOk = () => json({ model_explorer: 'unavailable', embedded_metadata: { ss_base_model_version: 'sdxl_base_v1-0' }, civitai_sidecar: null });
 const hundredLoras = Array.from({ length: 100 }, (_, index) => ({ category: 'loras', filename: `lora_${String(index).padStart(3, '0')}.safetensors` }));
 
@@ -600,6 +615,7 @@ describe('background metadata reading', () => {
     const status = sync.status(db);
     expect(status).toMatchObject({ state: 'idle', lastError: null, progress: null, counts: { enrichedModels: 12 } });
     expect(status.warnings).toEqual([NODE_PORTS_NO_URL, METADATA_STOPPED]);
+    // 12 good reads, then 5 failed in a row stop the background reading.
     expect(calls.filter((call) => call.name === 'model_metadata')).toHaveLength(17);
     const failures = JSON.parse((db.prepare("SELECT value FROM sync_state WHERE key = 'enrich_failures'").get() as { value: string }).value);
     expect(Object.keys(failures)).toHaveLength(5);

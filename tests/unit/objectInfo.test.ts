@@ -1,3 +1,11 @@
+/**
+ * Parsing ComfyUI's object_info into the node catalog (src/shared/catalog/objectInfo, stored by
+ * src/main/catalog/repository) and using its widget order to change a field by name (the set-parameter command):
+ * combo and model folders, the hidden "control after generate" slots the ComfyUI frontend adds, size limits,
+ * broken entries, and refusal whenever the stored values and the catalog order disagree.
+ * Why: a value written into the wrong slot of widgets_values silently breaks the person's workflow in ComfyUI,
+ * so a write happens only when the slot is certain.
+ */
 import { describe, expect, it } from 'vitest';
 import Database from 'better-sqlite3';
 import { commitCommand, ensureWorkspace, readProjection } from '../../src/main/commands/commit';
@@ -11,6 +19,7 @@ import {
 import { DESKTOP_PROJECT_ID } from '../../src/shared/project';
 import { missingDeps } from '../../src/shared/workflow/codec';
 
+/** A small object_info: one core loader, KSampler with a seed, and a custom-pack loader using the COMBO form. */
 const snapshot = {
   CheckpointLoaderSimple: {
     input: {
@@ -64,6 +73,7 @@ const snapshot = {
   },
 };
 
+/** A migrated in-memory database with the desktop workspace ready. */
 function openDb(): Database.Database {
   const db = new Database(':memory:');
   migrate(db);
@@ -310,6 +320,7 @@ describe('object_info catalog', () => {
       expect(JSON.stringify(readProjection(db, DESKTOP_PROJECT_ID))).toBe(before);
       expected = imported.projection!.currentRevisionId;
     }
+    // COLOR is a widget whose slot count is not known, so the whole order of that class is marked unreliable.
     const color = readCatalog(db).nodes.find((node) => node.classType === 'ColorNode');
     expect(color?.widgetOrderReliable).toBe(false);
     expect(color?.widgetOrder).toEqual([]);
@@ -424,6 +435,7 @@ describe('object_info catalog', () => {
         python_module: 'nodes',
       },
     });
+    // A combo with control_after_generate gets two hidden slots in the frontend: the mode and a filter list.
     expect(parsed.nodes.find((node) => node.classType === 'ChoiceNode')?.widgetOrder).toEqual([
       'choice',
       'choice::control_after_generate',

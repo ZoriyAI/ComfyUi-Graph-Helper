@@ -1,3 +1,8 @@
+/**
+ * The folder of downloaded model pictures (trimCache in src/main/knowledge/preview): past a file count or a total
+ * size the oldest pictures are removed first and the newest are kept.
+ * Why: previews are fetched as the person browses the library, and the cache must not grow on their disk forever.
+ */
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';

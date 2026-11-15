@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-
 /**
- * Preload contract tests
- * Validates that preload API structure matches expected contract
+ * A shape check of the window.electronAPI contract: method names the renderer expects (llmSetConfig,
+ * llmStreamChat and others), the platform names and the version format.
+ * It checks a hand-made object, not src/preload itself; the real preload is loaded in preloadStream.test.ts.
  */
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 describe('Preload API Contract', () => {
   it('should define expected electronAPI structure', () => {

@@ -1,3 +1,9 @@
+/**
+ * The MCP access block of Settings (src/renderer/components/settings/mcpAccess): after Check, the detected way in
+ * (none, token, browser sign-in) is selected and explained in one sentence; the token status line names where the
+ * token is kept; detection runs again after a save only for a new address with no way in chosen yet.
+ * Why: a person who pastes an MCP address should see the right choice made for them, not guess it.
+ */
 import { describe, expect, it } from 'vitest';
 import { detectionNote, shouldDetectAfterSave, tokenPlaceKey } from '../../src/renderer/components/settings/mcpAccess';
 import { ru } from '../../src/shared/i18n/catalog';

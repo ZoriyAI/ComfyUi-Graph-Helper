@@ -1,3 +1,8 @@
+/**
+ * The short name of the assistant's model shown in the top bar (src/renderer/components/shell/modelDisplayName):
+ * hub prefix, uploader, file path, format and quantisation are dropped; a size tag stays.
+ * Why: a long local model address does not fit the top bar, and the person needs to recognise the model at a glance.
+ */
 import { describe, expect, it } from 'vitest';
 import { modelDisplayName } from '../../src/renderer/components/shell/modelDisplayName';
 

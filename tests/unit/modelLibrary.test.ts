@@ -1,3 +1,10 @@
+/**
+ * The model library panel (src/renderer/components/library/libraryModel) and dropping a model onto the canvas
+ * (src/renderer/components/graph/lib/modelLoaders): kind chips and sort order, which base models and LoRAs fit
+ * each other, safe description and source link, and which loader node and field a dropped file gets.
+ * Why: the person browses their own models here and drags them into the graph; a wrong "fits" or a wrong loader
+ * would teach them a broken setup.
+ */
 import { describe, expect, it } from 'vitest';
 import type { ModelSummary } from '../../src/shared/contracts';
 import {
@@ -12,6 +19,7 @@ import {
 } from '../../src/renderer/components/library/libraryModel';
 import { loaderFieldFor, loaderForModel, MODEL_DRAG_TYPE, modelFromDrop, NODE_DRAG_TYPE } from '../../src/renderer/components/graph/lib/modelLoaders';
 
+/** A model summary as the library receives it, enriched, with no preview. */
 function model(directory: string, name: string, kind: ModelSummary['kind'], baseModel: ModelSummary['baseModel'], sizeBytes: number | null = 1): ModelSummary {
   return { directory, name, kind, baseModel, sizeBytes, enriched: true, title: '', preview: null, mature: false };
 }

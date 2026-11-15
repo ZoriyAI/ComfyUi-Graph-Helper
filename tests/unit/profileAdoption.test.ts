@@ -2,6 +2,8 @@
  * The first start of 1.0 takes over the 0.x profile folder (src/main/profileAdoption.ts): it is renamed when only the
  * old folder exists, and left alone in every other case. Real folders in a temp directory; the unreadable case uses
  * an injected file system, because the tests may run as root, for whom every folder is readable.
+ * Why: a person upgrading from 0.x keeps their projects, settings and keys without copying anything by hand, and
+ * nothing is ever deleted or merged when the case is not clear.
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import * as fs from 'fs';
@@ -90,6 +92,7 @@ describe('taking over the 0.x profile', () => {
 
   it('waits while a running 0.x holds the old folder, and ignores a lock left by a crash', () => {
     makeOldProfile();
+    // Chromium's profile lock is a symlink whose target is "<host>-<pid>".
     fs.symlinkSync('this-host-4242', path.join(oldDir, 'SingletonLock'));
     expect(profileInUse(oldDir, { hostname: 'this-host', alive: () => true })).toBe(true);
     expect(adoptLegacyProfile(appData, { hostname: 'this-host', alive: () => true })).toEqual({ outcome: 'old-in-use', from: oldDir });

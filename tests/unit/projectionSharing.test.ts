@@ -1,7 +1,15 @@
+/**
+ * How the renderer applies a new graph projection (keepUnchangedNodes in src/renderer/services/commands/projection):
+ * an unchanged node keeps the object already on screen, a changed or refused-move node gets a new one, and the
+ * selection survives.
+ * Why: reusing objects keeps a large canvas from redrawing every node on each change, while a refused drag must
+ * snap back to where the engine has the node.
+ */
 import { describe, expect, it } from 'vitest';
 import { keepUnchangedNodes } from '../../src/renderer/services/commands/projection';
 import type { GraphNode } from '../../src/renderer/types/graph';
 
+/** A Note node at (x, 0) as the engine projects it. */
 function node(id: string, x: number, title = 'Note'): GraphNode {
   return { id, type: 'comfy', position: { x, y: 0 }, data: { title, comfyType: 'Note' } } as unknown as GraphNode;
 }

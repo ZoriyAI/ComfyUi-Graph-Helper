@@ -1,3 +1,10 @@
+/**
+ * The Preferences store (src/shared/config/preferences, saved on the settings row by src/main/settings/repository):
+ * defaults for every section, ranges and enums, a broken store read field by field, section-wise merge, secrets
+ * refused anywhere, the column added by migration 10, and clearing the chat history of one project.
+ * Why: a person's preferences survive a bad value or an older database without being reset, and a pasted API key
+ * can never end up stored in plain settings.
+ */
 import Database from 'better-sqlite3';
 import { describe, expect, it } from 'vitest';
 import {
@@ -16,6 +23,7 @@ import { clearChatHistory, loadChatHistory, saveChatMessage } from '../../src/ma
 import { ensureWorkspace } from '../../src/main/commands/commit';
 import { DESKTOP_PROJECT_ID } from '../../src/shared/project';
 
+/** The plain settings row sent with every settings:save in these tests. */
 const ROW = {
   theme: 'graphite',
   motion: 'system',
@@ -28,6 +36,7 @@ const ROW = {
   language: 'en',
 };
 
+/** A migrated in-memory database. */
 function openDb(): Database.Database {
   const db = new Database(':memory:');
   migrate(db);
@@ -144,6 +153,7 @@ describe('preferences on the settings row (migration v10)', () => {
       );
       INSERT INTO settings (id, theme, motion, provider, model, comfy_origin, updated_at) VALUES (1, 'graphite', 'off', 'local', 'llama', '', 1);
     `);
+    // Before the migration there is no column: defaults are read, nothing fails.
     expect(readPreferences(db)).toEqual(preferencesDefaults);
     migrate(db);
     expect(schemaVersion(db)).toBe(SCHEMA_VERSION);

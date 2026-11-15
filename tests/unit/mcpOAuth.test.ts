@@ -1,3 +1,10 @@
+/**
+ * Browser sign-in to an MCP server (src/main/mcp/oauth, used by Settings and the background sync): discovery,
+ * client registration, PKCE, tokens stored only as ciphertext and only with a proven OS password store, silent
+ * refresh, "sign in again" when refresh fails, no bearer sent across a redirect, and the loopback callback.
+ * Why: the person signs in once and the sync keeps working, while their tokens never land on disk in clear,
+ * in a log, or at another server.
+ */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import Database from 'better-sqlite3';
 import * as http from 'http';
@@ -18,6 +25,7 @@ import { startFakeMcp } from '../fixtures/mcp/fakeMcpServer';
 
 /** TEST fixture only: a fake OAuth + MCP server on 127.0.0.1 (tests/fixtures/mcp/fakeOAuthMcp.ts). No real network. */
 
+/** An in-memory database with a settings row that points at `url` as the MCP address. */
 function openDb(url: string): Database.Database {
   const db = new Database(':memory:');
   migrate(db);
@@ -59,6 +67,7 @@ async function followLikeABrowser(start: string): Promise<number> {
 let fake: FakeOAuthMcp;
 let opened: string[];
 
+/** An OAuth manager on `db`; by default its "browser" records the URL and follows it to the callback. */
 function manager(db: Database.Database, vault: SecretVault = provenVault, open?: (url: string) => Promise<void>) {
   return new McpOAuthManager({
     db: () => db,
@@ -73,6 +82,7 @@ function manager(db: Database.Database, vault: SecretVault = provenVault, open?:
   });
 }
 
+/** Names of the encrypted secret records stored in `db`. */
 function secretNames(db: Database.Database): string[] {
   return (db.prepare('SELECT name FROM secret_records ORDER BY name').all() as Array<{ name: string }>).map((row) => row.name);
 }
@@ -263,6 +273,7 @@ describe('MCP OAuth sign-in', () => {
       const db = openDb(fake.mcpUrl);
       const oauth = manager(db);
       expect((await oauth.login(fake.mcpUrl)).ok).toBe(true);
+      // localhost is another origin than 127.0.0.1, so following this redirect would leak the bearer.
       fake.redirectMcpTo(`http://localhost:${port}/steal`);
       const provider = await oauth.backgroundProvider(fake.mcpUrl);
       const viaOAuth = await openReadOnlySession({ url: fake.mcpUrl, token: null, authProvider: provider }, connectStreamableHttp);

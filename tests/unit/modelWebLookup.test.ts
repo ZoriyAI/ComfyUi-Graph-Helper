@@ -1,3 +1,11 @@
+/**
+ * Looking a model file up on the internet (src/shared/knowledge/webLookup, src/main/knowledge/webLookup and
+ * modelWeb, shown on the model card): reading a Civitai record found by the file's fingerprint, guessing a Hugging
+ * Face repository by name, choosing and checking a safe preview picture, the gate that lets the server compute a
+ * fingerprint, and how a find is stored next to what the file itself says.
+ * Why: a model with no description gets one from Civitai or Hugging Face, but only fixed sites over https are
+ * asked, adult previews stay closed, and nothing from the web overrides what the file's own header says.
+ */
 import { catalogModelRoots } from '../../src/main/mcp/knownRoots';
 import { afterEach, describe, expect, it } from 'vitest';
 import Database from 'better-sqlite3';
@@ -256,7 +264,7 @@ describe('the read-only gate and the fingerprint of a model file', () => {
   it('reads the fingerprint from the answer, whatever the exact shape, and nothing that is not one', () => {
     const hex = 'ab'.repeat(32);
     expect(sha256FromHashAnswer({ path: '/x', sha256: hex.toUpperCase(), size_bytes: 3 })).toBe(hex);
-    // The answer as a real Home ComfyUI MCP server gives it (2026-11, workspace_files hash of a LoRA).
+    // The answer as a real MCP server gives it (workspace_files hash of a LoRA).
     expect(sha256FromHashAnswer({
       path: '/srv/models/loras/a.safetensors', root: 'models', relative_path: 'loras/a.safetensors', type: 'file', size_bytes: 28627792,
       mode: 436, mtime: '2026-11-07T15:10:36.548Z', identity: '66306:227057231:28627792:1:2', algorithm: 'sha256', sha256: hex, complete: true,
@@ -268,6 +276,7 @@ describe('the read-only gate and the fingerprint of a model file', () => {
   });
 });
 
+/** An empty migrated in-memory database. */
 function openDb(): Database.Database {
   const db = new Database(':memory:');
   migrate(db);
@@ -280,6 +289,7 @@ afterEach(async () => {
   web = null;
 });
 
+/** A lookup client aimed at the fake sites; each pause it would make is recorded in `sleeps` instead. */
 function client(fake: FakeModelWeb, sleeps: number[] = []): ModelWebClient {
   return new ModelWebClient({
     endpoints: { civitai: `${fake.origin}/civitai`, huggingface: `${fake.origin}/hf` },
