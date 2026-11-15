@@ -46,20 +46,23 @@ export function shortcutAllowed(shortcut: string, context: FocusContext): boolea
   return !context.editable && !context.layerOpen;
 }
 
-/** The enabled command whose shortcut this key event is, if any may run here. */
+/**
+ * The first enabled command whose shortcut this key event is and may run here. Two commands can share a chord
+ * (each enabled in its own situation), so a match that is not allowed or not enabled moves on to the next one.
+ */
 export function commandForKey(event: KeyLike, context: FocusContext, commands: Command[], platform: Platform): Command | null {
   for (const command of commands) {
     const keys = [...(command.shortcut && !command.shortcutDisplayOnly ? [command.shortcut] : []), ...(command.altShortcuts ?? [])];
     const shortcut = keys.find((key) => matchesShortcut(event, key, platform));
     if (!shortcut) continue;
-    if (!shortcutAllowed(shortcut, context)) return null;
+    if (!shortcutAllowed(shortcut, context)) continue;
     let enabled = false;
     try {
       enabled = command.enabled();
     } catch {
       enabled = false;
     }
-    return enabled ? command : null;
+    if (enabled) return command;
   }
   return null;
 }
