@@ -283,7 +283,18 @@ export default function CanvasFlow() {
   const nodes: LevelNode[] = mode === 'replay' ? replayView?.nodes ?? [] : mode === 'definition' ? inner!.nodes : rootNodes;
   const edges: GraphEdge[] = mode === 'replay' ? replayView?.edges ?? [] : mode === 'definition' ? inner!.edges : rootEdges;
   const readOnly = mode === 'replay';
-  const { nodes: drawnNodes, skipNext: ownMove, stop: stopGlide } = useGlide(nodes, mode === 'root');
+  const { nodes: glidedNodes, skipNext: ownMove, stop: stopGlide } = useGlide(nodes, mode === 'root');
+  // Performance (motion package): while the person drags nodes on the root level, their places live here and reach
+  // the graph store once, on the drop. Writing the store on every pointer move woke every part of the window that
+  // reads the graph (the check list, Properties, the status bar, description cards) and cost a 129-node graph most
+  // of its frames. React Flow draws from these places, so the drag looks the same.
+  const [dragPlaces, setDragPlaces] = useState<ReadonlyMap<string, { x: number; y: number }> | null>(null);
+  const drawnNodes = useMemo(() => (dragPlaces
+    ? glidedNodes.map((node) => {
+      const at = dragPlaces.get(node.id);
+      return at ? { ...node, position: at, dragging: true } : node;
+    })
+    : glidedNodes), [glidedNodes, dragPlaces]);
   const host = useRef<HTMLDivElement>(null);
 
   // Sizes at a readable zoom, for «Разложить граф» while the overview has collapsed the nodes.
@@ -394,16 +405,33 @@ export default function CanvasFlow() {
       }
       return;
     }
+    // A drag in progress (only moves that are still dragging): kept on the canvas, not in the store (dragPlaces).
+    if (changes.length > 0 && changes.every((change) => change.type === 'position' && change.dragging === true && change.position)) {
+      setDragPlaces((current) => {
+        const next = new Map(current ?? []);
+        for (const change of changes) if (change.type === 'position' && change.position) next.set(change.id, change.position);
+        return next;
+      });
+      return;
+    }
     // The person's own move (a drag, an arrow key) is drawn at once, never glided.
     if (changes.some((change) => change.type === 'position')) ownMove();
-    if (local.length > 0) setRootNodes(applyNodeChanges(local, rootNodes) as GraphNode[]);
+    // The drop (or anything else that ends a drag): the places the drag reached go into the store with this change.
+    const base = dragPlaces
+      ? rootNodes.map((node) => {
+        const at = dragPlaces.get(node.id);
+        return at ? { ...node, position: at } : node;
+      })
+      : rootNodes;
+    if (dragPlaces) setDragPlaces(null);
+    if (local.length > 0 || dragPlaces) setRootNodes(applyNodeChanges(local, base as Node[]) as GraphNode[]);
 
     for (const change of changes) {
       if (change.type === 'position' && change.dragging === false && change.position) moved(change.id, change.position);
       // Several nodes deleted at once are one step (one undo brings them all back with their links).
       if (change.type === 'remove') queueEdit({ type: 'remove-node', nodeId: change.id }, 'delete');
     }
-  }, [mode, rootNodes, setRootNodes, ownMove, moved]);
+  }, [mode, rootNodes, setRootNodes, ownMove, moved, dragPlaces]);
 
   const onEdgesChange: OnEdgesChange = useCallback((changes) => {
     if (mode === 'replay') return;
