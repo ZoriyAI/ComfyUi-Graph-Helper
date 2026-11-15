@@ -10,7 +10,7 @@
  */
 
 /** The day the advice and prices below were last checked against the providers' pages. */
-export const ADVICE_DATE = '2026-11-14';
+export const ADVICE_DATE = '2026-11-15';
 
 /** The cloud providers the advice covers. */
 export type AdviceProvider = 'openai' | 'anthropic' | 'google';
@@ -55,13 +55,16 @@ export const CLOUD_ADVICE: Record<AdviceProvider, ProviderAdvice> = {
 };
 
 /**
- * Models on your own server that call tools well enough for the assistant (Ollama names). `memoryGb`: video memory
- * (or, slower, system memory) the model needs with a 16 384-token window, rounded up.
+ * Models on your own server that call tools well enough for the assistant (Ollama names, marked "tools" in Ollama's
+ * library on ADVICE_DATE). `memoryGb`: video memory (or, slower, system memory) the model needs with a 16 384-token
+ * window, rounded up. Ollama publishes download sizes only, so this is an estimate: the download (qwen3.5:9b 6.6 GB,
+ * gpt-oss:20b 14 GB, qwen3.6:27b 17 GB) plus the context cache and buffers. Not measured by the project; the guide
+ * docs/wiki/assistant/Which-Model.md says so and lists more models by hardware.
  */
 export const LOCAL_ADVICE: ReadonlyArray<{ model: string; memoryGb: number }> = [
-  { model: 'qwen3:8b', memoryGb: 8 },
-  { model: 'qwen3:14b', memoryGb: 12 },
-  { model: 'qwen3:30b', memoryGb: 24 },
+  { model: 'qwen3.5:9b', memoryGb: 8 },
+  { model: 'gpt-oss:20b', memoryGb: 16 },
+  { model: 'qwen3.6:27b', memoryGb: 24 },
 ];
 
 /** Where a person gets Ollama, the simplest way to a model on their own computer. */
@@ -95,6 +98,8 @@ export const PRICES: ReadonlyArray<{ provider: AdviceProvider; prefix: string; i
   { provider: 'openai', prefix: 'gpt-5', input: 1.25, output: 10 },
   { provider: 'openai', prefix: 'gpt-4.1-mini', input: 0.4, output: 1.6 },
   { provider: 'openai', prefix: 'gpt-4.1', input: 2, output: 8 },
+  { provider: 'openai', prefix: 'gpt-4o-mini', input: 0.15, output: 0.6 },
+  { provider: 'openai', prefix: 'gpt-4o', input: 2.5, output: 10 },
   { provider: 'openai', prefix: 'o3-pro', input: 20, output: 80 },
   { provider: 'openai', prefix: 'o3', input: 2, output: 8 },
   { provider: 'anthropic', prefix: 'claude-fable-5-2', input: 8, output: 40 },
@@ -102,16 +107,29 @@ export const PRICES: ReadonlyArray<{ provider: AdviceProvider; prefix: string; i
   { provider: 'anthropic', prefix: 'claude-opus-5-5', input: 4, output: 20 },
   { provider: 'anthropic', prefix: 'claude-opus-5', input: 5, output: 25 },
   { provider: 'anthropic', prefix: 'claude-opus-4', input: 5, output: 25 },
+  // Claude Opus 4 and 4.1 (retired on the Claude API) kept their old price; 4.5 to 4.8 are the 'claude-opus-4' row.
+  { provider: 'anthropic', prefix: 'claude-opus-4-1', input: 15, output: 75 },
+  { provider: 'anthropic', prefix: 'claude-opus-4-0', input: 15, output: 75 },
+  { provider: 'anthropic', prefix: 'claude-opus-4-2025', input: 15, output: 75 },
   { provider: 'anthropic', prefix: 'claude-sonnet-5', input: 2, output: 10 },
   { provider: 'anthropic', prefix: 'claude-sonnet-4', input: 3, output: 15 },
+  // For prompts up to 100 000 tokens; a longer prompt costs $0.50 and $2.50.
   { provider: 'anthropic', prefix: 'claude-haiku-5-5', input: 0.1, output: 0.5 },
   { provider: 'anthropic', prefix: 'claude-haiku-4-5', input: 1, output: 5 },
+  // Google announces $4 and $20 for gemini-4-carbon and gemini-4-argon from 1 December 2026, and twice today's price
+  // for gemini-3.8-flash and gemini-3.6-flash from 1 January 2027; the rows hold today's prices.
   { provider: 'google', prefix: 'gemini-4-carbon', input: 2, output: 10 },
   { provider: 'google', prefix: 'gemini-4-argon', input: 2, output: 10 },
   { provider: 'google', prefix: 'gemini-4-hydrogen', input: 1.5, output: 7.5 },
   { provider: 'google', prefix: 'gemini-3.8-flash', input: 0.75, output: 3.75 },
+  { provider: 'google', prefix: 'gemini-3.6-flash', input: 0.75, output: 3.75 },
   { provider: 'google', prefix: 'gemini-3.5-flash-lite', input: 0.3, output: 2.5 },
   { provider: 'google', prefix: 'gemini-3.1-pro', input: 2, output: 12 },
+  { provider: 'google', prefix: 'gemini-3.1-flash-lite', input: 0.25, output: 1.5 },
+  { provider: 'google', prefix: 'gemini-3-flash', input: 0.5, output: 3 },
+  { provider: 'google', prefix: 'gemini-2.5-pro', input: 1.25, output: 10 },
+  { provider: 'google', prefix: 'gemini-2.5-flash-lite', input: 0.1, output: 0.4 },
+  { provider: 'google', prefix: 'gemini-2.5-flash', input: 0.3, output: 2.5 },
 ];
 
 /** PRICES with the longest prefix first, so 'gpt-5-mini' finds its own row before 'gpt-5'. */

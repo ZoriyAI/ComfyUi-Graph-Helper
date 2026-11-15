@@ -239,6 +239,28 @@ describe('which model and what it costs', () => {
     expect(knownContextTokens('claude-sonnet-5-5')).toBe(1_000_000);
     expect(knownContextTokens('claude-haiku-4-5')).toBe(200_000);
     expect(knownContextTokens('gemini-4-hydrogen')).toBe(1_048_576);
+    // The newer Qwen families are not the 40K qwen3; a compatible service's "qwen/qwen3.8-27b" resolves too.
+    expect(knownContextTokens('qwen3:8b')).toBe(40_960);
+    expect(knownContextTokens('qwen3.5:9b')).toBe(262_144);
+    expect(knownContextTokens('qwen/qwen3.8-27b')).toBe(262_144);
+    expect(knownContextTokens('gemma4:12b')).toBe(131_072);
+  });
+
+  it('suggests local models that fit 8, 16 and 24 GB, smallest first', () => {
+    expect(LOCAL_ADVICE.map((item) => item.memoryGb)).toEqual([8, 16, 24]);
+    expect(LOCAL_ADVICE.every((item) => /^[a-z0-9.-]+:[a-z0-9.-]+$/.test(item.model))).toBe(true);
+  });
+
+  it('prices the older models the providers still list (checked on ADVICE_DATE)', () => {
+    expect(priceOf('openai', 'gpt-4o-mini')).toEqual({ input: 0.15, output: 0.6 });
+    expect(priceOf('openai', 'gpt-4o-2024-08-06')).toEqual({ input: 2.5, output: 10 });
+    expect(priceOf('anthropic', 'claude-opus-4-1-20250805')).toEqual({ input: 15, output: 75 });
+    expect(priceOf('anthropic', 'claude-opus-4-20250514')).toEqual({ input: 15, output: 75 });
+    expect(priceOf('anthropic', 'claude-opus-4-8')).toEqual({ input: 5, output: 25 });
+    expect(priceOf('google', 'gemini-3.1-flash-lite')).toEqual({ input: 0.25, output: 1.5 });
+    expect(priceOf('google', 'gemini-2.5-flash-lite')).toEqual({ input: 0.1, output: 0.4 });
+    expect(priceOf('google', 'gemini-2.5-flash')).toEqual({ input: 0.3, output: 2.5 });
+    expect(priceOf('google', 'gemini-3-flash-preview')).toEqual({ input: 0.5, output: 3 });
   });
 });
 
