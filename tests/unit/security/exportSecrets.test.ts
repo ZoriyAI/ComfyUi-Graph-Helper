@@ -1,3 +1,8 @@
+/**
+ * Protects the step before a workflow is saved or exported: fields that hold a key are listed by node and field
+ * name (never by value), and if the person chooses to leave them out, the values are blanked everywhere in the
+ * written document. A shared workflow file must not carry the person's keys by accident.
+ */
 import { describe, expect, it } from 'vitest';
 import { parseSecretChoice, secretFieldsOf, withoutSecretValues } from '../../../src/main/exportSecrets';
 

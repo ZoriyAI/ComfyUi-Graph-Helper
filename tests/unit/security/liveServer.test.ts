@@ -1,3 +1,8 @@
+/**
+ * Protects the model list read from a live ComfyUI server over MCP: the .yaml files of the checkpoint
+ * configs folder are not models. Without this filter a person would see inference configs offered as
+ * models to load, and the assistant could pick one for a loader node.
+ */
 import { describe, expect, it } from 'vitest';
 import type { McpSession, McpToolCallResult } from '../../../src/shared/mcp/catalogSource';
 import { isModelFileIn, parseLocalModelsMarkdown } from '../../../src/shared/mcp/catalogSource';
@@ -18,6 +23,7 @@ describe('checkpoint configs are not models', () => {
   });
 
   it('a models listing with a configs category lists no config as a model', async () => {
+    // A fake server: the call without a category lists the categories, a call with one lists its files.
     const session: McpSession = {
       async listTools() { return [{ name: 'models' }]; },
       async callTool(_name, args) {

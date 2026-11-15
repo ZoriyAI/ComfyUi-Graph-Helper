@@ -1,3 +1,8 @@
+/**
+ * Protects automatic catalog sync with an MCP server after a run that never finished (the app crashed or was
+ * killed during it). The open-run mark left in the database holds the schedule until the person starts a sync
+ * by hand, so a sync that crashed or froze the app does not run again on every start without their say.
+ */
 import Database from 'better-sqlite3';
 import { describe, expect, it, vi } from 'vitest';
 import { migrate } from '../../../src/main/settings/migrate';
@@ -42,6 +47,7 @@ describe('a sync that never ended holds automatic sync', () => {
     vi.useFakeTimers();
     try {
       const db = openDb();
+      // The mark a previous start left behind when its run never ended.
       db.prepare("INSERT INTO sync_state (key, value) VALUES ('run_open', '1699999999000')").run();
       const opened = { count: 0 };
       const sync = service(opened);

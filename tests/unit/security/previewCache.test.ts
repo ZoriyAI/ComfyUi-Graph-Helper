@@ -1,3 +1,8 @@
+/**
+ * Protects the size report and the clear action of the cache of node preview pictures and clips.
+ * A person who empties the cache in Settings must see a true count and get the disk space back, and a
+ * missing cache folder (a fresh install) must read as empty instead of failing.
+ */
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';

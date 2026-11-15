@@ -1,3 +1,8 @@
+/**
+ * Protects the detection of API keys for other services (Replicate, fal, ElevenLabs, Runway, Civitai) typed into
+ * node fields. Such keys are hidden from the assistant's view of the graph and trigger a question before a
+ * workflow file is written, so a person does not hand their paid accounts to a model or to whoever gets the file.
+ */
 import { describe, expect, it } from 'vitest';
 import { isSecretField, safeParameter, summarizeGraph } from '../../../src/shared/agent/graph';
 import { redactSecrets } from '../../../src/shared/config/draft';

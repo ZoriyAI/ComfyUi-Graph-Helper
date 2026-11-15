@@ -1,3 +1,9 @@
+/**
+ * Protects "Forget all" in Settings: every provider key, MCP token and browser sign-in goes from memory, from the
+ * database and from the fallback key and token files, and the database is rebuilt so no old encrypted bytes stay in
+ * free pages. The confirmation also counts exactly what will go. A person handing over or leaving a computer must be
+ * able to trust that nothing is left.
+ */
 import { afterEach, describe, expect, it } from 'vitest';
 import Database from 'better-sqlite3';
 import * as fs from 'fs';
@@ -106,6 +112,7 @@ describe('what Forget all would remove', () => {
       heldTokenOrigin: () => 'https://a.example',
       heldSignIns: () => ['https://b.example', 'https://d.example'],
     });
+    // Tokens: a.example (memory and record, counted once) and c.example (file). Sign-ins: b.example and d.example.
     expect(found).toEqual({ providers: ['openai', 'anthropic', 'google'], serverTokens: 2, signIns: 2 });
     const none = secretInventory({ db: (() => { const empty = new Database(':memory:'); migrate(empty); return empty; })(), userData: tempDir(), heldProviders: () => [], heldTokenOrigin: () => null, heldSignIns: () => [] });
     expect(none).toEqual({ providers: [], serverTokens: 0, signIns: 0 });

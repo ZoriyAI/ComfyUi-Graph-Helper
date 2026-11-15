@@ -1,3 +1,8 @@
+/**
+ * Protects the list of addresses the assistant's page reader may open in a conversation. A source the AI
+ * provider's own web search cites is shown to the person but does not join that list, so a cited address
+ * that carries the person's prompt in its query cannot be fetched by the app on the model's request.
+ */
 import Database from 'better-sqlite3';
 import { describe, expect, it, vi } from 'vitest';
 import { runAgentTurn } from '../../../src/main/agent/turn';

@@ -1,3 +1,9 @@
+/**
+ * Protects how outside text reaches the assistant: graph, catalog and file text go in a marked data block on the
+ * person's message, never in the system message; the page reader may open only addresses the person wrote; the
+ * model is not told local folder paths; and the conversation log names the question, not the data block.
+ * Together these keep a hostile workflow note from steering the assistant or leaking the person's data.
+ */
 import { describe, expect, it } from 'vitest';
 import { buildSystemPrompt, buildTurnData, DATA_CLOSE, DATA_OPEN, withTurnData } from '../../../src/main/agent/prompt';
 import { ConversationLinks, linksInText, normalLink } from '../../../src/main/agent/links';

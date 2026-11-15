@@ -1,3 +1,8 @@
+/**
+ * Protects the binding of an AI provider key to the address it was pasted for. A key for the official API is never
+ * sent to a typed or look-alike address, a key for the person's own https proxy is never sent to the official one,
+ * and http or credential-bearing addresses take no key at all. A mistyped or planted base URL cannot steal the key.
+ */
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -12,7 +17,7 @@ import { createTranslator, translateKnownError } from '../../../src/shared/i18n'
 const KEY = 'sk-proj-fake-key-for-tests-0000000000';
 const PROXY_KEY = 'sk-proj-fake-proxy-key-0000000000';
 
-/** Records every request; answers with an empty model list. */
+/** Records every request with its headers; answers with a one-model list. */
 function recording(seen: string[]): typeof fetch {
   return (async (input: RequestInfo | URL, init?: RequestInit) => {
     const headers: string[] = [];
