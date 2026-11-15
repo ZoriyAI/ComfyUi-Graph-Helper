@@ -311,4 +311,163 @@ export const RELIABLE_EN: Record<string, LessonWords> = {
       },
     },
   },
+  'audit-workflow': {
+    title: 'Auditing someone else\'s workflow and a custom pack',
+    result: 'A written verdict on a workflow and its packs: run, run with limits, or do not run, with the evidence and the unknowns.',
+    roles: {
+      output: 'result node',
+      loader: 'model loader',
+    },
+    meta: {
+      skill: 'Decide before anything runs whether a workflow from someone else and the packs it needs are safe to run, and under which limits.',
+      requires: ['The lesson “Reading someone else\'s workflow”.', 'A workflow from someone else that you want to try, as a .json file or a picture.'],
+      mistakes: [
+        {
+          sign: 'You installed every missing pack with one button, then read what they are.',
+          fix: 'Restore the snapshot you saved, then audit each pack before you install it again. A pack runs its code on your computer the moment ComfyUI starts.',
+        },
+        {
+          sign: 'The workflow\'s notes say to install a pack from a link, or to run a command.',
+          fix: 'Do not follow links or commands from a workflow or a note. Find the pack in the list of ComfyUI Manager or on its author\'s page.',
+        },
+        {
+          sign: 'A loader asks for a .ckpt or .pth file from an unknown site.',
+          fix: 'Look for a .safetensors file of the same model on the author\'s page. Treat a pickle file from an unknown source as a program.',
+        },
+        {
+          sign: 'To share the workflow with a friend you started ComfyUI with `--listen`.',
+          fix: '`--listen` without an address opens ComfyUI to every address of your network. Stop it, and start ComfyUI without the flag.',
+        },
+      ],
+      provenance: 'Built on the ComfyUI Manager README (security_level, the install switches, snapshots), the Registry standards and the start flags of ComfyUI. No workflow comes with the lesson: you audit one you want to try. This is a careful habit, not a guarantee: a review can miss what an author hides.',
+      notChecked: 'The app opens the workflow as data and checks which of its nodes your ComfyUI has. It does not run anything, does not install anything, does not read the code of a pack, its repository or your settings: every finding and the verdict are your own word.',
+    },
+    steps: {
+      intro: {
+        title: 'Where the risk is',
+        body: 'Opening a workflow in this app reads a file and runs nothing. The risk starts later:\n\n- **A pack** is a program. When ComfyUI starts, it runs with all the rights of ComfyUI: it can read and write your files, reach the network and install more software.\n- **A model file** in a pickle format (.ckpt, .pt, .pth, .bin) can run code when it is loaded.\n- **The start of ComfyUI** decides who else can reach it.\n\nIn this lesson you look at all three before anything runs, and write a verdict.',
+      },
+      open: {
+        title: 'Open it as data',
+        body: 'Open the workflow in this app: “File ▸ Open workflow…”. A picture with a workflow inside works too.',
+        items: {
+          opened: { label: 'I opened the workflow in this app, not in ComfyUI.' },
+          check: { label: 'I pressed “Check graph” and wrote down the nodes that are not installed and the models that are not on disk.', how: 'The groups “Nodes that are not installed” and “Models that are not on disk”. Each node there points to a pack you must audit.' },
+          installed: { label: 'Every node of it is installed in your ComfyUI.', how: 'The app checks this. If not, the missing nodes are the packs to audit.' },
+        },
+      },
+      outputs: {
+        title: 'What it writes',
+        body: 'Find {output}: the nodes that save or show results. Click one to select it. Note what it saves and where: a file in the output folder, or something sent elsewhere by a pack node.\n\nIf the workflow has no such node, ComfyUI would refuse to run it.',
+      },
+      loaders: {
+        title: 'What it loads',
+        body: 'Find {loader}: a node that loads a model file. Look at the file name in its field, and at every other loader of the workflow.\n\nFor each file write its format. .safetensors and .gguf hold data. .ckpt, .pt, .pth and .bin may hold code: the model card of this app warns about them.',
+      },
+      packs: {
+        title: 'What a pack can do, and what limits it',
+        body: '- The Registry of ComfyUI forbids `eval` and `exec`, installing packages while the pack runs, and obfuscated code. A pack that does any of these did not follow the rules.\n- ComfyUI Manager has a `security_level` in its config.ini that blocks risky features. Installing from a Git address and installing pip packages by hand are off by default (`allow_git_url_install`, `allow_pip_install`) and work only while ComfyUI listens on a local address.\n- ComfyUI listens on 127.0.0.1, this computer only, unless it is started with `--listen`. Without an address `--listen` opens it to every address.\n\nNone of this proves a pack is honest. It tells you what to look for.',
+      },
+      source: {
+        title: 'Where each pack comes from',
+        body: 'For each pack the workflow needs:',
+        items: {
+          where: { label: 'I found it in the list of ComfyUI Manager or the Registry, not by a link in the workflow.', how: 'Search the pack by name in Manager; open its repository from there.' },
+          author: { label: 'I looked at its author and its repository: recent changes, open issues, how many people use it.', how: 'A pack nobody uses and nobody keeps up is a risk of its own.' },
+          version: { label: 'I wrote the version I would install.' },
+        },
+      },
+      code: {
+        title: 'What each pack brings',
+        body: 'Read the repository of each pack before you install it. You need not understand all the code: look for these.',
+        items: {
+          deps: { label: 'I read its list of Python packages and noted anything unusual.', how: 'Often requirements.txt or pyproject.toml in the repository.' },
+          flags: { label: 'I searched its code for `eval`, `exec`, `subprocess`, pip calls and unreadable code.', how: 'The search of the repository page finds them.' },
+          network: { label: 'I noted what it downloads or sends, and where to.', how: 'Model downloads on the first run, calls to outside services, keys it asks for.' },
+          files: { label: 'Every model file it needs is .safetensors or .gguf, or I know why not.' },
+        },
+      },
+      setup: {
+        title: 'Keys and the network',
+        body: 'Two more things to check before the verdict.',
+        items: {
+          keys: { label: 'No field of the workflow holds a key, a token or a password.', how: 'This app asks before saving a long random string in a field. Never paste a key into a workflow you share.' },
+          listen: { label: 'My ComfyUI listens on 127.0.0.1, without `--listen`.', how: 'Look at the start command or the settings of your ComfyUI.' },
+          manager: { label: 'I know the `security_level` of my ComfyUI Manager and did not lower it for this workflow.', how: 'The path of config.ini is printed in the start log.' },
+        },
+      },
+      verdict: {
+        title: 'The verdict',
+        body: 'Write one of three: run it; run it with limits; do not run it. Limits can be: without one pack, in a separate environment (another Python environment, a container, another user account), without the internet.\n\nIf you will install anything, save a snapshot first. If your verdict is not to run it, remove from the canvas the nodes of the packs you rejected: what is left is what you would run.',
+        items: {
+          verdict: { label: 'I wrote the verdict with the reasons for each pack and file.' },
+          limits: { label: 'I wrote the limits, or that there are none.' },
+          snapshot: { label: 'Before installing anything I saved a snapshot.', how: '“Save snapshot” in ComfyUI Manager; “Restore” brings it back at the next start.' },
+        },
+      },
+      complete: {
+        title: 'What you will run is installed',
+        body: 'The app checks that every node of the workflow on the canvas is installed in your ComfyUI: the packs you accepted are in, the nodes you rejected are gone.',
+      },
+      run: {
+        title: 'Run what passed',
+        body: `${RUN}\n\n${OWN_WORD}`,
+        items: {
+          ran: { label: 'I ran the workflow that passed the audit, and it finished.', how: 'A result in the output folder, or the error you can now diagnose.' },
+          log: { label: 'The start log shows no “(IMPORT FAILED)” for the packs I installed.', how: 'The list “Import times for custom nodes:” near the end of the start.' },
+        },
+      },
+      assess: {
+        title: 'How good is the audit?',
+        body: 'Judge your own audit. The app records your choice and nothing else.',
+        criteria: {
+          evidence: {
+            title: 'Each pack and file has a finding with where it comes from.',
+            levels: { no: 'No', partly: 'Partly', yes: 'Yes' },
+            tryNext: 'Go back to the steps “Where each pack comes from” and “What each pack brings” for the pack without a finding.',
+          },
+          unknowns: {
+            title: 'What I could not check is written as unknown, not as safe.',
+            levels: { no: 'No', yes: 'Yes' },
+            tryNext: 'An unknown is a reason for limits, not for trust. Add it to the verdict.',
+          },
+          verdict: {
+            title: 'The verdict names run, limits or no, and why.',
+            levels: { no: 'No', partly: 'Partly', yes: 'Yes' },
+            tryNext: 'Write it in one sentence per pack: accepted, accepted with a limit, or rejected, and the reason.',
+          },
+        },
+      },
+      recall: {
+        title: 'Check yourself',
+        body: 'Three short questions. A wrong answer costs nothing: read the explanation and go on.',
+        questions: {
+          open: {
+            text: 'When does a pack\'s code first run on your computer?',
+            choices: { 'open-app': 'When you open the workflow in this app', install: 'Once it is installed and ComfyUI starts', run: 'Only when you press Run' },
+            explain: 'ComfyUI imports every installed pack at start, so its code runs before any workflow does.',
+          },
+          format: {
+            text: 'A loader asks for `upscaler.pth` from an unknown site. What is it?',
+            choices: { safetensors: 'Data only, like .safetensors', pth: 'A pickle file that may hold code', gguf: 'A quantized model' },
+            explain: '.pth is usually a pickle file. Take it only from a known source, or find a .safetensors file.',
+          },
+          listen: {
+            text: 'What does `--listen` without an address do?',
+            choices: { local: 'Keeps ComfyUI on this computer', network: 'Opens ComfyUI to every address', nothing: 'Nothing' },
+            explain: 'Without an address ComfyUI listens on every address of the computer, so others on the network can reach it.',
+          },
+        },
+      },
+      transfer: {
+        title: 'On your own: a pack you want',
+        body: 'Audit a pack you have wanted to try, without a workflow to guide you. The app gives no ready answer here.',
+        items: {
+          pack: { label: 'I chose a pack I do not have yet.' },
+          page: { label: 'I audited its source, its packages, its code flags, what it downloads and its model files.' },
+          decision: { label: 'I wrote a verdict with limits and unknowns, and kept it with the date.' },
+        },
+      },
+    },
+  },
 };

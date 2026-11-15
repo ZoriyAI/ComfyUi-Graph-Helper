@@ -52,4 +52,5 @@
 - [Ошибка в ComfyUI](../graph/ComfyUI-Errors.ru.md)
 - [Проверка графа](../graph/Checking-A-Graph.ru.md)
 - [Паки нод](../concepts/Node-Packs.ru.md)
+- [Аудит чужого workflow и кастомного пака](Audit-Workflow.ru.md)
 - [Как устроены уроки](How-Lessons-Work.ru.md)

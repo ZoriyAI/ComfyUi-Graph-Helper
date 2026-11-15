@@ -213,13 +213,59 @@ const diagnoseMissing: Lesson = {
   ],
 };
 
+/**
+ * N35: decide, before anything runs, whether a workflow from someone else and the packs it needs are safe to run, and
+ * under which limits. The app opens the workflow as data; the person finds its outputs and loaders on the canvas,
+ * audits each pack and file, writes a verdict, and runs only what passed.
+ */
+const auditWorkflow: Lesson = {
+  id: 'audit-workflow',
+  standard: 2,
+  outcomes: ['structure', 'run', 'result'],
+  meta: { prerequisites: ['read-workflow'], versions: [FRONTEND, 'ComfyUI core: the start flag --listen'], checkedOn: CHECKED_ON },
+  steps: [
+    { id: 'intro', read: true },
+    { id: 'open', checklist: [{ id: 'opened' }, { id: 'check' }, { id: 'installed', optional: true, check: { kind: 'workflow-complete' } }] },
+    { id: 'outputs', roles: [node('output', 'SaveImage', 'PreviewImage', 'SaveVideo', 'SaveAudio')] },
+    {
+      id: 'loaders',
+      roles: [node('loader', 'CheckpointLoaderSimple', 'UNETLoader', 'VAELoader', 'CLIPLoader', 'DualCLIPLoader', 'LoraLoader', 'LoraLoaderModelOnly', 'ControlNetLoader', 'UpscaleModelLoader')],
+    },
+    { id: 'packs', read: true },
+    { id: 'source', checklist: [{ id: 'where' }, { id: 'author' }, { id: 'version' }] },
+    { id: 'code', checklist: [{ id: 'deps' }, { id: 'flags' }, { id: 'network' }, { id: 'files' }] },
+    { id: 'setup', checklist: [{ id: 'keys' }, { id: 'listen' }, { id: 'manager' }] },
+    { id: 'verdict', checklist: [{ id: 'verdict' }, { id: 'limits' }, { id: 'snapshot' }] },
+    { id: 'complete', readCheck: [{ kind: 'workflow-complete' }] },
+    { id: 'run', checklist: [{ id: 'ran', run: true }, { id: 'log' }] },
+    {
+      id: 'assess',
+      rubric: [
+        { id: 'evidence', levels: ['no', 'partly', 'yes'] },
+        { id: 'unknowns', levels: ['no', 'yes'], pass: 'yes' },
+        { id: 'verdict', levels: ['no', 'partly', 'yes'] },
+      ],
+    },
+    {
+      id: 'recall',
+      quiz: [
+        { id: 'open', choices: ['open-app', 'install', 'run'], answer: 'install' },
+        { id: 'format', choices: ['safetensors', 'pth', 'gguf'], answer: 'pth' },
+        { id: 'listen', choices: ['local', 'network', 'nothing'], answer: 'network' },
+      ],
+    },
+    { id: 'transfer', transfer: true, checklist: [{ id: 'pack' }, { id: 'page' }, { id: 'decision' }] },
+  ],
+};
+
 /** The lessons of the set, in the order a person meets them. */
-export const RELIABLE_LESSONS: Lesson[] = [modelCard, diagnoseMissing];
+export const RELIABLE_LESSONS: Lesson[] = [modelCard, diagnoseMissing, auditWorkflow];
 
 /** The group of each lesson and the lessons it goes on from. */
 export const RELIABLE_PATH: Record<string, { group: LessonGroup; follows: string[] }> = {
   'model-card': { group: EXPERIMENTS_GROUP, follows: ['image'] },
   'diagnose-missing': { group: DIAGNOSTICS_GROUP, follows: ['image'] },
+  'audit-workflow': { group: DIAGNOSTICS_GROUP, follows: ['read-workflow'] },
 };
 
 /** The graph each lesson starts from. */

@@ -134,6 +134,7 @@ Lessons of the new standard on finding the cause of a failure, auditing what you
 computer. The app reads and checks; everything done in ComfyUI is your own word.
 
 - [Diagnosing missing nodes, models and IMPORT FAILED](Diagnose-Missing.md): lesson "diagnose-missing". One failure named by its class with evidence, a known-good small graph that runs, and a fix confirmed by a second run.
+- [Auditing someone else's workflow and a custom pack](Audit-Workflow.md): lesson "audit-workflow". A written verdict on a workflow and its packs: run, run with limits, or do not run, with the evidence and the unknowns.
 
 ### For adults (18+)
 Closed until the switch **Adult content (18+)** in **Settings ▸ Privacy** is on. Technique in general words for lawful adult (18+) work with consent; see [Content rules](../trust/Content-Rules.md).

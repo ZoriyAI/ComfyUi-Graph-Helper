@@ -22,7 +22,7 @@ describe('the lessons of the set “reliable-practice”', () => {
   it('stand in their groups: the model card with the experiments, the other three in the diagnostics group', () => {
     expect(DIAGNOSTICS_GROUP.title).toEqual({ en: 'Diagnostics, performance and safety', ru: 'Диагностика, производительность и безопасность' });
     expect(LESSON_PATH['model-card'].group.id).toBe('experiments');
-    for (const id of ['diagnose-missing']) expect(LESSON_PATH[id].group.id).toBe('diagnostics');
+    for (const id of ['diagnose-missing', 'audit-workflow']) expect(LESSON_PATH[id].group.id).toBe('diagnostics');
     for (const lesson of RELIABLE_LESSONS) {
       expect(levelOf(lesson.id)).toBe(2);
       expect(lessonPlace(lesson.id)).toMatchObject({ priority: 'core', tracks: ['base'] });
@@ -57,6 +57,7 @@ describe('the lessons of the set “reliable-practice”', () => {
     const kinds = (id: string) => new Set(lessonById(id)!.steps.flatMap((step) => [...(step.readCheck ?? []), ...(step.checklist ?? []).flatMap((item) => (item.check ? [item.check] : []))]).map((item) => item.kind));
     expect([...kinds('model-card')].sort()).toEqual(['comfy-read', 'model-file', 'workflow-complete']);
     expect([...kinds('diagnose-missing')].sort()).toEqual(['comfy-read', 'node-class', 'workflow-complete']);
+    expect([...kinds('audit-workflow')].sort()).toEqual(['workflow-complete']);
   });
 
   it('mention the app\'s own tools by the names the window shows', () => {

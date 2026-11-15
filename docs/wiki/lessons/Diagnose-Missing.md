@@ -53,4 +53,5 @@ evidence before installing anything.
 - [An error in ComfyUI](../graph/ComfyUI-Errors.md)
 - [Checking a graph](../graph/Checking-A-Graph.md)
 - [Node packs](../concepts/Node-Packs.md)
+- [Auditing someone else's workflow and a custom pack](Audit-Workflow.md)
 - [How lessons work](How-Lessons-Work.md)
