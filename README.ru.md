@@ -45,7 +45,9 @@ NodeWise это независимый экспериментальный уче
 
 ## Установка
 
-Linux, 64 бита, x86. Скачайте со страницы [выпусков](../../releases) формат для вашей системы:
+### Linux
+
+64 бита, x86. Скачайте со страницы [выпусков](../../releases) формат для вашей системы:
 
 | Формат | Установка |
 | --- | --- |
@@ -56,6 +58,35 @@ Linux, 64 бита, x86. Скачайте со страницы [выпуско�
 
 У каждого выпуска есть файл `SHA256SUMS`: `sha256sum -c SHA256SUMS --ignore-missing`. Обновление, удаление и что
 куда ставится: [Установка](docs/wiki/start/Installing.ru.md).
+
+### Windows 10 22H2 и 11 (x64)
+
+Пакета для Windows пока нет. Скрипт из выпуска собирает приложение на вашем компьютере из исходного кода этого
+проекта и ставит его для вашего пользователя, без прав администратора. В PowerShell:
+
+```powershell
+Invoke-WebRequest -UseBasicParsing https://github.com/ZoriyAI/ComfyUi-Graph-Helper/releases/latest/download/install-windows.ps1 -OutFile install-windows.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install-windows.ps1
+```
+
+`-ExecutionPolicy Bypass` действует только для этого одного процесса PowerShell. Добавьте `-DryRun`, чтобы сначала
+увидеть все шаги. Что скрипт делает, о чём спрашивает и как удалить приложение:
+[Установка на Windows](docs/wiki/start/Installing-On-Windows.ru.md).
+
+### macOS 13 или новее (Apple silicon или Intel)
+
+Пакета для macOS пока нет. Скрипт из выпуска собирает приложение на вашем Mac из исходного кода этого проекта и ставит
+его в `~/Applications`. В Терминале:
+
+```bash
+curl -fsSL https://github.com/ZoriyAI/ComfyUi-Graph-Helper/releases/latest/download/install-macos.sh -o install-macos.sh && bash install-macos.sh
+```
+
+Добавьте `--dry-run`, чтобы сначала увидеть все шаги. Что скрипт делает, о чём спрашивает и как удалить приложение:
+[Установка на macOS](docs/wiki/start/Installing-On-macOS.ru.md).
+
+Ни на Windows, ни на macOS приложение не подписано издателем. Скрипты проверяются на машинах GitHub с Windows и macOS
+при каждом изменении; на разных настоящих компьютерах их ещё не пробовали.
 
 ## Первые шаги
 
@@ -84,9 +115,8 @@ Linux, 64 бита, x86. Скачайте со страницы [выпуско�
 
 ## Сборка из исходников
 
-В Linux: [Сборка из исходников](docs/wiki/dev/Building-From-Source.ru.md). Windows и macOS не поддерживаются; можно
-попробовать запустить приложение из исходников, без проверки: [Windows](docs/wiki/dev/Building-On-Windows.ru.md),
-[macOS](docs/wiki/dev/Building-On-macOS.ru.md).
+В Linux: [Сборка из исходников](docs/wiki/dev/Building-From-Source.ru.md). На Windows и macOS те же шаги, что делают
+скрипты установки, вручную: [Windows](docs/wiki/dev/Building-On-Windows.ru.md), [macOS](docs/wiki/dev/Building-On-macOS.ru.md).
 
 ## Что работает сегодня и известные ограничения
 

@@ -25,9 +25,13 @@ the version you have.
 
 4. Start the app again.
 
+On Windows and macOS, run the install script again: it builds the new release and replaces the app in place.
+[Installing on Windows](Installing-On-Windows.md), [Installing on macOS](Installing-On-macOS.md)
+
 ## What happens to your data
 
-- Everything stays in [the data folder](../reference/Data-Folder.md). The package never touches it.
+- Everything stays in [the data folder](../reference/Data-Folder.md). The package (or the install script) never
+  touches it.
 - When the new version needs a newer layout of the database, it first writes a copy of the old database next to it,
   `comfyui-desktop.db.before-v<N>.bak` (one copy is kept), then upgrades it.
 - Saved keys stay in the system keychain under the same name.

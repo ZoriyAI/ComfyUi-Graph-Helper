@@ -50,7 +50,10 @@ jobs:
         run: |
           Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
           Install-Module PSScriptAnalyzer -Scope CurrentUser -Force
-          $found = Invoke-ScriptAnalyzer -Path scripts/install/install-windows.ps1, tests/install/InstallWindows.Tests.ps1 -Severity Error, Warning
+          # -Path takes one file at a time.
+          $found = foreach ($file in @('scripts/install/install-windows.ps1', 'tests/install/InstallWindows.Tests.ps1')) {
+            Invoke-ScriptAnalyzer -Path $file -Severity Error, Warning
+          }
           $found | Format-Table -AutoSize RuleName, Severity, ScriptName, Line, Message | Out-String -Width 200 | Write-Host
           $errors = @($found | Where-Object Severity -eq 'Error')
           if ($errors.Count -gt 0) { throw "PSScriptAnalyzer found $($errors.Count) error(s)" }
@@ -140,6 +143,9 @@ jobs:
           $entry | Format-List DisplayName, DisplayVersion, Publisher, InstallLocation, UninstallString, QuietUninstallString, EstimatedSize | Out-String | Write-Host
           if ($entry.DisplayVersion -ne $env:VERSION) { throw "Installed apps shows $($entry.DisplayVersion), expected $env:VERSION" }
           (Get-Item $exe).VersionInfo | Format-List ProductName, FileDescription, ProductVersion | Out-String | Write-Host
+          # The same fuses as the Linux packages: no RUN_AS_NODE, no NODE_OPTIONS, no inspector, app.asar only.
+          node "$env:LOCALAPPDATA\nodewise-studio-installer\work\src\scripts\check-fuses.js" $exe
+          if ($LASTEXITCODE -ne 0) { throw 'fuses differ from forge.config.js' }
           # Windows marks downloaded files with a Zone.Identifier stream (what SmartScreen reads); a build made here has none.
           $marked = @(Get-ChildItem -LiteralPath $env:INSTALL_DIR -Recurse -File | Where-Object { Get-Item -LiteralPath $_.FullName -Stream Zone.Identifier -ErrorAction SilentlyContinue })
           Write-Host "Files with a Zone.Identifier (mark of the web): $($marked.Count)"
@@ -225,6 +231,8 @@ jobs:
         run: |
           test -x "$APP/Contents/MacOS/nodewise-studio"
           plutil -p "$APP/Contents/Info.plist" | grep -E 'CFBundle(Name|ShortVersionString|Identifier|Executable)|LSApplicationCategoryType'
+          # The same fuses as the Linux packages: no RUN_AS_NODE, no NODE_OPTIONS, no inspector, app.asar only.
+          node "$HOME/Library/Caches/nodewise-studio-installer/work/src/scripts/check-fuses.js" "$APP"
           codesign --verify --deep --strict --verbose=2 "$APP"
           codesign -dv --verbose=2 "$APP" 2>&1 | tee "$RUNNER_TEMP/results/codesign.txt"
           # Recorded, not asserted: Gatekeeper rejects an ad hoc signature in an assessment, and checks only apps

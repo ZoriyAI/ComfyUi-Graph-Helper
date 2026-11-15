@@ -132,6 +132,23 @@ describe('install scripts', () => {
     }
   });
 
+  it('are proved by a workflow on Windows and macOS runners, with every action pinned by commit', () => {
+    const { parse } = require('yaml');
+    const text = fs.readFileSync(path.join(ROOT, '.github', 'workflows', 'install-scripts.yml'), 'utf8');
+    const workflow = parse(text);
+    expect(workflow.permissions).toEqual({ contents: 'read' });
+    expect(workflow.on.push.paths).toEqual(expect.arrayContaining(['scripts/install/**', 'forge.config.js', 'package.json', '.github/workflows/install-scripts.yml']));
+    expect(workflow.on.workflow_dispatch).toBeDefined();
+    expect(workflow.on.schedule).toHaveLength(1);
+    expect(workflow.jobs.windows.strategy.matrix.include.map((row: { os: string }) => row.os)).toEqual(['windows-latest', 'windows-2022']);
+    expect(workflow.jobs.macos.strategy.matrix.os).toEqual(['macos-latest', 'macos-15-intel']);
+    for (const match of text.matchAll(/uses: (\S+)/g)) expect(match[1]).toMatch(/^[\w.-]+\/[\w.-]+@[0-9a-f]{40}$/);
+    // The scripts are run the way the documentation tells a person to, and both upgrade and uninstall are checked.
+    expect(text).toContain('-ExecutionPolicy Bypass -File scripts\\install\\install-windows.ps1');
+    expect(text).toContain('/bin/bash scripts/install/install-macos.sh');
+    expect(text).toContain('install-check-marker.txt');
+  });
+
   it('install-macos.sh passes shellcheck where it is installed', () => {
     if (spawnSync('sh', ['-c', 'command -v shellcheck']).status !== 0) return;
     execFileSync('shellcheck', ['-s', 'bash', SH], { stdio: 'inherit' });

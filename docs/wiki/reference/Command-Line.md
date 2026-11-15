@@ -29,7 +29,10 @@ nodewise-studio --password-store=kwallet6
 Only one window of the app runs at a time for one data folder: starting it again brings the open window to the
 front, and a file named in the second start opens there.
 
-On Windows (not supported, not tried) the program has no console, so `--version` and `--help` print nothing there.
+On Windows the program is a window program with no console of its own. `--version` and `--help` are written in one
+direct write to its output: read through a pipe, as the install script does, they arrive; typed in a console window,
+whether they appear is not tried. The help names the data folder of each system and lists `--password-store` and
+`--ozone-platform-hint` on Linux only.
 
 ## See also
 

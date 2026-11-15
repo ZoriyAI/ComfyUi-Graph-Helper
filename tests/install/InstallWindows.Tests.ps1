@@ -1,4 +1,4 @@
-# Pester tests of scripts/install/install-windows.ps1, the Windows installer people run from a release. They run the
+﻿# Pester tests of scripts/install/install-windows.ps1, the Windows installer people run from a release. They run the
 # script as a person would, in a fresh PowerShell process, and check what it says and what it leaves behind: wrong
 # options stop with exit code 2, another system is refused with 3, and a dry run prints every step and changes
 # nothing. On Linux and macOS the dry run uses -PretendWindows. Run by .github/workflows/install-scripts.yml:

@@ -3,10 +3,19 @@
 
 # Установка
 
-NodeWise Studio собирается для Linux на 64-битных x86 в четырёх форматах: `.deb`, `.rpm`, AppImage и `.tar.gz`, который
-ставится только для вашего пользователя. Скачивайте только файлы, которые действительно приложены к выбранному
-выпуску. Пакетов для ARM нет. Windows и macOS не поддерживаются; можно попробовать запустить приложение из
-исходников (не проверено).
+Для Linux на 64-битных x86 NodeWise Studio выходит пакетами в четырёх форматах: `.deb`, `.rpm`, AppImage и `.tar.gz`,
+который ставится только для вашего пользователя. Скачивайте только файлы, которые действительно приложены к
+выбранному выпуску. Пакетов для Linux на ARM нет.
+
+Для **Windows** и **macOS** пакета нет: скрипт из выпуска одной командой собирает приложение на вашем компьютере из
+исходного кода проекта и устанавливает его для вас.
+[Установка на Windows](Installing-On-Windows.ru.md), [Установка на macOS](Installing-On-macOS.ru.md)
+
+| Система | Как |
+|---|---|
+| Linux (x64) | Пакет со страницы выпуска, как описано ниже. |
+| Windows 10 22H2 или 11 (x64) | `install-windows.ps1` из выпуска собирает и устанавливает приложение. |
+| macOS 13 или новее (Apple silicon или Intel) | `install-macos.sh` из выпуска собирает и устанавливает приложение. |
 
 ## Что нужно
 
@@ -75,12 +84,15 @@ NodeWise Studio собирается для Linux на 64-битных x86 в ч
 ## Другие способы
 
 - **Из исходников на Linux**: [Сборка из исходников](../dev/Building-From-Source.ru.md).
-- **Windows** и **macOS** не поддерживаются. Можно попробовать запуск из исходников, но там ничего не проверялось:
-  [Windows](../dev/Building-On-Windows.ru.md), [macOS](../dev/Building-On-macOS.ru.md).
+- **Windows** и **macOS**: скрипты установки, [Установка на Windows](Installing-On-Windows.ru.md) и
+  [Установка на macOS](Installing-On-macOS.ru.md). Те же шаги вручную: [Windows](../dev/Building-On-Windows.ru.md),
+  [macOS](../dev/Building-On-macOS.ru.md).
 
 ## См. также
 
 - [Начало](README.ru.md)
+- [Установка на Windows](Installing-On-Windows.ru.md)
+- [Установка на macOS](Installing-On-macOS.ru.md)
 - [Обновление](Updating.ru.md)
 - [Удаление](Removing.ru.md)
 - [Папка с данными](../reference/Data-Folder.ru.md)

@@ -3,9 +3,19 @@
 
 # Installing
 
-NodeWise Studio is built for Linux on 64-bit x86, in four formats: `.deb`, `.rpm`, AppImage and a `.tar.gz` you install
-for your user only. Download only the files actually attached to the release you choose. There are no ARM packages.
-Windows and macOS are not supported; you may try running the app from source (untested).
+NodeWise Studio comes as packages for Linux on 64-bit x86, in four formats: `.deb`, `.rpm`, AppImage and a `.tar.gz`
+you install for your user only. Download only the files actually attached to the release you choose. There are no
+ARM packages for Linux.
+
+On **Windows** and **macOS** there is no package: a script from the release builds the app on your computer from the
+project's source and installs it for you, with one command.
+[Installing on Windows](Installing-On-Windows.md), [Installing on macOS](Installing-On-macOS.md)
+
+| System | How |
+|---|---|
+| Linux (x64) | A package from the release page, as described below. |
+| Windows 10 22H2 or 11 (x64) | `install-windows.ps1` from the release builds and installs the app. |
+| macOS 13 or newer (Apple silicon or Intel) | `install-macos.sh` from the release builds and installs the app. |
 
 ## What you need
 
@@ -73,12 +83,15 @@ Your settings, keys, projects and logs are not in the package: the app keeps the
 ## Other ways
 
 - **From source on Linux**: [Building from source](../dev/Building-From-Source.md).
-- **Windows** and **macOS** are not supported. You may try running from source, but nothing has been tried there:
-  [Windows](../dev/Building-On-Windows.md), [macOS](../dev/Building-On-macOS.md).
+- **Windows** and **macOS**: the install scripts, [Installing on Windows](Installing-On-Windows.md) and
+  [Installing on macOS](Installing-On-macOS.md). The same steps by hand: [Windows](../dev/Building-On-Windows.md),
+  [macOS](../dev/Building-On-macOS.md).
 
 ## See also
 
 - [Start](README.md)
+- [Installing on Windows](Installing-On-Windows.md)
+- [Installing on macOS](Installing-On-macOS.md)
 - [Updating](Updating.md)
 - [Removing](Removing.md)
 - [The data folder](../reference/Data-Folder.md)

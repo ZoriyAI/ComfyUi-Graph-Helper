@@ -51,8 +51,9 @@ Your ComfyUI  ──(read only)──>  NodeWise  ──(you save a workflow)─
 ## What you need
 
 - A computer with Linux, 64-bit x86: a `.deb` (Ubuntu 22.04 or newer, Debian 12 or newer, Linux Mint 21 or newer),
-  an `.rpm`, an AppImage or a `.tar.gz`. Windows and macOS are not supported; you may try
-  [building from source](../dev/Building-From-Source.md), but nothing has been tried there.
+  an `.rpm`, an AppImage or a `.tar.gz`. Or Windows 10 22H2 or 11 (x64), or macOS 13 or newer: there a script builds
+  the app from source and installs it ([Installing](Installing.md)); it has not yet been tried on a range of real
+  computers.
 - ComfyUI, running on this computer or on another one you can reach.
 - For the assistant (optional): a key for a cloud model, which costs money per question, or a model server on your
   own computer such as Ollama. Lessons need neither.

@@ -44,7 +44,9 @@ contains no ComfyUI code and only reads a running ComfyUI; it never changes it.
 
 ## Install
 
-Linux, 64-bit x86. Download from the [Releases](../../releases) page the format that suits your system:
+### Linux
+
+64-bit x86. Download from the [Releases](../../releases) page the format that suits your system:
 
 | Format | Install |
 | --- | --- |
@@ -55,6 +57,34 @@ Linux, 64-bit x86. Download from the [Releases](../../releases) page the format 
 
 Each release has a `SHA256SUMS` file: `sha256sum -c SHA256SUMS --ignore-missing`. Updating, removing, and what goes
 where: [Installing](docs/wiki/start/Installing.md).
+
+### Windows 10 22H2 and 11 (x64)
+
+There is no Windows package yet. A script from the release builds the app on your computer from this project's source
+and installs it for your user, without administrator rights. In PowerShell:
+
+```powershell
+Invoke-WebRequest -UseBasicParsing https://github.com/ZoriyAI/ComfyUi-Graph-Helper/releases/latest/download/install-windows.ps1 -OutFile install-windows.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install-windows.ps1
+```
+
+`-ExecutionPolicy Bypass` applies to that one PowerShell process only. Add `-DryRun` to see every step first. What
+it does, what it asks, how to remove the app: [Installing on Windows](docs/wiki/start/Installing-On-Windows.md).
+
+### macOS 13 or newer (Apple silicon or Intel)
+
+There is no macOS package yet. A script from the release builds the app on your Mac from this project's source and
+installs it in `~/Applications`. In Terminal:
+
+```bash
+curl -fsSL https://github.com/ZoriyAI/ComfyUi-Graph-Helper/releases/latest/download/install-macos.sh -o install-macos.sh && bash install-macos.sh
+```
+
+Add `--dry-run` to see every step first. What it does, what it asks, how to remove the app:
+[Installing on macOS](docs/wiki/start/Installing-On-macOS.md).
+
+The app is not signed by a publisher on Windows or macOS. The scripts run on GitHub's Windows and macOS machines with
+every change; they have not yet been tried on a range of real computers.
 
 ## First steps
 
@@ -83,9 +113,8 @@ The same documentation is in the app: Help ▸ User guide.
 
 ## Build from source
 
-On Linux: [Building from source](docs/wiki/dev/Building-From-Source.md). Windows and macOS are not supported; you may
-try running the app from source, untested: [Windows](docs/wiki/dev/Building-On-Windows.md),
-[macOS](docs/wiki/dev/Building-On-macOS.md).
+On Linux: [Building from source](docs/wiki/dev/Building-From-Source.md). On Windows and macOS, the steps the install
+scripts take, by hand: [Windows](docs/wiki/dev/Building-On-Windows.md), [macOS](docs/wiki/dev/Building-On-macOS.md).
 
 ## What works today and known limits
 

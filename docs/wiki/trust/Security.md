@@ -101,6 +101,27 @@ Before a schema change the database is copied next to itself; a damaged one is s
 - The spell checker of the window is off, so no dictionaries are downloaded.
 - Install packages only from the project's Releases and check the checksum shown there.
 
+## The install scripts for Windows and macOS
+
+`install-windows.ps1` and `install-macos.sh` are release files, listed in `SHA256SUMS` and covered by the release's
+build provenance, like the packages. What they download and how each download is checked:
+
+- **Only over HTTPS, only from five hosts**: `api.github.com`, `codeload.github.com` and `github.com` (which release is
+  the latest, and the source archive), `nodejs.org` (Node.js, when none fits) and `registry.npmjs.org` (reachability).
+  Any other address is refused. A proxy from `HTTPS_PROXY` is used when one is set.
+- **The source archive** of the release tag must have the project's folder name, and its `package.json` the app's
+  names and the version of the tag. GitHub publishes no checksum for such archives; its SHA-256 is written to the log.
+- **Node.js** is kept only when its SHA-256 matches nodejs.org's `SHASUMS256.txt`. The system-wide installers are
+  also checked for the Node.js project's signature (Authenticode on Windows, `pkgutil` on macOS).
+- **The packages of the build** come from the npm registry, checked by `npm ci` against the integrity values in
+  `package-lock.json`; Electron itself is checked by Electron's downloader against its published checksums.
+- **Nothing downloaded is run as a command**: no `Invoke-Expression`, no `curl | sh`. No protection of the system is
+  switched off: no Defender, Gatekeeper or SIP setting is touched, and the execution policy is bypassed for one
+  PowerShell process only.
+- The app is installed for your user, without administrator rights, and the installed copy is checked before the
+  script reports success. On macOS it is signed ad hoc on your Mac; that names no publisher.
+  [Installing on Windows](../start/Installing-On-Windows.md), [Installing on macOS](../start/Installing-On-macOS.md)
+
 ## Reporting a vulnerability
 
 Please do not open a public issue. Report privately through GitHub: on the repository's Security tab, choose

@@ -11,8 +11,13 @@ saved them.
 - Linux: `~/.config/nodewise-studio`. Version 0.9 kept its data in a folder named after the app's old name; the
   first start of 1.0 moves that folder here ([Updating](../start/Updating.md)).
 - Another folder, if you start the app with `--user-data-dir=<folder>` ([The command line](Command-Line.md)).
-- Windows and macOS (builds from source): see [Windows](../dev/Building-On-Windows.md) and
-  [macOS](../dev/Building-On-macOS.md).
+- Windows: `%APPDATA%\nodewise-studio`, for example `C:\Users\you\AppData\Roaming\nodewise-studio`. Saved keys are
+  encrypted by Windows (DPAPI) for your user. [Installing on Windows](../start/Installing-On-Windows.md)
+- macOS: `~/Library/Application Support/nodewise-studio`. Saved keys are encrypted with a key macOS keeps in your login
+  Keychain under "nodewise-studio Safe Storage". [Installing on macOS](../start/Installing-On-macOS.md)
+
+The install scripts for Windows and macOS never touch this folder when they install or upgrade; their uninstall asks
+before removing it.
 
 Help ▸ About ▸ Open data folder opens it. On Linux the folder is made readable by your user only (mode 0700), and
 the database, its journal files and the files the app writes for you are readable by your user only (mode 0600).

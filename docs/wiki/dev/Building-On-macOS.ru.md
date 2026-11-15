@@ -3,15 +3,17 @@
 
 # Сборка и запуск на macOS
 
-Эти шаги следуют из того, как устроена сборка проекта, но на macOS их ещё никто не проверял: если что-то не работает,
-пожалуйста, напишите, что случилось, в обращениях (Issues) проекта.
+Ручной путь, который стоит за `install-macos.sh`: что делает скрипт, шаг за шагом, для разработчика, который хочет
+собирать, запускать и менять приложение на Mac. Чтобы просто установить приложение, возьмите скрипт:
+[Установка на macOS](../start/Installing-On-macOS.ru.md).
 
 ## Что установить
 
-- **Git**: входит в Xcode Command Line Tools (`xcode-select --install`) или ставится из Homebrew (`brew install git`).
 - **Node.js 22**, версию из `.nvmrc` (с nodejs.org, из Homebrew или через nvm: `nvm install && nvm use`).
-- **Компилятор для самого приложения не нужен.** Модуль базы `better-sqlite3` 13 приносит готовые файлы N-API для
-  Apple Silicon и Intel (`darwin-arm64.node`, `darwin-x64.node`), поэтому ничего не компилируется.
+- **Git**, только чтобы склонировать репозиторий: он есть в Xcode Command Line Tools (`xcode-select --install`) или в
+  Homebrew. `npm ci` Git не нужен: все пакеты берутся из реестра npm.
+- **Компилятор для самого приложения не нужен.** Модуль базы данных `better-sqlite3` 13 поставляется с готовыми
+  файлами N-API для Apple silicon и Intel (`darwin-arm64.node`, `darwin-x64.node`), поэтому ничего не компилируется.
 
 ## Получите исходники
 
@@ -21,9 +23,7 @@ cd nodewise-studio
 npm ci
 ```
 
-`npm ci` заодно скачивает Electron для вашего Mac.
-
-## Сборка и запуск
+## Соберите и запустите
 
 ```bash
 npm run build
@@ -31,32 +31,35 @@ npm start          # собирает и открывает приложение
 npm run dev        # Vite с живой перезагрузкой и Electron
 ```
 
-## Где окажутся ваши данные
-
-`~/Library/Application Support/nodewise-studio` (например, `/Users/you/Library/Application Support/nodewise-studio`).
-Чтобы держать проверочный профиль отдельно:
-`npx electron . --user-data-dir=/Users/you/nodewise-test` после `npm run build`.
-
-Ключи шифруются ключом, который Electron хранит в вашей связке ключей (Keychain).
-
-## Приложение, которое запускается без npm
-
-Electron Forge, инструмент упаковки проекта, может сделать пакет `.app`:
+## .app, как её делает скрипт
 
 ```bash
 npm run build
-npx electron-forge package
+npx electron-forge package --platform darwin --arch arm64   # x64 на Mac с Intel
 ```
 
-Пакет появится в `out/`. Прежде чем запускать, откройте `forge.config.js`: одно правило `ignore` оставляет только
-файл базы для Linux (`prebuilds/(?!linux-x64\.node$)`). Пропустите и файл для вашего Mac (например,
-`(?!(linux-x64|darwin-arm64)\.node$)` на Apple Silicon), иначе упакованное приложение не откроет свою базу. Пакет не
-подписан: macOS спросит перед первым открытием (щелчок с Control ▸ «Открыть»).
+Пакет: `out/NodeWise Studio-darwin-arm64/NodeWise Studio.app`; программа в нём `Contents/MacOS/nodewise-studio`,
+идентификатор `com.electron.nodewise-studio`. `forge.config.js` оставляет только модуль базы данных той системы, для
+которой идёт сборка (`scripts/lib/forge-target.js`), даёт пакету значок (`resources/icon.icns`, его делает из PNG
+значка `scripts/make-icon-containers.js`), относит его к разделу «Образование» и выключает те же предохранители Electron, что и
+на Linux. Запись предохранителей ломает подпись Electron; на Apple silicon плагин предохранителей снова подписывает программу ad hoc.
+Пакет для Intel, собранный на машине с Linux, получил правильное имя, значок, модуль базы данных и предохранители; это
+проверено здесь. Нет `.dmg`, нет подписи Developer ID и нет нотаризации.
 
-Не проверено на Mac: пакет должен называться `NodeWise Studio.app` по названию продукта, а раз в проекте нет
-`resources/icon.icns`, у него, вероятно, будет значок Electron по умолчанию.
+Затем скрипт копирует пакет через `ditto` рядом с `~/Applications/NodeWise Studio.app`, подписывает копию ad hoc
+(`codesign --force --deep --sign -`), снимает пометку карантина, проверяет подпись, подменяет копию и запускает
+`node scripts/smoke-installed-app.js --app <пакет>/Contents/MacOS/nodewise-studio`: `--version`, окно с временным
+профилем и `--use-mock-keychain`, один экземпляр.
 
-## Обновление исходников
+Чтобы проверить скрипт на своём изменении без выпуска: `bash scripts/install/install-macos.sh --source .`.
+
+## Где окажутся ваши данные
+
+`~/Library/Application Support/nodewise-studio`. Чтобы держать тестовый профиль отдельно:
+`npx electron . --user-data-dir=/Users/you/nodewise-test` после `npm run build`. Ключи шифруются ключом, который
+Electron хранит в вашей связке ключей под именем «nodewise-studio Safe Storage».
+
+## Обновите исходники
 
 ```bash
 git pull
@@ -67,25 +70,33 @@ npm run build
 ## Как удалить всё
 
 1. В приложении: «Настройки ▸ Приватность ▸ Забыть все ключи и токены».
-2. Удалите папку проекта (`nodewise-studio`) и, если делали, пакет в `out/`.
+2. Удалите папку проекта и, если делали, пакет в `out/`.
 3. Удалите `~/Library/Application Support/nodewise-studio`.
-4. В «Связке ключей» удалите запись, которая кончается на «Safe Storage» и несёт имя приложения.
-   Приложение называет себя `nodewise-studio`, поэтому запись должна называться `nodewise-studio Safe Storage`; на Mac
-   это не проверялось.
+4. В «Связке ключей» удалите «nodewise-studio Safe Storage» (`install-macos.sh --uninstall --purge-data` делает это
+   командой `security delete-generic-password`; на Mac пока не проверено).
 
 ## Известные ограничения на этой системе
 
-- **Нет меню приложения macOS.** Приложение рисует строку меню внутри окна и не задаёт системного меню. Без системного
-  меню «Правка» `Cmd+C`, `Cmd+V`, `Cmd+X` и `Cmd+A` могут не работать в текстовых полях, и нет `Cmd+Q`, `Cmd+H`,
-  `Cmd+M` и `Cmd+W`. Чтобы выйти, выберите «Файл ▸ Выход».
-- **Нет подписи и нотаризации.** Нет подписи кода, нотаризации и `.dmg`.
+- **Строка меню.** Собственные меню приложения («Файл», «Правка», «Вид» и другие) нарисованы внутри окна. В строке
+  меню наверху экрана есть стандартные меню приложения, «Правка» и «Окно» (`src/main/platformMenu.ts`), поэтому
+  `Cmd+C`, `Cmd+V`, `Cmd+X`, `Cmd+A` работают в текстовых полях, а `Cmd+Q` закрывает приложение. Что холст сохраняет
+  свои `Cmd+C` и `Cmd+Z` рядом с этим меню «Правка», на Mac не проверено.
+- **Закрытие окна** оставляет приложение работать, как принято на Mac; щелчок по значку в Dock снова открывает окно.
+  На Mac не проверено.
+- **Открытие файла** перетаскиванием на значок в Dock или через «Открыть в программе» не обрабатывается (такие файлы
+  macOS передаёт событием, которое приложение не слушает); открывайте файлы из самого приложения. Типы файлов
+  приложение не регистрирует ни на одной системе.
+- **Нет подписи издателя и нотаризации.** Подпись ad hoc не называет издателя. После каждого обновления связка ключей
+  видит новую программу и может один раз спросить доступ к «nodewise-studio Safe Storage»; на Mac это пока не видели.
 - **Тексты написаны для Linux.** Настройка хранилища паролей, её подсказки и «Решение проблем» говорят о GNOME
-  Keyring и KWallet; в macOS Electron использует связку ключей.
-- **Проверки пакета только для Linux**: `scripts/smoke-linux-package.js`, `scripts/smoke-installed-deb.js` и
-  `xvfb-run` в командах тестов. Сквозные тесты запускайте как `npx playwright test`, без `xvfb-run`.
+  Keyring и KWallet; в macOS Electron пользуется связкой ключей. Переключатель `--password-store` в macOS приложение не
+  добавляет.
+- **Проверки пакетов** для Linux работают только в Linux; переносимая проверка: `scripts/smoke-installed-app.js`.
+  Сквозные тесты запускайте `npx playwright test`, без `xvfb-run`; на Mac это не проверено.
 
 ## См. также
 
 - [Для разработчиков](README.ru.md)
+- [Установка на macOS](../start/Installing-On-macOS.ru.md)
 - [Сборка из исходников](Building-From-Source.ru.md)
 - [Сборка и запуск на Windows](Building-On-Windows.ru.md)
