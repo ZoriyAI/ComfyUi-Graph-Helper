@@ -4,7 +4,7 @@
  * and can be emptied. These keep a person's text and files from leaving the computer or being read by other users.
  */
 import { test, expect, _electron as electron } from '@playwright/test';
-import { spawnSync } from 'child_process';
+import { spawn } from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -37,8 +37,31 @@ test('typing fetches no dictionary, a second start leaves at once, and the pictu
   const logFile = path.join(userData, 'logs', 'main.log');
   const before = fs.readFileSync(logFile, 'utf8');
   const electronPath = require('electron') as unknown as string;
-  const second = spawnSync(electronPath, [...(process.getuid?.() === 0 ? ['--no-sandbox'] : []), MAIN, `--user-data-dir=${userData}`], { env: { ...process.env, NODE_ENV: 'production' }, timeout: 30_000 });
-  expect(second.status).toBe(0);
+  // The second start gets what the first got, minus Playwright's own hooks (inspector, loader): Playwright adds
+  // --no-sandbox to every Electron it starts on Linux, as root or not. Without it, a non-root user whose system does
+  // not let Electron build its sandbox (Ubuntu 24.04 runners: unprivileged user namespaces restricted, chrome-sandbox
+  // in node_modules not SUID root) aborts with SIGTRAP before the lock is even asked for. The installed app is not
+  // affected: the packages install chrome-sandbox SUID root (forge.config.js). Playwright also drops NODE_OPTIONS.
+  const harnessFlags = app.process().spawnargs.includes('--no-sandbox') ? ['--no-sandbox'] : [];
+  const secondEnv: NodeJS.ProcessEnv = { ...process.env, NODE_ENV: 'production' };
+  delete secondEnv.NODE_OPTIONS;
+  // Asynchronous, so this test process keeps reading the first instance's output pipes meanwhile: a blocked reader
+  // would let a full pipe stall the first instance before it answers the hand-over.
+  const second = spawn(electronPath, [...harnessFlags, MAIN, `--user-data-dir=${userData}`], { env: secondEnv, stdio: ['ignore', 'pipe', 'pipe'] });
+  let output = '';
+  second.stdout.on('data', (chunk) => { output += chunk.toString(); });
+  second.stderr.on('data', (chunk) => { output += chunk.toString(); });
+  const started = Date.now();
+  const result = await new Promise<{ code: number | null; signal: NodeJS.Signals | null; timedOut: boolean }>((resolve, reject) => {
+    let timedOut = false;
+    const timer = setTimeout(() => { timedOut = true; second.kill('SIGKILL'); }, 30_000);
+    second.once('error', (error) => { clearTimeout(timer); reject(error); });
+    second.once('close', (code, signal) => { clearTimeout(timer); resolve({ code, signal, timedOut }); });
+  });
+  // On failure the message tells a timeout from a crash and carries the second process's own output (the profile is a
+  // throw-away folder; the app writes no key or token to its terminal).
+  const report = `second start: flags=${JSON.stringify(harnessFlags)} uid=${process.getuid?.()} after ${Date.now() - started} ms\n${output.slice(-4000)}`;
+  expect(result, report).toEqual({ code: 0, signal: null, timedOut: false });
   // The first instance keeps running and may add its own lines meanwhile (a window that did not respond, a child
   // process gone, a console line routed to the log; a slow machine makes these likelier). The second start must add
   // none: an instance that went on would write its "[App] Start" and "[App] Paths" lines first (main/index.ts).
