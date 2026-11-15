@@ -1,3 +1,8 @@
+/**
+ * What Help ▸ About, the help reader and "Report a problem" exchange with main: app and system facts, the shipped
+ * components, the wiki tree, pages and search hits. Main answers in main/ipc/aboutIpc.ts; the renderer shows it in
+ * AboutContent.tsx and HelpReader.tsx through renderer/services/help.ts and the preload bridge.
+ */
 /** Help ▸ About and Settings ▸ About: facts main knows (src/main/ipc/aboutIpc.ts). */
 export interface AboutInfo {
   version: string;
@@ -22,6 +27,7 @@ export interface ThirdPartyComponent {
   text: string;
 }
 
+/** The languages the wiki is written in. */
 export type HelpLanguage = 'en' | 'ru';
 
 /** The section tree of the help reader, in the order Home and the folder indexes list it. */
@@ -35,6 +41,7 @@ export type HelpPage =
   | { ok: true; ref: string; language: HelpLanguage; title: string; text: string }
   | { ok: false; error: 'unknown' | 'missing' };
 
+/** One page that matched a help search. */
 export interface HelpSearchHit {
   ref: string;
   title: string;

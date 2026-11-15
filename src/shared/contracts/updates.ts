@@ -1,13 +1,17 @@
 /**
  * The update notice (src/main/updates/updateCheck.ts). Off by default: only when the person turns on
  * Settings ▸ Privacy ▸ "Check for new versions" does the app ask the project's releases page, at most once a day.
- * Nothing is downloaded by the app: the links open in the browser.
+ * Nothing is downloaded by the app: the links open in the browser. Shown by renderer/components/shell/UpdateNotice.tsx
+ * through main/updates/updateIpc.ts and the preload bridge.
  */
+
+/** A newer version the notice can name. */
 export interface UpdateNotice {
   /** The newer version, without a leading "v". */
   version: string;
 }
 
+/** What the notice shows now. */
 export type UpdateStatus =
   /** The check is off (the default), or this build has no project address to ask. */
   | { state: 'off' }

@@ -1,3 +1,9 @@
+/**
+ * The knowledge contracts: what main tells the renderer and the agent about node classes, model files, field
+ * controls, explanations, the graph check and the sync. Main fills them from the catalog database and the knowledge
+ * sets (main/knowledge, main/catalog, main/mcp); the library, the Properties panel, the explain and check panels and
+ * the agent's tools read them.
+ */
 import type { ModelNotes } from '../knowledge/sidecar';
 import type { PackInfo } from '../knowledge/packInfo';
 import type { WebError, WebFound, WebStatus } from '../knowledge/webLookup';
@@ -16,12 +22,15 @@ export type BaseModelFamily =
   | 'qwen-image' | 'wan2.1' | 'wan2.2' | 'ltx2' | 'hunyuan' | 'zimage' | 'krea' | 'kolors' | 'pixart' | 'auraflow'
   | 'cascade' | 'unknown';
 
+/** What a model file is used as: the loader family it belongs to. */
 export type ModelKind =
   | 'checkpoint' | 'lora' | 'vae' | 'controlnet' | 'upscale' | 'clip' | 'clip_vision' | 'unet' | 'text_encoder'
   | 'embedding' | 'style' | 'ipadapter' | 'other';
 
+/** Where a model's base family was learnt from, strongest first; 'none' when it is a guess or unknown. */
 export type Evidence = 'metadata' | 'sidecar' | 'filename' | 'web' | 'none';
 
+/** One node class as the search and the library list it. */
 export interface NodeClassSummary {
   classType: string;
   displayName: string;
@@ -69,6 +78,7 @@ export interface FieldSpec {
   modelDirectory?: string;
 }
 
+/** One input of a node class: a socket or a widget, with its control spec. */
 export interface NodeClassInput {
   name: string;
   type: string;
@@ -94,6 +104,7 @@ export interface FieldModelsRequest {
  */
 export type ModelFit = 'fits' | 'related' | 'differs' | 'unknown';
 
+/** One model file a field can take, with how well it fits the graph. */
 export interface FieldModelOption {
   /** The option exactly as ComfyUI lists it (the value to store). */
   value: string;
@@ -104,6 +115,7 @@ export interface FieldModelOption {
   fit: ModelFit;
 }
 
+/** The model files of a field, sorted by fit. */
 export interface FieldModelsResult {
   /** False when the options are not model files the catalog knows: the field stays a plain list. */
   models: boolean;
@@ -113,6 +125,7 @@ export interface FieldModelsResult {
   options: FieldModelOption[];
 }
 
+/** A node class in full, for its card and for adding it to the graph. */
 export interface NodeClassDetail extends NodeClassSummary {
   description: string;
   inputs: NodeClassInput[];
@@ -128,6 +141,7 @@ export interface NodeClassDetail extends NodeClassSummary {
   packInfo?: PackInfo | null;
 }
 
+/** One model file as the library lists it. */
 export interface ModelSummary {
   directory: string;
   name: string;
@@ -174,6 +188,7 @@ export interface ModelPreview {
   bytes: Uint8Array;
 }
 
+/** One model file in full, for its card. */
 export interface ModelDetail extends ModelSummary {
   baseModelEvidence: Evidence;
   triggerWords: string[];
@@ -194,10 +209,12 @@ export interface ModelDetail extends ModelSummary {
   civitaiKnown: boolean;
 }
 
+/** Which question an explanation answers: what it is, why it is here, how it connects, what next, what can go wrong. */
 export type ExplanationAspect = 'what' | 'why' | 'connect' | 'next' | 'risk';
 /** `file`: written by whoever made a project file the person opened; the app cannot vouch for it. */
 export type Provenance = 'fact' | 'inference' | 'web' | 'user' | 'file';
 
+/** A short text about one object (a node, a port, a model...), stored with where it came from. */
 export interface Explanation {
   id: string;
   /** null = knowledge about a class or model, shared across projects. */
@@ -209,12 +226,15 @@ export interface Explanation {
   sourceUrl: string | null;
   /** Graph revision the explanation was written against; null for global knowledge. */
   revisionId: string | null;
-  /** 'seed': built-in teaching knowledge written by the app itself (src/main/knowledge/seedCore.ts). */
-  /** `file`: came with a project file the person opened (never shown as the person's own or as built-in). */
+  /**
+   * Who wrote it. 'seed': built-in teaching knowledge written by the app itself (src/main/knowledge/seedCore.ts).
+   * `file`: came with a project file the person opened (never shown as the person's own or as built-in).
+   */
   createdBy: 'ai' | 'user' | 'sync' | 'seed' | 'file';
   createdAt: number;
 }
 
+/** An explanation to save; main adds the id and the time. */
 export type ExplanationInput = Omit<Explanation, 'id' | 'createdAt'>;
 
 /**
@@ -238,6 +258,7 @@ export interface PromptNote {
   words?: string[];
 }
 
+/** What the graph check found: nodes and models that are not installed, links whose types do not match. */
 export interface GraphCheckReport {
   ok: boolean;
   missingNodes: Array<{ subgraphId?: string; nodeId: string; classType: string }>;
@@ -281,6 +302,7 @@ export interface GraphCheckReport {
   valuesNotInList?: Array<{ subgraphId?: string; nodeId: string; classType: string; input: string; value: string }>;
 }
 
+/** The state of reading the catalog from ComfyUI or the MCP server, for Settings and the status bar. */
 export interface SyncStatus {
   /** Source-aware catalog facts revision, advanced only after accepted writes. */
   catalogRevision?: number;
@@ -358,6 +380,7 @@ export type NodeClassVerdict =
   | { ok: true; known: boolean; portsKnown: boolean; warning?: string }
   | { ok: false; error: string; suggestions: string[] };
 
+/** A node search from the add-node box, the library or the agent. */
 export interface SearchNodesRequest {
   query: string;
   category?: string;
@@ -369,6 +392,7 @@ export interface SearchNodesRequest {
   /** Language of the one-line description of each result. */
   language?: 'en' | 'ru';
 }
+/** A model search and a request for stored explanations. */
 export interface SearchModelsRequest { query: string; directory?: string; baseModel?: BaseModelFamily; kind?: ModelKind; limit?: number }
 export interface ListExplanationsRequest { projectId?: string | null; owner?: ObjectRef }
 

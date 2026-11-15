@@ -1,3 +1,8 @@
+/**
+ * Sign-in and key status as the renderer may see it: the MCP server's OAuth state and auth probe, and where each
+ * key and token lives (session, OS store, file). Never a key or token itself. Main answers (main/mcp/oauth.ts,
+ * detect.ts, main/ipc.ts); Settings ▸ Connection, Assistant and Privacy show it.
+ */
 import { KEY_PROVIDERS, type KeyProvider } from '../config/keyOrigin';
 /**
  * OAuth sign-in to the MCP server. Main keeps every token; the renderer only ever sees this status.
@@ -14,16 +19,16 @@ export interface McpOAuthStatus {
 export type McpOAuthLoginResult = { ok: true; expiresAt?: number; anonymous?: boolean } | { ok: false; error: string };
 
 /**
- * What the MCP server at an address wants from a connection, found out by trying: 'none' when a connection without
- * credentials is accepted (with the number of tools it lists), 'oauth' when it answers 401 and publishes OAuth
- * metadata (browser sign-in), 'token' when it answers 401 without any (a pasted token). Failures are fixed sentences.
- */
-/**
  * The kind of MCP server, from its tool list (main/mcp/profiles.ts); null when the app does not know how to read it.
  * Absent when the tools could not be listed (a sign-in is needed first).
  */
 export type McpProfileName = 'catalog' | 'modelList' | 'checkpointList';
 
+/**
+ * What the MCP server at an address wants from a connection, found out by trying: 'none' when a connection without
+ * credentials is accepted (with the number of tools it lists), 'oauth' when it answers 401 and publishes OAuth
+ * metadata (browser sign-in), 'token' when it answers 401 without any (a pasted token). Failures are fixed sentences.
+ */
 export type McpAuthProbe = (
   | { ok: true; mode: 'none'; tools: number; profile?: McpProfileName | null }
   | { ok: true; mode: 'oauth' }
@@ -53,6 +58,7 @@ export interface McpTokenStatus {
  * server); each has its own key, never shared with another. The name stays for the callers that read it.
  */
 export type CloudKeyProvider = KeyProvider;
+/** Every provider a key can be held for (same list as KEY_PROVIDERS). */
 export const CLOUD_KEY_PROVIDERS: readonly CloudKeyProvider[] = KEY_PROVIDERS;
 
 /** Where one provider's key lives right now: nowhere, in memory for this session, in the OS store, or in the file. */

@@ -1,7 +1,10 @@
 /**
  * The model conversation log as the renderer sees it: summaries of recorded turns, never their bodies.
  * Main keeps the files (src/main/trace/modelTrace.ts) and writes exports through a system save dialog.
+ * The renderer lists them in Help ▸ Conversation log (renderer/components/log/ModelLogDialog.tsx).
  */
+
+/** One recorded turn: who was asked, how it ended and what it cost. */
 export interface ModelLogTurn {
   id: string;
   startedAt: number;
@@ -23,6 +26,7 @@ export interface ModelLogTurn {
   question: string;
 }
 
+/** The log as the dialog lists it, with the total size on disk. */
 export interface ModelLogList {
   /** Settings ▸ Privacy: the log is being kept. */
   enabled: boolean;
@@ -35,6 +39,7 @@ export interface ModelLogList {
 /** Which turns to save: explicit ids, the newest one, today's, or all that are kept. */
 export type ModelLogExportRequest = { ids: string[] } | { scope: 'last' | 'today' | 'all' };
 
+/** Where the export was saved, or why not (the person may cancel the save dialog). */
 export type ModelLogExportResult =
   | { ok: true; path: string; bytes: number; turns: number }
   | { ok: false; canceled?: boolean; error?: string };
