@@ -1,16 +1,17 @@
+/**
+ * The descriptions (prompts) of a graph read the way ComfyUI will read them. For every sampler the texts that
+ * reach its `positive` and `negative` inputs are found, through whatever nodes pass conditioning on, and looked
+ * at together with the sampler's cfg, the kind of text encoder they were encoded with, and the LoRAs on the way.
+ * What comes out is advice, not errors: the graph runs either way, but not the way the person expects.
+ *
+ * Used by knowledge/check.ts (the prompt advice of the check panel).
+ */
 import type Database from 'better-sqlite3';
 import type { CatalogView } from '../../shared/catalog/types';
 import type { BaseModelFamily, PromptNote } from '../../shared/contracts/knowledge';
 import type { GraphNodeLike } from '../../shared/graph/compatibility';
 import { contradictions, holdsTrigger, inspectText, readerOfClipType, readerOfFamily, type PromptReader } from '../../shared/prompt/inspect';
 import { catalogFileIndex, loadedModelFiles } from './loadedModels';
-
-/**
- * The descriptions (prompts) of a graph read the way ComfyUI will read them. For every sampler the texts that
- * reach its `positive` and `negative` inputs are found, through whatever nodes pass conditioning on, and looked
- * at together with the sampler's cfg, the kind of text encoder they were encoded with, and the LoRAs on the way.
- * What comes out is advice, not errors: the graph runs either way, but not the way the person expects.
- */
 
 interface Port { id?: unknown; name?: unknown; dataType?: unknown }
 interface CanvasNode extends GraphNodeLike {
@@ -23,17 +24,20 @@ interface Spec { inputs: SpecInput[]; outputs: Array<{ name: string; type: strin
 
 /** How far a conditioning or a CLIP link is followed back; a real graph is a handful of steps. */
 const MAX_HOPS = 24;
+/** At most this many of a LoRA's trigger words are named in a "missing trigger" note. */
 const SHOWN_WORDS = 6;
 
 const classOf = (node: CanvasNode | undefined) => (typeof node?.data?.comfyType === 'string' ? node.data.comfyType : '');
 const ports = (node: CanvasNode | undefined, side: 'inputs' | 'outputs'): Port[] => (Array.isArray(node?.data?.[side]) ? (node!.data![side] as Port[]) : []);
 const same = (left: unknown, right: string) => typeof left === 'string' && left.toLowerCase() === right.toLowerCase();
 
+/** The field values a command set on a node, or an empty record. */
 function parameters(node: CanvasNode | undefined): Record<string, unknown> {
   const value = node?.data?.parameters;
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
 
+/** The prompt advice for a graph; `specs` are check.ts's catalog rows, read once for the whole check. */
 export function promptNotes(
   db: Database.Database,
   nodes: CanvasNode[],

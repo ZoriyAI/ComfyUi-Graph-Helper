@@ -1,3 +1,20 @@
+/**
+ * Asking Civitai and Hugging Face about a model file, from the main process only.
+ *
+ * Only plain GETs to fixed sites: civitai.com and huggingface.co, and the servers they keep pictures and files on.
+ * No key, no cookie, no credential of any kind is sent; the app has none for these sites and wants none. Every
+ * address is checked against that short list before anything is sent, every redirect again, and the connection
+ * goes through the same guard as the helper's page reader (main/agent/web.ts): the host is resolved and refused
+ * when it points into this machine or a private network, and the connection is pinned to the address that was
+ * checked. Answers are bounded in size and time. Requests are spaced: never faster than one every `pauseMs`.
+ *
+ * What is sent is the file's fingerprint (to Civitai) or its name without folder and precision (to Hugging Face).
+ * That leaves the computer, so it happens only when the person asked: in the card of that file, or for all files
+ * at sync when Settings ▸ Privacy allows it.
+ *
+ * Used by ipc/knowledgeIpc.ts (the app client), knowledge/modelWeb.ts, knowledge/preview.ts (web samples) and
+ * mcp/sync.ts (lookups at sync).
+ */
 import { pinnedRequest, vetWebTarget, type FetchLike } from '../agent/web';
 import {
   bestHuggingFaceMatch, civitaiFound, huggingFaceFound, huggingFacePreviewCandidates, HUGGING_FACE_FILE_HOSTS, nameQueries, PREVIEW_TRIES, sniffMedia,
@@ -5,21 +22,6 @@ import {
 } from '../../shared/knowledge/webLookup';
 import { PREVIEW_MAX_BYTES } from '../mcp/sideFiles';
 import { userAgent } from '../identity';
-
-/**
- * Asking Civitai and Hugging Face about a model file, from the main process only.
- *
- * Only plain GETs to fixed sites: civitai.com and huggingface.co, and the servers they keep pictures and files on.
- * No key, no cookie, no credential of any kind is sent; the app has none for these sites and wants none. Every
- * address is checked against that short list before anything is sent, every redirect again, and the connection
- * goes through the same guard as the helper's page reader (shared/agent/web.ts): the host is resolved and refused
- * when it points into this machine or a private network, and the connection is pinned to the address that was
- * checked. Answers are bounded in size and time. Requests are spaced: never faster than one every `pauseMs`.
- *
- * What is sent is the file's fingerprint (to Civitai) or its name without folder and precision (to Hugging Face).
- * That leaves the computer, so it happens only when the person asked: in the card of that file, or for all files
- * at sync when Settings ▸ Privacy allows it.
- */
 
 export interface LookupEndpoints {
   civitai: string;
@@ -34,9 +36,11 @@ export const LOOKUP_ENDPOINTS: LookupEndpoints = { civitai: 'https://civitai.com
  * address.
  */
 export const MEDIA_HOSTS = ['image.civitai.com', 'image-b2.civitai.com', ...HUGGING_FACE_FILE_HOSTS] as const;
+/** Time for one request, answer included. */
 export const LOOKUP_TIMEOUT_MS = 15_000;
 /** An API answer of the size these sites give is far below this; more is not their answer. */
 export const LOOKUP_JSON_MAX_BYTES = 2 * 1024 * 1024;
+/** Largest model card (README) read from Hugging Face. */
 export const README_MAX_BYTES = 512 * 1024;
 /** Sync spaces its requests at least this far apart, so many files never become a burst at the site. */
 export const SYNC_LOOKUP_PAUSE_MS = 1_000;
@@ -44,9 +48,11 @@ export const SYNC_LOOKUP_PAUSE_MS = 1_000;
 export const SYNC_LOOKUPS_PER_RUN = 200;
 /** A lookup the person started in a card still keeps its requests apart, a little. */
 export const CARD_LOOKUP_PAUSE_MS = 250;
+/** Redirects followed (each one checked again); more is not how these sites answer. */
 const MAX_REDIRECTS = 3;
 const USER_AGENT_PURPOSE = 'model card lookup';
 
+/** A lookup that did not work, with the code the card shows. */
 export class LookupFailure extends Error {
   constructor(readonly code: WebError) {
     super(`Model lookup failed: ${code}.`);
@@ -54,7 +60,8 @@ export class LookupFailure extends Error {
   }
 }
 
-export type LookupOutcome = { status: 'found'; found: WebFound } | { status: 'not-found' } | { status: 'error'; error: WebError };
+/** How one lookup ended: found, not known to either site, or failed. */
+export type LookupOutcome ={ status: 'found'; found: WebFound } | { status: 'not-found' } | { status: 'error'; error: WebError };
 
 /** A downloaded sample: its bytes and what they are by their first bytes. */
 export interface PreviewBytes {
@@ -63,6 +70,7 @@ export interface PreviewBytes {
   kind: 'image' | 'video';
 }
 
+/** Seams for tests; the app passes none of these. */
 export interface ModelWebDeps {
   /** Tests only: a fake of both sites. Its own host is then the only one allowed, over http too. */
   endpoints?: LookupEndpoints;
@@ -79,12 +87,14 @@ interface Answer {
   bytes: Buffer;
 }
 
+/** Any thrown error as a LookupFailure: a timeout or an abort, else 'unreachable'. */
 function failureOf(error: unknown): LookupFailure {
   if (error instanceof LookupFailure) return error;
   const text = error instanceof Error ? `${error.name} ${error.message} ${String((error as { cause?: unknown }).cause ?? '')}` : String(error);
   return new LookupFailure(/timeout|abort/i.test(text) ? 'timeout' : 'unreachable');
 }
 
+/** The body, refused as 'bad-answer' once it grows past `maxBytes` (the read stops there). */
 async function readBounded(response: Response, maxBytes: number): Promise<Buffer> {
   const declared = Number(response.headers.get('content-length') ?? '');
   if (Number.isFinite(declared) && declared > maxBytes) {
@@ -113,6 +123,10 @@ async function readBounded(response: Response, maxBytes: number): Promise<Buffer
   return Buffer.concat(chunks);
 }
 
+/**
+ * A client that asks the two sites (the app shares one, appWebClient). Its requests run one after another through
+ * `queue`, spaced by the pause, so a card lookup and a sync lookup never overlap at the site.
+ */
 export class ModelWebClient {
   readonly endpoints: LookupEndpoints;
   private readonly hosts: Set<string>;

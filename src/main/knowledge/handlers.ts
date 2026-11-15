@@ -1,3 +1,9 @@
+/**
+ * The knowledge:* and sync:* request handlers: node and model search and detail, previews, internet lookup,
+ * explanations, the graph check, the node class guard, field models, and the sync controls.
+ * Registered by ipc/knowledgeIpc.ts; the tests (knowledgeIpc, nodeClassGuard, fieldSpec) call them directly.
+ * Every argument is validated with zod, and every error leaving here is one of a few fixed messages.
+ */
 import type Database from 'better-sqlite3';
 import { ZodError } from 'zod';
 import { IPC_CHANNELS } from '../../shared/ipc-channels';
@@ -28,13 +34,16 @@ import {
 import { validateNodeClass } from './nodeClassGuard';
 import { fieldModels, fieldModelsSchema } from './fieldModels';
 
+/** One handler: the IPC arguments after the event, unvalidated. */
 export type KnowledgeHandler = (...args: unknown[]) => unknown;
 
+/** Refusal of an explanation whose text or link looks like a key or a token. */
 export const EXPLANATION_SECRET_ERROR = 'Explanations cannot store a secret.';
 
 /** Messages our own code throws on purpose; anything else becomes a generic message so no internals leak. */
 const PUBLIC_MESSAGES = new Set(['Project was not found.', EXPLANATION_SECRET_ERROR]);
 
+/** The only error type the window gets from these handlers. */
 export class KnowledgeRequestError extends Error {
   constructor(message: string) {
     super(message);
@@ -42,12 +51,14 @@ export class KnowledgeRequestError extends Error {
   }
 }
 
+/** Any error as a KnowledgeRequestError with a fixed message. */
 function clean(error: unknown): KnowledgeRequestError {
   if (error instanceof ZodError) return new KnowledgeRequestError('Knowledge request is not valid.');
   if (error instanceof Error && PUBLIC_MESSAGES.has(error.message)) return new KnowledgeRequestError(error.message);
   return new KnowledgeRequestError('Knowledge request failed.');
 }
 
+/** Wraps a handler so a thrown error (sync or async) leaves cleaned. */
 function guarded(handler: KnowledgeHandler): KnowledgeHandler {
   return async (...args) => {
     try {

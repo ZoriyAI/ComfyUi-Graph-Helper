@@ -1,3 +1,8 @@
+/**
+ * Writes the app's built-in teaching knowledge into the explanations table, in the interface language.
+ * Called by database.ts when the database opens and by ipc.ts after a settings save (the language may have
+ * changed), both through reseedCoreKnowledge. The rules of seeding are on SEED_CREATED_AT below.
+ */
 import type Database from 'better-sqlite3';
 import { languageOf as interfaceLanguageOf } from '../../shared/i18n';
 import { systemLanguage } from '../systemLanguage';
@@ -18,6 +23,7 @@ import { ownerColumns } from './repository';
  */
 export const SEED_CREATED_AT = 0;
 
+/** The language to seed: the one asked for, else the saved interface language, else the system's. */
 function languageOf(db: Database.Database, language?: string): KnowledgeLanguage {
   if (language === 'en' || language === 'ru') return language;
   try {

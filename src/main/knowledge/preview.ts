@@ -1,3 +1,17 @@
+/**
+ * The preview picture or clip a model manager keeps next to a model, handed to the window as bytes.
+ *
+ * A preview is read through the read-only MCP gate once and then kept in a folder of the app, under a name made
+ * of its path and its listing signature: the same file is not asked for twice, and a preview that changed is.
+ * Reads go one at a time over one session that closes after a short rest, so a list of thumbnails is one
+ * connection and not a hundred. Nothing is written on the server.
+ *
+ * A file with nothing next to it may have a sample found on the internet at the person's request (see
+ * modelWeb.ts). That one is downloaded by main from the site that named it, through the lookup's guarded client,
+ * kept in the same folder, and handed over the same way: the window cannot tell the two apart, and needs not.
+ *
+ * Used by ipc/knowledgeIpc.ts (PreviewReader behind the model cards) and ipc/privacyIpc.ts (cache size and clear).
+ */
 import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -11,19 +25,6 @@ import { COMFY_PREVIEW_FILE, readComfyPreview } from '../comfy/direct';
 import { catalogSourceKey, normalizedMcpEndpoint } from '../catalog/repository';
 import { readSettings } from '../settings/repository';
 
-/**
- * The preview picture or clip a model manager keeps next to a model, handed to the window as bytes.
- *
- * A preview is read through the read-only MCP gate once and then kept in a folder of the app, under a name made
- * of its path and its listing signature: the same file is not asked for twice, and a preview that changed is.
- * Reads go one at a time over one session that closes after a short rest, so a list of thumbnails is one
- * connection and not a hundred. Nothing is written on the server.
- *
- * A file with nothing next to it may have a sample found on the internet at the person's request (see
- * modelWeb.ts). That one is downloaded by main from the site that named it, through the lookup's guarded client,
- * kept in the same folder, and handed over the same way: the window cannot tell the two apart, and needs not.
- */
-
 /** The session rests this long after the last read before it is closed. */
 const IDLE_CLOSE_MS = 20_000;
 /** The cache folder is trimmed to this many files, oldest first, when it grows past it. */
@@ -33,6 +34,7 @@ export const PREVIEW_CACHE_BYTES = 512 * 1024 * 1024;
 /** Written since the last trim before the folder is looked at again. */
 const TRIM_AFTER_BYTES = 64 * 1024 * 1024;
 
+/** What the reader needs; ipc/knowledgeIpc.ts passes the app's own, tests pass fakes. */
 export interface PreviewDeps {
   db: () => Database.Database;
   /** A read-only session with the saved MCP server, or null when there is none to open. */
@@ -62,6 +64,7 @@ interface PreviewRow {
   web_notes_json: string | null;
 }
 
+/** Extension a kept internet sample gets by its type; read back, the extension tells the type again. */
 const MIME_EXTENSION: Record<string, string> = {
   'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif', 'image/avif': 'avif', 'video/mp4': 'mp4', 'video/webm': 'webm',
 };
@@ -84,6 +87,11 @@ function savedMcpPreviewBinding(db: Database.Database): string | null {
   return catalogSourceKey([state.catalog_source_key, state.catalog_source_connection, current]);
 }
 
+/**
+ * Reads previews on demand and keeps them on disk. One instance lives for the app (ipc/knowledgeIpc.ts).
+ * When the catalog's source changes (`sourceKey`), the session is closed and reads still in flight are dropped
+ * (`generation`), so a picture read from one server is never handed out for another server's file.
+ */
 export class PreviewReader {
   private session: McpSession | null = null;
   private opening: Promise<McpSession | null> | null = null;

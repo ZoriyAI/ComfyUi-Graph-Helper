@@ -3,12 +3,13 @@
  * searchNodeTypes tool all read node classes through main/knowledge/repository.ts searchNodeClasses, which scores
  * every class here.
  *
- * Why it looks beyond names: a newcomer types what a node does ("remove background", "картинка из текста") more
- * often than its class name. So a word may also match the description ComfyUI gives the class and the built-in
- * explanation the app ships for core nodes (both languages), ranked after every match in a name. Small words
- * ("to", "из") do not count, and in a query of two or more words one word may miss, at a cost, so one unknown word
- * does not hide every result. Words `in:TYPE` and `out:TYPE` (also `вход:` and `выход:`) keep only classes with an
- * input or an output of that type, which is also how a link asks for the nodes that can be placed on it.
+ * Why it looks beyond names: a newcomer types what a node does ("remove background", or the same in Russian, such as
+ * "picture from text") more often than its class name. So a word may also match the description ComfyUI gives the
+ * class and the built-in explanation the app ships for core nodes (both languages), ranked after every match in a
+ * name. Small words ("to", and their Russian counterparts in STOP_WORDS) do not count, and in a query of two or more
+ * words one word may miss, at a cost, so one unknown word does not hide every result. Words `in:TYPE` and `out:TYPE`
+ * (also their Russian forms, the words for input and output; see FILTER) keep only classes with an input or an
+ * output of that type, which is also how a link asks for the nodes that can be placed on it.
  */
 import { CORE_KNOWLEDGE, type CoreNodeClass } from '../../shared/knowledge/coreKnowledge';
 import { englishFor, normalizeWord, queryWords, rankFields } from '../../shared/knowledge/searchWords';
@@ -32,9 +33,10 @@ export interface ParsedNodeQuery {
   outputType?: string;
 }
 
+/** A type filter word: `in:` or `out:`, in English or Russian, then the type. */
 const FILTER = /^(in|out|вход|выход):(.+)$/i;
 
-/** Reads `in:IMAGE` / `out:LATENT` (and the Russian вход: / выход:) out of a query; the rest are search words. */
+/** Reads `in:IMAGE` / `out:LATENT` (and their Russian forms) out of a query; the rest are search words. */
 export function parseNodeQuery(query: string): ParsedNodeQuery {
   const parsed: ParsedNodeQuery = { words: [] };
   for (const token of queryWords(query)) {
@@ -53,6 +55,7 @@ export function parseNodeQuery(query: string): ParsedNodeQuery {
   return parsed;
 }
 
+/** The text with every regular-expression character escaped. */
 function escape(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
