@@ -2,8 +2,9 @@
  * The revision the window shows (`currentRevisionId`), and an in-window list of snapshots.
  *
  * Who uses it: services/commands/projection.ts sets the current revision from each projection; chatService.ts saves
- * it with every chat message; the canvas layers and ExplainPanel read it. The `revisions` list is filled only by
- * the legacy services/graph/graphService.ts and its tests; the real history lives in main (see state/undoState.ts).
+ * it with every chat message; the canvas layers and ExplainPanel read it. Nothing in the app fills the `revisions`
+ * list any more (its only writer, a legacy renderer graph service, was removed); the real history lives in main
+ * (see state/undoState.ts).
  */
 import { create } from 'zustand';
 import { GraphRevision } from '../types/revisions';
