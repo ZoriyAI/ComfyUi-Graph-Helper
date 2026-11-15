@@ -1,3 +1,9 @@
+/**
+ * The knowledge and sync IPC handlers in main (main/knowledge/handlers.ts, registered by main/ipc/knowledgeIpc.ts):
+ * every channel of the contract is answered, a bad request is refused with a clean message, an explanation sent by
+ * the window is always saved as the person's own and never with a secret in it, and sync does not run without an
+ * address. The window is not trusted to label its text as a fact or to hand main a key to keep.
+ */
 import { describe, expect, it } from 'vitest';
 import Database from 'better-sqlite3';
 import { migrate } from '../../src/main/settings/migrate';
@@ -9,6 +15,7 @@ import { parseObjectInfo } from '../../src/shared/catalog/objectInfo';
 import { IPC_CHANNELS } from '../../src/shared/ipc-channels';
 import { DESKTOP_PROJECT_ID } from '../../src/shared/project';
 
+/** A database with one KSampler class and handlers whose sync service has no token and no address. */
 function setup() {
   const db = new Database(':memory:');
   migrate(db);
@@ -75,6 +82,7 @@ describe('knowledge IPC handlers', () => {
     expect(await handlers[IPC_CHANNELS.KNOWLEDGE_SAVE_EXPLANATION]({
       ...base, owner: { kind: 'port', id: 'p', nodeId: '1', direction: 'input', portName: 'model' }, text: 'A port.', provenance: 'user', createdBy: 'user',
     })).toMatchObject({ provenance: 'user' });
+    // A model file name that only looks a little like a key is not a secret.
     expect(await handlers[IPC_CHANNELS.KNOWLEDGE_SAVE_EXPLANATION]({
       ...base, owner: { kind: 'node', id: '1' }, text: 'The mask-like face LoRA is loras/mask-xl_v1.safetensors.', provenance: 'user', createdBy: 'user',
     })).toMatchObject({ provenance: 'user' });
