@@ -19,9 +19,10 @@ import { BASE_MODEL_FAMILIES } from '../../knowledge/schemas';
 import { FILES, type FileWant } from '../files';
 import { REASONS_EN } from '../reasons.en';
 import { lessonProblems } from '../schema';
+import { APP_ID } from '../../productNames';
 
-/** What the file says it is; any other value is not a lesson file. */
-export const LESSON_FILE_FORMAT = 'graph-helper-for-comfyui/lessons';
+/** What the file says it is (`nodewise-studio/lessons`); any other value is not a lesson file. */
+export const LESSON_FILE_FORMAT = `${APP_ID}/lessons`;
 /** The version this app writes and reads. A higher one is refused with "made by a newer version". */
 export const LESSON_FILE_VERSION = 1;
 

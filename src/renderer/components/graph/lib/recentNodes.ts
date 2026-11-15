@@ -5,7 +5,8 @@
  */
 import type { NodeClassSummary } from '../../../../shared/contracts/knowledge';
 
-const KEY = 'graph-helper.recent-nodes';
+// Renamed with the product for 1.0; a list kept under the 0.x key is simply not read (a convenience, not data).
+const KEY = 'nodewise.recent-nodes';
 /** How many recent nodes the empty search shows. */
 export const RECENT_LIMIT = 6;
 

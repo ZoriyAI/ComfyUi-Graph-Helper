@@ -49,7 +49,7 @@ async function drop(page: Page, name: string, text: string): Promise<void> {
   await list.dispatchEvent('drop', { dataTransfer: handle });
 }
 
-const fileText = (lessons: unknown[]) => JSON.stringify({ format: 'graph-helper-for-comfyui/lessons', version: 1, lessons });
+const fileText = (lessons: unknown[]) => JSON.stringify({ format: 'nodewise-studio/lessons', version: 1, lessons });
 
 test('lessons as files: drop, keep, export buttons, make from the graph, remove', async () => {
   const { app, page, api } = await launch();

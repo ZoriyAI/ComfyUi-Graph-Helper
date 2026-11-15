@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as zlib from 'zlib';
 import { OPEN_FILE_MAX_BYTES } from './atomicWrite';
+import { isNativeProjectFormat } from '../../shared/native-project';
 
 /**
  * Reads a file a person wants to open and says what it holds: a project of this app, a workflow, or nothing.
@@ -38,9 +39,9 @@ export function withoutBom(text: string): string {
   return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
 }
 
-/** True when the parsed JSON is a project file of this app rather than a workflow. */
+/** True when the parsed JSON is a project file of this app (also one saved by 0.x) rather than a workflow. */
 export function isProjectDocument(document: unknown): boolean {
-  return !!document && typeof document === 'object' && (document as { format?: unknown }).format === 'comfy-graph-helper-project';
+  return !!document && typeof document === 'object' && isNativeProjectFormat((document as { format?: unknown }).format);
 }
 
 /** Text chunks of a PNG by keyword (tEXt, zTXt and iTXt; compressed ones are inflated). */

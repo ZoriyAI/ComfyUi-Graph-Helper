@@ -106,6 +106,10 @@ The app opens your system browser, never a window of its own, for: signing in to
 website, Help ▸ New versions and Help ▸ Report a problem. Report a problem first shows you what the new issue will
 contain (the versions of the app and the system, nothing else).
 
+Two download pages are opened there only when you click their buttons in the **No ComfyUI yet** window:
+**Open the ComfyUI download page** (`https://www.comfy.org/download`) and **Open the Ollama download page**
+(`https://ollama.com/download`). The app itself sends nothing to either site.
+
 ## What stays on your computer
 
 - The database with settings, the catalog, the history of the graph and the chats (Settings ▸ Privacy ▸ Keep chat
