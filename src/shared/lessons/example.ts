@@ -74,7 +74,8 @@ function personValue(missing: Extract<Missing, { kind: 'field' }>, graph: Lesson
 
 /**
  * The example graph of a lesson as an API-form prompt, or null when this ComfyUI cannot build it (a class it does
- * not have, a model file it does not have, a step only a person can do) or the lesson is for adults.
+ * not have, a model file it does not have), when its graph would be loose nodes without a link, or the lesson is
+ * for adults.
  */
 export function exampleFromLesson(lesson: Lesson, catalog: CatalogView): Record<string, ExampleApiNode> | null {
   if (isAdultLesson(lesson.id)) return null;
@@ -87,7 +88,8 @@ export function exampleFromLesson(lesson: Lesson, catalog: CatalogView): Record<
   let next = 1;
   for (let turn = 0; turn < MAX_CHANGES; turn += 1) {
     const progress = lessonProgress(lesson, graph, {}, read, answers);
-    if (progress.current >= lesson.steps.length) return toApi(graph);
+    // Loose nodes with no link between them show nothing: a lesson whose canvas work is only that has no example.
+    if (progress.current >= lesson.steps.length) return graph.links.length > 0 ? toApi(graph) : null;
     const missing = progress.missing[0];
     if (!missing) return null;
     const choices = (nodeId: string, field: string) => {
