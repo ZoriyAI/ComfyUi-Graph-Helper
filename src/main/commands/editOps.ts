@@ -19,7 +19,7 @@ import {
   editorNodeRecord,
   isEditorNodeType,
 } from '../../shared/graph/editorNodes';
-import { widgetsFromParameters, type GraphSnapshot } from '../../shared/workflow/codec';
+import { groupBounding, widgetsFromParameters, type GraphSnapshot } from '../../shared/workflow/codec';
 
 type Node = Record<string, any>;
 type Edge = Record<string, any>;
@@ -36,6 +36,7 @@ export const EDIT_ERRORS = {
   sameClass: 'The node already is of that kind.',
   groupMissing: 'Group was not found.',
   primitiveToSocket: 'A Primitive feeds a field only, not a link input.',
+  groupEmpty: 'A group keeps at least one node. To remove the group, use Remove group.',
 } as const;
 
 export class EditOpError extends Error {}
@@ -45,7 +46,7 @@ function fail(message: string): never {
 }
 
 /** The mutation types this module applies. */
-const EDIT_OPS = new Set(['set-node-mode', 'set-note-text', 'insert-node-on-edge', 'replace-node', 'set-node-color', 'set-group-color']);
+const EDIT_OPS = new Set(['set-group-members', 'set-node-mode', 'set-note-text', 'insert-node-on-edge', 'replace-node', 'set-node-color', 'set-group-color']);
 
 export function isEditOp(payload: GraphMutation): boolean {
   return EDIT_OPS.has(payload.type);
@@ -225,6 +226,26 @@ function setGroupColor(snapshot: GraphSnapshot, payload: Extract<GraphMutation, 
   return { snapshot: { ...snapshot, groups }, result: { groupId: payload.groupId, color: payload.color } };
 }
 
+/** Moves nodes into or out of a group; the frame is drawn around the members, so it grows or shrinks with them. */
+function setGroupMembers(snapshot: GraphSnapshot, payload: Extract<GraphMutation, { type: 'set-group-members' }>) {
+  const groups = (snapshot.groups ?? []).map((group) => ({ ...group }));
+  const group = groups.find((item) => String(item.id) === payload.groupId) ?? fail(EDIT_ERRORS.groupMissing);
+  requireNodes(snapshot.nodes as Node[], payload.add);
+  const removed = new Set(payload.remove);
+  const nodeIds = [...new Set([...group.nodeIds.filter((id) => !removed.has(id)), ...payload.add])];
+  if (nodeIds.length === 0) fail(EDIT_ERRORS.groupEmpty);
+  // A node belongs to one group: joining this one takes it out of the others (ComfyUI groups do not overlap here).
+  const joined = new Set(payload.add);
+  for (const other of groups) {
+    if (other !== group) other.nodeIds = other.nodeIds.filter((id) => !joined.has(id));
+  }
+  group.nodeIds = nodeIds;
+  group.bounding = groupBounding(snapshot.nodes.filter((node) => nodeIds.includes(String(node.id))) as Node[]);
+  // A group left without nodes by the move goes away, as a group with no members cannot be drawn.
+  const kept = groups.filter((item) => item.nodeIds.length > 0);
+  return { snapshot: { ...snapshot, groups: kept }, result: { groupId: payload.groupId, nodeIds } };
+}
+
 /**
  * Places a new node on a link in one step: the node is added, the link's target is fed from the node's first
  * output that fits (which replaces the old link, since an input takes one link), and the link's source feeds the
@@ -353,6 +374,7 @@ export function applyEditOp(
     case 'set-note-text': return setNoteText(snapshot, payload);
     case 'set-node-color': return setNodeColor(snapshot, payload);
     case 'set-group-color': return setGroupColor(snapshot, payload);
+    case 'set-group-members': return setGroupMembers(snapshot, payload);
     case 'insert-node-on-edge': return insertOnEdge(snapshot, actionId, payload, catalog, apply);
     case 'replace-node': return replaceNode(snapshot, payload, catalog);
     default: return fail('Unknown edit.');

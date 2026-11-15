@@ -32,6 +32,7 @@ import {
 } from '../../shared/knowledge/schemas';
 import { queryWords, rankFields } from '../../shared/knowledge/searchWords';
 import { knowledgeLine, knowledgeTexts, parseNodeQuery, scoreClass, shortDescription } from './nodeSearch';
+import { NODE_MARKS, type NodeMark } from '../../shared/contracts/knowledge';
 import { EDITOR_NODE_TYPES, editorNodeDisplayName, editorNodePorts, editorNodeWords, isEditorNodeType, type EditorNodeType } from '../../shared/graph/editorNodes';
 import { packInfoOf, webUrl } from '../../shared/knowledge/packInfo';
 import { notesFromJson, previewKind, type ModelNotes } from '../../shared/knowledge/sidecar';
@@ -68,10 +69,13 @@ type NodeRow = {
   description: string;
   output_node: number;
   synced_at: number | null;
+  /** Marks from object_info (migration 18): 'api', 'deprecated', 'experimental'. */
+  flags: string;
+  python_module: string;
 };
 
 const NODE_COLUMNS = `class_type, display_name, category, pack, pack_name, inputs_json, outputs_json, widget_order_json,
-  description, output_node, synced_at`;
+  description, output_node, synced_at, flags, python_module`;
 
 function packOf(row: NodeRow): string {
   return row.pack_name || row.pack || '';
@@ -84,6 +88,8 @@ function summaryOf(row: NodeRow): NodeClassSummary {
     category: row.category ?? '',
     pack: packOf(row),
     detailed: parseArray(row.inputs_json).length > 0 || parseArray(row.outputs_json).length > 0,
+    // Editing package: paid, deprecated and experimental marks for the search, the library and the canvas.
+    ...(marksOf(row).length > 0 ? { marks: marksOf(row) } : {}),
   };
 }
 
@@ -127,7 +133,8 @@ export function searchNodeClasses(db: Database.Database, request: SearchNodesReq
     const description = knowledgeLine(row.class_type, language) || shortDescription(row.description);
     if (description) summary.description = description;
     if (row.output_node === 1) summary.outputNode = true;
-    scored.push({ summary, score, missing });
+    // An outdated node comes after its current neighbours.
+    scored.push({ summary, score: score + (summary.marks?.includes('deprecated') ? 2 : 0), missing });
   }
   const known = new Set(rows.map((row) => row.class_type));
   for (const classType of EDITOR_NODE_TYPES) {
@@ -174,6 +181,16 @@ function editorNodeDetail(classType: EditorNodeType): NodeClassDetail {
     outputNode: false,
     syncedAt: null,
   };
+}
+
+/**
+ * A node's marks: 'api' for a paid node that runs on an outside service (object_info api_node, or a class of
+ * ComfyUI's comfy_api_nodes package when the flag was never read), 'deprecated', 'experimental'.
+ */
+export function marksOf(row: { flags?: string | null; pack?: string; python_module?: string }): NodeMark[] {
+  const words = new Set((row.flags ?? '').split(/\s+/).filter(Boolean));
+  if ((row.python_module ?? '').startsWith('comfy_api_nodes')) words.add('api');
+  return NODE_MARKS.filter((mark) => words.has(mark));
 }
 
 /** The category ComfyUI files its editor nodes under. */

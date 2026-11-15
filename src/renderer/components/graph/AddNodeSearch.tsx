@@ -12,6 +12,7 @@ import type { NodeClassSummary } from '../../../shared/contracts/knowledge';
 import { useCanvasStore, type AddSearchPurpose } from './canvasStore';
 import { captureEditOrigin, commitAtOrigin, originIsCurrent, requireEditOrigin, type EditOrigin } from './lib/editOrigin';
 import { recentNodes, rememberRecentNode } from './lib/recentNodes';
+import NodeMarks from './NodeMarks';
 import { placeNewNode } from './placeNode';
 import { useNodeInfoStore } from './nodeInfo';
 import type { ConnectFrom } from './lib/connectAssist';
@@ -334,7 +335,7 @@ export default function AddNodeSearch() {
           >
             <span className={styles.resultDot} style={{ background: categoryAccent(item.category, undefined) }} aria-hidden="true" />
             <span className={styles.resultText}>
-              <span className={styles.resultName}><Highlighted text={item.displayName || item.classType} query={query} /></span>
+              <span className={styles.resultName}><Highlighted text={item.displayName || item.classType} query={query} /><NodeMarks marks={item.marks} output={item.outputNode} /></span>
               {item.displayName && item.displayName !== item.classType ? <span className={styles.resultClass}><Highlighted text={item.classType} query={query} /></span> : null}
               {item.description ? <span className={styles.resultDesc}>{item.description}</span> : null}
             </span>

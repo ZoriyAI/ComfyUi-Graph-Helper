@@ -160,7 +160,7 @@ function ParameterField({ nodeId, nodeName, classType, field, linked, disabled }
   return (
     <div className={`inspector-field ${styles.param}`} data-field={field.name}>
       <div className={styles.paramHead}>
-        <span id={labelId} className={styles.paramName} title={foreignTip ? field.tooltip : undefined}>{field.name}</span>
+        <span id={labelId} className={styles.paramName} title={field.tooltipKey ? String(t(field.tooltipKey)) : foreignTip ? field.tooltip : undefined}>{field.labelKey ? t(field.labelKey) : field.name}</span>
         {note ? (
           <button
             type="button"

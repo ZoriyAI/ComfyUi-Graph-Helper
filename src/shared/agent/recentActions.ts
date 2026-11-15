@@ -124,6 +124,7 @@ export function describeCommand(command: RecentCommand, summary: GraphSummary | 
     case 'insert-node-on-edge': return `placed ${safeText(str(p.nodeType), 120)} on link ${safeText(str(p.edgeId), 40)}`;
     case 'replace-node': return `replaced ${nodeName(str(p.nodeId))} with ${safeText(str(p.nodeType), 120)}`;
     case 'set-node-color': return `colored ${Array.isArray(p.nodeIds) ? p.nodeIds.length : '?'} node(s) ${safeText(str(p.color) || 'without color', 20)}`;
+    case 'set-group-members': return `changed the nodes of group ${safeText(str(p.groupId), 40)}`;
     case 'set-group-color': return `colored group ${safeText(str(p.groupId), 40)} ${safeText(str(p.color) || 'without color', 20)}`;
     default: return safeText(command.type, 40);
   }

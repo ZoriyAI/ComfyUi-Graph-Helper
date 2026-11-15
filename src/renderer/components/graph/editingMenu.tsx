@@ -6,7 +6,9 @@
  */
 import React from 'react';
 import * as Menu from '@radix-ui/react-context-menu';
-import { Ban, Check, Palette, Replace, Spline, StickyNote, Waypoints, type LucideIcon } from 'lucide-react';
+import { Ban, Check, Group, Palette, Replace, Spline, StickyNote, Ungroup, Waypoints, type LucideIcon } from 'lucide-react';
+import type { GroupRecord } from '../../../shared/graph/subgraphs';
+import { commitManual } from './commit';
 import { NODE_COLORS } from '../../../shared/commands/types';
 import { NODE_PALETTE, paletteNameOf, type ColorName } from '../../../shared/graph/palette';
 import { nodeRunMode } from '../../../shared/graph/layout';
@@ -93,6 +95,46 @@ export function nodeEditingItems(t: Translate, node: GraphNode, targets: GraphNo
       <Menu.Item key="replace" className={styles.item} disabled={disabled} onSelect={() => openReplaceNode(node.id)}>
         <span className={styles.icon} aria-hidden="true"><Replace size={14} /></span>
         <span className={styles.label}>{t('editing.replaceNode')}</span>
+      </Menu.Item>,
+    );
+  }
+  return rows;
+}
+
+/**
+ * «Добавить в группу» (a submenu of the groups) and «Вынуть из группы»: a group's frame is drawn around its nodes,
+ * so this is how a group grows or shrinks. Main canvas only, where groups live.
+ */
+export function groupMembershipItems(t: Translate, targets: GraphNode[], groups: GroupRecord[], disabled: boolean): React.ReactNode[] {
+  const ids = targets.map((item) => item.id);
+  const rows: React.ReactNode[] = [];
+  const others = groups.filter((group) => ids.some((id) => !group.nodeIds.includes(id)));
+  if (others.length > 0) {
+    rows.push(
+      <Menu.Sub key="add-to-group">
+        <Menu.SubTrigger className={styles.item} disabled={disabled}>
+          <span className={styles.icon} aria-hidden="true"><Group size={14} /></span>
+          <span className={styles.label}>{t('editing.addToGroup')}</span>
+        </Menu.SubTrigger>
+        <Menu.Portal>
+          <Menu.SubContent className={styles.content} sideOffset={4}>
+            {others.map((group) => (
+              <Menu.Item key={group.id} className={styles.item} onSelect={() => void commitManual({ type: 'set-group-members', groupId: group.id, add: ids, remove: [] })}>
+                <span className={styles.label}>{group.title || t('contextMenu.groupTitle')}</span>
+              </Menu.Item>
+            ))}
+          </Menu.SubContent>
+        </Menu.Portal>
+      </Menu.Sub>,
+    );
+  }
+  const holding = groups.filter((group) => ids.some((id) => group.nodeIds.includes(id)));
+  if (holding.length === 1) {
+    const group = holding[0];
+    rows.push(
+      <Menu.Item key="remove-from-group" className={styles.item} disabled={disabled} onSelect={() => void commitManual({ type: 'set-group-members', groupId: group.id, add: [], remove: ids })}>
+        <span className={styles.icon} aria-hidden="true"><Ungroup size={14} /></span>
+        <span className={styles.label}>{t('editing.removeFromGroup')}</span>
       </Menu.Item>,
     );
   }

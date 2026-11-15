@@ -176,6 +176,7 @@ const ACTION_KEYS: Record<string, string> = {
   'replace-node': 'undo.replaceNode',
   'set-node-color': 'undo.setNodeColor',
   'set-group-color': 'undo.setGroupColor',
+  'set-group-members': 'undo.setGroupMembers',
   'agent-run': 'undo.agentRun',
 };
 

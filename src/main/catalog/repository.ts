@@ -374,8 +374,8 @@ export function upsertObjectInfo(
   const seed = db.prepare('INSERT OR IGNORE INTO node_catalog (class_type, pack) VALUES (?, ?)');
   const upsert = db.prepare(`
     INSERT INTO node_catalog (class_type, pack, python_module, inputs_json, outputs_json, widget_order_json,
-      display_name, category, description, output_node, pack_name, synced_at)
-    VALUES (?, ?, ?, ?, ?, ?, COALESCE(?, ''), COALESCE(?, ''), COALESCE(?, ''), ?, ?, ?)
+      display_name, category, description, output_node, pack_name, synced_at, flags)
+    VALUES (?, ?, ?, ?, ?, ?, COALESCE(?, ''), COALESCE(?, ''), COALESCE(?, ''), ?, ?, ?, ?)
     ON CONFLICT(class_type) DO UPDATE SET
       pack = excluded.pack,
       python_module = excluded.python_module,
@@ -386,6 +386,7 @@ export function upsertObjectInfo(
       category = CASE WHEN excluded.category <> '' THEN excluded.category ELSE node_catalog.category END,
       description = CASE WHEN excluded.description <> '' THEN excluded.description ELSE node_catalog.description END,
       output_node = excluded.output_node,
+      flags = excluded.flags,
       pack_name = excluded.pack_name,
       synced_at = COALESCE(excluded.synced_at, node_catalog.synced_at)
   `);
@@ -406,6 +407,8 @@ export function upsertObjectInfo(
         node.outputNode ? 1 : 0,
         packNameFromModule(node.pythonModule),
         syncedAt,
+        // Editing package: marks the node search and the canvas show (migration 18).
+        [node.apiNode ? 'api' : '', node.deprecated ? 'deprecated' : '', node.experimental ? 'experimental' : ''].filter(Boolean).join(' '),
       );
     }
     for (const row of parsed.models) model.run(row.directory, row.name);

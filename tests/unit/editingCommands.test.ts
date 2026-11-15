@@ -238,3 +238,39 @@ describe('colours', () => {
     db.close();
   });
 });
+
+describe('set-group-members', () => {
+  it('adds a node to a group and takes one out in one step each; the frame follows; the last node stays', () => {
+    const db = openDb();
+    sampleGraph(db);
+    commit(db, 'g', { type: 'add-group', title: 'Load', nodeIds: ['1'] });
+    const before = snap(db).groups![0].bounding!;
+    const added = commit(db, 'ga', { type: 'set-group-members', groupId: '1', add: ['3'], remove: [] });
+    expect(added.status).toBe('applied');
+    const group = snap(db).groups![0];
+    expect(group.nodeIds).toEqual(['1', '3']);
+    expect(group.bounding![3]).toBeGreaterThan(before[3]);
+    commit(db, 'gr', { type: 'set-group-members', groupId: '1', add: [], remove: ['3'] });
+    expect(snap(db).groups![0].nodeIds).toEqual(['1']);
+    expect(commit(db, 'g0', { type: 'set-group-members', groupId: '1', add: [], remove: ['1'] }).result)
+      .toMatchObject({ error: 'A group keeps at least one node. To remove the group, use Remove group.' });
+    expect(commit(db, 'gx', { type: 'set-group-members', groupId: '1', add: ['99'], remove: [] }).result).toMatchObject({ error: 'Node was not found.' });
+    db.close();
+  });
+});
+
+describe('seed after run', () => {
+  it('writes the control_after_generate slot the seed row changes', () => {
+    const db = openDb();
+    upsertObjectInfo(db, parseObjectInfo({
+      SeedNode: {
+        input: { required: { seed: ['INT', { default: 0, min: 0, max: 100, control_after_generate: true }] } },
+        output: ['INT'], output_name: ['INT'], name: 'SeedNode', display_name: 'Seed', category: 'utils', python_module: 'nodes',
+      },
+    }));
+    commit(db, 'a', { type: 'add-node', nodeType: 'SeedNode', x: 0, y: 0 });
+    expect(commit(db, 'c', { type: 'set-parameter', nodeId: '1', key: 'seed::control_after_generate', value: 'fixed' }).status).toBe('applied');
+    expect(exported(db).nodes[0].widgets_values).toEqual([0, 'fixed']);
+    db.close();
+  });
+});

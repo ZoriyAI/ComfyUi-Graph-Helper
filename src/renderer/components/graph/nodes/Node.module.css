@@ -516,3 +516,6 @@
 .promotedSection .editorHint { margin: 0 0 6px; }
 .promotedPanel { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .promotedPanel .field { padding: 0; }
+
+/* Editing package: the paid mark of a node that runs on an outside service. */
+.paidBadge { border-color: var(--warn, #f6ce7c); color: var(--warn, #f6ce7c); }

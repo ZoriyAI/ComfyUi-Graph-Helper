@@ -114,6 +114,14 @@ export const setNodeColorMutation = z.object({
   color: z.enum(NODE_COLORS).nullable(),
 });
 
+/** Nodes go into a group or out of it; the group's frame follows its members, so this is how its size changes. */
+export const setGroupMembersMutation = z.object({
+  type: z.literal('set-group-members'),
+  groupId: z.string().min(1),
+  add: z.array(z.string().min(1)).max(5000).default([]),
+  remove: z.array(z.string().min(1)).max(5000).default([]),
+});
+
 export const setGroupColorMutation = z.object({
   type: z.literal('set-group-color'),
   groupId: z.string().min(1),
@@ -336,6 +344,7 @@ export const mutationSchema = z.discriminatedUnion('type', [
   replaceNodeMutation,
   setNodeColorMutation,
   setGroupColorMutation,
+  setGroupMembersMutation,
 ]);
 
 export type GraphMutation = z.infer<typeof mutationSchema>;

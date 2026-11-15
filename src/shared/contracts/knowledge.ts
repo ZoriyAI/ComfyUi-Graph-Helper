@@ -35,7 +35,13 @@ export interface NodeClassSummary {
   outputNode?: boolean;
   /** A node only ComfyUI's editor knows (Note, Markdown Note, Reroute, Primitive). */
   editor?: boolean;
+  /** Paid node on an outside service ('api'), 'deprecated', 'experimental'. Absent when none applies. */
+  marks?: NodeMark[];
 }
+
+/** Marks a node can carry in the node search, the library and on the canvas. */
+export const NODE_MARKS = ['api', 'deprecated', 'experimental'] as const;
+export type NodeMark = typeof NODE_MARKS[number];
 
 /** How a widget input is edited. 'other' is a widget this app does not draw (image upload, colour, curve…). */
 export type FieldKind = 'combo' | 'int' | 'float' | 'string' | 'boolean' | 'other';

@@ -38,6 +38,7 @@ const ERROR_KEYS: Record<string, string> = {
   'Subgraphs, notes, reroutes and primitives cannot be replaced by another node.': 'editing.errors.notReplaceable',
   'The node already is of that kind.': 'editing.errors.sameClass',
   'A Primitive feeds a field only, not a link input.': 'editing.errors.primitiveToSocket',
+  'A group keeps at least one node. To remove the group, use Remove group.': 'editing.errors.groupEmpty',
   'Export failed.': 'errors.exportFailed',
   'That component is not in the graph.': 'errors.componentMissing',
   'This file is not a Graph Helper for ComfyUI project.': 'errors.nativeFormat',

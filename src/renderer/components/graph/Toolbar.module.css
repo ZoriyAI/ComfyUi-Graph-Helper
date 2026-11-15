@@ -185,3 +185,9 @@
   font-size: 12px;
   line-height: 18px;
 }
+
+/* Editing (NodeMarks.tsx): small marks beside a node's name; paid and outdated stand out. */
+.marks { display: inline-flex; gap: 4px; margin-left: 6px; vertical-align: middle; }
+.mark { padding: 0 5px; border-radius: var(--radius-pill); border: 1px solid var(--line, #2a3648); color: var(--text-dim, #a3b1c6); font-size: var(--text-xs); line-height: 16px; }
+.mark[data-mark="api"] { border-color: var(--warn, #e5b567); color: var(--warn, #e5b567); }
+.mark[data-mark="deprecated"] { color: var(--text-faint, #8b9bb0); }

@@ -29,7 +29,7 @@ import { addGroup, createSubgraph, dissolveSubgraph, openAddNode } from '../../c
 import Shortcut from '../../ui/Shortcut';
 import { startGraphTour } from './tour/startTour';
 import { nodeDisplayName } from './lib/nodeName';
-import { edgeEditingItems, groupEditingItems, nodeEditingItems, paneEditingItems } from './editingMenu';
+import { edgeEditingItems, groupEditingItems, groupMembershipItems, nodeEditingItems, paneEditingItems } from './editingMenu';
 import styles from './GraphContextMenu.module.css';
 
 /** «Вставить субграф» from the menu: at the point of the click, moved to the nearest spot where it covers no node. */
@@ -220,6 +220,7 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
         ...lookMenuItems(node, nodes, selectionFor(node.id), !canBuild).map((entry) => item(entry.id, String(t(entry.labelKey, entry.values ?? {})), entry.run, { icon: entry.icon, shortcut: entry.shortcut, disabled: entry.disabled })),
         // Editing rows (editingMenu.tsx) beside collapse: bypass, mute, colour, replace.
         ...nodeEditingItems((key) => String(t(key)), node, nodes.filter((item): item is GraphNode => item.type === 'comfy' && selectionFor(node.id).includes(item.id)), !canBuild),
+        ...(inDefinition ? [] : groupMembershipItems((key) => String(t(key)), nodes.filter((item): item is GraphNode => item.type === 'comfy' && selectionFor(node.id).includes(item.id)), groups, !canBuildRoot)),
         separator('s2'),
         item('remove', t('contextMenu.remove'), () => void commitManual({ type: 'remove-node', nodeId: node.id }), { icon: Trash2, danger: true, disabled: !canBuild, shortcut: 'Delete' }),
       );

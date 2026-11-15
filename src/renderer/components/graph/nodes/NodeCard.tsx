@@ -129,6 +129,8 @@ export default function NodeCard({ id, data, state, connected, live = true, head
         <div className={`${styles.typeRow} graph-node-meta`}>
           {state.subgraph ? <span className={styles.badge}>{t('node.subgraph')}</span> : null}
           {data.demo ? <span className={styles.badge}>{t('node.demo')}</span> : null}
+          {/* Editing package: a paid node on an outside service says so on the canvas (NodeMarks titles explain). */}
+          {detail?.marks?.includes('api') ? <span className={`${styles.badge} ${styles.paidBadge}`} title={String(t('editing.marks.apiTitle'))}>{t('editing.marks.api')}</span> : null}
           {runMode ? <span className={`${styles.modeChip} ${runMode === 'bypassed' ? styles.modeBypassed : styles.modeMuted}`} title={String(t(runMode === 'bypassed' ? 'node.bypassedTitle' : 'node.mutedTitle'))}>{t(runMode === 'bypassed' ? 'node.bypassed' : 'node.muted')}</span> : null}
           {missing ? <span className={styles.missingChip} title={String(t('importLook.missingHint', { type: data.comfyType }))}><CircleSlash size={11} aria-hidden="true" />{t('importLook.missing')}</span> : null}
           {state.subgraph ? null : <span className={`${styles.classType} graph-node-type`} data-class-line={classLine === data.comfyType ? undefined : 'other'} title={data.comfyType}>{classLine}</span>}
