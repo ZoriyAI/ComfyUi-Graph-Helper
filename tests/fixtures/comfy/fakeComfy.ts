@@ -8,7 +8,7 @@
  */
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { CLASSES, MODELS, objectInfoDocument, PACKS } from '../mcp/fakeMcpServer';
+import { CLASSES, MODELS, objectInfoDocument, PACKS, VIDEO_CLASSES } from '../mcp/fakeMcpServer';
 
 export interface FakeComfyOptions {
   /** Paths and sub-folder names as a ComfyUI on Windows reports them (`C:\ComfyUI\models\loras`, `sdxl\style.safetensors`). */
@@ -17,6 +17,11 @@ export interface FakeComfyOptions {
   manager?: boolean;
   /** An older ComfyUI without the `/experiment/models` routes: names only, no sizes, no previews. */
   legacy?: boolean;
+  /**
+   * Serve the nodes every built-in lesson needs too (the fake MCP server's `video` set: video, model families,
+   * techniques, foundations, sound, 3D, faces, the daily cycle), so the lesson list shows no lesson as unfit.
+   */
+  video?: boolean;
   /** Extra node classes in one big pack, for a large /object_info (each about 1 KB). */
   extraClasses?: number;
   /** One model folder answers 500 (its list is not read). */
@@ -79,8 +84,8 @@ function filesOf(folder: string, windows: boolean): Array<{ name: string; pathIn
 }
 
 /** The /object_info document of the MCP fixture's classes plus `extra` generated classes of the big pack. */
-function documentWith(extra: number): Record<string, unknown> {
-  const doc = objectInfoDocument(CLASSES);
+function documentWith(extra: number, video: boolean): Record<string, unknown> {
+  const doc = objectInfoDocument(video ? [...CLASSES, ...VIDEO_CLASSES] : CLASSES);
   for (let index = 0; index < extra; index += 1) {
     const name = `BigPackNode${String(index).padStart(5, '0')}`;
     doc[name] = {
@@ -104,7 +109,7 @@ function documentWith(extra: number): Record<string, unknown> {
 export async function startFakeComfy(options: FakeComfyOptions = {}): Promise<FakeComfy> {
   const hits: string[] = [];
   const windows = options.windows === true;
-  const info = JSON.stringify(documentWith(options.extraClasses ?? 0));
+  const info = JSON.stringify(documentWith(options.extraClasses ?? 0, options.video === true));
   const json = (res: http.ServerResponse, value: unknown, status = 200) => {
     res.writeHead(status, { 'content-type': 'application/json' });
     res.end(typeof value === 'string' ? value : JSON.stringify(value));

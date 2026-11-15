@@ -20,6 +20,11 @@ const ENABLED = process.env.PUBLIC_SHOTS === '1';
 const ROOT = path.join(__dirname, '../../../docs/screenshots');
 const LANGUAGES: ShowcaseLanguage[] = (process.env.PUBLIC_SHOTS_LANG ?? 'en,ru').split(',').map((part) => part.trim() as ShowcaseLanguage);
 const WINDOW = { width: 1440, height: 900 };
+/** The card of a made-up setup that the lesson "Install and a first run" asks the person to keep beside the graph. */
+const SETUP_CARD: Record<ShowcaseLanguage, string> = {
+  en: 'Linux, a graphics card with 12 GB, ComfyUI 0.45.0, a manual install, models in the models folder, pictures in output.',
+  ru: 'Linux, видеокарта на 12 ГБ, ComfyUI 0.45.0, ручная установка, модели в папке models, картинки в output.',
+};
 
 type Bridge = Record<string, (...args: unknown[]) => Promise<any>>;
 const api = (page: Page, name: string, args: unknown[] = []) => page.evaluate(async ({ name, args }) => {
@@ -69,14 +74,15 @@ for (const language of LANGUAGES) {
     const T = createTranslator(language);
     const t = (key: string, values?: Record<string, unknown>) => String(T(key, values as never));
     fs.mkdirSync(path.join(ROOT, language), { recursive: true });
-    // A plain ComfyUI, as most people have it: on 8188 when that port is free, so "Find on this computer" finds it.
+    // A ComfyUI with the nodes the built-in lessons use, on 8188 when that port is free, so "Find on this computer"
+    // finds it. With every lesson's nodes there, the lesson list shows the lessons as a person who has them sees them.
     let comfy: FakeComfy;
     let found = true;
     try {
-      comfy = await startFakeComfy({ manager: true, port: 8188 });
+      comfy = await startFakeComfy({ manager: true, video: true, port: 8188 });
     } catch {
       found = false;
-      comfy = await startFakeComfy({ manager: true });
+      comfy = await startFakeComfy({ manager: true, video: true });
     }
     const llm: ShowcaseLlm = await startShowcaseLlm(language);
     const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'public-shots-'));
@@ -359,6 +365,88 @@ for (const language of LANGUAGES) {
         await expect(page.getByRole('dialog').first()).toBeVisible();
         await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
         await shoot(page, language, '13-help');
+      });
+      await page.keyboard.press('Escape');
+      await expect(page.getByRole('dialog')).toHaveCount(0);
+
+      // The lessons of version 1.1: the list read as a path, a step the person answers, and the end of a lesson.
+      await state('14-lesson-path', async () => {
+        await newProject();
+        await learn();
+        // The image lesson of 07 is still open: back to the list, as a person would.
+        // The mouse leaves the dock tab first, so its tooltip does not cover the back button.
+        await page.mouse.move(WINDOW.width - 4, WINDOW.height - 4);
+        if ((await lessons.getAttribute('data-lesson')) !== 'list') await lessons.getByRole('button', { name: t('lessons.back'), exact: true }).first().click();
+        await expect(lessons).toHaveAttribute('data-lesson', 'list');
+        await lessons.getByRole('radio', { name: t('lessons.view.path'), exact: true }).click();
+        await expect(lessons.locator('[data-lesson-view="path"]')).toBeVisible();
+        await shoot(page, language, '14-lesson-path');
+      });
+
+      const stepNow = () => lessons.locator('[data-lesson-step]').getAttribute('data-lesson-step');
+      const revision = async () => ((await api(page, 'readProjection', ['desktop'])) as { currentRevisionId: string }).currentRevisionId;
+      /**
+       * One move in a lesson, the way a person makes it: read and go on, let the app do what it offers, tick what
+       * was done, choose a level or an answer, or say "I checked it myself" where the app cannot tell.
+       */
+      const lessonMove = async () => {
+        const before = await stepNow();
+        const read = lessons.getByRole('button', { name: t('lessons.understood'), exact: true });
+        const doIt = lessons.getByRole('button', { name: t('lessons.doIt'), exact: true });
+        const self = lessons.getByRole('button', { name: t('lessons.person.selfCheck'), exact: true });
+        const ticks = lessons.locator('[data-person-step="checklist"] input[type="checkbox"]:not(:checked):not(:disabled)');
+        const choices = lessons.locator('[data-person-step="rubric"] fieldset, [data-person-step="quiz"] fieldset');
+        if (await read.count() > 0) {
+          await read.click();
+        } else if (await doIt.count() > 0) {
+          const was = await revision();
+          await doIt.click();
+          await expect.poll(revision, { timeout: 15_000 }).not.toBe(was);
+          return;
+        } else if (await self.count() > 0) {
+          await self.click();
+        } else if (await ticks.count() > 0) {
+          while (await ticks.count() > 0) await ticks.first().click();
+        } else if (await choices.count() > 0) {
+          // The label is what a person clicks; the round mark inside it is drawn over the input.
+          for (let index = 0; index < await choices.count(); index += 1) await choices.nth(index).locator('label').last().click();
+        } else {
+          // A text the lesson asks the person to write in a node: typed into the field on the canvas.
+          const field = page.locator('.react-flow__node textarea').last();
+          if (await field.count() === 0) throw new Error(`the lesson stopped at step ${before}`);
+          await field.fill(SETUP_CARD[language]);
+          await field.blur();
+        }
+        await expect.poll(stepNow, { timeout: 15_000 }).not.toBe(before);
+      };
+
+      await state('15-lesson-checklist', async () => {
+        await lessons.getByRole('radio', { name: t('lessons.view.groups'), exact: true }).click();
+        await lessons.locator('[data-lesson-card="first-run"]').getByRole('button', { name: t('lessons.start'), exact: true }).click();
+        await expect(lessons).toHaveAttribute('data-lesson', 'first-run');
+        for (let guard = 0; guard < 20 && (await stepNow()) !== 'run'; guard += 1) await lessonMove();
+        expect(await stepNow(), 'the lesson reached the step with a checklist').toBe('run');
+        // One thing the app sees (the model file), one the person ticks (the template), two still to do.
+        await lessons.locator('[data-item="template"] input[type="checkbox"]').check();
+        await expect(lessons.locator('[data-item="file"]')).toHaveAttribute('data-item-state', 'app');
+        await expect(lessons.locator('[data-item="template"]')).toHaveAttribute('data-item-state', 'self');
+        // When the checklist runs past the panel (the Russian words are longer), the panel is scrolled the way a
+        // person scrolls it: just far enough that the last item shows whole.
+        await lessons.evaluate((panel) => {
+          const list = panel.querySelector('[data-person-step="checklist"]');
+          if (!list) return;
+          const below = list.getBoundingClientRect().bottom + 6 - panel.getBoundingClientRect().bottom;
+          if (below > 0) panel.scrollTop += below;
+        });
+        await shoot(page, language, '15-lesson-checklist');
+      });
+
+      await state('16-lesson-outcomes', async () => {
+        for (let guard = 0; guard < 40 && (await stepNow()) !== 'end'; guard += 1) await lessonMove();
+        expect(await stepNow(), 'the lesson reached its end').toBe('end');
+        await expect(lessons.locator('[data-lesson-outcomes] [data-outcome]')).toHaveCount(3);
+        await lessons.locator('[data-lesson-outcomes]').scrollIntoViewIfNeeded();
+        await shoot(page, language, '16-lesson-outcomes');
       });
     } finally {
       await app?.close().catch(() => undefined);

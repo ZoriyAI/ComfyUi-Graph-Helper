@@ -39,7 +39,8 @@ In Build mode the assistant adds one node or link at a time and says why for eve
 
 ![The list of built-in lessons](en/06-lessons.png)
 
-Built-in lessons need no model: you build by hand and the app checks each step on the canvas.
+95 built-in lessons in sixteen groups need no model: you build by hand and the app checks each step on the canvas.
+Each card says the lesson's level, its tracks and what it ends with.
 
 ## 07 A lesson step
 
@@ -82,3 +83,24 @@ Choose a cloud model with your key or a model on your own computer; lessons work
 ![The built-in user guide](en/13-help.png)
 
 The user guide is built in and opens from the Help menu, also without the internet.
+
+## 14 Lessons as a path
+
+![The lesson list read as the path of one track, numbered](en/14-lesson-path.png)
+
+**Show the lessons** reads the list by Topics, Levels, Tracks or as a Path: the recommended order for one track,
+numbered. Every lesson stays open.
+
+## 15 A step you answer
+
+![A checklist step: one item the app sees, one ticked by the person, two still open](en/15-lesson-checklist.png)
+
+A checklist step asks about things done outside the app. An item the app can read says "The app sees this"; your tick
+says "Your own word".
+
+## 16 What a lesson ends with
+
+![The end of a lesson with its three outcomes and who stands behind each](en/16-lesson-outcomes.png)
+
+A lesson ends with up to three outcomes: structure checked, run in ComfyUI and result assessed, each with who stands
+behind it. The app runs nothing in ComfyUI and does not see your pictures.
