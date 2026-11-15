@@ -1,3 +1,8 @@
+/**
+ * The chat runtime config main keeps for the next send (mainLLMService.setConfig and nextSendConfig, read by the
+ * agent turn and the IPC). It holds only the provider, model and base address: a key passed in is dropped, so it can
+ * never be echoed back to the window, and an empty provider clears the rest. Setting it never makes a request.
+ */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mainLLMService } from '../../src/main/llmService';
 

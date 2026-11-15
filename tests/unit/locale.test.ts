@@ -1,3 +1,10 @@
+/**
+ * The interface catalog and the language setting (shared/i18n and main/settings): English and Russian have the same
+ * keys, plurals and number grouping follow the language, Russian copy is Cyrillic except product names, known errors
+ * get a plain sentence and secrets are cut from diagnostics, and the language is read from the system for a new
+ * profile and kept across a reopen and an old schema. A person must never see a key, an English sentence in the
+ * Russian interface, or their API key in an error.
+ */
 import { describe, expect, it } from 'vitest';
 import Database from 'better-sqlite3';
 import {
@@ -17,6 +24,7 @@ import { migrate, schemaVersion, SCHEMA_VERSION } from '../../src/main/settings/
 import { readSettings, saveSettings } from '../../src/main/settings/repository';
 import { setSystemLanguages } from '../../src/main/systemLanguage';
 
+/** The catalog string at a dotted key; throws when the key is missing or not a string. */
 function leaf(catalog: unknown, key: string): string {
   const value = key.split('.').reduce<unknown>((current, part) => {
     if (current == null || typeof current !== 'object') return undefined;
@@ -26,6 +34,7 @@ function leaf(catalog: unknown, key: string): string {
   return value;
 }
 
+/** Russian catalog values allowed to have no Cyrillic letter: placeholders and names that stay Latin in Russian. */
 const ASCII_RU = new Set([
   // a spoken zoom value: only a number and the action's own name
   '{{zoom, number}}%, {{action}}',
@@ -163,6 +172,7 @@ describe('language preference', () => {
   });
 
   it('keeps an existing version 5 row in English while preserving the other fields', () => {
+    // A settings table as schema version 5 left it, before the language column existed.
     const db = new Database(':memory:');
     db.exec(`
       CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, applied_at INTEGER NOT NULL);

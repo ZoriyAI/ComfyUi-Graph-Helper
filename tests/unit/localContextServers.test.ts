@@ -1,3 +1,9 @@
+/**
+ * Reading the context window from local servers that are not Ollama (main/llm/localContext.ts): llama.cpp from
+ * /props, LM Studio from its loaded instances, vLLM from max_model_len. Only GET requests are made, and a server
+ * that gives no number is reported as unsupported, so the chat can warn a person whose window is too small whatever
+ * server they run.
+ */
 import { beforeEach, describe, expect, it } from 'vitest';
 import { probeLoadedContext, readOtherServerContext, resetLocalContextMemory } from '../../src/main/llm/localContext';
 

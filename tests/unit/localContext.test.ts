@@ -1,3 +1,10 @@
+/**
+ * A model on the person's own server reads only what fits its context window, and the request cannot widen it.
+ * The app reads the window the server loaded the model with (main/llm/localContext.ts, remembered by
+ * localContextStore.ts), says in the chat, the log and Settings when the request did not fit, and offers fewer tools
+ * when the window is small (main/agent/turn.ts). Without this a local model silently loses the start of the request
+ * and answers as if the person had asked something else.
+ */
 import Database from 'better-sqlite3';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as fs from 'fs';
@@ -16,12 +23,7 @@ import { BUILD_TOOL_SPECS } from '../../src/shared/commands/toolSpecs';
 import { DESKTOP_PROJECT_ID } from '../../src/shared/project';
 import { fakeKnowledge, fakeProposals } from './agent/fakes';
 
-/**
- * A model on the person's own server reads only what fits its context window, and the request cannot widen it.
- * The app reads the window the server loaded the model with, says when the request did not fit, and offers fewer
- * tools when the window is small.
- */
-
+/** An Ollama /api/ps answer: two models with a loaded window and one without. */
 const PS = {
   models: [
     { name: 'example-model:9b', model: 'example-model:9b', size: 6_600_000_000, context_length: 8192 },
@@ -34,11 +36,13 @@ function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 }
 
+/** A server-sent event stream, as an OpenAI-compatible server streams a chat answer. */
 function sse(lines: unknown[]): Response {
   const body = `${lines.map((line) => `data: ${typeof line === 'string' ? line : JSON.stringify(line)}\n\n`).join('')}`;
   return new Response(body, { status: 200, headers: { 'content-type': 'text/event-stream' } });
 }
 
+/** A short streamed answer whose usage reports how many prompt tokens the server actually read. */
 function answer(promptTokens: number): Response {
   return sse([
     { id: 'c', object: 'chat.completion.chunk', created: 1, model: 'm', choices: [{ index: 0, delta: { role: 'assistant', content: 'Готово.' }, finish_reason: null }] },
@@ -47,14 +51,17 @@ function answer(promptTokens: number): Response {
   ]);
 }
 
+/** Every chunk a stream yields, in order. */
 async function drain(stream: AsyncGenerator<{ type: string; content: any }>): Promise<Array<{ type: string; content: any }>> {
   const chunks: Array<{ type: string; content: any }> = [];
   for await (const part of stream) chunks.push(part);
   return chunks;
 }
 
+// A temporary folder a test may create for traces or stored windows; removed after each test.
 let dir = '';
 
+// The window memory and the trace settings are module state: each test starts from nothing and turns tracing off.
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();

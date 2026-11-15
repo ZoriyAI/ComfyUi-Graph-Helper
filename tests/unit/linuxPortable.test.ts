@@ -1,3 +1,10 @@
+/**
+ * The Linux packages outside the app itself: the tar.gz scripts in resources/linux/portable (run.sh, install.sh,
+ * uninstall.sh), run here for real against a fake archive in a temporary home; the AppImage's AppRun and the menu
+ * entry made by scripts/make-linux-portable.js; and the Electron fuses that scripts/check-fuses.js holds every
+ * release to. A person installing without root must get a working launcher, keep their profile on uninstall, and
+ * have a 0.9 copy under the old name replaced without losing its settings.
+ */
 import { describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -32,6 +39,7 @@ function fakeArchive(): string {
   return folder;
 }
 
+/** A bare environment with the temporary home, so the scripts never touch the real one. */
 function envFor(home: string, argsFile: string): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { PATH: process.env.PATH, HOME: home, ARGS_FILE: argsFile };
   return env;
@@ -153,6 +161,7 @@ describe('Linux AppImage and fuses', () => {
   });
 
   it('a binary whose fuses differ from the config is named with each wrong fuse', () => {
+    // A fuse is stored as an ASCII byte: '1' (49) is on, '0' (48) is off.
     const state = { ENABLE: 49, DISABLE: 48 };
     expect(fuseProblems({ RunAsNode: 48, OnlyLoadAppFromAsar: 49 }, { RunAsNode: false, OnlyLoadAppFromAsar: true }, state)).toEqual([]);
     expect(fuseProblems({ RunAsNode: 49, EnableNodeCliInspectArguments: 49 }, { RunAsNode: false, EnableNodeCliInspectArguments: false }, state))
