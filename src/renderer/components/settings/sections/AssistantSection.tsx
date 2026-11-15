@@ -25,11 +25,12 @@ import SelectField from '../../../ui/SelectField';
 import SuggestField, { type SuggestStatus } from '../../../ui/SuggestField';
 import Switch from '../../../ui/Switch';
 import { cx } from '../../../ui/cx';
-import { CLOUD_PROVIDERS, keySourceOf, providerKeyState, useProviderStore, type KeySources, type ProviderKeyState, testProviderOffered } from '../../../state/providerState';
+import { CLOUD_PROVIDERS, keySourceOf, providerCardDescriptionKey, providerKeyState, sendsOutside, useProviderStore, type KeySources, type ProviderKeyState, testProviderOffered } from '../../../state/providerState';
 import type { CloudKeyProvider } from '../../../../shared/contracts';
 import KeyPanel from './KeyPanel';
 import { CloudAdvice, LocalAdvice, WindowHelp } from './ProviderAdvice';
 import { CLOUD_ADVICE } from '../../../../shared/config/modelAdvice';
+import { isOllamaCloudModel } from '../../../../shared/config/ollamaCloud';
 import { proxyAddressValid } from '../../../../shared/config/proxy';
 import styles from '../SettingsPanel.module.css';
 import { fieldClass, Group, hintClass, patchSection, rowClass, SectionHead, type DraftProps } from './common';
@@ -259,10 +260,12 @@ export default function AssistantSection({ values, setValues, prefs, setPrefs, c
           // Your own server is "ready" only with an address, saved for it or typed in this draft.
           const localAddress = prefs.providers.local.baseURL.trim() !== '' || (provider === 'local' && values.baseURL.trim() !== '');
           const state: ProviderKeyState = item.value === 'local' && !localAddress ? 'setup' : providerKeyState(item.value, keySourceOf(keySources, item.value));
+          // The own server's card names an Ollama cloud model as leaving the computer: the typed one, else the saved one.
+          const cardModel = item.value === 'local' ? (provider === 'local' ? values.model : prefs.providers.local.model) : '';
           return {
             value: item.value,
             title: String(t(item.labelKey)),
-            description: String(t(item.descriptionKey)),
+            description: String(t(item.value === 'local' ? providerCardDescriptionKey('local', cardModel) : item.descriptionKey)),
             trailing: item.value === '' ? undefined : (
               <Badge tone={KEY_TONES[state]} className={styles.keyBadge}>
                 <span className={cx(styles.keyDot, styles[`key-${state}`])} aria-hidden="true" />
@@ -273,7 +276,7 @@ export default function AssistantSection({ values, setValues, prefs, setPrefs, c
         })}
       />
       {providerHint ? <p className={hintClass}>{providerHint}</p> : null}
-      {CLOUD_PROVIDERS.has(provider) ? <p className={cx(hintClass, 'provider-sent')}>{t('providers.sentList')}</p> : null}
+      {sendsOutside(provider, values.model) ? <p className={cx(hintClass, 'provider-sent')}>{t('providers.sentList')}</p> : null}
       {provider === 'compatible' ? (
         <>
           <label className={fieldClass}>
@@ -341,7 +344,7 @@ export default function AssistantSection({ values, setValues, prefs, setPrefs, c
         value={values.model}
         onChange={(text) => setRuntime('model', text)}
         inputProps={fieldError('model')}
-        suggestions={modelSuggestions(models, translate)}
+        suggestions={modelSuggestions(models, translate, provider === 'local')}
         pickerLabel={String(t('picker.modelList'))}
         placeholder={String(t('picker.modelPlaceholder', { count: models.length }))}
         emptyText={String(t('picker.modelEmpty'))}
@@ -356,6 +359,8 @@ export default function AssistantSection({ values, setValues, prefs, setPrefs, c
         container={container}
       />
       {chosenModel?.tools === false ? <p className={styles.errorNote} role="alert">{t('picker.modelsNoTools')}</p> : null}
+      {/* An Ollama cloud model on your own server: said right under the model, where it was chosen */}
+      {provider === 'local' && isOllamaCloudModel(values.model) ? <p className={cx(hintClass, styles.warn, 'provider-ollama-cloud')} role="status">{t('providers.ollamaCloud', { model: values.model.trim() })}</p> : null}
       {provider === 'local' ? <LocalAdvice /> : null}
       {remembered && MODEL_SUGGESTIONS[remembered].length > 0 && !(modelList.kind === 'ok' && models.length > 0) ? (
         <div className={styles.suggestions}>

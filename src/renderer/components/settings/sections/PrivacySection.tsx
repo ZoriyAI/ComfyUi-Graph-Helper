@@ -9,7 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { BookOpen, Eraser, ShieldCheck, Trash2 } from 'lucide-react';
 import { DESKTOP_PROJECT_ID } from '../../../../shared/project';
 import type { Translator } from '../../../../shared/i18n';
-import { adultContentOn } from '../../../../shared/config/preferences';
+import { adultContentOn, isPreferenceProvider } from '../../../../shared/config/preferences';
 import { contentRules } from '../../../../shared/content/rules';
 import { FETCH_PAGE_BYTE_CAP, FETCH_PAGE_TEXT_CAP } from '../../../../shared/agent/limits';
 import { formatMegabytes } from '../../../../shared/i18n/format';
@@ -18,7 +18,7 @@ import Button from '../../../ui/Button';
 import Switch from '../../../ui/Switch';
 import SelectField from '../../../ui/SelectField';
 import { CLOUD_KEY_PROVIDERS, type CloudKeyProvider, type McpTokenStatus, type SecretStatus, type SecretStoreInfo } from '../../../../shared/contracts';
-import { NO_KEYS, refreshKeySources, useProviderStore, type KeySource } from '../../../state/providerState';
+import { NO_KEYS, refreshKeySources, sentWhere, useProviderStore, type KeySource } from '../../../state/providerState';
 
 /** The password store Electron reports (`safeStorage.getSelectedStorageBackend()`), as a name a person knows. */
 const STORE_NAME_KEYS: Record<string, string> = {
@@ -110,6 +110,11 @@ export default function PrivacySection({ prefs, setPrefs, container }: DraftProp
     return items;
   };
   const toForget = inventoryItems(inventory);
+  // Where a question goes now: the chosen provider and its model (an Ollama cloud model is never called local).
+  const chosenProvider = useProviderStore((state) => state.provider);
+  const storedRuntime = useProviderStore((state) => state.stored);
+  const chosenModel = storedRuntime.provider === chosenProvider ? storedRuntime.model : isPreferenceProvider(chosenProvider) ? prefs.providers[chosenProvider]?.model ?? '' : '';
+  const where = sentWhere(chosenProvider, chosenModel);
   // The sections stay mounted while another tab shows: read again whenever this one comes into view.
   const viewRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -222,6 +227,7 @@ export default function PrivacySection({ prefs, setPrefs, container }: DraftProp
       <Group title={String(t('preferences.sentTitle'))} className={styles.explain}>
         <ul className={styles.facts}>
           <li>{t('preferences.sentAlways')}</li>
+          <li className="sent-where" data-place={where.key.split('.').pop()}>{t(where.key, where.values)}</li>
           <li className={privacy.sendFieldValues ? styles.factOn : styles.factOff}>{t(privacy.sendFieldValues ? 'preferences.sentValuesOn' : 'preferences.sentValuesOff')}</li>
           <li className={styles.factOff}>{t('preferences.sentNever')}</li>
           <li className="sent-elsewhere">{t('preferences.sentElsewhere')}</li>

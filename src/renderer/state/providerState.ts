@@ -9,6 +9,7 @@
 import { create } from 'zustand';
 import type { ChatRuntimeConfig, NonSecretSettings } from '../../shared/config/schema';
 import { isPreferenceProvider } from '../../shared/config/preferences';
+import { answerPlace } from '../../shared/config/ollamaCloud';
 import { currentPreferences } from './preferencesState';
 import { useUiStore } from './uiState';
 import { SETTINGS_CHANGED } from '../commands/events';
@@ -62,10 +63,13 @@ export function providerChoices(): Array<{ value: string; labelKey: string }> {
   return testProviderOffered() ? PROVIDER_CHOICES : PROVIDER_CHOICES.filter((choice) => choice.value !== 'test');
 }
 
-/** The provider chip text: which provider, and where its key lives. Never the key. */
-export function providerNoteKey(provider: string, keySource: KeySource): string {
+/**
+ * The provider chip text: which provider, and where its key lives. Never the key. With your own server and an
+ * Ollama cloud model (`model`), it says that the question leaves the computer, not that no key is sent.
+ */
+export function providerNoteKey(provider: string, keySource: KeySource, model = ''): string {
   if (provider === 'test') return 'provider.test';
-  if (provider === 'local') return 'provider.local';
+  if (provider === 'local') return answerPlace(provider, model) === 'ollama-cloud' ? 'provider.localCloud' : 'provider.local';
   if (keySource === 'file' && CLOUD_PROVIDERS.has(provider)) return 'provider.cloudFile';
   if (provider === 'openai') return keySource === 'os' ? 'provider.openaiStored' : keySource === 'session' ? 'provider.openaiHeld' : 'provider.openai';
   if (provider === 'anthropic') return keySource === 'os' ? 'provider.cloudStored' : keySource === 'session' ? 'provider.anthropicHeld' : 'provider.anthropic';
@@ -80,6 +84,41 @@ export function providerKeyState(provider: string, keySource: KeySource): Provid
   if (provider === 'local') return 'ok';
   if (CLOUD_PROVIDERS.has(provider)) return keySource === 'os' || keySource === 'file' ? 'ok' : keySource === 'session' ? 'session' : 'missing';
   return 'none';
+}
+
+/** Brand names of the cloud providers, for the sentences that say where a question goes. */
+const PROVIDER_BRANDS: Record<string, string> = { openai: 'OpenAI', anthropic: 'Anthropic', google: 'Google Gemini' };
+
+/**
+ * Settings ▸ Privacy ▸ What is sent to the model: the sentence that says where a question goes now, with its
+ * values. Your own server with an Ollama cloud model says it leaves the computer; there is no way to call it local.
+ */
+export function sentWhere(provider: string, model: string): { key: string; values: Record<string, string> } {
+  const place = answerPlace(provider, model);
+  if (place === 'none') return { key: 'preferences.sentWhere.none', values: {} };
+  if (place === 'test') return { key: 'preferences.sentWhere.test', values: {} };
+  if (place === 'local') return { key: 'preferences.sentWhere.local', values: {} };
+  if (place === 'ollama-cloud') return { key: 'preferences.sentWhere.ollamaCloud', values: { model: model.trim() } };
+  if (provider === 'compatible' || !PROVIDER_BRANDS[provider]) return { key: 'preferences.sentWhere.compatible', values: {} };
+  return { key: 'preferences.sentWhere.cloud', values: { provider: PROVIDER_BRANDS[provider] } };
+}
+
+/**
+ * The description on a provider card in Settings ▸ Assistant. The card of your own server says that the question
+ * leaves the computer while its model (`model`, the one typed or saved for it) is an Ollama cloud model.
+ */
+export function providerCardDescriptionKey(provider: string, model: string): string {
+  if (answerPlace(provider, model) === 'ollama-cloud') return 'preferences.providerDesc.localCloud';
+  return `preferences.providerDesc.${provider === '' ? 'none' : provider}`;
+}
+
+/**
+ * Whether the question, the graph and the rest of "what goes out with a question" (providers.sentList) leave this
+ * computer: a cloud provider, or an Ollama cloud model on your own server. Settings ▸ Assistant shows the list then.
+ */
+export function sendsOutside(provider: string, model: string): boolean {
+  const place = answerPlace(provider, model);
+  return place === 'cloud' || place === 'ollama-cloud';
 }
 
 /** Each cloud provider's key place. A key belongs to one provider; no card borrows another's. */

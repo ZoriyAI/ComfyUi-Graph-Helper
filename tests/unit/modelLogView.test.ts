@@ -39,7 +39,8 @@ describe('the conversation log as a person reads it', () => {
   it('has words in both languages for every ending, provider and kind of request', () => {
     const keys = [
       ...['ok', 'error', 'paused', 'cancelled', 'unfinished', 'x'].map((value) => outcomeView(value).labelKey),
-      ...['local', 'openai', 'anthropic', 'google', 'test', '', 'x'].map(providerLabelKey),
+      ...['local', 'openai', 'anthropic', 'google', 'test', '', 'x'].map((provider) => providerLabelKey(provider)),
+      providerLabelKey('local', 'gemma4:cloud'),
       ...['ask', 'build', 'chat', '', 'x'].map(intentLabelKey),
       ...['That turn is not in the log.', 'The log has no turns to save.', 'The log file could not be written.', 'The log folder is not available.'].map((text) => logErrorKey(text) as string),
     ];
