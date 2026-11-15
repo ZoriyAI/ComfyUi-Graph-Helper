@@ -1,0 +1,333 @@
+name: Install scripts
+
+# Proves scripts/install/install-windows.ps1 and scripts/install/install-macos.sh on GitHub's Windows and macOS runners,
+# run exactly as the documentation tells a person to run them (docs/wiki/start/Installing-On-Windows.md and
+# Installing-On-macOS.md): from this commit's source with -Source / --source, and once from the latest release tag
+# the default way. After each install: the installed app answers --version with the package version, opens its
+# window and passes scripts/smoke-installed-app.js; a second run upgrades in place and keeps a marker file in the
+# data folder; the uninstaller removes the app and keeps the data; a dry run changes nothing. The install logs and a
+# screenshot of the first window are uploaded as artifacts. A Linux job lints both scripts (PSScriptAnalyzer:
+# errors fail; shellcheck) and runs their tests.
+#
+# The npm cache is kept between runs by setup-node (the scripts' npm ci uses the same cache folder). Electron's own
+# download is not cached: Forge fetches it from GitHub's release files, which takes seconds on a runner.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/install/**'
+      - 'scripts/smoke-installed-app.js'
+      - 'tests/install/**'
+      - 'forge.config.js'
+      - 'package.json'
+      - '.github/workflows/install-scripts.yml'
+  workflow_dispatch:
+  schedule:
+    # Mondays 04:41 UTC: catches a runner image or a download that changed under the scripts.
+    - cron: '41 4 * * 1'
+
+concurrency:
+  group: install-scripts-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint and test the scripts (Linux)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: shellcheck
+        run: shellcheck -s bash scripts/install/install-macos.sh
+      - name: PSScriptAnalyzer (errors fail, warnings are listed)
+        shell: pwsh
+        run: |
+          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+          Install-Module PSScriptAnalyzer -Scope CurrentUser -Force
+          $found = Invoke-ScriptAnalyzer -Path scripts/install/install-windows.ps1, tests/install/InstallWindows.Tests.ps1 -Severity Error, Warning
+          $found | Format-Table -AutoSize RuleName, Severity, ScriptName, Line, Message | Out-String -Width 200 | Write-Host
+          $errors = @($found | Where-Object Severity -eq 'Error')
+          if ($errors.Count -gt 0) { throw "PSScriptAnalyzer found $($errors.Count) error(s)" }
+      - name: Pester tests of install-windows.ps1 (dry run with -PretendWindows)
+        shell: pwsh
+        run: |
+          Install-Module Pester -MinimumVersion 5.5.0 -Scope CurrentUser -Force -SkipPublisherCheck
+          Import-Module Pester -MinimumVersion 5.5.0
+          $result = Invoke-Pester -Path tests/install -Output Detailed -PassThru
+          if ($result.FailedCount -gt 0) { exit 1 }
+      - name: install-macos.sh refuses Linux and prints its macOS plan
+        run: |
+          set +e
+          bash scripts/install/install-macos.sh --dry-run
+          code=$?
+          set -e
+          test "$code" = 3
+          bash scripts/install/install-macos.sh --help | grep -q 'Exit codes'
+          home="$RUNNER_TEMP/home with space ü"
+          mkdir -p "$home"
+          HOME="$home" bash scripts/install/install-macos.sh --dry-run --pretend-macos --source . | tee "$RUNNER_TEMP/plan.txt"
+          grep -q 'DRY-RUN package the app with Electron Forge' "$RUNNER_TEMP/plan.txt"
+          test -z "$(find "$home" -mindepth 1 -print -quit)"
+
+  windows:
+    name: Windows (${{ matrix.os }}, ${{ matrix.ps }})
+    needs: lint
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Windows PowerShell 5.1, what Windows 10 and 11 have out of the box.
+          - os: windows-latest
+            ps: powershell
+          - os: windows-2022
+            ps: pwsh
+    env:
+      PS_EXE: ${{ matrix.ps }}
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Only for the npm cache folder the scripts' npm ci shares; the first install uses its own private Node.js.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: The system as the script sees it
+        run: |
+          [System.Environment]::OSVersion | Format-List | Out-String | Write-Host
+          & $env:PS_EXE -NoProfile -Command '$PSVersionTable | Out-String' | Write-Host
+          Write-Host "LOCALAPPDATA=$env:LOCALAPPDATA APPDATA=$env:APPDATA"
+          "INSTALL_DIR=$env:LOCALAPPDATA\Programs\NodeWise Studio" | Add-Content $env:GITHUB_ENV
+          "DATA_DIR=$env:APPDATA\nodewise-studio" | Add-Content $env:GITHUB_ENV
+          "VERSION=$((Get-Content package.json -Raw | ConvertFrom-Json).version)" | Add-Content $env:GITHUB_ENV
+          New-Item -ItemType Directory -Path "$env:RUNNER_TEMP\results" -Force | Out-Null
+      - name: Pester tests (Windows)
+        run: |
+          Install-Module Pester -MinimumVersion 5.5.0 -Scope CurrentUser -Force -SkipPublisherCheck
+          Import-Module Pester -MinimumVersion 5.5.0
+          $result = Invoke-Pester -Path tests/install -Output Detailed -PassThru
+          if ($result.FailedCount -gt 0) { exit 1 }
+      - name: A dry run changes nothing
+        run: |
+          & $env:PS_EXE -NoProfile -ExecutionPolicy Bypass -File scripts\install\install-windows.ps1 -DryRun -Source . -LogPath "$env:RUNNER_TEMP\results\dry-run.log"
+          if ($LASTEXITCODE -ne 0) { throw "dry run exited with $LASTEXITCODE" }
+          foreach ($path in @($env:INSTALL_DIR, "$env:LOCALAPPDATA\nodewise-studio-installer", "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\NodeWise Studio.lnk", 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\nodewise-studio')) {
+            if (Test-Path -LiteralPath $path) { throw "the dry run left $path" }
+          }
+      - name: Install from this commit, as a person would (private Node.js)
+        run: |
+          & $env:PS_EXE -NoProfile -ExecutionPolicy Bypass -File scripts\install\install-windows.ps1 -Source $env:GITHUB_WORKSPACE -PrivateNode -Yes -KeepBuild -DesktopShortcut -LogPath "$env:RUNNER_TEMP\results\install-1.log"
+          if ($LASTEXITCODE -ne 0) { throw "install exited with $LASTEXITCODE" }
+      - name: What was installed
+        run: |
+          $exe = Join-Path $env:INSTALL_DIR 'nodewise-studio.exe'
+          if (-not (Test-Path -LiteralPath $exe)) { throw "no $exe" }
+          foreach ($link in @("$env:APPDATA\Microsoft\Windows\Start Menu\Programs\NodeWise Studio.lnk", "$([Environment]::GetFolderPath('Desktop'))\NodeWise Studio.lnk")) {
+            if (-not (Test-Path -LiteralPath $link)) { throw "no shortcut $link" }
+          }
+          $entry = Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\nodewise-studio'
+          $entry | Format-List DisplayName, DisplayVersion, Publisher, InstallLocation, UninstallString, QuietUninstallString, EstimatedSize | Out-String | Write-Host
+          if ($entry.DisplayVersion -ne $env:VERSION) { throw "Installed apps shows $($entry.DisplayVersion), expected $env:VERSION" }
+          (Get-Item $exe).VersionInfo | Format-List ProductName, FileDescription, ProductVersion | Out-String | Write-Host
+          # Windows marks downloaded files with a Zone.Identifier stream (what SmartScreen reads); a build made here has none.
+          $marked = @(Get-ChildItem -LiteralPath $env:INSTALL_DIR -Recurse -File | Where-Object { Get-Item -LiteralPath $_.FullName -Stream Zone.Identifier -ErrorAction SilentlyContinue })
+          Write-Host "Files with a Zone.Identifier (mark of the web): $($marked.Count)"
+          "Windows ${{ matrix.os }}: files with mark of the web in the installed app: $($marked.Count)" | Add-Content $env:GITHUB_STEP_SUMMARY
+      - name: The installed app answers --version, opens and passes the smoke check (screenshot)
+        run: |
+          $source = "$env:LOCALAPPDATA\nodewise-studio-installer\work\src"
+          node "$source\scripts\smoke-installed-app.js" --app (Join-Path $env:INSTALL_DIR 'nodewise-studio.exe') --expect-version $env:VERSION --screenshot "$env:RUNNER_TEMP\results\first-window-${{ matrix.os }}.png"
+          if ($LASTEXITCODE -ne 0) { throw "smoke check exited with $LASTEXITCODE" }
+      - name: A second run upgrades in place and keeps the data
+        run: |
+          New-Item -ItemType Directory -Path $env:DATA_DIR -Force | Out-Null
+          Set-Content -LiteralPath "$env:DATA_DIR\install-check-marker.txt" -Value 'kept'
+          & $env:PS_EXE -NoProfile -ExecutionPolicy Bypass -File scripts\install\install-windows.ps1 -Source $env:GITHUB_WORKSPACE -Yes -LogPath "$env:RUNNER_TEMP\results\install-2.log"
+          if ($LASTEXITCODE -ne 0) { throw "second install exited with $LASTEXITCODE" }
+          if (-not (Select-String -LiteralPath "$env:RUNNER_TEMP\results\install-2.log" -Pattern 'Replacing version' -Quiet)) { throw 'the second run did not say it upgraded' }
+          if ((Get-Content -LiteralPath "$env:DATA_DIR\install-check-marker.txt") -ne 'kept') { throw 'the marker in the data folder is gone' }
+          if (-not (Test-Path -LiteralPath (Join-Path $env:INSTALL_DIR 'nodewise-studio.exe'))) { throw 'the app is gone after the upgrade' }
+      - name: Uninstall from the Installed apps entry removes the app and keeps the data
+        run: |
+          $command = (Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\nodewise-studio').QuietUninstallString
+          Write-Host "Running: $command"
+          # The command line exactly as stored, handed to cmd.exe as one string (what Windows does with the entry).
+          $info = New-Object System.Diagnostics.ProcessStartInfo
+          $info.FileName = 'cmd.exe'
+          $info.Arguments = '/s /c "' + $command + ' -LogPath "' + "$env:RUNNER_TEMP\results\uninstall.log" + '""'
+          $info.UseShellExecute = $false
+          $process = [System.Diagnostics.Process]::Start($info)
+          $process.WaitForExit()
+          if ($process.ExitCode -ne 0) { throw "uninstall exited with $($process.ExitCode)" }
+          foreach ($path in @($env:INSTALL_DIR, "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\NodeWise Studio.lnk", 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\nodewise-studio')) {
+            if (Test-Path -LiteralPath $path) { throw "uninstall left $path" }
+          }
+          if ((Get-Content -LiteralPath "$env:DATA_DIR\install-check-marker.txt") -ne 'kept') { throw 'uninstall removed the data' }
+      - name: Upload the logs and the screenshot
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: install-windows-${{ matrix.os }}-${{ matrix.ps }}
+          path: ${{ runner.temp }}/results
+          if-no-files-found: warn
+          retention-days: 14
+
+  macos:
+    name: macOS (${{ matrix.os }})
+    needs: lint
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        # Apple silicon, and Intel: macos-13 was retired from GitHub's runners; macos-15-intel is the Intel image.
+        os: [macos-latest, macos-15-intel]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Only for the npm cache folder the scripts' npm ci shares; the first install uses its own private Node.js.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: The system as the script sees it
+        run: |
+          sw_vers
+          uname -m
+          /bin/bash --version | head -n 1
+          mkdir -p "$RUNNER_TEMP/results"
+          echo "VERSION=$(node -p "require('./package.json').version")" >> "$GITHUB_ENV"
+          echo "APP=$HOME/Applications/NodeWise Studio.app" >> "$GITHUB_ENV"
+          echo "DATA_DIR=$HOME/Library/Application Support/nodewise-studio" >> "$GITHUB_ENV"
+      - name: Started from zsh, the script runs itself under bash
+        run: zsh scripts/install/install-macos.sh --help | grep -q 'Exit codes'
+      - name: A dry run changes nothing
+        run: |
+          /bin/bash scripts/install/install-macos.sh --dry-run --source . --log "$RUNNER_TEMP/results/dry-run.log"
+          for path in "$APP" "$HOME/Library/Caches/nodewise-studio-installer" "$HOME/Library/Application Support/nodewise-studio-installer"; do
+            if [ -e "$path" ]; then echo "the dry run left $path"; exit 1; fi
+          done
+      - name: Install from this commit, as a person would (bash 3.2, private Node.js)
+        run: /bin/bash scripts/install/install-macos.sh --source "$GITHUB_WORKSPACE" --private-node --yes --keep-build --log "$RUNNER_TEMP/results/install-1.log"
+      - name: What was installed, and what Gatekeeper makes of it
+        run: |
+          test -x "$APP/Contents/MacOS/nodewise-studio"
+          plutil -p "$APP/Contents/Info.plist" | grep -E 'CFBundle(Name|ShortVersionString|Identifier|Executable)|LSApplicationCategoryType'
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          codesign -dv --verbose=2 "$APP" 2>&1 | tee "$RUNNER_TEMP/results/codesign.txt"
+          # Recorded, not asserted: Gatekeeper rejects an ad hoc signature in an assessment, and checks only apps
+          # that carry the quarantine mark when they are opened. The open below shows whether that holds here.
+          spctl --assess --type execute -vv "$APP" > "$RUNNER_TEMP/results/spctl.txt" 2>&1 || true
+          cat "$RUNNER_TEMP/results/spctl.txt"
+          xattr -lr "$APP" | grep -c quarantine > "$RUNNER_TEMP/results/quarantine-count.txt" || true
+          {
+            echo "macOS ${{ matrix.os }} ($(uname -m)), $(sw_vers -productVersion):"
+            echo "- codesign: $(grep -E '^Signature=' "$RUNNER_TEMP/results/codesign.txt" || echo 'no Signature line')"
+            echo "- spctl --assess: $(tr '\n' ' ' < "$RUNNER_TEMP/results/spctl.txt")"
+            echo "- files with com.apple.quarantine: $(cat "$RUNNER_TEMP/results/quarantine-count.txt")"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Opened through Launch Services (as a double-click in Finder does)
+        run: |
+          open -n -a "$APP" --args --use-mock-keychain --user-data-dir="$RUNNER_TEMP/open-profile"
+          for _ in $(seq 1 60); do
+            if pgrep -f "$APP/Contents/MacOS/nodewise-studio" > /dev/null; then break; fi
+            sleep 1
+          done
+          sleep 10
+          if pgrep -f "$APP/Contents/MacOS/nodewise-studio" > /dev/null; then
+            echo "- open -a: the app started and kept running (no Gatekeeper block)" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- open -a: the app did not keep running" >> "$GITHUB_STEP_SUMMARY"
+            log show --last 3m --predicate 'process == "syspolicyd" OR process == "amfid"' --style compact | tail -n 50 || true
+            exit 1
+          fi
+          pkill -f "$APP/Contents/MacOS/nodewise-studio" || true
+          sleep 3
+      - name: The installed app answers --version, opens and passes the smoke check (screenshot)
+        run: |
+          node "$HOME/Library/Caches/nodewise-studio-installer/work/src/scripts/smoke-installed-app.js" \
+            --app "$APP/Contents/MacOS/nodewise-studio" --expect-version "$VERSION" \
+            --screenshot "$RUNNER_TEMP/results/first-window-${{ matrix.os }}.png"
+      - name: A second run upgrades in place and keeps the data
+        run: |
+          mkdir -p "$DATA_DIR"
+          echo kept > "$DATA_DIR/install-check-marker.txt"
+          /bin/bash scripts/install/install-macos.sh --source "$GITHUB_WORKSPACE" --yes --log "$RUNNER_TEMP/results/install-2.log"
+          grep -q 'Replacing version' "$RUNNER_TEMP/results/install-2.log"
+          test "$(cat "$DATA_DIR/install-check-marker.txt")" = kept
+          test -x "$APP/Contents/MacOS/nodewise-studio"
+      - name: The kept uninstaller removes the app and keeps the data
+        run: |
+          /bin/bash "$HOME/Library/Application Support/nodewise-studio-installer/install-macos.sh" --uninstall --yes --log "$RUNNER_TEMP/results/uninstall.log"
+          if [ -e "$APP" ]; then echo "uninstall left $APP"; exit 1; fi
+          if [ -e "$HOME/Library/Application Support/nodewise-studio-installer" ]; then echo 'uninstall left the installer folder'; exit 1; fi
+          test "$(cat "$DATA_DIR/install-check-marker.txt")" = kept
+      - name: Upload the logs and the screenshot
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: install-macos-${{ matrix.os }}
+          path: ${{ runner.temp }}/results
+          if-no-files-found: warn
+          retention-days: 14
+
+  # The default way, with no -Source: the latest release tag from GitHub. A release made before the scripts existed
+  # cannot be built by them (exit code 13); that is a notice, not a failure.
+  latest-release:
+    name: Latest release, default download (${{ matrix.os }})
+    needs: lint
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    env:
+      # Read-only token: lifts the API's limit for anonymous calls on a shared runner address.
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the latest release (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path "$env:RUNNER_TEMP\results" -Force | Out-Null
+          powershell -NoProfile -ExecutionPolicy Bypass -File scripts\install\install-windows.ps1 -Yes -LogPath "$env:RUNNER_TEMP\results\install-latest.log"
+          $code = $LASTEXITCODE
+          if ($code -eq 13) { Write-Host '::notice::The latest release predates install-windows.ps1 (exit code 13).'; exit 0 }
+          if ($code -ne 0) { throw "install exited with $code" }
+          & powershell -NoProfile -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\Programs\NodeWise Studio\install-windows.ps1" -Uninstall -Yes -LogPath "$env:RUNNER_TEMP\results\uninstall-latest.log"
+          if ($LASTEXITCODE -ne 0) { throw "uninstall exited with $LASTEXITCODE" }
+      - name: Install the latest release (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p "$RUNNER_TEMP/results"
+          set +e
+          /bin/bash scripts/install/install-macos.sh --yes --log "$RUNNER_TEMP/results/install-latest.log"
+          code=$?
+          set -e
+          if [ "$code" = 13 ]; then echo '::notice::The latest release predates install-macos.sh (exit code 13).'; exit 0; fi
+          test "$code" = 0
+          /bin/bash "$HOME/Library/Application Support/nodewise-studio-installer/install-macos.sh" --uninstall --yes --log "$RUNNER_TEMP/results/uninstall-latest.log"
+      - name: Upload the logs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: install-latest-${{ matrix.os }}
+          path: ${{ runner.temp }}/results
+          if-no-files-found: warn
+          retention-days: 14

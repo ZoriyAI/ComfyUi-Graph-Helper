@@ -8,7 +8,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { parse } from 'yaml';
-const { plan, publish, previous, runtime } = createRequire(import.meta.url)('../../scripts/release-plan.js');
+const { plan, publish, previous, runtime, missingReleaseFiles } = createRequire(import.meta.url)('../../scripts/release-plan.js');
 const source = 'a'.repeat(40);
 const opts = { event: 'push', ref: 'refs/heads/main', version: '0.9.0', source, notes: true, repo: 'owner/repo', recent: true, tag: 'v0.9.0' };
 const release = { id: 1, tag_name: 'v0.9.0', draft: false, prerelease: false };
@@ -93,6 +93,11 @@ describe('release decisions using the publication helper', () => {
     expect(() => previous(opts, fixture([[old]], [[{ id: 1, name: 'app.deb' }]], new Error('download failed')).gh)).toThrow('download failed');
     expect(previous({ ...opts, directory: '/tmp/previous' }, fixture([[old]], [[{ id: 1, name: 'app.deb' }]], '').gh)).toBe('v0.8.0');
   });
+  it('refuses to publish without the install scripts and the checksums', () => {
+    const linux = ['release/nodewise-studio_1.0.0_amd64.deb', 'release/nodewise-studio-1.0.0-linux-x64.tar.gz'];
+    expect(missingReleaseFiles(linux)).toEqual(['install-windows.ps1', 'install-macos.sh', 'SHA256SUMS']);
+    expect(missingReleaseFiles([...linux, 'release/install-windows.ps1', 'release/install-macos.sh', 'release/SHA256SUMS'])).toEqual([]);
+  });
   it('always pins the runtime and requires paired overrides', () => {
     expect(runtime('', '')).toEqual({ tag: '20251108', sha256: '2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d' });
     expect(() => runtime('20251108', '')).toThrow();
@@ -128,4 +133,11 @@ it('retains release gates, permission boundaries and pinned tested source in par
   expect(publishing.steps.slice(recheck + 1).every((s: any) => s.if === "steps.recheck.outputs.publish == 'true'")).toBe(true);
   expect(publishing.steps.some((s: any) => s.uses?.startsWith('actions/attest-build-provenance'))).toBe(true);
   expect(publishing.steps.find((s: any) => s.name === 'Checksums still match').run).toContain('sha256sum -c');
+  // The install scripts for Windows and macOS are release files, listed in SHA256SUMS and attested like the packages.
+  const files = packaging.steps.find((s: any) => s.name === 'Release files, checksums and the component list').run;
+  expect(files).toContain('cp scripts/install/install-windows.ps1 scripts/install/install-macos.sh release/');
+  expect(files.indexOf('scripts/install/')).toBeLessThan(files.indexOf('sha256sum'));
+  const attested = publishing.steps.find((s: any) => s.uses?.startsWith('actions/attest-build-provenance')).with['subject-path'];
+  expect(attested).toContain('release/install-windows.ps1');
+  expect(attested).toContain('release/install-macos.sh');
 });

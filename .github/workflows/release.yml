@@ -5,7 +5,9 @@ name: Build and package
 # pull requests (ci.yml has the fast checks for those). A new main version, tag, or manual release then publishes
 # with checksums, a build provenance attestation and a component list (SBOM).
 #
-# Linux x64 only: the app is built and tested for Linux. Windows and macOS are not built here.
+# Linux x64 packages only. Windows and macOS have no packages: each release carries install-windows.ps1 and
+# install-macos.sh, which build the app from the release's source on the person's computer; install-scripts.yml proves
+# them on GitHub's Windows and macOS runners.
 
 on:
   push:
@@ -221,7 +223,9 @@ jobs:
           desktop-file-validate "$RUNNER_TEMP/rpm/usr/share/applications/nodewise-studio.desktop"
 
       - name: Shell scripts
-        run: shellcheck -s sh resources/linux/portable/*.sh resources/linux/postinst resources/linux/postrm
+        run: |
+          shellcheck -s sh resources/linux/portable/*.sh resources/linux/postinst resources/linux/postrm
+          shellcheck -s bash scripts/install/install-macos.sh
 
       # Errors fail the build; warnings and info are reported. What every Electron bundle triggers is overridden,
       # with the reason, in forge.config.js (lintianOverrides).
@@ -258,6 +262,9 @@ jobs:
           version=$(node -p "require('./package.json').version")
           mkdir -p release
           cp out/make/deb/x64/*.deb out/make/rpm/x64/*.rpm out/make/portable/*.AppImage out/make/portable/*.tar.gz release/
+          # The install scripts for Windows and macOS, which build the app from this tag's source on those systems
+          # (.github/workflows/install-scripts.yml proves them on GitHub's Windows and macOS runners).
+          cp scripts/install/install-windows.ps1 scripts/install/install-macos.sh release/
           node scripts/make-sbom.js "release/nodewise-studio-$version.cdx.json"
           (cd release && sha256sum -- * > SHA256SUMS && cat SHA256SUMS)
 
@@ -367,6 +374,8 @@ jobs:
             release/*.AppImage
             release/*.tar.gz
             release/*.cdx.json
+            release/install-windows.ps1
+            release/install-macos.sh
             release/SHA256SUMS
 
       # The gh tool on the runner, not a third-party action, holds the write token.
