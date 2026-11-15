@@ -92,7 +92,7 @@ describe('sorting a failed read', () => {
   });
 
   it('keeps no address, path or secret in the server text it shows', () => {
-    const text = shortDetail('failed at http://10.1.2.3:9000/mcp reading /srv/models/loras/x.safetensors with Bearer sk-abcdefghijklmnopqrstuvwx and 192.168.1.20:8188');
+    const text = shortDetail('failed at http://10.1.2.3:9000/mcp reading /srv/models/loras/x.safetensors with Bearer sk-abcdefghijklmnopqrstuvwx and 192.168.1.50:8188');
     expect(text).not.toMatch(/10\.1\.2\.3|192\.168|\/srv\/|sk-abc|http/);
     expect(shortDetail('x'.repeat(400)).length).toBeLessThanOrEqual(160);
   });
