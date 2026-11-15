@@ -52,7 +52,9 @@ npx electron-forge package
 файл базы для Linux (`prebuilds/(?!linux-x64\.node$)`). Пропустите и файл для вашего Mac (например,
 `(?!(linux-x64|darwin-arm64)\.node$)` на Apple Silicon), иначе упакованное приложение не откроет свою базу. Пакет не
 подписан: macOS спросит перед первым открытием (щелчок с Control ▸ «Открыть»).
-<!-- verify: the bundle name; the missing .icns icon -->
+
+Не проверено на Mac: пакет должен называться `NodeWise Studio.app` по названию продукта, а раз в проекте нет
+`resources/icon.icns`, у него, вероятно, будет значок Electron по умолчанию.
 
 ## Обновление исходников
 
@@ -68,7 +70,8 @@ npm run build
 2. Удалите папку проекта (`nodewise-studio`) и, если делали, пакет в `out/`.
 3. Удалите `~/Library/Application Support/nodewise-studio`.
 4. В «Связке ключей» удалите запись, которая кончается на «Safe Storage» и несёт имя приложения.
-   <!-- verify: the Keychain item name on macOS -->
+   Приложение называет себя `nodewise-studio`, поэтому запись должна называться `nodewise-studio Safe Storage`; на Mac
+   это не проверялось.
 
 ## Известные ограничения на этой системе
 

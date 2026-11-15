@@ -73,7 +73,7 @@ npm run build
 
 ## Known limits on this system
 
-- **Texts written for Linux.** The password store setting, its hints and Troubleshooting speak of GNOME Keyring and
+- **Texts written for Linux.** The keychain setting, its hints and Troubleshooting speak of GNOME Keyring and
   KWallet; on Windows, Electron uses DPAPI instead.
 - **File permissions.** The app makes its files readable "by your user only" with Unix permissions. On Windows that
   does nothing, so the hints that promise it (for a key or token kept in the app folder) are not true there; the

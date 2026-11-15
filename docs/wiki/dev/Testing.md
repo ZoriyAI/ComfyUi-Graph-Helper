@@ -17,17 +17,29 @@ npx vitest run tests/unit/wiki.test.ts   # one file
 - `tests/integration`: several modules together with a real SQLite database: a chat that builds a graph, a run
   that meets a person's edit, a sync against a fake MCP server (`tests/fixtures/mcp`).
 - A scripted model (`src/main/testLLMTransport.ts`) answers instead of a real one; nothing goes to the network.
-- Under heavy load a few slow tests can hit vitest's timeout; run them alone or with `--testTimeout=60000`.
+- A unit test counts as hung after 30 seconds (`testTimeout` in `vitest.config.ts`). Under heavy load a few slow
+  tests can still hit it; run them alone or with `--testTimeout=60000`.
+- Time budgets: `npm test` only records how long the large-catalog test takes, because a fixed limit on a busy machine
+  fails now and then. `npm run test:perf` (`PERF_BUDGETS=1`) runs the same test with its limits.
 
-## Type check
+```bash
+npm run test:perf                # the time budgets of tests/unit/largeCatalog.test.ts
+```
+
+## Type check and lint
 
 ```bash
 npm run type-check               # main and renderer
+npm run type-check:tests         # the tests too (tsconfig.tests.json)
+npm run lint                     # ESLint over src, tests, scripts and forge.config.js (eslint.config.mjs)
 ```
 
 ## End-to-end tests
 
-They start the built app in Electron through Playwright.
+They start the built app in Electron through Playwright. A spec starts the app through `launchApp()` of
+`tests/e2e/support/app.ts`, never on its own: it gives the app a temporary profile with `--user-data-dir` (removed on
+close; `NODEWISE_KEEP_PROFILES=1` keeps it for a look), so a spec never reads or writes the profile of the person
+running it. `npm run build` comes first, or the specs test old code.
 
 ```bash
 npm run build
@@ -77,14 +89,15 @@ Without `WORKFLOW_CORPUS` it is skipped.
 
 `tests/unit/wiki.test.ts` checks every page has both languages, the language link on line 1 and the breadcrumb on
 line 2, that every relative link resolves, that every folder index lists its pages, and that every lesson has a page.
-`WIKI_STRICT=1 npx vitest run tests/unit/wiki.test.ts` also fails on `<!-- verify: … -->` and skeleton comments,
-before a release.
+`WIKI_STRICT=1 npx vitest run tests/unit/wiki.test.ts` also fails while a `verify` or `skeleton` comment is left
+(an HTML comment that starts with one of these words and a colon), before a release.
 
 ## What CI runs
 
 - `.github/workflows/ci.yml`, on every pull request and every push to the default branch: the changelog check,
-  `node scripts/public-tree-check.js`, `npm ci`, the type check, the unit and integration tests and the build. It
-  has read-only rights and no secrets.
+  `node scripts/public-tree-check.js`, `npm ci`, the type check, the unit and integration tests and the build; a
+  second job builds the app and runs a short list of end-to-end journeys (editing, files, privacy, the check and the
+  lesson list) under Xvfb. It has read-only rights and no secrets.
 - `.github/workflows/release.yml`, for tags, by hand and weekly: the end-to-end tests, the layout walks, the four
   packages and their checks, the upgrade test, then the release. [Releasing](Releasing.md)
 

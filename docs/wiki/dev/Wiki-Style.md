@@ -51,9 +51,15 @@ a capital letter. Every folder has `README.md` and `README.ru.md` that list ever
 
 ## Truth
 
-Every sentence must be true on the current build. Check it against the code or the running app. When you cannot
-confirm a sentence, leave it and add an HTML comment right after it: `<!-- verify: what to check -->`. A skeleton
-page that nobody has written yet carries `<!-- skeleton: … -->`.
+Every sentence must be true on the current build. Check it against the code or the running app; when they disagree
+with a report or an older page, the code wins.
+
+- **While you work**, a sentence you cannot confirm yet gets an HTML comment right after it: the opening `<!--`, then
+  `verify:` and what to check, then `-->`. A skeleton page that nobody has written yet carries the same kind of
+  comment with `skeleton:`.
+- **Before a release** no such comment may stay. A sentence that cannot be checked here (a real ComfyUI install,
+  Windows, macOS, a keychain such as KWallet, a real screen reader) stays, says plainly in the text itself that it
+  is not tried yet, and goes on the list of things not yet tried in [Releasing](Releasing.md).
 
 ## The test
 
