@@ -1,16 +1,16 @@
 Русская версия: [README.ru.md](README.ru.md)
 
-# CozyGraph
+# NodeWise Studio
 
 **A desktop tutor for ComfyUI graphs**
 
 ![The app building a graph step by step, with the reason for every step](docs/screenshots/hero.png)
 
-CozyGraph helps you learn ComfyUI and understand its graphs: it reads a running ComfyUI, explains every node and
+NodeWise Studio helps you learn ComfyUI and understand its graphs: it reads a running ComfyUI, explains every node and
 link, teaches with lessons you do by hand, and has an assistant that explains and builds step by step. It is for
 people new to ComfyUI and for anyone who wants to know why a graph works. It only reads ComfyUI and never changes it.
 
-CozyGraph is an independent, experimental learning tool. It is not affiliated with or endorsed by Comfy Org. It
+NodeWise Studio is an independent, experimental learning tool. It is not affiliated with or endorsed by Comfy Org. It
 contains no ComfyUI code and only reads a running ComfyUI; it never changes it.
 
 ## Screenshots
@@ -44,8 +44,8 @@ Linux, 64-bit x86. Download from the [Releases](../../releases) page the format 
 
 | Format | Install |
 | --- | --- |
-| `.deb` (Ubuntu, Debian, Mint) | `sudo apt install ./cozygraph_*_amd64.deb` |
-| `.rpm` (Fedora, openSUSE) | `sudo dnf install ./cozygraph-*.rpm` |
+| `.deb` (Ubuntu, Debian, Mint) | `sudo apt install ./nodewise-studio_*_amd64.deb` |
+| `.rpm` (Fedora, openSUSE) | `sudo dnf install ./nodewise-studio-*.rpm` |
 | AppImage | `chmod +x` the file, then open it |
 | `.tar.gz` | unpack, then `./install.sh` (for your user, no root) or `./run.sh` (in place) |
 
@@ -57,7 +57,7 @@ where: [Installing](docs/wiki/start/Installing.md).
 ## First steps
 
 1. Start ComfyUI. No ComfyUI yet? [ComfyUI and where to get it](docs/wiki/start/ComfyUI.md).
-2. In CozyGraph: Settings ▸ Connection, enter the address you open ComfyUI at in the browser (for example
+2. In NodeWise Studio: Settings ▸ Connection, enter the address you open ComfyUI at in the browser (for example
    `http://127.0.0.1:8188`) or choose Find on this computer, save, and read it.
    [Connecting to ComfyUI](docs/wiki/connect/Connecting.md)
 3. Open the right panel, choose Learn and take the first lesson. [Quick start](docs/wiki/start/Quick-Start.md)
@@ -87,7 +87,7 @@ try running the app from source, untested: [Windows](docs/wiki/dev/Building-On-W
 
 ## What works today and known limits
 
-CozyGraph is experimental: things change between versions and some parts are unfinished. What it does not do yet:
+NodeWise Studio is experimental: things change between versions and some parts are unfinished. What it does not do yet:
 [Known limitations](docs/wiki/reference/Known-Limits.md). What changed: [CHANGELOG.md](CHANGELOG.md).
 
 It never installs, downloads, deletes, writes or queues anything in ComfyUI, has no telemetry and no crash
@@ -106,7 +106,7 @@ by the maintainer, who answers for everything published here.
 
 ## Licence
 
-MIT with the Commons Clause condition: you may use, change and share CozyGraph for free, but not sell it or a product
+MIT with the Commons Clause condition: you may use, change and share NodeWise Studio for free, but not sell it or a product
 or service whose value comes mainly from it. It is source-available, not open source in the usual sense.
 [LICENSE](LICENSE), [the licence in plain words](docs/wiki/trust/Licence.md), commercial use:
 [COMMERCIAL.md](COMMERCIAL.md). Third-party components: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

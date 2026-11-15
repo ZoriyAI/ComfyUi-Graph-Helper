@@ -8,7 +8,7 @@ these values there.
 ## Description (at most 350 characters)
 
 ```text
-CozyGraph: a desktop tutor for ComfyUI graphs. Learn ComfyUI with lessons on a real canvas, explanations of every node and link, and an assistant that builds step by step. Reads a running ComfyUI, never changes it. Experimental, Linux. Independent, not affiliated with Comfy Org.
+NodeWise Studio: a desktop tutor for ComfyUI graphs. Learn ComfyUI with lessons on a real canvas, explanations of every node and link, and an assistant that builds step by step. Reads a running ComfyUI, never changes it. Experimental, Linux. Independent, not affiliated with Comfy Org.
 ```
 
 ## Website
