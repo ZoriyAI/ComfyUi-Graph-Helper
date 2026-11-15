@@ -31,8 +31,9 @@ export default function LiveBuildStrip() {
       <div className={styles.strip} role="status" aria-label={String(t('canvas.liveLabel'))} data-live-build data-step={step.index} data-total={step.total}>
         <span className={styles.dot} data-paused={paused ? 'true' : undefined} aria-hidden="true" />
         <span className={styles.text}>
-          <strong>{t('canvas.liveBuilding', { index: step.index, count: step.total })}</strong>
-          {live.why ? <span className={styles.why}> — {live.why}</span> : null}
+          {/* Paused: say so and what the person can do; building: the step and, beside it, that step's own why. */}
+          <strong>{t(paused ? 'canvas.livePaused' : 'canvas.liveBuilding', { index: step.index, count: step.total })}</strong>
+          {paused ? <span className={styles.why}> {t('canvas.livePausedHint')}</span> : live.why && live.whyAt === live.shown ? <span className={styles.why}>: {live.why}</span> : null}
         </span>
         {running ? (
           <>
