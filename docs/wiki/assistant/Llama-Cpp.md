@@ -10,9 +10,9 @@ llama.cpp is a program that runs models in the GGUF format; its `llama-server` s
 1. Start the server with a model that can call tools, a context of at least 16 384 tokens, and tool calling on, for example:
    `llama-server -m model.gguf -c 16384 --jinja`
    It answers at `http://127.0.0.1:8080` by default.
-2. In the app: Settings ▸ Assistant ▸ **Own server**. Type `http://127.0.0.1:8080/v1` into **Base URL** (the app does not look on port 8080 by itself).
+2. In the app: Settings ▸ Assistant ▸ **Your own server**. **Find local servers** looks on port 8080 of this computer and lists the server it finds; pick it, or type `http://127.0.0.1:8080/v1` into **Server address**.
 3. **Model**: the server lists the model it runs; pick it.
-4. **Check connection**. The app reads the context size the server was started with (`-c`) and says whether it is enough.
+4. **Test connection**. The app reads the context size the server was started with (`-c`) and says whether it is enough.
 5. **Save settings**.
 
 ## The context window
@@ -24,7 +24,7 @@ It is the `-c` (or `--ctx-size`) of `llama-server`. If the app says "That is too
 - "The model server does not answer." The server is not running or uses another port.
 - Tool calls fail or come back as text: the server was started without tool calling, or the model's chat template does not support tools.
 
-<!-- verify: the providers branch may add llama.cpp to the servers the app looks for by itself -->
+The server must be started with `--jinja`: without it tool calling does not work. Settings ▸ Assistant ▸ **How to set the window by hand** gives the same line.
 
 ## See also
 

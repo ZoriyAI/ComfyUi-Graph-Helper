@@ -9,22 +9,35 @@
 
 | Switch | Default | What it does |
 |---|---|---|
-| **Send field values to the model** | on | "Descriptions, seeds, model names in the nodes. Values that look like keys are always hidden." Off: the model sees the graph without the values. |
+| **Send field values to the model** | on | "Prompts, seeds, model names in the nodes. Values that look like keys are always hidden." Off: the model sees the graph without the values. |
 | **Keep chat history in the project** | on | "Off: new messages stay in this window only and are not written." |
 | **Keep a log of the conversation with the model** | on | Every question is recorded with what was sent and what came back. It stays on this computer, holds no keys or tokens, and old records go by themselves. See [The conversation log](Conversation-Log.md). |
-| **Show previews and examples marked as adult content** | off | Pictures and example prompts next to your models that their author marked as adult. While off, a model card shows them only when you ask for that file. |
+| **Adult content (18+)** | off | See [Adult content](#adult-content) below. |
 | **Look up models on the internet during sync** | off | For files Civitai's description does not cover: the fingerprint goes to civitai.com, then the name to huggingface.co. At most one request a second and 200 files per sync. While off, only **Find on the internet** in a card does it. |
+| **Check for new versions** | off | Once a day the app asks the project's releases page on github.com whether a newer version exists. The question carries only the app's name and version. The app downloads nothing by itself. |
+
+## Adult content
+
+The switch **Adult content (18+)** is off in a new profile. "On: the previews and example descriptions an author marked as adult content are shown, and the lessons for adults are open. Off: they stay closed, and a model card still shows them for one file when you ask."
+
+Turning it on asks first: "Turn on adult content?", with the rules, **Read the content rules**, **I am 18 or older** and **Leave it off**. See [Content rules](../trust/Content-Rules.md); **Help ▸ Content rules** opens them too.
 
 ## What is sent to the model
 
-A box lists it: your message, the graph (nodes, inputs and outputs, links, positions), what is selected and on screen, your recent actions on the graph, a summary of your catalog; when the assistant looks at a model, its description. Then "Field values: sent." or "Field values: not sent." and "Never sent: model keys, the server access token, the model files themselves and the folders they lie in." See [What is sent to the model](../assistant/What-Is-Sent.md).
+A box lists it: your message, the graph (nodes, inputs and outputs, links, positions), what is selected and on screen, your recent actions on the graph, a summary of your catalog; when the assistant looks at a model, the description saved next to it and what Civitai or Hugging Face said about it. Then "Field values: sent." or "Field values: not sent." and "Never sent: model keys, the server access token, the model files themselves and the folders they lie in." See [What is sent to the model](../assistant/What-Is-Sent.md).
+
+A second box says where else the app connects, and when: the assistant's web search (DuckDuckGo from this computer, or the cloud provider's own search), the sign-in page of your MCP server (the app asks first when it is on another site), a check of a few known ports on this computer, and **Find on the internet** in a model card (civitai.com, huggingface.co and their picture servers).
 
 ## Where keys are kept
 
-A table, **Key** and **Where it is now**, with a row per key: "OpenAI key", "Server access token". The place is "In memory until the app closes", "Encrypted in the OS password manager", "In the app folder, unencrypted (your choice)" or "Not held".
+A table, **Key** and **Where it is now**, with a row per key: "OpenAI key", "Server access token". The place is "In memory until the app closes", "Encrypted in the system keychain", "In the app folder, unencrypted (your choice)" or "Not held".
 
-- **Forget all keys and tokens** removes every model key, every server access token and every browser sign-in, from memory, the password store and the app folder. The app asks first and lists what goes.
-- **Password store**, **Which store the app uses**: **Detect automatically**, GNOME “Passwords and Keys”, KWallet 6, 5 or 4. "Now: GNOME “Passwords and Keys”. Keys are saved encrypted." A change applies after the app restarts.
+- **Forget all keys and tokens** removes every model key, every server access token and every browser sign-in, from memory, the system keychain and the app folder. The app asks first and lists what goes.
+- **System keychain**, **Which keychain the app uses**: **Detect automatically**, GNOME “Passwords and Keys”, KWallet 6, 5 or 4. "Now: GNOME “Passwords and Keys”. Keys are saved encrypted." A change applies after the app restarts.
+
+## The picture cache
+
+The app keeps preview pictures and clips of your models so that cards open at once. The line says how many files and how much room they take; **Clear the picture cache** removes them. They are also cleared when the server address changes.
 
 ## Chat history
 

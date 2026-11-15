@@ -19,6 +19,8 @@ Ask, Build, Learn, choosing who answers and what is sent.
 - [OpenAI](OpenAI.md): Getting a key, cost and settings.
 - [Anthropic](Anthropic.md): Getting a key, cost and settings.
 - [Google Gemini](Google.md): Getting a key, cost and settings.
+- [OpenAI-compatible services](OpenAI-Compatible.md): A gateway or regional cloud service at its own address.
+- [Which model to take](Which-Model.md): Suggested models, what they cost and how much memory they need.
 - [Keys and where they are kept](Keys.md): Pasting, remembering and forgetting a key.
 - [The context window](Context-Window.md): Why a local model forgets and how to give it more room.
 - [Web search and pages](Web-Search.md): When the assistant reads the internet and how to turn it off.

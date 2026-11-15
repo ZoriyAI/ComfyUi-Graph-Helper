@@ -12,12 +12,12 @@ The node card opens next to the library when you click a node in the **Nodes** t
 | Part | What it says |
 |---|---|
 | **Category** | the group of the node in ComfyUI, for example sampling |
-| **Comes from** | "ComfyUI itself", or the node pack |
+| **Comes from** | "ComfyUI itself", or the node pack. When the app knows the pack, a second, quieter sentence says what it is. |
 | **What the pack says about itself** | for a node from a pack: the pack's own description and **Repository** with **Copy the repository link** (**More** / **Less** for a long text) |
-| **What it is**, **Usually used for**, **How to connect it**, **Watch out** | the app's knowledge of this node. Each part has a mark: **Fact** (read from ComfyUI or the file), **Guess** (concluded from names and context) |
+| **What it is**, **Usually used for**, **How to connect it**, **Watch out** | the app's built-in knowledge of this node, with the mark **Fact** (read from ComfyUI or the file) or **Guess** (concluded from names and context) |
 | **Description from its author** | what the node's author wrote, when there is no knowledge of the app |
-| **What goes in** | the inputs, each with its data type; "optional" marks the ones that may stay empty |
-| **Settings on the node** | the fields: "starts at 20", "from 1 to 10000", "a list of 12", "a file from the folder loras", "text" |
+| **What goes in** | the inputs, each with its data type; "optional" marks the ones that may stay empty. Hover over a type (VIDEO, AUDIO and the others too) to read what it carries. |
+| **Fields on the node** | the fields: "default 20", "from 1 to 10000", "a list of 12", "a file from the folder loras", "text" |
 | **What comes out** | the outputs with their types |
 
 When nothing goes in, the card says "Nothing is linked into it: a branch starts here." When nothing comes out: "Nothing comes out: a branch ends here."

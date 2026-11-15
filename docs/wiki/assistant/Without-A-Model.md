@@ -10,6 +10,7 @@ You can use the app with no assistant chosen (**Not chosen**, "The assistant is 
 - Reading your ComfyUI, the library, the node and model cards with what the app knows about each node and file.
 - Building by hand on the canvas: adding, connecting, fields, subgraphs, groups, arranging, undo and the history.
 - The description cards, with the app's own knowledge of each kind of node ("Fact" and "Guess" badges).
+- A question about an object: see below.
 - The tour of a graph.
 - The check, and its advice on prompts.
 - **Learn**: all lessons, with **Show me where** and **Do this for me**.
@@ -18,9 +19,11 @@ You can use the app with no assistant chosen (**Not chosen**, "The assistant is 
 ## What needs a model
 
 - **Ask** and **Build**, the questions in the canvas menus, **Explain this**, **Ask why**, **Ask the assistant about this step**.
-- Without a model, a question gets "No assistant is chosen yet. Pick one in the toolbar or in Settings ▸ Assistant. Nothing was sent."
+- A question typed in the chat gets "No assistant is chosen yet. Pick one in the toolbar or in Settings ▸ Assistant. Nothing was sent."
 
-<!-- verify: the assistant branch adds answers from the built-in knowledge when no assistant is chosen -->
+## A question about an object without a model
+
+With no assistant chosen, a question about an object (from a canvas menu, **Explain this** in Properties, a node or model card) is not sent anywhere and no chat message appears. Instead the **Explain** tab opens on that object with what the app knows about it: the built-in knowledge of its node type or data type, the documentation, and your own notes. See [The explanations tab](../interface/Explain-Panel.md).
 
 ## See also
 

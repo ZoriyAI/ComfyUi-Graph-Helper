@@ -8,7 +8,7 @@
 ## How to start
 
 1. Choose **File ▸ New project**.
-2. If the canvas holds a graph that is not saved to a project file as it stands, the app asks: "Start a new project? The graph on the canvas is not saved to a project file as it stands. A new project clears the canvas; the current graph stays in the revision history, and Save project keeps it as a file."
+2. If the canvas holds a graph that is not saved to a project file as it stands, the app asks: "Start a new project? The graph on the canvas is not saved to a project file as it stands. A new project clears the canvas; the current graph stays in the history of graph versions, and Save project keeps it as a file."
 3. **Cancel** to go back and save first (**File ▸ Save project**), or **Start new project**.
 
 An empty canvas, or a project you just saved or opened and did not change since, is cleared without asking.
@@ -16,19 +16,23 @@ An empty canvas, or a project you just saved or opened and did not change since,
 ## What a new project keeps
 
 - The canvas is empty, a tour or a replay ends, an open subgraph is left.
-- The library, the settings, the assistant and the chat stay.
+- The library, the settings, the assistant and the chat stay. Nodes you copied stay in the app's clipboard, so you can paste them into the new graph.
+- The result of the last check is cleared.
 - The old graph is one step back in the history: `Ctrl+Z` brings it back, and **Graph ▸ Replay history** shows it.
 
 ## What happens when you close the app
 
 The graph on the canvas is kept by the app and comes back at the next start, saved or not. A project file is only needed to keep a copy elsewhere, to share it, or to have several projects.
 
-## Limits
+## The workflow format of a new project
 
-Today the empty graph of a new project is in the older workflow format (0.4), so a subgraph cannot be made in it ("Subgraphs need workflow format 1."). See [Subgraphs](Subgraphs.md). <!-- verify: reported to the engineers; remove when fixed -->
+A new project starts in workflow format 1, the format a recent ComfyUI saves. So **Graph ▸ Make a subgraph from selection** (`Ctrl+G`) works in it.
+
+A workflow in the old format (0.4) cannot hold subgraphs. To use its nodes in subgraphs, select them, copy them (`Ctrl+C`), start a new project and paste them there (`Ctrl+V`). See [Subgraphs](Subgraphs.md) and [Copy and paste](Copy-And-Paste.md).
 
 ## See also
 
 - [Project files](Project-Files.md)
 - [History and undo](History-And-Undo.md)
+- [Copy and paste](Copy-And-Paste.md)
 - [File menu](../interface/File-Menu.md)

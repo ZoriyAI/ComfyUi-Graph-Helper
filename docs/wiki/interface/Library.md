@@ -9,7 +9,7 @@ The library is the panel on the left. It shows what your ComfyUI has and what th
 
 | Tab | What it lists | Page |
 |---|---|---|
-| **Nodes** | every node class of your ComfyUI, grouped by category | [Nodes in the library](Node-Library.md) |
+| **Nodes** | every node class of your ComfyUI, grouped by category, and the four editor nodes Note, Markdown Note, Reroute and Primitive | [Nodes in the library](Node-Library.md) |
 | **Models** | your model files, with their kind and family | [Models in the library](Model-Library.md) |
 | **Subgraphs** | the subgraphs of this project | [Subgraphs in the library](Subgraph-Library.md) |
 
@@ -17,15 +17,13 @@ The library is the panel on the left. It shows what your ComfyUI has and what th
 
 - **Collapse library** (the icon at the top right of the panel), **View ▸ Library** or `Ctrl+B` folds it to a strip of icons.
 - In the strip, **Expand library** opens it again; the icons of the three tabs open it on that tab.
-- In a window narrower than 1440 pixels the library starts folded.
+- In a window narrower than 1180 pixels the library starts folded.
 
 ## When it is empty
 
 - Before your ComfyUI is read: "Your ComfyUI is not read yet. The nodes of your ComfyUI appear here once the app reads it. Reading changes nothing in ComfyUI." with a button to read it.
-- Without an address: "The nodes of your ComfyUI appear here. Tell the app the address of its MCP server first; then it reads which nodes you have." with **Open connection settings**.
+- Without an address: "The nodes of your ComfyUI appear here. Tell the app the address of your ComfyUI first; then it reads which nodes you have." with **Open connection settings**. The address is the one you open ComfyUI at in the browser; an MCP server is optional. See [Connecting](../connect/Connecting.md).
 - "The library could not be read." if the app's own data could not be read.
-
-<!-- verify: the connection branch changes the empty state for a plain ComfyUI address -->
 
 ## See also
 

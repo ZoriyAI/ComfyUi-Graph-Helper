@@ -3,7 +3,7 @@
 
 # Grey drafts
 
-A grey draft is a change the assistant suggests but has not made: a node, a link, a value, a subgraph, a removal. It stands on the canvas in grey, with a short "Why", until you accept or reject it. Only what you accept goes into the graph. Drafts come from **Ask** mode. They are never put on top of your own nodes.
+A grey draft is a change the assistant suggests but has not made: a node, a link, a value, a subgraph, a removal. It stands on the canvas in grey, with a short "Why", until you accept or reject it. Only what you accept goes into the graph. Drafts come from **Ask** mode, and from **Build** mode when a step would change what you made: your own nodes, their values, notes or links, a description, or the name of the graph. A build changes only what it placed itself; the rest waits for you as a draft. Drafts are never put on top of your own nodes.
 
 <!-- picture: a grey draft node with Accept and Reject next to a real node -->
 
@@ -12,10 +12,12 @@ A grey draft is a change the assistant suggests but has not made: a node, a link
 | Draft | On the canvas |
 |---|---|
 | **Add a node** | a grey node, "Suggested node KSampler" |
-| **Connect** | a grey dashed link, "Suggested connection" |
+| **Connect** | a grey dashed link, "Suggested link" |
 | **Set a value** | a mark on the field, "Suggested value" |
 | **Make a subgraph** / **Insert a subgraph** | a grey block |
 | **Remove a node** | the node marked "Suggested removal" |
+| **Remove a link** | the link marked for removal |
+| **Note on a node**, **Node description**, **Graph name** | a card in the conversation; the text goes in when you accept |
 
 Each draft also has a card in the conversation, with its kind, the "Why" note and the buttons.
 
@@ -23,9 +25,11 @@ Each draft also has a card in the conversation, with its kind, the "Why" note an
 
 - **Accept** or **Reject** on the draft itself, or on its card in the conversation. Accepting makes the change ("Applying…"), as one step of the history.
 - Several at once: **Accept all (3)** on the canvas toolbar, **Graph ▸ Accept all suggestions**, or right-click an empty place ▸ **Accept all suggestions**. They are accepted one after another.
+- **Reject all** beside it on the canvas toolbar, **Graph ▸ Reject all suggestions**, or right-click an empty place ▸ **Reject all suggestions** rejects them all at once.
+- A build that left drafts ends its summary with, for example, "1 grey draft waits for your decision: it changes what you made".
 - To find them: right-click an empty place ▸ **Show the assistant’s suggestions**.
 
-Each card then says **Accepted** or **Rejected**.
+Each card then says **Accepted** or **Rejected**. With motion on, an accepted draft turns into the node, a rejected one dissolves, and a draft that lands off screen is brought into view. A draft's **Why** shows the assistant's reason only.
 
 ## Out of date
 
@@ -35,8 +39,6 @@ If the graph changed after the suggestion, so that it no longer fits, it turns *
 
 - Drafts live on the main canvas; inside a subgraph they are not shown.
 - Accepting is refused during a history replay.
-
-<!-- verify: the assistant branch adds «Reject all» -->
 
 ## See also
 

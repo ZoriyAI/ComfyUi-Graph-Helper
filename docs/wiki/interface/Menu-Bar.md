@@ -11,13 +11,13 @@ The menu bar is the top line of the window. It holds every command of the app in
 
 | Menu | What is in it | Page |
 |---|---|---|
-| File | new, open and save a project; open and save a workflow; Settings; Exit | [File menu](File-Menu.md) |
-| Edit | undo, redo, select all, delete | [Edit menu](Edit-Menu.md) |
-| View | zoom, which panels are shown, descriptions, minimap, language, motion | [View menu](View-Menu.md) |
-| Graph | add a node, arrange, subgraphs, groups, the check, the tour, history | [Graph menu](Graph-Menu.md) |
-| Assistant | write to the assistant, lessons, pause and stop a build, who answers | [Assistant menu](Assistant-Menu.md) |
+| File | new, open and save a project; open a workflow, a picture or a recent file; examples; save a workflow; lessons; Settings; Quit | [File menu](File-Menu.md) |
+| Edit | undo, redo, cut, copy, paste, duplicate, select all, delete | [Edit menu](Edit-Menu.md) |
+| View | zoom, interface size, which panels are shown, descriptions, minimap, pinned nodes, language, motion | [View menu](View-Menu.md) |
+| Graph | add a node, arrange, subgraphs, groups, bypass, mute, colour, a node on a link, replace, notes, the check, a ComfyUI error, the grey drafts, the tour, history | [Graph menu](Graph-Menu.md) |
+| Assistant | write to the assistant, lessons, pause and stop a build, choose the assistant | [Assistant menu](Assistant-Menu.md) |
 | Sync | read your ComfyUI now, read it on a timer | [Sync menu](Sync-Menu.md) |
-| Help | the guide, troubleshooting, shortcuts, the conversation log, diagnostics, About | [Help menu](Help-Menu.md) |
+| Help | the guide, the tour of the window, the glossary, troubleshooting, content rules, the project links, running in ComfyUI, a ComfyUI error, shortcuts, the conversation log, diagnostics, About | [Help menu](Help-Menu.md) |
 
 ## How to use the menu bar
 
@@ -38,8 +38,9 @@ With the keyboard:
 
 ## Limits
 
-- On a Russian keyboard layout the letter shortcuts still work: `Ctrl+S` is the same physical key whatever letter it types.
-- Most shortcuts do nothing while the cursor is in a text field or a menu is open. `Ctrl+S`, `Ctrl+O`, `Ctrl+N` and `Ctrl+Shift+C` work everywhere.
+- On a Latin keyboard (QWERTY, AZERTY, QWERTZ, Dvorak) press the key marked with the letter. On a Russian or another non-Latin layout press the key in the same place as on a US keyboard: `Ctrl+Z` is the «я» key.
+- Most shortcuts do nothing while the cursor is in a text field or a menu is open. `Ctrl+S`, `Ctrl+Shift+S`, `Ctrl+O`, `Ctrl+N` and `Ctrl+Shift+C` work everywhere. `F1` works while you type too, but not over another dialog.
+- `F6` and `Shift+F6` move between the menu bar and the other parts of the window. See [The window](Window.md#moving-around-with-the-keyboard).
 
 ## See also
 

@@ -9,7 +9,7 @@ In **Ask** mode the assistant answers your questions and, when a change would he
 
 1. Open the **Assistant** tab and choose **Ask** under the conversation.
 2. Write in **Ask about the graph** and press `Enter` (`Shift+Enter` for a new line).
-3. Or start from the empty conversation: **What can I build with my models?**, **Explain this graph**, **What is next?**.
+3. Or start from the empty conversation: **What can I build with my models?**, **Explain this graph**, **What's next?**.
 
 ## How to ask about one thing
 
@@ -17,7 +17,7 @@ The fastest way: right-click it on the canvas and pick a question. The question 
 
 | Right-click on | Questions |
 |---|---|
-| a node | **What is this?**, **Why is it here?**, **What comes next?**, **Explain the ports** |
+| a node | **What is this?**, **Why is it here?**, **What comes next?**, **Explain the inputs and outputs** |
 | an input or output | **What connects here?**, **Where does this go?**, **What type is this?** |
 | a link | **What flows here?**, **Why is it connected like this?** |
 | a group | **What is this group for?** |
@@ -31,11 +31,14 @@ A question asked while the assistant is still answering waits its turn.
 - The answer, with lists, tables and links where useful. Facts from the web carry their link.
 - **What the assistant looked at**: what it read to answer ("read what KSampler does", "searched your models for “sdxl”").
 - Grey drafts, when it suggests a change. See [Grey drafts](Drafts.md).
-- The answer saved to the object, with a badge: **Fact**, **Guess** or **Web**.
+- The answer saved to the object, with the badge **Assistant**: "The assistant (the model) wrote this. It may be wrong: the built-in knowledge and the documentation come first." Nothing is saved as general knowledge from Ask mode.
+- If you stop it, the answer says "Stopped by you: the answer may be unfinished."
 
 ## Ask and "Build directly"
 
-With Settings ▸ Assistant ▸ **When I ask for a change** set to **Build directly**, a request for a change written in Ask mode is built at once, as in Build mode. Questions stay questions.
+Settings ▸ Assistant ▸ **When I ask for a change** chooses the mode the assistant's box opens in. **Suggest first (grey drafts)** opens in Ask; **Build directly** opens in Build, which puts nodes on the graph at once. Ask itself never changes the graph.
+
+In the message field, `Up` and `Down` bring back your earlier questions. With no assistant chosen, a question about an object opens the Explain tab with the built-in knowledge instead: see [Working without a model](Without-A-Model.md).
 
 ## See also
 

@@ -22,7 +22,7 @@ Switch the mode with the **Descriptions** button on the canvas toolbar (it cycle
 - Collapsed, a card shows its first line. **Expand the description** shows all of it: "What it is" and "Why it is here".
 - Selecting the node expands its card. With several nodes selected the cards stay collapsed.
 - **Hide the description** closes a card; the dot stays.
-- The badge: **Fact** (read from ComfyUI or the file), **Guess** (concluded by the assistant from names and context), **Web** (found on the internet, with its link), **You** (written by you).
+- The badge: **Fact** (read from ComfyUI or the file), **Guess** (concluded by the assistant from names and context), **Web** (found on the internet, with its link), **Written by you**, or **From the file** (came with a project file you opened; whoever made the file wrote it).
 - "Written for an earlier version of the graph" means the graph has changed since.
 
 ## How to write your own
@@ -32,7 +32,7 @@ Switch the mode with the **Descriptions** button on the canvas toolbar (it cycle
 3. In **What the text answers** choose **What it is** or **Why it is here**.
 4. Press **Save**. **Cancel** leaves it as it was.
 
-Your text gets the badge **You** and stays in the project file. When a card is empty it says "No description yet." and offers **Ask**, which asks the assistant.
+Your text gets the badge **Written by you** and stays in the project file. When a card is empty it says "No description yet." and offers **Ask**, which asks the assistant.
 
 ## See also
 

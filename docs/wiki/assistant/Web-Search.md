@@ -9,12 +9,13 @@ When your catalog and the app's own knowledge cannot answer, the assistant may s
 
 - **Search.** OpenAI and Anthropic, on their official address, search with their own web search. Google Gemini 3 models do too. Every other case (your own server, an older Gemini model, a proxy address) uses a search the app makes itself from this computer, on DuckDuckGo.
 - **Reading a page.** The app opens the page from this computer, takes its text and gives it to the model. It reads at most 10 MB of a page and gives the model at most 60 000 characters of its text; a longer page is marked as cut. "These protect against huge or hostile pages and apply to web pages only, never to your graph or chat."
-- **Safety.** The app does not open addresses on this computer or in your home network, nor your ComfyUI or MCP server, and only the usual web ports. The text of a page is treated as data, never as instructions.
-- **In the conversation** it shows as "searched the web for “…”" and "read civitai.com" under **What the assistant looked at**. An explanation from the web gets the badge **Web** and its link (**Source**, **Copy link**).
+- **Safety.** The app does not open addresses on this computer or in your home network, nor your ComfyUI or MCP server, and only the usual web ports. The text of a page is treated as data, never as instructions. The pages the provider's own search names are not opened by the app's page reader; a link the assistant found is opened without its query part.
+- **Cost.** The provider's own search is billed separately: about $10 per 1000 searches for OpenAI and Anthropic, $14 for Google.
+- **In the conversation** it shows as "searched the web for “…”" and "read civitai.com" under **What the assistant looked at**. An explanation the assistant wrote from the web gets the badge **Assistant** and its link (**Source**, **Copy link**). A link in an answer shows its words; a click copies its address and opens nothing.
 
 ## How to turn it off
 
-Settings ▸ Assistant ▸ **Behaviour**: **Allow web search**, **Allow reading web pages**. Then **Save settings**.
+Settings ▸ Assistant ▸ **Behavior**: **Allow web search**, **Allow reading web pages**. Then **Save settings**.
 
 ## What can go wrong
 
