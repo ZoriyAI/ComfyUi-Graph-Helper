@@ -12,6 +12,7 @@ import { appVersion, PROJECT_URL, STABLE_APP_NAME, userAgent } from '../identity
 import { getDatabase } from '../database';
 import { readPreferences } from '../settings/repository';
 import { cappedFetch } from '../net/capped';
+import { internetFetch } from '../net/proxy';
 import { log } from '../log';
 import { createUpdateChecker, installKind, RELEASE_ANSWER_MAX_BYTES, type UpdateChecker } from './updateCheck';
 
@@ -32,7 +33,8 @@ function updateChecker(): UpdateChecker {
       }
     },
     stateFile: path.join(app.getPath('userData'), 'update-check.json'),
-    fetch: cappedFetch(RELEASE_ANSWER_MAX_BYTES),
+    // Through the system or Settings proxy like every other internet request; plain fetch fails behind a proxy.
+    fetch: cappedFetch(RELEASE_ANSWER_MAX_BYTES, internetFetch),
     userAgent: userAgent('update check'),
     kind: installKind(process.execPath, process.env, (file) => fs.existsSync(file), STABLE_APP_NAME),
     log: (line) => log.info(line),
