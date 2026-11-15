@@ -17,4 +17,9 @@ describe('sentences that quote a control', () => {
     expect(en.preferences.sentElsewhere).toContain(`unless you turn on “${en.updates.check}”`);
     expect(ru.preferences.sentElsewhere).toContain(`только если вы включите «${ru.updates.check}»`);
   });
+
+  it('call the release notes by the Help menu\'s name in the update notice', () => {
+    expect(en.updates.notes).toBe(en.helpReader.whatsNew);
+    expect(ru.updates.notes).toBe(ru.helpReader.whatsNew);
+  });
 });

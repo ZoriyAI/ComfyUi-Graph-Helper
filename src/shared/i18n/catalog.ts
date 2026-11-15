@@ -2691,7 +2691,7 @@ export const en = {
     check: 'Check for new versions',
     checkHint: 'Once a day the app asks the project’s releases page on github.com whether a newer version exists. The question carries only the app’s name and version; GitHub sees your computer’s address, as any site does. The app downloads nothing by itself: you choose. Off by default.',
     available: 'Version {{version}} is available',
-    notes: 'What is new',
+    notes: 'What\'s new',
     download: 'Download',
     dismiss: 'Hide until the next version',
     region: 'New version',
