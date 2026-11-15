@@ -1,3 +1,11 @@
+/**
+ * The graph engine: every change to a project's graph is a command committed here as one new revision in SQLite.
+ * Callers: ipc.ts (the canvas, via preload commitCommand, and the run controls), agent/buildTools.ts and
+ * agent/turn.ts (the assistant's edits and run lifecycle), proposals/repository.ts (accepted suggestions),
+ * ipc/startIpc.ts, ipc/projectFile.ts and ipc/engineIpc.ts (new project, open, save, history, replay).
+ * Why it is shaped so: one revision per command gives one undo step; the action id makes a retried command
+ * harmless; the expected revision turns a race with the person or another run into a 'conflict', never a lost edit.
+ */
 import { missingOnGraph, type GraphNodeLike } from '../../shared/graph/compatibility';
 import { nodeRunMode } from '../../shared/graph/layout';
 import { randomUUID } from 'crypto';
@@ -64,6 +72,7 @@ import {
   type WorkflowDocumentState,
 } from '../../shared/workflow/codec';
 
+/** Thrown inside a commit to end it as 'conflict' or 'rejected'; the transaction rolls back, `detail` is the result. */
 class CommandSignal extends Error {
   constructor(
     readonly status: 'conflict' | 'rejected',
@@ -73,6 +82,7 @@ class CommandSignal extends Error {
   }
 }
 
+/** Everything one revision stores: the canvas, the native document and the modelled parts beside it. */
 interface Snapshot {
   nodes: Array<Record<string, any>>;
   edges: Array<Record<string, any>>;
@@ -89,6 +99,7 @@ interface Snapshot {
   projectExtras?: ProjectExtras;
 }
 
+/** Parts of an opened project file this version keeps but does not use; ipc/projectFile.ts writes them back. */
 export interface ProjectExtras {
   extensions: Record<string, unknown>;
   fields: Record<string, unknown>;
@@ -104,6 +115,7 @@ interface RevisionRow {
   process_meta: string | null;
 }
 
+/** The project's current revision, decoded; null when the project or its revision row is missing. */
 function readCurrent(db: Database.Database, projectId: string): { revisionId: string; revSeq: number; snapshot: Snapshot } | null {
   const project = db.prepare('SELECT current_revision_id FROM projects WHERE id = ?').get(projectId) as
     | { current_revision_id: string | null }
@@ -120,6 +132,7 @@ function readCurrent(db: Database.Database, projectId: string): { revisionId: st
   };
 }
 
+/** A stored revision row as a sealed snapshot (the same sealing a new revision gets). */
 function snapshotFromRow(revision: Pick<RevisionRow, 'nodes' | 'edges' | 'document' | 'components' | 'process_meta'>): Snapshot {
   const nodes = JSON.parse(revision.nodes) as Array<Record<string, any>>;
   const stored = decodeDocumentColumn(revision.document, nodes);
@@ -155,6 +168,7 @@ function decodeDocumentColumn(
   };
 }
 
+/** The inverse of decodeDocumentColumn. */
 function encodeDocumentColumn(snapshot: Snapshot): string {
   return JSON.stringify({
     ...(snapshot.document ?? {}),
@@ -175,6 +189,11 @@ function subgraphIds(subgraphs: SubgraphDefinition[]): string[] {
   return subgraphs.filter((item) => !item.opaque).map((item) => item.id);
 }
 
+/**
+ * Makes a snapshot consistent before it is stored: parts a mutation left out come from `fallback` (the revision
+ * before), groups and component records follow the nodes still there, and the native document is rewritten to
+ * mirror the model. `orphans` names component records whose owner is gone (the open-native result reports them).
+ */
 function sealSnapshot(snapshot: Snapshot, fallback?: Snapshot): { snapshot: Snapshot; orphans: string[] } {
   const subgraphs = snapshot.subgraphs ?? fallback?.subgraphs ?? [];
   const nodeIds = snapshot.nodes.map((node) => String(node.id));
@@ -216,6 +235,7 @@ function innerComponents(existing: ComponentRecord[], subgraphs: SubgraphDefinit
   });
 }
 
+/** The native document from the column, or null when it is missing or of a format the codec does not know. */
 function parseDocument(parsed: Record<string, unknown> | null): WorkflowDocumentState | null {
   if (!parsed || !parsed.raw || typeof parsed.raw !== 'object' || (parsed.formatVersion !== 1 && parsed.formatVersion !== 0.4)) return null;
   return { formatVersion: parsed.formatVersion, raw: parsed.raw as Record<string, unknown> };
@@ -229,6 +249,7 @@ function withFieldModels(report: { missingNodes: string[]; missingModels: Array<
   return { ...report, missingModels: [...report.missingModels, ...fromFields.filter((model) => !seen.has(`${model.directory}/${model.name}`))] };
 }
 
+/** What the renderer and the agent see of a project: the current graph, its revision and the open run. */
 export function readProjection(db: Database.Database, projectId: string): Projection | null {
   const current = readCurrent(db, projectId);
   if (!current) return null;
@@ -254,6 +275,7 @@ export function readProjection(db: Database.Database, projectId: string): Projec
   };
 }
 
+/** Creates the project with an empty first revision when it has none; a project with a revision is left alone. */
 export function ensureProject(db: Database.Database, projectId: string, name = projectId): void {
   const existing = db.prepare('SELECT current_revision_id FROM projects WHERE id = ?').get(projectId) as
     | { current_revision_id: string | null }
@@ -279,11 +301,17 @@ export function ensureProject(db: Database.Database, projectId: string, name = p
   write.immediate();
 }
 
+/** At database open (database.ts): the one desktop project and the seeded catalog exist. */
 export function ensureWorkspace(db: Database.Database): void {
   ensureProject(db, DESKTOP_PROJECT_ID, 'Desktop');
   ensureCatalog(db);
 }
 
+/**
+ * Which position of a positional widgets_values array a field is. The catalog's widget order is trusted only when
+ * it is reliable and has as many entries as the array; a caller's index must agree with it. Anything unsure is
+ * refused, because writing a value into the wrong slot would silently break the workflow in ComfyUI.
+ */
 function arrayWidgetIndex(
   widgets: unknown[],
   catalog: CatalogView,
@@ -322,6 +350,7 @@ function outputPort(node: Record<string, any>, handle: string): { dataType: stri
   return portById(node, 'outputs', handle);
 }
 
+/** Removes chosen nodes and links in one step; links of removed nodes go too. Refused when one is not there. */
 function removeSelection(
   snapshot: Snapshot,
   payload: Extract<GraphMutation, { type: 'remove-selection' }>,
@@ -345,6 +374,10 @@ function removeSelection(
   };
 }
 
+/**
+ * One node from the clipboard, checked: the clipboard is outside data (another window, another app), so a
+ * node without an id, position or class is refused, and a subgraph instance must name a known definition.
+ */
 function clipboardNode(raw: Record<string, unknown>, subgraphs: SubgraphDefinition[], destinationDefinitionId?: string): Record<string, any> {
   const node = structuredClone(raw) as Record<string, any>;
   if (
@@ -369,6 +402,11 @@ function clipboardNode(raw: Record<string, unknown>, subgraphs: SubgraphDefiniti
   return node;
 }
 
+/**
+ * Pastes copied nodes and the links among them: the group lands at the asked offset or the nearest free spot,
+ * every node and link gets a new id, and native slot links are cleared since outer links are not pasted.
+ * `context` is set when pasting inside a subgraph definition, so nesting is checked against all definitions.
+ */
 function pasteSelection(
   snapshot: Snapshot,
   payload: Extract<GraphMutation, { type: 'paste-selection' }>,
@@ -474,6 +512,7 @@ function pasteSelection(
   };
 }
 
+/** Marks who wrote a component's text, for the badge on the canvas. */
 function stampComponentAuthor(snapshot: Snapshot, payload: { ownerKind: string; ownerId: string }, author: 'user' | 'assistant'): void {
   snapshot.components = (snapshot.components ?? []).map((record) => (
     record.ownerKind === payload.ownerKind && record.ownerId === payload.ownerId ? { ...record, author } : record
@@ -521,6 +560,12 @@ function applyBatch(snapshot: Snapshot, actionId: string, edits: Array<Record<st
   return { snapshot: current, result: { results, nodeIds: results.flatMap((result, index) => Array.isArray(result.nodeIds) ? result.nodeIds.map(String) : added[index] ? [added[index]!] : []) } };
 }
 
+/**
+ * Applies one mutation to a copy of the snapshot and returns the new snapshot with the command's result.
+ * Pure apart from reading `catalog`; refusals throw CommandSignal. editOps.ts, graphOps.ts and innerEdits.ts
+ * take their share of mutation types and call back into this function for the add and connect steps they reuse.
+ * A returned snapshot may leave out parts (components, subgraphs...): sealSnapshot fills them from the revision before.
+ */
 function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutation, catalog: CatalogView, context?: { definitions: SubgraphDefinition[]; destinationId: string }): { snapshot: Snapshot; result: Record<string, unknown> } {
   if (payload.type === 'batch') return applyBatch(snapshot, actionId, payload.edits, catalog);
   const nodes: Array<Record<string, any>> = snapshot.nodes.map((node) => ({
@@ -606,6 +651,7 @@ function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutat
     if (!node) throw new CommandSignal('rejected');
     const classType = String(node.data?.comfyType ?? '');
     const parameters = { ...(node.data.parameters ?? {}), [payload.key]: payload.value };
+    // A node without a native record (an old project) gets a minimal one, so its value can be written for export.
     const comfy = node.data.comfy && typeof node.data.comfy === 'object' ? { ...node.data.comfy } : {
       id: node.id,
       type: classType,
@@ -878,6 +924,7 @@ function restoreRevision(
   };
 }
 
+/** The cached catalog of one connection and the version key it was read at. */
 interface CatalogWatch {
   version: Database.Statement;
   view: CatalogView | null;
@@ -920,6 +967,13 @@ export function cachedCatalog(db: Database.Database): CatalogView {
   return watch.view;
 }
 
+/**
+ * Validates and applies one command in an immediate transaction, then returns the new projection.
+ * Outcomes: 'applied'; 'historical' (the same action id and payload already ran: its stored result again);
+ * 'conflict' (the graph moved since the caller looked, or the run is no longer running); 'rejected' (invalid,
+ * refused by a rule, or not stored because the disk refused the write). `failBeforeCommit` is a test hook that
+ * throws after every write, to prove the rollback leaves nothing behind.
+ */
 export function commitCommand(
   db: Database.Database,
   input: unknown,
@@ -945,6 +999,7 @@ export function commitCommand(
         | { run_id: string | null; payload_canonical: string; result_json: string }
         | undefined;
       if (existing) {
+        // An action id is used once: a retry of the same command gets the stored result, anything else is refused.
         const sameRun = existing.run_id === request.runId;
         if (sameRun && existing.payload_canonical === payloadCanonical) {
           return { status: 'historical' as const, result: JSON.parse(existing.result_json) };
@@ -1149,10 +1204,12 @@ export function closeStaleRuns(db: Database.Database): number {
   return db.prepare(`UPDATE runs SET status = 'closed' WHERE status IN ('running', 'paused')`).run().changes;
 }
 
+/** Pauses a running run; its commits are refused until resumeRun. */
 export function pauseRun(db: Database.Database, projectId: string, runId: string): CommandResponse {
   return setRunStatus(db, projectId, runId, ['running'], 'paused');
 }
 
+/** Stops a run for good without the tidy; what it built stays on the canvas. */
 export function cancelRun(db: Database.Database, projectId: string, runId: string): CommandResponse {
   return setRunStatus(db, projectId, runId, ['running', 'paused'], 'cancelled');
 }
@@ -1198,6 +1255,10 @@ export function tidyRun(db: Database.Database, projectId: string, runId: string)
 }
 // ── end layout ───────────────────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Moves a run from one of the `from` statuses to `to`. Asking for the status the run already has counts as
+ * done, so a repeated click or a retried call is not an error.
+ */
 function setRunStatus(
   db: Database.Database,
   projectId: string,
@@ -1219,6 +1280,7 @@ function setRunStatus(
   return { status: 'applied', projection: readProjection(db, projectId), result: { runId, status: to } };
 }
 
+/** Leaving a project closes its open runs, so no assistant step lands on a graph the person left. */
 export function switchProject(db: Database.Database, fromProjectId: string): Projection | null {
   db.transaction(() => {
     db.prepare(`UPDATE runs SET status = 'closed' WHERE project_id = ? AND status IN ('running', 'paused')`).run(fromProjectId);
@@ -1230,6 +1292,7 @@ export function switchProject(db: Database.Database, fromProjectId: string): Pro
 export function listRevisions(db: Database.Database, projectId: string, limit = 2000): RevisionSummary[] {
   const rows = db
     .prepare(
+      // The payload of an import or open is the whole file: it is left out, the type alone describes the step.
       `SELECT r.id, r.rev_seq, r.timestamp, r.description, r.source, a.actor, a.result_json, a.run_id,
          CASE WHEN r.description IN ('import-workflow', 'open-native') THEN NULL ELSE a.payload_canonical END AS payload_canonical
        FROM graph_revisions r

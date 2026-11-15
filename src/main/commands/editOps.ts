@@ -39,6 +39,7 @@ export const EDIT_ERRORS = {
   groupEmpty: 'A group keeps at least one node. To remove the group, use Remove group.',
 } as const;
 
+/** A refusal of an editing command; its message is one of EDIT_ERRORS and commit.ts turns it into `rejected`. */
 export class EditOpError extends Error {}
 
 function fail(message: string): never {
@@ -63,6 +64,7 @@ export type ApplyLevel = (
 /** ComfyUI's mode numbers: LGraphEventMode ALWAYS 0, NEVER 2 (muted), BYPASS 4. */
 const MODE_NUMBER = { always: 0, mute: 2, bypass: 4 } as const;
 
+/** Copies of nodes and edges deep enough to edit `data` and `position` without touching the stored revision. */
 function cloneWork(snapshot: GraphSnapshot): { nodes: Node[]; edges: Edge[] } {
   return {
     nodes: snapshot.nodes.map((node) => ({ ...node, data: { ...node.data }, position: { ...node.position } })),
@@ -175,6 +177,7 @@ export function adoptLinkedType(nodes: Node[], edge: Edge, catalog: CatalogView)
   }
 }
 
+/** The native record with its first output renamed and retyped (and tied to a widget, for a Primitive). */
 function retypeOutput(comfy: Record<string, unknown>, type: string, name: string, widget?: string): Record<string, unknown> {
   const outputs = Array.isArray(comfy.outputs) ? comfy.outputs as Array<Record<string, unknown>> : [];
   const first = { ...(outputs[0] ?? { links: [] }), name, type, ...(widget ? { widget: { name: widget } } : {}) };
@@ -277,7 +280,8 @@ function insertOnEdge(
   const linked = apply(fed.snapshot, `${actionId}:in`, {
     type: 'connect', source: String(edge.source), sourceHandle: String(edge.sourceHandle), target: nodeId, targetHandle: input.id,
   }, catalog);
-  // The old link was replaced when the target's input got the new node; drop it in case the target refused nothing.
+  // Connecting the new node to the target's input already replaced the old link (an input takes one link);
+  // the filter makes sure it is gone in every case.
   const edges = linked.snapshot.edges.filter((item) => String(item.id) !== payload.edgeId);
   return { snapshot: { ...linked.snapshot, edges }, result: { nodeId, replacedEdgeId: payload.edgeId } };
 }
