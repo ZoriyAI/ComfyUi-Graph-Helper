@@ -329,7 +329,7 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
       const box = boundsOf(rects, 40);
       if (box) void flow.fitBounds(box, { duration: fitDurationMs() });
     }, { icon: Ghost, disabled: open.length === 0 || inDefinition }));
-    if (open.length >= 2) items.push(commandItem('graph.acceptAll'));
+    if (open.length >= 2) items.push(commandItem('graph.acceptAll'), commandItem('graph.rejectAll'));
     items.push(separator('s1'), commandItem('view.fit'));
   }
 

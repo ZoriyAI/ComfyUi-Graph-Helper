@@ -292,6 +292,15 @@ export default function ExplainPanel() {
     // Keys stand for the refs: a new ref object for the same object must not reload.
   }, [focusKey, classKey, loadExplanations]);
 
+  // The tab follows the selection: one selected object becomes the one explained (owner's list).
+  const selectedKey = selection.length === 1 ? objectKey(selection[0]) : null;
+  useEffect(() => {
+    if (selectedKey && selectedKey !== focusKey) setFocus(selection[0]);
+    // Only a change of the selection moves the tab; a question asked about another object keeps its answer.
+  }, [selectedKey]);
+  // The object was deleted or the graph replaced: the tab says so instead of explaining what is gone.
+  const gone = (focus?.kind === 'node' && !node) || (focus?.kind === 'edge' && !edge);
+
   const label = useMemo(
     () => (focus ? objectLabel(focus, { nodes, edges }, String(t('explain.processName'))) : ''),
     [focus, nodes, edges, t],
@@ -340,6 +349,7 @@ export default function ExplainPanel() {
 
       {loadState === 'loading' && own.length === 0 && shared.length === 0 ? <p className={styles.note}>{t('explain.loading')}</p> : null}
       {loadState === 'failed' ? <p className={styles.error} role="status">{t('explain.loadFailed')}</p> : null}
+      {gone ? <p className={styles.note} role="status" data-explain-gone>{t('explain.gone')}</p> : null}
 
       <AspectGroups list={own} currentRevisionId={currentRevisionId} />
       <RemoveAssistantWords owner={focus} list={own} />

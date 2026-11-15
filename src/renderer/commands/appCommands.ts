@@ -30,7 +30,7 @@ import { providerChoices, useProviderStore } from '../state/providerState';
 import { useProjectionStore } from '../services/commands/projection';
 import { useCanvasStore } from '../components/graph/canvasStore';
 import type { DescriptionsMode } from '../../shared/config/preferences';
-import { acceptAllProposals } from '../components/graph/CanvasToolbar';
+import { acceptAllProposals, rejectAllProposals } from '../components/graph/CanvasToolbar';
 import { openReplay } from '../components/graph/ReplayPlayer';
 import { startGraphTour } from '../components/graph/tour/startTour';
 import { runSyncNow, setAutoSync } from '../components/sync/SyncIndicator';
@@ -153,6 +153,11 @@ export function buildAppCommands(): Command[] {
       id: 'graph.acceptAll', group: 'graph', labelKey: 'contextMenu.acceptAll', icon: Ghost,
       enabled: () => canEditGraph() && openProposals(useProposalsStore.getState().proposals).length > 0,
       run: acceptAllProposals,
+    },
+    {
+      id: 'graph.rejectAll', group: 'graph', labelKey: 'contextMenu.rejectAll', icon: Ghost,
+      enabled: () => openProposals(useProposalsStore.getState().proposals).length > 0,
+      run: rejectAllProposals,
     },
     {
       id: 'graph.tour', group: 'graph', labelKey: 'menu.tour', icon: Compass,
