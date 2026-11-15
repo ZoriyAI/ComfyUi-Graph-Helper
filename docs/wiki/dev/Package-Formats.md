@@ -17,6 +17,20 @@ proven by GitHub's build provenance attestation and `SHA256SUMS`.
 
 There is no ARM package and nothing for Windows or macOS.
 
+## The release files
+
+| File | What it is |
+| --- | --- |
+| `nodewise-studio_<version>_amd64.deb` | The Debian and Ubuntu package. |
+| `nodewise-studio-<version>-1.x86_64.rpm` | The Fedora and openSUSE package. |
+| `nodewise-studio-<version>-x86_64.AppImage` | One file that runs on most distributions. |
+| `nodewise-studio-<version>-linux-x64.tar.gz` | The unpacked app with `run.sh`, `install.sh` and `uninstall.sh`. |
+| `nodewise-studio-<version>.cdx.json` | The SBOM: every component that ships, in CycloneDX form. |
+| `SHA256SUMS` | The checksums of all the files above. |
+
+Version 0.9 named its files after the app's old name; its update notice looks for files under that name, so it
+probably finds no direct download in a 1.0 release. Not tried yet.
+
 ## The sandbox
 
 The `.deb` and `.rpm` install Chromium's `chrome-sandbox` helper SUID root and always keep the sandbox. An unpacked
