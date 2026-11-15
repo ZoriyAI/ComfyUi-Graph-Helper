@@ -1,13 +1,24 @@
+/**
+ * Pure rules of how the catalog sync reads to a person: the label, ring and hint of the menu-bar chip, which run
+ * ending deserves a toast, the summary sentence, the interval limits, and where the library came from. Used by
+ * SyncIndicator.tsx, settings (SyncSection, ConnectionSection, McpAccess) and graph/Onboarding.tsx;
+ * tests/unit/syncView.test.ts and several integration tests pin it.
+ */
 import type { McpReadOutcome, SyncStatus } from '../../../shared/contracts';
 import { formatDateTime } from '../../../shared/i18n/format';
 
+/** The sync state main reports. */
 export type SyncState = SyncStatus['state'];
 
-/** The stored sentence for an expired browser sign-in (main/mcp/client.ts MCP_SIGN_IN_AGAIN). */
+/**
+ * The stored sentence for an expired browser sign-in (main/mcp/client.ts MCP_SIGN_IN_AGAIN). Main reports the error
+ * as this English text, so the copy here must match it word for word.
+ */
 const SIGN_IN_AGAIN = 'MCP sign-in has expired. Sign in through the browser again.';
 /** The stored sentence for a server that answered 401 to a connection without credentials (MCP_NEEDS_SIGN_IN). */
 const NEEDS_SIGN_IN = 'MCP server requires sign-in.';
 
+/** Everything the sync chip and its popover show, worked out from one status. */
 export interface SyncView {
   state: SyncState;
   /** i18n key of the short state label. */
@@ -17,8 +28,8 @@ export interface SyncView {
   /** 0..1 while a phase with a known total runs; null when indeterminate or idle. */
   fraction: number | null;
   /**
-   * 'noUrl' when neither address is set (ComfyUI's own, or an MCP server's). 'noToken' when the server has asked for a sign-in and neither a token
-   * nor a browser sign-in is held. Whether credentials are needed is the server's call, so a run is never blocked
+   * 'noUrl' when neither address is set (ComfyUI's own, or an MCP server's). 'noToken' when the server has asked for
+   * a sign-in and neither a token nor a browser sign-in is held. Whether credentials are needed is the server's call, so a run is never blocked
    * before the server has answered, and a server that accepted an anonymous connection never blocks.
    */
   blocked: 'noUrl' | 'noToken' | null;
@@ -42,13 +53,16 @@ export interface SyncView {
   needsSignIn: boolean;
 }
 
+/** The auto-sync interval main accepts: five minutes to one day. */
 export const MIN_INTERVAL_MINUTES = 5;
 export const MAX_INTERVAL_MINUTES = 1440;
 
+/** True while model metadata is read in the background after a finished listing. */
 export function isEnriching(status: SyncStatus | null): boolean {
   return status?.state !== 'running' && status?.progress?.phase === 'enrichment';
 }
 
+/** The view of a sync status; a null status (not loaded yet) reads as never synced and blocked without an address. */
 export function syncView(status: SyncStatus | null): SyncView {
   const state: SyncState = status?.state ?? 'never';
   const progress = status?.progress ?? null;
@@ -130,10 +144,12 @@ export function readSummary(outcome: Extract<McpReadOutcome, { ok: true }>): { k
   return summaryKey({ nodes: outcome.nodes, packs: outcome.packs, models: outcome.models, done: outcome.done, total: outcome.total }, outcome.continuing);
 }
 
+/** The "still reading" wording only while background reading has work left. */
 function summaryKey(params: Record<string, number>, continuing: boolean): { key: string; params: Record<string, number> } {
   return { key: continuing && params.done < params.total ? 'sync.toastContinuing' : 'sync.toast', params };
 }
 
+/** The date and time of a sync in the language's medium format. */
 export function formatSyncTime(timestamp: number, language: 'en' | 'ru'): string {
   return formatDateTime(timestamp, language, { dateStyle: 'medium', timeStyle: 'short' });
 }

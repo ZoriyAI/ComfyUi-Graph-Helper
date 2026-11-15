@@ -1,3 +1,8 @@
+/**
+ * The catalog sync chip of the menu bar (shell/MenuBar.tsx) and the sync actions the rest of the app shares:
+ * requestSync, runSyncNow, setAutoSync and pauseEnrichment, called from the library empty states, the menu
+ * commands, settings and onboarding. The chip turns the end of each run into one toast.
+ */
 import React, { useEffect, useRef, useState } from 'react';
 import { Pause, RefreshCw, LogIn } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -59,6 +64,7 @@ export async function runSyncNow(): Promise<void> {
   }
 }
 
+/** Turns auto-sync on or off with an interval, clamped to the range main accepts. */
 export async function setAutoSync(enabled: boolean, intervalMinutes: number): Promise<void> {
   try {
     const status = await window.electronAPI.syncSetAuto(enabled, clampInterval(intervalMinutes));
@@ -68,6 +74,7 @@ export async function setAutoSync(enabled: boolean, intervalMinutes: number): Pr
   }
 }
 
+/** Pauses the background reading of model metadata. */
 export async function pauseEnrichment(): Promise<void> {
   try {
     const status = await window.electronAPI.syncPauseEnrichment();
@@ -83,7 +90,7 @@ function modalOpen(): boolean {
 }
 
 /**
- * App-bar chip for catalog sync: state, progress ring while running or reading metadata, details in a popover,
+ * Menu-bar chip for catalog sync: state, progress ring while running or reading metadata, details in a popover,
  * "Sync now", pause, sign-in and the auto-sync switch. Run endings become one toast per run.
  */
 export default function SyncIndicator() {
