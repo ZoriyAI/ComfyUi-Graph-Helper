@@ -98,7 +98,10 @@ function reveal(item: BuildItem, t: Translate): void {
   const callout = calloutFor(item, t);
   if (!callout) return;
   canvas.setCallout(callout);
-  if (callout.text) canvas.setLive({ ...useCanvasStore.getState().live, why: callout.text });
+  if (callout.text) {
+    const live = useCanvasStore.getState().live;
+    canvas.setLive({ ...live, why: callout.text, whyAt: live.shown });
+  }
 }
 
 function fadingOf(nodes: GraphNode[]): FadingNode[] {

@@ -89,6 +89,8 @@ export interface LiveBuild {
   runId: string | null;
   shown: number;
   why: string;
+  /** The step (by `shown`) the `why` belongs to: the strip shows it only beside that step's number. */
+  whyAt?: number;
 }
 
 /** A node the agent removed, fading out where it stood. */
@@ -251,7 +253,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     const callout = state.callout && state.callout.key === key && info.why
       ? { ...state.callout, text: info.why, toolName: info.toolName }
       : state.callout;
-    const live = callout !== state.callout && info.why ? { ...state.live, why: info.why } : state.live;
+    const live = callout !== state.callout && info.why ? { ...state.live, why: info.why, whyAt: state.live.shown } : state.live;
     return { stepInfo, callout, live };
   }),
   setLive: (live) => set({ live }),

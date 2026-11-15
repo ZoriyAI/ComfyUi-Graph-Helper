@@ -13,6 +13,7 @@ import type { AgentProposalTool, ObjectRef, ProposalKind } from '../../shared/co
 import { MAIN_TOOL_SPECS } from './toolSpecs';
 import { fetchPageText, searchWebFallback, SearchUnavailableError, SEARCH_ENDPOINT, SEARCH_UNAVAILABLE, type FetchLike } from './web';
 import { webSearchTransport } from '../llmService';
+import { escapeDataTagsDeep } from './prompt';
 import { validateNodeClass } from '../knowledge/nodeClassGuard';
 import { LINK_NOT_IN_CONVERSATION, type ConversationLinks } from './links';
 
@@ -142,6 +143,15 @@ function parse<T>(schema: z.ZodType<T>, args: unknown): { ok: true; value: T } |
   return { ok: false, failure: fail(`Invalid arguments${issue ? ` at ${issue.path.join('.') || 'input'}: ${issue.message}` : ''}.`) };
 }
 
+/** widgets_values slot names by class, from the installed catalog (reliable orders only). */
+export function widgetNamesOf(catalog: { nodes?: ReadonlyArray<{ classType: string; widgetOrder?: string[]; widgetOrderReliable?: boolean }> } | undefined): (classType: string) => readonly string[] | null {
+  const byClass = new Map<string, string[]>();
+  for (const node of catalog?.nodes ?? []) {
+    if (node.widgetOrderReliable !== false && Array.isArray(node.widgetOrder) && node.widgetOrder.length > 0) byClass.set(node.classType, node.widgetOrder);
+  }
+  return (classType) => byClass.get(classType) ?? null;
+}
+
 /** Knowledge about a class or a model is shared across projects; everything else belongs to this project. */
 function globalOwner(owner: ObjectRef): boolean {
   return owner.kind === 'nodeClass' || owner.kind === 'model';
@@ -206,7 +216,8 @@ export function createAgentTools(deps: AgentToolDeps): Record<string, AgentToolD
       const parsed = parse(schema, args);
       if (!parsed.ok) return parsed.failure;
       try {
-        return await run(parsed.value);
+        // Outside text in a result (a page, a model's description, a node's title) cannot pose as a data tag.
+        return escapeDataTagsDeep(await run(parsed.value));
       } catch (error) {
         return fail(errorText(error, `${name} failed.`));
       }
@@ -256,7 +267,7 @@ export function createAgentTools(deps: AgentToolDeps): Record<string, AgentToolD
         success: true,
         notice: OUTSIDE_DATA,
         revisionId: projection.currentRevisionId,
-        ...summarizeGraph(projection.snapshot, { offset: args.offset, limit: args.limit ?? GRAPH_PAGE_LIMIT, ids: args.ids, omitValues: deps.omitValues === true, fullText: true }),
+        ...summarizeGraph(projection.snapshot, { offset: args.offset, limit: args.limit ?? GRAPH_PAGE_LIMIT, ids: args.ids, omitValues: deps.omitValues === true, fullText: true, widgetNames: widgetNamesOf(context()?.catalog) }),
       };
     }),
     searchNodeTypes: define('searchNodeTypes', schemas.searchNodeTypes, (args) => {
@@ -302,12 +313,15 @@ export function createAgentTools(deps: AgentToolDeps): Record<string, AgentToolD
       if (args.provenance === 'web' && !sourceUrl) return fail('A web explanation needs the http(s) sourceUrl it came from.');
       const owner = args.owner as ObjectRef;
       const global = globalOwner(owner);
+      // The assistant's words are never stored as a fact (only the app's own reading of ComfyUI is), and what it
+      // writes about a node class or a model stays in this project: nothing global is written without the person
+      // (P0 of the assistant review; the security review's finding from the other side).
       const saved = knowledge.saveExplanation(db, {
-        projectId: global ? null : projectId,
+        projectId,
         owner,
         aspect: args.aspect,
         text: args.text,
-        provenance: args.provenance,
+        provenance: args.provenance === 'fact' ? 'inference' : args.provenance,
         sourceUrl,
         revisionId: global ? null : revision(),
         createdBy: 'ai',
@@ -333,7 +347,7 @@ export function createAgentTools(deps: AgentToolDeps): Record<string, AgentToolD
       if (error instanceof SearchUnavailableError) return { success: false, unavailable: true, error: SEARCH_UNAVAILABLE };
       throw error;
     }
-    deps.links?.add(results.map((result) => result.url));
+    deps.links?.addFound(results.map((result) => result.url));
     return { success: true, notice: OUTSIDE_DATA, provenance: 'web', results };
   });
   return tools;

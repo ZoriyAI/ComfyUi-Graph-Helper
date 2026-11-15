@@ -7,6 +7,7 @@ import { cx } from '../../ui/cx';
 import { allCommands, type CommandGroup } from '../../commands/registry';
 import { exportWorkflowNow, importWorkflowNow, openProjectNow, saveProjectFile, startNewProject } from '../../commands/actions';
 import { secretFieldLabel, useSecretGuardStore } from '../../commands/secretGuard';
+import { stopBuildAndGo, useBuildGuardStore } from '../../commands/buildGuard';
 import { useKnowledgeStore } from '../../state/knowledgeState';
 import { useDockStore } from '../../state/dockState';
 import { exportGuardFindings } from '../../commands/exportGuard';
@@ -237,6 +238,32 @@ function ExportGuardDialog({ open, onOpenChange }: { open: boolean; onOpenChange
  * Before a workflow or project file is written: fields that look like a key or token. Save without those values,
  * save as it is, or cancel. The values themselves are never shown; main kept them.
  */
+/** Open, New or Import while the assistant builds: stop it first, then go on (P0 from the bug bash). */
+function StopBuildDialog() {
+  const { t } = useTranslation();
+  const pending = useBuildGuardStore((state) => state.pending);
+  const clear = useBuildGuardStore((state) => state.clear);
+  return (
+    <DialogRoot open={pending !== null} onOpenChange={(open) => { if (!open) clear(); }}>
+      <DialogPortal>
+        <DialogOverlay />
+        <DialogContent className={cx(styles.dialog, 'stop-build-dialog')} aria-describedby="stop-build-lead">
+          <header className={styles.header}>
+            <DialogTitle className={styles.title}>{t('chat.stopBuildTitle')}</DialogTitle>
+            <DialogDescription id="stop-build-lead" className={styles.lead}>{t('chat.stopBuildBody')}</DialogDescription>
+          </header>
+          <footer className={styles.footer}>
+            <DialogClose asChild>
+              <Button variant="subtle" size="sm">{t('menu.cancel')}</Button>
+            </DialogClose>
+            <Button variant="primary" size="sm" onClick={() => void stopBuildAndGo()}>{t('chat.stopBuildConfirm')}</Button>
+          </footer>
+        </DialogContent>
+      </DialogPortal>
+    </DialogRoot>
+  );
+}
+
 function SecretGuardDialog() {
   const { t } = useTranslation();
   const pending = useSecretGuardStore((state) => state.pending);
@@ -293,6 +320,7 @@ export default function CommandDialogs() {
       <NewProjectDialog open={dialog === 'new-project'} onOpenChange={close} />
       <ExportGuardDialog open={dialog === 'export-guard'} onOpenChange={close} />
       <SecretGuardDialog />
+      <StopBuildDialog />
     </>
   );
 }

@@ -17,7 +17,7 @@ import { DESKTOP_PROJECT_ID } from '../../../shared/project';
 import type { Projection } from '../../../shared/commands/types';
 import { parseTurnNotice, type ChatMessage, type ToolCall, type TurnCheckpoint, type TurnNotice } from '../../types/chat';
 import { i18n } from '../../i18n';
-import { applyProjection } from '../commands/projection';
+import { applyProjection, useProjectionStore } from '../commands/projection';
 import { showToast } from '../../ui/toastStore';
 import { closeReplayForBuild } from '../../commands/replayGate';
 import {
@@ -157,6 +157,16 @@ function completeContext(context?: Partial<AgentTurnContext>): AgentTurnContext 
   };
 }
 
+/** The newest assistant message (the answer of the turn the person stops) gets the stopped mark. */
+function markLastAnswerStopped(): void {
+  const messages = useChatStore.getState().messages;
+  const last = messages[messages.length - 1];
+  if (last && last.role === 'assistant') useChatStore.getState().updateMessage(last.id, { stopped: true });
+}
+
+/** Messages per page of the chat (main/agent/chatHistory.ts CHAT_PAGE). */
+const CHAT_PAGE_SIZE = 200;
+
 export class ChatService {
   private isStreaming = false;
   private currentBaseRevisionId: string | null = null;
@@ -174,12 +184,44 @@ export class ChatService {
     const load = window.electronAPI?.loadChatHistory;
     if (typeof load !== 'function') return;
     try {
-      const records = await load(projectId);
+      // The newest page only; older messages come when the person scrolls up (loadEarlier).
+      const records = await load(projectId, { limit: CHAT_PAGE_SIZE });
       const state = useChatStore.getState();
       if (!Array.isArray(records) || records.length === 0 || state.messages.length > 0 || state.isStreaming) return;
+      this.olderLeft = records.length >= CHAT_PAGE_SIZE;
       useChatStore.setState({ messages: records.map(messageFromChatRecord) });
     } catch (error) {
       console.warn('[ChatService] Chat history could not be loaded:', errorText(error));
+    }
+  }
+
+  /** True while older stored messages may exist beyond those shown. */
+  private olderLeft = false;
+  private loadingEarlier = false;
+
+  get hasEarlier(): boolean {
+    return this.olderLeft;
+  }
+
+  /** Loads the page of messages before the oldest one shown; resolves to how many came. Nothing is deleted. */
+  async loadEarlier(projectId: string = DESKTOP_PROJECT_ID): Promise<number> {
+    const load = window.electronAPI?.loadChatHistory;
+    const oldest = useChatStore.getState().messages[0];
+    if (!this.olderLeft || this.loadingEarlier || !oldest || typeof load !== 'function') return 0;
+    this.loadingEarlier = true;
+    try {
+      const records = await load(projectId, { limit: CHAT_PAGE_SIZE, beforeId: oldest.id });
+      if (!Array.isArray(records)) return 0;
+      this.olderLeft = records.length >= CHAT_PAGE_SIZE;
+      const known = new Set(useChatStore.getState().messages.map((message) => message.id));
+      const older = records.map(messageFromChatRecord).filter((message) => !known.has(message.id));
+      if (older.length > 0) useChatStore.setState((state) => ({ messages: [...older, ...state.messages] }));
+      return older.length;
+    } catch (error) {
+      console.warn('[ChatService] Earlier messages could not be loaded:', errorText(error));
+      return 0;
+    } finally {
+      this.loadingEarlier = false;
     }
   }
 
@@ -459,6 +501,8 @@ export class ChatService {
    * this turn is committed or proposed. The cancelled turn can no longer change the streaming state.
    */
   cancel(): void {
+    // The answer the person stopped is marked: a build card says «Остановлено», not «Готово» (bug bash).
+    if (this.isStreaming) markLastAnswerStopped();
     this.turnToken += 1;
     this.isStreaming = false;
     this.resumed = null;
@@ -475,6 +519,29 @@ export class ChatService {
       .then(() => (runId && typeof cancelRun === 'function' ? cancelRun(DESKTOP_PROJECT_ID, runId) : undefined))
       .then((result) => { if (result?.projection) applyProjection(result.projection); })
       .catch((error: unknown) => console.warn('[ChatService] Cancel failed:', errorText(error)));
+  }
+
+  /**
+   * Stops the turn and the open run and resolves once main has cancelled it (Open, New and Import wait for this
+   * before another graph takes the canvas).
+   */
+  async cancelAndWait(): Promise<void> {
+    const runId = this.currentRunId ?? useProjectionStore.getState().activeRun?.runId ?? null;
+    this.turnToken += 1;
+    this.isStreaming = false;
+    this.resumed = null;
+    useChatStore.setState({ isStreaming: false, isPaused: false });
+    try {
+      await window.electronAPI?.llmCancel?.(runId ?? undefined);
+    } catch (error) {
+      console.warn('[ChatService] Stream cancel failed:', errorText(error));
+    }
+    try {
+      const result = runId ? await window.electronAPI?.cancelRun?.(DESKTOP_PROJECT_ID, runId) : null;
+      if (result?.projection) applyProjection(result.projection);
+    } catch (error) {
+      console.warn('[ChatService] Cancel failed:', errorText(error));
+    }
   }
 
   async pause(): Promise<void> {

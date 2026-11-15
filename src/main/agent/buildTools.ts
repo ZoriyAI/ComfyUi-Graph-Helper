@@ -4,11 +4,15 @@ import { randomUUID } from 'crypto';
 import { jsonSchema } from 'ai';
 import { commitCommand } from '../commands/commit';
 import { validateNodeClass } from '../knowledge/nodeClassGuard';
+import { createProposal } from '../proposals/repository';
+import { draftKindFor, runOwned } from './ownership';
+import { escapeDataTagsDeep } from './prompt';
+import { readProjection } from '../commands/commit';
 import { STORAGE_FAILED, STORAGE_FULL, storageErrorCode } from '../settings/databaseSafety';
 import { mutationFromTool, type ToolContext } from '../../shared/commands/tools';
 import { WHY_MAX } from '../../shared/commands/toolSpecs';
 import { carriesSecret } from '../../shared/config/draft';
-import type { CommandResponse, Projection } from '../../shared/commands/types';
+import type { CommandResponse, GraphMutation, Projection } from '../../shared/commands/types';
 import { BUILD_STEP_TOOLS, type AgentBuildStep, type AgentRunContext, type BuildStepTool, type Explanation, type ExplanationInput, type ObjectRef } from '../../shared/contracts';
 
 export interface RendererToolSpec {
@@ -133,6 +137,24 @@ export function nodeTitleAt(projection: Projection | null | undefined, nodeId: u
   return title ? title.slice(0, 120) : undefined;
 }
 
+/** Names of the nodes a draft is about, so its sentence in the chat reads the way the canvas names them. */
+function titlesFor(name: string, args: Record<string, unknown> | undefined, projection: Projection | null): Record<string, string> {
+  const out: Record<string, string> = {};
+  const put = (key: string, id: unknown) => {
+    const title = nodeTitleAt(projection, id);
+    if (title) out[key] = title;
+  };
+  if (name === 'connectNodes') {
+    put('sourceTitle', args?.sourceNodeId ?? args?.source);
+    put('targetTitle', args?.targetNodeId ?? args?.target);
+  } else if (name === 'setComponentDocumentation') {
+    put('nodeTitle', args?.ownerId);
+  } else {
+    put('nodeTitle', args?.nodeId);
+  }
+  return out;
+}
+
 export function toolOutcome(name: string, args: Record<string, unknown> | undefined, outcome: CommandResponse) {
   if (outcome.status === 'applied' || outcome.status === 'historical') {
     const result = outcome.result as Record<string, unknown> | null;
@@ -149,11 +171,13 @@ export function toolOutcome(name: string, args: Record<string, unknown> | undefi
       };
     }
     if (name === 'setComponentDocumentation') {
+      const nodeTitle = args?.ownerKind === 'node' ? nodeTitleAt(outcome.projection, args?.ownerId) : undefined;
       return {
         success: true,
         message: 'Stored component documentation',
         ownerKind: args?.ownerKind,
         ownerId: args?.ownerId,
+        ...(nodeTitle ? { nodeTitle } : {}),
       };
     }
     if (name === 'setProcess') {
@@ -179,7 +203,8 @@ export function toolOutcome(name: string, args: Record<string, unknown> | undefi
       }
       return { success: true, message: BUILD_MESSAGES[name], ...ids, ...ends, ...titles };
     }
-    return { success: true, message: `Annotated node ${result?.nodeId || ''}` };
+    const annotated = nodeTitleAt(outcome.projection, result?.nodeId ?? args?.nodeId);
+    return { success: true, message: `Annotated node ${result?.nodeId || ''}`, ...(annotated ? { nodeTitle: annotated } : {}) };
   }
   const detail = outcome.result as { error?: unknown } | null;
   const reason = typeof detail?.error === 'string' ? detail.error : outcome.status;
@@ -269,6 +294,10 @@ export function createBuildTools(
     sleep?: (ms: number) => Promise<void>;
     /** A step could not be stored (disk full, file not writable): the turn stops the build with this sentence. */
     onStorageFailure?: (error: string) => void;
+    /** The run was stopped from outside (another graph took the canvas, the person pressed Stop): the turn ends. */
+    onRunEnded?: () => void;
+    /** Test seam: where a grey draft goes (the proposals repository in the app). */
+    createDraft?: typeof createProposal;
   },
 ): Record<string, { description?: string; inputSchema: ReturnType<typeof jsonSchema>; execute: (args: Record<string, unknown>, call?: { toolCallId?: string }) => Promise<unknown> }> {
   const tools: Record<string, { description?: string; inputSchema: ReturnType<typeof jsonSchema>; execute: (args: Record<string, unknown>, call?: { toolCallId?: string }) => Promise<unknown> }> = {};
@@ -285,7 +314,10 @@ export function createBuildTools(
         const toolCallId = call?.toolCallId || randomUUID();
         // The person paused the run: this step waits for Continue instead of failing as a conflict.
         const held = await waitWhilePaused(options.db, options.run, { signal: options.signal, sleep: options.sleep });
-        if (held.state === 'ended') return { success: false, stopped: true, error: 'The person stopped the build.' };
+        if (held.state === 'ended') {
+          options.onRunEnded?.();
+          return { success: false, stopped: true, error: 'The build was stopped; nothing more is added.' };
+        }
         if (held.expectedRevisionId && held.expectedRevisionId !== expectedRevisionId) {
           // Continue (or a manual edit during the pause) moved the run on: build on from there.
           expectedRevisionId = held.expectedRevisionId;
@@ -307,6 +339,31 @@ export function createBuildTools(
         // An unknown class is refused once the catalog is synced, with the nearest installed names.
         const guard = payload.type === 'add-node' ? validateNodeClass(options.db, payload.nodeType) : null;
         if (guard && !guard.ok) return { success: false, error: guard.error, suggestions: guard.suggestions };
+        // Inside its run the assistant changes only what it placed itself. A change to the person's nodes, links,
+        // notes or the project's name becomes a grey draft the person accepts (P0 of the assistant review).
+        const draftKind = draftKindFor(payload as GraphMutation, runOwned(options.db, options.run.projectId, options.run.runId), readProjection(options.db, options.run.projectId));
+        if (draftKind) {
+          try {
+            const proposal = (options.createDraft ?? createProposal)(options.db, {
+              projectId: options.run.projectId,
+              runId: options.run.runId,
+              kind: draftKind,
+              payload,
+              note: stepWhy(args),
+            });
+            return {
+              success: true,
+              drafted: true,
+              proposalId: proposal.id,
+              kind: draftKind,
+              ...removedNode(context, args?.nodeId),
+              ...titlesFor(spec.name, args, readProjection(options.db, options.run.projectId)),
+              message: 'This changes something the person made, so it is a grey draft the person accepts or rejects. It is not applied. Do not repeat it; go on with your own nodes.',
+            };
+          } catch (error) {
+            return { success: false, error: error instanceof Error ? error.message : 'The draft could not be saved.' };
+          }
+        }
         // Read before the commit: once removed, the node can no longer be named.
         const removed = spec.name === 'removeNode' ? removedNode(context, args?.nodeId) : {};
         let outcome: CommandResponse;
@@ -332,6 +389,11 @@ export function createBuildTools(
           if (outcome.projection) options.onProjection?.(outcome.projection);
           return { success: false, stopped: true, error: refusal };
         }
+        if (outcome.status === 'conflict' && readRun(options.db, options.run)?.status !== 'running') {
+          // The run ended while this step was on its way (a new project, an import): the step is not applied.
+          options.onRunEnded?.();
+          return { success: false, stopped: true, error: 'The build was stopped; nothing more is added.' };
+        }
         if (outcome.status === 'applied' && outcome.projection?.activeRun) {
           expectedRevisionId = outcome.projection.activeRun.expectedRevisionId;
           options.onRevision?.(expectedRevisionId);
@@ -347,6 +409,9 @@ export function createBuildTools(
         return step && step.why ? { ...result, why: step.why, explanationId: step.explanationId } : result;
       },
     };
+    // Titles and names in a result came from the graph (maybe someone else's workflow): never a data tag.
+    const inner = tools[spec.name].execute;
+    tools[spec.name].execute = async (args, call) => escapeDataTagsDeep(await inner(args, call));
   }
   return tools;
 }

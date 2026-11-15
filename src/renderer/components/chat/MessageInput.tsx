@@ -1,4 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { usePreferencesStore } from '../../state/preferencesState';
+import { useChatStore } from '../../state/chatState';
+import { recallStep } from '../../services/llm/recall';
 import { useTranslation } from 'react-i18next';
 import { ArrowUp, Square } from 'lucide-react';
 import Hint from '../../ui/Hint';
@@ -29,7 +32,10 @@ const INTENTS: readonly ComposerIntent[] = ['ask', 'build'];
 export default function MessageInput({ onSend, isStreaming, disabled = false, learning = false, onLearning, onStop }: MessageInputProps) {
   const { t } = useTranslation();
   const [input, setInput] = useState('');
-  const [intent, setIntent] = useState<ComposerIntent>('ask');
+  /** Which earlier message ↑ brought back (0 is the newest), or null. */
+  const recalled = useRef<number | null>(null);
+  // "When I ask for a change" in Settings picks the mode the composer opens in; Ask itself never builds.
+  const [intent, setIntent] = useState<ComposerIntent>(() => usePreferencesStore.getState().preferences.assistant.defaultIntent);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -43,6 +49,7 @@ export default function MessageInput({ onSend, isStreaming, disabled = false, le
     const trimmed = input.trim();
     if (trimmed && !disabled && !isStreaming) {
       onSend(trimmed, intent);
+      recalled.current = null;
       setInput('');
     }
   };
@@ -90,9 +97,22 @@ export default function MessageInput({ onSend, isStreaming, disabled = false, le
           aria-describedby="composer-keys"
           rows={2}
           value={input}
-          onChange={(event) => setInput(event.target.value)}
+          onChange={(event) => {
+            recalled.current = null;
+            setInput(event.target.value);
+          }}
           onKeyDown={(event) => {
             if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+            // ↑ / ↓ in an empty box (or on a recalled message) bring back earlier messages of the person.
+            if ((event.key === 'ArrowUp' || event.key === 'ArrowDown') && (input === '' || recalled.current !== null) && !event.shiftKey) {
+              const sent = useChatStore.getState().messages.filter((message) => message.role === 'user').map((message) => message.content);
+              const step = recallStep(sent, recalled.current, event.key === 'ArrowUp' ? 'up' : 'down');
+              if (step.position === null && recalled.current === null) return;
+              event.preventDefault();
+              recalled.current = step.position;
+              setInput(step.text);
+              return;
+            }
             if (event.key === 'Enter' && !event.shiftKey) {
               event.preventDefault();
               submit();

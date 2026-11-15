@@ -31,6 +31,14 @@ export async function acceptAllProposals(): Promise<void> {
   }
 }
 
+/** «Отклонить все»: every open grey draft is rejected, nothing on the graph changes. */
+export async function rejectAllProposals(): Promise<void> {
+  const store = useProposalsStore.getState();
+  for (const proposal of openProposals(store.proposals)) {
+    await useProposalsStore.getState().resolve(proposal.id, 'reject').catch(() => undefined);
+  }
+}
+
 /**
  * Floating canvas toolbar: add node (labelled «Нода», its own shape so it never reads as zoom), «Разложить»,
  * zoom in / out (magnifier glyphs), React Flow's fit and interactivity controls, follow the helper, description
@@ -136,6 +144,9 @@ export default function CanvasToolbar() {
           <button type="button" className={`${styles.button} ${styles.wide}`} onClick={() => void acceptAllProposals()}>
             <CheckCheck size={16} aria-hidden="true" />
             {t('canvas.acceptAll', { count: open })}
+          </button>
+          <button type="button" className={`${styles.button} ${styles.wide}`} onClick={() => void rejectAllProposals()} data-reject-all>
+            {t('canvas.rejectAll')}
           </button>
         </span>
       ) : null}

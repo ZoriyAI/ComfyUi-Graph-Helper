@@ -80,10 +80,21 @@ export default function ChatDock({ onSendMessage, onPause }: ChatDockProps = {})
     if (next) void getChatService().sendMessage(next.message, next.context);
   }, [isStreaming]);
 
+  // The chat opens at its newest message; older pages come in at the top without moving what the person reads.
+  const lastSeen = useRef<string | null>(null);
   useEffect(() => {
     const end = messagesEndRef.current;
     const log = end?.parentElement;
     if (!end || !log) return;
+    const last = messages[messages.length - 1]?.id ?? null;
+    const first = lastSeen.current === null;
+    const grewAtEnd = last !== lastSeen.current;
+    lastSeen.current = last;
+    if (first && last) {
+      end.scrollIntoView({ behavior: 'auto' });
+      return;
+    }
+    if (!grewAtEnd && messages[messages.length - 1]?.role !== 'assistant') return;
     const distance = log.scrollHeight - log.scrollTop - log.clientHeight;
     // A person reading older messages is left there, except when they just sent one: then they follow their message.
     const sentNow = messages[messages.length - 1]?.role === 'user';
@@ -146,7 +157,22 @@ export default function ChatDock({ onSendMessage, onPause }: ChatDockProps = {})
           }}
         />
       ) : null}
-      <div className={`chat-log ${styles.log}`} role="log" aria-label={String(t('chat.log'))} aria-live="polite" hidden={learning}>
+      <div
+        className={`chat-log ${styles.log}`}
+        role="log"
+        aria-label={String(t('chat.log'))}
+        aria-live="polite"
+        hidden={learning}
+        onScroll={(event) => {
+          const log = event.currentTarget;
+          if (log.scrollTop > 80 || !getChatService().hasEarlier) return;
+          const height = log.scrollHeight;
+          void getChatService().loadEarlier().then((count) => {
+            // Keep the message under the person's eyes where it was.
+            if (count > 0) requestAnimationFrame(() => { log.scrollTop += log.scrollHeight - height; });
+          });
+        }}
+      >
         {messages.length === 0 ? (
           <EmptyState
             size="compact"

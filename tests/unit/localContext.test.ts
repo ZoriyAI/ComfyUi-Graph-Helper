@@ -341,15 +341,17 @@ describe('the reduced tool set for a small window', () => {
     return seen;
   }
 
-  it('offers every tool when the window is unknown or large', async () => {
+  it('starts short while the own server\'s window is not known, and offers every tool when it is large', async () => {
     vi.spyOn(console, 'log').mockImplementation(() => undefined);
     const db = openDb();
     const unknown = await turnWith(db, 'build', { localContextTokens: () => null });
-    expect(unknown.tools.length).toBeGreaterThan(18);
-    expect(unknown.options?.compact).toBe(false);
-    expect(unknown.system).not.toContain('small context window');
+    // The first question on an own server already fits a small window (assistant review, item 4).
+    expect(unknown.tools.sort()).toEqual([...compactToolNames(true)].sort());
+    expect(unknown.options?.compact).toBe(true);
+    expect(unknown.system).toContain('a context window of a size not known yet');
     const large = await turnWith(db, 'build', { localContextTokens: () => 32_768 });
-    expect(large.tools.length).toBe(unknown.tools.length);
+    expect(large.tools.length).toBeGreaterThan(18);
+    expect(large.options?.compact).toBe(false);
     expect(large.options?.trace.contextTokens).toBeLessThanOrEqual(32_768);
     db.close();
   });

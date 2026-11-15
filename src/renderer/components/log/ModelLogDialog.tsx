@@ -1,3 +1,4 @@
+import { modelDisplayName } from '../shell/modelDisplayName';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ClipboardCopy, FileDown, FolderOpen, ScrollText, Trash2 } from 'lucide-react';
@@ -63,7 +64,8 @@ function TurnRow({ turn, checked, focused, onToggle, onNotice, language }: {
     facts.push(String(t('modelLog.tokens', { input: turn.inputTokens ?? '—', output: turn.outputTokens ?? '—' })));
   }
   const question = turn.question.trim() || String(t('modelLog.noQuestion'));
-  const who = [turn.model, String(t(providerLabelKey(turn.provider)))].filter((part) => part !== '').join(' · ');
+  // The model as a person names it; the test mode has no model of its own to name.
+  const who = [turn.provider === 'test' ? '' : modelDisplayName(turn.model ?? ''), String(t(providerLabelKey(turn.provider)))].filter((part) => part !== '').join(' · ');
 
   return (
     <li ref={ref} className={cx(styles.turn, checked && styles.turnChecked, 'model-log-turn')} data-outcome={turn.outcome} data-turn={turn.id}>

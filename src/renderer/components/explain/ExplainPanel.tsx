@@ -15,7 +15,7 @@ import { requestAsk } from '../../services/ask';
 import { turnLanguage } from '../../services/llm/chatModel';
 import { objectLabel } from '../chat/objectLabel';
 import ProvenanceBadge from './ProvenanceBadge';
-import { ASPECTS, groupByAspect, isGlobalOwner, isStale, missingAspects, shownSourceUrl } from './explainModel';
+import { ASPECTS, explanationScope, groupByAspect, isGlobalOwner, isStale, missingAspects, shownSourceUrl } from './explainModel';
 import { edgeDataType, linkTypeRef } from '../graph/lib/linkTypeKnowledge';
 import Button from '../../ui/Button';
 import IconButton from '../../ui/IconButton';
@@ -69,22 +69,41 @@ function SourceLink({ url }: { url: string }) {
 
 function ExplanationItem({ item, currentRevisionId, scopeSaid = false }: { item: Explanation; currentRevisionId: string | null; scopeSaid?: boolean }) {
   const { t } = useTranslation();
+  const removeNote = useKnowledgeStore((state) => state.removeNote);
   const stale = isStale(item, currentRevisionId);
   const url = shownSourceUrl(item);
+  const scope = explanationScope(item);
   return (
-    <article className={styles.item} data-provenance={item.provenance} data-stale={stale}>
+    <article className={styles.item} data-provenance={item.provenance} data-by={item.createdBy} data-stale={stale}>
       <div className={styles.meta}>
-        <ProvenanceBadge provenance={item.provenance} />
+        <ProvenanceBadge provenance={item.provenance} by={item.createdBy} />
         {stale ? <span className={styles.stale}>{t('knowledge.stale')}</span> : null}
       </div>
       <p className={styles.itemText}>{item.text}</p>
       {url ? <SourceLink url={url} /> : null}
-      {item.revisionId ? (
-        <div className={styles.meta}><span className={styles.mono}>{t('explain.revision', { revision: item.revisionId })}</span></div>
-      ) : scopeSaid ? null : (
-        <div className={styles.meta}><span>{t('explain.global')}</span></div>
+      {scopeSaid && scope === 'global' && item.createdBy !== 'user' ? null : (
+        <div className={styles.meta}>
+          {scopeSaid && scope === 'global' ? null : (
+            <span>{t(scope === 'graph' ? 'explain.scopeGraph' : scope === 'project' ? 'explain.scopeProject' : 'explain.global')}</span>
+          )}
+          {item.createdBy === 'user' ? (
+            <Button size="sm" quiet onClick={() => void removeNote(item)}>{t('explain.deleteNote')}</Button>
+          ) : null}
+        </div>
       )}
     </article>
+  );
+}
+
+/** One action that removes what the assistant wrote about this object, in every project (P0 of the review). */
+function RemoveAssistantWords({ owner, list }: { owner: ObjectRef; list: readonly Explanation[] }) {
+  const { t } = useTranslation();
+  const removeAssistant = useKnowledgeStore((state) => state.removeAssistant);
+  if (!list.some((item) => item.createdBy === 'ai')) return null;
+  return (
+    <div className={styles.buttons}>
+      <Button size="sm" quiet onClick={() => void removeAssistant(owner)} data-remove-assistant>{t('explain.removeAssistant')}</Button>
+    </div>
   );
 }
 
@@ -209,7 +228,7 @@ function History() {
             <li key={item.id}>
               <button type="button" onClick={() => setFocus(item.owner)}>
                 <span className={styles.meta}>
-                  <ProvenanceBadge provenance={item.provenance} />
+                  <ProvenanceBadge provenance={item.provenance} by={item.createdBy} />
                   <span>{t(aspectLabelKey(item.aspect))}</span>
                   <span>·</span>
                   <span>{objectLabel(item.owner, { nodes, edges }, String(t('explain.processName')))}</span>
@@ -250,9 +269,13 @@ export default function ExplainPanel() {
   const edge = focus?.kind === 'edge' ? edges.find((item) => item.id === focus.id) : undefined;
   const edgeOutputType = edge ? nodes.find((item) => item.id === edge.source)?.data.outputs.find((port) => port.id === edge.sourceHandle)?.dataType : undefined;
   // A node shares its class knowledge; an edge shares the knowledge about the data type it carries.
+  // A port shares the knowledge about the data type it takes or gives (built-in knowledge, also with no assistant).
+  const portNode = focus?.kind === 'port' && focus.nodeId ? nodes.find((item) => item.id === focus.nodeId) : undefined;
+  const portList = portNode ? (focus?.direction === 'output' ? portNode.data.outputs : portNode.data.inputs) : undefined;
+  const portType = focus?.kind === 'port' ? portList?.find((port) => port.name === focus.portName || port.id === focus.id)?.dataType : undefined;
   const classRef: ObjectRef | null = classType
     ? { kind: 'nodeClass', id: classType, classType }
-    : edge ? linkTypeRef(edgeDataType(edge, edgeOutputType)) : null;
+    : edge ? linkTypeRef(edgeDataType(edge, edgeOutputType)) : portType ? linkTypeRef(portType) : null;
   const sharedTitle = classType ?? classRef?.id;
   const focusKey = focus ? objectKey(focus) : null;
   const classKey = classRef ? objectKey(classRef) : null;
@@ -272,6 +295,15 @@ export default function ExplainPanel() {
     return () => { live = false; };
     // Keys stand for the refs: a new ref object for the same object must not reload.
   }, [focusKey, classKey, loadExplanations]);
+
+  // The tab follows the selection: one selected object becomes the one explained (owner's list).
+  const selectedKey = selection.length === 1 ? objectKey(selection[0]) : null;
+  useEffect(() => {
+    if (selectedKey && selectedKey !== focusKey) setFocus(selection[0]);
+    // Only a change of the selection moves the tab; a question asked about another object keeps its answer.
+  }, [selectedKey]);
+  // The object was deleted or the graph replaced: the tab says so instead of explaining what is gone.
+  const gone = (focus?.kind === 'node' && !node) || (focus?.kind === 'edge' && !edge);
 
   const label = useMemo(
     () => (focus ? objectLabel(focus, { nodes, edges }, String(t('explain.processName'))) : ''),
@@ -321,8 +353,10 @@ export default function ExplainPanel() {
 
       {loadState === 'loading' && own.length === 0 && shared.length === 0 ? <p className={styles.note}>{t('explain.loading')}</p> : null}
       {loadState === 'failed' ? <p className={styles.error} role="status">{t('explain.loadFailed')}</p> : null}
+      {gone ? <p className={styles.note} role="status" data-explain-gone>{t('explain.gone')}</p> : null}
 
       <AspectGroups list={own} currentRevisionId={currentRevisionId} />
+      <RemoveAssistantWords owner={focus} list={own} />
 
       {classRef && shared.length > 0 ? (
         <section className={styles.section}>
@@ -330,6 +364,7 @@ export default function ExplainPanel() {
             {classType ? t('explain.classKnowledge', { classType }) : t('explain.typeKnowledge', { type: sharedTitle ?? classRef.id })}
           </h3>
           <AspectGroups list={shared} currentRevisionId={currentRevisionId} />
+          <RemoveAssistantWords owner={classRef} list={shared} />
         </section>
       ) : null}
 

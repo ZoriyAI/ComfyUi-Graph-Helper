@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { closeInterruptedRuns } from '../../../src/main/agent/interrupted';
+import { closeInterruptedRuns, reportInterruptedRun } from '../../../src/main/agent/interrupted';
 import { createBuildTools, nodeTitleAt } from '../../../src/main/agent/buildTools';
 import { loadChatHistory } from '../../../src/main/agent/chatHistory';
 import { ensureWorkspace, pauseRun, readProjection, startRun } from '../../../src/main/commands/commit';
@@ -38,6 +38,16 @@ describe('a run cut off by closing the app', () => {
     expect(lines[0].content).toContain('приложение закрылось');
     expect(lines[0].content).toContain('нод: 2');
     expect(readProjection(db, P)!.activeRun).toBeNull();
+  });
+
+  it('a window closed during the build leaves the same line at once (the turn\'s end closes the run)', async () => {
+    const db = openDb();
+    const run = startRun(db, P);
+    const tools = createBuildTools(BUILD_TOOL_SPECS, { db, run: { projectId: P, runId: run.runId, expectedRevisionId: run.expectedRevisionId } });
+    await tools.addNode.execute({ nodeType: 'KSampler' }, { toolCallId: 'a' });
+    expect(reportInterruptedRun(db, P, run.runId, 'en', 5)).toBe(true);
+    expect(loadChatHistory(db, P)[0].content).toContain('nodes: 1');
+    expect(reportInterruptedRun(db, P, 'no-such-run', 'en')).toBe(false);
   });
 
   it('a step keeps the name its node had, so the card never renames itself', async () => {

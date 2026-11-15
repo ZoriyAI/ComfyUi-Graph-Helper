@@ -163,7 +163,8 @@ describe('agent tools factory', () => {
       createdBy: 'ai',
     });
     await call('explain', { owner: { kind: 'nodeClass', id: 'KSampler' }, aspect: 'what', text: 'Docs say so.', provenance: 'web', sourceUrl: 'https://docs.comfy.org/' });
-    expect(knowledge.saved[1]).toMatchObject({ projectId: null, revisionId: null, provenance: 'web', sourceUrl: 'https://docs.comfy.org/' });
+    // What the assistant writes about a class stays in this project: nothing global without the person.
+    expect(knowledge.saved[1]).toMatchObject({ projectId: DESKTOP_PROJECT_ID, revisionId: null, provenance: 'web', sourceUrl: 'https://docs.comfy.org/' });
     expect(await call('explain', { owner: { kind: 'model', id: 'loras/x' }, aspect: 'what', text: 't', provenance: 'web' })).toMatchObject({ success: false });
     expect(await call('explain', { owner: { kind: 'node', id: 'n' }, aspect: 'what', text: 't', provenance: 'user' })).toMatchObject({ success: false });
     expect(await call('explain', { owner: { kind: 'node', id: 'n' }, aspect: 'what', text: 'key is sk-abc123', provenance: 'fact' })).toMatchObject({ success: false });

@@ -19,8 +19,8 @@ import { effectiveContextWindow, historyBudgetTokens } from '../../shared/agent/
 import { buildSystemPrompt, buildTurnData, catalogSummaryText, withTurnData } from './prompt';
 import { conversationLinks, linksInText } from './links';
 import { errorMessage } from './streamParts';
-import { classifyTurnError } from '../../shared/agent/turnError';
-import { createAgentTools, type KnowledgeApi, type ProposalApi } from './tools';
+import { classifyTurnError, parseTurnError } from '../../shared/agent/turnError';
+import { createAgentTools, widgetNamesOf, type KnowledgeApi, type ProposalApi } from './tools';
 import type { FetchLike } from './web';
 import { readPreferences } from '../settings/repository';
 import { COMPACT_WINDOW } from '../llm/localContext';
@@ -78,13 +78,11 @@ const BUILD = new Set<string>(AGENT_BUILD_TOOLS);
 /** A recency window, not a cap on data: the prompt says when the list is the latest 30 only; the graph is complete. */
 const RECENT_LIMIT = 30;
 
-/**
- * Build tools exist in a build turn, and in a chat turn when the person set "build directly" as their default
- * (Preferences ▸ Assistant). Ask turns, and chat turns by default, read, explain and propose ghosts.
- */
-export function buildToolsAllowed(context: AgentTurnContext, defaultIntent?: 'ask' | 'build'): boolean {
-  if (context.intent === 'build') return true;
-  return context.intent === 'chat' && defaultIntent === 'build';
+/** Build tools exist in a build turn only. Ask and chat turns read, explain and propose grey drafts. */
+export function buildToolsAllowed(context: AgentTurnContext, _defaultIntent?: 'ask' | 'build'): boolean {
+  // Ask never builds, whatever the setting: it answers and offers grey drafts, so its hint stays true. The
+  // "When I ask for a change" setting picks the mode the composer opens in (Build when it is "build directly").
+  return context.intent === 'build';
 }
 
 /** The person's recent commands for the prompt; a read failure only drops that section. */
@@ -149,6 +147,37 @@ export function closeIfRunning(db: Database.Database, run: RunContext, keepPause
   }
 }
 
+/** What a model that cannot call tools is told when the turn is asked again without them. */
+export const NO_TOOLS_LINE = 'This model cannot call tools, so none are offered now. Answer only from the data block: you cannot read more, look anything up, change the graph or save anything. If the person asked for a change, describe it in words and say in one short sentence that the change itself needs a model that can call tools.';
+
+/** The share of the context window the data block may take: the rest is for the rules, the dialog and the answer. */
+export const DATA_SHARE = 0.35;
+
+/** Characters the data block may take in a window of `tokens`. */
+export function dataBudgetChars(tokens: number, charsPerToken: number): number {
+  return Math.max(2000, Math.floor(tokens * DATA_SHARE * charsPerToken));
+}
+
+/**
+ * The turn's data within its budget: the whole graph when it fits, else the short plan, else the plan of fewer
+ * nodes (the focus nodes always stay) with a line that getGraph has the rest.
+ */
+export function fitTurnData(
+  input: Parameters<typeof buildTurnData>[0],
+  projection: Projection | null,
+  options: { selectedIds: string[]; priority: string[]; omitValues: boolean; widgetNames: (classType: string) => readonly string[] | null; budgetChars: number },
+): string {
+  let data = buildTurnData(input);
+  if (data.length <= options.budgetChars || !projection) return data;
+  const planned = { ...input, graphPlan: true };
+  data = buildTurnData(planned);
+  for (let limit = Math.max(10, Math.floor((input.graph?.totalNodes ?? 0) / 2)); data.length > options.budgetChars && limit >= 10; limit = Math.floor(limit / 2)) {
+    const graph = summarizeGraph(projection.snapshot, { selectedIds: options.selectedIds, priorityIds: options.priority, omitValues: options.omitValues, widgetNames: options.widgetNames, limit });
+    data = buildTurnData({ ...planned, graph });
+  }
+  return data;
+}
+
 /**
  * One llm:stream-chat turn. The renderer's system messages are replaced by the main-built teaching prompt
  * (the renderer cannot see the catalog or the action log). Chunk protocol: the fullStream parts with only the
@@ -170,6 +199,7 @@ export async function runAgentTurn(options: AgentTurnOptions): Promise<void> {
   // that sentence (kind 'storage').
   const stopper = new AbortController();
   let storageFailure: string | null = null;
+  let runEnded = false;
   const outer = options.signal;
   const onOuterAbort = () => stopper.abort();
   if (outer?.aborted) stopper.abort();
@@ -197,24 +227,46 @@ export async function runAgentTurn(options: AgentTurnOptions): Promise<void> {
     // Provider detail: the window before the first question (Ollama loads the model to say it), so the first turn fits.
     if (loadedWindow === null && runtime?.provider === 'local') loadedWindow = await (llm.ensureLocalWindow?.() ?? Promise.resolve(null));
     const buildAllowed = buildToolsAllowed(context, assistant.defaultIntent);
-    const compact = loadedWindow !== null && loadedWindow < COMPACT_WINDOW ? { offered: compactToolNames(buildAllowed), window: loadedWindow } : null;
+    // A small window, or the person's own server before its window was seen: the turn starts in the short mode,
+    // so the first question already fits (a later turn knows the window and may use the full one).
+    const unknownLocal = loadedWindow === null && runtime?.provider === 'local';
+    const small = (loadedWindow !== null && loadedWindow < COMPACT_WINDOW) || unknownLocal;
+    // The page reader stays when the person's own message holds a link: they asked for that page.
+    const personLink = assistant.allowFetchPage !== false && linksInText(question).length > 0;
+    const compact = small ? { offered: [...compactToolNames(buildAllowed), ...(personLink ? ['fetchPage'] : [])], window: loadedWindow ?? 0 } : null;
+    let catalogView: CatalogView | null = null;
+    try {
+      catalogView = readCatalog(db);
+    } catch {
+      catalogView = null;
+    }
+    const widgetNames = widgetNamesOf(catalogView ?? undefined);
 
     const recent = readRecent(db, run.projectId);
     const selectedIds = context.selection.filter((ref) => ref.kind === 'node').map((ref) => ref.id);
     const promptInput = {
       context,
-      graph: projection ? summarizeGraph(projection.snapshot, { selectedIds, priorityIds: priorityIds(context, recent), omitValues: !privacy.sendFieldValues }) : null,
+      graph: projection ? summarizeGraph(projection.snapshot, { selectedIds, priorityIds: priorityIds(context, recent), omitValues: !privacy.sendFieldValues, widgetNames }) : null,
       catalog: catalogSummaryText(db, knowledge, question),
       recent,
       recentWindow: RECENT_LIMIT,
       question,
-      preferences: { ...assistant, sendFieldValues: privacy.sendFieldValues },
-      ...(compact ? { compact } : {}),
+      // Ask never builds: the default intent setting only picks the mode the composer opens in.
+      preferences: { ...assistant, defaultIntent: buildAllowed ? 'build' as const : 'ask' as const, sendFieldValues: privacy.sendFieldValues },
+      ...(compact ? { compact, graphPlan: true } : {}),
     };
     // The system message holds the app's instructions only; the graph and catalog travel as marked data with the
     // person's message (an imported workflow's notes and values are someone else's text).
     const prompt = redact(buildSystemPrompt(promptInput));
-    const turnData = redact(buildTurnData(promptInput));
+    const charsPerTokenNow = (llm.charsPerToken ?? (() => 4)).call(llm);
+    const knownWindow = effectiveContextWindow(options.model ?? mainLLMService.nextSendConfig().model, assistant.contextTokens, loadedWindow);
+    const turnData = redact(fitTurnData(promptInput, projection, {
+      selectedIds,
+      priority: priorityIds(context, recent),
+      omitValues: !privacy.sendFieldValues,
+      widgetNames,
+      budgetChars: dataBudgetChars(unknownLocal ? COMPACT_WINDOW / 2 : knownWindow.tokens, charsPerTokenNow),
+    }));
 
     // History budget: 70 % of the model's context window (Preferences ▸ Assistant overrides it) minus the prompt.
     // With "auto" the window the server was seen to load the model with IS the window; a setting of the person's
@@ -279,6 +331,10 @@ export async function runAgentTurn(options: AgentTurnOptions): Promise<void> {
           storageFailure = error;
           stopper.abort();
         },
+        onRunEnded: () => {
+          runEnded = true;
+          stopper.abort();
+        },
       });
       // Main tools first; a renderer spec replaces one only when it is a build tool.
       for (const [name, definition] of Object.entries(buildTools)) {
@@ -292,7 +348,7 @@ export async function runAgentTurn(options: AgentTurnOptions): Promise<void> {
     }
 
     turnLog(`[Agent] Turn with ${messages.length} messages, ${Object.keys(tools).length} tools, intent=${context.intent}${compact ? `, compact for a ${compact.window}-token window` : ''}`);
-    for await (const chunk of llm.streamChatWithTools([{ role: 'system', content: system }, ...messages], tools as Record<string, any>, {
+    const streamOptions = {
       maxSteps: assistant.maxStepsPerTurn,
       allowWebSearch: assistant.allowWebSearch,
       allowFetchPage: assistant.allowFetchPage,
@@ -309,14 +365,36 @@ export async function runAgentTurn(options: AgentTurnOptions): Promise<void> {
         contextTokens: window.tokens,
         contextSource: window.source,
       },
-    })) {
-      if (signal.aborted) break;
-      if (chunk.type === 'turn-paused') {
-        // A checkpoint, not an end: the run stays paused so Continue (resume) carries on with the same run.
-        pauseIfRunning(db, run);
-        checkpoint = true;
+    };
+    // A model that cannot call tools refuses the request: the turn is asked again without tools, with the graph in
+    // the data block, and the chat says truthfully that the answer came without them.
+    let toolsRefused = false;
+    const offered = Object.keys(tools).length > 0;
+    const run1 = async (toolSet: Record<string, unknown>, systemText: string, refusable: boolean) => {
+      for await (const chunk of llm.streamChatWithTools([{ role: 'system', content: systemText }, ...messages], toolSet as Record<string, any>, streamOptions)) {
+        if (signal.aborted) break;
+        if (refusable && chunk.type === 'error' && parseTurnError(chunk.content)?.kind === 'no-tools') {
+          toolsRefused = true;
+          continue;
+        }
+        if (chunk.type === 'turn-paused') {
+          // A checkpoint, not an end: the run stays paused so Continue (resume) carries on with the same run.
+          pauseIfRunning(db, run);
+          checkpoint = true;
+        }
+        send(chunk);
       }
-      send(chunk);
+    };
+    try {
+      await run1(tools, system, offered);
+    } catch (error) {
+      if (!offered || classifyTurnError(error, redact).kind !== 'no-tools') throw error;
+      toolsRefused = true;
+    }
+    if (toolsRefused && !signal.aborted) {
+      turnLog('[Agent] The model cannot call tools; asking again without them');
+      send({ type: 'notice', content: { code: 'no-tools', model: runtime?.model ?? '' } });
+      await run1({}, `${system}\n\n${NO_TOOLS_LINE}`, false);
     }
     // What the server showed during this turn is kept, so the first turn after a restart already fits.
     const seen = llm.localContextTokens?.() ?? null;
@@ -324,7 +402,7 @@ export async function runAgentTurn(options: AgentTurnOptions): Promise<void> {
   } catch (error) {
     if (storageFailure) {
       // Reported below.
-    } else if (options.signal?.aborted) {
+    } else if (options.signal?.aborted || runEnded) {
       turnLog('[Agent] Turn cancelled');
     } else {
       const message = errorMessage(error, redact);

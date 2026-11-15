@@ -14,6 +14,7 @@ import { buildProgress, callStepKey, stepError, stepSentence, stepWhy, type Tran
 import { useStepNames } from './stepNames';
 import { followInLog } from './followLog';
 import Button from '../../ui/Button';
+import ProposalCard from './ProposalCard';
 import styles from './BuildCard.module.css';
 
 const STEP_ICONS: Record<string, LucideIcon> = {
@@ -95,6 +96,8 @@ function Step({ call, state, sentence, showWhy, onPick, hidden }: StepProps) {
       ) : (
         <div className={styles.line}>{line}</div>
       )}
+      {/* A change to what the person made: not applied, a grey draft with Accept and Reject. */}
+      {call.proposalId ? <ProposalCard proposalId={call.proposalId} result={call.result} /> : null}
       {/* Dimmed with an hourglass for the eye; said in words for a screen reader. */}
       {state === 'waiting' ? <span className="sr-only">{t('chat.buildWaiting')}</span> : null}
       {why && showWhy && call.status !== 'error' ? (

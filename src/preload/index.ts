@@ -9,6 +9,7 @@ import type {
   ConnectionSuggestions,
   Explanation,
   ExplanationInput,
+  ObjectRef,
   GraphCheckReport,
   ListExplanationsRequest,
   LocalDiscovery,
@@ -111,6 +112,8 @@ const IPC_CHANNELS = {
   KNOWLEDGE_MODEL_LOOKUP: 'knowledge:model-lookup',
   KNOWLEDGE_LIST_EXPLANATIONS: 'knowledge:list-explanations',
   KNOWLEDGE_SAVE_EXPLANATION: 'knowledge:save-explanation',
+  KNOWLEDGE_DELETE_EXPLANATION: 'knowledge:delete-explanation',
+  KNOWLEDGE_DELETE_ASSISTANT_EXPLANATIONS: 'knowledge:delete-assistant-explanations',
   KNOWLEDGE_CHECK_GRAPH: 'knowledge:check-graph',
   KNOWLEDGE_VALIDATE_NODE_CLASS: 'knowledge:validate-node-class',
   KNOWLEDGE_FIELD_MODELS: 'knowledge:field-models',
@@ -299,7 +302,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   llmCancel: (runId?: string) => ipcRenderer.invoke(IPC_CHANNELS.LLM_CANCEL, runId) as Promise<{ cancelled: number }>,
 
   // Chat history
-  loadChatHistory: (projectId: string) => ipcRenderer.invoke(IPC_CHANNELS.CHAT_LOAD_HISTORY, projectId) as Promise<ChatRecord[]>,
+  loadChatHistory: (projectId: string, page?: { limit?: number; beforeId?: string }) => ipcRenderer.invoke(IPC_CHANNELS.CHAT_LOAD_HISTORY, projectId, page) as Promise<ChatRecord[]>,
   saveChatMessage: (record: ChatRecord) => ipcRenderer.invoke(IPC_CHANNELS.CHAT_SAVE_MESSAGE, record) as Promise<{ ok: boolean }>,
   clearChatHistory: (projectId: string) => ipcRenderer.invoke(IPC_CHANNELS.CHAT_CLEAR_HISTORY, projectId) as Promise<{ ok: true; removed: number } | { ok: false; error: string }>,
 
@@ -314,6 +317,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   modelLookup: (directory: string, name: string) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_MODEL_LOOKUP, { directory, name }) as Promise<ModelLookupResult>,
   listExplanations: (request: ListExplanationsRequest) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_LIST_EXPLANATIONS, request) as Promise<Explanation[]>,
   saveExplanation: (input: ExplanationInput) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_SAVE_EXPLANATION, input) as Promise<Explanation>,
+  deleteExplanation: (id: string) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_DELETE_EXPLANATION, id) as Promise<{ removed: number }>,
+  deleteAssistantExplanations: (owner: ObjectRef) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_DELETE_ASSISTANT_EXPLANATIONS, owner) as Promise<{ removed: number }>,
   checkGraph: (projectId: string) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_CHECK_GRAPH, projectId) as Promise<GraphCheckReport>,
   fieldModels: (request: FieldModelsRequest) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_FIELD_MODELS, request) as Promise<FieldModelsResult>,
   syncStatus: () => ipcRenderer.invoke(IPC_CHANNELS.SYNC_STATUS) as Promise<SyncStatus>,
@@ -519,7 +524,8 @@ export interface ElectronAPI {
   ) => Promise<void>;
   /** Aborts the main-process turn of this window for runId (every turn of the window when omitted). */
   llmCancel: (runId?: string) => Promise<{ cancelled: number }>;
-  loadChatHistory: (projectId: string) => Promise<ChatRecord[]>;
+  /** The whole chat, or with `page` the newest `limit` messages before `beforeId` (oldest first). */
+  loadChatHistory: (projectId: string, page?: { limit?: number; beforeId?: string }) => Promise<ChatRecord[]>;
   saveChatMessage: (record: ChatRecord) => Promise<{ ok: boolean }>;
   clearChatHistory: (projectId: string) => Promise<{ ok: true; removed: number } | { ok: false; error: string }>;
   searchNodeTypes: (request: SearchNodesRequest) => Promise<NodeClassSummary[]>;
@@ -535,6 +541,10 @@ export interface ElectronAPI {
   modelLookup: (directory: string, name: string) => Promise<ModelLookupResult>;
   listExplanations: (request: ListExplanationsRequest) => Promise<Explanation[]>;
   saveExplanation: (input: ExplanationInput) => Promise<Explanation>;
+  /** Removes one note the person wrote (never built-in knowledge or the assistant's words). */
+  deleteExplanation: (id: string) => Promise<{ removed: number }>;
+  /** Removes what the assistant wrote about one object, in every project. */
+  deleteAssistantExplanations: (owner: ObjectRef) => Promise<{ removed: number }>;
   checkGraph: (projectId: string) => Promise<GraphCheckReport>;
   /** Model files a model field can take, joined with the catalog and marked by fit to the checkpoint upstream. */
   fieldModels: (request: FieldModelsRequest) => Promise<FieldModelsResult>;

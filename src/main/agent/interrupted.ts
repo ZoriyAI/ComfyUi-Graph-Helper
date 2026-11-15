@@ -10,6 +10,31 @@ import { createTranslator, type AppLanguage } from '../../shared/i18n';
  * happened and what stayed on the canvas. A run that changed nothing (a plain question) leaves no line.
  * Returns how many lines were written.
  */
+/**
+ * One run cut off because its window went away (closed during a pause or a build): the same line in the chat as at
+ * the next start, written now, since the turn's end closes the run and the start-up check would not see it.
+ */
+export function reportInterruptedRun(db: Database.Database, projectId: string, runId: string, language: AppLanguage, now = Date.now()): boolean {
+  try {
+    const changes = (db.prepare('SELECT COUNT(*) AS n FROM applied_commands WHERE project_id = ? AND run_id = ?').get(projectId, runId) as { n: number }).n;
+    if (changes === 0) return false;
+    const onCanvas = new Set(((readProjection(db, projectId)?.snapshot.nodes ?? []) as Array<{ id?: unknown }>).map((node) => String(node.id)));
+    const count = runCreatedNodeIds(db, projectId, runId).filter((id) => onCanvas.has(id)).length;
+    const t = createTranslator(language);
+    return saveChatMessage(db, {
+      id: `interrupted-${runId}`,
+      projectId,
+      role: 'assistant',
+      content: t('chat.runInterrupted', { count }),
+      timestamp: now,
+      graphRevisionId: null,
+      toolCalls: null,
+    }, () => false).ok;
+  } catch {
+    return false;
+  }
+}
+
 export function closeInterruptedRuns(db: Database.Database, language: AppLanguage, now = Date.now()): number {
   let written = 0;
   try {

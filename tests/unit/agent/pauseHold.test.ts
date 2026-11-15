@@ -79,6 +79,26 @@ describe('a paused build holds its next step', () => {
     expect(closeIfRunning(db, context)?.activeRun ?? null).toBeNull();
   });
 
+  it('a new project or an import stops the build: no step lands on the graph that took the canvas', async () => {
+    const db = openDb();
+    const run = startRun(db, DESKTOP_PROJECT_ID);
+    let ended = 0;
+    const tools = createBuildTools(BUILD_TOOL_SPECS, {
+      db,
+      run: { projectId: DESKTOP_PROJECT_ID, runId: run.runId, expectedRevisionId: run.expectedRevisionId },
+      onRunEnded: () => { ended += 1; },
+    });
+    await tools.addNode.execute({ nodeType: 'CheckpointLoaderSimple' }, { toolCallId: 'a' });
+    const current = readProjection(db, DESKTOP_PROJECT_ID)!;
+    const replaced = commitCommand(db, { projectId: DESKTOP_PROJECT_ID, actionId: 'new-project', expectedRevisionId: current.currentRevisionId, actor: 'manual', runId: null, payload: { type: 'import-workflow', document: { last_node_id: 0, last_link_id: 0, nodes: [], links: [], version: 0.4 } } });
+    expect(replaced.status).toBe('applied');
+    expect(readProjection(db, DESKTOP_PROJECT_ID)!.activeRun).toBeNull();
+    const after = await tools.addNode.execute({ nodeType: 'KSampler' }, { toolCallId: 'b' }) as Record<string, unknown>;
+    expect(after).toMatchObject({ success: false, stopped: true });
+    expect(ended).toBe(1);
+    expect(readProjection(db, DESKTOP_PROJECT_ID)!.snapshot.nodes).toHaveLength(0);
+  });
+
   it('a step that cannot be stored stops the build with the reason', async () => {
     const db = openDb();
     const run = startRun(db, DESKTOP_PROJECT_ID);

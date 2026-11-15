@@ -11,6 +11,7 @@ import { levelNodes } from '../components/graph/lib/level';
 import { i18n } from '../i18n';
 import { addCommandStateSource, registerCommands, type Command } from './registry';
 import { canvasHandle } from './canvasHandle';
+import { guardBuild } from './buildGuard';
 import { canRedo, canUndo, installUndoHistory, redo, redoHint, undo, undoHint } from './undo';
 import { useUndoStore } from '../state/undoState';
 import { installPortsNotice } from '../services/portsNotice';
@@ -29,7 +30,7 @@ import { providerChoices, useProviderStore } from '../state/providerState';
 import { useProjectionStore } from '../services/commands/projection';
 import { useCanvasStore } from '../components/graph/canvasStore';
 import type { DescriptionsMode } from '../../shared/config/preferences';
-import { acceptAllProposals } from '../components/graph/CanvasToolbar';
+import { acceptAllProposals, rejectAllProposals } from '../components/graph/CanvasToolbar';
 import { openReplay } from '../components/graph/ReplayPlayer';
 import { startGraphTour } from '../components/graph/tour/startTour';
 import { runSyncNow, setAutoSync } from '../components/sync/SyncIndicator';
@@ -90,11 +91,11 @@ export const LANGUAGE_CHOICES: Array<{ value: 'en' | 'ru'; labelKey: string }> =
 export function buildAppCommands(): Command[] {
   const commands: Command[] = [
     // File
-    { id: 'file.new', group: 'file', labelKey: 'menu.newProject', hintKey: 'menu.newProjectHint', icon: FilePlus2, shortcut: 'Mod+N', enabled: always, run: requestNewProject },
-    { id: 'file.open', group: 'file', labelKey: 'project.open', icon: FolderOpen, shortcut: 'Mod+O', enabled: always, run: openProjectFile },
+    { id: 'file.new', group: 'file', labelKey: 'menu.newProject', hintKey: 'menu.newProjectHint', icon: FilePlus2, shortcut: 'Mod+N', enabled: always, run: guardBuild(requestNewProject) },
+    { id: 'file.open', group: 'file', labelKey: 'project.open', icon: FolderOpen, shortcut: 'Mod+O', enabled: always, run: guardBuild(openProjectFile) },
     { id: 'file.save', group: 'file', labelKey: 'project.save', icon: Save, shortcut: 'Mod+S', enabled: always, run: () => saveProjectFile() },
     { id: 'file.saveAs', group: 'file', labelKey: 'project.saveAs', icon: Save, shortcut: 'Mod+Shift+S', enabled: always, run: saveProjectFileAs },
-    { id: 'file.import', group: 'file', labelKey: 'toolbar.import', hintKey: 'menu.importHint', icon: FolderInput, shortcut: 'Mod+I', enabled: always, run: importWorkflowFile },
+    { id: 'file.import', group: 'file', labelKey: 'toolbar.import', hintKey: 'menu.importHint', icon: FolderInput, shortcut: 'Mod+I', enabled: always, run: guardBuild(importWorkflowFile) },
     { id: 'file.export', group: 'file', labelKey: 'toolbar.export', hintKey: 'shell.exportHint', icon: FolderOutput, shortcut: 'Mod+E', enabled: always, run: exportWorkflowFile },
     { id: 'file.catalog', group: 'file', labelKey: 'toolbar.catalog', hintKey: 'menu.catalogHint', icon: Database, enabled: always, run: importCatalogSnapshot },
     { id: 'file.settings', group: 'file', labelKey: 'menu.settings', icon: Settings, shortcut: 'Mod+,', enabled: always, run: () => useUiStore.getState().openSettings() },
@@ -152,6 +153,11 @@ export function buildAppCommands(): Command[] {
       id: 'graph.acceptAll', group: 'graph', labelKey: 'contextMenu.acceptAll', icon: Ghost,
       enabled: () => canEditGraph() && openProposals(useProposalsStore.getState().proposals).length > 0,
       run: acceptAllProposals,
+    },
+    {
+      id: 'graph.rejectAll', group: 'graph', labelKey: 'contextMenu.rejectAll', icon: Ghost,
+      enabled: () => openProposals(useProposalsStore.getState().proposals).length > 0,
+      run: rejectAllProposals,
     },
     {
       id: 'graph.tour', group: 'graph', labelKey: 'menu.tour', icon: Compass,

@@ -109,7 +109,7 @@ describe('agent turn (llm:stream-chat)', () => {
   it('saves an explanation through the main explain tool, not the renderer spec', async () => {
     const { knowledge, chunks } = await turn('explain this', { context: { intent: 'ask', objectRef: { kind: 'nodeClass', id: 'KSampler' }, selection: [] } });
     expect(knowledge.saved).toHaveLength(1);
-    expect(knowledge.saved[0]).toMatchObject({ createdBy: 'ai', provenance: 'inference', projectId: null });
+    expect(knowledge.saved[0]).toMatchObject({ createdBy: 'ai', provenance: 'inference', projectId: DESKTOP_PROJECT_ID });
     const result = chunks.find((chunk) => chunk.type === 'tool-result');
     expect(result?.content.output).toMatchObject({ success: true, explanationId: 'exp-1' });
   }, 15000);

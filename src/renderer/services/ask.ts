@@ -1,5 +1,7 @@
 import type { AgentTurnContext } from '../../shared/contracts';
 import { useDockStore } from '../state/dockState';
+import { useProviderStore } from '../state/providerState';
+import { useUiStore } from '../state/uiState';
 
 /**
  * The one way any part of the interface asks the helper a question.
@@ -29,6 +31,14 @@ function revealChat(): void {
 }
 
 export function requestAsk(request: AskRequest): void {
+  // No assistant chosen: a question about an object is answered from the app's built-in knowledge in the Explain
+  // tab, and nothing is posted to the chat (it would only say that nothing was sent).
+  const about = request.context.objectRef;
+  if (about && useProviderStore.getState().provider === '') {
+    useUiStore.getState().setFocus(about);
+    useDockStore.getState().show('explain');
+    return;
+  }
   revealChat();
   if (listeners.size === 0) {
     pending.push(request);

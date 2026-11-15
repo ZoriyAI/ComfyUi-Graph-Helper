@@ -17,6 +17,11 @@ function kindOf(value: unknown): ProposalKind | null {
  * date): the tool call that made it is not a second status. Accept and Reject go only through
  * useProposalsStore().resolve; the chat never writes the graph itself.
  */
+/** A draft's note without the engine's "[superseded: …]" mark. */
+export function withoutServiceMark(note: string): string {
+  return note.replace(/\s*\[superseded:[^\]]*\]\s*$/, '').trim();
+}
+
 export default function ProposalCard({ proposalId, result }: { proposalId: string; result: unknown }) {
   const { t } = useTranslation();
   const proposal = useProposalsStore((state) => state.proposals.find((item) => item.id === proposalId));
@@ -25,7 +30,8 @@ export default function ProposalCard({ proposalId, result }: { proposalId: strin
   const [error, setError] = useState<string | null>(null);
 
   const kind = proposal?.kind ?? kindOf(isRecord(result) ? result.kind : undefined);
-  const note = proposal?.note ?? (isRecord(result) && typeof result.note === 'string' ? result.note : '');
+  // The engine's own service mark ("[superseded: …]") is not shown in «Зачем»: the status says the draft is out of date.
+  const note = withoutServiceMark(proposal?.note ?? (isRecord(result) && typeof result.note === 'string' ? result.note : ''));
   const status: ProposalStatus = proposal?.status ?? 'proposed';
   const kindLabel = kind ? String(t(`proposals.kind.${kind}`)) : String(t('agent.kind.proposal'));
 

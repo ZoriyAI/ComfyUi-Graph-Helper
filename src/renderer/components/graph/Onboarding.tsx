@@ -1,3 +1,4 @@
+import { modelDisplayName } from '../shell/modelDisplayName';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'motion/react';
@@ -85,7 +86,11 @@ export default function Onboarding({ onImport }: { onImport?: () => void }) {
   } else if (keyState === 'missing') {
     helper = { ...helperBase, state: 'problem', text: translate('canvas.onboardHelperNeedsKey'), action: { label: translate('canvas.onboardAddKey'), onClick: () => openSettings('assistant') } };
   } else {
-    const name = stored.provider === provider && stored.model ? stored.model : provider === 'local' ? translate('canvas.onboardLocalModel') : PROVIDER_NAMES[provider] ?? provider;
+    // The name a person chose in Settings (provider and model as the list shows it), never an internal id.
+    const providerName = provider === 'local' ? translate('provider.localChip') : PROVIDER_NAMES[provider] ?? provider;
+    const name = provider === 'test'
+      ? translate('provider.testFixture')
+      : stored.provider === provider && stored.model ? `${providerName} · ${modelDisplayName(stored.model)}` : provider === 'local' ? translate('canvas.onboardLocalModel') : providerName;
     helper = { ...helperBase, state: 'done', text: translate('canvas.onboardHelperReady', { name }) };
   }
 

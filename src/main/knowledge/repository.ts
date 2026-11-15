@@ -23,6 +23,7 @@ import {
   BASE_MODEL_FAMILIES,
   explanationInputSchema,
   listExplanationsSchema,
+  objectRefSchema,
   MODEL_KINDS,
   SEARCH_LIMIT_DEFAULT,
   SEARCH_LIMIT_MAX,
@@ -424,6 +425,22 @@ export function listExplanations(db: Database.Database, request: ListExplanation
   }
   const sql = `SELECT * FROM explanations${where.length ? ` WHERE ${where.join(' AND ')}` : ''} ORDER BY created_at, rowid`;
   return (db.prepare(sql).all(...args) as ExplanationRow[]).map(explanationOf);
+}
+
+/** Removes one note the person wrote. Built-in knowledge and the assistant's words are not removed this way. */
+export function deletePersonExplanation(db: Database.Database, id: unknown): number {
+  if (typeof id !== 'string' || id === '' || id.length > 200) return 0;
+  return db.prepare(`DELETE FROM explanations WHERE id = ? AND created_by = 'user'`).run(id).changes;
+}
+
+/**
+ * Removes what the assistant wrote about one object (a node class, a model, a node…), in every project and in
+ * global knowledge: built-in knowledge and the person's own notes stay. Returns how many went.
+ */
+export function deleteAssistantExplanations(db: Database.Database, ownerInput: unknown): number {
+  const owner = ownerColumns(objectRefSchema.parse(ownerInput) as ObjectRef);
+  return db.prepare(`DELETE FROM explanations WHERE created_by = 'ai' AND owner_kind = ? AND owner_id = ? AND scope = ?`)
+    .run(owner.kind, owner.id, owner.scope).changes;
 }
 
 /**

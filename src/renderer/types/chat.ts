@@ -45,7 +45,8 @@ export interface TurnCheckpoint {
  * the model on the person's own server works with a context window too small for the helper's request.
  */
 export interface TurnNotice {
-  code: 'context-window';
+  /** context-window: the window is small; no-tools: the model cannot call tools and answered without them. */
+  code: 'context-window' | 'no-tools';
   /** 'cut': the server dropped part of the request. 'tight': it fit, with little room left for a build. */
   state: 'tight' | 'cut';
   /** The window the server loaded the model with, in tokens. */
@@ -61,6 +62,9 @@ export interface TurnNotice {
 export function parseTurnNotice(input: unknown): TurnNotice | null {
   if (!input || typeof input !== 'object') return null;
   const record = input as Record<string, unknown>;
+  if (record.code === 'no-tools') {
+    return { code: 'no-tools', state: 'tight', window: 0, needed: 0, model: typeof record.model === 'string' ? record.model.slice(0, 200) : '', compact: false };
+  }
   if (record.code !== 'context-window') return null;
   if (record.state !== 'tight' && record.state !== 'cut') return null;
   const window = Number(record.window);
@@ -102,6 +106,8 @@ export interface ChatMessage {
    * the question with its context so "Повторить" can send it again. Not persisted.
    */
   turnError?: ChatTurnError;
+  /** The person stopped this answer (Stop): its build card says stopped, not done. Not persisted. */
+  stopped?: boolean;
 }
 
 export interface ChatTurnError extends TurnError {

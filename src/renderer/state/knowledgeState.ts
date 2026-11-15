@@ -36,6 +36,10 @@ interface KnowledgeState {
   loadRecent: (projectId?: string) => Promise<Explanation[]>;
   /** Saves through knowledge:save-explanation and adds the stored record to the cache. */
   saveExplanation: (input: ExplanationInput) => Promise<Explanation>;
+  /** Removes one note the person wrote and forgets it here. */
+  removeNote: (item: Explanation) => Promise<void>;
+  /** Removes what the assistant wrote about one object (in every project) and reads that object again. */
+  removeAssistant: (owner: ObjectRef) => Promise<void>;
   runCheck: (projectId?: string) => Promise<GraphCheckReport>;
 }
 
@@ -89,6 +93,24 @@ export const useKnowledgeStore = create<KnowledgeState>((set, get) => ({
     const saved = await window.electronAPI.saveExplanation(input);
     get().addExplanation(saved);
     return saved;
+  },
+  removeNote: async (item) => {
+    await window.electronAPI.deleteExplanation(item.id);
+    set((state) => {
+      const key = objectKey(item.owner);
+      return {
+        explanations: { ...state.explanations, [key]: (state.explanations[key] ?? []).filter((entry) => entry.id !== item.id) },
+        recent: state.recent.filter((entry) => entry.id !== item.id),
+      };
+    });
+  },
+  removeAssistant: async (owner) => {
+    await window.electronAPI.deleteAssistantExplanations(owner);
+    const key = objectKey(owner);
+    set((state) => ({
+      explanations: { ...state.explanations, [key]: (state.explanations[key] ?? []).filter((entry) => entry.createdBy !== 'ai') },
+      recent: state.recent.filter((entry) => !(entry.createdBy === 'ai' && objectKey(entry.owner) === key)),
+    }));
   },
   runCheck: async (projectId = DESKTOP_PROJECT_ID) => {
     set({ checking: true });

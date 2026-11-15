@@ -18,10 +18,28 @@ export function isStale(explanation: Pick<Explanation, 'revisionId'>, currentRev
   return explanation.revisionId !== currentRevisionId;
 }
 
-/** Explanations by aspect in ASPECTS order, newest first inside each aspect. Aspects with none are left out. */
+/**
+ * How far an explanation can be trusted, lowest first: the app's built-in knowledge, then the person's own notes,
+ * then what the app read itself, then the internet, and the assistant's words last (P0 of the assistant review).
+ */
+export function trustRank(item: Pick<Explanation, 'createdBy' | 'provenance'>): number {
+  if (item.createdBy === 'seed') return 0;
+  if (item.createdBy === 'user') return 1;
+  if (item.createdBy === 'ai') return 4;
+  if (item.provenance === 'fact') return 2;
+  return 3;
+}
+
+/** Where an explanation holds: this graph, this project, or every project (built-in and the person's notes). */
+export function explanationScope(item: Pick<Explanation, 'projectId' | 'revisionId'>): 'graph' | 'project' | 'global' {
+  if (item.revisionId) return 'graph';
+  return item.projectId ? 'project' : 'global';
+}
+
+/** Explanations by aspect in ASPECTS order: the most trusted first, newest first among equals. */
 export function groupByAspect(list: readonly Explanation[]): Array<{ aspect: ExplanationAspect; items: Explanation[] }> {
   return ASPECTS.flatMap((aspect) => {
-    const items = list.filter((item) => item.aspect === aspect).sort((a, b) => b.createdAt - a.createdAt);
+    const items = list.filter((item) => item.aspect === aspect).sort((a, b) => trustRank(a) - trustRank(b) || b.createdAt - a.createdAt);
     return items.length > 0 ? [{ aspect, items }] : [];
   });
 }

@@ -202,7 +202,7 @@ describe('chat service turn context and routing', () => {
     await service.loadHistory();
     await service.loadHistory();
     expect(api.loadChatHistory).toHaveBeenCalledTimes(1);
-    expect(api.loadChatHistory).toHaveBeenCalledWith(DESKTOP_PROJECT_ID);
+    expect(api.loadChatHistory).toHaveBeenCalledWith(DESKTOP_PROJECT_ID, expect.anything()); // the newest page; older ones load on scroll
     const [message] = useChatStore.getState().messages;
     expect(message).toMatchObject({ id: 'old-1', content: 'Earlier', graphRevisionId: 'rev-0' });
     expect(message.toolCalls?.[0]).toMatchObject({ toolName: 'proposeNode', proposalId: 'prop-1', kind: 'proposal' });
