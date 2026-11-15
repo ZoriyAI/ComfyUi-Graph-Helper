@@ -1,3 +1,10 @@
+/**
+ * The local copy of what the connected ComfyUI has: node classes, model files and node packs, in SQLite.
+ * Written by the catalog sync (mcp/sync.ts, comfy/direct.ts) and by object_info imports; read by the graph
+ * commands (commands/commit.ts), the knowledge checks (knowledge/*), the agent turn and the open/export IPC.
+ * Multi-row writes run in an immediate transaction so a reader never sees half a listing, and catalog rows are
+ * cleared when the source (server and installation) changes, so facts of two ComfyUI installs never mix.
+ */
 import type Database from 'better-sqlite3';
 import { createHash } from 'node:crypto';
 import { normalServerFolder, pathStyle } from '../../shared/mcp/serverPaths';
@@ -13,6 +20,10 @@ export function catalogSourceKey(parts: readonly string[], installationId: strin
   return createHash('sha256').update(JSON.stringify([parts, installationId])).digest('hex');
 }
 
+/**
+ * An MCP address without its #fragment, so two spellings of one endpoint compare equal.
+ * Used by the MCP client and the preview cache (knowledge/preview.ts) to tell whether a cache belongs to this server.
+ */
 export function normalizedMcpEndpoint(value: string): string {
   const url = new URL(value);
   url.hash = '';
@@ -44,11 +55,16 @@ export function bumpCatalogRevision(db: Database.Database): void {
   db.prepare("INSERT INTO sync_state (key, value) VALUES ('catalog_revision', '1') ON CONFLICT(key) DO UPDATE SET value = CAST(COALESCE(CAST(value AS INTEGER), 0) + 1 AS TEXT)").run();
 }
 
+/** A model root folder in a form fit for comparison: Windows paths are case-blind and accept both slashes. */
 function comparableRoot(value: string | null | undefined): string | null {
   const root = normalServerFolder(value);
   return root && pathStyle(root) === 'windows' ? root.replace(/\\/g, '/').toLowerCase() : root;
 }
 
+/**
+ * Core classes stored before any sync, so a fresh install can build a basic text-to-image graph.
+ * They are placeholders without inputs; nodeClassGuard.ts uses the count to tell "never synced" from a real catalog.
+ */
 export const SEEDED_NODE_TYPES = [
   'CheckpointLoaderSimple',
   'CLIPTextEncode',
@@ -58,6 +74,7 @@ export const SEEDED_NODE_TYPES = [
   'LoadImage',
 ] as const;
 
+/** Inserts the seeded core classes when they are missing; existing rows are never touched. */
 export function ensureCatalog(db: Database.Database): void {
   const insert = db.prepare('INSERT OR IGNORE INTO node_catalog (class_type, pack) VALUES (?, ?)');
   const write = db.transaction(() => {
@@ -66,6 +83,7 @@ export function ensureCatalog(db: Database.Database): void {
   write.immediate();
 }
 
+/** The whole catalog (classes with their ports, and model files) as the graph code and the agent see it. */
 export function readCatalog(db: Database.Database): CatalogView {
   const rows = db.prepare(
     'SELECT class_type, pack, python_module, inputs_json, outputs_json, widget_order_json, display_name, category FROM node_catalog ORDER BY class_type',
@@ -159,6 +177,8 @@ export function upsertModelFiles(
     if (options.sourceKey) acceptCatalogSource(db, options.sourceKey);
     for (const file of files) {
       const old = oldIdentity.get(file.directory, file.name) as { size_bytes: number | null; root_path: string | null } | undefined;
+      // A new size or another root folder means another file under the same name: what was read from the old
+      // file (hash, family, notes, web lookup) no longer applies. An unknown size or root proves nothing.
       const oldRoot = comparableRoot(old?.root_path);
       const newRoot = comparableRoot(file.rootPath);
       if (old && ((old.size_bytes != null && file.sizeBytes != null && old.size_bytes !== file.sizeBytes)
@@ -189,6 +209,7 @@ export function inferModelsFromNames(db: Database.Database): number {
   return rows.length;
 }
 
+/** One installed node pack as the server's pack listing reports it. */
 export interface NodePackRow {
   name: string;
   version: string | null;
@@ -285,10 +306,12 @@ export function removeStaleModelFilesIn(db: Database.Database, runStartedAt: num
 const FAMILY_OR_WEB = `base_model = CASE WHEN ? = 'unknown' AND web_family IS NOT NULL THEN web_family ELSE ? END,
   base_model_evidence = CASE WHEN ? = 'unknown' AND web_family IS NOT NULL THEN 'web' ELSE ? END`;
 
+/** The four values FAMILY_OR_WEB binds, in its order. */
 function familyArgs(family: string, evidence: string): string[] {
   return [family, family, family, evidence];
 }
 
+/** What reading one model file (its header and description file) found out about it. */
 export interface ModelEnrichment {
   kind: string;
   baseModel: string;
@@ -307,6 +330,7 @@ export interface ModelEnrichment {
   sidecar?: { notes: ModelNotes; readSig: string | null };
 }
 
+/** Stores one model's enrichment and marks it enriched, so inferModelsFromNames no longer guesses for it. */
 export function writeModelEnrichment(db: Database.Database, directory: string, name: string, value: ModelEnrichment): void {
   const write = db.transaction(() => {
     db.prepare(`
@@ -339,6 +363,7 @@ export function writeModelNotes(db: Database.Database, directory: string, name: 
     .run(JSON.stringify(notes), readSig, sha256, directory, name);
 }
 
+/** Catalog counts shown after a sync and in the diagnostics report. */
 export interface CatalogTotals {
   nodeClasses: number;
   detailedClasses: number;
@@ -417,6 +442,10 @@ export function upsertObjectInfo(
   return { nodes: parsed.nodes.length, models: parsed.models.length, skipped: parsed.skipped };
 }
 
+/**
+ * Widget order is stored as a plain array, or as `{ reliable: false }` when object_info could not prove it.
+ * The object form lets readers refuse to map positional widget values instead of mapping them wrong.
+ */
 function serializeWidgetOrder(node: { widgetOrder: string[]; widgetOrderReliable?: boolean }): string {
   if (node.widgetOrderReliable === false) return JSON.stringify({ reliable: false, order: [] });
   return JSON.stringify(node.widgetOrder);
