@@ -1,3 +1,10 @@
+/**
+ * The ComfyUI workflow codec: reads a workflow file (UI format 1 or the older 0.4) into the app's graph snapshot
+ * (canvas nodes and edges, subgraph definitions, groups, and a stored copy of the rest of the file), and writes the
+ * snapshot back as a workflow ComfyUI opens. The rule is lossless round trips: whatever the app does not edit is
+ * written back as the file had it. Main imports, commits and exports with it (main/ipc.ts, main/commands); the
+ * renderer reads its helpers (services/commands/projection.ts, state/graphState.ts, commands/actions.ts).
+ */
 import { slotDefault } from '../catalog/objectInfo';
 import type { CatalogNode, CatalogView } from '../catalog/types';
 import type { ComponentRecord, ProcessMeta } from '../components/model';
@@ -12,9 +19,11 @@ import {
   type SubgraphSlot,
 } from '../graph/subgraphs';
 
+// The two workflow formats of ComfyUI's frontend: `version: 1` with object links, and 0.4 with link arrays.
 export const WORKFLOW_FORMAT_V1 = 1;
 export const WORKFLOW_FORMAT_V04 = 0.4;
 
+/** A workflow format this codec reads and writes. */
 export type WorkflowFormat = typeof WORKFLOW_FORMAT_V1 | typeof WORKFLOW_FORMAT_V04;
 
 /** The id counters of an empty format-1 workflow. */
@@ -30,11 +39,13 @@ export function emptyWorkflow(): Record<string, unknown> {
   return { version: WORKFLOW_FORMAT_V1, state: emptyWorkflowState(), nodes: [], links: [], groups: [], config: {}, extra: {} };
 }
 
+/** The stored copy of a workflow file: its format and everything but the canvas content (see storedRaw). */
 export interface WorkflowDocumentState {
   formatVersion: WorkflowFormat;
   raw: Record<string, unknown>;
 }
 
+/** The graph as one revision stores it: canvas nodes and edges plus the document and the app's own records. */
 export interface GraphSnapshot {
   nodes: Array<Record<string, any>>;
   edges: Array<Record<string, any>>;
@@ -56,6 +67,7 @@ export const APP_OWNED_EXPORT_KEYS = new Set([
   'processMeta',
 ]);
 
+/** A deep copy of `value` without the app-owned keys, so an exported workflow carries none of the app's data. */
 export function omitAppOwned(value: unknown): unknown {
   if (Array.isArray(value)) return value.map((item) => omitAppOwned(item));
   if (!value || typeof value !== 'object') return value;
@@ -69,13 +81,16 @@ export function omitAppOwned(value: unknown): unknown {
 
 export type { CatalogView } from '../catalog/types';
 
+/** Node classes and model files a workflow needs that the catalog does not list. */
 export interface MissingReport {
   missingNodes: string[];
   missingModels: Array<{ directory: string; name: string }>;
 }
 
+/** What a JSON document is: a UI workflow of either format, an API prompt, or something else. */
 export type WorkflowKind = 'ui-v1' | 'ui-v0.4' | 'api-prompt' | 'unknown';
 
+/** Tells the kind of a parsed JSON document without changing it. */
 export function classifyWorkflow(document: unknown): WorkflowKind {
   if (!document || typeof document !== 'object' || Array.isArray(document)) return 'unknown';
   const record = document as Record<string, unknown>;
@@ -87,12 +102,14 @@ export function classifyWorkflow(document: unknown): WorkflowKind {
   return 'unknown';
 }
 
+/** True when every link is an array, as 0.4 writes them; no links at all counts too. */
 function linksLookLikeTuples(links: unknown): boolean {
   if (links == null) return true;
   if (!Array.isArray(links)) return false;
   return links.every((link) => Array.isArray(link));
 }
 
+/** True for an API prompt: an object of nodes, each with class_type and inputs, and no `nodes` or `version`. */
 function isApiPrompt(record: Record<string, unknown>): boolean {
   if (Array.isArray(record.nodes) || 'version' in record) return false;
   const values = Object.values(record);
@@ -104,6 +121,7 @@ function isApiPrompt(record: Record<string, unknown>): boolean {
   });
 }
 
+/** A node position from a file: [x, y], {0: x, 1: y} or {x, y}; anything else is 0,0. */
 function readPos(pos: unknown): { x: number; y: number } {
   if (Array.isArray(pos)) return { x: numberOrZero(pos[0]), y: numberOrZero(pos[1]) };
   if (pos && typeof pos === 'object') {
@@ -118,6 +136,7 @@ function numberOrZero(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
 
+/** The new position in the same shape the file used, so an export changes nothing else. */
 function writePos(original: unknown, position: { x: number; y: number }): unknown {
   if (Array.isArray(original)) {
     const copy = original.slice();
@@ -176,6 +195,7 @@ interface NormalLink {
   raw: unknown;
 }
 
+/** A link of either format in one shape, with the original kept in `raw`. */
 function readLink(link: unknown): NormalLink | null {
   if (Array.isArray(link) && link.length >= 6) {
     return {
@@ -204,6 +224,7 @@ function readLink(link: unknown): NormalLink | null {
   return null;
 }
 
+/** A file node as a canvas node; the whole native record stays in `data.comfy` for a lossless export. */
 function projectNode(item: unknown): Record<string, any> {
   const source = item && typeof item === 'object' ? (item as Record<string, unknown>) : {};
   const inputs = portsFrom(source.inputs, 'in');
@@ -238,6 +259,7 @@ function markImportedLinks(nodes: Array<Record<string, any>>, edges: Array<Recor
   for (const node of nodes) node.data = { ...node.data, importedLinks: touching.get(String(node.id)) ?? [] };
 }
 
+/** The file's link id an edge stands for, or null for an edge the app made. */
 function linkIdOf(edge: Record<string, any>): string | null {
   const stored = edge.data?.comfyLink;
   if (Array.isArray(stored) && stored[0] != null) return String(stored[0]);
@@ -262,6 +284,7 @@ function projectLinks(links: unknown): Array<Record<string, any>> {
   });
 }
 
+/** A UI workflow as a fresh snapshot; an API prompt or an unknown document gives a fixed error sentence. */
 export function projectWorkflow(document: unknown): { snapshot: GraphSnapshot } | { error: string } {
   const kind = classifyWorkflow(document);
   if (kind === 'api-prompt') return { error: 'API prompt is not a canvas workflow.' };
@@ -297,6 +320,7 @@ export function storedRaw(raw: Record<string, unknown>): Record<string, unknown>
   return next;
 }
 
+/** The slot number of a handle ('in-2', 'out-0' or '2'), or null when it is not a number. */
 export function numericSlot(handle: unknown): number | null {
   const text = String(handle ?? '');
   const match = /^(?:in|out)-(.*)$/.exec(text);
@@ -304,6 +328,7 @@ export function numericSlot(handle: unknown): number | null {
   return /^\d+$/.test(body) ? Number(body) : null;
 }
 
+/** The finite numbers among `values`. */
 export function collectNumericIds(values: unknown[]): number[] {
   return values.filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
 }
@@ -315,6 +340,7 @@ function counterValue(stored: unknown): number {
   return 0;
 }
 
+/** A counter that never goes down: the stored value or the highest id in use, whichever is larger. */
 export function monotonicCounter(stored: unknown, current: number[]): number {
   return current.reduce((max, value) => Math.max(max, value), counterValue(stored));
 }
@@ -326,6 +352,7 @@ function exportedCounter(stored: unknown, current: number[]): unknown {
   return readable && next === counterValue(stored) ? stored : next;
 }
 
+/** The next free link id: above the stored counter and every link id on the canvas and inside definitions. */
 export function nextLinkId(snapshot: GraphSnapshot): number {
   const raw = snapshot.document?.raw;
   const state = raw?.state && typeof raw.state === 'object' ? (raw.state as Record<string, unknown>) : {};
@@ -351,6 +378,7 @@ export function nextLinkId(snapshot: GraphSnapshot): number {
   return monotonicCounter(state.lastLinkId, [counterValue(raw?.last_link_id), ...fromLinks, ...fromEdges]) + 1;
 }
 
+/** The document with its link counter raised to at least `linkId`, in the counter field of its format. */
 export function rememberLinkId(document: WorkflowDocumentState, linkId: number): WorkflowDocumentState {
   const raw = { ...document.raw };
   if (document.formatVersion === WORKFLOW_FORMAT_V1) {
@@ -363,6 +391,7 @@ export function rememberLinkId(document: WorkflowDocumentState, linkId: number):
   return { formatVersion: document.formatVersion, raw };
 }
 
+/** The slot of a handle as the file writes it: a number when it is one, else the text as it is. */
 function slotNumber(handle: unknown): number | string {
   const text = String(handle ?? '');
   const match = /^(?:in|out)-(.*)$/.exec(text);
@@ -370,12 +399,14 @@ function slotNumber(handle: unknown): number | string {
   return /^-?\d+$/.test(body) ? Number(body) : body;
 }
 
+/** A node id written back with the type the file used for it (numbers stay numbers). */
 function coerceId(id: unknown, sample: unknown): string | number {
   // Negative ids are the subgraph boundary nodes (-10 input, -20 output) inside a definition.
   if (typeof sample === 'number' && /^-?\d+$/.test(String(id))) return Number(id);
   return String(id);
 }
 
+/** An edge as a link record of `formatVersion`, starting from the file's own record when it has one. */
 function edgeToLink(edge: Record<string, any>, formatVersion: WorkflowFormat): unknown {
   const stored = edge.data?.comfyLink;
   const originSlot = slotNumber(edge.sourceHandle);
@@ -427,6 +458,7 @@ function edgeToLink(edge: Record<string, any>, formatVersion: WorkflowFormat): u
   };
 }
 
+/** A 0.4 link array as a format-1 link object. */
 function tupleToObject(tuple: unknown[]): Record<string, unknown> {
   return {
     id: tuple[0],
@@ -468,6 +500,7 @@ function sameEnds(a: LinkEndsView, b: LinkEndsView): boolean {
     && String(a.targetSlot) === String(b.targetSlot);
 }
 
+/** Indexes the links to export and marks those the app made or moved (by comparing with the imported ends). */
 function indexLinks(links: unknown[], edges: Array<Record<string, any>>): LinkIndex {
   const byId = new Map<string, LinkEndsView>();
   const byOrigin = new Map<string, unknown[]>();
@@ -547,6 +580,7 @@ function inputLink(
   return here.length > 0 ? here[here.length - 1] : null;
 }
 
+/** Rewrites a node's slot link lists (`link`, `links`) to match the links being exported. */
 function syncSlots(node: Record<string, unknown>, index: LinkIndex, importedLinks?: unknown): void {
   const id = String(node.id);
   const imported = Array.isArray(importedLinks) ? new Set(importedLinks.map((item) => String(item))) : null;
@@ -577,6 +611,7 @@ function syncSlots(node: Record<string, unknown>, index: LinkIndex, importedLink
   }
 }
 
+/** The refusal when field values cannot be placed because the class's widget order is unknown. */
 export const WIDGET_ORDER_UNRELIABLE = 'Catalog widget order is not reliable, so those values are not exported.';
 
 /** A widgets_values slot that has neither a value nor a catalog default; export writes null there. */
@@ -678,6 +713,10 @@ export function exportedWidgets(
 /** Collects unset widgets while exportWorkflow runs; export is synchronous, so one slot is enough. */
 let unsetCollector: UnsetWidget[] | null = null;
 
+/**
+ * One canvas node as a file node: the native record it came from with the app's changes applied (position, title,
+ * field values, slots), or a new record for a node the app made. `lenient` writes what it can instead of refusing.
+ */
 function exportedNode(node: Record<string, any>, catalog?: CatalogView, lenient = false): Record<string, unknown> {
   const hasComfy = node.data?.comfy && typeof node.data.comfy === 'object';
   const source: Record<string, unknown> = hasComfy
@@ -955,6 +994,7 @@ export interface ShownDifferently {
   groupNodes: number;
 }
 
+/** Counts what the canvas shows differently from ComfyUI in a document, subgraph contents included. */
 export function shownDifferently(document: unknown): ShownDifferently {
   const nodes = isPlainRecord(document) && Array.isArray(document.nodes) ? document.nodes.filter(isPlainRecord) : [];
   const inner = documentDefinitionNodes(document);
@@ -965,6 +1005,10 @@ export function shownDifferently(document: unknown): ShownDifferently {
   };
 }
 
+/**
+ * The node classes and the model files (from `models` lists of the file and its nodes) a workflow names that the
+ * catalog does not have. Subgraph definitions, group node contents and editor-only nodes are not counted as missing.
+ */
 export function missingDeps(document: unknown, catalog: CatalogView): MissingReport {
   const record = document && typeof document === 'object' ? (document as Record<string, unknown>) : {};
   const types = new Set<string>();
@@ -1009,6 +1053,7 @@ function workflowNodes(record: Record<string, unknown>): Array<{ type?: unknown;
   return found;
 }
 
+/** Writes one field value into a node's saved widgets_values: by index into an array, by name into an object. */
 export function patchWidgets(comfy: Record<string, unknown>, key: string, value: unknown, widgetIndex?: number): void {
   const widgets = comfy.widgets_values;
   if (Array.isArray(widgets) && widgetIndex !== undefined) {
@@ -1040,7 +1085,9 @@ export function patchWidgets(comfy: Record<string, unknown>, key: string, value:
 // What our tests prove: these shapes survive our own import → edit → export, unknown fields included.
 // ---------------------------------------------------------------------------------------------
 
+// Keys of a definition the snapshot models itself; the stored copy keeps them only as empty placeholders.
 const DEFINITION_HEAVY_KEYS = ['nodes', 'links', 'inputs', 'outputs'] as const;
+// LiteGraph's title bar heights and a group's inner padding, in canvas pixels, for group bounds.
 const NODE_TITLE_HEIGHT = 30;
 const GROUP_TITLE_HEIGHT = 34;
 const GROUP_PADDING = 10;
@@ -1050,10 +1097,12 @@ function isPlainRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
 }
 
+/** A fresh slot uuid, as ComfyUI's frontend makes them. */
 function newSlotId(): string {
   return globalThis.crypto.randomUUID();
 }
 
+/** The boundary slots of a definition, with the fields the app does not model kept in `raw`. */
 function slotsFrom(value: unknown, kind: 'input' | 'output'): SubgraphSlot[] {
   if (!Array.isArray(value)) return [];
   return value.map((item, index) => {
@@ -1070,6 +1119,7 @@ function slotsFrom(value: unknown, kind: 'input' | 'output'): SubgraphSlot[] {
   });
 }
 
+/** One file definition as a modelled SubgraphDefinition, its inner graph projected like the root canvas. */
 function liftDefinition(item: Record<string, unknown>, nestedIn: string | null): SubgraphDefinition {
   const raw: Record<string, unknown> = { ...item };
   // Heavy keys become empty placeholders: their presence still tells export to write them.
@@ -1171,6 +1221,7 @@ function liftGroups(value: unknown, nodes: Array<Record<string, any>>): GroupRec
   });
 }
 
+/** A node's saved size, or a default when the file has none. */
 function nodeSize(node: Record<string, any>): [number, number] {
   const size = node.data?.comfy?.size;
   if (Array.isArray(size) && typeof size[0] === 'number' && typeof size[1] === 'number') return [size[0], size[1]];
@@ -1213,6 +1264,7 @@ function exportGroup(group: GroupRecord, nodes: Array<Record<string, any>>): Rec
   return out;
 }
 
+/** Ids of the inner links that start at a boundary input slot or end at a boundary output slot. */
 function boundaryLinkIds(links: unknown[], side: 'input' | 'output', slot: number): Array<number | string> {
   return links.flatMap((link) => {
     const normal = readLink(link);
@@ -1241,6 +1293,7 @@ function exportSlots(
   });
 }
 
+/** One definition as the file writes it; an opaque one goes back exactly as it was read. */
 function exportDefinition(
   definition: SubgraphDefinition,
   all: SubgraphDefinition[],
@@ -1286,6 +1339,7 @@ function rootDefinitions(subgraphs: SubgraphDefinition[]): SubgraphDefinition[] 
   return subgraphs.filter((item) => item.nestedIn === null || !parents.has(item.nestedIn));
 }
 
+/** Writes the definitions (nested in their parents) and the root groups into the exported document. */
 function writeSubgraphsAndGroups(
   target: Record<string, unknown>,
   raw: Record<string, unknown>,
@@ -1337,6 +1391,7 @@ export function nextNodeId(snapshot: GraphSnapshot): number {
   return monotonicCounter(state.lastNodeId, [counterValue(raw?.last_node_id), ...ids]) + 1;
 }
 
+/** The document with its node counter raised to at least `nodeId`, in the counter field of its format. */
 export function rememberNodeId(document: WorkflowDocumentState, nodeId: number): WorkflowDocumentState {
   const raw = { ...document.raw };
   if (document.formatVersion === WORKFLOW_FORMAT_V1) {

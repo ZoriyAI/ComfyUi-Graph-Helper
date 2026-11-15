@@ -4,23 +4,30 @@
  * The biggest of 1335 real workflows looked at has 603 nodes and 1187 links, so the limit leaves real files well
  * inside it. Measured on a loaded 4-core machine, the canvas took 17 s to draw 1000 nodes and almost two minutes
  * for 3000. Nodes and links inside subgraph definitions count too.
+ * Checked when a graph is committed (main/commands/commit.ts) and at start (main/ipc/startIpc.ts).
  */
+
+/** Most nodes a graph may have, subgraph contents included. */
 export const GRAPH_NODE_LIMIT = 1500;
+/** Most links a graph may have, subgraph contents included. */
 export const GRAPH_LINK_LIMIT = 3000;
 
 /** The fixed sentence main sends back for a graph over the limit; the window translates it (i18n translatePattern). */
 export const GRAPH_TOO_LARGE = /^The graph is too large to open: (\d+) nodes, (\d+) links\.$/;
 
+/** The refusal sentence for a graph of this size; GRAPH_TOO_LARGE reads it back. */
 export function graphTooLargeError(nodes: number, links: number): string {
   return `The graph is too large to open: ${nodes} nodes, ${links} links.`;
 }
 
+/** The fields of a snapshot that are counted. */
 interface Countable {
   nodes?: unknown;
   edges?: unknown;
   subgraphs?: unknown;
 }
 
+/** The length of an array, 0 for anything else. */
 function length(value: unknown): number {
   return Array.isArray(value) ? value.length : 0;
 }
