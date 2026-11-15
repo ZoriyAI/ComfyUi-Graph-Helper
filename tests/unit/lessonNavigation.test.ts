@@ -13,7 +13,7 @@ describe('lesson navigation', () => {
   it('groups every lesson once, keeping registry order within each group', () => {
     const groups = lessonGroups();
     expect(groups.map(({ id, lessons }) => [id, lessons.length])).toEqual([
-      ['environment', 1], ['foundations', 3], ['basics', 4], ['video', 14], ['wrapper', 10], ['images-models', 10], ['video-anchor', 4], ['packs-tools', 8], ['image-techniques', 12],
+      ['environment', 2], ['foundations', 3], ['basics', 4], ['video', 14], ['wrapper', 10], ['images-models', 10], ['video-anchor', 4], ['packs-tools', 8], ['image-techniques', 12],
       ['sound-speech', 5], ['3d', 1], ['faces-characters', 5], ['experiments', 3], ['diagnostics', 3], ['adult', 3],
     ]);
     const all = groups.flatMap((group) => group.lessons);

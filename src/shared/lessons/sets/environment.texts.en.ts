@@ -123,4 +123,141 @@ export const ENVIRONMENT_EN: Record<string, LessonWords> = {
       },
     },
   },
+  'first-run': {
+    title: 'Install and a first run without errors',
+    result: 'A working install proven by a first picture, and an environment card: system, graphics card, version, way of install and folders.',
+    roles: { save: 'saver of the first picture', card: 'environment card' },
+    meta: {
+      skill: 'Install ComfyUI so that it is proven to work: read its start log, run a first picture, and write an environment card someone else could repeat.',
+      requires: ['Your choice from the lesson “Desktop, Portable, a manual install or Cloud”.', 'About 10 GB of free disk for ComfyUI and a first model.'],
+      mistakes: [
+        {
+          sign: 'The page of ComfyUI opens, but the list of checkpoints is empty and the template asks for a model.',
+          fix: 'A fresh ComfyUI has no models. Use “Download” in the list of missing models, or put the file into models/checkpoints yourself, then press R in ComfyUI and “Sync now” here.',
+        },
+        {
+          sign: 'The start log shows red lines, or the window closes at once.',
+          fix: 'Read the last lines: they name the cause (Python, a missing package, the graphics card). Compare with the official install page of your way; do not run random commands from forums.',
+        },
+        {
+          sign: 'The app cannot find ComfyUI.',
+          fix: 'Open the address ComfyUI printed (“To see the GUI go to: …”) in the browser first. Desktop answers at port 8000, the others at 8188. Then in the app: Settings ▸ Connection ▸ Find on this computer.',
+        },
+        {
+          sign: 'The card says “latest” instead of a version number.',
+          fix: 'Copy the version from the line “ComfyUI version:” of the start log. “Latest” changes every week; a number lets you go back.',
+        },
+      ],
+      provenance: 'The steps follow the official install pages and the first generation tutorial at docs.comfy.org, and ComfyUI\'s own start log (ComfyUI 0.45.0), as of 2026-11-15. The model is yours to download from its official page; mind its license.',
+      notChecked: `${NOT_CHANGED} It checks that it read your ComfyUI, that models/checkpoints lists a file, that the last workflow it opened came from a picture, that every node of it is installed, and that the card is written. It does not run anything: the install, the run and the log are your own word.`,
+    },
+    steps: {
+      intro: {
+        title: 'Working means a picture, not a window',
+        body: 'A window that opens proves little. An install works when it starts without errors, makes a picture, and you know what it is: which version, on which graphics card, where its folders are.\n\nIn this lesson you install ComfyUI the way you chose, read its start log, run a first picture, open that picture here, and write an environment card. The help pages “ComfyUI and where to get it” and “The first hour” in this app\'s guide go along with it.',
+      },
+      install: {
+        title: 'Install and start',
+        body: 'Follow the official instructions for your way (docs.comfy.org, Installation; the download page is comfy.org/download):\n\n- Desktop: run the installer and follow its steps.\n- Portable: unpack the folder and start `run_nvidia_gpu.bat` (or the processor variant).\n- Manual: Git, a Python virtual environment, `pip install -r requirements.txt`, then `python main.py`.\n\nKeep the console window open: closing it stops ComfyUI.',
+        items: {
+          official: { label: 'I installed by the official instructions of my way, not by a video or a forum post.' },
+          started: { label: 'ComfyUI started, and its page opened in the browser or in the Desktop window.', how: 'The start log prints “To see the GUI go to:” and the address.' },
+          log: { label: 'I found in the start log the lines “ComfyUI version:”, “Device:” and “Total VRAM”.', how: 'Desktop shows the log in its own window (look for logs in its menu); Portable and manual print it in the console.' },
+        },
+      },
+      connect: {
+        title: 'Connect the app',
+        body: 'In this app open Settings ▸ Connection, press “Find on this computer” (it looks at ports 8188 and 8000) or type the address ComfyUI printed, save, and press “Read ComfyUI”.\n\nThe app checks that it read your ComfyUI.',
+      },
+      model: {
+        title: 'A first model',
+        body: 'A fresh ComfyUI has no models. The official first generation tutorial uses `v1-5-pruned-emaonly-fp16.safetensors`, a small picture model, in `models/checkpoints`.\n\nWhen a workflow needs a file you do not have, ComfyUI lists it under missing models in its right panel, often with a “Download” button. Desktop puts the file into the right folder; in Portable and manual installs the browser downloads it and you move it into `models/checkpoints` yourself. Then press R in ComfyUI, so it reads the folders again.\n\nPrefer `.safetensors` files from the model\'s official page: older formats can run code.',
+      },
+      run: {
+        title: 'Run a first picture',
+        body: 'In ComfyUI open a simple picture template from its template browser, or the workflow of the official first generation tutorial. Then:\n\n- get the model it asks for;\n- press Run (Ctrl+Enter);\n- wait for the picture on Save Image.\n\nThe app sees the model file after “Sync now”. The run is your own word.',
+        items: {
+          template: { label: 'I opened a simple picture template or the tutorial workflow in ComfyUI.' },
+          file: { label: 'A model file is in models/checkpoints.', how: 'The app sees it in the list of models after “Sync ▸ Sync now”.' },
+          ran: { label: 'I pressed Run, and the picture appeared on Save Image.', how: 'The log prints “Prompt executed in … seconds”.' },
+          saved: { label: 'The picture is in the output folder.', how: 'A file such as ComfyUI_00001_.png in ComfyUI/output, or under “Assets”, tab “Generated”.' },
+        },
+      },
+      picture: {
+        title: 'Open the picture here',
+        body: 'ComfyUI writes the workflow into every picture it saves. In this app choose “File ▸ Open workflow…” and pick the picture from the output folder. The graph that made it appears on the canvas.\n\nThe app checks that the last file it opened was a picture with a workflow.',
+      },
+      graph: {
+        title: 'The graph that made it',
+        body: 'Look at the graph from your picture. It ends in {save}: the node that wrote the file and put the workflow inside it.\n\nIf you closed the picture, open it again.',
+      },
+      complete: {
+        title: 'Every node is in your ComfyUI',
+        body: 'The app checks that every node of this graph is installed in the ComfyUI it read. For a first template that is ComfyUI\'s own nodes.',
+      },
+      card: {
+        title: 'The environment card',
+        body: 'Add a {card} node beside the graph and write in its `value`:\n\n- the operating system;\n- the graphics card and its memory (the “Device:” and “Total VRAM” lines);\n- the ComfyUI version (the “ComfyUI version:” line) and the way of install;\n- where ComfyUI and its models folder are.\n\nWrite folders without your user name if you will share the workflow. No keys, no passwords. The text node changes nothing in the run: a node that leads to no output is skipped.',
+      },
+      keep: {
+        title: 'Keep the known good pair',
+        body: `${SAVE}\n\nThis workflow and its picture are your known good pair: after an update, the same workflow must give the same picture.`,
+        items: {
+          export: { label: 'I saved the workflow with the card under a clear name, such as control-first-picture.' },
+          picture: { label: 'I kept the first picture next to it.' },
+        },
+      },
+      assess: {
+        title: 'Is the install proven?',
+        body: 'Answer for yourself. The app does not see the log or the picture.',
+        criteria: {
+          log: {
+            title: 'The start log.',
+            levels: { errors: 'Red errors', warnings: 'Only warnings', clean: 'Clean' },
+            tryNext: 'Read each red line from the bottom up. A line about a pack is for the lesson on packs; a line about Python or the graphics card goes back to the install page.',
+          },
+          card: {
+            title: 'The card has the system, the graphics card, the version, the way and the folders.',
+            levels: { no: 'No', partly: 'Partly', yes: 'Yes' },
+            tryNext: 'Take the missing line from the start log; it prints the version, the device and the memory.',
+          },
+          again: {
+            title: 'I can start ComfyUI again by myself, without these notes.',
+            levels: { no: 'No', yes: 'Yes' },
+            tryNext: 'Close ComfyUI, start it once more the same way, and write the one line you needed onto the card.',
+          },
+        },
+      },
+      recall: {
+        title: 'Check yourself',
+        body: 'Three short questions. A wrong answer costs nothing.',
+        questions: {
+          proof: {
+            text: 'What proves that the install works?',
+            choices: { window: 'The window opened', picture: 'A picture was made and saved', log: 'The install ended without a message' },
+            explain: 'Only a run proves the whole chain: Python, the graphics card, the model, the nodes and the output folder.',
+          },
+          version: {
+            text: 'Where do you read the exact ComfyUI version?',
+            choices: { log: 'In the start log, the line “ComfyUI version:”', folder: 'In the name of the folder', app: 'This app shows it' },
+            explain: 'ComfyUI prints its version at every start. This app does not keep it, so the lesson asks you to write it down.',
+          },
+          empty: {
+            text: 'The list in Load Checkpoint is empty. What does it mean?',
+            choices: { broken: 'ComfyUI is broken', 'no-file': 'There is no file in models/checkpoints yet', reinstall: 'You must reinstall' },
+            explain: 'A loader lists only its own folder. Put a file there and press R.',
+          },
+        },
+      },
+      transfer: {
+        title: 'On your own: a cold start',
+        body: 'Tomorrow, or after a restart of the computer, do it without the lesson.',
+        items: {
+          cold: { label: 'I started ComfyUI from a switched off computer, without these steps.' },
+          compare: { label: 'I compared the start log with my card: the version, the device and the memory.' },
+          note: { label: 'I wrote down what differed and why, or that nothing did.' },
+        },
+      },
+    },
+  },
 };

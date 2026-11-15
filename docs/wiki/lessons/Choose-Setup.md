@@ -49,4 +49,5 @@ its own page.
 ## See also
 - [ComfyUI and where to get it](../start/ComfyUI.md)
 - [The first hour](../start/First-Hour.md)
+- [Install and a first run without errors](First-Run.md)
 - [How lessons work](How-Lessons-Work.md)

@@ -49,4 +49,5 @@ docs.comfy.org: Installation, System requirements, Comfy Cloud; README ComfyUI. 
 ## См. также
 - [ComfyUI и где его взять](../start/ComfyUI.ru.md)
 - [Первый час](../start/First-Hour.ru.md)
+- [Установка и первый запуск без ошибок](First-Run.ru.md)
 - [Как работают уроки](How-Lessons-Work.ru.md)

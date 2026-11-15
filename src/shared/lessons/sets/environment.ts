@@ -69,6 +69,7 @@ export const ENVIRONMENT_GROUP: LessonGroup = { id: 'environment', title: { en: 
 const CHECKED_ON = '2026-11-15';
 /** What the lessons were checked against. */
 const COMFY = 'ComfyUI 0.45.0 (master on 2026-11-15) and the official documentation at docs.comfy.org on that date';
+const DESKTOP = 'Comfy Desktop as docs.comfy.org describes it on 2026-11-15 (Manage panel: Update and Snapshots tabs)';
 
 /** The text node that keeps a card (a choice, the environment, a pack) inside a workflow. */
 const TEXT_NODE = 'PrimitiveStringMultiline';
@@ -111,10 +112,59 @@ const chooseSetup: Lesson = {
   ],
 };
 
+/**
+ * N02: an install proven by a first picture, not a window that opened: the start log read, the app connected, a
+ * template run, the picture opened here, and an environment card kept beside the graph that made it.
+ */
+const firstRun: Lesson = {
+  id: 'first-run',
+  standard: 2,
+  outcomes: ['structure', 'run', 'result'],
+  meta: { prerequisites: ['choose-setup'], versions: [COMFY, DESKTOP], checkedOn: CHECKED_ON },
+  steps: [
+    { id: 'intro', read: true },
+    { id: 'install', checklist: [{ id: 'official' }, { id: 'started' }, { id: 'log' }] },
+    { id: 'connect', readCheck: [{ kind: 'comfy-read' }] },
+    { id: 'model', read: true },
+    {
+      id: 'run',
+      checklist: [
+        { id: 'template' },
+        { id: 'file', check: { kind: 'model-file', folder: 'checkpoints' } },
+        { id: 'ran', run: true },
+        { id: 'saved', run: true },
+      ],
+    },
+    { id: 'picture', readCheck: [{ kind: 'workflow-from', from: 'picture' }] },
+    { id: 'graph', roles: [node('save', 'SaveImage')] },
+    { id: 'complete', readCheck: [{ kind: 'workflow-complete' }] },
+    { id: 'card', roles: [node('card', TEXT_NODE)], fields: [{ role: 'card', field: 'value', test: card(60, 10) }] },
+    { id: 'keep', checklist: [{ id: 'export' }, { id: 'picture' }] },
+    {
+      id: 'assess',
+      rubric: [
+        { id: 'log', levels: ['errors', 'warnings', 'clean'] },
+        { id: 'card', levels: ['no', 'partly', 'yes'] },
+        { id: 'again', levels: ['no', 'yes'], pass: 'yes' },
+      ],
+    },
+    {
+      id: 'recall',
+      quiz: [
+        { id: 'proof', choices: ['window', 'picture', 'log'], answer: 'picture' },
+        { id: 'version', choices: ['log', 'folder', 'app'], answer: 'log' },
+        { id: 'empty', choices: ['broken', 'no-file', 'reinstall'], answer: 'no-file' },
+      ],
+    },
+    { id: 'transfer', transfer: true, checklist: [{ id: 'cold' }, { id: 'compare' }, { id: 'note' }] },
+  ],
+};
+
 /** The lessons of the group, in the order a person meets them. */
-export const ENVIRONMENT_LESSONS: Lesson[] = [chooseSetup];
+export const ENVIRONMENT_LESSONS: Lesson[] = [chooseSetup, firstRun];
 
 /** The group of each lesson and the lessons it goes on from. */
 export const ENVIRONMENT_PATH: Record<string, { group: LessonGroup; follows: string[] }> = {
   'choose-setup': { group: ENVIRONMENT_GROUP, follows: [] },
+  'first-run': { group: ENVIRONMENT_GROUP, follows: ['choose-setup'] },
 };
