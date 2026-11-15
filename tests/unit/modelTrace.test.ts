@@ -1,3 +1,10 @@
+/**
+ * The model conversation log on disk (src/main/trace/modelTrace, written during each assistant turn and read by
+ * the log window): what one turn records, the request and response bodies without headers or queries, errors,
+ * size caps, the folder cap, export of chosen turns, owner-only files, and the short pasteable report.
+ * Why: the person can look at or send what the assistant really did, while their API key, cookies and server
+ * credentials never land in the file.
+ */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -13,6 +20,7 @@ const redact = (text: string) => text.split(KEY).join('[redacted]');
 let dir = '';
 let clock = 1_700_000_000_000;
 
+/** Points the log at a fresh temporary folder with the fixture key redacted and a controllable clock. */
 function setup(overrides: Partial<Parameters<typeof configureModelTrace>[0]> = {}, enabled = true): void {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), 'model-trace-'));
   configureModelTrace({ dir, redact, enabled: () => enabled, now: () => clock, ...overrides });
@@ -27,6 +35,7 @@ afterEach(() => {
   if (dir) fs.rmSync(dir, { recursive: true, force: true });
 });
 
+/** Turn metadata; the base URL carries credentials and a query that must not reach the log. */
 const META = { provider: 'local', model: 'example-model:9b', baseUrl: 'http://user:pw@127.0.0.1:21434/v1?x=1', intent: 'build', language: 'ru', maxSteps: 60, app: '0.3.0', platform: 'linux' };
 
 describe('the model conversation log', () => {

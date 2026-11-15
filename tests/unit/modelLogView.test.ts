@@ -1,3 +1,10 @@
+/**
+ * How the conversation log window shows the assistant's turns (src/renderer/components/log/modelLogView):
+ * ending labels and tones, words in both languages, Russian plural forms, durations, sizes, "today" and
+ * "yesterday", and the quick selections for saving turns.
+ * Why: the person reads this log to see what the assistant did and to send a turn for help; an unknown ending
+ * must never look like a success.
+ */
 import { describe, expect, it } from 'vitest';
 import {
   durationParts, formatLogBytes, formatTurnTime, intentLabelKey, logErrorKey, outcomeView, pickTurns, providerLabelKey,
@@ -5,6 +12,7 @@ import {
 import { createTranslator, en, ru } from '../../src/shared/i18n';
 import type { ModelLogTurn } from '../../src/shared/contracts/modelLog';
 
+/** A logged turn started at `startedAt` with the given ending. */
 function turn(id: string, startedAt: number, outcome = 'ok'): ModelLogTurn {
   return {
     id, startedAt, provider: 'local', model: 'qwen3:14b', baseUrl: 'http://127.0.0.1:21434', intent: 'build', outcome,
@@ -12,6 +20,7 @@ function turn(id: string, startedAt: number, outcome = 'ok'): ModelLogTurn {
   };
 }
 
+/** The value at a dotted key path in an i18n catalog, or undefined. */
 function leaf(catalog: unknown, key: string): unknown {
   return key.split('.').reduce<unknown>((current, part) => (current && typeof current === 'object' ? (current as Record<string, unknown>)[part] : undefined), catalog);
 }
@@ -89,6 +98,7 @@ describe('the conversation log as a person reads it', () => {
     ];
     expect(pickTurns(turns, 'last', now)).toEqual(['c']);
     expect(pickTurns(turns, 'today', now)).toEqual(['c', 'b']);
+    // An unfinished turn counts among the failed ones.
     expect(pickTurns(turns, 'errors', now)).toEqual(['c', 'a']);
     expect(pickTurns(turns, 'all', now)).toEqual(['c', 'b', 'a']);
     expect(pickTurns(turns, 'none', now)).toEqual([]);
