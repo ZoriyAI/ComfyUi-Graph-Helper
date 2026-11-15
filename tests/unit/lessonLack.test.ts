@@ -81,4 +81,14 @@ describe('what a lesson says is still to do', () => {
     const [fresh] = lackLines(tr, [{ ...missing[0], value: 0.2, untouched: true }], lesson, context(graph, {}));
     expect(fresh.text).toContain('still holds 0.2, the number a new node starts with. Set 0.5.');
   });
+
+  it('says "value", not "file", when two settings that must differ are the same', () => {
+    const lesson = lessonById('one-factor')!;
+    const graph = picture(false);
+    const differs = { kind: 'field' as const, role: 'samplerC', nodeId: 'ks', field: 'sampler_name', test: { kind: 'differs' as const, role: 'sampler', field: 'sampler_name' }, value: 'euler', absent: false, other: { nodeId: 'lat', value: 'euler' } };
+    const [setting] = lackLines(tr, [differs], lesson, context(graph, {}));
+    expect(setting.text).toBe('The field sampler_name of “KSampler” holds the same value as in “EmptyLatentImage”. This step needs another one.');
+    const [file] = lackLines(tr, [{ ...differs, field: 'ckpt_name', value: 'juggernautXL_v9.safetensors' }], lesson, context(graph, {}));
+    expect(file.text).toContain('has the same file as');
+  });
 });

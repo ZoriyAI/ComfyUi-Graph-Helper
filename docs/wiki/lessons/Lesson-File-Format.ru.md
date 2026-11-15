@@ -94,6 +94,94 @@
 | `aspect` | пропорции другой ноды |
 | `has-trigger` | слова-триггеры LoRA, выбранной в названных полях |
 
+## Версия 2: шаги, на которые отвечает человек, исходы и шаблон
+Версия 2 формата добавляет то, что может быть в уроке версии 1.1 приложения. Файл, в котором ничего из этого нет,
+по-прежнему пишется как версия 1, и его откроет версия 1.0 приложения; это приложение читает обе.
+
+Вместо шага-чтения или шага на холсте шаг может быть одним из этих (никогда двумя сразу):
+- `checklist`: пункты `{ "id", "optional"?, "check"?, "run"? }`. Их слова лежат в
+  `texts.<язык>.steps.<шаг>.items`: `{ "label", "how"? }`. `check` это условие, которое приложение проверяет само (ниже);
+  `run: true` отмечает пункт, который означает, что workflow запущен в ComfyUI.
+- `rubric`: критерии `{ "id", "levels", "pass"? }`, от двух до четырёх уровней от низкого к высокому; `pass` это самый
+  низкий уровень, с которым можно идти дальше. Слова в `criteria`: `{ "title", "levels": { "<уровень>": "…" },
+  "tryNext"? }`.
+- `quiz`: от одного до пяти вопросов `{ "id", "choices", "answer" }`. Слова в `questions`: `{ "text", "choices": { … },
+  "explain" }`.
+- `readCheck`: от одного до шести условий, которые приложение проверяет по тому, что уже читает, и никогда ничего не
+  запуская: `comfy-read`, `node-class` (`classes`), `model-file` (`folder`, `words`?), `workflow-complete`,
+  `workflow-size` (`min`?, `max`?), `workflow-from` (`from`: `picture` или `api`), `workflow-partner` (`present`).
+- `transfer: true` у шага на холсте или списка дел: задача без готового ответа и без **Сделать за меня**.
+
+Урок может ещё сказать:
+- `outcomes`: какими из `structure`, `run` и `result` он заканчивается. Для `structure` нужен шаг на холсте, для `run`
+  пункт с `run: true`, для `result` рубрика. Без этого у урока только `structure`.
+- `level` (от 0 до 5), `tracks` (`base`, `image`, `video`, `audio-3d`, `lora`, `api`, `nodes`, `projects`) и `priority`
+  (`core`, `pro`, `deep`).
+- `standard`: `2` у урока нового стандарта. У него должны быть `meta` с `versions` и `checkedOn` (ГГГГ-ММ-ДД),
+  вопросы, самостоятельная задача и на каждом языке слова `meta`: `skill`, `requires` (или `meta.prerequisites`), не
+  меньше трёх `mistakes` (`sign` и `fix`), `provenance` и `notChecked`.
+- `meta`: `prerequisites` (id уроков), `versions` (текст) и `checkedOn`.
+
+Небольшой полный пример (этот самый файл открывается в приложении):
+
+```json
+{
+  "format": "nodewise-studio/lessons",
+  "version": 2,
+  "lessons": [
+    {
+      "id": "first-run-check",
+      "outcomes": ["run", "result"],
+      "level": 1,
+      "tracks": ["base"],
+      "texts": {
+        "en": {
+          "title": "Did my first picture work?",
+          "result": "A first run in ComfyUI, checked and assessed.",
+          "steps": {
+            "intro": { "title": "What this is", "body": "You run the first picture in ComfyUI and look at it." },
+            "run": {
+              "title": "Run it",
+              "body": "Open the workflow in ComfyUI and press Run.",
+              "items": {
+                "read": { "label": "The app has read my ComfyUI." },
+                "ran": { "label": "I ran it, and a picture appeared.", "how": "A new file in the output folder." }
+              }
+            },
+            "look": {
+              "title": "Look at it",
+              "body": "The app does not see the picture: this is your own assessment.",
+              "criteria": {
+                "subject": { "title": "The subject matches the prompt.", "levels": { "no": "No", "partly": "Partly", "yes": "Yes" }, "tryNext": "Put the subject first in the prompt." }
+              }
+            },
+            "recall": {
+              "title": "Check yourself",
+              "body": "One question.",
+              "questions": {
+                "seed": { "text": "What gives the same picture again?", "choices": { "seed": "The same seed and settings", "luck": "Luck" }, "explain": "The seed decides the noise a picture starts from." }
+              }
+            },
+            "own": {
+              "title": "On your own",
+              "body": "Try it without help.",
+              "items": { "other": { "label": "I made a second picture with another seed and compared the two." } }
+            }
+          }
+        }
+      },
+      "steps": [
+        { "id": "intro", "read": true },
+        { "id": "run", "checklist": [{ "id": "read", "check": { "kind": "comfy-read" } }, { "id": "ran", "run": true }] },
+        { "id": "look", "rubric": [{ "id": "subject", "levels": ["no", "partly", "yes"] }] },
+        { "id": "recall", "quiz": [{ "id": "seed", "choices": ["seed", "luck"], "answer": "seed" }] },
+        { "id": "own", "transfer": true, "checklist": [{ "id": "other" }] }
+      ]
+    }
+  ]
+}
+```
+
 ## Что приложение проверяет, прежде чем сохранить файл
 - Размер (около 2 МБ самое большее), глубину вложенности, что это JSON, `format` и `version`.
 - Каждый текст и список по его пределу; никаких управляющих символов и скрытых знаков направления текста.

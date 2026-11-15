@@ -36,7 +36,7 @@ know? [Glossary](reference/Glossary.md).
 - [The window](interface/README.md): One page per part of the window.
 - [Working with a graph](graph/README.md): Building, checking, saving and running a graph.
 - [The assistant](assistant/README.md): Ask, Build, Learn, choosing who answers and what is sent.
-- [Lessons](lessons/README.md): The 79 built-in lessons, one page each; My lessons and the lesson file format.
+- [Lessons](lessons/README.md): The built-in lessons, one page each; My lessons and the lesson file format.
 - [ComfyUI concepts](concepts/README.md): An encyclopedia of ComfyUI for a newcomer, one idea per page.
 - [Reference](reference/README.md): Formats, settings, shortcuts, messages, words and limits.
 - [Trust](trust/README.md): Privacy, content rules, security, licenses and accessibility.

@@ -3,7 +3,7 @@
 
 # Lessons
 
-Learn mode holds 79 built-in lessons in 12 groups, and after them the group **My lessons** with the lessons you make or import. This chapter has one page per built-in lesson, in the order of the list in the app.
+Learn mode holds the built-in lessons, in groups by topic, and after them the group **My lessons** with the lessons you make or import. This chapter has one page per built-in lesson, in the order of the list in the app.
 
 ## What Learn mode is
 In Learn mode you build real graphs by hand on the canvas while the app leads you step by step: what to do, why, where it is on the canvas. It sees from the canvas when a step is done. No assistant model is needed. Lessons use only the nodes your ComfyUI has, and they never download model files: you bring those to ComfyUI yourself. How it all works: [How lessons work](How-Lessons-Work.md).
@@ -120,6 +120,13 @@ A lesson card may say that the lesson goes on from another one. That is a hint, 
 - [The same face from one photo: IP-Adapter FaceID](Face-From-Photo.md): lesson "face-same-photo". You add IP-Adapter FaceID to the first picture graph so that a photo of a face drives the face of the new picture.
 - [Put a face onto a picture: ReActor](Face-Swap.md): lesson "face-swap". You build a graph that puts a face from one picture onto a person in another picture you already have.
 - [Restore a face in an old picture: ReActor](Face-Restore.md): lesson "face-restore". You build a graph that redraws blurred or damaged faces in a picture with a face restoration model.
+
+### Experiments and quality
+The first lessons of the new standard: a checklist, canvas steps, a check the app makes, a rubric, questions to check
+yourself and a task of your own. The app checks the graph; the run and the assessment are your own word.
+
+- [A controlled experiment: one change at a time](One-Factor.md): lesson "one-factor". Two pictures that differ in one setting only, a repeat that gives the same pictures, and a conclusion you can defend.
+- [A quality rubric and a blind comparison](Blind-Compare.md): lesson "blind-compare". Criteria written before the run, two variants scored without knowing which is which, and a choice with its cost.
 
 ### For adults (18+)
 Closed until the switch **Adult content (18+)** in **Settings ▸ Privacy** is on. Technique in general words for lawful adult (18+) work with consent; see [Content rules](../trust/Content-Rules.md).

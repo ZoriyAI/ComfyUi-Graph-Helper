@@ -61,7 +61,7 @@ export const LESSON_PROGRAMME: Readonly<Record<string, LessonPlace>> = {
   'video-fast': at(3, 'pro', 'video'),
   'two-models': at(3, 'pro', 'video'),
   'video-small': at(3, 'pro', 'video'),
-  'video-memory': at(2, 'pro', 'base', 'video'),
+  'video-memory': at(3, 'pro', 'video'),
   'video-control': at(3, 'deep', 'video'),
   'video-speech': at(3, 'deep', 'video'),
   'video-ltx': at(3, 'deep', 'video'),

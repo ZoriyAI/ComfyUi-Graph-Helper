@@ -198,7 +198,8 @@ function fieldProblems(spec: FieldSpec, known: ReadonlySet<string>, reasons: Rea
  * catalog), starting with the lesson id.
  */
 export function lessonRuleText(lessonId: string, problem: LessonRuleProblem): string {
-  const { step, role, field, value, name, language } = problem;
+  const { step, role, field, value, name } = problem;
+  const language = problem.language === 'ru' ? 'Russian' : problem.language === 'en' ? 'English' : 'any language';
   const text = ((): string => {
     switch (problem.code) {
       case 'bad-id': return 'the id is lower case letters, digits and dashes';
@@ -239,8 +240,8 @@ export function lessonRuleText(lessonId: string, problem: LessonRuleProblem): st
       case 'standard-versions': return 'the versions it was written against and the date it was checked on are missing';
       case 'standard-provenance': return `where the lesson comes from and its license notes are not written in ${language}`;
       case 'standard-not-checked': return `what the app does not check is not written in ${language}`;
-      case 'standard-quiz': return 'a lesson of standard 2 has a quiz';
-      case 'standard-transfer': return 'a lesson of standard 2 has a transfer task';
+      case 'standard-quiz': return 'it has no quiz to check yourself; a lesson of standard 2 has one';
+      case 'standard-transfer': return 'it has no transfer task (a task done without "Do this for me"); a lesson of standard 2 has one';
     }
   })();
   return `${lessonId}: ${text}`;
