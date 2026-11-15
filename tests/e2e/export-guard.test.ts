@@ -1,3 +1,8 @@
+/**
+ * E2E spec for the export guard: when the check has findings (here a checkpoint that is not on disk), Save workflow
+ * for ComfyUI asks first; Cancel writes nothing and Save anyway writes the file. A person should not hand ComfyUI a
+ * graph that will fail without knowing it, but must still be free to save it.
+ */
 import { test, expect, _electron as electron } from '@playwright/test';
 import * as fs from 'fs';
 import * as os from 'os';

@@ -1,3 +1,8 @@
+/**
+ * Launch helper for e2e specs: starts the built app in a throwaway profile and hands back the window.
+ * Used by desktop.test.ts; older specs still call `_electron.launch` themselves with the same rules.
+ * The separate profile exists so a test run never touches the settings, keys or projects of the person running it.
+ */
 import { _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -37,6 +42,7 @@ export function temporaryProfile(prefix = 'nodewise-e2e-'): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), prefix));
 }
 
+/** Removes a profile made by temporaryProfile, unless NODEWISE_KEEP_PROFILES=1 asks to keep it. */
 export function removeProfile(folder: string): void {
   if (process.env.NODEWISE_KEEP_PROFILES === '1') return;
   fs.rmSync(folder, { recursive: true, force: true, maxRetries: 3, retryDelay: 200 });

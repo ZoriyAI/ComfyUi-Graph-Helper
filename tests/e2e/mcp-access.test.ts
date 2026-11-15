@@ -1,3 +1,9 @@
+/**
+ * E2E spec for Settings > Connection > "Access to the server", in Russian (the primary language): each choice opens
+ * only itself, "Test server" asks a fake MCP server on loopback (labelled fixture; it accepts connections without
+ * credentials) and selects "No sign-in", and a save of a new address with nothing chosen asks the server by itself.
+ * A person should not have to know how their server signs in; the app finds out.
+ */
 import { test, expect, _electron as electron } from '@playwright/test';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -5,15 +11,11 @@ import * as path from 'path';
 import { startFakeMcp } from '../fixtures/mcp/fakeMcpServer';
 import { artifact } from './artifacts';
 
-/**
- * Settings ▸ Подключение ▸ «Доступ к серверу», in Russian (the primary language): each choice opens only itself,
- * «Проверить» asks a fake MCP server on loopback (labelled fixture; it accepts connections without credentials)
- * and selects «Без входа», and a save of a new address with nothing chosen asks the server by itself.
- */
 test('access to the server: choose, check, and detect after save', async () => {
   const fake = await startFakeMcp();
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'mcp-access-'));
   const env = { ...process.env, NODE_ENV: 'production' } as Record<string, string>;
+  // No session bus and no keyring daemon, so Electron does not talk to the desktop's keyring during the run.
   delete env.DBUS_SESSION_BUS_ADDRESS;
   delete env.GNOME_KEYRING_CONTROL;
   const app = await electron.launch({
@@ -63,7 +65,7 @@ test('access to the server: choose, check, and detect after save', async () => {
     await expect(access.getByRole('radio', { name: 'Вход через браузер', exact: true })).toBeChecked();
     await expect(access.locator('[data-access-option="oauth"]')).toHaveAttribute('data-expanded', 'true');
 
-    // «Проверить» works before saving, and selects what the server wants.
+    // "Test server" works before saving, and selects what the server wants.
     const check = dialog.getByRole('button', { name: 'Проверить', exact: true });
     await expect(check).toBeDisabled();
     await dialog.getByRole('textbox', { name: 'Адрес MCP-сервера', exact: true }).fill(fake.url);
@@ -80,7 +82,7 @@ test('access to the server: choose, check, and detect after save', async () => {
     await discard.getByRole('button', { name: 'Закрыть без сохранения' }).click();
     await expect(dialog).toHaveCount(0);
 
-    // Only the address, nothing chosen: the save asks the server and stores «Без входа» by itself.
+    // Only the address, nothing chosen: the save asks the server and stores "No sign-in" by itself.
     await window.getByRole('button', { name: 'Настройки', exact: true }).click();
     dialog = window.locator('[role="dialog"].settings-dialog');
     await dialog.getByRole('tab', { name: 'Подключение' }).click();

@@ -1,3 +1,8 @@
+/**
+ * E2E spec for the interface language: Russian is the default of a new profile, English chosen in Preferences persists
+ * through a reopen, and no visible text, label, tooltip or placeholder shows a raw translation key or a phrase of the
+ * other language (checked against the i18n catalog). A person should never meet half-translated screens.
+ */
 import { test, expect, _electron as electron, type Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -5,6 +10,7 @@ import * as path from 'path';
 import { catalogLeaves, en, ru, type Catalog } from '../../src/shared/i18n';
 import { denseWorkflow } from './fixtures/denseWorkflow';
 
+// Texts that are the same in both catalogs on purpose, so seeing them is not a sign of the other language.
 const ALLOWED_COPY = new Set([
   '{{app}}',
   'English',
@@ -26,6 +32,7 @@ function leaf(catalog: Catalog, key: string): string {
   return typeof value === 'string' ? value : '';
 }
 
+/** Phrases of the other language's catalog that differ from this language (placeholders split out, 2+ letters). */
 function foreignPhrases(active: 'en' | 'ru'): string[] {
   const own = active === 'en' ? en : ru;
   const other = active === 'en' ? ru : en;
@@ -43,6 +50,7 @@ function foreignPhrases(active: 'en' | 'ru'): string[] {
   return [...phrases];
 }
 
+/** A one-word phrase must match as a whole word; a longer phrase as a substring. */
 function phraseAppears(haystack: string, phrase: string): boolean {
   if (/^[\p{L}\p{N}]+$/u.test(phrase)) {
     const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -62,6 +70,7 @@ function unexpectedCopy(text: string, language: 'en' | 'ru'): string[] {
   return hits;
 }
 
+/** Every visible text of the page plus aria-label, title, placeholder and aria-description of visible elements. */
 async function collectSurface(window: Page): Promise<string> {
   return window.locator('body').evaluate((root) => {
     const shown = (element: Element) => {

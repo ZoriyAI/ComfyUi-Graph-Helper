@@ -1,3 +1,10 @@
+/**
+ * E2E spec for the model card against the fake MCP server (labelled fixture): a LoRA's card names its family, where
+ * the family was learned from, its trigger words and the person's checkpoints it fits; "Add to canvas" makes the
+ * loader with that file and selects it; a checkpoint's card counts the LoRAs that fit and filters the list. It also
+ * covers what lies next to a file (descriptions, previews), adult content shown only when asked, and an internet
+ * lookup that happens only when the person asks (tests/fixtures/web/fakeModelWeb.ts).
+ */
 import { test, expect, _electron as electron, type Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -7,11 +14,6 @@ import { useEnglish } from './locale';
 import { fakeFileHash, READ_TOOLS, startFakeMcp, WRITE_TOOLS } from '../fixtures/mcp/fakeMcpServer';
 import { CIVITAI_KNOWN, startFakeModelWeb } from '../fixtures/web/fakeModelWeb';
 
-/**
- * The model card against the fake MCP server (labelled fixture): a LoRA's card names its family, where the
- * family was learned from, its trigger words and the person's checkpoints it fits; "Add to canvas" makes the
- * loader with that file and selects it; a checkpoint's card counts the LoRAs that fit and filters the list.
- */
 type Api = {
   getSettings: () => Promise<{ values?: Record<string, unknown> }>;
   saveSettings: (input: unknown) => Promise<{ ok: boolean; error?: string }>;
@@ -48,6 +50,7 @@ test('model card: explains a LoRA and a checkpoint and puts the file on the canv
   const fake = await startFakeMcp();
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'model-card-'));
   const env = { ...process.env, NODE_ENV: 'production' } as Record<string, string>;
+  // No session bus and no keyring daemon, so Electron does not talk to the desktop's keyring during the run.
   delete env.DBUS_SESSION_BUS_ADDRESS;
   delete env.GNOME_KEYRING_CONTROL;
   const app = await electron.launch({ args: [path.join(__dirname, '../../dist/main/index.js'), `--user-data-dir=${userData}`], env });
@@ -162,6 +165,7 @@ test('model card: shows what lies next to a file, and content marked as adult on
   const fake = await startFakeMcp();
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'model-notes-'));
   const env = { ...process.env, NODE_ENV: 'production' } as Record<string, string>;
+  // No session bus and no keyring daemon, so Electron does not talk to the desktop's keyring during the run.
   delete env.DBUS_SESSION_BUS_ADDRESS;
   delete env.GNOME_KEYRING_CONTROL;
   const app = await electron.launch({ args: [path.join(__dirname, '../../dist/main/index.js'), `--user-data-dir=${userData}`], env });
@@ -304,6 +308,7 @@ test('model card: a file nothing describes is looked up on the internet when the
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'model-web-'));
   // A test build reads this to ask the fake of Civitai and Hugging Face; a packaged app never does.
   const env = { ...process.env, NODE_ENV: 'production', NODEWISE_TEST_MODEL_WEB: web.origin } as Record<string, string>;
+  // No session bus and no keyring daemon, so Electron does not talk to the desktop's keyring during the run.
   delete env.DBUS_SESSION_BUS_ADDRESS;
   delete env.GNOME_KEYRING_CONTROL;
   const app = await electron.launch({ args: [path.join(__dirname, '../../dist/main/index.js'), `--user-data-dir=${userData}`], env });

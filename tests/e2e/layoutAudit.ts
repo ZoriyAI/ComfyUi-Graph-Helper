@@ -1,12 +1,13 @@
-import type { Page } from '@playwright/test';
-
 /**
  * Looks at the page the way a person does and reports what sticks out: a button or a text wider than its card,
  * a control cut by the edge of its panel, a dialog or a menu that leaves the window, two controls lying on top
  * of each other, a label squeezed to nothing. It reads the laid-out page (boxes, scroll sizes, what clips what),
  * so it finds what a screenshot shows without anyone having to look at every screenshot.
+ * Used through layoutProfile.ts by layout-walk and other specs, and directly by layout-audit.test.ts.
  */
+import type { Page } from '@playwright/test';
 
+/** What is wrong with an element; each kind is judged by its own rule in auditInPage. */
 export type LayoutIssueKind =
   /** A part (a button, a text) is wider than the box it belongs to and shows outside it. */
   | 'spills'
@@ -29,6 +30,7 @@ export type LayoutIssueKind =
   /** Something that belongs to an object (a note under a node) is not where the object is, or not its size. */
   | 'detached';
 
+/** One finding, with enough words to find the element without a screenshot. */
 export interface LayoutIssue {
   kind: LayoutIssueKind;
   /** A short path to the element: tag and classes of it and two parents. */
@@ -37,6 +39,7 @@ export interface LayoutIssue {
   detail: string;
 }
 
+/** What the audit should skip or judge differently on this page; layoutProfile.ts holds the app's own set. */
 export interface AuditOptions {
   /** Selectors whose subtrees are not judged (a minimap, the lines between nodes). */
   ignore?: string[];
@@ -68,6 +71,7 @@ export interface AuditOptions {
   ownWords?: string[];
 }
 
+// AuditOptions with every field filled, as plain data the page can receive.
 interface PageOptions { ignore: string[]; islands: string[]; units: string[]; overhang: string[]; shortened: boolean; shortenedOk: string[]; root: string; keyRoots: string[]; ownWords: string[] }
 
 /** Runs in the page. Kept free of closures so it can be sent as is. */

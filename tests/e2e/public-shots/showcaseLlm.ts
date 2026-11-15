@@ -1,24 +1,28 @@
-import * as http from 'http';
-
 /**
  * A fake model server for the public screenshots only (never a live model). It speaks the same OpenAI-compatible
  * streaming protocol as tests/fixtures/llm/fakeLlmServer.ts, but answers in the language of the pictures and is
  * driven by the plain questions a person would type, so a screenshot shows a believable conversation instead of
  * test trigger words. Two questions are understood:
  * - a question about what is missing for a picture: three grey drafts (sampler, decoder, save) with a sentence each;
- * - a request to build a picture from text: eight build steps, each with its reason, then a closing sentence.
+ * - a request to build a picture from text: sixteen build steps (seven nodes, nine links), each with its reason,
+ *   then a closing sentence.
  * Anything else gets one short answer. Answers are fixed, so every run of the screenshots is the same.
+ * Used only by public.test.ts.
  */
+import * as http from 'http';
+
+/** The one model the fake lists; public.test.ts saves it as the assistant model. */
 export const SHOWCASE_MODEL = 'fixture-model:7b';
 
 export type ShowcaseLanguage = 'en' | 'ru';
 
-/** The exact questions the screenshot script types; the server recognizes them by a keyword. */
+/** The exact questions the screenshot script types; the server recognizes them by their whole text. */
 export const SHOWCASE_QUESTIONS: Record<ShowcaseLanguage, { drafts: string; build: string }> = {
   en: { drafts: 'What is missing to get a picture from this graph?', build: 'Build a graph that makes a picture from text, step by step.' },
   ru: { drafts: 'Чего не хватает, чтобы этот граф сделал картинку?', build: 'Собери граф, который делает картинку по тексту, по шагам.' },
 };
 
+// Every sentence the fake can say, per language; build steps and draft notes read their `why` and `note` here.
 const WORDS: Record<ShowcaseLanguage, Record<string, string>> = {
   en: {
     sampler: 'Turns noise into a picture, guided by both prompts.',
@@ -80,6 +84,7 @@ export interface ShowcaseLlm {
   close: () => Promise<void>;
 }
 
+/** The text of the last user message; non-text content is turned into JSON so a keyword search still works. */
 function lastUser(messages: Array<{ role: string; content: unknown }>): string {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = messages[index];
@@ -118,6 +123,7 @@ export async function startShowcaseLlm(language: ShowcaseLanguage): Promise<Show
         res.write(chunk({}, 'stop', true));
         res.end('data: [DONE]\n\n');
       };
+      // Only tool results after the last question count: they tell how far the current answer has got.
       const userAt = body.messages.map((message) => message.role).lastIndexOf('user');
       const results = body.messages.slice(userAt).filter((message) => message.role === 'tool').map((message) => {
         try { return JSON.parse(String(message.content)) as Record<string, unknown>; } catch { return {}; }

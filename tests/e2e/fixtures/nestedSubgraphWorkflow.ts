@@ -2,6 +2,8 @@
  * A native UI format 1 workflow with two subgraph definitions in the flat root list, the way
  * ComfyUI_frontend saves nesting: OUTER holds an instance of INNER. Shapes follow the frontend
  * workflow schema (zSubgraphDefinition); they are hand-written, not captured from a live frontend.
+ * Used by unit, integration and e2e tests of subgraph reading, inner edits and saving (for example
+ * group-subgraph-edits, layout-walk and projectFiles), so all of them agree on one nested shape.
  */
 export const OUTER_ID = 'aaaaaaaa-0000-4000-8000-000000000001';
 export const INNER_ID = 'bbbbbbbb-0000-4000-8000-000000000002';

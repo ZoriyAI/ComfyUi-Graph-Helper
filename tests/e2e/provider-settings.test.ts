@@ -1,3 +1,9 @@
+/**
+ * E2E spec for Settings > Assistant: the stored provider, model and base URL are what the next send uses after a
+ * relaunch (checked in the settings row and in the runtime config), and a key pasted for one provider belongs to that
+ * provider only. Otherwise a person would talk to a different model than the one they picked, or send a key to the
+ * wrong company.
+ */
 import { test, expect, _electron as electron } from '@playwright/test';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -5,6 +11,7 @@ import * as path from 'path';
 import type { ElectronApplication, Page } from '@playwright/test';
 import { useEnglish } from './locale';
 
+// A key-shaped value that is not a key; the spec looks for it where it must not be.
 const MARKER = 'sk-fakemarker';
 
 function launch(userData: string) {
@@ -14,6 +21,7 @@ function launch(userData: string) {
   });
 }
 
+/** The saved settings row and the count of stored secrets, read from the profile's database in main. */
 async function settingsRow(app: ElectronApplication, appRoot: string) {
   return app.evaluate(async ({ app: electronApp }, { appRoot: root }) => {
     const nodeModule = process.getBuiltinModule('module');
@@ -35,6 +43,7 @@ async function openSettings(window: Page) {
   return dialog;
 }
 
+/** What main would use for the next send, as the preload bridge reports it. */
 async function runtimeConfig(window: Page) {
   return window.evaluate(async () => {
     const bridge = (window as unknown as {

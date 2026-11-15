@@ -1,12 +1,14 @@
+/**
+ * What the layout audit needs to know about this app: which parts are a canvas a person pans, which stick out on
+ * purpose, and where an ellipsis is the design. Used by the walk over every screen (layout-walk.test.ts) and by
+ * tests that reach a state the walk cannot (a notice from a live model, a paused run): node-card, model-card,
+ * lessons, step-checkpoint and local-context-window.
+ */
 import { expect, type Page } from '@playwright/test';
 import { auditLayout, describeIssues, type AuditOptions, type LayoutIssue } from './layoutAudit';
 import { en } from '../../src/shared/i18n/catalog';
 
-/**
- * What the layout audit needs to know about this app: which parts are a canvas a person pans, which stick out on
- * purpose, and where an ellipsis is the design. Used by the walk over every screen (layout-walk.test.ts) and by
- * tests that reach a state the walk cannot (a notice from a live model, a paused run).
- */
+/** The audit options for the whole app window. */
 export const APP_AUDIT: AuditOptions = {
   ignore: ['.react-flow__minimap', '.react-flow__attribution', '.react-flow__edges', '.react-flow__background', '.react-flow__edgelabel-renderer', '.react-flow__connectionline'],
   islands: ['.react-flow__viewport'],
@@ -147,6 +149,7 @@ export async function attachmentIssues(page: Page): Promise<LayoutIssue[]> {
   });
 }
 
+/** A window size in CSS pixels. */
 export interface Size { width: number; height: number }
 
 /** The smallest window the app allows and the size it opens at. */

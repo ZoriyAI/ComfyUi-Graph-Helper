@@ -1,8 +1,15 @@
+/**
+ * Runtime watch for e2e specs: records every network request, console error or warning, page error and unhandled
+ * rejection in the main process, then fails the spec on anything unexpected. It also checks that the local Geist
+ * font (with its Cyrillic range) really loaded. Used by desktop-captures and workspace-motion.
+ * It protects the promise that the app works offline: nothing may reach a remote host unless the spec allows it.
+ */
 import { expect, type ElectronApplication, type Page } from '@playwright/test';
 
 // The built page and its assets are served from the app's own scheme; nothing else under app: is local.
 const LOCAL_SCHEME = /^(file:|devtools:|data:|blob:|app:\/\/bundle\/)/i;
 
+/** What the page side saw: requested URLs, console errors and warnings, and thrown page errors. */
 export type RuntimeWatch = {
   requests: string[];
   errors: string[];
@@ -10,8 +17,13 @@ export type RuntimeWatch = {
   pageErrors: string[];
 };
 
+// What the main side saw; kept on `global` in main so a second attach does not hook twice.
 type MainWatch = { urls: string[]; failures: string[] };
 
+/**
+ * Starts recording in the page and in main. Main is watched at two levels: session requests (the window's own loads)
+ * and a wrapped global fetch (requests main makes itself, which the session does not see).
+ */
 export async function attachRuntimeWatch(electronApp: ElectronApplication, window: Page): Promise<RuntimeWatch> {
   const watch: RuntimeWatch = { requests: [], errors: [], warnings: [], pageErrors: [] };
   window.on('request', (request) => {
@@ -48,6 +60,7 @@ export async function attachRuntimeWatch(electronApp: ElectronApplication, windo
       failures.push(`uncaughtException ${error.message}`);
     });
   });
+  // Resources loaded before the listeners were attached only show in the performance timeline.
   watch.requests.push(...await resourceUrls(window));
   return watch;
 }
@@ -56,6 +69,10 @@ async function resourceUrls(window: Page): Promise<string[]> {
   return window.evaluate(() => performance.getEntriesByType('resource').map((entry) => entry.name));
 }
 
+/**
+ * Reads which Geist faces the page loaded and whether the face covering Cyrillic is in use. A hidden probe with
+ * Russian text forces the browser to load the Cyrillic range, which it would otherwise load lazily.
+ */
 export async function readLocalFont(window: Page) {
   return window.evaluate(async () => {
     // The menu bar's first menu title: the shell's own text since the app bar became a menu bar.
@@ -97,6 +114,7 @@ export async function readLocalFont(window: Page) {
   });
 }
 
+/** Asserts the font facts from readLocalFont and prints them as FONT_* lines for the run log. */
 export function logLocalFont(font: Awaited<ReturnType<typeof readLocalFont>>) {
   expect(font.missing).toBe(false);
   if (font.missing) return;
@@ -111,6 +129,10 @@ export function logLocalFont(font: Awaited<ReturnType<typeof readLocalFont>>) {
   console.log(`FONT_CYRILLIC geist-cyrillic=${font.cyrillic} range=${font.cyrillicRange}`);
 }
 
+/**
+ * Collects what both sides saw and fails on any remote URL or console message that `allowed` does not list.
+ * Each allowance carries a reason, printed in the run log, so an exception never passes silently.
+ */
 export async function finishRuntime(
   electronApp: ElectronApplication,
   window: Page,

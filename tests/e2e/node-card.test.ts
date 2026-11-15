@@ -1,3 +1,9 @@
+/**
+ * E2E spec for the node card against the fake MCP server (labelled fixture): a click on a node in the library says what
+ * the node is for before it is on the canvas. What it is and why, from the knowledge the app ships; what goes into
+ * it; what each setting takes, with the hint ComfyUI gives for it; what comes out; what its pack says about itself.
+ * A double click still adds the node, and so does the card's button.
+ */
 import { test, expect, _electron as electron, type Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -6,12 +12,6 @@ import { expectSoundLayout } from './layoutProfile';
 import { useEnglish } from './locale';
 import { KJNODES_DESCRIPTION, KJNODES_REPOSITORY, startFakeMcp } from '../fixtures/mcp/fakeMcpServer';
 
-/**
- * The node card against the fake MCP server (labelled fixture): a click on a node in the library says what the
- * node is for before it is on the canvas. What it is and why, from the knowledge the app ships; what goes into
- * it; what each setting takes, with the hint ComfyUI gives for it; what comes out. A double click still adds the
- * node, and so does the card's button.
- */
 type Api = {
   getSettings: () => Promise<{ values?: Record<string, unknown> }>;
   saveSettings: (input: unknown) => Promise<{ ok: boolean; error?: string }>;
@@ -33,6 +33,7 @@ test('node card: says what a node is for before it is on the canvas', async () =
   const fake = await startFakeMcp();
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'node-card-'));
   const env = { ...process.env, NODE_ENV: 'production' } as Record<string, string>;
+  // No session bus, so Electron does not talk to the desktop's keyring during the run.
   delete env.DBUS_SESSION_BUS_ADDRESS;
   delete env.GNOME_KEYRING_CONTROL;
   const app = await electron.launch({ args: [path.join(__dirname, '../../dist/main/index.js'), `--user-data-dir=${userData}`], env });

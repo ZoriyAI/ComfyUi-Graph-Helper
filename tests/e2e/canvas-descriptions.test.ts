@@ -1,3 +1,9 @@
+/**
+ * E2E spec for description blocks on the canvas. Own-notes mode (the default): built-in class knowledge waits behind a
+ * dot and opens on hover or selection; an explanation owned by the node shows as a card at once, with its provenance
+ * badge; the toolbar cycles own > all > off; a card edited in place saves a "user" explanation.
+ * This keeps a busy graph readable while a person's own notes stay in sight.
+ */
 import { test, expect, _electron as electron } from '@playwright/test';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -6,11 +12,6 @@ import { denseWorkflow } from './fixtures/denseWorkflow';
 import { useEnglish } from './locale';
 import { pickOption } from './pickOption';
 
-/**
- * Description blocks on the canvas. Own-notes mode (the default): built-in class knowledge waits behind a dot and
- * opens on hover or selection; an explanation owned by the node shows as a card at once, with its provenance badge;
- * the toolbar cycles own → all → off; a card edited in place saves a "user" explanation.
- */
 test('description cards: dots for class knowledge, hover, node explanation, mode cycle, edit in place', async () => {
   const errors: string[] = [];
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'canvas-descriptions-'));

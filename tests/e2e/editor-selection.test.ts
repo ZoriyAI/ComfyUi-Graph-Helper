@@ -1,3 +1,9 @@
+/**
+ * E2E spec for selection editing on the typed fixture graph (fixtures/typedWorkflow.ts) and the nested subgraph
+ * fixture: duplicate, paste and multi-delete are one undo step each; a subgraph can be made right after New project;
+ * Check > Show and Ask why keep the identity of a node inside a definition even when the root has the same node id.
+ * Otherwise undo would surprise a person, and the check could point at the wrong node.
+ */
 import { test, expect, _electron as electron } from '@playwright/test';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -6,6 +12,7 @@ import type { Page } from '@playwright/test';
 import { useEnglish } from './locale';
 import { typedWorkflow } from './fixtures/typedWorkflow';
 
+/** Starts the built app in a fresh profile, in English, and waits for the assistant panel. */
 async function launch() {
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'editor-selection-'));
   const app = await electron.launch({
@@ -18,6 +25,7 @@ async function launch() {
   return { app, window };
 }
 
+/** Imports typedWorkflow through the command bridge and reloads so the canvas reads it. */
 async function importFixture(window: Page): Promise<void> {
   const current = await window.evaluate(() => (window as unknown as {
     electronAPI: { readProjection: (id: string) => Promise<{ currentRevisionId: string }> };

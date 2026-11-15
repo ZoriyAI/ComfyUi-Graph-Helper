@@ -1,3 +1,9 @@
+/**
+ * E2E spec for the motion policy and the workspace in the built app: the motion setting (stored, applied to the root
+ * element, and its timing in the CSS), dialog enter and exit timing measured frame by frame, focus moving into
+ * and out of dialogs, the keyboard route, the dock range, and captures of the real workspace for the artifact folder.
+ * It ends with the local font and offline checks of runtimeWatch.ts. Motion must help and never get in the way.
+ */
 import { test, expect, _electron as electron } from '@playwright/test';
 import { pickOption } from './pickOption';
 import { useEnglish } from './locale';
@@ -12,6 +18,7 @@ const artifactDir = ARTIFACT_DIR;
 
 type ElectronPage = import('@playwright/test').Page;
 
+/** A computed duration list ("0.2s, 0.2s") split into its parts. */
 function durationParts(raw: string) {
   return raw.split(',').map((part) => part.trim()).filter(Boolean);
 }
@@ -45,6 +52,7 @@ async function shift(page: ElectronPage) {
   return page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--motion-shift').trim());
 }
 
+/** Whether the middle of the window belongs to a dialog: proves a modal is on top for the pointer. */
 async function topHit(page: ElectronPage) {
   return page.evaluate(() => {
     const node = document.elementFromPoint(Math.floor(window.innerWidth / 2), Math.floor(window.innerHeight / 2));
@@ -56,6 +64,7 @@ async function showMotion(page: ElectronPage) {
   await page.getByRole('tab', { name: 'Appearance & Motion' }).click();
 }
 
+/** Starts watching the settings dialog so its transition duration is read the moment it closes. */
 async function armExit(page: ElectronPage) {
   await page.evaluate(() => {
     const root = document.querySelector('.settings-dialog');
@@ -79,6 +88,7 @@ async function readExit(page: ElectronPage) {
   return page.evaluate(() => (window as unknown as { __exitDuration: Promise<string> }).__exitDuration);
 }
 
+/** Samples the settings dialog's animation time on every frame for 1.5 s after it opens. */
 async function armEnter(page: ElectronPage) {
   await page.evaluate(() => {
     (window as unknown as { __enterTimes: Promise<number[]> }).__enterTimes = new Promise((resolve) => {

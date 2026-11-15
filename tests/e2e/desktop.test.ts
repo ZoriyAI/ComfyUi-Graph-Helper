@@ -1,3 +1,8 @@
+/**
+ * Electron desktop smoke test. Launches the full production app with the built renderer (support/app.ts) and checks
+ * that the window loads, then runs one chat exchange over the TEST fixture transport through the real preload bridge.
+ * If this fails, nothing else in the e2e suite is worth reading: the app does not start for anyone.
+ */
 import { test, expect, _electron as electron } from '@playwright/test';
 import { useEnglish } from './locale';
 import * as path from 'path';
@@ -5,11 +10,6 @@ import * as fs from 'fs';
 import * as os from 'os';
 import { artifact } from './artifacts';
 import { temporaryProfile } from './support/app';
-
-/**
- * Electron desktop smoke test
- * Launches full production app with built renderer, verifies UI loads
- */
 
 test('Desktop smoke: app window loads with production renderer', async () => {
   console.log('[SMOKE] Starting Electron app');

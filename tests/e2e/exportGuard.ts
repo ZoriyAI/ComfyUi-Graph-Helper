@@ -1,3 +1,8 @@
+/**
+ * Shared e2e step: save the workflow for ComfyUI and get past the export guard dialog.
+ * Used by first-run-sync, prerelease-journey, workflow-import-export and node-fields. The guard only shows when the
+ * check has findings, so specs that do not care about it call this instead of repeating the branch.
+ */
 import { expect, type Page } from '@playwright/test';
 
 /**

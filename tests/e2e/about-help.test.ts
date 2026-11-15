@@ -1,3 +1,9 @@
+/**
+ * E2E spec for the Help menu in the built app: Help > About (icon, name, version from package.json, licence,
+ * components, copy details, data folder) and the built-in wiki (sections, links between pages, search, What is new,
+ * glossary, troubleshooting) in both languages. A person who is stuck should find help and the facts a bug report
+ * needs without leaving the app or going online.
+ */
 import { test, expect, _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -9,6 +15,7 @@ const RU = createTranslator('ru');
 const EN = createTranslator('en');
 const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'package.json'), 'utf8')) as { version: string };
 
+/** Starts the built app in a fresh temporary profile and records page errors for the end of the spec. */
 async function launch(): Promise<{ app: ElectronApplication; window: Page; userData: string; errors: string[] }> {
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'about-help-'));
   const app = await electron.launch({
@@ -22,6 +29,7 @@ async function launch(): Promise<{ app: ElectronApplication; window: Page; userD
   return { app, window, userData, errors };
 }
 
+/** Opens a menu of the menu bar by name and clicks an item in it. */
 async function helpItem(window: Page, menu: string, item: string): Promise<void> {
   await window.locator('.document-bar').getByRole('menuitem', { name: menu, exact: true }).click();
   await window.getByRole('menu').getByRole('menuitem', { name: item }).click();

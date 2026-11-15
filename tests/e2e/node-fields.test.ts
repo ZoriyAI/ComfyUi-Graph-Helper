@@ -1,3 +1,9 @@
+/**
+ * E2E spec: node fields are controls. Against the fake MCP server (labelled fixture), a KSampler from the library
+ * shows its widget inputs as fields; sampler_name changes through the list on the node, steps through the stepper in
+ * Properties, and both reach the export. A LoRA loader's file field is a picker of the person's own files with
+ * family badges, and once a checkpoint feeds it, the files that fit come first.
+ */
 import { test, expect, _electron as electron, type Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -6,12 +12,6 @@ import { useEnglish } from './locale';
 import { exportPastGuard } from './exportGuard';
 import { startFakeMcp } from '../fixtures/mcp/fakeMcpServer';
 
-/**
- * Node fields are controls : against the fake MCP server (labelled fixture), a KSampler from the library
- * shows its widget inputs as fields; sampler_name changes through the list on the node, steps through the stepper in
- * Properties, and both reach the export. A LoRA loader's file field is a picker of the person's own files with
- * family badges, and once a checkpoint feeds it, the files that fit come first.
- */
 const artifactDir = path.join(__dirname, '../../test-results/node-fields');
 
 async function connectAndSync(window: Page, url: string) {

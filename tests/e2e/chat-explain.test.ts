@@ -1,3 +1,9 @@
+/**
+ * E2E spec for the chat ask flow on the scripted TEST transport (not a live model): "explain this" saves an explanation
+ * with its provenance, the chat shows it as a card, the explanation is stored in the project, and the conversation
+ * comes back after a restart. "propose a sampler" shows a ghost card that is accepted only through the proposals store.
+ * A person must see where an explanation came from, and nothing the assistant suggests may land without their consent.
+ */
 import { test, expect, _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
 import { pickOption } from './pickOption';
 import { useEnglish } from './locale';
@@ -5,13 +11,6 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import { artifact } from './artifacts';
-
-/**
- * Chat ask flow on the scripted TEST transport (not a live model):
- * "explain this" saves an explanation with its provenance, the chat shows it as a card, the explanation is stored
- * in the project, and the conversation comes back after a restart. "propose a sampler" shows a ghost card that is
- * accepted only through the proposals store.
- */
 
 async function launch(userData: string): Promise<{ app: ElectronApplication; window: Page }> {
   const app = await electron.launch({

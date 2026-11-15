@@ -1,3 +1,8 @@
+/**
+ * E2E spec of the built Electron UI against a real local llama-server, the one spec that talks to a live model.
+ * This is not the TEST fixture. The server is started outside the test.
+ * If nothing is listening on 127.0.0.1:18080, the test is skipped, so the normal e2e run never needs a model.
+ */
 import { test, expect, _electron as electron } from '@playwright/test';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -5,11 +10,6 @@ import * as path from 'path';
 import { useEnglish } from './locale';
 import { loadNodeList } from './fileMenu';
 
-/**
- * Packaged Electron UI against a real local llama-server.
- * This is not the TEST fixture. The server is started outside the test.
- * If nothing is listening on 127.0.0.1:18080, the test is skipped.
- */
 const LOCAL_BASE = 'http://127.0.0.1:18080/v1';
 const PURPOSE = 'Loads the portrait checkpoint';
 
@@ -41,6 +41,7 @@ test('live local model adds a loader and the export keeps its parameter', async 
     },
   }));
   const env = { ...process.env, NODE_ENV: 'production' } as Record<string, string>;
+  // No session bus, so Electron does not talk to the desktop's keyring during the run.
   delete env.DBUS_SESSION_BUS_ADDRESS;
   delete env.GNOME_KEYRING_CONTROL;
   const electronApp = await electron.launch({

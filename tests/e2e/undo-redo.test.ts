@@ -1,3 +1,7 @@
+/**
+ * E2E spec for undo and redo from the keyboard: Ctrl+Z and Ctrl+Shift+Z step through the person's edits, and the
+ * revision number only grows (an undo is a new revision that restores an old one, never a rewrite of history).
+ */
 import { test, expect, _electron as electron, type Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -6,6 +10,7 @@ import { useEnglish } from './locale';
 
 type Bridge = Record<string, (...args: unknown[]) => Promise<any>>;
 
+/** Commits one manual edit through the bridge against the current revision. */
 async function manual(window: Page, actionId: string, payload: unknown) {
   return window.evaluate(async ({ actionId, payload }) => {
     const bridge = (window as unknown as { electronAPI: Bridge }).electronAPI;

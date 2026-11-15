@@ -1,14 +1,13 @@
+/**
+ * Test of the layout audit itself. The walk (layout-walk.test.ts) trusts layoutAudit.ts to see what a person would.
+ * This shows it does: a page of small layouts, each broken in one known way or sound in a way that looks like a fault,
+ * and the audit must name every broken one and none of the sound ones. Without it a clean walk could mean a blind audit.
+ */
 import { test, expect, _electron as electron } from '@playwright/test';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { auditLayout, type LayoutIssue } from './layoutAudit';
-
-/**
- * The walk (layout-walk.test.ts) trusts layoutAudit.ts to see what a person would. This shows it does: a page of
- * small layouts, each broken in one known way or sound in a way that looks like a fault, and the audit must name
- * every broken one and none of the sound ones. Without it a clean walk could mean a blind audit.
- */
 
 const FIXTURE = `
 <style>
@@ -57,6 +56,7 @@ const FIXTURE = `
 test('the layout audit names every fault of its fixture and none of the sound layouts', async () => {
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'layout-audit-'));
   const env = { ...process.env, NODE_ENV: 'production' } as Record<string, string>;
+  // No session bus and no keyring daemon, so Electron does not talk to the desktop's keyring during the run.
   delete env.DBUS_SESSION_BUS_ADDRESS;
   delete env.GNOME_KEYRING_CONTROL;
   const app = await electron.launch({ args: [path.join(__dirname, '../../dist/main/index.js'), `--user-data-dir=${userData}`], env });

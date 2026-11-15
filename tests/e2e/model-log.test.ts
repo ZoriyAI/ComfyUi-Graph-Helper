@@ -1,16 +1,15 @@
+/**
+ * E2E spec for the conversation log as a person uses it (scripted TEST transport, not a live model): a question is
+ * recorded, the answer in the chat leads to its record, the window lists it, a short report goes to the clipboard, a
+ * file is saved with what a reader needs, and nothing secret is in it. Switching the log off stops recording;
+ * clearing removes the records. The log is how a person shows someone else what the assistant was asked and said.
+ */
 import { test, expect, _electron as electron } from '@playwright/test';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { pickOption } from './pickOption';
 import { useEnglish } from './locale';
-
-/**
- * The conversation log as a person uses it (scripted TEST transport, not a live model): a question is recorded,
- * the answer in the chat leads to its record, the window lists it, a short report goes to the clipboard, a file
- * is saved with what a reader needs, and nothing secret is in it. Switching the log off stops recording; clearing
- * removes the records.
- */
 
 const FAKE_KEY = 'sk-proj-E2ELOGKEY0123456789abcdef';
 

@@ -1,3 +1,8 @@
+/**
+ * E2E spec for what stays on the machine: typing in a field downloads no spellcheck dictionary, the database file is
+ * readable by its owner only, a second start with the same profile leaves at once, and the picture cache shows its size
+ * and can be emptied. These keep a person's text and files from leaving the computer or being read by other users.
+ */
 import { test, expect, _electron as electron } from '@playwright/test';
 import { spawnSync } from 'child_process';
 import * as fs from 'fs';

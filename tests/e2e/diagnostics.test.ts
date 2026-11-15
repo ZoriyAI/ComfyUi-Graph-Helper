@@ -1,3 +1,8 @@
+/**
+ * E2E spec for diagnostics: the main log file exists and records the start, Help can copy and open the report, a key
+ * held this session (or a key-shaped error text) never reaches the report or the log, and the window state is saved.
+ * A person must be able to share a report for a bug without leaking their API key.
+ */
 import { test, expect, _electron as electron } from '@playwright/test';
 import * as fs from 'fs';
 import * as os from 'os';

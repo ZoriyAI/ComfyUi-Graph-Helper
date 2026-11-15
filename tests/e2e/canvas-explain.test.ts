@@ -1,3 +1,8 @@
+/**
+ * E2E spec for the teaching aids on the canvas, on the dense fixture graph (fixtures/denseWorkflow.ts): the node
+ * context menu with "What is this?", the guided tour, the connect assist that shows where a link may go, the subgraph
+ * breadcrumb and the replay of how a graph was built. These are how a beginner learns a graph by pointing at it.
+ */
 import { test, expect, _electron as electron } from '@playwright/test';
 import * as fs from 'fs';
 import * as os from 'os';

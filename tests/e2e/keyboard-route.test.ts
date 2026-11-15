@@ -1,3 +1,9 @@
+/**
+ * E2E spec for keyboard and screen reader use: Tab and F6 move between the zones of the window (shell, toolbar,
+ * canvas, node, port, dock), graph shortcuts never fire while a field has focus, focus lands somewhere sensible after
+ * an action, controls have names, the library card works by keyboard, and the interface size setting applies.
+ * A person who cannot use a mouse must still be able to build a graph.
+ */
 import { test, expect, _electron as electron, type Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -6,6 +12,7 @@ import { denseWorkflow } from './fixtures/denseWorkflow';
 import { useEnglish } from './locale';
 import { startFakeMcp } from '../fixtures/mcp/fakeMcpServer';
 
+/** Which zone of the window holds the focus now, by the closest known container of the active element. */
 function zoneOf(page: Page) {
   return page.evaluate(() => {
     const element = document.activeElement;
@@ -252,6 +259,7 @@ test('keyboard and screen reader: names, focus after actions, F6, library card, 
   const fake = await startFakeMcp();
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'keyboard-a11y-'));
   const env: Record<string, string | undefined> = { ...process.env, NODE_ENV: 'production' };
+  // No session bus, so Electron does not talk to the desktop's keyring during the run.
   delete env.DBUS_SESSION_BUS_ADDRESS;
   const app = await electron.launch({ args: [path.join(__dirname, '../../dist/main/index.js'), `--user-data-dir=${userData}`], env: env as Record<string, string> });
   const page = await app.firstWindow();

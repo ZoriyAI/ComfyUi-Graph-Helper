@@ -1,19 +1,18 @@
-import { test, expect, _electron as electron, type ElectronApplication, type Locator, type Page } from '@playwright/test';
-import * as fs from 'fs';
-import * as os from 'os';
-import * as path from 'path';
-import { startFakeMcp, type FakeMcp } from '../fixtures/mcp/fakeMcpServer';
-
 /**
- * Editing on the canvas with the mouse and the keyboard, in Russian (the default), in the real app:
+ * E2E spec for editing on the canvas with the mouse and the keyboard, in Russian (the default), in the real app:
  * - several nodes deleted, dragged or nudged are one history step (one Ctrl+Z brings them back);
  * - copy, paste and duplicate: new nodes, offset, inner links kept, the result selected;
  * - a new node is selected and in view;
  * - a link dropped on empty canvas offers only nodes that fit and connects the chosen one; a wrong drop says why;
  * - a group moves with its nodes; Shift+click adds to the selection; nodes can be pinned;
  * - the minimap and the arrow keys move the view.
- * Shots go to CANVAS_EDITING_SHOTS when set.
+ * Shots go to CANVAS_EDITING_SHOTS when set. These are the everyday moves of anyone building a graph.
  */
+import { test, expect, _electron as electron, type ElectronApplication, type Locator, type Page } from '@playwright/test';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+import { startFakeMcp, type FakeMcp } from '../fixtures/mcp/fakeMcpServer';
 
 type Bridge = (name: string, args?: unknown[]) => Promise<any>;
 interface Ctx { app: ElectronApplication; page: Page; api: Bridge; errors: string[] }
@@ -22,6 +21,7 @@ const SHOTS = process.env.CANVAS_EDITING_SHOTS ?? '';
 async function launch(fake: FakeMcp): Promise<Ctx> {
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'canvas-editing-'));
   const env: Record<string, string | undefined> = { ...process.env, NODE_ENV: 'production' };
+  // No session bus and no keyring daemon, so Electron does not talk to the desktop's keyring during the run.
   delete env.DBUS_SESSION_BUS_ADDRESS;
   delete env.GNOME_KEYRING_CONTROL;
   const app = await electron.launch({ args: [path.join(__dirname, '../../dist/main/index.js'), `--user-data-dir=${userData}`], env: env as Record<string, string> });

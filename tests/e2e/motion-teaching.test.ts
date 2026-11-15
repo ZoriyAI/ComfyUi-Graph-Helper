@@ -1,3 +1,12 @@
+/**
+ * E2E spec for teaching motion on the real canvas (motion package):
+ * - a lesson step done with "Do this for me" flashes what closed it, and the step's place stands out while the
+ *   rest of the graph steps back;
+ * - "Check the graph" runs a wave over the nodes it marked;
+ * - the history shows what a version changed and keeps the links drawn between versions;
+ * - with motion reduced nothing loops or travels: after the marks settle no animation is left running.
+ * Motion points a learner at what changed; for a person who asked for reduced motion it must stay still.
+ */
 import { test, expect, _electron as electron, type Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -5,14 +14,6 @@ import * as path from 'path';
 import { useEnglish } from './locale';
 import { startFakeMcp } from '../fixtures/mcp/fakeMcpServer';
 
-/**
- * Teaching motion on the real canvas (motion package):
- * - a lesson step done with "Do this for me" flashes what closed it, and the step's place stands out while the
- *   rest of the graph steps back;
- * - «Проверить граф» / "Check the graph" runs a wave over the nodes it marked;
- * - the history shows what a version changed and keeps the links drawn between versions;
- * - with motion reduced nothing loops or travels: after the marks settle no animation is left running.
- */
 type Bridge = (name: string, args?: unknown[]) => Promise<any>;
 
 const panel = (page: Page) => page.locator('.lesson-panel');
@@ -32,6 +33,7 @@ test('lesson flashes and focus, check wave, history changes, reduced motion at r
   const fake = await startFakeMcp({});
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'motion-teaching-'));
   const env: Record<string, string | undefined> = { ...process.env, NODE_ENV: 'production' };
+  // No session bus, so Electron does not talk to the desktop's keyring during the run.
   delete env.DBUS_SESSION_BUS_ADDRESS;
   const app = await electron.launch({ args: [path.join(__dirname, '../../dist/main/index.js'), `--user-data-dir=${userData}`], env: env as Record<string, string> });
   try {

@@ -1,17 +1,18 @@
+/**
+ * E2E spec for the assistant on the person's own model server (a labelled fake model server, not a live model;
+ * tests/fixtures/llm/fakeLlmServer.ts):
+ * - a build paused in the middle holds its next step and, after Continue, every step lands; undo then
+ *   takes the whole build back in one step and redo brings it back;
+ * - grey drafts accepted with "Accept all" twice land on no node;
+ * - a failed answer says what happened in one sentence, with Ask again.
+ * A person must be able to stop the assistant, trust what it built, and undo it as one piece.
+ */
 import { test, expect, _electron as electron, type Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { useEnglish } from './locale';
 import { startFakeLlm, FAKE_MODEL, type FakeLlm } from '../fixtures/llm/fakeLlmServer';
-
-/**
- * The assistant on the person's own server (a labelled fake model server, not a live model):
- * - a build paused in the middle holds its next step and, after Continue, every step lands; undo then
- *   takes the whole build back in one step and redo brings it back;
- * - grey drafts accepted with "Accept all" twice land on no node;
- * - a failed answer says what happened in one sentence, with Ask again.
- */
 
 type Bridge = Record<string, (...args: unknown[]) => Promise<any>>;
 

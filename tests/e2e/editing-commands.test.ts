@@ -1,8 +1,8 @@
 /**
- * The editing journey of a learner (editing package): place a LoRA on an existing link from the link's menu, bypass a
- * node with its shortcut, replace a node keeping its links, add a note from the canvas menu and write it, and see in
- * the node search one line on what each node does. Each step is checked in the engine's graph, and one Undo takes
- * back exactly one step.
+ * E2E spec for the editing journey of a learner (editing package): place a LoRA on an existing link from the link's
+ * menu, bypass a node with its shortcut, replace a node keeping its links, add a note from the canvas menu and write
+ * it, and see in the node search one line on what each node does. Each step is checked in the engine's graph, and one
+ * Undo takes back exactly one step.
  */
 import { test, expect, _electron as electron, type Page } from '@playwright/test';
 import * as fs from 'fs';
