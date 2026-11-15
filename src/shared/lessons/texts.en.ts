@@ -1,18 +1,18 @@
-import type { LessonWords } from './texts';
-import { IMAGE_MODEL_TEXTS_EN } from './sets/image-models.texts.en';
-import { IMAGE_TECHNIQUES_EN } from './sets/image-techniques.texts.en';
-import { SOUND_3D_FACES_EN } from './sets/sound-3d-faces.texts.en';
-import { contentRulesMarkdown } from '../content/rules';
-
 /**
- * The words of the lessons. Each step: what to do and why. `{role}` in a text is replaced by the name of the node
- * as this ComfyUI's library shows it. Field names and values stand in backticks: the person looks for them on
- * the node.
+ * The words of the lessons, English; texts.ts reads them for the lesson panel. This file holds the first lessons and
+ * spreads in the English words of the image-models, image-techniques and sound-3d-faces sets. Each step: what to do
+ * and why. `{role}` in a text is replaced by the name of the node as this ComfyUI's library shows it. Field names
+ * and values stand in backticks: the person looks for them on the node.
  *
  * The lessons on adult content (pictures and video) teach technique. There are no explicit texts, no ready scene
  * descriptions and no lists of words here, and there will be none: a model's words come from its author's page. The
  * rules in their first step come from one place (shared/content/rules.ts), the same one Settings and Help show.
  */
+import type { LessonWords } from './texts';
+import { IMAGE_MODEL_TEXTS_EN } from './sets/image-models.texts.en';
+import { IMAGE_TECHNIQUES_EN } from './sets/image-techniques.texts.en';
+import { SOUND_3D_FACES_EN } from './sets/sound-3d-faces.texts.en';
+import { contentRulesMarkdown } from '../content/rules';
 
 const SAVE = 'Save the graph with "File ▸ Save workflow for ComfyUI…", open the file in ComfyUI and run it there. This app runs nothing in ComfyUI itself.';
 
@@ -49,6 +49,7 @@ const TRIGGER = {
   body: 'Add your LoRA\'s words to the `text` field of the {positive} node whose output goes into a `positive` input.\n\nThe app compares the prompt with the words written in the LoRA file itself. If its author wrote none there, there is nothing to compare with and the step counts on its own.',
 };
 
+/** The English words by lesson id, the sets that texts.ts does not join itself included. */
 export const LESSONS_EN: Record<string, LessonWords> = {
   ...IMAGE_MODEL_TEXTS_EN,
   ...IMAGE_TECHNIQUES_EN,

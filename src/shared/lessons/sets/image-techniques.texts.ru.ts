@@ -25,6 +25,7 @@ const INPAINT_GRAPH = {
   body: 'Этот урок продолжает граф из урока «Инпейнтинг: перерисовать часть картинки». На холсте должны быть {checkpoint}, тексты {positive} и {negative}, {picture}, {inpaint} и {sampler}, как их оставил тот урок.\n\nЕсли их нет, сначала пройдите тот урок.',
 };
 
+/** The Russian words of the picture technique lessons, by lesson id. */
 export const IMAGE_TECHNIQUES_RU: Record<string, LessonWords> = {
   img2img: {
     title: 'Картинка из картинки',

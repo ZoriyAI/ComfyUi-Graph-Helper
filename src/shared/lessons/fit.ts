@@ -1,3 +1,9 @@
+/**
+ * Whether a lesson can be done with the nodes this ComfyUI has, and the "This lesson does not fit" sentences when it
+ * cannot. The lesson panel and My lessons (renderer/components/lessons/LessonPanel.tsx, MyLessons.tsx) show them;
+ * share/builtin.ts uses packOf to name the packs a lesson needs. The app installs nothing, so the sentences only
+ * tell the person what to install in ComfyUI themselves.
+ */
 import { lessonGaps, type ClassPorts, type Lesson, type LessonGap } from './engine';
 import { LESSON_AFTER, lessonById } from './lessons';
 import { VIDEO_PACK_OF } from './sets/video';
@@ -14,8 +20,13 @@ export interface LessonFit {
   blockedBy: string | null;
 }
 
+/**
+ * The fit of a lesson against the node list. `seen` holds the lessons already on the way here, so a loop in
+ * LESSON_AFTER ends instead of recursing forever.
+ */
 export function lessonFit(lesson: Lesson, ports: ClassPorts, seen: ReadonlySet<string> = new Set()): LessonFit {
   const gaps = lessonGaps(lesson, ports);
+  // A lesson may go on from any one of several graphs: it is blocked only when none of them fits.
   const before = LESSON_AFTER[lesson.id] ?? [];
   if (before.length === 0 || seen.has(lesson.id)) return { gaps, blockedBy: null };
   const trail = new Set([...seen, lesson.id]);
@@ -28,6 +39,7 @@ export function lessonFit(lesson: Lesson, ports: ClassPorts, seen: ReadonlySet<s
   return { gaps, blockedBy: unfit.length === before.length ? before[0] : null };
 }
 
+/** True when nothing is missing and the lesson it continues fits as well. */
 export function fits(fit: LessonFit): boolean {
   return fit.gaps.length === 0 && fit.blockedBy === null;
 }
@@ -45,6 +57,7 @@ export function packOf(classType: string): string | null {
   return imageTechniquePack(classType);
 }
 
+/** Missing nodes that one pack (or ComfyUI itself) would bring. */
 export interface GapGroup {
   /** The pack that brings these nodes; null for ComfyUI itself. */
   pack: string | null;
@@ -68,6 +81,7 @@ export function groupGaps(gaps: readonly LessonGap[], displayName: (classType: s
       if (!seenPorts.has(key)) { seenPorts.add(key); ports.push(gap); }
       continue;
     }
+    // None of the role's classes is installed here; the first one the lesson lists names the gap.
     const classType = gap.classes[0];
     const pack = packOf(classType) ?? '';
     const name = displayName(classType) || classType;

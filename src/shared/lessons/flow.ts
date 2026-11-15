@@ -1,12 +1,13 @@
-import type { Lesson, Roles } from './engine';
-
 /**
  * Where the nodes of a lesson stand when the app is the one that adds them. A lesson tells a person that a graph
  * reads from left to right; a node added by "Do this for me" must not contradict it by landing wherever the view
  * happens to be. Each role has a column, counted along the lesson's own links, and a new node goes into its
  * column next to the node it will be fed by.
+ * Used by the lesson panel's "Do this for me" (renderer/components/lessons/lessonModel.ts).
  */
+import type { Lesson, Roles } from './engine';
 
+/** A node's box on the canvas, in canvas units. */
 export interface FlowRect {
   x: number;
   y: number;
@@ -14,6 +15,7 @@ export interface FlowRect {
   height: number;
 }
 
+/** Every link the lesson's steps ask for, alternatives left out. */
 function linksOf(lesson: Lesson): Array<{ from: string; to: string }> {
   return lesson.steps.flatMap((step) => step.links ?? []).map((link) => ({ from: link.from, to: link.to }));
 }
@@ -98,6 +100,7 @@ export function lessonSpot(
   const x = anchor.rect.x + (columns[role] - columns[anchor.name]) * stride;
   let y = anchor.rect.y;
   const all = [...rects.values()];
+  // Step down past every box the new node would overlap; the guard only stops a canvas of hundreds of nodes.
   for (let guard = 0; guard < 500; guard += 1) {
     const covered = all.find((rect) => x < rect.x + rect.width + gaps.x && x + size.width + gaps.x > rect.x && y < rect.y + rect.height + gaps.y && y + size.height + gaps.y > rect.y);
     if (!covered) break;
