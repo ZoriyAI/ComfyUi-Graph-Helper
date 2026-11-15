@@ -7,7 +7,7 @@
 
 ## The About window
 
-- The name, the line "A desktop tutor for ComfyUI graphs", the version ("Version …") and two paragraphs: that the app is an independent, experimental learning tool, not affiliated with or endorsed by Comfy Org, with no ComfyUI code, which only reads a running ComfyUI; and what it does: it reads which nodes and models you have, explains every node and link, and teaches with lessons you do by hand. It never runs or changes anything in ComfyUI.
+- The name, the line "A desktop tutor for ComfyUI graphs", the version ("Version …"), the author ("Author: Aleksey Ponomarenko", see [The author and the experiment](../trust/Author.md)) and two paragraphs: that the app is an independent, experimental learning tool, not affiliated with or endorsed by Comfy Org, with no ComfyUI code, which only reads a running ComfyUI; and what it does: it reads which nodes and models you have, explains every node and link, and teaches with lessons you do by hand. It never runs or changes anything in ComfyUI.
 - **License** shows the license of the app and what it does not allow: selling the app, or a paid product or service built mainly on it, without the written permission of the copyright holder. **Back** returns.
 - **Third-party components**: the packages that ship with the app; choose one to read its license. **Chromium licenses** opens the licenses of the browser engine inside Electron.
 - **Copy details** copies the version, the runtime and the system for a problem report: "Details copied".
