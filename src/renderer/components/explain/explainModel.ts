@@ -1,10 +1,14 @@
+/**
+ * Pure helpers for the Explain panel: aspects, global owners, staleness, trust order, scope and safe source links.
+ * Used by ExplainPanel.tsx and state/knowledgeState.ts; tests/unit/coreKnowledge.test.ts, chatHelpers.test.ts and
+ * assistantWords.test.ts cover them.
+ */
 import type { Explanation, ExplanationAspect, ObjectRef } from '../../../shared/contracts';
 
-/** Pure helpers for the Explain panel. */
-
+/** The aspects of an explanation, in the order the panel shows them. */
 export const ASPECTS: readonly ExplanationAspect[] = ['what', 'why', 'connect', 'next', 'risk'];
 
-/** Knowledge about a class or a model file is shared across projects and not tied to a revision. */
+/** Knowledge about a node class, a model file, a link type or a model family is shared across projects and not tied to a revision. */
 export function isGlobalOwner(ref: ObjectRef): boolean {
   return ref.kind === 'nodeClass' || ref.kind === 'model' || ref.kind === 'linkType' || ref.kind === 'family';
 }
@@ -19,8 +23,8 @@ export function isStale(explanation: Pick<Explanation, 'revisionId'>, currentRev
 }
 
 /**
- * How far an explanation can be trusted, lowest first: the app's built-in knowledge, then the person's own notes,
- * then what the app read itself, then the internet, and the assistant's words last (P0 of the assistant review).
+ * A sort rank, most trusted first (lowest number): the app's built-in knowledge, then the person's own notes,
+ * then what the app read itself, then the internet, and the assistant's words last.
  */
 export function trustRank(item: Pick<Explanation, 'createdBy' | 'provenance'>): number {
   if (item.createdBy === 'seed') return 0;
@@ -44,6 +48,7 @@ export function groupByAspect(list: readonly Explanation[]): Array<{ aspect: Exp
   });
 }
 
+/** The aspects nobody has explained yet; the panel offers to ask the helper for each. */
 export function missingAspects(list: readonly Explanation[]): ExplanationAspect[] {
   const present = new Set(list.map((item) => item.aspect));
   return ASPECTS.filter((aspect) => !present.has(aspect));

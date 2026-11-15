@@ -1,3 +1,8 @@
+/**
+ * The Explain tab of the dock: what the app, the person and the helper know about the focused object, grouped by
+ * aspect with provenance, plus shared knowledge of its class or data type, buttons to ask for missing aspects, a
+ * note form and the recent history. shell/Dock.tsx mounts it; tests/unit/explainCheckRender.test.ts renders it.
+ */
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'motion/react';
@@ -21,8 +26,10 @@ import Button from '../../ui/Button';
 import IconButton from '../../ui/IconButton';
 import styles from './ExplainPanel.module.css';
 
+/** One shared empty list, so a store selector with nothing to return keeps the same reference between renders. */
 const EMPTY: Explanation[] = [];
 
+/** An explanation rises into place; a removed one fades out. */
 const ITEM_MOTION = {
   initial: { opacity: 0, y: 4 },
   animate: { opacity: 1, y: 0 },
@@ -42,6 +49,7 @@ function addressParts(url: string): React.ReactNode {
   );
 }
 
+/** The source address of an explanation, with a button that copies it (the app opens no page). */
 function SourceLink({ url }: { url: string }) {
   const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
@@ -66,6 +74,10 @@ function SourceLink({ url }: { url: string }) {
   );
 }
 
+/**
+ * One explanation: provenance, a stale mark, the text, the source, where it holds, and Delete for a person's note.
+ * `scopeSaid` means the topic heading already says the knowledge is general, so the row does not repeat it.
+ */
 function ExplanationItem({ item, currentRevisionId, scopeSaid = false }: { item: Explanation; currentRevisionId: string | null; scopeSaid?: boolean }) {
   const { t } = useTranslation();
   const removeNote = useKnowledgeStore((state) => state.removeNote);
@@ -94,7 +106,7 @@ function ExplanationItem({ item, currentRevisionId, scopeSaid = false }: { item:
   );
 }
 
-/** One action that removes what the assistant wrote about this object, in every project (P0 of the review). */
+/** One action that removes what the assistant wrote about this object, in every project. */
 function RemoveAssistantWords({ owner, list }: { owner: ObjectRef; list: readonly Explanation[] }) {
   const { t } = useTranslation();
   const removeAssistant = useKnowledgeStore((state) => state.removeAssistant);
@@ -106,6 +118,7 @@ function RemoveAssistantWords({ owner, list }: { owner: ObjectRef; list: readonl
   );
 }
 
+/** Explanations under one heading per aspect (what, why, connect, next, risk). */
 function AspectGroups({ list, currentRevisionId }: { list: Explanation[]; currentRevisionId: string | null }) {
   const { t } = useTranslation();
   return (
@@ -133,6 +146,10 @@ function AspectGroups({ list, currentRevisionId }: { list: Explanation[]; curren
   );
 }
 
+/**
+ * The form for a person's own note on the object. A note on a class, model, link type or family is global; any
+ * other note belongs to this project and the current revision.
+ */
 function AddNote({ owner, label }: { owner: ObjectRef; label: string }) {
   const { t } = useTranslation();
   const saveExplanation = useKnowledgeStore((state) => state.saveExplanation);
@@ -142,6 +159,7 @@ function AddNote({ owner, label }: { owner: ObjectRef; label: string }) {
   const [state, setState] = useState<{ kind: 'idle' | 'saving' | 'saved' } | { kind: 'error'; message: string }>({ kind: 'idle' });
   const key = objectKey(owner);
 
+  // Another object in focus starts a clean form.
   useEffect(() => {
     setText('');
     setState({ kind: 'idle' });
@@ -204,6 +222,7 @@ function AddNote({ owner, label }: { owner: ObjectRef; label: string }) {
   );
 }
 
+/** The latest explanations across all objects; a click focuses the object it is about. */
 function History() {
   const { t } = useTranslation();
   const recent = useKnowledgeStore((state) => state.recent);
