@@ -4,6 +4,7 @@ import * as path from 'path';
 import { CONTENT_RULE_POINTS, contentRules, contentRulesMarkdown } from '../../src/shared/content/rules';
 import { adultContentOn, parsePreferences, preferencesDefaults } from '../../src/shared/config/preferences';
 import { HELP_IDS } from '../../src/shared/help/contextHelp';
+import { en, ru } from '../../src/shared/i18n/catalog';
 
 const root = path.join(__dirname, '..', '..');
 
@@ -48,6 +49,14 @@ describe('the content rules', () => {
       expect(page, file).toContain('content-rules');
       expect(page, file).not.toMatch(/TODO|@[a-z0-9-]+\.[a-z]{2,}/i);
     }
+  });
+
+  it('are called by one name wherever a button or a title opens them', () => {
+    // The Help menu, the page's title and the button in My lessons: «Правила содержимого», never a second spelling.
+    expect(ru.helpReader.content).toBe('Правила содержимого');
+    expect(ru.lessonFiles.rulesOpen).toBe(ru.helpReader.content);
+    expect(en.lessonFiles.rulesOpen).toBe(en.helpReader.content);
+    expect(JSON.stringify(ru)).not.toMatch(/[Пп]равил[а-я]* о содержимом/);
   });
 
   it('are a page of the Help reader, and the README points to it', () => {
