@@ -31,6 +31,7 @@ import { closeReplayForBuild } from '../../commands/replayGate';
 import {
   asObjectRef,
   chatRecordFromMessage,
+  isFailedTurn,
   isRecord,
   messageFromChatRecord,
   newToolCall,
@@ -338,8 +339,8 @@ export class ChatService {
           content: agentGraphContext({ nodes: graph.nodes, components: graph.components, process: graph.process }),
         },
         ...messages
-          // Earlier error messages are the app's words, not the model's; they are not sent back to it.
-          .filter((m) => m.role !== 'system' && !(m.role === 'assistant' && m.content.startsWith('Error')))
+          // Earlier failed-turn messages are the app's words, not the model's; they are not sent back to it.
+          .filter((m) => m.role !== 'system' && !(m.role === 'assistant' && isFailedTurn(m)))
           .map((m) => ({ role: m.role, content: m.content })),
         { role: 'user', content },
       ];
@@ -481,6 +482,7 @@ export class ChatService {
             content: `Error: ${shown}`,
             timestamp: Date.now(),
             logId: turnLogId,
+            failed: true,
             ...(kind ? { turnError: { ...kind, question: content, context: turn } } : {}),
           };
           if (!currentAssistantMessageId) currentAssistantMessageId = failure.id;
@@ -507,7 +509,7 @@ export class ChatService {
       const shown = shownError(provider, raw);
       if (!currentAssistantMessageId && current()) {
         currentAssistantMessageId = newId();
-        addMessage({ id: currentAssistantMessageId, role: 'assistant', content: `Error: ${shown}`, timestamp: Date.now(), logId: turnLogId });
+        addMessage({ id: currentAssistantMessageId, role: 'assistant', content: `Error: ${shown}`, timestamp: Date.now(), logId: turnLogId, failed: true });
       }
     } finally {
       finish();

@@ -20,6 +20,7 @@ import { objectKey } from '../../../shared/contracts';
 import { RECOMMENDED_WINDOW } from '../../../shared/agent/contextWindow';
 import MarkdownLite from './MarkdownLite';
 import { turnErrorActions } from '../../services/llm/turnErrorText';
+import { isFailedTurn } from '../../services/llm/chatModel';
 import { ollamaWindowSteps } from '../../../shared/agent/windowHowTo';
 import { objectLabel } from './objectLabel';
 import ToolCard from './ToolCard';
@@ -173,8 +174,8 @@ export default function Message({ message, streaming = false }: MessageProps) {
   const setFocus = useUiStore((state) => state.setFocus);
   const isUser = message.role === 'user';
   const [diagnosticOpen, setDiagnosticOpen] = React.useState(false);
-  // The chat service writes a failed turn as an assistant message whose text starts with "Error".
-  const isError = !isUser && message.content.startsWith('Error');
+  // A failed turn is known from the flag the chat service sets, not from the text: an answer may begin with "Error".
+  const isError = !isUser && isFailedTurn(message);
   const language: AppLanguage = i18n.resolvedLanguage === 'ru' ? 'ru' : 'en';
   const about = isUser ? message.context?.objectRef : undefined;
   const aboutLabel = about ? objectLabel(about, { nodes, edges }, String(t('explain.processName'))) : '';
