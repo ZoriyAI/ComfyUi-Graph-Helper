@@ -1,9 +1,12 @@
+/**
+ * The application's mark. Who renders it: components/shell/MenuBar.tsx.
+ */
 import React from 'react';
 import styles from './AppMark.module.css';
 import { cx } from './cx';
 
 /**
- * The application's mark in the menu bar and About: the picture of resources/icon-small.svg (a speech bubble that
+ * The application's mark in the menu bar: the picture of resources/icon-small.svg (a speech bubble that
  * holds two nodes and their link: the app explains graphs), as inline vector so it stays crisp at 16-24 px.
  * Decorative: the product name always stands next to it. The colours are the icon's own, not the accent.
  */

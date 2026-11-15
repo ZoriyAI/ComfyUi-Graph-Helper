@@ -1,7 +1,12 @@
+/**
+ * A segmented control (a small radio group of buttons).
+ * Who uses it: components/lessons/LessonEditor.tsx.
+ */
 import React from 'react';
 import styles from './Segmented.module.css';
 import { cx } from './cx';
 
+/** One option of a Segmented control. */
 export interface SegmentedOption<T extends string> {
   value: T;
   label: React.ReactNode;

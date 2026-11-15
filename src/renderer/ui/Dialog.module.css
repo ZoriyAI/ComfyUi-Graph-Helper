@@ -1,3 +1,4 @@
+/* The modal scrim and content box (ui/Dialog.tsx); enter and exit use the --motion-* tokens. */
 .overlay { position: fixed; inset: 0; z-index: 50; background: var(--scrim); }
 .content {
   position: fixed;

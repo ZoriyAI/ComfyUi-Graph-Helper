@@ -1,3 +1,7 @@
+/**
+ * A shortcut drawn as key caps. Who uses it: the menus (components/shell/MenuBar.tsx, components/graph/
+ * GraphContextMenu.tsx and editingMenu.tsx), the toolbar hints, the shortcuts dialog and Settings ▸ Shortcuts.
+ */
 import React from 'react';
 import Kbd from './Kbd';
 import { cx } from './cx';

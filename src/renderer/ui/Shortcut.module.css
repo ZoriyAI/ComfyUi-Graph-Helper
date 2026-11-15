@@ -1,3 +1,4 @@
+/* Shortcut key caps, full and quiet (ui/Shortcut.tsx). */
 .shortcut { display: inline-flex; align-items: center; gap: 2px; white-space: nowrap; }
 .key { min-width: 18px; height: 18px; padding: 0 4px; font-size: var(--text-mono-xs); line-height: 14px; }
 /* In menus the shortcut is a quiet right-aligned hint: flat caps, no frame. */

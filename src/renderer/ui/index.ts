@@ -1,3 +1,7 @@
+/**
+ * The design system's public list: every component of src/renderer/ui and its types, for `import { … } from 'ui'`.
+ * Who uses it: components across the window (some import a file directly instead). ui/README.md describes each one.
+ */
 export { default as AppMark } from './AppMark';
 export { default as Segmented, type SegmentedOption } from './Segmented';
 export { default as Button, type ButtonProps, type ButtonVariant, type ButtonSize } from './Button';

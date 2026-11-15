@@ -1,3 +1,6 @@
+/**
+ * A grey loading placeholder. Who uses it: the library (NodeLibrary, ModelLibrary, NodeCard, ModelCard).
+ */
 import React from 'react';
 import styles from './Skeleton.module.css';
 import { cx } from './cx';

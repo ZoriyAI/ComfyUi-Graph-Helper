@@ -1,7 +1,12 @@
+/**
+ * What a region shows when it has nothing yet. Who uses it: the library tabs, the inspector, the log dialog and
+ * other panels (about eight files).
+ */
 import React from 'react';
 import styles from './EmptyState.module.css';
 import { cx } from './cx';
 
+/** Props of EmptyState; `children` is the one explaining sentence. */
 export interface EmptyStateProps {
   icon?: React.ReactNode;
   title: string;

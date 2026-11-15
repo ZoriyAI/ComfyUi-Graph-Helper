@@ -1,3 +1,6 @@
+/**
+ * A key cap. Who uses it: ui/Shortcut.tsx and components/chat/MessageInput.tsx.
+ */
 import React from 'react';
 import styles from './Kbd.module.css';
 import { cx } from './cx';

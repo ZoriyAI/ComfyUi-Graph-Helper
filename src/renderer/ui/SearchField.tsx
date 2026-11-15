@@ -1,8 +1,12 @@
+/**
+ * The search input of the library tabs. Who uses it: components/library (NodeLibrary, ModelLibrary, SubgraphLibrary).
+ */
 import React, { forwardRef } from 'react';
 import { Search, X } from 'lucide-react';
 import styles from './SearchField.module.css';
 import { cx } from './cx';
 
+/** Props of SearchField: a controlled value and the two accessible names. */
 export interface SearchFieldProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange' | 'value' | 'aria-label'> {
   value: string;
   onValueChange: (value: string) => void;
@@ -30,6 +34,7 @@ const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(function Sear
         onKeyDown={(event) => {
           if (event.key === 'Escape' && value !== '') {
             event.preventDefault();
+            // The Escape that clears the field must not also close the panel or dialog around it.
             event.stopPropagation();
             onValueChange('');
           }

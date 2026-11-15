@@ -1,7 +1,11 @@
+/**
+ * A drag handle that resizes a side panel. Who uses it: components/shell/Dock.tsx (the right panel's edge).
+ */
 import React, { useRef, useState } from 'react';
 import styles from './Splitter.module.css';
 import { cx } from './cx';
 
+/** Props of Splitter. */
 export interface SplitterProps {
   /** Current size of the panel this splitter resizes, in px. */
   value: number;
@@ -20,6 +24,7 @@ export interface SplitterProps {
   className?: string;
 }
 
+/** `value` kept between `min` and `max`. */
 export function clampSize(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }

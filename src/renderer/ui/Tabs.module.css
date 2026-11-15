@@ -1,3 +1,4 @@
+/* Tab list, tabs and panels (ui/Tabs.tsx). */
 .list { display: flex; gap: 2px; }
 .list[aria-orientation="vertical"] { flex-direction: column; }
 .trigger {

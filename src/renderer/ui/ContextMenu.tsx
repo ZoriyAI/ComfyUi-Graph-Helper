@@ -1,3 +1,7 @@
+/**
+ * Context menu pieces: Radix's primitives and styled content, items, separators and labels.
+ * Who uses it: components/library/ModelLibrary.tsx (a model row's menu); the canvas menu draws its own.
+ */
 import React, { forwardRef } from 'react';
 import * as Menu from '@radix-ui/react-context-menu';
 import styles from './Menu.module.css';
@@ -23,12 +27,14 @@ export const ContextMenuContent = forwardRef<HTMLDivElement, Menu.ContextMenuCon
   );
 });
 
+/** Props of one menu item: an icon, a shortcut hint, and the danger look for removing actions. */
 export interface ContextMenuItemProps extends Menu.ContextMenuItemProps {
   icon?: React.ReactNode;
   shortcut?: string;
   danger?: boolean;
 }
 
+/** One menu item with its icon and shortcut. */
 export const ContextMenuItem = forwardRef<HTMLDivElement, ContextMenuItemProps>(function ContextMenuItem(
   { icon, shortcut, danger, className, children, ...rest },
   ref,
@@ -42,6 +48,7 @@ export const ContextMenuItem = forwardRef<HTMLDivElement, ContextMenuItemProps>(
   );
 });
 
+/** A rule between groups of items. */
 export const ContextMenuSeparator = forwardRef<HTMLDivElement, Menu.ContextMenuSeparatorProps>(function ContextMenuSeparator(
   { className, ...rest },
   ref,
@@ -49,6 +56,7 @@ export const ContextMenuSeparator = forwardRef<HTMLDivElement, Menu.ContextMenuS
   return <Menu.Separator ref={ref} className={cx(styles.separator, className)} {...rest} />;
 });
 
+/** A heading inside the menu. */
 export const ContextMenuLabel = forwardRef<HTMLDivElement, Menu.ContextMenuLabelProps>(function ContextMenuLabel(
   { className, ...rest },
   ref,
@@ -56,6 +64,7 @@ export const ContextMenuLabel = forwardRef<HTMLDivElement, Menu.ContextMenuLabel
   return <Menu.Label ref={ref} className={cx(styles.label, className)} {...rest} />;
 });
 
+/** The shortcut hint at the right of an item; hidden from screen readers, as the item's name says enough. */
 export function ContextMenuShortcut({ children }: { children: React.ReactNode }) {
   return <span className={styles.shortcut} aria-hidden="true">{children}</span>;
 }

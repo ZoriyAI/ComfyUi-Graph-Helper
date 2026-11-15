@@ -1,3 +1,4 @@
+/* The context menu surface and items (ui/ContextMenu.tsx). */
 .content {
   z-index: 80;
   min-width: 200px;

@@ -1,8 +1,13 @@
+/**
+ * Popover pieces: Radix's primitives and a styled content box.
+ * Who uses it: components/sync/SyncIndicator.tsx and components/fields/FieldControl.tsx.
+ */
 import React, { forwardRef } from 'react';
 import * as Pop from '@radix-ui/react-popover';
 import styles from './Popover.module.css';
 import { cx } from './cx';
 
+/** Radix popover primitives, re-exported unstyled. */
 export const PopoverRoot = Pop.Root;
 export const PopoverTrigger = Pop.Trigger;
 export const PopoverAnchor = Pop.Anchor;

@@ -1,8 +1,13 @@
+/**
+ * A breadcrumb path. Exported from ui/index.ts; no component in the app imports it at present (the canvas draws
+ * its subgraph path itself).
+ */
 import React from 'react';
 import { ChevronRight } from 'lucide-react';
 import styles from './Breadcrumb.module.css';
 import { cx } from './cx';
 
+/** One place of the path; `onSelect` makes it a button that goes back there. */
 export interface BreadcrumbItem {
   id: string;
   label: string;

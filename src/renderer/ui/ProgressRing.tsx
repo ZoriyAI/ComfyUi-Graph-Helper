@@ -1,7 +1,11 @@
+/**
+ * A small circular progress mark. Who uses it: components/sync/SyncIndicator.tsx (a catalog read in progress).
+ */
 import React from 'react';
 import styles from './ProgressRing.module.css';
 import { cx } from './cx';
 
+/** Props of ProgressRing; `size` and `stroke` are in px. */
 export interface ProgressRingProps {
   /** 0..1; null for an indeterminate ring. */
   value: number | null;
@@ -16,6 +20,7 @@ export interface ProgressRingProps {
 export default function ProgressRing({ value, size = 16, stroke = 2, label, className }: ProgressRingProps) {
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
+  // An indeterminate ring draws a fixed arc of about a quarter, which the CSS spins.
   const fraction = value == null ? 0.28 : Math.min(1, Math.max(0, value));
   return (
     <svg

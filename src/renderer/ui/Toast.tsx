@@ -1,3 +1,8 @@
+/**
+ * Toasts on screen: the provider that draws the queue of ui/toastStore.ts, placed over the canvas.
+ * Who uses it: index.tsx mounts ToastProvider once; code that shows a toast imports showToast from here or from
+ * toastStore.ts (services, commands, lessons and panels).
+ */
 import React, { useEffect, useState } from 'react';
 import * as T from '@radix-ui/react-toast';
 import { X } from 'lucide-react';
@@ -14,6 +19,7 @@ export { showToast, type ToastInput, type ToastTone } from './toastStore';
  */
 const EXCLUDE = { 'data-radix-toast-announce-exclude': '' } as Record<string, string>;
 
+/** show and dismiss as a hook, for components; no component in the app uses it at present. */
 export function useToast() {
   const dismiss = useToastStore((state) => state.dismiss);
   return { show: (input: ToastInput) => showToast(input), dismiss };
@@ -63,6 +69,7 @@ function useCanvasBand(): { left: number; width: number } | null {
 /** Gap from the canvas edge, and the width the minimap takes in the lower right corner of the canvas. */
 const TOAST_INSET = 16;
 const MINIMAP_ROOM = 170;
+// The toast column is 240 to 420 px wide, narrower when the canvas is narrow.
 
 /** Mount once near the root. Renders the queue from the toast store. */
 export function ToastProvider({ children }: { children: React.ReactNode }) {

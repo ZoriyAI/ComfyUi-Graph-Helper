@@ -1,3 +1,8 @@
+/**
+ * Modal dialog pieces: Radix's primitives and a styled overlay and content box.
+ * Who uses it: components/shell (CommandDialogs, HelpReader), components/log/ModelLogDialog.tsx,
+ * settings (SettingsPanel, sections/ConfirmDialog.tsx) and components/journey (the three journey dialogs).
+ */
 import React, { forwardRef } from 'react';
 import * as D from '@radix-ui/react-dialog';
 import styles from './Dialog.module.css';

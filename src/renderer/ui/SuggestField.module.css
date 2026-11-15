@@ -1,3 +1,4 @@
+/* The text field with its suggestion list (ui/SuggestField.tsx). */
 /* Text input styling comes from the caller's field class (Settings: `.field input`), so a picked or typed value
    looks like every other settings field. This module styles the list row and its status. */
 .root { display: flex; flex-direction: column; gap: 4px; }

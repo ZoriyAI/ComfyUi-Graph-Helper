@@ -1,3 +1,4 @@
+/* The button variants and sizes (ui/Button.tsx); one glowing primary per view (ui/README.md). */
 .button {
   position: relative;
   display: inline-flex;
