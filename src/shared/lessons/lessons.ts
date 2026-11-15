@@ -1,5 +1,5 @@
 import type { FieldSpec, FieldTest, Lesson, LinkSpec, RoleSpec } from './engine';
-import { FOUNDATIONS_AFTER, FOUNDATIONS_FIRST, FOUNDATIONS_IN_FIRST_PICTURES, FOUNDATIONS_LESSONS, FOUNDATIONS_PATH } from './sets/foundations';
+import { FOUNDATIONS_AFTER, FOUNDATIONS_FIRST, FOUNDATIONS_IN_FIRST_PICTURES, FOUNDATIONS_LESSONS, FOUNDATIONS_PATH, FOUNDATIONS_TOOLS } from './sets/foundations';
 import { IMAGE_MODEL_AFTER, IMAGE_MODEL_LESSONS, IMAGE_MODEL_PATH, type LessonGroup } from './sets/image-models';
 import { VIDEO_GROUP, VIDEO_LESSON_AFTER, VIDEO_LESSONS, VIDEO_PATH } from './sets/video';
 
@@ -987,6 +987,7 @@ export const LESSONS: readonly Lesson[] = [
   twoModels, adult,
   ...IMAGE_MODEL_LESSONS,
   ...VIDEO_LESSONS,
+  ...FOUNDATIONS_TOOLS,
 ];
 
 /** Lessons that stand on the graph of another: said in the list, not enforced. */

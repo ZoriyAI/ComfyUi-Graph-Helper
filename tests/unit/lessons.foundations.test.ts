@@ -9,6 +9,7 @@ import {
   FOUNDATIONS_FIRST,
   FOUNDATIONS_LESSONS,
   FOUNDATIONS_PATH,
+  FOUNDATIONS_TOOLS,
 } from '../../src/shared/lessons/sets/foundations';
 import {
   COMFY_ERRORS,
@@ -37,7 +38,7 @@ import { FOUNDATIONS_CLASSES, lessonSpecs } from '../fixtures/mcp/classes/founda
  * exists in both languages with the facts the screens look up.
  */
 
-const DOMAIN: readonly Lesson[] = [...FOUNDATIONS_FIRST, ...FOUNDATIONS_LESSONS];
+const DOMAIN: readonly Lesson[] = [...FOUNDATIONS_FIRST, ...FOUNDATIONS_LESSONS, ...FOUNDATIONS_TOOLS];
 
 /** The fake ComfyUI's classes (the lesson specs of the core ones the lessons stand on, and the domain's own). */
 type Spec = { inputs: Array<[string, string, unknown?]>; outputs: Array<[string, string]> };

@@ -180,7 +180,9 @@ const llmPrompt: Lesson = {
 
 /** The domain's lessons in the order a person meets them. The first one comes before every other lesson. */
 export const FOUNDATIONS_FIRST: readonly Lesson[] = [comfyBasics];
-export const FOUNDATIONS_LESSONS: readonly Lesson[] = [samplerFields, readWorkflow, vram, switchLesson, llmPrompt];
+export const FOUNDATIONS_LESSONS: readonly Lesson[] = [samplerFields, readWorkflow, vram];
+/** The lessons on general-purpose tools; they go to the end of the list, in the group "Packs and tools". */
+export const FOUNDATIONS_TOOLS: readonly Lesson[] = [switchLesson, llmPrompt];
 
 /** Lessons that stand on the graph of another. */
 export const FOUNDATIONS_AFTER: Readonly<Record<string, string[]>> = {
