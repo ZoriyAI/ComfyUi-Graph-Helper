@@ -1,6 +1,8 @@
 /**
  * The check that keeps private things out of a public copy of the project: what it must find, what it must
- * leave alone, and that the files tracked today pass it.
+ * leave alone, and that the files tracked today pass it (scripts/public-tree-check.js).
+ * Why: the project is published; a mailbox, a home folder, a key or a private host in any tracked file would leak
+ * to everyone who downloads it.
  */
 import { execFileSync } from 'child_process';
 import * as fs from 'fs';
@@ -14,6 +16,7 @@ interface Find {
   match: string;
 }
 
+/** The checker's scan functions, loaded straight from the script. */
 const check = require('../../scripts/public-tree-check.js') as {
   scanText: (file: string, text: string, privateValues?: string[]) => Find[];
   scanBinary: (file: string, buffer: Buffer, privateValues?: string[]) => Find[];

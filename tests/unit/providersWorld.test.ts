@@ -1,3 +1,11 @@
+/**
+ * The assistant's providers beyond the three big clouds (MainLLMService, src/main/llm, src/shared/config): an
+ * OpenAI-compatible cloud service whose key is bound to its https address, the person's own server (Ollama,
+ * LM Studio, vLLM, llama.cpp) with its chat models, windows and optional key, the proxy and its bypass list, model
+ * advice and prices, provider-side failures, and the OpenAI organization and project headers.
+ * Why: whichever service a person uses, their key goes only where they typed it for, and the errors and costs
+ * they see are about their model.
+ */
 import { describe, expect, it } from 'vitest';
 import { COMPATIBLE_NO_ADDRESS, MainLLMService, refusedForKey, turnUsage } from '../../src/main/llmService';
 import { isLocalChatModel, lmStudioNonChat, listLocalModels, MODEL_LIST_NEEDS_KEY, parseOllamaShow } from '../../src/main/llm/modelList';
@@ -27,6 +35,7 @@ function fakeFetch(seen: Seen[], answer: (url: string, body: string) => Response
   }) as typeof fetch;
 }
 
+/** A JSON response with the given status. */
 const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status, headers: { 'content-type': 'application/json' } });
 
 const GATEWAY = 'https://gateway.example.test/v1';
@@ -275,6 +284,7 @@ describe('an OpenAI organization and project', () => {
 });
 
 describe('what a turn on your own server reports (a labelled fixture server on 127.0.0.1, not a live model)', () => {
+  /** Runs `run` against a real HTTP server on a free 127.0.0.1 port, then closes it. */
   async function withServer(handler: (req: import('http').IncomingMessage, res: import('http').ServerResponse) => void, run: (base: string) => Promise<void>) {
     const http = await import('http');
     const server = http.createServer(handler);
@@ -286,6 +296,7 @@ describe('what a turn on your own server reports (a labelled fixture server on 1
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }
   }
+  /** Sends one short question and collects every stream chunk. */
   async function collect(service: MainLLMService): Promise<Array<{ type: string; content: any }>> {
     const chunks: Array<{ type: string; content: any }> = [];
     for await (const chunk of service.streamChatWithTools([{ role: 'system', content: 'Be brief.' }, { role: 'user', content: 'hello' }], {})) chunks.push(chunk);
@@ -342,6 +353,7 @@ describe('the proxy bypass list', () => {
     const { PROXY_BYPASS } = await import('../../src/shared/config/proxy');
     const parts = PROXY_BYPASS.split(';');
     expect(parts).toContain('<local>');
+    // Five IPv4 ranges: loopback, the three private blocks and link-local.
     expect(parts.filter((part) => /\/\d+$/.test(part))).toHaveLength(5);
   });
 });

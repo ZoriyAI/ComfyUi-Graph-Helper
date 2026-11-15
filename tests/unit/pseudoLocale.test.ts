@@ -1,3 +1,9 @@
+/**
+ * The pseudo-translation used by the layout tests (src/shared/i18n/pseudo, switched on by NODEWISE_PSEUDO_LOCALE in
+ * src/main/systemLanguage): texts about 40 % longer with accents, padded with short words, and never on in an
+ * installed app.
+ * Why: it shows where a longer translation would break the layout, and must never reach a person's real window.
+ */
 import { describe, expect, it } from 'vitest';
 import { pseudoText } from '../../src/shared/i18n/pseudo';
 import { pseudoLocaleWanted } from '../../src/main/systemLanguage';

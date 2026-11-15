@@ -1,3 +1,10 @@
+/**
+ * One API key per provider (MainLLMService, the stored key records and the app folder key file): each request
+ * carries only the key of the provider it goes to, a send stops in main when that provider has no key, keys are
+ * redacted from errors and logs, a refused pasted key is dropped, and the stored forms of earlier versions are
+ * moved over once.
+ * Why: a person with keys for several providers must never have one provider's key sent to another.
+ */
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -39,6 +46,7 @@ function recordingFetch(seen: Seen[], status = 200): typeof fetch {
   }) as typeof fetch;
 }
 
+/** Every recorded URL and its headers as one text, to search for a key that must not be there. */
 function allHeaderText(seen: Seen[]): string {
   return seen.map((request) => `${request.url} ${JSON.stringify(request.headers)}`).join('\n');
 }
@@ -263,6 +271,7 @@ describe('stored key records', () => {
     const db = openDb();
     db.prepare('INSERT INTO secret_records (name, ciphertext) VALUES (?, ?)').run('provider-key:openai', Buffer.from('newer'));
     db.prepare('INSERT INTO secret_records (name, ciphertext) VALUES (?, ?)').run('provider-key', Buffer.from('legacy'));
+    // The old record is removed; the newer record of the provider stays as it was.
     expect(migrateLegacyProviderKey(db, 'openai')).toBe('moved');
     expect(readProviderKeyCipher(db, 'openai')?.toString()).toBe('newer');
     expect(secretRecordCount(db)).toBe(1);
