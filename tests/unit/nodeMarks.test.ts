@@ -2,6 +2,7 @@
  * Node marks (editing package): object_info flags api_node, deprecated and experimental are kept (migration 18),
  * a class of ComfyUI's comfy_api_nodes package counts as paid even without the flag, an outdated node comes after
  * its neighbours in the search, and a seed field gets its "after run" row (fieldModel.nodeLayout).
+ * Why: the person should see before adding a node that it costs money, is outdated or may change.
  */
 import Database from 'better-sqlite3';
 import { describe, expect, it } from 'vitest';
@@ -11,6 +12,7 @@ import { migrate } from '../../src/main/settings/migrate';
 import { parseObjectInfo } from '../../src/shared/catalog/objectInfo';
 import { AFTER_RUN_CHOICES, nodeLayout } from '../../src/renderer/components/fields/fieldModel';
 
+/** An object_info entry for a simple image node; `extra` adds flags such as deprecated or api_node. */
 const base = (name: string, extra: Record<string, unknown> = {}, module = 'nodes') => ({
   input: { required: { image: ['IMAGE'] } }, output: ['IMAGE'], output_name: ['IMAGE'], name, display_name: name, category: 'image', python_module: module, ...extra,
 });

@@ -1,3 +1,9 @@
+/**
+ * The node class guard (src/main/knowledge/nodeClassGuard): once the catalog is synced, a node class name that
+ * does not exist is refused with the nearest real names, for the assistant's addNode and proposeNode tools and for
+ * the add-node search over IPC; before a sync it is let through with a warning.
+ * Why: a misspelled class from the assistant would put a node on the person's canvas that ComfyUI cannot load.
+ */
 import Database from 'better-sqlite3';
 import { describe, expect, it, vi } from 'vitest';
 import { migrate } from '../../src/main/settings/migrate';
@@ -12,6 +18,7 @@ import { IPC_CHANNELS } from '../../src/shared/ipc-channels';
 import { DESKTOP_PROJECT_ID } from '../../src/shared/project';
 import { fakeKnowledge, fakeProposals } from './agent/fakes';
 
+/** A migrated in-memory database with the workspace ready and only the seeded classes. */
 function openDb(): Database.Database {
   const db = new Database(':memory:');
   migrate(db);
@@ -19,6 +26,7 @@ function openDb(): Database.Database {
   return db;
 }
 
+/** Stands in for a catalog sync: adds a few real ComfyUI classes beyond the seed. */
 function sync(db: Database.Database): void {
   upsertNodeClasses(db, ['KSampler', 'KSamplerAdvanced', 'SamplerCustom', 'EmptyLatentImage', 'LoraLoader', 'VAEEncode'].map((classType) => ({
     classType, module: 'nodes', displayName: classType, category: 'sampling',

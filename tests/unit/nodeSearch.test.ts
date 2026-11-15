@@ -2,6 +2,7 @@
  * The node search (main/knowledge/nodeSearch.ts through repository.searchNodeClasses): a person finds a node by
  * what it does, small words do not count, one unknown word does not hide everything, type filters keep only nodes
  * that fit a link, editor nodes (Note, Reroute, Primitive) are found, and each result carries one line on what it does.
+ * Why: a learner rarely knows a class name; they search for what they want done, in English or Russian.
  */
 import Database from 'better-sqlite3';
 import { describe, expect, it } from 'vitest';
@@ -12,6 +13,7 @@ import { validateNodeClass } from '../../src/main/knowledge/nodeClassGuard';
 import { migrate } from '../../src/main/settings/migrate';
 import { parseObjectInfo } from '../../src/shared/catalog/objectInfo';
 
+/** An object_info entry with the given ports and description. */
 const node = (name: string, display: string, category: string, required: Record<string, unknown>, output: string[], description = '') => ({
   input: { required }, output, output_name: output, name, display_name: display, category, python_module: 'nodes', description,
 });
@@ -32,6 +34,7 @@ function openDb(): Database.Database {
   return db;
 }
 
+/** The class names a search returns, in order. */
 const names = (db: Database.Database, query: string, extra: Record<string, unknown> = {}) =>
   searchNodeClasses(db, { query, limit: 20, ...extra }).map((item) => item.classType);
 
@@ -63,6 +66,7 @@ describe('node search', () => {
 
   it('keeps only nodes with an input or output of a type', () => {
     const db = openDb();
+    // Reroute takes any type, so it fits every link.
     expect(names(db, '', { inputType: 'LATENT' }).sort()).toEqual(['KSampler', 'Reroute', 'VAEDecode']);
     expect(names(db, 'in:LATENT out:IMAGE')).toContain('VAEDecode');
     expect(names(db, 'in:LATENT out:IMAGE')).not.toContain('KSampler');

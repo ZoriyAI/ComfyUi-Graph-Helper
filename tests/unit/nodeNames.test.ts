@@ -1,3 +1,9 @@
+/**
+ * The readable name of a node with no title of its own (graph/lib/nodeName with the class title store): the
+ * library's display name is used on the canvas, in Properties, in check messages and in the tour.
+ * Why: "Load Checkpoint" means something to a learner; "CheckpointLoaderSimple" does not, and every place must
+ * call the same node by the same name.
+ */
 import { describe, expect, it } from 'vitest';
 import { nodeDisplayName } from '../../src/renderer/components/graph/lib/nodeName';
 import { useClassTitleStore } from '../../src/renderer/components/graph/lib/classTitles';

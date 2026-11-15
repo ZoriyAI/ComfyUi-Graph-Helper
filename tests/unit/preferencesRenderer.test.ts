@@ -1,3 +1,10 @@
+/**
+ * Preferences as the window applies them: shortcut overrides from Preferences > Shortcuts (registry, recording a
+ * chord by physical key, conflicts), the one-time move of old canvas toggles out of localStorage, the pace of a
+ * live build, and appearance attributes on <html>.
+ * Why: a person's own shortcuts must work in menus and on the canvas on any keyboard layout, and a setting they
+ * made in an older version must not be lost.
+ */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   allCommands,
@@ -15,6 +22,7 @@ import { stepDelayMs } from '../../src/renderer/components/graph/lib/buildQueue'
 import { shortcutConflicts } from '../../src/renderer/components/settings/sections/ShortcutsSection';
 import { applyAppearance } from '../../src/renderer/state/preferencesState';
 
+/** A key press with no modifiers unless given. */
 function key(partial: Partial<KeyLike> & { key: string }): KeyLike {
   return { code: undefined, ctrlKey: false, metaKey: false, shiftKey: false, altKey: false, ...partial };
 }
@@ -28,6 +36,7 @@ afterEach(() => {
   setShortcutOverrides({});
 });
 
+/** Registers test commands and removes them after the test. */
 function register(list: Command[]) {
   cleanups.push(registerCommands(list));
 }
@@ -72,7 +81,7 @@ describe('shortcut overrides (Preferences ▸ Shortcuts)', () => {
   it('records a chord from a key press, by physical key', () => {
     expect(chordFromEvent(key({ key: 'Shift', code: 'ShiftLeft', shiftKey: true }), 'other')).toBeNull();
     expect(chordFromEvent(key({ key: '@', code: 'Digit2', shiftKey: true }), 'other')).toBe('Shift+2');
-    // Russian layout: the S key types «ы» but records as S.
+    // Russian layout: the S key types a Cyrillic letter but records as S.
     expect(chordFromEvent(key({ key: 'ы', code: 'KeyS', ctrlKey: true }), 'other')).toBe('Mod+S');
     expect(chordFromEvent(key({ key: 's', code: 'KeyS', metaKey: true }), 'mac')).toBe('Mod+S');
     expect(chordFromEvent(key({ key: 's', code: 'KeyS', ctrlKey: true }), 'mac')).toBe('Ctrl+S');
@@ -100,6 +109,7 @@ describe('shortcut overrides (Preferences ▸ Shortcuts)', () => {
 });
 
 describe('canvas preferences', () => {
+  /** A localStorage stand-in backed by a Map the test can inspect. */
   function memoryStorage(initial: Record<string, string>) {
     const map = new Map(Object.entries(initial));
     return {
@@ -137,6 +147,8 @@ describe('canvas preferences', () => {
   });
 
   it('paces a live build from the preference', () => {
+    // No pace set: the reveal time plus a reading pause. Following the camera stretches the step; reduced motion
+    // keeps only the reading share of the pace; Off waits for nothing.
     expect(stepDelayMs({ revealMs: 320, motion: 'full', follow: false, queued: 1 })).toBe(820);
     expect(stepDelayMs({ revealMs: 320, motion: 'full', follow: false, queued: 1, paceMs: 1640 })).toBe(1640);
     expect(stepDelayMs({ revealMs: 320, motion: 'full', follow: true, queued: 1, paceMs: 400 })).toBe(640);
