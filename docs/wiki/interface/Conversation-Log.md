@@ -10,9 +10,11 @@
 ## What the window shows
 
 - **Keep the log** switch, and the size: "1 record, 26.2 KB". While off: "The log is off: new questions are not recorded. Switch it on before you repeat the question you want looked into."
-- **Tick:** **the last one**, **today**, **with an error (2)**, **all**, **none**.
-- One row per question: when ("Today, 05:48 PM", "Yesterday, …"), how it ended (**Answered**, **Error**, **Paused at a checkpoint**, **Stopped by you**, **Not finished**), the mode (question, build, chat), your question, and a line with the model, the kind of assistant, the number of steps and tool calls, the time and the tokens ("tokens: 170 in, 340 out").
-- **Copy report** on a row: "A short text about this question: what was asked, each step, errors. Paste it into a message."
+- **Select:** **the last one**, **today**, **with an error (2)**, **all**, **none**.
+- One row per question: when ("Today, 05:48 PM", "Yesterday, …"), how it ended (**Answered**, **Error**, **Paused at the step limit**, **Stopped by you**, **Not finished**), the mode (question, build, chat), your question, and a line with the model, the kind of assistant, the number of steps and tool calls, the time and the tokens ("tokens: 170 in, 340 out").
+- **Copy report** on the row under the pointer or the ticked one: "A short text about this question: what was asked, each step, errors. Paste it into a message."
+
+The window opens with the focus on the list of records, and the ticks are drawn checkboxes.
 
 ## Buttons at the bottom
 
@@ -28,6 +30,7 @@
 ## Limits
 
 - Old records are removed by themselves.
+- The saved file and **Copy diagnostics** keep only the kind of address of your own servers ([this computer], [local network], [internet]) and the port, not the address itself. Public services (the providers' APIs, Civitai, Hugging Face, DuckDuckGo) stay by name.
 - The log is switched on and off here or in Settings ▸ Privacy (**Keep a log of the conversation with the model**).
 
 ## See also
