@@ -81,9 +81,9 @@ interface UiState {
 }
 
 /**
- * The window width from which the library starts open (below it the rail starts as an icon strip): wide enough for the library, the right panel at its narrowest
- * and a usable canvas (state/frame.ts holdsBothPanels). It was 1440, wider than the 1400 the app opens at, so a
- * first start hid the library, the one place nodes come from.
+ * The window width from which the library starts open (below it the rail starts as an icon strip): wide enough
+ * for the library, the right panel at its narrowest and a usable canvas (state/frame.ts holdsBothPanels). It was
+ * 1440, wider than the 1400 the app opens at, so a first start hid the library, the one place nodes come from.
  */
 export const RAIL_AUTO_COLLAPSE = 1180;
 /** The open library's width and its folded icon strip's width, in px. */

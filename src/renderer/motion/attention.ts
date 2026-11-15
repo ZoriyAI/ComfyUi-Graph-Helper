@@ -5,9 +5,9 @@
  * Who uses it:
  * - flash(): a lesson step that was just passed (its new node, link or field), "Show me where" and a check
  *   finding's "Show" button (the node the camera arrived at), an accepted draft (the node it became), the live build
- *   (layers/BuildLayer.tsx) and the history replay (lib/replayMotion.ts). NodeCard and TypedEdge draw the flash; it holds for --motion-mark (a reading time, the same at every motion
- *   level). With full motion it is a ring that glows and fades; with Reduced it fades only; with Off it is a still
- *   ring that is simply removed.
+ *   (layers/BuildLayer.tsx) and the history replay (lib/replayMotion.ts). NodeCard and TypedEdge draw the flash;
+ *   it holds for --motion-mark (a reading time, the same at every motion level). With full motion it is a ring
+ *   that glows and fades; with Reduced it fades only; with Off it is a still ring that is simply removed.
  * - setLessonFocus(): the nodes the current lesson step is about. CanvasFlow dims every other node and link, as it
  *   does around the tour's step.
  *

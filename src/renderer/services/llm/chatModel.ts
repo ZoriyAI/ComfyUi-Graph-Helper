@@ -1,3 +1,10 @@
+/**
+ * Pure helpers for the chat: tool classification, result reading, and ChatRecord mapping.
+ * No store or bridge access here, so they are unit-tested directly.
+ *
+ * Who uses it: services/llm/chatService.ts, and in components/chat (ToolCard, ProposalCard, buildSteps.ts,
+ * toolPresentation.ts), ExplainPanel and CheckPanel for `isRecord`, `asObjectRef` and the tool kinds.
+ */
 import {
   AGENT_BUILD_TOOLS,
   AGENT_KNOWLEDGE_TOOLS,
@@ -9,14 +16,7 @@ import {
 } from '../../../shared/contracts';
 import type { ChatMessage, ToolCall, ToolKind, ToolStatus } from '../../types/chat';
 
-/**
- * Pure helpers for the chat: tool classification, result reading, and ChatRecord mapping.
- * No store or bridge access here, so they are unit-tested directly.
- *
- * Who uses it: services/llm/chatService.ts, and in components/chat (ToolCard, ProposalCard, buildSteps.ts,
- * toolPresentation.ts), ExplainPanel and CheckPanel for `isRecord`, `asObjectRef` and the tool kinds.
- */
-
+/** Tool names by family, from shared/contracts/agentTools.ts. */
 const READ = new Set<string>(AGENT_READ_TOOLS);
 const KNOWLEDGE = new Set<string>(AGENT_KNOWLEDGE_TOOLS);
 const PROPOSAL = new Set<string>(AGENT_PROPOSAL_TOOLS);

@@ -1,9 +1,10 @@
 /**
  * The motion library's defaults for the whole window, taken from the motion policy (motion/policy.ts).
  *
- * Who renders it: index.tsx, around the whole app. Who it serves: every component that animates with the motion library (the library rail, the dock's tab underline,
- * chat messages and cards, Explain items, check rows, the welcome card, grey drafts on the canvas). A component that
- * gives no `transition` of its own appears over --motion-enter on the ease-out curve.
+ * Who renders it: index.tsx, around the whole app. Who it serves: every component that animates with the motion
+ * library (the library rail, the dock's tab underline, chat messages and cards, Explain items, check rows, the
+ * welcome card, grey drafts on the canvas). A component that gives no `transition` of its own appears over
+ * --motion-enter on the ease-out curve.
  *
  * Why: the "Reduced" motion setting must mean the same here as in CSS. With motion reduced the library keeps fades
  * (at the stylesheet's short --motion-enter) and drops movement and layout animation; with motion off every
