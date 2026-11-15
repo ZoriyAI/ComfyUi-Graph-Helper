@@ -17,4 +17,11 @@ describe('sign-in site under a shared suffix', () => {
     expect(differentSite('https://evil.github.io/login', 'https://good.github.io/mcp')).not.toBeNull();
     expect(differentSite('https://auth.shop.com.au/login', 'https://mcp.shop.com.au/mcp')).toBeNull();
   });
+
+  it('treats an IP address as a site of its own, whole', () => {
+    expect(differentSite('http://10.0.0.1/authorize', 'http://192.168.0.1/mcp')).toEqual({ site: '10.0.0.1', server: '192.168.0.1' });
+    expect(differentSite('http://127.0.0.1:9001/authorize', 'http://127.0.0.1:9000/mcp')).toBeNull();
+    expect(differentSite('http://[fd00::1:1]/authorize', 'http://[fe80::1:1]/mcp')).not.toBeNull();
+    expect(differentSite('http://[::1]:9001/authorize', 'http://[::1]:9000/mcp')).toBeNull();
+  });
 });

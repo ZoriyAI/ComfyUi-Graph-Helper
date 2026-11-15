@@ -39,9 +39,13 @@ const TWO_LABEL_SUFFIXES = new Set([
 
 /**
  * The registrable "site" of a host: its last two labels (auth.example.org and mcp.example.org are one site), or its
- * last three under a suffix from TWO_LABEL_SUFFIXES (a.co.uk and b.co.uk are two sites).
+ * last three under a suffix from TWO_LABEL_SUFFIXES (a.co.uk and b.co.uk are two sites). An IP address is only
+ * ever the same site as itself.
  */
 export function siteOf(host: string): string {
+  // An IP address has no "site" above it: 10.0.0.1 and 192.168.0.1 share their last two numbers, not an owner.
+  // URL.hostname gives an IPv6 address in brackets, so a colon is enough to know it.
+  if (host.includes(':') || /^\d+(\.\d+){3}$/.test(host)) return host;
   const labels = host.replace(/\.+$/, '').split('.');
   const lastTwo = labels.slice(-2).join('.');
   return labels.slice(TWO_LABEL_SUFFIXES.has(lastTwo) ? -3 : -2).join('.');
