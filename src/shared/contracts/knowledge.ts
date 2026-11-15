@@ -364,6 +364,46 @@ export interface SyncStatus {
    * or 'unknown' (of no kind the app reads). Null when no MCP server was read. Optional for older callers.
    */
   mcpProfile?: 'catalog' | 'modelList' | 'checkpointList' | 'unknown' | null;
+  /**
+   * The report of what the sync could not read (Settings ▸ Sync ▸ "Could not be read", the model card, the
+   * end-of-sync toast): model files waiting out a failed read or skipped by the person, model folders and catalog
+   * sections whose list did not come. Built in main from the stored failure records. Optional for older callers.
+   */
+  unreadable?: UnreadableItem[];
+}
+
+/**
+ * Why something could not be read, as a code the window turns into a sentence and an advice:
+ * dropped: the connection broke while this file was read (twice, with a new connection in between);
+ * notConnected: the server had already lost its connection for reading; serverError: the server answered with
+ * an error (detail holds its short text); tooLarge: the answer was larger than the app accepts; timeout: no
+ * answer in time; unreadable: the answer held no header; failed: the read did not come through for another
+ * reason; comfyDown: ComfyUI was not running when the list was asked for; listing: the server did not give the list.
+ */
+export type UnreadReason = 'dropped' | 'notConnected' | 'serverError' | 'tooLarge' | 'timeout' | 'unreadable' | 'failed' | 'comfyDown' | 'listing';
+
+/** One row of the "Could not be read" report. Never carries a server address or a secret. */
+export interface UnreadableItem {
+  /** A model file (directory + name), a model folder (name), or a catalog section ('node classes' …). */
+  kind: 'model' | 'folder' | 'section';
+  directory?: string;
+  name: string;
+  reason: UnreadReason;
+  /** The server's own short error text, redacted (serverError only). */
+  detail?: string;
+  /** When the last read failed (ms since epoch). */
+  lastAt: number | null;
+  /** When the file is read again by itself (model rows that are not skipped); null for the others. */
+  retryAt: number | null;
+  /** The person switched "Skip this file" on: it is not read until the switch is off. */
+  skipped: boolean;
+}
+
+/** The result of Settings ▸ Sync ▸ "Try again now" for one file. */
+export interface RetryItemResult {
+  status: SyncStatus;
+  /** read: the file is read now; failed: it failed again (its row says why); busy: a sync is running, try after it. */
+  outcome: 'read' | 'failed' | 'busy' | 'unavailable';
 }
 
 /**

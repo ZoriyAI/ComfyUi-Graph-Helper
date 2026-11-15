@@ -17,6 +17,8 @@ import {
   searchModelsSchema,
   searchNodesSchema,
   setAutoSchema,
+  syncItemSchema,
+  syncSkipSchema,
 } from '../../shared/knowledge/schemas';
 import type { SyncService } from '../mcp/sync';
 import { carriesSecret, textCarriesSecret } from '../../shared/config/draft';
@@ -125,6 +127,15 @@ export function knowledgeHandlers(deps: {
       return sync.setAuto(db(), parsed.enabled, parsed.intervalMinutes);
     },
     [IPC_CHANNELS.SYNC_PAUSE_ENRICHMENT]: () => sync.pauseEnrichment(db()),
+    [IPC_CHANNELS.SYNC_RETRY_ITEM]: (request) => {
+      const parsed = syncItemSchema.parse(request);
+      return sync.retryItem(db(), parsed.directory, parsed.name, deps.fetchImpl);
+    },
+    [IPC_CHANNELS.SYNC_SKIP_ITEM]: (request) => {
+      const parsed = syncSkipSchema.parse(request);
+      return sync.setSkipped(db(), parsed.directory, parsed.name, parsed.skip);
+    },
+    [IPC_CHANNELS.SYNC_RETRY_ALL]: () => sync.retryAll(db()),
   };
   return Object.fromEntries(Object.entries(table).map(([channel, handler]) => [channel, guarded(handler)]));
 }

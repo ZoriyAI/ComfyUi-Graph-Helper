@@ -54,6 +54,7 @@ import type {
   SearchModelsRequest,
   SearchNodesRequest,
   SyncStatus,
+  RetryItemResult,
   McpReadOutcome,
 } from '../shared/contracts';
 
@@ -147,6 +148,9 @@ const IPC_CHANNELS = {
   SYNC_NOW: 'sync:now',
   SYNC_SET_AUTO: 'sync:set-auto',
   SYNC_PAUSE_ENRICHMENT: 'sync:pause-enrichment',
+  SYNC_RETRY_ITEM: 'sync:retry-item',
+  SYNC_SKIP_ITEM: 'sync:skip-item',
+  SYNC_RETRY_ALL: 'sync:retry-all',
   SYNC_EVENT: 'sync:event',
   PROPOSALS_LIST: 'proposals:list',
   PROPOSALS_RESOLVE: 'proposals:resolve',
@@ -395,6 +399,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   syncNow: () => ipcRenderer.invoke(IPC_CHANNELS.SYNC_NOW) as Promise<SyncStatus>,
   syncSetAuto: (enabled: boolean, intervalMinutes: number) => ipcRenderer.invoke(IPC_CHANNELS.SYNC_SET_AUTO, { enabled, intervalMinutes }) as Promise<SyncStatus>,
   syncPauseEnrichment: () => ipcRenderer.invoke(IPC_CHANNELS.SYNC_PAUSE_ENRICHMENT) as Promise<SyncStatus>,
+  syncRetryItem: (item: { directory: string; name: string }) => ipcRenderer.invoke(IPC_CHANNELS.SYNC_RETRY_ITEM, item) as Promise<RetryItemResult>,
+  syncSkipItem: (item: { directory: string; name: string; skip: boolean }) => ipcRenderer.invoke(IPC_CHANNELS.SYNC_SKIP_ITEM, item) as Promise<SyncStatus>,
+  syncRetryAll: () => ipcRenderer.invoke(IPC_CHANNELS.SYNC_RETRY_ALL) as Promise<SyncStatus>,
   onSyncEvent: (listener: (status: SyncStatus) => void) => {
     const handler = (_event: unknown, status: SyncStatus) => listener(status);
     ipcRenderer.on(IPC_CHANNELS.SYNC_EVENT, handler);
@@ -664,6 +671,12 @@ export interface ElectronAPI {
   syncSetAuto: (enabled: boolean, intervalMinutes: number) => Promise<SyncStatus>;
   /** Stops background model-metadata reading until the next sync. */
   syncPauseEnrichment: () => Promise<SyncStatus>;
+  /** Settings ▸ Sync ▸ "Could not be read": read one model file again now, past its wait. */
+  syncRetryItem: (item: { directory: string; name: string }) => Promise<RetryItemResult>;
+  /** "Skip this file" on or off: a skipped file is not read until the switch is off. */
+  syncSkipItem: (item: { directory: string; name: string; skip: boolean }) => Promise<SyncStatus>;
+  /** "Try all again": every wait cleared, and a sync starts. */
+  syncRetryAll: () => Promise<SyncStatus>;
   onSyncEvent: (listener: (status: SyncStatus) => void) => () => void;
   listProposals: (projectId: string) => Promise<Proposal[]>;
   resolveProposal: (request: ResolveProposalRequest) => Promise<ProposalResolution>;

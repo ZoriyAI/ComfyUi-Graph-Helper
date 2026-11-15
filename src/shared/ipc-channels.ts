@@ -120,6 +120,9 @@ export const IPC_CHANNELS = {
   SYNC_NOW: 'sync:now',
   SYNC_SET_AUTO: 'sync:set-auto',
   SYNC_PAUSE_ENRICHMENT: 'sync:pause-enrichment',
+  SYNC_RETRY_ITEM: 'sync:retry-item',
+  SYNC_SKIP_ITEM: 'sync:skip-item',
+  SYNC_RETRY_ALL: 'sync:retry-all',
   SYNC_EVENT: 'sync:event',
 
   // Proposals (drafts on the canvas)

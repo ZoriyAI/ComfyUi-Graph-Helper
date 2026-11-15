@@ -33,7 +33,7 @@ The sync indicator sits at the right end of the menu bar: a coloured dot and a f
 
 With no address set, a press on the indicator says "The ComfyUI address is not set" with **Open connection settings**.
 
-When a sync ends, a message at the bottom right says what was read: "Read from ComfyUI. Nodes: 75, packs: 5, model files: 331." A screen reader hears the start and the end of a sync. With warnings: "Synced with warnings".
+When a sync you started by hand ends, a message at the bottom right says what was read (a sync on the timer shows no message; the chip carries the result, and its warning mark when something could not be read): "Read from ComfyUI. Nodes: 75, packs: 5, model files: 331." A screen reader hears the start and the end of a sync. With warnings: "Synced with warnings".
 
 ## See also
 

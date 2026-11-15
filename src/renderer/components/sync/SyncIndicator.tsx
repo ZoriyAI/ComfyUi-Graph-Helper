@@ -14,7 +14,7 @@ import { PopoverContent, PopoverRoot, PopoverTrigger } from '../../ui/Popover';
 import { showToast } from '../../ui/toastStore';
 import { cx } from '../../ui/cx';
 import {
-  clampInterval, formatDuration, formatSyncTime, isEnriching, MIN_INTERVAL_MINUTES, sourceSentence, syncSummary, syncTransition, syncView, type SyncState,
+  clampInterval, formatDuration, formatSyncTime, isEnriching, MIN_INTERVAL_MINUTES, sourceSentence, syncSummary, syncTransition, syncView, unreadCount, type SyncState,
 } from './syncView';
 import styles from './SyncIndicator.module.css';
 import { SYNC_INTERVAL_DEFAULT_MINUTES } from '../../../shared/knowledge/schemas';
@@ -24,11 +24,23 @@ import { i18n as appI18n } from '../../i18n';
 import { useUiStore } from '../../state/uiState';
 
 /**
+ * A run the person started (Sync now, Try all again) is waiting for its end: only such a run ends with a toast.
+ * A run on the timer or at startup shows its result as the mark on the chip, without a toast.
+ */
+let handRunPending = false;
+
+/** Marks the next run end as one the person asked for (Settings ▸ Sync ▸ "Try all again" uses it too). */
+export function markHandRun(): void {
+  handRunPending = true;
+}
+
+/**
  * Asks main for a run. While model metadata is still being read in the background, main ignores the request;
  * the caller gets 'busy' and shows the hint.
  */
 export async function requestSync(): Promise<'started' | 'busy' | 'noUrl'> {
   if (isEnriching(useKnowledgeStore.getState().sync)) return 'busy';
+  markHandRun();
   try {
     const status = await window.electronAPI.syncNow();
     useKnowledgeStore.getState().setSync(status);
@@ -128,10 +140,21 @@ export default function SyncIndicator() {
     const transition = syncTransition(previous.current, view.state);
     previous.current = view.state;
     if (!status || !transition) return;
+    const byHand = handRunPending;
+    handRunPending = false;
+    if (!byHand) return;
     // The open popover already shows the result. A toast on top of it would also take the first Escape
     // (Radix closes the newest layer), leaving the popover open. The same holds for any open dialog.
     if (openRef.current || modalOpen()) return;
-    if (transition === 'done') {
+    if (transition === 'done' && unreadCount(status) > 0) {
+      // Some files could not be read: the toast says how many and opens the report.
+      showToast({
+        id: 'sync-result',
+        tone: 'warn',
+        title: String(t('sync.unread.toast', { count: unreadCount(status) })),
+        action: { label: String(t('sync.unread.toastAction')), onSelect: () => useUiStore.getState().openSettings('sync') },
+      });
+    } else if (transition === 'done') {
       const summary = syncSummary(status);
       const warnings = status.warnings ?? [];
       const source = sourceSentence(status);

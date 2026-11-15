@@ -11,7 +11,7 @@ import Database from 'better-sqlite3';
 import { migrate } from '../../src/main/settings/migrate';
 import { modelDetail, searchModels } from '../../src/main/knowledge/repository';
 import {
-  catalogWarnings, classifySyncError, METADATA_STOPPED, NODE_PORTS_NO_URL, reportedComfyUrl, STARTUP_DELAY_MS, SyncService,
+  catalogWarnings, classifySyncError, NODE_PORTS_NO_URL, reportedComfyUrl, STARTUP_DELAY_MS, SyncService,
 } from '../../src/main/mcp/sync';
 import { createTranslator, translateKnownError } from '../../src/shared/i18n';
 import { MCP_NEEDS_SIGN_IN, McpTimeoutError, openReadOnlySession } from '../../src/main/mcp/client';
@@ -335,9 +335,10 @@ describe('sync service', () => {
     expect(modelDetail(db, 'loras', 'Band_Shirt_Crop_Top_SDXL.safetensors')).toMatchObject({ baseModel: 'sdxl', baseModelEvidence: 'filename', enriched: false });
     expect(modelDetail(db, 'checkpoints', 'mystery.safetensors')).toMatchObject({ baseModel: 'unknown', baseModelEvidence: 'none', kind: 'checkpoint', enriched: false });
     const failures = JSON.parse((db.prepare("SELECT value FROM sync_state WHERE key = 'enrich_failures'").get() as { value: string }).value);
+    // Each record keeps why: the server's own error text, or a read that did not come through.
     expect(failures).toEqual({
-      'loras/Band_Shirt_Crop_Top_SDXL.safetensors': { attempts: 1, lastAt: 1_700_000_000_000 },
-      'checkpoints/mystery.safetensors': { attempts: 1, lastAt: 1_700_000_000_000 },
+      'loras/Band_Shirt_Crop_Top_SDXL.safetensors': { attempts: 1, lastAt: 1_700_000_000_000, reason: 'serverError', detail: 'not found' },
+      'checkpoints/mystery.safetensors': { attempts: 1, lastAt: 1_700_000_000_000, reason: 'failed' },
     });
     // Not a loader folder: no enrichment, but the name inference still ran.
     expect(modelDetail(db, 'sams', 'sam_vit_b.pth')).toMatchObject({ kind: 'other', enriched: false });
@@ -601,10 +602,10 @@ describe('background metadata reading', () => {
     db.close();
   });
 
-  it('stops after 5 failed reads in a row and leaves the rest to the backoff and the next run', async () => {
+  it('does not stop at failed files: every file is tried, each failure is recorded, the run ends as done', async () => {
     const db = openDb();
     const calls: FakeOptions['calls'] = [];
-    // The first 12 files read, then the tool goes down.
+    // The first 12 files read, then every file answers with an error: no rule stops the reading any more.
     const { sync } = service({
       calls,
       models: hundredLoras,
@@ -614,12 +615,13 @@ describe('background metadata reading', () => {
     await sync.whenEnrichmentDone();
     const status = sync.status(db);
     expect(status).toMatchObject({ state: 'idle', lastError: null, progress: null, counts: { enrichedModels: 12 } });
-    expect(status.warnings).toEqual([NODE_PORTS_NO_URL, METADATA_STOPPED]);
-    // 12 good reads, then 5 failed in a row stop the background reading.
-    expect(calls.filter((call) => call.name === 'model_metadata')).toHaveLength(17);
+    expect(status.warnings).toEqual([NODE_PORTS_NO_URL]);
+    expect(calls.filter((call) => call.name === 'model_metadata')).toHaveLength(100);
     const failures = JSON.parse((db.prepare("SELECT value FROM sync_state WHERE key = 'enrich_failures'").get() as { value: string }).value);
-    expect(Object.keys(failures)).toHaveLength(5);
-    expect(translateKnownError(createTranslator('ru'), METADATA_STOPPED)).toMatch(/5 неудач/);
+    expect(Object.keys(failures)).toHaveLength(88);
+    // The report lists them, each with its reason and the time it is tried again by itself.
+    expect(status.unreadable).toHaveLength(88);
+    expect(status.unreadable?.[0]).toMatchObject({ kind: 'model', directory: 'loras', name: 'lora_012.safetensors', reason: 'failed', skipped: false, retryAt: 1_700_000_000_000 + 3_600_000 });
     sync.stop();
     db.close();
   });

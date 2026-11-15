@@ -6,10 +6,12 @@
  * ipc.ts (address changes, "Read through MCP"), index.ts (a status listener), ipc/diagnosticsIpc.ts (status),
  * ipc/openIpc.ts and settings/connectionSuggestions.ts (sync_state).
  * Why so careful: a sync can take minutes and the address can change in between; each run carries a ticket, and
- * a run that is no longer current writes nothing.
+ * a run that is no longer current writes nothing. A file whose metadata cannot be read never stops the reading:
+ * it is recorded with its reason (mcp/unreadable.ts) for the "Could not be read" report, and a lost connection is
+ * opened again (bounded) instead of being blamed on the files asked after it.
  */
 import type Database from 'better-sqlite3';
-import type { McpReadOutcome, SyncStatus } from '../../shared/contracts/knowledge';
+import type { McpReadOutcome, RetryItemResult, SyncStatus } from '../../shared/contracts/knowledge';
 import { toolPayload, type McpSession } from '../../shared/mcp/catalogSource';
 import { inferBaseModel } from '../../shared/knowledge/baseModel';
 import { inferModelKind } from '../../shared/knowledge/modelKind';
@@ -40,6 +42,10 @@ import { COMFY_PREVIEW_FILE, comfyMetadataSession, readComfyDirect, readComfyPre
 import { MCP_UNKNOWN_SERVER } from './client';
 import { dueLookups, writeWebOutcome } from '../knowledge/modelWeb';
 import { appWebClient, SYNC_LOOKUP_PAUSE_MS, SYNC_LOOKUPS_PER_RUN, type ModelWebClient } from '../knowledge/webLookup';
+import {
+  classifyErrorAnswer, classifyReadError, ENRICH_FAILURES_KEY, ENRICH_SKIPPED_KEY, enrichBackoffMs, FAILURES_RESET_KEY, fileKey, isConnectionLoss,
+  logSummary, readFailures, readSkipped, SUSPECT_ATTEMPTS, UNREAD_PARTS_KEY, unreadableRows, type ReadFailure, type UnreadPart,
+} from './unreadable';
 
 /** Loader folders whose files carry a safetensors header worth reading. */
 export const ENRICH_DIRECTORIES = [
@@ -51,15 +57,30 @@ export const DEFAULT_ENRICH_BATCH = ENRICH_PER_RUN.default;
 export const DEFAULT_ENRICH_PAUSE_MS = ENRICH_PAUSE_MS.default;
 /** With auto sync on and a sign-in or token held, the first run starts this long after the app opens. */
 export const STARTUP_DELAY_MS = 5_000;
-/** Background metadata reading stops after this many failed reads in a row; backoff applies at the next run. */
+/**
+ * Pack files: reading stops after this many failed packs in a row (the connection is gone). Model metadata has no
+ * such stop: a broken file is recorded and the reading goes on to the end (see enrichBatch).
+ */
 export const MAX_CONSECUTIVE_FAILURES = 5;
+/** A lost connection is opened again at most this many times per run (each time after RECONNECT_PAUSE_MS). */
+export const MAX_RECONNECTS = 3;
+/** The pause before a new connection is opened, so a server that is restarting has a moment. */
+export const RECONNECT_PAUSE_MS = 1_000;
 /** Same-size/root replacements have no fingerprint; supported headers are refreshed at least daily. */
 export const HEADER_REFRESH_MS = 24 * 60 * 60 * 1000;
 
-/** Stored when every metadata read of a run failed. */
-const ALL_FAILED = 'Model metadata could not be read.';
-/** Fixed English sentences stored in sync_state; the renderer translates them (shared/i18n ERROR_KEYS and patterns). */
-export const METADATA_STOPPED = 'Model metadata reading stopped after 5 failed reads in a row; it continues at the next sync.';
+/*
+ * The run's error when no model file could be read and the library has none read from before: only then is the
+ * sync a failure. Which sentence says why in plain words (the renderer translates each, shared/i18n ERROR_KEYS).
+ */
+export const ALL_FAILED = 'Model metadata could not be read.';
+export const ALL_FAILED_CONNECTION = 'Model metadata could not be read: the connection to the MCP server was lost while reading it.';
+export const ALL_FAILED_SERVER = 'Model metadata could not be read: the MCP server answered every file with an error.';
+/**
+ * The connection for reading model files was lost and did not come back after the bounded reconnects (or the
+ * server's own reader behind it is gone): reading stopped there, and the rest is read at the next sync.
+ */
+export const METADATA_CONNECTION_LOST = 'Reading model files stopped: the MCP server lost its connection for reading them. Restart the MCP server if this stays; the rest is read at the next sync.';
 export const NODE_PORTS_NO_URL = 'Node ports were not updated: the MCP server did not name a ComfyUI address.';
 export const NODE_PORTS_NOT_ALLOWED = 'Node ports were not updated: the ComfyUI address the server named is not on this computer or saved in Settings.';
 /**
@@ -122,6 +143,10 @@ export interface SyncDeps {
   lookupPauseMs?: number;
   /** Files looked up per sync at most (tests); SYNC_LOOKUPS_PER_RUN otherwise. */
   lookupsPerRun?: number;
+  /** Pause before a lost connection is opened again (tests); RECONNECT_PAUSE_MS otherwise. */
+  reconnectPauseMs?: number;
+  /** Where the end-of-run summary goes (the app log through the console); tests may catch it. */
+  log?: (line: string) => void;
 }
 
 type Listener = (status: SyncStatus) => void;
@@ -171,35 +196,7 @@ interface WebRun {
 /** After this many failed lookups in a row (the site is down, the computer offline) the run stops until the next sync. */
 const MAX_LOOKUP_FAILURES = 3;
 
-/** sync_state key holding failed metadata reads: { "directory/name": { attempts, lastAt } }. */
-export const ENRICH_FAILURES_KEY = 'enrich_failures';
-const HOUR = 60 * 60_000;
-
-/** How long a file waits after its n-th failed metadata read: 1 h, then 6 h, then 24 h. */
-export function enrichBackoffMs(attempts: number): number {
-  if (attempts <= 0) return 0;
-  if (attempts === 1) return HOUR;
-  if (attempts === 2) return 6 * HOUR;
-  return 24 * HOUR;
-}
-
-type FailureMap = Record<string, { attempts: number; lastAt: number }>;
-
-/** The stored failed reads, with malformed entries dropped. */
-function readFailures(state: Record<string, string>): FailureMap {
-  try {
-    const value = JSON.parse(state[ENRICH_FAILURES_KEY] ?? '{}') as unknown;
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
-    const result: FailureMap = {};
-    for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
-      const item = entry as { attempts?: unknown; lastAt?: unknown } | null;
-      if (item && typeof item.attempts === 'number' && typeof item.lastAt === 'number') result[key] = { attempts: item.attempts, lastAt: item.lastAt };
-    }
-    return result;
-  } catch {
-    return {};
-  }
-}
+export { ENRICH_FAILURES_KEY, enrichBackoffMs } from './unreadable';
 
 /** LoRAs first (they carry trigger words and base models people ask about), then checkpoints, then the rest. */
 function enrichOrder(directory: string): number {
@@ -374,9 +371,21 @@ interface EnrichRun {
   batch: number;
   pauseMs: number;
   scope: 'loaders' | 'all';
-  consecutiveFailures: number;
   attempted: number;
   failed: number;
+  /** Files whose header was read in this run. */
+  read: number;
+  /** Failures of this run by reason, for the sentence when none could be read. */
+  reasons: ReadFailure['reason'][];
+  /**
+   * Opens a new session the same way the run's first was opened (same factory, same sign-in) after the connection
+   * was lost; the stateless ComfyUI reader returns itself. Absent: a lost connection ends the reading.
+   */
+  reconnect?: () => Promise<McpSession>;
+  reconnects: number;
+  reconnectPauseMs: number;
+  /** The connection could not be restored: reading stopped for this run. */
+  lost: boolean;
   cancelled: boolean;
   timer: ReturnType<typeof setTimeout> | null;
   done: Promise<void>;
@@ -435,6 +444,7 @@ export class SyncService {
         enrichmentPaused: false,
         authMode: null,
         authChoice: '',
+        unreadable: [],
       };
     }
     const state = readState(db);
@@ -475,6 +485,7 @@ export class SyncService {
       librarySource: librarySourceOf(state),
       mcpProfile: mcpProfileOf(state),
       catalogRevision: Number(state.catalog_revision) || 0,
+      unreadable: unreadableRows(state),
     };
   }
 
@@ -821,6 +832,108 @@ export class SyncService {
     return { done: row.done, total: row.total };
   }
 
+  /**
+   * What a connection offers the server: the person's choice in Settings ▸ Connection decides (a manual token, the
+   * browser sign-in, or nothing); the server decides whether it is enough.
+   */
+  private async credentials(db: Database.Database, url: string): Promise<{ token: string | null; authProvider: OAuthClientProvider | null }> {
+    const mode = this.readAuthMode(db);
+    const token = mode === 'none' || mode === 'oauth' ? null : this.deps.token();
+    let authProvider: OAuthClientProvider | null = null;
+    if (!token && mode !== 'none' && mode !== 'token') {
+      try {
+        authProvider = await this.deps.authProvider(url);
+      } catch {
+        authProvider = null;
+      }
+    }
+    return { token, authProvider };
+  }
+
+  /**
+   * Settings ▸ Sync ▸ "Try again now" for one model file: its wait is cleared and its header is read at once, on a
+   * connection of its own (the way the last sync read it: the MCP server's metadata tool, or ComfyUI itself). The
+   * row goes away when the read worked, or says again why it did not. Refused while a sync runs ('busy').
+   */
+  async retryItem(db: Database.Database, directory: string, name: string, fetchImpl: typeof fetch = this.deps.fetchImpl, factory: McpSessionFactory = this.deps.factory): Promise<RetryItemResult> {
+    this.db = db;
+    if (this.running || this.background) return { status: this.status(db), outcome: 'busy' };
+    const key = fileKey(directory, name);
+    const state = readState(db);
+    const row = db.prepare(`SELECT ${ENRICH_COLUMNS} FROM model_catalog WHERE directory = ? AND name = ?`).get(directory, name) as EnrichRow | undefined;
+    if (!row || !isHeaderFile(name)) return { status: this.status(db), outcome: 'unavailable' };
+    const url = this.readUrlSafe(db);
+    let session: McpSession | null = null;
+    if (url && state[MCP_PROFILE_KEY] === 'catalog' && state.header_metadata_tool === '1') {
+      this.deps.checkTokenOrigin(url);
+      const { token, authProvider } = await this.credentials(db, url);
+      const opened = await openReadOnlySession({ url, token, authProvider }, factory);
+      if (opened.ok) session = opened.session;
+    } else if (state[COMFY_READ_ORIGIN_KEY]) {
+      session = comfyMetadataSession(state[COMFY_READ_ORIGIN_KEY], fetchImpl);
+    }
+    let failure: ReadFailure;
+    if (!session) {
+      failure = { reason: 'notConnected' };
+    } else {
+      try {
+        const outcome = await readMetadata(session, directory, name);
+        if (outcome.ok) {
+          db.transaction(() => {
+            writeModelEnrichment(db, directory, name, enrichmentOf(directory, name, outcome.parsed, null, this.deps.now()));
+            bumpCatalogRevision(db);
+          }).immediate();
+          const failures = readFailures(readState(db));
+          delete failures[key];
+          writeState(db, { [ENRICH_FAILURES_KEY]: JSON.stringify(failures) });
+          return { status: this.emit(db), outcome: 'read' };
+        }
+        failure = outcome.failure;
+      } catch (error) {
+        failure = error instanceof McpRefusedError ? { reason: 'serverError' } : classifyReadError(error);
+      } finally {
+        await session.close().catch(() => undefined);
+      }
+    }
+    const failures = readFailures(readState(db));
+    failures[key] = {
+      attempts: (failures[key]?.attempts ?? 0) + 1,
+      lastAt: this.deps.now(),
+      reason: failure.reason,
+      ...(failure.detail ? { detail: failure.detail } : {}),
+    };
+    writeState(db, { [ENRICH_FAILURES_KEY]: JSON.stringify(failures) });
+    return { status: this.emit(db), outcome: 'failed' };
+  }
+
+  /**
+   * Settings ▸ Sync ▸ "Skip this file": a skipped file is not read again (and not counted as a failure) until the
+   * switch is turned off; then its wait is cleared and the next sync reads it.
+   */
+  setSkipped(db: Database.Database, directory: string, name: string, skip: boolean): SyncStatus {
+    this.db = db;
+    const key = fileKey(directory, name);
+    const state = readState(db);
+    const skipped = readSkipped(state);
+    const failures = readFailures(state);
+    if (skip) {
+      const record = failures[key];
+      skipped[key] = { at: this.deps.now(), reason: record?.reason ?? 'failed', ...(record?.detail ? { detail: record.detail } : {}) };
+    } else {
+      delete skipped[key];
+    }
+    delete failures[key];
+    writeState(db, { [ENRICH_SKIPPED_KEY]: JSON.stringify(skipped), [ENRICH_FAILURES_KEY]: JSON.stringify(failures) });
+    return this.emit(db);
+  }
+
+  /** Settings ▸ Sync ▸ "Try all again": every wait is cleared (skipped files stay skipped) and a sync starts. */
+  retryAll(db: Database.Database): Promise<SyncStatus> {
+    this.db = db;
+    if (!this.running && !this.background) writeState(db, { [ENRICH_FAILURES_KEY]: '{}' });
+    return this.runSync(db);
+  }
+
   private async closeTicket(ticket: RunTicket): Promise<void> {
     const session = ticket.session;
     ticket.session = null;
@@ -853,17 +966,7 @@ export class SyncService {
       return;
     }
     this.deps.checkTokenOrigin(url);
-    // The person's choice in Settings ▸ Connection decides what is offered; the server decides whether it is enough.
-    const mode = this.readAuthMode(db);
-    const token = mode === 'none' || mode === 'oauth' ? null : this.deps.token();
-    let authProvider: OAuthClientProvider | null = null;
-    if (!token && mode !== 'none' && mode !== 'token') {
-      try {
-        authProvider = await this.deps.authProvider(url);
-      } catch {
-        authProvider = null;
-      }
-    }
+    const { token, authProvider } = await this.credentials(db, url);
     // Keep the connect error so an unreachable server is told apart from one that answered badly.
     let connectError: unknown = null;
     const watched: McpSessionFactory = async (target, bearer, provider) => {
@@ -907,6 +1010,7 @@ export class SyncService {
             [LIBRARY_SOURCE_KEY]: accepted.direct || accepted.result.objectInfo === 'native' ? 'mcp+comfy' : 'mcp',
             [COMFY_READ_ORIGIN_KEY]: accepted.direct?.origin ?? '',
             [COMFY_MODEL_ROOTS_KEY]: '{}',
+            [UNREAD_PARTS_KEY]: JSON.stringify(unreadPartsOf(accepted.result)),
           });
           finish({ last_sync_at: String(now), last_error: '', last_warnings: JSON.stringify([...catalogWarnings(accepted.result, url), ...accepted.warnings]) });
         },
@@ -936,38 +1040,35 @@ export class SyncService {
       if (!this.isCurrent(ticket)) return;
       // A server that gives no metadata tool of its own: the headers are read from the ComfyUI address, when read.
       const metadataFromComfy = read.profile !== 'catalog' && read.direct != null;
+      const metadataSession = metadataFromComfy && read.direct ? comfyMetadataSession(read.direct.origin, fetchImpl, ticket.controller.signal) : session;
       const run: EnrichRun = {
-        isCurrent: () => this.isCurrent(ticket),
-        signal: ticket.controller.signal,
-        session: metadataFromComfy && read.direct ? comfyMetadataSession(read.direct.origin, fetchImpl, ticket.controller.signal) : session,
-        startedAt,
+        ...this.newRun(ticket, metadataSession, startedAt, settings, done, resolve),
         hasTool: metadataFromComfy || (read.profile === 'catalog' && read.toolNames.has('model_metadata')),
         hasFiles,
-        batch: Math.max(1, Math.round(this.deps.enrichLimit ?? settings.perRun)),
-        pauseMs: Math.max(0, this.deps.batchPauseMs ?? settings.pauseMs ?? DEFAULT_ENRICH_PAUSE_MS),
-        scope: settings.scope,
-        consecutiveFailures: 0,
-        attempted: 0,
-        failed: 0,
-        cancelled: false,
-        timer: null,
-        done,
-        resolve,
+        // A lost MCP connection is opened again through the same factory with the same sign-in; the ComfyUI
+        // reader asks over plain HTTP and is simply asked again.
+        reconnect: metadataFromComfy ? async () => metadataSession : async () => {
+          const again = await openReadOnlySession({ url, token, authProvider }, factory);
+          if (!again.ok) throw new Error(again.error);
+          if (ticket.session) ticket.session = again.session;
+          return again.session;
+        },
       };
       const first = await this.enrichBatch(db, run, 'enrich');
-      const enrichError = run.attempted > 0 && run.failed === run.attempted ? ALL_FAILED : null;
-      if (first.stopped && !enrichError) warnings.push(METADATA_STOPPED);
+      const enrichError = this.allFailedError(db, run);
+      if (run.lost && !enrichError) warnings.push(METADATA_CONNECTION_LOST);
       finish({ last_sync_at: String(now), last_error: enrichError ?? '', last_warnings: JSON.stringify(warnings) });
       if (!this.isCurrent(ticket)) {
         resolve();
         return;
       }
       if (!enrichError && !first.stopped && first.remaining > 0) {
-        // The background reading keeps the MCP session only when it reads through it.
-        handedOver = run.session === session;
+        // The background reading keeps the MCP session (the one it reads through, maybe opened again) only when it reads through it.
+        handedOver = !metadataFromComfy;
         this.startBackground(db, run);
       } else {
         resolve();
+        this.logReport(db);
         this.startWebLookups(db, startedAt);
       }
     } catch (error) {
@@ -1012,6 +1113,7 @@ export class SyncService {
             [SIDE_FILES_KEY]: '0', header_metadata_tool: '1', [MCP_PROFILE_KEY]: mcpProfile, [LIBRARY_SOURCE_KEY]: 'comfy',
             [COMFY_READ_ORIGIN_KEY]: accepted.origin, [COMFY_MODEL_ROOTS_KEY]: JSON.stringify(accepted.roots),
             server_identity: JSON.stringify({ installation_id: null, comfyui_url: accepted.origin }),
+            [UNREAD_PARTS_KEY]: JSON.stringify(accepted.failedFolders.map((name): UnreadPart => ({ kind: 'folder', name, reason: 'listing' }))),
           });
           finish({ last_sync_at: String(now), last_error: '', last_warnings: JSON.stringify([...extraWarnings, ...accepted.warnings, ...accepted.failedFolders.map(folderUnreadWarning)]) });
         },
@@ -1032,24 +1134,14 @@ export class SyncService {
     const done = new Promise<void>((settle) => {
       resolve = settle;
     });
+    const metadataSession = comfyMetadataSession(read.origin, fetchImpl, ticket.controller.signal);
     const run: EnrichRun = {
-      isCurrent: () => this.isCurrent(ticket),
-      signal: ticket.controller.signal,
-      session: comfyMetadataSession(read.origin, fetchImpl, ticket.controller.signal),
-      startedAt,
+      ...this.newRun(ticket, metadataSession, startedAt, settings, done, resolve),
       hasTool: true,
       hasFiles: false,
       comfyPreviews: read.modelListing === 'detailed' ? { origin: read.origin, roots: read.roots, fetchImpl } : undefined,
-      batch: Math.max(1, Math.round(this.deps.enrichLimit ?? settings.perRun)),
-      pauseMs: Math.max(0, this.deps.batchPauseMs ?? settings.pauseMs ?? DEFAULT_ENRICH_PAUSE_MS),
-      scope: settings.scope,
-      consecutiveFailures: 0,
-      attempted: 0,
-      failed: 0,
-      cancelled: false,
-      timer: null,
-      done,
-      resolve,
+      // ComfyUI is asked over plain HTTP: "reconnecting" is asking again after the pause.
+      reconnect: async () => metadataSession,
     };
     let first: { remaining: number; stopped: boolean };
     try {
@@ -1057,8 +1149,8 @@ export class SyncService {
     } catch {
       first = { remaining: 0, stopped: true };
     }
-    const enrichError = run.attempted > 0 && run.failed === run.attempted ? ALL_FAILED : null;
-    if (first.stopped && !enrichError) warnings.push(METADATA_STOPPED);
+    const enrichError = this.allFailedError(db, run);
+    if (run.lost && !enrichError) warnings.push(METADATA_CONNECTION_LOST);
     finish({ last_sync_at: String(now), last_error: enrichError ?? '', last_warnings: JSON.stringify(warnings) });
     if (!this.isCurrent(ticket)) {
       resolve();
@@ -1068,6 +1160,7 @@ export class SyncService {
       this.startBackground(db, run);
     } else {
       resolve();
+      this.logReport(db);
       this.startWebLookups(db, startedAt);
     }
   }
@@ -1131,9 +1224,9 @@ export class SyncService {
       try {
         const result = await this.enrichBatch(db, run, 'enrichment');
         if (run.cancelled || !run.isCurrent()) return;
-        if (result.stopped) {
+        if (run.lost) {
           const warnings = readWarnings(readState(db));
-          if (!warnings.includes(METADATA_STOPPED)) writeState(db, { last_warnings: JSON.stringify([...warnings, METADATA_STOPPED]) });
+          if (!warnings.includes(METADATA_CONNECTION_LOST)) writeState(db, { last_warnings: JSON.stringify([...warnings, METADATA_CONNECTION_LOST]) });
         }
         if (result.stopped || result.remaining === 0) {
           this.finishBackground(db, run);
@@ -1161,7 +1254,10 @@ export class SyncService {
     this.background = null;
     void run.session.close().catch(() => undefined);
     run.resolve();
-    if (!run.cancelled && run.isCurrent()) this.startWebLookups(db, run.startedAt);
+    if (!run.cancelled && run.isCurrent()) {
+      this.logReport(db);
+      this.startWebLookups(db, run.startedAt);
+    }
     try {
       this.emit(db);
     } catch {
@@ -1169,17 +1265,117 @@ export class SyncService {
     }
   }
 
+  /** The parts of a run's metadata reading every kind of run starts with. */
+  private newRun(
+    ticket: RunTicket,
+    session: McpSession,
+    startedAt: number,
+    settings: EnrichmentSettings,
+    done: Promise<void>,
+    resolve: () => void,
+  ): Omit<EnrichRun, 'hasTool' | 'hasFiles'> {
+    return {
+      isCurrent: () => this.isCurrent(ticket),
+      signal: ticket.controller.signal,
+      session,
+      startedAt,
+      batch: Math.max(1, Math.round(this.deps.enrichLimit ?? settings.perRun)),
+      pauseMs: Math.max(0, this.deps.batchPauseMs ?? settings.pauseMs ?? DEFAULT_ENRICH_PAUSE_MS),
+      scope: settings.scope,
+      attempted: 0,
+      failed: 0,
+      read: 0,
+      reasons: [],
+      reconnects: 0,
+      reconnectPauseMs: Math.max(0, this.deps.reconnectPauseMs ?? RECONNECT_PAUSE_MS),
+      lost: false,
+      cancelled: false,
+      timer: null,
+      done,
+      resolve,
+    };
+  }
+
+  /**
+   * The run's error, or null. A sync is a failure only when it tried files, read none of them, and the library has
+   * no model read from before either: then nothing at all can be shown, and the sentence says why. Anything less
+   * is a successful sync with a report of what could not be read.
+   */
+  private allFailedError(db: Database.Database, run: EnrichRun): string | null {
+    if (run.attempted === 0 || run.read > 0) return null;
+    if (!run.lost && run.failed < run.attempted) return null;
+    try {
+      if (catalogTotals(db).enrichedModels > 0) return null;
+    } catch {
+      return null;
+    }
+    if (run.lost || run.reasons.some((reason) => reason === 'dropped' || reason === 'notConnected')) return ALL_FAILED_CONNECTION;
+    if (run.reasons.length > 0 && run.reasons.every((reason) => reason === 'serverError')) return ALL_FAILED_SERVER;
+    return ALL_FAILED;
+  }
+
+  /** Writes the end-of-run summary into the app log: counts and reasons, never a file name or an address. */
+  private logReport(db: Database.Database): void {
+    try {
+      const metadata = this.metadataCounts(db);
+      (this.deps.log ?? ((line: string) => console.info(line)))(logSummary(metadata.done, metadata.total, unreadableRows(readState(db))));
+    } catch {
+      // The log never breaks a sync.
+    }
+  }
+
+  /**
+   * After a lost connection: waits RECONNECT_PAUSE_MS, then opens a new session the way the first was opened.
+   * False when the run may not reconnect again (MAX_RECONNECTS), was cancelled, or the new connection failed.
+   */
+  private async restoreConnection(run: EnrichRun): Promise<boolean> {
+    if (!run.reconnect || run.reconnects >= MAX_RECONNECTS) return false;
+    run.reconnects += 1;
+    if (run.reconnectPauseMs > 0) {
+      await new Promise<void>((settle) => {
+        const timer = setTimeout(settle, run.reconnectPauseMs);
+        timer.unref?.();
+      });
+    }
+    if (run.cancelled || !run.isCurrent()) return false;
+    let next: McpSession;
+    try {
+      next = await run.reconnect();
+    } catch {
+      return false;
+    }
+    if (run.cancelled || !run.isCurrent()) {
+      if (next !== run.session) void next.close().catch(() => undefined);
+      return false;
+    }
+    const old = run.session;
+    run.session = next;
+    if (old !== next) void old.close().catch(() => undefined);
+    return true;
+  }
+
   /**
    * Reads one batch of metadata. LoRAs first, then checkpoints, then the rest; alphabetical within a folder.
-   * A failed read waits out its backoff and does not take a slot from the others. `stopped` after
-   * MAX_CONSECUTIVE_FAILURES failed reads in a row; `remaining` counts files still due after this batch.
+   * A failed read is recorded with its reason and waits out its backoff; it never stops the reading: the batch goes
+   * on to the next file. A lost connection is not the file's fault: the connection is opened again (bounded) and
+   * the same file asked once more; only a file that loses the connection again is recorded (as the one that breaks
+   * it). When the connection cannot be restored, the run is `lost` and `stopped`. Skipped files are not read.
+   * `remaining` counts files still due after this batch.
    */
   private async enrichBatch(db: Database.Database, run: EnrichRun, phase: 'enrich' | 'enrichment'): Promise<{ remaining: number; stopped: boolean }> {
     const now = this.deps.now();
-    const failures = readFailures(readState(db));
+    const state = readState(db);
+    // Once per profile, at the first reading of this version: the marks older versions wrote are dropped. They
+    // counted a lost connection against every file asked after it, so healthy files waited a day. Written with
+    // the records below, so a cancelled run leaves them as they were.
+    const resetOld = state[FAILURES_RESET_KEY] !== '1';
+    const failures = resetOld ? {} : readFailures(state);
+    const skipped = readSkipped(state);
     const due = this.scopeRows(db, run.scope, true, run.hasFiles, run.hasTool)
       .filter((row) => {
-        const failure = failures[`${row.directory}/${row.name}`];
+        const key = fileKey(row.directory, row.name);
+        if (skipped[key]) return false;
+        const failure = failures[key];
         return !failure || now - failure.lastAt >= enrichBackoffMs(failure.attempts);
       })
       .sort((left, right) => enrichOrder(left.directory) - enrichOrder(right.directory)
@@ -1187,36 +1383,60 @@ export class SyncService {
         || left.name.localeCompare(right.name));
     const rows = due.slice(0, run.batch);
     let handled = 0;
-    let stopped = false;
     try {
       for (const [index, row] of rows.entries()) {
         if (run.cancelled || !run.isCurrent()) break;
         if (phase === 'enrich') this.setProgress(db, 'enrich', index, rows.length);
         else this.emit(db);
-        const key = `${row.directory}/${row.name}`;
-        // A read that did not come through: the name-based guess stays and the read is retried after the backoff.
-        const failed = (): boolean => {
+        const key = fileKey(row.directory, row.name);
+        // A read that did not come through: the name-based guess stays, the reason is kept for the report, and
+        // the read is retried after the backoff (or at once with "Try again now").
+        const failed = (failure: ReadFailure, attempts?: number) => {
           run.failed += 1;
-          run.consecutiveFailures += 1;
+          run.reasons.push(failure.reason);
           handled += 1;
           const previous = failures[key];
-          failures[key] = { attempts: (previous?.attempts ?? 0) + 1, lastAt: this.deps.now() };
-          return run.consecutiveFailures >= MAX_CONSECUTIVE_FAILURES;
+          failures[key] = {
+            attempts: attempts ?? (previous?.attempts ?? 0) + 1,
+            lastAt: this.deps.now(),
+            reason: failure.reason,
+            ...(failure.detail ? { detail: failure.detail } : {}),
+          };
         };
         const headerDue = row.enriched_at == null || (run.hasTool && isHeaderFile(row.name) && now - row.enriched_at >= HEADER_REFRESH_MS);
         let parsed: ParsedModelMetadata | null = null;
         if (headerDue && run.hasTool && isHeaderFile(row.name)) {
-          parsed = await readMetadata(run.session, row.directory, row.name);
+          let outcome = await readMetadata(run.session, row.directory, row.name);
           if (run.cancelled || !run.isCurrent()) break;
           run.attempted += 1;
-          if (!parsed) {
-            if (failed()) {
-              stopped = true;
-              break;
+          if (!outcome.ok && isConnectionLoss(outcome.failure)) {
+            const droppedHere = outcome.failure.reason === 'dropped';
+            const restored = await this.restoreConnection(run);
+            if (run.cancelled || !run.isCurrent()) break;
+            if (restored) {
+              outcome = await readMetadata(run.session, row.directory, row.name);
+              if (run.cancelled || !run.isCurrent()) break;
             }
+            if (!outcome.ok && isConnectionLoss(outcome.failure)) {
+              // The file broke a connection and fails again on a new one: it is the one that breaks it. It alone
+              // waits the longest; the files after it are read.
+              if (restored && (droppedHere || outcome.failure.reason === 'dropped')) {
+                failed({ reason: 'dropped' }, Math.max(SUSPECT_ATTEMPTS, (failures[key]?.attempts ?? 0) + 1));
+              }
+              // A new connection that is not connected either, or none: the server cannot read now. Nothing more is
+              // asked in this run and no other file is blamed.
+              if (!restored || outcome.failure.reason === 'notConnected') {
+                run.lost = true;
+                break;
+              }
+              continue;
+            }
+          }
+          if (!outcome.ok) {
+            failed(outcome.failure);
             continue;
           }
-          run.consecutiveFailures = 0;
+          parsed = outcome.parsed;
         }
         // The description a model manager keeps next to the file. A file that is not a description, or is gone,
         // says nothing and is asked for again only when it changes; a read that failed on the way is retried.
@@ -1227,13 +1447,9 @@ export class SyncService {
           if (run.cancelled || !run.isCurrent()) break;
           run.attempted += 1;
           if (!read.ok) {
-            if (failed()) {
-              stopped = true;
-              break;
-            }
+            failed({ reason: 'failed' });
             continue;
           }
-          run.consecutiveFailures = 0;
           side = read.side;
         }
         delete failures[key];
@@ -1252,14 +1468,17 @@ export class SyncService {
           }
           bumpCatalogRevision(db);
         }).immediate();
+        // Only a header that came through counts as read; a name-only guess does not.
+        if (parsed) run.read += 1;
         handled += 1;
       }
     } finally {
-      if (!run.cancelled && run.isCurrent()) writeState(db, { [ENRICH_FAILURES_KEY]: JSON.stringify(failures) });
+      if (!run.cancelled && run.isCurrent()) writeState(db, { [ENRICH_FAILURES_KEY]: JSON.stringify(failures), ...(resetOld ? { [FAILURES_RESET_KEY]: '1' } : {}) });
     }
     if (run.cancelled || !run.isCurrent()) return { remaining: 0, stopped: true };
     if (phase === 'enrich' && rows.length > 0) this.setProgress(db, 'enrich', handled, rows.length);
-    return { remaining: due.length - handled, stopped };
+    if (run.lost) return { remaining: 0, stopped: true };
+    return { remaining: due.length - handled, stopped: false };
   }
 }
 
@@ -1439,16 +1658,35 @@ function enrichmentOver(row: EnrichRow, facts: SidecarFacts) {
   };
 }
 
-/** One file's header metadata through `model_metadata`; null for a failed read (a gate refusal is thrown). */
-async function readMetadata(session: McpSession, directory: string, name: string): Promise<ParsedModelMetadata | null> {
+/** One metadata read: the parsed header, or why it failed (unreadable.ts sorts the reasons). */
+type MetadataOutcome = { ok: true; parsed: ParsedModelMetadata } | { ok: false; failure: ReadFailure };
+
+/** One file's header metadata through `model_metadata`. A gate refusal is thrown; every other failure is sorted. */
+async function readMetadata(session: McpSession, directory: string, name: string): Promise<MetadataOutcome> {
   try {
     const result = await session.callTool('model_metadata', { action: 'read', category: directory, name });
-    return parseModelMetadata(toolPayload(result));
+    if (result.isError) {
+      const text = result.content?.find((block) => block.type === 'text' && typeof block.text === 'string')?.text;
+      return { ok: false, failure: classifyErrorAnswer(text) };
+    }
+    const parsed = parseModelMetadata(toolPayload(result));
+    return parsed ? { ok: true, parsed } : { ok: false, failure: { reason: 'unreadable' } };
   } catch (error) {
     if (error instanceof McpRefusedError) throw error;
-    return null;
+    return { ok: false, failure: classifyReadError(error) };
   }
 }
+
+/** The model folders and catalog sections a listing did not give, for the report. */
+function unreadPartsOf(result: McpReadSuccess): UnreadPart[] {
+  // ComfyUI was not up yet when the server was asked (it said so, and still did after the polite retries).
+  const reason = result.comfyUnavailable ? 'comfyDown' : 'listing';
+  return [
+    ...(result.failedFolders ?? []).filter((folder) => /^[A-Za-z0-9_.-]{1,80}$/.test(folder)).map((name): UnreadPart => ({ kind: 'folder', name, reason })),
+    ...(result.failedSections ?? []).map((name): UnreadPart => ({ kind: 'section', name, reason })),
+  ];
+}
+
 
 /**
  * What is stored for a file from its header and from a description. Two descriptions may exist: the one the MCP

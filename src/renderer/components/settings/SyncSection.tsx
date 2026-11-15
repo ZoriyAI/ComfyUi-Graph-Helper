@@ -16,6 +16,7 @@ import SelectField from '../../ui/SelectField';
 import Switch from '../../ui/Switch';
 import settingsStyles from './SettingsPanel.module.css';
 import { pauseEnrichment, requestSync } from '../sync/SyncIndicator';
+import UnreadableList from '../sync/UnreadableList';
 import { autoSyncAllowed, type AutoDraft } from './settingsDraft';
 import { SYNC_INTERVAL_DEFAULT_MINUTES } from '../../../shared/knowledge/schemas';
 import { clampInterval, formatSyncTime, MIN_INTERVAL_MINUTES, syncView } from '../sync/syncView';
@@ -140,6 +141,8 @@ export default function SyncSection({
         ) : null}
       </div>
       {note ? <p className={hintClass} role="status">{note}</p> : null}
+      {/* What could not be read, why, and what to do (the report a run ends with). */}
+      <UnreadableList status={status} />
       {sync && onSyncChange ? (
         <>
           <SelectField
