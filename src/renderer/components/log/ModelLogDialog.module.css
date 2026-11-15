@@ -1,3 +1,4 @@
+/* The conversation log window (ModelLogDialog.tsx): the switch, quick picks, the turn list and the save row. */
 .dialog {
   width: min(820px, calc(100vw - 32px));
   max-height: calc(100vh - 48px);
