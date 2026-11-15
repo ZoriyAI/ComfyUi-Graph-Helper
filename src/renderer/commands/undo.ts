@@ -1,3 +1,10 @@
+/**
+ * Edit ▸ Undo and Redo: the plan over the revision history, the hints in menus, and the queue of presses.
+ *
+ * Who uses it: appCommands.ts (the edit.undo and edit.redo commands, and installUndoHistory at start).
+ * Why it is shaped so: every change is a revision in main, so undo is a commit that restores an older revision;
+ * presses are queued until edits in flight have landed, so a quick series never skips or repeats a step.
+ */
 import { i18n } from '../i18n';
 import { useProjectionStore } from '../services/commands/projection';
 import { commitManual } from '../components/graph/commit';
@@ -7,6 +14,7 @@ import { pendingCommits, whenSettled } from '../services/commands/pending';
 
 const t = (key: string, options?: Record<string, unknown>) => String(i18n.t(key, options ?? {}));
 
+/** Counts revision-list reads; only the answer of the newest read is kept. */
 let refreshSeq = 0;
 
 /** Re-reads the revision list (newest answer wins). */
@@ -31,6 +39,7 @@ export function installUndoHistory(): () => void {
   });
 }
 
+/** What Undo and Redo would do now (state/undoState.ts planUndo), from the history and the run on screen. */
 export function currentUndoPlan(): UndoPlan {
   const projection = useProjectionStore.getState();
   const undo = useUndoStore.getState();
@@ -40,10 +49,10 @@ export function currentUndoPlan(): UndoPlan {
   });
 }
 
-/** Undo and redo work on every level: a change made inside a subgraph is one step of the same history. */
 /**
- * A press while an undo is running or an edit is still landing is kept (queued below), not dropped: the plan is made
- * once the history has caught up, so each press steps back one revision.
+ * True while an undo is running or an edit is still landing. Undo and redo stay enabled then: a press is kept
+ * (queued below), not dropped, and the plan is made once the history has caught up, so each press steps back one
+ * revision. Undo and redo work on every level: a change made inside a subgraph is one step of the same history.
  */
 function settling(): boolean {
   const head = useProjectionStore.getState().currentRevisionId;
@@ -61,6 +70,7 @@ export function canRedo(): boolean {
   return canEditLevel() && (settling() || currentUndoPlan().redo !== null);
 }
 
+/** The live tooltip of Undo: what it would undo, or why it cannot. */
 export function undoHint(): string {
   const plan = currentUndoPlan();
   if (plan.undo) {
@@ -72,6 +82,7 @@ export function undoHint(): string {
   return t('toolbar.undoNone');
 }
 
+/** The live tooltip of Redo. */
 export function redoHint(): string {
   const plan = currentUndoPlan();
   if (plan.redo) {
@@ -81,6 +92,10 @@ export function redoHint(): string {
   return t('toolbar.redoNone');
 }
 
+/**
+ * Commits a restore of the revision the plan names, then moves the undo session pointer so that Redo can find
+ * the way back. The head is read before the commit because the session records the step from it.
+ */
 async function restore(kind: 'undo' | 'redo'): Promise<void> {
   const plan = currentUndoPlan();
   const step = kind === 'undo' ? plan.undo : plan.redo;
@@ -110,6 +125,7 @@ async function restore(kind: 'undo' | 'redo'): Promise<void> {
  * watcher) wins over this one, so a single read may leave the list a step behind.
  */
 async function historyCaughtUp(): Promise<void> {
+  // A few reads are enough in practice; after them the plan is made from what the list holds.
   for (let attempt = 0; attempt < 5; attempt += 1) {
     await refreshUndoHistory();
     const head = useProjectionStore.getState().currentRevisionId;

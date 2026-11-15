@@ -1,7 +1,7 @@
 /**
  * Keyboard focus for the cards that open beside the library (a node class card, a model card).
  *
- * Who uses it: library/NodeLibrary.tsx and library/ModelLibrary.tsx.
+ * Who uses it: components/library/NodeLibrary.tsx and components/library/ModelLibrary.tsx.
  *
  * Why: a card opened from the keyboard (Space on a node row, Enter on a model row) appeared beside the list while
  * focus stayed in the list, and the card sits at the end of the page, so Tab never reached its buttons (Add to

@@ -1,3 +1,10 @@
+/**
+ * The window's keyboard: command shortcuts, Alt and F10 for the menu bar, F6 for moving between areas.
+ *
+ * Who uses it: App.tsx calls installHotkeys once; components/shell/MenuBar.tsx uses the focus helpers so that focus
+ * goes back where it was after a menu command.
+ * Why one listener: every shortcut is read from the command registry, so a key and its menu item never disagree.
+ */
 import { allCommands, runCommand, type Command } from './registry';
 import { detectPlatform, matchesShortcut, noteLayout, type KeyLike, type Platform } from './shortcuts';
 import { cycleRegion } from '../a11y/focusRescue';
@@ -5,6 +12,7 @@ import { cycleRegion } from '../a11y/focusRescue';
 /** Shortcuts that still work while typing in a field or inside an open menu or dialog. */
 export const GLOBAL_SHORTCUTS = new Set(['Escape', 'Mod+S', 'Mod+Shift+S', 'Mod+O', 'Mod+N', 'Mod+Shift+C']);
 
+/** Where focus is when a key is pressed, as far as shortcuts care. */
 export interface FocusContext {
   /** Focus is in an input, textarea, select or contenteditable element. */
   editable: boolean;
@@ -64,11 +72,13 @@ function menuBarTrigger(): HTMLElement | null {
 /** The element that had focus before the menu bar took it; focus goes back there after a command. */
 let beforeMenuBar: HTMLElement | null = null;
 
+/** Called when the menu bar takes focus, with the element that had it. */
 export function rememberFocusBeforeMenuBar(element: Element | null): void {
   // Focus coming back from one of the menu bar's own menus is not a place to return to.
   if (element instanceof HTMLElement && !element.closest('[role="menubar"], [role="menu"]') && element !== document.body) beforeMenuBar = element;
 }
 
+/** Gives focus back to the element remembered before the menu bar, and takes it off the menu bar. */
 export function restoreFocusAfterMenuBar(): void {
   const target = beforeMenuBar;
   beforeMenuBar = null;
@@ -77,6 +87,7 @@ export function restoreFocusAfterMenuBar(): void {
   if (active instanceof HTMLElement && active.closest('[role="menubar"]')) active.blur();
 }
 
+/** Alt alone or F10: into the menu bar, or back out of it when it already has focus. */
 function toggleMenuBarFocus(): void {
   const active = document.activeElement;
   if (active instanceof HTMLElement && active.closest('[role="menubar"]')) {
@@ -98,6 +109,7 @@ function toggleMenuBarFocus(): void {
  * only shows that key.
  */
 export function installHotkeys(platform: Platform = detectPlatform()): () => void {
+  // Alt pressed and released with no other key between: only then does it open the menu bar (on keyup).
   let altAlone = false;
 
   const onKeyDown = (event: KeyboardEvent) => {

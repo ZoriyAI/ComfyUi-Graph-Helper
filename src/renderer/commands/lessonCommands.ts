@@ -12,6 +12,7 @@ import { importLessonsFromDialog } from '../components/lessons/lessonFiles';
 import { makeLessonFromGraph } from '../components/lessons/lessonAuthoring';
 import { openLessons } from './actions';
 
+/** File ▸ Import lessons… and File ▸ Make a lesson from this graph. */
 export function buildLessonFileCommands(): Command[] {
   return [
     { id: 'file.importLessons', group: 'file', labelKey: 'lessonFiles.menuImport', hintKey: 'lessonFiles.menuImportHint', icon: FileUp, enabled: () => true, run: () => importLessonsFromDialog() },

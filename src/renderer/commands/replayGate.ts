@@ -1,3 +1,10 @@
+/**
+ * The lock on the real graph while History replay (Graph ▸ Replay) is open.
+ *
+ * Who uses it: appCommands.ts installs the gate; components/graph/commit.ts, AddNodeSearch.tsx, the library
+ * (placeModel.ts, NodeLibrary.tsx, SubgraphLibrary.tsx) and services/llm/chatService.ts ask or close it.
+ * Why: the replay shows an old revision on the canvas, so an edit made then would look like it changed the past.
+ */
 import { i18n } from '../i18n';
 import { setManualGate } from '../services/commands/projection';
 import { useCanvasStore } from '../components/graph/canvasStore';
