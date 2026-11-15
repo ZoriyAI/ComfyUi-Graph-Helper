@@ -1,3 +1,11 @@
+/**
+ * The chat's engine in the window: sends a turn to main, reads its stream and keeps the chat, canvas and knowledge
+ * stores current.
+ *
+ * Who uses it: components/chat (ChatDock, Message), components/shell/StatusBar.tsx,
+ * components/graph/layers/LiveBuildStrip.tsx, components/journey/ComfyErrorDialog.tsx, App.tsx, and
+ * commands/actions.ts and commands/buildGuard.ts (pause, resume, stop).
+ */
 import { useChatStore } from '../../state/chatState';
 import { useGraphStore } from '../../state/graphState';
 import { useKnowledgeStore } from '../../state/knowledgeState';
@@ -46,7 +54,9 @@ const translate: Translator = (key, options) => (options ? String(i18n.t(key, op
  * description card has it the moment the node appears.
  */
 
+/** One chunk of the turn's stream, as main sends it. */
 type StreamChunk = { type: string; content?: unknown };
+/** How a tool call ended; kept until the matching tool-call chunk is seen, as the order may differ. */
 type Settled = { status: 'success' | 'error'; result: unknown; error?: string };
 
 function newId(): string {
@@ -60,6 +70,7 @@ function shownError(provider: string, raw: string): string {
   return translateKnownError(translate, raw) ?? raw;
 }
 
+/** Readable text from whatever an error chunk or a thrown value carries. */
 function errorText(content: unknown): string {
   if (typeof content === 'string') return content;
   if (isRecord(content)) {
@@ -85,6 +96,7 @@ export function defaultTurnContext(): AgentTurnContext {
   };
 }
 
+/** Whether an untrusted value has the shape of a saved explanation. */
 function isExplanation(value: unknown): value is Explanation {
   return isRecord(value) && typeof value.id === 'string' && typeof value.text === 'string' && isRecord(value.owner)
     && typeof value.owner.kind === 'string' && typeof value.owner.id === 'string' && typeof value.aspect === 'string';
@@ -145,6 +157,7 @@ export function acceptBuildStep(content: unknown): void {
   }
 }
 
+/** A full turn context: the given fields, the rest from defaultTurnContext. */
 function completeContext(context?: Partial<AgentTurnContext>): AgentTurnContext {
   const base = defaultTurnContext();
   if (!context) return base;
@@ -167,6 +180,7 @@ function markLastAnswerStopped(): void {
 /** Messages per page of the chat (main/agent/chatHistory.ts CHAT_PAGE). */
 const CHAT_PAGE_SIZE = 200;
 
+/** One per window (getChatService): the turn in flight, the run it builds in, and the loaded chat history. */
 export class ChatService {
   private isStreaming = false;
   private currentBaseRevisionId: string | null = null;
@@ -225,6 +239,7 @@ export class ChatService {
     }
   }
 
+  /** Saves one message to main's chat store; a refusal is logged, never shown. */
   private persist(message: ChatMessage | undefined): void {
     const save = window.electronAPI?.saveChatMessage;
     if (!message || typeof save !== 'function') return;
@@ -323,11 +338,13 @@ export class ChatService {
           content: agentGraphContext({ nodes: graph.nodes, components: graph.components, process: graph.process }),
         },
         ...messages
+          // Earlier error messages are the app's words, not the model's; they are not sent back to it.
           .filter((m) => m.role !== 'system' && !(m.role === 'assistant' && m.content.startsWith('Error')))
           .map((m) => ({ role: m.role, content: m.content })),
         { role: 'user', content },
       ];
 
+      // The turn's assistant message is made on the first thing to show, then updated in place.
       const publish = (patch: Partial<ChatMessage>) => {
         if (!currentAssistantMessageId) {
           currentAssistantMessageId = newId();
@@ -366,6 +383,8 @@ export class ChatService {
         return next;
       };
 
+      // A result may come before its tool-call chunk, or with a different id: match by id, then by name, else keep
+      // it until the call is seen.
       const settleTool = (id: string | undefined, name: string | undefined, record: Settled) => {
         if (id) settledById.set(id, record);
         const byId = id ? currentToolCalls.get(id) : undefined;
@@ -501,7 +520,7 @@ export class ChatService {
    * this turn is committed or proposed. The cancelled turn can no longer change the streaming state.
    */
   cancel(): void {
-    // The answer the person stopped is marked: a build card says «Остановлено», not «Готово» (bug bash).
+    // The answer the person stopped is marked: a build card says "Stopped" (chat.summaryStopped), not "Done".
     if (this.isStreaming) markLastAnswerStopped();
     this.turnToken += 1;
     this.isStreaming = false;
@@ -544,6 +563,7 @@ export class ChatService {
     }
   }
 
+  /** Pauses the open run in main; the chat shows the paused state at once. */
   async pause(): Promise<void> {
     useChatStore.setState({ isPaused: true });
     if (this.currentRunId) {
@@ -582,7 +602,7 @@ export class ChatService {
     await this.sendMessage(word && word !== 'chat.continueMessage' ? word : 'continue', checkpoint.context);
   }
 
-  /** «Повторить» on a failed turn: the same question goes again, with the context it was asked in. */
+  /** "Retry" (chat.retry) on a failed turn: the same question goes again, with the context it was asked in. */
   async retry(messageId: string): Promise<void> {
     const message = useChatStore.getState().messages.find((item) => item.id === messageId);
     const failure = message?.turnError;
@@ -607,6 +627,7 @@ export class ChatService {
 
 let chatServiceInstance: ChatService | null = null;
 
+/** The window's one ChatService, made on first use. */
 export function getChatService(): ChatService {
   if (!chatServiceInstance) {
     chatServiceInstance = new ChatService();

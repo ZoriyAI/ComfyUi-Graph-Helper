@@ -1,8 +1,16 @@
+/**
+ * An older set of assistant graph tools (zod schemas plus execute functions) over the legacy action executor.
+ *
+ * Who uses it: nothing in the app imports it today; the assistant's tools are described in
+ * shared/commands/toolSpecs.ts and run in main. Each tool snapshots the graph first, so the executor can tell
+ * whether the person changed it before the action ran.
+ */
 import { z } from 'zod';
 import { getGraphService } from '../graph/graphService';
 import { getActionExecutor } from '../actions/actionExecutor';
 import { GraphAction } from '../../types/revisions';
 
+/** The legacy tools by name. */
 export const graphTools = {
   getCurrentGraph: {
     description: 'Get current workflow graph',

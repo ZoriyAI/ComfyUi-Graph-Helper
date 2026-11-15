@@ -1,7 +1,3 @@
-import { i18n } from '../../i18n';
-import type { ModelLogExportRequest, ModelLogList } from '../../../shared/contracts/modelLog';
-import { logErrorKey } from '../../components/log/modelLogView';
-
 /**
  * The model conversation log from the window's side: read the list of recorded turns, save chosen turns into one
  * file, copy a short report of a turn. The window never sees a turn's body: main keeps the files, writes the
@@ -9,22 +5,30 @@ import { logErrorKey } from '../../components/log/modelLogView';
  *
  * Nothing here shows a toast: the log window is a modal dialog, and a toast behind a modal cannot be clicked or
  * read by a screen reader. Each call returns what happened and the window says it in its own status line.
+ *
+ * Who uses it: components/log/ModelLogDialog.tsx (Help ▸ Conversation log).
  */
+import { i18n } from '../../i18n';
+import type { ModelLogExportRequest, ModelLogList } from '../../../shared/contracts/modelLog';
+import { logErrorKey } from '../../components/log/modelLogView';
 
 const t = (key: string, values: Record<string, unknown> = {}) => String(i18n.t(key, values));
 
+/** What the dialog shows when the list cannot be read. */
 const EMPTY: ModelLogList = { enabled: true, turns: [], files: 0, bytes: 0, folder: null };
 
+/** The outcome of a log action; `message` is the sentence for the dialog's status line. */
 export type LogActionResult = { ok: true } | { ok: false; message: string };
 export type LogSaveResult = { ok: true; path: string; turns: number } | { ok: false; canceled: boolean; message: string };
 
+/** The catalog sentence for one of main's error codes, else main's own text, else the fallback sentence. */
 function errorText(error: string | undefined, fallbackKey: string): string {
   const key = logErrorKey(error);
   if (key) return t(key);
   return error && error.trim() !== '' ? error : t(fallbackKey);
 }
 
-/** Copies text to the clipboard; false when the clipboard refused. */
+/** Copies text to the clipboard; false when the clipboard refused. A copy of diagnostics.ts's, kept local. */
 async function writeClipboard(text: string): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(text);
@@ -48,6 +52,7 @@ async function writeClipboard(text: string): Promise<boolean> {
   }
 }
 
+/** The list of recorded turns; an empty list when main cannot answer. */
 export async function loadModelLog(): Promise<ModelLogList> {
   try {
     return await window.electronAPI.traceList();
@@ -97,6 +102,7 @@ export async function clearModelLog(): Promise<number> {
   }
 }
 
+/** Opens the folder that holds the log files in the file manager. */
 export async function openModelLogFolder(): Promise<LogActionResult> {
   try {
     const result = await window.electronAPI.traceOpenFolder();

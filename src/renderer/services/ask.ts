@@ -1,13 +1,17 @@
+/**
+ * The one way any part of the interface asks the helper a question.
+ *
+ * Who uses it: components/graph/askAbout.ts (the canvas), the library (NodeLibrary, ModelLibrary), ExplainPanel and
+ * CheckPanel call `requestAsk`; components/chat/ChatDock.tsx subscribes with `onAsk`, shows the message as the
+ * person's own and sends it with the turn context. Why a queue: a question asked before the chat dock has mounted
+ * waits for it instead of being lost.
+ */
 import type { AgentTurnContext } from '../../shared/contracts';
 import { useDockStore } from '../state/dockState';
 import { useProviderStore } from '../state/providerState';
 import { useUiStore } from '../state/uiState';
 
-/**
- * The one way any part of the interface asks the helper a question.
- * The canvas context menu, the library and the shell call `requestAsk`; the chat dock subscribes with `onAsk`,
- * shows the message as the person's own and sends it with the turn context.
- */
+/** One question for the helper: the message the person sees and the context the turn is sent with. */
 export interface AskRequest {
   context: AgentTurnContext;
   /** The visible message, in the interface language. Data, not instructions. */
@@ -17,6 +21,7 @@ export interface AskRequest {
 type Listener = (request: AskRequest) => void;
 
 const listeners = new Set<Listener>();
+/** Questions asked while no chat was listening; the first listener gets them. */
 let pending: AskRequest[] = [];
 
 /**
@@ -30,6 +35,7 @@ function revealChat(): void {
   dock.show('chat');
 }
 
+/** Asks the helper: shows the chat and hands the question to it (or to the Explain tab without an assistant). */
 export function requestAsk(request: AskRequest): void {
   // No assistant chosen: a question about an object is answered from the app's built-in knowledge in the Explain
   // tab, and nothing is posted to the chat (it would only say that nothing was sent).
@@ -47,6 +53,7 @@ export function requestAsk(request: AskRequest): void {
   for (const listener of listeners) listener(request);
 }
 
+/** The chat dock listens for questions here; questions that waited are delivered at once. */
 export function onAsk(listener: Listener): () => void {
   listeners.add(listener);
   if (pending.length > 0) {

@@ -1,11 +1,13 @@
-import { showToast } from '../../ui/Toast';
-import { i18n } from '../../i18n';
-
 /**
  * Renderer side of diagnostics: Help ▸ Copy diagnostics / Open logs folder, and window.onerror /
  * unhandledrejection reports to the main log. Reports are rate-limited here too, and never print to the
  * console, so the app's console stays clean.
+ *
+ * Who uses it: commands/diagnosticsCommands.ts (the Help menu), components/shell/AboutContent.tsx (copy button),
+ * index.tsx (installs the error reporting) and ErrorBoundary.tsx (reports a crashed view).
  */
+import { showToast } from '../../ui/Toast';
+import { i18n } from '../../i18n';
 
 const t = (key: string) => String(i18n.t(key));
 
@@ -33,6 +35,7 @@ export async function writeClipboard(text: string): Promise<boolean> {
   }
 }
 
+/** Help ▸ Copy diagnostics: main's report text to the clipboard, with a toast either way. */
 export async function copyDiagnostics(): Promise<boolean> {
   try {
     const report = await window.electronAPI.collectDiagnostics();
@@ -46,6 +49,7 @@ export async function copyDiagnostics(): Promise<boolean> {
   }
 }
 
+/** Help ▸ Open logs folder in the file manager; a toast when it could not open. */
 export async function openLogsFolder(): Promise<void> {
   try {
     const result = await window.electronAPI.openLogsFolder();
@@ -55,8 +59,10 @@ export async function openLogsFolder(): Promise<void> {
   }
 }
 
+/** One renderer error: where it came from ('boundary' is a React view that crashed) and what it said. */
 type Report = { kind: 'error' | 'unhandledrejection' | 'boundary'; message: string; source?: string; stack?: string };
 
+/** At most LIMIT reports per WINDOW_MS; `sent` holds the times of the reports in the current window. */
 const WINDOW_MS = 60_000;
 const LIMIT = 10;
 const sent: number[] = [];
@@ -81,6 +87,7 @@ export function reportRendererError(report: Report): void {
   }
 }
 
+/** A message and stack from whatever was thrown (an Error, a string, or any value). */
 function describe(reason: unknown): { message: string; stack?: string } {
   if (reason instanceof Error) return { message: `${reason.name}: ${reason.message}`, stack: reason.stack };
   if (typeof reason === 'string') return { message: reason };

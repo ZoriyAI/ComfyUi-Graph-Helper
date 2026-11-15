@@ -1,3 +1,9 @@
+/**
+ * The ways into the in-app help: the help reader on a wiki page, What is new, and the project's web links.
+ *
+ * Who uses it: appCommands.ts (the Help menu), components/shell/AboutContent.tsx, components/lessons (MyLessons,
+ * LessonDraftCard), components/settings/sections/PrivacySection.tsx and components/journey/NoComfyDialog.tsx.
+ */
 import { useUiStore } from '../state/uiState';
 import { pageForHelpId, WHATS_NEW_PAGE, type HelpId } from '../../shared/help/contextHelp';
 import { showToast } from '../ui/Toast';
@@ -23,6 +29,7 @@ export async function openProjectLink(kind: Exclude<ProjectLinkKind, 'issue'>): 
   if (!result || !result.ok) showToast({ id: 'project-link', tone: 'error', title: String(i18n.t('projectLinks.unavailable')) });
 }
 
+/** main's answer about the project links; null until asked. */
 let linksAvailable: boolean | null = null;
 
 /**

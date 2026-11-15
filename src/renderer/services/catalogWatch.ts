@@ -1,3 +1,8 @@
+/**
+ * Keeps the canvas in step with the catalog (the node list read from ComfyUI).
+ *
+ * Who uses it: commands/appCommands.ts installs it with the commands.
+ */
 import { useKnowledgeStore } from '../state/knowledgeState';
 import { useUiStore } from '../state/uiState';
 import { loadClassTitles } from '../components/graph/lib/classTitles';

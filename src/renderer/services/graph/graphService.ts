@@ -1,8 +1,17 @@
+/**
+ * An older in-window graph service: it edits the graph store directly and records snapshots in the revision store.
+ *
+ * Who uses it: services/actions/actionExecutor.ts and services/llm/tools.ts, which nothing in the app imports, and
+ * the conflict tests (tests/integration/aiHumanConflict.test.ts, tests/unit/revisionConflict.test.ts,
+ * tests/unit/baseRevisionTiming.test.ts). The app itself commits every edit through main
+ * (services/commands/projection.ts), and the assistant's build tools run in main.
+ */
 import { GraphNode, GraphEdge, PortDefinition } from '../../types/graph';
 import { useGraphStore } from '../../state/graphState';
 import { useRevisionStore } from '../../state/revisionState';
 import { GraphRevision } from '../../types/revisions';
 
+/** The fields of a node that make up the workflow (what counts as a change). */
 function semanticNode(node: GraphNode) {
   return {
     id: node.id,
@@ -19,6 +28,7 @@ function semanticNode(node: GraphNode) {
   };
 }
 
+/** The fields of a link that make up the workflow. */
 function semanticEdge(edge: GraphEdge) {
   return {
     id: edge.id,
@@ -31,8 +41,8 @@ function semanticEdge(edge: GraphEdge) {
 }
 
 /**
- * Unified graph service for all graph operations
- * Used by both manual UI actions and AI tool calls
+ * Graph operations on the window's graph store, each wrapped in a snapshot before and after.
+ * Kept for the legacy executor and its conflict tests; the app's own edits do not go through it.
  */
 export class GraphService {
   /**
@@ -97,8 +107,7 @@ export class GraphService {
   }
 
   /**
-   * Add a node to the graph
-   * @unified Used by both manual UI and AI tools
+   * Add a node to the graph (legacy path: used by the action executor and tests only).
    */
   addNode(args: {
     nodeType: string;
@@ -139,8 +148,7 @@ export class GraphService {
   }
 
   /**
-   * Remove a node from the graph
-   * @unified Used by both manual UI and AI tools
+   * Remove a node from the graph (legacy path: used by the action executor and tests only).
    */
   removeNode(nodeId: string, source: 'user' | 'ai'): boolean {
     const { nodes } = useGraphStore.getState();
@@ -160,8 +168,7 @@ export class GraphService {
   }
 
   /**
-   * Update node parameters
-   * @unified Used by both manual UI and AI tools
+   * Update node parameters (legacy path: used by the action executor and tests only).
    */
   updateNode(
     nodeId: string,
@@ -185,8 +192,7 @@ export class GraphService {
   }
 
   /**
-   * Add annotation to a node
-   * @unified Used by both manual UI and AI tools
+   * Add annotation to a node (legacy path: used by the action executor and tests only).
    */
   annotateNode(nodeId: string, annotation: string, source: 'user' | 'ai'): boolean {
     const { nodes } = useGraphStore.getState();
@@ -212,8 +218,7 @@ export class GraphService {
   }
 
   /**
-   * Connect two nodes
-   * @unified Used by both manual UI and AI tools
+   * Connect two nodes (legacy path: used by the action executor and tests only).
    */
   connectNodes(args: {
     sourceNodeId: string;
@@ -298,8 +303,8 @@ export class GraphService {
   }
 
   /**
-   * Infer inputs based on node type
-   * TODO: Replace with MCP discovery
+   * A small fixed table of inputs for a few core classes. The real port lists come from the catalog read from
+   * ComfyUI; this table only serves the legacy path.
    */
   private inferInputs(nodeType: string): PortDefinition[] {
     const inputMap: Record<string, PortDefinition[]> = {
@@ -326,8 +331,7 @@ export class GraphService {
   }
 
   /**
-   * Infer outputs based on node type
-   * TODO: Replace with MCP discovery
+   * A small fixed table of outputs for a few core classes; any other class gets one 'unknown' output.
    */
   private inferOutputs(nodeType: string): PortDefinition[] {
     const outputMap: Record<string, PortDefinition[]> = {
@@ -350,9 +354,10 @@ export class GraphService {
   }
 }
 
-// Singleton instance
+// One service per window.
 let graphServiceInstance: GraphService | null = null;
 
+/** The window's one GraphService, made on first use. */
 export function getGraphService(): GraphService {
   if (!graphServiceInstance) {
     graphServiceInstance = new GraphService();
