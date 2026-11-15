@@ -73,27 +73,54 @@
 }
 .actions { display: inline-flex; align-items: center; gap: 2px; flex: 0 0 auto; }
 
-.splitTitles { display: flex; align-items: center; gap: 4px; flex: 1 1 auto; min-width: 0; }
+/*
+ * Side by side, each pane is named above itself, in the tab style (an icon, the name, the underline): two halves
+ * of the header over the two halves of the dock, the line between them over the line between the panes. Each
+ * name leaves the split on its pane; the dock's own buttons stay at the right.
+ */
+.splitTitles {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-width: 0;
+  pointer-events: none;
+}
 .splitTitle {
+  position: relative;
+  justify-self: start;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 30px;
-  padding: 0 10px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent), var(--surface-raised);
-  box-shadow: var(--highlight-top);
+  max-width: 100%;
+  height: 100%;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: var(--text);
   font: inherit;
   font-size: var(--text-sm);
   font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
+  pointer-events: auto;
 }
-.splitTitle:hover { background: var(--surface-hover); border-color: var(--border-strong); }
-.splitTitle:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.splitTitle + .splitTitle { box-shadow: inset 1px 0 0 var(--border); }
+.splitTitle::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: linear-gradient(90deg, var(--accent), var(--ai));
+}
+.splitTitle:hover { background: rgba(255, 255, 255, 0.03); }
+.splitTitle:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--focus); }
 .splitTitle .tabIcon { color: var(--accent); }
+.split .actions { position: relative; z-index: 1; margin-left: auto; }
 
 .panel[data-state="inactive"] { display: none; }
 /*

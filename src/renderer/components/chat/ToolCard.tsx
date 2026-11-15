@@ -10,6 +10,7 @@ import { asObjectRef, isRecord } from '../../services/llm/chatModel';
 import ProvenanceBadge, { isProvenance } from '../explain/ProvenanceBadge';
 import { objectLabel } from './objectLabel';
 import ProposalCard from './ProposalCard';
+import Button from '../../ui/Button';
 import { compactArgs, toolLabelKey } from './toolPresentation';
 import { stepError, type Translate } from './buildSteps';
 import styles from './ToolCard.module.css';
@@ -46,10 +47,9 @@ function ExplainBody({ call }: { call: ToolCall }) {
       {text && call.status !== 'error' ? <p className={styles.explanationText}>{text}</p> : null}
       {owner && call.status === 'success' ? (
         <div className={styles.actions}>
-          <button type="button" className={styles.action} onClick={() => setFocus(owner)}>
-            <BookOpen size={14} aria-hidden="true" />
+          <Button variant="subtle" size="sm" icon={<BookOpen size={14} />} onClick={() => setFocus(owner)}>
             {t('chat.showOnCanvas')}
-          </button>
+          </Button>
         </div>
       ) : null}
     </>

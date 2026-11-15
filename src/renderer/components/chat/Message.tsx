@@ -1,7 +1,9 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'motion/react';
-import { PauseCircle, Play, ScrollText, Square, TriangleAlert } from 'lucide-react';
+import { Check, ChevronRight, Copy, OctagonAlert, PauseCircle, Play, RotateCcw, ScrollText, Settings2, Square, TriangleAlert } from 'lucide-react';
+import Button from '../../ui/Button';
+import IconButton from '../../ui/IconButton';
 import { formatClock, redactDiagnostic, type AppLanguage } from '../../../shared/i18n';
 import { useGraphStore } from '../../state/graphState';
 import { useUiStore } from '../../state/uiState';
@@ -12,7 +14,6 @@ import type { ChatMessage, TurnCheckpoint, TurnNotice } from '../../types/chat';
 import { objectKey } from '../../../shared/contracts';
 import { RECOMMENDED_WINDOW } from '../../../shared/agent/contextWindow';
 import MarkdownLite from './MarkdownLite';
-import Button from '../../ui/Button';
 import { turnErrorActions } from '../../services/llm/turnErrorText';
 import { ollamaWindowSteps } from '../../../shared/agent/windowHowTo';
 import { objectLabel } from './objectLabel';
@@ -57,17 +58,39 @@ function CheckpointCard({ messageId, checkpoint }: { messageId: string; checkpoi
         <>
           <p className={styles.checkpointHint}>{checkpoint.reason === 'failure-streak' ? t('chat.checkpointFailuresHint') : t('chat.checkpointStepsHint')}</p>
           <div className={styles.checkpointActions}>
-            <button type="button" className={`checkpoint-continue ${styles.checkpointButton}`} disabled={busy} onClick={() => void getChatService().continueFromCheckpoint(messageId)}>
-              <Play size={12} aria-hidden="true" />
+            <Button variant="primary" quiet size="sm" className="checkpoint-continue" icon={<Play size={12} />} disabled={busy} onClick={() => void getChatService().continueFromCheckpoint(messageId)}>
               {t('chat.continue')}
-            </button>
-            <button type="button" className={`checkpoint-stop ${styles.checkpointButton}`} title={String(t('chat.stopHint'))} onClick={() => getChatService().stopAtCheckpoint(messageId)}>
-              <Square size={12} aria-hidden="true" />
+            </Button>
+            <Button variant="subtle" size="sm" className="checkpoint-stop" icon={<Square size={12} />} title={String(t('chat.stopHint'))} onClick={() => getChatService().stopAtCheckpoint(messageId)}>
               {t('chat.stop')}
-            </button>
+            </Button>
           </div>
         </>
       ) : outcome ? <p className={`checkpoint-outcome ${styles.checkpointHint}`}>{outcome}</p> : null}
+    </div>
+  );
+}
+
+/** A command to type on the server: a calm code block, and an icon button that copies it and says so. */
+function HowCommand({ command }: { command: string }) {
+  const { t } = useTranslation();
+  const [copied, setCopied] = React.useState(false);
+  return (
+    <div className={`window-how-command ${styles.howCommand}`}>
+      <pre className={styles.howPre}>{command}</pre>
+      <IconButton
+        size="sm"
+        className={styles.howCopy}
+        label={String(copied ? t('chat.commandCopied') : t('chat.copyCommand'))}
+        onClick={() => {
+          void navigator.clipboard?.writeText(command).then(() => {
+            setCopied(true);
+            window.setTimeout(() => setCopied(false), 1600);
+          }, () => undefined);
+        }}
+      >
+        {copied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}
+      </IconButton>
     </div>
   );
 }
@@ -77,19 +100,17 @@ function WindowHowTo() {
   const { t } = useTranslation();
   const [open, setOpen] = React.useState(false);
   return (
-    <details className="window-how" data-window-how onToggle={(event) => setOpen((event.currentTarget as HTMLDetailsElement).open)}>
-      <summary>{t('chat.windowHowTitle')}</summary>
+    <details className={`window-how ${styles.how}`} data-window-how onToggle={(event) => setOpen((event.currentTarget as HTMLDetailsElement).open)}>
+      <summary className={styles.howSummary}>
+        <ChevronRight size={12} aria-hidden="true" />
+        {t('chat.windowHowTitle')}
+      </summary>
       {open ? (
-        <ol style={{ paddingInlineStart: '1.2em', margin: 0 }}>
+        <ol className={styles.howSteps}>
           {ollamaWindowSteps(RECOMMENDED_WINDOW).map((step) => (
             <li key={step.key}>
               <p>{t(step.key)}</p>
-              {step.command ? (
-                <div className="window-how-command">
-                  <pre style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', margin: 0 }}>{step.command}</pre>
-                  <Button size="sm" quiet onClick={() => void navigator.clipboard?.writeText(step.command ?? '')}>{t('chat.copyCommand')}</Button>
-                </div>
-              ) : null}
+              {step.command ? <HowCommand command={step.command} /> : null}
             </li>
           ))}
         </ol>
@@ -118,10 +139,9 @@ function NoticeCard({ notice, logId }: { notice: TurnNotice; logId?: string }) {
       <WindowHowTo />
       {notice.compact ? null : <p className={styles.noticeText}>{t('chat.windowNextCompact')}</p>}
       {logId ? (
-        <button type="button" className={`message-log-open ${styles.logOpen}`} onClick={() => openModelLog(logId)}>
-          <ScrollText size={13} aria-hidden="true" />
+        <Button variant="subtle" size="sm" className={`message-log-open ${styles.logOpen}`} icon={<ScrollText size={13} />} onClick={() => openModelLog(logId)}>
           {t('chat.openLogForNotice')}
-        </button>
+        </Button>
       ) : null}
     </div>
   );
@@ -133,6 +153,7 @@ export default function Message({ message, streaming = false }: MessageProps) {
   const edges = useGraphStore((state) => state.edges);
   const setFocus = useUiStore((state) => state.setFocus);
   const isUser = message.role === 'user';
+  const [diagnosticOpen, setDiagnosticOpen] = React.useState(false);
   const isError = !isUser && message.content.startsWith('Error');
   const language: AppLanguage = i18n.resolvedLanguage === 'ru' ? 'ru' : 'en';
   const about = isUser ? message.context?.objectRef : undefined;
@@ -146,34 +167,40 @@ export default function Message({ message, streaming = false }: MessageProps) {
   const body = (
     isError ? (
       <div className={`message-body ${styles.body}`}>
-        <div className={`message-summary ${styles.summary}`}>{t('chat.errorSummary')}</div>
+        <div className={`message-summary ${styles.summary}`}>
+          <OctagonAlert size={14} aria-hidden="true" />
+          {t('chat.errorSummary')}
+        </div>
         {message.turnError ? (
           // A known kind: one plain sentence with the next step; the server's words fold away.
-          <>
-            <div className={`message-diagnostic ${styles.diagnostic}`} data-turn-error={message.turnError.kind}>{message.content.replace(/^Error:\s*/, '')}</div>
-            {message.turnError.details ? (
-              <details className="message-error-details">
-                <summary>{t('chat.errorDetails')}</summary>
-                {redactDiagnostic(message.turnError.details)}
-              </details>
+          <div className={`message-diagnostic ${styles.diagnostic} ${styles.diagnosticSentence}`} data-turn-error={message.turnError.kind}>{message.content.replace(/^Error:\s*/, '')}</div>
+        ) : null}
+        {/* What the server said is for whoever looks into it: folded, and drawn only when opened. */}
+        {(message.turnError ? message.turnError.details : message.content) ? (
+          <div className={`message-error-details ${styles.diagnostic}`}>
+            <button type="button" className={styles.diagnosticToggle} aria-expanded={diagnosticOpen} onClick={() => setDiagnosticOpen((open) => !open)}>
+              <ChevronRight size={12} aria-hidden="true" />
+              {t('chat.errorDetails')}
+            </button>
+            {diagnosticOpen ? (
+              <p className={styles.diagnosticText}>{redactDiagnostic(message.turnError ? message.turnError.details ?? '' : message.content)}</p>
             ) : null}
-            <div className="message-error-actions">
-              {turnErrorActions(message.turnError).map((action) => (action === 'retry' ? (
-                <Button key={action} size="sm" quiet onClick={() => void getChatService().retry(message.id)}>{t('chat.retry')}</Button>
-              ) : (
-                <Button key={action} size="sm" quiet onClick={() => useUiStore.getState().openSettings('assistant')}>{t('chat.openAssistantSettings')}</Button>
-              )))}
-            </div>
-          </>
-        ) : (
-          <div className={`message-diagnostic ${styles.diagnostic}`}>{redactDiagnostic(message.content)}</div>
-        )}
+          </div>
+        ) : null}
+        {message.turnError ? (
+          <div className={`message-error-actions ${styles.errorActions}`}>
+            {turnErrorActions(message.turnError).map((action) => (action === 'retry' ? (
+              <Button key={action} variant="subtle" size="sm" quiet icon={<RotateCcw size={13} />} onClick={() => void getChatService().retry(message.id)}>{t('chat.retry')}</Button>
+            ) : (
+              <Button key={action} variant="subtle" size="sm" quiet icon={<Settings2 size={13} />} onClick={() => useUiStore.getState().openSettings('assistant')}>{t('chat.openAssistantSettings')}</Button>
+            )))}
+          </div>
+        ) : null}
         {message.logId ? (
           // What exactly was sent and what the server said is in this answer's record: one click away.
-          <button type="button" className={`message-log-open ${styles.logOpen}`} onClick={() => openModelLog(message.logId)}>
-            <ScrollText size={13} aria-hidden="true" />
+          <Button variant="subtle" size="sm" className={`message-log-open ${styles.logOpen}`} icon={<ScrollText size={13} />} onClick={() => openModelLog(message.logId)}>
             {t('chat.openLogForError')}
-          </button>
+          </Button>
         ) : null}
       </div>
     ) : message.content || (streaming && toolCalls.length === 0) ? (

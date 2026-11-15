@@ -31,25 +31,6 @@
 @media (prefers-reduced-motion: reduce) {
   :global(html[data-motion="system"]) .runDot { animation: none; }
 }
-.runButton {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  min-height: 26px;
-  padding: 2px 10px;
-  border-radius: 6px;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-}
-.stopButton {
-  border: 1px solid var(--control-border, var(--line));
-  background: var(--surface);
-  color: var(--text);
-}
-.stopButton:hover { background: var(--bg-hover); }
-.runButton:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
 /* What is written in the chat (a table from a model) measures itself against the chat's width, not the window's. */
 .log { gap: 0; scroll-padding-bottom: 16px; container-type: inline-size; container-name: chat; }

@@ -1,11 +1,28 @@
 form.form { display: flex; flex-direction: column; align-items: stretch; gap: 8px; width: 100%; }
 /* The message field takes the row; Send sits at its bottom right, where the eye ends a line. */
 form.form .field { position: relative; flex: none; flex-direction: row; width: 100%; min-width: 0; display: flex; align-items: flex-end; gap: 8px; }
-.field textarea { flex: 1 1 auto; min-width: 0; }
+/* The field grows with what is written (one line empty, up to 40% of the window), with no resize grip. */
+form.form .field textarea {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  field-sizing: content;
+  resize: none;
+  min-height: 40px;
+  max-height: 40vh;
+  padding: 9px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface-sunken);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-sm);
+  line-height: 20px;
+}
 .field :global(.hint-target) { flex: none; display: inline-flex; }
 
-/* Send: a round primary button. Off, it keeps its shape on a sunken surface with a faint arrow, so it reads as a
-   button that is waiting, not as dim text. */
+/* Send: a round primary button. Off, it keeps its shape on a raised surface with a faint arrow, so it reads as a
+   button that is waiting, not as dim text or a placeholder. */
 .field .send {
   display: inline-flex;
   align-items: center;
@@ -13,18 +30,28 @@ form.form .field { position: relative; flex: none; flex-direction: row; width: 1
   width: 36px;
   height: 36px;
   min-height: 36px;
+  margin-bottom: 2px;
   padding: 0;
   border-radius: 50%;
 }
 .field .send:disabled {
-  background: var(--bg-sunken);
-  border: 1px dashed var(--line);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
   color: var(--text-faint);
   box-shadow: none;
   cursor: not-allowed;
 }
 .field .send:not(:disabled) { color: var(--on-accent); }
-.field .send:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.field .send:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+/* Stop, in Send's place while the helper answers. */
+.field .stop {
+  border: 1px solid var(--border-strong);
+  background: var(--surface-raised);
+  color: var(--text);
+  cursor: pointer;
+  transition: background-color var(--motion-feedback) var(--motion-ease-out);
+}
+.field .stop:hover { background: var(--surface-hover); }
 
 .intent {
   display: inline-flex;
@@ -41,4 +68,4 @@ form.form .field { position: relative; flex: none; flex-direction: row; width: 1
 form.form .field[hidden] { display: none; }
 .intentOption:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
 .intentRow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.intentHint { color: var(--text-faint); font-size: 12px; line-height: 18px; }
+.intentHint { min-width: 0; color: var(--text-faint); font-size: var(--text-xs); line-height: 18px; }

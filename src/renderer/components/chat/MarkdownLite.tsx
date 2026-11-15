@@ -1,14 +1,39 @@
 import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Link2 } from 'lucide-react';
+import { showToast } from '../../ui/toastStore';
 import { parseMarkdownLite, type InlineToken } from './markdownLite';
 import styles from './MarkdownLite.module.css';
 
 /** Characters of code that fit one line of the narrowest panel the app has. */
 const SHORT_CODE = 28;
 
+/** A link's words; a click copies its address (the app opens no page). */
+function LinkWords({ text, address }: { text: string; address: string }) {
+  const { t } = useTranslation();
+  return (
+    <button
+      type="button"
+      className={styles.link}
+      title={String(t('chat.linkCopyHint', { address }))}
+      onClick={() => {
+        void navigator.clipboard?.writeText(address).then(
+          () => showToast({ id: 'chat-link-copied', title: String(t('explain.copied')), description: address, tone: 'success', duration: 2500 }),
+          () => undefined,
+        );
+      }}
+    >
+      {text}
+      <Link2 size={12} aria-hidden="true" />
+    </button>
+  );
+}
+
 function Inline({ tokens }: { tokens: InlineToken[] }) {
   return (
     <>
       {tokens.map((token, index) => {
+        if (token.type === 'link') return <LinkWords key={index} text={token.text} address={token.address} />;
         // A short piece of code (a field name, a weight) is marked: where there is room for it, a panel may keep it whole.
         if (token.type === 'code') return <code key={index} className={styles.code} data-short={token.text.length <= SHORT_CODE ? 'true' : undefined}>{token.text}</code>;
         if (token.type === 'strong') return <strong key={index}>{token.text}</strong>;

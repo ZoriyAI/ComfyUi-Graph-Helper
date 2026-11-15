@@ -6,6 +6,7 @@ import { runCommand, useCommandStates } from '../../commands/registry';
 import { useCanvasStore } from '../graph/canvasStore';
 import { buildCounts, buildSummary, callStepKey, type Translate } from './buildSteps';
 import { followInLog } from './followLog';
+import Button from '../../ui/Button';
 import styles from './BuildSummary.module.css';
 
 /** The commands a finished build leads to, in the order a newcomer needs them. */
@@ -43,16 +44,16 @@ export default function BuildSummary({ calls, stopped = false }: { calls: ToolCa
       <div className={styles.next}>
         <span className={styles.nextLabel}>{t('chat.summaryNext')}</span>
         {NEXT.map(({ id, labelKey, Icon }, index) => (
-          <button
+          <Button
             key={id}
-            type="button"
-            className={styles.action}
+            variant="subtle"
+            size="sm"
+            icon={<Icon size={13} />}
             disabled={states[index] ? !states[index].enabled : true}
             onClick={() => void runCommand(id)}
           >
-            <Icon size={13} aria-hidden="true" />
             {t(labelKey)}
-          </button>
+          </Button>
         ))}
       </div>
     </section>

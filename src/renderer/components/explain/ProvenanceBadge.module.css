@@ -20,7 +20,8 @@
   border-radius: 50%;
   background: var(--chat-badge-color);
 }
-.badge[data-provenance="fact"] { --chat-badge-color: var(--ok); }
-.badge[data-provenance="inference"] { --chat-badge-color: var(--warn); }
-.badge[data-provenance="web"] { --chat-badge-color: var(--accent); }
-.badge[data-provenance="user"] { --chat-badge-color: var(--focus); }
+/* One colour per source everywhere (the canvas blocks, the inspector, ui/Badge): the --prov-* tokens. */
+.badge[data-provenance="fact"] { --chat-badge-color: var(--prov-fact); }
+.badge[data-provenance="inference"] { --chat-badge-color: var(--prov-inference); }
+.badge[data-provenance="web"] { --chat-badge-color: var(--prov-web); }
+.badge[data-provenance="user"] { --chat-badge-color: var(--prov-user); }

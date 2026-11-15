@@ -1,4 +1,4 @@
-.group { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: 12px; line-height: 18px; }
+.group { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: var(--text-xs); line-height: 18px; }
 .toggle {
   display: flex;
   align-items: center;
@@ -14,7 +14,7 @@
   text-align: left;
   cursor: pointer;
 }
-.toggle:hover { background: var(--bg-hover); color: var(--text-dim); }
+.toggle:hover { background: var(--surface-hover); color: var(--text-dim); }
 .toggle:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
 .chevron { flex: none; transition: transform var(--motion-feedback, 100ms) ease; }
 .toggle[aria-expanded="true"] .chevron { transform: rotate(90deg); }

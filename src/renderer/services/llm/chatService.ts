@@ -119,10 +119,10 @@ export function parseTurnPaused(content: unknown): Omit<TurnCheckpoint, 'state' 
 }
 
 /** Marks every open checkpoint card as moved past: a new turn supersedes its buttons. */
-function closeOpenCheckpoints(): void {
+function closeOpenCheckpoints(state: 'closed' | 'stopped' = 'closed'): void {
   const { messages, updateMessage } = useChatStore.getState();
   for (const message of messages) {
-    if (message.checkpoint?.state === 'open') updateMessage(message.id, { checkpoint: { ...message.checkpoint, state: 'closed' } });
+    if (message.checkpoint?.state === 'open') updateMessage(message.id, { checkpoint: { ...message.checkpoint, state } });
   }
 }
 
@@ -463,6 +463,9 @@ export class ChatService {
     this.isStreaming = false;
     this.resumed = null;
     useChatStore.setState({ isStreaming: false, isPaused: false });
+    // A run ended from anywhere (the status bar, the chat's Stop) ends the pause it was waiting in: the card of
+    // that pause says it stopped and no longer offers Continue on a run that is gone.
+    closeOpenCheckpoints('stopped');
     const runId = this.currentRunId;
     const llmCancel = window.electronAPI?.llmCancel;
     const cancelRun = window.electronAPI?.cancelRun;

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, ArrowRight, Check, CircleDot, Crosshair, FolderOutput, GraduationCap, MessageCircleQuestion, Plug, RotateCcw, Wand2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, ChevronRight, CircleDashed, CircleDot, Crosshair, FolderOutput, GraduationCap, MessageCircleQuestion, Plug, RotateCcw, Wand2 } from 'lucide-react';
 import type { TFunction } from 'i18next';
 import { lessonProgress, type ClassPorts, type Lesson, type LessonFacts, type LessonGraph, type Missing } from '../../../shared/lessons/engine';
 import { LESSONS, lessonById } from '../../../shared/lessons/lessons';
@@ -14,6 +14,7 @@ import { useGraphStore } from '../../state/graphState';
 import { useLessonStore } from '../../state/lessonState';
 import { useUiStore } from '../../state/uiState';
 import Button from '../../ui/Button';
+import IconButton from '../../ui/IconButton';
 import MarkdownLite from '../chat/MarkdownLite';
 import { canDo, clearShown, doFix, nodeNameOf, portLabel, showMissing, titleOnCanvas, useLessonCatalog, useLessonFacts, useLessonGraph } from './lessonModel';
 import styles from './LessonPanel.module.css';
@@ -38,6 +39,9 @@ interface Shared {
 }
 
 const NONE: readonly string[] = [];
+/** A lesson with more steps than this shows the steps near the current one, and the rest on request. */
+const FOLD_STEPS_OVER = 12;
+const STEPS_AROUND = 2;
 
 function shown(t: TFunction, value: unknown): string {
   if (value === undefined || value === null || value === '') return String(t('lessons.empty'));
@@ -162,6 +166,36 @@ function lackLines(t: TFunction, missing: Missing[], lesson: Lesson, shared: Sha
   return [...times].map(([text, count]) => ({ text, times: count }));
 }
 
+/**
+ * Why a lesson does not fit this ComfyUI: the first reason, and the rest one press away, so a card in the list
+ * stays short. Every line stays in the page (hidden until opened) for screen readers and search.
+ */
+function UnfitReasons({ lines }: { lines: string[] }) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const [first, ...rest] = lines;
+  // A native disclosure, not a second button: the card's one button stays the one that starts the lesson.
+  return (
+    <div className={styles.gaps}>
+      <p>{t('lessons.unfit')}</p>
+      <ul>
+        <li>{first}</li>
+      </ul>
+      {rest.length > 0 ? (
+        <details className={styles.gapsRest} onToggle={(event) => setOpen((event.currentTarget as HTMLDetailsElement).open)}>
+          <summary className={styles.gapsMore}>
+            <ChevronRight size={12} aria-hidden="true" />
+            {open ? t('lessons.unfitLess') : t('lessons.unfitMore', { count: rest.length })}
+          </summary>
+          <ul>
+            {rest.map((line) => <li key={line}>{line}</li>)}
+          </ul>
+        </details>
+      ) : null}
+    </div>
+  );
+}
+
 function LessonList({ shared }: { shared: Shared }) {
   const { t, i18n } = useTranslation();
   const read = useLessonStore((state) => state.read);
@@ -179,70 +213,73 @@ function LessonList({ shared }: { shared: Shared }) {
       {!shared.catalogRead ? (
         <div className={styles.notice} role="note">
           <p>{t('lessons.notRead')}</p>
-          <Button variant="primary" size="sm" icon={<Plug size={14} />} onClick={() => openSettings('connection')}>{t('lessons.connect')}</Button>
+          <Button variant="primary" quiet size="sm" icon={<Plug size={14} />} onClick={() => openSettings('connection')}>{t('lessons.connect')}</Button>
         </div>
       ) : null}
-      {lessonGroups().map((group) => (
-        <section className={styles.group} key={group.id} data-lesson-group={group.id} aria-labelledby={`lesson-group-${group.id}`}>
-          <h4 id={`lesson-group-${group.id}`} className={styles.groupTitle}>{group.title[i18n.language === 'ru' ? 'ru' : 'en']} <span>({group.lessons.length})</span></h4>
-          <ul className={styles.cards}>
-            {group.lessons.map((lesson) => {
-              const words = lessonWords(i18n.language, lesson.id);
-              if (!words) return null;
-              const fit = shared.catalogRead ? lessonFit(lesson, shared.ports) : null;
-              const gaps = fit && !fits(fit) ? fitLines(fit, (key, values) => String(t(key, values ?? {})), (classType) => shared.details[classType]?.displayName || classType, (id) => lessonWords(i18n.language, id)?.title ?? id) : [];
-              const progress = lessonProgress(lesson, shared.graph, shared.facts, new Set(read[lesson.id] ?? NONE));
-              const total = lesson.steps.length;
-              const finished = progress.current >= total;
-              const started = progress.current > 0 && !finished;
-              const before = lessonDependencies(lesson.id).map((id) => ({ id, title: lessonWords(i18n.language, id)?.title ?? id }));
-              const blocked = !shared.catalogRead || gaps.length > 0;
-              return (
-                <li key={lesson.id} id={`lesson-${lesson.id}`} tabIndex={-1} className={styles.card} data-lesson-card={lesson.id} data-lesson-state={blocked ? 'unfit' : finished ? 'done' : started ? 'started' : 'new'}>
-                  <div className={styles.cardHead}>
-                    <span className={styles.cardTitle}>{words.title}</span>
-                    {finished || done.includes(lesson.id) ? <span className={styles.doneMark}><Check size={12} aria-hidden="true" />{t('lessons.done')}</span> : null}
-                  </div>
-                  <p className={styles.cardText}>{words.result}</p>
-                  <p className={styles.cardMeta}>
-                    {started ? t('lessons.progress', { current: progress.current + 1, total }) : t('lessons.steps', { count: total })}
-                  </p>
-                  {before.length > 0 ? (
-                    <div className={styles.dependencies}>
-                      <span>{t('lessons.related')}</span>
-                      {before.map((dependency) => (
-                        <a href={`#lesson-${dependency.id}`} key={dependency.id} onClick={(event) => {
-                          event.preventDefault();
-                          const card = document.getElementById(`lesson-${dependency.id}`);
-                          card?.scrollIntoView({ block: 'nearest' });
-                          card?.focus({ preventScroll: true });
-                        }}>{dependency.title}</a>
-                      ))}
+      {lessonGroups().map((group) => {
+        const rows = group.lessons.map((lesson) => {
+          const words = lessonWords(i18n.language, lesson.id);
+          const fit = shared.catalogRead ? lessonFit(lesson, shared.ports) : null;
+          const gaps = fit && !fits(fit) ? fitLines(fit, (key, values) => String(t(key, values ?? {})), (classType) => shared.details[classType]?.displayName || classType, (id) => lessonWords(i18n.language, id)?.title ?? id) : [];
+          const progress = lessonProgress(lesson, shared.graph, shared.facts, new Set(read[lesson.id] ?? NONE));
+          const total = lesson.steps.length;
+          const finished = progress.current >= total;
+          return { lesson, words, gaps, progress, total, finished, done: finished || done.includes(lesson.id) };
+        });
+        const doneHere = rows.filter((row) => row.done).length;
+        return (
+          // The lessons read as a few short lists: what kind of graph each group builds is its title.
+          <section key={group.id} className={styles.group} data-lesson-group={group.id} aria-labelledby={`lesson-group-${group.id}`}>
+            <h4 id={`lesson-group-${group.id}`} className={styles.groupTitle}>
+              <span>{group.title[i18n.language === 'ru' ? 'ru' : 'en']}</span>
+              <span className={styles.groupCount}>{t('lessons.groupDone', { done: doneHere, total: rows.length })}</span>
+            </h4>
+            <ul className={styles.cards}>
+              {rows.map(({ lesson, words, gaps, progress, total, finished, done: isDone }) => {
+                if (!words) return null;
+                const started = progress.current > 0 && !finished;
+                const before = lessonDependencies(lesson.id).map((id) => ({ id, title: lessonWords(i18n.language, id)?.title ?? id }));
+                const blocked = !shared.catalogRead || gaps.length > 0;
+                return (
+                  <li key={lesson.id} id={`lesson-${lesson.id}`} tabIndex={-1} className={styles.card} data-lesson-card={lesson.id} data-lesson-state={blocked ? 'unfit' : finished ? 'done' : started ? 'started' : 'new'}>
+                    <div className={styles.cardHead}>
+                      <span className={styles.cardTitle}>{words.title}</span>
+                      {isDone ? <span className={styles.doneMark}><Check size={12} aria-hidden="true" />{t('lessons.done')}</span> : null}
                     </div>
-                  ) : null}
-                  {gaps.length > 0 ? (
-                    <div className={styles.gaps}>
-                      <p>{t('lessons.unfit')}</p>
-                      <ul>
-                        {gaps.map((line) => <li key={line}>{line}</li>)}
-                      </ul>
+                    <p className={styles.cardText}>{words.result}</p>
+                    {before.length > 0 ? (
+                      <div className={styles.dependencies}>
+                        <span>{t('lessons.related')}</span>
+                        {before.map((dependency) => (
+                          <a href={`#lesson-${dependency.id}`} key={dependency.id} onClick={(event) => {
+                            event.preventDefault();
+                            const card = document.getElementById(`lesson-${dependency.id}`);
+                            card?.scrollIntoView({ block: 'nearest' });
+                            card?.focus({ preventScroll: true });
+                          }}>{dependency.title}</a>
+                        ))}
+                      </div>
+                    ) : null}
+                    {gaps.length > 0 ? <UnfitReasons lines={gaps} /> : null}
+                    <div className={styles.cardActions}>
+                      {finished ? (
+                        <Button variant="subtle" size="sm" icon={<RotateCcw size={14} />} disabled={blocked} onClick={() => { again(lesson.id); start(lesson.id); }}>{t('lessons.again')}</Button>
+                      ) : (
+                        <Button variant={started ? 'primary' : 'subtle'} quiet size="sm" icon={<ArrowRight size={14} />} disabled={blocked} onClick={() => start(lesson.id)}>
+                          {started ? t('lessons.resume') : t('lessons.start')}
+                        </Button>
+                      )}
+                      <span className={styles.cardSteps}>
+                        {started ? t('lessons.progress', { current: progress.current + 1, total }) : t('lessons.steps', { count: total })}
+                      </span>
                     </div>
-                  ) : null}
-                  <div className={styles.cardActions}>
-                    {finished ? (
-                      <Button variant="subtle" size="sm" icon={<RotateCcw size={14} />} disabled={blocked} onClick={() => { again(lesson.id); start(lesson.id); }}>{t('lessons.again')}</Button>
-                    ) : (
-                      <Button variant={started ? 'primary' : 'subtle'} size="sm" icon={<ArrowRight size={14} />} disabled={blocked} onClick={() => start(lesson.id)}>
-                        {started ? t('lessons.resume') : t('lessons.start')}
-                      </Button>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      ))}
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        );
+      })}
     </div>
   );
 }
@@ -263,6 +300,8 @@ function LessonRun({ lesson, shared, onAsk }: { lesson: Lesson; shared: Shared; 
   // A step looked at again from the list; moving on in the lesson returns to the current one.
   const [peek, setPeek] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
+  const [allSteps, setAllSteps] = useState(false);
+  const folded = !allSteps && lesson.steps.length > FOLD_STEPS_OVER;
   useEffect(() => setPeek(null), [progress.current, lesson.id]);
   useEffect(() => {
     if (finished) finish(lesson.id);
@@ -293,16 +332,21 @@ function LessonRun({ lesson, shared, onAsk }: { lesson: Lesson; shared: Shared; 
 
   return (
     <div ref={root} className={styles.run} data-lesson-step={finished && peek === null ? 'end' : step.id}>
-      <div className={styles.top}>
-        <Button size="sm" icon={<ArrowLeft size={14} />} onClick={leave}>{t('lessons.back')}</Button>
-        <span className={styles.lessonTitle}>{words.title}</span>
-      </div>
-      <div className={styles.progressRow}>
-        <span className={styles.progressText}>{finished ? t('lessons.finishedTitle') : t('lessons.progress', { current: progress.current + 1, total })}</span>
-        <div className={styles.bar} role="progressbar" aria-label={String(t('lessons.progressLabel'))} aria-valuemin={0} aria-valuemax={total} aria-valuenow={doneCount}>
-          <span style={{ width: `${Math.round((doneCount / total) * 100)}%` }} />
+      {/* A compact head that stays at the top while the step scrolls: back, the lesson, how far, a thin bar. */}
+      <header className={styles.top} data-finished={finished ? 'true' : undefined}>
+        <div className={styles.topRow}>
+          <IconButton size="sm" label={String(t('lessons.back'))} onClick={leave}>
+            <ArrowLeft size={16} aria-hidden="true" />
+          </IconButton>
+          <span className={styles.lessonTitle}>{words.title}</span>
         </div>
-      </div>
+        <div className={styles.progressRow}>
+          <span className={styles.progressText}>{t('lessons.progress', { current: finished ? total : progress.current + 1, total })}</span>
+          <div className={styles.bar} role="progressbar" aria-label={String(t('lessons.progressLabel'))} aria-valuemin={0} aria-valuemax={total} aria-valuenow={doneCount}>
+            <span style={{ width: `${Math.round((doneCount / total) * 100)}%` }} />
+          </div>
+        </div>
+      </header>
       {inSubgraph ? <p className={styles.notice} role="note">{t('lessons.inSubgraph')}</p> : null}
 
       {finished && peek === null ? (
@@ -310,15 +354,16 @@ function LessonRun({ lesson, shared, onAsk }: { lesson: Lesson; shared: Shared; 
           <h4 className={styles.stepTitle}><Check size={16} aria-hidden="true" />{t('lessons.finishedTitle')}</h4>
           <p className={styles.plain}>{t('lessons.finishedBody')}</p>
           <div className={styles.actions}>
-            <Button variant="primary" size="sm" icon={<FolderOutput size={14} />} onClick={() => void runCommand('file.export')}>{t('lessons.save')}</Button>
+            <Button variant={nextLesson && nextTitle ? 'subtle' : 'primary'} quiet size="sm" icon={<FolderOutput size={14} />} onClick={() => void runCommand('file.export')}>{t('lessons.save')}</Button>
             <Button variant="subtle" size="sm" icon={<RotateCcw size={14} />} onClick={() => again(lesson.id)}>{t('lessons.again')}</Button>
           </div>
           {nextLesson && nextTitle ? (
+            // Going on is the path, saving is optional: the next lesson carries the primary button.
             // The name of the next lesson is a sentence that wraps; a button that held it stuck out of a narrow panel.
             <div className={styles.nextLesson} data-next-lesson={nextLesson.id}>
               <p className={styles.plain}>{t('lessons.nextTitle', { title: nextTitle })}</p>
               <div className={styles.actions}>
-                <Button variant="subtle" size="sm" icon={<ArrowRight size={14} />} onClick={() => start(nextLesson.id)}>{t('lessons.next')}</Button>
+                <Button variant="primary" quiet size="sm" icon={<ArrowRight size={14} />} onClick={() => start(nextLesson.id)}>{t('lessons.next')}</Button>
               </div>
             </div>
           ) : null}
@@ -329,7 +374,7 @@ function LessonRun({ lesson, shared, onAsk }: { lesson: Lesson; shared: Shared; 
           <MarkdownLite text={withNodeNames(text.body, nameOf)} className={styles.body} />
           {current && step.read ? (
             <div className={styles.actions}>
-              <Button variant="primary" size="sm" icon={<ArrowRight size={14} />} onClick={() => markRead(lesson.id, step.id)}>{t('lessons.understood')}</Button>
+              <Button variant="primary" quiet size="sm" icon={<ArrowRight size={14} />} onClick={() => markRead(lesson.id, step.id)}>{t('lessons.understood')}</Button>
             </div>
           ) : null}
           {current && !step.read ? (
@@ -340,6 +385,7 @@ function LessonRun({ lesson, shared, onAsk }: { lesson: Lesson; shared: Shared; 
                   <ul>
                     {lackLines(t, progress.missing, lesson, shared).slice(0, 6).map((line) => (
                       <li key={line.text}>
+                        <CircleDashed className={styles.lackIcon} size={14} aria-hidden="true" />
                         {line.text}
                         {line.times > 1 ? <span className={styles.times}> ×{line.times}</span> : null}
                       </li>
@@ -350,7 +396,7 @@ function LessonRun({ lesson, shared, onAsk }: { lesson: Lesson; shared: Shared; 
               <div className={styles.actions}>
                 {first ? (
                   <Button
-                    variant="primary" size="sm" icon={<Crosshair size={14} />} disabled={inSubgraph}
+                    variant="primary" quiet size="sm" icon={<Crosshair size={14} />} disabled={inSubgraph}
                     data-lesson-target={first.kind === 'field' ? first.nodeId : first.kind === 'link' ? first.to.nodeId : undefined}
                     onClick={() => showMissing(first, lesson, shared.graph, shared.details)}
                   >{t('lessons.show')}</Button>
@@ -397,8 +443,10 @@ function LessonRun({ lesson, shared, onAsk }: { lesson: Lesson; shared: Shared; 
             const passed = order < progress.current;
             const now = order === progress.current;
             const title = withNodeNames(words.steps[item.id].title, nameOf).replace(/\*\*/g, '');
+            // A long lesson shows the steps around where the person is; the rest are one press away.
+            const near = Math.abs(order - Math.min(index, total - 1)) <= STEPS_AROUND;
             return (
-              <li key={item.id} data-step={item.id} data-step-mark={passed ? 'done' : now ? 'now' : 'later'}>
+              <li key={item.id} data-step={item.id} data-step-mark={passed ? 'done' : now ? 'now' : 'later'} hidden={folded && !near}>
                 <button
                   type="button"
                   className={styles.stepLink}
@@ -416,6 +464,11 @@ function LessonRun({ lesson, shared, onAsk }: { lesson: Lesson; shared: Shared; 
             );
           })}
         </ol>
+        {total > FOLD_STEPS_OVER ? (
+          <Button variant="ghost" size="sm" className={styles.allSteps} aria-expanded={!folded} onClick={() => setAllSteps((open) => !open)}>
+            {folded ? t('lessons.allSteps', { count: total }) : t('lessons.fewerSteps')}
+          </Button>
+        ) : null}
       </nav>
     </div>
   );

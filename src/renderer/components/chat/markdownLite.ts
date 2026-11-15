@@ -9,7 +9,9 @@ export type InlineToken =
   | { type: 'text'; text: string }
   | { type: 'code'; text: string }
   | { type: 'strong'; text: string }
-  | { type: 'em'; text: string };
+  | { type: 'em'; text: string }
+  /** A link: its words are shown, its address is copied on a click. The chat opens nothing. */
+  | { type: 'link'; text: string; address: string };
 
 export type Block =
   | { type: 'paragraph'; lines: InlineToken[][] }
@@ -29,15 +31,40 @@ const QUOTE = /^\s{0,3}>\s?(.*)$/;
 const TABLE_ROW = /^\s*\|.*\|\s*$/;
 const TABLE_RULE = /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/;
 
-/** [words](address) becomes "words (address)", or just the address when the words are the address. */
-function unlink(text: string): string {
-  return text.replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g, (_match, words: string, address: string) => (
-    words.trim() === address ? address : `${words} (${address})`
-  ));
+const LINK = /\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g;
+
+/**
+ * [words](address) becomes a link token: the words in the text, the address behind them (shown as a tooltip and
+ * copied on a click). The words are still parsed for code, bold and emphasis.
+ */
+export function parseInline(source: string): InlineToken[] {
+  // Each link is held by a private mark while bold, emphasis and code are read around it, then put back.
+  const links: Array<{ text: string; address: string }> = [];
+  const marked = source.replace(LINK, (_match, words: string, address: string) => {
+    links.push({ text: words.trim().replace(/[`*_]/g, '') || address, address });
+    return `${links.length - 1}`;
+  });
+  if (links.length === 0) return parsePlain(source);
+  const tokens: InlineToken[] = [];
+  for (const token of parsePlain(marked)) {
+    if (token.type === 'code') {
+      // Inside code nothing is markup: the link is given back as it was written.
+      tokens.push({ type: 'code', text: token.text.replace(/(\d+)/g, (_m, i: string) => `[${links[Number(i)].text}](${links[Number(i)].address})`) });
+      continue;
+    }
+    if (token.type === 'link' || !token.text.includes('')) {
+      tokens.push(token);
+      continue;
+    }
+    for (const [index, part] of token.text.split(/(\d+)/).entries()) {
+      if (index % 2 === 1) tokens.push({ type: 'link', ...links[Number(part)] });
+      else if (part) tokens.push({ type: token.type, text: part });
+    }
+  }
+  return tokens;
 }
 
-export function parseInline(source: string): InlineToken[] {
-  const text = unlink(source);
+function parsePlain(text: string): InlineToken[] {
   const tokens: InlineToken[] = [];
   // Code first (nothing inside it is markup), then bold, then emphasis. Emphasis needs a letter right inside each
   // mark, so "512 * 768 * 2" stays arithmetic, and an underscore inside a name (lora_name) is a letter of it.
