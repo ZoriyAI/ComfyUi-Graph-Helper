@@ -64,5 +64,6 @@
 
 ## См. также
 - [Как устроены уроки](How-Lessons-Work.ru.md)
+- [Run, очередь, история и отмена](Queue-History.ru.md)
 - [Открыть workflow](../graph/Opening-Workflows.ru.md)
 - [Workflow и форматы его файлов](../concepts/Workflow-Formats.ru.md)

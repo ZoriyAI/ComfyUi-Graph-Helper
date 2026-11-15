@@ -65,5 +65,6 @@ the ComfyUI frontend. Ctrl+D loads the default graph: the ComfyUI README.
 
 ## See also
 - [How lessons work](How-Lessons-Work.md)
+- [Run, queue, history and cancel](Queue-History.md)
 - [Opening a workflow](../graph/Opening-Workflows.md)
 - [Workflows and their file formats](../concepts/Workflow-Formats.md)

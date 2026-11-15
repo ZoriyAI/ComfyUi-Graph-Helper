@@ -159,4 +159,140 @@ export const DAILY_CYCLE_EN: Record<string, LessonWords> = {
       },
     },
   },
+  'queue-history': {
+    title: 'Run, queue, history and cancel',
+    result: 'Several runs queued on purpose, one cancelled while it waited, one stopped while it ran, and a finished one found in the history with its settings.',
+    roles: {
+      save: 'saver of the runs',
+    },
+    meta: {
+      skill: 'Queue several runs on purpose, cancel the one you do not need, and find a finished run with its settings in the history.',
+      requires: ['A ComfyUI you can run, with one picture model in models/checkpoints.', 'The lesson “A first picture from text”, or the same graph built by hand.'],
+      mistakes: [
+        {
+          sign: 'You pressed Run three times and only one picture came out.',
+          fix: 'Nothing changed between the presses, so ComfyUI reused its result. Change something before each Run (a word of the prompt), or let `control_after_generate` under `seed` be `randomize`.',
+        },
+        {
+          sign: 'ComfyUI keeps starting new runs by itself.',
+          fix: 'The Run button is in the mode "Run (Instant)" or "Run (On Change)". Switch it back to "Run" in the menu of the button, then clear the queue.',
+        },
+        {
+          sign: 'You cleared the queue and the running job went on anyway.',
+          fix: 'Clearing the queue removes only the jobs that wait. To stop the one that runs, press "Cancel" on the run bar or Ctrl+Alt+Enter.',
+        },
+        {
+          sign: 'You cannot find the Job History panel.',
+          fix: 'In some versions it is behind a setting: Settings, Comfy, Queue, "Docked job history/queue panel". Older versions show a queue panel instead; the key Q shows and hides it.',
+        },
+      ],
+      provenance: 'Built on ComfyUI\'s own nodes and the interface as the official documentation describes it (the run bar, the job history). No model, picture or prompt comes with the lesson. A run with partner nodes, the paid nodes that run on an outside service, costs credits each time it is queued.',
+      notChecked: `The app checks the graph on the canvas and that every node of it is installed. It does not see the queue, the history or the jobs. ${NOT_CHECKED_TAIL}`,
+    },
+    steps: {
+      intro: {
+        title: 'Run puts a job into a queue',
+        body: 'Run does not start a picture at once. It puts a job into a queue, and ComfyUI works through the queue one job after another.\n\nA job is in one of a few states: waiting in the queue, running, finished, failed, or cancelled. Pressing Run again and again "to be sure" only adds jobs, and a job with nothing changed ends at once, because ComfyUI reuses what it already made.\n\nIn this lesson you queue three jobs on purpose, cancel one that waits, stop one that runs, and find a finished one in the history with its settings.',
+      },
+      ready: {
+        title: 'Before you start',
+        body: 'Two things the app can see for itself; the third only you know.',
+        items: READY_ITEMS,
+      },
+      graph: {
+        title: 'A graph to queue',
+        body: 'Keep the picture graph of the first lesson, or build it: {checkpoint}, the prompt and the negative prompt in {positive} nodes, {latent}, {sampler}, {decode} and {save}. A model is chosen in `ckpt_name`, the prompt is written in `text`.',
+      },
+      name: {
+        title: 'A folder for the runs',
+        body: 'Give {save} a `filename_prefix` that starts with `queue/`, for example `queue/run`. Every job of this lesson then writes into one folder, and you can count the files.',
+      },
+      complete: {
+        title: 'Every node is in your ComfyUI',
+        body: 'Before the graph goes to ComfyUI, the app checks that every node on the canvas is installed there.',
+      },
+      where: {
+        title: 'Where to watch the queue',
+        body: 'In ComfyUI as documented in November 2026:\n\n- The run bar at the top of the canvas has **Run** and **Cancel**. Shift with Run puts the job at the front of the queue. Ctrl+Enter is Run, Ctrl+Alt+Enter cancels the running job.\n- The menu of the Run button has three modes. "Run" queues once per press. "Run (On Change)" queues again whenever the graph changes, "Run (Instant)" queues again as soon as a job ends. Keep "Run" for this lesson.\n- A counter of active jobs stands near Run. A click opens the queue; a right click clears it.\n- **Job History** in the left sidebar lists the jobs with tabs "All", "Completed" and "Failed". Each job has a menu with "Cancel job" while it waits or runs, and "Open as workflow in a new tab" when it is done.\n\nIn some versions Job History needs the setting "Docked job history/queue panel" (Settings, Comfy, Queue). Older versions show a queue panel instead. The names may differ a little in yours: look for the same actions.',
+      },
+      queue: {
+        title: 'Queue three jobs',
+        body: `${RUN}\n\nPress Run three times quickly, and change one word of the prompt before the second and the third press, so each job is new. ${OWN_WORD}`,
+        items: {
+          open: { label: 'I opened the workflow in ComfyUI and the Run button is in the mode "Run".' },
+          three: { label: 'I queued three jobs, each with a different prompt.', how: 'The counter of active jobs shows them, or Job History lists one running and two waiting.' },
+          counter: { label: 'I watched the counter go down as jobs finished.' },
+        },
+      },
+      cancel: {
+        title: 'Cancel one, stop one',
+        body: `Queue three jobs again with three new prompts. Then act while they run. ${OWN_WORD}`,
+        items: {
+          waiting: { label: 'I cancelled a job that was still waiting.', how: 'Its menu in Job History, "Cancel job". The job that runs goes on.' },
+          running: { label: 'I stopped the job that was running.', how: '"Cancel" on the run bar, or Ctrl+Alt+Enter. The next waiting job starts.' },
+          states: { label: 'I can say for each of the six jobs whether it finished, was cancelled or was stopped.', how: 'Count the files in the folder queue: one for each finished job.' },
+        },
+      },
+      history: {
+        title: 'Find a run again',
+        body: `A finished job remembers the graph it ran. ${OWN_WORD}`,
+        items: {
+          find: { label: 'I found a finished job in Job History by its picture.' },
+          reopen: { label: 'I opened it as a workflow in a new tab and read its prompt and its seed.', how: '"Open as workflow in a new tab" in the menu of the job.' },
+          file: { label: 'I found its file in the folder queue of the output folder.' },
+        },
+      },
+      assess: {
+        title: 'How did it go?',
+        body: 'Answer for yourself; your answers stay on this computer.',
+        criteria: {
+          states: {
+            title: 'I could tell the state of every job at each moment.',
+            levels: { no: 'No', partly: 'Partly', yes: 'Yes' },
+            tryNext: 'Keep Job History open while you queue, and watch one job go from waiting to running to finished.',
+          },
+          restore: {
+            title: 'The run I opened from the history had the same prompt and seed as the picture.',
+            levels: { no: 'No', partly: 'Partly', yes: 'Yes' },
+            tryNext: 'Open it again from the menu of the job, not from the canvas you have now: the canvas may hold later changes.',
+          },
+          blind: {
+            title: 'How often did I press Run without knowing what it would add?',
+            levels: { often: 'Often', once: 'Once', never: 'Never' },
+            tryNext: 'Before each Run, say what changed. If nothing did, the press adds a job that ends at once.',
+          },
+        },
+      },
+      recall: {
+        title: 'Check yourself',
+        body: 'Three short questions. A wrong answer costs nothing: read the explanation and go on.',
+        questions: {
+          same: {
+            text: 'You press Run again without changing anything. What happens?',
+            choices: { new: 'A new picture is made', cached: 'The job ends at once with the result it already has', error: 'ComfyUI shows an error' },
+            explain: 'ComfyUI reuses results and works out only what changed. With nothing changed there is nothing to do.',
+          },
+          clear: {
+            text: 'What does clearing the queue remove?',
+            choices: { all: 'Every job, the running one too', pending: 'The jobs that wait; the running one goes on', history: 'The finished jobs' },
+            explain: 'The running job is stopped with Cancel. The history is cleared apart, with "Clear history".',
+          },
+          urgent: {
+            text: 'Two jobs wait, and you need a third one first. How?',
+            choices: { shift: 'Hold Shift and press Run', twice: 'Press Run twice', restart: 'Restart ComfyUI' },
+            explain: 'Shift with Run, or Ctrl+Shift+Enter, puts the job at the front of the queue.',
+          },
+        },
+      },
+      transfer: {
+        title: 'On your own: a series',
+        body: 'Use the queue for a real choice, without help.',
+        items: {
+          series: { label: 'I queued a series of four jobs: one prompt with four different seeds.' },
+          drop: { label: 'I cancelled the jobs I no longer needed as soon as I saw a good picture.' },
+          best: { label: 'I opened the best one from the history and wrote down its seed.' },
+        },
+      },
+    },
+  },
 };

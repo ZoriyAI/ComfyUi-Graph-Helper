@@ -145,6 +145,7 @@ export const LESSON_PROGRAMME: Readonly<Record<string, LessonPlace>> = {
   snapshots: at(0, 'core', 'base'),
   // The daily work cycle: templates, the queue, partial runs, the log, the forms of a workflow file.
   'template-own': at(1, 'core', 'base'),
+  'queue-history': at(1, 'core', 'base'),
   // For adults: behind the switch, never on a path while it is off.
   'adult-image': at(3, 'deep', 'image'),
   'adult-lora': at(3, 'deep', 'image', 'lora'),

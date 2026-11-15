@@ -167,12 +167,52 @@ const templateOwn: Lesson = {
   ],
 };
 
+/**
+ * N08: the queue. Several jobs queued on purpose, one cancelled while waiting, the running one stopped, a finished one
+ * found in the history and opened again with its settings.
+ */
+const queueHistory: Lesson = {
+  id: 'queue-history',
+  standard: 2,
+  outcomes: ['structure', 'run', 'result'],
+  meta: { prerequisites: ['image'], versions: [CORE_NODES, FRONTEND], checkedOn: CHECKED_ON },
+  steps: [
+    { id: 'intro', read: true },
+    READY,
+    { id: 'graph', ...baseGraph },
+    { id: 'name', fields: [field('save', 'filename_prefix', { kind: 'text', minChars: 6, has: ['queue/'] })] },
+    { id: 'complete', readCheck: [{ kind: 'workflow-complete' }] },
+    { id: 'where', read: true },
+    { id: 'queue', checklist: [{ id: 'open' }, { id: 'three', run: true }, { id: 'counter' }] },
+    { id: 'cancel', checklist: [{ id: 'waiting' }, { id: 'running' }, { id: 'states' }] },
+    { id: 'history', checklist: [{ id: 'find' }, { id: 'reopen' }, { id: 'file' }] },
+    {
+      id: 'assess',
+      rubric: [
+        { id: 'states', levels: ['no', 'partly', 'yes'] },
+        { id: 'restore', levels: ['no', 'partly', 'yes'] },
+        { id: 'blind', levels: ['often', 'once', 'never'] },
+      ],
+    },
+    {
+      id: 'recall',
+      quiz: [
+        { id: 'same', choices: ['new', 'cached', 'error'], answer: 'cached' },
+        { id: 'clear', choices: ['all', 'pending', 'history'], answer: 'pending' },
+        { id: 'urgent', choices: ['shift', 'twice', 'restart'], answer: 'shift' },
+      ],
+    },
+    { id: 'transfer', transfer: true, checklist: [{ id: 'series' }, { id: 'drop' }, { id: 'best' }] },
+  ],
+};
+
 /** The lessons of the group, in the order a person meets them. */
-export const DAILY_CYCLE_LESSONS: Lesson[] = [templateOwn];
+export const DAILY_CYCLE_LESSONS: Lesson[] = [templateOwn, queueHistory];
 
 /** The group of each lesson and the lessons it goes on from. */
 export const DAILY_CYCLE_PATH: Record<string, { group: LessonGroup; follows: string[] }> = {
   'template-own': { group: DAILY_CYCLE_GROUP, follows: ['read-workflow'] },
+  'queue-history': { group: DAILY_CYCLE_GROUP, follows: ['template-own'] },
 };
 
 /**
@@ -181,4 +221,5 @@ export const DAILY_CYCLE_PATH: Record<string, { group: LessonGroup; follows: str
  */
 export const DAILY_CYCLE_AFTER: Record<string, string[]> = {
   'template-own': ['image'],
+  'queue-history': ['image'],
 };

@@ -18,7 +18,7 @@ import { lessonShapes, tryLesson } from '../../src/shared/lessons/share/tryLesso
 import { builtinLessonDoc } from '../../src/shared/lessons/share/builtin';
 import { checkLessonDoc } from '../../src/shared/lessons/share/mine';
 
-const IDS = ['template-own'];
+const IDS = ['template-own', 'queue-history'];
 
 /** The canvas at the end of a lesson, played from an empty canvas after the lessons whose graph it stands on. */
 function finished(id: string): LessonGraph {
