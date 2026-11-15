@@ -22,6 +22,14 @@ import styles from './GraphContextMenu.module.css';
 
 type Translate = (key: string) => string;
 
+/**
+ * Runs after the menu has closed and handed focus back: the node search it opens takes focus itself and closes when
+ * its field loses focus, so it must open after the menu's own focus return.
+ */
+function afterMenu(run: () => void): void {
+  window.setTimeout(run, 60);
+}
+
 /** A row with a tick: checked rows say the state the click takes away. */
 function checkRow(key: string, label: string, checked: boolean, run: () => void, options: { icon: LucideIcon; disabled?: boolean; shortcut?: string }) {
   return (
@@ -92,7 +100,7 @@ export function nodeEditingItems(t: Translate, node: GraphNode, targets: GraphNo
   rows.push(colorSubmenu('color', t, sharedColor(targets), (color) => void colorSelection(color, targets.map((item) => item.id)), disabled, 'node'));
   if (replaceable(node)) {
     rows.push(
-      <Menu.Item key="replace" className={styles.item} disabled={disabled} onSelect={() => openReplaceNode(node.id)}>
+      <Menu.Item key="replace" className={styles.item} disabled={disabled} onSelect={() => afterMenu(() => openReplaceNode(node.id))}>
         <span className={styles.icon} aria-hidden="true"><Replace size={14} /></span>
         <span className={styles.label}>{t('editing.replaceNode')}</span>
       </Menu.Item>,
@@ -144,7 +152,7 @@ export function groupMembershipItems(t: Translate, targets: GraphNode[], groups:
 /** Rows for a link. */
 export function edgeEditingItems(t: Translate, edgeId: string, disabled: boolean): React.ReactNode[] {
   return [
-    <Menu.Item key="insert-node" className={styles.item} disabled={disabled} onSelect={() => openInsertOnLink(edgeId)}>
+    <Menu.Item key="insert-node" className={styles.item} disabled={disabled} onSelect={() => afterMenu(() => openInsertOnLink(edgeId))}>
       <span className={styles.icon} aria-hidden="true"><Spline size={14} /></span>
       <span className={styles.label}>{t('editing.insertNode')}</span>
     </Menu.Item>,
