@@ -82,6 +82,18 @@ function stripTags(html: string): string {
   return decodeEntities(html.replace(/<[^>]*>/g, ' ')).replace(/\s+/g, ' ').trim();
 }
 
+/** The search host. Its subdomains (html., lite.) are the same service. */
+const SEARCH_SITE = 'duckduckgo.com';
+
+/**
+ * True when `hostname` is the search host itself or a real subdomain of it. A plain suffix test would
+ * also accept a lookalike such as evilduckduckgo.com, as a redirect target or as "the search host's own link".
+ */
+export function isSearchSite(hostname: string): boolean {
+  const host = hostname.toLowerCase().replace(/\.+$/, '');
+  return host === SEARCH_SITE || host.endsWith(`.${SEARCH_SITE}`);
+}
+
 /** DuckDuckGo wraps result links as //duckduckgo.com/l/?uddg=<encoded target>. */
 export function decodeResultLink(href: string): string | null {
   const raw = decodeEntities(href);
@@ -93,13 +105,13 @@ export function decodeResultLink(href: string): string | null {
   }
   const wrapped = url.searchParams.get('uddg');
   // An unwrapped link is a result only when it points away from the search host.
-  const target = wrapped ?? (url.hostname.endsWith('duckduckgo.com') ? null : url.toString());
+  const target = wrapped ?? (isSearchSite(url.hostname) ? null : url.toString());
   if (!target) return null;
   try {
     const parsed = new URL(target);
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
     // Sponsored links go through an ad redirect on the search host; they are not results.
-    if (parsed.hostname.endsWith('duckduckgo.com')) return null;
+    if (isSearchSite(parsed.hostname)) return null;
     return parsed.toString();
   } catch {
     return null;
@@ -527,7 +539,7 @@ async function searchOnce(trimmed: string, endpoint: string, parse: (html: strin
         const location = response.headers.get('location');
         if (!location || hop >= MAX_REDIRECTS) throw new Error('Search redirected too often.');
         const next = new URL(location, url);
-        if (next.protocol !== 'https:' || !next.hostname.endsWith('duckduckgo.com')) throw new Error('Search redirected off the search host.');
+        if (next.protocol !== 'https:' || !isSearchSite(next.hostname)) throw new Error('Search redirected off the search host.');
         url = next;
         continue;
       }
