@@ -1,7 +1,7 @@
 /**
  * The shared contracts in one import: the types and constants main, preload and the renderer exchange over IPC
  * (objects, knowledge, proposals, agent, revisions, MCP sign-in, model log, pickers, project file), plus the
- * subgraph helpers they need. Code may import from here or from the single file it needs.
+ * helpers for subgraphs they need. Code may import from here or from the single file it needs.
  */
 export * from './objects';
 export * from './knowledge';
