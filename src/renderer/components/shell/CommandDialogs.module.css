@@ -1,3 +1,8 @@
+/*
+ * The shared frame of the small command dialogs: CommandDialogs.tsx (shortcuts, About, report a problem, and the
+ * replace, export and stop-build questions) and settings/sections/ConfirmDialog.tsx use it, so every such dialog
+ * has the same header, body and buttons.
+ */
 .dialog { width: min(440px, calc(100vw - 32px)); max-height: calc(100vh - 48px); display: flex; flex-direction: column; overflow: hidden; }
 .wide { width: min(760px, calc(100vw - 32px)); }
 .header { display: flex; flex-direction: column; gap: 6px; padding: 18px 20px 12px; }

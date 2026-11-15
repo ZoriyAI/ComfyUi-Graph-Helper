@@ -1,3 +1,9 @@
+/**
+ * Settings > Privacy, one section of SettingsPanel: what is sent to the model, chat history, the model log, adult
+ * content, online lookups and update checks (draft preferences, saved with Save), plus an account of where keys and
+ * tokens live with "Forget all", the password store choice, clearing the chat and the preview cache. Those last
+ * actions run at once in main, since they remove data rather than change a setting.
+ */
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BookOpen, Eraser, ShieldCheck, Trash2 } from 'lucide-react';
@@ -20,8 +26,10 @@ const STORE_NAME_KEYS: Record<string, string> = {
   basic_text: 'preferences.secretStoreName.plain',
   'platform-default': 'preferences.secretStoreName.system',
 };
+// The setSecretStore values below use the command-line spelling (gnome-libsecret); this table uses Electron's report.
 const storeNameKey = (backend: string): string => STORE_NAME_KEYS[backend] ?? 'preferences.secretStoreName.unknown';
 
+/** Brand names of the key holders; the own server has none and is named through the catalog instead. */
 const KEY_PROVIDER_NAMES: Record<CloudKeyProvider, string> = { openai: 'OpenAI', anthropic: 'Anthropic', google: 'Google', compatible: 'OpenAI-compatible', local: '' };
 import { tokenPlaceKey } from '../mcpAccess';
 import { cx } from '../../../ui/cx';
@@ -59,7 +67,7 @@ export default function PrivacySection({ prefs, setPrefs, container }: DraftProp
   };
   // Where the secrets are right now: the model key and the server token, never the values.
   // One row per cloud provider that has a key, held now or remembered (a remembered key the OS store could not open
-  // at start still counts: «Забыть все» must say it is there before it removes it).
+  // at start still counts: Forget all (preferences.forgetAll) must say it is there before it removes it).
   const keySources = useProviderStore((state) => state.keySources);
   const [remembered, setRemembered] = useState<SecretStatus['providers'] | null>(null);
   const [token, setToken] = useState<McpTokenStatus | null>(null);
@@ -73,10 +81,12 @@ export default function PrivacySection({ prefs, setPrefs, container }: DraftProp
     void refreshToken();
     void refreshKeys();
   }, []);
+  // The catalog key of the place a provider's key lives in, for the secrets table.
   const keyPlace = (source: KeySource): string => (source === 'os' ? 'preferences.placeOs' : source === 'file' ? 'preferences.placeFile' : source === 'session' ? 'preferences.placeSession' : 'preferences.placeNone');
   const keyRows = CLOUD_KEY_PROVIDERS.map((provider) => {
     const held = keySources[provider];
     const saved = remembered?.[provider];
+    // A key held now wins; otherwise a remembered one counts even if it was not loaded at start.
     const source: KeySource = held !== 'none' ? held : saved?.stored ? 'os' : saved?.inFile ? 'file' : 'none';
     return { provider, source };
   }).filter((row) => row.source !== 'none');
@@ -114,6 +124,7 @@ export default function PrivacySection({ prefs, setPrefs, container }: DraftProp
   }, []);
   const forgetEverything = async () => {
     const result = await window.electronAPI.forgetAllSecrets();
+    // Every key is gone in main: show that at once, before the slower re-reads below.
     useProviderStore.getState().setKeySources(NO_KEYS);
     await refreshKeys();
     await refreshToken();
@@ -121,6 +132,7 @@ export default function PrivacySection({ prefs, setPrefs, container }: DraftProp
     const removed = inventoryItems(result.removed);
     setForgetNote(removed.length > 0 ? String(t('preferences.forgotAll', { items: removed.join('; ') })) : String(t('preferences.forgetNothing')));
   };
+  // Only the Linux stores can be chosen; Windows and macOS have one system store, reached through "auto".
   const storeOptions = [
     { value: 'auto', label: String(t('preferences.secretStoreAuto')) },
     { value: 'gnome-libsecret', label: String(t('preferences.secretStoreName.gnome')) },
@@ -144,6 +156,7 @@ export default function PrivacySection({ prefs, setPrefs, container }: DraftProp
         setNote(String(t('preferences.historyNotCleared')));
         return;
       }
+      // Count what was on screen too: with saving off, main removed nothing but the window still had messages.
       const shown = useChatStore.getState().messages.length;
       useChatStore.getState().clearChat();
       await refreshStored();
@@ -154,7 +167,9 @@ export default function PrivacySection({ prefs, setPrefs, container }: DraftProp
   };
   return (
     <>
-      <div ref={viewRef} aria-hidden="true" />
+      <div
+        // An empty marker the IntersectionObserver above watches to know when the section is shown.
+        ref={viewRef} aria-hidden="true" />
       <SectionHead title={String(t('preferences.nav.privacy'))} lead={String(t('preferences.lead.privacy'))} />
       <Switch label={t('preferences.sendFieldValues')} checked={privacy.sendFieldValues} onCheckedChange={(next) => patchSection(setPrefs, 'privacy', { sendFieldValues: next })} />
       <p className={hintClass}>{t('preferences.sendFieldValuesHint')}</p>

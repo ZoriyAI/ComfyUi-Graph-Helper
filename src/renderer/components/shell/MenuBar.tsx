@@ -1,3 +1,8 @@
+/**
+ * The application menu bar at the top of the main window (App.tsx renders it). Every row is a command from the
+ * registry (commands/registry), so its label, shortcut, enabled and checked state are the same as on the toolbar and
+ * in the hotkeys. The menus are a static table below. The sync indicator sits at the right end of the bar.
+ */
 import React, { useCallback, useRef, useState } from 'react';
 import * as Menubar from '@radix-ui/react-menubar';
 import { Check, ChevronRight, Circle } from 'lucide-react';
@@ -26,10 +31,14 @@ type Entry =
   /** A submenu whose rows come from a store (File ▸ Open recent, File ▸ Examples): see FileListSubmenu. */
   | { kind: 'files'; list: 'recent' | 'examples' };
 
+// Short builders that keep the MENUS table readable.
 const command = (id: string): Entry => ({ kind: 'command', id });
 const check = (id: string): Entry => ({ kind: 'check', id });
 const separator: Entry = { kind: 'separator' };
 
+/**
+ * The menus in order and their rows. Built once at load: the provider rows come from providerChoices() at that time.
+ */
 const MENUS: Array<{ value: string; labelKey: string; entries: Entry[] }> = [
   {
     value: 'file',
@@ -119,6 +128,7 @@ function FileListSubmenu({ list, onChoose }: { list: 'recent' | 'examples'; onCh
               <span className={styles.itemLabel}>{t(list === 'recent' ? 'journey.recentEmpty' : 'journey.examplesEmpty')}</span>
             </Menubar.Item>
           ) : rows.map((row) => (
+            // Open on the next tick, after the menu has closed and given focus back (see choose in MenuBar).
             <Menubar.Item key={row.key} className={cx(menuStyles.item, styles.item)} title={row.hint} onSelect={() => { onChoose(); window.setTimeout(() => void row.run(), 0); }}>
               <span className={styles.itemLabel}>{row.label}</span>
             </Menubar.Item>
@@ -129,12 +139,14 @@ function FileListSubmenu({ list, onChoose }: { list: 'recent' | 'examples'; onCh
   );
 }
 
+/** A command's translated label, or its id when the command is not registered. */
 function Label({ id }: { id: string }) {
   const { t } = useTranslation();
   const entry = getCommand(id);
   return <span className={styles.itemLabel}>{entry ? t(entry.labelKey) : id}</span>;
 }
 
+/** The command's current shortcut at the right of a row, if it has one. */
 function ShortcutHint({ id }: { id: string }) {
   const shortcut = getCommand(id)?.shortcut;
   return shortcut ? <Shortcut shortcut={shortcut} quiet className={cx(menuStyles.shortcut, styles.shortcut)} /> : null;
@@ -158,6 +170,7 @@ export default function MenuBar() {
     window.setTimeout(() => void runCommand(id), 0);
   }, []);
 
+  // After a choice, focus goes back to what had it before the menu bar (commands/hotkeys.ts), not to the trigger.
   const onCloseAutoFocus = useCallback((event: Event) => {
     if (!chosen.current) return;
     chosen.current = false;
@@ -193,6 +206,7 @@ export default function MenuBar() {
     }
     const item = getCommand(entry.id);
     if (!item) return null;
+    // A command's enabled() reads live stores; one that throws shows as off instead of breaking the whole menu.
     let enabled = false;
     try {
       enabled = item.enabled();

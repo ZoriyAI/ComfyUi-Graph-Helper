@@ -1,3 +1,8 @@
+/**
+ * The Help dialog: reads the bundled wiki through main (helpTree, helpPage, helpSearch) and shows it with
+ * MarkdownLite, so help works offline and matches the installed version. CommandDialogs renders it; menus, About and
+ * links in the app open a page through uiState's helpRequest. tests/unit/aboutHelp.test.ts covers readerText.
+ */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Search } from 'lucide-react';
@@ -16,6 +21,7 @@ import styles from './HelpReader.module.css';
  */
 export function readerText(markdown: string): string {
   const lines = markdown.replace(/\r\n?/g, '\n').split('\n');
+  // The first line of a wiki page may be the link to the same page in the other language.
   if (/^\[(English|Русский)\]\([^)]*\)\s*$/.test(lines[0] ?? '')) lines.shift();
   return lines.join('\n')
     .replace(/<!--[\s\S]*?-->/g, '')
@@ -27,11 +33,13 @@ export function readerText(markdown: string): string {
 /** Help: the wiki in the interface language, with the sections on the left, links between pages and a search. */
 export default function HelpReader({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const { t, i18n } = useTranslation();
+  // The wiki exists in English and Russian only; any other interface language reads the Russian pages.
   const language = i18n.language === 'en' ? 'en' : 'ru';
   const request = useUiStore((state) => state.helpRequest);
   const [tree, setTree] = useState<HelpTree | null>(null);
   const [page, setPage] = useState<HelpPage | null>(null);
   const [current, setCurrent] = useState<string>('Home');
+  // The pages visited before the current one, for the Back button.
   const [back, setBack] = useState<string[]>([]);
   const [query, setQuery] = useState('');
   const [hits, setHits] = useState<HelpSearchHit[] | null>(null);
@@ -73,6 +81,7 @@ export default function HelpReader({ open, onOpenChange }: { open: boolean; onOp
       return undefined;
     }
     let alive = true;
+    // Wait for a short pause in typing (180 ms) before asking main to search.
     const timer = setTimeout(() => {
       void api?.helpSearch?.(words, language).then((value) => { if (alive) setHits(value); }).catch(() => { if (alive) setHits([]); });
     }, 180);
@@ -100,6 +109,7 @@ export default function HelpReader({ open, onOpenChange }: { open: boolean; onOp
     });
   };
 
+  // Only the folder of the open page shows its pages in the side list.
   const folderOfCurrent = current.includes('/') ? current.split('/')[0] : null;
   const text = useMemo(() => (page && page.ok ? readerText(page.text) : ''), [page]);
   const title = current === WHATS_NEW_PAGE

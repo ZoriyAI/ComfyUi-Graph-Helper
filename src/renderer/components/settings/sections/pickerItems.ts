@@ -1,3 +1,8 @@
+/**
+ * Pure helpers that turn what main found (models, local servers, addresses) into picker rows and small decisions for
+ * Settings > Assistant (AssistantSection) and Settings > Connection (ConnectionSection). They are kept free of React
+ * so tests/unit/settingsPickers, localServerAddress and providersWorld can check them directly.
+ */
 import type { AddressSuggestion, LocalServer, ModelChoice } from '../../../../shared/contracts/pickers';
 import type { Translator } from '../../../../shared/i18n';
 import type { Suggestion } from '../../../ui/SuggestField';
@@ -67,6 +72,7 @@ export function serverSuggestions(servers: LocalServer[], t: Translator): Sugges
   });
 }
 
+/** Picker rows for an address field: the address, and where it was found as the detail. */
 export function addressSuggestions(items: AddressSuggestion[], t: Translator): Suggestion[] {
   return items.map((item) => ({ value: item.value, detail: t(`picker.source.${item.source}`) }));
 }

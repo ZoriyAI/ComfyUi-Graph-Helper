@@ -1,4 +1,7 @@
-/* The library rail is a panel one step lighter than the canvas, with a soft inner edge and a drop onto the canvas. */
+/*
+ * The left rail (Rail.tsx in App.tsx's body row) that holds the library. It is a panel one step lighter than the
+ * canvas, with a soft inner edge and a drop onto the canvas.
+ */
 .rail {
   position: relative;
   z-index: 2;

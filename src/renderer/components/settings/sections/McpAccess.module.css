@@ -1,4 +1,7 @@
-/* Settings ▸ Connection ▸ Access to the server: three stacked options, the chosen one opened like a card. */
+/*
+ * Settings ▸ Connection ▸ Access to the server (McpAccess.tsx): three stacked options, the chosen one opened like a
+ * card so its own fields (the token, the sign-in) sit inside it.
+ */
 .access {
   display: flex;
   flex-direction: column;

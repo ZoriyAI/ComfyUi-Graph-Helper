@@ -1,3 +1,8 @@
+/**
+ * The key field of one model provider in Settings > Assistant (AssistantSection renders it for the cloud companies,
+ * a compatible service and an own server's optional key). Unlike the rest of Settings, a key applies at once and
+ * goes only to main (memory, the OS password store or a file); the renderer never reads a stored key back.
+ */
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { explainError, type Translator } from '../../../../shared/i18n';
@@ -13,6 +18,7 @@ import { keyOriginFor } from '../../../../shared/config/keyOrigin';
 /** Typing or pasting applies the key after this pause, not on every key. */
 const APPLY_DEBOUNCE_MS = 600;
 
+/** The result of checking a pasted key against the provider's model list. */
 type Verdict =
   | { kind: 'idle' }
   | { kind: 'checking' }
@@ -20,6 +26,7 @@ type Verdict =
   | { kind: 'rejected'; dropped: boolean }
   | { kind: 'unchecked'; text: string };
 
+/** Company names are brand names: the same in every language, so they are not in the catalog. */
 const PROVIDER_NAMES: Record<string, string> = { openai: 'OpenAI', anthropic: 'Anthropic', google: 'Google' };
 
 /** What a panel says instead of the cloud wording: your own server's optional key, a compatible service's key. */
@@ -36,6 +43,7 @@ export interface KeyPanelWords {
 
 /** Where the key lives, for the status line under the field. */
 export function keyPlaceKey(source: KeySource, stored: boolean, inFile: boolean): string {
+  // The strongest place wins: OS storage, then the file, then memory for this session only.
   if (source === 'os' || stored) return 'settings.keyPlaceOs';
   if (source === 'file' || inFile) return 'settings.keyPlaceFile';
   if (source === 'session') return 'settings.keyPlaceSession';
@@ -62,6 +70,7 @@ export default function KeyPanel({ provider, baseURL, onSession, words = {} }: {
   const [verdict, setVerdict] = useState<Verdict>({ kind: 'idle' });
   const [note, setNote] = useState('');
   const [keyOrigin, setKeyOrigin] = useState<string | null>(null);
+  // Each apply or provider switch takes a new ticket; an answer for an older ticket is ignored.
   const applyTicket = useRef(0);
   const onSessionRef = useRef(onSession);
   onSessionRef.current = onSession;
@@ -117,6 +126,7 @@ export default function KeyPanel({ provider, baseURL, onSession, words = {} }: {
         if (listed.ok) {
           setVerdict({ kind: 'accepted', count: listed.models.length });
           setDraft('');
+        // Main's error sentence for a 401/403 from the provider; compared as text because it is the IPC contract.
         } else if (listed.error === 'The provider refused the key.') {
           setVerdict({ kind: 'rejected', dropped: listed.dropped === true });
           if (listed.dropped) setDraft('');

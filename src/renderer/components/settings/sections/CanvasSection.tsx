@@ -1,3 +1,7 @@
+/**
+ * Settings > Canvas, one section of SettingsPanel: description labels, minimap, following the agent, the tour's
+ * autoplay, the build pace and the grid size. All values are draft preferences, saved with the dialog's Save.
+ */
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { BUILD_PACE, DESCRIPTION_MODES, GRID_SIZE, descriptionsModeOf, descriptionsPatch, type DescriptionsMode } from '../../../../shared/config/preferences';
@@ -6,18 +10,20 @@ import NumberField from '../../../ui/NumberField';
 import Switch from '../../../ui/Switch';
 import { hintClass, patchSection, SectionHead, type DraftProps } from './common';
 
-/** Settings ▸ Canvas: what the canvas shows and how fast a live build plays. */
+/** The catalog key of each description mode's name in the select. */
 const MODE_KEYS: Record<DescriptionsMode, string> = {
   own: 'canvas.descriptionsOwn',
   all: 'canvas.descriptionsAll',
   off: 'canvas.descriptionsOff',
 };
 
+/** Settings ▸ Canvas: what the canvas shows and how fast a live build plays. */
 export default function CanvasSection({ prefs, setPrefs, container }: DraftProps) {
   const { t } = useTranslation();
   const canvas = prefs.canvas;
   const set = (patch: Partial<typeof canvas>) => patchSection(setPrefs, 'canvas', patch);
   const mode = descriptionsModeOf(canvas);
+  // The accessible names of a number field's minus and plus buttons.
   const number = (key: string) => ({
     decreaseLabel: String(t('preferences.decrease', { label: t(key) })),
     increaseLabel: String(t('preferences.increase', { label: t(key) })),
@@ -25,7 +31,9 @@ export default function CanvasSection({ prefs, setPrefs, container }: DraftProps
   return (
     <>
       <SectionHead title={String(t('preferences.nav.canvas'))} lead={String(t('preferences.lead.canvas'))} />
-      <Switch label={t('preferences.showDescriptions')} checked={mode !== 'off'} onCheckedChange={(next) => set(descriptionsPatch(next ? 'own' : 'off'))} />
+      <Switch
+        // A shortcut for the mode select below: on sets "own", off sets "off".
+        label={t('preferences.showDescriptions')} checked={mode !== 'off'} onCheckedChange={(next) => set(descriptionsPatch(next ? 'own' : 'off'))} />
       <p className={hintClass}>{t('preferences.showDescriptionsHint')}</p>
       <SelectField
         id="settings-descriptions-mode"

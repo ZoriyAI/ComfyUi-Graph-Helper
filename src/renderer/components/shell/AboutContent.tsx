@@ -1,3 +1,8 @@
+/**
+ * The About view: CommandDialogs shows it for Help > About, and settings/sections/AboutSection shows it in Settings.
+ * It reads the version, runtime, licence and third-party notices from main on demand (the licence and the notices
+ * only when their sub-view opens, since they are long). The e2e test about-help.test.ts finds parts by data-about-*.
+ */
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft } from 'lucide-react';
@@ -11,6 +16,7 @@ import styles from './AboutContent.module.css';
 import { openProjectLink } from '../../services/help';
 import { useUiStore } from '../../state/uiState';
 
+/** Which page of the view is open: the summary, the licence text, or the list of third-party components. */
 type View = 'main' | 'licence' | 'components';
 
 /** The text "Copy details" puts on the clipboard: what a bug report needs, nothing private. */
@@ -31,12 +37,14 @@ export function aboutDetailsText(name: string, info: AboutInfo): string {
  */
 export default function AboutContent({ renderTitle }: { renderTitle?: (text: string, className: string) => React.ReactNode }) {
   const { t } = useTranslation();
+  // Every call below is optional, so the view still renders when the preload API or one of its calls is missing.
   const api = window.electronAPI;
   const [view, setView] = useState<View>('main');
   const [info, setInfo] = useState<AboutInfo | null>(null);
   const [licence, setLicence] = useState<string | null>(null);
   const [components, setComponents] = useState<ThirdPartyComponent[] | null>(null);
   const name = String(t('shell.title'));
+  // Until main answers, the preload's version, then the bundled package.json, so a version is always shown.
   const version = info?.version || api?.versions?.app || packageVersion;
 
   useEffect(() => {
@@ -47,6 +55,7 @@ export default function AboutContent({ renderTitle }: { renderTitle?: (text: str
 
   const openLicence = () => {
     setView('licence');
+    // Fetched once; a failure shows an empty text rather than an error inside the About dialog.
     if (licence === null) void api?.aboutLicence?.().then(setLicence).catch(() => setLicence(''));
   };
   const openComponents = () => {

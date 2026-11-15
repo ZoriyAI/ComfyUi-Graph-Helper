@@ -1,3 +1,8 @@
+/**
+ * The main toolbar under the menu bar (App.tsx renders it and passes the settings gear in). Its buttons are views of
+ * registry commands (commands/registry), so the menu, the shortcuts and these buttons share one label, one enabled
+ * state and one action. It also holds the helper (provider) picker and the project name, which sets the window title.
+ */
 import React, { useEffect } from 'react';
 import { Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -58,6 +63,7 @@ export function ToolButton({ id, shortKey, children }: { id: string; shortKey?: 
 /** The class of a toolbar icon button, for buttons that are not commands (the settings trigger). */
 export const toolButtonClass = styles.tool;
 
+/** A thin vertical divider between button groups; decorative only. */
 function Rule() {
   return <span className={styles.rule} aria-hidden="true" />;
 }
@@ -109,6 +115,7 @@ function ProjectName() {
 function useHelperModel(provider: string): string {
   const stored = useProviderStore((state) => state.stored);
   const providers = usePreferencesStore((state) => state.preferences.providers);
+  // No provider, or the built-in test helper: there is no model name worth showing.
   if (!provider || provider === 'test') return '';
   if (stored.provider === provider) return stored.model;
   return isPreferenceProvider(provider) ? providers[provider]?.model ?? '' : '';

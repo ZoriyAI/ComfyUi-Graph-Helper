@@ -1,3 +1,8 @@
+/*
+ * Styles of ProviderAdvice.tsx, the help blocks under the provider choice in Settings > Assistant: a title, dim
+ * lines, address rows with a copy button, a model list and shell commands to copy. The width follows the form
+ * measure so the blocks line up with the fields above.
+ */
 .block { display: flex; flex-direction: column; gap: 6px; width: min(100%, var(--measure-form)); }
 .title { margin: 0; color: var(--text); font-size: var(--text-xs); font-weight: 600; line-height: 18px; }
 .line { margin: 0; color: var(--text-dim); font-size: var(--text-xs); line-height: 18px; }

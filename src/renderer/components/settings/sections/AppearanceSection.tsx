@@ -1,3 +1,8 @@
+/**
+ * Settings > Appearance, one section of SettingsPanel: motion, language, density, interface scale, accent and glow,
+ * with a small live preview of a node and a button in the chosen look. Motion and language are fields of the settings
+ * row; the rest are appearance preferences.
+ */
 import { INTERFACE_SCALE } from '../../../../shared/config/preferences';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -13,6 +18,7 @@ import { cx } from '../../../ui/cx';
 import styles from '../SettingsPanel.module.css';
 import { hintClass, patchSection, SectionHead, type DraftProps } from './common';
 
+/** The accent colours in the order of the cards, and the catalog key of each name. */
 const ACCENTS: Array<Preferences['appearance']['accent']> = ['cyan', 'violet', 'mint', 'amber'];
 const ACCENT_KEYS: Record<Preferences['appearance']['accent'], string> = {
   cyan: 'preferences.accentCyan',
@@ -54,6 +60,7 @@ export default function AppearanceSection({ values, setValues, prefs, setPrefs, 
         onChange={(language) => {
           const next = language as AppLanguage;
           setValues((current) => ({ ...current, language: next }));
+          // Applied at once so a person reads the dialog in the language they chose; Cancel puts the old one back.
           applyLanguage(next);
         }}
       />
@@ -93,7 +100,9 @@ export default function AppearanceSection({ values, setValues, prefs, setPrefs, 
       <p className={hintClass}>{t('preferences.reduceGlowHint')}</p>
       <div className={styles.previewBlock}>
         <span className={hintClass}>{t('preferences.preview')}</span>
-        <div className={styles.preview} data-accent-scope={appearance.accent} aria-hidden="true">
+        <div
+          // The data-*-scope attributes apply the drafted look to this box only, before anything is saved.
+          className={styles.preview} data-accent-scope={appearance.accent} aria-hidden="true">
           <div
             className={styles.previewInner}
             data-density-scope={appearance.density}

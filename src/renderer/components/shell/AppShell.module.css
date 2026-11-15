@@ -1,3 +1,7 @@
+/*
+ * The window's frame layout used by App.tsx: a full-height column (menu, toolbar, body, status bar) whose body is a
+ * row of rail, canvas and dock. min-width and min-height 0 let the canvas shrink instead of pushing the dock out.
+ */
 .shell { height: 100vh; display: flex; flex-direction: column; background: var(--surface-canvas); color: var(--text); }
 .body { flex: 1 1 auto; display: flex; min-height: 0; min-width: 0; }
 .canvas { position: relative; flex: 1 1 auto; min-width: 0; min-height: 0; background: var(--surface-canvas); }

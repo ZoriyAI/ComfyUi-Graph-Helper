@@ -1,3 +1,9 @@
+/**
+ * Renderer entry point, loaded by index.html. It installs the global guards (error reporting, the foreign-drop
+ * guard), reads the saved language from main before the first render so the window never flashes the wrong
+ * language, and mounts App inside the i18n, motion, hint, toast and error-boundary providers.
+ * The Geist font imports must stay here: tests/unit/oflGeist.test.ts reads this file to check them.
+ */
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { I18nextProvider } from 'react-i18next';
@@ -26,6 +32,8 @@ import { installRendererErrorReporting } from './services/diagnostics/diagnostic
 // Uncaught errors and unhandled rejections are written to the main log (redacted, rate-limited).
 installRendererErrorReporting();
 
+// Follow the system's reduced-motion wish until the saved preference arrives (SettingsPanel and the
+// preferences commands set the real value later).
 document.documentElement.dataset.motion = 'system';
 
 // A file or link dropped outside a drop target would navigate the app window to it; see dropGuard.ts.
@@ -41,6 +49,7 @@ const root = ReactDOM.createRoot(
 );
 
 async function boot() {
+  // Russian is the product's first language; it is also what shows when the settings cannot be read.
   let language: AppLanguage = 'ru';
   try {
     const read = await window.electronAPI.getSettings();

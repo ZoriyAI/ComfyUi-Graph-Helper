@@ -1,4 +1,7 @@
-/* The bottom frame bar: an elevated strip lit from above, with the graph, the run and locale/motion as groups. */
+/*
+ * The bottom frame bar (StatusBar.tsx, the last row of App.tsx): an elevated strip lit from above, with the graph
+ * counts and the agent run as groups, and the update line at the end.
+ */
 .bar {
   position: relative;
   z-index: 3;

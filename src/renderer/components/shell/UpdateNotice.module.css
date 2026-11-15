@@ -1,4 +1,7 @@
-/* The quiet update line in the status bar: dim text, two text links in the action colour, a small close. */
+/*
+ * The quiet update line in the status bar (UpdateNotice.tsx inside StatusBar.tsx): dim text, two text links in the
+ * action colour, a small close.
+ */
 .notice {
   display: inline-flex;
   flex: none;

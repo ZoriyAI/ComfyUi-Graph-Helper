@@ -1,3 +1,8 @@
+/**
+ * The left library rail of the main window (App.tsx renders it): the node, model and subgraph libraries as tabs, or a
+ * strip of icons when collapsed. Its open state and tab live in uiState so the View menu (view.rail) and the
+ * dock's width range (Dock.tsx reserves the rail's width) agree with it.
+ */
 import React, { useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Boxes, Layers, PanelLeftClose, PanelLeftOpen, Shapes } from 'lucide-react';
@@ -13,6 +18,7 @@ import SubgraphLibrary from '../library/SubgraphLibrary';
 import { runCommand } from '../../commands/registry';
 import styles from './Rail.module.css';
 
+/** The rail's sections in order: the catalog key of each name and its icon in the strip. */
 const TABS: Array<{ value: RailTab; label: string; icon: React.ReactNode }> = [
   { value: 'nodes', label: 'library.nodes', icon: <Shapes size={18} aria-hidden="true" /> },
   { value: 'models', label: 'library.models', icon: <Boxes size={18} aria-hidden="true" /> },
@@ -21,14 +27,15 @@ const TABS: Array<{ value: RailTab; label: string; icon: React.ReactNode }> = [
 
 
 /**
- * Left library rail: Nodes · Models · Subgraphs. Collapses to an icon strip; below 1440 px it starts
- * collapsed and collapses itself when the window shrinks past that width.
+ * Left library rail: Nodes · Models · Subgraphs. Collapses to an icon strip; below RAIL_AUTO_COLLAPSE (1180 px) it
+ * starts collapsed and collapses itself when the window shrinks past that width.
  */
 export default function Rail() {
   const { t } = useTranslation();
   const open = useUiStore((state) => state.railOpen);
   const tab = useUiStore((state) => state.railTab);
   const setRail = useUiStore((state) => state.setRail);
+  // Collapse only on the crossing from wide to narrow, so a person who opens the rail in a narrow window keeps it open.
   const wasWide = useRef(window.innerWidth >= RAIL_AUTO_COLLAPSE);
 
   useEffect(() => {
@@ -62,6 +69,7 @@ export default function Rail() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            // Half the width animation each: mode="wait" fades the old content out, then the new one in.
             transition={{ duration: duration / 2 }}
           >
             <TabsRoot value={tab} onValueChange={(next) => setRail(true, next as RailTab)} className={styles.tabs}>

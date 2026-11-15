@@ -1,3 +1,8 @@
+/**
+ * Settings > Connection, one section of SettingsPanel: the ComfyUI address (with find and check), the knowledge
+ * state with "read now" and "check graph", and the optional MCP server with its address and access (McpAccess).
+ * The addresses are draft values saved with the dialog; the checks and reads act at once against the typed address.
+ */
 import React, { useEffect, useState } from 'react';
 import { Radar, ShieldCheck } from 'lucide-react';
 import type { ConnectionSuggestions } from '../../../../shared/contracts';
@@ -15,6 +20,7 @@ import styles from '../SettingsPanel.module.css';
 import { fieldClass, Group, hintClass, rowClass, SectionHead, type DraftProps } from './common';
 import { addressSuggestions } from './pickerItems';
 
+/** The badge colour for each knowledge sync state. */
 const STATE_TONES = { never: 'neutral', idle: 'ok', running: 'accent', error: 'danger' } as const;
 
 /** Where a typed ComfyUI address points: this computer, another one (over http or https), or nowhere yet. */
@@ -32,6 +38,7 @@ export function comfyAddressPlace(value: string): 'empty' | 'local' | 'remoteHtt
   }
 }
 
+/** The sentence under the ComfyUI field after Check, and whether it is good news. */
 type ComfyCheckNote = { text: string; tone: 'good' | 'bad' };
 
 /**
@@ -66,6 +73,7 @@ export default function ConnectionSection({ values, setValues, saved, fieldError
       .catch(() => setKnown({ comfyOrigins: [], mcpUrls: [] }))
       .finally(() => setLooking(false));
   };
+  // Once on open, without probing ports: probing waits for the person's click.
   useEffect(() => {
     lookForAddresses(false);
   }, []);
@@ -96,6 +104,7 @@ export default function ConnectionSection({ values, setValues, saved, fieldError
   };
   const comfyStatus = comfyChecking
     ? { text: String(t('settings.comfyChecking')) }
+    // A result is shown only while the field still holds the address it was about.
     : comfyChecked && comfyChecked.address === comfyOrigin ? comfyChecked.note : looking ? { text: String(t('picker.addressesLoading')) } : null;
   const comfyAction = {
     label: String(t('settings.comfyCheck')),
@@ -115,6 +124,7 @@ export default function ConnectionSection({ values, setValues, saved, fieldError
   const checkAccess = async () => {
     setDetecting(true);
     setDetected(null);
+    // The address the result belongs to; it becomes the completed address when main added http:// to it.
     let checkedFor = mcpUrl;
     try {
       const note = detectionNote(await window.electronAPI.mcpDetectAuth(mcpUrl), translate);
@@ -152,6 +162,7 @@ export default function ConnectionSection({ values, setValues, saved, fieldError
   const profile = status?.mcpUrl.trim() === mcpUrl && mcpUrl !== '' ? status?.mcpProfile ?? null : null;
 
   const readNow = async () => {
+    // The "in progress" line reuses the catalog's "Saving…" text while the read runs.
     setActionNote(String(t('settings.saving')));
     const result = await window.electronAPI.readMcp();
     if (!result.ok) {
@@ -212,7 +223,9 @@ export default function ConnectionSection({ values, setValues, saved, fieldError
         {view.hintKey && !(view.hintKey === 'sync.noUrl' && (mcpUrl !== '' || comfyOrigin !== '')) ? <span className={hintClass}>{t(view.hintKey)}</span> : null}
       </div>
       <div className={rowClass}>
-        <Button size="sm" variant="subtle" disabled={pending || dirty || (mcpUrl === '' && comfyOrigin === '')} onClick={() => void readNow()}>
+        <Button
+          // Read now uses the saved addresses in main, so it waits until the draft is saved.
+          size="sm" variant="subtle" disabled={pending || dirty || (mcpUrl === '' && comfyOrigin === '')} onClick={() => void readNow()}>
           {t('settings.readMcp')}
         </Button>
         <Button size="sm" variant="subtle" disabled={pending} onClick={() => void checkGraph()}>

@@ -1,3 +1,8 @@
+/**
+ * What every Settings section shares: the DraftProps that SettingsPanel passes to each of them, the helper that
+ * patches one preferences section, the field, hint and row classes, and the section and group headings. Keeping them
+ * here lets all sections of ./ and SyncSection.tsx line up the same way.
+ */
 import React from 'react';
 import type { NonSecretSettings } from '../../../../shared/config/schema';
 import type { Preferences } from '../../../../shared/config/preferences';
@@ -15,14 +20,17 @@ export interface DraftProps {
   saved: NonSecretSettings;
   prefs: Preferences;
   setPrefs: React.Dispatch<React.SetStateAction<Preferences>>;
+  /** The dialog element; popups (selects) portal into it so they stay inside the modal's focus trap. */
   container: HTMLElement | null;
-  /** aria-invalid / aria-describedby for a field whose value carries a secret. */
+  /** aria-invalid / aria-describedby for a field that keeps the draft from saving (it names the footer's error). */
   fieldError: (name: string) => Record<string, string | boolean>;
+  /** True while a save is in flight. */
   pending: boolean;
   /** True while the draft differs from what is stored. */
   dirty: boolean;
 }
 
+/** Merges `patch` into one flat preferences section of the draft. */
 export function patchSection<K extends FlatSection>(setPrefs: DraftProps['setPrefs'], section: K, patch: Partial<Preferences[K]>): void {
   setPrefs((current) => ({ ...current, [section]: { ...current[section], ...patch } }));
 }
@@ -32,6 +40,7 @@ export const fieldClass = cx(styles.field, 'field');
 export const hintClass = cx(styles.hint, 'field-hint');
 export const rowClass = cx(styles.buttons, 'settings-buttons');
 
+/** The heading of a section with an optional lead sentence under it. */
 export function SectionHead({ title, lead }: { title: string; lead?: string }) {
   return (
     <header className={styles.sectionHead}>

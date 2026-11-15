@@ -1,3 +1,8 @@
+/**
+ * The update line in the status bar (StatusBar.tsx renders it). The check is opt-in (Settings > Privacy), so it asks
+ * main nothing while the preference is off; main does the network request and the window only polls main's answer.
+ * tests/unit/updateCheck.test.ts covers noticeOf.
+ */
 import React, { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -28,6 +33,7 @@ export default function UpdateNotice() {
       setNotice(null);
       return undefined;
     }
+    // Ignore an answer that arrives after the check was switched off or the component unmounted.
     let alive = true;
     const ask = () => {
       void window.electronAPI.updateStatus()
@@ -48,6 +54,7 @@ export default function UpdateNotice() {
   const open = (link: 'notes' | 'download') => void window.electronAPI.openUpdateLink(link).catch(() => undefined);
   const dismiss = () => {
     setNotice(null);
+    // Main remembers the dismissed version, so this notice does not come back for it.
     void window.electronAPI.dismissUpdate(notice.version).catch(() => undefined);
   };
   return (

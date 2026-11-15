@@ -1,3 +1,7 @@
+/*
+ * Styles of the Settings dialog (SettingsPanel.tsx) and the shared field, row and hint classes that every section in
+ * ./sections and SyncSection.tsx uses through sections/common.tsx, so all sections line up on one grid.
+ */
 /* The Preferences window: min 760×520 (or the viewport), resizable from the corner within the viewport. */
 .dialog {
   width: min(920px, calc(100vw - 48px));

@@ -1,4 +1,7 @@
-/* The application menu bar: a flat dark strip, 32 px, like a desktop app's menu — not a row of pills. */
+/*
+ * The application menu bar (MenuBar.tsx, the top row of App.tsx): a flat dark strip, 32 px, like a desktop app's menu,
+ * not a row of pills.
+ */
 .bar {
   position: relative;
   z-index: 4;

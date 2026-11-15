@@ -1,3 +1,8 @@
+/**
+ * The body of Settings > Sync, rendered by SettingsPanel under its section head. It shows the knowledge sync status
+ * from knowledgeState and edits the auto-sync draft and the enrichment preferences; the layout classes come in as
+ * props so the section looks like the others without importing their stylesheet rules.
+ */
 import React, { useEffect, useState } from 'react';
 import { Pause, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -33,7 +38,7 @@ export default function SyncSection({
   /** The draft of auto sync and its interval; null while unchanged. */
   autoDraft?: AutoDraft | null;
   onAutoDraft?: (next: AutoDraft) => void;
-  /** An MCP address is set in the draft: auto sync can only be switched on with one. */
+  /** An MCP or ComfyUI address is set in the draft: auto sync can only be switched on with one. */
   addressSet?: boolean;
   fieldClass: string;
   hintClass: string;
@@ -44,6 +49,7 @@ export default function SyncSection({
 }) {
   const { t, i18n } = useTranslation();
   const translate: Translator = (key, options) => (options ? String(t(key, options)) : String(t(key)));
+  // Only the date format needs the language; anything not English is shown as Russian, the default language.
   const language = i18n.language === 'en' ? 'en' : 'ru';
   const status = useKnowledgeStore((state) => state.sync);
   const view = syncView(status);
@@ -53,10 +59,12 @@ export default function SyncSection({
   const [clampNote, setClampNote] = useState('');
   const auto: AutoDraft = autoDraft ?? status?.auto ?? { enabled: false, intervalMinutes: SYNC_INTERVAL_DEFAULT_MINUTES };
 
+  // Idempotent: makes sure the status above is live even if nothing else subscribed yet.
   useEffect(() => {
     startSyncSubscription();
   }, []);
 
+  // A new stored or drafted interval (a save, Cancel) replaces what is in the field.
   useEffect(() => {
     setIntervalDraft(String(auto.intervalMinutes));
   }, [auto.intervalMinutes]);
@@ -95,6 +103,7 @@ export default function SyncSection({
       <Switch
         label={t('sync.auto')}
         checked={auto.enabled}
+        // Without an address it can still be switched off, never on.
         disabled={!status || (!addressSet && !auto.enabled)}
         onCheckedChange={(enabled) => applyAuto(enabled && autoSyncAllowed(addressSet, enabled), clampInterval(interval))}
       />
