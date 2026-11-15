@@ -40,7 +40,7 @@ describe('the import toast', () => {
 
   it('lists up to two names in full and says so when nothing is missing', () => {
     const two = describeNote({ kind: 'imported', version: '1', missingNodes: ['A', 'B'], missingModels: ['loras/x.safetensors'] }, t);
-    expect(two.description).toBe('Не хватает нод: A, B. Не хватает моделей: loras/x.safetensors.');
+    expect(two.description).toBe('Не хватает нод: A и B. Не хватает моделей: loras/x.safetensors.');
     const none = describeNote({ kind: 'imported', version: '1', missingNodes: [], missingModels: [] }, t);
     expect(none.tone).toBe('success');
     expect(none.action).toBeUndefined();

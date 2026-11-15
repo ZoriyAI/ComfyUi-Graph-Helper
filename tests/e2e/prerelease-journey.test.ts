@@ -100,7 +100,7 @@ test('prerelease journey configures a provider, builds a process, and exports a 
     await dialog.getByRole('textbox', { name: 'Server address', exact: true }).fill('http://127.0.0.1:9/v1');
     await dialog.getByRole('button', { name: 'Save settings' }).click();
     await expect(dialog).toHaveCount(0);
-    await expect(window.getByText('Own server. No key is sent.')).toBeVisible();
+    await expect(window.getByText('Your own server. No key is sent.')).toBeVisible();
 
     await window.getByRole('button', { name: 'Settings', exact: true }).click();
     const restored = window.locator('[role="dialog"].settings-dialog');
@@ -138,7 +138,7 @@ test('prerelease journey configures a provider, builds a process, and exports a 
     }, origin);
     expect(system).toMatchObject({ ok: true, version: 'fixture-0', devices: 1 });
     await restored.getByRole('button', { name: 'Read now', exact: true }).click();
-    await expect(restored.getByRole('status').filter({ hasText: 'Read 2 nodes, 0 packs and 0 model files.' })).toBeVisible();
+    await expect(restored.getByRole('status').filter({ hasText: 'Read from ComfyUI. Nodes: 2, packs: 0, model files: 0.' })).toBeVisible();
     expect(hits).toEqual(['GET /system_stats', 'GET /system_stats', 'GET /object_info', 'GET /customnode/installed', 'GET /experiment/models']);
     await window.screenshot({ path: artifact('pr13-prerelease-settings.png') });
     await restored.getByRole('button', { name: 'Cancel' }).click();

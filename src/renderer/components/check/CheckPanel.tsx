@@ -29,7 +29,7 @@ const STOPPERS = new Set(['missingNodes', 'typeMismatches', 'unknownNodeTypes'])
 
 /** The names in a finding («Load LoRA», "KSampler") stand out from the sentence around them. */
 function withNames(text: string): React.ReactNode[] {
-  return text.split(/(«[^»]+»|"[^"\n]+")/g).map((part, index) => (index % 2 === 1 ? <strong key={index}>{part}</strong> : part));
+  return text.split(/(«[^»]+»|"[^"\n]+"|“[^”\n]+”)/g).map((part, index) => (index % 2 === 1 ? <strong key={index}>{part}</strong> : part));
 }
 
 /**
