@@ -24,6 +24,7 @@
     "test:perf": "PERF_BUDGETS=1 vitest run tests/unit/largeCatalog.test.ts",
     "type-check": "tsc --project tsconfig.main.json --noEmit && tsc --noEmit",
     "type-check:tests": "tsc --project tsconfig.tests.json",
+    "lint": "eslint src tests scripts forge.config.js",
     "shots": "xvfb-run -a -s \"-screen 0 1600x1000x24\" node scripts/capture-screens/capture.js",
     "shots:public": "xvfb-run -a -s \"-screen 0 1600x1000x24\" node scripts/capture-screens/public.js"
   },
