@@ -418,6 +418,7 @@ export const IMAGE_MODEL_TEXTS_EN: Record<string, LessonWords> = {
   samplers: {
     title: 'Choosing a sampler and a scheduler',
     result: 'You put two samplers side by side that differ in one setting only, and learn to choose by comparing.',
+    roles: { sampler: 'first sampler', samplerB: 'second sampler', decode: 'decoder of the first sampler', decodeB: 'decoder of the second sampler', save: 'saver of the first sampler', saveB: 'saver of the second sampler' },
     steps: {
       intro: {
         title: 'Two settings, one way to choose',

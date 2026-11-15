@@ -4,6 +4,8 @@
  * backticks. The Russian file says the same, with the same numbers and the same words in backticks.
  */
 import type { LessonWords } from '../texts';
+// The consent rule of the face lessons, in their very words: the ipadapter lesson says it first too.
+import { FACE_RULE } from './sound-3d-faces.texts.en';
 
 
 const SAVE = 'Save the graph with "File ▸ Save workflow for ComfyUI…", open the file in ComfyUI and run it there. This app runs nothing in ComfyUI itself.';
@@ -140,6 +142,7 @@ export const IMAGE_TECHNIQUES_EN: Record<string, LessonWords> = {
   'mask-text': {
     title: 'A mask by words',
     result: 'ComfyUI finds an object by its name and gives its mask to the inpainting node, with no painting by hand.',
+    roles: { checkpoint: 'inpainting model', segModel: 'SAM3 finder', segText: 'what to find' },
     steps: {
       intro: {
         title: 'What SAM3 does',
@@ -217,6 +220,7 @@ export const IMAGE_TECHNIQUES_EN: Record<string, LessonWords> = {
   upscale: {
     title: 'Upscaling with a model',
     result: 'The finished picture is enlarged by a model that draws sharp detail instead of stretching the pixels.',
+    roles: { save: 'saver of the picture', big: 'saver of the large picture' },
     steps: {
       intro: {
         title: 'What an upscale model is',
@@ -248,6 +252,7 @@ export const IMAGE_TECHNIQUES_EN: Record<string, LessonWords> = {
   'hires-fix': {
     title: 'A second pass after upscaling (hires fix)',
     result: 'The enlarged picture is drawn once more by the model: sharp detail at a size the model cannot draw in one go.',
+    roles: { sampler: 'first pass', samplerB: 'second pass', decode: 'decoder of the first pass', decodeB: 'decoder of the second pass', save: 'saver of the first pass', saveB: 'saver of the second pass' },
     steps: {
       intro: {
         title: 'Why two passes',
@@ -348,7 +353,7 @@ export const IMAGE_TECHNIQUES_EN: Record<string, LessonWords> = {
       },
       graph: {
         title: 'The ControlNet graph is needed',
-        body: 'The canvas must have {cnLoader}, {control}, {apply} and {sampler} as the ControlNet lesson leaves them.\n\nIf they are not there, do that lesson first.',
+        body: 'The canvas must have {checkpoint}, {cnLoader}, {control}, {apply} and {sampler} as the ControlNet lesson leaves them.\n\nIf they are not there, do that lesson first.',
       },
       depth: {
         title: 'Make the depth map',
@@ -375,6 +380,7 @@ export const IMAGE_TECHNIQUES_EN: Record<string, LessonWords> = {
   'lora-image': {
     title: 'LoRA for pictures',
     result: 'Two LoRAs in a chain change the style and the subject of a picture model, each with its own strength.',
+    roles: { lora1: 'first LoRA', lora2: 'second LoRA' },
     steps: {
       intro: {
         title: 'What a LoRA is',
@@ -410,6 +416,7 @@ export const IMAGE_TECHNIQUES_EN: Record<string, LessonWords> = {
   'lora-character': {
     title: 'LoRA for a character: face, body, clothes, pose',
     result: 'Three LoRAs on one picture, each tuned on its own, the face kept while a body or clothing LoRA works.',
+    roles: { lora1: 'first LoRA', lora2: 'second LoRA', lora3: 'third LoRA' },
     steps: {
       intro: {
         title: 'What this lesson is about',
@@ -571,7 +578,7 @@ export const IMAGE_TECHNIQUES_EN: Record<string, LessonWords> = {
     steps: {
       intro: {
         title: 'What IP-Adapter does',
-        body: `IP-Adapter is "a LoRA from one picture": it shows the model a sample, and the model draws in its manner. It works with SD 1.5 and SDXL models.\n\nThe nodes come with the ComfyUI_IPAdapter_plus pack. ${PACK} Its author keeps it in maintenance mode: it works, but new models are not added.\n\nThe lesson adds three nodes to the graph of "A first picture from text".`,
+        body: `${FACE_RULE}\n\nIP-Adapter is "a LoRA from one picture": it shows the model a sample, and the model draws in its manner. It works with SD 1.5 and SDXL models.\n\nThe nodes come with the ComfyUI_IPAdapter_plus pack. ${PACK} Its author keeps it in maintenance mode: it works, but new models are not added.\n\nThe lesson adds three nodes to the graph of "A first picture from text".`,
       },
       graph: PICTURE_GRAPH,
       files: {
@@ -596,7 +603,7 @@ export const IMAGE_TECHNIQUES_EN: Record<string, LessonWords> = {
       },
       tune: {
         title: 'Fine tuning',
-        body: '- `start_at` and `end_at` say in which part of the steps it acts, as with ControlNet.\n- The pack\'s "IPAdapter Style & Composition" node takes one picture for the style and another for the composition.\n- `style transfer` is precise with SDXL and rougher with SD 1.5.\n- The pack\'s FaceID nodes carry a face. Only the face of someone who agrees may be carried this way. Get that consent first.',
+        body: '- `start_at` and `end_at` say in which part of the steps it acts, as with ControlNet.\n- The pack\'s "IPAdapter Style & Composition" node takes one picture for the style and another for the composition.\n- `style transfer` is precise with SDXL and rougher with SD 1.5.\n- The pack\'s FaceID nodes carry a face. The rule at the start of this lesson holds for them: get that consent first.',
       },
       run: {
         title: 'The graph is ready',
@@ -607,6 +614,7 @@ export const IMAGE_TECHNIQUES_EN: Record<string, LessonWords> = {
   detailer: {
     title: 'Fixing faces and hands with a detailer',
     result: 'The Impact Pack finds the faces in a finished picture and draws each one again at a larger size, so small faces come out sharp.',
+    roles: { save: 'saver of the picture', fixed: 'saver of the fixed picture' },
     steps: {
       intro: {
         title: 'What a detailer does',

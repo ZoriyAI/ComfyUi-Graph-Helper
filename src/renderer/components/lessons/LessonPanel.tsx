@@ -270,7 +270,7 @@ function LessonRun({ lesson, shared, onAsk }: { lesson: Lesson; shared: Shared; 
       {inSubgraph ? <p className={styles.notice} role="note">{t('lessons.inSubgraph')}</p> : null}
       {peek === null && !finished ? (progress.hints ?? []).map((hint) => (
         <p key={`${hint.kind}-${hint.kind === 'field' ? `${hint.nodeId}.${hint.field}` : ''}`} className={styles.notice} role="note" data-lesson-hint="">
-          {lackText(t, hint, lesson, { details: shared.details, graph: shared.graph, facts: shared.facts, roles: progress.roles, language: i18n.language })}
+          {lackText(t, hint, lesson, { details: shared.details, graph: shared.graph, facts: shared.facts, roles: progress.roles, language: i18n.language, roleLabels: words.roles })}
         </p>
       )) : null}
       {/* Accessibility: a screen reader hears the new step when the lesson moves on (or is done), once per step. */}
@@ -315,7 +315,7 @@ function LessonRun({ lesson, shared, onAsk }: { lesson: Lesson; shared: Shared; 
                 <div className={styles.lacking} aria-live="polite">
                   <p className={styles.lackingTitle}>{t('lessons.lacking')}</p>
                   <ul>
-                    {lackLines(t, progress.missing, lesson, { details: shared.details, graph: shared.graph, facts: shared.facts, roles: progress.roles, language: i18n.language }).slice(0, 6).map((line) => (
+                    {lackLines(t, progress.missing, lesson, { details: shared.details, graph: shared.graph, facts: shared.facts, roles: progress.roles, language: i18n.language, roleLabels: words.roles }).slice(0, 6).map((line) => (
                       <li key={line.text}>
                         <CircleDashed className={styles.lackIcon} size={14} aria-hidden="true" />
                         {line.text}

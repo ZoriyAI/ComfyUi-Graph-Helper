@@ -54,8 +54,12 @@ export function problemText(t: Translate, problem: LessonFileProblem): string {
       return say(t, 'lessonFiles.problem.nothingToDo', { lesson: problem.lesson });
     case 'unknown-file-kind':
       return say(t, 'lessonFiles.problem.unknownFileKind', { lesson: problem.lesson, step: problem.step, field: problem.field });
-    case 'rules':
-      return say(t, 'lessonFiles.problem.rules', { lesson: problem.lesson, detail: problem.detail });
+    case 'rules': {
+      // One sentence per kind of rule, in the person's language; only the names come from the file.
+      const key = problem.rule.code.replace(/-([a-z])/g, (_match, letter: string) => letter.toUpperCase());
+      const { step, role, field, value, name } = problem.rule;
+      return say(t, `lessonFiles.problem.rule.${key}`, { lesson: problem.lesson, step, role, field, value, name });
+    }
   }
 }
 

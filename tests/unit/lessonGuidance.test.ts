@@ -11,6 +11,11 @@ describe('subject-neutral lesson guidance', () => {
     expect(words.steps.rules.body).toMatch(language === 'en' ? /consent/i : /соглас/i);
     expect(words.steps.rules.body).toMatch(language === 'en' ? /law/i : /закон/i);
     expect(words.steps.helper.body).toMatch(language === 'en' ? /Privacy/ : /Приватность/);
+    // The three adult lessons end alike: the rules at their start are the app's own, whatever a model answers.
+    const own = language === 'en'
+      ? 'The rules at the start of this lesson are the app\'s own and hold whatever a model answers.'
+      : 'Правила в начале урока: это правила самого приложения, и они действуют, что бы ни ответила модель.';
+    for (const id of ['adult', 'adult-image', 'adult-lora']) expect(lessonWords(language, id)!.steps.helper.body, id).toContain(own);
     const suffix = language === 'ru' ? '.ru' : '';
     const guidance = readFileSync(`docs/wiki/trust/Content-Rules${suffix}.md`, 'utf8');
     expect(guidance).toContain('18+');

@@ -16,6 +16,7 @@ import { jsonSchema } from 'ai';
 import { carriesSecret } from '../../shared/config/draft';
 import { LESSON_FILE_FORMAT, LESSON_FILE_VERSION, readLessonFile, type LessonDoc, type LessonFileProblem } from '../../shared/lessons/share/format';
 import { checkLessonDoc } from '../../shared/lessons/share/mine';
+import { lessonRuleText } from '../../shared/lessons/schema';
 import { catalogShapes } from '../../shared/lessons/share/tryLesson';
 import type { NodeClassDetail } from '../../shared/contracts';
 import { validateNodeClass } from '../knowledge/nodeClassGuard';
@@ -54,7 +55,7 @@ export function problemForModel(problem: LessonFileProblem): string {
     case 'unknown-file-kind':
       return `Step "${problem.step}" asks for a kind of model file in "${problem.field}" the app does not list; use { "kind": "chosen" } instead.`;
     case 'rules':
-      return `The lesson breaks a rule: ${problem.detail}`;
+      return `The lesson breaks a rule: ${lessonRuleText(problem.lesson, problem.rule)}`;
     default:
       return 'The lesson is not a valid lesson document.';
   }

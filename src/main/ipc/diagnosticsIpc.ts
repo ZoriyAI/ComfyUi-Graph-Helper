@@ -212,6 +212,8 @@ export function registerDiagnosticsIpc(ipcMain: IpcMain): void {
     const chosen = await dialog.showSaveDialog({
       defaultPath: path.join(app.getPath('documents'), `${APP_ID}-model-log-${stamp}.jsonl`),
       filters: [{ name: 'JSON Lines', extensions: ['jsonl'] }],
+      // GTK on Linux replaces an existing file without asking unless told to ask.
+      properties: ['showOverwriteConfirmation'],
     });
     if (chosen.canceled || !chosen.filePath) return { ok: false, canceled: true };
     try {

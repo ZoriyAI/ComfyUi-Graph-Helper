@@ -18,7 +18,7 @@ import type { FieldSpec, FieldTest, Lesson, LessonStep, LinkSpec } from '../engi
 import { BASE_MODEL_FAMILIES } from '../../knowledge/schemas';
 import { FILES, type FileWant } from '../files';
 import { REASONS_EN } from '../reasons.en';
-import { lessonProblems } from '../schema';
+import { lessonRuleProblems, type LessonRuleProblem } from '../schema';
 import { APP_ID } from '../../productNames';
 
 /** What the file says it is (`nodewise-studio/lessons`); any other value is not a lesson file. */
@@ -144,6 +144,10 @@ const wordsSchema = z.object({
   title: text(LESSON_LIMITS.title).min(1),
   result: text(LESSON_LIMITS.result),
   steps: z.record(id, z.object({ title: text(LESSON_LIMITS.stepTitle).min(1), body: text(LESSON_LIMITS.body) }).strict()),
+  /** What a role's node is in this lesson (texts.ts LessonWords.roles): short labels, as many as a lesson has roles. */
+  roles: z.record(role, text(LESSON_LIMITS.stepTitle).min(1))
+    .refine((labels) => Object.keys(labels).length <= LESSON_LIMITS.steps * LESSON_LIMITS.rolesPerStep, { message: 'too many role labels' })
+    .optional(),
 }).strict();
 
 const titlesSchema = z.object({ en: text(LESSON_LIMITS.title).min(1).optional(), ru: text(LESSON_LIMITS.title).min(1).optional() }).strict();
@@ -198,8 +202,8 @@ export type LessonFileProblem =
   | { code: 'bad-range'; lesson: string; step: string; field: string }
   | { code: 'nothing-to-do'; lesson: string }
   | { code: 'unknown-file-kind'; lesson: string; step: string; field: string }
-  /** A rule of schema.ts lessonProblems, in its own English sentence. */
-  | { code: 'rules'; lesson: string; detail: string };
+  /** A rule of schema.ts lessonRuleProblems: its code and the names it is about; the window says it in words. */
+  | { code: 'rules'; lesson: string; rule: LessonRuleProblem };
 
 export type LessonFileRead = { ok: true; file: LessonFile } | { ok: false; problem: LessonFileProblem };
 
@@ -331,8 +335,8 @@ export function lessonDocProblem(lesson: LessonDoc): LessonFileProblem | null {
   }
   if (lesson.steps.every((step) => step.read)) return { code: 'nothing-to-do', lesson: lesson.id };
   const engine = engineLesson(lesson, lesson.id);
-  const rules = lessonProblems(engine, [engine], {}, REASON_IDS);
-  if (rules.length > 0) return { code: 'rules', lesson: lesson.id, detail: rules[0].slice(0, 300) };
+  const rules = lessonRuleProblems(engine, [engine], {}, REASON_IDS);
+  if (rules.length > 0) return { code: 'rules', lesson: lesson.id, rule: rules[0] };
   return null;
 }
 

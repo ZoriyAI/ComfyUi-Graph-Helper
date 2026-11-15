@@ -47,7 +47,7 @@ function txt2img(over: Over = {}) {
   for (const extra of over.extra ?? []) nodes.push(extra as Record<string, unknown>);
   return {
     version: 0.4, last_node_id: 20, last_link_id: 20, groups: [], config: {}, extra: {}, links,
-    nodes: nodes.map((node, index) => ({ pos: [index * 300, 0], size: [200, 100], flags: {}, order: index, mode: 0, properties: {}, inputs: [], outputs: [], ...node })),
+    nodes: nodes.map((node, index): Record<string, unknown> => ({ pos: [index * 300, 0], size: [200, 100], flags: {}, order: index, mode: 0, properties: {}, inputs: [], outputs: [], ...node })),
   };
 }
 

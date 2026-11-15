@@ -4,7 +4,8 @@ import { lessonOpen } from '../../shared/lessons/lessons';
 import { currentPreferences, savePreferencesPatch } from './preferencesState';
 import { useDockStore } from './dockState';
 // LESSON FILES: a lesson of the person (`my:` id) opens like a built-in one, behind the same 18+ switch when marked.
-import { myLessonOpen } from './myLessonsState';
+import { myLessonOpen, useMyLessonsStore } from './myLessonsState';
+import { isMyLessonId } from '../../shared/lessons/share/mine';
 
 /**
  * The helper's "Learn" mode: which lesson is open and what the person has read in it. Where they are in a lesson
@@ -82,10 +83,22 @@ export const useLessonStore = create<LessonState>((set, get) => ({
     set({ active: stored.active, read: stored.read, done: stored.done });
     // A lesson that was open when the app closed is on screen again at once, at the step the canvas is at; a lesson
     // for adults only while the switch is on.
-    if (stored.active && lessonOpen(stored.active, adultContentOn(currentPreferences()))) {
+    const active = stored.active;
+    if (!active) return;
+    const reopen = () => {
+      // The person may have opened or left a lesson while My lessons were read: their choice stands.
+      if (get().active !== active) return;
+      const adultOn = adultContentOn(currentPreferences());
+      if (!lessonOpen(active, adultOn) && !myLessonOpen(active, adultOn)) return;
       set({ learning: true });
       useDockStore.getState().show('assistant');
+    };
+    // One of My lessons is known only once main has handed the list over, which nothing else asks for at start.
+    if (isMyLessonId(active) && !useMyLessonsStore.getState().loaded) {
+      void useMyLessonsStore.getState().refresh().then(reopen);
+      return;
     }
+    reopen();
   },
 }));
 

@@ -63,7 +63,7 @@ export function myLessonWords(language: string, id: string): LessonWords | null 
   const found = myLesson(id);
   if (!found) return null;
   const words = docWords(found.doc, language);
-  return { title: words.title, result: words.result, steps: words.steps };
+  return { title: words.title, result: words.result, steps: words.steps, ...(words.roles ? { roles: words.roles } : {}) };
 }
 
 /** Whether one of "My lessons" can be opened: it exists, and an adult one only while the switch is on. */

@@ -14,6 +14,13 @@ export interface LessonWords {
   result: string;
   /** By step id: a short title, and what to do and why (a small markdown: paragraphs, a list, `code`). */
   steps: Record<string, { title: string; body: string }>;
+  /**
+   * By role: what that node is in THIS lesson, said in "Still to do" after a node's name when two nodes of one class
+   * stand on the canvas. A role without an entry falls back to the shared label (catalog lessons.role), which is
+   * written for the common meaning of the role's name; a lesson whose node means something else there (the face
+   * picture of a face swap is not a "video") names it here.
+   */
+  roles?: Record<string, string>;
 }
 
 export type LessonLanguage = 'en' | 'ru';

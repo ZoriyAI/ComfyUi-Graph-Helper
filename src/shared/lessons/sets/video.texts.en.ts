@@ -136,6 +136,7 @@ export const VIDEO_LESSONS_EN: Record<string, LessonWords> = {
   'video-flf': {
     title: 'Two anchors: first and last frame',
     result: 'You give two images, and the model draws the clip that goes from the first to the last.',
+    roles: { first: 'first frame', last: 'last frame', pass1: 'first pass', sampler: 'second pass' },
     steps: {
       intro: {
         title: 'What it costs, first',
@@ -305,6 +306,7 @@ export const VIDEO_LESSONS_EN: Record<string, LessonWords> = {
   'video-ltx': {
     title: 'Video with sound: LTX-2.5',
     result: 'One run draws a clip and its sound together, from a prompt.',
+    roles: { join: 'joining for the first stage', rejoin: 'joining for the second stage', sigmas: 'steps of the first stage', sigmas2: 'steps of the second stage', stage1: 'first stage', stage2: 'second stage', split1: 'split after the first stage', split2: 'split after the second stage' },
     steps: {
       intro: {
         title: 'What it costs, first',
@@ -558,6 +560,7 @@ export const VIDEO_LESSONS_EN: Record<string, LessonWords> = {
   'video-remove': {
     title: 'Remove an object from a video: ProPainter',
     result: 'An object marked by a mask video disappears, and the background behind it is filled in from the neighbouring frames.',
+    roles: { source: 'video to clean', maskSource: 'mask video' },
     steps: {
       intro: {
         title: 'What it costs, first',
@@ -693,6 +696,7 @@ export const VIDEO_LESSONS_EN: Record<string, LessonWords> = {
   'anchor-parts': {
     title: 'A longer video in parts',
     result: 'Two parts of a clip join through a shared anchor frame into one longer video.',
+    roles: { start: 'start of the first part', start2: 'start of the second part', last: 'end of the first part', next: 'end of the second part', pass1: 'first pass of the first part', sampler: 'second pass of the first part', pass3: 'first pass of the second part', pass4: 'second pass of the second part', decode: 'decoder of the first part', decode2: 'decoder of the second part' },
     steps: {
       intro: {
         title: 'Before you start',

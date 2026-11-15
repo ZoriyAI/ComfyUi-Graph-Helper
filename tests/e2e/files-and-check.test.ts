@@ -109,7 +109,7 @@ function brokenTxt2img() {
   return {
     version: 0.4, last_node_id: 6, last_link_id: 8, groups: [], config: {}, extra: {},
     links: [[1, 1, 0, 5, 0, 'MODEL'], [2, 1, 1, 2, 0, 'CLIP'], [3, 1, 1, 3, 0, 'CLIP'], [4, 2, 0, 5, 1, 'CONDITIONING'], [5, 3, 0, 5, 2, 'CONDITIONING'], [6, 4, 0, 5, 3, 'LATENT'], [7, 5, 0, 6, 0, 'LATENT'], [8, 1, 2, 6, 1, 'VAE']],
-    nodes: nodes.map((node, index) => ({ pos: [index * 380, 0], size: [300, 160], flags: {}, order: index, mode: 0, properties: {}, inputs: [], outputs: [], ...node })),
+    nodes: nodes.map((node, index) => ({ pos: [index * 380, 0], size: [300, 160], flags: {}, order: index, mode: 0, properties: {}, inputs: [], ...node })),
   };
 }
 

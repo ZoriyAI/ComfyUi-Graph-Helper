@@ -12,7 +12,7 @@ describe('the browser sign-in names a site other than the server', () => {
 
   it('asks before opening another site, with both names; Cancel ends the sign-in and opens nothing', async () => {
     const open = vi.fn(async () => undefined);
-    const ask = vi.fn(async () => 1);
+    const ask = vi.fn<Parameters<typeof confirmingOpener>[0]['ask']>(async () => 1);
     const opener = confirmingOpener({ open, mcpUrl: () => 'https://mcp.example.net/mcp', translate: () => createTranslator('ru'), ask });
     await expect(opener('https://login.example.org/authorize')).rejects.toThrow(SIGN_IN_CANCELLED);
     expect(open).not.toHaveBeenCalled();

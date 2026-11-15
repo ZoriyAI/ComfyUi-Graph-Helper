@@ -27,7 +27,7 @@ describe('check marks on nodes', () => {
     const marks = checkMarks({
       ...empty,
       typeMismatches: [{ edgeId: 'e1', source: '2', target: '3', sourceType: 'IMAGE', targetType: 'LATENT' }],
-      baseModelMismatches: [{ nodeId: '5', model: 'a', modelBase: 'SDXL', otherNodeId: '6', otherModel: 'b', otherBase: 'SD15' } as GraphCheckReport['baseModelMismatches'][number]],
+      baseModelMismatches: [{ nodeId: '5', model: 'a', modelBase: 'sdxl', otherNodeId: '6', otherModel: 'b', otherBase: 'sd15' }],
     });
     expect(marks.get('2')?.level).toBe('error');
     expect(marks.get('3')?.level).toBe('error');

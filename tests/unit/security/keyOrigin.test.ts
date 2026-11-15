@@ -70,7 +70,7 @@ describe('a cloud key belongs to the address it was pasted for', () => {
     expect(decodeKeyRecord('google', 'AIza-old-bare-key')).toEqual({ key: 'AIza-old-bare-key', origin: officialOrigin('google') });
     const record = encodeKeyRecord('openai', PROXY_KEY, 'https://proxy.example');
     expect(decodeKeyRecord('openai', record)).toEqual({ key: PROXY_KEY, origin: 'https://proxy.example' });
-    expect(encodeKeyRecord('openai', KEY, officialOrigin('openai'))).toBe(KEY);
+    expect(encodeKeyRecord('openai', KEY, officialOrigin('openai')!)).toBe(KEY);
     expect(keyOriginFor('anthropic', '')).toBe('https://api.anthropic.com');
     // A record naming an http address is not trusted as a key address.
     expect(decodeKeyRecord('openai', JSON.stringify({ v: 2, key: KEY, origin: 'http://proxy.example' }))).toBeNull();

@@ -33,4 +33,27 @@ describe('every lesson is built the way the engine reads it', () => {
       'Broken: it goes on from "missing", which is not a lesson',
     ]);
   });
+
+  it('reports a rule that compares with a role the lesson never brings, whatever its kind', () => {
+    // The engine never applies such a rule: a ControlNet held to the family of a checkpoint nobody named did nothing.
+    const lesson: Lesson = {
+      id: 'depth',
+      steps: [
+        { id: 'graph', roles: [{ role: 'cnLoader', classes: ['ControlNetLoader'] }, { role: 'text', classes: ['CLIPTextEncode'] }] },
+        {
+          id: 'rules',
+          fields: [
+            { role: 'cnLoader', field: 'control_net_name', test: { kind: 'sameFamily', role: 'checkpoint', field: 'ckpt_name' } },
+            { role: 'text', field: 'text', test: { kind: 'has-trigger', of: [{ role: 'lora', field: 'lora_name' }] } },
+            { role: 'text', field: 'text', test: { kind: 'text', minChars: 3, notCopyOf: { role: 'other', field: 'text' } } },
+          ],
+        },
+      ],
+    };
+    expect(lessonProblems(lesson, [lesson], {}, reasons)).toEqual([
+      'depth: "rules": the rule on control_net_name compares with the role "checkpoint", which no step brings',
+      'depth: "rules": the rule on text compares with the role "lora", which no step brings',
+      'depth: "rules": the rule on text compares with the role "other", which no step brings',
+    ]);
+  });
 });

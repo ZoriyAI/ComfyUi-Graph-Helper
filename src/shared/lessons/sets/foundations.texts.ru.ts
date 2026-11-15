@@ -199,6 +199,7 @@ export const FOUNDATIONS_LESSONS_RU: Record<string, LessonWords> = {
   switch: {
     title: 'Два варианта промпта и один переключатель',
     result: 'Вы держите в одном графе два промпта и выбираете между ними одним значением «да или нет», как это делают шаблоны ComfyUI.',
+    roles: { first: 'первый вариант', second: 'второй вариант' },
     steps: {
       intro: {
         title: 'Сравнивать без перестановки связей',
@@ -241,6 +242,7 @@ export const FOUNDATIONS_LESSONS_RU: Record<string, LessonWords> = {
   'llm-prompt': {
     title: 'Промпт пишет языковая модель',
     result: 'Языковая модель внутри ComfyUI превращает короткую идею в подробный промпт, а переключатель сравнивает его с вашим.',
+    roles: { idea: 'ваша идея', instruction: 'указание модели' },
     steps: {
       intro: {
         title: 'Языковая модель в графе',

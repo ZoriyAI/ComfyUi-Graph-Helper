@@ -136,6 +136,7 @@ export const VIDEO_LESSONS_RU: Record<string, LessonWords> = {
   'video-flf': {
     title: 'Две опоры: первый и последний кадр',
     result: 'Даёте две картинки, и модель рисует ролик, который идёт от первой к последней.',
+    roles: { first: 'первый кадр', last: 'последний кадр', pass1: 'первый проход', sampler: 'второй проход' },
     steps: {
       intro: {
         title: 'Сначала о цене',
@@ -305,6 +306,7 @@ export const VIDEO_LESSONS_RU: Record<string, LessonWords> = {
   'video-ltx': {
     title: 'Видео со звуком: LTX-2.5',
     result: 'Один запуск рисует ролик и звук к нему вместе, по промпту.',
+    roles: { join: 'соединение для первого этапа', rejoin: 'соединение для второго этапа', sigmas: 'шаги первого этапа', sigmas2: 'шаги второго этапа', stage1: 'первый этап', stage2: 'второй этап', split1: 'разделение после первого этапа', split2: 'разделение после второго этапа' },
     steps: {
       intro: {
         title: 'Сначала о цене',
@@ -558,6 +560,7 @@ export const VIDEO_LESSONS_RU: Record<string, LessonWords> = {
   'video-remove': {
     title: 'Убрать предмет из видео: ProPainter',
     result: 'Предмет, отмеченный видеомаской, исчезает, а фон за ним дорисовывается по соседним кадрам.',
+    roles: { source: 'видео, которое чистим', maskSource: 'видео маски' },
     steps: {
       intro: {
         title: 'Сначала о цене',
@@ -693,6 +696,7 @@ export const VIDEO_LESSONS_RU: Record<string, LessonWords> = {
   'anchor-parts': {
     title: 'Длинное видео частями',
     result: 'Две части ролика соединяются через общий опорный кадр в одно длинное видео.',
+    roles: { start: 'старт первой части', start2: 'старт второй части', last: 'конец первой части', next: 'конец второй части', pass1: 'первый проход первой части', sampler: 'второй проход первой части', pass3: 'первый проход второй части', pass4: 'второй проход второй части', decode: 'превращение первой части', decode2: 'превращение второй части' },
     steps: {
       intro: {
         title: 'Прежде чем начать',

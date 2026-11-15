@@ -147,9 +147,9 @@ describe('canvas preferences', () => {
   it('puts appearance on <html> attributes', () => {
     const dataset: Record<string, string> = {};
     const root = { dataset } as unknown as HTMLElement;
-    applyAppearance({ accent: 'violet', density: 'compact', reduceGlow: true }, root);
+    applyAppearance({ accent: 'violet', density: 'compact', reduceGlow: true, interfaceScale: 100 }, root);
     expect(dataset).toEqual({ accent: 'violet', density: 'compact', glow: 'reduced' });
-    applyAppearance({ accent: 'cyan', density: 'comfortable', reduceGlow: false }, root);
+    applyAppearance({ accent: 'cyan', density: 'comfortable', reduceGlow: false, interfaceScale: 100 }, root);
     expect(dataset).toEqual({ accent: 'cyan', density: 'comfortable' });
   });
 });

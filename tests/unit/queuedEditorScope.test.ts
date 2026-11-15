@@ -5,7 +5,8 @@ import { useGraphStore } from '../../src/renderer/state/graphState';
 import { useCanvasStore } from '../../src/renderer/components/graph/canvasStore';
 import { pendingCommits } from '../../src/renderer/services/commands/pending';
 
-const command = vi.fn(async () => ({ status: 'applied', projection: null, result: {} }));
+// Typed with the request main receives, so the tests can read back what was sent.
+const command = vi.fn(async (_request: { payload: unknown }) => ({ status: 'applied', projection: null, result: {} }));
 const node = { id: '1', type: 'comfy', position: { x: 0, y: 0 }, data: { comfyType: 'Reroute', inputs: [], outputs: [], parameters: {} } };
 const definition = (id: string) => ({ id, name: id, nodes: [structuredClone(node)], edges: [], inputs: [], outputs: [], nestedIn: null, raw: {} });
 

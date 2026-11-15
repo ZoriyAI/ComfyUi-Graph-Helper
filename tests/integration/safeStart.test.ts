@@ -47,7 +47,8 @@ describe('safe start', () => {
     const { input, response } = importNodes(db, 5);
     expect(response.status).toBe('applied');
     watchReplacingCommit(userData, input, response);
-    const ask = vi.fn(async () => 0);
+    // Typed as the dependency it stands for, so the question it was asked can be read back.
+    const ask = vi.fn<Parameters<typeof startChoice>[0]['ask']>(async () => 0);
     const choice = await startChoice({ db, userData, translate: createTranslator('ru'), ask });
     expect(choice).toEqual({ unfinished: true, emptied: true });
     const asked = ask.mock.calls[0][0] as { detail: string; buttons: string[] };

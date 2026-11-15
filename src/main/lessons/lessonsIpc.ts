@@ -85,6 +85,8 @@ export function registerLessonsIpc(ipcMain: IpcMain, deps: LessonsIpcDeps): void
       buttonLabel: t('lessonFiles.dialog.exportButton'),
       filters: [{ name: t('lessonFiles.dialog.filter'), extensions: ['json'] }],
       defaultPath: name,
+      // GTK on Linux replaces an existing file without asking unless told to ask.
+      properties: ['showOverwriteConfirmation'],
     });
     if (result.canceled || !result.filePath) return { ok: false, canceled: true };
     try {

@@ -4,6 +4,8 @@
  * shows it. The English file says the same, with the same numbers and the same words in backticks.
  */
 import type { LessonWords } from '../texts';
+// The consent rule of the face lessons, in their very words: the ipadapter lesson says it first too.
+import { FACE_RULE } from './sound-3d-faces.texts.ru';
 
 const SAVE = 'Сохраните граф через «Файл ▸ Сохранить workflow для ComfyUI…», откройте файл в ComfyUI и запустите там. Само приложение в ComfyUI ничего не запускает.';
 
@@ -139,6 +141,7 @@ export const IMAGE_TECHNIQUES_RU: Record<string, LessonWords> = {
   'mask-text': {
     title: 'Маска по словам',
     result: 'ComfyUI находит предмет по названию и отдаёт его маску ноде инпейнтинга, рисовать рукой не нужно.',
+    roles: { checkpoint: 'модель для инпейнтинга', segModel: 'искатель SAM3', segText: 'что искать' },
     steps: {
       intro: {
         title: 'Что делает SAM3',
@@ -216,6 +219,7 @@ export const IMAGE_TECHNIQUES_RU: Record<string, LessonWords> = {
   upscale: {
     title: 'Увеличение моделью',
     result: 'Готовую картинку увеличивает модель, которая дорисовывает чёткие детали, а не растягивает пиксели.',
+    roles: { save: 'сохранение картинки', big: 'сохранение большой картинки' },
     steps: {
       intro: {
         title: 'Что такое модель увеличения',
@@ -247,6 +251,7 @@ export const IMAGE_TECHNIQUES_RU: Record<string, LessonWords> = {
   'hires-fix': {
     title: 'Второй проход после увеличения (hires fix)',
     result: 'Увеличенную картинку модель рисует ещё раз: чёткие детали в размере, который ей не нарисовать за один раз.',
+    roles: { sampler: 'первый проход', samplerB: 'второй проход', decode: 'превращение первого прохода', decodeB: 'превращение второго прохода', save: 'сохранение первого прохода', saveB: 'сохранение второго прохода' },
     steps: {
       intro: {
         title: 'Зачем два прохода',
@@ -347,7 +352,7 @@ export const IMAGE_TECHNIQUES_RU: Record<string, LessonWords> = {
       },
       graph: {
         title: 'Нужен граф с ControlNet',
-        body: 'На холсте должны быть {cnLoader}, {control}, {apply} и {sampler}, как их оставил урок о ControlNet.\n\nЕсли их нет, сначала пройдите тот урок.',
+        body: 'На холсте должны быть {checkpoint}, {cnLoader}, {control}, {apply} и {sampler}, как их оставил урок о ControlNet.\n\nЕсли их нет, сначала пройдите тот урок.',
       },
       depth: {
         title: 'Сделайте карту глубины',
@@ -374,6 +379,7 @@ export const IMAGE_TECHNIQUES_RU: Record<string, LessonWords> = {
   'lora-image': {
     title: 'LoRA для картинок',
     result: 'Две LoRA цепочкой меняют стиль и предмет у модели для картинок, каждая со своей силой.',
+    roles: { lora1: 'первая LoRA', lora2: 'вторая LoRA' },
     steps: {
       intro: {
         title: 'Что такое LoRA',
@@ -409,6 +415,7 @@ export const IMAGE_TECHNIQUES_RU: Record<string, LessonWords> = {
   'lora-character': {
     title: 'LoRA для персонажа: лицо, тело, одежда, поза',
     result: 'Три LoRA на одной картинке, каждая настроена отдельно, и лицо держится, пока работает LoRA тела или одежды.',
+    roles: { lora1: 'первая LoRA', lora2: 'вторая LoRA', lora3: 'третья LoRA' },
     steps: {
       intro: {
         title: 'О чём этот урок',
@@ -570,7 +577,7 @@ export const IMAGE_TECHNIQUES_RU: Record<string, LessonWords> = {
     steps: {
       intro: {
         title: 'Что делает IP-Adapter',
-        body: `IP-Adapter это «LoRA из одной картинки»: он показывает модели образец, и модель рисует в его манере. Он работает с моделями SD 1.5 и SDXL.\n\nНоды приходят с паком ComfyUI_IPAdapter_plus. ${PACK} Автор держит пак в режиме поддержки: он работает, но новые модели не добавляются.\n\nУрок добавляет три ноды к графу из урока «Первая картинка из текста».`,
+        body: `${FACE_RULE}\n\nIP-Adapter это «LoRA из одной картинки»: он показывает модели образец, и модель рисует в его манере. Он работает с моделями SD 1.5 и SDXL.\n\nНоды приходят с паком ComfyUI_IPAdapter_plus. ${PACK} Автор держит пак в режиме поддержки: он работает, но новые модели не добавляются.\n\nУрок добавляет три ноды к графу из урока «Первая картинка из текста».`,
       },
       graph: PICTURE_GRAPH,
       files: {
@@ -595,7 +602,7 @@ export const IMAGE_TECHNIQUES_RU: Record<string, LessonWords> = {
       },
       tune: {
         title: 'Тонкая настройка',
-        body: '- `start_at` и `end_at` говорят, в какой части шагов он действует, как у ControlNet.\n- Нода пака «IPAdapter Style & Composition» берёт одну картинку для стиля, а другую для композиции.\n- `style transfer` точен с SDXL и грубее с SD 1.5.\n- Ноды FaceID этого пака переносят лицо. Переносить так можно лицо только того, кто на это согласен. Сначала получите это согласие.',
+        body: '- `start_at` и `end_at` говорят, в какой части шагов он действует, как у ControlNet.\n- Нода пака «IPAdapter Style & Composition» берёт одну картинку для стиля, а другую для композиции.\n- `style transfer` точен с SDXL и грубее с SD 1.5.\n- Ноды FaceID этого пака переносят лицо. Для них действует правило из начала урока: сначала получите это согласие.',
       },
       run: {
         title: 'Граф готов',
@@ -606,6 +613,7 @@ export const IMAGE_TECHNIQUES_RU: Record<string, LessonWords> = {
   detailer: {
     title: 'Исправление лиц и рук детейлером',
     result: 'Impact Pack находит лица на готовой картинке и рисует каждое заново в большем размере, так что мелкие лица выходят чёткими.',
+    roles: { save: 'сохранение картинки', fixed: 'сохранение исправленной картинки' },
     steps: {
       intro: {
         title: 'Что делает детейлер',

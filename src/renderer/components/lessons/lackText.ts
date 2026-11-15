@@ -22,6 +22,12 @@ export interface LackContext {
   /** Which node plays which role, as the lesson sees the canvas now. */
   roles: Roles;
   language: string;
+  /**
+   * The lesson's own labels by role (texts.ts LessonWords.roles), in the person's language. They win over the
+   * shared catalog label, which is written for the common meaning of a role's name and reads wrong in a lesson
+   * that uses the name for something else.
+   */
+  roleLabels?: Readonly<Record<string, string>>;
 }
 
 /**
@@ -44,6 +50,8 @@ export function nodeLabel(t: TFunction, nodeId: string, context: LackContext): s
   const twins = context.graph.nodes.filter((item) => item.classType === node.classType).length;
   if (twins < 2) return title;
   const role = Object.entries(context.roles).find(([, id]) => id === nodeId)?.[0];
+  const own = role ? context.roleLabels?.[role] : undefined;
+  if (own) return `${title} (${own})`;
   const key = role ? `lessons.role.${role}` : '';
   const label = key ? String(t(key)) : '';
   // The same form in both languages: the name as the canvas shows it, the part in parentheses.
