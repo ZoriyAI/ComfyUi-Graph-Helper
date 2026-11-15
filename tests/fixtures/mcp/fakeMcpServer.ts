@@ -15,6 +15,7 @@ import * as path from 'path';
 import { imageModelClassDefs } from './classes/image-models';
 import { VIDEO_SET_CLASSES } from './classes/video';
 import { IMAGE_TECHNIQUE_PACKS, imageTechniqueClassDefs } from './classes/image-techniques';
+import { FOUNDATIONS_CLASSES } from './classes/foundations';
 
 export interface FakeMcpCall {
   /** JSON-RPC method, or the HTTP method for non-POST requests ("GET", "DELETE"). */
@@ -505,6 +506,8 @@ export const VIDEO_CLASSES: ClassDef[] = [
   ...VIDEO_SET_CLASSES,
   // The lessons on picture techniques (classes/image-techniques.ts).
   ...imageTechniqueClassDefs((name) => PACKS.findIndex((pack) => pack.name === name), names),
+  // The general-purpose nodes of the foundations lessons (tests/fixtures/mcp/classes/foundations.ts).
+  ...FOUNDATIONS_CLASSES,
 ];
 
 /** The /object_info document the native fixture serves. */

@@ -7,6 +7,7 @@ import { VIDEO_KNOWLEDGE_EN } from './sets/video.en';
 import { VIDEO_KNOWLEDGE_RU } from './sets/video.ru';
 import { VIDEO_KNOWLEDGE_DOCS } from './sets/video';
 import { IMAGE_TECHNIQUES_KNOWLEDGE, IMAGE_TECHNIQUES_KNOWLEDGE_DOCS } from './sets/image-techniques';
+import { foundationsKnowledgeSet, FOUNDATIONS_SET_DOCS } from './sets/foundations';
 
 /**
  * Built-in teaching knowledge: what the core ComfyUI nodes, data types and base-model families are, written by
@@ -104,8 +105,9 @@ export interface KnowledgeSetDocs {
 
 /** The sets, in the order they are read; a later one wins over an earlier one and over the core. */
 export const KNOWLEDGE_SETS: Record<KnowledgeLanguage, Array<{ set: KnowledgeSet; docs: KnowledgeSetDocs }>> = {
-  en: [{ set: VIDEO_KNOWLEDGE_EN, docs: VIDEO_KNOWLEDGE_DOCS }, { set: IMAGE_TECHNIQUES_KNOWLEDGE.en, docs: IMAGE_TECHNIQUES_KNOWLEDGE_DOCS }],
-  ru: [{ set: VIDEO_KNOWLEDGE_RU, docs: VIDEO_KNOWLEDGE_DOCS }, { set: IMAGE_TECHNIQUES_KNOWLEDGE.ru, docs: IMAGE_TECHNIQUES_KNOWLEDGE_DOCS }],
+  // The foundations set comes first: it never replaces an entry of the domain sets after it.
+  en: [{ set: foundationsKnowledgeSet('en'), docs: FOUNDATIONS_SET_DOCS }, { set: VIDEO_KNOWLEDGE_EN, docs: VIDEO_KNOWLEDGE_DOCS }, { set: IMAGE_TECHNIQUES_KNOWLEDGE.en, docs: IMAGE_TECHNIQUES_KNOWLEDGE_DOCS }],
+  ru: [{ set: foundationsKnowledgeSet('ru'), docs: FOUNDATIONS_SET_DOCS }, { set: VIDEO_KNOWLEDGE_RU, docs: VIDEO_KNOWLEDGE_DOCS }, { set: IMAGE_TECHNIQUES_KNOWLEDGE.ru, docs: IMAGE_TECHNIQUES_KNOWLEDGE_DOCS }],
 };
 
 const DOCS = 'https://docs.comfy.org';

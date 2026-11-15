@@ -17,6 +17,7 @@ import { LESSONS, LESSON_AFTER, lessonById } from '../../src/shared/lessons/less
 import { imageModelLessonSpecs } from '../fixtures/mcp/classes/image-models';
 import { videoSetSpecs } from '../fixtures/mcp/classes/video';
 import { IMAGE_TECHNIQUE_LESSON_CLASSES } from '../fixtures/mcp/classes/image-techniques';
+import { lessonSpecs } from '../fixtures/mcp/classes/foundations';
 
 /**
  * ComfyUI's own nodes as far as the lessons use them: inputs with the value a fresh node starts with (link
@@ -145,6 +146,8 @@ const CLASSES: Record<string, Spec> = {
   // The lessons on picture model families.
   ...imageModelLessonSpecs(),
   ...IMAGE_TECHNIQUE_LESSON_CLASSES,
+  // The general-purpose nodes of the foundations lessons.
+  ...lessonSpecs(),
 };
 
 const ports: ClassPorts = (classType) => {
