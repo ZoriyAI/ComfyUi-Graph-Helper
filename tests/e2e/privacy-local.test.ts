@@ -39,7 +39,12 @@ test('typing fetches no dictionary, a second start leaves at once, and the pictu
   const electronPath = require('electron') as unknown as string;
   const second = spawnSync(electronPath, [...(process.getuid?.() === 0 ? ['--no-sandbox'] : []), MAIN, `--user-data-dir=${userData}`], { env: { ...process.env, NODE_ENV: 'production' }, timeout: 30_000 });
   expect(second.status).toBe(0);
-  expect(fs.readFileSync(logFile, 'utf8')).toBe(before);
+  // The first instance keeps running and may add its own lines meanwhile (a window that did not respond, a child
+  // process gone, a console line routed to the log; a slow machine makes these likelier). The second start must add
+  // none: an instance that went on would write its "[App] Start" and "[App] Paths" lines first (main/index.ts).
+  const after = fs.readFileSync(logFile, 'utf8');
+  expect(after.startsWith(before)).toBe(true);
+  expect(after.slice(before.length)).not.toMatch(/\[App\] (Start|Paths) |\[Database\] Opening /);
 
   // The picture cache: its size and emptying it.
   const cache = path.join(userData, 'model-previews');
