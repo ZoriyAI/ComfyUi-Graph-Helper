@@ -1,3 +1,8 @@
+/**
+ * The Check tab of the dock: runs the graph check, lists the findings by type, shows each on the canvas and lets
+ * the person ask the helper why. shell/Dock.tsx mounts it; tests/unit/explainCheckRender.test.ts renders it.
+ * Advice about prompts is listed apart and never counted, because the graph still runs with it.
+ */
 import React, { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'motion/react';
@@ -17,6 +22,7 @@ import IconButton from '../../ui/IconButton';
 import styles from './CheckPanel.module.css';
 import EmptyState from '../../ui/EmptyState';
 
+/** A finding row rises into place; a fixed one fades out. */
 const ROW_MOTION = {
   initial: { opacity: 0, y: 4 },
   animate: { opacity: 1, y: 0 },
@@ -70,6 +76,7 @@ export default function CheckPanel({ projectId }: { projectId: string }) {
   const definitions = useGraphStore((state) => state.subgraphs);
   const [error, setError] = useState<string | null>(null);
 
+  // The report names inputs; the canvas needs their handle ids, at the top level or inside a subgraph.
   const resolvePort = useCallback((nodeId: string, inputName: string, subgraphId?: string) => {
     const level = subgraphId ? definitions.find((item) => item.id === subgraphId)?.nodes ?? [] : nodes;
     const node = level.find((item) => item.id === nodeId);
@@ -98,6 +105,7 @@ export default function CheckPanel({ projectId }: { projectId: string }) {
     if (nodeId) useCanvasStore.getState().requestCenter(nodeId, finding.ref.subgraphId);
   };
 
+  // Base model families are stored as codes; the sentence gets their translated names.
   const findingText = (finding: CheckFinding): string => {
     const values: Record<string, string> = { ...finding.values };
     if (finding.type === 'baseModelMismatches') {
