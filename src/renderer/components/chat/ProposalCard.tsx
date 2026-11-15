@@ -36,7 +36,8 @@ export default function ProposalCard({ proposalId, result }: { proposalId: strin
   const [error, setError] = useState<string | null>(null);
 
   const kind = proposal?.kind ?? kindOf(isRecord(result) ? result.kind : undefined);
-  // The engine's own service mark ("[superseded: …]") is not shown in the note (proposals.noteLabel): the status says the draft is out of date.
+  // The engine's own service mark ("[superseded: …]") is not shown in the note (proposals.noteLabel): the status
+  // already says the draft is out of date.
   const note = withoutServiceMark(proposal?.note ?? (isRecord(result) && typeof result.note === 'string' ? result.note : ''));
   const status: ProposalStatus = proposal?.status ?? 'proposed';
   const kindLabel = kind ? String(t(`proposals.kind.${kind}`)) : String(t('agent.kind.proposal'));

@@ -4,9 +4,9 @@
  * Who uses it: a person whose graph ComfyUI refused or broke on; it opens from the Help menu command
  * help.comfyError (commands/appCommands.ts) and from the "Run it in ComfyUI" card. Why: the red text of ComfyUI
  * is English jargon with node numbers. The person pastes it; the app explains every message it knows with the
- * built-in notes (knowledge/sets/foundations.ts comfyErrorNotes, no assistant needed), lists the nodes it names (shared/journey/comfyError.ts) with "Show on the
- * canvas", and offers the assistant for anything else. The text is read here only; it is sent to the assistant only
- * when the person presses "Ask the assistant".
+ * built-in notes (knowledge/sets/foundations.ts comfyErrorNotes, no assistant needed), lists the nodes it names
+ * (shared/journey/comfyError.ts) with "Show on the canvas", and offers the assistant for anything else. The text
+ * is read here only; it is sent to the assistant only when the person presses "Ask the assistant".
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';

@@ -29,8 +29,9 @@ export interface SyncView {
   fraction: number | null;
   /**
    * 'noUrl' when neither address is set (ComfyUI's own, or an MCP server's). 'noToken' when the server has asked for
-   * a sign-in and neither a token nor a browser sign-in is held. Whether credentials are needed is the server's call, so a run is never blocked
-   * before the server has answered, and a server that accepted an anonymous connection never blocks.
+   * a sign-in and neither a token nor a browser sign-in is held. Whether credentials are needed is the server's call,
+   * so a run is never blocked before the server has answered, and a server that accepted an anonymous connection
+   * never blocks.
    */
   blocked: 'noUrl' | 'noToken' | null;
   /**

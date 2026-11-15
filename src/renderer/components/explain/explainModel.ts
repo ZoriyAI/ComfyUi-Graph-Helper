@@ -8,7 +8,10 @@ import type { Explanation, ExplanationAspect, ObjectRef } from '../../../shared/
 /** The aspects of an explanation, in the order the panel shows them. */
 export const ASPECTS: readonly ExplanationAspect[] = ['what', 'why', 'connect', 'next', 'risk'];
 
-/** Knowledge about a node class, a model file, a link type or a model family is shared across projects and not tied to a revision. */
+/**
+ * Knowledge about a node class, a model file, a link type or a model family is shared across projects and not tied
+ * to a revision.
+ */
 export function isGlobalOwner(ref: ObjectRef): boolean {
   return ref.kind === 'nodeClass' || ref.kind === 'model' || ref.kind === 'linkType' || ref.kind === 'family';
 }

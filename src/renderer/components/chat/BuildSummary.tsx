@@ -23,8 +23,8 @@ const NEXT = [
 const NEXT_IDS = NEXT.map((item) => item.id);
 
 /**
- * Closes a build turn: a count of nodes and links made (see buildSummary) and what to do next, through the same commands as the menu bar
- * (tour, check, export), so a button here behaves exactly like the menu item.
+ * Closes a build turn: a count of nodes and links made (see buildSummary) and what to do next, through the same
+ * commands as the menu bar (tour, check, export), so a button here behaves exactly like the menu item.
  */
 export default function BuildSummary({ calls, stopped = false }: { calls: ToolCall[]; stopped?: boolean }) {
   const { t } = useTranslation();

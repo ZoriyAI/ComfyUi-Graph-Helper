@@ -336,7 +336,10 @@ export function buildCounts(calls: readonly ToolCall[]): BuildCounts {
   return counts;
 }
 
-/** "Done: 7 nodes, 9 links." (chat.summaryDone, or chat.summaryStopped); null when the build changed nothing a person can count. */
+/**
+ * "Done: 7 nodes, 9 links." (chat.summaryDone, or chat.summaryStopped); null when the build changed nothing a
+ * person can count.
+ */
 export function buildSummary(counts: BuildCounts, t: Translate, stopped = false): string | null {
   const parts: string[] = [];
   if (counts.nodes) parts.push(t('chat.summaryNodes', { count: counts.nodes }));

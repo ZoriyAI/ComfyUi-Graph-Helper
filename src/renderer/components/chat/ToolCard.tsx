@@ -89,8 +89,8 @@ function ArgumentList({ args }: { args: Array<{ key: string; value: string }> })
 
 /**
  * A tool call that is neither a build step nor a quiet look: an explanation, a suggestion, or a tool the chat does
- * not know. A suggestion carries only its own status (Suggested, Accepted, and so on), never the tool call's; an explanation
- * shows what was saved and where. Graph changes go to BuildCard, reads to QuietGroup.
+ * not know. A suggestion carries only its own status (Suggested, Accepted, and so on), never the tool call's; an
+ * explanation shows what was saved and where. Graph changes go to BuildCard, reads to QuietGroup.
  */
 export default function ToolCard({ call }: { call: ToolCall }) {
   const { t } = useTranslation();
