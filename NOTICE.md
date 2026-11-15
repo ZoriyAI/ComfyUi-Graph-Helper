@@ -130,7 +130,7 @@ The releases. "Published" is the time GitHub's servers recorded on the release p
 | 0.7.0 | `v0.7.0` | `358adfec8324` | 2026-11-12 18:51:33 | private release |
 | 0.8.0 | `v0.8.0` | `db2f11de4bda` | 2026-11-13 16:28:21 | private release ([notes](docs/releases/v0.8.0.md)) |
 | 0.9.0 | `v0.9.0` | `35b5ca9d92f2` | 2026-11-15 01:57:53 | the first release after the project was published ([notes](docs/releases/v0.9.0.md)) |
-| 1.0.0 | `v1.0.0` | not tagged yet | not published yet | [notes](docs/releases/v1.0.0.md); the owner fills in this row when the release page is up |
+| 1.0.0 | `v1.0.0` | `44a9b9547e6d` | 2026-11-15 12:11:01 | [notes](docs/releases/v1.0.0.md) |
 
 A release cannot hold its own publication time, so each row is filled in by the first commit after that release.
 
