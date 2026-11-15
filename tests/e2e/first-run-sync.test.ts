@@ -12,6 +12,7 @@ import { useEnglish } from './locale';
 import { exportPastGuard } from './exportGuard';
 import { pickOption } from './pickOption';
 import { isReadOnlyCall } from '../../src/main/mcp/readOnly';
+import { EDITOR_NODE_TYPES } from '../../src/shared/graph/editorNodes';
 import { CLASSES, PACKS, READ_TOOLS, startFakeMcp, WRITE_TOOLS } from '../fixtures/mcp/fakeMcpServer';
 
 const TOKEN = 'first-run-token-marker';
@@ -97,7 +98,8 @@ test('first run: connect, sync from MCP, browse the library, build, check and ex
     const rail = window.locator('#library-rail');
     await rail.getByRole('tab', { name: 'Nodes' }).click();
     const nodeList = window.locator('#node-library-list');
-    await expect(window.getByText(`${CLASSES.length} nodes`, { exact: true })).toBeVisible();
+    // The synced classes plus the editor nodes (Note, Reroute…) that only ComfyUI's editor has (shared/graph/editorNodes.ts).
+    await expect(window.getByText(`${CLASSES.length + EDITOR_NODE_TYPES.length} nodes`, { exact: true })).toBeVisible();
     const headers = nodeList.locator('[aria-expanded]');
     await expect(headers.first()).toContainText('advanced');
     await expect(headers.filter({ hasText: 'conditioning' })).toHaveCount(1);

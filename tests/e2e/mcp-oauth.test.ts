@@ -12,6 +12,9 @@ import { useEnglish } from './locale';
 import { isReadOnlyCall } from '../../src/main/mcp/readOnly';
 import { startFakeOAuthMcp } from '../fixtures/mcp/fakeOAuthMcp';
 import { artifact } from './artifacts';
+import { createTranslator } from '../../src/shared/i18n';
+
+const EN = createTranslator('en');
 
 test('signs in to the MCP server through the browser and syncs without a manual token', async () => {
   const fake = await startFakeOAuthMcp({ accessTtlSeconds: 3600 });
@@ -45,7 +48,10 @@ test('signs in to the MCP server through the browser and syncs without a manual 
     await expect(signIn.getByText('Not signed in.')).toBeVisible();
     await signIn.getByRole('button', { name: 'Sign in', exact: true }).click();
     await expect(signIn).toHaveAttribute('data-oauth-state', 'authorized', { timeout: 30000 });
-    await expect(signIn.getByText(/Signed in until .+\. Stored for this session only/)).toBeVisible();
+    // Signed in until a time, kept for this session only: the test run has no keychain that confirms encryption.
+    const signedIn = signIn.getByText(/^Signed in until .+\./);
+    await expect(signedIn).toBeVisible();
+    await expect(signedIn).toContainText(EN('settings.oauthSessionOnly'));
     await expect(signIn.getByRole('button', { name: 'Sign out' })).toBeVisible();
     expect(fake.hits).toContain('GET /.well-known/oauth-authorization-server/mcp');
     expect(fake.grants).toEqual(['authorization_code']);

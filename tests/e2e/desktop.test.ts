@@ -10,6 +10,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import { artifact } from './artifacts';
 import { temporaryProfile } from './support/app';
+import { DISPLAY_NAME } from '../../src/shared/productNames';
 
 test('Desktop smoke: app window loads with production renderer', async () => {
   console.log('[SMOKE] Starting Electron app');
@@ -29,14 +30,14 @@ test('Desktop smoke: app window loads with production renderer', async () => {
   console.log('[SMOKE] Window opened');
   await useEnglish(window);
 
-  // Wait for app to load
+  // Wait for the app shell to render
   await window.waitForLoadState('domcontentloaded');
-  await window.waitForTimeout(2000); // Let React render
+  await window.locator('.app-shell').waitFor({ timeout: 30000 });
 
-  // Verify title
+  // The window carries the product's name (src/shared/productNames.ts)
   const title = await window.title();
   console.log('[SMOKE] Window title:', title);
-  expect(title).toContain('ComfyUI');
+  expect(title).toContain(DISPLAY_NAME);
 
   // Verify main elements exist
   const graphCanvas = await window.locator('[data-testid="graph-canvas"], .react-flow').count();

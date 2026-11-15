@@ -163,13 +163,16 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
     expect(Math.min(...typeRatios)).toBeGreaterThanOrEqual(3);
     expect(metrics.undoDisabled).toBe(true);
     if (width === 1024) {
-      const canvas = await window.locator('.graph-pane').evaluate((element) => Math.round(element.getBoundingClientRect().width));
-      const dock = await window.locator('.dock').evaluate((element) => Math.round(element.getBoundingClientRect().width));
-      const rail = await window.locator('.rail').evaluate((element) => Math.round(element.getBoundingClientRect().width));
+      // Below 1440 the library rail folds to an icon strip (48px) beside the canvas. The fold is animated (about
+      // 0.2 s), so the three widths are read together until the rail has finished folding.
+      const widths = () => window.evaluate(() => {
+        const width = (selector: string) => Math.round(document.querySelector(selector)?.getBoundingClientRect().width ?? -1);
+        return { canvas: width('.graph-pane'), dock: width('.dock'), rail: width('.rail') };
+      });
+      await expect.poll(async () => (await widths()).rail).toBe(48);
+      const { canvas, dock, rail } = await widths();
       console.log(`CANVAS_1024 ${canvas} dock=${dock} rail=${rail}`);
       expect(dock).toBe(336);
-      // Below 1440 the library rail is an icon strip (48px) beside the canvas.
-      expect(rail).toBe(48);
       expect(canvas).toBe(1024 - 336 - rail);
       const toolbar = await window.locator('.workspace-toolbar').evaluate((element) => {
         const trigger = element.querySelector('#chat-provider');
@@ -267,15 +270,40 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
     return { motion, reduce, shift };
   });
   const importBox = await importButton.boundingBox();
-  await window.mouse.move(importBox!.x + 8, importBox!.y + 8);
-  await window.mouse.down();
   const expectedPress = pressPolicy.shift ? 'matrix(1, 0, 0, 1, 0, 1)' : 'none';
-  await expect.poll(async () => importButton.evaluate((element) => getComputedStyle(element).transform)).toBe(expectedPress);
-  const pressed = await importButton.evaluate((element) => getComputedStyle(element).transform);
-  await window.mouse.up();
-  console.log(`PRESS_BUTTON transform=${pressed} motion=${pressPolicy.motion} reduce=${pressPolicy.reduce}`);
+  const transformOf = () => importButton.evaluate((element) => getComputedStyle(element).transform);
   // Releasing the pressed Import button opens the unsaved-workflow guard; cancel before measuring the canvas.
   const replace = window.getByRole('dialog', { name: 'Open a workflow?', exact: true });
+  // Chromium drops the pressed (:active) state when the window loses the focus, and on a shared test display the
+  // window of a spec running in parallel can take it mid-press. Only such a press is tried again (at most twice);
+  // a press that shows no shift while this window kept the focus fails here.
+  let pressed = '';
+  for (let attempt = 1; ; attempt += 1) {
+    // The page always reports focus (Playwright emulates it), so the main process watches the window's blur.
+    await electronApp.evaluate(({ BrowserWindow }) => {
+      const state = globalThis as unknown as { __pressBlurred: boolean };
+      const main = BrowserWindow.getAllWindows()[0];
+      main.focus();
+      state.__pressBlurred = false;
+      main.once('blur', () => { state.__pressBlurred = true; });
+    });
+    await window.mouse.move(importBox!.x + 8, importBox!.y + 8);
+    await window.mouse.down();
+    try {
+      await expect.poll(transformOf).toBe(expectedPress);
+      pressed = await transformOf();
+      break;
+    } catch (error) {
+      const blurred = await electronApp.evaluate(() => (globalThis as unknown as { __pressBlurred: boolean }).__pressBlurred);
+      if (!blurred || attempt >= 3) throw error;
+      console.log(`PRESS_RETRY ${attempt}: the window lost the focus during the press`);
+      // Released away from the button, so the abandoned press opens nothing.
+      await window.mouse.move(importBox!.x + 8, importBox!.y + 200);
+      await window.mouse.up();
+    }
+  }
+  await window.mouse.up();
+  console.log(`PRESS_BUTTON transform=${pressed} motion=${pressPolicy.motion} reduce=${pressPolicy.reduce}`);
   await expect(replace).toBeVisible();
   await replace.getByRole('button', { name: 'Cancel', exact: true }).click();
   await expect(replace).toHaveCount(0);

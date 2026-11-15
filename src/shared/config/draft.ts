@@ -3,8 +3,10 @@
  * object. Settings refuse to store such a value (main/settings/repository.ts, renderer SettingsPanel.tsx), and text
  * that goes to a model, a log or an error message is passed through redactSecrets first (agent/redact.ts,
  * i18n/index.ts, main's agent and diagnostics). The patterns err towards hiding: a hidden word costs little.
+ * Also the rules of the Settings draft (settingsProblemFields, settingsBaseline) that SettingsPanel.tsx applies.
  */
-import { nonSecretSettingsSchema } from './schema';
+import { nonSecretDefaults, nonSecretSettingsSchema, type NonSecretSettings, type SettingsRead } from './schema';
+import type { AppLanguage } from '../i18n/languages';
 
 /** Field names that are a secret by name alone, whatever their value. */
 const SECRET_FIELD = /^(api[_-]?key|token|secret|password|authorization|credential)$/i;
@@ -148,4 +150,16 @@ export function settingsWriteError(input: unknown): string | null {
   if (carriesSecret(input)) return 'Settings cannot store a secret';
   if (!nonSecretSettingsSchema.safeParse(input).success) return 'Settings do not match the schema';
   return null;
+}
+
+/**
+ * The saved row the Settings form starts from, and returns to on Cancel or Escape. `language` is the language the
+ * window shows (languageOf(read)): a first start has no row yet and speaks the system's language, and a damaged row
+ * falls back to the defaults in that same language. Starting from the schema default instead ('ru') turned an English
+ * window Russian the first time a person closed Settings without saving.
+ */
+export function settingsBaseline(read: SettingsRead, language: AppLanguage): NonSecretSettings {
+  if (read.source === 'stored') return read.values;
+  if (read.source === 'default') return { ...(read.values ?? nonSecretDefaults), language };
+  return { ...nonSecretDefaults, language };
 }

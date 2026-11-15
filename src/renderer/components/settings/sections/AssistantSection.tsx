@@ -13,7 +13,9 @@ import type { NonSecretSettings } from '../../../../shared/config/schema';
 import { CONTEXT_TOKENS, isPreferenceProvider, MODEL_SUGGESTIONS, STEP_LIMIT, type PreferenceProvider } from '../../../../shared/config/preferences';
 import { effectiveContextWindow } from '../../../../shared/agent/contextWindow';
 import { contextSourceKey } from './pickerItems';
-import { FETCH_PAGE_BYTE_CAP, FETCH_PAGE_TEXT_CAP, megabytes } from '../../../../shared/agent/limits';
+import { FETCH_PAGE_BYTE_CAP, FETCH_PAGE_TEXT_CAP } from '../../../../shared/agent/limits';
+import { formatMegabytes } from '../../../../shared/i18n/format';
+import { isAppLanguage } from '../../../../shared/i18n/languages';
 import { explainError, type Translator } from '../../../../shared/i18n';
 import Badge, { type BadgeTone } from '../../../ui/Badge';
 import Button from '../../../ui/Button';
@@ -72,7 +74,7 @@ const LIST_DEBOUNCE_MS = 450;
 
 /** Settings ▸ Assistant: provider cards, model and base URL, Test connection, and how the helper behaves. */
 export default function AssistantSection({ values, setValues, prefs, setPrefs, container, fieldError, pending, onSession }: DraftProps & { onSession: (sources: KeySources) => void }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const translate: Translator = (key, options) => (options ? String(t(key, options)) : String(t(key)));
   // Each card shows its own provider's key; a key held for one provider says nothing about another.
   const keySources = useProviderStore((state) => state.keySources);
@@ -483,7 +485,7 @@ export default function AssistantSection({ values, setValues, prefs, setPrefs, c
         {provider === 'openai' || provider === 'anthropic' || provider === 'google' ? (
           <p className={cx(hintClass, 'web-search-paid')}>{t('providers.searchPaid', { price: CLOUD_ADVICE[provider].searchPer1000 })}</p>
         ) : null}
-        <p className={cx(hintClass, 'web-limits')}>{t('preferences.webLimits', { bytes: megabytes(FETCH_PAGE_BYTE_CAP), chars: FETCH_PAGE_TEXT_CAP })}</p>
+        <p className={cx(hintClass, 'web-limits')}>{t('preferences.webLimits', { bytes: formatMegabytes(FETCH_PAGE_BYTE_CAP, isAppLanguage(i18n.resolvedLanguage) ? i18n.resolvedLanguage : 'en'), chars: FETCH_PAGE_TEXT_CAP })}</p>
         <SelectField
           label={String(t('preferences.answerLanguage'))}
           value={assistant.answerLanguage}

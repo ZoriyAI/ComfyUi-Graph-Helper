@@ -15,12 +15,16 @@ const RU = createTranslator('ru');
 const EN = createTranslator('en');
 const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'package.json'), 'utf8')) as { version: string };
 
-/** Starts the built app in a fresh temporary profile and records page errors for the end of the spec. */
+/**
+ * Starts the built app in a fresh temporary profile and records page errors for the end of the spec. The spec reads
+ * the Russian names first, so the app starts on a system that speaks Russian (a first start follows the system's
+ * language), whatever language the run itself was given.
+ */
 async function launch(): Promise<{ app: ElectronApplication; window: Page; userData: string; errors: string[] }> {
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'about-help-'));
   const app = await electron.launch({
     args: [path.join(__dirname, '../../dist/main/index.js'), `--user-data-dir=${userData}`],
-    env: { ...process.env, NODE_ENV: 'production' },
+    env: { ...process.env, NODE_ENV: 'production', LANGUAGE: 'ru', LANG: 'ru_RU.UTF-8' },
   });
   const window = await app.firstWindow();
   const errors: string[] = [];
@@ -85,7 +89,9 @@ test('Help ▸ About: icon, name, version, licence, components, copy details, da
     const flow = list.locator('li', { hasText: '@xyflow/react' });
     await flow.locator('summary').click();
     await expect(flow.locator('pre')).toContainText('MIT');
-    await expect(list.locator('li', { hasText: '@fontsource/geist' })).toContainText('OFL-1.1');
+    // Both fonts the app ships (Geist and Geist Mono) are listed with their own licence.
+    await expect(list.locator('li', { hasText: /^@fontsource\/geist\d/ })).toContainText('OFL-1.1');
+    await expect(list.locator('li', { hasText: /^@fontsource\/geist-mono\d/ })).toContainText('OFL-1.1');
     await expect(list.locator('li', { hasText: /^electron/ }).first()).toBeVisible();
     // Nothing in the list sticks out of the dialog sideways.
     const overflow = await list.evaluate((element) => element.scrollWidth - element.clientWidth);

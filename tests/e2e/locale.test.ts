@@ -1,6 +1,6 @@
 /**
- * E2E spec for the interface language: Russian is the default of a new profile, English chosen in Preferences persists
- * through a reopen, and no visible text, label, tooltip or placeholder shows a raw translation key or a phrase of the
+ * E2E spec for the interface language: a new profile on a Russian system starts in Russian (the first start follows
+ * the system's language, docs/wiki/start/First-Hour.md), English chosen in Preferences persists through a reopen, and no visible text, label, tooltip or placeholder shows a raw translation key or a phrase of the
  * other language (checked against the i18n catalog). A person should never meet half-translated screens.
  */
 import { test, expect, _electron as electron, type Page } from '@playwright/test';
@@ -64,8 +64,10 @@ function unexpectedCopy(text: string, language: 'en' | 'ru'): string[] {
   for (const key of catalogLeaves(en)) {
     if (text.includes(key)) hits.push(`raw key ${key}`);
   }
+  // Command-line flags (vLLM's --api-key) are written the same in every language; their parts are not English copy.
+  const prose = text.replace(/(?<!\S)--[A-Za-z][\w-]*/g, ' ');
   for (const phrase of foreignPhrases(language)) {
-    if (phraseAppears(text, phrase)) hits.push(phrase);
+    if (phraseAppears(prose, phrase)) hits.push(phrase);
   }
   return hits;
 }
@@ -152,10 +154,11 @@ async function expectLocalizedChrome(window: Page, language: 'en' | 'ru') {
   await expect(dialog).toHaveCount(0);
 }
 
+/** Starts the built app on a system that speaks Russian, whatever language the run itself was given. */
 function launch(userData: string) {
   return electron.launch({
     args: [path.join(__dirname, '../../dist/main/index.js'), `--user-data-dir=${userData}`],
-    env: { ...process.env, NODE_ENV: 'production' },
+    env: { ...process.env, NODE_ENV: 'production', LANGUAGE: 'ru', LANG: 'ru_RU.UTF-8' },
   });
 }
 
@@ -174,7 +177,7 @@ async function toolbarFit(window: import('@playwright/test').Page) {
   });
 }
 
-test('Russian is the new-profile default and English persists through reopen', async () => {
+test('Russian is the new-profile default on a Russian system and English persists through reopen', async () => {
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'locale-'));
   const app = await launch(userData);
   const window = await app.firstWindow();

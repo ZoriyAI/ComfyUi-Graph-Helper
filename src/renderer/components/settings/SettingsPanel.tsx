@@ -7,7 +7,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Bot, Info, Keyboard, LayoutGrid, Palette, Plug, RefreshCw, ShieldCheck, type LucideIcon } from 'lucide-react';
-import { settingsProblemFields, settingsWriteError, type SettingsField } from '../../../shared/config/draft';
+import { settingsBaseline, settingsProblemFields, settingsWriteError, type SettingsField } from '../../../shared/config/draft';
 import { nonSecretDefaults, type NonSecretSettings, type SettingsRead } from '../../../shared/config/schema';
 import {
   isPreferenceProvider,
@@ -156,7 +156,8 @@ export default function SettingsPanel({
     setPrefs(seeded);
   };
 
-  // Load the stored row once. A corrupt file falls back to the defaults in English and says so in the footer.
+  // Load the stored row once. A corrupt file falls back to the defaults (in the language shown) and says so in the
+  // footer. A first start has no row: the form starts from the defaults in the system's language.
   useEffect(() => {
     let cancelled = false;
     window.electronAPI.getSettings().then((read: SettingsRead) => {
@@ -173,18 +174,11 @@ export default function SettingsPanel({
         onReadRef.current(read.values);
         return;
       }
-      if (read.source === 'corrupt') {
-        const fallback = { ...nonSecretDefaults, language: 'en' as const };
-        savedRef.current = fallback;
-        setValues(fallback);
-        adoptPreferences(stored, fallback);
-        setNote({ kind: 'key', key: 'settings.corrupt' });
-        return;
-      }
-      savedRef.current = nonSecretDefaults;
-      setValues(nonSecretDefaults);
-      adoptPreferences(stored, nonSecretDefaults);
-      setNote({ kind: 'key', key: 'settings.defaults' });
+      const baseline = settingsBaseline(read, language);
+      savedRef.current = baseline;
+      setValues(baseline);
+      adoptPreferences(stored, baseline);
+      setNote({ kind: 'key', key: read.source === 'corrupt' ? 'settings.corrupt' : 'settings.defaults' });
     }).catch(() => {
       if (!cancelled) setNote({ kind: 'key', key: 'settings.unread' });
     });

@@ -11,7 +11,9 @@ import { DESKTOP_PROJECT_ID } from '../../../../shared/project';
 import type { Translator } from '../../../../shared/i18n';
 import { adultContentOn } from '../../../../shared/config/preferences';
 import { contentRules } from '../../../../shared/content/rules';
-import { FETCH_PAGE_BYTE_CAP, FETCH_PAGE_TEXT_CAP, megabytes } from '../../../../shared/agent/limits';
+import { FETCH_PAGE_BYTE_CAP, FETCH_PAGE_TEXT_CAP } from '../../../../shared/agent/limits';
+import { formatMegabytes } from '../../../../shared/i18n/format';
+import { isAppLanguage } from '../../../../shared/i18n/languages';
 import Button from '../../../ui/Button';
 import Switch from '../../../ui/Switch';
 import SelectField from '../../../ui/SelectField';
@@ -224,7 +226,7 @@ export default function PrivacySection({ prefs, setPrefs, container }: DraftProp
           <li className={styles.factOff}>{t('preferences.sentNever')}</li>
           <li className="sent-elsewhere">{t('preferences.sentElsewhere')}</li>
           <li>{t('preferences.keysLive')}</li>
-          <li className="web-limits">{t('preferences.webLimits', { bytes: megabytes(FETCH_PAGE_BYTE_CAP), chars: FETCH_PAGE_TEXT_CAP })}</li>
+          <li className="web-limits">{t('preferences.webLimits', { bytes: formatMegabytes(FETCH_PAGE_BYTE_CAP, isAppLanguage(i18n.resolvedLanguage) ? i18n.resolvedLanguage : 'en'), chars: FETCH_PAGE_TEXT_CAP })}</li>
         </ul>
       </Group>
       {canPersist === false ? <p className={cx(hintClass, styles.keyStoreNote, 'key-store-note')}>{t('settings.keyReason')}</p> : null}
