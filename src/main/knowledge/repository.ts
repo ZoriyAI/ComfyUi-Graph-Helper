@@ -167,7 +167,7 @@ function editorNodeDetail(classType: EditorNodeType): NodeClassDetail {
     detailed: true,
     editor: true,
     description: knowledgeLine(classType, 'en'),
-    inputs: [],
+    inputs: ports.inputs.map((port) => ({ name: port.name, type: port.dataType, widget: false, required: true })),
     outputs: ports.outputs.map((port) => ({ name: port.name, type: port.dataType })),
     widgetOrder: [],
     widgetOrderReliable: true,
