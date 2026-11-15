@@ -1,3 +1,9 @@
+/**
+ * Protects the pickers in Settings that offer models and server addresses: model lists read from OpenAI, Anthropic,
+ * Google, Ollama, LM Studio and the MCP server's Ollama targets; local servers found on this computer; and recently
+ * saved ComfyUI and MCP addresses. Each provider gets its own key header over https only, a key is never echoed in an
+ * error, and probing stays on 127.0.0.1. A person picks from real choices instead of typing names from memory.
+ */
 import { describe, expect, it } from 'vitest';
 import Database from 'better-sqlite3';
 import { migrate } from '../../src/main/settings/migrate';
@@ -73,7 +79,7 @@ const OLLAMA_TAGS_FIXTURE = {
     { name: 'mistral:7b', model: 'mistral:7b', size: 4372824384, details: { family: 'llama', parameter_size: '7.2B' } },
   ],
 };
-// An MCP server's ollama_targets / ollama_models (shapes read on 2026-11-09).
+// An MCP server's ollama_targets / ollama_models, in the shapes a real server answers with.
 const TARGETS_FIXTURE = {
   targets: [
     { target: 'ollama_gpu0', base_url: 'http://127.0.0.1:21434', gpu_uuid: 'GPU-b477', default_model: 'example-model:9b', tasks: ['text', 'json', 'vision'], health: 'ready', service_observation: { ActiveState: 'active' } },
@@ -96,6 +102,7 @@ function toolResult(value: unknown): McpToolCallResult {
   return { content: [{ type: 'text', text: JSON.stringify(value) }] };
 }
 
+/** A fake MCP server that answers the two Ollama tools from the fixtures and records calls and closes. */
 function fakeMcp(calls: Array<{ name: string; args: Record<string, unknown> }>, closed: { count: number }, tools = ['studio_info', 'ollama_targets', 'ollama_models', 'ollama_pull']): McpSession {
   return {
     async listTools() {
@@ -117,6 +124,7 @@ describe('model list parsers', () => {
   it('reads OpenAI-compatible lists and keeps only chat models for OpenAI', () => {
     expect(parseOpenAiList(OLLAMA_V1_FIXTURE)?.map((model) => model.id)).toEqual(['mistral:7b', 'qwen3:14b']);
     expect(parseOpenAiList({ models: [] })).toBeNull();
+    // Empty ids, ids with control characters, non-strings and repeats are dropped.
     expect(parseOpenAiList({ data: [{ id: '' }, { id: 'a\u0000b' }, { id: 42 }, { id: 'ok' }, { id: 'ok' }] })?.map((m) => m.id)).toEqual(['ok']);
     const chat = parseOpenAiList(OPENAI_FIXTURE)!.filter((model) => isOpenAiChatModel(model.id)).map((model) => model.id);
     expect(chat).toEqual(['gpt-4.1-mini', 'gpt-5']);
@@ -420,6 +428,7 @@ describe('picker rows in the renderer', () => {
     ], createTranslator('ru'));
     expect(rows[0].label).toBe('ollama_gpu0');
     expect(rows[0].detail).toBe('http://127.0.0.1:21434/v1 · видеокарта Example GPU A · модель по умолчанию example-model:9b · 2 модели · назван MCP-сервером');
+    // The second row reads "found on this computer" in Russian.
     expect(rows[1].detail).toBe('http://127.0.0.1:1234/v1 · найден на этом компьютере');
     expect(sameBase('http://localhost:11434/v1/', 'http://127.0.0.1:11434/v1')).toBe(true);
     expect(listable('local', '')).toBe(false);

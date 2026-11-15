@@ -1,3 +1,9 @@
+/**
+ * Protects the settings database through schema upgrades: a failed migration rolls back whole, rows from every older
+ * version open with their values kept, a corrupt row is reported instead of replaced with defaults, a newer schema
+ * than the app knows is refused, and the settings row never stores a key, a key-shaped model name or a URL with a
+ * password. A person who updates the app keeps their settings, and their keys stay out of the plain database.
+ */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import Database from 'better-sqlite3';
 import * as fs from 'fs';
@@ -9,6 +15,7 @@ import { migrate, schemaVersion, tableNames, SCHEMA_VERSION } from '../../src/ma
 import { attemptSaveSecret, readSettings, saveSettings, secretRecordCount } from '../../src/main/settings/repository';
 import { setSystemLanguages } from '../../src/main/systemLanguage';
 
+/** A database as the earliest builds left it: only a projects table, with one row that must survive. */
 function version0Database(): Database.Database {
   const db = new Database(':memory:');
   db.exec(`
@@ -184,6 +191,7 @@ describe('settings migration', () => {
       python_module: string;
     };
     expect(row).toEqual({ pack: 'core', python_module: 'nodes' });
+    // A profile written by a newer app: refused, and its version stamp left as it was.
     db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (?, 1)').run(SCHEMA_VERSION + 1);
     expect(() => migrate(db)).toThrow(new RegExp(`Unsupported schema version ${SCHEMA_VERSION + 1}`));
     expect(schemaVersion(db)).toBe(SCHEMA_VERSION + 1);

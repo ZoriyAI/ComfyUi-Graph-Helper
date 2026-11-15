@@ -1,3 +1,9 @@
+/**
+ * Protects node and model search in the side rail and the model library: Russian words map to the English node
+ * vocabulary (in any word form, with or without the letter yo), one typing slip is forgiven in longer words, exact and
+ * prefix matches come first, and model titles and trigger words are searchable. A person who types in their own
+ * language or makes a typo still finds the node or model they mean.
+ */
 import Database from 'better-sqlite3';
 import { describe, expect, it } from 'vitest';
 import { inferModelsFromNames, upsertModelFiles, upsertNodeClasses } from '../../src/main/catalog/repository';

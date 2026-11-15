@@ -1,3 +1,10 @@
+/**
+ * Protects undo and redo. In the engine an undo is a new revision that restores an earlier one, so history only
+ * grows, node ids never get reused and proposals on removed nodes are retired. In the renderer the undo pointer steps
+ * over those restore commits, undoes an assistant run as one step, waits while a run is open and keeps manual edits
+ * made between assistant steps. A person can always step back and forward without losing their own work.
+ * The last block covers the findings the export guard lists before a file is written.
+ */
 import Database from 'better-sqlite3';
 import { describe, expect, it } from 'vitest';
 import { commitCommand, ensureWorkspace, listRecentCommands, listRevisions, readProjection, startRun, closeRun } from '../../src/main/commands/commit';
@@ -45,6 +52,7 @@ describe('engine: restore-revision', () => {
     const restored = commit(db, 'undo', { type: 'restore-revision', revisionId: before.currentRevisionId });
     expect(restored.status).toBe('applied');
     expect(restored.result).toEqual({ revisionId: before.currentRevisionId, restoredRevSeq: before.revSeq });
+    // Two edits after `before`, then the restore itself: three new revisions.
     expect(restored.projection!.revSeq).toBe(before.revSeq + 3);
     expect(restored.projection!.snapshot).toEqual(before.snapshot);
     const list = listRevisions(db, P);
@@ -119,6 +127,7 @@ describe('engine: restore-revision', () => {
   });
 });
 
+/** A revision row as the renderer sees it; by default a manual edit by the person. */
 const rev = (id: string, revSeq: number, extra: Partial<UndoRevision> = {}): UndoRevision => ({ id, revSeq, source: 'user', actor: 'manual', ...extra });
 
 describe('undo pointer', () => {

@@ -1,3 +1,8 @@
+/**
+ * Protects the steps the chat shows when the local Ollama model's context window is too small.
+ * A person copies these commands into a terminal, so the variable name, the service restart and the
+ * closing memory warning must be exact, or the bigger window never takes effect.
+ */
 import { describe, expect, it } from 'vitest';
 import { ollamaWindowSteps } from '../../src/shared/agent/windowHowTo';
 

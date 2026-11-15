@@ -1,3 +1,8 @@
+/**
+ * Protects the Settings field where a person types an API key: whatever happens to the save (the system
+ * key store refuses it, or the call fails), the typed key is wiped from the field and the note says it was
+ * not written. The key must not linger on screen, and the person must not believe it was stored.
+ */
 import { describe, expect, it } from 'vitest';
 import { consumeSecretSave } from '../../src/renderer/components/settings/secretSave';
 

@@ -1,12 +1,13 @@
-import { describe, expect, it } from 'vitest';
-import { mainLLMService } from '../../src/main/llmService';
-
 /**
  * Installed AI SDK (`ai` TextStreamPart) text-delta contract:
  * `{ type: 'text-delta', id: string, text: string }`.
  * The provider stream uses `delta`; `streamText().fullStream` exposes `text`.
- * This test consumes the real fullStream through MainLLMService. No stubbed chunks.
+ * This test consumes the real fullStream through MainLLMService with the scripted test model. No stubbed chunks.
+ * If an SDK upgrade renames these fields, the chat would show empty replies; this test fails first.
  */
+import { describe, expect, it } from 'vitest';
+import { mainLLMService } from '../../src/main/llmService';
+
 const EXPECTED_REPLY = 'I have added a TestNode and annotated it.';
 
 describe('mainLLMService.streamChatWithTools', () => {
@@ -66,6 +67,7 @@ describe('mainLLMService.streamChatWithTools', () => {
     expect(types).toContain('finish');
     expect(types).not.toContain('error');
 
+    // The scripted model streams its reply one character per delta, all under one text id.
     const textDeltas = chunks.filter((chunk) => chunk.type === 'text-delta');
     expect(textDeltas.length).toBe(EXPECTED_REPLY.length);
     const ids = new Set<string>();

@@ -1,3 +1,9 @@
+/**
+ * Protects widget defaults read from ComfyUI's object_info: explicit defaults, the first combo option, the frontend's
+ * fallbacks (0, false, empty text) and the hidden "control after generate" value of seeds. A node the person adds
+ * starts with the values ComfyUI would give it, an exported file has no null that ComfyUI would refuse, an imported
+ * file keeps its values exactly, and the graph check names a widget that has neither a value nor a default.
+ */
 import { describe, expect, it } from 'vitest';
 import Database from 'better-sqlite3';
 import { migrate } from '../../src/main/settings/migrate';
@@ -141,6 +147,7 @@ describe('widget defaults from object_info', () => {
       values: [0, 'randomize', 30, 8, 'euler', 'karras', 1],
       unset: [],
     });
+    // An image_upload combo carries a second value for its upload button, as ComfyUI writes it.
     expect(widgetsFromParameters('LoadImage', {}, catalog)).toEqual({ ok: true, values: ['example.png', 'image'], unset: [] });
     expect(widgetsFromParameters('Widgets', { text: null }, catalog)).toEqual({
       ok: true,

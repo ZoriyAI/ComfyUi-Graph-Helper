@@ -1,3 +1,8 @@
+/**
+ * Protects two things a released build must get right. The scripted "test" AI provider that development and
+ * the e2e suite use is refused in a packaged app, even from a saved profile, so a person never chats with a
+ * fake model. And --version and --help answer on the command line in the system language without opening a window.
+ */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { allowTestProvider, MainLLMService } from '../../src/main/llmService';
 import { commandLineAnswer } from '../../src/main/cli';

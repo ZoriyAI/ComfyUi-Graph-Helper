@@ -1,3 +1,8 @@
+/**
+ * Protects the remembered layout of the window (side rail tab, dock tab and width, model list filters),
+ * stored per profile in the preferences. A person gets the window back as they left it, one bad saved value
+ * does not wipe the rest, and moving panels never marks the Settings draft as unsaved.
+ */
 import { describe, expect, it } from 'vitest';
 import { mergePreferences, parsePreferences, preferencesDefaults, samePreferences } from '../../src/shared/config/preferences';
 

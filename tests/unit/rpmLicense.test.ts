@@ -1,3 +1,9 @@
+/**
+ * Protects the Linux .rpm package spec rendered from resources/linux/rpm.spec.ejs: the copyright file is kept
+ * as a license (so it survives installs that skip documentation), the Chromium sandbox helper keeps its setuid
+ * mode (without it the app does not start), and the package replaces the one the 0.x versions were shipped as,
+ * so an upgrade does not leave two copies of the app installed.
+ */
 import { expect, it } from 'vitest';
 import { createRequire } from 'node:module';
 import { LEGACY_APP_ID } from '../../src/shared/legacyNames';

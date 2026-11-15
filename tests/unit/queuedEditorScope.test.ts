@@ -1,3 +1,9 @@
+/**
+ * Protects canvas edits that wait a moment before they are sent to main (arrow-key nudges, batched deletes).
+ * Each edit keeps the graph and the subgraph it was made in: opening another subgraph whose nodes reuse the
+ * same local ids must not move or delete a node there, and an edit left over from a replaced graph or a
+ * replay is dropped instead of landing on the wrong work.
+ */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { queueEdit, queueNudge, NUDGE_REST_MS } from '../../src/renderer/components/graph/lib/editBatch';
 import { useProjectionStore, setManualGate } from '../../src/renderer/services/commands/projection';

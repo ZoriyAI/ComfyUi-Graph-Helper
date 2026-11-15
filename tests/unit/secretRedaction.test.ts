@@ -1,3 +1,9 @@
+/**
+ * Protects the shared secret patterns that hide keys and tokens in logs, diagnostics, error texts and tool results
+ * sent to the assistant, without flagging ordinary words or file names that merely contain "sk-" or "token".
+ * Also covers the check for keys stored with Electron's fixed Linux fallback cipher and the translation of fixed
+ * engine errors. A person can share a log or a report without leaking a key, and still read what went wrong.
+ */
 import { describe, expect, it } from 'vitest';
 import { carriesSecret, exactMatchRedactor, redactSecrets, textCarriesSecret } from '../../src/shared/config/draft';
 import { redactDiagnostic } from '../../src/shared/i18n';
@@ -60,6 +66,8 @@ describe('secret detection', () => {
 import { isUnprotectedCipher } from '../../src/shared/config/secretPolicy';
 
 describe('unprotected cipher check', () => {
+  // On Linux, Electron's safeStorage writes "v10" when no system key store is available and the key is a fixed one
+  // known to everyone; "v11" means a real key store. Other systems use "v10" for real encryption.
   it('reads v10 as the hardcoded fallback on Linux only', () => {
     expect(isUnprotectedCipher(Buffer.from('v10abc'), 'linux')).toBe(true);
     expect(isUnprotectedCipher(Buffer.from('v11abc'), 'linux')).toBe(false);

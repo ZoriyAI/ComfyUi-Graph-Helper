@@ -1,3 +1,9 @@
+/**
+ * Protects the optional update check: off until the person turns it on in Settings, at most one GitHub request a day
+ * (an hour after a failure), only published releases of this project are trusted, and the download link fits how
+ * the app was installed (.deb, .rpm, AppImage or tarball). A person who did not opt in sends nothing, and one who did
+ * is never sent to a file from another site.
+ */
 import { describe, expect, it, vi } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -20,6 +26,7 @@ import { noticeOf } from '../../src/renderer/components/shell/UpdateNotice';
 
 const PROJECT = 'https://github.com/example-owner/nodewise-studio';
 
+/** A GitHub release answer with one file of each install kind, plus one hosted elsewhere that must be ignored. */
 function release(tag: string, extra: Record<string, unknown> = {}) {
   return {
     tag_name: tag,
@@ -184,7 +191,9 @@ describe('update check: reading the answer', () => {
   it('tells the kind of install from where the program runs', () => {
     const files = new Set<string>();
     const exists = (file: string) => files.has(file);
-    expect(installKind('/tmp/x/nodewise-studio', { APPIMAGE: '/var/tmp/person/app.AppImage' }, exists, 'nodewise-studio')).toBe('appimage');
+    // AppImage sets $APPIMAGE; the tarball installer leaves run.sh and uninstall.sh; a dpkg file list means .deb;
+    // /usr/lib without one is .rpm; a development run is none of them.
+    expect(installKind('/tmp/x/nodewise-studio', { APPIMAGE:'/var/tmp/person/app.AppImage' }, exists, 'nodewise-studio')).toBe('appimage');
     files.add('/var/tmp/person/.local/share/nodewise-studio/run.sh');
     files.add('/var/tmp/person/.local/share/nodewise-studio/uninstall.sh');
     expect(installKind('/var/tmp/person/.local/share/nodewise-studio/nodewise-studio', {}, exists, 'nodewise-studio')).toBe('tarball');
