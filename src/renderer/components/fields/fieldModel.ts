@@ -1,8 +1,8 @@
 /**
  * The rules of node fields without React: which inputs are fields, the control kind, the shown value, number
- * clamping and typing, seeds and the "after run" row. Used by FieldControl.tsx, ModelList.tsx, graph/Inspector.tsx,
+ * clamping and typing, the typing state of a number field, seeds and the "after run" row. Used by FieldControl.tsx, ModelList.tsx, graph/Inspector.tsx,
  * graph/nodes (FieldRow, EditorNodes, NodeCard) and lessons/lessonModel.ts; tests/unit/fieldControl.test.ts,
- * typedNumber.test.ts and nodeMarks.test.ts cover it.
+ * typedNumber.test.ts, numberEdit.test.ts and nodeMarks.test.ts cover it.
  */
 import type { FieldKind, FieldSpec, NodeClassDetail } from '../../../shared/contracts/knowledge';
 import type { ComfyNodeData, PortDefinition } from '../../types/graph';
@@ -274,4 +274,29 @@ function entry(
   const tooltip = input?.spec?.tooltip ?? input?.tooltip;
   if (tooltip) out.tooltip = tooltip;
   return out;
+}
+
+/**
+ * Where a number field's typing stands. `editing`: the draft belongs to the person, so a value arriving from
+ * elsewhere does not overwrite it. `dirty`: something was typed since the last commit, so Enter or blur has a
+ * change to commit. Kept apart because Enter commits but leaves the focus in the field: the blur that follows must
+ * not commit the same change a second time, and typing after Enter must be an edit again.
+ */
+export interface NumberEdit {
+  editing: boolean;
+  dirty: boolean;
+}
+
+/** The field before anyone touched it. */
+export const NUMBER_EDIT_IDLE: NumberEdit = { editing: false, dirty: false };
+
+/**
+ * One step of a number field's typing (NumberControl in FieldControl.tsx): focus, a typed character, a commit by
+ * Enter or blur, or Escape. `commit` is true only when this step should send the draft.
+ */
+export function numberEditStep(state: NumberEdit, event: 'focus' | 'type' | 'commit' | 'cancel'): { state: NumberEdit; commit: boolean } {
+  if (event === 'focus') return { state: { ...state, editing: true }, commit: false };
+  if (event === 'type') return { state: { editing: true, dirty: true }, commit: false };
+  if (event === 'commit') return { state: NUMBER_EDIT_IDLE, commit: state.dirty };
+  return { state: NUMBER_EDIT_IDLE, commit: false };
 }
