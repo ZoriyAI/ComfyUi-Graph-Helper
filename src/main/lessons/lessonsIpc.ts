@@ -27,6 +27,7 @@ export function withLessonExtension(filePath: string): string {
   return `${filePath.replace(/\.+$/, '')}.lesson.json`;
 }
 
+/** What the handlers need from outside, so tests can run them with a temporary folder. */
 export interface LessonsIpcDeps {
   /** The language of the dialogs. */
   language: () => AppLanguage;
@@ -34,6 +35,7 @@ export interface LessonsIpcDeps {
   userData?: () => string;
 }
 
+/** Registers the lessons:* channels. */
 export function registerLessonsIpc(ipcMain: IpcMain, deps: LessonsIpcDeps): void {
   const folder = () => lessonsFolder((deps.userData ?? (() => app.getPath('userData')))());
   const translate = () => createTranslator(deps.language());

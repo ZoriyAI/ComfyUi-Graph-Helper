@@ -13,20 +13,24 @@ import { randomUUID } from 'crypto';
 import type { LessonDoc } from '../../shared/lessons/share/format';
 import type { LessonDraft } from '../../shared/lessons/share/mine';
 
+/** Drafts kept at once; the oldest goes first when a new one comes. */
 const MAX_DRAFTS = 20;
 
 /** The drafts of this run of the app, oldest first. */
 export class LessonDrafts {
   private readonly drafts = new Map<string, LessonDraft>();
 
+  /** Keeps a new draft under a fresh id and returns it. */
   add(doc: LessonDoc, triedWith: LessonDraft['triedWith'], now = Date.now()): LessonDraft {
     const draft: LessonDraft = { id: randomUUID(), doc, createdAt: now, triedWith };
     this.put(draft);
     return draft;
   }
 
+  /** Keeps a draft as it is (also one put back after a failed accept), dropping the oldest past the cap. */
   put(draft: LessonDraft): void {
     this.drafts.set(draft.id, draft);
+    // A Map keeps insertion order, so its first key is the oldest draft.
     while (this.drafts.size > MAX_DRAFTS) this.drafts.delete(this.drafts.keys().next().value as string);
   }
 
@@ -42,4 +46,5 @@ export class LessonDrafts {
   }
 }
 
+/** The one store of the app; tests give the draft tool their own LessonDrafts. */
 export const lessonDrafts = new LessonDrafts();

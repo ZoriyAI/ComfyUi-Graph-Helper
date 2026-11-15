@@ -3,8 +3,8 @@
  * written atomically and readable by this user only. Files instead of a table: no migration, a lesson survives a
  * damaged database, and the person can see their lessons as files.
  *
- * Who uses it: the lessons IPC (lessonsIpc.ts) for list, import, save, remove and the adult mark, and the
- * assistant's draft tool when the person accepts a draft.
+ * Who uses it: only the lessons IPC (lessonsIpc.ts): list, import, save, remove and the adult mark, and the
+ * assistant's lesson draft once the person accepts it there.
  *
  * Why it is careful: everything here comes from files other people wrote. A file name in the profile is built
  * only from a lesson id the format allows (lower-case words and hyphens), never from a name in a file, so nothing
@@ -22,6 +22,7 @@ export function lessonsFolder(userData: string): string {
   return path.join(userData, 'lessons');
 }
 
+/** Makes the lessons folder, readable by this user only. */
 function ensureFolder(folder: string): void {
   fs.mkdirSync(folder, { recursive: true, mode: 0o700 });
 }
@@ -69,6 +70,7 @@ export function writeMyLesson(folder: string, lesson: MyLesson): void {
 /** Removes a lesson by its app id; false when there was none. */
 export function removeMyLesson(folder: string, id: string): boolean {
   const docId = docIdOf(id);
+  // The id comes from the window: only an id the lesson format allows can name a file.
   if (!docId || !/^[a-z0-9][a-z0-9-]*$/.test(docId)) return false;
   const file = fileOf(folder, docId);
   if (!fs.existsSync(file)) return false;
@@ -94,6 +96,7 @@ export function importDocs(folder: string, docs: LessonDoc[], options: { origin:
   const kept = listMyLessons(folder);
   const keptById = new Map(kept.map((lesson) => [lesson.doc.id, lesson]));
   const incoming = new Map(docs.map((doc) => [doc.id, doc]));
+  // A lesson may build on another: the one in this file wins over a stored one of the same id.
   const find = (docId: string) => incoming.get(docId) ?? keptById.get(docId)?.doc ?? null;
   for (const doc of docs) {
     const check = checkLessonDoc(doc, find);
