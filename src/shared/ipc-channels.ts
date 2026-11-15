@@ -44,6 +44,10 @@ export const IPC_CHANNELS = {
   JOURNEY_COMFY_KNOWN: 'journey:comfy-known',
   
   // Non-secret settings. Secret saves are rejected without a write.
+  BROWSER_STATUS: 'browser:status',
+  BROWSER_PAIR_CODE: 'browser:pair-code',
+  BROWSER_REVOKE: 'browser:revoke',
+  BROWSER_REFRESH: 'browser:refresh',
   SETTINGS_GET: 'settings:get',
   SETTINGS_SAVE: 'settings:save',
   SETTINGS_SAVE_VIEW: 'settings:save-view',

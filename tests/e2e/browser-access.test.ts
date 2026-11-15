@@ -1,0 +1,143 @@
+/** A temporary desktop profile and a real mobile Chromium browser share one project over loopback HTTP. */
+import { test, expect, _electron as electron, chromium } from '@playwright/test';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { createServer } from 'node:http';
+import { useEnglish } from './locale';
+import { startFakeLlm, FAKE_MODEL } from '../fixtures/llm/fakeLlmServer';
+import { readFile } from 'node:fs/promises';
+
+test('browser pairing, two-way edits, mobile panels, conflict and revocation use the desktop project', async () => {
+  test.setTimeout(90_000);
+  const llm = await startFakeLlm();
+  const profile = mkdtempSync(join(tmpdir(), 'nw-web-'));
+  const allocator = createServer();
+  await new Promise<void>((done) => allocator.listen(0, '127.0.0.1', done));
+  const port = (allocator.address() as { port: number }).port;
+  await new Promise<void>((done) => allocator.close(() => done()));
+  const env = { ...process.env, NODE_ENV: 'production' } as Record<string, string>;
+  delete env.DBUS_SESSION_BUS_ADDRESS; delete env.GNOME_KEYRING_CONTROL;
+  const desktop = await electron.launch({ args: [join(__dirname, '../../dist/main/index.js'), `--user-data-dir=${profile}`, '--test-provider=1'], env });
+  const browser = await chromium.launch({ channel: 'chromium' });
+  try {
+    const pc = await desktop.firstWindow();
+    await pc.setViewportSize({ width: 1440, height: 900 }); await useEnglish(pc);
+    await pc.evaluate(async ({ origin, model }) => {
+      const read = await window.electronAPI.getSettings();
+      if (read.source === 'corrupt') throw new Error('Fresh test settings are unreadable.');
+      return window.electronAPI.saveSettings({ ...read.values, provider: 'local', baseURL: `${origin}/v1`, model });
+    }, { origin: llm.origin, model: FAKE_MODEL });
+    await pc.reload(); await expect(pc.locator('.app-shell')).toBeVisible();
+    const disabledNotifications = await pc.evaluate(async () => {
+      let count = 0; const off = window.electronAPI.onBrowserRefresh(() => { count += 1; });
+      const current = await window.electronAPI.readProjection('desktop');
+      await window.electronAPI.commitCommand({ projectId: 'desktop', actor: 'manual', runId: null, actionId: 'disabled-notification', expectedRevisionId: current!.currentRevisionId, payload: { type: 'set-process', title: '', notes: '' } });
+      // Negative event assertion covers the host's bounded 100 ms coalescing window.
+      await new Promise((done) => setTimeout(done, 250)); off(); return count;
+    });
+    expect(disabledNotifications).toBe(0);
+    await pc.locator('.toolbar-settings').click();
+    const settings = pc.locator('[role="dialog"].settings-dialog');
+    await settings.getByRole('tab', { name: 'Browser access', exact: true }).click({ timeout: 5000 });
+    await settings.getByRole('switch', { name: 'Allow access from a browser' }).click();
+    await settings.getByLabel('Network interface', { exact: true }).click();
+    await pc.getByRole('option', { name: /127\.0\.0\.1/ }).click();
+    await settings.getByLabel('Port', { exact: true }).fill(String(port));
+    await settings.locator('.settings-save').click();
+    await expect(settings).toBeHidden();
+    await pc.locator('.toolbar-settings').click();
+    await settings.getByRole('tab', { name: 'Browser access', exact: true }).click();
+    await expect(settings.getByTestId('browser-access-url')).toHaveText(`http://127.0.0.1:${port}`);
+    await settings.getByRole('button', { name: 'Connect a device', exact: true }).click();
+    const code = await settings.getByTestId('browser-pair-code').innerText();
+    await expect(settings.getByAltText('Connection QR code')).toBeVisible();
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, locale: 'en-US', acceptDownloads: true });
+    // Exercise the HTTP LAN fallback even on secure loopback.
+    await context.addInitScript(() => { Object.defineProperty(crypto, 'randomUUID', { configurable: true, value: undefined }); });
+    const phone = await context.newPage();
+    const errors: string[] = []; phone.on('pageerror', (error) => errors.push(error.message));
+    await phone.goto(`http://127.0.0.1:${port}`);
+    await phone.getByLabel('Code on the computer').fill(code);
+    await phone.getByRole('button', { name: 'Connect', exact: true }).click();
+    await expect(phone.locator('.app-shell')).toBeVisible();
+    await expect(phone.getByRole('button', { name: 'Canvas', exact: true })).toBeVisible();
+    await phone.getByRole('button', { name: 'Ask the assistant', exact: true }).click();
+    await expect(phone.locator('#tool-dock')).toBeVisible();
+    await phone.getByRole('button', { name: 'Canvas', exact: true }).click();
+    await expect.poll(() => phone.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    const initial = await phone.evaluate(() => window.electronAPI.readProjection('desktop'));
+    expect(initial).toBeTruthy();
+    // Main command core, with the same revision as a renderer command, not a fixture projection.
+    const first = await pc.evaluate(async () => {
+      const current = await window.electronAPI.readProjection('desktop');
+      return window.electronAPI.commitCommand({ projectId: 'desktop', actor: 'manual', runId: null, actionId: 'pc-title', expectedRevisionId: current!.currentRevisionId, payload: { type: 'set-process', title: 'From computer', notes: '' } });
+    });
+    expect(first.status).toBe('applied');
+    await expect.poll(() => phone.evaluate(() => window.electronAPI.readProjection('desktop').then((p) => (p!.snapshot.process as { title: string }).title))).toBe('From computer');
+    await expect(phone.locator('.project-chip')).toContainText('From computer');
+    const conflict = await phone.evaluate((revision) => window.electronAPI.commitCommand({ projectId: 'desktop', actor: 'manual', runId: null, actionId: 'stale-phone', expectedRevisionId: revision, payload: { type: 'set-process', title: 'Stale', notes: '' } }), initial!.currentRevisionId);
+    expect(conflict.status).toBe('conflict');
+    const second = await phone.evaluate(async () => {
+      const current = await window.electronAPI.readProjection('desktop');
+      return window.electronAPI.commitCommand({ projectId: 'desktop', actor: 'manual', runId: null, actionId: crypto.randomUUID(), expectedRevisionId: current!.currentRevisionId, payload: { type: 'set-process', title: 'From phone', notes: '' } });
+    });
+    expect(second.status).toBe('applied');
+    await settings.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await expect(pc.locator('.project-chip')).toContainText('From phone');
+    await phone.getByRole('navigation', { name: 'Workspace panels' }).getByRole('button', { name: 'Assistant', exact: true }).click();
+    await expect(phone.locator('#tool-dock')).toBeVisible();
+    const input = phone.locator('textarea[aria-label="Chat message"]');
+    await input.fill('explain the graph from my phone'); await input.press('Enter');
+    await expect(phone.getByText('A plain answer: the sampler removes noise.', { exact: true })).toBeVisible({ timeout: 20_000 });
+    await expect(pc.getByText('A plain answer: the sampler removes noise.', { exact: true })).toBeVisible();
+    await expect(phone.locator('.graph-pane')).toBeHidden();
+    await phone.getByRole('button', { name: 'Library', exact: true }).click();
+    await expect(phone.locator('#library-rail')).toBeVisible();
+    await phone.getByRole('button', { name: 'Canvas', exact: true }).click();
+    await expect(phone.locator('.graph-pane')).toBeVisible();
+    const downloaded = phone.waitForEvent('download');
+    await phone.evaluate(() => window.electronAPI.saveProjectFile());
+    const savedFile = await downloaded;
+    expect(savedFile.suggestedFilename()).toBe('project.nodewise.json');
+    const bytes = await readFile((await savedFile.path())!);
+    expect(bytes.toString()).toContain('From phone');
+    const choosing = phone.waitForEvent('filechooser');
+    const opened = phone.evaluate(() => window.electronAPI.openProject());
+    const chooser = await choosing;
+    await chooser.setFiles({ name: 'project.nodewise.json', mimeType: 'application/json', buffer: bytes });
+    expect((await opened).status).toBe('applied');
+    await phone.reload();
+    await expect(phone.locator('.app-shell')).toBeVisible();
+    await expect(phone.locator('.project-chip')).toContainText('From phone');
+    await phone.screenshot({ path: test.info().outputPath('phone.png') });
+    await phone.getByRole('navigation', { name: 'Workspace panels' }).getByRole('button', { name: 'Assistant', exact: true }).click();
+    await phone.screenshot({ path: test.info().outputPath('phone-chat.png') });
+    await phone.setViewportSize({ width: 844, height: 390 });
+    await expect(phone.getByRole('navigation', { name: 'Workspace panels' })).toBeVisible();
+    await expect.poll(() => phone.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await phone.setViewportSize({ width: 390, height: 844 });
+    await phone.locator('.toolbar-settings').click();
+    const phoneSettings = phone.locator('[role="dialog"].settings-dialog');
+    await expect(phoneSettings).toBeVisible();
+    await expect(phoneSettings.locator('.settings-nav')).toHaveAttribute('aria-orientation', 'horizontal');
+    expect(await phoneSettings.locator('.settings-nav').evaluate((element) => element.getBoundingClientRect().height)).toBeLessThan(80);
+    await expect.poll(() => phoneSettings.evaluate((element) => element.getBoundingClientRect().width <= innerWidth)).toBe(true);
+    await phone.screenshot({ path: test.info().outputPath('phone-settings.png') });
+    await phoneSettings.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await pc.locator('.toolbar-settings').click();
+    await settings.getByRole('tab', { name: 'Browser access', exact: true }).click();
+    await settings.getByRole('button', { name: 'Disconnect', exact: true }).click();
+    await phone.reload();
+    await expect(phone.getByLabel('Code on the computer')).toBeVisible();
+    await settings.getByRole('switch', { name: 'Allow access from a browser' }).click();
+    await settings.locator('.settings-save').click();
+    await expect(settings).toBeHidden();
+    await pc.locator('.toolbar-settings').click();
+    await settings.getByRole('tab', { name: 'Browser access', exact: true }).click();
+    await expect(settings.getByTestId('browser-access-status')).toHaveText('Off');
+    expect(errors).toEqual([]);
+  } finally {
+    await browser.close(); await desktop.close(); await llm.close(); rmSync(profile, { recursive: true, force: true });
+  }
+});

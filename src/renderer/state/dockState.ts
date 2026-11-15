@@ -5,6 +5,7 @@
  * canvas, the library, services/ask.ts, the command dialogs); state/frame.ts and viewMemory.ts keep it in balance
  * and remembered.
  */
+import { WORKSPACE_PANEL } from '../commands/events';
 import { create } from 'zustand';
 
 /** Single-tab dock width range (px). */
@@ -71,13 +72,16 @@ export const useDockStore = create<DockUi>((set) => ({
     return { split, collapsed: split ? false : state.collapsed, width };
   }),
   setWidth: (width) => set({ width }),
-  show: (tab) => set((state) => {
-    const range = dockRange(false, window.innerWidth);
-    return {
-      collapsed: false,
-      split: false,
-      tab: normalizeDockTab(tab),
-      width: Math.min(range.max, Math.max(range.min, state.width)),
-    };
-  }),
+  show: (tab) => {
+    if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function' && typeof CustomEvent !== 'undefined') window.dispatchEvent(new CustomEvent(WORKSPACE_PANEL, { detail: normalizeDockTab(tab) === 'assistant' ? 'assistant' : 'properties' }));
+    set((state) => {
+      const range = dockRange(false, window.innerWidth);
+      return {
+        collapsed: false,
+        split: false,
+        tab: normalizeDockTab(tab),
+        width: Math.min(range.max, Math.max(range.min, state.width)),
+      };
+    });
+  },
 }));

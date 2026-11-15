@@ -11,7 +11,7 @@ import { cx } from '../../../ui/cx';
 import styles from '../SettingsPanel.module.css';
 
 /** Sections whose fields are a flat object (everything except providers and shortcuts). */
-export type FlatSection = 'assistant' | 'sync' | 'canvas' | 'appearance' | 'privacy' | 'network';
+export type FlatSection = 'assistant' | 'sync' | 'canvas' | 'appearance' | 'privacy' | 'network' | 'browserAccess';
 
 /** What every section edits: the draft row and the draft preferences. Nothing is written until Save. */
 export interface DraftProps {

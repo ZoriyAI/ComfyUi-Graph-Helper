@@ -2,10 +2,14 @@
  * The IPC setup of the main process: setupIPC (called once by main/index.ts after the database opens) holds the
  * saved keys and tokens again, applies the network settings, registers every area's handlers (ipc/*.ts) and
  * itself handles files, settings, keys and tokens, the MCP connection, graph commands and the model settings.
- * Every handler goes through guardedIpcMain, so only the app's own page can call it; keys and tokens never go back
- * to the renderer, which gets statuses only.
+ * Native calls go through guardedIpcMain. Optional paired browser access reuses reviewed domain handlers through
+ * a separate method allowlist; keys and tokens never go back to either renderer, which gets statuses only.
  */
 import { ipcMain as rawIpcMain, app, BrowserWindow, dialog, safeStorage } from 'electron';
+import { applyBrowserAccess } from './browser/runtime';
+import { browserChanged, registerBrowserOperation } from './browser/registry';
+import { apiPromptToWorkflow, isApiPromptDocument } from '../shared/workflow/apiPrompt';
+import { readOpenedBytes } from './files/openFile';
 import { guardedIpcMain } from './ipc/guard';
 import { randomUUID } from 'crypto';
 import * as fs from 'fs';
@@ -56,7 +60,7 @@ import { cancelRun, closeRun, commitCommand, pauseRun, readProjection, resumeRun
 import { DESKTOP_PROJECT_ID } from '../shared/project';
 import { assertObjectInfoSize, ObjectInfoError, parseObjectInfo } from '../shared/catalog/objectInfo';
 import { bumpCatalogRevision, readCatalog, upsertObjectInfo } from './catalog/repository';
-import { nativeProjectFile, openNativeFile } from './ipc/projectFile';
+import { nativeProjectFile, openNativeFile, openNativeFileAt } from './ipc/projectFile';
 import { defaultSavePaths, projectContentDigest, projectFileState, rememberProjectFile, withFileExtension } from './projectFiles';
 import { exportWorkflow, type GraphSnapshot } from '../shared/workflow/codec';
 import { createTranslator, fileDialogCopy, languageOf } from '../shared/i18n';
@@ -244,6 +248,40 @@ export async function setupIPC(): Promise<void> {
   // File operations
   // Every way of opening a file ends in openFileAtPath (ipc/openIpc.ts): one recognition, one commit, one follow-up.
   registerOpenIpc(ipcMain, { importWorkflow: importWorkflowDocument, openProject: openNativeDocument });
+  registerBrowserOperation('browserImport', (args) => {
+    const [name, encoded, expectedRevisionId, actionId] = args;
+    if (typeof name !== 'string' || name.length > 200 || typeof encoded !== 'string' || encoded.length > 16 * 1024 * 1024 || !/^[A-Za-z0-9+/]*={0,2}$/.test(encoded)) throw new Error('Invalid file.');
+    if (typeof expectedRevisionId !== 'string' || typeof actionId !== 'string' || actionId.length > 200) throw new Error('Invalid request.');
+    const file = readOpenedBytes(name, Buffer.from(encoded, 'base64'));
+    const document = file.kind === 'workflow' && isApiPromptDocument(file.document) ? apiPromptToWorkflow(file.document as never, readCatalog(getDatabase())) : file.document;
+    // The revision is captured before choosing a file on the phone. A later host edit must conflict.
+    const response = file.kind === 'project'
+      ? openNativeDocumentAt(document, expectedRevisionId, actionId)
+      : commitCommand(getDatabase(), { projectId: DESKTOP_PROJECT_ID, expectedRevisionId, actionId, actor: 'manual', runId: null, payload: { type: 'import-workflow', document } });
+    browserChanged();
+    return { ...response, opened: { kind: file.kind, from: file.kind === 'project' ? 'json' : file.from, name: path.basename(name) } };
+  });
+  registerBrowserOperation('browserImportCatalog', (args) => {
+    if (typeof args[0] !== 'string') throw new Error('Invalid catalog.');
+    try {
+      assertObjectInfoSize(Buffer.byteLength(args[0]));
+      const parsed = parseObjectInfo(JSON.parse(args[0]));
+      const db = getDatabase();
+      const result = db.transaction(() => { const imported = upsertObjectInfo(db, parsed); bumpCatalogRevision(db); return imported; }).immediate();
+      syncService.notify(db);
+      return { status: 'applied', result };
+    } catch { return { status: 'rejected', error: 'Catalog snapshot could not be read.' }; }
+  });
+  registerBrowserOperation('browserProjectDocument', (args) => {
+    const built = nativeProjectDocument();
+    if (!built.ok) return built;
+    return guardSecrets(built.project, args[0]);
+  });
+  registerBrowserOperation('browserWorkflowExport', (args) => {
+    const built = exportWorkflowDocument();
+    if (!built.ok) return built;
+    return guardSecrets(built.workflow, args[0]);
+  });
   ipcMain.handle(IPC_CHANNELS.FILE_IMPORT_WORKFLOW, async () => {
     const copy = dialogCopy().importWorkflow;
     const result = await dialog.showOpenDialog({
@@ -376,7 +414,7 @@ export async function setupIPC(): Promise<void> {
 
   ipcMain.handle(IPC_CHANNELS.SETTINGS_SAVE_VIEW, (_event, patch: unknown) => saveViewPreferences(getDatabase(), patch));
 
-  ipcMain.handle(IPC_CHANNELS.SETTINGS_SAVE, (_event, input: unknown) => {
+  ipcMain.handle(IPC_CHANNELS.SETTINGS_SAVE, async (_event, input: unknown) => {
     const before = savedEndpoints();
     const result = saveSettings(getDatabase(), input);
     if (result.ok) {
@@ -394,6 +432,7 @@ export async function setupIPC(): Promise<void> {
         syncService.addressChanged(getDatabase());
         clearPreviewsForNewAddress();
       }
+      await applyBrowserAccess();
       reseedCoreKnowledge(getDatabase(), result.values.language);
       void applyNetworkSettings(getDatabase());
       mainLLMService.setConfig({
@@ -783,4 +822,9 @@ function nativeProjectDocument() {
 /** Opens a read project file document onto the canvas. */
 function openNativeDocument(document: unknown) {
   return openNativeFile(getDatabase(), DESKTOP_PROJECT_ID, document);
+}
+
+/** Browser opens retain the revision captured before the asynchronous file picker. */
+function openNativeDocumentAt(document: unknown, revision: string, actionId: string) {
+  return openNativeFileAt(getDatabase(), DESKTOP_PROJECT_ID, document, revision, actionId);
 }

@@ -7,6 +7,7 @@
 import type { IpcMain, IpcMainInvokeEvent } from 'electron';
 import { pathToFileURL } from 'url';
 import { log } from '../log';
+import { browserChanged, captureBrowserHandler } from '../browser/registry';
 
 /** The fixed error a refused sender gets; the handler never runs. */
 export const UNTRUSTED_SENDER_ERROR = 'The request did not come from the app window.';
@@ -69,12 +70,19 @@ function senderUrl(event: Pick<IpcMainInvokeEvent, 'senderFrame'>): string {
 
 /** Wraps one handler with the sender check. A refusal is logged with the channel and the sender's URL. */
 export function guardHandler<T extends Handler>(handler: T, channel = 'unknown'): Handler {
+  captureBrowserHandler(channel, handler);
   return (event, ...args) => {
     if (!isTrustedSender(event)) {
       log.warn(`[IPC] Refused ${channel}: sender ${senderUrl(event)} is not the app window`);
       throw new Error(UNTRUSTED_SENDER_ERROR);
     }
-    return handler(event, ...args);
+    const value = handler(event, ...args);
+    // Notify only settled mutations; readers cannot create a refresh loop.
+    if (/^(command:(?!read-)|chat:(?:save|clear)|knowledge:(?:save|delete)|lessons:(?:save|remove|import|draft-resolve)|settings:save$|file:(?:open|import))/.test(channel)) {
+      if (value && typeof (value as Promise<unknown>).then === 'function') return Promise.resolve(value).then((result) => { browserChanged(channel.startsWith('knowledge:')); return result; });
+      browserChanged(channel.startsWith('knowledge:'));
+    }
+    return value;
   };
 }
 

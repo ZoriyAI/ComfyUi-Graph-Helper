@@ -46,6 +46,7 @@ function openDb(): Database.Database {
 describe('preferences schema', () => {
   it('fills every section with its defaults', () => {
     expect(preferencesDefaults).toEqual({
+      browserAccess: { enabled: false, address: '', port: 8787 },
       assistant: { defaultIntent: 'ask', maxStepsPerTurn: 60, contextTokens: 0, allowWebSearch: true, allowFetchPage: true, answerLanguage: 'ui', verbosity: 'short' },
       providers: {
         openai: { model: '', baseURL: '' },

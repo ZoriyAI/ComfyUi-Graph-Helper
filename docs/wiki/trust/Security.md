@@ -36,6 +36,10 @@ If the keychain does not open, see [Troubleshooting](../reference/Troubleshootin
 - It loads nothing from the internet: a content security policy allows only the app's own files.
 - The packaged app cannot be started as a plain Node.js program and loads its code only from its own package.
 
+## Browser access over Wi-Fi
+
+Optional [browser access](../start/Browser-Access.md) is off by default. The host listens only on the address and port you choose. A short code on the computer pairs a browser, and a separate allowlist limits its operations. The browser uses the current desktop project; it cannot name an arbitrary computer file or retrieve provider keys. You can revoke it in Settings. HTTP requires a trusted network because it does not encrypt traffic.
+
 ## Keys of other services in a graph
 
 Before a project or a workflow is written, every field of every node is looked at. Besides the keys of the model

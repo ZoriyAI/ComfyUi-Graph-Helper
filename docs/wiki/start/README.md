@@ -15,6 +15,7 @@ What the app is, getting ComfyUI and the app, the first hour, updating and remov
 - [Updating](Updating.md): Installing a new version; what is kept.
 - [Removing](Removing.md): Removing the app and, if you want, its data.
 - [Questions and answers](FAQ.md): Short answers to common questions.
+- [Browser access over Wi-Fi](Browser-Access.md): Open the running app from a phone or tablet.
 
 ## See also
 

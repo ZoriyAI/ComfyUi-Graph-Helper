@@ -201,7 +201,13 @@ export function embeddedWorkflow(bytes: Buffer): unknown {
 export function readOpenedFile(filePath: string): OpenedFile {
   if (fs.statSync(filePath).size > OPEN_FILE_MAX_BYTES) throw new FileTooLargeError();
   const bytes = fs.readFileSync(filePath);
-  const extension = path.extname(filePath).slice(1).toLowerCase();
+  return readOpenedBytes(path.basename(filePath), bytes);
+}
+
+/** Recognises an uploaded file with exactly the same bounded metadata parser as desktop files. */
+export function readOpenedBytes(name: string, bytes: Buffer): OpenedFile {
+  if (bytes.length > OPEN_FILE_MAX_BYTES) throw new FileTooLargeError();
+  const extension = path.extname(name).slice(1).toLowerCase();
   // A JSON file saved with another extension is still read as JSON when its text starts with '{'.
   const head = withoutBom(bytes.subarray(0, 64).toString('utf8')).trimStart();
   if (extension === 'json' || head.startsWith('{')) {

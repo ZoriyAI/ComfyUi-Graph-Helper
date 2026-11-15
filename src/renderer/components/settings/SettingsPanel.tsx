@@ -40,6 +40,7 @@ import CanvasSection from './sections/CanvasSection';
 import AppearanceSection from './sections/AppearanceSection';
 import ShortcutsSection from './sections/ShortcutsSection';
 import PrivacySection from './sections/PrivacySection';
+import BrowserAccessSection from './sections/BrowserAccessSection';
 import AboutSection from './sections/AboutSection';
 import { fieldClass, hintClass, patchSection, rowClass, SectionHead, type DraftProps } from './sections/common';
 import { SETTINGS_SECTIONS, useUiStore, type SettingsSection } from '../../state/uiState';
@@ -83,6 +84,7 @@ const FIELD_SECTION: Record<SettingsField, SettingsSection> = {
 /** The label and icon of each section in the left list; the order comes from SETTINGS_SECTIONS. */
 const SECTION_META: Record<SettingsSection, { labelKey: string; icon: LucideIcon }> = {
   assistant: { labelKey: 'preferences.nav.assistant', icon: Bot },
+  browserAccess: { labelKey: 'browser.title', icon: Plug },
   connection: { labelKey: 'preferences.nav.connection', icon: Plug },
   sync: { labelKey: 'preferences.nav.sync', icon: RefreshCw },
   canvas: { labelKey: 'preferences.nav.canvas', icon: LayoutGrid },
@@ -127,6 +129,12 @@ export default function SettingsPanel({
   trigger?: React.ReactElement;
 }) {
   const { t } = useTranslation();
+  const [compact, setCompact] = useState(() => window.matchMedia('(max-width: 700px), (max-width: 1000px) and (pointer: coarse)').matches);
+  useEffect(() => {
+    const resized = () => setCompact(window.matchMedia('(max-width: 700px), (max-width: 1000px) and (pointer: coarse)').matches);
+    window.addEventListener('resize', resized);
+    return () => window.removeEventListener('resize', resized);
+  }, []);
   const translate: Translator = (key, options) => (options ? String(t(key, options)) : String(t(key)));
   const savedRef = useRef<NonSecretSettings>(nonSecretDefaults);
   const savedPrefsRef = useRef<Preferences>(parsePreferences({}));
@@ -306,6 +314,11 @@ export default function SettingsPanel({
 
   /** The field that keeps the draft from saving: its section opens and the field takes focus. */
   const showProblem = () => {
+    const access = prefs.browserAccess;
+    if (!Number.isInteger(access.port) || access.port < 1024 || access.port > 65535 || (access.enabled && !access.address)) {
+      setSection('browserAccess'); setNote({ kind: 'key', key: 'browser.invalidConfig' });
+      return;
+    }
     const field = firstProblem ?? problems[0];
     if (!field) return;
     setSection(FIELD_SECTION[field]);
@@ -431,7 +444,7 @@ export default function SettingsPanel({
           <TabsRoot
             value={section}
             onValueChange={(next) => setSection(next as SettingsSection)}
-            orientation="vertical"
+            orientation={compact ? 'horizontal' : 'vertical'}
             className={cx(styles.layout, 'settings-layout')}
           >
             <TabsList className={cx(styles.nav, 'settings-nav')} aria-label={String(t('settings.sections'))} tabIndex={-1}>
@@ -447,6 +460,7 @@ export default function SettingsPanel({
             </TabsList>
             {panel('assistant', <AssistantSection {...draft} onSession={(sources) => onSessionRef.current(sources)} />)}
             {panel('connection', <ConnectionSection {...draft} />)}
+            {panel('browserAccess', <BrowserAccessSection {...draft} />)}
             {panel('sync', (
               <>
                 <SectionHead title={String(t('settings.sync'))} lead={String(t('preferences.lead.sync'))} />

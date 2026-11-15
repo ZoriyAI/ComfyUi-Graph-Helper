@@ -20,6 +20,8 @@ import '@fontsource/geist-mono/cyrillic-600.css';
 import './theme/tokens.css';
 import './theme.css';
 import App from './App';
+import Pairing from './browser/Pairing';
+import { installBrowserBridge } from './browser/bridge';
 import { i18n, startI18n } from './i18n';
 import MotionRoot from './motion/MotionRoot';
 import { HintProvider } from './ui/Hint';
@@ -49,6 +51,16 @@ const root = ReactDOM.createRoot(
 );
 
 async function boot() {
+  if (!window.electronAPI) {
+    startI18n(navigator.language.startsWith('ru') ? 'ru' : 'en');
+    let response = await fetch('/browser/bootstrap');
+    if (!response.ok) {
+      await new Promise<void>((done) => root.render(<I18nextProvider i18n={i18n}><Pairing onConnected={done} /></I18nextProvider>));
+      response = await fetch('/browser/bootstrap');
+    }
+    if (!response.ok) throw new Error('Browser connection failed.');
+    await installBrowserBridge(await response.json());
+  }
   // Russian is the product's first language; it is also what shows when the settings cannot be read.
   let language: AppLanguage = 'ru';
   try {

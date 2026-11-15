@@ -8,3 +8,6 @@
 
 /** Fired after a settings change was saved outside the form (menu, provider choice), so an open form re-reads it. */
 export const SETTINGS_CHANGED = 'helper:settings-changed';
+
+/** An explicit panel opening, including actions outside the compact navigation. */
+export const WORKSPACE_PANEL = 'workspace:panel';

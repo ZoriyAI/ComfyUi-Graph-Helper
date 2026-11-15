@@ -117,6 +117,11 @@ const int = (range: { min: number; max: number; default: number }) => z.number()
 
 /** The whole preferences object, section by section. `strict`: an unknown section is refused on write. */
 export const preferencesSchema = z.object({
+  browserAccess: z.object({
+    enabled: z.boolean().default(false),
+    address: z.string().max(80).regex(/^[0-9a-fA-F:.]*$/).default(''),
+    port: z.number().int().min(1024).max(65535).default(8787),
+  }).prefault({}),
   assistant: z.object({
     /** ask: suggestions appear as ghosts first; build: the helper builds directly unless asked to suggest. */
     defaultIntent: z.enum(['ask', 'build']).default('ask'),

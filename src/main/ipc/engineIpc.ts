@@ -3,6 +3,7 @@
  * Registered once from setupIPC in ipc.ts; the renderer reaches it through the preload's proposals and revision calls.
  * Every request is checked against a schema here, because the renderer is not trusted with database ids.
  */
+import { publishBrowserEvent } from '../browser/registry';
 import type { IpcMain } from 'electron';
 import type Database from 'better-sqlite3';
 import { z } from 'zod';
@@ -59,6 +60,7 @@ export function engineHandlers(getDb: () => Database.Database) {
 
 /** Sends an event to every open window. */
 function broadcast(channel: string, payload: unknown): void {
+  publishBrowserEvent(channel, payload);
   // Loaded lazily so this module can be imported where Electron is not running.
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const { BrowserWindow } = require('electron') as typeof import('electron');

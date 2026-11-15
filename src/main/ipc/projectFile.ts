@@ -38,6 +38,11 @@ export function nativeProjectFile(db: Database.Database, projectId: string) {
 
 /** "Open project": one commit that replaces the graph; its explanations come back with it (explanationsAfterCommit). */
 export function openNativeFile(db: Database.Database, projectId: string, document: unknown) {
+  return openNativeFileAt(db, projectId, document);
+}
+
+/** Opens a validated native document on an optional previously captured revision, preserving conflict rules. */
+export function openNativeFileAt(db: Database.Database, projectId: string, document: unknown, expectedRevisionId?: string, actionId?: string) {
   const parsed = parseNativeProject(document);
   if (!parsed.ok) {
     return { status: 'rejected' as const, projection: readProjection(db, projectId), result: { error: parsed.error } };
@@ -46,8 +51,8 @@ export function openNativeFile(db: Database.Database, projectId: string, documen
   if (!current) return { status: 'rejected' as const, projection: null, result: { error: 'Project is not ready.' } };
   return commitCommand(db, {
     projectId,
-    actionId: `open-native-${randomUUID()}`,
-    expectedRevisionId: current.currentRevisionId,
+    actionId: actionId ?? `open-native-${randomUUID()}`,
+    expectedRevisionId: expectedRevisionId ?? current.currentRevisionId,
     actor: 'manual',
     runId: null,
     payload: { type: 'open-native', project: parsed.project },

@@ -91,6 +91,10 @@ const IPC_CHANNELS = {
   LLM_SESSION_STATUS: 'llm:session-status',
   LLM_STREAM_CHAT: 'llm:stream-chat',
   LLM_CANCEL: 'llm:cancel',
+  BROWSER_STATUS: 'browser:status',
+  BROWSER_PAIR_CODE: 'browser:pair-code',
+  BROWSER_REVOKE: 'browser:revoke',
+  BROWSER_REFRESH: 'browser:refresh',
   SETTINGS_GET: 'settings:get',
   SETTINGS_SAVE: 'settings:save',
   SETTINGS_SAVE_VIEW: 'settings:save-view',
@@ -280,6 +284,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   loadProject: (id: string) => ipcRenderer.invoke(IPC_CHANNELS.DB_LOAD_PROJECT, id),
   listProjects: () => ipcRenderer.invoke(IPC_CHANNELS.DB_LIST_PROJECTS),
 
+  browserAccessStatus: () => ipcRenderer.invoke(IPC_CHANNELS.BROWSER_STATUS),
+  browserPairingCode: () => ipcRenderer.invoke(IPC_CHANNELS.BROWSER_PAIR_CODE),
+  browserRevoke: (id: string) => ipcRenderer.invoke(IPC_CHANNELS.BROWSER_REVOKE, id),
+  onBrowserRefresh: (listener: (notice?: { knowledgeChanged?: boolean }) => void) => {
+    const handler = (_event: unknown, notice?: { knowledgeChanged?: boolean }) => listener(notice);
+    ipcRenderer.on(IPC_CHANNELS.BROWSER_REFRESH, handler);
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.BROWSER_REFRESH, handler);
+  },
   getSettings: () => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_GET),
   saveSettings: (input: unknown) => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SAVE, input),
   /** How the window was left (preferences.view) only; the rest of the settings row is not touched. */
@@ -535,6 +547,11 @@ export interface OpenResponse {
 
 /** window.electronAPI as the renderer sees it; it must match the object exposed above. */
 export interface ElectronAPI {
+  /** Host-only listener controls and shared-project change notifications. */
+  browserAccessStatus: () => Promise<import('../shared/browser/contracts').BrowserAccessStatus>;
+  browserPairingCode: () => Promise<{ code: string; expiresAt: number }>;
+  browserRevoke: (id: string) => Promise<{ ok: boolean }>;
+  onBrowserRefresh: (listener: (notice?: { knowledgeChanged?: boolean }) => void) => () => void;
   platform: string;
   /** Sets the size of the whole interface (1 = normal, 2 = twice as large). */
   setInterfaceScale: (factor: number) => void;

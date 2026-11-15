@@ -5,3 +5,19 @@
 .shell { height: 100vh; display: flex; flex-direction: column; background: var(--surface-canvas); color: var(--text); }
 .body { flex: 1 1 auto; display: flex; min-height: 0; min-width: 0; }
 .canvas { position: relative; flex: 1 1 auto; min-width: 0; min-height: 0; background: var(--surface-canvas); }
+
+/* Dynamic viewport includes mobile browser bars and the on-screen keyboard. */
+.shell { height: 100dvh; }
+.mobileNav { display: none; }
+@media (max-width: 700px), (max-width: 1000px) and (pointer: coarse) {
+  .shell { padding-bottom: env(safe-area-inset-bottom); }
+  .body > :global(.rail), .body > :global(.graph-pane), .body > :global(.dock), .body > :global(.tool-separator), .body > :global(.dock-strip) { display: none; }
+  .shell[data-mobile-panel="canvas"] .canvas { display: block; width: 100%; }
+  .shell[data-mobile-panel="library"] :global(#library-rail) { display: flex; width: 100% !important; flex: 1; }
+  .shell[data-mobile-panel="library"] :global(#library-rail) > div { width: 100%; }
+  .shell[data-mobile-panel="assistant"] :global(#tool-dock), .shell[data-mobile-panel="properties"] :global(#tool-dock) { display: flex; width: 100% !important; flex: 1; }
+  .body :global(.tool-separator) { display: none; }
+  .mobileNav { display: flex; flex-shrink: 0; justify-content: space-around; gap: 2px; padding: 4px; border-top: 1px solid var(--border); background: var(--surface-panel); }
+  .mobileNav button { min-height: 44px; padding: 6px; font-size: var(--text-xs); }
+  .mobileNav button[aria-pressed="true"] { color: var(--accent); background: var(--accent-wash); }
+}

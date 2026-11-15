@@ -99,3 +99,11 @@
 .helper[data-key="session"]::after { background: var(--surface-raised); box-shadow: 0 0 0 2px var(--surface-raised), inset 0 0 0 1.5px var(--ok); }
 .helper[data-key="test"]::after { background: var(--ai); }
 .helper[data-key="missing"]::after { background: var(--danger-strong); }
+
+@media (max-width: 700px), (max-width: 1000px) and (pointer: coarse) {
+  .toolbar { height: 44px; overflow-x: auto; overscroll-behavior-x: contain; }
+  .tool { min-width: 40px; min-height: 40px; }
+  .project { display: none; }
+  .helper { display: none; }
+  .spacer { min-width: 0; }
+}

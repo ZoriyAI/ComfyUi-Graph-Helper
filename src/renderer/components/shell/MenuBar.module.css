@@ -54,3 +54,9 @@
 .indicator { color: var(--accent); }
 .subChevron { margin-left: auto; color: var(--text-dim); flex: 0 0 auto; }
 .item[data-state="open"] { background: var(--surface-hover); }
+
+@media (max-width: 700px), (max-width: 1000px) and (pointer: coarse) {
+  .bar { overflow-x: auto; height: 40px; padding-left: 6px; }
+  .mark { display: none; }
+  .trigger { min-height: 36px; }
+}

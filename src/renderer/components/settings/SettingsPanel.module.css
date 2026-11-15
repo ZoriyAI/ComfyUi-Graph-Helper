@@ -240,3 +240,21 @@
 
 /* Settings ▸ Assistant ▸ the provider's key, right under the provider cards. */
 .keyPanel { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 10px; padding: 12px 14px; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--surface-overlay); box-shadow: var(--highlight-top); }
+
+.browserConnection { display: flex; flex-direction: column; gap: 8px; }
+.browserConnection p { margin: 0; overflow-wrap: anywhere; }
+.browserConnection a { color: var(--accent); }
+.pairCode { display: flex; flex-direction: column; gap: 6px; }
+.pairCode strong { font-family: var(--font-mono); font-size: var(--text-xl); letter-spacing: .25em; }
+.browserDevices { list-style: none; padding: 0; margin: 0; }
+.browserDevices li { display: flex; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.browserDevices li span { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: var(--text-sm); }
+@media (max-width: 700px), (max-width: 1000px) and (pointer: coarse) {
+  .dialog { width: calc(100vw - 16px); height: calc(100dvh - 16px); min-width: 0; min-height: 0; max-height: calc(100dvh - 16px); resize: none; }
+  .header { padding: 12px; }
+  .layout { flex-direction: column; }
+  .nav { flex: 0 0 auto; flex-direction: row; overflow-x: auto; padding: 4px; border-right: 0; border-bottom: 1px solid var(--border); }
+  .tab { flex: 0 0 auto; min-height: 44px; padding: 6px 8px; }
+  .panel { width: 100%; padding: 12px; }
+  .actions { padding: 8px 12px; }
+}

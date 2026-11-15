@@ -5,6 +5,7 @@
  * The order matters: nothing may open a file in the profile folder before the folder is settled and the lock held,
  * so most of this file runs at the top level, before app.whenReady.
  */
+import { setupBrowserAccess } from './browser/runtime';
 import { fileFromArgs, requestOpen } from './ipc/openIpc';
 import { app, BrowserWindow, dialog, Menu, net, protocol, screen, session, shell, type WebContents } from 'electron';
 import * as path from 'path';
@@ -387,6 +388,7 @@ app.whenReady().then(async () => {
     const settings = readSettings(getDatabase());
     log.info(`[Settings] Read source=${settings.source}${settings.source === 'corrupt' ? '' : ` provider=${settings.values.provider || 'none'} language=${settings.values.language}`}`);
     await setupIPC();
+    await setupBrowserAccess(bundleDir);
     // A workflow or project named on the command line opens once the window asks for it (ipc/openIpc.ts).
     requestOpen(fileFromArgs(process.argv, process.cwd()));
     logSyncRuns();

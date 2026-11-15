@@ -15,6 +15,8 @@ import { clearChatHistory, loadChatHistory, saveChatMessage } from '../agent/cha
 import type { RunContext } from '../agent/buildTools';
 import { mainLLMService } from '../llmService';
 import { log } from '../log';
+import { browserChanged, registerBrowserOperation } from '../browser/registry';
+import type { BrowserPeer } from '../browser/server';
 import { forgetConversationLinks } from '../agent/links';
 
 function settingsLanguage(): AppLanguage {
@@ -46,7 +48,7 @@ export function cancelTurns(senderId: number, runId?: unknown): number {
 }
 
 /** Aborts the turn when its window crashes, closes, or navigates away. Returns the cleanup. */
-function abortWithSender(sender: WebContents, controller: AbortController, onGone?: () => void): () => void {
+function abortWithSender(sender: Pick<WebContents, 'on' | 'removeListener'> | BrowserPeer, controller: AbortController, onGone?: () => void): () => void {
   const abort = () => {
     onGone?.();
     controller.abort();
@@ -61,21 +63,18 @@ function abortWithSender(sender: WebContents, controller: AbortController, onGon
 
 /** The assistant: llm:stream-chat, llm:cancel and chat history. */
 export function registerAgentIpc(ipcMain: IpcMain): void {
-  ipcMain.handle(
-    IPC_CHANNELS.LLM_STREAM_CHAT,
-    async (event, messages: unknown, toolSpecs: unknown, responseChannel: string, runContext: RunContext, context?: unknown) => {
-      const window = BrowserWindow.fromWebContents(event.sender);
-      if (!window) {
-        throw new Error('Window not found');
-      }
+  const runTurn = async (sender: WebContents | BrowserPeer, messages: unknown, toolSpecs: unknown, responseChannel: string, runContext: RunContext, context?: unknown) => {
       const send = (channel: string, payload: unknown) => {
-        if (!window.isDestroyed() && !event.sender.isDestroyed()) window.webContents.send(channel, payload);
+        if (!sender.isDestroyed()) sender.send(channel, payload);
+        // Agent commits bypass IPC; all devices still receive a settled-state notification.
+        const kind = (payload as { type?: unknown } | null)?.type;
+        browserChanged(kind === 'tool-result' || kind === 'done');
       };
-      const turn: LiveTurn = { controller: new AbortController(), senderId: event.sender.id, runId: String(runContext?.runId ?? '') };
+      const turn: LiveTurn = { controller: new AbortController(), senderId: sender.id, runId: String(runContext?.runId ?? '') };
       live.add(turn);
       // The window went away during the turn (closed in a pause or a build): the chat keeps a trace of it.
       let windowGone = false;
-      const release = abortWithSender(event.sender, turn.controller, () => { windowGone = true; });
+      const release = abortWithSender(sender, turn.controller, () => { windowGone = true; });
       // The log records which runtime ran the turn and how it ended; never the prompt or a key.
       const runtime = mainLLMService.nextSendConfig();
       const started = Date.now();
@@ -108,8 +107,17 @@ export function registerAgentIpc(ipcMain: IpcMain): void {
           reportInterruptedRun(getDatabase(), String(runContext.projectId), String(runContext.runId), settingsLanguage());
         }
       }
-    },
-  );
+    };
+  ipcMain.handle(IPC_CHANNELS.LLM_STREAM_CHAT, (event, ...args: [unknown, unknown, string, RunContext, unknown?]) => {
+    if (!BrowserWindow.fromWebContents(event.sender)) throw new Error('Window not found');
+    return runTurn(event.sender, ...args);
+  });
+  registerBrowserOperation('llmStreamChat', (args, peer) => {
+    if (typeof args[2] !== 'string' || !/^browser-stream-[a-zA-Z0-9-]{1,100}$/.test(args[2])) throw new Error('Invalid stream');
+    if ((args[3] as RunContext | null)?.projectId !== 'desktop') throw new Error('Unknown project');
+    return runTurn(peer, args[0], args[1], args[2], args[3] as RunContext, args[4]);
+  });
+  registerBrowserOperation('llmCancel', (args, peer) => ({ cancelled: cancelTurns(peer.id, args[0]) }));
 
   ipcMain.handle(IPC_CHANNELS.LLM_CANCEL, (event, runId?: unknown) => ({ cancelled: cancelTurns(event.sender.id, runId) }));
 

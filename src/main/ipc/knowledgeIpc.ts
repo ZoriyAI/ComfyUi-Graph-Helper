@@ -3,6 +3,7 @@
  * internet model lookup and the background catalog sync. Registered once from setupIPC in ipc.ts.
  * The handlers themselves live in knowledge/handlers.ts so tests can drive them without Electron.
  */
+import { publishBrowserEvent } from '../browser/registry';
 import * as path from 'node:path';
 import { app, BrowserWindow, type IpcMain } from 'electron';
 import { IPC_CHANNELS } from '../../shared/ipc-channels';
@@ -18,6 +19,7 @@ import { comfyPreviewSource, syncService } from '../mcp/sync';
 
 /** Pushes sync status to every open window. A window closing mid-send must not break the sync. */
 function broadcast(status: SyncStatus): void {
+  publishBrowserEvent(IPC_CHANNELS.SYNC_EVENT, status);
   let windows: BrowserWindow[] = [];
   try {
     windows = BrowserWindow.getAllWindows();

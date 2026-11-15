@@ -4,11 +4,14 @@
  * focus rescue, preferences, sync and proposal subscriptions, file opening) and loads the saved project, then
  * removes them on unmount so a remount in StrictMode does not install them twice.
  */
-import React, { forwardRef, useEffect } from 'react';
+import React, { forwardRef, useEffect, useState } from 'react';
 import { installFileOpening } from './commands/fileOpening';
 import JourneyHost from './components/journey/JourneyHost';
 import { Settings as SettingsIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { WORKSPACE_PANEL } from './commands/events';
+import BrowserConnection, { installSharedSession } from './browser/SharedSession';
+import { useDockStore } from './state/dockState';
 import GraphWorkspace from './components/graph/GraphWorkspace';
 import Dock from './components/shell/Dock';
 import MenuBar from './components/shell/MenuBar';
@@ -56,6 +59,12 @@ const SettingsButton = forwardRef<HTMLButtonElement, React.ButtonHTMLAttributes<
 /** The root component of the main window. */
 function App() {
   const { t } = useTranslation();
+  const [mobilePanel, setMobilePanel] = useState('canvas');
+  useEffect(() => {
+    const requested = (event: Event) => setMobilePanel((event as CustomEvent<string>).detail);
+    window.addEventListener(WORKSPACE_PANEL, requested);
+    return () => window.removeEventListener(WORKSPACE_PANEL, requested);
+  }, []);
   // Preferences ▸ Shortcuts may move or remove Mod+, ; the hint shows what the command has now.
   const settingsShortcut = useCommandState('file.settings').command?.shortcut;
 
@@ -69,6 +78,7 @@ function App() {
     const offFocusRescue = installFocusRescue();
     const offPreferences = installPreferences();
     const offFrame = installFrameBalance();
+    const offShared = installSharedSession();
     // Safe start: main may ask first whether to draw a graph the last start could not finish drawing.
     const offDraw = installDrawWatch();
     // Files dropped on the window and named on the command line (commands/fileOpening.ts).
@@ -83,6 +93,7 @@ function App() {
     });
     void refreshKeySources().catch(() => undefined);
     return () => {
+      offShared();
       offFiles();
       offDraw();
       offFrame();
@@ -115,9 +126,10 @@ function App() {
   );
 
   return (
-    <div className={cx(styles.shell, 'app-shell')}>
+    <div className={cx(styles.shell, 'app-shell')} data-mobile-panel={mobilePanel}>
       {/* Accessibility: one top heading for the window, so a screen reader's heading list starts at the app. */}
       <h1 className="sr-only">{t('shell.title')}</h1>
+      <BrowserConnection />
       <MenuBar />
       <Toolbar settings={settings} />
       <div className={cx(styles.body, 'app-body')}>
@@ -127,6 +139,13 @@ function App() {
         </main>
         <Dock onSendMessage={handleSendMessage} onPause={handlePause} />
       </div>
+      <nav className={styles.mobileNav} aria-label={String(t('browser.panels'))}>
+        {(['canvas', 'library', 'assistant', 'properties'] as const).map((panel) => <Button key={panel} aria-pressed={mobilePanel === panel} onClick={() => {
+          setMobilePanel(panel);
+          if (panel === 'library') useUiStore.getState().setRail(true);
+          if (panel === 'assistant' || panel === 'properties') useDockStore.getState().show(panel === 'assistant' ? 'assistant' : 'inspector');
+        }}>{t(panel === 'canvas' ? 'browser.canvas' : panel === 'library' ? 'browser.library' : panel === 'assistant' ? 'browser.assistant' : 'browser.properties')}</Button>)}
+      </nav>
       <StatusBar />
       <CommandDialogs />
       <ModelLogHost />
