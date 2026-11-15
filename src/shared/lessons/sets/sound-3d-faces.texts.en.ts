@@ -57,7 +57,7 @@ export const SOUND_3D_FACES_EN: Record<string, LessonWords> = {
       },
       negative: {
         title: 'An empty negative',
-        body: 'Add an {empty} node and connect the output of {text} to its `conditioning` input.\n\nThis model is not told what to avoid. The sampler still needs something in its `negative` input, and this node gives it the same description with everything set to zero.',
+        body: 'Add an {empty} node and connect the output of {text} to its `conditioning` input.\n\nThis model is not told what to avoid. The sampler still needs something in its `negative` input, and this node gives it the same prompt with everything set to zero.',
       },
       sampler: {
         title: 'Add the sampler',
@@ -83,7 +83,7 @@ export const SOUND_3D_FACES_EN: Record<string, LessonWords> = {
   },
   'audio-sound': {
     title: 'A sound from text: Stable Audio',
-    result: 'You build a graph that makes a sound effect or a short piece of music from a description.',
+    result: 'You build a graph that makes a sound effect or a short piece of music from a prompt.',
     steps: {
       intro: {
         title: 'What Stable Audio makes',
@@ -95,7 +95,7 @@ export const SOUND_3D_FACES_EN: Record<string, LessonWords> = {
       },
       reader: {
         title: 'Load the text reader',
-        body: 'Add a {clip} node. In `clip_name` choose `t5-base.safetensors` from models/text_encoders, and set `type` to `stable_audio`.\n\nThe type tells ComfyUI how the reader is built. With another type the file loads, but the model gets a description it cannot use.',
+        body: 'Add a {clip} node. In `clip_name` choose `t5-base.safetensors` from models/text_encoders, and set `type` to `stable_audio`.\n\nThe type tells ComfyUI how the reader is built. With another type the file loads, but the model gets a prompt it cannot use.',
       },
       prompts: {
         title: 'Describe the sound',
@@ -175,7 +175,7 @@ export const SOUND_3D_FACES_EN: Record<string, LessonWords> = {
       },
       model: {
         title: 'Load the model',
-        body: `Add a {model} node and choose the file in \`mmaudio_model\`. The pack's example uses \`mmaudio_large_44k_v2_fp16.safetensors\`.\n\nAll the files of this lesson lie in the folder models/mmaudio, which the pack adds to ComfyUI. Take them from the model's official page, the one the pack's description names.`,
+        body: `Add a {model} node and choose the file in \`mmaudio_model\`. The pack's example uses \`mmaudio_large_44k_v2_fp16.safetensors\`.\n\nAll the files of this lesson lie in the folder models/mmaudio, which the pack adds to ComfyUI. Take them from the model's official page, the one the pack's prompt names.`,
       },
       helpers: {
         title: 'Load the helper models',
@@ -190,7 +190,7 @@ export const SOUND_3D_FACES_EN: Record<string, LessonWords> = {
         body: 'In {sampler} set:\n- `duration`: 8, the length of the sound in seconds; the clip and the sound must be equally long;\n- `steps`: 25;\n- `cfg`: 4.5.\n\nThese are the pack\'s own values. In the example `duration` comes from a node that measures the clip; you may type it by hand.',
       },
       prompt: {
-        title: 'A description, if you want one',
+        title: 'A prompt, if you want one',
         body: 'The `prompt` field may stay empty: the model hears the frames. A few words help when the frames say little: "rain on leaves", "crowd in a stadium". The `negative_prompt` field takes what must not be heard, for example "music, speech".\n\n`mask_away_clip` switches off the model\'s look at the frames. Leave it off unless you want sound from the text alone.',
       },
       combine: {
@@ -263,11 +263,11 @@ export const SOUND_3D_FACES_EN: Record<string, LessonWords> = {
       },
       vision: {
         title: 'Let the model see the picture',
-        body: 'Add a {vision} node. Connect the `CLIP_VISION` output of {checkpoint} to its `clip_vision` input and the picture from {picture} to its `image` input. Set `crop` to `center`.\n\nThis node turns the picture into a description the model can follow.',
+        body: 'Add a {vision} node. Connect the `CLIP_VISION` output of {checkpoint} to its `clip_vision` input and the picture from {picture} to its `image` input. Set `crop` to `center`.\n\nThis node turns the picture into a prompt the model can follow.',
       },
       condition: {
         title: 'Turn it into a condition',
-        body: 'Add a {condition} node and connect the output of {vision} to its `clip_vision_output` input.\n\nIt gives two outputs, `positive` and `negative`, ready for the sampler. Nothing is written by hand here: the picture is the whole description.',
+        body: 'Add a {condition} node and connect the output of {vision} to its `clip_vision_output` input.\n\nIt gives two outputs, `positive` and `negative`, ready for the sampler. Nothing is written by hand here: the picture is the whole prompt.',
       },
       latent: {
         title: 'Add the blank',
@@ -328,12 +328,12 @@ export const SOUND_3D_FACES_EN: Record<string, LessonWords> = {
         body: 'Add a {prompt} node and connect the `CLIP` output of {clip} to its `clip` input. In `text` write what is new and what stays. For example: the same woman with short red hair and a green coat, now standing on a rainy street at night, keep her face and clothes.\n\nName the character by what is seen ("the woman with red hair"), not by a pronoun: the model then knows whom to keep.',
       },
       reference: {
-        title: 'Give the picture to the description',
-        body: 'Add a {reference} node. Connect the output of {prompt} to its `conditioning` input and the output of {encode} to its `latent` input.\n\nThen add a {guidance} node, connect {reference} to its `conditioning` input and set `guidance` to 2.5.\n\nThe first node attaches the picture to the description. The second says how strongly the model follows them: the template uses 2.5.',
+        title: 'Give the picture to the prompt',
+        body: 'Add a {reference} node. Connect the output of {prompt} to its `conditioning` input and the output of {encode} to its `latent` input.\n\nThen add a {guidance} node, connect {reference} to its `conditioning` input and set `guidance` to 2.5.\n\nThe first node attaches the picture to the prompt. The second says how strongly the model follows them: the template uses 2.5.',
       },
       negative: {
         title: 'An empty negative',
-        body: 'Add an {empty} node and connect the output of {prompt} to its `conditioning` input.\n\nKontext is not told what to avoid. This node gives the sampler\'s `negative` input the same description set to zero.',
+        body: 'Add an {empty} node and connect the output of {prompt} to its `conditioning` input.\n\nKontext is not told what to avoid. This node gives the sampler\'s `negative` input the same prompt set to zero.',
       },
       sampler: {
         title: 'Add the sampler',
@@ -345,7 +345,7 @@ export const SOUND_3D_FACES_EN: Record<string, LessonWords> = {
       },
       series: {
         title: 'A series with one character',
-        body: 'To keep the character through a series:\n- start each new picture from the same reference, not from the last result: small changes add up;\n- change one thing at a time: the place, then the pose, then the light;\n- repeat in every description the features that make the character: hair, clothes, a mark;\n- fix `seed` in {sampler} while you look for a good description.\n\nIf the face drifts, lower `guidance` a little or say "keep the face" in the description.',
+        body: 'To keep the character through a series:\n- start each new picture from the same reference, not from the last result: small changes add up;\n- change one thing at a time: the place, then the pose, then the light;\n- repeat in every prompt the features that make the character: hair, clothes, a mark;\n- fix `seed` in {sampler} while you look for a good prompt.\n\nIf the face drifts, lower `guidance` a little or say "keep the face" in the prompt.',
       },
       'other-ways': {
         title: 'Other ways to keep a character',
@@ -401,23 +401,23 @@ export const SOUND_3D_FACES_EN: Record<string, LessonWords> = {
       },
       graph: {
         title: 'The Kontext graph is needed',
-        body: 'The canvas must hold the graph of the Kontext lesson: {picture} with the reference, {prompt} with the description, {reference} that joins them and {sampler}.\n\nIf they are not there, do that lesson first.',
+        body: 'The canvas must hold the graph of the Kontext lesson: {picture} with the reference, {prompt} with the prompt, {reference} that joins them and {sampler}.\n\nIf they are not there, do that lesson first.',
       },
       order: {
         title: 'What holds identity, in the order to reach for it',
-        body: 'Reach for these in order, and go to the next only when the one before is not enough:\n- the words of the description: the same features named the same way every time;\n- the seed: the same number keeps the same noise and so much of the same look;\n- a reference picture: Kontext, or a face adapter such as IP-Adapter FaceID;\n- a LoRA trained on the character: the steadiest, but it has to be trained first.\n\nThe first two cost nothing. The reference is what this graph already has.',
+        body: 'Reach for these in order, and go to the next only when the one before is not enough:\n- the words of the prompt: the same features named the same way every time;\n- the seed: the same number keeps the same noise and so much of the same look;\n- a reference picture: Kontext, or a face adapter such as IP-Adapter FaceID;\n- a LoRA trained on the character: the steadiest, but it has to be trained first.\n\nThe first two cost nothing. The reference is what this graph already has.',
       },
       words: {
         title: 'Words that keep a character',
-        body: 'Write a short "card" of the character once and copy it into every description: age group, hair, eyes, a mark, the clothes that belong to the character. For example: a woman in her thirties, short red hair, green eyes, a small scar over the left eyebrow.\n\nThen add only what changes. If one description says "red hair" and the next "auburn hair", the model hears two people.',
+        body: 'Write a short "card" of the character once and copy it into every prompt: age group, hair, eyes, a mark, the clothes that belong to the character. For example: a woman in her thirties, short red hair, green eyes, a small scar over the left eyebrow.\n\nThen add only what changes. If one prompt says "red hair" and the next "auburn hair", the model hears two people.',
       },
       practice: {
         title: 'Change the pose and the clothes, keep the face',
-        body: 'Rewrite the `text` of {prompt}: keep the card of the character and the words "keep her face", and change the pose and the clothes. For example: the same woman with short red hair and green eyes, now sitting on a bench in a yellow raincoat, looking to the side, keep her face.\n\nRun it in ComfyUI. The face should stay while everything you named changes. If the face drifts, the description changed too much at once: change the pose first, the clothes in the next picture.',
+        body: 'Rewrite the `text` of {prompt}: keep the card of the character and the words "keep her face", and change the pose and the clothes. For example: the same woman with short red hair and green eyes, now sitting on a bench in a yellow raincoat, looking to the side, keep her face.\n\nRun it in ComfyUI. The face should stay while everything you named changes. If the face drifts, the prompt changed too much at once: change the pose first, the clothes in the next picture.',
       },
       seed: {
         title: 'The seed while you search',
-        body: 'While you look for the right words, fix `seed` in {sampler} (in ComfyUI set `control_after_generate` to `fixed`). Then only your words change the picture, and you see what each word does.\n\nWhen the description is right, let the seed change again to get variants.',
+        body: 'While you look for the right words, fix `seed` in {sampler} (in ComfyUI set `control_after_generate` to `fixed`). Then only your words change the picture, and you see what each word does.\n\nWhen the prompt is right, let the seed change again to get variants.',
       },
       beyond: {
         title: 'When the reference is not enough',
@@ -467,7 +467,7 @@ export const SOUND_3D_FACES_EN: Record<string, LessonWords> = {
       },
       kept: {
         title: 'What it keeps and what it does not',
-        body: 'FaceID keeps the face: its shape, the eyes, the nose, the mouth. It does not keep the hair, the age, the make-up, the light or the expression: those come from the description. Write them there.\n\nA photo in hard side light gives a face with that light baked in. A photo from below gives a wide jaw. This is why a frontal, evenly lit photo works best.',
+        body: 'FaceID keeps the face: its shape, the eyes, the nose, the mouth. It does not keep the hair, the age, the make-up, the light or the expression: those come from the prompt. Write them there.\n\nA photo in hard side light gives a face with that light baked in. A photo from below gives a wide jaw. This is why a frontal, evenly lit photo works best.',
       },
       'other-methods': {
         title: 'Other identity adapters',

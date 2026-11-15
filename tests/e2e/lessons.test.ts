@@ -518,7 +518,7 @@ test('lessons: descriptions, a second pass and a picture model in front of a vid
     await carry(page, api, 'image', undefined, 'a quiet lake at dawn');
     await stepIs(page, 'end');
     // The lesson after the first picture is the one on descriptions.
-    await expect(panel(page).locator('[data-next-lesson="prompt"]')).toContainText('The next lesson: “The description: how a model reads it”.');
+    await expect(panel(page).locator('[data-next-lesson="prompt"]')).toContainText('The next lesson: “The prompt: how a model reads it”.');
     await panel(page).getByRole('button', { name: 'Start the next lesson', exact: true }).click();
     await expect(panel(page)).toHaveAttribute('data-lesson', 'prompt');
     const told: string[] = [];

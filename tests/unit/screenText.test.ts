@@ -7,6 +7,14 @@ import { catalogLeaves, en, ru } from '../../src/shared/i18n';
 const ROOT = path.join(__dirname, '../..');
 const LONG_DASH = /[—–]/;
 
+/** Source files whose strings are text on screen: lessons and built-in knowledge, the first ones and every set. */
+const SCREEN_TEXT_FILES = [
+  'src/shared/lessons/texts.en.ts', 'src/shared/lessons/texts.ru.ts',
+  'src/shared/knowledge/coreKnowledge.en.ts', 'src/shared/knowledge/coreKnowledge.ru.ts',
+  ...fs.readdirSync(path.join(ROOT, 'src/shared/lessons/sets')).filter((name) => /\.texts\.(en|ru)\.ts$/.test(name)).map((name) => `src/shared/lessons/sets/${name}`),
+  ...fs.readdirSync(path.join(ROOT, 'src/shared/knowledge/sets')).filter((name) => /\.(en|ru)\.ts$/.test(name)).map((name) => `src/shared/knowledge/sets/${name}`),
+];
+
 function leaf(catalog: unknown, key: string): string {
   return String(key.split('.').reduce<unknown>((value, part) => (value as Record<string, unknown>)[part], catalog));
 }
@@ -20,9 +28,19 @@ describe('texts on screen', () => {
       }
     }
     // Lessons and built-in knowledge are text on screen too.
-    for (const file of ['src/shared/lessons/texts.en.ts', 'src/shared/lessons/texts.ru.ts', 'src/shared/knowledge/coreKnowledge.en.ts', 'src/shared/knowledge/coreKnowledge.ru.ts']) {
+    for (const file of SCREEN_TEXT_FILES) {
       fs.readFileSync(path.join(ROOT, file), 'utf8').split('\n').forEach((line, index) => {
         if (LONG_DASH.test(line)) found.push(`${file}:${index + 1}`);
+      });
+    }
+    expect(found).toEqual([]);
+  });
+
+  it('call the text given to a model a prompt in Russian lessons and knowledge, not «описание промпта»', () => {
+    const found: string[] = [];
+    for (const file of SCREEN_TEXT_FILES.filter((name) => name.endsWith('.ru.ts'))) {
+      fs.readFileSync(path.join(ROOT, file), 'utf8').split('\n').forEach((line, index) => {
+        if (/(негативн\p{L}* описани|отрицательн\p{L}* описани)/iu.test(line)) found.push(`${file}:${index + 1}`);
       });
     }
     expect(found).toEqual([]);
