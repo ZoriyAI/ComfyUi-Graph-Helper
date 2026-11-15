@@ -74,7 +74,9 @@ else leaves your computer.
   opened from this computer, only public `http`/`https` addresses on the usual ports, and only addresses named in the
   conversation. Your ComfyUI, your MCP server and addresses inside your network are never opened this way.
 - **What goes there:** the search words the assistant chose; a normal request for the page. DuckDuckGo and the site
-  see your IP address, as with any browser.
+  see your IP address, as with any browser. With the provider's own search, the provider sees the search words; the
+  sources it cites are not added to the pages the assistant may open, so an address that carries your words in it is
+  never fetched by the app.
 
 ### Model descriptions from Civitai and Hugging Face
 
@@ -97,14 +99,27 @@ else leaves your computer.
 ### Finding servers on this computer
 
 - **When:** when you choose **Find local servers** in Settings ▸ Assistant.
-- **Where:** this computer only (`127.0.0.1` on the usual ports of Ollama, LM Studio and vLLM: 11434, 1234, 8000),
-  and your MCP server, if it lists model servers.
+- **Where:** this computer only (`127.0.0.1` on the usual ports of Ollama, LM Studio, vLLM and the llama.cpp
+  server: 11434, 1234, 8000, 8080), and your MCP server, if it lists model servers. Find on this computer in
+  Settings ▸ Connection asks ports 8188 and 8000 the same way. Nothing leaves this computer.
+
+### A proxy (only if you need one)
+
+- Requests to cloud models and the web search follow your system's proxy settings. Settings ▸ Assistant ▸ Network ▸
+  Proxy (optional) takes a proxy the system does not know: `http://`, `https://`, `socks4://` or `socks5://`, a host
+  and a port, never a user name or password.
+- Your own server on this computer or your home network, your ComfyUI and your MCP server on this computer are
+  always reached directly, not through the proxy.
 
 ### Your browser
 
 The app opens your system browser, never a window of its own, for: signing in to an MCP server, Help ▸ Project
-website, Help ▸ New versions and Help ▸ Report a problem. Report a problem first shows you what the new issue will
-contain (the versions of the app and the system, nothing else).
+website, Help ▸ New versions, Help ▸ Report a problem…, and Open ComfyUI on the card "Run it in ComfyUI" (your own
+ComfyUI address). Report a problem… first shows you what the new issue will contain (the versions of the app and the
+system, nothing else).
+
+Signing in to an MCP server opens the sign-in page that server names. When that page is on another site than the
+server, the app asks first and shows both names.
 
 Two download pages are opened there only when you click their buttons in the **No ComfyUI yet** window:
 **Open the ComfyUI download page** (`https://www.comfy.org/download`) and **Open the Ollama download page**
@@ -116,8 +131,19 @@ Two download pages are opened there only when you click their buttons in the **N
   history in the project can switch the chats off).
 - The log and the conversation log (Settings ▸ Privacy ▸ Keep a log of the conversation with the model). Neither
   holds keys or tokens.
-- Saved keys: in the system password store, or, only if you choose it where there is no password store, in a file in
-  the app folder readable by your user only.
+- Saved keys: in the system keychain, or, only if you choose it where there is no keychain, in a file in the app
+  folder readable by your user only.
+- Your own lessons: one file per lesson in the `lessons` folder.
+- `recent-files.json`: the last 10 files you opened or saved, and the file each graph came from. Paths only, never
+  the contents.
+- `graph-start.json`: a mark for the safe start ("drawing", "drawn"), so a graph that hung the window is not drawn
+  again without asking.
+- The picture cache of model cards (`model-previews`). Settings ▸ Privacy shows its size and has Clear the picture
+  cache; it is also emptied when the server address changes.
+
+Copy diagnostics and a saved conversation log keep no address of your own servers: only the scheme, where the
+server is (`[this computer]`, `[local network]`, `[internet]`) and the port. Public services (the providers' APIs,
+Civitai, Hugging Face, DuckDuckGo) stay named.
 
 Where each file lies: [The data folder](../reference/Data-Folder.md). How to remove everything:
 [Removing](../start/Removing.md).
