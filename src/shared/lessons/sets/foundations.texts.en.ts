@@ -1,12 +1,12 @@
-import type { LessonWords } from '../texts';
-
 /**
- * The words of the foundations lessons, in English. Each step: what to do and why. `{role}` is replaced by the name
+ * The words of the foundations lessons, in English; texts.ts reads them for the lesson panel. Each step: what to do and why. `{role}` is replaced by the name
  * of the node as this ComfyUI's library shows it; field names and values stand in backticks.
  */
+import type { LessonWords } from '../texts';
 
 const SAVE = 'Save the graph with "File ▸ Save workflow for ComfyUI…", open the file in ComfyUI and run it there. This app runs nothing in ComfyUI itself.';
 
+/** The English words of the foundations lessons, by lesson id. */
 export const FOUNDATIONS_LESSONS_EN: Record<string, LessonWords> = {
   'comfy-basics': {
     title: 'How ComfyUI works',

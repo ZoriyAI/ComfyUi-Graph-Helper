@@ -1,12 +1,12 @@
-import type { LessonWords } from '../texts';
-
 /**
- * Слова уроков о звуке, речи, 3D, лицах и персонажах, по-русски. Английский файл говорит то же самое шаг в шаг,
- * с теми же числами и теми же словами в обратных кавычках.
+ * The words of the lessons on sound, speech, 3D, faces and characters, Russian; texts.ru.ts spreads them into the
+ * lesson words. The English file says the same things step for step, with the same numbers and the same words in
+ * backticks.
  *
- * Где урок даёт кому-то голос или лицо, правило идёт первым, теми же словами, что в уроках о говорящем портрете.
- * Ни один пример в этих уроках не описывает настоящего человека.
+ * Where a lesson gives a voice or a face to someone, the rule comes first, in the words the talking-portrait
+ * lessons use. No example in these lessons describes a real person.
  */
+import type { LessonWords } from '../texts';
 
 const SAVE = 'Сохраните граф через «Файл ▸ Сохранить workflow для ComfyUI…», откройте файл в ComfyUI и запустите там. Само приложение в ComfyUI ничего не запускает.';
 
@@ -18,10 +18,11 @@ const OLD_FORMAT = 'Файлы старых форматов (.ckpt, .pt, .pth, 
 
 const START = 'Урок собирает граф с пустого холста: «Файл ▸ Новый проект».';
 
-/** Правило, с которого начинается каждый урок, где лицо дают, держат или меняют, словами уроков о говорящем портрете. */
+/** The rule every lesson that gives, keeps or changes a face starts with, in the words of the talking-portrait lessons. */
 export const FACE_RULE = 'Показывать так можно только того, кто на это согласен: себя, человека, который разрешил, или придуманного героя. Получите согласие реального человека на использование его внешности и разрешение на исходные материалы, учитывайте местные законы. Не помещайте внешность реального человека в откровенное содержимое; исключайте тех, кто младше 18 лет или выглядит младше; не выдавайте человека за того, кто говорил или делал то, чего не было. Урок учит технике.';
 
 
+/** The Russian words of the sound, 3D and face lessons, by lesson id. */
 export const SOUND_3D_FACES_RU: Record<string, LessonWords> = {
   'audio-music': {
     title: 'Музыка из текста: ACE-Step 1.5',

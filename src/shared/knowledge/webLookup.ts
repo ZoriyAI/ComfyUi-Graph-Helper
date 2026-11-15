@@ -1,6 +1,3 @@
-import { plainText, type SidecarFacts } from './enrichment';
-import { EMPTY_NOTES, notesFromJson, parseSidecarFile, RATING_FOR_EVERYONE, type ModelNotes } from './sidecar';
-
 /**
  * What the internet says about a model file, when the person asks for it. Pure: the main process fetches, these
  * functions read what came back (shared/knowledge stays free of network code).
@@ -9,8 +6,14 @@ import { EMPTY_NOTES, notesFromJson, parseSidecarFile, RATING_FOR_EVERYONE, type
  * file, the same record a `.civitai.info` next to it would hold. Hugging Face is asked by the file's name when Civitai
  * does not know the file: that is a guess, and it is always shown as one. What either says is outside text: it comes
  * out plain and bounded, and nothing in it is trusted as markup.
+ *
+ * Who uses it: main/knowledge/webLookup.ts (the client that fetches, run from the knowledge IPC and the model sync),
+ * main/knowledge/repository.ts and preview.ts (the stored answer and its sample picture).
  */
+import { plainText, type SidecarFacts } from './enrichment';
+import { EMPTY_NOTES, notesFromJson, parseSidecarFile, RATING_FOR_EVERYONE, type ModelNotes } from './sidecar';
 
+/** The site an answer came from. */
 export type WebSource = 'civitai' | 'huggingface';
 
 /** How a lookup ended. 'error' is retried when the person asks again or at a later sync; the others are kept. */
@@ -23,6 +26,7 @@ export type WebStatus = 'found' | 'not-found' | 'error';
  * no-server (there is no MCP server to make it on).
  */
 export const WEB_ERRORS = ['unreachable', 'timeout', 'rate-limited', 'server', 'bad-answer', 'no-hash', 'no-server'] as const;
+/** One code of WEB_ERRORS. */
 export type WebError = typeof WEB_ERRORS[number];
 
 /** What was found, as the card shows it and as it is kept in `model_catalog.web_notes_json`. */
@@ -45,6 +49,7 @@ export interface WebFound {
   preview: WebPreview | null;
 }
 
+/** A sample to show: where it is, whether it is a picture or a clip, and the next places to try. */
 export interface WebPreview {
   url: string;
   kind: 'image' | 'video';
@@ -155,8 +160,10 @@ export function civitaiFound(value: unknown): WebFound | null {
  */
 const PRECISION_SUFFIX = /[-_.](?:fp8|e4m3fn(?:uz)?|e5m2|scaled|fp16|fp32|bf16|f16|f32|int8|int4|nf4|pruned|emaonly|ema|q[2-8](?:_k)?(?:_[a-z0-9]{1,2})?|q[2-8]_[01])$/i;
 
+/** The name a model is published under: the rule is in the comment above PRECISION_SUFFIX. */
 export function nameStem(filename: string): string {
   let stem = (filename.split(/[\\/]/).pop() ?? filename).replace(/\.(safetensors|sft|ckpt|pt|pth|bin|gguf)$/i, '');
+  // Suffixes stack ("_fp8_e4m3fn_scaled"): strip one at a time, with a bound in case a name is all suffixes.
   for (let turn = 0; turn < 8 && PRECISION_SUFFIX.test(stem); turn += 1) stem = stem.replace(PRECISION_SUFFIX, '');
   return stem.trim();
 }
@@ -304,11 +311,13 @@ export const HUGGING_FACE_FILE_HOSTS = [
 /** At most this many places are tried for a Hugging Face sample: one too large or not a picture is skipped. */
 export const PREVIEW_TRIES = 3;
 
+/** A place a sample may be found, before it is checked. */
 export interface PreviewCandidate {
   url: string;
   kind: 'image' | 'video';
 }
 
+/** Where to look for a Hugging Face sample; tests point it at a fake. */
 export interface PreviewSearchOptions {
   /** Where Hugging Face is: https://huggingface.co in the app, a fake in tests. */
   base?: string;

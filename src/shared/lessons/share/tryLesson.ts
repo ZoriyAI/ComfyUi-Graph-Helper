@@ -26,6 +26,7 @@ export interface ClassShape {
 /** A class's shape, or null when the class is not there. */
 export type ClassShapes = (classType: string) => ClassShape | null;
 
+/** How a try ended: the lesson finished in so many actions, or the step that could not be done and why. */
 export type TryResult =
   | { ok: true; actions: number }
   | {
@@ -229,6 +230,7 @@ function decide(canvas: TryCanvas, missing: Missing, facts: LessonFacts): boolea
   }
 }
 
+/** What a caller may add to a try: facts about files, the lessons it continues, a hook for tests. */
 export interface TryOptions {
   facts?: LessonFacts;
   /** Lessons whose graph this one starts from, first to last: they are done first, on the same canvas. */

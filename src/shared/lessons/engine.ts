@@ -10,7 +10,8 @@
  * terms a person can act on: no such node, this input is fed from the wrong node, this field is 20 and should
  * be 4.
  *
- * Pure: no DOM, no catalog, no IPC. The renderer turns its graph into LessonGraph and supplies the facts.
+ * Pure: no DOM, no catalog, no IPC. The renderer turns its graph into LessonGraph and supplies the facts
+ * (renderer/components/lessons/lessonModel.ts); the lesson panel, the lesson editor and lackText.ts read the result.
  */
 
 import { weightsOf } from '../prompt/inspect';
@@ -18,12 +19,14 @@ import type { BaseModelFamily } from '../contracts/knowledge';
 import { familyOfFile, fileMiss, type FileMiss, type FileWant } from './files';
 import { familiesCompatible } from '../knowledge/baseModel';
 
+/** An input or output of a node, as the lesson engine sees it. */
 export interface LessonPort {
   id: string;
   name: string;
   type: string;
 }
 
+/** A node of the canvas: its class, its sockets and the values of its fields. */
 export interface LessonNode {
   id: string;
   classType: string;
@@ -38,6 +41,7 @@ export interface LessonNode {
   defaults?: Record<string, unknown>;
 }
 
+/** A link of the canvas, from an output port to an input port. */
 export interface LessonLink {
   from: string;
   /** Output port id on `from`. */
@@ -47,6 +51,7 @@ export interface LessonLink {
   toPort: string;
 }
 
+/** The canvas as the engine reads it. */
 export interface LessonGraph {
   nodes: LessonNode[];
   links: LessonLink[];
@@ -89,6 +94,7 @@ export type TriggerSource =
    */
   | { classType: string; field: string };
 
+/** What a field rule asks of a value; each kind says its own test below. */
 export type FieldTest =
   /** Something is chosen or written. */
   | { kind: 'chosen' }
@@ -141,6 +147,7 @@ export function otherRoles(test: FieldTest): string[] {
   return test.kind === 'differs' || test.kind === 'same' || test.kind === 'less' || test.kind === 'aspect' || test.kind === 'sameFamily' ? [test.role] : [];
 }
 
+/** A rule on one field of the node that plays `role`. */
 export interface FieldSpec {
   role: string;
   field: string;
@@ -159,6 +166,7 @@ export interface FieldSpec {
   soft?: true;
 }
 
+/** One step: the roles, links and field rules that hold once it is done, or a step to read. */
 export interface LessonStep {
   id: string;
   /** A step that only explains: done once the person has read it and said so. */
@@ -174,6 +182,7 @@ export interface LessonGroup {
   title: { ru: string; en: string };
 }
 
+/** A lesson: an id and its steps in order. Its words live in texts.*.ts under the same id. */
 export interface Lesson {
   id: string;
   steps: LessonStep[];
@@ -231,8 +240,10 @@ export type FieldMiss =
   | { kind: 'family'; family: BaseModelFamily; other: BaseModelFamily }
   | { kind: 'text'; miss: TextMiss };
 
+/** Why a written text fails: too short, a mark missing, not words, not English, a copy, or a negation. */
 export type TextMiss = 'short' | 'marks' | 'words' | 'english' | 'copy' | 'negation';
 
+/** Where a person is in a lesson, read off the graph. */
 export interface Progress {
   /** Index of the step to do now; steps.length when the lesson is finished. */
   current: number;
@@ -269,6 +280,7 @@ export function outputsFor(node: LessonNode, output: string): LessonPort[] {
   return named.length > 0 ? named : node.outputs.filter((port) => same(port.type, output));
 }
 
+/** The input of that name on a node, or null. */
 export function inputFor(node: LessonNode, input: string): LessonPort | null {
   return node.inputs.find((port) => same(port.name, input)) ?? null;
 }
@@ -564,6 +576,7 @@ function softHints(lesson: Lesson, graph: LessonGraph, facts: LessonFacts, progr
   return out;
 }
 
+/** Progress by the hard rules only: the first step that does not hold, and what it lacks. */
 function hardProgress(lesson: Lesson, graph: LessonGraph, facts: LessonFacts, read: ReadonlySet<string>): Progress {
   let roles: Roles = {};
   for (let index = 0; index < lesson.steps.length; index += 1) {
@@ -672,6 +685,7 @@ function fillings(graph: LessonGraph, specs: RoleSpec[], start: Roles, skip: Rea
 /** What a class offers, as the catalog knows it; null for a class the catalog does not have. */
 export type ClassPorts = (classType: string) => { inputs: string[]; outputs: Array<{ name: string; type: string }> } | null;
 
+/** Why a lesson cannot be done in this ComfyUI. */
 export type LessonGap =
   /** None of the classes a role may be is installed. */
   | { kind: 'class'; role: string; classes: string[] }
@@ -736,9 +750,8 @@ export type StepFix =
 
 /**
  * The action that removes a lack, or null when only the person can (which file, what words). A field that must
- * lie in a range goes to the nearer end of it.
- */
-/**
+ * lie in a range gets the number the step names, else the nearer end of the range (preferredOf).
+ *
  * `choices` lists the values a field of a node on the canvas can take (the catalog's options). With it, a field that
  * must hold another file than its pair (two loaders of one model) is given the first other file there is.
  */

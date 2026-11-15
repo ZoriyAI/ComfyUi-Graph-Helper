@@ -1,10 +1,9 @@
-import type { LessonWords } from '../texts';
-
 /**
- * The words of the video lessons of sets/video.ts. Each lesson says first what it costs in memory and time, and a
+ * The words of the video lessons of sets/video.ts, English; texts.ts reads them for the lesson panel. Each lesson says first what it costs in memory and time, and a
  * lesson that puts a person's face, motion or voice onto something starts with the consent rule, in the words of
  * the talking-portrait lessons. Every number a step names is the one its rule prefers.
  */
+import type { LessonWords } from '../texts';
 
 const SAVE = 'Save the graph with "File ▸ Save workflow for ComfyUI…", open the file in ComfyUI and run it there. This app runs nothing in ComfyUI itself.';
 
@@ -47,6 +46,7 @@ const saveAt = (fps: number, why: string) => ({
   body: `Add {video} and {save}. The frames from {decode} go into the \`images\` input of {video}, and its output into the \`video\` input of {save}. Set \`fps\` to ${fps}.\n\n${why} With another number the clip runs faster or slower than it was meant to.`,
 });
 
+/** The English words of the video lessons, by lesson id. */
 export const VIDEO_LESSONS_EN: Record<string, LessonWords> = {
   'video-small': {
     title: 'Video on a modest graphics card: Wan 2.2 5B',

@@ -1,9 +1,9 @@
+/**
+ * The foundations domain in Russian, read through sets/foundations.ts. The English file (foundations.en.ts) says the
+ * same things. Each text explains its own terms or uses a plain word instead: a newcomer reads one text at a time.
+ */
 import type { FoundationsPack } from './foundations';
 
-/**
- * Основы по-русски. Английский файл (foundations.en.ts) говорит то же самое. Каждый текст сам объясняет свои
- * термины или обходится простым словом: новичок читает тексты по одному.
- */
 export const FOUNDATIONS_RU: FoundationsPack = {
   nodes: {
     VAEEncodeTiled: {

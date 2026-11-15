@@ -1,13 +1,14 @@
+/**
+ * Built-in knowledge about video, Russian; coreKnowledge.ts reads it for the Russian interface. The English set
+ * (video.en.ts) says the same things.
+ *
+ * Sources: ComfyUI's own source (comfy_extras/nodes_wan.py, nodes_lt*.py, nodes_hunyuan.py, nodes_kandinsky5.py,
+ * nodes_video.py, nodes_audio*.py, nodes_custom_sampler.py, nodes_frame_interpolation.py, nodes.py), the official
+ * workflow templates, and the packs' own repositories. A few entries correct the core knowledge (LATENT, the Wan
+ * 2.2 and LTX-2 families): a set's entry replaces the core one with the same owner.
+ */
 import type { KnowledgeSet } from '../coreKnowledge';
 
-/**
- * Встроенные знания о видео, по-русски. Английский набор (video.en.ts) говорит то же самое.
- *
- * Источники: исходники самого ComfyUI (comfy_extras/nodes_wan.py, nodes_lt*.py, nodes_hunyuan.py, nodes_kandinsky5.py,
- * nodes_video.py, nodes_audio*.py, nodes_custom_sampler.py, nodes_frame_interpolation.py, nodes.py), официальные
- * шаблоны и репозитории паков. Несколько записей исправляют основные знания (LATENT, семейства Wan 2.2 и LTX-2):
- * запись набора заменяет основную с тем же владельцем.
- */
 export const VIDEO_KNOWLEDGE_RU: KnowledgeSet = {
   nodes: {
     ModelSamplingSD3: {

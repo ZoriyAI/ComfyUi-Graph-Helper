@@ -1,3 +1,8 @@
+/**
+ * Tables the lesson registry (lessons.ts) folds into its lessons: which model files the later sets ask for, and
+ * which LoRA or ControlNet must match the family of its checkpoint. Kept apart from the lesson rules so the rules
+ * read as steps and these lists can grow without touching them.
+ */
 import type { FamilyPair, FileRow } from './files';
 
 /**
@@ -26,6 +31,7 @@ export const SET_FILE_KINDS: Readonly<Record<string, ReadonlyArray<FileRow>>> = 
 /** A LoRA or a ControlNet is held to the family of the checkpoint it works with (FieldTest "sameFamily"). */
 const ofCheckpoint = (role: string, field: string): FamilyPair => ({ role, field, of: { role: 'checkpoint', field: 'ckpt_name' } });
 
+/** By lesson id: the files that must be of the same model family as their checkpoint. */
 export const FAMILY_PAIRS: Readonly<Record<string, ReadonlyArray<FamilyPair>>> = {
   'lora-image': [ofCheckpoint('lora1', 'lora_name'), ofCheckpoint('lora2', 'lora_name')],
   'lora-character': [ofCheckpoint('lora3', 'lora_name')],

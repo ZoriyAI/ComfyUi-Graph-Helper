@@ -1,3 +1,8 @@
+/**
+ * How the lesson list is laid out: lessons in their groups, and the lessons each one leans on. The lesson panel
+ * (renderer/components/lessons/LessonPanel.tsx) draws the list from these. Order and groups come from the registry
+ * in lessons.ts, never from progress: an unfinished earlier lesson is a hint, not a lock.
+ */
 import type { Lesson } from './engine';
 import { LESSONS, LESSON_AFTER, LESSON_PATH } from './lessons';
 import type { LessonGroup } from './sets/image-models';

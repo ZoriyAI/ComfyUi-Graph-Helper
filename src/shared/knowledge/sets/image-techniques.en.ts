@@ -1,7 +1,7 @@
 /**
- * Built-in knowledge on picture techniques, English. The Russian file says the same things. Facts are checked
- * against ComfyUI's nodes.py and comfy_extras, docs.comfy.org and the repositories of the packs (image-techniques.ts
- * names the source of each class).
+ * Built-in knowledge on picture techniques, English; image-techniques.ts turns it into a knowledge set. The Russian
+ * file says the same things. Facts are checked against ComfyUI's nodes.py and comfy_extras, docs.comfy.org and the
+ * repositories of the packs (image-techniques.ts names the source of each class).
  */
 import type { TechniqueTexts } from './image-techniques';
 

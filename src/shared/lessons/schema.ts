@@ -1,20 +1,22 @@
-import { otherRoles, type FieldSpec, type Lesson, type LinkSpec } from './engine';
-import { FILES } from './files';
-
 /**
  * What every lesson must hold to be safe to add, checked before any lesson runs (tests/unit/lessonSchema.test.ts)
- * and before a lesson file is kept (share/format.ts lessonDocProblem).
+ * and before a lesson file is kept (share/format.ts lessonDocProblem). The assistant's lesson draft tool
+ * (main/agent/lessonDraftTool.ts) turns a problem into a sentence with lessonRuleText.
  *
  * Each problem is a code with the names it is about, never a sentence: the window says it in the person's language
  * (catalog lessonFiles.problem.rule.*), and lessonProblems gives an author or the assistant one English sentence
  * per problem instead of a lesson that silently never finishes.
  */
+import { otherRoles, type FieldSpec, type Lesson, type LinkSpec } from './engine';
+import { FILES } from './files';
+
 
 /** The kinds of problem a lesson can have; the catalog has one sentence for each, in both languages. */
 export const LESSON_RULE_CODES = [
   'bad-id', 'same-id', 'no-steps', 'step-twice', 'read-asks', 'asks-nothing', 'role-twice', 'role-no-class', 'link-role',
   'field-role', 'compare-role', 'range-backwards', 'prefer-outside', 'frames', 'file-kind', 'reason', 'after',
 ] as const;
+/** One code of LESSON_RULE_CODES. */
 export type LessonRuleCode = (typeof LESSON_RULE_CODES)[number];
 
 /** One problem: its code and the names (or the number) it is about. `name` is a reason id or a lesson id. */
@@ -56,6 +58,7 @@ export function lessonRuleProblems(lesson: Lesson, all: readonly Lesson[], after
   return out;
 }
 
+/** The problems of one field rule; `known` holds the roles brought by this step or an earlier one. */
 function fieldProblems(spec: FieldSpec, known: ReadonlySet<string>, reasons: ReadonlySet<string>): LessonRuleProblem[] {
   const out: LessonRuleProblem[] = [];
   const field = spec.field;
@@ -70,6 +73,7 @@ function fieldProblems(spec: FieldSpec, known: ReadonlySet<string>, reasons: Rea
   if (test.kind === 'between') {
     if (test.min > test.max) out.push({ code: 'range-backwards', field });
     if (test.prefer !== undefined && (test.prefer < test.min || test.prefer > test.max)) out.push({ code: 'prefer-outside', field, value: test.prefer });
+    // Video models take frame counts of the form 4n + 1 (their latent packs four frames after the first one).
     if (test.frames && test.prefer !== undefined && (test.prefer - 1) % 4 !== 0) out.push({ code: 'frames', field, value: test.prefer });
   }
   if (test.kind === 'file' && !test.want.words && !Object.values(FILES).some((want) => want === test.want)) out.push({ code: 'file-kind', field });

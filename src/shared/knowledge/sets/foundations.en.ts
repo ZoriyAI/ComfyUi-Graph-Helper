@@ -1,9 +1,10 @@
-import type { FoundationsPack } from './foundations';
-
 /**
- * The foundations domain in English. The Russian file (foundations.ru.ts) says the same things. Each text explains
+ * The foundations domain in English, read through sets/foundations.ts. The Russian file (foundations.ru.ts) says the
+ * same things. Each text explains
  * its own terms or uses a plain word instead: a newcomer reads one text at a time.
  */
+import type { FoundationsPack } from './foundations';
+
 export const FOUNDATIONS_EN: FoundationsPack = {
   nodes: {
     VAEEncodeTiled: {

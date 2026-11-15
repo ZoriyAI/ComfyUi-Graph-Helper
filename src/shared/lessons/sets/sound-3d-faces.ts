@@ -1,5 +1,3 @@
-import type { FieldSpec, FieldTest, Lesson, LinkSpec, RoleSpec } from '../engine';
-
 /**
  * Lessons of the domain "sound, speech, 3D, faces and characters". Each graph is the one an official ComfyUI
  * template or the pack's own example builds (the template or file is named above each lesson), cut down to the
@@ -12,6 +10,7 @@ import type { FieldSpec, FieldTest, Lesson, LinkSpec, RoleSpec } from '../engine
  * picture-techniques lesson 'detailer'). Every lesson
  * that gives, keeps or changes a face says the consent rule first.
  */
+import type { FieldSpec, FieldTest, Lesson, LinkSpec, RoleSpec } from '../engine';
 
 const node = (role: string, ...classes: string[]): RoleSpec => ({ role, classes });
 const link = (from: string, output: string, to: string, input: string, via?: string[]): LinkSpec => (via ? { from, output, to, input, via } : { from, output, to, input });
@@ -464,6 +463,7 @@ const FOLLOWS: Readonly<Record<string, string[]>> = {
   'face-restore': [],
 };
 
+/** The set's part of LESSON_PATH in lessons.ts: each lesson's group with its title, and FOLLOWS. */
 export const SOUND_3D_FACES_PATH: Readonly<Record<string, { group: { id: string; title: { ru: string; en: string } }; follows: string[] }>> = Object.fromEntries(
   Object.entries(SOUND_3D_FACES_LESSON_GROUP).map(([lesson, group]) => [lesson, { group: { id: group, title: SOUND_3D_FACES_GROUPS[group] }, follows: FOLLOWS[lesson] ?? [] }]),
 );

@@ -1,10 +1,10 @@
-import type { KnowledgeSet } from '../coreKnowledge';
-
 /**
- * Встроенные знания о звуке и речи, 3D, лицах и персонажах, по-русски. Английский файл говорит то же самое.
- * Всё, что касается переноса лица или голоса на кого-то, начинается с правила: настоящий человек только с его
- * согласия; никогда в откровенном содержимом; никогда тот, кто выглядит несовершеннолетним.
+ * Built-in knowledge of sound and speech, 3D, faces and characters, Russian; coreKnowledge.ts reads it for the
+ * Russian interface. The English file says the same. Everything about putting a face or a voice onto someone starts
+ * with the rule: a real person only with their consent; never in explicit content; never anyone who looks like a
+ * minor.
  */
+import type { KnowledgeSet } from '../coreKnowledge';
 
 const RULE = 'Лицо или голос настоящего человека только с его согласия; никогда в откровенном содержимом; никогда того, кто выглядит несовершеннолетним.';
 const PACK_CODE = 'Пак запускает чужой код: ставьте его сами через менеджер ComfyUI и только тот, которому доверяете.';
@@ -12,7 +12,7 @@ const OLD_FORMAT = 'Файлы старых форматов (.ckpt, .pt, .pth, 
 
 export const SOUND_3D_FACES_KNOWLEDGE_RU: KnowledgeSet = {
   nodes: {
-    // Сам ComfyUI: звук.
+    // ComfyUI itself: sound.
     'TextEncodeAceStepAudio1.5': {
       what: 'Кодирует описание песни для ACE-Step 1.5: стиль в `tags`, слова для пения в `lyrics`, а ещё темп, длину, размер, тональность и язык песни.',
       why: 'Единственная текстовая нода, которая нужна графу ACE-Step 1.5: всё, какой должна быть песня, говорится здесь.',
@@ -73,7 +73,7 @@ export const SOUND_3D_FACES_KNOWLEDGE_RU: KnowledgeSet = {
       why: 'Чтобы увидеть результат, который не картинка и не звук.',
       connect: 'Вход: source любого типа. Выход: то же самое как STRING.',
     },
-    // Сам ComfyUI: 3D.
+    // ComfyUI itself: 3D.
     ImageOnlyCheckpointLoader: {
       what: 'Загружает из models/checkpoints чекпойнт модели, которая читает картинки, а не текст: модель, её чтение картинки (CLIP_VISION) и её VAE.',
       why: 'Так устроены файлы Hunyuan3D 2 и моделей «картинка в видео» вроде SVD.',
@@ -105,7 +105,7 @@ export const SOUND_3D_FACES_KNOWLEDGE_RU: KnowledgeSet = {
       why: 'Конец 3D-графа; ComfyUI ещё и показывает сохранённую модель на ноде.',
       connect: 'Входы: mesh (MESH или 3D-файл) и filename_prefix. Файл .glb открывается в Blender, в игровых движках и в любом просмотрщике glTF.',
     },
-    // Сам ComfyUI: персонажи и лица.
+    // ComfyUI itself: characters and faces.
     PhotoMakerLoader: {
       what: 'Загружает файл PhotoMaker из models/photomaker.',
       why: 'PhotoMaker держит одно лицо через много картинок SDXL, взяв его с нескольких фотографий этого лица.',

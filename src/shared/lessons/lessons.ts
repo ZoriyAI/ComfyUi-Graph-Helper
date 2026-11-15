@@ -1,12 +1,3 @@
-import type { FieldSpec, FieldTest, Lesson, LinkSpec, RoleSpec } from './engine';
-import { FOUNDATIONS_AFTER, FOUNDATIONS_FIRST, FOUNDATIONS_IN_FIRST_PICTURES, FOUNDATIONS_LESSONS, FOUNDATIONS_PATH, FOUNDATIONS_TOOLS } from './sets/foundations';
-import { IMAGE_MODEL_AFTER, IMAGE_MODEL_LESSONS, IMAGE_MODEL_PATH, type LessonGroup } from './sets/image-models';
-import { VIDEO_FILE_KINDS, VIDEO_GROUP, VIDEO_LESSON_AFTER, VIDEO_LESSONS, VIDEO_PATH } from './sets/video';
-import { IMAGE_TECHNIQUE_AFTER, IMAGE_TECHNIQUE_LESSONS, IMAGE_TECHNIQUE_PATH } from './sets/image-techniques';
-import { SOUND_3D_FACES_AFTER, SOUND_3D_FACES_LESSONS, SOUND_3D_FACES_PATH } from './sets/sound-3d-faces';
-import { FILES, withFamilyPairs, withFileTable, type FileKind } from './files';
-import { FAMILY_PAIRS, SET_FILE_KINDS } from './fileTables';
-
 /**
  * The lessons, as what must be on the canvas after each step. The words of a lesson (what to do and why) are in
  * texts.ru.ts and texts.en.ts under the same lesson and step ids; a test holds the two together.
@@ -18,8 +9,21 @@ import { FAMILY_PAIRS, SET_FILE_KINDS } from './fileTables';
  *
  * Video follows the two-pass Wan 2.2 graph: a high-noise model lays out the motion in the first sampler, a
  * low-noise model finishes the detail in the second. Numbers are the ones ComfyUI's own Wan 2.2 templates use.
+ *
+ * This file is also the registry: it joins the lessons of every set (sets/*.ts) into LESSONS in the order a person
+ * meets them, with their groups (LESSON_PATH) and the graphs they go on from (LESSON_AFTER). The lesson panel, the
+ * lesson state, the examples (main/ipc/openIpc.ts) and share/builtin.ts and share/mine.ts all read it from here.
  */
+import type { FieldSpec, FieldTest, Lesson, LinkSpec, RoleSpec } from './engine';
+import { FOUNDATIONS_AFTER, FOUNDATIONS_FIRST, FOUNDATIONS_IN_FIRST_PICTURES, FOUNDATIONS_LESSONS, FOUNDATIONS_PATH, FOUNDATIONS_TOOLS } from './sets/foundations';
+import { IMAGE_MODEL_AFTER, IMAGE_MODEL_LESSONS, IMAGE_MODEL_PATH, type LessonGroup } from './sets/image-models';
+import { VIDEO_FILE_KINDS, VIDEO_GROUP, VIDEO_LESSON_AFTER, VIDEO_LESSONS, VIDEO_PATH } from './sets/video';
+import { IMAGE_TECHNIQUE_AFTER, IMAGE_TECHNIQUE_LESSONS, IMAGE_TECHNIQUE_PATH } from './sets/image-techniques';
+import { SOUND_3D_FACES_AFTER, SOUND_3D_FACES_LESSONS, SOUND_3D_FACES_PATH } from './sets/sound-3d-faces';
+import { FILES, withFamilyPairs, withFileTable, type FileKind } from './files';
+import { FAMILY_PAIRS, SET_FILE_KINDS } from './fileTables';
 
+// Short builders so each lesson below reads as a list of steps.
 const node = (role: string, ...classes: string[]): RoleSpec => ({ role, classes });
 const link = (from: string, output: string, to: string, input: string, via?: string[], alt?: LinkSpec[]): LinkSpec => ({ from, output, to, input, ...(via ? { via } : {}), ...(alt ? { alt } : {}) });
 const field = (role: string, name: string, test: FieldTest, why?: string): FieldSpec => (why ? { role, field: name, test, why } : { role, field: name, test });
@@ -1096,16 +1100,17 @@ export const LESSONS: readonly Lesson[] = withFamilyPairs(withFileTable([
   adultImage, adultLora, adult,
 ], SET_FILE_KINDS), FAMILY_PAIRS);
 
-/**
- * The lessons about adult content. They are open only while the switch «Содержимое для взрослых (18+)» is on
- * (preferences: adultContentOn); while it is off the list shows them as one closed group that leads to the switch,
- * never hidden. They stand last, as one group, and are never offered as "the next lesson" after an ordinary one.
- */
+// The lessons about adult content. They are open only while the switch "Adult content (18+)" is on (preferences:
+// adultContentOn); while it is off the list shows them as one closed group that leads to the switch, never hidden.
+// They stand last, as one group, and are never offered as "the next lesson" after an ordinary one.
+
 /** Their group on the learning path: the last one, closed until the switch is on. */
 export const ADULT_GROUP: LessonGroup = { id: 'adult', title: { ru: 'Для взрослых (18+)', en: 'For adults (18+)' } };
 
+/** The ids of the lessons for adults. */
 export const ADULT_LESSONS: ReadonlySet<string> = new Set(['adult-image', 'adult-lora', 'adult']);
 
+/** Whether a lesson is one of the lessons for adults. */
 export function isAdultLesson(id: string): boolean {
   return ADULT_LESSONS.has(id);
 }
@@ -1131,6 +1136,7 @@ export function ordinaryLessons(): Lesson[] {
  * Only lessons after this one in the list count. Null when nothing is left to offer.
  */
 export function nextLesson(id: string, fits: (lessonId: string) => boolean = () => true, done: ReadonlySet<string> = new Set()): Lesson | null {
+  // The list shows lessons by group, so "next" follows the grouped order, not the raw order of LESSONS.
   const groups: string[] = [];
   for (const lesson of LESSONS) {
     const group = LESSON_PATH[lesson.id]?.group.id ?? '';
@@ -1188,6 +1194,7 @@ export const LESSON_PATH: Readonly<Record<string, { group: LessonGroup; follows:
   adult: { group: ADULT_GROUP, follows: ['video-text'] },
 };
 
+/** The lesson with this id, or null for an id no built-in lesson has. */
 export function lessonById(id: string): Lesson | null {
   return LESSONS.find((lesson) => lesson.id === id) ?? null;
 }

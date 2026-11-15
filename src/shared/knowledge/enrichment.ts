@@ -1,14 +1,18 @@
 /**
  * Pure parsing of `model_metadata {action:'read'}` results. The server returns the raw safetensors header as
- * `embedded_metadata` and a Civitai download sidecar as `civitai_sidecar` (null when absent).
+ * `embedded_metadata` and a Civitai download sidecar as `civitai_sidecar` (null when absent). The model sync
+ * (main/mcp/sync.ts) stores what comes out; main/knowledge/modelWeb.ts, sidecar.ts and webLookup.ts reuse the
+ * helpers so a header, a sidecar and a web answer are cleaned the same way.
  */
 
 /** Header values such as ss_tag_frequency can be large; the app keeps enough to explain, not the whole blob. */
 export const MAX_METADATA_VALUE = 4000;
+/** At most this many header keys are kept per file. */
 export const MAX_METADATA_KEYS = 200;
 const MAX_DESCRIPTION = 4000;
 const MAX_TRIGGER_WORDS = 50;
 
+/** The few facts a Civitai record gives that the app relies on: family label, trigger words, ids, fingerprint. */
 export interface SidecarFacts {
   baseModel: string | null;
   trainedWords: string[];
@@ -22,6 +26,7 @@ export interface SidecarFacts {
   sha256: string | null;
 }
 
+/** One read of a model file: its header as strings and its sidecar facts, if any. */
 export interface ParsedModelMetadata {
   metadata: Record<string, string>;
   sidecar: SidecarFacts | null;
@@ -146,12 +151,14 @@ export function parseSidecar(value: unknown): SidecarFacts | null {
   };
 }
 
+/** The Civitai page of the model (and of this version when known); null without a model id. */
 export function civitaiUrl(sidecar: SidecarFacts | null): string | null {
   if (!sidecar?.modelId) return null;
   const base = `https://civitai.com/models/${sidecar.modelId}`;
   return sidecar.modelVersionId ? `${base}?modelVersionId=${sidecar.modelVersionId}` : base;
 }
 
+/** The tool's answer read into header and sidecar; null for an answer that has neither key. */
 export function parseModelMetadata(payload: unknown): ParsedModelMetadata | null {
   const row = record(payload);
   if (!row) return null;

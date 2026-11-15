@@ -1,6 +1,3 @@
-import type { BaseModelFamily } from '../contracts/knowledge';
-import { familyFromText } from '../knowledge/baseModel';
-
 /**
  * What kind of model file a lesson step asks for, and how a file on the canvas is held to it. A lesson that only
  * asked "is something chosen" counted the first file of the list, whatever it was: a picture model as the second
@@ -10,8 +7,14 @@ import { familyFromText } from '../knowledge/baseModel';
  *
  * A file whose family nothing tells is not held to a family: a fine-tune named "myModel" may well be right. It is
  * still held to the marks a step names, because the step's own text names them.
+ *
+ * Used by the engine's file rules (engine.ts), the lesson registry (lessons.ts), the lack sentences
+ * (renderer/components/lessons/lackText.ts), the lesson file format (share/format.ts) and share/tryLesson.ts.
  */
+import type { BaseModelFamily } from '../contracts/knowledge';
+import { familyFromText } from '../knowledge/baseModel';
 
+/** One kind of model file a step asks for, and the tests a file name must pass to be of that kind. */
 export interface FileWant {
   /**
    * What the file must be, as an id: the sentence that says it is `lessons.fileKind.<kind>` in the catalog, so a
@@ -59,6 +62,7 @@ export function familyOfFile(name: string, known?: BaseModelFamily | null): Base
 
 /** Null when the file is of the kind asked for; otherwise the first reason it is not. */
 export function fileMiss(name: string, want: FileWant, known?: BaseModelFamily | null): FileMiss | null {
+  // The extension first: a loader of quantised models lists nothing else, so a wrong one is the plainest miss.
   if (want.ext && !name.toLowerCase().endsWith(want.ext)) return { kind: 'mark', marks: [want.ext] };
   const family = familyOfFile(name, known);
   if (family !== 'unknown') {
@@ -134,9 +138,13 @@ export const FILES = {
   ggufModel: { kind: 'ggufModel', families: ['flux1', 'zimage'], ext: '.gguf', folder: 'diffusion_models', example: 'flux1-dev-Q4_K_S.gguf' },
 } satisfies Record<string, FileWant>;
 
+/** The id of one entry of FILES. */
 export type FileKind = keyof typeof FILES;
 
-/** Every model file a lesson asks for, once per kind, in the order the steps ask: for the card of a lesson. */
+/**
+ * Every model file a lesson asks for, once per kind, in the order the steps ask. Meant for the card of a lesson;
+ * today only tests/unit/lessonPath.test.ts calls it.
+ */
 export function filesOfLesson(lesson: { steps: ReadonlyArray<{ fields?: ReadonlyArray<{ test: { kind: string; want?: FileWant } }> }> }): FileWant[] {
   const out: FileWant[] = [];
   for (const step of lesson.steps) {
@@ -149,8 +157,9 @@ export function filesOfLesson(lesson: { steps: ReadonlyArray<{ fields?: Readonly
 }
 
 /**
- * Which of the kinds a lesson asks for the person already has, from the list of model files the app reads. A kind
- * with no file is told before the lesson starts, with the folder it goes into; the app downloads nothing.
+ * Which of the kinds a lesson asks for the person already has, from the list of model files the app reads, so a
+ * kind with no file can be told before the lesson starts, with the folder it goes into; the app downloads nothing.
+ * Today only tests/unit/lessonPath.test.ts calls it.
  */
 export function filesAtHand(wants: readonly FileWant[], names: readonly string[], families: Readonly<Record<string, BaseModelFamily>> = {}): Array<{ want: FileWant; file: string | null }> {
   return wants.map((want) => ({ want, file: names.find((name) => fileMiss(name, want, families[name]) === null) ?? null }));
@@ -168,6 +177,7 @@ export interface FileRow {
   has: string[];
   /** Words of which the name holds at least one ("face" or "hand"). */
   any?: string[];
+  /** Words the name must not hold. */
   not?: string[];
 }
 
@@ -218,8 +228,8 @@ export interface FamilyPair {
 }
 
 /**
- * Puts the "same family" rules into their lessons, in place, after the rule on the same field (or into the step
- * that brings the role). Like withFileTable, so a set's list of pairs needs no change in the set's own file.
+ * Puts the "same family" rules into their lessons, in place: into the step that already rules the same field (or
+ * the step that brings the role), after its other rules. Like withFileTable, so a set's list of pairs needs no change in the set's own file.
  */
 export function withFamilyPairs<L extends { id: string; steps: RuledStep[] }>(lessons: readonly L[], table: Readonly<Record<string, ReadonlyArray<FamilyPair>>>): readonly L[] {
   for (const lesson of lessons) {

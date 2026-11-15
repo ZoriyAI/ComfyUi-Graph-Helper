@@ -1,12 +1,8 @@
-import type { CatalogView } from '../catalog/types';
-import { fixFor, lessonProgress, type Lesson, type LessonGraph, type LessonNode, type Missing } from './engine';
-import { isAdultLesson } from './lessons';
-
 /**
  * A finished example graph built from a lesson's own steps.
  *
- * Who uses it: File ▸ Examples and the welcome card's "Open an example" (main/files/examples.ts builds the list and
- * opens one through the same path as File ▸ Open workflow).
+ * Who uses it: File ▸ Examples and the welcome card's "Open an example" (main/ipc/openIpc.ts availableExamples and
+ * openExample build the list and open one through the same commit as File ▸ Open workflow).
  * Why it is built and not shipped: a lesson already says, step by step, which nodes go where, which links join them
  * and which values fields take. Doing every step the way "Do this for me" does, on an empty graph and against the
  * node list read from this ComfyUI, gives a graph that uses only nodes and model files the person has. No example
@@ -14,6 +10,9 @@ import { isAdultLesson } from './lessons';
  * What only a person can choose is filled plainly: the first model file the field offers and a short neutral prompt.
  * Adult lessons give no example.
  */
+import type { CatalogView } from '../catalog/types';
+import { fixFor, lessonProgress, type Lesson, type LessonGraph, type LessonNode, type Missing } from './engine';
+import { isAdultLesson } from './lessons';
 
 /** The prompt an example puts where a lesson asks the person to write one: plain and neutral, in English. */
 export const EXAMPLE_PROMPT = 'a quiet lake at dawn, light mist over the water, a small wooden boat, soft morning light';

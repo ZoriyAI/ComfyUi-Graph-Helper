@@ -1,6 +1,3 @@
-import type { FieldSpec, FieldTest, Lesson, LinkSpec, RoleSpec } from '../engine';
-import type { LessonGroup } from '../engine';
-
 /**
  * Video beyond the Wan 2.2 pair and the WanVideoWrapper pack, used by the lesson list (lessons.ts registers this set):
  * the small Wan 2.2 model, the anchor picture thread (start image, first and last frame, a reference for the whole
@@ -13,6 +10,8 @@ import type { LessonGroup } from '../engine';
  * named above each lesson. Class, input and output names are ComfyUI's own (comfy_extras) and the packs' own; the
  * numbers are the templates' numbers, and each number a step's text names is the preferred value of its rule.
  */
+import type { FieldSpec, FieldTest, Lesson, LinkSpec, RoleSpec } from '../engine';
+import type { LessonGroup } from '../engine';
 
 const node = (role: string, ...classes: string[]): RoleSpec => ({ role, classes });
 const link = (from: string, output: string, to: string, input: string, via?: string[]): LinkSpec => (via ? { from, output, to, input, via } : { from, output, to, input });
@@ -291,6 +290,7 @@ const videoSpeech: Lesson = {
 
 /** The sigmas of the LTX-2.5 template: eight steps for the first stage, three for the second. */
 export const LTX_SIGMAS_FIRST = '1.0, 0.99375, 0.9875, 0.98125, 0.975, 0.909375, 0.725, 0.421875, 0.0';
+/** The sigmas of the second stage, which refines the upscaled latent. */
 export const LTX_SIGMAS_SECOND = '0.85, 0.7250, 0.4219, 0.0';
 
 /**
@@ -847,7 +847,9 @@ export const VIDEO_LESSON_AFTER: Readonly<Record<string, string[]>> = {
 
 /** The groups of the lesson list this set uses (LessonGroup is shared with the other sets). */
 export const VIDEO_GROUP: LessonGroup = { id: 'video', title: { ru: 'Видео', en: 'Video' } };
+/** The lessons built around one anchor picture: a start image, first and last frames, a reference. */
 export const ANCHOR_GROUP: LessonGroup = { id: 'video-anchor', title: { ru: 'Видео: опорная картинка', en: 'Video: the anchor picture' } };
+/** Lessons that need a node pack or teach a general tool; other sets put lessons into this group too. */
 export const PACKS_GROUP: LessonGroup = { id: 'packs-tools', title: { ru: 'Паки и инструменты', en: 'Packs and tools' } };
 
 /**
@@ -883,8 +885,8 @@ export const VIDEO_PACK_OF: ReadonlyArray<readonly [RegExp, string]> = [
 ];
 
 /**
- * What the engine engineer needs to add per lesson: which file a loader must hold (by words in its name) and the
- * reason sentence of each numeric rule. Kept as data so the report and a later engine can read it.
+ * Which file a loader must hold in each lesson of the set, by words in its name. Kept as a table so the lessons
+ * above stay readable; lessons.ts turns each row into a file rule with withFileTable (files.ts).
  */
 export const VIDEO_FILE_KINDS: Readonly<Record<string, ReadonlyArray<{ role: string; field: string; has: string[]; not?: string[] }>>> = {
   'video-small': [{ role: 'model', field: 'unet_name', has: ['ti2v', '5b'] }, { role: 'clip', field: 'clip_name', has: ['umt5'] }, { role: 'vae', field: 'vae_name', has: ['wan2.2_vae'] }],

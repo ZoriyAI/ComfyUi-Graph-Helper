@@ -1,3 +1,8 @@
+/**
+ * What kind of model a file is (checkpoint, LoRA, VAE...), read from the ComfyUI folder it sits in and, for a LoRA
+ * put in the wrong folder, from its header. The catalog repository and the model sync in main
+ * (main/catalog/repository.ts, main/mcp/sync.ts) use it when they store the model list.
+ */
 import type { ModelKind } from '../contracts/knowledge';
 
 /** ComfyUI folder_paths names and the kind of file each loader expects there. */
@@ -20,6 +25,7 @@ const BY_DIRECTORY: Record<string, ModelKind> = {
   ipadapter: 'ipadapter',
 };
 
+/** The kind by the top folder alone; a subfolder ("loras/wan/x.safetensors") counts as its top folder. */
 export function kindFromDirectory(directory: string): ModelKind {
   const top = directory.split(/[\\/]/)[0]?.toLowerCase() ?? '';
   return BY_DIRECTORY[top] ?? 'other';

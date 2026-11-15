@@ -1,23 +1,23 @@
-import type { LessonWords } from '../texts';
-
 /**
- * Слова видеоуроков из sets/video.ts. Каждый урок сначала говорит, сколько он стоит памяти и времени, а урок, где
- * чужое лицо, движение или голос переносятся на что-то, начинается с правила о согласии теми же словами, что в
- * уроках про говорящий портрет. Каждое число в тексте шага совпадает с предпочитаемым значением его правила.
+ * The words of the video lessons of sets/video.ts, Russian; texts.ts reads them for the lesson panel. Each lesson
+ * says first what it costs in memory and time, and a lesson that puts a person's face, motion or voice onto
+ * something starts with the consent rule, in the words of the talking-portrait lessons. Every number a step names is
+ * the one its rule prefers.
  */
+import type { LessonWords } from '../texts';
 
 const SAVE = 'Сохраните граф через «Файл ▸ Сохранить workflow для ComfyUI…», откройте файл в ComfyUI и запустите там. Само приложение в ComfyUI ничего не запускает.';
 
-/** Когда нужного файла нет в списке. Приложение не скачивает: это делает человек в самом ComfyUI. */
+/** When the file a step asks for is not in the list. The app downloads nothing: the person does, in ComfyUI. */
 const noFile = (template: string) => `Если нужного файла в списке нет, значит, его нет в вашем ComfyUI. Приложение ничего не скачивает. Проще всего открыть в самом ComfyUI ${template}: он покажет, каких файлов не хватает и куда их положить. Потом выберите здесь в меню «Синхронизация ▸ Синхронизировать сейчас», и файлы появятся в списках.`;
 
-/** Пак запускает чужой код: сказано один раз там, где урок его требует. */
+/** A pack runs other people's code: said once, where a lesson needs one. */
 const PACK = (pack: string) => `Для урока нужен пак ${pack}. Поставьте его сами через менеджер ComfyUI. Пак запускает на вашем компьютере чужой код, поэтому берите его с официальной страницы и обновляйте.`;
 
 const CONSENT_VOICE = 'Озвучивать так можно только того, кто на это согласен, и его собственным голосом или голосом, на который у вас есть разрешение. Получите разрешение на исходные материалы и учитывайте местные законы.';
 const CONSENT_BODY = 'Оживлять так можно только того, кто на это согласен: себя, придуманного героя или человека, который разрешил. Получите разрешение на исходные материалы и учитывайте местные законы.';
 
-/** Говорится один раз, сразу после правила о согласии, в каждом уроке, где есть картинка с человеком. */
+/** Said once, right after the consent rule, in every lesson that uses a picture of a person. */
 const LIMITS = 'Для взрослого (18+) содержимого получите согласие участников и учитывайте местные законы. Исключайте тех, кто младше 18 лет или так выглядит; обозначайте синтетические изображения, чтобы не вводить людей в заблуждение. Уроки учат технике без откровенных подробностей.';
 
 const EMPTY = 'Если на холсте уже есть другой граф, начните с пустого: «Файл ▸ Новый проект».';
@@ -47,6 +47,7 @@ const saveAt = (fps: number, why: string) => ({
   body: `Добавьте ноды {video} и {save}. Кадры из ноды {decode} идут во вход \`images\` ноды {video}, а её выход во вход \`video\` ноды {save}. В поле \`fps\` поставьте ${fps}.\n\n${why} С другим числом ролик пойдёт быстрее или медленнее, чем задумано.`,
 });
 
+/** The Russian words of the video lessons, by lesson id. */
 export const VIDEO_LESSONS_RU: Record<string, LessonWords> = {
   'video-small': {
     title: 'Видео на скромной видеокарте: Wan 2.2 5B',

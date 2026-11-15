@@ -1,21 +1,22 @@
+/**
+ * The words of the lessons, Russian; texts.ts reads them for the lesson panel. This file holds the first lessons and
+ * spreads in the Russian words of the image-models, image-techniques and sound-3d-faces sets. Each step: what to do
+ * and why. `{role}` in a text is replaced by the name of the node as this ComfyUI's library shows it. Field and value
+ * names stand in backticks: the person looks for them on the node.
+ *
+ * The lessons on adult content (pictures and video) teach technique. There are no explicit texts, no ready scene
+ * prompts and no lists of words here, and there will be none: a model's words come from its author's page. The
+ * rules in their first step come from one place (shared/content/rules.ts), the same one Settings and Help show.
+ */
 import type { LessonWords } from './texts';
 import { IMAGE_MODEL_TEXTS_RU } from './sets/image-models.texts.ru';
 import { IMAGE_TECHNIQUES_RU } from './sets/image-techniques.texts.ru';
 import { SOUND_3D_FACES_RU } from './sets/sound-3d-faces.texts.ru';
 import { contentRulesMarkdown } from '../content/rules';
 
-/**
- * Слова уроков. Каждый шаг: что сделать и зачем. `{роль}` в тексте заменяется названием ноды, как оно показано в
- * библиотеке этого ComfyUI. Названия полей и значений стоят в обратных кавычках: человек ищет их на ноде.
- *
- * Уроки о содержимом для взрослых (картинки и видео) учат технике. Откровенных текстов, готовых промптов сцен и
- * списков слов здесь нет и не будет: слова модели человек берёт со страницы её автора. Правила в их первом шаге
- * берутся из одного места (shared/content/rules.ts), там же, откуда их показывают настройки и справка.
- */
-
 const SAVE = 'Сохраните граф через «Файл ▸ Сохранить workflow для ComfyUI…», откройте файл в ComfyUI и запустите там. Само приложение в ComfyUI ничего не запускает.';
 
-/** Когда нужного файла нет в списке. Программа не скачивает: это делает человек в самом ComfyUI. */
+/** When the file a step asks for is not in the list. The app downloads nothing: the person does, in ComfyUI. */
 const noFile = (template: string) => `Если нужного файла в списке нет, значит, его нет в вашем ComfyUI. Приложение ничего не скачивает. Проще всего открыть в самом ComfyUI ${template}: он покажет, каких файлов не хватает и куда их положить. Потом выберите здесь в меню «Синхронизация ▸ Синхронизировать сейчас», и файлы появятся в списках.`;
 
 const NEED_VIDEO = {
@@ -48,6 +49,7 @@ const TRIGGER = {
   body: 'Допишите слова вашей LoRA в поле `text` той ноды {positive}, выход которой идёт во вход `positive`.\n\nПриложение сверяет промпт со словами, записанными в самом файле LoRA. Если автор их туда не записал, сверять не с чем, и шаг засчитывается сам.',
 };
 
+/** The Russian words by lesson id, the sets that texts.ts does not join itself included. */
 export const LESSONS_RU: Record<string, LessonWords> = {
   ...IMAGE_MODEL_TEXTS_RU,
   ...IMAGE_TECHNIQUES_RU,

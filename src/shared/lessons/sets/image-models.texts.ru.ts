@@ -1,14 +1,14 @@
-import type { LessonWords } from '../texts';
-
 /**
- * Слова уроков о семействах моделей для картинок (sets/image-models.ts). Каждый шаг: что сделать и зачем.
- * `{роль}` заменяется названием ноды, как его показывает библиотека этого ComfyUI; названия полей и значений стоят
- * в обратных кавычках. Английский файл говорит то же самое, шаг в шаг, с теми же числами.
+ * The words of the lessons on picture model families (sets/image-models.ts), Russian; texts.ru.ts spreads them into
+ * the lesson words. Each step: what to do and why. `{role}` is replaced by the node's name as this ComfyUI's library
+ * shows it; field and value names stand in backticks. The English file says the same, step for step, with the same
+ * numbers.
  */
+import type { LessonWords } from '../texts';
 
 const SAVE = 'Сохраните граф через «Файл ▸ Сохранить workflow для ComfyUI…», откройте файл в ComfyUI и запустите там. Само приложение в ComfyUI ничего не запускает.';
 
-/** Когда нужного файла нет в списке. Приложение не скачивает: это делает человек в самом ComfyUI. */
+/** When the file a step asks for is not in the list. The app downloads nothing: the person does, in ComfyUI. */
 const noFile = (template: string) => `Если файла нет в списке, значит, его нет в вашем ComfyUI. Приложение ничего не скачивает. Откройте в самом ComfyUI ${template}: он покажет, каких файлов не хватает и куда их положить. Берите файлы только с официальной страницы модели. Потом выберите здесь в меню «Синхронизация ▸ Синхронизировать сейчас», и файлы появятся в списках.`;
 
 const DECODE = {
@@ -26,6 +26,7 @@ const CHECKPOINT_GRAPH = {
   body: 'Этот урок продолжает граф из урока «Первая картинка из текста». На холсте должны быть {checkpoint}, две ноды {positive}, {latent}, {sampler}, {decode} и {save} со связями между ними.\n\nЕсли их нет, сначала пройдите тот урок.',
 };
 
+/** The Russian words of the picture model lessons, by lesson id. */
 export const IMAGE_MODEL_TEXTS_RU: Record<string, LessonWords> = {
   flux: {
     title: 'Flux.1: картинка из отдельных файлов',

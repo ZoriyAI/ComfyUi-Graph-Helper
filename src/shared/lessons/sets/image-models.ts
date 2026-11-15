@@ -1,6 +1,3 @@
-import type { FieldSpec, FieldTest, Lesson, LessonGroup, LinkSpec, RoleSpec } from '../engine';
-import { FILES, type FileKind } from '../files';
-
 /**
  * Lessons on the families of picture models and how each one is loaded: a checkpoint that holds everything
  * (SD 1.5, SDXL and the families trained further from it, SD 3.5) against separate files for the diffusion model,
@@ -14,6 +11,8 @@ import { FILES, type FileKind } from '../files';
  *
  * The number a step's text names is the `prefer` of its rule: "Do this for me" sets what the text says.
  */
+import type { FieldSpec, FieldTest, Lesson, LessonGroup, LinkSpec, RoleSpec } from '../engine';
+import { FILES, type FileKind } from '../files';
 
 const node = (role: string, ...classes: string[]): RoleSpec => ({ role, classes });
 const link = (from: string, output: string, to: string, input: string, via?: string[]): LinkSpec => (via ? { from, output, to, input, via } : { from, output, to, input });
@@ -469,8 +468,10 @@ export const IMAGE_MODEL_AFTER: Readonly<Record<string, string[]>> = {
   gguf: ['flux', 'zimage-turbo'],
 };
 
+// Re-exported because navigation.ts and the other sets import the type from here.
 export type { LessonGroup };
 
+/** The group of the lesson list for this set. */
 export const IMAGE_MODELS_GROUP: LessonGroup = { id: 'images-models', title: { ru: 'Картинки: модели', en: 'Pictures: models' } };
 
 /**

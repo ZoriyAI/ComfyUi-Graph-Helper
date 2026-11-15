@@ -1,12 +1,13 @@
-import type { LessonWords } from '../texts';
-
 /**
- * Слова уроков «Основ» по-русски. Каждый шаг: что сделать и зачем. `{role}` заменяется именем ноды, как его
- * показывает библиотека этого ComfyUI; имена полей и значения стоят в обратных кавычках.
+ * The words of the foundations lessons, in Russian; texts.ts reads them for the lesson panel. Each step: what to do
+ * and why. `{role}` is replaced by the name of the node as this ComfyUI's library shows it; field names and values
+ * stand in backticks. The English file says the same.
  */
+import type { LessonWords } from '../texts';
 
 const SAVE = 'Сохраните граф через «Файл ▸ Сохранить workflow для ComfyUI…», откройте файл в ComfyUI и запустите там. Само приложение ничего в ComfyUI не запускает.';
 
+/** The Russian words of the foundations lessons, by lesson id. */
 export const FOUNDATIONS_LESSONS_RU: Record<string, LessonWords> = {
   'comfy-basics': {
     title: 'Как устроен ComfyUI',

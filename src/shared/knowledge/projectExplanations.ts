@@ -1,18 +1,20 @@
-import { z } from 'zod';
-import type { Explanation } from '../contracts/knowledge';
-import type { ObjectKind, ObjectRef } from '../contracts/objects';
-import { EXPLANATION_ASPECTS, objectRefSchema, ownerIsComplete, PROVENANCES } from './schemas';
-
 /**
  * The `explanations` block of a native project file (`extensions.explanations`): every explanation that belongs to
  * an object of the project's graph. The engine never reads it; main/knowledge/projectExplanations.ts writes it on
- * save and reads it on open. Its own version: a block this app does not understand is left out, never refused.
+ * save and reads it on open, main/commands/commit.ts keeps it with each commit, and the renderer's knowledge state
+ * uses isGraphOwnerKind. Its own version: a block this app does not understand is left out, never refused.
  *
  *   { "version": 1, "items": [ { "owner": ObjectRef, "aspect", "text", "provenance", "sourceUrl", "createdBy",
  *                                 "createdAt", "revisionId" } ] }
  *
  * An object inside a subgraph definition carries the definition's id in `owner.subgraphId`.
  */
+import { z } from 'zod';
+import type { Explanation } from '../contracts/knowledge';
+import type { ObjectKind, ObjectRef } from '../contracts/objects';
+import { EXPLANATION_ASPECTS, objectRefSchema, ownerIsComplete, PROVENANCES } from './schemas';
+
+/** The key of the block under the project file's `extensions`, and its format version. */
 export const EXPLANATIONS_EXTENSION = 'explanations';
 export const EXPLANATIONS_BLOCK_VERSION = 1;
 /** More than any real project holds; a file with more is cut, not refused. */
@@ -24,17 +26,21 @@ export const EXPLANATIONS_BLOCK_MAX = 20000;
  */
 export const GRAPH_OWNER_KINDS: readonly ObjectKind[] = ['node', 'port', 'edge', 'group', 'subgraph', 'process'];
 
+/** Whether an owner kind belongs to the graph (and so to the project file) rather than to the app. */
 export function isGraphOwnerKind(kind: string): boolean {
   return (GRAPH_OWNER_KINDS as readonly string[]).includes(kind);
 }
 
+/** An explanation as the project file holds it: no id and no project, which the file itself implies. */
 export type ProjectExplanation = Pick<Explanation, 'owner' | 'aspect' | 'text' | 'provenance' | 'sourceUrl' | 'createdBy' | 'createdAt' | 'revisionId'>;
 
+/** The block as written into the file. */
 export interface ExplanationsBlock {
   version: typeof EXPLANATIONS_BLOCK_VERSION;
   items: ProjectExplanation[];
 }
 
+// http(s) only, as in schemas.ts: a source link is opened from the renderer.
 const sourceUrl = z.string().max(2000).refine((value) => {
   try {
     const url = new URL(value);
@@ -55,6 +61,7 @@ const itemSchema = z.object({
   revisionId: z.string().min(1).max(200).nullable().optional(),
 });
 
+/** The block to write for these explanations, with only the fields the file format names. */
 export function explanationsBlock(items: ProjectExplanation[]): ExplanationsBlock {
   return {
     version: EXPLANATIONS_BLOCK_VERSION,

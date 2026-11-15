@@ -1,7 +1,3 @@
-import type { FieldSpec, FieldTest, Lesson, LinkSpec, RoleSpec } from '../engine';
-import type { LessonGroup } from './image-models';
-import { PACKS_GROUP } from './video';
-
 /**
  * The lessons of the foundations domain: what a newcomer needs before and around every other lesson. Their words
  * are in foundations.texts.ru.ts and foundations.texts.en.ts under the same lesson and step ids.
@@ -20,6 +16,9 @@ import { PACKS_GROUP } from './video';
  *   generated_text into the switch and into Preview as Text, as in llm_qwen3_text_gen.json and
  *   image_flux3_klein_t2i.json.
  */
+import type { FieldSpec, FieldTest, Lesson, LinkSpec, RoleSpec } from '../engine';
+import type { LessonGroup } from './image-models';
+import { PACKS_GROUP } from './video';
 
 const node = (role: string, ...classes: string[]): RoleSpec => ({ role, classes });
 const link = (from: string, output: string, to: string, input: string, via?: string[]): LinkSpec => (via ? { from, output, to, input, via } : { from, output, to, input });
@@ -180,6 +179,7 @@ const llmPrompt: Lesson = {
 
 /** The domain's lessons in the order a person meets them. The first one comes before every other lesson. */
 export const FOUNDATIONS_FIRST: readonly Lesson[] = [comfyBasics];
+/** The lessons that follow the first picture lessons in LESSONS (lessons.ts places them). */
 export const FOUNDATIONS_LESSONS: readonly Lesson[] = [samplerFields, readWorkflow, vram];
 /** The lessons on general-purpose tools; they go to the end of the list, in the group "Packs and tools". */
 export const FOUNDATIONS_TOOLS: readonly Lesson[] = [switchLesson, llmPrompt];

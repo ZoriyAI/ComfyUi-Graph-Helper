@@ -19,6 +19,7 @@ import { lessonShapes, tryLesson, type ClassShapes, type TryResult } from './try
 
 /** Where a lesson of the person came from: made in the editor, imported from a file, drafted by the assistant. */
 export type LessonOrigin = 'made' | 'file' | 'assistant';
+/** Every origin, in a fixed order. */
 export const LESSON_ORIGINS: readonly LessonOrigin[] = ['made', 'file', 'assistant'];
 
 /** The prefix of the app id of a person's lesson. */
@@ -42,10 +43,12 @@ export interface MyLesson {
   doc: LessonDoc;
 }
 
+/** The app id of a person's lesson: `my:` and its own id, so it never takes the place of a built-in lesson. */
 export function myLessonId(docId: string): string {
   return `${MY_LESSON_PREFIX}${docId}`;
 }
 
+/** Whether an app id names a person's lesson rather than a built-in one. */
 export function isMyLessonId(id: string): boolean {
   return id.startsWith(MY_LESSON_PREFIX);
 }

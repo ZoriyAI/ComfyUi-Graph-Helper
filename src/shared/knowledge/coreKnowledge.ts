@@ -1,3 +1,18 @@
+/**
+ * Built-in teaching knowledge: what the core ComfyUI nodes, data types and base-model families are, written by
+ * hand in English and Russian so the canvas can explain the basics before any LLM is configured.
+ *
+ * Provenance (every explanation shows where it comes from):
+ * - `what` and `connect` describe standard ComfyUI behaviour and are marked `fact`, with the official docs page
+ *   when one exists (every URL below was checked against https://docs.comfy.org/sitemap.xml).
+ * - `why` and `risk` are usage advice, so they are marked `inference`.
+ * - A family note is `fact` only when an official tutorial page backs the components it names; otherwise
+ *   `inference`. Family `risk` (the LoRA rule and similar advice) is always `inference`.
+ *
+ * Who uses it: main/knowledge/seedCore.ts stores coreSeeds as explanations, main/knowledge/nodeSearch.ts and the
+ * renderer (the Inspector, the node card, the link type notes, Badge) read the notes directly. The domain sets in
+ * sets/ join here through KNOWLEDGE_SETS, so a caller never has to know which set wrote a text.
+ */
 import type { BaseModelFamily, ExplanationAspect, Provenance } from '../contracts/knowledge';
 import { objectKey, type ObjectRef } from '../contracts/objects';
 import { CORE_KNOWLEDGE_EN } from './coreKnowledge.en';
@@ -12,21 +27,11 @@ import { SOUND_3D_FACES_KNOWLEDGE_EN } from './sets/sound-3d-faces.en';
 import { SOUND_3D_FACES_KNOWLEDGE_RU } from './sets/sound-3d-faces.ru';
 import { SOUND_3D_FACES_KNOWLEDGE_DOCS } from './sets/sound-3d-faces';
 
-/**
- * Built-in teaching knowledge: what the core ComfyUI nodes, data types and base-model families are, written by
- * hand in English and Russian so the canvas can explain the basics before any LLM is configured.
- *
- * Provenance (every explanation shows where it comes from):
- * - `what` and `connect` describe standard ComfyUI behaviour and are marked `fact`, with the official docs page
- *   when one exists (every URL below was checked against https://docs.comfy.org/sitemap.xml).
- * - `why` and `risk` are usage advice, so they are marked `inference`.
- * - A family note is `fact` only when an official tutorial page backs the components it names; otherwise
- *   `inference`. Family `risk` (the LoRA rule and similar advice) is always `inference`.
- */
-
+/** The languages the built-in knowledge is written in. */
 export type KnowledgeLanguage = 'en' | 'ru';
 export const KNOWLEDGE_LANGUAGES: readonly KnowledgeLanguage[] = ['en', 'ru'];
 
+/** The node classes the core pack describes; each needs texts in both languages (the pack type enforces it). */
 export const CORE_NODE_CLASSES = [
   'CheckpointLoaderSimple', 'UNETLoader', 'CLIPLoader', 'DualCLIPLoader', 'VAELoader', 'LoraLoader', 'LoraLoaderModelOnly',
   'CLIPTextEncode', 'CLIPSetLastLayer', 'EmptyLatentImage', 'EmptySD3LatentImage', 'KSampler', 'KSamplerAdvanced',
@@ -38,12 +43,14 @@ export const CORE_NODE_CLASSES = [
 ] as const;
 export type CoreNodeClass = typeof CORE_NODE_CLASSES[number];
 
+/** The data types of links the core pack describes. */
 export const CORE_LINK_TYPES = [
   'MODEL', 'CLIP', 'VAE', 'CONDITIONING', 'LATENT', 'IMAGE', 'MASK', 'CONTROL_NET', 'UPSCALE_MODEL', 'CLIP_VISION',
   'CLIP_VISION_OUTPUT', 'SIGMAS', 'SAMPLER', 'GUIDER', 'NOISE', 'INT', 'FLOAT', 'STRING', 'BOOLEAN', 'COMBO',
 ] as const;
 export type CoreLinkType = typeof CORE_LINK_TYPES[number];
 
+/** The base-model families the core pack describes. */
 export const CORE_FAMILIES = [
   'sd15', 'sdxl', 'pony', 'illustrious', 'flux1', 'flux2', 'chroma', 'qwen-image', 'wan2.1', 'wan2.2', 'ltx2', 'hunyuan',
   'zimage', 'krea', 'sd3', 'kolors', 'auraflow', 'cascade',
@@ -64,12 +71,14 @@ export interface FamilyTexts {
   risk: string;
 }
 
+/** The core knowledge in one language: every listed class, type and family must have its texts. */
 export interface CoreLanguagePack {
   nodes: Record<CoreNodeClass, CoreTexts>;
   linkTypes: Record<CoreLinkType, CoreTexts>;
   families: Record<CoreFamily, FamilyTexts>;
 }
 
+/** The core packs by language. */
 export const CORE_KNOWLEDGE: Record<KnowledgeLanguage, CoreLanguagePack> = { en: CORE_KNOWLEDGE_EN, ru: CORE_KNOWLEDGE_RU };
 
 /** What a pack is for and its key nodes, by the pack's folder name. */
@@ -224,6 +233,7 @@ export const CORE_FAMILY_DOCS: Record<CoreFamily, string | null> = {
   cascade: null,
 };
 
+/** A node class as the owner of an explanation. */
 export function nodeClassRef(classType: string): ObjectRef {
   return { kind: 'nodeClass', id: classType, classType };
 }
@@ -235,6 +245,7 @@ export function linkTypeRef(dataType: string | null | undefined): ObjectRef | nu
   return { kind: 'linkType', id: type.toUpperCase() };
 }
 
+/** A base-model family as the owner of an explanation. */
 export function familyRef(family: string): ObjectRef {
   return { kind: 'family', id: family };
 }
@@ -318,6 +329,7 @@ export function coreSeeds(language: KnowledgeLanguage): CoreSeed[] {
 
 /** The built-in note about a family in the given language, for tooltips and the "Ask about this model" message. */
 export function familyNote(family: string, language: KnowledgeLanguage): FamilyTexts | null {
+  // The last set wins, as in coreSeeds, so walk the sets backwards.
   for (const { set } of [...KNOWLEDGE_SETS[language]].reverse()) {
     if (Object.prototype.hasOwnProperty.call(set.families, family)) return set.families[family];
   }

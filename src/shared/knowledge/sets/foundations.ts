@@ -1,7 +1,3 @@
-import type { CoreTexts, KnowledgeLanguage, KnowledgeSet, KnowledgeSetDocs } from '../coreKnowledge';
-import { FOUNDATIONS_EN } from './foundations.en';
-import { FOUNDATIONS_RU } from './foundations.ru';
-
 /**
  * Built-in knowledge of the "foundations" domain: what a newcomer needs before and around every other lesson, and
  * the general-purpose tools of ComfyUI. Written by hand in English and Russian (foundations.en.ts, .ru.ts); this
@@ -18,15 +14,24 @@ import { FOUNDATIONS_RU } from './foundations.ru';
  *
  * Nothing here names a download link: a person takes a file from the model's official page and installs a pack
  * through ComfyUI's manager.
+ *
+ * Who uses it: coreKnowledge.ts reads it as one of KNOWLEDGE_SETS (nodes, packs, field notes, glossary); the error
+ * dialog and the term texts of the journey (renderer/components/journey, shared/journey/comfyError.ts and terms.ts)
+ * use comfyErrorNotes and glossary. folderNote, topicNote and foundationsPackId are only called by the tests today.
  */
+import type { CoreTexts, KnowledgeLanguage, KnowledgeSet, KnowledgeSetDocs } from '../coreKnowledge';
+import { FOUNDATIONS_EN } from './foundations.en';
+import { FOUNDATIONS_RU } from './foundations.ru';
 
 /** General-purpose nodes of ComfyUI itself. Each has a page on docs.comfy.org. */
 export const FOUNDATIONS_NODE_CLASSES = [
   'VAEEncodeTiled', 'PreviewAny', 'PrimitiveInt', 'PrimitiveFloat', 'PrimitiveString', 'PrimitiveStringMultiline',
   'PrimitiveBoolean', 'ComfySwitchNode', 'TextGenerateV2', 'TextGenerate', 'StringConcatenate', 'GetImageSize', 'ComfyMathExpression',
 ] as const;
+/** One class of FOUNDATIONS_NODE_CLASSES. */
 export type FoundationsNodeClass = typeof FOUNDATIONS_NODE_CLASSES[number];
 
+/** The docs page of each of those classes; the docs name every one of them as ComfyUI does. */
 export const FOUNDATIONS_NODE_DOCS: Record<FoundationsNodeClass, string> = Object.fromEntries(
   FOUNDATIONS_NODE_CLASSES.map((classType) => [classType, `https://docs.comfy.org/built-in-nodes/${classType}`]),
 ) as Record<FoundationsNodeClass, string>;
@@ -44,6 +49,7 @@ export interface ModelFolderFacts {
   readers: readonly string[];
 }
 
+/** The folders and their facts (see ModelFolderFacts). */
 export const MODEL_FOLDERS = [
   { id: 'checkpoints', core: true, readers: ['CheckpointLoaderSimple', 'CheckpointLoader', 'unCLIPCheckpointLoader', 'ImageOnlyCheckpointLoader'] },
   { id: 'diffusion_models', core: true, readers: ['UNETLoader'] },
@@ -96,6 +102,7 @@ export const MODEL_FOLDERS = [
   { id: 'diffusers', core: true, readers: ['DiffusersLoader'] },
   { id: 'configs', core: true, readers: ['CheckpointLoader'] },
 ] as const satisfies readonly ModelFolderFacts[];
+/** The id (folder name) of one of MODEL_FOLDERS. */
 export type ModelFolderId = typeof MODEL_FOLDERS[number]['id'];
 
 /** What a folder holds, which nodes read it, how large its files are, what goes wrong when a file lies elsewhere. */
@@ -121,6 +128,7 @@ export const FIELD_KEYS = [
   'end_percent', 'grow_mask_by', 'value', 'PrimitiveBoolean.value', 'switch', 'on_false', 'on_true', 'prompt', 'system_prompt',
   'max_length', 'thinking', 'string_a', 'string_b', 'delimiter', 'expression',
 ] as const;
+/** One key of FIELD_KEYS. */
 export type FieldKey = typeof FIELD_KEYS[number];
 
 /** The node classes each field text belongs to (ComfyUI's own classes, as nodes.py and comfy_extras name the fields). */
@@ -187,8 +195,10 @@ export const TOPIC_IDS = [
   'vram-offload', 'vram-blockswap', 'vram-tiling', 'vram-size', 'vram-order', 'text-encoders', 'read-workflow', 'groups', 'notes',
   'reroutes', 'primitives', 'set-get', 'bypass-mute', 'subgraphs', 'partner-nodes', 'llm-in-graph',
 ] as const;
+/** One id of TOPIC_IDS. */
 export type TopicId = typeof TOPIC_IDS[number];
 
+/** A topic in one language: its title and its body. */
 export interface TopicTexts {
   title: string;
   /** Paragraphs separated by an empty line; a list with "- ". */
@@ -217,8 +227,10 @@ export const COMFY_ERRORS = [
   { id: 'dependency-cycle', pattern: /Dependency cycle detected/i },
   { id: 'lora-keys', pattern: /lora key not loaded/i },
 ] as const satisfies ReadonlyArray<{ id: string; pattern: RegExp }>;
+/** One id of COMFY_ERRORS. */
 export type ComfyErrorId = typeof COMFY_ERRORS[number]['id'];
 
+/** What a known error means and what to change. */
 export interface ErrorTexts {
   title: string;
   meaning: string;
@@ -244,6 +256,7 @@ export const FOUNDATIONS_PACKS = [
   { id: 'ComfyUI-Manager', match: /^comfyui[-_]manager$/i },
   { id: 'partner-nodes', match: /^comfy[-_]api[-_]nodes$|^partner[-_]nodes$/i },
 ] as const;
+/** One id of FOUNDATIONS_PACKS. */
 export type FoundationsPackId = typeof FOUNDATIONS_PACKS[number]['id'];
 
 /** What a pack is for, its key nodes (by the names the library shows), and what to watch for. */
@@ -351,6 +364,7 @@ export const GLOSSARY_TERMS = [
   { id: 'mcp-server', community: 'MCP server' },
   { id: 'sync', community: 'sync' },
 ] as const;
+/** One id of GLOSSARY_TERMS. */
 export type GlossaryId = typeof GLOSSARY_TERMS[number]['id'];
 
 /** The term as it is said in one language, and one plain sentence. */
@@ -359,6 +373,7 @@ export interface GlossaryTexts {
   text: string;
 }
 
+/** The whole domain in one language; foundations.en.ts and foundations.ru.ts each fill one. */
 export interface FoundationsPack {
   /** Built-in nodes: what, why, connect, risk, like the core knowledge. Seeded with it (coreKnowledge.ts). */
   nodes: Record<FoundationsNodeClass, CoreTexts>;
@@ -370,8 +385,10 @@ export interface FoundationsPack {
   glossary: Record<GlossaryId, GlossaryTexts>;
 }
 
+/** The domain by language. */
 export const FOUNDATIONS: Record<KnowledgeLanguage, FoundationsPack> = { en: FOUNDATIONS_EN, ru: FOUNDATIONS_RU };
 
+// Any interface language but Russian reads the English texts.
 const languageOf = (language: string): KnowledgeLanguage => (language.toLowerCase().startsWith('ru') ? 'ru' : 'en');
 
 /**
@@ -386,6 +403,7 @@ export function folderNote(directory: string, language: string): (FolderTexts & 
   return { ...texts, id: facts.id, core: facts.core, sameAs: 'sameAs' in facts ? facts.sameAs : null };
 }
 
+/** A longer explanation by its id, in the person's language. */
 export function topicNote(id: TopicId, language: string): TopicTexts {
   return FOUNDATIONS[languageOf(language)].topics[id];
 }
@@ -396,6 +414,7 @@ export function comfyErrorNotes(message: string, language: string): Array<ErrorT
   return COMFY_ERRORS.filter((item) => item.pattern.test(message)).map((item) => ({ ...texts[item.id], id: item.id }));
 }
 
+/** One glossary term as the glossary lists it. */
 export interface GlossaryEntry extends GlossaryTexts {
   id: GlossaryId;
   /** The English word of the community, to search for. */

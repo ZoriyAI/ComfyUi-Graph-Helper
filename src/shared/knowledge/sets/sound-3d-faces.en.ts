@@ -1,10 +1,10 @@
-import type { KnowledgeSet } from '../coreKnowledge';
-
 /**
- * Built-in knowledge of sound and speech, 3D, faces and characters, English. The Russian file says the same.
+ * Built-in knowledge of sound and speech, 3D, faces and characters, English; coreKnowledge.ts reads it for the
+ * English interface. The Russian file says the same.
  * Everything about putting a face or a voice onto someone starts with the rule: a real person only with their
  * consent; never in explicit content; never anyone who looks like a minor.
  */
+import type { KnowledgeSet } from '../coreKnowledge';
 
 const RULE = 'A real person\'s face or voice only with their consent; never in explicit content; never anyone who looks like a minor.';
 const PACK_CODE = 'A pack runs other people\'s code: install it yourself through ComfyUI\'s manager, and only one you trust.';

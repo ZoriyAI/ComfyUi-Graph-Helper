@@ -1,12 +1,12 @@
-import type { LessonWords } from '../texts';
-
 /**
- * The words of the lessons on sound, speech, 3D, faces and characters, English. The Russian file says the same
- * things step for step, with the same numbers and the same words in backticks.
+ * The words of the lessons on sound, speech, 3D, faces and characters, English; texts.en.ts spreads them into the
+ * lesson words. The Russian file says the same things step for step, with the same numbers and the same words in
+ * backticks.
  *
  * Where a lesson gives a voice or a face to someone, the rule comes first, in the words the talking-portrait
  * lessons use. No example in these lessons describes a real person.
  */
+import type { LessonWords } from '../texts';
 
 const SAVE = 'Save the graph with "File ▸ Save workflow for ComfyUI…", open the file in ComfyUI and run it there. This app runs nothing in ComfyUI itself.';
 
@@ -22,6 +22,7 @@ const START = 'The lesson builds the graph from an empty canvas: "File ▸ New p
 export const FACE_RULE = 'Only someone who agrees may be shown this way: yourself, a person who gave permission, or an invented character. Obtain consent before using a real person\'s likeness and permission for the source material, and follow local law. Do not put a real person\'s likeness into explicit content; exclude anyone who is or appears under 18; do not pass a person off as saying or doing what they did not. This lesson teaches technique.';
 
 
+/** The English words of the sound, 3D and face lessons, by lesson id. */
 export const SOUND_3D_FACES_EN: Record<string, LessonWords> = {
   'audio-music': {
     title: 'Music from text: ACE-Step 1.5',

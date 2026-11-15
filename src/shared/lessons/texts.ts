@@ -1,3 +1,10 @@
+/**
+ * The words of the built-in lessons in both languages, looked up by lesson id, and the helpers that put node names
+ * into a step's text. Used by the lesson panel (renderer/components/lessons/LessonPanel.tsx, lackText.ts), the menu
+ * bar, and share/builtin.ts and share/mine.ts. The words live apart from the lesson rules (lessons.ts, sets/*.ts) so
+ * one rule set serves both languages, and tests/unit/lessonTexts.test.ts checks the numbers in the words against the
+ * rules.
+ */
 import { LESSONS_EN } from './texts.en';
 import { LESSONS_RU } from './texts.ru';
 import { VIDEO_LESSONS_EN } from './sets/video.texts.en';
@@ -23,13 +30,16 @@ export interface LessonWords {
   roles?: Record<string, string>;
 }
 
+/** The languages the lessons are written in; any other interface language reads the English words. */
 export type LessonLanguage = 'en' | 'ru';
 
+// texts.en.ts and texts.ru.ts already spread the image-models, image-techniques and sound-3d-faces sets.
 const WORDS: Record<LessonLanguage, Record<string, LessonWords>> = {
   en: { ...LESSONS_EN, ...VIDEO_LESSONS_EN, ...FOUNDATIONS_LESSONS_EN },
   ru: { ...LESSONS_RU, ...VIDEO_LESSONS_RU, ...FOUNDATIONS_LESSONS_RU },
 };
 
+/** The words of a lesson in the person's language (English for any language but Russian); null for an unknown id. */
 export function lessonWords(language: string, lessonId: string): LessonWords | null {
   const table = language === 'ru' ? WORDS.ru : WORDS.en;
   return table[lessonId] ?? null;

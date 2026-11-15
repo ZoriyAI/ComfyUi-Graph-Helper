@@ -1,8 +1,14 @@
+/**
+ * The plain match ranking every catalog search builds on: a prefix beats a whole word, which beats a substring.
+ * searchWords.ts adds exact, Russian-synonym and one-typo matches on top of it and re-exports these ranks, so the
+ * node search and the model search in main sort the same way.
+ */
 /** Lower is better. Infinity means no match. Both sides are compared lower-case. */
 export const MATCH_PREFIX = 0;
 export const MATCH_WORD = 1;
 export const MATCH_SUBSTRING = 2;
 
+/** The query as literal text inside a regular expression. */
 function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

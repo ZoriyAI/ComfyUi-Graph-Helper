@@ -1,5 +1,6 @@
 /**
- * The words of the lessons on picture techniques (image-techniques.ts), English. Each step: what to do and why.
+ * The words of the lessons on picture techniques (image-techniques.ts), English; texts.en.ts spreads them into the
+ * lesson words. Each step: what to do and why.
  * `{role}` is replaced by the name of the node as this ComfyUI's library shows it; field names and values stand in
  * backticks. The Russian file says the same, with the same numbers and the same words in backticks.
  */
@@ -26,6 +27,7 @@ const INPAINT_GRAPH = {
   body: 'This lesson goes on from the graph of "Inpainting: redraw part of a picture". The canvas must have {checkpoint}, the texts {positive} and {negative}, {picture}, {inpaint} and {sampler} as that lesson leaves them.\n\nIf they are not there, do that lesson first.',
 };
 
+/** The English words of the picture technique lessons, by lesson id. */
 export const IMAGE_TECHNIQUES_EN: Record<string, LessonWords> = {
   img2img: {
     title: 'A picture from a picture',

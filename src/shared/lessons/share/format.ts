@@ -177,9 +177,13 @@ const fileSchema = z.object({
   lessons: z.array(lessonSchema).min(1).max(LESSON_LIMITS.lessons),
 }).strict();
 
+/** The words of one lesson in one language, as the file holds them. */
 export type LessonDocWords = z.infer<typeof wordsSchema>;
+/** One lesson of a file: its rules and its words. */
 export type LessonDoc = z.infer<typeof lessonSchema>;
+/** A whole lesson file: one lesson or a pack of them. */
 export type LessonFile = z.infer<typeof fileSchema>;
+/** The languages a lesson file may carry words in. */
 export type LessonDocLanguage = 'en' | 'ru';
 
 /**
@@ -205,6 +209,7 @@ export type LessonFileProblem =
   /** A rule of schema.ts lessonRuleProblems: its code and the names it is about; the window says it in words. */
   | { code: 'rules'; lesson: string; rule: LessonRuleProblem };
 
+/** A file read back: the lessons, or the reason it was refused. */
 export type LessonFileRead = { ok: true; file: LessonFile } | { ok: false; problem: LessonFileProblem };
 
 /**

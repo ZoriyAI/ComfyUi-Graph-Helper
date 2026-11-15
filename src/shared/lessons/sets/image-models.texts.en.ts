@@ -1,10 +1,10 @@
-import type { LessonWords } from '../texts';
-
 /**
- * The words of the lessons on picture model families (sets/image-models.ts). Each step: what to do and why.
+ * The words of the lessons on picture model families (sets/image-models.ts), English; texts.en.ts spreads them into
+ * the lesson words. Each step: what to do and why.
  * `{role}` is replaced by the node's name as this ComfyUI's library shows it; field names and values stand in
  * backticks. The Russian file says the same, step for step, with the same numbers.
  */
+import type { LessonWords } from '../texts';
 
 const SAVE = 'Save the graph with "File ▸ Save workflow for ComfyUI…", open the file in ComfyUI and run it there. This app runs nothing in ComfyUI itself.';
 
@@ -26,6 +26,7 @@ const CHECKPOINT_GRAPH = {
   body: 'This lesson goes on from the graph of the lesson "A first picture from text". The canvas must have {checkpoint}, two {positive} nodes, {latent}, {sampler}, {decode} and {save} with their links.\n\nIf they are not there, do that lesson first.',
 };
 
+/** The English words of the picture model lessons, by lesson id. */
 export const IMAGE_MODEL_TEXTS_EN: Record<string, LessonWords> = {
   flux: {
     title: 'Flux.1: a picture from separate files',
