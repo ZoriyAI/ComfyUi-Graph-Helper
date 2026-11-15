@@ -615,7 +615,7 @@ export const en = {
     checkGraph: 'Check this graph',
     graphChecked: 'Missing nodes: {{nodes}}. Missing models: {{models}}.',
     noneMissing: 'none',
-    mcpUrl: 'MCP server URL',
+    mcpUrl: 'MCP server address',
     mcpUrlHint: 'Paste the address as the server shows it, for example http://127.0.0.1:9000/mcp. The app calls only the tools that read; nothing is started or installed.',
     accessTitle: 'Access to the server',
     accessLead: 'How the app shows the server that it may connect. Not sure which one? Press “Test server” next to the address: the app asks the server and picks for you.',

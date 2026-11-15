@@ -126,7 +126,7 @@ test('Check Show and Ask Why preserve a definition-local identity that also exis
       actor: 'manual', runId: null, payload: { type: 'import-workflow', document: workflow } }])).status).toBe('applied');
     await window.reload();
     await window.locator('#chat-provider').waitFor();
-    await pickOption(window, 'Chat provider', 'TEST mode');
+    await pickOption(window, 'Choose the assistant', 'TEST mode');
     await window.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
     await window.keyboard.press('Control+Shift+c');
     const row = window.locator('.check-panel li[data-type="missingNodes"]').filter({ hasText: 'MissingInnerClass' });
