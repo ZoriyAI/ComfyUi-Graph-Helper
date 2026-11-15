@@ -155,7 +155,7 @@ module.exports = {
           productDescription: LONG_DESCRIPTION,
           license: 'MIT',
           categories: ['Graphics', 'Education'],
-          // The maker's own spec plus one line: chrome-sandbox SUID root, as in the .deb.
+          // The maker's spec with chrome-sandbox SUID root and copyright retained as a license.
           specTemplate: path.join(__dirname, 'resources', 'linux', 'rpm.spec.ejs'),
           icon: ICONS,
           desktopTemplate: DESKTOP_TEMPLATE,

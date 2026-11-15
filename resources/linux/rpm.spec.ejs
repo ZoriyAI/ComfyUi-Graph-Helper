@@ -1,6 +1,6 @@
-# The rpm spec of electron-installer-redhat 4.0.0 (MIT), with one line added: Chromium's sandbox helper is installed
-# SUID root (the attr line in the file list), as in the .deb, so the sandbox works also where the kernel gives no user namespaces.
-# rpmbuild warns "File listed twice" for it; that line wins.
+# The rpm spec of electron-installer-redhat 4.0.0 (MIT), with the sandbox helper installed SUID root as in the .deb
+# and copyright marked as a license so installations excluding documentation retain the bundled notices.
+# rpmbuild warns "File listed twice" for chrome-sandbox; its explicit attr line wins.
 %define _binary_payload w<%= compressionLevel %>.xzdio
 
 %if "%{_host_cpu}" != "%{_target_cpu}"
@@ -35,7 +35,8 @@ cp <%= process.platform === 'darwin' ? '-R' : '-r' %> usr/* %{buildroot}/usr/
 /usr/lib/<%= name %>/
 %attr(4755, root, root) /usr/lib/<%= name %>/chrome-sandbox
 /usr/share/applications/<%= name %>.desktop
-/usr/share/doc/<%= name %>/
+%dir /usr/share/doc/<%= name %>
+%license /usr/share/doc/<%= name %>/copyright
 <% if (_.isObject(icon)) {
   _.forEach(icon, function (path, resolution) {
     %>/usr/share/icons/hicolor/<%= resolution %>/apps/<%= name %><%= resolution === 'symbolic' ? '-symbolic' : '' %>.<%= ['scalable', 'symbolic'].includes(resolution) ? 'svg' : 'png' %>
