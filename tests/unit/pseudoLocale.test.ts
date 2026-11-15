@@ -18,8 +18,8 @@ describe('the pseudo-translation of the layout tests', () => {
   });
 
   it('is never on in an installed app', () => {
-    expect(pseudoLocaleWanted(true, { GRAPH_HELPER_PSEUDO_LOCALE: '1' })).toBe(false);
-    expect(pseudoLocaleWanted(false, { GRAPH_HELPER_PSEUDO_LOCALE: '1' })).toBe(true);
+    expect(pseudoLocaleWanted(true, { NODEWISE_PSEUDO_LOCALE: '1' })).toBe(false);
+    expect(pseudoLocaleWanted(false, { NODEWISE_PSEUDO_LOCALE: '1' })).toBe(true);
     expect(pseudoLocaleWanted(false, {})).toBe(false);
   });
 });

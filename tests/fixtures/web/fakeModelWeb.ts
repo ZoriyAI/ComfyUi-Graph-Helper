@@ -2,7 +2,7 @@
  * A fake of the two sites a model card can ask about a file, for tests: Civitai's `model-versions/by-hash` and
  * Hugging Face's model search, model record and raw README, plus a picture server. Plain `http` on loopback; the
  * app is pointed at it through ModelWebClient's endpoints (unit and integration tests) or, in a test build only,
- * the GRAPH_HELPER_TEST_MODEL_WEB variable (end-to-end tests). Every request is recorded with its time, so a test
+ * the NODEWISE_TEST_MODEL_WEB variable (end-to-end tests). Every request is recorded with its time, so a test
  * can prove what was sent and how far apart. Labelled fixture: these records are made up.
  *
  * Paths: /civitai/api/v1/model-versions/by-hash/<sha256>, /hf/api/models?search=…, /hf/api/models/<id>,

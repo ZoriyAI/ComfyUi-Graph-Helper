@@ -2,6 +2,7 @@ import i18next, { type InitOptions } from 'i18next';
 import { en, ru } from './catalog';
 import { redactSecrets } from '../config/draft';
 import { GRAPH_LINK_LIMIT, GRAPH_NODE_LIMIT, GRAPH_TOO_LARGE } from '../workflow/graphLimits';
+import { DISPLAY_NAME, SHORT_NAME } from '../productNames';
 
 export { en, ru } from './catalog';
 export type { Catalog } from './catalog';
@@ -16,6 +17,13 @@ export function catalogLeaves(value: unknown, prefix = ''): string[] {
 }
 
 export type Translator = (key: string, options?: Record<string, unknown>) => string;
+
+/**
+ * Values every text may use without the caller passing them: the product's name ({{app}}) and its short form
+ * ({{appShort}}). The catalog never spells the name, so a rename is one change in src/shared/productNames.ts.
+ * Both translators (this module's createTranslator and the window's src/renderer/i18n.ts) set them.
+ */
+export const NAME_VALUES: Readonly<Record<'app' | 'appShort', string>> = { app: DISPLAY_NAME, appShort: SHORT_NAME };
 
 const ERROR_KEYS: Record<string, string> = {
   'Settings cannot store a secret': 'errors.secret',
@@ -41,7 +49,7 @@ const ERROR_KEYS: Record<string, string> = {
   'A group keeps at least one node. To remove the group, use Remove group.': 'editing.errors.groupEmpty',
   'Export failed.': 'errors.exportFailed',
   'That component is not in the graph.': 'errors.componentMissing',
-  'This file is not a Graph Helper for ComfyUI project.': 'errors.nativeFormat',
+  'This file is not a native project.': 'errors.nativeFormat',
   'The native project file is not valid.': 'errors.nativeShape',
   'The native project repeats a component owner.': 'errors.nativeDuplicate',
   'The project file could not be parsed.': 'errors.parseProject',
@@ -234,6 +242,7 @@ export function createTranslator(language: AppLanguage): Translator {
     load: 'currentOnly',
     interpolation: {
       escapeValue: false,
+      defaultVariables: NAME_VALUES,
     },
     // A text that did not get one of its values shows "…" there, never the placeholder itself ("{{done}}").
     missingInterpolationHandler: () => '…',

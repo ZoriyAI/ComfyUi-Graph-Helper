@@ -2,7 +2,8 @@ import { safeStorage } from 'electron';
 import { isUnprotectedCipher, type SecretProbe } from '../../shared/config/secretPolicy';
 
 const OS_PASSWORD_MANAGERS = new Set(['gnome_libsecret', 'kwallet', 'kwallet5', 'kwallet6']);
-const CANARY = 'comfy-graph-helper-canary';
+// A throw-away text for the round trip below; never stored.
+const CANARY = 'nodewise-studio-canary';
 
 /** Reads the Electron backend. Does not call setUsePlainTextEncryption and does not write SQLite. */
 export async function probeSecretBackend(): Promise<SecretProbe> {

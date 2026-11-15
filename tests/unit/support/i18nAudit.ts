@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import ts from 'typescript';
+import { NAME_VALUES } from '../../../src/shared/i18n';
 
 /**
  * A static check of every translated text in the app. Each call of a translation function is read from the
@@ -64,9 +65,12 @@ export class Catalog {
     return this.texts.has(key);
   }
 
-  /** Every value name any language's text for this key uses. */
+  /**
+   * Every value name any language's text for this key uses, except the product's name ({{app}}, {{appShort}}):
+   * both translators fill those by default (src/shared/i18n/index.ts NAME_VALUES), so no call passes them.
+   */
   needs(key: string): string[] {
-    return [...new Set((this.texts.get(key) ?? []).flatMap(placeholdersOf))];
+    return [...new Set((this.texts.get(key) ?? []).flatMap(placeholdersOf))].filter((name) => !(name in NAME_VALUES));
   }
 
   matching(pattern: RegExp): string[] {

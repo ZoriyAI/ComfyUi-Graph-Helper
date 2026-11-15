@@ -169,7 +169,7 @@ describe('component records and native projects', () => {
       graph: { nodes: snapshot.nodes, edges: snapshot.edges, document: snapshot.document },
       components: snapshot.components!,
     });
-    expect(native).toMatchObject({ format: 'comfy-graph-helper-project', version: 2 });
+    expect(native).toMatchObject({ format: 'nodewise-studio-project', version: 2 });
     expect(JSON.stringify(native)).toContain(PURPOSE);
     expect(JSON.stringify(native)).toContain(PROCESS_NOTES);
 
@@ -197,7 +197,7 @@ describe('component records and native projects', () => {
     expect((current(db).snapshot as GraphSnapshot).components?.find((item) => item.ownerId === '7')?.purpose).toBe('');
 
     const legacy = parseNativeProject({
-      format: 'comfy-graph-helper-project',
+      format: 'nodewise-studio-project',
       version: 0,
       graph: native.graph,
     });

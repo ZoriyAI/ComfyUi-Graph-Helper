@@ -4,7 +4,9 @@ import { commitCommand, ensureWorkspace, readProjection } from '../../src/main/c
 import { nativeProjectFile, openNativeFile } from '../../src/main/ipc/projectFile';
 import { migrate } from '../../src/main/settings/migrate';
 import { DESKTOP_PROJECT_ID as P } from '../../src/shared/project';
-import { parseNativeProject, serializeNativeProject } from '../../src/shared/native-project';
+import { isNativeProjectFormat, parseNativeProject, serializeNativeProject } from '../../src/shared/native-project';
+import { NATIVE_PROJECT_FORMAT_ID } from '../../src/shared/productNames';
+import { LEGACY_NATIVE_PROJECT_FORMAT_IDS } from '../../src/shared/legacyNames';
 
 function fresh(): Database.Database {
   const db = new Database(':memory:');
@@ -39,7 +41,7 @@ describe('a project file opened and saved again', () => {
     expect(project.futureSetting).toEqual({ mode: 'later' });
     expect(project.savedBy).toBe('a later version');
     // What this version writes itself still wins over a stale copy of it.
-    expect(project.format).toBe('comfy-graph-helper-project');
+    expect(project.format).toBe('nodewise-studio-project');
     expect(parseNativeProject(project).ok).toBe(true);
   });
 
@@ -54,5 +56,20 @@ describe('a project file opened and saved again', () => {
     const project = (nativeProjectFile(db, P) as { project: Record<string, unknown> }).project;
     expect((project.extensions as Record<string, unknown>)['other.tool']).toBeUndefined();
     expect(project.futureSetting).toBeUndefined();
+  });
+});
+
+describe('a project file saved by 0.x, before the product was renamed', () => {
+  it('opens, and is written back with the current format id', () => {
+    const db = fresh();
+    for (const legacy of LEGACY_NATIVE_PROJECT_FORMAT_IDS) {
+      const old = { ...laterProjectFile(), format: legacy };
+      expect(isNativeProjectFormat(old.format)).toBe(true);
+      expect(parseNativeProject(old).ok).toBe(true);
+      expect(openNativeFile(db, P, old).status).toBe('applied');
+      const project = (nativeProjectFile(db, P) as { project: Record<string, unknown> }).project;
+      expect(project.format).toBe(NATIVE_PROJECT_FORMAT_ID);
+    }
+    expect(parseNativeProject({ ...laterProjectFile(), format: 'some-other-tool' })).toEqual({ ok: false, error: 'This file is not a native project.' });
   });
 });

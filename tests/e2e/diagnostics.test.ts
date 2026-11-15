@@ -24,7 +24,7 @@ test('diagnostics: log file, Help menu copy and open, no key in the report, wind
   // The main log exists and records the start.
   const logFile = path.join(userData, 'logs', 'main.log');
   await expect.poll(() => fs.existsSync(logFile)).toBe(true);
-  expect(fs.readFileSync(logFile, 'utf8')).toContain('[App] Start Graph Helper for ComfyUI');
+  expect(fs.readFileSync(logFile, 'utf8')).toContain('[App] Start NodeWise Studio');
 
   // A key held this session and a key-shaped renderer error never reach the report or the log.
   await window.evaluate(async (key) => {
@@ -33,7 +33,7 @@ test('diagnostics: log file, Help menu copy and open, no key in the report, wind
     await api.reportRendererError({ kind: 'error', message: `probe failure ${key}` });
   }, FAKE_KEY);
   const report = await window.evaluate(() => (window as unknown as { electronAPI: { collectDiagnostics: () => Promise<string> } }).electronAPI.collectDiagnostics());
-  expect(report).toContain('# Graph Helper for ComfyUI diagnostics');
+  expect(report).toContain('# NodeWise Studio diagnostics');
   expect(report).toContain('provider key held: yes');
   expect(report).toContain('[Renderer] error: probe failure');
   expect(report).not.toContain(FAKE_KEY);
@@ -58,7 +58,7 @@ test('diagnostics: log file, Help menu copy and open, no key in the report, wind
   await window.getByRole('menu').getByRole('menuitem', { name: 'Copy diagnostics' }).click();
   await expect(window.getByText('Diagnostics copied')).toBeVisible();
   const clipboard = await electronApp.evaluate(({ clipboard }) => clipboard.readText());
-  expect(clipboard).toContain('# Graph Helper for ComfyUI diagnostics');
+  expect(clipboard).toContain('# NodeWise Studio diagnostics');
   expect(clipboard).not.toContain(FAKE_KEY);
 
   // Window bounds are saved on close (restoring them is covered by tests/unit/windowState.test.ts). The window

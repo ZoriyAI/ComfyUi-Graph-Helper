@@ -10,8 +10,8 @@ describe('the conversation log keeps to itself', () => {
 
   it('a saved log carries neither the profile folder nor the home folder', async () => {
     const { savedLogScrub } = await import('../../src/main/ipc/diagnosticsIpc');
-    const scrub = savedLogScrub('/home/ann/.config/graph-helper/', '/home/ann');
-    expect(scrub('db at /home/ann/.config/graph-helper/app.db, file /home/ann/pics/a.png, other /home/anna/x'))
+    const scrub = savedLogScrub('/home/ann/.config/nodewise-studio/', '/home/ann');
+    expect(scrub('db at /home/ann/.config/nodewise-studio/app.db, file /home/ann/pics/a.png, other /home/anna/x'))
       .toBe('db at [app profile]/app.db, file ~/pics/a.png, other /home/anna/x');
     expect(scrub(JSON.stringify({ p: 'C:\\\\Users\\\\x' }))).toContain('Users');
   });

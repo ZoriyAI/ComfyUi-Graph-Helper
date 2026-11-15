@@ -2,7 +2,7 @@ import { app, shell } from 'electron';
 import { testSwitchesAllowed } from '../runMode';
 
 /** Env flag the e2e build sets; honoured only in an unpackaged app with NODE_ENV 'test'. */
-export const TEST_BROWSER_FLAG = 'GRAPH_HELPER_TEST_BROWSER';
+export const TEST_BROWSER_FLAG = 'NODEWISE_TEST_BROWSER';
 
 function isWebUrl(value: string): boolean {
   try {

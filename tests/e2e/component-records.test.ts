@@ -57,7 +57,7 @@ const workflow = {
 
 test('node and subgraph records persist in the native project and stay out of Comfy export', async () => {
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'component-records-'));
-  const nativePath = path.join(userData, 'project.graph-helper.json');
+  const nativePath = path.join(userData, 'project.nodewise.json');
   const comfyPath = path.join(userData, 'workflow.json');
   const electronApp = await electron.launch({
     args: [path.join(__dirname, '../../dist/main/index.js'), `--user-data-dir=${userData}`],
@@ -122,7 +122,7 @@ test('node and subgraph records persist in the native project and stay out of Co
     process: { title: string };
     components: Array<{ ownerId: string; purpose: string; usage: string }>;
   };
-  expect(native.format).toBe('comfy-graph-helper-project');
+  expect(native.format).toBe('nodewise-studio-project');
   expect(native.version).toBe(2);
   expect(native.process.title).toBe('Portrait process');
   expect(native.components.find((item) => item.ownerId === '7')).toMatchObject({ purpose: PURPOSE, usage: `${USAGE.slice(0, -1)}` });

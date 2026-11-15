@@ -303,7 +303,7 @@ test('model card: a file nothing describes is looked up on the internet when the
   const web = await startFakeModelWeb();
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'model-web-'));
   // A test build reads this to ask the fake of Civitai and Hugging Face; a packaged app never does.
-  const env = { ...process.env, NODE_ENV: 'production', GRAPH_HELPER_TEST_MODEL_WEB: web.origin } as Record<string, string>;
+  const env = { ...process.env, NODE_ENV: 'production', NODEWISE_TEST_MODEL_WEB: web.origin } as Record<string, string>;
   delete env.DBUS_SESSION_BUS_ADDRESS;
   delete env.GNOME_KEYRING_CONTROL;
   const app = await electron.launch({ args: [path.join(__dirname, '../../dist/main/index.js'), `--user-data-dir=${userData}`], env });

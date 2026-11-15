@@ -18,7 +18,7 @@ test.setTimeout(240_000);
 test('a hand-written description is saved with the project, stays off other graphs and follows undo and redo', async () => {
   const errors: string[] = [];
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'project-explanations-'));
-  const projectPath = path.join(userData, 'portrait.graph-helper.json');
+  const projectPath = path.join(userData, 'portrait.nodewise.json');
   const workflowPath = path.join(userData, 'dense.json');
   fs.writeFileSync(workflowPath, JSON.stringify(denseWorkflow), 'utf8');
   const app = await electron.launch({
@@ -113,7 +113,7 @@ const INNER_NOTE = 'Turns the words into what the sampler reads.';
 test('inside a subgraph definition a description is written on the inner node, not on the main node with its number', async () => {
   const errors: string[] = [];
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'project-explanations-sg-'));
-  const projectPath = path.join(userData, 'nested.graph-helper.json');
+  const projectPath = path.join(userData, 'nested.nodewise.json');
   const workflowPath = path.join(userData, 'nested.json');
   fs.writeFileSync(workflowPath, JSON.stringify(nestedSubgraphWorkflow), 'utf8');
   const app = await electron.launch({

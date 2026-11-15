@@ -2,26 +2,34 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 /**
- * How the app names itself.
+ * How the app names itself, for the main process: window, dialogs, desktop entry, profile folder, user agents,
+ * MCP clientInfo and the update check all take their names from here.
  *
- * People read DISPLAY_NAME (window, desktop entry, dialogs, the server's sign-in page). Machines read APP_ID
- * (MCP clientInfo in mcp/client.ts, user agents) and STABLE_APP_NAME (the profile folder ~/.config/comfyui-graph-builder and the
- * OS keyring entry the saved keys are encrypted under; also the deb package and the executable). STABLE_APP_NAME
- * must never change: an update would open an empty profile and could not decrypt the saved keys.
+ * The spellings themselves live in src/shared/productNames.ts (the renderer's texts need them too and cannot import
+ * main-process code); this module re-exports them so main-process code has one place to read every name from.
+ *
+ * People read DISPLAY_NAME. Machines read APP_ID (MCP clientInfo in mcp/client.ts, the .deb / .rpm package, the
+ * executable, the desktop file and icons) and STABLE_APP_NAME, the name Electron runs under: it names the profile
+ * folder ~/.config/nodewise-studio and the OS keyring entry ("nodewise-studio Safe Storage") the saved keys are
+ * encrypted under. It changed once, for 1.0 (from the 0.x profile name in src/shared/legacyNames.ts):
+ * src/main/profileAdoption.ts moves the old folder over on the first start; keys the keyring encrypted under the
+ * old name do not open under the new one and are entered again. Do not change it again: every change costs people
+ * their saved keys.
  *
  * No Electron import here, so unit tests can load every module that names the app.
  */
-export const DISPLAY_NAME = 'Graph Helper for ComfyUI';
-export const APP_ID = 'graph-helper-for-comfyui';
-export const STABLE_APP_NAME = 'comfyui-graph-builder';
+export { APP_ID, DISPLAY_NAME, SHORT_NAME, USER_AGENT_PRODUCT } from '../shared/productNames';
+import { APP_ID, USER_AGENT_PRODUCT } from '../shared/productNames';
+export const STABLE_APP_NAME = APP_ID;
 
 /**
- * The public project address (the repository on GitHub): the one constant for it. The value here is a placeholder
- * until the address is set; set the same address in package.json (repository, homepage, bugs), which
- * tests/unit/identity.test.ts compares. While it is the placeholder the app shows the project links greyed out and
- * the update check asks nothing.
+ * The public project address (the repository on GitHub): the one constant for it. package.json (repository,
+ * homepage, bugs), the issue forms' config and the README badges repeat it, and tests/unit/identity.test.ts
+ * compares them. The repository still has its pre-1.0 name; when the owner renames it, change this value and the
+ * test lists every copy to follow. A placeholder value (`OWNER/REPOSITORY`) greys the project links out and stops
+ * the update check.
  */
-export const PROJECT_URL = 'https://github.com/OWNER/REPOSITORY';
+export const PROJECT_URL = 'https://github.com/ZoriyAI/ComfyUi-Graph-Helper';
 
 /** False while PROJECT_URL is the placeholder: no link to a project page is offered or sent. */
 export function projectUrlIsSet(url: string = PROJECT_URL): boolean {
@@ -57,11 +65,12 @@ export function appVersion(): string {
 /** The user agent for one kind of outbound read. */
 export function userAgent(purpose: string): string {
   const site = projectUrlIsSet() ? `+${PROJECT_URL}; ` : '';
-  return `GraphHelperForComfyUI/${appVersion()} (${site}read-only; ${purpose})`;
+  return `${USER_AGENT_PRODUCT}/${appVersion()} (${site}read-only; ${purpose})`;
 }
 
 /**
- * Whether the app must rename itself to STABLE_APP_NAME and use ~/.config/STABLE_APP_NAME as its profile.
+ * Whether the app must rename itself to STABLE_APP_NAME and use ~/.config/STABLE_APP_NAME as its profile (and so
+ * whether the 0.x profile may be adopted: src/main/profileAdoption.ts).
  * Electron names the app after package.json productName whenever package.json is in effect (installed, or
  * `electron .`); a bare script launch (some tests) keeps Electron's own name "Electron" and its own folder.
  * The rule does not depend on the display name, so a later change of productName cannot move the profile.

@@ -173,13 +173,13 @@ test('files, history and the check behave as they say', async () => {
 
     // ── Save: the dialog suggests the title; Ctrl+S then writes in place; Ctrl+Shift+S asks again.
     await commit(ctx, { type: 'set-process', title: 'Лиса', notes: '' });
-    const projectFile = path.join(dir, 'fox.graph-helper.json');
+    const projectFile = path.join(dir, 'fox.nodewise.json');
     await dialogs(ctx, null, projectFile);
     await blur(page);
     await page.keyboard.press('Control+s');
     await expect(chip(page)).toHaveAttribute('data-dirty', 'false', { timeout: 15_000 });
     expect(await saveAsked(ctx)).toBe(1);
-    expect(await suggested(ctx)).toBe('Лиса.graph-helper.json');
+    expect(await suggested(ctx)).toBe('Лиса.nodewise.json');
     expect(fs.existsSync(projectFile)).toBe(true);
     await commit(ctx, { type: 'move-node', nodeId: '1', x: -80, y: 40 });
     await expect(chip(page)).toHaveAttribute('data-dirty', 'true');

@@ -1,6 +1,6 @@
 import i18next, { type InitOptions } from 'i18next';
 import { initReactI18next } from 'react-i18next';
-import { en, ru, type AppLanguage } from '../shared/i18n';
+import { en, ru, NAME_VALUES, type AppLanguage } from '../shared/i18n';
 import { pseudoText } from '../shared/i18n/pseudo';
 
 export const i18n = i18next.createInstance();
@@ -66,6 +66,8 @@ export function startI18n(language: AppLanguage) {
       load: 'currentOnly',
       interpolation: {
         escapeValue: false,
+        // The product's name in every text ({{app}}, {{appShort}}): see NAME_VALUES.
+        defaultVariables: NAME_VALUES,
       },
       missingInterpolationHandler: (text: string, value: RegExpExecArray) => missingValue(text, value),
       returnNull: false,

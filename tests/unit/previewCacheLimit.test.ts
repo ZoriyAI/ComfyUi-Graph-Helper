@@ -6,7 +6,7 @@ import { trimCache } from '../../src/main/knowledge/preview';
 
 describe('picture cache limit', () => {
   it('removes the oldest pictures past a count or a size, newest kept', () => {
-    const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'graph-helper-cache-'));
+    const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'nodewise-cache-'));
     try {
       for (let index = 0; index < 6; index += 1) {
         const file = path.join(folder, `p${index}.png`);

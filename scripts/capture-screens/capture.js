@@ -8,7 +8,7 @@ const os = require('os');
 const path = require('path');
 
 const appRoot = path.resolve(__dirname, '../..');
-const DEFAULT_OUT = path.join(os.tmpdir(), 'graph-helper-shots');
+const DEFAULT_OUT = path.join(os.tmpdir(), 'nodewise-shots');
 const outDir = process.argv[2] || DEFAULT_OUT;
 fs.mkdirSync(outDir, { recursive: true });
 const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'helper-shots-'));

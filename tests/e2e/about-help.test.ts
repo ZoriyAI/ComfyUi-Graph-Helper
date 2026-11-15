@@ -48,7 +48,7 @@ test('Help ▸ About: icon, name, version, licence, components, copy details, da
     const icon = dialog.locator('img').first();
     await expect.poll(() => icon.evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth)).toBeGreaterThan(0);
     expect(await icon.evaluate((image: HTMLImageElement) => image.getBoundingClientRect().width)).toBe(64);
-    await expect(dialog.getByRole('heading', { name: 'Graph Helper for ComfyUI' })).toBeVisible();
+    await expect(dialog.getByRole('heading', { name: 'NodeWise Studio' })).toBeVisible();
     await expect(dialog.locator('[data-about-version]')).toHaveText(RU('appInfo.version', { version: pkg.version }));
 
     // Details: runtime, system and the data folder, folded until asked for.
@@ -84,7 +84,7 @@ test('Help ▸ About: icon, name, version, licence, components, copy details, da
     await dialog.getByRole('button', { name: RU('appInfo.copyInfo') }).click();
     await expect(window.getByText(RU('appInfo.copied'))).toBeVisible();
     const clipboard = await app.evaluate(({ clipboard }) => clipboard.readText());
-    expect(clipboard).toContain(`Graph Helper for ComfyUI ${pkg.version}`);
+    expect(clipboard).toContain(`NodeWise Studio ${pkg.version}`);
     expect(clipboard).toMatch(/Electron \d+/);
     expect(clipboard).toMatch(/Chromium \d+/);
 

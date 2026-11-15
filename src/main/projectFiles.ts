@@ -6,6 +6,8 @@ import type { GraphSnapshot } from '../shared/workflow/codec';
 import type { ProjectFileState } from '../shared/contracts/projectFile';
 import { readProjection } from './commands/commit';
 import { currentGraphKey } from './knowledge/projectExplanations';
+import { PROJECT_FILE_SUFFIX } from '../shared/productNames';
+import { LEGACY_PROJECT_FILE_SUFFIXES } from '../shared/legacyNames';
 
 /**
  * The project file of the graph on screen: where it was last opened from or saved to, and whether the graph is in
@@ -111,19 +113,30 @@ export function fileNameFromTitle(title: string, fallback: string): string {
 
 /**
  * The file name a save writes: as given when it ends in .json (any letter case), else with the extension added
- * (`.graph-helper.json` for a project, `.json` for a workflow). On Linux the save dialog adds nothing to a name
+ * (PROJECT_FILE_SUFFIX, `.nodewise.json`, for a project; `.json` for a workflow). On Linux the save dialog adds nothing to a name
  * typed without an extension, and Open lists only *.json files, so such a file would seem to vanish.
  */
 export function withFileExtension(filePath: string, kind: 'project' | 'workflow'): string {
   if (/\.json$/i.test(filePath)) return filePath;
-  return `${filePath.replace(/\.+$/, '')}${kind === 'project' ? '.graph-helper.json' : '.json'}`;
+  return `${filePath.replace(/\.+$/, '')}${kind === 'project' ? PROJECT_FILE_SUFFIX : '.json'}`;
+}
+
+/**
+ * A project file name with the current ending: a name with a 0.x ending (src/shared/legacyNames.ts) gets
+ * PROJECT_FILE_SUFFIX instead, so Save as offers the new ending for a project opened from a 0.9 file. Save itself
+ * still writes to the file that was opened, under its old name.
+ */
+export function withCurrentProjectSuffix(filePath: string): string {
+  const lower = filePath.toLowerCase();
+  const legacy = LEGACY_PROJECT_FILE_SUFFIXES.find((suffix) => lower.endsWith(suffix));
+  return legacy ? `${filePath.slice(0, -legacy.length)}${PROJECT_FILE_SUFFIX}` : filePath;
 }
 
 /** Default names for the save dialogs, from the project title; next to the project file when there is one. */
 export function defaultSavePaths(state: ProjectFileState): { project: string; workflow: string } {
   const base = fileNameFromTitle(state.title, '');
   const dir = state.filePath ? path.dirname(state.filePath) : '';
-  const project = state.filePath ?? (base ? `${base}.graph-helper.json` : 'project.graph-helper.json');
+  const project = state.filePath ? withCurrentProjectSuffix(state.filePath) : `${base || 'project'}${PROJECT_FILE_SUFFIX}`;
   const workflow = base ? `${base}.json` : 'workflow.json';
   return { project, workflow: dir ? path.join(dir, workflow) : workflow };
 }
