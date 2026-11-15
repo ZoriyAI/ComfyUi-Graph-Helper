@@ -1,6 +1,7 @@
 import type { LessonWords } from './texts';
 import { IMAGE_MODEL_TEXTS_RU } from './sets/image-models.texts.ru';
 import { IMAGE_TECHNIQUES_RU } from './sets/image-techniques.texts.ru';
+import { SOUND_3D_FACES_RU } from './sets/sound-3d-faces.texts.ru';
 
 /**
  * Слова уроков. Каждый шаг: что сделать и зачем. `{роль}` в тексте заменяется названием ноды, как оно показано в
@@ -1112,4 +1113,5 @@ export const LESSONS_RU: Record<string, LessonWords> = {
       },
     },
   },
+  ...SOUND_3D_FACES_RU,
 };

@@ -8,6 +8,9 @@ import { VIDEO_KNOWLEDGE_RU } from './sets/video.ru';
 import { VIDEO_KNOWLEDGE_DOCS } from './sets/video';
 import { IMAGE_TECHNIQUES_KNOWLEDGE, IMAGE_TECHNIQUES_KNOWLEDGE_DOCS } from './sets/image-techniques';
 import { foundationsKnowledgeSet, FOUNDATIONS_SET_DOCS } from './sets/foundations';
+import { SOUND_3D_FACES_KNOWLEDGE_EN } from './sets/sound-3d-faces.en';
+import { SOUND_3D_FACES_KNOWLEDGE_RU } from './sets/sound-3d-faces.ru';
+import { SOUND_3D_FACES_KNOWLEDGE_DOCS } from './sets/sound-3d-faces';
 
 /**
  * Built-in teaching knowledge: what the core ComfyUI nodes, data types and base-model families are, written by
@@ -106,8 +109,18 @@ export interface KnowledgeSetDocs {
 /** The sets, in the order they are read; a later one wins over an earlier one and over the core. */
 export const KNOWLEDGE_SETS: Record<KnowledgeLanguage, Array<{ set: KnowledgeSet; docs: KnowledgeSetDocs }>> = {
   // The foundations set comes first: it never replaces an entry of the domain sets after it.
-  en: [{ set: foundationsKnowledgeSet('en'), docs: FOUNDATIONS_SET_DOCS }, { set: VIDEO_KNOWLEDGE_EN, docs: VIDEO_KNOWLEDGE_DOCS }, { set: IMAGE_TECHNIQUES_KNOWLEDGE.en, docs: IMAGE_TECHNIQUES_KNOWLEDGE_DOCS }],
-  ru: [{ set: foundationsKnowledgeSet('ru'), docs: FOUNDATIONS_SET_DOCS }, { set: VIDEO_KNOWLEDGE_RU, docs: VIDEO_KNOWLEDGE_DOCS }, { set: IMAGE_TECHNIQUES_KNOWLEDGE.ru, docs: IMAGE_TECHNIQUES_KNOWLEDGE_DOCS }],
+  en: [
+    { set: foundationsKnowledgeSet('en'), docs: FOUNDATIONS_SET_DOCS },
+    { set: VIDEO_KNOWLEDGE_EN, docs: VIDEO_KNOWLEDGE_DOCS },
+    { set: IMAGE_TECHNIQUES_KNOWLEDGE.en, docs: IMAGE_TECHNIQUES_KNOWLEDGE_DOCS },
+    { set: SOUND_3D_FACES_KNOWLEDGE_EN, docs: SOUND_3D_FACES_KNOWLEDGE_DOCS },
+  ],
+  ru: [
+    { set: foundationsKnowledgeSet('ru'), docs: FOUNDATIONS_SET_DOCS },
+    { set: VIDEO_KNOWLEDGE_RU, docs: VIDEO_KNOWLEDGE_DOCS },
+    { set: IMAGE_TECHNIQUES_KNOWLEDGE.ru, docs: IMAGE_TECHNIQUES_KNOWLEDGE_DOCS },
+    { set: SOUND_3D_FACES_KNOWLEDGE_RU, docs: SOUND_3D_FACES_KNOWLEDGE_DOCS },
+  ],
 };
 
 const DOCS = 'https://docs.comfy.org';
