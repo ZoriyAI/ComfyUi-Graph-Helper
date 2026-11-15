@@ -2,8 +2,8 @@
  * Spoken canvas: the names a screen reader gives to the nodes and links of the canvas, and which links take
  * keyboard focus.
  *
- * Who uses it: CanvasFlow, which passes the result to React Flow as `ariaLabel`, `ariaRoleDescription`-like
- * attributes and `focusable` on each node and edge.
+ * Who uses it: useSpokenCanvas.ts (mounted by CanvasFlow), which passes the result to React Flow as `ariaLabel`,
+ * an `aria-roledescription` attribute and `focusable` on each node and edge.
  *
  * Why: React Flow names a link "Edge from 1 to 2" (English, with internal ids) and leaves a node without a name,
  * so a screen reader read the whole card text or a meaningless id. A link was also a Tab stop of its own, and every
@@ -36,8 +36,10 @@ export interface SpokenEdgeInput {
   data?: { dataType?: string } & Record<string, unknown>;
 }
 
+/** A port as stored in node data; boundary nodes keep theirs under `ports`. */
 interface PortLike { id?: string; name?: string; dataType?: string }
 
+/** The ports on one side of a node; a boundary node's single `ports` list stands for either side. */
 function ports(data: Record<string, unknown>, side: 'inputs' | 'outputs'): PortLike[] {
   const list = data[side] ?? data.ports;
   return Array.isArray(list) ? (list as PortLike[]) : [];
@@ -83,12 +85,14 @@ export function linkedInputCounts(edges: SpokenEdgeInput[]): Map<string, number>
   const seen = new Map<string, Set<string>>();
   for (const edge of edges) {
     const set = seen.get(edge.target) ?? new Set<string>();
+    // Counted by input handle: two links into one input (a stale duplicate) count once.
     set.add(edge.targetHandle ?? edge.id);
     seen.set(edge.target, set);
   }
   return new Map(Array.from(seen, ([id, set]) => [id, set.size]));
 }
 
+/** The readable name of a port by its handle id; the handle itself when the port is not found. */
 function portName(node: SpokenNodeInput | undefined, side: 'inputs' | 'outputs', handle: string | null | undefined): string {
   if (!handle) return '';
   const port = node ? ports(node.data, side).find((item) => item.id === handle) : undefined;

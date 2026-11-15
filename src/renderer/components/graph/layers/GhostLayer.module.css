@@ -1,3 +1,8 @@
+/*
+ * Ghosts of the helper's proposals (GhostLayer.tsx): grey drafts, dashed links and outlines, pills, notes and the
+ * Accept / Reject chips. The root takes no pointer events, so the canvas under a ghost stays usable; only the drafts
+ * themselves (cards, notes, chips) take clicks.
+ */
 .root { position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: none; }
 .layer { position: absolute; left: 0; top: 0; }
 .anchor { position: absolute; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; pointer-events: auto; }

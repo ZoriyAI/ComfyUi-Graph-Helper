@@ -1,14 +1,15 @@
+/**
+ * Nodes glide to new positions instead of jumping when something other than the person's own drag moves them:
+ * "Arrange the graph", the tidy after a build, an undo of either. The movement is the explanation ("these nodes
+ * were rearranged, here is where each went"); with reduced or no motion the positions simply change.
+ * Edges follow, because the interpolated positions are what React Flow draws. CanvasFlow runs useGlide on the
+ * nodes it draws; arrange.ts reads glideMs to wait for the glide.
+ */
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { motionMs } from '../../../motion/policy';
 import { cameraEase } from '../../../motion/camera';
 
-/**
- * Nodes glide to new positions instead of jumping when something other than the person's own drag moves them:
- * «Разложить граф», the tidy after a build, an undo of either. The movement is the explanation ("these nodes
- * were rearranged, here is where each went"); with reduced or no motion the positions simply change.
- * Edges follow, because the interpolated positions are what React Flow draws.
- */
-
+/** A position in flow coordinates. */
 export interface Point {
   x: number;
   y: number;
@@ -30,6 +31,7 @@ export function easeInOut(t: number): number {
   return cameraEase(Math.min(1, Math.max(0, t)));
 }
 
+/** The point a share `t` (0 to 1) of the way from `from` to `to`. */
 export function lerpPoint(from: Point, to: Point, t: number): Point {
   return { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t };
 }
@@ -44,6 +46,7 @@ export function movedFrom(shown: Map<string, Point>, nodes: GlidingNode[]): Map<
   return from;
 }
 
+/** One running glide: start and end positions of the moving nodes, its timing and its animation frame. */
 interface Glide {
   from: Map<string, Point>;
   to: Map<string, Point>;
@@ -112,6 +115,7 @@ export function useGlide<T extends GlidingNode>(nodes: T[], enabled: boolean): {
       const positions = new Map<string, Point>();
       for (const node of latest.current) {
         const start = next.from.get(node.id);
+        // Heads for the node's latest position, so a target that changes mid-glide is followed smoothly.
         if (start) positions.set(node.id, lerpPoint(start, node.position, eased));
       }
       shown.current = new Map(latest.current.map((node) => [node.id, positions.get(node.id) ?? node.position]));

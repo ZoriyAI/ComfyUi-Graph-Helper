@@ -1,7 +1,12 @@
+/**
+ * Node context menu rows for workflows drawn the ComfyUI way (IMPORT+NODES): collapse or expand a node, and jump
+ * between a Set node and its Get nodes. GraphContextMenu adds these rows; the actions live in importLook.ts.
+ */
 import { ChevronsDownUp, ChevronsUpDown, Crosshair, type LucideIcon } from 'lucide-react';
 import { editorKind, isCollapsed, partnersOf } from '../../../shared/workflow/comfyLook';
 import { goToNode, setCollapsed } from './importLook';
 
+/** One row of the node context menu, in the shape GraphContextMenu draws. */
 export interface LookMenuItem {
   id: string;
   labelKey: string;
@@ -12,6 +17,7 @@ export interface LookMenuItem {
   run: () => void;
 }
 
+/** The parts of a node the rows are built from. */
 type MenuNode = { id: string; data: { comfyType?: unknown; comfy?: unknown; title?: unknown } };
 
 /**

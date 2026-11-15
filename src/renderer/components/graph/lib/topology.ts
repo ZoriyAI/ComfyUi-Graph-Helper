@@ -1,17 +1,20 @@
 /**
- * Graph topology helpers for the guided tour and the step-by-step build.
- * Pure: no React, no stores, so tests drive them directly.
+ * Graph topology helpers for the guided tour (tour/buildTour.ts): the order to visit nodes in and the links into
+ * a step. Pure: no React, no stores, so tests drive them directly.
  */
+/** A node as the order needs it. */
 export interface TopoNode {
   id: string;
   position?: { x: number; y: number };
 }
 
+/** A link as the order needs it. */
 export interface TopoEdge {
   source: string;
   target: string;
 }
 
+/** Sorts node ids left to right, then top to bottom, then by id. */
 function byPosition(nodes: Map<string, TopoNode>) {
   return (left: string, right: string) => {
     const a = nodes.get(left)?.position ?? { x: 0, y: 0 };

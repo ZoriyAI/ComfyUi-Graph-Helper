@@ -1,17 +1,25 @@
+/**
+ * Pure logic of the connect assist: for a port the person focused, which ports elsewhere on the canvas can take a
+ * link, which nodes have none (dimmed), and which single port to suggest. Used by CanvasFlow, the canvas store,
+ * PortHandle, CanvasContext, AddNodeSearch and layers/ConnectAssistLayer.tsx (which draws the result).
+ */
 import { portsCompatible } from '../../../../shared/graph/linkTypes';
 
+/** A port as the assist needs it: id, readable name and ComfyUI data type. */
 export interface AssistPort {
   id: string;
   name: string;
   dataType: string;
 }
 
+/** A node as the assist needs it: where it is and its ports. */
 export interface AssistNode {
   id: string;
   position: { x: number; y: number };
   data: { inputs?: AssistPort[]; outputs?: AssistPort[] };
 }
 
+/** An existing link; used to tell taken inputs from free ones. */
 export interface AssistEdge {
   source: string;
   target: string;
@@ -27,6 +35,7 @@ export interface ConnectFrom {
   dataType: string;
 }
 
+/** A port the focused port could be linked to. */
 export interface Candidate {
   nodeId: string;
   handle: string;
@@ -35,6 +44,7 @@ export interface Candidate {
   taken: boolean;
 }
 
+/** What the connect assist shows: the matching ports, the dimmed nodes and the suggested port. */
 export interface ConnectPlan {
   /** Ports that can take the connection, keyed `${nodeId}:${handle}`. */
   compatible: Set<string>;
@@ -44,6 +54,7 @@ export interface ConnectPlan {
   best: Candidate | null;
 }
 
+/** The key of one port in ConnectPlan.compatible. */
 export function portKey(nodeId: string, handle: string): string {
   return `${nodeId}:${handle}`;
 }
@@ -69,6 +80,7 @@ export function connectCandidates(from: ConnectFrom, nodes: AssistNode[], edges:
       if (!ok) continue;
       any = true;
       compatible.add(portKey(node.id, port.id));
+      // Distance between node corners is enough to rank suggestions; port positions are not known here.
       const dx = node.position.x - (origin?.position.x ?? 0);
       const dy = node.position.y - (origin?.position.y ?? 0);
       // An input already fed by a link is a worse suggestion than a free one, whatever the distance.
@@ -83,6 +95,7 @@ export function connectCandidates(from: ConnectFrom, nodes: AssistNode[], edges:
     }
     if (!any) dimmed.add(node.id);
   }
+  // Ties are broken by id so the same graph always gives the same suggestion.
   candidates.sort((left, right) => Number(left.taken) - Number(right.taken) || left.distance - right.distance
     || left.nodeId.localeCompare(right.nodeId) || left.handle.localeCompare(right.handle));
   const first = candidates[0];

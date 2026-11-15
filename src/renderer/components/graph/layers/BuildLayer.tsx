@@ -1,3 +1,9 @@
+/**
+ * The live build layer of the canvas: while the helper builds a graph, each new node, link and changed field
+ * appears one at a time with a speech-bubble callout, removed nodes fade, and the view fits the result at the end.
+ * It also answers centre requests ("Show" in the chat). CanvasFlow mounts it; LiveBuildStrip calls revealAllNow.
+ * The pacing rules live in lib/buildQueue.ts so they can be tested without React.
+ */
 import React, { useEffect, useLayoutEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowRight } from 'lucide-react';
@@ -31,16 +37,20 @@ const BUILD_FIT_MAX_ZOOM = 1;
 /** While following, how long the camera stays on the last step before it shows the whole graph. */
 const FOLLOW_END_FIT_MS = 2200;
 
+/** A timer that is never cancelled: each use clears a mark that must go even if the layer re-renders. */
 function later(ms: number, run: () => void): void {
   window.setTimeout(run, ms);
 }
 
+/** The reveal animation's length under the current motion level (0 unless motion is full). */
 function revealMs(): number {
   return motionMs('--motion-reveal');
 }
 
+/** The translator shape the callout helpers take, so they can run outside React. */
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
+/** A node's readable name for a callout, else `fallback`. */
 function nodeTitle(node: GraphNode | undefined, fallback: string): string {
   if (!node) return fallback;
   const detail = useNodeInfoStore.getState().details[node.data.comfyType];
@@ -57,6 +67,7 @@ function calloutFor(item: BuildItem, t: Translate): BuildCallout | null {
   const step = stepCounter(canvas.live.shown, canvas.queue.length);
   const base = { nodeId: anchor.id, key: item.key, kind: item.kind, step, change: item.change };
   if (item.kind === 'node') {
+    // Asks for the class detail for later callouts; this one uses whatever is already loaded.
     void useNodeInfoStore.getState().request(anchor.data.comfyType);
     const detail = useNodeInfoStore.getState().details[anchor.data.comfyType];
     const purpose = graph.components.find((entry) => entry.ownerKind === 'node' && entry.ownerId === anchor.id)?.purpose;
@@ -104,6 +115,7 @@ function reveal(item: BuildItem, t: Translate): void {
   }
 }
 
+/** Ghost boxes of removed nodes, so they can fade where they stood; an unmeasured node gets a small card size. */
 function fadingOf(nodes: GraphNode[]): FadingNode[] {
   return nodes.map((node) => ({
     id: node.id,
@@ -163,6 +175,7 @@ export default function BuildLayer({ levelId }: { levelId: string | null }) {
     if (!prior) return;
     const canvas = useCanvasStore.getState();
     const activeRun = useProjectionStore.getState().activeRun;
+    // A change counts as the agent's only while a run is active and no manual edit of the person is in flight.
     const agent = Boolean(activeRun) && canvas.manualInFlight === 0;
     const diff = diffGraph(prior, state);
     const remaining = new Set(state.nodes.map((node) => node.id));
@@ -243,6 +256,7 @@ export default function BuildLayer({ levelId }: { levelId: string | null }) {
     });
     const timer = window.setTimeout(() => {
       const canvas = useCanvasStore.getState();
+      // "Show all now" may have emptied the queue meanwhile; then this step was already shown.
       if (canvas.queue[0] !== head) return;
       canvas.setQueue(canvas.queue.slice(1));
       reveal(head, translateRef.current);

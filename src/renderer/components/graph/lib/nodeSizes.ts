@@ -1,13 +1,14 @@
+/**
+ * Node sizes as measured at a readable zoom, and the zoom lines of the overview level. The overview level (zoomed far
+ * out) collapses ports and fields, so the sizes React Flow measures there are smaller than the nodes really are;
+ * arranging from those would pack nodes that overlap once the person zooms back in. CanvasFlow records sizes only
+ * outside the overview. Read by arrange.ts, placeNode.ts, importLook.ts, GhostLayer, autoFit.ts and lessonModel.ts.
+ */
 import type { NodeClassDetail } from '../../../../shared/contracts/knowledge';
 import { estimateNodeSize, type Size, type SizeHints } from '../../../../shared/graph/layout';
 import { inferInputs, inferOutputs } from '../../../../shared/graph/ports';
 import { nodeRect, type PositionedNode, type Rect } from './geometry';
 
-/**
- * Node sizes as measured at a readable zoom. The overview level (zoomed far out) collapses ports and fields, so
- * the sizes React Flow measures there are smaller than the nodes really are; arranging from those would pack
- * nodes that overlap once the person zooms back in. CanvasFlow records sizes only outside the overview.
- */
 /**
  * Below this zoom the canvas switches to its overview level (a map of named blocks, CSS in Overview.module.css);
  * while the person zooms by wheel or pinch it switches back only above OVERVIEW_EXIT, so a zoom resting near the
@@ -28,13 +29,16 @@ export function nextOverview(current: boolean, zoom: number, gesture = true): bo
   return current ? zoom < OVERVIEW_EXIT : zoom < OVERVIEW_ENTER;
 }
 
+/** How much the overview title is enlarged at this zoom (1 at full size, never above OVERVIEW_TITLE_CAP). */
 export function titleScale(zoom: number): number {
   return Math.min(OVERVIEW_TITLE_CAP, Math.max(1, 1 / Math.max(zoom, 0.01)));
 }
 
+/** Last size of each node measured outside the overview, by node id. */
 const full = new Map<string, { width: number; height: number }>();
 let overview = false;
 
+/** CanvasFlow reports whether the overview level is on screen. */
 export function setOverviewLevel(on: boolean): void {
   overview = on;
 }
@@ -43,6 +47,7 @@ export function isOverviewLevel(): boolean {
   return overview;
 }
 
+/** Keeps the measured sizes of the nodes as their full sizes; ignored at the overview level. */
 export function rememberSizes(nodes: PositionedNode[]): void {
   if (overview) return;
   for (const node of nodes) {

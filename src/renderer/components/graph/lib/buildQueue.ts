@@ -1,10 +1,11 @@
-import type { AgentBuildStep } from '../../../../shared/contracts/agent';
-import type { MotionLevel } from '../../../motion/policy';
-
 /**
  * Pure logic of the live build on the canvas: what one revealed step is, how long to wait before the next,
  * where its explanation comes from, and the step counter. BuildLayer holds the timers; this file holds the rules.
+ * Also used by LiveBuildStrip, the canvas store, the chat's build steps (chat/buildSteps.ts) and the chat service,
+ * which file the agent's step explanations under the same keys. Pure, so it is tested without React.
  */
+import type { AgentBuildStep } from '../../../../shared/contracts/agent';
+import type { MotionLevel } from '../../../motion/policy';
 
 /** One thing that appears on the canvas: a node, an edge (after both its ends), or a changed field. */
 export interface BuildItem {
@@ -61,10 +62,12 @@ export function stepKey(step: Pick<AgentBuildStep, 'toolName' | 'nodeId' | 'edge
   }
 }
 
+/** The key of one field change on one node, shared by the projection diff and the build-step chunks. */
 export function paramKey(nodeId: string, key: string): string {
   return `param:${nodeId}:${key}`;
 }
 
+/** Longest field value shown in a change pill; longer text is cut with an ellipsis. */
 const VALUE_CAP = 40;
 
 /** A field value as pill text. */
@@ -95,6 +98,7 @@ export function parameterChanges(previous: ParamNode[], next: ParamNode[]): Buil
     if (!old) continue;
     const now = node.data?.parameters ?? {};
     for (const key of Object.keys(now)) {
+      // Values can be objects or arrays; compare them as JSON text, not by reference.
       if (JSON.stringify(old[key]) === JSON.stringify(now[key])) continue;
       items.push({ key: paramKey(node.id, key), kind: 'param', anchor: node.id, change: { key, from: shortValue(old[key]), to: shortValue(now[key]) } });
     }

@@ -1,3 +1,9 @@
+/**
+ * The import look layer of the canvas, for workflows that came from ComfyUI (IMPORT+NODES): it gives importLook.ts
+ * the React Flow instance, chooses the first view of a newly opened graph (the view saved in the file, else a fit)
+ * after nodes covered by others are spread, and draws the dashed links between a selected Set or Get node and its
+ * partners. CanvasFlow mounts it inside React Flow.
+ */
 import React, { useEffect, useRef } from 'react';
 import { ViewportPortal, useNodes, useNodesInitialized, useReactFlow, type Node } from '@xyflow/react';
 import { editorKind, partnersOf, savedView } from '../../../../shared/workflow/comfyLook';
@@ -19,6 +25,7 @@ const SAVED_VIEW_MAX_ZOOM = 2;
  */
 async function settledNodes(flow: ReturnType<typeof useReactFlow>): Promise<Node[]> {
   let last = '';
+  // At most 40 rounds of 120 ms (about 5 s); after 30 rounds a class that never answers is no longer waited for.
   for (let round = 0; round < 40; round += 1) {
     await new Promise((resolve) => window.setTimeout(resolve, 120));
     const nodes = flow.getNodes();
@@ -36,6 +43,7 @@ async function settledNodes(flow: ReturnType<typeof useReactFlow>): Promise<Node
   return flow.getNodes();
 }
 
+/** A node's box; an unmeasured node gets a typical card size. */
 function rectOf(node: Node): { x: number; y: number; width: number; height: number } {
   return { x: node.position.x, y: node.position.y, width: node.measured?.width ?? 240, height: node.measured?.height ?? 120 };
 }
@@ -65,6 +73,7 @@ function useFirstView(mode: 'root' | 'definition' | 'replay') {
           useImportLookStore.getState().done('spread');
           await spreadCoveredNodes(await settledNodes(flow));
         }
+        // One frame, so the spread nodes are drawn before the view is chosen.
         await new Promise((resolve) => window.requestAnimationFrame(resolve));
         const pane = document.querySelector<HTMLElement>('.react-flow');
         const view = savedView(useGraphStore.getState().document?.raw);

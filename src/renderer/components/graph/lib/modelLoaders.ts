@@ -1,9 +1,12 @@
+/**
+ * Which core loader a model file from the library becomes when dropped on the canvas or added from its card, and
+ * which field of an existing loader takes such a file. Directory names follow ComfyUI folder_paths and
+ * shared/catalog/modelFolders.ts (core loaders only). Used by GraphWorkspace (drops on the canvas),
+ * library/placeModel.ts and library/ModelCard.tsx.
+ */
 import { modelDirectoryFor } from '../../../../shared/catalog/modelFolders';
 
-/**
- * Which core loader a model file from the library becomes when dropped on the canvas or added from its card.
- * Directory names follow ComfyUI folder_paths and shared/catalog/modelFolders.ts (core loaders only).
- */
+/** Model folder to the core loader class and the field that takes the file name. */
 const LOADERS: Record<string, { nodeType: string; parameter: string }> = {
   checkpoints: { nodeType: 'CheckpointLoaderSimple', parameter: 'ckpt_name' },
   loras: { nodeType: 'LoraLoader', parameter: 'lora_name' },
@@ -16,6 +19,7 @@ const LOADERS: Record<string, { nodeType: string; parameter: string }> = {
   clip: { nodeType: 'CLIPLoader', parameter: 'clip_name' },
 };
 
+/** The add-node fields a library drag stands for: the class, its starting fields and an optional title. */
 export interface LoaderDrop {
   nodeType: string;
   parameters: Record<string, unknown>;
@@ -23,6 +27,7 @@ export interface LoaderDrop {
   title?: string;
 }
 
+/** The core loader node for a model file in `directory`; null for a folder with no core loader or an empty name. */
 export function loaderForModel(directory: string, name: string): LoaderDrop | null {
   const loader = LOADERS[directory.trim().toLowerCase()];
   if (!loader || name.trim() === '') return null;
@@ -71,9 +76,14 @@ export function modelFromDrop(read: (type: string) => string): { directory: stri
   return { directory: value.directory, name: value.name };
 }
 
+/**
+ * Drag data types of the library: a node class, and a model file. library/libraryModel.ts declares the same node
+ * type for the node library; the two strings must stay equal.
+ */
 export const NODE_DRAG_TYPE = 'application/x-helper-node';
 export const MODEL_DRAG_TYPE = 'application/x-helper-model';
 
+/** A drag payload as a plain object; null for anything else, so a drag from another app cannot break the drop. */
 function parse(raw: string): Record<string, unknown> | null {
   try {
     const value: unknown = JSON.parse(raw);
@@ -90,6 +100,7 @@ export function dropToAddNode(read: (type: string) => string): LoaderDrop | null
     const value = parse(node);
     const classType = value?.classType;
     if (typeof classType !== 'string' || classType === '') return null;
+    // The title comes from outside the canvas; it is cut to a sane length and dropped when it only repeats the class.
     const title = typeof value?.title === 'string' ? value.title.trim().slice(0, 200) : '';
     return title !== '' && title !== classType ? { nodeType: classType, parameters: {}, title } : { nodeType: classType, parameters: {} };
   }

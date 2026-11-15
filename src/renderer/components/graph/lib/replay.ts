@@ -1,17 +1,23 @@
+/**
+ * Replay of revision history: pure stepping so the player and the tests agree, and the sentence that names each
+ * version. Used by the history player (ReplayPlayer.tsx) and GraphWorkspace.
+ */
 import type { RevisionSummary } from '../../../../shared/contracts/revisions';
 import { describeRevision } from '../../../state/undoState';
 
-/** Replay of revision history: pure stepping so the player and the tests agree. */
+/** Which version of the history is on screen, out of how many. */
 export interface ReplayCursor {
   index: number;
   count: number;
 }
 
+/** A version index kept inside the history (whole number, 0 to count - 1). */
 export function clampIndex(index: number, count: number): number {
   if (count <= 0) return 0;
   return Math.min(count - 1, Math.max(0, Math.round(index)));
 }
 
+/** The cursor moved `delta` versions back or forth, never past either end. */
 export function stepReplay(cursor: ReplayCursor, delta: number): ReplayCursor {
   return { ...cursor, index: clampIndex(cursor.index + delta, cursor.count) };
 }

@@ -1,10 +1,16 @@
+/**
+ * Camera fits of the graph canvas: the automatic fit the app makes on its own (autoFit, with its pure rule
+ * autoFitView) and the explicit "Fit to view" that always shows the whole graph (fitWhole). Used by CanvasFlow,
+ * GraphWorkspace, BuildLayer and ImportLookLayer. The automatic fit has floors so a person lands on readable cards,
+ * not on a map of tiny blocks.
+ */
 import { getViewportForBounds, type Node, type ReactFlowInstance, type Rect, type Viewport } from '@xyflow/react';
 import { moveCamera, paneSize, viewForBounds, type FitPadding, type Pane } from '../../../motion/camera';
 import { OVERVIEW_EXIT } from './nodeSizes';
 
 /**
  * Fits the app makes on its own: a workflow or project opened, a build ended, a level (subgraph, replay) came on
- * screen. Who calls it: CanvasFlow and BuildLayer. The explicit «Показать всё» / "Fit view" (toolbar, Shift+1, the
+ * screen. Who calls it: CanvasFlow, BuildLayer and ImportLookLayer. The explicit "Fit to view" (toolbar, Shift+1, the
  * View menu) is not one of these: it always shows the whole graph.
  *
  * Why these rules: a person should land on something readable.
@@ -22,6 +28,7 @@ export const SMALL_GRAPH_NODES = 6;
 /** Below OVERVIEW_EXIT but at least this: the graph is shown as cards around its middle instead of as a map. */
 export const NEAR_CARDS = 0.4;
 
+/** The lowest zoom an automatic fit may use: card zoom for a small graph, AUTO_FIT_MIN_ZOOM otherwise. */
 export function autoFitFloor(nodeCount: number): number {
   return nodeCount <= SMALL_GRAPH_NODES ? OVERVIEW_EXIT : AUTO_FIT_MIN_ZOOM;
 }
@@ -47,6 +54,7 @@ export function autoFitView(input: { bounds: Rect; focus: Rect | null; count: nu
     y: pane.height / 2 - (box.y + box.height / 2) * zoom,
     zoom,
   });
+  // A maxZoom below card zoom (a caller that limits zoom) must win over the card rule.
   const cards = Math.min(OVERVIEW_EXIT, maxZoom);
   if (whole.zoom >= cards) return whole;
   if (whole.zoom >= NEAR_CARDS) return centreAt(bounds, cards);
@@ -64,6 +72,7 @@ export function autoFit(flow: ReactFlowInstance, options: FitOptions): void {
   const focusBox = focus ? {
     x: focus.position.x,
     y: focus.position.y,
+    // A node not measured yet (just added) gets a typical card size so the centring is close enough.
     width: focus.measured?.width ?? focus.width ?? 240,
     height: focus.measured?.height ?? focus.height ?? 120,
   } : null;

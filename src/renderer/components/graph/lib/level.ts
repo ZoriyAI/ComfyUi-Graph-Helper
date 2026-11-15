@@ -1,15 +1,15 @@
+/**
+ * The level on screen, for code outside React Flow (commands, placement, the library, the clipboard, edit batching):
+ * the root graph, or the inner graph of the open subgraph definition. The canvas (CanvasFlow) registers what it draws
+ * inside a definition (with the selection and the sizes React Flow measured) and how to select there; everything
+ * else reads the root graph from the graph store as before.
+ */
 import { modelledSubgraphs, type SubgraphDefinition } from '../../../../shared/graph/subgraphs';
 import { useGraphStore } from '../../../state/graphState';
 import { useUiStore } from '../../../state/uiState';
 import type { BoundaryNode, GraphEdge, GraphNode } from '../../../types/graph';
 
-/**
- * The level on screen, for code outside React Flow (commands, placement, the library): the root graph, or the
- * inner graph of the open subgraph definition. The canvas registers what it draws inside a definition (with
- * the selection and the sizes React Flow measured) and how to select there; everything else reads the root
- * graph from the graph store as before.
- */
-
+/** What the canvas draws inside the open definition, and how to select there. */
 interface InnerView {
   definitionId: string;
   nodes: Array<GraphNode | BoundaryNode>;
@@ -31,6 +31,7 @@ export function openDefinition(): SubgraphDefinition | undefined {
   return modelledSubgraphs(graph.subgraphs).find((item) => item.id === graph.activeSubgraphId);
 }
 
+/** The registered inner view, only if it belongs to the definition open now (it can lag one render behind). */
 function currentInner(): InnerView | null {
   const definition = openDefinition();
   return definition && innerView?.definitionId === definition.id ? innerView : null;

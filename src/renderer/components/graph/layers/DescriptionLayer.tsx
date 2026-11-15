@@ -1,3 +1,9 @@
+/**
+ * The description layer of the canvas: a small card under each node with what it does and why it is there (from
+ * explanations, the catalog or the project's component records), or a dot that opens one. CanvasFlow mounts it.
+ * The rules of what a card shows and where it goes are pure (lib/description.ts); this file draws the cards,
+ * tracks hover and keyboard focus, and culls cards far outside the view so a large graph stays smooth.
+ */
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronUp, MessageCircleQuestion, MessageSquareText, Pencil, X } from 'lucide-react';
@@ -43,9 +49,11 @@ import styles from './DescriptionLayer.module.css';
  * it is as wide as its node looks. Smallest width; wider nodes give their own, up to MAX_WIDTH.
  */
 const MIN_WIDTH = 220;
+/** Widest card, whatever the node's width. */
 const MAX_WIDTH = 420;
 /** The one-line card a crowded node falls back to: about its own width, one line high. */
 const SQUEEZED_MIN_WIDTH = 96;
+/** Height of the one-line (squeezed) card. */
 const LINE_HEIGHT = 30;
 /** First guesses of a card's height before it is measured. */
 const COLLAPSED_HEIGHT = 34;
@@ -55,14 +63,17 @@ export const HOVER_OPEN_MS = 400;
 export const HOVER_CLOSE_MS = 300;
 /** Cards of nodes the person is looking at (selected, hovered, focused, the tour step) draw above other cards. */
 const RAISED_Z = 2000;
+/** Shared empty lists, so a store selector returns the same object and a memoized card does not re-render. */
 const EMPTY: Explanation[] = [];
 const NO_BOXES: Box[] = [];
 const POSITIONS: Record<CardSide, Position> = { bottom: Position.Bottom, top: Position.Top, right: Position.Right, left: Position.Left };
+/** NodeToolbar offsets per side at scale 1: CARD_GAP above and below, CARD_SIDE_GAP beside (lib/description.ts). */
 const OFFSETS: Record<CardSide, number> = { bottom: 8, top: 8, right: 14, left: 14 };
 
 /** Owners already asked for; the knowledge store keeps the lists current after that (explain results, saves). */
 const requested = new Set<string>();
 
+/** Loads the explanations of an owner once; a failed load is forgotten so a later card tries again. */
 function ensureLoaded(ref: ObjectRef | null): void {
   if (!ref) return;
   const key = objectKey(ref);
@@ -80,6 +91,7 @@ export interface DescriptionSpotlight {
   text: string;
 }
 
+/** The tour step's node and text, or null when no tour step is on a node. */
 export function useDescriptionSpotlight(): DescriptionSpotlight | null {
   const step = useUiStore((state) => (state.tour ? state.tour.steps[state.tour.index] : undefined));
   if (step?.ref.kind === 'node') return { nodeId: step.ref.id, text: step.text };
@@ -95,14 +107,17 @@ export function useDescriptionCardShown(nodeId: string | undefined): boolean {
   return useCanvasStore((state) => Boolean(nodeId) && state.descriptionsMode !== 'off' && !state.hiddenDescriptions[descriptionKey(nodeId ?? '', scope)]);
 }
 
+/** React Flow store selector: the canvas zoom. */
 const zoomOf = (state: ReactFlowState) => state.transform[2];
 
 type ComfyFlowNode = Node<ComfyNodeData>;
 
+/** The node's readable name for card labels; the class when nothing else is known. */
 function nodeName(data: ComfyNodeData, displayName: string | undefined): string {
   return nodeDisplayName(data, displayName).trim() || data.comfyType;
 }
 
+/** The card's edit form: writes the node's own "what" or "why" as an explanation of the person (provenance user). */
 function EditForm({ nodeId, owner, content, onDone }: { nodeId: string; owner: ObjectRef; content: DescriptionContent | null; onDone: () => void }) {
   const { t } = useTranslation();
   const saveExplanation = useKnowledgeStore((state) => state.saveExplanation);
@@ -180,6 +195,7 @@ function EditForm({ nodeId, owner, content, onDone }: { nodeId: string; owner: O
   );
 }
 
+/** One text block of an expanded card, with an optional label (What / Why) and source badge. */
 function Part({ part, label, showBadge }: { part: DescriptionPart; label?: string; showBadge: boolean }) {
   return (
     <div className={styles.part}>
@@ -194,11 +210,7 @@ function Part({ part, label, showBadge }: { part: DescriptionPart; label?: strin
   );
 }
 
-/**
- * One description card under one node: the explanation of the node (else its class, else the catalog, else the
- * component purpose) with the badge of its source. Collapsed it shows the first line; expanded, the full
- * what / why text, an edit form that saves a "user" explanation, and "Ask" when nothing is explained yet.
- */
+/** What DescriptionLayer hands one card: the node, why it is asked for, and the boxes around it. */
 interface CardProps {
   node: ComfyFlowNode;
   spotlight: DescriptionSpotlight | null;
@@ -219,6 +231,7 @@ interface CardProps {
   bounds: Box | null;
 }
 
+/** Whether two boxes are equal by value. */
 function sameBox(a: Box | null, b: Box | null): boolean {
   if (a === b) return true;
   return Boolean(a && b) && a!.x === b!.x && a!.y === b!.y && a!.width === b!.width && a!.height === b!.height;
@@ -266,6 +279,11 @@ function useMeasuredHeights(): [React.RefCallback<HTMLElement>, Record<string, n
   return [ref, heights];
 }
 
+/**
+ * One description card under one node: the explanation of the node (else its class, else the catalog, else the
+ * component purpose) with the badge of its source. Collapsed it shows the first line; expanded, the full
+ * what / why text, an edit form that saves a "user" explanation, and "Ask" when nothing is explained yet.
+ */
 const DescriptionCard = React.memo(function DescriptionCard(props: CardProps) {
   const { node, spotlight, readOnly, purpose, mode, selected, inSelection, hovered, focused, revealed, box, neighbours, bounds } = props;
   const { t } = useTranslation();
@@ -462,12 +480,14 @@ const DescriptionCard = React.memo(function DescriptionCard(props: CardProps) {
   );
 }, sameCard);
 
+/** Whether a key event comes from a field, a dialog or a menu, where Escape belongs to that control. */
 function typingTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   if (target.isContentEditable) return true;
   return Boolean(target.closest('input, textarea, select, [role="dialog"], [role="menu"], [role="listbox"]'));
 }
 
+/** Whether the element shows keyboard focus; true where the browser does not know :focus-visible. */
 function focusVisible(element: HTMLElement): boolean {
   try {
     return element.matches(':focus-visible');
@@ -560,16 +580,19 @@ function useCardDemand(selectedIds: string[]): void {
 
 /** Room kept free at the canvas edges, and under the floating toolbar at the top, in screen pixels. */
 const EDGE_PX = 8;
+/** The floating toolbar's room, as TOOLBAR_ROOM_PX in lib/followCamera.ts. */
 const TOOLBAR_PX = 64;
 type View = [number, number, number, number, number];
 /** Pan, zoom and canvas size, rounded so sub-pixel pans do not re-place cards. */
 const viewOf = (state: ReactFlowState): View => [Math.round(state.transform[0]), Math.round(state.transform[1]), state.transform[2], state.width, state.height];
+/** Equality for the view selector, so the layer re-renders only when the rounded view changes. */
 const sameView = (a: View, b: View) => a.every((value, index) => value === b[index]);
 
 /** The flow rectangle in which description cards are drawn: the view plus one screen around it, on a coarse grid. */
 export function cullWindow(view: View): Box | null {
   const [tx, ty, scale, width, height] = view;
   if (!(width > 0 && height > 0 && scale > 0)) return null;
+  // A quarter screen grid: the window moves in steps, not with every pixel of a pan.
   const step = Math.max(width, height) / 4;
   const qx = Math.round(tx / step) * step;
   const qy = Math.round(ty / step) * step;
@@ -627,6 +650,7 @@ export default function DescriptionLayer() {
   const selectedIds = useMemo(() => nodes.filter((node) => node.selected).map((node) => node.id), [nodes]);
   const selectedKey = selectedIds.join(' ');
   useCardDemand(selectedIds);
+  // Collapses the person made stay only for nodes still selected; a node selected again starts expanded.
   useEffect(() => {
     keepCollapsed(selectedKey ? selectedKey.split(' ') : []);
   }, [selectedKey, collapsed, keepCollapsed]);

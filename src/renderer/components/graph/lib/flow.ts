@@ -1,5 +1,10 @@
+/**
+ * Which edges show moving pulses (layers/FlowLayer.tsx draws them on TypedEdge). CanvasFlow asks it for the canvas;
+ * lessons/lessonModel.ts uses the same rule for lesson steps. Pure, so it is tested without React.
+ */
 import type { ObjectRef } from '../../../../shared/contracts/objects';
 
+/** An edge as the pulse rule needs it. */
 export interface FlowEdge {
   id: string;
   source: string;
@@ -23,6 +28,7 @@ export function flowingEdges(
     for (const edge of edges) if (edge.source === focus.id || edge.target === focus.id) out.add(edge.id);
   }
   if (focus?.kind === 'port' && focus.nodeId) {
+    // A port ref id is usually `${nodeId}:${handle}`; otherwise the port name is used as the handle.
     const handle = focus.id.startsWith(`${focus.nodeId}:`) ? focus.id.slice(focus.nodeId.length + 1) : focus.portName;
     for (const edge of edges) {
       if (focus.direction === 'output' && edge.source === focus.nodeId && edge.sourceHandle === handle) out.add(edge.id);

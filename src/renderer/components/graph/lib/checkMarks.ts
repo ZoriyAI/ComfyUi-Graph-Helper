@@ -1,7 +1,8 @@
 /**
  * Marks of the Check tab's findings on the canvas: which nodes a finding is about, how many findings each has and
- * how serious the worst one is. Used by the check mark layer (layers/CheckMarkLayer.tsx), so a person sees on the
- * graph itself where the problems are, not only in the list. Pure, so the mapping is tested without React.
+ * how serious the worst one is. Used by the check mark layer (layers/CheckMarkLayer.tsx, mounted by CanvasFlow), so
+ * a person sees on the graph itself where the problems are, not only in the list. Pure, so the mapping is tested
+ * without React.
  */
 import type { GraphCheckReport } from '../../../../shared/contracts';
 import { findingNodeIds, findingsOf, type CheckProblemType } from '../../check/checkModel';
@@ -15,6 +16,7 @@ export interface CheckMark {
   level: CheckMarkLevel;
 }
 
+/** Finding types that stop the graph from running; every other finding is a warning. */
 const ERROR_TYPES: ReadonlySet<CheckProblemType> = new Set(['missingNodes', 'missingModels', 'typeMismatches', 'unknownNodeTypes']);
 
 /**

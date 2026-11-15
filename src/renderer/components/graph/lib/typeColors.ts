@@ -1,6 +1,7 @@
 /**
  * Port type colours as CSS custom properties. Shell owns the tokens; each var has a fallback so the canvas
- * still reads correctly before new tokens land.
+ * still reads correctly before new tokens land. Used across the canvas (NodeCard, PortHandle, FieldRow, TypedEdge,
+ * BoundaryNode, GhostLayer, ConnectAssistLayer), Inspector, AddNodeSearch and the node library.
  */
 const TYPE_TOKENS: Record<string, string> = {
   MODEL: 'var(--type-model, #b79cff)',
@@ -25,6 +26,7 @@ const TYPE_TOKENS: Record<string, string> = {
   GUIDER: 'var(--type-guider, #9aa4b2)',
 };
 
+/** Colour of a port whose type is unknown or the wildcard '*'. */
 export const UNKNOWN_TYPE_COLOR = 'var(--type-unknown, #8b939c)';
 
 /**
@@ -45,6 +47,7 @@ const TYPE_FAMILIES: Array<[RegExp, string]> = [
   [/POSE|CONTROL/, 'CONTROL_NET'],
 ];
 
+/** The colour of a link data type: its own token, else its family's, else the unknown colour. */
 export function typeColor(dataType: unknown): string {
   const key = String(dataType ?? '').toUpperCase();
   const exact = TYPE_TOKENS[key];

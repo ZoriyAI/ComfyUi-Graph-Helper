@@ -1,3 +1,4 @@
+/* The connect assist (ConnectAssistLayer.tsx): the dashed suggested path and the one-line hint panel. */
 .svg { position: absolute; left: 0; top: 0; width: 1px; height: 1px; overflow: visible; pointer-events: none; }
 .path { fill: none; stroke-width: 2; stroke-dasharray: 4 6; opacity: 0.9; animation: march var(--motion-march) linear infinite; filter: drop-shadow(0 0 3px currentColor); }
 /*

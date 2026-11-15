@@ -1,3 +1,9 @@
+/**
+ * The ghost layer of the canvas: proposals of the helper (a node, a link, a field change, a subgraph, a removal)
+ * drawn as grey drafts with Accept and Reject chips, until the person decides. CanvasFlow mounts it; ghostRoom and
+ * insertRoom are tested in canvasLayout.test.ts. Ghosts never lie on a node, and the spot a ghost is drawn at is
+ * where the node lands when it is accepted (ghostSpots in proposalsState).
+ */
 import React, { useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'motion/react';
@@ -23,6 +29,7 @@ import { useLayoutKey } from '../lib/useLayoutKey';
 import { typeColor } from '../lib/typeColors';
 import styles from './GhostLayer.module.css';
 
+/** The payload of one kind of graph mutation. */
 type Payload<T extends GraphMutation['type']> = Extract<GraphMutation, { type: T }>;
 
 /** Accept / reject chips. Resolution goes only through proposalsState.resolve. */
@@ -46,6 +53,7 @@ function Chips({ proposal }: { proposal: Proposal }) {
   );
 }
 
+/** The helper's note on a proposal, under its ghost; nothing when the note is empty. */
 function Note({ text }: { text: string }) {
   if (!text.trim()) return null;
   return <p className={`${styles.note} ghost-note`} title={text}>{text}</p>;
@@ -72,6 +80,7 @@ function fadeFor(id: string) {
   };
 }
 
+/** The ports a ghost card shows, from the catalog: link inputs only (fields are drawn as values). */
 function catalogPorts(detail: ReturnType<typeof useNodeDetail>): { inputs: PortDefinition[]; outputs: PortDefinition[] } {
   if (!detail) return { inputs: [], outputs: [] };
   const sockets = detail.inputs.filter((input) => !input.widget);
@@ -81,7 +90,7 @@ function catalogPorts(detail: ReturnType<typeof useNodeDetail>): { inputs: PortD
   };
 }
 
-/** What stands above the ghost's card (the «suggested» flag) and under it (the note, the two buttons), in pixels. */
+/** What stands above the ghost's card (the "suggested" flag) and under it (the note, the two buttons), in pixels. */
 const GHOST_ABOVE = 26;
 const GHOST_NOTE = 65;
 const GHOST_BUTTONS = 30;
@@ -101,6 +110,7 @@ export function ghostRoom(payload: Payload<'add-node'>, detail: NodeClassDetail 
   return { width: Math.max(lands.width, card.width), height: Math.max(lands.height, drawn) };
 }
 
+/** A suggested new node: a grey node card at its spot, with the flag, the note and the chips. */
 function AddNodeGhost({ proposal, payload, at }: { proposal: Proposal; payload: Payload<'add-node'>; at: { x: number; y: number } }) {
   const { t } = useTranslation();
   const detail = useNodeDetail(payload.nodeType);
@@ -123,6 +133,7 @@ function AddNodeGhost({ proposal, payload, at }: { proposal: Proposal; payload: 
   );
 }
 
+/** A suggested link: a dashed curve in the type colour, with the note and the chips at its middle. */
 function ConnectGhost({ proposal, payload }: { proposal: Proposal; payload: Payload<'connect'> }) {
   const { t } = useTranslation();
   const lookup = useStore((state) => state.nodeLookup);
@@ -150,6 +161,7 @@ function ConnectGhost({ proposal, payload }: { proposal: Proposal; payload: Payl
   );
 }
 
+/** A suggested field change: a pill "key: old -> new" to the right of the node. */
 function ParameterGhost({ proposal, payload }: { proposal: Proposal; payload: Payload<'set-parameter'> }) {
   const { t } = useTranslation();
   const nodes = useGraphStore((state) => state.nodes);
@@ -166,6 +178,7 @@ function ParameterGhost({ proposal, payload }: { proposal: Proposal; payload: Pa
   );
 }
 
+/** A suggested new subgraph: a dashed outline around the nodes it would pull in. */
 function SubgraphGhost({ proposal, payload }: { proposal: Proposal; payload: Payload<'create-subgraph'> }) {
   const { t } = useTranslation();
   const nodes = useGraphStore((state) => state.nodes);
@@ -193,6 +206,7 @@ export function insertRoom(definition: Pick<SubgraphDefinition, 'name' | 'inputs
   return { width: card.width, height: GHOST_ABOVE + card.height + (hasNote ? GHOST_NOTE : 0) + GHOST_BUTTONS };
 }
 
+/** A suggested copy of an existing subgraph: a grey subgraph card at its spot. */
 function InsertGhost({ proposal, payload, at }: { proposal: Proposal; payload: Payload<'insert-subgraph'>; at: { x: number; y: number } }) {
   const { t } = useTranslation();
   const definition = useGraphStore((state) => state.subgraphs.find((item) => item.id === payload.definitionId));
@@ -215,6 +229,7 @@ function InsertGhost({ proposal, payload, at }: { proposal: Proposal; payload: P
   );
 }
 
+/** A suggested removal: a red outline around the node. */
 function RemoveGhost({ proposal, payload }: { proposal: Proposal; payload: Payload<'remove-node'> }) {
   const { t } = useTranslation();
   const node = useGraphStore((state) => state.nodes.find((item) => item.id === payload.nodeId));
@@ -240,6 +255,7 @@ export default function GhostLayer() {
   const nodes = useGraphStore((state) => state.nodes);
   const inDefinition = useGraphStore((state) => state.activeSubgraphId !== null);
   const replaying = useCanvasStore((state) => Boolean(state.replay));
+  // Re-render when nodes move or are measured: ghost spots and link ends depend on them.
   useLayoutKey();
   const open = useMemo(() => openProposals(proposals), [proposals]);
   // What became of each draft, for the way a decided one leaves (fadeFor).
@@ -249,6 +265,7 @@ export default function GhostLayer() {
   // node came to lie under it (a build tidied the graph, the person dragged a node there).
   const placed = useRef(new Map<string, { x: number; y: number }>());
   const openIds = new Set(open.map((proposal) => proposal.id));
+  // Forget spots of drafts that were decided or withdrawn.
   for (const id of placed.current.keys()) if (!openIds.has(id)) placed.current.delete(id);
   for (const id of ghostSpots.keys()) if (!openIds.has(id)) ghostSpots.delete(id);
   const details = useNodeInfoStore((state) => state.details);

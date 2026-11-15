@@ -1,3 +1,9 @@
+/**
+ * The live build strip: "The assistant is building: step 3 of 7" and that step's why, across the top of the canvas
+ * while the helper builds, with Pause / Stop (the chat service's run controls) and the only "Show all now" (flush
+ * the reveal queue through BuildLayer's revealAllNow; the canvas toolbar leaves it to the strip). CanvasFlow mounts it.
+ * It appears with the first build step of a run and hides when the run closes and the queue is empty.
+ */
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { FastForward, Pause, Play, Square } from 'lucide-react';
@@ -10,18 +16,14 @@ import { stepCounter } from '../lib/buildQueue';
 import { revealAllNow } from './BuildLayer';
 import styles from './LiveBuildStrip.module.css';
 
-/**
- * «Помощник строит: шаг 3 из 7 — зачем» across the top of the canvas while the helper builds, with Pause / Stop
- * (the chat service's run controls) and the only «Показать всё сразу» (flush the reveal queue; the canvas toolbar
- * leaves it to the strip).
- * It appears with the first build step of a run and hides when the run closes and the queue is empty.
- */
+/** The strip itself; null when no build is running and nothing is queued. */
 export default function LiveBuildStrip() {
   const { t } = useTranslation();
   const activeRun = useProjectionStore((state) => state.activeRun);
   const live = useCanvasStore((state) => state.live);
   const queued = useCanvasStore((state) => state.queue.length);
   const paused = useChatStore((state) => state.isPaused);
+  // Only the run this strip has counted steps for; a run that has shown nothing yet does not show the strip.
   const running = Boolean(activeRun) && activeRun?.runId === live.runId && live.shown + queued > 0;
   if (!running && queued === 0) return null;
   const step = stepCounter(live.shown, queued);
