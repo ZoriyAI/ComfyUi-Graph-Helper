@@ -309,8 +309,49 @@ const minimalExample: Lesson = {
   ],
 };
 
+/**
+ * N12: the three forms of a workflow. The canvas workflow for editing, the API format for programs, the picture that
+ * carries both; each made, opened and told apart, and checked for private values before it leaves the computer. The
+ * app checks once, at the end, that the file it opened last was the API one.
+ */
+const workflowFiles: Lesson = {
+  id: 'workflow-files',
+  standard: 2,
+  outcomes: ['structure', 'run', 'result'],
+  meta: { prerequisites: ['image', 'read-workflow'], versions: [CORE_NODES, FRONTEND], checkedOn: CHECKED_ON },
+  steps: [
+    { id: 'intro', read: true },
+    READY,
+    { id: 'graph', ...baseGraph },
+    { id: 'mark', fields: [field('save', 'filename_prefix', { kind: 'text', minChars: 8, has: ['formats/'] })] },
+    { id: 'complete', readCheck: [{ kind: 'workflow-complete' }] },
+    { id: 'make', checklist: [{ id: 'open' }, { id: 'ran', run: true }, { id: 'json' }, { id: 'api' }] },
+    { id: 'inside', read: true },
+    { id: 'look', checklist: [{ id: 'ui' }, { id: 'api' }, { id: 'picture' }] },
+    { id: 'secrets', checklist: [{ id: 'search' }, { id: 'prompt' }] },
+    { id: 'api-open', readCheck: [{ kind: 'workflow-from', from: 'api' }] },
+    {
+      id: 'assess',
+      rubric: [
+        { id: 'tell', levels: ['no', 'partly', 'yes'] },
+        { id: 'choose', levels: ['no', 'partly', 'yes'] },
+        { id: 'clean', levels: ['no', 'yes'], pass: 'yes' },
+      ],
+    },
+    {
+      id: 'recall',
+      quiz: [
+        { id: 'edit', choices: ['ui', 'api', 'png'], answer: 'ui' },
+        { id: 'script', choices: ['ui', 'api', 'png'], answer: 'api' },
+        { id: 'chat', choices: ['kept', 'maybe-lost', 'doubled'], answer: 'maybe-lost' },
+      ],
+    },
+    { id: 'transfer', transfer: true, checklist: [{ id: 'who' }, { id: 'pack' }, { id: 'check' }] },
+  ],
+};
+
 /** The lessons of the group, in the order a person meets them. */
-export const DAILY_CYCLE_LESSONS: Lesson[] = [templateOwn, queueHistory, partialCache, minimalExample];
+export const DAILY_CYCLE_LESSONS: Lesson[] = [templateOwn, queueHistory, partialCache, minimalExample, workflowFiles];
 
 /** The group of each lesson and the lessons it goes on from. */
 export const DAILY_CYCLE_PATH: Record<string, { group: LessonGroup; follows: string[] }> = {
@@ -318,6 +359,7 @@ export const DAILY_CYCLE_PATH: Record<string, { group: LessonGroup; follows: str
   'queue-history': { group: DAILY_CYCLE_GROUP, follows: ['template-own'] },
   'partial-cache': { group: DAILY_CYCLE_GROUP, follows: ['queue-history'] },
   'minimal-example': { group: DAILY_CYCLE_GROUP, follows: ['partial-cache'] },
+  'workflow-files': { group: DAILY_CYCLE_GROUP, follows: ['minimal-example'] },
 };
 
 /**
@@ -328,4 +370,5 @@ export const DAILY_CYCLE_AFTER: Record<string, string[]> = {
   'template-own': ['image'],
   'queue-history': ['image'],
   'partial-cache': ['image'],
+  'workflow-files': ['image'],
 };

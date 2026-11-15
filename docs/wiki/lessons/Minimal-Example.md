@@ -62,3 +62,4 @@ docs.comfy.org, Troubleshooting. Empty Image: ComfyUI nodes.py.
 - [How lessons work](How-Lessons-Work.md)
 - [An error in ComfyUI](../graph/ComfyUI-Errors.md)
 - [Partial execution and the cache](Partial-Cache.md)
+- [JSON, API JSON and the workflow inside a PNG](Workflow-Files.md)

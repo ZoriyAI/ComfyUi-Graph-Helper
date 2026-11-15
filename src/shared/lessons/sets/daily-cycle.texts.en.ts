@@ -567,4 +567,144 @@ export const DAILY_CYCLE_EN: Record<string, LessonWords> = {
       },
     },
   },
+  'workflow-files': {
+    title: 'JSON, API JSON and the workflow inside a PNG',
+    result: 'One graph as an editable workflow, as an API-format file and as a picture that carries it, each opened again and checked for private values.',
+    roles: {
+      save: 'saver of the picture',
+    },
+    meta: {
+      skill: 'Tell the editable workflow, the API format and a picture with a workflow apart, choose the right one for a purpose, and check it before you share it.',
+      requires: ['A ComfyUI you can run, with one picture model in models/checkpoints.', 'The lessons “A first picture from text” and “Reading someone else\'s workflow”, or the same skills.', 'A plain text editor to look into a .json file.'],
+      mistakes: [
+        {
+          sign: 'You sent the API file to someone who wants to edit the graph, and they see no notes and no layout.',
+          fix: 'The API format keeps only what runs. For editing send the workflow saved with "Save" or "Export".',
+        },
+        {
+          sign: 'A picture you shared opens with no workflow.',
+          fix: 'A site or a chat app rewrote the file and dropped its metadata. Send the PNG as a file, or send the .json beside it.',
+        },
+        {
+          sign: 'Your shared workflow or picture held a key, a private path or a prompt you did not mean to share.',
+          fix: 'Every field travels in all three forms, and the picture carries the prompt too. Look into the files before you share them; this app asks before it saves a field that looks like a key.',
+        },
+        {
+          sign: '"Export (API)" is not in the menu.',
+          fix: 'Older interfaces hide it behind a developer setting. Look for the entry in the menu of your version, or update ComfyUI.',
+        },
+      ],
+      provenance: 'Built on ComfyUI\'s own nodes and the file forms as the official documentation describes them (workflow metadata, the API form). No model, picture or prompt comes with the lesson.',
+      notChecked: `The app checks the graph on the canvas, that every node is installed, and that the last workflow it opened was an API-format file. It does not look into your files for secrets. ${NOT_CHECKED_TAIL}`,
+    },
+    steps: {
+      intro: {
+        title: 'One graph, three forms',
+        body: 'The same graph travels in three forms:\n\n- the **workflow** (.json), the graph as the editor shows it, with positions, groups and notes;\n- the **API format** (.json), only what runs, for programs and services;\n- a **picture** saved by ComfyUI, which carries both inside it.\n\nEach has its use, and each can carry more than you think. In this lesson you make all three from one graph, open each again, see what is inside, and check them before they leave your computer.',
+      },
+      ready: {
+        title: 'Before you start',
+        body: 'Two things the app can see for itself; the third only you know.',
+        items: READY_ITEMS,
+      },
+      graph: {
+        title: 'The picture graph',
+        body: 'Keep the picture graph of the first lesson, or build it: {checkpoint}, the prompt and the negative prompt in {positive} nodes, {latent}, {sampler}, {decode} and {save}. A model is chosen in `ckpt_name`, the prompt is written in `text`.',
+      },
+      mark: {
+        title: 'A mark to recognize',
+        body: 'Give {save} a `filename_prefix` that starts with `formats/`, for example `formats/test`. You will look for this mark in every file.',
+      },
+      complete: {
+        title: 'Every node is in your ComfyUI',
+        body: 'Before the graph goes to ComfyUI, the app checks that every node on the canvas is installed there.',
+      },
+      make: {
+        title: 'Make the three files',
+        body: `${RUN}\n\nThen save it twice from ComfyUI. The entries "Export" and "Export (API)" are in the menu of ComfyUI (named "Workflow" or "File", depending on the version). ${OWN_WORD}`,
+        items: {
+          open: { label: 'I opened the workflow in ComfyUI.' },
+          ran: { label: 'I ran it, and a PNG appeared in the folder formats of the output folder.' },
+          json: { label: 'I saved the workflow with "Export" as formats-ui.json.' },
+          api: { label: 'I saved it with "Export (API)" as formats-api.json.' },
+        },
+      },
+      inside: {
+        title: 'What each form holds',
+        body: '- The **workflow** holds `"nodes"` and `"links"`: every node with its position and size, the links as a table, groups, notes, subgraphs. ComfyUI and this app open it and show it as it was.\n- The **API format** is a list of numbered entries, each with `"class_type"` and `"inputs"`. No positions, no notes, no groups: what the editor sends to the server when you press Run. Scripts and services use it. This app opens it and lays the nodes out from left to right.\n- The **picture** carries two texts in its metadata: `"workflow"`, the whole graph, and `"prompt"`, the API form that ran. Drop it on ComfyUI, or open it here, and the graph comes back.\n\nAll three carry every value of every field: the prompt, the file names of your models, and anything typed into a field.',
+      },
+      look: {
+        title: 'Open each one again',
+        body: `Open the two .json files in a text editor, and the picture in this app. ${OWN_WORD}`,
+        items: {
+          ui: { label: 'In formats-ui.json I found "nodes", "links" and the mark formats/.' },
+          api: { label: 'In formats-api.json I found "class_type", "inputs" and the mark formats/, and no positions.' },
+          picture: { label: 'I opened the PNG here with "File ▸ Open workflow…": the message said the workflow was read from the picture.' },
+        },
+      },
+      secrets: {
+        title: 'Before it leaves your computer',
+        body: `Whatever you share in any of the three forms, the other person can read. ${OWN_WORD}`,
+        items: {
+          search: { label: 'I searched the files for keys, tokens and paths with my user name, and found none, or removed them.', how: 'Search the text for words such as key, token and your user name. Never put a key into a field of a workflow you will share.' },
+          prompt: { label: 'I know that the picture carries the prompt and the whole graph, and that ComfyUI started with --disable-metadata writes pictures without them.' },
+        },
+      },
+      'api-open': {
+        title: 'Open the API file here',
+        body: 'Open formats-api.json in this app with "File ▸ Open workflow…". The message says the file was in the API format and the nodes were laid out from left to right; the graph and the mark formats/ are back.\n\nThe app checks that the last file it opened was an API-format file. Open no other file before the lesson ends.',
+      },
+      assess: {
+        title: 'How did it go?',
+        body: 'Answer for yourself; your answers stay on this computer.',
+        criteria: {
+          tell: {
+            title: 'I can tell the three forms apart by looking into the file.',
+            levels: { no: 'No', partly: 'Partly', yes: 'Yes' },
+            tryNext: 'Look at the top of a .json: "nodes" means a workflow, numbered entries with "class_type" mean the API format.',
+          },
+          choose: {
+            title: 'For a colleague, a script and an archive I know which form to give.',
+            levels: { no: 'No', partly: 'Partly', yes: 'Yes' },
+            tryNext: 'Editing needs the workflow, a program needs the API format, and a picture keeps the graph beside the result as long as nothing rewrites it.',
+          },
+          clean: {
+            title: 'Nothing private is left in the files I would share.',
+            levels: { no: 'No', yes: 'Yes' },
+            tryNext: 'Search the files again, and replace private paths and values before you share.',
+          },
+        },
+      },
+      recall: {
+        title: 'Check yourself',
+        body: 'Three short questions. A wrong answer costs nothing: read the explanation and go on.',
+        questions: {
+          edit: {
+            text: 'A colleague will go on editing your graph. What do you send?',
+            choices: { ui: 'The workflow (.json from Save or Export)', api: 'The API format', png: 'A picture made by the graph' },
+            explain: 'Only the workflow keeps positions, groups and notes. A picture also carries it, but only while nothing rewrites the file.',
+          },
+          script: {
+            text: 'A program will send the graph to ComfyUI to run. What does it need?',
+            choices: { ui: 'The workflow', api: 'The API format', png: 'A picture' },
+            explain: 'The API format is what the server runs: nodes by number, with their class and inputs.',
+          },
+          chat: {
+            text: 'You send a PNG made by ComfyUI through a chat app. What happens to its workflow?',
+            choices: { kept: 'It is always kept', 'maybe-lost': 'It may be lost when the app rewrites the file', doubled: 'It is copied twice' },
+            explain: 'Anything that rewrites a picture may drop its metadata. Send the file as a file, or the .json beside it.',
+          },
+        },
+      },
+      transfer: {
+        title: 'On your own: a package to hand over',
+        body: 'Without help, prepare a graph of yours for someone else. Do it in ComfyUI and your file manager; if you open another file here, open the API file again at the end.',
+        items: {
+          who: { label: 'I wrote down who gets it and what for: to edit, to run from a program, or to keep with the result.' },
+          pack: { label: 'I put together the right files for that, with a short note of the models and node packs it needs.' },
+          check: { label: 'I checked every file for private values before handing it over.' },
+        },
+      },
+    },
+  },
 };

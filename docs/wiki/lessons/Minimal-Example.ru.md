@@ -61,3 +61,4 @@ nodes.py ComfyUI.
 - [Как устроены уроки](How-Lessons-Work.ru.md)
 - [Ошибка в ComfyUI](../graph/ComfyUI-Errors.ru.md)
 - [Частичное выполнение и кэш](Partial-Cache.ru.md)
+- [JSON, API JSON и workflow внутри PNG](Workflow-Files.ru.md)

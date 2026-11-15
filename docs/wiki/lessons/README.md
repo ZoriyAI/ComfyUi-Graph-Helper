@@ -157,6 +157,7 @@ ComfyUI is your own word.
 - [Run, queue, history and cancel](Queue-History.md): lesson "queue-history". Several runs queued on purpose, one cancelled while it waited, one stopped while it ran, and a finished one found in the history with its settings.
 - [Partial execution and the cache](Partial-Cache.md): lesson "partial-cache". A graph with a cheap preview branch beside the saver, and proof of which branch ran and why a run was faster.
 - [Logs and a minimal failing example](Minimal-Example.md): lesson "minimal-example". A failure read in the log, a workflow cut down to the few nodes that still fail, and a report another person can repeat.
+- [JSON, API JSON and the workflow inside a PNG](Workflow-Files.md): lesson "workflow-files". One graph as an editable workflow, as an API-format file and as a picture that carries it, each opened again and checked for private values.
 
 ### For adults (18+)
 Closed until the switch **Adult content (18+)** in **Settings ▸ Privacy** is on. Technique in general words for lawful adult (18+) work with consent; see [Content rules](../trust/Content-Rules.md).

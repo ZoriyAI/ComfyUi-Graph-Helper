@@ -18,7 +18,7 @@ import { lessonShapes, tryLesson } from '../../src/shared/lessons/share/tryLesso
 import { builtinLessonDoc } from '../../src/shared/lessons/share/builtin';
 import { checkLessonDoc } from '../../src/shared/lessons/share/mine';
 
-const IDS = ['template-own', 'queue-history', 'partial-cache', 'minimal-example'];
+const IDS = ['template-own', 'queue-history', 'partial-cache', 'minimal-example', 'workflow-files'];
 
 /** The canvas at the end of a lesson, played from an empty canvas after the lessons whose graph it stands on. */
 function finished(id: string): LessonGraph {
@@ -96,6 +96,17 @@ describe('what the app checks itself', () => {
     // The whole picture graph is not a minimal example: the check fails, and a tick of the person does not count.
     const big = finished('queue-history');
     expect(readVerdict(small, big, undefined)).toBe('fails');
+  });
+
+  it('the forms of a file: the API file must be the one opened last', () => {
+    const lesson = lessonById('workflow-files')!;
+    const check = lesson.steps.find((step) => step.id === 'api-open')!.readCheck![0];
+    const graph = finished('workflow-files');
+    expect(readVerdict(check, graph, { catalogRead: true, openedFrom: 'api' })).toBe('holds');
+    expect(readVerdict(check, graph, { catalogRead: true, openedFrom: 'picture' })).toBe('fails');
+    expect(readVerdict(check, graph, { catalogRead: true })).toBe('unknown');
+    // It is the only check of where a file came from, so opening the picture earlier in the lesson cannot undo it.
+    expect(DAILY_CYCLE_LESSONS.flatMap((item) => item.steps).flatMap((step) => [...(step.readCheck ?? []), ...(step.checklist ?? []).flatMap((entry) => (entry.check ? [entry.check] : []))]).filter((condition) => condition.kind === 'workflow-from')).toHaveLength(1);
   });
 
   it('partial execution: the preview branch is a cheap copy, and the transfer task saves it apart from the full picture', () => {
