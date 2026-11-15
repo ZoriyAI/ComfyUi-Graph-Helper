@@ -311,6 +311,15 @@ const DescriptionCard = React.memo(function DescriptionCard(props: CardProps) {
   const show = useCanvasStore((state) => state.showDescription);
   const zoom = useStore(zoomOf);
   const [editing, setEditing] = useState(false);
+  // The layer keeps this card drawn while the zoom changes (cardDrawn), so a zoom never drops what is being typed.
+  const setEditingDescription = useCanvasStore((state) => state.setEditingDescription);
+  useEffect(() => {
+    if (!editing) return undefined;
+    setEditingDescription(node.id);
+    return () => {
+      if (useCanvasStore.getState().editingDescription === node.id) setEditingDescription(null);
+    };
+  }, [editing, node.id, setEditingDescription]);
   const [measureRef, heights] = useMeasuredHeights();
   const spot = spotlight?.nodeId === node.id;
   const fallback = spot && spotlight ? spotlight.text.trim() : '';
@@ -595,6 +604,15 @@ export function inWindow(box: Box | undefined, window: Box | null, always: boole
   return box.x + box.width >= window.x && box.x <= window.x + window.width && box.y + box.height >= window.y && box.y <= window.y + window.height;
 }
 
+/**
+ * Whether a node's card is drawn now: every card while the camera rests; while the zoom changes (or on the map) only
+ * the card the person is writing in. Without that exception a fit or a wheel zoom during an edit unmounted the card
+ * and the typed text was gone.
+ */
+export function cardDrawn(resting: boolean, nodeId: string, editingId: string | null): boolean {
+  return resting || nodeId === editingId;
+}
+
 /** Widest a card can reach from its node, in screen pixels: neighbours farther than this cannot be covered. */
 const REACH_PX = MAX_WIDTH + 40;
 
@@ -627,6 +645,7 @@ export default function DescriptionLayer() {
   // card is drawn. Re-placing every card on every frame of a zoom cost a large graph most of its frames; the cards
   // come back, fading in, once the camera rests.
   const resting = useCameraStore((state) => !state.zooming && !state.overview);
+  const editingId = useCanvasStore((state) => state.editingDescription);
   const spotlight = useDescriptionSpotlight();
   const { readOnly } = useCanvasView();
   const components = useGraphStore((state) => state.components);
@@ -682,10 +701,10 @@ export default function DescriptionLayer() {
   // Cards of nodes far outside the view are not drawn: the window is the view grown by one screen on each side,
   // computed on a coarse grid of positions so a pan does not mount and unmount cards on every frame.
   const window_ = useMemo(() => cullWindow(view), [view]);
-  if (!resting) return null;
+  if (!resting && !editingId) return null;
   return (
     <>
-      {nodes.map((node) => (node.type === 'comfy' && !pending.includes(node.id) && node.id !== speaking && inWindow(boxes.get(node.id), window_, node.selected || node.id === spotlight?.nodeId)
+      {nodes.map((node) => (cardDrawn(resting, node.id, editingId) && node.type === 'comfy' && !pending.includes(node.id) && node.id !== speaking && inWindow(boxes.get(node.id), window_, node.selected || node.id === spotlight?.nodeId)
         ? (
           <DescriptionCard
             key={node.id}

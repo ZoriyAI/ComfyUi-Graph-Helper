@@ -13,7 +13,7 @@ import { OVERVIEW_EXIT } from '../../src/renderer/components/graph/lib/nodeSizes
 import { replayChange } from '../../src/renderer/components/graph/lib/replayMotion';
 import { focusOf, passedMarks, placeOf } from '../../src/renderer/components/lessons/lessonMotion';
 import { checkedNodeIds } from '../../src/renderer/motion/attention';
-import { cullWindow, inWindow } from '../../src/renderer/components/graph/layers/DescriptionLayer';
+import { cardDrawn, cullWindow, inWindow } from '../../src/renderer/components/graph/layers/DescriptionLayer';
 import { sameNodeProps } from '../../src/renderer/components/graph/nodes/ComfyNode';
 import type { GraphEdge, GraphNode } from '../../src/renderer/types/graph';
 
@@ -254,6 +254,12 @@ describe('zoom performance helpers', () => {
     expect(inWindow({ x: 100, y: 100, width: 50, height: 50 }, window, false)).toBe(true);
     expect(inWindow({ x: 5000, y: 100, width: 50, height: 50 }, window, false)).toBe(false);
     expect(inWindow({ x: 5000, y: 100, width: 50, height: 50 }, window, true)).toBe(true);
+  });
+  it('rests the cards while the zoom changes, but keeps the one being written in', () => {
+    expect(cardDrawn(true, '4', null)).toBe(true);
+    expect(cardDrawn(false, '4', null)).toBe(false);
+    expect(cardDrawn(false, '4', '4')).toBe(true);
+    expect(cardDrawn(false, '5', '4')).toBe(false);
   });
   it('redraws a node only for its data or its selection', () => {
     const data = { a: 1 };

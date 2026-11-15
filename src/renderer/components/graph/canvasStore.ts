@@ -181,6 +181,8 @@ interface CanvasState {
   focusedDescription: string | null;
   /** The node the live build revealed last; its card shows on demand once the bubble is gone. */
   revealedDescription: string | null;
+  /** The node whose card the person is writing in: it stays drawn while the zoom changes, with what they typed. */
+  editingDescription: string | null;
 
   setConnectFrom: (from: ConnectFrom | null, pinned?: boolean) => void;
   setFocusedPort: (ref: ObjectRef | null) => void;
@@ -209,6 +211,7 @@ interface CanvasState {
   cycleDescriptionsMode: () => void;
   setHoveredDescription: (nodeId: string | null) => void;
   setFocusedDescription: (nodeId: string | null) => void;
+  setEditingDescription: (nodeId: string | null) => void;
   /** Escape: every expanded card collapses, hover and build reveals let go. */
   collapseDescriptions: (selected: string[]) => void;
   /** Forget the person's collapse of cards whose node is no longer selected. */
@@ -264,6 +267,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   hoveredDescription: null,
   focusedDescription: null,
   revealedDescription: null,
+  editingDescription: null,
 
   setConnectFrom: (connectFrom, pinned = false) => set({ connectFrom, connectPinned: connectFrom ? pinned : false }),
   setFocusedPort: (focusedPort) => set({ focusedPort }),
@@ -311,6 +315,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   cycleDescriptionsMode: () => get().setDescriptionsMode(nextDescriptionsMode(get().descriptionsMode)),
   setHoveredDescription: (hoveredDescription) => set((state) => (state.hoveredDescription === hoveredDescription ? {} : { hoveredDescription })),
   setFocusedDescription: (focusedDescription) => set((state) => (state.focusedDescription === focusedDescription ? {} : { focusedDescription })),
+  setEditingDescription: (editingDescription) => set((state) => (state.editingDescription === editingDescription ? {} : { editingDescription })),
   collapseDescriptions: (selected) => set({
     expandedDescriptions: {},
     collapsedDescriptions: withIds({}, selected.map((id) => descriptionKey(id))),
