@@ -1,3 +1,8 @@
+/**
+ * The IPC side of the update notice: builds the checker from updateCheck.ts with the app's real version, profile
+ * folder, preference and install kind, and answers the renderer's status, dismiss and open requests.
+ * Registered by main/ipc.ts; the renderer side is src/renderer/components/shell/UpdateNotice.tsx.
+ */
 import { app, shell, type IpcMain } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -12,14 +17,17 @@ import { createUpdateChecker, installKind, RELEASE_ANSWER_MAX_BYTES, type Update
 
 let checker: UpdateChecker | null = null;
 
+/** The one checker, built on first use (after the app is ready, so app paths and the database exist). */
 function updateChecker(): UpdateChecker {
   checker ??= createUpdateChecker({
     projectUrl: PROJECT_URL,
+    // An unpackaged run reads package.json itself (appVersion): app.getVersion() can report Electron's own version there.
     currentVersion: app.isPackaged ? app.getVersion() : appVersion(),
     enabled: () => {
       try {
         return readPreferences(getDatabase()).privacy.checkUpdates;
       } catch {
+        // No readable preference means off: the app never asks the internet without a clear yes.
         return false;
       }
     },

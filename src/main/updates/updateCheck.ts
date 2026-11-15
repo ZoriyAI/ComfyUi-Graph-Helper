@@ -1,15 +1,14 @@
-import * as fs from 'fs';
-import * as path from 'path';
-import type { UpdateLink, UpdateStatus } from '../../shared/contracts/updates';
-
 /**
  * The update notice: when the person turned it on (Settings ▸ Privacy, off by default), ask the project's releases
  * page at most once a day whether a newer version exists. The request carries the app's user agent and nothing
  * else; the answer is kept in <profile>/update-check.json. Nothing is downloaded: the notice's links open the
  * release page or the file for this kind of install in the browser.
  *
- * No Electron import here: the IPC side is in updateIpc.ts, so unit tests load this file as is.
+ * No Electron import here: the IPC side is in updateIpc.ts (its only caller), so unit tests load this file as is.
  */
+import * as fs from 'fs';
+import * as path from 'path';
+import type { UpdateLink, UpdateStatus } from '../../shared/contracts/updates';
 
 /** At most one question a day. */
 export const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
@@ -17,21 +16,26 @@ export const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 export const RETRY_AFTER_FAILURE_MS = 60 * 60 * 1000;
 /** The latest-release answer is a few kilobytes; anything far larger is not it. */
 export const RELEASE_ANSWER_MAX_BYTES = 1024 * 1024;
+/** How long one question to the releases page may take before it counts as failed. */
 export const REQUEST_TIMEOUT_MS = 15_000;
 
+/** The ways the Linux builds are installed; each has its own release file to download. */
 export type InstallKind = 'deb' | 'rpm' | 'appimage' | 'tarball';
 
+/** One file attached to a release: its name and its download address. */
 export interface ReleaseAsset {
   name: string;
   url: string;
 }
 
+/** What the app keeps of the newest release: its version, its page and its files. */
 export interface ReleaseFacts {
   version: string;
   pageUrl: string;
   assets: ReleaseAsset[];
 }
 
+/** The contents of <profile>/update-check.json. */
 export interface CheckState {
   /** When the releases page last answered (or failed, moved so the next try is in an hour). */
   checkedAt: number;
@@ -54,6 +58,7 @@ export function githubRepository(projectUrl: string): { owner: string; repo: str
   const parts = url.pathname.replace(/\/+$/, '').split('/').filter(Boolean);
   if (parts.length !== 2) return null;
   const [owner, repo] = parts;
+  // OWNER/REPOSITORY is the placeholder of an unconfigured build: no check at all.
   const name = /^[A-Za-z0-9_.-]+$/;
   if (!name.test(owner) || !name.test(repo) || (owner === 'OWNER' && repo === 'REPOSITORY')) return null;
   return { owner, repo: repo.replace(/\.git$/, '') };
@@ -77,6 +82,7 @@ export function compareVersions(a: string, b: string): number {
   for (let i = 0; i < 3; i++) {
     if (left.core[i] !== right.core[i]) return left.core[i] > right.core[i] ? 1 : -1;
   }
+  // Same core version: a release beats its own pre-release; two pre-releases compare part by part, numbers as numbers.
   if (left.pre === right.pre) return 0;
   if (left.pre === null) return 1;
   if (right.pre === null) return -1;
@@ -139,6 +145,7 @@ export function installKind(
   return null;
 }
 
+/** The saved check state, with every field checked; an empty state when the file is missing or broken. */
 export function readCheckState(file: string): CheckState {
   try {
     const parsed = JSON.parse(fs.readFileSync(file, 'utf8')) as Partial<CheckState>;
@@ -155,6 +162,7 @@ export function readCheckState(file: string): CheckState {
   }
 }
 
+/** Saves the check state through a temporary file and a rename, so a crash never leaves half a file. */
 function writeCheckState(file: string, state: CheckState): void {
   try {
     const temp = `${file}.tmp`;
@@ -165,6 +173,7 @@ function writeCheckState(file: string, state: CheckState): void {
   }
 }
 
+/** Everything the checker needs from outside; tests pass their own fetch, clock and state file. */
 export interface UpdateCheckerOptions {
   projectUrl: string;
   currentVersion: string;
@@ -173,11 +182,13 @@ export interface UpdateCheckerOptions {
   stateFile: string;
   fetch: typeof fetch;
   userAgent: string;
+  /** How this copy was installed (installKind), or null when unknown: the download link then opens the release page. */
   kind: InstallKind | null;
   now?: () => number;
   log?: (line: string) => void;
 }
 
+/** The update notice as the IPC side sees it. */
 export interface UpdateChecker {
   /** The notice to show; asks the releases page first when the check is on and a day has passed. */
   status(): Promise<UpdateStatus>;
@@ -187,11 +198,14 @@ export interface UpdateChecker {
   linkFor(link: UpdateLink): string | null;
 }
 
+/** Builds the update checker. A build without a real project address never asks anything (status "off"). */
 export function createUpdateChecker(options: UpdateCheckerOptions): UpdateChecker {
   const now = options.now ?? (() => Date.now());
   const api = releasesApiUrl(options.projectUrl);
+  // One question in flight at a time: two windows asking at once share it.
   let pending: Promise<void> | null = null;
 
+  /** Asks the releases page once and saves the answer; never throws. */
   async function ask(): Promise<void> {
     const state = readCheckState(options.stateFile);
     try {
@@ -210,11 +224,13 @@ export function createUpdateChecker(options: UpdateCheckerOptions): UpdateChecke
       writeCheckState(options.stateFile, { ...state, checkedAt: now(), latest });
       options.log?.(`[Updates] Checked latest=${latest?.version ?? 'none'} current=${options.currentVersion}`);
     } catch (error) {
+      // checkedAt is set back so the daily interval runs out in RETRY_AFTER_FAILURE_MS, not in a day.
       writeCheckState(options.stateFile, { ...state, checkedAt: now() - CHECK_INTERVAL_MS + RETRY_AFTER_FAILURE_MS });
       options.log?.(`[Updates] Check failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
+  /** The notice for a saved state: shown only for a version newer than this one and newer than the closed one. */
   function noticeOf(state: CheckState): UpdateStatus {
     const latest = state.latest;
     if (!latest || compareVersions(latest.version, options.currentVersion) <= 0) return { state: 'current' };
@@ -226,6 +242,7 @@ export function createUpdateChecker(options: UpdateCheckerOptions): UpdateChecke
     async status() {
       if (!api || !options.enabled()) return { state: 'off' };
       const state = readCheckState(options.stateFile);
+      // A checkedAt in the future means the clock was set back: ask now instead of waiting for that date.
       if (now() - state.checkedAt >= CHECK_INTERVAL_MS || state.checkedAt > now()) {
         pending ??= ask().finally(() => {
           pending = null;

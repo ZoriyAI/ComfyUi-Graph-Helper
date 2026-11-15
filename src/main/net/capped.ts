@@ -1,8 +1,10 @@
 /**
  * Byte caps for answers the app does not control the size of (the MCP server, the ComfyUI address a server names).
  * The cap is checked while the bytes arrive, so an endless or huge answer is cut off instead of filling memory.
+ * Used by the MCP client (main/mcp/client.ts) and the update check (main/updates/updateIpc.ts).
  */
 
+/** The error a capped body throws once more than `limit` bytes came through. */
 export class ResponseTooLargeError extends Error {
   constructor(readonly limit: number) {
     super(`The answer is larger than ${limit} bytes.`);
@@ -19,6 +21,7 @@ export const MCP_RESPONSE_MAX_BYTES = 128 * 1024 * 1024;
 
 /** A copy of `response` whose body errors with ResponseTooLargeError once more than `maxBytes` came through. */
 export function capResponse(response: Response, maxBytes: number): Response {
+  // A declared length over the cap fails at once; a missing or lying header is caught by the counting stream below.
   const declared = Number(response.headers.get('content-length') ?? '');
   if (Number.isFinite(declared) && declared > maxBytes) {
     void response.body?.cancel().catch(() => undefined);
