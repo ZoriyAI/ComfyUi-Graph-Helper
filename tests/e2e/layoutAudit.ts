@@ -151,6 +151,9 @@ function auditInPage(options: PageOptions): LayoutIssue[] {
   };
   /** Shown, and no ancestor hides it (a closed panel keeps its children laid out). */
   const reallyShown = (el: Element): boolean => {
+    // What the browser skips is not painted: the inside of a closed <details> (content-visibility: hidden) still
+    // answers with a box where it would stand if opened, over whatever follows the disclosure.
+    if (!el.checkVisibility()) return false;
     let current: Element | null = el;
     while (current && current !== document.documentElement) {
       const style = styleOf(current);
