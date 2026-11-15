@@ -302,7 +302,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   llmCancel: (runId?: string) => ipcRenderer.invoke(IPC_CHANNELS.LLM_CANCEL, runId) as Promise<{ cancelled: number }>,
 
   // Chat history
-  loadChatHistory: (projectId: string) => ipcRenderer.invoke(IPC_CHANNELS.CHAT_LOAD_HISTORY, projectId) as Promise<ChatRecord[]>,
+  loadChatHistory: (projectId: string, page?: { limit?: number; beforeId?: string }) => ipcRenderer.invoke(IPC_CHANNELS.CHAT_LOAD_HISTORY, projectId, page) as Promise<ChatRecord[]>,
   saveChatMessage: (record: ChatRecord) => ipcRenderer.invoke(IPC_CHANNELS.CHAT_SAVE_MESSAGE, record) as Promise<{ ok: boolean }>,
   clearChatHistory: (projectId: string) => ipcRenderer.invoke(IPC_CHANNELS.CHAT_CLEAR_HISTORY, projectId) as Promise<{ ok: true; removed: number } | { ok: false; error: string }>,
 
@@ -524,7 +524,8 @@ export interface ElectronAPI {
   ) => Promise<void>;
   /** Aborts the main-process turn of this window for runId (every turn of the window when omitted). */
   llmCancel: (runId?: string) => Promise<{ cancelled: number }>;
-  loadChatHistory: (projectId: string) => Promise<ChatRecord[]>;
+  /** The whole chat, or with `page` the newest `limit` messages before `beforeId` (oldest first). */
+  loadChatHistory: (projectId: string, page?: { limit?: number; beforeId?: string }) => Promise<ChatRecord[]>;
   saveChatMessage: (record: ChatRecord) => Promise<{ ok: boolean }>;
   clearChatHistory: (projectId: string) => Promise<{ ok: true; removed: number } | { ok: false; error: string }>;
   searchNodeTypes: (request: SearchNodesRequest) => Promise<NodeClassSummary[]>;

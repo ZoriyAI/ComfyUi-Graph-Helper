@@ -157,6 +157,9 @@ function completeContext(context?: Partial<AgentTurnContext>): AgentTurnContext 
   };
 }
 
+/** Messages per page of the chat (main/agent/chatHistory.ts CHAT_PAGE). */
+const CHAT_PAGE_SIZE = 200;
+
 export class ChatService {
   private isStreaming = false;
   private currentBaseRevisionId: string | null = null;
@@ -174,12 +177,44 @@ export class ChatService {
     const load = window.electronAPI?.loadChatHistory;
     if (typeof load !== 'function') return;
     try {
-      const records = await load(projectId);
+      // The newest page only; older messages come when the person scrolls up (loadEarlier).
+      const records = await load(projectId, { limit: CHAT_PAGE_SIZE });
       const state = useChatStore.getState();
       if (!Array.isArray(records) || records.length === 0 || state.messages.length > 0 || state.isStreaming) return;
+      this.olderLeft = records.length >= CHAT_PAGE_SIZE;
       useChatStore.setState({ messages: records.map(messageFromChatRecord) });
     } catch (error) {
       console.warn('[ChatService] Chat history could not be loaded:', errorText(error));
+    }
+  }
+
+  /** True while older stored messages may exist beyond those shown. */
+  private olderLeft = false;
+  private loadingEarlier = false;
+
+  get hasEarlier(): boolean {
+    return this.olderLeft;
+  }
+
+  /** Loads the page of messages before the oldest one shown; resolves to how many came. Nothing is deleted. */
+  async loadEarlier(projectId: string = DESKTOP_PROJECT_ID): Promise<number> {
+    const load = window.electronAPI?.loadChatHistory;
+    const oldest = useChatStore.getState().messages[0];
+    if (!this.olderLeft || this.loadingEarlier || !oldest || typeof load !== 'function') return 0;
+    this.loadingEarlier = true;
+    try {
+      const records = await load(projectId, { limit: CHAT_PAGE_SIZE, beforeId: oldest.id });
+      if (!Array.isArray(records)) return 0;
+      this.olderLeft = records.length >= CHAT_PAGE_SIZE;
+      const known = new Set(useChatStore.getState().messages.map((message) => message.id));
+      const older = records.map(messageFromChatRecord).filter((message) => !known.has(message.id));
+      if (older.length > 0) useChatStore.setState((state) => ({ messages: [...older, ...state.messages] }));
+      return older.length;
+    } catch (error) {
+      console.warn('[ChatService] Earlier messages could not be loaded:', errorText(error));
+      return 0;
+    } finally {
+      this.loadingEarlier = false;
     }
   }
 

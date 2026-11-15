@@ -106,7 +106,7 @@ export function registerAgentIpc(ipcMain: IpcMain): void {
 
   ipcMain.handle(IPC_CHANNELS.LLM_CANCEL, (event, runId?: unknown) => ({ cancelled: cancelTurns(event.sender.id, runId) }));
 
-  ipcMain.handle(IPC_CHANNELS.CHAT_LOAD_HISTORY, (_event, projectId: unknown) => loadChatHistory(getDatabase(), projectId));
+  ipcMain.handle(IPC_CHANNELS.CHAT_LOAD_HISTORY, (_event, projectId: unknown, page?: unknown) => loadChatHistory(getDatabase(), projectId, page));
 
   // Preferences ▸ Privacy ▸ "Save chat history" off: messages stay in the window and are not written.
   ipcMain.handle(IPC_CHANNELS.CHAT_SAVE_MESSAGE, (_event, record: unknown) => {

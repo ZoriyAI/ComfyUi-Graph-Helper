@@ -90,14 +90,42 @@ function parseToolCalls(value: unknown): unknown[] | null {
 }
 
 /** Every stored message of a project, oldest first. The person's own chat is never cut to a count. */
-export function loadChatHistory(db: Database.Database, projectId: unknown): ChatRecord[] {
+/** Messages one page of the chat holds (the newest first page, then older ones as the person scrolls up). */
+export const CHAT_PAGE = 200;
+
+export interface ChatPageRequest {
+  /** Most messages to return; the newest of them. */
+  limit?: number;
+  /** Only messages older than this one (the oldest message the chat already shows). */
+  beforeId?: string;
+}
+
+/**
+ * Stored messages of a project, oldest first. With a page request: the newest `limit` messages before `beforeId`
+ * (nothing is ever deleted; a long chat loads in pages instead of all at once).
+ */
+export function loadChatHistory(db: Database.Database, projectId: unknown, page?: unknown): ChatRecord[] {
   if (typeof projectId !== 'string' || projectId === '') return [];
-  const rows = db.prepare(`
+  const request = page && typeof page === 'object' ? page as ChatPageRequest : null;
+  const limit = request && typeof request.limit === 'number' && Number.isFinite(request.limit) ? Math.max(1, Math.min(2000, Math.floor(request.limit))) : null;
+  const before = request && typeof request.beforeId === 'string' && request.beforeId.length <= 200 ? request.beforeId : null;
+  const anchor = before
+    ? db.prepare('SELECT timestamp, rowid AS seq FROM chat_messages WHERE project_id = ? AND id = ?').get(projectId, before) as { timestamp: number; seq: number } | undefined
+    : undefined;
+  if (before && !anchor) return [];
+  const rows = (limit === null && !anchor
+    ? db.prepare(`
     SELECT * FROM (
       SELECT id, project_id, role, content, timestamp, graph_revision_id, tool_calls, rowid AS seq
       FROM chat_messages WHERE project_id = ?
     ) ORDER BY timestamp ASC, seq ASC
-  `).all(projectId) as Array<Record<string, unknown>>;
+  `).all(projectId)
+    : db.prepare(`
+    SELECT id, project_id, role, content, timestamp, graph_revision_id, tool_calls, rowid AS seq
+    FROM chat_messages
+    WHERE project_id = ? AND (? IS NULL OR timestamp < ? OR (timestamp = ? AND rowid < ?))
+    ORDER BY timestamp DESC, seq DESC LIMIT ?
+  `).all(projectId, anchor ? 1 : null, anchor?.timestamp ?? 0, anchor?.timestamp ?? 0, anchor?.seq ?? 0, limit ?? 2000).reverse()) as Array<Record<string, unknown>>;
   return rows.flatMap((row) => {
     const role = row.role;
     if (role !== 'user' && role !== 'assistant' && role !== 'system') return [];
