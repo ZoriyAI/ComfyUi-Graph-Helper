@@ -32,6 +32,13 @@ describe('command line', () => {
     const help = commandLineAnswer(['app', '--help'], '1.2.3') ?? '';
     expect(help).toContain('Usage: comfyui-graph-builder [options]');
     expect(help).toContain('--user-data-dir=<folder>');
+    expect(help).toContain('Print the version and exit.');
+    // The help speaks the system's language; option names stay as typed.
+    const russian = commandLineAnswer(['app', '--help'], '1.2.3', 'ru') ?? '';
+    expect(russian).toContain('Запуск: comfyui-graph-builder [параметры]');
+    expect(russian).toContain('--password-store=<store>');
+    expect(russian).toContain('Напечатать версию и выйти.');
+    expect(help.split('\n').every((line) => line.length <= 110)).toBe(true);
   });
 
   it('leaves every other start alone', () => {

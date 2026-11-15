@@ -648,55 +648,16 @@ export function exportTurnTraces(
 
 type ReportLanguage = 'ru' | 'en';
 
-/** The words of the copied report, in the interface language. Field names from the trace stay as recorded. */
-const REPORT_WORDS = {
-  ru: {
-    more: (n: number) => `[ещё ${n} симв.]`,
-    turn: 'Ход',
-    model: 'Модель',
-    mode: 'Режим', language: 'язык', stepLimit: 'лимит шагов',
-    app: 'Приложение', system: 'система', started: 'начало',
-    outcome: 'Итог', steps: 'шагов', toolCalls: 'вызовов инструментов', tokensIn: 'токены: вход', out: 'выход', time: 'время', ms: 'мс',
-    error: 'Ошибка',
-    unfinished: '- Итог: ход не завершён (нет записи конца)',
-    given: 'Что получила модель',
-    systemText: 'Системный текст', chars: 'симв.', messages: 'сообщений в диалоге', tools: 'инструментов', toolList: 'Инструменты',
-    systemStart: 'Начало системного текста', dialog: 'Диалог', stepsTitle: 'Шаги', step: 'Шаг',
-    reasoning: 'рассуждение', modelText: 'текст модели', call: 'вызов', result: 'результат', failed: 'С ОШИБКОЙ', ok: 'ок',
-    toolError: 'ошибка инструмента', stepEnd: 'конец шага', tokensStep: 'токены вход', firstToken: 'первый токен через',
-    served: 'ответила модель', errorBold: 'ошибка', network: 'сеть',
-    request: 'запрос', counted: 'сервер насчитал', compact: 'экономный режим (меньше инструментов)',
-    noWindow: 'окно контекста сервер не сообщил', need: 'нужно около', tokens: 'токенов',
-    window: 'окно контекста на сервере', cut: 'ЗАПРОС НЕ ПОМЕСТИЛСЯ, сервер отбросил часть', tight: 'места почти нет', fits: 'запрос помещается',
-    truncated: 'журнал обрезан', abort: '- остановлено человеком',
-    requests: 'Запросы к серверу', answer: 'ответ',
-    footer: '_Полные запросы и ответы есть в файле журнала этого хода._',
-  },
-  en: {
-    more: (n: number) => `[${n} more chars]`,
-    turn: 'Turn',
-    model: 'Model',
-    mode: 'Mode', language: 'language', stepLimit: 'step limit',
-    app: 'App', system: 'system', started: 'started',
-    outcome: 'Outcome', steps: 'steps', toolCalls: 'tool calls', tokensIn: 'tokens: in', out: 'out', time: 'time', ms: 'ms',
-    error: 'Error',
-    unfinished: '- Outcome: the turn did not finish (no end record)',
-    given: 'What the model was given',
-    systemText: 'System text', chars: 'chars', messages: 'messages in the dialog', tools: 'tools', toolList: 'Tools',
-    systemStart: 'Start of the system text', dialog: 'Dialog', stepsTitle: 'Steps', step: 'Step',
-    reasoning: 'reasoning', modelText: 'model text', call: 'call', result: 'result', failed: 'FAILED', ok: 'ok',
-    toolError: 'tool error', stepEnd: 'end of step', tokensStep: 'tokens in', firstToken: 'first token after',
-    served: 'answered by model', errorBold: 'error', network: 'network',
-    request: 'request', counted: 'the server counted', compact: 'compact mode (fewer tools)',
-    noWindow: 'the server did not report its context window', need: 'needs about', tokens: 'tokens',
-    window: 'context window on the server', cut: 'THE REQUEST DID NOT FIT, the server dropped part of it', tight: 'almost no room left', fits: 'the request fits',
-    truncated: 'log cut', abort: '- stopped by the person',
-    requests: 'Requests to the server', answer: 'answer',
-    footer: '_The full requests and answers are in the log file of this turn._',
-  },
-} as const;
+/** The words of the copied report, in the interface language (catalog modelLog.report). */
+function reportWords(language: ReportLanguage) {
+  const t = createTranslator(language);
+  const words = Object.fromEntries(REPORT_KEYS.map((key) => [key, t(`modelLog.report.${key}`)])) as Record<(typeof REPORT_KEYS)[number], string>;
+  return { ...words, more: (n: number) => t('modelLog.report.more', { count: n }) };
+}
 
-function cut(value: unknown, cap: number, w: (typeof REPORT_WORDS)[ReportLanguage] = REPORT_WORDS.ru): string {
+const REPORT_KEYS = ['turn', 'model', 'mode', 'language', 'stepLimit', 'app', 'system', 'started', 'outcome', 'steps', 'toolCalls', 'tokensIn', 'out', 'time', 'ms', 'error', 'unfinished', 'given', 'systemText', 'chars', 'messages', 'tools', 'toolList', 'systemStart', 'dialog', 'stepsTitle', 'step', 'reasoning', 'modelText', 'call', 'result', 'failed', 'ok', 'toolError', 'stepEnd', 'tokensStep', 'firstToken', 'served', 'errorBold', 'network', 'request', 'counted', 'compact', 'noWindow', 'need', 'tokens', 'window', 'cut', 'tight', 'fits', 'truncated', 'abort', 'requests', 'answer', 'footer'] as const;
+
+function cut(value: unknown, cap: number, w: ReturnType<typeof reportWords> = reportWords('ru')): string {
   const text = typeof value === 'string' ? value : JSON.stringify(value) ?? '';
   return text.length > cap ? `${text.slice(0, cap)}… ${w.more(text.length - cap)}` : text;
 }
@@ -718,7 +679,7 @@ function catalogWord(language: ReportLanguage, group: 'intent' | 'outcome', valu
 }
 
 export function turnReport(events: TraceEvent[], language: ReportLanguage = 'ru'): string {
-  const w = REPORT_WORDS[language] ?? REPORT_WORDS.ru;
+  const w = reportWords(language === 'en' ? 'en' : 'ru');
   const c = (value: unknown, cap: number) => cut(value, cap, w);
   const start = events.find((event) => event.type === 'turn-start');
   const prompt = events.find((event) => event.type === 'prompt');

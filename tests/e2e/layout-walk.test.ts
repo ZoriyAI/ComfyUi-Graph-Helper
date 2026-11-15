@@ -1,4 +1,5 @@
 import { test, expect, _electron as electron, type CDPSession, type ElectronApplication, type Locator, type Page } from '@playwright/test';
+import { pseudoText } from '../../src/shared/i18n/pseudo';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -42,8 +43,17 @@ const REPORT_ONLY = process.env.LAYOUT_REPORT === '1';
 const ONLY = (process.env.LAYOUT_ONLY ?? '').split(',').map((part) => part.trim()).filter(Boolean);
 const HINTED_FONTS = process.env.LAYOUT_FONTS === 'hinted';
 const WIDE_TEXT = process.env.LAYOUT_TEXT === 'wide';
+/**
+ * LAYOUT_TEXT=pseudo draws every text of the app about 40 % longer, with accented letters (the pseudo-translation of
+ * src/shared/i18n/pseudo.ts): a longer language is tried before it is written. LAYOUT_NAMES=wide adds node titles and
+ * file names in Chinese, Japanese, Korean and long German to the catalog the walk reads.
+ */
+const PSEUDO_TEXT = process.env.LAYOUT_TEXT === 'pseudo';
+const WIDE_NAMES = process.env.LAYOUT_NAMES === 'wide';
 const DPR = Number(process.env.LAYOUT_DPR ?? '') || 0;
-const T = createTranslator(LANG);
+const PLAIN_T = createTranslator(LANG);
+/** The walk finds controls by their names on screen: under LAYOUT_TEXT=pseudo those are the stretched texts too. */
+const T: typeof PLAIN_T = (key, options) => (process.env.LAYOUT_TEXT === 'pseudo' ? pseudoText(PLAIN_T(key, options)) : PLAIN_T(key, options));
 
 interface Size { width: number; height: number }
 /** From the smallest window the app allows, through the size it opens at, to a large monitor. */
@@ -182,6 +192,7 @@ async function launch(userData: string): Promise<{ app: ElectronApplication; pag
   delete env.DBUS_SESSION_BUS_ADDRESS;
   delete env.GNOME_KEYRING_CONTROL;
   if (HINTED_FONTS) env.FONTCONFIG_FILE = path.join(__dirname, 'fixtures/fonts-hinted.conf');
+  if (PSEUDO_TEXT) env.GRAPH_HELPER_PSEUDO_LOCALE = '1';
   const app = await electron.launch({ args: [path.join(__dirname, '../../dist/main/index.js'), `--user-data-dir=${userData}`], env: env as Record<string, string> });
   const page = await app.firstWindow();
   page.on('console', (message) => {
@@ -358,7 +369,7 @@ test('nothing sticks out, is cut or overlaps on any screen at any window size', 
   test.setTimeout(5_400_000);
   if (OUT) fs.mkdirSync(OUT, { recursive: true });
   // With ComfyUI's video nodes, so every lesson fits and is walked.
-  const fake: FakeMcp = await startFakeMcp({ extraLoras: 300, video: true });
+  const fake: FakeMcp = await startFakeMcp({ extraLoras: 300, video: true, wideNames: WIDE_NAMES });
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'layout-walk-'));
   const { app, page } = await launch(userData);
   const api = bridge(page);
@@ -1125,7 +1136,7 @@ test('nothing sticks out, is cut or overlaps on any screen at any window size', 
     .map((entry) => `[${entry.issue.kind}] ${entry.issue.where}\n    "${entry.issue.text}"\n    ${entry.issue.detail}\n    seen ${entry.at.length}×, e.g. ${entry.at.slice(0, 4).join('; ')}`);
   const i18nErrors = [...new Set(consoleErrors.filter((line) => line.includes('[i18n]')))];
   const text = [
-    `language ${LANG}; fonts ${HINTED_FONTS ? 'hinted' : 'plain'}${WIDE_TEXT ? ', letters spaced out' : ''}${DPR ? `, screen scale ${DPR}` : ''}; menus ${menuWidths.join(' → ')} px wide; sizes ${SIZES.map((size) => `${size.width}x${size.height}`).join(', ')}; looked at ${visited.length} screens in ${Math.round((Date.now() - started) / 1000)} s; with something to say: ${findings.length}; distinct faults: ${grouped.size}; by kind: ${JSON.stringify([...byKind])}`,
+    `language ${LANG}; fonts ${HINTED_FONTS ? 'hinted' : 'plain'}${WIDE_TEXT ? ', letters spaced out' : ''}${PSEUDO_TEXT ? ', texts 40 % longer' : ''}${WIDE_NAMES ? ', CJK and long names' : ''}${DPR ? `, screen scale ${DPR}` : ''}; menus ${menuWidths.join(' → ')} px wide; sizes ${SIZES.map((size) => `${size.width}x${size.height}`).join(', ')}; looked at ${visited.length} screens in ${Math.round((Date.now() - started) / 1000)} s; with something to say: ${findings.length}; distinct faults: ${grouped.size}; by kind: ${JSON.stringify([...byKind])}`,
     unreached.length ? `not reached:\n${unreached.map((line) => `  ${line}`).join('\n')}` : 'every stop was reached',
     consoleErrors.length ? `console errors:\n${[...new Set(consoleErrors)].map((line) => `  ${line.slice(0, 300)}`).join('\n')}` : 'no console errors',
     '==== distinct faults ====',
