@@ -63,9 +63,15 @@ function overlaps(a: { x: number; y: number; width: number; height: number }, b:
   return a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
 }
 
+/**
+ * Every node's box is read in one frame: a new node is revealed with an animated pan, and boxes read one by one
+ * during it come from different moments of the pan and can seem to overlap when the nodes do not.
+ */
 async function expectNoOverlap(nodes: Locator) {
-  const boxes = [];
-  for (let index = 0; index < await nodes.count(); index += 1) boxes.push((await nodes.nth(index).boundingBox())!);
+  const boxes = await nodes.evaluateAll((elements) => elements.map((element) => {
+    const rect = element.getBoundingClientRect();
+    return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+  }));
   for (let i = 0; i < boxes.length; i += 1) {
     for (let j = i + 1; j < boxes.length; j += 1) expect(overlaps(boxes[i], boxes[j]), `nodes ${i} and ${j} overlap`).toBe(false);
   }
