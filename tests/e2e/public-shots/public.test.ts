@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { createTranslator } from '../../../src/shared/i18n';
-import { startFakeMcp, type FakeMcp } from '../../fixtures/mcp/fakeMcpServer';
+import { startFakeComfy, type FakeComfy } from '../../fixtures/comfy/fakeComfy';
 import { nestedSubgraphWorkflow } from '../fixtures/nestedSubgraphWorkflow';
 import { startShowcaseLlm, SHOWCASE_MODEL, SHOWCASE_QUESTIONS, type ShowcaseLanguage, type ShowcaseLlm } from './showcaseLlm';
 import { PUBLIC_SHOTS } from './shotList';
@@ -70,7 +70,15 @@ for (const language of LANGUAGES) {
     const T = createTranslator(language);
     const t = (key: string, values?: Record<string, unknown>) => String(T(key, values as never));
     fs.mkdirSync(path.join(ROOT, language), { recursive: true });
-    const mcp: FakeMcp = await startFakeMcp({ video: true });
+    // A plain ComfyUI, as most people have it: on 8188 when that port is free, so "Find on this computer" finds it.
+    let comfy: FakeComfy;
+    let found = true;
+    try {
+      comfy = await startFakeComfy({ manager: true, port: 8188 });
+    } catch {
+      found = false;
+      comfy = await startFakeComfy({ manager: true });
+    }
     const llm: ShowcaseLlm = await startShowcaseLlm(language);
     const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'public-shots-'));
     const env: Record<string, string | undefined> = { ...process.env, NODE_ENV: 'production' };
@@ -167,11 +175,30 @@ for (const language of LANGUAGES) {
         await shoot(page, language, '01-first-start');
       });
 
-      // Connected: the test MCP server answers for ComfyUI, the showcase server for the assistant.
-      await saveSettings({ mcpUrl: mcp.url, mcpAuth: 'none', provider: 'local', baseURL: `${llm.origin}/v1`, model: SHOWCASE_MODEL });
-      await api(page, 'syncNow').catch(() => undefined);
-      await expect.poll(async () => ((await api(page, 'syncStatus')) as { state: string }).state, { timeout: 90_000 }).not.toBe('running');
-      await reload();
+      // The first-start path a person takes: Connect… on the welcome card, find ComfyUI, check it, save, read it.
+      const settings = page.locator('[role="dialog"].settings-dialog');
+      await state('11-settings-connection', async () => {
+        await page.locator('[data-step="connect"]').getByRole('button', { name: t('canvas.onboardConnect') }).click();
+        await settings.waitFor({ timeout: 10_000 });
+        const address = settings.getByRole('textbox', { name: t('settings.comfyOrigin'), exact: true });
+        if (found) {
+          await settings.getByRole('button', { name: t('settings.comfyFind'), exact: true }).click();
+          await expect(address).toHaveValue(comfy.url, { timeout: 15_000 });
+        } else {
+          // Port 8188 is taken on this machine: the address is typed, as a person would after reading the hint.
+          await address.fill(comfy.url);
+        }
+        await settings.getByRole('button', { name: t('settings.comfyCheck'), exact: true }).click();
+        await expect(settings.getByText(/0\.45\.0/)).toBeVisible({ timeout: 15_000 });
+        await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+        await shoot(page, language, '11-settings-connection');
+        await settings.getByRole('button', { name: t('settings.save'), exact: true }).click();
+        await expect(settings).toHaveCount(0);
+      });
+      await page.locator('[data-step="connect"]').getByRole('button', { name: t('canvas.onboardRead') }).click();
+      await expect(page.locator('.sync-indicator')).toHaveAttribute('data-sync-state', 'idle', { timeout: 90_000 });
+      // The assistant: a model server on this computer (the showcase server stands in for it).
+      await saveSettings({ provider: 'local', baseURL: `${llm.origin}/v1`, model: SHOWCASE_MODEL });
 
       await state('02-canvas-explained', async () => {
         await openWorkflow(textToPictureWorkflow(language));
@@ -184,15 +211,11 @@ for (const language of LANGUAGES) {
         // One step closer, so the node reads at a glance; the card under it opens to its full description.
         await page.locator('.react-flow__controls-zoomin').click();
         await page.waitForTimeout(350);
-        // The opened card hangs below the node: the view moves up so the card is whole.
-        await page.mouse.move(900, 780);
-        await page.mouse.down();
-        await page.mouse.move(900, 640, { steps: 8 });
-        await page.mouse.up();
-        await page.waitForTimeout(300);
         const sampleId = await sampler.getAttribute('data-id');
         const card = page.locator(`.description-card[data-description-node="${sampleId}"]`);
-        await card.locator('[aria-expanded="false"]').first().click();
+        // Selecting a node opens its card; an older build left it closed, so it is opened only when it is.
+        const closed = card.locator('[aria-expanded="false"]').first();
+        if (await closed.isVisible().catch(() => false)) await closed.click();
         await expect(card.locator('[aria-expanded="true"]').first()).toBeVisible();
         await shoot(page, language, '02-canvas-explained');
       });
@@ -315,7 +338,6 @@ for (const language of LANGUAGES) {
         await shoot(page, language, '10-large-workflow');
       });
 
-      const settings = page.locator('[role="dialog"].settings-dialog');
       const section = async (index: number) => {
         if (await settings.count() === 0) {
           await page.keyboard.press('Control+,');
@@ -326,7 +348,6 @@ for (const language of LANGUAGES) {
         // The section is shown as it opens, without a focus ring the keyboard did not ask for.
         await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
       };
-      await state('11-settings-connection', async () => { await section(1); await shoot(page, language, '11-settings-connection'); });
       await state('12-settings-assistant', async () => { await section(0); await shoot(page, language, '12-settings-assistant'); });
       await page.keyboard.press('Escape');
       await expect(settings).toHaveCount(0);
@@ -341,7 +362,7 @@ for (const language of LANGUAGES) {
     } finally {
       await app?.close().catch(() => undefined);
       await llm.close();
-      await mcp.close();
+      await comfy.close();
       fs.rmSync(userData, { recursive: true, force: true });
     }
   });
