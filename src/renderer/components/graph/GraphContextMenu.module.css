@@ -7,6 +7,11 @@
 .content {
   z-index: 50;
   min-width: 220px;
+  /* The node menu has some twenty rows: in a low window (800x560) it ran past the bottom edge. It stays within the
+     room Radix measures (inside its collision padding) and scrolls. */
+  max-height: var(--radix-context-menu-content-available-height, 100vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 4px;
   border-radius: 10px;
   border: 1px solid var(--line, #2a3648);

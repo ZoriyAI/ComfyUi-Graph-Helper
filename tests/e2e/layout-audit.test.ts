@@ -31,6 +31,7 @@ const FIXTURE = `
 <section><span data-case="thumb-out" role="presentation" style="display: block; position: relative; width: 34px; height: 18px; border: 1px solid #555; border-radius: 9px"><span style="display: block; width: 14px; height: 14px; margin: 2px 0 0 26px; border-radius: 50%; background: #06c"></span></span></section>
 <section><div role="dialog" data-case="outside-window" style="position: fixed; left: -60px; bottom: 8px; width: 180px; height: 40px; border: 1px solid #555; background: #fff">A dialog past the edge</div></section>
 <section><button data-case="cut-down" style="height: 20px; width: 90px; overflow: hidden; white-space: normal; line-height: 18px">Two lines of words here</button></section>
+<section><button data-case="clamped" style="height: auto; width: 200px; white-space: normal"><span style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 16px">A description held to two lines, so the third line of it ends in an ellipsis</span></button></section>
 <section><span data-case="raw-placeholder">Reading models: {{done}} / {{total}}</span></section>
 <section><span data-case="raw-missing">Size: undefined</span></section>
 <section><span data-case="raw-key">settings.mcpUrl</span></section>
@@ -46,10 +47,14 @@ const FIXTURE = `
 <section><div data-sound="wrapping" class="card" style="width: 150px"><button style="white-space: normal; height: auto; max-width: 100%">A button whose words wrap inside the card</button></div></section>
 <section><span data-sound="thumb-in" role="presentation" style="display: block; position: relative; width: 34px; height: 18px; border: 1px solid #555; border-radius: 9px"><span style="display: block; width: 14px; height: 14px; margin: 2px 0 0 18px; border-radius: 50%; background: #06c"></span></span></section>
 <section><p data-sound="paragraph-around-badge" style="width: 220px; margin: 0">A long paragraph that wraps around <b>a bold word</b> and goes on to a second and a third line of plain words.</p></section>
+<section><button data-sound="allowed-clamp" style="height: auto; width: 200px; white-space: normal"><span class="allowed" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 16px">A preview held to two lines on purpose, so the third line of it ends in an ellipsis</span></button></section>
 <section><span data-sound="file-name">Saved to settings.json and status.log</span></section>
 <section><span data-sound="own-words" class="said">The person wrote {{x}}, undefined and settings.mcpUrl</span></section>
 <section><span data-sound="address">Open https://docs.comfy.org/library.nodes/KSampler</span></section>
 <section><div data-sound="placing-wrapper" style="width: 120px"><div style="width: 120px; border: 1px solid #999; transform: scale(1.2); transform-origin: top left">Drawn larger</div></div></section>
+<!-- A closed disclosure: the browser lays its inside out where it would stand if opened, over the line that follows,
+     and paints none of it. Nothing a person sees lies on anything. -->
+<section data-sound="closed-disclosure"><details><summary>More about it</summary><p style="margin: 0">Words shown only once it is opened</p><button>Hidden button</button></details><p style="margin: 0">The line after the closed disclosure</p><button>The button after it</button></section>
 <section><div class="canvas-unit" style="position: absolute; left: 24px; top: 2px; width: 150px; height: 26px; background: #fc0">A note of a node</div><button data-sound="tool-on-top" style="position: absolute; left: 0; top: 0; width: 130px; z-index: 2">A canvas tool</button></section>
 `;
 
@@ -112,6 +117,8 @@ test('the layout audit names every fault of its fixture and none of the sound la
       ['thumb-out', 'spills'],
       ['outside-window', 'outside-window'],
       ['cut-down', 'cut'],
+      // Held to two lines with an ellipsis: shortened, the way a one-line ellipsis is, never "cut".
+      ['clamped', 'shortened'],
       ['raw-placeholder', 'raw-text'],
       ['raw-missing', 'raw-text'],
       ['raw-key', 'raw-text'],

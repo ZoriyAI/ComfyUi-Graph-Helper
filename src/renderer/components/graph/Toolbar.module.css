@@ -152,7 +152,8 @@
 .resultName, .resultClass { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .resultName { color: var(--text, #e8eef7); line-height: 18px; }
 .resultClass { color: var(--text-faint, #8b9bb0); font-family: ui-monospace, monospace; font-size: 12px; line-height: 16px; }
-.resultMeta { flex: 0 1 auto; max-width: 40%; color: var(--text-faint, #8b9bb0); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The category keeps its words up to 40 % of the row: a result with a description under its name once squeezed it to "З…". */
+.resultMeta { flex: 0 0 auto; max-width: 40%; color: var(--text-faint, #8b9bb0); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .match { padding: 0; border-radius: 2px; background: var(--accent-soft, rgba(101, 217, 237, 0.14)); color: var(--accent-strong, #8ae6f4); }
 .empty { display: flex; align-items: center; gap: 8px; padding: 10px 8px; color: var(--text-dim, #a3b1c6); font-size: 13px; }
 /* Editing (AddNodeSearch): what the box is open for, and one line under a result on what the node does. */
