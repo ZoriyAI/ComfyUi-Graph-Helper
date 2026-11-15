@@ -18,13 +18,14 @@ part follows the [Code of Conduct](CODE_OF_CONDUCT.md).
 - For a larger change, open a discussion or an issue first, so the idea can be agreed before the work.
 - Read [Architecture](docs/wiki/dev/Architecture.md) and the page of the part you change (the
   [developer documentation](docs/wiki/dev/README.md) lists them).
-- The app is developed and tested on Linux. Windows and macOS can be built from source but are not tested:
+- The app is developed and tested on Linux. Windows and macOS are not supported; you may try running it from source
+  (untested):
   [Windows](docs/wiki/dev/Building-On-Windows.md), [macOS](docs/wiki/dev/Building-On-macOS.md).
 
 ## Set up
 
 ```bash
-git clone <the project address> graph-helper && cd graph-helper
+git clone <the project address> cozygraph && cd cozygraph
 npm ci
 npm run build
 npm start
@@ -51,8 +52,8 @@ node scripts/public-tree-check.js
 
 Run e2e files one at a time: each starts Electron, and a second window takes the focus from the first. The layout
 walk (`tests/e2e/layout-walk.test.ts`) visits every screen at several window sizes and takes about twenty minutes a
-size; run it when you change layout (see [Testing](docs/wiki/dev/Testing.md)). CI runs everything, the layout walks
-and the package included, which takes up to two hours.
+size; run it when you change layout (see [Testing](docs/wiki/dev/Testing.md)). Every pull request runs the fast checks
+(`.github/workflows/ci.yml`); the release workflow runs everything, the layout walks and the packages included.
 
 ## Texts and languages
 
