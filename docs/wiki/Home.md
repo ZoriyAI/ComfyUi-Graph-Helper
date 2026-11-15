@@ -48,6 +48,9 @@ Every page exists in English and in Russian; the first line of a page links to t
 the same pages in Help, in the language of the interface. The pages describe the current version; what is not
 finished yet is said on the page where it matters and collected in [Known limitations](reference/Known-Limits.md).
 
+Copyright © 2026 Aleksey Ponomarenko (ZoriyAI). The app and this documentation are under the MIT license with the
+Commons Clause: [License and third-party notices](trust/Licence.md#copyright-and-priority).
+
 ## See also
 
 - [Start](start/README.md)

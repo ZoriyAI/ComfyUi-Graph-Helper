@@ -157,4 +157,8 @@ or service whose value comes mainly from it. It is source-available, not open so
 [LICENSE](LICENSE), [the licence in plain words](docs/wiki/trust/Licence.md), commercial use:
 [COMMERCIAL.md](COMMERCIAL.md). Third-party components: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
+Copyright © 2026 Aleksey Ponomarenko (ZoriyAI), the sole author and copyright holder; all rights are reserved except
+the permissions the licence grants. Selling it, or a paid product or service built mainly on it, without his written
+permission breaches the licence; who holds what, and the dated record of every release: [NOTICE.md](NOTICE.md).
+
 Subject choice and adult education: [Content rules](docs/wiki/trust/Content-Rules.md).
