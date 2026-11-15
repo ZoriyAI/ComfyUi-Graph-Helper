@@ -1,3 +1,8 @@
+/**
+ * Trimming of the stored graph history (graph_revisions and the applied_commands that made them).
+ * Used by commands/commit.ts after each applied commit (pruneHistoryAfterCommit) and by database.ts at start
+ * (trimAllHistories). The rules of what is kept are below; work is done in small batches so the window never stalls.
+ */
 import type Database from 'better-sqlite3';
 import { REVISION_LIST_LIMIT } from '../../shared/contracts/revisions';
 
@@ -30,6 +35,7 @@ export function historyKeepCount(revisionBytes: number): number {
   return Math.max(HISTORY_MIN_REVISIONS, Math.min(HISTORY_MAX_REVISIONS, fit));
 }
 
+/** Stored size of the project's current revision, all JSON columns together; 0 when there is none. */
 function currentRevisionBytes(db: Database.Database, projectId: string): number {
   const row = db
     .prepare(
@@ -41,6 +47,7 @@ function currentRevisionBytes(db: Database.Database, projectId: string): number 
   return row?.bytes ?? 0;
 }
 
+/** Revisions that must survive a trim: the one on screen, those of open runs and those of open suggestions. */
 function protectedRevisions(db: Database.Database, projectId: string): Set<string> {
   const kept = new Set<string>();
   const current = db.prepare('SELECT current_revision_id FROM projects WHERE id = ?').get(projectId) as { current_revision_id: string | null } | undefined;
@@ -52,6 +59,7 @@ function protectedRevisions(db: Database.Database, projectId: string): Set<strin
     kept.add(run.base_revision_id);
     kept.add(run.expected_revision_id);
   }
+  // The proposals table comes from a later migration; a database opened before it has none to protect.
   const hasProposals = db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'proposals'").get();
   if (hasProposals) {
     const open = db.prepare(`SELECT revision_id FROM proposals WHERE project_id = ? AND status IN ('proposed', 'open')`).all(projectId) as Array<{ revision_id: string }>;
@@ -60,6 +68,7 @@ function protectedRevisions(db: Database.Database, projectId: string): Set<strin
   return kept;
 }
 
+/** Overrides for one trim; tests use them to trim small histories. */
 export interface PruneOptions {
   /** Revisions to keep; by default from the size of the graph now (historyKeepCount). */
   keep?: number;
@@ -72,6 +81,7 @@ export interface PruneOptions {
  * Returns how many were removed; 0 means the history is within its limits. Never throws.
  */
 export function pruneHistory(db: Database.Database, projectId: string, options: PruneOptions = {}): number {
+  // Never inside a caller's transaction: a trim is its own short step, never part of a commit's write.
   if (db.inTransaction) return 0;
   try {
     const keep = Math.max(1, Math.floor(options.keep ?? historyKeepCount(currentRevisionBytes(db, projectId))));
@@ -80,6 +90,7 @@ export function pruneHistory(db: Database.Database, projectId: string, options: 
       .prepare('SELECT rev_seq FROM graph_revisions WHERE project_id = ? ORDER BY rev_seq DESC LIMIT 1 OFFSET ?')
       .get(projectId, keep - 1) as { rev_seq: number } | undefined;
     if (!edge) return 0;
+    // A few more than one batch, so protected revisions among the oldest do not leave the batch empty.
     const candidates = db
       .prepare('SELECT id FROM graph_revisions WHERE project_id = ? AND rev_seq < ? ORDER BY rev_seq ASC LIMIT ?')
       .all(projectId, edge.rev_seq, batch + 64) as Array<{ id: string }>;

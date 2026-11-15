@@ -1,3 +1,16 @@
+/**
+ * What the internet said about a model file, kept in the catalog so it survives a restart and is not asked again,
+ * and the card's "Find on the internet" that asks.
+ *
+ * The card asks in two steps the person sees. When the file's fingerprint is not known (no description next to it
+ * gave one), the MCP server makes it: `workspace_files {action:'hash'}` of that one model file, which reads the
+ * file on the server and changes nothing. A file of many gigabytes takes a while, so it is only ever done on that
+ * click, never during sync. Then Civitai is asked by the fingerprint and, when it does not know the file, Hugging
+ * Face by the name.
+ *
+ * Used by ipc/knowledgeIpc.ts (ModelLookupService behind the card button) and mcp/sync.ts (lookups at sync
+ * when Settings > Privacy allows them).
+ */
 import { joinServerPath } from '../../shared/mcp/serverPaths';
 import type Database from 'better-sqlite3';
 import type { ModelLookupResult } from '../../shared/contracts/knowledge';
@@ -8,17 +21,6 @@ import type { WebError } from '../../shared/knowledge/webLookup';
 import { isModelFilePath } from '../mcp/readOnly';
 import { modelDetail } from './repository';
 import { CARD_LOOKUP_PAUSE_MS, type LookupOutcome, type ModelWebClient } from './webLookup';
-
-/**
- * What the internet said about a model file, kept in the catalog so it survives a restart and is not asked again,
- * and the card's "Find on the internet" that asks.
- *
- * The card asks in two steps the person sees. When the file's fingerprint is not known (no description next to it
- * gave one), the MCP server makes it: `workspace_files {action:'hash'}` of that one model file, which reads the
- * file on the server and changes nothing. A file of many gigabytes takes a while, so it is only ever done on that
- * click, never during sync. Then Civitai is asked by the fingerprint and, when it does not know the file, Hugging
- * Face by the name.
- */
 
 /** Making the fingerprint of a large file on the server can take minutes; the usual call wait is far shorter. */
 export const HASH_TIMEOUT_MS = 10 * 60_000;
@@ -85,6 +87,7 @@ export function writeWebOutcome(db: Database.Database, directory: string, name: 
   write.immediate();
 }
 
+/** One file the sync may look up, with the fingerprint Civitai is asked by. */
 export interface DueLookup {
   directory: string;
   name: string;
@@ -93,7 +96,8 @@ export interface DueLookup {
 
 /**
  * Files sync may look up: their fingerprint is known (sync never makes one), nothing from Civitai lies next to
- * them, and they were never asked about, or the last ask failed before this run began.
+ * them, and they were never asked about, or the last ask failed before this run began. LoRAs come first, then
+ * checkpoints: their families matter most to the check.
  */
 export function dueLookups(db: Database.Database, limit: number, runStartedAt: number): DueLookup[] {
   return db.prepare(`SELECT directory, name, sha256 FROM model_catalog
@@ -104,6 +108,7 @@ export function dueLookups(db: Database.Database, limit: number, runStartedAt: n
     LIMIT ?`).all(runStartedAt, limit) as DueLookup[];
 }
 
+/** What the lookup service needs; ipc/knowledgeIpc.ts passes the app's database, web client and saved session. */
 export interface ModelLookupDeps {
   db: () => Database.Database;
   client: () => ModelWebClient;
@@ -123,6 +128,7 @@ export class ModelLookupService {
 
   constructor(private readonly deps: ModelLookupDeps) {}
 
+  /** A second click while the first is running gets the same promise, not a second request. */
   private once(key: string, work: () => Promise<ModelLookupResult>): Promise<ModelLookupResult> {
     const held = this.running.get(key);
     if (held) return held;

@@ -1,5 +1,12 @@
+/**
+ * The schema of the profile database and its step-by-step upgrades (one version per step, each in its own
+ * transaction with its version stamp, so a crash leaves the database at the last whole version).
+ * Called by database.ts when the database opens (after databaseSafety.ts copied the file), and by most tests to
+ * build a fresh database. A database newer than SCHEMA_VERSION is refused, never downgraded.
+ */
 import type Database from 'better-sqlite3';
 
+/** Version 1: the tables every later version builds on. */
 const V1_SQL = `
 CREATE TABLE IF NOT EXISTS schema_migrations (
   version INTEGER PRIMARY KEY,
@@ -77,6 +84,7 @@ CREATE TABLE IF NOT EXISTS secret_records (
 );
 `;
 
+/** The highest version stamped in schema_migrations; 0 for a new or pre-migration database. */
 export function schemaVersion(db: Database.Database): number {
   const table = db
     .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'schema_migrations'")
@@ -88,6 +96,7 @@ export function schemaVersion(db: Database.Database): number {
   return row?.version ?? 0;
 }
 
+/** The app's own tables, by name (SQLite's internal tables left out). */
 export function tableNames(db: Database.Database): string[] {
   return (
     db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name").all() as Array<{
@@ -96,6 +105,10 @@ export function tableNames(db: Database.Database): string[] {
   ).map((row) => row.name);
 }
 
+/**
+ * The columns of a table. Steps check them before ALTER TABLE so a step that ran half on an old build is safe
+ * to run again. `table` is always a fixed name from this file, never input.
+ */
 function columnNames(db: Database.Database, table: string): string[] {
   return (db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>).map((column) => column.name);
 }
@@ -158,9 +171,14 @@ function applyVersion2(db: Database.Database): void {
  * Version 17 remembers, for each graph (graph_key), the project file it was last opened from or saved to and the
  * fingerprint of the content written there (table project_files): Ctrl+S saves in place, and the unsaved mark says
  * whether what is on screen is in that file as it stands, across reloads and restarts.
+ * Version 18 adds flags on node_catalog: the api, deprecated and experimental marks of a node class.
  */
 export const SCHEMA_VERSION = 18;
 
+/**
+ * Brings the database up to SCHEMA_VERSION (or `upTo`), one step at a time from the version it has.
+ * `failBeforeVersionStamp` is a test hook proving a failed step leaves no half-applied version behind.
+ */
 export function migrate(db: Database.Database, options?: { failBeforeVersionStamp?: boolean; /** Tests: stop at this version. */ upTo?: number }): void {
   const version = schemaVersion(db);
   const target = Math.min(SCHEMA_VERSION, options?.upTo ?? SCHEMA_VERSION);

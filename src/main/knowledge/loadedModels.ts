@@ -1,13 +1,15 @@
-import type { CatalogView } from '../../shared/catalog/types';
-import { canvasModelRefs, type GraphNodeLike } from '../../shared/graph/compatibility';
-
 /**
  * Which model files a node on the canvas loads, for any loader class: the core loader fields
  * (shared/catalog/modelFolders.ts) plus every plain field value that is the name of a file in the synced catalog.
  * The second part covers custom loaders (a pack's own "lora_name" or "lora"), whose folder is not on the core
  * list: a value that names a catalog file of a folder is what makes the node a load of that file.
+ *
+ * Used by knowledge/check.ts, knowledge/promptCheck.ts and knowledge/fieldModels.ts.
  */
+import type { CatalogView } from '../../shared/catalog/types';
+import { canvasModelRefs, type GraphNodeLike } from '../../shared/graph/compatibility';
 
+/** One model file a node loads, as the catalog names it. */
 export interface LoadedModelRef {
   directory: string;
   name: string;
@@ -37,6 +39,7 @@ function normalName(value: string): string {
 /** Catalog files by normalised name: the folders each name exists in, and the name as the catalog spells it. */
 export type CatalogFileIndex = Map<string, Array<{ directory: string; name: string }>>;
 
+/** Builds the index once per check, so each node's lookup is a map read instead of a scan of every model. */
 export function catalogFileIndex(catalog: CatalogView): CatalogFileIndex {
   const index: CatalogFileIndex = new Map();
   for (const model of catalog.models) {
@@ -79,6 +82,10 @@ function fieldValues(node: NodeWithWidgets, catalog: CatalogView): Array<{ field
   return out;
 }
 
+/**
+ * The files a node loads: the core loader fields, plus any field value naming a catalog file. When a name is in
+ * several folders, the field's name picks the folder if it hints at one; otherwise every folder counts.
+ */
 export function loadedModelFiles(node: NodeWithWidgets, catalog: CatalogView, files: CatalogFileIndex): LoadedModelRef[] {
   const found = new Map<string, LoadedModelRef>();
   const add = (directory: string, name: string) => found.set(`${directory}/${name}`, { directory, name });

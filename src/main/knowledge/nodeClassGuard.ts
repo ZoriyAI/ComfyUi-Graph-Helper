@@ -1,3 +1,9 @@
+/**
+ * The guard before a node class is added: is the class in this ComfyUI, and if not, which known classes are
+ * spelled closest (a typo, or a name from another pack). Used by the assistant's tools (agent/tools.ts,
+ * agent/buildTools.ts, agent/lessonDraftTool.ts) and the knowledge IPC (knowledge/handlers.ts). Why: a model
+ * often invents a plausible class name; refusing it with suggestions keeps a graph from filling with red nodes.
+ */
 import { isEditorNodeType } from '../../shared/graph/editorNodes';
 import type Database from 'better-sqlite3';
 import { SEEDED_NODE_TYPES } from '../catalog/repository';
@@ -5,7 +11,9 @@ import { hasBuiltinPorts } from '../../shared/graph/ports';
 import type { NodeClassVerdict } from '../../shared/contracts/knowledge';
 import { searchNodeClasses } from './repository';
 
+/** How many close names a refusal offers. */
 export const SUGGESTION_LIMIT = 5;
+/** The warning an unknown class is allowed with before the first sync: the catalog cannot tell its ports. */
 export const CATALOG_NOT_SYNCED = 'catalog not synced; ports unknown';
 
 /**

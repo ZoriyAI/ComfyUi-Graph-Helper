@@ -1,11 +1,14 @@
+/**
+ * The sender check of every IPC handler: a request is served only when it comes from the app's own page.
+ * index.ts sets the trusted URL at start (setTrustedAppUrl, appEntryUrl); ipc.ts wraps ipcMain in guardedIpcMain,
+ * and the register functions in ipc/* use guardedHandle. Why: a frame that navigated elsewhere, an iframe, or any
+ * other web contents must not reach the database, the keys or the files through the preload bridge.
+ */
 import type { IpcMain, IpcMainInvokeEvent } from 'electron';
 import { pathToFileURL } from 'url';
 import { log } from '../log';
 
-/**
- * Every IPC handler checks that the request came from the app's own page. A frame that navigated elsewhere,
- * an iframe, or any other web contents gets a fixed error and the handler never runs.
- */
+/** The fixed error a refused sender gets; the handler never runs. */
 export const UNTRUSTED_SENDER_ERROR = 'The request did not come from the app window.';
 
 let trusted: URL | null = null;
@@ -44,6 +47,7 @@ export function isTrustedAppUrl(value: string | null | undefined): boolean {
 
 type Handler = (event: IpcMainInvokeEvent, ...args: any[]) => unknown;
 
+/** Whether the frame that sent a request shows the app's page. Reading a destroyed frame throws: refused. */
 export function isTrustedSender(event: Pick<IpcMainInvokeEvent, 'senderFrame'>): boolean {
   let url: string | undefined;
   try {
@@ -54,6 +58,7 @@ export function isTrustedSender(event: Pick<IpcMainInvokeEvent, 'senderFrame'>):
   return isTrustedAppUrl(url);
 }
 
+/** The sender's URL for the log, cut to 200 characters. */
 function senderUrl(event: Pick<IpcMainInvokeEvent, 'senderFrame'>): string {
   try {
     return String(event.senderFrame?.url ?? 'unknown').slice(0, 200);

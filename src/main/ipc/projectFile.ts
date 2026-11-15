@@ -1,3 +1,8 @@
+/**
+ * Building and opening the app's own project file (.json in the native project format).
+ * Used by ipc.ts for File > Save project and File > Open project, always on the desktop project.
+ * Kept apart from ipc.ts so tests (projectFileKeeps, projectExplanations, graphLimits) run it without Electron.
+ */
 import type Database from 'better-sqlite3';
 import { randomUUID } from 'crypto';
 import { parseNativeProject, serializeNativeProject } from '../../shared/native-project';

@@ -1,3 +1,10 @@
+/**
+ * Subgraph and group commands: make a subgraph from selected nodes, place, rename, change the slots of and dissolve
+ * one, and add, remove and rename groups. Also the id allocator (Ids) every graph command uses.
+ * Used by commands/commit.ts (applyMutation hands these mutations here) and commands/innerEdits.ts.
+ * Each function works on a deep copy and throws GraphOpError to refuse, so a refused command leaves no trace.
+ * The shapes written follow ComfyUI's workflow format 1, so an exported subgraph opens in ComfyUI as made here.
+ */
 import { randomUUID } from 'crypto';
 import type { GraphMutation } from '../../shared/commands/types';
 import { portsCompatible } from '../../shared/graph/linkTypes';
@@ -29,6 +36,7 @@ import {
 /** A refusal with a stable English message; commit turns it into a `rejected` response. */
 export class GraphOpError extends Error {}
 
+/** Refusal sentences of the subgraph and group commands; the renderer translates them. */
 export const SUBGRAPH_ERRORS = {
   format: 'Subgraphs need workflow format 1.',
   nodeMissing: 'Node was not found.',
@@ -46,6 +54,7 @@ export const SUBGRAPH_ERRORS = {
 type Node = Record<string, any>;
 type Edge = Record<string, any>;
 
+/** The mutation types applyGraphOp handles. */
 const GRAPH_OPS = new Set([
   'create-subgraph',
   'insert-subgraph',
@@ -83,6 +92,7 @@ export class Ids {
     this.linkCounter = nextLinkId(work);
   }
 
+  /** The next free node id, skipping ids in `taken` (nodes kept from an older numbering). */
   node(taken: Set<string>): string {
     while (taken.has(String(this.nodeCounter))) this.nodeCounter += 1;
     const id = this.nodeCounter;
@@ -103,10 +113,12 @@ function fail(message: string): never {
   throw new GraphOpError(message);
 }
 
+/** The workflow format of the canvas; a canvas without a document is format 1. */
 function canvasFormat(work: GraphSnapshot) {
   return work.document?.formatVersion ?? WORKFLOW_FORMAT_V1;
 }
 
+/** Subgraphs exist only in format 1; an old 0.4 workflow could not save them. */
 function requireFormat1(work: GraphSnapshot): void {
   if (canvasFormat(work) === WORKFLOW_FORMAT_V04) fail(SUBGRAPH_ERRORS.format);
 }
@@ -117,6 +129,7 @@ function findDefinition(work: GraphSnapshot, id: string): SubgraphDefinition {
   return definition;
 }
 
+/** A node's port by handle, with its name and type ('*' when the type is not stored). */
 function port(node: Node, direction: 'input' | 'output', handle: string): { name: string; dataType: string } | null {
   const list = Array.isArray(node.data?.[direction === 'input' ? 'inputs' : 'outputs']) ? node.data[direction === 'input' ? 'inputs' : 'outputs'] : [];
   const found = list.find((item: { id?: string }) => item.id === handle);
@@ -124,10 +137,12 @@ function port(node: Node, direction: 'input' | 'output', handle: string): { name
   return { name: typeof found.name === 'string' ? found.name : handle, dataType: typeof found.dataType === 'string' ? found.dataType : '*' };
 }
 
+/** An id as ComfyUI stores it in the native record: a number when it is one, else the string. */
 function idValue(id: string): string | number {
   return /^\d+$/.test(id) ? Number(id) : id;
 }
 
+/** The middle of the nodes' positions, and their leftmost and rightmost x. */
 function centre(nodes: Node[]): { x: number; y: number; minX: number; maxX: number } {
   const xs = nodes.map((node) => node.position?.x ?? 0);
   const ys = nodes.map((node) => node.position?.y ?? 0);
@@ -136,6 +151,11 @@ function centre(nodes: Node[]): { x: number; y: number; minX: number; maxX: numb
   return { x: (minX + maxX) / 2, y: (Math.min(...ys) + Math.max(...ys)) / 2, minX, maxX };
 }
 
+/**
+ * The native `inputs` and `outputs` lists of an instance, one entry per definition slot. Entries of `previous`
+ * keep their own fields (links, widget ties) by position, after the removed slot is cut out. A side the native
+ * record never had stays undefined when the definition has no slots on it, so an imported node is not changed.
+ */
 function comfySlots(definition: SubgraphDefinition, previous?: Record<string, any>, removed?: { direction: 'input' | 'output'; index: number }) {
   const take = (key: 'inputs' | 'outputs', slots: SubgraphSlot[], empty: (slot: SubgraphSlot) => Record<string, unknown>) => {
     let list: unknown[] = Array.isArray(previous?.[key]) ? [...previous![key]] : [];
@@ -160,6 +180,7 @@ function comfySlots(definition: SubgraphDefinition, previous?: Record<string, an
   };
 }
 
+/** A new instance node of a definition, with ports and a native record built from the definition's slots. */
 export function instanceNode(id: string, definition: SubgraphDefinition, x: number, y: number, title?: string): Node {
   const ports = instancePorts(definition);
   const slots = comfySlots(definition);
@@ -211,11 +232,13 @@ function refreshInstances(work: GraphSnapshot, definition: SubgraphDefinition, r
   for (const item of work.subgraphs ?? []) item.nodes.forEach(refresh);
 }
 
+/** The slot number of an `in-<n>` or `out-<n>` handle, or -1. */
 function slotIndex(handle: unknown): number {
   const match = /^(?:in|out)-(\d+)$/.exec(String(handle ?? ''));
   return match ? Number(match[1]) : -1;
 }
 
+/** The native record of a new definition, its input and output boxes placed left and right of the moved nodes. */
 function newDefinitionRaw(name: string, moved: Node[]): Record<string, unknown> {
   const box = centre(moved);
   return {
@@ -236,6 +259,11 @@ function newDefinitionRaw(name: string, moved: Node[]): Record<string, unknown> 
   };
 }
 
+/**
+ * Moves the chosen canvas nodes into a new definition and puts one instance in their place. Links inside the
+ * selection move with the nodes; each link that crosses the edge gets a slot, and the outer link is rewired to
+ * the instance. A node already inside a subgraph cannot be chosen.
+ */
 function createSubgraph(work: GraphSnapshot, ids: Ids, payload: Extract<GraphMutation, { type: 'create-subgraph' }>) {
   requireFormat1(work);
   const wanted = [...new Set(payload.nodeIds)];
@@ -262,6 +290,7 @@ function createSubgraph(work: GraphSnapshot, ids: Ids, payload: Extract<GraphMut
     const found = port(node, direction, handle);
     if (!found) fail(SUBGRAPH_ERRORS.portMissing);
     const keys = direction === 'input' ? inputKeys : outputKeys;
+    // NUL joins node id and handle: neither can contain it, so the key splits back unambiguously.
     const key = `${nodeId}\u0000${handle}`;
     if (keys.includes(key)) {
       if (listed) fail(SUBGRAPH_ERRORS.slotRepeated);
@@ -343,6 +372,7 @@ function insertSubgraph(work: GraphSnapshot, ids: Ids, payload: Extract<GraphMut
   return { definitionId: definition.id, nodeId };
 }
 
+/** Adds a slot to a definition wired to one inner port, and gives every instance the new port. */
 function addSubgraphIO(work: GraphSnapshot, ids: Ids, payload: Extract<GraphMutation, { type: 'add-subgraph-io' }>) {
   const definition = findDefinition(work, payload.definitionId);
   const node = definition.nodes.find((item) => String(item.id) === payload.nodeId);
@@ -377,6 +407,10 @@ function dropSlotEdges(edges: Edge[], matches: (edge: Edge) => boolean, key: 'so
   });
 }
 
+/**
+ * Removes a slot: its links inside the definition and on every instance go, and the later slots move down one,
+ * on the canvas and inside other definitions, so handles keep matching slot positions.
+ */
 function removeSubgraphIO(work: GraphSnapshot, payload: Extract<GraphMutation, { type: 'remove-subgraph-io' }>) {
   const definition = findDefinition(work, payload.definitionId);
   const slots = payload.direction === 'input' ? definition.inputs : definition.outputs;
@@ -418,6 +452,7 @@ function renameSubgraphIO(work: GraphSnapshot, payload: Extract<GraphMutation, {
   return { definitionId: definition.id, slotId: slot.id, name: label, previous };
 }
 
+/** Renames a definition; instances still titled with the old name take the new one, renamed ones keep theirs. */
 function renameSubgraph(work: GraphSnapshot, payload: Extract<GraphMutation, { type: 'rename-subgraph' }>) {
   const definition = findDefinition(work, payload.definitionId);
   const previous = definition.name;
@@ -466,6 +501,11 @@ function promoteInstanceValues(instance: Node, restored: Node[], idMap: Map<stri
   });
 }
 
+/**
+ * Puts an instance's inner nodes back on the canvas around where the instance stood, rewiring outer links through
+ * the slots to the inner ports. Inner ids that clash with canvas ids get new ones. The definition is removed only
+ * when no other instance uses it.
+ */
 function dissolveSubgraph(work: GraphSnapshot, ids: Ids, payload: Extract<GraphMutation, { type: 'dissolve-subgraph' }>) {
   const instance = work.nodes.find((node) => String(node.id) === payload.nodeId);
   if (!instance) fail(SUBGRAPH_ERRORS.nodeMissing);
@@ -537,6 +577,7 @@ function dissolveSubgraph(work: GraphSnapshot, ids: Ids, payload: Extract<GraphM
   return { nodeId: payload.nodeId, definitionId: definition.id, nodeIds: restored.map((node) => String(node.id)), definitionRemoved: !stillUsed };
 }
 
+/** One past the highest group id the document's counter or any group has used. */
 function nextGroupId(work: GraphSnapshot): string {
   const raw = work.document?.raw;
   const state = raw?.state && typeof raw.state === 'object' ? (raw.state as Record<string, unknown>) : {};
@@ -549,6 +590,7 @@ function nextGroupId(work: GraphSnapshot): string {
   return String(Math.max(stored, 0, ...ids) + 1);
 }
 
+/** A new group framing the named canvas nodes; refused when one of them is not on the canvas. */
 function addGroup(work: GraphSnapshot, payload: Extract<GraphMutation, { type: 'add-group' }>) {
   const wanted = [...new Set(payload.nodeIds)];
   const members = wanted.map((id) => work.nodes.find((node) => String(node.id) === id));

@@ -1,19 +1,18 @@
-import * as fs from 'fs';
-import * as path from 'path';
-import * as zlib from 'zlib';
-import { OPEN_FILE_MAX_BYTES } from './atomicWrite';
-import { isNativeProjectFormat } from '../../shared/native-project';
-
 /**
  * Reads a file a person wants to open and says what it holds: a project of this app, a workflow, or nothing.
  *
  * Who uses it: every way of opening a file (File ▸ Open workflow, a file dropped on the window, a file named on the
- * command line, File ▸ Recent) through `openFileAtPath` in main/ipc.ts, so they all end in one code path.
+ * command line, File ▸ Recent) through `openFileAtPath` in main/ipc/openIpc.ts, so they all end in one code path.
  * Why: ComfyUI writes its workflow into the pictures and videos it saves (PNG text chunks, WebP EXIF, the metadata of
  * MP4, WebM and MKV files written by video nodes), and people share workflows that way more than as .json. A text
  * file may start with a byte order mark (Windows Notepad writes one). A workflow is DATA: nothing in a file is run,
  * and only the JSON text found in it is read.
  */
+import * as fs from 'fs';
+import * as path from 'path';
+import * as zlib from 'zlib';
+import { OPEN_FILE_MAX_BYTES } from './atomicWrite';
+import { isNativeProjectFormat } from '../../shared/native-project';
 
 /** What a file holds, as far as opening it is concerned. */
 export type OpenedFile =
@@ -26,6 +25,7 @@ export const NOT_A_WORKFLOW_FILE = 'Workflow JSON could not be parsed.';
 
 /** Extensions the open dialog offers and a drop or a command line accepts. */
 export const OPENABLE_EXTENSIONS = ['json', 'png', 'webp', 'jpg', 'jpeg', 'mp4', 'webm', 'mkv', 'mov', 'gif', 'flac', 'mp3', 'opus', 'ogg'] as const;
+/** Extensions reported as `from: 'picture'`; every other non-JSON file counts as a video (or audio) file. */
 const PICTURES = new Set(['png', 'webp', 'jpg', 'jpeg', 'gif']);
 
 /** Whether a path names a kind of file this app opens (by its extension). */
@@ -47,6 +47,7 @@ export function isProjectDocument(document: unknown): boolean {
 /** Text chunks of a PNG by keyword (tEXt, zTXt and iTXt; compressed ones are inflated). */
 export function pngTexts(bytes: Buffer): Record<string, string> {
   const out: Record<string, string> = {};
+  // 0x89 'PNG' starts every PNG; chunks follow the 8-byte signature as length, type, data, CRC (4 + 4 + n + 4).
   if (bytes.length < 8 || bytes.readUInt32BE(0) !== 0x89504e47) return out;
   let at = 8;
   while (at + 12 <= bytes.length) {
@@ -61,7 +62,9 @@ export function pngTexts(bytes: Buffer): Record<string, string> {
       if (zero > 0) {
         const keyword = data.toString('latin1', 0, zero);
         if (type === 'tEXt') out[keyword] = data.toString('latin1', zero + 1);
+        // zTXt: keyword, NUL, one compression-method byte, then the deflated text.
         if (type === 'zTXt') out[keyword] = zlib.inflateSync(data.subarray(zero + 2)).toString('latin1');
+        // iTXt: keyword, NUL, compression flag, method, language tag, NUL, translated keyword, NUL, text.
         if (type === 'iTXt') {
           const compressed = data[zero + 1] === 1;
           const language = data.indexOf(0, zero + 3);
@@ -158,6 +161,7 @@ export function readOpenedFile(filePath: string): OpenedFile {
   if (fs.statSync(filePath).size > OPEN_FILE_MAX_BYTES) throw new Error('The file is too large to open.');
   const bytes = fs.readFileSync(filePath);
   const extension = path.extname(filePath).slice(1).toLowerCase();
+  // A JSON file saved with another extension is still read as JSON when its text starts with '{'.
   const head = withoutBom(bytes.subarray(0, 64).toString('utf8')).trimStart();
   if (extension === 'json' || head.startsWith('{')) {
     let document: unknown;

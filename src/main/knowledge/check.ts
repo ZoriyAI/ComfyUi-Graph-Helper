@@ -1,3 +1,10 @@
+/**
+ * The graph check: what would stop the graph on screen from running in ComfyUI, or make it run wrong (missing
+ * nodes and models, type clashes, LoRAs on another base model, empty required inputs, bad field values, cycles,
+ * no output node), plus prompt advice. Re-exported by knowledge/repository.ts as checkGraph and used by the check
+ * panel (knowledge IPC) and the assistant's check tool. It only reads SQLite: the check never asks ComfyUI to run.
+ * Its rule is no false alarm: whatever the catalog cannot prove is left out rather than reported.
+ */
 import type Database from 'better-sqlite3';
 import { readProjection } from '../commands/commit';
 import { readCatalog } from '../catalog/repository';
@@ -27,6 +34,7 @@ const CORE_TYPES = new Set([
   'INT', 'FLOAT', 'BOOLEAN', 'STRING',
 ]);
 
+/** Model folders whose files are a base model a LoRA is applied to. */
 const BASE_DIRECTORIES = new Set(['checkpoints', 'diffusion_models', 'unet']);
 
 interface Port { id?: unknown; name?: unknown; dataType?: unknown }
@@ -96,6 +104,7 @@ function specIndex(db: Database.Database): Map<string, Spec> {
   return index;
 }
 
+/** A stored JSON array with each item as an object or null; anything unreadable is empty. */
 function arrayOf(text: string): Array<Record<string, unknown> | null> {
   try {
     const value = JSON.parse(text);
@@ -133,6 +142,7 @@ function sourceType(node: CanvasNode | undefined, handle: unknown, specs: Map<st
   return portType(node, 'outputs', handle);
 }
 
+/** Catalog input type by the port's name; the canvas port type only when the catalog has no such input. */
 function targetType(node: CanvasNode | undefined, handle: unknown, specs: Map<string, Spec>): string {
   const spec = node ? specs.get(classOf(node)) : undefined;
   const name = portName(node, 'inputs', handle);
@@ -156,6 +166,7 @@ function typesClash(source: string, target: string): boolean {
   return !portsCompatible(source, target);
 }
 
+/** Ids of the subgraph definitions in the native document: instance class types that are not catalog classes. */
 function subgraphIds(document: unknown): Set<string> {
   const raw = document && typeof document === 'object' ? (document as { raw?: unknown }).raw : undefined;
   const definitions = raw && typeof raw === 'object' ? (raw as { definitions?: { subgraphs?: unknown } }).definitions : undefined;
@@ -168,6 +179,7 @@ function rawDocument(document: unknown): unknown {
   return (document as { raw?: unknown }).raw ?? null;
 }
 
+/** The base-model family the catalog holds for a file; 'unknown' when it has none. */
 function familyOf(db: Database.Database, directory: string, name: string): BaseModelFamily {
   const row = db.prepare('SELECT base_model FROM model_catalog WHERE directory = ? AND name = ?').get(directory, name) as { base_model: string } | undefined;
   return (row?.base_model as BaseModelFamily | undefined) ?? 'unknown';
@@ -190,6 +202,7 @@ function upstreamOf(start: string, edges: CanvasEdge[]): Set<string> {
   return seen;
 }
 
+/** LoRAs whose family does not fit the base model they are chained with (either direction). */
 function baseModelMismatches(db: Database.Database, nodes: CanvasNode[], edges: CanvasEdge[], catalog: CatalogView): GraphCheckReport['baseModelMismatches'] {
   // Any loader counts, custom packs included (loadedModels.ts): a field holding a catalog file loads that file.
   const files = catalogFileIndex(catalog);
@@ -224,6 +237,7 @@ function downstreamOf(start: string, edges: CanvasEdge[]): Set<string> {
   return upstreamOf(start, edges.map((edge) => ({ ...edge, source: edge.target, target: edge.source })));
 }
 
+/** Required link inputs (not fields) with no link into them. */
 function unconnectedInputs(nodes: CanvasNode[], edges: CanvasEdge[], specs: Map<string, Spec>): GraphCheckReport['unconnectedRequiredInputs'] {
   const found: GraphCheckReport['unconnectedRequiredInputs'] = [];
   for (const node of nodes) {
@@ -263,6 +277,7 @@ function unsetWidgets(nodes: CanvasNode[], edges: CanvasEdge[], catalog: Catalog
   return found;
 }
 
+/** Links whose two ends carry types that cannot meet; `definition` resolves the boundary of a subgraph level. */
 function typeMismatches(nodes: CanvasNode[], edges: CanvasEdge[], specs: Map<string, Spec>, definition?: SubgraphDefinition): GraphCheckReport['typeMismatches'] {
   const byId = new Map(nodes.map((node) => [String(node.id), node]));
   return edges.flatMap((edge) => {
@@ -275,13 +290,16 @@ function typeMismatches(nodes: CanvasNode[], edges: CanvasEdge[], specs: Map<str
   });
 }
 
+/** One graph checked on its own: the main canvas, or the inner graph of one subgraph definition. */
 interface GraphLevel { nodes: CanvasNode[]; edges: CanvasEdge[]; subgraphId?: string; definition?: SubgraphDefinition }
+/** The main canvas and every readable definition; opaque ones (kept as the file had them) are not checked. */
 function graphLevels(snapshot: { nodes: unknown[]; edges: unknown[]; subgraphs?: SubgraphDefinition[] }): GraphLevel[] {
   return [
     { nodes: snapshot.nodes as CanvasNode[], edges: snapshot.edges as CanvasEdge[] },
     ...(snapshot.subgraphs ?? []).filter((definition) => !definition.opaque).map((definition) => ({ nodes: definition.nodes as CanvasNode[], edges: definition.edges as CanvasEdge[], subgraphId: definition.id, definition })),
   ];
 }
+/** Findings of a subgraph level carry its id, so the panel can open the right definition. */
 function scoped<T extends object>(level: GraphLevel, findings: T[]): Array<T & { subgraphId?: string }> {
   return findings.map((item) => level.subgraphId ? { ...item, subgraphId: level.subgraphId } : item);
 }
@@ -324,6 +342,7 @@ function fieldValueOf(node: CanvasNode, name: string, spec: CatalogView['nodes']
   return undefined;
 }
 
+/** A file name with forward slashes, so Windows and Linux spellings of one sub-folder compare equal. */
 function slashes(text: string): string {
   return text.replace(/\\/g, '/');
 }

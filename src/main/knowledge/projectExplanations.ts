@@ -1,15 +1,3 @@
-import type Database from 'better-sqlite3';
-import { randomUUID } from 'crypto';
-import type { Explanation } from '../../shared/contracts/knowledge';
-import { inSubgraph, objectScope, type ObjectRef } from '../../shared/contracts/objects';
-import {
-  explanationsBlock,
-  isGraphOwnerKind,
-  readExplanationsBlock,
-  type ExplanationsBlock,
-  type ProjectExplanation,
-} from '../../shared/knowledge/projectExplanations';
-
 /**
  * Explanations that travel with the project.
  *
@@ -42,14 +30,30 @@ import {
  *   scope; dissolving copies them back to the nodes' new numbers. Copies, not moves: undo needs the originals.
  *
  * The renderer learns the key through Projection.graphKey and reads the explanations again when it changes.
+ *
+ * Used by commands/commit.ts (explanationsAfterCommit, graphKeyOf), ipc/projectFile.ts (explanationsExtension),
+ * ipc/openIpc.ts and projectFiles.ts (currentGraphKey), and knowledge/repository.ts.
  */
+import type Database from 'better-sqlite3';
+import { randomUUID } from 'crypto';
+import type { Explanation } from '../../shared/contracts/knowledge';
+import { inSubgraph, objectScope, type ObjectRef } from '../../shared/contracts/objects';
+import {
+  explanationsBlock,
+  isGraphOwnerKind,
+  readExplanationsBlock,
+  type ExplanationsBlock,
+  type ProjectExplanation,
+} from '../../shared/knowledge/projectExplanations';
 
 const FALLBACK_PREFIX = 'first:';
 
+/** The key of a revision written before keys existed. */
 function fallbackKey(projectId: string): string {
   return `${FALLBACK_PREFIX}${projectId}`;
 }
 
+/** Whether an explanation of this owner belongs to one graph (and so to the project file), not to the app. */
 export function isGraphOwner(owner: ObjectRef): boolean {
   return isGraphOwnerKind(owner.kind);
 }
@@ -73,6 +77,7 @@ export function currentGraphKey(db: Database.Database, projectId: string): strin
   return row.key ?? fallbackKey(projectId);
 }
 
+/** A fresh key for a graph that replaced the one on screen. */
 export function newGraphKey(): string {
   return `graph-${randomUUID()}`;
 }
@@ -94,6 +99,7 @@ interface Row {
   created_at: number;
 }
 
+/** The owner a row is about: its stored JSON when readable, else rebuilt from the key columns. */
 function ownerOf(row: Row): ObjectRef {
   try {
     const value = JSON.parse(row.owner_json) as unknown;
@@ -115,6 +121,7 @@ function insertRow(db: Database.Database, row: Row): void {
   `).run(row);
 }
 
+/** Every explanation row of one graph of a project, oldest first. */
 function rowsOfGraph(db: Database.Database, projectId: string, graphKey: string): Row[] {
   return db
     .prepare('SELECT * FROM explanations WHERE project_id = ? AND graph_key = ? ORDER BY created_at, rowid')
@@ -130,6 +137,7 @@ interface SnapshotLike {
   groups?: Array<{ id: string }>;
 }
 
+/** What commands/commit.ts knows about the commit it just wrote. */
 export interface CommitFacts {
   projectId: string;
   revisionId: string;
@@ -169,6 +177,7 @@ export function explanationsAfterCommit(db: Database.Database, facts: CommitFact
   return {};
 }
 
+/** Writes one explanation read from an opened project file under the new graph's key. */
 function adoptItem(db: Database.Database, projectId: string, graphKey: string, item: ProjectExplanation): void {
   const owner = item.owner;
   const scope = objectScope(owner);
@@ -222,6 +231,7 @@ function copyRow(db: Database.Database, row: Row, scope: string, nodeId: string 
   insertRow(db, { ...row, id: randomUUID(), scope, owner_id: ownerId, owner_json: JSON.stringify(moved) });
 }
 
+/** After create-subgraph: copies the moved nodes' rows (and their ports' and links') into the definition's scope. */
 function copyIntoDefinition(db: Database.Database, facts: CommitFacts, key: string, definitionId: string, nodeIds: string[]): void {
   const moved = new Set(nodeIds);
   const definition = (facts.after.subgraphs ?? []).find((item) => item.id === definitionId);
@@ -234,6 +244,10 @@ function copyIntoDefinition(db: Database.Database, facts: CommitFacts, key: stri
   }
 }
 
+/**
+ * After dissolve-subgraph: copies the rows of the definition's nodes and ports back onto the main canvas under the
+ * nodes' new ids. Rows of inner links are not copied: the links get new ids when dissolved.
+ */
 function copyOutOfDefinition(db: Database.Database, facts: CommitFacts, key: string, definitionId: string, restored: string[]): void {
   const definition = (facts.before.subgraphs ?? []).find((item) => item.id === definitionId);
   if (!definition) return;
@@ -249,6 +263,7 @@ function copyOutOfDefinition(db: Database.Database, facts: CommitFacts, key: str
 
 // ── Save ─────────────────────────────────────────────────────────────────────────────────────────────────
 
+/** Whether the object a row is about is still in the graph, so a save writes only explanations of what is there. */
 function present(snapshot: SnapshotLike, row: Row, owner: ObjectRef): boolean {
   const level = row.scope === ''
     ? { nodes: snapshot.nodes, edges: snapshot.edges }

@@ -1,3 +1,9 @@
+/**
+ * The model picker of a field on the canvas: the files a model field can take, with family, kind and size from
+ * the catalog, sorted by how well each fits the model it will be used with in this graph.
+ * Used by knowledge/handlers.ts (the knowledge IPC channel a model field in the window asks). Fit is a hint
+ * shown next to each file; nothing is hidden, since the person may know better than the catalog.
+ */
 import type Database from 'better-sqlite3';
 import { z } from 'zod';
 import { readProjection } from '../commands/commit';
@@ -20,6 +26,7 @@ import { catalogFileIndex, loadedModelFiles } from './loadedModels';
 
 /** Folders whose files are the base model of a graph (the same set the check panel compares LoRAs against). */
 const BASE_DIRECTORIES = new Set(['checkpoints', 'diffusion_models', 'unet']);
+/** Folders of files applied on top of a base model. */
 const LORA_DIRECTORIES = new Set(['loras']);
 
 interface CanvasNode extends GraphNodeLike { id?: unknown }
@@ -32,12 +39,15 @@ export const fieldModelsSchema = z.object({
   input: z.string().min(1).max(200),
 }).strict();
 
+/** The answer for a field that is not a list of model files. */
 const NOT_MODELS: FieldModelsResult = { models: false, reference: null, options: [] };
 
+/** A stored family, or 'unknown' when the value is not one the app knows. */
 function asFamily(value: unknown): BaseModelFamily {
   return typeof value === 'string' && (BASE_MODEL_FAMILIES as readonly string[]).includes(value) ? (value as BaseModelFamily) : 'unknown';
 }
 
+/** A stored kind, or 'other'. */
 function asKind(value: unknown): ModelKind {
   return typeof value === 'string' && (MODEL_KINDS as readonly string[]).includes(value) ? (value as ModelKind) : 'other';
 }
@@ -90,6 +100,7 @@ function referenceOf(
   return null;
 }
 
+/** How one file fits the reference: fits, related (compatible family), differs, or unknown. */
 function fitOf(option: { value: string; baseModel: BaseModelFamily }, reference: FieldModelsResult['reference']): ModelFit {
   if (!reference || reference.baseModel === 'unknown' || option.baseModel === 'unknown') return 'unknown';
   // The same rule the check panel uses for LoRA mismatches (shared/knowledge/baseModel.ts familiesCompatible).

@@ -1,3 +1,16 @@
+/**
+ * OAuth sign-in to the configured MCP server (authorization code + PKCE S256, dynamic client registration,
+ * public client, refresh tokens) on top of the MCP client SDK's OAuth machinery.
+ *
+ * Secrets in this module (client registration, access and refresh tokens, PKCE verifier) never leave main:
+ * they are not logged, not returned over IPC (only `McpOAuthStatus`), and the access token is sent only to the
+ * MCP URL it was issued for (the SDK transport refuses cross-origin redirects). Tokens and the client record are
+ * written to `secret_records` as safeStorage ciphertext only when the OS password manager proved encryption;
+ * otherwise they live in memory for this session.
+ *
+ * Used by ipc.ts (configureMcpOAuth at start; sign in, sign out and status for Settings > Connection), mcp/sync.ts
+ * and mcp/savedSession.ts (a background provider that never opens the browser) and signInSite.ts.
+ */
 import type Database from 'better-sqlite3';
 import { randomBytes } from 'crypto';
 import * as http from 'http';
@@ -20,21 +33,13 @@ import { isNetworkError, MCP_SIGN_IN_AGAIN, mcpClientInfo, mcpUnreachableError, 
 import { redactSecrets } from '../../shared/config/draft';
 import { DISPLAY_NAME } from '../identity';
 
-/**
- * OAuth sign-in to the configured MCP server (authorization code + PKCE S256, dynamic client registration,
- * public client, refresh tokens) on top of the MCP client SDK's OAuth machinery.
- *
- * Secrets in this module (client registration, access and refresh tokens, PKCE verifier) never leave main:
- * they are not logged, not returned over IPC (only `McpOAuthStatus`), and the access token is sent only to the
- * MCP URL it was issued for (the SDK transport refuses cross-origin redirects). Tokens and the client record are
- * written to `secret_records` as safeStorage ciphertext only when the OS password manager proved encryption;
- * otherwise they live in memory for this session.
- */
-
+/** The name the app registers under, which the server's consent page shows. */
 export const CLIENT_NAME = DISPLAY_NAME;
+/** How long a login waits for the browser to come back: time to type a password and approve. */
 export const LOGIN_TIMEOUT_MS = 5 * 60_000;
 const CONNECT_TIMEOUT_MS = 30_000;
 
+/** Fixed sentences of a sign-in that did not finish; the renderer translates them. */
 export const SIGN_IN_TIMEOUT = 'Sign-in did not finish in time.';
 export const SIGN_IN_DENIED = 'Sign-in was cancelled in the browser.';
 export const SIGN_IN_CANCELLED = 'Sign-in was cancelled.';
@@ -51,6 +56,7 @@ export class McpSignInRequiredError extends Error {
   }
 }
 
+/** Encryption through the OS password manager (Electron safeStorage in the app, a fake in tests). */
 export interface SecretVault {
   /** Whether the OS password manager proved encryption (the same probe the model key uses). */
   decision(): Promise<{ persist: boolean }>;
@@ -59,6 +65,7 @@ export interface SecretVault {
   decrypt(cipher: Buffer): Promise<string | null>;
 }
 
+/** What the manager needs from the app; setupIPC (ipc.ts) passes the real ones. */
 export interface McpOAuthDeps {
   db: () => Database.Database;
   vault: SecretVault;
@@ -70,9 +77,11 @@ export interface McpOAuthDeps {
   connectTimeoutMs?: number;
 }
 
+/** secret_records names of the client registration and the tokens of one MCP origin. */
 export const clientRecordName = (origin: string) => `mcp-oauth-client:${origin}`;
 export const tokensRecordName = (origin: string) => `mcp-oauth-tokens:${origin}`;
 
+/** What is held in memory for one MCP origin, and whether each part is also stored encrypted. */
 interface OriginEntry {
   client?: StoredOAuthClientInformation;
   tokens?: { value: StoredOAuthTokens; obtainedAt: number };
@@ -85,14 +94,17 @@ function originOf(url: string): string {
   return new URL(url).origin;
 }
 
+/** Base64 without padding and URL-safe, as OAuth state and PKCE values are written. */
 function base64url(bytes: Buffer): string {
   return bytes.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
+/** Whether decrypted JSON is a usable client registration (anything else is ignored, never trusted). */
 function isClientRecord(value: unknown): value is StoredOAuthClientInformation {
   return !!value && typeof value === 'object' && typeof (value as { client_id?: unknown }).client_id === 'string';
 }
 
+/** Whether decrypted JSON is a usable token record. */
 function isTokensRecord(value: unknown): value is { value: StoredOAuthTokens; obtainedAt: number } {
   if (!value || typeof value !== 'object') return false;
   const record = value as { value?: { access_token?: unknown; token_type?: unknown }; obtainedAt?: unknown };
@@ -118,6 +130,7 @@ function registeredLoopbackPort(client: StoredOAuthClientInformation | undefined
 // Loopback redirect listener
 // ---------------------------------------------------------------------------------------------------------------
 
+/** A listener waiting for the browser to come back with the authorization code. */
 export interface LoopbackRedirect {
   url: string;
   state: string;
@@ -128,6 +141,7 @@ export interface LoopbackRedirect {
   close(): void;
 }
 
+/** The small page the browser shows after the redirect: signed in, or not. Built from fixed catalog text only. */
 function callbackPage(language: 'en' | 'ru', ok: boolean): string {
   const copy = language === 'en' ? en.settings : ru.settings;
   const text = ok ? copy.oauthCallbackDone : copy.oauthCallbackFailed;
@@ -233,6 +247,7 @@ export async function startLoopbackRedirect(options: {
 // Provider
 // ---------------------------------------------------------------------------------------------------------------
 
+/** A login (may open the browser) or a background run (must not). */
 type ProviderMode =
   | { interactive: true; redirect: LoopbackRedirect; openExternal: (url: string) => Promise<void> }
   | { interactive: false };
@@ -349,6 +364,10 @@ export class McpOAuthProvider implements OAuthClientProvider {
 // Manager: storage per MCP origin, login, logout, status
 // ---------------------------------------------------------------------------------------------------------------
 
+/**
+ * The sign-ins of the app, by MCP origin: what is held, loading and saving the encrypted records, login, logout
+ * and status. One instance for the app (configureMcpOAuth); a login in progress per origin is in `pending`.
+ */
 export class McpOAuthManager {
   private readonly entries = new Map<string, OriginEntry>();
   private readonly loading = new Map<string, Promise<OriginEntry>>();
@@ -592,14 +611,15 @@ export class McpOAuthManager {
     return this.status(url);
   }
 
-  /**
-   * Forgets every sign-in this process holds, for every address, and cancels one in progress. The stored rows are
-   * removed by the caller (settings/forgetAll.ts deletes every secret record).
-   */
+  /** MCP origins with tokens held in memory now (for the "Forget all" inventory). */
   signedInOrigins(): string[] {
     return [...this.entries.entries()].filter(([, entry]) => entry.tokens).map(([origin]) => origin);
   }
 
+  /**
+   * Forgets every sign-in this process holds, for every address, and cancels one in progress. The stored rows are
+   * removed by the caller (settings/forgetAll.ts deletes every secret record).
+   */
   forgetAll(): void {
     for (const redirect of this.pending.values()) redirect.cancel();
     this.pending.clear();
@@ -643,25 +663,30 @@ function loginError(error: unknown): string {
 
 let manager: McpOAuthManager | null = null;
 
+/** Creates the app's manager; called once by setupIPC. */
 export function configureMcpOAuth(deps: McpOAuthDeps): McpOAuthManager {
   manager = new McpOAuthManager(deps);
   return manager;
 }
 
+/** The app's manager, or null before setupIPC (and in tests that never configure one). */
 export function mcpOAuth(): McpOAuthManager | null {
   return manager;
 }
 
+/** Settings > Connection "Sign in": the browser login for this MCP URL. */
 export async function loginToMcp(url: string): Promise<McpOAuthLoginResult> {
   if (!manager) return { ok: false, error: SIGN_IN_FAILED };
   return manager.login(url);
 }
 
+/** Settings > Connection "Sign out": forgets this origin's tokens and client registration, held and stored. */
 export async function logoutFromMcp(url: string): Promise<McpOAuthStatus> {
   if (!manager) return { state: 'none', persisted: false };
   return manager.logout(url);
 }
 
+/** Whether this MCP URL is signed in, and whether the sign-in is stored; never a token. */
 export async function oauthStatus(url: string): Promise<McpOAuthStatus> {
   if (!manager || !url) return { state: 'none', persisted: false };
   return manager.status(url);

@@ -1,6 +1,7 @@
 /**
  * What an MCP server wants from a connection, found out by trying rather than assumed, so Settings ▸ Connection can
  * offer the person the right choice: no sign-in, a pasted token, or the browser sign-in. Nothing is written anywhere.
+ * Used by ipc.ts for the Settings > Connection "Check" button (detectMcpAuth).
  */
 
 import { connectStreamableHttp, MCP_NEEDS_SIGN_IN, mcpClientInfo, mcpUrlError, type McpReadFailure, type McpSessionFactory } from './client';
@@ -31,6 +32,7 @@ export async function detectMcpAuth(
   return completed !== typed ? { ...probe, completedUrl: completed } : probe;
 }
 
+/** detectMcpAuth on an address already completed with its scheme. */
 async function detectAt(
   url: string,
   options: { token?: string | null; factory?: McpSessionFactory; fetchImpl?: typeof fetch },
@@ -64,6 +66,7 @@ async function detectAt(
   return { ok: true, mode: (await advertisesOAuth(url, fetchImpl)) ? 'oauth' : 'token' };
 }
 
+/** One request for a metadata document: no redirect followed, a short time limit, a non-JSON body reads as null. */
 async function fetchJson(fetchImpl: typeof fetch, target: string, init: RequestInit = {}): Promise<{ status: number; headers: Headers; body: unknown }> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), METADATA_TIMEOUT_MS);
@@ -82,6 +85,7 @@ async function fetchJson(fetchImpl: typeof fetch, target: string, init: RequestI
   }
 }
 
+/** Protected-resource metadata (names authorization servers) or authorization-server metadata (names its endpoint). */
 function isOAuthMetadata(body: unknown): boolean {
   if (!body || typeof body !== 'object') return false;
   const record = body as Record<string, unknown>;

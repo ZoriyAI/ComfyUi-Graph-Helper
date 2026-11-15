@@ -1,3 +1,8 @@
+/**
+ * Edits inside a subgraph definition (the `edit-in-subgraph` command) and the id counters of definitions.
+ * Used only by commands/commit.ts: applyInnerEdit for the command, keepDefinitionCounters on undo and redo.
+ * Shaped after ComfyUI's own numbering so an exported workflow opens there unchanged; details follow below.
+ */
 import type { GraphMutation } from '../../shared/commands/types';
 import type { CatalogView } from '../../shared/catalog/types';
 import { portsCompatible } from '../../shared/graph/linkTypes';
@@ -36,6 +41,7 @@ type Node = Record<string, any>;
 type Edge = Record<string, any>;
 type InnerEdit = Extract<GraphMutation, { type: 'edit-in-subgraph' }>;
 
+/** Refusal sentences of inner edits that the root rules do not already have (codes the renderer translates). */
 export const INNER_ERRORS = {
   selfNesting: 'A subgraph cannot be placed inside itself.',
 } as const;
@@ -48,10 +54,12 @@ export type ApplyLevel = (
   catalog: CatalogView,
 ) => { snapshot: GraphSnapshot; result: Record<string, unknown> };
 
+/** The ids that are whole numbers; other ids (pseudo-nodes, drafts) do not count for the counter. */
 function numericIds(values: unknown[]): number[] {
   return values.flatMap((value) => (/^\d+$/.test(String(value)) ? [Number(value)] : []));
 }
 
+/** Every link id an edge carries, in any of the three places one can be stored, so no used id is reused. */
 function linkIdsOf(edges: Edge[]): number[] {
   return edges.flatMap((edge) => {
     const ids: number[] = [];
@@ -99,6 +107,7 @@ export function keepDefinitionCounters(restored: SubgraphDefinition[] | undefine
   });
 }
 
+/** The data type of one port of a node, by handle, or null when the node has no such port. */
 function portOf(node: Node | undefined, side: 'inputs' | 'outputs', handle: string): { dataType: string } | null {
   const ports = Array.isArray(node?.data?.[side]) ? node!.data[side] : [];
   const found = ports.find((item: { id?: string }) => item.id === handle);
@@ -148,6 +157,7 @@ function connectBoundary(
   };
 }
 
+/** Places an instance of another definition inside this one; refused when it would end up inside itself. */
 function insertNested(
   definitions: SubgraphDefinition[],
   holder: SubgraphDefinition,
@@ -200,6 +210,7 @@ export function applyInnerEdit(
       : applyLevel(work, actionId, edit as GraphMutation, catalog);
   const nodes = applied.snapshot.nodes as Node[];
   const edges = applied.snapshot.edges as Edge[];
+  // The counters only grow: what the edit used, or what the definition had before, whichever is higher.
   const used = definitionCounters({ ...definition, nodes, edges, raw: { state: applied.snapshot.document?.raw?.state ?? {} } });
   const updated = withCounters({ ...definition, nodes, edges }, {
     lastNodeId: Math.max(before.lastNodeId, used.lastNodeId),

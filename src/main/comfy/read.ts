@@ -1,3 +1,9 @@
+/**
+ * The small ComfyUI read the MCP client does on top of an MCP sync: /system_stats and /object_info of the ComfyUI
+ * an MCP server names, so node classes get their inputs and defaults even when the server's tools do not list them.
+ * Used by mcp/client.ts (applyComfyRead, acceptedComfyUrl). The full direct read of a ComfyUI is comfy/direct.ts.
+ * acceptedComfyUrl exists because the address comes from the server, and a server must not steer the app elsewhere.
+ */
 import type Database from 'better-sqlite3';
 import { upsertObjectInfo } from '../catalog/repository';
 import { redactSecrets } from '../../shared/config/draft';
@@ -7,6 +13,7 @@ import { COMFY_ROUTES, comfyGet, comfyOriginOf } from './gate';
 
 export { isLoopbackHost };
 
+/** What a successful read found: ComfyUI's version, device count and how many classes and models it stored. */
 export interface ComfyReadSuccess {
   ok: true;
   version: string;
@@ -16,6 +23,7 @@ export interface ComfyReadSuccess {
   skipped: string[];
 }
 
+/** A read that did not work, with an English sentence safe to show (secrets redacted). */
 export interface ComfyReadFailure {
   ok: false;
   error: string;
@@ -24,6 +32,7 @@ export interface ComfyReadFailure {
 /**
  * Reads a body chunk by chunk into one buffer and decodes it once (no second full copy as a string first).
  * `onBytes` sees the running total. More than `maxBytes` stops the read with ObjectInfoError, as the bytes arrive.
+ * Not used by the app's own reads any more (they go through gate.ts); tests/unit/security/sizeCaps.test.ts keeps it.
  */
 export async function readBody(response: Response, onBytes?: (bytes: number) => void, maxBytes = OBJECT_INFO_MAX_BYTES): Promise<Buffer> {
   const declared = Number(response.headers?.get?.('content-length') ?? '');
@@ -54,6 +63,7 @@ export async function readBody(response: Response, onBytes?: (bytes: number) => 
   return Buffer.concat(chunks, total);
 }
 
+/** ComfyUI's version from a /system_stats answer, cut to 80 characters, or 'unknown'. */
 function versionOf(value: unknown): string {
   if (!value || typeof value !== 'object') return 'unknown';
   const system = (value as { system?: { comfyui_version?: unknown } }).system;
@@ -83,6 +93,7 @@ export async function applyComfyRead(db: Database.Database, origin: string, fetc
   try {
     const started = Date.now();
     const parsed = parseObjectInfo(info.json);
+    // With `collect` the caller stores the classes itself, later, inside its own catalog publication.
     const stored = options.collect
       ? (options.collect(parsed), { nodes: parsed.nodes.length, models: parsed.models.length, skipped: parsed.skipped })
       : upsertObjectInfo(db, parsed);
@@ -101,6 +112,7 @@ export async function applyComfyRead(db: Database.Database, origin: string, fetc
   }
 }
 
+/** Whether an address is a loopback address (the MCP server runs on this computer). */
 function onThisComputer(address: string | null): boolean {
   if (!address) return false;
   try {

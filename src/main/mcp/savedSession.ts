@@ -1,3 +1,7 @@
+/**
+ * Opens a read-only session with the saved MCP server, outside a sync: for model previews and the card's
+ * "Find on the internet" fingerprint. Used by ipc/knowledgeIpc.ts (PreviewReader and ModelLookupService).
+ */
 import type { McpSession } from '../../shared/mcp/catalogSource';
 import { getDatabase } from '../database';
 import { readSettings } from '../settings/repository';
@@ -23,6 +27,7 @@ export async function openSavedMcpSession(): Promise<McpSession | null> {
     return null;
   }
   if (!url) return null;
+  // mcpAuth: 'none' sends nothing, 'token' only the token, 'oauth' only the sign-in; '' (not chosen) tries what is held.
   const token = mode === 'none' || mode === 'oauth' ? null : mcpTokenFor(url);
   let authProvider = null;
   if (!token && mode !== 'none' && mode !== 'token') {

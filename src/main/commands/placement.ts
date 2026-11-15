@@ -1,3 +1,8 @@
+/**
+ * Where nodes the assistant adds land on the canvas, and the tidy of its nodes when a run ends.
+ * Used by commands/commit.ts (helper add-node, insert-subgraph, end-of-run tidy), proposals/repository.ts (grey
+ * draft nodes) and agent/interrupted.ts (runCreatedNodeIds, to count what a stopped run built). The rules follow.
+ */
 import type Database from 'better-sqlite3';
 import type { CatalogView } from '../../shared/catalog/types';
 import type { GraphMutation } from '../../shared/commands/types';
@@ -34,6 +39,7 @@ export const PLACE_GAP = 56;
 /** What the catalog knows of each class's inputs, for sizing a node the way the canvas draws it. */
 export type ClassHints = (classType: unknown) => SizeHints | null;
 
+/** Size hints by class, built lazily on the first lookup so a call that never sizes a node costs nothing. */
 export function classHints(catalog: CatalogView | null | undefined): ClassHints {
   let byClass: Map<string, SizeHints> | null = null;
   return (classType) => {
@@ -50,7 +56,10 @@ export function classHints(catalog: CatalogView | null | undefined): ClassHints 
 
 const NO_HINTS: ClassHints = () => null;
 
-/** `hints` is optional so the function also serves as a plain `nodes.map(nodeRectOf)`. */
+/**
+ * A node's rectangle on the canvas, its size estimated as the canvas would draw it.
+ * `hints` is optional so the function also serves as a plain `nodes.map(nodeRectOf)` (the array index is ignored).
+ */
 export function nodeRectOf(node: Node, hints?: ClassHints | number): Rect {
   const size = estimateNodeSize(node.data, (typeof hints === 'function' ? hints : NO_HINTS)(node.data?.comfyType));
   return { x: Number(node.position?.x) || 0, y: Number(node.position?.y) || 0, ...size };
@@ -180,7 +189,7 @@ export function tidyMoves(nodes: Node[], edges: Node[], runNodeIds: string[], ca
   if (created.length === 0) return [];
   const fixed = nodes.filter((node) => !mine.has(String(node.id)));
   const ids = new Set(created.map((node) => String(node.id)));
-  // Order by the current picture (top to bottom, then left to right) so the tidy keeps what the helper meant.
+  // Order by the current picture (left to right, then top to bottom) so the tidy keeps what the helper meant.
   const ordered = [...created].sort((a, b) => (rectOf(a).x - rectOf(b).x) || (rectOf(a).y - rectOf(b).y) || String(a.id).localeCompare(String(b.id)));
   const start = boundsOfRects(created.map(rectOf))!;
   const placed = layoutGraph(

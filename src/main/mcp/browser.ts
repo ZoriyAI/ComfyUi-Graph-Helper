@@ -1,9 +1,15 @@
+/**
+ * Opens the MCP sign-in page in the person's own browser, for the OAuth login (mcp/oauth.ts).
+ * ipc.ts passes browserOpener() to configureMcpOAuth. The e2e tests swap in a stand-in that follows the
+ * redirects itself, but only in an unpackaged test run, so a shipped app always uses the real browser.
+ */
 import { app, shell } from 'electron';
 import { testSwitchesAllowed } from '../runMode';
 
 /** Env flag the e2e build sets; honoured only in an unpackaged app with NODE_ENV 'test'. */
 export const TEST_BROWSER_FLAG = 'NODEWISE_TEST_BROWSER';
 
+/** Only http(s) addresses are handed to the browser: a server could otherwise name a file: or app scheme. */
 function isWebUrl(value: string): boolean {
   try {
     const url = new URL(value);

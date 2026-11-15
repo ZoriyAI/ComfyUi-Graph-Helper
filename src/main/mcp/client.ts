@@ -1,3 +1,11 @@
+/**
+ * The MCP client: the address check, the connection over Streamable HTTP, the fixed error sentences, and the
+ * catalog read through one read-only session (node classes, packs, model files, object_info).
+ * Used by mcp/sync.ts (the sync run), mcp/detect.ts and mcp/connectError.ts (Settings > Connection "Check"),
+ * mcp/savedSession.ts and ipc.ts (sessions outside a sync), mcp/oauth.ts and llm/localDiscovery.ts (the address
+ * check and error sentences), and index.ts (the client version).
+ * Why the fixed sentences: an error text from a transport can echo headers, and so a token; only codes leave here.
+ */
 import type Database from 'better-sqlite3';
 import { Client, StreamableHTTPClientTransport, type OAuthClientProvider } from '@modelcontextprotocol/client';
 import type { McpSession, McpToolCallResult } from '../../shared/mcp/catalogSource';
@@ -42,16 +50,19 @@ export const CONNECT_TIMEOUT_MS = MCP_CONNECT_TIMEOUT_MS;
 /** How the app introduces itself to an MCP server. Main sets the real version at start (setMcpClientVersion). */
 let clientVersion = '0.0.0';
 
+/** Sets the version sent in the handshake; anything that does not look like a version is ignored. */
 export function setMcpClientVersion(version: string): void {
   if (/^[0-9A-Za-z.+-]{1,40}$/.test(version)) clientVersion = version;
 }
 
+/** The name and version sent in the MCP handshake. */
 export function mcpClientInfo(): { name: string; version: string } {
   return { name: APP_ID, version: clientVersion };
 }
 /** One tool call may take this long; a stalled server must not hold a sync open forever. */
 export const CALL_TIMEOUT_MS = MCP_CALL_TIMEOUT_MS;
 
+/** Plain http to another computer: refused, because the token would cross the network in clear. */
 export const MCP_HTTPS_ERROR = 'MCP server URL must use https unless it is on this machine.';
 
 /*
@@ -114,8 +125,10 @@ export function mcpUrlError(value: string): string | null {
   return MCP_HTTPS_ERROR;
 }
 
+/** A part of the catalog the server did not give (see McpReadSuccess.skipped). */
 export type SkippedPart = 'nodeClasses' | 'nodePacks' | 'modelFiles' | 'nodeDetailsMcp' | 'nodeDetailsNative';
 
+/** What one catalog read through MCP gave, as counts and codes. */
 export interface McpReadSuccess {
   ok: true;
   /** Tool names the server listed. Shown to the user, not acted on. */
@@ -140,6 +153,7 @@ export interface McpReadSuccess {
   nativeComfy?: 'ok' | 'unreachable' | 'notAllowed' | 'notTried';
 }
 
+/** A read or connect that did not work; `error` is one of the fixed sentences. */
 export interface McpReadFailure {
   ok: false;
   error: string;
@@ -155,8 +169,10 @@ export type McpSessionFactory = (url: string, token: string | null, authProvider
 export const MCP_SIGN_IN_AGAIN = 'MCP sign-in has expired. Sign in through the browser again.';
 /** The server answered 401 to a connection that carried no credentials: it wants a browser sign-in or a token. */
 export const MCP_NEEDS_SIGN_IN = 'MCP server requires sign-in.';
+/** No connection at all (refused, no route); names the host only, never the path or a token. */
 export const mcpUnreachableError = (host: string) => `MCP server unreachable: ${host}.`;
 
+/** System and undici error codes that mean the server could not be reached. */
 const NETWORK_CODE = /^(ECONNREFUSED|ENOTFOUND|EAI_AGAIN|ETIMEDOUT|ECONNRESET|EHOSTUNREACH|ENETUNREACH|EPIPE|UND_ERR_[A-Z_]+)$/;
 const NETWORK_MESSAGE = /fetch failed|ECONNREFUSED|ENOTFOUND|EAI_AGAIN|ETIMEDOUT|ECONNRESET|EHOSTUNREACH|ENETUNREACH|socket hang up|network|^timeout$/i;
 
@@ -313,6 +329,7 @@ async function pagedOrNull<T>(read: () => Promise<T>): Promise<T | null> {
   }
 }
 
+/** The ComfyUI address saved in Settings, or null when there is none or the settings cannot be read. */
 function savedComfyOrigin(db: Database.Database): string | null {
   try {
     const read = readSettings(db);
@@ -351,6 +368,8 @@ export async function readCatalogWithSession(
   const comfyOrigin = context.comfyOrigin ?? savedComfyOrigin(db) ?? '';
   const checkedComfy = comfyAddress(comfyOrigin);
   const capturedComfyOrigin = checkedComfy.ok ? checkedComfy.origin.origin : null;
+  // Every catalog write waits here until all reads are done, then runs in one transaction (publish): a read that
+  // fails or is cancelled halfway leaves the stored catalog exactly as it was.
   const writes: Array<() => void> = [];
   let identity: ServerIdentity = { installationId: null, comfyuiUrl: null };
   let comfyUrl: string | null = null;

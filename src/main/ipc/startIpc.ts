@@ -1,3 +1,9 @@
+/**
+ * Safe start: if the last window load never finished drawing the graph (a graph so large or broken that it hung
+ * or crashed the canvas), the next start asks whether to open an empty canvas instead.
+ * Registered from setupIPC in ipc.ts; ipc.ts and ipc/openIpc.ts call watchReplacingCommit after a graph is replaced.
+ * The "drawing" mark lives in a small file (startGuard.ts) so it survives the crash it is meant to detect.
+ */
 import { app, BrowserWindow, dialog, type IpcMain, type MessageBoxOptions } from 'electron';
 import { randomUUID } from 'crypto';
 import type Database from 'better-sqlite3';
@@ -16,12 +22,13 @@ export const EMPTY_GRAPH = { last_node_id: 0, last_link_id: 0, nodes: [], links:
 
 /**
  * Payload types that replace the whole graph: the next draw of their revision is watched like a start. Opening a
- * workflow or a project file is watched where the file is read (ipc.ts); through the command channel it is Undo and
- * Redo that can bring back a graph the canvas cannot draw.
+ * workflow or a project file is watched where the file is read (ipc/openIpc.ts); through the command channel it is
+ * Undo and Redo that can bring back a graph the canvas cannot draw.
  */
 const REPLACING = new Set(['import-workflow', 'open-native', 'restore-revision']);
 const REPLACING_BY_COMMAND = new Set(['restore-revision']);
 
+/** What startChoice needs, passed in so tests run it without Electron dialogs. */
 export interface StartChoiceDeps {
   db: Database.Database;
   userData: string;
@@ -86,6 +93,7 @@ export function drawn(userData: string, revisionId: unknown): boolean {
   return true;
 }
 
+/** app:start-state (asked by the window before it draws) and app:graph-drawn (sent once it drew). */
 export function registerStartIpc(ipcMain: IpcMain): void {
   const userData = () => app.getPath('userData');
   let loads = 0;

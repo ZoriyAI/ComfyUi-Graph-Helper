@@ -1,3 +1,9 @@
+/**
+ * IPC of the About window and the built-in Help reader: versions, licences, third-party notices, the data folder,
+ * project links with a prefilled issue, and the bundled wiki (tree, page, search).
+ * Registered from setupIPC in ipc.ts. Help and notices are read from files the build writes into dist/, so the
+ * app shows help offline and never fetches it. The window never names an address to open: links are built here.
+ */
 import { app, shell, type IpcMain } from 'electron';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -21,6 +27,7 @@ import { appVersion, DISPLAY_NAME, projectLinks } from '../identity';
 const DIST = path.join(__dirname, '..', '..');
 const HELP = path.join(DIST, 'help');
 
+/** Electron ships Chromium's licences next to the executable. */
 function chromiumLicencesPath(): string {
   return path.join(path.dirname(process.execPath), 'LICENSES.chromium.html');
 }
@@ -48,9 +55,11 @@ interface WikiIndex {
 }
 type SearchCorpus = Record<HelpLanguage, Array<{ ref: string; title: string; text: string }>>;
 
+/** The bundled index and search text never change while the app runs: read once (tests pass other folders). */
 let indexCache: WikiIndex | null = null;
 let corpusCache: SearchCorpus | null = null;
 
+/** The wiki's page tree and titles (wiki-index.json, written at build). */
 function wikiIndex(dir: string = HELP): WikiIndex {
   if (indexCache && dir === HELP) return indexCache;
   let parsed: WikiIndex = { folders: [], pages: {} };
@@ -63,6 +72,7 @@ function wikiIndex(dir: string = HELP): WikiIndex {
   return parsed;
 }
 
+/** The plain text of every page per language, for search (wiki-search.json, written at build). */
 function corpus(dir: string = HELP): SearchCorpus {
   if (corpusCache && dir === HELP) return corpusCache;
   let parsed: SearchCorpus = { en: [], ru: [] };
@@ -116,8 +126,9 @@ export function helpPage(ref: unknown, language: HelpLanguage, dir: string = HEL
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /**
- * Pages where every word of the query starts a word of the title or the text ("ключ" finds «ключ» and «ключи», not
- * «подключение»), best first: title matches, then how often.
+ * Pages where every word of the query starts a word of the title or the text ("key" finds "key" and "keys", not
+ * "monkey"; the same holds for Russian pages, where a short word often sits inside a longer one), best first: title
+ * matches, then how often.
  */
 export function helpSearch(query: unknown, language: HelpLanguage, dir: string = HELP, limit = 20): HelpSearchHit[] {
   const words = typeof query === 'string' ? query.toLowerCase().split(/\s+/).filter((word) => word.length > 1).slice(0, 8) : [];
@@ -148,6 +159,7 @@ export function helpSearch(query: unknown, language: HelpLanguage, dir: string =
   return scored.sort((a, b) => b.score - a.score || a.title.localeCompare(b.title)).slice(0, limit).map(({ score: _score, ...hit }) => hit);
 }
 
+/** What the About window shows. A dev run reads the version from package.json (appVersion). */
 function aboutInfo(): AboutInfo {
   return {
     version: app.isPackaged ? app.getVersion() : appVersion(),
@@ -186,6 +198,7 @@ export function projectLinkUrl(kind: ProjectLinkKind, links: ReturnType<typeof p
   return url.toString();
 }
 
+/** about:* and help:* channels. */
 export function registerAboutIpc(ipcMain: IpcMain): void {
   ipcMain.handle(IPC_CHANNELS.ABOUT_INFO, (): AboutInfo => aboutInfo());
 

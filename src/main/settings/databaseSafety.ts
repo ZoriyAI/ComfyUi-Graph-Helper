@@ -1,13 +1,14 @@
-import * as fs from 'fs';
-import * as path from 'path';
-import type Database from 'better-sqlite3';
-import type { Translator } from '../../shared/i18n';
-
 /**
  * What can go wrong with the profile database when the app opens it, said in words a person can act on, and the
  * two things done to keep the person's data safe: a copy of the file before its schema is upgraded, and a damaged
  * file put aside (never deleted) when the person chooses to start with empty data.
+ * Used by database.ts and index.ts when the database opens, and by commands/commit.ts and agent/buildTools.ts
+ * (storageErrorCode) so a write that fails on a full or locked disk is reported, not lost in silence.
  */
+import * as fs from 'fs';
+import * as path from 'path';
+import type Database from 'better-sqlite3';
+import type { Translator } from '../../shared/i18n';
 
 /** `declined`: the file is damaged and the person chose to quit; nothing more needs to be said. */
 export type DatabaseProblem = 'newer' | 'damaged' | 'readOnly' | 'full' | 'busy' | 'declined' | 'unknown';
@@ -20,8 +21,10 @@ export class DatabaseOpenError extends Error {
   }
 }
 
+/** The message migrate.ts throws for a database written by a newer version of the app. */
 const NEWER = /^Unsupported schema version \d+/;
 
+/** Sorts an open or write error into a DatabaseProblem by its SQLite or system error code. */
 export function classifyDatabaseError(error: unknown): DatabaseProblem {
   if (error instanceof DatabaseOpenError) return error.problem;
   const code = typeof (error as { code?: unknown })?.code === 'string' ? (error as { code: string }).code : '';
@@ -60,13 +63,14 @@ export function databaseProblemText(problem: DatabaseProblem, t: Translator, fol
   }
 }
 
+/** Error codes of a failed write (the window translates them through shared/i18n ERROR_KEYS). */
+export const STORAGE_FULL = 'The disk is full; the change was not saved.';
+export const STORAGE_FAILED = 'The change could not be stored.';
+
 /**
  * For a write that failed in the database while the app runs: the error code the window translates
  * (shared/i18n ERROR_KEYS), or null when the failure is not about storage.
  */
-export const STORAGE_FULL = 'The disk is full; the change was not saved.';
-export const STORAGE_FAILED = 'The change could not be stored.';
-
 export function storageErrorCode(error: unknown): string | null {
   const code = typeof (error as { code?: unknown })?.code === 'string' ? (error as { code: string }).code : '';
   if (!code.startsWith('SQLITE_')) return null;
@@ -80,6 +84,7 @@ function companions(file: string): string[] {
   return [file, `${file}-wal`, `${file}-shm`];
 }
 
+/** Local date and time as YYYYMMDD-HHMMSS, for the name of a set-aside file. */
 function stamp(now: Date): string {
   const pad = (value: number) => String(value).padStart(2, '0');
   return `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
@@ -101,6 +106,7 @@ export function backupBeforeUpgrade(db: Database.Database, file: string, from: n
     // Leave room for the upgrade itself and for the person's other work.
     if (free !== null && free < size * 2 + 64 * 1024 * 1024) return null;
     const target = `${file}.before-v${to}.bak`;
+    // Copied under a temporary name and renamed, so a crash mid-copy never leaves a half copy named as a backup.
     const partial = `${target}.part`;
     fs.copyFileSync(file, partial);
     fs.renameSync(partial, target);
@@ -119,6 +125,7 @@ export function backupBeforeUpgrade(db: Database.Database, file: string, from: n
   }
 }
 
+/** Free space for this user in a folder, or null when the system cannot tell. */
 function freeBytes(folder: string): number | null {
   try {
     const stats = fs.statfsSync(folder);

@@ -1,3 +1,8 @@
+/**
+ * IPC for the assistant's grey drafts (proposals) and the graph's version history (list and load a revision).
+ * Registered once from setupIPC in ipc.ts; the renderer reaches it through the preload's proposals and revision calls.
+ * Every request is checked against a schema here, because the renderer is not trusted with database ids.
+ */
 import type { IpcMain } from 'electron';
 import type Database from 'better-sqlite3';
 import { z } from 'zod';
@@ -20,6 +25,7 @@ const loadRevisionSchema = z.object({
   revisionId: z.string().min(1).max(400),
 });
 
+/** Error texts of these handlers. */
 export const ENGINE_IPC_ERRORS = {
   request: 'The request does not match the schema.',
 } as const;
@@ -51,6 +57,7 @@ export function engineHandlers(getDb: () => Database.Database) {
   };
 }
 
+/** Sends an event to every open window. */
 function broadcast(channel: string, payload: unknown): void {
   // Loaded lazily so this module can be imported where Electron is not running.
   // eslint-disable-next-line @typescript-eslint/no-var-requires

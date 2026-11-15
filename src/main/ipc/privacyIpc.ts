@@ -1,8 +1,14 @@
+/**
+ * IPC of Settings > Privacy (the model picture cache) and the cache clear after an address change.
+ * Registered from setupIPC in ipc.ts, which also calls clearPreviewsForNewAddress when the saved address changes.
+ * The cache itself lives in knowledge/preview.ts.
+ */
 import { app, type IpcMain } from 'electron';
 import * as path from 'path';
 import { IPC_CHANNELS } from '../../shared/ipc-channels';
 import { clearPreviewCache, PREVIEW_CACHE_FOLDER, previewCacheSize } from '../knowledge/preview';
 
+/** The picture cache folder in the profile. */
 function previewFolder(): string {
   return path.join(app.getPath('userData'), PREVIEW_CACHE_FOLDER);
 }

@@ -1,3 +1,7 @@
+/**
+ * The plain key file: the fallback store for model keys on a computer without a usable password store.
+ * Used by ipc.ts (save, remove and status of provider keys) and settings/forgetAll.ts. The file's rules follow.
+ */
 import * as fs from 'fs';
 import * as path from 'path';
 import { writeFileAtomic } from '../files/atomicWrite';
@@ -23,6 +27,7 @@ function isKeyFileProvider(value: unknown): value is KeyFileProvider {
   return typeof value === 'string' && (KEY_FILE_PROVIDERS as readonly string[]).includes(value);
 }
 
+/** A key worth reading: a non-empty string of sane length (a longer value is not a key and is ignored). */
 function usableKey(value: unknown): value is string {
   return typeof value === 'string' && value !== '' && value.length <= 4000;
 }
@@ -60,6 +65,7 @@ export function readKeyFileOrigins(userData: string): Partial<Record<KeyFileProv
     const out: Partial<Record<KeyFileProvider, string>> = {};
     if (parsed?.origins && typeof parsed.origins === 'object') {
       for (const [provider, origin] of Object.entries(parsed.origins as Record<string, unknown>)) {
+        // Only a bare https origin (plain http for a local server): a key must never go to a page or a user@host.
         if (isKeyFileProvider(provider) && typeof origin === 'string' && (/^https:\/\/[^/@]+$/.test(origin) || (provider === 'local' && /^http:\/\/[^/@]+$/.test(origin)))) out[provider] = origin;
       }
     }
@@ -69,6 +75,7 @@ export function readKeyFileOrigins(userData: string): Partial<Record<KeyFileProv
   }
 }
 
+/** Writes the whole file (version 2), or removes it when no key is left; origins of removed keys are dropped. */
 function writeKeys(userData: string, keys: KeyFileKeys, origins: Partial<Record<KeyFileProvider, string>> = {}): void {
   const file = keyFilePath(userData);
   if (Object.keys(keys).length === 0) {
@@ -105,6 +112,7 @@ export function removeKeyFromFile(userData: string, provider: KeyFileProvider): 
   writeKeys(userData, keys, readKeyFileOrigins(userData));
 }
 
+/** Deletes the whole file; true when there was one. */
 export function removeKeyFile(userData: string): boolean {
   try {
     fs.unlinkSync(keyFilePath(userData));

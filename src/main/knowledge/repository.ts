@@ -1,3 +1,10 @@
+/**
+ * Knowledge repository: reads the catalog tables, and reads and writes the explanations table (migration v9).
+ * Other main-process modules (agent tools, IPC) call only these functions. Inputs are validated here too,
+ * because the agent calls these without passing through IPC.
+ * Callers: knowledge/handlers.ts (the knowledge IPC), agent/tools.ts and agent/turn.ts (the assistant), and the
+ * other knowledge modules (fieldModels, nodeClassGuard, seedCore, modelWeb). checkGraph (check.ts) is re-exported here.
+ */
 import type Database from 'better-sqlite3';
 import { randomUUID } from 'crypto';
 import type {
@@ -43,15 +50,10 @@ import { modelDirectoryFor } from '../../shared/catalog/modelFolders';
 
 export { checkGraph } from './check';
 
-/**
- * Knowledge repository: reads the catalog tables and the explanations table (migration v9).
- * Other main-process modules (agent tools, IPC) call only these functions. Inputs are validated here too,
- * because the agent calls these without passing through IPC.
- */
-
 const DEFAULT_LIMIT = SEARCH_LIMIT_DEFAULT;
 const MAX_LIMIT = SEARCH_LIMIT_MAX;
 
+/** A result count within 1..SEARCH_LIMIT_MAX; the default when none is given. */
 function limitOf(value: number | undefined): number {
   if (value === undefined || !Number.isFinite(value)) return DEFAULT_LIMIT;
   return Math.max(1, Math.min(MAX_LIMIT, Math.floor(value)));
@@ -77,6 +79,7 @@ type NodeRow = {
 const NODE_COLUMNS = `class_type, display_name, category, pack, pack_name, inputs_json, outputs_json, widget_order_json,
   description, output_node, synced_at, flags, python_module`;
 
+/** The pack's folder name when known, else the raw pack column (the module, or 'core'). */
 function packOf(row: NodeRow): string {
   return row.pack_name || row.pack || '';
 }
@@ -227,6 +230,7 @@ export function packInfo(db: Database.Database, name: string): PackInfo | null {
   return info.description || info.repositoryUrl || info.readmeSummary ? info : null;
 }
 
+/** All the app knows of one class: ports with field specs, pack, explanation; editor nodes from their template. */
 export function nodeClassDetail(db: Database.Database, classType: string): NodeClassDetail | null {
   if (typeof classType !== 'string' || classType === '') return null;
   const row = db.prepare(`SELECT ${NODE_COLUMNS} FROM node_catalog WHERE class_type = ?`).get(classType) as NodeRow | undefined;
@@ -322,16 +326,20 @@ function webFoundOf(row: ModelRow): WebFound | null {
   return row.web_status === 'found' ? webFoundFromJson(row.web_notes_json) : null;
 }
 
+/** Where a family may have come from; any other stored value reads as 'none'. */
 const EVIDENCE: readonly Evidence[] = ['metadata', 'sidecar', 'filename', 'web', 'none'];
 
+/** A stored family, or 'unknown'. */
 function asFamily(value: string): BaseModelFamily {
   return (BASE_MODEL_FAMILIES as readonly string[]).includes(value) ? (value as BaseModelFamily) : 'unknown';
 }
 
+/** A stored kind, or 'other'. */
 function asKind(value: string): ModelKind {
   return (MODEL_KINDS as readonly string[]).includes(value) ? (value as ModelKind) : 'other';
 }
 
+/** A model as a list entry shows it. */
 function modelSummaryOf(row: ModelRow, notes: ModelNotes = notesFromJson(row.notes_json)): ModelSummary {
   // A sample from the internet stands in only where nothing lies next to the file; it is closed like one.
   const web = row.preview_file ? null : webFoundOf(row);
@@ -349,6 +357,7 @@ function modelSummaryOf(row: ModelRow, notes: ModelNotes = notesFromJson(row.not
   };
 }
 
+/** The model search of the library and the assistant: folder, family and kind filters, ranked by the query words. */
 export function searchModels(db: Database.Database, request: SearchModelsRequest): ModelSummary[] {
   const parsed = searchModelsSchema.parse(request);
   const where: string[] = [];
@@ -388,6 +397,7 @@ export function searchModels(db: Database.Database, request: SearchModelsRequest
   return ranked.slice(0, limitOf(parsed.limit)).map((item) => modelSummaryOf(item.row, item.notes));
 }
 
+/** Everything stored about one model file, for its card; null when the catalog has no such file. */
 export function modelDetail(db: Database.Database, directory: string, name: string): ModelDetail | null {
   if (typeof directory !== 'string' || typeof name !== 'string' || !directory || !name) return null;
   const row = db.prepare(`SELECT ${MODEL_COLUMNS} FROM model_catalog WHERE directory = ? AND name = ?`).get(directory, name) as ModelRow | undefined;
@@ -467,6 +477,7 @@ type ExplanationRow = {
   created_at: number;
 };
 
+/** A stored row as the Explanation the window and the agent read. */
 function explanationOf(row: ExplanationRow): Explanation {
   const stored = record(safeJson(row.owner_json));
   const plain = (stored && typeof stored.kind === 'string' && typeof stored.id === 'string'
@@ -587,6 +598,7 @@ function stringRecord(text: string): Record<string, string> {
   return out;
 }
 
+/** The stored widget order, or `reliable: false` when object_info could not prove it (catalog/repository.ts). */
 function widgetOrderOf(text: string): { order: string[]; reliable: boolean } {
   const value = safeJson(text);
   if (Array.isArray(value)) return { order: value.filter((item): item is string => typeof item === 'string'), reliable: true };
