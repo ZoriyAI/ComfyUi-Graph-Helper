@@ -1,3 +1,9 @@
+/**
+ * Protects what tool results tell the model on the next request through the real AI SDK: held keys, secret-shaped
+ * strings and credential-named fields are redacted at any depth, in streamed, converted and error results, while
+ * numbers, files and provider tools pass unchanged and the tool's own object is never modified. A key the person
+ * pasted must never travel to the model provider inside a tool result.
+ */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { jsonSchema, type Tool } from 'ai';
 import type { FileData } from '@ai-sdk/provider-utils';
@@ -6,7 +12,9 @@ import type { JSONValue, LanguageModelV4Prompt } from '@ai-sdk/provider';
 import { MainLLMService } from '../../../src/main/llmService';
 import { createTestLLMModel } from '../../../src/main/testLLMTransport';
 
+/** A session key that looks like ordinary text: only the exact match can catch it. */
 const HELD = 'opaque-session-credential-4821';
+/** A value caught by its secret-like shape alone. */
 const SHAPED = 'sk-synthetic-credential-491827';
 
 /** Inspect what the real SDK sends in its second model call, after executing a tool. */
@@ -24,6 +32,7 @@ async function sdkRoundTrip(execute: () => unknown, toModelOutput?: Tool['toMode
       return model.doStream(options);
     },
   });
+  // The test model calls addNode first and annotateNode next, so these two names are fixed.
   const tools = {
     addNode: { description: 'Read fixture data', parameters: { type: 'object', properties: {} }, execute, ...(toModelOutput ? { toModelOutput } : {}) },
     annotateNode: { description: 'Finish fixture', parameters: { type: 'object', properties: {} }, execute: () => ({ success: true }) },

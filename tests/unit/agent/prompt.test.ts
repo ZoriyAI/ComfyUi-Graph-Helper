@@ -1,3 +1,8 @@
+/**
+ * Protects the teaching system prompt the assistant gets: its role and principles, the turn's intent and language,
+ * a catalog summary, the graph and the person's focus as marked data, and no secrets anywhere. A person learning
+ * ComfyUI gets answers shaped by this text, so a lost rule or a leaked key here reaches every conversation.
+ */
 import Database from 'better-sqlite3';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildSystemPrompt, buildTurnData, catalogSummaryText, describeRef } from '../../../src/main/agent/prompt';
@@ -6,9 +11,11 @@ import { summarizeGraph } from '../../../src/shared/agent/graph';
 import { parseTurnContext } from '../../../src/shared/agent/turnContext';
 import { fakeKnowledge, throwingKnowledge } from './fakes';
 
+/** A key held for the session; the prompt must never contain it. */
 const KEY = 'sk-prompt-marker-9f8e7d';
 const db = new Database(':memory:');
 
+/** Two linked nodes with a credential-named field, a secret-looking note and a documented component. */
 const SNAPSHOT = {
   nodes: [
     { id: 'node-1', data: { comfyType: 'CheckpointLoaderSimple', title: 'Loader', outputs: [{ name: 'MODEL', dataType: 'MODEL' }], parameters: { ckpt_name: 'portrait.safetensors', api_key: 'plain-looking-value', note: 'use sk-live1234567 here' }, comfy: { widgets_values: ['portrait.safetensors'] } } },
