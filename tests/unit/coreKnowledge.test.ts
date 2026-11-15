@@ -1,3 +1,9 @@
+/**
+ * Protects the built-in knowledge the app ships about core nodes, link types and model families
+ * (shared/knowledge/coreKnowledge and main/knowledge/seedCore): complete in English and Russian, linked only to
+ * docs.comfy.org, seeded in the interface language without touching AI or person notes, and shown first on the
+ * canvas and in the tour. A person without any assistant still learns from these texts, so a gap is a blank card.
+ */
 import { describe, expect, it } from 'vitest';
 import { setSystemLanguages } from '../../src/main/systemLanguage';
 import Database from 'better-sqlite3';
@@ -27,6 +33,7 @@ import type { Explanation } from '../../src/shared/contracts/knowledge';
 import type { ObjectRef } from '../../src/shared/contracts/objects';
 import { DESKTOP_PROJECT_ID } from '../../src/shared/project';
 
+/** A fresh in-memory database with the schema and nothing seeded yet. */
 function freshDb(): Database.Database {
   const db = new Database(':memory:');
   migrate(db);

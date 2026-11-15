@@ -1,3 +1,9 @@
+/**
+ * Protects how a workflow from a ComfyUI file keeps its look on the canvas (shared/workflow/comfyLook): saved sizes,
+ * collapsed nodes, editor-only nodes such as Get/Set and Primitive, promoted subgraph fields, colours, the saved
+ * camera, native reroutes, and moving covered nodes apart without reordering them. A person opening their own
+ * workflow should recognise it, not get a reshuffled graph.
+ */
 import { describe, expect, it } from 'vitest';
 import {
   classPresence,
@@ -24,6 +30,7 @@ import {
 import { estimateNodeSize } from '../../src/shared/graph/layout';
 import { projectWorkflow } from '../../src/shared/workflow/codec';
 
+/** Canvas node data for a node read from a file, keeping the raw file node in `comfy`. */
 const fromFile = (comfy: Record<string, unknown>, extra: Record<string, unknown> = {}) => ({
   comfyType: String(comfy.type ?? 'KSampler'),
   title: comfy.title,

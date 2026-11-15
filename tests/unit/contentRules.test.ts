@@ -1,3 +1,9 @@
+/**
+ * What is forbidden is said the same way everywhere. The words live in one place (the catalog's `contentRules`);
+ * these tests pin them and hold every other place that states them to that one: the Help page, the menu and button
+ * names and the README. The adult content switch starts off in a new profile. A person must read one set of rules,
+ * not two that disagree.
+ */
 import { describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -6,12 +12,9 @@ import { adultContentOn, parsePreferences, preferencesDefaults } from '../../src
 import { HELP_IDS } from '../../src/shared/help/contextHelp';
 import { en, ru } from '../../src/shared/i18n/catalog';
 
+/** The repository root, where docs/wiki and the README files live. */
 const root = path.join(__dirname, '..', '..');
 
-/**
- * What is forbidden is said the same way everywhere. The words live in one place (the catalog's `contentRules`);
- * these tests pin them and hold every other place that states them to that one.
- */
 describe('the content rules', () => {
   it('are the five points, in their order, with the sentences before and after, in both languages', () => {
     expect(CONTENT_RULE_POINTS).toEqual(['minors', 'realPeople', 'violence', 'animals', 'law']);
@@ -52,7 +55,8 @@ describe('the content rules', () => {
   });
 
   it('are called by one name wherever a button or a title opens them', () => {
-    // The Help menu, the page's title and the button in My lessons: «Правила содержимого», never a second spelling.
+    // The Help menu, the page's title and the button in My lessons use one name (helpReader.content), never a second
+    // spelling.
     expect(ru.helpReader.content).toBe('Правила содержимого');
     expect(ru.lessonFiles.rulesOpen).toBe(ru.helpReader.content);
     expect(en.lessonFiles.rulesOpen).toBe(en.helpReader.content);

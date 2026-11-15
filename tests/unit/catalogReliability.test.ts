@@ -1,3 +1,10 @@
+/**
+ * Protects the node and model catalog read from ComfyUI directly or through the MCP server (main/comfy/direct,
+ * main/mcp/sync, the catalog repository and the preview reader): facts about a model are dropped when its file
+ * changes and kept when it does not, a read is published all at once or not at all, and a read or preview that
+ * belongs to an address the person has just changed away from writes nothing. A person who switches servers must
+ * never see the old server's models, previews or metadata mixed into the new one.
+ */
 import Database from 'better-sqlite3';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
@@ -12,7 +19,9 @@ import { ENRICH_FAILURES_KEY, HEADER_REFRESH_MS, readState, SyncService, writeSt
 import { readCatalogWithSession } from '../../src/main/mcp/client';
 import type { McpSession, McpToolCallResult } from '../../src/shared/mcp/catalogSource';
 
+/** An in-memory database with the schema. */
 function open() { const db = new Database(':memory:'); migrate(db); return db; }
+/** One enriched LoRA with web, preview and note facts, so a test can see which facts survive. */
 function seed(db: Database.Database) {
   upsertModelFiles(db, [{ directory: 'loras', name: 'style.safetensors', sizeBytes: 10, rootPath: '/models/loras' }], 1);
   writeModelEnrichment(db, 'loras', 'style.safetensors', { kind: 'lora', baseModel: 'sdxl', baseModelEvidence: 'metadata', triggerWords: ['old'], description: 'old', sourceUrl: 'https://old.test', metadata: { old: 'yes' }, enrichedAt: 2, sha256: 'old' });
@@ -21,7 +30,9 @@ function seed(db: Database.Database) {
 // `run_open` is not published state: it marks that a run is in flight (set when it starts, removed when it ends,
 // cancelled or not) so the next start can hold automatic sync after a run that never ended (sync.ts autoHeld).
 function snapshot(db: Database.Database) { return ['node_catalog', 'node_packs', 'model_catalog', 'sync_state'].map(table => db.prepare(`SELECT * FROM ${table}${table === 'sync_state' ? " WHERE key <> 'run_open'" : ''} ORDER BY 1`).all()); }
+/** A promise the test resolves by hand, to hold a request open while it cancels or switches address. */
 function deferred<T>() { let resolve!: (value: T) => void; const promise = new Promise<T>(r => { resolve = r; }); return { promise, resolve }; }
+/** object_info with one custom node class. */
 const info = { NewNode: { input: { required: {} }, output: [], python_module: 'custom_nodes.new' } };
 const response = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status });
 
@@ -70,7 +81,9 @@ function directFetch(overrides: Partial<Record<string, () => Promise<Response>>>
     return response({}, 404);
   }) as typeof fetch;
 }
+/** An MCP tool result carrying the payload as JSON text. */
 const toolResult = (payload: unknown): McpToolCallResult => ({ content: [{ type: 'text', text: JSON.stringify(payload) }] });
+/** A fake MCP session that answers the catalog tools with one install, one pack, one class and one LoRA. */
 function catalogSession(overrides: Partial<McpSession> = {}): McpSession {
   return {
     listTools: async () => ['studio_info', 'studio_capabilities', 'models', 'model_metadata'].map(name => ({ name })),
@@ -84,6 +97,7 @@ function catalogSession(overrides: Partial<McpSession> = {}): McpSession {
     ...overrides,
   };
 }
+/** A sync service bound to a mutable address, so a test can change the server while a sync runs. */
 function syncService(address: { comfy: string; mcp?: string }, fetchImpl = directFetch(), extra: Partial<ConstructorParameters<typeof SyncService>[0]> = {}) {
   return new SyncService({ readUrl: () => address.mcp ?? '', readComfyOrigin: () => address.comfy, readAuthMode: () => 'none', token: () => null,
     signedIn: () => false, checkTokenOrigin: () => undefined, readLookupOnline: () => false,
@@ -347,6 +361,7 @@ it('a delayed preview from a replaced source cannot cache bytes or reuse its old
   } finally { reader.stop(); db.close(); fs.rmSync(folder, { recursive: true, force: true }); }
 });
 
+/** A catalog published from MCP server one, with a LoRA preview, and a way to switch Settings to server two. */
 function publishedMcpPreview() {
   const db = open();
   db.prepare("INSERT INTO settings (id, theme, motion, provider, model, comfy_origin, base_url, mcp_url, language, updated_at) VALUES (1, 'graphite', 'system', 'openai', 'x', '', '', 'https://one.test/mcp?tenant=one', 'en', 0)").run();

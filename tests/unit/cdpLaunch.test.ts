@@ -1,7 +1,7 @@
 /**
- * Protects how scripts/lib/cdp-launch.js picks the app page when the package smoke scripts drive the installed app over
- * the Chrome DevTools protocol: normally only the app:// page, and the exact file of an older installed renderer
- * only when an upgrade check asks for it. Picking a wrong page would make a release check pass on the wrong window.
+ * Protects how scripts/lib/cdp-launch.js picks the app page when the package smoke scripts drive the installed app
+ * over the Chrome DevTools protocol: normally only the app:// page, and the exact file of an older installed
+ * renderer only when an upgrade check asks for it. Picking a wrong page would make a release check pass on the wrong window.
  */
 import { describe, expect, it } from 'vitest';
 import { createRequire } from 'node:module';

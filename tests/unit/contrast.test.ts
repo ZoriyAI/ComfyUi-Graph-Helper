@@ -1,8 +1,14 @@
+/**
+ * Protects the colour contrast of the theme (renderer/theme/contrast and tokens.css): every painted text and
+ * background pair stays above its WCAG floor, and CONTRAST.md lists each measured ratio. A person with low vision
+ * must be able to read every label, and a token change that breaks this fails here first.
+ */
 import { describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import { CONTRAST_PAIRS, contrastRatio, measurePairs, parseColor, readRootTokens } from '../../src/renderer/theme/contrast';
 
+/** The theme tokens are read straight from the stylesheet the app ships. */
 const css = fs.readFileSync(path.join(__dirname, '../../src/renderer/theme/tokens.css'), 'utf8');
 const tokens = readRootTokens(css);
 
