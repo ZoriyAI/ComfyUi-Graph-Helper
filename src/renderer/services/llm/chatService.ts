@@ -157,6 +157,13 @@ function completeContext(context?: Partial<AgentTurnContext>): AgentTurnContext 
   };
 }
 
+/** The newest assistant message (the answer of the turn the person stops) gets the stopped mark. */
+function markLastAnswerStopped(): void {
+  const messages = useChatStore.getState().messages;
+  const last = messages[messages.length - 1];
+  if (last && last.role === 'assistant') useChatStore.getState().updateMessage(last.id, { stopped: true });
+}
+
 /** Messages per page of the chat (main/agent/chatHistory.ts CHAT_PAGE). */
 const CHAT_PAGE_SIZE = 200;
 
@@ -494,6 +501,8 @@ export class ChatService {
    * this turn is committed or proposed. The cancelled turn can no longer change the streaming state.
    */
   cancel(): void {
+    // The answer the person stopped is marked: a build card says «Остановлено», not «Готово» (bug bash).
+    if (this.isStreaming) markLastAnswerStopped();
     this.turnToken += 1;
     this.isStreaming = false;
     this.resumed = null;

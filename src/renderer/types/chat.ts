@@ -106,6 +106,8 @@ export interface ChatMessage {
    * the question with its context so "Повторить" can send it again. Not persisted.
    */
   turnError?: ChatTurnError;
+  /** The person stopped this answer (Stop): its build card says stopped, not done. Not persisted. */
+  stopped?: boolean;
 }
 
 export interface ChatTurnError extends TurnError {

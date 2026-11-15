@@ -274,7 +274,8 @@ export default function Message({ message, streaming = false }: MessageProps) {
         {textFirst ? null : body}
         {(message.notices ?? []).map((notice) => <NoticeCard key={`${notice.code}-${notice.state}`} notice={notice} logId={message.logId} />)}
         {message.checkpoint ? <CheckpointCard messageId={message.id} checkpoint={message.checkpoint} /> : null}
-        {build && build.type === 'build' && buildOver ? <BuildSummary calls={build.calls} stopped={message.checkpoint?.state === 'stopped'} /> : null}
+        {message.stopped && !build ? <p className={`message-stopped ${styles.noticeText}`} data-stopped>{t('chat.stoppedByYou')}</p> : null}
+        {build && build.type === 'build' && buildOver ? <BuildSummary calls={build.calls} stopped={message.checkpoint?.state === 'stopped' || message.stopped === true} /> : null}
         <div className={`message-time ${styles.time}`}>
           {!isUser && message.logId && !streaming ? (
             <button
