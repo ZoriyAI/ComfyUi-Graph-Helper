@@ -1,3 +1,8 @@
+/**
+ * The assistant's graph tools: the specs a model is offered (commands/toolSpecs) and the mapping from a tool call to
+ * a graph mutation or a ghost proposal (commands/tools, used by main/agent: tools, buildTools, turn). Models send loose shapes (indices, names, numbers as ids), so the mapping is tolerant but must never
+ * produce a mutation the command schema refuses, and a proposal must stay a ghost the person accepts or not.
+ */
 import { describe, expect, it } from 'vitest';
 import { AGENT_BUILD_TOOLS, AGENT_PROPOSAL_TOOLS } from '../../src/shared/contracts/agentTools';
 import { mutationFromTool, proposalFromTool } from '../../src/shared/commands/tools';
@@ -6,6 +11,7 @@ import { mutationSchema } from '../../src/shared/commands/types';
 import { projectWorkflow } from '../../src/shared/workflow/codec';
 import { typedWorkflow } from '../e2e/fixtures/typedWorkflow';
 
+/** One valid argument set per build tool, as a model would send it. */
 const SAMPLE_ARGS: Record<string, Record<string, unknown>> = {
   addNode: { nodeType: 'KSampler', title: 'Sampler', x: 1, y: 2 },
   connectNodes: { sourceNodeId: '1', targetNodeId: '2', sourceHandle: 'out-1', targetHandle: 'in-0' },
@@ -18,6 +24,7 @@ const SAMPLE_ARGS: Record<string, Record<string, unknown>> = {
   setProcess: { title: 't', notes: 'n' },
 };
 
+/** A snapshot of the typed e2e workflow, so a port given by name or index can be resolved to its handle. */
 function context() {
   const projected = projectWorkflow(structuredClone(typedWorkflow));
   if ('error' in projected) throw new Error(projected.error);

@@ -1,3 +1,9 @@
+/**
+ * Field metadata from ComfyUI's object_info, from the parser through the catalog database to the spec the node
+ * fields read, and the knowledge:field-models answer behind a model list (fieldModels, which sorts LoRAs by fit to
+ * the checkpoint upstream). This is what lets a person pick a LoRA that matches their checkpoint and see ranges and
+ * tooltips ComfyUI itself declares, instead of a bare text box.
+ */
 import { describe, expect, it } from 'vitest';
 import Database from 'better-sqlite3';
 import { migrate } from '../../src/main/settings/migrate';
@@ -70,6 +76,7 @@ const OBJECT_INFO = {
   },
 };
 
+/** An in-memory database with the catalog above, two checkpoints and the LoRAs, families inferred from file names. */
 function openDb(): Database.Database {
   const db = new Database(':memory:');
   migrate(db);
@@ -84,6 +91,7 @@ function openDb(): Database.Database {
   return db;
 }
 
+/** Applies one manual edit on top of the current revision and returns the new node's id when it added one. */
 function commit(db: Database.Database, payload: GraphMutation): string | undefined {
   const current = readProjection(db, DESKTOP_PROJECT_ID)!;
   const result = commitCommand(db, {

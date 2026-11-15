@@ -1,3 +1,10 @@
+/**
+ * The limit on graph history (main/commands/history.ts: pruned after commits and trimmed at start by database.ts).
+ * Every change stores the whole graph, so without a limit months of work would fill the disk and slow every start.
+ * These tests check that pruning removes only the oldest revisions with their command records, never the one on
+ * screen or one an open assistant run or suggestion needs, that Undo still works on what is kept, and that the
+ * revision list is read from an index.
+ */
 import Database from 'better-sqlite3';
 import { describe, expect, it } from 'vitest';
 import { commitCommand, ensureWorkspace, listRevisions, loadRevision, readProjection, startRun } from '../../src/main/commands/commit';
@@ -47,6 +54,7 @@ describe('graph history limit', () => {
   it('keeps between the minimum and the list limit, fewer for a bigger graph', () => {
     expect(historyKeepCount(1)).toBe(HISTORY_MAX_REVISIONS);
     expect(historyKeepCount(HISTORY_BUDGET_BYTES)).toBe(HISTORY_MIN_REVISIONS);
+    // A 1 MB graph: the 256 MB budget holds 256 of them.
     expect(historyKeepCount(1024 * 1024)).toBe(256);
     expect(historyKeepCount(0)).toBe(HISTORY_MAX_REVISIONS);
   });
@@ -55,6 +63,7 @@ describe('graph history limit', () => {
     const db = fresh();
     expect(addNode(db, 0).status).toBe('applied');
     for (let index = 0; index < 40; index += 1) expect(move(db, index).status).toBe('applied');
+    // The initial empty revision, the add and 40 moves.
     expect(count(db, 'graph_revisions')).toBe(42);
     const before = readProjection(db, P)!;
     const removed = pruneHistory(db, P, { keep: 10, batch: 1000 });
@@ -92,6 +101,7 @@ describe('graph history limit', () => {
     db.prepare(`INSERT INTO proposals (id, project_id, run_id, kind, status, payload, note, revision_id, created_at)
       VALUES ('p1', ?, NULL, 'add-node', 'open', '{}', '', ?, 1)`).run(P, proposalRevision);
     pruneHistory(db, P, { keep: 3, batch: 1000 });
+    // Three newest plus the run's base and the suggestion's revision.
     const left = new Set((db.prepare('SELECT id FROM graph_revisions WHERE project_id = ?').all(P) as Array<{ id: string }>).map((row) => row.id));
     expect(left.has(run.baseRevisionId)).toBe(true);
     expect(left.has(proposalRevision)).toBe(true);
@@ -139,6 +149,7 @@ describe('graph history limit', () => {
       }
       db.prepare('UPDATE projects SET current_revision_id = ? WHERE id = ?').run(`rev-${P}-${Number(top.rev_seq) + extra}`, P);
     })();
+    // The scheduler only queues each step; the loop runs them one by one, as the app's ticks would.
     const steps: Array<() => void> = [];
     trimAllHistories(db, (step) => steps.push(step));
     let ticks = 1;
