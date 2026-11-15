@@ -30,7 +30,7 @@ When a small or unknown context window is set for a local model, the assistant s
 
 ## An empty conversation
 
-"No messages yet" with a hint, and **Start with a question**: **What can I build with my models?**, **Explain this graph**, **What is next?**.
+"No messages yet" with a hint, and **Start with a question**: **What can I build with my models?**, **Explain this graph**, **What's next?**.
 
 ## When a build pauses
 
