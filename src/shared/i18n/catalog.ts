@@ -2664,6 +2664,11 @@ export const en = {
     edge: 'Link from {{from}} · {{output}} to {{to}} · {{input}}, type {{type}}',
     requiredEmpty: 'required, empty',
     zoomNow: '{{zoom, number}}%, {{action}}',
+    interfaceScale: 'Interface size',
+    interfaceScaleHint: 'Makes every text, button and panel larger or smaller. The canvas zoom stays its own. View menu: Ctrl+Alt+= larger, Ctrl+Alt+- smaller, Ctrl+Alt+0 normal.',
+    interfaceLarger: 'Larger interface',
+    interfaceSmaller: 'Smaller interface',
+    interfaceReset: 'Normal interface size',
     recordRefused: 'This key moves around the window or types text. Hold Ctrl or Alt with it. Esc cancels.',
   },
 } as const;
@@ -5333,6 +5338,11 @@ export const ru = {
     edge: 'Связь от {{from}} · {{output}} к {{to}} · {{input}}, тип {{type}}',
     requiredEmpty: 'обязательный, пусто',
     zoomNow: '{{zoom, number}}%, {{action}}',
+    interfaceScale: 'Размер интерфейса',
+    interfaceScaleHint: 'Делает весь текст, кнопки и панели крупнее или мельче. Масштаб холста остаётся своим. Меню «Вид»: Ctrl+Alt+= крупнее, Ctrl+Alt+- мельче, Ctrl+Alt+0 обычный размер.',
+    interfaceLarger: 'Крупнее',
+    interfaceSmaller: 'Мельче',
+    interfaceReset: 'Обычный размер интерфейса',
     recordRefused: 'Эта клавиша нужна для перемещения по окну или для ввода текста. Нажмите её вместе с Ctrl или Alt. Escape отменяет.',
   },
 } satisfies Catalog;

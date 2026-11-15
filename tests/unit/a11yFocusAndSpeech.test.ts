@@ -9,6 +9,7 @@ import { nearest, pickRescue } from '../../src/renderer/a11y/focusRescue';
 import { shortcutAllowed } from '../../src/renderer/commands/hotkeys';
 import { createTranslator } from '../../src/shared/i18n';
 import { recordVerdict } from '../../src/renderer/a11y/recordKeys';
+import { nextInterfaceScale, parsePreferences } from '../../src/shared/config/preferences';
 
 const ru = createTranslator('ru') as unknown as Say;
 const en = createTranslator('en') as unknown as Say;
@@ -94,5 +95,20 @@ describe('the shortcut recorder', () => {
     expect(recordVerdict(key('d', { ctrlKey: true }))).toBe('record');
     expect(recordVerdict(key('Delete'))).toBe('record');
     expect(recordVerdict(key('F2'))).toBe('record');
+  });
+});
+
+describe('the interface size', () => {
+  it('steps through the offered sizes and stays within them', () => {
+    expect(nextInterfaceScale(100, 1)).toBe(110);
+    expect(nextInterfaceScale(110, 1)).toBe(125);
+    expect(nextInterfaceScale(200, 1)).toBe(200);
+    expect(nextInterfaceScale(100, -1)).toBe(90);
+    expect(nextInterfaceScale(80, -1)).toBe(80);
+  });
+  it('defaults to 100 and refuses sizes outside 80 to 200', () => {
+    expect(parsePreferences({}).appearance.interfaceScale).toBe(100);
+    expect(parsePreferences({ appearance: { interfaceScale: 150 } }).appearance.interfaceScale).toBe(150);
+    expect(parsePreferences({ appearance: { interfaceScale: 400 } }).appearance.interfaceScale).toBe(100);
   });
 });

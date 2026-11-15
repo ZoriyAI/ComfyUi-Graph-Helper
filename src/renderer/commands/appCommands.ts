@@ -35,7 +35,8 @@ import { openReplay } from '../components/graph/ReplayPlayer';
 import { startGraphTour } from '../components/graph/tour/startTour';
 import { runSyncNow, setAutoSync } from '../components/sync/SyncIndicator';
 import { RAIL_WIDTH } from '../state/uiState';
-import { savePreferencesPatch } from '../state/preferencesState';
+import { savePreferencesPatch, usePreferencesStore } from '../state/preferencesState';
+import { INTERFACE_SCALE, nextInterfaceScale } from '../../shared/config/preferences';
 import { buildDiagnosticsCommands } from './diagnosticsCommands';
 import { Pin } from 'lucide-react';
 import { copySelection, cutSelection, duplicateSelection, hasClipboard, hasSelection, pasteClipboard, subscribeClipboard } from '../components/graph/lib/clipboard';
@@ -87,6 +88,14 @@ export const LANGUAGE_CHOICES: Array<{ value: 'en' | 'ru'; labelKey: string }> =
   { value: 'ru', labelKey: 'settings.languageRussian' },
   { value: 'en', labelKey: 'settings.languageEnglish' },
 ];
+
+/** Moves the interface size one step up (1), down (-1) or back to normal (0), and keeps it in preferences. */
+function stepInterfaceScale(direction: 1 | -1 | 0): void {
+  const current = usePreferencesStore.getState().preferences.appearance.interfaceScale;
+  const next = direction === 0 ? INTERFACE_SCALE.default : nextInterfaceScale(current, direction);
+  window.electronAPI?.setInterfaceScale?.(next / 100);
+  void savePreferencesPatch({ appearance: { interfaceScale: next } });
+}
 
 /** Every command of the app. The menu bar lays them out; the toolbar, context menu and hotkeys pick from them. */
 export function buildAppCommands(): Command[] {
@@ -185,6 +194,11 @@ export function buildAppCommands(): Command[] {
     { id: 'view.zoomIn', group: 'view', labelKey: 'menu.zoomIn', icon: ZoomIn, shortcut: 'Mod+=', enabled: always, run: () => canvasHandle()?.zoomIn() },
     { id: 'view.zoomOut', group: 'view', labelKey: 'menu.zoomOut', icon: ZoomOut, shortcut: 'Mod+-', enabled: always, run: () => canvasHandle()?.zoomOut() },
     { id: 'view.zoomReset', group: 'view', labelKey: 'menu.zoomReset', icon: RotateCcw, shortcut: 'Mod+0', enabled: always, run: () => canvasHandle()?.zoomReset() },
+    // Accessibility: the whole interface larger or smaller (Settings ▸ Appearance holds the same choice). Ctrl+= and
+    // Ctrl+- belong to the canvas zoom, so these hold Alt as well.
+    { id: 'view.interfaceLarger', group: 'view', labelKey: 'a11y.interfaceLarger', icon: ZoomIn, shortcut: 'Mod+Alt+=', enabled: () => usePreferencesStore.getState().preferences.appearance.interfaceScale < INTERFACE_SCALE.max, run: () => stepInterfaceScale(1) },
+    { id: 'view.interfaceSmaller', group: 'view', labelKey: 'a11y.interfaceSmaller', icon: ZoomOut, shortcut: 'Mod+Alt+-', enabled: () => usePreferencesStore.getState().preferences.appearance.interfaceScale > INTERFACE_SCALE.min, run: () => stepInterfaceScale(-1) },
+    { id: 'view.interfaceReset', group: 'view', labelKey: 'a11y.interfaceReset', icon: RotateCcw, shortcut: 'Mod+Alt+0', enabled: () => usePreferencesStore.getState().preferences.appearance.interfaceScale !== INTERFACE_SCALE.default, run: () => stepInterfaceScale(0) },
     {
       id: 'view.rail', group: 'view', labelKey: 'menu.library', icon: PanelLeft, shortcut: 'Mod+B', enabled: always,
       checked: () => useUiStore.getState().railOpen,

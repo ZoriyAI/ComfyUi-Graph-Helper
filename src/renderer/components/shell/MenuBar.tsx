@@ -45,6 +45,7 @@ const MENUS: Array<{ value: string; labelKey: string; entries: Entry[] }> = [
     labelKey: 'menu.view',
     entries: [
       command('view.fit'), command('view.zoomIn'), command('view.zoomOut'), command('view.zoomReset'), separator,
+      command('view.interfaceLarger'), command('view.interfaceSmaller'), command('view.interfaceReset'), separator,
       check('view.rail'), check('view.dock'), check('view.showBoth'), separator,
       { kind: 'radio', labelKey: 'menu.descriptions', ids: DESCRIPTION_MODE_CHOICES.map((choice) => `view.descriptions.${choice.value}`), valueOf: (id) => id.slice('view.descriptions.'.length) },
       check('view.minimap'), check('view.followAgent'), check('view.pinNodes'), separator,
