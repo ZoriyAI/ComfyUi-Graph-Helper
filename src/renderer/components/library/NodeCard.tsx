@@ -1,3 +1,7 @@
+/**
+ * The node card: a node class explained beside the library rail before it is put on the canvas. NodeLibrary.tsx
+ * opens it for a row. Everything is read from the catalog and the app's knowledge, so it works with no assistant.
+ */
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, Copy, MessageCircleQuestion, Plus, X } from 'lucide-react';
@@ -20,8 +24,10 @@ import styles from './NodeCard.module.css';
 
 /** What a node card says of a class, in the order a person asks it: what it is, why, how it is wired, what to watch. */
 const ASPECTS: readonly ExplanationAspect[] = ['what', 'why', 'connect', 'risk'];
+/** One shared empty list, so a store selector with nothing stored keeps the same reference. */
 const NO_EXPLANATIONS: Explanation[] = [];
 
+/** Props of NodeCard. */
 export interface NodeCardProps {
   node: NodeClassSummary;
   onClose: () => void;
@@ -41,6 +47,7 @@ function newestByAspect(list: Explanation[]): Map<ExplanationAspect, Explanation
   return found;
 }
 
+/** A default value in a few characters; anything but a number, a boolean or a string is not shown. */
 function shownValue(value: unknown): string {
   if (typeof value === 'number') return plainNumber(value);
   if (typeof value === 'boolean') return String(value);
@@ -57,6 +64,7 @@ function fieldFacts(t: TFunction, input: NodeClassInput): string {
   else if (spec.kind === 'combo' && spec.options) parts.push(String(t('library.nodeCard.fieldOptions', { count: spec.options.length })));
   else if (spec.kind === 'string') parts.push(String(t('library.nodeCard.fieldText')));
   if ((spec.kind === 'int' || spec.kind === 'float') && typeof spec.min === 'number' && typeof spec.max === 'number' && Math.abs(spec.max) < 1e9 && Math.abs(spec.min) < 1e9) {
+    // A range of a billion or more is ComfyUI's way of saying "no limit": not worth a line.
     parts.push(String(t('library.nodeCard.fieldRange', { min: plainNumber(spec.min), max: plainNumber(spec.max) })));
   }
   const start = spec.modelDirectory ? '' : shownValue(spec.default);
@@ -64,6 +72,7 @@ function fieldFacts(t: TFunction, input: NodeClassInput): string {
   return parts.join(' · ');
 }
 
+/** A data type with its port colour. */
 function TypeMark({ type, language }: { type: string; language: 'en' | 'ru' }) {
   // The built-in note on the data type is the mark's tooltip: what flows through a port of this colour. Read through
   // the knowledge layer, so types a later knowledge set adds (VIDEO, AUDIO, NOISE, GUIDER…) explain themselves too.
@@ -76,6 +85,7 @@ function TypeMark({ type, language }: { type: string; language: 'en' | 'ru' }) {
   );
 }
 
+/** One input of the class: name, type, optional mark, what the setting takes and its tooltip. */
 function PortRow({ input, language }: { input: NodeClassInput; language: 'en' | 'ru' }) {
   const { t } = useTranslation();
   const facts = input.widget ? fieldFacts(t, input) : '';

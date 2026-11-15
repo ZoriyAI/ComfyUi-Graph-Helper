@@ -1,3 +1,8 @@
+/**
+ * The Models tab of the library rail: the person's model files from the synced catalog, with kind chips, a family
+ * filter, an order, row thumbnails, and the model card beside the rail. shell/Rail.tsx mounts it. Rows can be
+ * dragged onto the canvas (graph/GraphWorkspace.tsx makes a loader of them).
+ */
 import { closeCard, focusCardTitle } from '../../a11y/cardFocus';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Boxes, Film, MessageCircleQuestion, SearchX, X } from 'lucide-react';
@@ -40,6 +45,7 @@ import VirtualList from './VirtualList';
 import { useRememberedChoice } from '../../state/viewMemory';
 import styles from './Library.module.css';
 
+/** Height of one row in pixels (VirtualList needs it fixed), and how many files one search returns at most. */
 const ROW_HEIGHT = 52;
 const SEARCH_LIMIT = 10000;
 
@@ -100,6 +106,7 @@ export default function ModelLibrary() {
   const catalogVersion = useUiStore((state) => state.catalogVersion);
   const syncStamp = `${syncPart}:${catalogVersion}`;
 
+  // A new sync or catalog: drop what was cached of the old files and read the whole list again.
   useEffect(() => {
     clearModelDetailCache();
     clearModelPreviewCache();
@@ -132,6 +139,7 @@ export default function ModelLibrary() {
         .catch(() => {
           if (!cancelled) setFound([]);
         });
+      // 120 ms of quiet after typing before the search; a cleared query searches at once.
     }, query ? 120 : 0);
     return () => {
       cancelled = true;

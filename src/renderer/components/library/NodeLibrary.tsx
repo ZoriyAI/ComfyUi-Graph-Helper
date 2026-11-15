@@ -1,3 +1,8 @@
+/**
+ * The Nodes tab of the library rail: every node class the sync knows, searchable, grouped by category, with the
+ * node card beside the rail. shell/Rail.tsx mounts it; rows can be dragged onto the canvas or added with a double
+ * click. tests/unit/asyncEditorOrigin.test.ts covers addNodeFromLibrary.
+ */
 import { closeCard, focusCardTitle } from '../../a11y/cardFocus';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, Plug, SearchX } from 'lucide-react';
@@ -26,6 +31,7 @@ import { trackCommit } from '../../services/commands/pending';
 import styles from './Library.module.css';
 import { addedNodeId, revealNewNode } from '../graph/lib/reveal';
 
+/** Height of one row in pixels (VirtualList needs it fixed), and how many classes one search returns at most. */
 const ROW_HEIGHT = 40;
 const SEARCH_LIMIT = 10000;
 
@@ -37,6 +43,7 @@ export async function addNodeFromLibrary(node: Pick<NodeClassSummary, 'classType
   return trackCommit(() => addNow(node, messages, origin));
 }
 
+/** The add itself, once trackCommit has taken it; it lands on the level the add began on, or nowhere. */
 async function addNow(node: Pick<NodeClassSummary, 'classType' | 'displayName'>, messages: { added: string; failed: string }, origin: EditOrigin) {
   const position = await placeNewNode(null, { classType: node.classType });
   try {
@@ -60,7 +67,6 @@ async function addNow(node: Pick<NodeClassSummary, 'classType' | 'displayName'>,
   }
 }
 
-/** Searchable, grouped, windowed list of every node class the sync knows. */
 /** A pack name as a row shows it: without the usual "ComfyUI-" / "comfyui_" prefix; empty for ComfyUI's own nodes. */
 export function packLabel(pack: string | undefined): string {
   const name = (pack ?? '').trim();
@@ -68,6 +74,7 @@ export function packLabel(pack: string | undefined): string {
   return name.replace(/^comfyui[-_ ]?/i, '') || name;
 }
 
+/** Searchable, grouped, windowed list of every node class the sync knows. */
 export default function NodeLibrary() {
   const { t, i18n } = useTranslation();
   const [query, setQuery] = useState('');
