@@ -28,10 +28,8 @@ the ones that are done: connect ComfyUI and read it, choose who answers, ask or 
 
 ## 4. Connect ComfyUI and read it
 
-<!-- verify: connection chapter. The connection is being rebuilt so that the app works with a plain ComfyUI
-address and with public MCP servers; this step is rewritten from the connection notes. -->
-
-Choose **Connect…** on the welcome card. In Settings ▸ Connection give the address, choose **Check**, then
+Choose **Connect…** on the welcome card. In Settings ▸ Connection choose **Find on this computer**, or enter the
+address you open ComfyUI at in the browser (for example `http://127.0.0.1:8188`), choose **Check ComfyUI**, then
 **Save settings**. Back on the card choose **Read ComfyUI**. When it is done, the card says how many node types and
 model files it read, and the library on the left shows them. The whole chapter: [Connecting to ComfyUI](../connect/Connecting.md).
 

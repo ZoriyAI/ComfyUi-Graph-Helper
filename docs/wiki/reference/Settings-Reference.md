@@ -27,13 +27,11 @@ What each setting does in detail: the Settings pages in [The interface](../inter
 
 ## Connection
 
-<!-- verify: connection chapter. The connection settings are being rebuilt. -->
-
 | Setting | Default | Values |
 | --- | --- | --- |
-| MCP server URL | empty | an `http` or `https` address |
-| Sign-in | not chosen | No sign-in, Access token, Sign in through the browser |
-| ComfyUI address | empty | an `http` or `https` address, optional |
+| ComfyUI address | empty | an `http` or `https` address, the one you open ComfyUI at in the browser |
+| MCP server URL (optional) | empty | an `http` address on this computer, otherwise `https` |
+| Access to the MCP server | not chosen | No sign-in, Access token, Sign in through the browser |
 
 ## Sync
 

@@ -21,7 +21,7 @@ The whole window: [The window at a glance](../interface/Window.md).
 
 On an empty canvas the welcome card lists three steps and marks what is done.
 
-1. **Connect ComfyUI** and **Read ComfyUI**. <!-- verify: connection chapter -->
+1. **Connect ComfyUI** (the address you open ComfyUI at in the browser) and **Read ComfyUI**.
    When it is done, the card says "Read: N node types and M model files" and the library fills.
 2. **Choose who answers**: the model that explains and builds. Skip it for now if you have none: lessons do not need
    it.

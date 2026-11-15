@@ -22,8 +22,14 @@ what to expect. Wishes go to the project's Discussions, problems to its Issues.
 
 ## Connection and reading
 
-<!-- verify: connection chapter -->
-
+- The connection is checked against test servers that speak ComfyUI's routes; it has not yet been run against a real
+  ComfyUI install.
+- Straight from ComfyUI there are no descriptions next to model files, no pack READMEs and no fingerprints, so Find on
+  the internet searches by file name only. An MCP server that reads files adds them.
+  [What each way shows](../connect/What-Each-Way-Shows.md)
+- An older ComfyUI lists model names only, without sizes or pictures.
+- The official `comfy-mcp` of Comfy Org runs as a local command and cannot be connected yet; an MCP server whose tools
+  the app does not know is not used.
 - The context window of a model on your own server is read only from Ollama. Other servers do not report it; the app
   then notices a request that did not fit only by the token count of the answer.
 - Model lookup: Civitai finds a file exactly by its fingerprint; Hugging Face is searched by the file name, and the

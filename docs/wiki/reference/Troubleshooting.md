@@ -20,12 +20,11 @@ key lives only until the app closes, and the settings say "Stored for this sessi
 
 ## The library is empty after a sync
 
-<!-- verify: connection chapter -->
-
-1. Look at the sync indicator at the top right: it says what happened (the server cannot be reached, the sign-in
-   expired, ComfyUI is not running, part of the catalog was not read).
-2. Make sure ComfyUI is running, and the MCP server next to it if you use one.
-3. Check the connection in Settings ▸ Connection, then choose Sync ▸ Sync now.
+1. Look at the sync indicator at the top right: it says what happened, and its popover says where the library was
+   read from.
+2. Make sure ComfyUI is running and its page opens in the browser at the address you saved.
+3. In Settings ▸ Connection choose **Check ComfyUI**; the message under the field names the problem
+   ([Connection problems](../connect/Connection-Problems.md)). Then **Read now**.
 4. Still empty: Help ▸ Copy diagnostics puts a report without keys and tokens on the clipboard, for an Issue.
 
 ## Your own model answers off the point or cuts its answer short
@@ -44,8 +43,6 @@ protection works only for an ordinary user. Start the app from the menu, or as `
 <!-- verify: technical rename -->
 
 ## ComfyUI is on another computer
-
-<!-- verify: connection chapter -->
 
 See [ComfyUI on another computer](../connect/Another-Computer.md). If ComfyUI cannot be reached at all, load the node
 list from a file: File ▸ Load node list from file… with an `object_info` file saved from ComfyUI.

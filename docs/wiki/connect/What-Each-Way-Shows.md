@@ -3,14 +3,33 @@
 
 # What each way shows
 
-| Data | Direct ComfyUI address | Optional MCP |
-|---|---|---|
-| Node classes, inputs, outputs and defaults | `/object_info` | If the server offers a node catalog; otherwise direct ComfyUI can supply it |
-| Model file names | ComfyUI model routes | If the server lists model folders |
-| Sizes, safetensors headers, previews | When exposed by that ComfyUI version | Depends on server read capabilities |
-| Sidecar model descriptions and examples | Not exposed | A server with suitable file-reading tools |
-| Pack README files and file fingerprints | Not exposed | A server with suitable file-reading tools |
+<!-- verify: checked against test servers that speak ComfyUI's routes; not yet run against a real ComfyUI install. -->
 
-Older ComfyUI versions may expose names without sizes or previews. Missing information remains unknown; a successful connection does not prove every source was read. The sync indicator reports gaps and which address supplied the library.
+| What | ComfyUI address only | With a full-catalog MCP server |
+| --- | --- | --- |
+| Nodes with their inputs, outputs and defaults | yes | yes |
+| Node packs | yes; versions only when ComfyUI-Manager is installed | yes |
+| Model files with size, kind and family | yes | yes |
+| Metadata inside a `.safetensors` file (title, trigger words, base model) | yes | yes |
+| The pictures ComfyUI finds for a model | yes | yes |
+| Descriptions next to models (`.civitai.info`, `.metadata.json`): Civitai trigger words and descriptions | no | yes |
+| A pack's README and `pyproject.toml` description | no | yes |
+| A file's fingerprint (Find on the internet searches Civitai exactly) | no: the search goes by file name only | yes |
 
-Graph checks compare the graph against this catalog. They do not run a workflow, verify output quality, establish GPU memory requirements, or prove compatibility when metadata is unknown.
+An older ComfyUI, without the newer model routes, shows model names only, without sizes or pictures ("This ComfyUI is
+older and lists model names only…"). Update ComfyUI to see them.
+
+A model-list or checkpoint-list MCP server adds its list of models; everything else still comes from ComfyUI.
+[MCP servers](MCP-Servers.md)
+
+## Versions the reading was built against
+
+From the public sources: ComfyUI 0.45.0 (its routes `/system_stats`, `/object_info`, `/models`, `/experiment/models`,
+`/view_metadata`), the ComfyUI desktop app (port 8000), ComfyUI-Manager (its list of installed packs),
+artokun/comfyui-mcp 0.52.206 and joenorton/comfyui-mcp-server.
+
+## See also
+
+- [Connecting](README.md)
+- [Connecting to ComfyUI](Connecting.md)
+- [ComfyUI is only read](../trust/Read-Only.md)

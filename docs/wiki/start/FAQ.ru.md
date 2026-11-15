@@ -33,9 +33,8 @@ ComfyUI. [ComfyUI только читается](../trust/Read-Only.ru.md)
 
 ## Какой нужен ComfyUI и как приложение до него достучится?
 
-<!-- verify: connection chapter. Rewritten from the connection notes when the new connection lands. -->
-
-Любой свежий ComfyUI на этом компьютере или на другом у вас дома. Как подключить:
+Запущенный ComfyUI на этом компьютере или на другом в вашей сети: приложению нужен только адрес, по которому вы
+открываете его в браузере. MCP-сервер необязателен. Как подключить:
 [Подключение к ComfyUI](../connect/Connecting.ru.md).
 
 ## Есть ли версия для Windows или macOS?

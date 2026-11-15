@@ -34,9 +34,8 @@ each one a request. A model on your own computer costs nothing but electricity.
 
 ## Which ComfyUI do I need, and how does the app reach it?
 
-<!-- verify: connection chapter. Rewritten from the connection notes when the new connection lands. -->
-
-Any recent ComfyUI, on this computer or on another one at home. How to connect: [Connecting to ComfyUI](../connect/Connecting.md).
+A running ComfyUI, on this computer or on another one in your network: the app needs only the address you open it
+at in the browser. An MCP server is optional. How to connect: [Connecting to ComfyUI](../connect/Connecting.md).
 
 ## Is there a version for Windows or macOS?
 

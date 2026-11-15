@@ -59,19 +59,8 @@ More, including the messages inside an answer: [Failed answers](../assistant/Fai
 
 ## Connection and sync
 
-<!-- verify: connection chapter. These messages change with the new connection. -->
-
-| Message | What to do |
-| --- | --- |
-| "MCP server unreachable: … Check the address and that the server is running." | Start the server; check the address in Settings ▸ Connection. |
-| "The MCP server refused the token. Check it in Settings ▸ Connection." | Paste the token again. |
-| "The MCP server lists no tools. Check that the address is the MCP server itself." | The address points to something else. |
-| "The MCP server URL must use https unless the server runs on this computer." | Use `https`, or run the server on this computer. |
-| "The MCP sign-in has expired. Sign in through the browser again in Settings ▸ Connection." | Sign in again. |
-| "Node ports were not updated: the MCP server did not name a ComfyUI address." | Fill in the ComfyUI address in Settings ▸ Connection. |
-| "The MCP tool … is not on the read-only list, so it was not called." | Nothing to do: the app refused a call that is not a read. |
-
-More: [Connection problems](../connect/Connection-Problems.md).
+Every message about the ComfyUI address and the MCP server, with its cause and what to do, is on one page:
+[Connection problems](../connect/Connection-Problems.md).
 
 ## Keys and settings
 
