@@ -4,6 +4,8 @@ import { VIDEO_LESSONS_EN } from './sets/video.texts.en';
 import { VIDEO_LESSONS_RU } from './sets/video.texts.ru';
 import { FOUNDATIONS_LESSONS_EN } from './sets/foundations.texts.en';
 import { FOUNDATIONS_LESSONS_RU } from './sets/foundations.texts.ru';
+import { REASONS_EN } from './reasons.en';
+import { REASONS_RU } from './reasons.ru';
 
 /** The words of one lesson in one language. */
 export interface LessonWords {
@@ -39,4 +41,9 @@ export function rolesIn(text: string): string[] {
  */
 export function withNodeNames(text: string, nameOf: (role: string) => string | null): string {
   return text.replace(ROLE, (_match, role: string) => `**${(nameOf(role) ?? role).replace(/\*/g, '')}**`);
+}
+
+/** Why a step asks for a value (FieldSpec.why), in the person's language; null for an id nobody wrote. */
+export function lessonReason(language: string, id: string): string | null {
+  return (language === 'ru' ? REASONS_RU : REASONS_EN)[id] ?? null;
 }

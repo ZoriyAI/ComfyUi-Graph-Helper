@@ -109,6 +109,21 @@ export const MODELS: Array<{ category: string; filename: string; size: number }>
   { category: 'diffusion_models', filename: 'wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors', size: 14_300_000_000 },
   { category: 'diffusion_models', filename: 'z_image_turbo_bf16.safetensors', size: 12_300_000_000 },
   { category: 'upscale_models', filename: '4x-UltraSharp.pth', size: 66_900_000 },
+  // The files the video lessons name, of the kinds they hold a file to (src/shared/lessons/files.ts).
+  { category: 'diffusion_models', filename: 'wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors', size: 14_300_000_000 },
+  { category: 'diffusion_models', filename: 'wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors', size: 14_300_000_000 },
+  { category: 'diffusion_models', filename: 'wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors', size: 14_300_000_000 },
+  { category: 'diffusion_models', filename: 'wan2.1_i2v_480p_14B_fp8_scaled.safetensors', size: 16_400_000_000 },
+  { category: 'diffusion_models', filename: 'Wan2_2-Animate-14B_fp8_e4m3fn_scaled_KJ.safetensors', size: 18_400_000_000 },
+  { category: 'diffusion_models', filename: 'Wan2_1_kwai_recammaster_1_3B_step20000_bf16.safetensors', size: 3_100_000_000 },
+  { category: 'diffusion_models', filename: 'Wan2_2-Ovi-960x960-10s_fp8_e4m3fn_scaled_KJ.safetensors', size: 11_000_000_000 },
+  { category: 'diffusion_models', filename: 'Wan2_2-Ovi-audio_model_bf16.safetensors', size: 5_000_000_000 },
+  { category: 'diffusion_models', filename: 'Wan2_2_Fun_VACE_module_A14B_HIGH_fp8_e4m3fn_scaled_KJ.safetensors', size: 3_400_000_000 },
+  { category: 'diffusion_models', filename: 'Wan2_2_Fun_VACE_module_A14B_LOW_fp8_e4m3fn_scaled_KJ.safetensors', size: 3_400_000_000 },
+  { category: 'diffusion_models', filename: 'Wan2_1-InfiniteTalk_Single_fp8_e4m3fn_scaled_KJ.safetensors', size: 2_600_000_000 },
+  { category: 'diffusion_models', filename: 'Wan2_1-InfiniteTalk_Multi_fp8_e4m3fn_scaled_KJ.safetensors', size: 2_600_000_000 },
+  { category: 'diffusion_models', filename: 'fantasytalking_fp16.safetensors', size: 1_600_000_000 },
+  { category: 'loras', filename: 'UniAnimate-Wan2.1-14B-Lora-12000-fp16.safetensors', size: 1_200_000_000 },
   // Junk the real server lists too; the app must filter it out.
   { category: 'loras', filename: '.cache/huggingface/download/abc.lock', size: 0 },
   { category: 'checkpoints', filename: '.DS_Store', size: 6148 },
@@ -462,7 +477,24 @@ export const CLASSES: ClassDef[] = [
  * ComfyUI's own video nodes (comfy_extras/nodes_hunyuan, nodes_wan, nodes_video), served only when a test asks
  * for them with `video: true`: the lessons on video need them, and every other test counts on the list above.
  */
-export const VIDEO_CLASSES: ClassDef[] = [
+/**
+ * Lesson sets bring their own classes, and two sets may bring the same core class. A class brought again with the
+ * same required inputs and outputs is kept once (the first set's lists of choices win); one brought with other ports
+ * stays twice, and the unit test tests/unit/fakeClasses.test.ts fails on it, so two sets that disagree about what
+ * a class is are caught when they merge.
+ */
+function onceEach(defs: ClassDef[], before: readonly ClassDef[]): ClassDef[] {
+  const ports = (def: ClassDef) => JSON.stringify([Object.keys(def.required).sort(), def.output]);
+  const out: ClassDef[] = [];
+  for (const def of defs) {
+    const earlier = [...before, ...out].find((item) => item.classType === def.classType);
+    if (earlier && ports(earlier) === ports(def)) continue;
+    out.push(def);
+  }
+  return out;
+}
+
+export const VIDEO_CLASSES: ClassDef[] = onceEach([
   // VACE, Wan Animate and InfiniteTalk on WanVideoWrapper, as the pack declares them; the pose and face finders of
   // ComfyUI-WanAnimatePreprocess; ComfyUI's own video, sound and CLIP vision loaders.
   { classType: 'WanVideoVACEModelSelect', pack: 2, display: 'WanVideo VACE Module Select', category: 'WanVideoWrapper', required: { vace_model: [names('diffusion_models')] }, output: ['VACEPATH'], outputName: ['extra_model'] },
@@ -512,7 +544,7 @@ export const VIDEO_CLASSES: ClassDef[] = [
   ...FOUNDATIONS_CLASSES,
   // Sound, speech, 3D, faces and characters (classes/sound-3d-faces.ts), each in its pack.
   ...SOUND_3D_FACES_CLASSES.map((def) => ({ ...def, pack: Math.max(0, PACKS.findIndex((pack) => pack.name === def.pack)) })),
-];
+], CLASSES);
 
 /** The /object_info document the native fixture serves. */
 export function objectInfoDocument(classes: readonly ClassDef[] = CLASSES): Record<string, unknown> {

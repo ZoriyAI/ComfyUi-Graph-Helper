@@ -1,9 +1,11 @@
 import type { FieldSpec, FieldTest, Lesson, LinkSpec, RoleSpec } from './engine';
 import { FOUNDATIONS_AFTER, FOUNDATIONS_FIRST, FOUNDATIONS_IN_FIRST_PICTURES, FOUNDATIONS_LESSONS, FOUNDATIONS_PATH, FOUNDATIONS_TOOLS } from './sets/foundations';
 import { IMAGE_MODEL_AFTER, IMAGE_MODEL_LESSONS, IMAGE_MODEL_PATH, type LessonGroup } from './sets/image-models';
-import { VIDEO_GROUP, VIDEO_LESSON_AFTER, VIDEO_LESSONS, VIDEO_PATH } from './sets/video';
+import { VIDEO_FILE_KINDS, VIDEO_GROUP, VIDEO_LESSON_AFTER, VIDEO_LESSONS, VIDEO_PATH } from './sets/video';
 import { IMAGE_TECHNIQUE_AFTER, IMAGE_TECHNIQUE_LESSONS, IMAGE_TECHNIQUE_PATH } from './sets/image-techniques';
 import { SOUND_3D_FACES_AFTER, SOUND_3D_FACES_LESSONS, SOUND_3D_FACES_PATH } from './sets/sound-3d-faces';
+import { FILES, withFamilyPairs, withFileTable, type FileKind } from './files';
+import { FAMILY_PAIRS, SET_FILE_KINDS } from './fileTables';
 
 /**
  * The lessons, as what must be on the canvas after each step. The words of a lesson (what to do and why) are in
@@ -19,8 +21,12 @@ import { SOUND_3D_FACES_AFTER, SOUND_3D_FACES_LESSONS, SOUND_3D_FACES_PATH } fro
  */
 
 const node = (role: string, ...classes: string[]): RoleSpec => ({ role, classes });
-const link = (from: string, output: string, to: string, input: string, via?: string[]): LinkSpec => (via ? { from, output, to, input, via } : { from, output, to, input });
-const field = (role: string, name: string, test: FieldTest): FieldSpec => ({ role, field: name, test });
+const link = (from: string, output: string, to: string, input: string, via?: string[], alt?: LinkSpec[]): LinkSpec => ({ from, output, to, input, ...(via ? { via } : {}), ...(alt ? { alt } : {}) });
+const field = (role: string, name: string, test: FieldTest, why?: string): FieldSpec => (why ? { role, field: name, test, why } : { role, field: name, test });
+/** A model file of a kind files.ts knows. */
+const file = (kind: FileKind): FieldTest => ({ kind: 'file', want: FILES[kind] });
+/** A frame count Wan takes: 4n + 1 in the range, the text's number preferred. */
+const frames = (min: number, max: number, prefer: number): FieldTest => ({ kind: 'between', min, max, prefer, frames: true });
 const chosen: FieldTest = { kind: 'chosen' };
 const equals = (value: string | number | boolean): FieldTest => ({ kind: 'equals', value });
 const between = (min: number, max: number, prefer?: number): FieldTest => (prefer === undefined ? { kind: 'between', min, max } : { kind: 'between', min, max, prefer });
@@ -36,11 +42,16 @@ const image: Lesson = {
   id: 'image',
   steps: [
     { id: 'intro', read: true },
-    { id: 'model', roles: [node('checkpoint', 'CheckpointLoaderSimple')], fields: [field('checkpoint', 'ckpt_name', chosen)] },
+    { id: 'model', roles: [node('checkpoint', 'CheckpointLoaderSimple')], fields: [field('checkpoint', 'ckpt_name', file('imageCheckpoint'))] },
     { id: 'prompts', roles: [node('positive', 'CLIPTextEncode'), node('negative', 'CLIPTextEncode')] },
     { id: 'prompts-clip', links: [link('checkpoint', 'CLIP', 'positive', 'clip', CLIP_VIA), link('checkpoint', 'CLIP', 'negative', 'clip', CLIP_VIA)] },
-    { id: 'prompt-text', fields: [field('positive', 'text', { kind: 'text', minChars: 3 })] },
-    { id: 'latent', roles: [node('latent', 'EmptyLatentImage')] },
+    { id: 'prompt-text', fields: [field('positive', 'text', { kind: 'text', minChars: 3, words: 2 })] },
+    {
+      id: 'latent',
+      roles: [node('latent', 'EmptyLatentImage')],
+      // The size a model was trained at: advice while the first picture is built, not a refusal.
+      fields: [{ ...field('latent', 'width', { kind: 'size', of: { role: 'checkpoint', field: 'ckpt_name' } }), soft: true }],
+    },
     { id: 'sampler', roles: [node('sampler', 'KSampler')] },
     {
       id: 'sampler-links',
@@ -52,7 +63,7 @@ const image: Lesson = {
       ],
     },
     { id: 'decode', roles: [node('decode', 'VAEDecode')], links: [link('sampler', 'LATENT', 'decode', 'samples'), link('checkpoint', 'VAE', 'decode', 'vae')] },
-    { id: 'save', roles: [node('save', 'SaveImage')], links: [link('decode', 'IMAGE', 'save', 'images')] },
+    { id: 'save', roles: [node('save', 'SaveImage', 'PreviewImage')], links: [link('decode', 'IMAGE', 'save', 'images')] },
     { id: 'run', read: true },
   ],
 };
@@ -72,11 +83,11 @@ const prompt: Lesson = {
     },
     { id: 'readers', read: true },
     { id: 'order', read: true },
-    { id: 'write', fields: [field('positive', 'text', { kind: 'text', minChars: 40 })] },
+    { id: 'write', fields: [field('positive', 'text', { kind: 'text', minChars: 40, words: 4, noNegation: true })] },
     { id: 'weights', read: true },
     { id: 'weigh', fields: [field('positive', 'text', { kind: 'weighted', min: 0.5, max: 1.5 })] },
     { id: 'negative', read: true },
-    { id: 'negative-text', fields: [field('negative', 'text', { kind: 'text', minChars: 5 })] },
+    { id: 'negative-text', fields: [field('negative', 'text', { kind: 'text', minChars: 5, notCopyOf: { role: 'positive', field: 'text' } })] },
     { id: 'cfg', read: true },
     { id: 'seed', read: true },
     { id: 'problems', read: true },
@@ -120,7 +131,7 @@ const refine: Lesson = {
     {
       id: 'second-model',
       roles: [node('checkpointB', 'CheckpointLoaderSimple')],
-      fields: [field('checkpointB', 'ckpt_name', { kind: 'differs', role: 'checkpoint', field: 'ckpt_name' })],
+      fields: [field('checkpointB', 'ckpt_name', { kind: 'differs', role: 'checkpoint', field: 'ckpt_name' }), field('checkpointB', 'ckpt_name', file('imageCheckpoint'))],
     },
     {
       id: 'second-texts',
@@ -139,7 +150,7 @@ const refine: Lesson = {
         link('encode', 'LATENT', 'samplerB', 'latent_image'),
       ],
     },
-    { id: 'denoise', fields: [field('samplerB', 'denoise', between(0.2, 0.5))] },
+    { id: 'denoise', fields: [field('samplerB', 'denoise', between(0.2, 0.5, 0.5), 'denoise')] },
     {
       id: 'out',
       roles: [node('decodeB', 'VAEDecode'), node('saveB', 'SaveImage', 'PreviewImage')],
@@ -151,26 +162,33 @@ const refine: Lesson = {
   ],
 };
 
-/** The loaders of a two-pass Wan graph: two diffusion models, the text encoder, the VAE. */
-const videoModels = [
+/**
+ * The loaders of a two-pass Wan graph: two diffusion models, the text encoder, the VAE. `from` is the kind of
+ * graph: text to video takes the `t2v` pair, a picture to video the `i2v` pair.
+ */
+const videoModels = (from: 'text' | 'picture') => [
   {
     id: 'models',
     roles: [node('high', 'UNETLoader'), node('low', 'UNETLoader')],
-    fields: [field('high', 'unet_name', chosen), field('low', 'unet_name', { kind: 'differs', role: 'high', field: 'unet_name' })],
+    fields: [
+      field('high', 'unet_name', file(from === 'text' ? 'wanT2vHigh' : 'wanI2vHigh')),
+      field('low', 'unet_name', { kind: 'differs', role: 'high', field: 'unet_name' }),
+      field('low', 'unet_name', file(from === 'text' ? 'wanT2vLow' : 'wanI2vLow')),
+    ],
   },
-  { id: 'text-encoder', roles: [node('clip', 'CLIPLoader')], fields: [field('clip', 'clip_name', chosen), field('clip', 'type', equals('wan'))] },
-  { id: 'vae', roles: [node('vae', 'VAELoader')], fields: [field('vae', 'vae_name', chosen)] },
+  { id: 'text-encoder', roles: [node('clip', 'CLIPLoader')], fields: [field('clip', 'clip_name', file('umt5')), field('clip', 'type', equals('wan'), 'clipType')] },
+  { id: 'vae', roles: [node('vae', 'VAELoader')], fields: [field('vae', 'vae_name', file('wan21Vae'))] },
   {
     id: 'prompts',
     roles: [node('positive', 'CLIPTextEncode'), node('negative', 'CLIPTextEncode')],
     links: [link('clip', 'CLIP', 'positive', 'clip'), link('clip', 'CLIP', 'negative', 'clip')],
-    fields: [field('positive', 'text', { kind: 'text', minChars: 3 })],
+    fields: [field('positive', 'text', { kind: 'text', minChars: 3, words: 2 })],
   },
   {
     id: 'shift',
     roles: [node('shiftHigh', 'ModelSamplingSD3'), node('shiftLow', 'ModelSamplingSD3')],
     links: [link('high', 'MODEL', 'shiftHigh', 'model', LORA), link('low', 'MODEL', 'shiftLow', 'model', LORA)],
-    fields: [field('shiftHigh', 'shift', between(5, 8)), field('shiftLow', 'shift', between(5, 8))],
+    fields: [field('shiftHigh', 'shift', between(5, 8, 8), 'shift'), field('shiftLow', 'shift', between(5, 8, 8), 'shift')],
   },
 ];
 
@@ -182,21 +200,23 @@ const twoPassSettings = [
   {
     id: 'first-settings',
     fields: [
-      field('first', 'add_noise', equals('enable')),
-      field('first', 'cfg', between(1, 4)),
-      field('first', 'start_at_step', equals(0)),
-      field('first', 'end_at_step', between(1, 15)),
-      field('first', 'return_with_leftover_noise', equals('enable')),
+      field('first', 'add_noise', equals('enable'), 'firstAddNoise'),
+      field('first', 'steps', between(4, 60, 20), 'firstSteps'),
+      field('first', 'cfg', between(1, 4, 3.5), 'videoCfg'),
+      field('first', 'start_at_step', equals(0), 'firstStart'),
+      field('first', 'end_at_step', between(1, 15, 10), 'firstEnd'),
+      field('first', 'end_at_step', { kind: 'less', role: 'first', field: 'steps' }, 'firstEndBelowSteps'),
+      field('first', 'return_with_leftover_noise', equals('enable'), 'leftover'),
     ],
   },
   {
     id: 'second-settings',
     fields: [
-      field('second', 'add_noise', equals('disable')),
-      field('second', 'steps', { kind: 'same', role: 'first', field: 'steps' }),
-      field('second', 'cfg', between(1, 4)),
-      field('second', 'start_at_step', { kind: 'same', role: 'first', field: 'end_at_step' }),
-      field('second', 'return_with_leftover_noise', equals('disable')),
+      field('second', 'add_noise', equals('disable'), 'secondAddNoise'),
+      field('second', 'steps', { kind: 'same', role: 'first', field: 'steps' }, 'secondSteps'),
+      field('second', 'cfg', between(1, 4, 3.5), 'videoCfg'),
+      field('second', 'start_at_step', { kind: 'same', role: 'first', field: 'end_at_step' }, 'secondStart'),
+      field('second', 'return_with_leftover_noise', equals('disable'), 'secondLeftover'),
     ],
   },
 ];
@@ -207,7 +227,7 @@ const videoOut = [
     id: 'save',
     roles: [node('video', 'CreateVideo'), node('save', 'SaveVideo')],
     links: [link('decode', 'IMAGE', 'video', 'images'), link('video', 'VIDEO', 'save', 'video')],
-    fields: [field('video', 'fps', equals(16))],
+    fields: [field('video', 'fps', equals(16), 'fps16')],
   },
 ];
 
@@ -215,8 +235,8 @@ const videoText: Lesson = {
   id: 'video-text',
   steps: [
     { id: 'intro', read: true },
-    ...videoModels,
-    { id: 'latent', roles: [node('latent', 'EmptyHunyuanLatentVideo')], fields: [field('latent', 'length', between(49, 121))] },
+    ...videoModels('text'),
+    { id: 'latent', roles: [node('latent', 'EmptyHunyuanLatentVideo')], fields: [field('latent', 'length', frames(49, 121, 81), 'frames')] },
     {
       id: 'first-pass',
       roles: [node('first', 'KSamplerAdvanced')],
@@ -247,7 +267,7 @@ const videoImage: Lesson = {
   id: 'video-image',
   steps: [
     { id: 'intro', read: true },
-    ...videoModels,
+    ...videoModels('picture'),
     { id: 'picture', roles: [node('picture', 'LoadImage')], fields: [field('picture', 'image', chosen)] },
     {
       id: 'start',
@@ -258,7 +278,7 @@ const videoImage: Lesson = {
         link('vae', 'VAE', 'start', 'vae'),
         link('picture', 'IMAGE', 'start', 'start_image'),
       ],
-      fields: [field('start', 'length', between(49, 121))],
+      fields: [field('start', 'length', frames(49, 121, 81), 'frames')],
     },
     {
       id: 'first-pass',
@@ -286,19 +306,28 @@ const videoImage: Lesson = {
   ],
 };
 
-/** A LoRA loader in each of the two model paths, wherever else LoRA loaders sit in them. */
+/**
+ * A LoRA loader in each of the two model paths, wherever else LoRA loaders sit in them. It may stand before the
+ * node that shifts the noise or after it: ComfyUI applies both the same way.
+ */
+const SHIFT_OR_LORA = [...LORA, 'ModelSamplingSD3'];
 const loraInBothPaths = {
   roles: [node('loraHigh', 'LoraLoaderModelOnly'), node('loraLow', 'LoraLoaderModelOnly')],
   links: [
-    link('high', 'MODEL', 'loraHigh', 'model', LORA),
-    link('loraHigh', 'MODEL', 'shiftHigh', 'model', LORA),
-    link('low', 'MODEL', 'loraLow', 'model', LORA),
-    link('loraLow', 'MODEL', 'shiftLow', 'model', LORA),
+    link('high', 'MODEL', 'loraHigh', 'model', SHIFT_OR_LORA),
+    link('loraHigh', 'MODEL', 'shiftHigh', 'model', LORA, [link('shiftHigh', 'MODEL', 'loraHigh', 'model', LORA)]),
+    link('low', 'MODEL', 'loraLow', 'model', SHIFT_OR_LORA),
+    link('loraLow', 'MODEL', 'shiftLow', 'model', LORA, [link('shiftLow', 'MODEL', 'loraLow', 'model', LORA)]),
   ],
 };
 
+/**
+ * The two halves of a Wan 2.2 graph, each known by its file: what is put into the path of the first model is held
+ * to the first half, whichever loader was added first.
+ */
 const videoGraphAtHand = {
   roles: [node('high', 'UNETLoader'), node('low', 'UNETLoader'), node('shiftHigh', 'ModelSamplingSD3'), node('shiftLow', 'ModelSamplingSD3')],
+  fields: [{ ...field('high', 'unet_name', file('wanHigh')), identifies: true }, { ...field('low', 'unet_name', file('wanLow')), identifies: true }] as FieldSpec[],
 };
 
 /** The prompt that says what is wanted: the text node whose output reaches an input named positive. */
@@ -328,7 +357,7 @@ const lora: Lesson = {
     { id: 'graph', ...videoGraphAtHand },
     { id: 'add', roles: loraInBothPaths.roles },
     { id: 'wire', links: loraInBothPaths.links },
-    { id: 'files', read: true },
+    { id: 'files', fields: [field('loraHigh', 'lora_name', file('wanLoraHigh')), field('loraLow', 'lora_name', file('wanLoraLow'))] },
     { id: 'trigger-words', read: true },
     { id: 'trigger', roles: promptInUse.roles, links: promptInUse.links, fields: [triggerInPrompt] },
     { id: 'result', read: true },
@@ -341,7 +370,7 @@ const videoFast: Lesson = {
     { id: 'intro', read: true },
     { id: 'graph', ...videoGraphAtHand },
     { id: 'loras', ...loraInBothPaths },
-    { id: 'files', read: true },
+    { id: 'files', fields: [field('loraHigh', 'lora_name', file('fastLoraHigh')), field('loraLow', 'lora_name', file('fastLoraLow'))] },
     {
       id: 'samplers',
       roles: [node('first', 'KSamplerAdvanced'), node('second', 'KSamplerAdvanced')],
@@ -350,13 +379,13 @@ const videoFast: Lesson = {
     {
       id: 'steps',
       fields: [
-        field('first', 'steps', equals(4)),
-        field('second', 'steps', equals(4)),
-        field('first', 'end_at_step', equals(2)),
-        field('second', 'start_at_step', equals(2)),
+        field('first', 'steps', equals(4), 'fastSteps'),
+        field('second', 'steps', equals(4), 'fastSteps'),
+        field('first', 'end_at_step', equals(2), 'fastSplit'),
+        field('second', 'start_at_step', equals(2), 'fastSplit'),
       ],
     },
-    { id: 'cfg', fields: [field('first', 'cfg', equals(1)), field('second', 'cfg', equals(1))] },
+    { id: 'cfg', fields: [field('first', 'cfg', equals(1), 'fastCfg'), field('second', 'cfg', equals(1), 'fastCfg')] },
     { id: 'result', read: true },
   ],
 };
@@ -367,7 +396,7 @@ const promptVideo: Lesson = {
     { id: 'intro', read: true },
     { id: 'graph', ...videoPromptInUse },
     { id: 'structure', read: true },
-    { id: 'write', fields: [field('positive', 'text', { kind: 'text', minChars: 80 })] },
+    { id: 'write', fields: [field('positive', 'text', { kind: 'text', minChars: 80, words: 10, english: true })] },
     { id: 'action', read: true },
     { id: 'camera', read: true },
     { id: 'picture', read: true },
@@ -404,12 +433,12 @@ const twoModels: Lesson = {
         link('vae', 'VAE', 'decode', 'vae'),
       ],
     },
-    { id: 'image-model', roles: [node('checkpoint', 'CheckpointLoaderSimple')], fields: [field('checkpoint', 'ckpt_name', chosen)] },
+    { id: 'image-model', roles: [node('checkpoint', 'CheckpointLoaderSimple')], fields: [field('checkpoint', 'ckpt_name', file('imageCheckpoint'))] },
     {
       id: 'image-texts',
       roles: [node('imagePositive', 'CLIPTextEncode'), node('imageNegative', 'CLIPTextEncode')],
       links: [link('checkpoint', 'CLIP', 'imagePositive', 'clip', CLIP_VIA), link('checkpoint', 'CLIP', 'imageNegative', 'clip', CLIP_VIA)],
-      fields: [field('imagePositive', 'text', { kind: 'text', minChars: 3 })],
+      fields: [field('imagePositive', 'text', { kind: 'text', minChars: 3, words: 2 })],
     },
     {
       id: 'image-sampler',
@@ -421,7 +450,7 @@ const twoModels: Lesson = {
         link('imageLatent', 'LATENT', 'imageSampler', 'latent_image'),
       ],
     },
-    { id: 'size', read: true },
+    { id: 'size', fields: [field('imageLatent', 'width', { kind: 'aspect', role: 'start' }, 'aspect')] },
     {
       id: 'bridge',
       roles: [node('imageDecode', 'VAEDecode')],
@@ -464,20 +493,20 @@ const wrapper: Lesson = {
     {
       id: 'models',
       roles: [node('high', 'WanVideoModelLoader'), node('low', 'WanVideoModelLoader')],
-      fields: [field('high', 'model', chosen), field('low', 'model', { kind: 'differs', role: 'high', field: 'model' })],
+      fields: [field('high', 'model', file('wanHigh')), field('low', 'model', { kind: 'differs', role: 'high', field: 'model' }), field('low', 'model', file('wanLow'))],
     },
-    { id: 'text-encoder', roles: [node('t5', 'LoadWanVideoT5TextEncoder')], fields: [field('t5', 'model_name', chosen)] },
-    { id: 'vae', roles: [node('vae', 'WanVideoVAELoader')], fields: [field('vae', 'model_name', chosen)] },
+    { id: 'text-encoder', roles: [node('t5', 'LoadWanVideoT5TextEncoder')], fields: [field('t5', 'model_name', file('umt5'))] },
+    { id: 'vae', roles: [node('vae', 'WanVideoVAELoader')], fields: [field('vae', 'model_name', file('wan21Vae'))] },
     {
       id: 'prompt',
       roles: [node('text', 'WanVideoTextEncode')],
       links: [link('t5', 'wan_t5_model', 'text', 't5')],
-      fields: [field('text', 'positive_prompt', { kind: 'text', minChars: 3 })],
+      fields: [field('text', 'positive_prompt', { kind: 'text', minChars: 3, words: 2 })],
     },
     {
       id: 'embeds',
       roles: [node('embeds', 'WanVideoEmptyEmbeds', 'WanVideoImageToVideoEncode', 'WanVideoVACEEncode')],
-      fields: [field('embeds', 'num_frames', between(49, 121, 81))],
+      fields: [field('embeds', 'num_frames', frames(49, 121, 81), 'frames')],
     },
     {
       id: 'first-pass',
@@ -497,19 +526,20 @@ const wrapper: Lesson = {
     {
       id: 'split',
       fields: [
-        field('first', 'steps', between(4, 40, 20)),
-        field('first', 'end_step', between(1, 20, 10)),
-        field('second', 'steps', { kind: 'same', role: 'first', field: 'steps' }),
-        field('second', 'start_step', { kind: 'same', role: 'first', field: 'end_step' }),
+        field('first', 'steps', between(4, 40, 20), 'firstSteps'),
+        field('first', 'end_step', between(1, 20, 10), 'wrapperEnd'),
+        field('first', 'end_step', { kind: 'less', role: 'first', field: 'steps' }, 'firstEndBelowSteps'),
+        field('second', 'steps', { kind: 'same', role: 'first', field: 'steps' }, 'secondSteps'),
+        field('second', 'start_step', { kind: 'same', role: 'first', field: 'end_step' }, 'secondStart'),
       ],
     },
     {
       id: 'guidance',
       fields: [
-        field('first', 'cfg', between(1, 4, 3.5)),
-        field('second', 'cfg', between(1, 4, 3.5)),
-        field('first', 'shift', between(5, 8, 8)),
-        field('second', 'shift', between(5, 8, 8)),
+        field('first', 'cfg', between(1, 4, 3.5), 'wrapperCfg'),
+        field('second', 'cfg', between(1, 4, 3.5), 'wrapperCfg'),
+        field('first', 'shift', between(5, 8, 8), 'shift'),
+        field('second', 'shift', between(5, 8, 8), 'shift'),
       ],
     },
     { id: 'decode', roles: [node('decode', 'WanVideoDecode')], links: [link('second', 'samples', 'decode', 'samples'), link('vae', 'vae', 'decode', 'vae')] },
@@ -517,7 +547,7 @@ const wrapper: Lesson = {
       id: 'save',
       roles: [node('video', 'CreateVideo'), node('save', 'SaveVideo')],
       links: [link('decode', 'IMAGE', 'video', 'images'), link('video', 'VIDEO', 'save', 'video')],
-      fields: [field('video', 'fps', equals(16))],
+      fields: [field('video', 'fps', equals(16), 'fps16')],
     },
     { id: 'memory', read: true },
     { id: 'lora', read: true },
@@ -546,13 +576,13 @@ const wrapperImage: Lesson = {
       ],
       links: [link('high', 'model', 'first', 'model'), link('low', 'model', 'second', 'model'), link('first', 'samples', 'second', 'samples')],
     },
-    { id: 'models', read: true },
+    { id: 'models', fields: [field('high', 'model', file('wanI2vHigh')), field('low', 'model', file('wanI2vLow'))] },
     { id: 'picture', roles: [node('picture', 'LoadImage')], fields: [field('picture', 'image', chosen)] },
     {
       id: 'start',
       roles: [node('start', 'WanVideoImageToVideoEncode')],
       links: [link('vae', 'vae', 'start', 'vae'), link('picture', 'IMAGE', 'start', 'start_image')],
-      fields: [field('start', 'num_frames', between(49, 121, 81))],
+      fields: [field('start', 'num_frames', frames(49, 121, 81), 'frames')],
     },
     { id: 'wire', links: [link('start', 'image_embeds', 'first', 'image_embeds'), link('start', 'image_embeds', 'second', 'image_embeds')] },
     { id: 'motion', read: true },
@@ -583,7 +613,7 @@ const wrapperVace: Lesson = {
       id: 'modules',
       roles: [node('vaceHigh', 'WanVideoVACEModelSelect'), node('vaceLow', 'WanVideoVACEModelSelect')],
       links: [link('vaceHigh', 'extra_model', 'high', 'extra_model'), link('vaceLow', 'extra_model', 'low', 'extra_model')],
-      fields: [field('vaceHigh', 'vace_model', chosen), field('vaceLow', 'vace_model', { kind: 'differs', role: 'vaceHigh', field: 'vace_model' })],
+      fields: [field('vaceHigh', 'vace_model', file('vaceHigh')), field('vaceLow', 'vace_model', { kind: 'differs', role: 'vaceHigh', field: 'vace_model' }), field('vaceLow', 'vace_model', file('vaceLow'))],
     },
     {
       id: 'source',
@@ -596,7 +626,7 @@ const wrapperVace: Lesson = {
       id: 'encode',
       roles: [node('vace', 'WanVideoVACEEncode')],
       links: [link('vae', 'vae', 'vace', 'vae'), link('frames', 'images', 'vace', 'input_frames', CONTROL_VIA)],
-      fields: [field('vace', 'num_frames', between(49, 121, 81)), field('vace', 'strength', between(0.5, 1.5, 1))],
+      fields: [field('vace', 'num_frames', frames(49, 121, 81), 'frames'), field('vace', 'strength', between(0.5, 1.5, 1), 'vaceStrength')],
     },
     { id: 'wire', links: [link('vace', EMBEDS, 'first', 'image_embeds'), link('vace', EMBEDS, 'second', 'image_embeds')] },
     { id: 'reference', read: true },
@@ -605,31 +635,31 @@ const wrapperVace: Lesson = {
   ],
 };
 
-/** The loaders and the text every one-model WanVideoWrapper graph starts with. */
-const oneModelText = (modelStep: string) => [
-  { id: modelStep, roles: [node('model', 'WanVideoModelLoader')], fields: [field('model', 'model', chosen)] },
+/** The loaders and the text every one-model WanVideoWrapper graph starts with. `model` is the kind of its model. */
+const oneModelText = (modelStep: string, model: FileKind) => [
+  { id: modelStep, roles: [node('model', 'WanVideoModelLoader')], fields: [field('model', 'model', file(model))] },
   {
     id: 'readers',
     roles: [node('t5', 'LoadWanVideoT5TextEncoder'), node('vae', 'WanVideoVAELoader')],
-    fields: [field('t5', 'model_name', chosen), field('vae', 'model_name', chosen)],
+    fields: [field('t5', 'model_name', file('umt5')), field('vae', 'model_name', file('wan21Vae'))],
   },
   {
     id: 'prompt',
     roles: [node('text', 'WanVideoTextEncode')],
     links: [link('t5', 'wan_t5_model', 'text', 't5')],
-    fields: [field('text', 'positive_prompt', { kind: 'text', minChars: 3 })],
+    fields: [field('text', 'positive_prompt', { kind: 'text', minChars: 3, words: 2 })],
   },
 ];
 
 /** The same with the picture a clip starts from, shown to the model the way Wan 2.1 "image to video" needs it. */
-const oneModelStart = (modelStep: string) => [
-  ...oneModelText(modelStep),
+const oneModelStart = (modelStep: string, model: FileKind) => [
+  ...oneModelText(modelStep, model),
   { id: 'picture', roles: [node('picture', 'LoadImage')], fields: [field('picture', 'image', chosen)] },
   {
     id: 'vision',
     roles: [node('clipVision', 'CLIPVisionLoader'), node('vision', 'WanVideoClipVisionEncode')],
     links: [link('clipVision', 'CLIP_VISION', 'vision', 'clip_vision'), link('picture', 'IMAGE', 'vision', 'image_1')],
-    fields: [field('clipVision', 'clip_name', chosen)],
+    fields: [field('clipVision', 'clip_name', file('clipVisionH'))],
   },
 ];
 
@@ -640,7 +670,7 @@ const oneModelEnd = (fps: number) => [
     id: 'save',
     roles: [node('video', 'CreateVideo'), node('save', 'SaveVideo')],
     links: [link('decode', 'IMAGE', 'video', 'images'), link('video', 'VIDEO', 'save', 'video')],
-    fields: [field('video', 'fps', equals(fps))],
+    fields: [field('video', 'fps', equals(fps), `fps${fps}`)],
   },
 ];
 
@@ -652,7 +682,7 @@ const wrapperAnimate: Lesson = {
   id: 'wrapper-animate',
   steps: [
     { id: 'intro', read: true },
-    ...oneModelStart('model'),
+    ...oneModelStart('model', 'wanAnimate'),
     {
       id: 'driving',
       roles: [node('source', 'LoadVideo'), node('frames', 'GetVideoComponents')],
@@ -663,7 +693,7 @@ const wrapperAnimate: Lesson = {
       id: 'detect',
       roles: [node('poseModel', 'OnnxDetectionModelLoader'), node('detect', 'PoseAndFaceDetection'), node('draw', 'DrawViTPose')],
       links: [link('poseModel', 'model', 'detect', 'model'), link('frames', 'images', 'detect', 'images'), link('detect', 'pose_data', 'draw', 'pose_data')],
-      fields: [field('poseModel', 'vitpose_model', chosen), field('poseModel', 'yolo_model', { kind: 'differs', role: 'poseModel', field: 'vitpose_model' })],
+      fields: [field('poseModel', 'vitpose_model', file('vitpose')), field('poseModel', 'yolo_model', file('yolo'))],
     },
     {
       id: 'embeds',
@@ -675,7 +705,7 @@ const wrapperAnimate: Lesson = {
         link('detect', 'face_images', 'animate', 'face_images'),
         link('vision', 'WANVIDIMAGE_CLIPEMBEDS', 'animate', 'clip_embeds'),
       ],
-      fields: [field('animate', 'num_frames', between(49, 121, 81))],
+      fields: [field('animate', 'num_frames', frames(49, 121, 81), 'frames')],
     },
     {
       id: 'sampler',
@@ -696,13 +726,13 @@ const wrapperTalk: Lesson = {
   id: 'wrapper-talk',
   steps: [
     { id: 'intro', read: true },
-    ...oneModelStart('model'),
-    { id: 'talk-model', roles: [node('talk', 'MultiTalkModelLoader')], links: [link('talk', 'model', 'model', 'multitalk_model')], fields: [field('talk', 'model', chosen)] },
+    ...oneModelStart('model', 'wan21I2v'),
+    { id: 'talk-model', roles: [node('talk', 'MultiTalkModelLoader')], links: [link('talk', 'model', 'model', 'multitalk_model')], fields: [field('talk', 'model', file('talkModule'))] },
     {
       id: 'voice',
       roles: [node('voice', 'LoadAudio'), node('wav2vec', 'Wav2VecModelLoader'), node('audio', 'MultiTalkWav2VecEmbeds')],
       links: [link('wav2vec', 'wav2vec_model', 'audio', 'wav2vec_model'), link('voice', 'AUDIO', 'audio', 'audio_1')],
-      fields: [field('voice', 'audio', chosen), field('wav2vec', 'model', chosen), field('audio', 'fps', equals(25))],
+      fields: [field('voice', 'audio', chosen), field('wav2vec', 'model', file('wav2vec')), field('audio', 'fps', equals(25), 'fps25')],
     },
     {
       id: 'start',
@@ -734,7 +764,7 @@ const pictureStart = {
   id: 'start',
   roles: [node('start', 'WanVideoImageToVideoEncode')],
   links: [link('vae', 'vae', 'start', 'vae'), link('picture', 'IMAGE', 'start', 'start_image'), link('vision', 'WANVIDIMAGE_CLIPEMBEDS', 'start', 'clip_embeds')],
-  fields: [field('start', 'num_frames', between(49, 121, 81))],
+  fields: [field('start', 'num_frames', frames(49, 121, 81), 'frames')],
 };
 
 /**
@@ -751,7 +781,7 @@ const wrapperDuo: Lesson = {
       roles: [node('talk', 'MultiTalkModelLoader'), node('voice', 'LoadAudio'), node('audio', 'MultiTalkWav2VecEmbeds'), node('sampler', 'WanVideoSampler')],
       links: [link('voice', 'AUDIO', 'audio', 'audio_1'), link('audio', 'multitalk_embeds', 'sampler', 'multitalk_embeds')],
     },
-    { id: 'module', read: true },
+    { id: 'module', fields: [field('talk', 'model', file('talkModuleMulti'))] },
     { id: 'picture', read: true },
     {
       id: 'second-voice',
@@ -774,8 +804,8 @@ const wrapperFantasy: Lesson = {
   id: 'wrapper-fantasy',
   steps: [
     { id: 'intro', read: true },
-    ...oneModelStart('model'),
-    { id: 'talk-model', roles: [node('talk', 'FantasyTalkingModelLoader')], links: [link('talk', 'model', 'model', 'fantasytalking_model')], fields: [field('talk', 'model', chosen)] },
+    ...oneModelStart('model', 'wan21I2v'),
+    { id: 'talk-model', roles: [node('talk', 'FantasyTalkingModelLoader')], links: [link('talk', 'model', 'model', 'fantasytalking_model')], fields: [field('talk', 'model', file('fantasyModule'))] },
     pictureStart,
     {
       id: 'voice',
@@ -787,9 +817,9 @@ const wrapperFantasy: Lesson = {
       ],
       fields: [
         field('voice', 'audio', chosen),
-        field('wav2vec', 'model', equals('facebook/wav2vec2-base-960h')),
-        field('audio', 'fps', equals(23)),
-        field('audio', 'num_frames', { kind: 'same', role: 'start', field: 'num_frames' }),
+        field('wav2vec', 'model', equals('facebook/wav2vec2-base-960h'), 'wav2vecFantasy'),
+        field('audio', 'fps', equals(23), 'fps23'),
+        field('audio', 'num_frames', { kind: 'same', role: 'start', field: 'num_frames' }, 'sameFrames'),
       ],
     },
     {
@@ -818,8 +848,8 @@ const wrapperUni: Lesson = {
   id: 'wrapper-unianimate',
   steps: [
     { id: 'intro', read: true },
-    ...oneModelStart('model'),
-    { id: 'lora', roles: [node('uni', 'WanVideoLoraSelect')], links: [link('uni', 'lora', 'model', 'lora')], fields: [field('uni', 'lora', chosen)] },
+    ...oneModelStart('model', 'wan21I2v'),
+    { id: 'lora', roles: [node('uni', 'WanVideoLoraSelect')], links: [link('uni', 'lora', 'model', 'lora')], fields: [field('uni', 'lora', file('uniLora'))] },
     {
       id: 'driving',
       roles: [node('source', 'LoadVideo'), node('frames', 'GetVideoComponents')],
@@ -835,7 +865,7 @@ const wrapperUni: Lesson = {
       id: 'pose',
       roles: [node('pose', 'WanVideoUniAnimatePoseInput')],
       links: [link('detect', 'poses', 'pose', 'pose_images'), link('detect', 'reference_pose', 'pose', 'reference_pose_image')],
-      fields: [field('pose', 'strength', between(0.5, 1, 1))],
+      fields: [field('pose', 'strength', between(0.5, 1, 1), 'poseStrength')],
     },
     pictureStart,
     {
@@ -862,7 +892,7 @@ const wrapperRecam: Lesson = {
   id: 'wrapper-recam',
   steps: [
     { id: 'intro', read: true },
-    ...oneModelText('model'),
+    ...oneModelText('model', 'recam'),
     {
       id: 'source',
       roles: [node('source', 'LoadVideo'), node('frames', 'GetVideoComponents')],
@@ -880,7 +910,7 @@ const wrapperRecam: Lesson = {
       id: 'sampler',
       roles: [node('sampler', 'WanVideoSampler')],
       links: [link('model', 'model', 'sampler', 'model'), link('text', 'text_embeds', 'sampler', 'text_embeds'), link('recam', EMBEDS, 'sampler', 'image_embeds')],
-      fields: [field('sampler', 'steps', between(20, 30, 20))],
+      fields: [field('sampler', 'steps', between(20, 30, 20), 'recamSteps')],
     },
     ...oneModelEnd(16),
     { id: 'tips', read: true },
@@ -902,25 +932,30 @@ const wrapperOvi: Lesson = {
       id: 'models',
       roles: [node('model', 'WanVideoModelLoader'), node('sound', 'WanVideoExtraModelSelect')],
       links: [link('sound', 'extra_model', 'model', 'extra_model')],
-      fields: [field('model', 'model', chosen), field('sound', 'extra_model', { kind: 'differs', role: 'model', field: 'model' }), field('model', 'base_precision', equals('bf16'))],
+      fields: [
+        field('model', 'model', file('ovi')),
+        field('sound', 'extra_model', { kind: 'differs', role: 'model', field: 'model' }),
+        field('sound', 'extra_model', file('oviAudio')),
+        field('model', 'base_precision', equals('bf16'), 'oviPrecision'),
+      ],
     },
     {
       id: 'readers',
       roles: [node('t5', 'LoadWanVideoT5TextEncoder'), node('vae', 'WanVideoVAELoader')],
-      fields: [field('t5', 'model_name', chosen), field('vae', 'model_name', chosen)],
+      fields: [field('t5', 'model_name', file('umt5')), field('vae', 'model_name', file('wan22Vae'))],
     },
     {
       id: 'prompt',
       roles: [node('text', 'WanVideoTextEncode')],
       links: [link('t5', 'wan_t5_model', 'text', 't5')],
-      fields: [field('text', 'positive_prompt', { kind: 'text', minChars: 3 })],
+      fields: [field('text', 'positive_prompt', { kind: 'text', minChars: 3, words: 2 })],
     },
     { id: 'speech', fields: [field('text', 'positive_prompt', { kind: 'text', minChars: 3, has: ['<S>', '<E>'] })] },
     {
       id: 'guidance',
       roles: [node('ovi', 'WanVideoOviCFG')],
       links: [link('text', 'text_embeds', 'ovi', 'original_text_embeds')],
-      fields: [field('ovi', 'ovi_audio_cfg', between(2, 4, 3))],
+      fields: [field('ovi', 'ovi_audio_cfg', between(2, 4, 3), 'oviAudioCfg')],
     },
     {
       // The node reads the unwanted sound from the *positive* text of a second text node (Ovi/nodes_ovi.py takes
@@ -930,8 +965,8 @@ const wrapperOvi: Lesson = {
       links: [link('t5', 'wan_t5_model', 'soundNo', 't5'), link('soundNo', 'text_embeds', 'ovi', 'ovi_negative_text_embeds')],
       fields: [field('soundNo', 'positive_prompt', { kind: 'text', minChars: 3 })],
     },
-    { id: 'size', roles: [node('embeds', 'WanVideoEmptyEmbeds')], fields: [field('embeds', 'num_frames', equals(121))] },
-    { id: 'silence', roles: [node('silence', 'WanVideoEmptyMMAudioLatents')], fields: [field('silence', 'length', equals(157))] },
+    { id: 'size', roles: [node('embeds', 'WanVideoEmptyEmbeds')], fields: [field('embeds', 'num_frames', equals(121), 'ovi121')] },
+    { id: 'silence', roles: [node('silence', 'WanVideoEmptyMMAudioLatents')], fields: [field('silence', 'length', equals(157), 'ovi157')] },
     {
       id: 'sampler',
       roles: [node('sampler', 'WanVideoSampler')],
@@ -941,20 +976,20 @@ const wrapperOvi: Lesson = {
         link('embeds', EMBEDS, 'sampler', 'image_embeds'),
         link('silence', 'samples', 'sampler', 'samples'),
       ],
-      fields: [field('sampler', 'steps', between(30, 50, 50)), field('sampler', 'cfg', between(3, 5, 4))],
+      fields: [field('sampler', 'steps', between(30, 50, 50), 'oviSteps'), field('sampler', 'cfg', between(3, 5, 4), 'oviCfg')],
     },
     { id: 'decode', roles: [node('decode', 'WanVideoDecode')], links: [link('sampler', 'samples', 'decode', 'samples'), link('vae', 'vae', 'decode', 'vae')] },
     {
       id: 'sound-out',
       roles: [node('soundVae', 'OviMMAudioVAELoader'), node('soundDecode', 'WanVideoDecodeOviAudio')],
       links: [link('soundVae', 'mmaudio_vae', 'soundDecode', 'mmaudio_vae'), link('sampler', 'samples', 'soundDecode', 'samples')],
-      fields: [field('soundVae', 'vae', chosen), field('soundVae', 'vocoder', { kind: 'differs', role: 'soundVae', field: 'vae' })],
+      fields: [field('soundVae', 'vae', file('mmaudioVae')), field('soundVae', 'vocoder', file('mmaudioVocoder'))],
     },
     {
       id: 'save',
       roles: [node('video', 'CreateVideo'), node('save', 'SaveVideo')],
       links: [link('decode', 'IMAGE', 'video', 'images'), link('soundDecode', 'audio', 'video', 'audio'), link('video', 'VIDEO', 'save', 'video')],
-      fields: [field('video', 'fps', equals(24))],
+      fields: [field('video', 'fps', equals(24), 'fps24')],
     },
     { id: 'picture', read: true },
     { id: 'tips', read: true },
@@ -1046,7 +1081,7 @@ const adultLora: Lesson = {
 };
 
 /** In the order a person meets them. The lessons for adults are a group of their own at the end (ADULT_LESSONS). */
-export const LESSONS: readonly Lesson[] = [
+export const LESSONS: readonly Lesson[] = withFamilyPairs(withFileTable([
   ...FOUNDATIONS_FIRST,
   image, prompt,
   ...FOUNDATIONS_LESSONS,
@@ -1054,12 +1089,12 @@ export const LESSONS: readonly Lesson[] = [
   wrapper, wrapperImage, wrapperVace, wrapperAnimate, wrapperUni, wrapperTalk, wrapperDuo, wrapperFantasy, wrapperOvi, wrapperRecam,
   twoModels,
   ...IMAGE_MODEL_LESSONS,
-  ...VIDEO_LESSONS,
+  ...withFileTable(VIDEO_LESSONS, VIDEO_FILE_KINDS),
   ...IMAGE_TECHNIQUE_LESSONS,
   ...FOUNDATIONS_TOOLS,
   ...SOUND_3D_FACES_LESSONS,
   adultImage, adultLora, adult,
-];
+], SET_FILE_KINDS), FAMILY_PAIRS);
 
 /**
  * The lessons about adult content. They are open only while the switch «Содержимое для взрослых (18+)» is on
@@ -1086,14 +1121,31 @@ export function ordinaryLessons(): Lesson[] {
 }
 
 /**
- * The lesson offered at the end of a lesson: the next one in the list, within the same group. After the last
- * ordinary lesson nothing is offered, so a lesson for adults never comes up by itself.
+ * The lesson offered at the end of a lesson, the one rule the lesson panel follows. The order is the order of the
+ * grouped list (LESSON_PATH groups, in the order they first appear in LESSONS). The next lesson is:
+ * - of the same kind: a lesson for adults is never offered after an ordinary one, and an ordinary one after a lesson
+ *   for adults; so with the switch off nothing of the closed group comes up by itself;
+ * - not done yet, and one that fits this ComfyUI (`fits`; everything fits when it is not given);
+ * - preferably one whose lessons it stands on are done (or are the one just finished); failing that, the next that
+ *   fits and is not done.
+ * Only lessons after this one in the list count. Null when nothing is left to offer.
  */
-export function nextLesson(id: string): Lesson | null {
-  const at = LESSONS.findIndex((lesson) => lesson.id === id);
-  const next = at >= 0 ? LESSONS[at + 1] : undefined;
-  if (!next || isAdultLesson(next.id) !== isAdultLesson(id)) return null;
-  return next;
+export function nextLesson(id: string, fits: (lessonId: string) => boolean = () => true, done: ReadonlySet<string> = new Set()): Lesson | null {
+  const groups: string[] = [];
+  for (const lesson of LESSONS) {
+    const group = LESSON_PATH[lesson.id]?.group.id ?? '';
+    if (!groups.includes(group)) groups.push(group);
+  }
+  const order = groups.flatMap((group) => LESSONS.filter((lesson) => (LESSON_PATH[lesson.id]?.group.id ?? '') === group).map((lesson) => lesson.id));
+  const from = order.indexOf(id);
+  if (from < 0) return null;
+  const adult = isAdultLesson(id);
+  // Forward only: after the last lesson of the list nothing is offered.
+  const later = order.slice(from + 1);
+  const open = later.filter((candidate) => isAdultLesson(candidate) === adult && !done.has(candidate) && fits(candidate));
+  const ready = (candidate: string) => [...(LESSON_AFTER[candidate] ?? []), ...(LESSON_PATH[candidate]?.follows ?? [])].every((needed) => needed === id || done.has(needed));
+  const found = open.find(ready) ?? open[0];
+  return found ? lessonById(found) : null;
 }
 
 /** Lessons that stand on the graph of another: said in the list, not enforced. */

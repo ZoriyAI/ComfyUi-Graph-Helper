@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { adultContentOn, type Preferences } from '../../shared/config/preferences';
 import { lessonOpen } from '../../shared/lessons/lessons';
 import { currentPreferences, savePreferencesPatch } from './preferencesState';
+import { useDockStore } from './dockState';
 
 /**
  * The helper's "Learn" mode: which lesson is open and what the person has read in it. Where they are in a lesson
@@ -23,6 +24,12 @@ interface LessonState extends Stored {
   /** Start the reading of a lesson over; what is on the canvas stays. */
   again: (lessonId: string) => void;
   hydrate: (stored: Stored) => void;
+  /**
+   * The furthest step reached in each lesson in this session. When the graph takes a lesson back behind it, the
+   * panel says that something on the canvas changed instead of moving back without a word.
+   */
+  reached: Record<string, number>;
+  reach: (lessonId: string, step: number) => void;
 }
 
 function save(state: Stored): void {
@@ -34,6 +41,11 @@ export const useLessonStore = create<LessonState>((set, get) => ({
   active: '',
   read: {},
   done: [],
+  reached: {},
+  reach: (lessonId, step) => {
+    if ((get().reached[lessonId] ?? -1) === step) return;
+    set({ reached: { ...get().reached, [lessonId]: step } });
+  },
   setLearning: (learning) => set({ learning }),
   start: (lessonId) => {
     if (!lessonOpen(lessonId, adultContentOn(currentPreferences()))) return;
@@ -58,10 +70,20 @@ export const useLessonStore = create<LessonState>((set, get) => ({
   again: (lessonId) => {
     const read = { ...get().read };
     delete read[lessonId];
-    set({ read, done: get().done.filter((id) => id !== lessonId) });
+    const reached = { ...get().reached };
+    delete reached[lessonId];
+    set({ read, reached, done: get().done.filter((id) => id !== lessonId) });
     save(get());
   },
-  hydrate: (stored) => set({ active: stored.active, read: stored.read, done: stored.done }),
+  hydrate: (stored) => {
+    set({ active: stored.active, read: stored.read, done: stored.done });
+    // A lesson that was open when the app closed is on screen again at once, at the step the canvas is at; a lesson
+    // for adults only while the switch is on.
+    if (stored.active && lessonOpen(stored.active, adultContentOn(currentPreferences()))) {
+      set({ learning: true });
+      useDockStore.getState().show('assistant');
+    }
+  },
 }));
 
 /**

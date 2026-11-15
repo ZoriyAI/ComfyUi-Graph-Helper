@@ -217,7 +217,7 @@ export const CORE_FAMILY_DOCS: Record<CoreFamily, string | null> = {
   ltx2: `${DOCS}/tutorials/video/ltx/ltx-2`,
   hunyuan: `${DOCS}/tutorials/video/hunyuan/hunyuan-video`,
   zimage: `${DOCS}/tutorials/image/z-image/z-image-turbo`,
-  krea: `${DOCS}/tutorials/flux/flux1-krea-dev`,
+  krea: `${DOCS}/tutorials/image/krea/krea-2`,
   sd3: null,
   kolors: null,
   auraflow: null,

@@ -14,6 +14,9 @@
  */
 
 import { weightsOf } from '../prompt/inspect';
+import type { BaseModelFamily } from '../contracts/knowledge';
+import { familyOfFile, fileMiss, type FileMiss, type FileWant } from './files';
+import { familiesCompatible } from '../knowledge/baseModel';
 
 export interface LessonPort {
   id: string;
@@ -28,6 +31,11 @@ export interface LessonNode {
   outputs: LessonPort[];
   /** Field values by input name. */
   values: Record<string, unknown>;
+  /**
+   * The value each field has on a fresh node of this class, as the catalog says. A rule that names a number does
+   * not count a value the person never touched (the pack's sampler starts at 30 steps; the lesson says 20).
+   */
+  defaults?: Record<string, unknown>;
 }
 
 export interface LessonLink {
@@ -64,6 +72,11 @@ export interface LinkSpec {
    * sampler, and the link still holds.
    */
   via?: string[];
+  /**
+   * Other links between roles of the lesson that do the same work: a LoRA loader may stand after the node that
+   * shifts the noise as well as before it. The link holds when it or one of these holds; a lack names the first.
+   */
+  alt?: Array<Omit<LinkSpec, 'alt'>>;
 }
 
 /** Where a trigger-word rule finds the files whose words it asks for. */
@@ -85,10 +98,34 @@ export type FieldTest =
    */
   | { kind: 'weighted'; min: number; max: number }
   | { kind: 'equals'; value: string | number | boolean }
-  /** A number in the range. `prefer` is what "Do this for me" sets; without it, the nearer end of the range. */
-  | { kind: 'between'; min: number; max: number; prefer?: number }
-  /** Text of at least this many characters; with `has`, one that holds each of these marks as well. */
-  | { kind: 'text'; minChars: number; has?: string[] }
+  /**
+   * A number in the range. `prefer` is the number the step's text names: what "Do this for me" sets, and the only
+   * value a fresh node's own default counts as when the default differs from it. `frames`: a frame count Wan
+   * takes, 4n + 1 (49, 81, 121).
+   */
+  | { kind: 'between'; min: number; max: number; prefer?: number; frames?: true }
+  /**
+   * A text the person writes: at least this many characters and real words (not "aaa"); with `has`, one that
+   * holds each of these marks; `words`, at least so many words; `english`, written in Latin letters, as the
+   * step asks; `notCopyOf`, not the text of that field; `noNegation`, no "no hat" in a description.
+   */
+  | { kind: 'text'; minChars: number; has?: string[]; words?: number; english?: true; notCopyOf?: { role: string; field: string }; noNegation?: true }
+  /** A model file of the kind the step names (files.ts): its family and the marks in its name. */
+  | { kind: 'file'; want: FileWant }
+  /**
+   * A file made for the family of the file in that field: a LoRA or a ControlNet works only with the family of the
+   * checkpoint it is used with (SDXL, Pony and Illustrious count as one lineage; a family nothing tells is not judged).
+   */
+  | { kind: 'sameFamily'; role: string; field: string }
+  /** A number below the one in that field: the first sampler stops before its last step. */
+  | { kind: 'less'; role: string; field: string }
+  /**
+   * The `width` and `height` of this node near the size the model in that field was trained at (512 for SD 1.5,
+   * about a megapixel for SDXL and its kin). A model of another family or of no known family is not judged.
+   */
+  | { kind: 'size'; of: { role: string; field: string } }
+  /** `width` and `height` of this node in the proportions of that node's, within 5 %. The field named is `width`. */
+  | { kind: 'aspect'; role: string }
   /** The text holds a trigger word of a file chosen in one of these fields (none known: nothing to check). */
   | { kind: 'has-trigger'; of: TriggerSource[] }
   /** Not the same value as that field: two loaders must not hold the same file. */
@@ -99,13 +136,27 @@ export type FieldTest =
 /** The roles a field rule looks at besides its own. */
 function otherRoles(test: FieldTest): string[] {
   if (test.kind === 'has-trigger') return test.of.flatMap((item) => ('role' in item ? [item.role] : []));
-  return test.kind === 'differs' || test.kind === 'same' ? [test.role] : [];
+  if (test.kind === 'text') return test.notCopyOf ? [test.notCopyOf.role] : [];
+  if (test.kind === 'size') return [test.of.role];
+  return test.kind === 'differs' || test.kind === 'same' || test.kind === 'less' || test.kind === 'aspect' || test.kind === 'sameFamily' ? [test.role] : [];
 }
 
 export interface FieldSpec {
   role: string;
   field: string;
   test: FieldTest;
+  /** The id of one sentence that says why (reasons.ru.ts, reasons.en.ts), shown when the value is wrong. */
+  why?: string;
+  /**
+   * The rule tells two nodes of one class apart (the loader of the first half and of the second) on a graph an
+   * earlier lesson built. The step's text does not ask for the field, so it need not name it.
+   */
+  identifies?: true;
+  /**
+   * Advice, not a refusal: the step is done without it, and while it does not hold the lesson shows it as a hint
+   * (a picture of 512 by 512 from an SDXL model draws, only worse).
+   */
+  soft?: true;
 }
 
 export interface LessonStep {
@@ -117,6 +168,12 @@ export interface LessonStep {
   fields?: FieldSpec[];
 }
 
+/** A group of the lesson list (pictures, video, sound...): its id and its title in both languages. */
+export interface LessonGroup {
+  id: string;
+  title: { ru: string; en: string };
+}
+
 export interface Lesson {
   id: string;
   steps: LessonStep[];
@@ -126,6 +183,8 @@ export interface Lesson {
 export interface LessonFacts {
   /** Trigger words by file name, as the model's own description gives them. */
   triggers?: Record<string, string[]>;
+  /** The family of a file by its name, when the catalog read it from the file's metadata or its description. */
+  families?: Record<string, BaseModelFamily>;
 }
 
 /** Role → node id. */
@@ -156,7 +215,23 @@ export type Missing =
     absent: boolean;
     /** For a rule that compares with another field: that field's node and value. */
     other: { nodeId: string; value: unknown } | null;
+    /** The value is the one a fresh node starts with, and the step names another. */
+    untouched?: boolean;
+    /** What exactly is wrong with a file or a text. */
+    why?: FieldMiss;
+    /** The id of the sentence that says why the step asks for this value (FieldSpec.why). */
+    reason?: string;
   };
+
+/** What exactly is wrong with a value, for the sentence that says so. */
+export type FieldMiss =
+  | { kind: 'file'; miss: FileMiss }
+  | { kind: 'frames' }
+  | { kind: 'size'; family: BaseModelFamily }
+  | { kind: 'family'; family: BaseModelFamily; other: BaseModelFamily }
+  | { kind: 'text'; miss: TextMiss };
+
+export type TextMiss = 'short' | 'marks' | 'words' | 'english' | 'copy' | 'negation';
 
 export interface Progress {
   /** Index of the step to do now; steps.length when the lesson is finished. */
@@ -165,6 +240,8 @@ export interface Progress {
   roles: Roles;
   /** What the current step still lacks; empty for a step that only explains, and at the end. */
   missing: Missing[];
+  /** Advice of the steps so far that does not hold (soft rules): shown beside the step, never in its way. */
+  hints?: Missing[];
 }
 
 interface Requirements {
@@ -178,7 +255,8 @@ function requirementsOf(steps: LessonStep[]): Requirements {
   for (const step of steps) {
     if (step.roles) out.roles.push(...step.roles);
     if (step.links) out.links.push(...step.links);
-    if (step.fields) out.fields.push(...step.fields);
+    // A soft rule is advice: it never holds a step back.
+    if (step.fields) out.fields.push(...step.fields.filter((spec) => !spec.soft));
   }
   return out;
 }
@@ -200,6 +278,11 @@ function isEmpty(value: unknown): boolean {
 }
 
 function linkHolds(graph: LessonGraph, byId: Map<string, LessonNode>, spec: LinkSpec, roles: Roles): boolean {
+  if (oneLinkHolds(graph, byId, spec, roles)) return true;
+  return (spec.alt ?? []).some((alt) => oneLinkHolds(graph, byId, alt, roles));
+}
+
+function oneLinkHolds(graph: LessonGraph, byId: Map<string, LessonNode>, spec: Omit<LinkSpec, 'alt'>, roles: Roles): boolean {
   const from = byId.get(roles[spec.from]);
   const to = byId.get(roles[spec.to]);
   if (!from || !to) return false;
@@ -220,30 +303,86 @@ function linkHolds(graph: LessonGraph, byId: Map<string, LessonNode>, spec: Link
   return false;
 }
 
-/** Whether a field rule holds. `roles` must hold every role the rule names. */
-export function fieldHolds(byId: Map<string, LessonNode>, spec: FieldSpec, roles: Roles, facts: LessonFacts): boolean {
+function numberOf(value: unknown): number {
+  return typeof value === 'number' ? value : typeof value === 'string' && value.trim() !== '' ? Number(value) : NaN;
+}
+
+/** The value a fresh node of this class starts with is still there. */
+function untouched(node: LessonNode, field: string): boolean {
+  if (!node.defaults || !Object.prototype.hasOwnProperty.call(node.defaults, field)) return false;
+  return String(node.defaults[field]) === String(node.values[field]);
+}
+
+/** Letters of a word: Latin and Cyrillic, as a person writes a description in either. */
+const WORD = /[A-Za-zÀ-ɏЀ-ӿ]{2,}/g;
+/** A negation that pulls towards what it names: "no hat", "without glasses", "not blurry". */
+const NEGATION = /(?:^|[\s,.;(])(?:no|not|without|never|don't|нет|без|не)\s+[A-Za-zЀ-ӿ]/i;
+
+/** Why a text a person wrote does not do what the step asks, or null. */
+export function textMiss(value: unknown, test: Extract<FieldTest, { kind: 'text' }>, other?: unknown): TextMiss | null {
+  if (typeof value !== 'string') return 'short';
+  const text = value.trim();
+  if (text.length < test.minChars) return 'short';
+  const words = text.match(WORD) ?? [];
+  // "aaa", "......", one letter over and over: not words.
+  const letters = text.replace(/[^A-Za-zÀ-ɏЀ-ӿ]/g, '').toLowerCase();
+  if (words.length === 0 || /^(.)\1*$/.test(letters) || new Set(letters).size < 3) return 'words';
+  if (test.words && words.length < test.words) return 'words';
+  if ((test.has ?? []).some((mark) => !value.includes(mark))) return 'marks';
+  if (test.english) {
+    const cyrillic = (text.match(/[Ѐ-ӿ]/g) ?? []).length;
+    if (cyrillic > letters.length * 0.3) return 'english';
+  }
+  if (test.noNegation && NEGATION.test(text)) return 'negation';
+  if (test.notCopyOf && typeof other === 'string' && other.trim() !== '') {
+    const mine = text.toLowerCase().replace(/\s+/g, ' ');
+    const theirs = other.trim().toLowerCase().replace(/\s+/g, ' ');
+    if (mine === theirs || (theirs.length >= 12 && mine.includes(theirs)) || (mine.length >= 12 && theirs.includes(mine))) return 'copy';
+  }
+  return null;
+}
+
+interface Verdict {
+  holds: boolean;
+  untouched?: boolean;
+  why?: FieldMiss;
+}
+
+function fieldVerdict(byId: Map<string, LessonNode>, spec: FieldSpec, roles: Roles, facts: LessonFacts): Verdict {
   const node = byId.get(roles[spec.role]);
-  if (!node) return false;
+  if (!node) return { holds: false };
   const value = node.values[spec.field];
   const test = spec.test;
   switch (test.kind) {
     case 'chosen':
-      return !isEmpty(value);
+      return { holds: !isEmpty(value) };
     case 'equals':
-      return typeof test.value === 'number' ? Number(value) === test.value && !isEmpty(value) : String(value ?? '') === String(test.value);
+      return { holds: typeof test.value === 'number' ? Number(value) === test.value && !isEmpty(value) : String(value ?? '') === String(test.value) };
     case 'between': {
-      const number = typeof value === 'number' ? value : typeof value === 'string' && value.trim() !== '' ? Number(value) : NaN;
-      return Number.isFinite(number) && number >= test.min && number <= test.max;
+      const number = numberOf(value);
+      if (!Number.isFinite(number) || number < test.min || number > test.max) return { holds: false };
+      if (test.frames && (!Number.isInteger(number) || (number - 1) % 4 !== 0)) return { holds: false, why: { kind: 'frames' } };
+      // A number the node started with, other than the one the step names, is not the person's choice.
+      if (test.prefer !== undefined && number !== test.prefer && untouched(node, spec.field)) return { holds: false, untouched: true };
+      return { holds: true };
     }
-    case 'text':
-      return typeof value === 'string' && value.trim().length >= test.minChars && (test.has ?? []).every((mark) => value.includes(mark));
+    case 'text': {
+      const other = test.notCopyOf ? byId.get(roles[test.notCopyOf.role])?.values[test.notCopyOf.field] : undefined;
+      const miss = textMiss(value, test, other);
+      return miss ? { holds: false, why: { kind: 'text', miss } } : { holds: true };
+    }
+    case 'file': {
+      if (isEmpty(value) || typeof value !== 'string') return { holds: false };
+      const miss = fileMiss(value, test.want, facts.families?.[value]);
+      return miss ? { holds: false, why: { kind: 'file', miss } } : { holds: true };
+    }
     case 'weighted': {
-      if (typeof value !== 'string') return false;
+      if (typeof value !== 'string') return { holds: false };
       const weights = weightsOf(value).map((item) => item.weight);
-      return weights.some((weight) => weight >= test.min && weight <= test.max && weight !== 1) && weights.every((weight) => weight <= test.max);
+      return { holds: weights.some((weight) => weight >= test.min && weight <= test.max && weight !== 1) && weights.every((weight) => weight <= test.max) };
     }
     case 'has-trigger': {
-      if (typeof value !== 'string') return false;
+      if (typeof value !== 'string') return { holds: false };
       const words: string[] = [];
       for (const source of test.of) {
         const holders = 'role' in source ? [byId.get(roles[source.role])] : [...byId.values()].filter((item) => item.classType === source.classType);
@@ -254,19 +393,60 @@ export function fieldHolds(byId: Map<string, LessonNode>, spec: FieldSpec, roles
       }
       const known = words.map((word) => word.trim().toLowerCase()).filter(Boolean);
       // A file whose description names no trigger words asks for none.
-      if (known.length === 0) return true;
+      if (known.length === 0) return { holds: true };
       const text = value.toLowerCase();
-      return known.some((word) => text.includes(word));
+      return { holds: known.some((word) => text.includes(word)) };
     }
     case 'differs': {
       const other = byId.get(roles[test.role])?.values[test.field];
-      return !isEmpty(value) && !isEmpty(other) && String(value) !== String(other);
+      return { holds: !isEmpty(value) && !isEmpty(other) && String(value) !== String(other) };
     }
     case 'same': {
       const other = byId.get(roles[test.role])?.values[test.field];
-      return !isEmpty(value) && !isEmpty(other) && String(value) === String(other);
+      return { holds: !isEmpty(value) && !isEmpty(other) && String(value) === String(other) };
+    }
+    case 'sameFamily': {
+      const other = byId.get(roles[test.role])?.values[test.field];
+      if (isEmpty(value) || typeof value !== 'string') return { holds: false };
+      if (typeof other !== 'string' || other === '') return { holds: true };
+      const mine = familyOfFile(value, facts.families?.[value]);
+      const theirs = familyOfFile(other, facts.families?.[other]);
+      return familiesCompatible(mine, theirs) ? { holds: true } : { holds: false, why: { kind: 'family', family: mine, other: theirs } };
+    }
+    case 'less': {
+      const other = numberOf(byId.get(roles[test.role])?.values[test.field]);
+      const number = numberOf(value);
+      return { holds: Number.isFinite(number) && Number.isFinite(other) && number < other };
+    }
+    case 'size': {
+      const file = byId.get(roles[test.of.role])?.values[test.of.field];
+      const family = typeof file === 'string' ? familyOfFile(file, facts.families?.[file]) : 'unknown';
+      const width = numberOf(node.values.width);
+      const height = numberOf(node.values.height);
+      if (!Number.isFinite(width) || !Number.isFinite(height)) return { holds: true };
+      if (family === 'sd15') return { holds: Math.max(width, height) <= 768 && Math.min(width, height) >= 384, why: { kind: 'size', family } };
+      if (family === 'sdxl' || family === 'pony' || family === 'illustrious') {
+        const pixels = width * height;
+        return { holds: pixels >= 750_000 && pixels <= 1_400_000, why: { kind: 'size', family } };
+      }
+      return { holds: true };
+    }
+    case 'aspect': {
+      const other = byId.get(roles[test.role]);
+      const width = numberOf(node.values.width);
+      const height = numberOf(node.values.height);
+      const otherWidth = numberOf(other?.values.width);
+      const otherHeight = numberOf(other?.values.height);
+      if (![width, height, otherWidth, otherHeight].every((item) => Number.isFinite(item) && item > 0)) return { holds: false };
+      const ratio = width / height / (otherWidth / otherHeight);
+      return { holds: ratio > 0.95 && ratio < 1.05 };
     }
   }
+}
+
+/** Whether a field rule holds. `roles` must hold every role the rule names. */
+export function fieldHolds(byId: Map<string, LessonNode>, spec: FieldSpec, roles: Roles, facts: LessonFacts): boolean {
+  return fieldVerdict(byId, spec, roles, facts).holds;
 }
 
 /** How many assignments a search may try before it gives up; a graph a person builds in a lesson is far below. */
@@ -335,19 +515,28 @@ function missingOf(graph: LessonGraph, step: LessonStep, roles: Roles, facts: Le
   for (const spec of step.fields ?? []) {
     const node = byId.get(roles[spec.role]);
     if (!node) continue;
+    // Advice is said apart from what the step lacks (Progress.hints), unless only advice is asked for.
+    if (spec.soft && (step.fields ?? []).some((other) => !other.soft)) continue;
     if (otherRoles(spec.test).some((role) => !(role in roles))) continue;
-    if (fieldHolds(byId, spec, roles, facts)) continue;
+    const verdict = fieldVerdict(byId, spec, roles, facts);
+    if (verdict.holds) continue;
     const known = Object.prototype.hasOwnProperty.call(node.values, spec.field) || inputFor(node, spec.field) !== null;
-    const compared = spec.test.kind === 'differs' || spec.test.kind === 'same' ? byId.get(roles[spec.test.role]) : undefined;
+    const test = spec.test;
+    const compared = test.kind === 'differs' || test.kind === 'same' || test.kind === 'less' || test.kind === 'aspect' || test.kind === 'sameFamily' ? byId.get(roles[test.role]) : undefined;
     out.push({
       kind: 'field',
       role: spec.role,
       nodeId: node.id,
       field: spec.field,
-      test: spec.test,
+      test,
       value: node.values[spec.field],
       absent: !known,
-      other: compared && (spec.test.kind === 'differs' || spec.test.kind === 'same') ? { nodeId: compared.id, value: compared.values[spec.test.field] } : null,
+      other: compared && (test.kind === 'differs' || test.kind === 'same' || test.kind === 'less')
+        ? { nodeId: compared.id, value: compared.values[test.field] }
+        : compared ? { nodeId: compared.id, value: null } : null,
+      ...(verdict.untouched ? { untouched: true } : {}),
+      ...(verdict.why ? { why: verdict.why } : {}),
+      ...(spec.why ? { reason: spec.why } : {}),
     });
   }
   return out;
@@ -358,6 +547,24 @@ function missingOf(graph: LessonGraph, step: LessonStep, roles: Roles, facts: Le
  * The current step is the first one that does not hold; everything before it does.
  */
 export function lessonProgress(lesson: Lesson, graph: LessonGraph, facts: LessonFacts, read: ReadonlySet<string>): Progress {
+  const progress = hardProgress(lesson, graph, facts, read);
+  const hints = softHints(lesson, graph, facts, progress);
+  return hints.length > 0 ? { ...progress, hints } : progress;
+}
+
+/** The soft rules of the steps reached so far that do not hold, for the nodes that play their roles now. */
+function softHints(lesson: Lesson, graph: LessonGraph, facts: LessonFacts, progress: Progress): Missing[] {
+  const reached = lesson.steps.slice(0, Math.min(progress.current + 1, lesson.steps.length));
+  const out: Missing[] = [];
+  for (const step of reached) {
+    const soft = (step.fields ?? []).filter((spec) => spec.soft);
+    if (soft.length === 0) continue;
+    out.push(...missingOf(graph, { id: step.id, fields: soft }, progress.roles, facts));
+  }
+  return out;
+}
+
+function hardProgress(lesson: Lesson, graph: LessonGraph, facts: LessonFacts, read: ReadonlySet<string>): Progress {
   let roles: Roles = {};
   for (let index = 0; index < lesson.steps.length; index += 1) {
     const step = lesson.steps[index];
@@ -540,6 +747,7 @@ export function fixFor(
   graph: LessonGraph,
   installed: (classType: string) => boolean,
   choices?: (nodeId: string, field: string) => readonly unknown[],
+  facts?: LessonFacts,
 ): StepFix | null {
   if (missing.kind === 'node') {
     const classType = missing.classes.find(installed);
@@ -556,14 +764,27 @@ export function fixFor(
   if (missing.absent) return null;
   if (missing.test.kind === 'equals') return { kind: 'set-field', nodeId: missing.nodeId, field: missing.field, value: missing.test.value };
   if (missing.test.kind === 'between') {
-    const now = typeof missing.value === 'number' ? missing.value : Number(missing.value);
-    const value = missing.test.prefer ?? (Number.isFinite(now) && now > missing.test.max ? missing.test.max : missing.test.min);
+    const value = preferredOf(missing.test, missing.value);
     return { kind: 'set-field', nodeId: missing.nodeId, field: missing.field, value };
+  }
+  if (missing.test.kind === 'file' && choices) {
+    const want = missing.test.want;
+    const value = choices(missing.nodeId, missing.field).find((option): option is string => typeof option === 'string' && fileMiss(option, want, facts?.families?.[option]) === null);
+    return value ? { kind: 'set-field', nodeId: missing.nodeId, field: missing.field, value } : null;
   }
   if (missing.test.kind === 'differs' && choices) {
     const taken = missing.other?.value;
     const value = choices(missing.nodeId, missing.field).find((option) => option !== taken && (typeof option === 'string' || typeof option === 'number'));
     return typeof value === 'string' || typeof value === 'number' ? { kind: 'set-field', nodeId: missing.nodeId, field: missing.field, value } : null;
+  }
+  if (missing.test.kind === 'aspect' && missing.other) {
+    // The frame keeps its height and takes the clip's proportions, in steps of 8 as latents need.
+    const self = byId.get(missing.nodeId)?.values ?? {};
+    const clip = byId.get(missing.other.nodeId)?.values ?? {};
+    const height = numberOf(self.height);
+    const ratio = numberOf(clip.width) / numberOf(clip.height);
+    if (!Number.isFinite(height) || !Number.isFinite(ratio) || height <= 0 || ratio <= 0) return null;
+    return { kind: 'set-field', nodeId: missing.nodeId, field: 'width', value: Math.round((height * ratio) / 8) * 8 };
   }
   if (missing.test.kind === 'same') {
     const value = missing.other?.value;
@@ -572,6 +793,21 @@ export function fixFor(
       : null;
   }
   return null;
+}
+
+/**
+ * The number "Do this for me" puts into a field that must lie in a range: the one the step's text names, else the
+ * nearer end of the range; a frame count is brought to the nearest 4n + 1 inside it.
+ */
+export function preferredOf(test: Extract<FieldTest, { kind: 'between' }>, now: unknown): number {
+  const current = numberOf(now);
+  let value = test.prefer ?? (Number.isFinite(current) && current > test.max ? test.max : test.min);
+  if (test.frames && (value - 1) % 4 !== 0) {
+    value = Math.round((value - 1) / 4) * 4 + 1;
+    while (value > test.max) value -= 4;
+    while (value < test.min) value += 4;
+  }
+  return value;
 }
 
 /** Every role a lesson names, with the step that brings it in. */

@@ -157,13 +157,13 @@ describe('the built-in knowledge about video', () => {
     }
   });
 
-  it('is seeded with the core, a correction taking the place of the core entry', () => {
+  it('is seeded with the core, one text per thing: what the set once corrected is the core now', () => {
     for (const language of LANGUAGES) {
       const seeds = coreSeeds(language);
       expect(new Set(seeds.map((seed) => seed.id)).size).toBe(seeds.length);
       const latent = seeds.find((seed) => seed.owner.kind === 'linkType' && seed.owner.id === 'LATENT' && seed.aspect === 'what')!;
-      expect(latent.text).toBe(language === 'en' ? VIDEO_KNOWLEDGE_EN.linkTypes.LATENT.what : VIDEO_KNOWLEDGE_RU.linkTypes.LATENT.what);
-      expect(latent.text).not.toBe(CORE_KNOWLEDGE[language].linkTypes.LATENT.what);
+      expect(latent.text).toBe(CORE_KNOWLEDGE[language].linkTypes.LATENT.what);
+      expect(latent.text).toContain('16 × 16');
       expect(seeds.some((seed) => seed.owner.kind === 'nodeClass' && seed.owner.id === 'WanImageToVideo')).toBe(true);
       expect(seeds.some((seed) => seed.owner.kind === 'linkType' && seed.owner.id === 'VIDEO')).toBe(true);
       expect(seeds.some((seed) => seed.owner.kind === 'family' && seed.owner.id === 'hunyuan15')).toBe(true);

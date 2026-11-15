@@ -1,4 +1,5 @@
-import type { FieldSpec, FieldTest, Lesson, LinkSpec, RoleSpec } from '../engine';
+import type { FieldSpec, FieldTest, Lesson, LessonGroup, LinkSpec, RoleSpec } from '../engine';
+import { FILES, type FileKind } from '../files';
 
 /**
  * Lessons on the families of picture models and how each one is loaded: a checkpoint that holds everything
@@ -16,7 +17,9 @@ import type { FieldSpec, FieldTest, Lesson, LinkSpec, RoleSpec } from '../engine
 
 const node = (role: string, ...classes: string[]): RoleSpec => ({ role, classes });
 const link = (from: string, output: string, to: string, input: string, via?: string[]): LinkSpec => (via ? { from, output, to, input, via } : { from, output, to, input });
-const field = (role: string, name: string, test: FieldTest): FieldSpec => ({ role, field: name, test });
+const field = (role: string, name: string, test: FieldTest, why?: string): FieldSpec => (why ? { role, field: name, test, why } : { role, field: name, test });
+/** A model file of a kind the engine knows (files.ts): its family and the marks in its name. */
+const file = (kind: FileKind): FieldTest => ({ kind: 'file', want: FILES[kind] });
 const chosen: FieldTest = { kind: 'chosen' };
 const equals = (value: string | number | boolean): FieldTest => ({ kind: 'equals', value });
 const between = (min: number, max: number, prefer: number): FieldTest => ({ kind: 'between', min, max, prefer });
@@ -77,16 +80,16 @@ const flux: Lesson = {
   steps: [
     { id: 'intro', read: true },
     { id: 'files', read: true },
-    { id: 'model', roles: [node('unet', 'UNETLoader')], fields: [field('unet', 'unet_name', chosen)] },
+    { id: 'model', roles: [node('unet', 'UNETLoader')], fields: [field('unet', 'unet_name', file('flux1Model'))] },
     {
       id: 'text-encoders',
       roles: [node('clip', 'DualCLIPLoader')],
-      fields: [field('clip', 'clip_name1', chosen), field('clip', 'clip_name2', { kind: 'differs', role: 'clip', field: 'clip_name1' }), field('clip', 'type', equals('flux'))],
+      fields: [field('clip', 'clip_name1', file('clipL')), field('clip', 'clip_name2', { kind: 'differs', role: 'clip', field: 'clip_name1' }), field('clip', 'clip_name2', file('t5xxl')), field('clip', 'type', equals('flux'), 'im.clipType')],
     },
-    { id: 'vae', roles: [node('vae', 'VAELoader')], fields: [field('vae', 'vae_name', chosen)] },
+    { id: 'vae', roles: [node('vae', 'VAELoader')], fields: [field('vae', 'vae_name', file('fluxAe'))] },
     { id: 'prompt', roles: [node('positive', 'CLIPTextEncode')], links: [link('clip', 'CLIP', 'positive', 'clip')], fields: [field('positive', 'text', text(20))] },
     { id: 'negative', roles: [node('zero', 'ConditioningZeroOut')], links: [link('positive', 'CONDITIONING', 'zero', 'conditioning')] },
-    { id: 'latent', roles: [node('latent', 'EmptySD3LatentImage')], fields: [field('latent', 'width', between(512, 2048, 1024)), field('latent', 'height', between(512, 2048, 1024))] },
+    { id: 'latent', roles: [node('latent', 'EmptySD3LatentImage')], fields: [field('latent', 'width', between(512, 2048, 1024), 'im.fluxSize'), field('latent', 'height', between(512, 2048, 1024), 'im.fluxSize')] },
     {
       id: 'sampler',
       roles: [node('sampler', 'KSampler')],
@@ -100,8 +103,8 @@ const flux: Lesson = {
     {
       id: 'settings',
       fields: [
-        field('sampler', 'steps', between(4, 30, 20)),
-        field('sampler', 'cfg', equals(1)),
+        field('sampler', 'steps', between(4, 30, 20), 'im.fluxSteps'),
+        field('sampler', 'cfg', equals(1), 'im.fluxCfg'),
         field('sampler', 'sampler_name', equals('euler')),
         field('sampler', 'scheduler', equals('simple')),
       ],
@@ -110,7 +113,7 @@ const flux: Lesson = {
       id: 'guidance',
       roles: [node('guidance', 'FluxGuidance')],
       links: [link('positive', 'CONDITIONING', 'guidance', 'conditioning'), link('guidance', 'CONDITIONING', 'sampler', 'positive')],
-      fields: [field('guidance', 'guidance', between(1.5, 5, 3.5))],
+      fields: [field('guidance', 'guidance', between(1.5, 5, 3.5), 'im.guidance')],
     },
     ...pictureOut('vae'),
     { id: 'run', read: true },
@@ -128,18 +131,18 @@ const zimageTurbo: Lesson = {
   steps: [
     { id: 'intro', read: true },
     { id: 'files', read: true },
-    { id: 'model', roles: [node('unet', 'UNETLoader')], fields: [field('unet', 'unet_name', chosen)] },
-    { id: 'text-encoder', roles: [node('clip', 'CLIPLoader')], fields: [field('clip', 'clip_name', chosen), field('clip', 'type', equals('lumina2'))] },
-    { id: 'vae', roles: [node('vae', 'VAELoader')], fields: [field('vae', 'vae_name', chosen)] },
+    { id: 'model', roles: [node('unet', 'UNETLoader')], fields: [field('unet', 'unet_name', file('zimageModel'))] },
+    { id: 'text-encoder', roles: [node('clip', 'CLIPLoader')], fields: [field('clip', 'clip_name', file('qwen3Small')), field('clip', 'type', equals('lumina2'), 'im.clipType')] },
+    { id: 'vae', roles: [node('vae', 'VAELoader')], fields: [field('vae', 'vae_name', file('fluxAe'))] },
     {
       id: 'shift',
       roles: [node('shift', 'ModelSamplingAuraFlow')],
       links: [link('unet', 'MODEL', 'shift', 'model', ['LoraLoaderModelOnly'])],
-      fields: [field('shift', 'shift', between(2, 6, 3))],
+      fields: [field('shift', 'shift', between(1, 10, 3), 'im.zimageShift')],
     },
     { id: 'prompt', roles: [node('positive', 'CLIPTextEncode')], links: [link('clip', 'CLIP', 'positive', 'clip')], fields: [field('positive', 'text', text(20))] },
     { id: 'negative', roles: [node('zero', 'ConditioningZeroOut')], links: [link('positive', 'CONDITIONING', 'zero', 'conditioning')] },
-    { id: 'latent', roles: [node('latent', 'EmptySD3LatentImage')], fields: [field('latent', 'width', between(512, 2048, 1024)), field('latent', 'height', between(512, 2048, 1024))] },
+    { id: 'latent', roles: [node('latent', 'EmptySD3LatentImage')], fields: [field('latent', 'width', between(512, 2048, 1024), 'im.zimageSize'), field('latent', 'height', between(512, 2048, 1024), 'im.zimageSize')] },
     {
       id: 'sampler',
       roles: [node('sampler', 'KSampler')],
@@ -153,8 +156,8 @@ const zimageTurbo: Lesson = {
     {
       id: 'settings',
       fields: [
-        field('sampler', 'steps', between(4, 12, 8)),
-        field('sampler', 'cfg', equals(1)),
+        field('sampler', 'steps', between(4, 12, 8), 'im.turboSteps'),
+        field('sampler', 'cfg', equals(1), 'im.turboCfg'),
         field('sampler', 'sampler_name', equals('res_multistep')),
         field('sampler', 'scheduler', equals('simple')),
       ],
@@ -175,14 +178,14 @@ const qwenImage: Lesson = {
   steps: [
     { id: 'intro', read: true },
     { id: 'files', read: true },
-    { id: 'model', roles: [node('unet', 'UNETLoader')], fields: [field('unet', 'unet_name', chosen)] },
-    { id: 'text-encoder', roles: [node('clip', 'CLIPLoader')], fields: [field('clip', 'clip_name', chosen), field('clip', 'type', equals('qwen_image'))] },
-    { id: 'vae', roles: [node('vae', 'VAELoader')], fields: [field('vae', 'vae_name', chosen)] },
+    { id: 'model', roles: [node('unet', 'UNETLoader')], fields: [field('unet', 'unet_name', file('qwenImageModel'))] },
+    { id: 'text-encoder', roles: [node('clip', 'CLIPLoader')], fields: [field('clip', 'clip_name', file('qwen25vl')), field('clip', 'type', equals('qwen_image'), 'im.clipType')] },
+    { id: 'vae', roles: [node('vae', 'VAELoader')], fields: [field('vae', 'vae_name', file('qwenImageVae'))] },
     {
       id: 'shift',
       roles: [node('shift', 'ModelSamplingAuraFlow')],
       links: [link('unet', 'MODEL', 'shift', 'model', ['LoraLoaderModelOnly'])],
-      fields: [field('shift', 'shift', between(2, 5, 3.1))],
+      fields: [field('shift', 'shift', between(1, 10, 3.1), 'im.qwenShift')],
     },
     {
       id: 'prompts',
@@ -190,7 +193,7 @@ const qwenImage: Lesson = {
       links: [link('clip', 'CLIP', 'positive', 'clip'), link('clip', 'CLIP', 'negative', 'clip')],
       fields: [field('positive', 'text', text(40))],
     },
-    { id: 'latent', roles: [node('latent', 'EmptySD3LatentImage')], fields: [field('latent', 'width', between(1104, 1664, 1328)), field('latent', 'height', between(1104, 1664, 1328))] },
+    { id: 'latent', roles: [node('latent', 'EmptySD3LatentImage')], fields: [field('latent', 'width', between(512, 2048, 1328), 'im.qwenSize'), field('latent', 'height', between(512, 2048, 1328), 'im.qwenSize')] },
     {
       id: 'sampler',
       roles: [node('sampler', 'KSampler')],
@@ -204,8 +207,8 @@ const qwenImage: Lesson = {
     {
       id: 'settings',
       fields: [
-        field('sampler', 'steps', between(15, 50, 20)),
-        field('sampler', 'cfg', between(2.5, 5, 4)),
+        field('sampler', 'steps', between(15, 50, 20), 'im.qwenSteps'),
+        field('sampler', 'cfg', between(2.5, 5, 4), 'im.qwenCfg'),
         field('sampler', 'sampler_name', equals('euler')),
         field('sampler', 'scheduler', equals('simple')),
       ],
@@ -228,9 +231,9 @@ const flux2Klein: Lesson = {
   steps: [
     { id: 'intro', read: true },
     { id: 'files', read: true },
-    { id: 'model', roles: [node('unet', 'UNETLoader')], fields: [field('unet', 'unet_name', chosen)] },
-    { id: 'text-encoder', roles: [node('clip', 'CLIPLoader')], fields: [field('clip', 'clip_name', chosen), field('clip', 'type', equals('flux2'))] },
-    { id: 'vae', roles: [node('vae', 'VAELoader')], fields: [field('vae', 'vae_name', chosen)] },
+    { id: 'model', roles: [node('unet', 'UNETLoader')], fields: [field('unet', 'unet_name', file('kleinModel'))] },
+    { id: 'text-encoder', roles: [node('clip', 'CLIPLoader')], fields: [field('clip', 'clip_name', file('kleinEncoder')), field('clip', 'type', equals('flux2'), 'im.clipType')] },
+    { id: 'vae', roles: [node('vae', 'VAELoader')], fields: [field('vae', 'vae_name', file('flux2Vae'))] },
     {
       id: 'prompts',
       roles: [node('positive', 'CLIPTextEncode'), node('negative', 'CLIPTextEncode')],
@@ -241,16 +244,16 @@ const flux2Klein: Lesson = {
       id: 'guider',
       roles: [node('guider', 'CFGGuider')],
       links: [link('unet', 'MODEL', 'guider', 'model', ['LoraLoaderModelOnly']), link('positive', 'CONDITIONING', 'guider', 'positive'), link('negative', 'CONDITIONING', 'guider', 'negative')],
-      fields: [field('guider', 'cfg', between(3, 6, 5))],
+      fields: [field('guider', 'cfg', between(3, 6, 5), 'im.kleinCfg')],
     },
-    { id: 'latent', roles: [node('latent', 'EmptyFlux2LatentImage')], fields: [field('latent', 'width', between(512, 2048, 1024)), field('latent', 'height', between(512, 2048, 1024))] },
+    { id: 'latent', roles: [node('latent', 'EmptyFlux2LatentImage')], fields: [field('latent', 'width', between(512, 2048, 1024), 'im.fluxSize'), field('latent', 'height', between(512, 2048, 1024), 'im.fluxSize')] },
     {
       id: 'schedule',
       roles: [node('schedule', 'Flux2Scheduler')],
       fields: [
-        field('schedule', 'steps', between(10, 50, 20)),
-        field('schedule', 'width', { kind: 'same', role: 'latent', field: 'width' }),
-        field('schedule', 'height', { kind: 'same', role: 'latent', field: 'height' }),
+        field('schedule', 'steps', between(10, 50, 20), 'im.kleinSteps'),
+        field('schedule', 'width', { kind: 'same', role: 'latent', field: 'width' }, 'im.kleinSchedule'),
+        field('schedule', 'height', { kind: 'same', role: 'latent', field: 'height' }, 'im.kleinSchedule'),
       ],
     },
     { id: 'method', roles: [node('method', 'KSamplerSelect'), node('noise', 'RandomNoise')], fields: [field('method', 'sampler_name', equals('euler'))] },
@@ -290,7 +293,7 @@ const gguf: Lesson = {
       id: 'loader',
       roles: [node('gguf', 'UnetLoaderGGUF', 'UnetLoaderGGUFAdvanced')],
       links: [link('gguf', 'MODEL', 'sampler', 'model', MODEL_VIA)],
-      fields: [field('gguf', 'unet_name', chosen)],
+      fields: [field('gguf', 'unet_name', file('ggufModel'))],
     },
     { id: 'old-loader', read: true },
     { id: 'encoder', read: true },
@@ -308,13 +311,13 @@ const sdxl: Lesson = {
   steps: [
     { id: 'intro', read: true },
     { id: 'graph', ...checkpointGraph },
-    { id: 'model', fields: [field('checkpoint', 'ckpt_name', chosen)] },
-    { id: 'size', fields: [field('latent', 'width', between(640, 1536, 1024)), field('latent', 'height', between(640, 1536, 1024))] },
+    { id: 'model', fields: [field('checkpoint', 'ckpt_name', file('sdxlCheckpoint'))] },
+    { id: 'size', fields: [field('latent', 'width', between(640, 1536, 1024), 'im.sdxlSize'), field('latent', 'height', between(640, 1536, 1024), 'im.sdxlSize')] },
     {
       id: 'settings',
       fields: [
-        field('sampler', 'steps', between(20, 40, 25)),
-        field('sampler', 'cfg', between(4, 9, 7)),
+        field('sampler', 'steps', between(20, 40, 25), 'im.sdxlSteps'),
+        field('sampler', 'cfg', between(4, 9, 7), 'im.sdxlCfg'),
         field('sampler', 'sampler_name', equals('dpmpp_2m')),
         field('sampler', 'scheduler', equals('karras')),
       ],
@@ -337,14 +340,14 @@ const tags: Lesson = {
   steps: [
     { id: 'intro', read: true },
     { id: 'graph', ...checkpointGraph },
-    { id: 'model', fields: [field('checkpoint', 'ckpt_name', chosen)] },
+    { id: 'model', fields: [field('checkpoint', 'ckpt_name', file('tagCheckpoint'))] },
     { id: 'quality', read: true },
     { id: 'tags', fields: [field('positive', 'text', text(30, [',']))] },
     { id: 'negative', fields: [field('negative', 'text', text(15, [',']))] },
-    { id: 'size', fields: [field('latent', 'width', between(768, 896, 832)), field('latent', 'height', between(1152, 1344, 1216))] },
+    { id: 'size', fields: [field('latent', 'width', between(768, 896, 832), 'im.tagsSize'), field('latent', 'height', between(1152, 1344, 1216), 'im.tagsSize')] },
     {
       id: 'settings',
-      fields: [field('sampler', 'steps', between(20, 35, 28)), field('sampler', 'cfg', between(4, 7.5, 6)), field('sampler', 'sampler_name', equals('euler_ancestral'))],
+      fields: [field('sampler', 'steps', between(20, 35, 28), 'im.tagsSettings'), field('sampler', 'cfg', between(4, 7.5, 6), 'im.tagsSettings'), field('sampler', 'sampler_name', equals('euler_ancestral'))],
     },
     { id: 'clip-skip', read: true },
     { id: 'run', read: true },
@@ -360,10 +363,10 @@ const loaders: Lesson = {
   id: 'loaders',
   steps: [
     { id: 'intro', read: true },
-    { id: 'checkpoint', roles: [node('checkpoint', 'CheckpointLoaderSimple')], fields: [field('checkpoint', 'ckpt_name', chosen)] },
+    { id: 'checkpoint', roles: [node('checkpoint', 'CheckpointLoaderSimple')], fields: [field('checkpoint', 'ckpt_name', file('imageCheckpoint'))] },
     { id: 'diffusion', roles: [node('unet', 'UNETLoader')], fields: [field('unet', 'unet_name', chosen)] },
     { id: 'encoder', roles: [node('clip', 'CLIPLoader')], fields: [field('clip', 'clip_name', chosen), field('clip', 'type', chosen)] },
-    { id: 'vae', roles: [node('vae', 'VAELoader')], fields: [field('vae', 'vae_name', chosen)] },
+    { id: 'vae', roles: [node('vae', 'VAELoader')], fields: [field('vae', 'vae_name', file('vaeFull'))] },
     { id: 'tell', read: true },
     { id: 'others', read: true },
     { id: 'run', read: true },
@@ -422,14 +425,14 @@ const sd35: Lesson = {
   steps: [
     { id: 'intro', read: true },
     { id: 'files', read: true },
-    { id: 'model', roles: [node('checkpoint', 'CheckpointLoaderSimple')], fields: [field('checkpoint', 'ckpt_name', chosen)] },
+    { id: 'model', roles: [node('checkpoint', 'CheckpointLoaderSimple')], fields: [field('checkpoint', 'ckpt_name', file('sd35Checkpoint'))] },
     {
       id: 'prompts',
       roles: [node('positive', 'CLIPTextEncode'), node('negative', 'CLIPTextEncode')],
       links: [link('checkpoint', 'CLIP', 'positive', 'clip', CLIP_VIA), link('checkpoint', 'CLIP', 'negative', 'clip', CLIP_VIA)],
       fields: [field('positive', 'text', text(20))],
     },
-    { id: 'latent', roles: [node('latent', 'EmptySD3LatentImage')], fields: [field('latent', 'width', between(512, 1536, 1024)), field('latent', 'height', between(512, 1536, 1024))] },
+    { id: 'latent', roles: [node('latent', 'EmptySD3LatentImage')], fields: [field('latent', 'width', between(512, 1536, 1024), 'im.sd35Size'), field('latent', 'height', between(512, 1536, 1024), 'im.sd35Size')] },
     {
       id: 'sampler',
       roles: [node('sampler', 'KSampler')],
@@ -443,8 +446,8 @@ const sd35: Lesson = {
     {
       id: 'settings',
       fields: [
-        field('sampler', 'steps', between(20, 40, 20)),
-        field('sampler', 'cfg', between(3, 5.5, 4)),
+        field('sampler', 'steps', between(20, 40, 20), 'im.sd35Steps'),
+        field('sampler', 'cfg', between(3, 5.5, 4), 'im.sd35Cfg'),
         field('sampler', 'sampler_name', equals('euler')),
         field('sampler', 'scheduler', equals('sgm_uniform')),
       ],
@@ -466,11 +469,7 @@ export const IMAGE_MODEL_AFTER: Readonly<Record<string, string[]>> = {
   gguf: ['flux', 'zimage-turbo'],
 };
 
-/** A group of the lesson list: its id and its title in both languages. */
-export interface LessonGroup {
-  id: string;
-  title: { ru: string; en: string };
-}
+export type { LessonGroup };
 
 export const IMAGE_MODELS_GROUP: LessonGroup = { id: 'images-models', title: { ru: 'Картинки: модели', en: 'Pictures: models' } };
 

@@ -395,11 +395,6 @@ export const VIDEO_KNOWLEDGE_EN: KnowledgeSet = {
     },
   },
   linkTypes: {
-    LATENT: {
-      what: 'LATENT: a picture or a video in compressed form, the form the model works in. Image models usually make it 8 times smaller on each side; video models compress more and in time too (Wan 2.1 and the 14B Wan 2.2: 8 × 8 pixels and 4 frames per cell; Wan 2.2 5B and HunyuanVideo 1.5: 16 × 16 and 4; LTX: 32 × 32 and 8).',
-      why: 'Samplers read and write latents; the picture becomes visible only after VAE Decode.',
-      connect: 'Comes from an empty latent node, VAE Encode or a sampler; goes to samplers, latent upscale nodes or VAE Decode.',
-    },
     VIDEO: {
       what: 'VIDEO: a whole clip as one value: its frames, its sound and its frame rate.',
       why: 'What Load Video gives and Save Video takes.',
@@ -462,14 +457,6 @@ export const VIDEO_KNOWLEDGE_EN: KnowledgeSet = {
     },
   },
   families: {
-    'wan2.2': {
-      what: 'Wan 2.2 by Alibaba: a family of video models. The 14B models come as two experts, high noise and low noise, run one after the other by two samplers (t2v for text, i2v for an image; also first-last frame, Fun Control, Fun Inpaint, S2V for speech and Animate for characters); they use umt5_xxl and wan_2.1_vae and draw 16 fps. The small TI2V 5B model takes text or an image with one sampler, uses wan2.2_vae and draws 24 fps.',
-      risk: 'LoRAs made for Wan 2.1 14B often work with the 2.2 14B models (the speed-up LoRAs are used so); check the LoRA\'s page. 1.3B, 5B and 14B LoRAs are not interchangeable, and wan2.2_vae fits only the 5B model.',
-    },
-    ltx2: {
-      what: 'LTX-2 by Lightricks (versions 2.0, 2.3 and 2.5): video models that draw picture and sound together. Text to video, image to video, first and last frame, and control by depth, pose or edges with IC-LoRAs. The templates work in two stages with a latent upscaler between them; the text encoder is Gemma. 2.0 and 2.3 load from one checkpoint; 2.5 comes as separate model, video VAE, audio VAE and text encoder files.',
-      risk: 'Files of one version do not mix with another (the upscaler, the VAEs, the text encoder). Frames are of the form 8n + 1 and sides multiples of 32. LoRAs of the old LTX-Video 0.9 do not work.',
-    },
     'wan2.2-5b': {
       what: 'Wan 2.2 TI2V 5B: the small Wan 2.2 model for text and image to video in one file, about 10 GB in fp16. Load Diffusion Model, umt5_xxl with Load CLIP (type wan), wan2.2_vae, Wan22ImageToVideoLatent; 1280 × 704, 121 frames, 24 fps, 20 steps, cfg 5. Runs on 8 GB cards with offloading.',
       risk: 'Needs wan2.2_vae, not wan_2.1_vae. LoRAs of the 14B models do not fit it.',

@@ -157,15 +157,17 @@ test('lessons: the list fits ComfyUI, a lesson is followed by hand, and the grap
     await expect(panel(page).getByText('One more CLIP Text Encode (Prompt) node is needed.')).toBeVisible();
     await letTheAppDo(page, api);
     await stepIs(page, 'prompts-clip');
-    // Two nodes of one name lack the same link: said once, with how many times.
-    await expect(panel(page).locator('[class*="lacking"] li')).toHaveCount(1);
-    await expect(panel(page).locator('[class*="lacking"] li')).toHaveText('The input clip of “CLIP Text Encode (Prompt)” is empty. Drag a link to it from the output CLIP of “Load Checkpoint”. ×2');
+    // Two nodes of one name lack the same link: each is named by its part in the lesson.
+    await expect(panel(page).locator('[class*="lacking"] li')).toHaveText([
+      'The input clip of “CLIP Text Encode (Prompt) (prompt)” is empty. Drag a link to it from the output CLIP of “Load Checkpoint”.',
+      'The input clip of “CLIP Text Encode (Prompt) (negative prompt)” is empty. Drag a link to it from the output CLIP of “Load Checkpoint”.',
+    ]);
     // "Show me where" for a link lights the output it starts from.
     await panel(page).getByRole('button', { name: 'Show me where', exact: true }).click();
     await expect(page.locator('.react-flow__node').filter({ hasText: 'Load Checkpoint' })).toHaveClass(/selected/, { timeout: 5000 }).catch(() => undefined);
     await page.keyboard.press('Escape');
     await letTheAppDo(page, api);
-    await expect(panel(page).locator('[class*="lacking"] li')).not.toContainText('×2');
+    await expect(panel(page).locator('[class*="lacking"] li')).toHaveCount(1);
     await letTheAppDo(page, api);
 
     // Words only the person can write: there is nothing the app offers to do.
@@ -205,16 +207,16 @@ test('lessons: the list fits ComfyUI, a lesson is followed by hand, and the grap
     await expect(panel(page).getByText('There is no KSampler node on the canvas yet.')).toBeVisible();
     await expect(panel(page).locator('[data-step="intro"]')).toHaveAttribute('data-step-mark', 'done');
 
-    // Back in the list the lesson is the one in progress.
+    // Back in the list the lesson stays finished: a changed canvas does not undo what the person learned.
     await panel(page).getByRole('button', { name: 'All lessons', exact: true }).click();
-    await expect(panel(page).locator('[data-lesson-card="image"]')).toHaveAttribute('data-lesson-state', 'started');
-    await expect(panel(page).locator('[data-lesson-card="image"]').getByRole('button', { name: 'Continue', exact: true })).toBeVisible();
+    await expect(panel(page).locator('[data-lesson-card="image"]')).toHaveAttribute('data-lesson-state', 'done');
+    await expect(panel(page).locator('[data-lesson-card="image"]').getByRole('button', { name: 'Start over', exact: true })).toBeVisible();
 
-    // A question about a step goes to the conversation as an ordinary question.
-    await panel(page).locator('[data-lesson-card="image"]').getByRole('button', { name: 'Continue', exact: true }).click();
+    // Going through it again starts from its first step; a question about a step goes to the conversation as an ordinary question.
+    await panel(page).locator('[data-lesson-card="image"]').getByRole('button', { name: 'Start over', exact: true }).click();
     await panel(page).getByRole('button', { name: 'Ask the assistant about this step', exact: true }).click();
     await expect(panel(page)).toHaveCount(0);
-    await expect(page.locator('.chat-log')).toContainText('Explain a step of the lesson “A first picture from text”. The step: Add the sampler.');
+    await expect(page.locator('.chat-log')).toContainText('Explain a step of the lesson “A first picture from text”. The step: How a graph works.');
     expect(errors).toEqual([]);
   } finally {
     await app.close();
@@ -477,6 +479,9 @@ async function carry(page: Page, api: Bridge, id: string, each?: (stepId: string
       const value = (FILES[`${node.data.comfyType}.${field}`] ?? FILES[field] ?? []).find((item) => !held.has(item));
       if (!value) throw new Error(`${id}/${stepId}: nothing to choose for ${field}: ${lack}`);
       await change(page, api, { type: 'set-parameter', nodeId, key: field, value });
+    } else if (/negative prompt\)”|repeats your prompt/.test(lack)) {
+      // The negative prompt names defects, not the scene.
+      await change(page, api, { type: 'set-parameter', nodeId, key: field, value: 'blurry, extra fingers, watermark' });
     } else if (/Write a prompt|is too short/.test(lack)) {
       await change(page, api, { type: 'set-parameter', nodeId, key: field, value: words });
     } else if (/is missing the tags/.test(lack)) {

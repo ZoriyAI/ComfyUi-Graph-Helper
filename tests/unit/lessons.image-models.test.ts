@@ -54,6 +54,8 @@ class Canvas implements LessonGraph {
       inputs: specs.map(([name, [type]], index) => ({ id: `in-${index}`, name, type: Array.isArray(type) ? 'COMBO' : type })),
       outputs: def.output.map((type, index) => ({ id: `out-${index}`, name: names[index] ?? type, type })),
       values,
+      // What a fresh node starts with: a lesson does not count it as the person's choice of a number.
+      defaults: { ...values },
     };
     this.next += 1;
     this.nodes.push(node);
@@ -86,6 +88,8 @@ function decide(canvas: Canvas, missing: Missing): void {
   const node = canvas.node(missing.nodeId);
   if (missing.test.kind === 'chosen') node.values[missing.field] = 'chosen.safetensors';
   else if (missing.test.kind === 'differs') node.values[missing.field] = `other-${missing.nodeId}`;
+  // A file of the kind the step names, as a model page names it.
+  else if (missing.test.kind === 'file') node.values[missing.field] = missing.test.want.example;
   else if (missing.test.kind === 'text') node.values[missing.field] = `scenery, mountain lake, sunrise, pine trees, mist, a quiet morning ${(missing.test.has ?? []).join(' ')}`.slice(0, Math.max(missing.test.minChars + 40, 80));
   else throw new Error(`the lesson fixes this itself: ${JSON.stringify(missing)}`);
 }

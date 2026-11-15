@@ -73,13 +73,13 @@ export const CORE_KNOWLEDGE_EN: CoreLanguagePack = {
       what: 'Creates an empty latent (the compressed blank the model draws on) in the 16-channel format used by SD3 and Flux-style models.',
       why: 'The starting blank for text-to-image with SD3, Flux.1 and other models that use a 16-channel latent.',
       connect: 'Inputs: width, height, batch_size. Output: LATENT, which goes to the sampler.',
-      risk: 'The format of the blank must match the model; if you are unsure, check which empty-latent node the official template of the family uses.',
+      risk: 'ComfyUI fits an empty latent to the channels of the model it meets, so Empty Latent Image also runs with Flux; still, use the empty-latent node of the family\'s official template, since it gives the size and format the model was made for.',
     },
     KSampler: {
       what: 'The main sampler: starting from a latent (the compressed form of a picture), it removes noise step by step, guided by the model and by the positive and negative conditioning (the encoded descriptions).',
       why: 'This is where the image is actually made; seed, steps, cfg, sampler and scheduler control the result.',
       connect: 'Inputs: MODEL, positive and negative CONDITIONING, a LATENT (empty for text-to-image, an encoded picture for image-to-image) and the settings. Output: LATENT, which goes to VAE Decode.',
-      risk: 'With denoise below 1.0 on an empty latent the result stays noisy; lower denoise is for image-to-image. CFG that is too high burns the image; Flux usually wants cfg 1.0.',
+      risk: 'With denoise below 1.0 on an empty latent you get a muddy, grey, unfinished picture: lower denoise is for image-to-image. CFG that is too high burns the image; Flux usually wants cfg 1.0.',
     },
     KSamplerAdvanced: {
       what: 'A KSampler with control over the step range: it can start and end at chosen steps and decide whether to add noise.',
@@ -270,9 +270,9 @@ export const CORE_KNOWLEDGE_EN: CoreLanguagePack = {
       connect: 'Comes from the text nodes and is changed by ControlNet, area, combine and guidance nodes; goes to the positive or negative input of the sampler.',
     },
     LATENT: {
-      what: 'LATENT: a picture in compressed form, the form the model works in; for most models it is 8 times smaller than the picture on each side.',
+      what: 'LATENT: a picture or a video in compressed form, the form the model works in. Image models usually make it 8 times smaller on each side; video models compress more and in time too (Wan 2.1 and the 14B Wan 2.2: 8 × 8 pixels and 4 frames per cell; Wan 2.2 5B and HunyuanVideo 1.5: 16 × 16 and 4; LTX: 32 × 32 and 8).',
       why: 'Samplers read and write latents; the picture becomes visible only after VAE Decode.',
-      connect: 'Comes from Empty Latent Image, VAE Encode or a sampler; goes to samplers, latent upscale nodes or VAE Decode.',
+      connect: 'Comes from an empty latent node, VAE Encode or a sampler; goes to samplers, latent upscale nodes or VAE Decode.',
     },
     IMAGE: {
       what: 'IMAGE: a batch of ordinary pictures in pixels (red, green and blue).',
@@ -368,11 +368,11 @@ export const CORE_KNOWLEDGE_EN: CoreLanguagePack = {
       risk: 'Technically SDXL, but LoRAs trained for Illustrious (or the models built on it) fit best; SD 1.5 or Flux LoRAs do not work.',
     },
     flux1: {
-      what: 'Flux.1 (dev, schnell) by Black Forest Labs: the model loads with Load Diffusion Model, the text encoders clip_l and t5xxl with DualCLIPLoader (type flux), and the VAE ae.safetensors with Load VAE.',
+      what: 'Flux.1 (dev, schnell) by Black Forest Labs: the model loads with Load Diffusion Model, the text encoders clip_l and t5xxl with DualCLIPLoader (type flux), and the VAE ae.safetensors with Load VAE. FLUX.1 Krea [dev] is a Flux.1 dev model trained again by Krea and loads the same way.',
       risk: 'Only Flux.1 LoRAs work with it. Flux dev expects cfg 1.0 with FluxGuidance (its own strength number) instead of a high CFG.',
     },
     flux2: {
-      what: 'Flux.2 by Black Forest Labs: the model loads with Load Diffusion Model, its own Mistral-based text encoder with Load CLIP, and its own VAE (flux2-vae) with Load VAE.',
+      what: 'Flux.2 by Black Forest Labs: the model loads with Load Diffusion Model, the text encoder with Load CLIP, and its own VAE (flux2-vae) with Load VAE. Flux.2 dev reads text with a Mistral-based encoder; Flux.2 Klein with qwen_3_4b (the 4B model) or qwen_3_8b (the 9B model).',
       risk: 'Flux.2 is not compatible with Flux.1 files: LoRAs, text encoders and the VAE must be the Flux.2 ones.',
     },
     chroma: {
@@ -388,12 +388,12 @@ export const CORE_KNOWLEDGE_EN: CoreLanguagePack = {
       risk: 'Use LoRAs made for Wan 2.1 and for the same model size (1.3B and 14B are not interchangeable).',
     },
     'wan2.2': {
-      what: 'Wan 2.2 by Alibaba: a video model. The 14B models come as two experts, high noise and low noise, that run one after the other; they use the umt5_xxl text encoder and wan_2.1_vae, while the 5B model uses wan2.2_vae.',
-      risk: 'Use Wan 2.2 LoRAs for the right expert and size; the two 14B experts need two samplers with matching step ranges.',
+      what: 'Wan 2.2 by Alibaba: a family of video models. The 14B models come as two experts, high noise and low noise, run one after the other by two samplers (t2v for text, i2v for an image; also first-last frame, Fun Control, Fun Inpaint, S2V for speech and Animate for characters); they use umt5_xxl and wan_2.1_vae and draw 16 fps. The small TI2V 5B model takes text or an image with one sampler, uses wan2.2_vae and draws 24 fps.',
+      risk: 'LoRAs made for Wan 2.1 14B often work with the 2.2 14B models (the speed-up LoRAs are used so); check the LoRA\'s page. 1.3B, 5B and 14B LoRAs are not interchangeable, and wan2.2_vae fits only the 5B model.',
     },
     ltx2: {
-      what: 'LTX-2 by Lightricks: a model that makes video with sound, for text-to-video and image-to-video, with its own text encoder and upscale models; start from the official template for the exact files.',
-      risk: 'Only LTX-2 LoRAs work with it; LoRAs for the older LTX-Video models are not compatible.',
+      what: 'LTX-2 by Lightricks (versions 2.0, 2.3 and 2.5): video models that draw picture and sound together. Text to video, image to video, first and last frame, and control by depth, pose or edges with IC-LoRAs. The templates work in two stages with a latent upscaler between them; the text encoder is Gemma. 2.0 and 2.3 load from one checkpoint; 2.5 comes as separate model, video VAE, audio VAE and text encoder files.',
+      risk: 'Files of one version do not mix with another (the upscaler, the VAEs, the text encoder). Frames are of the form 8n + 1 and sides multiples of 32. LoRAs of the old LTX-Video 0.9 do not work.',
     },
     hunyuan: {
       what: 'HunyuanVideo by Tencent: a video model. The model loads with Load Diffusion Model, the text encoders clip_l and llava_llama3 with DualCLIPLoader (type hunyuan_video), and hunyuan_video_vae with Load VAE.',
@@ -404,8 +404,8 @@ export const CORE_KNOWLEDGE_EN: CoreLanguagePack = {
       risk: 'Only Z-Image LoRAs work with it. The Turbo model is meant for few steps and a low CFG.',
     },
     krea: {
-      what: 'FLUX.1 Krea [dev]: a Flux.1 dev model trained again by Krea and Black Forest Labs; it loads exactly like Flux.1 (Load Diffusion Model, DualCLIPLoader with clip_l and t5xxl, ae.safetensors).',
-      risk: 'Built on Flux.1 dev, so Flux.1 dev LoRAs usually load, but the results can differ from the original model.',
+      what: 'Krea 2 by Krea AI: an image model trained from scratch, its own architecture. RAW is the base for training LoRAs (about 52 steps); Turbo is distilled to 8 steps. The model goes into models/diffusion_models, the text encoder qwen3vl_4b into text_encoders, and qwen_image_vae into vae.',
+      risk: 'Not the same as FLUX.1 Krea [dev], which is a Flux.1 model: Flux LoRAs do not work with Krea 2. LoRAs trained on RAW also work on Turbo.',
     },
     sd3: {
       what: 'Stable Diffusion 3 / 3.5 by Stability AI: an image model with three text encoders (clip_l, clip_g, t5xxl) and a 16-channel latent (EmptySD3LatentImage).',
