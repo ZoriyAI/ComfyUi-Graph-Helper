@@ -23,8 +23,8 @@ internet. The assistant needs a model: a cloud one with your key, or one on your
 
 ## Does it work without a cloud service?
 
-Yes. Choose "your own model" and point it at Ollama, LM Studio, vLLM or any OpenAI-compatible server on your
-computer or network. Small local models have a small context window; see
+Yes. Choose "Your own server" and point it at Ollama, LM Studio, vLLM, the llama.cpp server or any OpenAI-compatible
+server on your computer or network; Find local servers looks for them on this computer. Small local models have a small context window; see
 [The context window](../assistant/Context-Window.md).
 
 ## How much does it cost?
@@ -39,7 +39,8 @@ at in the browser. An MCP server is optional. How to connect: [Connecting to Com
 
 ## Is there a version for Windows or macOS?
 
-There are no ready packages. You can build and run the app from source; these steps are untested on those systems.
+No. NodeWise Studio is for Linux only. You may try running it from source on Windows or macOS, but nothing has been
+tried there and nothing is adapted for them.
 [Windows](../dev/Building-On-Windows.md), [macOS](../dev/Building-On-macOS.md)
 
 ## Where are my settings and projects?
@@ -49,7 +50,7 @@ workflows are where you saved them. [The data folder](../reference/Data-Folder.m
 
 ## Are my keys safe?
 
-A key you choose to remember is kept in the system password store, encrypted by your system. A key goes only to the
+A key you choose to remember is kept in the system keychain, encrypted by your system. A key goes only to the
 address you pasted it for, never into logs, project files or the text sent to a model.
 [Security](../trust/Security.md), [Privacy](../trust/Privacy.md)
 
@@ -57,13 +58,15 @@ address you pasted it for, never into logs, project files or the text sent to a 
 
 Only what is listed in [Privacy](../trust/Privacy.md): your questions to the model you chose, web searches of the
 assistant (on by default, can be switched off), model lookups when you ask. A question about new versions only if you switch it on
-(off by default). No telemetry, no crash reports.
+(off by default). The download pages of ComfyUI and Ollama open in your browser only when you click their buttons.
+No telemetry, no crash reports.
 
 ## Can I open a workflow I found on the internet?
 
-Yes, if it is a workflow `.json` file: File ▸ Open workflow… A file in ComfyUI's API format is refused with a message
-saying so. Pictures with a workflow inside are not opened yet. [Opening a workflow](../graph/Opening-Workflows.md)
-<!-- verify: opening a picture with a workflow inside -->
+Yes: File ▸ Open workflow…, or drop the file on the window. A workflow `.json` file opens, and so do the pictures
+and videos ComfyUI saves (PNG, WebP, MP4, WebM and others), because ComfyUI writes the workflow into them. A picture
+from elsewhere, or one sent through a chat app, usually has none: the app says "There is no workflow in this file…". A
+file in ComfyUI's API format opens too, laid out from left to right. [Opening a workflow](../graph/Opening-Workflows.md)
 
 ## Will the workflow come back to ComfyUI the same?
 
@@ -75,10 +78,23 @@ Yes: what you did not change comes back exactly as it was, including subgraphs a
 In the project file (File ▸ Save project), together with the graph. A workflow saved for ComfyUI does not contain
 them. [Project files](../graph/Project-Files.md)
 
-## Why is a lesson not offered?
+## Why does a lesson not start?
 
-A lesson is offered only when your ComfyUI has the nodes it uses, for example the WanVideoWrapper pack for the video
-lessons. [How lessons work](../lessons/How-Lessons-Work.md)
+Lessons are fitted to your ComfyUI: before ComfyUI is read they ask you to connect it. A lesson that needs nodes your
+ComfyUI lacks, for example the WanVideoWrapper pack for some video lessons, says "This lesson does not fit your
+ComfyUI yet" and names the reasons. The lessons for adults stay behind Settings ▸ Privacy ▸ Adult content (18+).
+[How lessons work](../lessons/How-Lessons-Work.md)
+
+## Can I make my own lesson?
+
+Yes. File ▸ Make a lesson from this graph turns the graph on the canvas into a lesson you edit, try and keep in My
+lessons. Lessons can be exported to a `.lesson.json` file and imported again (File ▸ Import lessons…). A lesson file
+is data only. [My lessons](../lessons/My-Lessons.md)
+
+## I have no ComfyUI yet. Can I still try the app?
+
+Yes: look around, read the guide and the glossary, and ask the assistant. The welcome card's **I have no ComfyUI yet**
+explains ComfyUI and opens its download page on a click. [ComfyUI and where to get it](ComfyUI.md)
 
 ## Can the assistant install a missing node or model for me?
 
@@ -92,8 +108,8 @@ Yes: Edit ▸ Undo (`Ctrl+Z`), as many steps as you need. A whole build of the a
 
 ## Is it open source?
 
-The source code is public, but it is not open source in the usual sense: the licence (MIT with the Commons Clause)
-does not allow selling the app. [Licence and third-party notices](../trust/Licence.md)
+The source code is public, but it is not open source in the usual sense: the license (MIT with the Commons Clause)
+does not allow selling the app. [License and third-party notices](../trust/Licence.md)
 
 ## Who answers my questions?
 

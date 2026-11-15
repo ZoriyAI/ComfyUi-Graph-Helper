@@ -17,29 +17,33 @@ them. You need both.
 
 ## Ways to get it
 
-The official instructions are at [docs.comfy.org](https://docs.comfy.org/) (installation). In short:
-<!-- verify: the names of the official installers and the address of the instructions -->
+The official instructions are at [docs.comfy.org](https://docs.comfy.org/) (Installation), and the download page
+is [comfy.org/download](https://www.comfy.org/download), the one the app's "No ComfyUI yet" window opens. In short,
+as those pages name the ways in November 2026:
 
 | Way | For | What it is |
 |---|---|---|
-| ComfyUI Desktop | Windows, macOS | An installer that sets everything up. |
-| Portable package | Windows | A folder you unpack and start. |
+| Comfy Desktop (the desktop app) | Windows, macOS, Linux | An installer that sets everything up. It answers at port 8000. |
+| Portable | Windows | A folder you unpack and start. |
 | Manual install | Linux, any system | Get the source with Git, install Python packages, start `main.py`. |
 | comfy-cli | Linux, any system | A command line tool that installs and starts ComfyUI for you. |
 
 On Linux, the manual way looks like this (the details for your graphics card are in the official instructions):
 
 ```bash
-git clone https://github.com/comfyanonymous/ComfyUI.git
+git clone https://github.com/Comfy-Org/ComfyUI.git
 cd ComfyUI
 python3 -m venv venv
 . venv/bin/activate
-pip install torch torchvision torchaudio   # the right command for your graphics card is in the official instructions
+# NVIDIA graphics card; for AMD, Intel or the processor alone take the line from the official instructions
+pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu130
 pip install -r requirements.txt
 python main.py
 ```
 
-<!-- verify: the repository address of ComfyUI and the torch install line -->
+The repository address and the `torch` line are as the official instructions give them in November 2026; the right
+`torch` line changes with new versions, so check it there. NodeWise itself has not been tried with each of these
+ways: see [Known limitations](../reference/Known-Limits.md).
 
 With comfy-cli:
 

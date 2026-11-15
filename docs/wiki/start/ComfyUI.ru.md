@@ -18,29 +18,33 @@ ComfyUI это бесплатная программа, которая дела�
 
 ## Как его получить
 
-Официальная инструкция лежит на [docs.comfy.org](https://docs.comfy.org/) (раздел об установке). Коротко:
-<!-- verify: the names of the official installers and the address of the instructions -->
+Официальная инструкция лежит на [docs.comfy.org](https://docs.comfy.org/) (раздел Installation), а страница
+загрузки это [comfy.org/download](https://www.comfy.org/download): её открывает окно приложения «Если ComfyUI ещё
+нет». Коротко, так, как эти страницы называют способы в ноябре 2026 года:
 
 | Способ | Для | Что это |
 |---|---|---|
-| ComfyUI Desktop | Windows, macOS | Установщик, который всё настраивает сам. |
-| Переносная сборка (portable) | Windows | Папка, которую распаковывают и запускают. |
+| Comfy Desktop (настольное приложение) | Windows, macOS, Linux | Установщик, который всё настраивает сам. Отвечает на порту 8000. |
+| Переносная сборка (Portable) | Windows | Папка, которую распаковывают и запускают. |
 | Установка вручную | Linux, любая система | Взять исходники через Git, поставить пакеты Python, запустить `main.py`. |
 | comfy-cli | Linux, любая система | Программа для командной строки, которая ставит и запускает ComfyUI за вас. |
 
 На Linux установка вручную выглядит так (подробности для вашей видеокарты есть в официальной инструкции):
 
 ```bash
-git clone https://github.com/comfyanonymous/ComfyUI.git
+git clone https://github.com/Comfy-Org/ComfyUI.git
 cd ComfyUI
 python3 -m venv venv
 . venv/bin/activate
-pip install torch torchvision torchaudio   # команда под вашу видеокарту есть в официальной инструкции
+# видеокарта NVIDIA; для AMD, Intel или только процессора строку берите из официальной инструкции
+pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu130
 pip install -r requirements.txt
 python main.py
 ```
 
-<!-- verify: the repository address of ComfyUI and the torch install line -->
+Адрес репозитория и строка `torch` такие, как их даёт официальная инструкция в ноябре 2026 года; нужная строка `torch`
+меняется с новыми версиями, поэтому сверьтесь с инструкцией. Сам NodeWise с каждым из этих способов не проверялся:
+см. [Известные ограничения](../reference/Known-Limits.ru.md).
 
 Через comfy-cli:
 

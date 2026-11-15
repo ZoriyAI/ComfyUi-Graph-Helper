@@ -36,7 +36,7 @@ know? [Glossary](reference/Glossary.md).
 - [Lessons](lessons/README.md): The built-in lessons, one page each.
 - [ComfyUI concepts](concepts/README.md): An encyclopedia of ComfyUI for a newcomer, one idea per page.
 - [Reference](reference/README.md): Formats, settings, shortcuts, messages, words and limits.
-- [Trust](trust/README.md): Privacy, content rules, security, licences and accessibility.
+- [Trust](trust/README.md): Privacy, content rules, security, licenses and accessibility.
 - [For developers](dev/README.md): How the code is built, how to change it and how a release is made.
 
 ## About this documentation

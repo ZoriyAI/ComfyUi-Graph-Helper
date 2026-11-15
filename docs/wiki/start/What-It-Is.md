@@ -54,7 +54,7 @@ Your ComfyUI  ──(read only)──>  NodeWise  ──(you save a workflow)─
 - ComfyUI, running on this computer or on another one you can reach.
 - For the assistant (optional): a key for a cloud model, which costs money per question, or a model server on your
   own computer such as Ollama. Lessons need neither.
-- For saved keys (optional): a password store such as GNOME Keyring or KWallet.
+- For saved keys (optional): a system keychain such as GNOME Keyring or KWallet.
 
 ## An experimental project
 

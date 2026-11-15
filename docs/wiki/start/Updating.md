@@ -8,13 +8,15 @@ kept.
 
 ## How to know there is a new version
 
-The app does not check for new versions by itself (it never contacts the internet on its own). Look at the project's
-Releases page: Help ▸ New versions opens it. Help ▸ What is new shows the notes of the version you have.
+The app does not check for new versions unless you ask it to. Settings ▸ Privacy ▸ Check for new versions (off by
+default) asks the project's releases page once a day and shows a quiet notice when a newer version exists; it
+downloads nothing. Or look yourself: Help ▸ New versions opens the Releases page. Help ▸ What's new shows the notes of
+the version you have.
 
 ## Install the new version
 
 1. Download the new `nodewise-studio_<version>_amd64.deb` (and `SHA256SUMS` to check it, see [Installing](Installing.md)).
-2. Quit the app (File ▸ Exit).
+2. Quit the app (File ▸ Quit).
 3. Install it the same way as the first time:
 
    ```bash
@@ -28,7 +30,7 @@ Releases page: Help ▸ New versions opens it. Help ▸ What is new shows the no
 - Everything stays in [the data folder](../reference/Data-Folder.md). The package never touches it.
 - When the new version needs a newer layout of the database, it first writes a copy of the old database next to it,
   `comfyui-desktop.db.before-v<N>.bak` (one copy is kept), then upgrades it.
-- Saved keys stay in the system password store under the same name.
+- Saved keys stay in the system keychain under the same name.
 - Project files and workflows you saved stay where you saved them.
 
 ## From version 0.9 to 1.0
@@ -40,15 +42,20 @@ named `nodewise-studio`. What that means for an update:
   menu shows the app once. A copy that `install.sh` put in your home folder is removed by the new `install.sh`.
 - **Your data.** On its first start NodeWise moves the 0.9 data folder to `~/.config/nodewise-studio`: settings,
   projects, chats, the history of your graph and the logs come along. It moves the folder, it does not copy or delete
-  it. It leaves both alone when `~/.config/nodewise-studio` already exists. If version 0.9 is still open, it asks you
-  to quit it and start again. A window then says once where your work is now.
-- **Keys you saved in the system password store must be entered again.** The password store (GNOME Keyring,
-  KWallet) keeps the secret that encrypts them under the app's name, and NodeWise cannot open them under the new one.
-  Enter them again in Settings; the old entry stays in the password store, and your keyring manager (for example
-  Passwords and Keys) can delete it. Keys you kept in a file on this computer (`model-key.json`, `mcp-token.json`)
+  it. It leaves both alone when `~/.config/nodewise-studio` already exists. If version 0.9 is still open, the window
+  "Version 0.9 is still open" asks you to quit it and start again. A window titled "NodeWise Studio has your work"
+  then says once where your work is now. If the old folder cannot be read, "The old settings could not be read" says
+  so, and NodeWise starts with new settings while your 0.9 work stays untouched.
+- **Keys you saved in the system keychain must be entered again.** The keychain (GNOME Keyring, KWallet) keeps the
+  secret that encrypts them under the app's old name, and NodeWise cannot open them under the new one. Enter them
+  again in Settings; the old entry stays in the keychain, and your keyring manager (for example Passwords and Keys)
+  can delete it. Keys you kept in a file on this computer (`model-key.json`, `mcp-token.json`)
   come along and work.
 - **Project files.** Files saved by 0.9 open as before. Save writes them back under their own name; new projects are
   saved as `*.nodewise.json`.
+- **The update notice of 0.9.** Version 0.9 looks for release files named after its old package name, so its notice
+  probably offers the release page but no direct download. Not tried yet. Download the 1.0 file from the release page
+  yourself.
 
 ## Going back to an older version
 
