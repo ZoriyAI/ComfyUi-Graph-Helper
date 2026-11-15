@@ -1,3 +1,10 @@
+/**
+ * Tests of the video lessons and the built-in knowledge about video (lessons/sets/video.ts,
+ * knowledge/sets/video*.ts): the lessons are registered with titled groups, fit a ComfyUI that has their nodes and
+ * name each pack; their words state the memory and time cost first, the consent rule where a face, body or voice is
+ * carried over, the very numbers the checks want and the files to fetch; the knowledge matches in both languages and
+ * covers every node the lessons use. Video is the heaviest work a person does here, so the cost must be said early.
+ */
 import { describe, expect, it } from 'vitest';
 import { lessonGaps, rolesOf, type ClassPorts } from '../../src/shared/lessons/engine';
 import { packOf } from '../../src/shared/lessons/fit';

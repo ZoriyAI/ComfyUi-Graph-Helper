@@ -1,3 +1,10 @@
+/**
+ * The lesson engine against every built-in lesson (shared/lessons/engine.ts, flow.ts, files.ts and lessons.ts, which
+ * LessonPanel runs on the live canvas): each lesson can be done from an empty canvas by doing what it says, progress
+ * is read off the graph whatever order it was built in, extra nodes such as a LoRA on the way do not break a lesson,
+ * nodes the app adds stand left to right, lessons for adults stay one closed group, and the words agree with the
+ * checks. A person following a lesson must always be able to reach its end and be told exactly what is missing.
+ */
 import { describe, expect, it } from 'vitest';
 import {
   classOfRole,
@@ -198,6 +205,7 @@ class Canvas implements LessonGraph {
   }
 }
 
+/** What the catalog would know of the person's files: the trigger words of the two style LoRAs. */
 const FACTS: LessonFacts = { triggers: { 'style-high.safetensors': ['neon rain'], 'style-low.safetensors': ['neon rain'] } };
 
 /** What only the person can decide: which file, what words. */
@@ -254,6 +262,7 @@ function decide(canvas: Canvas, missing: Missing): void {
 function carryOut(lesson: Lesson, canvas: Canvas, facts: LessonFacts = FACTS): number[] {
   const read = new Set<string>();
   const actions: number[] = lesson.steps.map(() => 0);
+  // A cap on actions, so a lesson that never ends fails the test instead of hanging it.
   for (let guard = 0; guard < 400; guard += 1) {
     const progress = lessonProgress(lesson, canvas, facts, read);
     if (progress.current === lesson.steps.length) return actions;
@@ -275,6 +284,7 @@ function carryOut(lesson: Lesson, canvas: Canvas, facts: LessonFacts = FACTS): n
   throw new Error(`${lesson.id} did not come to its end`);
 }
 
+/** The lesson's progress on a canvas with every step to read already read. */
 const done = (lesson: Lesson, canvas: Canvas, read: string[] = lesson.steps.filter((step) => step.read).map((step) => step.id)) => lessonProgress(lesson, canvas, FACTS, new Set(read));
 
 describe('every lesson can be done by doing what it says', () => {

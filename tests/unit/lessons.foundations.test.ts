@@ -1,3 +1,10 @@
+/**
+ * The foundations domain (lessons/sets/foundations.ts and knowledge/sets/foundations.ts): its lessons run to the end
+ * on a canvas the way a person builds it, fit the fake ComfyUI, and say the numbers their checks want; its knowledge
+ * (model folders, common fields, ComfyUI errors, topics, packs, the glossary) exists in both languages with the facts
+ * the screens look up. These are the first lessons a newcomer meets, so a dead end or a missing note here is the
+ * first thing they would hit.
+ */
 import { describe, expect, it } from 'vitest';
 import { fixFor, lessonGaps, lessonProgress, rolesOf, type ClassPorts, type Lesson, type LessonGraph, type LessonNode, type Missing } from '../../src/shared/lessons/engine';
 import { fits, lessonFit } from '../../src/shared/lessons/fit';
@@ -33,11 +40,6 @@ import { fieldNote as imageFieldNote } from '../../src/shared/knowledge/sets/ima
 import { CLASSES as FAKE_CLASSES, VIDEO_CLASSES } from '../fixtures/mcp/fakeMcpServer';
 import { FOUNDATIONS_CLASSES, lessonSpecs } from '../fixtures/mcp/classes/foundations';
 
-/**
- * The foundations domain: its lessons run to the end on a canvas the way a person builds it, and its knowledge
- * exists in both languages with the facts the screens look up.
- */
-
 const DOMAIN: readonly Lesson[] = [...FOUNDATIONS_FIRST, ...FOUNDATIONS_LESSONS, ...FOUNDATIONS_TOOLS];
 
 /** The fake ComfyUI's classes (the lesson specs of the core ones the lessons stand on, and the domain's own). */
@@ -68,6 +70,7 @@ const ports: ClassPorts = (classType) => {
 };
 const installed = (classType: string) => classType in SPECS;
 
+/** A canvas a person works on, as far as a lesson can see it: a new node starts with its class's default values. */
 class Canvas implements LessonGraph {
   nodes: LessonNode[] = [];
   links: LessonGraph['links'] = [];
@@ -88,6 +91,7 @@ class Canvas implements LessonGraph {
   }
 
   connect(from: string, fromPort: string, to: string, toPort: string): void {
+    // An input takes one link, as in ComfyUI: a new link replaces the old one.
     this.links = this.links.filter((link) => !(link.to === to && link.toPort === toPort));
     this.links.push({ from, fromPort, to, toPort });
   }
@@ -107,6 +111,7 @@ class Canvas implements LessonGraph {
   }
 }
 
+/** What only the person can decide, where "Do this for me" has no fix: which file, what words. */
 function decide(canvas: Canvas, missing: Missing): void {
   if (missing.kind !== 'field') throw new Error(`nothing to decide for ${JSON.stringify(missing)}`);
   const node = canvas.node(missing.nodeId);
@@ -119,6 +124,7 @@ function decide(canvas: Canvas, missing: Missing): void {
 /** Does what the lesson says, one lack at a time. */
 function carryOut(lesson: Lesson, canvas: Canvas): void {
   const read = new Set<string>();
+  // A cap on actions, so a lesson that never ends fails the test instead of hanging it.
   for (let guard = 0; guard < 300; guard += 1) {
     const progress = lessonProgress(lesson, canvas, {}, read);
     if (progress.current === lesson.steps.length) return;
@@ -138,17 +144,20 @@ function carryOut(lesson: Lesson, canvas: Canvas): void {
   throw new Error(`${lesson.id} did not come to its end`);
 }
 
+/** The lessons a lesson stands on, first to last, following the first entry of LESSON_AFTER. */
 const chain = (id: string): string[] => {
   const before = LESSON_AFTER[id]?.[0];
   return before ? [...chain(before), before] : [];
 };
 
+/** A canvas on which the lessons before a lesson and the lesson itself were done in order. */
 function built(id: string): Canvas {
   const canvas = new Canvas();
   for (const before of [...chain(id), id]) carryOut(lessonById(before)!, canvas);
   return canvas;
 }
 
+/** The single node of a class on the canvas; fails when there is none or more than one. */
 const only = (canvas: Canvas, classType: string) => {
   const found = canvas.nodes.filter((node) => node.classType === classType);
   expect(found, classType).toHaveLength(1);
